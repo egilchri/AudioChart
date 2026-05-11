@@ -204,6 +204,34 @@ export async function refreshIfNeeded(lat, lon) {
   }
 }
 
+/**
+ * Look up a place name in loaded waypoints and named places.
+ * Returns {lat, lon, name} for the best match, or null.
+ * Used by the test position input so you can type "Camden" instead of coordinates.
+ */
+export function findPlaceByName(query) {
+  const q = query.toLowerCase().trim();
+  let best = null, bestScore = 0;
+
+  const search = (features) => {
+    for (const f of (features || [])) {
+      const name = f.properties.name_lower || f.properties.name?.toLowerCase() || '';
+      const score = similarityScore(q, name);
+      if (score > bestScore) {
+        bestScore = score;
+        best = f;
+      }
+    }
+  };
+
+  search(waypoints?.features);
+  search(namedPlaces?.features);
+
+  if (!best || bestScore < 0.5) return null;
+  const [lon, lat] = best.geometry.coordinates;
+  return { lat, lon, name: best.properties.name };
+}
+
 // ── Turf helpers ────────────────────────────────────────────────────────────
 
 function turfPoint(lon, lat) {

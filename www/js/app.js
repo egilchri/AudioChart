@@ -180,11 +180,13 @@ testPosBtn.addEventListener('click', () => {
 
 testPosSet.addEventListener('click', () => {
   const raw = testPosInput.value.trim();
-  const coord = parseCoordinate(raw);
+  // Try coordinate formats first, then named place/waypoint lookup
+  const coord = parseCoordinate(raw) || Query.findPlaceByName(raw);
   if (coord) {
     GPS.setManualPosition(coord.lat, coord.lon);
     testPosForm.style.display = 'none';
     testPosInput.value = '';
+    if (coord.name) setStatus(`Test position set: ${coord.name}`);
   } else {
     testPosInput.style.borderColor = 'var(--danger)';
     setTimeout(() => { testPosInput.style.borderColor = ''; }, 1500);
