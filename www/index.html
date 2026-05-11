@@ -9,6 +9,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>AudioChart</title>
   <link rel="manifest" href="./manifest.json">
+  <link rel="stylesheet" href="./css/leaflet.css">
   <link rel="stylesheet" href="./css/app.css">
 </head>
 <body>
@@ -41,6 +42,7 @@
     <p id="status-text">Loading chart data&hellip;</p>
 
     <div id="response-area">
+      <div id="map-container" style="display:none"><div id="leaflet-map"></div></div>
       <p id="response-text">Type a command below. On your phone, tap the mic on the keyboard to speak.
 
 Examples:

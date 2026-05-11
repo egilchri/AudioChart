@@ -101,9 +101,52 @@ renderHistory();
 
 let dataLoaded = false;
 let gpsReady = false;
+let _map = null;
+let _mapLayers = null;
+let _leafletReady = false;
+
+async function loadLeaflet() {
+  if (_leafletReady) return;
+  await new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = `${serverUrl}/js/lib/leaflet.js`;
+    s.onload = () => { _leafletReady = true; resolve(); };
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
 
 function setStatus(msg) { statusEl.textContent = msg; }
 function showResponse(text) { responseEl.textContent = text; }
+
+async function showMap(fromLat, fromLon, result) {
+  await loadLeaflet();
+  const container = document.getElementById('map-container');
+  container.style.display = 'block';
+  if (!_map) {
+    _map = L.map('leaflet-map', { zoomControl: false, attributionControl: false });
+    L.tileLayer(`${serverUrl}/tiles/{z}/{x}/{y}.jpg`, { minZoom: 10, maxZoom: 16 }).addTo(_map);
+  }
+  if (_mapLayers) { _map.removeLayer(_mapLayers); _mapLayers = null; }
+  const { destLat, destLon, destName } = result;
+  const fromDot = L.circleMarker([fromLat, fromLon], {
+    radius: 7, color: '#4a9edd', fillColor: '#4a9edd', fillOpacity: 1, weight: 0,
+  });
+  const toDot = L.circleMarker([destLat, destLon], {
+    radius: 7, color: '#e05252', fillColor: '#e05252', fillOpacity: 1, weight: 0,
+  });
+  if (destName) toDot.bindTooltip(destName, { permanent: true, direction: 'top', className: 'map-tooltip' });
+  const line = L.polyline([[fromLat, fromLon], [destLat, destLon]], {
+    color: '#4a9edd', weight: 2, dashArray: '6 4', opacity: 0.85,
+  });
+  _mapLayers = L.layerGroup([line, fromDot, toDot]).addTo(_map);
+  _map.fitBounds(L.latLngBounds([[fromLat, fromLon], [destLat, destLon]]).pad(0.35));
+  _map.invalidateSize();
+}
+
+function hideMap() {
+  document.getElementById('map-container').style.display = 'none';
+}
 
 const SOURCE_LABEL = {
   'manual':        'TEST POSITION',
@@ -195,6 +238,13 @@ async function handleCommand(transcript) {
 
     showResponse(response);
     TTS.sayImmediate(response);
+
+    const SHOW_MAP_FOR = ['BEARING_TO_PLACE', 'BEARING_TO_COORD', 'NEAREST_HAZARD', 'NEAREST_NAVAID'];
+    if (serverUrl && SHOW_MAP_FOR.includes(intent) && Query.lastBearingResult) {
+      showMap(pos.lat, pos.lon, Query.lastBearingResult).catch(() => {});
+    } else {
+      hideMap();
+    }
   } catch (err) {
     console.error('[AudioChart] handleCommand error:', err);
     showResponse(`Error: ${err.message}`);

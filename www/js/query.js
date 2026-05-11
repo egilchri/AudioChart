@@ -46,6 +46,7 @@ export let hazards = null;
 export let namedPlaces = null;
 export let navaids = null;
 export let waypoints = null;   // OpenCPN user waypoints
+export let lastBearingResult = null;  // set by bearing queries; read by map view
 
 let _serverBase = null;
 let _lastFetchLat = null;
@@ -380,6 +381,7 @@ function similarityScore(a, b) {
 
 /** Speak current position. */
 export function whereAmI(lat, lon, accuracy) {
+  lastBearingResult = null;
   const acc = accuracy ? `, accuracy ${Math.round(accuracy)} metres` : '';
   return `You are at ${formatDM(lat, true)}, ${formatDM(lon, false)}${acc}.`;
 }
@@ -395,14 +397,16 @@ export function nearestHazard(lat, lon) {
   }
   if (!nearest) return 'No hazards found.';
   const [flon, flat] = nearest.geometry.coordinates;
-  const brg = trueTomagnetic(bearing(lon, lat, flon, flat));
   const label = nearest.properties.label || nearest.properties.objtype;
   const name = nearest.properties.name ? `, ${nearest.properties.name}` : '';
+  lastBearingResult = { destLat: flat, destLon: flon, destName: (label + name).trim() };
+  const brg = trueTomagnetic(bearing(lon, lat, flon, flat));
   return `Nearest hazard: ${label}${name}, bearing ${bearingToWords(brg)}, ${formatDistance(minDist)}.`;
 }
 
 /** Find all hazards within radiusNm. Returns spoken response string. */
 export function hazardsInRadius(lat, lon, radiusNm) {
+  lastBearingResult = null;
   if (!hazards || hazards.features.length === 0) return 'No hazard data loaded.';
   const nearby = [];
   for (const f of hazards.features) {
@@ -457,6 +461,7 @@ export function bearingToPlace(lat, lon, queryName) {
   }
 
   const [flon, flat] = best.geometry.coordinates;
+  lastBearingResult = { destLat: flat, destLon: flon, destName: best.properties.name };
   const brg = trueTomagnetic(bearing(lon, lat, flon, flat));
   const dist = distanceNm(lon, lat, flon, flat);
   const name = best.properties.name;
@@ -467,6 +472,7 @@ export function bearingToPlace(lat, lon, queryName) {
 
 /** Compute range and bearing from current position to an explicit coordinate. */
 export function bearingToCoord(lat, lon, targetLat, targetLon) {
+  lastBearingResult = { destLat: targetLat, destLon: targetLon, destName: null };
   const brg = trueTomagnetic(bearing(lon, lat, targetLon, targetLat));
   const dist = distanceNm(lon, lat, targetLon, targetLat);
   // Format the target coordinate compactly for the response
@@ -493,9 +499,10 @@ export function nearestNavaid(lat, lon) {
   }
   if (!nearest) return 'No navaids found.';
   const [flon, flat] = nearest.geometry.coordinates;
-  const brg = trueTomagnetic(bearing(lon, lat, flon, flat));
   const label = nearest.properties.label || 'navaid';
   const name = nearest.properties.name ? `, ${nearest.properties.name}` : '';
+  lastBearingResult = { destLat: flat, destLon: flon, destName: (label + name).trim() };
+  const brg = trueTomagnetic(bearing(lon, lat, flon, flat));
   const colour = nearest.properties.colour ? `, ${nearest.properties.colour}` : '';
   return `Nearest ${label}${name}${colour}, bearing ${bearingToWords(brg)}, ${formatDistance(minDist)}.`;
 }
