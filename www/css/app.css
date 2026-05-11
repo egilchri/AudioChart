@@ -133,6 +133,8 @@ html, body {
   border-radius: 8px;
   text-align: center;
   min-height: 2.2rem;
+  cursor: pointer;
+  user-select: text;
 }
 
 /* Status / instruction line */

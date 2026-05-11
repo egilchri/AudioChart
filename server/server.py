@@ -127,12 +127,67 @@ def local_ip():
         return '127.0.0.1'
 
 
+def local_hostname():
+    try:
+        return socket.gethostname() + '.local'
+    except Exception:
+        return None
+
+
+CONNECT_PAGE_TEMPLATE = """\
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Connect to AudioChart</title>
+<style>
+  body {{ font-family: system-ui, sans-serif; background: #0a1628; color: #e8edf4;
+         display: flex; flex-direction: column; align-items: center;
+         justify-content: center; min-height: 100vh; margin: 0; padding: 24px; }}
+  h1 {{ color: #4a9edd; margin-bottom: 8px; font-size: 1.4rem; }}
+  p  {{ color: #8a9ab0; margin-bottom: 24px; text-align: center; }}
+  #qr {{ background: white; padding: 16px; border-radius: 12px; margin-bottom: 20px; }}
+  .url {{ font-family: monospace; font-size: 1rem; color: #4a9edd;
+          background: #1a3a5c; padding: 10px 16px; border-radius: 8px;
+          word-break: break-all; text-align: center; max-width: 340px; }}
+  .hint {{ color: #8a9ab0; font-size: 0.85rem; margin-top: 16px; text-align: center; }}
+</style>
+</head>
+<body>
+<h1>&#9875; AudioChart</h1>
+<p>Scan with your phone camera to open the app</p>
+<div id="qr"></div>
+<div class="url">{url}</div>
+<p class="hint">Or type the address above into Chrome on your phone.</p>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+  new QRCode(document.getElementById('qr'), {{
+    text: '{url}',
+    width: 220, height: 220,
+    colorDark: '#000000', colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.M
+  }});
+</script>
+</body>
+</html>
+"""
+
+
+async def handle_connect(request):
+    ip = local_ip()
+    url = f'http://{ip}:{PORT}'
+    html = CONNECT_PAGE_TEMPLATE.format(url=url)
+    return web.Response(text=html, content_type='text/html')
+
+
 async def main():
     app = web.Application()
     app.router.add_get('/api/waypoints', handle_waypoints)
     app.router.add_get('/api/nearby', handle_nearby)
     app.router.add_get('/tiles/{z}/{x}/{y}.jpg', handle_tile)
     app.router.add_get('/ws/gps', handle_gps_ws)
+    app.router.add_get('/connect', handle_connect)
     app.router.add_get('/', handle_static)
     app.router.add_get('/{path:.*}', handle_static)
 
@@ -142,13 +197,15 @@ async def main():
     await site.start()
 
     ip = local_ip()
+    hostname = local_hostname()
     print(f'\nAudioChart server running.')
     print(f'  Local:    http://localhost:{PORT}')
     print(f'  Network:  http://{ip}:{PORT}')
-    print(f'\nOn your Android phone:')
-    print(f'  1. Connect phone to this Mac\'s network (or share Mac via phone hotspot)')
-    print(f'  2. Open Chrome and visit http://{ip}:{PORT}')
-    print(f'  3. Tap the install button to add as home screen app')
+    if hostname:
+        print(f'  Bonjour:  http://{hostname}:{PORT}')
+    print(f'\nTo connect your phone — open this on your Mac:')
+    print(f'  http://localhost:{PORT}/connect')
+    print(f'Then scan the QR code with your phone camera.')
     print(f'\nPress Ctrl+C to stop.')
     print(f'(GPS puck and OpenCPN TCP NMEA are optional — errors are silenced)\n')
 

@@ -87,6 +87,16 @@ const SOURCE_LABEL = {
   'opencpn-track': 'OPENCPN TRACK',
 };
 
+positionEl.addEventListener('click', () => {
+  const text = positionEl.textContent;
+  if (!text || text.startsWith('--')) return;
+  navigator.clipboard.writeText(text).then(() => {
+    const prev = positionEl.textContent;
+    positionEl.textContent = 'Copied!';
+    setTimeout(() => { positionEl.textContent = prev; }, 1000);
+  });
+});
+
 function showPosition(lat, lon, accuracy, source) {
   positionEl.textContent = formatPositionDisplay(lat, lon);
   const label = SOURCE_LABEL[source] || source.toUpperCase();
