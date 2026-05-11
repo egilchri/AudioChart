@@ -274,26 +274,64 @@ export async function refreshIfNeeded(lat, lon) {
 // generic sea areas so "Southwest Harbor (town)" beats "Southwest Harbor (sea area)".
 const LABEL_RANK = { town: 3, harbour: 3, 'coastal feature': 2, 'sea area': 0 };
 
+function parseDisambiguated(query) {
+  const i = query.indexOf(',');
+  if (i === -1) return { primary: query.trim().toLowerCase(), qualifier: null };
+  const primary = query.slice(0, i).trim().toLowerCase();
+  let qualifier = query.slice(i + 1).trim().toLowerCase();
+  if (qualifier.startsWith('near ')) qualifier = qualifier.slice(5).trim();
+  return { primary, qualifier: qualifier || null };
+}
+
 export function findPlaceByName(query) {
-  const q = query.toLowerCase().trim();
-  let best = null, bestScore = 0;
+  const { primary, qualifier } = parseDisambiguated(query);
+
+  // Resolve qualifier to coords for proximity-based disambiguation
+  let qualLat = null, qualLon = null;
+  if (qualifier) {
+    const qr = findPlaceByName(qualifier);
+    if (qr) { qualLat = qr.lat; qualLon = qr.lon; }
+  }
+
+  let exact = [], best = null, bestScore = 0;
 
   const search = (features) => {
     for (const f of (features || [])) {
       const name = f.properties.name_lower || f.properties.name?.toLowerCase() || '';
-      const base = similarityScore(q, name);
-      // Add a tiny label bonus (< 0.01) so it only breaks ties, never overrides a closer name match.
+      const base = similarityScore(primary, name);
       const rank = LABEL_RANK[f.properties.label] ?? 1;
-      const score = base + rank * 0.001;
-      if (score > bestScore) {
-        bestScore = score;
-        best = f;
+      if (base >= 0.99) {
+        exact.push(f);
+      } else {
+        const score = base + rank * 0.001;
+        if (score > bestScore) { bestScore = score; best = f; }
       }
     }
   };
 
   search(waypoints?.features);
   search(namedPlaces?.features);
+
+  if (exact.length > 0) {
+    let chosen;
+    if (qualLat !== null && exact.length > 1) {
+      // Pick the exact match closest to the qualifier location
+      chosen = exact.reduce((a, b) => {
+        const [alon, alat] = a.geometry.coordinates;
+        const [blon, blat] = b.geometry.coordinates;
+        const da = (alat - qualLat) ** 2 + (alon - qualLon) ** 2;
+        const db = (blat - qualLat) ** 2 + (blon - qualLon) ** 2;
+        return da <= db ? a : b;
+      });
+    } else {
+      // No qualifier — prefer by label rank
+      chosen = exact.reduce((a, b) =>
+        (LABEL_RANK[a.properties.label] ?? 1) >= (LABEL_RANK[b.properties.label] ?? 1) ? a : b
+      );
+    }
+    const [lon, lat] = chosen.geometry.coordinates;
+    return { lat, lon, name: chosen.properties.name };
+  }
 
   if (!best || bestScore < 0.5) return null;
   const [lon, lat] = best.geometry.coordinates;

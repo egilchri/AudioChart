@@ -362,28 +362,54 @@ def get_nearby(lat, lon, radius_nm=DEFAULT_RADIUS_NM):
 LABEL_RANK = {'town': 3, 'harbour': 3, 'coastal feature': 2, 'sea area': 0}
 
 
+def _parse_disambiguated(query):
+    """Split 'Crow Island, near Great Cranberry Island' → ('crow island', 'great cranberry island').
+    Returns (primary, qualifier_or_None)."""
+    if ',' not in query:
+        return query.strip().lower(), None
+    primary, qualifier = query.split(',', 1)
+    qualifier = qualifier.strip().lower()
+    if qualifier.startswith('near '):
+        qualifier = qualifier[5:].strip()
+    return primary.strip().lower(), qualifier or None
+
+
+def _dist_sq(lat1, lon1, lat2, lon2):
+    return (lat1 - lat2) ** 2 + (lon1 - lon2) ** 2
+
+
 def find_place_by_name(query):
     """
     Search the full chart database for a named place matching query.
+    Supports disambiguation: 'Crow Island, Cranberry Isles' or
+    'Crow Island, near Great Cranberry Island' picks the Crow Island
+    closest to the qualifier location.
     Returns {'lat', 'lon', 'name'} for the best match, or None.
-    Prefers town/harbour labels over generic sea areas when names are identical.
     """
-    q = query.strip().lower()
+    primary, qualifier = _parse_disambiguated(query)
+
+    # Resolve qualifier to coordinates for proximity selection
+    qual_loc = find_place_by_name(qualifier) if qualifier else None
+
     db = get_db()
 
     # Exact match first (fast, uses index)
     rows = db.execute(
         "SELECT label, lat, lon, name FROM features WHERE name_lower = ? ORDER BY ROWID",
-        (q,)
+        (primary,)
     ).fetchall()
 
     if rows:
-        # Multiple exact matches — pick highest-rank label
-        best = max(rows, key=lambda r: LABEL_RANK.get(r[0], 1))
+        if qual_loc and len(rows) > 1:
+            # Multiple exact matches — pick closest to qualifier location
+            best = min(rows, key=lambda r: _dist_sq(r[1], r[2], qual_loc['lat'], qual_loc['lon']))
+        else:
+            # Single match or no qualifier — prefer by label rank
+            best = max(rows, key=lambda r: LABEL_RANK.get(r[0], 1))
         return {'lat': best[1], 'lon': best[2], 'name': best[3]}
 
-    # Fuzzy fallback: fetch candidates that share words, score by similarity
-    words = q.split()
+    # Fuzzy fallback: search on primary name only
+    words = primary.split()
     if not words:
         return None
     like = f'%{words[0]}%'
@@ -394,15 +420,15 @@ def find_place_by_name(query):
 
     def score(row):
         nl = row[4]
-        if nl == q:
+        if nl == primary:
             return 1.0 + LABEL_RANK.get(row[0], 1) * 0.001
-        if q in nl:
-            base = len(q) / len(nl)
-        elif nl in q:
-            base = len(nl) / len(q)
+        if primary in nl:
+            base = len(primary) / len(nl)
+        elif nl in primary:
+            base = len(nl) / len(primary)
         else:
-            dist = sum(1 for a, b in zip(q, nl) if a != b) + abs(len(q) - len(nl))
-            base = 1 - dist / max(len(q), len(nl), 1)
+            dist = sum(1 for a, b in zip(primary, nl) if a != b) + abs(len(primary) - len(nl))
+            base = 1 - dist / max(len(primary), len(nl), 1)
         return base + LABEL_RANK.get(row[0], 1) * 0.001
 
     if not rows:
