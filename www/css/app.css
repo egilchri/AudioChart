@@ -75,6 +75,51 @@ html, body {
 
 .status-badge.gps-ok { background: #1a4a1a; color: var(--ok); }
 .status-badge.gps-error { background: #4a1a1a; color: var(--danger); }
+.status-badge.gps-test { background: #4a2a00; color: var(--warn); }
+
+/* Offline prep + test position buttons in header */
+#offline-btn, #test-pos-btn {
+  background: none;
+  border: 1px solid var(--mid-blue);
+  border-radius: 6px;
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  padding: 3px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+#offline-btn:hover, #test-pos-btn:hover { border-color: var(--accent); color: var(--text); }
+#offline-btn:disabled { opacity: 0.5; cursor: default; }
+
+/* Test position input row */
+#test-pos-form {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+#test-pos-input {
+  flex: 1;
+  background: var(--dark-blue);
+  border: 1px solid var(--mid-blue);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.9rem;
+  padding: 6px 10px;
+  outline: none;
+  -webkit-appearance: none;
+}
+#test-pos-input:focus { border-color: var(--accent); }
+#test-pos-set, #test-pos-clear {
+  background: var(--mid-blue);
+  border: none;
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.8rem;
+  padding: 6px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+#test-pos-clear { background: #4a1a1a; color: var(--danger); }
 
 /* Position display */
 #position-display {

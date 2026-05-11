@@ -12,6 +12,7 @@
  */
 
 const SOURCE_PRIORITY = {
+  'manual':        6,   // user-entered test position — overrides everything
   'opencpn-nmea':  5,   // real-time NMEA from OpenCPN TCP output
   'nmea':          4,   // USB GPS puck via serial
   'opencpn-ini':   3,   // OwnShipLatLon from opencpn.ini (zero config)
@@ -106,6 +107,22 @@ function _connectWS() {
 // Keep legacy name for compatibility with app.js
 export function connectNMEA(baseUrl) {
   connectServer(baseUrl);
+}
+
+/** Set an explicit test position, overriding all other GPS sources. */
+export function setManualPosition(lat, lon) {
+  updatePosition(lat, lon, 0, 'manual');
+}
+
+/** Clear manual override so real GPS takes over again. */
+export function clearManualPosition() {
+  if (currentPosition?.source === 'manual') {
+    currentPosition = null;
+  }
+}
+
+export function isManualPosition() {
+  return currentPosition?.source === 'manual';
 }
 
 export function getPosition() {

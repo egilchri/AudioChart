@@ -82,7 +82,7 @@ export async function loadData(lat, lon) {
     }
   }
 
-  // Offline fallback: static pre-generated files
+  // Offline fallback: static/cached GeoJSON files
   const [h, p, n] = await Promise.all([
     fetch('./data/hazards.geojson').then(r => r.json()),
     fetch('./data/named_places.geojson').then(r => r.json()),
@@ -91,6 +91,64 @@ export async function loadData(lat, lon) {
   hazards = h;
   namedPlaces = p;
   navaids = n;
+
+  // Restore magvar from last known value
+  const storedMagvar = localStorage.getItem('audiochart-magvar');
+  if (storedMagvar) setMagneticVariation(parseFloat(storedMagvar));
+
+  // Load pre-cached waypoints if available
+  try {
+    const cache = await caches.open('audiochart-v1');
+    const wpResp = await cache.match('./data/waypoints.geojson');
+    if (wpResp) waypoints = await wpResp.json();
+  } catch (_) {}
+}
+
+/**
+ * Pre-cache chart data and waypoints for offline use.
+ * Call this at dock while connected to the Mac server.
+ * Saves a large-radius dataset to the Cache API so the phone
+ * can run without the server offshore.
+ */
+export async function prepareOffline(lat, lon, radiusNm = 40) {
+  if (!_serverBase) throw new Error('No server connection');
+
+  const resp = await fetch(
+    `${_serverBase}/api/nearby?lat=${lat}&lon=${lon}&radius=${radiusNm}`,
+    { cache: 'no-store' }
+  );
+  if (!resp.ok) throw new Error(`Server error: ${resp.status}`);
+  const data = await resp.json();
+
+  // Persist magvar for offline use
+  if (data.magvar != null) {
+    localStorage.setItem('audiochart-magvar', String(data.magvar));
+  }
+
+  // Write chart data into Cache API at the static file URLs.
+  // The service worker's offline fallback fetches exactly these URLs.
+  const cache = await caches.open('audiochart-v1');
+  const entries = [
+    ['./data/hazards.geojson',      { type: 'FeatureCollection', features: data.hazards.features }],
+    ['./data/named_places.geojson', { type: 'FeatureCollection', features: data.places.features  }],
+    ['./data/navaid.geojson',       { type: 'FeatureCollection', features: data.navaids.features  }],
+  ];
+  for (const [url, fc] of entries) {
+    await cache.put(url, new Response(JSON.stringify(fc), {
+      headers: { 'Content-Type': 'application/json' },
+    }));
+  }
+
+  // Cache waypoints
+  const wpResp = await fetch(`${_serverBase}/api/waypoints`, { cache: 'no-store' });
+  if (wpResp.ok) {
+    const wpData = await wpResp.json();
+    await cache.put('./data/waypoints.geojson', new Response(JSON.stringify(wpData), {
+      headers: { 'Content-Type': 'application/json' },
+    }));
+  }
+
+  return { count: data.count, radius_nm: radiusNm };
 }
 
 /**

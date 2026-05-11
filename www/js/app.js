@@ -6,7 +6,7 @@
 
 import * as TTS from './tts.js';
 import * as GPS from './gps.js';
-import { parseCommand } from './parser.js';
+import { parseCommand, parseCoordinate } from './parser.js';
 import * as Query from './query.js';
 import { formatPositionDisplay } from './utils.js';
 
@@ -19,6 +19,12 @@ const responseEl = document.getElementById('response-text');
 const gpsStatusEl = document.getElementById('gps-status');
 const historyList = document.getElementById('history-list');
 const historyClear = document.getElementById('history-clear');
+const offlineBtn = document.getElementById('offline-btn');
+const testPosBtn = document.getElementById('test-pos-btn');
+const testPosForm = document.getElementById('test-pos-form');
+const testPosInput = document.getElementById('test-pos-input');
+const testPosSet = document.getElementById('test-pos-set');
+const testPosClear = document.getElementById('test-pos-clear');
 
 // ── Query history ─────────────────────────────────────────────────────────────
 
@@ -73,6 +79,7 @@ function setStatus(msg) { statusEl.textContent = msg; }
 function showResponse(text) { responseEl.textContent = text; }
 
 const SOURCE_LABEL = {
+  'manual':        'TEST POSITION',
   'browser':       'PHONE GPS',
   'nmea':          'GPS PUCK',
   'opencpn-nmea':  'OPENCPN LIVE',
@@ -83,9 +90,12 @@ const SOURCE_LABEL = {
 function showPosition(lat, lon, accuracy, source) {
   positionEl.textContent = formatPositionDisplay(lat, lon);
   const label = SOURCE_LABEL[source] || source.toUpperCase();
-  const accText = accuracy && source !== 'opencpn-track' ? ` ±${Math.round(accuracy)}m` : '';
+  const accText = accuracy && !['opencpn-track', 'manual'].includes(source)
+    ? ` ±${Math.round(accuracy)}m` : '';
   gpsStatusEl.textContent = `GPS: ${label}${accText}`;
-  gpsStatusEl.className = 'status-badge gps-ok';
+  gpsStatusEl.className = source === 'manual'
+    ? 'status-badge gps-test'
+    : 'status-badge gps-ok';
 }
 
 // ── Command handling ──────────────────────────────────────────────────────────
@@ -160,6 +170,32 @@ if (textForm) {
   });
 }
 
+// ── Test position override ────────────────────────────────────────────────────
+
+testPosBtn.addEventListener('click', () => {
+  const isOpen = testPosForm.style.display !== 'none';
+  testPosForm.style.display = isOpen ? 'none' : 'flex';
+  if (!isOpen) testPosInput.focus();
+});
+
+testPosSet.addEventListener('click', () => {
+  const raw = testPosInput.value.trim();
+  const coord = parseCoordinate(raw);
+  if (coord) {
+    GPS.setManualPosition(coord.lat, coord.lon);
+    testPosForm.style.display = 'none';
+    testPosInput.value = '';
+  } else {
+    testPosInput.style.borderColor = 'var(--danger)';
+    setTimeout(() => { testPosInput.style.borderColor = ''; }, 1500);
+  }
+});
+
+testPosClear.addEventListener('click', () => {
+  GPS.clearManualPosition();
+  testPosForm.style.display = 'none';
+});
+
 // ── Initialisation ────────────────────────────────────────────────────────────
 
 async function init() {
@@ -175,6 +211,25 @@ async function init() {
   if (serverUrl) {
     GPS.connectServer(serverUrl);
     Query.setServerBase(serverUrl);
+
+    // Show offline prep button only when Mac server is reachable
+    offlineBtn.style.display = 'inline-block';
+    offlineBtn.addEventListener('click', async () => {
+      const pos = GPS.getPosition();
+      if (!pos) { setStatus('No GPS fix yet — cannot download offline data.'); return; }
+      offlineBtn.disabled = true;
+      offlineBtn.textContent = '⏳ Downloading...';
+      try {
+        const result = await Query.prepareOffline(pos.lat, pos.lon);
+        offlineBtn.textContent = '✓ Offline ready';
+        setStatus(`Offline data cached: ${result.count} features within ${result.radius_nm}nm.`);
+      } catch (e) {
+        offlineBtn.textContent = '⬇ Offline';
+        setStatus('Offline download failed. Is the server running?');
+      } finally {
+        offlineBtn.disabled = false;
+      }
+    });
   }
 
   GPS.startGPS(
@@ -186,7 +241,7 @@ async function init() {
         try {
           await Query.loadData(lat, lon);
           dataLoaded = true;
-          setStatus('Ready. Type a command or use the keyboard mic.');
+          setStatus('Ready.');
         } catch (e) {
           setStatus('Chart data unavailable. Try reloading.');
           showResponse('Could not load chart data. If offline, ensure data files are cached.');
