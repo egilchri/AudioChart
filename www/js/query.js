@@ -5,7 +5,43 @@
 
 import { bearingToWords, formatDistance, formatDM, trueTomagnetic, setMagneticVariation } from './utils.js';
 
-// Loaded per-position; exported for tests
+// ── IndexedDB offline store ───────────────────────────────────────────────────
+// Works on plain HTTP (unlike the Cache API which requires HTTPS/localhost).
+
+const IDB_NAME = 'audiochart-offline';
+const IDB_STORE = 'geojson';
+const IDB_VERSION = 1;
+
+function openIDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+    req.onupgradeneeded = e => e.target.result.createObjectStore(IDB_STORE);
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function idbGet(key) {
+  const db = await openIDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, 'readonly');
+    const req = tx.objectStore(IDB_STORE).get(key);
+    req.onsuccess = () => resolve(req.result ?? null);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function idbPut(key, value) {
+  const db = await openIDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).put(value, key);
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+// ── Loaded per-position; exported for tests ───────────────────────────────────
 export let hazards = null;
 export let namedPlaces = null;
 export let navaids = null;
@@ -82,33 +118,41 @@ export async function loadData(lat, lon) {
     }
   }
 
-  // Offline fallback: static/cached GeoJSON files
-  const [h, p, n] = await Promise.all([
-    fetch('./data/hazards.geojson').then(r => r.json()),
-    fetch('./data/named_places.geojson').then(r => r.json()),
-    fetch('./data/navaid.geojson').then(r => r.json()),
+  // Offline fallback: check IndexedDB first (pre-downloaded at dock),
+  // then fall back to the static files bundled with the app.
+  const [idbH, idbP, idbN, idbW] = await Promise.all([
+    idbGet('hazards').catch(() => null),
+    idbGet('named_places').catch(() => null),
+    idbGet('navaids').catch(() => null),
+    idbGet('waypoints').catch(() => null),
   ]);
-  hazards = h;
-  namedPlaces = p;
-  navaids = n;
 
-  // Restore magvar from last known value
+  if (idbH) {
+    hazards = idbH;
+    namedPlaces = idbP;
+    navaids = idbN;
+    waypoints = idbW;
+    console.log('[query] Loaded offline data from IndexedDB');
+  } else {
+    const [h, p, n] = await Promise.all([
+      fetch('./data/hazards.geojson').then(r => r.json()),
+      fetch('./data/named_places.geojson').then(r => r.json()),
+      fetch('./data/navaid.geojson').then(r => r.json()),
+    ]);
+    hazards = h;
+    namedPlaces = p;
+    navaids = n;
+    console.log('[query] Loaded offline data from static files');
+  }
+
   const storedMagvar = localStorage.getItem('audiochart-magvar');
   if (storedMagvar) setMagneticVariation(parseFloat(storedMagvar));
-
-  // Load pre-cached waypoints if available
-  try {
-    const cache = await caches.open('audiochart-v1');
-    const wpResp = await cache.match('./data/waypoints.geojson');
-    if (wpResp) waypoints = await wpResp.json();
-  } catch (_) {}
 }
 
 /**
- * Pre-cache chart data and waypoints for offline use.
- * Call this at dock while connected to the Mac server.
- * Saves a large-radius dataset to the Cache API so the phone
- * can run without the server offshore.
+ * Pre-cache chart data and waypoints for offline use via IndexedDB.
+ * Works on plain HTTP (unlike the Cache API which needs HTTPS/localhost).
+ * Downloads are additive — call multiple times for different areas.
  */
 export async function prepareOffline(lat, lon, radiusNm = 20) {
   if (!_serverBase) throw new Error('No server connection');
@@ -127,65 +171,40 @@ export async function prepareOffline(lat, lon, radiusNm = 20) {
   if (!resp.ok) throw new Error(`Server error: ${resp.status}`);
   const data = await resp.json();
 
-  // Persist magvar for offline use
   if (data.magvar != null) {
     localStorage.setItem('audiochart-magvar', String(data.magvar));
   }
 
-  const cache = await caches.open('audiochart-v1');
+  // Coordinate key for deduplication (within ~10m)
+  const key = f => {
+    const [lon, lat] = f.geometry.coordinates;
+    return `${lat.toFixed(4)},${lon.toFixed(4)}`;
+  };
 
-  // Merge new features with existing cached data (additive, not replace).
-  // This lets the user download multiple areas along their planned route.
+  // Merge each layer with existing IndexedDB data
   const pairs = [
-    ['./data/hazards.geojson',      data.hazards.features],
-    ['./data/named_places.geojson', data.places.features],
-    ['./data/navaid.geojson',       data.navaids.features],
+    ['hazards',      data.hazards.features],
+    ['named_places', data.places.features],
+    ['navaids',      data.navaids.features],
   ];
 
-  let totalCached = 0;
-  for (const [url, newFeatures] of pairs) {
-    let existing = [];
-    const cached = await cache.match(url);
-    if (cached) {
-      try {
-        const fc = await cached.json();
-        existing = fc.features || [];
-      } catch (_) {}
-    }
-
-    // Deduplicate by rounded coordinate key (within ~10m)
-    const key = f => {
-      const [lon, lat] = f.geometry.coordinates;
-      return `${lat.toFixed(4)},${lon.toFixed(4)}`;
-    };
-    const seen = new Set(existing.map(key));
+  for (const [idbKey, newFeatures] of pairs) {
+    const existing = await idbGet(idbKey).catch(() => null);
+    const existingFeatures = existing?.features || [];
+    const seen = new Set(existingFeatures.map(key));
     const added = newFeatures.filter(f => !seen.has(key(f)));
-    const merged = [...existing, ...added];
-    totalCached = Math.max(totalCached, merged.length);
-
-    await cache.put(url, new Response(
-      JSON.stringify({ type: 'FeatureCollection', features: merged }),
-      { headers: { 'Content-Type': 'application/json' } }
-    ));
+    await idbPut(idbKey, { type: 'FeatureCollection', features: [...existingFeatures, ...added] });
   }
 
-  // Waypoints always replace (they're small and always current)
+  // Waypoints always replace (small, always current)
   const wpResp = await fetch(`${_serverBase}/api/waypoints`, { cache: 'no-store' });
   if (wpResp.ok) {
-    const wpData = await wpResp.json();
-    await cache.put('./data/waypoints.geojson', new Response(JSON.stringify(wpData), {
-      headers: { 'Content-Type': 'application/json' },
-    }));
+    await idbPut('waypoints', await wpResp.json());
   }
 
-  // Count total features now in cache
-  const counts = await Promise.all(pairs.map(async ([url]) => {
-    const r = await cache.match(url);
-    if (!r) return 0;
-    const fc = await r.json();
-    return (fc.features || []).length;
-  }));
-  const grandTotal = counts.reduce((a, b) => a + b, 0);
+  // Return totals for status display
+  const stored = await Promise.all(pairs.map(([k]) => idbGet(k).then(fc => (fc?.features || []).length)));
+  const grandTotal = stored.reduce((a, b) => a + b, 0);
 
   return { added: data.count, total: grandTotal, radius_nm: radiusNm };
 }
