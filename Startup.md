@@ -47,13 +47,22 @@ Leave this terminal open. The server processes ENC charts in the background on f
 
 ### 3. Prepare offline data (do this before every voyage)
 
-Tap the **⬇ Offline** button in the header. This downloads chart data for a 20nm radius around your current position and merges it into the phone's offline cache. Each download adds to the cache without erasing previous areas — the status line shows `Downloaded X features (Y total cached)` so you can see coverage building up.
+Tap the **⬇ Offline** button in the header. This downloads chart data for a 20nm radius around the current position and merges it into the phone's offline cache. Each download adds to the cache without erasing previous areas — the status line shows `Downloaded X features (Y total cached)` so you can see coverage building up.
 
-**For voyages longer than 20nm**, download each area of your planned route:
-1. Your real position at dock → tap ⬇ Offline
-2. Tap 📍, enter Camden Harbor coordinates → tap ⬇ Offline
-3. Tap 📍, enter Belfast coordinates → tap ⬇ Offline
-4. Repeat for each stop along the route
+**Build coverage by hopping through your planned stops.** You can type place names directly into the 📍 input — no coordinates needed:
+
+| Step | 📍 Set position to | Then tap |
+|---|---|---|
+| 1 | *(your real position at dock)* | ⬇ Offline |
+| 2 | `Camden` | ⬇ Offline |
+| 3 | `Belfast` | ⬇ Offline |
+| 4 | `Castine` | ⬇ Offline |
+| 5 | `Stonington` | ⬇ Offline |
+| 6 | `Great Cranberry Island` | ⬇ Offline |
+
+Adjust the stops to match your actual route. Each 20nm circle overlaps the next, giving you a continuous corridor of coverage. The status line shows the growing total after each tap.
+
+When done, tap **📍 → Clear** to return to your real GPS position.
 
 After this, the phone can run the app **without the Mac** for the entire voyage.
 
