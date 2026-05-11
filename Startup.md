@@ -2,7 +2,7 @@
 
 ## What it does
 
-AudioChart is a nautical safety tool for sailing Penobscot Bay. It answers text queries (use your phone keyboard's mic button to speak them) like:
+AudioChart is a nautical safety tool for sailing Maine waters. It answers text queries (use your phone keyboard's mic button to speak them) like:
 
 - *"Hazards within quarter mile"*
 - *"Range and bearing to Carvers Harbor"*
@@ -15,7 +15,29 @@ Bearings are **magnetic**. Position comes from OpenCPN if it is running, otherwi
 
 ---
 
-## Before you leave the dock
+## Two operating modes
+
+| Mode | URL | Who it's for |
+|---|---|---|
+| **Hosted (standalone)** | `https://egilchri.github.io/AudioChart` | Any sailor — no Mac or server required |
+| **Developer (local server)** | `http://localhost:8080` | Edgar only — full OpenCPN integration, live chart API |
+
+**Hosted mode** ships with Penobscot Bay data built-in. Users tap **⬇ Route** to download additional regions (Casco Bay, etc.), install as a PWA, and sail — no internet needed underway.
+
+**Developer mode** adds: live position from OpenCPN, dynamic chart data for any area, waypoint sync, and test-position injection into OpenCPN (ship icon moves to match the 📍 position). Requires the Mac server running and phone on the same network.
+
+---
+
+## End-user setup (hosted app)
+
+1. Open **Chrome** on your phone and go to `https://egilchri.github.io/AudioChart`.
+2. Tap **⬇ Route** and choose your sailing area to download chart data (requires internet — do this at dock).
+3. In Chrome's menu, tap **Add to Home Screen** to install.
+4. Done — no internet needed once installed and data is downloaded.
+
+---
+
+## Before you leave the dock (developer / local server)
 
 ### 1. Start the server (Mac)
 
