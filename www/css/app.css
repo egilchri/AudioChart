@@ -91,20 +91,20 @@ html, body {
 #offline-btn:hover, #route-btn:hover, #test-pos-btn:hover { border-color: var(--accent); color: var(--text); }
 #offline-btn:disabled, #route-btn:disabled { opacity: 0.5; cursor: default; }
 
-/* OpenCPN draw button — appears below course-hazard results */
+/* OpenCPN draw button — appears between map and response when course query runs */
 #opencpn-btn {
-  display: block;
-  margin: 6px 0 2px;
-  background: none;
-  border: 1px solid var(--mid-blue);
+  align-self: flex-start;
+  background: var(--mid-blue);
+  border: none;
   border-radius: 6px;
-  color: var(--text-dim);
+  color: var(--text);
   font-size: 0.8rem;
-  padding: 5px 12px;
+  padding: 6px 14px;
   cursor: pointer;
   white-space: nowrap;
+  flex-shrink: 0;
 }
-#opencpn-btn:hover { border-color: var(--accent); color: var(--text); }
+#opencpn-btn:hover { background: var(--accent); color: var(--navy); }
 #opencpn-btn:disabled { opacity: 0.5; cursor: default; }
 
 /* Cruise picker */
@@ -276,12 +276,11 @@ html, body {
   white-space: pre-wrap;
 }
 
-/* Bearing map view */
+/* Bearing map view — sits between status and response, fixed at 1/3 of viewport */
 #map-container {
-  height: 220px;
+  height: 33dvh;
   border-radius: 6px;
   overflow: hidden;
-  margin-bottom: 12px;
   flex-shrink: 0;
 }
 #leaflet-map { width: 100%; height: 100%; background: var(--navy); }
@@ -343,6 +342,8 @@ html, body {
   flex-wrap: wrap;
   gap: 6px;
   flex: 1;
+  max-height: 4.5rem;
+  overflow: hidden;
 }
 
 .history-pill {
