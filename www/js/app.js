@@ -404,4 +404,17 @@ async function init() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', init);
+document.addEventListener('DOMContentLoaded', () => {
+  // Show welcome overlay on first visit
+  const welcomeOverlay = document.getElementById('welcome-overlay');
+  const welcomeClose   = document.getElementById('welcome-close');
+  if (!localStorage.getItem('audiochart-welcomed')) {
+    welcomeOverlay.style.display = 'flex';
+  }
+  welcomeClose.addEventListener('click', () => {
+    localStorage.setItem('audiochart-welcomed', '1');
+    welcomeOverlay.style.display = 'none';
+  });
+
+  init();
+});
