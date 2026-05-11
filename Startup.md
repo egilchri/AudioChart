@@ -129,6 +129,30 @@ Type in the text box and press Enter or ▶. On your Pixel, tap the **mic icon o
 
 Previous queries are saved as pills below the text box — tap any pill to rerun it instantly. Tap **✕** to clear history.
 
+### Referencing navigational aids
+
+Buoys and lights use their full NOAA chart names. The number at the end is optional — fuzzy matching finds the right one:
+
+| You say | What it finds |
+|---|---|
+| *"bearing to Rockland Harbor Main Channel Buoy 4"* | Exact match |
+| *"bearing to Rockland Harbor Main Channel Buoy"* | Same buoy, number omitted |
+| *"bearing to Monroe Island Bell Buoy"* | Works without the number |
+| *"nearest buoy"* | Closest navaid of any type |
+
+### Disambiguating common names
+
+Many island and cove names repeat across Maine waters (26 Crow Islands, 43 Ram Islands). Add a comma-separated qualifier to specify which one:
+
+| You say | What it finds |
+|---|---|
+| `Crow Island, Cranberry Isles` | Crow Island near the Cranberry Isles |
+| `Crow Island, near Great Cranberry Island` | Same — "near" keyword is optional |
+| `Seal Cove, Mount Desert Island` | Seal Cove on MDI, not Vinalhaven |
+| `Ram Island, Boothbay` | The Ram Island off Boothbay Harbor |
+
+The qualifier is resolved to coordinates first; among all exact-name matches, the closest one wins. Works in both the 📍 test position input and bearing queries.
+
 ### OpenCPN waypoints
 
 Any named mark you drop in OpenCPN appears in AudioChart within **30 seconds** automatically when connected to the Mac server, or is available offline if you tapped **⬇ Offline** at dock. Ask for it by name:
