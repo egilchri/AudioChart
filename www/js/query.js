@@ -47,6 +47,7 @@ export let namedPlaces = null;
 export let navaids = null;
 export let waypoints = null;   // OpenCPN user waypoints
 export let lastBearingResult = null;  // set by bearing queries; read by map view
+export let lastCourseHazards = null;  // set by hazardsOnCourse; [{lat,lon,label,name}]
 
 let _serverBase = null;
 let _lastFetchLat = null;
@@ -600,5 +601,78 @@ export function nearestNavaid(lat, lon) {
   return {
     text:   `Nearest ${label}${name}${colour}  ${bearingToDisplay(brg)}  ${distanceToDisplay(minDist)}`,
     speech: `Nearest ${label}${name}${colour}, bearing ${bearingToWords(brg)}, ${formatDistance(minDist)}.`,
+  };
+}
+
+/**
+ * Signed cross-track distance from point P to line A→B.
+ * Returns {crossTrack (nm, +ve = starboard), alongTrack (nm from A)} or null if degenerate.
+ */
+function crossTrackDist(aLon, aLat, bLon, bLat, pLon, pLat) {
+  const R = 3440.065;
+  const d13 = distanceNm(aLon, aLat, pLon, pLat) / R;
+  if (d13 < 1e-9) return { crossTrack: 0, alongTrack: 0 };
+  const b13 = bearing(aLon, aLat, pLon, pLat) * Math.PI / 180;
+  const b12 = bearing(aLon, aLat, bLon, bLat) * Math.PI / 180;
+  const dxt = Math.asin(Math.sin(d13) * Math.sin(b13 - b12)) * R;
+  const cosDxt = Math.cos(dxt / R);
+  if (Math.abs(cosDxt) < 1e-10) return null;
+  const dat = Math.acos(Math.max(-1, Math.min(1, Math.cos(d13) / cosDxt))) * R;
+  return { crossTrack: dxt, alongTrack: dat };
+}
+
+/** Find all charted hazards within corridorNm of the course from A to B. */
+export function hazardsOnCourse(fromLat, fromLon, toLat, toLon, corridorNm = 0.25) {
+  lastBearingResult = null;
+  lastCourseHazards = null;
+  if (!hazards || hazards.features.length === 0) return 'No hazard data loaded.';
+
+  const dAB = distanceNm(fromLon, fromLat, toLon, toLat);
+  if (dAB < 0.01) return 'Start and end are the same point.';
+
+  // For course queries, prefer specific hazards over generic shallow areas.
+  // Shallow areas are only included if they have a name (e.g. "Seal Island Shoal").
+  const PRIORITY = { 'underwater rock': 2, 'obstruction': 2, 'wreck': 2, 'shallow area': 1 };
+
+  const results = [];
+  for (const f of hazards.features) {
+    const label = f.properties.label || f.properties.objtype || 'hazard';
+    const priority = PRIORITY[label] ?? 2;
+    if (priority === 1 && !f.properties.name) continue;  // skip unnamed shallow areas
+
+    const [pLon, pLat] = f.geometry.coordinates;
+    const ct = crossTrackDist(fromLon, fromLat, toLon, toLat, pLon, pLat);
+    if (!ct) continue;
+    const { crossTrack, alongTrack } = ct;
+    if (Math.abs(crossTrack) <= corridorNm && alongTrack >= 0 && alongTrack <= dAB) {
+      const name  = f.properties.name ? `, ${f.properties.name}` : '';
+      const side  = crossTrack <= 0 ? 'port' : 'starboard';
+      results.push({ lat: pLat, lon: pLon, alongTrack, crossTrack, label, name, side, priority });
+    }
+  }
+  lastCourseHazards = results.map(r => ({ lat: r.lat, lon: r.lon, label: r.label, name: r.name }));
+
+  const count = results.length;
+  const courseLen = distanceToDisplay(dAB);
+  const header = `${count} hazard${count === 1 ? '' : 's'} on ${courseLen} course`;
+
+  if (count === 0) {
+    return {
+      text:   `No charted hazards within ${corridorNm} nm of that course (${courseLen})`,
+      speech: `No charted hazards within ${corridorNm} nautical miles of that course.`,
+    };
+  }
+
+  const textParts = results.slice(0, 8).map(r =>
+    `${r.label}${r.name}  ${distanceToDisplay(r.alongTrack)} along  ${distanceToDisplay(Math.abs(r.crossTrack))} ${r.side}`
+  );
+  const speechParts = results.slice(0, 5).map(r =>
+    `${r.label}${r.name}, ${formatDistance(r.alongTrack)} along, ${formatDistance(Math.abs(r.crossTrack))} to ${r.side}`
+  );
+  const more = count > 8 ? `\nPlus ${count - 8} more.` : '';
+
+  return {
+    text:   `${header}:\n${textParts.join('\n')}${more}`,
+    speech: `${count} hazard${count === 1 ? '' : 's'} on course: ${speechParts.join('. ')}.${count > 5 ? ` Plus ${count - 5} more.` : ''}`,
   };
 }

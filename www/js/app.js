@@ -104,6 +104,8 @@ let gpsReady = false;
 let _map = null;
 let _mapLayers = null;
 let _leafletReady = false;
+let _lastCourseFrom = null;
+let _lastCourseTo   = null;
 
 async function loadLeaflet() {
   if (_leafletReady) return;
@@ -152,6 +154,43 @@ async function showMap(fromLat, fromLon, result) {
 
 function hideMap() {
   document.getElementById('map-container').style.display = 'none';
+}
+
+async function showCourseMap(fromLat, fromLon, toLat, toLon, hazardPts) {
+  await loadLeaflet();
+  const container = document.getElementById('map-container');
+  container.style.display = 'block';
+  if (!_map) {
+    _map = L.map('leaflet-map', { zoomControl: false, attributionControl: !!(!serverUrl) });
+    const tileUrl = serverUrl
+      ? `${serverUrl}/tiles/{z}/{x}/{y}.jpg`
+      : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+    const tileOpts = serverUrl
+      ? { minZoom: 10, maxZoom: 16 }
+      : { minZoom: 8, maxZoom: 18, attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' };
+    L.tileLayer(tileUrl, tileOpts).addTo(_map);
+  }
+  if (_mapLayers) { _map.removeLayer(_mapLayers); _mapLayers = null; }
+
+  const layers = [];
+  // Course line
+  layers.push(L.polyline([[fromLat, fromLon], [toLat, toLon]], {
+    color: '#4a9edd', weight: 2, dashArray: '6 4', opacity: 0.85,
+  }));
+  // From/To endpoints
+  layers.push(L.circleMarker([fromLat, fromLon], { radius: 7, color: '#4a9edd', fillColor: '#4a9edd', fillOpacity: 1, weight: 0 }));
+  layers.push(L.circleMarker([toLat, toLon],   { radius: 7, color: '#4a9edd', fillColor: '#4a9edd', fillOpacity: 1, weight: 0 }));
+  // Hazard markers
+  for (const h of (hazardPts || [])) {
+    const m = L.circleMarker([h.lat, h.lon], { radius: 6, color: '#e0a030', fillColor: '#e0a030', fillOpacity: 1, weight: 0 });
+    if (h.label || h.name) m.bindTooltip((h.label + h.name).trim(), { permanent: false, direction: 'top', className: 'map-tooltip' });
+    layers.push(m);
+  }
+
+  _mapLayers = L.layerGroup(layers).addTo(_map);
+  const allPts = [[fromLat, fromLon], [toLat, toLon], ...(hazardPts || []).map(h => [h.lat, h.lon])];
+  _map.fitBounds(L.latLngBounds(allPts).pad(0.2));
+  _map.invalidateSize();
 }
 
 const SOURCE_LABEL = {
@@ -238,6 +277,22 @@ async function handleCommand(transcript) {
       case 'NEAREST_NAVAID':
         response = Query.nearestNavaid(pos.lat, pos.lon);
         break;
+      case 'HAZARDS_ON_COURSE': {
+        const resolvePlace = async (name) =>
+          parseCoordinate(name) ||
+          await Query.findPlaceOnServer(name) ||
+          Query.findPlaceByName(name);
+        const [fromPos, toPos] = await Promise.all([
+          resolvePlace(params.fromPlace),
+          resolvePlace(params.toPlace),
+        ]);
+        if (!fromPos) { response = { text: `Couldn't find "${params.fromPlace}"`, speech: `I couldn't find ${params.fromPlace}.` }; break; }
+        if (!toPos)   { response = { text: `Couldn't find "${params.toPlace}"`,   speech: `I couldn't find ${params.toPlace}.`   }; break; }
+        response = Query.hazardsOnCourse(fromPos.lat, fromPos.lon, toPos.lat, toPos.lon);
+        _lastCourseFrom = fromPos;
+        _lastCourseTo   = toPos;
+        break;
+      }
       default:
         response = 'I didn\'t understand that. Try: "hazards within quarter mile", "bearing to [place]", or "where am I".';
     }
@@ -248,7 +303,9 @@ async function handleCommand(transcript) {
     TTS.sayImmediate(speechText);
 
     const SHOW_MAP_FOR = ['BEARING_TO_PLACE', 'BEARING_TO_COORD', 'NEAREST_HAZARD', 'NEAREST_NAVAID'];
-    if (SHOW_MAP_FOR.includes(intent) && Query.lastBearingResult) {
+    if (intent === 'HAZARDS_ON_COURSE' && _lastCourseFrom) {
+      showCourseMap(_lastCourseFrom.lat, _lastCourseFrom.lon, _lastCourseTo.lat, _lastCourseTo.lon, Query.lastCourseHazards).catch(() => {});
+    } else if (SHOW_MAP_FOR.includes(intent) && Query.lastBearingResult) {
       showMap(pos.lat, pos.lon, Query.lastBearingResult).catch(() => {});
     } else {
       hideMap();

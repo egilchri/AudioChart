@@ -130,6 +130,18 @@ const PATTERNS = [
     params: {},
   },
 
+  // HAZARDS ON COURSE FROM X TO Y  (must come before BEARING_TO_PLACE)
+  {
+    re: /\b(hazard|danger|obstacle|what.{0,15}(way|course|route|between)).{0,50}\bfrom\s+(.{3,60}?)\s+to\s+(.{3,60})$/i,
+    intent: 'HAZARDS_ON_COURSE',
+    extract: (m) => ({ fromPlace: normalizePlaceName(m[3].trim()), toPlace: normalizePlaceName(m[4].trim()) }),
+  },
+  {
+    re: /\b(hazard|danger|obstacle|between).{0,40}\bbetween\s+(.{3,60}?)\s+and\s+(.{3,60})$/i,
+    intent: 'HAZARDS_ON_COURSE',
+    extract: (m) => ({ fromPlace: normalizePlaceName(m[2].trim()), toPlace: normalizePlaceName(m[3].trim()) }),
+  },
+
   // RANGE AND BEARING TO GPS COORDINATE (checked before named place)
   {
     re: /\b(range\s+and\s+bearing|bearing\s+and\s+range|bearing|distance|how\s+far|range)\b.{0,20}(to|of)\s+(.{3,80})$/i,
