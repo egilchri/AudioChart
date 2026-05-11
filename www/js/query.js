@@ -379,7 +379,7 @@ function similarityScore(a, b) {
 
 // ── Query functions ──────────────────────────────────────────────────────────
 
-const LANDMARK_LABELS = new Set(['town', 'harbour', 'harbor', 'island', 'coastal feature']);
+const LANDMARK_LABELS = new Set(['town', 'island', 'coastal feature', 'anchorage']);
 
 function findNearestLandmark(lat, lon) {
   if (!namedPlaces) return null;
@@ -393,7 +393,7 @@ function findNearestLandmark(lat, lon) {
     if (LANDMARK_LABELS.has(f.properties.label) && d < prefDist && d < 20) {
       prefDist = d; preferred = { name, dist: d, lat: flat, lon: flon };
     }
-    if (d < fallDist && d < 5) {
+    if (d < fallDist && d < 15) {
       fallDist = d; fallback = { name, dist: d, lat: flat, lon: flon };
     }
   }
