@@ -8,7 +8,7 @@
  *   /api/*       → network-only (never cache dynamic API responses)
  */
 
-const CACHE = 'audiochart-v2';
+const CACHE = 'audiochart-v3';
 const TILES_CACHE = 'audiochart-tiles-v1';
 const TILES_MAX = 800;
 
