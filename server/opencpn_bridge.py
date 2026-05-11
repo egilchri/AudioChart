@@ -112,11 +112,8 @@ async def run_tcp_nmea():
                         pos = _parse_gll(sentence)
                     if pos:
                         await _emit(pos[0], pos[1], 'opencpn-nmea')
-        except (ConnectionRefusedError, asyncio.TimeoutError):
-            # OpenCPN not configured for TCP output — stay quiet, let DB polling work
+        except Exception:
             await asyncio.sleep(10)
-        except Exception as e:
-            print(f'[opencpn] TCP error: {e}')
             await asyncio.sleep(5)
 
 

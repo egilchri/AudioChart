@@ -149,7 +149,8 @@ async def main():
     print(f'  1. Connect phone to this Mac\'s network (or share Mac via phone hotspot)')
     print(f'  2. Open Chrome and visit http://{ip}:{PORT}')
     print(f'  3. Tap the install button to add as home screen app')
-    print(f'\nPress Ctrl+C to stop.\n')
+    print(f'\nPress Ctrl+C to stop.')
+    print(f'(GPS puck and OpenCPN TCP NMEA are optional — errors are silenced)\n')
 
     # Process all ENC charts in background (skips already-processed ones)
     asyncio.create_task(chartdb.process_all_charts())

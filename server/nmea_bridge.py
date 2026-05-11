@@ -88,8 +88,7 @@ class NMEABridge:
                                 pos = parse_rmc(sentence)
                                 if pos:
                                     await self.broadcast(*pos)
-            except Exception as e:
-                print(f'[nmea] Serial error: {e} — retrying in {RECONNECT_DELAY}s')
+            except Exception:
                 await asyncio.sleep(RECONNECT_DELAY)
 
 
