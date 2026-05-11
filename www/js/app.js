@@ -109,7 +109,7 @@ async function loadLeaflet() {
   if (_leafletReady) return;
   await new Promise((resolve, reject) => {
     const s = document.createElement('script');
-    s.src = `${serverUrl}/js/lib/leaflet.js`;
+    s.src = serverUrl ? `${serverUrl}/js/lib/leaflet.js` : './js/lib/leaflet.js';
     s.onload = () => { _leafletReady = true; resolve(); };
     s.onerror = reject;
     document.head.appendChild(s);
@@ -124,8 +124,14 @@ async function showMap(fromLat, fromLon, result) {
   const container = document.getElementById('map-container');
   container.style.display = 'block';
   if (!_map) {
-    _map = L.map('leaflet-map', { zoomControl: false, attributionControl: false });
-    L.tileLayer(`${serverUrl}/tiles/{z}/{x}/{y}.jpg`, { minZoom: 10, maxZoom: 16 }).addTo(_map);
+    _map = L.map('leaflet-map', { zoomControl: false, attributionControl: !!(!serverUrl) });
+    const tileUrl = serverUrl
+      ? `${serverUrl}/tiles/{z}/{x}/{y}.jpg`
+      : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+    const tileOpts = serverUrl
+      ? { minZoom: 10, maxZoom: 16 }
+      : { minZoom: 8, maxZoom: 18, attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' };
+    L.tileLayer(tileUrl, tileOpts).addTo(_map);
   }
   if (_mapLayers) { _map.removeLayer(_mapLayers); _mapLayers = null; }
   const { destLat, destLon, destName } = result;
@@ -240,7 +246,7 @@ async function handleCommand(transcript) {
     TTS.sayImmediate(response);
 
     const SHOW_MAP_FOR = ['BEARING_TO_PLACE', 'BEARING_TO_COORD', 'NEAREST_HAZARD', 'NEAREST_NAVAID'];
-    if (serverUrl && SHOW_MAP_FOR.includes(intent) && Query.lastBearingResult) {
+    if (SHOW_MAP_FOR.includes(intent) && Query.lastBearingResult) {
       showMap(pos.lat, pos.lon, Query.lastBearingResult).catch(() => {});
     } else {
       hideMap();
