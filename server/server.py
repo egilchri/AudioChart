@@ -163,6 +163,23 @@ async def nmea_broadcast_loop():
         await asyncio.sleep(1.0)
 
 
+async def handle_find_place(request):
+    """GET /api/find-place?q=Southwest+Harbor — full-DB place name lookup."""
+    q = request.rel_url.query.get('q', '').strip()
+    if not q:
+        return web.Response(status=400, text='q required')
+    result = await asyncio.get_event_loop().run_in_executor(
+        None, chartdb.find_place_by_name, q
+    )
+    if result is None:
+        return web.Response(status=404, text='Not found')
+    return web.Response(
+        body=json.dumps(result, separators=(',', ':')),
+        content_type='application/json',
+        headers={'Access-Control-Allow-Origin': '*'},
+    )
+
+
 async def handle_set_test_position(request):
     """POST /api/test-position  body: {"lat":44.1,"lon":-69.0} or {} to clear."""
     global _test_position
@@ -263,6 +280,7 @@ async def main():
     app = web.Application()
     app.router.add_get('/api/waypoints', handle_waypoints)
     app.router.add_get('/api/nearby', handle_nearby)
+    app.router.add_get('/api/find-place', handle_find_place)
     app.router.add_post('/api/test-position', handle_set_test_position)
     app.router.add_get('/tiles/{z}/{x}/{y}.jpg', handle_tile)
     app.router.add_get('/ws/gps', handle_gps_ws)

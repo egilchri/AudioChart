@@ -258,6 +258,25 @@ export function findPlaceByName(query) {
   return { lat, lon, name: best.properties.name };
 }
 
+/**
+ * Server-side place lookup — searches the full chart database.
+ * Used as fallback when findPlaceByName can't find the place in loaded data
+ * (e.g. place is outside the current 20nm data radius).
+ */
+export async function findPlaceOnServer(query) {
+  if (!_serverBase) return null;
+  try {
+    const resp = await fetch(
+      `${_serverBase}/api/find-place?q=${encodeURIComponent(query)}`,
+      { cache: 'no-store', signal: AbortSignal.timeout(5000) }
+    );
+    if (!resp.ok) return null;
+    return await resp.json();  // {lat, lon, name}
+  } catch (_) {
+    return null;
+  }
+}
+
 // ── Turf helpers ────────────────────────────────────────────────────────────
 
 function turfPoint(lon, lat) {

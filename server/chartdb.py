@@ -359,6 +359,60 @@ def get_nearby(lat, lon, radius_nm=DEFAULT_RADIUS_NM):
     }
 
 
+LABEL_RANK = {'town': 3, 'harbour': 3, 'coastal feature': 2, 'sea area': 0}
+
+
+def find_place_by_name(query):
+    """
+    Search the full chart database for a named place matching query.
+    Returns {'lat', 'lon', 'name'} for the best match, or None.
+    Prefers town/harbour labels over generic sea areas when names are identical.
+    """
+    q = query.strip().lower()
+    db = get_db()
+
+    # Exact match first (fast, uses index)
+    rows = db.execute(
+        "SELECT label, lat, lon, name FROM features WHERE name_lower = ? ORDER BY ROWID",
+        (q,)
+    ).fetchall()
+
+    if rows:
+        # Multiple exact matches — pick highest-rank label
+        best = max(rows, key=lambda r: LABEL_RANK.get(r[0], 1))
+        return {'lat': best[1], 'lon': best[2], 'name': best[3]}
+
+    # Fuzzy fallback: fetch candidates that share words, score by similarity
+    words = q.split()
+    if not words:
+        return None
+    like = f'%{words[0]}%'
+    rows = db.execute(
+        "SELECT label, lat, lon, name, name_lower FROM features WHERE name_lower LIKE ? LIMIT 200",
+        (like,)
+    ).fetchall()
+
+    def score(row):
+        nl = row[4]
+        if nl == q:
+            return 1.0 + LABEL_RANK.get(row[0], 1) * 0.001
+        if q in nl:
+            base = len(q) / len(nl)
+        elif nl in q:
+            base = len(nl) / len(q)
+        else:
+            dist = sum(1 for a, b in zip(q, nl) if a != b) + abs(len(q) - len(nl))
+            base = 1 - dist / max(len(q), len(nl), 1)
+        return base + LABEL_RANK.get(row[0], 1) * 0.001
+
+    if not rows:
+        return None
+    best = max(rows, key=score)
+    if score(best) < 0.5:
+        return None
+    return {'lat': best[1], 'lon': best[2], 'name': best[3]}
+
+
 async def process_all_charts():
     """Process all ENC files in ENC_BASE. Runs at server startup."""
     files = find_enc_files()

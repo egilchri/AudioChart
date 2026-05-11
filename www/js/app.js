@@ -198,10 +198,12 @@ testPosBtn.addEventListener('click', () => {
   if (!isOpen) testPosInput.focus();
 });
 
-testPosSet.addEventListener('click', () => {
+testPosSet.addEventListener('click', async () => {
   const raw = testPosInput.value.trim();
-  // Try coordinate formats first, then named place/waypoint lookup
-  const coord = parseCoordinate(raw) || Query.findPlaceByName(raw);
+  // Coordinates first; for place names prefer server (full DB + label ranking),
+  // falling back to local cache when offline.
+  let coord = parseCoordinate(raw);
+  if (!coord) coord = await Query.findPlaceOnServer(raw) || Query.findPlaceByName(raw);
   if (coord) {
     GPS.setManualPosition(coord.lat, coord.lon);
     testPosForm.style.display = 'none';
