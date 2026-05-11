@@ -123,7 +123,7 @@ function showPosition(lat, lon, accuracy, source) {
   if (source === 'manual') {
     const isAndroid = /Android/i.test(navigator.userAgent);
     mapLink.href = isAndroid
-      ? `geo:${lat},${lon}?z=14`
+      ? `geo:${lat},${lon}`
       : `https://maps.google.com/?q=${lat},${lon}&z=14`;
     mapLink.style.display = 'block';
   } else {
