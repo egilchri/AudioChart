@@ -298,7 +298,13 @@ function levenshtein(a, b) {
 }
 
 function similarityScore(a, b) {
-  if (b.includes(a) || a.includes(b)) return 1.0;
+  if (a === b) return 1.0;
+  // Substring containment: score by coverage ratio, not a flat 1.0.
+  // "camden" in "cdsoa-cruise-camden-day-7" → 6/26 = 0.23
+  // "camden" in "camden harbor"             → 6/13 = 0.46
+  // This prevents a short query from matching a long unrelated name.
+  if (b.includes(a)) return a.length / b.length;
+  if (a.includes(b)) return b.length / a.length;
   const dist = levenshtein(a, b);
   return 1 - dist / Math.max(a.length, b.length, 1);
 }
