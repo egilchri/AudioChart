@@ -1,0 +1,25 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [-68.833, 44.063]},
+      "properties": {"objtype": "SEAARE", "label": "sea area", "name": "Carvers Harbor", "name_lower": "carvers harbor", "chart": "TEST"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [-68.855, 44.143]},
+      "properties": {"objtype": "SEAARE", "label": "sea area", "name": "Fox Islands Thorofare", "name_lower": "fox islands thorofare", "chart": "TEST"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [-69.110, 44.103]},
+      "properties": {"objtype": "SEAARE", "label": "sea area", "name": "Rockland Harbor", "name_lower": "rockland harbor", "chart": "TEST"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [-68.830, 44.063]},
+      "properties": {"objtype": "BUAARE", "label": "town", "name": "Vinalhaven", "name_lower": "vinalhaven", "chart": "TEST"}
+    }
+  ]
+}

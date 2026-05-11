@@ -1,0 +1,12 @@
+server/charts.db
+server/charts.db-shm
+server/charts.db-wal
+www/data/hazards_raw.geojson
+www/data/named_places_raw.geojson
+www/data/navaid_raw.geojson
+__pycache__/
+*.pyc
+.DS_Store
+# Emacs temp files
+\#*
+.\#*

@@ -1,0 +1,25 @@
+{
+  "name": "AudioChart Nautical Navigator",
+  "short_name": "AudioChart",
+  "description": "Offline voice-driven nautical hazard and navigation assistant",
+  "display": "standalone",
+  "orientation": "portrait",
+  "start_url": "./",
+  "scope": "./",
+  "background_color": "#0a1628",
+  "theme_color": "#1a3a5c",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

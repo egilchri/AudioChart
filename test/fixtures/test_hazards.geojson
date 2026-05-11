@@ -1,0 +1,25 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [-68.850, 44.142]},
+      "properties": {"objtype": "UWTROC", "label": "underwater rock", "valsou": 1.2, "watlev": 4, "name": null, "chart": "TEST"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [-68.870, 44.138]},
+      "properties": {"objtype": "WRECKS", "label": "wreck", "valsou": 3.0, "watlev": 4, "name": "Test Wreck", "chart": "TEST"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [-68.850, 44.132]},
+      "properties": {"objtype": "DEPARE", "label": "shallow area", "valsou": 4.5, "depth_label": "3.0-4.5m", "chart": "TEST"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [-68.900, 44.200]},
+      "properties": {"objtype": "OBSTRN", "label": "obstruction", "valsou": null, "watlev": 2, "name": null, "chart": "TEST"}
+    }
+  ]
+}

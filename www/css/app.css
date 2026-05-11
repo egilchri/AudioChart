@@ -1,0 +1,229 @@
+/* AudioChart — dark nautical UI optimized for outdoor readability */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --navy: #0a1628;
+  --dark-blue: #1a3a5c;
+  --mid-blue: #2a5080;
+  --accent: #4a9edd;
+  --danger: #e05252;
+  --warn: #e0a030;
+  --ok: #52c052;
+  --text: #e8edf4;
+  --text-dim: #8a9ab0;
+  --font: system-ui, -apple-system, sans-serif;
+}
+
+html, body {
+  height: 100%;
+  background: var(--navy);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 16px;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+#response-text, #status-text {
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 12px;
+  gap: 12px;
+}
+
+/* Header */
+#header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--dark-blue);
+}
+
+#header h1 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+}
+
+/* Status badges */
+.badge-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.status-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 10px;
+  background: var(--dark-blue);
+  color: var(--text-dim);
+}
+
+.status-badge.gps-ok { background: #1a4a1a; color: var(--ok); }
+.status-badge.gps-error { background: #4a1a1a; color: var(--danger); }
+.status-badge.speech-ok { background: #1a3a4a; color: var(--accent); }
+
+/* Position display */
+#position-display {
+  font-family: 'Menlo', 'Courier New', monospace;
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--text);
+  padding: 10px 12px;
+  background: var(--dark-blue);
+  border-radius: 8px;
+  text-align: center;
+  min-height: 2.2rem;
+}
+
+/* Status / instruction line */
+#status-text {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  text-align: center;
+  min-height: 1.2rem;
+}
+
+/* Response area */
+#response-area {
+  flex: 1;
+  overflow-y: auto;
+  background: var(--dark-blue);
+  border-radius: 8px;
+  padding: 14px;
+}
+
+#response-text {
+  font-size: 1rem;
+  line-height: 1.55;
+  color: var(--text);
+  white-space: pre-wrap;
+}
+
+/* Text input */
+#text-form {
+  display: flex;
+  gap: 8px;
+}
+
+#text-input {
+  flex: 1;
+  background: var(--dark-blue);
+  border: 1px solid var(--mid-blue);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 1rem;
+  padding: 10px 12px;
+  outline: none;
+  -webkit-appearance: none;
+}
+
+#text-input::placeholder { color: var(--text-dim); }
+#text-input:focus { border-color: var(--accent); }
+
+#text-submit {
+  background: var(--mid-blue);
+  border: none;
+  border-radius: 8px;
+  color: var(--accent);
+  font-size: 1.1rem;
+  padding: 0 16px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+#text-submit:active { background: var(--accent); color: var(--navy); }
+
+/* Query history */
+#history-area {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  min-height: 0;
+}
+
+#history-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1;
+}
+
+.history-pill {
+  background: var(--dark-blue);
+  border: 1px solid var(--mid-blue);
+  border-radius: 14px;
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  padding: 4px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: border-color 0.1s, color 0.1s;
+}
+
+.history-pill:active,
+.history-pill:hover { border-color: var(--accent); color: var(--text); }
+
+#history-clear {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 4px 6px;
+  flex-shrink: 0;
+  align-self: flex-start;
+}
+#history-clear:hover { color: var(--danger); }
+
+/* Microphone button */
+#mic-btn {
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  border: 3px solid var(--accent);
+  background: var(--dark-blue);
+  color: var(--accent);
+  font-size: 2.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  cursor: pointer;
+  touch-action: none;
+  transition: background 0.1s, transform 0.1s;
+  flex-shrink: 0;
+}
+
+#mic-btn:active,
+#mic-btn.listening {
+  background: var(--mid-blue);
+  border-color: var(--ok);
+  color: var(--ok);
+  transform: scale(1.08);
+}
+
+#mic-hint {
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  margin-top: -6px;
+}

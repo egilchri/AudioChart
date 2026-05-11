@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#1a3a5c">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>AudioChart</title>
+  <link rel="manifest" href="./manifest.json">
+  <link rel="stylesheet" href="./css/app.css">
+</head>
+<body>
+  <div id="app">
+
+    <div id="header">
+      <h1>&#9875; AudioChart</h1>
+      <div class="badge-row">
+        <span id="gps-status" class="status-badge">GPS: waiting</span>
+        <span id="speech-status" class="status-badge">Speech: loading</span>
+      </div>
+    </div>
+
+    <div id="position-display">-- °--.--' -  --- °--.--' -</div>
+
+    <p id="status-text">Loading chart data&hellip;</p>
+
+    <div id="response-area">
+      <p id="response-text">Press the microphone button and say a command.
+
+Examples:
+&bull; &ldquo;Hazards within quarter mile&rdquo;
+&bull; &ldquo;Nearest hazard&rdquo;
+&bull; &ldquo;Range and bearing to Carvers Harbor&rdquo;
+&bull; &ldquo;Where am I&rdquo;
+&bull; &ldquo;Nearest buoy&rdquo;</p>
+    </div>
+
+    <form id="text-form" autocomplete="off">
+      <input id="text-input" type="text" placeholder="Type a command&hellip;" aria-label="Text command input">
+      <button type="submit" id="text-submit">&#9654;</button>
+    </form>
+
+    <div id="history-area">
+      <div id="history-list"></div>
+      <button id="history-clear" title="Clear history" style="display:none">&#10005;</button>
+    </div>
+
+    <button id="mic-btn" aria-label="Push to talk">&#127908;</button>
+    <p id="mic-hint">Hold to speak &nbsp;&bull;&nbsp; or type above</p>
+
+  </div>
+
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>
