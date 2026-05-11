@@ -137,6 +137,17 @@ html, body {
   user-select: text;
 }
 
+/* Map link — shown only in test-position mode */
+#map-link {
+  display: block;
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--warn);
+  text-decoration: none;
+  margin-top: -4px;
+}
+#map-link:hover { text-decoration: underline; }
+
 /* Status / instruction line */
 #status-text {
   font-size: 0.85rem;

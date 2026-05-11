@@ -25,6 +25,9 @@ const testPosForm = document.getElementById('test-pos-form');
 const testPosInput = document.getElementById('test-pos-input');
 const testPosSet = document.getElementById('test-pos-set');
 const testPosClear = document.getElementById('test-pos-clear');
+const mapLink = document.getElementById('map-link');
+
+let serverUrl = null;  // set in init(); used by offline button and test-position API
 
 // ── Query history ─────────────────────────────────────────────────────────────
 
@@ -106,6 +109,13 @@ function showPosition(lat, lon, accuracy, source) {
   gpsStatusEl.className = source === 'manual'
     ? 'status-badge gps-test'
     : 'status-badge gps-ok';
+
+  if (source === 'manual') {
+    mapLink.href = `geo:${lat},${lon}?z=14`;
+    mapLink.style.display = 'block';
+  } else {
+    mapLink.style.display = 'none';
+  }
 }
 
 // ── Command handling ──────────────────────────────────────────────────────────
@@ -197,6 +207,13 @@ testPosSet.addEventListener('click', () => {
     testPosForm.style.display = 'none';
     testPosInput.value = '';
     if (coord.name) setStatus(`Test position set: ${coord.name}`);
+    if (serverUrl) {
+      fetch(`${serverUrl}/api/test-position`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lat: coord.lat, lon: coord.lon }),
+      }).catch(() => {});
+    }
   } else {
     testPosInput.style.borderColor = 'var(--danger)';
     setTimeout(() => { testPosInput.style.borderColor = ''; }, 1500);
@@ -206,6 +223,13 @@ testPosSet.addEventListener('click', () => {
 testPosClear.addEventListener('click', () => {
   GPS.clearManualPosition();
   testPosForm.style.display = 'none';
+  if (serverUrl) {
+    fetch(`${serverUrl}/api/test-position`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    }).catch(() => {});
+  }
 });
 
 // ── Initialisation ────────────────────────────────────────────────────────────
@@ -217,7 +241,7 @@ async function init() {
   // when the first fix arrives and triggers loadData.
   const isMacServer = location.hostname === 'localhost' ||
                       !!location.hostname.match(/^192\.168\.|^10\.|^172\.(1[6-9]|2\d|3[01])\./);
-  const serverUrl = isMacServer
+  serverUrl = isMacServer
     ? location.origin
     : localStorage.getItem('audiochart_server_url');
   if (serverUrl) {

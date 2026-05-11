@@ -149,6 +149,19 @@ The badge will change from `OPENCPN` to `OPENCPN LIVE`.
 
 ---
 
+## Showing test positions in OpenCPN (one-time setup)
+
+When you set a test position in AudioChart (📍), the Mac server broadcasts fake NMEA on port **10112**. To see the ship icon move in OpenCPN:
+
+1. In OpenCPN: **Options → Connections → Add Connection**
+2. Set: Type **Network** | Protocol **TCP** | Address **localhost** | Port **10112** | Direction **Input**
+
+After this, tapping 📍 → Set in AudioChart moves the OpenCPN ship icon to your test position within one second. Tapping Clear stops the broadcast.
+
+On your **phone**, a **View on map** link appears below the position display whenever a test position is active — tap it to open the coordinates in Google Maps (or any map app).
+
+---
+
 ## Chart coverage
 
 Charts are loaded dynamically based on your position. As you navigate to new areas, AudioChart automatically serves data for your current location from the full ENC library at:
