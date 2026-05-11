@@ -361,6 +361,38 @@ def get_nearby(lat, lon, radius_nm=DEFAULT_RADIUS_NM):
 
 LABEL_RANK = {'town': 3, 'harbour': 3, 'coastal feature': 2, 'sea area': 0}
 
+import re as _re
+
+_DIRECTIONAL_RE = [
+    (_re.compile(r'^west(?:ern)?\s+(?:end|entrance|side)\s+(?:of|to)\s+', _re.I), 270),
+    (_re.compile(r'^east(?:ern)?\s+(?:end|entrance|side)\s+(?:of|to)\s+', _re.I), 90),
+    (_re.compile(r'^north(?:ern)?\s+(?:end|entrance|side)\s+(?:of|to)\s+', _re.I), 0),
+    (_re.compile(r'^south(?:ern)?\s+(?:end|entrance|side)\s+(?:of|to)\s+', _re.I), 180),
+    (_re.compile(r'^(?:entrance|entry|mouth)\s+(?:of|to)\s+', _re.I), None),
+]
+
+
+def _parse_directional(query):
+    """Strip 'west end of', 'eastern entrance to', etc. from a query.
+    Returns (clean_name, bearing_deg_or_None)."""
+    q = query.strip()
+    for pat, bearing in _DIRECTIONAL_RE:
+        m = pat.match(q)
+        if m:
+            return q[m.end():].strip(), bearing
+    return q, None
+
+
+def _offset_coords(lat, lon, bearing_deg, dist_nm=3.0):
+    """Return (lat, lon) offset dist_nm nautical miles in bearing_deg direction."""
+    d = dist_nm / 3440.065
+    brg = math.radians(bearing_deg)
+    lat1, lon1 = math.radians(lat), math.radians(lon)
+    lat2 = math.asin(math.sin(lat1)*math.cos(d) + math.cos(lat1)*math.sin(d)*math.cos(brg))
+    lon2 = lon1 + math.atan2(math.sin(brg)*math.sin(d)*math.cos(lat1),
+                              math.cos(d) - math.sin(lat1)*math.sin(lat2))
+    return math.degrees(lat2), math.degrees(lon2)
+
 
 def _parse_disambiguated(query):
     """Split 'Crow Island, near Great Cranberry Island' → ('crow island', 'great cranberry island').
@@ -381,12 +413,13 @@ def _dist_sq(lat1, lon1, lat2, lon2):
 def find_place_by_name(query):
     """
     Search the full chart database for a named place matching query.
-    Supports disambiguation: 'Crow Island, Cranberry Isles' or
-    'Crow Island, near Great Cranberry Island' picks the Crow Island
-    closest to the qualifier location.
+    Handles:
+    - Directional qualifiers: 'west end of X', 'eastern entrance to X'
+    - Disambiguation: 'Crow Island, Cranberry Isles'
     Returns {'lat', 'lon', 'name'} for the best match, or None.
     """
-    primary, qualifier = _parse_disambiguated(query)
+    clean, direction = _parse_directional(query)
+    primary, qualifier = _parse_disambiguated(clean)
 
     # Resolve qualifier to coordinates for proximity selection
     qual_loc = find_place_by_name(qualifier) if qualifier else None
@@ -399,44 +432,48 @@ def find_place_by_name(query):
         (primary,)
     ).fetchall()
 
+    result = None
     if rows:
         if qual_loc and len(rows) > 1:
-            # Multiple exact matches — pick closest to qualifier location
             best = min(rows, key=lambda r: _dist_sq(r[1], r[2], qual_loc['lat'], qual_loc['lon']))
         else:
-            # Single match or no qualifier — prefer by label rank
             best = max(rows, key=lambda r: LABEL_RANK.get(r[0], 1))
-        return {'lat': best[1], 'lon': best[2], 'name': best[3]}
+        result = {'lat': best[1], 'lon': best[2], 'name': best[3]}
+    else:
+        # Fuzzy fallback
+        words = primary.split()
+        if not words:
+            return None
+        like = f'%{words[0]}%'
+        rows = db.execute(
+            "SELECT label, lat, lon, name, name_lower FROM features WHERE name_lower LIKE ? LIMIT 200",
+            (like,)
+        ).fetchall()
 
-    # Fuzzy fallback: search on primary name only
-    words = primary.split()
-    if not words:
-        return None
-    like = f'%{words[0]}%'
-    rows = db.execute(
-        "SELECT label, lat, lon, name, name_lower FROM features WHERE name_lower LIKE ? LIMIT 200",
-        (like,)
-    ).fetchall()
+        def score(row):
+            nl = row[4]
+            if nl == primary:
+                return 1.0 + LABEL_RANK.get(row[0], 1) * 0.001
+            if primary in nl:
+                base = len(primary) / len(nl)
+            elif nl in primary:
+                base = len(nl) / len(primary)
+            else:
+                dist = sum(1 for a, b in zip(primary, nl) if a != b) + abs(len(primary) - len(nl))
+                base = 1 - dist / max(len(primary), len(nl), 1)
+            return base + LABEL_RANK.get(row[0], 1) * 0.001
 
-    def score(row):
-        nl = row[4]
-        if nl == primary:
-            return 1.0 + LABEL_RANK.get(row[0], 1) * 0.001
-        if primary in nl:
-            base = len(primary) / len(nl)
-        elif nl in primary:
-            base = len(nl) / len(primary)
-        else:
-            dist = sum(1 for a, b in zip(primary, nl) if a != b) + abs(len(primary) - len(nl))
-            base = 1 - dist / max(len(primary), len(nl), 1)
-        return base + LABEL_RANK.get(row[0], 1) * 0.001
+        if not rows:
+            return None
+        best = max(rows, key=score)
+        if score(best) < 0.5:
+            return None
+        result = {'lat': best[1], 'lon': best[2], 'name': best[3]}
 
-    if not rows:
-        return None
-    best = max(rows, key=score)
-    if score(best) < 0.5:
-        return None
-    return {'lat': best[1], 'lon': best[2], 'name': best[3]}
+    if result and direction is not None:
+        new_lat, new_lon = _offset_coords(result['lat'], result['lon'], direction)
+        return {**result, 'lat': new_lat, 'lon': new_lon}
+    return result
 
 
 def get_course_hazards(from_lat, from_lon, to_lat, to_lon, corridor_nm=0.25):

@@ -271,9 +271,34 @@ export async function refreshIfNeeded(lat, lon) {
  * Returns {lat, lon, name} for the best match, or null.
  * Used by the test position input so you can type "Camden" instead of coordinates.
  */
-// When multiple features share the same name, prefer specific place types over
-// generic sea areas so "Southwest Harbor (town)" beats "Southwest Harbor (sea area)".
 const LABEL_RANK = { town: 3, harbour: 3, 'coastal feature': 2, 'sea area': 0 };
+
+const _DIRECTIONAL = [
+  { re: /^west(?:ern)?\s+(?:end|entrance|side)\s+(?:of|to)\s+/i, bearing: 270 },
+  { re: /^east(?:ern)?\s+(?:end|entrance|side)\s+(?:of|to)\s+/i, bearing: 90 },
+  { re: /^north(?:ern)?\s+(?:end|entrance|side)\s+(?:of|to)\s+/i, bearing: 0 },
+  { re: /^south(?:ern)?\s+(?:end|entrance|side)\s+(?:of|to)\s+/i, bearing: 180 },
+  { re: /^(?:entrance|entry|mouth)\s+(?:of|to)\s+/i, bearing: null },
+];
+
+function parseDirectional(query) {
+  for (const { re, bearing } of _DIRECTIONAL) {
+    const m = query.match(re);
+    if (m) return { clean: query.slice(m[0].length).trim(), bearing };
+  }
+  return { clean: query, bearing: null };
+}
+
+function offsetCoords(lat, lon, bearingDeg, distNm = 3.0) {
+  const R = 3440.065;
+  const d = distNm / R;
+  const brg = bearingDeg * Math.PI / 180;
+  const lat1 = lat * Math.PI / 180, lon1 = lon * Math.PI / 180;
+  const lat2 = Math.asin(Math.sin(lat1)*Math.cos(d) + Math.cos(lat1)*Math.sin(d)*Math.cos(brg));
+  const lon2 = lon1 + Math.atan2(Math.sin(brg)*Math.sin(d)*Math.cos(lat1),
+                                  Math.cos(d) - Math.sin(lat1)*Math.sin(lat2));
+  return { lat: lat2 * 180/Math.PI, lon: lon2 * 180/Math.PI };
+}
 
 function parseDisambiguated(query) {
   const i = query.indexOf(',');
@@ -285,7 +310,8 @@ function parseDisambiguated(query) {
 }
 
 export function findPlaceByName(query) {
-  const { primary, qualifier } = parseDisambiguated(query);
+  const { clean, bearing } = parseDirectional(query);
+  const { primary, qualifier } = parseDisambiguated(clean);
 
   // Resolve qualifier to coords for proximity-based disambiguation
   let qualLat = null, qualLon = null;
@@ -313,10 +339,10 @@ export function findPlaceByName(query) {
   search(waypoints?.features);
   search(namedPlaces?.features);
 
+  let result = null;
   if (exact.length > 0) {
     let chosen;
     if (qualLat !== null && exact.length > 1) {
-      // Pick the exact match closest to the qualifier location
       chosen = exact.reduce((a, b) => {
         const [alon, alat] = a.geometry.coordinates;
         const [blon, blat] = b.geometry.coordinates;
@@ -325,18 +351,22 @@ export function findPlaceByName(query) {
         return da <= db ? a : b;
       });
     } else {
-      // No qualifier — prefer by label rank
       chosen = exact.reduce((a, b) =>
         (LABEL_RANK[a.properties.label] ?? 1) >= (LABEL_RANK[b.properties.label] ?? 1) ? a : b
       );
     }
     const [lon, lat] = chosen.geometry.coordinates;
-    return { lat, lon, name: chosen.properties.name };
+    result = { lat, lon, name: chosen.properties.name };
+  } else if (best && bestScore >= 0.5) {
+    const [lon, lat] = best.geometry.coordinates;
+    result = { lat, lon, name: best.properties.name };
   }
 
-  if (!best || bestScore < 0.5) return null;
-  const [lon, lat] = best.geometry.coordinates;
-  return { lat, lon, name: best.properties.name };
+  if (result && bearing !== null) {
+    const { lat, lon } = offsetCoords(result.lat, result.lon, bearing);
+    return { ...result, lat, lon };
+  }
+  return result;
 }
 
 /**
