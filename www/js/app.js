@@ -225,7 +225,9 @@ async function init() {
         setStatus(`Offline data cached: ${result.count} features within ${result.radius_nm}nm.`);
       } catch (e) {
         offlineBtn.textContent = '⬇ Offline';
-        setStatus('Offline download failed. Is the server running?');
+        const reason = e.name === 'AbortError' ? 'timed out' : e.message;
+        setStatus(`Offline download failed: ${reason}`);
+        console.error('[offline]', e);
       } finally {
         offlineBtn.disabled = false;
       }

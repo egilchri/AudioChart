@@ -110,13 +110,20 @@ export async function loadData(lat, lon) {
  * Saves a large-radius dataset to the Cache API so the phone
  * can run without the server offshore.
  */
-export async function prepareOffline(lat, lon, radiusNm = 40) {
+export async function prepareOffline(lat, lon, radiusNm = 20) {
   if (!_serverBase) throw new Error('No server connection');
 
-  const resp = await fetch(
-    `${_serverBase}/api/nearby?lat=${lat}&lon=${lon}&radius=${radiusNm}`,
-    { cache: 'no-store' }
-  );
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60_000);
+  let resp;
+  try {
+    resp = await fetch(
+      `${_serverBase}/api/nearby?lat=${lat}&lon=${lon}&radius=${radiusNm}`,
+      { cache: 'no-store', signal: controller.signal }
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
   if (!resp.ok) throw new Error(`Server error: ${resp.status}`);
   const data = await resp.json();
 
