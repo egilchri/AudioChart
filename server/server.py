@@ -205,9 +205,19 @@ const dot=(ll,c,label,dir)=>L.circleMarker(ll,{radius:9,color:c,fillColor:c,fill
 L.polyline([FROM,TO],{color:'#4a9edd',weight:3,dashArray:'8 4',opacity:.9}).addTo(map);
 dot(FROM,'#4a9edd',FROM_NAME,'right');
 dot(TO,'#4a9edd',TO_NAME,'left');
-fetch('/api/course-hazards?from_lat=FROM_LAT&from_lon=FROM_LON&to_lat=TO_LAT&to_lon=TO_LON')
+const ROUTE_NAME=ROUTE_NAME_JSON;
+const hazardUrl=ROUTE_NAME
+  ?'/api/route-hazards?name='+encodeURIComponent(ROUTE_NAME)
+  :'/api/course-hazards?from_lat=FROM_LAT&from_lon=FROM_LON&to_lat=TO_LAT&to_lon=TO_LON';
+fetch(hazardUrl)
   .then(r=>r.json()).then(d=>{
     const pts=[FROM,TO];
+    // If multi-leg route, draw the actual waypoints as a polyline
+    if(d.waypoints&&d.waypoints.length>2){
+      const wpts=d.waypoints.map(w=>[w.lat,w.lon]);
+      L.polyline(wpts,{color:'#4a9edd',weight:3,dashArray:'8 4',opacity:.9}).addTo(map);
+      pts.push(...wpts);
+    }
     d.hazards.forEach(h=>{
       const lbl=h.name?h.name+' ('+h.label+')':h.label;
       L.circleMarker([h.lat,h.lon],{radius:8,color:'#e0a030',fillColor:'#e0a030',fillOpacity:.85,weight:1.5})
@@ -215,25 +225,27 @@ fetch('/api/course-hazards?from_lat=FROM_LAT&from_lon=FROM_LON&to_lat=TO_LAT&to_
       pts.push([h.lat,h.lon]);
     });
     map.fitBounds(L.latLngBounds(pts).pad(.15));
+    const title=ROUTE_NAME||FROM_NAME+' → '+TO_NAME;
     document.getElementById('subtitle').textContent=
-      FROM_NAME+' → '+TO_NAME+' — '+d.count+' hazard'+(d.count===1?'':'s');
+      title+' — '+d.count+' hazard'+(d.count===1?'':'s');
   }).catch(()=>map.fitBounds(L.latLngBounds([FROM,TO]).pad(.2)));
 </script>
 </body>
 </html>"""
 
 
-def _build_course_map(from_lat, from_lon, to_lat, to_lon, from_name, to_name):
+def _build_course_map(from_lat, from_lon, to_lat, to_lon, from_name, to_name, route_name=None):
     import json
-    title = f'AudioChart: {from_name} → {to_name}'
+    title = f'AudioChart: {route_name or (from_name + " → " + to_name)}'
     return (COURSE_MAP_HTML
         .replace('TITLE_PLACEHOLDER', title)
-        .replace('FROM_LAT',       str(from_lat))
-        .replace('FROM_LON',       str(from_lon))
-        .replace('TO_LAT',         str(to_lat))
-        .replace('TO_LON',         str(to_lon))
-        .replace('FROM_NAME_JSON', json.dumps(from_name))
-        .replace('TO_NAME_JSON',   json.dumps(to_name))
+        .replace('FROM_LAT',        str(from_lat))
+        .replace('FROM_LON',        str(from_lon))
+        .replace('TO_LAT',          str(to_lat))
+        .replace('TO_LON',          str(to_lon))
+        .replace('FROM_NAME_JSON',  json.dumps(from_name))
+        .replace('TO_NAME_JSON',    json.dumps(to_name))
+        .replace('ROUTE_NAME_JSON', json.dumps(route_name))
     )
 
 
@@ -247,9 +259,10 @@ async def handle_course_map(request):
         to_lon   = float(q['to_lon'])
     except (KeyError, ValueError):
         return web.Response(status=400, text='from_lat, from_lon, to_lat, to_lon required')
-    from_name = q.get('from_name', 'Start')
-    to_name   = q.get('to_name', 'End')
-    html = _build_course_map(from_lat, from_lon, to_lat, to_lon, from_name, to_name)
+    from_name  = q.get('from_name', 'Start')
+    to_name    = q.get('to_name', 'End')
+    route_name = q.get('route_name') or None
+    html = _build_course_map(from_lat, from_lon, to_lat, to_lon, from_name, to_name, route_name)
     return web.Response(text=html, content_type='text/html')
 
 
@@ -312,6 +325,29 @@ async def handle_opencpn_draw(request):
         return _json_response(request, {'ok': True, 'path': path, 'count': len(data.get('hazards', []))})
     except Exception as e:
         return web.Response(status=400, text=str(e))
+
+
+async def handle_route_hazards(request):
+    """GET /api/route-hazards?name=Ted+New+Rock+Route"""
+    name = request.rel_url.query.get('name', '').strip()
+    if not name:
+        return web.Response(status=400, text='name required')
+    route = await asyncio.get_event_loop().run_in_executor(
+        None, opencpn_waypoints.get_route_by_name, name
+    )
+    if not route:
+        return _json_response(request, {'not_found': True, 'name': name})
+    waypoints = route['points']
+    if len(waypoints) < 2:
+        return _json_response(request, {'error': f'Route has fewer than 2 waypoints', 'route_name': route['name']})
+    result = await asyncio.get_event_loop().run_in_executor(
+        None, chartdb.get_route_segment_hazards, waypoints
+    )
+    result['route_name'] = route['name']
+    result['from'] = {'lat': waypoints[0]['lat'],  'lon': waypoints[0]['lon'],  'name': waypoints[0]['name']  or 'Start'}
+    result['to']   = {'lat': waypoints[-1]['lat'], 'lon': waypoints[-1]['lon'], 'name': waypoints[-1]['name'] or 'End'}
+    result['waypoints'] = waypoints
+    return _json_response(request, result)
 
 
 async def handle_course_hazards(request):
@@ -443,6 +479,7 @@ async def main():
     app = web.Application()
     app.router.add_get('/api/waypoints', handle_waypoints)
     app.router.add_get('/api/nearby', handle_nearby)
+    app.router.add_get('/api/route-hazards', handle_route_hazards)
     app.router.add_get('/api/course-hazards', handle_course_hazards)
     app.router.add_get('/course-map', handle_course_map)
     app.router.add_get('/api/find-place', handle_find_place)

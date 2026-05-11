@@ -308,6 +308,32 @@ async function handleCommand(transcript) {
         response = Query.hazardsOnCourse(fromPos.lat, fromPos.lon, toPos.lat, toPos.lon);
         break;
       }
+      case 'HAZARDS_ALONG_ROUTE': {
+        if (!serverUrl) {
+          response = { text: 'Route lookup requires the Mac server.', speech: 'Route lookup requires the Mac server.' };
+          break;
+        }
+        try {
+          const r = await fetch(
+            `${serverUrl}/api/route-hazards?name=${encodeURIComponent(params.routeName)}`,
+            { cache: 'no-store', signal: AbortSignal.timeout(8000) }
+          );
+          if (!r.ok) throw new Error('Server error');
+          const data = await r.json();
+          if (data.not_found) {
+            response = { text: `No route named "${params.routeName}" found in OpenCPN.`, speech: `I couldn't find a route called ${params.routeName} in OpenCPN.` };
+            break;
+          }
+          if (data.error) { response = { text: data.error, speech: data.error }; break; }
+          _lastCourseFrom = data.from;
+          _lastCourseTo   = data.to;
+          _lastCourseFrom._routeName = data.route_name;
+          response = Query.formatCourseHazards(data.hazards, data.course_length_nm);
+        } catch (e) {
+          response = { text: `Error: ${e.message}`, speech: `Error looking up route.` };
+        }
+        break;
+      }
       default:
         response = 'I didn\'t understand that. Try: "hazards within quarter mile", "bearing to [place]", or "where am I".';
     }
@@ -318,7 +344,8 @@ async function handleCommand(transcript) {
     TTS.sayImmediate(speechText);
 
     const SHOW_MAP_FOR = ['BEARING_TO_PLACE', 'BEARING_TO_COORD', 'NEAREST_HAZARD', 'NEAREST_NAVAID'];
-    if (intent === 'HAZARDS_ON_COURSE' && _lastCourseFrom) {
+    const isCourseIntent = (intent === 'HAZARDS_ON_COURSE' || intent === 'HAZARDS_ALONG_ROUTE');
+    if (isCourseIntent && _lastCourseFrom) {
       showCourseMap(_lastCourseFrom.lat, _lastCourseFrom.lon, _lastCourseTo.lat, _lastCourseTo.lon, Query.lastCourseHazards).catch(() => {});
       if (serverUrl) opencpnBtn.style.display = 'inline-block';
     } else if (SHOW_MAP_FOR.includes(intent) && Query.lastBearingResult) {
@@ -387,7 +414,7 @@ testPosSet.addEventListener('click', async () => {
 
 opencpnBtn.addEventListener('click', () => {
   if (!serverUrl || !_lastCourseFrom || !_lastCourseTo) return;
-  const params = new URLSearchParams({
+  const p = new URLSearchParams({
     from_lat:  _lastCourseFrom.lat,
     from_lon:  _lastCourseFrom.lon,
     to_lat:    _lastCourseTo.lat,
@@ -395,7 +422,8 @@ opencpnBtn.addEventListener('click', () => {
     from_name: _lastCourseFrom.name || 'Start',
     to_name:   _lastCourseTo.name   || 'End',
   });
-  window.open(`${serverUrl}/course-map?${params}`, '_blank');
+  if (_lastCourseFrom._routeName) p.set('route_name', _lastCourseFrom._routeName);
+  window.open(`${serverUrl}/course-map?${p}`, '_blank');
 });
 
 testPosClear.addEventListener('click', () => {

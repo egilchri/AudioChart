@@ -144,6 +144,18 @@ const PATTERNS = [
     extract: (m) => ({ fromPlace: m[2].trim(), toPlace: m[3].trim() }),
   },
 
+  // HAZARDS ALONG NAMED OPENCPN ROUTE (must come before BEARING_TO_PLACE)
+  {
+    re: /\bhazards?\s+along\s+(?:the\s+)?(.{3,60})$/i,
+    intent: 'HAZARDS_ALONG_ROUTE',
+    extract: (m) => ({ routeName: m[1].trim() }),
+  },
+  {
+    re: /\bhazards?\s+on\s+(?:the\s+)?(.{3,60}\broute\b.{0,10})$/i,
+    intent: 'HAZARDS_ALONG_ROUTE',
+    extract: (m) => ({ routeName: m[1].trim() }),
+  },
+
   // RANGE AND BEARING TO GPS COORDINATE (checked before named place)
   {
     re: /\b(range\s+and\s+bearing|bearing\s+and\s+range|bearing|distance|how\s+far|range)\b.{0,20}(to|of)\s+(.{3,80})$/i,

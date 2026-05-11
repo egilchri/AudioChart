@@ -546,6 +546,30 @@ def get_course_hazards(from_lat, from_lon, to_lat, to_lon, corridor_nm=0.25):
     return {'hazards': results, 'count': len(results), 'course_length_nm': round(d_ab, 2)}
 
 
+def get_route_segment_hazards(waypoints, corridor_nm=0.25):
+    """
+    Check hazards along every leg of a multi-point route.
+    waypoints: list of {lat, lon} dicts in order.
+    Returns same format as get_course_hazards with cumulative along_track_nm.
+    """
+    seen = {}
+    cumulative = 0.0
+
+    for i in range(len(waypoints) - 1):
+        a, b = waypoints[i], waypoints[i + 1]
+        leg = get_course_hazards(a['lat'], a['lon'], b['lat'], b['lon'], corridor_nm)
+        for h in leg['hazards']:
+            key = f"{h['lat']:.4f},{h['lon']:.4f}"
+            if key not in seen:
+                h_copy = dict(h)
+                h_copy['along_track_nm'] = round(h['along_track_nm'] + cumulative, 3)
+                seen[key] = h_copy
+        cumulative += leg['course_length_nm']
+
+    results = sorted(seen.values(), key=lambda h: h['along_track_nm'])
+    return {'hazards': results, 'count': len(results), 'course_length_nm': round(cumulative, 2)}
+
+
 async def process_all_charts():
     """Process all ENC files in ENC_BASE. Runs at server startup."""
     files = find_enc_files()
