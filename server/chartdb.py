@@ -439,6 +439,76 @@ def find_place_by_name(query):
     return {'lat': best[1], 'lon': best[2], 'name': best[3]}
 
 
+def get_course_hazards(from_lat, from_lon, to_lat, to_lon, corridor_nm=0.25):
+    """
+    Return hazards within corridor_nm of the great-circle course from A to B,
+    querying the full chart database (not limited to a position radius).
+    Returns {'hazards': [...], 'count': N, 'course_length_nm': D}.
+    """
+    pad = (corridor_nm + 1.0) / 60.0  # degrees lat, 1nm extra margin
+    cos_lat = math.cos(math.radians((from_lat + to_lat) / 2))
+    pad_lon = pad / max(cos_lat, 0.01)
+    min_lat = min(from_lat, to_lat) - pad
+    max_lat = max(from_lat, to_lat) + pad
+    min_lon = min(from_lon, to_lon) - pad_lon
+    max_lon = max(from_lon, to_lon) + pad_lon
+
+    db = get_db()
+    rows = db.execute('''
+        SELECT label, lat, lon, name
+        FROM features
+        WHERE category = 'hazard'
+          AND lat BETWEEN ? AND ?
+          AND lon BETWEEN ? AND ?
+    ''', (min_lat, max_lat, min_lon, max_lon)).fetchall()
+
+    R = 3440.065
+
+    def _brg(lon1, lat1, lon2, lat2):
+        phi1, phi2 = math.radians(lat1), math.radians(lat2)
+        dlam = math.radians(lon2 - lon1)
+        y = math.sin(dlam) * math.cos(phi2)
+        x = math.cos(phi1)*math.sin(phi2) - math.sin(phi1)*math.cos(phi2)*math.cos(dlam)
+        return math.atan2(y, x)
+
+    def _cross_track(p_lon, p_lat):
+        d13 = haversine_nm(from_lat, from_lon, p_lat, p_lon) / R
+        if d13 < 1e-9:
+            return 0.0, 0.0
+        b13 = _brg(from_lon, from_lat, p_lon, p_lat)
+        b12 = _brg(from_lon, from_lat, to_lon, to_lat)
+        dxt = math.asin(math.sin(d13) * math.sin(b13 - b12)) * R
+        cos_dxt = math.cos(dxt / R)
+        if abs(cos_dxt) < 1e-10:
+            return None, None
+        dat = math.acos(max(-1.0, min(1.0, math.cos(d13) / cos_dxt))) * R
+        return dxt, dat
+
+    d_ab = haversine_nm(from_lat, from_lon, to_lat, to_lon)
+    PRIORITY = {'underwater rock': 2, 'obstruction': 2, 'wreck': 2, 'shallow area': 1}
+
+    results = []
+    for label, flat, flon, name in rows:
+        if PRIORITY.get(label, 2) == 1 and not name:
+            continue
+        dxt, dat = _cross_track(flon, flat)
+        if dxt is None:
+            continue
+        if abs(dxt) <= corridor_nm and 0 <= dat <= d_ab:
+            results.append({
+                'lat': flat,
+                'lon': flon,
+                'label': label,
+                'name': name or '',
+                'along_track_nm': round(dat, 3),
+                'cross_track_nm': round(abs(dxt), 3),
+                'side': 'port' if dxt <= 0 else 'starboard',
+            })
+
+    results.sort(key=lambda r: r['along_track_nm'])
+    return {'hazards': results, 'count': len(results), 'course_length_nm': round(d_ab, 2)}
+
+
 async def process_all_charts():
     """Process all ENC files in ENC_BASE. Runs at server startup."""
     files = find_enc_files()

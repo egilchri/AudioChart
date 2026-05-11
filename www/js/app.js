@@ -288,9 +288,23 @@ async function handleCommand(transcript) {
         ]);
         if (!fromPos) { response = { text: `Couldn't find "${params.fromPlace}"`, speech: `I couldn't find ${params.fromPlace}.` }; break; }
         if (!toPos)   { response = { text: `Couldn't find "${params.toPlace}"`,   speech: `I couldn't find ${params.toPlace}.`   }; break; }
-        response = Query.hazardsOnCourse(fromPos.lat, fromPos.lon, toPos.lat, toPos.lon);
         _lastCourseFrom = fromPos;
         _lastCourseTo   = toPos;
+        // Server endpoint queries the full chart DB — bypasses the 20nm in-memory limit
+        if (serverUrl) {
+          try {
+            const r = await fetch(
+              `${serverUrl}/api/course-hazards?from_lat=${fromPos.lat}&from_lon=${fromPos.lon}&to_lat=${toPos.lat}&to_lon=${toPos.lon}`,
+              { cache: 'no-store', signal: AbortSignal.timeout(8000) }
+            );
+            if (r.ok) {
+              const data = await r.json();
+              response = Query.formatCourseHazards(data.hazards, data.course_length_nm);
+              break;
+            }
+          } catch (_) {}
+        }
+        response = Query.hazardsOnCourse(fromPos.lat, fromPos.lon, toPos.lat, toPos.lon);
         break;
       }
       default:

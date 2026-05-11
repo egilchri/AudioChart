@@ -165,6 +165,22 @@ async def nmea_broadcast_loop():
         await asyncio.sleep(1.0)
 
 
+async def handle_course_hazards(request):
+    """GET /api/course-hazards?from_lat=&from_lon=&to_lat=&to_lon=&corridor=0.25"""
+    try:
+        from_lat = float(request.rel_url.query['from_lat'])
+        from_lon = float(request.rel_url.query['from_lon'])
+        to_lat   = float(request.rel_url.query['to_lat'])
+        to_lon   = float(request.rel_url.query['to_lon'])
+        corridor = float(request.rel_url.query.get('corridor', 0.25))
+    except (KeyError, ValueError):
+        return web.Response(status=400, text='from_lat, from_lon, to_lat, to_lon required')
+    result = await asyncio.get_event_loop().run_in_executor(
+        None, chartdb.get_course_hazards, from_lat, from_lon, to_lat, to_lon, corridor
+    )
+    return _json_response(request, result)
+
+
 async def handle_find_place(request):
     """GET /api/find-place?q=Southwest+Harbor — full-DB place name lookup."""
     q = request.rel_url.query.get('q', '').strip()
@@ -278,6 +294,7 @@ async def main():
     app = web.Application()
     app.router.add_get('/api/waypoints', handle_waypoints)
     app.router.add_get('/api/nearby', handle_nearby)
+    app.router.add_get('/api/course-hazards', handle_course_hazards)
     app.router.add_get('/api/find-place', handle_find_place)
     app.router.add_post('/api/test-position', handle_set_test_position)
     app.router.add_get('/tiles/{z}/{x}/{y}.jpg', handle_tile)

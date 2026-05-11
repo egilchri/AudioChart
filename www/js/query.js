@@ -621,40 +621,19 @@ function crossTrackDist(aLon, aLat, bLon, bLat, pLon, pLat) {
   return { crossTrack: dxt, alongTrack: dat };
 }
 
-/** Find all charted hazards within corridorNm of the course from A to B. */
-export function hazardsOnCourse(fromLat, fromLon, toLat, toLon, corridorNm = 0.25) {
-  lastBearingResult = null;
-  lastCourseHazards = null;
-  if (!hazards || hazards.features.length === 0) return 'No hazard data loaded.';
-
-  const dAB = distanceNm(fromLon, fromLat, toLon, toLat);
-  if (dAB < 0.01) return 'Start and end are the same point.';
-
-  // For course queries, prefer specific hazards over generic shallow areas.
-  // Shallow areas are only included if they have a name (e.g. "Seal Island Shoal").
-  const PRIORITY = { 'underwater rock': 2, 'obstruction': 2, 'wreck': 2, 'shallow area': 1 };
-
-  const results = [];
-  for (const f of hazards.features) {
-    const label = f.properties.label || f.properties.objtype || 'hazard';
-    const priority = PRIORITY[label] ?? 2;
-    if (priority === 1 && !f.properties.name) continue;  // skip unnamed shallow areas
-
-    const [pLon, pLat] = f.geometry.coordinates;
-    const ct = crossTrackDist(fromLon, fromLat, toLon, toLat, pLon, pLat);
-    if (!ct) continue;
-    const { crossTrack, alongTrack } = ct;
-    if (Math.abs(crossTrack) <= corridorNm && alongTrack >= 0 && alongTrack <= dAB) {
-      const name  = f.properties.name ? `, ${f.properties.name}` : '';
-      const side  = crossTrack <= 0 ? 'port' : 'starboard';
-      results.push({ lat: pLat, lon: pLon, alongTrack, crossTrack, label, name, side, priority });
-    }
-  }
-  lastCourseHazards = results.map(r => ({ lat: r.lat, lon: r.lon, label: r.label, name: r.name }));
-
-  const count = results.length;
-  const courseLen = distanceToDisplay(dAB);
+/**
+ * Format a course-hazards result (from server API or local search) and update lastCourseHazards.
+ * hazards = [{label, name, along_track_nm, cross_track_nm, side, lat, lon}, ...]
+ * Already sorted by along_track_nm ascending.
+ */
+export function formatCourseHazards(hazardsArr, courseLengthNm, corridorNm = 0.25) {
+  const count = hazardsArr.length;
+  const courseLen = distanceToDisplay(courseLengthNm);
   const header = `${count} hazard${count === 1 ? '' : 's'} on ${courseLen} course`;
+
+  lastCourseHazards = hazardsArr.map(r => ({
+    lat: r.lat, lon: r.lon, label: r.label, name: r.name ? `, ${r.name}` : '',
+  }));
 
   if (count === 0) {
     return {
@@ -663,16 +642,53 @@ export function hazardsOnCourse(fromLat, fromLon, toLat, toLon, corridorNm = 0.2
     };
   }
 
-  const textParts = results.slice(0, 8).map(r =>
-    `${r.label}${r.name}  ${distanceToDisplay(r.alongTrack)} along  ${distanceToDisplay(Math.abs(r.crossTrack))} ${r.side}`
-  );
-  const speechParts = results.slice(0, 5).map(r =>
-    `${r.label}${r.name}, ${formatDistance(r.alongTrack)} along, ${formatDistance(Math.abs(r.crossTrack))} to ${r.side}`
-  );
+  const textParts = hazardsArr.slice(0, 8).map(r => {
+    const n = r.name ? `, ${r.name}` : '';
+    return `${r.label}${n}  ${distanceToDisplay(r.along_track_nm)} along  ${distanceToDisplay(r.cross_track_nm)} ${r.side}`;
+  });
+  const speechParts = hazardsArr.slice(0, 5).map(r => {
+    const n = r.name ? `, ${r.name}` : '';
+    return `${r.label}${n}, ${formatDistance(r.along_track_nm)} along, ${formatDistance(r.cross_track_nm)} to ${r.side}`;
+  });
   const more = count > 8 ? `\nPlus ${count - 8} more.` : '';
 
   return {
     text:   `${header}:\n${textParts.join('\n')}${more}`,
     speech: `${count} hazard${count === 1 ? '' : 's'} on course: ${speechParts.join('. ')}.${count > 5 ? ` Plus ${count - 5} more.` : ''}`,
   };
+}
+
+/** Find all charted hazards within corridorNm of the course from A to B (local in-memory data). */
+export function hazardsOnCourse(fromLat, fromLon, toLat, toLon, corridorNm = 0.25) {
+  lastBearingResult = null;
+  lastCourseHazards = null;
+  if (!hazards || hazards.features.length === 0) return 'No hazard data loaded.';
+
+  const dAB = distanceNm(fromLon, fromLat, toLon, toLat);
+  if (dAB < 0.01) return 'Start and end are the same point.';
+
+  const PRIORITY = { 'underwater rock': 2, 'obstruction': 2, 'wreck': 2, 'shallow area': 1 };
+
+  const results = [];
+  for (const f of hazards.features) {
+    const label = f.properties.label || f.properties.objtype || 'hazard';
+    if ((PRIORITY[label] ?? 2) === 1 && !f.properties.name) continue;
+
+    const [pLon, pLat] = f.geometry.coordinates;
+    const ct = crossTrackDist(fromLon, fromLat, toLon, toLat, pLon, pLat);
+    if (!ct) continue;
+    const { crossTrack, alongTrack } = ct;
+    if (Math.abs(crossTrack) <= corridorNm && alongTrack >= 0 && alongTrack <= dAB) {
+      results.push({
+        lat: pLat, lon: pLon, label,
+        name: f.properties.name || '',
+        along_track_nm: alongTrack,
+        cross_track_nm: Math.abs(crossTrack),
+        side: crossTrack <= 0 ? 'port' : 'starboard',
+      });
+    }
+  }
+  results.sort((a, b) => a.along_track_nm - b.along_track_nm);
+
+  return formatCourseHazards(results, dAB, corridorNm);
 }

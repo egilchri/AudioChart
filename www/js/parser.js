@@ -131,15 +131,17 @@ const PATTERNS = [
   },
 
   // HAZARDS ON COURSE FROM X TO Y  (must come before BEARING_TO_PLACE)
+  // Note: place names are NOT normalized here — aliases can cascade on full names.
+  // The lookup functions handle matching directly.
   {
     re: /\b(hazard|danger|obstacle|what.{0,15}(way|course|route|between)).{0,50}\bfrom\s+(.{3,60}?)\s+to\s+(.{3,60})$/i,
     intent: 'HAZARDS_ON_COURSE',
-    extract: (m) => ({ fromPlace: normalizePlaceName(m[3].trim()), toPlace: normalizePlaceName(m[4].trim()) }),
+    extract: (m) => ({ fromPlace: m[3].trim(), toPlace: m[4].trim() }),
   },
   {
     re: /\b(hazard|danger|obstacle|between).{0,40}\bbetween\s+(.{3,60}?)\s+and\s+(.{3,60})$/i,
     intent: 'HAZARDS_ON_COURSE',
-    extract: (m) => ({ fromPlace: normalizePlaceName(m[2].trim()), toPlace: normalizePlaceName(m[3].trim()) }),
+    extract: (m) => ({ fromPlace: m[2].trim(), toPlace: m[3].trim() }),
   },
 
   // RANGE AND BEARING TO GPS COORDINATE (checked before named place)
