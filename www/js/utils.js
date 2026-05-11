@@ -93,3 +93,20 @@ export function formatPositionDisplay(lat, lon) {
 export function roundBearing(deg) {
   return Math.round(((deg % 360) + 360) % 360 / 5) * 5 % 360;
 }
+
+/** 8-point compass direction as English words: 225 → "southwest" */
+export function compassDirectionWords(deg) {
+  const pts = ['north','northeast','east','southeast','south','southwest','west','northwest'];
+  return pts[Math.round(((deg % 360) + 360) % 360 / 45) % 8];
+}
+
+/** Natural-language distance suitable for "Where am I" responses */
+export function naturalDistance(nm) {
+  if (nm < 0.15) return 'less than a quarter mile';
+  if (nm < 0.35) return 'about a quarter mile';
+  if (nm < 0.65) return 'about half a mile';
+  if (nm < 0.85) return 'about three-quarters of a mile';
+  if (nm < 1.25) return 'about a nautical mile';
+  if (nm < 1.75) return 'about one and a half nautical miles';
+  return `${nm.toFixed(1)} nautical miles`;
+}

@@ -3,7 +3,7 @@
  * Loads GeoJSON data once at startup, keeps in memory.
  */
 
-import { bearingToWords, bearingToDisplay, formatDistance, distanceToDisplay, formatDM, trueTomagnetic, setMagneticVariation } from './utils.js';
+import { bearingToWords, bearingToDisplay, formatDistance, distanceToDisplay, formatDM, trueTomagnetic, setMagneticVariation, compassDirectionWords, naturalDistance } from './utils.js';
 
 // ── IndexedDB offline store ───────────────────────────────────────────────────
 // Works on plain HTTP (unlike the Cache API which requires HTTPS/localhost).
@@ -379,15 +379,48 @@ function similarityScore(a, b) {
 
 // ── Query functions ──────────────────────────────────────────────────────────
 
-/** Speak current position. */
+const LANDMARK_LABELS = new Set(['town', 'harbour', 'harbor', 'island', 'coastal feature']);
+
+function findNearestLandmark(lat, lon) {
+  if (!namedPlaces) return null;
+  let preferred = null, prefDist = Infinity;
+  let fallback  = null, fallDist = Infinity;
+  for (const f of namedPlaces.features) {
+    const name = f.properties.name;
+    if (!name) continue;
+    const [flon, flat] = f.geometry.coordinates;
+    const d = distanceNm(lon, lat, flon, flat);
+    if (LANDMARK_LABELS.has(f.properties.label) && d < prefDist && d < 20) {
+      prefDist = d; preferred = { name, dist: d, lat: flat, lon: flon };
+    }
+    if (d < fallDist && d < 5) {
+      fallDist = d; fallback = { name, dist: d, lat: flat, lon: flon };
+    }
+  }
+  return preferred || fallback;
+}
+
+/** Describe current position relative to nearest landmark. */
 export function whereAmI(lat, lon, accuracy) {
   lastBearingResult = null;
-  const acc = accuracy ? `, ±${Math.round(accuracy)} m` : '';
-  const accSpoken = accuracy ? `, accuracy ${Math.round(accuracy)} metres` : '';
-  const pos = `${formatDM(lat, true)}, ${formatDM(lon, false)}`;
+  const accText   = accuracy ? `  ±${Math.round(accuracy)} m` : '';
+  const accSpeech = accuracy ? `, accuracy ${Math.round(accuracy)} metres` : '';
+
+  const lm = findNearestLandmark(lat, lon);
+  if (lm) {
+    const brg = ((bearing(lm.lon, lm.lat, lon, lat)) + 360) % 360;
+    const dir = compassDirectionWords(brg);
+    const dist = naturalDistance(lm.dist);
+    return {
+      text:   `${dist} ${dir} of ${lm.name}${accText}`,
+      speech: `You are ${dist} ${dir} of ${lm.name}${accSpeech}.`,
+    };
+  }
+
+  const coordText = `${formatDM(lat, true)}, ${formatDM(lon, false)}`;
   return {
-    text:   `${pos}${acc}`,
-    speech: `You are at ${pos}${accSpoken}.`,
+    text:   `${coordText}${accText}`,
+    speech: `You are at ${coordText}${accSpeech}.`,
   };
 }
 
