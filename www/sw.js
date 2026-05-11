@@ -8,7 +8,7 @@
  *   /api/*       → network-only (never cache dynamic API responses)
  */
 
-const CACHE = 'audiochart-v1';
+const CACHE = 'audiochart-v2';
 const TILES_CACHE = 'audiochart-tiles-v1';
 const TILES_MAX = 800;
 
@@ -42,8 +42,8 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Never intercept API calls — always hit the network
-  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/ws/')) {
+  // Never intercept API or connect page — always hit the network
+  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/ws/') || url.pathname === '/connect') {
     return;
   }
 
