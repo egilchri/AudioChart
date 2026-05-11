@@ -165,6 +165,67 @@ async def nmea_broadcast_loop():
         await asyncio.sleep(1.0)
 
 
+def _xml_escape(s):
+    return (s.replace('&', '&amp;').replace('<', '&lt;')
+             .replace('>', '&gt;').replace('"', '&quot;'))
+
+
+def generate_course_gpx(from_name, from_lat, from_lon, to_name, to_lat, to_lon, hazards):
+    """Build a GPX string with the course route + hazard waypoints."""
+    lines = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<gpx version="1.1" creator="AudioChart"',
+        '     xmlns="http://www.topografix.com/GPX/1/1"',
+        '     xmlns:opencpn="http://www.opencpn.org">',
+    ]
+    # Hazard waypoints (standalone markers on the chart)
+    for h in hazards:
+        name = _xml_escape((h.get('name') or h.get('label', 'hazard')).strip(', '))
+        lines += [
+            f'  <wpt lat="{h["lat"]:.6f}" lon="{h["lon"]:.6f}">',
+            f'    <name>{name}</name>',
+            '    <sym>circle</sym>',
+            '    <extensions><opencpn:waypoint>',
+            '      <opencpn:viz>1</opencpn:viz>',
+            '      <opencpn:viz_name>1</opencpn:viz_name>',
+            '    </opencpn:waypoint></extensions>',
+            '  </wpt>',
+        ]
+    # Course route
+    lines += [
+        f'  <rte>',
+        f'    <name>AudioChart: {_xml_escape(from_name)} to {_xml_escape(to_name)}</name>',
+        f'    <rtept lat="{from_lat:.6f}" lon="{from_lon:.6f}">',
+        f'      <name>{_xml_escape(from_name)}</name>',
+        f'    </rtept>',
+        f'    <rtept lat="{to_lat:.6f}" lon="{to_lon:.6f}">',
+        f'      <name>{_xml_escape(to_name)}</name>',
+        f'    </rtept>',
+        f'  </rte>',
+        '</gpx>',
+    ]
+    return '\n'.join(lines)
+
+
+async def handle_opencpn_draw(request):
+    """POST /api/opencpn-draw — write a GPX file and open it in OpenCPN."""
+    import subprocess, os
+    try:
+        data = await request.json()
+        gpx = generate_course_gpx(
+            data.get('from_name', 'Start'), data['from_lat'], data['from_lon'],
+            data.get('to_name', 'End'),   data['to_lat'],   data['to_lon'],
+            data.get('hazards', []),
+        )
+        path = os.path.expanduser('~/Documents/audiochart_course.gpx')
+        with open(path, 'w') as f:
+            f.write(gpx)
+        subprocess.Popen(['open', '-a', 'OpenCPN', path])
+        return _json_response(request, {'ok': True, 'path': path, 'count': len(data.get('hazards', []))})
+    except Exception as e:
+        return web.Response(status=400, text=str(e))
+
+
 async def handle_course_hazards(request):
     """GET /api/course-hazards?from_lat=&from_lon=&to_lat=&to_lon=&corridor=0.25"""
     try:
@@ -295,6 +356,7 @@ async def main():
     app.router.add_get('/api/waypoints', handle_waypoints)
     app.router.add_get('/api/nearby', handle_nearby)
     app.router.add_get('/api/course-hazards', handle_course_hazards)
+    app.router.add_post('/api/opencpn-draw', handle_opencpn_draw)
     app.router.add_get('/api/find-place', handle_find_place)
     app.router.add_post('/api/test-position', handle_set_test_position)
     app.router.add_get('/tiles/{z}/{x}/{y}.jpg', handle_tile)

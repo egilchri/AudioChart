@@ -29,6 +29,7 @@ const testPosInput = document.getElementById('test-pos-input');
 const testPosSet = document.getElementById('test-pos-set');
 const testPosClear = document.getElementById('test-pos-clear');
 const mapLink = document.getElementById('map-link');
+const opencpnBtn = document.getElementById('opencpn-btn');
 
 let serverUrl = null;  // set in init(); used by offline button and test-position API
 
@@ -319,10 +320,13 @@ async function handleCommand(transcript) {
     const SHOW_MAP_FOR = ['BEARING_TO_PLACE', 'BEARING_TO_COORD', 'NEAREST_HAZARD', 'NEAREST_NAVAID'];
     if (intent === 'HAZARDS_ON_COURSE' && _lastCourseFrom) {
       showCourseMap(_lastCourseFrom.lat, _lastCourseFrom.lon, _lastCourseTo.lat, _lastCourseTo.lon, Query.lastCourseHazards).catch(() => {});
+      if (serverUrl) opencpnBtn.style.display = 'inline-block';
     } else if (SHOW_MAP_FOR.includes(intent) && Query.lastBearingResult) {
       showMap(pos.lat, pos.lon, Query.lastBearingResult).catch(() => {});
+      opencpnBtn.style.display = 'none';
     } else {
       hideMap();
+      opencpnBtn.style.display = 'none';
     }
   } catch (err) {
     console.error('[AudioChart] handleCommand error:', err);
@@ -379,6 +383,39 @@ testPosSet.addEventListener('click', async () => {
     testPosInput.style.borderColor = 'var(--danger)';
     setTimeout(() => { testPosInput.style.borderColor = ''; }, 1500);
   }
+});
+
+opencpnBtn.addEventListener('click', async () => {
+  if (!serverUrl || !_lastCourseFrom || !_lastCourseTo) return;
+  opencpnBtn.textContent = '⏳ Opening…';
+  opencpnBtn.disabled = true;
+  try {
+    const hazards = (Query.lastCourseHazards || []).map(h => ({
+      lat: h.lat, lon: h.lon,
+      label: h.label,
+      name: h.name.replace(/^,\s*/, ''),
+    }));
+    const resp = await fetch(`${serverUrl}/api/opencpn-draw`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from_name: _lastCourseFrom.name || 'Start',
+        from_lat:  _lastCourseFrom.lat,
+        from_lon:  _lastCourseFrom.lon,
+        to_name:   _lastCourseTo.name || 'End',
+        to_lat:    _lastCourseTo.lat,
+        to_lon:    _lastCourseTo.lon,
+        hazards,
+      }),
+    });
+    opencpnBtn.textContent = resp.ok ? '✓ Sent to OpenCPN' : '✗ Failed';
+  } catch (_) {
+    opencpnBtn.textContent = '✗ Failed';
+  }
+  setTimeout(() => {
+    opencpnBtn.textContent = '⚓ Open in OpenCPN';
+    opencpnBtn.disabled = false;
+  }, 3000);
 });
 
 testPosClear.addEventListener('click', () => {

@@ -91,6 +91,22 @@ html, body {
 #offline-btn:hover, #route-btn:hover, #test-pos-btn:hover { border-color: var(--accent); color: var(--text); }
 #offline-btn:disabled, #route-btn:disabled { opacity: 0.5; cursor: default; }
 
+/* OpenCPN draw button — appears below course-hazard results */
+#opencpn-btn {
+  display: block;
+  margin: 6px 0 2px;
+  background: none;
+  border: 1px solid var(--mid-blue);
+  border-radius: 6px;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  padding: 5px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+#opencpn-btn:hover { border-color: var(--accent); color: var(--text); }
+#opencpn-btn:disabled { opacity: 0.5; cursor: default; }
+
 /* Cruise picker */
 #cruise-form {
   display: flex;
