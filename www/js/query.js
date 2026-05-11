@@ -228,6 +228,10 @@ export async function refreshIfNeeded(lat, lon) {
  * Returns {lat, lon, name} for the best match, or null.
  * Used by the test position input so you can type "Camden" instead of coordinates.
  */
+// When multiple features share the same name, prefer specific place types over
+// generic sea areas so "Southwest Harbor (town)" beats "Southwest Harbor (sea area)".
+const LABEL_RANK = { town: 3, harbour: 3, 'coastal feature': 2, 'sea area': 0 };
+
 export function findPlaceByName(query) {
   const q = query.toLowerCase().trim();
   let best = null, bestScore = 0;
@@ -235,7 +239,10 @@ export function findPlaceByName(query) {
   const search = (features) => {
     for (const f of (features || [])) {
       const name = f.properties.name_lower || f.properties.name?.toLowerCase() || '';
-      const score = similarityScore(q, name);
+      const base = similarityScore(q, name);
+      // Add a tiny label bonus (< 0.01) so it only breaks ties, never overrides a closer name match.
+      const rank = LABEL_RANK[f.properties.label] ?? 1;
+      const score = base + rank * 0.001;
       if (score > bestScore) {
         bestScore = score;
         best = f;
