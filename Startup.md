@@ -50,24 +50,15 @@ Leave this terminal open. The server processes ENC charts in the background on f
 
 ### 3. Prepare offline data (do this before every voyage)
 
-Tap the **⬇ Offline** button in the header. This downloads chart data for a 20nm radius around the current position and merges it into the phone's offline cache. Each download adds to the cache without erasing previous areas — the status line shows `Downloaded X features (Y total cached)` so you can see coverage building up.
+Tap the **⬇ Route** button in the header. This automatically downloads chart data for the full Penobscot Bay cruise route — Rockland, Camden, Belfast, Castine, Stonington, and Great Cranberry Island — in one go. The status line shows progress (`Downloading Camden (2 of 6)…`) and a final total when complete.
 
-**Build coverage by hopping through your planned stops.** You can type place names directly into the 📍 input — no coordinates needed:
-
-| Step | 📍 Set position to | Then tap |
-|---|---|---|
-| 1 | *(your real position at dock)* | ⬇ Offline |
-| 2 | `Camden` | ⬇ Offline |
-| 3 | `Belfast` | ⬇ Offline |
-| 4 | `Castine` | ⬇ Offline |
-| 5 | `Stonington` | ⬇ Offline |
-| 6 | `Great Cranberry Island` | ⬇ Offline |
-
-Adjust the stops to match your actual route. Each 20nm circle overlaps the next, giving you a continuous corridor of coverage. The status line shows the growing total after each tap.
-
-When done, tap **📍 → Clear** to return to your real GPS position.
+Each stop downloads a 25nm radius. Overlapping circles give continuous corridor coverage across the whole route.
 
 After this, the phone can run the app **without the Mac** for the entire voyage.
+
+**Downloading just one area?** Use **⬇ Offline** instead — it downloads a 25nm radius around your current GPS position only.
+
+**Adding a new area mid-voyage?** Connect the phone back to the Mac server, tap **⬇ Offline** from your new position, and it merges into the existing cache without erasing anything.
 
 ### 4. Test before departure
 

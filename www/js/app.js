@@ -20,6 +20,7 @@ const gpsStatusEl = document.getElementById('gps-status');
 const historyList = document.getElementById('history-list');
 const historyClear = document.getElementById('history-clear');
 const offlineBtn = document.getElementById('offline-btn');
+const routeBtn  = document.getElementById('route-btn');
 const testPosBtn = document.getElementById('test-pos-btn');
 const testPosForm = document.getElementById('test-pos-form');
 const testPosInput = document.getElementById('test-pos-input');
@@ -28,6 +29,15 @@ const testPosClear = document.getElementById('test-pos-clear');
 const mapLink = document.getElementById('map-link');
 
 let serverUrl = null;  // set in init(); used by offline button and test-position API
+
+const CRUISE_STOPS = [
+  { name: 'Rockland',               lat: 44.1018, lon: -69.0752 },
+  { name: 'Camden',                 lat: 44.2099, lon: -69.0645 },
+  { name: 'Belfast',                lat: 44.4258, lon: -68.9969 },
+  { name: 'Castine',                lat: 44.3867, lon: -68.7956 },
+  { name: 'Stonington',             lat: 44.1647, lon: -68.6655 },
+  { name: 'Great Cranberry Island', lat: 44.2366, lon: -68.3103 },
+];
 
 // ── Query history ─────────────────────────────────────────────────────────────
 
@@ -256,6 +266,7 @@ async function init() {
       const pos = GPS.getPosition();
       if (!pos) { setStatus('No GPS fix yet — cannot download offline data.'); return; }
       offlineBtn.disabled = true;
+      routeBtn.disabled = true;
       offlineBtn.textContent = '⏳ Downloading...';
       try {
         const result = await Query.prepareOffline(pos.lat, pos.lon);
@@ -268,7 +279,34 @@ async function init() {
         console.error('[offline]', e);
       } finally {
         offlineBtn.disabled = false;
+        routeBtn.disabled = false;
       }
+    });
+
+    routeBtn.style.display = 'inline-block';
+    routeBtn.addEventListener('click', async () => {
+      routeBtn.disabled = true;
+      offlineBtn.disabled = true;
+      let lastResult;
+      for (let i = 0; i < CRUISE_STOPS.length; i++) {
+        const stop = CRUISE_STOPS[i];
+        routeBtn.textContent = `⏳ ${i + 1}/${CRUISE_STOPS.length}`;
+        setStatus(`Downloading ${stop.name} (${i + 1} of ${CRUISE_STOPS.length})…`);
+        try {
+          lastResult = await Query.prepareOffline(stop.lat, stop.lon, 25);
+        } catch (e) {
+          const reason = e.name === 'AbortError' ? 'timed out' : e.message;
+          setStatus(`Download failed at ${stop.name}: ${reason}`);
+          routeBtn.textContent = '⬇ Route';
+          routeBtn.disabled = false;
+          offlineBtn.disabled = false;
+          return;
+        }
+      }
+      routeBtn.textContent = '✓ Route cached';
+      setStatus(`Route complete — ${lastResult.total} features cached for full cruise.`);
+      routeBtn.disabled = false;
+      offlineBtn.disabled = false;
     });
   }
 

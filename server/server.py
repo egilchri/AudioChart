@@ -10,6 +10,7 @@ Usage:
 Then visit http://<mac-ip>:8080 on your Android phone.
 """
 import asyncio
+import gzip as _gzip
 import json
 import os
 import socket
@@ -51,21 +52,26 @@ async def handle_tile(request):
                         headers={'Cache-Control': 'public, max-age=86400'})
 
 
+def _json_response(request, data):
+    """Build a JSON response with optional gzip encoding."""
+    body = json.dumps(data, separators=(',', ':')).encode()
+    headers = {'Access-Control-Allow-Origin': '*', 'Vary': 'Accept-Encoding'}
+    if 'gzip' in request.headers.get('Accept-Encoding', ''):
+        body = _gzip.compress(body, compresslevel=6)
+        headers['Content-Encoding'] = 'gzip'
+    return web.Response(body=body, content_type='application/json', headers=headers)
+
+
 async def handle_waypoints(request):
     """GET /api/waypoints — returns all named OpenCPN waypoints, fresh from navobj.db."""
     waypoints = await asyncio.get_event_loop().run_in_executor(
         None, opencpn_waypoints.get_waypoints
     )
-    body = json.dumps({
+    return _json_response(request, {
         'type': 'FeatureCollection',
         'features': waypoints,
         'count': len(waypoints),
-    }, separators=(',', ':'))
-    return web.Response(
-        body=body,
-        content_type='application/json',
-        headers={'Access-Control-Allow-Origin': '*'},
-    )
+    })
 
 
 async def handle_nearby(request):
@@ -87,11 +93,7 @@ async def handle_nearby(request):
     result = await asyncio.get_event_loop().run_in_executor(
         None, chartdb.get_nearby, lat, lon, radius
     )
-    return web.Response(
-        body=json.dumps(result, separators=(',', ':')),
-        content_type='application/json',
-        headers={'Access-Control-Allow-Origin': '*'},
-    )
+    return _json_response(request, result)
 
 
 async def handle_gps_ws(request):
@@ -173,11 +175,7 @@ async def handle_find_place(request):
     )
     if result is None:
         return web.Response(status=404, text='Not found')
-    return web.Response(
-        body=json.dumps(result, separators=(',', ':')),
-        content_type='application/json',
-        headers={'Access-Control-Allow-Origin': '*'},
-    )
+    return _json_response(request, result)
 
 
 async def handle_set_test_position(request):

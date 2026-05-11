@@ -77,8 +77,8 @@ html, body {
 .status-badge.gps-error { background: #4a1a1a; color: var(--danger); }
 .status-badge.gps-test { background: #4a2a00; color: var(--warn); }
 
-/* Offline prep + test position buttons in header */
-#offline-btn, #test-pos-btn {
+/* Offline prep, route download + test position buttons in header */
+#offline-btn, #route-btn, #test-pos-btn {
   background: none;
   border: 1px solid var(--mid-blue);
   border-radius: 6px;
@@ -88,8 +88,8 @@ html, body {
   cursor: pointer;
   white-space: nowrap;
 }
-#offline-btn:hover, #test-pos-btn:hover { border-color: var(--accent); color: var(--text); }
-#offline-btn:disabled { opacity: 0.5; cursor: default; }
+#offline-btn:hover, #route-btn:hover, #test-pos-btn:hover { border-color: var(--accent); color: var(--text); }
+#offline-btn:disabled, #route-btn:disabled { opacity: 0.5; cursor: default; }
 
 /* Test position input row */
 #test-pos-form {
