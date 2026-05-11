@@ -42,8 +42,11 @@ Leave this terminal open. The server processes ENC charts in the background on f
 ### 2. Open the app on your Android phone
 
 1. Make sure your phone is on the same network as the Mac (connect phone to Mac's hotspot, or connect Mac to phone's hotspot — no internet required, just a local network).
-2. Open **Chrome** on the phone and visit `http://192.168.40.213:8080` (use the IP printed by the server).
-3. Tap the **"Add to Home Screen"** option in Chrome's menu to install it as a home screen app.
+2. On your **Mac**, open `http://localhost:8080/connect` in any browser — you'll see a QR code.
+3. Point your **phone camera** at the QR code and tap the link to open the app in Chrome.
+4. Tap the **"Add to Home Screen"** option in Chrome's menu to install it as a home screen app.
+
+> **No camera?** The network URL (e.g. `http://192.168.40.213:8080`) is printed by the server and shown below the QR code.
 
 ### 3. Prepare offline data (do this before every voyage)
 
