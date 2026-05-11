@@ -121,7 +121,10 @@ function showPosition(lat, lon, accuracy, source) {
     : 'status-badge gps-ok';
 
   if (source === 'manual') {
-    mapLink.href = `geo:${lat},${lon}?z=14`;
+    const isAndroid = /Android/i.test(navigator.userAgent);
+    mapLink.href = isAndroid
+      ? `geo:${lat},${lon}?z=14`
+      : `https://maps.google.com/?q=${lat},${lon}&z=14`;
     mapLink.style.display = 'block';
   } else {
     mapLink.style.display = 'none';
