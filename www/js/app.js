@@ -272,8 +272,11 @@ async function runRouteDownload(cruiseName) {
     setStatus(`Downloading ${cruiseName} chart data…`);
     try {
       const result = await Query.prepareOfflineStatic(profile.dataUrl);
+      // Refresh in-memory data from the updated IndexedDB so queries work immediately
+      await Query.loadData(null, null);
+      dataLoaded = true;
       routeBtn.textContent = '✓ Route cached';
-      setStatus(`${cruiseName} complete — ${result.total} features cached.`);
+      setStatus(`${cruiseName} ready — ${result.total} features loaded.`);
     } catch (e) {
       const reason = e.name === 'AbortError' ? 'timed out' : e.message;
       setStatus(`Download failed: ${reason}`);
