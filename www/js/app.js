@@ -33,18 +33,24 @@ const mapLink = document.getElementById('map-link');
 let serverUrl = null;  // set in init(); used by offline button and test-position API
 
 const CRUISE_PROFILES = {
-  'Penobscot Bay': [
-    { name: 'Rockland',               lat: 44.1018, lon: -69.0752 },
-    { name: 'Camden',                 lat: 44.2099, lon: -69.0645 },
-    { name: 'Belfast',                lat: 44.4258, lon: -68.9969 },
-    { name: 'Castine',                lat: 44.3867, lon: -68.7956 },
-    { name: 'Stonington',             lat: 44.1647, lon: -68.6655 },
-    { name: 'Great Cranberry Island', lat: 44.2366, lon: -68.3103 },
-  ],
-  'Casco Bay': [
-    { name: 'Portland',  lat: 43.6573, lon: -70.2564 },
-    { name: 'Harpswell', lat: 43.7931, lon: -70.0760 },
-  ],
+  'Penobscot Bay': {
+    dataUrl: './data/regions/penobscot-bay.json',
+    stops: [
+      { name: 'Rockland',               lat: 44.1018, lon: -69.0752 },
+      { name: 'Camden',                 lat: 44.2099, lon: -69.0645 },
+      { name: 'Belfast',                lat: 44.4258, lon: -68.9969 },
+      { name: 'Castine',                lat: 44.3867, lon: -68.7956 },
+      { name: 'Stonington',             lat: 44.1647, lon: -68.6655 },
+      { name: 'Great Cranberry Island', lat: 44.2366, lon: -68.3103 },
+    ],
+  },
+  'Casco Bay': {
+    dataUrl: './data/regions/casco-bay.json',
+    stops: [
+      { name: 'Portland',  lat: 43.6573, lon: -70.2564 },
+      { name: 'Harpswell', lat: 43.7931, lon: -70.0760 },
+    ],
+  },
 };
 
 // ── Query history ─────────────────────────────────────────────────────────────
@@ -255,10 +261,31 @@ testPosClear.addEventListener('click', () => {
 // ── Route download ────────────────────────────────────────────────────────────
 
 async function runRouteDownload(cruiseName) {
-  const stops = CRUISE_PROFILES[cruiseName];
+  const profile = CRUISE_PROFILES[cruiseName];
   cruiseForm.style.display = 'none';
   routeBtn.disabled = true;
-  offlineBtn.disabled = true;
+  if (offlineBtn) offlineBtn.disabled = true;
+
+  if (!serverUrl && profile.dataUrl) {
+    // Standalone mode — fetch pre-built regional file from hosting
+    routeBtn.textContent = '⏳ Downloading...';
+    setStatus(`Downloading ${cruiseName} chart data…`);
+    try {
+      const result = await Query.prepareOfflineStatic(profile.dataUrl);
+      routeBtn.textContent = '✓ Route cached';
+      setStatus(`${cruiseName} complete — ${result.total} features cached.`);
+    } catch (e) {
+      const reason = e.name === 'AbortError' ? 'timed out' : e.message;
+      setStatus(`Download failed: ${reason}`);
+      routeBtn.textContent = '⬇ Route';
+    }
+    routeBtn.disabled = false;
+    if (offlineBtn) offlineBtn.disabled = false;
+    return;
+  }
+
+  // Developer mode — stop-by-stop dynamic API calls
+  const stops = profile.stops;
   let lastResult;
   for (let i = 0; i < stops.length; i++) {
     const stop = stops[i];
@@ -271,14 +298,14 @@ async function runRouteDownload(cruiseName) {
       setStatus(`Download failed at ${stop.name}: ${reason}`);
       routeBtn.textContent = '⬇ Route';
       routeBtn.disabled = false;
-      offlineBtn.disabled = false;
+      if (offlineBtn) offlineBtn.disabled = false;
       return;
     }
   }
   routeBtn.textContent = '✓ Route cached';
   setStatus(`${cruiseName} route complete — ${lastResult.total} features cached.`);
   routeBtn.disabled = false;
-  offlineBtn.disabled = false;
+  if (offlineBtn) offlineBtn.disabled = false;
 }
 
 // ── Initialisation ────────────────────────────────────────────────────────────
@@ -320,19 +347,28 @@ async function init() {
       }
     });
 
-    routeBtn.style.display = 'inline-block';
-    routeBtn.addEventListener('click', () => {
-      const isOpen = cruiseForm.style.display !== 'none';
-      cruiseForm.style.display = isOpen ? 'none' : 'flex';
-    });
+  }
 
-    Object.keys(CRUISE_PROFILES).forEach(cruiseName => {
-      const btn = document.createElement('button');
-      btn.className = 'cruise-choice';
-      btn.textContent = cruiseName;
-      btn.addEventListener('click', () => runRouteDownload(cruiseName));
-      cruiseChoices.appendChild(btn);
-    });
+  // Route button and cruise picker are always available (standalone + developer)
+  routeBtn.style.display = 'inline-block';
+  routeBtn.addEventListener('click', () => {
+    const isOpen = cruiseForm.style.display !== 'none';
+    cruiseForm.style.display = isOpen ? 'none' : 'flex';
+  });
+  Object.keys(CRUISE_PROFILES).forEach(cruiseName => {
+    const btn = document.createElement('button');
+    btn.className = 'cruise-choice';
+    btn.textContent = cruiseName;
+    btn.addEventListener('click', () => runRouteDownload(cruiseName));
+    cruiseChoices.appendChild(btn);
+  });
+
+  // Standalone mode: load bundled static data immediately (no GPS needed)
+  if (!serverUrl) {
+    Query.loadData(null, null).then(() => {
+      dataLoaded = true;
+      setStatus('Ready. (offline)');
+    }).catch(() => {});
   }
 
   GPS.startGPS(

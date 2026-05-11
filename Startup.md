@@ -179,13 +179,43 @@ The processed chart database is stored at `server/charts.db`. Delete this file t
 
 ---
 
+## Publishing chart data (developer workflow)
+
+The app is hosted at **https://egilchri.github.io/AudioChart** via GitHub Pages. Chart data is pre-built from the ENC database and committed to the repo.
+
+### When to rebuild
+
+- After downloading new or updated ENC charts to `~/Documents/Charts/ENC/US_ME/`
+- To expand a region's coverage
+
+### Steps
+
+```bash
+# 1. Make sure charts.db is up to date (run the server once if new charts were added)
+python3 server/server.py   # wait for "processing any new ones..." to finish, then Ctrl+C
+
+# 2. Rebuild all regional data files
+python3 preprocess/build_regions.py
+
+# 3. Commit and push — GitHub Actions deploys automatically
+git add www/data/
+git commit -m "Update chart data"
+git push
+```
+
+The GitHub Actions workflow (`.github/workflows/deploy.yml`) deploys `www/` to GitHub Pages on every push to `main`. Enable it once in **repo Settings → Pages → Source: GitHub Actions**.
+
+---
+
 ## File locations
 
 | File | Purpose |
 |---|---|
-| `server/server.py` | Main server — run this |
+| `server/server.py` | Main server — run this (developer only) |
 | `server/charts.db` | Processed ENC database (auto-generated) |
-| `www/` | The web app (served by the server) |
+| `preprocess/build_regions.py` | Generates static regional data files for hosting |
+| `www/data/regions/` | Pre-built regional GeoJSON for hosted app |
+| `www/` | The web app (served by server OR GitHub Pages) |
 | `preprocess/charts.yaml` | Chart regions for static preprocessing |
 | `~/Library/Preferences/opencpn/opencpn.ini` | OpenCPN config (read for position + MAGVAR) |
 | `~/Library/Preferences/opencpn/navobj.db` | OpenCPN waypoints (polled every 30s) |

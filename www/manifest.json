@@ -4,8 +4,8 @@
   "description": "Offline voice-driven nautical hazard and navigation assistant",
   "display": "standalone",
   "orientation": "portrait",
-  "start_url": "./",
-  "scope": "./",
+  "start_url": "/AudioChart/",
+  "scope": "/AudioChart/",
   "background_color": "#0a1628",
   "theme_color": "#1a3a5c",
   "icons": [

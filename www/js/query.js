@@ -150,6 +150,47 @@ export async function loadData(lat, lon) {
 }
 
 /**
+ * Download a pre-built regional data file and merge into IndexedDB.
+ * Used in standalone mode (no Mac server) — fetches from hosted static URL.
+ * Downloads are additive, same deduplication logic as prepareOffline().
+ */
+export async function prepareOfflineStatic(dataUrl) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60_000);
+  let resp;
+  try {
+    resp = await fetch(dataUrl, { cache: 'no-store', signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+  if (!resp.ok) throw new Error(`Download failed: ${resp.status}`);
+  const data = await resp.json();
+
+  if (data.magvar != null) {
+    localStorage.setItem('audiochart-magvar', String(data.magvar));
+  }
+
+  const key = f => {
+    const [lon, lat] = f.geometry.coordinates;
+    return `${lat.toFixed(4)},${lon.toFixed(4)}`;
+  };
+  const pairs = [
+    ['hazards',      data.hazards.features],
+    ['named_places', data.places.features],
+    ['navaids',      data.navaids.features],
+  ];
+  for (const [idbKey, newFeatures] of pairs) {
+    const existing = await idbGet(idbKey).catch(() => null);
+    const existingFeatures = existing?.features || [];
+    const seen = new Set(existingFeatures.map(key));
+    const added = newFeatures.filter(f => !seen.has(key(f)));
+    await idbPut(idbKey, { type: 'FeatureCollection', features: [...existingFeatures, ...added] });
+  }
+  const stored = await Promise.all(pairs.map(([k]) => idbGet(k).then(fc => (fc?.features || []).length)));
+  return { added: data.count, total: stored.reduce((a, b) => a + b, 0) };
+}
+
+/**
  * Pre-cache chart data and waypoints for offline use via IndexedDB.
  * Works on plain HTTP (unlike the Cache API which needs HTTPS/localhost).
  * Downloads are additive — call multiple times for different areas.
