@@ -33,6 +33,19 @@ export function bearingToWords(deg) {
   return s.split('').map(c => digits[c]).join(' ') + ' degrees magnetic';
 }
 
+/** Bearing as a compact numeric string for on-screen display: 164 → "164° M" */
+export function bearingToDisplay(deg) {
+  const d = Math.round(((deg % 360) + 360) % 360);
+  return `${String(d).padStart(3, '0')}° M`;
+}
+
+/** Distance as compact string for on-screen display */
+export function distanceToDisplay(nm) {
+  if (nm < 0.01) return '< 0.01 nm';
+  if (nm < 0.1) return `${(nm * 2025).toFixed(0)} yd`;
+  return `${nm.toFixed(1)} nm`;
+}
+
 /** Bearing to 16-point compass abbreviation */
 export function bearingToCardinal(deg) {
   const d = ((deg % 360) + 360) % 360;

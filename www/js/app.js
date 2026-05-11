@@ -242,8 +242,10 @@ async function handleCommand(transcript) {
         response = 'I didn\'t understand that. Try: "hazards within quarter mile", "bearing to [place]", or "where am I".';
     }
 
-    showResponse(response);
-    TTS.sayImmediate(response);
+    const displayText = response?.text  ?? response;
+    const speechText  = response?.speech ?? response;
+    showResponse(displayText);
+    TTS.sayImmediate(speechText);
 
     const SHOW_MAP_FOR = ['BEARING_TO_PLACE', 'BEARING_TO_COORD', 'NEAREST_HAZARD', 'NEAREST_NAVAID'];
     if (SHOW_MAP_FOR.includes(intent) && Query.lastBearingResult) {

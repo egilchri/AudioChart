@@ -3,7 +3,7 @@
  * Loads GeoJSON data once at startup, keeps in memory.
  */
 
-import { bearingToWords, formatDistance, formatDM, trueTomagnetic, setMagneticVariation } from './utils.js';
+import { bearingToWords, bearingToDisplay, formatDistance, distanceToDisplay, formatDM, trueTomagnetic, setMagneticVariation } from './utils.js';
 
 // ── IndexedDB offline store ───────────────────────────────────────────────────
 // Works on plain HTTP (unlike the Cache API which requires HTTPS/localhost).
@@ -382,8 +382,13 @@ function similarityScore(a, b) {
 /** Speak current position. */
 export function whereAmI(lat, lon, accuracy) {
   lastBearingResult = null;
-  const acc = accuracy ? `, accuracy ${Math.round(accuracy)} metres` : '';
-  return `You are at ${formatDM(lat, true)}, ${formatDM(lon, false)}${acc}.`;
+  const acc = accuracy ? `, ±${Math.round(accuracy)} m` : '';
+  const accSpoken = accuracy ? `, accuracy ${Math.round(accuracy)} metres` : '';
+  const pos = `${formatDM(lat, true)}, ${formatDM(lon, false)}`;
+  return {
+    text:   `${pos}${acc}`,
+    speech: `You are at ${pos}${accSpoken}.`,
+  };
 }
 
 /** Find nearest hazard to (lat, lon). Returns spoken response string. */
@@ -401,7 +406,10 @@ export function nearestHazard(lat, lon) {
   const name = nearest.properties.name ? `, ${nearest.properties.name}` : '';
   lastBearingResult = { destLat: flat, destLon: flon, destName: (label + name).trim() };
   const brg = trueTomagnetic(bearing(lon, lat, flon, flat));
-  return `Nearest hazard: ${label}${name}, bearing ${bearingToWords(brg)}, ${formatDistance(minDist)}.`;
+  return {
+    text:   `Nearest hazard: ${label}${name}  ${bearingToDisplay(brg)}  ${distanceToDisplay(minDist)}`,
+    speech: `Nearest hazard: ${label}${name}, bearing ${bearingToWords(brg)}, ${formatDistance(minDist)}.`,
+  };
 }
 
 /** Find all hazards within radiusNm. Returns spoken response string. */
@@ -423,14 +431,23 @@ export function hazardsInRadius(lat, lon, radiusNm) {
   if (nearby.length === 0) return `No charted hazards within ${radiusDesc} of your position.`;
 
   const count = nearby.length;
-  const parts = nearby.slice(0, 5).map(({ f, d, brg }) => {
+  const textParts = nearby.slice(0, 5).map(({ f, d, brg }) => {
+    const label = f.properties.label || f.properties.objtype;
+    const name = f.properties.name ? ` ${f.properties.name}` : '';
+    return `${label}${name}  ${bearingToDisplay(brg)}  ${distanceToDisplay(d)}`;
+  });
+  const speechParts = nearby.slice(0, 5).map(({ f, d, brg }) => {
     const label = f.properties.label || f.properties.objtype;
     const name = f.properties.name ? ` ${f.properties.name}` : '';
     return `${label}${name} bearing ${bearingToWords(brg)}, ${formatDistance(d)}`;
   });
 
   const more = count > 5 ? ` Plus ${count - 5} more.` : '';
-  return `${count} hazard${count === 1 ? '' : 's'} within ${radiusDesc}: ${parts.join('. ')}.${more}`;
+  const header = `${count} hazard${count === 1 ? '' : 's'} within ${radiusDesc}`;
+  return {
+    text:   `${header}:\n${textParts.join('\n')}${more}`,
+    speech: `${header}: ${speechParts.join('. ')}.${more}`,
+  };
 }
 
 /** Find bearing and distance to a named place or OpenCPN waypoint. */
@@ -466,8 +483,11 @@ export function bearingToPlace(lat, lon, queryName) {
   const dist = distanceNm(lon, lat, flon, flat);
   const name = best.properties.name;
   const tag = bestIsWaypoint ? ' (waypoint)' : '';
-  const prefix = bestScore < 0.9 ? `Closest match: ${name}${tag}. ` : `${name}${tag}: `;
-  return `${prefix}bearing ${bearingToWords(brg)}, ${formatDistance(dist)}.`;
+  const matchNote = bestScore < 0.9 ? `Closest match: ${name}${tag}` : `${name}${tag}`;
+  return {
+    text:   `${matchNote}  ${bearingToDisplay(brg)}  ${distanceToDisplay(dist)}`,
+    speech: `${bestScore < 0.9 ? `Closest match: ${name}${tag}. ` : `${name}${tag}: `}bearing ${bearingToWords(brg)}, ${formatDistance(dist)}.`,
+  };
 }
 
 /** Compute range and bearing from current position to an explicit coordinate. */
@@ -475,7 +495,6 @@ export function bearingToCoord(lat, lon, targetLat, targetLon) {
   lastBearingResult = { destLat: targetLat, destLon: targetLon, destName: null };
   const brg = trueTomagnetic(bearing(lon, lat, targetLon, targetLat));
   const dist = distanceNm(lon, lat, targetLon, targetLat);
-  // Format the target coordinate compactly for the response
   const latDir = targetLat >= 0 ? 'N' : 'S';
   const lonDir = targetLon >= 0 ? 'E' : 'W';
   const latAbs = Math.abs(targetLat);
@@ -485,7 +504,10 @@ export function bearingToCoord(lat, lon, targetLat, targetLon) {
   const lonDeg = Math.floor(lonAbs);
   const lonMin = ((lonAbs - lonDeg) * 60).toFixed(3);
   const coordLabel = `${latDeg}°${latMin}'${latDir} ${lonDeg}°${lonMin}'${lonDir}`;
-  return `Bearing to ${coordLabel}: ${bearingToWords(brg)}, ${formatDistance(dist)}.`;
+  return {
+    text:   `${coordLabel}  ${bearingToDisplay(brg)}  ${distanceToDisplay(dist)}`,
+    speech: `Bearing to ${coordLabel}: ${bearingToWords(brg)}, ${formatDistance(dist)}.`,
+  };
 }
 
 /** Find nearest navigation aid. Returns spoken response string. */
@@ -504,5 +526,8 @@ export function nearestNavaid(lat, lon) {
   lastBearingResult = { destLat: flat, destLon: flon, destName: (label + name).trim() };
   const brg = trueTomagnetic(bearing(lon, lat, flon, flat));
   const colour = nearest.properties.colour ? `, ${nearest.properties.colour}` : '';
-  return `Nearest ${label}${name}${colour}, bearing ${bearingToWords(brg)}, ${formatDistance(minDist)}.`;
+  return {
+    text:   `Nearest ${label}${name}${colour}  ${bearingToDisplay(brg)}  ${distanceToDisplay(minDist)}`,
+    speech: `Nearest ${label}${name}${colour}, bearing ${bearingToWords(brg)}, ${formatDistance(minDist)}.`,
+  };
 }
