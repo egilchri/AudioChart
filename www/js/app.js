@@ -385,37 +385,17 @@ testPosSet.addEventListener('click', async () => {
   }
 });
 
-opencpnBtn.addEventListener('click', async () => {
+opencpnBtn.addEventListener('click', () => {
   if (!serverUrl || !_lastCourseFrom || !_lastCourseTo) return;
-  opencpnBtn.textContent = '⏳ Opening…';
-  opencpnBtn.disabled = true;
-  try {
-    const hazards = (Query.lastCourseHazards || []).map(h => ({
-      lat: h.lat, lon: h.lon,
-      label: h.label,
-      name: h.name.replace(/^,\s*/, ''),
-    }));
-    const resp = await fetch(`${serverUrl}/api/opencpn-draw`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        from_name: _lastCourseFrom.name || 'Start',
-        from_lat:  _lastCourseFrom.lat,
-        from_lon:  _lastCourseFrom.lon,
-        to_name:   _lastCourseTo.name || 'End',
-        to_lat:    _lastCourseTo.lat,
-        to_lon:    _lastCourseTo.lon,
-        hazards,
-      }),
-    });
-    opencpnBtn.textContent = resp.ok ? '✓ Sent to OpenCPN' : '✗ Failed';
-  } catch (_) {
-    opencpnBtn.textContent = '✗ Failed';
-  }
-  setTimeout(() => {
-    opencpnBtn.textContent = '⚓ Open in OpenCPN';
-    opencpnBtn.disabled = false;
-  }, 3000);
+  const params = new URLSearchParams({
+    from_lat:  _lastCourseFrom.lat,
+    from_lon:  _lastCourseFrom.lon,
+    to_lat:    _lastCourseTo.lat,
+    to_lon:    _lastCourseTo.lon,
+    from_name: _lastCourseFrom.name || 'Start',
+    to_name:   _lastCourseTo.name   || 'End',
+  });
+  window.open(`${serverUrl}/course-map?${params}`, '_blank');
 });
 
 testPosClear.addEventListener('click', () => {

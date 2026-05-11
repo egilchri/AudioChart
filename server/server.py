@@ -165,6 +165,94 @@ async def nmea_broadcast_loop():
         await asyncio.sleep(1.0)
 
 
+COURSE_MAP_HTML = r"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TITLE_PLACEHOLDER</title>
+<link rel="stylesheet" href="/css/leaflet.css">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#0a1628;font-family:system-ui,sans-serif}
+  #map{width:100vw;height:100vh}
+  #hud{
+    position:absolute;top:12px;left:50px;z-index:1000;
+    background:rgba(10,22,40,.9);color:#e8edf4;
+    padding:9px 16px;border-radius:8px;font-size:.85rem;
+    border:1px solid #2a5080;pointer-events:none;
+  }
+  #hud strong{color:#4a9edd;display:block;font-size:1rem;margin-bottom:2px}
+  .tt{
+    background:#1a3a5c!important;border:1px solid #2a5080!important;
+    color:#e8edf4!important;font-size:.75rem;padding:2px 6px;
+    white-space:nowrap;box-shadow:none!important;
+  }
+  .tt::before{border-top-color:#2a5080!important}
+</style>
+</head>
+<body>
+<div id="hud"><strong>&#9875; AudioChart</strong><span id="subtitle">Loading hazards…</span></div>
+<div id="map"></div>
+<script src="/js/lib/leaflet.js"></script>
+<script>
+const FROM=[FROM_LAT,FROM_LON], TO=[TO_LAT,TO_LON];
+const FROM_NAME=FROM_NAME_JSON, TO_NAME=TO_NAME_JSON;
+const map=L.map('map',{zoomControl:true});
+L.tileLayer('/tiles/{z}/{x}/{y}.jpg',{minZoom:8,maxZoom:16}).addTo(map);
+const dot=(ll,c,label,dir)=>L.circleMarker(ll,{radius:9,color:c,fillColor:c,fillOpacity:1,weight:0})
+  .bindTooltip(label,{permanent:true,direction:dir,className:'tt'}).addTo(map);
+L.polyline([FROM,TO],{color:'#4a9edd',weight:3,dashArray:'8 4',opacity:.9}).addTo(map);
+dot(FROM,'#4a9edd',FROM_NAME,'right');
+dot(TO,'#4a9edd',TO_NAME,'left');
+fetch('/api/course-hazards?from_lat=FROM_LAT&from_lon=FROM_LON&to_lat=TO_LAT&to_lon=TO_LON')
+  .then(r=>r.json()).then(d=>{
+    const pts=[FROM,TO];
+    d.hazards.forEach(h=>{
+      const lbl=h.name?h.name+' ('+h.label+')':h.label;
+      L.circleMarker([h.lat,h.lon],{radius:8,color:'#e0a030',fillColor:'#e0a030',fillOpacity:.85,weight:1.5})
+        .bindTooltip(lbl,{className:'tt',direction:'top'}).addTo(map);
+      pts.push([h.lat,h.lon]);
+    });
+    map.fitBounds(L.latLngBounds(pts).pad(.15));
+    document.getElementById('subtitle').textContent=
+      FROM_NAME+' → '+TO_NAME+' — '+d.count+' hazard'+(d.count===1?'':'s');
+  }).catch(()=>map.fitBounds(L.latLngBounds([FROM,TO]).pad(.2)));
+</script>
+</body>
+</html>"""
+
+
+def _build_course_map(from_lat, from_lon, to_lat, to_lon, from_name, to_name):
+    import json
+    title = f'AudioChart: {from_name} → {to_name}'
+    return (COURSE_MAP_HTML
+        .replace('TITLE_PLACEHOLDER', title)
+        .replace('FROM_LAT',       str(from_lat))
+        .replace('FROM_LON',       str(from_lon))
+        .replace('TO_LAT',         str(to_lat))
+        .replace('TO_LON',         str(to_lon))
+        .replace('FROM_NAME_JSON', json.dumps(from_name))
+        .replace('TO_NAME_JSON',   json.dumps(to_name))
+    )
+
+
+async def handle_course_map(request):
+    """GET /course-map?from_lat=…&from_lon=…&to_lat=…&to_lon=…&from_name=…&to_name=…"""
+    q = request.rel_url.query
+    try:
+        from_lat = float(q['from_lat'])
+        from_lon = float(q['from_lon'])
+        to_lat   = float(q['to_lat'])
+        to_lon   = float(q['to_lon'])
+    except (KeyError, ValueError):
+        return web.Response(status=400, text='from_lat, from_lon, to_lat, to_lon required')
+    from_name = q.get('from_name', 'Start')
+    to_name   = q.get('to_name', 'End')
+    html = _build_course_map(from_lat, from_lon, to_lat, to_lon, from_name, to_name)
+    return web.Response(text=html, content_type='text/html')
+
+
 def _xml_escape(s):
     return (s.replace('&', '&amp;').replace('<', '&lt;')
              .replace('>', '&gt;').replace('"', '&quot;'))
@@ -356,7 +444,7 @@ async def main():
     app.router.add_get('/api/waypoints', handle_waypoints)
     app.router.add_get('/api/nearby', handle_nearby)
     app.router.add_get('/api/course-hazards', handle_course_hazards)
-    app.router.add_post('/api/opencpn-draw', handle_opencpn_draw)
+    app.router.add_get('/course-map', handle_course_map)
     app.router.add_get('/api/find-place', handle_find_place)
     app.router.add_post('/api/test-position', handle_set_test_position)
     app.router.add_get('/tiles/{z}/{x}/{y}.jpg', handle_tile)
