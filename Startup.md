@@ -47,9 +47,15 @@ Leave this terminal open. The server processes ENC charts in the background on f
 
 ### 3. Prepare offline data (do this before every voyage)
 
-Tap the **⬇ Offline** button in the header. This downloads chart data for a 40nm radius around your current position — hazards, named places, navaids, and all your OpenCPN waypoints — and saves it to the phone. The button shows **✓ Offline ready** when done.
+Tap the **⬇ Offline** button in the header. This downloads chart data for a 20nm radius around your current position and merges it into the phone's offline cache. Each download adds to the cache without erasing previous areas — the status line shows `Downloaded X features (Y total cached)` so you can see coverage building up.
 
-After this, the phone can run the app **without the Mac** for the rest of the voyage.
+**For voyages longer than 20nm**, download each area of your planned route:
+1. Your real position at dock → tap ⬇ Offline
+2. Tap 📍, enter Camden Harbor coordinates → tap ⬇ Offline
+3. Tap 📍, enter Belfast coordinates → tap ⬇ Offline
+4. Repeat for each stop along the route
+
+After this, the phone can run the app **without the Mac** for the entire voyage.
 
 ### 4. Test before departure
 

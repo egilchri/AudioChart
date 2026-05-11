@@ -132,21 +132,44 @@ export async function prepareOffline(lat, lon, radiusNm = 20) {
     localStorage.setItem('audiochart-magvar', String(data.magvar));
   }
 
-  // Write chart data into Cache API at the static file URLs.
-  // The service worker's offline fallback fetches exactly these URLs.
   const cache = await caches.open('audiochart-v1');
-  const entries = [
-    ['./data/hazards.geojson',      { type: 'FeatureCollection', features: data.hazards.features }],
-    ['./data/named_places.geojson', { type: 'FeatureCollection', features: data.places.features  }],
-    ['./data/navaid.geojson',       { type: 'FeatureCollection', features: data.navaids.features  }],
+
+  // Merge new features with existing cached data (additive, not replace).
+  // This lets the user download multiple areas along their planned route.
+  const pairs = [
+    ['./data/hazards.geojson',      data.hazards.features],
+    ['./data/named_places.geojson', data.places.features],
+    ['./data/navaid.geojson',       data.navaids.features],
   ];
-  for (const [url, fc] of entries) {
-    await cache.put(url, new Response(JSON.stringify(fc), {
-      headers: { 'Content-Type': 'application/json' },
-    }));
+
+  let totalCached = 0;
+  for (const [url, newFeatures] of pairs) {
+    let existing = [];
+    const cached = await cache.match(url);
+    if (cached) {
+      try {
+        const fc = await cached.json();
+        existing = fc.features || [];
+      } catch (_) {}
+    }
+
+    // Deduplicate by rounded coordinate key (within ~10m)
+    const key = f => {
+      const [lon, lat] = f.geometry.coordinates;
+      return `${lat.toFixed(4)},${lon.toFixed(4)}`;
+    };
+    const seen = new Set(existing.map(key));
+    const added = newFeatures.filter(f => !seen.has(key(f)));
+    const merged = [...existing, ...added];
+    totalCached = Math.max(totalCached, merged.length);
+
+    await cache.put(url, new Response(
+      JSON.stringify({ type: 'FeatureCollection', features: merged }),
+      { headers: { 'Content-Type': 'application/json' } }
+    ));
   }
 
-  // Cache waypoints
+  // Waypoints always replace (they're small and always current)
   const wpResp = await fetch(`${_serverBase}/api/waypoints`, { cache: 'no-store' });
   if (wpResp.ok) {
     const wpData = await wpResp.json();
@@ -155,7 +178,16 @@ export async function prepareOffline(lat, lon, radiusNm = 20) {
     }));
   }
 
-  return { count: data.count, radius_nm: radiusNm };
+  // Count total features now in cache
+  const counts = await Promise.all(pairs.map(async ([url]) => {
+    const r = await cache.match(url);
+    if (!r) return 0;
+    const fc = await r.json();
+    return (fc.features || []).length;
+  }));
+  const grandTotal = counts.reduce((a, b) => a + b, 0);
+
+  return { added: data.count, total: grandTotal, radius_nm: radiusNm };
 }
 
 /**

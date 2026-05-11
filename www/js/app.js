@@ -222,7 +222,7 @@ async function init() {
       try {
         const result = await Query.prepareOffline(pos.lat, pos.lon);
         offlineBtn.textContent = '✓ Offline ready';
-        setStatus(`Offline data cached: ${result.count} features within ${result.radius_nm}nm.`);
+        setStatus(`Downloaded ${result.added} features (${result.total} total cached).`);
       } catch (e) {
         offlineBtn.textContent = '⬇ Offline';
         const reason = e.name === 'AbortError' ? 'timed out' : e.message;
