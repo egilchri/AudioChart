@@ -56,10 +56,13 @@ def get_route_by_name(name):
 
         if not rows:
             return None
-        return {
-            'name': best_name,
-            'points': [{'lat': r['lat'], 'lon': r['lon'], 'name': r['Name'] or ''} for r in rows],
-        }
+        # Build points and strip consecutive duplicates
+        points = [{'lat': r['lat'], 'lon': r['lon'], 'name': r['Name'] or ''} for r in rows]
+        deduped = [points[0]]
+        for p in points[1:]:
+            if abs(p['lat'] - deduped[-1]['lat']) > 1e-6 or abs(p['lon'] - deduped[-1]['lon']) > 1e-6:
+                deduped.append(p)
+        return {'name': best_name, 'points': deduped}
     except Exception as e:
         print(f'[routes] DB error: {e}')
         return None

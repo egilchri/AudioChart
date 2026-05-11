@@ -202,9 +202,10 @@ const map=L.map('map',{zoomControl:true});
 L.tileLayer('/tiles/{z}/{x}/{y}.jpg',{minZoom:8,maxZoom:16}).addTo(map);
 const dot=(ll,c,label,dir)=>L.circleMarker(ll,{radius:9,color:c,fillColor:c,fillOpacity:1,weight:0})
   .bindTooltip(label,{permanent:true,direction:dir,className:'tt'}).addTo(map);
-L.polyline([FROM,TO],{color:'#4a9edd',weight:3,dashArray:'8 4',opacity:.9}).addTo(map);
+const straightLine=L.polyline([FROM,TO],{color:'#4a9edd',weight:3,dashArray:'8 4',opacity:.9}).addTo(map);
 dot(FROM,'#4a9edd',FROM_NAME,'right');
 dot(TO,'#4a9edd',TO_NAME,'left');
+map.fitBounds(L.latLngBounds([FROM,TO]).pad(.2));
 const ROUTE_NAME=ROUTE_NAME_JSON;
 const hazardUrl=ROUTE_NAME
   ?'/api/route-hazards?name='+encodeURIComponent(ROUTE_NAME)
@@ -214,6 +215,7 @@ fetch(hazardUrl)
     const pts=[FROM,TO];
     // If multi-leg route, draw the actual waypoints as a polyline
     if(d.waypoints&&d.waypoints.length>2){
+      map.removeLayer(straightLine);
       const wpts=d.waypoints.map(w=>[w.lat,w.lon]);
       L.polyline(wpts,{color:'#4a9edd',weight:3,dashArray:'8 4',opacity:.9}).addTo(map);
       pts.push(...wpts);
@@ -228,7 +230,7 @@ fetch(hazardUrl)
     const title=ROUTE_NAME||FROM_NAME+' → '+TO_NAME;
     document.getElementById('subtitle').textContent=
       title+' — '+d.count+' hazard'+(d.count===1?'':'s');
-  }).catch(()=>map.fitBounds(L.latLngBounds([FROM,TO]).pad(.2)));
+  }).catch(()=>{});
 </script>
 </body>
 </html>"""
