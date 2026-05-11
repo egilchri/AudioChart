@@ -289,6 +289,12 @@ testPosSet.addEventListener('click', async () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ lat: coord.lat, lon: coord.lon }),
       }).catch(() => {});
+      // Reload chart data for the new position so local queries work
+      setStatus(`Loading chart data for ${coord.name || 'position'}…`);
+      Query.loadData(coord.lat, coord.lon).then(() => {
+        dataLoaded = true;
+        setStatus(`Ready. (${coord.name || 'test position'})`);
+      }).catch(() => {});
     }
   } else {
     testPosInput.style.borderColor = 'var(--danger)';
