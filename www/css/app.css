@@ -91,6 +91,30 @@ html, body {
 #offline-btn:hover, #route-btn:hover, #test-pos-btn:hover { border-color: var(--accent); color: var(--text); }
 #offline-btn:disabled, #route-btn:disabled { opacity: 0.5; cursor: default; }
 
+/* Cruise picker */
+#cruise-form {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+#cruise-label {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.cruise-choice {
+  background: var(--mid-blue);
+  border: none;
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.78rem;
+  padding: 5px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.cruise-choice:hover { background: var(--accent); color: var(--navy); }
+
 /* Test position input row */
 #test-pos-form {
   display: flex;

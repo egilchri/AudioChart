@@ -56,9 +56,14 @@ Leave this terminal open. The server processes ENC charts in the background on f
 
 ### 3. Prepare offline data (do this before every voyage)
 
-Tap the **⬇ Route** button in the header. This automatically downloads chart data for the full Penobscot Bay cruise route — Rockland, Camden, Belfast, Castine, Stonington, and Great Cranberry Island — in one go. The status line shows progress (`Downloading Camden (2 of 6)…`) and a final total when complete.
+Tap the **⬇ Route** button in the header. A picker appears with available cruise profiles — tap one to start downloading. The status line shows progress (`Downloading Camden (2 of 6)…`) and a final total when complete.
 
 Each stop downloads a 25nm radius. Overlapping circles give continuous corridor coverage across the whole route.
+
+| Cruise | Stops |
+|---|---|
+| Penobscot Bay | Rockland, Camden, Belfast, Castine, Stonington, Great Cranberry Island |
+| Casco Bay | Portland, Harpswell |
 
 After this, the phone can run the app **without the Mac** for the entire voyage.
 
