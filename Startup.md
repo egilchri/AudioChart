@@ -32,6 +32,12 @@ The server will print something like:
 AudioChart server running.
   Local:    http://localhost:8080
   Network:  http://192.168.40.213:8080
+  Bonjour:  http://edgars-macbook-pro.local:8080
+  NMEA out: localhost:10112  (add to OpenCPN as TCP Input for test-position)
+
+To connect your phone — open this on your Mac:
+  http://localhost:8080/connect
+Then scan the QR code with your phone camera.
 
 [chartdb] Found 185 ENC charts — processing any new ones...
 [opencpn] Polling opencpn.ini for OwnShipLatLon every 2s
@@ -108,12 +114,15 @@ Waypoint responses are labeled *(waypoint)* to distinguish them from chart featu
 
 ## Testing with a fake position
 
-Tap **📍** in the header to open the test position input. Enter any coordinates:
+Tap **📍** in the header to open the test position input. You can enter:
 
+- A place name: `Southwest Harbor`, `Camden`, `Stonington`
 - Decimal degrees: `44.1018, -69.0752`
 - Degrees-minutes: `44° 06.1' N 069° 04.5' W`
 
-Tap **Set** — the GPS badge turns amber **TEST POSITION** and all queries use that location. Tap **📍 → Clear** to return to real GPS.
+Tap **Set** — the GPS badge turns amber **TEST POSITION** and all queries use that location. A **View on map** link appears below the position display — tap it to open the coordinates in Google Maps to visually confirm the spot.
+
+Tap **📍 → Clear** to return to real GPS.
 
 ---
 
