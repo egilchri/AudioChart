@@ -1,9 +1,9 @@
 /**
  * AudioChart — main application entry point.
- * Coordinates GPS, speech, and query modules.
+ * Input: text box (use phone keyboard mic for voice-to-text on Pixel).
+ * Output: spoken TTS + on-screen text.
  */
 
-import * as Speech from './speech.js';
 import * as TTS from './tts.js';
 import * as GPS from './gps.js';
 import { parseCommand } from './parser.js';
@@ -11,14 +11,12 @@ import * as Query from './query.js';
 import { formatPositionDisplay } from './utils.js';
 
 // DOM elements
-const micBtn = document.getElementById('mic-btn');
 const textForm = document.getElementById('text-form');
 const textInput = document.getElementById('text-input');
 const statusEl = document.getElementById('status-text');
 const positionEl = document.getElementById('position-display');
 const responseEl = document.getElementById('response-text');
 const gpsStatusEl = document.getElementById('gps-status');
-const speechStatusEl = document.getElementById('speech-status');
 const historyList = document.getElementById('history-list');
 const historyClear = document.getElementById('history-clear');
 
@@ -37,8 +35,8 @@ function saveHistory(items) {
 }
 
 function addToHistory(text) {
-  const items = loadHistory().filter(t => t !== text); // deduplicate
-  items.unshift(text);                                  // newest first
+  const items = loadHistory().filter(t => t !== text);
+  items.unshift(text);
   saveHistory(items);
   renderHistory();
 }
@@ -66,23 +64,20 @@ historyClear.addEventListener('click', () => {
 
 renderHistory();
 
+// ── State ─────────────────────────────────────────────────────────────────────
+
 let dataLoaded = false;
 let gpsReady = false;
 
-function setStatus(msg) {
-  statusEl.textContent = msg;
-}
-
-function showResponse(text) {
-  responseEl.textContent = text;
-}
+function setStatus(msg) { statusEl.textContent = msg; }
+function showResponse(text) { responseEl.textContent = text; }
 
 const SOURCE_LABEL = {
-  'browser':        'PHONE GPS',
-  'nmea':           'GPS PUCK',
-  'opencpn-nmea':   'OPENCPN LIVE',
-  'opencpn-ini':    'OPENCPN',
-  'opencpn-track':  'OPENCPN TRACK',
+  'browser':       'PHONE GPS',
+  'nmea':          'GPS PUCK',
+  'opencpn-nmea':  'OPENCPN LIVE',
+  'opencpn-ini':   'OPENCPN',
+  'opencpn-track': 'OPENCPN TRACK',
 };
 
 function showPosition(lat, lon, accuracy, source) {
@@ -93,10 +88,12 @@ function showPosition(lat, lon, accuracy, source) {
   gpsStatusEl.className = 'status-badge gps-ok';
 }
 
+// ── Command handling ──────────────────────────────────────────────────────────
+
 async function handleCommand(transcript) {
   console.log('[AudioChart] handleCommand:', transcript);
   try {
-    setStatus(`Heard: "${transcript}"`);
+    setStatus(`Command: "${transcript}"`);
     showResponse('...');
     addToHistory(transcript);
 
@@ -139,7 +136,7 @@ async function handleCommand(transcript) {
         response = Query.nearestNavaid(pos.lat, pos.lon);
         break;
       default:
-        response = 'I didn\'t understand that. Try asking about hazards, your position, or a specific place.';
+        response = 'I didn\'t understand that. Try: "hazards within quarter mile", "bearing to [place]", or "where am I".';
     }
 
     showResponse(response);
@@ -150,72 +147,28 @@ async function handleCommand(transcript) {
   }
 }
 
-// Microphone button — push to talk
-micBtn.addEventListener('pointerdown', (e) => {
-  e.preventDefault();
-  if (Speech.isListening()) return;
-  micBtn.classList.add('listening');
-  setStatus('Listening...');
-  TTS.stop();
-  const ok = Speech.startListening();
-  if (!ok) {
-    micBtn.classList.remove('listening');
-    setStatus('Speech recognition unavailable');
-  }
-});
+// ── Text input ────────────────────────────────────────────────────────────────
 
-micBtn.addEventListener('pointerup', () => {
-  micBtn.classList.remove('listening');
-  Speech.stopListening();
-});
-
-micBtn.addEventListener('pointercancel', () => {
-  micBtn.classList.remove('listening');
-  Speech.stopListening();
-});
-
-// Text input form
 if (textForm) {
   textForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const text = textInput.value.trim();
-    console.log('[AudioChart] text submit:', text);
     if (!text) return;
     textInput.value = '';
     TTS.stop();
     handleCommand(text);
   });
-} else {
-  console.error('[AudioChart] text-form element not found');
 }
 
+// ── Initialisation ────────────────────────────────────────────────────────────
+
 async function init() {
-  setStatus('Loading chart data...');
-
-  // Load chart data — deferred until GPS fix so we can load the right area
-  // GPS callback below will trigger the first load once position is known
-
-  // Init speech
-  Speech.init(
-    (transcript) => handleCommand(transcript),
-    (err) => {
-      setStatus(err);
-      speechStatusEl.textContent = 'Speech: unavailable';
-    }
-  );
-
-  if (Speech.isSupported()) {
-    speechStatusEl.textContent = 'Speech: ready';
-    speechStatusEl.className = 'status-badge speech-ok';
-  } else {
-    speechStatusEl.textContent = 'Speech: unsupported';
-    TTS.say('Welcome to AudioChart. Speech recognition is not available in this browser.');
-  }
+  setStatus('Waiting for GPS...');
 
   // Connect to Mac server BEFORE starting GPS so setServerBase is ready
-  // when the first GPS fix arrives and triggers loadData.
-  const isMacServer = !location.hostname.endsWith('.github.io') &&
-                      (location.hostname === 'localhost' || location.hostname.match(/^192\.168\.|^10\.|^172\.(1[6-9]|2\d|3[01])\./));
+  // when the first fix arrives and triggers loadData.
+  const isMacServer = location.hostname === 'localhost' ||
+                      !!location.hostname.match(/^192\.168\.|^10\.|^172\.(1[6-9]|2\d|3[01])\./);
   const serverUrl = isMacServer
     ? location.origin
     : localStorage.getItem('audiochart_server_url');
@@ -224,7 +177,6 @@ async function init() {
     Query.setServerBase(serverUrl);
   }
 
-  // Start GPS
   GPS.startGPS(
     async (lat, lon, accuracy, source) => {
       showPosition(lat, lon, accuracy, source);
@@ -234,8 +186,7 @@ async function init() {
         try {
           await Query.loadData(lat, lon);
           dataLoaded = true;
-          setStatus('Ready. Press the microphone and speak a command.');
-          TTS.say('AudioChart ready. Press the microphone button to speak a command.');
+          setStatus('Ready. Type a command or use the keyboard mic.');
         } catch (e) {
           setStatus('Chart data unavailable. Try reloading.');
           showResponse('Could not load chart data. If offline, ensure data files are cached.');
@@ -251,7 +202,6 @@ async function init() {
     }
   );
 
-  // Register service worker
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js').catch(() => {});
   }
