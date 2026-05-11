@@ -2,7 +2,7 @@
 
 ## What it does
 
-AudioChart is a speech-enabled nautical safety tool for sailing Penobscot Bay. It answers voice or text queries like:
+AudioChart is a nautical safety tool for sailing Penobscot Bay. It answers text queries (use your phone keyboard's mic button to speak them) like:
 
 - *"Hazards within quarter mile"*
 - *"Range and bearing to Carvers Harbor"*
@@ -11,7 +11,7 @@ AudioChart is a speech-enabled nautical safety tool for sailing Penobscot Bay. I
 - *"Nearest hazard"*
 - *"Where am I"*
 
-Bearings are **magnetic**. Position comes from OpenCPN if it is running, otherwise from the device's built-in GPS.
+Bearings are **magnetic**. Position comes from OpenCPN if it is running, otherwise from the phone's built-in GPS.
 
 ---
 
@@ -45,13 +45,11 @@ Leave this terminal open. The server processes ENC charts in the background on f
 2. Open **Chrome** on the phone and visit `http://192.168.40.213:8080` (use the IP printed by the server).
 3. Tap the **"Add to Home Screen"** option in Chrome's menu to install it as a home screen app.
 
-### 3. Set up offline speech recognition (one time only)
+### 3. Prepare offline data (do this before every voyage)
 
-On your Android phone:
+Tap the **⬇ Offline** button in the header. This downloads chart data for a 40nm radius around your current position — hazards, named places, navaids, and all your OpenCPN waypoints — and saves it to the phone. The button shows **✓ Offline ready** when done.
 
-> **Settings → General Management → Language → Text-to-speech → Offline speech recognition → download English (United States)**
-
-This allows voice queries to work without cell service.
+After this, the phone can run the app **without the Mac** for the rest of the voyage.
 
 ### 4. Test before departure
 
@@ -69,32 +67,44 @@ With OpenCPN running, try these queries to confirm everything works:
 
 | Situation | What happens |
 |---|---|
-| Mac running below decks, phone on same network | Full tile charts, OpenCPN position, live waypoints |
-| Phone only (no Mac) | Offline mode — cached chart data and phone GPS |
+| Mac running below decks, phone on same network | Dynamic chart data for any area, live OpenCPN position and waypoints |
+| Phone only (no Mac) | Offline mode — uses data downloaded at dock, phone GPS |
 
 ### GPS source priority (shown in the badge)
 
 | Badge | Source |
 |---|---|
+| `TEST POSITION` | Manual override — you set the position for testing (amber) |
 | `OPENCPN LIVE` | Real-time NMEA from OpenCPN TCP output |
 | `GPS PUCK` | USB GPS puck via Mac serial bridge |
 | `OPENCPN` | OpenCPN's last known position (polled from config) |
 | `OPENCPN TRACK` | OpenCPN's last recorded track point |
 | `PHONE GPS` | Android device GPS (fallback) |
 
-### Voice commands
+### Entering commands
 
-Press and **hold the microphone button**, speak your query, then release. Or type in the text box and press Enter or ▶.
+Type in the text box and press Enter or ▶. On your Pixel, tap the **mic icon on the keyboard** to dictate — it fills the text box and you press Enter to submit. No app-level microphone permission needed.
 
-Previous queries are saved as pills below the text input — tap any pill to rerun it. Tap **✕** to clear history.
+Previous queries are saved as pills below the text box — tap any pill to rerun it instantly. Tap **✕** to clear history.
 
 ### OpenCPN waypoints
 
-Any named mark you drop in OpenCPN appears in AudioChart within **30 seconds** automatically. Ask for it by name:
+Any named mark you drop in OpenCPN appears in AudioChart within **30 seconds** automatically when connected to the Mac server, or is available offline if you tapped **⬇ Offline** at dock. Ask for it by name:
 
 > *"Range and bearing to [your waypoint name]"*
 
 Waypoint responses are labeled *(waypoint)* to distinguish them from chart features.
+
+---
+
+## Testing with a fake position
+
+Tap **📍** in the header to open the test position input. Enter any coordinates:
+
+- Decimal degrees: `44.1018, -69.0752`
+- Degrees-minutes: `44° 06.1' N 069° 04.5' W`
+
+Tap **Set** — the GPS badge turns amber **TEST POSITION** and all queries use that location. Tap **📍 → Clear** to return to real GPS.
 
 ---
 
