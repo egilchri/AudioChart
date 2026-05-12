@@ -91,6 +91,20 @@ html, body {
 #offline-btn:hover, #route-btn:hover, #test-pos-btn:hover { border-color: var(--accent); color: var(--text); }
 #offline-btn:disabled, #route-btn:disabled { opacity: 0.5; cursor: default; }
 
+/* Demo mode HUD — fixed bar showing current command */
+#demo-hud {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: rgba(74,158,221,0.93);
+  color: #0a1628;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 7px 14px;
+  text-align: center;
+  z-index: 9999;
+  letter-spacing: 0.03em;
+}
+
 /* OpenCPN draw button — appears between map and response when course query runs */
 #opencpn-btn {
   align-self: flex-start;

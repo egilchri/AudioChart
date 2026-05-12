@@ -607,6 +607,75 @@ async function init() {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js').catch(() => {});
   }
+
+  if (new URLSearchParams(location.search).has('demo')) {
+    runDemoMode();
+  }
+}
+
+// ── Demo mode ─────────────────────────────────────────────────────────────────
+// Activated by adding ?demo to the URL.  Sets a test position and runs through
+// a sequence of commands automatically — useful for screen-recording demos.
+
+async function runDemoMode() {
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const hud = document.getElementById('demo-hud');
+  const show = msg => { if (hud) hud.textContent = msg; };
+
+  hud.style.display = 'block';
+  localStorage.setItem('audiochart-welcomed', '1');  // suppress welcome overlay
+
+  show('DEMO — setting position to Rockland Harbor…');
+  await sleep(2000);
+
+  // Set test position
+  const demoLat = 44.0986, demoLon = -69.0752;
+  GPS.setManualPosition(demoLat, demoLon);
+  if (serverUrl) {
+    fetch(`${serverUrl}/api/test-position`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lat: demoLat, lon: demoLon }),
+    }).catch(() => {});
+    setStatus('Loading chart data…');
+    await Query.loadData(demoLat, demoLon);
+    dataLoaded = true;
+    setStatus('Ready.');
+  }
+  await sleep(2000);
+
+  const sequence = [
+    ['Where am I',                           4500],
+    ['Hazards within quarter mile',          5500],
+    ['Range and bearing to Carvers Harbor',  5000],
+    ['Nearest light',                        4000],
+    ['Nearest restricted area',              4500],
+    ['Hazards along Rockland-Camden',        7000],
+  ];
+
+  for (const [cmd, pauseMs] of sequence) {
+    show(`▶  ${cmd}`);
+    textInput.value = '';
+    textInput.focus();
+    for (const ch of cmd) {
+      textInput.value += ch;
+      await sleep(45);
+    }
+    await sleep(400);
+    textForm.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    await sleep(pauseMs);
+  }
+
+  // Open the full chart map if the button is visible
+  if (opencpnBtn && opencpnBtn.style.display !== 'none') {
+    show('▶  Opening full chart view…');
+    opencpnBtn.click();
+    await sleep(5000);
+  }
+
+  show('✓  Demo complete');
+  await sleep(2000);
+  hud.style.display = 'none';
 }
 
 document.addEventListener('DOMContentLoaded', () => {
