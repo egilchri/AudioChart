@@ -23,7 +23,7 @@ Bearings are **magnetic**. Position comes from OpenCPN if it is running, otherwi
 | **ngrok (remote server)** | `https://[id].ngrok-free.app` | Edgar — full server features over internet (café, hotspot) |
 | **Developer (local server)** | `http://localhost:8080` | Edgar — full server features on same network as Mac |
 
-**Hosted mode** ships with Penobscot Bay data built-in. Users tap **⬇ Route** to download additional regions (Casco Bay, etc.), install as a PWA, and sail — no internet needed underway.
+**Hosted mode** ships with Penobscot Bay data built-in. Users tap **⬇ Route** to download chart data and install as a PWA — **internet is only needed for those two steps**. Once installed, the app runs entirely offline: no cell signal, no wifi, no server required underway.
 
 **ngrok mode** gives full server features (live chart data, OpenCPN, course hazards) from anywhere with internet. The Mac and phone do not need to be on the same network. See [Using ngrok](#using-ngrok) below.
 
@@ -33,10 +33,12 @@ Bearings are **magnetic**. Position comes from OpenCPN if it is running, otherwi
 
 ## End-user setup (hosted app)
 
+**Internet is only needed twice: to install, and to download chart data. After that the app works completely offline — no cell signal, no wifi required underway.**
+
 1. Open **Chrome** on your phone and go to `https://egilchri.github.io/AudioChart`.
-2. Tap **⬇ Route** and choose your sailing area to download chart data (requires internet — do this at dock).
+2. Tap **⬇ Route** and choose your sailing area to download chart data. Do this at the dock while you have a good connection — it takes a minute.
 3. In Chrome's menu (⋮), tap **Install app** or **Add to Home Screen**. Chrome may show a banner at the bottom saying **"Install"** — tap that instead if it appears. Either way installs it as a full PWA.
-4. Done — no internet needed once installed and data is downloaded.
+4. **You're done.** Launch from the home screen icon. No internet needed once installed and data is downloaded — the app, chart data, and all queries run entirely on the phone.
 
 > **Install vs Add to Home Screen:** When Chrome shows **Install** (rather than "Add to Home Screen"), it means it recognised the full PWA manifest and is installing a proper standalone app — this is the better outcome. The app gets its own launcher, runs without browser UI, and appears as a separate entry in Android's app switcher.
 
