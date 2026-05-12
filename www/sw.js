@@ -8,8 +8,9 @@
  *   /api/*       → network-only (never cache dynamic API responses)
  */
 
-const CACHE = 'audiochart-v5';
-const TILES_CACHE = 'audiochart-tiles-v1';
+const CACHE = 'audiochart-v6';
+const TILES_CACHE    = 'audiochart-tiles-v1';      // server nautical tiles, LRU
+const SATELLITE_CACHE = 'audiochart-satellite-v1'; // pre-downloaded ESRI tiles, persistent
 const TILES_MAX = 800;
 
 // Resources to pre-cache at install time for offline use
@@ -32,7 +33,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) =>
       Promise.all(
         keys
-          .filter((k) => k !== CACHE && k !== TILES_CACHE)
+          .filter((k) => k !== CACHE && k !== TILES_CACHE && k !== SATELLITE_CACHE)
           .map((k) => caches.delete(k))
       )
     ).then(() => self.clients.claim())
@@ -53,8 +54,9 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Tiles: cache-first
-  if (url.pathname.match(/\/tiles\/\d+\/\d+\/\d+\.jpg$/)) {
+  // Tiles: server nautical tiles and ESRI satellite tiles
+  if (url.pathname.match(/\/tiles\/\d+\/\d+\/\d+\.jpg$/) ||
+      url.hostname.includes('arcgisonline.com')) {
     event.respondWith(tileStrategy(event.request));
     return;
   }
@@ -82,6 +84,23 @@ async function networkFirst(request) {
 }
 
 async function tileStrategy(request) {
+  const isEsri = new URL(request.url).hostname.includes('arcgisonline.com');
+
+  if (isEsri) {
+    // Satellite tiles: persistent cache, no LRU eviction
+    const sat = await caches.open(SATELLITE_CACHE);
+    const hit = await sat.match(request);
+    if (hit) return hit;
+    try {
+      const response = await fetch(request);
+      if (response.ok) await sat.put(request, response.clone());
+      return response;
+    } catch (_) {
+      return new Response('', { status: 503 });
+    }
+  }
+
+  // Server nautical tiles: LRU-limited cache
   const cache = await caches.open(TILES_CACHE);
   const cached = await cache.match(request);
   if (cached) return cached;

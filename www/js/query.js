@@ -255,6 +255,56 @@ export async function prepareOffline(lat, lon, radiusNm = 20) {
 }
 
 /**
+ * Pre-download ESRI satellite tiles for offline map use.
+ * Uses a tiered radius: wide at low zoom (overview), narrow at high zoom (detail).
+ * Tiles are stored in the service worker's persistent satellite cache.
+ * onProgress(done, total) is called after each batch.
+ */
+export async function cacheSatelliteTiles(lat, lon, onProgress) {
+  if (!('caches' in window)) return { added: 0, total: 0 };
+
+  const ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile';
+  // [zoom, radius_nm] — wide radius at low zoom, tight radius at high zoom
+  const ZOOM_RADII = [[10, 25], [11, 25], [12, 12], [13, 6]];
+
+  function tileXY(lat, lon, z) {
+    const n = 2 ** z;
+    const x = Math.floor((lon + 180) / 360 * n);
+    const lr = Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180));
+    const y = Math.floor((1 - lr / Math.PI) / 2 * n);
+    return { x, y };
+  }
+
+  const urls = [];
+  for (const [z, radiusNm] of ZOOM_RADII) {
+    const padLat = radiusNm / 60;
+    const padLon = padLat / Math.cos(lat * Math.PI / 180);
+    const { x: x0, y: y0 } = tileXY(lat + padLat, lon - padLon, z);
+    const { x: x1, y: y1 } = tileXY(lat - padLat, lon + padLon, z);
+    for (let y = y0; y <= y1; y++)
+      for (let x = x0; x <= x1; x++)
+        urls.push(`${ESRI}/${z}/${y}/${x}`);  // ESRI uses z/y/x order
+  }
+
+  const cache = await caches.open('audiochart-satellite-v1');
+  let added = 0;
+  const BATCH = 12;
+
+  for (let i = 0; i < urls.length; i += BATCH) {
+    const batch = urls.slice(i, i + BATCH);
+    await Promise.all(batch.map(async url => {
+      if (await cache.match(url)) return;
+      try {
+        const resp = await fetch(url, { signal: AbortSignal.timeout(10000) });
+        if (resp.ok) { await cache.put(url, resp); added++; }
+      } catch (_) {}
+    }));
+    if (onProgress) onProgress(Math.min(i + BATCH, urls.length), urls.length);
+  }
+  return { added, total: urls.length };
+}
+
+/**
  * Reload data if vessel has moved significantly from last fetch position.
  * Call this whenever position updates.
  */

@@ -482,29 +482,41 @@ async function runRouteDownload(cruiseName) {
   routeBtn.disabled = true;
   if (offlineBtn) offlineBtn.disabled = true;
 
+  const stops = profile.stops;
+
   if (!serverUrl && profile.dataUrl) {
-    // Standalone mode — fetch pre-built regional file from hosting
-    routeBtn.textContent = '⏳ Downloading...';
+    // Standalone mode — chart data is one regional file, then cache satellite tiles per stop
+    routeBtn.textContent = '⏳ Chart data…';
     setStatus(`Downloading ${cruiseName} chart data…`);
     try {
       const result = await Query.prepareOfflineStatic(profile.dataUrl);
-      // Refresh in-memory data from the updated IndexedDB so queries work immediately
       await Query.loadData(null, null);
       dataLoaded = true;
-      routeBtn.textContent = '✓ Route cached';
-      setStatus(`${cruiseName} ready — ${result.total} features loaded.`);
+      setStatus(`Chart data ready — caching satellite tiles…`);
     } catch (e) {
       const reason = e.name === 'AbortError' ? 'timed out' : e.message;
       setStatus(`Download failed: ${reason}`);
       routeBtn.textContent = '⬇ Route';
+      routeBtn.disabled = false;
+      if (offlineBtn) offlineBtn.disabled = false;
+      return;
     }
+    // Cache satellite tiles for each stop
+    for (let i = 0; i < stops.length; i++) {
+      const stop = stops[i];
+      routeBtn.textContent = `🛰 ${i + 1}/${stops.length}`;
+      await Query.cacheSatelliteTiles(stop.lat, stop.lon, (done, total) => {
+        setStatus(`Satellite tiles ${stop.name}: ${done}/${total}`);
+      });
+    }
+    routeBtn.textContent = '✓ Route cached';
+    setStatus(`${cruiseName} ready — chart data and satellite tiles cached.`);
     routeBtn.disabled = false;
     if (offlineBtn) offlineBtn.disabled = false;
     return;
   }
 
-  // Developer mode — stop-by-stop dynamic API calls
-  const stops = profile.stops;
+  // Developer mode — stop-by-stop dynamic API calls + satellite tiles
   let lastResult;
   for (let i = 0; i < stops.length; i++) {
     const stop = stops[i];
@@ -520,9 +532,13 @@ async function runRouteDownload(cruiseName) {
       if (offlineBtn) offlineBtn.disabled = false;
       return;
     }
+    routeBtn.textContent = `🛰 ${i + 1}/${stops.length}`;
+    await Query.cacheSatelliteTiles(stop.lat, stop.lon, (done, total) => {
+      setStatus(`Satellite tiles ${stop.name}: ${done}/${total}`);
+    });
   }
   routeBtn.textContent = '✓ Route cached';
-  setStatus(`${cruiseName} route complete — ${lastResult.total} features cached.`);
+  setStatus(`${cruiseName} route complete — ${lastResult.total} features + satellite tiles cached.`);
   routeBtn.disabled = false;
   if (offlineBtn) offlineBtn.disabled = false;
 }
