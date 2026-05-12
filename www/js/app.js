@@ -137,6 +137,7 @@ async function showPositionMap(lat, lon) {
   await loadLeaflet();
   document.getElementById('map-container').style.display = 'block';
   _ensureMap();
+  _map.invalidateSize();
   if (_mapLayers) { _map.removeLayer(_mapLayers); _mapLayers = null; }
   const dot = L.circleMarker([lat, lon], {
     radius: 10, color: '#4a9edd', fillColor: '#4a9edd', fillOpacity: 1, weight: 0,
@@ -150,6 +151,7 @@ async function showMap(fromLat, fromLon, result) {
   await loadLeaflet();
   document.getElementById('map-container').style.display = 'block';
   _ensureMap();
+  _map.invalidateSize();  // must precede fitBounds so Leaflet knows container size
   if (_mapLayers) { _map.removeLayer(_mapLayers); _mapLayers = null; }
   const { destLat, destLon, destName } = result;
   const fromDot = L.circleMarker([fromLat, fromLon], {
@@ -163,8 +165,7 @@ async function showMap(fromLat, fromLon, result) {
     color: '#4a9edd', weight: 2, dashArray: '6 4', opacity: 0.85,
   });
   _mapLayers = L.layerGroup([line, fromDot, toDot]).addTo(_map);
-  _map.fitBounds(L.latLngBounds([[fromLat, fromLon], [destLat, destLon]]).pad(0.35));
-  _map.invalidateSize();
+  _map.fitBounds(L.latLngBounds([[fromLat, fromLon], [destLat, destLon]]).pad(0.2));
 }
 
 function hideMap() {
@@ -175,6 +176,7 @@ async function showCourseMap(fromLat, fromLon, toLat, toLon, hazardPts) {
   await loadLeaflet();
   document.getElementById('map-container').style.display = 'block';
   _ensureMap();
+  _map.invalidateSize();
   if (_mapLayers) { _map.removeLayer(_mapLayers); _mapLayers = null; }
 
   const layers = [];
@@ -195,7 +197,6 @@ async function showCourseMap(fromLat, fromLon, toLat, toLon, hazardPts) {
   _mapLayers = L.layerGroup(layers).addTo(_map);
   const allPts = [[fromLat, fromLon], [toLat, toLon], ...(hazardPts || []).map(h => [h.lat, h.lon])];
   _map.fitBounds(L.latLngBounds(allPts).pad(0.2));
-  _map.invalidateSize();
 }
 
 const SOURCE_LABEL = {
