@@ -20,11 +20,14 @@ Bearings are **magnetic**. Position comes from OpenCPN if it is running, otherwi
 | Mode | URL | Who it's for |
 |---|---|---|
 | **Hosted (standalone)** | `https://egilchri.github.io/AudioChart` | Any sailor — no Mac or server required |
-| **Developer (local server)** | `http://localhost:8080` | Edgar only — full OpenCPN integration, live chart API |
+| **ngrok (remote server)** | `https://[id].ngrok-free.app` | Edgar — full server features over internet (café, hotspot) |
+| **Developer (local server)** | `http://localhost:8080` | Edgar — full server features on same network as Mac |
 
 **Hosted mode** ships with Penobscot Bay data built-in. Users tap **⬇ Route** to download additional regions (Casco Bay, etc.), install as a PWA, and sail — no internet needed underway.
 
-**Developer mode** adds: live position from OpenCPN, dynamic chart data for any area, waypoint sync, and test-position injection into OpenCPN (ship icon moves to match the 📍 position). Requires the Mac server running and phone on the same network.
+**ngrok mode** gives full server features (live chart data, OpenCPN, course hazards) from anywhere with internet. The Mac and phone do not need to be on the same network. See [Using ngrok](#using-ngrok) below.
+
+**Developer mode** adds: live position from OpenCPN, dynamic chart data for any area, waypoint sync, and test-position injection into OpenCPN. Requires the phone on the same network as the Mac.
 
 ---
 
@@ -32,8 +35,10 @@ Bearings are **magnetic**. Position comes from OpenCPN if it is running, otherwi
 
 1. Open **Chrome** on your phone and go to `https://egilchri.github.io/AudioChart`.
 2. Tap **⬇ Route** and choose your sailing area to download chart data (requires internet — do this at dock).
-3. In Chrome's menu, tap **Add to Home Screen** to install.
+3. In Chrome's menu (⋮), tap **Install app** or **Add to Home Screen**. Chrome may show a banner at the bottom saying **"Install"** — tap that instead if it appears. Either way installs it as a full PWA.
 4. Done — no internet needed once installed and data is downloaded.
+
+> **Install vs Add to Home Screen:** When Chrome shows **Install** (rather than "Add to Home Screen"), it means it recognised the full PWA manifest and is installing a proper standalone app — this is the better outcome. The app gets its own launcher, runs without browser UI, and appears as a separate entry in Android's app switcher.
 
 ---
 
@@ -174,6 +179,45 @@ Tap **📍** in the header to open the test position input. You can enter:
 Tap **Set** — the GPS badge turns amber **TEST POSITION** and all queries use that location. A **View on map** link appears below the position display — tap it to open the coordinates in Google Maps to visually confirm the spot.
 
 Tap **📍 → Clear** to return to real GPS.
+
+---
+
+## Using ngrok
+
+ngrok creates a secure public HTTPS tunnel to your local server. Use it when your phone and Mac are on different networks — a café, a marina with public WiFi, or when you want to install AudioChart as a PWA from your own server.
+
+### One-time setup
+
+```bash
+brew install ngrok          # if not already installed
+ngrok config add-authtoken <your-token>   # from ngrok.com dashboard
+```
+
+### Each session
+
+1. Start the AudioChart server as usual:
+   ```bash
+   python3 server/server.py
+   ```
+
+2. In a second terminal, start the tunnel:
+   ```bash
+   ngrok http 8080
+   ```
+   ngrok prints a URL like `https://54ec-75-68-82-219.ngrok-free.app`.
+
+3. On your phone, open Chrome and navigate to that URL.
+   - ngrok shows a **"You are about to visit…"** warning page on first visit — tap **Visit Site** to proceed.
+   - The AudioChart app loads in full server mode.
+
+4. In Chrome's menu (⋮), tap **Install** to install as a PWA.
+
+### Notes
+
+- **The ngrok URL changes every session** (free tier). When you restart ngrok, open the new URL in Chrome once — the installed PWA will pick it up automatically from then on in that session.
+- A **paid ngrok plan** with a fixed domain (`ngrok http --domain=myboat.ngrok.app 8080`) gives a permanent URL so the installed PWA always works without revisiting.
+- The phone and Mac do **not** need to be on the same network — each just needs internet.
+- The Mac's network (home wifi, café wifi, hotspot) doesn't matter; ngrok tunnels through whatever is available.
 
 ---
 
