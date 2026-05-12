@@ -124,11 +124,12 @@ export async function loadData(lat, lon) {
 
   // Offline fallback: check IndexedDB first (pre-downloaded at dock),
   // then fall back to the static files bundled with the app.
-  const [idbH, idbP, idbN, idbW] = await Promise.all([
+  const [idbH, idbP, idbN, idbW, idbR] = await Promise.all([
     idbGet('hazards').catch(() => null),
     idbGet('named_places').catch(() => null),
     idbGet('navaids').catch(() => null),
     idbGet('waypoints').catch(() => null),
+    idbGet('restrictions').catch(() => null),
   ]);
 
   if (idbH) {
@@ -136,6 +137,7 @@ export async function loadData(lat, lon) {
     namedPlaces = idbP;
     navaids = idbN;
     waypoints = idbW;
+    restrictions = idbR || null;
     console.log('[query] Loaded offline data from IndexedDB');
   } else {
     const [h, p, n] = await Promise.all([
@@ -182,6 +184,7 @@ export async function prepareOfflineStatic(dataUrl) {
     ['hazards',      data.hazards.features],
     ['named_places', data.places.features],
     ['navaids',      data.navaids.features],
+    ['restrictions', (data.restrictions?.features) || []],
   ];
   for (const [idbKey, newFeatures] of pairs) {
     const existing = await idbGet(idbKey).catch(() => null);
@@ -231,6 +234,7 @@ export async function prepareOffline(lat, lon, radiusNm = 20) {
     ['hazards',      data.hazards.features],
     ['named_places', data.places.features],
     ['navaids',      data.navaids.features],
+    ['restrictions', (data.restrictions?.features) || []],
   ];
 
   for (const [idbKey, newFeatures] of pairs) {

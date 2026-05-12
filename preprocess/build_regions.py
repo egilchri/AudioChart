@@ -54,7 +54,7 @@ def build_region(db, region_id, cfg):
         WHERE lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?
     ''', (lat_min, lat_max, lon_min, lon_max)).fetchall()
 
-    hazards, places, navaids = [], [], []
+    hazards, places, navaids, restrictions = [], [], [], []
     for cat, objtype, label, flat, flon, name, props_json in rows:
         props = json.loads(props_json) if props_json else {}
         props.update({'objtype': objtype, 'label': label})
@@ -70,6 +70,8 @@ def build_region(db, region_id, cfg):
             hazards.append(feat)
         elif cat == 'place':
             places.append(feat)
+        elif cat == 'restriction':
+            restrictions.append(feat)
         else:
             navaids.append(feat)
 
@@ -89,17 +91,19 @@ def build_region(db, region_id, cfg):
             vals.append(valmag + annual_deg * (current_year - ref_year))
         magvar_val = round(sum(vals) / len(vals), 1)
 
-    count = len(hazards) + len(places) + len(navaids)
+    count = len(hazards) + len(places) + len(navaids) + len(restrictions)
     print(f'  {cfg["name"]}: {len(hazards)} hazards, {len(places)} places, '
-          f'{len(navaids)} navaids, magvar={magvar_val}°  ({count} total)')
+          f'{len(navaids)} navaids, {len(restrictions)} restrictions, '
+          f'magvar={magvar_val}°  ({count} total)')
 
     return {
-        'region':  cfg['name'],
-        'magvar':  magvar_val,
-        'hazards': {'type': 'FeatureCollection', 'features': hazards},
-        'places':  {'type': 'FeatureCollection', 'features': places},
-        'navaids': {'type': 'FeatureCollection', 'features': navaids},
-        'count':   count,
+        'region':       cfg['name'],
+        'magvar':       magvar_val,
+        'hazards':      {'type': 'FeatureCollection', 'features': hazards},
+        'places':       {'type': 'FeatureCollection', 'features': places},
+        'navaids':      {'type': 'FeatureCollection', 'features': navaids},
+        'restrictions': {'type': 'FeatureCollection', 'features': restrictions},
+        'count':        count,
     }
 
 
