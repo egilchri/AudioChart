@@ -6,10 +6,17 @@ AudioChart is a nautical safety tool for sailing Maine waters. It answers text q
 
 - *"Hazards within quarter mile"*
 - *"Range and bearing to Carvers Harbor"*
+- *"Range and bearing to west entrance to Fox Islands Thorofare"*
 - *"Range and bearing to Ted Special Mark"* (your OpenCPN waypoints)
 - *"Range and bearing to 44° 06.1' N 069° 04.5' W"*
 - *"Nearest hazard"*
-- *"Where am I"*
+- *"Nearest light"* → e.g. "Fl R 4s, bearing 083° M, 0.8 nm"
+- *"Nearest restricted area"* → flagged no-anchor zones, nature reserves, speed restrictions
+- *"Hazards along Rockland-Camden"* (any named OpenCPN route)
+- *"Hazards from Rockland Harbor to west end of Fox Islands Thorofare"*
+- *"Where am I"* → satellite map centred on your position
+
+All bearing/hazard queries show the result on a **satellite map** view. Course hazard queries add a **⊞ Full Chart** button that opens a full-screen chart in a new tab.
 
 Bearings are **magnetic**. Position comes from OpenCPN if it is running, otherwise from the phone's built-in GPS.
 
@@ -96,6 +103,8 @@ Each stop downloads a 25nm radius. Overlapping circles give continuous corridor 
 
 After this, the phone can run the app **without the Mac** for the entire voyage.
 
+**Satellite map tiles are downloaded automatically** as part of ⬇ Route — you do not need to do anything extra. Each stop pre-caches the satellite imagery needed to display bearing/hazard maps at useful zoom levels offline. No internet is required to view the maps underway.
+
 **Downloading just one area?** Use **⬇ Offline** instead — it downloads a 25nm radius around your current GPS position only.
 
 **Adding a new area mid-voyage?** Connect the phone back to the Mac server, tap **⬇ Offline** from your new position, and it merges into the existing cache without erasing anything.
@@ -129,6 +138,12 @@ With OpenCPN running, try these queries to confirm everything works:
 | `OPENCPN` | OpenCPN's last known position (polled from config) |
 | `OPENCPN TRACK` | OpenCPN's last recorded track point |
 | `PHONE GPS` | Android device GPS (fallback) |
+
+### Satellite map views
+
+Every bearing, hazard, and "Where am I" query shows the result on a satellite map in the lower part of the screen. A pin marks the target; a line shows the bearing from your position. The map is pre-cached offline so it works without cell signal.
+
+Course hazard queries (route-to-route or named OpenCPN route) add a **⊞ Full Chart** button — tap it to open a full-screen chart in a new browser tab showing the entire route with all hazard markers.
 
 ### Entering commands
 
@@ -167,6 +182,21 @@ Any named mark you drop in OpenCPN appears in AudioChart within **30 seconds** a
 > *"Range and bearing to [your waypoint name]"*
 
 Waypoint responses are labeled *(waypoint)* to distinguish them from chart features.
+
+---
+
+## Demo mode (screen recording)
+
+Add `?demo` to the URL to run an automatic demonstration sequence — useful for recording a screen video:
+
+```
+http://localhost:8080/?demo
+https://[ngrok-url]/?demo
+```
+
+The app sets a Rockland Harbor test position and then types and executes a series of sample queries automatically: *Where am I*, *Hazards within quarter mile*, *Range and bearing to Carvers Harbor*, *Nearest light*, *Nearest restricted area*, and *Hazards along Rockland-Camden*. A blue bar at the bottom of the screen identifies it as a demo.
+
+The sequence runs once and stops. Refresh to repeat.
 
 ---
 
