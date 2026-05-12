@@ -260,9 +260,30 @@ async function handleCommand(transcript) {
     let response;
 
     switch (intent) {
-      case 'WHERE_AM_I':
+      case 'WHERE_AM_I': {
         response = Query.whereAmI(pos.lat, pos.lon, pos.accuracy);
+        // If local data had no landmark, ask the server directly
+        if (serverUrl && response.text && /^\d+\s+degrees/.test(response.text)) {
+          try {
+            const r = await fetch(
+              `${serverUrl}/api/nearest-landmark?lat=${pos.lat}&lon=${pos.lon}`,
+              { cache: 'no-store', signal: AbortSignal.timeout(4000) }
+            );
+            if (r.ok) {
+              const lm = await r.json();
+              const dir = Query.compassDir(lm.bearing_deg);
+              const dist = Query.naturalDist(lm.dist_nm);
+              const acc = pos.accuracy ? `  ±${Math.round(pos.accuracy)} m` : '';
+              const accSp = pos.accuracy ? `, accuracy ${Math.round(pos.accuracy)} metres` : '';
+              response = {
+                text:   `${dist} ${dir} of ${lm.name}${acc}`,
+                speech: `You are ${dist} ${dir} of ${lm.name}${accSp}.`,
+              };
+            }
+          } catch (_) {}
+        }
         break;
+      }
       case 'NEAREST_HAZARD':
         response = Query.nearestHazard(pos.lat, pos.lon);
         break;

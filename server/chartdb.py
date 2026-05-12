@@ -546,6 +546,57 @@ def get_course_hazards(from_lat, from_lon, to_lat, to_lon, corridor_nm=0.25):
     return {'hazards': results, 'count': len(results), 'course_length_nm': round(d_ab, 2)}
 
 
+_LANDMARK_LABELS = {'town', 'island', 'coastal feature', 'anchorage'}
+
+def find_nearest_landmark(lat, lon, radius_nm=25.0):
+    """
+    Return the best human-readable reference point near (lat, lon).
+    Prefers town/island/coastal feature/anchorage; falls back to any named place.
+    Returns {name, label, dist_nm, bearing_deg} or None.
+    """
+    deg_lat = radius_nm / 60.0
+    deg_lon = radius_nm / (60.0 * math.cos(math.radians(lat)))
+
+    db = get_db()
+    rows = db.execute('''
+        SELECT label, lat, lon, name
+        FROM features
+        WHERE category = 'place' AND name IS NOT NULL
+          AND lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?
+    ''', (lat - deg_lat, lat + deg_lat, lon - deg_lon, lon + deg_lon)).fetchall()
+
+    preferred = None; pref_dist = math.inf
+    fallback  = None; fall_dist = math.inf
+
+    for label, flat, flon, name in rows:
+        if not name:
+            continue
+        d = haversine_nm(lat, lon, flat, flon)
+        if d > radius_nm:
+            continue
+        if label in _LANDMARK_LABELS and d < pref_dist:
+            pref_dist = d
+            preferred = (label, flat, flon, name, d)
+        if d < fall_dist:
+            fall_dist = d
+            fallback = (label, flat, flon, name, d)
+
+    best = preferred or fallback
+    if not best:
+        return None
+
+    label, flat, flon, name, dist = best
+
+    # Bearing FROM landmark TO vessel (so we can say "X nm SW of Rockland")
+    phi1, phi2 = math.radians(flat), math.radians(lat)
+    dlam = math.radians(lon - flon)
+    y = math.sin(dlam) * math.cos(phi2)
+    x = math.cos(phi1)*math.sin(phi2) - math.sin(phi1)*math.cos(phi2)*math.cos(dlam)
+    brg = (math.degrees(math.atan2(y, x)) + 360) % 360
+
+    return {'name': name, 'label': label, 'dist_nm': round(dist, 2), 'bearing_deg': round(brg, 1)}
+
+
 def get_route_segment_hazards(waypoints, corridor_nm=0.25):
     """
     Check hazards along every leg of a multi-point route.

@@ -469,6 +469,10 @@ function findNearestLandmark(lat, lon) {
   return preferred || fallback;
 }
 
+/** Exported so app.js can format the server-side nearest-landmark fallback. */
+export const compassDir  = compassDirectionWords;
+export const naturalDist = naturalDistance;
+
 /** Describe current position relative to nearest landmark. */
 export function whereAmI(lat, lon, accuracy) {
   lastBearingResult = null;

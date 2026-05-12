@@ -329,6 +329,22 @@ async def handle_opencpn_draw(request):
         return web.Response(status=400, text=str(e))
 
 
+async def handle_nearest_landmark(request):
+    """GET /api/nearest-landmark?lat=…&lon=…  — best human-readable reference point."""
+    try:
+        lat = float(request.rel_url.query['lat'])
+        lon = float(request.rel_url.query['lon'])
+    except (KeyError, ValueError):
+        return web.Response(status=400, text='lat and lon required')
+
+    result = await asyncio.get_event_loop().run_in_executor(
+        None, chartdb.find_nearest_landmark, lat, lon
+    )
+    if result is None:
+        return web.Response(status=404, text='No landmark found')
+    return _json_response(request, result)
+
+
 async def handle_route_hazards(request):
     """GET /api/route-hazards?name=Ted+New+Rock+Route"""
     name = request.rel_url.query.get('name', '').strip()
@@ -481,6 +497,7 @@ async def main():
     app = web.Application()
     app.router.add_get('/api/waypoints', handle_waypoints)
     app.router.add_get('/api/nearby', handle_nearby)
+    app.router.add_get('/api/nearest-landmark', handle_nearest_landmark)
     app.router.add_get('/api/route-hazards', handle_route_hazards)
     app.router.add_get('/api/course-hazards', handle_course_hazards)
     app.router.add_get('/course-map', handle_course_map)
