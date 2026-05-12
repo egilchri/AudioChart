@@ -130,6 +130,18 @@ const PATTERNS = [
     params: {},
   },
 
+  // NEAREST RESTRICTION
+  {
+    re: /\b(nearest|closest|any)\s+(restrict|no.anchor|no.wake|sanctuary|refuge|reserve|prohibited|entry\s+prohibited)/i,
+    intent: 'NEAREST_RESTRICTION',
+    params: {},
+  },
+  {
+    re: /\b(restrict|prohibited|no.anchor|no.wake|sanctuary|reserve).{0,20}(near|nearby|around|here|close)\b/i,
+    intent: 'NEAREST_RESTRICTION',
+    params: {},
+  },
+
   // HAZARDS ON COURSE FROM X TO Y  (must come before BEARING_TO_PLACE)
   // Note: place names are NOT normalized here — aliases can cascade on full names.
   // The lookup functions handle matching directly.

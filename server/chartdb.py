@@ -18,6 +18,7 @@ sys.path.insert(0, PREPROCESS_DIR)
 
 from s57_codes import (
     DEPTH_LAYER, HAZARD_LAYERS, NAMED_PLACE_LAYERS, NAVAID_LAYERS,
+    RESTRICTION_LAYERS, CATREA_LABEL, LITCHR_ABBR, LIGHT_COLOUR_ABBR,
     OBJTYPE_LABEL, SHALLOW_DEPTH_THRESHOLD_M,
 )
 
@@ -63,7 +64,8 @@ CREATE INDEX IF NOT EXISTS idx_magvar_latlon ON magvar(lat, lon);
 
 CREATE TABLE IF NOT EXISTS processed_charts (
     chart_id TEXT PRIMARY KEY,
-    processed_at REAL NOT NULL
+    processed_at REAL NOT NULL,
+    version INTEGER NOT NULL DEFAULT 1
 );
 """
 
@@ -118,7 +120,7 @@ def _parse_chart(enc_path, chart_id, db):
         print('[chartdb] fiona not installed — cannot parse ENC')
         return 0
 
-    rows_hazard, rows_place, rows_navaid, rows_magvar = [], [], [], []
+    rows_hazard, rows_place, rows_navaid, rows_restriction, rows_magvar = [], [], [], [], []
 
     try:
         layers = set(fiona.listlayers(enc_path))
@@ -131,7 +133,7 @@ def _parse_chart(enc_path, chart_id, db):
         except Exception:
             return None
 
-    # Hazards
+    # Hazards (including CBLOHD — overhead cables)
     for layer in HAZARD_LAYERS:
         if layer not in layers:
             continue
@@ -146,13 +148,27 @@ def _parse_chart(enc_path, chart_id, db):
                 pos = _ctr(geom)
                 if not pos:
                     continue
-                props = {'valsou': p.get('VALSOU'), 'watlev': p.get('WATLEV')}
-                name = p.get('OBJNAM')
-                rows_hazard.append((
-                    'hazard', layer, OBJTYPE_LABEL.get(layer, layer),
-                    pos[0], pos[1], name, name.lower() if name else None,
-                    json.dumps(props), chart_id
-                ))
+                if layer == 'CBLOHD':
+                    verclr = p.get('VERCLR')
+                    if verclr is not None:
+                        ft = round(verclr * 3.28084)
+                        name = f'{ft} ft clearance'
+                    else:
+                        name = 'clearance unknown'
+                    props = {'verclr_m': verclr}
+                    rows_hazard.append((
+                        'hazard', layer, 'overhead cable',
+                        pos[0], pos[1], name, name.lower(),
+                        json.dumps(props), chart_id
+                    ))
+                else:
+                    props = {'valsou': p.get('VALSOU'), 'watlev': p.get('WATLEV')}
+                    name = p.get('OBJNAM')
+                    rows_hazard.append((
+                        'hazard', layer, OBJTYPE_LABEL.get(layer, layer),
+                        pos[0], pos[1], name, name.lower() if name else None,
+                        json.dumps(props), chart_id
+                    ))
 
     # Shallow depth areas
     if DEPTH_LAYER in layers:
@@ -199,7 +215,7 @@ def _parse_chart(enc_path, chart_id, db):
                     '{}', chart_id
                 ))
 
-    # Navaids
+    # Navaids (LIGHTS get characteristic string as name)
     for layer in NAVAID_LAYERS:
         if layer not in layers:
             continue
@@ -209,9 +225,8 @@ def _parse_chart(enc_path, chart_id, db):
                 if not geom:
                     continue
                 p = feat['properties']
-                name = p.get('OBJNAM')
-                colours = p.get('COLOUR')
                 from s57_codes import COLOUR_LABEL
+                colours = p.get('COLOUR')
                 colour_str = None
                 if colours:
                     colour_str = '/'.join(
@@ -221,9 +236,58 @@ def _parse_chart(enc_path, chart_id, db):
                 pos = _ctr(geom)
                 if not pos:
                     continue
-                props = {'colour': colour_str}
+                if layer == 'LIGHTS':
+                    # Build "Fl(2) G 4s" characteristic string — requires LITCHR
+                    litchr = LITCHR_ABBR.get(p.get('LITCHR'))
+                    if litchr:
+                        siggrp = p.get('SIGGRP') or ''
+                        sigper = p.get('SIGPER')
+                        col_list = colours if isinstance(colours, list) else ([colours] if colours else [])
+                        col_abbr = '/'.join(LIGHT_COLOUR_ABBR.get(int(c), '') for c in col_list if c)
+                        parts = [litchr + siggrp]
+                        if col_abbr:
+                            parts.append(col_abbr)
+                        if sigper:
+                            parts.append(f'{sigper:g}s')
+                        characteristic = ' '.join(pt for pt in parts if pt)
+                    else:
+                        characteristic = None
+                    name = characteristic or None
+                    props = {'colour': colour_str, 'characteristic': characteristic,
+                             'height_m': p.get('HEIGHT'), 'range_nm': p.get('VALNMR')}
+                else:
+                    name = p.get('OBJNAM')
+                    props = {'colour': colour_str}
                 rows_navaid.append((
                     'navaid', layer, OBJTYPE_LABEL.get(layer, 'navaid'),
+                    pos[0], pos[1], name, name.lower() if name else None,
+                    json.dumps(props), chart_id
+                ))
+
+    # Restricted areas
+    for layer in RESTRICTION_LAYERS:
+        if layer not in layers:
+            continue
+        with fiona.open(enc_path, layer=layer) as src:
+            for feat in src:
+                geom = feat.get('geometry')
+                if not geom:
+                    continue
+                p = feat['properties']
+                pos = _ctr(geom)
+                if not pos:
+                    continue
+                catrea = p.get('CATREA') or []
+                if isinstance(catrea, list):
+                    cats = [int(c) for c in catrea if c]
+                else:
+                    cats = [int(catrea)] if catrea else []
+                label = CATREA_LABEL.get(cats[0], 'restricted area') if cats else 'restricted area'
+                name = (p.get('OBJNAM') or '').strip() or None
+                inform = (p.get('INFORM') or '').strip() or None
+                props = {'catrea': cats, 'inform': inform}
+                rows_restriction.append((
+                    'restriction', layer, label,
                     pos[0], pos[1], name, name.lower() if name else None,
                     json.dumps(props), chart_id
                 ))
@@ -251,13 +315,13 @@ def _parse_chart(enc_path, chart_id, db):
     INS = ('INSERT OR IGNORE INTO features '
            '(category,objtype,label,lat,lon,name,name_lower,props,chart_id) '
            'VALUES (?,?,?,?,?,?,?,?,?)')
-    db.executemany(INS, rows_hazard + rows_place + rows_navaid)
+    db.executemany(INS, rows_hazard + rows_place + rows_navaid + rows_restriction)
     if rows_magvar:
         db.executemany(
             'INSERT OR IGNORE INTO magvar (lat,lon,valmag,valacm,ryrmgv,chart_id) VALUES (?,?,?,?,?,?)',
             rows_magvar
         )
-    db.execute('INSERT OR REPLACE INTO processed_charts VALUES (?,?)', (chart_id, time.time()))
+    db.execute('INSERT OR REPLACE INTO processed_charts VALUES (?,?,2)', (chart_id, time.time()))
     db.commit()
 
     return len(rows_hazard) + len(rows_place) + len(rows_navaid)
@@ -265,10 +329,14 @@ def _parse_chart(enc_path, chart_id, db):
 
 # ── Public API ─────────────────────────────────────────────────────────────────
 
+SCHEMA_VERSION = 2  # bump when new feature categories are added
+
 def is_chart_processed(chart_id):
     db = get_db()
-    row = db.execute('SELECT 1 FROM processed_charts WHERE chart_id=?', (chart_id,)).fetchone()
-    return row is not None
+    row = db.execute(
+        'SELECT version FROM processed_charts WHERE chart_id=?', (chart_id,)
+    ).fetchone()
+    return row is not None and row[0] >= SCHEMA_VERSION
 
 
 def process_chart_file(enc_path):
@@ -305,9 +373,10 @@ def get_nearby(lat, lon, radius_nm=DEFAULT_RADIUS_NM):
         SELECT category, objtype, label, lat, lon, name, props
         FROM features
         WHERE lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?
+          AND category IN ('hazard', 'place', 'navaid', 'restriction')
     ''', (lat - deg_lat, lat + deg_lat, lon - deg_lon, lon + deg_lon)).fetchall()
 
-    hazards, places, navaids = [], [], []
+    hazards, places, navaids, restrictions = [], [], [], []
     for cat, objtype, label, flat, flon, name, props_json in rows:
         dist = haversine_nm(lat, lon, flat, flon)
         if dist > radius_nm:
@@ -324,6 +393,8 @@ def get_nearby(lat, lon, radius_nm=DEFAULT_RADIUS_NM):
             hazards.append(feat)
         elif cat == 'place':
             places.append(feat)
+        elif cat == 'restriction':
+            restrictions.append(feat)
         else:
             navaids.append(feat)
 
@@ -350,11 +421,12 @@ def get_nearby(lat, lon, radius_nm=DEFAULT_RADIUS_NM):
         magvar_val = sum(vals) / len(vals)
 
     return {
-        'hazards': {'type': 'FeatureCollection', 'features': hazards},
-        'places':  {'type': 'FeatureCollection', 'features': places},
-        'navaids': {'type': 'FeatureCollection', 'features': navaids},
+        'hazards':      {'type': 'FeatureCollection', 'features': hazards},
+        'places':       {'type': 'FeatureCollection', 'features': places},
+        'navaids':      {'type': 'FeatureCollection', 'features': navaids},
+        'restrictions': {'type': 'FeatureCollection', 'features': restrictions},
         'magvar':  round(magvar_val, 1) if magvar_val is not None else None,
-        'count': len(hazards) + len(places) + len(navaids),
+        'count': len(hazards) + len(places) + len(navaids) + len(restrictions),
         'radius_nm': radius_nm,
     }
 

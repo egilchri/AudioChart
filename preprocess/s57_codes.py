@@ -1,7 +1,7 @@
 """S-57 object class and attribute constants for nautical chart parsing."""
 
 # Hazard object class names (fiona exposes these as layer names)
-HAZARD_LAYERS = ['UWTROC', 'OBSTRN', 'WRECKS']
+HAZARD_LAYERS = ['UWTROC', 'OBSTRN', 'WRECKS', 'CBLOHD']
 
 # Depth area — included only when shallow
 DEPTH_LAYER = 'DEPARE'
@@ -12,6 +12,30 @@ NAMED_PLACE_LAYERS = ['SEAARE', 'LNDRGN', 'HRBARE', 'ACHARE', 'FAIRWY', 'LNDARE'
 
 # Navigation aid layers
 NAVAID_LAYERS = ['BOYLAT', 'BOYSAW', 'BCNLAT', 'LIGHTS']
+
+# Restricted area layer
+RESTRICTION_LAYERS = ['RESARE']
+
+# CATREA (category of restricted area) → human label
+CATREA_LABEL = {
+    1: 'anchor prohibited', 2: 'fishing prohibited', 4: 'entry prohibited',
+    5: 'entry restricted', 6: 'no-wake zone', 7: 'TSS',
+    9: 'nature reserve', 12: 'swimming prohibited',
+    14: 'research area', 24: 'marine sanctuary',
+    26: 'historic wreck', 27: 'speed restricted',
+}
+
+# LITCHR (light character) → abbreviation
+LITCHR_ABBR = {
+    1: 'F', 2: 'Fl', 3: 'LFl', 4: 'Q', 5: 'VQ', 6: 'UQ',
+    7: 'Iso', 8: 'Oc', 9: 'IQ', 10: 'IVQ', 11: 'IUQ',
+    12: 'Mo', 20: 'Al.Fl', 28: 'Q+LFl', 29: 'VQ+LFl',
+}
+
+# COLOUR codes → abbreviation used in light characteristics
+LIGHT_COLOUR_ABBR = {
+    1: 'W', 2: 'Bu', 3: 'R', 4: 'G', 5: 'Bu', 6: 'Y', 11: 'Or',
+}
 
 # WATLEV values that indicate a submerged/hazardous feature
 # 1=part of seabed, 2=covers/uncovers, 4=always underwater, 7=submerged at MHWS
@@ -34,6 +58,8 @@ OBJTYPE_LABEL = {
     'BOYSAW': 'buoy',
     'BCNLAT': 'beacon',
     'LIGHTS': 'light',
+    'CBLOHD': 'overhead cable',
+    'RESARE': 'restricted area',
 }
 
 # COLOUR attribute values → color name

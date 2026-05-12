@@ -45,7 +45,8 @@ async function idbPut(key, value) {
 export let hazards = null;
 export let namedPlaces = null;
 export let navaids = null;
-export let waypoints = null;   // OpenCPN user waypoints
+export let waypoints = null;
+export let restrictions = null;
 export let lastBearingResult = null;  // set by bearing queries; read by map view
 export let lastCourseHazards = null;  // set by hazardsOnCourse; [{lat,lon,label,name}]
 
@@ -104,6 +105,7 @@ export async function loadData(lat, lon) {
         hazards = data.hazards;
         namedPlaces = data.places;
         navaids = data.navaids;
+        restrictions = data.restrictions || null;
         if (data.magvar != null) {
           setMagneticVariation(data.magvar);
           console.log(`[query] MAGVAR from chart: ${data.magvar}°`);
@@ -628,13 +630,38 @@ export function nearestNavaid(lat, lon) {
   if (!nearest) return 'No navaids found.';
   const [flon, flat] = nearest.geometry.coordinates;
   const label = nearest.properties.label || 'navaid';
-  const name = nearest.properties.name ? `, ${nearest.properties.name}` : '';
+  // For lights show characteristic (e.g. "Fl G 4s"); for others show name then colour
+  const characteristic = nearest.properties.characteristic;
+  const nameStr = nearest.properties.name ? `, ${nearest.properties.name}` : '';
+  const detail = characteristic ? ` (${characteristic})` : (nearest.properties.colour ? `, ${nearest.properties.colour}` : '');
+  const destName = `${label}${nameStr}${detail}`.trim();
+  lastBearingResult = { destLat: flat, destLon: flon, destName: destName };
+  const brg = trueTomagnetic(bearing(lon, lat, flon, flat));
+  return {
+    text:   `Nearest ${label}${nameStr}${detail}  ${bearingToDisplay(brg)}  ${distanceToDisplay(minDist)}`,
+    speech: `Nearest ${label}${nameStr}${detail}, bearing ${bearingToWords(brg)}, ${formatDistance(minDist)}.`,
+  };
+}
+
+/** Find nearest restricted area. */
+export function nearestRestriction(lat, lon) {
+  if (!restrictions || restrictions.features.length === 0) return 'No restriction data loaded.';
+  let nearest = null, minDist = Infinity;
+  for (const f of restrictions.features) {
+    const [flon, flat] = f.geometry.coordinates;
+    const d = distanceNm(lon, lat, flon, flat);
+    if (d < minDist) { minDist = d; nearest = f; }
+  }
+  if (!nearest) return 'No restricted areas found.';
+  const [flon, flat] = nearest.geometry.coordinates;
+  const label = nearest.properties.label || 'restricted area';
+  const name = nearest.properties.name ? `: ${nearest.properties.name}` : '';
+  const inform = nearest.properties.inform ? `  "${nearest.properties.inform}"` : '';
   lastBearingResult = { destLat: flat, destLon: flon, destName: (label + name).trim() };
   const brg = trueTomagnetic(bearing(lon, lat, flon, flat));
-  const colour = nearest.properties.colour ? `, ${nearest.properties.colour}` : '';
   return {
-    text:   `Nearest ${label}${name}${colour}  ${bearingToDisplay(brg)}  ${distanceToDisplay(minDist)}`,
-    speech: `Nearest ${label}${name}${colour}, bearing ${bearingToWords(brg)}, ${formatDistance(minDist)}.`,
+    text:   `Nearest restriction — ${label}${name}  ${bearingToDisplay(brg)}  ${distanceToDisplay(minDist)}${inform}`,
+    speech: `Nearest restricted area: ${label}${name}, bearing ${bearingToWords(brg)}, ${formatDistance(minDist)}.`,
   };
 }
 

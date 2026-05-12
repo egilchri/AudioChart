@@ -299,6 +299,9 @@ async function handleCommand(transcript) {
       case 'NEAREST_NAVAID':
         response = Query.nearestNavaid(pos.lat, pos.lon);
         break;
+      case 'NEAREST_RESTRICTION':
+        response = Query.nearestRestriction(pos.lat, pos.lon);
+        break;
       case 'HAZARDS_ON_COURSE': {
         const resolvePlace = async (name) =>
           parseCoordinate(name) ||
@@ -364,7 +367,7 @@ async function handleCommand(transcript) {
     showResponse(displayText);
     TTS.sayImmediate(speechText);
 
-    const SHOW_MAP_FOR = ['BEARING_TO_PLACE', 'BEARING_TO_COORD', 'NEAREST_HAZARD', 'NEAREST_NAVAID'];
+    const SHOW_MAP_FOR = ['BEARING_TO_PLACE', 'BEARING_TO_COORD', 'NEAREST_HAZARD', 'NEAREST_NAVAID', 'NEAREST_RESTRICTION'];
     const isCourseIntent = (intent === 'HAZARDS_ON_COURSE' || intent === 'HAZARDS_ALONG_ROUTE');
     if (isCourseIntent && _lastCourseFrom) {
       showCourseMap(_lastCourseFrom.lat, _lastCourseFrom.lon, _lastCourseTo.lat, _lastCourseTo.lon, Query.lastCourseHazards).catch(() => {});
