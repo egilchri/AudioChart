@@ -523,7 +523,8 @@ async function init() {
   // Connect to Mac server BEFORE starting GPS so setServerBase is ready
   // when the first fix arrives and triggers loadData.
   const isMacServer = location.hostname === 'localhost' ||
-                      !!location.hostname.match(/^192\.168\.|^10\.|^172\.(1[6-9]|2\d|3[01])\./);
+                      /^192\.168\.|^10\.|^172\.(1[6-9]|2\d|3[01])\./.test(location.hostname) ||
+                      /\.ngrok(-free)?\.app$|\.ngrok\.io$/.test(location.hostname);
   serverUrl = isMacServer
     ? location.origin
     : localStorage.getItem('audiochart_server_url');

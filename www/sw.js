@@ -8,7 +8,7 @@
  *   /api/*       → network-only (never cache dynamic API responses)
  */
 
-const CACHE = 'audiochart-v3';
+const CACHE = 'audiochart-v5';
 const TILES_CACHE = 'audiochart-tiles-v1';
 const TILES_MAX = 800;
 
@@ -43,7 +43,13 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
   // Never intercept API or connect page — always hit the network
+  // Add ngrok bypass header so the interstitial doesn't replace JSON responses
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/ws/') || url.pathname === '/connect') {
+    if (url.hostname.includes('ngrok')) {
+      event.respondWith(fetch(event.request, {
+        headers: { ...Object.fromEntries(event.request.headers), 'ngrok-skip-browser-warning': '1' },
+      }));
+    }
     return;
   }
 
