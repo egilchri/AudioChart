@@ -122,20 +122,34 @@ async function loadLeaflet() {
 function setStatus(msg) { statusEl.textContent = msg; }
 function showResponse(text) { responseEl.textContent = text; }
 
+function _ensureMap() {
+  if (_map) return;
+  _map = L.map('leaflet-map', { zoomControl: false, attributionControl: true });
+  // Satellite base layer — ESRI World Imagery, no API key required
+  // Note: ESRI tile URL uses {z}/{y}/{x} order (y before x)
+  L.tileLayer(
+    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    { minZoom: 4, maxZoom: 17, attribution: '© Esri' }
+  ).addTo(_map);
+}
+
+async function showPositionMap(lat, lon) {
+  await loadLeaflet();
+  document.getElementById('map-container').style.display = 'block';
+  _ensureMap();
+  if (_mapLayers) { _map.removeLayer(_mapLayers); _mapLayers = null; }
+  const dot = L.circleMarker([lat, lon], {
+    radius: 10, color: '#4a9edd', fillColor: '#4a9edd', fillOpacity: 1, weight: 0,
+  }).bindTooltip('You are here', { permanent: true, direction: 'top', className: 'map-tooltip' });
+  _mapLayers = L.layerGroup([dot]).addTo(_map);
+  _map.setView([lat, lon], 13);
+  _map.invalidateSize();
+}
+
 async function showMap(fromLat, fromLon, result) {
   await loadLeaflet();
-  const container = document.getElementById('map-container');
-  container.style.display = 'block';
-  if (!_map) {
-    _map = L.map('leaflet-map', { zoomControl: false, attributionControl: !!(!serverUrl) });
-    const tileUrl = serverUrl
-      ? `${serverUrl}/tiles/{z}/{x}/{y}.jpg`
-      : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
-    const tileOpts = serverUrl
-      ? { minZoom: 10, maxZoom: 16 }
-      : { minZoom: 8, maxZoom: 18, attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' };
-    L.tileLayer(tileUrl, tileOpts).addTo(_map);
-  }
+  document.getElementById('map-container').style.display = 'block';
+  _ensureMap();
   if (_mapLayers) { _map.removeLayer(_mapLayers); _mapLayers = null; }
   const { destLat, destLon, destName } = result;
   const fromDot = L.circleMarker([fromLat, fromLon], {
@@ -159,18 +173,8 @@ function hideMap() {
 
 async function showCourseMap(fromLat, fromLon, toLat, toLon, hazardPts) {
   await loadLeaflet();
-  const container = document.getElementById('map-container');
-  container.style.display = 'block';
-  if (!_map) {
-    _map = L.map('leaflet-map', { zoomControl: false, attributionControl: !!(!serverUrl) });
-    const tileUrl = serverUrl
-      ? `${serverUrl}/tiles/{z}/{x}/{y}.jpg`
-      : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
-    const tileOpts = serverUrl
-      ? { minZoom: 10, maxZoom: 16 }
-      : { minZoom: 8, maxZoom: 18, attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' };
-    L.tileLayer(tileUrl, tileOpts).addTo(_map);
-  }
+  document.getElementById('map-container').style.display = 'block';
+  _ensureMap();
   if (_mapLayers) { _map.removeLayer(_mapLayers); _mapLayers = null; }
 
   const layers = [];
@@ -369,7 +373,10 @@ async function handleCommand(transcript) {
 
     const SHOW_MAP_FOR = ['BEARING_TO_PLACE', 'BEARING_TO_COORD', 'NEAREST_HAZARD', 'NEAREST_NAVAID', 'NEAREST_RESTRICTION'];
     const isCourseIntent = (intent === 'HAZARDS_ON_COURSE' || intent === 'HAZARDS_ALONG_ROUTE');
-    if (isCourseIntent && _lastCourseFrom) {
+    if (intent === 'WHERE_AM_I') {
+      showPositionMap(pos.lat, pos.lon).catch(() => {});
+      opencpnBtn.style.display = 'none';
+    } else if (isCourseIntent && _lastCourseFrom) {
       showCourseMap(_lastCourseFrom.lat, _lastCourseFrom.lon, _lastCourseTo.lat, _lastCourseTo.lon, Query.lastCourseHazards).catch(() => {});
       if (serverUrl) opencpnBtn.style.display = 'inline-block';
     } else if (SHOW_MAP_FOR.includes(intent) && Query.lastBearingResult) {
