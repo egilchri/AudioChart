@@ -614,7 +614,10 @@ export function hazardsInRadius(lat, lon, radiusNm) {
 
 /** Find bearing and distance to a named place or OpenCPN waypoint. */
 export function bearingToPlace(lat, lon, queryName) {
-  const q = queryName.toLowerCase().trim();
+  // Strip directional qualifiers before searching ("west entrance to" etc.)
+  const { clean, bearing: dirBearing } = parseDirectional(queryName.toLowerCase().trim());
+  const q = clean;
+
   let best = null, bestScore = 0, bestIsWaypoint = false;
 
   // Search OpenCPN waypoints first — user-created marks take priority
@@ -635,20 +638,32 @@ export function bearingToPlace(lat, lon, queryName) {
     }
   }
 
-  if (!best || bestScore < 0.4) {
-    return `I couldn't find a place called "${queryName}". Try a different name.`;
+  if (!best || bestScore < 0.4) return null;  // signal caller to try server
+
+  let [flon, flat] = best.geometry.coordinates;
+  if (dirBearing !== null) {
+    const off = offsetCoords(flat, flon, dirBearing);
+    flat = off.lat; flon = off.lon;
   }
 
-  const [flon, flat] = best.geometry.coordinates;
-  lastBearingResult = { destLat: flat, destLon: flon, destName: best.properties.name };
+  return _formatBearingResult(lat, lon, flat, flon, best.properties.name,
+                              bestIsWaypoint, bestScore);
+}
+
+/** Format a bearing result from a pre-resolved coordinate. */
+export function bearingToResolvedPlace(lat, lon, toLat, toLon, toName) {
+  return _formatBearingResult(lat, lon, toLat, toLon, toName, false, 1.0);
+}
+
+function _formatBearingResult(lat, lon, flat, flon, name, isWaypoint, score) {
+  lastBearingResult = { destLat: flat, destLon: flon, destName: name };
   const brg = trueTomagnetic(bearing(lon, lat, flon, flat));
   const dist = distanceNm(lon, lat, flon, flat);
-  const name = best.properties.name;
-  const tag = bestIsWaypoint ? ' (waypoint)' : '';
-  const matchNote = bestScore < 0.9 ? `Closest match: ${name}${tag}` : `${name}${tag}`;
+  const tag = isWaypoint ? ' (waypoint)' : '';
+  const matchNote = score < 0.9 ? `Closest match: ${name}${tag}` : `${name}${tag}`;
   return {
     text:   `${matchNote}  ${bearingToDisplay(brg)}  ${distanceToDisplay(dist)}`,
-    speech: `${bestScore < 0.9 ? `Closest match: ${name}${tag}. ` : `${name}${tag}: `}bearing ${bearingToWords(brg)}, ${formatDistance(dist)}.`,
+    speech: `${score < 0.9 ? `Closest match: ${name}${tag}. ` : `${name}${tag}: `}bearing ${bearingToWords(brg)}, ${formatDistance(dist)}.`,
   };
 }
 

@@ -298,9 +298,19 @@ async function handleCommand(transcript) {
       case 'BEARING_TO_COORD':
         response = Query.bearingToCoord(pos.lat, pos.lon, params.lat, params.lon);
         break;
-      case 'BEARING_TO_PLACE':
+      case 'BEARING_TO_PLACE': {
         response = Query.bearingToPlace(pos.lat, pos.lon, params.placeName);
+        if (!response && serverUrl) {
+          const place = await Query.findPlaceOnServer(params.placeName);
+          if (place) {
+            response = Query.bearingToResolvedPlace(pos.lat, pos.lon, place.lat, place.lon, place.name);
+          }
+        }
+        if (!response) {
+          response = `I couldn't find "${params.placeName}". Try a different name.`;
+        }
         break;
+      }
       case 'NEAREST_NAVAID':
         response = Query.nearestNavaid(pos.lat, pos.lon);
         break;
