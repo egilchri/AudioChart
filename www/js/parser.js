@@ -27,9 +27,8 @@ export function normalizePlaceName(raw) {
     .replace(/\s+/g, ' ')
     .trim();
   for (const [alias, replacement] of Object.entries(PLACE_ALIASES)) {
-    if (s.includes(alias)) {
-      s = s.replace(alias, replacement);
-    }
+    if (s.includes(replacement)) continue;  // already contains the target — skip
+    if (s.includes(alias)) s = s.replace(alias, replacement);
   }
   return s.trim();
 }
