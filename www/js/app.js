@@ -125,12 +125,17 @@ function showResponse(text) { responseEl.textContent = text; }
 function _ensureMap() {
   if (_map) return;
   _map = L.map('leaflet-map', { zoomControl: false, attributionControl: true });
-  // Satellite base layer — ESRI World Imagery, no API key required
-  // Note: ESRI tile URL uses {z}/{y}/{x} order (y before x)
-  L.tileLayer(
-    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    { minZoom: 4, maxZoom: 17, attribution: '© Esri' }
-  ).addTo(_map);
+  // Server mode: use local nautical tiles — no internet required offshore.
+  // Standalone/offline mode: ESRI satellite — needs internet or service-worker cache.
+  // Note: ESRI tile URL uses {z}/{y}/{x} order (y before x).
+  if (serverUrl) {
+    L.tileLayer(`${serverUrl}/tiles/{z}/{x}/{y}.jpg`, { minZoom: 10, maxZoom: 16, attribution: '' }).addTo(_map);
+  } else {
+    L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      { minZoom: 4, maxZoom: 17, attribution: '© Esri' }
+    ).addTo(_map);
+  }
 }
 
 async function showPositionMap(lat, lon) {
