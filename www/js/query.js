@@ -764,7 +764,7 @@ export function navaidsInRadius(lat, lon, radiusNm, filter) {
   const more   = count > MAX ? ` Plus ${count - MAX} more.` : '';
   const header = `${count} ${typeDesc} within ${radiusDesc}`;
 
-  lastNavaidResults = nearby.slice(0, MAX).map(({ f }) => {
+  lastNavaidResults = nearby.slice(0, MAX).map(({ f, d, brg }) => {
     const [flon, flat] = f.geometry.coordinates;
     return {
       lat:            flat,
@@ -773,11 +773,13 @@ export function navaidsInRadius(lat, lon, radiusNm, filter) {
       name:           f.properties.name || null,
       colour:         f.properties.colour || null,
       characteristic: f.properties.characteristic || null,
+      brg,
+      d,
     };
   });
 
   return {
-    text:   `${header}:\n${textParts.join('\n')}${more}`,
+    text:   header,   // map shows the detail; keep screen uncluttered
     speech: `${header}: ${speechParts.join('. ')}.${more}`,
   };
 }

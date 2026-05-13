@@ -20,7 +20,7 @@ function _navaidMarkerColor(navaid) {
   if (l === 'beacon')                          return '#4a9edd';
   return '#aaaaaa';
 }
-import { formatPositionDisplay } from './utils.js';
+import { formatPositionDisplay, bearingToWords, bearingToDisplay, formatDistance, distanceToDisplay } from './utils.js';
 
 // Capture Android PWA install prompt before any user gesture.
 let _pwaInstallPrompt = null;
@@ -218,6 +218,11 @@ async function showNavaidMap(fromLat, fromLon, navaids) {
     });
     const tip = [n.name, n.characteristic || n.colour].filter(Boolean).join(' — ');
     if (tip) marker.bindTooltip(tip, { permanent: false, direction: 'top', className: 'map-tooltip' });
+    marker.on('click', () => {
+      const nameStr = n.name ? ` ${n.name}` : '';
+      const detail  = n.characteristic ? `, ${n.characteristic}` : n.colour ? `, ${n.colour}` : '';
+      TTS.sayImmediate(`${n.label}${nameStr}${detail}, bearing ${bearingToWords(n.brg)}, ${formatDistance(n.d)}.`);
+    });
     layers.push(marker);
   }
 
