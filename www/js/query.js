@@ -718,6 +718,56 @@ export function nearestNavaid(lat, lon) {
   };
 }
 
+/** Find all navaids of a given type within radiusNm. filter: 'buoy'|'light'|'beacon'|null */
+export function navaidsInRadius(lat, lon, radiusNm, filter) {
+  if (!navaids || navaids.features.length === 0) return 'No navaid data loaded.';
+
+  const nearby = [];
+  for (const f of navaids.features) {
+    const [flon, flat] = f.geometry.coordinates;
+    if (filter && f.properties.label !== filter) continue;
+    const d = distanceNm(lon, lat, flon, flat);
+    if (d <= radiusNm) nearby.push({ f, d, brg: trueTomagnetic(bearing(lon, lat, flon, flat)) });
+  }
+  nearby.sort((a, b) => a.d - b.d);
+
+  const radiusDesc = radiusNm === 0.25 ? 'quarter mile' :
+                     radiusNm === 0.5  ? 'half mile' :
+                     `${radiusNm} nautical miles`;
+  const typeDesc = filter ? `${filter}s` : 'navaids';
+
+  if (nearby.length === 0) return `No ${typeDesc} within ${radiusDesc} of your position.`;
+
+  const MAX = 8;
+  const count = nearby.length;
+
+  const fmt = ({ f, d, brg }) => {
+    const label = f.properties.label || 'navaid';
+    const name  = f.properties.name ? ` ${f.properties.name}` : '';
+    const detail = f.properties.characteristic
+      ? ` (${f.properties.characteristic})`
+      : f.properties.colour ? ` (${f.properties.colour})` : '';
+    return { label, name, detail, d, brg };
+  };
+
+  const textParts   = nearby.slice(0, MAX).map(item => {
+    const { label, name, detail, d, brg } = fmt(item);
+    return `${label}${name}${detail}  ${bearingToDisplay(brg)}  ${distanceToDisplay(d)}`;
+  });
+  const speechParts = nearby.slice(0, MAX).map(item => {
+    const { label, name, detail, d, brg } = fmt(item);
+    const spokenDetail = detail.replace(/[()]/g, '');
+    return `${label}${name}${spokenDetail ? ', ' + spokenDetail : ''}, bearing ${bearingToWords(brg)}, ${formatDistance(d)}`;
+  });
+
+  const more   = count > MAX ? ` Plus ${count - MAX} more.` : '';
+  const header = `${count} ${typeDesc} within ${radiusDesc}`;
+  return {
+    text:   `${header}:\n${textParts.join('\n')}${more}`,
+    speech: `${header}: ${speechParts.join('. ')}.${more}`,
+  };
+}
+
 /** Find nearest restricted area. */
 export function nearestRestriction(lat, lon) {
   if (!restrictions || restrictions.features.length === 0) return 'No restriction data loaded.';
