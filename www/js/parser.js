@@ -71,13 +71,21 @@ export function parseCoordinate(text) {
 function parseRadius(text) {
   const nm = text.match(/(\d+(?:\.\d+)?)\s*(?:nm|nautical\s*miles?)/i);
   if (nm) return parseFloat(nm[1]);
-  const mi = text.match(/(\d+(?:\.\d+)?)\s*miles?/i);
+  const mi = text.match(/(\d+(?:\.\d+)?)\s*mi(?:les?)?/i);
   if (mi) return parseFloat(mi[1]);
   if (/quarter\s*mile|1\s*\/\s*4\s*mile/i.test(text)) return 0.25;
   if (/half\s*mile|1\s*\/\s*2\s*mile/i.test(text)) return 0.5;
   if (/one\s*mile/i.test(text)) return 1.0;
   if (/two\s*miles?/i.test(text)) return 2.0;
   return 0.25; // default
+}
+
+function navaidFilter(word) {
+  const w = word.toLowerCase();
+  if (/buoy|marker|nun|can/.test(w)) return 'buoy';
+  if (/light/.test(w)) return 'light';
+  if (/beacon/.test(w)) return 'beacon';
+  return null;
 }
 
 const PATTERNS = [
@@ -127,6 +135,28 @@ const PATTERNS = [
     re: /\b(nearest|closest)\s+(buoy|beacon|light|marker|nun|can)\b/i,
     intent: 'NEAREST_NAVAID',
     params: {},
+  },
+
+  // NAVAIDS IN RADIUS
+  {
+    re: /(buoys?|lights?|beacons?|markers?|navaids?|navigation\s+aids?|nuns?|cans?).{0,30}(quarter|1\s*\/\s*4)\s*mile/i,
+    intent: 'NAVAIDS_IN_RADIUS',
+    extract: (m) => ({ radiusNm: 0.25, filter: navaidFilter(m[1]) }),
+  },
+  {
+    re: /(buoys?|lights?|beacons?|markers?|navaids?|navigation\s+aids?|nuns?|cans?).{0,30}half\s*mile/i,
+    intent: 'NAVAIDS_IN_RADIUS',
+    extract: (m) => ({ radiusNm: 0.5, filter: navaidFilter(m[1]) }),
+  },
+  {
+    re: /(buoys?|lights?|beacons?|markers?|navaids?|navigation\s+aids?|nuns?|cans?).{0,50}with(?:in)?\s+(.{1,30})/i,
+    intent: 'NAVAIDS_IN_RADIUS',
+    extract: (m) => ({ radiusNm: parseRadius(m[2]), filter: navaidFilter(m[1]) }),
+  },
+  {
+    re: /(buoys?|lights?|beacons?|markers?|navaids?|navigation\s+aids?|nuns?|cans?).{0,20}(nearby|around|close|here)/i,
+    intent: 'NAVAIDS_IN_RADIUS',
+    extract: (m) => ({ radiusNm: 0.5, filter: navaidFilter(m[1]) }),
   },
 
   // NEAREST RESTRICTION
