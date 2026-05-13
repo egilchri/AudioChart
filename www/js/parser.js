@@ -71,12 +71,12 @@ export function parseCoordinate(text) {
 function parseRadius(text) {
   const nm = text.match(/(\d+(?:\.\d+)?)\s*(?:nm|nautical\s*miles?)/i);
   if (nm) return parseFloat(nm[1]);
-  const mi = text.match(/(\d+(?:\.\d+)?)\s*mi(?:les?)?/i);
-  if (mi) return parseFloat(mi[1]);
   if (/quarter\s*mile|1\s*\/\s*4\s*mile/i.test(text)) return 0.25;
   if (/half\s*mile|1\s*\/\s*2\s*mile/i.test(text)) return 0.5;
   if (/one\s*mile/i.test(text)) return 1.0;
   if (/two\s*miles?/i.test(text)) return 2.0;
+  const mi = text.match(/(\d+(?:\.\d+)?)\s*mi(?:les?)?/i);
+  if (mi) return parseFloat(mi[1]);
   return 0.25; // default
 }
 
