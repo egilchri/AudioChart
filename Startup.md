@@ -2,10 +2,15 @@
 
 ## What it does
 
-AudioChart is a nautical safety tool for sailing Maine waters. It answers text queries (use your phone keyboard's mic button to speak them) like:
+AudioChart is a nautical safety tool for sailing Maine and New Hampshire waters. It answers text queries (use your phone keyboard's mic button to speak them) like:
 
 - *"Hazards within quarter mile"*
+- *"Buoys within 1/4 mile"* → lists each buoy with bearing, distance, and colour
+- *"Lights within half mile"* → lists each light with flash characteristic (e.g. Fl G 4s)
+- *"Beacons within 1 mile"*
+- *"Navaids within quarter mile"* → all buoys, lights, and beacons combined
 - *"Range and bearing to Carvers Harbor"*
+- *"Range and bearing to Pierce Island Buoy 3"*
 - *"Range and bearing to west entrance to Fox Islands Thorofare"*
 - *"Range and bearing to Ted Special Mark"* (your OpenCPN waypoints)
 - *"Range and bearing to 44° 06.1' N 069° 04.5' W"*
@@ -42,12 +47,14 @@ Bearings are **magnetic**. Position comes from OpenCPN if it is running, otherwi
 
 **Internet is only needed twice: to install, and to download chart data. After that the app works completely offline — no cell signal, no wifi required underway.**
 
-1. Open **Chrome** on your phone and go to `https://egilchri.github.io/AudioChart`.
-2. Tap **⬇ Route** and choose your sailing area to download chart data. Do this at the dock while you have a good connection — it takes a minute.
-3. In Chrome's menu (⋮), tap **Install app** or **Add to Home Screen**. Chrome may show a banner at the bottom saying **"Install"** — tap that instead if it appears. Either way installs it as a full PWA.
+1. Open your browser and go to `https://egilchri.github.io/AudioChart`.
+2. The app immediately shows a **region picker** — tap your sailing area to download chart data. Do this at the dock while you have a good connection — it takes about a minute.
+3. After downloading, the app shows install instructions for your platform:
+   - **Android (Chrome):** tap **Install App** when the button appears, or use Chrome's menu (⋮) → *Add to Home Screen*.
+   - **iPhone (Safari):** tap the **Share** button (⎙) at the bottom, then *Add to Home Screen*.
 4. **You're done.** Launch from the home screen icon. No internet needed once installed and data is downloaded — the app, chart data, and all queries run entirely on the phone.
 
-> **Install vs Add to Home Screen:** When Chrome shows **Install** (rather than "Add to Home Screen"), it means it recognised the full PWA manifest and is installing a proper standalone app — this is the better outcome. The app gets its own launcher, runs without browser UI, and appears as a separate entry in Android's app switcher.
+> **Android tip:** When Chrome shows **Install** (rather than "Add to Home Screen"), it recognised the full PWA manifest and installs a proper standalone app — the better outcome. It gets its own launcher, runs without browser UI, and appears as a separate entry in the app switcher.
 
 ---
 
@@ -100,6 +107,7 @@ Each stop downloads a 25nm radius. Overlapping circles give continuous corridor 
 |---|---|
 | Penobscot Bay | Rockland, Camden, Belfast, Castine, Stonington, Great Cranberry Island |
 | Casco Bay | Portland, Harpswell |
+| Piscataqua | Portsmouth NH, Isles of Shoals, Kittery ME |
 
 After this, the phone can run the app **without the Mac** for the entire voyage.
 
@@ -130,14 +138,16 @@ With OpenCPN running, try these queries to confirm everything works:
 
 ### GPS source priority (shown in the badge)
 
-| Badge | Source |
-|---|---|
-| `TEST POSITION` | Manual override — you set the position for testing (amber) |
-| `OPENCPN LIVE` | Real-time NMEA from OpenCPN TCP output |
-| `GPS PUCK` | USB GPS puck via Mac serial bridge |
-| `OPENCPN` | OpenCPN's last known position (polled from config) |
-| `OPENCPN TRACK` | OpenCPN's last recorded track point |
-| `PHONE GPS` | Android device GPS (fallback) |
+| Badge | Source | Priority |
+|---|---|---|
+| `TEST POSITION` | Manual override — you set the position for testing (amber) | 6 — highest |
+| `OPENCPN LIVE` | Real-time NMEA from OpenCPN TCP output | 5 |
+| `GPS PUCK` | USB GPS puck via Mac serial bridge | 4 |
+| `OPENCPN TRACK` | OpenCPN's last recorded track point | 2 |
+| `PHONE GPS` | Device GPS via browser geolocation | 1 |
+| `OPENCPN` | OpenCPN config file position (stale, no timestamp) | 0 — loses to everything |
+
+Higher priority wins. Once `TEST POSITION` is active, real GPS cannot displace it until you tap **📍 CLEAR TEST**.
 
 ### Satellite map views
 
@@ -151,16 +161,33 @@ Type in the text box and press Enter or ▶. On your Pixel, tap the **mic icon o
 
 Previous queries are saved as pills below the text box — tap any pill to rerun it instantly. Tap **✕** to clear history.
 
-### Referencing navigational aids
+### Querying navaids by type
 
-Buoys and lights use their full NOAA chart names. The number at the end is optional — fuzzy matching finds the right one:
+Ask for all navaids of a specific type within a radius — response gives bearing, distance, and identifying detail for each:
+
+| You say | What you get |
+|---|---|
+| *"Buoys within quarter mile"* | All buoys ≤0.25nm, with colour |
+| *"Buoys within 1/4 mile"* | Same |
+| *"Lights within half mile"* | All lights ≤0.5nm, with flash characteristic (e.g. Fl G 4s) |
+| *"Beacons within 1 mile"* | All beacons ≤1nm |
+| *"Navaids within quarter mile"* | All buoys, lights, and beacons combined |
+| *"Markers nearby"* | All buoys within 0.5nm |
+
+Up to 8 results shown, sorted nearest first.
+
+### Referencing individual navigational aids
+
+Buoys and lights use their full NOAA chart names in bearing queries. The number at the end is optional — fuzzy matching finds the right one:
 
 | You say | What it finds |
 |---|---|
 | *"bearing to Rockland Harbor Main Channel Buoy 4"* | Exact match |
 | *"bearing to Rockland Harbor Main Channel Buoy"* | Same buoy, number omitted |
 | *"bearing to Monroe Island Bell Buoy"* | Works without the number |
-| *"nearest buoy"* | Closest navaid of any type |
+| *"bearing to Pierce Island Buoy 3"* | Named buoy in Portsmouth area |
+| *"nearest buoy"* | Closest buoy |
+| *"nearest light"* | Closest light, with flash characteristic |
 
 ### Disambiguating common names
 
@@ -204,13 +231,13 @@ The sequence runs once and stops. Refresh to repeat.
 
 Tap **📍** in the header to open the test position input. You can enter:
 
-- A place name: `Southwest Harbor`, `Camden`, `Stonington`
+- A place name: `Southwest Harbor`, `Camden`, `Stonington`, `Portsmouth`
 - Decimal degrees: `44.1018, -69.0752`
 - Degrees-minutes: `44° 06.1' N 069° 04.5' W`
 
-Tap **Set** — the GPS badge turns amber **TEST POSITION** and all queries use that location. A **View on map** link appears below the position display — tap it to open the coordinates in Google Maps to visually confirm the spot.
+Tap **Set** — the button turns red and reads **📍 CLEAR TEST**, and the GPS badge turns amber **TEST POSITION**. All queries use that location. A **View on map** link appears below the position display — tap it to open the coordinates in Google Maps to visually confirm the spot.
 
-Tap **📍 → Clear** to return to real GPS.
+**To return to real GPS:** tap the red **📍 CLEAR TEST** button directly. No need to open the form again.
 
 ---
 

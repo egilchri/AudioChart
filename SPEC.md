@@ -105,12 +105,14 @@ The server (`server/server.py`) is a single `aiohttp` async application serving:
 **Port:** 8080 (HTTP, not HTTPS — service worker works on localhost only)
 
 **GPS position priority** (highest first):
-1. `manual` — test position set via API
-2. `opencpn-nmea` — TCP NMEA from OpenCPN on port 10110
-3. `nmea` — USB GPS puck via serial (`/dev/cu.PL2303G-USBtoUART110` at 4800 baud)
-4. `opencpn-ini` — polled from `~/Library/Preferences/opencpn/opencpn.ini`
-5. `opencpn-track` — last track point from `~/Library/Preferences/opencpn/navobj.db`
-6. `browser` — phone's native GPS via `navigator.geolocation`
+1. `manual` — test position set via API (priority 6)
+2. `opencpn-nmea` — TCP NMEA from OpenCPN on port 10110 (priority 5)
+3. `nmea` — USB GPS puck via serial (priority 4)
+4. `opencpn-track` — last track point from navobj.db, has 5-minute staleness check (priority 2)
+5. `browser` — phone's native GPS via `navigator.geolocation` (priority 1)
+6. `opencpn-ini` — polled from `opencpn.ini`, no timestamp, lowest priority (priority 0)
+
+`opencpn-ini` is priority 0 (below browser) because it's a stale config value with no timestamp — it should never override a live phone GPS fix.
 
 ---
 
@@ -162,7 +164,8 @@ python3 preprocess/build_regions.py
 This writes:
 - `www/data/regions/penobscot-bay.json` — full Penobscot Bay dataset with magvar
 - `www/data/regions/casco-bay.json` — full Casco Bay dataset
-- Updates `www/data/hazards.geojson`, `named_places.geojson`, `navaid.geojson` (static fallbacks)
+- `www/data/regions/piscataqua.json` — Portsmouth NH / Kittery ME area (uses NOAA NH ENC charts from `~/Documents/Charts/ENC/US_NH/`)
+- Updates `www/data/hazards.geojson`, `named_places.geojson`, `navaid.geojson` (static fallbacks, sourced from Penobscot Bay)
 
 Run this whenever ENC charts are updated, then commit and push. GitHub Actions deploys automatically.
 
@@ -174,9 +177,9 @@ Run this whenever ENC charts are updated, then commit and push. GitHub Actions d
 
 **`gps.js`** — Priority-based GPS system. `setManualPosition(lat, lon)` overrides with source `'manual'` (priority 6). `getPosition()` returns `{lat, lon, accuracy, source}`.
 
-**`query.js`** — All spatial queries. Data lives in module-level `let hazards`, `namedPlaces`, `navaids`, `waypoints`. `loadData(lat, lon)` loads from server API → IndexedDB → static files (in that order). Query functions return `{text, speech}` pairs: `text` uses compact numeric format ("164° M, 2.1 nm"), `speech` uses digit-by-digit TTS format ("one six four degrees magnetic").
+**`query.js`** — All spatial queries. Data lives in module-level `let hazards`, `namedPlaces`, `navaids`, `waypoints`. `loadData(lat, lon)` loads from server API → IndexedDB → static files (in that order). Query functions return `{text, speech}` pairs: `text` uses compact numeric format ("164° M, 2.1 nm"), `speech` uses digit-by-digit TTS format ("one six four degrees magnetic"). `findPlaceByName` searches waypoints, named places, and navaids (named buoys/lights/beacons are reachable by name in bearing queries). `navaidsInRadius(lat, lon, radiusNm, filter)` finds all navaids of a given type within radius, showing name + characteristic/colour + bearing + distance for each.
 
-**`parser.js`** — Maps natural language to intents: `WHERE_AM_I`, `NEAREST_HAZARD`, `HAZARDS_IN_RADIUS`, `BEARING_TO_COORD`, `BEARING_TO_PLACE`, `NEAREST_NAVAID`. Includes phonetic aliases for Maine place names.
+**`parser.js`** — Maps natural language to intents: `WHERE_AM_I`, `NEAREST_HAZARD`, `HAZARDS_IN_RADIUS`, `NAVAIDS_IN_RADIUS`, `BEARING_TO_COORD`, `BEARING_TO_PLACE`, `NEAREST_NAVAID`, `NEAREST_RESTRICTION`, `HAZARDS_ON_COURSE`, `HAZARDS_ALONG_ROUTE`. `NAVAIDS_IN_RADIUS` accepts an optional type filter (`buoy`, `light`, `beacon`, or null for all). Includes phonetic aliases for Maine place names.
 
 **`tts.js`** — Wraps `window.speechSynthesis`. `sayImmediate(text)` cancels any in-progress speech and speaks immediately.
 
