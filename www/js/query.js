@@ -47,8 +47,9 @@ export let namedPlaces = null;
 export let navaids = null;
 export let waypoints = null;
 export let restrictions = null;
-export let lastBearingResult = null;  // set by bearing queries; read by map view
-export let lastCourseHazards = null;  // set by hazardsOnCourse; [{lat,lon,label,name}]
+export let lastBearingResult = null;   // set by bearing queries; read by map view
+export let lastCourseHazards = null;   // set by hazardsOnCourse; [{lat,lon,label,name}]
+export let lastNavaidResults = null;   // set by navaidsInRadius; [{lat,lon,label,name,colour,characteristic}]
 
 let _serverBase = null;
 let _lastFetchLat = null;
@@ -762,6 +763,19 @@ export function navaidsInRadius(lat, lon, radiusNm, filter) {
 
   const more   = count > MAX ? ` Plus ${count - MAX} more.` : '';
   const header = `${count} ${typeDesc} within ${radiusDesc}`;
+
+  lastNavaidResults = nearby.slice(0, MAX).map(({ f }) => {
+    const [flon, flat] = f.geometry.coordinates;
+    return {
+      lat:            flat,
+      lon:            flon,
+      label:          f.properties.label || 'navaid',
+      name:           f.properties.name || null,
+      colour:         f.properties.colour || null,
+      characteristic: f.properties.characteristic || null,
+    };
+  });
+
   return {
     text:   `${header}:\n${textParts.join('\n')}${more}`,
     speech: `${header}: ${speechParts.join('. ')}.${more}`,

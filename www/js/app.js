@@ -8,6 +8,18 @@ import * as TTS from './tts.js';
 import * as GPS from './gps.js';
 import { parseCommand, parseCoordinate } from './parser.js';
 import * as Query from './query.js';
+
+function _navaidMarkerColor(navaid) {
+  const c = (navaid.colour || '').toLowerCase();
+  const l = navaid.label || '';
+  if (c.includes('green'))                     return '#2da84a';
+  if (c.includes('red'))                       return '#e05252';
+  if (c.includes('white'))                     return '#cccccc';
+  if (c.includes('yellow') || c.includes('amber')) return '#e0c030';
+  if (l === 'light')                           return '#e0c030';
+  if (l === 'beacon')                          return '#4a9edd';
+  return '#aaaaaa';
+}
 import { formatPositionDisplay } from './utils.js';
 
 // Capture Android PWA install prompt before any user gesture.
@@ -187,6 +199,33 @@ function hideMap() {
   document.getElementById('map-container').style.display = 'none';
 }
 
+async function showNavaidMap(fromLat, fromLon, navaids) {
+  await loadLeaflet();
+  document.getElementById('map-container').style.display = 'block';
+  _ensureMap();
+  _map.invalidateSize();
+  if (_mapLayers) { _map.removeLayer(_mapLayers); _mapLayers = null; }
+
+  const layers = [];
+  layers.push(L.circleMarker([fromLat, fromLon], {
+    radius: 8, color: '#4a9edd', fillColor: '#4a9edd', fillOpacity: 1, weight: 0,
+  }).bindTooltip('You', { permanent: true, direction: 'top', className: 'map-tooltip' }));
+
+  for (const n of navaids) {
+    const color = _navaidMarkerColor(n);
+    const marker = L.circleMarker([n.lat, n.lon], {
+      radius: 7, color, fillColor: color, fillOpacity: 0.9, weight: 2,
+    });
+    const tip = [n.name, n.characteristic || n.colour].filter(Boolean).join(' — ');
+    if (tip) marker.bindTooltip(tip, { permanent: false, direction: 'top', className: 'map-tooltip' });
+    layers.push(marker);
+  }
+
+  _mapLayers = L.layerGroup(layers).addTo(_map);
+  const allPts = [[fromLat, fromLon], ...navaids.map(n => [n.lat, n.lon])];
+  _map.fitBounds(L.latLngBounds(allPts).pad(0.25));
+}
+
 async function showCourseMap(fromLat, fromLon, toLat, toLon, hazardPts) {
   await loadLeaflet();
   document.getElementById('map-container').style.display = 'block';
@@ -331,6 +370,9 @@ async function handleCommand(transcript) {
         break;
       case 'NAVAIDS_IN_RADIUS':
         response = Query.navaidsInRadius(pos.lat, pos.lon, params.radiusNm, params.filter ?? null);
+        if (Query.lastNavaidResults?.length) {
+          showNavaidMap(pos.lat, pos.lon, Query.lastNavaidResults).catch(() => {});
+        }
         break;
       case 'NEAREST_RESTRICTION':
         response = Query.nearestRestriction(pos.lat, pos.lon);
@@ -400,7 +442,7 @@ async function handleCommand(transcript) {
     showResponse(displayText);
     TTS.sayImmediate(speechText);
 
-    const SHOW_MAP_FOR = ['BEARING_TO_PLACE', 'BEARING_TO_COORD', 'NEAREST_HAZARD', 'NEAREST_NAVAID', 'NEAREST_RESTRICTION', 'NAVAIDS_IN_RADIUS'];
+    const SHOW_MAP_FOR = ['BEARING_TO_PLACE', 'BEARING_TO_COORD', 'NEAREST_HAZARD', 'NEAREST_NAVAID', 'NEAREST_RESTRICTION'];
     const isCourseIntent = (intent === 'HAZARDS_ON_COURSE' || intent === 'HAZARDS_ALONG_ROUTE');
     if (intent === 'WHERE_AM_I') {
       showPositionMap(pos.lat, pos.lon).catch(() => {});
