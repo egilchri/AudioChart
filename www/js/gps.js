@@ -15,9 +15,9 @@ const SOURCE_PRIORITY = {
   'manual':        6,   // user-entered test position — overrides everything
   'opencpn-nmea':  5,   // real-time NMEA from OpenCPN TCP output
   'nmea':          4,   // USB GPS puck via serial
-  'opencpn-ini':   3,   // OwnShipLatLon from opencpn.ini (zero config)
-  'opencpn-track': 2,   // last navobj.db track point
+  'opencpn-track': 2,   // last navobj.db track point (has staleness check)
   'browser':       1,   // Android/browser geolocation
+  'opencpn-ini':   0,   // stale config value — no timestamp, loses to everything
 };
 
 let currentPosition = null;

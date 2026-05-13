@@ -73,16 +73,30 @@ Examples:
 
   <div id="welcome-overlay" style="display:none">
     <div id="welcome-box">
-      <h2>&#9875; Welcome to AudioChart</h2>
-      <p>Offline voice-driven nautical safety for Maine waters. Answer questions like <em>"Hazards within quarter mile"</em> or <em>"Range and bearing to Jewell Island"</em> — spoken aloud from your phone.</p>
-      <h3>Get started</h3>
-      <ol>
-        <li>Tap <strong>&#11015; Route</strong> and choose your sailing area to download chart data.</li>
-        <li>In Chrome, tap <strong>Add to Home Screen</strong> to install.</li>
-        <li>No internet needed once installed and data is downloaded.</li>
-      </ol>
-      <p class="welcome-note">Type commands in the box below, or tap the mic on your keyboard to speak.</p>
-      <button id="welcome-close">Got it</button>
+
+      <!-- Step 1: download chart data -->
+      <div id="ob-step-download">
+        <h2>&#9875; AudioChart</h2>
+        <p>Voice-driven nautical safety — hazards, bearings, buoys — spoken aloud from your phone. Works fully offline once set up.</p>
+        <h3>Choose your sailing area</h3>
+        <div id="ob-regions"></div>
+        <p class="welcome-note">Wi-Fi recommended. Takes about a minute.</p>
+      </div>
+
+      <!-- Step 2: install as PWA -->
+      <div id="ob-step-install" style="display:none">
+        <h2>&#9875; Install AudioChart</h2>
+        <p>Chart data is ready. Install the app so it works offline when you're out of range.</p>
+        <div id="ob-install-ios" style="display:none">
+          <p>Tap the <strong>&#9014; Share</strong> button at the bottom of Safari, then tap <strong>Add to Home Screen</strong>.</p>
+        </div>
+        <div id="ob-install-android" style="display:none">
+          <button id="ob-install-btn">&#11015; Install App</button>
+          <p class="welcome-note">Or tap the Chrome menu (&hellip;) &rarr; Add to Home Screen.</p>
+        </div>
+        <button id="ob-install-later">Maybe later</button>
+      </div>
+
     </div>
   </div>
 

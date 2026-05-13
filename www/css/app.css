@@ -90,6 +90,8 @@ html, body {
 }
 #offline-btn:hover, #route-btn:hover, #test-pos-btn:hover { border-color: var(--accent); color: var(--text); }
 #offline-btn:disabled, #route-btn:disabled { opacity: 0.5; cursor: default; }
+#test-pos-btn.test-active { border-color: var(--danger); color: var(--danger); background: #2a0a0a; font-weight: 700; }
+#test-pos-btn.test-active:hover { border-color: var(--danger); color: #ff8080; background: #3a0a0a; }
 
 /* Demo mode HUD — fixed bar showing current command */
 #demo-hud {
@@ -254,6 +256,42 @@ html, body {
   cursor: pointer;
 }
 #welcome-close:active { opacity: 0.8; }
+
+/* Onboarding region buttons (Step 1) */
+#ob-regions { display: flex; flex-direction: column; gap: 10px; margin: 12px 0; }
+.ob-region-btn {
+  background: var(--mid-blue);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 600;
+  padding: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+.ob-region-btn:active { background: var(--accent); color: var(--navy); }
+
+/* Onboarding install buttons (Step 2) */
+#ob-install-btn {
+  display: block; width: 100%;
+  margin: 16px 0 8px;
+  background: var(--accent);
+  border: none; border-radius: 8px;
+  color: var(--navy);
+  font-size: 1rem; font-weight: 700;
+  padding: 12px; cursor: pointer;
+}
+#ob-install-later {
+  display: block; width: 100%;
+  margin-top: 8px;
+  background: none;
+  border: 1px solid var(--mid-blue);
+  border-radius: 8px;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  padding: 10px; cursor: pointer;
+}
 
 /* Map link — shown only in test-position mode */
 #map-link {

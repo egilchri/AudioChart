@@ -446,6 +446,8 @@ def local_hostname():
         return None
 
 
+GITHUB_PAGES_URL = 'https://egilchri.github.io/AudioChart'
+
 CONNECT_PAGE_TEMPLATE = """\
 <!DOCTYPE html>
 <html lang="en">
@@ -460,22 +462,27 @@ CONNECT_PAGE_TEMPLATE = """\
   h1 {{ color: #4a9edd; margin-bottom: 8px; font-size: 1.4rem; }}
   p  {{ color: #8a9ab0; margin-bottom: 24px; text-align: center; }}
   #qr {{ background: white; padding: 16px; border-radius: 12px; margin-bottom: 20px; }}
-  .url {{ font-family: monospace; font-size: 1rem; color: #4a9edd;
+  .url {{ font-family: monospace; font-size: 0.85rem; color: #4a9edd;
           background: #1a3a5c; padding: 10px 16px; border-radius: 8px;
           word-break: break-all; text-align: center; max-width: 340px; }}
   .hint {{ color: #8a9ab0; font-size: 0.85rem; margin-top: 16px; text-align: center; }}
+  .section {{ color: #8a9ab0; font-size: 0.8rem; text-transform: uppercase;
+              letter-spacing: 0.05em; margin-top: 24px; margin-bottom: 4px; }}
 </style>
 </head>
 <body>
 <h1>&#9875; AudioChart</h1>
-<p>Scan with your phone camera to open the app</p>
+<p>Scan with your phone to open the app and connect to this server</p>
 <div id="qr"></div>
-<div class="url">{url}</div>
-<p class="hint">Or type the address above into Chrome on your phone.</p>
+<div class="section">Opens</div>
+<div class="url">{github_url}</div>
+<div class="section">Connects to server at</div>
+<div class="url">{server_url}</div>
+<p class="hint">Install the PWA from {github_url} for offline use.</p>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
   new QRCode(document.getElementById('qr'), {{
-    text: '{url}',
+    text: '{app_url}',
     width: 220, height: 220,
     colorDark: '#000000', colorLight: '#ffffff',
     correctLevel: QRCode.CorrectLevel.M
@@ -488,8 +495,13 @@ CONNECT_PAGE_TEMPLATE = """\
 
 async def handle_connect(request):
     ip = local_ip()
-    url = f'http://{ip}:{PORT}'
-    html = CONNECT_PAGE_TEMPLATE.format(url=url)
+    server_url = f'http://{ip}:{PORT}'
+    app_url = f'{GITHUB_PAGES_URL}/?server={server_url}'
+    html = CONNECT_PAGE_TEMPLATE.format(
+        app_url=app_url,
+        server_url=server_url,
+        github_url=GITHUB_PAGES_URL,
+    )
     return web.Response(text=html, content_type='text/html')
 
 

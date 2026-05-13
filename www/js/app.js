@@ -10,6 +10,13 @@ import { parseCommand, parseCoordinate } from './parser.js';
 import * as Query from './query.js';
 import { formatPositionDisplay } from './utils.js';
 
+// Capture Android PWA install prompt before any user gesture.
+let _pwaInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  _pwaInstallPrompt = e;
+});
+
 // DOM elements
 const textForm = document.getElementById('text-form');
 const textInput = document.getElementById('text-input');
@@ -50,6 +57,14 @@ const CRUISE_PROFILES = {
     stops: [
       { name: 'Portland',  lat: 43.6573, lon: -70.2564 },
       { name: 'Harpswell', lat: 43.7931, lon: -70.0760 },
+    ],
+  },
+  'Piscataqua': {
+    dataUrl: './data/regions/piscataqua.json',
+    stops: [
+      { name: 'Portsmouth',     lat: 43.0718, lon: -70.7626 },
+      { name: 'Isles of Shoals', lat: 42.9697, lon: -70.6234 },
+      { name: 'Kittery',        lat: 43.0850, lon: -70.7350 },
     ],
   },
 };
@@ -418,7 +433,17 @@ if (textForm) {
 
 // ── Test position override ────────────────────────────────────────────────────
 
+function syncTestPosButton() {
+  const active = GPS.isManualPosition();
+  testPosBtn.textContent = active ? '📍 CLEAR TEST' : '📍';
+  testPosBtn.classList.toggle('test-active', active);
+}
+
 testPosBtn.addEventListener('click', () => {
+  if (GPS.isManualPosition()) {
+    clearTestPosition();
+    return;
+  }
   const isOpen = testPosForm.style.display !== 'none';
   testPosForm.style.display = isOpen ? 'none' : 'flex';
   if (!isOpen) testPosInput.focus();
@@ -434,6 +459,7 @@ testPosSet.addEventListener('click', async () => {
     GPS.setManualPosition(coord.lat, coord.lon);
     testPosForm.style.display = 'none';
     testPosInput.value = '';
+    syncTestPosButton();
     if (coord.name) setStatus(`Test position set: ${coord.name}`);
     if (serverUrl) {
       fetch(`${serverUrl}/api/test-position`, {
@@ -468,9 +494,10 @@ opencpnBtn.addEventListener('click', () => {
   window.open(`${serverUrl}/course-map?${p}`, '_blank');
 });
 
-testPosClear.addEventListener('click', () => {
+function clearTestPosition() {
   GPS.clearManualPosition();
   testPosForm.style.display = 'none';
+  syncTestPosButton();
   if (serverUrl) {
     fetch(`${serverUrl}/api/test-position`, {
       method: 'POST',
@@ -478,9 +505,44 @@ testPosClear.addEventListener('click', () => {
       body: JSON.stringify({}),
     }).catch(() => {});
   }
-});
+}
+
+testPosClear.addEventListener('click', clearTestPosition);
 
 // ── Route download ────────────────────────────────────────────────────────────
+
+function _isPWA() {
+  return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+}
+
+async function checkOnboarding() {
+  if (new URLSearchParams(location.search).has('demo')) return;
+
+  const overlay   = document.getElementById('welcome-overlay');
+  const stepDl    = document.getElementById('ob-step-download');
+  const stepInst  = document.getElementById('ob-step-install');
+
+  const hasData = await Query.hasOfflineData();
+
+  if (!hasData) {
+    stepDl.style.display   = '';
+    stepInst.style.display = 'none';
+    overlay.style.display  = 'flex';
+    return;
+  }
+
+  if (!_isPWA() && !localStorage.getItem('audiochart-install-dismissed')) {
+    stepDl.style.display   = 'none';
+    stepInst.style.display = '';
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    document.getElementById('ob-install-ios').style.display     = isIOS ? '' : 'none';
+    document.getElementById('ob-install-android').style.display = isIOS ? 'none' : '';
+    overlay.style.display = 'flex';
+    return;
+  }
+
+  overlay.style.display = 'none';
+}
 
 async function runRouteDownload(cruiseName) {
   const profile = CRUISE_PROFILES[cruiseName];
@@ -490,7 +552,7 @@ async function runRouteDownload(cruiseName) {
 
   const stops = profile.stops;
 
-  if (!serverUrl && profile.dataUrl) {
+  if (profile.dataUrl) {
     // Standalone mode — chart data is one regional file, then cache satellite tiles per stop
     routeBtn.textContent = '⏳ Chart data…';
     setStatus(`Downloading ${cruiseName} chart data…`);
@@ -519,6 +581,7 @@ async function runRouteDownload(cruiseName) {
     setStatus(`${cruiseName} ready — chart data and satellite tiles cached.`);
     routeBtn.disabled = false;
     if (offlineBtn) offlineBtn.disabled = false;
+    checkOnboarding();
     return;
   }
 
@@ -547,12 +610,21 @@ async function runRouteDownload(cruiseName) {
   setStatus(`${cruiseName} route complete — ${lastResult.total} features + satellite tiles cached.`);
   routeBtn.disabled = false;
   if (offlineBtn) offlineBtn.disabled = false;
+  checkOnboarding();
 }
 
 // ── Initialisation ────────────────────────────────────────────────────────────
 
 async function init() {
   setStatus('Waiting for GPS...');
+
+  // If opened via QR code with ?server=, persist the server URL and clean the address bar.
+  const _params = new URLSearchParams(location.search);
+  const _serverParam = _params.get('server');
+  if (_serverParam) {
+    localStorage.setItem('audiochart_server_url', _serverParam);
+    history.replaceState(null, '', location.pathname);
+  }
 
   // Connect to Mac server BEFORE starting GPS so setServerBase is ready
   // when the first fix arrives and triggers loadData.
@@ -665,6 +737,7 @@ async function runDemoMode() {
   // Set test position
   const demoLat = 44.0986, demoLon = -69.0752;
   GPS.setManualPosition(demoLat, demoLon);
+  syncTestPosButton();
   if (serverUrl) {
     fetch(`${serverUrl}/api/test-position`, {
       method: 'POST',
@@ -713,16 +786,35 @@ async function runDemoMode() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Show welcome overlay on first visit
-  const welcomeOverlay = document.getElementById('welcome-overlay');
-  const welcomeClose   = document.getElementById('welcome-close');
-  if (!localStorage.getItem('audiochart-welcomed')) {
-    welcomeOverlay.style.display = 'flex';
-  }
-  welcomeClose.addEventListener('click', () => {
-    localStorage.setItem('audiochart-welcomed', '1');
-    welcomeOverlay.style.display = 'none';
+  // Populate onboarding region buttons (Step 1)
+  const obRegions = document.getElementById('ob-regions');
+  Object.keys(CRUISE_PROFILES).forEach(name => {
+    const btn = document.createElement('button');
+    btn.className = 'ob-region-btn';
+    btn.textContent = name;
+    btn.addEventListener('click', () => {
+      document.getElementById('welcome-overlay').style.display = 'none';
+      runRouteDownload(name);
+    });
+    obRegions.appendChild(btn);
+  });
+
+  // Android install button (Step 2)
+  document.getElementById('ob-install-btn')?.addEventListener('click', async () => {
+    if (_pwaInstallPrompt) {
+      await _pwaInstallPrompt.prompt();
+      _pwaInstallPrompt = null;
+    }
+    document.getElementById('welcome-overlay').style.display = 'none';
+    localStorage.setItem('audiochart-install-dismissed', '1');
+  });
+
+  // "Maybe later" (Step 2)
+  document.getElementById('ob-install-later')?.addEventListener('click', () => {
+    document.getElementById('welcome-overlay').style.display = 'none';
+    localStorage.setItem('audiochart-install-dismissed', '1');
   });
 
   init();
+  checkOnboarding();
 });

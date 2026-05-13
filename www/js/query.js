@@ -61,6 +61,11 @@ export function setServerBase(url) {
   _serverBase = url;
 }
 
+export async function hasOfflineData() {
+  const h = await idbGet('hazards').catch(() => null);
+  return !!(h?.features?.length);
+}
+
 /** Fetch the latest OpenCPN waypoints from the server. */
 export async function refreshWaypoints() {
   if (!_serverBase) return;
@@ -394,6 +399,7 @@ export function findPlaceByName(query) {
 
   search(waypoints?.features);
   search(namedPlaces?.features);
+  search(navaids?.features);
 
   let result = null;
   if (exact.length > 0) {

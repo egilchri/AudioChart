@@ -41,6 +41,11 @@ REGIONS = {
         'lat_min': 43.5, 'lat_max': 44.1,
         'lon_min': -70.6, 'lon_max': -69.7,
     },
+    'piscataqua': {
+        'name':    'Piscataqua',
+        'lat_min': 42.8, 'lat_max': 43.4,
+        'lon_min': -71.1, 'lon_max': -70.5,
+    },
 }
 
 
