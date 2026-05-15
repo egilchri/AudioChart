@@ -20,7 +20,7 @@ function _navaidMarkerColor(navaid) {
   if (l === 'beacon')                          return '#4a9edd';
   return '#aaaaaa';
 }
-import { formatPositionDisplay, bearingToWords, bearingToDisplay, formatDistance, distanceToDisplay } from './utils.js';
+import { formatPositionDisplay, bearingToWords, bearingToDisplay, formatDistance, distanceToDisplay, trueTomagnetic } from './utils.js';
 
 // Capture Android PWA install prompt before any user gesture.
 let _pwaInstallPrompt = null;
@@ -253,8 +253,17 @@ async function showCourseMap(fromLat, fromLon, toLat, toLon, hazardPts) {
     const m = L.circleMarker([h.lat, h.lon], { radius: 6, color: '#e0a030', fillColor: '#e0a030', fillOpacity: 1, weight: 0 });
     if (h.label || h.name) m.bindTooltip((h.label + h.name).trim(), { permanent: false, direction: 'top', className: 'map-tooltip' });
     m.on('click', () => {
-      const text = ((h.label || '') + (h.name || '')).trim();
-      if (text) { showResponse(text); TTS.sayImmediate(text); }
+      const label = ((h.label || '') + (h.name || '')).trim();
+      const pos = GPS.getPosition();
+      let text = label;
+      if (pos) {
+        const d   = Query.distanceNm(pos.lon, pos.lat, h.lon, h.lat);
+        const brg = trueTomagnetic(Query.bearing(pos.lon, pos.lat, h.lon, h.lat));
+        const rangeBrg = `bearing ${bearingToWords(brg)}, ${formatDistance(d)}`;
+        text = label ? `${label}, ${rangeBrg}.` : `${rangeBrg}.`;
+      }
+      showResponse(text);
+      TTS.sayImmediate(text);
     });
     layers.push(m);
   }

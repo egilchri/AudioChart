@@ -458,7 +458,7 @@ function turfPoint(lon, lat) {
 }
 
 /** Haversine distance in nautical miles */
-function distanceNm(lon1, lat1, lon2, lat2) {
+export function distanceNm(lon1, lat1, lon2, lat2) {
   const R = 3440.065; // nm
   const phi1 = lat1 * Math.PI / 180, phi2 = lat2 * Math.PI / 180;
   const dphi = (lat2 - lat1) * Math.PI / 180;
@@ -468,7 +468,7 @@ function distanceNm(lon1, lat1, lon2, lat2) {
 }
 
 /** Initial bearing from (lon1,lat1) to (lon2,lat2), 0–360° */
-function bearing(lon1, lat1, lon2, lat2) {
+export function bearing(lon1, lat1, lon2, lat2) {
   const phi1 = lat1 * Math.PI / 180, phi2 = lat2 * Math.PI / 180;
   const dlam = (lon2 - lon1) * Math.PI / 180;
   const y = Math.sin(dlam) * Math.cos(phi2);
