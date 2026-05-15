@@ -221,9 +221,11 @@ async function showNavaidMap(fromLat, fromLon, navaids) {
     marker.on('click', () => {
       const nameStr = n.name ? ` ${n.name}` : '';
       const detail  = n.characteristic ? `, ${n.characteristic}` : n.colour ? `, ${n.colour}` : '';
-      const text = `${n.label}${nameStr}${detail}, bearing ${bearingToWords(n.brg)}, ${formatDistance(n.d)}.`;
-      showResponse(text);
-      TTS.sayImmediate(text);
+      const base = `${n.label}${nameStr}${detail}`;
+      const displayText = `${base}, ${bearingToDisplay(n.brg)}, ${distanceToDisplay(n.d)}`;
+      const speechText  = `${base}, bearing ${bearingToWords(n.brg)}, ${formatDistance(n.d)}.`;
+      showResponse(displayText);
+      TTS.sayImmediate(speechText);
     });
     layers.push(marker);
   }
@@ -255,15 +257,18 @@ async function showCourseMap(fromLat, fromLon, toLat, toLon, hazardPts) {
     m.on('click', () => {
       const label = ((h.label || '') + (h.name || '')).trim();
       const pos = GPS.getPosition();
-      let text = label;
+      let displayText = label;
+      let speechText  = label;
       if (pos) {
         const d   = Query.distanceNm(pos.lon, pos.lat, h.lon, h.lat);
         const brg = trueTomagnetic(Query.bearing(pos.lon, pos.lat, h.lon, h.lat));
-        const rangeBrg = `bearing ${bearingToWords(brg)}, ${formatDistance(d)}`;
-        text = label ? `${label}, ${rangeBrg}.` : `${rangeBrg}.`;
+        const displayRB = `${bearingToDisplay(brg)}, ${distanceToDisplay(d)}`;
+        const speechRB  = `bearing ${bearingToWords(brg)}, ${formatDistance(d)}`;
+        displayText = label ? `${label}, ${displayRB}` : displayRB;
+        speechText  = label ? `${label}, ${speechRB}.` : `${speechRB}.`;
       }
-      showResponse(text);
-      TTS.sayImmediate(text);
+      showResponse(displayText);
+      TTS.sayImmediate(speechText);
     });
     layers.push(m);
   }
