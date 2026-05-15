@@ -122,6 +122,36 @@ def extract_named_places(enc_path, chart_id):
     return features
 
 
+def build_light_characteristic(props):
+    """Build a light characteristic string (e.g. 'Fl(1) W 5s') from S-57 LIGHTS properties."""
+    from s57_codes import LITCHR_ABBR, LIGHT_COLOUR_ABBR
+    litchr  = props.get('LITCHR')
+    sigper  = props.get('SIGPER')
+    siggrp  = (props.get('SIGGRP') or '').strip('()')  # S-57 may include parens already
+    colours = props.get('COLOUR')
+
+    char_abbr = LITCHR_ABBR.get(int(litchr), '') if litchr else ''
+    if not char_abbr:
+        return None
+
+    grp = f'({siggrp})' if siggrp else ''
+
+    col_abbr = ''
+    if colours:
+        codes = colours if isinstance(colours, list) else [colours]
+        col_abbr = '/'.join(
+            LIGHT_COLOUR_ABBR.get(int(c), '') for c in codes
+        ).strip('/')
+
+    period = f' {int(sigper)}s' if sigper else ''
+
+    parts = [char_abbr, grp]
+    if col_abbr:
+        parts.append(f' {col_abbr}')
+    parts.append(period)
+    return ''.join(parts).strip() or None
+
+
 def extract_navaids(enc_path, chart_id):
     """Extract buoys, beacons, and lights."""
     features = []
@@ -136,6 +166,9 @@ def extract_navaids(enc_path, chart_id):
                 if not geom:
                     continue
                 props = feat['properties']
+
+                # Colour: use display names for buoys/beacons, abbreviations baked
+                # into characteristic for lights
                 colours = props.get('COLOUR')
                 colour_str = None
                 if colours:
@@ -144,15 +177,28 @@ def extract_navaids(enc_path, chart_id):
                         COLOUR_LABEL.get(int(c), str(c))
                         for c in (colours if isinstance(colours, list) else [colours])
                     )
+
+                # Light characteristic and range (LIGHTS layer only)
+                characteristic = None
+                height_m = None
+                range_nm = None
+                if layer_name == 'LIGHTS':
+                    characteristic = build_light_characteristic(props)
+                    height_m = props.get('HEIGHT')
+                    range_nm = props.get('VALNMR')
+
                 features.append({
                     'type': 'Feature',
                     'geometry': {'type': 'Point', 'coordinates': centroid_point(geom)},
                     'properties': {
-                        'objtype': layer_name,
-                        'label': OBJTYPE_LABEL.get(layer_name, 'navaid'),
-                        'name': props.get('OBJNAM'),
-                        'colour': colour_str,
-                        'chart': chart_id,
+                        'objtype':        layer_name,
+                        'label':          OBJTYPE_LABEL.get(layer_name, 'navaid'),
+                        'name':           props.get('OBJNAM'),
+                        'colour':         colour_str,
+                        'characteristic': characteristic,
+                        'height_m':       height_m,
+                        'range_nm':       range_nm,
+                        'chart':          chart_id,
                     },
                 })
 
