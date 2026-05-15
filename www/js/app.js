@@ -221,7 +221,9 @@ async function showNavaidMap(fromLat, fromLon, navaids) {
     marker.on('click', () => {
       const nameStr = n.name ? ` ${n.name}` : '';
       const detail  = n.characteristic ? `, ${n.characteristic}` : n.colour ? `, ${n.colour}` : '';
-      TTS.sayImmediate(`${n.label}${nameStr}${detail}, bearing ${bearingToWords(n.brg)}, ${formatDistance(n.d)}.`);
+      const text = `${n.label}${nameStr}${detail}, bearing ${bearingToWords(n.brg)}, ${formatDistance(n.d)}.`;
+      showResponse(text);
+      TTS.sayImmediate(text);
     });
     layers.push(marker);
   }
