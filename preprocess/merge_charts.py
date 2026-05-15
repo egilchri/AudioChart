@@ -2,6 +2,12 @@
 """
 Merge and deduplicate raw GeoJSON files from s57_to_geojson.py.
 Produces the final www/data/ files consumed by the PWA.
+
+Pipeline order:
+  1. python3 s57_to_geojson.py       — extract from NOAA ENC S-57 files
+  2. python3 backfill_light_names.py — add names from NGA + manual overrides
+  3. python3 merge_charts.py         — deduplicate and write final www/data/ files
+
 Usage: python3 merge_charts.py
 """
 import json
