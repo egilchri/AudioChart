@@ -324,6 +324,18 @@ async function handleCommand(transcript) {
     showResponse('...');
     addToHistory(transcript);
 
+    const { intent, params } = parseCommand(transcript);
+
+    if (intent === 'LIST_OBJECTS') {
+      const response = {
+        text:   'Hazards (rocks, ledges, shoals) · Buoys · Lights · Beacons · Restrictions (no-anchor, sanctuary) · Named places · Waypoints',
+        speech: 'I can find hazards like rocks, ledges, and shoals; navigation aids including buoys, lights, and beacons; restricted areas like no-anchor zones and sanctuaries; and named places and OpenCPN waypoints for bearing queries.',
+      };
+      showResponse(response.text);
+      TTS.sayImmediate(response.speech);
+      return;
+    }
+
     const pos = GPS.getPosition();
     if (!pos) {
       const msg = 'No GPS fix yet. Please wait for a position.';
@@ -338,8 +350,6 @@ async function handleCommand(transcript) {
       TTS.sayImmediate(msg);
       return;
     }
-
-    const { intent, params } = parseCommand(transcript);
     console.log('[AudioChart] intent:', intent, params);
     let response;
 

@@ -89,6 +89,13 @@ function navaidFilter(word) {
 }
 
 const PATTERNS = [
+  // LIST OBJECTS
+  {
+    re: /\b(list\s+objects?|what\s+objects?|what\s+can\s+you\s+(find|tell|do)|what\s+types?|object\s+types?)\b/i,
+    intent: 'LIST_OBJECTS',
+    params: {},
+  },
+
   // WHERE AM I / POSITION
   {
     re: /\b(where am i|what'?s?\s+my\s+(position|location|coordinates?)|what\s+is\s+my\s+(position|location)|my\s+position)\b/i,
