@@ -865,15 +865,17 @@ export function formatCourseHazards(hazardsArr, courseLengthNm, corridorNm = 0.2
     const n = r.name ? `, ${r.name}` : '';
     return `${r.label}${n}  ${distanceToDisplay(r.along_track_nm)} along  ${distanceToDisplay(r.cross_track_nm)} ${r.side}`;
   });
-  const speechParts = hazardsArr.slice(0, 5).map(r => {
+  const SPEAK_MAX = 2;
+  const speechParts = hazardsArr.slice(0, SPEAK_MAX).map(r => {
     const n = r.name ? `, ${r.name}` : '';
     return `${r.label}${n}, ${formatDistance(r.along_track_nm)} along, ${formatDistance(r.cross_track_nm)} to ${r.side}`;
   });
-  const more = count > 8 ? `\nPlus ${count - 8} more.` : '';
+  const textMore   = count > 8        ? `\nPlus ${count - 8} more.`        : '';
+  const speechMore = count > SPEAK_MAX ? ` Plus ${count - SPEAK_MAX} more.` : '';
 
   return {
-    text:   `${header}:\n${textParts.join('\n')}${more}`,
-    speech: `${count} hazard${count === 1 ? '' : 's'} on course: ${speechParts.join('. ')}.${count > 5 ? ` Plus ${count - 5} more.` : ''}`,
+    text:   `${header}:\n${textParts.join('\n')}${textMore}`,
+    speech: `${count} hazard${count === 1 ? '' : 's'} on course: ${speechParts.join('. ')}.${speechMore}`,
   };
 }
 
