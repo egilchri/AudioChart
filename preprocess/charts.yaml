@@ -1,11 +1,63 @@
 chart_dir: /Users/edgargilchrist/Documents/Charts/ENC/US_ME
 output_dir: ../www/data
 
-# Rockland to Vinalhaven — high-detail BGR grid cells
-# BGR grid: rows B-D, columns B-H cover the target area
-# Row B: 43.95-44.02°N (southern approach, Muscle Ridge)
-# Row C: 44.02-44.10°N (Rockland, West Penobscot Bay, Vinalhaven/Carver Harbor)
-# Row D: 44.10-44.17°N (Fox Islands Thorofare, North Haven)
+# ── Active region ──────────────────────────────────────────────────────────────
+# Default region used by s57_to_geojson.py.
+# Covers Rockland / Penobscot Bay / Vinalhaven through Mt. Desert Island.
+
+rockland_to_mdi:
+  # ── Rockland / Vinalhaven / Fox Islands (BGR grid) ───────────────────────
+  # Row B: 43.95-44.02°N  southern approach, Muscle Ridge
+  - US5BGRBB/US5BGRBB.000
+  - US5BGRBC/US5BGRBC.000
+  - US5BGRBD/US5BGRBD.000
+  - US5BGRBE/US5BGRBE.000
+  - US5BGRBF/US5BGRBF.000
+  - US5BGRBG/US5BGRBG.000
+  # Row C: 44.02-44.10°N  Rockland, West Penobscot Bay, Carver Harbor
+  - US5BGRCB/US5BGRCB.000
+  - US5BGRCC/US5BGRCC.000
+  - US5BGRCD/US5BGRCD.000
+  - US5BGRCE/US5BGRCE.000
+  - US5BGRCF/US5BGRCF.000
+  - US5BGRCG/US5BGRCG.000
+  # Row D: 44.10-44.17°N  Fox Islands Thorofare, North Haven
+  - US5BGRDB/US5BGRDB.000
+  - US5BGRDC/US5BGRDC.000
+  - US5BGRDD/US5BGRDD.000
+  - US5BGRDE/US5BGRDE.000
+  - US5BGRDF/US5BGRDF.000
+  - US5BGRDG/US5BGRDG.000
+  - US5BGRDH/US5BGRDH.000
+
+  # ── Mt. Desert Island / Frenchman Bay (ME2 grid) ─────────────────────────
+  # Row E: 44.175-44.250°N  Jericho Bay, Bass Harbor, Blue Hill Bay south
+  - US5ME2EH/US5ME2EH.000
+  - US5ME2EI/US5ME2EI.000
+  - US5ME2EJ/US5ME2EJ.000
+  - US5ME2EK/US5ME2EK.000
+  - US5ME2EL/US5ME2EL.000
+  - US5ME2EM/US5ME2EM.000
+  # Row F: 44.250-44.325°N  Somes Sound, Southwest Harbor, Blue Hill Bay
+  - US5ME2FK/US5ME2FK.000
+  - US5ME2FL/US5ME2FL.000
+  - US5ME2FM/US5ME2FM.000
+  # Row G: 44.325-44.400°N  Bar Harbor, Frenchman Bay
+  - US5ME2GH/US5ME2GH.000
+  - US5ME2GI/US5ME2GI.000
+  - US5ME2GL/US5ME2GL.000
+  - US5ME2GM/US5ME2GM.000
+  - US5ME2GN/US5ME2GN.000
+  - US5ME2GO/US5ME2GO.000
+
+  # ── Approach-scale supplements ────────────────────────────────────────────
+  - US4ME20M/US4ME20M.000   # West Penobscot Bay approach
+  - US4ME2BM/US4ME2BM.000   # Penobscot Bay
+  - US5ME26M/US5ME26M.000   # East Penobscot / MDI approach (44.27-44.82°N)
+  - US5ME23M/US5ME23M.000   # East Penobscot Bay to MDI (43.97-44.29°N)
+
+# ── Legacy / reference regions (not processed by default) ─────────────────────
+
 rockland_vinalhaven:
   - US5BGRBB/US5BGRBB.000
   - US5BGRBC/US5BGRBC.000
@@ -26,11 +78,9 @@ rockland_vinalhaven:
   - US5BGRDF/US5BGRDF.000
   - US5BGRDG/US5BGRDG.000
   - US5BGRDH/US5BGRDH.000
-  # Approach-scale supplements (named places, broader coverage)
   - US4ME20M/US4ME20M.000
   - US4ME2BM/US4ME2BM.000
 
-# Full Penobscot Bay expansion (add these later)
 penobscot_bay_full:
   - US5BGREB/US5BGREB.000
   - US5BGREC/US5BGREC.000

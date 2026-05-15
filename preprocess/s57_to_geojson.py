@@ -183,8 +183,8 @@ def write_geojson(features, path):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--region', default='rockland_vinalhaven',
-                        help='Region key from charts.yaml (default: rockland_vinalhaven)')
+    parser.add_argument('--region', default='rockland_to_mdi',
+                        help='Region key from charts.yaml (default: rockland_to_mdi)')
     args = parser.parse_args()
 
     config_path = os.path.join(SCRIPT_DIR, 'charts.yaml')
