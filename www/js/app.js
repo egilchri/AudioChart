@@ -253,7 +253,7 @@ async function showCourseMap(fromLat, fromLon, toLat, toLon, hazardPts) {
     const m = L.circleMarker([h.lat, h.lon], { radius: 6, color: '#e0a030', fillColor: '#e0a030', fillOpacity: 1, weight: 0 });
     if (h.label || h.name) m.bindTooltip((h.label + h.name).trim(), { permanent: false, direction: 'top', className: 'map-tooltip' });
     m.on('click', () => {
-      const text = (h.label + h.name).trim();
+      const text = ((h.label || '') + (h.name || '')).trim();
       if (text) { showResponse(text); TTS.sayImmediate(text); }
     });
     layers.push(m);
