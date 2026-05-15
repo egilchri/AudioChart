@@ -235,6 +235,40 @@ async function showNavaidMap(fromLat, fromLon, navaids) {
   _map.fitBounds(L.latLngBounds(allPts).pad(0.25));
 }
 
+async function showHazardMap(fromLat, fromLon, hazardPts) {
+  await loadLeaflet();
+  document.getElementById('map-container').style.display = 'block';
+  _ensureMap();
+  _map.invalidateSize();
+  if (_mapLayers) { _map.removeLayer(_mapLayers); _mapLayers = null; }
+
+  const layers = [];
+  layers.push(L.circleMarker([fromLat, fromLon], {
+    radius: 8, color: '#4a9edd', fillColor: '#4a9edd', fillOpacity: 1, weight: 0,
+  }).bindTooltip('You', { permanent: true, direction: 'top', className: 'map-tooltip' }));
+
+  for (const h of hazardPts) {
+    const marker = L.circleMarker([h.lat, h.lon], {
+      radius: 7, color: '#e0a030', fillColor: '#e0a030', fillOpacity: 0.9, weight: 2,
+    });
+    const tip = [h.label, h.name].filter(Boolean).join(', ');
+    if (tip) marker.bindTooltip(tip, { permanent: false, direction: 'top', className: 'map-tooltip' });
+    marker.on('click', () => {
+      const nameStr = h.name ? `, ${h.name}` : '';
+      const base = `${h.label}${nameStr}`;
+      const displayText = `${base}, ${bearingToDisplay(h.brg)}, ${distanceToDisplay(h.d)}`;
+      const speechText  = `${base}, bearing ${bearingToWords(h.brg)}, ${formatDistance(h.d)}.`;
+      showResponse(displayText);
+      TTS.sayImmediate(speechText);
+    });
+    layers.push(marker);
+  }
+
+  _mapLayers = L.layerGroup(layers).addTo(_map);
+  const allPts = [[fromLat, fromLon], ...hazardPts.map(h => [h.lat, h.lon])];
+  _map.fitBounds(L.latLngBounds(allPts).pad(0.25));
+}
+
 async function showCourseMap(fromLat, fromLon, toLat, toLon, hazardPts) {
   await loadLeaflet();
   document.getElementById('map-container').style.display = 'block';
@@ -383,6 +417,9 @@ async function handleCommand(transcript) {
         break;
       case 'HAZARDS_IN_RADIUS':
         response = Query.hazardsInRadius(pos.lat, pos.lon, params.radiusNm ?? 0.25);
+        if (Query.lastHazardResults?.length) {
+          showHazardMap(pos.lat, pos.lon, Query.lastHazardResults).catch(() => {});
+        }
         break;
       case 'BEARING_TO_COORD':
         response = Query.bearingToCoord(pos.lat, pos.lon, params.lat, params.lon);

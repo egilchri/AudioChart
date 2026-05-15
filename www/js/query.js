@@ -49,7 +49,8 @@ export let waypoints = null;
 export let restrictions = null;
 export let lastBearingResult = null;   // set by bearing queries; read by map view
 export let lastCourseHazards = null;   // set by hazardsOnCourse; [{lat,lon,label,name}]
-export let lastNavaidResults = null;   // set by navaidsInRadius; [{lat,lon,label,name,colour,characteristic}]
+export let lastNavaidResults  = null;   // set by navaidsInRadius; [{lat,lon,label,name,colour,characteristic,brg,d}]
+export let lastHazardResults = null;   // set by hazardsInRadius;  [{lat,lon,label,name,brg,d}]
 
 let _serverBase = null;
 let _lastFetchLat = null;
@@ -600,22 +601,37 @@ export function hazardsInRadius(lat, lon, radiusNm) {
   if (nearby.length === 0) return `No charted hazards within ${radiusDesc} of your position.`;
 
   const count = nearby.length;
-  const textParts = nearby.slice(0, 5).map(({ f, d, brg }) => {
+  const TEXT_MAX = 5, SPEAK_MAX = 2;
+
+  lastHazardResults = nearby.map(({ f, d, brg }) => {
+    const [flon, flat] = f.geometry.coordinates;
+    return {
+      lat:   flat,
+      lon:   flon,
+      label: f.properties.label || f.properties.objtype,
+      name:  f.properties.name || null,
+      brg,
+      d,
+    };
+  });
+
+  const textParts = nearby.slice(0, TEXT_MAX).map(({ f, d, brg }) => {
     const label = f.properties.label || f.properties.objtype;
     const name = f.properties.name ? ` ${f.properties.name}` : '';
     return `${label}${name}  ${bearingToDisplay(brg)}  ${distanceToDisplay(d)}`;
   });
-  const speechParts = nearby.slice(0, 5).map(({ f, d, brg }) => {
+  const speechParts = nearby.slice(0, SPEAK_MAX).map(({ f, d, brg }) => {
     const label = f.properties.label || f.properties.objtype;
     const name = f.properties.name ? ` ${f.properties.name}` : '';
     return `${label}${name} bearing ${bearingToWords(brg)}, ${formatDistance(d)}`;
   });
 
-  const more = count > 5 ? ` Plus ${count - 5} more.` : '';
+  const textMore   = count > TEXT_MAX  ? ` Plus ${count - TEXT_MAX} more.`  : '';
+  const speechMore = count > SPEAK_MAX ? ` Plus ${count - SPEAK_MAX} more.` : '';
   const header = `${count} hazard${count === 1 ? '' : 's'} within ${radiusDesc}`;
   return {
-    text:   `${header}:\n${textParts.join('\n')}${more}`,
-    speech: `${header}: ${speechParts.join('. ')}.${more}`,
+    text:   `${header}:\n${textParts.join('\n')}${textMore}`,
+    speech: `${header}: ${speechParts.join('. ')}.${speechMore}`,
   };
 }
 
@@ -739,7 +755,7 @@ export function navaidsInRadius(lat, lon, radiusNm, filter) {
 
   if (nearby.length === 0) return `No ${typeDesc} within ${radiusDesc} of your position.`;
 
-  const MAX = 8;
+  const TEXT_MAX = 8, SPEAK_MAX = 2;
   const count = nearby.length;
 
   const fmt = ({ f, d, brg }) => {
@@ -751,20 +767,21 @@ export function navaidsInRadius(lat, lon, radiusNm, filter) {
     return { label, name, detail, d, brg };
   };
 
-  const textParts   = nearby.slice(0, MAX).map(item => {
+  const textParts   = nearby.slice(0, TEXT_MAX).map(item => {
     const { label, name, detail, d, brg } = fmt(item);
     return `${label}${name}${detail}  ${bearingToDisplay(brg)}  ${distanceToDisplay(d)}`;
   });
-  const speechParts = nearby.slice(0, MAX).map(item => {
+  const speechParts = nearby.slice(0, SPEAK_MAX).map(item => {
     const { label, name, detail, d, brg } = fmt(item);
     const spokenDetail = detail.replace(/[()]/g, '');
     return `${label}${name}${spokenDetail ? ', ' + spokenDetail : ''}, bearing ${bearingToWords(brg)}, ${formatDistance(d)}`;
   });
 
-  const more   = count > MAX ? ` Plus ${count - MAX} more.` : '';
+  const more       = count > TEXT_MAX  ? ` Plus ${count - TEXT_MAX} more.`  : '';
+  const speechMore = count > SPEAK_MAX ? ` Plus ${count - SPEAK_MAX} more.` : '';
   const header = `${count} ${typeDesc} within ${radiusDesc}`;
 
-  lastNavaidResults = nearby.slice(0, MAX).map(({ f, d, brg }) => {
+  lastNavaidResults = nearby.slice(0, TEXT_MAX).map(({ f, d, brg }) => {
     const [flon, flat] = f.geometry.coordinates;
     return {
       lat:            flat,
@@ -780,7 +797,7 @@ export function navaidsInRadius(lat, lon, radiusNm, filter) {
 
   return {
     text:   header,   // map shows the detail; keep screen uncluttered
-    speech: `${header}: ${speechParts.join('. ')}.${more}`,
+    speech: `${header}: ${speechParts.join('. ')}.${speechMore}`,
   };
 }
 
