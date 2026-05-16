@@ -898,6 +898,80 @@ export function formatCourseHazards(hazardsArr, courseLengthNm, corridorNm = 0.2
   };
 }
 
+/**
+ * Find all navaids whose bearing from (lat, lon) falls within bearingDeg ± toleranceDeg.
+ * filters: array of label strings (['buoy','light']), or null for all types.
+ * radiusNm: maximum range to consider (default 20nm matches the data load radius).
+ */
+export function navaidsOnBearing(lat, lon, bearingDeg, toleranceDeg, filters, radiusNm = 20) {
+  if (!navaids || navaids.features.length === 0) return 'No navaid data loaded.';
+
+  const targetBrg = ((bearingDeg % 360) + 360) % 360;
+
+  const nearby = [];
+  for (const f of navaids.features) {
+    const [flon, flat] = f.geometry.coordinates;
+    if (filters && filters.length > 0 && !filters.includes(f.properties.label)) continue;
+    const d = distanceNm(lon, lat, flon, flat);
+    if (d > radiusNm) continue;
+    const brg = trueTomagnetic(bearing(lon, lat, flon, flat));
+    const diff = Math.abs(((brg - targetBrg + 540) % 360) - 180);
+    if (diff <= toleranceDeg) nearby.push({ f, d, brg });
+  }
+  nearby.sort((a, b) => a.d - b.d);
+
+  const typeDesc = !filters || filters.length === 0 ? 'navaids'
+    : filters.length === 1 ? `${filters[0]}s`
+    : filters.map(t => `${t}s`).join(' and ');
+  const brgDisplay = `${targetBrg.toFixed(0)}°`;
+  const tolDisplay = `±${toleranceDeg}°`;
+
+  if (nearby.length === 0) {
+    return {
+      text:   `No ${typeDesc} at bearing ${brgDisplay} ${tolDisplay}`,
+      speech: `No ${typeDesc} found at bearing ${targetBrg} degrees, plus or minus ${toleranceDeg} degrees.`,
+    };
+  }
+
+  const count = nearby.length;
+  const TEXT_MAX = 8, SPEAK_MAX = 3;
+
+  const fmt = ({ f, d, brg }) => {
+    const label = f.properties.label || 'navaid';
+    const name  = f.properties.name ? ` ${f.properties.name}` : '';
+    const detail = f.properties.characteristic
+      ? ` (${f.properties.characteristic})`
+      : f.properties.colour ? ` (${f.properties.colour})` : '';
+    return { label, name, detail, d, brg };
+  };
+
+  lastNavaidResults = nearby.slice(0, TEXT_MAX).map(({ f, d, brg }) => {
+    const [flon, flat] = f.geometry.coordinates;
+    return { lat: flat, lon: flon, label: f.properties.label || 'navaid',
+             name: f.properties.name || null, colour: f.properties.colour || null,
+             characteristic: f.properties.characteristic || null, brg, d };
+  });
+
+  const textParts = nearby.slice(0, TEXT_MAX).map(item => {
+    const { label, name, detail, d, brg } = fmt(item);
+    return `${label}${name}${detail}  ${bearingToDisplay(brg)}  ${distanceToDisplay(d)}`;
+  });
+  const speechParts = nearby.slice(0, SPEAK_MAX).map(item => {
+    const { label, name, detail, brg } = fmt(item);
+    const spokenDetail = detail.replace(/[()]/g, '');
+    return `${label}${name}${spokenDetail ? ', ' + spokenDetail : ''}, bearing ${bearingToWords(brg)}`;
+  });
+
+  const textMore   = count > TEXT_MAX  ? ` Plus ${count - TEXT_MAX} more.`  : '';
+  const speechMore = count > SPEAK_MAX ? ` Plus ${count - SPEAK_MAX} more.` : '';
+  const header = `${count} ${typeDesc} at bearing ${brgDisplay} ${tolDisplay}`;
+
+  return {
+    text:   header,
+    speech: `${header}: ${speechParts.join('. ')}.${speechMore}`,
+  };
+}
+
 /** Find all charted hazards within corridorNm of the course from A to B (local in-memory data). */
 export function hazardsOnCourse(fromLat, fromLon, toLat, toLon, corridorNm = 0.25) {
   lastBearingResult = null;

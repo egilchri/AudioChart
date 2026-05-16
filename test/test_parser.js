@@ -45,6 +45,15 @@ function parseRadius(text) {
   return 0.25;
 }
 
+function navaidFilters(text) {
+  const t = text.toLowerCase();
+  const types = [];
+  if (/buoy|marker|nun|can/.test(t)) types.push('buoy');
+  if (/light/.test(t)) types.push('light');
+  if (/beacon/.test(t)) types.push('beacon');
+  return types.length ? types : null;
+}
+
 const PATTERNS = [
   { re: /\b(where am i|what'?s?\s+my\s+(position|location|coordinates?)|what\s+is\s+my\s+(position|location)|my\s+position)\b/i, intent: 'WHERE_AM_I', params: {} },
   { re: /\b(nearest|closest)\s+hazard\b/i, intent: 'NEAREST_HAZARD', params: {} },
@@ -54,6 +63,8 @@ const PATTERNS = [
   { re: /hazards?.{0,50}within\s+(.{1,30})/i, intent: 'HAZARDS_IN_RADIUS', extract: (m) => ({ radiusNm: parseRadius(m[1]) }) },
   { re: /\b(give\s+me|report|what\s+are|list)\b.{0,30}(bearing|hazard).{0,30}hazard/i, intent: 'HAZARDS_IN_RADIUS', params: { radiusNm: 0.25 } },
   { re: /\b(nearest|closest)\s+(buoy|beacon|light|marker|nun|can)\b/i, intent: 'NEAREST_NAVAID', params: {} },
+  { re: /(buoys?\s+(?:and\s+)?lights?|lights?\s+(?:and\s+)?buoys?|buoys?|lights?|beacons?|navaids?).{0,30}(?:bearing\s+(?:at\s+)?|at\s+bearing\s+)(\d{1,3})(?:\s*°?(?:\s*degrees?)?)?.{0,10}(?:\+[-–]?|plus\s+or\s+minus|within)\s*(\d{1,3})/i, intent: 'NAVAIDS_ON_BEARING', extract: (m) => ({ filters: navaidFilters(m[1]), bearing: parseInt(m[2]), tolerance: parseInt(m[3]) }) },
+  { re: /(buoys?\s+(?:and\s+)?lights?|lights?\s+(?:and\s+)?buoys?|buoys?|lights?|beacons?|navaids?).{0,30}(?:bearing\s+(?:at\s+)?|at\s+bearing\s+)(\d{1,3})(?:\s*°?(?:\s*degrees?)?)/i, intent: 'NAVAIDS_ON_BEARING', extract: (m) => ({ filters: navaidFilters(m[1]), bearing: parseInt(m[2]), tolerance: 10 }) },
   { re: /\b(range\s+and\s+bearing|bearing\s+and\s+range|bearing|distance|how\s+far|range)\b.{0,20}(to|of)\s+(.{3,60})$/i, intent: 'BEARING_TO_PLACE', extract: (m) => ({ placeName: m[3].trim() }) },
 ];
 
@@ -132,6 +143,36 @@ console.log('\nNEAREST_NAVAID');
 expect('nearest buoy', 'nearest buoy', 'NEAREST_NAVAID');
 expect('closest light', 'closest light', 'NEAREST_NAVAID');
 expect('nearest marker', 'nearest marker', 'NEAREST_NAVAID');
+
+console.log('\nNAVAIDS_ON_BEARING');
+{
+  const r = parseCommand('name all buoys and lights bearing at 90 degrees +- 10 degrees');
+  const ok = r.intent === 'NAVAIDS_ON_BEARING' && r.params.bearing === 90 && r.params.tolerance === 10
+    && Array.isArray(r.params.filters) && r.params.filters.includes('buoy') && r.params.filters.includes('light');
+  if (ok) { passed++; console.log('  ✓ buoys and lights bearing at 90 +- 10'); }
+  else { failed++; console.error(`  ✗ buoys and lights bearing at 90 +- 10: got ${r.intent} ${JSON.stringify(r.params)}`); }
+}
+{
+  const r = parseCommand('lights bearing 270 plus or minus 15');
+  const ok = r.intent === 'NAVAIDS_ON_BEARING' && r.params.bearing === 270 && r.params.tolerance === 15
+    && r.params.filters?.includes('light');
+  if (ok) { passed++; console.log('  ✓ lights bearing 270 plus or minus 15'); }
+  else { failed++; console.error(`  ✗ lights bearing 270 plus or minus 15: got ${r.intent} ${JSON.stringify(r.params)}`); }
+}
+{
+  const r = parseCommand('buoys bearing at 45 degrees');
+  const ok = r.intent === 'NAVAIDS_ON_BEARING' && r.params.bearing === 45 && r.params.tolerance === 10
+    && r.params.filters?.includes('buoy');
+  if (ok) { passed++; console.log('  ✓ buoys bearing at 45 degrees (default tolerance)'); }
+  else { failed++; console.error(`  ✗ buoys bearing at 45 degrees: got ${r.intent} ${JSON.stringify(r.params)}`); }
+}
+{
+  const r = parseCommand('navaids at bearing 180 within 20');
+  const ok = r.intent === 'NAVAIDS_ON_BEARING' && r.params.bearing === 180 && r.params.tolerance === 20
+    && r.params.filters === null;
+  if (ok) { passed++; console.log('  ✓ navaids at bearing 180 within 20'); }
+  else { failed++; console.error(`  ✗ navaids at bearing 180 within 20: got ${r.intent} ${JSON.stringify(r.params)}`); }
+}
 
 console.log('\nUNKNOWN fallback');
 expect('garbage input', 'banana orange apple', 'UNKNOWN');

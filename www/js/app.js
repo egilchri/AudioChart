@@ -446,6 +446,12 @@ async function handleCommand(transcript) {
           showNavaidMap(pos.lat, pos.lon, Query.lastNavaidResults).catch(() => {});
         }
         break;
+      case 'NAVAIDS_ON_BEARING':
+        response = Query.navaidsOnBearing(pos.lat, pos.lon, params.bearing, params.tolerance, params.filters ?? null);
+        if (Query.lastNavaidResults?.length) {
+          showNavaidMap(pos.lat, pos.lon, Query.lastNavaidResults).catch(() => {});
+        }
+        break;
       case 'NEAREST_RESTRICTION':
         response = Query.nearestRestriction(pos.lat, pos.lon);
         break;

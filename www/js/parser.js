@@ -88,6 +88,16 @@ function navaidFilter(word) {
   return null;
 }
 
+/** Return an array of navaid label strings from a phrase like "buoys and lights". */
+function navaidFilters(text) {
+  const t = text.toLowerCase();
+  const types = [];
+  if (/buoy|marker|nun|can/.test(t)) types.push('buoy');
+  if (/light/.test(t)) types.push('light');
+  if (/beacon/.test(t)) types.push('beacon');
+  return types.length ? types : null;
+}
+
 const PATTERNS = [
   // LIST OBJECTS
   {
@@ -164,6 +174,19 @@ const PATTERNS = [
     re: /(buoys?|lights?|beacons?|markers?|navaids?|navigation\s+aids?|nuns?|cans?).{0,20}(nearby|around|close|here)/i,
     intent: 'NAVAIDS_IN_RADIUS',
     extract: (m) => ({ radiusNm: 0.5, filter: navaidFilter(m[1]) }),
+  },
+
+  // NAVAIDS ON BEARING — with explicit tolerance (e.g. "buoys and lights bearing at 90 +- 10")
+  {
+    re: /(buoys?\s+(?:and\s+)?lights?|lights?\s+(?:and\s+)?buoys?|buoys?|lights?|beacons?|navaids?).{0,30}(?:bearing\s+(?:at\s+)?|at\s+bearing\s+)(\d{1,3})(?:\s*°?(?:\s*degrees?)?)?.{0,10}(?:\+[-–]?|plus\s+or\s+minus|within)\s*(\d{1,3})/i,
+    intent: 'NAVAIDS_ON_BEARING',
+    extract: (m) => ({ filters: navaidFilters(m[1]), bearing: parseInt(m[2]), tolerance: parseInt(m[3]) }),
+  },
+  // NAVAIDS ON BEARING — bearing only, default ±10° tolerance
+  {
+    re: /(buoys?\s+(?:and\s+)?lights?|lights?\s+(?:and\s+)?buoys?|buoys?|lights?|beacons?|navaids?).{0,30}(?:bearing\s+(?:at\s+)?|at\s+bearing\s+)(\d{1,3})(?:\s*°?(?:\s*degrees?)?)/i,
+    intent: 'NAVAIDS_ON_BEARING',
+    extract: (m) => ({ filters: navaidFilters(m[1]), bearing: parseInt(m[2]), tolerance: 10 }),
   },
 
   // NEAREST RESTRICTION
