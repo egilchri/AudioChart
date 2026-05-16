@@ -131,22 +131,35 @@ export async function loadData(lat, lon) {
 
   // Offline fallback: check IndexedDB first (pre-downloaded at dock),
   // then fall back to the static files bundled with the app.
-  const [idbH, idbP, idbN, idbW, idbR] = await Promise.all([
+  // Version-check: if static files are newer than IDB data, use static files.
+  let networkVersion = null;
+  try {
+    const vr = await fetch('./data/data-version.json');
+    if (vr.ok) networkVersion = (await vr.json()).version;
+  } catch (_) {}
+
+  const [idbH, idbP, idbN, idbW, idbR, storedVersion] = await Promise.all([
     idbGet('hazards').catch(() => null),
     idbGet('named_places').catch(() => null),
     idbGet('navaids').catch(() => null),
     idbGet('waypoints').catch(() => null),
     idbGet('restrictions').catch(() => null),
+    idbGet('data-version').catch(() => null),
   ]);
 
-  if (idbH) {
+  const idbCurrent = idbH && networkVersion && storedVersion === networkVersion;
+
+  if (idbCurrent) {
     hazards = idbH;
     namedPlaces = idbP;
     navaids = idbN;
     waypoints = idbW;
     restrictions = idbR || null;
-    console.log('[query] Loaded offline data from IndexedDB');
+    console.log(`[query] Loaded offline data from IndexedDB (version ${storedVersion})`);
   } else {
+    if (idbH && !idbCurrent) {
+      console.log(`[query] IDB data stale (stored=${storedVersion} network=${networkVersion}), using static files`);
+    }
     const [h, p, n] = await Promise.all([
       fetch('./data/hazards.geojson').then(r => r.json()),
       fetch('./data/named_places.geojson').then(r => r.json()),
@@ -155,7 +168,8 @@ export async function loadData(lat, lon) {
     hazards = h;
     namedPlaces = p;
     navaids = n;
-    console.log('[query] Loaded offline data from static files');
+    if (networkVersion) await idbPut('data-version', networkVersion);
+    console.log(`[query] Loaded offline data from static files (version ${networkVersion})`);
   }
 
   const storedMagvar = localStorage.getItem('audiochart-magvar');
@@ -201,6 +215,11 @@ export async function prepareOfflineStatic(dataUrl) {
     await idbPut(idbKey, { type: 'FeatureCollection', features: [...existingFeatures, ...added] });
   }
   const stored = await Promise.all(pairs.map(([k]) => idbGet(k).then(fc => (fc?.features || []).length)));
+  // Record the current data version so the freshness check passes after download
+  try {
+    const vr = await fetch('./data/data-version.json');
+    if (vr.ok) await idbPut('data-version', (await vr.json()).version);
+  } catch (_) {}
   return { added: data.count, total: stored.reduce((a, b) => a + b, 0) };
 }
 

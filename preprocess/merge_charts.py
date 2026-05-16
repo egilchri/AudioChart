@@ -10,6 +10,7 @@ Pipeline order:
 
 Usage: python3 merge_charts.py
 """
+import hashlib
 import json
 import math
 import os
@@ -149,6 +150,19 @@ def main():
         with open(path, 'w') as f:
             json.dump(bounds, f, separators=(',', ':'))
         print(f'  chart_bounds.geojson: coverage polygon written')
+
+    # Generate a version fingerprint from the navaid + hazard file contents.
+    # Stored in data-version.json so the PWA can detect stale IndexedDB data.
+    digest_input = b''
+    for name in ('navaid.geojson', 'hazards.geojson', 'named_places.geojson'):
+        p = os.path.join(DATA_DIR, name)
+        with open(p, 'rb') as f:
+            digest_input += f.read()
+    version = hashlib.sha256(digest_input).hexdigest()[:16]
+    version_path = os.path.join(DATA_DIR, 'data-version.json')
+    with open(version_path, 'w') as f:
+        json.dump({'version': version}, f)
+    print(f'  data-version.json: {version}')
 
     print('\nMerge complete.')
 
