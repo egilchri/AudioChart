@@ -42,6 +42,19 @@ function _waypointIcon() {
   });
 }
 
+function _markerKey(lat, lon) { return `${lat.toFixed(5)},${lon.toFixed(5)}`; }
+
+function flashMarker(lat, lon) {
+  const marker = _markerByKey.get(_markerKey(lat, lon));
+  if (!marker) return;
+  const el = marker.getElement ? marker.getElement() : null;
+  if (!el) return;
+  el.classList.remove('marker-flash');
+  void el.offsetWidth; // restart animation
+  el.classList.add('marker-flash');
+  el.addEventListener('animationend', () => el.classList.remove('marker-flash'), { once: true });
+}
+
 function _refreshWaypointLayer() {
   if (!_map) return;
   if (_waypointLayer) { _map.removeLayer(_waypointLayer); _waypointLayer = null; }
@@ -52,6 +65,7 @@ function _refreshWaypointLayer() {
     wps.map(wp => {
       const m = L.marker([wp.lat, wp.lon], { icon: _waypointIcon() });
       m.bindTooltip(wp.name, { permanent: true, direction: 'top', className: 'map-tooltip' });
+      _markerByKey.set(_markerKey(wp.lat, wp.lon), m);
       return m;
     })
   ).addTo(_map);
@@ -177,6 +191,7 @@ let _mapLayers = null;
 let _waypointLayer = null;
 let _waypointsVisible = localStorage.getItem('audiochart-waypoints-visible') === 'true';
 let _leafletReady = false;
+let _markerByKey = new Map();
 let _lastCourseFrom = null;
 let _lastCourseTo   = null;
 
@@ -234,9 +249,10 @@ function showNavaidList(navaids) {
 
     row.appendChild(nameEl);
     row.appendChild(navEl);
-    row.addEventListener('click', () =>
-      TTS.sayImmediate(`${base}, bearing ${bearingToWords(n.brg)}, ${formatDistance(n.d)}.`)
-    );
+    row.addEventListener('click', () => {
+      TTS.sayImmediate(`${base}, bearing ${bearingToWords(n.brg)}, ${formatDistance(n.d)}.`);
+      if (n.lat != null && n.lon != null) flashMarker(n.lat, n.lon);
+    });
     navaidListEl.appendChild(row);
   }
   navaidListEl.style.display = 'flex';
@@ -505,6 +521,7 @@ async function showNavaidMap(fromLat, fromLon, navaids) {
   _ensureMap();
   _map.invalidateSize();
   if (_mapLayers) { _map.removeLayer(_mapLayers); _mapLayers = null; }
+  _markerByKey.clear();
 
   const layers = [];
   layers.push(L.circleMarker([fromLat, fromLon], {
@@ -513,6 +530,7 @@ async function showNavaidMap(fromLat, fromLon, navaids) {
 
   for (const n of navaids) {
     const marker = L.marker([n.lat, n.lon], { icon: _navaidMarkerIcon(n) });
+    _markerByKey.set(_markerKey(n.lat, n.lon), marker);
     const tip = [n.name, n.characteristic || n.colour].filter(Boolean).join(' — ');
     if (tip) marker.bindTooltip(tip, { permanent: false, direction: 'top', className: 'map-tooltip' });
     marker.on('click', () => {
@@ -538,6 +556,7 @@ async function showHazardMap(fromLat, fromLon, hazardPts) {
   _ensureMap();
   _map.invalidateSize();
   if (_mapLayers) { _map.removeLayer(_mapLayers); _mapLayers = null; }
+  _markerByKey.clear();
 
   const layers = [];
   layers.push(L.circleMarker([fromLat, fromLon], {
@@ -546,6 +565,7 @@ async function showHazardMap(fromLat, fromLon, hazardPts) {
 
   for (const h of hazardPts) {
     const marker = L.marker([h.lat, h.lon], { icon: _hazardMarkerIcon() });
+    _markerByKey.set(_markerKey(h.lat, h.lon), marker);
     const tip = [h.label, h.name].filter(Boolean).join(', ');
     if (tip) marker.bindTooltip(tip, { permanent: false, direction: 'top', className: 'map-tooltip' });
     marker.on('click', () => {
@@ -691,12 +711,14 @@ async function handleMapLongPress(latlng, radiusNm = 0.25, radiusLabel = '¼ mil
   const hazards = Query.lastHazardResults || [];
   const navaids = Query.lastNavaidResults || [];
 
+  _markerByKey.clear();
   const layers = [];
   layers.push(L.marker([lat, lon], { icon: _pinIcon() })
     .bindTooltip('📍', { permanent: true, direction: 'top', className: 'map-tooltip' }));
 
   for (const h of hazards) {
     const m = L.marker([h.lat, h.lon], { icon: _hazardMarkerIcon() });
+    _markerByKey.set(_markerKey(h.lat, h.lon), m);
     const tip = [h.label, h.name].filter(Boolean).join(', ');
     if (tip) m.bindTooltip(tip, { permanent: false, direction: 'top', className: 'map-tooltip' });
     layers.push(m);
@@ -704,6 +726,7 @@ async function handleMapLongPress(latlng, radiusNm = 0.25, radiusLabel = '¼ mil
 
   for (const n of navaids) {
     const m = L.marker([n.lat, n.lon], { icon: _navaidMarkerIcon(n) });
+    _markerByKey.set(_markerKey(n.lat, n.lon), m);
     const tip = [n.name, n.characteristic || n.colour].filter(Boolean).join(' — ');
     if (tip) m.bindTooltip(tip, { permanent: false, direction: 'top', className: 'map-tooltip' });
     layers.push(m);
@@ -767,7 +790,7 @@ async function handleCommand(transcript) {
       const textLines  = rows.map(r => r.brg != null ? `${r.label}: ${bearingToDisplay(r.brg)}, ${distanceToDisplay(r.d)}` : r.label);
       const speechLines = rows.map(r => r.brg != null ? `${r.label}, bearing ${bearingToWords(r.brg)}, ${formatDistance(r.d)}` : r.label);
       showResponse(textLines.join('\n'));
-      showNavaidList(rows.map((r, i) => ({ label: wps[i].name, name: null, brg: r.brg ?? 0, d: r.d ?? 0 })));
+      showNavaidList(rows.map((r, i) => ({ label: wps[i].name, name: null, brg: r.brg ?? 0, d: r.d ?? 0, lat: wps[i].lat, lon: wps[i].lon })));
       showWaypointMap(pos?.lat ?? null, pos?.lon ?? null, wps).catch(() => {});
       TTS.sayImmediate(speechLines.join('. ') + '.');
       return;
