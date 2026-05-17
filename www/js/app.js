@@ -9,7 +9,7 @@ import * as GPS from './gps.js';
 import { parseCommand, parseCoordinate } from './parser.js';
 import * as Query from './query.js';
 
-const VERSION = 'v12';
+const VERSION = 'v13';
 document.getElementById('app-version').textContent = VERSION;
 
 function _navaidMarkerColor(navaid) {
@@ -155,9 +155,11 @@ function showResponse(text) {
   responseEl.textContent = text;
   navaidListEl.style.display = 'none';
   navaidListEl.innerHTML = '';
+  document.getElementById('map-container').classList.remove('map-compact');
 }
 
 function showNavaidList(navaids) {
+  document.getElementById('map-container').classList.add('map-compact');
   navaidListEl.innerHTML = '';
   for (const n of navaids) {
     const nameStr = n.name ? ` ${n.name}` : '';
