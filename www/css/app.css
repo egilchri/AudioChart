@@ -57,6 +57,14 @@ html, body {
   color: var(--accent);
 }
 
+#app-version {
+  font-size: 0.65rem;
+  font-weight: 400;
+  opacity: 0.5;
+  vertical-align: middle;
+  letter-spacing: 0;
+}
+
 /* Status badges */
 .badge-row {
   display: flex;

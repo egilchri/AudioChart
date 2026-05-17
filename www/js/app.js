@@ -9,6 +9,9 @@ import * as GPS from './gps.js';
 import { parseCommand, parseCoordinate } from './parser.js';
 import * as Query from './query.js';
 
+const VERSION = 'v9';
+document.getElementById('app-version').textContent = VERSION;
+
 function _navaidMarkerColor(navaid) {
   const c = (navaid.colour || '').toLowerCase();
   const l = navaid.label || '';
