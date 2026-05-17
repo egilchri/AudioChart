@@ -230,6 +230,14 @@ _mapContainer.addEventListener('mousedown', () =>
   _mapContainer.classList.remove('list-focus'));
 _mapContainer.addEventListener('touchstart', () =>
   _mapContainer.classList.remove('list-focus'), { passive: true });
+
+// Text input focus → collapse map so input area has full space
+textInput.addEventListener('focus', () =>
+  _mapContainer.classList.add('input-focus'));
+textInput.addEventListener('blur', () => {
+  _mapContainer.classList.remove('input-focus');
+  if (_map) setTimeout(() => _map.invalidateSize(), 260);
+});
 function showResponse(text) {
   responseEl.textContent = text;
   navaidListEl.style.display = 'none';
