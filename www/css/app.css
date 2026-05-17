@@ -432,7 +432,8 @@ html, body {
 #map-context-menu button:active {
   background: var(--mid-blue);
 }
-#map-ctx-objects-submenu {
+#map-ctx-objects-submenu,
+#map-ctx-delete-submenu {
   display: none;
   border-top: 1px solid var(--mid-blue);
 }
@@ -452,13 +453,16 @@ html, body {
 #map-ctx-set-position {
   border-top: 1px solid var(--mid-blue);
 }
-#map-ctx-objects-submenu button {
+#map-ctx-objects-submenu button,
+#map-ctx-delete-submenu button {
   padding-left: 28px;
   font-size: 0.85rem;
   color: var(--text-dim);
 }
 #map-ctx-objects-submenu button:hover,
-#map-ctx-objects-submenu button:active {
+#map-ctx-objects-submenu button:active,
+#map-ctx-delete-submenu button:hover,
+#map-ctx-delete-submenu button:active {
   color: var(--text);
   background: var(--mid-blue);
 }

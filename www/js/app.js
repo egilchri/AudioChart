@@ -286,10 +286,31 @@ function _ensureMap() {
   const _hideCtx = () => { _ctxMenu.style.display = 'none'; };
 
   const _ctxSubmenu = document.getElementById('map-ctx-objects-submenu');
+  const _deleteSubmenu = document.getElementById('map-ctx-delete-submenu');
+
+  function _populateDeleteSubmenu() {
+    _deleteSubmenu.innerHTML = '';
+    const wps = loadUserWaypoints();
+    if (!wps.length) {
+      const empty = document.createElement('button');
+      empty.textContent = 'No waypoints saved';
+      empty.disabled = true;
+      _deleteSubmenu.appendChild(empty);
+      return;
+    }
+    for (const wp of wps) {
+      const btn = document.createElement('button');
+      btn.textContent = wp.name;
+      btn.dataset.wpName = wp.name;
+      _deleteSubmenu.appendChild(btn);
+    }
+  }
 
   _map.on('contextmenu', (e) => {
     _ctxLatLng = e.latlng;
     _ctxSubmenu.style.display = 'none';
+    _deleteSubmenu.style.display = 'none';
+    _populateDeleteSubmenu();
     _ctxMenu.style.left = e.originalEvent.clientX + 'px';
     _ctxMenu.style.top  = e.originalEvent.clientY + 'px';
     _ctxMenu.style.display = 'block';
@@ -307,6 +328,24 @@ function _ensureMap() {
     if (!btn) return;
     _hideCtx();
     if (_ctxLatLng) handleMapLongPress(_ctxLatLng, parseFloat(btn.dataset.radiusNm), btn.dataset.radiusLabel);
+  });
+
+  document.getElementById('map-ctx-delete-parent').addEventListener('click', () => {
+    _deleteSubmenu.style.display = _deleteSubmenu.style.display === 'block' ? 'none' : 'block';
+  });
+
+  _deleteSubmenu.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-wp-name]');
+    if (!btn) return;
+    _hideCtx();
+    const name = btn.dataset.wpName;
+    const wps = loadUserWaypoints().filter(w => w.name !== name);
+    localStorage.setItem(USER_WP_KEY, JSON.stringify(wps));
+    Query.removeUserWaypoint(name);
+    _refreshWaypointLayer();
+    const msg = `Waypoint ${name} deleted.`;
+    setStatus(msg);
+    TTS.sayImmediate(msg);
   });
 
   document.getElementById('map-ctx-where-am-i').addEventListener('click', async () => {
