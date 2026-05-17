@@ -42,6 +42,16 @@ function _waypointIcon() {
   });
 }
 
+function _youAreHereIcon() {
+  return L.divIcon({
+    className: '',
+    html: '<div class="you-marker"></div>',
+    iconSize: [20, 20],
+    iconAnchor: [10, 10],
+    tooltipAnchor: [10, -10],
+  });
+}
+
 function _boatIcon() {
   return L.divIcon({
     className: '',
@@ -566,9 +576,26 @@ async function showPositionMap(lat, lon) {
   _ensureMap();
   _map.invalidateSize();
   if (_mapLayers) { _map.removeLayer(_mapLayers); _mapLayers = null; }
-  const dot = L.circleMarker([lat, lon], {
-    radius: 10, color: '#4a9edd', fillColor: '#4a9edd', fillOpacity: 1, weight: 0,
-  }).bindTooltip('You are here', { permanent: true, direction: 'top', className: 'map-tooltip' });
+  const dot = L.marker([lat, lon], { icon: _youAreHereIcon(), draggable: true, zIndexOffset: 900 });
+  dot.bindTooltip('You are here', { permanent: true, direction: 'top', className: 'map-tooltip' });
+  dot.on('dragend', (e) => {
+    const { lat: newLat, lng: newLon } = e.target.getLatLng();
+    GPS.setManualPosition(newLat, newLon);
+    syncTestPosButton();
+    _showBoatPosition(newLat, newLon);
+    setStatus('Test position set from map.');
+    if (serverUrl) {
+      fetch(`${serverUrl}/api/test-position`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lat: newLat, lon: newLon }),
+      }).catch(() => {});
+      Query.loadData(newLat, newLon).then(() => {
+        dataLoaded = true;
+        setStatus('Ready. (map position)');
+      }).catch(() => {});
+    }
+  });
   _mapLayers = L.layerGroup([dot]).addTo(_map);
   _map.setView([lat, lon], 13);
   _map.invalidateSize();
