@@ -9,7 +9,7 @@ import * as GPS from './gps.js';
 import { parseCommand, parseCoordinate } from './parser.js';
 import * as Query from './query.js';
 
-const VERSION = 'v11';
+const VERSION = 'v12';
 document.getElementById('app-version').textContent = VERSION;
 
 function _navaidMarkerColor(navaid) {
@@ -480,16 +480,14 @@ async function handleCommand(transcript) {
         response = Query.navaidsInRadius(pos.lat, pos.lon, params.radiusNm, params.filter ?? null);
         if (Query.lastNavaidResults?.length) {
           showNavaidMap(pos.lat, pos.lon, Query.lastNavaidResults).catch(() => {});
-          showNavaidList(Query.lastNavaidResults);
-          response = { text: response?.text ?? response, speech: response?.text ?? response };
+          response = { text: response?.text ?? response, speech: response?.text ?? response, _navaidList: Query.lastNavaidResults };
         }
         break;
       case 'NAVAIDS_ON_BEARING':
         response = Query.navaidsOnBearing(pos.lat, pos.lon, params.bearing, params.tolerance, params.filters ?? null);
         if (Query.lastNavaidResults?.length) {
           showNavaidMap(pos.lat, pos.lon, Query.lastNavaidResults).catch(() => {});
-          showNavaidList(Query.lastNavaidResults);
-          response = { text: response?.text ?? response, speech: response?.text ?? response };
+          response = { text: response?.text ?? response, speech: response?.text ?? response, _navaidList: Query.lastNavaidResults };
         }
         break;
       case 'NEAREST_RESTRICTION':
@@ -557,7 +555,9 @@ async function handleCommand(transcript) {
 
     const displayText = response?.text  ?? response;
     const speechText  = response?.speech ?? response;
+    const navaidList  = response?._navaidList ?? null;
     showResponse(displayText);
+    if (navaidList) showNavaidList(navaidList);
     TTS.sayImmediate(speechText);
 
     const SHOW_MAP_FOR = ['BEARING_TO_PLACE', 'BEARING_TO_COORD', 'NEAREST_HAZARD', 'NEAREST_NAVAID', 'NEAREST_RESTRICTION'];
