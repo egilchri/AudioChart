@@ -75,7 +75,14 @@ function flashMarker(lat, lon) {
   setTimeout(() => {
     if (_map) {
       _map.invalidateSize();
-      _map.panTo([lat, lon]);
+      const pos = GPS.getPosition();
+      if (pos) {
+        _map.fitBounds(
+          L.latLngBounds([[pos.lat, pos.lon], [lat, lon]]).pad(0.25)
+        );
+      } else {
+        _map.panTo([lat, lon]);
+      }
     }
     const marker = _markerByKey.get(_markerKey(lat, lon));
     if (!marker) return;
