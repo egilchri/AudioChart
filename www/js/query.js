@@ -79,6 +79,14 @@ export function mergeUserWaypoints(wps) {
   }
 }
 
+export function removeUserWaypoint(name) {
+  if (!waypoints?.features) return;
+  const lower = name.toLowerCase();
+  waypoints.features = waypoints.features.filter(
+    f => !(f.properties?.label === 'waypoint' && f.properties?.name?.toLowerCase() === lower)
+  );
+}
+
 export async function hasOfflineData() {
   const h = await idbGet('hazards').catch(() => null);
   return !!(h?.features?.length);

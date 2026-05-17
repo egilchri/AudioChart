@@ -118,6 +118,18 @@ const PATTERNS = [
     params: {},
   },
 
+  // DELETE WAYPOINT
+  {
+    re: /\b(delete|remove|clear)\s+waypoint\s+(\S+)/i,
+    intent: 'DELETE_WAYPOINT',
+    extract: (m) => ({ waypointName: m[2].toLowerCase() }),
+  },
+  {
+    re: /\b(delete|remove)\s+(wp\d+)\b/i,
+    intent: 'DELETE_WAYPOINT',
+    extract: (m) => ({ waypointName: m[2].toLowerCase() }),
+  },
+
   // WHERE AM I / POSITION
   {
     re: /\b(where am i|what'?s?\s+my\s+(position|location|coordinates?)|what\s+is\s+my\s+(position|location)|my\s+position)\b/i,

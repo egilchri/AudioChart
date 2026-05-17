@@ -688,6 +688,26 @@ async function handleCommand(transcript) {
       return;
     }
 
+    if (intent === 'DELETE_WAYPOINT') {
+      const name = params.waypointName;
+      const wps = loadUserWaypoints();
+      const idx = wps.findIndex(w => w.name.toLowerCase() === name);
+      if (idx === -1) {
+        const msg = `No waypoint named ${name}.`;
+        showResponse(msg);
+        TTS.sayImmediate(msg);
+        return;
+      }
+      wps.splice(idx, 1);
+      localStorage.setItem(USER_WP_KEY, JSON.stringify(wps));
+      Query.removeUserWaypoint(name);
+      _refreshWaypointLayer();
+      const msg = `Waypoint ${name} deleted.`;
+      showResponse(msg);
+      TTS.sayImmediate(msg);
+      return;
+    }
+
     const pos = GPS.getPosition();
     if (!pos) {
       const msg = 'No GPS fix yet. Please wait for a position.';
