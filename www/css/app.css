@@ -458,17 +458,6 @@ html, body {
   transform-origin: center;
 }
 
-/* Draggable "You are here" dot */
-.you-marker {
-  width: 20px;
-  height: 20px;
-  background: #4a9edd;
-  border-radius: 50%;
-  border: 2px solid #fff;
-  box-shadow: 0 0 6px rgba(0,0,0,0.6);
-  cursor: grab;
-}
-
 /* Boat icon for manually set test position */
 .boat-marker {
   font-size: 22px;

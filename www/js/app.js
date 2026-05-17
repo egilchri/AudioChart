@@ -42,16 +42,6 @@ function _waypointIcon() {
   });
 }
 
-function _youAreHereIcon() {
-  return L.divIcon({
-    className: '',
-    html: '<div class="you-marker"></div>',
-    iconSize: [20, 20],
-    iconAnchor: [10, 10],
-    tooltipAnchor: [10, -10],
-  });
-}
-
 function _boatIcon() {
   return L.divIcon({
     className: '',
@@ -576,7 +566,7 @@ async function showPositionMap(lat, lon) {
   _ensureMap();
   _map.invalidateSize();
   if (_mapLayers) { _map.removeLayer(_mapLayers); _mapLayers = null; }
-  const dot = L.marker([lat, lon], { icon: _youAreHereIcon(), draggable: true, zIndexOffset: 900 });
+  const dot = L.marker([lat, lon], { icon: _boatIcon(), draggable: true, zIndexOffset: 900 });
   dot.bindTooltip('You are here', { permanent: true, direction: 'top', className: 'map-tooltip' });
   dot.on('dragend', (e) => {
     const { lat: newLat, lng: newLon } = e.target.getLatLng();
