@@ -381,14 +381,14 @@ html, body {
 
 /* Bearing map view — sits between status and response, fixed at 1/3 of viewport */
 #map-container {
-  height: 33dvh;
+  height: 66dvh;
   border-radius: 6px;
   overflow: hidden;
   flex-shrink: 0;
   transition: height 0.2s;
 }
 #map-container.map-compact {
-  height: 20dvh;
+  height: 40dvh;
 }
 #leaflet-map { width: 100%; height: 100%; background: var(--navy); }
 .map-tooltip {
