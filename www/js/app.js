@@ -55,8 +55,25 @@ function _boatIcon() {
 function _showBoatPosition(lat, lon) {
   if (!_map) return;
   if (_boatLayer) { _map.removeLayer(_boatLayer); _boatLayer = null; }
-  const marker = L.marker([lat, lon], { icon: _boatIcon(), zIndexOffset: 1000 });
+  const marker = L.marker([lat, lon], { icon: _boatIcon(), zIndexOffset: 1000, draggable: true });
   marker.bindTooltip('TEST POSITION', { permanent: true, direction: 'top', className: 'map-tooltip' });
+  marker.on('dragend', (e) => {
+    const { lat: newLat, lng: newLon } = e.target.getLatLng();
+    GPS.setManualPosition(newLat, newLon);
+    syncTestPosButton();
+    setStatus('Test position moved.');
+    if (serverUrl) {
+      fetch(`${serverUrl}/api/test-position`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lat: newLat, lon: newLon }),
+      }).catch(() => {});
+      Query.loadData(newLat, newLon).then(() => {
+        dataLoaded = true;
+        setStatus('Ready. (map position)');
+      }).catch(() => {});
+    }
+  });
   _boatLayer = L.layerGroup([marker]).addTo(_map);
   _map.panTo([lat, lon]);
 }
@@ -103,9 +120,25 @@ function _refreshWaypointLayer() {
   if (!wps.length) return;
   _waypointLayer = L.layerGroup(
     wps.map(wp => {
-      const m = L.marker([wp.lat, wp.lon], { icon: _waypointIcon() });
+      const m = L.marker([wp.lat, wp.lon], { icon: _waypointIcon(), draggable: true });
       m.bindTooltip(wp.name, { permanent: true, direction: 'top', className: 'map-tooltip' });
       _markerByKey.set(_markerKey(wp.lat, wp.lon), m);
+      m.on('dragend', (e) => {
+        const { lat: newLat, lng: newLon } = e.target.getLatLng();
+        const stored = loadUserWaypoints();
+        const idx = stored.findIndex(w => w.name === wp.name);
+        if (idx !== -1) {
+          _markerByKey.delete(_markerKey(stored[idx].lat, stored[idx].lon));
+          stored[idx].lat = newLat;
+          stored[idx].lon = newLon;
+          localStorage.setItem(USER_WP_KEY, JSON.stringify(stored));
+          Query.removeUserWaypoint(wp.name);
+          Query.mergeUserWaypoints([{ name: wp.name, lat: newLat, lon: newLon }]);
+          _markerByKey.set(_markerKey(newLat, newLon), m);
+        }
+        setStatus(`Waypoint ${wp.name} moved.`);
+        TTS.sayImmediate(`Waypoint ${wp.name} moved.`);
+      });
       return m;
     })
   ).addTo(_map);
