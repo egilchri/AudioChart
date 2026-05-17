@@ -31,6 +31,16 @@ function _hazardMarkerIcon() {
 function _pinIcon() {
   return L.icon({ iconUrl: './icons/markicons/Marks-Active-Waypoint.svg', iconSize: [32, 32], iconAnchor: [16, 32], tooltipAnchor: [0, -32] });
 }
+
+function _waypointIcon() {
+  return L.divIcon({
+    className: '',
+    html: '<div class="wp-marker"></div>',
+    iconSize: [14, 14],
+    iconAnchor: [7, 7],
+    tooltipAnchor: [7, -7],
+  });
+}
 import { formatPositionDisplay, bearingToWords, bearingToDisplay, formatDistance, distanceToDisplay, trueTomagnetic } from './utils.js';
 
 // Capture Android PWA install prompt before any user gesture.
@@ -305,6 +315,7 @@ function _ensureMap() {
     const msg = `Waypoint ${name} set.`;
     setStatus(msg);
     TTS.sayImmediate(msg);
+    showWaypointMap(null, null, loadUserWaypoints()).catch(() => {});
   });
 
   document.getElementById('map-ctx-set-position').addEventListener('click', () => {
@@ -430,6 +441,37 @@ async function showHazardMap(fromLat, fromLon, hazardPts) {
   _mapLayers = L.layerGroup(layers).addTo(_map);
   const allPts = [[fromLat, fromLon], ...hazardPts.map(h => [h.lat, h.lon])];
   _map.fitBounds(L.latLngBounds(allPts).pad(0.25));
+}
+
+async function showWaypointMap(fromLat, fromLon, wps) {
+  await loadLeaflet();
+  document.getElementById('map-container').style.display = 'block';
+  _ensureMap();
+  _map.invalidateSize();
+  if (_mapLayers) { _map.removeLayer(_mapLayers); _mapLayers = null; }
+
+  const layers = [];
+  if (fromLat != null) {
+    layers.push(L.circleMarker([fromLat, fromLon], {
+      radius: 8, color: '#4a9edd', fillColor: '#4a9edd', fillOpacity: 1, weight: 0,
+    }).bindTooltip('You', { permanent: true, direction: 'top', className: 'map-tooltip' }));
+  }
+  for (const wp of wps) {
+    const m = L.marker([wp.lat, wp.lon], { icon: _waypointIcon() });
+    m.bindTooltip(wp.name, { permanent: true, direction: 'top', className: 'map-tooltip' });
+    layers.push(m);
+  }
+
+  _mapLayers = L.layerGroup(layers).addTo(_map);
+  const allPts = [
+    ...(fromLat != null ? [[fromLat, fromLon]] : []),
+    ...wps.map(w => [w.lat, w.lon]),
+  ];
+  if (allPts.length > 1) {
+    _map.fitBounds(L.latLngBounds(allPts).pad(0.3));
+  } else if (allPts.length === 1) {
+    _map.setView(allPts[0], 13);
+  }
 }
 
 async function showCourseMap(fromLat, fromLon, toLat, toLon, hazardPts) {
@@ -606,6 +648,7 @@ async function handleCommand(transcript) {
       const speechLines = rows.map(r => r.brg != null ? `${r.label}, bearing ${bearingToWords(r.brg)}, ${formatDistance(r.d)}` : r.label);
       showResponse(textLines.join('\n'));
       showNavaidList(rows.map((r, i) => ({ label: wps[i].name, name: null, brg: r.brg ?? 0, d: r.d ?? 0 })));
+      showWaypointMap(pos?.lat ?? null, pos?.lon ?? null, wps).catch(() => {});
       TTS.sayImmediate(speechLines.join('. ') + '.');
       return;
     }

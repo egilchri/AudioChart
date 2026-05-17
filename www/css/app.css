@@ -436,6 +436,15 @@ html, body {
   display: none;
   border-top: 1px solid var(--mid-blue);
 }
+/* User waypoint square marker */
+.wp-marker {
+  width: 14px;
+  height: 14px;
+  background: #e0c030;
+  border: 2px solid #222;
+  box-sizing: border-box;
+}
+
 #map-ctx-where-am-i {
   border-top: 1px solid var(--mid-blue);
 }
