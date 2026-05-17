@@ -45,14 +45,24 @@ function _waypointIcon() {
 function _markerKey(lat, lon) { return `${lat.toFixed(5)},${lon.toFixed(5)}`; }
 
 function flashMarker(lat, lon) {
-  const marker = _markerByKey.get(_markerKey(lat, lon));
-  if (!marker) return;
-  const el = marker.getElement ? marker.getElement() : null;
-  if (!el) return;
-  el.classList.remove('marker-flash');
-  void el.offsetWidth; // restart animation
-  el.classList.add('marker-flash');
-  el.addEventListener('animationend', () => el.classList.remove('marker-flash'), { once: true });
+  // Expand map to full height
+  _mapContainer.classList.remove('map-compact', 'list-focus');
+
+  // After the CSS height transition (250ms), resize + pan + flash
+  setTimeout(() => {
+    if (_map) {
+      _map.invalidateSize();
+      _map.panTo([lat, lon]);
+    }
+    const marker = _markerByKey.get(_markerKey(lat, lon));
+    if (!marker) return;
+    const el = marker.getElement ? marker.getElement() : null;
+    if (!el) return;
+    el.classList.remove('marker-flash');
+    void el.offsetWidth;
+    el.classList.add('marker-flash');
+    el.addEventListener('animationend', () => el.classList.remove('marker-flash'), { once: true });
+  }, 260);
 }
 
 function _refreshWaypointLayer() {
