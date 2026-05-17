@@ -585,6 +585,31 @@ async function handleCommand(transcript) {
       return;
     }
 
+    if (intent === 'LIST_WAYPOINTS') {
+      const wps = loadUserWaypoints();
+      if (!wps.length) {
+        const msg = 'No waypoints saved yet. Right-click the map and choose Set waypoint here.';
+        showResponse(msg);
+        TTS.sayImmediate(msg);
+        return;
+      }
+      const pos = GPS.getPosition();
+      const rows = wps.map(wp => {
+        if (pos) {
+          const brg = trueTomagnetic(Query.bearing(pos.lon, pos.lat, wp.lon, wp.lat));
+          const d   = Query.distanceNm(pos.lon, pos.lat, wp.lon, wp.lat);
+          return { label: wp.name, brg, d };
+        }
+        return { label: wp.name, brg: null, d: null };
+      });
+      const textLines  = rows.map(r => r.brg != null ? `${r.label}: ${bearingToDisplay(r.brg)}, ${distanceToDisplay(r.d)}` : r.label);
+      const speechLines = rows.map(r => r.brg != null ? `${r.label}, bearing ${bearingToWords(r.brg)}, ${formatDistance(r.d)}` : r.label);
+      showResponse(textLines.join('\n'));
+      showNavaidList(rows.map((r, i) => ({ label: wps[i].name, name: null, brg: r.brg ?? 0, d: r.d ?? 0 })));
+      TTS.sayImmediate(speechLines.join('. ') + '.');
+      return;
+    }
+
     const pos = GPS.getPosition();
     if (!pos) {
       const msg = 'No GPS fix yet. Please wait for a position.';

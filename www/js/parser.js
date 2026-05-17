@@ -106,6 +106,18 @@ const PATTERNS = [
     params: {},
   },
 
+  // LIST WAYPOINTS
+  {
+    re: /\b(list|show|what\s+are|where\s+are)\s+(my\s+)?waypoints?\b/i,
+    intent: 'LIST_WAYPOINTS',
+    params: {},
+  },
+  {
+    re: /\bmy\s+waypoints?\b/i,
+    intent: 'LIST_WAYPOINTS',
+    params: {},
+  },
+
   // WHERE AM I / POSITION
   {
     re: /\b(where am i|what'?s?\s+my\s+(position|location|coordinates?)|what\s+is\s+my\s+(position|location)|my\s+position)\b/i,
