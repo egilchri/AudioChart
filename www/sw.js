@@ -8,7 +8,7 @@
  *   /api/*       → network-only (never cache dynamic API responses)
  */
 
-const CACHE = 'audiochart-v10';
+const CACHE = 'audiochart-v11';
 const TILES_CACHE    = 'audiochart-tiles-v1';      // server nautical tiles, LRU
 const SATELLITE_CACHE = 'audiochart-satellite-v1'; // pre-downloaded ESRI tiles, persistent
 const TILES_MAX = 800;

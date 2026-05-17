@@ -9,7 +9,7 @@ import * as GPS from './gps.js';
 import { parseCommand, parseCoordinate } from './parser.js';
 import * as Query from './query.js';
 
-const VERSION = 'v10';
+const VERSION = 'v11';
 document.getElementById('app-version').textContent = VERSION;
 
 function _navaidMarkerColor(navaid) {
@@ -37,7 +37,8 @@ const textForm = document.getElementById('text-form');
 const textInput = document.getElementById('text-input');
 const statusEl = document.getElementById('status-text');
 const positionEl = document.getElementById('position-display');
-const responseEl = document.getElementById('response-text');
+const responseEl  = document.getElementById('response-text');
+const navaidListEl = document.getElementById('navaid-list');
 const gpsStatusEl = document.getElementById('gps-status');
 const historyList = document.getElementById('history-list');
 const historyClear = document.getElementById('history-clear');
@@ -150,7 +151,39 @@ async function loadLeaflet() {
 }
 
 function setStatus(msg) { statusEl.textContent = msg; }
-function showResponse(text) { responseEl.textContent = text; }
+function showResponse(text) {
+  responseEl.textContent = text;
+  navaidListEl.style.display = 'none';
+  navaidListEl.innerHTML = '';
+}
+
+function showNavaidList(navaids) {
+  navaidListEl.innerHTML = '';
+  for (const n of navaids) {
+    const nameStr = n.name ? ` ${n.name}` : '';
+    const detail  = n.characteristic ? ` (${n.characteristic})` : n.colour ? ` (${n.colour})` : '';
+    const base    = `${n.label}${nameStr}${detail}`;
+
+    const row = document.createElement('button');
+    row.className = 'navaid-row';
+
+    const nameEl = document.createElement('span');
+    nameEl.className = 'navaid-row-name';
+    nameEl.textContent = base;
+
+    const navEl = document.createElement('span');
+    navEl.className = 'navaid-row-nav';
+    navEl.textContent = `${bearingToDisplay(n.brg)}  ${distanceToDisplay(n.d)}`;
+
+    row.appendChild(nameEl);
+    row.appendChild(navEl);
+    row.addEventListener('click', () =>
+      TTS.sayImmediate(`${base}, bearing ${bearingToWords(n.brg)}, ${formatDistance(n.d)}.`)
+    );
+    navaidListEl.appendChild(row);
+  }
+  navaidListEl.style.display = 'flex';
+}
 
 function _ensureMap() {
   if (_map) return;
@@ -447,12 +480,16 @@ async function handleCommand(transcript) {
         response = Query.navaidsInRadius(pos.lat, pos.lon, params.radiusNm, params.filter ?? null);
         if (Query.lastNavaidResults?.length) {
           showNavaidMap(pos.lat, pos.lon, Query.lastNavaidResults).catch(() => {});
+          showNavaidList(Query.lastNavaidResults);
+          response = { text: response?.text ?? response, speech: response?.text ?? response };
         }
         break;
       case 'NAVAIDS_ON_BEARING':
         response = Query.navaidsOnBearing(pos.lat, pos.lon, params.bearing, params.tolerance, params.filters ?? null);
         if (Query.lastNavaidResults?.length) {
           showNavaidMap(pos.lat, pos.lon, Query.lastNavaidResults).catch(() => {});
+          showNavaidList(Query.lastNavaidResults);
+          response = { text: response?.text ?? response, speech: response?.text ?? response };
         }
         break;
       case 'NEAREST_RESTRICTION':

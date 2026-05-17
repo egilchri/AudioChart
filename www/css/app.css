@@ -336,6 +336,49 @@ html, body {
   white-space: pre-wrap;
 }
 
+/* Navaid / hazard result list (tap a row to hear it) */
+#navaid-list {
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.navaid-row {
+  background: none;
+  border: 1px solid var(--mid-blue);
+  border-radius: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  transition: border-color 0.1s;
+}
+
+.navaid-row:hover,
+.navaid-row:active { border-color: var(--accent); }
+
+.navaid-row-name {
+  font-size: 0.85rem;
+  color: var(--text);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.navaid-row-nav {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 /* Bearing map view — sits between status and response, fixed at 1/3 of viewport */
 #map-container {
   height: 33dvh;
