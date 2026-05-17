@@ -774,33 +774,20 @@ export function navaidsInRadius(lat, lon, radiusNm, filter) {
 
   if (nearby.length === 0) return `No ${typeDesc} within ${radiusDesc} of your position.`;
 
-  const TEXT_MAX = 8, SPEAK_MAX = 2;
+  const SPEAK_MAX = 2;
   const count = nearby.length;
 
-  const fmt = ({ f, d, brg }) => {
+  const speechParts = nearby.slice(0, SPEAK_MAX).map(({ f, d, brg }) => {
     const label = f.properties.label || 'navaid';
     const name  = f.properties.name ? ` ${f.properties.name}` : '';
-    const detail = f.properties.characteristic
-      ? ` (${f.properties.characteristic})`
-      : f.properties.colour ? ` (${f.properties.colour})` : '';
-    return { label, name, detail, d, brg };
-  };
-
-  const textParts   = nearby.slice(0, TEXT_MAX).map(item => {
-    const { label, name, detail, d, brg } = fmt(item);
-    return `${label}${name}${detail}  ${bearingToDisplay(brg)}  ${distanceToDisplay(d)}`;
-  });
-  const speechParts = nearby.slice(0, SPEAK_MAX).map(item => {
-    const { label, name, detail, d, brg } = fmt(item);
-    const spokenDetail = detail.replace(/[()]/g, '');
-    return `${label}${name}${spokenDetail ? ', ' + spokenDetail : ''}, bearing ${bearingToWords(brg)}, ${formatDistance(d)}`;
+    const detail = f.properties.characteristic ? `, ${f.properties.characteristic}` : f.properties.colour ? `, ${f.properties.colour}` : '';
+    return `${label}${name}${detail}, bearing ${bearingToWords(brg)}, ${formatDistance(d)}`;
   });
 
-  const more       = count > TEXT_MAX  ? ` Plus ${count - TEXT_MAX} more.`  : '';
   const speechMore = count > SPEAK_MAX ? ` Plus ${count - SPEAK_MAX} more.` : '';
   const header = `${count} ${typeDesc} within ${radiusDesc}`;
 
-  lastNavaidResults = nearby.slice(0, TEXT_MAX).map(({ f, d, brg }) => {
+  lastNavaidResults = nearby.map(({ f, d, brg }) => {
     const [flon, flat] = f.geometry.coordinates;
     return {
       lat:            flat,
@@ -815,7 +802,7 @@ export function navaidsInRadius(lat, lon, radiusNm, filter) {
   });
 
   return {
-    text:   header,   // map shows the detail; keep screen uncluttered
+    text:   header,
     speech: `${header}: ${speechParts.join('. ')}.${speechMore}`,
   };
 }
@@ -934,35 +921,22 @@ export function navaidsOnBearing(lat, lon, bearingDeg, toleranceDeg, filters, ra
   }
 
   const count = nearby.length;
-  const TEXT_MAX = 8, SPEAK_MAX = 3;
+  const SPEAK_MAX = 3;
 
-  const fmt = ({ f, d, brg }) => {
-    const label = f.properties.label || 'navaid';
-    const name  = f.properties.name ? ` ${f.properties.name}` : '';
-    const detail = f.properties.characteristic
-      ? ` (${f.properties.characteristic})`
-      : f.properties.colour ? ` (${f.properties.colour})` : '';
-    return { label, name, detail, d, brg };
-  };
-
-  lastNavaidResults = nearby.slice(0, TEXT_MAX).map(({ f, d, brg }) => {
+  lastNavaidResults = nearby.map(({ f, d, brg }) => {
     const [flon, flat] = f.geometry.coordinates;
     return { lat: flat, lon: flon, label: f.properties.label || 'navaid',
              name: f.properties.name || null, colour: f.properties.colour || null,
              characteristic: f.properties.characteristic || null, brg, d };
   });
 
-  const textParts = nearby.slice(0, TEXT_MAX).map(item => {
-    const { label, name, detail, d, brg } = fmt(item);
-    return `${label}${name}${detail}  ${bearingToDisplay(brg)}  ${distanceToDisplay(d)}`;
-  });
-  const speechParts = nearby.slice(0, SPEAK_MAX).map(item => {
-    const { label, name, detail, brg } = fmt(item);
-    const spokenDetail = detail.replace(/[()]/g, '');
-    return `${label}${name}${spokenDetail ? ', ' + spokenDetail : ''}, bearing ${bearingToWords(brg)}`;
+  const speechParts = nearby.slice(0, SPEAK_MAX).map(({ f, d, brg }) => {
+    const label = f.properties.label || 'navaid';
+    const name  = f.properties.name ? ` ${f.properties.name}` : '';
+    const detail = f.properties.characteristic ? `, ${f.properties.characteristic}` : f.properties.colour ? `, ${f.properties.colour}` : '';
+    return `${label}${name}${detail}, bearing ${bearingToWords(brg)}`;
   });
 
-  const textMore   = count > TEXT_MAX  ? ` Plus ${count - TEXT_MAX} more.`  : '';
   const speechMore = count > SPEAK_MAX ? ` Plus ${count - SPEAK_MAX} more.` : '';
   const header = `${count} ${typeDesc} at bearing ${brgDisplay} ${tolDisplay}`;
 

@@ -9,7 +9,7 @@ import * as GPS from './gps.js';
 import { parseCommand, parseCoordinate } from './parser.js';
 import * as Query from './query.js';
 
-const VERSION = 'v15';
+const VERSION = 'v16';
 document.getElementById('app-version').textContent = VERSION;
 
 function _navaidMarkerColor(navaid) {
