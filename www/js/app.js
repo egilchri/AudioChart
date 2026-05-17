@@ -224,19 +224,28 @@ function _ensureMap() {
   let _ctxLatLng = null;
   const _hideCtx = () => { _ctxMenu.style.display = 'none'; };
 
+  const _ctxSubmenu = document.getElementById('map-ctx-objects-submenu');
+
   _map.on('contextmenu', (e) => {
     _ctxLatLng = e.latlng;
+    _ctxSubmenu.style.display = 'none';
     _ctxMenu.style.left = e.originalEvent.clientX + 'px';
     _ctxMenu.style.top  = e.originalEvent.clientY + 'px';
     _ctxMenu.style.display = 'block';
   });
   _map.on('movestart zoomstart', _hideCtx);
-  document.addEventListener('click', _hideCtx, { capture: true });
+  document.addEventListener('click', (e) => { if (!_ctxMenu.contains(e.target)) _hideCtx(); }, { capture: true });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') _hideCtx(); });
 
-  document.getElementById('map-ctx-objects-nearby').addEventListener('click', () => {
+  document.getElementById('map-ctx-objects-parent').addEventListener('click', () => {
+    _ctxSubmenu.style.display = _ctxSubmenu.style.display === 'block' ? 'none' : 'block';
+  });
+
+  _ctxSubmenu.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-radius-nm]');
+    if (!btn) return;
     _hideCtx();
-    if (_ctxLatLng) handleMapLongPress(_ctxLatLng);
+    if (_ctxLatLng) handleMapLongPress(_ctxLatLng, parseFloat(btn.dataset.radiusNm), btn.dataset.radiusLabel);
   });
 }
 
@@ -426,7 +435,7 @@ function showPosition(lat, lon, accuracy, source) {
 
 // ── Map long-press query ──────────────────────────────────────────────────────
 
-async function handleMapLongPress(latlng) {
+async function handleMapLongPress(latlng, radiusNm = 0.25, radiusLabel = '¼ mile') {
   if (!dataLoaded) return;
   const lat = latlng.lat, lon = latlng.lng;
 
@@ -436,8 +445,8 @@ async function handleMapLongPress(latlng) {
   _map.invalidateSize();
   if (_mapLayers) { _map.removeLayer(_mapLayers); _mapLayers = null; }
 
-  Query.hazardsInRadius(lat, lon, 0.25);
-  Query.navaidsInRadius(lat, lon, 0.25, null);
+  Query.hazardsInRadius(lat, lon, radiusNm);
+  Query.navaidsInRadius(lat, lon, radiusNm, null);
   const hazards = Query.lastHazardResults || [];
   const navaids = Query.lastNavaidResults || [];
 
@@ -469,8 +478,8 @@ async function handleMapLongPress(latlng) {
 
   const total = hazards.length + navaids.length;
   const txt = total === 0
-    ? 'No hazards or navaids within quarter mile.'
-    : `${total} object${total !== 1 ? 's' : ''} within ¼ mile: ${hazards.length} hazard${hazards.length !== 1 ? 's' : ''}, ${navaids.length} navaid${navaids.length !== 1 ? 's' : ''}.`;
+    ? `No hazards or navaids within ${radiusLabel}.`
+    : `${total} object${total !== 1 ? 's' : ''} within ${radiusLabel}: ${hazards.length} hazard${hazards.length !== 1 ? 's' : ''}, ${navaids.length} navaid${navaids.length !== 1 ? 's' : ''}.`;
   showResponse(txt);
   TTS.sayImmediate(txt);
   if (total > 0) showNavaidList([...hazards, ...navaids]);

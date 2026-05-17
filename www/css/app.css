@@ -432,6 +432,20 @@ html, body {
 #map-context-menu button:active {
   background: var(--mid-blue);
 }
+#map-ctx-objects-submenu {
+  display: none;
+  border-top: 1px solid var(--mid-blue);
+}
+#map-ctx-objects-submenu button {
+  padding-left: 28px;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+#map-ctx-objects-submenu button:hover,
+#map-ctx-objects-submenu button:active {
+  color: var(--text);
+  background: var(--mid-blue);
+}
 
 /* Text input */
 #text-form {
