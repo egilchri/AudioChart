@@ -458,6 +458,13 @@ html, body {
   transform-origin: center;
 }
 
+/* Boat icon for manually set test position */
+.boat-marker {
+  font-size: 22px;
+  line-height: 1;
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.8));
+}
+
 /* User waypoint square marker */
 .wp-marker {
   width: 14px;

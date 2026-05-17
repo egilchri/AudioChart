@@ -42,6 +42,29 @@ function _waypointIcon() {
   });
 }
 
+function _boatIcon() {
+  return L.divIcon({
+    className: '',
+    html: '<div class="boat-marker">⛵</div>',
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+    tooltipAnchor: [14, -14],
+  });
+}
+
+function _showBoatPosition(lat, lon) {
+  if (!_map) return;
+  if (_boatLayer) { _map.removeLayer(_boatLayer); _boatLayer = null; }
+  const marker = L.marker([lat, lon], { icon: _boatIcon(), zIndexOffset: 1000 });
+  marker.bindTooltip('TEST POSITION', { permanent: true, direction: 'top', className: 'map-tooltip' });
+  _boatLayer = L.layerGroup([marker]).addTo(_map);
+  _map.panTo([lat, lon]);
+}
+
+function _clearBoatPosition() {
+  if (_boatLayer && _map) { _map.removeLayer(_boatLayer); _boatLayer = null; }
+}
+
 function _markerKey(lat, lon) { return `${lat.toFixed(5)},${lon.toFixed(5)}`; }
 
 function flashMarker(lat, lon) {
@@ -199,6 +222,7 @@ let gpsReady = false;
 let _map = null;
 let _mapLayers = null;
 let _waypointLayer = null;
+let _boatLayer = null;
 let _waypointsVisible = localStorage.getItem('audiochart-waypoints-visible') === 'true';
 let _leafletReady = false;
 let _markerByKey = new Map();
@@ -435,6 +459,7 @@ function _ensureMap() {
       _hideCtx();
       GPS.setManualPosition(lat, lon);
       syncTestPosButton();
+      _showBoatPosition(lat, lon);
       setStatus(`Position set to ${name}.`);
       TTS.sayImmediate(`Position set to ${name}.`);
       if (serverUrl) {
@@ -477,6 +502,7 @@ function _ensureMap() {
     const { lat, lng: lon } = _ctxLatLng;
     GPS.setManualPosition(lat, lon);
     syncTestPosButton();
+    _showBoatPosition(lat, lon);
     setStatus('Test position set from map.');
     if (serverUrl) {
       fetch(`${serverUrl}/api/test-position`, {
@@ -1089,6 +1115,7 @@ function clearTestPosition() {
   GPS.clearManualPosition();
   testPosForm.style.display = 'none';
   syncTestPosButton();
+  _clearBoatPosition();
   if (serverUrl) {
     fetch(`${serverUrl}/api/test-position`, {
       method: 'POST',
