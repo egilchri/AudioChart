@@ -433,7 +433,7 @@ html, body {
   background: var(--mid-blue);
 }
 #map-ctx-objects-submenu,
-#map-ctx-delete-submenu {
+#map-ctx-wp-submenu {
   display: none;
   border-top: 1px solid var(--mid-blue);
 }
@@ -445,26 +445,34 @@ html, body {
   border: 2px solid #222;
   box-sizing: border-box;
 }
-
-#map-ctx-where-am-i {
-  border-top: 1px solid var(--mid-blue);
-}
-#map-ctx-toggle-waypoints,
+#map-ctx-where-am-i,
+#map-ctx-wp-parent,
 #map-ctx-set-position {
   border-top: 1px solid var(--mid-blue);
 }
 #map-ctx-objects-submenu button,
-#map-ctx-delete-submenu button {
+#map-ctx-wp-submenu button {
   padding-left: 28px;
   font-size: 0.85rem;
   color: var(--text-dim);
 }
 #map-ctx-objects-submenu button:hover,
 #map-ctx-objects-submenu button:active,
-#map-ctx-delete-submenu button:hover,
-#map-ctx-delete-submenu button:active {
+#map-ctx-wp-submenu button:hover,
+#map-ctx-wp-submenu button:active {
   color: var(--text);
   background: var(--mid-blue);
+}
+.ctx-wp-actions {
+  display: none;
+  border-top: 1px solid var(--mid-blue);
+  border-bottom: 1px solid var(--mid-blue);
+}
+.ctx-wp-actions button {
+  padding-left: 44px;
+}
+.ctx-wp-del {
+  color: var(--danger) !important;
 }
 
 /* Text input */

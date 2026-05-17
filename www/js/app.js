@@ -61,8 +61,6 @@ function _setWaypointsVisible(v) {
   _waypointsVisible = v;
   localStorage.setItem('audiochart-waypoints-visible', String(v));
   _refreshWaypointLayer();
-  const btn = document.getElementById('map-ctx-toggle-waypoints');
-  if (btn) btn.textContent = v ? '⊠ Hide waypoints' : '⊞ Show waypoints';
 }
 import { formatPositionDisplay, bearingToWords, bearingToDisplay, formatDistance, distanceToDisplay, trueTomagnetic } from './utils.js';
 
@@ -286,31 +284,44 @@ function _ensureMap() {
   const _hideCtx = () => { _ctxMenu.style.display = 'none'; };
 
   const _ctxSubmenu = document.getElementById('map-ctx-objects-submenu');
-  const _deleteSubmenu = document.getElementById('map-ctx-delete-submenu');
+  const _wpSubmenu  = document.getElementById('map-ctx-wp-submenu');
 
-  function _populateDeleteSubmenu() {
-    _deleteSubmenu.innerHTML = '';
+  // Rebuild the dynamic waypoint rows (below the 3 static buttons)
+  function _populateWpSubmenu() {
+    // Remove all dynamic items (keep first 3 static children)
+    while (_wpSubmenu.children.length > 3) _wpSubmenu.removeChild(_wpSubmenu.lastChild);
     const wps = loadUserWaypoints();
-    if (!wps.length) {
-      const empty = document.createElement('button');
-      empty.textContent = 'No waypoints saved';
-      empty.disabled = true;
-      _deleteSubmenu.appendChild(empty);
-      return;
-    }
     for (const wp of wps) {
-      const btn = document.createElement('button');
-      btn.textContent = wp.name;
-      btn.dataset.wpName = wp.name;
-      _deleteSubmenu.appendChild(btn);
+      const itemBtn = document.createElement('button');
+      itemBtn.className = 'ctx-wp-item';
+      itemBtn.dataset.wpName = wp.name;
+      itemBtn.dataset.wpLat  = wp.lat;
+      itemBtn.dataset.wpLon  = wp.lon;
+      itemBtn.textContent = `${wp.name} ›`;
+      _wpSubmenu.appendChild(itemBtn);
+
+      const actions = document.createElement('div');
+      actions.className = 'ctx-wp-actions';
+      actions.dataset.wpName = wp.name;
+      actions.dataset.wpLat  = wp.lat;
+      actions.dataset.wpLon  = wp.lon;
+      const delBtn = document.createElement('button');
+      delBtn.className = 'ctx-wp-del';
+      delBtn.textContent = 'Delete';
+      const posBtn = document.createElement('button');
+      posBtn.className = 'ctx-wp-pos';
+      posBtn.textContent = 'Set position here';
+      actions.appendChild(delBtn);
+      actions.appendChild(posBtn);
+      _wpSubmenu.appendChild(actions);
     }
   }
 
   _map.on('contextmenu', (e) => {
     _ctxLatLng = e.latlng;
     _ctxSubmenu.style.display = 'none';
-    _deleteSubmenu.style.display = 'none';
-    _populateDeleteSubmenu();
+    _wpSubmenu.style.display  = 'none';
+    _populateWpSubmenu();
     _ctxMenu.style.left = e.originalEvent.clientX + 'px';
     _ctxMenu.style.top  = e.originalEvent.clientY + 'px';
     _ctxMenu.style.display = 'block';
@@ -330,22 +341,76 @@ function _ensureMap() {
     if (_ctxLatLng) handleMapLongPress(_ctxLatLng, parseFloat(btn.dataset.radiusNm), btn.dataset.radiusLabel);
   });
 
-  document.getElementById('map-ctx-delete-parent').addEventListener('click', () => {
-    _deleteSubmenu.style.display = _deleteSubmenu.style.display === 'block' ? 'none' : 'block';
+  document.getElementById('map-ctx-wp-parent').addEventListener('click', () => {
+    _wpSubmenu.style.display = _wpSubmenu.style.display === 'block' ? 'none' : 'block';
   });
 
-  _deleteSubmenu.addEventListener('click', (e) => {
-    const btn = e.target.closest('button[data-wp-name]');
-    if (!btn) return;
-    _hideCtx();
-    const name = btn.dataset.wpName;
-    const wps = loadUserWaypoints().filter(w => w.name !== name);
-    localStorage.setItem(USER_WP_KEY, JSON.stringify(wps));
-    Query.removeUserWaypoint(name);
-    _refreshWaypointLayer();
-    const msg = `Waypoint ${name} deleted.`;
-    setStatus(msg);
-    TTS.sayImmediate(msg);
+  _wpSubmenu.addEventListener('click', (e) => {
+    const t = e.target;
+
+    if (t.id === 'map-ctx-wp-set') {
+      _hideCtx();
+      if (!_ctxLatLng) return;
+      const { lat, lng: lon } = _ctxLatLng;
+      const name = nextWaypointName();
+      saveUserWaypoint(name, lat, lon);
+      const msg = `Waypoint ${name} set.`;
+      setStatus(msg);
+      TTS.sayImmediate(msg);
+      return;
+    }
+
+    if (t.id === 'map-ctx-wp-show') { _hideCtx(); _setWaypointsVisible(true);  return; }
+    if (t.id === 'map-ctx-wp-hide') { _hideCtx(); _setWaypointsVisible(false); return; }
+
+    if (t.classList.contains('ctx-wp-item')) {
+      const name    = t.dataset.wpName;
+      const actions = _wpSubmenu.querySelector(`.ctx-wp-actions[data-wp-name="${name}"]`);
+      // Collapse all other open action panels
+      _wpSubmenu.querySelectorAll('.ctx-wp-actions').forEach(a => {
+        if (a !== actions) a.style.display = 'none';
+      });
+      _wpSubmenu.querySelectorAll('.ctx-wp-item').forEach(b => {
+        if (b !== t) b.textContent = `${b.dataset.wpName} ›`;
+      });
+      const opening = actions.style.display !== 'block';
+      actions.style.display = opening ? 'block' : 'none';
+      t.textContent = `${name} ${opening ? '‹' : '›'}`;
+      return;
+    }
+
+    if (t.classList.contains('ctx-wp-del')) {
+      const actions = t.closest('.ctx-wp-actions');
+      const name = actions.dataset.wpName;
+      _hideCtx();
+      localStorage.setItem(USER_WP_KEY, JSON.stringify(loadUserWaypoints().filter(w => w.name !== name)));
+      Query.removeUserWaypoint(name);
+      _refreshWaypointLayer();
+      const msg = `Waypoint ${name} deleted.`;
+      setStatus(msg); TTS.sayImmediate(msg);
+      return;
+    }
+
+    if (t.classList.contains('ctx-wp-pos')) {
+      const actions = t.closest('.ctx-wp-actions');
+      const lat = parseFloat(actions.dataset.wpLat);
+      const lon = parseFloat(actions.dataset.wpLon);
+      const name = actions.dataset.wpName;
+      _hideCtx();
+      GPS.setManualPosition(lat, lon);
+      syncTestPosButton();
+      setStatus(`Position set to ${name}.`);
+      TTS.sayImmediate(`Position set to ${name}.`);
+      if (serverUrl) {
+        fetch(`${serverUrl}/api/test-position`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lat, lon }),
+        }).catch(() => {});
+        Query.loadData(lat, lon).then(() => { dataLoaded = true; setStatus(`Ready. (${name})`); }).catch(() => {});
+      }
+      return;
+    }
   });
 
   document.getElementById('map-ctx-where-am-i').addEventListener('click', async () => {
@@ -366,26 +431,8 @@ function _ensureMap() {
       } catch (_) {}
     }
     const txt = response?.text ?? response ?? 'No named places found nearby.';
-    const speech = response?.speech ?? txt;
     showResponse(txt);
-    TTS.sayImmediate(speech);
-  });
-
-  document.getElementById('map-ctx-set-waypoint').addEventListener('click', () => {
-    _hideCtx();
-    if (!_ctxLatLng) return;
-    const { lat, lng: lon } = _ctxLatLng;
-    const name = nextWaypointName();
-    saveUserWaypoint(name, lat, lon);
-    const msg = `Waypoint ${name} set.`;
-    setStatus(msg);
-    TTS.sayImmediate(msg);
-    showWaypointMap(null, null, loadUserWaypoints()).catch(() => {});
-  });
-
-  document.getElementById('map-ctx-toggle-waypoints').addEventListener('click', () => {
-    _hideCtx();
-    _setWaypointsVisible(!_waypointsVisible);
+    TTS.sayImmediate(response?.speech ?? txt);
   });
 
   document.getElementById('map-ctx-set-position').addEventListener('click', () => {
@@ -408,10 +455,7 @@ function _ensureMap() {
     }
   });
 
-  // Restore persistent waypoint layer and sync button label
   _refreshWaypointLayer();
-  const _toggleBtn = document.getElementById('map-ctx-toggle-waypoints');
-  if (_toggleBtn) _toggleBtn.textContent = _waypointsVisible ? '⊠ Hide waypoints' : '⊞ Show waypoints';
 }
 
 async function showPositionMap(lat, lon) {
