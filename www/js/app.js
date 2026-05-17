@@ -9,19 +9,27 @@ import * as GPS from './gps.js';
 import { parseCommand, parseCoordinate } from './parser.js';
 import * as Query from './query.js';
 
-const VERSION = 'v16';
+const VERSION = 'v17';
 document.getElementById('app-version').textContent = VERSION;
 
-function _navaidMarkerColor(navaid) {
+function _navaidMarkerIcon(navaid) {
   const c = (navaid.colour || '').toLowerCase();
-  const l = navaid.label || '';
-  if (c.includes('green'))                     return '#2da84a';
-  if (c.includes('red'))                       return '#e05252';
-  if (c.includes('white'))                     return '#cccccc';
-  if (c.includes('yellow') || c.includes('amber')) return '#e0c030';
-  if (l === 'light')                           return '#e0c030';
-  if (l === 'beacon')                          return '#4a9edd';
-  return '#aaaaaa';
+  const l = (navaid.label || '').toLowerCase();
+  let url;
+  if (l === 'light')             url = './icons/markicons/Marks-Light-TypeA.svg';
+  else if (l === 'beacon')       url = './icons/markicons/Marks-Beacon-SafeWater.svg';
+  else if (c.includes('green'))  url = './icons/markicons/Marks-Lateral-Starboard-IALA-B.svg';
+  else if (c.includes('red'))    url = './icons/markicons/Marks-Lateral-Port-IALA-B.svg';
+  else                           url = './icons/markicons/Marks-Buoy-TypeA.svg';
+  return L.icon({ iconUrl: url, iconSize: [32, 32], iconAnchor: [16, 32], tooltipAnchor: [0, -32] });
+}
+
+function _hazardMarkerIcon() {
+  return L.icon({ iconUrl: './icons/markicons/Hazard-Warning.svg', iconSize: [28, 28], iconAnchor: [14, 28], tooltipAnchor: [0, -28] });
+}
+
+function _pinIcon() {
+  return L.icon({ iconUrl: './icons/markicons/Marks-Active-Waypoint.svg', iconSize: [32, 32], iconAnchor: [16, 32], tooltipAnchor: [0, -32] });
 }
 import { formatPositionDisplay, bearingToWords, bearingToDisplay, formatDistance, distanceToDisplay, trueTomagnetic } from './utils.js';
 
@@ -210,6 +218,26 @@ function _ensureMap() {
     'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
     { minZoom: 4, maxZoom: 17, attribution: '© Esri' }
   ).addTo(_map);
+
+  // Right-click / long-press context menu
+  const _ctxMenu = document.getElementById('map-context-menu');
+  let _ctxLatLng = null;
+  const _hideCtx = () => { _ctxMenu.style.display = 'none'; };
+
+  _map.on('contextmenu', (e) => {
+    _ctxLatLng = e.latlng;
+    _ctxMenu.style.left = e.originalEvent.clientX + 'px';
+    _ctxMenu.style.top  = e.originalEvent.clientY + 'px';
+    _ctxMenu.style.display = 'block';
+  });
+  _map.on('movestart zoomstart', _hideCtx);
+  document.addEventListener('click', _hideCtx, { capture: true });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') _hideCtx(); });
+
+  document.getElementById('map-ctx-objects-nearby').addEventListener('click', () => {
+    _hideCtx();
+    if (_ctxLatLng) handleMapLongPress(_ctxLatLng);
+  });
 }
 
 async function showPositionMap(lat, lon) {
@@ -264,10 +292,7 @@ async function showNavaidMap(fromLat, fromLon, navaids) {
   }).bindTooltip('You', { permanent: true, direction: 'top', className: 'map-tooltip' }));
 
   for (const n of navaids) {
-    const color = _navaidMarkerColor(n);
-    const marker = L.circleMarker([n.lat, n.lon], {
-      radius: 7, color, fillColor: color, fillOpacity: 0.9, weight: 2,
-    });
+    const marker = L.marker([n.lat, n.lon], { icon: _navaidMarkerIcon(n) });
     const tip = [n.name, n.characteristic || n.colour].filter(Boolean).join(' — ');
     if (tip) marker.bindTooltip(tip, { permanent: false, direction: 'top', className: 'map-tooltip' });
     marker.on('click', () => {
@@ -300,9 +325,7 @@ async function showHazardMap(fromLat, fromLon, hazardPts) {
   }).bindTooltip('You', { permanent: true, direction: 'top', className: 'map-tooltip' }));
 
   for (const h of hazardPts) {
-    const marker = L.circleMarker([h.lat, h.lon], {
-      radius: 7, color: '#e0a030', fillColor: '#e0a030', fillOpacity: 0.9, weight: 2,
-    });
+    const marker = L.marker([h.lat, h.lon], { icon: _hazardMarkerIcon() });
     const tip = [h.label, h.name].filter(Boolean).join(', ');
     if (tip) marker.bindTooltip(tip, { permanent: false, direction: 'top', className: 'map-tooltip' });
     marker.on('click', () => {
@@ -338,8 +361,8 @@ async function showCourseMap(fromLat, fromLon, toLat, toLon, hazardPts) {
   layers.push(L.circleMarker([toLat, toLon],   { radius: 7, color: '#4a9edd', fillColor: '#4a9edd', fillOpacity: 1, weight: 0 }));
   // Hazard markers
   for (const h of (hazardPts || [])) {
-    const m = L.circleMarker([h.lat, h.lon], { radius: 6, color: '#e0a030', fillColor: '#e0a030', fillOpacity: 1, weight: 0 });
-    if (h.label || h.name) m.bindTooltip((h.label + h.name).trim(), { permanent: false, direction: 'top', className: 'map-tooltip' });
+    const m = L.marker([h.lat, h.lon], { icon: _hazardMarkerIcon() });
+    if (h.label || h.name) m.bindTooltip(((h.label || '') + ' ' + (h.name || '')).trim(), { permanent: false, direction: 'top', className: 'map-tooltip' });
     m.on('click', () => {
       const label = ((h.label || '') + (h.name || '')).trim();
       const pos = GPS.getPosition();
@@ -399,6 +422,58 @@ function showPosition(lat, lon, accuracy, source) {
   } else {
     mapLink.style.display = 'none';
   }
+}
+
+// ── Map long-press query ──────────────────────────────────────────────────────
+
+async function handleMapLongPress(latlng) {
+  if (!dataLoaded) return;
+  const lat = latlng.lat, lon = latlng.lng;
+
+  await loadLeaflet();
+  document.getElementById('map-container').style.display = 'block';
+  _ensureMap();
+  _map.invalidateSize();
+  if (_mapLayers) { _map.removeLayer(_mapLayers); _mapLayers = null; }
+
+  Query.hazardsInRadius(lat, lon, 0.25);
+  Query.navaidsInRadius(lat, lon, 0.25, null);
+  const hazards = Query.lastHazardResults || [];
+  const navaids = Query.lastNavaidResults || [];
+
+  const layers = [];
+  layers.push(L.marker([lat, lon], { icon: _pinIcon() })
+    .bindTooltip('📍', { permanent: true, direction: 'top', className: 'map-tooltip' }));
+
+  for (const h of hazards) {
+    const m = L.marker([h.lat, h.lon], { icon: _hazardMarkerIcon() });
+    const tip = [h.label, h.name].filter(Boolean).join(', ');
+    if (tip) m.bindTooltip(tip, { permanent: false, direction: 'top', className: 'map-tooltip' });
+    layers.push(m);
+  }
+
+  for (const n of navaids) {
+    const m = L.marker([n.lat, n.lon], { icon: _navaidMarkerIcon(n) });
+    const tip = [n.name, n.characteristic || n.colour].filter(Boolean).join(' — ');
+    if (tip) m.bindTooltip(tip, { permanent: false, direction: 'top', className: 'map-tooltip' });
+    layers.push(m);
+  }
+
+  _mapLayers = L.layerGroup(layers).addTo(_map);
+  const allPts = [[lat, lon], ...hazards.map(h => [h.lat, h.lon]), ...navaids.map(n => [n.lat, n.lon])];
+  if (allPts.length > 1) {
+    _map.fitBounds(L.latLngBounds(allPts).pad(0.25));
+  } else {
+    _map.setView([lat, lon], 14);
+  }
+
+  const total = hazards.length + navaids.length;
+  const txt = total === 0
+    ? 'No hazards or navaids within quarter mile.'
+    : `${total} object${total !== 1 ? 's' : ''} within ¼ mile: ${hazards.length} hazard${hazards.length !== 1 ? 's' : ''}, ${navaids.length} navaid${navaids.length !== 1 ? 's' : ''}.`;
+  showResponse(txt);
+  TTS.sayImmediate(txt);
+  if (total > 0) showNavaidList([...hazards, ...navaids]);
 }
 
 // ── Command handling ──────────────────────────────────────────────────────────
