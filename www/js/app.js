@@ -18,8 +18,8 @@ function _navaidMarkerIcon(navaid) {
   let url;
   if (l === 'light')             url = './icons/markicons/Marks-Light-TypeA.svg';
   else if (l === 'beacon')       url = './icons/markicons/Marks-Beacon-SafeWater.svg';
-  else if (c.includes('green'))  url = './icons/markicons/Marks-Lateral-Starboard-IALA-B.svg';
-  else if (c.includes('red'))    url = './icons/markicons/Marks-Lateral-Port-IALA-B.svg';
+  else if (c.includes('green'))  url = './icons/markicons/Marks-Lateral-Port-IALA-B.svg';
+  else if (c.includes('red'))    url = './icons/markicons/Marks-Lateral-Starboard-IALA-B.svg';
   else                           url = './icons/markicons/Marks-Buoy-TypeA.svg';
   return L.icon({ iconUrl: url, iconSize: [32, 32], iconAnchor: [16, 32], tooltipAnchor: [0, -32] });
 }
