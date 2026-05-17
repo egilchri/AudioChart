@@ -247,6 +247,26 @@ function _ensureMap() {
     _hideCtx();
     if (_ctxLatLng) handleMapLongPress(_ctxLatLng, parseFloat(btn.dataset.radiusNm), btn.dataset.radiusLabel);
   });
+
+  document.getElementById('map-ctx-set-position').addEventListener('click', () => {
+    _hideCtx();
+    if (!_ctxLatLng) return;
+    const { lat, lng: lon } = _ctxLatLng;
+    GPS.setManualPosition(lat, lon);
+    syncTestPosButton();
+    setStatus('Test position set from map.');
+    if (serverUrl) {
+      fetch(`${serverUrl}/api/test-position`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lat, lon }),
+      }).catch(() => {});
+      Query.loadData(lat, lon).then(() => {
+        dataLoaded = true;
+        setStatus('Ready. (map position)');
+      }).catch(() => {});
+    }
+  });
 }
 
 async function showPositionMap(lat, lon) {

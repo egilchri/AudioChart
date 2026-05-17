@@ -436,6 +436,9 @@ html, body {
   display: none;
   border-top: 1px solid var(--mid-blue);
 }
+#map-ctx-set-position {
+  border-top: 1px solid var(--mid-blue);
+}
 #map-ctx-objects-submenu button {
   padding-left: 28px;
   font-size: 0.85rem;
