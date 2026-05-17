@@ -63,6 +63,22 @@ export function setServerBase(url) {
   _serverBase = url;
 }
 
+/** Merge user-defined waypoints into the in-memory waypoints FeatureCollection. */
+export function mergeUserWaypoints(wps) {
+  if (!wps || !wps.length) return;
+  if (!waypoints) waypoints = { type: 'FeatureCollection', features: [], count: 0 };
+  const existing = new Set(waypoints.features.map(f => f.properties?.name?.toLowerCase()));
+  for (const wp of wps) {
+    if (!existing.has(wp.name.toLowerCase())) {
+      waypoints.features.push({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [wp.lon, wp.lat] },
+        properties: { name: wp.name, name_lower: wp.name.toLowerCase(), label: 'waypoint' },
+      });
+    }
+  }
+}
+
 export async function hasOfflineData() {
   const h = await idbGet('hazards').catch(() => null);
   return !!(h?.features?.length);

@@ -209,6 +209,31 @@ function showNavaidList(navaids) {
   navaidListEl.style.display = 'flex';
 }
 
+// ── User waypoints (localStorage) ────────────────────────────────────────────
+
+const USER_WP_KEY = 'audiochart-user-waypoints';
+
+function loadUserWaypoints() {
+  try { return JSON.parse(localStorage.getItem(USER_WP_KEY) || '[]'); } catch { return []; }
+}
+
+function nextWaypointName() {
+  const nums = loadUserWaypoints()
+    .map(w => parseInt(w.name.replace(/\D/g, ''), 10))
+    .filter(n => !isNaN(n));
+  const next = nums.length ? Math.max(...nums) + 1 : 1;
+  return 'wp' + String(next).padStart(3, '0');
+}
+
+function saveUserWaypoint(name, lat, lon) {
+  const wps = loadUserWaypoints();
+  wps.push({ name, lat, lon });
+  localStorage.setItem(USER_WP_KEY, JSON.stringify(wps));
+  Query.mergeUserWaypoints([{ name, lat, lon }]);
+}
+
+// ── Map ───────────────────────────────────────────────────────────────────────
+
 function _ensureMap() {
   if (_map) return;
   _map = L.map('leaflet-map', { zoomControl: false, attributionControl: true });
@@ -246,6 +271,40 @@ function _ensureMap() {
     if (!btn) return;
     _hideCtx();
     if (_ctxLatLng) handleMapLongPress(_ctxLatLng, parseFloat(btn.dataset.radiusNm), btn.dataset.radiusLabel);
+  });
+
+  document.getElementById('map-ctx-where-am-i').addEventListener('click', async () => {
+    _hideCtx();
+    if (!_ctxLatLng) return;
+    const { lat, lng: lon } = _ctxLatLng;
+    let response = Query.whereAmI(lat, lon);
+    if (serverUrl && response?.text && /^\d+\s+degrees/.test(response.text)) {
+      try {
+        const r = await fetch(`${serverUrl}/api/nearest-landmark?lat=${lat}&lon=${lon}`,
+          { cache: 'no-store', signal: AbortSignal.timeout(4000) });
+        if (r.ok) {
+          const lm = await r.json();
+          const dir = Query.compassDir(lm.bearing_deg);
+          const dist = Query.naturalDist(lm.dist_nm);
+          response = { text: `${dist} ${dir} of ${lm.name}`, speech: `${dist} ${dir} of ${lm.name}.` };
+        }
+      } catch (_) {}
+    }
+    const txt = response?.text ?? response ?? 'No named places found nearby.';
+    const speech = response?.speech ?? txt;
+    showResponse(txt);
+    TTS.sayImmediate(speech);
+  });
+
+  document.getElementById('map-ctx-set-waypoint').addEventListener('click', () => {
+    _hideCtx();
+    if (!_ctxLatLng) return;
+    const { lat, lng: lon } = _ctxLatLng;
+    const name = nextWaypointName();
+    saveUserWaypoint(name, lat, lon);
+    const msg = `Waypoint ${name} set.`;
+    setStatus(msg);
+    TTS.sayImmediate(msg);
   });
 
   document.getElementById('map-ctx-set-position').addEventListener('click', () => {
@@ -964,6 +1023,7 @@ async function init() {
   if (!serverUrl) {
     Query.loadData(null, null).then(() => {
       dataLoaded = true;
+      Query.mergeUserWaypoints(loadUserWaypoints());
       setStatus('Ready. (offline)');
     }).catch(() => {});
   }
@@ -977,6 +1037,7 @@ async function init() {
         try {
           await Query.loadData(lat, lon);
           dataLoaded = true;
+          Query.mergeUserWaypoints(loadUserWaypoints());
           setStatus('Ready.');
         } catch (e) {
           setStatus('Chart data unavailable. Try reloading.');
