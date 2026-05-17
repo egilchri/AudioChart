@@ -354,6 +354,8 @@ function _ensureMap() {
       const { lat, lng: lon } = _ctxLatLng;
       const name = nextWaypointName();
       saveUserWaypoint(name, lat, lon);
+      if (!_waypointsVisible) _setWaypointsVisible(true);
+      showWaypointMap(null, null, loadUserWaypoints()).catch(() => {});
       const msg = `Waypoint ${name} set.`;
       setStatus(msg);
       TTS.sayImmediate(msg);
