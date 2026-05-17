@@ -448,6 +448,7 @@ html, body {
 #map-ctx-where-am-i {
   border-top: 1px solid var(--mid-blue);
 }
+#map-ctx-toggle-waypoints,
 #map-ctx-set-position {
   border-top: 1px solid var(--mid-blue);
 }

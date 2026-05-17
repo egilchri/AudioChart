@@ -41,6 +41,29 @@ function _waypointIcon() {
     tooltipAnchor: [7, -7],
   });
 }
+
+function _refreshWaypointLayer() {
+  if (!_map) return;
+  if (_waypointLayer) { _map.removeLayer(_waypointLayer); _waypointLayer = null; }
+  if (!_waypointsVisible) return;
+  const wps = loadUserWaypoints();
+  if (!wps.length) return;
+  _waypointLayer = L.layerGroup(
+    wps.map(wp => {
+      const m = L.marker([wp.lat, wp.lon], { icon: _waypointIcon() });
+      m.bindTooltip(wp.name, { permanent: true, direction: 'top', className: 'map-tooltip' });
+      return m;
+    })
+  ).addTo(_map);
+}
+
+function _setWaypointsVisible(v) {
+  _waypointsVisible = v;
+  localStorage.setItem('audiochart-waypoints-visible', String(v));
+  _refreshWaypointLayer();
+  const btn = document.getElementById('map-ctx-toggle-waypoints');
+  if (btn) btn.textContent = v ? '⊠ Hide waypoints' : '⊞ Show waypoints';
+}
 import { formatPositionDisplay, bearingToWords, bearingToDisplay, formatDistance, distanceToDisplay, trueTomagnetic } from './utils.js';
 
 // Capture Android PWA install prompt before any user gesture.
@@ -153,6 +176,8 @@ let dataLoaded = false;
 let gpsReady = false;
 let _map = null;
 let _mapLayers = null;
+let _waypointLayer = null;
+let _waypointsVisible = localStorage.getItem('audiochart-waypoints-visible') === 'true';
 let _leafletReady = false;
 let _lastCourseFrom = null;
 let _lastCourseTo   = null;
@@ -240,6 +265,7 @@ function saveUserWaypoint(name, lat, lon) {
   wps.push({ name, lat, lon });
   localStorage.setItem(USER_WP_KEY, JSON.stringify(wps));
   Query.mergeUserWaypoints([{ name, lat, lon }]);
+  _refreshWaypointLayer();
 }
 
 // ── Map ───────────────────────────────────────────────────────────────────────
@@ -318,6 +344,11 @@ function _ensureMap() {
     showWaypointMap(null, null, loadUserWaypoints()).catch(() => {});
   });
 
+  document.getElementById('map-ctx-toggle-waypoints').addEventListener('click', () => {
+    _hideCtx();
+    _setWaypointsVisible(!_waypointsVisible);
+  });
+
   document.getElementById('map-ctx-set-position').addEventListener('click', () => {
     _hideCtx();
     if (!_ctxLatLng) return;
@@ -337,6 +368,11 @@ function _ensureMap() {
       }).catch(() => {});
     }
   });
+
+  // Restore persistent waypoint layer and sync button label
+  _refreshWaypointLayer();
+  const _toggleBtn = document.getElementById('map-ctx-toggle-waypoints');
+  if (_toggleBtn) _toggleBtn.textContent = _waypointsVisible ? '⊠ Hide waypoints' : '⊞ Show waypoints';
 }
 
 async function showPositionMap(lat, lon) {
@@ -450,19 +486,18 @@ async function showWaypointMap(fromLat, fromLon, wps) {
   _map.invalidateSize();
   if (_mapLayers) { _map.removeLayer(_mapLayers); _mapLayers = null; }
 
-  const layers = [];
+  // Ensure waypoints are visible and layer is up to date
+  if (!_waypointsVisible) _setWaypointsVisible(true);
+
+  // "You" dot in the transient layer
   if (fromLat != null) {
-    layers.push(L.circleMarker([fromLat, fromLon], {
-      radius: 8, color: '#4a9edd', fillColor: '#4a9edd', fillOpacity: 1, weight: 0,
-    }).bindTooltip('You', { permanent: true, direction: 'top', className: 'map-tooltip' }));
-  }
-  for (const wp of wps) {
-    const m = L.marker([wp.lat, wp.lon], { icon: _waypointIcon() });
-    m.bindTooltip(wp.name, { permanent: true, direction: 'top', className: 'map-tooltip' });
-    layers.push(m);
+    _mapLayers = L.layerGroup([
+      L.circleMarker([fromLat, fromLon], {
+        radius: 8, color: '#4a9edd', fillColor: '#4a9edd', fillOpacity: 1, weight: 0,
+      }).bindTooltip('You', { permanent: true, direction: 'top', className: 'map-tooltip' }),
+    ]).addTo(_map);
   }
 
-  _mapLayers = L.layerGroup(layers).addTo(_map);
   const allPts = [
     ...(fromLat != null ? [[fromLat, fromLon]] : []),
     ...wps.map(w => [w.lat, w.lon]),
