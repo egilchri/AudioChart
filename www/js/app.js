@@ -9,7 +9,7 @@ import * as GPS from './gps.js';
 import { parseCommand, parseCoordinate } from './parser.js';
 import * as Query from './query.js';
 
-const VERSION = 'v14';
+const VERSION = 'v15';
 document.getElementById('app-version').textContent = VERSION;
 
 function _navaidMarkerColor(navaid) {
@@ -151,15 +151,29 @@ async function loadLeaflet() {
 }
 
 function setStatus(msg) { statusEl.textContent = msg; }
+
+// ── Map / list focus toggle ───────────────────────────────────────────────────
+const _mapContainer = document.getElementById('map-container');
+// Clicking the response area (list) → list expands, map shrinks
+document.getElementById('response-area').addEventListener('click', () => {
+  if (_mapContainer.classList.contains('map-compact'))
+    _mapContainer.classList.add('list-focus');
+});
+// Touching/clicking the map → map expands, list shrinks
+_mapContainer.addEventListener('mousedown', () =>
+  _mapContainer.classList.remove('list-focus'));
+_mapContainer.addEventListener('touchstart', () =>
+  _mapContainer.classList.remove('list-focus'), { passive: true });
 function showResponse(text) {
   responseEl.textContent = text;
   navaidListEl.style.display = 'none';
   navaidListEl.innerHTML = '';
-  document.getElementById('map-container').classList.remove('map-compact');
+  _mapContainer.classList.remove('map-compact', 'list-focus');
 }
 
 function showNavaidList(navaids) {
-  document.getElementById('map-container').classList.add('map-compact');
+  _mapContainer.classList.add('map-compact');
+  _mapContainer.classList.remove('list-focus');
   navaidListEl.innerHTML = '';
   for (const n of navaids) {
     const nameStr = n.name ? ` ${n.name}` : '';
