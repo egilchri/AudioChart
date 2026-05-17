@@ -9,7 +9,7 @@ import * as GPS from './gps.js';
 import { parseCommand, parseCoordinate } from './parser.js';
 import * as Query from './query.js';
 
-const VERSION = 'v9';
+const VERSION = 'v10';
 document.getElementById('app-version').textContent = VERSION;
 
 function _navaidMarkerColor(navaid) {
@@ -113,8 +113,8 @@ function renderHistory() {
     btn.className = 'history-pill';
     btn.textContent = text;
     btn.addEventListener('click', () => {
-      TTS.stop();
-      handleCommand(text);
+      textInput.value = text;
+      textInput.focus();
     });
     historyList.appendChild(btn);
   });

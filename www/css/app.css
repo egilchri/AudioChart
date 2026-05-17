@@ -402,8 +402,8 @@ html, body {
   flex-wrap: wrap;
   gap: 6px;
   flex: 1;
-  max-height: 4.5rem;
-  overflow: hidden;
+  max-height: 8rem;
+  overflow-y: auto;
 }
 
 .history-pill {
