@@ -389,31 +389,44 @@ function _enterSketchMode() {
   _map.invalidateSize();
   _map.dragging.disable();
 
-  // Mobile: Leaflet doesn't fire mousemove for touchmove when dragging is
-  // disabled, so we listen on the raw DOM container instead.
+  // Mobile: add touch handlers in capture phase so they fire before Leaflet's
+  // own handlers, which may stopImmediatePropagation on the same element.
   const container = _map.getContainer();
 
   _sketchTouchStart = (e) => {
     if (!_sketchMode) return;
     e.preventDefault();
+    e.stopPropagation();
     const t = e.touches[0];
     const r = container.getBoundingClientRect();
     const latlng = _map.containerPointToLatLng(L.point(t.clientX - r.left, t.clientY - r.top));
-    _onSketchStart({ latlng });
+    _sketchDrawing = true;
+    _sketchPoints = [latlng];
+    if (_sketchPath) { _map.removeLayer(_sketchPath); }
+    _sketchPath = L.polyline([latlng], {
+      color: '#e05252', weight: 4, opacity: 0.9, lineJoin: 'round', lineCap: 'round',
+    }).addTo(_map);
   };
   _sketchTouchMove = (e) => {
     if (!_sketchDrawing) return;
     e.preventDefault();
+    e.stopPropagation();
     const t = e.touches[0];
     const r = container.getBoundingClientRect();
     const latlng = _map.containerPointToLatLng(L.point(t.clientX - r.left, t.clientY - r.top));
-    _onSketchMove({ latlng });
+    _sketchPoints.push(latlng);
+    _sketchPath.setLatLngs(_sketchPoints);
   };
-  _sketchTouchEnd = () => { if (_sketchDrawing) _onSketchEnd(); };
+  _sketchTouchEnd = (e) => {
+    if (!_sketchDrawing) return;
+    e.stopPropagation();
+    _onSketchEnd();
+  };
 
-  container.addEventListener('touchstart', _sketchTouchStart, { passive: false });
-  container.addEventListener('touchmove',  _sketchTouchMove,  { passive: false });
-  container.addEventListener('touchend',   _sketchTouchEnd);
+  // capture: true ensures we fire before any Leaflet handlers on the same element
+  container.addEventListener('touchstart', _sketchTouchStart, { passive: false, capture: true });
+  container.addEventListener('touchmove',  _sketchTouchMove,  { passive: false, capture: true });
+  container.addEventListener('touchend',   _sketchTouchEnd,   { capture: true });
 }
 
 function _exitSketchMode() {
@@ -423,9 +436,9 @@ function _exitSketchMode() {
   _sketchBanner.style.display = 'none';
   if (_map) {
     const container = _map.getContainer();
-    if (_sketchTouchStart) container.removeEventListener('touchstart', _sketchTouchStart);
-    if (_sketchTouchMove)  container.removeEventListener('touchmove',  _sketchTouchMove);
-    if (_sketchTouchEnd)   container.removeEventListener('touchend',   _sketchTouchEnd);
+    if (_sketchTouchStart) container.removeEventListener('touchstart', _sketchTouchStart, { capture: true });
+    if (_sketchTouchMove)  container.removeEventListener('touchmove',  _sketchTouchMove,  { capture: true });
+    if (_sketchTouchEnd)   container.removeEventListener('touchend',   _sketchTouchEnd,   { capture: true });
     _sketchTouchStart = _sketchTouchMove = _sketchTouchEnd = null;
     _map.dragging.enable();
     _map.invalidateSize();
