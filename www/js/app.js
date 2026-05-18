@@ -289,11 +289,14 @@ document.getElementById('response-area').addEventListener('click', () => {
   if (_mapContainer.classList.contains('map-compact'))
     _mapContainer.classList.add('list-focus');
 });
-// Touching/clicking the map → map expands, list shrinks
-_mapContainer.addEventListener('mousedown', () =>
-  _mapContainer.classList.remove('list-focus'));
-_mapContainer.addEventListener('touchstart', () =>
-  _mapContainer.classList.remove('list-focus'), { passive: true });
+// Touching/clicking the map → expand map to full height, release text input
+function _expandMap() {
+  _mapContainer.classList.remove('list-focus', 'input-focus', 'map-compact');
+  textInput.blur();
+  if (_map) setTimeout(() => _map.invalidateSize(), 260);
+}
+_mapContainer.addEventListener('mousedown', _expandMap);
+_mapContainer.addEventListener('touchstart', _expandMap, { passive: true });
 
 // Text input focus → collapse map so input area has full space
 textInput.addEventListener('focus', () =>
