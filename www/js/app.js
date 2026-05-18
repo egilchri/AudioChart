@@ -75,11 +75,24 @@ function _showBoatPosition(lat, lon) {
     }
   });
   _boatLayer = L.layerGroup([marker]).addTo(_map);
+  // hide the live-position layer — test position takes over
+  if (_youLayer) { _map.removeLayer(_youLayer); _youLayer = null; }
   _map.panTo([lat, lon]);
 }
 
 function _clearBoatPosition() {
   if (_boatLayer && _map) { _map.removeLayer(_boatLayer); _boatLayer = null; }
+  _refreshYouLayer();
+}
+
+function _refreshYouLayer() {
+  if (!_map) return;
+  if (_youLayer) { _map.removeLayer(_youLayer); _youLayer = null; }
+  if (_boatLayer) return; // test position already shown by boat layer
+  const pos = GPS.getPosition();
+  if (!pos) return;
+  const m = L.marker([pos.lat, pos.lon], { icon: _boatIcon(), zIndexOffset: 800 });
+  _youLayer = L.layerGroup([m]).addTo(_map);
 }
 
 function _markerKey(lat, lon) { return `${lat.toFixed(5)},${lon.toFixed(5)}`; }
@@ -263,6 +276,7 @@ let _map = null;
 let _mapLayers = null;
 let _waypointLayer = null;
 let _boatLayer = null;
+let _youLayer = null;
 let _waypointsVisible = localStorage.getItem('audiochart-waypoints-visible') === 'true';
 let _leafletReady = false;
 let _markerByKey = new Map();
@@ -561,6 +575,7 @@ function _ensureMap() {
   });
 
   _refreshWaypointLayer();
+  _refreshYouLayer();
 }
 
 async function showPositionMap(lat, lon) {
@@ -1367,6 +1382,7 @@ async function init() {
   GPS.startGPS(
     async (lat, lon, accuracy, source) => {
       showPosition(lat, lon, accuracy, source);
+      _refreshYouLayer();
       if (!gpsReady) {
         gpsReady = true;
         setStatus('Loading chart data for your position...');
