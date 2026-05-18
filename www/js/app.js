@@ -470,6 +470,7 @@ function _exitAnimMode() {
   _animCurrentLon = null;
   if (_animRafId)      { cancelAnimationFrame(_animRafId); _animRafId = null; }
   if (_animIntervalId) { clearInterval(_animIntervalId);   _animIntervalId = null; }
+  TTS.stop();
   _appEl.classList.remove('anim-mode');
   _animBanner.style.display = 'none';
   if (_animMarker    && _map) { _map.removeLayer(_animMarker);    _animMarker    = null; }
@@ -532,7 +533,10 @@ function _startRouteAnimation(route, speedKnots) {
     _animIntervalId = setInterval(() => {
       if (_animCurrentLat == null || !_animMode) return;
       const navResult = Query.navaidsInRadius(_animCurrentLat, _animCurrentLon, track.radiusNm, track.filter);
-      const hazResult = Query.hazardsInRadius(_animCurrentLat, _animCurrentLon, track.radiusNm);
+      // Only add hazard report when no specific navaid type is selected
+      const hazResult = !track.filter
+        ? Query.hazardsInRadius(_animCurrentLat, _animCurrentLon, track.radiusNm)
+        : null;
       const speech = [navResult?.speech, hazResult?.speech].filter(Boolean).join('. ') || 'All clear.';
       TTS.sayImmediate(speech);
     }, track.intervalMs);
