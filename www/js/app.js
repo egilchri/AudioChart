@@ -280,6 +280,10 @@ let _youLayer = null;
 let _waypointsVisible = localStorage.getItem('audiochart-waypoints-visible') === 'true';
 let _leafletReady = false;
 let _markerByKey = new Map();
+let _sketchMode = false;
+let _sketchPath = null;
+let _sketchPoints = [];
+let _sketchDrawing = false;
 let _lastCourseFrom = null;
 let _lastCourseTo   = null;
 
@@ -357,6 +361,79 @@ function showNavaidList(navaids) {
   navaidListEl.style.display = 'flex';
 }
 
+// ── Sketch route ─────────────────────────────────────────────────────────────
+
+const _appEl = document.getElementById('app');
+const _sketchBanner = document.getElementById('sketch-banner');
+
+function _enterSketchMode() {
+  _sketchMode = true;
+  document.getElementById('map-container').style.display = 'block';
+  _appEl.classList.add('sketch-mode');
+  _mapContainer.classList.remove('map-compact', 'list-focus', 'input-focus');
+  _sketchBanner.style.display = 'flex';
+  if (_map) {
+    _map.invalidateSize();
+    _map.dragging.disable();
+  }
+}
+
+function _exitSketchMode() {
+  _sketchMode = false;
+  _sketchDrawing = false;
+  _appEl.classList.remove('sketch-mode');
+  _sketchBanner.style.display = 'none';
+  if (_map) {
+    _map.dragging.enable();
+    _map.invalidateSize();
+    _map.off('mousemove', _onSketchMove);
+    _map.off('mouseup',   _onSketchEnd);
+  }
+  if (_sketchPath && _sketchPoints.length < 2) {
+    _map.removeLayer(_sketchPath);
+    _sketchPath = null;
+  }
+  _sketchPoints = [];
+}
+
+function _onSketchStart(e) {
+  if (!_sketchMode) return;
+  _sketchDrawing = true;
+  _sketchPoints = [e.latlng];
+  if (_sketchPath) { _map.removeLayer(_sketchPath); }
+  _sketchPath = L.polyline([e.latlng], {
+    color: '#e05252', weight: 4, opacity: 0.9, lineJoin: 'round', lineCap: 'round',
+  }).addTo(_map);
+  _map.on('mousemove', _onSketchMove);
+  _map.once('mouseup', _onSketchEnd);
+}
+
+function _onSketchMove(e) {
+  if (!_sketchDrawing) return;
+  _sketchPoints.push(e.latlng);
+  _sketchPath.setLatLngs(_sketchPoints);
+}
+
+function _onSketchEnd() {
+  _map.off('mousemove', _onSketchMove);
+  _sketchDrawing = false;
+  _exitSketchMode();
+  if (_sketchPoints.length > 1) {
+    let totalNm = 0;
+    for (let i = 1; i < _sketchPoints.length; i++) {
+      totalNm += Query.distanceNm(
+        _sketchPoints[i - 1].lng, _sketchPoints[i - 1].lat,
+        _sketchPoints[i].lng,     _sketchPoints[i].lat
+      );
+    }
+    const msg = `Route sketched: ${totalNm.toFixed(1)} nm`;
+    setStatus(msg);
+    TTS.sayImmediate(msg);
+  }
+}
+
+document.getElementById('sketch-cancel-btn').addEventListener('click', _exitSketchMode);
+
 // ── User waypoints (localStorage) ────────────────────────────────────────────
 
 const USER_WP_KEY = 'audiochart-user-waypoints';
@@ -392,6 +469,9 @@ function _ensureMap() {
     'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
     { minZoom: 4, maxZoom: 17, attribution: '© Esri' }
   ).addTo(_map);
+
+  // Sketch route: intercept mousedown when mode is active
+  _map.on('mousedown', (e) => { if (_sketchMode) _onSketchStart(e); });
 
   // Right-click / long-press context menu
   const _ctxMenu = document.getElementById('map-context-menu');
@@ -455,6 +535,11 @@ function _ensureMap() {
     if (!btn) return;
     _hideCtx();
     if (_ctxLatLng) handleMapLongPress(_ctxLatLng, parseFloat(btn.dataset.radiusNm), btn.dataset.radiusLabel);
+  });
+
+  document.getElementById('map-ctx-sketch').addEventListener('click', () => {
+    _hideCtx();
+    _enterSketchMode();
   });
 
   const _trackSubmenu = document.getElementById('map-ctx-track-submenu');

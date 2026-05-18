@@ -447,6 +447,48 @@ html, body {
   display: none;
   border-top: 1px solid var(--mid-blue);
 }
+#map-ctx-sketch {
+  border-top: 1px solid var(--mid-blue);
+}
+
+/* Sketch route mode */
+#app.sketch-mode #position-display,
+#app.sketch-mode #status-text,
+#app.sketch-mode #map-link,
+#app.sketch-mode #response-area,
+#app.sketch-mode #text-form,
+#app.sketch-mode #history-area {
+  display: none !important;
+}
+#app.sketch-mode #map-container {
+  height: calc(100dvh - 56px) !important;
+  max-height: calc(100dvh - 56px) !important;
+  cursor: crosshair;
+}
+#app.sketch-mode #leaflet-map {
+  cursor: crosshair !important;
+}
+#sketch-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: var(--warn);
+  color: var(--navy);
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 8px 12px;
+  flex-shrink: 0;
+}
+#sketch-cancel-btn {
+  background: var(--navy);
+  color: var(--text);
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
 /* Track panel */
 #map-ctx-track-parent {
   border-top: 1px solid var(--mid-blue);
