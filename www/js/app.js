@@ -286,9 +286,12 @@ let _sketchPoints = [];
 let _sketchDrawing = false;
 let _animMode = false;
 let _animRafId = null;
+let _animIntervalId = null;
 let _animMarker = null;
 let _animRouteLine = null;
 let _animFollowMode = false; // real-GPS follow (non-test mode)
+let _animCurrentLat = null;
+let _animCurrentLon = null;
 let _lastCourseFrom = null;
 let _lastCourseTo   = null;
 
@@ -463,18 +466,34 @@ const _animBannerText = document.getElementById('anim-banner-text');
 function _exitAnimMode() {
   _animMode = false;
   _animFollowMode = false;
-  if (_animRafId) { cancelAnimationFrame(_animRafId); _animRafId = null; }
+  _animCurrentLat = null;
+  _animCurrentLon = null;
+  if (_animRafId)      { cancelAnimationFrame(_animRafId); _animRafId = null; }
+  if (_animIntervalId) { clearInterval(_animIntervalId);   _animIntervalId = null; }
   _appEl.classList.remove('anim-mode');
   _animBanner.style.display = 'none';
-  if (_animMarker  && _map) { _map.removeLayer(_animMarker);    _animMarker    = null; }
+  if (_animMarker    && _map) { _map.removeLayer(_animMarker);    _animMarker    = null; }
   if (_animRouteLine && _map) { _map.removeLayer(_animRouteLine); _animRouteLine = null; }
   if (_map) { _map.dragging.enable(); _map.invalidateSize(); }
 }
 
 document.getElementById('anim-stop-btn').addEventListener('click', _exitAnimMode);
 
+function _getTrackSettings() {
+  const objChip      = document.querySelector('.track-obj.selected');
+  const distChip     = document.querySelector('.track-dist.selected');
+  const intervalChip = document.querySelector('.track-interval.selected');
+  return {
+    filter:     objChip      ? (objChip.dataset.obj || null)           : null,
+    radiusNm:   distChip     ? parseFloat(distChip.dataset.nm)         : 0.25,
+    intervalMs: intervalChip ? parseInt(intervalChip.dataset.ms)       : null,
+  };
+}
+
 function _startRouteAnimation(route, speedKnots) {
   if (!_map) return;
+  const track = _getTrackSettings();
+
   _animMode = true;
   _appEl.classList.add('anim-mode');
   _animBannerText.textContent = `⛵ ${route.name} · ${speedKnots} kts`;
@@ -501,20 +520,33 @@ function _startRouteAnimation(route, speedKnots) {
   const totalNm = cumDist;
 
   _animMarker = L.marker(pts[0], { icon: _boatIcon(), zIndexOffset: 1000 }).addTo(_map);
+  _animCurrentLat = pts[0][0];
+  _animCurrentLon = pts[0][1];
 
-  // 1 real second = 1 sailing minute (60× compression)
-  const nmPerRealSec = speedKnots / 60;
+  // Real-time: speedKnots nm/hour = speedKnots/3600 nm/second
+  const nmPerRealSec = speedKnots / 3600;
   const startTime = performance.now();
+  const etaTotalMin = Math.round(totalNm / speedKnots * 60);
+
+  // Periodic navaid/hazard reports at chosen interval
+  if (track.intervalMs) {
+    _animIntervalId = setInterval(() => {
+      if (_animCurrentLat == null || !_animMode) return;
+      const navResult = Query.navaidsInRadius(_animCurrentLat, _animCurrentLon, track.radiusNm, track.filter);
+      const hazResult = Query.hazardsInRadius(_animCurrentLat, _animCurrentLon, track.radiusNm);
+      const speech = [navResult?.speech, hazResult?.speech].filter(Boolean).join('. ') || 'All clear.';
+      TTS.sayImmediate(speech);
+    }, track.intervalMs);
+  }
 
   function step(now) {
     if (!_animMode) return;
-    const elapsed = (now - startTime) / 1000; // real seconds
+    const elapsed  = (now - startTime) / 1000;
     const traveled = elapsed * nmPerRealSec;
 
     if (traveled >= totalNm) {
       _animMarker.setLatLng(pts[pts.length - 1]);
-      const etaMin = Math.round(totalNm / speedKnots * 60);
-      _animBannerText.textContent = `✓ ${route.name} complete · ETA was ${etaMin} min`;
+      _animBannerText.textContent = `✓ ${route.name} complete`;
       setTimeout(_exitAnimMode, 3000);
       return;
     }
@@ -528,10 +560,11 @@ function _startRouteAnimation(route, speedKnots) {
     const lat  = seg.lat1 + (seg.lat2 - seg.lat1) * frac;
     const lon  = seg.lon1 + (seg.lon2 - seg.lon1) * frac;
     _animMarker.setLatLng([lat, lon]);
+    _animCurrentLat = lat;
+    _animCurrentLon = lon;
 
-    const nmLeft = totalNm - traveled;
-    const minLeft = Math.round(nmLeft / speedKnots * 60);
-    _animBannerText.textContent = `⛵ ${route.name} · ${speedKnots} kts · ${minLeft} min left`;
+    const minLeft = Math.round((totalNm - traveled) / speedKnots * 60);
+    _animBannerText.textContent = `⛵ ${route.name} · ${speedKnots} kts · ${minLeft}/${etaTotalMin} min`;
 
     _animRafId = requestAnimationFrame(step);
   }
