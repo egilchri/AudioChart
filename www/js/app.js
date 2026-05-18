@@ -9,7 +9,7 @@ import * as GPS from './gps.js';
 import { parseCommand, parseCoordinate } from './parser.js';
 import * as Query from './query.js';
 
-const VERSION = 'v33';
+const VERSION = 'v34';
 document.getElementById('app-version').textContent = VERSION;
 
 function _navaidMarkerIcon(navaid) {
@@ -45,10 +45,10 @@ function _waypointIcon() {
 function _boatIcon() {
   return L.divIcon({
     className: '',
-    html: '<div class="boat-marker">⛵<span class="boat-label">You</span></div>',
-    iconSize: [36, 36],
-    iconAnchor: [18, 18],
-    tooltipAnchor: [18, -18],
+    html: '<div class="boat-marker"><span class="boat-emoji">⛵</span><span class="boat-label">You</span></div>',
+    iconSize: [44, 44],
+    iconAnchor: [22, 22],
+    tooltipAnchor: [22, -22],
   });
 }
 
@@ -847,7 +847,13 @@ async function handleMapLongPress(latlng, radiusNm = 0.25, radiusLabel = '¼ mil
   }
 
   _mapLayers = L.layerGroup(layers).addTo(_map);
-  const allPts = [[lat, lon], ...hazards.map(h => [h.lat, h.lon]), ...navaids.map(n => [n.lat, n.lon])];
+  const _curPos = GPS.getPosition();
+  const allPts = [
+    [lat, lon],
+    ...(_curPos ? [[_curPos.lat, _curPos.lon]] : []),
+    ...hazards.map(h => [h.lat, h.lon]),
+    ...navaids.map(n => [n.lat, n.lon]),
+  ];
   if (allPts.length > 1) {
     _map.fitBounds(L.latLngBounds(allPts).pad(0.25));
   } else {
