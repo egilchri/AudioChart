@@ -523,6 +523,78 @@ html, body {
   color: var(--navy) !important;
   font-weight: 700;
 }
+.track-route-section select {
+  width: 100%;
+  background: var(--navy);
+  color: var(--text);
+  border: 1px solid var(--mid-blue);
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 0.85rem;
+  margin-bottom: 6px;
+}
+.track-speed-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+.track-speed-row input {
+  width: 60px;
+  background: var(--navy);
+  color: var(--text);
+  border: 1px solid var(--mid-blue);
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 0.85rem;
+  text-align: right;
+}
+#track-route-go {
+  display: block;
+  width: 100%;
+  padding: 7px !important;
+  background: var(--accent) !important;
+  color: var(--navy) !important;
+  font-weight: 700;
+  border-radius: 6px !important;
+  border: none !important;
+}
+/* Animation fullscreen mode */
+#app.anim-mode > *:not(#map-container):not(#anim-banner) {
+  display: none !important;
+}
+#app.anim-mode #map-container {
+  flex: 1 !important;
+  height: auto !important;
+  max-height: none !important;
+  min-height: 0 !important;
+}
+#anim-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #1a3a5c;
+  border-top: 2px solid var(--accent);
+  color: var(--text);
+  font-size: 0.9rem;
+  padding: 8px 14px;
+  flex-shrink: 0;
+  gap: 12px;
+}
+#anim-banner-text { flex: 1; }
+#anim-stop-btn {
+  background: var(--danger);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+}
 /* Marker flash animation — triggered when list row is tapped */
 @keyframes marker-flash {
   0%   { opacity: 1;   transform: scale(1);   }

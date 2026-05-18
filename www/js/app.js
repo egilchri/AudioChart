@@ -284,6 +284,11 @@ let _sketchMode = false;
 let _sketchPath = null;
 let _sketchPoints = [];
 let _sketchDrawing = false;
+let _animMode = false;
+let _animRafId = null;
+let _animMarker = null;
+let _animRouteLine = null;
+let _animFollowMode = false; // real-GPS follow (non-test mode)
 let _lastCourseFrom = null;
 let _lastCourseTo   = null;
 
@@ -450,6 +455,108 @@ function _onSketchEnd() {
 
 document.getElementById('sketch-cancel-btn').addEventListener('click', _exitSketchMode);
 
+// ── Route animation ───────────────────────────────────────────────────────────
+
+const _animBanner     = document.getElementById('anim-banner');
+const _animBannerText = document.getElementById('anim-banner-text');
+
+function _exitAnimMode() {
+  _animMode = false;
+  _animFollowMode = false;
+  if (_animRafId) { cancelAnimationFrame(_animRafId); _animRafId = null; }
+  _appEl.classList.remove('anim-mode');
+  _animBanner.style.display = 'none';
+  if (_animMarker  && _map) { _map.removeLayer(_animMarker);    _animMarker    = null; }
+  if (_animRouteLine && _map) { _map.removeLayer(_animRouteLine); _animRouteLine = null; }
+  if (_map) { _map.dragging.enable(); _map.invalidateSize(); }
+}
+
+document.getElementById('anim-stop-btn').addEventListener('click', _exitAnimMode);
+
+function _startRouteAnimation(route, speedKnots) {
+  if (!_map) return;
+  _animMode = true;
+  _appEl.classList.add('anim-mode');
+  _animBannerText.textContent = `⛵ ${route.name} · ${speedKnots} kts`;
+  _animBanner.style.display = 'flex';
+  document.getElementById('map-container').style.display = 'block';
+  _mapContainer.classList.remove('map-compact', 'list-focus', 'input-focus');
+  _map.invalidateSize();
+
+  const pts = route.points.map(p => [p.lat, p.lon]);
+  _animRouteLine = L.polyline(pts, {
+    color: '#e05252', weight: 3, opacity: 0.7, dashArray: '8 4',
+  }).addTo(_map);
+  _map.fitBounds(L.latLngBounds(pts).pad(0.25));
+
+  // Pre-compute segments with cumulative distance
+  const segs = [];
+  let cumDist = 0;
+  for (let i = 1; i < route.points.length; i++) {
+    const p1 = route.points[i - 1], p2 = route.points[i];
+    const d = Query.distanceNm(p1.lon, p1.lat, p2.lon, p2.lat);
+    segs.push({ lat1: p1.lat, lon1: p1.lon, lat2: p2.lat, lon2: p2.lon, dist: d, cumDist });
+    cumDist += d;
+  }
+  const totalNm = cumDist;
+
+  _animMarker = L.marker(pts[0], { icon: _boatIcon(), zIndexOffset: 1000 }).addTo(_map);
+
+  // 1 real second = 1 sailing minute (60× compression)
+  const nmPerRealSec = speedKnots / 60;
+  const startTime = performance.now();
+
+  function step(now) {
+    if (!_animMode) return;
+    const elapsed = (now - startTime) / 1000; // real seconds
+    const traveled = elapsed * nmPerRealSec;
+
+    if (traveled >= totalNm) {
+      _animMarker.setLatLng(pts[pts.length - 1]);
+      const etaMin = Math.round(totalNm / speedKnots * 60);
+      _animBannerText.textContent = `✓ ${route.name} complete · ETA was ${etaMin} min`;
+      setTimeout(_exitAnimMode, 3000);
+      return;
+    }
+
+    // Interpolate position on route
+    let seg = segs[segs.length - 1];
+    for (const s of segs) {
+      if (traveled >= s.cumDist && traveled < s.cumDist + s.dist) { seg = s; break; }
+    }
+    const frac = seg.dist > 0 ? (traveled - seg.cumDist) / seg.dist : 0;
+    const lat  = seg.lat1 + (seg.lat2 - seg.lat1) * frac;
+    const lon  = seg.lon1 + (seg.lon2 - seg.lon1) * frac;
+    _animMarker.setLatLng([lat, lon]);
+
+    const nmLeft = totalNm - traveled;
+    const minLeft = Math.round(nmLeft / speedKnots * 60);
+    _animBannerText.textContent = `⛵ ${route.name} · ${speedKnots} kts · ${minLeft} min left`;
+
+    _animRafId = requestAnimationFrame(step);
+  }
+  _animRafId = requestAnimationFrame(step);
+}
+
+function _startFollowMode(route) {
+  // Non-test mode: pan map to real GPS position on every fix
+  _animFollowMode = true;
+  _animMode = true;
+  _appEl.classList.add('anim-mode');
+  _animBannerText.textContent = '⛵ Following real GPS position';
+  _animBanner.style.display = 'flex';
+  document.getElementById('map-container').style.display = 'block';
+  _mapContainer.classList.remove('map-compact', 'list-focus', 'input-focus');
+  _map.invalidateSize();
+
+  if (route) {
+    const pts = route.points.map(p => [p.lat, p.lon]);
+    _animRouteLine = L.polyline(pts, {
+      color: '#e05252', weight: 3, opacity: 0.7, dashArray: '8 4',
+    }).addTo(_map);
+  }
+}
+
 // ── User waypoints (localStorage) ────────────────────────────────────────────
 
 const USER_WP_KEY = 'audiochart-user-waypoints';
@@ -528,12 +635,21 @@ function _ensureMap() {
     }
   }
 
+  function _populateRouteSelect() {
+    const sel = document.getElementById('track-route-select');
+    const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+    sel.innerHTML = routes.length
+      ? routes.map((r, i) => `<option value="${i}">${r.name}</option>`).join('')
+      : '<option value="">— no routes saved —</option>';
+  }
+
   _map.on('contextmenu', (e) => {
     _ctxLatLng = e.latlng;
     _ctxSubmenu.style.display   = 'none';
     _wpSubmenu.style.display    = 'none';
     _trackSubmenu.style.display = 'none';
     _populateWpSubmenu();
+    _populateRouteSelect();
     _ctxMenu.style.left = e.originalEvent.clientX + 'px';
     _ctxMenu.style.top  = e.originalEvent.clientY + 'px';
     _ctxMenu.style.display = 'block';
@@ -570,6 +686,26 @@ function _ensureMap() {
     const group = chip.classList[1]; // track-obj / track-dist / track-interval
     _trackSubmenu.querySelectorAll(`.${group}`).forEach(b => b.classList.remove('selected'));
     chip.classList.add('selected');
+  });
+
+  document.getElementById('track-route-go').addEventListener('click', () => {
+    _hideCtx();
+    const sel   = document.getElementById('track-route-select');
+    const speed = parseFloat(document.getElementById('track-speed-input').value);
+    const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+    const route  = routes[parseInt(sel.value)];
+    if (!route || !route.points?.length) {
+      TTS.sayImmediate('No route selected. Sketch a route first.');
+      return;
+    }
+    const pos = GPS.getPosition();
+    const isTestMode = !pos || pos.source === 'manual';
+    if (isTestMode) {
+      if (!speed || speed <= 0) { TTS.sayImmediate('Enter a speed in knots first.'); return; }
+      _startRouteAnimation(route, speed);
+    } else {
+      _startFollowMode(route);
+    }
   });
 
   document.getElementById('map-ctx-wp-parent').addEventListener('click', () => {
@@ -1500,6 +1636,7 @@ async function init() {
     async (lat, lon, accuracy, source) => {
       showPosition(lat, lon, accuracy, source);
       _refreshYouLayer();
+      if (_animFollowMode && _map) _map.panTo([lat, lon]);
       if (!gpsReady) {
         gpsReady = true;
         setStatus('Loading chart data for your position...');
