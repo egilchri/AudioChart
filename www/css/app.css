@@ -451,18 +451,15 @@ html, body {
   border-top: 1px solid var(--mid-blue);
 }
 
-/* Sketch route mode */
-#app.sketch-mode #position-display,
-#app.sketch-mode #status-text,
-#app.sketch-mode #map-link,
-#app.sketch-mode #response-area,
-#app.sketch-mode #text-form,
-#app.sketch-mode #history-area {
+/* Sketch route mode — map + banner fill the entire screen */
+#app.sketch-mode > *:not(#map-container):not(#sketch-banner) {
   display: none !important;
 }
 #app.sketch-mode #map-container {
-  height: calc(100dvh - 56px) !important;
-  max-height: calc(100dvh - 56px) !important;
+  flex: 1 !important;
+  height: auto !important;
+  max-height: none !important;
+  min-height: 0 !important;
   cursor: crosshair;
 }
 #app.sketch-mode #leaflet-map {

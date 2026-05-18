@@ -414,19 +414,35 @@ function _onSketchMove(e) {
   _sketchPath.setLatLngs(_sketchPoints);
 }
 
+const ROUTE_KEY = 'audiochart-user-routes';
+
+function _nextRouteName() {
+  const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+  return `Route ${routes.length + 1}`;
+}
+
+function _saveRoute(name, points) {
+  const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+  routes.push({ name, points: points.map(p => ({ lat: p.lat, lon: p.lng })) });
+  localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
+}
+
 function _onSketchEnd() {
   _map.off('mousemove', _onSketchMove);
   _sketchDrawing = false;
+  const pts = _sketchPoints.slice();
   _exitSketchMode();
-  if (_sketchPoints.length > 1) {
+  if (pts.length > 1) {
     let totalNm = 0;
-    for (let i = 1; i < _sketchPoints.length; i++) {
+    for (let i = 1; i < pts.length; i++) {
       totalNm += Query.distanceNm(
-        _sketchPoints[i - 1].lng, _sketchPoints[i - 1].lat,
-        _sketchPoints[i].lng,     _sketchPoints[i].lat
+        pts[i - 1].lng, pts[i - 1].lat,
+        pts[i].lng,     pts[i].lat
       );
     }
-    const msg = `Route sketched: ${totalNm.toFixed(1)} nm`;
+    const name = _nextRouteName();
+    _saveRoute(name, pts);
+    const msg = `${name} saved — ${totalNm.toFixed(1)} nm`;
     setStatus(msg);
     TTS.sayImmediate(msg);
   }
