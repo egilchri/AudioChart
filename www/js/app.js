@@ -632,6 +632,23 @@ function _ensureMap() {
     { minZoom: 4, maxZoom: 17, attribution: '© Esri' }
   ).addTo(_map);
 
+  // Floating ☰ button — opens context menu at current GPS position
+  document.getElementById('map-menu-btn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    const pos = GPS.getPosition();
+    _ctxLatLng = pos ? L.latLng(pos.lat, pos.lon) : _map.getCenter();
+    const btn  = e.currentTarget.getBoundingClientRect();
+    _ctxSubmenu.style.display   = 'none';
+    _wpSubmenu.style.display    = 'none';
+    _trackSubmenu.style.display = 'none';
+    _routeSubmenu.style.display = 'none';
+    _populateWpSubmenu();
+    _populateRouteSelect();
+    _ctxMenu.style.left = Math.max(4, btn.left - 180) + 'px';
+    _ctxMenu.style.top  = (btn.top - _ctxMenu.offsetHeight - 8) + 'px';
+    _ctxMenu.style.display = _ctxMenu.style.display === 'block' ? 'none' : 'block';
+  });
+
   // Sketch route: intercept mousedown when mode is active
   _map.on('mousedown', (e) => { if (_sketchMode) _onSketchStart(e); });
 
