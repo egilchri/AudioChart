@@ -643,11 +643,14 @@ function _ensureMap() {
       : '<option value="">— no routes saved —</option>';
   }
 
+  const _routeSubmenu = document.getElementById('map-ctx-route-submenu');
+
   _map.on('contextmenu', (e) => {
     _ctxLatLng = e.latlng;
     _ctxSubmenu.style.display   = 'none';
     _wpSubmenu.style.display    = 'none';
     _trackSubmenu.style.display = 'none';
+    _routeSubmenu.style.display = 'none';
     _populateWpSubmenu();
     _populateRouteSelect();
     _ctxMenu.style.left = e.originalEvent.clientX + 'px';
@@ -669,9 +672,24 @@ function _ensureMap() {
     if (_ctxLatLng) handleMapLongPress(_ctxLatLng, parseFloat(btn.dataset.radiusNm), btn.dataset.radiusLabel);
   });
 
+  document.getElementById('map-ctx-route-parent').addEventListener('click', () => {
+    _routeSubmenu.style.display = _routeSubmenu.style.display === 'block' ? 'none' : 'block';
+  });
+
   document.getElementById('map-ctx-sketch').addEventListener('click', () => {
     _hideCtx();
     _enterSketchMode();
+  });
+
+  document.getElementById('map-ctx-route-delete').addEventListener('click', () => {
+    _hideCtx();
+    const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+    if (!routes.length) { TTS.sayImmediate('No routes saved.'); return; }
+    const deleted = routes.pop();
+    localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
+    const msg = `${deleted.name} deleted.`;
+    setStatus(msg);
+    TTS.sayImmediate(msg);
   });
 
   const _trackSubmenu = document.getElementById('map-ctx-track-submenu');

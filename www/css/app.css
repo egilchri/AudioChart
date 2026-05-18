@@ -443,13 +443,25 @@ html, body {
 }
 #map-ctx-objects-submenu,
 #map-ctx-wp-submenu,
-#map-ctx-track-submenu {
+#map-ctx-track-submenu,
+#map-ctx-route-submenu {
   display: none;
   border-top: 1px solid var(--mid-blue);
 }
-#map-ctx-sketch {
+#map-ctx-route-parent {
   border-top: 1px solid var(--mid-blue);
 }
+#map-ctx-route-submenu button {
+  padding-left: 28px;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+#map-ctx-route-submenu button:hover,
+#map-ctx-route-submenu button:active {
+  color: var(--text);
+  background: var(--mid-blue);
+}
+#map-ctx-route-delete { color: var(--danger) !important; }
 
 /* Sketch route mode — map + banner fill the entire screen */
 #app.sketch-mode > *:not(#map-container):not(#sketch-banner) {
