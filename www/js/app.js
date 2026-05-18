@@ -434,8 +434,9 @@ function _ensureMap() {
 
   _map.on('contextmenu', (e) => {
     _ctxLatLng = e.latlng;
-    _ctxSubmenu.style.display = 'none';
-    _wpSubmenu.style.display  = 'none';
+    _ctxSubmenu.style.display   = 'none';
+    _wpSubmenu.style.display    = 'none';
+    _trackSubmenu.style.display = 'none';
     _populateWpSubmenu();
     _ctxMenu.style.left = e.originalEvent.clientX + 'px';
     _ctxMenu.style.top  = e.originalEvent.clientY + 'px';
@@ -454,6 +455,20 @@ function _ensureMap() {
     if (!btn) return;
     _hideCtx();
     if (_ctxLatLng) handleMapLongPress(_ctxLatLng, parseFloat(btn.dataset.radiusNm), btn.dataset.radiusLabel);
+  });
+
+  const _trackSubmenu = document.getElementById('map-ctx-track-submenu');
+  document.getElementById('map-ctx-track-parent').addEventListener('click', () => {
+    _trackSubmenu.style.display = _trackSubmenu.style.display === 'block' ? 'none' : 'block';
+  });
+
+  // Track chip selection — single-select per group
+  _trackSubmenu.addEventListener('click', (e) => {
+    const chip = e.target.closest('.track-chip');
+    if (!chip) return;
+    const group = chip.classList[1]; // track-obj / track-dist / track-interval
+    _trackSubmenu.querySelectorAll(`.${group}`).forEach(b => b.classList.remove('selected'));
+    chip.classList.add('selected');
   });
 
   document.getElementById('map-ctx-wp-parent').addEventListener('click', () => {

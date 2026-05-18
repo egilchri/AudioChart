@@ -113,6 +113,39 @@ Examples:
       <button data-radius-nm="5"      data-radius-label="5 miles">5 miles</button>
     </div>
     <button id="map-ctx-where-am-i">&#63; Where am I?</button>
+    <button id="map-ctx-track-parent">&#9654; Track &rsaquo;</button>
+    <div id="map-ctx-track-submenu">
+      <div class="track-section">
+        <div class="track-section-label">Object</div>
+        <div class="track-chips">
+          <button class="track-chip track-obj" data-obj="buoy">Buoys</button>
+          <button class="track-chip track-obj" data-obj="light">Lights</button>
+          <button class="track-chip track-obj" data-obj="beacon">Beacons</button>
+          <button class="track-chip track-obj" data-obj="">All</button>
+        </div>
+      </div>
+      <div class="track-section">
+        <div class="track-section-label">Within</div>
+        <div class="track-chips">
+          <button class="track-chip track-dist" data-nm="0.0494">100 yd</button>
+          <button class="track-chip track-dist" data-nm="0.0988">200 yd</button>
+          <button class="track-chip track-dist" data-nm="0.25">&frac14; mi</button>
+          <button class="track-chip track-dist" data-nm="0.5">&frac12; mi</button>
+          <button class="track-chip track-dist" data-nm="1">1 mi</button>
+          <button class="track-chip track-dist" data-nm="2">2 mi</button>
+          <button class="track-chip track-dist" data-nm="5">5 mi</button>
+        </div>
+      </div>
+      <div class="track-section">
+        <div class="track-section-label">Every</div>
+        <div class="track-chips">
+          <button class="track-chip track-interval" data-ms="15000">15 sec</button>
+          <button class="track-chip track-interval" data-ms="30000">30 sec</button>
+          <button class="track-chip track-interval" data-ms="60000">1 min</button>
+          <button class="track-chip track-interval" data-ms="120000">2 min</button>
+        </div>
+      </div>
+    </div>
     <button id="map-ctx-wp-parent">&#9873; Waypoints &rsaquo;</button>
     <div id="map-ctx-wp-submenu">
       <button id="map-ctx-wp-set">Set waypoint here</button>
