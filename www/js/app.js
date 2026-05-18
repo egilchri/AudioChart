@@ -374,16 +374,46 @@ function showNavaidList(navaids) {
 const _appEl = document.getElementById('app');
 const _sketchBanner = document.getElementById('sketch-banner');
 
+// Touch handler refs so they can be removed on exit
+let _sketchTouchStart = null;
+let _sketchTouchMove  = null;
+let _sketchTouchEnd   = null;
+
 function _enterSketchMode() {
   _sketchMode = true;
   document.getElementById('map-container').style.display = 'block';
   _appEl.classList.add('sketch-mode');
   _mapContainer.classList.remove('map-compact', 'list-focus', 'input-focus');
   _sketchBanner.style.display = 'flex';
-  if (_map) {
-    _map.invalidateSize();
-    _map.dragging.disable();
-  }
+  if (!_map) return;
+  _map.invalidateSize();
+  _map.dragging.disable();
+
+  // Mobile: Leaflet doesn't fire mousemove for touchmove when dragging is
+  // disabled, so we listen on the raw DOM container instead.
+  const container = _map.getContainer();
+
+  _sketchTouchStart = (e) => {
+    if (!_sketchMode) return;
+    e.preventDefault();
+    const t = e.touches[0];
+    const r = container.getBoundingClientRect();
+    const latlng = _map.containerPointToLatLng(L.point(t.clientX - r.left, t.clientY - r.top));
+    _onSketchStart({ latlng });
+  };
+  _sketchTouchMove = (e) => {
+    if (!_sketchDrawing) return;
+    e.preventDefault();
+    const t = e.touches[0];
+    const r = container.getBoundingClientRect();
+    const latlng = _map.containerPointToLatLng(L.point(t.clientX - r.left, t.clientY - r.top));
+    _onSketchMove({ latlng });
+  };
+  _sketchTouchEnd = () => { if (_sketchDrawing) _onSketchEnd(); };
+
+  container.addEventListener('touchstart', _sketchTouchStart, { passive: false });
+  container.addEventListener('touchmove',  _sketchTouchMove,  { passive: false });
+  container.addEventListener('touchend',   _sketchTouchEnd);
 }
 
 function _exitSketchMode() {
@@ -392,6 +422,11 @@ function _exitSketchMode() {
   _appEl.classList.remove('sketch-mode');
   _sketchBanner.style.display = 'none';
   if (_map) {
+    const container = _map.getContainer();
+    if (_sketchTouchStart) container.removeEventListener('touchstart', _sketchTouchStart);
+    if (_sketchTouchMove)  container.removeEventListener('touchmove',  _sketchTouchMove);
+    if (_sketchTouchEnd)   container.removeEventListener('touchend',   _sketchTouchEnd);
+    _sketchTouchStart = _sketchTouchMove = _sketchTouchEnd = null;
     _map.dragging.enable();
     _map.invalidateSize();
     _map.off('mousemove', _onSketchMove);
