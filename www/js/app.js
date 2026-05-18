@@ -45,10 +45,10 @@ function _waypointIcon() {
 function _boatIcon() {
   return L.divIcon({
     className: '',
-    html: '<div class="boat-marker">⛵</div>',
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
-    tooltipAnchor: [14, -14],
+    html: '<div class="boat-marker">⛵<span class="boat-label">You</span></div>',
+    iconSize: [36, 36],
+    iconAnchor: [18, 18],
+    tooltipAnchor: [18, -18],
   });
 }
 
