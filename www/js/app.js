@@ -525,7 +525,6 @@ function _startRouteAnimation(route, speedKnots) {
 
   // Real-time: speedKnots nm/hour = speedKnots/3600 nm/second
   const nmPerRealSec = speedKnots / 3600;
-  const startTime = performance.now();
   const etaTotalMin = Math.round(totalNm / speedKnots * 60);
 
   // Periodic navaid/hazard reports at chosen interval
@@ -539,8 +538,11 @@ function _startRouteAnimation(route, speedKnots) {
     }, track.intervalMs);
   }
 
+  // Delay RAF start to let the DOM/map settle after entering fullscreen
+  let startTime = null;
   function step(now) {
     if (!_animMode) return;
+    if (startTime === null) startTime = now; // anchor to first frame
     const elapsed  = (now - startTime) / 1000;
     const traveled = elapsed * nmPerRealSec;
 
@@ -568,7 +570,11 @@ function _startRouteAnimation(route, speedKnots) {
 
     _animRafId = requestAnimationFrame(step);
   }
-  _animRafId = requestAnimationFrame(step);
+  // Small delay lets the anim-mode CSS take effect and map resize before first frame
+  setTimeout(() => {
+    _map.invalidateSize();
+    _animRafId = requestAnimationFrame(step);
+  }, 300);
 }
 
 function _startFollowMode(route) {
@@ -741,22 +747,20 @@ function _ensureMap() {
 
   document.getElementById('track-route-go').addEventListener('click', () => {
     _hideCtx();
-    const sel   = document.getElementById('track-route-select');
-    const speed = parseFloat(document.getElementById('track-speed-input').value);
+    const sel    = document.getElementById('track-route-select');
+    const speed  = parseFloat(document.getElementById('track-speed-input').value);
     const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
     const route  = routes[parseInt(sel.value)];
     if (!route || !route.points?.length) {
       TTS.sayImmediate('No route selected. Sketch a route first.');
       return;
     }
-    const pos = GPS.getPosition();
-    const isTestMode = !pos || pos.source === 'manual';
-    if (isTestMode) {
-      if (!speed || speed <= 0) { TTS.sayImmediate('Enter a speed in knots first.'); return; }
-      _startRouteAnimation(route, speed);
-    } else {
-      _startFollowMode(route);
+    if (!speed || speed <= 0) {
+      TTS.sayImmediate('Enter a speed in knots first.');
+      return;
     }
+    // Always animate when speed is provided — works in both test and live GPS mode
+    _startRouteAnimation(route, speed);
   });
 
   document.getElementById('map-ctx-wp-parent').addEventListener('click', () => {
