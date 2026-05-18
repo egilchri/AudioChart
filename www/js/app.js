@@ -289,7 +289,8 @@ let _animRafId = null;
 let _animIntervalId = null;
 let _animMarker = null;
 let _animRouteLine = null;
-let _animFollowMode = false; // real-GPS follow (non-test mode)
+let _animReportLayer = null;
+let _animFollowMode = false;
 let _animCurrentLat = null;
 let _animCurrentLon = null;
 let _lastCourseFrom = null;
@@ -521,8 +522,9 @@ function _exitAnimMode() {
   TTS.stop();
   _appEl.classList.remove('anim-mode');
   _animBanner.style.display = 'none';
-  if (_animMarker    && _map) { _map.removeLayer(_animMarker);    _animMarker    = null; }
-  if (_animRouteLine && _map) { _map.removeLayer(_animRouteLine); _animRouteLine = null; }
+  if (_animMarker      && _map) { _map.removeLayer(_animMarker);      _animMarker      = null; }
+  if (_animRouteLine   && _map) { _map.removeLayer(_animRouteLine);   _animRouteLine   = null; }
+  if (_animReportLayer && _map) { _map.removeLayer(_animReportLayer); _animReportLayer = null; }
   if (_map) { _map.dragging.enable(); _map.invalidateSize(); }
 }
 
@@ -580,6 +582,10 @@ function _startRouteAnimation(route, speedKnots) {
   if (track.intervalMs) {
     _animIntervalId = setInterval(() => {
       if (_animCurrentLat == null || !_animMode) return;
+
+      // Remove previous report layer
+      if (_animReportLayer && _map) { _map.removeLayer(_animReportLayer); _animReportLayer = null; }
+
       const navResult = Query.navaidsInRadius(_animCurrentLat, _animCurrentLon, track.radiusNm, track.filter);
       // Only add hazard report when no specific navaid type is selected
       const hazResult = !track.filter
@@ -587,6 +593,23 @@ function _startRouteAnimation(route, speedKnots) {
         : null;
       const speech = [navResult?.speech, hazResult?.speech].filter(Boolean).join('. ') || 'All clear.';
       TTS.sayImmediate(speech);
+
+      // Draw bearing lines + icons for each found object
+      const pos = [_animCurrentLat, _animCurrentLon];
+      const layers = [];
+      for (const n of (Query.lastNavaidResults || [])) {
+        layers.push(L.polyline([pos, [n.lat, n.lon]], {
+          color: '#4a9edd', weight: 1.5, opacity: 0.8, dashArray: '5 4',
+        }));
+        layers.push(L.marker([n.lat, n.lon], { icon: _navaidMarkerIcon(n) }));
+      }
+      for (const h of (Query.lastHazardResults || [])) {
+        layers.push(L.polyline([pos, [h.lat, h.lon]], {
+          color: '#e0a030', weight: 1.5, opacity: 0.8, dashArray: '5 4',
+        }));
+        layers.push(L.marker([h.lat, h.lon], { icon: _hazardMarkerIcon() }));
+      }
+      if (layers.length) _animReportLayer = L.layerGroup(layers).addTo(_map);
     }, track.intervalMs);
   }
 
