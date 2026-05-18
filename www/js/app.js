@@ -9,7 +9,7 @@ import * as GPS from './gps.js';
 import { parseCommand, parseCoordinate } from './parser.js';
 import * as Query from './query.js';
 
-const VERSION = 'v32';
+const VERSION = 'v33';
 document.getElementById('app-version').textContent = VERSION;
 
 function _navaidMarkerIcon(navaid) {
@@ -641,12 +641,9 @@ async function showNavaidMap(fromLat, fromLon, navaids) {
   _map.invalidateSize();
   if (_mapLayers) { _map.removeLayer(_mapLayers); _mapLayers = null; }
   _markerByKey.clear();
+  _refreshYouLayer();
 
   const layers = [];
-  layers.push(L.circleMarker([fromLat, fromLon], {
-    radius: 8, color: '#4a9edd', fillColor: '#4a9edd', fillOpacity: 1, weight: 0,
-  }).bindTooltip('You', { permanent: true, direction: 'top', className: 'map-tooltip' }));
-
   for (const n of navaids) {
     const marker = L.marker([n.lat, n.lon], { icon: _navaidMarkerIcon(n) });
     _markerByKey.set(_markerKey(n.lat, n.lon), marker);
@@ -676,12 +673,9 @@ async function showHazardMap(fromLat, fromLon, hazardPts) {
   _map.invalidateSize();
   if (_mapLayers) { _map.removeLayer(_mapLayers); _mapLayers = null; }
   _markerByKey.clear();
+  _refreshYouLayer();
 
   const layers = [];
-  layers.push(L.circleMarker([fromLat, fromLon], {
-    radius: 8, color: '#4a9edd', fillColor: '#4a9edd', fillOpacity: 1, weight: 0,
-  }).bindTooltip('You', { permanent: true, direction: 'top', className: 'map-tooltip' }));
-
   for (const h of hazardPts) {
     const marker = L.marker([h.lat, h.lon], { icon: _hazardMarkerIcon() });
     _markerByKey.set(_markerKey(h.lat, h.lon), marker);
@@ -824,6 +818,7 @@ async function handleMapLongPress(latlng, radiusNm = 0.25, radiusLabel = '¼ mil
   _ensureMap();
   _map.invalidateSize();
   if (_mapLayers) { _map.removeLayer(_mapLayers); _mapLayers = null; }
+  _refreshYouLayer();
 
   Query.hazardsInRadius(lat, lon, radiusNm);
   Query.navaidsInRadius(lat, lon, radiusNm, null);
