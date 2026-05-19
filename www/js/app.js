@@ -962,6 +962,7 @@ function _ensureMap() {
   document.getElementById('map-ctx-import-markers').addEventListener('click', () => {
     _hideCtx();
     _gpxMode = 'markers';
+    _gpxInput.multiple = false;
     _gpxInput.value = '';
     _gpxInput.click();
   });
@@ -969,11 +970,24 @@ function _ensureMap() {
   document.getElementById('map-ctx-import-routes').addEventListener('click', () => {
     _hideCtx();
     _gpxMode = 'routes';
+    _gpxInput.multiple = false;
+    _gpxInput.value = '';
+    _gpxInput.click();
+  });
+
+  document.getElementById('map-ctx-combine-routes').addEventListener('click', () => {
+    _hideCtx();
+    _gpxMode = 'combine';
+    _gpxInput.multiple = true;
     _gpxInput.value = '';
     _gpxInput.click();
   });
 
   _gpxInput.addEventListener('change', () => {
+    if (_gpxMode === 'combine') {
+      _combineGpxRoutes([..._gpxInput.files]);
+      return;
+    }
     const file = _gpxInput.files[0];
     if (!file) return;
     const reader = new FileReader();
@@ -1028,6 +1042,36 @@ function _ensureMap() {
     localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
     const msg = `Imported ${count} route${count !== 1 ? 's' : ''}.`;
     setStatus(msg); TTS.sayImmediate(msg);
+  }
+
+  function _combineGpxRoutes(files) {
+    if (!files.length) return;
+    files.sort((a, b) => a.name.localeCompare(b.name));
+    const reads = files.map(f => new Promise(resolve => {
+      const r = new FileReader();
+      r.onload = (ev) => resolve(ev.target.result);
+      r.readAsText(f);
+    }));
+    Promise.all(reads).then(texts => {
+      const allPoints = [];
+      for (const text of texts) {
+        const doc = new DOMParser().parseFromString(text, 'application/xml');
+        const src = doc.querySelector('rte') || doc.querySelector('trk');
+        if (!src) continue;
+        const ptTag = src.tagName === 'rte' ? 'rtept' : 'trkpt';
+        for (const pt of src.querySelectorAll(ptTag)) {
+          const lat = parseFloat(pt.getAttribute('lat'));
+          const lon = parseFloat(pt.getAttribute('lon'));
+          if (!isNaN(lat) && !isNaN(lon)) allPoints.push({ lat, lon });
+        }
+      }
+      if (!allPoints.length) { TTS.sayImmediate('No route points found.'); return; }
+      const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+      routes.push({ name: 'Combined Route', points: allPoints });
+      localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
+      const msg = `Combined route saved. ${allPoints.length} points from ${files.length} files.`;
+      setStatus(msg); TTS.sayImmediate(msg);
+    });
   }
 
   document.getElementById('map-ctx-where-am-i').addEventListener('click', async () => {
