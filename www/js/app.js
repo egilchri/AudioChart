@@ -298,7 +298,8 @@ let _animMode = false;
 let _animRafId = null;
 let _animIntervalId = null;
 let _animMarker = null;
-let _animRouteLine = null;
+let _animRouteLine    = null;
+let _previewRouteLine = null;
 let _animReportLayer = null;
 let _animFollowMode = false;
 let _animCurrentLat = null;
@@ -532,9 +533,10 @@ function _exitAnimMode() {
   TTS.stop();
   _appEl.classList.remove('anim-mode');
   _animBanner.style.display = 'none';
-  if (_animMarker      && _map) { _map.removeLayer(_animMarker);      _animMarker      = null; }
-  if (_animRouteLine   && _map) { _map.removeLayer(_animRouteLine);   _animRouteLine   = null; }
-  if (_animReportLayer && _map) { _map.removeLayer(_animReportLayer); _animReportLayer = null; }
+  if (_animMarker       && _map) { _map.removeLayer(_animMarker);       _animMarker       = null; }
+  if (_animRouteLine    && _map) { _map.removeLayer(_animRouteLine);    _animRouteLine    = null; }
+  if (_animReportLayer  && _map) { _map.removeLayer(_animReportLayer);  _animReportLayer  = null; }
+  if (_previewRouteLine && _map) { _map.removeLayer(_previewRouteLine); _previewRouteLine = null; }
   if (_map) { _map.dragging.enable(); _map.invalidateSize(); }
 }
 
@@ -1069,6 +1071,16 @@ function _ensureMap() {
       const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
       routes.push({ name: 'Combined Route', points: allPoints });
       localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
+      if (_map) {
+        if (_previewRouteLine) { _map.removeLayer(_previewRouteLine); }
+        const pts = allPoints.map(p => [p.lat, p.lon]);
+        _previewRouteLine = L.polyline(pts, {
+          color: '#e05252', weight: 3, opacity: 0.7, dashArray: '8 4',
+        }).addTo(_map);
+        _map.fitBounds(L.latLngBounds(pts).pad(0.25));
+        document.getElementById('map-container').style.display = 'block';
+        _map.invalidateSize();
+      }
       const msg = `Combined route saved. ${allPoints.length} points from ${files.length} files.`;
       setStatus(msg); TTS.sayImmediate(msg);
     });
