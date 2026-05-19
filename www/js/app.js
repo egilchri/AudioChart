@@ -534,10 +534,12 @@ function _getTrackSettings() {
   const objChip      = document.querySelector('.track-obj.selected');
   const distChip     = document.querySelector('.track-dist.selected');
   const intervalChip = document.querySelector('.track-interval.selected');
+  const compressChip = document.querySelector('.track-compress.selected');
   return {
-    filter:     objChip      ? (objChip.dataset.obj || null)           : null,
-    radiusNm:   distChip     ? parseFloat(distChip.dataset.nm)         : 0.25,
-    intervalMs: intervalChip ? parseInt(intervalChip.dataset.ms)       : null,
+    filter:     objChip      ? (objChip.dataset.obj || null)     : null,
+    radiusNm:   distChip     ? parseFloat(distChip.dataset.nm)   : 0.25,
+    intervalMs: intervalChip ? parseInt(intervalChip.dataset.ms) : null,
+    compress:   compressChip ? parseInt(compressChip.dataset.compress) : 1,
   };
 }
 
@@ -574,9 +576,11 @@ function _startRouteAnimation(route, speedKnots) {
   _animCurrentLat = pts[0][0];
   _animCurrentLon = pts[0][1];
 
-  // Real-time: speedKnots nm/hour = speedKnots/3600 nm/second
-  const nmPerRealSec = speedKnots / 3600;
-  const etaTotalMin = Math.round(totalNm / speedKnots * 60);
+  // Apply time compression: 1× = real time, 10× = 10 min sailing per real sec, etc.
+  const compress    = track.compress || 1;
+  const nmPerRealSec = (speedKnots / 3600) * compress;
+  const sailTotalMin = Math.round(totalNm / speedKnots * 60); // actual sailing minutes
+  const compressLabel = compress > 1 ? ` · ${compress}×` : '';
 
   // Periodic navaid/hazard reports at chosen interval
   if (track.intervalMs) {
@@ -623,7 +627,7 @@ function _startRouteAnimation(route, speedKnots) {
 
     if (traveled >= totalNm) {
       _animMarker.setLatLng(pts[pts.length - 1]);
-      _animBannerText.textContent = `✓ ${route.name} complete`;
+      _animBannerText.textContent = `✓ ${route.name} complete · ${sailTotalMin} min sailing`;
       setTimeout(_exitAnimMode, 3000);
       return;
     }
@@ -640,8 +644,9 @@ function _startRouteAnimation(route, speedKnots) {
     _animCurrentLat = lat;
     _animCurrentLon = lon;
 
-    const minLeft = Math.round((totalNm - traveled) / speedKnots * 60);
-    _animBannerText.textContent = `⛵ ${route.name} · ${speedKnots} kts · ${minLeft}/${etaTotalMin} min`;
+    const sailMinLeft = Math.round((totalNm - traveled) / speedKnots * 60);
+    const realMinLeft = compress > 1 ? ` (${Math.round(sailMinLeft / compress)} real min)` : '';
+    _animBannerText.textContent = `⛵ ${route.name} · ${speedKnots} kts${compressLabel} · ${sailMinLeft}/${sailTotalMin} min${realMinLeft}`;
 
     _animRafId = requestAnimationFrame(step);
   }
