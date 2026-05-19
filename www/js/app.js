@@ -42,6 +42,16 @@ function _waypointIcon() {
   });
 }
 
+function _animBoatIcon() {
+  return L.divIcon({
+    className: '',
+    html: '<div class="anim-boat">⛵</div>',
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+    tooltipAnchor: [14, -14],
+  });
+}
+
 function _boatIcon() {
   return L.divIcon({
     className: '',
@@ -572,7 +582,7 @@ function _startRouteAnimation(route, speedKnots) {
   }
   const totalNm = cumDist;
 
-  _animMarker = L.marker(pts[0], { icon: _boatIcon(), zIndexOffset: 1000 }).addTo(_map);
+  _animMarker = L.marker(pts[0], { icon: _animBoatIcon(), zIndexOffset: 1000 }).addTo(_map);
   _animCurrentLat = pts[0][0];
   _animCurrentLon = pts[0][1];
 

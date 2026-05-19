@@ -643,6 +643,13 @@ html, body {
   transform-origin: center;
 }
 
+/* Bare boat emoji for animation (no circle) */
+.anim-boat {
+  font-size: 24px;
+  line-height: 1;
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.9));
+}
+
 /* Boat icon for current position */
 .boat-marker {
   display: flex;
