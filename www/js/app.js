@@ -935,9 +935,12 @@ function _ensureMap() {
       _hideCtx();
       GPS.setManualPosition(lat, lon);
       syncTestPosButton();
+      document.getElementById('map-container').style.display = 'block';
+      _mapContainer.classList.remove('map-compact', 'list-focus', 'input-focus');
       _showBoatPosition(lat, lon);
+      _map.invalidateSize();
       setStatus(`Position set to ${name}.`);
-      TTS.sayImmediate(`Position set to ${name}.`);
+      _runWhereAmI(lat, lon);
       if (serverUrl) {
         fetch(`${serverUrl}/api/test-position`, {
           method: 'POST',
@@ -1118,7 +1121,10 @@ function _ensureMap() {
     const { lat, lng: lon } = _ctxLatLng;
     GPS.setManualPosition(lat, lon);
     syncTestPosButton();
+    document.getElementById('map-container').style.display = 'block';
+    _mapContainer.classList.remove('map-compact', 'list-focus', 'input-focus');
     _showBoatPosition(lat, lon);
+    _map.invalidateSize();
     setStatus('Test position set from map.');
     _runWhereAmI(lat, lon);
     if (serverUrl) {
