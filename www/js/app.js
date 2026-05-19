@@ -9,7 +9,7 @@ import * as GPS from './gps.js';
 import { parseCommand, parseCoordinate } from './parser.js';
 import * as Query from './query.js';
 
-const VERSION = 'v54';
+const VERSION = window.APP_VERSION;
 document.getElementById('app-version').textContent = VERSION;
 
 function _navaidMarkerIcon(navaid) {
@@ -1720,7 +1720,8 @@ testPosSet.addEventListener('click', async () => {
     testPosInput.value = '';
     syncTestPosButton();
     if (coord.name) setStatus(`Test position set: ${coord.name}`);
-    await _ensureMap();
+    await loadLeaflet();
+    _ensureMap();
     document.getElementById('map-container').style.display = 'block';
     _mapContainer.classList.remove('map-compact', 'list-focus', 'input-focus');
     _showBoatPosition(coord.lat, coord.lon);
