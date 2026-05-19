@@ -1120,6 +1120,7 @@ function _ensureMap() {
     syncTestPosButton();
     _showBoatPosition(lat, lon);
     setStatus('Test position set from map.');
+    _runWhereAmI(lat, lon);
     if (serverUrl) {
       fetch(`${serverUrl}/api/test-position`, {
         method: 'POST',
@@ -1129,10 +1130,7 @@ function _ensureMap() {
       Query.loadData(lat, lon).then(() => {
         dataLoaded = true;
         setStatus('Ready. (map position)');
-        _runWhereAmI(lat, lon);
       }).catch(() => {});
-    } else {
-      _runWhereAmI(lat, lon);
     }
   });
 
