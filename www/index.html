@@ -18,33 +18,6 @@
 <body>
   <div id="app">
 
-    <div id="header">
-      <h1>&#9875; AudioChart <span id="app-version"></span></h1>
-      <div class="badge-row">
-        <span id="gps-status" class="status-badge">GPS: waiting</span>
-        <button id="offline-btn" title="Download chart data for offline use" style="display:none">&#11015; Offline</button>
-        <button id="route-btn" title="Download chart data for a cruise route" style="display:none">&#11015; Route</button>
-        <button id="test-pos-btn" title="Set test position">&#128205;</button>
-      </div>
-    </div>
-
-    <div id="cruise-form" style="display:none">
-      <span id="cruise-label">Download route:</span>
-      <div id="cruise-choices"></div>
-    </div>
-
-    <div id="test-pos-form" style="display:none">
-      <input id="test-pos-input" type="text" placeholder="Camden  or  Crow Island, Cranberry Isles" autocomplete="off">
-      <button id="test-pos-set">Set</button>
-      <button id="test-pos-clear">Clear</button>
-    </div>
-
-    <div id="position-display">-- °--.--' -  --- °--.--' -</div>
-    <a id="map-link" href="#" target="_blank" style="display:none">&#128506; View on map</a>
-
-    <p id="status-text">Loading chart data&hellip;</p>
-    <div id="demo-hud" style="display:none"></div>
-
     <div id="map-container" style="display:none">
       <div id="leaflet-map"></div>
       <button id="map-menu-btn" title="Map menu">&#9776;</button>
@@ -57,10 +30,33 @@
       <span id="anim-banner-text">&#9654;</span>
       <button id="anim-stop-btn">&#10005; Stop</button>
     </div>
-    <button id="opencpn-btn" style="display:none">&#8853; Full Chart</button>
 
-    <div id="response-area">
-      <p id="response-text">Type a command below. On your phone, tap the mic on the keyboard to speak.
+    <div id="sidebar">
+      <div id="header">
+        <h1>&#9875; AudioChart <span id="app-version"></span></h1>
+        <div class="badge-row">
+          <span id="gps-status" class="status-badge">GPS: waiting</span>
+          <button id="offline-btn" title="Download chart data for offline use" style="display:none">&#11015; Offline</button>
+          <button id="route-btn" title="Download chart data for a cruise route" style="display:none">&#11015; Route</button>
+          <button id="test-pos-btn" title="Set test position">&#128205;</button>
+        </div>
+      </div>
+      <div id="cruise-form" style="display:none">
+        <span id="cruise-label">Download route:</span>
+        <div id="cruise-choices"></div>
+      </div>
+      <div id="test-pos-form" style="display:none">
+        <input id="test-pos-input" type="text" placeholder="Camden  or  Crow Island, Cranberry Isles" autocomplete="off">
+        <button id="test-pos-set">Set</button>
+        <button id="test-pos-clear">Clear</button>
+      </div>
+      <div id="position-display">-- °--.--' -  --- °--.--' -</div>
+      <a id="map-link" href="#" target="_blank" style="display:none">&#128506; View on map</a>
+      <p id="status-text">Loading chart data&hellip;</p>
+      <div id="demo-hud" style="display:none"></div>
+      <button id="opencpn-btn" style="display:none">&#8853; Full Chart</button>
+      <div id="response-area">
+        <p id="response-text">Type a command below. On your phone, tap the mic on the keyboard to speak.
 
 Examples:
 &bull; &ldquo;Hazards within quarter mile&rdquo;
@@ -68,17 +64,18 @@ Examples:
 &bull; &ldquo;Range and bearing to Carvers Harbor&rdquo;
 &bull; &ldquo;Where am I&rdquo;
 &bull; &ldquo;Nearest buoy&rdquo;</p>
-      <div id="navaid-list"></div>
-    </div>
+        <div id="navaid-list"></div>
+      </div>
 
-    <form id="text-form" autocomplete="off">
-      <input id="text-input" type="text" placeholder="Type a command&hellip;" aria-label="Text command input">
-      <button type="submit" id="text-submit">&#9654;</button>
-    </form>
+      <form id="text-form" autocomplete="off">
+        <input id="text-input" type="text" placeholder="Type a command&hellip;" aria-label="Text command input">
+        <button type="submit" id="text-submit">&#9654;</button>
+      </form>
 
-    <div id="history-area">
-      <div id="history-list"></div>
-      <button id="history-clear" title="Clear history" style="display:none">&#10005;</button>
+      <div id="history-area">
+        <div id="history-list"></div>
+        <button id="history-clear" title="Clear history" style="display:none">&#10005;</button>
+      </div>
     </div>
 
   </div>

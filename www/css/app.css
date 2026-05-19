@@ -37,8 +37,54 @@ html, body {
   height: 100dvh;
   max-width: 480px;
   margin: 0 auto;
+  padding: 0;
+  gap: 0;
+}
+
+/* Sidebar holds all controls (header, position, response, input, history) */
+#sidebar {
+  display: flex;
+  flex-direction: column;
   padding: 12px;
   gap: 12px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* ── Desktop layout ───────────────────────────────────────────────────────── */
+@media (min-width: 768px) {
+  #app {
+    flex-direction: row;
+    max-width: 100%;
+    align-items: stretch;
+  }
+  #map-container {
+    flex: 1 !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    min-height: 0 !important;
+    border-radius: 0;
+    order: 1;
+  }
+  #sketch-banner,
+  #anim-banner {
+    order: 3;
+  }
+  #sidebar {
+    width: 380px;
+    flex-shrink: 0;
+    flex: none;
+    order: 2;
+    border-left: 1px solid var(--dark-blue);
+    overflow-y: auto;
+  }
+}
+
+/* Fullscreen modes must use column layout regardless of screen size */
+#app.sketch-mode,
+#app.anim-mode {
+  flex-direction: column !important;
 }
 
 /* Header */
@@ -488,7 +534,8 @@ html, body {
 #map-ctx-route-delete { color: var(--danger) !important; }
 
 /* Sketch route mode — map + banner fill the entire screen */
-#app.sketch-mode > *:not(#map-container):not(#sketch-banner) {
+#app.sketch-mode #sidebar,
+#app.sketch-mode #anim-banner {
   display: none !important;
 }
 #app.sketch-mode #map-container {
@@ -598,7 +645,8 @@ html, body {
   border: none !important;
 }
 /* Animation fullscreen mode */
-#app.anim-mode > *:not(#map-container):not(#anim-banner) {
+#app.anim-mode #sidebar,
+#app.anim-mode #sketch-banner {
   display: none !important;
 }
 #app.anim-mode #map-container {
