@@ -1086,10 +1086,7 @@ function _ensureMap() {
     });
   }
 
-  document.getElementById('map-ctx-where-am-i').addEventListener('click', async () => {
-    _hideCtx();
-    if (!_ctxLatLng) return;
-    const { lat, lng: lon } = _ctxLatLng;
+  async function _runWhereAmI(lat, lon) {
     let response = Query.whereAmI(lat, lon);
     if (serverUrl && response?.text && /^\d+\s+degrees/.test(response.text)) {
       try {
@@ -1106,6 +1103,13 @@ function _ensureMap() {
     const txt = response?.text ?? response ?? 'No named places found nearby.';
     showResponse(txt);
     TTS.sayImmediate(response?.speech ?? txt);
+  }
+
+  document.getElementById('map-ctx-where-am-i').addEventListener('click', () => {
+    _hideCtx();
+    if (!_ctxLatLng) return;
+    const { lat, lng: lon } = _ctxLatLng;
+    _runWhereAmI(lat, lon);
   });
 
   document.getElementById('map-ctx-set-position').addEventListener('click', () => {
@@ -1125,7 +1129,10 @@ function _ensureMap() {
       Query.loadData(lat, lon).then(() => {
         dataLoaded = true;
         setStatus('Ready. (map position)');
+        _runWhereAmI(lat, lon);
       }).catch(() => {});
+    } else {
+      _runWhereAmI(lat, lon);
     }
   });
 
