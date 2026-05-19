@@ -205,6 +205,25 @@ const opencpnBtn = document.getElementById('opencpn-btn');
 
 let serverUrl = null;  // set in init(); used by offline button and test-position API
 
+async function _runWhereAmI(lat, lon) {
+  let response = Query.whereAmI(lat, lon);
+  if (serverUrl && response?.text && /^\d+\s+degrees/.test(response.text)) {
+    try {
+      const r = await fetch(`${serverUrl}/api/nearest-landmark?lat=${lat}&lon=${lon}`,
+        { cache: 'no-store', signal: AbortSignal.timeout(4000) });
+      if (r.ok) {
+        const lm = await r.json();
+        const dir = Query.compassDir(lm.bearing_deg);
+        const dist = Query.naturalDist(lm.dist_nm);
+        response = { text: `${dist} ${dir} of ${lm.name}`, speech: `${dist} ${dir} of ${lm.name}.` };
+      }
+    } catch (_) {}
+  }
+  const txt = response?.text ?? response ?? 'No named places found nearby.';
+  showResponse(txt);
+  TTS.sayImmediate(response?.speech ?? txt);
+}
+
 const CRUISE_PROFILES = {
   'Penobscot Bay': {
     dataUrl: './data/regions/penobscot-bay.json',
@@ -1089,25 +1108,6 @@ function _ensureMap() {
     });
   }
 
-  async function _runWhereAmI(lat, lon) {
-    let response = Query.whereAmI(lat, lon);
-    if (serverUrl && response?.text && /^\d+\s+degrees/.test(response.text)) {
-      try {
-        const r = await fetch(`${serverUrl}/api/nearest-landmark?lat=${lat}&lon=${lon}`,
-          { cache: 'no-store', signal: AbortSignal.timeout(4000) });
-        if (r.ok) {
-          const lm = await r.json();
-          const dir = Query.compassDir(lm.bearing_deg);
-          const dist = Query.naturalDist(lm.dist_nm);
-          response = { text: `${dist} ${dir} of ${lm.name}`, speech: `${dist} ${dir} of ${lm.name}.` };
-        }
-      } catch (_) {}
-    }
-    const txt = response?.text ?? response ?? 'No named places found nearby.';
-    showResponse(txt);
-    TTS.sayImmediate(response?.speech ?? txt);
-  }
-
   document.getElementById('map-ctx-where-am-i').addEventListener('click', () => {
     _hideCtx();
     if (!_ctxLatLng) return;
@@ -1720,6 +1720,12 @@ testPosSet.addEventListener('click', async () => {
     testPosInput.value = '';
     syncTestPosButton();
     if (coord.name) setStatus(`Test position set: ${coord.name}`);
+    _ensureMap();
+    document.getElementById('map-container').style.display = 'block';
+    _mapContainer.classList.remove('map-compact', 'list-focus', 'input-focus');
+    _showBoatPosition(coord.lat, coord.lon);
+    _map.invalidateSize();
+    _runWhereAmI(coord.lat, coord.lon);
     if (serverUrl) {
       fetch(`${serverUrl}/api/test-position`, {
         method: 'POST',
