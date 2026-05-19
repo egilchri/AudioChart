@@ -1722,10 +1722,15 @@ testPosSet.addEventListener('click', async () => {
     if (coord.name) setStatus(`Test position set: ${coord.name}`);
     await loadLeaflet();
     _ensureMap();
+    textInput.blur();
     document.getElementById('map-container').style.display = 'block';
     _mapContainer.classList.remove('map-compact', 'list-focus', 'input-focus');
     _showBoatPosition(coord.lat, coord.lon);
-    setTimeout(() => { _map.invalidateSize(); _map.panTo([coord.lat, coord.lon]); }, 260);
+    setTimeout(() => {
+      _mapContainer.classList.remove('map-compact', 'list-focus', 'input-focus');
+      _map.invalidateSize();
+      _map.panTo([coord.lat, coord.lon]);
+    }, 300);
     _runWhereAmI(coord.lat, coord.lon);
     if (serverUrl) {
       fetch(`${serverUrl}/api/test-position`, {
