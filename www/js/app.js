@@ -1720,7 +1720,7 @@ testPosSet.addEventListener('click', async () => {
     testPosInput.value = '';
     syncTestPosButton();
     if (coord.name) setStatus(`Test position set: ${coord.name}`);
-    _ensureMap();
+    await _ensureMap();
     document.getElementById('map-container').style.display = 'block';
     _mapContainer.classList.remove('map-compact', 'list-focus', 'input-focus');
     _showBoatPosition(coord.lat, coord.lon);
