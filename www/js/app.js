@@ -1725,7 +1725,7 @@ testPosSet.addEventListener('click', async () => {
     document.getElementById('map-container').style.display = 'block';
     _mapContainer.classList.remove('map-compact', 'list-focus', 'input-focus');
     _showBoatPosition(coord.lat, coord.lon);
-    _map.invalidateSize();
+    setTimeout(() => { _map.invalidateSize(); _map.panTo([coord.lat, coord.lon]); }, 260);
     _runWhereAmI(coord.lat, coord.lon);
     if (serverUrl) {
       fetch(`${serverUrl}/api/test-position`, {
