@@ -87,7 +87,8 @@ function _showBoatPosition(lat, lon) {
   _boatLayer = L.layerGroup([marker]).addTo(_map);
   // hide the live-position layer — test position takes over
   if (_youLayer) { _map.removeLayer(_youLayer); _youLayer = null; }
-  _map.panTo([lat, lon]);
+  const zoom = _map.getZoom();
+  if (!zoom) _map.setView([lat, lon], 13); else _map.panTo([lat, lon]);
 }
 
 function _clearBoatPosition() {
