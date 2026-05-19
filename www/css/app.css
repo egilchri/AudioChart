@@ -60,6 +60,7 @@ html, body {
     align-items: stretch;
   }
   #map-container {
+    display: block !important; /* always visible on desktop */
     flex: 1 !important;
     height: 100dvh !important;
     max-height: 100dvh !important;

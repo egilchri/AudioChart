@@ -1726,6 +1726,11 @@ async function runRouteDownload(cruiseName) {
 async function init() {
   setStatus('Waiting for GPS...');
 
+  // On desktop, show the map immediately so the sidebar sits on the right
+  if (window.innerWidth >= 768) {
+    loadLeaflet().then(() => { _ensureMap(); _map.invalidateSize(); }).catch(() => {});
+  }
+
   // If opened via QR code with ?server=, persist the server URL and clean the address bar.
   const _params = new URLSearchParams(location.search);
   const _serverParam = _params.get('server');
