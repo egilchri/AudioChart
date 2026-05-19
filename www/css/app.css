@@ -515,9 +515,20 @@ html, body {
 #map-ctx-objects-submenu,
 #map-ctx-wp-submenu,
 #map-ctx-track-submenu,
-#map-ctx-route-submenu {
+#map-ctx-route-submenu,
+#map-ctx-import-submenu {
   display: none;
   border-top: 1px solid var(--mid-blue);
+}
+#map-ctx-import-submenu button {
+  padding-left: 28px;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+#map-ctx-import-submenu button:hover,
+#map-ctx-import-submenu button:active {
+  color: var(--text);
+  background: var(--mid-blue);
 }
 #map-ctx-route-parent {
   border-top: 1px solid var(--mid-blue);
