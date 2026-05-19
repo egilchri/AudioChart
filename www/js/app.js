@@ -728,10 +728,11 @@ function _ensureMap() {
     const pos = GPS.getPosition();
     _ctxLatLng = pos ? L.latLng(pos.lat, pos.lon) : _map.getCenter();
     const btn  = e.currentTarget.getBoundingClientRect();
-    _ctxSubmenu.style.display   = 'none';
-    _wpSubmenu.style.display    = 'none';
-    _trackSubmenu.style.display = 'none';
-    _routeSubmenu.style.display = 'none';
+    _ctxSubmenu.style.display    = 'none';
+    _wpSubmenu.style.display     = 'none';
+    _trackSubmenu.style.display  = 'none';
+    _routeSubmenu.style.display  = 'none';
+    _importSubmenu.style.display = 'none';
     _populateWpSubmenu();
     _populateRouteSelect();
     _ctxMenu.style.left = Math.max(4, btn.left - 180) + 'px';
@@ -789,14 +790,16 @@ function _ensureMap() {
       : '<option value="">— no routes saved —</option>';
   }
 
-  const _routeSubmenu = document.getElementById('map-ctx-route-submenu');
+  const _routeSubmenu  = document.getElementById('map-ctx-route-submenu');
+  const _importSubmenu = document.getElementById('map-ctx-import-submenu');
 
   _map.on('contextmenu', (e) => {
     _ctxLatLng = e.latlng;
-    _ctxSubmenu.style.display   = 'none';
-    _wpSubmenu.style.display    = 'none';
-    _trackSubmenu.style.display = 'none';
-    _routeSubmenu.style.display = 'none';
+    _ctxSubmenu.style.display    = 'none';
+    _wpSubmenu.style.display     = 'none';
+    _trackSubmenu.style.display  = 'none';
+    _routeSubmenu.style.display  = 'none';
+    _importSubmenu.style.display = 'none';
     _populateWpSubmenu();
     _populateRouteSelect();
     _ctxMenu.style.left = e.originalEvent.clientX + 'px';
@@ -944,6 +947,88 @@ function _ensureMap() {
       return;
     }
   });
+
+  document.getElementById('map-ctx-import-parent').addEventListener('click', () => {
+    const isMobile = navigator.maxTouchPoints > 1;
+    document.getElementById('import-hint-text').textContent = isMobile
+      ? 'Export from Navionics → Files app first'
+      : '~/Library/Application Support/opencpn/';
+    _importSubmenu.style.display = _importSubmenu.style.display === 'block' ? 'none' : 'block';
+  });
+
+  const _gpxInput = document.getElementById('gpx-file-input');
+  let _gpxMode = null;
+
+  document.getElementById('map-ctx-import-markers').addEventListener('click', () => {
+    _hideCtx();
+    _gpxMode = 'markers';
+    _gpxInput.value = '';
+    _gpxInput.click();
+  });
+
+  document.getElementById('map-ctx-import-routes').addEventListener('click', () => {
+    _hideCtx();
+    _gpxMode = 'routes';
+    _gpxInput.value = '';
+    _gpxInput.click();
+  });
+
+  _gpxInput.addEventListener('change', () => {
+    const file = _gpxInput.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const doc = new DOMParser().parseFromString(ev.target.result, 'application/xml');
+      if (_gpxMode === 'markers') _importGpxMarkers(doc);
+      else                        _importGpxRoutes(doc);
+    };
+    reader.readAsText(file);
+  });
+
+  function _importGpxMarkers(doc) {
+    const wpts = [...doc.querySelectorAll('wpt')];
+    if (!wpts.length) { TTS.sayImmediate('No waypoints found in file.'); return; }
+    let count = 0;
+    for (const wpt of wpts) {
+      const lat  = parseFloat(wpt.getAttribute('lat'));
+      const lon  = parseFloat(wpt.getAttribute('lon'));
+      const name = wpt.querySelector('name')?.textContent?.trim() || nextWaypointName();
+      if (isNaN(lat) || isNaN(lon)) continue;
+      saveUserWaypoint(name, lat, lon);
+      count++;
+    }
+    if (!_waypointsVisible) _setWaypointsVisible(true);
+    const msg = `Imported ${count} marker${count !== 1 ? 's' : ''}.`;
+    setStatus(msg); TTS.sayImmediate(msg);
+  }
+
+  function _importGpxRoutes(doc) {
+    const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+    let count = 0;
+    for (const rte of doc.querySelectorAll('rte')) {
+      const name   = rte.querySelector('name')?.textContent?.trim() || `Route ${routes.length + count + 1}`;
+      const points = [...rte.querySelectorAll('rtept')].map(pt => ({
+        lat: parseFloat(pt.getAttribute('lat')),
+        lon: parseFloat(pt.getAttribute('lon')),
+      })).filter(p => !isNaN(p.lat) && !isNaN(p.lon));
+      if (!points.length) continue;
+      routes.push({ name, points });
+      count++;
+    }
+    for (const trk of doc.querySelectorAll('trk')) {
+      const name   = trk.querySelector('name')?.textContent?.trim() || `Route ${routes.length + count + 1}`;
+      const points = [...trk.querySelectorAll('trkpt')].map(pt => ({
+        lat: parseFloat(pt.getAttribute('lat')),
+        lon: parseFloat(pt.getAttribute('lon')),
+      })).filter(p => !isNaN(p.lat) && !isNaN(p.lon));
+      if (!points.length) continue;
+      routes.push({ name, points });
+      count++;
+    }
+    localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
+    const msg = `Imported ${count} route${count !== 1 ? 's' : ''}.`;
+    setStatus(msg); TTS.sayImmediate(msg);
+  }
 
   document.getElementById('map-ctx-where-am-i').addEventListener('click', async () => {
     _hideCtx();

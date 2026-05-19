@@ -761,6 +761,13 @@ html, body {
 .ctx-wp-del {
   color: var(--danger) !important;
 }
+.import-hint {
+  font-size: 0.7rem;
+  color: #aaa;
+  padding: 2px 8px 4px;
+  font-family: monospace;
+  word-break: break-all;
+}
 
 /* Text input */
 #text-form {
