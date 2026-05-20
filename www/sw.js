@@ -1,3 +1,4 @@
+/** @version v85 */
 /**
  * AudioChart Service Worker — offline caching.
  *
