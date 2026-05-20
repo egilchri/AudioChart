@@ -19,6 +19,13 @@ function selectVoice() {
 if (typeof speechSynthesis !== 'undefined') {
   speechSynthesis.addEventListener('voiceschanged', selectVoice);
   selectVoice();
+  // iOS pauses speechSynthesis after ~15s of inactivity; resume it periodically
+  setInterval(() => {
+    if (speechSynthesis.speaking) {
+      speechSynthesis.pause();
+      speechSynthesis.resume();
+    }
+  }, 10000);
 }
 
 function speakNext() {

@@ -631,6 +631,9 @@ function _startRouteAnimation(route, speedKnots) {
   const sailTotalMin = Math.round(totalNm / speedKnots * 60); // actual sailing minutes
   const compressLabel = compress > 1 ? ` · ${compress}×` : '';
 
+  // Prime TTS in the user-gesture call stack so iOS allows timer-triggered speech later
+  TTS.sayImmediate(`Animating ${route.name}. ${Math.round(totalNm * 10) / 10} nautical miles.`);
+
   // Persistent object layer — markers accumulate as new objects come into range
   _animReportLayer = L.layerGroup().addTo(_map);
   const _seenObjKeys = new Set();
