@@ -329,6 +329,7 @@ let _animIntervalId = null;
 let _animMarker = null;
 let _animRouteLine    = null;
 let _previewRouteLine = null;
+let _animClickHandler = null;
 let _baseTileLayer    = null;
 let _seamarkLayer     = null;
 let _chartMode        = localStorage.getItem('audiochart-chart-mode') === 'chart';
@@ -557,6 +558,7 @@ const _animBannerText = document.getElementById('anim-banner-text');
 
 function _exitAnimMode() {
   if (_map) _map.off('click', _exitAnimMode);
+  if (_map && _animClickHandler) { _map.off('click', _animClickHandler); _animClickHandler = null; }
   _animMode = false;
   _animFollowMode = false;
   _animCurrentLat = null;
@@ -578,15 +580,13 @@ document.getElementById('anim-stop-btn').addEventListener('click', _exitAnimMode
 function _getTrackSettings() {
   const objChip      = document.querySelector('.track-obj.selected');
   const distChip     = document.querySelector('.track-dist.selected');
-  const intervalChip = document.querySelector('.track-interval.selected');
   const compressChip = document.querySelector('.track-compress.selected');
   const zoomChip     = document.querySelector('.track-zoom.selected');
   return {
-    filter:     objChip      ? (objChip.dataset.obj || null)     : null,
-    radiusNm:   distChip     ? parseFloat(distChip.dataset.nm)   : 0.25,
-    intervalMs: intervalChip ? parseInt(intervalChip.dataset.ms) : null,
-    compress:   compressChip ? parseInt(compressChip.dataset.compress) : 1,
-    zoom:       zoomChip?.dataset.zoom ? parseInt(zoomChip.dataset.zoom) : null,
+    filter:   objChip      ? (objChip.dataset.obj || null)     : null,
+    radiusNm: distChip     ? parseFloat(distChip.dataset.nm)   : 0.25,
+    compress: compressChip ? parseInt(compressChip.dataset.compress) : 1,
+    zoom:     zoomChip?.dataset.zoom ? parseInt(zoomChip.dataset.zoom) : null,
   };
 }
 
@@ -634,9 +634,8 @@ function _startRouteAnimation(route, speedKnots) {
   // Prime TTS in the user-gesture call stack so iOS allows timer-triggered speech later
   TTS.sayImmediate(`Animating ${route.name}. ${Math.round(totalNm * 10) / 10} nautical miles.`);
 
-  // Persistent object layer — markers accumulate as new objects come into range
+  // Object layer for click-based reports
   _animReportLayer = L.layerGroup().addTo(_map);
-  const _seenObjKeys = new Set();
 
   function _flashLayer(marker) {
     setTimeout(() => {
@@ -647,46 +646,32 @@ function _startRouteAnimation(route, speedKnots) {
     }, 80);
   }
 
-  // Periodic navaid/hazard reports at chosen interval
-  if (track.intervalMs) {
-    _animIntervalId = setInterval(() => {
-      if (_animCurrentLat == null || !_animMode) return;
+  // Tap map during animation → stop boat and show nearby objects
+  _animClickHandler = () => {
+    _map.off('click', _animClickHandler); _animClickHandler = null;
+    if (_animRafId) { cancelAnimationFrame(_animRafId); _animRafId = null; }
 
-      const navResult = Query.navaidsInRadius(_animCurrentLat, _animCurrentLon, track.radiusNm, track.filter);
-      const hazResult = !track.filter
-        ? Query.hazardsInRadius(_animCurrentLat, _animCurrentLon, track.radiusNm)
-        : null;
+    const navResult = Query.navaidsInRadius(_animCurrentLat, _animCurrentLon, track.radiusNm, track.filter);
+    const hazResult = !track.filter
+      ? Query.hazardsInRadius(_animCurrentLat, _animCurrentLon, track.radiusNm)
+      : null;
 
-      // Only process newly-seen objects — no bearing lines, no "all clear"
-      const newNavs = (Query.lastNavaidResults || []).filter(n => {
-        const k = `n:${n.lat.toFixed(4)},${n.lon.toFixed(4)}`;
-        if (_seenObjKeys.has(k)) return false;
-        _seenObjKeys.add(k); return true;
-      });
-      const newHazs = (Query.lastHazardResults || []).filter(h => {
-        const k = `h:${h.lat.toFixed(4)},${h.lon.toFixed(4)}`;
-        if (_seenObjKeys.has(k)) return false;
-        _seenObjKeys.add(k); return true;
-      });
+    _animReportLayer.clearLayers();
+    for (const n of (Query.lastNavaidResults || [])) {
+      const m = L.marker([n.lat, n.lon], { icon: _navaidMarkerIcon(n) });
+      _animReportLayer.addLayer(m); _flashLayer(m);
+    }
+    for (const h of (Query.lastHazardResults || [])) {
+      const m = L.marker([h.lat, h.lon], { icon: _hazardMarkerIcon() });
+      _animReportLayer.addLayer(m); _flashLayer(m);
+    }
 
-      if (!newNavs.length && !newHazs.length) return;
-
-      for (const n of newNavs) {
-        const m = L.marker([n.lat, n.lon], { icon: _navaidMarkerIcon(n) });
-        _animReportLayer.addLayer(m);
-        _flashLayer(m);
-      }
-      for (const h of newHazs) {
-        const m = L.marker([h.lat, h.lon], { icon: _hazardMarkerIcon() });
-        _animReportLayer.addLayer(m);
-        _flashLayer(m);
-      }
-
-      const speech = [newNavs.length && navResult?.speech, newHazs.length && hazResult?.speech]
-        .filter(Boolean).join('. ');
-      if (speech) TTS.sayImmediate(speech);
-    }, track.intervalMs);
-  }
+    const speech = [navResult?.speech, hazResult?.speech].filter(Boolean).join('. ') || 'All clear.';
+    TTS.sayImmediate(speech);
+    _animBannerText.textContent = `⛵ Stopped · tap map to dismiss`;
+    _map.once('click', _exitAnimMode);
+  };
+  _map.on('click', _animClickHandler);
 
   // Delay RAF start to let the DOM/map settle after entering fullscreen
   let startTime = null;
@@ -697,6 +682,7 @@ function _startRouteAnimation(route, speedKnots) {
     const traveled = elapsed * nmPerRealSec;
 
     if (traveled >= totalNm) {
+      if (_animClickHandler) { _map.off('click', _animClickHandler); _animClickHandler = null; }
       _animMarker.setLatLng(pts[pts.length - 1]);
       _animBannerText.textContent = `✓ ${route.name} complete · ${sailTotalMin} min sailing · tap map to dismiss`;
       _map.fitBounds(L.latLngBounds(pts).pad(0.25));
