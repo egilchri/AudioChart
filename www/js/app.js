@@ -663,6 +663,7 @@ function _startRouteAnimation(route, speedKnots) {
     if (traveled >= totalNm) {
       _animMarker.setLatLng(pts[pts.length - 1]);
       _animBannerText.textContent = `✓ ${route.name} complete · ${sailTotalMin} min sailing`;
+      _map.fitBounds(L.latLngBounds(pts).pad(0.25));
       setTimeout(_exitAnimMode, 3000);
       return;
     }
