@@ -330,6 +330,7 @@ let _animMarker = null;
 let _animRouteLine    = null;
 let _previewRouteLine = null;
 let _animClickHandler = null;
+let _animTraveled     = 0;
 let _baseTileLayer    = null;
 let _seamarkLayer     = null;
 let _chartMode        = localStorage.getItem('audiochart-chart-mode') === 'chart';
@@ -636,19 +637,12 @@ function _startRouteAnimation(route, speedKnots) {
 
   // Object layer for click-based reports
   _animReportLayer = L.layerGroup().addTo(_map);
+  _animTraveled = 0;
 
-  function _flashLayer(marker) {
-    setTimeout(() => {
-      const el = marker.getElement?.();
-      if (!el) return;
-      el.classList.add('marker-flash');
-      el.addEventListener('animationend', () => el.classList.remove('marker-flash'), { once: true });
-    }, 80);
-  }
-
-  // Tap map during animation → stop boat and show nearby objects
-  _animClickHandler = () => {
-    _map.off('click', _animClickHandler); _animClickHandler = null;
+  // Tap map during animation → stop boat, show nearby objects, tap again to resume
+  function _onAnimStop() {
+    _map.off('click', _onAnimStop);
+    _animClickHandler = null;
     if (_animRafId) { cancelAnimationFrame(_animRafId); _animRafId = null; }
 
     const navResult = Query.navaidsInRadius(_animCurrentLat, _animCurrentLon, track.radiusNm, track.filter);
@@ -659,19 +653,32 @@ function _startRouteAnimation(route, speedKnots) {
     _animReportLayer.clearLayers();
     for (const n of (Query.lastNavaidResults || [])) {
       const m = L.marker([n.lat, n.lon], { icon: _navaidMarkerIcon(n) });
-      _animReportLayer.addLayer(m); _flashLayer(m);
+      _animReportLayer.addLayer(m);
+      _highlightAndSpeak(m, null, null, null); // just flash, speech handled below
     }
     for (const h of (Query.lastHazardResults || [])) {
       const m = L.marker([h.lat, h.lon], { icon: _hazardMarkerIcon() });
-      _animReportLayer.addLayer(m); _flashLayer(m);
+      _animReportLayer.addLayer(m);
+      _highlightAndSpeak(m, null, null, null);
     }
 
     const speech = [navResult?.speech, hazResult?.speech].filter(Boolean).join('. ') || 'All clear.';
     TTS.sayImmediate(speech);
-    _animBannerText.textContent = `⛵ Stopped · tap map to dismiss`;
-    _map.once('click', _exitAnimMode);
-  };
-  _map.on('click', _animClickHandler);
+    _animBannerText.textContent = `⛵ Stopped · tap map to resume`;
+
+    _map.once('click', () => {
+      _animReportLayer.clearLayers();
+      _animBannerText.textContent = `⛵ ${route.name} · ${speedKnots} kts${compressLabel}`;
+      _animClickHandler = _onAnimStop;
+      _map.on('click', _onAnimStop);
+      _animRafId = requestAnimationFrame((now) => {
+        startTime = now - (_animTraveled / nmPerRealSec * 1000);
+        step(now);
+      });
+    });
+  }
+  _animClickHandler = _onAnimStop;
+  _map.on('click', _onAnimStop);
 
   // Delay RAF start to let the DOM/map settle after entering fullscreen
   let startTime = null;
@@ -680,6 +687,7 @@ function _startRouteAnimation(route, speedKnots) {
     if (startTime === null) startTime = now; // anchor to first frame
     const elapsed  = (now - startTime) / 1000;
     const traveled = elapsed * nmPerRealSec;
+    _animTraveled  = traveled;
 
     if (traveled >= totalNm) {
       if (_animClickHandler) { _map.off('click', _animClickHandler); _animClickHandler = null; }
@@ -772,6 +780,30 @@ function saveUserWaypoint(name, lat, lon) {
   localStorage.setItem(USER_WP_KEY, JSON.stringify(wps));
   Query.mergeUserWaypoints([{ name, lat, lon }]);
   _refreshWaypointLayer();
+}
+
+function _highlightAndSpeak(marker, displayText, speechText, onEnd) {
+  if (displayText) showResponse(displayText);
+  const el = marker.getElement?.();
+  if (el) {
+    el.classList.add('marker-speaking');
+    if (_map && !_map.getBounds().contains(marker.getLatLng())) {
+      _map.panTo(marker.getLatLng());
+    }
+  }
+  if (speechText) {
+    TTS.sayImmediate(speechText, () => {
+      if (el) el.classList.remove('marker-speaking');
+      if (onEnd) onEnd();
+    });
+  } else {
+    // Flash-only call (no speech text) — just do a quick flash
+    if (el) {
+      el.classList.remove('marker-speaking');
+      el.classList.add('marker-flash');
+      el.addEventListener('animationend', () => el.classList.remove('marker-flash'), { once: true });
+    }
+  }
 }
 
 // ── Map ───────────────────────────────────────────────────────────────────────
@@ -1294,10 +1326,10 @@ async function showNavaidMap(fromLat, fromLon, navaids) {
       const nameStr = n.name ? ` ${n.name}` : '';
       const detail  = n.characteristic ? `, ${n.characteristic}` : n.colour ? `, ${n.colour}` : '';
       const base = `${n.label}${nameStr}${detail}`;
-      const displayText = `${base}, ${bearingToDisplay(n.brg)}, ${distanceToDisplay(n.d)}`;
-      const speechText  = `${base}, bearing ${bearingToWords(n.brg)}, ${formatDistance(n.d)}.`;
-      showResponse(displayText);
-      TTS.sayImmediate(speechText);
+      _highlightAndSpeak(marker,
+        `${base}, ${bearingToDisplay(n.brg)}, ${distanceToDisplay(n.d)}`,
+        `${base}, bearing ${bearingToWords(n.brg)}, ${formatDistance(n.d)}.`
+      );
     });
     layers.push(marker);
   }
@@ -1325,10 +1357,10 @@ async function showHazardMap(fromLat, fromLon, hazardPts) {
     marker.on('click', () => {
       const nameStr = h.name ? `, ${h.name}` : '';
       const base = `${h.label}${nameStr}`;
-      const displayText = `${base}, ${bearingToDisplay(h.brg)}, ${distanceToDisplay(h.d)}`;
-      const speechText  = `${base}, bearing ${bearingToWords(h.brg)}, ${formatDistance(h.d)}.`;
-      showResponse(displayText);
-      TTS.sayImmediate(speechText);
+      _highlightAndSpeak(marker,
+        `${base}, ${bearingToDisplay(h.brg)}, ${distanceToDisplay(h.d)}`,
+        `${base}, bearing ${bearingToWords(h.brg)}, ${formatDistance(h.d)}.`
+      );
     });
     layers.push(marker);
   }
@@ -1479,8 +1511,10 @@ async function handleMapLongPress(latlng, radiusNm = 0.25, radiusLabel = '¼ mil
     m.on('click', () => {
       const nameStr = h.name ? `, ${h.name}` : '';
       const base = `${h.label}${nameStr}`;
-      showResponse(`${base}, ${bearingToDisplay(h.brg)}, ${distanceToDisplay(h.d)}`);
-      TTS.sayImmediate(`${base}, bearing ${bearingToWords(h.brg)}, ${formatDistance(h.d)}.`);
+      _highlightAndSpeak(m,
+        `${base}, ${bearingToDisplay(h.brg)}, ${distanceToDisplay(h.d)}`,
+        `${base}, bearing ${bearingToWords(h.brg)}, ${formatDistance(h.d)}.`
+      );
     });
     layers.push(m);
   }
@@ -1494,8 +1528,10 @@ async function handleMapLongPress(latlng, radiusNm = 0.25, radiusLabel = '¼ mil
       const nameStr = n.name ? ` ${n.name}` : '';
       const detail  = n.characteristic ? `, ${n.characteristic}` : n.colour ? `, ${n.colour}` : '';
       const base = `${n.label}${nameStr}${detail}`;
-      showResponse(`${base}, ${bearingToDisplay(n.brg)}, ${distanceToDisplay(n.d)}`);
-      TTS.sayImmediate(`${base}, bearing ${bearingToWords(n.brg)}, ${formatDistance(n.d)}.`);
+      _highlightAndSpeak(m,
+        `${base}, ${bearingToDisplay(n.brg)}, ${distanceToDisplay(n.d)}`,
+        `${base}, bearing ${bearingToWords(n.brg)}, ${formatDistance(n.d)}.`
+      );
     });
     layers.push(m);
   }

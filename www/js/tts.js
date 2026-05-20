@@ -6,6 +6,7 @@
 let voice = null;
 let queue = [];
 let speaking = false;
+let _onSpeechEnd = null;
 
 function selectVoice() {
   const voices = speechSynthesis.getVoices();
@@ -37,7 +38,11 @@ function speakNext() {
   utt.pitch = 1.0;
   utt.volume = 1.0;
   if (voice) utt.voice = voice;
-  utt.onend = () => { speaking = false; speakNext(); };
+  utt.onend = () => {
+    speaking = false;
+    if (queue.length === 0 && _onSpeechEnd) { const cb = _onSpeechEnd; _onSpeechEnd = null; cb(); }
+    speakNext();
+  };
   utt.onerror = () => { speaking = false; speakNext(); };
   speechSynthesis.speak(utt);
 }
@@ -48,8 +53,9 @@ export function say(text) {
   speakNext();
 }
 
-/** Cancel current speech and all queued, speak immediately. */
-export function sayImmediate(text) {
+/** Cancel current speech and all queued, speak immediately. Optional onEnd callback fires when done. */
+export function sayImmediate(text, onEnd = null) {
+  _onSpeechEnd = onEnd;
   queue = [];
   speechSynthesis.cancel();
   speaking = false;
@@ -59,6 +65,7 @@ export function sayImmediate(text) {
 
 /** Stop all speech and clear queue. */
 export function stop() {
+  _onSpeechEnd = null;
   queue = [];
   speechSynthesis.cancel();
   speaking = false;

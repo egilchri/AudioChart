@@ -713,6 +713,14 @@ html, body {
   flex-shrink: 0;
 }
 /* Marker flash animation — triggered when list row is tapped */
+@keyframes marker-pulse {
+  0%, 100% { opacity: 1;   transform: scale(1);   }
+  50%       { opacity: 0.4; transform: scale(1.5); }
+}
+.marker-speaking {
+  animation: marker-pulse 0.7s ease-in-out infinite;
+  transform-origin: center;
+}
 @keyframes marker-flash {
   0%   { opacity: 1;   transform: scale(1);   }
   25%  { opacity: 0.1; transform: scale(2);   }
