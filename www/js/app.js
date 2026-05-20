@@ -547,6 +547,7 @@ const _animBanner     = document.getElementById('anim-banner');
 const _animBannerText = document.getElementById('anim-banner-text');
 
 function _exitAnimMode() {
+  if (_map) _map.off('click', _exitAnimMode);
   _animMode = false;
   _animFollowMode = false;
   _animCurrentLat = null;
@@ -665,9 +666,9 @@ function _startRouteAnimation(route, speedKnots) {
 
     if (traveled >= totalNm) {
       _animMarker.setLatLng(pts[pts.length - 1]);
-      _animBannerText.textContent = `✓ ${route.name} complete · ${sailTotalMin} min sailing`;
+      _animBannerText.textContent = `✓ ${route.name} complete · ${sailTotalMin} min sailing · tap map to dismiss`;
       _map.fitBounds(L.latLngBounds(pts).pad(0.25));
-      setTimeout(_exitAnimMode, 3000);
+      _map.once('click', _exitAnimMode);
       return;
     }
 
