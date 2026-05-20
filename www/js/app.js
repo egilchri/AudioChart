@@ -1026,6 +1026,7 @@ function _ensureMap() {
 
   const _trackSubmenu = document.getElementById('map-ctx-track-submenu');
   document.getElementById('map-ctx-track-parent').addEventListener('click', () => {
+    _populateRouteSelect();
     _trackSubmenu.style.display = _trackSubmenu.style.display === 'block' ? 'none' : 'block';
   });
 
@@ -1227,6 +1228,7 @@ function _ensureMap() {
       count++;
     }
     localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
+    _populateRouteSelect();
     const msg = `Imported ${count} route${count !== 1 ? 's' : ''}.`;
     setStatus(msg); TTS.sayImmediate(msg);
   }
