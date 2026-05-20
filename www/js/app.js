@@ -631,38 +631,57 @@ function _startRouteAnimation(route, speedKnots) {
   const sailTotalMin = Math.round(totalNm / speedKnots * 60); // actual sailing minutes
   const compressLabel = compress > 1 ? ` · ${compress}×` : '';
 
+  // Persistent object layer — markers accumulate as new objects come into range
+  _animReportLayer = L.layerGroup().addTo(_map);
+  const _seenObjKeys = new Set();
+
+  function _flashLayer(marker) {
+    setTimeout(() => {
+      const el = marker.getElement?.();
+      if (!el) return;
+      el.classList.add('marker-flash');
+      el.addEventListener('animationend', () => el.classList.remove('marker-flash'), { once: true });
+    }, 80);
+  }
+
   // Periodic navaid/hazard reports at chosen interval
   if (track.intervalMs) {
     _animIntervalId = setInterval(() => {
       if (_animCurrentLat == null || !_animMode) return;
 
-      // Remove previous report layer
-      if (_animReportLayer && _map) { _map.removeLayer(_animReportLayer); _animReportLayer = null; }
-
       const navResult = Query.navaidsInRadius(_animCurrentLat, _animCurrentLon, track.radiusNm, track.filter);
-      // Only add hazard report when no specific navaid type is selected
       const hazResult = !track.filter
         ? Query.hazardsInRadius(_animCurrentLat, _animCurrentLon, track.radiusNm)
         : null;
-      const speech = [navResult?.speech, hazResult?.speech].filter(Boolean).join('. ') || 'All clear.';
-      TTS.sayImmediate(speech);
 
-      // Draw bearing lines + icons for each found object
-      const pos = [_animCurrentLat, _animCurrentLon];
-      const layers = [];
-      for (const n of (Query.lastNavaidResults || [])) {
-        layers.push(L.polyline([pos, [n.lat, n.lon]], {
-          color: '#4a9edd', weight: 1.5, opacity: 0.8, dashArray: '5 4',
-        }));
-        layers.push(L.marker([n.lat, n.lon], { icon: _navaidMarkerIcon(n) }));
+      // Only process newly-seen objects — no bearing lines, no "all clear"
+      const newNavs = (Query.lastNavaidResults || []).filter(n => {
+        const k = `n:${n.lat.toFixed(4)},${n.lon.toFixed(4)}`;
+        if (_seenObjKeys.has(k)) return false;
+        _seenObjKeys.add(k); return true;
+      });
+      const newHazs = (Query.lastHazardResults || []).filter(h => {
+        const k = `h:${h.lat.toFixed(4)},${h.lon.toFixed(4)}`;
+        if (_seenObjKeys.has(k)) return false;
+        _seenObjKeys.add(k); return true;
+      });
+
+      if (!newNavs.length && !newHazs.length) return;
+
+      for (const n of newNavs) {
+        const m = L.marker([n.lat, n.lon], { icon: _navaidMarkerIcon(n) });
+        _animReportLayer.addLayer(m);
+        _flashLayer(m);
       }
-      for (const h of (Query.lastHazardResults || [])) {
-        layers.push(L.polyline([pos, [h.lat, h.lon]], {
-          color: '#e0a030', weight: 1.5, opacity: 0.8, dashArray: '5 4',
-        }));
-        layers.push(L.marker([h.lat, h.lon], { icon: _hazardMarkerIcon() }));
+      for (const h of newHazs) {
+        const m = L.marker([h.lat, h.lon], { icon: _hazardMarkerIcon() });
+        _animReportLayer.addLayer(m);
+        _flashLayer(m);
       }
-      if (layers.length) _animReportLayer = L.layerGroup(layers).addTo(_map);
+
+      const speech = [newNavs.length && navResult?.speech, newHazs.length && hazResult?.speech]
+        .filter(Boolean).join('. ');
+      if (speech) TTS.sayImmediate(speech);
     }, track.intervalMs);
   }
 
