@@ -567,11 +567,13 @@ function _getTrackSettings() {
   const distChip     = document.querySelector('.track-dist.selected');
   const intervalChip = document.querySelector('.track-interval.selected');
   const compressChip = document.querySelector('.track-compress.selected');
+  const zoomChip     = document.querySelector('.track-zoom.selected');
   return {
     filter:     objChip      ? (objChip.dataset.obj || null)     : null,
     radiusNm:   distChip     ? parseFloat(distChip.dataset.nm)   : 0.25,
     intervalMs: intervalChip ? parseInt(intervalChip.dataset.ms) : null,
     compress:   compressChip ? parseInt(compressChip.dataset.compress) : 1,
+    zoom:       zoomChip?.dataset.zoom ? parseInt(zoomChip.dataset.zoom) : null,
   };
 }
 
@@ -591,7 +593,8 @@ function _startRouteAnimation(route, speedKnots) {
   _animRouteLine = L.polyline(pts, {
     color: '#e05252', weight: 3, opacity: 0.7, dashArray: '8 4',
   }).addTo(_map);
-  _map.fitBounds(L.latLngBounds(pts).pad(0.25));
+  if (track.zoom) _map.setView(pts[0], track.zoom);
+  else            _map.fitBounds(L.latLngBounds(pts).pad(0.25));
 
   // Pre-compute segments with cumulative distance
   const segs = [];
@@ -675,6 +678,18 @@ function _startRouteAnimation(route, speedKnots) {
     _animMarker.setLatLng([lat, lon]);
     _animCurrentLat = lat;
     _animCurrentLon = lon;
+
+    if (track.zoom) {
+      const b = _map.getBounds();
+      const latSpan = b.getNorthEast().lat - b.getSouthWest().lat;
+      const lonSpan = b.getNorthEast().lng - b.getSouthWest().lng;
+      const margin  = 0.2;
+      const inView  = lat > b.getSouthWest().lat + latSpan * margin &&
+                      lat < b.getNorthEast().lat - latSpan * margin &&
+                      lon > b.getSouthWest().lng + lonSpan * margin &&
+                      lon < b.getNorthEast().lng - lonSpan * margin;
+      if (!inView) _map.setView([lat, lon], track.zoom, { animate: true, duration: 0.5 });
+    }
 
     const sailMinLeft = Math.round((totalNm - traveled) / speedKnots * 60);
     const realMinLeft = compress > 1 ? ` (${Math.round(sailMinLeft / compress)} real min)` : '';
