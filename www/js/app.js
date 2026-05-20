@@ -42,14 +42,23 @@ function _waypointIcon() {
   });
 }
 
-function _animBoatIcon() {
+function _animBoatIcon(bearingDeg = 0) {
   return L.divIcon({
     className: '',
-    html: '<div class="anim-boat">⛵</div>',
+    html: `<div class="anim-boat" style="transform:rotate(${bearingDeg - 90}deg)"><span class="anim-boat-rock">⛵</span></div>`,
     iconSize: [28, 28],
     iconAnchor: [14, 14],
     tooltipAnchor: [14, -14],
   });
+}
+
+function _segBearing(lat1, lon1, lat2, lon2) {
+  const r = Math.PI / 180;
+  const dLon = (lon2 - lon1) * r;
+  const y = Math.sin(dLon) * Math.cos(lat2 * r);
+  const x = Math.cos(lat1 * r) * Math.sin(lat2 * r) -
+            Math.sin(lat1 * r) * Math.cos(lat2 * r) * Math.cos(dLon);
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
 }
 
 function _boatIcon() {
@@ -611,7 +620,8 @@ function _startRouteAnimation(route, speedKnots) {
   }
   const totalNm = cumDist;
 
-  _animMarker = L.marker(pts[0], { icon: _animBoatIcon(), zIndexOffset: 1000 }).addTo(_map);
+  const _initBearing = segs.length ? _segBearing(segs[0].lat1, segs[0].lon1, segs[0].lat2, segs[0].lon2) : 0;
+  _animMarker = L.marker(pts[0], { icon: _animBoatIcon(_initBearing), zIndexOffset: 1000 }).addTo(_map);
   _animCurrentLat = pts[0][0];
   _animCurrentLon = pts[0][1];
 
@@ -683,6 +693,10 @@ function _startRouteAnimation(route, speedKnots) {
     _animMarker.setLatLng([lat, lon]);
     _animCurrentLat = lat;
     _animCurrentLon = lon;
+
+    const bearing = _segBearing(seg.lat1, seg.lon1, seg.lat2, seg.lon2);
+    const boatEl  = _animMarker.getElement()?.querySelector('.anim-boat');
+    if (boatEl) boatEl.style.transform = `rotate(${bearing - 90}deg)`;
 
     if (track.zoom) {
       const b = _map.getBounds();
