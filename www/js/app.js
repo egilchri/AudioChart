@@ -1229,7 +1229,10 @@ function _ensureMap() {
     }
     localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
     _populateRouteSelect();
-    const msg = `Imported ${count} route${count !== 1 ? 's' : ''}.`;
+    const total = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]').length;
+    const msg = count
+      ? `Imported ${count} route${count !== 1 ? 's' : ''}. ${total} route${total !== 1 ? 's' : ''} total in Track menu.`
+      : 'No routes or tracks found in that file. Try Import Markers instead.';
     setStatus(msg); TTS.sayImmediate(msg);
   }
 
