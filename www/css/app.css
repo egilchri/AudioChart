@@ -428,6 +428,7 @@ html, body {
 
 /* Bearing map view — sits between status and response, fixed at 1/3 of viewport */
 #map-container {
+  position: relative;
   height: 66dvh;
   max-height: 66dvh;
   border-radius: 6px;
