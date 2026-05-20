@@ -1271,6 +1271,7 @@ function _ensureMap() {
         document.getElementById('map-container').style.display = 'block';
         _map.invalidateSize();
       }
+      _populateRouteSelect();
       const msg = `Combined route saved. ${allPoints.length} points from ${files.length} files.`;
       setStatus(msg); TTS.sayImmediate(msg);
     });
