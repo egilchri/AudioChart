@@ -10,8 +10,9 @@
 
 importScripts('./js/version.js');
 const CACHE = `audiochart-${APP_VERSION}`;
-const TILES_CACHE    = 'audiochart-tiles-v1';      // server nautical tiles, LRU
+const TILES_CACHE     = 'audiochart-tiles-v1';      // server nautical tiles, LRU
 const SATELLITE_CACHE = 'audiochart-satellite-v1'; // pre-downloaded ESRI tiles, persistent
+const CHART_CACHE     = 'audiochart-chart-v1';     // OSM + OpenSeaMap chart tiles
 const TILES_MAX = 800;
 
 // Resources to pre-cache at install time for offline use
@@ -34,7 +35,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) =>
       Promise.all(
         keys
-          .filter((k) => k !== CACHE && k !== TILES_CACHE && k !== SATELLITE_CACHE)
+          .filter((k) => k !== CACHE && k !== TILES_CACHE && k !== SATELLITE_CACHE && k !== CHART_CACHE)
           .map((k) => caches.delete(k))
       )
     ).then(() => self.clients.claim())
@@ -55,7 +56,14 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Tiles: server nautical tiles and ESRI satellite tiles
+  // OSM + OpenSeaMap chart tiles
+  if (url.hostname === 'tile.openstreetmap.org' ||
+      url.hostname === 'tiles.openseamap.org') {
+    event.respondWith(chartTileStrategy(event.request));
+    return;
+  }
+
+  // Server nautical tiles and ESRI satellite tiles
   if (url.pathname.match(/\/tiles\/\d+\/\d+\/\d+\.jpg$/) ||
       url.hostname.includes('arcgisonline.com')) {
     event.respondWith(tileStrategy(event.request));
@@ -80,6 +88,19 @@ async function networkFirst(request) {
     if (request.mode === 'navigate') {
       return cache.match('./index.html');
     }
+    return new Response('', { status: 503 });
+  }
+}
+
+async function chartTileStrategy(request) {
+  const cache  = await caches.open(CHART_CACHE);
+  const cached = await cache.match(request);
+  if (cached) return cached;
+  try {
+    const response = await fetch(request);
+    if (response.ok) await cache.put(request, response.clone());
+    return response;
+  } catch (_) {
     return new Response('', { status: 503 });
   }
 }

@@ -320,6 +320,9 @@ let _animIntervalId = null;
 let _animMarker = null;
 let _animRouteLine    = null;
 let _previewRouteLine = null;
+let _baseTileLayer    = null;
+let _seamarkLayer     = null;
+let _chartMode        = localStorage.getItem('audiochart-chart-mode') === 'chart';
 let _animReportLayer = null;
 let _animFollowMode = false;
 let _animCurrentLat = null;
@@ -750,15 +753,47 @@ function saveUserWaypoint(name, lat, lon) {
 
 // ── Map ───────────────────────────────────────────────────────────────────────
 
+function _applyMapLayer() {
+  if (!_map) return;
+  if (_baseTileLayer) { _map.removeLayer(_baseTileLayer); _baseTileLayer = null; }
+  if (_seamarkLayer)  { _map.removeLayer(_seamarkLayer);  _seamarkLayer  = null; }
+  if (_chartMode) {
+    _baseTileLayer = L.tileLayer(
+      'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+      { minZoom: 4, maxZoom: 17, attribution: '© OpenStreetMap contributors' }
+    ).addTo(_map);
+    _seamarkLayer = L.tileLayer(
+      'https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png',
+      { minZoom: 7, maxZoom: 17, attribution: '© OpenSeaMap contributors', opacity: 0.9 }
+    ).addTo(_map);
+  } else {
+    _baseTileLayer = L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      { minZoom: 4, maxZoom: 17, attribution: '© Esri' }
+    ).addTo(_map);
+  }
+}
+
+function _syncLayerBtn() {
+  const btn = document.getElementById('map-layer-btn');
+  if (!btn) return;
+  btn.textContent = _chartMode ? '🛰' : '🗺';
+  btn.title       = _chartMode ? 'Switch to satellite' : 'Switch to chart';
+}
+
 function _ensureMap() {
   if (_map) return;
   _map = L.map('leaflet-map', { zoomControl: false, attributionControl: true });
-  // ESRI World Imagery satellite tiles — pre-cached during ⬇ Route for offline use.
-  // Note: ESRI tile URL uses {z}/{y}/{x} order (y before x).
-  L.tileLayer(
-    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    { minZoom: 4, maxZoom: 17, attribution: '© Esri' }
-  ).addTo(_map);
+  _applyMapLayer();
+  _syncLayerBtn();
+
+  document.getElementById('map-layer-btn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    _chartMode = !_chartMode;
+    localStorage.setItem('audiochart-chart-mode', _chartMode ? 'chart' : 'satellite');
+    _applyMapLayer();
+    _syncLayerBtn();
+  });
 
   // Floating ☰ button — opens context menu at current GPS position
   document.getElementById('map-menu-btn').addEventListener('click', (e) => {
