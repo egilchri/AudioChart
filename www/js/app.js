@@ -911,11 +911,20 @@ function _ensureMap() {
   }
 
   function _populateRouteSelect() {
-    const sel = document.getElementById('track-route-select');
+    const sel    = document.getElementById('track-route-select');
+    const speed  = document.getElementById('track-speed-input');
     const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
     sel.innerHTML = routes.length
       ? routes.map((r, i) => `<option value="${i}">${r.name}</option>`).join('')
       : '<option value="">— no routes saved —</option>';
+    // Restore sticky route
+    const lastName = localStorage.getItem('audiochart-last-route');
+    if (lastName) {
+      const idx = routes.findIndex(r => r.name === lastName);
+      if (idx >= 0) sel.value = idx;
+    }
+    // Restore sticky speed, default 5 knots
+    if (!speed.value) speed.value = localStorage.getItem('audiochart-last-speed') || '5';
   }
 
   const _routeSubmenu  = document.getElementById('map-ctx-route-submenu');
@@ -997,7 +1006,8 @@ function _ensureMap() {
       TTS.sayImmediate('Enter a speed in knots first.');
       return;
     }
-    // Always animate when speed is provided — works in both test and live GPS mode
+    localStorage.setItem('audiochart-last-route', route.name);
+    localStorage.setItem('audiochart-last-speed', speed);
     _startRouteAnimation(route, speed);
   });
 
