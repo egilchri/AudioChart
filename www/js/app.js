@@ -1476,6 +1476,12 @@ async function handleMapLongPress(latlng, radiusNm = 0.25, radiusLabel = '¼ mil
     _markerByKey.set(_markerKey(h.lat, h.lon), m);
     const tip = [h.label, h.name].filter(Boolean).join(', ');
     if (tip) m.bindTooltip(tip, { permanent: false, direction: 'top', className: 'map-tooltip' });
+    m.on('click', () => {
+      const nameStr = h.name ? `, ${h.name}` : '';
+      const base = `${h.label}${nameStr}`;
+      showResponse(`${base}, ${bearingToDisplay(h.brg)}, ${distanceToDisplay(h.d)}`);
+      TTS.sayImmediate(`${base}, bearing ${bearingToWords(h.brg)}, ${formatDistance(h.d)}.`);
+    });
     layers.push(m);
   }
 
@@ -1484,6 +1490,13 @@ async function handleMapLongPress(latlng, radiusNm = 0.25, radiusLabel = '¼ mil
     _markerByKey.set(_markerKey(n.lat, n.lon), m);
     const tip = [n.name, n.characteristic || n.colour].filter(Boolean).join(' — ');
     if (tip) m.bindTooltip(tip, { permanent: false, direction: 'top', className: 'map-tooltip' });
+    m.on('click', () => {
+      const nameStr = n.name ? ` ${n.name}` : '';
+      const detail  = n.characteristic ? `, ${n.characteristic}` : n.colour ? `, ${n.colour}` : '';
+      const base = `${n.label}${nameStr}${detail}`;
+      showResponse(`${base}, ${bearingToDisplay(n.brg)}, ${distanceToDisplay(n.d)}`);
+      TTS.sayImmediate(`${base}, bearing ${bearingToWords(n.brg)}, ${formatDistance(n.d)}.`);
+    });
     layers.push(m);
   }
 
