@@ -338,8 +338,6 @@ let _animReportLayer = null;
 let _animFollowMode = false;
 let _animCurrentLat = null;
 let _animCurrentLon = null;
-let _animMediaRecorder = null;
-let _animVideoChunks   = [];
 let _lastCourseFrom = null;
 let _lastCourseTo   = null;
 
@@ -603,11 +601,6 @@ function _exitAnimMode() {
   if (_animReportLayer  && _map) { _map.removeLayer(_animReportLayer);  _animReportLayer  = null; }
   if (_previewRouteLine && _map) { _map.removeLayer(_previewRouteLine); _previewRouteLine = null; }
   if (_map) { _map.dragging.enable(); _map.invalidateSize(); }
-  if (_animMediaRecorder && _animMediaRecorder.state !== 'inactive') {
-    _animMediaRecorder.stop(); // triggers onstop → download
-  }
-  _animMediaRecorder = null;
-  _animVideoChunks   = [];
 }
 
 document.getElementById('anim-stop-btn').addEventListener('click', _exitAnimMode);
@@ -739,9 +732,6 @@ function _startRouteAnimation(route, speedKnots) {
         const last = pts[pts.length - 1];
         recordPoints.push({ lat: last[0], lon: last[1], t: finalT });
         _downloadGpx(recordPoints, route.name);
-      }
-      if (_animMediaRecorder && _animMediaRecorder.state !== 'inactive') {
-        _animMediaRecorder.stop();
       }
       _map.once('click', _exitAnimMode);
       return;
@@ -1048,7 +1038,7 @@ function _ensureMap() {
     chip.classList.add('selected');
   });
 
-  document.getElementById('track-route-go').addEventListener('click', async () => {
+  document.getElementById('track-route-go').addEventListener('click', () => {
     _hideCtx();
     const sel    = document.getElementById('track-route-select');
     const speed  = parseFloat(document.getElementById('track-speed-input').value);
@@ -1064,40 +1054,6 @@ function _ensureMap() {
     }
     localStorage.setItem('audiochart-last-route', route.name);
     localStorage.setItem('audiochart-last-speed', speed);
-
-    const record = document.getElementById('track-record-checkbox')?.checked;
-    if (record) {
-      try {
-        const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
-        _animVideoChunks = [];
-        const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
-          ? 'video/webm;codecs=vp9' : 'video/webm';
-        _animMediaRecorder = new MediaRecorder(stream, { mimeType });
-        _animMediaRecorder.ondataavailable = e => { if (e.data.size > 0) _animVideoChunks.push(e.data); };
-        _animMediaRecorder.onstop = () => {
-          stream.getTracks().forEach(t => t.stop());
-          if (_animVideoChunks.length) {
-            const blob = new Blob(_animVideoChunks, { type: 'video/webm' });
-            const url  = URL.createObjectURL(blob);
-            const a    = document.createElement('a');
-            a.href     = url;
-            a.download = `${route.name.replace(/\s+/g, '_')}.webm`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-          }
-          _animMediaRecorder = null;
-          _animVideoChunks   = [];
-        };
-        _animMediaRecorder.start();
-      } catch (err) {
-        // User cancelled screen share — proceed without recording
-        _animMediaRecorder = null;
-        _animVideoChunks   = [];
-      }
-    }
-
     _startRouteAnimation(route, speed);
   });
 
