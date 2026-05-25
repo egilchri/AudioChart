@@ -334,7 +334,8 @@ let _animTraveled     = 0;
 let _baseTileLayer    = null;
 let _seamarkLayer     = null;
 let _chartMode        = localStorage.getItem('audiochart-chart-mode') === 'chart';
-let _animReportLayer = null;
+let _animReportLayer   = null;
+let _animMilestoneLayer = null;
 let _animFollowMode = false;
 let _animCurrentLat = null;
 let _animCurrentLon = null;
@@ -598,7 +599,8 @@ function _exitAnimMode() {
   _animBanner.style.display = 'none';
   if (_animMarker       && _map) { _map.removeLayer(_animMarker);       _animMarker       = null; }
   if (_animRouteLine    && _map) { _map.removeLayer(_animRouteLine);    _animRouteLine    = null; }
-  if (_animReportLayer  && _map) { _map.removeLayer(_animReportLayer);  _animReportLayer  = null; }
+  if (_animReportLayer   && _map) { _map.removeLayer(_animReportLayer);   _animReportLayer   = null; }
+  if (_animMilestoneLayer && _map) { _map.removeLayer(_animMilestoneLayer); _animMilestoneLayer = null; }
   if (_previewRouteLine && _map) { _map.removeLayer(_previewRouteLine); _previewRouteLine = null; }
   if (_map) { _map.dragging.enable(); _map.invalidateSize(); }
 }
@@ -616,6 +618,11 @@ function _getTrackSettings() {
     compress: compressChip ? parseInt(compressChip.dataset.compress) : 1,
     zoom:     zoomChip?.dataset.zoom ? parseInt(zoomChip.dataset.zoom) : null,
     record:   document.getElementById('track-record-checkbox')?.checked || false,
+    milestoneNm: (() => {
+      const cb = document.getElementById('track-milestone-checkbox');
+      const inp = document.getElementById('track-milestone-input');
+      return (cb?.checked && inp) ? parseFloat(inp.value) || null : null;
+    })(),
   };
 }
 
@@ -664,13 +671,17 @@ function _startRouteAnimation(route, speedKnots) {
   TTS.sayImmediate(`Animating ${route.name}. ${Math.round(totalNm * 10) / 10} nautical miles.`);
 
   // Object layer for click-based reports
-  _animReportLayer = L.layerGroup().addTo(_map);
+  _animReportLayer    = L.layerGroup().addTo(_map);
+  _animMilestoneLayer = L.layerGroup().addTo(_map);
   _animTraveled = 0;
 
   // Recording setup: collect one sample per real second, timestamped by simulated sailing time
   const recordStart  = Date.now();
   const recordPoints = track.record ? [] : null;
   let   lastRecordElapsed = -1;
+
+  // Milestone reporting: speak closest tracked object every N miles
+  let lastMilestoneNm = 0;
 
   // Tap map during animation → stop boat, show nearby objects, tap again to resume
   function _onAnimStop() {
@@ -754,6 +765,25 @@ function _startRouteAnimation(route, speedKnots) {
       lastRecordElapsed = Math.floor(elapsed);
       const sailedSec = Math.round(traveled / speedKnots * 3600);
       recordPoints.push({ lat, lon, t: recordStart + sailedSec * 1000 });
+    }
+
+    // Milestone report: speak + draw bearing line to closest tracked object every N miles
+    if (track.milestoneNm && traveled - lastMilestoneNm >= track.milestoneNm) {
+      lastMilestoneNm += track.milestoneNm * Math.floor((traveled - lastMilestoneNm) / track.milestoneNm);
+      const closest = Query.nearestNavaid(lat, lon, track.filter);
+      if (closest) {
+        TTS.sayImmediate(closest.speech);
+        if (_animMilestoneLayer) {
+          _animMilestoneLayer.clearLayers();
+          const destLat = closest.lat, destLon = closest.lon;
+          _animMilestoneLayer.addLayer(L.polyline([[lat, lon], [destLat, destLon]], {
+            color: '#f5a623', weight: 2, dashArray: '6 4', opacity: 0.9,
+          }));
+          _animMilestoneLayer.addLayer(L.circleMarker([destLat, destLon], {
+            radius: 6, color: '#f5a623', fillColor: '#f5a623', fillOpacity: 1, weight: 0,
+          }));
+        }
+      }
     }
 
     const bearing = _segBearing(seg.lat1, seg.lon1, seg.lat2, seg.lon2);

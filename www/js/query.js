@@ -625,6 +625,32 @@ export function nearestHazard(lat, lon) {
   };
 }
 
+/** Find nearest navaid to (lat, lon), optionally filtered by type. */
+export function nearestNavaid(lat, lon, filter) {
+  if (!navaids || navaids.features.length === 0) return null;
+  let nearest = null, minDist = Infinity;
+  for (const f of navaids.features) {
+    if (filter && f.properties.label !== filter) continue;
+    const [flon, flat] = f.geometry.coordinates;
+    const d = distanceNm(lon, lat, flon, flat);
+    if (d < minDist) { minDist = d; nearest = f; }
+  }
+  if (!nearest) return null;
+  const [flon, flat] = nearest.geometry.coordinates;
+  const label = nearest.properties.label || 'navaid';
+  const name  = nearest.properties.name  ? `, ${nearest.properties.name}` : '';
+  const detail = nearest.properties.characteristic
+    ? `, ${nearest.properties.characteristic}`
+    : nearest.properties.colour ? `, ${nearest.properties.colour}` : '';
+  const brg = trueTomagnetic(bearing(lon, lat, flon, flat));
+  return {
+    lat:    flat,
+    lon:    flon,
+    text:   `Closest: ${label}${name}${detail}  ${bearingToDisplay(brg)}  ${distanceToDisplay(minDist)}`,
+    speech: `Closest ${label}${name}${detail}, bearing ${bearingToWords(brg)}, ${formatDistance(minDist)}.`,
+  };
+}
+
 /** Find all hazards within radiusNm. Returns spoken response string. */
 export function hazardsInRadius(lat, lon, radiusNm) {
   lastBearingResult = null;

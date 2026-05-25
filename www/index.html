@@ -183,6 +183,11 @@ Examples:
         <div class="track-speed-row">
           <label><input type="checkbox" id="track-record-checkbox"> Record GPX</label>
         </div>
+        <div class="track-speed-row">
+          <label><input type="checkbox" id="track-milestone-checkbox"> Every</label>
+          <input id="track-milestone-input" type="number" min="0.1" max="500" step="0.1" value="5" style="width:4em">
+          <span>mi, report closest object</span>
+        </div>
         <button id="track-route-go">&#9654; Animate</button>
       </div>
     </div>
