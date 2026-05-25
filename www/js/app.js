@@ -767,12 +767,11 @@ function _startRouteAnimation(route, speedKnots) {
       recordPoints.push({ lat, lon, t: recordStart + sailedSec * 1000 });
     }
 
-    // Milestone report: speak + draw bearing line to closest tracked object every N miles
+    // Milestone report: pause boat, draw bearing line, speak, then resume after 500ms
     if (track.milestoneNm && traveled - lastMilestoneNm >= track.milestoneNm) {
       lastMilestoneNm += track.milestoneNm * Math.floor((traveled - lastMilestoneNm) / track.milestoneNm);
       const closest = Query.nearestNavaid(lat, lon, track.filter);
       if (closest) {
-        TTS.sayImmediate(closest.speech);
         if (_animMilestoneLayer) {
           _animMilestoneLayer.clearLayers();
           const destLat = closest.lat, destLon = closest.lon;
@@ -783,6 +782,19 @@ function _startRouteAnimation(route, speedKnots) {
             radius: 6, color: '#f5a623', fillColor: '#f5a623', fillOpacity: 1, weight: 0,
           }));
         }
+        const savedBanner = _animBannerText.textContent;
+        _animBannerText.textContent = `⛵ Reporting…`;
+        TTS.sayImmediate(closest.speech, () => {
+          setTimeout(() => {
+            if (!_animMode) return;
+            _animBannerText.textContent = savedBanner;
+            _animRafId = requestAnimationFrame((now) => {
+              startTime = now - (_animTraveled / nmPerRealSec * 1000);
+              step(now);
+            });
+          }, 500);
+        });
+        return; // pause until speech + delay complete
       }
     }
 
