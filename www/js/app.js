@@ -668,10 +668,17 @@ function _startRouteAnimation(route, speedKnots) {
   const compressLabel = compress > 1 ? ` · ${compress}×` : '';
 
   // Prime TTS in the user-gesture call stack so iOS allows timer-triggered speech later.
-  // Boat won't start moving until this announcement finishes.
-  TTS.sayImmediate(`Animating ${route.name}. ${Math.round(totalNm * 10) / 10} nautical miles.`, () => {
+  // Boat won't start moving until both parts of the announcement finish.
+  const milesText = `${Math.round(totalNm * 10) / 10} nautical miles.`;
+  TTS.sayImmediate(`Animating ${route.name}.`, () => {
     if (!_animMode) return;
-    _animRafId = requestAnimationFrame(step);
+    setTimeout(() => {
+      if (!_animMode) return;
+      TTS.sayImmediate(milesText, () => {
+        if (!_animMode) return;
+        _animRafId = requestAnimationFrame(step);
+      });
+    }, 400);
   });
 
   // Object layer for click-based reports
@@ -1015,6 +1022,110 @@ function _ensureMap() {
     // Restore sticky speed, default 5 knots
     if (!speed.value) speed.value = localStorage.getItem('audiochart-last-speed') || '5';
   }
+
+  // ── Track config save/load ──────────────────────────────────────────────────
+  const TRACK_CONFIG_KEY = 'audiochart-track-configs';
+
+  function _loadTrackConfigs() {
+    try { return JSON.parse(localStorage.getItem(TRACK_CONFIG_KEY) || '[]'); } catch { return []; }
+  }
+
+  function _saveTrackConfigs(configs) {
+    localStorage.setItem(TRACK_CONFIG_KEY, JSON.stringify(configs));
+  }
+
+  function _populateConfigSelect() {
+    const sel = document.getElementById('track-config-select');
+    const configs = _loadTrackConfigs();
+    sel.innerHTML = configs.length
+      ? '<option value="">— saved configs —</option>' +
+        configs.map((c, i) => `<option value="${i}">${c.name}</option>`).join('')
+      : '<option value="">— saved configs —</option>';
+  }
+
+  function _captureTrackConfig() {
+    const routeSel = document.getElementById('track-route-select');
+    const routes   = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+    const routeIdx = parseInt(routeSel.value);
+    return {
+      routeName:        (!isNaN(routeIdx) && routes[routeIdx]) ? routes[routeIdx].name : '',
+      filter:           document.querySelector('.track-obj.selected')?.dataset.obj ?? '',
+      radiusNm:         parseFloat(document.querySelector('.track-dist.selected')?.dataset.nm) || 0.25,
+      compress:         parseInt(document.querySelector('.track-compress.selected')?.dataset.compress) || 1,
+      zoom:             document.querySelector('.track-zoom.selected')?.dataset.zoom || '',
+      speedKnots:       parseFloat(document.getElementById('track-speed-input')?.value) || 5,
+      record:           document.getElementById('track-record-checkbox')?.checked || false,
+      milestoneEnabled: document.getElementById('track-milestone-checkbox')?.checked || false,
+      milestoneNm:      parseFloat(document.getElementById('track-milestone-input')?.value) || 5,
+    };
+  }
+
+  function _applyTrackConfig(cfg) {
+    // Route
+    const routes   = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+    const routeSel = document.getElementById('track-route-select');
+    const idx = routes.findIndex(r => r.name === cfg.routeName);
+    if (idx >= 0) routeSel.value = idx;
+
+    // Chip groups
+    const setChip = (cls, attr, val) => {
+      document.querySelectorAll(`.${cls}`).forEach(b => {
+        b.classList.toggle('selected', b.dataset[attr] === String(val));
+      });
+    };
+    setChip('track-obj',      'obj',      cfg.filter ?? '');
+    setChip('track-dist',     'nm',       cfg.radiusNm);
+    setChip('track-compress', 'compress', cfg.compress);
+    setChip('track-zoom',     'zoom',     cfg.zoom ?? '');
+
+    // Speed
+    const speedEl = document.getElementById('track-speed-input');
+    if (speedEl) speedEl.value = cfg.speedKnots || 5;
+
+    // Checkboxes
+    const recordEl = document.getElementById('track-record-checkbox');
+    if (recordEl) recordEl.checked = !!cfg.record;
+    const msEl  = document.getElementById('track-milestone-checkbox');
+    const msInp = document.getElementById('track-milestone-input');
+    if (msEl)  msEl.checked   = !!cfg.milestoneEnabled;
+    if (msInp) msInp.value    = cfg.milestoneNm || 5;
+  }
+
+  _populateConfigSelect();
+
+  document.getElementById('track-config-save').addEventListener('click', () => {
+    const nameEl = document.getElementById('track-config-name');
+    const name   = nameEl.value.trim();
+    if (!name) { nameEl.focus(); return; }
+    const configs = _loadTrackConfigs();
+    const existing = configs.findIndex(c => c.name === name);
+    const cfg = { name, ..._captureTrackConfig() };
+    if (existing >= 0) configs[existing] = cfg; else configs.push(cfg);
+    _saveTrackConfigs(configs);
+    _populateConfigSelect();
+    document.getElementById('track-config-select').value =
+      configs.findIndex(c => c.name === name);
+    nameEl.value = '';
+  });
+
+  document.getElementById('track-config-load').addEventListener('click', () => {
+    const sel = document.getElementById('track-config-select');
+    const idx = parseInt(sel.value);
+    if (isNaN(idx)) return;
+    const configs = _loadTrackConfigs();
+    if (configs[idx]) _applyTrackConfig(configs[idx]);
+  });
+
+  document.getElementById('track-config-delete').addEventListener('click', () => {
+    const sel = document.getElementById('track-config-select');
+    const idx = parseInt(sel.value);
+    if (isNaN(idx)) return;
+    const configs = _loadTrackConfigs();
+    configs.splice(idx, 1);
+    _saveTrackConfigs(configs);
+    _populateConfigSelect();
+  });
+  // ────────────────────────────────────────────────────────────────────────────
 
   const _routeSubmenu  = document.getElementById('map-ctx-route-submenu');
   const _importSubmenu = document.getElementById('map-ctx-import-submenu');
