@@ -1095,9 +1095,15 @@ function _ensureMap() {
 
   document.getElementById('track-config-save').addEventListener('click', () => {
     const nameEl = document.getElementById('track-config-name');
+    const btn    = document.getElementById('track-config-save');
     const name   = nameEl.value.trim();
-    if (!name) { nameEl.focus(); return; }
-    const configs = _loadTrackConfigs();
+    if (!name) {
+      nameEl.style.outline = '2px solid #e05252';
+      nameEl.focus();
+      setTimeout(() => { nameEl.style.outline = ''; }, 1200);
+      return;
+    }
+    const configs  = _loadTrackConfigs();
     const existing = configs.findIndex(c => c.name === name);
     const cfg = { name, ..._captureTrackConfig() };
     if (existing >= 0) configs[existing] = cfg; else configs.push(cfg);
@@ -1106,20 +1112,31 @@ function _ensureMap() {
     document.getElementById('track-config-select').value =
       configs.findIndex(c => c.name === name);
     nameEl.value = '';
+    const prev = btn.textContent;
+    btn.textContent = '✓ Saved';
+    btn.disabled = true;
+    setTimeout(() => { btn.textContent = prev; btn.disabled = false; }, 1500);
   });
 
   document.getElementById('track-config-load').addEventListener('click', () => {
     const sel = document.getElementById('track-config-select');
+    const btn = document.getElementById('track-config-load');
     const idx = parseInt(sel.value);
     if (isNaN(idx)) return;
     const configs = _loadTrackConfigs();
-    if (configs[idx]) _applyTrackConfig(configs[idx]);
+    if (!configs[idx]) return;
+    _applyTrackConfig(configs[idx]);
+    const prev = btn.textContent;
+    btn.textContent = '✓';
+    setTimeout(() => { btn.textContent = prev; }, 1200);
   });
 
   document.getElementById('track-config-delete').addEventListener('click', () => {
     const sel = document.getElementById('track-config-select');
     const idx = parseInt(sel.value);
     if (isNaN(idx)) return;
+    const name = _loadTrackConfigs()[idx]?.name;
+    if (!name || !confirm(`Delete config "${name}"?`)) return;
     const configs = _loadTrackConfigs();
     configs.splice(idx, 1);
     _saveTrackConfigs(configs);
