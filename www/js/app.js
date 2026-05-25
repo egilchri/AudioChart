@@ -667,8 +667,12 @@ function _startRouteAnimation(route, speedKnots) {
   const sailTotalMin = Math.round(totalNm / speedKnots * 60); // actual sailing minutes
   const compressLabel = compress > 1 ? ` · ${compress}×` : '';
 
-  // Prime TTS in the user-gesture call stack so iOS allows timer-triggered speech later
-  TTS.sayImmediate(`Animating ${route.name}. ${Math.round(totalNm * 10) / 10} nautical miles.`);
+  // Prime TTS in the user-gesture call stack so iOS allows timer-triggered speech later.
+  // Boat won't start moving until this announcement finishes.
+  TTS.sayImmediate(`Animating ${route.name}. ${Math.round(totalNm * 10) / 10} nautical miles.`, () => {
+    if (!_animMode) return;
+    _animRafId = requestAnimationFrame(step);
+  });
 
   // Object layer for click-based reports
   _animReportLayer    = L.layerGroup().addTo(_map);
@@ -820,11 +824,8 @@ function _startRouteAnimation(route, speedKnots) {
 
     _animRafId = requestAnimationFrame(step);
   }
-  // Small delay lets the anim-mode CSS take effect and map resize before first frame
-  setTimeout(() => {
-    _map.invalidateSize();
-    _animRafId = requestAnimationFrame(step);
-  }, 300);
+  // Let the anim-mode CSS take effect and map resize before speech ends
+  setTimeout(() => { _map.invalidateSize(); }, 300);
 }
 
 function _startFollowMode(route) {
