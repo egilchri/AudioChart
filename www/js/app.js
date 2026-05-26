@@ -1103,6 +1103,16 @@ function _ensureMap() {
       setTimeout(() => { nameEl.style.outline = ''; }, 1200);
       return;
     }
+    // Rename the selected route to match the config name
+    const routeSel = document.getElementById('track-route-select');
+    const routeIdx = parseInt(routeSel.value);
+    const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+    if (!isNaN(routeIdx) && routes[routeIdx]) {
+      routes[routeIdx].name = name;
+      localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
+      _populateRouteSelect();
+    }
+
     const configs  = _loadTrackConfigs();
     const existing = configs.findIndex(c => c.name === name);
     const cfg = { name, ..._captureTrackConfig() };
