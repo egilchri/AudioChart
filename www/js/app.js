@@ -1087,10 +1087,12 @@ function _ensureMap() {
   }
 
   function _applyTrackConfig(cfg) {
-    // Refresh route dropdown before setting value
-    _populateRouteSelect();
+    // Rebuild route options without touching speed or sticky state, then select config's route
     const routes   = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
     const routeSel = document.getElementById('track-route-select');
+    routeSel.innerHTML = routes.length
+      ? routes.map((r, i) => `<option value="${i}">${r.name}</option>`).join('')
+      : '<option value="">— no routes saved —</option>';
     const idx = routes.findIndex(r => r.name === cfg.routeName);
     if (idx >= 0) routeSel.value = String(idx);
 
@@ -1130,6 +1132,9 @@ function _ensureMap() {
       setTimeout(() => { nameEl.style.outline = ''; }, 1200);
       return;
     }
+    // Capture config BEFORE touching the route dropdown
+    const captured = _captureTrackConfig();
+
     // Rename the selected route to match the config name
     const routeSel = document.getElementById('track-route-select');
     const routeIdx = parseInt(routeSel.value);
@@ -1138,11 +1143,16 @@ function _ensureMap() {
       routes[routeIdx].name = name;
       localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
       _populateRouteSelect();
+      // Re-select the renamed route after repopulating
+      const newIdx = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]')
+        .findIndex(r => r.name === name);
+      if (newIdx >= 0) routeSel.value = String(newIdx);
     }
 
     const configs  = _loadTrackConfigs();
     const existing = configs.findIndex(c => c.name === name);
-    const cfg = { name, ..._captureTrackConfig() };
+    // Force routeName to match the config name regardless of dropdown state
+    const cfg = { name, ...captured, routeName: name };
     if (existing >= 0) configs[existing] = cfg; else configs.push(cfg);
     _saveTrackConfigs(configs);
     _populateConfigSelect();
