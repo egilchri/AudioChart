@@ -843,7 +843,12 @@ export function nearestNavaid(lat, lon, filter, requireLOS = false) {
 }
 
 /** Like nearestNavaid but returns an array of up to `count` nearest visible navaids. */
-export function nearestNavaids(lat, lon, filter, requireLOS = false, count = 2) {
+/**
+ * Returns up to `count` nearest visible navaids with good angular separation.
+ * Each additional fix must differ from all selected bearings by at least minAngleDeg,
+ * so the resulting cross-bearing fix is geometrically useful.
+ */
+export function nearestNavaids(lat, lon, filter, requireLOS = false, count = 2, minAngleDeg = 45) {
   if (!navaids || navaids.features.length === 0) return [];
   const candidates = [];
   for (const f of navaids.features) {
@@ -851,19 +856,33 @@ export function nearestNavaids(lat, lon, filter, requireLOS = false, count = 2) 
     const [flon, flat] = f.geometry.coordinates;
     const d = distanceNm(lon, lat, flon, flat);
     if (requireLOS && _landBlocks(lon, lat, flon, flat)) continue;
-    candidates.push({ f, d });
+    const brg = bearing(lon, lat, flon, flat);  // true bearing
+    candidates.push({ f, d, brg, flat, flon });
   }
   candidates.sort((a, b) => a.d - b.d);
+
+  const selected = [];
+  const selectedBrgs = [];
+  for (const c of candidates) {
+    if (selected.length >= count) break;
+    // Check angular separation against all already-selected bearings
+    const tooClose = selectedBrgs.some(sb => {
+      const diff = Math.abs(((c.brg - sb + 180 + 360) % 360) - 180);
+      return diff < minAngleDeg;
+    });
+    if (tooClose) continue;
+    selected.push(c);
+    selectedBrgs.push(c.brg);
+  }
+
   const prefix = requireLOS
     ? (landPolygons ? 'Nearest visible' : 'Nearest (no land data)')
     : 'Nearest';
-  return candidates.slice(0, count).map(({ f, d }, i) => {
-    const [flon, flat] = f.geometry.coordinates;
+  return selected.map(({ f, d, flat, flon }, i) => {
     const label = f.properties.label || 'navaid';
     const characteristic = f.properties.characteristic;
     const nameStr = f.properties.name ? `, ${f.properties.name}` : '';
     const detail = characteristic ? ` (${characteristic})` : (f.properties.colour ? `, ${f.properties.colour}` : '');
-    const destName = `${label}${nameStr}${detail}`.trim();
     const brg = trueTomagnetic(bearing(lon, lat, flon, flat));
     const rankPrefix = i === 0 ? prefix : 'Also visible';
     return {
