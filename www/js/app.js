@@ -802,7 +802,7 @@ function _startRouteAnimation(route, speedKnots) {
     // Milestone report: pause boat, draw bearing line, speak, then resume after 500ms
     if (track.milestoneNm && traveled - lastMilestoneNm >= track.milestoneNm) {
       lastMilestoneNm += track.milestoneNm * Math.floor((traveled - lastMilestoneNm) / track.milestoneNm);
-      const closest = Query.nearestNavaid(lat, lon, track.filter);
+      const closest = Query.nearestNavaid(lat, lon, track.filter, true);
       if (closest) {
         if (_animMilestoneLayer) {
           _animMilestoneLayer.clearLayers();

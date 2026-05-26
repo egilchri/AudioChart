@@ -1,0 +1,183 @@
+"""
+Extract LNDARE (land area) polygon geometry from S-57 ENC charts and
+produce a deduplicated, simplified GeoJSON for client-side line-of-sight checks.
+
+Strategy:
+  - Process charts ordered broadest-scale first (US3 → US4 → US5).
+  - Deduplicate via centroid grid: if a polygon's centroid falls in a cell
+    already claimed by a broader-scale chart, skip it (the broader polygon
+    already covers that land mass).  Small isolated polygons (new islands
+    not in broader charts) still pass through.
+  - Apply simplification at 0.002° (~200 m) — enough precision for
+    line-of-sight checks at the distances we care about.
+  - Drop slivers smaller than 1e-5 sq-degrees.
+
+Usage:
+    python3 preprocess/extract_land.py
+Output:
+    www/data/land.geojson
+"""
+
+import json, os, sys, math
+
+try:
+    from osgeo import ogr
+except ImportError:
+    sys.exit('GDAL/OGR not found.  pip install gdal')
+
+ENC_BASE = os.path.expanduser('~/Documents/Charts/ENC/US_ME')
+OUT_PATH = os.path.join(os.path.dirname(__file__), '../www/data/land.geojson')
+
+MIN_LAT, MAX_LAT = 43.0, 47.5
+MIN_LON, MAX_LON = -71.5, -66.0
+
+SIMPLIFY_DEG  = 0.002   # ~200 m — fine enough for multi-mile LOS checks
+MIN_AREA_DEG2 = 1e-5    # drop slivers < ~100 m²
+DEDUP_CELL    = 0.01    # 0.01° grid (~1 km) for centroid deduplication
+
+ogr.UseExceptions()
+
+
+# ── Geometry helpers ──────────────────────────────────────────────────────────
+
+def ring_coords(ring):
+    return [[round(ring.GetX(i), 5), round(ring.GetY(i), 5)]
+            for i in range(ring.GetPointCount())]
+
+
+def poly_to_geojson(geom):
+    """Return (gtype_str, coords) for a Polygon or MultiPolygon OGR geom."""
+    flat = geom.GetGeometryType() & ~0x80000000  # strip Z flag
+    if flat == ogr.wkbPolygon:
+        return 'Polygon', [ring_coords(geom.GetGeometryRef(i))
+                           for i in range(geom.GetGeometryCount())]
+    if flat == ogr.wkbMultiPolygon:
+        polys = []
+        for i in range(geom.GetGeometryCount()):
+            sub = geom.GetGeometryRef(i)
+            polys.append([ring_coords(sub.GetGeometryRef(j))
+                          for j in range(sub.GetGeometryCount())])
+        return 'MultiPolygon', polys
+    return None, None
+
+
+def bbox_ok(env):
+    minX, maxX, minY, maxY = env
+    return maxX >= MIN_LON and minX <= MAX_LON and maxY >= MIN_LAT and minY <= MAX_LAT
+
+
+def centroid_of_ring(ring):
+    if not ring:
+        return 0.0, 0.0
+    lons = [p[0] for p in ring]
+    lats = [p[1] for p in ring]
+    return sum(lons) / len(lons), sum(lats) / len(lats)
+
+
+def polygon_area(ring):
+    """Shoelace formula for signed area in degrees²."""
+    n = len(ring)
+    area = 0.0
+    for i in range(n):
+        j = (i + 1) % n
+        area += ring[i][0] * ring[j][1]
+        area -= ring[j][0] * ring[i][1]
+    return abs(area) / 2.0
+
+
+def simplify_geom(geom):
+    """Return simplified geometry; fall back to original if simplification fails."""
+    s = geom.SimplifyPreserveTopology(SIMPLIFY_DEG)
+    return s if (s and not s.IsEmpty()) else geom
+
+
+# ── Chart ordering ────────────────────────────────────────────────────────────
+
+def chart_scale_priority(dirname):
+    """Lower number = processed first (broader coverage wins deduplication)."""
+    if dirname.startswith('US2'): return 0
+    if dirname.startswith('US3'): return 1
+    if dirname.startswith('US4'): return 2
+    if dirname.startswith('US5'): return 3
+    if dirname.startswith('US6'): return 4
+    return 9
+
+
+# ── Main ──────────────────────────────────────────────────────────────────────
+
+def main():
+    enc_dirs = sorted(
+        d for d in os.listdir(ENC_BASE)
+        if os.path.isdir(os.path.join(ENC_BASE, d)) and d.startswith('US')
+    )
+    enc_dirs.sort(key=chart_scale_priority)
+
+    claimed_cells = set()   # (grid_x, grid_y) cells already covered
+    features = []
+    skipped_dup = skipped_tiny = 0
+
+    for enc_dir in enc_dirs:
+        dir_path = os.path.join(ENC_BASE, enc_dir)
+        for fname in sorted(os.listdir(dir_path)):
+            if not fname.endswith('.000'):
+                continue
+            path = os.path.join(dir_path, fname)
+            ds = ogr.Open(path)
+            if not ds:
+                continue
+            layer = ds.GetLayerByName('LNDARE')
+            if not layer:
+                continue
+
+            chart_added = 0
+            for feat in layer:
+                geom = feat.GetGeometryRef()
+                if not geom or not bbox_ok(geom.GetEnvelope()):
+                    continue
+
+                geom = simplify_geom(geom)
+                gtype, coords = poly_to_geojson(geom)
+                if gtype is None:
+                    continue
+
+                # Get outer ring for area + centroid checks
+                outer = coords[0] if gtype == 'Polygon' else coords[0][0]
+
+                # Drop slivers
+                area = polygon_area(outer)
+                if area < MIN_AREA_DEG2:
+                    skipped_tiny += 1
+                    continue
+
+                # Deduplicate: skip if this centroid cell was already claimed
+                cx, cy = centroid_of_ring(outer)
+                cell = (int(cx / DEDUP_CELL), int(cy / DEDUP_CELL))
+                if cell in claimed_cells:
+                    skipped_dup += 1
+                    continue
+                claimed_cells.add(cell)
+
+                features.append({
+                    'type': 'Feature',
+                    'geometry': {'type': gtype, 'coordinates': coords},
+                    'properties': {},
+                })
+                chart_added += 1
+
+            if chart_added:
+                print(f'  {fname}: +{chart_added}')
+            ds = None
+
+    print(f'\nSkipped {skipped_dup} duplicates, {skipped_tiny} slivers')
+
+    geojson = {'type': 'FeatureCollection', 'features': features}
+    os.makedirs(os.path.dirname(OUT_PATH), exist_ok=True)
+    with open(OUT_PATH, 'w') as f:
+        json.dump(geojson, f, separators=(',', ':'))
+
+    size_kb = os.path.getsize(OUT_PATH) // 1024
+    print(f'Wrote {len(features)} polygons → {OUT_PATH} ({size_kb} KB)')
+
+
+if __name__ == '__main__':
+    main()

@@ -47,6 +47,7 @@ export let namedPlaces = null;
 export let navaids = null;
 export let waypoints = null;
 export let restrictions = null;
+let landPolygons = null;  // LNDARE polygons for line-of-sight checks
 export let lastBearingResult = null;   // set by bearing queries; read by map view
 export let lastCourseHazards = null;   // set by hazardsOnCourse; [{lat,lon,label,name}]
 export let lastNavaidResults  = null;   // set by navaidsInRadius; [{lat,lon,label,name,colour,characteristic,brg,d}]
@@ -184,14 +185,16 @@ export async function loadData(lat, lon) {
     if (idbH && !idbCurrent) {
       console.log(`[query] IDB data stale (stored=${storedVersion} network=${networkVersion}), using static files`);
     }
-    const [h, p, n] = await Promise.all([
+    const [h, p, n, land] = await Promise.all([
       fetch('./data/hazards.geojson').then(r => r.json()),
       fetch('./data/named_places.geojson').then(r => r.json()),
       fetch('./data/navaid.geojson').then(r => r.json()),
+      fetch('./data/land.geojson').then(r => r.json()).catch(() => null),
     ]);
     hazards = h;
     namedPlaces = p;
     navaids = n;
+    if (land) landPolygons = land;
     if (networkVersion) await idbPut('data-version', networkVersion);
     console.log(`[query] Loaded offline data from static files (version ${networkVersion})`);
   }
@@ -754,15 +757,61 @@ export function bearingToCoord(lat, lon, targetLat, targetLon) {
   };
 }
 
+// ── Line-of-sight helpers ─────────────────────────────────────────────────────
+
+function _segIntersect(ax, ay, bx, by, cx, cy, dx, dy) {
+  const d1x = bx - ax, d1y = by - ay;
+  const d2x = dx - cx, d2y = dy - cy;
+  const denom = d1x * d2y - d1y * d2x;
+  if (Math.abs(denom) < 1e-10) return false;
+  const t = ((cx - ax) * d2y - (cy - ay) * d2x) / denom;
+  const u = ((cx - ax) * d1y - (cy - ay) * d1x) / denom;
+  return t > 0.001 && t < 0.999 && u > 0.001 && u < 0.999;
+}
+
+function _ringBlocks(ring, ax, ay, bx, by) {
+  for (let i = 0, n = ring.length - 1; i < n; i++) {
+    if (_segIntersect(ax, ay, bx, by, ring[i][0], ring[i][1], ring[i+1][0], ring[i+1][1])) return true;
+  }
+  return false;
+}
+
+function _landBlocks(fromLon, fromLat, toLon, toLat) {
+  if (!landPolygons) return false;
+  // Quick bbox of the segment
+  const minX = Math.min(fromLon, toLon), maxX = Math.max(fromLon, toLon);
+  const minY = Math.min(fromLat, toLat), maxY = Math.max(fromLat, toLat);
+  for (const feat of landPolygons.features) {
+    const { type, coordinates } = feat.geometry;
+    const polys = type === 'Polygon' ? [coordinates] : coordinates;
+    for (const rings of polys) {
+      const outer = rings[0];
+      // Bbox pre-filter
+      let pMinX = Infinity, pMaxX = -Infinity, pMinY = Infinity, pMaxY = -Infinity;
+      for (const [x, y] of outer) {
+        if (x < pMinX) pMinX = x; if (x > pMaxX) pMaxX = x;
+        if (y < pMinY) pMinY = y; if (y > pMaxY) pMaxY = y;
+      }
+      if (pMaxX < minX || pMinX > maxX || pMaxY < minY || pMinY > maxY) continue;
+      if (_ringBlocks(outer, fromLon, fromLat, toLon, toLat)) return true;
+    }
+  }
+  return false;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 /** Find nearest navigation aid, optionally filtered by type. Returns spoken response string. */
-export function nearestNavaid(lat, lon, filter) {
+export function nearestNavaid(lat, lon, filter, requireLOS = false) {
   if (!navaids || navaids.features.length === 0) return filter ? null : 'No navaid data loaded.';
   let nearest = null, minDist = Infinity;
   for (const f of navaids.features) {
     if (filter && f.properties.label !== filter) continue;
     const [flon, flat] = f.geometry.coordinates;
     const d = distanceNm(lon, lat, flon, flat);
-    if (d < minDist) { minDist = d; nearest = f; }
+    if (d >= minDist) continue;
+    if (requireLOS && _landBlocks(lon, lat, flon, flat)) continue;
+    minDist = d; nearest = f;
   }
   if (!nearest) return filter ? null : 'No navaids found.';
   const [flon, flat] = nearest.geometry.coordinates;
@@ -773,11 +822,12 @@ export function nearestNavaid(lat, lon, filter) {
   const destName = `${label}${nameStr}${detail}`.trim();
   lastBearingResult = { destLat: flat, destLon: flon, destName: destName };
   const brg = trueTomagnetic(bearing(lon, lat, flon, flat));
+  const prefix = requireLOS ? 'Nearest visible' : 'Nearest';
   return {
     lat:    flat,
     lon:    flon,
-    text:   `Nearest ${label}${nameStr}${detail}  ${bearingToDisplay(brg)}  ${distanceToDisplay(minDist)}`,
-    speech: `Nearest ${label}${nameStr}${detail}, bearing ${bearingToWords(brg)}, ${formatDistance(minDist)}.`,
+    text:   `${prefix} ${label}${nameStr}${detail}  ${bearingToDisplay(brg)}  ${distanceToDisplay(minDist)}`,
+    speech: `${prefix} ${label}${nameStr}${detail}, bearing ${bearingToWords(brg)}, ${formatDistance(minDist)}.`,
   };
 }
 
