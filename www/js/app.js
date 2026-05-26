@@ -1087,14 +1087,20 @@ function _ensureMap() {
   }
 
   function _applyTrackConfig(cfg) {
-    // Rebuild route options without touching speed or sticky state, then select config's route
+    // Rebuild route dropdown without triggering sticky-restore side effects
     const routes   = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
     const routeSel = document.getElementById('track-route-select');
     routeSel.innerHTML = routes.length
       ? routes.map((r, i) => `<option value="${i}">${r.name}</option>`).join('')
       : '<option value="">— no routes saved —</option>';
-    const idx = routes.findIndex(r => r.name === cfg.routeName);
-    if (idx >= 0) routeSel.value = String(idx);
+    // Try routeName first; fall back to cfg.name for configs saved before route rename was fixed
+    let idx = routes.findIndex(r => r.name === cfg.routeName);
+    if (idx < 0) idx = routes.findIndex(r => r.name === cfg.name);
+    if (idx >= 0) {
+      routeSel.value = String(idx);
+      // Update sticky so _populateRouteSelect() won't override on next menu open
+      localStorage.setItem('audiochart-last-route', routes[idx].name);
+    }
 
     // Chip groups
     const setChip = (cls, attr, val) => {
@@ -1107,9 +1113,12 @@ function _ensureMap() {
     setChip('track-compress', 'compress', cfg.compress);
     setChip('track-zoom',     'zoom',     cfg.zoom ?? '');
 
-    // Speed
+    // Speed — update sticky so _populateRouteSelect() doesn't clobber it
     const speedEl = document.getElementById('track-speed-input');
-    if (speedEl) speedEl.value = cfg.speedKnots || 5;
+    if (speedEl) {
+      speedEl.value = cfg.speedKnots || 5;
+      localStorage.setItem('audiochart-last-speed', speedEl.value);
+    }
 
     // Checkboxes
     const recordEl = document.getElementById('track-record-checkbox');
