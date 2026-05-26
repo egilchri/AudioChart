@@ -378,9 +378,9 @@ html, body {
 #voice-select {
   flex: 1;
   font-size: 0.75rem;
-  background: var(--bg-panel, #1e3a5c);
-  color: var(--text-main, #e8edf4);
-  border: 1px solid #2a5080;
+  background: var(--dark-blue);
+  color: var(--text);
+  border: 1px solid var(--mid-blue);
   border-radius: 4px;
   padding: 2px 4px;
 }

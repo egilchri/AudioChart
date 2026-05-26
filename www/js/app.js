@@ -1082,11 +1082,12 @@ function _ensureMap() {
   }
 
   function _applyTrackConfig(cfg) {
-    // Route
+    // Refresh route dropdown before setting value
+    _populateRouteSelect();
     const routes   = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
     const routeSel = document.getElementById('track-route-select');
     const idx = routes.findIndex(r => r.name === cfg.routeName);
-    if (idx >= 0) routeSel.value = idx;
+    if (idx >= 0) routeSel.value = String(idx);
 
     // Chip groups
     const setChip = (cls, attr, val) => {
