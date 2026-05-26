@@ -1087,6 +1087,8 @@ function _ensureMap() {
   }
 
   function _applyTrackConfig(cfg) {
+    console.log('[AC] applyTrackConfig called with:', JSON.stringify(cfg));
+
     // Rebuild route dropdown without triggering sticky-restore side effects
     const routes   = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
     const routeSel = document.getElementById('track-route-select');
@@ -1098,20 +1100,20 @@ function _ensureMap() {
     if (idx < 0) idx = routes.findIndex(r => r.name === cfg.name);
     if (idx >= 0) {
       routeSel.value = String(idx);
-      // Update sticky so _populateRouteSelect() won't override on next menu open
       localStorage.setItem('audiochart-last-route', routes[idx].name);
     }
 
     // Chip groups
     const setChip = (cls, attr, val) => {
+      const strVal = String(val ?? '');
       document.querySelectorAll(`.${cls}`).forEach(b => {
-        b.classList.toggle('selected', b.dataset[attr] === String(val));
+        b.classList.toggle('selected', b.dataset[attr] === strVal);
       });
     };
-    setChip('track-obj',      'obj',      cfg.filter ?? '');
+    setChip('track-obj',      'obj',      cfg.filter);
     setChip('track-dist',     'nm',       cfg.radiusNm);
     setChip('track-compress', 'compress', cfg.compress);
-    setChip('track-zoom',     'zoom',     cfg.zoom ?? '');
+    setChip('track-zoom',     'zoom',     cfg.zoom);
 
     // Speed — update sticky so _populateRouteSelect() doesn't clobber it
     const speedEl = document.getElementById('track-speed-input');
@@ -1127,6 +1129,14 @@ function _ensureMap() {
     const msInp = document.getElementById('track-milestone-input');
     if (msEl)  msEl.checked   = !!cfg.milestoneEnabled;
     if (msInp) msInp.value    = cfg.milestoneNm || 5;
+
+    const routeName = idx >= 0 ? routes[idx].name : '(no route)';
+    const filterLabel = cfg.filter || 'All';
+    console.log('[AC] Applied. Route:', routeName, '| Filter:', filterLabel,
+      '| Radius:', cfg.radiusNm, '| Compress:', cfg.compress,
+      '| Zoom:', cfg.zoom, '| Speed:', cfg.speedKnots,
+      '| Milestone:', cfg.milestoneEnabled, cfg.milestoneNm);
+    setStatus(`Loaded "${cfg.name}": ${filterLabel}, ${cfg.radiusNm}nm, ${cfg.speedKnots}kts`);
   }
 
   _populateConfigSelect();
