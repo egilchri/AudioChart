@@ -127,6 +127,17 @@ function _distNm(lat1, lon1, lat2, lon2) {
  * falls back to the static GeoJSON files for offline use.
  */
 export async function loadData(lat, lon) {
+  // Land polygons are position-independent — load once regardless of server/static path
+  if (!landPolygons) {
+    fetch('./data/land.geojson')
+      .then(r => r.ok ? r.json() : null)
+      .then(land => {
+        if (land) landPolygons = land;
+        console.log(`[AC] Land polygons: ${landPolygons ? landPolygons.features.length : 'FAILED TO LOAD'}`);
+      })
+      .catch(() => console.warn('[AC] land.geojson failed to load'));
+  }
+
   // Try server API first
   if (_serverBase && lat != null && lon != null) {
     try {
@@ -185,17 +196,14 @@ export async function loadData(lat, lon) {
     if (idbH && !idbCurrent) {
       console.log(`[query] IDB data stale (stored=${storedVersion} network=${networkVersion}), using static files`);
     }
-    const [h, p, n, land] = await Promise.all([
+    const [h, p, n] = await Promise.all([
       fetch('./data/hazards.geojson').then(r => r.json()),
       fetch('./data/named_places.geojson').then(r => r.json()),
       fetch('./data/navaid.geojson').then(r => r.json()),
-      fetch('./data/land.geojson').then(r => r.json()).catch(() => null),
     ]);
     hazards = h;
     namedPlaces = p;
     navaids = n;
-    if (land) landPolygons = land;
-    console.log(`[AC] Land polygons: ${landPolygons ? landPolygons.features.length : 'FAILED TO LOAD'}`);
     if (networkVersion) await idbPut('data-version', networkVersion);
     console.log(`[query] Loaded offline data from static files (version ${networkVersion})`);
   }
