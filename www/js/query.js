@@ -844,11 +844,13 @@ export function nearestNavaid(lat, lon, filter, requireLOS = false) {
 
 /** Like nearestNavaid but returns an array of up to `count` nearest visible navaids. */
 /**
- * Returns up to `count` nearest visible navaids with good angular separation.
- * Each additional fix must differ from all selected bearings by at least minAngleDeg,
- * so the resulting cross-bearing fix is geometrically useful.
+ * Returns up to `count` nearest visible navaids chosen for a good cross-bearing fix.
+ * Fix 1 is always the nearest visible navaid.
+ * Fix 2 is chosen by searching outward from the boat and preferring candidates whose
+ * bearing differs from fix 1 by 60°–120° (ideal fix geometry). If none qualify at
+ * that ideal angle, falls back to any candidate ≥ 45° away.
  */
-export function nearestNavaids(lat, lon, filter, requireLOS = false, count = 2, minAngleDeg = 45) {
+export function nearestNavaids(lat, lon, filter, requireLOS = false, count = 2) {
   if (!navaids || navaids.features.length === 0) return [];
   const candidates = [];
   for (const f of navaids.features) {
@@ -856,23 +858,26 @@ export function nearestNavaids(lat, lon, filter, requireLOS = false, count = 2, 
     const [flon, flat] = f.geometry.coordinates;
     const d = distanceNm(lon, lat, flon, flat);
     if (requireLOS && _landBlocks(lon, lat, flon, flat)) continue;
-    const brg = bearing(lon, lat, flon, flat);  // true bearing
+    const brg = bearing(lon, lat, flon, flat);  // true bearing, degrees
     candidates.push({ f, d, brg, flat, flon });
   }
   candidates.sort((a, b) => a.d - b.d);
+  if (candidates.length === 0) return [];
 
-  const selected = [];
-  const selectedBrgs = [];
-  for (const c of candidates) {
-    if (selected.length >= count) break;
-    // Check angular separation against all already-selected bearings
-    const tooClose = selectedBrgs.some(sb => {
-      const diff = Math.abs(((c.brg - sb + 180 + 360) % 360) - 180);
-      return diff < minAngleDeg;
-    });
-    if (tooClose) continue;
-    selected.push(c);
-    selectedBrgs.push(c.brg);
+  function angleDiff(a, b) {
+    return Math.abs(((a - b + 180 + 360) % 360) - 180);
+  }
+
+  const selected = [candidates[0]];
+
+  if (count >= 2 && candidates.length > 1) {
+    const firstBrg = candidates[0].brg;
+    const rest = candidates.slice(1);
+    // Prefer ideal 60°–120° separation for a well-conditioned fix
+    let second = rest.find(c => { const a = angleDiff(c.brg, firstBrg); return a >= 60 && a <= 120; });
+    // Fall back to anything ≥ 45°
+    if (!second) second = rest.find(c => angleDiff(c.brg, firstBrg) >= 45);
+    if (second) selected.push(second);
   }
 
   const prefix = requireLOS
