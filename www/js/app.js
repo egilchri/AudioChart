@@ -1130,14 +1130,17 @@ function _ensureMap() {
     if (msEl)  msEl.checked   = !!cfg.milestoneEnabled;
     if (msInp) msInp.value    = cfg.milestoneNm || 5;
 
-    const routeName = idx >= 0 ? routes[idx].name : '(no route)';
+    const routeName = idx >= 0 ? routes[idx].name : 'not found';
     const filterLabel = cfg.filter || 'All';
-    console.log('[AC] Applied. Route:', routeName, '| Filter:', filterLabel,
+    console.log('[AC] cfg.routeName:', cfg.routeName, '| cfg.name:', cfg.name);
+    console.log('[AC] Routes in storage:', routes.map(r => r.name));
+    console.log('[AC] Route match idx:', idx, '→', routeName);
+    console.log('[AC] Applied. Filter:', filterLabel,
       '| Radius:', cfg.radiusNm, '| Compress:', cfg.compress,
       '| Zoom:', cfg.zoom, '| Speed:', cfg.speedKnots,
       '| Milestone:', cfg.milestoneEnabled, cfg.milestoneNm);
-    setStatus(`Loaded "${cfg.name}": ${filterLabel}, ${cfg.radiusNm}nm, ${cfg.speedKnots}kts`);
-    TTS.sayImmediate(`Loaded ${cfg.name}: ${filterLabel}, ${cfg.radiusNm} nautical miles, ${cfg.speedKnots} knots`);
+    setStatus(`Loaded "${cfg.name}": ${filterLabel}, ${cfg.radiusNm}nm, ${cfg.speedKnots}kts, route ${routeName}`);
+    TTS.sayImmediate(`Loaded ${cfg.name}: ${filterLabel}, ${cfg.radiusNm} miles, ${cfg.speedKnots} knots, route ${routeName}`);
   }
 
   _populateConfigSelect();
