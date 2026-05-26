@@ -367,6 +367,24 @@ html, body {
   min-height: 1.2rem;
 }
 
+/* Voice picker */
+#voice-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0 4px;
+}
+#voice-row span { font-size: 0.85rem; flex-shrink: 0; }
+#voice-select {
+  flex: 1;
+  font-size: 0.75rem;
+  background: var(--bg-panel, #1e3a5c);
+  color: var(--text-main, #e8edf4);
+  border: 1px solid #2a5080;
+  border-radius: 4px;
+  padding: 2px 4px;
+}
+
 /* Response area */
 #response-area {
   flex: 1;

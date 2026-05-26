@@ -12,6 +12,27 @@ import * as Query from './query.js';
 const VERSION = window.APP_VERSION;
 document.getElementById('app-version').textContent = VERSION;
 
+// ── Voice picker ──────────────────────────────────────────────────────────────
+function _populateVoicePicker() {
+  const sel = document.getElementById('voice-select');
+  if (!sel) return;
+  const voices = TTS.getVoices();
+  if (!voices.length) return;
+  const current = TTS.currentVoiceName();
+  sel.innerHTML = voices.map(v =>
+    `<option value="${v.name}"${v.name === current ? ' selected' : ''}>${v.name} (${v.lang})</option>`
+  ).join('');
+}
+_populateVoicePicker();
+if (typeof speechSynthesis !== 'undefined') {
+  speechSynthesis.addEventListener('voiceschanged', _populateVoicePicker);
+}
+document.getElementById('voice-select')?.addEventListener('change', (e) => {
+  TTS.setVoice(e.target.value);
+  TTS.sayImmediate('Voice selected.');
+});
+// ─────────────────────────────────────────────────────────────────────────────
+
 function _navaidMarkerIcon(navaid) {
   const c = (navaid.colour || '').toLowerCase();
   const l = (navaid.label || '').toLowerCase();

@@ -3,17 +3,44 @@
  * Works fully offline on all platforms.
  */
 
+const VOICE_PREF_KEY = 'audiochart-voice-name';
+
 let voice = null;
 let queue = [];
 let speaking = false;
 let _onSpeechEnd = null;
 
+function _voiceQuality(v) {
+  const n = v.name.toLowerCase();
+  if (n.includes('premium')) return 4;
+  if (n.includes('enhanced')) return 3;
+  if (v.localService) return 2;
+  return 1;
+}
+
+function _rankVoices(voices) {
+  return voices
+    .filter(v => v.lang.startsWith('en'))
+    .sort((a, b) => {
+      const aUS = a.lang === 'en-US' ? 1 : 0;
+      const bUS = b.lang === 'en-US' ? 1 : 0;
+      if (aUS !== bUS) return bUS - aUS;
+      return _voiceQuality(b) - _voiceQuality(a);
+    });
+}
+
 function selectVoice() {
   const voices = speechSynthesis.getVoices();
-  voice = voices.find(v => v.lang === 'en-US' && !v.localService === false) ||
-          voices.find(v => v.lang.startsWith('en-US')) ||
-          voices.find(v => v.lang.startsWith('en')) ||
-          (voices.length ? voices[0] : null);
+  if (!voices.length) return;
+
+  const saved = localStorage.getItem(VOICE_PREF_KEY);
+  if (saved) {
+    const match = voices.find(v => v.name === saved);
+    if (match) { voice = match; return; }
+  }
+
+  const ranked = _rankVoices(voices);
+  voice = ranked[0] || voices[0] || null;
 }
 
 // Voices may not be ready immediately
@@ -73,4 +100,23 @@ export function stop() {
 
 export function isSpeaking() {
   return speaking || speechSynthesis.speaking;
+}
+
+/** Return all English voices sorted best-first, for a UI picker. */
+export function getVoices() {
+  return _rankVoices(speechSynthesis.getVoices());
+}
+
+/** Set voice by name and persist the preference. */
+export function setVoice(name) {
+  const match = speechSynthesis.getVoices().find(v => v.name === name);
+  if (match) {
+    voice = match;
+    localStorage.setItem(VOICE_PREF_KEY, name);
+  }
+}
+
+/** Return the currently active voice name, or null. */
+export function currentVoiceName() {
+  return voice?.name ?? null;
 }
