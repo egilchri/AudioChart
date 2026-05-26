@@ -813,6 +813,11 @@ function _startRouteAnimation(route, speedKnots) {
           _animMilestoneLayer.addLayer(L.circleMarker([destLat, destLon], {
             radius: 6, color: '#f5a623', fillColor: '#f5a623', fillOpacity: 1, weight: 0,
           }));
+          // Zoom out if needed so both boat and beacon are visible
+          const bounds = L.latLngBounds([[lat, lon], [destLat, destLon]]).pad(0.2);
+          if (!_map.getBounds().contains(bounds)) {
+            _map.fitBounds(bounds);
+          }
         }
         const savedBanner = _animBannerText.textContent;
         _animBannerText.textContent = `⛵ Reporting…`;
