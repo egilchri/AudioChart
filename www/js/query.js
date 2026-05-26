@@ -842,6 +842,39 @@ export function nearestNavaid(lat, lon, filter, requireLOS = false) {
   };
 }
 
+/** Like nearestNavaid but returns an array of up to `count` nearest visible navaids. */
+export function nearestNavaids(lat, lon, filter, requireLOS = false, count = 2) {
+  if (!navaids || navaids.features.length === 0) return [];
+  const candidates = [];
+  for (const f of navaids.features) {
+    if (filter && f.properties.label !== filter) continue;
+    const [flon, flat] = f.geometry.coordinates;
+    const d = distanceNm(lon, lat, flon, flat);
+    if (requireLOS && _landBlocks(lon, lat, flon, flat)) continue;
+    candidates.push({ f, d });
+  }
+  candidates.sort((a, b) => a.d - b.d);
+  const prefix = requireLOS
+    ? (landPolygons ? 'Nearest visible' : 'Nearest (no land data)')
+    : 'Nearest';
+  return candidates.slice(0, count).map(({ f, d }, i) => {
+    const [flon, flat] = f.geometry.coordinates;
+    const label = f.properties.label || 'navaid';
+    const characteristic = f.properties.characteristic;
+    const nameStr = f.properties.name ? `, ${f.properties.name}` : '';
+    const detail = characteristic ? ` (${characteristic})` : (f.properties.colour ? `, ${f.properties.colour}` : '');
+    const destName = `${label}${nameStr}${detail}`.trim();
+    const brg = trueTomagnetic(bearing(lon, lat, flon, flat));
+    const rankPrefix = i === 0 ? prefix : 'Also visible';
+    return {
+      lat:    flat,
+      lon:    flon,
+      text:   `${rankPrefix} ${label}${nameStr}${detail}  ${bearingToDisplay(brg)}  ${distanceToDisplay(d)}`,
+      speech: `${rankPrefix} ${label}${nameStr}${detail}, bearing ${bearingToWords(brg)}, ${formatDistance(d)}.`,
+    };
+  });
+}
+
 export function landDataInfo() {
   if (!landPolygons) return 'Land data not loaded.';
   return `Land data: ${landPolygons.features.length} polygons loaded.`;

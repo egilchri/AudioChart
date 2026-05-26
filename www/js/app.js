@@ -799,29 +799,33 @@ function _startRouteAnimation(route, speedKnots) {
       recordPoints.push({ lat, lon, t: recordStart + sailedSec * 1000 });
     }
 
-    // Milestone report: pause boat, draw bearing line, speak, then resume after 500ms
+    // Milestone report: pause boat, draw bearing lines, speak two fixes, then resume
     if (track.milestoneNm && traveled - lastMilestoneNm >= track.milestoneNm) {
       lastMilestoneNm += track.milestoneNm * Math.floor((traveled - lastMilestoneNm) / track.milestoneNm);
-      const closest = Query.nearestNavaid(lat, lon, track.filter, true);
-      if (closest) {
+      const fixes = Query.nearestNavaids(lat, lon, track.filter, true, 2);
+      if (fixes.length > 0) {
+        const colors = ['#f5a623', '#4dd0e1'];
         if (_animMilestoneLayer) {
           _animMilestoneLayer.clearLayers();
-          const destLat = closest.lat, destLon = closest.lon;
-          _animMilestoneLayer.addLayer(L.polyline([[lat, lon], [destLat, destLon]], {
-            color: '#f5a623', weight: 2, dashArray: '6 4', opacity: 0.9,
-          }));
-          _animMilestoneLayer.addLayer(L.circleMarker([destLat, destLon], {
-            radius: 6, color: '#f5a623', fillColor: '#f5a623', fillOpacity: 1, weight: 0,
-          }));
-          // Zoom out if needed so both boat and beacon are visible
-          const bounds = L.latLngBounds([[lat, lon], [destLat, destLon]]).pad(0.2);
+          const allPoints = [[lat, lon]];
+          fixes.forEach((fix, i) => {
+            const c = colors[i];
+            _animMilestoneLayer.addLayer(L.polyline([[lat, lon], [fix.lat, fix.lon]], {
+              color: c, weight: 2, dashArray: '6 4', opacity: 0.9,
+            }));
+            _animMilestoneLayer.addLayer(L.circleMarker([fix.lat, fix.lon], {
+              radius: 6, color: c, fillColor: c, fillOpacity: 1, weight: 0,
+            }));
+            allPoints.push([fix.lat, fix.lon]);
+          });
+          const bounds = L.latLngBounds(allPoints).pad(0.2);
           if (!_map.getBounds().contains(bounds)) {
             _map.fitBounds(bounds);
           }
         }
         const savedBanner = _animBannerText.textContent;
         _animBannerText.textContent = `⛵ Reporting…`;
-        TTS.sayImmediate(closest.speech, () => {
+        const resume = () => {
           setTimeout(() => {
             if (!_animMode) return;
             _animBannerText.textContent = savedBanner;
@@ -830,7 +834,14 @@ function _startRouteAnimation(route, speedKnots) {
               step(now);
             });
           }, 500);
-        });
+        };
+        if (fixes.length >= 2) {
+          TTS.sayImmediate(fixes[0].speech, () => {
+            setTimeout(() => TTS.sayImmediate(fixes[1].speech, resume), 300);
+          });
+        } else {
+          TTS.sayImmediate(fixes[0].speech, resume);
+        }
         return; // pause until speech + delay complete
       }
     }
