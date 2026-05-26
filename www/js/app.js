@@ -1137,8 +1137,9 @@ function _ensureMap() {
     if (!configs[idx]) return;
     _applyTrackConfig(configs[idx]);
     const prev = btn.textContent;
-    btn.textContent = '✓';
-    setTimeout(() => { btn.textContent = prev; }, 1200);
+    btn.textContent = `✓ Loaded`;
+    btn.disabled = true;
+    setTimeout(() => { btn.textContent = prev; btn.disabled = false; }, 1500);
   });
 
   document.getElementById('track-config-delete').addEventListener('click', () => {
