@@ -1137,6 +1137,7 @@ function _ensureMap() {
       '| Zoom:', cfg.zoom, '| Speed:', cfg.speedKnots,
       '| Milestone:', cfg.milestoneEnabled, cfg.milestoneNm);
     setStatus(`Loaded "${cfg.name}": ${filterLabel}, ${cfg.radiusNm}nm, ${cfg.speedKnots}kts`);
+    TTS.sayImmediate(`Loaded ${cfg.name}: ${filterLabel}, ${cfg.radiusNm} nautical miles, ${cfg.speedKnots} knots`);
   }
 
   _populateConfigSelect();
