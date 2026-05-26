@@ -804,24 +804,23 @@ function _startRouteAnimation(route, speedKnots) {
       lastMilestoneNm += track.milestoneNm * Math.floor((traveled - lastMilestoneNm) / track.milestoneNm);
       const fixes = Query.nearestNavaids(lat, lon, track.filter, true, 2);
       if (fixes.length > 0) {
-        const colors = ['#f5a623', '#4dd0e1'];
+        const colors     = ['#f5a623', '#4dd0e1'];
+        const dashArrays = ['8 5', '4 4'];
         if (_animMilestoneLayer) {
           _animMilestoneLayer.clearLayers();
           const allPoints = [[lat, lon]];
           fixes.forEach((fix, i) => {
             const c = colors[i];
             _animMilestoneLayer.addLayer(L.polyline([[lat, lon], [fix.lat, fix.lon]], {
-              color: c, weight: 2, dashArray: '6 4', opacity: 0.9,
+              color: c, weight: 3, dashArray: dashArrays[i], opacity: 0.95,
             }));
             _animMilestoneLayer.addLayer(L.circleMarker([fix.lat, fix.lon], {
-              radius: 6, color: c, fillColor: c, fillOpacity: 1, weight: 0,
+              radius: 7, color: '#fff', fillColor: c, fillOpacity: 1, weight: 1.5,
             }));
             allPoints.push([fix.lat, fix.lon]);
           });
-          const bounds = L.latLngBounds(allPoints).pad(0.2);
-          if (!_map.getBounds().contains(bounds)) {
-            _map.fitBounds(bounds);
-          }
+          // Always zoom to fit all objects as tight as possible
+          _map.fitBounds(L.latLngBounds(allPoints).pad(0.12));
         }
         const savedBanner = _animBannerText.textContent;
         _animBannerText.textContent = `⛵ Reporting…`;
@@ -835,13 +834,17 @@ function _startRouteAnimation(route, speedKnots) {
             });
           }, 500);
         };
-        if (fixes.length >= 2) {
-          TTS.sayImmediate(fixes[0].speech, () => {
-            setTimeout(() => TTS.sayImmediate(fixes[1].speech, resume), 300);
-          });
-        } else {
-          TTS.sayImmediate(fixes[0].speech, resume);
-        }
+        // Linger 1.5s so user can see both lines before speech starts
+        setTimeout(() => {
+          if (!_animMode) return;
+          if (fixes.length >= 2) {
+            TTS.sayImmediate(fixes[0].speech, () => {
+              setTimeout(() => TTS.sayImmediate(fixes[1].speech, resume), 400);
+            });
+          } else {
+            TTS.sayImmediate(fixes[0].speech, resume);
+          }
+        }, 1500);
         return; // pause until speech + delay complete
       }
     }
