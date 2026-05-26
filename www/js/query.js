@@ -195,6 +195,7 @@ export async function loadData(lat, lon) {
     namedPlaces = p;
     navaids = n;
     if (land) landPolygons = land;
+    console.log(`[AC] Land polygons: ${landPolygons ? landPolygons.features.length : 'FAILED TO LOAD'}`);
     if (networkVersion) await idbPut('data-version', networkVersion);
     console.log(`[query] Loaded offline data from static files (version ${networkVersion})`);
   }
@@ -822,13 +823,20 @@ export function nearestNavaid(lat, lon, filter, requireLOS = false) {
   const destName = `${label}${nameStr}${detail}`.trim();
   lastBearingResult = { destLat: flat, destLon: flon, destName: destName };
   const brg = trueTomagnetic(bearing(lon, lat, flon, flat));
-  const prefix = requireLOS ? 'Nearest visible' : 'Nearest';
+  const prefix = requireLOS
+    ? (landPolygons ? 'Nearest visible' : 'Nearest (no land data)')
+    : 'Nearest';
   return {
     lat:    flat,
     lon:    flon,
     text:   `${prefix} ${label}${nameStr}${detail}  ${bearingToDisplay(brg)}  ${distanceToDisplay(minDist)}`,
     speech: `${prefix} ${label}${nameStr}${detail}, bearing ${bearingToWords(brg)}, ${formatDistance(minDist)}.`,
   };
+}
+
+export function landDataInfo() {
+  if (!landPolygons) return 'Land data not loaded.';
+  return `Land data: ${landPolygons.features.length} polygons loaded.`;
 }
 
 /** Find all navaids of a given type within radiusNm. filter: 'buoy'|'light'|'beacon'|null */

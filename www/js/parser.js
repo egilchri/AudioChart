@@ -215,6 +215,11 @@ const PATTERNS = [
 
   // NEAREST RESTRICTION
   {
+    re: /\b(land\s+data|land\s+polygons?|los\s+data|line.of.sight\s+data)\b/i,
+    intent: 'LAND_DATA',
+    params: {},
+  },
+  {
     re: /\b(nearest|closest|any)\s+(restrict|no.anchor|no.wake|sanctuary|refuge|reserve|prohibited|entry\s+prohibited)/i,
     intent: 'NEAREST_RESTRICTION',
     params: {},

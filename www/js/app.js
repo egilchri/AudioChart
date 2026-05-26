@@ -2017,6 +2017,11 @@ async function handleCommand(transcript) {
       case 'NEAREST_RESTRICTION':
         response = Query.nearestRestriction(pos.lat, pos.lon);
         break;
+      case 'LAND_DATA': {
+        const info = Query.landDataInfo();
+        response = { text: info, speech: info };
+        break;
+      }
       case 'HAZARDS_ON_COURSE': {
         const resolvePlace = async (name) =>
           parseCoordinate(name) ||
