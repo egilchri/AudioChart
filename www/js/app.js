@@ -803,22 +803,25 @@ function _startRouteAnimation(route, speedKnots) {
     if (track.milestoneNm && traveled - lastMilestoneNm >= track.milestoneNm) {
       lastMilestoneNm += track.milestoneNm * Math.floor((traveled - lastMilestoneNm) / track.milestoneNm);
       const fixes = Query.nearestNavaids(lat, lon, track.filter, true, 2);
+      console.log('[AC] milestone fixes:', fixes.length, fixes.map(f => `${f.lat.toFixed(5)},${f.lon.toFixed(5)}`));
       if (fixes.length > 0) {
-        const colors     = ['#f5a623', '#4dd0e1'];
-        const dashArrays = ['8 5', '4 4'];
+        const colors  = ['#f5a623', '#4dd0e1'];
+        const weights = [4, 2];
         if (_animMilestoneLayer) {
           _animMilestoneLayer.clearLayers();
           const allPoints = [[lat, lon]];
           fixes.forEach((fix, i) => {
             const c = colors[i];
+            console.log(`[AC] drawing line ${i}: [${lat},${lon}] → [${fix.lat},${fix.lon}] color=${c}`);
             _animMilestoneLayer.addLayer(L.polyline([[lat, lon], [fix.lat, fix.lon]], {
-              color: c, weight: 3, dashArray: dashArrays[i], opacity: 0.95,
+              color: c, weight: weights[i], dashArray: i === 1 ? '6 4' : null, opacity: 0.95,
             }));
             _animMilestoneLayer.addLayer(L.circleMarker([fix.lat, fix.lon], {
               radius: 7, color: '#fff', fillColor: c, fillOpacity: 1, weight: 1.5,
             }));
             allPoints.push([fix.lat, fix.lon]);
           });
+          console.log('[AC] milestone layer child count:', _animMilestoneLayer.getLayers().length);
           // Always zoom to fit all objects as tight as possible
           _map.fitBounds(L.latLngBounds(allPoints).pad(0.12));
         }
