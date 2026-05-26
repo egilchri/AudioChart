@@ -3,14 +3,12 @@ Extract LNDARE (land area) polygon geometry from S-57 ENC charts and
 produce a deduplicated, simplified GeoJSON for client-side line-of-sight checks.
 
 Strategy:
-  - Process charts ordered broadest-scale first (US3 → US4 → US5).
-  - Deduplicate via centroid grid: if a polygon's centroid falls in a cell
-    already claimed by a broader-scale chart, skip it (the broader polygon
-    already covers that land mass).  Small isolated polygons (new islands
-    not in broader charts) still pass through.
-  - Apply simplification at 0.002° (~200 m) — enough precision for
-    line-of-sight checks at the distances we care about.
-  - Drop slivers smaller than 1e-5 sq-degrees.
+  - Process charts detailed-scale first (US5/US6 → US4 → US3 → US2) so that
+    fine-grained polygon boundaries win deduplication over coarse ones.
+  - Deduplicate via centroid grid at 0.003° (~330 m): if a polygon's centroid
+    falls in a cell already claimed by a more-detailed chart, skip it.
+  - Simplify at 0.0005° (~55 m) to preserve narrow peninsulas and small islands.
+  - Drop slivers smaller than 2e-7 sq-degrees (~42 m × 42 m at 44°N).
 
 Usage:
     python3 preprocess/extract_land.py
@@ -31,9 +29,9 @@ OUT_PATH = os.path.join(os.path.dirname(__file__), '../www/data/land.geojson')
 MIN_LAT, MAX_LAT = 43.0, 47.5
 MIN_LON, MAX_LON = -71.5, -66.0
 
-SIMPLIFY_DEG  = 0.002   # ~200 m — fine enough for multi-mile LOS checks
-MIN_AREA_DEG2 = 1e-5    # drop slivers < ~100 m²
-DEDUP_CELL    = 0.01    # 0.01° grid (~1 km) for centroid deduplication
+SIMPLIFY_DEG  = 0.0005  # ~55 m — enough detail to catch narrow peninsulas & small islands
+MIN_AREA_DEG2 = 2e-7    # drop slivers < ~0.18 ha (~42m × 42m at 44°N)
+DEDUP_CELL    = 0.003   # 0.003° grid (~330 m) for centroid deduplication
 
 ogr.UseExceptions()
 
@@ -94,12 +92,12 @@ def simplify_geom(geom):
 # ── Chart ordering ────────────────────────────────────────────────────────────
 
 def chart_scale_priority(dirname):
-    """Lower number = processed first (broader coverage wins deduplication)."""
-    if dirname.startswith('US2'): return 0
-    if dirname.startswith('US3'): return 1
+    """Lower number = processed first (detailed charts win deduplication)."""
+    if dirname.startswith('US6'): return 0
+    if dirname.startswith('US5'): return 1
     if dirname.startswith('US4'): return 2
-    if dirname.startswith('US5'): return 3
-    if dirname.startswith('US6'): return 4
+    if dirname.startswith('US3'): return 3
+    if dirname.startswith('US2'): return 4
     return 9
 
 
