@@ -606,6 +606,32 @@ ${trkpts}
 const _animBanner     = document.getElementById('anim-banner');
 const _animBannerText = document.getElementById('anim-banner-text');
 
+// ── Nautical chart display helpers ───────────────────────────────────────────
+
+const _NAVAID_SYMBOL = { buoy: '◆', light: '✦', beacon: '▲', hazard: '⚠', restriction: '⛔', waypoint: '⚓', place: '📍', coord: '✕' };
+
+function _navaidIcon(type, color, label) {
+  const sym = _NAVAID_SYMBOL[type] || '●';
+  const html = label != null
+    ? `<div style="background:${color};color:#000;font-weight:bold;font-size:12px;min-width:22px;height:22px;padding:0 3px;border-radius:11px;border:2px solid #fff;display:flex;align-items:center;justify-content:center;gap:2px;box-shadow:0 1px 4px rgba(0,0,0,.6);white-space:nowrap">${sym} ${label}</div>`
+    : `<div style="background:${color};color:#000;font-size:14px;width:24px;height:24px;border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.6)">${sym}</div>`;
+  return L.divIcon({ className: '', html, iconSize: null, iconAnchor: [12, 12] });
+}
+
+function _bearingLineLabel(fromLat, fromLon, toLat, toLon, brgMag, distNm, color) {
+  const midLat = (fromLat + toLat) / 2;
+  const midLon = (fromLon + toLon) / 2;
+  const brgStr = `${Math.round(brgMag).toString().padStart(3, '0')}°M`;
+  const distStr = distNm < 0.1 ? `${Math.round(distNm * 2000) / 2} yd`
+                : distNm < 1   ? `${Math.round(distNm * 10) / 10} nm`
+                :                `${Math.round(distNm * 10) / 10} nm`;
+  const html = `<div style="color:${color};font-size:11px;font-weight:bold;white-space:nowrap;text-shadow:0 0 3px #000,0 0 3px #000,0 0 3px #000;line-height:1.3;transform:translate(-50%,-50%)">${brgStr}<br>${distStr}</div>`;
+  return L.marker([midLat, midLon], {
+    icon: L.divIcon({ className: '', html, iconSize: [0, 0], iconAnchor: [0, 0] }),
+    interactive: false,
+  });
+}
+
 function _exitAnimMode() {
   if (_map) _map.off('click', _exitAnimMode);
   if (_map && _animClickHandler) { _map.off('click', _animClickHandler); _animClickHandler = null; }
@@ -830,14 +856,10 @@ function _startRouteAnimation(route, speedKnots) {
             _animMilestoneLayer.addLayer(L.polyline([[lat, lon], [fix.lat, fix.lon]], {
               color: c, weight: weights[i], dashArray: i === 1 ? '6 4' : null, opacity: 0.95,
             }));
-            // Numbered label marker at the endpoint
-            const numIcon = L.divIcon({
-              className: '',
-              html: `<div style="background:${c};color:#000;font-weight:bold;font-size:13px;width:22px;height:22px;border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.6)">${i + 1}</div>`,
-              iconSize: [22, 22],
-              iconAnchor: [11, 11],
-            });
-            _animMilestoneLayer.addLayer(L.marker([fix.lat, fix.lon], { icon: numIcon }));
+            _animMilestoneLayer.addLayer(L.marker([fix.lat, fix.lon], { icon: _navaidIcon(fix.type, c) }));
+            if (fix.brg != null && fix.distNm != null) {
+              _animMilestoneLayer.addLayer(_bearingLineLabel(lat, lon, fix.lat, fix.lon, fix.brg, fix.distNm, c));
+            }
             allPoints.push([fix.lat, fix.lon]);
           });
           console.log('[AC] milestone layer child count:', _animMilestoneLayer.getLayers().length);
@@ -1648,18 +1670,22 @@ async function showMap(fromLat, fromLon, result) {
   _ensureMap();
   _map.invalidateSize();  // must precede fitBounds so Leaflet knows container size
   if (_mapLayers) { _map.removeLayer(_mapLayers); _mapLayers = null; }
-  const { destLat, destLon, destName } = result;
+  const { destLat, destLon, destName, destType, brg, distNm } = result;
+  const lineColor = '#4a9edd';
   const fromDot = L.circleMarker([fromLat, fromLon], {
-    radius: 7, color: '#4a9edd', fillColor: '#4a9edd', fillOpacity: 1, weight: 0,
+    radius: 5, color: '#fff', fillColor: lineColor, fillOpacity: 1, weight: 1.5,
   });
-  const toDot = L.circleMarker([destLat, destLon], {
-    radius: 7, color: '#e05252', fillColor: '#e05252', fillOpacity: 1, weight: 0,
-  });
-  if (destName) toDot.bindTooltip(destName, { permanent: true, direction: 'top', className: 'map-tooltip' });
+  const toIcon = _navaidIcon(destType || 'place', '#e05252');
+  const toMarker = L.marker([destLat, destLon], { icon: toIcon });
+  if (destName) toMarker.bindTooltip(destName, { permanent: true, direction: 'top', className: 'map-tooltip' });
   const line = L.polyline([[fromLat, fromLon], [destLat, destLon]], {
-    color: '#4a9edd', weight: 2, dashArray: '6 4', opacity: 0.85,
+    color: lineColor, weight: 2, dashArray: '6 4', opacity: 0.85,
   });
-  _mapLayers = L.layerGroup([line, fromDot, toDot]).addTo(_map);
+  const layers = [line, fromDot, toMarker];
+  if (brg != null && distNm != null) {
+    layers.push(_bearingLineLabel(fromLat, fromLon, destLat, destLon, brg, distNm, lineColor));
+  }
+  _mapLayers = L.layerGroup(layers).addTo(_map);
   _map.fitBounds(L.latLngBounds([[fromLat, fromLon], [destLat, destLon]]).pad(0.2));
 }
 

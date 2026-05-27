@@ -629,8 +629,8 @@ export function nearestHazard(lat, lon) {
   const [flon, flat] = nearest.geometry.coordinates;
   const label = nearest.properties.label || nearest.properties.objtype;
   const name = nearest.properties.name ? `, ${nearest.properties.name}` : '';
-  lastBearingResult = { destLat: flat, destLon: flon, destName: (label + name).trim() };
   const brg = trueTomagnetic(bearing(lon, lat, flon, flat));
+  lastBearingResult = { destLat: flat, destLon: flon, destName: (label + name).trim(), destType: 'hazard', brg, distNm: minDist };
   return {
     text:   `Nearest hazard: ${label}${name}  ${bearingToDisplay(brg)}  ${distanceToDisplay(minDist)}`,
     speech: `Nearest hazard: ${label}${name}, bearing ${bearingToWords(brg)}, ${formatDistance(minDist)}.`,
@@ -735,9 +735,9 @@ export function bearingToResolvedPlace(lat, lon, toLat, toLon, toName) {
 }
 
 function _formatBearingResult(lat, lon, flat, flon, name, isWaypoint, score) {
-  lastBearingResult = { destLat: flat, destLon: flon, destName: name };
   const brg = trueTomagnetic(bearing(lon, lat, flon, flat));
   const dist = distanceNm(lon, lat, flon, flat);
+  lastBearingResult = { destLat: flat, destLon: flon, destName: name, destType: isWaypoint ? 'waypoint' : 'place', brg, distNm: dist };
   const tag = isWaypoint ? ' (waypoint)' : '';
   const matchNote = score < 0.9 ? `Closest match: ${name}${tag}` : `${name}${tag}`;
   return {
@@ -748,9 +748,9 @@ function _formatBearingResult(lat, lon, flat, flon, name, isWaypoint, score) {
 
 /** Compute range and bearing from current position to an explicit coordinate. */
 export function bearingToCoord(lat, lon, targetLat, targetLon) {
-  lastBearingResult = { destLat: targetLat, destLon: targetLon, destName: null };
   const brg = trueTomagnetic(bearing(lon, lat, targetLon, targetLat));
   const dist = distanceNm(lon, lat, targetLon, targetLat);
+  lastBearingResult = { destLat: targetLat, destLon: targetLon, destName: null, destType: 'coord', brg, distNm: dist };
   const latDir = targetLat >= 0 ? 'N' : 'S';
   const lonDir = targetLon >= 0 ? 'E' : 'W';
   const latAbs = Math.abs(targetLat);
@@ -829,8 +829,8 @@ export function nearestNavaid(lat, lon, filter, requireLOS = false) {
   const nameStr = nearest.properties.name ? `, ${nearest.properties.name}` : '';
   const detail = characteristic ? ` (${characteristic})` : (nearest.properties.colour ? `, ${nearest.properties.colour}` : '');
   const destName = `${label}${nameStr}${detail}`.trim();
-  lastBearingResult = { destLat: flat, destLon: flon, destName: destName };
   const brg = trueTomagnetic(bearing(lon, lat, flon, flat));
+  lastBearingResult = { destLat: flat, destLon: flon, destName: destName, destType: label, brg, distNm: minDist };
   const prefix = requireLOS
     ? (landPolygons ? 'Nearest visible' : 'Nearest (no land data)')
     : 'Nearest';
@@ -904,6 +904,8 @@ export function nearestNavaids(lat, lon, filter, requireLOS = false, count = 2, 
       lat:    flat,
       lon:    flon,
       brg,
+      distNm: d,
+      type:   f.properties.label || 'navaid',
       text:   `${rankPrefix} ${label}${nameStr}${detail}  ${bearingToDisplay(brg)}  ${distanceToDisplay(d)}`,
       speech: `${rankPrefix} ${label}${nameStr}${detail}, bearing ${bearingToWords(brg)}, ${formatDistance(d)}.`,
     };
@@ -982,8 +984,8 @@ export function nearestRestriction(lat, lon) {
   const label = nearest.properties.label || 'restricted area';
   const name = nearest.properties.name ? `: ${nearest.properties.name}` : '';
   const inform = nearest.properties.inform ? `  "${nearest.properties.inform}"` : '';
-  lastBearingResult = { destLat: flat, destLon: flon, destName: (label + name).trim() };
   const brg = trueTomagnetic(bearing(lon, lat, flon, flat));
+  lastBearingResult = { destLat: flat, destLon: flon, destName: (label + name).trim(), destType: 'restriction', brg, distNm: minDist };
   return {
     text:   `Nearest restriction — ${label}${name}  ${bearingToDisplay(brg)}  ${distanceToDisplay(minDist)}${inform}`,
     speech: `Nearest restricted area: ${label}${name}, bearing ${bearingToWords(brg)}, ${formatDistance(minDist)}.`,
