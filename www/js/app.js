@@ -797,8 +797,11 @@ function _startRouteAnimation(route, speedKnots) {
       if (_animClickHandler) { _map.off('click', _animClickHandler); _animClickHandler = null; }
       _animMarker.setLatLng(pts[pts.length - 1]);
       _animBannerText.textContent = `✓ ${route.name} complete · ${sailTotalMin} min sailing · tap map to dismiss`;
-      // Zoom out to show the entire route
-      _map.fitBounds(L.latLngBounds(pts).pad(0.15));
+      _map.stop();
+      setTimeout(() => {
+        _map.invalidateSize();
+        _map.flyToBounds(L.latLngBounds(pts).pad(0.1), { duration: 1.5 });
+      }, 150);
       if (recordPoints) {
         const finalT = recordStart + Math.round(totalNm / speedKnots * 3600 * 1000);
         const last = pts[pts.length - 1];
