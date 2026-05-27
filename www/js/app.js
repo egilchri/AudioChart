@@ -771,7 +771,19 @@ function _startRouteAnimation(route, speedKnots) {
       if (_animClickHandler) { _map.off('click', _animClickHandler); _animClickHandler = null; }
       _animMarker.setLatLng(pts[pts.length - 1]);
       _animBannerText.textContent = `✓ ${route.name} complete · ${sailTotalMin} min sailing · tap map to dismiss`;
-      _map.fitBounds(L.latLngBounds(pts).pad(0.25));
+      // Zoom to show entire route plus last fix bearing lines
+      const endPts = [...pts];
+      if (_animMilestoneLayer) {
+        _animMilestoneLayer.getLayers().forEach(layer => {
+          if (layer.getLatLngs) {
+            layer.getLatLngs().forEach(ll => endPts.push([ll.lat, ll.lng]));
+          } else if (layer.getLatLng) {
+            const ll = layer.getLatLng();
+            endPts.push([ll.lat, ll.lng]);
+          }
+        });
+      }
+      _map.fitBounds(L.latLngBounds(endPts).pad(0.15));
       if (recordPoints) {
         const finalT = recordStart + Math.round(totalNm / speedKnots * 3600 * 1000);
         const last = pts[pts.length - 1];
