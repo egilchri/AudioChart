@@ -1028,6 +1028,33 @@ function _ensureMap() {
   _applyMapLayer();
   _syncLayerBtn();
 
+  // Compass rose overlay
+  const _CompassRose = L.Control.extend({
+    options: { position: 'bottomright' },
+    onAdd() {
+      const el = L.DomUtil.create('div', 'compass-rose-ctrl');
+      L.DomEvent.disableClickPropagation(el);
+      el.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="90" height="90" viewBox="-45 -45 90 90">
+        <circle r="43" fill="rgba(15,30,50,0.78)" stroke="#4a9edd" stroke-width="1.2"/>
+        <polygon points="0,0 -6,-12 0,-36 6,-12" fill="#e05252"/>
+        <polygon points="0,0 -6,12 0,36 6,12" fill="rgba(210,210,210,0.88)"/>
+        <polygon points="0,0 12,-6 36,0 12,6" fill="rgba(210,210,210,0.88)"/>
+        <polygon points="0,0 -12,-6 -36,0 -12,6" fill="rgba(210,210,210,0.88)"/>
+        <polygon points="0,0 -3,-9 20,-20 9,-3" fill="rgba(170,170,170,0.6)"/>
+        <polygon points="0,0 9,3 20,20 3,9" fill="rgba(170,170,170,0.6)"/>
+        <polygon points="0,0 3,9 -20,20 -9,3" fill="rgba(170,170,170,0.6)"/>
+        <polygon points="0,0 -9,-3 -20,-20 -3,-9" fill="rgba(170,170,170,0.6)"/>
+        <circle r="4" fill="#1a3a5c" stroke="#4a9edd" stroke-width="1.5"/>
+        <text x="0" y="-37" text-anchor="middle" dominant-baseline="middle" fill="#e05252" font-family="Arial,sans-serif" font-size="9" font-weight="bold">N</text>
+        <text x="0" y="40" text-anchor="middle" dominant-baseline="middle" fill="#ccc" font-family="Arial,sans-serif" font-size="9" font-weight="bold">S</text>
+        <text x="40" y="0" text-anchor="middle" dominant-baseline="middle" fill="#ccc" font-family="Arial,sans-serif" font-size="9" font-weight="bold">E</text>
+        <text x="-40" y="0" text-anchor="middle" dominant-baseline="middle" fill="#ccc" font-family="Arial,sans-serif" font-size="9" font-weight="bold">W</text>
+      </svg>`;
+      return el;
+    },
+  });
+  new _CompassRose().addTo(_map);
+
   document.getElementById('map-layer-btn').addEventListener('click', (e) => {
     e.stopPropagation();
     _chartMode = !_chartMode;
@@ -2496,7 +2523,7 @@ async function init() {
   );
 
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
+    navigator.serviceWorker.register(`./sw.js?v=${APP_VERSION}`).catch(() => {});
   }
 
   if (new URLSearchParams(location.search).has('demo')) {

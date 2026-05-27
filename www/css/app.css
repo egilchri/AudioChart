@@ -626,8 +626,15 @@ html, body {
 #map-ctx-track-parent {
   border-top: 1px solid var(--mid-blue);
 }
+.track-two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 4px 8px 4px;
+  border-bottom: 1px solid var(--mid-blue);
+}
 .track-section {
-  padding: 6px 12px 4px;
+  padding: 4px 8px 3px;
   border-bottom: 1px solid var(--mid-blue);
 }
 .track-section:last-child { border-bottom: none; }
@@ -636,16 +643,24 @@ html, body {
   color: var(--text-dim);
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  margin-bottom: 4px;
+  margin-bottom: 3px;
 }
 .track-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 3px;
+}
+.track-chips-scroll {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 3px;
+  overflow-x: auto;
+  flex: 1;
+  padding-bottom: 2px;
 }
 .track-chip {
-  padding: 4px 10px !important;
-  font-size: 0.8rem !important;
+  padding: 3px 8px !important;
+  font-size: 0.78rem !important;
   background: var(--navy) !important;
   border: 1px solid var(--mid-blue) !important;
   border-radius: 12px !important;
@@ -665,37 +680,44 @@ html, body {
   color: var(--text);
   border: 1px solid var(--mid-blue);
   border-radius: 6px;
-  padding: 5px 8px;
-  font-size: 0.85rem;
-  margin-bottom: 6px;
+  padding: 4px 6px;
+  font-size: 0.82rem;
+  margin-bottom: 4px;
 }
 .track-speed-row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 0.85rem;
+  gap: 5px;
+  font-size: 0.82rem;
   color: var(--text-dim);
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 .track-speed-row input {
-  width: 60px;
+  width: 55px;
   background: var(--navy);
   color: var(--text);
   border: 1px solid var(--mid-blue);
   border-radius: 6px;
-  padding: 4px 6px;
-  font-size: 0.85rem;
+  padding: 3px 5px;
+  font-size: 0.82rem;
   text-align: right;
 }
 #track-route-go {
   display: block;
   width: 100%;
-  padding: 7px !important;
+  padding: 6px !important;
   background: var(--accent) !important;
   color: var(--navy) !important;
   font-weight: 700;
   border-radius: 6px !important;
   border: none !important;
+}
+/* Compass rose control */
+.compass-rose-ctrl {
+  pointer-events: none;
+  margin: 8px;
+  opacity: 0.88;
+  filter: drop-shadow(0 1px 4px rgba(0,0,0,0.6));
 }
 /* Animation fullscreen mode */
 #app.anim-mode #sidebar,

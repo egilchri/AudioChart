@@ -133,25 +133,25 @@ Examples:
     </div>
     <button id="map-ctx-track-parent">&#9654; Track &rsaquo;</button>
     <div id="map-ctx-track-submenu">
-      <div class="track-section">
-        <div class="track-section-label">Object</div>
-        <div class="track-chips">
-          <button class="track-chip track-obj" data-obj="buoy">Buoys</button>
-          <button class="track-chip track-obj" data-obj="light">Lights</button>
-          <button class="track-chip track-obj" data-obj="beacon">Beacons</button>
-          <button class="track-chip track-obj" data-obj="">All</button>
+      <div class="track-two-col">
+        <div>
+          <div class="track-section-label">Object</div>
+          <div class="track-chips">
+            <button class="track-chip track-obj" data-obj="buoy">Buoys</button>
+            <button class="track-chip track-obj" data-obj="light">Lights</button>
+            <button class="track-chip track-obj" data-obj="beacon">Beacons</button>
+            <button class="track-chip track-obj" data-obj="">All</button>
+          </div>
         </div>
-      </div>
-      <div class="track-section">
-        <div class="track-section-label">Within</div>
-        <div class="track-chips">
-          <button class="track-chip track-dist" data-nm="0.0494">100 yd</button>
-          <button class="track-chip track-dist" data-nm="0.0988">200 yd</button>
-          <button class="track-chip track-dist" data-nm="0.25">&frac14; mi</button>
-          <button class="track-chip track-dist" data-nm="0.5">&frac12; mi</button>
-          <button class="track-chip track-dist" data-nm="1">1 mi</button>
-          <button class="track-chip track-dist" data-nm="2">2 mi</button>
-          <button class="track-chip track-dist" data-nm="5">5 mi</button>
+        <div>
+          <div class="track-section-label">Within</div>
+          <div class="track-chips">
+            <button class="track-chip track-dist" data-nm="0.25">&frac14; mi</button>
+            <button class="track-chip track-dist" data-nm="0.5">&frac12; mi</button>
+            <button class="track-chip track-dist" data-nm="1">1 mi</button>
+            <button class="track-chip track-dist" data-nm="2">2 mi</button>
+            <button class="track-chip track-dist" data-nm="5">5 mi</button>
+          </div>
         </div>
       </div>
       <div class="track-section track-route-section">
@@ -163,17 +163,18 @@ Examples:
           <span>At</span>
           <input id="track-speed-input" type="number" min="0.1" max="50" step="0.1" placeholder="5" value="5">
           <span>knots</span>
+          <label style="margin-left:auto"><input type="checkbox" id="track-record-checkbox"> GPX</label>
         </div>
         <div class="track-speed-row">
           <span>Speed:</span>
-          <button class="track-chip track-compress selected" data-compress="1">1&times;</button>
-          <button class="track-chip track-compress" data-compress="10">10&times;</button>
-          <button class="track-chip track-compress" data-compress="30">30&times;</button>
-          <button class="track-chip track-compress" data-compress="60">60&times;</button>
-          <button class="track-chip track-compress" data-compress="100">100&times;</button>
-          <button class="track-chip track-compress" data-compress="500">500&times;</button>
-          <button class="track-chip track-compress" data-compress="1000">1000&times;</button>
-          <button class="track-chip track-compress" data-compress="2000">2000&times;</button>
+          <div class="track-chips-scroll">
+            <button class="track-chip track-compress selected" data-compress="1">1&times;</button>
+            <button class="track-chip track-compress" data-compress="10">10&times;</button>
+            <button class="track-chip track-compress" data-compress="100">100&times;</button>
+            <button class="track-chip track-compress" data-compress="500">500&times;</button>
+            <button class="track-chip track-compress" data-compress="1000">1000&times;</button>
+            <button class="track-chip track-compress" data-compress="2000">2000&times;</button>
+          </div>
         </div>
         <div class="track-speed-row">
           <span>Zoom:</span>
@@ -184,20 +185,18 @@ Examples:
           <button class="track-chip track-zoom" data-zoom="14">14</button>
           <button class="track-chip track-zoom" data-zoom="15">15</button>
         </div>
-        <div class="track-speed-row">
-          <label><input type="checkbox" id="track-record-checkbox"> Record GPX</label>
-        </div>
         <div class="track-speed-row" style="flex-wrap:wrap;gap:4px">
           <label style="white-space:nowrap"><input type="checkbox" id="track-milestone-checkbox"> Every</label>
           <input id="track-milestone-input" type="number" min="0.1" max="500" step="0.1" value="5" style="width:4em">
-          <span style="white-space:nowrap">mi, fix within visibility range of</span>
-          <button class="track-chip track-visibility" data-nm="0.5">&frac12; mi</button>
-          <button class="track-chip track-visibility" data-nm="1">1 mi</button>
-          <button class="track-chip track-visibility selected" data-nm="2">2 mi</button>
-          <button class="track-chip track-visibility" data-nm="5">5 mi</button>
-          <button class="track-chip track-visibility" data-nm="10">10 mi</button>
+          <span>mi, vis:</span>
+          <button class="track-chip track-visibility" data-nm="0.5">&frac12;</button>
+          <button class="track-chip track-visibility" data-nm="1">1</button>
+          <button class="track-chip track-visibility selected" data-nm="2">2</button>
+          <button class="track-chip track-visibility" data-nm="5">5</button>
+          <button class="track-chip track-visibility" data-nm="10">10</button>
+          <span>mi</span>
         </div>
-        <div class="track-speed-row" style="margin-top:6px;border-top:1px solid #2a5080;padding-top:6px">
+        <div class="track-speed-row" style="border-top:1px solid #2a5080;padding-top:5px">
           <select id="track-config-select" style="flex:1"><option value="">— saved configs —</option></select>
           <button id="track-config-load" title="Load config">Load</button>
           <button id="track-config-delete" title="Delete config">✕</button>
