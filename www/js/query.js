@@ -844,11 +844,13 @@ export function nearestNavaid(lat, lon, filter, requireLOS = false) {
 
 /** Like nearestNavaid but returns an array of up to `count` nearest visible navaids. */
 /**
- * Returns up to `count` nearest visible navaids chosen for a good cross-bearing fix.
- * Fix 1 is always the nearest visible navaid.
- * Fix 2 is chosen by searching outward from the boat and preferring candidates whose
- * bearing differs from fix 1 by 60°–120° (ideal fix geometry). If none qualify at
- * that ideal angle, falls back to any candidate ≥ 45° away.
+ * Returns the best two-navaid cross-bearing fix within maxDistNm.
+ *
+ * Scoring: tries every pair of visible navaids and picks the pair whose
+ * combined distance is smallest AND whose inter-bearing angle is in the
+ * ideal 60–120° range.  If no ideal pair exists, the best pair with
+ * angle ≥ 45° is returned.  If even that fails, returns just the nearest
+ * single navaid.
  */
 export function nearestNavaids(lat, lon, filter, requireLOS = false, count = 2, maxDistNm = Infinity) {
   if (!navaids || navaids.features.length === 0) return [];
@@ -859,27 +861,42 @@ export function nearestNavaids(lat, lon, filter, requireLOS = false, count = 2, 
     const d = distanceNm(lon, lat, flon, flat);
     if (d > maxDistNm) continue;
     if (requireLOS && _landBlocks(lon, lat, flon, flat)) continue;
-    const brg = bearing(lon, lat, flon, flat);  // true bearing, degrees
+    const brg = bearing(lon, lat, flon, flat);
     candidates.push({ f, d, brg, flat, flon });
   }
   candidates.sort((a, b) => a.d - b.d);
   if (candidates.length === 0) return [];
+  if (count < 2 || candidates.length < 2) return [candidates[0]];
 
   function angleDiff(a, b) {
     return Math.abs(((a - b + 180 + 360) % 360) - 180);
   }
 
-  const selected = [candidates[0]];
-
-  if (count >= 2 && candidates.length > 1) {
-    const firstBrg = candidates[0].brg;
-    const rest = candidates.slice(1);
-    // Prefer ideal 60°–120° separation for a well-conditioned fix
-    let second = rest.find(c => { const a = angleDiff(c.brg, firstBrg); return a >= 60 && a <= 120; });
-    // Fall back to anything ≥ 45°
-    if (!second) second = rest.find(c => angleDiff(c.brg, firstBrg) >= 45);
-    if (second) selected.push(second);
+  // Score a pair: lower is better.  Ideal angle (60-120°) gets score 0;
+  // acceptable (45-60° or 120-135°) gets score 1; outside gets score 2.
+  // Tie-break by sum of distances (prefer closer pairs).
+  function pairScore(a, b) {
+    const arc = angleDiff(a.brg, b.brg);
+    const anglePenalty = (arc >= 60 && arc <= 120) ? 0 : (arc >= 45 ? 1 : 2);
+    return { anglePenalty, distSum: a.d + b.d };
   }
+
+  let bestA = null, bestB = null, bestScore = null;
+  for (let i = 0; i < candidates.length; i++) {
+    for (let j = i + 1; j < candidates.length; j++) {
+      const s = pairScore(candidates[i], candidates[j]);
+      if (
+        bestScore === null ||
+        s.anglePenalty < bestScore.anglePenalty ||
+        (s.anglePenalty === bestScore.anglePenalty && s.distSum < bestScore.distSum)
+      ) {
+        bestA = candidates[i]; bestB = candidates[j]; bestScore = s;
+      }
+    }
+  }
+
+  // Reject pairs that are too poorly conditioned (< 45° apart)
+  const selected = bestScore.anglePenalty < 2 ? [bestA, bestB] : [candidates[0]];
 
   const prefix = requireLOS
     ? (landPolygons ? 'Nearest visible' : 'Nearest (no land data)')
