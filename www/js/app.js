@@ -1030,25 +1030,45 @@ function _ensureMap() {
 
   // Compass rose overlay
   const _CompassRose = L.Control.extend({
-    options: { position: 'bottomright' },
+    options: { position: 'topleft' },
     onAdd() {
       const el = L.DomUtil.create('div', 'compass-rose-ctrl');
       L.DomEvent.disableClickPropagation(el);
-      el.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="90" height="90" viewBox="-45 -45 90 90">
-        <circle r="43" fill="rgba(15,30,50,0.78)" stroke="#4a9edd" stroke-width="1.2"/>
-        <polygon points="0,0 -6,-12 0,-36 6,-12" fill="#e05252"/>
-        <polygon points="0,0 -6,12 0,36 6,12" fill="rgba(210,210,210,0.88)"/>
-        <polygon points="0,0 12,-6 36,0 12,6" fill="rgba(210,210,210,0.88)"/>
-        <polygon points="0,0 -12,-6 -36,0 -12,6" fill="rgba(210,210,210,0.88)"/>
-        <polygon points="0,0 -3,-9 20,-20 9,-3" fill="rgba(170,170,170,0.6)"/>
-        <polygon points="0,0 9,3 20,20 3,9" fill="rgba(170,170,170,0.6)"/>
-        <polygon points="0,0 3,9 -20,20 -9,3" fill="rgba(170,170,170,0.6)"/>
-        <polygon points="0,0 -9,-3 -20,-20 -3,-9" fill="rgba(170,170,170,0.6)"/>
-        <circle r="4" fill="#1a3a5c" stroke="#4a9edd" stroke-width="1.5"/>
-        <text x="0" y="-37" text-anchor="middle" dominant-baseline="middle" fill="#e05252" font-family="Arial,sans-serif" font-size="9" font-weight="bold">N</text>
-        <text x="0" y="40" text-anchor="middle" dominant-baseline="middle" fill="#ccc" font-family="Arial,sans-serif" font-size="9" font-weight="bold">S</text>
-        <text x="40" y="0" text-anchor="middle" dominant-baseline="middle" fill="#ccc" font-family="Arial,sans-serif" font-size="9" font-weight="bold">E</text>
-        <text x="-40" y="0" text-anchor="middle" dominant-baseline="middle" fill="#ccc" font-family="Arial,sans-serif" font-size="9" font-weight="bold">W</text>
+      const pt = (r, deg) => {
+        const a = (deg - 90) * Math.PI / 180;
+        return [+(Math.cos(a) * r).toFixed(2), +(Math.sin(a) * r).toFixed(2)];
+      };
+      let ticks = '';
+      for (let d = 0; d < 360; d += 5) {
+        const major = d % 10 === 0;
+        const [x1, y1] = pt(major ? 61 : 64, d);
+        const [x2, y2] = pt(68, d);
+        ticks += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${major ? '#6a9bbf' : '#3a5a70'}" stroke-width="${major ? 1.2 : 0.7}"/>`;
+      }
+      const cardinals = new Set([0, 90, 180, 270]);
+      let nums = '';
+      for (let d = 0; d < 360; d += 30) {
+        if (cardinals.has(d)) continue;
+        const [x, y] = pt(55, d);
+        nums += `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="middle" fill="#99bbcc" font-family="Arial,sans-serif" font-size="7.5">${d}</text>`;
+      }
+      el.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="140" height="140" viewBox="-70 -70 140 140">
+        <circle r="68" fill="rgba(12,25,45,0.85)" stroke="#4a9edd" stroke-width="1.5"/>
+        ${ticks}
+        ${nums}
+        <polygon points="0,0 -7,-14 0,-40 7,-14" fill="#e05252"/>
+        <polygon points="0,0 -7,14 0,40 7,14" fill="rgba(210,210,210,0.88)"/>
+        <polygon points="0,0 14,-7 40,0 14,7" fill="rgba(210,210,210,0.88)"/>
+        <polygon points="0,0 -14,-7 -40,0 -14,7" fill="rgba(210,210,210,0.88)"/>
+        <polygon points="0,0 -3,-8 17,-17 8,-3" fill="rgba(160,160,160,0.55)"/>
+        <polygon points="0,0 8,3 17,17 3,8" fill="rgba(160,160,160,0.55)"/>
+        <polygon points="0,0 3,8 -17,17 -8,3" fill="rgba(160,160,160,0.55)"/>
+        <polygon points="0,0 -8,-3 -17,-17 -3,-8" fill="rgba(160,160,160,0.55)"/>
+        <text x="0" y="-47" text-anchor="middle" dominant-baseline="middle" fill="#e05252" font-family="Arial,sans-serif" font-size="11" font-weight="bold">N</text>
+        <text x="0" y="50" text-anchor="middle" dominant-baseline="middle" fill="#ccc" font-family="Arial,sans-serif" font-size="11" font-weight="bold">S</text>
+        <text x="50" y="0" text-anchor="middle" dominant-baseline="middle" fill="#ccc" font-family="Arial,sans-serif" font-size="11" font-weight="bold">E</text>
+        <text x="-50" y="0" text-anchor="middle" dominant-baseline="middle" fill="#ccc" font-family="Arial,sans-serif" font-size="11" font-weight="bold">W</text>
+        <circle r="5" fill="#1a3a5c" stroke="#4a9edd" stroke-width="2"/>
       </svg>`;
       return el;
     },
