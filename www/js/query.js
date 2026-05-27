@@ -850,13 +850,14 @@ export function nearestNavaid(lat, lon, filter, requireLOS = false) {
  * bearing differs from fix 1 by 60°–120° (ideal fix geometry). If none qualify at
  * that ideal angle, falls back to any candidate ≥ 45° away.
  */
-export function nearestNavaids(lat, lon, filter, requireLOS = false, count = 2) {
+export function nearestNavaids(lat, lon, filter, requireLOS = false, count = 2, maxDistNm = Infinity) {
   if (!navaids || navaids.features.length === 0) return [];
   const candidates = [];
   for (const f of navaids.features) {
     if (filter && f.properties.label !== filter) continue;
     const [flon, flat] = f.geometry.coordinates;
     const d = distanceNm(lon, lat, flon, flat);
+    if (d > maxDistNm) continue;
     if (requireLOS && _landBlocks(lon, lat, flon, flat)) continue;
     const brg = bearing(lon, lat, flon, flat);  // true bearing, degrees
     candidates.push({ f, d, brg, flat, flon });

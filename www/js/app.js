@@ -633,11 +633,13 @@ function _getTrackSettings() {
   const distChip     = document.querySelector('.track-dist.selected');
   const compressChip = document.querySelector('.track-compress.selected');
   const zoomChip     = document.querySelector('.track-zoom.selected');
+  const visChip      = document.querySelector('.track-visibility.selected');
   return {
-    filter:   objChip      ? (objChip.dataset.obj || null)     : null,
-    radiusNm: distChip     ? parseFloat(distChip.dataset.nm)   : 0.25,
-    compress: compressChip ? parseInt(compressChip.dataset.compress) : 1,
-    zoom:     zoomChip?.dataset.zoom ? parseInt(zoomChip.dataset.zoom) : null,
+    filter:     objChip      ? (objChip.dataset.obj || null)         : null,
+    radiusNm:   distChip     ? parseFloat(distChip.dataset.nm)       : 0.25,
+    compress:   compressChip ? parseInt(compressChip.dataset.compress) : 1,
+    zoom:       zoomChip?.dataset.zoom ? parseInt(zoomChip.dataset.zoom) : null,
+    visibility: visChip      ? parseFloat(visChip.dataset.nm)        : 2,
     record:   document.getElementById('track-record-checkbox')?.checked || false,
     milestoneNm: (() => {
       const cb = document.getElementById('track-milestone-checkbox');
@@ -802,7 +804,7 @@ function _startRouteAnimation(route, speedKnots) {
     // Milestone report: pause boat, draw bearing lines, speak two fixes, then resume
     if (track.milestoneNm && traveled - lastMilestoneNm >= track.milestoneNm) {
       lastMilestoneNm += track.milestoneNm * Math.floor((traveled - lastMilestoneNm) / track.milestoneNm);
-      const fixes = Query.nearestNavaids(lat, lon, track.filter, true, 2);
+      const fixes = Query.nearestNavaids(lat, lon, track.filter, true, 2, track.visibility ?? 2);
       console.log('[AC] milestone fixes:', fixes.length, fixes.map(f => `lat=${f.lat.toFixed(6)} lon=${f.lon.toFixed(6)}`));
       if (fixes.length > 0) {
         const colors  = ['#f5a623', '#4dd0e1'];
@@ -1114,6 +1116,7 @@ function _ensureMap() {
       radiusNm:         parseFloat(document.querySelector('.track-dist.selected')?.dataset.nm) || 0.25,
       compress:         parseInt(document.querySelector('.track-compress.selected')?.dataset.compress) || 1,
       zoom:             document.querySelector('.track-zoom.selected')?.dataset.zoom || '',
+      visibility:       parseFloat(document.querySelector('.track-visibility.selected')?.dataset.nm) || 2,
       speedKnots:       parseFloat(document.getElementById('track-speed-input')?.value) || 5,
       record:           document.getElementById('track-record-checkbox')?.checked || false,
       milestoneEnabled: document.getElementById('track-milestone-checkbox')?.checked || false,
@@ -1145,10 +1148,11 @@ function _ensureMap() {
         b.classList.toggle('selected', b.dataset[attr] === strVal);
       });
     };
-    setChip('track-obj',      'obj',      cfg.filter);
-    setChip('track-dist',     'nm',       cfg.radiusNm);
-    setChip('track-compress', 'compress', cfg.compress);
-    setChip('track-zoom',     'zoom',     cfg.zoom);
+    setChip('track-obj',        'obj',      cfg.filter);
+    setChip('track-dist',       'nm',       cfg.radiusNm);
+    setChip('track-compress',   'compress', cfg.compress);
+    setChip('track-zoom',       'zoom',     cfg.zoom);
+    setChip('track-visibility', 'nm',       cfg.visibility ?? 2);
 
     // Speed — update sticky so _populateRouteSelect() doesn't clobber it
     const speedEl = document.getElementById('track-speed-input');
