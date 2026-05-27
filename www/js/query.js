@@ -893,6 +893,7 @@ export function nearestNavaids(lat, lon, filter, requireLOS = false, count = 2) 
     return {
       lat:    flat,
       lon:    flon,
+      brg,
       text:   `${rankPrefix} ${label}${nameStr}${detail}  ${bearingToDisplay(brg)}  ${distanceToDisplay(d)}`,
       speech: `${rankPrefix} ${label}${nameStr}${detail}, bearing ${bearingToWords(brg)}, ${formatDistance(d)}.`,
     };

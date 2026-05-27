@@ -842,12 +842,24 @@ function _startRouteAnimation(route, speedKnots) {
             });
           }, 500);
         };
+        // Compute inter-bearing angle and build debug speech
+        let angleSpeech = '';
+        if (fixes.length >= 2) {
+          const arc = Math.abs(((fixes[1].brg - fixes[0].brg + 180 + 360) % 360) - 180);
+          const arcRounded = Math.round(arc);
+          const valid = arc >= 60 && arc <= 120;
+          const verdict = valid ? 'Good fix.' : `ERROR: angle out of range.`;
+          angleSpeech = `Angle between fixes: ${arcRounded} degrees. ${verdict}`;
+          console.log(`[AC] fix angle: ${arcRounded}° (${valid ? 'OK' : 'OUT OF RANGE 60-120'})`);
+        }
         // Linger 1.5s so user can see both lines before speech starts
         setTimeout(() => {
           if (!_animMode) return;
           if (fixes.length >= 2) {
             TTS.sayImmediate(fixes[0].speech, () => {
-              setTimeout(() => TTS.sayImmediate(fixes[1].speech, resume), 400);
+              setTimeout(() => TTS.sayImmediate(fixes[1].speech, () => {
+                setTimeout(() => TTS.sayImmediate(angleSpeech, resume), 300);
+              }), 400);
             });
           } else {
             TTS.sayImmediate(fixes[0].speech, resume);
