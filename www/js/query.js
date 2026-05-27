@@ -872,31 +872,23 @@ export function nearestNavaids(lat, lon, filter, requireLOS = false, count = 2, 
     return Math.abs(((a - b + 180 + 360) % 360) - 180);
   }
 
-  // Score a pair: lower is better.  Ideal angle (60-120°) gets score 0;
-  // acceptable (45-60° or 120-135°) gets score 1; outside gets score 2.
-  // Tie-break by sum of distances (prefer closer pairs).
-  function pairScore(a, b) {
-    const arc = angleDiff(a.brg, b.brg);
-    const anglePenalty = (arc >= 60 && arc <= 120) ? 0 : (arc >= 45 ? 1 : 2);
-    return { anglePenalty, distSum: a.d + b.d };
-  }
-
-  let bestA = null, bestB = null, bestScore = null;
+  // Find the best pair: angle must be 60–120° (ideal fix geometry).
+  // Among qualifying pairs, prefer the one with the smallest combined distance.
+  // If no pair qualifies, return only the single nearest navaid so the caller
+  // knows a valid two-bearing fix was not achievable within the visibility range.
+  let bestA = null, bestB = null, bestDistSum = Infinity;
   for (let i = 0; i < candidates.length; i++) {
     for (let j = i + 1; j < candidates.length; j++) {
-      const s = pairScore(candidates[i], candidates[j]);
-      if (
-        bestScore === null ||
-        s.anglePenalty < bestScore.anglePenalty ||
-        (s.anglePenalty === bestScore.anglePenalty && s.distSum < bestScore.distSum)
-      ) {
-        bestA = candidates[i]; bestB = candidates[j]; bestScore = s;
+      const arc = angleDiff(candidates[i].brg, candidates[j].brg);
+      if (arc < 60 || arc > 120) continue;          // outside ideal range — skip
+      const distSum = candidates[i].d + candidates[j].d;
+      if (distSum < bestDistSum) {
+        bestA = candidates[i]; bestB = candidates[j]; bestDistSum = distSum;
       }
     }
   }
 
-  // Reject pairs that are too poorly conditioned (< 45° apart)
-  const selected = bestScore.anglePenalty < 2 ? [bestA, bestB] : [candidates[0]];
+  const selected = (bestA && bestB) ? [bestA, bestB] : [candidates[0]];
 
   const prefix = requireLOS
     ? (landPolygons ? 'Nearest visible' : 'Nearest (no land data)')

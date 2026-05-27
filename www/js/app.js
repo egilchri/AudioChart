@@ -850,9 +850,11 @@ function _startRouteAnimation(route, speedKnots) {
           const arc = Math.abs(((fixes[1].brg - fixes[0].brg + 180 + 360) % 360) - 180);
           const arcRounded = Math.round(arc);
           const valid = arc >= 60 && arc <= 120;
-          const verdict = valid ? 'Good fix.' : `ERROR: angle out of range.`;
-          angleSpeech = `Angle between fixes: ${arcRounded} degrees. ${verdict}`;
+          angleSpeech = `Angle between fixes: ${arcRounded} degrees. ${valid ? 'Good fix.' : 'ERROR: angle out of range.'}`;
           console.log(`[AC] fix angle: ${arcRounded}° (${valid ? 'OK' : 'OUT OF RANGE 60-120'})`);
+        } else {
+          angleSpeech = 'No valid fix. No pair with 60 to 120 degree separation within visibility range.';
+          console.log('[AC] No valid fix pair found within visibility range.');
         }
         // Linger 1.5s so user can see both lines before speech starts
         setTimeout(() => {
@@ -864,7 +866,9 @@ function _startRouteAnimation(route, speedKnots) {
               }), 400);
             });
           } else {
-            TTS.sayImmediate(fixes[0].speech, resume);
+            TTS.sayImmediate(fixes[0].speech, () => {
+              setTimeout(() => TTS.sayImmediate(angleSpeech, resume), 300);
+            });
           }
         }, 1500);
         return; // pause until speech + delay complete
