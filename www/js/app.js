@@ -613,8 +613,8 @@ const _NAVAID_SYMBOL = { buoy: '◆', light: '✦', beacon: '▲', hazard: '⚠'
 function _navaidIcon(type, color, label) {
   const sym = _NAVAID_SYMBOL[type] || '●';
   const html = label != null
-    ? `<div style="background:${color};color:#000;font-weight:bold;font-size:12px;min-width:22px;height:22px;padding:0 3px;border-radius:11px;border:2px solid #fff;display:flex;align-items:center;justify-content:center;gap:2px;box-shadow:0 1px 4px rgba(0,0,0,.6);white-space:nowrap">${sym} ${label}</div>`
-    : `<div style="background:${color};color:#000;font-size:14px;width:24px;height:24px;border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.6)">${sym}</div>`;
+    ? `<div style="background:#fff;color:${color};font-weight:bold;font-size:12px;min-width:22px;height:22px;padding:0 3px;border-radius:11px;border:2px solid ${color};display:flex;align-items:center;justify-content:center;gap:2px;box-shadow:0 1px 4px rgba(0,0,0,.6);white-space:nowrap">${sym} ${label}</div>`
+    : `<div style="background:#fff;color:${color};font-size:14px;width:24px;height:24px;border-radius:50%;border:2.5px solid ${color};display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.6)">${sym}</div>`;
   return L.divIcon({ className: '', html, iconSize: null, iconAnchor: [12, 12] });
 }
 
@@ -797,19 +797,8 @@ function _startRouteAnimation(route, speedKnots) {
       if (_animClickHandler) { _map.off('click', _animClickHandler); _animClickHandler = null; }
       _animMarker.setLatLng(pts[pts.length - 1]);
       _animBannerText.textContent = `✓ ${route.name} complete · ${sailTotalMin} min sailing · tap map to dismiss`;
-      // Zoom to show entire route plus last fix bearing lines
-      const endPts = [...pts];
-      if (_animMilestoneLayer) {
-        _animMilestoneLayer.getLayers().forEach(layer => {
-          if (layer.getLatLngs) {
-            layer.getLatLngs().forEach(ll => endPts.push([ll.lat, ll.lng]));
-          } else if (layer.getLatLng) {
-            const ll = layer.getLatLng();
-            endPts.push([ll.lat, ll.lng]);
-          }
-        });
-      }
-      _map.fitBounds(L.latLngBounds(endPts).pad(0.15));
+      // Zoom out to show the entire route
+      _map.fitBounds(L.latLngBounds(pts).pad(0.15));
       if (recordPoints) {
         const finalT = recordStart + Math.round(totalNm / speedKnots * 3600 * 1000);
         const last = pts[pts.length - 1];
