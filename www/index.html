@@ -187,13 +187,10 @@ Examples:
         <div class="track-speed-row">
           <label><input type="checkbox" id="track-record-checkbox"> Record GPX</label>
         </div>
-        <div class="track-speed-row">
-          <label><input type="checkbox" id="track-milestone-checkbox"> Every</label>
+        <div class="track-speed-row" style="flex-wrap:wrap;gap:4px">
+          <label style="white-space:nowrap"><input type="checkbox" id="track-milestone-checkbox"> Every</label>
           <input id="track-milestone-input" type="number" min="0.1" max="500" step="0.1" value="5" style="width:4em">
-          <span>mi, report fix</span>
-        </div>
-        <div class="track-speed-row" style="align-items:center;gap:4px;flex-wrap:wrap">
-          <span style="white-space:nowrap">Visibility:</span>
+          <span style="white-space:nowrap">mi, fix within visibility range of</span>
           <button class="track-chip track-visibility" data-nm="0.5">&frac12; mi</button>
           <button class="track-chip track-visibility" data-nm="1">1 mi</button>
           <button class="track-chip track-visibility selected" data-nm="2">2 mi</button>
