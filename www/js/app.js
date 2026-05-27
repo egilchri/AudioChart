@@ -983,6 +983,7 @@ function _syncLayerBtn() {
 function _ensureMap() {
   if (_map) return;
   _map = L.map('leaflet-map', { zoomControl: false, attributionControl: true });
+  _map.setView([44.1018, -69.0752], 11);  // Rockland Harbor — default until GPS arrives
   _applyMapLayer();
   _syncLayerBtn();
 
@@ -1187,6 +1188,7 @@ function _ensureMap() {
     if (!isNaN(routeIdx) && routes[routeIdx]) {
       routes[routeIdx].name = name;
       localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
+      localStorage.setItem('audiochart-last-route', name);  // keep sticky in sync with rename
       _populateRouteSelect();
       // Re-select the renamed route after repopulating
       const newIdx = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]')
