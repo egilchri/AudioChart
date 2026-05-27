@@ -203,7 +203,7 @@ function _setWaypointsVisible(v) {
   localStorage.setItem('audiochart-waypoints-visible', String(v));
   _refreshWaypointLayer();
 }
-import { formatPositionDisplay, bearingToWords, bearingToDisplay, formatDistance, distanceToDisplay, trueTomagnetic } from './utils.js';
+import { formatPositionDisplay, bearingToWords, bearingToDisplay, formatDistance, distanceToDisplay, trueTomagnetic, magneticVariation } from './utils.js';
 
 // Capture Android PWA install prompt before any user gesture.
 let _pwaInstallPrompt = null;
@@ -1055,23 +1055,28 @@ function _ensureMap() {
         const [x, y] = pt(55, d);
         nums += `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="middle" fill="#99bbcc" font-family="Arial,sans-serif" font-size="7.5">${d}</text>`;
       }
+      // magneticVariation is negative for westerly (e.g. -15 in Penobscot Bay).
+      // rotate(variation) tilts N left toward magnetic north.
+      const magRot = magneticVariation;
       el.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="140" height="140" viewBox="-70 -70 140 140">
         <circle r="68" fill="rgba(12,25,45,0.85)" stroke="#4a9edd" stroke-width="1.5"/>
-        ${ticks}
-        ${nums}
-        <polygon points="0,0 -7,-14 0,-40 7,-14" fill="#e05252"/>
-        <polygon points="0,0 -7,14 0,40 7,14" fill="rgba(210,210,210,0.88)"/>
-        <polygon points="0,0 14,-7 40,0 14,7" fill="rgba(210,210,210,0.88)"/>
-        <polygon points="0,0 -14,-7 -40,0 -14,7" fill="rgba(210,210,210,0.88)"/>
-        <polygon points="0,0 -3,-8 17,-17 8,-3" fill="rgba(160,160,160,0.55)"/>
-        <polygon points="0,0 8,3 17,17 3,8" fill="rgba(160,160,160,0.55)"/>
-        <polygon points="0,0 3,8 -17,17 -8,3" fill="rgba(160,160,160,0.55)"/>
-        <polygon points="0,0 -8,-3 -17,-17 -3,-8" fill="rgba(160,160,160,0.55)"/>
-        <text x="0" y="-47" text-anchor="middle" dominant-baseline="middle" fill="#e05252" font-family="Arial,sans-serif" font-size="11" font-weight="bold">N</text>
-        <text x="0" y="50" text-anchor="middle" dominant-baseline="middle" fill="#ccc" font-family="Arial,sans-serif" font-size="11" font-weight="bold">S</text>
-        <text x="50" y="0" text-anchor="middle" dominant-baseline="middle" fill="#ccc" font-family="Arial,sans-serif" font-size="11" font-weight="bold">E</text>
-        <text x="-50" y="0" text-anchor="middle" dominant-baseline="middle" fill="#ccc" font-family="Arial,sans-serif" font-size="11" font-weight="bold">W</text>
-        <circle r="5" fill="#1a3a5c" stroke="#4a9edd" stroke-width="2"/>
+        <g transform="rotate(${magRot})">
+          ${ticks}
+          ${nums}
+          <polygon points="0,0 -7,-14 0,-40 7,-14" fill="#e05252"/>
+          <polygon points="0,0 -7,14 0,40 7,14" fill="rgba(210,210,210,0.88)"/>
+          <polygon points="0,0 14,-7 40,0 14,7" fill="rgba(210,210,210,0.88)"/>
+          <polygon points="0,0 -14,-7 -40,0 -14,7" fill="rgba(210,210,210,0.88)"/>
+          <polygon points="0,0 -3,-8 17,-17 8,-3" fill="rgba(160,160,160,0.55)"/>
+          <polygon points="0,0 8,3 17,17 3,8" fill="rgba(160,160,160,0.55)"/>
+          <polygon points="0,0 3,8 -17,17 -8,3" fill="rgba(160,160,160,0.55)"/>
+          <polygon points="0,0 -8,-3 -17,-17 -3,-8" fill="rgba(160,160,160,0.55)"/>
+          <text x="0" y="-47" text-anchor="middle" dominant-baseline="middle" fill="#e05252" font-family="Arial,sans-serif" font-size="11" font-weight="bold">N</text>
+          <text x="0" y="50" text-anchor="middle" dominant-baseline="middle" fill="#ccc" font-family="Arial,sans-serif" font-size="11" font-weight="bold">S</text>
+          <text x="50" y="0" text-anchor="middle" dominant-baseline="middle" fill="#ccc" font-family="Arial,sans-serif" font-size="11" font-weight="bold">E</text>
+          <text x="-50" y="0" text-anchor="middle" dominant-baseline="middle" fill="#ccc" font-family="Arial,sans-serif" font-size="11" font-weight="bold">W</text>
+          <circle r="5" fill="#1a3a5c" stroke="#4a9edd" stroke-width="2"/>
+        </g>
       </svg>`;
       return el;
     },
