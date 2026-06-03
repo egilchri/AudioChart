@@ -1,4 +1,4 @@
-/** @version v121 */
+/** @version v123 */
 /**
  * AudioChart Service Worker — offline caching.
  *
@@ -81,7 +81,11 @@ async function networkFirst(request) {
     const response = await fetch(request);
     if (response.ok && request.method === 'GET') {
       cache.put(request, response.clone());
+      return response;
     }
+    // Non-ok response (e.g. 503 from a dead server): fall back to cache
+    const cached = await cache.match(request);
+    if (cached) return cached;
     return response;
   } catch (_) {
     const cached = await cache.match(request);

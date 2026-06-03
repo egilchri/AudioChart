@@ -6,7 +6,7 @@
 
 import * as TTS from './tts.js';
 import * as GPS from './gps.js';
-import { parseCommand, parseCoordinate } from './parser.js';
+import { parseCommand, parseCoordinate, normalizePlaceName } from './parser.js';
 import * as Query from './query.js';
 
 const VERSION = window.APP_VERSION;
@@ -1876,6 +1876,54 @@ async function showCourseMap(fromLat, fromLon, toLat, toLon, hazardPts) {
   _map.fitBounds(L.latLngBounds(allPts).pad(0.2));
 }
 
+async function showFixMap(lmA, lmB, fix) {
+  await loadLeaflet();
+  document.getElementById('map-container').style.display = 'block';
+  _ensureMap();
+  _map.invalidateSize();
+  if (_mapLayers) { _map.removeLayer(_mapLayers); _mapLayers = null; }
+
+  const group = L.layerGroup();
+  const EXTEND_NM = 5;
+  const COLOR_A = '#f5a623', COLOR_B = '#4dd0e1';
+
+  function addPositionLine(lm, brgMag, color) {
+    const brgTrue = ((brgMag + magneticVariation) + 360) % 360;
+    const recip   = (brgTrue + 180) % 360;
+    const lineStart = Query.offsetCoords(lm.lat, lm.lon, brgTrue, EXTEND_NM);
+    const lineEnd   = Query.offsetCoords(fix.lat, fix.lon, recip, EXTEND_NM);
+    L.polyline(
+      [[lineStart.lat, lineStart.lon], [lm.lat, lm.lon], [fix.lat, fix.lon], [lineEnd.lat, lineEnd.lon]],
+      { color, weight: 2.5, dashArray: '10 6', opacity: 0.85, interactive: false }
+    ).addTo(group);
+    const d = Query.distanceNm(lm.lon, lm.lat, fix.lon, fix.lat);
+    _bearingLineLabel(lm.lat, lm.lon, fix.lat, fix.lon, brgMag, d, color).addTo(group);
+    L.circleMarker([lm.lat, lm.lon], { radius: 5, color: '#fff', fillColor: color, fillOpacity: 1, weight: 1.5 })
+      .bindTooltip(lm.name, { permanent: false })
+      .addTo(group);
+  }
+
+  addPositionLine(lmA, lmA.brgMag, COLOR_A);
+  addPositionLine(lmB, lmB.brgMag, COLOR_B);
+
+  L.circleMarker([fix.lat, fix.lon], { radius: 9, color: '#fff', fillColor: '#e05252', fillOpacity: 1, weight: 2 })
+    .bindTooltip(`Fix: ${formatPositionDisplay(fix.lat, fix.lon)}`, { permanent: true, direction: 'top' })
+    .addTo(group);
+
+  _mapLayers = group;
+  group.addTo(_map);
+
+  const extA = Query.offsetCoords(lmA.lat, lmA.lon, ((lmA.brgMag + magneticVariation) + 360) % 360, EXTEND_NM);
+  const extB = Query.offsetCoords(lmB.lat, lmB.lon, ((lmB.brgMag + magneticVariation) + 360) % 360, EXTEND_NM);
+  const allPts = [
+    [lmA.lat, lmA.lon], [lmB.lat, lmB.lon], [fix.lat, fix.lon],
+    [extA.lat, extA.lon], [extB.lat, extB.lon],
+  ];
+  _map.fitBounds(L.latLngBounds(allPts).pad(0.2));
+  _mapContainer.classList.remove('map-compact', 'list-focus', 'input-focus');
+  setTimeout(() => _map.invalidateSize(), 300);
+}
+
 const SOURCE_LABEL = {
   'manual':        'TEST POSITION',
   'browser':       'PHONE GPS',
@@ -2063,6 +2111,52 @@ async function handleCommand(transcript) {
       const result = await Query.offlineReadiness();
       showResponse(result.text);
       TTS.sayImmediate(result.speech);
+      return;
+    }
+
+    if (intent === 'POSITION_FIX') {
+      // Use lightweight normalization — skip full normalizePlaceName to avoid alias
+      // cascades (e.g. "thorofare" alias mangling "deer island thorofare light station").
+      const name1 = params.landmark1.toLowerCase().trim();
+      const name2 = params.landmark2.toLowerCase().trim();
+
+      // findLandmarkByName searches the static navaid.geojson which has proper
+      // lighthouse names (the server API uses flash characteristics as names).
+      let [lmA, lmB] = await Promise.all([
+        Query.findLandmarkByName(name1),
+        Query.findLandmarkByName(name2),
+      ]);
+
+      if (!lmA) {
+        const msg = `Couldn't find "${name1}". Try the full name of a light, buoy, or landmark.`;
+        showResponse(msg); TTS.sayImmediate(msg); return;
+      }
+      if (!lmB) {
+        const msg = `Couldn't find "${name2}". Try the full name of a light, buoy, or landmark.`;
+        showResponse(msg); TTS.sayImmediate(msg); return;
+      }
+
+      let fix;
+      try {
+        fix = Query.computePositionFix(lmA.lat, lmA.lon, params.bearing1, lmB.lat, lmB.lon, params.bearing2);
+      } catch (e) {
+        showResponse(e.message); TTS.sayImmediate(e.message); return;
+      }
+
+      const fixCoord = formatPositionDisplay(fix.lat, fix.lon);
+      const latAbs = Math.abs(fix.lat), lonAbs = Math.abs(fix.lon);
+      const latDeg = Math.floor(latAbs), latMin = ((latAbs - latDeg) * 60).toFixed(1);
+      const lonDeg = Math.floor(lonAbs), lonMin = ((lonAbs - lonDeg) * 60).toFixed(1);
+      const latDir = fix.lat >= 0 ? 'North' : 'South';
+      const lonDir = fix.lon >= 0 ? 'East' : 'West';
+      const fixSpeech = `${latDeg} degrees ${latMin} minutes ${latDir}, ${lonDeg} degrees ${lonMin} minutes ${lonDir}`;
+
+      const displayText = `Position fix:\n${lmA.name}  ${params.bearing1}°M\n${lmB.name}  ${params.bearing2}°M\nFix: ${fixCoord}  (${fix.quality}, crossing ${fix.crossing}°)`;
+      const speechText  = `Position fix: ${fixSpeech}. ${fix.quality}. Crossing angle ${fix.crossing} degrees.`;
+
+      showResponse(displayText);
+      TTS.sayImmediate(speechText);
+      showFixMap({ ...lmA, brgMag: params.bearing1 }, { ...lmB, brgMag: params.bearing2 }, fix).catch(() => {});
       return;
     }
 

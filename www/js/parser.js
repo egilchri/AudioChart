@@ -14,6 +14,12 @@ const PLACE_ALIASES = {
   'fox islands': 'fox islands thorofare',
   'thorofare': 'fox islands thorofare',
   'thorough fare': 'fox islands thorofare',
+  // Light-specific aliases (must come before the broad 'rockland' alias below)
+  // NOTE: keep these specific — broad aliases cascade badly with 'thorofare' above.
+  'rockland breakwater':         'rockland breakwater light',
+  "owl's head":                  'owls head',
+  'owl head':                    'owls head',
+  'owls head light':             'owls head',
   'rockland': 'rockland harbor',
   'north haven': 'north haven island',
   'muscle ridge': 'muscle ridge channel',
@@ -261,6 +267,21 @@ const PATTERNS = [
     re: /\bhazards?\s+on\s+(?:the\s+)?(.{3,60}\broute\b.{0,10})$/i,
     intent: 'HAZARDS_ALONG_ROUTE',
     extract: (m) => ({ routeName: m[1].trim() }),
+  },
+
+  // POSITION FIX — two-bearing cross-bearing fix (must come before BEARING_TO_PLACE)
+  // "fix Deer Island Thorofare Light Station 096 Blue Hill Bay Light 083"
+  // "position fix Rockland Breakwater 285 Owls Head 315"
+  // "cross bearing Two Bush Island Light 065 Deer Island 096"
+  {
+    re: /\b(?:position\s+)?(?:fix|cross[- ]?bearing)\s+(.+?)\s+(\d{1,3})\s+(.+?)\s+(\d{1,3})\s*$/i,
+    intent: 'POSITION_FIX',
+    extract: (m) => ({
+      landmark1: m[1].trim(),
+      bearing1:  parseInt(m[2], 10),
+      landmark2: m[3].trim(),
+      bearing2:  parseInt(m[4], 10),
+    }),
   },
 
   // RANGE AND BEARING TO GPS COORDINATE (checked before named place)

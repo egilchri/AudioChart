@@ -3,7 +3,7 @@
  * Loads GeoJSON data once at startup, keeps in memory.
  */
 
-import { bearingToWords, bearingToDisplay, formatDistance, distanceToDisplay, formatDM, trueTomagnetic, setMagneticVariation, compassDirectionWords, naturalDistance } from './utils.js';
+import { bearingToWords, bearingToDisplay, formatDistance, distanceToDisplay, formatDM, trueTomagnetic, setMagneticVariation, compassDirectionWords, naturalDistance, magneticVariation } from './utils.js';
 
 // ── IndexedDB offline store ───────────────────────────────────────────────────
 // Works on plain HTTP (unlike the Cache API which requires HTTPS/localhost).
@@ -407,7 +407,7 @@ function parseDirectional(query) {
   return { clean: query, bearing: null };
 }
 
-function offsetCoords(lat, lon, bearingDeg, distNm = 3.0) {
+export function offsetCoords(lat, lon, bearingDeg, distNm = 3.0) {
   const R = 3440.065;
   const d = distNm / R;
   const brg = bearingDeg * Math.PI / 180;
@@ -486,6 +486,98 @@ export function findPlaceByName(query) {
     return { ...result, lat, lon };
   }
   return result;
+}
+
+/**
+ * Find a navigation landmark by name, prioritizing named lights for position fixes.
+ * Searches navaids (lights first), then falls back to findPlaceByName.
+ */
+// Static navaid features cached for name-based lookups. The server-loaded
+// `navaids` uses flash characteristics as names (e.g. "Fl W 6s") rather than
+// proper lighthouse names, so we keep a separate cache of the static file.
+let _staticNavaidFeatures = null;
+
+async function _ensureStaticNavaids() {
+  if (_staticNavaidFeatures) return;
+  try {
+    const r = await fetch('./data/navaid.geojson');
+    if (r.ok) _staticNavaidFeatures = (await r.json()).features;
+  } catch (_) {}
+}
+
+export async function findLandmarkByName(name) {
+  const q = name.toLowerCase().trim();
+
+  await _ensureStaticNavaids();
+
+  // Search static navaid file for proper lighthouse/buoy names
+  let best = null, bestScore = 0;
+  const features = _staticNavaidFeatures || navaids?.features || [];
+  for (const f of features) {
+    const fname = (f.properties.name || '').toLowerCase();
+    if (!fname) continue;
+    const score = similarityScore(q, fname);
+    const boosted = f.properties.label === 'light' ? score + 0.01 : score;
+    if (boosted > bestScore) { bestScore = boosted; best = f; }
+  }
+
+  // High threshold to avoid false matches — caller can fall back to server if null.
+  if (best && bestScore >= 0.65) {
+    const [lon, lat] = best.geometry.coordinates;
+    return { lat, lon, name: best.properties.name };
+  }
+
+  // Also try named places (e.g. "Owls Head" from named_places.geojson)
+  return findPlaceByName(q);
+}
+
+/**
+ * Compute a two-bearing position fix (cross-bearing fix).
+ * Given two landmarks with their magnetic bearings from the observer,
+ * returns the observer's computed position.
+ *
+ * @param {number} latA - Landmark A latitude
+ * @param {number} lonA - Landmark A longitude
+ * @param {number} brgA_mag - Magnetic bearing FROM observer TO landmark A
+ * @param {number} latB - Landmark B latitude
+ * @param {number} lonB - Landmark B longitude
+ * @param {number} brgB_mag - Magnetic bearing FROM observer TO landmark B
+ * @returns {{lat, lon, crossing, quality}} or throws Error
+ */
+export function computePositionFix(latA, lonA, brgA_mag, latB, lonB, brgB_mag) {
+  // Convert magnetic to true bearings
+  const brgA_true = ((brgA_mag + magneticVariation) + 360) % 360;
+  const brgB_true = ((brgB_mag + magneticVariation) + 360) % 360;
+
+  // Back-bearings: direction from each landmark toward the observer
+  const recipA = (brgA_true + 180) % 360;
+  const recipB = (brgB_true + 180) % 360;
+
+  // Flat-earth Cartesian with cosine-latitude longitude correction
+  const cosLat = Math.cos(((latA + latB) / 2) * Math.PI / 180);
+  const xA = lonA * cosLat, yA = latA;
+  const xB = lonB * cosLat, yB = latB;
+
+  // Direction unit vectors (bearing convention: sin=East, cos=North)
+  const dxA = Math.sin(recipA * Math.PI / 180), dyA = Math.cos(recipA * Math.PI / 180);
+  const dxB = Math.sin(recipB * Math.PI / 180), dyB = Math.cos(recipB * Math.PI / 180);
+
+  // Solve: [xA + t*dxA, yA + t*dyA] = [xB + s*dxB, yB + s*dyB]
+  const det = dxA * (-dyB) - (-dxB) * dyA;
+  if (Math.abs(det) < 1e-10) {
+    throw new Error('Bearing lines are parallel — choose landmarks with more angular separation.');
+  }
+  const t = ((-dyB) * (xB - xA) + dxB * (yB - yA)) / det;
+
+  const arc = Math.abs(((brgA_mag - brgB_mag + 180 + 360) % 360) - 180);
+  const quality = arc >= 60 ? 'Good fix' : arc >= 30 ? 'Fair fix' : 'Poor fix — small crossing angle';
+
+  return {
+    lat:      yA + t * dyA,
+    lon:      (xA + t * dxA) / cosLat,
+    crossing: Math.round(arc),
+    quality,
+  };
 }
 
 /**
