@@ -917,6 +917,70 @@ export function landDataInfo() {
   return `Land data: ${landPolygons.features.length} polygons loaded.`;
 }
 
+/** Check whether all data needed for offline use is cached. */
+export async function offlineReadiness() {
+  async function swCached(path) {
+    try {
+      if (typeof caches === 'undefined') return false;
+      const url = new URL(path, location.href).href;
+      return !!(await caches.match(url));
+    } catch { return false; }
+  }
+
+  const lines = [];
+  let critical = true;
+
+  // Land data (line-of-sight)
+  if (await swCached('./data/land.geojson')) {
+    const n = landPolygons ? ` (${landPolygons.features.length} polygons)` : '';
+    lines.push(`Land data${n}: ready`);
+  } else {
+    lines.push('Land data: NOT cached — line-of-sight checks will fail');
+    critical = false;
+  }
+
+  // Navaid data — IDB preferred, static file fallback
+  const idbNavaids = await idbGet('navaids').catch(() => null);
+  const idbVersion = await idbGet('data-version').catch(() => null);
+  if (idbNavaids?.features?.length) {
+    const ver = idbVersion ? ` (${idbVersion})` : '';
+    lines.push(`Navaids: ${idbNavaids.features.length} features in offline store${ver}`);
+  } else if (await swCached('./data/navaid.geojson')) {
+    lines.push('Navaids: static file cached');
+  } else {
+    lines.push('Navaid data: NOT cached');
+    critical = false;
+  }
+
+  // Hazard data
+  const idbHazards = await idbGet('hazards').catch(() => null);
+  if (idbHazards?.features?.length) {
+    lines.push(`Hazards: ${idbHazards.features.length} features in offline store`);
+  } else if (await swCached('./data/hazards.geojson')) {
+    lines.push('Hazards: static file cached');
+  } else {
+    lines.push('Hazard data: NOT cached');
+  }
+
+  // Named places (bearing-to-place queries)
+  const idbPlaces = await idbGet('named_places').catch(() => null);
+  if (idbPlaces?.features?.length) {
+    lines.push(`Named places: ${idbPlaces.features.length} in offline store`);
+  } else if (await swCached('./data/named_places.geojson')) {
+    lines.push('Named places: static file cached');
+  } else {
+    lines.push('Named places: NOT cached');
+  }
+
+  const verdict = critical
+    ? 'All critical data is cached. Ready for offline use.'
+    : 'Critical data is missing. Open the app with a connection before departing.';
+
+  const text   = lines.join('\n') + '\n' + verdict;
+  const speech = lines.join('. ') + '. ' + verdict;
+  return { text, speech };
+}
+
 /** Find all navaids of a given type within radiusNm. filter: 'buoy'|'light'|'beacon'|null */
 export function navaidsInRadius(lat, lon, radiusNm, filter) {
   if (!navaids || navaids.features.length === 0) return 'No navaid data loaded.';

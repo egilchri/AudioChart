@@ -234,6 +234,9 @@ const testPosClear = document.getElementById('test-pos-clear');
 const mapLink = document.getElementById('map-link');
 const opencpnBtn = document.getElementById('opencpn-btn');
 
+// Show every TTS utterance in the response area so the user can read along.
+TTS.onSpeak(text => { responseEl.textContent = text; });
+
 let serverUrl = null;  // set in init(); used by offline button and test-position API
 
 async function _runWhereAmI(lat, lon) {
@@ -2053,6 +2056,13 @@ async function handleCommand(transcript) {
       const msg = `Waypoint ${name} deleted.`;
       showResponse(msg);
       TTS.sayImmediate(msg);
+      return;
+    }
+
+    if (intent === 'OFFLINE_STATUS') {
+      const result = await Query.offlineReadiness();
+      showResponse(result.text);
+      TTS.sayImmediate(result.speech);
       return;
     }
 

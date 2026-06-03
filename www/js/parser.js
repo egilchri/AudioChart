@@ -213,6 +213,13 @@ const PATTERNS = [
     extract: (m) => ({ filters: navaidFilters(m[1]), bearing: parseInt(m[2]), tolerance: 10 }),
   },
 
+  // OFFLINE READINESS CHECK
+  {
+    re: /\b(offline\s+status|cache\s+status|data\s+(cached|ready|status)|pre.?cached|ready\s+for\s+(offline|cruising?|sea)|all\s+.*data.*cached|is\s+.*data\s+(cached|ready))\b/i,
+    intent: 'OFFLINE_STATUS',
+    params: {},
+  },
+
   // NEAREST RESTRICTION
   {
     re: /\b(land\s+data|land\s+polygons?|los\s+data|line.of.sight\s+data)\b/i,

@@ -9,6 +9,10 @@ let voice = null;
 let queue = [];
 let speaking = false;
 let _onSpeechEnd = null;
+let _captionCallback = null;
+
+/** Register a callback fired with the text of every utterance as it starts. */
+export function onSpeak(cb) { _captionCallback = cb; }
 
 function _voiceQuality(v) {
   const n = v.name.toLowerCase();
@@ -65,6 +69,7 @@ function speakNext() {
   utt.pitch = 1.0;
   utt.volume = 1.0;
   if (voice) utt.voice = voice;
+  if (_captionCallback) _captionCallback(text);
   utt.onend = () => {
     speaking = false;
     if (queue.length === 0 && _onSpeechEnd) { const cb = _onSpeechEnd; _onSpeechEnd = null; cb(); }
