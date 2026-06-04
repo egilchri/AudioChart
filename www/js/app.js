@@ -2048,6 +2048,10 @@ async function handleCommand(transcript) {
 
     const { intent, params } = parseCommand(transcript);
 
+    // Drop unrecognized input while TTS is speaking — prevents background noise
+    // or keyboard-mic feedback from cancelling the current speech output.
+    if (intent === 'UNKNOWN' && TTS.isSpeaking()) return;
+
     if (intent === 'LIST_OBJECTS') {
       const response = {
         text:   'Hazards (rocks, ledges, shoals) · Buoys · Lights · Beacons · Restrictions (no-anchor, sanctuary) · Named places · Waypoints',
@@ -2365,7 +2369,6 @@ if (textForm) {
     const text = textInput.value.trim();
     if (!text) return;
     textInput.value = '';
-    TTS.stop();
     handleCommand(text);
   });
 }
