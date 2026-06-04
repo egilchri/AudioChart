@@ -2113,12 +2113,12 @@ async function handleCommand(transcript) {
 
     if (intent === 'RUN_TEST') {
       const TESTS = {
-        1: { lat: 44+5.5/60,  lon: -(69+0.5/60),  cmd: 'fix Rockland Breakwater Light 299 Two Bush Island Light 215',           expected: '44°05.5\'N  069°00.6\'W  ·  Good fix  84°' },
-        2: { lat: 44+7.0/60,  lon: -(69+1.0/60),  cmd: 'fix Rockland Breakwater Light 269 Indian Island 342',                   expected: '44°07.0\'N  069°01.0\'W  ·  Good fix  73°' },
-        3: { lat: 44+7.0/60,  lon: -(69+1.0/60),  cmd: 'fix Two Bush Island Light 210 Deer Island Thorofare Light Station 101', expected: '44°07.1\'N  069°01.0\'W  ·  Good fix  71°' },
-        4: { lat: 44+5.5/60,  lon: -(69+0.5/60),  cmd: 'fix Owls Head 270 Indian Island 348',                                   expected: '44°05.5\'N  069°00.5\'W  ·  Good fix  78°' },
-        5: { lat: 44+6.0/60,  lon: -(68+59.0/60), cmd: 'fix Rockland Breakwater Light 288 Two Bush Island Light 221',           expected: '44°06.0\'N  068°58.9\'W  ·  Good fix  67°' },
-        6: { lat: 44+7.0/60,  lon: -(69+1.0/60),  cmd: 'fix Owls Head 237 Indian Island 342',                                   expected: '44°07.0\'N  069°01.0\'W  ·  Good fix  75°' },
+        1: { lat: 44+5.5/60,  lon: -(69+0.5/60),  cmd: 'fix Rockland Breakwater Light 299 Two Bush Island Light 215',                    expected: '44°05.5\'N  069°00.6\'W  ·  Good fix  84°' },
+        2: { lat: 44+3.0/60,  lon: -(69+3.0/60),  cmd: 'fix Rockland Breakwater Light 355 Deer Island Thorofare Light Station 086',      expected: '44°02.9\'N  069°03.0\'W  ·  Good fix  89°' },
+        3: { lat: 44+3.0/60,  lon: -(68+59.0/60), cmd: 'fix Rockland Breakwater Light 324 Two Bush Island Light 232',                    expected: '44°03.0\'N  068°59.1\'W  ·  Good fix  88°' },
+        4: { lat: 44+4.0/60,  lon: -(68+59.0/60), cmd: 'fix Rockland Breakwater Light 314 Two Bush Island Light 227',                    expected: '44°04.0\'N  068°59.1\'W  ·  Good fix  87°' },
+        5: { lat: 44+5.5/60,  lon: -(69+1.0/60),  cmd: 'fix Rockland Breakwater Light 301 Two Bush Island Light 213',                    expected: '44°05.5\'N  069°01.0\'W  ·  Good fix  88°' },
+        6: { lat: 44+6.0/60,  lon: -(69+3.0/60),  cmd: 'fix Rockland Breakwater Light 296 Two Bush Island Light 202',                    expected: '44°06.0\'N  069°03.0\'W  ·  Good fix  86°' },
       };
       const t = TESTS[params.testNum];
       if (!t) { showResponse(`No test T${params.testNum}. Available: T1–T6.`); return; }
