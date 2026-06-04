@@ -269,6 +269,13 @@ const PATTERNS = [
     extract: (m) => ({ routeName: m[1].trim() }),
   },
 
+  // RUN TEST — developer shorthand: "run T1" … "run T6"
+  {
+    re: /^run\s+t(\d+)$/i,
+    intent: 'RUN_TEST',
+    extract: (m) => ({ testNum: parseInt(m[1], 10) }),
+  },
+
   // POSITION FIX — two-bearing cross-bearing fix (must come before BEARING_TO_PLACE)
   // "fix Deer Island Thorofare Light Station 096 Blue Hill Bay Light 083"
   // "position fix Rockland Breakwater 285 Owls Head 315"
