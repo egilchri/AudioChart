@@ -1907,19 +1907,16 @@ async function showFixMap(lmA, lmB, fix) {
   addPositionLine(lmB, lmB.brgMag, COLOR_B);
 
   L.circleMarker([fix.lat, fix.lon], { radius: 9, color: '#fff', fillColor: '#e05252', fillOpacity: 1, weight: 2 })
-    .bindTooltip(`Fix: ${formatPositionDisplay(fix.lat, fix.lon)}`, { permanent: true, direction: 'top' })
+    .bindTooltip(`Fix: ${formatPositionDisplay(fix.lat, fix.lon)}`, { permanent: true, direction: 'auto', className: 'fix-coord-label' })
     .addTo(group);
 
   _mapLayers = group;
   group.addTo(_map);
 
-  const extA = Query.offsetCoords(lmA.lat, lmA.lon, ((lmA.brgMag + magneticVariation) + 360) % 360, EXTEND_NM);
-  const extB = Query.offsetCoords(lmB.lat, lmB.lon, ((lmB.brgMag + magneticVariation) + 360) % 360, EXTEND_NM);
-  const allPts = [
+  // Fit to landmarks + fix only — extended line endpoints would zoom out too far.
+  _map.fitBounds(L.latLngBounds([
     [lmA.lat, lmA.lon], [lmB.lat, lmB.lon], [fix.lat, fix.lon],
-    [extA.lat, extA.lon], [extB.lat, extB.lon],
-  ];
-  _map.fitBounds(L.latLngBounds(allPts).pad(0.2));
+  ]).pad(0.3));
   _mapContainer.classList.remove('map-compact', 'list-focus', 'input-focus');
   setTimeout(() => _map.invalidateSize(), 300);
 }

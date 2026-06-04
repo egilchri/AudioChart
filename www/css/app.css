@@ -524,6 +524,19 @@ html, body {
 }
 .map-tooltip::before { border-top-color: var(--mid-blue) !important; }
 
+/* Semi-transparent label for the computed fix position on the map */
+.fix-coord-label {
+  background: rgba(20, 35, 55, 0.65) !important;
+  border: 1px solid rgba(255,255,255,0.25) !important;
+  color: #fff !important;
+  font-size: 0.75rem;
+  padding: 2px 7px;
+  white-space: nowrap;
+  box-shadow: none !important;
+  pointer-events: none;
+}
+.fix-coord-label::before { border-top-color: rgba(20, 35, 55, 0.65) !important; }
+
 /* Map right-click context menu */
 #map-context-menu {
   position: fixed;
