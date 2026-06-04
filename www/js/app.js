@@ -2114,7 +2114,7 @@ async function handleCommand(transcript) {
     if (intent === 'RUN_TEST') {
       const TESTS = {
         1: { lat: 44+5.5/60,  lon: -(69+0.5/60),  cmd: 'fix Rockland Breakwater Light 299 Two Bush Island Light 215',                    expected: '44°05.5\'N  069°00.6\'W  ·  Good fix  84°' },
-        2: { lat: 44+3.0/60,  lon: -(69+3.0/60),  cmd: 'fix Rockland Breakwater Light 355 Deer Island Thorofare Light Station 086',      expected: '44°02.9\'N  069°03.0\'W  ·  Good fix  89°' },
+        2: { lat: 44+3.0/60,  lon: -(69+3.0/60),  cmd: 'fix Grindstone Ledge Buoy 22 134 Monroe Island Lighted Bell Buoy 11 043',         expected: '44°03.0\'N  069°03.0\'W  ·  Good fix  89°' },
         3: { lat: 44+3.0/60,  lon: -(68+59.0/60), cmd: 'fix Rockland Breakwater Light 324 Two Bush Island Light 232',                    expected: '44°03.0\'N  068°59.1\'W  ·  Good fix  88°' },
         4: { lat: 44+4.0/60,  lon: -(68+59.0/60), cmd: 'fix Rockland Breakwater Light 314 Two Bush Island Light 227',                    expected: '44°04.0\'N  068°59.1\'W  ·  Good fix  87°' },
         5: { lat: 44+5.5/60,  lon: -(69+1.0/60),  cmd: 'fix Rockland Breakwater Light 301 Two Bush Island Light 213',                    expected: '44°05.5\'N  069°01.0\'W  ·  Good fix  88°' },

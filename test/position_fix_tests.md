@@ -28,11 +28,11 @@ fix Rockland Breakwater Light 299 Two Bush Island Light 215
 ## T2
 **Position:** 44°03.0'N  69°03.0'W
 ```
-fix Rockland Breakwater Light 355 Deer Island Thorofare Light Station 086
+fix Grindstone Ledge Buoy 22 134 Monroe Island Lighted Bell Buoy 11 043
 ```
 | Field | Expected | Pass condition |
 |-------|----------|----------------|
-| Lat | 44°02.9'N | within 0.2' |
+| Lat | 44°03.0'N | within 0.2' |
 | Lon | 069°03.0'W | within 0.2' |
 | Quality | Good fix | exact |
 | Crossing | 89° | ±2° |
