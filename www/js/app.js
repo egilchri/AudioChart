@@ -2148,11 +2148,13 @@ async function handleCommand(transcript) {
       const lonDir = fix.lon >= 0 ? 'East' : 'West';
       const fixSpeech = `${latDeg} degrees ${latMin} minutes ${latDir}, ${lonDeg} degrees ${lonMin} minutes ${lonDir}`;
 
-      const displayText = `Position fix:\n${lmA.name}  ${params.bearing1}°M\n${lmB.name}  ${params.bearing2}°M\nFix: ${fixCoord}  (${fix.quality}, crossing ${fix.crossing}°)`;
+      const displayText = `Position fix\n${lmA.name}  ${params.bearing1}°M\n${lmB.name}  ${params.bearing2}°M\n${fixCoord}  ·  ${fix.quality}  ${fix.crossing}°`;
       const speechText  = `Position fix: ${fixSpeech}. ${fix.quality}. Crossing angle ${fix.crossing} degrees.`;
 
-      showResponse(displayText);
+      // Speak first — the TTS caption callback fires synchronously and would overwrite
+      // the response element. Calling showResponse after locks in the concise display.
       TTS.sayImmediate(speechText);
+      showResponse(displayText);
       showFixMap({ ...lmA, brgMag: params.bearing1 }, { ...lmB, brgMag: params.bearing2 }, fix).catch(() => {});
       return;
     }
