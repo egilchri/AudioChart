@@ -2135,9 +2135,15 @@ async function handleCommand(transcript) {
         4: { lat: 44+4.0/60,  lon: -(68+59.0/60), cmd: 'fix Rockland Breakwater Light 314 Two Bush Island Light 227',                    expected: '44°04.0\'N  068°59.1\'W  ·  Good fix  87°' },
         5: { lat: 44+5.5/60,  lon: -(69+1.0/60),  cmd: 'fix Rockland Breakwater Light 301 Two Bush Island Light 213',                    expected: '44°05.5\'N  069°01.0\'W  ·  Good fix  88°' },
         6: { lat: 44+6.0/60,  lon: -(69+3.0/60),  cmd: 'fix Rockland Breakwater Light 296 Two Bush Island Light 202',                    expected: '44°06.0\'N  069°03.0\'W  ·  Good fix  86°' },
+        // Deer Isle region
+        7:  { lat: 44+2.0/60,  lon: -(68+40.0/60), cmd: 'fix Rock T Buoy 6 348 The Brandies Buoy 4 254',                                   expected: '44°02.0\'N  068°40.0\'W  ·  Good fix  94°' },
+        8:  { lat: 44+2.0/60,  lon: -(68+48.0/60), cmd: 'fix Bunker Ledge Buoy 8 246 Old Duke Ledges Buoy 6 146',                          expected: '44°02.0\'N  068°48.0\'W  ·  Good fix  100°' },
+        9:  { lat: 44+14.0/60, lon: -(68+30.0/60), cmd: 'fix Pond Island Passage Buoy 3 086 Blue Hill Bay Light 021',                       expected: '44°14.0\'N  068°30.0\'W  ·  Good fix  65°' },
+        10: { lat: 44+6.0/60,  lon: -(68+40.0/60), cmd: 'fix North Bay Ledge Buoy 2 135 Ram Island Ledge Buoy 2 247',                      expected: '44°06.0\'N  068°40.0\'W  ·  Good fix  112°' },
+        11: { lat: 44+12.0/60, lon: -(68+32.0/60), cmd: 'fix Mahoney Island Ledge Buoy 2 054 Channel Rock Buoy 5 341',                     expected: '44°12.0\'N  068°32.0\'W  ·  Good fix  73°' },
       };
       const t = TESTS[params.testNum];
-      if (!t) { showResponse(`No test T${params.testNum}. Available: T1–T6.`); return; }
+      if (!t) { showResponse(`No test T${params.testNum}. Available: T1–T11.`); return; }
       GPS.setManualPosition(t.lat, t.lon);
       syncTestPosButton();
       showResponse(`T${params.testNum}: ${formatPositionDisplay(t.lat, t.lon)}\n${t.cmd}\nExpected: ${t.expected}`);
