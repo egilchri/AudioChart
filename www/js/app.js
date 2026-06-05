@@ -1880,7 +1880,13 @@ async function showFixMap(lmA, lmB, fix) {
   await loadLeaflet();
   document.getElementById('map-container').style.display = 'block';
   _ensureMap();
+
+  // Expand container and hide the boat icon before fitting bounds so the
+  // viewport is already at full size when fitBounds runs.
+  _mapContainer.classList.remove('map-compact', 'list-focus', 'input-focus');
+  if (_youLayer) { _map.removeLayer(_youLayer); _youLayer = null; }
   _map.invalidateSize();
+
   if (_mapLayers) { _map.removeLayer(_mapLayers); _mapLayers = null; }
 
   const group = L.layerGroup();
@@ -1906,19 +1912,24 @@ async function showFixMap(lmA, lmB, fix) {
   addPositionLine(lmA, lmA.brgMag, COLOR_A);
   addPositionLine(lmB, lmB.brgMag, COLOR_B);
 
+  // Fix marker — no tooltip on the dot itself so the crossing point stays clear.
   L.circleMarker([fix.lat, fix.lon], { radius: 9, color: '#fff', fillColor: '#e05252', fillOpacity: 1, weight: 2 })
-    .bindTooltip(`Fix: ${formatPositionDisplay(fix.lat, fix.lon)}`, { permanent: true, direction: 'auto', className: 'fix-coord-label' })
     .addTo(group);
+
+  // Coordinate label offset below the crossing point so it never covers it.
+  const fixLabelHtml = `<div class="fix-coord-label" style="transform:translate(-50%,14px)">Fix: ${formatPositionDisplay(fix.lat, fix.lon)}</div>`;
+  L.marker([fix.lat, fix.lon], {
+    icon: L.divIcon({ className: '', html: fixLabelHtml, iconSize: [0, 0], iconAnchor: [0, 0] }),
+    interactive: false,
+  }).addTo(group);
 
   _mapLayers = group;
   group.addTo(_map);
 
-  // Fit to landmarks + fix only — extended line endpoints would zoom out too far.
-  _map.fitBounds(L.latLngBounds([
-    [lmA.lat, lmA.lon], [lmB.lat, lmB.lon], [fix.lat, fix.lon],
-  ]).pad(0.3));
-  _mapContainer.classList.remove('map-compact', 'list-focus', 'input-focus');
-  setTimeout(() => _map.invalidateSize(), 300);
+  const bounds = L.latLngBounds([[lmA.lat, lmA.lon], [lmB.lat, lmB.lon], [fix.lat, fix.lon]]);
+  _map.fitBounds(bounds.pad(0.12));
+  // Re-fit after CSS transition completes to catch any container resize.
+  setTimeout(() => { _map.invalidateSize(); _map.fitBounds(bounds.pad(0.12)); }, 300);
 }
 
 const SOURCE_LABEL = {
