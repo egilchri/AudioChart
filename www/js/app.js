@@ -2040,17 +2040,18 @@ async function handleMapLongPress(latlng, radiusNm = 0.25, radiusLabel = '¼ mil
 // ── Command handling ──────────────────────────────────────────────────────────
 
 async function handleCommand(transcript) {
+  // Parse first so we can gate on intent before touching any UI.
+  const { intent, params } = parseCommand(transcript);
+
+  // While TTS is speaking, silently drop anything that doesn't parse — covers
+  // background noise, keyboard-mic feedback, and TTS audio picked up by the mic.
+  if (TTS.isSpeaking() && intent === 'UNKNOWN') return;
+
   console.log('[AudioChart] handleCommand:', transcript);
   try {
     setStatus(`Command: "${transcript}"`);
     showResponse('...');
     addToHistory(transcript);
-
-    const { intent, params } = parseCommand(transcript);
-
-    // Drop unrecognized input while TTS is speaking — prevents background noise
-    // or keyboard-mic feedback from cancelling the current speech output.
-    if (intent === 'UNKNOWN' && TTS.isSpeaking()) return;
 
     if (intent === 'LIST_OBJECTS') {
       const response = {
@@ -2134,6 +2135,9 @@ async function handleCommand(transcript) {
     }
 
     if (intent === 'POSITION_FIX') {
+      // If TTS is already speaking a result, the mic may have picked up "position fix…"
+      // from the speaker. Don't interrupt the current speech.
+      if (TTS.isSpeaking()) return;
       // Use lightweight normalization — skip full normalizePlaceName to avoid alias
       // cascades (e.g. "thorofare" alias mangling "deer island thorofare light station").
       const name1 = params.landmark1.toLowerCase().trim();
