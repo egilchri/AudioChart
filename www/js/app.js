@@ -1775,6 +1775,31 @@ function _refreshNavaidOverlay() {
     const m = L.marker([lat, lon], { icon: _navaidMarkerIcon(n) });
     const tip = [n.name, n.characteristic || n.colour].filter(Boolean).join(' — ');
     if (tip) m.bindTooltip(tip, { permanent: false, direction: 'top', className: 'map-tooltip' });
+
+    // Tap/click → popup with Range & bearing and Copy name
+    const safeName = (n.name || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    m.bindPopup(
+      `<div class="navaid-popup">
+         <div class="navaid-popup-name">${safeName}</div>
+         <button class="navaid-popup-brg">Range &amp; bearing</button>
+         <button class="navaid-popup-copy">Copy name</button>
+       </div>`,
+      { maxWidth: 220, className: 'navaid-popup-wrapper' }
+    );
+    m.on('popupopen', (e) => {
+      const el = e.popup.getElement();
+      el.querySelector('.navaid-popup-brg').addEventListener('click', () => {
+        _map.closePopup();
+        handleCommand(`bearing to ${n.name}`);
+      });
+      el.querySelector('.navaid-popup-copy').addEventListener('click', (evt) => {
+        navigator.clipboard.writeText(n.name).catch(() => {});
+        const btn = evt.currentTarget;
+        btn.textContent = '✓ Copied';
+        setTimeout(() => { btn.textContent = 'Copy name'; }, 1200);
+      });
+    });
+
     markers.push(m);
   }
   if (markers.length) _navaidFilterLayer = L.layerGroup(markers).addTo(_map);

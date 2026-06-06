@@ -578,6 +578,57 @@ html, body {
   -webkit-tap-highlight-color: transparent;
 }
 .nf-actions button:active { background: var(--accent); color: var(--navy); }
+
+/* Navaid overlay popup menu */
+.navaid-popup-wrapper .leaflet-popup-content-wrapper {
+  background: var(--dark-blue);
+  border: 1px solid var(--mid-blue);
+  border-radius: 10px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.7);
+  padding: 0;
+}
+.navaid-popup-wrapper .leaflet-popup-content {
+  margin: 0;
+}
+.navaid-popup-wrapper .leaflet-popup-tip {
+  background: var(--dark-blue);
+}
+.navaid-popup-wrapper .leaflet-popup-close-button {
+  color: var(--text);
+  font-size: 16px;
+  top: 6px;
+  right: 8px;
+}
+.navaid-popup {
+  display: flex;
+  flex-direction: column;
+  min-width: 160px;
+  padding: 10px 12px 8px;
+  gap: 6px;
+}
+.navaid-popup-name {
+  font-size: 0.78rem;
+  font-weight: bold;
+  color: var(--text);
+  border-bottom: 1px solid var(--mid-blue);
+  padding-bottom: 6px;
+  margin-bottom: 2px;
+}
+.navaid-popup-brg,
+.navaid-popup-copy {
+  background: var(--mid-blue);
+  border: none;
+  border-radius: 6px;
+  color: var(--text);
+  padding: 7px 10px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+.navaid-popup-brg:active,
+.navaid-popup-copy:active { background: var(--accent); color: var(--navy); }
 .map-tooltip {
   background: var(--dark-blue) !important;
   border: 1px solid var(--mid-blue) !important;
