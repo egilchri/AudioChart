@@ -800,10 +800,19 @@ export function bearingToPlace(lat, lon, queryName) {
     }
   }
 
-  // Search chart-based named places (only if no waypoint scored higher)
+  // Search chart-based named places
   if (namedPlaces && namedPlaces.features) {
     for (const f of namedPlaces.features) {
       const name = f.properties.name_lower || '';
+      const score = similarityScore(q, name);
+      if (score > bestScore) { bestScore = score; best = f; bestIsWaypoint = false; }
+    }
+  }
+
+  // Search navaids (buoys, lights, beacons) — allows abbreviated names from position fixes
+  if (navaids && navaids.features) {
+    for (const f of navaids.features) {
+      const name = f.properties.name_lower || f.properties.name?.toLowerCase() || '';
       const score = similarityScore(q, name);
       if (score > bestScore) { bestScore = score; best = f; bestIsWaypoint = false; }
     }
