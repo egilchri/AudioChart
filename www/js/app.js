@@ -1808,7 +1808,18 @@ function _refreshNavaidOverlay() {
       const el = e.popup.getElement();
       el.querySelector('.navaid-popup-brg').addEventListener('click', () => {
         _map.closePopup();
-        handleCommand(`bearing to ${n.name}`);
+        // Use exact coordinates — bypasses the parser's alias system which
+        // mangles names like "Thorofare" or "Rockland" into wrong places.
+        const pos = GPS.getPosition();
+        if (!pos) {
+          const msg = 'No GPS fix yet.';
+          showResponse(msg); TTS.sayImmediate(msg); return;
+        }
+        const result = Query.bearingToResolvedPlace(pos.lat, pos.lon, lat, lon, n.name);
+        showResponse(result.text);
+        TTS.sayImmediate(result.speech);
+        _bearingAccumulator.push({ fromLat: pos.lat, fromLon: pos.lon, result: Query.lastBearingResult });
+        showMap(pos.lat, pos.lon, Query.lastBearingResult).catch(() => {});
       });
       el.querySelector('.navaid-popup-copy').addEventListener('click', (evt) => {
         navigator.clipboard.writeText(n.name).catch(() => {});
