@@ -344,6 +344,7 @@ let _boatLayer = null;
 let _youLayer = null;
 let _waypointsVisible = localStorage.getItem('audiochart-waypoints-visible') === 'true';
 let _leafletReady = false;
+let _activeCruiseName = 'Penobscot Bay';  // updated when user selects a region
 let _markerByKey = new Map();
 let _sketchMode = false;
 let _sketchPath = null;
@@ -2526,7 +2527,13 @@ testPosBtn.addEventListener('click', () => {
 });
 
 testPosSet.addEventListener('click', async () => {
-  const raw = testPosInput.value.trim();
+  let raw = testPosInput.value.trim();
+  // Empty input → use first stop of the active cruise region as default
+  if (!raw) {
+    const defaultStop = CRUISE_PROFILES[_activeCruiseName]?.stops[0];
+    if (!defaultStop) return;
+    raw = defaultStop.name;
+  }
   // Coordinates first; for place names prefer server (full DB + label ranking),
   // falling back to local cache when offline.
   let coord = parseCoordinate(raw);
@@ -2634,6 +2641,7 @@ async function checkOnboarding() {
 }
 
 async function runRouteDownload(cruiseName) {
+  _activeCruiseName = cruiseName;
   const profile = CRUISE_PROFILES[cruiseName];
   cruiseForm.style.display = 'none';
   routeBtn.disabled = true;
