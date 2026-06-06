@@ -513,6 +513,71 @@ html, body {
   -webkit-tap-highlight-color: transparent;
 }
 #map-layer-btn:active { background: var(--mid-blue); }
+
+#navaid-filter-btn {
+  position: absolute;
+  bottom: 140px;
+  right: 10px;
+  z-index: 1000;
+  width: 48px;
+  height: 48px;
+  background: var(--dark-blue);
+  color: var(--text);
+  border: 1px solid var(--mid-blue);
+  border-radius: 10px;
+  font-size: 1.3rem;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+#navaid-filter-btn:active { background: var(--mid-blue); }
+#navaid-filter-btn.active  { background: var(--accent);  color: var(--navy); }
+
+#navaid-filter-panel {
+  display: none;
+  position: absolute;
+  bottom: 196px;
+  right: 10px;
+  z-index: 1001;
+  background: var(--dark-blue);
+  border: 1px solid var(--mid-blue);
+  border-radius: 10px;
+  padding: 10px 14px;
+  min-width: 130px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.7);
+  font-size: 0.85rem;
+  color: var(--text);
+  flex-direction: column;
+  gap: 6px;
+}
+#navaid-filter-panel.open { display: flex; }
+#navaid-filter-panel label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+.nf-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+.nf-actions button {
+  flex: 1;
+  padding: 5px 0;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  background: var(--mid-blue);
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.nf-actions button:active { background: var(--accent); color: var(--navy); }
 .map-tooltip {
   background: var(--dark-blue) !important;
   border: 1px solid var(--mid-blue) !important;

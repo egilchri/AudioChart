@@ -337,6 +337,7 @@ let dataLoaded = false;
 let gpsReady = false;
 let _map = null;
 let _mapLayers = null;
+let _navaidFilterLayer = null;
 let _waypointLayer = null;
 let _boatLayer = null;
 let _youLayer = null;
@@ -1094,6 +1095,23 @@ function _ensureMap() {
     _syncLayerBtn();
   });
 
+  // ⚓ Navaid filter panel
+  const _navaidFilterBtn   = document.getElementById('navaid-filter-btn');
+  const _navaidFilterPanel = document.getElementById('navaid-filter-panel');
+  _navaidFilterBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    _navaidFilterPanel.classList.toggle('open');
+    _navaidFilterBtn.classList.toggle('active', _navaidFilterPanel.classList.contains('open'));
+  });
+  document.getElementById('nf-refresh').addEventListener('click', () => {
+    _refreshNavaidOverlay();
+  });
+  document.getElementById('nf-clear').addEventListener('click', () => {
+    if (_navaidFilterLayer) { _map?.removeLayer(_navaidFilterLayer); _navaidFilterLayer = null; }
+    _navaidFilterPanel.classList.remove('open');
+    _navaidFilterBtn.classList.remove('active');
+  });
+
   // Floating ☰ button — opens context menu at current GPS position
   document.getElementById('map-menu-btn').addEventListener('click', (e) => {
     e.stopPropagation();
@@ -1736,8 +1754,37 @@ async function showMap(fromLat, fromLon, result) {
   _map.fitBounds(L.latLngBounds([[fromLat, fromLon], [destLat, destLon]]).pad(0.2));
 }
 
+function _refreshNavaidOverlay() {
+  if (!_map || !Query.navaids?.features) return;
+  if (_navaidFilterLayer) { _map.removeLayer(_navaidFilterLayer); _navaidFilterLayer = null; }
+
+  const types = new Set();
+  if (document.getElementById('nf-buoy')?.checked)   types.add('buoy');
+  if (document.getElementById('nf-light')?.checked)  types.add('light');
+  if (document.getElementById('nf-beacon')?.checked) types.add('beacon');
+  if (types.size === 0) return;
+
+  const bounds = _map.getBounds();
+  const markers = [];
+  for (const f of Query.navaids.features) {
+    if (!types.has(f.properties.label)) continue;
+    const [lon, lat] = f.geometry.coordinates;
+    if (!bounds.contains([lat, lon])) continue;
+    const n = { label: f.properties.label, colour: f.properties.colour,
+                name: f.properties.name, characteristic: f.properties.characteristic };
+    const m = L.marker([lat, lon], { icon: _navaidMarkerIcon(n) });
+    const tip = [n.name, n.characteristic || n.colour].filter(Boolean).join(' — ');
+    if (tip) m.bindTooltip(tip, { permanent: false, direction: 'top', className: 'map-tooltip' });
+    markers.push(m);
+  }
+  if (markers.length) _navaidFilterLayer = L.layerGroup(markers).addTo(_map);
+}
+
 function hideMap() {
   document.getElementById('map-container').style.display = 'none';
+  if (_navaidFilterLayer) { _map?.removeLayer(_navaidFilterLayer); _navaidFilterLayer = null; }
+  document.getElementById('navaid-filter-panel')?.classList.remove('open');
+  document.getElementById('navaid-filter-btn')?.classList.remove('active');
 }
 
 async function showNavaidMap(fromLat, fromLon, navaids) {

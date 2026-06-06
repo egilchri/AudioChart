@@ -22,6 +22,16 @@
       <div id="leaflet-map"></div>
       <button id="map-menu-btn" title="Map menu">&#9776;</button>
       <button id="map-layer-btn" title="Switch to chart">&#128506;</button>
+      <button id="navaid-filter-btn" title="Show navaids on map">&#9875;</button>
+      <div id="navaid-filter-panel">
+        <label><input type="checkbox" id="nf-buoy" checked> Buoys</label>
+        <label><input type="checkbox" id="nf-light" checked> Lights</label>
+        <label><input type="checkbox" id="nf-beacon" checked> Beacons</label>
+        <div class="nf-actions">
+          <button id="nf-refresh">Refresh</button>
+          <button id="nf-clear">Clear</button>
+        </div>
+      </div>
     </div>
     <div id="sketch-banner" style="display:none">
       &#9998; Draw your route &mdash; lift to finish &nbsp;
