@@ -338,6 +338,7 @@ let gpsReady = false;
 let _map = null;
 let _mapLayers = null;
 let _navaidFilterLayer = null;
+let _bearingAccumulator = [];   // persists bearing lines across successive bearing queries
 let _waypointLayer = null;
 let _boatLayer = null;
 let _youLayer = null;
@@ -1729,29 +1730,46 @@ async function showPositionMap(lat, lon) {
   _map.invalidateSize();
 }
 
+const _BEARING_COLORS = ['#4a9edd', '#f5a623', '#4dd0e1', '#7ec86e', '#e05252', '#b39ddb'];
+
 async function showMap(fromLat, fromLon, result) {
   await loadLeaflet();
   document.getElementById('map-container').style.display = 'block';
   _ensureMap();
-  _map.invalidateSize();  // must precede fitBounds so Leaflet knows container size
+  _map.invalidateSize();
   if (_mapLayers) { _map.removeLayer(_mapLayers); _mapLayers = null; }
-  const { destLat, destLon, destName, destType, brg, distNm } = result;
-  const lineColor = '#4a9edd';
-  const fromDot = L.circleMarker([fromLat, fromLon], {
-    radius: 5, color: '#fff', fillColor: lineColor, fillOpacity: 1, weight: 1.5,
-  });
-  const toIcon = _navaidIcon(destType || 'place', '#e05252');
-  const toMarker = L.marker([destLat, destLon], { icon: toIcon });
-  if (destName) toMarker.bindTooltip(destName, { permanent: true, direction: 'top', className: 'map-tooltip' });
-  const line = L.polyline([[fromLat, fromLon], [destLat, destLon]], {
-    color: lineColor, weight: 2, dashArray: '6 4', opacity: 0.85,
-  });
-  const layers = [line, fromDot, toMarker];
-  if (brg != null && distNm != null) {
-    layers.push(_bearingLineLabel(fromLat, fromLon, destLat, destLon, brg, distNm, lineColor));
+
+  // Draw all accumulated bearing lines; fall back to just the current result.
+  const entries = _bearingAccumulator.length > 0
+    ? _bearingAccumulator
+    : [{ fromLat, fromLon, result }];
+
+  const layers = [];
+  const allPts = [];
+
+  for (let i = 0; i < entries.length; i++) {
+    const { fromLat: fLat, fromLon: fLon, result: r } = entries[i];
+    const { destLat, destLon, destName, destType, brg, distNm } = r;
+    const color = _BEARING_COLORS[i % _BEARING_COLORS.length];
+
+    layers.push(L.circleMarker([fLat, fLon], {
+      radius: 5, color: '#fff', fillColor: color, fillOpacity: 1, weight: 1.5,
+    }));
+    const toIcon = _navaidIcon(destType || 'place', color);
+    const toMarker = L.marker([destLat, destLon], { icon: toIcon });
+    if (destName) toMarker.bindTooltip(destName, { permanent: true, direction: 'top', className: 'map-tooltip' });
+    layers.push(toMarker);
+    layers.push(L.polyline([[fLat, fLon], [destLat, destLon]], {
+      color, weight: 2, dashArray: '6 4', opacity: 0.85,
+    }));
+    if (brg != null && distNm != null) {
+      layers.push(_bearingLineLabel(fLat, fLon, destLat, destLon, brg, distNm, color));
+    }
+    allPts.push([fLat, fLon], [destLat, destLon]);
   }
+
   _mapLayers = L.layerGroup(layers).addTo(_map);
-  _map.fitBounds(L.latLngBounds([[fromLat, fromLon], [destLat, destLon]]).pad(0.2));
+  _map.fitBounds(L.latLngBounds(allPts).pad(0.2));
 }
 
 function _refreshNavaidOverlay() {
@@ -1807,6 +1825,7 @@ function _refreshNavaidOverlay() {
 
 function hideMap() {
   document.getElementById('map-container').style.display = 'none';
+  _bearingAccumulator = [];
   if (_navaidFilterLayer) { _map?.removeLayer(_navaidFilterLayer); _navaidFilterLayer = null; }
   document.getElementById('navaid-filter-panel')?.classList.remove('open');
   document.getElementById('navaid-filter-btn')?.classList.remove('active');
@@ -2433,18 +2452,29 @@ async function handleCommand(transcript) {
     if (navaidList) showNavaidList(navaidList);
     TTS.sayImmediate(speechText);
 
-    const SHOW_MAP_FOR = ['BEARING_TO_PLACE', 'BEARING_TO_COORD', 'NEAREST_HAZARD', 'NEAREST_NAVAID', 'NEAREST_RESTRICTION'];
     const isCourseIntent = (intent === 'HAZARDS_ON_COURSE' || intent === 'HAZARDS_ALONG_ROUTE');
-    if (intent === 'WHERE_AM_I') {
+    const isBearingIntent = (intent === 'BEARING_TO_PLACE' || intent === 'BEARING_TO_COORD');
+    const isOtherMapIntent = ['NEAREST_HAZARD', 'NEAREST_NAVAID', 'NEAREST_RESTRICTION'].includes(intent);
+
+    if (isBearingIntent && Query.lastBearingResult) {
+      // Accumulate bearing lines — don't clear previous results.
+      _bearingAccumulator.push({ fromLat: pos.lat, fromLon: pos.lon, result: Query.lastBearingResult });
+      showMap(pos.lat, pos.lon, Query.lastBearingResult).catch(() => {});
+      opencpnBtn.style.display = 'none';
+    } else if (intent === 'WHERE_AM_I') {
+      _bearingAccumulator = [];
       showPositionMap(pos.lat, pos.lon).catch(() => {});
       opencpnBtn.style.display = 'none';
     } else if (isCourseIntent && _lastCourseFrom) {
+      _bearingAccumulator = [];
       showCourseMap(_lastCourseFrom.lat, _lastCourseFrom.lon, _lastCourseTo.lat, _lastCourseTo.lon, Query.lastCourseHazards).catch(() => {});
       if (serverUrl) opencpnBtn.style.display = 'inline-block';
-    } else if (SHOW_MAP_FOR.includes(intent) && Query.lastBearingResult) {
+    } else if (isOtherMapIntent && Query.lastBearingResult) {
+      _bearingAccumulator = [];
       showMap(pos.lat, pos.lon, Query.lastBearingResult).catch(() => {});
       opencpnBtn.style.display = 'none';
     } else {
+      _bearingAccumulator = [];
       hideMap();
       opencpnBtn.style.display = 'none';
     }
