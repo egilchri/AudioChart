@@ -97,6 +97,10 @@ function _showBoatPosition(lat, lon) {
   if (_boatLayer) { _map.removeLayer(_boatLayer); _boatLayer = null; }
   const marker = L.marker([lat, lon], { icon: _boatIcon(), zIndexOffset: 1000, draggable: true });
   marker.bindTooltip('TEST POSITION', { permanent: true, direction: 'top', className: 'map-tooltip' });
+  marker.on('drag', (e) => {
+    const { lat: dLat, lng: dLon } = e.target.getLatLng();
+    _updateBearingLines(dLat, dLon);
+  });
   marker.on('dragend', (e) => {
     const { lat: newLat, lng: newLon } = e.target.getLatLng();
     GPS.setManualPosition(newLat, newLon);
@@ -636,6 +640,25 @@ function _bearingLineLabel(fromLat, fromLon, toLat, toLon, brgMag, distNm, color
     icon: L.divIcon({ className: '', html, iconSize: [0, 0], iconAnchor: [0, 0] }),
     interactive: false,
   });
+}
+
+function _updateBearingLines(lat, lon) {
+  for (const entry of _bearingAccumulator) {
+    if (!entry._polyline) continue;
+    const { destLat, destLon } = entry.result;
+    entry._polyline.setLatLngs([[lat, lon], [destLat, destLon]]);
+    if (entry._labelMarker) {
+      const newBrg = trueTomagnetic(Query.bearing(lon, lat, destLon, destLat));
+      const newDist = Query.distanceNm(lon, lat, destLon, destLat);
+      entry._labelMarker.setLatLng([(lat + destLat) / 2, (lon + destLon) / 2]);
+      const el = entry._labelMarker.getElement();
+      if (el) {
+        const brgStr = `${Math.round(newBrg).toString().padStart(3, '0')}°M`;
+        const distStr = newDist < 0.1 ? `${Math.round(newDist * 2000) / 2} yd` : `${Math.round(newDist * 10) / 10} nm`;
+        el.innerHTML = `<div style="color:${entry._color};font-size:11px;font-weight:bold;white-space:nowrap;text-shadow:0 0 3px #000,0 0 3px #000,0 0 3px #000;line-height:1.3;transform:translate(-50%,-50%)">${brgStr}<br>${distStr}</div>`;
+      }
+    }
+  }
 }
 
 function _exitAnimMode() {
@@ -1708,6 +1731,10 @@ async function showPositionMap(lat, lon) {
   if (_mapLayers) { _map.removeLayer(_mapLayers); _mapLayers = null; }
   const dot = L.marker([lat, lon], { icon: _boatIcon(), draggable: true, zIndexOffset: 900 });
   dot.bindTooltip('You are here', { permanent: true, direction: 'top', className: 'map-tooltip' });
+  dot.on('drag', (e) => {
+    const { lat: dLat, lng: dLon } = e.target.getLatLng();
+    _updateBearingLines(dLat, dLon);
+  });
   dot.on('dragend', (e) => {
     const { lat: newLat, lng: newLon } = e.target.getLatLng();
     GPS.setManualPosition(newLat, newLon);
@@ -1760,12 +1787,18 @@ async function showMap(fromLat, fromLon, result) {
     const toMarker = L.marker([destLat, destLon], { icon: toIcon });
     if (destName) toMarker.bindTooltip(destName, { permanent: true, direction: 'top', className: 'map-tooltip' });
     layers.push(toMarker);
-    layers.push(L.polyline([[fLat, fLon], [destLat, destLon]], {
+    const bearingPolyline = L.polyline([[fLat, fLon], [destLat, destLon]], {
       color, weight: 2, dashArray: '6 4', opacity: 0.85,
-    }));
+    });
+    layers.push(bearingPolyline);
+    let bearingLabel = null;
     if (brg != null && distNm != null) {
-      layers.push(_bearingLineLabel(fLat, fLon, destLat, destLon, brg, distNm, color));
+      bearingLabel = _bearingLineLabel(fLat, fLon, destLat, destLon, brg, distNm, color);
+      layers.push(bearingLabel);
     }
+    entries[i]._polyline = bearingPolyline;
+    entries[i]._labelMarker = bearingLabel;
+    entries[i]._color = color;
     allPts.push([fLat, fLon], [destLat, destLon]);
   }
 
