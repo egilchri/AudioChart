@@ -2010,7 +2010,7 @@ function _refreshNavaidOverlay() {
         const eff = (f.properties.valsou ?? 0) + _tideHeight;
         let color = null;
         if (eff < draftM)             color = '#e05252';
-        else if (eff < draftM * 1.5)  color = '#f5c518';
+        else if (eff < draftM + 0.9144)  color = '#f5c518';  // draft + fixed 3 ft margin
         if (!color) continue;
         if (f.geometry.type === 'Point') {
           const [lon, lat] = f.geometry.coordinates;
