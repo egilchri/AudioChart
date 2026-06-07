@@ -1695,6 +1695,25 @@ function _ensureMap() {
     _runWhereAmI(lat, lon);
   });
 
+  document.getElementById('map-ctx-bring-boat').addEventListener('click', () => {
+    _hideCtx();
+    if (!_ctxLatLng) return;
+    const { lat, lng: lon } = _ctxLatLng;
+    GPS.setManualPosition(lat, lon);
+    syncTestPosButton();
+    _showBoatPosition(lat, lon);
+    _updateBearingLines(lat, lon);
+    setStatus('Boat moved.');
+    if (serverUrl) {
+      fetch(`${serverUrl}/api/test-position`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lat, lon }),
+      }).catch(() => {});
+      Query.loadData(lat, lon).then(() => { dataLoaded = true; }).catch(() => {});
+    }
+  });
+
   document.getElementById('map-ctx-set-position').addEventListener('click', () => {
     _hideCtx();
     if (!_ctxLatLng) return;
