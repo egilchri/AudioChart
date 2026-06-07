@@ -2002,13 +2002,12 @@ function _refreshNavaidOverlay() {
         if (eff < draftM)             color = '#e05252';   // danger
         else if (eff < draftM * 1.5)  color = '#f5c518';   // warning
         if (!color) continue;
-        const m = L.circleMarker([lat, lon], {
-          radius: 7, color, fillColor: color, fillOpacity: 0.55,
-          weight: 1, interactive: false,
+        // L.circle uses a geographic radius (meters) so blobs scale with zoom
+        // and adjacent centroids merge into continuous zones at normal nav zoom.
+        const m = L.circle([lat, lon], {
+          radius: 300, color: 'none', fillColor: color, fillOpacity: 0.18,
+          weight: 0, interactive: false,
         });
-        const depthLabel = f.properties.depth_label ?? `${eff.toFixed(1)} m`;
-        m.bindTooltip(`${depthLabel} (eff. ${eff.toFixed(1)} m)`,
-          { permanent: false, direction: 'top', className: 'map-tooltip' });
         markers.push(m);
       }
     }
