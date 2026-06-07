@@ -97,6 +97,7 @@ function _showBoatPosition(lat, lon) {
   if (_boatLayer) { _map.removeLayer(_boatLayer); _boatLayer = null; }
   const marker = L.marker([lat, lon], { icon: _boatIcon(), zIndexOffset: 1000, draggable: true });
   marker.bindTooltip('TEST POSITION', { permanent: true, direction: 'top', className: 'map-tooltip' });
+  marker.on('contextmenu', (e) => e.originalEvent.stopPropagation());
   marker.on('drag', (e) => {
     const { lat: dLat, lng: dLon } = e.target.getLatLng();
     _updateBearingLines(dLat, dLon);
@@ -1731,6 +1732,7 @@ async function showPositionMap(lat, lon) {
   if (_mapLayers) { _map.removeLayer(_mapLayers); _mapLayers = null; }
   const dot = L.marker([lat, lon], { icon: _boatIcon(), draggable: true, zIndexOffset: 900 });
   dot.bindTooltip('You are here', { permanent: true, direction: 'top', className: 'map-tooltip' });
+  dot.on('contextmenu', (e) => e.originalEvent.stopPropagation());
   dot.on('drag', (e) => {
     const { lat: dLat, lng: dLon } = e.target.getLatLng();
     _updateBearingLines(dLat, dLon);
