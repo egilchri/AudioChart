@@ -2012,15 +2012,19 @@ function _refreshNavaidOverlay() {
         if (eff < draftM)             color = '#e05252';
         else if (eff < draftM + 0.9144)  color = '#f5c518';  // draft + fixed 3 ft margin
         if (!color) continue;
+        const effFt = (eff * 3.28084).toFixed(1);
+        const tip = `${effFt} ft`;
         if (f.geometry.type === 'Point') {
           const [lon, lat] = f.geometry.coordinates;
           if (!bounds.contains([lat, lon])) continue;
-          circleLayers.push(L.circle([lat, lon], {
+          const c = L.circle([lat, lon], {
             radius: 300, color: 'none', fillColor: color,
-            fillOpacity: 0.35, weight: 0, interactive: false,
-          }));
+            fillOpacity: 0.35, weight: 0,
+          });
+          c.bindTooltip(tip, { sticky: true, className: 'map-tooltip' });
+          circleLayers.push(c);
         } else {
-          polyFeatures.push({ ...f, properties: { ...f.properties, _color: color } });
+          polyFeatures.push({ ...f, properties: { ...f.properties, _color: color, _tip: tip } });
         }
       }
       const depthLayers = [...circleLayers];
@@ -2029,7 +2033,9 @@ function _refreshNavaidOverlay() {
           { type: 'FeatureCollection', features: polyFeatures },
           {
             style: (f) => ({ color: 'none', weight: 0, fillColor: f.properties._color, fillOpacity: 0.4 }),
-            interactive: false,
+            onEachFeature: (f, layer) => {
+              layer.bindTooltip(f.properties._tip, { sticky: true, className: 'map-tooltip' });
+            },
           }
         ));
       }
