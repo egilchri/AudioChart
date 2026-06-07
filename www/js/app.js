@@ -395,6 +395,19 @@ async function loadLeaflet() {
 
 function setStatus(msg) { statusEl.textContent = msg; }
 
+window._debugDepth = () => {
+  const feats = Query.hazards?.features || [];
+  const shallow = feats.filter(f => f.properties.label === 'shallow area');
+  console.log('total hazard features:', feats.length);
+  console.log('shallow area features:', shallow.length);
+  if (shallow.length) {
+    console.log('sample geometry types:', [...new Set(shallow.map(f=>f.geometry.type))]);
+    console.log('sample valsou values:', shallow.slice(0,5).map(f=>f.properties.valsou));
+  }
+  console.log('tide height (m):', _tideHeight);
+  console.log('draft (m):', _getDraftMeters());
+};
+
 // ── Map / list focus toggle ───────────────────────────────────────────────────
 const _mapContainer = document.getElementById('map-container');
 // Clicking the response area (list) → list expands, map shrinks
