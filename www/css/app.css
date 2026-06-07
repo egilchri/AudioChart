@@ -554,6 +554,14 @@ html, body {
   gap: 6px;
 }
 #navaid-filter-panel.open { display: flex; }
+.nf-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 2px;
+}
 #navaid-filter-panel label {
   display: flex;
   align-items: center;

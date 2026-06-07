@@ -1829,64 +1829,81 @@ async function showMap(fromLat, fromLon, result) {
 }
 
 function _refreshNavaidOverlay() {
-  if (!_map || !Query.navaids?.features) return;
+  if (!_map) return;
   if (_navaidFilterLayer) { _map.removeLayer(_navaidFilterLayer); _navaidFilterLayer = null; }
 
   const types = new Set();
   if (document.getElementById('nf-buoy')?.checked)   types.add('buoy');
   if (document.getElementById('nf-light')?.checked)  types.add('light');
   if (document.getElementById('nf-beacon')?.checked) types.add('beacon');
-  if (types.size === 0) return;
+  const showHazards = document.getElementById('nf-hazard')?.checked;
+  if (types.size === 0 && !showHazards) return;
 
   const bounds = _map.getBounds();
   const markers = [];
-  for (const f of Query.navaids.features) {
-    if (!types.has(f.properties.label)) continue;
-    const [lon, lat] = f.geometry.coordinates;
-    if (!bounds.contains([lat, lon])) continue;
-    const n = { label: f.properties.label, colour: f.properties.colour,
-                name: f.properties.name, characteristic: f.properties.characteristic };
-    const m = L.marker([lat, lon], { icon: _navaidMarkerIcon(n) });
-    const tip = [n.name, n.characteristic || n.colour].filter(Boolean).join(' — ');
-    if (tip) m.bindTooltip(tip, { permanent: false, direction: 'top', className: 'map-tooltip' });
 
-    // Tap/click → popup with Range & bearing and Copy name
-    const safeName = (n.name || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    m.bindPopup(
-      `<div class="navaid-popup">
-         <div class="navaid-popup-name">${safeName}</div>
-         <button class="navaid-popup-brg">Range &amp; bearing</button>
-         <button class="navaid-popup-copy">Copy name</button>
-       </div>`,
-      { maxWidth: 220, className: 'navaid-popup-wrapper' }
-    );
-    m.on('popupopen', (e) => {
-      const el = e.popup.getElement();
-      el.querySelector('.navaid-popup-brg').addEventListener('click', () => {
-        _map.closePopup();
-        // Use exact coordinates — bypasses the parser's alias system which
-        // mangles names like "Thorofare" or "Rockland" into wrong places.
-        const pos = GPS.getPosition();
-        if (!pos) {
-          const msg = 'No GPS fix yet.';
-          showResponse(msg); TTS.sayImmediate(msg); return;
-        }
-        const result = Query.bearingToResolvedPlace(pos.lat, pos.lon, lat, lon, n.name);
-        showResponse(result.text);
-        TTS.sayImmediate(result.speech);
-        _bearingAccumulator.push({ fromLat: pos.lat, fromLon: pos.lon, result: Query.lastBearingResult });
-        showMap(pos.lat, pos.lon, Query.lastBearingResult).catch(() => {});
-      });
-      el.querySelector('.navaid-popup-copy').addEventListener('click', (evt) => {
-        navigator.clipboard.writeText(n.name).catch(() => {});
-        const btn = evt.currentTarget;
-        btn.textContent = '✓ Copied';
-        setTimeout(() => { btn.textContent = 'Copy name'; }, 1200);
-      });
-    });
+  if (types.size > 0 && Query.navaids?.features) {
+    for (const f of Query.navaids.features) {
+      if (!types.has(f.properties.label)) continue;
+      const [lon, lat] = f.geometry.coordinates;
+      if (!bounds.contains([lat, lon])) continue;
+      const n = { label: f.properties.label, colour: f.properties.colour,
+                  name: f.properties.name, characteristic: f.properties.characteristic };
+      const m = L.marker([lat, lon], { icon: _navaidMarkerIcon(n) });
+      const tip = [n.name, n.characteristic || n.colour].filter(Boolean).join(' — ');
+      if (tip) m.bindTooltip(tip, { permanent: false, direction: 'top', className: 'map-tooltip' });
 
-    markers.push(m);
+      // Tap/click → popup with Range & bearing and Copy name
+      const safeName = (n.name || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      m.bindPopup(
+        `<div class="navaid-popup">
+           <div class="navaid-popup-name">${safeName}</div>
+           <button class="navaid-popup-brg">Range &amp; bearing</button>
+           <button class="navaid-popup-copy">Copy name</button>
+         </div>`,
+        { maxWidth: 220, className: 'navaid-popup-wrapper' }
+      );
+      m.on('popupopen', (e) => {
+        const el = e.popup.getElement();
+        el.querySelector('.navaid-popup-brg').addEventListener('click', () => {
+          _map.closePopup();
+          // Use exact coordinates — bypasses the parser's alias system which
+          // mangles names like "Thorofare" or "Rockland" into wrong places.
+          const pos = GPS.getPosition();
+          if (!pos) {
+            const msg = 'No GPS fix yet.';
+            showResponse(msg); TTS.sayImmediate(msg); return;
+          }
+          const result = Query.bearingToResolvedPlace(pos.lat, pos.lon, lat, lon, n.name);
+          showResponse(result.text);
+          TTS.sayImmediate(result.speech);
+          _bearingAccumulator.push({ fromLat: pos.lat, fromLon: pos.lon, result: Query.lastBearingResult });
+          showMap(pos.lat, pos.lon, Query.lastBearingResult).catch(() => {});
+        });
+        el.querySelector('.navaid-popup-copy').addEventListener('click', (evt) => {
+          navigator.clipboard.writeText(n.name).catch(() => {});
+          const btn = evt.currentTarget;
+          btn.textContent = '✓ Copied';
+          setTimeout(() => { btn.textContent = 'Copy name'; }, 1200);
+        });
+      });
+
+      markers.push(m);
+    }
   }
+
+  if (showHazards && Query.hazards?.features) {
+    for (const f of Query.hazards.features) {
+      const [lon, lat] = f.geometry.coordinates;
+      if (!bounds.contains([lat, lon])) continue;
+      const label = f.properties.label || f.properties.objtype || 'hazard';
+      const name  = f.properties.name || label;
+      const m = L.marker([lat, lon], { icon: _hazardMarkerIcon() });
+      m.bindTooltip(name, { permanent: false, direction: 'top', className: 'map-tooltip' });
+      markers.push(m);
+    }
+  }
+
   if (markers.length) _navaidFilterLayer = L.layerGroup(markers).addTo(_map);
 }
 
