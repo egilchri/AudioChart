@@ -349,6 +349,11 @@ let _boatLayer = null;
 let _youLayer = null;
 let _waypointsVisible = localStorage.getItem('audiochart-waypoints-visible') === 'true';
 let _leafletReady = false;
+let _tideHeight    = 0;      // meters above MLLW; 0 = unknown/fallback
+let _tideLastFetch = 0;      // Date.now() of last successful fetch
+let _tideStationId  = null;  // cached nearest NOAA station ID
+let _tideStationLat = null;  // boat lat used for that station search
+let _tideStationLon = null;
 let _activeCruiseName = 'Penobscot Bay';  // updated when user selects a region
 let _markerByKey = new Map();
 let _sketchMode = false;
@@ -641,6 +646,63 @@ function _bearingLineLabel(fromLat, fromLon, toLat, toLon, brgMag, distNm, color
     icon: L.divIcon({ className: '', html, iconSize: [0, 0], iconAnchor: [0, 0] }),
     interactive: false,
   });
+}
+
+function _getDraftMeters() {
+  const el = document.getElementById('nf-draft-ft');
+  const raw = el ? parseFloat(el.value) : parseFloat(localStorage.getItem('audiochart-draft-ft') || '');
+  return isFinite(raw) && raw > 0 ? raw * 0.3048 : null;
+}
+
+async function _fetchTideHeight(lat, lon) {
+  const TEN_MIN = 10 * 60 * 1000;
+  const tideStatus = document.getElementById('nf-tide-status');
+  const setStatus = (msg) => { if (tideStatus) tideStatus.textContent = msg; };
+
+  // Re-use cached reading if recent and boat hasn't moved far
+  if (_tideStationId && _tideLastFetch && Date.now() - _tideLastFetch < TEN_MIN) {
+    if (_tideStationLat !== null) {
+      const d = Query.distanceNm(lon, lat, _tideStationLon, _tideStationLat);
+      if (d < 10) return _tideHeight;
+    }
+  }
+
+  setStatus('Fetching tide…');
+  try {
+    // Find nearest NOAA water-level station
+    if (!_tideStationId || _tideStationLat === null ||
+        Query.distanceNm(lon, lat, _tideStationLon, _tideStationLat) >= 10) {
+      const resp = await fetch(
+        'https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json?type=waterlevels'
+      );
+      const { stations } = await resp.json();
+      let best = null, bestDist = Infinity;
+      for (const s of stations) {
+        const d = Query.distanceNm(lon, lat, parseFloat(s.lng), parseFloat(s.lat));
+        if (d < bestDist) { bestDist = d; best = s; }
+      }
+      _tideStationId  = best.id;
+      _tideStationLat = parseFloat(best.lat);
+      _tideStationLon = parseFloat(best.lng);
+    }
+
+    // Fetch current water level at that station
+    const wlResp = await fetch(
+      `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter` +
+      `?station=${_tideStationId}&product=water_level&datum=MLLW` +
+      `&time_zone=GMT&units=metric&date=latest&format=json`
+    );
+    const wlData = await wlResp.json();
+    const v = parseFloat(wlData?.data?.[0]?.v);
+    if (!isFinite(v)) throw new Error('bad reading');
+    _tideHeight    = v;
+    _tideLastFetch = Date.now();
+    const sign = v >= 0 ? '+' : '';
+    setStatus(`Tide: ${sign}${v.toFixed(2)} m (MLLW)`);
+  } catch {
+    setStatus('Tide: offline (using MLLW)');
+  }
+  return _tideHeight;
 }
 
 function _updateBearingLines(lat, lon) {
@@ -1136,6 +1198,29 @@ function _ensureMap() {
     if (_navaidFilterLayer) { _map?.removeLayer(_navaidFilterLayer); _navaidFilterLayer = null; }
     _navaidFilterPanel.classList.remove('open');
     _navaidFilterBtn.classList.remove('active');
+  });
+
+  // Depths checkbox — show/hide settings and trigger tide fetch + overlay refresh
+  const _depthCheckbox  = document.getElementById('nf-depth');
+  const _depthSettings  = document.getElementById('nf-depth-settings');
+  const _draftInput     = document.getElementById('nf-draft-ft');
+
+  // Restore saved draft
+  const _savedDraft = localStorage.getItem('audiochart-draft-ft');
+  if (_savedDraft) _draftInput.value = _savedDraft;
+
+  _depthCheckbox.addEventListener('change', async () => {
+    _depthSettings.style.display = _depthCheckbox.checked ? '' : 'none';
+    if (_depthCheckbox.checked) {
+      const pos = GPS.getPosition();
+      if (pos) await _fetchTideHeight(pos.lat, pos.lon);
+    }
+    _refreshNavaidOverlay();
+  });
+
+  _draftInput.addEventListener('input', () => {
+    localStorage.setItem('audiochart-draft-ft', _draftInput.value);
+    if (_depthCheckbox.checked) _refreshNavaidOverlay();
   });
 
   // Floating ☰ button — opens context menu at current GPS position
@@ -1837,7 +1922,8 @@ function _refreshNavaidOverlay() {
   if (document.getElementById('nf-light')?.checked)  types.add('light');
   if (document.getElementById('nf-beacon')?.checked) types.add('beacon');
   const showHazards = document.getElementById('nf-hazard')?.checked;
-  if (types.size === 0 && !showHazards) return;
+  const showDepths  = document.getElementById('nf-depth')?.checked;
+  if (types.size === 0 && !showHazards && !showDepths) return;
 
   const bounds = _map.getBounds();
   const markers = [];
@@ -1901,6 +1987,30 @@ function _refreshNavaidOverlay() {
       const m = L.marker([lat, lon], { icon: _hazardMarkerIcon() });
       m.bindTooltip(name, { permanent: false, direction: 'top', className: 'map-tooltip' });
       markers.push(m);
+    }
+  }
+
+  if (showDepths && Query.hazards?.features) {
+    const draftM = _getDraftMeters();
+    if (draftM != null) {
+      for (const f of Query.hazards.features) {
+        if (f.properties.label !== 'shallow area') continue;
+        const [lon, lat] = f.geometry.coordinates;
+        if (!bounds.contains([lat, lon])) continue;
+        const eff = (f.properties.valsou ?? 0) + _tideHeight;
+        let color = null;
+        if (eff < draftM)             color = '#e05252';   // danger
+        else if (eff < draftM * 1.5)  color = '#f5c518';   // warning
+        if (!color) continue;
+        const m = L.circleMarker([lat, lon], {
+          radius: 7, color, fillColor: color, fillOpacity: 0.55,
+          weight: 1, interactive: false,
+        });
+        const depthLabel = f.properties.depth_label ?? `${eff.toFixed(1)} m`;
+        m.bindTooltip(`${depthLabel} (eff. ${eff.toFixed(1)} m)`,
+          { permanent: false, direction: 'top', className: 'map-tooltip' });
+        markers.push(m);
+      }
     }
   }
 

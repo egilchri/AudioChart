@@ -569,6 +569,27 @@ html, body {
   cursor: pointer;
   user-select: none;
 }
+.nf-sub {
+  font-size: 0.75rem;
+  color: var(--muted, #8899aa);
+  padding-left: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+#nf-draft-ft {
+  width: 52px;
+  background: var(--mid-blue);
+  border: 1px solid var(--mid-blue);
+  border-radius: 4px;
+  color: var(--text);
+  font-size: 0.78rem;
+  padding: 2px 4px;
+  -moz-appearance: textfield;
+}
+#nf-draft-ft::-webkit-inner-spin-button,
+#nf-draft-ft::-webkit-outer-spin-button { opacity: 1; }
+#nf-tide-status { font-style: italic; }
 .nf-actions {
   display: flex;
   gap: 8px;
