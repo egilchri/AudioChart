@@ -1741,6 +1741,7 @@ async function showPositionMap(lat, lon) {
     const { lat: newLat, lng: newLon } = e.target.getLatLng();
     GPS.setManualPosition(newLat, newLon);
     syncTestPosButton();
+    if (_mapLayers) { _map.removeLayer(_mapLayers); _mapLayers = null; }
     _showBoatPosition(newLat, newLon);
     setStatus('Test position set from map.');
     if (serverUrl) {
