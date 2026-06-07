@@ -1996,33 +1996,45 @@ function _refreshNavaidOverlay() {
     }
   }
 
-  // Depth polygon layer — filled GeoJSON zones using actual DEPARE polygon geometry
+  // Depth layer — filled zones for shallow areas.
+  // Polygon geometry (static/offline mode): filled L.geoJSON.
+  // Point geometry (server mode, centroid-only): large L.circle blob.
   if (_depthHeatLayer) { _map.removeLayer(_depthHeatLayer); _depthHeatLayer = null; }
   if (showDepths && Query.hazards?.features) {
     const draftM = _getDraftMeters();
     if (draftM != null) {
-      const depareFeatures = [];
+      const polyFeatures = [];
+      const circleLayers = [];
       for (const f of Query.hazards.features) {
         if (f.properties.label !== 'shallow area') continue;
-        if (f.geometry.type === 'Point') continue;
         const eff = (f.properties.valsou ?? 0) + _tideHeight;
         let color = null;
         if (eff < draftM)             color = '#e05252';
         else if (eff < draftM * 1.5)  color = '#f5c518';
         if (!color) continue;
-        depareFeatures.push({ ...f, properties: { ...f.properties, _color: color } });
+        if (f.geometry.type === 'Point') {
+          const [lon, lat] = f.geometry.coordinates;
+          if (!bounds.contains([lat, lon])) continue;
+          circleLayers.push(L.circle([lat, lon], {
+            radius: 300, color: 'none', fillColor: color,
+            fillOpacity: 0.35, weight: 0, interactive: false,
+          }));
+        } else {
+          polyFeatures.push({ ...f, properties: { ...f.properties, _color: color } });
+        }
       }
-      if (depareFeatures.length) {
-        _depthHeatLayer = L.geoJSON(
-          { type: 'FeatureCollection', features: depareFeatures },
+      const depthLayers = [...circleLayers];
+      if (polyFeatures.length) {
+        depthLayers.push(L.geoJSON(
+          { type: 'FeatureCollection', features: polyFeatures },
           {
-            style: (f) => ({
-              color: 'none', weight: 0,
-              fillColor: f.properties._color, fillOpacity: 0.4,
-            }),
+            style: (f) => ({ color: 'none', weight: 0, fillColor: f.properties._color, fillOpacity: 0.4 }),
             interactive: false,
           }
-        ).addTo(_map);
+        ));
+      }
+      if (depthLayers.length) {
+        _depthHeatLayer = L.layerGroup(depthLayers).addTo(_map);
       }
     }
   }
