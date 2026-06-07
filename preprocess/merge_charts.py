@@ -30,16 +30,33 @@ def haversine_m(lon1, lat1, lon2, lat2):
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
+def _feature_centroid(feat):
+    """Return (lon, lat) centroid for any geometry type."""
+    geom = feat['geometry']
+    coords = geom['coordinates']
+    if geom['type'] == 'Point':
+        return coords[0], coords[1]
+    # For Polygon/MultiPolygon, use the centroid of the exterior ring
+    if geom['type'] == 'Polygon':
+        ring = coords[0]
+    elif geom['type'] == 'MultiPolygon':
+        ring = coords[0][0]
+    else:
+        ring = coords[0] if coords else [[0, 0]]
+    lons = [p[0] for p in ring]
+    lats = [p[1] for p in ring]
+    return sum(lons) / len(lons), sum(lats) / len(lats)
+
+
 def deduplicate(features, radius_m=DEDUP_RADIUS_M):
-    """Remove near-duplicate point features. Keeps whichever has more populated properties."""
+    """Remove near-duplicate features. Keeps whichever has more populated properties."""
     kept = []
     for feat in features:
-        lon, lat = feat['geometry']['coordinates']
+        lon, lat = _feature_centroid(feat)
         duplicate = False
         for k in kept:
-            klon, klat = k['geometry']['coordinates']
+            klon, klat = _feature_centroid(k)
             if haversine_m(lon, lat, klon, klat) < radius_m:
-                # Keep the one with more non-null property values
                 feat_score = sum(1 for v in feat['properties'].values() if v is not None)
                 k_score = sum(1 for v in k['properties'].values() if v is not None)
                 if feat_score > k_score:
@@ -71,8 +88,8 @@ def deduplicate_places(features):
 
 def build_chart_bounds(hazard_features):
     """Build a single bounding box polygon from all hazard feature coordinates."""
-    lons = [f['geometry']['coordinates'][0] for f in hazard_features]
-    lats = [f['geometry']['coordinates'][1] for f in hazard_features]
+    lons = [_feature_centroid(f)[0] for f in hazard_features]
+    lats = [_feature_centroid(f)[1] for f in hazard_features]
     if not lons:
         return None
     minlon, maxlon = min(lons), max(lons)

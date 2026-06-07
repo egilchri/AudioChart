@@ -72,9 +72,12 @@ def extract_hazards(enc_path, chart_id):
                 depth_label = ''
                 if drval1 is not None and drval2 is not None:
                     depth_label = f'{drval1:.1f}-{drval2:.1f}m'
+                # Preserve polygon geometry (simplified) so the renderer can draw
+                # filled zones rather than centroid dots.
+                simplified = shape(geom).simplify(0.0001, preserve_topology=True)
                 features.append({
                     'type': 'Feature',
-                    'geometry': {'type': 'Point', 'coordinates': centroid_point(geom)},
+                    'geometry': mapping(simplified),
                     'properties': {
                         'objtype': DEPTH_LAYER,
                         'label': OBJTYPE_LABEL[DEPTH_LAYER],

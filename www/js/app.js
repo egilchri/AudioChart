@@ -1984,6 +1984,8 @@ function _refreshNavaidOverlay() {
 
   if (showHazards && Query.hazards?.features) {
     for (const f of Query.hazards.features) {
+      // DEPARE features are now polygons — skip them here (shown by Depths layer)
+      if (f.geometry.type !== 'Point') continue;
       const [lon, lat] = f.geometry.coordinates;
       if (!bounds.contains([lat, lon])) continue;
       const label = f.properties.label || f.properties.objtype || 'hazard';
@@ -1994,31 +1996,33 @@ function _refreshNavaidOverlay() {
     }
   }
 
-  // Depth heat layer — managed separately from the marker layer group
+  // Depth polygon layer — filled GeoJSON zones using actual DEPARE polygon geometry
   if (_depthHeatLayer) { _map.removeLayer(_depthHeatLayer); _depthHeatLayer = null; }
   if (showDepths && Query.hazards?.features) {
     const draftM = _getDraftMeters();
     if (draftM != null) {
-      const pts = [];
+      const depareFeatures = [];
       for (const f of Query.hazards.features) {
         if (f.properties.label !== 'shallow area') continue;
-        const [lon, lat] = f.geometry.coordinates;
-        if (!bounds.contains([lat, lon])) continue;
+        if (f.geometry.type === 'Point') continue;
         const eff = (f.properties.valsou ?? 0) + _tideHeight;
-        let intensity = 0;
-        if (eff < draftM)             intensity = 1.0;   // danger
-        else if (eff < draftM * 1.5)  intensity = 0.5;   // warning
-        if (!intensity) continue;
-        pts.push([lat, lon, intensity]);
+        let color = null;
+        if (eff < draftM)             color = '#e05252';
+        else if (eff < draftM * 1.5)  color = '#f5c518';
+        if (!color) continue;
+        depareFeatures.push({ ...f, properties: { ...f.properties, _color: color } });
       }
-      if (pts.length) {
-        _depthHeatLayer = L.heatLayer(pts, {
-          radius: 30,
-          blur: 25,
-          maxZoom: _map.getZoom(),
-          gradient: { 0.4: '#f5c518', 1.0: '#e05252' },
-          max: 1.0,
-        }).addTo(_map);
+      if (depareFeatures.length) {
+        _depthHeatLayer = L.geoJSON(
+          { type: 'FeatureCollection', features: depareFeatures },
+          {
+            style: (f) => ({
+              color: 'none', weight: 0,
+              fillColor: f.properties._color, fillOpacity: 0.4,
+            }),
+            interactive: false,
+          }
+        ).addTo(_map);
       }
     }
   }
