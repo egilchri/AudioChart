@@ -186,7 +186,7 @@ def _parse_chart(enc_path, chart_id, db):
                     continue
                 drval1 = p.get('DRVAL1')
                 depth_label = f'{drval1:.1f}-{drval2:.1f}m' if drval1 is not None else f'<{drval2:.1f}m'
-                props = {'valsou': drval2, 'depth_label': depth_label}
+                props = {'valsou': drval1 if drval1 is not None else drval2, 'depth_label': depth_label}
                 rows_hazard.append((
                     'hazard', DEPTH_LAYER, OBJTYPE_LABEL[DEPTH_LAYER],
                     pos[0], pos[1], None, None,

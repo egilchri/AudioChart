@@ -72,8 +72,10 @@ def extract_hazards(enc_path, chart_id):
                 depth_label = ''
                 if drval1 is not None and drval2 is not None:
                     depth_label = f'{drval1:.1f}-{drval2:.1f}m'
-                # Preserve polygon geometry (simplified) so the renderer can draw
-                # filled zones rather than centroid dots.
+                # Use drval1 (shallowest bound) for safety checks — drval2 is the
+                # deeper bound and gives a false impression of safety at high tide.
+                # For intertidal zones, drval1 < 0 (above MLLW), so effective depth
+                # = drval1 + tideHeight can still be negative (exposed) at high tide.
                 simplified = shape(geom).simplify(0.0001, preserve_topology=True)
                 features.append({
                     'type': 'Feature',
@@ -81,7 +83,7 @@ def extract_hazards(enc_path, chart_id):
                     'properties': {
                         'objtype': DEPTH_LAYER,
                         'label': OBJTYPE_LABEL[DEPTH_LAYER],
-                        'valsou': drval2,
+                        'valsou': drval1 if drval1 is not None else drval2,
                         'depth_label': depth_label,
                         'chart': chart_id,
                     },
