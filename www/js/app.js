@@ -349,6 +349,7 @@ let _boatLayer = null;
 let _youLayer = null;
 let _waypointsVisible = localStorage.getItem('audiochart-waypoints-visible') === 'true';
 let _leafletReady = false;
+let _depthHeatLayer = null;  // leaflet.heat layer for depth blobs (managed separately)
 let _tideHeight    = 0;      // meters above MLLW; 0 = unknown/fallback
 let _tideLastFetch = 0;      // Date.now() of last successful fetch
 let _tideStationId  = null;  // cached nearest NOAA station ID
@@ -381,13 +382,15 @@ let _lastCourseTo   = null;
 
 async function loadLeaflet() {
   if (_leafletReady) return;
-  await new Promise((resolve, reject) => {
+  const loadScript = (src) => new Promise((resolve, reject) => {
     const s = document.createElement('script');
-    s.src = serverUrl ? `${serverUrl}/js/lib/leaflet.js` : './js/lib/leaflet.js';
-    s.onload = () => { _leafletReady = true; resolve(); };
-    s.onerror = reject;
+    s.src = src; s.onload = resolve; s.onerror = reject;
     document.head.appendChild(s);
   });
+  const base = serverUrl ? `${serverUrl}/js/lib` : './js/lib';
+  await loadScript(`${base}/leaflet.js`);
+  await loadScript(`${base}/leaflet-heat.js`);
+  _leafletReady = true;
 }
 
 function setStatus(msg) { statusEl.textContent = msg; }
@@ -1196,6 +1199,7 @@ function _ensureMap() {
   });
   document.getElementById('nf-clear').addEventListener('click', () => {
     if (_navaidFilterLayer) { _map?.removeLayer(_navaidFilterLayer); _navaidFilterLayer = null; }
+    if (_depthHeatLayer)    { _map?.removeLayer(_depthHeatLayer);    _depthHeatLayer = null; }
     _navaidFilterPanel.classList.remove('open');
     _navaidFilterBtn.classList.remove('active');
   });
@@ -1990,25 +1994,31 @@ function _refreshNavaidOverlay() {
     }
   }
 
+  // Depth heat layer — managed separately from the marker layer group
+  if (_depthHeatLayer) { _map.removeLayer(_depthHeatLayer); _depthHeatLayer = null; }
   if (showDepths && Query.hazards?.features) {
     const draftM = _getDraftMeters();
     if (draftM != null) {
+      const pts = [];
       for (const f of Query.hazards.features) {
         if (f.properties.label !== 'shallow area') continue;
         const [lon, lat] = f.geometry.coordinates;
         if (!bounds.contains([lat, lon])) continue;
         const eff = (f.properties.valsou ?? 0) + _tideHeight;
-        let color = null;
-        if (eff < draftM)             color = '#e05252';   // danger
-        else if (eff < draftM * 1.5)  color = '#f5c518';   // warning
-        if (!color) continue;
-        // L.circle uses a geographic radius (meters) so blobs scale with zoom
-        // and adjacent centroids merge into continuous zones at normal nav zoom.
-        const m = L.circle([lat, lon], {
-          radius: 300, color: 'none', fillColor: color, fillOpacity: 0.18,
-          weight: 0, interactive: false,
-        });
-        markers.push(m);
+        let intensity = 0;
+        if (eff < draftM)             intensity = 1.0;   // danger
+        else if (eff < draftM * 1.5)  intensity = 0.5;   // warning
+        if (!intensity) continue;
+        pts.push([lat, lon, intensity]);
+      }
+      if (pts.length) {
+        _depthHeatLayer = L.heatLayer(pts, {
+          radius: 30,
+          blur: 25,
+          maxZoom: _map.getZoom(),
+          gradient: { 0.4: '#f5c518', 1.0: '#e05252' },
+          max: 1.0,
+        }).addTo(_map);
       }
     }
   }
@@ -2020,6 +2030,7 @@ function hideMap() {
   document.getElementById('map-container').style.display = 'none';
   _bearingAccumulator = [];
   if (_navaidFilterLayer) { _map?.removeLayer(_navaidFilterLayer); _navaidFilterLayer = null; }
+  if (_depthHeatLayer)    { _map?.removeLayer(_depthHeatLayer);    _depthHeatLayer = null; }
   document.getElementById('navaid-filter-panel')?.classList.remove('open');
   document.getElementById('navaid-filter-btn')?.classList.remove('active');
 }
