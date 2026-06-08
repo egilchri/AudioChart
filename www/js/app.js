@@ -1403,6 +1403,7 @@ function _ensureMap() {
   const _depthCheckbox  = document.getElementById('nf-depth');
   const _depthSettings  = document.getElementById('nf-depth-settings');
   const _draftInput     = document.getElementById('nf-draft-ft');
+  _depthSettings.style.display = _depthCheckbox.checked ? '' : 'none';
 
   // Restore saved draft
   const _savedDraft = localStorage.getItem('audiochart-draft-ft');
@@ -2204,7 +2205,7 @@ function _refreshNavaidOverlay() {
         if (f.properties.label !== 'shallow area') continue;
         const eff = (f.properties.valsou ?? 0) + _tideHeight;
         let color = null;
-        if (eff < draftM)             color = '#e05252';
+        if (eff <= draftM)            color = '#e05252';
         else if (eff < draftM + 0.9144)  color = '#f5c518';  // draft + fixed 3 ft margin
         if (!color) continue;
         const effFt = (eff * 3.28084).toFixed(1);
@@ -2212,8 +2213,14 @@ function _refreshNavaidOverlay() {
         if (f.geometry.type === 'Point') {
           const [lon, lat] = f.geometry.coordinates;
           if (!bounds.contains([lat, lon])) continue;
+          // Centroid-only data (server mode) — shrink the circle to the
+          // distance to the nearest charted shoreline so it doesn't bleed
+          // onto land (the polygon shape itself isn't available here).
+          const COAST_MARGIN_M = 20;
+          const radius = Math.max(0, Math.min(300, Query.distanceToLandM(lon, lat, 300) - COAST_MARGIN_M));
+          if (radius < 20) continue;  // essentially on the coast — nothing meaningful to draw
           const c = L.circle([lat, lon], {
-            radius: 300, color: 'none', fillColor: color,
+            radius, color: 'none', fillColor: color,
             fillOpacity: 0.35, weight: 0,
           });
           c.bindTooltip(tip, { sticky: true, className: 'map-tooltip' });

@@ -15,6 +15,10 @@ import json
 import math
 import os
 
+from shapely.geometry import shape, mapping
+from shapely.ops import unary_union
+from shapely.strtree import STRtree
+
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.normpath(os.path.join(SCRIPT_DIR, '../www/data'))
 DEDUP_RADIUS_M = 15.0  # merge features within this distance (metres)
@@ -86,6 +90,46 @@ def deduplicate_places(features):
     return kept
 
 
+def clip_shallow_to_water(hazards):
+    """Subtract land geometry from 'shallow area' polygons.
+
+    The chart's DEPARE depth bands are bounded by the low-water line, while
+    land.geojson (LNDARE) is drawn at high water — so the two legitimately
+    overlap in the foreshore/intertidal strip. That makes the depth overlay
+    visually bleed onto what looks like dry land. Clipping to the charted
+    shoreline keeps the rendered zones from spilling past the coastline.
+    """
+    land_path = os.path.join(DATA_DIR, 'land.geojson')
+    if not os.path.exists(land_path):
+        print('  WARNING: land.geojson not found — skipping shallow-area clipping')
+        return hazards
+    with open(land_path) as f:
+        land_features = json.load(f).get('features', [])
+    land_geoms = [shape(feat['geometry']).buffer(0) for feat in land_features]
+    tree = STRtree(land_geoms)
+
+    clipped = dropped = 0
+    out = []
+    for feat in hazards:
+        if (feat['properties'].get('label') != 'shallow area'
+                or feat['geometry']['type'] not in ('Polygon', 'MultiPolygon')):
+            out.append(feat)
+            continue
+        geom = shape(feat['geometry']).buffer(0)
+        nearby = [land_geoms[i] for i in tree.query(geom) if geom.intersects(land_geoms[i])]
+        if not nearby:
+            out.append(feat)
+            continue
+        diff = geom.difference(unary_union(nearby))
+        if diff.is_empty:
+            dropped += 1
+            continue
+        clipped += 1
+        out.append({**feat, 'geometry': mapping(diff)})
+    print(f'  Clipped {clipped} shallow-area polygons to the shoreline; dropped {dropped} fully on land')
+    return out
+
+
 def build_chart_bounds(hazard_features):
     """Build a single bounding box polygon from all hazard feature coordinates."""
     lons = [_feature_centroid(f)[0] for f in hazard_features]
@@ -142,6 +186,9 @@ def main():
 
     print('Deduplicating hazards...')
     hazards = deduplicate(hazards)
+
+    print('Clipping shallow-area polygons to the shoreline...')
+    hazards = clip_shallow_to_water(hazards)
 
     print('Deduplicating named places...')
     places = deduplicate_places(places)
