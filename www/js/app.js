@@ -83,12 +83,20 @@ function _segBearing(lat1, lon1, lat2, lon2) {
 }
 
 function _boatIcon() {
+  const cls = _boatCircleDismissed ? 'boat-marker boat-bare' : 'boat-marker';
   return L.divIcon({
     className: '',
-    html: '<div class="boat-marker"><span class="boat-emoji">⛵</span></div>',
+    html: `<div class="${cls}"><span class="boat-emoji">⛵</span></div>`,
     iconSize: [44, 44],
     iconAnchor: [22, 22],
     tooltipAnchor: [22, -22],
+  });
+}
+
+function _addBoatDismissHandler(marker) {
+  marker.once('click', () => {
+    _boatCircleDismissed = true;
+    marker.getElement()?.querySelector('.boat-marker')?.classList.add('boat-bare');
   });
 }
 
@@ -96,6 +104,7 @@ function _showBoatPosition(lat, lon) {
   if (!_map) return;
   if (_boatLayer) { _map.removeLayer(_boatLayer); _boatLayer = null; }
   const marker = L.marker([lat, lon], { icon: _boatIcon(), zIndexOffset: 1000, draggable: true });
+  _addBoatDismissHandler(marker);
   marker.on('contextmenu', (e) => e.originalEvent.stopPropagation());
   marker.on('drag', (e) => {
     const { lat: dLat, lng: dLon } = e.target.getLatLng();
@@ -142,6 +151,7 @@ function _refreshYouLayer() {
   const pos = GPS.getPosition();
   if (!pos) return;
   const m = L.marker([pos.lat, pos.lon], { icon: _boatIcon(), zIndexOffset: 800 });
+  _addBoatDismissHandler(m);
   _youLayer = L.layerGroup([m]).addTo(_map);
 }
 
@@ -351,6 +361,7 @@ let _bearingAccumulator = [];   // persists bearing lines across successive bear
 let _waypointLayer = null;
 let _boatLayer = null;
 let _youLayer = null;
+let _boatCircleDismissed = false;  // true after user taps the boat once
 let _waypointsVisible = localStorage.getItem('audiochart-waypoints-visible') === 'true';
 let _leafletReady = false;
 let _depthHeatLayer = null;  // leaflet.heat layer for depth blobs (managed separately)
@@ -2039,6 +2050,7 @@ async function showPositionMap(lat, lon) {
   _map.invalidateSize();
   if (_mapLayers) { _map.removeLayer(_mapLayers); _mapLayers = null; }
   const dot = L.marker([lat, lon], { icon: _boatIcon(), draggable: true, zIndexOffset: 900 });
+  _addBoatDismissHandler(dot);
   dot.on('contextmenu', (e) => e.originalEvent.stopPropagation());
   dot.on('drag', (e) => {
     const { lat: dLat, lng: dLon } = e.target.getLatLng();
