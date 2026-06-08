@@ -48,6 +48,7 @@ export let navaids = null;
 export let waypoints = null;
 export let restrictions = null;
 let landPolygons = null;  // LNDARE polygons for line-of-sight checks
+export let depthZones = null;  // 'shallow area' Polygon features — always real geometry
 export let lastBearingResult = null;   // set by bearing queries; read by map view
 export let lastCourseHazards = null;   // set by hazardsOnCourse; [{lat,lon,label,name}]
 export let lastNavaidResults  = null;   // set by navaidsInRadius; [{lat,lon,label,name,colour,characteristic,brg,d}]
@@ -127,7 +128,9 @@ function _distNm(lat1, lon1, lat2, lon2) {
  * falls back to the static GeoJSON files for offline use.
  */
 export async function loadData(lat, lon) {
-  // Land polygons are position-independent — load once regardless of server/static path
+  // Land polygons and depth zones are position-independent — load once regardless of mode.
+  // Depth zones always come from the bundled hazards.geojson so we get real polygon
+  // geometry even when the server API only returns centroid points.
   if (!landPolygons) {
     fetch('./data/land.geojson')
       .then(r => r.ok ? r.json() : null)
@@ -136,6 +139,17 @@ export async function loadData(lat, lon) {
         console.log(`[AC] Land polygons: ${landPolygons ? landPolygons.features.length : 'FAILED TO LOAD'}`);
       })
       .catch(() => console.warn('[AC] land.geojson failed to load'));
+  }
+  if (!depthZones) {
+    fetch('./data/hazards.geojson')
+      .then(r => r.ok ? r.json() : null)
+      .then(fc => {
+        if (fc) depthZones = fc.features.filter(f =>
+          f.properties?.label === 'shallow area' && f.geometry?.type !== 'Point'
+        );
+        console.log(`[AC] Depth zones: ${depthZones ? depthZones.length : 'FAILED TO LOAD'}`);
+      })
+      .catch(() => console.warn('[AC] hazards.geojson failed to load for depth zones'));
   }
 
   // Try server API first
@@ -907,56 +921,6 @@ function _landBlocks(fromLon, fromLat, toLon, toLat) {
     }
   }
   return false;
-}
-
-const _M_PER_DEG_LAT = 111_320;
-
-function _toLocalXY(lon, lat, originLon, originLat) {
-  const mPerDegLon = _M_PER_DEG_LAT * Math.cos(originLat * Math.PI / 180);
-  return [(lon - originLon) * mPerDegLon, (lat - originLat) * _M_PER_DEG_LAT];
-}
-
-function _pointSegDistM(ax, ay, bx, by) {
-  // Distance from the local origin (0,0) to segment (a→b), in local metres.
-  const dx = bx - ax, dy = by - ay;
-  const len2 = dx * dx + dy * dy;
-  let t = len2 > 0 ? (-(ax * dx + ay * dy)) / len2 : 0;
-  t = Math.max(0, Math.min(1, t));
-  return Math.hypot(ax + t * dx, ay + t * dy);
-}
-
-/**
- * Approximate distance in metres from (lon,lat) to the nearest land polygon
- * edge, capped at maxM (results beyond the cap may be returned as Infinity —
- * used to keep circle "blobs" for centroid-only depth zones from rendering
- * over charted land in server mode).
- */
-export function distanceToLandM(lon, lat, maxM = 1000) {
-  if (!landPolygons) return Infinity;
-  const degCap = (maxM / _M_PER_DEG_LAT) * 1.5;  // generous bbox prefilter margin
-  let best = Infinity;
-  for (const feat of landPolygons.features) {
-    const { type, coordinates } = feat.geometry;
-    const polys = type === 'Polygon' ? [coordinates] : coordinates;
-    for (const rings of polys) {
-      const outer = rings[0];
-      let pMinX = Infinity, pMaxX = -Infinity, pMinY = Infinity, pMaxY = -Infinity;
-      for (const [x, y] of outer) {
-        if (x < pMinX) pMinX = x; if (x > pMaxX) pMaxX = x;
-        if (y < pMinY) pMinY = y; if (y > pMaxY) pMaxY = y;
-      }
-      if (pMaxX < lon - degCap || pMinX > lon + degCap ||
-          pMaxY < lat - degCap || pMinY > lat + degCap) continue;
-      for (let i = 0, n = outer.length - 1; i < n; i++) {
-        const [ax, ay] = _toLocalXY(outer[i][0], outer[i][1], lon, lat);
-        const [bx, by] = _toLocalXY(outer[i + 1][0], outer[i + 1][1], lon, lat);
-        const d = _pointSegDistM(ax, ay, bx, by);
-        if (d < best) best = d;
-        if (best <= 0) return 0;
-      }
-    }
-  }
-  return best;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

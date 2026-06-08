@@ -2192,57 +2192,31 @@ function _refreshNavaidOverlay() {
     }
   }
 
-  // Depth layer — filled zones for shallow areas.
-  // Polygon geometry (static/offline mode): filled L.geoJSON.
-  // Point geometry (server mode, centroid-only): large L.circle blob.
+  // Depth layer — true contour-band fills from bundled polygon geometry.
+  // Always uses Query.depthZones (loaded from hazards.geojson) so we get real
+  // polygon shapes even in server mode, which only returns centroid points.
   if (_depthHeatLayer) { _map.removeLayer(_depthHeatLayer); _depthHeatLayer = null; }
-  if (showDepths && Query.hazards?.features) {
+  if (showDepths && Query.depthZones) {
     const draftM = _getDraftMeters();
     if (draftM != null) {
       const polyFeatures = [];
-      const circleLayers = [];
-      for (const f of Query.hazards.features) {
-        if (f.properties.label !== 'shallow area') continue;
+      for (const f of Query.depthZones) {
         const eff = (f.properties.valsou ?? 0) + _tideHeight;
         let color = null;
-        if (eff <= draftM)            color = '#e05252';
-        else if (eff < draftM + 0.9144)  color = '#f5c518';  // draft + fixed 3 ft margin
+        if (eff <= draftM)             color = '#e05252';
+        else if (eff < draftM + 0.9144) color = '#f5c518';
         if (!color) continue;
         const effFt = (eff * 3.28084).toFixed(1);
-        const tip = `${effFt} ft`;
-        if (f.geometry.type === 'Point') {
-          const [lon, lat] = f.geometry.coordinates;
-          if (!bounds.contains([lat, lon])) continue;
-          // Centroid-only data (server mode) — shrink the circle to the
-          // distance to the nearest charted shoreline so it doesn't bleed
-          // onto land (the polygon shape itself isn't available here).
-          const COAST_MARGIN_M = 20;
-          const radius = Math.max(0, Math.min(300, Query.distanceToLandM(lon, lat, 300) - COAST_MARGIN_M));
-          if (radius < 20) continue;  // essentially on the coast — nothing meaningful to draw
-          const c = L.circle([lat, lon], {
-            radius, color: 'none', fillColor: color,
-            fillOpacity: 0.35, weight: 0,
-          });
-          c.bindTooltip(tip, { sticky: true, className: 'map-tooltip' });
-          circleLayers.push(c);
-        } else {
-          polyFeatures.push({ ...f, properties: { ...f.properties, _color: color, _tip: tip } });
-        }
+        polyFeatures.push({ ...f, properties: { ...f.properties, _color: color, _tip: `${effFt} ft` } });
       }
-      const depthLayers = [...circleLayers];
       if (polyFeatures.length) {
-        depthLayers.push(L.geoJSON(
+        _depthHeatLayer = L.geoJSON(
           { type: 'FeatureCollection', features: polyFeatures },
           {
             style: (f) => ({ color: 'none', weight: 0, fillColor: f.properties._color, fillOpacity: 0.4 }),
-            onEachFeature: (f, layer) => {
-              layer.bindTooltip(f.properties._tip, { sticky: true, className: 'map-tooltip' });
-            },
+            onEachFeature: (f, layer) => layer.bindTooltip(f.properties._tip, { sticky: true, className: 'map-tooltip' }),
           }
-        ));
-      }
-      if (depthLayers.length) {
-        _depthHeatLayer = L.layerGroup(depthLayers).addTo(_map);
+        ).addTo(_map);
       }
     }
   }
