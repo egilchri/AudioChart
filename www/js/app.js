@@ -2063,6 +2063,15 @@ async function showPositionMap(lat, lon) {
   _mapLayers = L.layerGroup([dot]).addTo(_map);
   _map.setView([lat, lon], 13);
   _map.invalidateSize();
+
+  // Auto-draw the default overlay so the user sees objects immediately.
+  // Fetch a fresh tide reading first if depths are enabled (same sequence as
+  // clicking the depth checkbox), then render — fire-and-forget so the map
+  // paint isn't blocked.
+  const _depthOn = document.getElementById('nf-depth')?.checked;
+  (_depthOn ? _fetchTideHeight(lat, lon) : Promise.resolve())
+    .catch(() => {})
+    .then(() => _refreshNavaidOverlay());
 }
 
 const _BEARING_COLORS = ['#4a9edd', '#f5a623', '#4dd0e1', '#7ec86e', '#e05252', '#b39ddb'];
