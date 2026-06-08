@@ -963,19 +963,17 @@ html, body {
   justify-content: center;
   width: 44px;
   height: 44px;
-  background: #4a9edd;
-  border: 2px solid #fff;
-  border-radius: 50%;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.7);
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.7));
 }
 .boat-emoji {
-  font-size: 18px;
+  font-size: 28px;
   line-height: 1;
 }
 .boat-label {
   font-size: 9px;
   font-weight: 700;
   color: #fff;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.9);
   line-height: 1;
   margin-top: 1px;
 }
