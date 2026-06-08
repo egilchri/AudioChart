@@ -355,6 +355,9 @@ let _tideLastFetch = 0;      // Date.now() of last successful fetch
 let _tideStationId  = null;  // cached nearest NOAA station ID
 let _tideStationLat = null;  // boat lat used for that station search
 let _tideStationLon = null;
+let _tideExtremes     = null;  // [{time:Date, height:Number, type:'H'|'L'}, …] around now
+let _tideExtremesFetch = 0;    // Date.now() of last successful predictions fetch
+let _tideCycleEl      = null;  // DOM element of the _TideCycle control, redrawn on a timer
 let _activeCruiseName = 'Penobscot Bay';  // updated when user selects a region
 let _markerByKey = new Map();
 let _sketchMode = false;
@@ -670,6 +673,25 @@ function _getDraftMeters() {
   return isFinite(raw) && raw > 0 ? raw * 0.3048 : null;
 }
 
+async function _ensureTideStation(lat, lon) {
+  if (!_tideStationId || _tideStationLat === null ||
+      Query.distanceNm(lon, lat, _tideStationLon, _tideStationLat) >= 10) {
+    const resp = await fetch(
+      'https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json?type=waterlevels'
+    );
+    const { stations } = await resp.json();
+    let best = null, bestDist = Infinity;
+    for (const s of stations) {
+      const d = Query.distanceNm(lon, lat, parseFloat(s.lng), parseFloat(s.lat));
+      if (d < bestDist) { bestDist = d; best = s; }
+    }
+    _tideStationId  = best.id;
+    _tideStationLat = parseFloat(best.lat);
+    _tideStationLon = parseFloat(best.lng);
+  }
+  return _tideStationId;
+}
+
 async function _fetchTideHeight(lat, lon) {
   const TEN_MIN = 10 * 60 * 1000;
   const tideStatus = document.getElementById('nf-tide-status');
@@ -685,22 +707,7 @@ async function _fetchTideHeight(lat, lon) {
 
   setStatus('Fetching tide…');
   try {
-    // Find nearest NOAA water-level station
-    if (!_tideStationId || _tideStationLat === null ||
-        Query.distanceNm(lon, lat, _tideStationLon, _tideStationLat) >= 10) {
-      const resp = await fetch(
-        'https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json?type=waterlevels'
-      );
-      const { stations } = await resp.json();
-      let best = null, bestDist = Infinity;
-      for (const s of stations) {
-        const d = Query.distanceNm(lon, lat, parseFloat(s.lng), parseFloat(s.lat));
-        if (d < bestDist) { bestDist = d; best = s; }
-      }
-      _tideStationId  = best.id;
-      _tideStationLat = parseFloat(best.lat);
-      _tideStationLon = parseFloat(best.lng);
-    }
+    await _ensureTideStation(lat, lon);
 
     // Fetch current water level at that station
     const wlResp = await fetch(
@@ -720,6 +727,154 @@ async function _fetchTideHeight(lat, lon) {
   }
   return _tideHeight;
 }
+
+function _tideDateStr(d) {
+  return `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}${String(d.getUTCDate()).padStart(2, '0')}`;
+}
+
+// Fetches the high/low tide predictions bracketing "now" so the cycle widget
+// can draw a sinusoid anchored to real extremes (NOAA only gives us the
+// current observed level via _fetchTideHeight — not the cycle shape).
+async function _fetchTideCycle(lat, lon) {
+  const SIX_HOURS = 6 * 60 * 60 * 1000;
+  if (_tideExtremes && _tideExtremesFetch && Date.now() - _tideExtremesFetch < SIX_HOURS) {
+    if (_tideStationLat !== null) {
+      const d = Query.distanceNm(lon, lat, _tideStationLon, _tideStationLat);
+      if (d < 10) return _tideExtremes;
+    }
+  }
+
+  try {
+    await _ensureTideStation(lat, lon);
+
+    const now   = new Date();
+    const begin = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const end   = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+    const resp = await fetch(
+      `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter` +
+      `?station=${_tideStationId}&product=predictions&datum=MLLW` +
+      `&time_zone=GMT&units=metric&interval=hilo&format=json` +
+      `&begin_date=${_tideDateStr(begin)}&end_date=${_tideDateStr(end)}`
+    );
+    const data = await resp.json();
+    const extremes = (data?.predictions || []).map(p => ({
+      time:   new Date(p.t.replace(' ', 'T') + ':00Z'),
+      height: parseFloat(p.v),
+      type:   p.type === 'L' ? 'L' : 'H',
+    })).filter(e => isFinite(e.height) && isFinite(e.time.getTime()));
+    if (extremes.length < 2) throw new Error('not enough extremes');
+    _tideExtremes      = extremes;
+    _tideExtremesFetch = Date.now();
+  } catch {
+    // Keep any previously cached extremes — a slightly stale curve beats none.
+  }
+  return _tideExtremes;
+}
+
+// Where `at` sits between the two cached extremes that bracket it: phase 0..1
+// running prev→next, plus the cosine-interpolated height at that instant.
+function _tidePhaseAt(at) {
+  if (!_tideExtremes || _tideExtremes.length < 2) return null;
+  const t = at.getTime();
+  let prev = null, next = null;
+  for (let i = 0; i < _tideExtremes.length - 1; i++) {
+    if (_tideExtremes[i].time.getTime() <= t && t <= _tideExtremes[i + 1].time.getTime()) {
+      prev = _tideExtremes[i];
+      next = _tideExtremes[i + 1];
+      break;
+    }
+  }
+  if (!prev) {
+    if (t < _tideExtremes[0].time.getTime()) { prev = _tideExtremes[0]; next = _tideExtremes[1]; }
+    else { prev = _tideExtremes[_tideExtremes.length - 2]; next = _tideExtremes[_tideExtremes.length - 1]; }
+  }
+  const span  = next.time.getTime() - prev.time.getTime();
+  const phase = span > 0 ? Math.min(1, Math.max(0, (t - prev.time.getTime()) / span)) : 0;
+  const mid   = (prev.height + next.height) / 2;
+  const amp   = (prev.height - next.height) / 2;
+  return { prev, next, phase, height: mid + amp * Math.cos(Math.PI * phase) };
+}
+
+function _fmtDuration(ms) {
+  const totalMin = Math.max(0, Math.round(ms / 60000));
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return h > 0 ? `${h}h${String(m).padStart(2, '0')}m` : `${m}m`;
+}
+
+// Renders the tide-cycle widget as inline SVG: a translucent sinusoid spanning
+// roughly one tidal cycle around `now`, a dot marking the current position on
+// it, and a one-line rising/falling readout. Falls back to a quiet placeholder
+// when no prediction data is available yet (no GPS fix / NOAA unreachable).
+function _tideCycleSvg(now) {
+  const W = 132, H = 64;
+  const frame = (inner) => `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+    <rect x="0.5" y="0.5" width="${W - 1}" height="${H - 1}" rx="8" fill="rgba(12,25,45,0.5)" stroke="rgba(42,80,128,0.8)"/>
+    ${inner}
+  </svg>`;
+
+  const ph = _tidePhaseAt(now);
+  if (!ph) {
+    return frame(`<text x="${W / 2}" y="${H / 2 + 4}" text-anchor="middle" fill="#8a9ab0" font-family="Arial,sans-serif" font-size="10">Tide: --</text>`);
+  }
+
+  // Show the bracketing pair plus one extreme on either side — about one cycle
+  const idx  = _tideExtremes.indexOf(ph.prev);
+  const segs = _tideExtremes.slice(Math.max(0, idx - 1), Math.min(_tideExtremes.length, idx + 3));
+
+  const tMin = segs[0].time.getTime();
+  const tMax = segs[segs.length - 1].time.getTime();
+  const hMin = Math.min(...segs.map(s => s.height));
+  const hMax = Math.max(...segs.map(s => s.height));
+  const hSpan = Math.max(0.1, hMax - hMin);
+
+  const padX = 6, padY = 7, labelH = 13;
+  const plotW = W - padX * 2, plotH = H - padY * 2 - labelH;
+  const xAt = (t) => padX + ((t - tMin) / (tMax - tMin)) * plotW;
+  const yAt = (h) => padY + (1 - (h - hMin) / hSpan) * plotH;
+
+  const SAMPLES = 10;
+  const pts = [];
+  for (let i = 0; i < segs.length - 1; i++) {
+    const a = segs[i], b = segs[i + 1];
+    const span = b.time.getTime() - a.time.getTime();
+    const mid  = (a.height + b.height) / 2;
+    const amp  = (a.height - b.height) / 2;
+    for (let s = (i === 0 ? 0 : 1); s <= SAMPLES; s++) {
+      const frac = s / SAMPLES;
+      pts.push([
+        xAt(a.time.getTime() + frac * span),
+        yAt(mid + amp * Math.cos(Math.PI * frac)),
+      ]);
+    }
+  }
+  const pathD = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
+  const baseY = (padY + plotH).toFixed(1);
+  const areaD = `${pathD} L${pts[pts.length - 1][0].toFixed(1)},${baseY} L${pts[0][0].toFixed(1)},${baseY} Z`;
+
+  const rising = ph.next.type === 'H';
+  const arrow  = rising ? '▲' : '▼';
+  const label  = `${arrow} ${rising ? 'High' : 'Low'} in ${_fmtDuration(ph.next.time.getTime() - now.getTime())}`;
+  const labelColor = rising ? '#52c052' : '#e0a030';
+
+  return frame(`
+    <path d="${areaD}" fill="rgba(74,158,221,0.16)" stroke="none"/>
+    <path d="${pathD}" fill="none" stroke="rgba(74,158,221,0.7)" stroke-width="1.5"/>
+    <circle cx="${xAt(now.getTime()).toFixed(1)}" cy="${yAt(ph.height).toFixed(1)}" r="3" fill="#e8edf4" stroke="#4a9edd" stroke-width="1.5"/>
+    <text x="${W / 2}" y="${H - 4}" text-anchor="middle" fill="${labelColor}" font-family="Arial,sans-serif" font-size="9" font-weight="bold">${label}</text>
+  `);
+}
+
+function _redrawTideCycle() {
+  if (_tideCycleEl) _tideCycleEl.innerHTML = _tideCycleSvg(new Date());
+}
+
+window._debugTideCycle = () => {
+  console.log('station:', _tideStationId, _tideStationLat, _tideStationLon);
+  console.log('extremes:', _tideExtremes);
+  const ph = _tidePhaseAt(new Date());
+  console.log('phase at now:', ph);
+};
 
 function _updateBearingLines(lat, lon) {
   for (const entry of _bearingAccumulator) {
@@ -1190,6 +1345,33 @@ function _ensureMap() {
     },
   });
   new _CompassRose().addTo(_map);
+
+  // Tide-cycle overlay — translucent sinusoid showing where "now" sits in the
+  // current tide cycle. Mirrors the compass rose: a small always-on, click-
+  // through L.Control so it never gets in the way of map interaction.
+  const _TideCycle = L.Control.extend({
+    options: { position: 'topright' },
+    onAdd() {
+      const el = L.DomUtil.create('div', 'tide-cycle-ctrl');
+      L.DomEvent.disableClickPropagation(el);
+      el.innerHTML = _tideCycleSvg(new Date());
+      _tideCycleEl = el;
+      return el;
+    },
+  });
+  new _TideCycle().addTo(_map);
+
+  // Redraw the "now" dot every minute (cheap — pure math against cached
+  // extremes); refresh the predictions themselves only when the boat has
+  // moved far enough to need a new station, or the cache has gone stale
+  // (handled inside _fetchTideCycle's own TTL/distance check).
+  const _refreshTideCycle = () => {
+    const pos = GPS.getPosition();
+    if (pos) _fetchTideCycle(pos.lat, pos.lon).then(_redrawTideCycle);
+    else _redrawTideCycle();
+  };
+  _refreshTideCycle();
+  setInterval(_refreshTideCycle, 60 * 1000);
 
   document.getElementById('map-layer-btn').addEventListener('click', (e) => {
     e.stopPropagation();

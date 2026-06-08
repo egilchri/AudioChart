@@ -876,6 +876,12 @@ html, body {
   opacity: 0.88;
   filter: drop-shadow(0 1px 4px rgba(0,0,0,0.6));
 }
+.tide-cycle-ctrl {
+  pointer-events: none;
+  margin: 8px;
+  opacity: 0.8;
+  filter: drop-shadow(0 1px 4px rgba(0,0,0,0.5));
+}
 /* Animation fullscreen mode */
 #app.anim-mode #sidebar,
 #app.anim-mode #sketch-banner {
