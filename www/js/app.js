@@ -85,7 +85,7 @@ function _segBearing(lat1, lon1, lat2, lon2) {
 function _boatIcon() {
   return L.divIcon({
     className: '',
-    html: '<div class="boat-marker"><span class="boat-emoji">⛵</span><span class="boat-label">You</span></div>',
+    html: '<div class="boat-marker"><span class="boat-emoji">⛵</span></div>',
     iconSize: [44, 44],
     iconAnchor: [22, 22],
     tooltipAnchor: [22, -22],
@@ -96,7 +96,6 @@ function _showBoatPosition(lat, lon) {
   if (!_map) return;
   if (_boatLayer) { _map.removeLayer(_boatLayer); _boatLayer = null; }
   const marker = L.marker([lat, lon], { icon: _boatIcon(), zIndexOffset: 1000, draggable: true });
-  marker.bindTooltip('TEST POSITION', { permanent: true, direction: 'top', className: 'map-tooltip' });
   marker.on('contextmenu', (e) => e.originalEvent.stopPropagation());
   marker.on('drag', (e) => {
     const { lat: dLat, lng: dLon } = e.target.getLatLng();
@@ -2040,7 +2039,6 @@ async function showPositionMap(lat, lon) {
   _map.invalidateSize();
   if (_mapLayers) { _map.removeLayer(_mapLayers); _mapLayers = null; }
   const dot = L.marker([lat, lon], { icon: _boatIcon(), draggable: true, zIndexOffset: 900 });
-  dot.bindTooltip('You are here', { permanent: true, direction: 'top', className: 'map-tooltip' });
   dot.on('contextmenu', (e) => e.originalEvent.stopPropagation());
   dot.on('drag', (e) => {
     const { lat: dLat, lng: dLon } = e.target.getLatLng();
