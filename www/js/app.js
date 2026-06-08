@@ -124,6 +124,11 @@ function _showBoatPosition(lat, lon) {
   if (_youLayer) { _map.removeLayer(_youLayer); _youLayer = null; }
   const zoom = _map.getZoom();
   if (!zoom) _map.setView([lat, lon], 13); else _map.panTo([lat, lon]);
+
+  const _depthOn = document.getElementById('nf-depth')?.checked;
+  (_depthOn ? _fetchTideHeight(lat, lon) : Promise.resolve())
+    .catch(() => {})
+    .then(() => _refreshNavaidOverlay());
 }
 
 function _clearBoatPosition() {
