@@ -2224,6 +2224,7 @@ function _refreshNavaidOverlay() {
       const polyFeatures = [];
       for (const f of Query.depthZones) {
         const eff = (f.properties.valsou ?? 0) + _tideHeight;
+        if (eff <= 0) continue;  // exposed/dry at current tide — not a navigable hazard
         let color = null;
         if (eff <= draftM)             color = '#e05252';
         else if (eff < draftM + 0.9144) color = '#f5c518';
