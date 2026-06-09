@@ -60,6 +60,7 @@ OBJTYPE_LABEL = {
     'LIGHTS': 'light',
     'CBLOHD': 'overhead cable',
     'RESARE': 'restricted area',
+    'SOUNDG': 'depth sounding',
 }
 
 # COLOUR attribute values → color name

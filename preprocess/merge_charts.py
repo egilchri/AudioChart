@@ -192,6 +192,21 @@ def deduplicate_channels(features):
     return list(seen.values())
 
 
+def thin_soundings(features, cell_deg=0.002, max_depth_m=30.0):
+    """Thin soundings to one per ~160m grid cell, keeping the shallowest (safety-first).
+    Drops soundings deeper than max_depth_m — not navigationally significant for small craft."""
+    grid = {}
+    for f in features:
+        depth = f['properties']['valsou']
+        if depth > max_depth_m:
+            continue
+        lon, lat = f['geometry']['coordinates']
+        cell = (round(lat / cell_deg), round(lon / cell_deg))
+        if cell not in grid or depth < grid[cell]['properties']['valsou']:
+            grid[cell] = f
+    return list(grid.values())
+
+
 def main():
     print('Loading raw GeoJSON files...')
     hazards = load_raw('hazards_raw.geojson')
@@ -199,6 +214,8 @@ def main():
     navaids = load_raw('navaid_raw.geojson')
     channels_raw_path = os.path.join(DATA_DIR, 'channels_raw.geojson')
     channels = load_raw('channels_raw.geojson') if os.path.exists(channels_raw_path) else []
+    soundings_raw_path = os.path.join(DATA_DIR, 'soundings_raw.geojson')
+    soundings = load_raw('soundings_raw.geojson') if os.path.exists(soundings_raw_path) else []
 
     print(f'Raw counts: hazards={len(hazards)}, places={len(places)}, navaids={len(navaids)}')
 
@@ -225,12 +242,19 @@ def main():
         print('Deduplicating channels...')
         channels = deduplicate_channels(channels)
 
+    if soundings:
+        print(f'Thinning soundings ({len(soundings)} → ', end='', flush=True)
+        soundings = thin_soundings(soundings)
+        print(f'{len(soundings)})...')
+
     print('Writing output files...')
     write(hazards, 'hazards.geojson')
     write(places, 'named_places.geojson')
     write(navaids, 'navaid.geojson')
     if channels:
         write(channels, 'channels.geojson')
+    if soundings:
+        write(soundings, 'soundings.geojson')
 
     bounds = build_chart_bounds(hazards)
     if bounds:

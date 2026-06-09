@@ -364,6 +364,7 @@ let _waypointsVisible = localStorage.getItem('audiochart-waypoints-visible') ===
 let _leafletReady = false;
 let _depthHeatLayer = null;  // leaflet.heat layer for depth blobs (managed separately)
 let _channelLayer   = null;  // channel corridor polygons (managed separately)
+let _soundingsLayer = null;  // depth sounding point labels
 let _tideHeight    = 0;      // meters above MLLW; 0 = unknown/fallback
 let _tideLastFetch = 0;      // Date.now() of last successful fetch
 let _tideStationId  = null;  // cached nearest NOAA station ID
@@ -1455,6 +1456,9 @@ function _ensureMap() {
     _ctxMenu.style.display = _ctxMenu.style.display === 'block' ? 'none' : 'block';
   });
 
+  // Refresh depth soundings when map moves or zooms
+  _map.on('zoomend moveend', _refreshSoundingsLayer);
+
   // Sketch route: intercept mousedown when mode is active
   _map.on('mousedown', (e) => { if (_sketchMode) _onSketchStart(e); });
 
@@ -2160,6 +2164,40 @@ function _inChannel(lon, lat) {
   return false;
 }
 
+function _soundingColor(effDepthM) {
+  if (effDepthM < 2)  return '#e05252';  // red — very shallow
+  if (effDepthM < 5)  return '#f5a623';  // orange — caution
+  if (effDepthM < 10) return '#f5e642';  // yellow — moderate
+  return '#7ec8e3';                       // blue — comfortable
+}
+
+function _refreshSoundingsLayer() {
+  if (!_map) return;
+  if (_soundingsLayer) { _map.removeLayer(_soundingsLayer); _soundingsLayer = null; }
+  if (!Query.soundings?.features?.length) return;
+  const zoom = _map.getZoom();
+  if (zoom < 13) return;  // too zoomed out — too many labels
+  const bounds = _map.getBounds().pad(0.1);
+  const markers = [];
+  for (const f of Query.soundings.features) {
+    const [lon, lat] = f.geometry.coordinates;
+    if (!bounds.contains([lat, lon])) continue;
+    const charted = f.properties.valsou;
+    const eff = charted + _tideHeight;
+    const effFt = (eff * 3.28084).toFixed(1);
+    const color = _soundingColor(eff);
+    markers.push(L.marker([lat, lon], {
+      icon: L.divIcon({
+        className: '',
+        html: `<span style="font-size:10px;font-weight:600;color:${color};text-shadow:0 0 2px #000,0 0 2px #000">${effFt}</span>`,
+        iconAnchor: [10, 7],
+      }),
+      interactive: false,
+    }));
+  }
+  if (markers.length) _soundingsLayer = L.layerGroup(markers).addTo(_map);
+}
+
 function _refreshNavaidOverlay() {
   if (!_map) return;
   if (_navaidFilterLayer) { _map.removeLayer(_navaidFilterLayer); _navaidFilterLayer = null; }
@@ -2291,6 +2329,8 @@ function _refreshNavaidOverlay() {
       }
     ).addTo(_map);
   }
+
+  _refreshSoundingsLayer();
 }
 
 function hideMap() {
@@ -2299,6 +2339,7 @@ function hideMap() {
   if (_navaidFilterLayer) { _map?.removeLayer(_navaidFilterLayer); _navaidFilterLayer = null; }
   if (_depthHeatLayer)    { _map?.removeLayer(_depthHeatLayer);    _depthHeatLayer = null; }
   if (_channelLayer)      { _map?.removeLayer(_channelLayer);      _channelLayer = null; }
+  if (_soundingsLayer)    { _map?.removeLayer(_soundingsLayer);    _soundingsLayer = null; }
   document.getElementById('navaid-filter-panel')?.classList.remove('open');
   document.getElementById('navaid-filter-btn')?.classList.remove('active');
 }
@@ -2852,6 +2893,22 @@ async function handleCommand(transcript) {
       case 'NEAREST_RESTRICTION':
         response = Query.nearestRestriction(pos.lat, pos.lon);
         break;
+      case 'DEPTH_HERE': {
+        const s = Query.nearestSounding(pos.lat, pos.lon);
+        if (!s) {
+          response = { text: 'No depth sounding data near this position.', speech: 'No depth sounding data near this position.' };
+        } else {
+          const chartedFt = (s.valsou * 3.28084).toFixed(1);
+          const effM = s.valsou + _tideHeight;
+          const effFt = (effM * 3.28084).toFixed(1);
+          const tideFt = (_tideHeight * 3.28084).toFixed(1);
+          const sign = _tideHeight >= 0 ? '+' : '';
+          const text = `Charted depth: ${chartedFt} ft (MLLW)\nTide: ${sign}${tideFt} ft\nEffective depth: ~${effFt} ft`;
+          const speech = `Charted depth ${chartedFt} feet. Current tide is ${sign}${tideFt} feet above mean low water, giving an effective depth of about ${effFt} feet.`;
+          response = { text, speech };
+        }
+        break;
+      }
       case 'LAND_DATA': {
         const info = Query.landDataInfo();
         response = { text: info, speech: info };

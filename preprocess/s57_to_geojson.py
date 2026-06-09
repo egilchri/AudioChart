@@ -210,6 +210,33 @@ def extract_navaids(enc_path, chart_id):
     return features
 
 
+def extract_soundings(enc_path, chart_id):
+    """Extract SOUNDG depth sounding points. Z coord is charted depth in meters (MLLW)."""
+    features = []
+    layers = set(fiona.listlayers(enc_path))
+    if 'SOUNDG' not in layers:
+        return features
+    with fiona.open(enc_path, layer='SOUNDG') as src:
+        for feat in src:
+            geom = feat.get('geometry')
+            if not geom or geom['type'] != 'MultiPoint':
+                continue
+            for coord in geom['coordinates']:
+                if len(coord) < 3:
+                    continue
+                lon, lat, depth = coord[0], coord[1], coord[2]
+                features.append({
+                    'type': 'Feature',
+                    'geometry': {'type': 'Point', 'coordinates': [round(lon, 6), round(lat, 6)]},
+                    'properties': {
+                        'objtype': 'SOUNDG',
+                        'valsou': round(depth, 1),
+                        'chart': chart_id,
+                    },
+                })
+    return features
+
+
 def extract_channels(enc_path, chart_id):
     """Extract FAIRWY (fairway/channel) polygon features with real geometry."""
     features = []
@@ -247,11 +274,12 @@ def process_chart(enc_path):
         places = extract_named_places(enc_path, chart_id)
         navaids = extract_navaids(enc_path, chart_id)
         channels = extract_channels(enc_path, chart_id)
-        print(f' hazards={len(hazards)} places={len(places)} navaids={len(navaids)} channels={len(channels)}')
-        return hazards, places, navaids, channels
+        soundings = extract_soundings(enc_path, chart_id)
+        print(f' hazards={len(hazards)} places={len(places)} navaids={len(navaids)} channels={len(channels)} soundings={len(soundings)}')
+        return hazards, places, navaids, channels, soundings
     except Exception as e:
         print(f' ERROR: {e}')
-        return [], [], [], []
+        return [], [], [], [], []
 
 
 def write_geojson(features, path):
@@ -282,25 +310,27 @@ def main():
 
     print(f'Processing {len(chart_list)} charts for region: {args.region}')
 
-    all_hazards, all_places, all_navaids, all_channels = [], [], [], []
+    all_hazards, all_places, all_navaids, all_channels, all_soundings = [], [], [], [], []
     for rel_path in chart_list:
         enc_path = os.path.join(chart_dir, rel_path)
         if not os.path.exists(enc_path):
             print(f'  SKIP (not found): {rel_path}')
             continue
-        h, p, n, c = process_chart(enc_path)
+        h, p, n, c, s = process_chart(enc_path)
         all_hazards.extend(h)
         all_places.extend(p)
         all_navaids.extend(n)
         all_channels.extend(c)
+        all_soundings.extend(s)
 
-    print(f'\nTotals before merge: hazards={len(all_hazards)} places={len(all_places)} navaids={len(all_navaids)} channels={len(all_channels)}')
+    print(f'\nTotals before merge: hazards={len(all_hazards)} places={len(all_places)} navaids={len(all_navaids)} channels={len(all_channels)} soundings={len(all_soundings)}')
 
     os.makedirs(output_dir, exist_ok=True)
     write_geojson(all_hazards, os.path.join(output_dir, 'hazards_raw.geojson'))
     write_geojson(all_places, os.path.join(output_dir, 'named_places_raw.geojson'))
     write_geojson(all_navaids, os.path.join(output_dir, 'navaid_raw.geojson'))
     write_geojson(all_channels, os.path.join(output_dir, 'channels_raw.geojson'))
+    write_geojson(all_soundings, os.path.join(output_dir, 'soundings_raw.geojson'))
 
     print('\nDone. Run merge_charts.py next.')
 

@@ -243,6 +243,13 @@ const PATTERNS = [
     params: {},
   },
 
+  // DEPTH HERE
+  {
+    re: /\b(what.?s\s+the\s+depth|depth\s+here|how\s+deep|water\s+depth|depth\s+at|sounding|depth\s+check)\b/i,
+    intent: 'DEPTH_HERE',
+    params: {},
+  },
+
   // HAZARDS ON COURSE FROM X TO Y  (must come before BEARING_TO_PLACE)
   // Note: place names are NOT normalized here — aliases can cascade on full names.
   // The lookup functions handle matching directly.

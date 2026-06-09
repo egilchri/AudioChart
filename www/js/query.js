@@ -50,6 +50,7 @@ export let restrictions = null;
 let landPolygons = null;  // LNDARE polygons for line-of-sight checks
 export let depthZones = null;  // 'shallow area' Polygon features — always real geometry
 export let channels   = null;  // FAIRWY polygon features from ENC data
+export let soundings  = null;  // SOUNDG depth sounding points (thinned, ≤30m)
 export let lastBearingResult = null;   // set by bearing queries; read by map view
 export let lastCourseHazards = null;   // set by hazardsOnCourse; [{lat,lon,label,name}]
 export let lastNavaidResults  = null;   // set by navaidsInRadius; [{lat,lon,label,name,colour,characteristic,brg,d}]
@@ -158,6 +159,15 @@ export async function loadData(lat, lon) {
       .then(fc => {
         if (fc) channels = fc.features.filter(f => f.geometry?.type !== 'Point');
         console.log(`[AC] Channels: ${channels ? channels.length : 'not found'}`);
+      })
+      .catch(() => {});  // optional file — no warning if absent
+  }
+  if (!soundings) {
+    fetch('./data/soundings.geojson')
+      .then(r => r.ok ? r.json() : null)
+      .then(fc => {
+        if (fc) soundings = fc;
+        console.log(`[AC] Soundings: ${soundings ? soundings.features.length : 'not found'}`);
       })
       .catch(() => {});  // optional file — no warning if absent
   }
@@ -1331,4 +1341,22 @@ export function hazardsOnCourse(fromLat, fromLon, toLat, toLon, corridorNm = 0.2
   results.sort((a, b) => a.along_track_nm - b.along_track_nm);
 
   return formatCourseHazards(results, dAB, corridorNm);
+}
+
+/**
+ * Return the nearest depth sounding to the given position, within radiusNm.
+ * Returns {valsou, lat, lon, distNm} or null.
+ */
+export function nearestSounding(lat, lon, radiusNm = 0.15) {
+  if (!soundings?.features?.length) return null;
+  let best = null, bestDist = Infinity;
+  for (const f of soundings.features) {
+    const [flon, flat] = f.geometry.coordinates;
+    const d = distanceNm(lon, lat, flon, flat);
+    if (d < radiusNm && d < bestDist) {
+      bestDist = d;
+      best = { valsou: f.properties.valsou, lat: flat, lon: flon, distNm: d };
+    }
+  }
+  return best;
 }
