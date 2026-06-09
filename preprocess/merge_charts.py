@@ -177,12 +177,18 @@ def write(features, name):
 
 
 def deduplicate_channels(features):
-    """Deduplicate FAIRWY polygon features by name — keep one per unique name."""
+    """Deduplicate FAIRWY polygon features by name — keep largest polygon per unique name."""
     seen = {}
     for f in features:
         name = f['properties'].get('name_lower') or f['properties'].get('name', '')
         if name not in seen:
             seen[name] = f
+        else:
+            # Prefer the polygon with more vertices — clipped slivers at tile boundaries have very few
+            existing_pts = len(seen[name]['geometry']['coordinates'][0])
+            new_pts = len(f['geometry']['coordinates'][0])
+            if new_pts > existing_pts:
+                seen[name] = f
     return list(seen.values())
 
 
