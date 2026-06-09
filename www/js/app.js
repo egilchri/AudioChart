@@ -363,6 +363,7 @@ let _boatCircleDismissed = false;  // true after user taps the boat once
 let _waypointsVisible = localStorage.getItem('audiochart-waypoints-visible') === 'true';
 let _leafletReady = false;
 let _depthHeatLayer = null;  // leaflet.heat layer for depth blobs (managed separately)
+let _channelLayer   = null;  // channel corridor polygons (managed separately)
 let _tideHeight    = 0;      // meters above MLLW; 0 = unknown/fallback
 let _tideLastFetch = 0;      // Date.now() of last successful fetch
 let _tideStationId  = null;  // cached nearest NOAA station ID
@@ -2135,6 +2136,40 @@ async function showMap(fromLat, fromLon, result) {
   _map.fitBounds(L.latLngBounds(allPts).pad(0.2));
 }
 
+function _buildChannelCorridors() {
+  if (!Query.navaids?.features) return [];
+  const groups = new Map();
+  for (const f of Query.navaids.features) {
+    const p = f.properties;
+    if (p.label !== 'buoy' && p.label !== 'beacon') continue;
+    const colour = p.colour || '';
+    const isGreen = colour === 'green';
+    const isRed   = colour === 'red';
+    if (!isGreen && !isRed) continue;
+    const m = p.name?.match(/^(.+?)\s+(?:Buoy|Daybeacon|Lighthous?e?)\s+(\d+)/i);
+    if (!m) continue;
+    const channelName = m[1].trim();
+    if (!channelName.toLowerCase().includes('channel')) continue;
+    const num = parseInt(m[2]);
+    if (!groups.has(channelName)) groups.set(channelName, { green: [], red: [] });
+    const [lon, lat] = f.geometry.coordinates;
+    groups.get(channelName)[isGreen ? 'green' : 'red'].push({ lat, lon, num });
+  }
+  const corridors = [];
+  for (const [name, { green, red }] of groups) {
+    if (!green.length || !red.length) continue;
+    green.sort((a, b) => a.num - b.num);
+    red.sort((a, b) => a.num - b.num);
+    const ring = [
+      ...green.map(b => [b.lon, b.lat]),
+      ...red.slice().reverse().map(b => [b.lon, b.lat]),
+    ];
+    ring.push(ring[0]);
+    corridors.push({ name, ring });
+  }
+  return corridors;
+}
+
 function _refreshNavaidOverlay() {
   if (!_map) return;
   if (_navaidFilterLayer) { _map.removeLayer(_navaidFilterLayer); _navaidFilterLayer = null; }
@@ -2245,6 +2280,28 @@ function _refreshNavaidOverlay() {
   }
 
   if (markers.length) _navaidFilterLayer = L.layerGroup(markers).addTo(_map);
+
+  // Channel corridor overlay — light-blue polygons showing maintained navigation channels
+  if (_channelLayer) { _map.removeLayer(_channelLayer); _channelLayer = null; }
+  if (showDepths) {
+    const corridors = _buildChannelCorridors();
+    if (corridors.length) {
+      const features = corridors.map(c => ({
+        type: 'Feature',
+        geometry: { type: 'Polygon', coordinates: [c.ring] },
+        properties: { name: c.name }
+      }));
+      _channelLayer = L.geoJSON(
+        { type: 'FeatureCollection', features },
+        {
+          style: () => ({ color: '#29b6f6', weight: 1.5, dashArray: '5,4',
+                          fillColor: '#29b6f6', fillOpacity: 0.22 }),
+          onEachFeature: (f, layer) =>
+            layer.bindTooltip(`⚓ ${f.properties.name}`, { sticky: true, className: 'map-tooltip' })
+        }
+      ).addTo(_map);
+    }
+  }
 }
 
 function hideMap() {
@@ -2252,6 +2309,7 @@ function hideMap() {
   _bearingAccumulator = [];
   if (_navaidFilterLayer) { _map?.removeLayer(_navaidFilterLayer); _navaidFilterLayer = null; }
   if (_depthHeatLayer)    { _map?.removeLayer(_depthHeatLayer);    _depthHeatLayer = null; }
+  if (_channelLayer)      { _map?.removeLayer(_channelLayer);      _channelLayer = null; }
   document.getElementById('navaid-filter-panel')?.classList.remove('open');
   document.getElementById('navaid-filter-btn')?.classList.remove('active');
 }
