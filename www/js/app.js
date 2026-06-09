@@ -2137,6 +2137,29 @@ async function showMap(fromLat, fromLon, result) {
 }
 
 
+function _pointInRing(lon, lat, ring) {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i], [xj, yj] = ring[j];
+    if ((yi > lat) !== (yj > lat) && lon < (xj - xi) * (lat - yi) / (yj - yi) + xi)
+      inside = !inside;
+  }
+  return inside;
+}
+
+function _inChannel(lon, lat) {
+  if (!Query.channels?.length) return false;
+  for (const f of Query.channels) {
+    const polys = f.geometry.type === 'Polygon'
+      ? [f.geometry.coordinates]
+      : f.geometry.coordinates;
+    for (const poly of polys) {
+      if (_pointInRing(lon, lat, poly[0])) return true;
+    }
+  }
+  return false;
+}
+
 function _refreshNavaidOverlay() {
   if (!_map) return;
   if (_navaidFilterLayer) { _map.removeLayer(_navaidFilterLayer); _navaidFilterLayer = null; }
@@ -2231,6 +2254,13 @@ function _refreshNavaidOverlay() {
         if (eff <= draftM)             color = '#e05252';
         else if (eff < draftM + 0.9144) color = '#f5c518';
         if (!color) continue;
+        // Suppress warnings inside maintained navigation channels
+        const ring = f.geometry.coordinates?.[0];
+        if (ring?.length) {
+          const clon = ring.reduce((s, c) => s + c[0], 0) / ring.length;
+          const clat = ring.reduce((s, c) => s + c[1], 0) / ring.length;
+          if (_inChannel(clon, clat)) continue;
+        }
         const effFt = (eff * 3.28084).toFixed(1);
         polyFeatures.push({ ...f, properties: { ...f.properties, _color: color, _tip: `${effFt} ft` } });
       }
