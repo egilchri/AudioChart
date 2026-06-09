@@ -166,7 +166,7 @@ export async function loadData(lat, lon) {
   if (_serverBase && lat != null && lon != null) {
     try {
       const url = `${_serverBase}/api/nearby?lat=${lat}&lon=${lon}`;
-      const resp = await fetch(url, { cache: 'no-store' });
+      const resp = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(8000) });
       if (resp.ok) {
         const data = await resp.json();
         hazards = data.hazards;
