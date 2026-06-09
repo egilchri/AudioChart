@@ -49,6 +49,7 @@ export let waypoints = null;
 export let restrictions = null;
 let landPolygons = null;  // LNDARE polygons for line-of-sight checks
 export let depthZones = null;  // 'shallow area' Polygon features — always real geometry
+export let channels   = null;  // FAIRWY polygon features from ENC data
 export let lastBearingResult = null;   // set by bearing queries; read by map view
 export let lastCourseHazards = null;   // set by hazardsOnCourse; [{lat,lon,label,name}]
 export let lastNavaidResults  = null;   // set by navaidsInRadius; [{lat,lon,label,name,colour,characteristic,brg,d}]
@@ -150,6 +151,15 @@ export async function loadData(lat, lon) {
         console.log(`[AC] Depth zones: ${depthZones ? depthZones.length : 'FAILED TO LOAD'}`);
       })
       .catch(() => console.warn('[AC] hazards.geojson failed to load for depth zones'));
+  }
+  if (!channels) {
+    fetch('./data/channels.geojson')
+      .then(r => r.ok ? r.json() : null)
+      .then(fc => {
+        if (fc) channels = fc.features.filter(f => f.geometry?.type !== 'Point');
+        console.log(`[AC] Channels: ${channels ? channels.length : 'not found'}`);
+      })
+      .catch(() => {});  // optional file — no warning if absent
   }
 
   // Try server API first

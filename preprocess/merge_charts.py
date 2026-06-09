@@ -176,11 +176,23 @@ def write(features, name):
     print(f'  {name}: {len(features)} features, {size_kb} KB')
 
 
+def deduplicate_channels(features):
+    """Deduplicate FAIRWY polygon features by name — keep one per unique name."""
+    seen = {}
+    for f in features:
+        name = f['properties'].get('name_lower') or f['properties'].get('name', '')
+        if name not in seen:
+            seen[name] = f
+    return list(seen.values())
+
+
 def main():
     print('Loading raw GeoJSON files...')
     hazards = load_raw('hazards_raw.geojson')
     places = load_raw('named_places_raw.geojson')
     navaids = load_raw('navaid_raw.geojson')
+    channels_raw_path = os.path.join(DATA_DIR, 'channels_raw.geojson')
+    channels = load_raw('channels_raw.geojson') if os.path.exists(channels_raw_path) else []
 
     print(f'Raw counts: hazards={len(hazards)}, places={len(places)}, navaids={len(navaids)}')
 
@@ -203,10 +215,16 @@ def main():
 
     hazards.sort(key=hazard_sort_key)
 
+    if channels:
+        print('Deduplicating channels...')
+        channels = deduplicate_channels(channels)
+
     print('Writing output files...')
     write(hazards, 'hazards.geojson')
     write(places, 'named_places.geojson')
     write(navaids, 'navaid.geojson')
+    if channels:
+        write(channels, 'channels.geojson')
 
     bounds = build_chart_bounds(hazards)
     if bounds:
