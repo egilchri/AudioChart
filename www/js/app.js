@@ -2174,6 +2174,7 @@ function _soundingColor(effDepthM) {
 function _refreshSoundingsLayer() {
   if (!_map) return;
   if (_soundingsLayer) { _map.removeLayer(_soundingsLayer); _soundingsLayer = null; }
+  if (!document.getElementById('nf-depth')?.checked) return;  // only show with Depths enabled
   if (!Query.soundings?.features?.length) return;
   const zoom = _map.getZoom();
   if (zoom < 13) return;  // too zoomed out — too many labels
@@ -2249,6 +2250,7 @@ function _refreshNavaidOverlay() {
           showResponse(result.text);
           TTS.sayImmediate(result.speech);
           _bearingAccumulator.push({ fromLat: pos.lat, fromLon: pos.lon, result: Query.lastBearingResult });
+          if (_bearingAccumulator.length > 6) _bearingAccumulator.shift();
           showMap(pos.lat, pos.lon, Query.lastBearingResult).catch(() => {});
         });
         el.querySelector('.navaid-popup-copy').addEventListener('click', (evt) => {
@@ -2334,6 +2336,7 @@ function _refreshNavaidOverlay() {
 }
 
 function hideMap() {
+
   document.getElementById('map-container').style.display = 'none';
   _bearingAccumulator = [];
   if (_navaidFilterLayer) { _map?.removeLayer(_navaidFilterLayer); _navaidFilterLayer = null; }
@@ -2986,8 +2989,9 @@ async function handleCommand(transcript) {
     const isOtherMapIntent = ['NEAREST_HAZARD', 'NEAREST_NAVAID', 'NEAREST_RESTRICTION'].includes(intent);
 
     if (isBearingIntent && Query.lastBearingResult) {
-      // Accumulate bearing lines — don't clear previous results.
+      // Accumulate bearing lines — keep the most recent 6 (one per color).
       _bearingAccumulator.push({ fromLat: pos.lat, fromLon: pos.lon, result: Query.lastBearingResult });
+      if (_bearingAccumulator.length > 6) _bearingAccumulator.shift();
       showMap(pos.lat, pos.lon, Query.lastBearingResult).catch(() => {});
       opencpnBtn.style.display = 'none';
     } else if (intent === 'WHERE_AM_I') {
