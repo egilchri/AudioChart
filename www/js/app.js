@@ -36,24 +36,13 @@ document.getElementById('voice-select')?.addEventListener('change', (e) => {
 function _navaidMarkerIcon(navaid) {
   const c = (navaid.colour || '').toLowerCase();
   const l = (navaid.label || '').toLowerCase();
-  let bg, border, symbol = '';
-  if (l === 'light') {
-    bg = '#ffe066'; border = '#b8860b'; symbol = '✦';
-  } else if (c.includes('red') && c.includes('green')) {
-    bg = '#e05252'; border = '#333'; symbol = '◑';
-  } else if (c.includes('red')) {
-    bg = '#e05252'; border = '#900';
-  } else if (c.includes('green')) {
-    bg = '#4caf50'; border = '#1b5e20';
-  } else if (c.includes('white')) {
-    bg = '#fff'; border = '#888';
-  } else if (l === 'beacon') {
-    bg = '#fff'; border = '#555'; symbol = '▲';
-  } else {
-    bg = '#e0e0e0'; border = '#555';
-  }
-  const html = `<div style="width:14px;height:14px;background:${bg};border:2.5px solid ${border};border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;font-size:7px;color:${border}">${symbol}</div>`;
-  return L.divIcon({ className: '', html, iconSize: [14, 14], iconAnchor: [7, 7], tooltipAnchor: [0, -10] });
+  let url;
+  if (l === 'light')             url = './icons/markicons/Marks-Light-TypeA.svg';
+  else if (l === 'beacon')       url = './icons/markicons/Marks-Beacon-SafeWater.svg';
+  else if (c.includes('green'))  url = './icons/markicons/Marks-Lateral-Port-IALA-B.svg';
+  else if (c.includes('red'))    url = './icons/markicons/Marks-Lateral-Starboard-IALA-B.svg';
+  else                           url = './icons/markicons/Marks-Buoy-TypeA.svg';
+  return L.icon({ iconUrl: url, iconSize: [32, 32], iconAnchor: [16, 32], tooltipAnchor: [0, -32] });
 }
 
 function _hazardMarkerIcon() {
