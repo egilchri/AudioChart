@@ -958,11 +958,10 @@ function _makeCurrentArrowIcon(speed, dir, type) {
 function _renderCurrentArrows() {
   if (!_showCurrentArrows || !_map || !_currentStationsCache) return;
   if (_currentArrowLayer) { _map.removeLayer(_currentArrowLayer); _currentArrowLayer = null; }
-  const bounds = _map.getBounds();
-  const center = bounds.getCenter();
-  const inView = _currentStationsCache.filter(s => bounds.contains([parseFloat(s.lat), parseFloat(s.lng)]));
-  const nearby = inView
+  const center = _map.getCenter();
+  const nearby = _currentStationsCache
     .map(s => ({ s, d: Query.distanceNm(center.lng, center.lat, parseFloat(s.lng), parseFloat(s.lat)) }))
+    .filter(x => x.d <= 20)
     .sort((a, b) => a.d - b.d).slice(0, 20).map(x => x.s);
   const sim = new Date(Date.now() + _tideOffset * 3_600_000);
   const markers = [];
@@ -994,11 +993,10 @@ async function _fetchAndRenderCurrentArrows() {
       _currentStationsCache = (await resp.json()).stations || [];
     } catch { return; }
   }
-  const bounds = _map.getBounds();
-  const center = bounds.getCenter();
-  const inView = _currentStationsCache.filter(s => bounds.contains([parseFloat(s.lat), parseFloat(s.lng)]));
-  const nearby = inView
+  const center = _map.getCenter();
+  const nearby = _currentStationsCache
     .map(s => ({ s, d: Query.distanceNm(center.lng, center.lat, parseFloat(s.lng), parseFloat(s.lat)) }))
+    .filter(x => x.d <= 20)
     .sort((a, b) => a.d - b.d).slice(0, 20).map(x => x.s);
   const toFetch = nearby.filter(s => {
     const c = _stationPredCache.get(s.id);
