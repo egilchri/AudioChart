@@ -2374,7 +2374,7 @@ function _refreshNavaidOverlay() {
         if (eff <= 0) continue;  // exposed/dry at current tide — not a navigable hazard
         let color = null;
         if (eff <= draftM)             color = '#e05252';
-        else if (eff < draftM + 0.9144) color = '#f5c518';
+        else if (eff < draftM + 1.8288) color = '#f5c518';
         if (!color) continue;
         // Suppress warnings inside maintained navigation channels
         const ring = f.geometry.coordinates?.[0];
