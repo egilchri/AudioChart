@@ -375,6 +375,13 @@ let _tideStationLon = null;
 let _tideExtremes     = null;  // [{time:Date, height:Number, type:'H'|'L'}, …] around now
 let _tideExtremesFetch = 0;    // Date.now() of last successful predictions fetch
 let _tideCycleEl      = null;  // DOM element of the _TideCycle control, redrawn on a timer
+let _currentStationId   = null;
+let _currentStationLat  = null;
+let _currentStationLon  = null;
+let _currentStationName = null;
+let _currentExtremes    = null;  // [{time,speed,type,floodDir,ebbDir}] around now
+let _currentExtFetch    = 0;
+let _currentStationsCache = null;  // session-cached full station list
 let _activeCruiseName = 'Penobscot Bay';  // updated when user selects a region
 let _markerByKey = new Map();
 let _sketchMode = false;
@@ -710,6 +717,30 @@ async function _ensureTideStation(lat, lon) {
   return _tideStationId;
 }
 
+async function _ensureCurrentStation(lat, lon) {
+  if (_currentStationId && _currentStationLat !== null &&
+      Query.distanceNm(lon, lat, _currentStationLon, _currentStationLat) < 10) {
+    return _currentStationId;
+  }
+  if (!_currentStationsCache) {
+    const resp = await fetch(
+      'https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json?type=currentpredictions&units=english'
+    );
+    _currentStationsCache = (await resp.json()).stations || [];
+  }
+  let best = null, bestDist = Infinity;
+  for (const s of _currentStationsCache) {
+    const d = Query.distanceNm(lon, lat, parseFloat(s.lng), parseFloat(s.lat));
+    if (d < bestDist) { bestDist = d; best = s; }
+  }
+  if (!best) return null;
+  _currentStationId   = best.id;
+  _currentStationLat  = parseFloat(best.lat);
+  _currentStationLon  = parseFloat(best.lng);
+  _currentStationName = best.name;
+  return _currentStationId;
+}
+
 async function _fetchTideHeight(lat, lon) {
   const TEN_MIN = 10 * 60 * 1000;
   const tideStatus = document.getElementById('nf-tide-status');
@@ -789,6 +820,43 @@ async function _fetchTideCycle(lat, lon) {
   return _tideExtremes;
 }
 
+async function _fetchCurrentCycle(lat, lon) {
+  const SIX_HOURS = 6 * 60 * 60 * 1000;
+  if (_currentExtremes && _currentExtFetch && Date.now() - _currentExtFetch < SIX_HOURS) {
+    if (_currentStationLat !== null &&
+        Query.distanceNm(lon, lat, _currentStationLon, _currentStationLat) < 10) {
+      return _currentExtremes;
+    }
+  }
+  try {
+    await _ensureCurrentStation(lat, lon);
+    if (!_currentStationId) return null;
+    const now   = new Date();
+    const begin = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const end   = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+    const resp = await fetch(
+      `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter` +
+      `?station=${_currentStationId}&product=currents_predictions` +
+      `&time_zone=GMT&units=english&interval=MAX_SLACK&format=json` +
+      `&begin_date=${_tideDateStr(begin)}&end_date=${_tideDateStr(end)}`
+    );
+    const data = await resp.json();
+    const events = (data?.current_predictions?.cp || []).map(p => ({
+      time:     new Date(p.Time.replace(' ', 'T') + ':00Z'),
+      speed:    Math.abs(parseFloat(p.Velocity_Major) || 0),
+      type:     p.Type,  // 'flood' | 'ebb' | 'slack'
+      floodDir: parseFloat(p.meanFloodDir) || 0,
+      ebbDir:   parseFloat(p.meanEbbDir)   || 0,
+    })).filter(e => isFinite(e.time.getTime()));
+    if (events.length < 2) throw new Error('not enough current events');
+    _currentExtremes = events;
+    _currentExtFetch = Date.now();
+  } catch {
+    // Keep any previously cached data
+  }
+  return _currentExtremes;
+}
+
 // Where `at` sits between the two cached extremes that bracket it: phase 0..1
 // running prev→next, plus the cosine-interpolated height at that instant.
 function _tidePhaseAt(at) {
@@ -811,6 +879,37 @@ function _tidePhaseAt(at) {
   const mid   = (prev.height + next.height) / 2;
   const amp   = (prev.height - next.height) / 2;
   return { prev, next, phase, height: mid + amp * Math.cos(Math.PI * phase) };
+}
+
+function _currentAt(at) {
+  if (!_currentExtremes || _currentExtremes.length < 2) return null;
+  const t = at.getTime();
+  let prev = null, next = null;
+  for (let i = 0; i < _currentExtremes.length - 1; i++) {
+    if (_currentExtremes[i].time.getTime() <= t && t <= _currentExtremes[i + 1].time.getTime()) {
+      prev = _currentExtremes[i]; next = _currentExtremes[i + 1]; break;
+    }
+  }
+  if (!prev) {
+    if (t < _currentExtremes[0].time.getTime()) { prev = _currentExtremes[0]; next = _currentExtremes[1]; }
+    else { prev = _currentExtremes[_currentExtremes.length - 2]; next = _currentExtremes[_currentExtremes.length - 1]; }
+  }
+  const span  = next.time.getTime() - prev.time.getTime();
+  const phase = span > 0 ? Math.min(1, Math.max(0, (t - prev.time.getTime()) / span)) : 0;
+  const speed = (prev.speed + next.speed) / 2 + (prev.speed - next.speed) / 2 * Math.cos(Math.PI * phase);
+  const dominantType = prev.type !== 'slack' ? prev.type : next.type !== 'slack' ? next.type : 'slack';
+  const type = speed < 0.05 ? 'slack' : dominantType;
+  const floodDir = prev.floodDir || next.floodDir;
+  const ebbDir   = prev.ebbDir   || next.ebbDir;
+  const dir = type === 'flood' ? floodDir : type === 'ebb' ? ebbDir : floodDir;
+  // Next event after simulated time
+  const nextEvent = _currentExtremes.find(e => e.time.getTime() > t);
+  return { speed, type, dir, nextEvent };
+}
+
+function _dirArrow(deg) {
+  const dirs = ['↑','↗','→','↘','↓','↙','←','↖'];
+  return dirs[Math.round(((deg % 360) + 360) % 360 / 45) % 8];
 }
 
 function _fmtDuration(ms) {
@@ -926,6 +1025,19 @@ function _redrawTideCycle() {
   const lbl = _tideCycleEl.querySelector('.tide-offset-label');
   if (lbl) lbl.textContent = _tideOffset === 0 ? 'now'
     : (_tideOffset > 0 ? '+' : '−') + _fmtDuration(Math.abs(_tideOffset) * 3_600_000);
+
+  const curEl = _tideCycleEl.querySelector('#current-info');
+  if (!curEl) return;
+  const cur = _currentAt(sim);
+  if (!cur) { curEl.textContent = ''; return; }
+  const arrow = _dirArrow(cur.dir);
+  const speedStr = cur.type === 'slack' ? 'slack' : `${cur.speed.toFixed(1)} kt ${cur.type}`;
+  let nextStr = '';
+  if (cur.nextEvent) {
+    const ms = cur.nextEvent.time.getTime() - sim.getTime();
+    nextStr = ` · ${cur.nextEvent.type} ${_fmtDuration(ms)}`;
+  }
+  curEl.textContent = `${arrow} ${speedStr}${nextStr}`;
 }
 
 window._debugTideCycle = () => {
@@ -1426,6 +1538,7 @@ function _ensureMap() {
       L.DomEvent.disableScrollPropagation(el);
       el.innerHTML = `
         <div class="tide-svg-wrapper"></div>
+        <div id="current-info" class="current-info-row"></div>
         <div class="tide-slider-row">
           <input type="range" id="tide-offset-slider" min="-6" max="24" step="0.25" value="0">
           <div class="tide-play-row">
@@ -1459,8 +1572,14 @@ function _ensureMap() {
   // (handled inside _fetchTideCycle's own TTL/distance check).
   const _refreshTideCycle = () => {
     const pos = GPS.getPosition();
-    if (pos) _fetchTideCycle(pos.lat, pos.lon).then(_redrawTideCycle);
-    else _redrawTideCycle();
+    if (pos) {
+      Promise.all([
+        _fetchTideCycle(pos.lat, pos.lon),
+        _fetchCurrentCycle(pos.lat, pos.lon),
+      ]).then(_redrawTideCycle);
+    } else {
+      _redrawTideCycle();
+    }
   };
   _refreshTideCycle();
   setInterval(_refreshTideCycle, 60 * 1000);
