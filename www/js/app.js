@@ -1484,11 +1484,17 @@ function _ensureMap() {
   // ⚓ Navaid filter panel
   const _navaidFilterBtn   = document.getElementById('navaid-filter-btn');
   const _navaidFilterPanel = document.getElementById('navaid-filter-panel');
+  const _closeNavaidPanel = () => {
+    _navaidFilterPanel.classList.remove('open');
+    _navaidFilterBtn.classList.remove('active');
+  };
   _navaidFilterBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     _navaidFilterPanel.classList.toggle('open');
     _navaidFilterBtn.classList.toggle('active', _navaidFilterPanel.classList.contains('open'));
   });
+  document.getElementById('nf-close').addEventListener('click', _closeNavaidPanel);
+  _map.on('click', _closeNavaidPanel);
   document.getElementById('nf-refresh').addEventListener('click', () => {
     _refreshNavaidOverlay();
   });

@@ -583,7 +583,21 @@ html, body {
   text-transform: uppercase;
   color: var(--accent);
   margin-bottom: 2px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
+#nf-close {
+  background: none;
+  border: none;
+  color: var(--muted, #8899aa);
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+  -webkit-tap-highlight-color: transparent;
+}
+#nf-close:hover { color: var(--text); }
 #navaid-filter-panel label {
   display: flex;
   align-items: center;
