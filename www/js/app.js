@@ -382,6 +382,9 @@ let _currentStationName = null;
 let _currentExtremes    = null;  // [{time,speed,type,floodDir,ebbDir}] around now
 let _currentExtFetch    = 0;
 let _currentStationsCache = null;  // session-cached full station list
+let _currentArrowLayer  = null;
+let _showCurrentArrows  = false;
+const _stationPredCache = new Map();  // stationId → {extremes, fetchTime}
 let _activeCruiseName = 'Penobscot Bay';  // updated when user selects a region
 let _markerByKey = new Map();
 let _sketchMode = false;
@@ -881,18 +884,18 @@ function _tidePhaseAt(at) {
   return { prev, next, phase, height: mid + amp * Math.cos(Math.PI * phase) };
 }
 
-function _currentAt(at) {
-  if (!_currentExtremes || _currentExtremes.length < 2) return null;
+function _currentAtExtremes(extremes, at) {
+  if (!extremes || extremes.length < 2) return null;
   const t = at.getTime();
   let prev = null, next = null;
-  for (let i = 0; i < _currentExtremes.length - 1; i++) {
-    if (_currentExtremes[i].time.getTime() <= t && t <= _currentExtremes[i + 1].time.getTime()) {
-      prev = _currentExtremes[i]; next = _currentExtremes[i + 1]; break;
+  for (let i = 0; i < extremes.length - 1; i++) {
+    if (extremes[i].time.getTime() <= t && t <= extremes[i + 1].time.getTime()) {
+      prev = extremes[i]; next = extremes[i + 1]; break;
     }
   }
   if (!prev) {
-    if (t < _currentExtremes[0].time.getTime()) { prev = _currentExtremes[0]; next = _currentExtremes[1]; }
-    else { prev = _currentExtremes[_currentExtremes.length - 2]; next = _currentExtremes[_currentExtremes.length - 1]; }
+    if (t < extremes[0].time.getTime()) { prev = extremes[0]; next = extremes[1]; }
+    else { prev = extremes[extremes.length - 2]; next = extremes[extremes.length - 1]; }
   }
   const span  = next.time.getTime() - prev.time.getTime();
   const phase = span > 0 ? Math.min(1, Math.max(0, (t - prev.time.getTime()) / span)) : 0;
@@ -902,9 +905,106 @@ function _currentAt(at) {
   const floodDir = prev.floodDir || next.floodDir;
   const ebbDir   = prev.ebbDir   || next.ebbDir;
   const dir = type === 'flood' ? floodDir : type === 'ebb' ? ebbDir : floodDir;
-  // Next event after simulated time
-  const nextEvent = _currentExtremes.find(e => e.time.getTime() > t);
+  const nextEvent = extremes.find(e => e.time.getTime() > t);
   return { speed, type, dir, nextEvent };
+}
+
+function _currentAt(at) {
+  return _currentAtExtremes(_currentExtremes, at);
+}
+
+async function _fetchStationCurrents(stationId) {
+  const SIX_HOURS = 6 * 60 * 60 * 1000;
+  const cached = _stationPredCache.get(stationId);
+  if (cached && Date.now() - cached.fetchTime < SIX_HOURS) return cached.extremes;
+  try {
+    const now   = new Date();
+    const begin = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const end   = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+    const resp = await fetch(
+      `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter` +
+      `?station=${stationId}&product=currents_predictions` +
+      `&time_zone=GMT&units=english&interval=MAX_SLACK&format=json` +
+      `&begin_date=${_tideDateStr(begin)}&end_date=${_tideDateStr(end)}`
+    );
+    const data = await resp.json();
+    const events = (data?.current_predictions?.cp || []).map(p => ({
+      time:     new Date(p.Time.replace(' ', 'T') + ':00Z'),
+      speed:    Math.abs(parseFloat(p.Velocity_Major) || 0),
+      type:     p.Type,
+      floodDir: parseFloat(p.meanFloodDir) || 0,
+      ebbDir:   parseFloat(p.meanEbbDir)   || 0,
+    })).filter(e => isFinite(e.time.getTime()));
+    _stationPredCache.set(stationId, { extremes: events, fetchTime: Date.now() });
+    return events;
+  } catch {
+    return cached?.extremes || [];
+  }
+}
+
+function _makeCurrentArrowIcon(speed, dir, type) {
+  const scale = Math.min(1.8, Math.max(0.35, speed * 0.75));
+  const color = type === 'flood' ? '#4a9edd' : type === 'ebb' ? '#f5a623' : '#999';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40">
+    <g transform="translate(20,20) rotate(${dir}) scale(${scale.toFixed(2)})" opacity="0.75">
+      <polygon points="0,-14 -6,-4 6,-4" fill="${color}"/>
+      <rect x="-1.5" y="-4" width="3" height="16" fill="${color}" rx="1"/>
+    </g>
+  </svg>`;
+  return L.divIcon({ html: svg, iconSize: [40, 40], iconAnchor: [20, 20], className: '' });
+}
+
+function _renderCurrentArrows() {
+  if (!_showCurrentArrows || !_map || !_currentStationsCache) return;
+  if (_currentArrowLayer) { _map.removeLayer(_currentArrowLayer); _currentArrowLayer = null; }
+  const bounds = _map.getBounds();
+  const center = bounds.getCenter();
+  const inView = _currentStationsCache.filter(s => bounds.contains([parseFloat(s.lat), parseFloat(s.lng)]));
+  const nearby = inView
+    .map(s => ({ s, d: Query.distanceNm(center.lng, center.lat, parseFloat(s.lng), parseFloat(s.lat)) }))
+    .sort((a, b) => a.d - b.d).slice(0, 20).map(x => x.s);
+  const sim = new Date(Date.now() + _tideOffset * 3_600_000);
+  const markers = [];
+  for (const station of nearby) {
+    const cached = _stationPredCache.get(station.id);
+    if (!cached?.extremes?.length) continue;
+    const cur = _currentAtExtremes(cached.extremes, sim);
+    if (!cur || cur.speed < 0.05) continue;
+    markers.push(
+      L.marker([parseFloat(station.lat), parseFloat(station.lng)], {
+        icon: _makeCurrentArrowIcon(cur.speed, cur.dir, cur.type),
+        interactive: true, keyboard: false,
+      }).bindTooltip(
+        `${cur.speed.toFixed(1)} kt ${cur.type}<br><span style="color:#8a9ab0;font-size:0.85em">${station.name}</span>`,
+        { className: 'map-tooltip' }
+      )
+    );
+  }
+  if (markers.length) _currentArrowLayer = L.layerGroup(markers).addTo(_map);
+}
+
+async function _fetchAndRenderCurrentArrows() {
+  if (!_showCurrentArrows || !_map) return;
+  if (!_currentStationsCache) {
+    try {
+      const resp = await fetch(
+        'https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json?type=currentpredictions&units=english'
+      );
+      _currentStationsCache = (await resp.json()).stations || [];
+    } catch { return; }
+  }
+  const bounds = _map.getBounds();
+  const center = bounds.getCenter();
+  const inView = _currentStationsCache.filter(s => bounds.contains([parseFloat(s.lat), parseFloat(s.lng)]));
+  const nearby = inView
+    .map(s => ({ s, d: Query.distanceNm(center.lng, center.lat, parseFloat(s.lng), parseFloat(s.lat)) }))
+    .sort((a, b) => a.d - b.d).slice(0, 20).map(x => x.s);
+  const toFetch = nearby.filter(s => {
+    const c = _stationPredCache.get(s.id);
+    return !c || Date.now() - c.fetchTime > 6 * 60 * 60 * 1000;
+  });
+  if (toFetch.length) await Promise.all(toFetch.map(s => _fetchStationCurrents(s.id)));
+  _renderCurrentArrows();
 }
 
 function _dirArrow(deg) {
@@ -993,6 +1093,7 @@ function _onTideSlider(e) {
   _tideOffset = parseFloat(e.target.value);
   _redrawTideCycle();
   _refreshNavaidOverlay();
+  if (_showCurrentArrows) _renderCurrentArrows();
 }
 
 function _stopTidePlay() {
@@ -1014,6 +1115,7 @@ function _startTidePlay() {
     if (slider) slider.value = _tideOffset;
     _redrawTideCycle();
     _refreshNavaidOverlay();
+    if (_showCurrentArrows) _renderCurrentArrows();
   }, 500);
 }
 
@@ -1620,9 +1722,18 @@ function _ensureMap() {
   document.getElementById('nf-clear').addEventListener('click', () => {
     if (_navaidFilterLayer) { _map?.removeLayer(_navaidFilterLayer); _navaidFilterLayer = null; }
     if (_depthHeatLayer)    { _map?.removeLayer(_depthHeatLayer);    _depthHeatLayer = null; }
+    if (_currentArrowLayer) { _map?.removeLayer(_currentArrowLayer); _currentArrowLayer = null; }
     _navaidFilterPanel.classList.remove('open');
     _navaidFilterBtn.classList.remove('active');
   });
+
+  // Currents checkbox
+  document.getElementById('nf-currents').addEventListener('change', function () {
+    _showCurrentArrows = this.checked;
+    if (_showCurrentArrows) _fetchAndRenderCurrentArrows();
+    else if (_currentArrowLayer) { _map.removeLayer(_currentArrowLayer); _currentArrowLayer = null; }
+  });
+  _map.on('moveend', () => { if (_showCurrentArrows) _fetchAndRenderCurrentArrows(); });
 
   // Depths checkbox — show/hide settings and trigger tide fetch + overlay refresh
   const _depthCheckbox  = document.getElementById('nf-depth');
