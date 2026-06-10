@@ -385,6 +385,156 @@ let _currentStationsCache = null;  // session-cached full station list
 let _currentArrowLayer  = null;
 let _showCurrentArrows  = false;
 const _stationPredCache = new Map();  // stationId → {extremes, fetchTime}
+
+// ── Offline persistence keys ──────────────────────────────────────────────────
+const _AC_TIDE_KEY     = 'ac_tide_offline';
+const _AC_CUR_KEY      = 'ac_current_offline';
+const _AC_STATIONS_KEY = 'ac_current_stations';
+const _AC_PRED_KEY     = 'ac_pred_cache';
+
+function _loadOfflineCache() {
+  try {
+    const t = JSON.parse(localStorage.getItem(_AC_TIDE_KEY));
+    if (t?.extremes?.length) {
+      _tideStationId = t.stationId; _tideStationLat = t.stationLat; _tideStationLon = t.stationLon;
+      _tideExtremes = t.extremes.map(e => ({ height: e.height, type: e.type, time: new Date(e.ms) }));
+      _tideExtremesFetch = t.extremesFetch;
+    }
+  } catch {}
+  try {
+    const c = JSON.parse(localStorage.getItem(_AC_CUR_KEY));
+    if (c?.extremes?.length) {
+      _currentStationId = c.stationId; _currentStationLat = c.stationLat;
+      _currentStationLon = c.stationLon; _currentStationName = c.stationName;
+      _currentExtremes = c.extremes.map(e => ({ speed: e.speed, type: e.type, floodDir: e.floodDir, ebbDir: e.ebbDir, time: new Date(e.ms) }));
+      _currentExtFetch = c.extFetch;
+    }
+  } catch {}
+  try {
+    const s = JSON.parse(localStorage.getItem(_AC_STATIONS_KEY));
+    if (Array.isArray(s) && s.length) _currentStationsCache = s;
+  } catch {}
+  try {
+    const p = JSON.parse(localStorage.getItem(_AC_PRED_KEY));
+    if (p) for (const [id, v] of Object.entries(p)) {
+      if (v?.extremes?.length)
+        _stationPredCache.set(id, { extremes: v.extremes.map(e => ({ speed: e.speed, type: e.type, floodDir: e.floodDir, ebbDir: e.ebbDir, time: new Date(e.ms) })), fetchTime: v.fetchTime });
+    }
+  } catch {}
+}
+
+function _saveTideOffline() {
+  if (!_tideExtremes?.length || !_tideStationId) return;
+  try {
+    localStorage.setItem(_AC_TIDE_KEY, JSON.stringify({
+      stationId: _tideStationId, stationLat: _tideStationLat, stationLon: _tideStationLon,
+      extremes: _tideExtremes.map(e => ({ height: e.height, type: e.type, ms: e.time.getTime() })),
+      extremesFetch: _tideExtremesFetch
+    }));
+  } catch {}
+}
+
+function _saveCurrentOffline() {
+  if (!_currentExtremes?.length || !_currentStationId) return;
+  try {
+    localStorage.setItem(_AC_CUR_KEY, JSON.stringify({
+      stationId: _currentStationId, stationLat: _currentStationLat,
+      stationLon: _currentStationLon, stationName: _currentStationName,
+      extremes: _currentExtremes.map(e => ({ speed: e.speed, type: e.type, floodDir: e.floodDir, ebbDir: e.ebbDir, ms: e.time.getTime() })),
+      extFetch: _currentExtFetch
+    }));
+  } catch {}
+}
+
+function _saveStationsOffline() {
+  if (!_currentStationsCache?.length) return;
+  try {
+    localStorage.setItem(_AC_STATIONS_KEY, JSON.stringify(
+      _currentStationsCache.map(s => ({ id: s.id, name: s.name, lat: s.lat, lng: s.lng }))
+    ));
+  } catch {}
+}
+
+function _savePredCacheOffline() {
+  if (!_stationPredCache.size) return;
+  try {
+    const obj = {};
+    for (const [id, v] of _stationPredCache.entries())
+      obj[id] = { extremes: v.extremes.map(e => ({ speed: e.speed, type: e.type, floodDir: e.floodDir, ebbDir: e.ebbDir, ms: e.time.getTime() })), fetchTime: v.fetchTime };
+    localStorage.setItem(_AC_PRED_KEY, JSON.stringify(obj));
+  } catch {}
+}
+
+async function _prefetchTideCurrentForOffline(lat, lon, onProgress) {
+  // Tide station + 72h prediction extremes
+  try {
+    onProgress?.('Tide predictions…');
+    const sResp = await fetch('https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json?type=waterlevels');
+    const { stations: tStations } = await sResp.json();
+    let best = null, bestDist = Infinity;
+    for (const s of tStations) {
+      const d = Query.distanceNm(lon, lat, parseFloat(s.lng), parseFloat(s.lat));
+      if (d < bestDist) { bestDist = d; best = s; }
+    }
+    _tideStationId = best.id; _tideStationLat = parseFloat(best.lat); _tideStationLon = parseFloat(best.lng);
+    const now = new Date();
+    const begin = new Date(now.getTime() - 24 * 3600000);
+    const end   = new Date(now.getTime() + 48 * 3600000);
+    const pResp = await fetch(
+      `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?station=${_tideStationId}` +
+      `&product=predictions&datum=MLLW&time_zone=GMT&units=metric&interval=hilo&format=json` +
+      `&begin_date=${_tideDateStr(begin)}&end_date=${_tideDateStr(end)}`
+    );
+    const extremes = ((await pResp.json())?.predictions || [])
+      .map(p => ({ time: new Date(p.t.replace(' ', 'T') + ':00Z'), height: parseFloat(p.v), type: p.type === 'L' ? 'L' : 'H' }))
+      .filter(e => isFinite(e.height) && isFinite(e.time.getTime()));
+    if (extremes.length >= 2) { _tideExtremes = extremes; _tideExtremesFetch = Date.now(); }
+    _saveTideOffline();
+  } catch (e) { console.warn('[offline] tide prefetch', e); }
+
+  // Current stations list
+  try {
+    onProgress?.('Current stations list…');
+    if (!_currentStationsCache) {
+      const r = await fetch('https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json?type=currentpredictions&units=english');
+      _currentStationsCache = (await r.json()).stations || [];
+    }
+    _saveStationsOffline();
+  } catch (e) { console.warn('[offline] stations prefetch', e); }
+
+  // Current widget station + 72h predictions
+  try {
+    onProgress?.('Current predictions…');
+    await _ensureCurrentStation(lat, lon);
+    if (_currentStationId) {
+      const now = new Date();
+      const begin = new Date(now.getTime() - 24 * 3600000);
+      const end   = new Date(now.getTime() + 48 * 3600000);
+      const r = await fetch(
+        `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?station=${_currentStationId}` +
+        `&product=currents_predictions&time_zone=GMT&units=english&interval=MAX_SLACK&format=json` +
+        `&begin_date=${_tideDateStr(begin)}&end_date=${_tideDateStr(end)}`
+      );
+      const events = ((await r.json())?.current_predictions?.cp || [])
+        .map(p => ({ time: new Date(p.Time.replace(' ', 'T') + ':00Z'), speed: Math.abs(parseFloat(p.Velocity_Major) || 0), type: p.Type, floodDir: parseFloat(p.meanFloodDir) || 0, ebbDir: parseFloat(p.meanEbbDir) || 0 }))
+        .filter(e => isFinite(e.time.getTime()));
+      if (events.length >= 2) { _currentExtremes = events; _currentExtFetch = Date.now(); }
+      _saveCurrentOffline();
+    }
+  } catch (e) { console.warn('[offline] current widget prefetch', e); }
+
+  // Current arrow predictions for stations within 20nm
+  if (_currentStationsCache) {
+    try {
+      const nearby = _currentStationsCache
+        .map(s => ({ s, d: Query.distanceNm(lon, lat, parseFloat(s.lng), parseFloat(s.lat)) }))
+        .filter(x => x.d <= 20).sort((a, b) => a.d - b.d).slice(0, 20).map(x => x.s);
+      onProgress?.(`Current arrows (${nearby.length} stations)…`);
+      await Promise.allSettled(nearby.map(s => _fetchStationCurrents(s.id)));
+      _savePredCacheOffline();
+    } catch (e) { console.warn('[offline] arrow stations prefetch', e); }
+  }
+}
 let _activeCruiseName = 'Penobscot Bay';  // updated when user selects a region
 let _markerByKey = new Map();
 let _sketchMode = false;
@@ -730,6 +880,7 @@ async function _ensureCurrentStation(lat, lon) {
       'https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json?type=currentpredictions&units=english'
     );
     _currentStationsCache = (await resp.json()).stations || [];
+    _saveStationsOffline();
   }
   let best = null, bestDist = Infinity;
   for (const s of _currentStationsCache) {
@@ -775,6 +926,15 @@ async function _fetchTideHeight(lat, lon) {
     const sign = v >= 0 ? '+' : '';
     setStatus(`Tide: ${sign}${v.toFixed(2)} m (MLLW)`);
   } catch {
+    if (_tideExtremes?.length >= 2) {
+      const phase = _tidePhaseAt(new Date());
+      if (phase) {
+        _tideHeight = phase.height;
+        const sign = _tideHeight >= 0 ? '+' : '';
+        setStatus(`Tide: ${sign}${_tideHeight.toFixed(2)} m (cached)`);
+        return _tideHeight;
+      }
+    }
     setStatus('Tide: offline (using MLLW)');
   }
   return _tideHeight;
@@ -817,6 +977,7 @@ async function _fetchTideCycle(lat, lon) {
     if (extremes.length < 2) throw new Error('not enough extremes');
     _tideExtremes      = extremes;
     _tideExtremesFetch = Date.now();
+    _saveTideOffline();
   } catch {
     // Keep any previously cached extremes — a slightly stale curve beats none.
   }
@@ -854,6 +1015,7 @@ async function _fetchCurrentCycle(lat, lon) {
     if (events.length < 2) throw new Error('not enough current events');
     _currentExtremes = events;
     _currentExtFetch = Date.now();
+    _saveCurrentOffline();
   } catch {
     // Keep any previously cached data
   }
@@ -991,6 +1153,7 @@ async function _fetchAndRenderCurrentArrows() {
         'https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json?type=currentpredictions&units=english'
       );
       _currentStationsCache = (await resp.json()).stations || [];
+      _saveStationsOffline();
     } catch { return; }
   }
   const center = _map.getCenter();
@@ -1002,7 +1165,10 @@ async function _fetchAndRenderCurrentArrows() {
     const c = _stationPredCache.get(s.id);
     return !c || Date.now() - c.fetchTime > 6 * 60 * 60 * 1000;
   });
-  if (toFetch.length) await Promise.all(toFetch.map(s => _fetchStationCurrents(s.id)));
+  if (toFetch.length) {
+    await Promise.all(toFetch.map(s => _fetchStationCurrents(s.id)));
+    _savePredCacheOffline();
+  }
   _renderCurrentArrows();
 }
 
@@ -3512,6 +3678,12 @@ async function runRouteDownload(cruiseName) {
         setStatus(`Satellite tiles ${stop.name}: ${done}/${total}`);
       });
     }
+    // Prefetch tide/current for each stop
+    for (let i = 0; i < stops.length; i++) {
+      const stop = stops[i];
+      routeBtn.textContent = `🌊 ${i + 1}/${stops.length}`;
+      await _prefetchTideCurrentForOffline(stop.lat, stop.lon, msg => setStatus(`${stop.name}: ${msg}`));
+    }
     routeBtn.textContent = '✓ Route cached';
     setStatus(`${cruiseName} ready — chart data and satellite tiles cached.`);
     routeBtn.disabled = false;
@@ -3540,6 +3712,8 @@ async function runRouteDownload(cruiseName) {
     await Query.cacheSatelliteTiles(stop.lat, stop.lon, (done, total) => {
       setStatus(`Satellite tiles ${stop.name}: ${done}/${total}`);
     });
+    routeBtn.textContent = `🌊 ${i + 1}/${stops.length}`;
+    await _prefetchTideCurrentForOffline(stop.lat, stop.lon, msg => setStatus(`${stop.name}: ${msg}`));
   }
   routeBtn.textContent = '✓ Route cached';
   setStatus(`${cruiseName} route complete — ${lastResult.total} features + satellite tiles cached.`);
@@ -3551,6 +3725,7 @@ async function runRouteDownload(cruiseName) {
 // ── Initialisation ────────────────────────────────────────────────────────────
 
 async function init() {
+  _loadOfflineCache();
   setStatus('Waiting for GPS...');
 
   // On desktop, show the map immediately so the sidebar sits on the right
@@ -3588,6 +3763,8 @@ async function init() {
       offlineBtn.textContent = '⏳ Downloading...';
       try {
         const result = await Query.prepareOffline(pos.lat, pos.lon);
+        offlineBtn.textContent = '⏳ Tide/current…';
+        await _prefetchTideCurrentForOffline(pos.lat, pos.lon, msg => setStatus(msg));
         offlineBtn.textContent = '✓ Offline ready';
         setStatus(`Downloaded ${result.added} features (${result.total} total cached).`);
       } catch (e) {
