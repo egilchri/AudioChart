@@ -2174,10 +2174,10 @@ function _soundingColor(effDepthM) {
 function _refreshSoundingsLayer() {
   if (!_map) return;
   if (_soundingsLayer) { _map.removeLayer(_soundingsLayer); _soundingsLayer = null; }
-  if (!document.getElementById('nf-depth')?.checked) return;  // only show with Depths enabled
+  if (!document.getElementById('nf-depth')?.checked) return;
   if (!Query.soundings?.features?.length) return;
   const zoom = _map.getZoom();
-  if (zoom < 13) return;  // too zoomed out — too many labels
+  if (zoom < 14) return;  // only show at close zoom — dots still add up fast
   const bounds = _map.getBounds().pad(0.1);
   const markers = [];
   for (const f of Query.soundings.features) {
@@ -2187,14 +2187,15 @@ function _refreshSoundingsLayer() {
     const eff = charted + _tideHeight;
     const effFt = (eff * 3.28084).toFixed(1);
     const color = _soundingColor(eff);
-    markers.push(L.marker([lat, lon], {
-      icon: L.divIcon({
-        className: '',
-        html: `<span style="font-size:10px;font-weight:600;color:${color};text-shadow:0 0 2px #000,0 0 2px #000">${effFt}</span>`,
-        iconAnchor: [10, 7],
-      }),
-      interactive: false,
-    }));
+    markers.push(
+      L.circleMarker([lat, lon], {
+        radius: 3,
+        color,
+        fillColor: color,
+        fillOpacity: 0.75,
+        weight: 0,
+      }).bindTooltip(`${effFt} ft`, { className: 'map-tooltip', sticky: true })
+    );
   }
   if (markers.length) _soundingsLayer = L.layerGroup(markers).addTo(_map);
 }
