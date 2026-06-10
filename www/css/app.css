@@ -514,9 +514,31 @@ html, body {
 }
 #map-layer-btn:active { background: var(--mid-blue); }
 
-#navaid-filter-btn {
+#seamark-toggle-btn {
   position: absolute;
   bottom: 140px;
+  right: 10px;
+  z-index: 1000;
+  width: 48px;
+  height: 48px;
+  background: var(--dark-blue);
+  color: var(--text);
+  border: 1px solid var(--mid-blue);
+  border-radius: 10px;
+  font-size: 1.3rem;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+#seamark-toggle-btn:active { background: var(--mid-blue); }
+#seamark-toggle-btn.active  { background: #2a1a3a; color: #888; }
+
+#navaid-filter-btn {
+  position: absolute;
+  bottom: 196px;
   right: 10px;
   z-index: 1000;
   width: 48px;

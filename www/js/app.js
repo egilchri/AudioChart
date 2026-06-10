@@ -390,6 +390,7 @@ let _animTraveled     = 0;
 let _baseTileLayer    = null;
 let _seamarkLayer     = null;
 let _chartMode        = localStorage.getItem('audiochart-chart-mode') === 'chart';
+let _seamarksVisible  = localStorage.getItem('audiochart-seamarksVisible') !== 'false';
 let _animReportLayer   = null;
 let _animMilestoneLayer = null;
 let _animFollowMode = false;
@@ -1283,10 +1284,12 @@ function _applyMapLayer() {
       'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
       { minZoom: 4, maxZoom: 17, attribution: '© OpenStreetMap contributors' }
     ).addTo(_map);
-    _seamarkLayer = L.tileLayer(
-      'https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png',
-      { minZoom: 7, maxZoom: 17, attribution: '© OpenSeaMap contributors', opacity: 0.9 }
-    ).addTo(_map);
+    if (_seamarksVisible) {
+      _seamarkLayer = L.tileLayer(
+        'https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png',
+        { minZoom: 7, maxZoom: 17, attribution: '© OpenSeaMap contributors', opacity: 0.9 }
+      ).addTo(_map);
+    }
   } else {
     _baseTileLayer = L.tileLayer(
       'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
@@ -1302,12 +1305,20 @@ function _syncLayerBtn() {
   btn.title       = _chartMode ? 'Switch to satellite' : 'Switch to chart';
 }
 
+function _syncSeamarkBtn() {
+  const btn = document.getElementById('seamark-toggle-btn');
+  if (!btn) return;
+  btn.title = _seamarksVisible ? 'Hide seamarks' : 'Show seamarks';
+  btn.classList.toggle('active', !_seamarksVisible);
+}
+
 function _ensureMap() {
   if (_map) return;
   _map = L.map('leaflet-map', { zoomControl: false, attributionControl: true });
   _map.setView([44.1018, -69.0752], 11);  // Rockland Harbor — default until GPS arrives
   _applyMapLayer();
   _syncLayerBtn();
+  _syncSeamarkBtn();
 
   // Compass rose overlay
   const _CompassRose = L.Control.extend({
@@ -1394,6 +1405,14 @@ function _ensureMap() {
     localStorage.setItem('audiochart-chart-mode', _chartMode ? 'chart' : 'satellite');
     _applyMapLayer();
     _syncLayerBtn();
+  });
+
+  document.getElementById('seamark-toggle-btn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    _seamarksVisible = !_seamarksVisible;
+    localStorage.setItem('audiochart-seamarksVisible', String(_seamarksVisible));
+    _applyMapLayer();
+    _syncSeamarkBtn();
   });
 
   // ⚓ Navaid filter panel
