@@ -2477,13 +2477,6 @@ function _ensureMap() {
     });
   }
 
-  document.getElementById('map-ctx-where-am-i').addEventListener('click', () => {
-    _hideCtx();
-    if (!_ctxLatLng) return;
-    const { lat, lng: lon } = _ctxLatLng;
-    _runWhereAmI(lat, lon);
-  });
-
   document.getElementById('map-ctx-bring-boat').addEventListener('click', () => {
     _hideCtx();
     if (!_ctxLatLng) return;
