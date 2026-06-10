@@ -367,6 +367,7 @@ let _channelLayer   = null;  // channel corridor polygons (managed separately)
 let _soundingsLayer = null;  // depth sounding point labels
 let _tideHeight    = 0;      // meters above MLLW; 0 = unknown/fallback
 let _tideOffset    = 0;      // hours offset from real time for preview slider; 0 = live
+let _tidePlayInterval = null;  // setInterval ID while tide animation is playing
 let _tideLastFetch = 0;      // Date.now() of last successful fetch
 let _tideStationId  = null;  // cached nearest NOAA station ID
 let _tideStationLat = null;  // boat lat used for that station search
@@ -889,9 +890,32 @@ function _effectiveTideHeight() {
 }
 
 function _onTideSlider(e) {
+  _stopTidePlay();
   _tideOffset = parseFloat(e.target.value);
   _redrawTideCycle();
   _refreshNavaidOverlay();
+}
+
+function _stopTidePlay() {
+  if (!_tidePlayInterval) return;
+  clearInterval(_tidePlayInterval);
+  _tidePlayInterval = null;
+  const btn = _tideCycleEl?.querySelector('#tide-play-btn');
+  if (btn) btn.textContent = '▶';
+}
+
+function _startTidePlay() {
+  if (_tidePlayInterval) { _stopTidePlay(); return; }
+  const slider = _tideCycleEl?.querySelector('#tide-offset-slider');
+  const btn = _tideCycleEl?.querySelector('#tide-play-btn');
+  if (btn) btn.textContent = '⏸';
+  _tidePlayInterval = setInterval(() => {
+    _tideOffset += 0.5;
+    if (_tideOffset > 24) _tideOffset = 0;
+    if (slider) slider.value = _tideOffset;
+    _redrawTideCycle();
+    _refreshNavaidOverlay();
+  }, 500);
 }
 
 function _redrawTideCycle() {
@@ -1404,7 +1428,10 @@ function _ensureMap() {
         <div class="tide-svg-wrapper"></div>
         <div class="tide-slider-row">
           <input type="range" id="tide-offset-slider" min="-6" max="24" step="0.25" value="0">
-          <div class="tide-offset-label">now</div>
+          <div class="tide-play-row">
+            <button id="tide-play-btn">&#9654;</button>
+            <div class="tide-offset-label">now</div>
+          </div>
         </div>`;
       _tideCycleEl = el;
       const slider = el.querySelector('#tide-offset-slider');
@@ -1412,8 +1439,13 @@ function _ensureMap() {
       slider.addEventListener('dblclick', (ev) => {
         ev.target.value = 0;
         _tideOffset = 0;
+        _stopTidePlay();
         _redrawTideCycle();
         _refreshNavaidOverlay();
+      });
+      el.querySelector('#tide-play-btn').addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        _startTidePlay();
       });
       _redrawTideCycle();
       return el;
