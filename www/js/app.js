@@ -366,6 +366,7 @@ let _depthHeatLayer = null;  // leaflet.heat layer for depth blobs (managed sepa
 let _channelLayer   = null;  // channel corridor polygons (managed separately)
 let _soundingsLayer = null;  // depth sounding point labels
 let _tideHeight    = 0;      // meters above MLLW; 0 = unknown/fallback
+let _tideOffset    = 0;      // hours offset from real time for preview slider; 0 = live
 let _tideLastFetch = 0;      // Date.now() of last successful fetch
 let _tideStationId  = null;  // cached nearest NOAA station ID
 let _tideStationLat = null;  // boat lat used for that station search
@@ -881,8 +882,26 @@ function _tideCycleSvg(now) {
   `);
 }
 
+function _effectiveTideHeight() {
+  if (_tideOffset === 0) return _tideHeight;
+  const sim = new Date(Date.now() + _tideOffset * 3_600_000);
+  return _tidePhaseAt(sim)?.height ?? _tideHeight;
+}
+
+function _onTideSlider(e) {
+  _tideOffset = parseFloat(e.target.value);
+  _redrawTideCycle();
+  _refreshNavaidOverlay();
+}
+
 function _redrawTideCycle() {
-  if (_tideCycleEl) _tideCycleEl.innerHTML = _tideCycleSvg(new Date());
+  if (!_tideCycleEl) return;
+  const sim = new Date(Date.now() + _tideOffset * 3_600_000);
+  const wrapper = _tideCycleEl.querySelector('.tide-svg-wrapper');
+  if (wrapper) wrapper.innerHTML = _tideCycleSvg(sim);
+  const lbl = _tideCycleEl.querySelector('.tide-offset-label');
+  if (lbl) lbl.textContent = _tideOffset === 0 ? 'now'
+    : (_tideOffset > 0 ? '+' : '−') + _fmtDuration(Math.abs(_tideOffset) * 3_600_000);
 }
 
 window._debugTideCycle = () => {
@@ -1380,8 +1399,23 @@ function _ensureMap() {
     onAdd() {
       const el = L.DomUtil.create('div', 'tide-cycle-ctrl');
       L.DomEvent.disableClickPropagation(el);
-      el.innerHTML = _tideCycleSvg(new Date());
+      L.DomEvent.disableScrollPropagation(el);
+      el.innerHTML = `
+        <div class="tide-svg-wrapper"></div>
+        <div class="tide-slider-row">
+          <input type="range" id="tide-offset-slider" min="-6" max="24" step="0.25" value="0">
+          <div class="tide-offset-label">now</div>
+        </div>`;
       _tideCycleEl = el;
+      const slider = el.querySelector('#tide-offset-slider');
+      slider.addEventListener('input', _onTideSlider);
+      slider.addEventListener('dblclick', (ev) => {
+        ev.target.value = 0;
+        _tideOffset = 0;
+        _redrawTideCycle();
+        _refreshNavaidOverlay();
+      });
+      _redrawTideCycle();
       return el;
     },
   });
@@ -2203,16 +2237,12 @@ function _refreshSoundingsLayer() {
     const [lon, lat] = f.geometry.coordinates;
     if (!bounds.contains([lat, lon])) continue;
     const charted = f.properties.valsou;
-    const eff = charted + _tideHeight;
+    const eff = charted + _effectiveTideHeight();
     const effFt = (eff * 3.28084).toFixed(1);
     const color = _soundingColor(eff);
     markers.push(
       L.circleMarker([lat, lon], {
-        radius: 3,
-        color,
-        fillColor: color,
-        fillOpacity: 0.75,
-        weight: 0,
+        radius: 4, color, fill: false, weight: 1.5, opacity: 0.8,
       }).bindTooltip(`${effFt} ft`, { className: 'map-tooltip', sticky: true })
     );
   }
@@ -2308,7 +2338,7 @@ function _refreshNavaidOverlay() {
     if (draftM != null) {
       const polyFeatures = [];
       for (const f of Query.depthZones) {
-        const eff = (f.properties.valsou ?? 0) + _tideHeight;
+        const eff = (f.properties.valsou ?? 0) + _effectiveTideHeight();
         if (eff <= 0) continue;  // exposed/dry at current tide — not a navigable hazard
         let color = null;
         if (eff <= draftM)             color = '#e05252';

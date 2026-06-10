@@ -903,6 +903,31 @@ html, body {
   margin: 8px;
   opacity: 0.8;
   filter: drop-shadow(0 1px 4px rgba(0,0,0,0.5));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.tide-slider-row {
+  pointer-events: all;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  width: 132px;
+}
+.tide-slider-row input[type=range] {
+  width: 120px;
+  accent-color: #4a9edd;
+  cursor: pointer;
+  height: 16px;
+}
+.tide-offset-label {
+  font-size: 9px;
+  color: #8a9ab0;
+  font-family: Arial, sans-serif;
+  letter-spacing: 0.5px;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
 }
 /* Animation fullscreen mode */
 #app.anim-mode #sidebar,
