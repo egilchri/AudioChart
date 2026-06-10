@@ -129,6 +129,58 @@ function _distNm(lat1, lon1, lat2, lon2) {
  * Uses /api/nearby when the Mac server is available;
  * falls back to the static GeoJSON files for offline use.
  */
+
+// When DEPARE polygons from multiple chart scales overlap at the same location,
+// keep only the most-detailed chart's polygon. Builds a grid spatial index over
+// fine-scale (US5+) polygons, then drops coarser polygons whose sampled vertices
+// are mostly inside finer zones (i.e. the fine chart supersedes them there).
+function _prioritiseByChartScale(zones) {
+  const chartScale = name => { const m = (name || '').match(/^US(\d)/); return m ? +m[1] : 0; };
+  const GRID = 0.01; // ~0.5nm cells
+
+  // Build spatial index for fine (US5+) polygons
+  const idx = new Map();
+  for (const f of zones) {
+    if (chartScale(f.properties.chart) < 5) continue;
+    const geom = f.geometry;
+    const ring = geom.type === 'Polygon' ? geom.coordinates[0] : geom.coordinates[0][0];
+    const lons = ring.map(c => c[0]), lats = ring.map(c => c[1]);
+    const entry = { minLon: Math.min(...lons), maxLon: Math.max(...lons), minLat: Math.min(...lats), maxLat: Math.max(...lats), ring };
+    for (let col = Math.floor(entry.minLon / GRID); col <= Math.ceil(entry.maxLon / GRID); col++) {
+      for (let row = Math.floor(entry.minLat / GRID); row <= Math.ceil(entry.maxLat / GRID); row++) {
+        const key = `${col},${row}`;
+        if (!idx.has(key)) idx.set(key, []);
+        idx.get(key).push(entry);
+      }
+    }
+  }
+
+  function coveredByFine(lon, lat) {
+    const candidates = idx.get(`${Math.floor(lon / GRID)},${Math.floor(lat / GRID)}`) || [];
+    for (const e of candidates) {
+      if (lon < e.minLon || lon > e.maxLon || lat < e.minLat || lat > e.maxLat) continue;
+      const r = e.ring; let inside = false, px = r[0][0], py = r[0][1];
+      for (let i = 1; i <= r.length; i++) {
+        const [cx, cy] = r[i % r.length];
+        if ((py > lat) !== (cy > lat) && lon < (cx - px) * (lat - py) / (cy - py) + px) inside = !inside;
+        px = cx; py = cy;
+      }
+      if (inside) return true;
+    }
+    return false;
+  }
+
+  return zones.filter(f => {
+    if (chartScale(f.properties.chart) >= 5) return true;
+    const geom = f.geometry;
+    const ring = geom.type === 'Polygon' ? geom.coordinates[0] : geom.coordinates[0][0];
+    const step = Math.max(1, Math.floor(ring.length / 10));
+    let covered = 0, total = 0;
+    for (let i = 0; i < ring.length; i += step) { total++; if (coveredByFine(ring[i][0], ring[i][1])) covered++; }
+    return covered / total < 0.2;
+  });
+}
+
 export async function loadData(lat, lon) {
   // Land polygons and depth zones are position-independent — load once regardless of mode.
   // Depth zones always come from the bundled hazards.geojson so we get real polygon
@@ -146,9 +198,12 @@ export async function loadData(lat, lon) {
     fetch('./data/hazards.geojson')
       .then(r => r.ok ? r.json() : null)
       .then(fc => {
-        if (fc) depthZones = fc.features.filter(f =>
-          f.properties?.label === 'shallow area' && f.geometry?.type !== 'Point'
-        );
+        if (fc) {
+          const raw = fc.features.filter(f =>
+            f.properties?.label === 'shallow area' && f.geometry?.type !== 'Point'
+          );
+          depthZones = _prioritiseByChartScale(raw);
+        }
         console.log(`[AC] Depth zones: ${depthZones ? depthZones.length : 'FAILED TO LOAD'}`);
       })
       .catch(() => console.warn('[AC] hazards.geojson failed to load for depth zones'));
