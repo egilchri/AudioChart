@@ -1937,9 +1937,15 @@ function _ensureMap() {
     _importSubmenu.style.display = 'none';
     _populateWpSubmenu();
     _populateRouteSelect();
-    _ctxMenu.style.left = Math.max(4, btn.left - 180) + 'px';
-    _ctxMenu.style.top  = (btn.top - _ctxMenu.offsetHeight - 8) + 'px';
-    _ctxMenu.style.display = _ctxMenu.style.display === 'block' ? 'none' : 'block';
+    const showing = _ctxMenu.style.display === 'block';
+    _ctxMenu.style.display = showing ? 'none' : 'block';
+    if (!showing) {
+      const mw = _ctxMenu.offsetWidth, mh = _ctxMenu.offsetHeight;
+      const x = Math.min(Math.max(4, btn.left - mw), window.innerWidth  - mw - 4);
+      const y = Math.min(Math.max(4, btn.top  - mh - 8), window.innerHeight - mh - 4);
+      _ctxMenu.style.left = x + 'px';
+      _ctxMenu.style.top  = y + 'px';
+    }
   });
 
   // Refresh depth soundings when map moves or zooms
@@ -2185,9 +2191,14 @@ function _ensureMap() {
     _importSubmenu.style.display = 'none';
     _populateWpSubmenu();
     _populateRouteSelect();
-    _ctxMenu.style.left = e.originalEvent.clientX + 'px';
-    _ctxMenu.style.top  = e.originalEvent.clientY + 'px';
+    _ctxMenu.style.left    = '0';
+    _ctxMenu.style.top     = '0';
     _ctxMenu.style.display = 'block';
+    const mw = _ctxMenu.offsetWidth, mh = _ctxMenu.offsetHeight;
+    const x  = Math.min(e.originalEvent.clientX, window.innerWidth  - mw - 4);
+    const y  = Math.min(e.originalEvent.clientY, window.innerHeight - mh - 4);
+    _ctxMenu.style.left = Math.max(4, x) + 'px';
+    _ctxMenu.style.top  = Math.max(4, y) + 'px';
   });
   _map.on('movestart zoomstart', _hideCtx);
   document.addEventListener('click', (e) => { if (!_ctxMenu.contains(e.target)) _hideCtx(); }, { capture: true });
