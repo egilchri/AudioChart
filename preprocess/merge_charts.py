@@ -192,16 +192,14 @@ def deduplicate_channels(features):
     return list(seen.values())
 
 
-def thin_soundings(features, cell_deg=0.002, max_depth_m=30.0):
-    """Thin soundings to one per ~160m grid cell, keeping the shallowest (safety-first).
-    Drops soundings deeper than max_depth_m — not navigationally significant for small craft."""
+def thin_soundings(features, cell_deg=0.003):
+    """Thin soundings to one per ~240m grid cell, keeping the shallowest (safety-first).
+    All depths included so the tooltip works everywhere, not just in shallow water."""
     grid = {}
     for f in features:
-        depth = f['properties']['valsou']
-        if depth > max_depth_m:
-            continue
         lon, lat = f['geometry']['coordinates']
         cell = (round(lat / cell_deg), round(lon / cell_deg))
+        depth = f['properties']['valsou']
         if cell not in grid or depth < grid[cell]['properties']['valsou']:
             grid[cell] = f
     return list(grid.values())
