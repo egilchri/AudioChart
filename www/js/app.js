@@ -271,7 +271,7 @@ async function _runWhereAmI(lat, lon) {
     } catch (_) {}
   }
   const txt = response?.text ?? response ?? 'No named places found nearby.';
-  showResponse(txt);
+  showResponse(`${txt}\n${formatPositionDisplay(lat, lon)}`);
   TTS.sayImmediate(response?.speech ?? txt);
 }
 
