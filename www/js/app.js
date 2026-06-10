@@ -943,15 +943,18 @@ async function _fetchStationCurrents(stationId) {
 }
 
 function _makeCurrentArrowIcon(speed, dir, type) {
-  const scale = Math.min(1.8, Math.max(0.35, speed * 0.75));
-  const color = type === 'flood' ? '#4a9edd' : type === 'ebb' ? '#f5a623' : '#999';
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40">
-    <g transform="translate(20,20) rotate(${dir}) scale(${scale.toFixed(2)})" opacity="0.75">
-      <polygon points="0,-14 -6,-4 6,-4" fill="${color}"/>
-      <rect x="-1.5" y="-4" width="3" height="16" fill="${color}" rx="1"/>
+  // scale: 0.55 at weakest, 1.5 at ~1.5 kt+
+  const scale = Math.min(1.5, Math.max(0.55, speed * 0.8 + 0.3));
+  const color = type === 'flood' ? '#00ddaa' : type === 'ebb' ? '#ff6644' : '#aaa';
+  // Arrow pointing up (north): head tip at (0,-22), shaft to (0,14), T-tail at y=16
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60">
+    <g transform="translate(30,30) rotate(${dir}) scale(${scale.toFixed(2)})" opacity="0.88">
+      <polygon points="0,-22 -8,-10 8,-10" fill="${color}"/>
+      <line x1="0" y1="-10" x2="0" y2="14" stroke="${color}" stroke-width="3" stroke-linecap="round"/>
+      <line x1="-9" y1="16" x2="9" y2="16" stroke="${color}" stroke-width="3" stroke-linecap="round"/>
     </g>
   </svg>`;
-  return L.divIcon({ html: svg, iconSize: [40, 40], iconAnchor: [20, 20], className: '' });
+  return L.divIcon({ html: svg, iconSize: [60, 60], iconAnchor: [30, 30], className: '' });
 }
 
 function _renderCurrentArrows() {
