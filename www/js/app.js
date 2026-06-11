@@ -363,6 +363,7 @@ let _boatCircleDismissed = false;  // true after user taps the boat once
 let _waypointsVisible = localStorage.getItem('audiochart-waypoints-visible') === 'true';
 let _leafletReady = false;
 let _depthHeatLayer = null;  // leaflet.heat layer for depth blobs (managed separately)
+let _mudflatLayer   = null;  // tidal flat polygons (valsou < 0, always exposed)
 let _channelLayer   = null;  // channel corridor polygons (managed separately)
 let _soundingsLayer = null;  // depth sounding point labels
 let _tideHeight    = 0;      // meters above MLLW; 0 = unknown/fallback
@@ -1887,6 +1888,7 @@ function _ensureMap() {
   document.getElementById('nf-clear').addEventListener('click', () => {
     if (_navaidFilterLayer) { _map?.removeLayer(_navaidFilterLayer); _navaidFilterLayer = null; }
     if (_depthHeatLayer)    { _map?.removeLayer(_depthHeatLayer);    _depthHeatLayer = null; }
+    if (_mudflatLayer)      { _map?.removeLayer(_mudflatLayer);      _mudflatLayer   = null; }
     if (_currentArrowLayer) { _map?.removeLayer(_currentArrowLayer); _currentArrowLayer = null; }
     _navaidFilterPanel.classList.remove('open');
     _navaidFilterBtn.classList.remove('active');
@@ -2763,6 +2765,21 @@ function _refreshNavaidOverlay() {
       const m = L.marker([lat, lon], { icon: _hazardMarkerIcon() });
       m.bindTooltip(name, { permanent: false, direction: 'top', className: 'map-tooltip' });
       markers.push(m);
+    }
+  }
+
+  // Mudflat layer — tidal flats (valsou < 0 = seabed above chart datum, always exposed).
+  if (_mudflatLayer) { _map.removeLayer(_mudflatLayer); _mudflatLayer = null; }
+  if (showDepths && Query.depthZones) {
+    const mudflatFeatures = Query.depthZones.filter(f => (f.properties.valsou ?? 0) < 0);
+    if (mudflatFeatures.length) {
+      _mudflatLayer = L.geoJSON(
+        { type: 'FeatureCollection', features: mudflatFeatures },
+        {
+          style: () => ({ color: 'none', weight: 0, fillColor: '#a07040', fillOpacity: 0.85 }),
+          onEachFeature: (f, layer) => layer.bindTooltip('Tidal flat', { sticky: true, className: 'map-tooltip' }),
+        }
+      ).addTo(_map);
     }
   }
 
