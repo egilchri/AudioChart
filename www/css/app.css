@@ -936,19 +936,6 @@ html, body {
   cursor: pointer;
   height: 16px;
 }
-.current-info-row {
-  font-size: 9px;
-  color: #7ec8e3;
-  font-family: Arial, sans-serif;
-  min-height: 11px;
-  text-align: center;
-  letter-spacing: 0.2px;
-  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 132px;
-}
 .tide-play-row {
   display: flex;
   align-items: center;

@@ -1294,18 +1294,6 @@ function _redrawTideCycle() {
   if (lbl) lbl.textContent = _tideOffset === 0 ? 'now'
     : (_tideOffset > 0 ? '+' : '−') + _fmtDuration(Math.abs(_tideOffset) * 3_600_000);
 
-  const curEl = _tideCycleEl.querySelector('#current-info');
-  if (!curEl) return;
-  const cur = _currentAt(sim);
-  if (!cur) { curEl.textContent = ''; return; }
-  const arrow = _dirArrow(cur.dir);
-  const speedStr = cur.type === 'slack' ? 'slack' : `${cur.speed.toFixed(1)} kt ${cur.type}`;
-  let nextStr = '';
-  if (cur.nextEvent) {
-    const ms = cur.nextEvent.time.getTime() - sim.getTime();
-    nextStr = ` · ${cur.nextEvent.type} ${_fmtDuration(ms)}`;
-  }
-  curEl.textContent = `${arrow} ${speedStr}${nextStr}`;
 }
 
 window._debugTideCycle = () => {
@@ -1806,7 +1794,6 @@ function _ensureMap() {
       L.DomEvent.disableScrollPropagation(el);
       el.innerHTML = `
         <div class="tide-svg-wrapper"></div>
-        <div id="current-info" class="current-info-row"></div>
         <div class="tide-slider-row">
           <input type="range" id="tide-offset-slider" min="-6" max="24" step="0.25" value="0">
           <div class="tide-play-row">
