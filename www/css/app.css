@@ -806,6 +806,16 @@ html, body {
   padding: 8px 12px;
   flex-shrink: 0;
 }
+#sketch-done-btn {
+  background: var(--ok);
+  color: var(--navy);
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
 #sketch-cancel-btn {
   background: var(--navy);
   color: var(--text);

@@ -538,10 +538,11 @@ async function _prefetchTideCurrentForOffline(lat, lon, onProgress) {
 }
 let _activeCruiseName = 'Penobscot Bay';  // updated when user selects a region
 let _markerByKey = new Map();
-let _sketchMode = false;
-let _sketchPath = null;
-let _sketchPoints = [];
-let _sketchDrawing = false;
+let _sketchMode      = false;
+let _sketchPath      = null;
+let _sketchWaypoints = [];
+let _sketchRubber    = null;
+let _sketchCursorLL  = null;
 let _animMode = false;
 let _animRafId = null;
 let _animIntervalId = null;
@@ -661,6 +662,32 @@ let _sketchTouchStart = null;
 let _sketchTouchMove  = null;
 let _sketchTouchEnd   = null;
 
+function _sketchAddWaypoint(latlng) {
+  _sketchWaypoints.push(latlng);
+  if (_sketchWaypoints.length === 1) {
+    // First waypoint of a new session — discard any leftover path from the previous sketch.
+    if (_sketchPath) { _map.removeLayer(_sketchPath); }
+    _sketchPath = L.polyline([latlng], {
+      color: '#e05252', weight: 4, opacity: 0.9, lineJoin: 'round', lineCap: 'round',
+    }).addTo(_map);
+  } else {
+    _sketchPath.setLatLngs(_sketchWaypoints);
+  }
+  _sketchUpdateRubber(latlng);
+}
+
+function _sketchUpdateRubber(cursorLL) {
+  if (_sketchWaypoints.length === 0) return;
+  const last = _sketchWaypoints[_sketchWaypoints.length - 1];
+  if (!_sketchRubber) {
+    _sketchRubber = L.polyline([last, cursorLL], {
+      color: '#e05252', weight: 2, opacity: 0.5, dashArray: '6 6',
+    }).addTo(_map);
+  } else {
+    _sketchRubber.setLatLngs([last, cursorLL]);
+  }
+}
+
 function _enterSketchMode() {
   _sketchMode = true;
   document.getElementById('map-container').style.display = 'block';
@@ -671,8 +698,8 @@ function _enterSketchMode() {
   _map.invalidateSize();
   _map.dragging.disable();
 
-  // Mobile: add touch handlers in capture phase so they fire before Leaflet's
-  // own handlers, which may stopImmediatePropagation on the same element.
+  // Mobile: touch handlers in capture phase so they fire before Leaflet's own handlers.
+  // touchstart/touchmove update rubber-band; touchend commits the waypoint.
   const container = _map.getContainer();
 
   _sketchTouchStart = (e) => {
@@ -681,39 +708,37 @@ function _enterSketchMode() {
     e.stopPropagation();
     const t = e.touches[0];
     const r = container.getBoundingClientRect();
-    const latlng = _map.containerPointToLatLng(L.point(t.clientX - r.left, t.clientY - r.top));
-    _sketchDrawing = true;
-    _sketchPoints = [latlng];
-    if (_sketchPath) { _map.removeLayer(_sketchPath); }
-    _sketchPath = L.polyline([latlng], {
-      color: '#e05252', weight: 4, opacity: 0.9, lineJoin: 'round', lineCap: 'round',
-    }).addTo(_map);
+    _sketchCursorLL = _map.containerPointToLatLng(L.point(t.clientX - r.left, t.clientY - r.top));
+    _sketchUpdateRubber(_sketchCursorLL);
   };
   _sketchTouchMove = (e) => {
-    if (!_sketchDrawing) return;
+    if (!_sketchMode) return;
     e.preventDefault();
     e.stopPropagation();
     const t = e.touches[0];
     const r = container.getBoundingClientRect();
-    const latlng = _map.containerPointToLatLng(L.point(t.clientX - r.left, t.clientY - r.top));
-    _sketchPoints.push(latlng);
-    _sketchPath.setLatLngs(_sketchPoints);
+    _sketchCursorLL = _map.containerPointToLatLng(L.point(t.clientX - r.left, t.clientY - r.top));
+    _sketchUpdateRubber(_sketchCursorLL);
   };
   _sketchTouchEnd = (e) => {
-    if (!_sketchDrawing) return;
+    if (!_sketchMode || !_sketchCursorLL) return;
     e.stopPropagation();
-    _onSketchEnd();
+    _sketchAddWaypoint(_sketchCursorLL);
   };
 
-  // capture: true ensures we fire before any Leaflet handlers on the same element
   container.addEventListener('touchstart', _sketchTouchStart, { passive: false, capture: true });
   container.addEventListener('touchmove',  _sketchTouchMove,  { passive: false, capture: true });
   container.addEventListener('touchend',   _sketchTouchEnd,   { capture: true });
+
+  // Desktop: click adds waypoint, mousemove updates rubber-band, dblclick finishes.
+  // dblclick fires after two clicks; the second click adds a spurious waypoint we pop.
+  _map.on('click',     _onSketchClick);
+  _map.on('mousemove', _onSketchMouseMove);
+  _map.on('dblclick',  _onSketchDblClick);
 }
 
 function _exitSketchMode() {
   _sketchMode = false;
-  _sketchDrawing = false;
   _appEl.classList.remove('sketch-mode');
   _sketchBanner.style.display = 'none';
   if (_map) {
@@ -722,34 +747,33 @@ function _exitSketchMode() {
     if (_sketchTouchMove)  container.removeEventListener('touchmove',  _sketchTouchMove,  { capture: true });
     if (_sketchTouchEnd)   container.removeEventListener('touchend',   _sketchTouchEnd,   { capture: true });
     _sketchTouchStart = _sketchTouchMove = _sketchTouchEnd = null;
+    _map.off('click',     _onSketchClick);
+    _map.off('mousemove', _onSketchMouseMove);
+    _map.off('dblclick',  _onSketchDblClick);
     _map.dragging.enable();
     _map.invalidateSize();
-    _map.off('mousemove', _onSketchMove);
-    _map.off('mouseup',   _onSketchEnd);
   }
-  if (_sketchPath && _sketchPoints.length < 2) {
+  if (_sketchRubber) { _map.removeLayer(_sketchRubber); _sketchRubber = null; }
+  if (_sketchPath && _sketchWaypoints.length < 2) {
     _map.removeLayer(_sketchPath);
     _sketchPath = null;
   }
-  _sketchPoints = [];
+  _sketchWaypoints = [];
+  _sketchCursorLL  = null;
 }
 
-function _onSketchStart(e) {
-  if (!_sketchMode) return;
-  _sketchDrawing = true;
-  _sketchPoints = [e.latlng];
-  if (_sketchPath) { _map.removeLayer(_sketchPath); }
-  _sketchPath = L.polyline([e.latlng], {
-    color: '#e05252', weight: 4, opacity: 0.9, lineJoin: 'round', lineCap: 'round',
-  }).addTo(_map);
-  _map.on('mousemove', _onSketchMove);
-  _map.once('mouseup', _onSketchEnd);
+function _onSketchClick(e) {
+  _sketchAddWaypoint(e.latlng);
 }
 
-function _onSketchMove(e) {
-  if (!_sketchDrawing) return;
-  _sketchPoints.push(e.latlng);
-  _sketchPath.setLatLngs(_sketchPoints);
+function _onSketchMouseMove(e) {
+  _sketchUpdateRubber(e.latlng);
+}
+
+function _onSketchDblClick(e) {
+  // The second click of the dblclick already added a spurious waypoint — pop it.
+  if (_sketchWaypoints.length > 0) _sketchWaypoints.pop();
+  _finishSketch();
 }
 
 const ROUTE_KEY = 'audiochart-user-routes';
@@ -765,10 +789,8 @@ function _saveRoute(name, points) {
   localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
 }
 
-function _onSketchEnd() {
-  _map.off('mousemove', _onSketchMove);
-  _sketchDrawing = false;
-  const pts = _sketchPoints.slice();
+function _finishSketch() {
+  const pts = _sketchWaypoints.slice();
   _exitSketchMode();
   if (pts.length > 1) {
     let totalNm = 0;
@@ -786,6 +808,7 @@ function _onSketchEnd() {
   }
 }
 
+document.getElementById('sketch-done-btn').addEventListener('click', _finishSketch);
 document.getElementById('sketch-cancel-btn').addEventListener('click', _exitSketchMode);
 
 // ── GPX export ────────────────────────────────────────────────────────────────
@@ -1952,8 +1975,7 @@ function _ensureMap() {
   // Refresh depth soundings when map moves or zooms
   _map.on('zoomend moveend', _refreshSoundingsLayer);
 
-  // Sketch route: intercept mousedown when mode is active
-  _map.on('mousedown', (e) => { if (_sketchMode) _onSketchStart(e); });
+  // Sketch route click/dblclick/mousemove handlers are registered in _enterSketchMode()
 
   // Right-click / long-press context menu
   const _ctxMenu = document.getElementById('map-context-menu');
@@ -2234,6 +2256,26 @@ function _ensureMap() {
     const msg = `${deleted.name} deleted.`;
     setStatus(msg);
     TTS.sayImmediate(msg);
+  });
+
+  document.getElementById('map-ctx-route-rename').addEventListener('click', () => {
+    _hideCtx();
+    const sel    = document.getElementById('track-route-select');
+    const idx    = parseInt(sel.value);
+    const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+    if (isNaN(idx) || !routes[idx]) {
+      alert('Select a route in the Track panel first, then rename.');
+      return;
+    }
+    const newName = prompt('Rename route:', routes[idx].name);
+    if (!newName || !newName.trim()) return;
+    routes[idx].name = newName.trim();
+    localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
+    localStorage.setItem('audiochart-last-route', newName.trim());
+    _populateRouteSelect();
+    const newIdx = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]')
+      .findIndex(r => r.name === newName.trim());
+    if (newIdx >= 0) sel.value = String(newIdx);
   });
 
   const _trackSubmenu = document.getElementById('map-ctx-track-submenu');
