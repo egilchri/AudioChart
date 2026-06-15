@@ -1731,6 +1731,18 @@ function _ensureMap() {
   _syncLayerBtn();
   _syncSeamarkBtn();
 
+  // Zoom slider (desktop only — hidden by CSS on mobile)
+  const _zoomSlider = document.getElementById('zoom-slider');
+  const _zoomLabel  = document.getElementById('zoom-slider-label');
+  const _syncZoomSlider = () => {
+    const z = _map.getZoom();
+    _zoomSlider.value = z;
+    _zoomLabel.textContent = z;
+  };
+  _zoomSlider.addEventListener('input', () => _map.setZoom(parseInt(_zoomSlider.value, 10)));
+  _map.on('zoomend', _syncZoomSlider);
+  _syncZoomSlider();
+
   // Compass rose overlay
   const _CompassRose = L.Control.extend({
     options: { position: 'topleft' },

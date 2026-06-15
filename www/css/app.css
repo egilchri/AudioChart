@@ -1198,3 +1198,41 @@ html, body {
 }
 #history-clear:hover { color: var(--danger); }
 
+/* ── Zoom slider (desktop map overlay) ───────────────────────────────────── */
+#zoom-slider-wrap {
+  display: none;
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1000;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  background: rgba(26, 58, 92, 0.85);
+  border: 1px solid var(--mid-blue);
+  border-radius: 8px;
+  padding: 8px 6px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+  user-select: none;
+}
+#zoom-slider-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--accent);
+  font-family: monospace;
+  text-align: center;
+}
+#zoom-slider {
+  writing-mode: vertical-lr;
+  direction: rtl;
+  height: 150px;
+  width: 24px;
+  cursor: pointer;
+  accent-color: var(--accent);
+  background: transparent;
+}
+@media (min-width: 768px) {
+  #zoom-slider-wrap { display: flex; }
+}
+
