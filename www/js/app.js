@@ -552,6 +552,7 @@ let _editVertexMarkers     = [];
 let _editSegmentLayers     = [];
 let _populateRouteSelectFn = null; // set by _ensureMap once DOM is ready
 let _savedRoutesLayer  = null;
+let _routesHidden      = false;
 let _extendingRouteIdx = -1;
 let _extendingFromEnd  = true;
 let _lastAutoPanTime   = 0;
@@ -684,7 +685,7 @@ function _refreshSavedRouteLayers() {
   } else {
     _savedRoutesLayer = L.layerGroup();
   }
-  if (_sketchMode || _editMode) return; // hidden during drawing/editing
+  if (_sketchMode || _editMode || _routesHidden) return; // hidden during drawing/editing or user-toggled
   _savedRoutesLayer.addTo(_map);
 
   const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
@@ -2544,6 +2545,17 @@ function _ensureMap() {
     _refreshSavedRouteLayers();
     _populateRouteSelectFn?.();
     const msg = 'All routes cleared.';
+    setStatus(msg);
+    TTS.sayImmediate(msg);
+  });
+
+  const _toggleVisBtn = document.getElementById('map-ctx-route-toggle-visibility');
+  _toggleVisBtn.addEventListener('click', () => {
+    _hideCtx();
+    _routesHidden = !_routesHidden;
+    _toggleVisBtn.textContent = _routesHidden ? 'Show routes' : 'Hide routes';
+    _refreshSavedRouteLayers();
+    const msg = _routesHidden ? 'Routes hidden.' : 'Routes visible.';
     setStatus(msg);
     TTS.sayImmediate(msg);
   });
