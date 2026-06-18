@@ -550,6 +550,10 @@ let _editPoints            = [];
 let _editVertexMarkers     = [];
 let _editSegmentLayers     = [];
 let _populateRouteSelectFn = null; // set by _ensureMap once DOM is ready
+let _savedRoutesLayer  = null;
+let _extendingRouteIdx = -1;
+let _extendingFromEnd  = true;
+let _lastAutoPanTime   = 0;
 let _animMode = false;
 let _animRafId = null;
 let _animIntervalId = null;
@@ -664,6 +668,93 @@ function showNavaidList(navaids) {
 const _appEl = document.getElementById('app');
 const _sketchBanner = document.getElementById('sketch-banner');
 
+// ── Saved-route persistent display ────────────────────────────────────────────
+
+function _routeEndpointIcon() {
+  return L.divIcon({ className: 'route-endpoint-marker', iconSize: [14, 14], iconAnchor: [7, 7] });
+}
+
+function _refreshSavedRouteLayers() {
+  if (!_map) return;
+  if (_savedRoutesLayer) {
+    _savedRoutesLayer.clearLayers();
+  } else {
+    _savedRoutesLayer = L.layerGroup();
+  }
+  if (_sketchMode || _editMode) return; // hidden during drawing/editing
+  _savedRoutesLayer.addTo(_map);
+
+  const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+  routes.forEach((route, routeIdx) => {
+    if (!route.points || route.points.length < 1) return;
+    const lls = route.points.map(p => [p.lat, p.lon]);
+
+    L.polyline(lls, { color: '#e05252', weight: 3, opacity: 0.7, interactive: false })
+      .addTo(_savedRoutesLayer);
+
+    const addEndpointMarker = (pt, fromEnd) => {
+      const m = L.marker([pt.lat, pt.lon], { icon: _routeEndpointIcon() }).addTo(_savedRoutesLayer);
+      m.on('click', (e) => {
+        L.DomEvent.stopPropagation(e);
+        const btnId = `ext-btn-${routeIdx}-${fromEnd ? 'end' : 'start'}`;
+        const popup = L.popup({ closeButton: true })
+          .setLatLng(m.getLatLng())
+          .setContent(`<button id="${btnId}" style="padding:4px 10px;cursor:pointer;">Add to route</button>`)
+          .openOn(_map);
+        setTimeout(() => {
+          const btn = document.getElementById(btnId);
+          if (btn) btn.addEventListener('click', () => { _map.closePopup(popup); _enterExtendMode(routeIdx, fromEnd); });
+        }, 0);
+      });
+    };
+
+    addEndpointMarker(route.points[0], false);
+    if (route.points.length > 1) addEndpointMarker(route.points[route.points.length - 1], true);
+  });
+}
+
+// ── Sketch auto-pan ────────────────────────────────────────────────────────────
+
+function _sketchCheckAutoPan(latlng) {
+  const now = Date.now();
+  if (now - _lastAutoPanTime < 500) return;
+  const sz = _map.getSize();
+  const pt = _map.latLngToContainerPoint(latlng);
+  const thresh = 0.15;
+  const panAmt = 1 / 3;
+  let dx = 0, dy = 0;
+  if      (pt.x < sz.x * thresh)          dx = -Math.round(sz.x * panAmt);
+  else if (pt.x > sz.x * (1 - thresh))    dx = +Math.round(sz.x * panAmt);
+  if      (pt.y < sz.y * thresh)          dy = -Math.round(sz.y * panAmt);
+  else if (pt.y > sz.y * (1 - thresh))    dy = +Math.round(sz.y * panAmt);
+  if (dx !== 0 || dy !== 0) {
+    _map.panBy([dx, dy], { animate: true, duration: 0.25 });
+    _lastAutoPanTime = now;
+  }
+}
+
+// ── Extend existing route from endpoint ───────────────────────────────────────
+
+function _enterExtendMode(routeIdx, fromEnd) {
+  const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+  const route  = routes[routeIdx];
+  if (!route || !route.points.length) return;
+
+  _extendingRouteIdx = routeIdx;
+  _extendingFromEnd  = fromEnd;
+
+  let pts = route.points.map(p => L.latLng(p.lat, p.lon));
+  if (!fromEnd) pts = pts.slice().reverse();
+  _sketchWaypoints = pts;
+
+  if (_sketchPath) _map.removeLayer(_sketchPath);
+  _sketchPath = L.polyline(pts, {
+    color: '#e05252', weight: 4, opacity: 0.9, lineJoin: 'round', lineCap: 'round',
+  }).addTo(_map);
+
+  _enterSketchMode();
+}
+
 // Touch handler refs so they can be removed on exit
 let _sketchTouchStart = null;
 let _sketchTouchMove  = null;
@@ -704,6 +795,7 @@ function _enterSketchMode() {
   if (!_map) return;
   _map.invalidateSize();
   _map.dragging.disable();
+  if (_savedRoutesLayer) _map.removeLayer(_savedRoutesLayer);
 
   // Mobile: touch handlers in capture phase so they fire before Leaflet's own handlers.
   // touchstart/touchmove update rubber-band; touchend commits the waypoint.
@@ -726,6 +818,7 @@ function _enterSketchMode() {
     const r = container.getBoundingClientRect();
     _sketchCursorLL = _map.containerPointToLatLng(L.point(t.clientX - r.left, t.clientY - r.top));
     _sketchUpdateRubber(_sketchCursorLL);
+    _sketchCheckAutoPan(_sketchCursorLL);
   };
   _sketchTouchEnd = (e) => {
     if (!_sketchMode || !_sketchCursorLL) return;
@@ -761,12 +854,12 @@ function _exitSketchMode() {
     _map.invalidateSize();
   }
   if (_sketchRubber) { _map.removeLayer(_sketchRubber); _sketchRubber = null; }
-  if (_sketchPath && _sketchWaypoints.length < 2) {
-    _map.removeLayer(_sketchPath);
-    _sketchPath = null;
-  }
+  if (_sketchPath)   { _map.removeLayer(_sketchPath);   _sketchPath   = null; }
   _sketchWaypoints = [];
   _sketchCursorLL  = null;
+  _extendingRouteIdx = -1;
+  _extendingFromEnd  = true;
+  _refreshSavedRouteLayers();
 }
 
 function _onSketchClick(e) {
@@ -775,6 +868,7 @@ function _onSketchClick(e) {
 
 function _onSketchMouseMove(e) {
   _sketchUpdateRubber(e.latlng);
+  _sketchCheckAutoPan(e.latlng);
 }
 
 function _onSketchDblClick(e) {
@@ -797,8 +891,10 @@ function _saveRoute(name, points) {
 }
 
 function _finishSketch() {
-  const pts = _sketchWaypoints.slice();
-  _exitSketchMode();
+  const pts         = _sketchWaypoints.slice();
+  const extIdx      = _extendingRouteIdx;  // capture before _exitSketchMode resets them
+  const extFromEnd  = _extendingFromEnd;
+  _exitSketchMode(); // resets _extendingRouteIdx/-FromEnd and calls _refreshSavedRouteLayers
   if (pts.length > 1) {
     let totalNm = 0;
     for (let i = 1; i < pts.length; i++) {
@@ -807,11 +903,25 @@ function _finishSketch() {
         pts[i].lng,     pts[i].lat
       );
     }
-    const name = _nextRouteName();
-    _saveRoute(name, pts);
-    const msg = `${name} saved — ${totalNm.toFixed(1)} nm`;
-    setStatus(msg);
-    TTS.sayImmediate(msg);
+    if (extIdx >= 0) {
+      const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+      const route  = routes[extIdx];
+      if (route) {
+        const finalPts = extFromEnd ? pts : pts.slice().reverse();
+        route.points = finalPts.map(p => ({ lat: p.lat, lon: p.lng }));
+        localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
+        const msg = `${route.name} updated — ${totalNm.toFixed(1)} nm`;
+        setStatus(msg);
+        TTS.sayImmediate(msg);
+      }
+    } else {
+      const name = _nextRouteName();
+      _saveRoute(name, pts);
+      const msg = `${name} saved — ${totalNm.toFixed(1)} nm`;
+      setStatus(msg);
+      TTS.sayImmediate(msg);
+    }
+    _refreshSavedRouteLayers();
   }
 }
 
@@ -925,6 +1035,7 @@ function _enterEditMode(routeIdx) {
   if (_map) {
     _map.invalidateSize();
     _map.dragging.disable();
+    if (_savedRoutesLayer) _map.removeLayer(_savedRoutesLayer);
     _renderEditLayers();
   }
 }
@@ -942,6 +1053,7 @@ function _exitEditMode() {
   }
   document.getElementById('edit-banner').style.display = 'none';
   _appEl.classList.remove('edit-mode');
+  _refreshSavedRouteLayers();
 }
 
 function _saveEditedRoute() {
@@ -950,7 +1062,7 @@ function _saveEditedRoute() {
   routes[_editRouteIdx].points = _editPoints.map(p => ({ lat: p.lat, lon: p.lon }));
   localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
   const name = _editRouteName || 'Route';
-  _exitEditMode();
+  _exitEditMode(); // calls _refreshSavedRouteLayers
   _populateRouteSelectFn?.();
   const msg = `${name} saved.`;
   setStatus(msg);
@@ -1902,6 +2014,7 @@ function _ensureMap() {
   _applyMapLayer();
   _syncLayerBtn();
   _syncSeamarkBtn();
+  _refreshSavedRouteLayers();
 
   // Zoom slider (desktop only — hidden by CSS on mobile)
   const _zoomSlider = document.getElementById('zoom-slider');
@@ -2403,6 +2516,7 @@ function _ensureMap() {
     if (!routes.length) { TTS.sayImmediate('No routes saved.'); return; }
     const deleted = routes.pop();
     localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
+    _refreshSavedRouteLayers();
     const msg = `${deleted.name} deleted.`;
     setStatus(msg);
     TTS.sayImmediate(msg);

@@ -815,6 +815,15 @@ html, body {
   cursor: grab;
   box-sizing: border-box;
 }
+.route-endpoint-marker {
+  width: 14px;
+  height: 14px;
+  background: #fff;
+  border: 3px solid #2a7ae2;
+  border-radius: 50%;
+  cursor: pointer;
+  box-sizing: border-box;
+}
 #sketch-banner {
   display: flex;
   align-items: center;
