@@ -543,6 +543,13 @@ let _sketchPath      = null;
 let _sketchWaypoints = [];
 let _sketchRubber    = null;
 let _sketchCursorLL  = null;
+let _editMode              = false;
+let _editRouteName         = null;
+let _editRouteIdx          = -1;
+let _editPoints            = [];
+let _editVertexMarkers     = [];
+let _editSegmentLayers     = [];
+let _populateRouteSelectFn = null; // set by _ensureMap once DOM is ready
 let _animMode = false;
 let _animRafId = null;
 let _animIntervalId = null;
@@ -810,6 +817,148 @@ function _finishSketch() {
 
 document.getElementById('sketch-done-btn').addEventListener('click', _finishSketch);
 document.getElementById('sketch-cancel-btn').addEventListener('click', _exitSketchMode);
+
+// ── Route edit mode ────────────────────────────────────────────────────────────
+
+function _editVertexIcon() {
+  return L.divIcon({
+    className: 'edit-vertex-marker',
+    iconSize: [16, 16],
+    iconAnchor: [8, 8],
+  });
+}
+
+function _clearEditLayers() {
+  _editVertexMarkers.forEach(m => _map.removeLayer(m));
+  _editSegmentLayers.forEach(s => _map.removeLayer(s));
+  _editVertexMarkers = [];
+  _editSegmentLayers = [];
+}
+
+function _renderEditLayers() {
+  _clearEditLayers();
+  const pts = _editPoints;
+
+  // Segment polylines — one per adjacent pair, wider for easier clicking
+  for (let i = 0; i < pts.length - 1; i++) {
+    const ptA = [pts[i].lat, pts[i].lon];
+    const ptB = [pts[i + 1].lat, pts[i + 1].lon];
+    const seg = L.polyline([ptA, ptB], {
+      color: '#e05252', weight: 6, opacity: 0.85, interactive: true,
+    }).addTo(_map);
+    seg.on('click', (e) => {
+      L.DomEvent.stopPropagation(e);
+      _onEditSegmentClick(e, i);
+    });
+    _editSegmentLayers.push(seg);
+  }
+
+  // Vertex markers — draggable, one per waypoint
+  for (let i = 0; i < pts.length; i++) {
+    const idx = i;
+    const m = L.marker([pts[idx].lat, pts[idx].lon], {
+      icon: _editVertexIcon(),
+      draggable: true,
+      zIndexOffset: 1000,
+    }).addTo(_map);
+    m.on('drag', () => {
+      const ll = m.getLatLng();
+      _editPoints[idx] = { lat: ll.lat, lon: ll.lng };
+      if (idx > 0) {
+        _editSegmentLayers[idx - 1].setLatLngs([
+          [_editPoints[idx - 1].lat, _editPoints[idx - 1].lon],
+          [ll.lat, ll.lng],
+        ]);
+      }
+      if (idx < _editPoints.length - 1) {
+        _editSegmentLayers[idx].setLatLngs([
+          [ll.lat, ll.lng],
+          [_editPoints[idx + 1].lat, _editPoints[idx + 1].lon],
+        ]);
+      }
+    });
+    _editVertexMarkers.push(m);
+  }
+}
+
+function _onEditSegmentClick(e, segIdx) {
+  if (_editPoints.length <= 2) return; // nothing useful to remove
+  const click = e.latlng;
+  const ptA = _editPoints[segIdx];
+  const ptB = _editPoints[segIdx + 1];
+  const dA = click.distanceTo(L.latLng(ptA.lat, ptA.lon));
+  const dB = click.distanceTo(L.latLng(ptB.lat, ptB.lon));
+  const removeIdx = dA <= dB ? segIdx : segIdx + 1;
+
+  const popup = L.popup({ closeButton: true, className: 'edit-remove-popup' })
+    .setLatLng(e.latlng)
+    .setContent('<button id="edit-remove-wp-btn" style="padding:4px 10px;cursor:pointer;">Remove waypoint</button>')
+    .openOn(_map);
+
+  // Wire button after popup is in DOM
+  setTimeout(() => {
+    const btn = document.getElementById('edit-remove-wp-btn');
+    if (btn) {
+      btn.addEventListener('click', () => {
+        _map.closePopup(popup);
+        _editPoints.splice(removeIdx, 1);
+        _renderEditLayers();
+      });
+    }
+  }, 0);
+}
+
+function _enterEditMode(routeIdx) {
+  const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+  const route = routes[routeIdx];
+  if (!route) return;
+
+  _editMode = true;
+  _editRouteIdx = routeIdx;
+  _editRouteName = route.name;
+  _editPoints = route.points.map(p => ({ lat: p.lat, lon: p.lon }));
+
+  document.getElementById('edit-banner-label').textContent = route.name;
+  document.getElementById('edit-banner').style.display = 'flex';
+  _appEl.classList.add('edit-mode');
+  _mapContainer.classList.remove('map-compact', 'list-focus', 'input-focus');
+  if (_map) {
+    _map.invalidateSize();
+    _map.dragging.disable();
+    _renderEditLayers();
+  }
+}
+
+function _exitEditMode() {
+  _editMode = false;
+  _editRouteName = null;
+  _editRouteIdx = -1;
+  _editPoints = [];
+  if (_map) {
+    _clearEditLayers();
+    _map.closePopup();
+    _map.dragging.enable();
+    _map.invalidateSize();
+  }
+  document.getElementById('edit-banner').style.display = 'none';
+  _appEl.classList.remove('edit-mode');
+}
+
+function _saveEditedRoute() {
+  const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+  if (!routes[_editRouteIdx]) { _exitEditMode(); return; }
+  routes[_editRouteIdx].points = _editPoints.map(p => ({ lat: p.lat, lon: p.lon }));
+  localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
+  const name = _editRouteName || 'Route';
+  _exitEditMode();
+  _populateRouteSelectFn?.();
+  const msg = `${name} saved.`;
+  setStatus(msg);
+  TTS.sayImmediate(msg);
+}
+
+document.getElementById('edit-save-btn').addEventListener('click', _saveEditedRoute);
+document.getElementById('edit-cancel-btn').addEventListener('click', _exitEditMode);
 
 // ── GPX export ────────────────────────────────────────────────────────────────
 
@@ -2032,6 +2181,7 @@ function _ensureMap() {
     // Restore sticky speed, default 5 knots
     if (!speed.value) speed.value = localStorage.getItem('audiochart-last-speed') || '5';
   }
+  _populateRouteSelectFn = _populateRouteSelect;
 
   // ── Track config save/load ──────────────────────────────────────────────────
   const TRACK_CONFIG_KEY = 'audiochart-track-configs';
@@ -2276,6 +2426,18 @@ function _ensureMap() {
     const newIdx = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]')
       .findIndex(r => r.name === newName.trim());
     if (newIdx >= 0) sel.value = String(newIdx);
+  });
+
+  document.getElementById('map-ctx-route-edit').addEventListener('click', () => {
+    _hideCtx();
+    const sel    = document.getElementById('track-route-select');
+    const idx    = parseInt(sel.value);
+    const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+    if (isNaN(idx) || !routes[idx]) {
+      alert('Select a route in the Track → Along route panel first, then edit.');
+      return;
+    }
+    _enterEditMode(idx);
   });
 
   const _trackSubmenu = document.getElementById('map-ctx-track-submenu');

@@ -794,6 +794,27 @@ html, body {
 #app.sketch-mode #leaflet-map {
   cursor: crosshair !important;
 }
+/* Edit route mode — same full-screen layout */
+#app.edit-mode #sidebar,
+#app.edit-mode #anim-banner,
+#app.edit-mode #sketch-banner {
+  display: none !important;
+}
+#app.edit-mode #map-container {
+  flex: 1 !important;
+  height: auto !important;
+  max-height: none !important;
+  min-height: 0 !important;
+}
+.edit-vertex-marker {
+  width: 16px;
+  height: 16px;
+  background: #fff;
+  border: 3px solid #e05252;
+  border-radius: 50%;
+  cursor: grab;
+  box-sizing: border-box;
+}
 #sketch-banner {
   display: flex;
   align-items: center;
@@ -817,6 +838,37 @@ html, body {
   cursor: pointer;
 }
 #sketch-cancel-btn {
+  background: var(--navy);
+  color: var(--text);
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+#edit-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: #4a90d9;
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 8px 12px;
+  flex-shrink: 0;
+}
+#edit-save-btn {
+  background: var(--ok);
+  color: var(--navy);
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+#edit-cancel-btn {
   background: var(--navy);
   color: var(--text);
   border: none;
