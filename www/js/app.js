@@ -11,6 +11,7 @@ import * as Query from './query.js';
 
 const VERSION = window.APP_VERSION;
 document.getElementById('app-version').textContent = VERSION;
+document.getElementById('map-version-label').textContent = VERSION;
 
 // ── Voice picker ──────────────────────────────────────────────────────────────
 function _populateVoicePicker() {
