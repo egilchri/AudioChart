@@ -235,6 +235,7 @@ const textInput = document.getElementById('text-input');
 const statusEl = document.getElementById('status-text');
 const positionEl = document.getElementById('position-display');
 const responseEl  = document.getElementById('response-text');
+const responseAreaEl = document.getElementById('response-area');
 const navaidListEl = document.getElementById('navaid-list');
 const gpsStatusEl = document.getElementById('gps-status');
 const historyList = document.getElementById('history-list');
@@ -627,6 +628,7 @@ textInput.addEventListener('blur', () => {
 });
 function showResponse(text) {
   responseEl.textContent = text;
+  responseAreaEl.style.display = 'block';
   navaidListEl.style.display = 'none';
   navaidListEl.innerHTML = '';
   _mapContainer.classList.remove('map-compact', 'list-focus');
@@ -661,6 +663,7 @@ function showNavaidList(navaids) {
     navaidListEl.appendChild(row);
   }
   navaidListEl.style.display = 'flex';
+  responseAreaEl.style.display = 'block';
 }
 
 // ── Sketch route ─────────────────────────────────────────────────────────────
