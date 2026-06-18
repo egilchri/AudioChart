@@ -949,21 +949,17 @@ function _renderEditLayers() {
   _clearEditLayers();
   const pts = _editPoints;
 
-  // Segment polylines — one per adjacent pair, wider for easier clicking
+  // Segment polylines — display only, not interactive
   for (let i = 0; i < pts.length - 1; i++) {
     const ptA = [pts[i].lat, pts[i].lon];
     const ptB = [pts[i + 1].lat, pts[i + 1].lon];
     const seg = L.polyline([ptA, ptB], {
-      color: '#e05252', weight: 6, opacity: 0.85, interactive: true,
+      color: '#e05252', weight: 5, opacity: 0.85, interactive: false,
     }).addTo(_map);
-    seg.on('click', (e) => {
-      L.DomEvent.stopPropagation(e);
-      _onEditSegmentClick(e, i);
-    });
     _editSegmentLayers.push(seg);
   }
 
-  // Vertex markers — draggable, one per waypoint
+  // Vertex markers — drag to move, click to remove
   for (let i = 0; i < pts.length; i++) {
     const idx = i;
     const m = L.marker([pts[idx].lat, pts[idx].lon], {
@@ -987,35 +983,14 @@ function _renderEditLayers() {
         ]);
       }
     });
+    m.on('click', (e) => {
+      L.DomEvent.stopPropagation(e);
+      if (_editPoints.length <= 2) return;
+      _editPoints.splice(idx, 1);
+      _renderEditLayers();
+    });
     _editVertexMarkers.push(m);
   }
-}
-
-function _onEditSegmentClick(e, segIdx) {
-  if (_editPoints.length <= 2) return; // nothing useful to remove
-  const click = e.latlng;
-  const ptA = _editPoints[segIdx];
-  const ptB = _editPoints[segIdx + 1];
-  const dA = click.distanceTo(L.latLng(ptA.lat, ptA.lon));
-  const dB = click.distanceTo(L.latLng(ptB.lat, ptB.lon));
-  const removeIdx = dA <= dB ? segIdx : segIdx + 1;
-
-  const popup = L.popup({ closeButton: true, className: 'edit-remove-popup' })
-    .setLatLng(e.latlng)
-    .setContent('<button id="edit-remove-wp-btn" style="padding:4px 10px;cursor:pointer;">Remove waypoint</button>')
-    .openOn(_map);
-
-  // Wire button after popup is in DOM
-  setTimeout(() => {
-    const btn = document.getElementById('edit-remove-wp-btn');
-    if (btn) {
-      btn.addEventListener('click', () => {
-        _map.closePopup(popup);
-        _editPoints.splice(removeIdx, 1);
-        _renderEditLayers();
-      });
-    }
-  }, 0);
 }
 
 function _enterEditMode(routeIdx) {
