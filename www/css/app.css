@@ -777,7 +777,8 @@ html, body {
   color: var(--text);
   background: var(--mid-blue);
 }
-#map-ctx-route-delete { color: var(--danger) !important; }
+#map-ctx-route-delete,
+#map-ctx-route-clear-all { color: var(--danger) !important; }
 
 /* Sketch route mode — map + banner fill the entire screen */
 #app.sketch-mode #sidebar,

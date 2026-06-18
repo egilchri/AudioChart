@@ -2522,6 +2522,19 @@ function _ensureMap() {
     TTS.sayImmediate(msg);
   });
 
+  document.getElementById('map-ctx-route-clear-all').addEventListener('click', () => {
+    _hideCtx();
+    const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+    if (!routes.length) { TTS.sayImmediate('No routes saved.'); return; }
+    if (!confirm(`Delete all ${routes.length} route${routes.length > 1 ? 's' : ''}?`)) return;
+    localStorage.setItem(ROUTE_KEY, JSON.stringify([]));
+    _refreshSavedRouteLayers();
+    _populateRouteSelectFn?.();
+    const msg = 'All routes cleared.';
+    setStatus(msg);
+    TTS.sayImmediate(msg);
+  });
+
   document.getElementById('map-ctx-route-rename').addEventListener('click', () => {
     _hideCtx();
     const sel    = document.getElementById('track-route-select');
