@@ -687,13 +687,31 @@ function _refreshSavedRouteLayers() {
   const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
   routes.forEach((route, routeIdx) => {
     if (!route.points || route.points.length < 1) return;
-    const lls = route.points.map(p => [p.lat, p.lon]);
+    const pts = route.points;
+    const lls = pts.map(p => [p.lat, p.lon]);
 
     L.polyline(lls, { color: '#e05252', weight: 3, opacity: 0.7, interactive: false })
       .addTo(_savedRoutesLayer);
 
+    // Segment bearing labels
+    for (let i = 0; i < pts.length - 1; i++) {
+      const midLat = (pts[i].lat + pts[i + 1].lat) / 2;
+      const midLon = (pts[i].lon + pts[i + 1].lon) / 2;
+      const trueBrg = _segBearing(pts[i].lat, pts[i].lon, pts[i + 1].lat, pts[i + 1].lon);
+      const magBrg  = Math.round(trueTomagnetic(trueBrg) + 360) % 360;
+      const brgStr  = String(magBrg).padStart(3, '0') + '°M';
+      L.marker([midLat, midLon], {
+        icon: L.divIcon({ className: '', iconSize: [0, 0], iconAnchor: [0, 0] }),
+        interactive: false,
+      }).bindTooltip(brgStr, { permanent: true, direction: 'center', className: 'route-bearing-tip' })
+        .addTo(_savedRoutesLayer);
+    }
+
+    // Endpoint markers with coordinate labels
     const addEndpointMarker = (pt, fromEnd) => {
-      const m = L.marker([pt.lat, pt.lon], { icon: _routeEndpointIcon() }).addTo(_savedRoutesLayer);
+      const m = L.marker([pt.lat, pt.lon], { icon: _routeEndpointIcon() })
+        .bindTooltip(formatPositionDisplay(pt.lat, pt.lon), { permanent: true, direction: 'top', className: 'route-coord-tip' })
+        .addTo(_savedRoutesLayer);
       m.on('click', (e) => {
         L.DomEvent.stopPropagation(e);
         const btnId = `ext-btn-${routeIdx}-${fromEnd ? 'end' : 'start'}`;
@@ -708,8 +726,8 @@ function _refreshSavedRouteLayers() {
       });
     };
 
-    addEndpointMarker(route.points[0], false);
-    if (route.points.length > 1) addEndpointMarker(route.points[route.points.length - 1], true);
+    addEndpointMarker(pts[0], false);
+    if (pts.length > 1) addEndpointMarker(pts[pts.length - 1], true);
   });
 }
 
@@ -949,7 +967,7 @@ function _renderEditLayers() {
   _clearEditLayers();
   const pts = _editPoints;
 
-  // Segment polylines — display only, not interactive
+  // Segment polylines + bearing labels
   for (let i = 0; i < pts.length - 1; i++) {
     const ptA = [pts[i].lat, pts[i].lon];
     const ptB = [pts[i + 1].lat, pts[i + 1].lon];
@@ -957,32 +975,49 @@ function _renderEditLayers() {
       color: '#e05252', weight: 5, opacity: 0.85, interactive: false,
     }).addTo(_map);
     _editSegmentLayers.push(seg);
+
+    const midLat = (ptA[0] + ptB[0]) / 2;
+    const midLon = (ptA[1] + ptB[1]) / 2;
+    const trueBrg = _segBearing(ptA[0], ptA[1], ptB[0], ptB[1]);
+    const magBrg  = Math.round(trueTomagnetic(trueBrg) + 360) % 360;
+    const brgStr  = String(magBrg).padStart(3, '0') + '°M';
+    const brgLabel = L.marker([midLat, midLon], {
+      icon: L.divIcon({ className: '', iconSize: [0, 0], iconAnchor: [0, 0] }),
+      interactive: false,
+    }).bindTooltip(brgStr, { permanent: true, direction: 'center', className: 'route-bearing-tip' })
+      .addTo(_map);
+    _editSegmentLayers.push(brgLabel);
   }
 
-  // Vertex markers — drag to move, click to remove
+  // Vertex markers — drag to move, click to remove, coordinate label
   for (let i = 0; i < pts.length; i++) {
     const idx = i;
     const m = L.marker([pts[idx].lat, pts[idx].lon], {
       icon: _editVertexIcon(),
       draggable: true,
       zIndexOffset: 1000,
+    }).bindTooltip(formatPositionDisplay(pts[idx].lat, pts[idx].lon), {
+      permanent: true, direction: 'top', className: 'route-coord-tip',
     }).addTo(_map);
     m.on('drag', () => {
       const ll = m.getLatLng();
       _editPoints[idx] = { lat: ll.lat, lon: ll.lng };
+      m.setTooltipContent(formatPositionDisplay(ll.lat, ll.lng));
+      // Update adjacent segment polylines live (bearing labels rebuild on dragend)
       if (idx > 0) {
-        _editSegmentLayers[idx - 1].setLatLngs([
+        _editSegmentLayers[(idx - 1) * 2].setLatLngs([
           [_editPoints[idx - 1].lat, _editPoints[idx - 1].lon],
           [ll.lat, ll.lng],
         ]);
       }
       if (idx < _editPoints.length - 1) {
-        _editSegmentLayers[idx].setLatLngs([
+        _editSegmentLayers[idx * 2].setLatLngs([
           [ll.lat, ll.lng],
           [_editPoints[idx + 1].lat, _editPoints[idx + 1].lon],
         ]);
       }
     });
+    m.on('dragend', () => _renderEditLayers());
     m.on('click', (e) => {
       L.DomEvent.stopPropagation(e);
       if (_editPoints.length <= 2) return;
