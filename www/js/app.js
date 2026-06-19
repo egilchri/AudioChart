@@ -553,7 +553,7 @@ let _editVertexMarkers     = [];
 let _editSegmentLayers     = [];
 let _populateRouteSelectFn = null; // set by _ensureMap once DOM is ready
 let _savedRoutesLayer  = null;
-let _routesHidden      = false;
+let _hiddenRouteNames  = new Set();
 let _extendingRouteIdx = -1;
 let _extendingFromEnd  = true;
 let _lastAutoPanTime   = 0;
@@ -686,15 +686,19 @@ function _refreshSavedRouteLayers() {
   } else {
     _savedRoutesLayer = L.layerGroup();
   }
-  if (_sketchMode || _editMode || _routesHidden) return; // hidden during drawing/editing or user-toggled
+  if (_sketchMode || _editMode) return; // hidden during drawing/editing
   _savedRoutesLayer.addTo(_map);
 
   const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
   routes.forEach((route, routeIdx) => {
     if (!route.points || route.points.length < 1) return;
+    if (_hiddenRouteNames.has(route.name)) return;
     const pts = route.points;
     const lls = pts.map(p => [p.lat, p.lon]);
 
+    L.polyline(lls, { color: '#e05252', weight: 8, opacity: 0, interactive: true })
+      .on('click', (e) => { L.DomEvent.stopPropagation(e); _enterEditMode(routeIdx); })
+      .addTo(_savedRoutesLayer);
     L.polyline(lls, { color: '#e05252', weight: 3, opacity: 0.7, interactive: false })
       .addTo(_savedRoutesLayer);
 
@@ -2550,15 +2554,30 @@ function _ensureMap() {
     TTS.sayImmediate(msg);
   });
 
-  const _toggleVisBtn = document.getElementById('map-ctx-route-toggle-visibility');
-  _toggleVisBtn.addEventListener('click', () => {
-    _hideCtx();
-    _routesHidden = !_routesHidden;
-    _toggleVisBtn.textContent = _routesHidden ? 'Show routes' : 'Hide routes';
-    _refreshSavedRouteLayers();
-    const msg = _routesHidden ? 'Routes hidden.' : 'Routes visible.';
-    setStatus(msg);
-    TTS.sayImmediate(msg);
+  const _visParent  = document.getElementById('map-ctx-route-vis-parent');
+  const _visList    = document.getElementById('map-ctx-route-vis-list');
+  _visParent.addEventListener('click', () => {
+    const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+    _visList.innerHTML = '';
+    routes.forEach((route) => {
+      const hidden = _hiddenRouteNames.has(route.name);
+      const btn = document.createElement('button');
+      btn.textContent = (hidden ? '✗ ' : '✓ ') + route.name;
+      btn.style.paddingLeft = '36px';
+      btn.style.fontSize = '0.85rem';
+      btn.style.color = hidden ? 'var(--danger)' : 'var(--text-dim)';
+      btn.addEventListener('click', () => {
+        if (_hiddenRouteNames.has(route.name)) {
+          _hiddenRouteNames.delete(route.name);
+        } else {
+          _hiddenRouteNames.add(route.name);
+        }
+        _refreshSavedRouteLayers();
+        _hideCtx();
+      });
+      _visList.appendChild(btn);
+    });
+    _visList.style.display = _visList.style.display === 'block' ? 'none' : 'block';
   });
 
   document.getElementById('map-ctx-route-rename').addEventListener('click', () => {
