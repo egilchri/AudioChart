@@ -430,9 +430,9 @@ html, body {
 
 #map-version-label {
   position: absolute;
-  bottom: 6px;
-  left: 6px;
-  z-index: 1000;
+  bottom: 60px;
+  left: 10px;
+  z-index: 1002;
   font-size: 10px;
   color: rgba(255,255,255,0.5);
   pointer-events: none;
