@@ -859,7 +859,7 @@ html, body {
   box-sizing: border-box;
 }
 .leaflet-tooltip.route-bearing-tip {
-  background: rgba(15, 35, 70, 0.85);
+  background: rgba(15, 35, 70, 0.55);
   border: none;
   color: #e0e8ff;
   font-size: 11px;
@@ -868,6 +868,7 @@ html, body {
   border-radius: 3px;
   white-space: nowrap;
   box-shadow: none;
+  pointer-events: none;
 }
 .leaflet-tooltip.route-bearing-tip::before { display: none; }
 .leaflet-tooltip.route-coord-tip {
