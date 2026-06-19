@@ -556,6 +556,7 @@ let _savedRoutesLayer  = null;
 let _hiddenRouteNames  = new Set();
 let _extendingRouteIdx = -1;
 let _extendingFromEnd  = true;
+let _ctxRouteIdx       = -1;  // last route hovered; used by context-menu actions
 let _lastAutoPanTime   = 0;
 let _animMode = false;
 let _animRafId = null;
@@ -698,6 +699,7 @@ function _refreshSavedRouteLayers() {
 
     L.polyline(lls, { color: '#e05252', weight: 8, opacity: 0, interactive: true })
       .on('click', (e) => { L.DomEvent.stopPropagation(e); _enterEditMode(routeIdx); })
+      .on('mouseover', () => { _ctxRouteIdx = routeIdx; })
       .addTo(_savedRoutesLayer);
     L.polyline(lls, { color: '#e05252', weight: 3, opacity: 0.7, interactive: false })
       .addTo(_savedRoutesLayer);
@@ -2583,8 +2585,8 @@ function _ensureMap() {
   document.getElementById('map-ctx-route-rename').addEventListener('click', () => {
     _hideCtx();
     const sel    = document.getElementById('track-route-select');
-    const idx    = parseInt(sel.value);
     const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+    const idx    = (_ctxRouteIdx >= 0 && routes[_ctxRouteIdx]) ? _ctxRouteIdx : parseInt(sel.value);
     if (isNaN(idx) || !routes[idx]) {
       alert('Select a route in the Track panel first, then rename.');
       return;
@@ -2603,8 +2605,8 @@ function _ensureMap() {
   document.getElementById('map-ctx-route-edit').addEventListener('click', () => {
     _hideCtx();
     const sel    = document.getElementById('track-route-select');
-    const idx    = parseInt(sel.value);
     const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+    const idx    = (_ctxRouteIdx >= 0 && routes[_ctxRouteIdx]) ? _ctxRouteIdx : parseInt(sel.value);
     if (isNaN(idx) || !routes[idx]) {
       alert('Select a route in the Track → Along route panel first, then edit.');
       return;
