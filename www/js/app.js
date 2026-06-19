@@ -719,7 +719,7 @@ function _refreshSavedRouteLayers() {
     // Endpoint markers with coordinate labels
     const addEndpointMarker = (pt, fromEnd) => {
       const m = L.marker([pt.lat, pt.lon], { icon: _routeEndpointIcon() })
-        .bindTooltip(formatPositionDisplay(pt.lat, pt.lon), { permanent: true, direction: 'top', className: 'route-coord-tip' })
+        .bindTooltip(formatPositionDisplay(pt.lat, pt.lon), { permanent: true, direction: 'top', offset: [0, -6], className: 'route-coord-tip' })
         .addTo(_savedRoutesLayer);
       m.on('click', (e) => {
         L.DomEvent.stopPropagation(e);
@@ -1006,7 +1006,7 @@ function _renderEditLayers() {
       draggable: true,
       zIndexOffset: 1000,
     }).bindTooltip(formatPositionDisplay(pts[idx].lat, pts[idx].lon), {
-      permanent: true, direction: 'top', className: 'route-coord-tip',
+      permanent: true, direction: 'top', offset: [0, -6], className: 'route-coord-tip',
     }).addTo(_map);
     m.on('drag', () => {
       const ll = m.getLatLng();

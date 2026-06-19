@@ -871,7 +871,7 @@ html, body {
 }
 .leaflet-tooltip.route-bearing-tip::before { display: none; }
 .leaflet-tooltip.route-coord-tip {
-  background: rgba(15, 35, 70, 0.85);
+  background: rgba(15, 35, 70, 0.55);
   border: none;
   color: #aed6f1;
   font-size: 10px;
@@ -879,6 +879,7 @@ html, body {
   border-radius: 3px;
   white-space: nowrap;
   box-shadow: none;
+  pointer-events: none;
 }
 .leaflet-tooltip.route-coord-tip::before { display: none; }
 #sketch-banner {
