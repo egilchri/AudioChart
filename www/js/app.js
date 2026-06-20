@@ -804,80 +804,75 @@ function _checkRouteHazards(routeIdx) {
 }
 
 function _autoFixRouteHazards(routeIdx) {
-  const CORRIDOR    = 0.05;   // nm — must match _checkRouteHazards
-  const SAFETY      = 0.03;   // nm extra clearance beyond corridor
-  const CLUSTER_GAP = 0.10;   // nm — hazards within this along-track distance form one cluster
+  const CORRIDOR    = 0.05;
+  const SAFETY      = 0.03;
+  const MAX_DISP    = 0.15;  // nm cap per vertex move
   const DANGER_LABELS = new Set(['underwater rock','obstruction','wreck','UWTROC','OBSTRN','WRECKS']);
 
   const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
   const route  = routes[routeIdx];
   if (!route) return;
 
-  const pts   = route.points;
+  const pts   = route.points.map(p => ({ ...p }));
   const feats = Query.hazards?.features || [];
+  const n     = pts.length;
 
-  // Collect hazards per segment
-  const segHazards = pts.slice(0, -1).map(() => []);
-  const seen = new Set();
-  for (let i = 0; i < pts.length - 1; i++) {
+  // Per-vertex displacement accumulator (lat/lon degrees, vector-summed)
+  const disp = Array.from({ length: n }, () => ({ dlat: 0, dlon: 0 }));
+
+  for (let i = 0; i < n - 1; i++) {
     const a = pts[i], b = pts[i+1];
     const segLen = Query.distanceNm(a.lon, a.lat, b.lon, b.lat);
+    if (segLen < 1e-6) continue;
+    const segBearing = Query.bearing(a.lon, a.lat, b.lon, b.lat);
+
     for (const f of feats) {
       if (f.geometry.type !== 'Point') continue;
       const label = f.properties.label || f.properties.objtype || '';
       if (!DANGER_LABELS.has(label)) continue;
       const [pLon, pLat] = f.geometry.coordinates;
-      const key = `${pLon.toFixed(5)},${pLat.toFixed(5)}`;
-      if (seen.has(key)) continue;
       const ct = _segCrossTrack(a.lon, a.lat, b.lon, b.lat, pLon, pLat);
       if (!ct) continue;
       const { crossTrack, alongTrack } = ct;
-      if (Math.abs(crossTrack) <= CORRIDOR && alongTrack >= 0 && alongTrack <= segLen) {
-        seen.add(key);
-        segHazards[i].push({ crossTrack, alongTrack });
+      if (Math.abs(crossTrack) > CORRIDOR || alongTrack < 0 || alongTrack > segLen) continue;
+
+      const delta       = CORRIDOR + SAFETY - Math.abs(crossTrack);
+      const bypassSign  = crossTrack >= 0 ? -1 : 1;  // move perp away from the hazard
+      const perpBearing = segBearing + bypassSign * 90;
+
+      // Move whichever endpoint needs less displacement.
+      // Moving A by d shifts crossTrack at position t by d*(segLen-t)/segLen → d_A = delta*segLen/(segLen-t)
+      // Moving B by d shifts crossTrack at position t by d*t/segLen           → d_B = delta*segLen/t
+      // d_A < d_B when t < segLen/2 (hazard in first half → move A)
+      const frac = alongTrack / segLen;
+      let vi, dNeeded;
+      if (frac <= 0.5) {
+        const denom = segLen - alongTrack;
+        vi      = i;
+        dNeeded = Math.min(denom > 0.005 ? delta * segLen / denom : MAX_DISP, MAX_DISP);
+      } else {
+        const denom = alongTrack;
+        vi      = i + 1;
+        dNeeded = Math.min(denom > 0.005 ? delta * segLen / denom : MAX_DISP, MAX_DISP);
       }
+
+      const moved = _destPoint(pts[vi].lat, pts[vi].lon, perpBearing, dNeeded);
+      disp[vi].dlat += moved.lat - pts[vi].lat;
+      disp[vi].dlon += moved.lon - pts[vi].lon;
     }
   }
 
-  // Build new point list with bypass waypoints inserted for each hazard cluster
-  const newPts = [pts[0]];
-  for (let i = 0; i < pts.length - 1; i++) {
-    const hs = segHazards[i];
-    if (hs.length === 0) { newPts.push(pts[i+1]); continue; }
-
-    const a = pts[i], b = pts[i+1];
-    const segBearing = Query.bearing(a.lon, a.lat, b.lon, b.lat);
-
-    // Cluster hazards by along-track proximity
-    hs.sort((x, y) => x.alongTrack - y.alongTrack);
-    const clusters = [];
-    let cur = [hs[0]];
-    for (let j = 1; j < hs.length; j++) {
-      if (hs[j].alongTrack - cur[cur.length-1].alongTrack < CLUSTER_GAP) cur.push(hs[j]);
-      else { clusters.push(cur); cur = [hs[j]]; }
-    }
-    clusters.push(cur);
-
-    for (const cluster of clusters) {
-      // Apex = hazard closest to centerline (needs most clearance)
-      const apex = cluster.reduce((best, h) => Math.abs(h.crossTrack) < Math.abs(best.crossTrack) ? h : best);
-      // Bypass on the side opposite the cluster's average cross-track
-      const avgCt = cluster.reduce((s, h) => s + h.crossTrack, 0) / cluster.length;
-      const bypassSign = avgCt >= 0 ? -1 : 1;  // -1 = port offset, +1 = starboard offset
-
-      const onSeg = _destPoint(a.lat, a.lon, segBearing, apex.alongTrack);
-      const bypass = _destPoint(onSeg.lat, onSeg.lon, segBearing + bypassSign * 90, CORRIDOR + SAFETY);
-      newPts.push(bypass);
-    }
-    newPts.push(pts[i+1]);
+  // Apply all accumulated displacements simultaneously
+  for (let j = 0; j < n; j++) {
+    if (disp[j].dlat !== 0 || disp[j].dlon !== 0)
+      pts[j] = { lat: pts[j].lat + disp[j].dlat, lon: pts[j].lon + disp[j].dlon };
   }
 
-  routes[routeIdx].points = newPts;
+  routes[routeIdx].points = pts;
   localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
-
   _lastHazardCheckedIdx = routeIdx;
   _refreshSavedRouteLayers();
-  _checkRouteHazards(routeIdx);  // auto-recheck to confirm result
+  _checkRouteHazards(routeIdx);
 }
 
 function _refreshSavedRouteLayers() {
