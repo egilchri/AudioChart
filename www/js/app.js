@@ -2566,6 +2566,15 @@ function _ensureMap() {
     _ctxMenu.style.left = Math.max(4, x) + 'px';
     _ctxMenu.style.top  = Math.max(4, y) + 'px';
   });
+  // Keep menu inside viewport when submenus expand
+  new ResizeObserver(() => {
+    if (_ctxMenu.style.display !== 'block') return;
+    const rect = _ctxMenu.getBoundingClientRect();
+    if (rect.bottom > window.innerHeight - 4)
+      _ctxMenu.style.top = Math.max(4, window.innerHeight - rect.height - 4) + 'px';
+    if (rect.right > window.innerWidth - 4)
+      _ctxMenu.style.left = Math.max(4, window.innerWidth - rect.width - 4) + 'px';
+  }).observe(_ctxMenu);
   _map.on('movestart zoomstart', _hideCtx);
   _map.on('click', () => {
     if (_editMode || _sketchMode || _selectedRouteIdx < 0) return;
