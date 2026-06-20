@@ -941,11 +941,13 @@ function _refreshSavedRouteLayers() {
         _refreshSavedRouteLayers();
         const hideId  = `hide-route-${routeIdx}`;
         const chkId   = `hazard-check-${routeIdx}`;
+        const animId  = `animate-route-${routeIdx}`;
         L.popup({ closeButton: true })
           .setLatLng(e.latlng)
           .setContent(`<div style="display:flex;flex-direction:column;gap:6px;padding:2px 0">
             <button id="${hideId}" style="padding:4px 12px;cursor:pointer;">Hide route</button>
             <button id="${chkId}"  style="padding:4px 12px;cursor:pointer;">Check for hazards</button>
+            <button id="${animId}" style="padding:4px 12px;cursor:pointer;">Animate</button>
           </div>`)
           .openOn(_map);
         setTimeout(() => {
@@ -959,6 +961,12 @@ function _refreshSavedRouteLayers() {
           document.getElementById(chkId)?.addEventListener('click', () => {
             _map.closePopup();
             _checkRouteHazards(routeIdx);
+          });
+          document.getElementById(animId)?.addEventListener('click', () => {
+            _map.closePopup();
+            const r = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+            const speed = parseFloat(localStorage.getItem('audiochart-last-speed')) || 5;
+            if (r[routeIdx]) _startRouteAnimation(r[routeIdx], speed);
           });
         }, 0);
       })
