@@ -558,6 +558,7 @@ let _extendingRouteIdx = -1;
 let _extendingFromEnd  = true;
 let _ctxRouteIdx       = -1;  // last route hovered; used by context-menu actions
 let _selectedRouteIdx  = -1;  // route clicked/highlighted on map
+let _hazardCheckLayer  = null; // temporary markers from Check for Hazards
 let _lastAutoPanTime   = 0;
 let _animMode = false;
 let _animRafId = null;
@@ -681,6 +682,79 @@ function _routeEndpointIcon() {
   return L.divIcon({ className: 'route-endpoint-marker', iconSize: [14, 14], iconAnchor: [7, 7] });
 }
 
+function _checkRouteHazards(routeIdx) {
+  const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+  const route  = routes[routeIdx];
+  if (!route) return;
+  const pts   = route.points;
+  const feats = Query.hazards?.features || [];
+  const CORRIDOR = 0.1;   // nm (~200 yards each side)
+  const R = 3440.065;
+  const seen = new Set();
+  const found = [];
+
+  function _xtDist(aLon, aLat, bLon, bLat, pLon, pLat) {
+    const d13 = Query.distanceNm(aLon, aLat, pLon, pLat) / R;
+    if (d13 < 1e-9) return { crossTrack: 0, alongTrack: 0 };
+    const b13 = Query.bearing(aLon, aLat, pLon, pLat) * Math.PI / 180;
+    const b12 = Query.bearing(aLon, aLat, bLon, bLat) * Math.PI / 180;
+    const dxt = Math.asin(Math.sin(d13) * Math.sin(b13 - b12)) * R;
+    const cosDxt = Math.cos(dxt / R);
+    if (Math.abs(cosDxt) < 1e-10) return null;
+    const dat = Math.acos(Math.max(-1, Math.min(1, Math.cos(d13) / cosDxt))) * R;
+    return { crossTrack: dxt, alongTrack: dat };
+  }
+
+  let distSoFar = 0;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1];
+    const segLen = Query.distanceNm(a.lon, a.lat, b.lon, b.lat);
+    for (const f of feats) {
+      if (f.geometry.type !== 'Point') continue;
+      const [pLon, pLat] = f.geometry.coordinates;
+      const key = `${pLon.toFixed(5)},${pLat.toFixed(5)}`;
+      if (seen.has(key)) continue;
+      const ct = _xtDist(a.lon, a.lat, b.lon, b.lat, pLon, pLat);
+      if (!ct) continue;
+      const { crossTrack, alongTrack } = ct;
+      if (Math.abs(crossTrack) <= CORRIDOR && alongTrack >= 0 && alongTrack <= segLen) {
+        seen.add(key);
+        found.push({
+          lat: pLat, lon: pLon,
+          label: f.properties.label || f.properties.objtype || 'hazard',
+          name:  f.properties.name || '',
+          routeNm: distSoFar + alongTrack,
+          side:  crossTrack <= 0 ? 'port' : 'starboard',
+        });
+      }
+    }
+    distSoFar += segLen;
+  }
+  found.sort((a, b) => a.routeNm - b.routeNm);
+
+  if (_hazardCheckLayer) _hazardCheckLayer.clearLayers();
+  _hazardCheckLayer = L.layerGroup().addTo(_map);
+  for (const h of found) {
+    L.circleMarker([h.lat, h.lon], {
+      radius: 7, color: '#e05252', fillColor: '#e05252', fillOpacity: 0.8, weight: 2,
+    }).bindTooltip(`${h.label}${h.name ? ': ' + h.name : ''}`, { permanent: false })
+      .addTo(_hazardCheckLayer);
+  }
+
+  const mid = pts[Math.floor((pts.length - 1) / 2)];
+  const body = found.length === 0
+    ? `<b>${route.name}</b><br>✓ No charted hazards within 200 yds.`
+    : `<b>${route.name}</b> — ${found.length} hazard${found.length > 1 ? 's' : ''} detected:<br>`
+      + found.slice(0, 8).map(h =>
+          `• ${h.label}${h.name ? ' (' + h.name + ')' : ''} — ${h.routeNm.toFixed(1)} nm, ${h.side}`
+        ).join('<br>')
+      + (found.length > 8 ? `<br>…and ${found.length - 8} more` : '');
+  L.popup({ maxWidth: 300 })
+    .setLatLng([mid.lat, mid.lon])
+    .setContent(`<div style="font-size:13px;line-height:1.5">${body}</div>`)
+    .openOn(_map);
+}
+
 function _refreshSavedRouteLayers() {
   if (!_map) return;
   if (_savedRoutesLayer) {
@@ -703,20 +777,26 @@ function _refreshSavedRouteLayers() {
         L.DomEvent.stopPropagation(e);
         _selectedRouteIdx = routeIdx;
         _refreshSavedRouteLayers();
-        const btnId = `hide-route-${routeIdx}`;
+        const hideId  = `hide-route-${routeIdx}`;
+        const chkId   = `hazard-check-${routeIdx}`;
         L.popup({ closeButton: true })
           .setLatLng(e.latlng)
-          .setContent(`<button id="${btnId}" style="padding:4px 12px;cursor:pointer;">Hide route</button>`)
+          .setContent(`<div style="display:flex;flex-direction:column;gap:6px;padding:2px 0">
+            <button id="${hideId}" style="padding:4px 12px;cursor:pointer;">Hide route</button>
+            <button id="${chkId}"  style="padding:4px 12px;cursor:pointer;">Check for hazards</button>
+          </div>`)
           .openOn(_map);
         setTimeout(() => {
-          const btn = document.getElementById(btnId);
-          if (!btn) return;
-          btn.addEventListener('click', () => {
+          document.getElementById(hideId)?.addEventListener('click', () => {
             _map.closePopup();
             const r = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
             if (r[routeIdx]) _hiddenRouteNames.add(r[routeIdx].name);
             _selectedRouteIdx = -1;
             _refreshSavedRouteLayers();
+          });
+          document.getElementById(chkId)?.addEventListener('click', () => {
+            _map.closePopup();
+            _checkRouteHazards(routeIdx);
           });
         }, 0);
       })
@@ -2579,6 +2659,7 @@ function _ensureMap() {
   _map.on('click', () => {
     if (_editMode || _sketchMode || _selectedRouteIdx < 0) return;
     _selectedRouteIdx = -1;
+    if (_hazardCheckLayer) { _hazardCheckLayer.clearLayers(); _hazardCheckLayer = null; }
     _refreshSavedRouteLayers();
   });
   document.addEventListener('click', (e) => { if (!_ctxMenu.contains(e.target)) _hideCtx(); }, { capture: true });
