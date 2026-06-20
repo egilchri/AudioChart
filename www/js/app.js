@@ -679,6 +679,31 @@ const _sketchBanner = document.getElementById('sketch-banner');
 
 // ── Saved-route persistent display ────────────────────────────────────────────
 
+// Cross-track / along-track geometry helpers (used by hazard check + autofix)
+function _segCrossTrack(aLon, aLat, bLon, bLat, pLon, pLat) {
+  const R = 3440.065;
+  const d13 = Query.distanceNm(aLon, aLat, pLon, pLat) / R;
+  if (d13 < 1e-9) return { crossTrack: 0, alongTrack: 0 };
+  const b13 = Query.bearing(aLon, aLat, pLon, pLat) * Math.PI / 180;
+  const b12 = Query.bearing(aLon, aLat, bLon, bLat) * Math.PI / 180;
+  const dxt = Math.asin(Math.sin(d13) * Math.sin(b13 - b12)) * R;
+  const cosDxt = Math.cos(dxt / R);
+  if (Math.abs(cosDxt) < 1e-10) return null;
+  const dat = Math.acos(Math.max(-1, Math.min(1, Math.cos(d13) / cosDxt))) * R;
+  return { crossTrack: dxt, alongTrack: dat };
+}
+
+function _destPoint(lat, lon, bearingDeg, distNm) {
+  const R = 3440.065;
+  const d    = distNm / R;
+  const brng = bearingDeg * Math.PI / 180;
+  const lat1 = lat * Math.PI / 180;
+  const lon1 = lon * Math.PI / 180;
+  const lat2 = Math.asin(Math.sin(lat1)*Math.cos(d) + Math.cos(lat1)*Math.sin(d)*Math.cos(brng));
+  const lon2 = lon1 + Math.atan2(Math.sin(brng)*Math.sin(d)*Math.cos(lat1), Math.cos(d)-Math.sin(lat1)*Math.sin(lat2));
+  return { lat: lat2 * 180/Math.PI, lon: lon2 * 180/Math.PI };
+}
+
 function _routeEndpointIcon() {
   return L.divIcon({ className: 'route-endpoint-marker', iconSize: [14, 14], iconAnchor: [7, 7] });
 }
@@ -697,18 +722,6 @@ function _checkRouteHazards(routeIdx) {
   const found = [];
   const dangerSegments = new Set(); // segment indices that have a nearby hazard
 
-  function _xtDist(aLon, aLat, bLon, bLat, pLon, pLat) {
-    const d13 = Query.distanceNm(aLon, aLat, pLon, pLat) / R;
-    if (d13 < 1e-9) return { crossTrack: 0, alongTrack: 0 };
-    const b13 = Query.bearing(aLon, aLat, pLon, pLat) * Math.PI / 180;
-    const b12 = Query.bearing(aLon, aLat, bLon, bLat) * Math.PI / 180;
-    const dxt = Math.asin(Math.sin(d13) * Math.sin(b13 - b12)) * R;
-    const cosDxt = Math.cos(dxt / R);
-    if (Math.abs(cosDxt) < 1e-10) return null;
-    const dat = Math.acos(Math.max(-1, Math.min(1, Math.cos(d13) / cosDxt))) * R;
-    return { crossTrack: dxt, alongTrack: dat };
-  }
-
   let distSoFar = 0;
   for (let i = 0; i < pts.length - 1; i++) {
     const a = pts[i], b = pts[i + 1];
@@ -720,7 +733,7 @@ function _checkRouteHazards(routeIdx) {
       const [pLon, pLat] = f.geometry.coordinates;
       const key = `${pLon.toFixed(5)},${pLat.toFixed(5)}`;
       if (seen.has(key)) continue;
-      const ct = _xtDist(a.lon, a.lat, b.lon, b.lat, pLon, pLat);
+      const ct = _segCrossTrack(a.lon, a.lat, b.lon, b.lat, pLon, pLat);
       if (!ct) continue;
       const { crossTrack, alongTrack } = ct;
       if (Math.abs(crossTrack) <= CORRIDOR && alongTrack >= 0 && alongTrack <= segLen) {
@@ -765,10 +778,14 @@ function _checkRouteHazards(routeIdx) {
           `• ${h.label}${h.name ? ' (' + h.name + ')' : ''} — ${h.routeNm.toFixed(1)} nm, ${h.side}`
         ).join('<br>')
       + (found.length > 8 ? `<br>…and ${found.length - 8} more` : '');
+  const fixBtnId  = `hazard-fix-${routeIdx}`;
   const editBtnId = `hazard-edit-${routeIdx}`;
   const content = `<div style="font-size:13px;line-height:1.5">${body}</div>`
     + (found.length > 0
-      ? `<button id="${editBtnId}" style="margin-top:8px;padding:4px 12px;cursor:pointer;width:100%">Edit route to fix</button>`
+      ? `<div style="display:flex;gap:6px;margin-top:8px">
+           <button id="${fixBtnId}"  style="flex:1;padding:4px 8px;cursor:pointer;">Auto-fix route</button>
+           <button id="${editBtnId}" style="flex:1;padding:4px 8px;cursor:pointer;">Edit manually</button>
+         </div>`
       : '');
   L.popup({ maxWidth: 300 })
     .setLatLng([mid.lat, mid.lon])
@@ -776,12 +793,91 @@ function _checkRouteHazards(routeIdx) {
     .openOn(_map);
   if (found.length > 0) {
     setTimeout(() => {
+      document.getElementById(fixBtnId)?.addEventListener('click', () => {
+        _map.closePopup(); _autoFixRouteHazards(routeIdx);
+      });
       document.getElementById(editBtnId)?.addEventListener('click', () => {
-        _map.closePopup();
-        _enterEditMode(routeIdx);
+        _map.closePopup(); _enterEditMode(routeIdx);
       });
     }, 0);
   }
+}
+
+function _autoFixRouteHazards(routeIdx) {
+  const CORRIDOR    = 0.05;   // nm — must match _checkRouteHazards
+  const SAFETY      = 0.03;   // nm extra clearance beyond corridor
+  const CLUSTER_GAP = 0.10;   // nm — hazards within this along-track distance form one cluster
+  const DANGER_LABELS = new Set(['underwater rock','obstruction','wreck','UWTROC','OBSTRN','WRECKS']);
+
+  const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+  const route  = routes[routeIdx];
+  if (!route) return;
+
+  const pts   = route.points;
+  const feats = Query.hazards?.features || [];
+
+  // Collect hazards per segment
+  const segHazards = pts.slice(0, -1).map(() => []);
+  const seen = new Set();
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i+1];
+    const segLen = Query.distanceNm(a.lon, a.lat, b.lon, b.lat);
+    for (const f of feats) {
+      if (f.geometry.type !== 'Point') continue;
+      const label = f.properties.label || f.properties.objtype || '';
+      if (!DANGER_LABELS.has(label)) continue;
+      const [pLon, pLat] = f.geometry.coordinates;
+      const key = `${pLon.toFixed(5)},${pLat.toFixed(5)}`;
+      if (seen.has(key)) continue;
+      const ct = _segCrossTrack(a.lon, a.lat, b.lon, b.lat, pLon, pLat);
+      if (!ct) continue;
+      const { crossTrack, alongTrack } = ct;
+      if (Math.abs(crossTrack) <= CORRIDOR && alongTrack >= 0 && alongTrack <= segLen) {
+        seen.add(key);
+        segHazards[i].push({ crossTrack, alongTrack });
+      }
+    }
+  }
+
+  // Build new point list with bypass waypoints inserted for each hazard cluster
+  const newPts = [pts[0]];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const hs = segHazards[i];
+    if (hs.length === 0) { newPts.push(pts[i+1]); continue; }
+
+    const a = pts[i], b = pts[i+1];
+    const segBearing = Query.bearing(a.lon, a.lat, b.lon, b.lat);
+
+    // Cluster hazards by along-track proximity
+    hs.sort((x, y) => x.alongTrack - y.alongTrack);
+    const clusters = [];
+    let cur = [hs[0]];
+    for (let j = 1; j < hs.length; j++) {
+      if (hs[j].alongTrack - cur[cur.length-1].alongTrack < CLUSTER_GAP) cur.push(hs[j]);
+      else { clusters.push(cur); cur = [hs[j]]; }
+    }
+    clusters.push(cur);
+
+    for (const cluster of clusters) {
+      // Apex = hazard closest to centerline (needs most clearance)
+      const apex = cluster.reduce((best, h) => Math.abs(h.crossTrack) < Math.abs(best.crossTrack) ? h : best);
+      // Bypass on the side opposite the cluster's average cross-track
+      const avgCt = cluster.reduce((s, h) => s + h.crossTrack, 0) / cluster.length;
+      const bypassSign = avgCt >= 0 ? -1 : 1;  // -1 = port offset, +1 = starboard offset
+
+      const onSeg = _destPoint(a.lat, a.lon, segBearing, apex.alongTrack);
+      const bypass = _destPoint(onSeg.lat, onSeg.lon, segBearing + bypassSign * 90, CORRIDOR + SAFETY);
+      newPts.push(bypass);
+    }
+    newPts.push(pts[i+1]);
+  }
+
+  routes[routeIdx].points = newPts;
+  localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
+
+  _lastHazardCheckedIdx = routeIdx;
+  _refreshSavedRouteLayers();
+  _checkRouteHazards(routeIdx);  // auto-recheck to confirm result
 }
 
 function _refreshSavedRouteLayers() {
