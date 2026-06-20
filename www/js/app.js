@@ -1196,7 +1196,8 @@ function _renderEditLayers() {
       }
     });
     m.on('dragend', () => _renderEditLayers());
-    m.on('click', (e) => {
+    m.on('click',    (e) => { L.DomEvent.stopPropagation(e); });
+    m.on('dblclick', (e) => {
       L.DomEvent.stopPropagation(e);
       if (_editPoints.length <= 2) return;
       _editPoints.splice(idx, 1);
@@ -1207,6 +1208,7 @@ function _renderEditLayers() {
 }
 
 function _enterEditMode(routeIdx) {
+  if (_sketchMode) _exitSketchMode();
   const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
   const route = routes[routeIdx];
   if (!route) return;
