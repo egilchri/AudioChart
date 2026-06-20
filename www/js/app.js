@@ -560,6 +560,8 @@ let _ctxRouteIdx       = -1;  // last route hovered; used by context-menu action
 let _selectedRouteIdx  = -1;  // route clicked/highlighted on map
 let _hazardCheckLayer       = null; // temporary markers from Check for Hazards
 let _lastHazardCheckedIdx   = -1;  // route idx of most recent hazard check, for auto-recheck after save
+let _viewportHazardLayer    = null; // hazard markers for current map viewport (edit mode)
+let _viewportHazardMoveEnd  = null; // moveend listener ref for cleanup
 let _lastAutoPanTime   = 0;
 let _animMode = false;
 let _animRafId = null;
@@ -1332,6 +1334,51 @@ function _renderEditLayers() {
   }
 }
 
+function _renderViewportHazards() {
+  const DANGER_LABELS = new Set(['underwater rock','obstruction','wreck','UWTROC','OBSTRN','WRECKS']);
+  if (_viewportHazardLayer) _viewportHazardLayer.clearLayers();
+  else _viewportHazardLayer = L.layerGroup().addTo(_map);
+  const bounds = _map.getBounds();
+  const feats  = Query.hazards?.features || [];
+  for (const f of feats) {
+    if (f.geometry.type !== 'Point') continue;
+    const label = f.properties.label || f.properties.objtype || '';
+    if (!DANGER_LABELS.has(label)) continue;
+    const [pLon, pLat] = f.geometry.coordinates;
+    if (!bounds.contains([pLat, pLon])) continue;
+    const name = f.properties.name ? `: ${f.properties.name}` : '';
+    L.circleMarker([pLat, pLon], {
+      radius: 5, color: '#fff', weight: 1.5,
+      fillColor: '#e88a00', fillOpacity: 0.9,
+      interactive: true,
+    }).bindTooltip(label + name, { permanent: false, direction: 'top' })
+      .addTo(_viewportHazardLayer);
+  }
+}
+
+function _clearViewportHazards() {
+  if (_viewportHazardMoveEnd) {
+    _map.off('moveend', _viewportHazardMoveEnd);
+    _viewportHazardMoveEnd = null;
+  }
+  if (_viewportHazardLayer) { _viewportHazardLayer.clearLayers(); _map.removeLayer(_viewportHazardLayer); _viewportHazardLayer = null; }
+  const btn = document.getElementById('edit-hazards-btn');
+  if (btn) { btn.textContent = 'Show hazards'; btn.classList.remove('active'); }
+}
+
+document.getElementById('edit-hazards-btn').addEventListener('click', () => {
+  if (_viewportHazardLayer) {
+    _clearViewportHazards();
+  } else {
+    _renderViewportHazards();
+    _viewportHazardMoveEnd = () => _renderViewportHazards();
+    _map.on('moveend', _viewportHazardMoveEnd);
+    const btn = document.getElementById('edit-hazards-btn');
+    btn.textContent = 'Hide hazards';
+    btn.classList.add('active');
+  }
+});
+
 function _enterEditMode(routeIdx) {
   if (_sketchMode) _exitSketchMode();
   if (_hazardCheckLayer) { _hazardCheckLayer.clearLayers(); _hazardCheckLayer = null; }
@@ -1361,6 +1408,7 @@ function _exitEditMode() {
   _editRouteName = null;
   _editRouteIdx = -1;
   _editPoints = [];
+  _clearViewportHazards();
   if (_map) {
     _clearEditLayers();
     _map.closePopup();

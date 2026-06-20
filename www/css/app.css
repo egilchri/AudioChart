@@ -966,6 +966,19 @@ html, body {
   font-size: 0.85rem;
   cursor: pointer;
 }
+#edit-hazards-btn {
+  background: var(--navy);
+  color: var(--text);
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+#edit-hazards-btn.active {
+  background: #e88a00;
+  color: #fff;
+}
 /* Track panel */
 #map-ctx-track-parent {
   border-top: 1px solid var(--mid-blue);
