@@ -558,7 +558,8 @@ let _extendingRouteIdx = -1;
 let _extendingFromEnd  = true;
 let _ctxRouteIdx       = -1;  // last route hovered; used by context-menu actions
 let _selectedRouteIdx  = -1;  // route clicked/highlighted on map
-let _hazardCheckLayer  = null; // temporary markers from Check for Hazards
+let _hazardCheckLayer       = null; // temporary markers from Check for Hazards
+let _lastHazardCheckedIdx   = -1;  // route idx of most recent hazard check, for auto-recheck after save
 let _lastAutoPanTime   = 0;
 let _animMode = false;
 let _animRafId = null;
@@ -683,6 +684,7 @@ function _routeEndpointIcon() {
 }
 
 function _checkRouteHazards(routeIdx) {
+  _lastHazardCheckedIdx = routeIdx;
   const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
   const route  = routes[routeIdx];
   if (!route) return;
@@ -763,10 +765,23 @@ function _checkRouteHazards(routeIdx) {
           `• ${h.label}${h.name ? ' (' + h.name + ')' : ''} — ${h.routeNm.toFixed(1)} nm, ${h.side}`
         ).join('<br>')
       + (found.length > 8 ? `<br>…and ${found.length - 8} more` : '');
+  const editBtnId = `hazard-edit-${routeIdx}`;
+  const content = `<div style="font-size:13px;line-height:1.5">${body}</div>`
+    + (found.length > 0
+      ? `<button id="${editBtnId}" style="margin-top:8px;padding:4px 12px;cursor:pointer;width:100%">Edit route to fix</button>`
+      : '');
   L.popup({ maxWidth: 300 })
     .setLatLng([mid.lat, mid.lon])
-    .setContent(`<div style="font-size:13px;line-height:1.5">${body}</div>`)
+    .setContent(content)
     .openOn(_map);
+  if (found.length > 0) {
+    setTimeout(() => {
+      document.getElementById(editBtnId)?.addEventListener('click', () => {
+        _map.closePopup();
+        _enterEditMode(routeIdx);
+      });
+    }, 0);
+  }
 }
 
 function _refreshSavedRouteLayers() {
@@ -1235,11 +1250,13 @@ function _saveEditedRoute() {
   routes[_editRouteIdx].points = _editPoints.map(p => ({ lat: p.lat, lon: p.lon }));
   localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
   const name = _editRouteName || 'Route';
-  _exitEditMode(); // calls _refreshSavedRouteLayers
+  const savedIdx = _editRouteIdx;
+  _exitEditMode(); // calls _refreshSavedRouteLayers, resets _editRouteIdx
   _populateRouteSelectFn?.();
   const msg = `${name} saved.`;
   setStatus(msg);
   TTS.sayImmediate(msg);
+  if (_lastHazardCheckedIdx === savedIdx) _checkRouteHazards(savedIdx);
 }
 
 document.getElementById('edit-save-btn').addEventListener('click', _saveEditedRoute);
