@@ -688,10 +688,12 @@ function _checkRouteHazards(routeIdx) {
   if (!route) return;
   const pts   = route.points;
   const feats = Query.hazards?.features || [];
-  const CORRIDOR = 0.1;   // nm (~200 yards each side)
+  const CORRIDOR = 0.05;  // nm (~100 yards each side)
+  const DANGER_LABELS = new Set(['underwater rock', 'obstruction', 'wreck', 'UWTROC', 'OBSTRN', 'WRECKS']);
   const R = 3440.065;
   const seen = new Set();
   const found = [];
+  const dangerSegments = new Set(); // segment indices that have a nearby hazard
 
   function _xtDist(aLon, aLat, bLon, bLat, pLon, pLat) {
     const d13 = Query.distanceNm(aLon, aLat, pLon, pLat) / R;
@@ -711,6 +713,8 @@ function _checkRouteHazards(routeIdx) {
     const segLen = Query.distanceNm(a.lon, a.lat, b.lon, b.lat);
     for (const f of feats) {
       if (f.geometry.type !== 'Point') continue;
+      const label = f.properties.label || f.properties.objtype || '';
+      if (!DANGER_LABELS.has(label)) continue;  // skip shallow areas etc.
       const [pLon, pLat] = f.geometry.coordinates;
       const key = `${pLon.toFixed(5)},${pLat.toFixed(5)}`;
       if (seen.has(key)) continue;
@@ -719,9 +723,10 @@ function _checkRouteHazards(routeIdx) {
       const { crossTrack, alongTrack } = ct;
       if (Math.abs(crossTrack) <= CORRIDOR && alongTrack >= 0 && alongTrack <= segLen) {
         seen.add(key);
+        dangerSegments.add(i);
         found.push({
           lat: pLat, lon: pLon,
-          label: f.properties.label || f.properties.objtype || 'hazard',
+          label: f.properties.label || label,
           name:  f.properties.name || '',
           routeNm: distSoFar + alongTrack,
           side:  crossTrack <= 0 ? 'port' : 'starboard',
@@ -734,16 +739,25 @@ function _checkRouteHazards(routeIdx) {
 
   if (_hazardCheckLayer) _hazardCheckLayer.clearLayers();
   _hazardCheckLayer = L.layerGroup().addTo(_map);
+
+  // Highlight dangerous route segments in red
+  for (const i of dangerSegments) {
+    L.polyline([[pts[i].lat, pts[i].lon], [pts[i+1].lat, pts[i+1].lon]], {
+      color: '#e05252', weight: 7, opacity: 0.9, interactive: false,
+    }).addTo(_hazardCheckLayer);
+  }
+
+  // Circle markers at each hazard point
   for (const h of found) {
     L.circleMarker([h.lat, h.lon], {
-      radius: 7, color: '#e05252', fillColor: '#e05252', fillOpacity: 0.8, weight: 2,
+      radius: 6, color: '#fff', fillColor: '#e05252', fillOpacity: 1.0, weight: 2,
     }).bindTooltip(`${h.label}${h.name ? ': ' + h.name : ''}`, { permanent: false })
       .addTo(_hazardCheckLayer);
   }
 
   const mid = pts[Math.floor((pts.length - 1) / 2)];
   const body = found.length === 0
-    ? `<b>${route.name}</b><br>✓ No charted hazards within 200 yds.`
+    ? `<b>${route.name}</b><br>✓ No rocks, obstructions, or wrecks within 100 yds.`
     : `<b>${route.name}</b> — ${found.length} hazard${found.length > 1 ? 's' : ''} detected:<br>`
       + found.slice(0, 8).map(h =>
           `• ${h.label}${h.name ? ' (' + h.name + ')' : ''} — ${h.routeNm.toFixed(1)} nm, ${h.side}`
