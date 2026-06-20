@@ -699,7 +699,27 @@ function _refreshSavedRouteLayers() {
     const lls = pts.map(p => [p.lat, p.lon]);
 
     L.polyline(lls, { color: '#e05252', weight: 8, opacity: 0, interactive: true })
-      .on('click',    (e) => { L.DomEvent.stopPropagation(e); _selectedRouteIdx = routeIdx; _refreshSavedRouteLayers(); })
+      .on('click', (e) => {
+        L.DomEvent.stopPropagation(e);
+        _selectedRouteIdx = routeIdx;
+        _refreshSavedRouteLayers();
+        const btnId = `hide-route-${routeIdx}`;
+        L.popup({ closeButton: true })
+          .setLatLng(e.latlng)
+          .setContent(`<button id="${btnId}" style="padding:4px 12px;cursor:pointer;">Hide route</button>`)
+          .openOn(_map);
+        setTimeout(() => {
+          const btn = document.getElementById(btnId);
+          if (!btn) return;
+          btn.addEventListener('click', () => {
+            _map.closePopup();
+            const r = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+            if (r[routeIdx]) _hiddenRouteNames.add(r[routeIdx].name);
+            _selectedRouteIdx = -1;
+            _refreshSavedRouteLayers();
+          });
+        }, 0);
+      })
       .on('dblclick', (e) => { L.DomEvent.stopPropagation(e); _enterEditMode(routeIdx); })
       .on('mouseover', () => { _ctxRouteIdx = routeIdx; })
       .addTo(_savedRoutesLayer);
