@@ -1175,7 +1175,7 @@ function _renderEditLayers() {
       draggable: true,
       zIndexOffset: 1000,
     }).bindTooltip(formatPositionDisplay(pts[idx].lat, pts[idx].lon), {
-      permanent: true, direction: 'top', offset: [0, -6], className: 'route-coord-tip',
+      permanent: true, direction: 'top', offset: [0, -20], className: 'route-coord-tip edit-coord-tip',
     }).addTo(_map);
     m.on('drag', () => {
       const ll = m.getLatLng();

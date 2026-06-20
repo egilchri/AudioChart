@@ -883,6 +883,11 @@ html, body {
   pointer-events: none;
 }
 .leaflet-tooltip.route-coord-tip::before { display: none; }
+.leaflet-tooltip.edit-coord-tip {
+  pointer-events: auto;
+  user-select: text;
+  cursor: text;
+}
 .route-name-label {
   background: rgba(15, 35, 70, 0.80);
   color: #f0f4ff;
