@@ -751,7 +751,7 @@ function _refreshSavedRouteLayers() {
         routes2[routeIdx].name = newName.trim();
         localStorage.setItem(ROUTE_KEY, JSON.stringify(routes2));
         localStorage.setItem('audiochart-last-route', newName.trim());
-        _populateRouteSelect();
+        _populateRouteSelectFn?.();
         _refreshSavedRouteLayers();
       }).addTo(_savedRoutesLayer);
     }
