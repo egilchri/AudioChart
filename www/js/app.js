@@ -1209,6 +1209,7 @@ function _renderEditLayers() {
 
 function _enterEditMode(routeIdx) {
   if (_sketchMode) _exitSketchMode();
+  if (_hazardCheckLayer) { _hazardCheckLayer.clearLayers(); _hazardCheckLayer = null; }
   const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
   const route = routes[routeIdx];
   if (!route) return;
