@@ -699,7 +699,7 @@ function _refreshSavedRouteLayers() {
     const lls = pts.map(p => [p.lat, p.lon]);
 
     L.polyline(lls, { color: '#e05252', weight: 8, opacity: 0, interactive: true })
-      .on('click',    (e) => { L.DomEvent.stopPropagation(e); _selectedRouteIdx = routeIdx; _renderSavedRoutes(); })
+      .on('click',    (e) => { L.DomEvent.stopPropagation(e); _selectedRouteIdx = routeIdx; _refreshSavedRouteLayers(); })
       .on('dblclick', (e) => { L.DomEvent.stopPropagation(e); _enterEditMode(routeIdx); })
       .on('mouseover', () => { _ctxRouteIdx = routeIdx; })
       .addTo(_savedRoutesLayer);
@@ -723,6 +723,37 @@ function _refreshSavedRouteLayers() {
         interactive: false,
       }).bindTooltip(brgStr, { permanent: true, direction: 'center', className: 'route-bearing-tip' })
         .addTo(_savedRoutesLayer);
+    }
+
+    // Route name label at geographic midpoint — click to rename
+    {
+      const n = pts.length;
+      let nameLat, nameLon;
+      if (n === 1) {
+        nameLat = pts[0].lat; nameLon = pts[0].lon;
+      } else if (n % 2 === 1) {
+        const m = Math.floor(n / 2);
+        nameLat = pts[m].lat; nameLon = pts[m].lon;
+      } else {
+        const m = n / 2;
+        nameLat = (pts[m - 1].lat + pts[m].lat) / 2;
+        nameLon = (pts[m - 1].lon + pts[m].lon) / 2;
+      }
+      L.marker([nameLat, nameLon], {
+        icon: L.divIcon({ className: 'route-name-label', html: route.name, iconSize: null }),
+        interactive: true,
+        zIndexOffset: 500,
+      }).on('click', (e) => {
+        L.DomEvent.stopPropagation(e);
+        const routes2 = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+        const newName = prompt('Rename route:', routes2[routeIdx].name);
+        if (!newName || !newName.trim()) return;
+        routes2[routeIdx].name = newName.trim();
+        localStorage.setItem(ROUTE_KEY, JSON.stringify(routes2));
+        localStorage.setItem('audiochart-last-route', newName.trim());
+        _populateRouteSelect();
+        _refreshSavedRouteLayers();
+      }).addTo(_savedRoutesLayer);
     }
 
     // Endpoint markers with coordinate labels
@@ -2519,7 +2550,7 @@ function _ensureMap() {
   _map.on('click', () => {
     if (_editMode || _sketchMode || _selectedRouteIdx < 0) return;
     _selectedRouteIdx = -1;
-    _renderSavedRoutes();
+    _refreshSavedRouteLayers();
   });
   document.addEventListener('click', (e) => { if (!_ctxMenu.contains(e.target)) _hideCtx(); }, { capture: true });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') _hideCtx(); });

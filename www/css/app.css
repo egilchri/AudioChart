@@ -883,6 +883,22 @@ html, body {
   pointer-events: none;
 }
 .leaflet-tooltip.route-coord-tip::before { display: none; }
+.route-name-label {
+  background: rgba(15, 35, 70, 0.80);
+  color: #f0f4ff;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+}
+.route-name-label:hover {
+  background: rgba(245, 200, 66, 0.92);
+  color: #0f2346;
+}
 #sketch-banner {
   display: flex;
   align-items: center;
