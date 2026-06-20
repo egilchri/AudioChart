@@ -562,6 +562,8 @@ let _hazardCheckLayer       = null; // temporary markers from Check for Hazards
 let _lastHazardCheckedIdx   = -1;  // route idx of most recent hazard check, for auto-recheck after save
 let _viewportHazardLayer    = null; // hazard markers for current map viewport (edit mode)
 let _viewportHazardMoveEnd  = null; // moveend listener ref for cleanup
+let _routeNameLabels        = [];   // [{marker, pts}] for viewport-clamping on moveend
+let _routeNameMoveEndWired  = false;
 let _lastAutoPanTime   = 0;
 let _animMode = false;
 let _animRafId = null;
@@ -877,8 +879,37 @@ function _autoFixRouteHazards(routeIdx) {
   _checkRouteHazards(routeIdx);
 }
 
+function _bestRouteLabelPos(pts) {
+  // Return the vertex closest to the viewport center that is within bounds;
+  // fall back to geographic midpoint if none are visible.
+  const bounds  = _map.getBounds();
+  const center  = bounds.getCenter();
+  let bestPt = null, bestDist = Infinity;
+  for (const p of pts) {
+    if (!bounds.contains([p.lat, p.lon])) continue;
+    const d = Math.hypot(p.lat - center.lat, p.lon - center.lng);
+    if (d < bestDist) { bestDist = d; bestPt = p; }
+  }
+  if (bestPt) return bestPt;
+  // No vertex in viewport — use geographic midpoint
+  const n = pts.length;
+  if (n === 1) return pts[0];
+  if (n % 2 === 1) return pts[Math.floor(n / 2)];
+  const m = n / 2;
+  return { lat: (pts[m-1].lat + pts[m].lat) / 2, lon: (pts[m-1].lon + pts[m].lon) / 2 };
+}
+
+function _repositionRouteNameLabels() {
+  if (!_map) return;
+  for (const { marker, pts } of _routeNameLabels) {
+    const p = _bestRouteLabelPos(pts);
+    marker.setLatLng([p.lat, p.lon]);
+  }
+}
+
 function _refreshSavedRouteLayers() {
   if (!_map) return;
+  _routeNameLabels = [];
   if (_savedRoutesLayer) {
     _savedRoutesLayer.clearLayers();
   } else {
@@ -886,6 +917,15 @@ function _refreshSavedRouteLayers() {
   }
   if (_sketchMode || _editMode) return; // hidden during drawing/editing
   _savedRoutesLayer.addTo(_map);
+
+  // Custom pane above tooltip pane (650) so route names render over bearing labels
+  if (!_map.getPane('routeNamePane')) {
+    _map.createPane('routeNamePane').style.zIndex = '700';
+  }
+  if (!_routeNameMoveEndWired) {
+    _map.on('moveend zoomend', _repositionRouteNameLabels);
+    _routeNameMoveEndWired = true;
+  }
 
   const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
   routes.forEach((route, routeIdx) => {
@@ -947,24 +987,13 @@ function _refreshSavedRouteLayers() {
         .addTo(_savedRoutesLayer);
     }
 
-    // Route name label at geographic midpoint — click to rename
+    // Route name label — viewport-aware position, renders above bearing tooltips
     {
-      const n = pts.length;
-      let nameLat, nameLon;
-      if (n === 1) {
-        nameLat = pts[0].lat; nameLon = pts[0].lon;
-      } else if (n % 2 === 1) {
-        const m = Math.floor(n / 2);
-        nameLat = pts[m].lat; nameLon = pts[m].lon;
-      } else {
-        const m = n / 2;
-        nameLat = (pts[m - 1].lat + pts[m].lat) / 2;
-        nameLon = (pts[m - 1].lon + pts[m].lon) / 2;
-      }
-      L.marker([nameLat, nameLon], {
+      const labelPt = _bestRouteLabelPos(pts);
+      const nameMarker = L.marker([labelPt.lat, labelPt.lon], {
         icon: L.divIcon({ className: 'route-name-label', html: route.name, iconSize: null }),
+        pane: 'routeNamePane',
         interactive: true,
-        zIndexOffset: 500,
       }).on('click', (e) => {
         L.DomEvent.stopPropagation(e);
         const routes2 = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
@@ -976,6 +1005,7 @@ function _refreshSavedRouteLayers() {
         _populateRouteSelectFn?.();
         _refreshSavedRouteLayers();
       }).addTo(_savedRoutesLayer);
+      _routeNameLabels.push({ marker: nameMarker, pts });
     }
 
     // Endpoint markers with coordinate labels
