@@ -1232,6 +1232,37 @@ function _clearEditLayers() {
   _editSegmentLayers = [];
 }
 
+function _checkEditSegment(segIdx, latlng) {
+  const CORRIDOR = 0.05;
+  const DANGER_LABELS = new Set(['underwater rock','obstruction','wreck','UWTROC','OBSTRN','WRECKS']);
+  const a = _editPoints[segIdx], b = _editPoints[segIdx + 1];
+  if (!a || !b) return;
+  const segLen = Query.distanceNm(a.lon, a.lat, b.lon, b.lat);
+  const feats  = Query.hazards?.features || [];
+  const found  = [];
+  for (const f of feats) {
+    if (f.geometry.type !== 'Point') continue;
+    const label = f.properties.label || f.properties.objtype || '';
+    if (!DANGER_LABELS.has(label)) continue;
+    const [pLon, pLat] = f.geometry.coordinates;
+    const ct = _segCrossTrack(a.lon, a.lat, b.lon, b.lat, pLon, pLat);
+    if (!ct) continue;
+    const { crossTrack, alongTrack } = ct;
+    if (Math.abs(crossTrack) <= CORRIDOR && alongTrack >= 0 && alongTrack <= segLen)
+      found.push(f.properties.name || label);
+  }
+  const html = found.length === 0
+    ? `<span style="color:#2a7a2a">&#10003; Clear</span>`
+    : `<span style="color:#c0392b">&#9888; ${found.length} hazard${found.length > 1 ? 's' : ''}: `
+      + found.slice(0, 3).join(', ')
+      + (found.length > 3 ? ` +${found.length - 3} more` : '')
+      + '</span>';
+  L.popup({ closeButton: false, className: 'segment-hazard-popup' })
+    .setLatLng(latlng)
+    .setContent(`<div style="font-size:13px;padding:2px 4px">${html}</div>`)
+    .openOn(_map);
+}
+
 function _renderEditLayers() {
   _clearEditLayers();
   const pts = _editPoints;
@@ -1241,7 +1272,10 @@ function _renderEditLayers() {
     const ptA = [pts[i].lat, pts[i].lon];
     const ptB = [pts[i + 1].lat, pts[i + 1].lon];
     const seg = L.polyline([ptA, ptB], {
-      color: '#e05252', weight: 5, opacity: 0.85, interactive: false,
+      color: '#e05252', weight: 5, opacity: 0.85, interactive: true,
+    }).on('click', (e) => {
+      L.DomEvent.stopPropagation(e);
+      _checkEditSegment(i, e.latlng);
     }).addTo(_map);
     _editSegmentLayers.push(seg);
 
