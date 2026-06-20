@@ -2095,19 +2095,10 @@ function _startRouteAnimation(route, speedKnots) {
   const sailTotalMin = Math.round(totalNm / speedKnots * 60); // actual sailing minutes
   const compressLabel = compress > 1 ? ` · ${compress}×` : '';
 
-  // Prime TTS in the user-gesture call stack so iOS allows timer-triggered speech later.
-  // Boat won't start moving until both parts of the announcement finish.
+  // Prime TTS for iOS audio unlock; animation starts immediately in parallel.
   const milesText = `${Math.round(totalNm * 10) / 10} nautical miles.`;
-  TTS.sayImmediate(`Animating ${route.name}.`, () => {
-    if (!_animMode) return;
-    setTimeout(() => {
-      if (!_animMode) return;
-      TTS.sayImmediate(milesText, () => {
-        if (!_animMode) return;
-        _animRafId = requestAnimationFrame(step);
-      });
-    }, 400);
-  });
+  TTS.sayImmediate(`Animating ${route.name}. ${milesText}`);
+  _animRafId = requestAnimationFrame(step);
 
   // Object layer for click-based reports
   _animReportLayer    = L.layerGroup().addTo(_map);
