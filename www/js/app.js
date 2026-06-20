@@ -557,6 +557,7 @@ let _hiddenRouteNames  = new Set();
 let _extendingRouteIdx = -1;
 let _extendingFromEnd  = true;
 let _ctxRouteIdx       = -1;  // last route hovered; used by context-menu actions
+let _selectedRouteIdx  = -1;  // route clicked/highlighted on map
 let _lastAutoPanTime   = 0;
 let _animMode = false;
 let _animRafId = null;
@@ -698,11 +699,17 @@ function _refreshSavedRouteLayers() {
     const lls = pts.map(p => [p.lat, p.lon]);
 
     L.polyline(lls, { color: '#e05252', weight: 8, opacity: 0, interactive: true })
-      .on('click', (e) => { L.DomEvent.stopPropagation(e); _enterEditMode(routeIdx); })
+      .on('click',    (e) => { L.DomEvent.stopPropagation(e); _selectedRouteIdx = routeIdx; _renderSavedRoutes(); })
+      .on('dblclick', (e) => { L.DomEvent.stopPropagation(e); _enterEditMode(routeIdx); })
       .on('mouseover', () => { _ctxRouteIdx = routeIdx; })
       .addTo(_savedRoutesLayer);
-    L.polyline(lls, { color: '#e05252', weight: 3, opacity: 0.7, interactive: false })
-      .addTo(_savedRoutesLayer);
+    const isSelected = routeIdx === _selectedRouteIdx;
+    L.polyline(lls, {
+      color: isSelected ? '#f5c842' : '#e05252',
+      weight: isSelected ? 5 : 3,
+      opacity: isSelected ? 1.0 : 0.7,
+      interactive: false,
+    }).addTo(_savedRoutesLayer);
 
     // Segment bearing labels
     for (let i = 0; i < pts.length - 1; i++) {
@@ -2502,12 +2509,18 @@ function _ensureMap() {
     _ctxMenu.style.top     = '0';
     _ctxMenu.style.display = 'block';
     const mw = _ctxMenu.offsetWidth, mh = _ctxMenu.offsetHeight;
-    const x  = Math.min(e.originalEvent.clientX, window.innerWidth  - mw - 4);
-    const y  = Math.min(e.originalEvent.clientY, window.innerHeight - mh - 4);
+    const cx = e.originalEvent.clientX, cy = e.originalEvent.clientY;
+    const x  = Math.min(cx, window.innerWidth  - mw - 4);
+    const y  = (cy + mh + 4 > window.innerHeight) ? Math.max(4, cy - mh) : cy;
     _ctxMenu.style.left = Math.max(4, x) + 'px';
     _ctxMenu.style.top  = Math.max(4, y) + 'px';
   });
   _map.on('movestart zoomstart', _hideCtx);
+  _map.on('click', () => {
+    if (_editMode || _sketchMode || _selectedRouteIdx < 0) return;
+    _selectedRouteIdx = -1;
+    _renderSavedRoutes();
+  });
   document.addEventListener('click', (e) => { if (!_ctxMenu.contains(e.target)) _hideCtx(); }, { capture: true });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') _hideCtx(); });
 
@@ -2586,7 +2599,9 @@ function _ensureMap() {
     _hideCtx();
     const sel    = document.getElementById('track-route-select');
     const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
-    const idx    = (_ctxRouteIdx >= 0 && routes[_ctxRouteIdx]) ? _ctxRouteIdx : parseInt(sel.value);
+    const idx    = (_selectedRouteIdx >= 0 && routes[_selectedRouteIdx]) ? _selectedRouteIdx
+                 : (_ctxRouteIdx >= 0 && routes[_ctxRouteIdx]) ? _ctxRouteIdx
+                 : parseInt(sel.value);
     if (isNaN(idx) || !routes[idx]) {
       alert('Select a route in the Track panel first, then rename.');
       return;
@@ -2606,7 +2621,9 @@ function _ensureMap() {
     _hideCtx();
     const sel    = document.getElementById('track-route-select');
     const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
-    const idx    = (_ctxRouteIdx >= 0 && routes[_ctxRouteIdx]) ? _ctxRouteIdx : parseInt(sel.value);
+    const idx    = (_selectedRouteIdx >= 0 && routes[_selectedRouteIdx]) ? _selectedRouteIdx
+                 : (_ctxRouteIdx >= 0 && routes[_ctxRouteIdx]) ? _ctxRouteIdx
+                 : parseInt(sel.value);
     if (isNaN(idx) || !routes[idx]) {
       alert('Select a route in the Track → Along route panel first, then edit.');
       return;
