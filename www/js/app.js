@@ -2070,7 +2070,7 @@ function _startRouteAnimation(route, speedKnots) {
     color: '#e05252', weight: 3, opacity: 0.7, dashArray: '8 4',
   }).addTo(_map);
   if (track.zoom) _map.setView(pts[0], track.zoom);
-  else            _map.fitBounds(L.latLngBounds(pts).pad(0.25));
+  else            _map.fitBounds(L.latLngBounds(pts).pad(0.05));
 
   // Pre-compute segments with cumulative distance
   const segs = [];
@@ -2084,7 +2084,8 @@ function _startRouteAnimation(route, speedKnots) {
   const totalNm = cumDist;
 
   const _initBearing = segs.length ? _segBearing(segs[0].lat1, segs[0].lon1, segs[0].lat2, segs[0].lon2) : 0;
-  _animMarker = L.marker(pts[0], { icon: _animBoatIcon(_initBearing), zIndexOffset: 1000 }).addTo(_map);
+  if (!_map.getPane('animBoatPane')) _map.createPane('animBoatPane').style.zIndex = '750';
+  _animMarker = L.marker(pts[0], { icon: _animBoatIcon(_initBearing), pane: 'animBoatPane' }).addTo(_map);
   _animCurrentLat = pts[0][0];
   _animCurrentLon = pts[0][1];
 

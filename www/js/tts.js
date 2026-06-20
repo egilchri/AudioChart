@@ -75,7 +75,11 @@ function speakNext() {
     if (queue.length === 0 && _onSpeechEnd) { const cb = _onSpeechEnd; _onSpeechEnd = null; cb(); }
     speakNext();
   };
-  utt.onerror = () => { speaking = false; speakNext(); };
+  utt.onerror = () => {
+    speaking = false;
+    if (queue.length === 0 && _onSpeechEnd) { const cb = _onSpeechEnd; _onSpeechEnd = null; cb(); }
+    speakNext();
+  };
   speechSynthesis.speak(utt);
 }
 
