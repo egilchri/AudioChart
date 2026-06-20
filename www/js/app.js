@@ -789,7 +789,7 @@ function _checkRouteHazards(routeIdx) {
            <button id="${editBtnId}" style="flex:1;padding:4px 8px;cursor:pointer;">Edit manually</button>
          </div>`
       : '');
-  L.popup({ maxWidth: 300 })
+  L.popup({ maxWidth: 300, autoPan: false })
     .setLatLng([mid.lat, mid.lon])
     .setContent(content)
     .openOn(_map);
