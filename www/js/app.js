@@ -2038,30 +2038,6 @@ function _exitAnimMode() {
 
 document.getElementById('anim-stop-btn').addEventListener('click', _exitAnimMode);
 
-function _openAnimSettings(nearEl) {
-  _populateRouteSelect();
-  const menu = document.getElementById('map-context-menu');
-  ['map-ctx-objects-submenu', 'map-ctx-wp-submenu',
-   'map-ctx-route-submenu',   'map-ctx-import-submenu'].forEach(id => {
-    document.getElementById(id).style.display = 'none';
-  });
-  document.getElementById('map-ctx-track-submenu').style.display = 'block';
-  menu.style.left = '0';
-  menu.style.top  = '0';
-  menu.style.display = 'block';
-  const mw = menu.offsetWidth, mh = menu.offsetHeight;
-  const anchor = nearEl ? nearEl.getBoundingClientRect() : null;
-  const left = anchor ? Math.min(anchor.left, window.innerWidth - mw - 4) : 4;
-  const top  = anchor ? Math.min(anchor.bottom + 4, window.innerHeight - mh - 4)
-                      : Math.max(4, window.innerHeight - mh - 4);
-  menu.style.left = Math.max(4, left) + 'px';
-  menu.style.top  = Math.max(4, top)  + 'px';
-}
-
-document.getElementById('anim-settings-btn').addEventListener('click', function(e) {
-  e.stopPropagation();
-  _openAnimSettings(this);
-});
 
 function _getTrackSettings() {
   const objChip      = document.querySelector('.track-obj.selected');
@@ -3078,6 +3054,29 @@ function _ensureMap() {
     localStorage.setItem('audiochart-last-route', route.name);
     localStorage.setItem('audiochart-last-speed', speed);
     _startRouteAnimation(route, speed);
+  });
+
+  function _openAnimSettings(nearEl) {
+    _populateRouteSelect();
+    [_ctxSubmenu, _wpSubmenu, _routeSubmenu, _importSubmenu].forEach(el => {
+      el.style.display = 'none';
+    });
+    _trackSubmenu.style.display = 'block';
+    _ctxMenu.style.left = '0';
+    _ctxMenu.style.top  = '0';
+    _ctxMenu.style.display = 'block';
+    const mw = _ctxMenu.offsetWidth, mh = _ctxMenu.offsetHeight;
+    const anchor = nearEl ? nearEl.getBoundingClientRect() : null;
+    const left = anchor ? Math.min(anchor.left, window.innerWidth  - mw - 4) : 4;
+    const top  = anchor ? Math.min(anchor.bottom + 4, window.innerHeight - mh - 4)
+                        : Math.max(4, window.innerHeight - mh - 4);
+    _ctxMenu.style.left = Math.max(4, left) + 'px';
+    _ctxMenu.style.top  = Math.max(4, top)  + 'px';
+  }
+
+  document.getElementById('anim-settings-btn').addEventListener('click', function(e) {
+    e.stopPropagation();
+    _openAnimSettings(this);
   });
 
   document.getElementById('map-ctx-wp-parent').addEventListener('click', () => {
