@@ -2151,8 +2151,14 @@ function _startRouteAnimation(route, speedKnots) {
       });
     });
   }
-  _animClickHandler = _onAnimStop;
-  _map.on('click', _onAnimStop);
+  // Delay registering the stop handler so the popup's button click doesn't
+  // immediately trigger it (closePopup strips the popup's stopPropagation
+  // listener before the click finishes bubbling to the map).
+  setTimeout(() => {
+    if (!_animMode) return;
+    _animClickHandler = _onAnimStop;
+    _map.on('click', _onAnimStop);
+  }, 300);
 
   // Delay RAF start to let the DOM/map settle after entering fullscreen
   let startTime = null;
