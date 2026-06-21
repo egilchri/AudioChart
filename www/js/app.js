@@ -942,11 +942,13 @@ function _refreshSavedRouteLayers() {
         const hideId  = `hide-route-${routeIdx}`;
         const chkId   = `hazard-check-${routeIdx}`;
         const animId  = `animate-route-${routeIdx}`;
+        const settId  = `anim-settings-${routeIdx}`;
         L.popup({ closeButton: true })
           .setLatLng(e.latlng)
           .setContent(`<div style="display:flex;flex-direction:column;gap:6px;padding:2px 0">
             <button id="${hideId}" style="padding:4px 12px;cursor:pointer;">Hide route</button>
             <button id="${chkId}"  style="padding:4px 12px;cursor:pointer;">Check for hazards</button>
+            <button id="${settId}" style="padding:4px 12px;cursor:pointer;">&#9881; Anim settings</button>
             <button id="${animId}" style="padding:4px 12px;cursor:pointer;">Animate</button>
           </div>`)
           .openOn(_map);
@@ -961,6 +963,10 @@ function _refreshSavedRouteLayers() {
           document.getElementById(chkId)?.addEventListener('click', () => {
             _map.closePopup();
             _checkRouteHazards(routeIdx);
+          });
+          document.getElementById(settId)?.addEventListener('click', () => {
+            _map.closePopup();
+            _openAnimSettings(null);
           });
           document.getElementById(animId)?.addEventListener('click', () => {
             _map.closePopup();
@@ -2031,6 +2037,31 @@ function _exitAnimMode() {
 }
 
 document.getElementById('anim-stop-btn').addEventListener('click', _exitAnimMode);
+
+function _openAnimSettings(nearEl) {
+  _populateRouteSelect();
+  const menu = document.getElementById('map-context-menu');
+  ['map-ctx-objects-submenu', 'map-ctx-wp-submenu',
+   'map-ctx-route-submenu',   'map-ctx-import-submenu'].forEach(id => {
+    document.getElementById(id).style.display = 'none';
+  });
+  document.getElementById('map-ctx-track-submenu').style.display = 'block';
+  menu.style.left = '0';
+  menu.style.top  = '0';
+  menu.style.display = 'block';
+  const mw = menu.offsetWidth, mh = menu.offsetHeight;
+  const anchor = nearEl ? nearEl.getBoundingClientRect() : null;
+  const left = anchor ? Math.min(anchor.left, window.innerWidth - mw - 4) : 4;
+  const top  = anchor ? Math.min(anchor.bottom + 4, window.innerHeight - mh - 4)
+                      : Math.max(4, window.innerHeight - mh - 4);
+  menu.style.left = Math.max(4, left) + 'px';
+  menu.style.top  = Math.max(4, top)  + 'px';
+}
+
+document.getElementById('anim-settings-btn').addEventListener('click', function(e) {
+  e.stopPropagation();
+  _openAnimSettings(this);
+});
 
 function _getTrackSettings() {
   const objChip      = document.querySelector('.track-obj.selected');

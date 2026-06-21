@@ -1153,6 +1153,16 @@ html, body {
   gap: 12px;
 }
 #anim-banner-text { flex: 1; }
+#anim-settings-btn {
+  background: var(--mid-blue);
+  color: var(--text);
+  border: none;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 1rem;
+  cursor: pointer;
+  flex-shrink: 0;
+}
 #anim-stop-btn {
   background: var(--danger);
   color: #fff;
