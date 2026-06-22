@@ -803,11 +803,22 @@ function _checkRouteHazards(routeIdx) {
     }).addTo(_hazardCheckLayer);
   }
 
-  // Circle markers at each hazard point
+  // Pulsing Davy Jones skull at each hazard — click to zoom in on exact location
   for (const h of found) {
-    L.circleMarker([h.lat, h.lon], {
-      radius: 6, color: '#fff', fillColor: '#e05252', fillOpacity: 1.0, weight: 2,
-    }).bindTooltip(`${h.label}${h.name ? ': ' + h.name : ''}`, { permanent: false })
+    const tip = `${h.label}${h.name ? ': ' + h.name : ''} (${h.side}, ${h.routeNm.toFixed(1)} nm)`;
+    L.marker([h.lat, h.lon], {
+      icon: L.divIcon({
+        className: '',
+        html: `<div class="davy-jones-icon" title="${tip}">&#9760;</div>`,
+        iconSize: [0, 0],
+        iconAnchor: [0, 0],
+      }),
+      zIndexOffset: 1000,
+    }).bindTooltip(tip, { permanent: false, direction: 'top', offset: [0, -14] })
+      .on('click', (e) => {
+        L.DomEvent.stopPropagation(e);
+        _map.setView([h.lat, h.lon], Math.max(_map.getZoom(), 15));
+      })
       .addTo(_hazardCheckLayer);
   }
 
