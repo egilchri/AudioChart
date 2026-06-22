@@ -731,7 +731,7 @@ function _segCrossTrack(aLon, aLat, bLon, bLat, pLon, pLat) {
   const cosDxt = Math.cos(dxt / R);
   if (Math.abs(cosDxt) < 1e-10) return null;
   const dat = Math.acos(Math.max(-1, Math.min(1, Math.cos(d13) / cosDxt))) * R;
-  return { crossTrack: dxt, alongTrack: dat };
+  return { crossTrack: dxt, alongTrack: Math.cos(b13 - b12) >= 0 ? dat : -dat };
 }
 
 function _destPoint(lat, lon, bearingDeg, distNm) {
