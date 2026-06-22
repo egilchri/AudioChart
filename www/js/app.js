@@ -81,7 +81,7 @@ function _addLeaderLabel(layer, anchorLat, anchorLon, trueBrg, side, offsetNm, h
   const oLat = anchorLat + offsetNm * Math.cos(perpBrg * Math.PI / 180) / 60;
   const oLon = anchorLon + offsetNm * Math.sin(perpBrg * Math.PI / 180) / 60 / Math.cos(anchorLat * Math.PI / 180);
   L.polyline([[oLat, oLon], [anchorLat, anchorLon]], {
-    color: '#5a8ab0', weight: 1, opacity: 0.45, interactive: false, dashArray: '3 4',
+    color: '#6aaad4', weight: 1.5, opacity: 0.65, interactive: false, dashArray: '4 3',
   }).addTo(layer);
   L.marker([oLat, oLon], {
     icon: L.divIcon({ className: '', html: `<div class="${cssClass}">${html}</div>`, iconSize: [0, 0], iconAnchor: [0, 0] }),
@@ -939,8 +939,15 @@ function _refreshSavedRouteLayers() {
   }
   if (!_routeNameMoveEndWired) {
     _map.on('moveend zoomend', _repositionRouteNameLabels);
+    _map.on('zoomend', _refreshSavedRouteLayers);   // re-snap label offsets to current zoom
     _routeNameMoveEndWired = true;
   }
+
+  // Keep labels ~55 screen-pixels from the route regardless of zoom level.
+  // Formula: pixels/NM ≈ (256 · 2^z) / (360 · 60) · cos(lat)
+  const _z = _map.getZoom();
+  const _pxPerNm = 256 * Math.pow(2, _z) / (360 * 60) * Math.cos(44.5 * Math.PI / 180);
+  const _labelOffsetNm = Math.min(Math.max(55 / _pxPerNm, 0.15), 3.0);
 
   const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
   routes.forEach((route, routeIdx) => {
@@ -1010,7 +1017,7 @@ function _refreshSavedRouteLayers() {
       const magBrg  = Math.round(trueTomagnetic(trueBrg) + 360) % 360;
       const distNm  = Query.distanceNm(pts[i].lon, pts[i].lat, pts[i + 1].lon, pts[i + 1].lat);
       const html    = `${String(magBrg).padStart(3, '0')}&deg;M &thinsp; ${distNm.toFixed(1)}nm`;
-      _addLeaderLabel(_savedRoutesLayer, midLat, midLon, trueBrg, i % 2 === 0 ? 1 : -1, 0.15, html, 'route-label-box');
+      _addLeaderLabel(_savedRoutesLayer, midLat, midLon, trueBrg, i % 2 === 0 ? 1 : -1, _labelOffsetNm, html, 'route-label-box');
     }
 
     // Route name label — viewport-aware position, renders above bearing tooltips
@@ -1045,7 +1052,7 @@ function _refreshSavedRouteLayers() {
           ? _segBearing(adjPt.lat, adjPt.lon, pt.lat, pt.lon)
           : _segBearing(pt.lat, pt.lon, adjPt.lat, adjPt.lon);
         _addLeaderLabel(_savedRoutesLayer, pt.lat, pt.lon, segBrg,
-          fromEnd ? -1 : 1, 0.18,
+          fromEnd ? -1 : 1, _labelOffsetNm * 1.2,
           formatPositionDisplay(pt.lat, pt.lon), 'route-coord-label-box');
       }
       m.on('click', (e) => {
