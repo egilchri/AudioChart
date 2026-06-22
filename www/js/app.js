@@ -2034,6 +2034,8 @@ function _exitAnimMode() {
   if (_animMilestoneLayer && _map) { _map.removeLayer(_animMilestoneLayer); _animMilestoneLayer = null; }
   if (_previewRouteLine && _map) { _map.removeLayer(_previewRouteLine); _previewRouteLine = null; }
   if (_map) { _map.dragging.enable(); _map.invalidateSize(); }
+  // Restore route labels that were hidden during animation
+  if (_savedRoutesLayer && _map && !_map.hasLayer(_savedRoutesLayer)) _savedRoutesLayer.addTo(_map);
   // Close standalone settings panel if open
   const _ts = document.getElementById('map-ctx-track-submenu');
   if (_ts?._standalone) {
@@ -2078,6 +2080,8 @@ function _startRouteAnimation(route, speedKnots) {
   document.getElementById('map-container').style.display = 'block';
   _mapContainer.classList.remove('map-compact', 'list-focus', 'input-focus');
   _map.invalidateSize();
+  // Hide cluttered route labels (bearing tips, coord tooltips) during animation
+  if (_savedRoutesLayer && _map.hasLayer(_savedRoutesLayer)) _map.removeLayer(_savedRoutesLayer);
 
   const pts = route.points.map(p => [p.lat, p.lon]);
   _animRouteLine = L.polyline(pts, {
