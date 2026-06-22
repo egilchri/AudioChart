@@ -810,17 +810,10 @@ function _checkRouteHazards(routeIdx) {
     }).addTo(_hazardCheckLayer);
   }
 
-  // Skull on the route (projected point) with leader line to the actual hazard feature
+  // Pulsing skull at the hazard location — click zooms to it
   for (const h of found) {
     const tip = `${h.label}${h.name ? ': ' + h.name : ''} — ${h.side}, ${h.routeNm.toFixed(1)} nm along route`;
-
-    // Leader line from projected-on-route point to actual hazard feature
-    L.polyline([[h.projLat, h.projLon], [h.lat, h.lon]], {
-      color: '#ff5555', weight: 1.5, opacity: 0.85, interactive: false, dashArray: '4 3',
-    }).addTo(_hazardCheckLayer);
-
-    // Pulsing skull on the route — click zooms to the actual hazard
-    L.marker([h.projLat, h.projLon], {
+    L.marker([h.lat, h.lon], {
       icon: L.divIcon({
         className: '',
         html: '<div class="davy-jones-icon">&#9760;</div>',
@@ -831,7 +824,7 @@ function _checkRouteHazards(routeIdx) {
     }).bindTooltip(tip, { permanent: false, direction: 'top', offset: [0, -6] })
       .on('click', (e) => {
         L.DomEvent.stopPropagation(e);
-        _map.setView([h.projLat, h.projLon], 16);
+        _map.setView([h.lat, h.lon], 16);
       })
       .addTo(_hazardCheckLayer);
   }
