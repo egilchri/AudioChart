@@ -924,8 +924,8 @@ html, body {
   align-items: center;
   justify-content: center;
   font-size: 26px;
-  color: #ff3030;
-  text-shadow: 0 0 6px rgba(255, 48, 48, 0.9), 0 0 14px rgba(255, 48, 48, 0.5);
+  color: #ffffff;
+  text-shadow: 0 0 4px #000, 0 0 8px #000, 0 0 16px rgba(255, 220, 0, 0.8);
   cursor: pointer;
   pointer-events: auto;
   user-select: none;
