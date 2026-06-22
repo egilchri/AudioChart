@@ -780,14 +780,19 @@ function _checkRouteHazards(routeIdx) {
       if (Math.abs(crossTrack) <= CORRIDOR && alongTrack >= 0 && alongTrack <= segLen) {
         seen.add(key);
         dangerSegments.add(i);
+        // Project hazard onto the route segment — this point is guaranteed to be in navigable water
+        const t = segLen > 0 ? alongTrack / segLen : 0;
+        const projLat = a.lat + (b.lat - a.lat) * t;
+        const projLon = a.lon + (b.lon - a.lon) * t;
         found.push({
-          lat: pLat, lon: pLon,
+          lat: pLat, lon: pLon,           // actual hazard coords (for zoom-to)
+          projLat, projLon,               // projected point on route (for skull placement)
           label: f.properties.label || label,
           name:  f.properties.name || '',
           routeNm: distSoFar + alongTrack,
           side:     crossTrack <= 0 ? 'port' : 'starboard',
           segBrg:   _segBearing(a.lat, a.lon, b.lat, b.lon),
-          sideSign: crossTrack > 0 ? 1 : -1,  // +1 = starboard/right, -1 = port/left
+          sideSign: crossTrack > 0 ? 1 : -1,
         });
       }
     }
@@ -805,10 +810,17 @@ function _checkRouteHazards(routeIdx) {
     }).addTo(_hazardCheckLayer);
   }
 
-  // Pulsing Davy Jones skull directly on the hazard — click to zoom in
+  // Skull on the route (projected point) with leader line to the actual hazard feature
   for (const h of found) {
     const tip = `${h.label}${h.name ? ': ' + h.name : ''} — ${h.side}, ${h.routeNm.toFixed(1)} nm along route`;
-    L.marker([h.lat, h.lon], {
+
+    // Leader line from projected-on-route point to actual hazard feature
+    L.polyline([[h.projLat, h.projLon], [h.lat, h.lon]], {
+      color: '#ff5555', weight: 1.5, opacity: 0.85, interactive: false, dashArray: '4 3',
+    }).addTo(_hazardCheckLayer);
+
+    // Pulsing skull on the route — click zooms to the actual hazard
+    L.marker([h.projLat, h.projLon], {
       icon: L.divIcon({
         className: '',
         html: '<div class="davy-jones-icon">&#9760;</div>',
@@ -829,7 +841,7 @@ function _checkRouteHazards(routeIdx) {
     ? `<b>${route.name}</b><br>✓ No rocks, obstructions, or wrecks within 100 yds.`
     : `<b>${route.name}</b> — ${found.length} hazard${found.length > 1 ? 's' : ''} detected:<br>`
       + found.slice(0, 8).map(h =>
-          `• ${h.label}${h.name ? ' (' + h.name + ')' : ''} — ${h.routeNm.toFixed(1)} nm, ${h.side}<br>&nbsp;&nbsp;<small style="color:#aaa">${h.lat.toFixed(5)}, ${h.lon.toFixed(5)}</small>`
+          `• ${h.label}${h.name ? ' (' + h.name + ')' : ''} — ${h.routeNm.toFixed(1)} nm, ${h.side}`
         ).join('<br>')
       + (found.length > 8 ? `<br>…and ${found.length - 8} more` : '');
   const fixBtnId  = `hazard-fix-${routeIdx}`;
