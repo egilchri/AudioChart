@@ -914,15 +914,18 @@ html, body {
 
 /* ── Davy Jones hazard icon ───────────────────────────────────────────────── */
 @keyframes davy-jones-pulse {
-  0%, 100% { transform: translate(-50%, -50%) scale(1);   opacity: 1;    }
-  50%       { transform: translate(-50%, -50%) scale(1.5); opacity: 0.25; }
+  0%, 100% { transform: scale(1);    opacity: 1;    }
+  50%       { transform: scale(1.5);  opacity: 0.25; }
 }
 .davy-jones-icon {
-  position: absolute;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 26px;
   color: #ff3030;
   text-shadow: 0 0 6px rgba(255, 48, 48, 0.9), 0 0 14px rgba(255, 48, 48, 0.5);
-  line-height: 1;
   cursor: pointer;
   pointer-events: auto;
   user-select: none;
