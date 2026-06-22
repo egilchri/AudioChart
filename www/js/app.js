@@ -74,15 +74,37 @@ function _animBoatIcon(bearingDeg = 0) {
   });
 }
 
-// Place a text label offset perpendicular to a route point, with a dashed leader line.
+// Place a text label offset perpendicular to a route point, with a solid leader line
+// and an arrowhead whose tip points to the route.
 // side: +1 = right of trueBrg, -1 = left.  offsetNm in nautical miles.
 function _addLeaderLabel(layer, anchorLat, anchorLon, trueBrg, side, offsetNm, html, cssClass) {
   const perpBrg = ((trueBrg + side * 90) + 360) % 360;
   const oLat = anchorLat + offsetNm * Math.cos(perpBrg * Math.PI / 180) / 60;
   const oLon = anchorLon + offsetNm * Math.sin(perpBrg * Math.PI / 180) / 60 / Math.cos(anchorLat * Math.PI / 180);
+
+  // Solid leader line from label to route
   L.polyline([[oLat, oLon], [anchorLat, anchorLon]], {
-    color: '#6aaad4', weight: 1.5, opacity: 0.65, interactive: false, dashArray: '4 3',
+    color: '#6aaad4', weight: 1.5, opacity: 0.7, interactive: false,
   }).addTo(layer);
+
+  // Arrowhead at the route end: SVG triangle, tip pinned to anchor via transform-origin.
+  // perpBrg goes from anchor → label, so arrowBrg = +180° = direction pointing back to route.
+  const arrowBrg = (perpBrg + 180) % 360;
+  L.marker([anchorLat, anchorLon], {
+    icon: L.divIcon({
+      className: '',
+      html: `<svg style="transform:rotate(${arrowBrg}deg);transform-origin:6px 0px"
+                  width="12" height="12" viewBox="0 0 12 12"
+                  xmlns="http://www.w3.org/2000/svg">
+               <polygon points="6,0 0,11 12,11" fill="#6aaad4" fill-opacity="0.85"/>
+             </svg>`,
+      iconSize: [12, 12],
+      iconAnchor: [6, 0],
+    }),
+    interactive: false,
+  }).addTo(layer);
+
+  // Label at offset position, centered on its anchor point
   L.marker([oLat, oLon], {
     icon: L.divIcon({ className: '', html: `<div class="${cssClass}">${html}</div>`, iconSize: [0, 0], iconAnchor: [0, 0] }),
     interactive: false,
