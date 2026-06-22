@@ -829,7 +829,7 @@ function _checkRouteHazards(routeIdx) {
     ? `<b>${route.name}</b><br>✓ No rocks, obstructions, or wrecks within 100 yds.`
     : `<b>${route.name}</b> — ${found.length} hazard${found.length > 1 ? 's' : ''} detected:<br>`
       + found.slice(0, 8).map(h =>
-          `• ${h.label}${h.name ? ' (' + h.name + ')' : ''} — ${h.routeNm.toFixed(1)} nm, ${h.side}`
+          `• ${h.label}${h.name ? ' (' + h.name + ')' : ''} — ${h.routeNm.toFixed(1)} nm, ${h.side}<br>&nbsp;&nbsp;<small style="color:#aaa">${h.lat.toFixed(5)}, ${h.lon.toFixed(5)}</small>`
         ).join('<br>')
       + (found.length > 8 ? `<br>…and ${found.length - 8} more` : '');
   const fixBtnId  = `hazard-fix-${routeIdx}`;
