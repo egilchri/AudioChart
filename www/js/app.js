@@ -74,6 +74,21 @@ function _animBoatIcon(bearingDeg = 0) {
   });
 }
 
+// Place a text label offset perpendicular to a route point, with a dashed leader line.
+// side: +1 = right of trueBrg, -1 = left.  offsetNm in nautical miles.
+function _addLeaderLabel(layer, anchorLat, anchorLon, trueBrg, side, offsetNm, html, cssClass) {
+  const perpBrg = ((trueBrg + side * 90) + 360) % 360;
+  const oLat = anchorLat + offsetNm * Math.cos(perpBrg * Math.PI / 180) / 60;
+  const oLon = anchorLon + offsetNm * Math.sin(perpBrg * Math.PI / 180) / 60 / Math.cos(anchorLat * Math.PI / 180);
+  L.polyline([[oLat, oLon], [anchorLat, anchorLon]], {
+    color: '#5a8ab0', weight: 1, opacity: 0.45, interactive: false, dashArray: '3 4',
+  }).addTo(layer);
+  L.marker([oLat, oLon], {
+    icon: L.divIcon({ className: '', html: `<div class="${cssClass}">${html}</div>`, iconSize: [0, 0], iconAnchor: [0, 0] }),
+    interactive: false,
+  }).addTo(layer);
+}
+
 function _segBearing(lat1, lon1, lat2, lon2) {
   const r = Math.PI / 180;
   const dLon = (lon2 - lon1) * r;
@@ -987,18 +1002,15 @@ function _refreshSavedRouteLayers() {
       interactive: false,
     }).addTo(_savedRoutesLayer);
 
-    // Segment bearing labels
+    // Segment bearing labels — perpendicular offset, alternating sides, dashed leader
     for (let i = 0; i < pts.length - 1; i++) {
-      const midLat = (pts[i].lat + pts[i + 1].lat) / 2;
-      const midLon = (pts[i].lon + pts[i + 1].lon) / 2;
+      const midLat  = (pts[i].lat + pts[i + 1].lat) / 2;
+      const midLon  = (pts[i].lon + pts[i + 1].lon) / 2;
       const trueBrg = _segBearing(pts[i].lat, pts[i].lon, pts[i + 1].lat, pts[i + 1].lon);
       const magBrg  = Math.round(trueTomagnetic(trueBrg) + 360) % 360;
-      const brgStr  = String(magBrg).padStart(3, '0') + '°M';
-      L.marker([midLat, midLon], {
-        icon: L.divIcon({ className: '', iconSize: [0, 0], iconAnchor: [0, 0] }),
-        interactive: false,
-      }).bindTooltip(brgStr, { permanent: true, direction: 'center', className: 'route-bearing-tip' })
-        .addTo(_savedRoutesLayer);
+      const distNm  = Query.distanceNm(pts[i].lon, pts[i].lat, pts[i + 1].lon, pts[i + 1].lat);
+      const html    = `${String(magBrg).padStart(3, '0')}&deg;M &thinsp; ${distNm.toFixed(1)}nm`;
+      _addLeaderLabel(_savedRoutesLayer, midLat, midLon, trueBrg, i % 2 === 0 ? 1 : -1, 0.15, html, 'route-label-box');
     }
 
     // Route name label — viewport-aware position, renders above bearing tooltips
@@ -1022,11 +1034,20 @@ function _refreshSavedRouteLayers() {
       _routeNameLabels.push({ marker: nameMarker, pts });
     }
 
-    // Endpoint markers with coordinate labels
+    // Endpoint markers with coordinate labels (leader line, offset from route)
     const addEndpointMarker = (pt, fromEnd) => {
       const m = L.marker([pt.lat, pt.lon], { icon: _routeEndpointIcon() })
-        .bindTooltip(formatPositionDisplay(pt.lat, pt.lon), { permanent: true, direction: 'top', offset: [0, -6], className: 'route-coord-tip' })
         .addTo(_savedRoutesLayer);
+      // Offset label perpendicular to the adjacent segment
+      const adjPt   = fromEnd ? pts[pts.length - 2] : pts[1];
+      if (adjPt) {
+        const segBrg = fromEnd
+          ? _segBearing(adjPt.lat, adjPt.lon, pt.lat, pt.lon)
+          : _segBearing(pt.lat, pt.lon, adjPt.lat, adjPt.lon);
+        _addLeaderLabel(_savedRoutesLayer, pt.lat, pt.lon, segBrg,
+          fromEnd ? -1 : 1, 0.18,
+          formatPositionDisplay(pt.lat, pt.lon), 'route-coord-label-box');
+      }
       m.on('click', (e) => {
         L.DomEvent.stopPropagation(e);
         const btnId = `ext-btn-${routeIdx}-${fromEnd ? 'end' : 'start'}`;
