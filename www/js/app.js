@@ -2034,6 +2034,13 @@ function _exitAnimMode() {
   if (_animMilestoneLayer && _map) { _map.removeLayer(_animMilestoneLayer); _animMilestoneLayer = null; }
   if (_previewRouteLine && _map) { _map.removeLayer(_previewRouteLine); _previewRouteLine = null; }
   if (_map) { _map.dragging.enable(); _map.invalidateSize(); }
+  // Close standalone settings panel if open
+  const _ts = document.getElementById('map-ctx-track-submenu');
+  if (_ts?._standalone) {
+    _ts.style.cssText = '';
+    _ts.style.display = 'none';
+    _ts._standalone = false;
+  }
 }
 
 document.getElementById('anim-stop-btn').addEventListener('click', _exitAnimMode);
@@ -3056,22 +3063,36 @@ function _ensureMap() {
     _startRouteAnimation(route, speed);
   });
 
+  // Show the track submenu as a standalone floating panel (bypasses context menu).
   function _openAnimSettings(nearEl) {
+    if (_trackSubmenu._standalone) { _closeAnimSettings(); return; }
     _populateRouteSelect();
-    [_ctxSubmenu, _wpSubmenu, _routeSubmenu, _importSubmenu].forEach(el => {
-      el.style.display = 'none';
-    });
+    _trackSubmenu.style.cssText +=
+      ';position:fixed;z-index:10000;background:var(--dark-blue)' +
+      ';border:1px solid var(--mid-blue);border-radius:6px' +
+      ';box-shadow:0 2px 12px rgba(0,0,0,0.7);max-height:92dvh;overflow-y:auto';
     _trackSubmenu.style.display = 'block';
-    _ctxMenu.style.left = '0';
-    _ctxMenu.style.top  = '0';
-    _ctxMenu.style.display = 'block';
-    const mw = _ctxMenu.offsetWidth, mh = _ctxMenu.offsetHeight;
+    _trackSubmenu._standalone = true;
+    const mw = _trackSubmenu.offsetWidth, mh = _trackSubmenu.offsetHeight;
     const anchor = nearEl ? nearEl.getBoundingClientRect() : null;
-    const left = anchor ? Math.min(anchor.left, window.innerWidth  - mw - 4) : 4;
-    const top  = anchor ? Math.min(anchor.bottom + 4, window.innerHeight - mh - 4)
-                        : Math.max(4, window.innerHeight - mh - 4);
-    _ctxMenu.style.left = Math.max(4, left) + 'px';
-    _ctxMenu.style.top  = Math.max(4, top)  + 'px';
+    const left = anchor ? Math.min(anchor.right - mw, window.innerWidth  - mw - 4) : 4;
+    const top  = anchor ? Math.max(4, anchor.top  - mh - 4)                        : 4;
+    _trackSubmenu.style.left = Math.max(4, left) + 'px';
+    _trackSubmenu.style.top  = Math.max(4, top)  + 'px';
+  }
+
+  function _closeAnimSettings() {
+    if (!_trackSubmenu._standalone) return;
+    _trackSubmenu.style.position = '';
+    _trackSubmenu.style.zIndex   = '';
+    _trackSubmenu.style.background = '';
+    _trackSubmenu.style.border   = '';
+    _trackSubmenu.style.borderRadius = '';
+    _trackSubmenu.style.boxShadow = '';
+    _trackSubmenu.style.maxHeight = '';
+    _trackSubmenu.style.overflowY = '';
+    _trackSubmenu.style.display  = 'none';
+    _trackSubmenu._standalone = false;
   }
 
   document.getElementById('anim-settings-btn').addEventListener('click', function(e) {
