@@ -4578,10 +4578,12 @@ async function init() {
   _loadOfflineCache();
   setStatus('Waiting for GPS...');
 
-  // On desktop, show the map immediately so the sidebar sits on the right
-  if (window.innerWidth >= 768) {
-    loadLeaflet().then(() => { _ensureMap(); _map.invalidateSize(); }).catch(() => {});
-  }
+  // Show the map immediately on all devices (sidebar was removed in v198)
+  loadLeaflet().then(() => {
+    document.getElementById('map-container').style.display = 'block';
+    _ensureMap();
+    _map.invalidateSize();
+  }).catch(() => {});
 
   // If opened via QR code with ?server=, persist the server URL and clean the address bar.
   const _params = new URLSearchParams(location.search);
