@@ -831,7 +831,7 @@ function _checkRouteHazards(routeIdx) {
     }).bindTooltip(tip, { permanent: false, direction: 'top', offset: [0, -6] })
       .on('click', (e) => {
         L.DomEvent.stopPropagation(e);
-        _map.setView([h.lat, h.lon], Math.max(_map.getZoom(), 15));
+        _map.setView([h.projLat, h.projLon], 16);
       })
       .addTo(_hazardCheckLayer);
   }
