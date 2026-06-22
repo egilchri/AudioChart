@@ -805,44 +805,13 @@ function _checkRouteHazards(routeIdx) {
     }).addTo(_hazardCheckLayer);
   }
 
-  // Pulsing Davy Jones skull offset from hazard with leader line + arrow to exact spot
-  const _hz = _map.getZoom();
-  const _hPxPerNm = 256 * Math.pow(2, _hz) / (360 * 60) * Math.cos(44.5 * Math.PI / 180);
-  const _hOffsetNm = Math.min(Math.max(60 / _hPxPerNm, 0.15), 3.0);
-
+  // Pulsing Davy Jones skull directly on the hazard — click to zoom in
   for (const h of found) {
     const tip = `${h.label}${h.name ? ': ' + h.name : ''} — ${h.side}, ${h.routeNm.toFixed(1)} nm along route`;
-
-    // Offset skull perpendicular to route, toward the side the hazard is on
-    const perpBrg = ((h.segBrg + h.sideSign * 90) + 360) % 360;
-    const oLat = h.lat + _hOffsetNm * Math.cos(perpBrg * Math.PI / 180) / 60;
-    const oLon = h.lon + _hOffsetNm * Math.sin(perpBrg * Math.PI / 180) / 60 / Math.cos(h.lat * Math.PI / 180);
-
-    // Solid leader line from skull to hazard
-    L.polyline([[oLat, oLon], [h.lat, h.lon]], {
-      color: '#ff5555', weight: 1.5, opacity: 0.75, interactive: false,
-    }).addTo(_hazardCheckLayer);
-
-    // Arrow tip pointing to the hazard
-    const arrowBrg = (perpBrg + 180) % 360;
     L.marker([h.lat, h.lon], {
       icon: L.divIcon({
         className: '',
-        html: `<svg style="transform:rotate(${arrowBrg}deg);transform-origin:6px 0px"
-                    width="12" height="12" viewBox="0 0 12 12" xmlns="http://www.w3.org/2000/svg">
-                 <polygon points="6,0 0,11 12,11" fill="#ff5555" fill-opacity="0.9"/>
-               </svg>`,
-        iconSize: [12, 12],
-        iconAnchor: [6, 0],
-      }),
-      interactive: false,
-    }).addTo(_hazardCheckLayer);
-
-    // Pulsing skull at the offset position — explicit iconSize centers it reliably
-    L.marker([oLat, oLon], {
-      icon: L.divIcon({
-        className: '',
-        html: `<div class="davy-jones-icon">&#9760;</div>`,
+        html: '<div class="davy-jones-icon">&#9760;</div>',
         iconSize: [32, 32],
         iconAnchor: [16, 16],
       }),
