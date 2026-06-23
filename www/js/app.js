@@ -588,6 +588,7 @@ let _editRouteIdx          = -1;
 let _editPoints            = [];
 let _editVertexMarkers     = [];
 let _editSegmentLayers     = [];
+let _liveHazardTimer       = null;
 let _populateRouteSelectFn = null; // set by _ensureMap once DOM is ready
 let _savedRoutesLayer  = null;
 let _hiddenRouteNames  = new Set();
@@ -1055,30 +1056,61 @@ function _refreshSavedRouteLayers() {
         L.DomEvent.stopPropagation(e);
         _selectedRouteIdx = routeIdx;
         _refreshSavedRouteLayers();
-        const hideId  = `hide-route-${routeIdx}`;
-        const chkId   = `hazard-check-${routeIdx}`;
-        const animId  = `animate-route-${routeIdx}`;
-        const settId  = `anim-settings-${routeIdx}`;
+        const ri = routeIdx;
+        const toggleId = `edit-toggle-${ri}`;
+        const subId    = `edit-sub-${ri}`;
+        const nodeId   = `add-node-${ri}`;
+        const renameId = `rename-route-${ri}`;
+        const chkId    = `hazard-check-${ri}`;
+        const animId   = `animate-route-${ri}`;
+        const settId   = `anim-settings-${ri}`;
+        const hideId   = `hide-route-${ri}`;
+        const btnStyle = 'padding:5px 10px;cursor:pointer;text-align:left;width:100%;border:1px solid #ccc;border-radius:3px;background:#fff;font-size:13px';
+        const subStyle = 'padding:5px 10px;cursor:pointer;text-align:left;width:100%;border:1px solid #ccc;border-radius:3px;background:#f5f5f5;font-size:13px';
         L.popup({ closeButton: true })
           .setLatLng(e.latlng)
-          .setContent(`<div style="display:flex;flex-direction:column;gap:6px;padding:2px 0">
-            <button id="${hideId}" style="padding:4px 12px;cursor:pointer;">Hide route</button>
-            <button id="${chkId}"  style="padding:4px 12px;cursor:pointer;">Check for hazards</button>
-            <button id="${settId}" style="padding:4px 12px;cursor:pointer;">&#9881; Anim settings</button>
-            <button id="${animId}" style="padding:4px 12px;cursor:pointer;">Animate</button>
+          .setContent(`<div style="display:flex;flex-direction:column;gap:5px;padding:2px 0;min-width:170px">
+            <button id="${toggleId}" style="${btnStyle};font-weight:600">&#9654; Edit</button>
+            <div id="${subId}" style="display:none;flex-direction:column;gap:4px;padding-left:10px">
+              <button id="${nodeId}"   style="${subStyle}">Add a node here</button>
+              <button id="${renameId}" style="${subStyle}">Rename route&hellip;</button>
+            </div>
+            <hr style="margin:2px 0;border:none;border-top:1px solid #ddd">
+            <button id="${chkId}"  style="${btnStyle}">Check for hazards</button>
+            <button id="${animId}" style="${btnStyle}">Animate</button>
+            <button id="${settId}" style="${btnStyle}">&#9881; Anim settings</button>
+            <button id="${hideId}" style="${btnStyle}">Hide route</button>
           </div>`)
           .openOn(_map);
         setTimeout(() => {
-          document.getElementById(hideId)?.addEventListener('click', () => {
+          document.getElementById(toggleId)?.addEventListener('click', () => {
+            const sub = document.getElementById(subId);
+            const btn = document.getElementById(toggleId);
+            const open = sub.style.display === 'flex';
+            sub.style.display = open ? 'none' : 'flex';
+            btn.innerHTML = (open ? '&#9654;' : '&#9660;') + ' Edit';
+          });
+          document.getElementById(nodeId)?.addEventListener('click', () => {
+            _map.closePopup();
+            _enterEditMode(ri);
+            const segIdx = _nearestSegIdx(_editPoints, e.latlng);
+            _insertVertex(segIdx, e.latlng);
+          });
+          document.getElementById(renameId)?.addEventListener('click', () => {
             _map.closePopup();
             const r = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
-            if (r[routeIdx]) _hiddenRouteNames.add(r[routeIdx].name);
-            _selectedRouteIdx = -1;
+            if (!r[ri]) return;
+            const newName = prompt('Rename route:', r[ri].name);
+            if (!newName || !newName.trim()) return;
+            r[ri].name = newName.trim();
+            localStorage.setItem(ROUTE_KEY, JSON.stringify(r));
+            localStorage.setItem('audiochart-last-route', newName.trim());
+            _populateRouteSelectFn?.();
             _refreshSavedRouteLayers();
           });
           document.getElementById(chkId)?.addEventListener('click', () => {
             _map.closePopup();
-            _checkRouteHazards(routeIdx);
+            _checkRouteHazards(ri);
           });
           document.getElementById(settId)?.addEventListener('click', () => {
             _map.closePopup();
@@ -1088,7 +1120,14 @@ function _refreshSavedRouteLayers() {
             _map.closePopup();
             const r = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
             const speed = parseFloat(localStorage.getItem('audiochart-last-speed')) || 5;
-            if (r[routeIdx]) _startRouteAnimation(r[routeIdx], speed);
+            if (r[ri]) _startRouteAnimation(r[ri], speed);
+          });
+          document.getElementById(hideId)?.addEventListener('click', () => {
+            _map.closePopup();
+            const r = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+            if (r[ri]) _hiddenRouteNames.add(r[ri].name);
+            _selectedRouteIdx = -1;
+            _refreshSavedRouteLayers();
           });
         }, 0);
       })
@@ -1412,6 +1451,84 @@ function _insertVertex(segIdx, latlng) {
   _renderEditLayers();
 }
 
+function _nearestSegIdx(pts, latlng) {
+  let bestIdx = 0, bestDist = Infinity;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1];
+    const segLen = Query.distanceNm(a.lon, a.lat, b.lon, b.lat);
+    const ct = _segCrossTrack(a.lon, a.lat, b.lon, b.lat, latlng.lng, latlng.lat);
+    let dist;
+    if (ct && ct.alongTrack >= 0 && ct.alongTrack <= segLen) {
+      dist = Math.abs(ct.crossTrack);
+    } else {
+      dist = Math.min(
+        Query.distanceNm(a.lon, a.lat, latlng.lng, latlng.lat),
+        Query.distanceNm(b.lon, b.lat, latlng.lng, latlng.lat)
+      );
+    }
+    if (dist < bestDist) { bestDist = dist; bestIdx = i; }
+  }
+  return bestIdx;
+}
+
+function _liveHazardCheck() {
+  const pts = _editPoints;
+  if (!pts || pts.length < 2) return;
+  const CORRIDOR = 0.05;
+  const SHALLOW_THRESHOLD = 2.0;
+  const DANGER_LABELS = new Set(['underwater rock', 'obstruction', 'wreck', 'UWTROC', 'OBSTRN', 'WRECKS']);
+  const feats = Query.hazards?.features || [];
+  const found = [];
+  const seen = new Set();
+  let distSoFar = 0;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1];
+    const segLen = Query.distanceNm(a.lon, a.lat, b.lon, b.lat);
+    const segMinLat = Math.min(a.lat, b.lat), segMaxLat = Math.max(a.lat, b.lat);
+    const segMinLon = Math.min(a.lon, b.lon), segMaxLon = Math.max(a.lon, b.lon);
+    const BUF = 0.001;
+    for (const f of feats) {
+      if (f.geometry.type !== 'Point') continue;
+      const label = f.properties.label || f.properties.objtype || '';
+      if (!DANGER_LABELS.has(label)) continue;
+      const [pLon, pLat] = f.geometry.coordinates;
+      const key = `${pLon.toFixed(5)},${pLat.toFixed(5)}`;
+      if (seen.has(key)) continue;
+      const ct = _segCrossTrack(a.lon, a.lat, b.lon, b.lat, pLon, pLat);
+      if (!ct) continue;
+      if (Math.abs(ct.crossTrack) <= CORRIDOR && ct.alongTrack >= 0 && ct.alongTrack <= segLen) {
+        seen.add(key);
+        found.push({ name: f.properties.name || label, routeNm: distSoFar + ct.alongTrack });
+      }
+    }
+    for (const f of (Query.depthZones || [])) {
+      const props = f.properties || {};
+      const minDepth = parseFloat(props.depth_label);
+      if (isNaN(minDepth) || minDepth >= SHALLOW_THRESHOLD) continue;
+      const ring = f.geometry.coordinates[0];
+      const lons = ring.map(c => c[0]), lats = ring.map(c => c[1]);
+      if (Math.max(...lons) < segMinLon - BUF || Math.min(...lons) > segMaxLon + BUF ||
+          Math.max(...lats) < segMinLat - BUF || Math.min(...lats) > segMaxLat + BUF) continue;
+      const key = `poly:${lons[0].toFixed(5)},${lats[0].toFixed(5)}`;
+      if (seen.has(key)) continue;
+      const hit = _segPolyIntersectPoint(a.lon, a.lat, b.lon, b.lat, ring);
+      if (!hit) continue;
+      seen.add(key);
+      const lbl = minDepth < 0 ? 'above-water obstacle' : 'shallow area';
+      found.push({ name: props.name || lbl, routeNm: distSoFar + hit.t * segLen });
+    }
+    distSoFar += segLen;
+  }
+  if (found.length === 0) {
+    showResponse('✓ Route clear');
+  } else {
+    const names = [...new Set(found.map(h => h.name))].slice(0, 3).join(', ');
+    const msg = `Warning: ${found.length} hazard${found.length > 1 ? 's' : ''} on edited route — ${names}`;
+    showResponse(msg);
+    TTS.sayImmediate(msg);
+  }
+}
+
 function _checkEditSegment(segIdx, latlng) {
   const CORRIDOR = 0.05;
   const DANGER_LABELS = new Set(['underwater rock','obstruction','wreck','UWTROC','OBSTRN','WRECKS']);
@@ -1500,7 +1617,11 @@ function _renderEditLayers() {
         ]);
       }
     });
-    m.on('dragend', () => _renderEditLayers());
+    m.on('dragend', () => {
+      _renderEditLayers();
+      clearTimeout(_liveHazardTimer);
+      _liveHazardTimer = setTimeout(_liveHazardCheck, 300);
+    });
     m.on('click',    (e) => { L.DomEvent.stopPropagation(e); });
     m.on('dblclick', (e) => {
       L.DomEvent.stopPropagation(e);
