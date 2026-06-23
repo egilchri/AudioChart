@@ -589,6 +589,7 @@ let _editPoints            = [];
 let _editVertexMarkers     = [];
 let _editSegmentLayers     = [];
 let _liveHazardTimer       = null;
+let _newVertexIdx          = -1;  // index of freshly inserted vertex — flashes until dragged
 let _populateRouteSelectFn = null; // set by _ensureMap once DOM is ready
 let _savedRoutesLayer  = null;
 let _hiddenRouteNames  = new Set();
@@ -1448,6 +1449,7 @@ function _insertVertex(segIdx, latlng) {
   const newLat = a.lat + (b.lat - a.lat) * t;
   const newLon = a.lon + (b.lon - a.lon) * t;
   _editPoints.splice(segIdx + 1, 0, { lat: newLat, lon: newLon });
+  _newVertexIdx = segIdx + 1;
   _renderEditLayers();
 }
 
@@ -1582,14 +1584,25 @@ function _renderEditLayers() {
   // Vertex markers — drag to move, click to remove, coordinate label
   for (let i = 0; i < pts.length; i++) {
     const idx = i;
+    const isNew = idx === _newVertexIdx;
     const m = L.marker([pts[idx].lat, pts[idx].lon], {
-      icon: _editVertexIcon(),
+      icon: L.divIcon({
+        className: isNew ? 'edit-vertex-marker edit-vertex-new' : 'edit-vertex-marker',
+        iconSize: [16, 16],
+        iconAnchor: [8, 8],
+      }),
       draggable: true,
       zIndexOffset: 1000,
     }).bindTooltip(formatPositionDisplay(pts[idx].lat, pts[idx].lon), {
       permanent: false, direction: 'top', offset: [0, -20], className: 'route-coord-tip edit-coord-tip',
     }).addTo(_map);
-    m.on('dragstart', () => m.openTooltip());
+    m.on('dragstart', () => {
+      if (idx === _newVertexIdx) {
+        _newVertexIdx = -1;
+        m.setIcon(L.divIcon({ className: 'edit-vertex-marker', iconSize: [16, 16], iconAnchor: [8, 8] }));
+      }
+      m.openTooltip();
+    });
     m.on('drag', () => {
       const ll = m.getLatLng();
       _editPoints[idx] = { lat: ll.lat, lon: ll.lng };
@@ -1698,6 +1711,7 @@ function _exitEditMode() {
   _editRouteName = null;
   _editRouteIdx = -1;
   _editPoints = [];
+  _newVertexIdx = -1;
   _clearViewportHazards();
   if (_map) {
     _clearEditLayers();

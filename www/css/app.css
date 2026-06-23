@@ -854,6 +854,13 @@ html, body {
   cursor: grab;
   box-sizing: border-box;
 }
+@keyframes new-vertex-flash {
+  0%, 100% { transform: scale(1);   background: #fff;     border-color: #e05252; }
+  50%       { transform: scale(1.7); background: #f5c842;  border-color: #c8a000; }
+}
+.edit-vertex-new {
+  animation: new-vertex-flash 0.6s ease-in-out infinite;
+}
 .route-endpoint-marker {
   width: 14px;
   height: 14px;
