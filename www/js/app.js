@@ -734,6 +734,26 @@ function _segCrossTrack(aLon, aLat, bLon, bLat, pLon, pLat) {
   return { crossTrack: dxt, alongTrack: Math.cos(b13 - b12) >= 0 ? dat : -dat };
 }
 
+function _segsIntersect(ax, ay, bx, by, px, py, qx, qy) {
+  const cross = (ox, oy, ux, uy, vx, vy) => (ux-ox)*(vy-oy) - (uy-oy)*(vx-ox);
+  const d1 = cross(px,py, qx,qy, ax,ay), d2 = cross(px,py, qx,qy, bx,by);
+  const d3 = cross(ax,ay, bx,by, px,py), d4 = cross(ax,ay, bx,by, qx,qy);
+  return ((d1>0&&d2<0)||(d1<0&&d2>0)) && ((d3>0&&d4<0)||(d3<0&&d4>0));
+}
+
+function _segPolyIntersectPoint(aLon, aLat, bLon, bLat, ring) {
+  for (let i = 0; i < ring.length - 1; i++) {
+    const [pLon, pLat] = ring[i], [qLon, qLat] = ring[i + 1];
+    if (!_segsIntersect(aLon, aLat, bLon, bLat, pLon, pLat, qLon, qLat)) continue;
+    const dxAB = bLon-aLon, dyAB = bLat-aLat, dxPQ = qLon-pLon, dyPQ = qLat-pLat;
+    const denom = dxAB*dyPQ - dyAB*dxPQ;
+    if (Math.abs(denom) < 1e-12) continue;
+    const t = ((pLon-aLon)*dyPQ - (pLat-aLat)*dxPQ) / denom;
+    return { lat: aLat + t*dyAB, lon: aLon + t*dxAB, t };
+  }
+  return null;
+}
+
 function _destPoint(lat, lon, bearingDeg, distNm) {
   const R = 3440.065;
   const d    = distNm / R;
@@ -763,38 +783,74 @@ function _checkRouteHazards(routeIdx) {
   const found = [];
   const dangerSegments = new Set(); // segment indices that have a nearby hazard
 
+  const SHALLOW_THRESHOLD = 2.0; // nm depth — flag DEPARE polygons shallower than this
   let distSoFar = 0;
   for (let i = 0; i < pts.length - 1; i++) {
     const a = pts[i], b = pts[i + 1];
     const segLen = Query.distanceNm(a.lon, a.lat, b.lon, b.lat);
+    const segMinLat = Math.min(a.lat, b.lat), segMaxLat = Math.max(a.lat, b.lat);
+    const segMinLon = Math.min(a.lon, b.lon), segMaxLon = Math.max(a.lon, b.lon);
+    const BUF = 0.001; // ~0.06 nm bbox buffer
+
     for (const f of feats) {
-      if (f.geometry.type !== 'Point') continue;
-      const label = f.properties.label || f.properties.objtype || '';
-      if (!DANGER_LABELS.has(label)) continue;  // skip shallow areas etc.
-      const [pLon, pLat] = f.geometry.coordinates;
-      const key = `${pLon.toFixed(5)},${pLat.toFixed(5)}`;
-      if (seen.has(key)) continue;
-      const ct = _segCrossTrack(a.lon, a.lat, b.lon, b.lat, pLon, pLat);
-      if (!ct) continue;
-      const { crossTrack, alongTrack } = ct;
-      if (Math.abs(crossTrack) <= CORRIDOR && alongTrack >= 0 && alongTrack <= segLen) {
-        seen.add(key);
-        dangerSegments.add(i);
-        // Project hazard onto the route segment — this point is guaranteed to be in navigable water
-        const t = segLen > 0 ? alongTrack / segLen : 0;
-        const projLat = a.lat + (b.lat - a.lat) * t;
-        const projLon = a.lon + (b.lon - a.lon) * t;
-        found.push({
-          lat: pLat, lon: pLon,           // actual hazard coords (for zoom-to)
-          projLat, projLon,               // projected point on route (for skull placement)
-          label: f.properties.label || label,
-          name:  f.properties.name || '',
-          routeNm: distSoFar + alongTrack,
-          side:     crossTrack <= 0 ? 'port' : 'starboard',
-          segBrg:   _segBearing(a.lat, a.lon, b.lat, b.lon),
-          sideSign: crossTrack > 0 ? 1 : -1,
-        });
+      const geomType = f.geometry.type;
+
+      // ── Point hazards: cross-track corridor check ──
+      if (geomType === 'Point') {
+        const label = f.properties.label || f.properties.objtype || '';
+        if (!DANGER_LABELS.has(label)) continue;
+        const [pLon, pLat] = f.geometry.coordinates;
+        const key = `${pLon.toFixed(5)},${pLat.toFixed(5)}`;
+        if (seen.has(key)) continue;
+        const ct = _segCrossTrack(a.lon, a.lat, b.lon, b.lat, pLon, pLat);
+        if (!ct) continue;
+        const { crossTrack, alongTrack } = ct;
+        if (Math.abs(crossTrack) <= CORRIDOR && alongTrack >= 0 && alongTrack <= segLen) {
+          seen.add(key);
+          dangerSegments.add(i);
+          const t = segLen > 0 ? alongTrack / segLen : 0;
+          found.push({
+            lat: pLat, lon: pLon,
+            projLat: a.lat + (b.lat - a.lat) * t,
+            projLon: a.lon + (b.lon - a.lon) * t,
+            label: f.properties.label || label,
+            name:  f.properties.name || '',
+            routeNm: distSoFar + alongTrack,
+            side:    crossTrack <= 0 ? 'port' : 'starboard',
+            segBrg:  _segBearing(a.lat, a.lon, b.lat, b.lon),
+            sideSign: crossTrack > 0 ? 1 : -1,
+          });
+        }
+        continue;
       }
+
+      // ── Polygon hazards: route crosses shallow/above-water area ──
+      if (geomType !== 'Polygon') continue;
+      const props = f.properties || {};
+      const minDepth = parseFloat(props.depth_label);
+      if (isNaN(minDepth) || minDepth >= SHALLOW_THRESHOLD) continue;
+      const ring = f.geometry.coordinates[0];
+      // Bbox pre-filter
+      const lons = ring.map(c => c[0]), lats = ring.map(c => c[1]);
+      if (Math.max(...lons) < segMinLon - BUF || Math.min(...lons) > segMaxLon + BUF ||
+          Math.max(...lats) < segMinLat - BUF || Math.min(...lats) > segMaxLat + BUF) continue;
+      const key = `poly:${lons[0].toFixed(5)},${lats[0].toFixed(5)}`;
+      if (seen.has(key)) continue;
+      const hit = _segPolyIntersectPoint(a.lon, a.lat, b.lon, b.lat, ring);
+      if (!hit) continue;
+      seen.add(key);
+      dangerSegments.add(i);
+      const polyLabel = minDepth < 0 ? 'above-water obstacle' : `shallow area (${props.depth_label})`;
+      found.push({
+        lat: hit.lat, lon: hit.lon,
+        projLat: hit.lat, projLon: hit.lon,
+        label: polyLabel,
+        name:  props.name || '',
+        routeNm: distSoFar + hit.t * segLen,
+        side:    'crossing',
+        segBrg:  _segBearing(a.lat, a.lon, b.lat, b.lon),
+        sideSign: 0,
+      });
     }
     distSoFar += segLen;
   }
