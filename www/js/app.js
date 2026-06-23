@@ -1576,17 +1576,7 @@ function _renderEditLayers() {
     }).addTo(_map);
     _editSegmentLayers.push(seg);
 
-    const midLat = (ptA[0] + ptB[0]) / 2;
-    const midLon = (ptA[1] + ptB[1]) / 2;
-    const trueBrg = _segBearing(ptA[0], ptA[1], ptB[0], ptB[1]);
-    const magBrg  = Math.round(trueTomagnetic(trueBrg) + 360) % 360;
-    const brgStr  = String(magBrg).padStart(3, '0') + '°M';
-    const brgLabel = L.marker([midLat, midLon], {
-      icon: L.divIcon({ className: '', iconSize: [0, 0], iconAnchor: [0, 0] }),
-      interactive: false,
-    }).bindTooltip(brgStr, { permanent: true, direction: 'center', className: 'route-bearing-tip' })
-      .addTo(_map);
-    _editSegmentLayers.push(brgLabel);
+    // Bearing labels omitted in edit mode — they clutter the map; visible in normal route display
   }
 
   // Vertex markers — drag to move, click to remove, coordinate label
