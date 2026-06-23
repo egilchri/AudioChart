@@ -1069,7 +1069,7 @@ function _refreshSavedRouteLayers() {
         const hideId   = `hide-route-${ri}`;
         const btnStyle = 'padding:5px 10px;cursor:pointer;text-align:left;width:100%;border:1px solid #ccc;border-radius:3px;background:#fff;font-size:13px';
         const subStyle = 'padding:5px 10px;cursor:pointer;text-align:left;width:100%;border:1px solid #ccc;border-radius:3px;background:#f5f5f5;font-size:13px';
-        L.popup({ closeButton: true })
+        L.popup({ closeButton: true, autopan: false })
           .setLatLng(e.latlng)
           .setContent(`<div style="display:flex;flex-direction:column;gap:5px;padding:2px 0;min-width:170px">
             <button id="${toggleId}" style="${btnStyle};font-weight:600">&#9654; Edit</button>
@@ -1610,13 +1610,13 @@ function _renderEditLayers() {
       m.setTooltipContent(formatPositionDisplay(ll.lat, ll.lng));
       // Update adjacent segment polylines live (bearing labels rebuild on dragend)
       if (idx > 0) {
-        _editSegmentLayers[(idx - 1) * 2].setLatLngs([
+        _editSegmentLayers[idx - 1].setLatLngs([
           [_editPoints[idx - 1].lat, _editPoints[idx - 1].lon],
           [ll.lat, ll.lng],
         ]);
       }
       if (idx < _editPoints.length - 1) {
-        _editSegmentLayers[idx * 2].setLatLngs([
+        _editSegmentLayers[idx].setLatLngs([
           [ll.lat, ll.lng],
           [_editPoints[idx + 1].lat, _editPoints[idx + 1].lon],
         ]);
