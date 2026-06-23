@@ -590,6 +590,7 @@ let _editVertexMarkers     = [];
 let _editSegmentLayers     = [];
 let _liveHazardTimer       = null;
 let _newVertexIdx          = -1;  // index of freshly inserted vertex — flashes until dragged
+let _blockSegmentInsert    = false; // true for 300ms after button-triggered insert to suppress Leaflet's synthesized click
 let _populateRouteSelectFn = null; // set by _ensureMap once DOM is ready
 let _savedRoutesLayer  = null;
 let _hiddenRouteNames  = new Set();
@@ -1095,6 +1096,8 @@ function _refreshSavedRouteLayers() {
           });
           document.getElementById(nodeId)?.addEventListener('click', (ev) => {
             ev.stopPropagation();
+            _blockSegmentInsert = true;
+            setTimeout(() => { _blockSegmentInsert = false; }, 300);
             _map.closePopup();
             _enterEditMode(ri);
             const segIdx = _nearestSegIdx(_editPoints, e.latlng);
@@ -1581,6 +1584,7 @@ function _renderEditLayers() {
     const seg = L.polyline([ptA, ptB], {
       color: '#e05252', weight: 5, opacity: 0.85, interactive: true,
     }).on('click', (e) => {
+      if (_blockSegmentInsert) return;
       L.DomEvent.stopPropagation(e);
       _insertVertex(i, e.latlng);
     }).addTo(_map);
