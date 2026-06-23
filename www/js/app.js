@@ -1611,7 +1611,10 @@ function _renderEditLayers() {
     m.on('dragstart', () => {
       if (idx === _newVertexIdx) {
         _newVertexIdx = -1;
-        m.setIcon(L.divIcon({ className: 'edit-vertex-marker', iconSize: [16, 16], iconAnchor: [8, 8] }));
+        // Remove the flash class directly — setIcon() during an active drag reinitialises
+        // Leaflet's Draggable on the new element, breaking the drag event chain and
+        // preventing _editPoints from being updated, which leaves a ghost on dragend.
+        m.getElement()?.classList.remove('edit-vertex-new');
       }
       m.openTooltip();
     });
