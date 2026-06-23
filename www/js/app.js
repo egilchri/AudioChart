@@ -792,40 +792,38 @@ function _checkRouteHazards(routeIdx) {
     const segMinLon = Math.min(a.lon, b.lon), segMaxLon = Math.max(a.lon, b.lon);
     const BUF = 0.001; // ~0.06 nm bbox buffer
 
+    // ── Point hazards: cross-track corridor check ──
     for (const f of feats) {
-      const geomType = f.geometry.type;
-
-      // ── Point hazards: cross-track corridor check ──
-      if (geomType === 'Point') {
-        const label = f.properties.label || f.properties.objtype || '';
-        if (!DANGER_LABELS.has(label)) continue;
-        const [pLon, pLat] = f.geometry.coordinates;
-        const key = `${pLon.toFixed(5)},${pLat.toFixed(5)}`;
-        if (seen.has(key)) continue;
-        const ct = _segCrossTrack(a.lon, a.lat, b.lon, b.lat, pLon, pLat);
-        if (!ct) continue;
-        const { crossTrack, alongTrack } = ct;
-        if (Math.abs(crossTrack) <= CORRIDOR && alongTrack >= 0 && alongTrack <= segLen) {
-          seen.add(key);
-          dangerSegments.add(i);
-          const t = segLen > 0 ? alongTrack / segLen : 0;
-          found.push({
-            lat: pLat, lon: pLon,
-            projLat: a.lat + (b.lat - a.lat) * t,
-            projLon: a.lon + (b.lon - a.lon) * t,
-            label: f.properties.label || label,
-            name:  f.properties.name || '',
-            routeNm: distSoFar + alongTrack,
-            side:    crossTrack <= 0 ? 'port' : 'starboard',
-            segBrg:  _segBearing(a.lat, a.lon, b.lat, b.lon),
-            sideSign: crossTrack > 0 ? 1 : -1,
-          });
-        }
-        continue;
+      if (f.geometry.type !== 'Point') continue;
+      const label = f.properties.label || f.properties.objtype || '';
+      if (!DANGER_LABELS.has(label)) continue;
+      const [pLon, pLat] = f.geometry.coordinates;
+      const key = `${pLon.toFixed(5)},${pLat.toFixed(5)}`;
+      if (seen.has(key)) continue;
+      const ct = _segCrossTrack(a.lon, a.lat, b.lon, b.lat, pLon, pLat);
+      if (!ct) continue;
+      const { crossTrack, alongTrack } = ct;
+      if (Math.abs(crossTrack) <= CORRIDOR && alongTrack >= 0 && alongTrack <= segLen) {
+        seen.add(key);
+        dangerSegments.add(i);
+        const t = segLen > 0 ? alongTrack / segLen : 0;
+        found.push({
+          lat: pLat, lon: pLon,
+          projLat: a.lat + (b.lat - a.lat) * t,
+          projLon: a.lon + (b.lon - a.lon) * t,
+          label: f.properties.label || label,
+          name:  f.properties.name || '',
+          routeNm: distSoFar + alongTrack,
+          side:    crossTrack <= 0 ? 'port' : 'starboard',
+          segBrg:  _segBearing(a.lat, a.lon, b.lat, b.lon),
+          sideSign: crossTrack > 0 ? 1 : -1,
+        });
       }
+    }
 
-      // ── Polygon hazards: route crosses shallow/above-water area ──
-      if (geomType !== 'Polygon') continue;
+    // ── Polygon hazards: route crosses shallow/above-water area ──
+    // Use Query.depthZones (always real geometry from static file, even in server/IDB mode)
+    for (const f of (Query.depthZones || [])) {
       const props = f.properties || {};
       const minDepth = parseFloat(props.depth_label);
       if (isNaN(minDepth) || minDepth >= SHALLOW_THRESHOLD) continue;
