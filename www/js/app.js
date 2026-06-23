@@ -1085,20 +1085,23 @@ function _refreshSavedRouteLayers() {
           </div>`)
           .openOn(_map);
         setTimeout(() => {
-          document.getElementById(toggleId)?.addEventListener('click', () => {
+          document.getElementById(toggleId)?.addEventListener('click', (ev) => {
+            ev.stopPropagation();
             const sub = document.getElementById(subId);
             const btn = document.getElementById(toggleId);
             const open = sub.style.display === 'flex';
             sub.style.display = open ? 'none' : 'flex';
             btn.innerHTML = (open ? '&#9654;' : '&#9660;') + ' Edit';
           });
-          document.getElementById(nodeId)?.addEventListener('click', () => {
+          document.getElementById(nodeId)?.addEventListener('click', (ev) => {
+            ev.stopPropagation();
             _map.closePopup();
             _enterEditMode(ri);
             const segIdx = _nearestSegIdx(_editPoints, e.latlng);
             _insertVertex(segIdx, e.latlng);
           });
-          document.getElementById(renameId)?.addEventListener('click', () => {
+          document.getElementById(renameId)?.addEventListener('click', (ev) => {
+            ev.stopPropagation();
             _map.closePopup();
             const r = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
             if (!r[ri]) return;
@@ -1110,21 +1113,25 @@ function _refreshSavedRouteLayers() {
             _populateRouteSelectFn?.();
             _refreshSavedRouteLayers();
           });
-          document.getElementById(chkId)?.addEventListener('click', () => {
+          document.getElementById(chkId)?.addEventListener('click', (ev) => {
+            ev.stopPropagation();
             _map.closePopup();
             _checkRouteHazards(ri);
           });
-          document.getElementById(settId)?.addEventListener('click', () => {
+          document.getElementById(settId)?.addEventListener('click', (ev) => {
+            ev.stopPropagation();
             _map.closePopup();
             _openAnimSettings(null);
           });
-          document.getElementById(animId)?.addEventListener('click', () => {
+          document.getElementById(animId)?.addEventListener('click', (ev) => {
+            ev.stopPropagation();
             _map.closePopup();
             const r = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
             const speed = parseFloat(localStorage.getItem('audiochart-last-speed')) || 5;
             if (r[ri]) _startRouteAnimation(r[ri], speed);
           });
-          document.getElementById(hideId)?.addEventListener('click', () => {
+          document.getElementById(hideId)?.addEventListener('click', (ev) => {
+            ev.stopPropagation();
             _map.closePopup();
             const r = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
             if (r[ri]) _hiddenRouteNames.add(r[ri].name);
