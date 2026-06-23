@@ -1049,6 +1049,7 @@ function _refreshSavedRouteLayers() {
   routes.forEach((route, routeIdx) => {
     if (!route.points || route.points.length < 1) return;
     if (_hiddenRouteNames.has(route.name)) return;
+    if (_selectedRouteIdx >= 0 && routeIdx !== _selectedRouteIdx) return;
     const pts = route.points;
     const lls = pts.map(p => [p.lat, p.lon]);
 
