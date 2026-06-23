@@ -1346,6 +1346,18 @@ function _clearEditLayers() {
   _editSegmentLayers = [];
 }
 
+function _insertVertex(segIdx, latlng) {
+  const a = _editPoints[segIdx], b = _editPoints[segIdx + 1];
+  if (!a || !b) return;
+  const segLen = Query.distanceNm(a.lon, a.lat, b.lon, b.lat);
+  const ct = _segCrossTrack(a.lon, a.lat, b.lon, b.lat, latlng.lng, latlng.lat);
+  const t = (ct && segLen > 0) ? Math.max(0, Math.min(1, ct.alongTrack / segLen)) : 0.5;
+  const newLat = a.lat + (b.lat - a.lat) * t;
+  const newLon = a.lon + (b.lon - a.lon) * t;
+  _editPoints.splice(segIdx + 1, 0, { lat: newLat, lon: newLon });
+  _renderEditLayers();
+}
+
 function _checkEditSegment(segIdx, latlng) {
   const CORRIDOR = 0.05;
   const DANGER_LABELS = new Set(['underwater rock','obstruction','wreck','UWTROC','OBSTRN','WRECKS']);
@@ -1389,7 +1401,7 @@ function _renderEditLayers() {
       color: '#e05252', weight: 5, opacity: 0.85, interactive: true,
     }).on('click', (e) => {
       L.DomEvent.stopPropagation(e);
-      _checkEditSegment(i, e.latlng);
+      _insertVertex(i, e.latlng);
     }).addTo(_map);
     _editSegmentLayers.push(seg);
 
