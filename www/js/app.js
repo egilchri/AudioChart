@@ -1376,6 +1376,7 @@ function _clearEditLayers() {
   _editSegmentLayers.forEach(s => _map.removeLayer(s));
   _editVertexMarkers = [];
   _editSegmentLayers = [];
+  _map.getContainer().querySelectorAll('.edit-vertex-marker').forEach(el => el.remove());
 }
 
 function _insertVertex(segIdx, latlng) {
@@ -1545,6 +1546,7 @@ function _renderEditLayers() {
       permanent: false, direction: 'top', offset: [0, -20], className: 'route-coord-tip edit-coord-tip',
     }).addTo(_map);
     m.on('dragstart', () => {
+      _map.dragging.disable();
       _pushEditHistory();
       if (idx === _newVertexIdx) {
         _newVertexIdx = -1;
@@ -1574,9 +1576,12 @@ function _renderEditLayers() {
       }
     });
     m.on('dragend', () => {
-      _renderEditLayers();
-      clearTimeout(_liveHazardTimer);
-      _liveHazardTimer = setTimeout(_liveHazardCheck, 300);
+      requestAnimationFrame(() => {
+        _renderEditLayers();
+        _map.dragging.enable();
+        clearTimeout(_liveHazardTimer);
+        _liveHazardTimer = setTimeout(_liveHazardCheck, 300);
+      });
     });
     m.on('click', (e) => {
       L.DomEvent.stopPropagation(e);
@@ -1656,7 +1661,11 @@ function _ensureEditHoverMenu() {
   _editHoverMenuEl.addEventListener('mouseenter', () => clearTimeout(_editHideMenuTimer));
   _editHoverMenuEl.addEventListener('mouseleave', () => _scheduleHideEditHoverMenu());
   document.getElementById('ehm-add').addEventListener('click', () => {
-    if (_editHoverSegIdx >= 0 && _editHoverLatLng) _insertVertex(_editHoverSegIdx, _editHoverLatLng);
+    if (_editHoverSegIdx >= 0 && _editHoverLatLng) {
+      _blockSegmentInsert = true;
+      setTimeout(() => { _blockSegmentInsert = false; }, 300);
+      _insertVertex(_editHoverSegIdx, _editHoverLatLng);
+    }
     _hideEditHoverMenu();
   });
   document.getElementById('ehm-del').addEventListener('click', () => {
