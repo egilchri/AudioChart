@@ -593,6 +593,7 @@ let _newVertexIdx          = -1;  // index of freshly inserted vertex — flashe
 let _blockSegmentInsert    = false; // true for 300ms after button-triggered insert to suppress Leaflet's synthesized click
 let _deleteMode            = false; // single-click on vertex deletes it
 let _editHistory           = [];    // stack of _editPoints snapshots for undo
+let _editLastMouseLatLng   = null;  // last cursor position while in edit mode
 let _populateRouteSelectFn = null; // set by _ensureMap once DOM is ready
 let _savedRoutesLayer  = null;
 let _hiddenRouteNames  = new Set();
@@ -1632,6 +1633,36 @@ document.getElementById('edit-hazards-btn').addEventListener('click', () => {
   }
 });
 
+function _editCtrlMenu(e) {
+  if (!_editMode || e.key !== 'Control') return;
+  e.preventDefault();
+  const latlng = _editLastMouseLatLng || _map.getCenter();
+  const btnStyle = 'padding:6px 12px;cursor:pointer;text-align:left;width:100%;border:1px solid #ccc;border-radius:3px;background:#fff;font-size:13px';
+  const addId = 'edit-ctx-add-nodes';
+  const delId = 'edit-ctx-del-nodes';
+  L.popup({ closeButton: false, autopan: false })
+    .setLatLng(latlng)
+    .setContent(`<div style="display:flex;flex-direction:column;gap:5px;padding:2px 0;min-width:150px">
+      <button id="${addId}" style="${btnStyle}">Add Nodes</button>
+      <button id="${delId}" style="${btnStyle}">Delete Nodes</button>
+    </div>`)
+    .openOn(_map);
+  setTimeout(() => {
+    document.getElementById(addId)?.addEventListener('click', () => {
+      _deleteMode = false;
+      document.getElementById('edit-banner-label').textContent = _editRouteName;
+      _renderEditLayers();
+      _map.closePopup();
+    });
+    document.getElementById(delId)?.addEventListener('click', () => {
+      _deleteMode = true;
+      document.getElementById('edit-banner-label').textContent = _editRouteName + ' — click a node to delete it';
+      _renderEditLayers();
+      _map.closePopup();
+    });
+  }, 0);
+}
+
 function _enterEditMode(routeIdx) {
   if (_sketchMode) _exitSketchMode();
   if (_hazardCheckLayer) { _hazardCheckLayer.clearLayers(); _hazardCheckLayer = null; }
@@ -1655,8 +1686,11 @@ function _enterEditMode(routeIdx) {
     _map.dragging.disable();
     if (_savedRoutesLayer) _map.removeLayer(_savedRoutesLayer);
     _renderEditLayers();
+    _map.on('mousemove', _editTrackMouse);
   }
 }
+
+function _editTrackMouse(e) { _editLastMouseLatLng = e.latlng; }
 
 function _exitEditMode() {
   _editMode = false;
@@ -1669,11 +1703,13 @@ function _exitEditMode() {
   document.getElementById('edit-undo-btn').style.display = 'none';
   _clearViewportHazards();
   if (_map) {
+    _map.off('mousemove', _editTrackMouse);
     _clearEditLayers();
     _map.closePopup();
     _map.dragging.enable();
     _map.invalidateSize();
   }
+  _editLastMouseLatLng = null;
   document.getElementById('edit-banner').style.display = 'none';
   _appEl.classList.remove('edit-mode');
   _refreshSavedRouteLayers();
@@ -3148,6 +3184,7 @@ function _ensureMap() {
   });
   document.addEventListener('click', (e) => { if (!_ctxMenu.contains(e.target)) _hideCtx(); }, { capture: true });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') _hideCtx(); });
+  document.addEventListener('keydown', _editCtrlMenu);
 
   document.getElementById('map-ctx-objects-parent').addEventListener('click', () => {
     _ctxSubmenu.style.display = _ctxSubmenu.style.display === 'block' ? 'none' : 'block';
