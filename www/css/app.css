@@ -849,13 +849,13 @@ html, body {
   width: 16px;
   height: 16px;
   background: #fff;
-  border: 3px solid #e05252;
+  border: 3px solid #c8a000;
   border-radius: 50%;
   cursor: grab;
   box-sizing: border-box;
 }
 @keyframes new-vertex-flash {
-  0%, 100% { transform: scale(1);   background: #fff;     border-color: #e05252; }
+  0%, 100% { transform: scale(1);   background: #fff;     border-color: #c8a000; }
   50%       { transform: scale(1.7); background: #f5c842;  border-color: #c8a000; }
 }
 .edit-vertex-new {

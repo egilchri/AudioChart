@@ -1059,103 +1059,9 @@ function _refreshSavedRouteLayers() {
     L.polyline(lls, { color: '#e05252', weight: 8, opacity: 0, interactive: true })
       .on('click', (e) => {
         L.DomEvent.stopPropagation(e);
-        _selectedRouteIdx = routeIdx;
-        _refreshSavedRouteLayers();
-        const ri = routeIdx;
-        const toggleId  = `edit-toggle-${ri}`;
-        const subId     = `edit-sub-${ri}`;
-        const nodeId    = `add-node-${ri}`;
-        const deleteId  = `delete-nodes-${ri}`;
-        const renameId  = `rename-route-${ri}`;
-        const chkId    = `hazard-check-${ri}`;
-        const animId   = `animate-route-${ri}`;
-        const settId   = `anim-settings-${ri}`;
-        const hideId   = `hide-route-${ri}`;
-        const btnStyle = 'padding:5px 10px;cursor:pointer;text-align:left;width:100%;border:1px solid #ccc;border-radius:3px;background:#fff;font-size:13px';
-        const subStyle = 'padding:5px 10px;cursor:pointer;text-align:left;width:100%;border:1px solid #ccc;border-radius:3px;background:#f5f5f5;font-size:13px';
-        L.popup({ closeButton: true, autopan: false })
-          .setLatLng(e.latlng)
-          .setContent(`<div style="display:flex;flex-direction:column;gap:5px;padding:2px 0;min-width:170px">
-            <button id="${toggleId}" style="${btnStyle};font-weight:600">&#9654; Edit</button>
-            <div id="${subId}" style="display:none;flex-direction:column;gap:4px;padding-left:10px">
-              <button id="${nodeId}"   style="${subStyle}">Add a node here</button>
-              <button id="${deleteId}" style="${subStyle}">&#10006; Delete nodes&hellip;</button>
-              <button id="${renameId}" style="${subStyle}">Rename route&hellip;</button>
-            </div>
-            <hr style="margin:2px 0;border:none;border-top:1px solid #ddd">
-            <button id="${chkId}"  style="${btnStyle}">Check for hazards</button>
-            <button id="${animId}" style="${btnStyle}">Animate</button>
-            <button id="${settId}" style="${btnStyle}">&#9881; Anim settings</button>
-            <button id="${hideId}" style="${btnStyle}">Hide route</button>
-          </div>`)
-          .openOn(_map);
-        setTimeout(() => {
-          document.getElementById(toggleId)?.addEventListener('click', (ev) => {
-            ev.stopPropagation();
-            const sub = document.getElementById(subId);
-            const btn = document.getElementById(toggleId);
-            const open = sub.style.display === 'flex';
-            sub.style.display = open ? 'none' : 'flex';
-            btn.innerHTML = (open ? '&#9654;' : '&#9660;') + ' Edit';
-          });
-          document.getElementById(nodeId)?.addEventListener('click', (ev) => {
-            ev.stopPropagation();
-            _blockSegmentInsert = true;
-            setTimeout(() => { _blockSegmentInsert = false; }, 300);
-            _map.closePopup();
-            _enterEditMode(ri);
-            const segIdx = _nearestSegIdx(_editPoints, e.latlng);
-            _insertVertex(segIdx, e.latlng);
-          });
-          document.getElementById(deleteId)?.addEventListener('click', (ev) => {
-            ev.stopPropagation();
-            _map.closePopup();
-            _enterEditMode(ri);
-            _deleteMode = true;
-            document.getElementById('edit-banner-label').textContent =
-              route.name + ' — click a node to delete it';
-          });
-          document.getElementById(renameId)?.addEventListener('click', (ev) => {
-            ev.stopPropagation();
-            _map.closePopup();
-            const r = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
-            if (!r[ri]) return;
-            const newName = prompt('Rename route:', r[ri].name);
-            if (!newName || !newName.trim()) return;
-            r[ri].name = newName.trim();
-            localStorage.setItem(ROUTE_KEY, JSON.stringify(r));
-            localStorage.setItem('audiochart-last-route', newName.trim());
-            _populateRouteSelectFn?.();
-            _refreshSavedRouteLayers();
-          });
-          document.getElementById(chkId)?.addEventListener('click', (ev) => {
-            ev.stopPropagation();
-            _map.closePopup();
-            _checkRouteHazards(ri);
-          });
-          document.getElementById(settId)?.addEventListener('click', (ev) => {
-            ev.stopPropagation();
-            _map.closePopup();
-            _openAnimSettings(null);
-          });
-          document.getElementById(animId)?.addEventListener('click', (ev) => {
-            ev.stopPropagation();
-            _map.closePopup();
-            const r = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
-            const speed = parseFloat(localStorage.getItem('audiochart-last-speed')) || 5;
-            if (r[ri]) _startRouteAnimation(r[ri], speed);
-          });
-          document.getElementById(hideId)?.addEventListener('click', (ev) => {
-            ev.stopPropagation();
-            _map.closePopup();
-            const r = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
-            if (r[ri]) _hiddenRouteNames.add(r[ri].name);
-            _selectedRouteIdx = -1;
-            _refreshSavedRouteLayers();
-          });
-        }, 0);
+        _enterEditMode(routeIdx);
       })
-      .on('dblclick', (e) => { L.DomEvent.stopPropagation(e); _enterEditMode(routeIdx); })
+      .on('dblclick', (e) => { L.DomEvent.stopPropagation(e); })
       .on('mouseover', () => { _ctxRouteIdx = routeIdx; })
       .addTo(_savedRoutesLayer);
     const isSelected = routeIdx === _selectedRouteIdx;
@@ -1600,7 +1506,7 @@ function _renderEditLayers() {
     const ptA = [pts[i].lat, pts[i].lon];
     const ptB = [pts[i + 1].lat, pts[i + 1].lon];
     const seg = L.polyline([ptA, ptB], {
-      color: '#e05252', weight: 5, opacity: 0.85, interactive: true,
+      color: '#f5c842', weight: 5, opacity: 0.9, interactive: true,
     }).on('click', (e) => {
       if (_blockSegmentInsert) return;
       L.DomEvent.stopPropagation(e);
