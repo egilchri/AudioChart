@@ -1696,11 +1696,6 @@ function _scheduleHideEditHoverMenu() {
   _editHideMenuTimer = setTimeout(_hideEditHoverMenu, 180);
 }
 
-function _editMapClick() {
-  if (!_editMode) return;
-  _saveEditedRoute();
-}
-
 function _enterEditMode(routeIdx) {
   if (_sketchMode) _exitSketchMode();
   if (_hazardCheckLayer) { _hazardCheckLayer.clearLayers(); _hazardCheckLayer = null; }
@@ -1722,10 +1717,8 @@ function _enterEditMode(routeIdx) {
   _mapContainer.classList.remove('map-compact', 'list-focus', 'input-focus');
   if (_map) {
     _map.invalidateSize();
-    _map.dragging.disable();
     if (_savedRoutesLayer) _map.removeLayer(_savedRoutesLayer);
     _renderEditLayers();
-    _map.on('click', _editMapClick);
   }
 }
 
@@ -1741,10 +1734,8 @@ function _exitEditMode() {
   document.getElementById('edit-undo-btn').style.display = 'none';
   _clearViewportHazards();
   if (_map) {
-    _map.off('click', _editMapClick);
     _clearEditLayers();
     _map.closePopup();
-    _map.dragging.enable();
     _map.invalidateSize();
   }
   document.getElementById('edit-banner').style.display = 'none';
@@ -1767,6 +1758,8 @@ function _saveEditedRoute() {
   if (_lastHazardCheckedIdx === savedIdx) _checkRouteHazards(savedIdx);
 }
 
+document.getElementById('edit-ok-btn').addEventListener('click', _saveEditedRoute);
+document.getElementById('edit-cancel-btn').addEventListener('click', _exitEditMode);
 document.getElementById('edit-undo-btn').addEventListener('click', () => {
   if (_editHistory.length === 0) return;
   _editPoints = _editHistory.pop();
