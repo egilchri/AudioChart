@@ -861,6 +861,11 @@ html, body {
 .edit-vertex-new {
   animation: new-vertex-flash 0.6s ease-in-out infinite;
 }
+.edit-vertex-delete {
+  border-color: #c0392b;
+  background: #f8d7d7;
+  cursor: not-allowed;
+}
 .route-endpoint-marker {
   width: 14px;
   height: 14px;

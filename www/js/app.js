@@ -591,6 +591,8 @@ let _editSegmentLayers     = [];
 let _liveHazardTimer       = null;
 let _newVertexIdx          = -1;  // index of freshly inserted vertex — flashes until dragged
 let _blockSegmentInsert    = false; // true for 300ms after button-triggered insert to suppress Leaflet's synthesized click
+let _deleteMode            = false; // single-click on vertex deletes it
+let _editHistory           = [];    // stack of _editPoints snapshots for undo
 let _populateRouteSelectFn = null; // set by _ensureMap once DOM is ready
 let _savedRoutesLayer  = null;
 let _hiddenRouteNames  = new Set();
@@ -1060,10 +1062,11 @@ function _refreshSavedRouteLayers() {
         _selectedRouteIdx = routeIdx;
         _refreshSavedRouteLayers();
         const ri = routeIdx;
-        const toggleId = `edit-toggle-${ri}`;
-        const subId    = `edit-sub-${ri}`;
-        const nodeId   = `add-node-${ri}`;
-        const renameId = `rename-route-${ri}`;
+        const toggleId  = `edit-toggle-${ri}`;
+        const subId     = `edit-sub-${ri}`;
+        const nodeId    = `add-node-${ri}`;
+        const deleteId  = `delete-nodes-${ri}`;
+        const renameId  = `rename-route-${ri}`;
         const chkId    = `hazard-check-${ri}`;
         const animId   = `animate-route-${ri}`;
         const settId   = `anim-settings-${ri}`;
@@ -1076,6 +1079,7 @@ function _refreshSavedRouteLayers() {
             <button id="${toggleId}" style="${btnStyle};font-weight:600">&#9654; Edit</button>
             <div id="${subId}" style="display:none;flex-direction:column;gap:4px;padding-left:10px">
               <button id="${nodeId}"   style="${subStyle}">Add a node here</button>
+              <button id="${deleteId}" style="${subStyle}">&#10006; Delete nodes&hellip;</button>
               <button id="${renameId}" style="${subStyle}">Rename route&hellip;</button>
             </div>
             <hr style="margin:2px 0;border:none;border-top:1px solid #ddd">
@@ -1102,6 +1106,14 @@ function _refreshSavedRouteLayers() {
             _enterEditMode(ri);
             const segIdx = _nearestSegIdx(_editPoints, e.latlng);
             _insertVertex(segIdx, e.latlng);
+          });
+          document.getElementById(deleteId)?.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            _map.closePopup();
+            _enterEditMode(ri);
+            _deleteMode = true;
+            document.getElementById('edit-banner-label').textContent =
+              route.name + ' — click a node to delete it';
           });
           document.getElementById(renameId)?.addEventListener('click', (ev) => {
             ev.stopPropagation();
@@ -1444,6 +1456,11 @@ function _editVertexIcon() {
   });
 }
 
+function _pushEditHistory() {
+  _editHistory.push(_editPoints.map(p => ({ lat: p.lat, lon: p.lon })));
+  document.getElementById('edit-undo-btn').style.display = '';
+}
+
 function _clearEditLayers() {
   _editVertexMarkers.forEach(m => _map.removeLayer(m));
   _editSegmentLayers.forEach(s => _map.removeLayer(s));
@@ -1459,6 +1476,7 @@ function _insertVertex(segIdx, latlng) {
   const t = (ct && segLen > 0) ? Math.max(0, Math.min(1, ct.alongTrack / segLen)) : 0.5;
   const newLat = a.lat + (b.lat - a.lat) * t;
   const newLon = a.lon + (b.lon - a.lon) * t;
+  _pushEditHistory();
   _editPoints.splice(segIdx + 1, 0, { lat: newLat, lon: newLon });
   _newVertexIdx = segIdx + 1;
   _renderEditLayers();
@@ -1599,7 +1617,9 @@ function _renderEditLayers() {
     const isNew = idx === _newVertexIdx;
     const m = L.marker([pts[idx].lat, pts[idx].lon], {
       icon: L.divIcon({
-        className: isNew ? 'edit-vertex-marker edit-vertex-new' : 'edit-vertex-marker',
+        className: isNew ? 'edit-vertex-marker edit-vertex-new'
+                        : _deleteMode ? 'edit-vertex-marker edit-vertex-delete'
+                        : 'edit-vertex-marker',
         iconSize: [16, 16],
         iconAnchor: [8, 8],
       }),
@@ -1609,6 +1629,7 @@ function _renderEditLayers() {
       permanent: false, direction: 'top', offset: [0, -20], className: 'route-coord-tip edit-coord-tip',
     }).addTo(_map);
     m.on('dragstart', () => {
+      _pushEditHistory();
       if (idx === _newVertexIdx) {
         _newVertexIdx = -1;
         // Remove the flash class directly — setIcon() during an active drag reinitialises
@@ -1641,10 +1662,18 @@ function _renderEditLayers() {
       clearTimeout(_liveHazardTimer);
       _liveHazardTimer = setTimeout(_liveHazardCheck, 300);
     });
-    m.on('click',    (e) => { L.DomEvent.stopPropagation(e); });
+    m.on('click', (e) => {
+      L.DomEvent.stopPropagation(e);
+      if (_deleteMode && _editPoints.length > 2) {
+        _pushEditHistory();
+        _editPoints.splice(idx, 1);
+        _renderEditLayers();
+      }
+    });
     m.on('dblclick', (e) => {
       L.DomEvent.stopPropagation(e);
       if (_editPoints.length <= 2) return;
+      _pushEditHistory();
       _editPoints.splice(idx, 1);
       _renderEditLayers();
     });
@@ -1708,6 +1737,8 @@ function _enterEditMode(routeIdx) {
   _editRouteIdx = routeIdx;
   _editRouteName = route.name;
   _editPoints = route.points.map(p => ({ lat: p.lat, lon: p.lon }));
+  _deleteMode = false;
+  _editHistory = [];
 
   document.getElementById('edit-banner-label').textContent = route.name;
   document.getElementById('edit-banner').style.display = 'flex';
@@ -1727,6 +1758,9 @@ function _exitEditMode() {
   _editRouteIdx = -1;
   _editPoints = [];
   _newVertexIdx = -1;
+  _deleteMode = false;
+  _editHistory = [];
+  document.getElementById('edit-undo-btn').style.display = 'none';
   _clearViewportHazards();
   if (_map) {
     _clearEditLayers();
@@ -1756,6 +1790,14 @@ function _saveEditedRoute() {
 
 document.getElementById('edit-save-btn').addEventListener('click', _saveEditedRoute);
 document.getElementById('edit-cancel-btn').addEventListener('click', _exitEditMode);
+document.getElementById('edit-undo-btn').addEventListener('click', () => {
+  if (_editHistory.length === 0) return;
+  _editPoints = _editHistory.pop();
+  _newVertexIdx = -1;
+  _renderEditLayers();
+  document.getElementById('edit-undo-btn').style.display =
+    _editHistory.length > 0 ? '' : 'none';
+});
 
 // ── GPX export ────────────────────────────────────────────────────────────────
 
