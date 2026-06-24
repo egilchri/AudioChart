@@ -1650,6 +1650,7 @@ function _ensureEditHoverMenu() {
   _editHoverMenuEl.innerHTML = `
     <button id="ehm-add" style="${btnStyle}">Add Node here</button>
     <button id="ehm-del" style="${btnStyle}">Delete Nodes</button>
+    <button id="ehm-undo" style="${btnStyle}">&#8630; Undo</button>
   `;
   document.body.appendChild(_editHoverMenuEl);
   _editHoverMenuEl.addEventListener('mouseenter', () => clearTimeout(_editHideMenuTimer));
@@ -1663,6 +1664,14 @@ function _ensureEditHoverMenu() {
     document.getElementById('edit-banner-label').textContent =
       _deleteMode ? _editRouteName + ' — click a node to delete it' : _editRouteName;
     _renderEditLayers();
+    _hideEditHoverMenu();
+  });
+  document.getElementById('ehm-undo').addEventListener('click', () => {
+    if (_editHistory.length === 0) { _hideEditHoverMenu(); return; }
+    _editPoints = _editHistory.pop();
+    _newVertexIdx = -1;
+    _renderEditLayers();
+    document.getElementById('edit-undo-btn').style.display = _editHistory.length > 0 ? '' : 'none';
     _hideEditHoverMenu();
   });
 }
@@ -1685,6 +1694,11 @@ function _hideEditHoverMenu() {
 
 function _scheduleHideEditHoverMenu() {
   _editHideMenuTimer = setTimeout(_hideEditHoverMenu, 180);
+}
+
+function _editMapClick() {
+  if (!_editMode) return;
+  _saveEditedRoute();
 }
 
 function _enterEditMode(routeIdx) {
@@ -1711,6 +1725,7 @@ function _enterEditMode(routeIdx) {
     _map.dragging.disable();
     if (_savedRoutesLayer) _map.removeLayer(_savedRoutesLayer);
     _renderEditLayers();
+    _map.on('click', _editMapClick);
   }
 }
 
@@ -1726,6 +1741,7 @@ function _exitEditMode() {
   document.getElementById('edit-undo-btn').style.display = 'none';
   _clearViewportHazards();
   if (_map) {
+    _map.off('click', _editMapClick);
     _clearEditLayers();
     _map.closePopup();
     _map.dragging.enable();
@@ -1751,8 +1767,6 @@ function _saveEditedRoute() {
   if (_lastHazardCheckedIdx === savedIdx) _checkRouteHazards(savedIdx);
 }
 
-document.getElementById('edit-save-btn').addEventListener('click', _saveEditedRoute);
-document.getElementById('edit-cancel-btn').addEventListener('click', _exitEditMode);
 document.getElementById('edit-undo-btn').addEventListener('click', () => {
   if (_editHistory.length === 0) return;
   _editPoints = _editHistory.pop();
