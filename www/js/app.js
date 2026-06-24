@@ -590,7 +590,6 @@ let _editVertexMarkers     = [];
 let _editSegmentLayers     = [];
 let _liveHazardTimer       = null;
 let _newVertexIdx          = -1;  // index of freshly inserted vertex — flashes until dragged
-let _blockSegmentInsert    = false; // true for 300ms after button-triggered insert to suppress Leaflet's synthesized click
 let _deleteMode            = false; // single-click on vertex deletes it
 let _editHistory           = [];    // stack of _editPoints snapshots for undo
 let _editHoverMenuEl       = null;  // floating hover menu shown over segments
@@ -1512,10 +1511,6 @@ function _renderEditLayers() {
     const ptB = [pts[i + 1].lat, pts[i + 1].lon];
     const seg = L.polyline([ptA, ptB], {
       color: '#f5c842', weight: 5, opacity: 0.9, interactive: true,
-    }).on('click', (e) => {
-      if (_blockSegmentInsert) return;
-      L.DomEvent.stopPropagation(e);
-      _insertVertex(i, e.latlng);
     }).on('mouseover', (e) => {
       _showEditHoverMenu(e.originalEvent.clientX, e.originalEvent.clientY, i, e.latlng);
     }).on('mousemove', (e) => {
@@ -1662,8 +1657,6 @@ function _ensureEditHoverMenu() {
   _editHoverMenuEl.addEventListener('mouseleave', () => _scheduleHideEditHoverMenu());
   document.getElementById('ehm-add').addEventListener('click', () => {
     if (_editHoverSegIdx >= 0 && _editHoverLatLng) {
-      _blockSegmentInsert = true;
-      setTimeout(() => { _blockSegmentInsert = false; }, 300);
       _insertVertex(_editHoverSegIdx, _editHoverLatLng);
     }
     _hideEditHoverMenu();
