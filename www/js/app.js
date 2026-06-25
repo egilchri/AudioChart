@@ -1687,6 +1687,7 @@ function _ensureEditHoverMenu() {
 }
 
 function _showEditHoverMenu(clientX, clientY, segIdx, latlng) {
+  if (_addNodeMode) return;
   clearTimeout(_editHideMenuTimer);
   _editHoverSegIdx = segIdx;
   _editHoverLatLng = latlng;
