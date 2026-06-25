@@ -1714,9 +1714,11 @@ function _cancelAddNodeMode() {
 
 function _editPlaceNode(e) {
   if (!_editMode || !_addNodeMode) return;
-  const segIdx = _nearestSegIdx(_editPoints, e.latlng);
+  if (e.button !== undefined && e.button !== 0) return; // left click only
+  const latlng = _map.mouseEventToLatLng(e);
+  const segIdx = _nearestSegIdx(_editPoints, latlng);
   _cancelAddNodeMode();
-  _insertVertex(segIdx, e.latlng);
+  _insertVertex(segIdx, latlng);
 }
 
 function _enterEditMode(routeIdx) {
@@ -1743,7 +1745,7 @@ function _enterEditMode(routeIdx) {
     _map.invalidateSize();
     if (_savedRoutesLayer) _map.removeLayer(_savedRoutesLayer);
     _renderEditLayers();
-    _map.on('click', _editPlaceNode);
+    _map.getContainer().addEventListener('mouseup', _editPlaceNode);
   }
 }
 
@@ -1760,7 +1762,7 @@ function _exitEditMode() {
   document.getElementById('edit-undo-btn').style.display = 'none';
   _clearViewportHazards();
   if (_map) {
-    _map.off('click', _editPlaceNode);
+    _map.getContainer().removeEventListener('mouseup', _editPlaceNode);
     _map.dragging.enable();
     _map.getContainer().style.cursor = '';
     _clearEditLayers();
