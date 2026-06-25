@@ -591,6 +591,7 @@ let _editSegmentLayers     = [];
 let _liveHazardTimer       = null;
 let _newVertexIdx          = -1;  // index of freshly inserted vertex — flashes until dragged
 let _deleteMode            = false; // single-click on vertex deletes it
+let _addNodeMode           = false; // waiting for user to click map to place new node
 let _editHistory           = [];    // stack of _editPoints snapshots for undo
 let _editHoverMenuEl       = null;  // floating hover menu shown over segments
 let _editHoverSegIdx       = -1;
@@ -1659,11 +1660,13 @@ function _ensureEditHoverMenu() {
     const btn = document.getElementById('ehm-add');
     btn.style.background = '#333';
     btn.style.color = '#fff';
-    if (_editHoverSegIdx >= 0 && _editHoverLatLng) _insertVertex(_editHoverSegIdx, _editHoverLatLng);
     setTimeout(() => {
       btn.style.background = '';
       btn.style.color = '';
       _hideEditHoverMenu();
+      _addNodeMode = true;
+      _map.getContainer().style.cursor = 'crosshair';
+      document.getElementById('edit-banner-label').textContent = _editRouteName + ' — click to place node';
     }, 130);
   });
   document.getElementById('ehm-del').addEventListener('click', () => {
@@ -1703,6 +1706,19 @@ function _scheduleHideEditHoverMenu() {
   _editHideMenuTimer = setTimeout(_hideEditHoverMenu, 180);
 }
 
+function _cancelAddNodeMode() {
+  _addNodeMode = false;
+  if (_map) _map.getContainer().style.cursor = '';
+  document.getElementById('edit-banner-label').textContent = _editRouteName;
+}
+
+function _editPlaceNode(e) {
+  if (!_editMode || !_addNodeMode) return;
+  const segIdx = _nearestSegIdx(_editPoints, e.latlng);
+  _insertVertex(segIdx, e.latlng);
+  _cancelAddNodeMode();
+}
+
 function _enterEditMode(routeIdx) {
   if (_sketchMode) _exitSketchMode();
   if (_hazardCheckLayer) { _hazardCheckLayer.clearLayers(); _hazardCheckLayer = null; }
@@ -1715,6 +1731,7 @@ function _enterEditMode(routeIdx) {
   _editRouteName = route.name;
   _editPoints = route.points.map(p => ({ lat: p.lat, lon: p.lon }));
   _deleteMode = false;
+  _addNodeMode = false;
   _editHistory = [];
 
   _ensureEditHoverMenu();
@@ -1726,6 +1743,7 @@ function _enterEditMode(routeIdx) {
     _map.invalidateSize();
     if (_savedRoutesLayer) _map.removeLayer(_savedRoutesLayer);
     _renderEditLayers();
+    _map.on('click', _editPlaceNode);
   }
 }
 
@@ -1736,11 +1754,14 @@ function _exitEditMode() {
   _editPoints = [];
   _newVertexIdx = -1;
   _deleteMode = false;
+  _addNodeMode = false;
   _editHistory = [];
   _hideEditHoverMenu();
   document.getElementById('edit-undo-btn').style.display = 'none';
   _clearViewportHazards();
   if (_map) {
+    _map.off('click', _editPlaceNode);
+    _map.getContainer().style.cursor = '';
     _clearEditLayers();
     _map.closePopup();
     _map.invalidateSize();
@@ -3218,7 +3239,9 @@ function _ensureMap() {
     _refreshSavedRouteLayers();
   });
   document.addEventListener('click', (e) => { if (!_ctxMenu.contains(e.target)) _hideCtx(); }, { capture: true });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') _hideCtx(); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { _hideCtx(); if (_addNodeMode) _cancelAddNodeMode(); }
+  });
 
   document.getElementById('map-ctx-objects-parent').addEventListener('click', () => {
     _ctxSubmenu.style.display = _ctxSubmenu.style.display === 'block' ? 'none' : 'block';
