@@ -1660,14 +1660,12 @@ function _ensureEditHoverMenu() {
     const btn = document.getElementById('ehm-add');
     btn.style.background = '#333';
     btn.style.color = '#fff';
-    setTimeout(() => {
-      btn.style.background = '';
-      btn.style.color = '';
-      _hideEditHoverMenu();
-      _addNodeMode = true;
-      _map.getContainer().style.cursor = 'crosshair';
-      document.getElementById('edit-banner-label').textContent = _editRouteName + ' — click to place node';
-    }, 130);
+    _hideEditHoverMenu();
+    _addNodeMode = true;
+    _map.dragging.disable();
+    _map.getContainer().style.cursor = 'crosshair';
+    document.getElementById('edit-banner-label').textContent = _editRouteName + ' — click to place node';
+    setTimeout(() => { btn.style.background = ''; btn.style.color = ''; }, 130);
   });
   document.getElementById('ehm-del').addEventListener('click', () => {
     _deleteMode = !_deleteMode;
@@ -1709,7 +1707,7 @@ function _scheduleHideEditHoverMenu() {
 
 function _cancelAddNodeMode() {
   _addNodeMode = false;
-  if (_map) _map.getContainer().style.cursor = '';
+  if (_map) { _map.dragging.enable(); _map.getContainer().style.cursor = ''; }
   document.getElementById('edit-banner-label').textContent = _editRouteName;
 }
 
@@ -1762,6 +1760,7 @@ function _exitEditMode() {
   _clearViewportHazards();
   if (_map) {
     _map.off('click', _editPlaceNode);
+    _map.dragging.enable();
     _map.getContainer().style.cursor = '';
     _clearEditLayers();
     _map.closePopup();
