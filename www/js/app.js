@@ -1511,7 +1511,7 @@ function _renderEditLayers() {
     const ptA = [pts[i].lat, pts[i].lon];
     const ptB = [pts[i + 1].lat, pts[i + 1].lon];
     const seg = L.polyline([ptA, ptB], {
-      color: '#f5c842', weight: 5, opacity: 0.9, interactive: true,
+      color: '#f5c842', weight: 5, opacity: 0.9, interactive: !_addNodeMode,
     }).on('mouseover', (e) => {
       _showEditHoverMenu(e.originalEvent.clientX, e.originalEvent.clientY, i, e.latlng);
     }).on('mousemove', (e) => {
@@ -1662,6 +1662,7 @@ function _ensureEditHoverMenu() {
     btn.style.color = '#fff';
     _hideEditHoverMenu();
     _addNodeMode = true;
+    _renderEditLayers(); // rebuild segments as non-interactive so cursor/clicks pass through
     _map.dragging.disable();
     _map.getContainer().style.cursor = 'crosshair';
     document.getElementById('edit-banner-label').textContent = _editRouteName + ' — click to place node';
@@ -1714,8 +1715,8 @@ function _cancelAddNodeMode() {
 function _editPlaceNode(e) {
   if (!_editMode || !_addNodeMode) return;
   const segIdx = _nearestSegIdx(_editPoints, e.latlng);
-  _insertVertex(segIdx, e.latlng);
   _cancelAddNodeMode();
+  _insertVertex(segIdx, e.latlng);
 }
 
 function _enterEditMode(routeIdx) {
