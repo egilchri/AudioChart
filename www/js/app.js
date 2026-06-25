@@ -1656,12 +1656,14 @@ function _ensureEditHoverMenu() {
   _editHoverMenuEl.addEventListener('mouseenter', () => clearTimeout(_editHideMenuTimer));
   _editHoverMenuEl.addEventListener('mouseleave', () => _scheduleHideEditHoverMenu());
   document.getElementById('ehm-add').addEventListener('click', () => {
-    _editHoverMenuEl.style.background = '#333';
-    const seg = _editHoverSegIdx, ll = _editHoverLatLng;
+    const btn = document.getElementById('ehm-add');
+    btn.style.background = '#333';
+    btn.style.color = '#fff';
+    if (_editHoverSegIdx >= 0 && _editHoverLatLng) _insertVertex(_editHoverSegIdx, _editHoverLatLng);
     setTimeout(() => {
-      if (seg >= 0 && ll) _insertVertex(seg, ll);
+      btn.style.background = '';
+      btn.style.color = '';
       _hideEditHoverMenu();
-      _editHoverMenuEl.style.background = '#fff';
     }, 130);
   });
   document.getElementById('ehm-del').addEventListener('click', () => {
