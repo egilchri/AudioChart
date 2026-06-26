@@ -1390,17 +1390,6 @@ function _insertVertex(segIdx, latlng) {
   _pushEditHistory();
   _editPoints.splice(segIdx + 1, 0, { lat: newLat, lon: newLon });
   _newVertexIdx = segIdx + 1;
-
-  L.marker([newLat, newLon], {
-    icon: L.divIcon({
-      className: 'edit-vertex-marker edit-vertex-new',
-      iconSize: [16, 16],
-      iconAnchor: [8, 8],
-    }),
-    zIndexOffset: 1000,
-  }).addTo(_map);
-
-  requestAnimationFrame(() => { if (_editMode) _renderEditLayers(); });
 }
 
 function _nearestSegIdx(pts, latlng) {
@@ -1729,6 +1718,21 @@ function _editPlaceNode(e) {
   const segIdx = _nearestSegIdx(_editPoints, latlng);
   _cancelAddNodeMode();
   _insertVertex(segIdx, latlng);
+
+  // Save new node to localStorage, then exit+reenter — uses _enterEditMode's
+  // known-working render path instead of fighting mid-edit render timing.
+  // All three calls are synchronous so the browser paints only the final state.
+  const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+  if (!routes[_editRouteIdx]) return;
+  routes[_editRouteIdx].points = _editPoints.map(p => ({ lat: p.lat, lon: p.lon }));
+  localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
+  const savedIdx       = _editRouteIdx;
+  const savedNewVtxIdx = _newVertexIdx;
+  const savedHistory   = _editHistory.slice();
+  _exitEditMode();
+  _newVertexIdx = savedNewVtxIdx;
+  _enterEditMode(savedIdx);
+  _editHistory  = savedHistory;
 }
 
 function _enterEditMode(routeIdx) {
