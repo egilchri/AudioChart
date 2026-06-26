@@ -1390,7 +1390,7 @@ function _insertVertex(segIdx, latlng) {
   _pushEditHistory();
   _editPoints.splice(segIdx + 1, 0, { lat: newLat, lon: newLon });
   _newVertexIdx = segIdx + 1;
-  _renderEditLayers();
+  requestAnimationFrame(() => { if (_editMode) _renderEditLayers(); });
 }
 
 function _nearestSegIdx(pts, latlng) {
