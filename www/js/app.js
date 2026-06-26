@@ -1390,6 +1390,16 @@ function _insertVertex(segIdx, latlng) {
   _pushEditHistory();
   _editPoints.splice(segIdx + 1, 0, { lat: newLat, lon: newLon });
   _newVertexIdx = segIdx + 1;
+
+  L.marker([newLat, newLon], {
+    icon: L.divIcon({
+      className: 'edit-vertex-marker edit-vertex-new',
+      iconSize: [16, 16],
+      iconAnchor: [8, 8],
+    }),
+    zIndexOffset: 1000,
+  }).addTo(_map);
+
   requestAnimationFrame(() => { if (_editMode) _renderEditLayers(); });
 }
 
