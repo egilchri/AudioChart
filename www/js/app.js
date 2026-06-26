@@ -1733,6 +1733,7 @@ function _editPlaceNode(e) {
   _newVertexIdx = savedNewVtxIdx;
   _enterEditMode(savedIdx);
   _editHistory  = savedHistory;
+  document.getElementById('edit-undo-btn').style.display = savedHistory.length > 0 ? '' : 'none';
 }
 
 function _enterEditMode(routeIdx) {
