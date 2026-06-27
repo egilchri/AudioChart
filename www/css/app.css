@@ -855,11 +855,11 @@ html, body {
   box-sizing: border-box;
 }
 @keyframes new-vertex-flash {
-  0%, 100% { transform: scale(1);   background: #fff;     border-color: #c8a000; }
-  50%       { transform: scale(1.7); background: #f5c842;  border-color: #c8a000; }
+  0%, 100% { box-shadow: 0 0 0 2px rgba(200,160,0,0.5); background: #fff; }
+  50%       { box-shadow: 0 0 0 7px rgba(200,160,0,0.15); background: #f5c842; }
 }
 .edit-vertex-new {
-  animation: new-vertex-flash 0.6s ease-in-out infinite;
+  animation: new-vertex-flash 0.7s ease-in-out infinite;
 }
 .edit-vertex-delete {
   border-color: #c0392b;
