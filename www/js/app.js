@@ -1673,6 +1673,7 @@ function _ensureEditHoverMenu() {
       _deleteMode ? _editRouteName + ' — click a node to delete it' : _editRouteName;
     _renderEditLayers();
     _hideEditHoverMenu();
+    _updateEditToolsPanel();
   });
   document.getElementById('ehm-undo').addEventListener('click', () => {
     if (_editHistory.length === 0) { _hideEditHoverMenu(); return; }
@@ -1709,6 +1710,28 @@ function _cancelAddNodeMode() {
   _addNodeMode = false;
   if (_map) { _map.dragging.enable(); _map.getContainer().style.cursor = ''; }
   document.getElementById('edit-banner-label').textContent = _editRouteName;
+  _updateEditToolsPanel();
+}
+
+function _updateEditToolsPanel() {
+  document.getElementById('etp-add-node')?.classList.toggle('active', _addNodeMode);
+  document.getElementById('etp-delete')?.classList.toggle('active', _deleteMode);
+}
+
+function _animateEditRoute() {
+  if (_editRouteIdx < 0 || _editPoints.length < 2) return;
+  const speed = parseFloat(localStorage.getItem('audiochart-last-speed')) || 5;
+  const route = {
+    name:   _editRouteName || 'Route',
+    points: _editPoints.map(p => ({ lat: p.lat, lon: p.lon })),
+  };
+  if (!document.querySelector('.track-compress.selected')) {
+    document.querySelector('.track-compress[data-compress="500"]')?.classList.add('selected');
+  }
+  // Must exit edit-mode FIRST: CSS `#app.edit-mode #anim-banner { display:none !important }`
+  // would suppress the animation banner otherwise.
+  _exitEditMode();
+  _startRouteAnimation(route, speed);
 }
 
 function _editPlaceNode(e) {
@@ -1762,6 +1785,8 @@ function _enterEditMode(routeIdx) {
     _renderEditLayers();
     _map.getContainer().addEventListener('mouseup', _editPlaceNode);
   }
+  document.getElementById('edit-tools-panel').style.display = 'flex';
+  _updateEditToolsPanel();
 }
 
 function _exitEditMode() {
@@ -1785,6 +1810,7 @@ function _exitEditMode() {
     _map.invalidateSize();
   }
   document.getElementById('edit-banner').style.display = 'none';
+  document.getElementById('edit-tools-panel').style.display = 'none';
   _appEl.classList.remove('edit-mode');
   _refreshSavedRouteLayers();
 }
@@ -1819,6 +1845,25 @@ document.getElementById('edit-undo-btn').addEventListener('click', () => {
   document.getElementById('edit-undo-btn').style.display =
     _editHistory.length > 0 ? '' : 'none';
 });
+
+document.getElementById('etp-add-node').addEventListener('click', () => {
+  _addNodeMode = true;
+  _renderEditLayers();
+  _map.dragging.disable();
+  _map.getContainer().style.cursor = 'crosshair';
+  document.getElementById('edit-banner-label').textContent = _editRouteName + ' — click to place node';
+  _updateEditToolsPanel();
+});
+
+document.getElementById('etp-delete').addEventListener('click', () => {
+  _deleteMode = !_deleteMode;
+  document.getElementById('edit-banner-label').textContent =
+    _deleteMode ? _editRouteName + ' — click a node to delete it' : _editRouteName;
+  _renderEditLayers();
+  _updateEditToolsPanel();
+});
+
+document.getElementById('etp-animate').addEventListener('click', _animateEditRoute);
 
 // ── GPX export ────────────────────────────────────────────────────────────────
 
