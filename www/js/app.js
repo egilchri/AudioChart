@@ -593,10 +593,7 @@ let _newVertexIdx          = -1;  // index of freshly inserted vertex — flashe
 let _deleteMode            = false; // single-click on vertex deletes it
 let _addNodeMode           = false; // waiting for user to click map to place new node
 let _editHistory           = [];    // stack of _editPoints snapshots for undo
-let _editHoverMenuEl       = null;  // floating hover menu shown over segments
-let _editHoverSegIdx       = -1;
-let _editHoverLatLng       = null;
-let _editHideMenuTimer     = null;
+
 let _populateRouteSelectFn = null; // set by _ensureMap once DOM is ready
 let _savedRoutesLayer  = null;
 let _hiddenRouteNames  = new Set();
@@ -1511,12 +1508,6 @@ function _renderEditLayers() {
     const ptB = [pts[i + 1].lat, pts[i + 1].lon];
     const seg = L.polyline([ptA, ptB], {
       color: '#f5c842', weight: 5, opacity: 0.9, interactive: !_addNodeMode,
-    }).on('mouseover', (e) => {
-      _showEditHoverMenu(e.originalEvent.clientX, e.originalEvent.clientY, i, e.latlng);
-    }).on('mousemove', (e) => {
-      _editHoverLatLng = e.latlng;
-    }).on('mouseout', () => {
-      _scheduleHideEditHoverMenu();
     }).addTo(_map);
     _editSegmentLayers.push(seg);
 
@@ -1642,69 +1633,6 @@ document.getElementById('edit-hazards-btn').addEventListener('click', () => {
   }
 });
 
-function _ensureEditHoverMenu() {
-  if (_editHoverMenuEl) return;
-  const btnStyle = 'display:block;width:100%;padding:7px 14px;cursor:pointer;text-align:left;border:none;background:transparent;font-size:13px;white-space:nowrap';
-  _editHoverMenuEl = document.createElement('div');
-  _editHoverMenuEl.style.cssText = 'position:fixed;display:none;z-index:10000;background:#fff;border:1px solid #ccc;border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,.25);padding:3px 0;';
-  _editHoverMenuEl.innerHTML = `
-    <button id="ehm-add" style="${btnStyle}">Add Node here</button>
-    <button id="ehm-del" style="${btnStyle}">Delete Nodes</button>
-    <button id="ehm-undo" style="${btnStyle}">&#8630; Undo</button>
-  `;
-  document.body.appendChild(_editHoverMenuEl);
-  _editHoverMenuEl.addEventListener('mouseenter', () => clearTimeout(_editHideMenuTimer));
-  _editHoverMenuEl.addEventListener('mouseleave', () => _scheduleHideEditHoverMenu());
-  document.getElementById('ehm-add').addEventListener('click', () => {
-    const btn = document.getElementById('ehm-add');
-    btn.style.background = '#333';
-    btn.style.color = '#fff';
-    _hideEditHoverMenu();
-    _addNodeMode = true;
-    _renderEditLayers(); // rebuild segments as non-interactive so cursor/clicks pass through
-    _map.dragging.disable();
-    _map.getContainer().style.cursor = 'crosshair';
-    document.getElementById('edit-banner-label').textContent = _editRouteName + ' — click to place node';
-    setTimeout(() => { btn.style.background = ''; btn.style.color = ''; }, 130);
-  });
-  document.getElementById('ehm-del').addEventListener('click', () => {
-    _deleteMode = !_deleteMode;
-    document.getElementById('edit-banner-label').textContent =
-      _deleteMode ? _editRouteName + ' — click a node to delete it' : _editRouteName;
-    _renderEditLayers();
-    _hideEditHoverMenu();
-    _updateEditToolsPanel();
-  });
-  document.getElementById('ehm-undo').addEventListener('click', () => {
-    if (_editHistory.length === 0) { _hideEditHoverMenu(); return; }
-    _editPoints = _editHistory.pop();
-    _newVertexIdx = -1;
-    _renderEditLayers();
-    document.getElementById('edit-undo-btn').style.display = _editHistory.length > 0 ? '' : 'none';
-    _hideEditHoverMenu();
-  });
-}
-
-function _showEditHoverMenu(clientX, clientY, segIdx, latlng) {
-  if (_addNodeMode) return;
-  clearTimeout(_editHideMenuTimer);
-  _editHoverSegIdx = segIdx;
-  _editHoverLatLng = latlng;
-  _editHoverMenuEl.style.left = (clientX + 14) + 'px';
-  _editHoverMenuEl.style.top  = (clientY - 10) + 'px';
-  _editHoverMenuEl.style.display = 'block';
-}
-
-function _hideEditHoverMenu() {
-  clearTimeout(_editHideMenuTimer);
-  if (_editHoverMenuEl) _editHoverMenuEl.style.display = 'none';
-  _editHoverSegIdx = -1;
-  _editHoverLatLng = null;
-}
-
-function _scheduleHideEditHoverMenu() {
-  _editHideMenuTimer = setTimeout(_hideEditHoverMenu, 180);
-}
 
 function _cancelAddNodeMode() {
   _addNodeMode = false;
@@ -1728,9 +1656,6 @@ function _animateEditRoute() {
   if (!document.querySelector('.track-compress.selected')) {
     document.querySelector('.track-compress[data-compress="500"]')?.classList.add('selected');
   }
-  // Must exit edit-mode FIRST: CSS `#app.edit-mode #anim-banner { display:none !important }`
-  // would suppress the animation banner otherwise.
-  _exitEditMode();
   _startRouteAnimation(route, speed);
 }
 
@@ -1774,7 +1699,6 @@ function _enterEditMode(routeIdx) {
   _addNodeMode = false;
   _editHistory = [];
 
-  _ensureEditHoverMenu();
   document.getElementById('edit-banner-label').textContent = route.name;
   document.getElementById('edit-banner').style.display = 'flex';
   _appEl.classList.add('edit-mode');
@@ -1798,7 +1722,6 @@ function _exitEditMode() {
   _deleteMode = false;
   _addNodeMode = false;
   _editHistory = [];
-  _hideEditHoverMenu();
   document.getElementById('edit-undo-btn').style.display = 'none';
   _clearViewportHazards();
   if (_map) {

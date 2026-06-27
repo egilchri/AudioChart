@@ -835,7 +835,6 @@ html, body {
 }
 /* Edit route mode — same full-screen layout */
 #app.edit-mode #sidebar,
-#app.edit-mode #anim-banner,
 #app.edit-mode #sketch-banner {
   display: none !important;
 }
