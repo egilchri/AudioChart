@@ -1806,7 +1806,11 @@ function _saveEditedRoute() {
 
 document.getElementById('edit-ok-btn').addEventListener('click', _saveEditedRoute);
 document.getElementById('edit-cancel-btn').addEventListener('click', _exitEditMode);
-document.getElementById('edit-redraw-btn').addEventListener('click', () => _renderEditLayers());
+document.getElementById('edit-redraw-btn').addEventListener('click', () => {
+  document.getElementById('edit-banner-label').textContent =
+    _editRouteName + ' [pts:' + _editPoints.length + ']';
+  _renderEditLayers();
+});
 document.getElementById('edit-undo-btn').addEventListener('click', () => {
   if (_editHistory.length === 0) return;
   _editPoints = _editHistory.pop();
