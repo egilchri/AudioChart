@@ -1514,10 +1514,18 @@ function _renderEditLayers() {
     // Bearing labels omitted in edit mode — they clutter the map; visible in normal route display
   }
 
+  // Pre-compute cumulative distances for tooltip display
+  const _cumNm = [0];
+  for (let i = 1; i < pts.length; i++) {
+    _cumNm.push(_cumNm[i - 1] + Query.distanceNm(pts[i - 1].lon, pts[i - 1].lat, pts[i].lon, pts[i].lat));
+  }
+
   // Vertex markers — drag to move, click to remove, coordinate label
   for (let i = 0; i < pts.length; i++) {
     const idx = i;
     const isNew = idx === _newVertexIdx;
+    const tipContent = () =>
+      `${formatPositionDisplay(pts[idx].lat, pts[idx].lon)}<br>${_cumNm[idx].toFixed(1)} nm from start`;
     const m = L.marker([pts[idx].lat, pts[idx].lon], {
       icon: L.divIcon({
         className: isNew ? 'edit-vertex-marker edit-vertex-new'
@@ -1528,7 +1536,7 @@ function _renderEditLayers() {
       }),
       draggable: true,
       zIndexOffset: 1000,
-    }).bindTooltip(formatPositionDisplay(pts[idx].lat, pts[idx].lon), {
+    }).bindTooltip(tipContent(), {
       permanent: false, direction: 'top', offset: [0, -20], className: 'route-coord-tip edit-coord-tip',
     }).addTo(_map);
     m.on('dragstart', () => {
