@@ -1755,10 +1755,20 @@ function _saveEditedRoute() {
 
 document.getElementById('edit-ok-btn').addEventListener('click', _saveEditedRoute);
 document.getElementById('edit-cancel-btn').addEventListener('click', _exitEditMode);
-document.getElementById('edit-redraw-btn').addEventListener('click', () => {
+document.getElementById('edit-info-btn').addEventListener('click', () => {
+  let totalNm = 0;
+  for (let i = 0; i < _editPoints.length - 1; i++) {
+    totalNm += Query.distanceNm(
+      _editPoints[i].lon, _editPoints[i].lat,
+      _editPoints[i + 1].lon, _editPoints[i + 1].lat
+    );
+  }
+  const nm   = totalNm.toFixed(1);
+  const mi   = (totalNm * 1.15078).toFixed(1);
+  const wpts = _editPoints.length;
+  TTS.sayImmediate(`${_editRouteName}. ${nm} nautical miles, ${mi} statute miles, ${wpts} waypoints.`);
   document.getElementById('edit-banner-label').textContent =
-    _editRouteName + ' [pts:' + _editPoints.length + ']';
-  _renderEditLayers();
+    `${_editRouteName} — ${nm} nm / ${mi} mi · ${wpts} waypoints`;
 });
 document.getElementById('edit-undo-btn').addEventListener('click', () => {
   if (_editHistory.length === 0) return;
