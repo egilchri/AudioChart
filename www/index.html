@@ -25,9 +25,19 @@
       <button id="map-layer-btn" title="Switch to chart">&#128506;</button>
       <button id="seamark-toggle-btn" title="Hide seamarks">&#x26F5;</button>
       <button id="navaid-filter-btn" title="Show navaids on map">&#9875;</button>
+      <button id="route-picker-btn" title="Show/hide routes">&#9998; Routes</button>
       <div id="zoom-slider-wrap">
         <span id="zoom-slider-label">11</span>
         <input type="range" id="zoom-slider" min="4" max="18" step="1" value="11">
+      </div>
+      <div id="route-picker-panel">
+        <div class="nf-title">Routes <button id="rp-close" title="Close">&#10005;</button></div>
+        <input id="rp-search" type="text" placeholder="Search routes&hellip;" autocomplete="off">
+        <div id="rp-route-list"></div>
+        <div class="nf-actions">
+          <button id="rp-show-all">All</button>
+          <button id="rp-hide-all">None</button>
+        </div>
       </div>
       <div id="navaid-filter-panel">
         <div class="nf-title">Objects<button id="nf-close" title="Close">&#10005;</button></div>

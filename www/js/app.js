@@ -1303,6 +1303,40 @@ function _onSketchDblClick(e) {
 }
 
 const ROUTE_KEY = 'audiochart-user-routes';
+const HIDDEN_ROUTES_KEY = 'audiochart-hidden-routes';
+
+function _loadHiddenRoutes() {
+  const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+  const saved  = localStorage.getItem(HIDDEN_ROUTES_KEY);
+  if (saved === null) {
+    _hiddenRouteNames = new Set(routes.map(r => r.name));
+    _saveHiddenRoutes();
+  } else {
+    _hiddenRouteNames = new Set(JSON.parse(saved));
+  }
+}
+
+function _saveHiddenRoutes() {
+  localStorage.setItem(HIDDEN_ROUTES_KEY, JSON.stringify([..._hiddenRouteNames]));
+}
+
+// Place-name reverse-geocode cache: "lat,lon" → nearest named place string
+const _placeNameCache = new Map();
+
+function _nearestPlaceName(lat, lon) {
+  const key = `${lat.toFixed(4)},${lon.toFixed(4)}`;
+  if (_placeNameCache.has(key)) return _placeNameCache.get(key);
+  const features = Query.namedPlaces?.features;
+  if (!features || features.length === 0) return null;
+  let bestName = null, bestDist = Infinity;
+  for (const f of features) {
+    const [flon, flat] = f.geometry.coordinates;
+    const d = Query.distanceNm(lon, lat, flon, flat);
+    if (d < bestDist) { bestDist = d; bestName = f.properties.name; }
+  }
+  _placeNameCache.set(key, bestName);
+  return bestName;
+}
 
 function _nextRouteName() {
   const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
@@ -1347,6 +1381,7 @@ function _finishSketch() {
       TTS.sayImmediate(msg);
     }
     _refreshSavedRouteLayers();
+    _populateRouteSelectFn?.();
   }
 }
 
@@ -2758,6 +2793,7 @@ function _ensureMap() {
   _applyMapLayer();
   _syncLayerBtn();
   _syncSeamarkBtn();
+  _loadHiddenRoutes();
   _refreshSavedRouteLayers();
 
   // Zoom slider (desktop only — hidden by CSS on mobile)
@@ -2922,6 +2958,97 @@ function _ensureMap() {
     _navaidFilterBtn.classList.remove('active');
   });
 
+  // ✒ Route picker panel
+  const _routePickerBtn   = document.getElementById('route-picker-btn');
+  const _routePickerPanel = document.getElementById('route-picker-panel');
+  const _closeRoutePicker = () => {
+    _routePickerPanel.classList.remove('open');
+    _routePickerBtn.classList.remove('active');
+  };
+
+  function _buildRoutePickerPanel() {
+    const list  = document.getElementById('rp-route-list');
+    const query = (document.getElementById('rp-search').value || '').toLowerCase();
+    const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+    list.innerHTML = '';
+    const filtered = routes.filter(r => {
+      if (!query) return true;
+      const first = r.points?.[0];
+      const last  = r.points?.[r.points.length - 1];
+      const startName = first ? (_nearestPlaceName(first.lat, first.lon) || '') : '';
+      const endName   = last  ? (_nearestPlaceName(last.lat,  last.lon)  || '') : '';
+      const haystack  = (r.name + ' ' + startName + ' ' + endName).toLowerCase();
+      return haystack.includes(query);
+    });
+    if (filtered.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'rp-empty';
+      empty.textContent = routes.length === 0 ? 'No saved routes.' : 'No routes match.';
+      list.appendChild(empty);
+      return;
+    }
+    filtered.forEach(route => {
+      const first = route.points?.[0];
+      const last  = route.points?.[route.points.length - 1];
+      const startName = first ? (_nearestPlaceName(first.lat, first.lon) || `${first.lat.toFixed(3)},${first.lon.toFixed(3)}`) : '';
+      const endName   = last  ? (_nearestPlaceName(last.lat,  last.lon)  || `${last.lat.toFixed(3)},${last.lon.toFixed(3)}`)   : '';
+      const hidden = _hiddenRouteNames.has(route.name);
+      const row = document.createElement('button');
+      row.className = 'rp-row' + (hidden ? ' hidden' : '');
+      const nameLine = document.createElement('div');
+      nameLine.className = 'rp-row-name';
+      nameLine.textContent = route.name;
+      row.appendChild(nameLine);
+      if (startName || endName) {
+        const placeLine = document.createElement('div');
+        placeLine.className = 'rp-row-places';
+        placeLine.textContent = startName + (endName && endName !== startName ? ' → ' + endName : '');
+        row.appendChild(placeLine);
+      }
+      row.addEventListener('click', () => {
+        if (_hiddenRouteNames.has(route.name)) {
+          _hiddenRouteNames.delete(route.name);
+        } else {
+          _hiddenRouteNames.add(route.name);
+        }
+        _saveHiddenRoutes();
+        _refreshSavedRouteLayers();
+        _buildRoutePickerPanel();
+      });
+      list.appendChild(row);
+    });
+  }
+
+  _routePickerBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const opening = !_routePickerPanel.classList.contains('open');
+    _routePickerPanel.classList.toggle('open');
+    _routePickerBtn.classList.toggle('active', opening);
+    if (opening) _buildRoutePickerPanel();
+  });
+  document.getElementById('rp-close').addEventListener('click', _closeRoutePicker);
+  document.getElementById('rp-search').addEventListener('input', _buildRoutePickerPanel);
+  document.getElementById('rp-show-all').addEventListener('click', () => {
+    const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+    routes.forEach(r => _hiddenRouteNames.delete(r.name));
+    _saveHiddenRoutes();
+    _refreshSavedRouteLayers();
+    _buildRoutePickerPanel();
+  });
+  document.getElementById('rp-hide-all').addEventListener('click', () => {
+    const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+    routes.forEach(r => _hiddenRouteNames.add(r.name));
+    _saveHiddenRoutes();
+    _refreshSavedRouteLayers();
+    _buildRoutePickerPanel();
+  });
+  _map.on('click', _closeRoutePicker);
+
+  // Keep panel in sync after route changes — called from _populateRouteSelect below
+  const _rebuildPickerIfOpen = () => {
+    if (_routePickerPanel.classList.contains('open')) _buildRoutePickerPanel();
+  };
+
   // Currents checkbox
   document.getElementById('nf-currents').addEventListener('change', function () {
     _showCurrentArrows = this.checked;
@@ -3037,6 +3164,7 @@ function _ensureMap() {
     }
     // Restore sticky speed, default 5 knots
     if (!speed.value) speed.value = localStorage.getItem('audiochart-last-speed') || '5';
+    _rebuildPickerIfOpen();
   }
   _populateRouteSelectFn = _populateRouteSelect;
 
@@ -3315,6 +3443,7 @@ function _ensureMap() {
         } else {
           _hiddenRouteNames.add(route.name);
         }
+        _saveHiddenRoutes();
         _refreshSavedRouteLayers();
         _hideCtx();
       });
@@ -3336,9 +3465,12 @@ function _ensureMap() {
     }
     const newName = prompt('Rename route:', routes[idx].name);
     if (!newName || !newName.trim()) return;
+    const oldName = routes[idx].name;
     routes[idx].name = newName.trim();
     localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
     localStorage.setItem('audiochart-last-route', newName.trim());
+    _hiddenRouteNames.delete(oldName);
+    _saveHiddenRoutes();
     _populateRouteSelect();
     const newIdx = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]')
       .findIndex(r => r.name === newName.trim());
