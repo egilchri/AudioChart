@@ -1493,8 +1493,9 @@ async function _autoRouteProg(start, end, onUpdate) {
   // Visibility Graph + A* (Euclidean Shortest Path with Polygonal Obstacles).
   // Nodes: start, end, and polygon vertices in the padded bounding box.
   // Edges are checked lazily during A* expansion.
-  const PAD_NM  = 2.0;
+  const PAD_NM    = 2.0;
   const MAX_NODES = 600;
+  const SAFETY_NM = 0.05;  // ~100 yards — offset every vertex this far offshore
 
   const delay = ms => new Promise(r => setTimeout(r, ms));
 
@@ -1515,7 +1516,7 @@ async function _autoRouteProg(start, end, onUpdate) {
   const land  = Query.getLandPolygons();
 
   if (land) {
-    // First pass: gather all in-bbox vertices per polygon and compute total.
+    // First pass: gather in-bbox vertices per polygon + each ring's centroid.
     const polyVerts = [];
     for (const feat of land.features) {
       const { type, coordinates } = feat.geometry;
@@ -1531,17 +1532,33 @@ async function _autoRouteProg(start, end, onUpdate) {
         const verts = outer.filter(([x, y]) =>
           x >= bMinLon && x <= bMaxLon && y >= bMinLat && y <= bMaxLat
         );
-        if (verts.length) polyVerts.push(verts);
+        if (!verts.length) continue;
+        // Centroid of the full outer ring — used to determine outward direction.
+        let cx = 0, cy = 0;
+        for (const [x, y] of outer) { cx += x; cy += y; }
+        cx /= outer.length; cy /= outer.length;
+        polyVerts.push({ verts, cx, cy });
       }
     }
 
-    // Second pass: add vertices, subsampling each polygon to stay under MAX_NODES total.
-    const totalRaw = polyVerts.reduce((s, v) => s + v.length, 0);
+    // Second pass: add offset vertices, subsampling to stay under MAX_NODES total.
+    const totalRaw = polyVerts.reduce((s, p) => s + p.verts.length, 0);
     const step = totalRaw > MAX_NODES ? Math.ceil(totalRaw / MAX_NODES) : 1;
     let gi = 0;
-    for (const verts of polyVerts) {
+    for (const { verts, cx, cy } of polyVerts) {
       for (let k = 0; k < verts.length; k++) {
-        if ((gi++) % step === 0) nodes.push({ lon: verts[k][0], lat: verts[k][1] });
+        if ((gi++) % step !== 0) continue;
+        const [vx, vy] = verts[k];
+        // Push vertex SAFETY_NM outward from the polygon centroid so waypoints
+        // stay ~100 yards offshore rather than sitting exactly on the coastline.
+        const dx = vx - cx, dy = vy - cy;
+        const len = Math.sqrt(dx * dx + dy * dy);
+        if (len < 1e-10) { nodes.push({ lon: vx, lat: vy }); continue; }
+        const cv = Math.cos(vy * Math.PI / 180);
+        nodes.push({
+          lon: vx + SAFETY_NM / (60 * cv) * (dx / len),
+          lat: vy + SAFETY_NM / 60        * (dy / len),
+        });
       }
     }
   }
