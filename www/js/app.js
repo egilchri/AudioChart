@@ -1439,13 +1439,8 @@ const HIDDEN_ROUTES_KEY = 'audiochart-hidden-routes';
 
 function _loadHiddenRoutes() {
   const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
-  const saved  = localStorage.getItem(HIDDEN_ROUTES_KEY);
-  if (saved === null) {
-    _hiddenRouteNames = new Set(routes.map(r => r.name));
-    _saveHiddenRoutes();
-  } else {
-    _hiddenRouteNames = new Set(JSON.parse(saved));
-  }
+  _hiddenRouteNames = new Set(routes.map(r => r.name));
+  _saveHiddenRoutes();
 }
 
 function _saveHiddenRoutes() {
@@ -2080,6 +2075,7 @@ function _enterEditMode(routeIdx) {
 }
 
 function _exitEditMode() {
+  const _justEditedName = _editRouteName;
   _editMode = false;
   _editRouteName = null;
   _editRouteIdx = -1;
@@ -2101,6 +2097,10 @@ function _exitEditMode() {
   document.getElementById('edit-banner').style.display = 'none';
   document.getElementById('edit-tools-panel').style.display = 'none';
   _appEl.classList.remove('edit-mode');
+  if (_justEditedName) {
+    _hiddenRouteNames.delete(_justEditedName);
+    _saveHiddenRoutes();
+  }
   _refreshSavedRouteLayers();
 }
 
