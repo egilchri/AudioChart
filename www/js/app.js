@@ -1363,12 +1363,18 @@ function _clearAutoRoute() {
 }
 
 function _autoRoute(start, end) {
-  const CELL_NM   = 0.05;
-  const PAD_NM    = 1.5;
-  const MAX_CELLS = 2_000_000;
+  const PAD_NM      = 1.5;
+  const TARGET_CELLS = 300_000;   // cap grid size to keep computation fast
+  const MIN_CELL_NM  = 0.05;      // finest resolution (~90 m)
 
   const midLat  = (start.lat + end.lat) / 2;
   const cosLat  = Math.cos(midLat * Math.PI / 180);
+
+  // Choose cell size so the padded bounding box stays near TARGET_CELLS
+  const directNm = Query.distanceNm(start.lon, start.lat, end.lon, end.lat);
+  const bboxNm   = directNm + 2 * PAD_NM;
+  const CELL_NM  = Math.max(MIN_CELL_NM, bboxNm / Math.sqrt(TARGET_CELLS));
+
   const cellLat = CELL_NM / 60;
   const cellLon = CELL_NM / (60 * cosLat);
   const padLat  = PAD_NM  / 60;
@@ -1382,13 +1388,7 @@ function _autoRoute(start, end) {
   const rows = Math.ceil((maxLat - minLat) / cellLat) + 1;
   const cols = Math.ceil((maxLon - minLon) / cellLon) + 1;
 
-  console.log(`[autoRoute] grid ${rows}×${cols} = ${rows * cols} cells`);
-
-  if (rows * cols > MAX_CELLS) {
-    setStatus('Route too long to auto-plan (max ~70 nm). Pick closer points.');
-    TTS.sayImmediate('Route too long to auto-plan.');
-    return null;
-  }
+  console.log(`[autoRoute] ${directNm.toFixed(1)} nm direct, cell=${CELL_NM.toFixed(3)} nm, grid ${rows}×${cols} = ${rows * cols} cells`);
 
   const grid = new Uint8Array(rows * cols);
 
