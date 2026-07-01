@@ -3649,16 +3649,26 @@ function _ensureMap() {
       { color: '#3399ff', weight: 3, dashArray: '8 6', opacity: 0.9 }
     ).addTo(_map);
 
+    const optOverlay = document.createElement('div');
+    optOverlay.className = 'optimizing-overlay';
+    optOverlay.innerHTML =
+      '<span class="optimizing-boat">&#9975;</span>' +
+      '<em class="optimizing-text">Optimizing&#8230;</em>';
+    _map.getContainer().appendChild(optOverlay);
+
     let pts;
     try {
       pts = await _autoRouteProg(start, end, (path) => {
         _autoRoutePreviewLayer.setLatLngs(path.map(p => [p.lat, p.lon]));
       });
     } catch (err) {
+      optOverlay.remove();
       console.error('[autoRoute] error:', err);
       setStatus(`Auto-route error: ${err.message}`);
       return;
     }
+
+    optOverlay.remove();
 
     const totalNm = pts.reduce((sum, p, idx) =>
       idx === 0 ? 0 : sum + Query.distanceNm(pts[idx - 1].lon, pts[idx - 1].lat, p.lon, p.lat), 0);

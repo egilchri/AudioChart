@@ -1177,6 +1177,37 @@ html, body {
   font-size: 0.85rem;
   cursor: pointer;
 }
+.optimizing-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1500;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.optimizing-boat {
+  font-size: 3rem;
+  display: block;
+  animation: boat-spin 3s linear infinite;
+  transform-origin: center center;
+}
+@keyframes boat-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.optimizing-text {
+  font-size: 1.4rem;
+  font-style: italic;
+  font-weight: 700;
+  color: #3399ff;
+  text-shadow: 0 0 6px rgba(0,0,0,0.9), 0 0 14px rgba(0,0,0,0.7);
+  white-space: nowrap;
+  letter-spacing: 0.03em;
+}
 #edit-banner {
   display: flex;
   align-items: center;
