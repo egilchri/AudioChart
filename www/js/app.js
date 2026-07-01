@@ -1330,7 +1330,7 @@ async function _onDrawClick(latlng) {
     const name    = _drawName;
     const startPt = { lat: _drawStart.lat, lon: _drawStart.lng };
     const endPt   = { lat: end.lat, lon: end.lng };
-    _exitDrawRouteMode();
+    _exitDrawRouteMode(true);  // skip route refresh — edit mode handles display after optimization
 
     // Show straight-line preview while optimizing
     const previewLine = L.polyline(
@@ -1414,7 +1414,7 @@ function _enterDrawRouteMode() {
   _map.on('mousemove', _drawMapMouseMove);
 }
 
-function _exitDrawRouteMode() {
+function _exitDrawRouteMode(skipRefresh = false) {
   _drawMode = false;
   _drawBanner.style.display = 'none';
   _appEl.classList.remove('sketch-mode');
@@ -1429,7 +1429,7 @@ function _exitDrawRouteMode() {
     if (_drawMapMouseMove) { _map.off('mousemove', _drawMapMouseMove); _drawMapMouseMove = null; }
     _map.dragging.enable();
   }
-  _refreshSavedRouteLayers();
+  if (!skipRefresh) _refreshSavedRouteLayers();
 }
 
 document.getElementById('draw-cancel-btn').addEventListener('click', _exitDrawRouteMode);
