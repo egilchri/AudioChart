@@ -1363,7 +1363,6 @@ async function _onDrawClick(latlng) {
     const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
     routes.push({ name, points: pts.map(p => ({ lat: p.lat, lon: p.lon })) });
     localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
-    _refreshSavedRouteLayers();
     _populateRouteSelectFn?.();
     _enterEditMode(routes.length - 1);
   }
@@ -3816,11 +3815,9 @@ function _ensureMap() {
     localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
     const newIdx = routes.length - 1;
 
-    _refreshSavedRouteLayers();
     _populateRouteSelectFn?.();
-    _autoFixRouteHazards(newIdx);
-    _checkRouteHazards(newIdx);
     _clearAutoRoute();
+    _enterEditMode(newIdx);
 
     const msg = `${name} planned — ${totalNm.toFixed(1)} nm.`;
     setStatus(msg);
