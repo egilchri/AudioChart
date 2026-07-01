@@ -685,6 +685,7 @@ html, body {
   visibility: visible;
 }
 .rp-delete-btn:hover { color: var(--danger); }
+@media (hover: none) { .rp-delete-btn { visibility: visible; } }
 .rp-row-places {
   font-size: 0.75rem;
   color: var(--text-dim);
