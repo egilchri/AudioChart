@@ -1107,6 +1107,14 @@ export function landDataInfo() {
   return `Land data: ${landPolygons.features.length} polygons loaded.`;
 }
 
+export function landBlocks(fromLon, fromLat, toLon, toLat) {
+  return _landBlocks(fromLon, fromLat, toLon, toLat);
+}
+
+export function getLandPolygons() {
+  return landPolygons;
+}
+
 /** Check whether all data needed for offline use is cached. */
 export async function offlineReadiness() {
   async function swCached(path) {

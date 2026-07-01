@@ -603,6 +603,11 @@ let _ctxRouteIdx       = -1;  // last route hovered; used by context-menu action
 let _selectedRouteIdx  = -1;  // route clicked/highlighted on map
 let _hazardCheckLayer       = null; // temporary markers from Check for Hazards
 let _lastHazardCheckedIdx   = -1;  // route idx of most recent hazard check, for auto-recheck after save
+let _autoRouteStart        = null;
+let _autoRouteEnd          = null;
+let _autoRouteStartMarker  = null;
+let _autoRouteEndMarker    = null;
+let _autoRoutePreviewLayer = null;
 let _viewportHazardLayer    = null; // hazard markers for current map viewport (edit mode)
 let _viewportHazardMoveEnd  = null; // moveend listener ref for cleanup
 let _routeNameLabels        = [];   // [{marker, pts}] for viewport-clamping on moveend
@@ -1347,6 +1352,217 @@ function _saveRoute(name, points) {
   const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
   routes.push({ name, points: points.map(p => ({ lat: p.lat, lon: p.lng })) });
   localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
+}
+
+function _clearAutoRoute() {
+  _autoRouteStart = _autoRouteEnd = null;
+  if (_autoRouteStartMarker)  { _autoRouteStartMarker.remove();  _autoRouteStartMarker  = null; }
+  if (_autoRouteEndMarker)    { _autoRouteEndMarker.remove();    _autoRouteEndMarker    = null; }
+  if (_autoRoutePreviewLayer) { _autoRoutePreviewLayer.remove(); _autoRoutePreviewLayer = null; }
+}
+
+function _autoRoute(start, end) {
+  const CELL_NM   = 0.05;
+  const PAD_NM    = 1.5;
+  const MAX_CELLS = 2_000_000;
+
+  const midLat  = (start.lat + end.lat) / 2;
+  const cosLat  = Math.cos(midLat * Math.PI / 180);
+  const cellLat = CELL_NM / 60;
+  const cellLon = CELL_NM / (60 * cosLat);
+  const padLat  = PAD_NM  / 60;
+  const padLon  = PAD_NM  / (60 * cosLat);
+
+  const minLat = Math.min(start.lat, end.lat) - padLat;
+  const maxLat = Math.max(start.lat, end.lat) + padLat;
+  const minLon = Math.min(start.lon, end.lon) - padLon;
+  const maxLon = Math.max(start.lon, end.lon) + padLon;
+
+  const rows = Math.ceil((maxLat - minLat) / cellLat) + 1;
+  const cols = Math.ceil((maxLon - minLon) / cellLon) + 1;
+
+  if (rows * cols > MAX_CELLS) {
+    setStatus('Route too long to auto-plan (max ~70 nm). Pick closer points.');
+    TTS.sayImmediate('Route too long to auto-plan.');
+    return null;
+  }
+
+  const grid = new Uint8Array(rows * cols);
+
+  function rasterizeRing(ring) {
+    const n = ring.length;
+    if (n < 3) return;
+    let rMin = rows, rMax = -1;
+    for (const [, lat] of ring) {
+      const r = Math.floor((lat - minLat) / cellLat);
+      if (r < rMin) rMin = r;
+      if (r > rMax) rMax = r;
+    }
+    rMin = Math.max(0, rMin);
+    rMax = Math.min(rows - 1, rMax);
+    if (rMin > rMax) return;
+    for (let r = rMin; r <= rMax; r++) {
+      const rowLat = minLat + (r + 0.5) * cellLat;
+      const xs = [];
+      for (let i = 0; i < n - 1; i++) {
+        const [x1, y1] = ring[i], [x2, y2] = ring[i + 1];
+        if ((y1 <= rowLat && y2 > rowLat) || (y2 <= rowLat && y1 > rowLat))
+          xs.push(x1 + (rowLat - y1) / (y2 - y1) * (x2 - x1));
+      }
+      xs.sort((a, b) => a - b);
+      for (let k = 0; k + 1 < xs.length; k += 2) {
+        const c0 = Math.max(0,        Math.floor((xs[k]     - minLon) / cellLon));
+        const c1 = Math.min(cols - 1, Math.ceil( (xs[k + 1] - minLon) / cellLon));
+        for (let c = c0; c <= c1; c++) grid[r * cols + c] = 1;
+      }
+    }
+  }
+
+  function bboxInGrid(feat) {
+    const { type, coordinates } = feat.geometry;
+    const polys = type === 'Polygon' ? [coordinates] : coordinates;
+    for (const rings of polys) {
+      const ring = rings[0];
+      let la0 = Infinity, la1 = -Infinity, lo0 = Infinity, lo1 = -Infinity;
+      for (const [lo, la] of ring) {
+        if (la < la0) la0 = la; if (la > la1) la1 = la;
+        if (lo < lo0) lo0 = lo; if (lo > lo1) lo1 = lo;
+      }
+      if (la1 >= minLat && la0 <= maxLat && lo1 >= minLon && lo0 <= maxLon) return true;
+    }
+    return false;
+  }
+
+  function rasterizeFeat(feat) {
+    const { type, coordinates } = feat.geometry;
+    const polys = type === 'Polygon' ? [coordinates] : coordinates;
+    for (const rings of polys) rasterizeRing(rings[0]);
+  }
+
+  const land = Query.getLandPolygons();
+  if (land) {
+    for (const feat of land.features) {
+      if (bboxInGrid(feat)) rasterizeFeat(feat);
+    }
+  }
+
+  for (const f of (Query.depthZones || [])) {
+    if (parseFloat(f.properties?.depth_label ?? 99) >= 2) continue;
+    if (bboxInGrid(f)) rasterizeFeat(f);
+  }
+
+  // Inflate obstacles by 1 cell to keep route clear of shorelines
+  const orig = grid.slice();
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (!orig[r * cols + c]) continue;
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          const nr = r + dr, nc = c + dc;
+          if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) grid[nr * cols + nc] = 1;
+        }
+      }
+    }
+  }
+
+  function toRC(lat, lon) {
+    return [
+      Math.max(0, Math.min(rows - 1, Math.floor((lat - minLat) / cellLat))),
+      Math.max(0, Math.min(cols - 1, Math.floor((lon - minLon) / cellLon))),
+    ];
+  }
+
+  const [sr, sc] = toRC(start.lat, start.lon);
+  const [er, ec] = toRC(end.lat,   end.lon);
+  const si = sr * cols + sc;
+  const ei = er * cols + ec;
+  grid[si] = 0;
+  grid[ei] = 0;
+
+  const INF    = 1e9;
+  const gScore = new Float32Array(rows * cols).fill(INF);
+  const prev   = new Int32Array(rows * cols).fill(-1);
+  gScore[si]   = 0;
+
+  const hp = [];
+  function hpush(p, i) {
+    hp.push([p, i]);
+    let k = hp.length - 1;
+    while (k > 0) {
+      const par = (k - 1) >> 1;
+      if (hp[par][0] <= hp[k][0]) break;
+      [hp[par], hp[k]] = [hp[k], hp[par]];
+      k = par;
+    }
+  }
+  function hpop() {
+    const top = hp[0];
+    const last = hp.pop();
+    if (hp.length) {
+      hp[0] = last;
+      let k = 0;
+      for (;;) {
+        let m = k, l = 2 * k + 1, r = l + 1;
+        if (l < hp.length && hp[l][0] < hp[m][0]) m = l;
+        if (r < hp.length && hp[r][0] < hp[m][0]) m = r;
+        if (m === k) break;
+        [hp[m], hp[k]] = [hp[k], hp[m]];
+        k = m;
+      }
+    }
+    return top;
+  }
+
+  hpush(0, si);
+
+  const DIRS = [
+    [-1, -1, 1.414], [-1, 0, 1], [-1, 1, 1.414],
+    [ 0, -1, 1],                  [ 0, 1, 1],
+    [ 1, -1, 1.414], [ 1, 0, 1], [ 1, 1, 1.414],
+  ];
+
+  let found = false;
+  while (hp.length > 0) {
+    const [, ci] = hpop();
+    if (ci === ei) { found = true; break; }
+    const cr = Math.floor(ci / cols), cc = ci % cols;
+    const cg = gScore[ci];
+    for (const [dr, dc, dcost] of DIRS) {
+      const nr = cr + dr, nc = cc + dc;
+      if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
+      const ni = nr * cols + nc;
+      if (grid[ni]) continue;
+      const ng = cg + dcost;
+      if (ng >= gScore[ni]) continue;
+      gScore[ni] = ng;
+      prev[ni] = ci;
+      const ddr = er - nr, ddc = ec - nc;
+      hpush(ng + Math.sqrt(ddr * ddr + ddc * ddc), ni);
+    }
+  }
+
+  if (!found) return null;
+
+  const raw = [];
+  for (let ci = ei; ci !== -1; ci = prev[ci]) {
+    const r = Math.floor(ci / cols), c = ci % cols;
+    raw.push({ lat: minLat + (r + 0.5) * cellLat, lon: minLon + (c + 0.5) * cellLon });
+  }
+  raw.reverse();
+  raw[0] = { lat: start.lat, lon: start.lon };
+  raw[raw.length - 1] = { lat: end.lat, lon: end.lon };
+
+  // String-pull: skip waypoints where the direct line is clear of land
+  const smooth = [raw[0]];
+  let i = 0;
+  while (i < raw.length - 1) {
+    let j = raw.length - 1;
+    while (j > i + 1 && Query.landBlocks(raw[i].lon, raw[i].lat, raw[j].lon, raw[j].lat)) j--;
+    smooth.push(raw[j]);
+    i = j;
+  }
+
+  return smooth;
 }
 
 function _finishSketch() {
@@ -3443,6 +3659,78 @@ function _ensureMap() {
     const msg = 'All routes cleared.';
     setStatus(msg);
     TTS.sayImmediate(msg);
+  });
+
+  document.getElementById('map-ctx-route-from-here').addEventListener('click', () => {
+    _hideCtx();
+    if (!_ctxLatLng) return;
+    _autoRouteStart = { lat: _ctxLatLng.lat, lon: _ctxLatLng.lng };
+    if (_autoRouteStartMarker) _autoRouteStartMarker.remove();
+    _autoRouteStartMarker = L.circleMarker([_ctxLatLng.lat, _ctxLatLng.lng], {
+      radius: 8, color: '#00cc44', fillColor: '#00cc44', fillOpacity: 0.8, weight: 2,
+    }).addTo(_map).bindTooltip('Route start', { permanent: false });
+    setStatus(_autoRouteEnd
+      ? 'Start updated — right-click map → "Route to here" to replan.'
+      : 'Route start set — right-click map → "Route to here" to plan route.');
+  });
+
+  document.getElementById('map-ctx-route-to-here').addEventListener('click', () => {
+    _hideCtx();
+    if (!_ctxLatLng) return;
+    _autoRouteEnd = { lat: _ctxLatLng.lat, lon: _ctxLatLng.lng };
+    if (_autoRouteEndMarker) _autoRouteEndMarker.remove();
+    _autoRouteEndMarker = L.circleMarker([_ctxLatLng.lat, _ctxLatLng.lng], {
+      radius: 8, color: '#cc2200', fillColor: '#cc2200', fillOpacity: 0.8, weight: 2,
+    }).addTo(_map).bindTooltip('Route destination', { permanent: false });
+
+    if (!_autoRouteStart) {
+      setStatus('Destination set — right-click map → "Route from here" to plan route.');
+      return;
+    }
+
+    setStatus('Computing route…');
+    setTimeout(() => {
+      const pts = _autoRoute(_autoRouteStart, _autoRouteEnd);
+      if (!pts) {
+        const msg = 'No navigable route found between those points.';
+        setStatus(msg);
+        TTS.sayImmediate('No navigable route found.');
+        return;
+      }
+
+      if (_autoRoutePreviewLayer) _autoRoutePreviewLayer.remove();
+      _autoRoutePreviewLayer = L.polyline(
+        pts.map(p => [p.lat, p.lon]),
+        { color: '#3399ff', weight: 3, dashArray: '8 6', opacity: 0.9 }
+      ).addTo(_map);
+
+      const totalNm = pts.reduce((sum, p, idx) =>
+        idx === 0 ? 0 : sum + Query.distanceNm(pts[idx - 1].lon, pts[idx - 1].lat, p.lon, p.lat), 0);
+
+      const name = prompt(
+        `Save this route? (${totalNm.toFixed(1)} nm, ${pts.length} waypoints)`,
+        _nextRouteName()
+      );
+
+      if (_autoRoutePreviewLayer) { _autoRoutePreviewLayer.remove(); _autoRoutePreviewLayer = null; }
+
+      if (!name) return;
+
+      const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+      routes.push({ name, points: pts.map(p => ({ lat: p.lat, lon: p.lon })) });
+      localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
+      const newIdx = routes.length - 1;
+
+      _refreshSavedRouteLayers();
+      _populateRouteSelectFn?.();
+      _autoFixRouteHazards(newIdx);
+      _checkRouteHazards(newIdx);
+      _clearAutoRoute();
+
+      const msg = `${name} saved — ${totalNm.toFixed(1)} nm.`;
+      setStatus(msg);
+      TTS.sayImmediate(`${name} saved. ${totalNm.toFixed(1)} nautical miles.`);
+    }, 30);
   });
 
   const _visParent  = document.getElementById('map-ctx-route-vis-parent');
