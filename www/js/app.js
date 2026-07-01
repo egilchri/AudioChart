@@ -1490,86 +1490,141 @@ function _clearAutoRoute() {
 }
 
 async function _autoRouteProg(start, end, onUpdate) {
-  const SAFETY_NM = 0.1;   // clearance offset outward from polygon vertices (nm)
-  const MAX_ITERS = 80;
+  // Visibility Graph + A* (Euclidean Shortest Path with Polygonal Obstacles).
+  // Nodes: start, end, and polygon vertices in the padded bounding box.
+  // Edges are checked lazily during A* expansion.
+  const PAD_NM  = 2.0;
+  const MAX_NODES = 600;
 
   const delay = ms => new Promise(r => setTimeout(r, ms));
 
-  // Yield immediately so the overlay and preview line always paint before work starts
+  // Let the overlay and preview line paint before we do any real work.
   await delay(0);
 
-  function ringCentroid(ring) {
-    let cx = 0, cy = 0;
-    const n = ring.length;
-    for (const [x, y] of ring) { cx += x; cy += y; }
-    return [cx / n, cy / n];
-  }
+  // ── Collect nodes ──────────────────────────────────────────────────────────
+  const midLat = (start.lat + end.lat) / 2;
+  const cosLat = Math.cos(midLat * Math.PI / 180);
+  const padLon = PAD_NM / (60 * cosLat);
+  const padLat = PAD_NM / 60;
+  const bMinLon = Math.min(start.lon, end.lon) - padLon;
+  const bMaxLon = Math.max(start.lon, end.lon) + padLon;
+  const bMinLat = Math.min(start.lat, end.lat) - padLat;
+  const bMaxLat = Math.max(start.lat, end.lat) + padLat;
 
-  function offsetVertex(vx, vy, cx, cy) {
-    const dx = vx - cx, dy = vy - cy;
-    const len = Math.sqrt(dx * dx + dy * dy);
-    if (len < 1e-10) return { lon: vx, lat: vy };
-    const cosLat = Math.cos(vy * Math.PI / 180);
-    return {
-      lon: vx + SAFETY_NM / (60 * cosLat) * (dx / len),
-      lat: vy + SAFETY_NM / 60              * (dy / len),
-    };
-  }
+  const nodes = [start, end];  // index 0 = start, 1 = end
+  const land  = Query.getLandPolygons();
 
-  // Find the best bypass point for segment A→B that crosses `ring`.
-  // Only requires A→V to be clear — the outer iteration loop will fix V→B
-  // on the next pass, enabling multi-hop routing around large islands.
-  function bestBypass(ring, a, b) {
-    const [cx, cy] = ringCentroid(ring);
-    let best = null, bestScore = Infinity;
-
-    const candidates = [];
-    for (const [vx, vy] of ring) candidates.push(offsetVertex(vx, vy, cx, cy));
-    for (let j = 0; j < ring.length - 1; j++) {
-      candidates.push(offsetVertex(
-        (ring[j][0] + ring[j+1][0]) / 2,
-        (ring[j][1] + ring[j+1][1]) / 2,
-        cx, cy,
-      ));
-    }
-
-    for (const cv of candidates) {
-      if (Query.landBlocks(a.lon, a.lat, cv.lon, cv.lat)) continue;
-      // Score = cost to reach bypass + straight-line estimate to goal (A* heuristic)
-      const dAV = Query.distanceNm(a.lon, a.lat, cv.lon, cv.lat);
-      const dVB = Query.distanceNm(cv.lon, cv.lat, b.lon, b.lat);
-      const score = dAV + dVB;
-      if (score < bestScore) { bestScore = score; best = cv; }
-    }
-    return best;
-  }
-
-  let path = [start, end];
-  onUpdate(path);
-
-  for (let iter = 0; iter < MAX_ITERS; iter++) {
-    let fixed = false;
-    for (let i = 0; i < path.length - 1; i++) {
-      const a = path[i], b = path[i + 1];
-      const ring = Query.findBlockingRing(a.lon, a.lat, b.lon, b.lat);
-      if (!ring) continue;
-
-      const bypass = bestBypass(ring, a, b);
-      if (!bypass) {
-        console.warn('[autoRoute] no bypass found for segment', i, '— skipping');
-        continue;
+  if (land) {
+    // First pass: gather all in-bbox vertices per polygon and compute total.
+    const polyVerts = [];
+    for (const feat of land.features) {
+      const { type, coordinates } = feat.geometry;
+      const polys = type === 'Polygon' ? [coordinates] : coordinates;
+      for (const rings of polys) {
+        const outer = rings[0];
+        let pMinX = Infinity, pMaxX = -Infinity, pMinY = Infinity, pMaxY = -Infinity;
+        for (const [x, y] of outer) {
+          if (x < pMinX) pMinX = x; if (x > pMaxX) pMaxX = x;
+          if (y < pMinY) pMinY = y; if (y > pMaxY) pMaxY = y;
+        }
+        if (pMaxX < bMinLon || pMinX > bMaxLon || pMaxY < bMinLat || pMinY > bMaxLat) continue;
+        const verts = outer.filter(([x, y]) =>
+          x >= bMinLon && x <= bMaxLon && y >= bMinLat && y <= bMaxLat
+        );
+        if (verts.length) polyVerts.push(verts);
       }
-
-      path = [...path.slice(0, i + 1), bypass, ...path.slice(i + 1)];
-      onUpdate(path);
-      await delay(50);
-      fixed = true;
-      break;
     }
-    if (!fixed) break;
+
+    // Second pass: add vertices, subsampling each polygon to stay under MAX_NODES total.
+    const totalRaw = polyVerts.reduce((s, v) => s + v.length, 0);
+    const step = totalRaw > MAX_NODES ? Math.ceil(totalRaw / MAX_NODES) : 1;
+    let gi = 0;
+    for (const verts of polyVerts) {
+      for (let k = 0; k < verts.length; k++) {
+        if ((gi++) % step === 0) nodes.push({ lon: verts[k][0], lat: verts[k][1] });
+      }
+    }
   }
 
-  return path;
+  console.log(`[autoRoute] visibility graph: ${nodes.length} nodes`);
+
+  // ── Min-heap helpers ───────────────────────────────────────────────────────
+  const heap = [];
+  function hpush(score, idx) {
+    heap.push([score, idx]);
+    let k = heap.length - 1;
+    while (k > 0) {
+      const p = (k - 1) >> 1;
+      if (heap[p][0] <= heap[k][0]) break;
+      [heap[p], heap[k]] = [heap[k], heap[p]];
+      k = p;
+    }
+  }
+  function hpop() {
+    const top = heap[0];
+    const last = heap.pop();
+    if (heap.length) {
+      heap[0] = last;
+      let k = 0;
+      for (;;) {
+        let m = k, l = 2 * k + 1, r = l + 1;
+        if (l < heap.length && heap[l][0] < heap[m][0]) m = l;
+        if (r < heap.length && heap[r][0] < heap[m][0]) m = r;
+        if (m === k) break;
+        [heap[m], heap[k]] = [heap[k], heap[m]];
+        k = m;
+      }
+    }
+    return top;
+  }
+
+  // ── A* ────────────────────────────────────────────────────────────────────
+  const N   = nodes.length;
+  const INF = 1e9;
+  const gScore = new Float64Array(N).fill(INF);
+  const prev   = new Int32Array(N).fill(-1);
+  gScore[0]    = 0;
+  hpush(Query.distanceNm(start.lon, start.lat, end.lon, end.lat), 0);
+
+  function tracePath(endIdx) {
+    const p = [];
+    for (let i = endIdx; i !== -1; i = prev[i]) p.push(nodes[i]);
+    return p.reverse();
+  }
+
+  let expansions = 0;
+
+  while (heap.length) {
+    const [, curr] = hpop();
+    if (curr === 1) break;  // reached end node
+
+    const a = nodes[curr];
+    for (let j = 0; j < N; j++) {
+      if (j === curr) continue;
+      const b = nodes[j];
+      if (Query.landBlocks(a.lon, a.lat, b.lon, b.lat)) continue;
+      const ng = gScore[curr] + Query.distanceNm(a.lon, a.lat, b.lon, b.lat);
+      if (ng < gScore[j]) {
+        gScore[j] = ng;
+        prev[j]   = curr;
+        const h   = Query.distanceNm(b.lon, b.lat, end.lon, end.lat);
+        hpush(ng + h, j);
+        // If we just improved the path to the end, show it live
+        if (j === 1) onUpdate(tracePath(1));
+      }
+    }
+
+    if (++expansions % 50 === 0) await delay(0);
+  }
+
+  console.log(`[autoRoute] A* done — ${expansions} expansions, ${N} nodes`);
+
+  if (gScore[1] === INF) {
+    console.warn('[autoRoute] no path found — returning straight line');
+    return [start, end];
+  }
+
+  return tracePath(1);
 }
 
 function _finishSketch() {
