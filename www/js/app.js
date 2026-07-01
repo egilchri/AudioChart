@@ -1490,10 +1490,13 @@ function _clearAutoRoute() {
 }
 
 async function _autoRouteProg(start, end, onUpdate) {
-  const SAFETY_NM = 0.05;  // clearance offset from polygon vertices (nm)
+  const SAFETY_NM = 0.1;   // clearance offset outward from polygon vertices (nm)
   const MAX_ITERS = 80;
 
   const delay = ms => new Promise(r => setTimeout(r, ms));
+
+  // Yield immediately so the overlay and preview line always paint before work starts
+  await delay(0);
 
   function ringCentroid(ring) {
     let cx = 0, cy = 0;
@@ -1513,9 +1516,12 @@ async function _autoRouteProg(start, end, onUpdate) {
     };
   }
 
+  // Find the best bypass point for segment A→B that crosses `ring`.
+  // Only requires A→V to be clear — the outer iteration loop will fix V→B
+  // on the next pass, enabling multi-hop routing around large islands.
   function bestBypass(ring, a, b) {
     const [cx, cy] = ringCentroid(ring);
-    let best = null, bestDist = Infinity;
+    let best = null, bestScore = Infinity;
 
     const candidates = [];
     for (const [vx, vy] of ring) candidates.push(offsetVertex(vx, vy, cx, cy));
@@ -1529,10 +1535,11 @@ async function _autoRouteProg(start, end, onUpdate) {
 
     for (const cv of candidates) {
       if (Query.landBlocks(a.lon, a.lat, cv.lon, cv.lat)) continue;
-      if (Query.landBlocks(cv.lon, cv.lat, b.lon, b.lat)) continue;
-      const d = Query.distanceNm(a.lon, a.lat, cv.lon, cv.lat)
-              + Query.distanceNm(cv.lon, cv.lat, b.lon, b.lat);
-      if (d < bestDist) { bestDist = d; best = cv; }
+      // Score = cost to reach bypass + straight-line estimate to goal (A* heuristic)
+      const dAV = Query.distanceNm(a.lon, a.lat, cv.lon, cv.lat);
+      const dVB = Query.distanceNm(cv.lon, cv.lat, b.lon, b.lat);
+      const score = dAV + dVB;
+      if (score < bestScore) { bestScore = score; best = cv; }
     }
     return best;
   }
@@ -1548,7 +1555,10 @@ async function _autoRouteProg(start, end, onUpdate) {
       if (!ring) continue;
 
       const bypass = bestBypass(ring, a, b);
-      if (!bypass) continue;  // couldn't fix this segment; try others
+      if (!bypass) {
+        console.warn('[autoRoute] no bypass found for segment', i, '— skipping');
+        continue;
+      }
 
       path = [...path.slice(0, i + 1), bypass, ...path.slice(i + 1)];
       onUpdate(path);
