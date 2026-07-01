@@ -609,6 +609,14 @@ let _autoRouteName         = null;
 let _autoRouteStartMarker  = null;
 let _autoRouteEndMarker    = null;
 let _autoRoutePreviewLayer = null;
+let _drawMode        = false;
+let _drawStart       = null;
+let _drawRubber      = null;
+let _drawName        = null;
+let _drawTouchMove   = null;
+let _drawTouchEnd    = null;
+let _drawMapClick    = null;
+let _drawMapMouseMove = null;
 let _viewportHazardLayer    = null; // hazard markers for current map viewport (edit mode)
 let _viewportHazardMoveEnd  = null; // moveend listener ref for cleanup
 let _routeNameLabels        = [];   // [{marker, pts}] for viewport-clamping on moveend
@@ -729,6 +737,8 @@ function showNavaidList(navaids) {
 
 const _appEl = document.getElementById('app');
 const _sketchBanner = document.getElementById('sketch-banner');
+const _drawBanner   = document.getElementById('draw-banner');
+const _drawBannerLabel = document.getElementById('draw-banner-label');
 
 // ── Saved-route persistent display ────────────────────────────────────────────
 
@@ -1308,6 +1318,96 @@ function _onSketchDblClick(e) {
   _finishSketch();
 }
 
+// ── Stretch-to-draw route mode ─────────────────────────────────────────────────
+
+function _onDrawClick(latlng) {
+  if (!_drawStart) {
+    _drawStart = latlng;
+    _drawName  = _nextRouteName();
+    _drawBannerLabel.textContent = `“${_drawName}” — click to place destination`;
+  } else {
+    const end      = latlng;
+    const name     = _drawName;
+    const startPt  = _drawStart;
+    _exitDrawRouteMode();
+    const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+    routes.push({ name, points: [
+      { lat: startPt.lat, lon: startPt.lng },
+      { lat: end.lat,     lon: end.lng     },
+    ]});
+    localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
+    _refreshSavedRouteLayers();
+    _populateRouteSelectFn?.();
+    _enterEditMode(routes.length - 1);
+  }
+}
+
+function _onDrawMouseMove(latlng) {
+  if (!_drawStart) return;
+  if (!_drawRubber) {
+    _drawRubber = L.polyline([_drawStart, latlng], {
+      color: '#f5a623', weight: 3, dashArray: '8 6', opacity: 0.85,
+    }).addTo(_map);
+  } else {
+    _drawRubber.setLatLngs([_drawStart, latlng]);
+  }
+}
+
+function _enterDrawRouteMode() {
+  if (_sketchMode) _exitSketchMode();
+  if (_editMode)   _exitEditMode();
+  _drawMode = true;
+  _drawStart = null; _drawRubber = null; _drawName = null;
+  _drawBannerLabel.textContent = 'New route — click to place start';
+  _drawBanner.style.display = 'flex';
+  _appEl.classList.add('sketch-mode');
+  if (!_map) return;
+  _map.dragging.disable();
+  if (_savedRoutesLayer) _map.removeLayer(_savedRoutesLayer);
+
+  const container = _map.getContainer();
+  _drawTouchMove = (e) => {
+    if (!_drawMode) return;
+    e.preventDefault(); e.stopPropagation();
+    const t = e.touches[0];
+    const r = container.getBoundingClientRect();
+    _onDrawMouseMove(_map.containerPointToLatLng(L.point(t.clientX - r.left, t.clientY - r.top)));
+  };
+  _drawTouchEnd = (e) => {
+    if (!_drawMode) return;
+    e.stopPropagation();
+    const t = e.changedTouches[0];
+    const r = container.getBoundingClientRect();
+    _onDrawClick(_map.containerPointToLatLng(L.point(t.clientX - r.left, t.clientY - r.top)));
+  };
+  container.addEventListener('touchmove', _drawTouchMove, { passive: false, capture: true });
+  container.addEventListener('touchend',  _drawTouchEnd,  { capture: true });
+  _drawMapClick     = e => _onDrawClick(e.latlng);
+  _drawMapMouseMove = e => _onDrawMouseMove(e.latlng);
+  _map.on('click',     _drawMapClick);
+  _map.on('mousemove', _drawMapMouseMove);
+}
+
+function _exitDrawRouteMode() {
+  _drawMode = false;
+  _drawBanner.style.display = 'none';
+  _appEl.classList.remove('sketch-mode');
+  if (_drawRubber) { _map.removeLayer(_drawRubber); _drawRubber = null; }
+  _drawStart = null; _drawName = null;
+  if (_map) {
+    const container = _map.getContainer();
+    if (_drawTouchMove) container.removeEventListener('touchmove', _drawTouchMove, { capture: true });
+    if (_drawTouchEnd)  container.removeEventListener('touchend',  _drawTouchEnd,  { capture: true });
+    _drawTouchMove = _drawTouchEnd = null;
+    if (_drawMapClick)     { _map.off('click',     _drawMapClick);     _drawMapClick     = null; }
+    if (_drawMapMouseMove) { _map.off('mousemove', _drawMapMouseMove); _drawMapMouseMove = null; }
+    _map.dragging.enable();
+  }
+  _refreshSavedRouteLayers();
+}
+
+document.getElementById('draw-cancel-btn').addEventListener('click', _exitDrawRouteMode);
+
 const ROUTE_KEY = 'audiochart-user-routes';
 const HIDDEN_ROUTES_KEY = 'audiochart-hidden-routes';
 
@@ -1362,210 +1462,77 @@ function _clearAutoRoute() {
   if (_autoRoutePreviewLayer) { _autoRoutePreviewLayer.remove(); _autoRoutePreviewLayer = null; }
 }
 
-function _autoRoute(start, end) {
-  const PAD_NM      = 1.5;
-  const TARGET_CELLS = 300_000;   // cap grid size to keep computation fast
-  const MIN_CELL_NM  = 0.05;      // finest resolution (~90 m)
+async function _autoRouteProg(start, end, onUpdate) {
+  const SAFETY_NM = 0.05;  // clearance offset from polygon vertices (nm)
+  const MAX_ITERS = 80;
 
-  const midLat  = (start.lat + end.lat) / 2;
-  const cosLat  = Math.cos(midLat * Math.PI / 180);
+  const delay = ms => new Promise(r => setTimeout(r, ms));
 
-  // Choose cell size so the padded bounding box stays near TARGET_CELLS
-  const directNm = Query.distanceNm(start.lon, start.lat, end.lon, end.lat);
-  const bboxNm   = directNm + 2 * PAD_NM;
-  const CELL_NM  = Math.max(MIN_CELL_NM, bboxNm / Math.sqrt(TARGET_CELLS));
-
-  const cellLat = CELL_NM / 60;
-  const cellLon = CELL_NM / (60 * cosLat);
-  const padLat  = PAD_NM  / 60;
-  const padLon  = PAD_NM  / (60 * cosLat);
-
-  const minLat = Math.min(start.lat, end.lat) - padLat;
-  const maxLat = Math.max(start.lat, end.lat) + padLat;
-  const minLon = Math.min(start.lon, end.lon) - padLon;
-  const maxLon = Math.max(start.lon, end.lon) + padLon;
-
-  const rows = Math.ceil((maxLat - minLat) / cellLat) + 1;
-  const cols = Math.ceil((maxLon - minLon) / cellLon) + 1;
-
-  console.log(`[autoRoute] ${directNm.toFixed(1)} nm direct, cell=${CELL_NM.toFixed(3)} nm, grid ${rows}×${cols} = ${rows * cols} cells`);
-
-  const grid = new Uint8Array(rows * cols);
-
-  function rasterizeRing(ring) {
+  function ringCentroid(ring) {
+    let cx = 0, cy = 0;
     const n = ring.length;
-    if (n < 3) return;
-    let rMin = rows, rMax = -1;
-    for (const [, lat] of ring) {
-      const r = Math.floor((lat - minLat) / cellLat);
-      if (r < rMin) rMin = r;
-      if (r > rMax) rMax = r;
+    for (const [x, y] of ring) { cx += x; cy += y; }
+    return [cx / n, cy / n];
+  }
+
+  function offsetVertex(vx, vy, cx, cy) {
+    const dx = vx - cx, dy = vy - cy;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len < 1e-10) return { lon: vx, lat: vy };
+    const cosLat = Math.cos(vy * Math.PI / 180);
+    return {
+      lon: vx + SAFETY_NM / (60 * cosLat) * (dx / len),
+      lat: vy + SAFETY_NM / 60              * (dy / len),
+    };
+  }
+
+  function bestBypass(ring, a, b) {
+    const [cx, cy] = ringCentroid(ring);
+    let best = null, bestDist = Infinity;
+
+    const candidates = [];
+    for (const [vx, vy] of ring) candidates.push(offsetVertex(vx, vy, cx, cy));
+    for (let j = 0; j < ring.length - 1; j++) {
+      candidates.push(offsetVertex(
+        (ring[j][0] + ring[j+1][0]) / 2,
+        (ring[j][1] + ring[j+1][1]) / 2,
+        cx, cy,
+      ));
     }
-    rMin = Math.max(0, rMin);
-    rMax = Math.min(rows - 1, rMax);
-    if (rMin > rMax) return;
-    for (let r = rMin; r <= rMax; r++) {
-      const rowLat = minLat + (r + 0.5) * cellLat;
-      const xs = [];
-      for (let i = 0; i < n - 1; i++) {
-        const [x1, y1] = ring[i], [x2, y2] = ring[i + 1];
-        if ((y1 <= rowLat && y2 > rowLat) || (y2 <= rowLat && y1 > rowLat))
-          xs.push(x1 + (rowLat - y1) / (y2 - y1) * (x2 - x1));
-      }
-      xs.sort((a, b) => a - b);
-      for (let k = 0; k + 1 < xs.length; k += 2) {
-        const c0 = Math.max(0,        Math.floor((xs[k]     - minLon) / cellLon));
-        const c1 = Math.min(cols - 1, Math.ceil( (xs[k + 1] - minLon) / cellLon));
-        for (let c = c0; c <= c1; c++) grid[r * cols + c] = 1;
-      }
+
+    for (const cv of candidates) {
+      if (Query.landBlocks(a.lon, a.lat, cv.lon, cv.lat)) continue;
+      if (Query.landBlocks(cv.lon, cv.lat, b.lon, b.lat)) continue;
+      const d = Query.distanceNm(a.lon, a.lat, cv.lon, cv.lat)
+              + Query.distanceNm(cv.lon, cv.lat, b.lon, b.lat);
+      if (d < bestDist) { bestDist = d; best = cv; }
     }
+    return best;
   }
 
-  function bboxInGrid(feat) {
-    const { type, coordinates } = feat.geometry;
-    const polys = type === 'Polygon' ? [coordinates] : coordinates;
-    for (const rings of polys) {
-      const ring = rings[0];
-      let la0 = Infinity, la1 = -Infinity, lo0 = Infinity, lo1 = -Infinity;
-      for (const [lo, la] of ring) {
-        if (la < la0) la0 = la; if (la > la1) la1 = la;
-        if (lo < lo0) lo0 = lo; if (lo > lo1) lo1 = lo;
-      }
-      if (la1 >= minLat && la0 <= maxLat && lo1 >= minLon && lo0 <= maxLon) return true;
+  let path = [start, end];
+  onUpdate(path);
+
+  for (let iter = 0; iter < MAX_ITERS; iter++) {
+    let fixed = false;
+    for (let i = 0; i < path.length - 1; i++) {
+      const a = path[i], b = path[i + 1];
+      const ring = Query.findBlockingRing(a.lon, a.lat, b.lon, b.lat);
+      if (!ring) continue;
+
+      const bypass = bestBypass(ring, a, b);
+      if (!bypass) continue;  // couldn't fix this segment; try others
+
+      path = [...path.slice(0, i + 1), bypass, ...path.slice(i + 1)];
+      onUpdate(path);
+      await delay(50);
+      fixed = true;
+      break;
     }
-    return false;
+    if (!fixed) break;
   }
 
-  function rasterizeFeat(feat) {
-    const { type, coordinates } = feat.geometry;
-    const polys = type === 'Polygon' ? [coordinates] : coordinates;
-    for (const rings of polys) rasterizeRing(rings[0]);
-  }
-
-  const land = Query.getLandPolygons();
-  if (land) {
-    for (const feat of land.features) {
-      if (bboxInGrid(feat)) rasterizeFeat(feat);
-    }
-  }
-
-  for (const f of (Query.depthZones || [])) {
-    if (parseFloat(f.properties?.depth_label ?? 99) >= 2) continue;
-    if (bboxInGrid(f)) rasterizeFeat(f);
-  }
-
-  // Inflate obstacles by 1 cell to keep route clear of shorelines
-  const orig = grid.slice();
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      if (!orig[r * cols + c]) continue;
-      for (let dr = -1; dr <= 1; dr++) {
-        for (let dc = -1; dc <= 1; dc++) {
-          const nr = r + dr, nc = c + dc;
-          if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) grid[nr * cols + nc] = 1;
-        }
-      }
-    }
-  }
-
-  function toRC(lat, lon) {
-    return [
-      Math.max(0, Math.min(rows - 1, Math.floor((lat - minLat) / cellLat))),
-      Math.max(0, Math.min(cols - 1, Math.floor((lon - minLon) / cellLon))),
-    ];
-  }
-
-  const [sr, sc] = toRC(start.lat, start.lon);
-  const [er, ec] = toRC(end.lat,   end.lon);
-  const si = sr * cols + sc;
-  const ei = er * cols + ec;
-  grid[si] = 0;
-  grid[ei] = 0;
-
-  const INF    = 1e9;
-  const gScore = new Float32Array(rows * cols).fill(INF);
-  const prev   = new Int32Array(rows * cols).fill(-1);
-  gScore[si]   = 0;
-
-  const hp = [];
-  function hpush(p, i) {
-    hp.push([p, i]);
-    let k = hp.length - 1;
-    while (k > 0) {
-      const par = (k - 1) >> 1;
-      if (hp[par][0] <= hp[k][0]) break;
-      [hp[par], hp[k]] = [hp[k], hp[par]];
-      k = par;
-    }
-  }
-  function hpop() {
-    const top = hp[0];
-    const last = hp.pop();
-    if (hp.length) {
-      hp[0] = last;
-      let k = 0;
-      for (;;) {
-        let m = k, l = 2 * k + 1, r = l + 1;
-        if (l < hp.length && hp[l][0] < hp[m][0]) m = l;
-        if (r < hp.length && hp[r][0] < hp[m][0]) m = r;
-        if (m === k) break;
-        [hp[m], hp[k]] = [hp[k], hp[m]];
-        k = m;
-      }
-    }
-    return top;
-  }
-
-  hpush(0, si);
-
-  const DIRS = [
-    [-1, -1, 1.414], [-1, 0, 1], [-1, 1, 1.414],
-    [ 0, -1, 1],                  [ 0, 1, 1],
-    [ 1, -1, 1.414], [ 1, 0, 1], [ 1, 1, 1.414],
-  ];
-
-  let found = false;
-  while (hp.length > 0) {
-    const [, ci] = hpop();
-    if (ci === ei) { found = true; break; }
-    const cr = Math.floor(ci / cols), cc = ci % cols;
-    const cg = gScore[ci];
-    for (const [dr, dc, dcost] of DIRS) {
-      const nr = cr + dr, nc = cc + dc;
-      if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
-      const ni = nr * cols + nc;
-      if (grid[ni]) continue;
-      const ng = cg + dcost;
-      if (ng >= gScore[ni]) continue;
-      gScore[ni] = ng;
-      prev[ni] = ci;
-      const ddr = er - nr, ddc = ec - nc;
-      hpush(ng + Math.sqrt(ddr * ddr + ddc * ddc), ni);
-    }
-  }
-
-  if (!found) return null;
-
-  const raw = [];
-  for (let ci = ei; ci !== -1; ci = prev[ci]) {
-    const r = Math.floor(ci / cols), c = ci % cols;
-    raw.push({ lat: minLat + (r + 0.5) * cellLat, lon: minLon + (c + 0.5) * cellLon });
-  }
-  raw.reverse();
-  raw[0] = { lat: start.lat, lon: start.lon };
-  raw[raw.length - 1] = { lat: end.lat, lon: end.lon };
-
-  // String-pull: skip waypoints where the direct line is clear of land
-  const smooth = [raw[0]];
-  let i = 0;
-  while (i < raw.length - 1) {
-    let j = raw.length - 1;
-    while (j > i + 1 && Query.landBlocks(raw[i].lon, raw[i].lat, raw[j].lon, raw[j].lat)) j--;
-    smooth.push(raw[j]);
-    i = j;
-  }
-
-  return smooth;
+  return path;
 }
 
 function _finishSketch() {
@@ -3634,6 +3601,11 @@ function _ensureMap() {
     _routeSubmenu.style.display = _routeSubmenu.style.display === 'block' ? 'none' : 'block';
   });
 
+  document.getElementById('map-ctx-draw-route').addEventListener('click', () => {
+    _hideCtx();
+    _enterDrawRouteMode();
+  });
+
   document.getElementById('map-ctx-sketch').addEventListener('click', () => {
     _hideCtx();
     _enterSketchMode();
@@ -3664,51 +3636,47 @@ function _ensureMap() {
     TTS.sayImmediate(msg);
   });
 
-  function _triggerAutoRoute() {
+  async function _triggerAutoRoute() {
     if (!_autoRouteStart || !_autoRouteEnd) return;
-    const name = _autoRouteName;
+    const name  = _autoRouteName;
+    const start = _autoRouteStart;
+    const end   = _autoRouteEnd;
     setStatus(`Planning "${name}"…`);
-    setTimeout(() => {
-      let pts;
-      try {
-        pts = _autoRoute(_autoRouteStart, _autoRouteEnd);
-      } catch (err) {
-        console.error('[autoRoute] error:', err);
-        setStatus(`Auto-route error: ${err.message}`);
-        return;
-      }
-      console.log('[autoRoute] result:', pts ? `${pts.length} waypoints` : 'null (no path)');
-      if (!pts) {
-        const msg = 'No navigable route found between those points.';
-        setStatus(msg);
-        TTS.sayImmediate('No navigable route found.');
-        return;
-      }
 
-      if (_autoRoutePreviewLayer) _autoRoutePreviewLayer.remove();
-      _autoRoutePreviewLayer = L.polyline(
-        pts.map(p => [p.lat, p.lon]),
-        { color: '#3399ff', weight: 3, dashArray: '8 6', opacity: 0.9 }
-      ).addTo(_map);
+    if (_autoRoutePreviewLayer) { _autoRoutePreviewLayer.remove(); _autoRoutePreviewLayer = null; }
+    _autoRoutePreviewLayer = L.polyline(
+      [[start.lat, start.lon], [end.lat, end.lon]],
+      { color: '#3399ff', weight: 3, dashArray: '8 6', opacity: 0.9 }
+    ).addTo(_map);
 
-      const totalNm = pts.reduce((sum, p, idx) =>
-        idx === 0 ? 0 : sum + Query.distanceNm(pts[idx - 1].lon, pts[idx - 1].lat, p.lon, p.lat), 0);
+    let pts;
+    try {
+      pts = await _autoRouteProg(start, end, (path) => {
+        _autoRoutePreviewLayer.setLatLngs(path.map(p => [p.lat, p.lon]));
+      });
+    } catch (err) {
+      console.error('[autoRoute] error:', err);
+      setStatus(`Auto-route error: ${err.message}`);
+      return;
+    }
 
-      const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
-      routes.push({ name, points: pts.map(p => ({ lat: p.lat, lon: p.lon })) });
-      localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
-      const newIdx = routes.length - 1;
+    const totalNm = pts.reduce((sum, p, idx) =>
+      idx === 0 ? 0 : sum + Query.distanceNm(pts[idx - 1].lon, pts[idx - 1].lat, p.lon, p.lat), 0);
 
-      _refreshSavedRouteLayers();
-      _populateRouteSelectFn?.();
-      _autoFixRouteHazards(newIdx);
-      _checkRouteHazards(newIdx);
-      _clearAutoRoute();
+    const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+    routes.push({ name, points: pts.map(p => ({ lat: p.lat, lon: p.lon })) });
+    localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
+    const newIdx = routes.length - 1;
 
-      const msg = `${name} planned — ${totalNm.toFixed(1)} nm.`;
-      setStatus(msg);
-      TTS.sayImmediate(`${name} planned. ${totalNm.toFixed(1)} nautical miles.`);
-    }, 30);
+    _refreshSavedRouteLayers();
+    _populateRouteSelectFn?.();
+    _autoFixRouteHazards(newIdx);
+    _checkRouteHazards(newIdx);
+    _clearAutoRoute();
+
+    const msg = `${name} planned — ${totalNm.toFixed(1)} nm.`;
+    setStatus(msg);
+    TTS.sayImmediate(`${name} planned. ${totalNm.toFixed(1)} nautical miles.`);
   }
 
   document.getElementById('map-ctx-route-from-here').addEventListener('click', () => {

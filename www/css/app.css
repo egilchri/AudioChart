@@ -1155,6 +1155,28 @@ html, body {
   font-size: 0.85rem;
   cursor: pointer;
 }
+#draw-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: var(--navy);
+  color: #f5a623;
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 8px 12px;
+  flex-shrink: 0;
+  border-top: 2px solid #f5a623;
+}
+#draw-cancel-btn {
+  background: rgba(245,166,35,0.15);
+  color: #f5a623;
+  border: 1px solid #f5a623;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
 #edit-banner {
   display: flex;
   align-items: center;

@@ -1115,6 +1115,27 @@ export function getLandPolygons() {
   return landPolygons;
 }
 
+export function findBlockingRing(fromLon, fromLat, toLon, toLat) {
+  if (!landPolygons) return null;
+  const minX = Math.min(fromLon, toLon), maxX = Math.max(fromLon, toLon);
+  const minY = Math.min(fromLat, toLat), maxY = Math.max(fromLat, toLat);
+  for (const feat of landPolygons.features) {
+    const { type, coordinates } = feat.geometry;
+    const polys = type === 'Polygon' ? [coordinates] : coordinates;
+    for (const rings of polys) {
+      const outer = rings[0];
+      let pMinX = Infinity, pMaxX = -Infinity, pMinY = Infinity, pMaxY = -Infinity;
+      for (const [x, y] of outer) {
+        if (x < pMinX) pMinX = x; if (x > pMaxX) pMaxX = x;
+        if (y < pMinY) pMinY = y; if (y > pMaxY) pMaxY = y;
+      }
+      if (pMaxX < minX || pMinX > maxX || pMaxY < minY || pMinY > maxY) continue;
+      if (_ringBlocks(outer, fromLon, fromLat, toLon, toLat)) return outer;
+    }
+  }
+  return null;
+}
+
 /** Check whether all data needed for offline use is cached. */
 export async function offlineReadiness() {
   async function swCached(path) {

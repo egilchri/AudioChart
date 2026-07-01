@@ -97,6 +97,10 @@
       <button id="sketch-done-btn">&#10003; Done</button>
       <button id="sketch-cancel-btn">&#10005; Cancel</button>
     </div>
+    <div id="draw-banner" style="display:none">
+      &#9998; <span id="draw-banner-label">New route &#8212; click to place start</span>
+      &nbsp;<button id="draw-cancel-btn">&#10005; Cancel</button>
+    </div>
     <div id="edit-banner" style="display:none">
       &#9998; <span id="edit-banner-label"></span> &nbsp;
       <button id="edit-hazards-btn">Show hazards</button>
@@ -173,6 +177,7 @@
     </div>
 <button id="map-ctx-route-parent">&#9998; Route &rsaquo;</button>
     <div id="map-ctx-route-submenu">
+      <button id="map-ctx-draw-route">Draw Route</button>
       <button id="map-ctx-sketch">Sketch</button>
       <button id="map-ctx-route-from-here">Route from here</button>
       <button id="map-ctx-route-to-here">Route to here</button>
