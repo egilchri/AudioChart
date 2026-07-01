@@ -1320,21 +1320,48 @@ function _onSketchDblClick(e) {
 
 // ── Stretch-to-draw route mode ─────────────────────────────────────────────────
 
-function _onDrawClick(latlng) {
+async function _onDrawClick(latlng) {
   if (!_drawStart) {
     _drawStart = latlng;
     _drawName  = _nextRouteName();
-    _drawBannerLabel.textContent = `“${_drawName}” — click to place destination`;
+    _drawBannerLabel.textContent = `”${_drawName}” — click to place destination`;
   } else {
-    const end      = latlng;
-    const name     = _drawName;
-    const startPt  = _drawStart;
+    const end     = latlng;
+    const name    = _drawName;
+    const startPt = { lat: _drawStart.lat, lon: _drawStart.lng };
+    const endPt   = { lat: end.lat, lon: end.lng };
     _exitDrawRouteMode();
+
+    // Show straight-line preview while optimizing
+    const previewLine = L.polyline(
+      [[startPt.lat, startPt.lon], [endPt.lat, endPt.lon]],
+      { color: '#f5a623', weight: 3, dashArray: '8 6', opacity: 0.9 }
+    ).addTo(_map);
+
+    const optOverlay = document.createElement('div');
+    optOverlay.className = 'optimizing-overlay';
+    optOverlay.innerHTML =
+      '<span class=”optimizing-boat”>&#9975;</span>' +
+      '<em class=”optimizing-text”>Optimizing&#8230;</em>';
+    _map.getContainer().appendChild(optOverlay);
+
+    let pts;
+    try {
+      pts = await _autoRouteProg(startPt, endPt, (path) => {
+        previewLine.setLatLngs(path.map(p => [p.lat, p.lon]));
+      });
+    } catch (err) {
+      optOverlay.remove();
+      previewLine.remove();
+      console.error('[drawRoute] optimization error:', err);
+      return;
+    }
+
+    optOverlay.remove();
+    previewLine.remove();
+
     const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
-    routes.push({ name, points: [
-      { lat: startPt.lat, lon: startPt.lng },
-      { lat: end.lat,     lon: end.lng     },
-    ]});
+    routes.push({ name, points: pts.map(p => ({ lat: p.lat, lon: p.lon })) });
     localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
     _refreshSavedRouteLayers();
     _populateRouteSelectFn?.();
