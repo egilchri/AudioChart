@@ -605,6 +605,7 @@ let _hazardCheckLayer       = null; // temporary markers from Check for Hazards
 let _lastHazardCheckedIdx   = -1;  // route idx of most recent hazard check, for auto-recheck after save
 let _autoRouteStart        = null;
 let _autoRouteEnd          = null;
+let _autoRouteName         = null;
 let _autoRouteStartMarker  = null;
 let _autoRouteEndMarker    = null;
 let _autoRoutePreviewLayer = null;
@@ -1355,7 +1356,7 @@ function _saveRoute(name, points) {
 }
 
 function _clearAutoRoute() {
-  _autoRouteStart = _autoRouteEnd = null;
+  _autoRouteStart = _autoRouteEnd = _autoRouteName = null;
   if (_autoRouteStartMarker)  { _autoRouteStartMarker.remove();  _autoRouteStartMarker  = null; }
   if (_autoRouteEndMarker)    { _autoRouteEndMarker.remove();    _autoRouteEndMarker    = null; }
   if (_autoRoutePreviewLayer) { _autoRoutePreviewLayer.remove(); _autoRoutePreviewLayer = null; }
@@ -3661,34 +3662,10 @@ function _ensureMap() {
     TTS.sayImmediate(msg);
   });
 
-  document.getElementById('map-ctx-route-from-here').addEventListener('click', () => {
-    _hideCtx();
-    if (!_ctxLatLng) return;
-    _autoRouteStart = { lat: _ctxLatLng.lat, lon: _ctxLatLng.lng };
-    if (_autoRouteStartMarker) _autoRouteStartMarker.remove();
-    _autoRouteStartMarker = L.circleMarker([_ctxLatLng.lat, _ctxLatLng.lng], {
-      radius: 8, color: '#00cc44', fillColor: '#00cc44', fillOpacity: 0.8, weight: 2,
-    }).addTo(_map).bindTooltip('Route start', { permanent: false });
-    setStatus(_autoRouteEnd
-      ? 'Start updated — right-click map → "Route to here" to replan.'
-      : 'Route start set — right-click map → "Route to here" to plan route.');
-  });
-
-  document.getElementById('map-ctx-route-to-here').addEventListener('click', () => {
-    _hideCtx();
-    if (!_ctxLatLng) return;
-    _autoRouteEnd = { lat: _ctxLatLng.lat, lon: _ctxLatLng.lng };
-    if (_autoRouteEndMarker) _autoRouteEndMarker.remove();
-    _autoRouteEndMarker = L.circleMarker([_ctxLatLng.lat, _ctxLatLng.lng], {
-      radius: 8, color: '#cc2200', fillColor: '#cc2200', fillOpacity: 0.8, weight: 2,
-    }).addTo(_map).bindTooltip('Route destination', { permanent: false });
-
-    if (!_autoRouteStart) {
-      setStatus('Destination set — right-click map → "Route from here" to plan route.');
-      return;
-    }
-
-    setStatus('Computing route…');
+  function _triggerAutoRoute() {
+    if (!_autoRouteStart || !_autoRouteEnd) return;
+    const name = _autoRouteName;
+    setStatus(`Planning "${name}"…`);
     setTimeout(() => {
       const pts = _autoRoute(_autoRouteStart, _autoRouteEnd);
       if (!pts) {
@@ -3707,15 +3684,6 @@ function _ensureMap() {
       const totalNm = pts.reduce((sum, p, idx) =>
         idx === 0 ? 0 : sum + Query.distanceNm(pts[idx - 1].lon, pts[idx - 1].lat, p.lon, p.lat), 0);
 
-      const name = prompt(
-        `Save this route? (${totalNm.toFixed(1)} nm, ${pts.length} waypoints)`,
-        _nextRouteName()
-      );
-
-      if (_autoRoutePreviewLayer) { _autoRoutePreviewLayer.remove(); _autoRoutePreviewLayer = null; }
-
-      if (!name) return;
-
       const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
       routes.push({ name, points: pts.map(p => ({ lat: p.lat, lon: p.lon })) });
       localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
@@ -3727,10 +3695,43 @@ function _ensureMap() {
       _checkRouteHazards(newIdx);
       _clearAutoRoute();
 
-      const msg = `${name} saved — ${totalNm.toFixed(1)} nm.`;
+      const msg = `${name} planned — ${totalNm.toFixed(1)} nm.`;
       setStatus(msg);
-      TTS.sayImmediate(`${name} saved. ${totalNm.toFixed(1)} nautical miles.`);
+      TTS.sayImmediate(`${name} planned. ${totalNm.toFixed(1)} nautical miles.`);
     }, 30);
+  }
+
+  document.getElementById('map-ctx-route-from-here').addEventListener('click', () => {
+    _hideCtx();
+    if (!_ctxLatLng) return;
+    const name = prompt('Name for this planned route:', _nextRouteName());
+    if (!name) return;
+    _autoRouteName  = name;
+    _autoRouteStart = { lat: _ctxLatLng.lat, lon: _ctxLatLng.lng };
+    if (_autoRouteStartMarker) _autoRouteStartMarker.remove();
+    _autoRouteStartMarker = L.circleMarker([_ctxLatLng.lat, _ctxLatLng.lng], {
+      radius: 8, color: '#00cc44', fillColor: '#00cc44', fillOpacity: 0.8, weight: 2,
+    }).addTo(_map).bindTooltip(`${name} — start`, { permanent: false });
+    if (_autoRouteEnd) {
+      _triggerAutoRoute();
+    } else {
+      setStatus(`"${name}" start set — right-click map → "Route to here".`);
+    }
+  });
+
+  document.getElementById('map-ctx-route-to-here').addEventListener('click', () => {
+    _hideCtx();
+    if (!_ctxLatLng) return;
+    _autoRouteEnd = { lat: _ctxLatLng.lat, lon: _ctxLatLng.lng };
+    if (_autoRouteEndMarker) _autoRouteEndMarker.remove();
+    _autoRouteEndMarker = L.circleMarker([_ctxLatLng.lat, _ctxLatLng.lng], {
+      radius: 8, color: '#cc2200', fillColor: '#cc2200', fillOpacity: 0.8, weight: 2,
+    }).addTo(_map).bindTooltip(`${_autoRouteName || 'Route'} — destination`, { permanent: false });
+    if (!_autoRouteStart) {
+      setStatus('Destination set — right-click map → "Route from here" to plan route.');
+      return;
+    }
+    _triggerAutoRoute();
   });
 
   const _visParent  = document.getElementById('map-ctx-route-vis-parent');
