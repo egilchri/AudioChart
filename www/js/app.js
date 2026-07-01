@@ -3117,7 +3117,6 @@ function _ensureMap() {
   _syncLayerBtn();
   _syncSeamarkBtn();
   _loadHiddenRoutes();
-  _refreshSavedRouteLayers();
 
   // Zoom slider (desktop only — hidden by CSS on mobile)
   const _zoomSlider = document.getElementById('zoom-slider');
