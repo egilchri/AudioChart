@@ -1382,6 +1382,8 @@ function _autoRoute(start, end) {
   const rows = Math.ceil((maxLat - minLat) / cellLat) + 1;
   const cols = Math.ceil((maxLon - minLon) / cellLon) + 1;
 
+  console.log(`[autoRoute] grid ${rows}×${cols} = ${rows * cols} cells`);
+
   if (rows * cols > MAX_CELLS) {
     setStatus('Route too long to auto-plan (max ~70 nm). Pick closer points.');
     TTS.sayImmediate('Route too long to auto-plan.');
@@ -3667,7 +3669,15 @@ function _ensureMap() {
     const name = _autoRouteName;
     setStatus(`Planning "${name}"…`);
     setTimeout(() => {
-      const pts = _autoRoute(_autoRouteStart, _autoRouteEnd);
+      let pts;
+      try {
+        pts = _autoRoute(_autoRouteStart, _autoRouteEnd);
+      } catch (err) {
+        console.error('[autoRoute] error:', err);
+        setStatus(`Auto-route error: ${err.message}`);
+        return;
+      }
+      console.log('[autoRoute] result:', pts ? `${pts.length} waypoints` : 'null (no path)');
       if (!pts) {
         const msg = 'No navigable route found between those points.';
         setStatus(msg);
