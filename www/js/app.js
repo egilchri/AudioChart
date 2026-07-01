@@ -1513,12 +1513,25 @@ async function _autoRouteProg(start, end, onUpdate) {
   const bMaxLat = Math.max(start.lat, end.lat) + padLat;
 
   const nodes = [start, end];  // index 0 = start, 1 = end
-  const land  = Query.getLandPolygons();
 
-  if (land) {
-    // First pass: gather in-bbox vertices per polygon + each ring's centroid.
-    const polyVerts = [];
-    for (const feat of land.features) {
+  // ── Tide-aware depth: which drying areas are hazardous right now? ──────────
+  const draftFt = parseFloat(document.getElementById('nf-draft-ft')?.value) || 5.0;
+  const draftM  = draftFt * 0.3048;
+  const tideM   = _tideHeight;  // meters above MLLW, 0 = unknown/fallback
+  // DEPARE polygons with positive valsou are drying areas (above MLLW).
+  // They're a routing obstacle when tide < draft + drying_height.
+  const tidalObs = (Query.getDepthZones() || []).filter(f => {
+    const v = f.properties?.valsou;
+    return v != null && v >= 0 && tideM < draftM + v;
+  });
+  console.log(`[autoRoute] draft=${draftFt.toFixed(1)}ft tideM=${tideM.toFixed(2)} → ${tidalObs.length} tidal obstacles`);
+
+  // Collect indexed rings of tidal obstacles for fast segment blocking.
+  const tidalRings = [];
+  const polyVerts  = [];
+
+  function _collectRings(features, isTidal) {
+    for (const feat of features) {
       const { type, coordinates } = feat.geometry;
       const polys = type === 'Polygon' ? [coordinates] : coordinates;
       for (const rings of polys) {
@@ -1529,41 +1542,57 @@ async function _autoRouteProg(start, end, onUpdate) {
           if (y < pMinY) pMinY = y; if (y > pMaxY) pMaxY = y;
         }
         if (pMaxX < bMinLon || pMinX > bMaxLon || pMaxY < bMinLat || pMinY > bMaxLat) continue;
+        if (isTidal) tidalRings.push({ ring: outer, pMinX, pMaxX, pMinY, pMaxY });
         const verts = outer.filter(([x, y]) =>
           x >= bMinLon && x <= bMaxLon && y >= bMinLat && y <= bMaxLat
         );
         if (!verts.length) continue;
-        // Centroid of the full outer ring — used to determine outward direction.
         let cx = 0, cy = 0;
         for (const [x, y] of outer) { cx += x; cy += y; }
         cx /= outer.length; cy /= outer.length;
         polyVerts.push({ verts, cx, cy });
       }
     }
+  }
 
-    // Second pass: add offset vertices, subsampling to stay under MAX_NODES total.
-    const totalRaw = polyVerts.reduce((s, p) => s + p.verts.length, 0);
-    const step = totalRaw > MAX_NODES ? Math.ceil(totalRaw / MAX_NODES) : 1;
-    let gi = 0;
-    for (const { verts, cx, cy } of polyVerts) {
-      for (let k = 0; k < verts.length; k++) {
-        if ((gi++) % step !== 0) continue;
-        const [vx, vy] = verts[k];
-        // Push vertex SAFETY_NM outward from the polygon centroid so waypoints
-        // stay ~100 yards offshore rather than sitting exactly on the coastline.
-        const dx = vx - cx, dy = vy - cy;
-        const len = Math.sqrt(dx * dx + dy * dy);
-        if (len < 1e-10) { nodes.push({ lon: vx, lat: vy }); continue; }
-        const cv = Math.cos(vy * Math.PI / 180);
-        nodes.push({
-          lon: vx + SAFETY_NM / (60 * cv) * (dx / len),
-          lat: vy + SAFETY_NM / 60        * (dy / len),
-        });
-      }
+  const land = Query.getLandPolygons();
+  if (land) _collectRings(land.features, false);
+  _collectRings(tidalObs, true);
+
+  // Segment-blocked check: land polygons AND tidal hazard rings.
+  function segBlocked(lon1, lat1, lon2, lat2) {
+    if (Query.landBlocks(lon1, lat1, lon2, lat2)) return true;
+    if (!tidalRings.length) return false;
+    const sx = Math.min(lon1, lon2), ex = Math.max(lon1, lon2);
+    const sy = Math.min(lat1, lat2), ey = Math.max(lat1, lat2);
+    for (const { ring, pMinX, pMaxX, pMinY, pMaxY } of tidalRings) {
+      if (pMaxX < sx || pMinX > ex || pMaxY < sy || pMinY > ey) continue;
+      if (Query.ringBlocks(ring, lon1, lat1, lon2, lat2)) return true;
+    }
+    return false;
+  }
+
+  // Add offset vertices, subsampling to stay under MAX_NODES total.
+  const totalRaw = polyVerts.reduce((s, p) => s + p.verts.length, 0);
+  const step = totalRaw > MAX_NODES ? Math.ceil(totalRaw / MAX_NODES) : 1;
+  let gi = 0;
+  for (const { verts, cx, cy } of polyVerts) {
+    for (let k = 0; k < verts.length; k++) {
+      if ((gi++) % step !== 0) continue;
+      const [vx, vy] = verts[k];
+      // Push SAFETY_NM outward from centroid so waypoints sit ~100 yards offshore.
+      const dx = vx - cx, dy = vy - cy;
+      const len = Math.sqrt(dx * dx + dy * dy);
+      if (len < 1e-10) { nodes.push({ lon: vx, lat: vy }); continue; }
+      const cv = Math.cos(vy * Math.PI / 180);
+      nodes.push({
+        lon: vx + SAFETY_NM / (60 * cv) * (dx / len),
+        lat: vy + SAFETY_NM / 60        * (dy / len),
+      });
     }
   }
 
-  console.log(`[autoRoute] visibility graph: ${nodes.length} nodes`);
+  console.log(`[autoRoute] visibility graph: ${nodes.length} nodes (${tidalRings.length} tidal rings)`);
 
   // ── Min-heap helpers ───────────────────────────────────────────────────────
   const heap = [];
@@ -1619,7 +1648,7 @@ async function _autoRouteProg(start, end, onUpdate) {
     for (let j = 0; j < N; j++) {
       if (j === curr) continue;
       const b = nodes[j];
-      if (Query.landBlocks(a.lon, a.lat, b.lon, b.lat)) continue;
+      if (segBlocked(a.lon, a.lat, b.lon, b.lat)) continue;
       const ng = gScore[curr] + Query.distanceNm(a.lon, a.lat, b.lon, b.lat);
       if (ng < gScore[j]) {
         gScore[j] = ng;

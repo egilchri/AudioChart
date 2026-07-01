@@ -1115,6 +1115,14 @@ export function getLandPolygons() {
   return landPolygons;
 }
 
+export function ringBlocks(ring, ax, ay, bx, by) {
+  return _ringBlocks(ring, ax, ay, bx, by);
+}
+
+export function getDepthZones() {
+  return depthZones;
+}
+
 export function findBlockingRing(fromLon, fromLat, toLon, toLat) {
   if (!landPolygons) return null;
   const minX = Math.min(fromLon, toLon), maxX = Math.max(fromLon, toLon);
