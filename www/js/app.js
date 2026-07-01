@@ -2997,7 +2997,27 @@ function _ensureMap() {
       row.className = 'rp-row' + (hidden ? ' hidden' : '');
       const nameLine = document.createElement('div');
       nameLine.className = 'rp-row-name';
-      nameLine.textContent = route.name;
+      const nameText = document.createElement('span');
+      nameText.textContent = route.name;
+      nameLine.appendChild(nameText);
+      const delBtn = document.createElement('button');
+      delBtn.className = 'rp-delete-btn';
+      delBtn.textContent = '×';
+      delBtn.title = 'Delete route';
+      delBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!confirm(`Delete route "${route.name}"?`)) return;
+        const all = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+        localStorage.setItem(ROUTE_KEY, JSON.stringify(all.filter(r => r.name !== route.name)));
+        _hiddenRouteNames.delete(route.name);
+        _saveHiddenRoutes();
+        if (localStorage.getItem('audiochart-last-route') === route.name)
+          localStorage.removeItem('audiochart-last-route');
+        _refreshSavedRouteLayers();
+        _populateRouteSelectFn?.();
+        _buildRoutePickerPanel();
+      });
+      nameLine.appendChild(delBtn);
       row.appendChild(nameLine);
       if (startName || endName) {
         const placeLine = document.createElement('div');

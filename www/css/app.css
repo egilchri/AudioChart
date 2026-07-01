@@ -668,6 +668,23 @@ html, body {
 .rp-row.hidden .rp-row-name {
   color: var(--text-dim);
 }
+.rp-delete-btn {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0 2px;
+  cursor: pointer;
+  visibility: hidden;
+  flex-shrink: 0;
+}
+.rp-row:hover .rp-delete-btn,
+.rp-row:focus-within .rp-delete-btn {
+  visibility: visible;
+}
+.rp-delete-btn:hover { color: var(--danger); }
 .rp-row-places {
   font-size: 0.75rem;
   color: var(--text-dim);
