@@ -1784,7 +1784,51 @@ function _finishSketch() {
   }
 }
 
+async function _finishSketchAutoRoute() {
+  if (_sketchWaypoints.length < 2) { _exitSketchMode(); return; }
+  const rawPts     = _sketchWaypoints.slice();
+  const extIdx     = _extendingRouteIdx;
+  const extFromEnd = _extendingFromEnd;
+
+  // Waypoints are in placement order; extend-from-start reverses them so the
+  // active "tip" is always at the end — reverse back for geographical order.
+  const ordered  = extFromEnd ? rawPts : rawPts.slice().reverse();
+  const routePts = ordered.map(p => ({ lat: p.lat, lon: p.lng }));
+
+  _exitSketchMode();
+
+  const ui = _showRerouteOverlay(routePts);
+  try {
+    const { points, fallbacks } = await _reRouteSegments(
+      routePts, ui.update.bind(ui), ui.setText.bind(ui)
+    );
+    ui.remove();
+
+    const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+    if (extIdx >= 0 && routes[extIdx]) {
+      routes[extIdx].points = points;
+      localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
+      _populateRouteSelectFn?.();
+      _enterEditMode(extIdx);
+    } else {
+      const name = _nextRouteName();
+      routes.push({ name, points });
+      localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
+      _populateRouteSelectFn?.();
+      _enterEditMode(routes.length - 1);
+    }
+    setStatus(fallbacks > 0
+      ? `Routed — ${fallbacks} segment(s) couldn't avoid land. Add a waypoint in the passage.`
+      : 'Route saved.');
+  } catch (err) {
+    ui.remove();
+    setStatus('Auto-route failed.');
+    console.error('[sketchAutoRoute]', err);
+  }
+}
+
 document.getElementById('sketch-done-btn').addEventListener('click', _finishSketch);
+document.getElementById('sketch-route-btn').addEventListener('click', _finishSketchAutoRoute);
 document.getElementById('sketch-cancel-btn').addEventListener('click', _exitSketchMode);
 
 // ── Route edit mode ────────────────────────────────────────────────────────────
