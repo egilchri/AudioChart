@@ -1488,15 +1488,15 @@ async function _autoRouteProg(start, end, onUpdate) {
   // Nodes: start, end, and polygon vertices in the padded bounding box.
   // Edges are checked lazily during A* expansion.
   const PAD_NM    = 2.0;
-  const MAX_NODES = 600;
-  const SAFETY_NM = 0.05;  // ~100 yards — offset every vertex this far offshore
+  const SAFETY_NM   = 0.05;  // ~100 yards — offset every vertex this far offshore
+  const CORRIDOR_NM = 3.0;   // include rings within this distance of the direct line
 
   const delay = ms => new Promise(r => setTimeout(r, ms));
 
   // Let the overlay and preview line paint before we do any real work.
   await delay(0);
 
-  // ── Collect nodes ──────────────────────────────────────────────────────────
+  // ── Bounding box ───────────────────────────────────────────────────────────
   const midLat = (start.lat + end.lat) / 2;
   const cosLat = Math.cos(midLat * Math.PI / 180);
   const padLon = PAD_NM / (60 * cosLat);
@@ -1508,73 +1508,84 @@ async function _autoRouteProg(start, end, onUpdate) {
 
   const nodes = [start, end];  // index 0 = start, 1 = end
 
+  // ── Point-to-segment distance (nm) ────────────────────────────────────────
+  function _ptSegDistNm(ptLon, ptLat, aLon, aLat, bLon, bLat) {
+    const dx = bLon - aLon, dy = bLat - aLat;
+    const len2 = dx * dx + dy * dy;
+    if (len2 < 1e-12) return Query.distanceNm(ptLon, ptLat, aLon, aLat);
+    const t = Math.max(0, Math.min(1, ((ptLon - aLon) * dx + (ptLat - aLat) * dy) / len2));
+    return Query.distanceNm(ptLon, ptLat, aLon + t * dx, aLat + t * dy);
+  }
+
   // ── Tide-aware depth: which drying areas are hazardous right now? ──────────
   const draftFt = parseFloat(document.getElementById('nf-draft-ft')?.value) || 5.0;
   const draftM  = draftFt * 0.3048;
-  const tideM   = _tideHeight;  // meters above MLLW, 0 = unknown/fallback
-  // DEPARE polygons with positive valsou are drying areas (above MLLW).
-  // They're a routing obstacle when tide < draft + drying_height.
+  const tideM   = _tideHeight;
   const tidalObs = (Query.getDepthZones() || []).filter(f => {
     const v = f.properties?.valsou;
     return v != null && v >= 0 && tideM < draftM + v;
   });
-  console.log(`[autoRoute] draft=${draftFt.toFixed(1)}ft tideM=${tideM.toFixed(2)} → ${tidalObs.length} tidal obstacles`);
 
-  // Collect indexed rings of tidal obstacles for fast segment blocking.
-  const tidalRings = [];
-  const polyVerts  = [];
-
-  function _collectRings(features, isTidal) {
-    for (const feat of features) {
-      const { type, coordinates } = feat.geometry;
-      const polys = type === 'Polygon' ? [coordinates] : coordinates;
-      for (const rings of polys) {
-        const outer = rings[0];
-        let pMinX = Infinity, pMaxX = -Infinity, pMinY = Infinity, pMaxY = -Infinity;
-        for (const [x, y] of outer) {
-          if (x < pMinX) pMinX = x; if (x > pMaxX) pMaxX = x;
-          if (y < pMinY) pMinY = y; if (y > pMaxY) pMaxY = y;
-        }
-        if (pMaxX < bMinLon || pMinX > bMaxLon || pMaxY < bMinLat || pMinY > bMaxLat) continue;
-        if (isTidal) tidalRings.push({ ring: outer, pMinX, pMaxX, pMinY, pMaxY });
-        const verts = outer.filter(([x, y]) =>
-          x >= bMinLon && x <= bMaxLon && y >= bMinLat && y <= bMaxLat
-        );
-        if (!verts.length) continue;
-        let cx = 0, cy = 0;
-        for (const [x, y] of outer) { cx += x; cy += y; }
-        cx /= outer.length; cy /= outer.length;
-        polyVerts.push({ verts, cx, cy });
-      }
-    }
-  }
+  // ── Pre-filter land rings to bounding box (fast segBlocked) ───────────────
+  // Also decide which rings get vertices added to the graph:
+  //   "blocking" rings = intersect the direct route line → must route around them
+  //   "corridor" rings = within CORRIDOR_NM of the direct line → likely detour obstacles
+  //   Other rings in bbox → used by segBlocked but no graph nodes added
+  const landRingsInBox = [];  // all land rings in bbox, for fast segBlocked
+  const tidalRings     = [];  // tidal obstacle rings
 
   const land = Query.getLandPolygons();
-  if (land) _collectRings(land.features, false);
-  _collectRings(tidalObs, true);
+  if (!land) console.warn('[autoRoute] land.geojson not loaded — routing without land avoidance');
 
-  // Segment-blocked check: land polygons AND tidal hazard rings.
+  function _processRing(outer, isTidal) {
+    let rMinX = Infinity, rMaxX = -Infinity, rMinY = Infinity, rMaxY = -Infinity;
+    let cx = 0, cy = 0;
+    for (const [x, y] of outer) {
+      if (x < rMinX) rMinX = x; if (x > rMaxX) rMaxX = x;
+      if (y < rMinY) rMinY = y; if (y > rMaxY) rMaxY = y;
+      cx += x; cy += y;
+    }
+    if (rMaxX < bMinLon || rMinX > bMaxLon || rMaxY < bMinLat || rMinY > bMaxLat) return;
+    cx /= outer.length; cy /= outer.length;
+    const entry = { ring: outer, rMinX, rMaxX, rMinY, rMaxY, cx, cy };
+    if (isTidal) tidalRings.push(entry);
+    else         landRingsInBox.push(entry);
+  }
+
+  if (land) {
+    for (const feat of land.features) {
+      const { type, coordinates } = feat.geometry;
+      const polys = type === 'Polygon' ? [coordinates] : coordinates;
+      for (const rings of polys) _processRing(rings[0], false);
+    }
+  }
+  for (const feat of tidalObs) {
+    const { type, coordinates } = feat.geometry;
+    const polys = type === 'Polygon' ? [coordinates] : coordinates;
+    for (const rings of polys) _processRing(rings[0], true);
+  }
+
+  // ── Fast segBlocked using pre-filtered rings ───────────────────────────────
   function segBlocked(lon1, lat1, lon2, lat2) {
-    if (Query.landBlocks(lon1, lat1, lon2, lat2)) return true;
-    if (!tidalRings.length) return false;
     const sx = Math.min(lon1, lon2), ex = Math.max(lon1, lon2);
     const sy = Math.min(lat1, lat2), ey = Math.max(lat1, lat2);
-    for (const { ring, pMinX, pMaxX, pMinY, pMaxY } of tidalRings) {
-      if (pMaxX < sx || pMinX > ex || pMaxY < sy || pMinY > ey) continue;
+    for (const { ring, rMinX, rMaxX, rMinY, rMaxY } of landRingsInBox) {
+      if (rMaxX < sx || rMinX > ex || rMaxY < sy || rMinY > ey) continue;
+      if (Query.ringBlocks(ring, lon1, lat1, lon2, lat2)) return true;
+    }
+    for (const { ring, rMinX, rMaxX, rMinY, rMaxY } of tidalRings) {
+      if (rMaxX < sx || rMinX > ex || rMaxY < sy || rMinY > ey) continue;
       if (Query.ringBlocks(ring, lon1, lat1, lon2, lat2)) return true;
     }
     return false;
   }
 
-  // Add offset vertices, subsampling to stay under MAX_NODES total.
-  const totalRaw = polyVerts.reduce((s, p) => s + p.verts.length, 0);
-  const step = totalRaw > MAX_NODES ? Math.ceil(totalRaw / MAX_NODES) : 1;
-  let gi = 0;
-  for (const { verts, cx, cy } of polyVerts) {
-    for (let k = 0; k < verts.length; k++) {
-      if ((gi++) % step !== 0) continue;
-      const [vx, vy] = verts[k];
-      // Push SAFETY_NM outward from centroid so waypoints sit ~100 yards offshore.
+  // ── Corridor-based node collection ─────────────────────────────────────────
+  // Only add vertices from rings that intersect or are near the direct route.
+  // This avoids subsampling — we keep ALL vertices of relevant rings.
+  function _addRingNodes(entry) {
+    const { ring, cx, cy } = entry;
+    for (const [vx, vy] of ring) {
       const dx = vx - cx, dy = vy - cy;
       const len = Math.sqrt(dx * dx + dy * dy);
       if (len < 1e-10) { nodes.push({ lon: vx, lat: vy }); continue; }
@@ -1586,7 +1597,16 @@ async function _autoRouteProg(start, end, onUpdate) {
     }
   }
 
-  console.log(`[autoRoute] visibility graph: ${nodes.length} nodes (${tidalRings.length} tidal rings)`);
+  for (const entry of [...landRingsInBox, ...tidalRings]) {
+    // Does this ring block the direct route?
+    const blocks = Query.ringBlocks(entry.ring, start.lon, start.lat, end.lon, end.lat);
+    if (blocks) { _addRingNodes(entry); continue; }
+    // Is the ring's centroid close to the direct route?
+    const d = _ptSegDistNm(entry.cx, entry.cy, start.lon, start.lat, end.lon, end.lat);
+    if (d <= CORRIDOR_NM) _addRingNodes(entry);
+  }
+
+  console.log(`[autoRoute] ${nodes.length} nodes, ${landRingsInBox.length} land rings in bbox, ${tidalRings.length} tidal rings`);
 
   // ── Min-heap helpers ───────────────────────────────────────────────────────
   const heap = [];
