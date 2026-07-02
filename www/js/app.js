@@ -1347,9 +1347,10 @@ async function _onDrawClick(latlng) {
 
     let pts;
     try {
-      pts = await _autoRouteProg(startPt, endPt, (path) => {
-        previewLine.setLatLngs(path.map(p => [p.lat, p.lon]));
-      });
+      pts = await _autoRouteProg(startPt, endPt,
+        (path) => previewLine.setLatLngs(path.map(p => [p.lat, p.lon])),
+        (t) => { const el = optOverlay.querySelector('.optimizing-text'); if (el) el.textContent = t; }
+      );
     } catch (err) {
       optOverlay.remove();
       previewLine.remove();
@@ -1483,7 +1484,7 @@ function _clearAutoRoute() {
   if (_autoRoutePreviewLayer) { _autoRoutePreviewLayer.remove(); _autoRoutePreviewLayer = null; }
 }
 
-async function _autoRouteProg(start, end, onUpdate) {
+async function _autoRouteProg(start, end, onUpdate, onText = null) {
   // Visibility Graph + A* (Euclidean Shortest Path with Polygonal Obstacles).
   // Nodes: start, end, and polygon vertices in the padded bounding box.
   // Edges are checked lazily during A* expansion.
@@ -1585,10 +1586,14 @@ async function _autoRouteProg(start, end, onUpdate) {
 
   // ── Corridor-based node collection ─────────────────────────────────────────
   // Only add vertices from rings that intersect or are near the direct route.
-  // This avoids subsampling — we keep ALL vertices of relevant rings.
+  // Cap each ring at MAX_RING_VERTS to bound total N (A* is O(N²)).
+  const MAX_RING_VERTS = 30;
   function _addRingNodes(entry) {
     const { ring, cx, cy } = entry;
-    for (const [vx, vy] of ring) {
+    const step = ring.length > MAX_RING_VERTS
+      ? Math.ceil(ring.length / MAX_RING_VERTS) : 1;
+    for (let k = 0; k < ring.length - 1; k += step) {  // -1: skip closing duplicate vertex
+      const [vx, vy] = ring[k];
       const dx = vx - cx, dy = vy - cy;
       const len = Math.sqrt(dx * dx + dy * dy);
       if (len < 1e-10) { nodes.push({ lon: vx, lat: vy }); continue; }
@@ -1610,6 +1615,7 @@ async function _autoRouteProg(start, end, onUpdate) {
   }
 
   console.log(`[autoRoute] ${nodes.length} nodes, ${landRingsInBox.length} land rings in bbox, ${tidalRings.length} tidal rings`);
+  if (onText) onText(`Routing… 0 / ${nodes.length} nodes`);
 
   // ── Min-heap helpers ───────────────────────────────────────────────────────
   const heap = [];
@@ -1656,6 +1662,8 @@ async function _autoRouteProg(start, end, onUpdate) {
   }
 
   let expansions = 0;
+  let searchDot = null;
+  const t0 = Date.now();
 
   while (heap.length) {
     const [, curr] = hpop();
@@ -1677,9 +1685,26 @@ async function _autoRouteProg(start, end, onUpdate) {
       }
     }
 
-    if (++expansions % 50 === 0) await delay(0);
+    if (++expansions % 20 === 0) {
+      // Move a visible dot to show A* is alive and where it's searching
+      if (!searchDot) {
+        searchDot = L.circleMarker([a.lat, a.lon], {
+          radius: 5, color: '#f5a623', fillColor: '#ffffff',
+          fillOpacity: 0.9, weight: 2, opacity: 0.9,
+        }).addTo(_map);
+      } else {
+        searchDot.setLatLng([a.lat, a.lon]);
+      }
+      if (onText) onText(`Routing… ${expansions} / ${N} nodes`);
+      await delay(0);
+      if (Date.now() - t0 > 8000) {
+        console.warn('[autoRoute] time limit reached after', expansions, 'expansions');
+        break;
+      }
+    }
   }
 
+  if (searchDot) { searchDot.remove(); searchDot = null; }
   console.log(`[autoRoute] A* done — ${expansions} expansions, ${N} nodes`);
 
   if (gScore[1] === INF) {
@@ -1702,17 +1727,20 @@ function _showRerouteOverlay(pts) {
   _map.getContainer().appendChild(overlay);
   return {
     update(newPts) { previewLine.setLatLngs(newPts.map(p => [p.lat, p.lon])); },
+    setText(t) { const el = overlay.querySelector('.optimizing-text'); if (el) el.textContent = t; },
     remove() { previewLine.remove(); overlay.remove(); },
   };
 }
 
-async function _reRouteSegments(pts, onProgress) {
+async function _reRouteSegments(pts, onProgress, onText) {
   const result = [pts[0]];
   let fallbacks = 0;
   for (let i = 0; i < pts.length - 1; i++) {
-    const sub = await _autoRouteProg(pts[i], pts[i + 1], (path) => {
-      if (onProgress) onProgress([...result, ...path.slice(1)]);
-    });
+    const segLabel = pts.length > 2 ? `Seg ${i + 1}/${pts.length - 1}: ` : '';
+    const sub = await _autoRouteProg(pts[i], pts[i + 1],
+      (path) => { if (onProgress) onProgress([...result, ...path.slice(1)]); },
+      (t)    => { if (onText) onText(segLabel + t); }
+    );
     if (sub.length <= 2) fallbacks++;
     result.push(...sub.slice(1));
     if (onProgress) onProgress([...result]);
@@ -2222,7 +2250,7 @@ document.getElementById('etp-reroute').addEventListener('click', () => {
   const btn = document.getElementById('etp-reroute');
   btn.disabled = true;
   const ui = _showRerouteOverlay(_editPoints);
-  _reRouteSegments(_editPoints.map(p => ({ lat: p.lat, lon: p.lon })), ui.update.bind(ui))
+  _reRouteSegments(_editPoints.map(p => ({ lat: p.lat, lon: p.lon })), ui.update.bind(ui), ui.setText.bind(ui))
     .then(({ points, fallbacks }) => {
       _editPoints = points;
       _renderEditLayers();
@@ -3458,7 +3486,7 @@ function _ensureMap() {
       if (_editPoints.length < 2) return;
       btn.classList.add('working');
       const ui = _showRerouteOverlay(_editPoints);
-      _reRouteSegments(_editPoints.map(p => ({ lat: p.lat, lon: p.lon })), ui.update.bind(ui))
+      _reRouteSegments(_editPoints.map(p => ({ lat: p.lat, lon: p.lon })), ui.update.bind(ui), ui.setText.bind(ui))
         .then(({ points, fallbacks }) => {
           _editPoints = points;
           _renderEditLayers();
@@ -3481,7 +3509,7 @@ function _ensureMap() {
       if (isNaN(idx) || !routes[idx]) { alert('Select a route first.'); return; }
       btn.classList.add('working');
       const ui = _showRerouteOverlay(routes[idx].points);
-      _reRouteSegments(routes[idx].points, ui.update.bind(ui))
+      _reRouteSegments(routes[idx].points, ui.update.bind(ui), ui.setText.bind(ui))
         .then(({ points, fallbacks }) => {
           routes[idx].points = points;
           localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
@@ -3926,9 +3954,10 @@ function _ensureMap() {
 
     let pts;
     try {
-      pts = await _autoRouteProg(start, end, (path) => {
-        _autoRoutePreviewLayer.setLatLngs(path.map(p => [p.lat, p.lon]));
-      });
+      pts = await _autoRouteProg(start, end,
+        (path) => _autoRoutePreviewLayer.setLatLngs(path.map(p => [p.lat, p.lon])),
+        (t) => { const el = optOverlay.querySelector('.optimizing-text'); if (el) el.textContent = t; }
+      );
     } catch (err) {
       optOverlay.remove();
       console.error('[autoRoute] error:', err);
