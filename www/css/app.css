@@ -596,6 +596,28 @@ html, body {
 #route-picker-btn:active { background: var(--mid-blue); }
 #route-picker-btn.active  { background: var(--accent);  color: var(--navy); }
 
+#reroute-btn {
+  position: absolute;
+  bottom: 308px;
+  right: 10px;
+  z-index: 1000;
+  width: 48px;
+  height: 48px;
+  background: var(--dark-blue);
+  color: var(--text);
+  border: 1px solid var(--mid-blue);
+  border-radius: 10px;
+  font-size: 1.3rem;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+#reroute-btn:active { background: var(--mid-blue); }
+#reroute-btn.working { background: var(--accent); color: var(--navy); }
+
 #route-picker-panel {
   display: none;
   position: absolute;
@@ -1681,5 +1703,42 @@ html, body {
 }
 @media (min-width: 768px) {
   #zoom-slider-wrap { display: flex; }
+}
+
+/* ── Pan controls (desktop map overlay) ──────────────────────────────────── */
+#pan-controls-wrap {
+  display: none;
+  position: absolute;
+  left: 10px;
+  top: calc(50% + 120px);
+  z-index: 1000;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: rgba(26, 58, 92, 0.85);
+  border: 1px solid var(--mid-blue);
+  border-radius: 8px;
+  padding: 6px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+  user-select: none;
+}
+.pan-row { display: flex; gap: 4px; }
+.pan-btn {
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: 1px solid var(--mid-blue);
+  border-radius: 4px;
+  color: var(--accent);
+  font-size: 0.8rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+.pan-btn:active { background: rgba(255,255,255,0.1); }
+@media (min-width: 768px) {
+  #pan-controls-wrap { display: flex; }
 }
 

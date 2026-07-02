@@ -1667,6 +1667,15 @@ async function _autoRouteProg(start, end, onUpdate) {
   return tracePath(1);
 }
 
+async function _reRouteSegments(pts) {
+  const result = [pts[0]];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const sub = await _autoRouteProg(pts[i], pts[i + 1], () => {});
+    result.push(...sub.slice(1));
+  }
+  return result;
+}
+
 function _finishSketch() {
   const pts         = _sketchWaypoints.slice();
   const extIdx      = _extendingRouteIdx;  // capture before _exitSketchMode resets them
@@ -2163,6 +2172,19 @@ document.getElementById('etp-delete').addEventListener('click', () => {
 });
 
 document.getElementById('etp-animate').addEventListener('click', _animateEditRoute);
+
+document.getElementById('etp-reroute').addEventListener('click', () => {
+  if (!_editMode || _editPoints.length < 2) return;
+  const btn = document.getElementById('etp-reroute');
+  btn.disabled = true;
+  setStatus('Re-routing…');
+  _reRouteSegments(_editPoints.map(p => ({ lat: p.lat, lon: p.lon }))).then(result => {
+    _editPoints = result.map(p => ({ lat: p.lat, lon: p.lon }));
+    _renderEditLayers();
+    btn.disabled = false;
+    setStatus('Re-routed.');
+  });
+});
 
 // ── GPX export ────────────────────────────────────────────────────────────────
 
@@ -3130,6 +3152,13 @@ function _ensureMap() {
   _map.on('zoomend', _syncZoomSlider);
   _syncZoomSlider();
 
+  // Pan buttons (desktop only — hidden by CSS on mobile)
+  const PAN_PX = 200;
+  document.getElementById('pan-north').addEventListener('click', () => _map.panBy([0, -PAN_PX], { animate: true, duration: 0.25 }));
+  document.getElementById('pan-south').addEventListener('click', () => _map.panBy([0, +PAN_PX], { animate: true, duration: 0.25 }));
+  document.getElementById('pan-west') .addEventListener('click', () => _map.panBy([-PAN_PX, 0], { animate: true, duration: 0.25 }));
+  document.getElementById('pan-east') .addEventListener('click', () => _map.panBy([+PAN_PX, 0], { animate: true, duration: 0.25 }));
+
   // Compass rose overlay
   const _CompassRose = L.Control.extend({
     options: { position: 'topleft' },
@@ -3367,6 +3396,35 @@ function _ensureMap() {
     _routePickerPanel.classList.toggle('open');
     _routePickerBtn.classList.toggle('active', opening);
     if (opening) _buildRoutePickerPanel();
+  });
+
+  document.getElementById('reroute-btn').addEventListener('click', () => {
+    const btn = document.getElementById('reroute-btn');
+    if (_editMode) {
+      if (_editPoints.length < 2) return;
+      btn.classList.add('working');
+      setStatus('Re-routing…');
+      _reRouteSegments(_editPoints.map(p => ({ lat: p.lat, lon: p.lon }))).then(result => {
+        _editPoints = result.map(p => ({ lat: p.lat, lon: p.lon }));
+        _renderEditLayers();
+        btn.classList.remove('working');
+        setStatus('Re-routed.');
+      });
+    } else {
+      const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+      const idx = (_ctxRouteIdx >= 0 && routes[_ctxRouteIdx]) ? _ctxRouteIdx
+                : parseInt(document.getElementById('track-route-select').value);
+      if (isNaN(idx) || !routes[idx]) { alert('Select a route first.'); return; }
+      btn.classList.add('working');
+      setStatus('Re-routing…');
+      _reRouteSegments(routes[idx].points).then(result => {
+        routes[idx].points = result;
+        localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
+        btn.classList.remove('working');
+        _enterEditMode(idx);
+        setStatus('Re-routed.');
+      });
+    }
   });
   document.getElementById('rp-close').addEventListener('click', _closeRoutePicker);
   document.getElementById('rp-search').addEventListener('input', _buildRoutePickerPanel);

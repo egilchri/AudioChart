@@ -26,9 +26,18 @@
       <button id="seamark-toggle-btn" title="Hide seamarks">&#x26F5;</button>
       <button id="navaid-filter-btn" title="Show navaids on map">&#9875;</button>
       <button id="route-picker-btn" title="Show/hide routes">&#9998; Routes</button>
+      <button id="reroute-btn" title="Re-route around land">&#8635;</button>
       <div id="zoom-slider-wrap">
         <span id="zoom-slider-label">11</span>
         <input type="range" id="zoom-slider" min="4" max="18" step="1" value="11">
+      </div>
+      <div id="pan-controls-wrap">
+        <button class="pan-btn" id="pan-north" title="Pan north">&#9650;</button>
+        <div class="pan-row">
+          <button class="pan-btn" id="pan-west" title="Pan west">&#9668;</button>
+          <button class="pan-btn" id="pan-east" title="Pan east">&#9658;</button>
+        </div>
+        <button class="pan-btn" id="pan-south" title="Pan south">&#9660;</button>
       </div>
       <div id="route-picker-panel">
         <div class="nf-title">Routes <button id="rp-close" title="Close">&#10005;</button></div>
@@ -90,6 +99,7 @@
         <button id="etp-add-node">&#65291; Add Node</button>
         <button id="etp-delete">&#10005; Delete Nodes</button>
         <button id="etp-animate">&#9654; Animate</button>
+        <button id="etp-reroute">&#8635; Reroute</button>
       </div>
     </div>
     <div id="sketch-banner" style="display:none">
