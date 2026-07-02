@@ -48,6 +48,7 @@ export let navaids = null;
 export let waypoints = null;
 export let restrictions = null;
 let landPolygons = null;  // LNDARE polygons for line-of-sight checks
+let _landLoadPromise = null;
 export let depthZones = null;  // 'shallow area' Polygon features — always real geometry
 export let channels   = null;  // FAIRWY polygon features from ENC data
 export let soundings  = null;  // SOUNDG depth sounding points (thinned, ≤30m)
@@ -186,7 +187,7 @@ export async function loadData(lat, lon) {
   // Depth zones always come from the bundled hazards.geojson so we get real polygon
   // geometry even when the server API only returns centroid points.
   if (!landPolygons) {
-    fetch('./data/land.geojson')
+    _landLoadPromise = fetch('./data/land.geojson')
       .then(r => r.ok ? r.json() : null)
       .then(land => {
         if (land) landPolygons = land;
@@ -1113,6 +1114,10 @@ export function landBlocks(fromLon, fromLat, toLon, toLat) {
 
 export function getLandPolygons() {
   return landPolygons;
+}
+
+export function whenLandLoaded() {
+  return _landLoadPromise || Promise.resolve();
 }
 
 export function ringBlocks(ring, ax, ay, bx, by) {

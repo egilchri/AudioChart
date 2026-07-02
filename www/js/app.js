@@ -1493,6 +1493,9 @@ async function _autoRouteProg(start, end, onUpdate) {
 
   const delay = ms => new Promise(r => setTimeout(r, ms));
 
+  // Wait for land data to finish loading (resolves instantly after first load).
+  await Query.whenLandLoaded();
+
   // Let the overlay and preview line paint before we do any real work.
   await delay(0);
 
@@ -1687,13 +1690,34 @@ async function _autoRouteProg(start, end, onUpdate) {
   return tracePath(1);
 }
 
-async function _reRouteSegments(pts) {
+function _showRerouteOverlay(pts) {
+  const previewLine = L.polyline(
+    pts.map(p => [p.lat, p.lon]),
+    { color: '#f5a623', weight: 3, dashArray: '8 6', opacity: 0.75 }
+  ).addTo(_map);
+  const overlay = document.createElement('div');
+  overlay.className = 'optimizing-overlay';
+  overlay.innerHTML = '<span class="optimizing-boat">&#9975;</span>' +
+                      '<em class="optimizing-text">Re-routing&#8230;</em>';
+  _map.getContainer().appendChild(overlay);
+  return {
+    update(newPts) { previewLine.setLatLngs(newPts.map(p => [p.lat, p.lon])); },
+    remove() { previewLine.remove(); overlay.remove(); },
+  };
+}
+
+async function _reRouteSegments(pts, onProgress) {
   const result = [pts[0]];
+  let fallbacks = 0;
   for (let i = 0; i < pts.length - 1; i++) {
-    const sub = await _autoRouteProg(pts[i], pts[i + 1], () => {});
+    const sub = await _autoRouteProg(pts[i], pts[i + 1], (path) => {
+      if (onProgress) onProgress([...result, ...path.slice(1)]);
+    });
+    if (sub.length <= 2) fallbacks++;
     result.push(...sub.slice(1));
+    if (onProgress) onProgress([...result]);
   }
-  return result;
+  return { points: result, fallbacks };
 }
 
 function _finishSketch() {
@@ -2197,13 +2221,23 @@ document.getElementById('etp-reroute').addEventListener('click', () => {
   if (!_editMode || _editPoints.length < 2) return;
   const btn = document.getElementById('etp-reroute');
   btn.disabled = true;
-  setStatus('Re-routing…');
-  _reRouteSegments(_editPoints.map(p => ({ lat: p.lat, lon: p.lon }))).then(result => {
-    _editPoints = result.map(p => ({ lat: p.lat, lon: p.lon }));
-    _renderEditLayers();
-    btn.disabled = false;
-    setStatus('Re-routed.');
-  });
+  const ui = _showRerouteOverlay(_editPoints);
+  _reRouteSegments(_editPoints.map(p => ({ lat: p.lat, lon: p.lon })), ui.update.bind(ui))
+    .then(({ points, fallbacks }) => {
+      _editPoints = points;
+      _renderEditLayers();
+      ui.remove();
+      btn.disabled = false;
+      setStatus(fallbacks > 0
+        ? `Re-routed — ${fallbacks} segment(s) couldn't avoid land. Add a waypoint in the passage.`
+        : 'Re-routed.');
+    })
+    .catch(err => {
+      ui.remove();
+      btn.disabled = false;
+      setStatus('Re-route failed.');
+      console.error('[reroute]', err);
+    });
 });
 
 // ── GPX export ────────────────────────────────────────────────────────────────
@@ -3423,27 +3457,47 @@ function _ensureMap() {
     if (_editMode) {
       if (_editPoints.length < 2) return;
       btn.classList.add('working');
-      setStatus('Re-routing…');
-      _reRouteSegments(_editPoints.map(p => ({ lat: p.lat, lon: p.lon }))).then(result => {
-        _editPoints = result.map(p => ({ lat: p.lat, lon: p.lon }));
-        _renderEditLayers();
-        btn.classList.remove('working');
-        setStatus('Re-routed.');
-      });
+      const ui = _showRerouteOverlay(_editPoints);
+      _reRouteSegments(_editPoints.map(p => ({ lat: p.lat, lon: p.lon })), ui.update.bind(ui))
+        .then(({ points, fallbacks }) => {
+          _editPoints = points;
+          _renderEditLayers();
+          ui.remove();
+          btn.classList.remove('working');
+          setStatus(fallbacks > 0
+            ? `Re-routed — ${fallbacks} segment(s) couldn't avoid land. Add a waypoint in the passage.`
+            : 'Re-routed.');
+        })
+        .catch(err => {
+          ui.remove();
+          btn.classList.remove('working');
+          setStatus('Re-route failed.');
+          console.error('[reroute-btn]', err);
+        });
     } else {
       const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
       const idx = (_ctxRouteIdx >= 0 && routes[_ctxRouteIdx]) ? _ctxRouteIdx
                 : parseInt(document.getElementById('track-route-select').value);
       if (isNaN(idx) || !routes[idx]) { alert('Select a route first.'); return; }
       btn.classList.add('working');
-      setStatus('Re-routing…');
-      _reRouteSegments(routes[idx].points).then(result => {
-        routes[idx].points = result;
-        localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
-        btn.classList.remove('working');
-        _enterEditMode(idx);
-        setStatus('Re-routed.');
-      });
+      const ui = _showRerouteOverlay(routes[idx].points);
+      _reRouteSegments(routes[idx].points, ui.update.bind(ui))
+        .then(({ points, fallbacks }) => {
+          routes[idx].points = points;
+          localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
+          ui.remove();
+          btn.classList.remove('working');
+          _enterEditMode(idx);
+          setStatus(fallbacks > 0
+            ? `Re-routed — ${fallbacks} segment(s) couldn't avoid land. Add a waypoint in the passage.`
+            : 'Re-routed.');
+        })
+        .catch(err => {
+          ui.remove();
+          btn.classList.remove('working');
+          setStatus('Re-route failed.');
+          console.error('[reroute-btn]', err);
+        });
     }
   });
   document.getElementById('rp-close').addEventListener('click', _closeRoutePicker);
