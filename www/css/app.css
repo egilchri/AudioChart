@@ -618,6 +618,27 @@ html, body {
 #reroute-btn:active { background: var(--mid-blue); }
 #reroute-btn.working { background: var(--accent); color: var(--navy); }
 
+#delete-route-btn {
+  position: absolute;
+  bottom: 364px;
+  right: 10px;
+  z-index: 1000;
+  width: 48px;
+  height: 48px;
+  background: var(--dark-blue);
+  color: #e05252;
+  border: 1px solid #e05252;
+  border-radius: 10px;
+  font-size: 1.3rem;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+#delete-route-btn:active { background: #e05252; color: var(--text); }
+
 #route-picker-panel {
   display: none;
   position: absolute;

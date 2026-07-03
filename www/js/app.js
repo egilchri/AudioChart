@@ -2239,6 +2239,7 @@ function _enterEditMode(routeIdx) {
     _map.getContainer().addEventListener('mouseup', _editPlaceNode);
   }
   document.getElementById('edit-tools-panel').style.display = 'flex';
+  document.getElementById('delete-route-btn').style.display = 'flex';
   _updateEditToolsPanel();
 }
 
@@ -2264,6 +2265,7 @@ function _exitEditMode() {
   }
   document.getElementById('edit-banner').style.display = 'none';
   document.getElementById('edit-tools-panel').style.display = 'none';
+  document.getElementById('delete-route-btn').style.display = 'none';
   _appEl.classList.remove('edit-mode');
   if (_justEditedName) {
     _hiddenRouteNames.delete(_justEditedName);
@@ -3633,6 +3635,22 @@ function _ensureMap() {
         });
     }
   });
+  document.getElementById('delete-route-btn').addEventListener('click', () => {
+    if (!_editMode) return;
+    const name = _editRouteName;
+    const idx  = _editRouteIdx;
+    if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+    _exitEditMode();
+    const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+    routes.splice(idx, 1);
+    localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
+    _refreshSavedRouteLayers();
+    _populateRouteSelectFn?.();
+    const msg = `${name} deleted.`;
+    setStatus(msg);
+    TTS.sayImmediate(msg);
+  });
+
   document.getElementById('rp-close').addEventListener('click', _closeRoutePicker);
   document.getElementById('rp-search').addEventListener('input', _buildRoutePickerPanel);
   document.getElementById('rp-show-all').addEventListener('click', () => {
