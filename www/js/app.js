@@ -3652,6 +3652,14 @@ function _ensureMap() {
   });
 
   document.getElementById('rp-close').addEventListener('click', _closeRoutePicker);
+  document.getElementById('rp-draw-route').addEventListener('click', () => {
+    _closeRoutePicker();
+    _enterDrawRouteMode();
+  });
+  document.getElementById('rp-sketch').addEventListener('click', () => {
+    _closeRoutePicker();
+    _enterSketchMode();
+  });
   document.getElementById('rp-search').addEventListener('input', _buildRoutePickerPanel);
   document.getElementById('rp-show-all').addEventListener('click', () => {
     const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');

@@ -861,6 +861,28 @@ html, body {
 }
 .nf-actions button:active { background: var(--accent); color: var(--navy); }
 
+.nf-new-route {
+  display: flex;
+  gap: 8px;
+  padding: 6px 10px 2px;
+}
+.nf-new-route button {
+  flex: 1;
+  background: var(--dark-blue);
+  color: var(--text);
+  border: 1px solid var(--mid-blue);
+  border-radius: 6px;
+  padding: 6px 4px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.nf-new-route button:active { background: var(--mid-blue); }
+#rp-sketch {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 /* Navaid overlay popup menu */
 .navaid-popup-wrapper .leaflet-popup-content-wrapper {
   background: var(--dark-blue);
