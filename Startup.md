@@ -210,6 +210,36 @@ Any named mark you drop in OpenCPN appears in AudioChart within **30 seconds** a
 
 Waypoint responses are labeled *(waypoint)* to distinguish them from chart features.
 
+### Focus Target — re-query without repeating yourself
+
+Designate a waypoint, place, or point as your **focus target**, then get bearing and range to it with a single word — no need to say the full "bearing to..." query again. Useful for repeatedly checking your progress toward a destination throughout a passage.
+
+**Setting the focus:**
+
+| Method | How |
+|---|---|
+| Automatically | Any successful bearing query sets the focus. Ask *"bearing to Carvers Harbor"* once — it's now the focus. |
+| By voice/text | *"focus on [place name]"* — e.g. *"focus on Owls Head"* |
+| Tap a marker | Open the popup on any navaid (🧭 Objects layer) or waypoint marker and tap **🎯 Set focus** |
+| Tap the map | Long-press (or right-click) any point on open water → **🎯 Set focus here** |
+
+**Checking the focus:**
+
+| You say | What happens |
+|---|---|
+| *"bearing"*, *"range"*, *"how far"*, *"status"*, *"distance"* (said alone) | Speaks bearing and range to the current focus |
+| Tap the **🎯** button (top status bar) | Same — speaks bearing and range to the current focus |
+
+The **🎯** button always shows the current focus name (or **🎯 --** if none is set). It updates automatically whenever the focus changes, including from a plain bearing query.
+
+**Clearing the focus:**
+
+> *"clear focus"* (also accepts *"cancel focus"* / *"remove focus"*)
+
+The focus button resets to **🎯 --**, and a bare *"bearing"* will respond "No focus set" until you pick a new one.
+
+**Persistence:** the focus target is saved on your phone and survives a reload or app restart — handy for an all-day sail where you keep checking progress toward the same destination.
+
 ---
 
 ## Demo mode (screen recording)
