@@ -298,6 +298,27 @@ const PATTERNS = [
     }),
   },
 
+  // QUERY FOCUS — bare repeat command, must be the WHOLE transcript
+  {
+    re: /^(?:range\s+and\s+bearing|bearing\s+and\s+range|bearing|range|distance|how\s+far|status|check)\s*[?.!]?\s*$/i,
+    intent: 'QUERY_FOCUS',
+    params: {},
+  },
+
+  // SET FOCUS
+  {
+    re: /\b(?:focus\s+on|set\s+focus\s+(?:to|on)|watch)\s+(.{3,60})$/i,
+    intent: 'SET_FOCUS',
+    extract: (m) => ({ placeName: m[1].trim() }),
+  },
+
+  // CLEAR FOCUS
+  {
+    re: /\b(?:clear|cancel|remove)\s+focus\b/i,
+    intent: 'CLEAR_FOCUS',
+    params: {},
+  },
+
   // RANGE AND BEARING TO GPS COORDINATE (checked before named place)
   {
     re: /\b(range\s+and\s+bearing|bearing\s+and\s+range|bearing|distance|how\s+far|range)\b.{0,20}(to|of)\s+(.{3,80})$/i,

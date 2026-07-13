@@ -56,6 +56,37 @@ export let lastBearingResult = null;   // set by bearing queries; read by map vi
 export let lastCourseHazards = null;   // set by hazardsOnCourse; [{lat,lon,label,name}]
 export let lastNavaidResults  = null;   // set by navaidsInRadius; [{lat,lon,label,name,colour,characteristic,brg,d}]
 export let lastHazardResults = null;   // set by hazardsInRadius;  [{lat,lon,label,name,brg,d}]
+export let focusedTarget = null;   // {lat, lon, name, type} — the "current" object
+
+const FOCUS_KEY = 'audiochart-focus';
+
+export function setFocus(lat, lon, name, type = 'place') {
+  focusedTarget = { lat, lon, name, type };
+  try { localStorage.setItem(FOCUS_KEY, JSON.stringify(focusedTarget)); } catch (_) {}
+}
+
+export function clearFocus() {
+  focusedTarget = null;
+  try { localStorage.removeItem(FOCUS_KEY); } catch (_) {}
+}
+
+export function loadStoredFocus() {
+  try {
+    const s = localStorage.getItem(FOCUS_KEY);
+    if (s) focusedTarget = JSON.parse(s);
+  } catch (_) {}
+  return focusedTarget;
+}
+
+/** Bearing/range to the currently focused target. Returns null if none set. */
+export function bearingToFocusedTarget(lat, lon) {
+  if (!focusedTarget) return null;
+  if (!focusedTarget.name) return bearingToCoord(lat, lon, focusedTarget.lat, focusedTarget.lon);
+  return _formatBearingResult(
+    lat, lon, focusedTarget.lat, focusedTarget.lon, focusedTarget.name,
+    focusedTarget.type === 'waypoint', 1.0
+  );
+}
 
 let _serverBase = null;
 let _lastFetchLat = null;
@@ -929,6 +960,7 @@ function _formatBearingResult(lat, lon, flat, flon, name, isWaypoint, score) {
   const brg = trueTomagnetic(bearing(lon, lat, flon, flat));
   const dist = distanceNm(lon, lat, flon, flat);
   lastBearingResult = { destLat: flat, destLon: flon, destName: name, destType: isWaypoint ? 'waypoint' : 'place', brg, distNm: dist };
+  setFocus(flat, flon, name, isWaypoint ? 'waypoint' : 'place');
   const tag = isWaypoint ? ' (waypoint)' : '';
   const matchNote = score < 0.9 ? `Closest match: ${name}${tag}` : `${name}${tag}`;
   return {
@@ -942,6 +974,7 @@ export function bearingToCoord(lat, lon, targetLat, targetLon) {
   const brg = trueTomagnetic(bearing(lon, lat, targetLon, targetLat));
   const dist = distanceNm(lon, lat, targetLon, targetLat);
   lastBearingResult = { destLat: targetLat, destLon: targetLon, destName: null, destType: 'coord', brg, distNm: dist };
+  setFocus(targetLat, targetLon, null, 'coord');
   const latDir = targetLat >= 0 ? 'N' : 'S';
   const lonDir = targetLon >= 0 ? 'E' : 'W';
   const latAbs = Math.abs(targetLat);

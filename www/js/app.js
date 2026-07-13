@@ -231,6 +231,23 @@ function _refreshWaypointLayer() {
     wps.map(wp => {
       const m = L.marker([wp.lat, wp.lon], { icon: _waypointIcon(), draggable: true });
       m.bindTooltip(wp.name, { permanent: true, direction: 'top', className: 'map-tooltip' });
+      m.bindPopup(
+        `<div class="navaid-popup">
+           <div class="navaid-popup-name">${wp.name}</div>
+           <button class="navaid-popup-focus">&#127919; Set focus</button>
+         </div>`,
+        { maxWidth: 220, className: 'navaid-popup-wrapper' }
+      );
+      m.on('popupopen', (e) => {
+        e.popup.getElement().querySelector('.navaid-popup-focus').addEventListener('click', () => {
+          _map.closePopup();
+          Query.setFocus(wp.lat, wp.lon, wp.name, 'waypoint');
+          _updateFocusButton();
+          const msg = `Focused on ${wp.name}.`;
+          showResponse(msg);
+          TTS.sayImmediate(msg);
+        });
+      });
       _markerByKey.set(_markerKey(wp.lat, wp.lon), m);
       m.on('dragend', (e) => {
         const { lat: newLat, lng: newLon } = e.target.getLatLng();
@@ -289,6 +306,23 @@ const testPosSet = document.getElementById('test-pos-set');
 const testPosClear = document.getElementById('test-pos-clear');
 const mapLink = document.getElementById('map-link');
 const opencpnBtn = document.getElementById('opencpn-btn');
+const focusBtn = document.getElementById('focus-btn');
+
+function _updateFocusButton() {
+  if (!focusBtn) return;
+  const f = Query.focusedTarget;
+  focusBtn.textContent = f ? `🎯 ${f.name || 'Point'}` : '🎯 --';
+  focusBtn.classList.toggle('focus-active', !!f);
+  focusBtn.title = f ? `Bearing & range to ${f.name || 'focused point'}` : 'No focus set';
+}
+
+focusBtn?.addEventListener('click', () => {
+  if (!Query.focusedTarget) {
+    TTS.sayImmediate('No focus set. Say focus on, followed by a place name.');
+    return;
+  }
+  handleCommand('bearing');   // reuses the QUERY_FOCUS path end-to-end
+});
 
 // Show every TTS utterance in the response area so the user can read along.
 TTS.onSpeak(text => { responseEl.textContent = text; });
@@ -4548,6 +4582,16 @@ function _ensureMap() {
     }
   });
 
+  document.getElementById('map-ctx-set-focus').addEventListener('click', () => {
+    _hideCtx();
+    if (!_ctxLatLng) return;
+    Query.setFocus(_ctxLatLng.lat, _ctxLatLng.lng, null, 'coord');
+    _updateFocusButton();
+    const msg = 'Focused on this point.';
+    showResponse(msg);
+    TTS.sayImmediate(msg);
+  });
+
   _refreshWaypointLayer();
   _refreshYouLayer();
 }
@@ -4734,6 +4778,7 @@ function _refreshNavaidOverlay() {
         `<div class="navaid-popup">
            <div class="navaid-popup-name">${safeName}</div>
            <button class="navaid-popup-brg">Range &amp; bearing</button>
+           <button class="navaid-popup-focus">&#127919; Set focus</button>
            <button class="navaid-popup-copy">Copy name</button>
          </div>`,
         { maxWidth: 220, className: 'navaid-popup-wrapper' }
@@ -4755,6 +4800,14 @@ function _refreshNavaidOverlay() {
           _bearingAccumulator.push({ fromLat: pos.lat, fromLon: pos.lon, result: Query.lastBearingResult });
           if (_bearingAccumulator.length > 6) _bearingAccumulator.shift();
           showMap(pos.lat, pos.lon, Query.lastBearingResult).catch(() => {});
+        });
+        el.querySelector('.navaid-popup-focus').addEventListener('click', () => {
+          _map.closePopup();
+          Query.setFocus(lat, lon, n.name, 'place');
+          _updateFocusButton();
+          const msg = `Focused on ${n.name}.`;
+          showResponse(msg);
+          TTS.sayImmediate(msg);
         });
         el.querySelector('.navaid-popup-copy').addEventListener('click', (evt) => {
           navigator.clipboard.writeText(n.name).catch(() => {});
@@ -5381,6 +5434,34 @@ async function handleCommand(transcript) {
       case 'BEARING_TO_COORD':
         response = Query.bearingToCoord(pos.lat, pos.lon, params.lat, params.lon);
         break;
+      case 'QUERY_FOCUS': {
+        response = Query.bearingToFocusedTarget(pos.lat, pos.lon);
+        if (!response) {
+          response = {
+            text: 'No focus set. Try "focus on <place>" or ask a bearing question first.',
+            speech: 'No focus set. Try focus on, followed by a place name.',
+          };
+        }
+        break;
+      }
+      case 'SET_FOCUS': {
+        let place = Query.findPlaceByName(params.placeName);
+        if (!place && serverUrl) place = await Query.findPlaceOnServer(params.placeName);
+        if (!place) {
+          response = { text: `Couldn't find "${params.placeName}".`, speech: `I couldn't find ${params.placeName}.` };
+          break;
+        }
+        Query.setFocus(place.lat, place.lon, place.name, 'place');
+        _updateFocusButton();
+        response = { text: `Focused on ${place.name}.`, speech: `Focused on ${place.name}.` };
+        break;
+      }
+      case 'CLEAR_FOCUS': {
+        Query.clearFocus();
+        _updateFocusButton();
+        response = { text: 'Focus cleared.', speech: 'Focus cleared.' };
+        break;
+      }
       case 'BEARING_TO_PLACE': {
         response = Query.bearingToPlace(pos.lat, pos.lon, params.placeName);
         if (!response && serverUrl) {
@@ -5503,7 +5584,7 @@ async function handleCommand(transcript) {
     TTS.sayImmediate(speechText);
 
     const isCourseIntent = (intent === 'HAZARDS_ON_COURSE' || intent === 'HAZARDS_ALONG_ROUTE');
-    const isBearingIntent = (intent === 'BEARING_TO_PLACE' || intent === 'BEARING_TO_COORD');
+    const isBearingIntent = (intent === 'BEARING_TO_PLACE' || intent === 'BEARING_TO_COORD' || intent === 'QUERY_FOCUS');
     const isOtherMapIntent = ['NEAREST_HAZARD', 'NEAREST_NAVAID', 'NEAREST_RESTRICTION'].includes(intent);
 
     if (isBearingIntent && Query.lastBearingResult) {
@@ -5512,6 +5593,7 @@ async function handleCommand(transcript) {
       if (_bearingAccumulator.length > 6) _bearingAccumulator.shift();
       showMap(pos.lat, pos.lon, Query.lastBearingResult).catch(() => {});
       opencpnBtn.style.display = 'none';
+      _updateFocusButton();
     } else if (intent === 'WHERE_AM_I') {
       _bearingAccumulator = [];
       showPositionMap(pos.lat, pos.lon).catch(() => {});
@@ -5524,6 +5606,8 @@ async function handleCommand(transcript) {
       _bearingAccumulator = [];
       showMap(pos.lat, pos.lon, Query.lastBearingResult).catch(() => {});
       opencpnBtn.style.display = 'none';
+    } else if (intent === 'SET_FOCUS' || intent === 'CLEAR_FOCUS') {
+      // Leave the current map view as-is — these only change the focus target.
     } else {
       _bearingAccumulator = [];
       hideMap();
@@ -5762,6 +5846,9 @@ async function runRouteDownload(cruiseName) {
 async function init() {
   _loadOfflineCache();
   setStatus('Waiting for GPS...');
+
+  Query.loadStoredFocus();
+  _updateFocusButton();
 
   // Show the map immediately on all devices (sidebar was removed in v198)
   loadLeaflet().then(() => {
