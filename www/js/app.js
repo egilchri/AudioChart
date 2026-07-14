@@ -2212,6 +2212,18 @@ function _updateEditToolsPanel() {
   document.getElementById('etp-delete')?.classList.toggle('active', _deleteMode);
 }
 
+// Screen-space (not distance-space) match, so it's equally forgiving at any zoom level.
+function _nearestEditVertexIdx(lat, lon, pxTolerance = 20) {
+  if (!_editMode || !_editPoints.length || !_map) return -1;
+  const clickPt = _map.latLngToContainerPoint([lat, lon]);
+  let best = -1, bestD = Infinity;
+  _editPoints.forEach((p, i) => {
+    const d = clickPt.distanceTo(_map.latLngToContainerPoint([p.lat, p.lon]));
+    if (d < bestD) { bestD = d; best = i; }
+  });
+  return bestD <= pxTolerance ? best : -1;
+}
+
 function _animateEditRoute() {
   if (_editRouteIdx < 0 || _editPoints.length < 2) return;
   const speed = parseFloat(localStorage.getItem('audiochart-last-speed')) || 5;
@@ -4585,6 +4597,18 @@ function _ensureMap() {
   document.getElementById('map-ctx-set-focus').addEventListener('click', () => {
     _hideCtx();
     if (!_ctxLatLng) return;
+    // If the long-press landed on (or very near) a route node while editing, name the
+    // focus after that node instead of a bare "this point" — e.g. "Rockland-PerryCreek WP2".
+    const vIdx = _nearestEditVertexIdx(_ctxLatLng.lat, _ctxLatLng.lng);
+    if (vIdx >= 0) {
+      const label = `${_editRouteName} WP${vIdx + 1}`;
+      Query.setFocus(_editPoints[vIdx].lat, _editPoints[vIdx].lon, label, 'coord');
+      _updateFocusButton();
+      const msg = `Focused on ${label}.`;
+      showResponse(msg);
+      TTS.sayImmediate(msg);
+      return;
+    }
     Query.setFocus(_ctxLatLng.lat, _ctxLatLng.lng, null, 'coord');
     _updateFocusButton();
     const msg = 'Focused on this point.';
@@ -5639,15 +5663,32 @@ function syncTestPosButton() {
   testPosBtn.classList.toggle('test-active', active);
 }
 
+function _closeTestPosForm() {
+  testPosForm.style.display = 'none';
+  testPosInput.value = '';
+  testPosInput.style.borderColor = '';
+}
+
 testPosBtn.addEventListener('click', () => {
   if (GPS.isManualPosition()) {
     clearTestPosition();
     return;
   }
   const isOpen = testPosForm.style.display !== 'none';
-  testPosForm.style.display = isOpen ? 'none' : 'flex';
-  if (!isOpen) testPosInput.focus();
+  if (isOpen) { _closeTestPosForm(); return; }
+  testPosForm.style.display = 'flex';
+  testPosInput.focus();
 });
+
+// Cancelable: Escape or a click outside the form closes it without setting anything.
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && testPosForm.style.display !== 'none') _closeTestPosForm();
+});
+document.addEventListener('click', (e) => {
+  if (testPosForm.style.display === 'none') return;
+  if (testPosForm.contains(e.target) || testPosBtn.contains(e.target)) return;
+  _closeTestPosForm();
+}, { capture: true });
 
 testPosSet.addEventListener('click', async () => {
   let raw = testPosInput.value.trim();

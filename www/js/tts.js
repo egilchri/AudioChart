@@ -51,13 +51,19 @@ function selectVoice() {
 if (typeof speechSynthesis !== 'undefined') {
   speechSynthesis.addEventListener('voiceschanged', selectVoice);
   selectVoice();
-  // iOS pauses speechSynthesis after ~15s of inactivity; resume it periodically
+  // Mobile browsers/OSes can pause speechSynthesis mid-utterance when something else
+  // (e.g. a transient audio-focus grab from ambient sound/hotword detection) briefly
+  // wants the audio channel. Our utterances are short, so resume as soon as possible
+  // rather than waiting out a long watchdog interval.
+  speechSynthesis.addEventListener('pause', () => speechSynthesis.resume());
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && speechSynthesis.speaking && speechSynthesis.paused) speechSynthesis.resume();
+  });
+  // iOS pauses speechSynthesis after ~15s of inactivity; catch anything the above misses.
   setInterval(() => {
-    if (speechSynthesis.speaking) {
-      speechSynthesis.pause();
-      speechSynthesis.resume();
-    }
-  }, 10000);
+    if (speechSynthesis.paused) speechSynthesis.resume();
+    else if (speechSynthesis.speaking) { speechSynthesis.pause(); speechSynthesis.resume(); }
+  }, 3000);
 }
 
 function speakNext() {
