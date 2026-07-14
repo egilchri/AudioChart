@@ -10,6 +10,8 @@ let queue = [];
 let speaking = false;
 let _onSpeechEnd = null;
 let _captionCallback = null;
+let _watchdogTimer = null;
+let _retriedCurrent = false;
 
 /** Register a callback fired with the text of every utterance as it starts. */
 export function onSpeak(cb) { _captionCallback = cb; }
@@ -53,39 +55,65 @@ if (typeof speechSynthesis !== 'undefined') {
   selectVoice();
   // Mobile browsers/OSes can pause speechSynthesis mid-utterance when something else
   // (e.g. a transient audio-focus grab from ambient sound/hotword detection) briefly
-  // wants the audio channel. Our utterances are short, so resume as soon as possible
-  // rather than waiting out a long watchdog interval.
+  // wants the audio channel. Resume as soon as possible rather than waiting out a
+  // long watchdog interval.
   speechSynthesis.addEventListener('pause', () => speechSynthesis.resume());
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden && speechSynthesis.speaking && speechSynthesis.paused) speechSynthesis.resume();
   });
-  // iOS pauses speechSynthesis after ~15s of inactivity; catch anything the above misses.
-  setInterval(() => {
-    if (speechSynthesis.paused) speechSynthesis.resume();
-    else if (speechSynthesis.speaking) { speechSynthesis.pause(); speechSynthesis.resume(); }
-  }, 3000);
+}
+
+function _stopWatchdog() {
+  if (_watchdogTimer) { clearInterval(_watchdogTimer); _watchdogTimer = null; }
+}
+
+// Android Chrome has a known bug where an utterance interrupted mid-speech (audio-focus
+// loss, screen lock, etc.) just goes silent — speechSynthesis.speaking drops to false but
+// neither onend nor onerror ever fires, so our own `speaking` flag gets stuck and the
+// queue stalls. Poll while an utterance is nominally in flight and, if the engine has
+// silently dropped it, replay that utterance once from the top rather than leave the
+// user with a sentence cut off partway through.
+function _armWatchdog(text) {
+  _stopWatchdog();
+  _watchdogTimer = setInterval(() => {
+    if (!speaking) { _stopWatchdog(); return; }
+    if (speechSynthesis.paused) { speechSynthesis.resume(); return; }
+    if (!speechSynthesis.speaking) {
+      // speechSynthesis.speaking can dip false for an instant right before a normal
+      // onend fires — confirm it's still dead (and onend still hasn't run) before
+      // declaring a silent death and replaying.
+      setTimeout(() => {
+        if (speaking && !speechSynthesis.speaking) {
+          _stopWatchdog();
+          speaking = false;
+          if (!_retriedCurrent) { _retriedCurrent = true; queue.unshift(text); }
+          speakNext();
+        }
+      }, 250);
+    }
+  }, 600);
 }
 
 function speakNext() {
   if (speaking || queue.length === 0) return;
   const text = queue.shift();
   speaking = true;
+  _retriedCurrent = false;
   const utt = new SpeechSynthesisUtterance(text);
   utt.rate = 0.85;
   utt.pitch = 1.0;
   utt.volume = 1.0;
   if (voice) utt.voice = voice;
   if (_captionCallback) _captionCallback(text);
-  utt.onend = () => {
+  const finish = () => {
+    _stopWatchdog();
     speaking = false;
     if (queue.length === 0 && _onSpeechEnd) { const cb = _onSpeechEnd; _onSpeechEnd = null; cb(); }
     speakNext();
   };
-  utt.onerror = () => {
-    speaking = false;
-    if (queue.length === 0 && _onSpeechEnd) { const cb = _onSpeechEnd; _onSpeechEnd = null; cb(); }
-    speakNext();
-  };
+  utt.onstart = () => _armWatchdog(text);
+  utt.onend = finish;
+  utt.onerror = finish;
   speechSynthesis.speak(utt);
 }
 
@@ -99,6 +127,7 @@ export function say(text) {
 export function sayImmediate(text, onEnd = null) {
   _onSpeechEnd = onEnd;
   queue = [];
+  _stopWatchdog();
   speechSynthesis.cancel();
   speaking = false;
   queue.push(text);
@@ -109,6 +138,7 @@ export function sayImmediate(text, onEnd = null) {
 export function stop() {
   _onSpeechEnd = null;
   queue = [];
+  _stopWatchdog();
   speechSynthesis.cancel();
   speaking = false;
 }
