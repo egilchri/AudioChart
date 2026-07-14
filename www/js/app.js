@@ -325,7 +325,7 @@ focusBtn?.addEventListener('click', () => {
 });
 
 // Show every TTS utterance in the response area so the user can read along.
-TTS.onSpeak(text => { responseEl.textContent = text; });
+TTS.onSpeak(text => { _appendTranscript(text); });
 
 let serverUrl = null;  // set in init(); used by offline button and test-position API
 
@@ -652,6 +652,9 @@ let _drawTouchMove   = null;
 let _drawTouchEnd    = null;
 let _drawMapClick    = null;
 let _drawMapMouseMove = null;
+let _focusPlaceMode   = false;  // true while the drag-to-place focus marker is live
+let _focusPlaceMarker = null;   // the draggable L.marker being positioned
+let _focusPlaceSnap   = null;   // {lat, lon, name, type} of the locked-on object, or null
 let _viewportHazardLayer    = null; // hazard markers for current map viewport (edit mode)
 let _viewportHazardMoveEnd  = null; // moveend listener ref for cleanup
 let _routeNameLabels        = [];   // [{marker, pts}] for viewport-clamping on moveend
@@ -728,9 +731,34 @@ textInput.addEventListener('blur', () => {
   _mapContainer.classList.remove('input-focus');
   if (_map) setTimeout(() => _map.invalidateSize(), 260);
 });
-function showResponse(text) {
-  responseEl.textContent = text;
+const _TRANSCRIPT_MAX_LINES = 200; // bound DOM/memory growth over an all-day sail
+let _lastTranscriptLine = null;
+
+function _appendTranscript(text) {
+  if (!text || text === '...' || text === _lastTranscriptLine) return; // skip the
+                       // transient "working" placeholder and dedupe the common
+                       // showResponse+TTS pairing
+  _lastTranscriptLine = text;
+  const line = document.createElement('div');
+  line.className = 'transcript-line';
+  const time = document.createElement('span');
+  time.className = 'transcript-time';
+  time.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const body = document.createElement('span');
+  body.className = 'transcript-body';
+  body.textContent = text;
+  line.appendChild(time);
+  line.appendChild(body);
+  responseEl.appendChild(line);
+  while (responseEl.children.length > _TRANSCRIPT_MAX_LINES) {
+    responseEl.removeChild(responseEl.firstChild);
+  }
   responseAreaEl.style.display = 'block';
+  responseAreaEl.scrollTop = responseAreaEl.scrollHeight;
+}
+
+function showResponse(text) {
+  _appendTranscript(text);
   navaidListEl.style.display = 'none';
   navaidListEl.innerHTML = '';
   _mapContainer.classList.remove('map-compact', 'list-focus');
@@ -1470,6 +1498,8 @@ function _exitDrawRouteMode(skipRefresh = false) {
 }
 
 document.getElementById('draw-cancel-btn').addEventListener('click', _exitDrawRouteMode);
+document.getElementById('focus-place-confirm-btn').addEventListener('click', _confirmFocusPlace);
+document.getElementById('focus-place-cancel-btn').addEventListener('click', _cancelFocusPlace);
 
 const ROUTE_KEY = 'audiochart-user-routes';
 const HIDDEN_ROUTES_KEY = 'audiochart-hidden-routes';
@@ -2222,6 +2252,95 @@ function _nearestEditVertexIdx(lat, lon, pxTolerance = 20) {
     if (d < bestD) { bestD = d; best = i; }
   });
   return bestD <= pxTolerance ? best : -1;
+}
+
+// Nearest named object (route-edit vertex, navaid, or saved waypoint) within pxTolerance
+// screen pixels of lat/lon, or null. Used to snap the drag-to-place focus marker.
+function _nearestSnapTarget(lat, lon, pxTolerance = 20) {
+  if (!_map) return null;
+  const pt = _map.latLngToContainerPoint([lat, lon]);
+  let best = null, bestD = pxTolerance;
+
+  const vIdx = _nearestEditVertexIdx(lat, lon, pxTolerance);
+  if (vIdx >= 0) {
+    const p = _editPoints[vIdx];
+    const d = pt.distanceTo(_map.latLngToContainerPoint([p.lat, p.lon]));
+    if (d < bestD) { bestD = d; best = { lat: p.lat, lon: p.lon, name: `${_editRouteName} WP${vIdx + 1}`, type: 'coord' }; }
+  }
+
+  for (const f of Query.navaids?.features || []) {
+    const [flon, flat] = f.geometry.coordinates;
+    const d = pt.distanceTo(_map.latLngToContainerPoint([flat, flon]));
+    if (d < bestD) {
+      const p = f.properties;
+      const label = p.name || [p.label, p.characteristic || p.colour].filter(Boolean).join(' ');
+      bestD = d; best = { lat: flat, lon: flon, name: label, type: 'place' };
+    }
+  }
+
+  for (const w of loadUserWaypoints()) {
+    const d = pt.distanceTo(_map.latLngToContainerPoint([w.lat, w.lon]));
+    if (d < bestD) { bestD = d; best = { lat: w.lat, lon: w.lon, name: w.name, type: 'waypoint' }; }
+  }
+
+  return best;
+}
+
+// Drag-to-place focus marker: shows an idle-pulsing marker the user can drag, which snaps
+// to and flashes near named objects, then confirms via the #focus-place-banner.
+function _enterFocusPlaceMode(latlng) {
+  if (_sketchMode || _drawMode) return;   // those modes hijack touch/click in capture phase
+  if (_addNodeMode) _cancelAddNodeMode(); // avoid a stray _editPlaceNode mouseup inserting a route node
+  _focusPlaceMode = true;
+  _focusPlaceSnap = null;
+
+  _focusPlaceMarker = L.marker(latlng, {
+    icon: L.divIcon({ className: 'focus-place-marker focus-place-idle', iconSize: [18, 18], iconAnchor: [9, 9] }),
+    draggable: true,
+    zIndexOffset: 1200,
+  }).addTo(_map);
+
+  _focusPlaceMarker.on('drag', () => {
+    const ll = _focusPlaceMarker.getLatLng();
+    const snap = _nearestSnapTarget(ll.lat, ll.lng);
+    _focusPlaceSnap = snap;
+    const el = _focusPlaceMarker.getElement();
+    if (snap) {
+      _focusPlaceMarker.setLatLng([snap.lat, snap.lon]);
+      el?.classList.replace('focus-place-idle', 'focus-place-locked');
+      document.getElementById('focus-place-banner-label').textContent = `🎯 Snapped: ${snap.name}`;
+    } else {
+      el?.classList.replace('focus-place-locked', 'focus-place-idle');
+      document.getElementById('focus-place-banner-label').textContent = 'Placing focus…';
+    }
+  });
+
+  document.getElementById('focus-place-banner-label').textContent = 'Placing focus…';
+  document.getElementById('focus-place-banner').style.display = 'flex';
+}
+
+function _confirmFocusPlace() {
+  const ll   = _focusPlaceMarker.getLatLng();
+  const snap = _focusPlaceSnap;
+  const lat  = snap ? snap.lat : ll.lat;
+  const lon  = snap ? snap.lon : ll.lng;
+  const name = snap ? snap.name : null;
+  const type = snap ? snap.type : 'coord';
+  Query.setFocus(lat, lon, name, type);
+  _updateFocusButton();
+  const msg = `Focused on ${name || 'this point'}.`;
+  showResponse(msg);
+  TTS.sayImmediate(msg);
+  _exitFocusPlaceMode();
+}
+
+function _cancelFocusPlace() { _exitFocusPlaceMode(); }
+
+function _exitFocusPlaceMode() {
+  _focusPlaceMode = false;
+  document.getElementById('focus-place-banner').style.display = 'none';
+  if (_focusPlaceMarker) { _map.removeLayer(_focusPlaceMarker); _focusPlaceMarker = null; }
+  _focusPlaceSnap = null;
 }
 
 function _animateEditRoute() {
@@ -4597,23 +4716,7 @@ function _ensureMap() {
   document.getElementById('map-ctx-set-focus').addEventListener('click', () => {
     _hideCtx();
     if (!_ctxLatLng) return;
-    // If the long-press landed on (or very near) a route node while editing, name the
-    // focus after that node instead of a bare "this point" — e.g. "Rockland-PerryCreek WP2".
-    const vIdx = _nearestEditVertexIdx(_ctxLatLng.lat, _ctxLatLng.lng);
-    if (vIdx >= 0) {
-      const label = `${_editRouteName} WP${vIdx + 1}`;
-      Query.setFocus(_editPoints[vIdx].lat, _editPoints[vIdx].lon, label, 'coord');
-      _updateFocusButton();
-      const msg = `Focused on ${label}.`;
-      showResponse(msg);
-      TTS.sayImmediate(msg);
-      return;
-    }
-    Query.setFocus(_ctxLatLng.lat, _ctxLatLng.lng, null, 'coord');
-    _updateFocusButton();
-    const msg = 'Focused on this point.';
-    showResponse(msg);
-    TTS.sayImmediate(msg);
+    _enterFocusPlaceMode(_ctxLatLng);
   });
 
   _refreshWaypointLayer();

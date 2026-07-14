@@ -369,11 +369,29 @@ html, body {
 }
 
 #response-text {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.transcript-line {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
   font-size: 1rem;
-  line-height: 1.55;
+  line-height: 1.4;
   color: var(--text);
   white-space: pre-wrap;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  padding-top: 6px;
 }
+.transcript-line:first-child { border-top: none; padding-top: 0; }
+.transcript-time {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.transcript-body { flex: 1; min-width: 0; }
 
 /* Navaid / hazard result list (tap a row to hear it) */
 #navaid-list {
@@ -1113,6 +1131,37 @@ html, body {
   background: #f8d7d7;
   cursor: not-allowed;
 }
+.focus-place-marker {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  cursor: grab;
+  box-sizing: border-box;
+  border: 3px solid;
+}
+/* Idle — calm continuous pulse while not near anything. Pulses box-shadow rather than
+   opacity/scale so the marker itself never dims while the user is tracking it. */
+@keyframes focus-place-idle-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(74,158,221,0.35); }
+  50%      { box-shadow: 0 0 0 8px rgba(74,158,221,0.10); }
+}
+.focus-place-idle {
+  background: #4a9edd;
+  border-color: #14314f;
+  animation: focus-place-idle-pulse 1.6s ease-in-out infinite;
+}
+/* Locked-on — looped scale/opacity pop, distinct from the idle pulse, using the same
+   green as #focus-btn.focus-active so "locked on" matches the focus button's language. */
+@keyframes focus-place-lock-flash {
+  0%, 100% { transform: scale(1);   opacity: 1;    }
+  40%      { transform: scale(1.6); opacity: 0.55; }
+}
+.focus-place-locked {
+  background: #4ade80;
+  border-color: #0a2a16;
+  animation: focus-place-lock-flash 0.5s ease-in-out infinite;
+  transform-origin: center;
+}
 .route-endpoint-marker {
   width: 14px;
   height: 14px;
@@ -1249,6 +1298,38 @@ html, body {
   background: rgba(245,166,35,0.15);
   color: #f5a623;
   border: 1px solid #f5a623;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+#focus-place-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: var(--navy);
+  color: #4ade80;
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 8px 12px;
+  flex-shrink: 0;
+  border-top: 2px solid #4ade80;
+}
+#focus-place-confirm-btn {
+  background: var(--ok);
+  color: var(--navy);
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+#focus-place-cancel-btn {
+  background: rgba(74,222,128,0.12);
+  color: #4ade80;
+  border: 1px solid #4ade80;
   border-radius: 6px;
   padding: 4px 10px;
   font-size: 0.85rem;
