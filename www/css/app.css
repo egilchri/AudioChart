@@ -1150,17 +1150,19 @@ html, body {
   border-color: #14314f;
   animation: focus-place-idle-pulse 1.6s ease-in-out infinite;
 }
-/* Locked-on — looped scale/opacity pop, distinct from the idle pulse, using the same
-   green as #focus-btn.focus-active so "locked on" matches the focus button's language. */
+/* Locked-on — faster, more intense looped box-shadow flash than the idle pulse, using the
+   same green as #focus-btn.focus-active so "locked on" matches the focus button's language.
+   Deliberately avoids animating `transform` — Leaflet uses that property (translate3d) to
+   position the marker itself, so a transform-based animation here would fight it and leave
+   the icon rendered in the wrong place. */
 @keyframes focus-place-lock-flash {
-  0%, 100% { transform: scale(1);   opacity: 1;    }
-  40%      { transform: scale(1.6); opacity: 0.55; }
+  0%, 100% { box-shadow: 0 0 0 3px rgba(74,222,128,0.65); }
+  40%      { box-shadow: 0 0 0 11px rgba(74,222,128,0.15); }
 }
 .focus-place-locked {
   background: #4ade80;
   border-color: #0a2a16;
   animation: focus-place-lock-flash 0.5s ease-in-out infinite;
-  transform-origin: center;
 }
 .route-endpoint-marker {
   width: 14px;

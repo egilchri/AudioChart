@@ -314,6 +314,7 @@ function _updateFocusButton() {
   focusBtn.textContent = f ? `🎯 ${f.name || 'Point'}` : '🎯 --';
   focusBtn.classList.toggle('focus-active', !!f);
   focusBtn.title = f ? `Bearing & range to ${f.name || 'focused point'}` : 'No focus set';
+  _syncFocusMarker();
 }
 
 focusBtn?.addEventListener('click', () => {
@@ -655,6 +656,7 @@ let _drawMapMouseMove = null;
 let _focusPlaceMode   = false;  // true while the drag-to-place focus marker is live
 let _focusPlaceMarker = null;   // the draggable L.marker being positioned
 let _focusPlaceSnap   = null;   // {lat, lon, name, type} of the locked-on object, or null
+let _focusMarker      = null;   // persistent, always-draggable marker for the current focus
 let _viewportHazardLayer    = null; // hazard markers for current map viewport (edit mode)
 let _viewportHazardMoveEnd  = null; // moveend listener ref for cleanup
 let _routeNameLabels        = [];   // [{marker, pts}] for viewport-clamping on moveend
@@ -2341,6 +2343,55 @@ function _exitFocusPlaceMode() {
   document.getElementById('focus-place-banner').style.display = 'none';
   if (_focusPlaceMarker) { _map.removeLayer(_focusPlaceMarker); _focusPlaceMarker = null; }
   _focusPlaceSnap = null;
+}
+
+// Persistent, always-draggable marker for the current focus — lets the user nudge the
+// focus point at any time, not just during initial placement. Snaps the same way
+// _enterFocusPlaceMode's temporary marker does.
+function _syncFocusMarker() {
+  if (!_map) return;
+  const f = Query.focusedTarget;
+  if (!f) {
+    if (_focusMarker) { _map.removeLayer(_focusMarker); _focusMarker = null; }
+    return;
+  }
+  if (!_focusMarker) {
+    _focusMarker = L.marker([f.lat, f.lon], {
+      icon: L.divIcon({ className: 'focus-place-marker focus-place-locked', iconSize: [18, 18], iconAnchor: [9, 9] }),
+      draggable: true,
+      zIndexOffset: 1100,
+    }).addTo(_map);
+    _focusMarker.on('drag', () => {
+      const ll = _focusMarker.getLatLng();
+      const snap = _nearestSnapTarget(ll.lat, ll.lng);
+      const el = _focusMarker.getElement();
+      if (snap) {
+        _focusMarker.setLatLng([snap.lat, snap.lon]);
+        el?.classList.replace('focus-place-idle', 'focus-place-locked');
+      } else {
+        el?.classList.replace('focus-place-locked', 'focus-place-idle');
+      }
+    });
+    _focusMarker.on('dragend', () => {
+      const ll = _focusMarker.getLatLng();
+      const snap = _nearestSnapTarget(ll.lat, ll.lng);
+      const lat  = snap ? snap.lat : ll.lat;
+      const lon  = snap ? snap.lon : ll.lng;
+      const name = snap ? snap.name : null;
+      const type = snap ? snap.type : 'coord';
+      Query.setFocus(lat, lon, name, type);
+      _updateFocusButton();
+      const msg = `Focused on ${name || 'this point'}.`;
+      showResponse(msg);
+      TTS.sayImmediate(msg);
+    });
+  } else {
+    _focusMarker.setLatLng([f.lat, f.lon]);
+  }
+  _focusMarker.bindTooltip(f.name || 'Focus', { permanent: false, direction: 'top', className: 'map-tooltip' });
+  const el = _focusMarker.getElement();
+  el?.classList.toggle('focus-place-locked', !!f.name);
+  el?.classList.toggle('focus-place-idle', !f.name);
 }
 
 function _animateEditRoute() {
@@ -4721,6 +4772,7 @@ function _ensureMap() {
 
   _refreshWaypointLayer();
   _refreshYouLayer();
+  _syncFocusMarker();
 }
 
 async function showPositionMap(lat, lon) {
