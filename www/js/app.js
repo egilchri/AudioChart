@@ -717,6 +717,11 @@ document.getElementById('response-area').addEventListener('click', () => {
   if (_mapContainer.classList.contains('map-compact'))
     _mapContainer.classList.add('list-focus');
 });
+// Dismiss the transcript when it's in the way — reappears on the next response/utterance.
+document.getElementById('response-close-btn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  responseAreaEl.style.display = 'none';
+});
 // Touching/clicking the map → expand map to full height, release text input
 function _expandMap() {
   _mapContainer.classList.remove('list-focus', 'input-focus', 'map-compact');
