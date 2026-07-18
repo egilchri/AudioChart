@@ -145,11 +145,13 @@ function _showBoatPosition(lat, lon) {
   marker.on('drag', (e) => {
     const { lat: dLat, lng: dLon } = e.target.getLatLng();
     _updateBearingLines(dLat, dLon);
+    _updateFocusRay(dLat, dLon);
   });
   marker.on('dragend', (e) => {
     const { lat: newLat, lng: newLon } = e.target.getLatLng();
     GPS.setManualPosition(newLat, newLon);
     syncTestPosButton();
+    _updateFocusRay();
     setStatus('Test position moved.');
     if (serverUrl) {
       fetch(`${serverUrl}/api/test-position`, {
@@ -173,11 +175,13 @@ function _showBoatPosition(lat, lon) {
   (_depthOn ? _fetchTideHeight(lat, lon) : Promise.resolve())
     .catch(() => {})
     .then(() => _refreshNavaidOverlay());
+  _updateFocusRay();
 }
 
 function _clearBoatPosition() {
   if (_boatLayer && _map) { _map.removeLayer(_boatLayer); _boatLayer = null; }
   _refreshYouLayer();
+  _updateFocusRay();
 }
 
 function _refreshYouLayer() {
@@ -315,6 +319,7 @@ function _updateFocusButton() {
   focusBtn.classList.toggle('focus-active', !!f);
   focusBtn.title = f ? `Bearing & range to ${f.name || 'focused point'}` : 'No focus set';
   _syncFocusMarker();
+  _updateFocusRay();
 }
 
 focusBtn?.addEventListener('click', () => {
@@ -433,6 +438,7 @@ let _bearingAccumulator = [];   // persists bearing lines across successive bear
 let _waypointLayer = null;
 let _boatLayer = null;
 let _youLayer = null;
+let _focusRayLine = null;   // ray from the boat toward the current focus target
 let _boatCircleDismissed = false;  // true after user taps the boat once
 let _waypointsVisible = localStorage.getItem('audiochart-waypoints-visible') === 'true';
 let _leafletReady = false;
@@ -2376,6 +2382,15 @@ function _syncFocusMarker() {
       } else {
         el?.classList.replace('focus-place-locked', 'focus-place-idle');
       }
+      // Live-follow the ray to the dragged (not yet committed) target position.
+      const pos = GPS.getPosition();
+      if (pos && _focusRayLine) {
+        const tll = _focusMarker.getLatLng();
+        const brg  = Query.bearing(pos.lon, pos.lat, tll.lng, tll.lat);
+        const dist = Query.distanceNm(pos.lon, pos.lat, tll.lng, tll.lat);
+        const end  = _destinationPoint(pos.lat, pos.lon, brg, dist * 1.15);
+        _focusRayLine.setLatLngs([[pos.lat, pos.lon], [end.lat, end.lon]]);
+      }
     });
     _focusMarker.on('dragend', () => {
       const ll = _focusMarker.getLatLng();
@@ -3110,6 +3125,37 @@ window._debugTideCycle = () => {
   const ph = _tidePhaseAt(new Date());
   console.log('phase at now:', ph);
 };
+
+// Flat-earth approximation (matches _addLeaderLabel's convention) — fine at coastal scale.
+function _destinationPoint(lat, lon, bearingDeg, distNm) {
+  const brgRad = bearingDeg * Math.PI / 180;
+  const dLat = distNm * Math.cos(brgRad) / 60;
+  const dLon = distNm * Math.sin(brgRad) / 60 / Math.cos(lat * Math.PI / 180);
+  return { lat: lat + dLat, lon: lon + dLon };
+}
+
+// Persistent ray from the boat toward the current focus target, extending a bit past it.
+// lat/lon optionally override the boat position (used for live feedback while dragging).
+function _updateFocusRay(lat, lon) {
+  if (!_map) return;
+  const f = Query.focusedTarget;
+  const pos = (lat != null && lon != null) ? { lat, lon } : GPS.getPosition();
+  if (!f || !pos) {
+    if (_focusRayLine) { _map.removeLayer(_focusRayLine); _focusRayLine = null; }
+    return;
+  }
+  const brg  = Query.bearing(pos.lon, pos.lat, f.lon, f.lat);
+  const dist = Query.distanceNm(pos.lon, pos.lat, f.lon, f.lat);
+  const end  = _destinationPoint(pos.lat, pos.lon, brg, dist * 1.15);
+  const latlngs = [[pos.lat, pos.lon], [end.lat, end.lon]];
+  if (!_focusRayLine) {
+    _focusRayLine = L.polyline(latlngs, {
+      color: '#4ade80', weight: 2, opacity: 0.75, dashArray: '2 8', interactive: false,
+    }).addTo(_map);
+  } else {
+    _focusRayLine.setLatLngs(latlngs);
+  }
+}
 
 function _updateBearingLines(lat, lon) {
   for (const entry of _bearingAccumulator) {
@@ -4778,6 +4824,7 @@ function _ensureMap() {
   _refreshWaypointLayer();
   _refreshYouLayer();
   _syncFocusMarker();
+  _updateFocusRay();
 }
 
 async function showPositionMap(lat, lon) {
@@ -6132,6 +6179,7 @@ async function init() {
     async (lat, lon, accuracy, source) => {
       showPosition(lat, lon, accuracy, source);
       _refreshYouLayer();
+      _updateFocusRay();
       if (_animFollowMode && _map) _map.panTo([lat, lon]);
       if (!gpsReady) {
         gpsReady = true;
