@@ -65,9 +65,12 @@ function _waypointIcon() {
 }
 
 function _animBoatIcon(bearingDeg = 0) {
+  // The ⛵ glyph's neutral orientation has the sail/jib leading to the LEFT (screen-west,
+  // i.e. bearing 270°), not the right — so aligning it with bearingDeg needs +90, not -90,
+  // or the jib trails behind the boat and it visually looks like it's going backwards.
   return L.divIcon({
     className: '',
-    html: `<div class="anim-boat" style="transform:rotate(${bearingDeg - 90}deg)"><span class="anim-boat-rock">⛵</span></div>`,
+    html: `<div class="anim-boat" style="transform:rotate(${bearingDeg + 90}deg)"><span class="anim-boat-rock">⛵</span></div>`,
     iconSize: [28, 28],
     iconAnchor: [14, 14],
     tooltipAnchor: [14, -14],
@@ -3697,7 +3700,7 @@ function _startRouteAnimation(route, speedKnots) {
 
     const bearing = _segBearing(seg.lat1, seg.lon1, seg.lat2, seg.lon2);
     const boatEl  = _animMarker.getElement()?.querySelector('.anim-boat');
-    if (boatEl) boatEl.style.transform = `rotate(${bearing - 90}deg)`;
+    if (boatEl) boatEl.style.transform = `rotate(${bearing + 90}deg)`;
 
     if (track.zoom) {
       const b = _map.getBounds();
