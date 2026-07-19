@@ -138,7 +138,7 @@ function _boatIcon() {
 
 function _showBoatPosition(lat, lon) {
   if (!_map) return;
-  if (_simHeadingMode) _exitSimHeadingMode();
+  if (_simTrackMode) _exitSimTrackMode();
   if (_boatLayer) { _map.removeLayer(_boatLayer); _boatLayer = null; }
   const marker = L.marker([lat, lon], { icon: _boatIcon(), zIndexOffset: 1000, draggable: true });
 
@@ -191,7 +191,7 @@ function _refreshYouLayer() {
   if (_boatLayer) return; // test position already shown by boat layer
   const pos = GPS.getPosition();
   if (!pos) return;
-  const icon = _simHeadingMode ? _animBoatIcon(_simHeadingDeg) : _boatIcon();
+  const icon = _simTrackMode ? _animBoatIcon(_simTrackDeg) : _boatIcon();
   const m = L.marker([pos.lat, pos.lon], { icon, zIndexOffset: 800 });
 
   _youLayer = L.layerGroup([m]).addTo(_map);
@@ -665,13 +665,22 @@ let _focusPlaceMode   = false;  // true while the drag-to-place focus marker is 
 let _focusPlaceMarker = null;   // the draggable L.marker being positioned
 let _focusPlaceSnap   = null;   // {lat, lon, name, type} of the locked-on object, or null
 let _focusMarker      = null;   // persistent, always-draggable marker for the current focus
-let _simHeadingMode   = false;  // true while the Simulate Heading rehearsal is active
-let _simHeadingHandle = null;   // draggable marker at the ray's endpoint
-let _simHeadingLine   = null;   // the simulated-heading ray (separate layer from _focusRayLine)
-let _simHeadingDeg    = 0;      // current simulated heading, TRUE degrees, 0-359
-let _simHeadingLenNm  = 5;      // ray length in nm, locked in at mode-entry
-let _simHeadingBoat   = null;   // {lat, lon} captured when the mode was entered
-const SIM_HEADING_DEFAULT_NM = 5;
+let _simTrackMode       = false;  // true while the Simulate Track aiming/running UI is active
+let _simTrackRunning    = false;  // true only once Start has been pressed and the DR loop is animating
+let _simTrackHandle     = null;   // draggable marker at the course ray's endpoint (aiming phase only)
+let _simTrackRay        = null;   // dashed preview ray shown while aiming
+let _simTrackLine       = null;   // solid track trail shown once running (start -> current position)
+let _simTrackBoatMarker = null;   // separate moving boat icon, decoupled from the real GPS/test-position marker
+let _simTrackDeg        = 0;      // simulated course, TRUE degrees, 0-359 — locked once running
+let _simTrackLenNm      = 5;      // preview ray length in nm, locked in at mode-entry
+let _simTrackBoat       = null;   // {lat, lon} captured when the mode was entered — the DR start point
+let _simTrackSpeedKts   = 5;      // simulated speed, knots
+let _simTrackCompress   = 10;     // time-compression multiplier
+let _simTrackTraveledNm = 0;      // nm traveled so far along the course (persists across Stop)
+let _simTrackBaselineNm = 0;      // traveled-nm snapshot taken at the start of the current run segment
+let _simTrackRunStartMs = null;   // rAF timestamp anchor for the current run segment
+let _simTrackRafId      = null;
+const SIM_TRACK_DEFAULT_NM = 5;
 let _viewportHazardLayer    = null; // hazard markers for current map viewport (edit mode)
 let _viewportHazardMoveEnd  = null; // moveend listener ref for cleanup
 let _routeNameLabels        = [];   // [{marker, pts}] for viewport-clamping on moveend
@@ -1522,16 +1531,24 @@ function _exitDrawRouteMode(skipRefresh = false) {
 document.getElementById('draw-cancel-btn').addEventListener('click', _exitDrawRouteMode);
 document.getElementById('focus-place-confirm-btn').addEventListener('click', _confirmFocusPlace);
 document.getElementById('focus-place-cancel-btn').addEventListener('click', _cancelFocusPlace);
-document.getElementById('track-simulate-heading').addEventListener('click', () => {
+document.getElementById('track-simulate-track').addEventListener('click', () => {
   document.getElementById('map-context-menu').style.display = 'none';
-  _enterSimHeadingMode();
+  _enterSimTrackMode();
 });
-document.getElementById('sim-heading-done-btn').addEventListener('click', _exitSimHeadingMode);
-document.getElementById('sim-heading-cancel-btn').addEventListener('click', _exitSimHeadingMode);
-document.getElementById('sim-heading-input').addEventListener('input', (e) => {
-  if (!_simHeadingMode) return;
+document.getElementById('sim-track-close-btn').addEventListener('click', _exitSimTrackMode);
+document.getElementById('sim-track-start-btn').addEventListener('click', () => {
+  if (_simTrackRunning) _stopSimTrack(); else _startSimTrack();
+});
+document.getElementById('sim-track-course-input').addEventListener('input', (e) => {
+  if (!_simTrackMode || _simTrackRunning) return;
   const magVal = parseFloat(e.target.value);
-  if (!isNaN(magVal)) _updateSimHeadingRay(magneticToTrue(magVal));
+  if (!isNaN(magVal)) _updateSimTrackRay(magneticToTrue(magVal));
+});
+document.getElementById('sim-track-banner').addEventListener('click', (e) => {
+  const chip = e.target.closest('.track-sim-compress');
+  if (!chip || chip.disabled) return;
+  document.querySelectorAll('.track-sim-compress').forEach(b => b.classList.remove('selected'));
+  chip.classList.add('selected');
 });
 
 const ROUTE_KEY = 'audiochart-user-routes';
@@ -2607,6 +2624,7 @@ document.getElementById('etp-delete').addEventListener('click', () => {
 });
 
 document.getElementById('etp-animate').addEventListener('click', _animateEditRoute);
+document.getElementById('etp-simulate-track').addEventListener('click', _enterSimTrackMode);
 
 document.getElementById('etp-reroute').addEventListener('click', () => {
   if (!_editMode || _editPoints.length < 2) return;
@@ -3194,7 +3212,7 @@ function _nearestRouteWaypointAhead(lat, lon, route) {
 
 // Ray length + reference point, priority: selected route's next waypoint ahead >
 // current focus target > fixed default.
-function _simHeadingRefPoint(lat, lon) {
+function _simTrackRefPoint(lat, lon) {
   const sel = document.getElementById('track-route-select');
   const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
   const route = sel?.value !== '' ? routes[parseInt(sel.value)] : null;
@@ -3206,7 +3224,7 @@ function _simHeadingRefPoint(lat, lon) {
     const f = Query.focusedTarget;
     return { lat: f.lat, lon: f.lon, lenNm: Query.distanceNm(lon, lat, f.lon, f.lat) };
   }
-  return { lat: null, lon: null, lenNm: SIM_HEADING_DEFAULT_NM };
+  return { lat: null, lon: null, lenNm: SIM_TRACK_DEFAULT_NM };
 }
 
 // Swap whichever boat marker is currently shown (test-position or live-GPS layer) to
@@ -3219,59 +3237,162 @@ function _setBoatIconRotated(bearingDegTrue) {
 
 // bearingDegTrue: TRUE degrees (matches _destinationPoint/Query.bearing convention).
 // Banner/input display magnetic — this app shows bearings as magnetic everywhere else.
-function _updateSimHeadingRay(bearingDegTrue) {
+function _updateSimTrackRay(bearingDegTrue) {
+  if (_simTrackRunning) return; // course locked once the simulation is running
   bearingDegTrue = ((bearingDegTrue % 360) + 360) % 360;
-  _simHeadingDeg = bearingDegTrue;
-  const { lat, lon } = _simHeadingBoat;
-  const end = _destinationPoint(lat, lon, bearingDegTrue, _simHeadingLenNm);
+  _simTrackDeg = bearingDegTrue;
+  const { lat, lon } = _simTrackBoat;
+  const end = _destinationPoint(lat, lon, bearingDegTrue, _simTrackLenNm);
   const latlngs = [[lat, lon], [end.lat, end.lon]];
-  if (!_simHeadingLine) {
-    _simHeadingLine = L.polyline(latlngs, {
+  if (!_simTrackRay) {
+    _simTrackRay = L.polyline(latlngs, {
       color: '#38bdf8', weight: 2.5, opacity: 0.85, dashArray: '6 4', interactive: false,
     }).addTo(_map);
   } else {
-    _simHeadingLine.setLatLngs(latlngs);
+    _simTrackRay.setLatLngs(latlngs);
   }
-  _simHeadingHandle?.setLatLng([end.lat, end.lon]);
+  _simTrackHandle?.setLatLng([end.lat, end.lon]);
   _setBoatIconRotated(bearingDegTrue);
   const magDeg = Math.round(trueTomagnetic(bearingDegTrue));
-  document.getElementById('sim-heading-banner-label').textContent = `Heading: ${String(magDeg).padStart(3, '0')}°M`;
-  const input = document.getElementById('sim-heading-input');
+  const input = document.getElementById('sim-track-course-input');
   if (input && document.activeElement !== input) input.value = magDeg;
+  _updateSimTrackBannerText();
 }
 
-function _enterSimHeadingMode() {
-  if (_editMode || _sketchMode || _drawMode || _focusPlaceMode || _animMode) return;
+function _updateSimTrackBannerText() {
+  const label = document.getElementById('sim-track-banner-status');
+  if (!label) return;
+  const magDeg = Math.round(trueTomagnetic(_simTrackDeg));
+  if (!_simTrackRunning && _simTrackTraveledNm === 0) {
+    label.textContent = `Course: ${String(magDeg).padStart(3, '0')}°M — drag handle or Start`;
+    return;
+  }
+  const sailMin = Math.round(_simTrackTraveledNm / _simTrackSpeedKts * 60);
+  const state = _simTrackRunning ? '' : ' · stopped';
+  label.textContent =
+    `⛵ ${String(magDeg).padStart(3, '0')}°M · ${_simTrackSpeedKts} kts · ${_simTrackCompress}× · ` +
+    `${_simTrackTraveledNm.toFixed(1)} nm in ${sailMin} min sailing${state}`;
+}
+
+function _enterSimTrackMode() {
+  if (_sketchMode || _drawMode || _focusPlaceMode || _animMode) return; // _editMode intentionally allowed
   const pos = GPS.getPosition();
   if (!pos) { TTS.sayImmediate("Set the boat's position first."); return; }
-  _simHeadingMode = true;
-  _simHeadingBoat = { lat: pos.lat, lon: pos.lon };
+  if (_addNodeMode) _cancelAddNodeMode(); // avoid edit-mode's node-placement mouseup racing the drag handle
 
-  const ref = _simHeadingRefPoint(pos.lat, pos.lon);
-  _simHeadingLenNm = ref.lenNm;
+  _simTrackMode = true;
+  _simTrackRunning = false;
+  _simTrackTraveledNm = 0;
+  _simTrackBaselineNm = 0;
+  _simTrackBoat = { lat: pos.lat, lon: pos.lon };
+
+  const ref = _simTrackRefPoint(pos.lat, pos.lon);
+  _simTrackLenNm = ref.lenNm;
   const initialBrg = ref.lat != null ? Query.bearing(pos.lon, pos.lat, ref.lon, ref.lat) : 0;
 
-  _simHeadingHandle = L.marker([pos.lat, pos.lon], {
-    icon: L.divIcon({ className: 'sim-heading-handle', iconSize: [16, 16], iconAnchor: [8, 8] }),
+  _simTrackHandle = L.marker([pos.lat, pos.lon], {
+    icon: L.divIcon({ className: 'sim-track-handle', iconSize: [16, 16], iconAnchor: [8, 8] }),
     draggable: true,
     zIndexOffset: 1300,
   }).addTo(_map);
-  _simHeadingHandle.on('drag', () => {
-    const ll = _simHeadingHandle.getLatLng();
-    _updateSimHeadingRay(Query.bearing(_simHeadingBoat.lon, _simHeadingBoat.lat, ll.lng, ll.lat));
+  _simTrackHandle.on('drag', () => {
+    const ll = _simTrackHandle.getLatLng();
+    _updateSimTrackRay(Query.bearing(_simTrackBoat.lon, _simTrackBoat.lat, ll.lng, ll.lat));
   });
 
-  _updateSimHeadingRay(initialBrg);
-  document.getElementById('sim-heading-banner').style.display = 'flex';
+  const speedInput = document.getElementById('sim-track-speed-input');
+  if (speedInput && !speedInput.value) {
+    speedInput.value = document.getElementById('track-speed-input')?.value || 5;
+  }
+
+  _updateSimTrackRay(initialBrg);
+  document.getElementById('sim-track-start-btn').textContent = '▶ Start';
+  document.getElementById('sim-track-banner').style.display = 'flex';
 }
 
-function _exitSimHeadingMode() {
-  if (!_simHeadingMode) return;
-  _simHeadingMode = false;
-  document.getElementById('sim-heading-banner').style.display = 'none';
-  if (_simHeadingHandle) { _map.removeLayer(_simHeadingHandle); _simHeadingHandle = null; }
-  if (_simHeadingLine)   { _map.removeLayer(_simHeadingLine);   _simHeadingLine = null; }
-  _simHeadingBoat = null;
+function _startSimTrack() {
+  if (!_simTrackMode || _simTrackRunning) return;
+  const speedInput = document.getElementById('sim-track-speed-input');
+  const speed = parseFloat(speedInput.value);
+  if (!speed || speed <= 0) { TTS.sayImmediate('Enter a speed in knots first.'); return; }
+  _simTrackSpeedKts = speed;
+  _simTrackCompress = parseInt(document.querySelector('.track-sim-compress.selected')?.dataset.compress) || 1;
+
+  _simTrackRunning = true;
+  _simTrackBaselineNm = _simTrackTraveledNm;
+  _simTrackRunStartMs = null;
+
+  document.getElementById('sim-track-course-input').disabled = true;
+  speedInput.disabled = true;
+  document.querySelectorAll('.track-sim-compress').forEach(b => b.disabled = true);
+
+  if (!_simTrackLine) {
+    _simTrackLine = L.polyline(
+      [[_simTrackBoat.lat, _simTrackBoat.lon], [_simTrackBoat.lat, _simTrackBoat.lon]],
+      { color: '#38bdf8', weight: 3, opacity: 0.9, interactive: false }
+    ).addTo(_map);
+  }
+  if (!_map.getPane('simTrackBoatPane')) _map.createPane('simTrackBoatPane').style.zIndex = '760';
+  if (!_simTrackBoatMarker) {
+    _simTrackBoatMarker = L.marker([_simTrackBoat.lat, _simTrackBoat.lon], {
+      icon: _animBoatIcon(_simTrackDeg), pane: 'simTrackBoatPane',
+    }).addTo(_map);
+  }
+
+  document.getElementById('sim-track-start-btn').textContent = '⏸ Stop';
+  document.getElementById('sim-track-start-btn').classList.add('sim-track-running');
+  _simTrackRafId = requestAnimationFrame(_simTrackStep);
+}
+
+function _simTrackStep(now) {
+  if (!_simTrackMode || !_simTrackRunning) return;
+  if (_simTrackRunStartMs === null) _simTrackRunStartMs = now;
+
+  const elapsedSec   = (now - _simTrackRunStartMs) / 1000;
+  const nmPerRealSec = (_simTrackSpeedKts / 3600) * _simTrackCompress;
+  _simTrackTraveledNm = _simTrackBaselineNm + elapsedSec * nmPerRealSec;
+
+  const { lat: bLat, lon: bLon } = _simTrackBoat;
+  const cur = _destinationPoint(bLat, bLon, _simTrackDeg, _simTrackTraveledNm);
+
+  _simTrackLine.setLatLngs([[bLat, bLon], [cur.lat, cur.lon]]);
+  _simTrackBoatMarker.setLatLng([cur.lat, cur.lon]);
+
+  if (_map && !_map.getBounds().pad(-0.1).contains([cur.lat, cur.lon])) {
+    _map.panTo([cur.lat, cur.lon], { animate: true, duration: 0.4 });
+  }
+
+  _updateSimTrackBannerText();
+  _simTrackRafId = requestAnimationFrame(_simTrackStep);
+}
+
+function _stopSimTrack() {
+  if (!_simTrackRunning) return;
+  _simTrackRunning = false;
+  if (_simTrackRafId) { cancelAnimationFrame(_simTrackRafId); _simTrackRafId = null; }
+  document.getElementById('sim-track-start-btn').textContent = '▶ Start';
+  document.getElementById('sim-track-start-btn').classList.remove('sim-track-running');
+  _updateSimTrackBannerText();
+}
+
+function _exitSimTrackMode() {
+  if (!_simTrackMode) return;
+  _stopSimTrack();
+  _simTrackMode = false;
+  document.getElementById('sim-track-banner').style.display = 'none';
+  if (_simTrackHandle)     { _map.removeLayer(_simTrackHandle);     _simTrackHandle = null; }
+  if (_simTrackRay)        { _map.removeLayer(_simTrackRay);        _simTrackRay = null; }
+  if (_simTrackLine)       { _map.removeLayer(_simTrackLine);       _simTrackLine = null; }
+  if (_simTrackBoatMarker) { _map.removeLayer(_simTrackBoatMarker); _simTrackBoatMarker = null; }
+  _simTrackBoat = null;
+  _simTrackTraveledNm = 0;
+  _simTrackBaselineNm = 0;
+
+  const speedInput = document.getElementById('sim-track-speed-input');
+  if (speedInput) speedInput.disabled = false;
+  document.getElementById('sim-track-course-input').disabled = false;
+  document.querySelectorAll('.track-sim-compress').forEach(b => b.disabled = false);
+
   const marker = _boatLayer?.getLayers()[0] || _youLayer?.getLayers()[0];
   marker?.setIcon(_boatIcon());
 }
@@ -4396,7 +4517,7 @@ function _ensureMap() {
   });
   document.addEventListener('click', (e) => { if (!_ctxMenu.contains(e.target)) _hideCtx(); }, { capture: true });
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') { _hideCtx(); if (_addNodeMode) _cancelAddNodeMode(); if (_simHeadingMode) _exitSimHeadingMode(); }
+    if (e.key === 'Escape') { _hideCtx(); if (_addNodeMode) _cancelAddNodeMode(); if (_simTrackMode) _exitSimTrackMode(); }
   });
 
   document.getElementById('map-ctx-objects-parent').addEventListener('click', () => {

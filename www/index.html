@@ -108,6 +108,7 @@
         <button id="etp-delete">&#10005; Delete Nodes</button>
         <button id="etp-animate">&#9654; Animate</button>
         <button id="etp-reroute">&#8635; Reroute</button>
+        <button id="etp-simulate-track">&#129517; Simulate Track</button>
       </div>
     </div>
     <div id="sketch-banner" style="display:none">
@@ -125,12 +126,39 @@
       &nbsp;<button id="focus-place-confirm-btn">&#10003;</button>
       <button id="focus-place-cancel-btn">&#10005; Cancel</button>
     </div>
-    <div id="sim-heading-banner" style="display:none">
-      &#129517; <span id="sim-heading-banner-label">Heading: 000&deg;M</span>
-      <input id="sim-heading-input" type="number" min="0" max="359" step="1" value="0">
-      &deg;M
-      &nbsp;<button id="sim-heading-done-btn">&#10003; Done</button>
-      <button id="sim-heading-cancel-btn">&#10005; Cancel</button>
+    <div id="sim-track-banner" style="display:none">
+      <div class="track-speed-row" style="justify-content:space-between">
+        <span>&#129517; Simulate Track</span>
+        <button id="sim-track-close-btn" title="Close">&#10005;</button>
+      </div>
+      <div class="track-speed-row">
+        <span>Course:</span>
+        <input id="sim-track-course-input" type="number" min="0" max="359" step="1" value="0">
+        <span>&deg;M</span>
+        <span style="color:var(--text-dim);font-size:0.72rem">(drag handle on map)</span>
+      </div>
+      <div class="track-speed-row">
+        <span>Speed:</span>
+        <input id="sim-track-speed-input" type="number" min="0.1" max="50" step="0.1" placeholder="5" value="5">
+        <span>knots</span>
+      </div>
+      <div class="track-speed-row">
+        <span>Rate:</span>
+        <div class="track-chips-scroll">
+          <button class="track-chip track-sim-compress" data-compress="1">1&times;</button>
+          <button class="track-chip track-sim-compress selected" data-compress="10">10&times;</button>
+          <button class="track-chip track-sim-compress" data-compress="100">100&times;</button>
+          <button class="track-chip track-sim-compress" data-compress="500">500&times;</button>
+          <button class="track-chip track-sim-compress" data-compress="1000">1000&times;</button>
+          <button class="track-chip track-sim-compress" data-compress="2000">2000&times;</button>
+        </div>
+      </div>
+      <div class="track-speed-row">
+        <span id="sim-track-banner-status">Course: 000&deg;M &mdash; drag handle or Start</span>
+      </div>
+      <div class="track-speed-row">
+        <button id="sim-track-start-btn">&#9654; Start</button>
+      </div>
     </div>
     <div id="edit-banner" style="display:none">
       &#9998; <span id="edit-banner-label"></span> &nbsp;
@@ -247,7 +275,7 @@
         <select id="track-route-select">
           <option value="">— no routes saved —</option>
         </select>
-        <button id="track-simulate-heading" type="button">&#129517; Simulate heading</button>
+        <button id="track-simulate-track" type="button">&#129517; Simulate track</button>
         <div class="track-speed-row">
           <span>At</span>
           <input id="track-speed-input" type="number" min="0.1" max="50" step="0.1" placeholder="5" value="5">

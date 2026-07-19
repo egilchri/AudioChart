@@ -1183,7 +1183,7 @@ html, body {
   border-color: #0a2a16;
   animation: focus-place-lock-flash 0.5s ease-in-out infinite;
 }
-.sim-heading-handle {
+.sim-track-handle {
   width: 16px;
   height: 16px;
   border-radius: 50%;
@@ -1366,20 +1366,21 @@ html, body {
   font-size: 0.85rem;
   cursor: pointer;
 }
-#sim-heading-banner {
+#sim-track-banner {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
+  flex-direction: column;
+  gap: 4px;
   background: var(--navy);
   color: #38bdf8;
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   padding: 8px 12px;
   flex-shrink: 0;
   border-top: 2px solid #38bdf8;
+  max-height: 45dvh;
+  overflow-y: auto;
 }
-#sim-heading-banner input[type="number"] {
+#sim-track-banner input[type="number"] {
   width: 4.5em;
   background: var(--navy);
   color: var(--text);
@@ -1389,7 +1390,12 @@ html, body {
   font-size: 0.85rem;
   text-align: right;
 }
-#sim-heading-done-btn {
+#sim-track-banner input:disabled,
+#sim-track-banner .track-chip:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+#sim-track-start-btn {
   background: var(--ok);
   color: var(--navy);
   border: none;
@@ -1399,7 +1405,11 @@ html, body {
   font-weight: 700;
   cursor: pointer;
 }
-#sim-heading-cancel-btn {
+#sim-track-start-btn.sim-track-running {
+  background: var(--danger);
+  color: #fff;
+}
+#sim-track-close-btn {
   background: rgba(56,189,248,0.12);
   color: #38bdf8;
   border: 1px solid #38bdf8;
