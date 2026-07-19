@@ -28,6 +28,7 @@
       <button id="route-picker-btn" title="Show/hide routes">&#9998; Routes</button>
       <button id="reroute-btn" title="Re-route around land">&#8635;</button>
       <button id="delete-route-btn" title="Delete this route" style="display:none">&#128465;</button>
+      <button id="track-picker-btn" title="Show/hide tracks">&#9678; Tracks</button>
       <div id="zoom-slider-wrap">
         <span id="zoom-slider-label">11</span>
         <input type="range" id="zoom-slider" min="4" max="18" step="1" value="11">
@@ -51,6 +52,15 @@
         <div class="nf-actions">
           <button id="rp-show-all">All</button>
           <button id="rp-hide-all">None</button>
+        </div>
+      </div>
+      <div id="track-picker-panel">
+        <div class="nf-title">Tracks <button id="tp-close" title="Close">&#10005;</button></div>
+        <input id="tp-search" type="text" placeholder="Search tracks&hellip;" autocomplete="off">
+        <div id="tp-track-list"></div>
+        <div class="nf-actions">
+          <button id="tp-show-all">All</button>
+          <button id="tp-hide-all">None</button>
         </div>
       </div>
       <div id="navaid-filter-panel">
@@ -78,6 +88,7 @@
         <button id="route-btn" title="Download chart data for a cruise route" style="display:none">&#11015; Route</button>
         <button id="test-pos-btn" title="Set test position">&#128205;</button>
         <button id="focus-btn" title="No focus set">&#127919; --</button>
+        <button id="track-rec-btn" title="Record a GPS track">&#9679; Track</button>
         <div id="cruise-form" style="display:none">
           <span id="cruise-label">Download route:</span>
           <div id="cruise-choices"></div>

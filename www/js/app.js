@@ -326,6 +326,7 @@ const testPosClear = document.getElementById('test-pos-clear');
 const mapLink = document.getElementById('map-link');
 const opencpnBtn = document.getElementById('opencpn-btn');
 const focusBtn = document.getElementById('focus-btn');
+const trackRecBtn = document.getElementById('track-rec-btn');
 
 function _updateFocusButton() {
   if (!focusBtn) return;
@@ -654,6 +655,14 @@ let _editHistory           = [];    // stack of _editPoints snapshots for undo
 let _populateRouteSelectFn = null; // set by _ensureMap once DOM is ready
 let _savedRoutesLayer  = null;
 let _hiddenRouteNames  = new Set();
+let _savedTracksLayer     = null;
+let _hiddenTrackNames     = new Set();
+let _expandedRouteRowName = null;   // which Routes panel row (if any) shows Rename/Export
+let _expandedTrackRowName = null;   // same, for the Tracks panel
+let _trackRecActive       = false;  // true while recording a GPS breadcrumb track
+let _trackRecPoints       = [];     // [{lat, lon, t}]
+let _trackRecStartMs      = null;
+let _trackRecLastSampleTs = 0;
 let _extendingRouteIdx = -1;
 let _extendingFromEnd  = true;
 let _ctxRouteIdx       = -1;  // last route hovered; used by context-menu actions
@@ -1261,6 +1270,36 @@ function _refreshSavedRouteLayers() {
   });
 }
 
+// Recorded GPS breadcrumb trails — simpler than routes: no edit-mode hit-target layer
+// (not editable plans) and no per-segment bearing labels (would be noise for a real,
+// possibly-thousands-of-points trail). Just a colored polyline + a static name label.
+function _refreshSavedTrackLayers() {
+  if (!_map) return;
+  if (_savedTracksLayer) _savedTracksLayer.clearLayers();
+  else _savedTracksLayer = L.layerGroup();
+  _savedTracksLayer.addTo(_map);
+
+  const tracks = JSON.parse(localStorage.getItem(TRACK_KEY) || '[]');
+  tracks.forEach(track => {
+    if (!track.points || track.points.length < 2) return;
+    if (_hiddenTrackNames.has(track.name)) return;
+    const lls = track.points.map(p => [p.lat, p.lon]);
+    L.polyline(lls, { color: '#c77dff', weight: 3, opacity: 0.8, interactive: false }).addTo(_savedTracksLayer);
+    const mid = track.points[Math.floor(track.points.length / 2)];
+    L.marker([mid.lat, mid.lon], {
+      icon: L.divIcon({ className: 'route-name-label', html: track.name, iconSize: null }),
+      interactive: false,
+    }).addTo(_savedTracksLayer);
+  });
+
+  // Live preview of the in-progress recording, if active
+  if (_trackRecActive && _trackRecPoints.length >= 2) {
+    L.polyline(_trackRecPoints.map(p => [p.lat, p.lon]), {
+      color: '#c77dff', weight: 3, opacity: 0.5, dashArray: '4,4', interactive: false,
+    }).addTo(_savedTracksLayer);
+  }
+}
+
 // ── Sketch auto-pan ────────────────────────────────────────────────────────────
 
 function _sketchCheckAutoPan(latlng) {
@@ -1566,6 +1605,9 @@ document.getElementById('sim-track-banner').addEventListener('click', (e) => {
 
 const ROUTE_KEY = 'audiochart-user-routes';
 const HIDDEN_ROUTES_KEY = 'audiochart-hidden-routes';
+const TRACK_KEY = 'audiochart-user-tracks';
+const HIDDEN_TRACKS_KEY = 'audiochart-hidden-tracks';
+const IN_PROGRESS_TRACK_KEY = 'audiochart-track-in-progress'; // {startMs, points}
 
 function _loadHiddenRoutes() {
   const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
@@ -1575,6 +1617,16 @@ function _loadHiddenRoutes() {
 
 function _saveHiddenRoutes() {
   localStorage.setItem(HIDDEN_ROUTES_KEY, JSON.stringify([..._hiddenRouteNames]));
+}
+
+function _loadHiddenTracks() {
+  const tracks = JSON.parse(localStorage.getItem(TRACK_KEY) || '[]');
+  _hiddenTrackNames = new Set(tracks.map(t => t.name));
+  _saveHiddenTracks();
+}
+
+function _saveHiddenTracks() {
+  localStorage.setItem(HIDDEN_TRACKS_KEY, JSON.stringify([..._hiddenTrackNames]));
 }
 
 // Place-name reverse-geocode cache: "lat,lon" → nearest named place string
@@ -2666,8 +2718,10 @@ document.getElementById('etp-reroute').addEventListener('click', () => {
 
 function _downloadGpx(points, routeName) {
   const trkpts = points.map(p => {
-    const iso = new Date(p.t).toISOString();
-    return `    <trkpt lat="${p.lat.toFixed(7)}" lon="${p.lon.toFixed(7)}"><time>${iso}</time></trkpt>`;
+    // Route points have no per-point timestamp (they're planned paths, not a real track) —
+    // omit <time> rather than fabricate one.
+    const timeTag = (p.t != null) ? `<time>${new Date(p.t).toISOString()}</time>` : '';
+    return `    <trkpt lat="${p.lat.toFixed(7)}" lon="${p.lon.toFixed(7)}">${timeTag}</trkpt>`;
   }).join('\n');
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="AudioChart">
@@ -2687,6 +2741,55 @@ ${trkpts}
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+// Builds the lower-right Rename/Export corner controls for an .rp-row (shared between the
+// Routes and Tracks list panels). getPoints() returns the point array to export; onRename(newName)
+// persists the rename and should itself trigger a re-render of the owning panel.
+function _buildRpCornerButtons(row, name, getPoints, onRename) {
+  const corner = document.createElement('div');
+  corner.className = 'rp-corner';
+
+  const renameBtn = document.createElement('button');
+  renameBtn.type = 'button';
+  renameBtn.className = 'rp-corner-btn';
+  renameBtn.textContent = '✎ Rename';
+  renameBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const nameLine = row.querySelector('.rp-row-name');
+    const nameText = nameLine.querySelector('span');
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = name;
+    input.className = 'rp-rename-input';
+    input.addEventListener('click', (ev) => ev.stopPropagation());
+    input.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') saveBtn.click(); });
+    const saveBtn = document.createElement('button');
+    saveBtn.type = 'button';
+    saveBtn.textContent = '✓';
+    saveBtn.className = 'rp-corner-btn';
+    saveBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const newName = input.value.trim();
+      if (newName && newName !== name) onRename(newName);
+    });
+    nameText.replaceWith(input);
+    nameLine.insertBefore(saveBtn, corner);
+    input.focus();
+  });
+
+  const exportBtn = document.createElement('button');
+  exportBtn.type = 'button';
+  exportBtn.className = 'rp-corner-btn';
+  exportBtn.textContent = '⬇ Export';
+  exportBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    _downloadGpx(getPoints(), name);
+  });
+
+  corner.appendChild(renameBtn);
+  corner.appendChild(exportBtn);
+  return corner;
 }
 
 // ── Route animation ───────────────────────────────────────────────────────────
@@ -3848,6 +3951,8 @@ function _ensureMap() {
   _syncLayerBtn();
   _syncSeamarkBtn();
   _loadHiddenRoutes();
+  _loadHiddenTracks();
+  _refreshSavedTrackLayers();
 
   // Zoom slider (desktop only — hidden by CSS on mobile)
   const _zoomSlider = document.getElementById('zoom-slider');
@@ -4053,8 +4158,9 @@ function _ensureMap() {
       const startName = first ? (_nearestPlaceName(first.lat, first.lon) || `${first.lat.toFixed(3)},${first.lon.toFixed(3)}`) : '';
       const endName   = last  ? (_nearestPlaceName(last.lat,  last.lon)  || `${last.lat.toFixed(3)},${last.lon.toFixed(3)}`)   : '';
       const hidden = _hiddenRouteNames.has(route.name);
+      const expanded = route.name === _expandedRouteRowName;
       const row = document.createElement('button');
-      row.className = 'rp-row' + (hidden ? ' hidden' : '');
+      row.className = 'rp-row' + (hidden ? ' hidden' : '') + (expanded ? ' expanded' : '');
       const nameLine = document.createElement('div');
       nameLine.className = 'rp-row-name';
       const nameText = document.createElement('span');
@@ -4073,11 +4179,29 @@ function _ensureMap() {
         _saveHiddenRoutes();
         if (localStorage.getItem('audiochart-last-route') === route.name)
           localStorage.removeItem('audiochart-last-route');
+        if (_expandedRouteRowName === route.name) _expandedRouteRowName = null;
         _refreshSavedRouteLayers();
         _populateRouteSelectFn?.();
         _buildRoutePickerPanel();
       });
       nameLine.appendChild(delBtn);
+      nameLine.appendChild(_buildRpCornerButtons(row, route.name, () => route.points, (newName) => {
+        const routes2 = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+        const idx = routes2.findIndex(r => r.name === route.name);
+        if (idx < 0) return;
+        const oldName = routes2[idx].name;
+        routes2[idx].name = newName;
+        localStorage.setItem(ROUTE_KEY, JSON.stringify(routes2));
+        if (localStorage.getItem('audiochart-last-route') === oldName) {
+          localStorage.setItem('audiochart-last-route', newName);
+        }
+        if (_hiddenRouteNames.has(oldName)) { _hiddenRouteNames.delete(oldName); _hiddenRouteNames.add(newName); }
+        _saveHiddenRoutes();
+        if (_expandedRouteRowName === oldName) _expandedRouteRowName = newName;
+        _populateRouteSelectFn?.();
+        _refreshSavedRouteLayers();
+        _buildRoutePickerPanel();
+      }));
       row.appendChild(nameLine);
       if (startName || endName) {
         const placeLine = document.createElement('div');
@@ -4092,6 +4216,7 @@ function _ensureMap() {
           _hiddenRouteNames.add(route.name);
         }
         _saveHiddenRoutes();
+        _expandedRouteRowName = (_expandedRouteRowName === route.name) ? null : route.name;
         _refreshSavedRouteLayers();
         _buildRoutePickerPanel();
       });
@@ -4196,6 +4321,126 @@ function _ensureMap() {
     _buildRoutePickerPanel();
   });
   _map.on('click', _closeRoutePicker);
+
+  // ◎ Track picker panel
+  const _trackPickerBtn   = document.getElementById('track-picker-btn');
+  const _trackPickerPanel = document.getElementById('track-picker-panel');
+  const _closeTrackPicker = () => {
+    _trackPickerPanel.classList.remove('open');
+    _trackPickerBtn.classList.remove('active');
+  };
+
+  function _buildTrackPickerPanel() {
+    const list  = document.getElementById('tp-track-list');
+    const query = (document.getElementById('tp-search').value || '').toLowerCase();
+    const tracks = JSON.parse(localStorage.getItem(TRACK_KEY) || '[]');
+    list.innerHTML = '';
+    const filtered = tracks.filter(t => {
+      if (!query) return true;
+      const first = t.points?.[0];
+      const last  = t.points?.[t.points.length - 1];
+      const startName = first ? (_nearestPlaceName(first.lat, first.lon) || '') : '';
+      const endName   = last  ? (_nearestPlaceName(last.lat,  last.lon)  || '') : '';
+      const haystack  = (t.name + ' ' + startName + ' ' + endName).toLowerCase();
+      return haystack.includes(query);
+    });
+    if (filtered.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'rp-empty';
+      empty.textContent = tracks.length === 0 ? 'No saved tracks.' : 'No tracks match.';
+      list.appendChild(empty);
+      return;
+    }
+    filtered.forEach(track => {
+      const first = track.points?.[0];
+      const last  = track.points?.[track.points.length - 1];
+      const startName = first ? (_nearestPlaceName(first.lat, first.lon) || `${first.lat.toFixed(3)},${first.lon.toFixed(3)}`) : '';
+      const endName   = last  ? (_nearestPlaceName(last.lat,  last.lon)  || `${last.lat.toFixed(3)},${last.lon.toFixed(3)}`)   : '';
+      const hidden = _hiddenTrackNames.has(track.name);
+      const expanded = track.name === _expandedTrackRowName;
+      const row = document.createElement('button');
+      row.className = 'rp-row' + (hidden ? ' hidden' : '') + (expanded ? ' expanded' : '');
+      const nameLine = document.createElement('div');
+      nameLine.className = 'rp-row-name';
+      const nameText = document.createElement('span');
+      nameText.textContent = track.name;
+      nameLine.appendChild(nameText);
+      const delBtn = document.createElement('button');
+      delBtn.className = 'rp-delete-btn';
+      delBtn.textContent = '×';
+      delBtn.title = 'Delete track';
+      delBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!confirm(`Delete track "${track.name}"?`)) return;
+        const all = JSON.parse(localStorage.getItem(TRACK_KEY) || '[]');
+        localStorage.setItem(TRACK_KEY, JSON.stringify(all.filter(t => t.name !== track.name)));
+        _hiddenTrackNames.delete(track.name);
+        _saveHiddenTracks();
+        if (_expandedTrackRowName === track.name) _expandedTrackRowName = null;
+        _refreshSavedTrackLayers();
+        _buildTrackPickerPanel();
+      });
+      nameLine.appendChild(delBtn);
+      nameLine.appendChild(_buildRpCornerButtons(row, track.name, () => track.points, (newName) => {
+        const tracks2 = JSON.parse(localStorage.getItem(TRACK_KEY) || '[]');
+        const idx = tracks2.findIndex(t => t.name === track.name);
+        if (idx < 0) return;
+        const oldName = tracks2[idx].name;
+        tracks2[idx].name = newName;
+        localStorage.setItem(TRACK_KEY, JSON.stringify(tracks2));
+        if (_hiddenTrackNames.has(oldName)) { _hiddenTrackNames.delete(oldName); _hiddenTrackNames.add(newName); }
+        _saveHiddenTracks();
+        if (_expandedTrackRowName === oldName) _expandedTrackRowName = newName;
+        _refreshSavedTrackLayers();
+        _buildTrackPickerPanel();
+      }));
+      row.appendChild(nameLine);
+      if (startName || endName) {
+        const placeLine = document.createElement('div');
+        placeLine.className = 'rp-row-places';
+        placeLine.textContent = startName + (endName && endName !== startName ? ' → ' + endName : '');
+        row.appendChild(placeLine);
+      }
+      row.addEventListener('click', () => {
+        if (_hiddenTrackNames.has(track.name)) {
+          _hiddenTrackNames.delete(track.name);
+        } else {
+          _hiddenTrackNames.add(track.name);
+        }
+        _saveHiddenTracks();
+        _expandedTrackRowName = (_expandedTrackRowName === track.name) ? null : track.name;
+        _refreshSavedTrackLayers();
+        _buildTrackPickerPanel();
+      });
+      list.appendChild(row);
+    });
+  }
+
+  _trackPickerBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const opening = !_trackPickerPanel.classList.contains('open');
+    _trackPickerPanel.classList.toggle('open');
+    _trackPickerBtn.classList.toggle('active', opening);
+    if (opening) _buildTrackPickerPanel();
+  });
+
+  document.getElementById('tp-close').addEventListener('click', _closeTrackPicker);
+  document.getElementById('tp-search').addEventListener('input', _buildTrackPickerPanel);
+  document.getElementById('tp-show-all').addEventListener('click', () => {
+    const tracks = JSON.parse(localStorage.getItem(TRACK_KEY) || '[]');
+    tracks.forEach(t => _hiddenTrackNames.delete(t.name));
+    _saveHiddenTracks();
+    _refreshSavedTrackLayers();
+    _buildTrackPickerPanel();
+  });
+  document.getElementById('tp-hide-all').addEventListener('click', () => {
+    const tracks = JSON.parse(localStorage.getItem(TRACK_KEY) || '[]');
+    tracks.forEach(t => _hiddenTrackNames.add(t.name));
+    _saveHiddenTracks();
+    _refreshSavedTrackLayers();
+    _buildTrackPickerPanel();
+  });
+  _map.on('click', _closeTrackPicker);
 
   // Keep panel in sync after route changes — called from _populateRouteSelect below
   const _rebuildPickerIfOpen = () => {
@@ -6150,6 +6395,58 @@ document.addEventListener('click', (e) => {
   _closeTestPosForm();
 }, { capture: true });
 
+// ── Track recording ──────────────────────────────────────────────────────────
+trackRecBtn?.addEventListener('click', () => {
+  if (!_trackRecActive) {
+    _trackRecActive = true;
+    _trackRecStartMs = Date.now();
+    _trackRecPoints = [];
+    _trackRecLastSampleTs = 0;
+    trackRecBtn.textContent = '⏹ Stop';
+    trackRecBtn.classList.add('rec-active');
+    return;
+  }
+  _trackRecActive = false;
+  const name = prompt('Save track as:', `Track ${new Date(_trackRecStartMs).toLocaleString()}`);
+  if (name && name.trim()) {
+    const tracks = JSON.parse(localStorage.getItem(TRACK_KEY) || '[]');
+    tracks.push({ name: name.trim(), points: _trackRecPoints });
+    localStorage.setItem(TRACK_KEY, JSON.stringify(tracks));
+  }
+  localStorage.removeItem(IN_PROGRESS_TRACK_KEY);
+  _trackRecPoints = [];
+  _trackRecStartMs = null;
+  trackRecBtn.textContent = '⏺ Track';
+  trackRecBtn.classList.remove('rec-active');
+  _refreshSavedTrackLayers();
+});
+
+function _recoverInProgressTrack() {
+  const raw = localStorage.getItem(IN_PROGRESS_TRACK_KEY);
+  if (!raw) return;
+  try {
+    const { startMs, points } = JSON.parse(raw);
+    if (!points || points.length < 2) { localStorage.removeItem(IN_PROGRESS_TRACK_KEY); return; }
+    const mins = Math.round((Date.now() - startMs) / 60000);
+    if (confirm(`Found an unsaved track recording (${points.length} points, started ${mins} min ago). Resume recording it?`)) {
+      _trackRecActive = true;
+      _trackRecStartMs = startMs;
+      _trackRecPoints = points;
+      _trackRecLastSampleTs = points[points.length - 1].t;
+      trackRecBtn.textContent = '⏹ Stop';
+      trackRecBtn.classList.add('rec-active');
+    } else {
+      const name = prompt('Save the recovered points as a track before discarding? Leave blank to discard.', '');
+      if (name && name.trim()) {
+        const tracks = JSON.parse(localStorage.getItem(TRACK_KEY) || '[]');
+        tracks.push({ name: name.trim(), points });
+        localStorage.setItem(TRACK_KEY, JSON.stringify(tracks));
+      }
+      localStorage.removeItem(IN_PROGRESS_TRACK_KEY);
+    }
+  } catch (_) { localStorage.removeItem(IN_PROGRESS_TRACK_KEY); }
+}
+
 testPosSet.addEventListener('click', async () => {
   let raw = testPosInput.value.trim();
   // Empty input → use first stop of the active cruise region as default
@@ -6350,6 +6647,7 @@ async function init() {
 
   Query.loadStoredFocus();
   _updateFocusButton();
+  _recoverInProgressTrack();
 
   // Show the map immediately on all devices (sidebar was removed in v198)
   loadLeaflet().then(() => {
@@ -6433,6 +6731,15 @@ async function init() {
       showPosition(lat, lon, accuracy, source);
       _refreshYouLayer();
       _updateFocusRay();
+      if (_trackRecActive) {
+        const now = Date.now();
+        if (now - _trackRecLastSampleTs >= 1000) {
+          _trackRecLastSampleTs = now;
+          _trackRecPoints.push({ lat, lon, t: now });
+          localStorage.setItem(IN_PROGRESS_TRACK_KEY, JSON.stringify({ startMs: _trackRecStartMs, points: _trackRecPoints }));
+          _refreshSavedTrackLayers();
+        }
+      }
       if (_animFollowMode && _map) _map.panTo([lat, lon]);
       if (!gpsReady) {
         gpsReady = true;

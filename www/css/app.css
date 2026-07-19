@@ -105,7 +105,7 @@ html, body {
 .status-badge.gps-test { background: #4a2a00; color: var(--warn); }
 
 /* Offline prep, route download + test position buttons in header */
-#offline-btn, #route-btn, #test-pos-btn, #focus-btn {
+#offline-btn, #route-btn, #test-pos-btn, #focus-btn, #track-rec-btn {
   background: none;
   border: 1px solid var(--mid-blue);
   border-radius: 6px;
@@ -115,12 +115,14 @@ html, body {
   cursor: pointer;
   white-space: nowrap;
 }
-#offline-btn:hover, #route-btn:hover, #test-pos-btn:hover, #focus-btn:hover { border-color: var(--accent); color: var(--text); }
+#offline-btn:hover, #route-btn:hover, #test-pos-btn:hover, #focus-btn:hover, #track-rec-btn:hover { border-color: var(--accent); color: var(--text); }
 #offline-btn:disabled, #route-btn:disabled { opacity: 0.5; cursor: default; }
 #test-pos-btn.test-active { border-color: var(--danger); color: var(--danger); background: #2a0a0a; font-weight: 700; }
 #test-pos-btn.test-active:hover { border-color: var(--danger); color: #ff8080; background: #3a0a0a; }
 #focus-btn.focus-active { border-color: #1a6b3c; color: #4ade80; background: #0a2a16; }
 #focus-btn.focus-active:hover { border-color: #2a8b4c; color: #6aeea0; background: #0f3a1e; }
+#track-rec-btn.rec-active { border-color: var(--danger); color: var(--danger); background: #2a0a0a; font-weight: 700; }
+#track-rec-btn.rec-active:hover { border-color: var(--danger); color: #ff8080; background: #3a0a0a; }
 
 /* Demo mode HUD — fixed bar showing current command */
 #demo-hud {
@@ -678,6 +680,68 @@ html, body {
 }
 #delete-route-btn:active { background: #e05252; color: var(--text); }
 
+#track-picker-btn {
+  position: absolute;
+  bottom: 420px;
+  right: 10px;
+  z-index: 1000;
+  width: 64px;
+  height: 48px;
+  background: var(--dark-blue);
+  color: var(--text);
+  border: 1px solid var(--mid-blue);
+  border-radius: 10px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  -webkit-tap-highlight-color: transparent;
+}
+#track-picker-btn:active { background: var(--mid-blue); }
+#track-picker-btn.active  { background: var(--accent);  color: var(--navy); }
+
+#track-picker-panel {
+  display: none;
+  position: absolute;
+  bottom: 420px;
+  right: 10px;
+  z-index: 1001;
+  background: var(--dark-blue);
+  border: 1px solid var(--mid-blue);
+  border-radius: 10px;
+  padding: 10px 14px;
+  min-width: 200px;
+  max-width: min(320px, calc(100vw - 80px));
+  box-shadow: 0 2px 12px rgba(0,0,0,0.7);
+  font-size: 0.85rem;
+  color: var(--text);
+  flex-direction: column;
+  gap: 6px;
+}
+#track-picker-panel.open { display: flex; }
+#tp-search {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--mid-blue);
+  border: 1px solid var(--mid-blue);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.82rem;
+  padding: 5px 8px;
+}
+#tp-search::placeholder { color: var(--text-dim); }
+#tp-search:focus { outline: none; border-color: var(--accent); }
+#tp-track-list {
+  max-height: 40dvh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
 #route-picker-panel {
   display: none;
   position: absolute;
@@ -768,6 +832,28 @@ html, body {
 }
 .rp-delete-btn:hover { color: var(--danger); }
 @media (hover: none) { .rp-delete-btn { visibility: visible; } }
+.rp-corner { display: none; margin-left: auto; align-self: flex-end; gap: 6px; }
+.rp-row.expanded .rp-corner { display: flex; }
+.rp-corner-btn {
+  background: none;
+  border: 1px solid var(--mid-blue);
+  border-radius: 4px;
+  color: var(--text-dim);
+  font-size: 0.72rem;
+  padding: 2px 6px;
+  cursor: pointer;
+}
+.rp-corner-btn:hover { border-color: var(--accent); color: var(--text); }
+.rp-rename-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--mid-blue);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  color: var(--text);
+  font-size: 0.85rem;
+  padding: 1px 4px;
+}
 .rp-row-places {
   font-size: 0.75rem;
   color: var(--text-dim);
