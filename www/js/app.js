@@ -64,13 +64,23 @@ function _waypointIcon() {
   });
 }
 
+// The ⛵ glyph is a side-profile boat with the sail/jib leading to the LEFT (screen-west)
+// in its neutral, hull-down orientation. A single continuous rotation can't represent every
+// heading without passing through upside-down/capsized-looking orientations for half the
+// compass. Instead, mirror the glyph horizontally for the eastward half of the compass (so
+// it always faces "forward" toward its target half — left or right) and rotate by at most
+// ±90° from that horizontal reference, so the hull never flips above the sail.
+function _boatIconTransform(bearingDeg) {
+  const b = ((bearingDeg % 360) + 360) % 360;
+  const facingRight = b >= 0 && b <= 180;
+  const rotation = facingRight ? (b - 90) : (b - 270);
+  return facingRight ? `rotate(${rotation}deg) scaleX(-1)` : `rotate(${rotation}deg)`;
+}
+
 function _animBoatIcon(bearingDeg = 0) {
-  // The ⛵ glyph's neutral orientation has the sail/jib leading to the LEFT (screen-west,
-  // i.e. bearing 270°), not the right — so aligning it with bearingDeg needs +90, not -90,
-  // or the jib trails behind the boat and it visually looks like it's going backwards.
   return L.divIcon({
     className: '',
-    html: `<div class="anim-boat" style="transform:rotate(${bearingDeg + 90}deg)"><span class="anim-boat-rock">⛵</span></div>`,
+    html: `<div class="anim-boat" style="transform:${_boatIconTransform(bearingDeg)}"><span class="anim-boat-rock">⛵</span></div>`,
     iconSize: [28, 28],
     iconAnchor: [14, 14],
     tooltipAnchor: [14, -14],
@@ -3700,7 +3710,7 @@ function _startRouteAnimation(route, speedKnots) {
 
     const bearing = _segBearing(seg.lat1, seg.lon1, seg.lat2, seg.lon2);
     const boatEl  = _animMarker.getElement()?.querySelector('.anim-boat');
-    if (boatEl) boatEl.style.transform = `rotate(${bearing + 90}deg)`;
+    if (boatEl) boatEl.style.transform = _boatIconTransform(bearing);
 
     if (track.zoom) {
       const b = _map.getBounds();
