@@ -24,6 +24,11 @@ export function trueTomagnetic(trueBearing) {
   return ((trueBearing - magneticVariation) % 360 + 360) % 360;
 }
 
+/** Inverse of trueTomagnetic: convert a magnetic bearing to true using the current variation. */
+export function magneticToTrue(magBearing) {
+  return ((magBearing + magneticVariation) % 360 + 360) % 360;
+}
+
 /** Spell bearing digits individually for clear TTS: 127 → "one two seven magnetic" */
 export function bearingToWords(deg) {
   const d = Math.round(((deg % 360) + 360) % 360);

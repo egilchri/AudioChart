@@ -1183,6 +1183,16 @@ html, body {
   border-color: #0a2a16;
   animation: focus-place-lock-flash 0.5s ease-in-out infinite;
 }
+.sim-heading-handle {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  cursor: grab;
+  box-sizing: border-box;
+  border: 3px solid #0a3a52;
+  background: #38bdf8;
+  box-shadow: 0 0 0 3px rgba(56,189,248,0.35);
+}
 .route-endpoint-marker {
   width: 14px;
   height: 14px;
@@ -1356,6 +1366,48 @@ html, body {
   font-size: 0.85rem;
   cursor: pointer;
 }
+#sim-heading-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: var(--navy);
+  color: #38bdf8;
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 8px 12px;
+  flex-shrink: 0;
+  border-top: 2px solid #38bdf8;
+}
+#sim-heading-banner input[type="number"] {
+  width: 4.5em;
+  background: var(--navy);
+  color: var(--text);
+  border: 1px solid #38bdf8;
+  border-radius: 6px;
+  padding: 3px 5px;
+  font-size: 0.85rem;
+  text-align: right;
+}
+#sim-heading-done-btn {
+  background: var(--ok);
+  color: var(--navy);
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+#sim-heading-cancel-btn {
+  background: rgba(56,189,248,0.12);
+  color: #38bdf8;
+  border: 1px solid #38bdf8;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
 .optimizing-overlay {
   position: absolute;
   top: 50%;
@@ -1520,6 +1572,17 @@ html, body {
   font-weight: 700;
   border-radius: 6px !important;
   border: none !important;
+}
+#track-simulate-heading {
+  display: block;
+  width: 100%;
+  padding: 6px !important;
+  background: #38bdf8 !important;
+  color: var(--navy) !important;
+  font-weight: 700;
+  border-radius: 6px !important;
+  border: none !important;
+  margin: 4px 0 !important;
 }
 /* Compass rose control */
 .compass-rose-ctrl {

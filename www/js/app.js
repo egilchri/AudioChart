@@ -138,6 +138,7 @@ function _boatIcon() {
 
 function _showBoatPosition(lat, lon) {
   if (!_map) return;
+  if (_simHeadingMode) _exitSimHeadingMode();
   if (_boatLayer) { _map.removeLayer(_boatLayer); _boatLayer = null; }
   const marker = L.marker([lat, lon], { icon: _boatIcon(), zIndexOffset: 1000, draggable: true });
 
@@ -190,7 +191,8 @@ function _refreshYouLayer() {
   if (_boatLayer) return; // test position already shown by boat layer
   const pos = GPS.getPosition();
   if (!pos) return;
-  const m = L.marker([pos.lat, pos.lon], { icon: _boatIcon(), zIndexOffset: 800 });
+  const icon = _simHeadingMode ? _animBoatIcon(_simHeadingDeg) : _boatIcon();
+  const m = L.marker([pos.lat, pos.lon], { icon, zIndexOffset: 800 });
 
   _youLayer = L.layerGroup([m]).addTo(_map);
 }
@@ -279,7 +281,7 @@ function _setWaypointsVisible(v) {
   localStorage.setItem('audiochart-waypoints-visible', String(v));
   _refreshWaypointLayer();
 }
-import { formatPositionDisplay, bearingToWords, bearingToDisplay, formatDistance, distanceToDisplay, trueTomagnetic, magneticVariation } from './utils.js';
+import { formatPositionDisplay, bearingToWords, bearingToDisplay, formatDistance, distanceToDisplay, trueTomagnetic, magneticToTrue, magneticVariation } from './utils.js';
 
 // Capture Android PWA install prompt before any user gesture.
 let _pwaInstallPrompt = null;
@@ -663,6 +665,13 @@ let _focusPlaceMode   = false;  // true while the drag-to-place focus marker is 
 let _focusPlaceMarker = null;   // the draggable L.marker being positioned
 let _focusPlaceSnap   = null;   // {lat, lon, name, type} of the locked-on object, or null
 let _focusMarker      = null;   // persistent, always-draggable marker for the current focus
+let _simHeadingMode   = false;  // true while the Simulate Heading rehearsal is active
+let _simHeadingHandle = null;   // draggable marker at the ray's endpoint
+let _simHeadingLine   = null;   // the simulated-heading ray (separate layer from _focusRayLine)
+let _simHeadingDeg    = 0;      // current simulated heading, TRUE degrees, 0-359
+let _simHeadingLenNm  = 5;      // ray length in nm, locked in at mode-entry
+let _simHeadingBoat   = null;   // {lat, lon} captured when the mode was entered
+const SIM_HEADING_DEFAULT_NM = 5;
 let _viewportHazardLayer    = null; // hazard markers for current map viewport (edit mode)
 let _viewportHazardMoveEnd  = null; // moveend listener ref for cleanup
 let _routeNameLabels        = [];   // [{marker, pts}] for viewport-clamping on moveend
@@ -1513,6 +1522,17 @@ function _exitDrawRouteMode(skipRefresh = false) {
 document.getElementById('draw-cancel-btn').addEventListener('click', _exitDrawRouteMode);
 document.getElementById('focus-place-confirm-btn').addEventListener('click', _confirmFocusPlace);
 document.getElementById('focus-place-cancel-btn').addEventListener('click', _cancelFocusPlace);
+document.getElementById('track-simulate-heading').addEventListener('click', () => {
+  document.getElementById('map-context-menu').style.display = 'none';
+  _enterSimHeadingMode();
+});
+document.getElementById('sim-heading-done-btn').addEventListener('click', _exitSimHeadingMode);
+document.getElementById('sim-heading-cancel-btn').addEventListener('click', _exitSimHeadingMode);
+document.getElementById('sim-heading-input').addEventListener('input', (e) => {
+  if (!_simHeadingMode) return;
+  const magVal = parseFloat(e.target.value);
+  if (!isNaN(magVal)) _updateSimHeadingRay(magneticToTrue(magVal));
+});
 
 const ROUTE_KEY = 'audiochart-user-routes';
 const HIDDEN_ROUTES_KEY = 'audiochart-hidden-routes';
@@ -3157,6 +3177,105 @@ function _updateFocusRay(lat, lon) {
   }
 }
 
+// ── Simulate Heading — dead-reckoning rehearsal tool ────────────────────────────
+// Place the boat, pick an arbitrary heading (drag or type), see a ray showing where
+// it leads. Distinct from _startRouteAnimation (which moves a boat along a route over
+// simulated time) — this is a static plotting check, no time dimension.
+
+// "Next waypoint ahead" = the far end of whichever route segment the boat is nearest
+// to, via the existing cross-track projection helper (_nearestSegIdx, used elsewhere
+// for route-edit vertex snapping).
+function _nearestRouteWaypointAhead(lat, lon, route) {
+  if (!route?.points?.length) return null;
+  if (route.points.length === 1) return route.points[0];
+  const segIdx = _nearestSegIdx(route.points, L.latLng(lat, lon));
+  return route.points[segIdx + 1];
+}
+
+// Ray length + reference point, priority: selected route's next waypoint ahead >
+// current focus target > fixed default.
+function _simHeadingRefPoint(lat, lon) {
+  const sel = document.getElementById('track-route-select');
+  const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+  const route = sel?.value !== '' ? routes[parseInt(sel.value)] : null;
+  if (route?.points?.length) {
+    const wp = _nearestRouteWaypointAhead(lat, lon, route);
+    if (wp) return { lat: wp.lat, lon: wp.lon, lenNm: Query.distanceNm(lon, lat, wp.lon, wp.lat) };
+  }
+  if (Query.focusedTarget) {
+    const f = Query.focusedTarget;
+    return { lat: f.lat, lon: f.lon, lenNm: Query.distanceNm(lon, lat, f.lon, f.lat) };
+  }
+  return { lat: null, lon: null, lenNm: SIM_HEADING_DEFAULT_NM };
+}
+
+// Swap whichever boat marker is currently shown (test-position or live-GPS layer) to
+// the rotated icon, without touching _showBoatPosition/_refreshYouLayer's own
+// marker-creation/drag-handler logic. Both layers are always single-marker L.layerGroups.
+function _setBoatIconRotated(bearingDegTrue) {
+  const marker = _boatLayer?.getLayers()[0] || _youLayer?.getLayers()[0];
+  marker?.setIcon(_animBoatIcon(bearingDegTrue));
+}
+
+// bearingDegTrue: TRUE degrees (matches _destinationPoint/Query.bearing convention).
+// Banner/input display magnetic — this app shows bearings as magnetic everywhere else.
+function _updateSimHeadingRay(bearingDegTrue) {
+  bearingDegTrue = ((bearingDegTrue % 360) + 360) % 360;
+  _simHeadingDeg = bearingDegTrue;
+  const { lat, lon } = _simHeadingBoat;
+  const end = _destinationPoint(lat, lon, bearingDegTrue, _simHeadingLenNm);
+  const latlngs = [[lat, lon], [end.lat, end.lon]];
+  if (!_simHeadingLine) {
+    _simHeadingLine = L.polyline(latlngs, {
+      color: '#38bdf8', weight: 2.5, opacity: 0.85, dashArray: '6 4', interactive: false,
+    }).addTo(_map);
+  } else {
+    _simHeadingLine.setLatLngs(latlngs);
+  }
+  _simHeadingHandle?.setLatLng([end.lat, end.lon]);
+  _setBoatIconRotated(bearingDegTrue);
+  const magDeg = Math.round(trueTomagnetic(bearingDegTrue));
+  document.getElementById('sim-heading-banner-label').textContent = `Heading: ${String(magDeg).padStart(3, '0')}°M`;
+  const input = document.getElementById('sim-heading-input');
+  if (input && document.activeElement !== input) input.value = magDeg;
+}
+
+function _enterSimHeadingMode() {
+  if (_editMode || _sketchMode || _drawMode || _focusPlaceMode || _animMode) return;
+  const pos = GPS.getPosition();
+  if (!pos) { TTS.sayImmediate("Set the boat's position first."); return; }
+  _simHeadingMode = true;
+  _simHeadingBoat = { lat: pos.lat, lon: pos.lon };
+
+  const ref = _simHeadingRefPoint(pos.lat, pos.lon);
+  _simHeadingLenNm = ref.lenNm;
+  const initialBrg = ref.lat != null ? Query.bearing(pos.lon, pos.lat, ref.lon, ref.lat) : 0;
+
+  _simHeadingHandle = L.marker([pos.lat, pos.lon], {
+    icon: L.divIcon({ className: 'sim-heading-handle', iconSize: [16, 16], iconAnchor: [8, 8] }),
+    draggable: true,
+    zIndexOffset: 1300,
+  }).addTo(_map);
+  _simHeadingHandle.on('drag', () => {
+    const ll = _simHeadingHandle.getLatLng();
+    _updateSimHeadingRay(Query.bearing(_simHeadingBoat.lon, _simHeadingBoat.lat, ll.lng, ll.lat));
+  });
+
+  _updateSimHeadingRay(initialBrg);
+  document.getElementById('sim-heading-banner').style.display = 'flex';
+}
+
+function _exitSimHeadingMode() {
+  if (!_simHeadingMode) return;
+  _simHeadingMode = false;
+  document.getElementById('sim-heading-banner').style.display = 'none';
+  if (_simHeadingHandle) { _map.removeLayer(_simHeadingHandle); _simHeadingHandle = null; }
+  if (_simHeadingLine)   { _map.removeLayer(_simHeadingLine);   _simHeadingLine = null; }
+  _simHeadingBoat = null;
+  const marker = _boatLayer?.getLayers()[0] || _youLayer?.getLayers()[0];
+  marker?.setIcon(_boatIcon());
+}
+
 function _updateBearingLines(lat, lon) {
   for (const entry of _bearingAccumulator) {
     if (!entry._polyline) continue;
@@ -4277,7 +4396,7 @@ function _ensureMap() {
   });
   document.addEventListener('click', (e) => { if (!_ctxMenu.contains(e.target)) _hideCtx(); }, { capture: true });
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') { _hideCtx(); if (_addNodeMode) _cancelAddNodeMode(); }
+    if (e.key === 'Escape') { _hideCtx(); if (_addNodeMode) _cancelAddNodeMode(); if (_simHeadingMode) _exitSimHeadingMode(); }
   });
 
   document.getElementById('map-ctx-objects-parent').addEventListener('click', () => {
