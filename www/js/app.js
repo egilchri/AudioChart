@@ -8,6 +8,7 @@ import * as TTS from './tts.js';
 import * as GPS from './gps.js';
 import { parseCommand, parseCoordinate, normalizePlaceName } from './parser.js';
 import * as Query from './query.js';
+import * as DriveSync from './drive_sync.js';
 
 const VERSION = window.APP_VERSION;
 document.getElementById('app-version').textContent = VERSION;
@@ -4132,6 +4133,7 @@ function _ensureMap() {
   };
 
   function _buildRoutePickerPanel() {
+    DriveSync.maybeAutoSync();
     const list  = document.getElementById('rp-route-list');
     const query = (document.getElementById('rp-search').value || '').toLowerCase();
     const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
@@ -4331,6 +4333,7 @@ function _ensureMap() {
   };
 
   function _buildTrackPickerPanel() {
+    DriveSync.maybeAutoSync();
     const list  = document.getElementById('tp-track-list');
     const query = (document.getElementById('tp-search').value || '').toLowerCase();
     const tracks = JSON.parse(localStorage.getItem(TRACK_KEY) || '[]');
@@ -4441,6 +4444,65 @@ function _ensureMap() {
     _buildTrackPickerPanel();
   });
   _map.on('click', _closeTrackPicker);
+
+  // ☁ Drive sync — shared between the Routes and Tracks panels (one backup blob covers both)
+  (function _wireDriveSyncUI() {
+    const statusEls = [document.getElementById('rp-sync-status'), document.getElementById('tp-sync-status')];
+    const wifiCheckboxes = [document.getElementById('rp-wifi-sync'), document.getElementById('tp-wifi-sync')];
+    const setStatus = (text) => statusEls.forEach(el => { if (el) el.textContent = text; });
+    const refreshLastSynced = () => {
+      const last = DriveSync.getLastSyncMs();
+      setStatus(last ? `Last synced ${new Date(last).toLocaleString()}` : 'Not yet synced to Drive.');
+    };
+    wifiCheckboxes.forEach(cb => { if (cb) cb.checked = DriveSync.getWifiSyncEnabled(); });
+    refreshLastSynced();
+
+    wifiCheckboxes.forEach(cb => {
+      if (!cb) return;
+      cb.addEventListener('change', () => {
+        DriveSync.setWifiSyncEnabled(cb.checked);
+        wifiCheckboxes.forEach(other => { if (other) other.checked = cb.checked; });
+      });
+    });
+
+    [document.getElementById('rp-sync-now'), document.getElementById('tp-sync-now')].forEach(btn => {
+      if (!btn) return;
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        setStatus('Syncing…');
+        DriveSync.syncNow()
+          .then(refreshLastSynced)
+          .catch(err => setStatus(err.message || 'Sync failed.'));
+      });
+    });
+
+    [document.getElementById('rp-restore'), document.getElementById('tp-restore')].forEach(btn => {
+      if (!btn) return;
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        setStatus('Checking Drive…');
+        DriveSync.fetchBackup()
+          .then(data => {
+            if (!data) { setStatus('No backup found on Drive yet.'); return; }
+            const routeCount = (data.routes || []).length;
+            const trackCount = (data.tracks || []).length;
+            const when = data.savedAt ? new Date(data.savedAt).toLocaleString() : 'unknown time';
+            const ok = confirm(`Replace local Routes/Tracks with the Drive backup?\n(${routeCount} routes, ${trackCount} tracks, saved ${when})\n\nThis overwrites what's saved on this device.`);
+            if (!ok) { setStatus('Restore cancelled.'); return; }
+            DriveSync.applyBackup(data);
+            _loadHiddenRoutes();
+            _loadHiddenTracks();
+            _refreshSavedRouteLayers();
+            _refreshSavedTrackLayers();
+            _populateRouteSelectFn?.();
+            _buildRoutePickerPanel();
+            _buildTrackPickerPanel();
+            setStatus('Restored from Drive.');
+          })
+          .catch(err => setStatus(err.message || 'Restore failed.'));
+      });
+    });
+  })();
 
   // Keep panel in sync after route changes — called from _populateRouteSelect below
   const _rebuildPickerIfOpen = () => {

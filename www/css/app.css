@@ -986,6 +986,43 @@ html, body {
 }
 .nf-actions button:active { background: var(--accent); color: var(--navy); }
 
+.nf-sync-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--mid-blue);
+}
+.nf-sync-wifi {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  color: var(--muted, #8899aa);
+  cursor: pointer;
+  user-select: none;
+  flex: 1;
+}
+.nf-sync-bar button {
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  background: var(--mid-blue);
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.nf-sync-bar button:active { background: var(--accent); color: var(--navy); }
+.nf-sync-status {
+  font-size: 0.7rem;
+  font-style: italic;
+  color: var(--muted, #8899aa);
+  margin-top: 3px;
+  min-height: 1em;
+}
+
 .nf-new-route {
   display: flex;
   gap: 8px;
