@@ -6,7 +6,7 @@
 
 import * as TTS from './tts.js';
 import * as GPS from './gps.js';
-import { parseCommand, parseCoordinate, normalizePlaceName } from './parser.js';
+import { parseCommand, parseCoordinate, normalizePlaceName, parseFromToQuery } from './parser.js';
 import * as Query from './query.js';
 import * as DriveSync from './drive_sync.js';
 import { migrateLegacyIds } from './sync_merge.js';
@@ -1680,6 +1680,46 @@ function _nearestPlaceName(lat, lon) {
   }
   _placeNameCache.set(key, bestName);
   return bestName;
+}
+
+// Routes/Tracks search: "from X", "to Y", "from X to Y", "between X and Y" —
+// resolved through the same fuzzy place matcher used everywhere else (Query.findPlaceByName),
+// so search semantics stay consistent with bearing/focus/hazard queries.
+const FROM_TO_MATCH_RADIUS_NM = 5; // generous enough to cover a harbor/anchorage's spread
+const _searchPlaceCache = new Map();
+
+function _resolveSearchPlace(text) {
+  const key = normalizePlaceName(text);
+  if (_searchPlaceCache.has(key)) return _searchPlaceCache.get(key);
+  const place = Query.findPlaceByName(key) || null;
+  _searchPlaceCache.set(key, place);
+  return place;
+}
+
+function _matchesPoint(point, placeText, haystackFallback) {
+  if (!point || !placeText) return !placeText; // no constraint on this end
+  const place = _resolveSearchPlace(placeText);
+  if (place) return Query.distanceNm(point.lon, point.lat, place.lon, place.lat) <= FROM_TO_MATCH_RADIUS_NM;
+  // Couldn't confidently resolve the place (typo, or outside loaded chart data) —
+  // fall back to a plain substring check against this endpoint's own place label.
+  return haystackFallback.includes(placeText.toLowerCase());
+}
+
+function _itemMatchesSearch(item, query) {
+  if (!query) return true;
+  const q = query.toLowerCase();
+  const { from, to, directional } = parseFromToQuery(query);
+  const first = item.points?.[0];
+  const last  = item.points?.[item.points.length - 1];
+  const startHay = first ? (_nearestPlaceName(first.lat, first.lon) || '').toLowerCase() : '';
+  const endHay   = last  ? (_nearestPlaceName(last.lat,  last.lon)  || '').toLowerCase() : '';
+  if (!from && !to) {
+    return (item.name + ' ' + startHay + ' ' + endHay).toLowerCase().includes(q);
+  }
+  const straight = _matchesPoint(first, from, startHay) && _matchesPoint(last, to, endHay);
+  if (directional) return straight;
+  const swapped = _matchesPoint(last, from, endHay) && _matchesPoint(first, to, startHay);
+  return straight || swapped;
 }
 
 function _nextRouteName() {
@@ -4175,18 +4215,10 @@ function _ensureMap() {
   function _buildRoutePickerPanel() {
     DriveSync.maybeAutoSync();
     const list  = document.getElementById('rp-route-list');
-    const query = (document.getElementById('rp-search').value || '').toLowerCase();
+    const query = document.getElementById('rp-search').value || '';
     const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
     list.innerHTML = '';
-    const filtered = routes.filter(r => {
-      if (!query) return true;
-      const first = r.points?.[0];
-      const last  = r.points?.[r.points.length - 1];
-      const startName = first ? (_nearestPlaceName(first.lat, first.lon) || '') : '';
-      const endName   = last  ? (_nearestPlaceName(last.lat,  last.lon)  || '') : '';
-      const haystack  = (r.name + ' ' + startName + ' ' + endName).toLowerCase();
-      return haystack.includes(query);
-    });
+    const filtered = routes.filter(r => _itemMatchesSearch(r, query));
     if (filtered.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'rp-empty';
@@ -4379,18 +4411,10 @@ function _ensureMap() {
   function _buildTrackPickerPanel() {
     DriveSync.maybeAutoSync();
     const list  = document.getElementById('tp-track-list');
-    const query = (document.getElementById('tp-search').value || '').toLowerCase();
+    const query = document.getElementById('tp-search').value || '';
     const tracks = JSON.parse(localStorage.getItem(TRACK_KEY) || '[]');
     list.innerHTML = '';
-    const filtered = tracks.filter(t => {
-      if (!query) return true;
-      const first = t.points?.[0];
-      const last  = t.points?.[t.points.length - 1];
-      const startName = first ? (_nearestPlaceName(first.lat, first.lon) || '') : '';
-      const endName   = last  ? (_nearestPlaceName(last.lat,  last.lon)  || '') : '';
-      const haystack  = (t.name + ' ' + startName + ' ' + endName).toLowerCase();
-      return haystack.includes(query);
-    });
+    const filtered = tracks.filter(t => _itemMatchesSearch(t, query));
     if (filtered.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'rp-empty';

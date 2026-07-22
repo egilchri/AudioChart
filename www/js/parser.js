@@ -40,6 +40,22 @@ export function normalizePlaceName(raw) {
 }
 
 /**
+ * Extract {from, to} places from a "from X to Y" / "between X and Y" /
+ * "from X" / "to Y" phrase, for the Routes/Tracks search boxes — a plain
+ * text-field version of the from/to idiom used by HAZARDS_ON_COURSE above,
+ * without that intent's hazard-specific trigger words.
+ * `directional: false` (only for "between...and") means either order counts.
+ */
+export function parseFromToQuery(text) {
+  let m;
+  if (m = text.match(/\bfrom\s+(.+?)\s+to\s+(.+)$/i))     return { from: m[1].trim(), to: m[2].trim(), directional: true };
+  if (m = text.match(/\bbetween\s+(.+?)\s+and\s+(.+)$/i)) return { from: m[1].trim(), to: m[2].trim(), directional: false };
+  if (m = text.match(/\bfrom\s+(.+)$/i))                  return { from: m[1].trim(), to: null, directional: true };
+  if (m = text.match(/\bto\s+(.+)$/i))                    return { from: null, to: m[1].trim(), directional: true };
+  return { from: null, to: null, directional: true };
+}
+
+/**
  * Try to parse a string as a lat/lon coordinate.
  * Handles:
  *   44° 04.8674' N 068° 57.2965' W   (degrees-minutes with symbols)
