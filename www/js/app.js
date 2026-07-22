@@ -9,6 +9,7 @@ import * as GPS from './gps.js';
 import { parseCommand, parseCoordinate, normalizePlaceName } from './parser.js';
 import * as Query from './query.js';
 import * as DriveSync from './drive_sync.js';
+import { migrateLegacyIds } from './sync_merge.js';
 
 const VERSION = window.APP_VERSION;
 document.getElementById('app-version').textContent = VERSION;
@@ -1121,6 +1122,7 @@ function _autoFixRouteHazards(routeIdx) {
   }
 
   routes[routeIdx].points = pts;
+  _touch(routes[routeIdx]);
   localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
   _lastHazardCheckedIdx = routeIdx;
   _refreshSavedRouteLayers();
@@ -1230,6 +1232,7 @@ function _refreshSavedRouteLayers() {
         const newName = prompt('Rename route:', routes2[routeIdx].name);
         if (!newName || !newName.trim()) return;
         routes2[routeIdx].name = newName.trim();
+        _touch(routes2[routeIdx]);
         localStorage.setItem(ROUTE_KEY, JSON.stringify(routes2));
         localStorage.setItem('audiochart-last-route', newName.trim());
         _populateRouteSelectFn?.();
@@ -1510,7 +1513,7 @@ async function _onDrawClick(latlng) {
     previewLine.remove();
 
     const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
-    routes.push({ name, points: pts.map(p => ({ lat: p.lat, lon: p.lon })) });
+    routes.push(_stampNew({ name, points: pts.map(p => ({ lat: p.lat, lon: p.lon })) }));
     localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
     _populateRouteSelectFn?.();
     _enterEditMode(routes.length - 1);
@@ -1609,6 +1612,37 @@ const HIDDEN_ROUTES_KEY = 'audiochart-hidden-routes';
 const TRACK_KEY = 'audiochart-user-tracks';
 const HIDDEN_TRACKS_KEY = 'audiochart-hidden-tracks';
 const IN_PROGRESS_TRACK_KEY = 'audiochart-track-in-progress'; // {startMs, points}
+const TOMBSTONE_KEY = 'audiochart-sync-tombstones'; // [{id, type: 'route'|'track', deletedAt}], for Drive merge sync
+
+// id/updatedAt stamping + delete tombstones, feeding the Drive merge sync (see sync_merge.js).
+function _newSyncId() {
+  return (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+function _stampNew(obj) {
+  obj.id = _newSyncId();
+  obj.updatedAt = Date.now();
+  return obj;
+}
+function _touch(obj) {
+  obj.updatedAt = Date.now();
+  return obj;
+}
+function _tombstone(id, type) {
+  if (!id) return; // legacy items migrate lazily; nothing to tombstone until they've been loaded once
+  const list = JSON.parse(localStorage.getItem(TOMBSTONE_KEY) || '[]');
+  list.push({ id, type, deletedAt: Date.now() });
+  localStorage.setItem(TOMBSTONE_KEY, JSON.stringify(list));
+}
+
+// One-time migration: backfill id/updatedAt on any route/track saved before this feature existed.
+(function _migrateSyncIds() {
+  const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+  const tracks = JSON.parse(localStorage.getItem(TRACK_KEY) || '[]');
+  migrateLegacyIds(routes);
+  migrateLegacyIds(tracks);
+  localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
+  localStorage.setItem(TRACK_KEY, JSON.stringify(tracks));
+})();
 
 function _loadHiddenRoutes() {
   const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
@@ -1655,7 +1689,7 @@ function _nextRouteName() {
 
 function _saveRoute(name, points) {
   const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
-  routes.push({ name, points: points.map(p => ({ lat: p.lat, lon: p.lng })) });
+  routes.push(_stampNew({ name, points: points.map(p => ({ lat: p.lat, lon: p.lng })) }));
   localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
 }
 
@@ -1943,6 +1977,7 @@ function _finishSketch() {
     if (routes[growIdx]) {
       const newPts = pts.slice(1).map(p => ({ lat: p.lat, lon: p.lng }));
       routes[growIdx].points = [...routes[growIdx].points, ...newPts];
+      _touch(routes[growIdx]);
       localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
       _populateRouteSelectFn?.();
       _enterEditMode(growIdx);
@@ -1964,6 +1999,7 @@ function _finishSketch() {
       if (route) {
         const finalPts = extFromEnd ? pts : pts.slice().reverse();
         route.points = finalPts.map(p => ({ lat: p.lat, lon: p.lng }));
+        _touch(route);
         localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
         const msg = `${route.name} updated — ${totalNm.toFixed(1)} nm`;
         setStatus(msg);
@@ -2003,6 +2039,7 @@ async function _finishSketchAutoRoute() {
       const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
       if (routes[growIdx]) {
         routes[growIdx].points = [...routes[growIdx].points, ...points.slice(1)];
+        _touch(routes[growIdx]);
         localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
         _populateRouteSelectFn?.();
         _enterEditMode(growIdx);
@@ -2033,12 +2070,13 @@ async function _finishSketchAutoRoute() {
     const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
     if (extIdx >= 0 && routes[extIdx]) {
       routes[extIdx].points = points;
+      _touch(routes[extIdx]);
       localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
       _populateRouteSelectFn?.();
       _enterEditMode(extIdx);
     } else {
       const name = _nextRouteName();
-      routes.push({ name, points });
+      routes.push(_stampNew({ name, points }));
       localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
       _populateRouteSelectFn?.();
       _enterEditMode(routes.length - 1);
@@ -2541,6 +2579,7 @@ function _editPlaceNode(e) {
   const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
   if (!routes[_editRouteIdx]) return;
   routes[_editRouteIdx].points = _editPoints.map(p => ({ lat: p.lat, lon: p.lon }));
+  _touch(routes[_editRouteIdx]);
   localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
   const savedIdx       = _editRouteIdx;
   const savedNewVtxIdx = _newVertexIdx;
@@ -2617,6 +2656,7 @@ function _saveEditedRoute() {
   const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
   if (!routes[_editRouteIdx]) { _exitEditMode(); return; }
   routes[_editRouteIdx].points = _editPoints.map(p => ({ lat: p.lat, lon: p.lon }));
+  _touch(routes[_editRouteIdx]);
   localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
   const name = _editRouteName || 'Route';
   const savedIdx = _editRouteIdx;
@@ -4176,6 +4216,7 @@ function _ensureMap() {
         e.stopPropagation();
         if (!confirm(`Delete route "${route.name}"?`)) return;
         const all = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+        _tombstone(route.id, 'route');
         localStorage.setItem(ROUTE_KEY, JSON.stringify(all.filter(r => r.name !== route.name)));
         _hiddenRouteNames.delete(route.name);
         _saveHiddenRoutes();
@@ -4193,6 +4234,7 @@ function _ensureMap() {
         if (idx < 0) return;
         const oldName = routes2[idx].name;
         routes2[idx].name = newName;
+        _touch(routes2[idx]);
         localStorage.setItem(ROUTE_KEY, JSON.stringify(routes2));
         if (localStorage.getItem('audiochart-last-route') === oldName) {
           localStorage.setItem('audiochart-last-route', newName);
@@ -4266,6 +4308,7 @@ function _ensureMap() {
       _reRouteSegments(routes[idx].points, ui.update.bind(ui), ui.setText.bind(ui))
         .then(({ points, fallbacks }) => {
           routes[idx].points = points;
+          _touch(routes[idx]);
           localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
           ui.remove();
           btn.classList.remove('working');
@@ -4289,6 +4332,7 @@ function _ensureMap() {
     if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
     _exitEditMode();
     const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+    _tombstone(routes[idx]?.id, 'route');
     routes.splice(idx, 1);
     localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
     _refreshSavedRouteLayers();
@@ -4376,6 +4420,7 @@ function _ensureMap() {
         e.stopPropagation();
         if (!confirm(`Delete track "${track.name}"?`)) return;
         const all = JSON.parse(localStorage.getItem(TRACK_KEY) || '[]');
+        _tombstone(track.id, 'track');
         localStorage.setItem(TRACK_KEY, JSON.stringify(all.filter(t => t.name !== track.name)));
         _hiddenTrackNames.delete(track.name);
         _saveHiddenTracks();
@@ -4390,6 +4435,7 @@ function _ensureMap() {
         if (idx < 0) return;
         const oldName = tracks2[idx].name;
         tracks2[idx].name = newName;
+        _touch(tracks2[idx]);
         localStorage.setItem(TRACK_KEY, JSON.stringify(tracks2));
         if (_hiddenTrackNames.has(oldName)) { _hiddenTrackNames.delete(oldName); _hiddenTrackNames.add(newName); }
         _saveHiddenTracks();
@@ -4445,7 +4491,9 @@ function _ensureMap() {
   });
   _map.on('click', _closeTrackPicker);
 
-  // ☁ Drive sync — shared between the Routes and Tracks panels (one backup blob covers both)
+  // ☁ Drive sync — shared between the Routes and Tracks panels (one backup blob covers both).
+  // A single Sync action merges local and remote; nothing here ever wholesale-overwrites
+  // either side, so there's no "wrong direction" to accidentally pick (see sync_merge.js).
   (function _wireDriveSyncUI() {
     const statusEls = [document.getElementById('rp-sync-status'), document.getElementById('tp-sync-status')];
     const wifiCheckboxes = [document.getElementById('rp-wifi-sync'), document.getElementById('tp-wifi-sync')];
@@ -4465,41 +4513,38 @@ function _ensureMap() {
       });
     });
 
+    function _reconcileHiddenNamesAfterMerge(routes, tracks) {
+      const routeNames = new Set(routes.map(r => r.name));
+      const trackNames = new Set(tracks.map(t => t.name));
+      let routesChanged = false, tracksChanged = false;
+      for (const n of [..._hiddenRouteNames]) if (!routeNames.has(n)) { _hiddenRouteNames.delete(n); routesChanged = true; }
+      for (const n of [..._hiddenTrackNames]) if (!trackNames.has(n)) { _hiddenTrackNames.delete(n); tracksChanged = true; }
+      if (routesChanged) _saveHiddenRoutes();
+      if (tracksChanged) _saveHiddenTracks();
+      const lastRoute = localStorage.getItem('audiochart-last-route');
+      if (lastRoute && !routeNames.has(lastRoute)) localStorage.removeItem('audiochart-last-route');
+    }
+
     [document.getElementById('rp-sync-now'), document.getElementById('tp-sync-now')].forEach(btn => {
       if (!btn) return;
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         setStatus('Syncing…');
-        DriveSync.syncNow()
-          .then(refreshLastSynced)
-          .catch(err => setStatus(err.message || 'Sync failed.'));
-      });
-    });
-
-    [document.getElementById('rp-restore'), document.getElementById('tp-restore')].forEach(btn => {
-      if (!btn) return;
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        setStatus('Checking Drive…');
-        DriveSync.fetchBackup()
-          .then(data => {
-            if (!data) { setStatus('No backup found on Drive yet.'); return; }
-            const routeCount = (data.routes || []).length;
-            const trackCount = (data.tracks || []).length;
-            const when = data.savedAt ? new Date(data.savedAt).toLocaleString() : 'unknown time';
-            const ok = confirm(`Replace local Routes/Tracks with the Drive backup?\n(${routeCount} routes, ${trackCount} tracks, saved ${when})\n\nThis overwrites what's saved on this device.`);
-            if (!ok) { setStatus('Restore cancelled.'); return; }
-            DriveSync.applyBackup(data);
-            _loadHiddenRoutes();
-            _loadHiddenTracks();
+        DriveSync.runMerge()
+          .then(({ routeCount, trackCount, conflictCount }) => {
+            const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+            const tracks = JSON.parse(localStorage.getItem(TRACK_KEY) || '[]');
+            _reconcileHiddenNamesAfterMerge(routes, tracks);
             _refreshSavedRouteLayers();
             _refreshSavedTrackLayers();
             _populateRouteSelectFn?.();
-            _buildRoutePickerPanel();
-            _buildTrackPickerPanel();
-            setStatus('Restored from Drive.');
+            if (_routePickerPanel.classList.contains('open')) _buildRoutePickerPanel();
+            if (_trackPickerPanel.classList.contains('open')) _buildTrackPickerPanel();
+            setStatus(conflictCount > 0
+              ? `Synced — ${routeCount} routes, ${trackCount} tracks, ${conflictCount} conflict cop${conflictCount === 1 ? 'y' : 'ies'} (review in the list)`
+              : `Synced — ${routeCount} routes, ${trackCount} tracks, up to date`);
           })
-          .catch(err => setStatus(err.message || 'Restore failed.'));
+          .catch(err => setStatus(err.message || 'Sync failed.'));
       });
     });
   })();
@@ -4745,6 +4790,7 @@ function _ensureMap() {
     const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
     if (!isNaN(routeIdx) && routes[routeIdx]) {
       routes[routeIdx].name = name;
+      _touch(routes[routeIdx]);
       localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
       localStorage.setItem('audiochart-last-route', name);  // keep sticky in sync with rename
       _populateRouteSelect();
@@ -4870,6 +4916,7 @@ function _ensureMap() {
     const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
     if (!routes.length) { TTS.sayImmediate('No routes saved.'); return; }
     const deleted = routes.pop();
+    _tombstone(deleted.id, 'route');
     localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
     _refreshSavedRouteLayers();
     const msg = `${deleted.name} deleted.`;
@@ -4882,6 +4929,7 @@ function _ensureMap() {
     const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
     if (!routes.length) { TTS.sayImmediate('No routes saved.'); return; }
     if (!confirm(`Delete all ${routes.length} route${routes.length > 1 ? 's' : ''}?`)) return;
+    routes.forEach(r => _tombstone(r.id, 'route'));
     localStorage.setItem(ROUTE_KEY, JSON.stringify([]));
     _refreshSavedRouteLayers();
     _populateRouteSelectFn?.();
@@ -4929,7 +4977,7 @@ function _ensureMap() {
       idx === 0 ? 0 : sum + Query.distanceNm(pts[idx - 1].lon, pts[idx - 1].lat, p.lon, p.lat), 0);
 
     const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
-    routes.push({ name, points: pts.map(p => ({ lat: p.lat, lon: p.lon })) });
+    routes.push(_stampNew({ name, points: pts.map(p => ({ lat: p.lat, lon: p.lon })) }));
     localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
     const newIdx = routes.length - 1;
 
@@ -5017,6 +5065,7 @@ function _ensureMap() {
     if (!newName || !newName.trim()) return;
     const oldName = routes[idx].name;
     routes[idx].name = newName.trim();
+    _touch(routes[idx]);
     localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
     localStorage.setItem('audiochart-last-route', newName.trim());
     _hiddenRouteNames.delete(oldName);
@@ -5268,7 +5317,7 @@ function _ensureMap() {
         lon: parseFloat(pt.getAttribute('lon')),
       })).filter(p => !isNaN(p.lat) && !isNaN(p.lon));
       if (!points.length) continue;
-      routes.push({ name, points });
+      routes.push(_stampNew({ name, points }));
       count++;
     }
     for (const trk of doc.querySelectorAll('trk')) {
@@ -5278,7 +5327,7 @@ function _ensureMap() {
         lon: parseFloat(pt.getAttribute('lon')),
       })).filter(p => !isNaN(p.lat) && !isNaN(p.lon));
       if (!points.length) continue;
-      routes.push({ name, points });
+      routes.push(_stampNew({ name, points }));
       count++;
     }
     localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
@@ -5313,7 +5362,7 @@ function _ensureMap() {
       }
       if (!allPoints.length) { TTS.sayImmediate('No route points found.'); return; }
       const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
-      routes.push({ name: 'Combined Route', points: allPoints });
+      routes.push(_stampNew({ name: 'Combined Route', points: allPoints }));
       localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
       if (_map) {
         if (_previewRouteLine) { _map.removeLayer(_previewRouteLine); }
@@ -6472,7 +6521,7 @@ trackRecBtn?.addEventListener('click', () => {
   const name = prompt('Save track as:', `Track ${new Date(_trackRecStartMs).toLocaleString()}`);
   if (name && name.trim()) {
     const tracks = JSON.parse(localStorage.getItem(TRACK_KEY) || '[]');
-    tracks.push({ name: name.trim(), points: _trackRecPoints });
+    tracks.push(_stampNew({ name: name.trim(), points: _trackRecPoints }));
     localStorage.setItem(TRACK_KEY, JSON.stringify(tracks));
   }
   localStorage.removeItem(IN_PROGRESS_TRACK_KEY);
@@ -6501,7 +6550,7 @@ function _recoverInProgressTrack() {
       const name = prompt('Save the recovered points as a track before discarding? Leave blank to discard.', '');
       if (name && name.trim()) {
         const tracks = JSON.parse(localStorage.getItem(TRACK_KEY) || '[]');
-        tracks.push({ name: name.trim(), points });
+        tracks.push(_stampNew({ name: name.trim(), points }));
         localStorage.setItem(TRACK_KEY, JSON.stringify(tracks));
       }
       localStorage.removeItem(IN_PROGRESS_TRACK_KEY);

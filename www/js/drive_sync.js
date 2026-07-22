@@ -1,15 +1,21 @@
 /**
- * Optional Google Drive backup for saved Routes/Tracks.
- * Sync is always user-initiated or gated behind the "Wi-Fi Sync" toggle —
- * localStorage remains the source of truth so the app keeps working fully
- * offline regardless of Drive auth/connectivity state.
+ * Optional Google Drive backup for saved Routes/Tracks — a true merge, not a
+ * one-way push/pull. Every sync reconciles local and remote (see
+ * sync_merge.js for the algorithm) so you never have to know or guess which
+ * side is "right"; the empty-local-vs-populated-remote case that once wiped
+ * a real backup now just self-heals. localStorage remains fully functional
+ * offline regardless of Drive auth/connectivity state — Google's auth
+ * script only loads the first time a sync actually runs.
  */
+
+import { mergeCollections, pruneTombstones } from './sync_merge.js';
 
 const CLIENT_ID = '211452396461-9bilt4qfu063r4pup4an5gu5n47h9kfb.apps.googleusercontent.com';
 const SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
 const DRIVE_FILE_NAME = 'audiochart-routes-tracks.json';
 const ROUTE_KEY = 'audiochart-user-routes';
 const TRACK_KEY = 'audiochart-user-tracks';
+const TOMBSTONE_KEY = 'audiochart-sync-tombstones';
 const WIFI_TOGGLE_KEY = 'audiochart-drive-wifi-sync';
 const LAST_SYNC_KEY = 'audiochart-drive-last-sync';
 const AUTO_SYNC_MIN_INTERVAL_MS = 60000;
@@ -86,17 +92,15 @@ function _findFileId() {
   });
 }
 
-function _localSnapshot() {
-  return {
-    routes: JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]'),
-    tracks: JSON.parse(localStorage.getItem(TRACK_KEY) || '[]'),
-    savedAt: Date.now(),
-  };
+function _fetchRemote() {
+  return _findFileId().then(id => {
+    if (!id) return { routes: [], tracks: [], tombstones: [] };
+    return _apiFetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`).then(res => res.json());
+  });
 }
 
-export function syncNow() {
-  if (!navigator.onLine) return Promise.reject(new Error('Offline — cannot sync right now.'));
-  const body = JSON.stringify(_localSnapshot());
+function _writeRemote(payload) {
+  const body = JSON.stringify(payload);
   return _findFileId().then(id => {
     if (id) {
       return _apiFetch(`https://www.googleapis.com/upload/drive/v3/files/${id}?uploadType=media`, {
@@ -113,8 +117,57 @@ export function syncNow() {
       method: 'POST',
       body: form,
     }).then(res => res.json()).then(data => { fileId = data.id; });
-  }).then(() => {
-    localStorage.setItem(LAST_SYNC_KEY, String(Date.now()));
+  });
+}
+
+/**
+ * Merge local and remote Routes/Tracks, write the reconciled result back to
+ * both sides. Resolves to a summary for the status UI.
+ */
+export function runMerge() {
+  if (!navigator.onLine) return Promise.reject(new Error('Offline — cannot sync right now.'));
+
+  const localRoutes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+  const localTracks = JSON.parse(localStorage.getItem(TRACK_KEY) || '[]');
+  const localTombstones = JSON.parse(localStorage.getItem(TOMBSTONE_KEY) || '[]');
+  const localRouteTombstones = localTombstones.filter(t => t.type === 'route');
+  const localTrackTombstones = localTombstones.filter(t => t.type === 'track');
+
+  return _fetchRemote().then(remote => {
+    const remoteTombstones = remote.tombstones || [];
+    const remoteRouteTombstones = remoteTombstones.filter(t => t.type === 'route');
+    const remoteTrackTombstones = remoteTombstones.filter(t => t.type === 'track');
+
+    const routeResult = mergeCollections({
+      localItems: localRoutes, remoteItems: remote.routes || [],
+      localTombstones: localRouteTombstones, remoteTombstones: remoteRouteTombstones,
+    });
+    const trackResult = mergeCollections({
+      localItems: localTracks, remoteItems: remote.tracks || [],
+      localTombstones: localTrackTombstones, remoteTombstones: remoteTrackTombstones,
+    });
+    const mergedTombstones = pruneTombstones(
+      [...routeResult.tombstones, ...trackResult.tombstones],
+      { maxCount: 2000 }
+    );
+
+    localStorage.setItem(ROUTE_KEY, JSON.stringify(routeResult.merged));
+    localStorage.setItem(TRACK_KEY, JSON.stringify(trackResult.merged));
+    localStorage.setItem(TOMBSTONE_KEY, JSON.stringify(mergedTombstones));
+
+    return _writeRemote({
+      routes: routeResult.merged,
+      tracks: trackResult.merged,
+      tombstones: mergedTombstones,
+      savedAt: Date.now(),
+    }).then(() => {
+      localStorage.setItem(LAST_SYNC_KEY, String(Date.now()));
+      return {
+        routeCount: routeResult.merged.length,
+        trackCount: trackResult.merged.length,
+        conflictCount: routeResult.conflictCount + trackResult.conflictCount,
+      };
+    });
   });
 }
 
@@ -123,20 +176,5 @@ export function maybeAutoSync() {
   if (!getWifiSyncEnabled() || _autoSyncing) return;
   if (Date.now() - getLastSyncMs() < AUTO_SYNC_MIN_INTERVAL_MS) return;
   _autoSyncing = true;
-  syncNow().catch(() => {}).finally(() => { _autoSyncing = false; });
-}
-
-/** Resolves to {routes, tracks, savedAt} or null if no backup exists yet on Drive. */
-export function fetchBackup() {
-  if (!navigator.onLine) return Promise.reject(new Error('Offline — cannot restore right now.'));
-  return _findFileId().then(id => {
-    if (!id) return null;
-    return _apiFetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`).then(res => res.json());
-  });
-}
-
-export function applyBackup(data) {
-  localStorage.setItem(ROUTE_KEY, JSON.stringify(data.routes || []));
-  localStorage.setItem(TRACK_KEY, JSON.stringify(data.tracks || []));
-  localStorage.setItem(LAST_SYNC_KEY, String(Date.now()));
+  runMerge().catch(() => {}).finally(() => { _autoSyncing = false; });
 }
