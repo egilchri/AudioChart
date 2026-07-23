@@ -939,7 +939,11 @@ html, body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
 }
+.nf-title:active { cursor: grabbing; }
 #nf-close {
   background: none;
   border: none;

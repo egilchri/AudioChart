@@ -772,6 +772,106 @@ document.getElementById('response-close-btn').addEventListener('click', (e) => {
   e.stopPropagation();
   responseAreaEl.style.display = 'none';
 });
+_addSwipeToClose(responseAreaEl, () => { responseAreaEl.style.display = 'none'; }, 'y');
+
+// Swipe-to-close for panels/banners whose only other dismiss control is a small × button.
+// `axis` is the direction that closes it: 'x' swipes right (floating panels near the
+// right edge), 'y' swipes down (bottom-docked banners). Live-follows the finger with a
+// fade, snaps back if released short of the threshold, animates away if past it.
+function _addSwipeToClose(el, closeFn, axis = 'x', excludeSelector = null) {
+  const THRESHOLD = 70;
+  let startX = 0, startY = 0, tracking = false;
+  el.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) return;
+    if (excludeSelector && e.target.closest(excludeSelector)) return; // e.g. the draggable title bar
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    tracking = true;
+    el.style.transition = 'none';
+  }, { passive: true });
+  el.addEventListener('touchmove', (e) => {
+    if (!tracking) return;
+    const dx = e.touches[0].clientX - startX;
+    const dy = e.touches[0].clientY - startY;
+    const primary = axis === 'x' ? dx : dy;
+    const cross   = axis === 'x' ? dy : dx;
+    if (Math.abs(cross) > Math.abs(primary) * 1.2) { tracking = false; el.style.transform = ''; el.style.opacity = ''; return; }
+    const clamped = Math.max(0, primary); // only follow in the closing direction
+    el.style.transform = axis === 'x' ? `translateX(${clamped}px)` : `translateY(${clamped}px)`;
+    el.style.opacity = String(Math.max(0.3, 1 - clamped / 200));
+  }, { passive: true });
+  el.addEventListener('touchend', (e) => {
+    if (!tracking) return;
+    tracking = false;
+    const t = e.changedTouches[0];
+    const dx = (t?.clientX ?? startX) - startX;
+    const dy = (t?.clientY ?? startY) - startY;
+    const primary = axis === 'x' ? dx : dy;
+    el.style.transition = 'transform 0.2s ease, opacity 0.2s ease';
+    if (primary > THRESHOLD) {
+      el.style.transform = axis === 'x' ? 'translateX(120%)' : 'translateY(120%)';
+      el.style.opacity = '0';
+      setTimeout(() => {
+        closeFn();
+        el.style.transition = '';
+        el.style.transform = '';
+        el.style.opacity = '';
+      }, 200);
+    } else {
+      el.style.transform = '';
+      el.style.opacity = '';
+    }
+  });
+}
+
+// Drag-to-reposition for floating panels, so they can be moved out of the way — grab
+// `handleEl` (its title bar) and drag; position is clamped to stay on-screen. Works with
+// both touch and mouse. Position sticks for the rest of the page session (the panel is
+// just hidden/shown via display, never removed, so the inline left/top persist).
+function _makeDraggable(panelEl, handleEl) {
+  let dragging = false, startX = 0, startY = 0, origLeft = 0, origTop = 0;
+
+  function begin(clientX, clientY) {
+    dragging = true;
+    startX = clientX;
+    startY = clientY;
+    const rect = panelEl.getBoundingClientRect();
+    origLeft = rect.left;
+    origTop = rect.top;
+    panelEl.style.transition = 'none';
+  }
+  function moveTo(clientX, clientY) {
+    if (!dragging) return;
+    const w = panelEl.offsetWidth, h = panelEl.offsetHeight;
+    const newLeft = Math.max(4, Math.min(window.innerWidth  - w - 4, origLeft + (clientX - startX)));
+    const newTop  = Math.max(4, Math.min(window.innerHeight - h - 4, origTop  + (clientY - startY)));
+    panelEl.style.left   = `${newLeft}px`;
+    panelEl.style.top    = `${newTop}px`;
+    panelEl.style.right  = 'auto';
+    panelEl.style.bottom = 'auto';
+  }
+  function end() { dragging = false; }
+
+  handleEl.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) return;
+    begin(e.touches[0].clientX, e.touches[0].clientY);
+  }, { passive: true });
+  handleEl.addEventListener('touchmove', (e) => {
+    if (!dragging) return;
+    e.preventDefault(); // suppress page scroll while actively dragging
+    moveTo(e.touches[0].clientX, e.touches[0].clientY);
+  }, { passive: false });
+  handleEl.addEventListener('touchend', end);
+
+  handleEl.addEventListener('mousedown', (e) => {
+    begin(e.clientX, e.clientY);
+    const onMove = (ev) => moveTo(ev.clientX, ev.clientY);
+    const onUp = () => { end(); document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+}
+
 // Touching/clicking the map → expand map to full height, release text input
 function _expandMap() {
   _mapContainer.classList.remove('list-focus', 'input-focus', 'map-compact');
@@ -1606,6 +1706,7 @@ document.getElementById('track-simulate-track').addEventListener('click', () => 
   _enterSimTrackMode();
 });
 document.getElementById('sim-track-close-btn').addEventListener('click', _exitSimTrackMode);
+_addSwipeToClose(document.getElementById('sim-track-banner'), () => _exitSimTrackMode(), 'y');
 document.getElementById('sim-track-start-btn').addEventListener('click', () => {
   if (_simTrackRunning) _stopSimTrack(); else _startSimTrack();
 });
@@ -4227,6 +4328,8 @@ function _ensureMap() {
     _navaidFilterPanel.classList.remove('open');
     _navaidFilterBtn.classList.remove('active');
   };
+  _addSwipeToClose(_navaidFilterPanel, _closeNavaidPanel, 'x', '.nf-title');
+  _makeDraggable(_navaidFilterPanel, _navaidFilterPanel.querySelector('.nf-title'));
   _navaidFilterBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     _navaidFilterPanel.classList.toggle('open');
@@ -4253,6 +4356,8 @@ function _ensureMap() {
     _routePickerPanel.classList.remove('open');
     _routePickerBtn.classList.remove('active');
   };
+  _addSwipeToClose(_routePickerPanel, _closeRoutePicker, 'x', '.nf-title');
+  _makeDraggable(_routePickerPanel, _routePickerPanel.querySelector('.nf-title'));
 
   function _buildRoutePickerPanel() {
     DriveSync.maybeAutoSync();
@@ -4466,6 +4571,8 @@ function _ensureMap() {
     _trackPickerPanel.classList.remove('open');
     _trackPickerBtn.classList.remove('active');
   };
+  _addSwipeToClose(_trackPickerPanel, _closeTrackPicker, 'x', '.nf-title');
+  _makeDraggable(_trackPickerPanel, _trackPickerPanel.querySelector('.nf-title'));
 
   function _buildTrackPickerPanel() {
     DriveSync.maybeAutoSync();
