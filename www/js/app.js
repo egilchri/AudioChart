@@ -10,6 +10,7 @@ import { parseCommand, parseCoordinate, normalizePlaceName, parseFromToQuery } f
 import * as Query from './query.js';
 import * as DriveSync from './drive_sync.js';
 import { migrateLegacyIds } from './sync_merge.js';
+import { splitIntoLegs } from './route_legs.js';
 
 const VERSION = window.APP_VERSION;
 document.getElementById('app-version').textContent = VERSION;
@@ -651,6 +652,7 @@ let _liveHazardTimer       = null;
 let _newVertexIdx          = -1;  // index of freshly inserted vertex — flashes until dragged
 let _deleteMode            = false; // single-click on vertex deletes it
 let _addNodeMode           = false; // waiting for click to insert node into nearest segment
+let _overnightMode         = false; // single-click on vertex toggles it as an overnight stop
 let _growRouteIdx          = -1;    // index of route being grown; -1 = not in grow mode
 let _editHistory           = [];    // stack of _editPoints snapshots for undo
 
@@ -907,6 +909,10 @@ function _destPoint(lat, lon, bearingDeg, distNm) {
 
 function _routeEndpointIcon() {
   return L.divIcon({ className: 'route-endpoint-marker', iconSize: [14, 14], iconAnchor: [7, 7] });
+}
+
+function _routeOvernightIcon() {
+  return L.divIcon({ className: 'route-overnight-marker', html: '&#9875;', iconSize: [16, 16], iconAnchor: [8, 8] });
 }
 
 function _checkRouteHazards(routeIdx) {
@@ -1271,6 +1277,14 @@ function _refreshSavedRouteLayers() {
 
     addEndpointMarker(pts[0], false);
     if (pts.length > 1) addEndpointMarker(pts[pts.length - 1], true);
+
+    // Overnight-stop markers — always visible, not just while editing
+    pts.forEach((pt, i) => {
+      if (i === 0 || i === pts.length - 1 || !pt.overnight) return;
+      L.marker([pt.lat, pt.lon], { icon: _routeOvernightIcon() })
+        .bindTooltip('Overnight stop', { direction: 'top', offset: [0, -10] })
+        .addTo(_savedRoutesLayer);
+    });
   });
 }
 
@@ -1626,6 +1640,11 @@ function _stampNew(obj) {
 function _touch(obj) {
   obj.updatedAt = Date.now();
   return obj;
+}
+// Rebuild a plain {lat, lon} point, preserving `overnight` if set — used everywhere
+// a points array gets reconstructed via .map(), so the flag survives edits/reroutes.
+function _stripPoint(p) {
+  return p.overnight ? { lat: p.lat, lon: p.lon, overnight: true } : { lat: p.lat, lon: p.lon };
 }
 function _tombstone(id, type) {
   if (!id) return; // legacy items migrate lazily; nothing to tombstone until they've been loaded once
@@ -2146,7 +2165,7 @@ function _editVertexIcon() {
 }
 
 function _pushEditHistory() {
-  _editHistory.push(_editPoints.map(p => ({ lat: p.lat, lon: p.lon })));
+  _editHistory.push(_editPoints.map(_stripPoint));
   document.getElementById('edit-undo-btn').style.display = '';
 }
 
@@ -2308,11 +2327,13 @@ function _renderEditLayers() {
     const isNew = idx === _newVertexIdx;
     const tipContent = () =>
       `${formatPositionDisplay(pts[idx].lat, pts[idx].lon)}<br>${_cumNm[idx].toFixed(1)} nm from start`;
+    const vertexClasses = ['edit-vertex-marker'];
+    if (isNew) vertexClasses.push('edit-vertex-new');
+    else if (_deleteMode) vertexClasses.push('edit-vertex-delete');
+    if (pts[idx].overnight) vertexClasses.push('edit-vertex-overnight');
     const m = L.marker([pts[idx].lat, pts[idx].lon], {
       icon: L.divIcon({
-        className: isNew ? 'edit-vertex-marker edit-vertex-new'
-                        : _deleteMode ? 'edit-vertex-marker edit-vertex-delete'
-                        : 'edit-vertex-marker',
+        className: vertexClasses.join(' '),
         iconSize: [16, 16],
         iconAnchor: [8, 8],
       }),
@@ -2335,7 +2356,9 @@ function _renderEditLayers() {
     });
     m.on('drag', () => {
       const ll = m.getLatLng();
-      _editPoints[idx] = { lat: ll.lat, lon: ll.lng };
+      _editPoints[idx] = _editPoints[idx].overnight
+        ? { lat: ll.lat, lon: ll.lng, overnight: true }
+        : { lat: ll.lat, lon: ll.lng };
       m.setTooltipContent(formatPositionDisplay(ll.lat, ll.lng));
       // Update adjacent segment polylines live (bearing labels rebuild on dragend)
       if (idx > 0) {
@@ -2364,6 +2387,11 @@ function _renderEditLayers() {
       if (_deleteMode && _editPoints.length > 2) {
         _pushEditHistory();
         _editPoints.splice(idx, 1);
+        _renderEditLayers();
+      } else if (_overnightMode) {
+        _pushEditHistory();
+        const p = _editPoints[idx];
+        _editPoints[idx] = p.overnight ? { lat: p.lat, lon: p.lon } : { lat: p.lat, lon: p.lon, overnight: true };
         _renderEditLayers();
       }
     });
@@ -2434,6 +2462,7 @@ function _cancelAddNodeMode() {
 function _updateEditToolsPanel() {
   document.getElementById('etp-insert-node')?.classList.toggle('active', _addNodeMode);
   document.getElementById('etp-delete')?.classList.toggle('active', _deleteMode);
+  document.getElementById('etp-overnight')?.classList.toggle('active', _overnightMode);
 }
 
 // Screen-space (not distance-space) match, so it's equally forgiving at any zoom level.
@@ -2600,7 +2629,7 @@ function _animateEditRoute() {
   const speed = parseFloat(localStorage.getItem('audiochart-last-speed')) || 5;
   const route = {
     name:   _editRouteName || 'Route',
-    points: _editPoints.map(p => ({ lat: p.lat, lon: p.lon })),
+    points: _editPoints.map(_stripPoint),
   };
   if (!document.querySelector('.track-compress.selected')) {
     document.querySelector('.track-compress[data-compress="500"]')?.classList.add('selected');
@@ -2618,7 +2647,7 @@ function _editPlaceNode(e) {
 
   const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
   if (!routes[_editRouteIdx]) return;
-  routes[_editRouteIdx].points = _editPoints.map(p => ({ lat: p.lat, lon: p.lon }));
+  routes[_editRouteIdx].points = _editPoints.map(_stripPoint);
   _touch(routes[_editRouteIdx]);
   localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
   const savedIdx       = _editRouteIdx;
@@ -2641,9 +2670,10 @@ function _enterEditMode(routeIdx) {
   _editMode = true;
   _editRouteIdx = routeIdx;
   _editRouteName = route.name;
-  _editPoints = route.points.map(p => ({ lat: p.lat, lon: p.lon }));
+  _editPoints = route.points.map(_stripPoint);
   _deleteMode = false;
   _addNodeMode = false;
+  _overnightMode = false;
   _editHistory = [];
 
   document.getElementById('edit-banner-label').textContent = route.name;
@@ -2670,6 +2700,7 @@ function _exitEditMode() {
   _newVertexIdx = -1;
   _deleteMode = false;
   _addNodeMode = false;
+  _overnightMode = false;
   _editHistory = [];
   document.getElementById('edit-undo-btn').style.display = 'none';
   _clearViewportHazards();
@@ -2695,7 +2726,7 @@ function _exitEditMode() {
 function _saveEditedRoute() {
   const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
   if (!routes[_editRouteIdx]) { _exitEditMode(); return; }
-  routes[_editRouteIdx].points = _editPoints.map(p => ({ lat: p.lat, lon: p.lon }));
+  routes[_editRouteIdx].points = _editPoints.map(_stripPoint);
   _touch(routes[_editRouteIdx]);
   localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
   const name = _editRouteName || 'Route';
@@ -2763,8 +2794,18 @@ document.getElementById('etp-insert-node').addEventListener('click', () => {
 
 document.getElementById('etp-delete').addEventListener('click', () => {
   _deleteMode = !_deleteMode;
+  _overnightMode = false;
   document.getElementById('edit-banner-label').textContent =
     _deleteMode ? _editRouteName + ' — click a node to delete it' : _editRouteName;
+  _renderEditLayers();
+  _updateEditToolsPanel();
+});
+
+document.getElementById('etp-overnight').addEventListener('click', () => {
+  _overnightMode = !_overnightMode;
+  _deleteMode = false;
+  document.getElementById('edit-banner-label').textContent =
+    _overnightMode ? _editRouteName + ' — click a node to mark/unmark as an overnight stop' : _editRouteName;
   _renderEditLayers();
   _updateEditToolsPanel();
 });
@@ -2777,7 +2818,7 @@ document.getElementById('etp-reroute').addEventListener('click', () => {
   const btn = document.getElementById('etp-reroute');
   btn.disabled = true;
   const ui = _showRerouteOverlay(_editPoints);
-  _reRouteSegments(_editPoints.map(p => ({ lat: p.lat, lon: p.lon })), ui.update.bind(ui), ui.setText.bind(ui))
+  _reRouteSegments(_editPoints.map(_stripPoint), ui.update.bind(ui), ui.setText.bind(ui))
     .then(({ points, fallbacks }) => {
       _editPoints = points;
       _renderEditLayers();
@@ -2802,7 +2843,8 @@ function _downloadGpx(points, routeName) {
     // Route points have no per-point timestamp (they're planned paths, not a real track) —
     // omit <time> rather than fabricate one.
     const timeTag = (p.t != null) ? `<time>${new Date(p.t).toISOString()}</time>` : '';
-    return `    <trkpt lat="${p.lat.toFixed(7)}" lon="${p.lon.toFixed(7)}">${timeTag}</trkpt>`;
+    const extTag  = p.overnight ? '<extensions><overnight>true</overnight></extensions>' : '';
+    return `    <trkpt lat="${p.lat.toFixed(7)}" lon="${p.lon.toFixed(7)}">${timeTag}${extTag}</trkpt>`;
   }).join('\n');
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="AudioChart">
@@ -4285,6 +4327,23 @@ function _ensureMap() {
         placeLine.textContent = startName + (endName && endName !== startName ? ' → ' + endName : '');
         row.appendChild(placeLine);
       }
+      const speedKt = parseFloat(localStorage.getItem('audiochart-last-speed')) || 5;
+      const legs = splitIntoLegs(route.points, speedKt);
+      if (legs.length > 0) {
+        const legList = document.createElement('div');
+        legList.className = 'rp-legs';
+        legs.forEach((leg, i) => {
+          const aName = _nearestPlaceName(route.points[leg.startIdx].lat, route.points[leg.startIdx].lon)
+            || formatPositionDisplay(route.points[leg.startIdx].lat, route.points[leg.startIdx].lon);
+          const bName = _nearestPlaceName(route.points[leg.endIdx].lat, route.points[leg.endIdx].lon)
+            || formatPositionDisplay(route.points[leg.endIdx].lat, route.points[leg.endIdx].lon);
+          const legRow = document.createElement('div');
+          legRow.className = 'rp-leg-row';
+          legRow.textContent = `Day ${i + 1}: ${aName} \u2192 ${bName}, ${leg.distNm.toFixed(1)}nm (~${leg.hours.toFixed(1)}h @ ${speedKt}kt)`;
+          legList.appendChild(legRow);
+        });
+        row.appendChild(legList);
+      }
       row.addEventListener('click', () => {
         if (_hiddenRouteNames.has(route.name)) {
           _hiddenRouteNames.delete(route.name);
@@ -4314,7 +4373,7 @@ function _ensureMap() {
       if (_editPoints.length < 2) return;
       btn.classList.add('working');
       const ui = _showRerouteOverlay(_editPoints);
-      _reRouteSegments(_editPoints.map(p => ({ lat: p.lat, lon: p.lon })), ui.update.bind(ui), ui.setText.bind(ui))
+      _reRouteSegments(_editPoints.map(_stripPoint), ui.update.bind(ui), ui.setText.bind(ui))
         .then(({ points, fallbacks }) => {
           _editPoints = points;
           _renderEditLayers();
@@ -5339,6 +5398,7 @@ function _ensureMap() {
       const points = [...rte.querySelectorAll('rtept')].map(pt => ({
         lat: parseFloat(pt.getAttribute('lat')),
         lon: parseFloat(pt.getAttribute('lon')),
+        ...(pt.querySelector('extensions > overnight')?.textContent?.trim() === 'true' ? { overnight: true } : {}),
       })).filter(p => !isNaN(p.lat) && !isNaN(p.lon));
       if (!points.length) continue;
       routes.push(_stampNew({ name, points }));
@@ -5349,6 +5409,7 @@ function _ensureMap() {
       const points = [...trk.querySelectorAll('trkpt')].map(pt => ({
         lat: parseFloat(pt.getAttribute('lat')),
         lon: parseFloat(pt.getAttribute('lon')),
+        ...(pt.querySelector('extensions > overnight')?.textContent?.trim() === 'true' ? { overnight: true } : {}),
       })).filter(p => !isNaN(p.lat) && !isNaN(p.lon));
       if (!points.length) continue;
       routes.push(_stampNew({ name, points }));
@@ -5381,7 +5442,8 @@ function _ensureMap() {
         for (const pt of src.querySelectorAll(ptTag)) {
           const lat = parseFloat(pt.getAttribute('lat'));
           const lon = parseFloat(pt.getAttribute('lon'));
-          if (!isNaN(lat) && !isNaN(lon)) allPoints.push({ lat, lon });
+          const overnight = pt.querySelector('extensions > overnight')?.textContent?.trim() === 'true';
+          if (!isNaN(lat) && !isNaN(lon)) allPoints.push(overnight ? { lat, lon, overnight: true } : { lat, lon });
         }
       }
       if (!allPoints.length) { TTS.sayImmediate('No route points found.'); return; }
