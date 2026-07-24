@@ -105,7 +105,7 @@ html, body {
 .status-badge.gps-test { background: #4a2a00; color: var(--warn); }
 
 /* Offline prep, route download + test position buttons in header */
-#offline-btn, #route-btn, #test-pos-btn, #focus-btn, #track-rec-btn {
+#offline-btn, #route-btn, #test-pos-btn, #track-rec-btn {
   background: none;
   border: 1px solid var(--mid-blue);
   border-radius: 6px;
@@ -115,10 +115,28 @@ html, body {
   cursor: pointer;
   white-space: nowrap;
 }
-#offline-btn:hover, #route-btn:hover, #test-pos-btn:hover, #focus-btn:hover, #track-rec-btn:hover { border-color: var(--accent); color: var(--text); }
+#offline-btn:hover, #route-btn:hover, #test-pos-btn:hover, #track-rec-btn:hover { border-color: var(--accent); color: var(--text); }
 #offline-btn:disabled, #route-btn:disabled { opacity: 0.5; cursor: default; }
 #test-pos-btn.test-active { border-color: var(--danger); color: var(--danger); background: #2a0a0a; font-weight: 700; }
 #test-pos-btn.test-active:hover { border-color: var(--danger); color: #ff8080; background: #3a0a0a; }
+
+/* Focus (bearing/range readout) button — the most-tapped control while underway,
+   so it's deliberately much bigger than its status-bar neighbors: a generous,
+   easy-to-hit target for wet hands/gloves/boat motion, not just a compact label. */
+#focus-btn {
+  background: none;
+  border: 2px solid var(--mid-blue);
+  border-radius: 10px;
+  color: var(--text-dim);
+  font-size: 1.05rem;
+  font-weight: 700;
+  padding: 12px 18px;
+  min-height: 48px;
+  cursor: pointer;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+#focus-btn:hover { border-color: var(--accent); color: var(--text); }
 #focus-btn.focus-active { border-color: #1a6b3c; color: #4ade80; background: #0a2a16; }
 #focus-btn.focus-active:hover { border-color: #2a8b4c; color: #6aeea0; background: #0f3a1e; }
 #track-rec-btn.rec-active { border-color: var(--danger); color: var(--danger); background: #2a0a0a; font-weight: 700; }
@@ -389,6 +407,27 @@ html, body {
 }
 #response-close-btn:hover, #response-close-btn:active { color: var(--text); }
 
+/* Collapsed "peek" state — a thin, always-visible, tappable remnant instead of
+   fully vanishing, so there's never a moment where the transcript is gone with no
+   obvious way to bring it back. */
+#response-area.collapsed {
+  flex: 0 0 auto;
+  height: 26px;
+  min-height: 26px;
+  overflow: hidden;
+  padding: 5px 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+#response-area.collapsed #response-text,
+#response-area.collapsed #response-close-btn { display: none; }
+#response-area.collapsed::after {
+  content: 'Transcript \2014 tap to expand';
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+
 #response-text {
   display: flex;
   flex-direction: column;
@@ -592,7 +631,7 @@ html, body {
 }
 #map-layer-btn:active { background: var(--mid-blue); }
 
-#seamark-toggle-btn {
+#zoom-to-me-btn {
   position: absolute;
   bottom: 140px;
   right: 10px;
@@ -611,8 +650,7 @@ html, body {
   justify-content: center;
   -webkit-tap-highlight-color: transparent;
 }
-#seamark-toggle-btn:active { background: var(--mid-blue); }
-#seamark-toggle-btn.active  { background: #2a1a3a; color: #888; }
+#zoom-to-me-btn:active { background: var(--mid-blue); }
 
 #route-picker-btn {
   position: absolute;

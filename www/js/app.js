@@ -724,9 +724,7 @@ let _previewRouteLine = null;
 let _animClickHandler = null;
 let _animTraveled     = 0;
 let _baseTileLayer    = null;
-let _seamarkLayer     = null;
 let _chartMode        = localStorage.getItem('audiochart-chart-mode') === 'chart';
-let _seamarksVisible  = localStorage.getItem('audiochart-seamarksVisible') !== 'false';
 let _animReportLayer   = null;
 let _animMilestoneLayer = null;
 let _animFollowMode = false;
@@ -765,17 +763,21 @@ window._debugDepth = () => {
 
 // ── Map / list focus toggle ───────────────────────────────────────────────────
 const _mapContainer = document.getElementById('map-container');
-// Clicking the response area (list) → list expands, map shrinks
+// Clicking the response area (list) → list expands, map shrinks. If it's collapsed
+// to its thin one-line remnant, a tap anywhere on it re-expands instead.
 document.getElementById('response-area').addEventListener('click', () => {
+  if (responseAreaEl.classList.contains('collapsed')) { _expandResponseArea(); return; }
   if (_mapContainer.classList.contains('map-compact'))
     _mapContainer.classList.add('list-focus');
 });
-// Dismiss the transcript when it's in the way — reappears on the next response/utterance.
+// Shrink the transcript to a thin tappable bar when it's in the way — never fully
+// vanishes, so there's always a visible, obvious way back (standard bottom-sheet
+// "peek" pattern). Reappears at full size on the next response/utterance.
 document.getElementById('response-close-btn').addEventListener('click', (e) => {
   e.stopPropagation();
-  responseAreaEl.style.display = 'none';
+  _collapseResponseArea();
 });
-_addSwipeToClose(responseAreaEl, () => { responseAreaEl.style.display = 'none'; }, 'y');
+_addSwipeToClose(responseAreaEl, _collapseResponseArea, 'y');
 
 // Swipe-to-close for panels/banners whose only other dismiss control is a small × button.
 // `axis` is the direction that closes it: 'x' swipes right (floating panels near the
@@ -894,6 +896,15 @@ textInput.addEventListener('blur', () => {
 const _TRANSCRIPT_MAX_LINES = 200; // bound DOM/memory growth over an all-day sail
 let _lastTranscriptLine = null;
 
+function _collapseResponseArea() {
+  responseAreaEl.style.display = ''; // clear the initial inline display:none from index.html
+  responseAreaEl.classList.add('collapsed');
+}
+function _expandResponseArea() {
+  responseAreaEl.style.display = ''; // clear the initial inline display:none from index.html
+  responseAreaEl.classList.remove('collapsed');
+}
+
 function _appendTranscript(text) {
   if (!text || text === '...' || text === _lastTranscriptLine) return; // skip the
                        // transient "working" placeholder and dedupe the common
@@ -913,7 +924,7 @@ function _appendTranscript(text) {
   while (responseEl.children.length > _TRANSCRIPT_MAX_LINES) {
     responseEl.removeChild(responseEl.firstChild);
   }
-  responseAreaEl.style.display = 'block';
+  _expandResponseArea();
   responseAreaEl.scrollTop = responseAreaEl.scrollHeight;
 }
 
@@ -953,7 +964,7 @@ function showNavaidList(navaids) {
     navaidListEl.appendChild(row);
   }
   navaidListEl.style.display = 'flex';
-  responseAreaEl.style.display = 'block';
+  _expandResponseArea();
 }
 
 // ── Sketch route ─────────────────────────────────────────────────────────────
@@ -4205,22 +4216,18 @@ function _highlightAndSpeak(marker, displayText, speechText, onEnd) {
 function _applyMapLayer() {
   if (!_map) return;
   if (_baseTileLayer) { _map.removeLayer(_baseTileLayer); _baseTileLayer = null; }
-  if (_seamarkLayer)  { _map.removeLayer(_seamarkLayer);  _seamarkLayer  = null; }
   if (_chartMode) {
     _baseTileLayer = L.tileLayer(
       'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-      { minZoom: 4, maxZoom: 17, attribution: '© OpenStreetMap contributors' }
+      // maxZoom stays 18 to match the zoom slider; maxNativeZoom caps actual tile
+      // *requests* at 17 (the provider's real resolution) and lets Leaflet upscale
+      // that last tile for zoom 18 instead of leaving a blank screen past 17.
+      { minZoom: 4, maxZoom: 18, maxNativeZoom: 17, attribution: '© OpenStreetMap contributors' }
     ).addTo(_map);
-    if (_seamarksVisible) {
-      _seamarkLayer = L.tileLayer(
-        'https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png',
-        { minZoom: 7, maxZoom: 17, attribution: '© OpenSeaMap contributors', opacity: 0.9 }
-      ).addTo(_map);
-    }
   } else {
     _baseTileLayer = L.tileLayer(
       'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-      { minZoom: 4, maxZoom: 17, attribution: '© Esri' }
+      { minZoom: 4, maxZoom: 18, maxNativeZoom: 17, attribution: '© Esri' }
     ).addTo(_map);
   }
 }
@@ -4232,20 +4239,12 @@ function _syncLayerBtn() {
   btn.title       = _chartMode ? 'Switch to satellite' : 'Switch to chart';
 }
 
-function _syncSeamarkBtn() {
-  const btn = document.getElementById('seamark-toggle-btn');
-  if (!btn) return;
-  btn.title = _seamarksVisible ? 'Hide seamarks' : 'Show seamarks';
-  btn.classList.toggle('active', !_seamarksVisible);
-}
-
 function _ensureMap() {
   if (_map) return;
   _map = L.map('leaflet-map', { zoomControl: false, attributionControl: true });
   _map.setView([44.1018, -69.0752], 11);  // Rockland Harbor — default until GPS arrives
   _applyMapLayer();
   _syncLayerBtn();
-  _syncSeamarkBtn();
   _loadHiddenRoutes();
   _loadHiddenTracks();
   _refreshSavedTrackLayers();
@@ -4399,12 +4398,16 @@ function _ensureMap() {
     _syncLayerBtn();
   });
 
-  document.getElementById('seamark-toggle-btn').addEventListener('click', (e) => {
+  document.getElementById('zoom-to-me-btn').addEventListener('click', (e) => {
     e.stopPropagation();
-    _seamarksVisible = !_seamarksVisible;
-    localStorage.setItem('audiochart-seamarksVisible', String(_seamarksVisible));
-    _applyMapLayer();
-    _syncSeamarkBtn();
+    const pos = GPS.getPosition();
+    if (!pos) {
+      const msg = 'No GPS fix yet. Please wait for a position.';
+      setStatus(msg);
+      TTS.sayImmediate(msg);
+      return;
+    }
+    _map.flyTo([pos.lat, pos.lon], 15, { duration: 0.6 });
   });
 
   // ⚓ Navaid filter panel
