@@ -32,11 +32,11 @@ function priority(source) {
   return SOURCE_PRIORITY[source] ?? 0;
 }
 
-function updatePosition(lat, lon, accuracy, source) {
+function updatePosition(lat, lon, accuracy, source, heading = null, speedKt = null) {
   // Only update if this source is at least as authoritative as the current one
   if (currentPosition && priority(source) < priority(currentPosition.source)) return;
-  currentPosition = { lat, lon, accuracy, source };
-  if (onPositionCallback) onPositionCallback(lat, lon, accuracy, source);
+  currentPosition = { lat, lon, accuracy, source, heading, speedKt };
+  if (onPositionCallback) onPositionCallback(lat, lon, accuracy, source, heading, speedKt);
 }
 
 /** Start watching GPS. Calls onPosition(lat, lon, accuracy, source) on updates. */
@@ -51,8 +51,11 @@ export function startGPS(onPosition, onError) {
 
   watchId = navigator.geolocation.watchPosition(
     (pos) => {
-      const { latitude, longitude, accuracy } = pos.coords;
-      updatePosition(latitude, longitude, accuracy, 'browser');
+      const { latitude, longitude, accuracy, heading, speed } = pos.coords;
+      // speed is m/s per the Geolocation API spec; convert to knots.
+      const speedKt = (speed != null && !isNaN(speed)) ? speed * 1.943844 : null;
+      const headingDeg = (heading != null && !isNaN(heading)) ? heading : null;
+      updatePosition(latitude, longitude, accuracy, 'browser', headingDeg, speedKt);
     },
     (err) => {
       const msg = err.code === 1 ? 'GPS permission denied' :
@@ -89,7 +92,7 @@ function _connectWS() {
       try {
         const data = JSON.parse(evt.data);
         if (data.lat && data.lon) {
-          updatePosition(data.lat, data.lon, data.accuracy ?? 5, data.source ?? 'nmea');
+          updatePosition(data.lat, data.lon, data.accuracy ?? 5, data.source ?? 'nmea', data.heading ?? null, data.speedKt ?? null);
         }
       } catch (_) {}
     };

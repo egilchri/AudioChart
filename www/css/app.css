@@ -1767,6 +1767,21 @@ html, body {
   align-items: center;
   gap: 3px;
 }
+.heading-speed-ctrl {
+  pointer-events: none;
+  margin: 0 8px 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-family: Arial, sans-serif;
+  letter-spacing: 0.3px;
+  color: #e05252;
+  background: rgba(20,40,70,0.85);
+  border: 1px solid #2a5080;
+  border-radius: 10px;
+  padding: 3px 9px;
+  text-align: center;
+  filter: drop-shadow(0 1px 4px rgba(0,0,0,0.5));
+}
 .tide-slider-row {
   pointer-events: all;
   display: flex;

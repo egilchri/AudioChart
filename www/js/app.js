@@ -458,6 +458,9 @@ let _waypointLayer = null;
 let _boatLayer = null;
 let _youLayer = null;
 let _focusRayLine = null;   // ray from the boat toward the current focus target
+let _headingRayLine  = null; // live direction-of-travel ray (course over ground)
+let _headingRayArrow = null; // arrowhead marker at the tip of _headingRayLine
+let _headingSpeedEl  = null; // DOM element of the heading/speed readout control
 let _boatCircleDismissed = false;  // true after user taps the boat once
 let _waypointsVisible = localStorage.getItem('audiochart-waypoints-visible') === 'true';
 let _leafletReady = false;
@@ -3535,6 +3538,75 @@ function _updateFocusRay(lat, lon) {
   }
 }
 
+// ── Live direction-of-travel indicator ──────────────────────────────────────────
+// A solid red ray + arrowhead from the boat showing real course-over-ground, scaled
+// to a 6-minute predictor (standard ECDIS/chartplotter convention) — longer when
+// moving fast, shorter when slow. Hidden below MIN_HEADING_SPEED_KT since phone GPS
+// heading is unreliable/noisy near-stationary. Paired with a small numeric readout
+// next to the tide widget.
+const MIN_HEADING_SPEED_KT = 2;
+const HEADING_PREDICTOR_MIN = 6;
+let _lastFixForHeading = null; // {lat, lon, t} — fallback source when coords.heading is unavailable
+
+function _computeHeadingSpeed(lat, lon, browserHeadingDeg, browserSpeedKt) {
+  const now = Date.now();
+  let headingDeg = browserHeadingDeg;
+  let speedKt = browserSpeedKt;
+  if (_lastFixForHeading) {
+    const dtSec = (now - _lastFixForHeading.t) / 1000;
+    const distNm = Query.distanceNm(_lastFixForHeading.lon, _lastFixForHeading.lat, lon, lat);
+    if (dtSec > 0) {
+      if (headingDeg == null && distNm > 0.005) { // moved more than ~9m — enough to trust a computed bearing
+        headingDeg = Query.bearing(_lastFixForHeading.lon, _lastFixForHeading.lat, lon, lat);
+      }
+      if (speedKt == null) speedKt = (distNm / dtSec) * 3600;
+    }
+  }
+  _lastFixForHeading = { lat, lon, t: now };
+  return { headingDeg, speedKt };
+}
+
+function _updateHeadingRay(lat, lon, headingDeg, speedKt) {
+  if (!_map) return;
+  if (headingDeg == null || speedKt == null || speedKt < MIN_HEADING_SPEED_KT) {
+    if (_headingRayLine)  { _map.removeLayer(_headingRayLine);  _headingRayLine  = null; }
+    if (_headingRayArrow) { _map.removeLayer(_headingRayArrow); _headingRayArrow = null; }
+    return;
+  }
+  const distNm = speedKt * (HEADING_PREDICTOR_MIN / 60);
+  const end = _destinationPoint(lat, lon, headingDeg, distNm);
+  const latlngs = [[lat, lon], [end.lat, end.lon]];
+  if (!_headingRayLine) {
+    _headingRayLine = L.polyline(latlngs, {
+      color: '#e05252', weight: 3, opacity: 0.9, interactive: false,
+    }).addTo(_map);
+  } else {
+    _headingRayLine.setLatLngs(latlngs);
+  }
+  const arrowIcon = L.divIcon({
+    html: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20">
+      <polygon points="10,0 18,18 10,13 2,18" fill="#e05252" transform="rotate(${headingDeg},10,10)"/>
+    </svg>`,
+    iconSize: [20, 20], iconAnchor: [10, 10], className: '',
+  });
+  if (!_headingRayArrow) {
+    _headingRayArrow = L.marker([end.lat, end.lon], { icon: arrowIcon, interactive: false, keyboard: false }).addTo(_map);
+  } else {
+    _headingRayArrow.setLatLng([end.lat, end.lon]);
+    _headingRayArrow.setIcon(arrowIcon);
+  }
+}
+
+function _updateHeadingSpeedReadout(headingDeg, speedKt) {
+  if (!_headingSpeedEl) return;
+  if (speedKt == null) { _headingSpeedEl.style.display = 'none'; return; }
+  _headingSpeedEl.style.display = '';
+  const headingText = (headingDeg != null && speedKt >= MIN_HEADING_SPEED_KT)
+    ? `${String(Math.round(trueTomagnetic(headingDeg) + 360) % 360).padStart(3, '0')}°M`
+    : '—°M';
+  _headingSpeedEl.textContent = `${headingText} · ${speedKt.toFixed(1)}kt`;
+}
+
 // ── Simulate Heading — dead-reckoning rehearsal tool ────────────────────────────
 // Place the boat, pick an arbitrary heading (drag or type), see a ray showing where
 // it leads. Distinct from _startRouteAnimation (which moves a boat along a route over
@@ -4286,6 +4358,20 @@ function _ensureMap() {
     },
   });
   new _TideCycle().addTo(_map);
+
+  // Heading/speed readout — small always-on text control, same L.Control family as
+  // the compass rose and tide cycle, stacked with them in the top-right corner.
+  const _HeadingSpeedReadout = L.Control.extend({
+    options: { position: 'topright' },
+    onAdd() {
+      const el = L.DomUtil.create('div', 'heading-speed-ctrl');
+      L.DomEvent.disableClickPropagation(el);
+      el.style.display = 'none';
+      _headingSpeedEl = el;
+      return el;
+    },
+  });
+  new _HeadingSpeedReadout().addTo(_map);
 
   // Redraw the "now" dot every minute (cheap — pure math against cached
   // extremes); refresh the predictions themselves only when the boat has
@@ -7031,10 +7117,19 @@ async function init() {
   }
 
   GPS.startGPS(
-    async (lat, lon, accuracy, source) => {
+    async (lat, lon, accuracy, source, heading, speedKt) => {
       showPosition(lat, lon, accuracy, source);
       _refreshYouLayer();
       _updateFocusRay();
+      if (source === 'manual') {
+        _lastFixForHeading = null; // don't let a teleport corrupt the next real fallback calc
+        _updateHeadingRay(lat, lon, null, null);
+        _updateHeadingSpeedReadout(null, null);
+      } else {
+        const computed = _computeHeadingSpeed(lat, lon, heading, speedKt);
+        _updateHeadingRay(lat, lon, computed.headingDeg, computed.speedKt);
+        _updateHeadingSpeedReadout(computed.headingDeg, computed.speedKt);
+      }
       if (_trackRecActive) {
         const now = Date.now();
         if (now - _trackRecLastSampleTs >= 1000) {
