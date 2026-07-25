@@ -4643,6 +4643,11 @@ function _ensureMap() {
     _saveHiddenRoutes();
     _refreshSavedRouteLayers();
     _buildRoutePickerPanel();
+    // Bring every now-visible route into view — otherwise "All" just un-hides them
+    // without actually showing them if they're outside the current map viewport,
+    // defeating the point of browsing the map to find one you've forgotten the name of.
+    const allPts = routes.flatMap(r => (r.points || []).map(p => [p.lat, p.lon]));
+    if (allPts.length > 1) _map.fitBounds(L.latLngBounds(allPts).pad(0.15));
   });
   document.getElementById('rp-hide-all').addEventListener('click', () => {
     const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
