@@ -330,6 +330,7 @@ const mapLink = document.getElementById('map-link');
 const opencpnBtn = document.getElementById('opencpn-btn');
 const focusBtn = document.getElementById('focus-btn');
 const trackRecBtn = document.getElementById('track-rec-btn');
+const wakeLockBtn = document.getElementById('wake-lock-btn');
 
 function _updateFocusButton() {
   if (!focusBtn) return;
@@ -725,6 +726,9 @@ let _animClickHandler = null;
 let _animTraveled     = 0;
 let _baseTileLayer    = null;
 let _chartMode        = localStorage.getItem('audiochart-chart-mode') === 'chart';
+let _wakeLockEnabled  = localStorage.getItem('audiochart-wake-lock') !== 'false'; // on by default
+let _wakeLockSentinel = null;   // the live WakeLockSentinel, or null when not currently held
+let _wakeLockWarned   = false;  // suppresses repeated warnings for the same ongoing failure
 let _animReportLayer   = null;
 let _animMilestoneLayer = null;
 let _animFollowMode = false;
@@ -6819,6 +6823,54 @@ trackRecBtn?.addEventListener('click', () => {
   _refreshSavedTrackLayers();
 });
 
+// ── Screen wake lock ─────────────────────────────────────────────────────────
+function _updateWakeLockButton() {
+  if (!wakeLockBtn) return;
+  wakeLockBtn.textContent = _wakeLockEnabled ? '☀️ Awake' : '💤 Sleep OK';
+  wakeLockBtn.title = _wakeLockEnabled
+    ? 'Screen stays awake — tap to allow it to sleep'
+    : 'Screen may sleep — tap to keep it awake';
+  wakeLockBtn.classList.toggle('wake-active', _wakeLockEnabled);
+}
+
+async function _requestWakeLock() {
+  if (!_wakeLockEnabled || !('wakeLock' in navigator)) return;
+  if (document.visibilityState !== 'visible') return;
+  if (_wakeLockSentinel) return; // already held
+
+  try {
+    _wakeLockSentinel = await navigator.wakeLock.request('screen');
+    _wakeLockWarned = false;
+    _wakeLockSentinel.addEventListener('release', () => { _wakeLockSentinel = null; });
+  } catch (err) {
+    _wakeLockSentinel = null;
+    if (!_wakeLockWarned) {
+      _wakeLockWarned = true;
+      console.warn('[wakelock] request failed:', err);
+      setStatus(`Screen wake lock unavailable: ${err.message}`);
+    }
+  }
+}
+
+function _releaseWakeLock() {
+  if (_wakeLockSentinel) _wakeLockSentinel.release().catch(() => {});
+}
+
+wakeLockBtn?.addEventListener('click', () => {
+  _wakeLockEnabled = !_wakeLockEnabled;
+  localStorage.setItem('audiochart-wake-lock', _wakeLockEnabled ? 'true' : 'false');
+  _wakeLockWarned = false;
+  _updateWakeLockButton();
+  if (_wakeLockEnabled) _requestWakeLock(); else _releaseWakeLock();
+});
+
+// The Wake Lock spec auto-releases the sentinel whenever the tab is backgrounded
+// (fires the 'release' handler above on its own) — re-request it on return, matching
+// this codebase's one-listener-per-feature convention (no shared visibility dispatcher).
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') _requestWakeLock();
+});
+
 function _recoverInProgressTrack() {
   const raw = localStorage.getItem(IN_PROGRESS_TRACK_KEY);
   if (!raw) return;
@@ -7046,6 +7098,12 @@ async function init() {
   Query.loadStoredFocus();
   _updateFocusButton();
   _recoverInProgressTrack();
+
+  if ('wakeLock' in navigator) {
+    wakeLockBtn.style.display = 'inline-block';
+    _updateWakeLockButton();
+    _requestWakeLock();
+  }
 
   // Show the map immediately on all devices (sidebar was removed in v198)
   loadLeaflet().then(() => {
