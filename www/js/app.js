@@ -881,6 +881,170 @@ function _makeDraggable(panelEl, handleEl) {
   });
 }
 
+// ── Rearrange mode: drag any permanent UI element out of the way ───────────────
+// Long-press any grouped element (600ms hold, 15px move-cancel tolerance — matching
+// Leaflet's own long-press-to-context-menu convention, the only precedent in this
+// app) to enter a global mode, like iOS home-screen icon jiggle: every group gets a
+// dashed outline + jiggle and can be dragged; normal taps are suppressed everywhere
+// until "Done" is tapped. Related buttons that are visually one unit move together.
+let _rearrangeMode = false;
+
+function _enterRearrangeMode() {
+  if (_rearrangeMode) return;
+  _rearrangeMode = true;
+  _appEl.classList.add('rearrange-mode');
+  const banner = document.getElementById('rearrange-banner');
+  if (banner) banner.style.display = 'flex';
+}
+function _exitRearrangeMode() {
+  _rearrangeMode = false;
+  _appEl.classList.remove('rearrange-mode');
+  const banner = document.getElementById('rearrange-banner');
+  if (banner) banner.style.display = 'none';
+}
+document.getElementById('rearrange-done-btn')?.addEventListener('click', _exitRearrangeMode);
+
+// Suppress normal tap actions everywhere while rearranging — a single capture-phase
+// interceptor instead of guarding every individual button's own click handler.
+document.addEventListener('click', (e) => {
+  if (!_rearrangeMode) return;
+  if (e.target.closest('#rearrange-done-btn')) return;
+  e.stopPropagation();
+  e.preventDefault();
+}, true);
+
+function _clampGroupOffset(els, candidateDx, candidateDy, appliedDx, appliedDy) {
+  let dx = candidateDx, dy = candidateDy;
+  for (const el of els) {
+    const r = el.getBoundingClientRect();
+    const naturalLeft = r.left - appliedDx, naturalTop = r.top - appliedDy;
+    const w = el.offsetWidth, h = el.offsetHeight;
+    dx = Math.min(Math.max(dx, 4 - naturalLeft), window.innerWidth  - w - 4 - naturalLeft);
+    dy = Math.min(Math.max(dy, 4 - naturalTop),  window.innerHeight - h - 4 - naturalTop);
+  }
+  return { dx, dy };
+}
+
+// Registers one draggable group: `getEls()` is called lazily (not at setup time) since
+// some groups (the Leaflet-Control widgets) don't exist until the map is built. The
+// offset is a CSS variable (--ui-pos-<groupId>) referenced by each element's own
+// `transform` rule in app.css — a transform doesn't care whether the element underneath
+// is positioned bottom/right, top/left, or lives inside Leaflet's control-container flex
+// layout, so this works uniformly across every kind of element without detaching anything.
+function _makeDraggableGroup(groupId, getEls) {
+  const LONG_PRESS_MS = 600, MOVE_TOLERANCE = 15;
+  let curDx = 0, curDy = 0;
+  try {
+    const saved = JSON.parse(localStorage.getItem(`audiochart-ui-pos-${groupId}`) || 'null');
+    if (saved) { curDx = saved.dx; curDy = saved.dy; }
+  } catch (_) {}
+
+  // Exclude currently display:none elements (e.g. #delete-route-btn outside edit mode) —
+  // a hidden element's getBoundingClientRect() is a zero-size rect at (0,0), which would
+  // otherwise corrupt the clamp math for the rest of the group.
+  const currentEls = () => getEls().filter(el => el && el.offsetParent !== null);
+  const applyOffset = (dx, dy) => _appEl.style.setProperty(`--ui-pos-${groupId}`, `translate(${dx}px, ${dy}px)`);
+  applyOffset(curDx, curDy); // restore any saved position immediately
+
+  let dragging = false, pressTimer = null;
+  let startX = 0, startY = 0, baseDx = 0, baseDy = 0, origins = [];
+
+  function begin(clientX, clientY) {
+    dragging = true;
+    startX = clientX; startY = clientY;
+    baseDx = curDx; baseDy = curDy;
+    origins = currentEls();
+  }
+  function moveTo(clientX, clientY) {
+    if (!dragging) return;
+    const { dx, dy } = _clampGroupOffset(origins, baseDx + (clientX - startX), baseDy + (clientY - startY), baseDx, baseDy);
+    curDx = dx; curDy = dy;
+    applyOffset(dx, dy);
+  }
+  function end() {
+    if (!dragging) return;
+    dragging = false;
+    localStorage.setItem(`audiochart-ui-pos-${groupId}`, JSON.stringify({ dx: curDx, dy: curDy }));
+  }
+  function armLongPress(onFire) {
+    clearLongPress();
+    pressTimer = setTimeout(() => { pressTimer = null; onFire(); }, LONG_PRESS_MS);
+  }
+  function clearLongPress() {
+    if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+  }
+
+  currentEls().forEach(el => {
+    el.classList.add('ui-drag-target');
+
+    el.addEventListener('touchstart', (e) => {
+      if (e.touches.length !== 1) return;
+      const t = e.touches[0];
+      startX = t.clientX; startY = t.clientY;
+      if (_rearrangeMode) begin(t.clientX, t.clientY);
+      else armLongPress(() => { _enterRearrangeMode(); begin(t.clientX, t.clientY); });
+    }, { passive: true });
+
+    el.addEventListener('touchmove', (e) => {
+      const t = e.touches[0];
+      if (dragging) {
+        e.preventDefault();
+        moveTo(t.clientX, t.clientY);
+      } else if (pressTimer && Math.hypot(t.clientX - startX, t.clientY - startY) > MOVE_TOLERANCE) {
+        clearLongPress();
+      }
+    }, { passive: false });
+
+    el.addEventListener('touchend', () => { clearLongPress(); end(); });
+    el.addEventListener('touchcancel', () => { clearLongPress(); end(); });
+
+    el.addEventListener('mousedown', (e) => {
+      startX = e.clientX; startY = e.clientY;
+      if (_rearrangeMode) begin(e.clientX, e.clientY);
+      else armLongPress(() => { _enterRearrangeMode(); begin(e.clientX, e.clientY); });
+      const onMove = (ev) => {
+        if (dragging) moveTo(ev.clientX, ev.clientY);
+        else if (pressTimer && Math.hypot(ev.clientX - startX, ev.clientY - startY) > MOVE_TOLERANCE) clearLongPress();
+      };
+      const onUp = () => {
+        clearLongPress();
+        end();
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  });
+
+  // Re-clamp on viewport resize/orientation change so a previously-dragged group
+  // never ends up off-screen (relevant on a boat tablet/phone that may rotate).
+  window.addEventListener('resize', () => {
+    const els = currentEls();
+    if (!els.length) return;
+    const { dx, dy } = _clampGroupOffset(els, curDx, curDy, curDx, curDy);
+    if (dx !== curDx || dy !== curDy) {
+      curDx = dx; curDy = dy;
+      applyOffset(dx, dy);
+      localStorage.setItem(`audiochart-ui-pos-${groupId}`, JSON.stringify({ dx, dy }));
+    }
+  });
+}
+
+function _initRearrangeGroups() {
+  _makeDraggableGroup('status', () => [document.getElementById('map-overlay-status')]);
+  _makeDraggableGroup('btncol', () => [
+    'map-menu-btn', 'map-layer-btn', 'zoom-to-me-btn', 'navaid-filter-btn',
+    'route-picker-btn', 'reroute-btn', 'delete-route-btn', 'track-picker-btn',
+  ].map(id => document.getElementById(id)));
+  _makeDraggableGroup('navctl', () => ['zoom-slider-wrap', 'pan-controls-wrap'].map(id => document.getElementById(id)));
+  _makeDraggableGroup('version', () => [document.getElementById('map-version-label')]);
+  _makeDraggableGroup('cmdbar', () => [document.getElementById('map-overlay-cmd')]);
+  _makeDraggableGroup('compass', () => [...document.querySelectorAll('.compass-rose-ctrl')]);
+  _makeDraggableGroup('tide', () => [...document.querySelectorAll('.tide-cycle-ctrl')]);
+  _makeDraggableGroup('headingspeed', () => [...document.querySelectorAll('.heading-speed-ctrl')]);
+}
+
 // Touching/clicking the map → expand map to full height, release text input
 function _expandMap() {
   _mapContainer.classList.remove('list-focus', 'input-focus', 'map-compact');
@@ -7110,6 +7274,7 @@ async function init() {
     document.getElementById('map-container').style.display = 'block';
     _ensureMap();
     _map.invalidateSize();
+    _initRearrangeGroups();
   }).catch(() => {});
 
   // If opened via QR code with ?server=, persist the server URL and clean the address bar.
