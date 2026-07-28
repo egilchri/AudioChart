@@ -1948,7 +1948,13 @@ function _tombstone(id, type) {
 
 function _loadHiddenRoutes() {
   const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
-  _hiddenRouteNames = new Set(routes.map(r => r.name));
+  const routeNames = new Set(routes.map(r => r.name));
+  let saved = [];
+  try { saved = JSON.parse(localStorage.getItem(HIDDEN_ROUTES_KEY) || '[]'); } catch (_) {}
+  // Restore whichever routes were actually hidden last session — drop names for
+  // routes that no longer exist. Anything not in the saved hidden-set (including
+  // any route created since) stays visible, same as it already was on-screen.
+  _hiddenRouteNames = new Set(saved.filter(name => routeNames.has(name)));
   _saveHiddenRoutes();
 }
 
@@ -1958,7 +1964,10 @@ function _saveHiddenRoutes() {
 
 function _loadHiddenTracks() {
   const tracks = JSON.parse(localStorage.getItem(TRACK_KEY) || '[]');
-  _hiddenTrackNames = new Set(tracks.map(t => t.name));
+  const trackNames = new Set(tracks.map(t => t.name));
+  let saved = [];
+  try { saved = JSON.parse(localStorage.getItem(HIDDEN_TRACKS_KEY) || '[]'); } catch (_) {}
+  _hiddenTrackNames = new Set(saved.filter(name => trackNames.has(name)));
   _saveHiddenTracks();
 }
 
@@ -4415,7 +4424,26 @@ function _ensureMap() {
   _syncLayerBtn();
   _loadHiddenRoutes();
   _loadHiddenTracks();
+  _refreshSavedRouteLayers();
   _refreshSavedTrackLayers();
+
+  // Let the user know at a glance which route(s) they're resuming, rather than
+  // silently restoring visibility and leaving them to check the Routes panel.
+  // Logged to the transcript too, not just the one-line status bar, since the
+  // status line gets overwritten within a second or two by GPS/chart-load messages.
+  {
+    const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+    const visibleNames = routes.filter(r => !_hiddenRouteNames.has(r.name)).map(r => r.name);
+    if (visibleNames.length === 1) {
+      const msg = `Resuming route: ${visibleNames[0]}`;
+      setStatus(msg);
+      _appendTranscript(msg);
+    } else if (visibleNames.length > 1) {
+      const msg = `Resuming ${visibleNames.length} routes: ${visibleNames.join(', ')}`;
+      setStatus(msg);
+      _appendTranscript(msg);
+    }
+  }
 
   // Zoom slider (desktop only — hidden by CSS on mobile)
   const _zoomSlider = document.getElementById('zoom-slider');
