@@ -11,7 +11,14 @@
 import { mergeCollections, pruneTombstones } from './sync_merge.js';
 
 const CLIENT_ID = '211452396461-9bilt4qfu063r4pup4an5gu5n47h9kfb.apps.googleusercontent.com';
-const SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
+// drive.appdata backs the routes/tracks JSON blob below (hidden, app-private).
+// drive.file backs drive_import.js's "Import from Drive" Picker (user-visible
+// files the user explicitly picks) — both are non-sensitive scopes, so
+// requesting them together still needs no Google app verification.
+const SCOPE = 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/drive.file';
+// Public, referrer-restricted key for the Google Picker widget (not a secret;
+// restrict it in Google Cloud Console to this app's origin + Picker API only).
+export const PICKER_API_KEY = 'AIzaSyCFLws631M1uoiP-cZmwinduPyuqhgiU2E';
 const DRIVE_FILE_NAME = 'audiochart-routes-tracks.json';
 const ROUTE_KEY = 'audiochart-user-routes';
 const TRACK_KEY = 'audiochart-user-tracks';
@@ -50,6 +57,16 @@ function _ensureGisLoaded() {
     document.head.appendChild(script);
   });
   return gisLoadPromise;
+}
+
+// Shared with drive_import.js so both Drive features reuse one cached token
+// (one consent prompt covering both scopes) instead of each requesting its own.
+export function ensureAccessToken() {
+  return _ensureToken();
+}
+
+export function clearAccessToken() {
+  accessToken = null;
 }
 
 function _ensureToken() {

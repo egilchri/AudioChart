@@ -9,6 +9,7 @@ import * as GPS from './gps.js';
 import { parseCommand, parseCoordinate, normalizePlaceName, parseFromToQuery } from './parser.js';
 import * as Query from './query.js';
 import * as DriveSync from './drive_sync.js';
+import { openDriveImportPicker } from './drive_import.js';
 import { migrateLegacyIds } from './sync_merge.js';
 import { splitIntoLegs } from './route_legs.js';
 
@@ -5754,6 +5755,19 @@ function _ensureMap() {
     _gpxInput.click();
   });
 
+  document.getElementById('rp-import-file').addEventListener('click', () => {
+    _gpxMode = 'routes';
+    _gpxInput.multiple = false;
+    _gpxInput.value = '';
+    _gpxInput.click();
+  });
+
+  document.getElementById('rp-import-drive').addEventListener('click', () => {
+    setStatus('Opening Drive…');
+    openDriveImportPicker((text) => _importGpxFromText(text, 'routes'))
+      .catch(err => setStatus(err.message || 'Could not open Drive.'));
+  });
+
   _gpxInput.addEventListener('change', () => {
     if (_gpxMode === 'combine') {
       _combineGpxRoutes([..._gpxInput.files]);
@@ -5762,13 +5776,21 @@ function _ensureMap() {
     const file = _gpxInput.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => {
-      const doc = new DOMParser().parseFromString(ev.target.result, 'application/xml');
-      if (_gpxMode === 'markers') _importGpxMarkers(doc);
-      else                        _importGpxRoutes(doc);
-    };
+    reader.onload = (ev) => _importGpxFromText(ev.target.result, _gpxMode);
     reader.readAsText(file);
   });
+
+  // Shared by local-file import (above) and Drive import (_wireDriveImportUI).
+  function _importGpxFromText(text, mode) {
+    const doc = new DOMParser().parseFromString(text, 'application/xml');
+    if (doc.querySelector('parsererror') || !doc.querySelector('gpx')) {
+      const msg = "That file doesn't look like a GPX route file.";
+      setStatus(msg); TTS.sayImmediate(msg);
+      return;
+    }
+    if (mode === 'markers') _importGpxMarkers(doc);
+    else                    _importGpxRoutes(doc);
+  }
 
   function _importGpxMarkers(doc) {
     const wpts = [...doc.querySelectorAll('wpt')];

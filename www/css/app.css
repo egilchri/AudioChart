@@ -1080,11 +1080,12 @@ html, body {
 
 .nf-new-route {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   padding: 6px 10px 2px;
 }
 .nf-new-route button {
-  flex: 1;
+  flex: 1 1 40%;
   background: var(--dark-blue);
   color: var(--text);
   border: 1px solid var(--mid-blue);
