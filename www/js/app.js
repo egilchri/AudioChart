@@ -5809,11 +5809,23 @@ function _ensureMap() {
     setStatus(msg); TTS.sayImmediate(msg);
   }
 
+  // Never silently collide with an existing route name (e.g. Navionics and
+  // AudioChart both happening to have a "109") — append a distinguishing
+  // suffix instead, since a name match doesn't mean it's the same route.
+  function _uniqueRouteName(name, existingNames) {
+    if (!existingNames.has(name)) return name;
+    let n = 2;
+    while (existingNames.has(`${name} (Imported${n > 2 ? ' ' + n : ''})`)) n++;
+    return `${name} (Imported${n > 2 ? ' ' + n : ''})`;
+  }
+
   function _importGpxRoutes(doc) {
     const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+    const existingNames = new Set(routes.map(r => r.name));
     let count = 0;
     for (const rte of doc.querySelectorAll('rte')) {
-      const name   = rte.querySelector('name')?.textContent?.trim() || `Route ${routes.length + count + 1}`;
+      const rawName = rte.querySelector('name')?.textContent?.trim() || `Route ${routes.length + count + 1}`;
+      const name   = _uniqueRouteName(rawName, existingNames);
       const points = [...rte.querySelectorAll('rtept')].map(pt => ({
         lat: parseFloat(pt.getAttribute('lat')),
         lon: parseFloat(pt.getAttribute('lon')),
@@ -5821,10 +5833,12 @@ function _ensureMap() {
       })).filter(p => !isNaN(p.lat) && !isNaN(p.lon));
       if (!points.length) continue;
       routes.push(_stampNew({ name, points }));
+      existingNames.add(name);
       count++;
     }
     for (const trk of doc.querySelectorAll('trk')) {
-      const name   = trk.querySelector('name')?.textContent?.trim() || `Route ${routes.length + count + 1}`;
+      const rawName = trk.querySelector('name')?.textContent?.trim() || `Route ${routes.length + count + 1}`;
+      const name   = _uniqueRouteName(rawName, existingNames);
       const points = [...trk.querySelectorAll('trkpt')].map(pt => ({
         lat: parseFloat(pt.getAttribute('lat')),
         lon: parseFloat(pt.getAttribute('lon')),
@@ -5832,6 +5846,7 @@ function _ensureMap() {
       })).filter(p => !isNaN(p.lat) && !isNaN(p.lon));
       if (!points.length) continue;
       routes.push(_stampNew({ name, points }));
+      existingNames.add(name);
       count++;
     }
     localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
