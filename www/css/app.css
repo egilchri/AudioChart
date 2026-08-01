@@ -1289,7 +1289,16 @@ html, body {
   text-transform: uppercase;
   color: var(--accent);
   margin-bottom: 2px;
+  cursor: pointer;
+  user-select: none;
 }
+.etp-title::after { content: '  \25B4'; } /* up chevron — tap to collapse */
+/* Collapsed "peek" state — title bar stays visible/tappable, mirrors the
+   transcript's collapse-not-vanish pattern (#response-area.collapsed). */
+#edit-tools-panel.collapsed { gap: 0; padding-bottom: 8px; }
+#edit-tools-panel.collapsed .etp-title { margin-bottom: 0; }
+#edit-tools-panel.collapsed .etp-title::after { content: '  \25BE'; } /* down chevron — tap to expand */
+#edit-tools-panel.collapsed button { display: none; }
 #edit-tools-panel button {
   background: var(--dark-blue);
   color: var(--text);

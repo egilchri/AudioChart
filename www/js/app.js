@@ -3071,6 +3071,12 @@ document.getElementById('edit-undo-btn').addEventListener('click', () => {
     _editHistory.length > 0 ? '' : 'none';
 });
 
+// Shrink Node Ops to just its title bar when it's in the way — mirrors the
+// transcript's collapse-not-vanish "peek" pattern (_collapseResponseArea).
+document.getElementById('etp-title').addEventListener('click', () => {
+  document.getElementById('edit-tools-panel').classList.toggle('collapsed');
+});
+
 document.getElementById('etp-add-node').addEventListener('click', () => {
   if (!_editMode) return;
   const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
