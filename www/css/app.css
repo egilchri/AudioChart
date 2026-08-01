@@ -1304,6 +1304,7 @@ html, body {
   -webkit-tap-highlight-color: transparent;
 }
 #edit-tools-panel button:active { background: var(--mid-blue); }
+#etp-overnight, #etp-simulate-track { align-self: flex-start; }
 #edit-tools-panel button.active {
   background: var(--accent);
   color: var(--navy);
