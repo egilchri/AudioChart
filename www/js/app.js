@@ -932,6 +932,13 @@ function _clampGroupOffset(els, candidateDx, candidateDy, appliedDx, appliedDy) 
 // `transform` rule in app.css — a transform doesn't care whether the element underneath
 // is positioned bottom/right, top/left, or lives inside Leaflet's control-container flex
 // layout, so this works uniformly across every kind of element without detaching anything.
+const _draggableGroupResetters = [];
+
+function _resetUiPositions() {
+  for (const reset of _draggableGroupResetters) reset();
+}
+document.getElementById('rearrange-reset-btn')?.addEventListener('click', _resetUiPositions);
+
 function _makeDraggableGroup(groupId, getEls) {
   const LONG_PRESS_MS = 600, MOVE_TOLERANCE = 15;
   let curDx = 0, curDy = 0;
@@ -946,6 +953,12 @@ function _makeDraggableGroup(groupId, getEls) {
   const currentEls = () => getEls().filter(el => el && el.offsetParent !== null);
   const applyOffset = (dx, dy) => _appEl.style.setProperty(`--ui-pos-${groupId}`, `translate(${dx}px, ${dy}px)`);
   applyOffset(curDx, curDy); // restore any saved position immediately
+
+  _draggableGroupResetters.push(() => {
+    curDx = 0; curDy = 0;
+    localStorage.removeItem(`audiochart-ui-pos-${groupId}`);
+    applyOffset(0, 0);
+  });
 
   let dragging = false, pressTimer = null;
   let startX = 0, startY = 0, baseDx = 0, baseDy = 0, origins = [];
@@ -4492,7 +4505,7 @@ function _ensureMap() {
       // magneticVariation is negative for westerly (e.g. -15 in Penobscot Bay).
       // rotate(variation) tilts N left toward magnetic north.
       const magRot = magneticVariation;
-      el.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="140" height="140" viewBox="-70 -70 140 140">
+      el.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="70" height="70" viewBox="-70 -70 140 140">
         <circle r="68" fill="rgba(12,25,45,0.85)" stroke="#4a9edd" stroke-width="1.5"/>
         <g transform="rotate(${magRot})">
           ${ticks}
