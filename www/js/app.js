@@ -909,7 +909,7 @@ document.getElementById('rearrange-done-btn')?.addEventListener('click', _exitRe
 // interceptor instead of guarding every individual button's own click handler.
 document.addEventListener('click', (e) => {
   if (!_rearrangeMode) return;
-  if (e.target.closest('#rearrange-done-btn')) return;
+  if (e.target.closest('#rearrange-done-btn') || e.target.closest('#rearrange-reset-btn')) return;
   e.stopPropagation();
   e.preventDefault();
 }, true);

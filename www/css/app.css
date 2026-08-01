@@ -592,7 +592,7 @@ html, body {
 /* Floating map menu button */
 #map-menu-btn {
   position: absolute;
-  bottom: 28px;
+  bottom: 308px;
   right: 10px;
   z-index: 1000;
   width: 48px;
@@ -614,7 +614,7 @@ html, body {
 #app.anim-mode #map-menu-btn { display: none; }
 #map-layer-btn {
   position: absolute;
-  bottom: 84px;
+  bottom: 252px;
   right: 10px;
   z-index: 1000;
   width: 48px;
@@ -635,7 +635,7 @@ html, body {
 
 #zoom-to-me-btn {
   position: absolute;
-  bottom: 140px;
+  bottom: 196px;
   right: 10px;
   z-index: 1000;
   width: 48px;
@@ -656,7 +656,7 @@ html, body {
 
 #route-picker-btn {
   position: absolute;
-  bottom: 252px;
+  bottom: 420px;
   right: 10px;
   z-index: 1000;
   width: 64px;
@@ -679,7 +679,7 @@ html, body {
 
 #reroute-btn {
   position: absolute;
-  bottom: 308px;
+  bottom: 84px;
   right: 10px;
   z-index: 1000;
   width: 48px;
@@ -701,7 +701,7 @@ html, body {
 
 #delete-route-btn {
   position: absolute;
-  bottom: 364px;
+  bottom: 28px;
   right: 10px;
   z-index: 1000;
   width: 48px;
@@ -722,7 +722,7 @@ html, body {
 
 #track-picker-btn {
   position: absolute;
-  bottom: 420px;
+  bottom: 364px;
   right: 10px;
   z-index: 1000;
   width: 64px;
@@ -746,7 +746,7 @@ html, body {
 #track-picker-panel {
   display: none;
   position: absolute;
-  bottom: 420px;
+  bottom: 364px;
   right: 10px;
   z-index: 1001;
   background: var(--dark-blue);
@@ -785,7 +785,7 @@ html, body {
 #route-picker-panel {
   display: none;
   position: absolute;
-  bottom: 252px;
+  bottom: 420px;
   right: 10px;
   z-index: 1001;
   background: var(--dark-blue);
@@ -931,7 +931,7 @@ html, body {
 
 #navaid-filter-btn {
   position: absolute;
-  bottom: 196px;
+  bottom: 140px;
   right: 10px;
   z-index: 1000;
   width: 48px;
@@ -954,7 +954,7 @@ html, body {
 #navaid-filter-panel {
   display: none;
   position: absolute;
-  bottom: 196px;
+  bottom: 140px;
   right: 10px;
   z-index: 1001;
   background: var(--dark-blue);
@@ -1281,6 +1281,14 @@ html, body {
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   min-width: 120px;
+}
+.etp-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 2px;
 }
 #edit-tools-panel button {
   background: var(--dark-blue);
@@ -1738,6 +1746,12 @@ html, body {
   cursor: grab;
 }
 #app.rearrange-mode .ui-drag-target:active { cursor: grabbing; }
+/* compass-rose-ctrl and tide-cycle-ctrl are pointer-events:none in normal use (so taps
+   pass through to the map underneath) — re-enable while rearranging so they're grabbable. */
+#app.rearrange-mode .compass-rose-ctrl,
+#app.rearrange-mode .tide-cycle-ctrl {
+  pointer-events: auto;
+}
 #edit-hazards-btn.active {
   background: #e88a00;
   color: #fff;
