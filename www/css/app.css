@@ -654,6 +654,37 @@ html, body {
 }
 #zoom-to-me-btn:active { background: var(--mid-blue); }
 
+#global-ops-title {
+  position: absolute;
+  bottom: 474px;
+  right: 10px;
+  z-index: 1000;
+  background: var(--dark-blue);
+  color: var(--accent);
+  border: 1px solid var(--mid-blue);
+  border-radius: 10px;
+  padding: 4px 10px;
+  font-size: 0.72rem;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+}
+/* Collapsed "peek" state — mirrors #edit-tools-panel.collapsed / Node Ops. Each
+   button keeps its own individual position (unlike Node Ops' single flex box)
+   so the popup panels anchored to Routes/Tracks/Navaid-filter stay aligned. */
+#app.global-ops-collapsed #map-menu-btn,
+#app.global-ops-collapsed #map-layer-btn,
+#app.global-ops-collapsed #zoom-to-me-btn,
+#app.global-ops-collapsed #navaid-filter-btn,
+#app.global-ops-collapsed #route-picker-btn,
+#app.global-ops-collapsed #reroute-btn,
+#app.global-ops-collapsed #delete-route-btn,
+#app.global-ops-collapsed #track-picker-btn {
+  display: none;
+}
+#app.global-ops-collapsed #global-ops-title::after { content: '  \25BE'; }
+
 #route-picker-btn {
   position: absolute;
   bottom: 420px;
@@ -1735,7 +1766,8 @@ html, body {
    nudges it from wherever it already sits. */
 #map-overlay-status                { transform: var(--ui-pos-status, translate(0,0)); }
 #map-menu-btn, #map-layer-btn, #zoom-to-me-btn, #navaid-filter-btn,
-#route-picker-btn, #reroute-btn, #delete-route-btn, #track-picker-btn {
+#route-picker-btn, #reroute-btn, #delete-route-btn, #track-picker-btn,
+#global-ops-title {
   transform: var(--ui-pos-btncol, translate(0,0));
 }
 #pan-controls-wrap                 { transform: var(--ui-pos-navctl, translate(0,0)); }

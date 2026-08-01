@@ -1048,6 +1048,7 @@ function _makeDraggableGroup(groupId, getEls) {
 function _initRearrangeGroups() {
   _makeDraggableGroup('status', () => [document.getElementById('map-overlay-status')]);
   _makeDraggableGroup('btncol', () => [
+    'global-ops-title',
     'map-menu-btn', 'map-layer-btn', 'zoom-to-me-btn', 'navaid-filter-btn',
     'route-picker-btn', 'reroute-btn', 'delete-route-btn', 'track-picker-btn',
   ].map(id => document.getElementById(id)));
@@ -3075,6 +3076,11 @@ document.getElementById('edit-undo-btn').addEventListener('click', () => {
 // transcript's collapse-not-vanish "peek" pattern (_collapseResponseArea).
 document.getElementById('etp-title').addEventListener('click', () => {
   document.getElementById('edit-tools-panel').classList.toggle('collapsed');
+});
+
+// Same collapse-to-title-bar idea for the right-side button column ("Global Ops").
+document.getElementById('global-ops-title').addEventListener('click', () => {
+  _appEl.classList.toggle('global-ops-collapsed');
 });
 
 document.getElementById('etp-add-node').addEventListener('click', () => {
