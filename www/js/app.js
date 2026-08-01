@@ -5792,6 +5792,40 @@ function _ensureMap() {
     else                    _importGpxRoutes(doc);
   }
 
+  // Web Share Target (Android): sw.js intercepted a shared-GPX POST, stashed
+  // the file text in Cache Storage, and 303-redirected here with
+  // ?shared-gpx=1. A fresh navigation can't retain the POST body or reach
+  // into the previous page's JS (app.js is a module — _importGpxFromText
+  // isn't on window), so this is the pickup side of that handoff. Runs once,
+  // since _ensureMap()'s body only executes on its first call (at startup).
+  if (new URLSearchParams(location.search).get('shared-gpx') === '1') {
+    _importSharedGpx();
+  }
+
+  async function _importSharedGpx() {
+    history.replaceState(null, '', location.pathname); // strip flag first — no re-import on refresh
+    try {
+      const cache = await caches.open('audiochart-share-target');
+      const hit = await cache.match('./shared-gpx-payload');
+      if (!hit) {
+        const msg = 'No shared file found.';
+        setStatus(msg); TTS.sayImmediate(msg);
+        return;
+      }
+      const text = await hit.text();
+      await cache.delete('./shared-gpx-payload');
+      if (!text.trim()) {
+        const msg = 'Shared file was empty.';
+        setStatus(msg); TTS.sayImmediate(msg);
+        return;
+      }
+      _importGpxFromText(text, 'routes');
+    } catch (e) {
+      const msg = 'Could not read shared file.';
+      setStatus(msg); TTS.sayImmediate(msg);
+    }
+  }
+
   function _importGpxMarkers(doc) {
     const wpts = [...doc.querySelectorAll('wpt')];
     if (!wpts.length) { TTS.sayImmediate('No waypoints found in file.'); return; }

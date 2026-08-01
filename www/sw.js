@@ -14,6 +14,10 @@ const CACHE = `audiochart-${APP_VERSION}`;
 const TILES_CACHE     = 'audiochart-tiles-v1';      // server nautical tiles, LRU
 const SATELLITE_CACHE = 'audiochart-satellite-v1'; // pre-downloaded ESRI tiles, persistent
 const CHART_CACHE     = 'audiochart-chart-v1';     // OSM + OpenSeaMap chart tiles
+// Web Share Target handoff (see app.js's matching _importSharedGpx for the pickup side).
+// Deliberately unversioned/stable — must survive an activate() that races the share flow.
+const SHARE_CACHE = 'audiochart-share-target';
+const SHARE_PAYLOAD_KEY = './shared-gpx-payload';
 const TILES_MAX = 800;
 
 // Resources to pre-cache at install time for offline use
@@ -36,7 +40,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) =>
       Promise.all(
         keys
-          .filter((k) => k !== CACHE && k !== TILES_CACHE && k !== SATELLITE_CACHE && k !== CHART_CACHE)
+          .filter((k) => k !== CACHE && k !== TILES_CACHE && k !== SATELLITE_CACHE && k !== CHART_CACHE && k !== SHARE_CACHE)
           .map((k) => caches.delete(k))
       )
     ).then(() => self.clients.claim())
@@ -46,6 +50,13 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   if (!event.request.url.startsWith('http')) return;
   const url = new URL(event.request.url);
+
+  // Web Share Target: another app (e.g. Navionics) shared a GPX file to us via
+  // the OS share sheet. Handle it fully offline — never let this reach the network.
+  if (event.request.method === 'POST' && url.pathname.endsWith('/share-gpx')) {
+    event.respondWith(handleShareTarget(event.request));
+    return;
+  }
 
   // Never intercept API or connect page — always hit the network
   // Add ngrok bypass header so the interstitial doesn't replace JSON responses
@@ -96,6 +107,29 @@ async function networkFirst(request) {
     }
     return new Response('', { status: 503 });
   }
+}
+
+// Reads the shared file out of the POST, stashes it in Cache Storage, then
+// 303-redirects to a plain GET the browser will actually navigate to — a
+// service worker can't hand data straight into a page (none exists yet at
+// this point, and app.js's importer isn't reachable via window anyway since
+// it's an ES module). 303 (not 302) guarantees the browser follows up with a
+// GET rather than re-POSTing.
+async function handleShareTarget(request) {
+  try {
+    const formData = await request.formData();
+    const file = formData.get('gpxfile');
+    const text = file ? await file.text() : '';
+    const cache = await caches.open(SHARE_CACHE);
+    if (text) {
+      await cache.put(SHARE_PAYLOAD_KEY, new Response(text, { headers: { 'Content-Type': 'text/plain' } }));
+    } else {
+      await cache.delete(SHARE_PAYLOAD_KEY);
+    }
+  } catch (_) {
+    // Fall through anyway; app.js reports "no shared file" itself on a cache miss.
+  }
+  return Response.redirect('./?shared-gpx=1', 303);
 }
 
 async function chartTileStrategy(request) {
