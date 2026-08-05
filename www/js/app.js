@@ -2107,9 +2107,16 @@ async function _autoRouteProg(start, end, onUpdate, onText = null) {
   const draftFt = parseFloat(document.getElementById('nf-draft-ft')?.value) || 5.0;
   const draftM  = draftFt * 0.3048;
   const tideM   = _tideHeight;
+  // eff = effective depth at current tide — matches the depth-overlay logic at
+  // ~app.js:6281 (eff = valsou + tideHeight; hazard if eff <= draft). The old
+  // filter here (`v >= 0 && tideM < draftM + v`) was inverted: it excluded
+  // drying/intertidal areas (valsou < 0) from ever counting as hazards, and
+  // flagged progressively *safer, deeper* zones as obstacles as valsou grew.
   const tidalObs = (Query.getDepthZones() || []).filter(f => {
     const v = f.properties?.valsou;
-    return v != null && v >= 0 && tideM < draftM + v;
+    if (v == null) return false;
+    const eff = v + tideM;
+    return eff <= draftM;
   });
 
   // ── Pre-filter land rings to bounding box (fast segBlocked) ───────────────
