@@ -2179,9 +2179,28 @@ async function _autoRouteProg(start, end, onUpdate, onText = null) {
   const MAX_RING_VERTS = 30;
   function _addRingNodes(entry) {
     const { ring, cx, cy } = entry;
-    const step = ring.length > MAX_RING_VERTS
-      ? Math.ceil(ring.length / MAX_RING_VERTS) : 1;
-    for (let k = 0; k < ring.length - 1; k += step) {  // -1: skip closing duplicate vertex
+    const n = ring.length - 1; // -1: skip closing duplicate vertex
+    let indices;
+    if (n <= MAX_RING_VERTS) {
+      indices = [];
+      for (let k = 0; k < n; k++) indices.push(k);
+    } else {
+      // Keep the vertices closest to the direct start->end line rather than
+      // uniformly striding across the whole ring — a uniform stride scatters
+      // the kept vertices evenly around the entire polygon, which for a large,
+      // detailed ring (e.g. a whole island's coastline) can leave nothing near
+      // where a short local route actually needs to detour, making that
+      // stretch of coastline invisible to the search even though segBlocked
+      // still (correctly) flags it as blocked.
+      const scored = [];
+      for (let k = 0; k < n; k++) {
+        const [vx, vy] = ring[k];
+        scored.push({ k, d: _ptSegDistNm(vx, vy, start.lon, start.lat, end.lon, end.lat) });
+      }
+      scored.sort((a, b) => a.d - b.d);
+      indices = scored.slice(0, MAX_RING_VERTS).map(s => s.k);
+    }
+    for (const k of indices) {
       const [vx, vy] = ring[k];
       const dx = vx - cx, dy = vy - cy;
       const len = Math.sqrt(dx * dx + dy * dy);
