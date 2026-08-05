@@ -4544,7 +4544,12 @@ function _ensureMap() {
       setStatus(msg);
       _appendTranscript(msg);
     } else if (visibleNames.length > 1) {
-      const msg = `Resuming ${visibleNames.length} routes: ${visibleNames.join(', ')}`;
+      // Cap the listed names — with enough visible routes (e.g. after a sync
+      // merge produced many conflict copies) this could otherwise be a wall
+      // of text covering most of the screen, including the Routes button.
+      const shown = visibleNames.slice(0, 5).join(', ');
+      const rest  = visibleNames.length - 5;
+      const msg = `Resuming ${visibleNames.length} routes: ${shown}${rest > 0 ? `, and ${rest} more` : ''}`;
       setStatus(msg);
       _appendTranscript(msg);
     }
