@@ -1786,7 +1786,7 @@ async function _onDrawClick(latlng) {
   if (!_drawStart) {
     _drawStart = latlng;
     _drawName  = _nextRouteName();
-    _drawBannerLabel.textContent = `”${_drawName}” — click to place destination`;
+    _drawBannerLabel.textContent = `”${_drawName}” — tap your destination`;
   } else {
     const end     = latlng;
     const name    = _drawName;
@@ -1847,7 +1847,7 @@ function _enterDrawRouteMode() {
   if (_editMode)   _exitEditMode();
   _drawMode = true;
   _drawStart = null; _drawRubber = null; _drawName = null;
-  _drawBannerLabel.textContent = 'New route — click to place start';
+  _drawBannerLabel.textContent = 'Auto route — tap your start point';
   _drawBanner.style.display = 'flex';
   _appEl.classList.add('sketch-mode');
   if (!_map) return;
