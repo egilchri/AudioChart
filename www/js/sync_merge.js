@@ -33,6 +33,13 @@ export function contentEquals(a, b) {
   return a.name === b.name && JSON.stringify(a.points) === JSON.stringify(b.points);
 }
 
+// Points-only equality — used to recognize when a conflict copy already
+// captures a given item's content under a different (conflict-copy) name,
+// so a repeatedly-recurring tie doesn't mint an endless stream of copies.
+function _pointsEqual(a, b) {
+  return JSON.stringify(a.points) === JSON.stringify(b.points);
+}
+
 /**
  * Merge one collection (routes, or tracks) from two sources.
  * @returns {{merged: object[], tombstones: object[], conflictCount: number, conflicts: {id, name}[]}}
@@ -73,6 +80,20 @@ export function mergeCollections({ localItems, remoteItems, localTombstones, rem
     }
     // Tied (both real edits at the same instant, or both legacy sentinel 0) with
     // genuinely different content — don't guess, keep both as a conflict copy.
+    //
+    // But first: has this exact content already been captured as a conflict
+    // copy in an earlier sync? If the same tied-but-differing pair keeps
+    // reappearing (e.g. two legacy items that never get a real updatedAt),
+    // minting a fresh copy every single sync would grow without bound —
+    // this is exactly what happened in production (conflict copies past
+    // generation 10 for the same route). Once the content is represented
+    // anywhere under this item's name, don't duplicate it again.
+    const alreadyCaptured = [...byId.values()].some(v =>
+      (v.name === item.name || v.name.startsWith(`${item.name} (conflict copy`)) &&
+      _pointsEqual(v, item)
+    );
+    if (alreadyCaptured) return;
+
     let name = `${item.name} (conflict copy)`;
     let suffix = 2;
     while (usedNames.has(name)) name = `${item.name} (conflict copy ${suffix++})`;
