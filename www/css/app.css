@@ -959,6 +959,25 @@ html, body {
   font-size: 0.75rem;
   color: var(--text-dim);
 }
+.rp-follow-btn {
+  display: block;
+  margin: 6px 0 0 18px;
+  background: none;
+  border: 1px solid var(--mid-blue);
+  border-radius: 4px;
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+.rp-follow-btn:hover { border-color: var(--accent); color: var(--text); }
+.rp-follow-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.rp-follow-btn.following {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: #2a0a0a;
+  font-weight: 700;
+}
 .rp-empty {
   font-size: 0.82rem;
   color: var(--text-dim);

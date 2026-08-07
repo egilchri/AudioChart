@@ -662,6 +662,7 @@ let _growRouteIdx          = -1;    // index of route being grown; -1 = not in g
 let _editHistory           = [];    // stack of _editPoints snapshots for undo
 
 let _populateRouteSelectFn = null; // set by _ensureMap once DOM is ready
+let _buildRoutePickerPanelFn = null; // set by _ensureMap once DOM is ready — see _populateRouteSelectFn
 let _savedRoutesLayer  = null;
 let _hiddenRouteNames  = new Set();
 let _savedTracksLayer     = null;
@@ -672,6 +673,14 @@ let _trackRecActive       = false;  // true while recording a GPS breadcrumb tra
 let _trackRecPoints       = [];     // [{lat, lon, t}]
 let _trackRecStartMs      = null;
 let _trackRecLastSampleTs = 0;
+// "Follow route" — a route-linked track recording (see _startFollowingRoute)
+// distinct from a plain manual recording: auto-named, and auto-stopped on
+// arrival at the route's final waypoint.
+let _followingRouteId     = null;
+let _followingRouteName   = null;
+let _followingDestLat     = null;
+let _followingDestLon     = null;
+const ARRIVAL_THRESHOLD_NM = 0.1; // ~600ft — comfortably above typical GPS drift
 let _extendingRouteIdx = -1;
 let _extendingFromEnd  = true;
 let _ctxRouteIdx       = -1;  // last route hovered; used by context-menu actions
@@ -4844,6 +4853,22 @@ function _ensureMap() {
         });
         row.appendChild(legList);
       }
+      const followBtn = document.createElement('button');
+      followBtn.className = 'rp-follow-btn';
+      if (_followingRouteId === route.id) {
+        followBtn.textContent = '⏹ Stop Following';
+        followBtn.classList.add('following');
+      } else {
+        followBtn.textContent = '▶ Follow';
+        followBtn.title = 'Record a timestamped track of this passage — stops automatically on arrival';
+        if (_trackRecActive) followBtn.disabled = true;
+      }
+      followBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (_followingRouteId === route.id) _stopFollowingRoute(false);
+        else _startFollowingRoute(route);
+      });
+      row.appendChild(followBtn);
       row.addEventListener('click', () => {
         if (_hiddenRouteNames.has(route.name)) {
           _hiddenRouteNames.delete(route.name);
@@ -5339,6 +5364,7 @@ function _ensureMap() {
     _rebuildPickerIfOpen();
   }
   _populateRouteSelectFn = _populateRouteSelect;
+  _buildRoutePickerPanelFn = _buildRoutePickerPanel;
 
   // ── Track config save/load ──────────────────────────────────────────────────
   const TRACK_CONFIG_KEY = 'audiochart-track-configs';
@@ -7247,6 +7273,30 @@ document.addEventListener('click', (e) => {
 }, { capture: true });
 
 // ── Track recording ──────────────────────────────────────────────────────────
+
+// Shared save/reset — used by the manual Track button, "Stop Following", and
+// arrival-triggered auto-stop, so there's exactly one place that writes to
+// TRACK_KEY and clears recording state.
+function _finishTrackRecording(name) {
+  if (name && _trackRecPoints.length >= 2) {
+    const tracks = JSON.parse(localStorage.getItem(TRACK_KEY) || '[]');
+    tracks.push(_stampNew({ name, points: _trackRecPoints }));
+    localStorage.setItem(TRACK_KEY, JSON.stringify(tracks));
+  }
+  localStorage.removeItem(IN_PROGRESS_TRACK_KEY);
+  _trackRecActive = false;
+  _trackRecPoints = [];
+  _trackRecStartMs = null;
+  _followingRouteId = null;
+  _followingRouteName = null;
+  _followingDestLat = null;
+  _followingDestLon = null;
+  trackRecBtn.textContent = '⏺ Track';
+  trackRecBtn.title = 'Record a GPS track';
+  trackRecBtn.classList.remove('rec-active');
+  _refreshSavedTrackLayers();
+}
+
 trackRecBtn?.addEventListener('click', () => {
   if (!_trackRecActive) {
     _trackRecActive = true;
@@ -7257,20 +7307,52 @@ trackRecBtn?.addEventListener('click', () => {
     trackRecBtn.classList.add('rec-active');
     return;
   }
-  _trackRecActive = false;
+  if (_followingRouteId) { _stopFollowingRoute(false); return; }
   const name = prompt('Save track as:', `Track ${new Date(_trackRecStartMs).toLocaleString()}`);
-  if (name && name.trim()) {
-    const tracks = JSON.parse(localStorage.getItem(TRACK_KEY) || '[]');
-    tracks.push(_stampNew({ name: name.trim(), points: _trackRecPoints }));
-    localStorage.setItem(TRACK_KEY, JSON.stringify(tracks));
-  }
-  localStorage.removeItem(IN_PROGRESS_TRACK_KEY);
-  _trackRecPoints = [];
-  _trackRecStartMs = null;
-  trackRecBtn.textContent = '⏺ Track';
-  trackRecBtn.classList.remove('rec-active');
-  _refreshSavedTrackLayers();
+  _finishTrackRecording(name && name.trim() ? name.trim() : null);
 });
+
+// Start recording a track linked to a specific route — auto-named and
+// auto-saved on arrival (see the GPS callback below), with a manual stop
+// always available via the same Track button (now showing "Stop").
+function _startFollowingRoute(route) {
+  if (_trackRecActive) {
+    const msg = 'Already recording a track — stop it first.';
+    setStatus(msg); TTS.sayImmediate(msg);
+    return;
+  }
+  const last = route.points?.[route.points.length - 1];
+  if (!last) return;
+  _trackRecActive = true;
+  _trackRecStartMs = Date.now();
+  _trackRecPoints = [];
+  _trackRecLastSampleTs = 0;
+  _followingRouteId = route.id;
+  _followingRouteName = route.name;
+  _followingDestLat = last.lat;
+  _followingDestLon = last.lon;
+  trackRecBtn.textContent = '⏹ Stop';
+  trackRecBtn.title = `Following "${route.name}" — tap to stop early`;
+  trackRecBtn.classList.add('rec-active');
+  const msg = `Following "${route.name}" — recording your track.`;
+  setStatus(msg); TTS.sayImmediate(msg);
+  _buildRoutePickerPanelFn?.();
+}
+
+// `arrived` distinguishes the two ways a followed route's recording ends —
+// only changes the spoken/status message, the save behavior is identical.
+function _stopFollowingRoute(arrived) {
+  const routeName = _followingRouteName;
+  const saved = _trackRecPoints.length >= 2;
+  const name = `${routeName} — ${new Date().toLocaleDateString()}`;
+  _finishTrackRecording(saved ? name : null);
+  const outcome = saved ? 'track saved' : 'too short to save a track';
+  const msg = arrived
+    ? `Arrived — ${outcome} for "${routeName}".`
+    : `Stopped following "${routeName}" — ${outcome}.`;
+  setStatus(msg); TTS.sayImmediate(msg);
+  _buildRoutePickerPanelFn?.();
+}
 
 // ── Screen wake lock ─────────────────────────────────────────────────────────
 function _updateWakeLockButton() {
@@ -7324,15 +7406,23 @@ function _recoverInProgressTrack() {
   const raw = localStorage.getItem(IN_PROGRESS_TRACK_KEY);
   if (!raw) return;
   try {
-    const { startMs, points } = JSON.parse(raw);
+    const { startMs, points, followingRouteId, followingRouteName, followingDestLat, followingDestLon } = JSON.parse(raw);
     if (!points || points.length < 2) { localStorage.removeItem(IN_PROGRESS_TRACK_KEY); return; }
     const mins = Math.round((Date.now() - startMs) / 60000);
-    if (confirm(`Found an unsaved track recording (${points.length} points, started ${mins} min ago). Resume recording it?`)) {
+    const label = followingRouteName
+      ? `Found an in-progress recording of "${followingRouteName}" (${points.length} points, started ${mins} min ago). Resume following it?`
+      : `Found an unsaved track recording (${points.length} points, started ${mins} min ago). Resume recording it?`;
+    if (confirm(label)) {
       _trackRecActive = true;
       _trackRecStartMs = startMs;
       _trackRecPoints = points;
       _trackRecLastSampleTs = points[points.length - 1].t;
+      _followingRouteId = followingRouteId || null;
+      _followingRouteName = followingRouteName || null;
+      _followingDestLat = followingDestLat ?? null;
+      _followingDestLon = followingDestLon ?? null;
       trackRecBtn.textContent = '⏹ Stop';
+      if (followingRouteName) trackRecBtn.title = `Following "${followingRouteName}" — tap to stop early`;
       trackRecBtn.classList.add('rec-active');
     } else {
       const name = prompt('Save the recovered points as a track before discarding? Leave blank to discard.', '');
@@ -7651,8 +7741,18 @@ async function init() {
         if (now - _trackRecLastSampleTs >= 1000) {
           _trackRecLastSampleTs = now;
           _trackRecPoints.push({ lat, lon, t: now });
-          localStorage.setItem(IN_PROGRESS_TRACK_KEY, JSON.stringify({ startMs: _trackRecStartMs, points: _trackRecPoints }));
+          localStorage.setItem(IN_PROGRESS_TRACK_KEY, JSON.stringify({
+            startMs: _trackRecStartMs, points: _trackRecPoints,
+            followingRouteId: _followingRouteId, followingRouteName: _followingRouteName,
+            followingDestLat: _followingDestLat, followingDestLon: _followingDestLon,
+          }));
           _refreshSavedTrackLayers();
+        }
+        // Arrival check runs on every fix (not just sampled ones) so a route
+        // being followed auto-completes promptly rather than up to 1s late.
+        if (_followingRouteId && _followingDestLat != null &&
+            Query.distanceNm(lon, lat, _followingDestLon, _followingDestLat) <= ARRIVAL_THRESHOLD_NM) {
+          _stopFollowingRoute(true);
         }
       }
       if (_animFollowMode && _map) _map.panTo([lat, lon]);
