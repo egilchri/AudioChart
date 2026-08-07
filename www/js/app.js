@@ -3190,6 +3190,39 @@ document.getElementById('edit-info-btn').addEventListener('click', () => {
   document.getElementById('edit-banner-label').textContent =
     `${_editRouteName} — ${nm} nm / ${mi} mi · ${wpts} waypoints`;
 });
+
+// Shared by the edit-route toolbar and the Routes/Tracks panel row corner
+// buttons — produces a precise, directly-pasteable coordinate list (decimal
+// degrees, not a DM/DMS display string) for accurate bug reports/testing.
+const _wptCopyOverlay = document.getElementById('wpt-copy-overlay');
+const _wptCopyText    = document.getElementById('wpt-copy-text');
+const _wptCopyBtn     = document.getElementById('wpt-copy-btn');
+function _showCopyWaypointsOverlay(name, points) {
+  document.getElementById('wpt-copy-title').textContent = `${name} — ${points.length} waypoints`;
+  const json = JSON.stringify(
+    points.map(p => ({ lat: +p.lat.toFixed(6), lon: +p.lon.toFixed(6) })),
+    null, 2
+  );
+  _wptCopyText.value = json;
+  _wptCopyOverlay.classList.add('open');
+  _wptCopyText.focus();
+  _wptCopyText.select();
+  navigator.clipboard?.writeText(json).catch(() => {}); // best-effort; textarea is the reliable fallback
+}
+document.getElementById('edit-copy-wpts-btn').addEventListener('click', () => {
+  _showCopyWaypointsOverlay(_editRouteName, _editPoints);
+});
+document.getElementById('wpt-copy-close').addEventListener('click', () => {
+  _wptCopyOverlay.classList.remove('open');
+});
+_wptCopyBtn.addEventListener('click', () => {
+  _wptCopyText.select();
+  navigator.clipboard?.writeText(_wptCopyText.value).then(() => {
+    _wptCopyBtn.textContent = '✓ Copied';
+    _wptCopyBtn.classList.add('copied');
+    setTimeout(() => { _wptCopyBtn.textContent = '📋 Copy'; _wptCopyBtn.classList.remove('copied'); }, 1200);
+  }).catch(() => {});
+});
 document.getElementById('edit-undo-btn').addEventListener('click', () => {
   if (_editHistory.length === 0) return;
   _editPoints = _editHistory.pop();
@@ -3355,8 +3388,18 @@ function _buildRpCornerButtons(row, name, getPoints, onRename) {
     _downloadGpx(getPoints(), name);
   });
 
+  const copyWptsBtn = document.createElement('button');
+  copyWptsBtn.type = 'button';
+  copyWptsBtn.className = 'rp-corner-btn';
+  copyWptsBtn.textContent = '📋 Copy waypoints';
+  copyWptsBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    _showCopyWaypointsOverlay(name, getPoints());
+  });
+
   corner.appendChild(renameBtn);
   corner.appendChild(exportBtn);
+  corner.appendChild(copyWptsBtn);
   return corner;
 }
 

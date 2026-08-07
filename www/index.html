@@ -192,6 +192,7 @@
       &#9998; <span id="edit-banner-label"></span> &nbsp;
       <button id="edit-hazards-btn">Show hazards</button>
       <button id="edit-info-btn">Show info</button>
+      <button id="edit-copy-wpts-btn">&#128203; Copy waypoints</button>
       <button id="edit-undo-btn" style="display:none">&#8630; Undo</button>
       <button id="edit-ok-btn">&#10003; OK</button>
       <button id="edit-cancel-btn">&#10005; Cancel</button>
@@ -375,6 +376,14 @@
     <button id="map-ctx-bring-boat">&#9935; Bring boat here</button>
     <button id="map-ctx-set-position">&#128205; Set position here</button>
     <button id="map-ctx-set-focus">&#127919; Set focus here</button>
+  </div>
+
+  <div id="wpt-copy-overlay">
+    <div id="wpt-copy-panel">
+      <div class="nf-title"><span id="wpt-copy-title">Waypoints</span> <button id="wpt-copy-close" title="Close">&#10005;</button></div>
+      <textarea id="wpt-copy-text" readonly></textarea>
+      <button id="wpt-copy-btn">&#128203; Copy</button>
+    </div>
   </div>
 
   <script src="./js/version.js"></script>

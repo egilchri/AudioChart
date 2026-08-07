@@ -985,6 +985,68 @@ html, body {
   padding: 10px 0;
   font-style: italic;
 }
+/* ── Copy-waypoints overlay ──────────────────────────────────────────────── */
+#wpt-copy-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  background: rgba(0, 0, 0, 0.6);
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+#wpt-copy-overlay.open { display: flex; }
+#wpt-copy-panel {
+  background: var(--dark-blue);
+  border: 1px solid var(--mid-blue);
+  border-radius: 10px;
+  padding: 14px;
+  width: min(420px, calc(100vw - 40px));
+  max-height: calc(100vh - 80px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.8);
+}
+#wpt-copy-panel .nf-title { cursor: default; }
+#wpt-copy-close {
+  background: none;
+  border: none;
+  color: var(--muted, #8899aa);
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+  -webkit-tap-highlight-color: transparent;
+}
+#wpt-copy-close:hover { color: var(--text); }
+#wpt-copy-text {
+  flex: 1;
+  min-height: 200px;
+  max-height: 50vh;
+  background: var(--mid-blue);
+  border: 1px solid var(--mid-blue);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 0.78rem;
+  padding: 8px;
+  resize: vertical;
+  user-select: text;
+  -webkit-user-select: text;
+}
+#wpt-copy-btn {
+  background: var(--dark-blue);
+  color: var(--text);
+  border: 1px solid var(--mid-blue);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+#wpt-copy-btn:hover { border-color: var(--accent); color: var(--text); }
+#wpt-copy-btn.copied { border-color: var(--accent); color: var(--accent); }
 #rp-close {
   background: none;
   border: none;
