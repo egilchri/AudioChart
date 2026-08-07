@@ -712,7 +712,7 @@ let _drawMapMouseUp   = null;
 let _drawGestureStartPt = null;
 let _drawGestureLastPt  = null;
 let _drawIsPanning      = false;
-const _DRAW_TAP_TOLERANCE_PX = 15; // matches the rearrange-mode drag tolerance convention
+const _TAP_TOLERANCE_PX = 15; // matches the rearrange-mode drag tolerance convention; shared with sketch mode
 let _focusPlaceMode   = false;  // true while the drag-to-place focus marker is live
 let _focusPlaceMarker = null;   // the draggable L.marker being positioned
 let _focusPlaceSnap   = null;   // {lat, lon, name, type} of the locked-on object, or null
@@ -1682,6 +1682,14 @@ function _enterExtendMode(routeIdx, fromEnd) {
 let _sketchTouchStart = null;
 let _sketchTouchMove  = null;
 let _sketchTouchEnd   = null;
+let _sketchMapMouseDown = null;
+let _sketchMapMouseUp   = null;
+// Same tap-vs-drag distinction as Draw Route mode: dragging is disabled while
+// sketching so a stray drag can't misplace a waypoint, but that also blocks the
+// normal way to pan toward off-screen territory mid-sketch.
+let _sketchGestureStartPt = null;
+let _sketchGestureLastPt  = null;
+let _sketchIsPanning      = false;
 
 function _sketchAddWaypoint(latlng) {
   _sketchWaypoints.push(latlng);
@@ -1755,6 +1763,17 @@ function _enterSketchMode() {
 
   // Desktop: click adds waypoint, mousemove updates rubber-band, dblclick finishes.
   // dblclick fires after two clicks; the second click adds a spurious waypoint we pop.
+  _sketchGestureStartPt = null;
+  _sketchGestureLastPt  = null;
+  _sketchIsPanning      = false;
+  _sketchMapMouseDown = (e) => {
+    _sketchGestureStartPt = e.containerPoint;
+    _sketchGestureLastPt  = e.containerPoint;
+    _sketchIsPanning = false;
+  };
+  _sketchMapMouseUp = () => { _sketchGestureStartPt = null; };
+  _map.on('mousedown', _sketchMapMouseDown);
+  _map.on('mouseup',   _sketchMapMouseUp);
   _map.on('click',     _onSketchClick);
   _map.on('mousemove', _onSketchMouseMove);
   _map.on('dblclick',  _onSketchDblClick);
@@ -1770,6 +1789,10 @@ function _exitSketchMode() {
     if (_sketchTouchMove)  container.removeEventListener('touchmove',  _sketchTouchMove,  { capture: true });
     if (_sketchTouchEnd)   container.removeEventListener('touchend',   _sketchTouchEnd,   { capture: true });
     _sketchTouchStart = _sketchTouchMove = _sketchTouchEnd = null;
+    if (_sketchMapMouseDown) { _map.off('mousedown', _sketchMapMouseDown); _sketchMapMouseDown = null; }
+    if (_sketchMapMouseUp)   { _map.off('mouseup',   _sketchMapMouseUp);   _sketchMapMouseUp   = null; }
+    _sketchGestureStartPt = _sketchGestureLastPt = null;
+    _sketchIsPanning = false;
     _map.off('click',     _onSketchClick);
     _map.off('mousemove', _onSketchMouseMove);
     _map.off('dblclick',  _onSketchDblClick);
@@ -1787,10 +1810,20 @@ function _exitSketchMode() {
 }
 
 function _onSketchClick(e) {
+  if (_sketchIsPanning) { _sketchIsPanning = false; return; } // suppress the click that follows a drag-pan
   _sketchAddWaypoint(e.latlng);
 }
 
 function _onSketchMouseMove(e) {
+  if (_sketchGestureStartPt) {
+    const dx = e.containerPoint.x - _sketchGestureStartPt.x, dy = e.containerPoint.y - _sketchGestureStartPt.y;
+    if (!_sketchIsPanning && Math.hypot(dx, dy) > _TAP_TOLERANCE_PX) _sketchIsPanning = true;
+    if (_sketchIsPanning) {
+      _map.panBy([_sketchGestureLastPt.x - e.containerPoint.x, _sketchGestureLastPt.y - e.containerPoint.y], { animate: false });
+      _sketchGestureLastPt = e.containerPoint;
+      return; // don't also update the rubber band while panning
+    }
+  }
   _sketchUpdateRubber(e.latlng);
   _sketchCheckAutoPan(e.latlng);
 }
@@ -1894,7 +1927,7 @@ function _enterDrawRouteMode() {
     const r = container.getBoundingClientRect();
     if (_drawGestureStartPt) {
       const dx = t.clientX - _drawGestureStartPt.x, dy = t.clientY - _drawGestureStartPt.y;
-      if (!_drawIsPanning && Math.hypot(dx, dy) > _DRAW_TAP_TOLERANCE_PX) _drawIsPanning = true;
+      if (!_drawIsPanning && Math.hypot(dx, dy) > _TAP_TOLERANCE_PX) _drawIsPanning = true;
       if (_drawIsPanning) {
         _map.panBy([_drawGestureLastPt.x - t.clientX, _drawGestureLastPt.y - t.clientY], { animate: false });
         _drawGestureLastPt = { x: t.clientX, y: t.clientY };
@@ -1928,7 +1961,7 @@ function _enterDrawRouteMode() {
   _drawMapMouseMove = (e) => {
     if (_drawGestureStartPt) {
       const dx = e.containerPoint.x - _drawGestureStartPt.x, dy = e.containerPoint.y - _drawGestureStartPt.y;
-      if (!_drawIsPanning && Math.hypot(dx, dy) > _DRAW_TAP_TOLERANCE_PX) _drawIsPanning = true;
+      if (!_drawIsPanning && Math.hypot(dx, dy) > _TAP_TOLERANCE_PX) _drawIsPanning = true;
       if (_drawIsPanning) {
         _map.panBy([_drawGestureLastPt.x - e.containerPoint.x, _drawGestureLastPt.y - e.containerPoint.y], { animate: false });
         _drawGestureLastPt = e.containerPoint;
