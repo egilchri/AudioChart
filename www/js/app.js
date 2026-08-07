@@ -697,10 +697,22 @@ let _drawMode        = false;
 let _drawStart       = null;
 let _drawRubber      = null;
 let _drawName        = null;
+let _drawTouchStart  = null;
 let _drawTouchMove   = null;
 let _drawTouchEnd    = null;
 let _drawMapClick    = null;
 let _drawMapMouseMove = null;
+let _drawMapMouseDown = null;
+let _drawMapMouseUp   = null;
+// Map dragging is disabled while placing a route point (so a stray drag
+// can't be misread as a click elsewhere) — but that also blocks the normal
+// way to pan toward an off-screen destination mid-placement. These track
+// whether the current press-and-move has gone far enough to count as a
+// pan rather than a tap, so it can be panned manually instead.
+let _drawGestureStartPt = null;
+let _drawGestureLastPt  = null;
+let _drawIsPanning      = false;
+const _DRAW_TAP_TOLERANCE_PX = 15; // matches the rearrange-mode drag tolerance convention
 let _focusPlaceMode   = false;  // true while the drag-to-place focus marker is live
 let _focusPlaceMarker = null;   // the draggable L.marker being positioned
 let _focusPlaceSnap   = null;   // {lat, lon, name, type} of the locked-on object, or null
@@ -1863,27 +1875,77 @@ function _enterDrawRouteMode() {
   _map.dragging.disable();
   if (_savedRoutesLayer) _map.removeLayer(_savedRoutesLayer);
 
+  _drawGestureStartPt = null;
+  _drawGestureLastPt  = null;
+  _drawIsPanning      = false;
+
   const container = _map.getContainer();
+  _drawTouchStart = (e) => {
+    if (!_drawMode) return;
+    const t = e.touches[0];
+    _drawGestureStartPt = { x: t.clientX, y: t.clientY };
+    _drawGestureLastPt  = _drawGestureStartPt;
+    _drawIsPanning = false;
+  };
   _drawTouchMove = (e) => {
     if (!_drawMode) return;
     e.preventDefault(); e.stopPropagation();
     const t = e.touches[0];
     const r = container.getBoundingClientRect();
+    if (_drawGestureStartPt) {
+      const dx = t.clientX - _drawGestureStartPt.x, dy = t.clientY - _drawGestureStartPt.y;
+      if (!_drawIsPanning && Math.hypot(dx, dy) > _DRAW_TAP_TOLERANCE_PX) _drawIsPanning = true;
+      if (_drawIsPanning) {
+        _map.panBy([_drawGestureLastPt.x - t.clientX, _drawGestureLastPt.y - t.clientY], { animate: false });
+        _drawGestureLastPt = { x: t.clientX, y: t.clientY };
+        return; // don't also update the rubber band while panning
+      }
+    }
     _onDrawMouseMove(_map.containerPointToLatLng(L.point(t.clientX - r.left, t.clientY - r.top)));
   };
   _drawTouchEnd = (e) => {
     if (!_drawMode) return;
     e.stopPropagation();
+    const wasPanning = _drawIsPanning;
+    _drawGestureStartPt = null;
+    _drawIsPanning = false;
+    if (wasPanning) return; // moved too far to count as placing a point — just a pan
     const t = e.changedTouches[0];
     const r = container.getBoundingClientRect();
     _onDrawClick(_map.containerPointToLatLng(L.point(t.clientX - r.left, t.clientY - r.top)));
   };
-  container.addEventListener('touchmove', _drawTouchMove, { passive: false, capture: true });
-  container.addEventListener('touchend',  _drawTouchEnd,  { capture: true });
-  _drawMapClick     = e => _onDrawClick(e.latlng);
-  _drawMapMouseMove = e => _onDrawMouseMove(e.latlng);
-  _map.on('click',     _drawMapClick);
+  container.addEventListener('touchstart', _drawTouchStart, { capture: true });
+  container.addEventListener('touchmove',  _drawTouchMove,  { passive: false, capture: true });
+  container.addEventListener('touchend',   _drawTouchEnd,   { capture: true });
+
+  // Mouse (desktop) equivalent — same tap-vs-drag distinction, using
+  // Leaflet's own mouse events so coordinates are already map-relative.
+  _drawMapMouseDown = (e) => {
+    _drawGestureStartPt = e.containerPoint;
+    _drawGestureLastPt  = e.containerPoint;
+    _drawIsPanning = false;
+  };
+  _drawMapMouseMove = (e) => {
+    if (_drawGestureStartPt) {
+      const dx = e.containerPoint.x - _drawGestureStartPt.x, dy = e.containerPoint.y - _drawGestureStartPt.y;
+      if (!_drawIsPanning && Math.hypot(dx, dy) > _DRAW_TAP_TOLERANCE_PX) _drawIsPanning = true;
+      if (_drawIsPanning) {
+        _map.panBy([_drawGestureLastPt.x - e.containerPoint.x, _drawGestureLastPt.y - e.containerPoint.y], { animate: false });
+        _drawGestureLastPt = e.containerPoint;
+        return;
+      }
+    }
+    _onDrawMouseMove(e.latlng);
+  };
+  _drawMapMouseUp = () => { _drawGestureStartPt = null; };
+  _drawMapClick = (e) => {
+    if (_drawIsPanning) { _drawIsPanning = false; return; } // suppress the click that follows a drag-pan
+    _onDrawClick(e.latlng);
+  };
+  _map.on('mousedown', _drawMapMouseDown);
   _map.on('mousemove', _drawMapMouseMove);
+  _map.on('mouseup',   _drawMapMouseUp);
+  _map.on('click',     _drawMapClick);
 }
 
 function _exitDrawRouteMode(skipRefresh = false) {
@@ -1894,11 +1956,16 @@ function _exitDrawRouteMode(skipRefresh = false) {
   _drawStart = null; _drawName = null;
   if (_map) {
     const container = _map.getContainer();
+    if (_drawTouchStart) container.removeEventListener('touchstart', _drawTouchStart, { capture: true });
     if (_drawTouchMove) container.removeEventListener('touchmove', _drawTouchMove, { capture: true });
     if (_drawTouchEnd)  container.removeEventListener('touchend',  _drawTouchEnd,  { capture: true });
-    _drawTouchMove = _drawTouchEnd = null;
+    _drawTouchStart = _drawTouchMove = _drawTouchEnd = null;
     if (_drawMapClick)     { _map.off('click',     _drawMapClick);     _drawMapClick     = null; }
     if (_drawMapMouseMove) { _map.off('mousemove', _drawMapMouseMove); _drawMapMouseMove = null; }
+    if (_drawMapMouseDown) { _map.off('mousedown', _drawMapMouseDown); _drawMapMouseDown = null; }
+    if (_drawMapMouseUp)   { _map.off('mouseup',   _drawMapMouseUp);   _drawMapMouseUp   = null; }
+    _drawGestureStartPt = _drawGestureLastPt = null;
+    _drawIsPanning = false;
     _map.dragging.enable();
   }
   if (!skipRefresh) _refreshSavedRouteLayers();
