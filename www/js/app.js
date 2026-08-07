@@ -1753,7 +1753,8 @@ function _enterSketchMode() {
   };
   _sketchTouchEnd = (e) => {
     if (!_sketchMode || !_sketchCursorLL) return;
-    e.stopPropagation();
+    e.preventDefault(); e.stopPropagation(); // suppress the ghost click that would otherwise
+                                              // re-fire _onSketchClick for this same tap
     _sketchAddWaypoint(_sketchCursorLL);
   };
 
@@ -1915,6 +1916,7 @@ function _enterDrawRouteMode() {
   const container = _map.getContainer();
   _drawTouchStart = (e) => {
     if (!_drawMode) return;
+    e.preventDefault();
     const t = e.touches[0];
     _drawGestureStartPt = { x: t.clientX, y: t.clientY };
     _drawGestureLastPt  = _drawGestureStartPt;
@@ -1938,7 +1940,8 @@ function _enterDrawRouteMode() {
   };
   _drawTouchEnd = (e) => {
     if (!_drawMode) return;
-    e.stopPropagation();
+    e.preventDefault(); e.stopPropagation(); // suppress the ghost click that would otherwise
+                                              // re-fire _onDrawClick for this same tap
     const wasPanning = _drawIsPanning;
     _drawGestureStartPt = null;
     _drawIsPanning = false;
