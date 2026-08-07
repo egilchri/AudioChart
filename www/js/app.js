@@ -695,6 +695,7 @@ let _autoRouteEndMarker    = null;
 let _autoRoutePreviewLayer = null;
 let _drawMode        = false;
 let _drawStart       = null;
+let _drawEnd         = null;
 let _drawRubber      = null;
 let _drawName        = null;
 let _drawTouchStart  = null;
@@ -1177,6 +1178,7 @@ const _appEl = document.getElementById('app');
 const _sketchBanner = document.getElementById('sketch-banner');
 const _drawBanner   = document.getElementById('draw-banner');
 const _drawBannerLabel = document.getElementById('draw-banner-label');
+const _drawConfirmBtn  = document.getElementById('draw-confirm-btn');
 
 // ── Saved-route persistent display ────────────────────────────────────────────
 
@@ -1837,57 +1839,74 @@ function _onSketchDblClick(e) {
 
 // ── Stretch-to-draw route mode ─────────────────────────────────────────────────
 
-async function _onDrawClick(latlng) {
+function _onDrawClick(latlng) {
   if (!_drawStart) {
     _drawStart = latlng;
     _drawName  = _nextRouteName();
     _drawBannerLabel.textContent = `”${_drawName}” — tap your destination`;
+    return;
+  }
+  // Start already placed — this tap sets (or repositions) the destination.
+  // Computing the route now requires a separate, explicit OK tap so a
+  // spurious extra tap (double-tap, ghost click, fat-finger) can never
+  // silently finish the route on its own.
+  _drawEnd = latlng;
+  if (!_drawRubber) {
+    _drawRubber = L.polyline([_drawStart, _drawEnd], {
+      color: '#f5a623', weight: 3, dashArray: '8 6', opacity: 0.9,
+    }).addTo(_map);
   } else {
-    const end     = latlng;
-    const name    = _drawName;
-    const startPt = { lat: _drawStart.lat, lon: _drawStart.lng };
-    const endPt   = { lat: end.lat, lon: end.lng };
-    _exitDrawRouteMode(true);  // skip route refresh — edit mode handles display after optimization
+    _drawRubber.setLatLngs([_drawStart, _drawEnd]);
+  }
+  _drawBannerLabel.textContent = `”${_drawName}” — tap OK to compute, or tap map to move destination`;
+  _drawConfirmBtn.style.display = 'inline-block';
+}
 
-    // Show straight-line preview while optimizing
-    const previewLine = L.polyline(
-      [[startPt.lat, startPt.lon], [endPt.lat, endPt.lon]],
-      { color: '#f5a623', weight: 3, dashArray: '8 6', opacity: 0.9 }
-    ).addTo(_map);
+async function _onDrawConfirm() {
+  if (!_drawStart || !_drawEnd) return;
+  const name    = _drawName;
+  const startPt = { lat: _drawStart.lat, lon: _drawStart.lng };
+  const endPt   = { lat: _drawEnd.lat, lon: _drawEnd.lng };
+  _exitDrawRouteMode(true);  // skip route refresh — edit mode handles display after optimization
 
-    const optOverlay = document.createElement('div');
-    optOverlay.className = 'optimizing-overlay';
-    optOverlay.innerHTML =
-      '<span class=”optimizing-boat”>&#9975;</span>' +
-      '<em class=”optimizing-text”>Optimizing&#8230;</em>';
-    _map.getContainer().appendChild(optOverlay);
+  // Show straight-line preview while optimizing
+  const previewLine = L.polyline(
+    [[startPt.lat, startPt.lon], [endPt.lat, endPt.lon]],
+    { color: '#f5a623', weight: 3, dashArray: '8 6', opacity: 0.9 }
+  ).addTo(_map);
 
-    let pts;
-    try {
-      pts = await _autoRouteProg(startPt, endPt,
-        (path) => previewLine.setLatLngs(path.map(p => [p.lat, p.lon])),
-        (t) => { const el = optOverlay.querySelector('.optimizing-text'); if (el) el.textContent = t; }
-      );
-    } catch (err) {
-      optOverlay.remove();
-      previewLine.remove();
-      console.error('[drawRoute] optimization error:', err);
-      return;
-    }
+  const optOverlay = document.createElement('div');
+  optOverlay.className = 'optimizing-overlay';
+  optOverlay.innerHTML =
+    '<span class=”optimizing-boat”>&#9975;</span>' +
+    '<em class=”optimizing-text”>Optimizing&#8230;</em>';
+  _map.getContainer().appendChild(optOverlay);
 
+  let pts;
+  try {
+    pts = await _autoRouteProg(startPt, endPt,
+      (path) => previewLine.setLatLngs(path.map(p => [p.lat, p.lon])),
+      (t) => { const el = optOverlay.querySelector('.optimizing-text'); if (el) el.textContent = t; }
+    );
+  } catch (err) {
     optOverlay.remove();
     previewLine.remove();
-
-    const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
-    routes.push(_stampNew({ name, points: pts.map(p => ({ lat: p.lat, lon: p.lon })) }));
-    localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
-    _populateRouteSelectFn?.();
-    _enterEditMode(routes.length - 1);
+    console.error('[drawRoute] optimization error:', err);
+    return;
   }
+
+  optOverlay.remove();
+  previewLine.remove();
+
+  const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+  routes.push(_stampNew({ name, points: pts.map(p => ({ lat: p.lat, lon: p.lon })) }));
+  localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
+  _populateRouteSelectFn?.();
+  _enterEditMode(routes.length - 1);
 }
 
 function _onDrawMouseMove(latlng) {
-  if (!_drawStart) return;
+  if (!_drawStart || _drawEnd) return; // destination already placed — no live rubber-band until it's tapped again
   if (!_drawRubber) {
     _drawRubber = L.polyline([_drawStart, latlng], {
       color: '#f5a623', weight: 3, dashArray: '8 6', opacity: 0.85,
@@ -1901,8 +1920,9 @@ function _enterDrawRouteMode() {
   if (_sketchMode) _exitSketchMode();
   if (_editMode)   _exitEditMode();
   _drawMode = true;
-  _drawStart = null; _drawRubber = null; _drawName = null;
+  _drawStart = null; _drawEnd = null; _drawRubber = null; _drawName = null;
   _drawBannerLabel.textContent = 'Auto route — tap your start point';
+  _drawConfirmBtn.style.display = 'none';
   _drawBanner.style.display = 'flex';
   _appEl.classList.add('sketch-mode');
   if (!_map) return;
@@ -1987,9 +2007,10 @@ function _enterDrawRouteMode() {
 function _exitDrawRouteMode(skipRefresh = false) {
   _drawMode = false;
   _drawBanner.style.display = 'none';
+  _drawConfirmBtn.style.display = 'none';
   _appEl.classList.remove('sketch-mode');
   if (_drawRubber) { _map.removeLayer(_drawRubber); _drawRubber = null; }
-  _drawStart = null; _drawName = null;
+  _drawStart = null; _drawEnd = null; _drawName = null;
   if (_map) {
     const container = _map.getContainer();
     if (_drawTouchStart) container.removeEventListener('touchstart', _drawTouchStart, { capture: true });
@@ -2008,6 +2029,7 @@ function _exitDrawRouteMode(skipRefresh = false) {
 }
 
 document.getElementById('draw-cancel-btn').addEventListener('click', _exitDrawRouteMode);
+_drawConfirmBtn.addEventListener('click', _onDrawConfirm);
 document.getElementById('focus-place-confirm-btn').addEventListener('click', _confirmFocusPlace);
 document.getElementById('focus-place-cancel-btn').addEventListener('click', _cancelFocusPlace);
 document.getElementById('track-simulate-track').addEventListener('click', () => {

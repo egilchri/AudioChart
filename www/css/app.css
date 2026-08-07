@@ -1692,6 +1692,16 @@ html, body {
   font-size: 0.85rem;
   cursor: pointer;
 }
+#draw-confirm-btn {
+  background: var(--ok);
+  color: var(--navy);
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
 #focus-place-banner {
   display: flex;
   align-items: center;
