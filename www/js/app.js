@@ -2304,6 +2304,37 @@ async function _autoRouteProg(start, end, onUpdate, onText = null) {
     for (const rings of polys) _processRing(rings[0], true);
   }
 
+  // Point hazards (underwater rocks, obstructions, wrecks) are stored as Point
+  // geometry in hazards.geojson, which Query.getDepthZones() explicitly excludes
+  // (it only returns 'shallow area' Polygons) — so without this, the pathfinder
+  // has no idea a charted rock exists and can route straight past one at
+  // point-blank range. Turn each into a small circular no-go ring and feed it
+  // through the exact same land-avoidance pipeline (segBlocked, node offsetting,
+  // corridor search) rather than adding a parallel obstacle system.
+  const HAZARD_SAFETY_NM = 0.05;  // ~100 yards — matches the corridor used by
+                                   // _checkRouteHazards/_autoFixRouteHazards
+  const HAZARD_LABELS = new Set(['underwater rock', 'obstruction', 'wreck', 'UWTROC', 'OBSTRN', 'WRECKS']);
+  function _hazardCircleRing(lon, lat, radiusNm, sides = 10) {
+    const cv = Math.cos(lat * Math.PI / 180);
+    const ring = [];
+    for (let i = 0; i <= sides; i++) {
+      const ang = (i / sides) * 2 * Math.PI;
+      ring.push([
+        lon + radiusNm / (60 * cv) * Math.cos(ang),
+        lat + radiusNm / 60 * Math.sin(ang),
+      ]);
+    }
+    return ring;
+  }
+  for (const f of (Query.hazards?.features || [])) {
+    if (f.geometry?.type !== 'Point') continue;
+    const label = f.properties?.label || f.properties?.objtype || '';
+    if (!HAZARD_LABELS.has(label)) continue;
+    const [lon, lat] = f.geometry.coordinates;
+    if (lon < bMinLon || lon > bMaxLon || lat < bMinLat || lat > bMaxLat) continue;
+    _processRing(_hazardCircleRing(lon, lat, HAZARD_SAFETY_NM), false);
+  }
+
   // ── Fast segBlocked using pre-filtered rings ───────────────────────────────
   function segBlocked(lon1, lat1, lon2, lat2) {
     const sx = Math.min(lon1, lon2), ex = Math.max(lon1, lon2);
