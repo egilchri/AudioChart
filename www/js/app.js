@@ -2210,6 +2210,35 @@ async function _autoRouteProg(start, end, onUpdate, onText = null) {
     return false;
   }
 
+  // The visual basemap and the chart polygon data used for routing don't
+  // always agree pixel-for-pixel — a click that looks like clear water can
+  // land just inside the chart's land boundary. A point strictly inside a
+  // polygon has NO reachable neighbor (any line out of it must cross the
+  // boundary), so without this the search fails after a single, instant
+  // check — which looks like the router "did nothing" rather than having
+  // actually searched. Nudge a small distance to the nearest confirmed-water
+  // spot rather than fail outright; leave it alone if none is found nearby
+  // (a real, large landlocked point — the search will then correctly report
+  // no path rather than silently substituting a far-away location).
+  const SNAP_RADIUS_NM = 0.15;
+  function _snapOffLand(pt) {
+    if (!_isOnLandLocal(pt.lon, pt.lat)) return pt;
+    for (let r = 0.02; r <= SNAP_RADIUS_NM; r += 0.02) {
+      for (let ang = 0; ang < 360; ang += 30) {
+        const rad = ang * Math.PI / 180;
+        const cv = Math.cos(pt.lat * Math.PI / 180);
+        const tx = pt.lon + r / (60 * cv) * Math.cos(rad);
+        const ty = pt.lat + r / 60 * Math.sin(rad);
+        if (!_isOnLandLocal(tx, ty)) return { lat: ty, lon: tx };
+      }
+    }
+    return pt;
+  }
+  start = _snapOffLand(start);
+  end   = _snapOffLand(end);
+  nodes[0] = start;
+  nodes[1] = end;
+
   // ── Corridor-based node collection ─────────────────────────────────────────
   // Only add vertices from rings that intersect or are near the direct route.
   // Cap each ring at MAX_RING_VERTS to bound total N (A* is O(N²)).
