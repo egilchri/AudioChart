@@ -1122,6 +1122,19 @@ html, body {
   margin-top: 3px;
   min-height: 1em;
 }
+#rp-cleanup-dupes {
+  width: 100%;
+  margin-top: 6px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  background: var(--mid-blue);
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+#rp-cleanup-dupes:active { background: var(--accent); color: var(--navy); }
 
 .nf-new-route {
   display: flex;

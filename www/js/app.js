@@ -4934,6 +4934,83 @@ function _ensureMap() {
   });
 
   document.getElementById('rp-close').addEventListener('click', _closeRoutePicker);
+
+  // Strip a trailing "(conflict copy)" / "(conflict copy N)" suffix — matches
+  // the naming sync_merge.js's mergeCollections() uses, so duplicates created
+  // by a sync (including the pre-v358 unbounded-growth bug) can be found.
+  function _baseRouteName(name) {
+    return name.replace(/ \(conflict copy(?: \d+)?\)$/, '');
+  }
+
+  document.getElementById('rp-cleanup-dupes').addEventListener('click', () => {
+    const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+
+    // Group by base name, then within each group cluster by identical points —
+    // only byte-identical duplicates are candidates for removal. Two routes
+    // that share a base name but have genuinely different points are a real,
+    // distinct conflict, not a duplicate, and are left untouched.
+    const byBaseName = new Map();
+    for (const r of routes) {
+      const base = _baseRouteName(r.name);
+      if (!byBaseName.has(base)) byBaseName.set(base, []);
+      byBaseName.get(base).push(r);
+    }
+
+    const toRemove = [];
+    for (const [base, group] of byBaseName) {
+      if (group.length < 2) continue;
+      const byPoints = new Map();
+      for (const r of group) {
+        const key = JSON.stringify(r.points);
+        if (!byPoints.has(key)) byPoints.set(key, []);
+        byPoints.get(key).push(r);
+      }
+      for (const dupes of byPoints.values()) {
+        if (dupes.length < 2) continue;
+        // Keep one: prefer the plain base name (no "(conflict copy...)"
+        // suffix) if present, otherwise the oldest by updatedAt.
+        dupes.sort((a, b) => {
+          const aIsBase = a.name === base, bIsBase = b.name === base;
+          if (aIsBase !== bIsBase) return aIsBase ? -1 : 1;
+          return (a.updatedAt || 0) - (b.updatedAt || 0);
+        });
+        for (let i = 1; i < dupes.length; i++) toRemove.push(dupes[i]);
+      }
+    }
+
+    if (!toRemove.length) {
+      const msg = 'No duplicate routes found.';
+      setStatus(msg); TTS.sayImmediate(msg);
+      return;
+    }
+
+    const preview = toRemove.slice(0, 8).map(r => r.name).join(', ');
+    const more = toRemove.length > 8 ? `, and ${toRemove.length - 8} more` : '';
+    if (!confirm(
+      `Remove ${toRemove.length} duplicate route${toRemove.length !== 1 ? 's' : ''}? ` +
+      `Keeps one copy of each.\n\n${preview}${more}\n\nThis cannot be undone.`
+    )) return;
+
+    const removeIds = new Set(toRemove.map(r => r.id));
+    toRemove.forEach(r => _tombstone(r.id, 'route'));
+    const kept = routes.filter(r => !removeIds.has(r.id));
+    localStorage.setItem(ROUTE_KEY, JSON.stringify(kept));
+
+    const keptNames = new Set(kept.map(r => r.name));
+    for (const name of [..._hiddenRouteNames]) if (!keptNames.has(name)) _hiddenRouteNames.delete(name);
+    _saveHiddenRoutes();
+    const lastRoute = localStorage.getItem('audiochart-last-route');
+    if (lastRoute && !keptNames.has(lastRoute)) localStorage.removeItem('audiochart-last-route');
+    if (_expandedRouteRowName && !keptNames.has(_expandedRouteRowName)) _expandedRouteRowName = null;
+
+    _refreshSavedRouteLayers();
+    _populateRouteSelectFn?.();
+    _buildRoutePickerPanel();
+    const msg = `Removed ${toRemove.length} duplicate route${toRemove.length !== 1 ? 's' : ''}.`;
+    setStatus(msg);
+    TTS.sayImmediate(msg);
+  });
+
   document.getElementById('rp-draw-route').addEventListener('click', () => {
     _closeRoutePicker();
     _enterDrawRouteMode();
