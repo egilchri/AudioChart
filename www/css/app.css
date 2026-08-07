@@ -828,7 +828,10 @@ html, body {
   top: 10px;
   bottom: 70px; /* clear the command bar/text-input row docked at the bottom */
   right: 10px;
-  z-index: 1001;
+  /* Above every other panel/banner (Node Ops, optimizing overlay, etc.) so it's
+     never obscured when open — only the transient right-click context menu
+     stays above it, by deliberate convention. */
+  z-index: 1900;
   background: var(--dark-blue);
   border: 1px solid var(--mid-blue);
   border-radius: 10px;
