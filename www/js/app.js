@@ -2322,6 +2322,7 @@ async function _autoRouteProg(start, end, onUpdate, onText = null) {
   const INF = 1e9;
   const gScore = new Float64Array(N).fill(INF);
   const prev   = new Int32Array(N).fill(-1);
+  const closed = new Uint8Array(N); // finalized nodes — see note below
   gScore[0]    = 0;
   hpush(Query.distanceNm(start.lon, start.lat, end.lon, end.lat), 0);
 
@@ -2338,10 +2339,19 @@ async function _autoRouteProg(start, end, onUpdate, onText = null) {
   while (heap.length) {
     const [, curr] = hpop();
     if (curr === 1) break;  // reached end node
+    // A node can be pushed multiple times (once per improvement found); once
+    // popped, its gScore is already optimal (non-negative edge weights), so a
+    // later, staler heap entry for the same node is redundant work — without
+    // this check, a densely-connected local visibility graph (many nearby
+    // candidate nodes near a complex coastline) could re-run the full O(N)
+    // relaxation loop for the same node many times over, compounding what
+    // should be an O(N) expansion count into something far larger.
+    if (closed[curr]) continue;
+    closed[curr] = 1;
 
     const a = nodes[curr];
     for (let j = 0; j < N; j++) {
-      if (j === curr) continue;
+      if (j === curr || closed[j]) continue;
       const b = nodes[j];
       if (segBlocked(a.lon, a.lat, b.lon, b.lat)) continue;
       const ng = gScore[curr] + Query.distanceNm(a.lon, a.lat, b.lon, b.lat);
