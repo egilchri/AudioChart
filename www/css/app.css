@@ -825,7 +825,8 @@ html, body {
 #route-picker-panel {
   display: none;
   position: absolute;
-  bottom: 420px;
+  top: 10px;
+  bottom: 70px; /* clear the command bar/text-input row docked at the bottom */
   right: 10px;
   z-index: 1001;
   background: var(--dark-blue);
@@ -833,10 +834,9 @@ html, body {
   border-radius: 10px;
   padding: 10px 14px;
   min-width: 200px;
-  /* Anchored 420px up from the bottom already — the cap must subtract that
-     offset too, or a panel shorter than a bare "100dvh - margin" cap can
-     still push its top edge above the window. */
-  max-height: calc(100dvh - 420px - 12px);
+  /* top+bottom both set (rather than a bottom anchor + max-height) so the
+     panel actively fills most of the vertical viewport when open, instead
+     of just sizing to its content and capping at some maximum. */
   overflow-y: auto;
   max-width: min(320px, calc(100vw - 80px));
   box-shadow: 0 2px 12px rgba(0,0,0,0.7);
@@ -859,7 +859,8 @@ html, body {
 #rp-search::placeholder { color: var(--text-dim); }
 #rp-search:focus { outline: none; border-color: var(--accent); }
 #rp-route-list {
-  max-height: 40dvh;
+  flex: 1 1 auto;
+  min-height: 0; /* let a flex child actually shrink/scroll instead of overflowing its column */
   overflow-y: auto;
   display: flex;
   flex-direction: column;
