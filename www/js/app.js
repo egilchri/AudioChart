@@ -6440,9 +6440,10 @@ function _ensureMap() {
       const { lat, lng: lon } = _ctxLatLng;
       const name = nextWaypointName();
       saveUserWaypoint(name, lat, lon);
+      Query.setActiveWaypoint(lat, lon, name);
       if (!_waypointsVisible) _setWaypointsVisible(true);
       showWaypointMap(null, null, loadUserWaypoints()).catch(() => {});
-      const msg = `Waypoint ${name} set.`;
+      const msg = `Waypoint ${name} set — that's now the Active Waypoint.`;
       setStatus(msg);
       TTS.sayImmediate(msg);
       return;
@@ -8275,6 +8276,7 @@ async function init() {
 
   Query.loadStoredFocus();
   _updateFocusButton();
+  Query.loadStoredActiveWaypoint();
   _recoverInProgressTrack();
 
   if ('wakeLock' in navigator) {

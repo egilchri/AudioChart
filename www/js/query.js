@@ -58,7 +58,32 @@ export let lastNavaidResults  = null;   // set by navaidsInRadius; [{lat,lon,lab
 export let lastHazardResults = null;   // set by hazardsInRadius;  [{lat,lon,label,name,brg,d}]
 export let focusedTarget = null;   // {lat, lon, name, type} — the "current" object
 
+// The most recently dropped quick waypoint (long-press -> Waypoint -> Set).
+// A quick-dropped waypoint gets an auto-generated name (wp001, wp002, ...)
+// that's fast to place but not something you'd remember or say with
+// confidence a minute later — "what's it called? who knows?" was the exact
+// complaint. "Active Waypoint" is a fixed, unambiguous name that always
+// means "whichever one I just dropped", resolved directly in
+// findPlaceByName below so it works anywhere a place name is accepted
+// (auto-route destination, focus, bearing queries) without needing to
+// remember the real name at all.
+export let activeWaypoint = null;  // {lat, lon, name}
+
 const FOCUS_KEY = 'audiochart-focus';
+const ACTIVE_WP_KEY = 'audiochart-active-waypoint';
+
+export function setActiveWaypoint(lat, lon, name) {
+  activeWaypoint = { lat, lon, name };
+  try { localStorage.setItem(ACTIVE_WP_KEY, JSON.stringify(activeWaypoint)); } catch (_) {}
+}
+
+export function loadStoredActiveWaypoint() {
+  try {
+    const s = localStorage.getItem(ACTIVE_WP_KEY);
+    if (s) activeWaypoint = JSON.parse(s);
+  } catch (_) {}
+  return activeWaypoint;
+}
 
 export function setFocus(lat, lon, name, type = 'place') {
   focusedTarget = { lat, lon, name, type };
@@ -549,7 +574,14 @@ function parseDisambiguated(query) {
   return { primary, qualifier: qualifier || null };
 }
 
+const ACTIVE_WAYPOINT_ALIASES = new Set(['active waypoint', 'the active waypoint', 'active wp']);
+
 export function findPlaceByName(query) {
+  const normalized = (query || '').trim().toLowerCase();
+  if (activeWaypoint && ACTIVE_WAYPOINT_ALIASES.has(normalized)) {
+    return { lat: activeWaypoint.lat, lon: activeWaypoint.lon, name: activeWaypoint.name };
+  }
+
   const { clean, bearing } = parseDirectional(query);
   const { primary, qualifier } = parseDisambiguated(clean);
 
