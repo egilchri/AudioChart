@@ -785,6 +785,7 @@ function setStatus(msg) { statusEl.textContent = msg; }
 
 window._debugAutoRoute = (start, end, escalation = 0) => _autoRouteProg(start, end, () => {}, () => {}, escalation);
 window._debugEnterEditMode = (idx) => _enterEditMode(idx);
+window._debugMap = () => _map;
 window._debugLiveHazardCheck = () => _liveHazardCheck();
 
 window._debugDepth = () => {
@@ -1354,8 +1355,17 @@ function _checkRouteHazards(routeIdx, silent = false) {
   // Tapping the flagged part of the route (the red highlight or the skull
   // marker) should jump straight into edit mode — that's the whole reason
   // it's flagged, so fixing it shouldn't require separately hunting for the
-  // route on the map and tapping it again.
-  const _jumpToEdit = () => { if (!_editMode || _editRouteIdx !== routeIdx) _enterEditMode(routeIdx); };
+  // route on the map and tapping it again. But the check almost always
+  // fires WHILE ALREADY in edit mode (that's when _enterEditMode runs it),
+  // so "enter edit mode" alone is usually a no-op with no visible effect —
+  // confirmed live: clicking the line while already editing did nothing,
+  // because there was nothing left for it to do. In that case, instead
+  // re-open the hazard popup (Auto-fix/Edit-manually buttons) — that's the
+  // actually actionable thing to give the user again.
+  const _jumpToEdit = () => {
+    if (!_editMode || _editRouteIdx !== routeIdx) _enterEditMode(routeIdx);
+    else _checkRouteHazards(routeIdx, false);
+  };
 
   // Highlight dangerous route segments in red
   for (const i of dangerSegments) {
