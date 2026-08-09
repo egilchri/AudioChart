@@ -785,6 +785,7 @@ function setStatus(msg) { statusEl.textContent = msg; }
 
 window._debugAutoRoute = (start, end, escalation = 0) => _autoRouteProg(start, end, () => {}, () => {}, escalation);
 window._debugEnterEditMode = (idx) => _enterEditMode(idx);
+window._debugCheckRouteHazards = (idx, silent) => _checkRouteHazards(idx, silent);
 window._debugMap = () => _map;
 window._debugLiveHazardCheck = () => _liveHazardCheck();
 
@@ -1255,11 +1256,11 @@ function _routeOvernightIcon() {
 // checks don't nag — but a found hazard ALWAYS opens the popup regardless
 // of silent, since the whole point of auto-checking is to stop routes with
 // real problems from saving without anyone being told.
-function _checkRouteHazards(routeIdx, silent = false) {
+function _checkRouteHazards(routeIdx, silent = false, suppressPopup = false) {
   _lastHazardCheckedIdx = routeIdx;
   const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
   const route  = routes[routeIdx];
-  if (!route) return;
+  if (!route) return [];
   const pts   = route.points;
   const feats = Query.hazards?.features || [];
   const CORRIDOR = 0.05;  // nm (~100 yards each side)
@@ -1409,7 +1410,11 @@ function _checkRouteHazards(routeIdx, silent = false) {
   // A hazard was found — this is never silent, regardless of how the check
   // was triggered: a route with a charted rock or shallow crossing near it
   // does not get to save/open/edit quietly. Announce it out loud too, not
-  // just as a map popup someone could be looking away from.
+  // just as a map popup someone could be looking away from. suppressPopup
+  // is the one exception: used right after Auto-fix, whose own caller
+  // already gives a clearer "fixed X of Y" message than a bare re-popup
+  // that looks identical to the one the user just dismissed would.
+  if (suppressPopup) return found;
   const mid = pts[Math.floor((pts.length - 1) / 2)];
   const body = `<b>${route.name}</b> — ${found.length} hazard${found.length > 1 ? 's' : ''} detected:<br>`
     + found.slice(0, 8).map(h =>
@@ -1432,16 +1437,18 @@ function _checkRouteHazards(routeIdx, silent = false) {
   TTS.sayImmediate(speakMsg);
   setTimeout(() => {
     document.getElementById(fixBtnId)?.addEventListener('click', () => {
-      _map.closePopup(); _autoFixRouteHazards(routeIdx);
+      _map.closePopup(); _autoFixRouteHazards(routeIdx, found.length);
     });
     document.getElementById(editBtnId)?.addEventListener('click', () => {
-      _map.closePopup(); _enterEditMode(routeIdx);
+      _map.closePopup(); _enterEditMode(routeIdx, true);
+      const msg = `Editing ${route.name} — ${found.length} hazard${found.length > 1 ? 's' : ''} to fix.`;
+      setStatus(msg); TTS.sayImmediate(msg);
     });
   }, 0);
   return found;
 }
 
-function _autoFixRouteHazards(routeIdx) {
+function _autoFixRouteHazards(routeIdx, beforeCount = null) {
   const CORRIDOR    = 0.05;
   const SAFETY      = 0.03;
   const MAX_DISP    = 0.15;  // nm cap per vertex move
@@ -1511,7 +1518,28 @@ function _autoFixRouteHazards(routeIdx) {
   localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
   _lastHazardCheckedIdx = routeIdx;
   _refreshSavedRouteLayers();
-  _checkRouteHazards(routeIdx);
+  // Re-checking and re-showing the SAME-looking popup here (as this used to
+  // do) made a real, working fix look exactly like the button had done
+  // nothing — confirmed live: a route that genuinely went from 2 hazards to
+  // 1 produced a popup indistinguishable from the one just dismissed.
+  // suppressPopup=true keeps the red-highlight/skull markers updated (so
+  // remaining problems are still visible) without reopening that popup;
+  // the messaging below makes the actual outcome explicit instead.
+  const afterFound = _checkRouteHazards(routeIdx, true, true);
+  const name = routes[routeIdx].name;
+  if (afterFound.length === 0) {
+    const msg = beforeCount != null
+      ? `Auto-fix cleared all ${beforeCount} hazard${beforeCount > 1 ? 's' : ''} on ${name}.`
+      : `Auto-fix cleared all hazards on ${name}.`;
+    setStatus(msg); TTS.sayImmediate(msg);
+  } else {
+    const fixedCount = beforeCount != null ? beforeCount - afterFound.length : null;
+    const msg = fixedCount != null
+      ? `Auto-fix cleared ${fixedCount} of ${beforeCount} hazards on ${name} — ${afterFound.length} remain. Now editing.`
+      : `Auto-fix left ${afterFound.length} hazard${afterFound.length > 1 ? 's' : ''} on ${name}. Now editing.`;
+    setStatus(msg); TTS.sayImmediate(msg);
+    _enterEditMode(routeIdx, true);
+  }
 }
 
 function _bestRouteLabelPos(pts) {
@@ -3512,7 +3540,7 @@ function _editPlaceNode(e) {
   document.getElementById('edit-undo-btn').style.display = savedHistory.length > 0 ? '' : 'none';
 }
 
-function _enterEditMode(routeIdx) {
+function _enterEditMode(routeIdx, skipHazardCheck = false) {
   if (_sketchMode) _exitSketchMode();
   if (_hazardCheckLayer) { _hazardCheckLayer.clearLayers(); _hazardCheckLayer = null; }
   const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
@@ -3548,6 +3576,14 @@ function _enterEditMode(routeIdx) {
   // planned — 12.3nm") can skip it when a hazard warning already fired —
   // TTS.sayImmediate interrupts, so speaking both back-to-back would cut
   // off the more important hazard warning.
+  //
+  // skipHazardCheck exists for exactly one caller: the hazard popup's own
+  // "Edit manually" button. Without it, choosing that button immediately
+  // re-triggers the SAME popup (nothing was fixed, just entering edit mode
+  // doesn't clear a hazard) — confirmed live, this is genuinely
+  // indistinguishable from the button doing nothing at all, since the new
+  // popup looks identical to the one just dismissed.
+  if (skipHazardCheck) return [];
   return _checkRouteHazards(routeIdx, true);
 }
 
