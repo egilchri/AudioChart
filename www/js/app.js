@@ -784,6 +784,7 @@ async function loadLeaflet() {
 function setStatus(msg) { statusEl.textContent = msg; }
 
 window._debugAutoRoute = (start, end, escalation = 0) => _autoRouteProg(start, end, () => {}, () => {}, escalation);
+window._debugEnterEditMode = (idx) => _enterEditMode(idx);
 
 window._debugDepth = () => {
   const feats = Query.hazards?.features || [];
@@ -1245,7 +1246,12 @@ function _routeOvernightIcon() {
   return L.divIcon({ className: 'route-overnight-marker', html: '&#9875;', iconSize: [16, 16], iconAnchor: [8, 8] });
 }
 
-function _checkRouteHazards(routeIdx) {
+// silent=true suppresses the "all clear" popup for automatic/background
+// checks (route just created, edit mode opened, route saved) so routine
+// checks don't nag — but a found hazard ALWAYS opens the popup regardless
+// of silent, since the whole point of auto-checking is to stop routes with
+// real problems from saving without anyone being told.
+function _checkRouteHazards(routeIdx, silent = false) {
   _lastHazardCheckedIdx = routeIdx;
   const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
   const route  = routes[routeIdx];
@@ -1303,28 +1309,37 @@ function _checkRouteHazards(routeIdx) {
       const props = f.properties || {};
       const minDepth = parseFloat(props.depth_label);
       if (isNaN(minDepth) || minDepth >= SHALLOW_THRESHOLD) continue;
-      const ring = f.geometry.coordinates[0];
-      // Bbox pre-filter
-      const lons = ring.map(c => c[0]), lats = ring.map(c => c[1]);
-      if (Math.max(...lons) < segMinLon - BUF || Math.min(...lons) > segMaxLon + BUF ||
-          Math.max(...lats) < segMinLat - BUF || Math.min(...lats) > segMaxLat + BUF) continue;
-      const key = `poly:${lons[0].toFixed(5)},${lats[0].toFixed(5)}`;
-      if (seen.has(key)) continue;
-      const hit = _segPolyIntersectPoint(a.lon, a.lat, b.lon, b.lat, ring);
-      if (!hit) continue;
-      seen.add(key);
-      dangerSegments.add(i);
-      const polyLabel = minDepth < 0 ? 'above-water obstacle' : `shallow area (${props.depth_label})`;
-      found.push({
-        lat: hit.lat, lon: hit.lon,
-        projLat: hit.lat, projLon: hit.lon,
-        label: polyLabel,
-        name:  props.name || '',
-        routeNm: distSoFar + hit.t * segLen,
-        side:    'crossing',
-        segBrg:  _segBearing(a.lat, a.lon, b.lat, b.lon),
-        sideSign: 0,
-      });
+      // depthZones can be Polygon or MultiPolygon — coordinates[0] is only
+      // the outer ring directly for Polygon; for MultiPolygon it's the
+      // first polygon's [outer, ...holes] instead. This went unnoticed
+      // because this whole check had no live caller until now (see
+      // _enterEditMode/_checkRouteHazards auto-invocation).
+      const { type, coordinates } = f.geometry;
+      const polys = type === 'Polygon' ? [coordinates] : coordinates;
+      for (const rings of polys) {
+        const ring = rings[0];
+        // Bbox pre-filter
+        const lons = ring.map(c => c[0]), lats = ring.map(c => c[1]);
+        if (Math.max(...lons) < segMinLon - BUF || Math.min(...lons) > segMaxLon + BUF ||
+            Math.max(...lats) < segMinLat - BUF || Math.min(...lats) > segMaxLat + BUF) continue;
+        const key = `poly:${lons[0].toFixed(5)},${lats[0].toFixed(5)}`;
+        if (seen.has(key)) continue;
+        const hit = _segPolyIntersectPoint(a.lon, a.lat, b.lon, b.lat, ring);
+        if (!hit) continue;
+        seen.add(key);
+        dangerSegments.add(i);
+        const polyLabel = minDepth < 0 ? 'above-water obstacle' : `shallow area (${props.depth_label})`;
+        found.push({
+          lat: hit.lat, lon: hit.lon,
+          projLat: hit.lat, projLon: hit.lon,
+          label: polyLabel,
+          name:  props.name || '',
+          routeNm: distSoFar + hit.t * segLen,
+          side:    'crossing',
+          segBrg:  _segBearing(a.lat, a.lon, b.lat, b.lon),
+          sideSign: 0,
+        });
+      }
     }
     distSoFar += segLen;
   }
@@ -1359,37 +1374,50 @@ function _checkRouteHazards(routeIdx) {
       .addTo(_hazardCheckLayer);
   }
 
+  if (found.length === 0) {
+    if (!silent) {
+      const mid = pts[Math.floor((pts.length - 1) / 2)];
+      L.popup({ maxWidth: 300, autoPan: false })
+        .setLatLng([mid.lat, mid.lon])
+        .setContent(`<div style="font-size:13px;line-height:1.5"><b>${route.name}</b><br>✓ No rocks, obstructions, or wrecks within 100 yds.</div>`)
+        .openOn(_map);
+    }
+    return found;
+  }
+
+  // A hazard was found — this is never silent, regardless of how the check
+  // was triggered: a route with a charted rock or shallow crossing near it
+  // does not get to save/open/edit quietly. Announce it out loud too, not
+  // just as a map popup someone could be looking away from.
   const mid = pts[Math.floor((pts.length - 1) / 2)];
-  const body = found.length === 0
-    ? `<b>${route.name}</b><br>✓ No rocks, obstructions, or wrecks within 100 yds.`
-    : `<b>${route.name}</b> — ${found.length} hazard${found.length > 1 ? 's' : ''} detected:<br>`
-      + found.slice(0, 8).map(h =>
-          `• ${h.label}${h.name ? ' (' + h.name + ')' : ''} — ${h.routeNm.toFixed(1)} nm, ${h.side}`
-        ).join('<br>')
-      + (found.length > 8 ? `<br>…and ${found.length - 8} more` : '');
+  const body = `<b>${route.name}</b> — ${found.length} hazard${found.length > 1 ? 's' : ''} detected:<br>`
+    + found.slice(0, 8).map(h =>
+        `• ${h.label}${h.name ? ' (' + h.name + ')' : ''} — ${h.routeNm.toFixed(1)} nm, ${h.side}`
+      ).join('<br>')
+    + (found.length > 8 ? `<br>…and ${found.length - 8} more` : '');
   const fixBtnId  = `hazard-fix-${routeIdx}`;
   const editBtnId = `hazard-edit-${routeIdx}`;
   const content = `<div style="font-size:13px;line-height:1.5">${body}</div>`
-    + (found.length > 0
-      ? `<div style="display:flex;gap:6px;margin-top:8px">
-           <button id="${fixBtnId}"  style="flex:1;padding:4px 8px;cursor:pointer;">Auto-fix route</button>
-           <button id="${editBtnId}" style="flex:1;padding:4px 8px;cursor:pointer;">Edit manually</button>
-         </div>`
-      : '');
+    + `<div style="display:flex;gap:6px;margin-top:8px">
+         <button id="${fixBtnId}"  style="flex:1;padding:4px 8px;cursor:pointer;">Auto-fix route</button>
+         <button id="${editBtnId}" style="flex:1;padding:4px 8px;cursor:pointer;">Edit manually</button>
+       </div>`;
   L.popup({ maxWidth: 300, autoPan: false })
     .setLatLng([mid.lat, mid.lon])
     .setContent(content)
     .openOn(_map);
-  if (found.length > 0) {
-    setTimeout(() => {
-      document.getElementById(fixBtnId)?.addEventListener('click', () => {
-        _map.closePopup(); _autoFixRouteHazards(routeIdx);
-      });
-      document.getElementById(editBtnId)?.addEventListener('click', () => {
-        _map.closePopup(); _enterEditMode(routeIdx);
-      });
-    }, 0);
-  }
+  const speakMsg = `Warning: ${route.name} has ${found.length} hazard${found.length > 1 ? 's' : ''} nearby, including ${found[0].label}${found[0].name ? ', ' + found[0].name : ''}.`;
+  setStatus(speakMsg);
+  TTS.sayImmediate(speakMsg);
+  setTimeout(() => {
+    document.getElementById(fixBtnId)?.addEventListener('click', () => {
+      _map.closePopup(); _autoFixRouteHazards(routeIdx);
+    });
+    document.getElementById(editBtnId)?.addEventListener('click', () => {
+      _map.closePopup(); _enterEditMode(routeIdx);
+    });
+  }, 0);
+  return found;
 }
 
 function _autoFixRouteHazards(routeIdx) {
@@ -2805,16 +2833,26 @@ function _finishSketch() {
         route.points = finalPts.map(p => ({ lat: p.lat, lon: p.lng }));
         _touch(route);
         localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
-        const msg = `${route.name} updated — ${totalNm.toFixed(1)} nm`;
-        setStatus(msg);
-        TTS.sayImmediate(msg);
+        // Sketch points are placed entirely by hand — never auto-routed —
+        // so this is exactly the case that needs an explicit check: nothing
+        // else in the app has verified these points yet.
+        const found = _checkRouteHazards(extIdx, true);
+        if (!found.length) {
+          const msg = `${route.name} updated — ${totalNm.toFixed(1)} nm`;
+          setStatus(msg);
+          TTS.sayImmediate(msg);
+        }
       }
     } else {
       const name = _nextRouteName();
       _saveRoute(name, pts);
-      const msg = `${name} saved — ${totalNm.toFixed(1)} nm`;
-      setStatus(msg);
-      TTS.sayImmediate(msg);
+      const newIdx = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]').length - 1;
+      const found = _checkRouteHazards(newIdx, true);
+      if (!found.length) {
+        const msg = `${name} saved — ${totalNm.toFixed(1)} nm`;
+        setStatus(msg);
+        TTS.sayImmediate(msg);
+      }
     }
     _refreshSavedRouteLayers();
     _populateRouteSelectFn?.();
@@ -2991,17 +3029,23 @@ function _liveHazardCheck() {
       const props = f.properties || {};
       const minDepth = parseFloat(props.depth_label);
       if (isNaN(minDepth) || minDepth >= SHALLOW_THRESHOLD) continue;
-      const ring = f.geometry.coordinates[0];
-      const lons = ring.map(c => c[0]), lats = ring.map(c => c[1]);
-      if (Math.max(...lons) < segMinLon - BUF || Math.min(...lons) > segMaxLon + BUF ||
-          Math.max(...lats) < segMinLat - BUF || Math.min(...lats) > segMaxLat + BUF) continue;
-      const key = `poly:${lons[0].toFixed(5)},${lats[0].toFixed(5)}`;
-      if (seen.has(key)) continue;
-      const hit = _segPolyIntersectPoint(a.lon, a.lat, b.lon, b.lat, ring);
-      if (!hit) continue;
-      seen.add(key);
-      const lbl = minDepth < 0 ? 'above-water obstacle' : 'shallow area';
-      found.push({ name: props.name || lbl, routeNm: distSoFar + hit.t * segLen });
+      // depthZones can be Polygon or MultiPolygon — see the matching fix in
+      // _checkRouteHazards.
+      const { type, coordinates } = f.geometry;
+      const polys = type === 'Polygon' ? [coordinates] : coordinates;
+      for (const rings of polys) {
+        const ring = rings[0];
+        const lons = ring.map(c => c[0]), lats = ring.map(c => c[1]);
+        if (Math.max(...lons) < segMinLon - BUF || Math.min(...lons) > segMaxLon + BUF ||
+            Math.max(...lats) < segMinLat - BUF || Math.min(...lats) > segMaxLat + BUF) continue;
+        const key = `poly:${lons[0].toFixed(5)},${lats[0].toFixed(5)}`;
+        if (seen.has(key)) continue;
+        const hit = _segPolyIntersectPoint(a.lon, a.lat, b.lon, b.lat, ring);
+        if (!hit) continue;
+        seen.add(key);
+        const lbl = minDepth < 0 ? 'above-water obstacle' : 'shallow area';
+        found.push({ name: props.name || lbl, routeNm: distSoFar + hit.t * segLen });
+      }
     }
     distSoFar += segLen;
   }
@@ -3135,6 +3179,10 @@ function _renderEditLayers() {
         _pushEditHistory();
         _editPoints.splice(idx, 1);
         _renderEditLayers();
+        // Removing a waypoint can just as easily introduce a hazard (it may
+        // have been providing clearance) as fix one — recheck either way.
+        clearTimeout(_liveHazardTimer);
+        _liveHazardTimer = setTimeout(_liveHazardCheck, 300);
       } else if (_overnightMode) {
         _pushEditHistory();
         const p = _editPoints[idx];
@@ -3148,6 +3196,8 @@ function _renderEditLayers() {
       _pushEditHistory();
       _editPoints.splice(idx, 1);
       _renderEditLayers();
+      clearTimeout(_liveHazardTimer);
+      _liveHazardTimer = setTimeout(_liveHazardCheck, 300);
     });
     _editVertexMarkers.push(m);
   }
@@ -3412,7 +3462,7 @@ function _enterEditMode(routeIdx) {
   if (_hazardCheckLayer) { _hazardCheckLayer.clearLayers(); _hazardCheckLayer = null; }
   const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
   const route = routes[routeIdx];
-  if (!route) return;
+  if (!route) return [];
 
   _editMode = true;
   _editRouteIdx = routeIdx;
@@ -3436,6 +3486,14 @@ function _enterEditMode(routeIdx) {
   document.getElementById('edit-tools-panel').style.display = 'flex';
   document.getElementById('delete-route-btn').style.display = 'flex';
   _updateEditToolsPanel();
+  // Check whenever a route is opened for editing — not just on request —
+  // so waypoints placed/moved in a prior session (or manually, outside any
+  // auto-route flow) get surfaced instead of staying silently unverified.
+  // Returned so callers with their own follow-up status/speech (e.g. "Route
+  // planned — 12.3nm") can skip it when a hazard warning already fired —
+  // TTS.sayImmediate interrupts, so speaking both back-to-back would cut
+  // off the more important hazard warning.
+  return _checkRouteHazards(routeIdx, true);
 }
 
 function _exitEditMode() {
@@ -3480,10 +3538,15 @@ function _saveEditedRoute() {
   const savedIdx = _editRouteIdx;
   _exitEditMode(); // calls _refreshSavedRouteLayers, resets _editRouteIdx
   _populateRouteSelectFn?.();
-  const msg = `${name} saved.`;
-  setStatus(msg);
-  TTS.sayImmediate(msg);
-  if (_lastHazardCheckedIdx === savedIdx) _checkRouteHazards(savedIdx);
+  // Always re-check on save, not just if this route happened to be checked
+  // already this session — a hazard warning takes priority over the plain
+  // "saved" confirmation when there's something to flag.
+  const found = _checkRouteHazards(savedIdx, true);
+  if (!found.length) {
+    const msg = `${name} saved.`;
+    setStatus(msg);
+    TTS.sayImmediate(msg);
+  }
 }
 
 document.getElementById('edit-ok-btn').addEventListener('click', _saveEditedRoute);
@@ -6075,11 +6138,13 @@ function _ensureMap() {
 
     _populateRouteSelectFn?.();
     _clearAutoRoute();
-    _enterEditMode(newIdx);
+    const found = _enterEditMode(newIdx);
 
-    const msg = `${name} planned — ${totalNm.toFixed(1)} nm.`;
-    setStatus(msg);
-    TTS.sayImmediate(`${name} planned. ${totalNm.toFixed(1)} nautical miles.`);
+    if (!found.length) {
+      const msg = `${name} planned — ${totalNm.toFixed(1)} nm.`;
+      setStatus(msg);
+      TTS.sayImmediate(`${name} planned. ${totalNm.toFixed(1)} nautical miles.`);
+    }
   }
 
   document.getElementById('map-ctx-route-from-here').addEventListener('click', () => {
