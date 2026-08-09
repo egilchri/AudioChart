@@ -785,6 +785,7 @@ function setStatus(msg) { statusEl.textContent = msg; }
 
 window._debugAutoRoute = (start, end, escalation = 0) => _autoRouteProg(start, end, () => {}, () => {}, escalation);
 window._debugEnterEditMode = (idx) => _enterEditMode(idx);
+window._debugLiveHazardCheck = () => _liveHazardCheck();
 
 window._debugDepth = () => {
   const feats = Query.hazards?.features || [];
@@ -2812,8 +2813,8 @@ function _finishSketch() {
       _touch(routes[growIdx]);
       localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
       _populateRouteSelectFn?.();
-      _enterEditMode(growIdx);
-      setStatus(`Route extended — ${newPts.length} node(s) added.`);
+      const found = _enterEditMode(growIdx);
+      if (!found.length) setStatus(`Route extended — ${newPts.length} node(s) added.`);
     }
     return;
   }
@@ -2885,10 +2886,12 @@ async function _finishSketchAutoRoute() {
         _touch(routes[growIdx]);
         localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
         _populateRouteSelectFn?.();
-        _enterEditMode(growIdx);
-        setStatus(fallbacks > 0
-          ? `Extended — ${fallbacks} segment(s) couldn't avoid land.`
-          : 'Route extended.');
+        const found = _enterEditMode(growIdx);
+        if (!found.length) {
+          setStatus(fallbacks > 0
+            ? `Extended — ${fallbacks} segment(s) couldn't avoid land.`
+            : 'Route extended.');
+        }
       }
     } catch (err) {
       ui.remove();
@@ -2912,22 +2915,25 @@ async function _finishSketchAutoRoute() {
     if (blocked) return;  // _reRouteSegments already announced why
 
     const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+    let found;
     if (extIdx >= 0 && routes[extIdx]) {
       routes[extIdx].points = points;
       _touch(routes[extIdx]);
       localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
       _populateRouteSelectFn?.();
-      _enterEditMode(extIdx);
+      found = _enterEditMode(extIdx);
     } else {
       const name = _nextRouteName();
       routes.push(_stampNew({ name, points }));
       localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
       _populateRouteSelectFn?.();
-      _enterEditMode(routes.length - 1);
+      found = _enterEditMode(routes.length - 1);
     }
-    setStatus(fallbacks > 0
-      ? `Routed — ${fallbacks} segment(s) couldn't avoid land. Add a waypoint in the passage.`
-      : 'Route saved.');
+    if (!found.length) {
+      setStatus(fallbacks > 0
+        ? `Routed — ${fallbacks} segment(s) couldn't avoid land. Add a waypoint in the passage.`
+        : 'Route saved.');
+    }
   } catch (err) {
     ui.remove();
     setStatus('Auto-route failed.');
@@ -2997,7 +3003,7 @@ function _nearestSegIdx(pts, latlng) {
 
 function _liveHazardCheck() {
   const pts = _editPoints;
-  if (!pts || pts.length < 2) return;
+  if (!pts || pts.length < 2) return [];
   const CORRIDOR = 0.05;
   const SHALLOW_THRESHOLD = 2.0;
   const DANGER_LABELS = new Set(['underwater rock', 'obstruction', 'wreck', 'UWTROC', 'OBSTRN', 'WRECKS']);
@@ -3057,6 +3063,7 @@ function _liveHazardCheck() {
     showResponse(msg);
     TTS.sayImmediate(msg);
   }
+  return found;
 }
 
 function _checkEditSegment(segIdx, latlng) {
@@ -3679,9 +3686,14 @@ document.getElementById('etp-reroute').addEventListener('click', () => {
       if (blocked) return;  // _reRouteSegments already announced why
       _editPoints = points;
       _renderEditLayers();
-      setStatus(fallbacks > 0
-        ? `Re-routed — ${fallbacks} segment(s) couldn't avoid land. Add a waypoint in the passage.`
-        : 'Re-routed.');
+      // Re-routing regenerates every point — a fresh check against real
+      // hazard data, not just the land-avoidance the router already did.
+      const found = _liveHazardCheck();
+      if (!found.length) {
+        setStatus(fallbacks > 0
+          ? `Re-routed — ${fallbacks} segment(s) couldn't avoid land. Add a waypoint in the passage.`
+          : 'Re-routed.');
+      }
     })
     .catch(err => {
       ui.remove();
@@ -5364,9 +5376,12 @@ function _ensureMap() {
           if (blocked) return;  // _reRouteSegments already announced why
           _editPoints = points;
           _renderEditLayers();
-          setStatus(fallbacks > 0
-            ? `Re-routed — ${fallbacks} segment(s) couldn't avoid land. Add a waypoint in the passage.`
-            : 'Re-routed.');
+          const found = _liveHazardCheck();
+          if (!found.length) {
+            setStatus(fallbacks > 0
+              ? `Re-routed — ${fallbacks} segment(s) couldn't avoid land. Add a waypoint in the passage.`
+              : 'Re-routed.');
+          }
         })
         .catch(err => {
           ui.remove();
@@ -5389,10 +5404,12 @@ function _ensureMap() {
           routes[idx].points = points;
           _touch(routes[idx]);
           localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
-          _enterEditMode(idx);
-          setStatus(fallbacks > 0
-            ? `Re-routed — ${fallbacks} segment(s) couldn't avoid land. Add a waypoint in the passage.`
-            : 'Re-routed.');
+          const found = _enterEditMode(idx);
+          if (!found.length) {
+            setStatus(fallbacks > 0
+              ? `Re-routed — ${fallbacks} segment(s) couldn't avoid land. Add a waypoint in the passage.`
+              : 'Re-routed.');
+          }
         })
         .catch(err => {
           ui.remove();
