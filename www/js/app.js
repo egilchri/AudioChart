@@ -783,7 +783,7 @@ async function loadLeaflet() {
 
 function setStatus(msg) { statusEl.textContent = msg; }
 
-window._debugAutoRoute = (start, end, allowBypass = true) => _autoRouteProg(start, end, () => {}, () => {}, allowBypass);
+window._debugAutoRoute = (start, end, escalation = 0) => _autoRouteProg(start, end, () => {}, () => {}, escalation);
 
 window._debugDepth = () => {
   const feats = Query.hazards?.features || [];
@@ -2211,13 +2211,22 @@ function _clearAutoRoute() {
   if (_autoRoutePreviewLayer) { _autoRoutePreviewLayer.remove(); _autoRoutePreviewLayer = null; }
 }
 
-async function _autoRouteProg(start, end, onUpdate, onText = null, allowBypass = true) {
+async function _autoRouteProg(start, end, onUpdate, onText = null, escalation = 0) {
   // Visibility Graph + A* (Euclidean Shortest Path with Polygonal Obstacles).
   // Nodes: start, end, and polygon vertices in the padded bounding box.
   // Edges are checked lazily during A* expansion.
   const PAD_NM    = 2.0;
   const SAFETY_NM   = 0.05;  // ~100 yards — offset every vertex this far offshore
-  const CORRIDOR_NM = 3.0;   // include rings within this distance of the direct line
+  const CORRIDOR_NM = 3.0;   // include LAND rings within this distance of the direct line
+  // Point-hazard/tidal rings only need a graph NODE when genuinely close to
+  // the direct line — segBlocked already checks every one of them for every
+  // candidate edge regardless of this, so a distant one not getting a node
+  // doesn't weaken safety, it just isn't offered as a routing waypoint.
+  // Reusing CORRIDOR_NM=3 here was the dominant cost in a real failing case
+  // (rock-strewn Maine coast): ~1354 hazard-circle rings within 3nm of one
+  // 16.5nm line, each promoted to up to 10 nodes, for ~12,900 total nodes
+  // before A* even started — most of them irrelevant to any real path.
+  const EXTRA_CORRIDOR_NM = 0.5;
 
   const delay = ms => new Promise(r => setTimeout(r, ms));
   const _profT0 = Date.now();
@@ -2360,13 +2369,18 @@ async function _autoRouteProg(start, end, onUpdate, onText = null, allowBypass =
   const extraGridCellLat = (bMaxLat - bMinLat) / EXTRA_GRID_N || 1e-9;
   const _extraCellX = lon => Math.min(EXTRA_GRID_N - 1, Math.max(0, Math.floor((lon - bMinLon) / extraGridCellLon)));
   const _extraCellY = lat => Math.min(EXTRA_GRID_N - 1, Math.max(0, Math.floor((lat - bMinLat) / extraGridCellLat)));
+  // Numeric key, not a template-string concat — avoids string
+  // allocation/hashing on every lookup. segBlocked is the hottest call in
+  // auto-routing (600K+ calls in one real search); this and the matching
+  // fix in query.js's land index together cut its average cost ~5x.
+  const _extraCellKey = (gx, gy) => gx * EXTRA_GRID_N + gy;
   const extraGrid = new Map();
   for (const entry of extraRings) {
     const x0 = _extraCellX(entry.rMinX), x1 = _extraCellX(entry.rMaxX);
     const y0 = _extraCellY(entry.rMinY), y1 = _extraCellY(entry.rMaxY);
     for (let gx = x0; gx <= x1; gx++) {
       for (let gy = y0; gy <= y1; gy++) {
-        const key = gx + ',' + gy;
+        const key = _extraCellKey(gx, gy);
         let arr = extraGrid.get(key);
         if (!arr) { arr = []; extraGrid.set(key, arr); }
         arr.push(entry);
@@ -2384,7 +2398,7 @@ async function _autoRouteProg(start, end, onUpdate, onText = null, allowBypass =
     _extraQueryId++;
     for (let gx = x0; gx <= x1; gx++) {
       for (let gy = y0; gy <= y1; gy++) {
-        const arr = extraGrid.get(gx + ',' + gy);
+        const arr = extraGrid.get(_extraCellKey(gx, gy));
         if (!arr) continue;
         for (const entry of arr) {
           if (entry._eq === _extraQueryId) continue;
@@ -2404,7 +2418,7 @@ async function _autoRouteProg(start, end, onUpdate, onText = null, allowBypass =
   // land the "safety offset" point back on dry ground.
   function _isOnLandLocal(lon, lat) {
     if (Query.isLandAt(lon, lat)) return true;
-    const arr = extraGrid.get(_extraCellX(lon) + ',' + _extraCellY(lat));
+    const arr = extraGrid.get(_extraCellKey(_extraCellX(lon), _extraCellY(lat)));
     if (!arr) return false;
     for (const { ring, rMinX, rMaxX, rMinY, rMaxY } of arr) {
       if (lon < rMinX || lon > rMaxX || lat < rMinY || lat > rMaxY) continue;
@@ -2446,11 +2460,38 @@ async function _autoRouteProg(start, end, onUpdate, onText = null, allowBypass =
   // Only add vertices from rings that intersect or are near the direct route.
   // Cap each ring at MAX_RING_VERTS to bound total N (A* is O(N²)).
   const MAX_RING_VERTS = 30;
-  function _addRingNodes(entry) {
+  // On an escalation retry, the ring actually blocking the direct line gets
+  // its own wider local window (see below) instead of the default corridor —
+  // widening the vertex SELECTION for just that one ring, not widening the
+  // whole search (which would re-pull in every nearby island/hazard and
+  // blow N back up, exactly what made a naive "just expand the box" approach
+  // too slow to explore in practice).
+  const MAX_WIDE_VERTS = 90;
+  function _addRingNodes(entry, wideWindow = null) {
     const { ring, cx, cy } = entry;
     const n = ring.length - 1; // -1: skip closing duplicate vertex
     let indices;
-    if (n <= MAX_RING_VERTS) {
+    if (wideWindow) {
+      // Keep vertices spread across the ring's own path within the wide
+      // window (in ring order) rather than "closest to the direct line" —
+      // the useful going-around vertices are FAR from that line by
+      // definition (that's why a detour is needed), so the normal scoring
+      // would filter out exactly the ones needed to represent a real
+      // passage around the obstacle.
+      const { minLon, maxLon, minLat, maxLat } = wideWindow;
+      const inWindow = [];
+      for (let k = 0; k < n; k++) {
+        const [vx, vy] = ring[k];
+        if (vx >= minLon && vx <= maxLon && vy >= minLat && vy <= maxLat) inWindow.push(k);
+      }
+      if (inWindow.length <= MAX_WIDE_VERTS) {
+        indices = inWindow;
+      } else {
+        const stride = inWindow.length / MAX_WIDE_VERTS;
+        indices = [];
+        for (let i = 0; i < MAX_WIDE_VERTS; i++) indices.push(inWindow[Math.floor(i * stride)]);
+      }
+    } else if (n <= MAX_RING_VERTS) {
       indices = [];
       for (let k = 0; k < n; k++) indices.push(k);
     } else {
@@ -2507,13 +2548,38 @@ async function _autoRouteProg(start, end, onUpdate, onText = null, allowBypass =
     }
   }
 
-  for (const entry of [...landRingsInBox, ...extraRings]) {
-    // Does this ring block the direct route?
+  // On an escalation retry, give the ring actually blocking the direct line
+  // a wider local window to pick vertices from (see _addRingNodes) — sized
+  // to the route's own length so it can reach around one real
+  // peninsula/headland, nowhere near enough to pull in the whole coastline.
+  let wideWindow = null, wideRing = null;
+  if (escalation > 0) {
+    wideRing = Query.findBlockingRing(start.lon, start.lat, end.lon, end.lat);
+    if (wideRing) {
+      const directNm = Query.distanceNm(start.lon, start.lat, end.lon, end.lat);
+      const wideNm = Math.min(Math.max(directNm * 0.75, 5), 25);
+      const wCosLat = Math.cos(midLat * Math.PI / 180);
+      wideWindow = {
+        minLon: Math.min(start.lon, end.lon) - wideNm / (60 * wCosLat),
+        maxLon: Math.max(start.lon, end.lon) + wideNm / (60 * wCosLat),
+        minLat: Math.min(start.lat, end.lat) - wideNm / 60,
+        maxLat: Math.max(start.lat, end.lat) + wideNm / 60,
+      };
+    }
+  }
+
+  for (const entry of landRingsInBox) {
+    if (wideRing && entry.ring === wideRing) { _addRingNodes(entry, wideWindow); continue; }
     const blocks = Query.ringBlocks(entry.ring, start.lon, start.lat, end.lon, end.lat);
     if (blocks) { _addRingNodes(entry); continue; }
-    // Is the ring's centroid close to the direct route?
     const d = _ptSegDistNm(entry.cx, entry.cy, start.lon, start.lat, end.lon, end.lat);
     if (d <= CORRIDOR_NM) _addRingNodes(entry);
+  }
+  for (const entry of extraRings) {
+    const blocks = Query.ringBlocks(entry.ring, start.lon, start.lat, end.lon, end.lat);
+    if (blocks) { _addRingNodes(entry); continue; }
+    const d = _ptSegDistNm(entry.cx, entry.cy, start.lon, start.lat, end.lon, end.lat);
+    if (d <= EXTRA_CORRIDOR_NM) _addRingNodes(entry);
   }
 
   console.log(`[autoRoute] setup took ${Date.now() - _profT0}ms — ${nodes.length} nodes, ${landRingsInBox.length} land rings in bbox, ${extraRings.length} extra rings`);
@@ -2620,91 +2686,28 @@ async function _autoRouteProg(start, end, onUpdate, onText = null, allowBypass =
   console.log(`[autoRoute] A* done — ${expansions} expansions, ${N} nodes`);
 
   if (gScore[1] === INF) {
-    if (allowBypass) {
-      if (onText) onText('Routing… trying a wider detour');
-      const bypassPts = await _tryPeninsulaBypass(start, end, onUpdate, onText);
-      if (bypassPts) return bypassPts;
+    // The default search only looks CORRIDOR_NM/PAD_NM around the direct
+    // line — enough for a local detour (an island, a headland) but not for
+    // routing all the way around a whole peninsula (Route 51 / Mount Desert
+    // Island: the direct line cuts across the island, and the only way
+    // through is via the southern tip, well outside the default window).
+    // One escalation retry gives just the ring actually blocking the line a
+    // wider local vertex window (see wideWindow above) rather than
+    // widening the whole search — an earlier attempt at picking a single
+    // hand-picked "via waypoint" from that wider window instead of feeding
+    // it to A* directly turned out unreliable (verified on the real Route
+    // 51 waypoints: it still failed, and took 2 minutes doing so) — letting
+    // A* itself route through the real local vertices is more robust.
+    // Capped at one retry so a genuinely unroutable case still terminates.
+    if (escalation === 0) {
+      if (onText) onText('Routing… trying a wider local search');
+      return await _autoRouteProg(start, end, onUpdate, onText, escalation + 1);
     }
     console.warn('[autoRoute] no path found — returning straight line');
     return [start, end];
   }
 
   return tracePath(1);
-}
-
-// The default search only looks CORRIDOR_NM/PAD_NM around the direct line —
-// enough for a local detour (an island, a headland) but not for routing all
-// the way around a whole peninsula (see Route 51 / Mount Desert Island case:
-// the direct line cuts across the island, and the only way through is via
-// the southern tip, well outside the default window). Rather than blowing up
-// the search window (and its O(N²) cost) for every route just to cover this
-// rare case, mimic the manual workaround: find the tip(s) of the landmass
-// actually blocking the direct line and route via a point beyond it, letting
-// the existing local search (now operating on two normal-scale legs) do the
-// rest. Recurses with allowBypass=false so a genuinely unroutable case still
-// terminates after one extra pair of searches instead of recursing forever.
-async function _tryPeninsulaBypass(start, end, onUpdate, onText) {
-  const ring = Query.findBlockingRing(start.lon, start.lat, end.lon, end.lat);
-  if (!ring) return null;
-
-  // The "blocking ring" can be the entire mainland coastline rather than a
-  // standalone island — e.g. Mount Desert Island is joined to the Maine
-  // mainland by a causeway in this chart data, so the ring that blocks a
-  // Sorrento->Blue Hill Bay line turned out to span from Long Island Sound
-  // to Maine (10,778 vertices, ~250nm across) when this was tested live.
-  // Taking that whole ring's extremities would pick a nonsensical, far-away
-  // "tip". Restrict candidate tip vertices to a local box scaled to the
-  // route's own length: generous enough to reach around one real
-  // peninsula/headland, nowhere near enough to pull in the whole seaboard.
-  const directNm = Query.distanceNm(start.lon, start.lat, end.lon, end.lat);
-  const padNm  = Math.min(Math.max(directNm * 0.75, 5), 25);
-  const midLat = (start.lat + end.lat) / 2;
-  const cosLat = Math.cos(midLat * Math.PI / 180);
-  const padLon = padNm / (60 * cosLat);
-  const padLat = padNm / 60;
-  const bMinLon = Math.min(start.lon, end.lon) - padLon;
-  const bMaxLon = Math.max(start.lon, end.lon) + padLon;
-  const bMinLat = Math.min(start.lat, end.lat) - padLat;
-  const bMaxLat = Math.max(start.lat, end.lat) + padLat;
-
-  // Signed perpendicular distance of each (locally-bounded) ring vertex from
-  // the direct start->end line — the vertices with the largest deviation on
-  // each side are the landmass's two "tips" as seen from this line, i.e. the
-  // two candidate directions to go around it.
-  const dLon = end.lon - start.lon, dLat = end.lat - start.lat;
-  const len = Math.hypot(dLon, dLat) || 1e-9;
-  const ux = dLon / len, uy = dLat / len;
-  let leftBest = null, rightBest = null;
-  for (const [vx, vy] of ring) {
-    if (vx < bMinLon || vx > bMaxLon || vy < bMinLat || vy > bMaxLat) continue;
-    const rx = vx - start.lon, ry = vy - start.lat;
-    const cross = rx * uy - ry * ux;
-    if (cross >= 0 && (!leftBest  || cross > leftBest.cross))  leftBest  = { lon: vx, lat: vy, cross };
-    if (cross < 0  && (!rightBest || cross < rightBest.cross)) rightBest = { lon: vx, lat: vy, cross };
-  }
-
-  let best = null;
-  for (const via of [leftBest, rightBest]) {
-    if (!via) continue;
-    const leg1 = await _autoRouteProg(start, via, () => {}, onText, false);
-    const leg2 = await _autoRouteProg(via, end, () => {}, onText, false);
-    const leg1Ok = leg1.length > 2 || !Query.landBlocks(start.lon, start.lat, via.lon, via.lat);
-    const leg2Ok = leg2.length > 2 || !Query.landBlocks(via.lon, via.lat, end.lon, end.lat);
-    if (!leg1Ok || !leg2Ok) continue;
-    const pts = [...leg1, ...leg2.slice(1)];
-    const dist = _pathLenNm(pts);
-    if (!best || dist < best.dist) best = { dist, pts };
-  }
-  if (best && onUpdate) onUpdate(best.pts);
-  return best ? best.pts : null;
-}
-
-function _pathLenNm(pts) {
-  let sum = 0;
-  for (let i = 1; i < pts.length; i++) {
-    sum += Query.distanceNm(pts[i - 1].lon, pts[i - 1].lat, pts[i].lon, pts[i].lat);
-  }
-  return sum;
 }
 
 // Auto Route / Draw Route / Re-route all invoke the pathfinder, which is

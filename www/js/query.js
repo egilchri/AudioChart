@@ -1051,6 +1051,11 @@ const IDX_CELL = 0.01; // ~0.5nm — matches _prioritiseByChartScale's grid
 let _landIndex = null; // { grid2D, rowIndex, ringMeta: Map<ring, meta> }
 
 function _cellOf(v) { return Math.floor(v / IDX_CELL); }
+// A numeric key (not a template-string concat) for the 2D grid Map — avoids
+// string allocation/hashing on every lookup, which mattered: this grid is
+// queried from segBlocked, the single hottest call in auto-routing (600K+
+// calls in one real search).
+function _cellKey2D(c, r) { return c * 1e7 + r; }
 
 function _buildLandEdgeIndex() {
   const t0 = Date.now();
@@ -1064,7 +1069,7 @@ function _buildLandEdgeIndex() {
     const r0 = _cellOf(edge.minY), r1 = _cellOf(edge.maxY);
     for (let c = c0; c <= c1; c++) {
       for (let r = r0; r <= r1; r++) {
-        const key = c + ',' + r;
+        const key = _cellKey2D(c, r);
         let arr = grid2D.get(key);
         if (!arr) { arr = []; grid2D.set(key, arr); }
         arr.push(edge);
@@ -1122,7 +1127,7 @@ function _gatherCells(map, minX, maxX, minY, maxY, queryId) {
   const out = [];
   for (let c = c0; c <= c1; c++) {
     for (let r = r0; r <= r1; r++) {
-      const arr = map.get(c + ',' + r);
+      const arr = map.get(_cellKey2D(c, r));
       if (!arr) continue;
       for (const edge of arr) {
         if (edge._q === queryId) continue; // dedupe — an edge can span multiple cells
@@ -1135,16 +1140,37 @@ function _gatherCells(map, minX, maxX, minY, maxY, queryId) {
 }
 let _idxQueryId = 0;
 
-/** True if the segment crosses any land ring edge. Index-backed. */
+/**
+ * True if the segment crosses any land ring edge. Index-backed.
+ * This is the single hottest call in auto-routing — profiling a real slow
+ * search showed it called 600,000+ times in one A* run, at ~100% of the
+ * search's wall time. Inlined (no intermediate array from _gatherCells,
+ * unlike findBlockingRing/landRingsNear below which run far less often and
+ * don't need this) and short-circuits on the first blocking edge, rather
+ * than always gathering every candidate edge into an array before checking
+ * any of them — same result, no per-call allocation, no wasted work on the
+ * common "found a block early" case.
+ */
 function _landBlocksIndexed(ax, ay, bx, by) {
   if (!_landIndex) return false;
   const minX = Math.min(ax, bx), maxX = Math.max(ax, bx);
   const minY = Math.min(ay, by), maxY = Math.max(ay, by);
+  const c0 = _cellOf(minX), c1 = _cellOf(maxX);
+  const r0 = _cellOf(minY), r1 = _cellOf(maxY);
   _idxQueryId++;
-  const edges = _gatherCells(_landIndex.grid2D, minX, maxX, minY, maxY, _idxQueryId);
-  for (const edge of edges) {
-    if (edge.maxX < minX || edge.minX > maxX || edge.maxY < minY || edge.minY > maxY) continue;
-    if (_segIntersect(ax, ay, bx, by, edge.x1, edge.y1, edge.x2, edge.y2)) return true;
+  const queryId = _idxQueryId;
+  const grid2D = _landIndex.grid2D;
+  for (let c = c0; c <= c1; c++) {
+    for (let r = r0; r <= r1; r++) {
+      const arr = grid2D.get(_cellKey2D(c, r));
+      if (!arr) continue;
+      for (const edge of arr) {
+        if (edge._q === queryId) continue;
+        edge._q = queryId;
+        if (edge.maxX < minX || edge.minX > maxX || edge.maxY < minY || edge.minY > maxY) continue;
+        if (_segIntersect(ax, ay, bx, by, edge.x1, edge.y1, edge.x2, edge.y2)) return true;
+      }
+    }
   }
   return false;
 }
