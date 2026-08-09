@@ -316,6 +316,7 @@ const responseEl  = document.getElementById('response-text');
 const responseAreaEl = document.getElementById('response-area');
 const navaidListEl = document.getElementById('navaid-list');
 const gpsStatusEl = document.getElementById('gps-status');
+const coverageStatusEl = document.getElementById('coverage-status');
 const historyList = document.getElementById('history-list');
 const historyClear = document.getElementById('history-clear');
 const offlineBtn    = document.getElementById('offline-btn');
@@ -673,6 +674,13 @@ let _trackRecActive       = false;  // true while recording a GPS breadcrumb tra
 let _trackRecPoints       = [];     // [{lat, lon, t}]
 let _trackRecStartMs      = null;
 let _trackRecLastSampleTs = 0;
+// Once any track recording (auto or manual) has started this session, don't
+// auto-start another — avoids re-triggering the moment a manually-stopped
+// track's next real fix comes in. A fresh page load resets this, which is
+// fine: _recoverInProgressTrack() runs first and either resumes (setting
+// _trackRecActive itself) or the user explicitly discards, both of which
+// should allow a genuinely new voyage to auto-start its own track.
+let _autoTrackEverStarted = false;
 // "Follow route" — a route-linked track recording (see _startFollowingRoute)
 // distinct from a plain manual recording: auto-named, and auto-stopped on
 // arrival at the route's final waypoint.
@@ -774,6 +782,8 @@ async function loadLeaflet() {
 }
 
 function setStatus(msg) { statusEl.textContent = msg; }
+
+window._debugAutoRoute = (start, end, allowBypass = true) => _autoRouteProg(start, end, () => {}, () => {}, allowBypass);
 
 window._debugDepth = () => {
   const feats = Query.hazards?.features || [];
@@ -1867,6 +1877,7 @@ async function _onDrawConfirm() {
   const name    = _drawName;
   const startPt = { lat: _drawStart.lat, lon: _drawStart.lng };
   const endPt   = { lat: _drawEnd.lat, lon: _drawEnd.lng };
+  if (_blockedByCoverage(startPt, endPt, 'Draw Route')) { _exitDrawRouteMode(true); return; }
   _exitDrawRouteMode(true);  // skip route refresh — edit mode handles display after optimization
 
   // Show straight-line preview while optimizing
@@ -2200,7 +2211,7 @@ function _clearAutoRoute() {
   if (_autoRoutePreviewLayer) { _autoRoutePreviewLayer.remove(); _autoRoutePreviewLayer = null; }
 }
 
-async function _autoRouteProg(start, end, onUpdate, onText = null) {
+async function _autoRouteProg(start, end, onUpdate, onText = null, allowBypass = true) {
   // Visibility Graph + A* (Euclidean Shortest Path with Polygonal Obstacles).
   // Nodes: start, end, and polygon vertices in the padded bounding box.
   // Edges are checked lazily during A* expansion.
@@ -2209,6 +2220,7 @@ async function _autoRouteProg(start, end, onUpdate, onText = null) {
   const CORRIDOR_NM = 3.0;   // include rings within this distance of the direct line
 
   const delay = ms => new Promise(r => setTimeout(r, ms));
+  const _profT0 = Date.now();
 
   // Wait for land data to finish loading (resolves instantly after first load).
   await Query.whenLandLoaded();
@@ -2265,18 +2277,20 @@ async function _autoRouteProg(start, end, onUpdate, onText = null) {
     return eff <= draftM;
   });
 
-  // ── Pre-filter land rings to bounding box (fast segBlocked) ───────────────
-  // Also decide which rings get vertices added to the graph:
-  //   "blocking" rings = intersect the direct route line → must route around them
-  //   "corridor" rings = within CORRIDOR_NM of the direct line → likely detour obstacles
-  //   Other rings in bbox → used by segBlocked but no graph nodes added
-  const landRingsInBox = [];  // all land rings in bbox, for fast segBlocked
-  const tidalRings     = [];  // tidal obstacle rings
+  // ── Land: served by query.js's persistent edge index ──────────────────
+  // Land geometry is static and shared by every route computation this
+  // session, so it's indexed ONCE at load time (see _buildLandEdgeIndex in
+  // query.js) rather than rescanned here — profiling a real failing route
+  // (Sorrento -> Blue Hill Bay) found the old per-call linear scan spent 32
+  // SECONDS just offsetting ~4900 graph nodes off land before A* even
+  // started. Only the *dynamic* obstacles below (tidal drying zones, which
+  // depend on current tide + draft, and point-hazard circles) still need a
+  // small per-call ring list — land goes through Query.landBlocks/isLandAt/
+  // landRingsNear instead.
+  if (!Query.getLandPolygons()) console.warn('[autoRoute] land.geojson not loaded — routing without land avoidance');
 
-  const land = Query.getLandPolygons();
-  if (!land) console.warn('[autoRoute] land.geojson not loaded — routing without land avoidance');
-
-  function _processRing(outer, isTidal) {
+  const extraRings = [];  // tidal obstacle + point-hazard circles for this call
+  function _processExtraRing(outer) {
     let rMinX = Infinity, rMaxX = -Infinity, rMinY = Infinity, rMaxY = -Infinity;
     let cx = 0, cy = 0;
     for (const [x, y] of outer) {
@@ -2286,22 +2300,13 @@ async function _autoRouteProg(start, end, onUpdate, onText = null) {
     }
     if (rMaxX < bMinLon || rMinX > bMaxLon || rMaxY < bMinLat || rMinY > bMaxLat) return;
     cx /= outer.length; cy /= outer.length;
-    const entry = { ring: outer, rMinX, rMaxX, rMinY, rMaxY, cx, cy };
-    if (isTidal) tidalRings.push(entry);
-    else         landRingsInBox.push(entry);
+    extraRings.push({ ring: outer, rMinX, rMaxX, rMinY, rMaxY, cx, cy });
   }
 
-  if (land) {
-    for (const feat of land.features) {
-      const { type, coordinates } = feat.geometry;
-      const polys = type === 'Polygon' ? [coordinates] : coordinates;
-      for (const rings of polys) _processRing(rings[0], false);
-    }
-  }
   for (const feat of tidalObs) {
     const { type, coordinates } = feat.geometry;
     const polys = type === 'Polygon' ? [coordinates] : coordinates;
-    for (const rings of polys) _processRing(rings[0], true);
+    for (const rings of polys) _processExtraRing(rings[0]);
   }
 
   // Point hazards (underwater rocks, obstructions, wrecks) are stored as Point
@@ -2309,7 +2314,7 @@ async function _autoRouteProg(start, end, onUpdate, onText = null) {
   // (it only returns 'shallow area' Polygons) — so without this, the pathfinder
   // has no idea a charted rock exists and can route straight past one at
   // point-blank range. Turn each into a small circular no-go ring and feed it
-  // through the exact same land-avoidance pipeline (segBlocked, node offsetting,
+  // through the exact same avoidance pipeline (segBlocked, node offsetting,
   // corridor search) rather than adding a parallel obstacle system.
   const HAZARD_SAFETY_NM = 0.05;  // ~100 yards — matches the corridor used by
                                    // _checkRouteHazards/_autoFixRouteHazards
@@ -2332,20 +2337,63 @@ async function _autoRouteProg(start, end, onUpdate, onText = null) {
     if (!HAZARD_LABELS.has(label)) continue;
     const [lon, lat] = f.geometry.coordinates;
     if (lon < bMinLon || lon > bMaxLon || lat < bMinLat || lat > bMaxLat) continue;
-    _processRing(_hazardCircleRing(lon, lat, HAZARD_SAFETY_NM), false);
+    _processExtraRing(_hazardCircleRing(lon, lat, HAZARD_SAFETY_NM));
   }
 
-  // ── Fast segBlocked using pre-filtered rings ───────────────────────────────
+  // Land rings near the corridor, for graph node generation — cached
+  // bbox/centroid from the index, no need to re-walk each ring's vertices.
+  const landRingsInBox = Query.landRingsNear(bMinLon, bMaxLon, bMinLat, bMaxLat);
+  console.log(`[autoRoute] ring-filter took ${Date.now() - _profT0}ms — ${landRingsInBox.length} land rings, ${extraRings.length} extra (tidal/hazard) rings in bbox`);
+
+  // extraRings (tidal drying zones + point-hazard circles) is per-call and
+  // dynamic — not worth a persistent index — but can still reach several
+  // hundred entries in a busy area, and segBlocked/_isOnLandLocal are called
+  // once per A* edge check / node-offset candidate. A plain per-call scan
+  // over hundreds of rings on every one of those calls was the next
+  // bottleneck after land got indexed (A* was only completing ~20-180
+  // expansions before hitting its own time cap on a real failing route).
+  // Bucket into a small grid over this call's own bounding box, same idea
+  // as the persistent land index but rebuilt fresh each call since the set
+  // itself is small and changes per route.
+  const EXTRA_GRID_N = 24;
+  const extraGridCellLon = (bMaxLon - bMinLon) / EXTRA_GRID_N || 1e-9;
+  const extraGridCellLat = (bMaxLat - bMinLat) / EXTRA_GRID_N || 1e-9;
+  const _extraCellX = lon => Math.min(EXTRA_GRID_N - 1, Math.max(0, Math.floor((lon - bMinLon) / extraGridCellLon)));
+  const _extraCellY = lat => Math.min(EXTRA_GRID_N - 1, Math.max(0, Math.floor((lat - bMinLat) / extraGridCellLat)));
+  const extraGrid = new Map();
+  for (const entry of extraRings) {
+    const x0 = _extraCellX(entry.rMinX), x1 = _extraCellX(entry.rMaxX);
+    const y0 = _extraCellY(entry.rMinY), y1 = _extraCellY(entry.rMaxY);
+    for (let gx = x0; gx <= x1; gx++) {
+      for (let gy = y0; gy <= y1; gy++) {
+        const key = gx + ',' + gy;
+        let arr = extraGrid.get(key);
+        if (!arr) { arr = []; extraGrid.set(key, arr); }
+        arr.push(entry);
+      }
+    }
+  }
+  let _extraQueryId = 0;
+
   function segBlocked(lon1, lat1, lon2, lat2) {
+    if (Query.landBlocks(lon1, lat1, lon2, lat2)) return true;
     const sx = Math.min(lon1, lon2), ex = Math.max(lon1, lon2);
     const sy = Math.min(lat1, lat2), ey = Math.max(lat1, lat2);
-    for (const { ring, rMinX, rMaxX, rMinY, rMaxY } of landRingsInBox) {
-      if (rMaxX < sx || rMinX > ex || rMaxY < sy || rMinY > ey) continue;
-      if (Query.ringBlocks(ring, lon1, lat1, lon2, lat2)) return true;
-    }
-    for (const { ring, rMinX, rMaxX, rMinY, rMaxY } of tidalRings) {
-      if (rMaxX < sx || rMinX > ex || rMaxY < sy || rMinY > ey) continue;
-      if (Query.ringBlocks(ring, lon1, lat1, lon2, lat2)) return true;
+    const x0 = _extraCellX(sx), x1 = _extraCellX(ex);
+    const y0 = _extraCellY(sy), y1 = _extraCellY(ey);
+    _extraQueryId++;
+    for (let gx = x0; gx <= x1; gx++) {
+      for (let gy = y0; gy <= y1; gy++) {
+        const arr = extraGrid.get(gx + ',' + gy);
+        if (!arr) continue;
+        for (const entry of arr) {
+          if (entry._eq === _extraQueryId) continue;
+          entry._eq = _extraQueryId;
+          const { ring, rMinX, rMaxX, rMinY, rMaxY } = entry;
+          if (rMaxX < sx || rMinX > ex || rMaxY < sy || rMinY > ey) continue;
+          if (Query.ringBlocks(ring, lon1, lat1, lon2, lat2)) return true;
+        }
+      }
     }
     return false;
   }
@@ -2355,11 +2403,10 @@ async function _autoRouteProg(start, end, onUpdate, onText = null) {
   // wrong on a concave/convoluted coastline (a cove, a narrow point) and
   // land the "safety offset" point back on dry ground.
   function _isOnLandLocal(lon, lat) {
-    for (const { ring, rMinX, rMaxX, rMinY, rMaxY } of landRingsInBox) {
-      if (lon < rMinX || lon > rMaxX || lat < rMinY || lat > rMaxY) continue;
-      if (_pointInRing(lon, lat, ring)) return true;
-    }
-    for (const { ring, rMinX, rMaxX, rMinY, rMaxY } of tidalRings) {
+    if (Query.isLandAt(lon, lat)) return true;
+    const arr = extraGrid.get(_extraCellX(lon) + ',' + _extraCellY(lat));
+    if (!arr) return false;
+    for (const { ring, rMinX, rMaxX, rMinY, rMaxY } of arr) {
       if (lon < rMinX || lon > rMaxX || lat < rMinY || lat > rMaxY) continue;
       if (_pointInRing(lon, lat, ring)) return true;
     }
@@ -2460,7 +2507,7 @@ async function _autoRouteProg(start, end, onUpdate, onText = null) {
     }
   }
 
-  for (const entry of [...landRingsInBox, ...tidalRings]) {
+  for (const entry of [...landRingsInBox, ...extraRings]) {
     // Does this ring block the direct route?
     const blocks = Query.ringBlocks(entry.ring, start.lon, start.lat, end.lon, end.lat);
     if (blocks) { _addRingNodes(entry); continue; }
@@ -2469,7 +2516,7 @@ async function _autoRouteProg(start, end, onUpdate, onText = null) {
     if (d <= CORRIDOR_NM) _addRingNodes(entry);
   }
 
-  console.log(`[autoRoute] ${nodes.length} nodes, ${landRingsInBox.length} land rings in bbox, ${tidalRings.length} tidal rings`);
+  console.log(`[autoRoute] setup took ${Date.now() - _profT0}ms — ${nodes.length} nodes, ${landRingsInBox.length} land rings in bbox, ${extraRings.length} extra rings`);
   if (onText) onText(`Routing… 0 / ${nodes.length} nodes`);
 
   // ── Min-heap helpers ───────────────────────────────────────────────────────
@@ -2573,11 +2620,113 @@ async function _autoRouteProg(start, end, onUpdate, onText = null) {
   console.log(`[autoRoute] A* done — ${expansions} expansions, ${N} nodes`);
 
   if (gScore[1] === INF) {
+    if (allowBypass) {
+      if (onText) onText('Routing… trying a wider detour');
+      const bypassPts = await _tryPeninsulaBypass(start, end, onUpdate, onText);
+      if (bypassPts) return bypassPts;
+    }
     console.warn('[autoRoute] no path found — returning straight line');
     return [start, end];
   }
 
   return tracePath(1);
+}
+
+// The default search only looks CORRIDOR_NM/PAD_NM around the direct line —
+// enough for a local detour (an island, a headland) but not for routing all
+// the way around a whole peninsula (see Route 51 / Mount Desert Island case:
+// the direct line cuts across the island, and the only way through is via
+// the southern tip, well outside the default window). Rather than blowing up
+// the search window (and its O(N²) cost) for every route just to cover this
+// rare case, mimic the manual workaround: find the tip(s) of the landmass
+// actually blocking the direct line and route via a point beyond it, letting
+// the existing local search (now operating on two normal-scale legs) do the
+// rest. Recurses with allowBypass=false so a genuinely unroutable case still
+// terminates after one extra pair of searches instead of recursing forever.
+async function _tryPeninsulaBypass(start, end, onUpdate, onText) {
+  const ring = Query.findBlockingRing(start.lon, start.lat, end.lon, end.lat);
+  if (!ring) return null;
+
+  // The "blocking ring" can be the entire mainland coastline rather than a
+  // standalone island — e.g. Mount Desert Island is joined to the Maine
+  // mainland by a causeway in this chart data, so the ring that blocks a
+  // Sorrento->Blue Hill Bay line turned out to span from Long Island Sound
+  // to Maine (10,778 vertices, ~250nm across) when this was tested live.
+  // Taking that whole ring's extremities would pick a nonsensical, far-away
+  // "tip". Restrict candidate tip vertices to a local box scaled to the
+  // route's own length: generous enough to reach around one real
+  // peninsula/headland, nowhere near enough to pull in the whole seaboard.
+  const directNm = Query.distanceNm(start.lon, start.lat, end.lon, end.lat);
+  const padNm  = Math.min(Math.max(directNm * 0.75, 5), 25);
+  const midLat = (start.lat + end.lat) / 2;
+  const cosLat = Math.cos(midLat * Math.PI / 180);
+  const padLon = padNm / (60 * cosLat);
+  const padLat = padNm / 60;
+  const bMinLon = Math.min(start.lon, end.lon) - padLon;
+  const bMaxLon = Math.max(start.lon, end.lon) + padLon;
+  const bMinLat = Math.min(start.lat, end.lat) - padLat;
+  const bMaxLat = Math.max(start.lat, end.lat) + padLat;
+
+  // Signed perpendicular distance of each (locally-bounded) ring vertex from
+  // the direct start->end line — the vertices with the largest deviation on
+  // each side are the landmass's two "tips" as seen from this line, i.e. the
+  // two candidate directions to go around it.
+  const dLon = end.lon - start.lon, dLat = end.lat - start.lat;
+  const len = Math.hypot(dLon, dLat) || 1e-9;
+  const ux = dLon / len, uy = dLat / len;
+  let leftBest = null, rightBest = null;
+  for (const [vx, vy] of ring) {
+    if (vx < bMinLon || vx > bMaxLon || vy < bMinLat || vy > bMaxLat) continue;
+    const rx = vx - start.lon, ry = vy - start.lat;
+    const cross = rx * uy - ry * ux;
+    if (cross >= 0 && (!leftBest  || cross > leftBest.cross))  leftBest  = { lon: vx, lat: vy, cross };
+    if (cross < 0  && (!rightBest || cross < rightBest.cross)) rightBest = { lon: vx, lat: vy, cross };
+  }
+
+  let best = null;
+  for (const via of [leftBest, rightBest]) {
+    if (!via) continue;
+    const leg1 = await _autoRouteProg(start, via, () => {}, onText, false);
+    const leg2 = await _autoRouteProg(via, end, () => {}, onText, false);
+    const leg1Ok = leg1.length > 2 || !Query.landBlocks(start.lon, start.lat, via.lon, via.lat);
+    const leg2Ok = leg2.length > 2 || !Query.landBlocks(via.lon, via.lat, end.lon, end.lat);
+    if (!leg1Ok || !leg2Ok) continue;
+    const pts = [...leg1, ...leg2.slice(1)];
+    const dist = _pathLenNm(pts);
+    if (!best || dist < best.dist) best = { dist, pts };
+  }
+  if (best && onUpdate) onUpdate(best.pts);
+  return best ? best.pts : null;
+}
+
+function _pathLenNm(pts) {
+  let sum = 0;
+  for (let i = 1; i < pts.length; i++) {
+    sum += Query.distanceNm(pts[i - 1].lon, pts[i - 1].lat, pts[i].lon, pts[i].lat);
+  }
+  return sum;
+}
+
+// Auto Route / Draw Route / Re-route all invoke the pathfinder, which is
+// only meaningfully safe where real hazard/navaid data exists (see
+// Query.coverageLevelAt) — outside that, refuse rather than silently
+// produce a "safe" route that was never actually checked against real
+// charts. Sketch mode is unaffected since the user places every point
+// themselves. Checks both endpoints of a leg — a corridor that merely
+// passes through reduced coverage between two in-coverage endpoints isn't
+// caught here, but a start/end point outside 'core' is the common real
+// case (the user's own current area) and the cheap check to make.
+function _blockedByCoverage(start, end, actionLabel) {
+  const startLevel = Query.coverageLevelAt(start.lon, start.lat);
+  const endLevel = Query.coverageLevelAt(end.lon, end.lat);
+  if (startLevel === 'core' && endLevel === 'core') return false;
+  const worst = (startLevel === 'none' || endLevel === 'none') ? 'none' : 'land';
+  const msg = worst === 'none'
+    ? `${actionLabel} needs real chart data, which isn't available here. Try Sketch instead.`
+    : `${actionLabel} needs hazard and navaid data, which isn't available here — only land avoidance. Try Sketch instead.`;
+  setStatus(msg);
+  TTS.sayImmediate(msg);
+  return true;
 }
 
 function _showRerouteOverlay(pts) {
@@ -2598,6 +2747,9 @@ function _showRerouteOverlay(pts) {
 }
 
 async function _reRouteSegments(pts, onProgress, onText) {
+  if (_blockedByCoverage(pts[0], pts[pts.length - 1], 'Re-route')) {
+    return { points: pts, fallbacks: 0, blocked: true };
+  }
   const result = [pts[0]];
   let fallbacks = 0;
   for (let i = 0; i < pts.length - 1; i++) {
@@ -2681,10 +2833,11 @@ async function _finishSketchAutoRoute() {
     const routePts = rawPts.map(p => ({ lat: p.lat, lon: p.lng }));
     const ui = _showRerouteOverlay(routePts);
     try {
-      const { points, fallbacks } = await _reRouteSegments(
+      const { points, fallbacks, blocked } = await _reRouteSegments(
         routePts, ui.update.bind(ui), ui.setText.bind(ui)
       );
       ui.remove();
+      if (blocked) return;  // _reRouteSegments already announced why
       const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
       if (routes[growIdx]) {
         routes[growIdx].points = [...routes[growIdx].points, ...points.slice(1)];
@@ -2711,10 +2864,11 @@ async function _finishSketchAutoRoute() {
 
   const ui = _showRerouteOverlay(routePts);
   try {
-    const { points, fallbacks } = await _reRouteSegments(
+    const { points, fallbacks, blocked } = await _reRouteSegments(
       routePts, ui.update.bind(ui), ui.setText.bind(ui)
     );
     ui.remove();
+    if (blocked) return;  // _reRouteSegments already announced why
 
     const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
     if (extIdx >= 0 && routes[extIdx]) {
@@ -3453,11 +3607,12 @@ document.getElementById('etp-reroute').addEventListener('click', () => {
   btn.disabled = true;
   const ui = _showRerouteOverlay(_editPoints);
   _reRouteSegments(_editPoints.map(_stripPoint), ui.update.bind(ui), ui.setText.bind(ui))
-    .then(({ points, fallbacks }) => {
-      _editPoints = points;
-      _renderEditLayers();
+    .then(({ points, fallbacks, blocked }) => {
       ui.remove();
       btn.disabled = false;
+      if (blocked) return;  // _reRouteSegments already announced why
+      _editPoints = points;
+      _renderEditLayers();
       setStatus(fallbacks > 0
         ? `Re-routed — ${fallbacks} segment(s) couldn't avoid land. Add a waypoint in the passage.`
         : 'Re-routed.');
@@ -5137,11 +5292,12 @@ function _ensureMap() {
       btn.classList.add('working');
       const ui = _showRerouteOverlay(_editPoints);
       _reRouteSegments(_editPoints.map(_stripPoint), ui.update.bind(ui), ui.setText.bind(ui))
-        .then(({ points, fallbacks }) => {
-          _editPoints = points;
-          _renderEditLayers();
+        .then(({ points, fallbacks, blocked }) => {
           ui.remove();
           btn.classList.remove('working');
+          if (blocked) return;  // _reRouteSegments already announced why
+          _editPoints = points;
+          _renderEditLayers();
           setStatus(fallbacks > 0
             ? `Re-routed — ${fallbacks} segment(s) couldn't avoid land. Add a waypoint in the passage.`
             : 'Re-routed.');
@@ -5160,12 +5316,13 @@ function _ensureMap() {
       btn.classList.add('working');
       const ui = _showRerouteOverlay(routes[idx].points);
       _reRouteSegments(routes[idx].points, ui.update.bind(ui), ui.setText.bind(ui))
-        .then(({ points, fallbacks }) => {
+        .then(({ points, fallbacks, blocked }) => {
+          ui.remove();
+          btn.classList.remove('working');
+          if (blocked) return;  // _reRouteSegments already announced why
           routes[idx].points = points;
           _touch(routes[idx]);
           localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
-          ui.remove();
-          btn.classList.remove('working');
           _enterEditMode(idx);
           setStatus(fallbacks > 0
             ? `Re-routed — ${fallbacks} segment(s) couldn't avoid land. Add a waypoint in the passage.`
@@ -5874,6 +6031,7 @@ function _ensureMap() {
     const name  = _autoRouteName;
     const start = _autoRouteStart;
     const end   = _autoRouteEnd;
+    if (_blockedByCoverage(start, end, 'Auto Route')) return;
     setStatus(`Planning "${name}"…`);
 
     if (_autoRoutePreviewLayer) { _autoRoutePreviewLayer.remove(); _autoRoutePreviewLayer = null; }
@@ -6973,6 +7131,68 @@ positionEl.addEventListener('click', () => {
   });
 });
 
+// Tracks which coverage tier the boat is currently in, so we only speak up
+// on a real transition (not every GPS tick) — see _updateCoverageStatus.
+let _coverageLevel = null;
+
+const COVERAGE_MESSAGES = {
+  land: 'Limited chart data here — land avoidance only, no hazard or navaid detail. Auto Route and Re-route are unavailable; Sketch still works.',
+  none: 'No chart data for this area. Auto Route, Re-route, and hazard checking are unavailable here; Sketch still works but is not checked against real charts.',
+};
+
+/**
+ * Reflects current position against loaded chart coverage — see
+ * Query.coverageLevelAt. Runs on every position fix (cheap: memoized bbox
+ * lookup, no rescans) but only updates the badge/speaks on a real change,
+ * so it doesn't nag on every GPS tick while sitting outside coverage.
+ */
+let _coverageRecheckTimer = null;
+let _coverageRecheckCount = 0;
+const COVERAGE_RECHECK_MAX = 3; // ~6s of retries — enough for a slow fetch, not an indefinite poll for someone genuinely out of range
+function _updateCoverageStatus(lat, lon, _isRecheck = false) {
+  if (!_isRecheck) _coverageRecheckCount = 0;  // a real position update, not a self-retry — start fresh
+  const level = Query.coverageLevelAt(lon, lat);
+
+  // The relevant hazard/navaid data for a NEW position (server-bridge mode
+  // re-fetches "nearby" data per position) can still be in flight when this
+  // first runs — "is any core data loaded at all" isn't a reliable signal
+  // for that, since stale data from a previous position already satisfies
+  // it. A real GPS watch self-corrects within a second or two as fixes keep
+  // arriving regardless, but a one-shot test position or a slow first fix
+  // could otherwise get stuck showing a falsely-degraded badge. Take a
+  // handful of unconditional re-checks shortly after any non-core result
+  // rather than trying to detect readiness precisely — capped so someone
+  // genuinely out of range (e.g. cruising far outside coverage) doesn't
+  // leave a timer polling every 2s for the rest of the voyage.
+  if (level !== 'core' && !_coverageRecheckTimer && _coverageRecheckCount < COVERAGE_RECHECK_MAX) {
+    _coverageRecheckCount++;
+    _coverageRecheckTimer = setTimeout(() => {
+      _coverageRecheckTimer = null;
+      _updateCoverageStatus(lat, lon, true);
+    }, 2000);
+  }
+
+  if (level === _coverageLevel) return;
+  const prevLevel = _coverageLevel;
+  _coverageLevel = level;
+
+  if (level === 'core') {
+    coverageStatusEl.style.display = 'none';
+  } else {
+    coverageStatusEl.style.display = 'inline-block';
+    coverageStatusEl.className = `status-badge coverage-${level}`;
+    coverageStatusEl.textContent = level === 'land' ? '⚠ Limited chart data' : '⚠ No chart data';
+  }
+
+  // Don't announce the very first "core" resolution on a normal in-coverage
+  // start (prevLevel === null) — only speak up on an actual degrade/recover.
+  if (prevLevel !== null || level !== 'core') {
+    const msg = COVERAGE_MESSAGES[level] || 'Chart data available — full hazard and navaid checking restored.';
+    setStatus(msg);
+    TTS.sayImmediate(msg);
+  }
+}
+
 function showPosition(lat, lon, accuracy, source) {
   positionEl.textContent = formatPositionDisplay(lat, lon);
   const label = SOURCE_LABEL[source] || source.toUpperCase();
@@ -6982,6 +7202,7 @@ function showPosition(lat, lon, accuracy, source) {
   gpsStatusEl.className = source === 'manual'
     ? 'status-badge gps-test'
     : 'status-badge gps-ok';
+  _updateCoverageStatus(lat, lon);
 
   if (source === 'manual') {
     mapLink.href = `https://maps.google.com/?q=${lat},${lon}&z=14`;
@@ -7538,6 +7759,7 @@ function _finishTrackRecording(name) {
 trackRecBtn?.addEventListener('click', () => {
   if (!_trackRecActive) {
     _trackRecActive = true;
+    _autoTrackEverStarted = true;
     _trackRecStartMs = Date.now();
     _trackRecPoints = [];
     _trackRecLastSampleTs = 0;
@@ -7562,6 +7784,7 @@ function _startFollowingRoute(route) {
   const last = route.points?.[route.points.length - 1];
   if (!last) return;
   _trackRecActive = true;
+  _autoTrackEverStarted = true;
   _trackRecStartMs = Date.now();
   _trackRecPoints = [];
   _trackRecLastSampleTs = 0;
@@ -7652,6 +7875,7 @@ function _recoverInProgressTrack() {
       : `Found an unsaved track recording (${points.length} points, started ${mins} min ago). Resume recording it?`;
     if (confirm(label)) {
       _trackRecActive = true;
+      _autoTrackEverStarted = true;
       _trackRecStartMs = startMs;
       _trackRecPoints = points;
       _trackRecLastSampleTs = points[points.length - 1].t;
@@ -7973,6 +8197,20 @@ async function init() {
         const computed = _computeHeadingSpeed(lat, lon, heading, speedKt);
         _updateHeadingRay(lat, lon, computed.headingDeg, computed.speedKt);
         _updateHeadingSpeedReadout(computed.headingDeg, computed.speedKt);
+      }
+      // Auto-start a track the first time a REAL fix (not a test position)
+      // comes in, so a voyage is captured by default without requiring the
+      // user to remember to tap "Track" — testing/simulating a position
+      // never triggers this since source === 'manual' is excluded.
+      if (source !== 'manual' && !_trackRecActive && !_autoTrackEverStarted) {
+        _trackRecActive = true;
+        _autoTrackEverStarted = true;
+        _trackRecStartMs = Date.now();
+        _trackRecPoints = [];
+        _trackRecLastSampleTs = 0;
+        trackRecBtn.textContent = '⏹ Stop';
+        trackRecBtn.title = 'Recording automatically — tap to stop and save';
+        trackRecBtn.classList.add('rec-active');
       }
       if (_trackRecActive) {
         const now = Date.now();

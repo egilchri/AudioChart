@@ -223,6 +223,7 @@ export async function loadData(lat, lon) {
       .then(land => {
         if (land) landPolygons = land;
         console.log(`[AC] Land polygons: ${landPolygons ? landPolygons.features.length : 'FAILED TO LOAD'}`);
+        if (landPolygons) _landIndex = _buildLandEdgeIndex();
       })
       .catch(() => console.warn('[AC] land.geojson failed to load'));
   }
@@ -1018,9 +1019,206 @@ function _ringBlocks(ring, ax, ay, bx, by) {
   return false;
 }
 
+// ── Persistent land edge index ────────────────────────────────────────────
+// land.geojson covers the whole bundled chart area (Chesapeake Bay to the
+// Maine/Canada border — ~800nm, 2386 features, ~80k vertices as of writing)
+// as a single static file, and some of its polygons are large connected
+// landmasses (a peninsula joined to the mainland by a causeway, say) rather
+// than compact islands — one was measured at ~10-11k vertices spanning the
+// entire coverage area. A naive per-query scan of every ring (as this file
+// did until now) re-walks all of that on every single call; profiling a
+// real auto-route search showed 32 SECONDS spent this way before the actual
+// pathfinding even started. Build a spatial index ONCE, right after
+// land.geojson finishes loading (see loadData below), and have every
+// caller (LOS checks, auto-routing) query it instead of rescanning raw
+// GeoJSON. This is pure in-memory computation over data already loaded —
+// no network access, so it costs nothing offline/underway.
+//
+// Two structures, built in one pass over every ring's edges:
+//   - grid2D:   "col,row" -> edges whose bbox overlaps that cell. Used for
+//               segment-intersection queries (landBlocks/findBlockingRing),
+//               where locality in both axes is valid and correct.
+//   - rowIndex: row -> edges whose y-range overlaps that row. Used for
+//               point-in-land ray casting, which needs every edge whose
+//               y-range straddles the query latitude (across the full
+//               longitude range) to get a correct even-odd crossing count —
+//               column locality doesn't apply to that test.
+// Per-ring metadata (bbox + centroid) is cached alongside so callers that
+// need "which rings are near this corridor" (auto-route node generation)
+// don't have to re-walk a whole ring's vertices just to find its extent.
+const IDX_CELL = 0.01; // ~0.5nm — matches _prioritiseByChartScale's grid
+
+let _landIndex = null; // { grid2D, rowIndex, ringMeta: Map<ring, meta> }
+
+function _cellOf(v) { return Math.floor(v / IDX_CELL); }
+
+function _buildLandEdgeIndex() {
+  const t0 = Date.now();
+  const grid2D = new Map();
+  const rowIndex = new Map();
+  const ringMeta = new Map();
+  let edgeCount = 0, ringCount = 0;
+
+  function insert2D(edge) {
+    const c0 = _cellOf(edge.minX), c1 = _cellOf(edge.maxX);
+    const r0 = _cellOf(edge.minY), r1 = _cellOf(edge.maxY);
+    for (let c = c0; c <= c1; c++) {
+      for (let r = r0; r <= r1; r++) {
+        const key = c + ',' + r;
+        let arr = grid2D.get(key);
+        if (!arr) { arr = []; grid2D.set(key, arr); }
+        arr.push(edge);
+      }
+    }
+  }
+  function insertRow(edge) {
+    const r0 = _cellOf(edge.minY), r1 = _cellOf(edge.maxY);
+    for (let r = r0; r <= r1; r++) {
+      let arr = rowIndex.get(r);
+      if (!arr) { arr = []; rowIndex.set(r, arr); }
+      arr.push(edge);
+    }
+  }
+
+  function processRing(outer) {
+    ringCount++;
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    let cx = 0, cy = 0;
+    for (const [x, y] of outer) {
+      if (x < minX) minX = x; if (x > maxX) maxX = x;
+      if (y < minY) minY = y; if (y > maxY) maxY = y;
+      cx += x; cy += y;
+    }
+    cx /= outer.length; cy /= outer.length;
+    ringMeta.set(outer, { minX, maxX, minY, maxY, cx, cy });
+    for (let i = 0, n = outer.length - 1; i < n; i++) {
+      const x1 = outer[i][0], y1 = outer[i][1], x2 = outer[i + 1][0], y2 = outer[i + 1][1];
+      const edge = {
+        x1, y1, x2, y2, ring: outer,
+        minX: Math.min(x1, x2), maxX: Math.max(x1, x2),
+        minY: Math.min(y1, y2), maxY: Math.max(y1, y2),
+      };
+      insert2D(edge);
+      insertRow(edge);
+      edgeCount++;
+    }
+  }
+
+  if (landPolygons) {
+    for (const feat of landPolygons.features) {
+      const { type, coordinates } = feat.geometry;
+      const polys = type === 'Polygon' ? [coordinates] : coordinates;
+      for (const rings of polys) processRing(rings[0]);
+    }
+  }
+
+  console.log(`[AC] land index built in ${Date.now() - t0}ms — ${ringCount} rings, ${edgeCount} edges`);
+  return { grid2D, rowIndex, ringMeta };
+}
+
+function _gatherCells(map, minX, maxX, minY, maxY, queryId) {
+  const c0 = _cellOf(minX), c1 = _cellOf(maxX);
+  const r0 = _cellOf(minY), r1 = _cellOf(maxY);
+  const out = [];
+  for (let c = c0; c <= c1; c++) {
+    for (let r = r0; r <= r1; r++) {
+      const arr = map.get(c + ',' + r);
+      if (!arr) continue;
+      for (const edge of arr) {
+        if (edge._q === queryId) continue; // dedupe — an edge can span multiple cells
+        edge._q = queryId;
+        out.push(edge);
+      }
+    }
+  }
+  return out;
+}
+let _idxQueryId = 0;
+
+/** True if the segment crosses any land ring edge. Index-backed. */
+function _landBlocksIndexed(ax, ay, bx, by) {
+  if (!_landIndex) return false;
+  const minX = Math.min(ax, bx), maxX = Math.max(ax, bx);
+  const minY = Math.min(ay, by), maxY = Math.max(ay, by);
+  _idxQueryId++;
+  const edges = _gatherCells(_landIndex.grid2D, minX, maxX, minY, maxY, _idxQueryId);
+  for (const edge of edges) {
+    if (edge.maxX < minX || edge.minX > maxX || edge.maxY < minY || edge.minY > maxY) continue;
+    if (_segIntersect(ax, ay, bx, by, edge.x1, edge.y1, edge.x2, edge.y2)) return true;
+  }
+  return false;
+}
+
+/** The ring (vertex array) of the first land polygon whose boundary crosses the segment, or null. */
+function _findBlockingRingIndexed(ax, ay, bx, by) {
+  if (!_landIndex) return null;
+  const minX = Math.min(ax, bx), maxX = Math.max(ax, bx);
+  const minY = Math.min(ay, by), maxY = Math.max(ay, by);
+  _idxQueryId++;
+  const edges = _gatherCells(_landIndex.grid2D, minX, maxX, minY, maxY, _idxQueryId);
+  for (const edge of edges) {
+    if (edge.maxX < minX || edge.minX > maxX || edge.maxY < minY || edge.minY > maxY) continue;
+    if (_segIntersect(ax, ay, bx, by, edge.x1, edge.y1, edge.x2, edge.y2)) return edge.ring;
+  }
+  return null;
+}
+
+/** True if (lon,lat) is inside any land ring. Index-backed even-odd ray cast. */
+function _isLandAtIndexed(lon, lat) {
+  if (!_landIndex) return false;
+  const arr = _landIndex.rowIndex.get(_cellOf(lat));
+  if (!arr) return false;
+  // Group by ring and test each ring's parity independently — combining
+  // edges from unrelated rings into one global crossing count is only valid
+  // for perfectly disjoint simple polygons, and real chart data has enough
+  // edge cases (adjacent-tile seams, near-duplicate boundary segments) to
+  // break that assumption. Verified: caused a ~3% false-negative rate in
+  // Maine's island-dense coast before switching to per-ring grouping.
+  const byRing = new Map();
+  for (const edge of arr) {
+    let list = byRing.get(edge.ring);
+    if (!list) { list = []; byRing.set(edge.ring, list); }
+    list.push(edge);
+  }
+  for (const edges of byRing.values()) {
+    let inside = false;
+    for (const { x1, y1, x2, y2 } of edges) {
+      if ((y1 > lat) !== (y2 > lat) && lon < (x2 - x1) * (lat - y1) / (y2 - y1) + x1) inside = !inside;
+    }
+    if (inside) return true;
+  }
+  return false;
+}
+
+/**
+ * Distinct land rings with at least one edge overlapping the given bbox,
+ * with cached bbox/centroid — lets a caller (auto-route node generation)
+ * find "which rings are near this corridor" without re-walking every ring's
+ * full vertex list just to compute its extent.
+ */
+export function landRingsNear(minLon, maxLon, minLat, maxLat) {
+  if (!_landIndex) return [];
+  _idxQueryId++;
+  const edges = _gatherCells(_landIndex.grid2D, minLon, maxLon, minLat, maxLat, _idxQueryId);
+  const seen = new Set();
+  const out = [];
+  for (const edge of edges) {
+    if (seen.has(edge.ring)) continue;
+    seen.add(edge.ring);
+    const meta = _landIndex.ringMeta.get(edge.ring);
+    out.push({ ring: edge.ring, rMinX: meta.minX, rMaxX: meta.maxX, rMinY: meta.minY, rMaxY: meta.maxY, cx: meta.cx, cy: meta.cy });
+  }
+  return out;
+}
+
+export function isLandAt(lon, lat) {
+  return _isLandAtIndexed(lon, lat);
+}
+
 function _landBlocks(fromLon, fromLat, toLon, toLat) {
+  if (_landIndex) return _landBlocksIndexed(fromLon, fromLat, toLon, toLat);
   if (!landPolygons) return false;
-  // Quick bbox of the segment
+  // Fallback (index not yet built): quick bbox of the segment
   const minX = Math.min(fromLon, toLon), maxX = Math.max(fromLon, toLon);
   const minY = Math.min(fromLat, toLat), maxY = Math.max(fromLat, toLat);
   for (const feat of landPolygons.features) {
@@ -1150,6 +1348,81 @@ export function landDataInfo() {
   return `Land data: ${landPolygons.features.length} polygons loaded.`;
 }
 
+// ── Coverage detection ──────────────────────────────────────────────────
+// The bundled land.geojson covers a broad stretch of the East Coast, but the
+// real safety data — hazards, navaids, named places — is scoped to whatever
+// smaller region is actually loaded. That region isn't a fixed rectangle:
+// in server-bridge mode (loadData(lat,lon) hitting /api/nearby), it's
+// whatever the server returned for a "near this position" query, which can
+// be an irregular, sparse cluster of features rather than anything a bbox
+// around it would faithfully represent — verified live: a "nearby" fetch's
+// own bounding box did not reliably contain the query point that produced
+// it (empty space in one direction skews the box off-center). So 'core' is
+// a PROXIMITY check (is there real data within CORE_PROXIMITY_NM of here),
+// which is correct for both a full static regional bundle and a narrow
+// server "nearby" result. 'land' still uses a bbox, since land.geojson is
+// a stable, static, full-region file where that's accurate and land data
+// is dense enough that a hard boundary doesn't need a fuzzy margin.
+const CORE_PROXIMITY_NM = 8;
+
+function _firstCoord(geom) {
+  if (!geom) return null;
+  let c = geom.coordinates;
+  while (Array.isArray(c) && typeof c[0] !== 'number') c = c[0];
+  return Array.isArray(c) && typeof c[0] === 'number' ? c : null;
+}
+
+function _hasNearbyFeature(fc, lon, lat, maxNm) {
+  if (!fc || !fc.features) return false;
+  for (const f of fc.features) {
+    const c = f.geometry?.type === 'Point' ? f.geometry.coordinates : _firstCoord(f.geometry);
+    if (!c) continue;
+    if (distanceNm(lon, lat, c[0], c[1]) <= maxNm) return true;
+  }
+  return false;
+}
+
+const _coverageCache = { landRef: null, landBbox: null };
+
+function _bboxOfFeatureCollection(fc) {
+  if (!fc || !fc.features) return null;
+  let minLon = Infinity, maxLon = -Infinity, minLat = Infinity, maxLat = -Infinity;
+  const walk = c => {
+    if (typeof c[0] === 'number') {
+      const [x, y] = c;
+      if (x < minLon) minLon = x; if (x > maxLon) maxLon = x;
+      if (y < minLat) minLat = y; if (y > maxLat) maxLat = y;
+    } else {
+      for (const sub of c) walk(sub);
+    }
+  };
+  for (const f of fc.features) { if (f.geometry) walk(f.geometry.coordinates); }
+  return minLon === Infinity ? null : { minLon, maxLon, minLat, maxLat };
+}
+
+/** { land: bbox|null } — bbox = {minLon,maxLon,minLat,maxLat}. */
+export function getCoverageBounds() {
+  if (_coverageCache.landRef !== landPolygons) {
+    _coverageCache.landBbox = _bboxOfFeatureCollection(landPolygons);
+    _coverageCache.landRef = landPolygons;
+  }
+  return { land: _coverageCache.landBbox };
+}
+
+/**
+ * 'core'  — real hazard/navaid/place data within CORE_PROXIMITY_NM (safe for auto-routing).
+ * 'land'  — land-avoidance geometry only, no hazard/navaid detail.
+ * 'none'  — no chart data of any kind for this position.
+ */
+export function coverageLevelAt(lon, lat) {
+  if (_hasNearbyFeature(hazards, lon, lat, CORE_PROXIMITY_NM) ||
+      _hasNearbyFeature(namedPlaces, lon, lat, CORE_PROXIMITY_NM) ||
+      _hasNearbyFeature(navaids, lon, lat, CORE_PROXIMITY_NM)) return 'core';
+  const { land } = getCoverageBounds();
+  if (land && lon >= land.minLon && lon <= land.maxLon && lat >= land.minLat && lat <= land.maxLat) return 'land';
+  return 'none';
+}
+
 export function landBlocks(fromLon, fromLat, toLon, toLat) {
   return _landBlocks(fromLon, fromLat, toLon, toLat);
 }
@@ -1171,7 +1444,9 @@ export function getDepthZones() {
 }
 
 export function findBlockingRing(fromLon, fromLat, toLon, toLat) {
+  if (_landIndex) return _findBlockingRingIndexed(fromLon, fromLat, toLon, toLat);
   if (!landPolygons) return null;
+  // Fallback (index not yet built)
   const minX = Math.min(fromLon, toLon), maxX = Math.max(fromLon, toLon);
   const minY = Math.min(fromLat, toLat), maxY = Math.max(fromLat, toLat);
   for (const feat of landPolygons.features) {
