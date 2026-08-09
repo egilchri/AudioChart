@@ -1190,6 +1190,8 @@ const _appEl = document.getElementById('app');
 const _sketchBanner = document.getElementById('sketch-banner');
 const _drawBanner   = document.getElementById('draw-banner');
 const _drawBannerLabel = document.getElementById('draw-banner-label');
+const _drawUsePositionBtn = document.getElementById('draw-use-position-btn');
+const _drawNameDestBtn    = document.getElementById('draw-name-dest-btn');
 const _drawConfirmBtn  = document.getElementById('draw-confirm-btn');
 
 // ── Saved-route persistent display ────────────────────────────────────────────
@@ -1349,14 +1351,21 @@ function _checkRouteHazards(routeIdx, silent = false) {
   if (_hazardCheckLayer) _hazardCheckLayer.clearLayers();
   _hazardCheckLayer = L.layerGroup().addTo(_map);
 
+  // Tapping the flagged part of the route (the red highlight or the skull
+  // marker) should jump straight into edit mode — that's the whole reason
+  // it's flagged, so fixing it shouldn't require separately hunting for the
+  // route on the map and tapping it again.
+  const _jumpToEdit = () => { if (!_editMode || _editRouteIdx !== routeIdx) _enterEditMode(routeIdx); };
+
   // Highlight dangerous route segments in red
   for (const i of dangerSegments) {
     L.polyline([[pts[i].lat, pts[i].lon], [pts[i+1].lat, pts[i+1].lon]], {
-      color: '#e05252', weight: 7, opacity: 0.9, interactive: false,
-    }).addTo(_hazardCheckLayer);
+      color: '#e05252', weight: 7, opacity: 0.9, interactive: true,
+    }).on('click', (e) => { L.DomEvent.stopPropagation(e); _jumpToEdit(); })
+      .addTo(_hazardCheckLayer);
   }
 
-  // Pulsing skull at the hazard location — click zooms to it
+  // Pulsing skull at the hazard location — click zooms to it and edits
   for (const h of found) {
     const tip = `${h.label}${h.name ? ': ' + h.name : ''} — ${h.side}, ${h.routeNm.toFixed(1)} nm along route`;
     L.marker([h.lat, h.lon], {
@@ -1371,6 +1380,7 @@ function _checkRouteHazards(routeIdx, silent = false) {
       .on('click', (e) => {
         L.DomEvent.stopPropagation(e);
         _map.setView([h.lat, h.lon], 16);
+        _jumpToEdit();
       })
       .addTo(_hazardCheckLayer);
   }
@@ -1883,6 +1893,8 @@ function _onDrawClick(latlng) {
     _drawStart = latlng;
     _drawName  = _nextRouteName();
     _drawBannerLabel.textContent = `”${_drawName}” — tap your destination`;
+    _drawUsePositionBtn.style.display = 'none';
+    _drawNameDestBtn.style.display = 'inline-block';
     return;
   }
   // Start already placed — this tap sets (or repositions) the destination.
@@ -1963,6 +1975,8 @@ function _enterDrawRouteMode() {
   _drawStart = null; _drawEnd = null; _drawRubber = null; _drawName = null;
   _drawBannerLabel.textContent = 'Auto route — tap your start point';
   _drawConfirmBtn.style.display = 'none';
+  _drawUsePositionBtn.style.display = 'inline-block';
+  _drawNameDestBtn.style.display = 'none';
   _drawBanner.style.display = 'flex';
   _appEl.classList.add('sketch-mode');
   if (!_map) return;
@@ -2048,6 +2062,8 @@ function _exitDrawRouteMode(skipRefresh = false) {
   _drawMode = false;
   _drawBanner.style.display = 'none';
   _drawConfirmBtn.style.display = 'none';
+  _drawUsePositionBtn.style.display = 'none';
+  _drawNameDestBtn.style.display = 'none';
   _appEl.classList.remove('sketch-mode');
   if (_drawRubber) { _map.removeLayer(_drawRubber); _drawRubber = null; }
   _drawStart = null; _drawEnd = null; _drawName = null;
@@ -2069,6 +2085,28 @@ function _exitDrawRouteMode(skipRefresh = false) {
 }
 
 document.getElementById('draw-cancel-btn').addEventListener('click', _exitDrawRouteMode);
+
+_drawUsePositionBtn.addEventListener('click', () => {
+  const pos = GPS.getPosition();
+  if (!pos) {
+    const msg = 'No GPS position yet.';
+    setStatus(msg); TTS.sayImmediate(msg);
+    return;
+  }
+  _onDrawClick(L.latLng(pos.lat, pos.lon));
+});
+
+_drawNameDestBtn.addEventListener('click', () => {
+  const query = prompt('Destination — place or waypoint name:');
+  if (!query || !query.trim()) return;
+  const place = Query.findPlaceByName(query.trim());
+  if (!place) {
+    const msg = `Couldn't find "${query.trim()}".`;
+    setStatus(msg); TTS.sayImmediate(msg);
+    return;
+  }
+  _onDrawClick(L.latLng(place.lat, place.lon));
+});
 _drawConfirmBtn.addEventListener('click', _onDrawConfirm);
 document.getElementById('focus-place-confirm-btn').addEventListener('click', _confirmFocusPlace);
 document.getElementById('focus-place-cancel-btn').addEventListener('click', _cancelFocusPlace);
