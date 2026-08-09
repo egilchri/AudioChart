@@ -3516,6 +3516,14 @@ function _exitEditMode() {
   _editHistory = [];
   document.getElementById('edit-undo-btn').style.display = 'none';
   _clearViewportHazards();
+  // _checkRouteHazards's red-segment/skull-marker overlay (_hazardCheckLayer)
+  // was previously only ever cleared at the START of the next check — fine
+  // when the check had no live caller, but now that it auto-fires on every
+  // edit-mode entry, leaving it uncleared on exit meant a skull marker (high
+  // z-index, clickable) could sit on the map indefinitely after Cancel/Save,
+  // both looking permanently stuck AND blocking clicks on the route
+  // underneath it to re-enter edit mode.
+  if (_hazardCheckLayer) { _hazardCheckLayer.clearLayers(); _map.removeLayer(_hazardCheckLayer); _hazardCheckLayer = null; }
   if (_map) {
     _map.getContainer().removeEventListener('mouseup', _editPlaceNode);
     _map.dragging.enable();
