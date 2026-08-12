@@ -661,6 +661,7 @@ let _addNodeMode           = false; // waiting for click to insert node into nea
 let _overnightMode         = false; // single-click on vertex toggles it as an overnight stop
 let _growRouteIdx          = -1;    // index of route being grown; -1 = not in grow mode
 let _editHistory           = [];    // stack of _editPoints snapshots for undo
+let _editOriginalPoints    = [];    // snapshot of route.points as last saved, taken when edit mode was entered
 
 let _populateRouteSelectFn = null; // set by _ensureMap once DOM is ready
 let _buildRoutePickerPanelFn = null; // set by _ensureMap once DOM is ready — see _populateRouteSelectFn
@@ -1570,6 +1571,32 @@ function _repositionRouteNameLabels() {
   }
 }
 
+function _selectRoute(routeIdx) {
+  _selectedRouteIdx = (_selectedRouteIdx === routeIdx) ? -1 : routeIdx;
+  _refreshSavedRouteLayers();
+}
+
+function _openSelectRoutePopup(routeIdx, latlng) {
+  const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+  const route = routes[routeIdx];
+  if (!route) return;
+  const isSelected = routeIdx === _selectedRouteIdx;
+  const btnId = `select-route-btn-${routeIdx}`;
+  L.popup({ closeButton: true })
+    .setLatLng(latlng)
+    .setContent(`<div style="text-align:center"><button id="${btnId}">${isSelected ? 'Deselect' : 'Select this route'}</button></div>`)
+    .openOn(_map);
+  setTimeout(() => {
+    document.getElementById(btnId)?.addEventListener('click', () => {
+      _map.closePopup();
+      _selectRoute(routeIdx);
+      const msg = isSelected ? `${route.name} deselected.` : `${route.name} selected.`;
+      setStatus(msg);
+      TTS.sayImmediate(msg);
+    });
+  }, 0);
+}
+
 function _refreshSavedRouteLayers() {
   if (!_map) return;
   _routeNameLabels = [];
@@ -1601,7 +1628,6 @@ function _refreshSavedRouteLayers() {
   routes.forEach((route, routeIdx) => {
     if (!route.points || route.points.length < 1) return;
     if (_hiddenRouteNames.has(route.name)) return;
-    if (_selectedRouteIdx >= 0 && routeIdx !== _selectedRouteIdx) return;
     const pts = route.points;
     const lls = pts.map(p => [p.lat, p.lon]);
 
@@ -1612,6 +1638,10 @@ function _refreshSavedRouteLayers() {
       })
       .on('dblclick', (e) => { L.DomEvent.stopPropagation(e); })
       .on('mouseover', () => { _ctxRouteIdx = routeIdx; })
+      .on('contextmenu', (e) => {
+        L.DomEvent.stopPropagation(e);
+        _openSelectRoutePopup(routeIdx, e.latlng);
+      })
       .addTo(_savedRoutesLayer);
     const isSelected = routeIdx === _selectedRouteIdx;
     L.polyline(lls, {
@@ -3208,8 +3238,9 @@ function _renderEditLayers() {
     const m = L.marker([pts[idx].lat, pts[idx].lon], {
       icon: L.divIcon({
         className: vertexClasses.join(' '),
-        iconSize: [16, 16],
-        iconAnchor: [8, 8],
+        html: `<span class="edit-vertex-num">${idx + 1}</span>`,
+        iconSize: [22, 22],
+        iconAnchor: [11, 11],
       }),
       draggable: true,
       zIndexOffset: 1000,
@@ -3551,6 +3582,7 @@ function _enterEditMode(routeIdx, skipHazardCheck = false) {
   _editRouteIdx = routeIdx;
   _editRouteName = route.name;
   _editPoints = route.points.map(_stripPoint);
+  _editOriginalPoints = route.points.map(_stripPoint);
   _deleteMode = false;
   _addNodeMode = false;
   _overnightMode = false;
@@ -3648,8 +3680,29 @@ function _saveEditedRoute() {
   }
 }
 
+function _revertEditedRoute() {
+  if (!_editOriginalPoints.length) return;
+  _pushEditHistory();
+  _editPoints = _editOriginalPoints.map(_stripPoint);
+  _renderEditLayers();
+  // Also re-write storage immediately — undoes any mid-session "add node"
+  // write (_editPlaceNode), which is the actual way an edit can survive
+  // Cancel and count as an inadvertent change.
+  const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+  if (routes[_editRouteIdx]) {
+    routes[_editRouteIdx].points = _editPoints.map(_stripPoint);
+    localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
+  }
+  clearTimeout(_liveHazardTimer);
+  _liveHazardTimer = setTimeout(_liveHazardCheck, 300);
+  const msg = `${_editRouteName || 'Route'} reverted to last saved.`;
+  setStatus(msg);
+  TTS.sayImmediate(msg);
+}
+
 document.getElementById('edit-ok-btn').addEventListener('click', _saveEditedRoute);
 document.getElementById('edit-cancel-btn').addEventListener('click', _exitEditMode);
+document.getElementById('edit-revert-btn').addEventListener('click', _revertEditedRoute);
 document.getElementById('edit-info-btn').addEventListener('click', () => {
   let totalNm = 0;
   for (let i = 0; i < _editPoints.length - 1; i++) {
@@ -5630,6 +5683,19 @@ function _ensureMap() {
   document.getElementById('rp-hide-all').addEventListener('click', () => {
     const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
     routes.forEach(r => _hiddenRouteNames.add(r.name));
+    _saveHiddenRoutes();
+    _refreshSavedRouteLayers();
+    _buildRoutePickerPanel();
+  });
+  document.getElementById('rp-hide-unselected').addEventListener('click', () => {
+    if (_selectedRouteIdx < 0) {
+      const msg = 'No route selected — long-press a route on the map first.';
+      setStatus(msg); TTS.sayImmediate(msg);
+      return;
+    }
+    const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+    const keepName = routes[_selectedRouteIdx]?.name;
+    routes.forEach(r => { if (r.name !== keepName) _hiddenRouteNames.add(r.name); });
     _saveHiddenRoutes();
     _refreshSavedRouteLayers();
     _buildRoutePickerPanel();
