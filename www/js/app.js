@@ -464,6 +464,7 @@ let _focusRayLine = null;   // ray from the boat toward the current focus target
 let _headingRayLine  = null; // live direction-of-travel ray (course over ground)
 let _headingRayArrow = null; // arrowhead marker at the tip of _headingRayLine
 let _headingSpeedEl  = null; // DOM element of the heading/speed readout control
+let _followProgressEl = null; // DOM element of the route-follow progress readout control
 let _boatCircleDismissed = false;  // true after user taps the boat once
 let _waypointsVisible = localStorage.getItem('audiochart-waypoints-visible') === 'true';
 let _leafletReady = false;
@@ -689,6 +690,7 @@ let _followingRouteId     = null;
 let _followingRouteName   = null;
 let _followingDestLat     = null;
 let _followingDestLon     = null;
+let _followingLegIdx      = 1; // index of the next not-yet-reached waypoint in the followed route
 const ARRIVAL_THRESHOLD_NM = 0.1; // ~600ft — comfortably above typical GPS drift
 let _extendingRouteIdx = -1;
 let _extendingFromEnd  = true;
@@ -1095,6 +1097,7 @@ function _initRearrangeGroups() {
   _makeDraggableGroup('compass', () => [...document.querySelectorAll('.compass-rose-ctrl')]);
   _makeDraggableGroup('tide', () => [...document.querySelectorAll('.tide-cycle-ctrl')]);
   _makeDraggableGroup('headingspeed', () => [...document.querySelectorAll('.heading-speed-ctrl')]);
+  _makeDraggableGroup('followprogress', () => [...document.querySelectorAll('.follow-progress-ctrl')]);
 }
 
 // Touching/clicking the map → expand map to full height, release text input
@@ -1211,6 +1214,34 @@ function _segCrossTrack(aLon, aLat, bLon, bLat, pLon, pLat) {
   if (Math.abs(cosDxt) < 1e-10) return null;
   const dat = Math.acos(Math.max(-1, Math.min(1, Math.cos(d13) / cosDxt))) * R;
   return { crossTrack: dxt, alongTrack: Math.cos(b13 - b12) >= 0 ? dat : -dat };
+}
+
+function _routesNearPoint(lat, lon, radiusNm) {
+  const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+  const results = [];
+  routes.forEach((route, routeIdx) => {
+    const pts = route.points;
+    if (!pts || pts.length < 1) return;
+    let minDist = Infinity;
+    if (pts.length === 1) {
+      minDist = Query.distanceNm(pts[0].lon, pts[0].lat, lon, lat);
+    } else {
+      for (let i = 0; i < pts.length - 1; i++) {
+        const a = pts[i], b = pts[i + 1];
+        const segLen = Query.distanceNm(a.lon, a.lat, b.lon, b.lat);
+        const ct = _segCrossTrack(a.lon, a.lat, b.lon, b.lat, lon, lat);
+        const d = (ct && ct.alongTrack >= 0 && ct.alongTrack <= segLen)
+          ? Math.abs(ct.crossTrack)
+          : Math.min(Query.distanceNm(a.lon, a.lat, lon, lat), Query.distanceNm(b.lon, b.lat, lon, lat));
+        if (d < minDist) minDist = d;
+      }
+    }
+    if (minDist <= radiusNm) {
+      results.push({ routeIdx, name: route.name, distanceNm: minDist, dateLabel: _routeDateLabel(route) });
+    }
+  });
+  results.sort((a, b) => a.distanceNm - b.distanceNm);
+  return results;
 }
 
 function _segsIntersect(ax, ay, bx, by, px, py, qx, qy) {
@@ -1593,6 +1624,51 @@ function _openSelectRoutePopup(routeIdx, latlng) {
       const msg = isSelected ? `${route.name} deselected.` : `${route.name} selected.`;
       setStatus(msg);
       TTS.sayImmediate(msg);
+    });
+  }, 0);
+}
+
+function _showRoutesNearPopup(latlng, radiusNm, radiusLabel) {
+  const results = _routesNearPoint(latlng.lat, latlng.lng, radiusNm);
+  const msg = results.length === 0
+    ? `No routes within ${radiusLabel}.`
+    : `${results.length} route${results.length > 1 ? 's' : ''} within ${radiusLabel}.`;
+  setStatus(msg);
+  TTS.sayImmediate(msg);
+
+  if (results.length === 0) {
+    L.popup({ className: 'navaid-popup-wrapper' })
+      .setLatLng(latlng)
+      .setContent(`<div style="padding:10px">${msg}</div>`)
+      .openOn(_map);
+    return;
+  }
+
+  const rowsHtml = results.map((r, i) => `
+    <tr class="routes-near-row" data-idx="${i}">
+      <td>${r.name}</td>
+      <td>${distanceToDisplay(r.distanceNm)}</td>
+      <td>${r.dateLabel}</td>
+    </tr>`).join('');
+  const html = `
+    <table class="routes-near-table">
+      <thead><tr><th>Route</th><th>Dist</th><th>Date</th></tr></thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>`;
+
+  L.popup({ className: 'navaid-popup-wrapper', maxWidth: 320 })
+    .setLatLng(latlng)
+    .setContent(html)
+    .openOn(_map);
+  setTimeout(() => {
+    document.querySelectorAll('.routes-near-row').forEach(tr => {
+      tr.addEventListener('click', () => {
+        const r = results[parseInt(tr.dataset.idx, 10)];
+        _map.closePopup();
+        _selectRoute(r.routeIdx);
+        const m = `${r.name} selected.`;
+        setStatus(m); TTS.sayImmediate(m);
+      });
     });
   }, 0);
 }
@@ -2212,12 +2288,20 @@ function _newSyncId() {
 }
 function _stampNew(obj) {
   obj.id = _newSyncId();
+  obj.createdAt = Date.now();
   obj.updatedAt = Date.now();
   return obj;
 }
 function _touch(obj) {
   obj.updatedAt = Date.now();
   return obj;
+}
+// createdAt is set once at creation and never touched again, so it stays a reliable
+// "when did I make this" signal even after renames/edits keep bumping updatedAt.
+function _routeDateLabel(route) {
+  const ms = route.createdAt || route.updatedAt || 0;
+  if (!ms) return 'date unknown';
+  return new Date(ms).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 // Rebuild a plain {lat, lon} point, preserving `overnight` if set — used everywhere
 // a points array gets reconstructed via .map(), so the flag survives edits/reroutes.
@@ -4515,6 +4599,47 @@ function _updateHeadingRay(lat, lon, headingDeg, speedKt) {
   }
 }
 
+function _updateFollowProgress(lat, lon) {
+  if (!_followProgressEl) return;
+  if (!_followingRouteId) { _followProgressEl.style.display = 'none'; return; }
+  const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+  const route = routes.find(r => r.id === _followingRouteId);
+  const pts = route?.points;
+  if (!pts || pts.length < 2) { _followProgressEl.style.display = 'none'; return; }
+
+  // Advance the "next waypoint" pointer using along-track projection onto the
+  // current leg (same _segCrossTrack math as hazard checking), not just a raw
+  // arrival-radius check — a route that cuts a corner near a waypoint (never
+  // coming within ARRIVAL_THRESHOLD_NM of it) would otherwise get the pointer
+  // stuck there for the rest of the trip, since it'd never trip that check.
+  while (_followingLegIdx < pts.length - 1) {
+    const a = pts[_followingLegIdx - 1], b = pts[_followingLegIdx];
+    const segLen = Query.distanceNm(a.lon, a.lat, b.lon, b.lat);
+    const ct = _segCrossTrack(a.lon, a.lat, b.lon, b.lat, lon, lat);
+    const pastSegment = ct
+      ? ct.alongTrack >= segLen
+      : Query.distanceNm(lon, lat, b.lon, b.lat) <= ARRIVAL_THRESHOLD_NM;
+    if (!pastSegment) break;
+    _followingLegIdx++;
+  }
+  const nextPt = pts[_followingLegIdx];
+  const distToNext = Query.distanceNm(lon, lat, nextPt.lon, nextPt.lat);
+  let distToEnd = distToNext;
+  for (let i = _followingLegIdx; i < pts.length - 1; i++) {
+    distToEnd += Query.distanceNm(pts[i].lon, pts[i].lat, pts[i + 1].lon, pts[i + 1].lat);
+  }
+  let distTraveled = 0;
+  for (let i = 1; i < _trackRecPoints.length; i++) {
+    distTraveled += Query.distanceNm(_trackRecPoints[i - 1].lon, _trackRecPoints[i - 1].lat, _trackRecPoints[i].lon, _trackRecPoints[i].lat);
+  }
+
+  _followProgressEl.style.display = '';
+  _followProgressEl.innerHTML =
+    `<div>Next: ${distToNext.toFixed(1)} nm</div>` +
+    `<div>To end: ${distToEnd.toFixed(1)} nm</div>` +
+    `<div>Traveled: ${distTraveled.toFixed(1)} nm</div>`;
+}
+
 function _updateHeadingSpeedReadout(headingDeg, speedKt) {
   if (!_headingSpeedEl) return;
   if (speedKt == null) { _headingSpeedEl.style.display = 'none'; return; }
@@ -5303,6 +5428,20 @@ function _ensureMap() {
   });
   new _HeadingSpeedReadout().addTo(_map);
 
+  // Route-follow progress readout — next waypoint / distance to end / distance
+  // traveled, shown only while a route is being followed (see _startFollowingRoute).
+  const _FollowProgressReadout = L.Control.extend({
+    options: { position: 'topleft' },
+    onAdd() {
+      const el = L.DomUtil.create('div', 'follow-progress-ctrl');
+      L.DomEvent.disableClickPropagation(el);
+      el.style.display = 'none';
+      _followProgressEl = el;
+      return el;
+    },
+  });
+  new _FollowProgressReadout().addTo(_map);
+
   // Redraw the "now" dot every minute (cheap — pure math against cached
   // extremes); refresh the predictions themselves only when the boat has
   // moved far enough to need a new station, or the cache has gone stale
@@ -5452,6 +5591,10 @@ function _ensureMap() {
         placeLine.textContent = startName + (endName && endName !== startName ? ' → ' + endName : '');
         row.appendChild(placeLine);
       }
+      const dateLine = document.createElement('div');
+      dateLine.className = 'rp-row-date';
+      dateLine.textContent = _routeDateLabel(route);
+      row.appendChild(dateLine);
       const speedKt = parseFloat(localStorage.getItem('audiochart-last-speed')) || 5;
       const legs = splitIntoLegs(route.points, speedKt);
       if (legs.length > 0) {
@@ -5921,6 +6064,7 @@ function _ensureMap() {
     _ctxLatLng = pos ? L.latLng(pos.lat, pos.lon) : _map.getCenter();
     const btn  = e.currentTarget.getBoundingClientRect();
     _ctxSubmenu.style.display    = 'none';
+    _routesNearSubmenu.style.display = 'none';
     _wpSubmenu.style.display     = 'none';
     _trackSubmenu.style.display  = 'none';
     _routeSubmenu.style.display  = 'none';
@@ -5949,6 +6093,7 @@ function _ensureMap() {
   const _hideCtx = () => { _ctxMenu.style.display = 'none'; };
 
   const _ctxSubmenu = document.getElementById('map-ctx-objects-submenu');
+  const _routesNearSubmenu = document.getElementById('map-ctx-routes-near-submenu');
   const _wpSubmenu  = document.getElementById('map-ctx-wp-submenu');
 
   // Rebuild the dynamic waypoint rows (below the 3 static buttons)
@@ -6178,6 +6323,7 @@ function _ensureMap() {
   _map.on('contextmenu', (e) => {
     _ctxLatLng = e.latlng;
     _ctxSubmenu.style.display    = 'none';
+    _routesNearSubmenu.style.display = 'none';
     _wpSubmenu.style.display     = 'none';
     _trackSubmenu.style.display  = 'none';
     _routeSubmenu.style.display  = 'none';
@@ -6224,6 +6370,17 @@ function _ensureMap() {
     if (!btn) return;
     _hideCtx();
     if (_ctxLatLng) handleMapLongPress(_ctxLatLng, parseFloat(btn.dataset.radiusNm), btn.dataset.radiusLabel);
+  });
+
+  document.getElementById('map-ctx-routes-near-parent').addEventListener('click', () => {
+    _routesNearSubmenu.style.display = _routesNearSubmenu.style.display === 'block' ? 'none' : 'block';
+  });
+
+  _routesNearSubmenu.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-radius-nm]');
+    if (!btn) return;
+    _hideCtx();
+    if (_ctxLatLng) _showRoutesNearPopup(_ctxLatLng, parseFloat(btn.dataset.radiusNm), btn.dataset.radiusLabel);
   });
 
   document.getElementById('map-ctx-route-parent').addEventListener('click', () => {
@@ -7994,6 +8151,8 @@ function _finishTrackRecording(name) {
   _followingRouteName = null;
   _followingDestLat = null;
   _followingDestLon = null;
+  _followingLegIdx = 1;
+  if (_followProgressEl) _followProgressEl.style.display = 'none';
   trackRecBtn.textContent = '⏺ Track';
   trackRecBtn.title = 'Record a GPS track';
   trackRecBtn.classList.remove('rec-active');
@@ -8036,6 +8195,7 @@ function _startFollowingRoute(route) {
   _followingRouteName = route.name;
   _followingDestLat = last.lat;
   _followingDestLon = last.lon;
+  _followingLegIdx = route.points.length > 1 ? 1 : 0;
   trackRecBtn.textContent = '⏹ Stop';
   trackRecBtn.title = `Following "${route.name}" — tap to stop early`;
   trackRecBtn.classList.add('rec-active');
@@ -8111,7 +8271,7 @@ function _recoverInProgressTrack() {
   const raw = localStorage.getItem(IN_PROGRESS_TRACK_KEY);
   if (!raw) return;
   try {
-    const { startMs, points, followingRouteId, followingRouteName, followingDestLat, followingDestLon } = JSON.parse(raw);
+    const { startMs, points, followingRouteId, followingRouteName, followingDestLat, followingDestLon, followingLegIdx } = JSON.parse(raw);
     if (!points || points.length < 2) { localStorage.removeItem(IN_PROGRESS_TRACK_KEY); return; }
     const mins = Math.round((Date.now() - startMs) / 60000);
     const label = followingRouteName
@@ -8127,6 +8287,7 @@ function _recoverInProgressTrack() {
       _followingRouteName = followingRouteName || null;
       _followingDestLat = followingDestLat ?? null;
       _followingDestLon = followingDestLon ?? null;
+      _followingLegIdx = followingLegIdx ?? 1;
       trackRecBtn.textContent = '⏹ Stop';
       if (followingRouteName) trackRecBtn.title = `Following "${followingRouteName}" — tap to stop early`;
       trackRecBtn.classList.add('rec-active');
@@ -8466,6 +8627,7 @@ async function init() {
             startMs: _trackRecStartMs, points: _trackRecPoints,
             followingRouteId: _followingRouteId, followingRouteName: _followingRouteName,
             followingDestLat: _followingDestLat, followingDestLon: _followingDestLon,
+            followingLegIdx: _followingLegIdx,
           }));
           _refreshSavedTrackLayers();
         }
@@ -8476,6 +8638,7 @@ async function init() {
           _stopFollowingRoute(true);
         }
       }
+      _updateFollowProgress(lat, lon);
       if (_animFollowMode && _map) _map.panTo([lat, lon]);
       if (!gpsReady) {
         gpsReady = true;

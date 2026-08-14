@@ -951,6 +951,11 @@ html, body {
   color: var(--text-dim);
   padding-left: 18px;
 }
+.rp-row-date {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  padding-left: 18px;
+}
 .rp-legs {
   display: none;
   flex-direction: column;
@@ -1267,6 +1272,11 @@ html, body {
   top: 6px;
   right: 8px;
 }
+.routes-near-table { border-collapse: collapse; width: 100%; font-size: 0.8rem; }
+.routes-near-table th, .routes-near-table td { padding: 4px 8px; text-align: left; }
+.routes-near-table thead { color: var(--text-dim); font-weight: 600; border-bottom: 1px solid var(--mid-blue); }
+.routes-near-row { cursor: pointer; }
+.routes-near-row:hover { background: var(--mid-blue); }
 .navaid-popup {
   display: flex;
   flex-direction: column;
@@ -1914,6 +1924,7 @@ html, body {
 .compass-rose-ctrl                 { transform: var(--ui-pos-compass, translate(0,0)); }
 .tide-cycle-ctrl                   { transform: var(--ui-pos-tide, translate(0,0)); }
 .heading-speed-ctrl                { transform: var(--ui-pos-headingspeed, translate(0,0)); }
+.follow-progress-ctrl              { transform: var(--ui-pos-followprogress, translate(0,0)); }
 
 @keyframes ui-jiggle {
   0%, 100% { rotate: -2deg; }
@@ -2057,17 +2068,33 @@ html, body {
 .heading-speed-ctrl {
   pointer-events: none;
   margin: 0 8px 8px;
-  font-size: 0.72rem;
-  font-weight: 600;
+  font-size: 1.15rem;
+  font-weight: 700;
   font-family: Arial, sans-serif;
   letter-spacing: 0.3px;
   color: #e05252;
   background: rgba(20,40,70,0.85);
   border: 1px solid #2a5080;
   border-radius: 10px;
-  padding: 3px 9px;
+  padding: 5px 12px;
   text-align: center;
   filter: drop-shadow(0 1px 4px rgba(0,0,0,0.5));
+}
+.follow-progress-ctrl {
+  pointer-events: none;
+  margin: 8px 0 0 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: Arial, sans-serif;
+  letter-spacing: 0.2px;
+  color: var(--text);
+  background: rgba(20,40,70,0.85);
+  border: 1px solid #2a5080;
+  border-radius: 10px;
+  padding: 5px 10px;
+  text-align: left;
+  filter: drop-shadow(0 1px 4px rgba(0,0,0,0.5));
+  line-height: 1.4;
 }
 .tide-slider-row {
   pointer-events: all;
