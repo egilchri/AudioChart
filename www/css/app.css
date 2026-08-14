@@ -1272,11 +1272,11 @@ html, body {
   top: 6px;
   right: 8px;
 }
-.routes-near-table { border-collapse: collapse; width: 100%; font-size: 0.8rem; }
-.routes-near-table th, .routes-near-table td { padding: 4px 8px; text-align: left; }
-.routes-near-table thead { color: var(--text-dim); font-weight: 600; border-bottom: 1px solid var(--mid-blue); }
+.routes-near-table { border-collapse: collapse; width: 100%; font-size: 0.8rem; color: var(--text); }
+.routes-near-table th, .routes-near-table td { padding: 4px 8px; text-align: left; color: var(--text); }
+.routes-near-table thead th { color: var(--text-dim); font-weight: 600; border-bottom: 1px solid var(--mid-blue); }
 .routes-near-row { cursor: pointer; }
-.routes-near-row:hover { background: var(--mid-blue); }
+.routes-near-row:hover td { background: var(--mid-blue); color: var(--text); }
 .navaid-popup {
   display: flex;
   flex-direction: column;
