@@ -666,6 +666,7 @@ let _editOriginalPoints    = [];    // snapshot of route.points as last saved, t
 
 let _populateRouteSelectFn = null; // set by _ensureMap once DOM is ready
 let _buildRoutePickerPanelFn = null; // set by _ensureMap once DOM is ready — see _populateRouteSelectFn
+let _buildTrackPickerPanelFn = null; // set by _ensureMap once DOM is ready — see _buildRoutePickerPanelFn
 let _savedRoutesLayer  = null;
 let _hiddenRouteNames  = new Set();
 let _savedTracksLayer     = null;
@@ -1244,6 +1245,34 @@ function _routesNearPoint(lat, lon, radiusNm) {
   return results;
 }
 
+function _tracksNearPoint(lat, lon, radiusNm) {
+  const tracks = JSON.parse(localStorage.getItem(TRACK_KEY) || '[]');
+  const results = [];
+  tracks.forEach(track => {
+    const pts = track.points;
+    if (!pts || pts.length < 1) return;
+    let minDist = Infinity;
+    if (pts.length === 1) {
+      minDist = Query.distanceNm(pts[0].lon, pts[0].lat, lon, lat);
+    } else {
+      for (let i = 0; i < pts.length - 1; i++) {
+        const a = pts[i], b = pts[i + 1];
+        const segLen = Query.distanceNm(a.lon, a.lat, b.lon, b.lat);
+        const ct = _segCrossTrack(a.lon, a.lat, b.lon, b.lat, lon, lat);
+        const d = (ct && ct.alongTrack >= 0 && ct.alongTrack <= segLen)
+          ? Math.abs(ct.crossTrack)
+          : Math.min(Query.distanceNm(a.lon, a.lat, lon, lat), Query.distanceNm(b.lon, b.lat, lon, lat));
+        if (d < minDist) minDist = d;
+      }
+    }
+    if (minDist <= radiusNm) {
+      results.push({ name: track.name, distanceNm: minDist, dateLabel: _routeDateLabel(track) });
+    }
+  });
+  results.sort((a, b) => a.distanceNm - b.distanceNm);
+  return results;
+}
+
 function _segsIntersect(ax, ay, bx, by, px, py, qx, qy) {
   const cross = (ox, oy, ux, uy, vx, vy) => (ux-ox)*(vy-oy) - (uy-oy)*(vx-ox);
   const d1 = cross(px,py, qx,qy, ax,ay), d2 = cross(px,py, qx,qy, bx,by);
@@ -1628,50 +1657,64 @@ function _openSelectRoutePopup(routeIdx, latlng) {
   }, 0);
 }
 
-function _showRoutesNearPopup(latlng, radiusNm, radiusLabel) {
-  const results = _routesNearPoint(latlng.lat, latlng.lng, radiusNm);
-  const msg = results.length === 0
-    ? `No routes within ${radiusLabel}.`
-    : `${results.length} route${results.length > 1 ? 's' : ''} within ${radiusLabel}.`;
-  setStatus(msg);
-  TTS.sayImmediate(msg);
+function _showNearPointPanel(kind, latlng, results, radiusLabel) {
+  // kind: 'route' | 'track'
+  const hiddenNames = kind === 'route' ? _hiddenRouteNames : _hiddenTrackNames;
+  const label = kind === 'route' ? 'route' : 'track';
 
-  if (results.length === 0) {
-    L.popup({ className: 'navaid-popup-wrapper' })
-      .setLatLng(latlng)
-      .setContent(`<div style="padding:10px">${msg}</div>`)
-      .openOn(_map);
-    return;
-  }
+  const panel = document.getElementById('near-point-panel');
+  const tbody = document.getElementById('npp-tbody');
+  document.getElementById('npp-title').textContent = results.length === 0
+    ? `No ${label}s within ${radiusLabel}`
+    : `${results.length} ${label}${results.length > 1 ? 's' : ''} within ${radiusLabel}`;
 
-  const rowsHtml = results.map((r, i) => `
-    <tr class="routes-near-row" data-idx="${i}">
-      <td>${r.name}</td>
+  tbody.innerHTML = results.map(r => `
+    <tr data-name="${r.name}">
+      <td><input type="checkbox" class="npp-vis-cb" ${hiddenNames.has(r.name) ? '' : 'checked'}></td>
+      <td class="npp-row-name">${r.name}</td>
       <td>${distanceToDisplay(r.distanceNm)}</td>
       <td>${r.dateLabel}</td>
     </tr>`).join('');
-  const html = `
-    <table class="routes-near-table">
-      <thead><tr><th>Route</th><th>Dist</th><th>Date</th></tr></thead>
-      <tbody>${rowsHtml}</tbody>
-    </table>`;
 
-  L.popup({ className: 'navaid-popup-wrapper', maxWidth: 320 })
-    .setLatLng(latlng)
-    .setContent(html)
-    .openOn(_map);
-  setTimeout(() => {
-    document.querySelectorAll('.routes-near-row').forEach(tr => {
-      tr.addEventListener('click', () => {
-        const r = results[parseInt(tr.dataset.idx, 10)];
-        _map.closePopup();
-        _selectRoute(r.routeIdx);
-        const m = `${r.name} selected.`;
-        setStatus(m); TTS.sayImmediate(m);
-      });
+  // Position at the clicked point, converted to screen coords, clamped to viewport —
+  // same clamping approach already used for #map-context-menu.
+  const pt = _map.latLngToContainerPoint(latlng);
+  const mapRect = _map.getContainer().getBoundingClientRect();
+  panel.style.display = 'block';
+  const pw = panel.offsetWidth, ph = panel.offsetHeight;
+  const x = Math.min(mapRect.left + pt.x, window.innerWidth - pw - 4);
+  const y = Math.min(mapRect.top + pt.y, window.innerHeight - ph - 4);
+  panel.style.left = Math.max(4, x) + 'px';
+  panel.style.top = Math.max(4, y) + 'px';
+
+  const refresh = kind === 'route' ? _refreshSavedRouteLayers : _refreshSavedTrackLayers;
+  const save = kind === 'route' ? _saveHiddenRoutes : _saveHiddenTracks;
+  const rebuildPanel = kind === 'route' ? _buildRoutePickerPanelFn : _buildTrackPickerPanelFn;
+
+  tbody.querySelectorAll('.npp-vis-cb').forEach(cb => {
+    const name = cb.closest('tr').dataset.name;
+    cb.addEventListener('change', () => {
+      if (cb.checked) hiddenNames.delete(name); else hiddenNames.add(name);
+      save(); refresh(); rebuildPanel?.();
     });
-  }, 0);
+  });
+
+  document.getElementById('npp-hide-others').onclick = () => {
+    const resultNames = new Set(results.map(r => r.name));
+    const all = JSON.parse(localStorage.getItem(kind === 'route' ? ROUTE_KEY : TRACK_KEY) || '[]');
+    all.forEach(item => { if (!resultNames.has(item.name)) hiddenNames.add(item.name); });
+    save(); refresh(); rebuildPanel?.();
+    tbody.querySelectorAll('.npp-vis-cb').forEach(cb => { cb.checked = true; });
+    const msg = `Showing only the ${results.length} ${label}${results.length > 1 ? 's' : ''} within ${radiusLabel}.`;
+    setStatus(msg); TTS.sayImmediate(msg);
+  };
+
+  const msg = results.length === 0 ? `No ${label}s within ${radiusLabel}.` : `${results.length} ${label}${results.length > 1 ? 's' : ''} within ${radiusLabel}.`;
+  setStatus(msg); TTS.sayImmediate(msg);
 }
+document.getElementById('npp-close').addEventListener('click', () => {
+  document.getElementById('near-point-panel').style.display = 'none';
+});
 
 function _refreshSavedRouteLayers() {
   if (!_map) return;
@@ -6065,6 +6108,7 @@ function _ensureMap() {
     const btn  = e.currentTarget.getBoundingClientRect();
     _ctxSubmenu.style.display    = 'none';
     _routesNearSubmenu.style.display = 'none';
+    _tracksNearSubmenu.style.display = 'none';
     _wpSubmenu.style.display     = 'none';
     _trackSubmenu.style.display  = 'none';
     _routeSubmenu.style.display  = 'none';
@@ -6094,6 +6138,7 @@ function _ensureMap() {
 
   const _ctxSubmenu = document.getElementById('map-ctx-objects-submenu');
   const _routesNearSubmenu = document.getElementById('map-ctx-routes-near-submenu');
+  const _tracksNearSubmenu = document.getElementById('map-ctx-tracks-near-submenu');
   const _wpSubmenu  = document.getElementById('map-ctx-wp-submenu');
 
   // Rebuild the dynamic waypoint rows (below the 3 static buttons)
@@ -6146,6 +6191,7 @@ function _ensureMap() {
   }
   _populateRouteSelectFn = _populateRouteSelect;
   _buildRoutePickerPanelFn = _buildRoutePickerPanel;
+  _buildTrackPickerPanelFn = _buildTrackPickerPanel;
 
   // ── Track config save/load ──────────────────────────────────────────────────
   const TRACK_CONFIG_KEY = 'audiochart-track-configs';
@@ -6324,6 +6370,7 @@ function _ensureMap() {
     _ctxLatLng = e.latlng;
     _ctxSubmenu.style.display    = 'none';
     _routesNearSubmenu.style.display = 'none';
+    _tracksNearSubmenu.style.display = 'none';
     _wpSubmenu.style.display     = 'none';
     _trackSubmenu.style.display  = 'none';
     _routeSubmenu.style.display  = 'none';
@@ -6380,7 +6427,18 @@ function _ensureMap() {
     const btn = e.target.closest('button[data-radius-nm]');
     if (!btn) return;
     _hideCtx();
-    if (_ctxLatLng) _showRoutesNearPopup(_ctxLatLng, parseFloat(btn.dataset.radiusNm), btn.dataset.radiusLabel);
+    if (_ctxLatLng) _showNearPointPanel('route', _ctxLatLng, _routesNearPoint(_ctxLatLng.lat, _ctxLatLng.lng, parseFloat(btn.dataset.radiusNm)), btn.dataset.radiusLabel);
+  });
+
+  document.getElementById('map-ctx-tracks-near-parent').addEventListener('click', () => {
+    _tracksNearSubmenu.style.display = _tracksNearSubmenu.style.display === 'block' ? 'none' : 'block';
+  });
+
+  _tracksNearSubmenu.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-radius-nm]');
+    if (!btn) return;
+    _hideCtx();
+    if (_ctxLatLng) _showNearPointPanel('track', _ctxLatLng, _tracksNearPoint(_ctxLatLng.lat, _ctxLatLng.lng, parseFloat(btn.dataset.radiusNm)), btn.dataset.radiusLabel);
   });
 
   document.getElementById('map-ctx-route-parent').addEventListener('click', () => {

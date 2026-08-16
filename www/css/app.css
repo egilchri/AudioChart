@@ -1272,11 +1272,25 @@ html, body {
   top: 6px;
   right: 8px;
 }
-.routes-near-table { border-collapse: collapse; width: 100%; font-size: 0.8rem; color: var(--text); }
-.routes-near-table th, .routes-near-table td { padding: 4px 8px; text-align: left; color: var(--text); }
-.routes-near-table thead th { color: var(--text-dim); font-weight: 600; border-bottom: 1px solid var(--mid-blue); }
-.routes-near-row { cursor: pointer; }
-.routes-near-row:hover td { background: var(--mid-blue); color: var(--text); }
+#near-point-panel {
+  display: none;
+  position: fixed;
+  z-index: 9999;
+  background: var(--dark-blue);
+  border: 1px solid var(--mid-blue);
+  border-radius: 10px;
+  padding: 8px 10px;
+  min-width: 240px;
+  max-width: 340px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.7);
+}
+.npp-header { display: flex; justify-content: space-between; align-items: center; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+.npp-header button { background: none; border: none; color: var(--text); font-size: 16px; cursor: pointer; }
+.near-point-table { border-collapse: collapse; width: 100%; font-size: 0.8rem; color: var(--text); }
+.near-point-table th, .near-point-table td { padding: 4px 6px; text-align: left; color: var(--text); }
+.near-point-table thead th { color: var(--text-dim); font-weight: 600; border-bottom: 1px solid var(--mid-blue); }
+.npp-row-name { cursor: default; }
+#npp-hide-others { width: 100%; margin-top: 6px; }
 .navaid-popup {
   display: flex;
   flex-direction: column;

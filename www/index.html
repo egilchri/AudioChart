@@ -284,6 +284,16 @@
       <button data-radius-nm="2"      data-radius-label="2 miles">2 miles</button>
       <button data-radius-nm="5"      data-radius-label="5 miles">5 miles</button>
     </div>
+    <button id="map-ctx-tracks-near-parent">Tracks within &rsaquo;</button>
+    <div id="map-ctx-tracks-near-submenu">
+      <button data-radius-nm="0.0494" data-radius-label="100 yards">100 yards</button>
+      <button data-radius-nm="0.0988" data-radius-label="200 yards">200 yards</button>
+      <button data-radius-nm="0.25"   data-radius-label="¼ mile">¼ mile</button>
+      <button data-radius-nm="0.5"    data-radius-label="½ mile">½ mile</button>
+      <button data-radius-nm="1"      data-radius-label="1 mile">1 mile</button>
+      <button data-radius-nm="2"      data-radius-label="2 miles">2 miles</button>
+      <button data-radius-nm="5"      data-radius-label="5 miles">5 miles</button>
+    </div>
 <button id="map-ctx-route-parent">&#9998; Route &rsaquo;</button>
     <div id="map-ctx-route-submenu">
       <button id="map-ctx-draw-route">Draw Route</button>
@@ -392,6 +402,15 @@
     <button id="map-ctx-bring-boat">&#9935; Bring boat here</button>
     <button id="map-ctx-set-position">&#128205; Set position here</button>
     <button id="map-ctx-set-focus">&#127919; Set focus here</button>
+  </div>
+
+  <div id="near-point-panel" style="display:none">
+    <div class="npp-header">
+      <span id="npp-title"></span>
+      <button id="npp-close">&times;</button>
+    </div>
+    <div id="npp-table-wrap"><table class="near-point-table"><thead><tr><th></th><th>Name</th><th>Dist</th><th>Date</th></tr></thead><tbody id="npp-tbody"></tbody></table></div>
+    <button id="npp-hide-others">Hide everything else</button>
   </div>
 
   <div id="wpt-copy-overlay">
