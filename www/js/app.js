@@ -792,6 +792,7 @@ window._debugEnterEditMode = (idx) => _enterEditMode(idx);
 window._debugCheckRouteHazards = (idx, silent) => _checkRouteHazards(idx, silent);
 window._debugMap = () => _map;
 window._debugLiveHazardCheck = () => _liveHazardCheck();
+window._debugShowRouteFallbackWarning = (fallbackSegs) => _showRouteFallbackWarning(fallbackSegs);
 
 window._debugDepth = () => {
   const feats = Query.hazards?.features || [];
@@ -3013,21 +3014,68 @@ function _showRerouteOverlay(pts) {
 
 async function _reRouteSegments(pts, onProgress, onText) {
   if (_blockedByCoverage(pts[0], pts[pts.length - 1], 'Re-route')) {
-    return { points: pts, fallbacks: 0, blocked: true };
+    return { points: pts, fallbacks: 0, fallbackSegs: [], blocked: true };
   }
   const result = [pts[0]];
   let fallbacks = 0;
+  const fallbackSegs = [];  // {a,b} of each leg that couldn't avoid land — lets the
+                             // caller point the user at exactly where to add a waypoint
   for (let i = 0; i < pts.length - 1; i++) {
     const segLabel = pts.length > 2 ? `Seg ${i + 1}/${pts.length - 1}: ` : '';
     const sub = await _autoRouteProg(pts[i], pts[i + 1],
       (path) => { if (onProgress) onProgress([...result, ...path.slice(1)]); },
       (t)    => { if (onText) onText(segLabel + t); }
     );
-    if (sub.length <= 2) fallbacks++;
+    if (sub.length <= 2) { fallbacks++; fallbackSegs.push({ a: pts[i], b: pts[i + 1] }); }
     result.push(...sub.slice(1));
     if (onProgress) onProgress([...result]);
   }
-  return { points: result, fallbacks };
+  return { points: result, fallbacks, fallbackSegs };
+}
+
+// Auto-route couldn't get a segment around land and silently fell back to a
+// straight line — easy to miss as a status-bar message alone, and land-crossing
+// "routes" are a safety issue, not a cosmetic one. Mark every failed leg's
+// midpoint on the map and pop up an explicit instruction (matches the existing
+// _checkRouteHazards popup pattern) rather than relying on the user to notice
+// the geometry looks wrong.
+let _routeFallbackLayer = null;
+function _showRouteFallbackWarning(fallbackSegs) {
+  if (_routeFallbackLayer) { _routeFallbackLayer.clearLayers(); _routeFallbackLayer = null; }
+  if (!fallbackSegs || !fallbackSegs.length) return;
+  _routeFallbackLayer = L.layerGroup().addTo(_map);
+
+  const mids = fallbackSegs.map(seg => ({
+    lat: (seg.a.lat + seg.b.lat) / 2,
+    lon: (seg.a.lon + seg.b.lon) / 2,
+  }));
+  mids.forEach((m, i) => {
+    L.marker([m.lat, m.lon], {
+      icon: L.divIcon({
+        className: '',
+        html: '<div class="davy-jones-icon">&#9888;</div>',
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+      }),
+      zIndexOffset: 900,
+    }).bindTooltip(`Couldn't avoid land here — add a waypoint (leg ${i + 1})`,
+                    { permanent: false, direction: 'top', offset: [0, -6] })
+      .on('click', (e) => { L.DomEvent.stopPropagation(e); _map.setView([m.lat, m.lon], 16); })
+      .addTo(_routeFallbackLayer);
+  });
+
+  const n = fallbackSegs.length;
+  const first = mids[0];
+  const body = `<b>Couldn't avoid land</b> — ${n} leg${n > 1 ? 's' : ''} still cross${n > 1 ? '' : 'es'} land as a straight line.<br>`
+    + `Add a waypoint in the passage${n > 1 ? ' (⚠ marks each spot)' : ''}, then re-route.`;
+  L.popup({ maxWidth: 300, autoPan: true })
+    .setLatLng([first.lat, first.lon])
+    .setContent(`<div style="font-size:13px;line-height:1.5">${body}</div>`)
+    .openOn(_map);
+
+  const speakMsg = `Warning: ${n} route leg${n > 1 ? 's' : ''} couldn't avoid land. Add a waypoint and re-route.`;
+  setStatus(speakMsg);
+  TTS.sayImmediate(speakMsg);
 }
 
 function _finishSketch() {
@@ -3108,7 +3156,7 @@ async function _finishSketchAutoRoute() {
     const routePts = rawPts.map(p => ({ lat: p.lat, lon: p.lng }));
     const ui = _showRerouteOverlay(routePts);
     try {
-      const { points, fallbacks, blocked } = await _reRouteSegments(
+      const { points, fallbacks, fallbackSegs, blocked } = await _reRouteSegments(
         routePts, ui.update.bind(ui), ui.setText.bind(ui)
       );
       ui.remove();
@@ -3121,9 +3169,8 @@ async function _finishSketchAutoRoute() {
         _populateRouteSelectFn?.();
         const found = _enterEditMode(growIdx);
         if (!found.length) {
-          setStatus(fallbacks > 0
-            ? `Extended — ${fallbacks} segment(s) couldn't avoid land.`
-            : 'Route extended.');
+          if (fallbacks > 0) _showRouteFallbackWarning(fallbackSegs);
+          else setStatus('Route extended.');
         }
       }
     } catch (err) {
@@ -3141,7 +3188,7 @@ async function _finishSketchAutoRoute() {
 
   const ui = _showRerouteOverlay(routePts);
   try {
-    const { points, fallbacks, blocked } = await _reRouteSegments(
+    const { points, fallbacks, fallbackSegs, blocked } = await _reRouteSegments(
       routePts, ui.update.bind(ui), ui.setText.bind(ui)
     );
     ui.remove();
@@ -3163,9 +3210,8 @@ async function _finishSketchAutoRoute() {
       found = _enterEditMode(routes.length - 1);
     }
     if (!found.length) {
-      setStatus(fallbacks > 0
-        ? `Routed — ${fallbacks} segment(s) couldn't avoid land. Add a waypoint in the passage.`
-        : 'Route saved.');
+      if (fallbacks > 0) _showRouteFallbackWarning(fallbackSegs);
+      else setStatus('Route saved.');
     }
   } catch (err) {
     ui.remove();
@@ -3952,7 +3998,7 @@ document.getElementById('etp-reroute').addEventListener('click', () => {
   btn.disabled = true;
   const ui = _showRerouteOverlay(_editPoints);
   _reRouteSegments(_editPoints.map(_stripPoint), ui.update.bind(ui), ui.setText.bind(ui))
-    .then(({ points, fallbacks, blocked }) => {
+    .then(({ points, fallbacks, fallbackSegs, blocked }) => {
       ui.remove();
       btn.disabled = false;
       if (blocked) return;  // _reRouteSegments already announced why
@@ -3962,9 +4008,8 @@ document.getElementById('etp-reroute').addEventListener('click', () => {
       // hazard data, not just the land-avoidance the router already did.
       const found = _liveHazardCheck();
       if (!found.length) {
-        setStatus(fallbacks > 0
-          ? `Re-routed — ${fallbacks} segment(s) couldn't avoid land. Add a waypoint in the passage.`
-          : 'Re-routed.');
+        if (fallbacks > 0) _showRouteFallbackWarning(fallbackSegs);
+        else setStatus('Re-routed.');
       }
     })
     .catch(err => {
@@ -5701,7 +5746,7 @@ function _ensureMap() {
       btn.classList.add('working');
       const ui = _showRerouteOverlay(_editPoints);
       _reRouteSegments(_editPoints.map(_stripPoint), ui.update.bind(ui), ui.setText.bind(ui))
-        .then(({ points, fallbacks, blocked }) => {
+        .then(({ points, fallbacks, fallbackSegs, blocked }) => {
           ui.remove();
           btn.classList.remove('working');
           if (blocked) return;  // _reRouteSegments already announced why
@@ -5709,9 +5754,8 @@ function _ensureMap() {
           _renderEditLayers();
           const found = _liveHazardCheck();
           if (!found.length) {
-            setStatus(fallbacks > 0
-              ? `Re-routed — ${fallbacks} segment(s) couldn't avoid land. Add a waypoint in the passage.`
-              : 'Re-routed.');
+            if (fallbacks > 0) _showRouteFallbackWarning(fallbackSegs);
+            else setStatus('Re-routed.');
           }
         })
         .catch(err => {
@@ -5728,7 +5772,7 @@ function _ensureMap() {
       btn.classList.add('working');
       const ui = _showRerouteOverlay(routes[idx].points);
       _reRouteSegments(routes[idx].points, ui.update.bind(ui), ui.setText.bind(ui))
-        .then(({ points, fallbacks, blocked }) => {
+        .then(({ points, fallbacks, fallbackSegs, blocked }) => {
           ui.remove();
           btn.classList.remove('working');
           if (blocked) return;  // _reRouteSegments already announced why
@@ -5737,9 +5781,8 @@ function _ensureMap() {
           localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
           const found = _enterEditMode(idx);
           if (!found.length) {
-            setStatus(fallbacks > 0
-              ? `Re-routed — ${fallbacks} segment(s) couldn't avoid land. Add a waypoint in the passage.`
-              : 'Re-routed.');
+            if (fallbacks > 0) _showRouteFallbackWarning(fallbackSegs);
+            else setStatus('Re-routed.');
           }
         })
         .catch(err => {
