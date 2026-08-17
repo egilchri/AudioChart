@@ -405,6 +405,17 @@ const CRUISE_PROFILES = {
   },
 };
 
+// Hand-authored — no feature registry exists to introspect. Shown in the
+// About panel (tap either version label); keep short, update when a major
+// feature ships.
+const ABOUT_FEATURES = [
+  'Voice &amp; text queries — bearings, nearest hazard/navaid, depth here',
+  'Auto-route around land, hazards, and tidal drying zones',
+  'Tide-aware depth overlay with your draft',
+  'Fully offline once chart data is downloaded',
+  'Google Drive sync for routes and tracks',
+];
+
 // ── Query history ─────────────────────────────────────────────────────────────
 
 const HISTORY_KEY = 'audiochart-history';
@@ -787,7 +798,7 @@ async function loadLeaflet() {
 
 function setStatus(msg) { statusEl.textContent = msg; }
 
-window._debugAutoRoute = (start, end, escalation = 0) => _autoRouteProg(start, end, () => {}, () => {}, escalation);
+window._debugAutoRoute = (start, end) => _autoRouteProg(start, end, () => {}, () => {});
 window._debugEnterEditMode = (idx) => _enterEditMode(idx);
 window._debugCheckRouteHazards = (idx, silent) => _checkRouteHazards(idx, silent);
 window._debugMap = () => _map;
@@ -2293,7 +2304,26 @@ _drawNameDestBtn.addEventListener('click', () => {
     setStatus(msg); TTS.sayImmediate(msg);
     return;
   }
-  _onDrawClick(L.latLng(place.lat, place.lon));
+  // Gazetteer entries are often positioned on the landmass itself (a town or
+  // island label), not the water someone means when naming it as a
+  // destination — move onto the nearest confirmed water before dropping the
+  // point, preferring a real nearby harbor/anchorage/mooring over the literal
+  // closest wet pixel (see Query.findWaterNear).
+  let dest = place;
+  if (Query.isLandAt(place.lon, place.lat)) {
+    const water = Query.findWaterNear(place.lon, place.lat);
+    if (!water) {
+      const msg = `${place.name} is on land and no nearby water was found — pick a spot on the map instead.`;
+      setStatus(msg); TTS.sayImmediate(msg);
+      return;
+    }
+    dest = { lat: water.lat, lon: water.lon, name: place.name };
+    const msg = water.viaPlace
+      ? `${place.name} — moved to ${water.viaPlace}, ${water.movedNm.toFixed(1)} nm away.`
+      : `${place.name} is on land — moved ${water.movedNm.toFixed(1)} nm into open water.`;
+    setStatus(msg); TTS.sayImmediate(msg);
+  }
+  _onDrawClick(L.latLng(dest.lat, dest.lon));
 });
 _drawConfirmBtn.addEventListener('click', _onDrawConfirm);
 document.getElementById('focus-place-confirm-btn').addEventListener('click', _confirmFocusPlace);
@@ -2474,13 +2504,20 @@ function _clearAutoRoute() {
   if (_autoRoutePreviewLayer) { _autoRoutePreviewLayer.remove(); _autoRoutePreviewLayer = null; }
 }
 
-async function _autoRouteProg(start, end, onUpdate, onText = null, escalation = 0) {
+async function _autoRouteProg(start, end, onUpdate, onText = null) {
   // Visibility Graph + A* (Euclidean Shortest Path with Polygonal Obstacles).
   // Nodes: start, end, and polygon vertices in the padded bounding box.
   // Edges are checked lazily during A* expansion.
   const PAD_NM    = 2.0;
   const SAFETY_NM   = 0.05;  // ~100 yards — offset every vertex this far offshore
   const CORRIDOR_NM = 3.0;   // include LAND rings within this distance of the direct line
+  // One honest wall-clock budget for the WHOLE call (setup + A*), not just the
+  // search loop — replaces the old unbounded-setup + 8s-A*-only + up-to-2x-via-
+  // escalation pattern, which could legitimately run 16s+ for one leg with no
+  // way for the caller to know. Checked after setup and periodically during A*
+  // (both against _profT0 below); exceeding it means the honest straight-line
+  // fallback (_showRouteFallbackWarning), never a partial/unverified path.
+  const DEADLINE_MS = 5000;
   // Point-hazard/tidal rings only need a graph NODE when genuinely close to
   // the direct line — segBlocked already checks every one of them for every
   // candidate edge regardless of this, so a distant one not getting a node
@@ -2511,6 +2548,25 @@ async function _autoRouteProg(start, end, onUpdate, onText = null, escalation = 
   const bMaxLat = Math.max(start.lat, end.lat) + padLat;
 
   const nodes = [start, end];  // index 0 = start, 1 = end
+
+  // ── Channel graph (fairway centerlines + recommended tracks) ─────────────
+  // Nodes are water-only by construction (real charted channel/track data),
+  // so no land-offset dance is needed the way land-ring vertices get below.
+  // channelKeyToIdx lets the A* loop map a channel node's graph neighbors
+  // (returned by lon/lat) back to this call's nodes[] array indices; an
+  // empty Query.channelNodesNear (no data loaded, or none in this bbox) is
+  // what guarantees zero behavior change wherever channel data is absent —
+  // no separate feature flag needed.
+  const channelNodeIdxSet = new Set();
+  const channelKeyToIdx = new Map();
+  if (Query.channelNodesNear) {
+    for (const cn of Query.channelNodesNear(bMinLon, bMaxLon, bMinLat, bMaxLat)) {
+      const idx = nodes.length;
+      nodes.push({ lon: cn.lon, lat: cn.lat });
+      channelNodeIdxSet.add(idx);
+      channelKeyToIdx.set(cn.key, idx);
+    }
+  }
 
   // ── Point-to-segment distance (nm) ────────────────────────────────────────
   function _ptSegDistNm(ptLon, ptLat, aLon, aLat, bLon, bLat) {
@@ -2719,59 +2775,58 @@ async function _autoRouteProg(start, end, onUpdate, onText = null, escalation = 
   nodes[0] = start;
   nodes[1] = end;
 
-  // ── Corridor-based node collection ─────────────────────────────────────────
-  // Only add vertices from rings that intersect or are near the direct route.
-  // Cap each ring at MAX_RING_VERTS to bound total N (A* is O(N²)).
-  const MAX_RING_VERTS = 30;
-  // On an escalation retry, the ring actually blocking the direct line gets
-  // its own wider local window (see below) instead of the default corridor —
-  // widening the vertex SELECTION for just that one ring, not widening the
-  // whole search (which would re-pull in every nearby island/hazard and
-  // blow N back up, exactly what made a naive "just expand the box" approach
-  // too slow to explore in practice).
-  const MAX_WIDE_VERTS = 90;
-  function _addRingNodes(entry, wideWindow = null) {
-    const { ring, cx, cy } = entry;
+  // ── Convex-vertex node collection ───────────────────────────────────────────
+  // A shortest path around a polygonal obstacle only ever needs to bend at a
+  // CONVEX vertex of that obstacle (a headland poking into free space) — a
+  // concave vertex (a cove) is never a necessary bend point, since the taut
+  // string skips over the indentation (see the convex-flag computation this
+  // pairs with in query.js's _buildLandEdgeIndex/processRing). This replaces
+  // the old "up to 30 vertices closest to the line" sample: smaller (correct
+  // bend points only, not a distance-based guess) and can't exclude a real
+  // far-side bend point — an island's tip is a convex vertex of the island's
+  // OWN ring regardless of how far it sits from the direct line, so it's
+  // included automatically once that ring is, with no separate "escalation"
+  // pass needed to go find it.
+  //
+  // Two tiers:
+  //   - A ring that directly blocks the line (isBlocking=true): every convex
+  //     vertex, uncapped by distance — this is what lets a single A* pass
+  //     thread between many separate blocking rings at once (Piscataqua's 8,
+  //     an island's 10+), instead of only ever getting to fix one per retry.
+  //   - A ring merely near the corridor (isBlocking=false): convex vertices
+  //     AND within CORRIDOR_NM — keeps the common case (an incidental nearby
+  //     island) cheap.
+  const MAX_BLOCKING_VERTS = 300;  // safety valve for the ~10-11k-vertex
+                                    // mainland/coastline ring — if a directly-
+                                    // blocking ring has more convex vertices
+                                    // than this, keep the sharpest headlands
+                                    // (by exterior turn angle), not the
+                                    // closest-to-line ones this replaces.
+  function _addRingNodes(entry, isBlocking) {
+    const { ring, cx, cy, convex } = entry;
     const n = ring.length - 1; // -1: skip closing duplicate vertex
-    let indices;
-    if (wideWindow) {
-      // Keep vertices spread across the ring's own path within the wide
-      // window (in ring order) rather than "closest to the direct line" —
-      // the useful going-around vertices are FAR from that line by
-      // definition (that's why a detour is needed), so the normal scoring
-      // would filter out exactly the ones needed to represent a real
-      // passage around the obstacle.
-      const { minLon, maxLon, minLat, maxLat } = wideWindow;
-      const inWindow = [];
-      for (let k = 0; k < n; k++) {
+    let indices = [];
+    for (let k = 0; k < n; k++) {
+      // extraRings (tidal/hazard circles) don't carry a precomputed convex
+      // array — a small polygon approximating a circle is fully convex
+      // anyway, so treat a missing array as "every vertex counts".
+      if (convex && !convex[k]) continue;
+      if (isBlocking) { indices.push(k); continue; }
+      const [vx, vy] = ring[k];
+      if (_ptSegDistNm(vx, vy, start.lon, start.lat, end.lon, end.lat) <= CORRIDOR_NM) indices.push(k);
+    }
+    if (isBlocking && indices.length > MAX_BLOCKING_VERTS) {
+      const scored = indices.map(k => {
         const [vx, vy] = ring[k];
-        if (vx >= minLon && vx <= maxLon && vy >= minLat && vy <= maxLat) inWindow.push(k);
-      }
-      if (inWindow.length <= MAX_WIDE_VERTS) {
-        indices = inWindow;
-      } else {
-        const stride = inWindow.length / MAX_WIDE_VERTS;
-        indices = [];
-        for (let i = 0; i < MAX_WIDE_VERTS; i++) indices.push(inWindow[Math.floor(i * stride)]);
-      }
-    } else if (n <= MAX_RING_VERTS) {
-      indices = [];
-      for (let k = 0; k < n; k++) indices.push(k);
-    } else {
-      // Keep the vertices closest to the direct start->end line rather than
-      // uniformly striding across the whole ring — a uniform stride scatters
-      // the kept vertices evenly around the entire polygon, which for a large,
-      // detailed ring (e.g. a whole island's coastline) can leave nothing near
-      // where a short local route actually needs to detour, making that
-      // stretch of coastline invisible to the search even though segBlocked
-      // still (correctly) flags it as blocked.
-      const scored = [];
-      for (let k = 0; k < n; k++) {
-        const [vx, vy] = ring[k];
-        scored.push({ k, d: _ptSegDistNm(vx, vy, start.lon, start.lat, end.lon, end.lat) });
-      }
-      scored.sort((a, b) => a.d - b.d);
-      indices = scored.slice(0, MAX_RING_VERTS).map(s => s.k);
+        const [ax, ay] = ring[(k - 1 + n) % n];
+        const [bx, by] = ring[(k + 1) % n];
+        const e1x = vx - ax, e1y = vy - ay, e2x = bx - vx, e2y = by - vy;
+        const l1 = Math.hypot(e1x, e1y) || 1, l2 = Math.hypot(e2x, e2y) || 1;
+        const dot = Math.max(-1, Math.min(1, (e1x * e2x + e1y * e2y) / (l1 * l2)));
+        return { k, angle: Math.acos(dot) };  // larger = sharper turn
+      });
+      scored.sort((a, b) => b.angle - a.angle);
+      indices = scored.slice(0, MAX_BLOCKING_VERTS).map(s => s.k);
     }
     for (const k of indices) {
       const [vx, vy] = ring[k];
@@ -2811,38 +2866,52 @@ async function _autoRouteProg(start, end, onUpdate, onText = null, escalation = 
     }
   }
 
-  // On an escalation retry, give the ring actually blocking the direct line
-  // a wider local window to pick vertices from (see _addRingNodes) — sized
-  // to the route's own length so it can reach around one real
-  // peninsula/headland, nowhere near enough to pull in the whole coastline.
-  let wideWindow = null, wideRing = null;
-  if (escalation > 0) {
-    wideRing = Query.findBlockingRing(start.lon, start.lat, end.lon, end.lat);
-    if (wideRing) {
-      const directNm = Query.distanceNm(start.lon, start.lat, end.lon, end.lat);
-      const wideNm = Math.min(Math.max(directNm * 0.75, 5), 25);
-      const wCosLat = Math.cos(midLat * Math.PI / 180);
-      wideWindow = {
-        minLon: Math.min(start.lon, end.lon) - wideNm / (60 * wCosLat),
-        maxLon: Math.max(start.lon, end.lon) + wideNm / (60 * wCosLat),
-        minLat: Math.min(start.lat, end.lat) - wideNm / 60,
-        maxLat: Math.max(start.lat, end.lat) + wideNm / 60,
-      };
-    }
-  }
-
+  // All blocking rings get full tier-1 treatment in this single pass — this
+  // is what actually fixes a multi-obstacle passage (Piscataqua's 8 rings,
+  // MDI's 10): every one of them contributes its real bend points into the
+  // same shared node array, so A* can thread between all of them at once,
+  // instead of only ever getting one ring widened per retry.
+  const blockingLandRings = [];
+  const seenRings = new Set(landRingsInBox.map(e => e.ring));
   for (const entry of landRingsInBox) {
-    if (wideRing && entry.ring === wideRing) { _addRingNodes(entry, wideWindow); continue; }
-    const blocks = Query.ringBlocks(entry.ring, start.lon, start.lat, end.lon, end.lat);
-    if (blocks) { _addRingNodes(entry); continue; }
+    if (Query.ringBlocks(entry.ring, start.lon, start.lat, end.lon, end.lat)) {
+      _addRingNodes(entry, true);
+      blockingLandRings.push(entry);
+      continue;
+    }
     const d = _ptSegDistNm(entry.cx, entry.cy, start.lon, start.lat, end.lon, end.lat);
-    if (d <= CORRIDOR_NM) _addRingNodes(entry);
+    if (d <= CORRIDOR_NM) _addRingNodes(entry, false);
+  }
+  // Staggered-obstacle case: a detour around a directly-blocking ring can
+  // reveal a second obstacle that doesn't block the ORIGINAL direct line and
+  // sits outside CORRIDOR_NM of it. One bounded, non-iterative hop — pull in
+  // any land ring near each blocking ring's own extent (not a rescan; reuses
+  // the persistent index) — rather than an unbounded/iterative search. Real
+  // multi-obstacle cases are, by definition, obstacles near EACH OTHER, which
+  // is exactly what this captures.
+  const corridorLon = CORRIDOR_NM / (60 * cosLat);
+  const corridorLat = CORRIDOR_NM / 60;
+  for (const entry of blockingLandRings) {
+    const neighbors = Query.landRingsNear(
+      entry.rMinX - corridorLon, entry.rMaxX + corridorLon,
+      entry.rMinY - corridorLat, entry.rMaxY + corridorLat,
+    );
+    for (const nb of neighbors) {
+      if (seenRings.has(nb.ring)) continue;
+      seenRings.add(nb.ring);
+      _addRingNodes(nb, false);
+    }
   }
   for (const entry of extraRings) {
     const blocks = Query.ringBlocks(entry.ring, start.lon, start.lat, end.lon, end.lat);
-    if (blocks) { _addRingNodes(entry); continue; }
+    if (blocks) { _addRingNodes(entry, true); continue; }
     const d = _ptSegDistNm(entry.cx, entry.cy, start.lon, start.lat, end.lon, end.lat);
-    if (d <= EXTRA_CORRIDOR_NM) _addRingNodes(entry);
+    if (d <= EXTRA_CORRIDOR_NM) _addRingNodes(entry, false);
+  }
+
+  if (Date.now() - _profT0 > DEADLINE_MS) {
+    console.warn('[autoRoute] deadline exceeded during setup — returning straight line');
+    return [start, end];
   }
 
   console.log(`[autoRoute] setup took ${Date.now() - _profT0}ms — ${nodes.length} nodes, ${landRingsInBox.length} land rings in bbox, ${extraRings.length} extra rings`);
@@ -2895,7 +2964,6 @@ async function _autoRouteProg(start, end, onUpdate, onText = null, escalation = 
 
   let expansions = 0;
   let searchDot = null;
-  const t0 = Date.now();
 
   while (heap.length) {
     const [, curr] = hpop();
@@ -2926,6 +2994,29 @@ async function _autoRouteProg(start, end, onUpdate, onText = null, escalation = 
       }
     }
 
+    // Channel-graph edges (real charted fairway/recommended-track data) are
+    // relaxed WITHOUT segBlocked — land and channel geometry are independently
+    // digitized ENC layers with no guaranteed topological consistency, so a
+    // real, safe channel edge can spuriously fail a segBlocked check against a
+    // nearby simplified land edge at simplification tolerance. Neutral
+    // distance cost (not discounted): these edges win only when they're a
+    // genuinely feasible route the normal check would have falsely blocked,
+    // never to out-compete a real shorter, verified-clear line.
+    if (channelNodeIdxSet.has(curr) && Query.channelNeighbors) {
+      for (const nb of Query.channelNeighbors(a.lon, a.lat)) {
+        const j = channelKeyToIdx.get(nb.key);
+        if (j === undefined || closed[j]) continue;
+        const ng = gScore[curr] + Query.distanceNm(a.lon, a.lat, nb.lon, nb.lat);
+        if (ng < gScore[j]) {
+          gScore[j] = ng;
+          prev[j]   = curr;
+          const h   = Query.distanceNm(nb.lon, nb.lat, end.lon, end.lat);
+          hpush(ng + h, j);
+          if (j === 1) onUpdate(tracePath(1));
+        }
+      }
+    }
+
     if (++expansions % 20 === 0) {
       // Move a visible dot to show A* is alive and where it's searching
       if (!searchDot) {
@@ -2938,34 +3029,23 @@ async function _autoRouteProg(start, end, onUpdate, onText = null, escalation = 
       }
       if (onText) onText(`Routing… ${expansions} / ${N} nodes`);
       await delay(0);
-      if (Date.now() - t0 > 8000) {
-        console.warn('[autoRoute] time limit reached after', expansions, 'expansions');
+      if (Date.now() - _profT0 > DEADLINE_MS) {
+        console.warn('[autoRoute] deadline exceeded after', expansions, 'expansions');
         break;
       }
     }
   }
 
   if (searchDot) { searchDot.remove(); searchDot = null; }
-  console.log(`[autoRoute] A* done — ${expansions} expansions, ${N} nodes`);
+  console.log(`[autoRoute] A* done — ${expansions} expansions, ${N} nodes, ${Date.now() - _profT0}ms total`);
 
   if (gScore[1] === INF) {
-    // The default search only looks CORRIDOR_NM/PAD_NM around the direct
-    // line — enough for a local detour (an island, a headland) but not for
-    // routing all the way around a whole peninsula (Route 51 / Mount Desert
-    // Island: the direct line cuts across the island, and the only way
-    // through is via the southern tip, well outside the default window).
-    // One escalation retry gives just the ring actually blocking the line a
-    // wider local vertex window (see wideWindow above) rather than
-    // widening the whole search — an earlier attempt at picking a single
-    // hand-picked "via waypoint" from that wider window instead of feeding
-    // it to A* directly turned out unreliable (verified on the real Route
-    // 51 waypoints: it still failed, and took 2 minutes doing so) — letting
-    // A* itself route through the real local vertices is more robust.
-    // Capped at one retry so a genuinely unroutable case still terminates.
-    if (escalation === 0) {
-      if (onText) onText('Routing… trying a wider local search');
-      return await _autoRouteProg(start, end, onUpdate, onText, escalation + 1);
-    }
+    // Convex-vertex selection (see _addRingNodes above) already includes
+    // every blocking ring's real bend points in this one pass — no retry, no
+    // hand-picked via-waypoint fallback. If A* still can't connect start to
+    // end within DEADLINE_MS, it's a genuinely unroutable case (or one that
+    // needs a manual waypoint) — return the honest straight-line fallback,
+    // never a partial/unverified path.
     console.warn('[autoRoute] no path found — returning straight line');
     return [start, end];
   }
@@ -3020,12 +3100,26 @@ async function _reRouteSegments(pts, onProgress, onText) {
   let fallbacks = 0;
   const fallbackSegs = [];  // {a,b} of each leg that couldn't avoid land — lets the
                              // caller point the user at exactly where to add a waypoint
+  // Each leg has its own DEADLINE_MS (5s) budget inside _autoRouteProg, but a
+  // many-leg re-route had no OVERALL cap — a dozen legs could legitimately
+  // run a minute-plus with no way for the caller to know. Cap the running
+  // total; once crossed, remaining legs go straight to the honest
+  // straight-line fallback instead of spending their own budget too.
+  const legCount = pts.length - 1;
+  const overallDeadlineMs = Math.min(5000 * legCount, 20000);
+  const _reRouteT0 = Date.now();
   for (let i = 0; i < pts.length - 1; i++) {
     const segLabel = pts.length > 2 ? `Seg ${i + 1}/${pts.length - 1}: ` : '';
-    const sub = await _autoRouteProg(pts[i], pts[i + 1],
-      (path) => { if (onProgress) onProgress([...result, ...path.slice(1)]); },
-      (t)    => { if (onText) onText(segLabel + t); }
-    );
+    let sub;
+    if (Date.now() - _reRouteT0 > overallDeadlineMs) {
+      console.warn('[reRouteSegments] overall deadline exceeded — remaining legs left as straight lines');
+      sub = [pts[i], pts[i + 1]];
+    } else {
+      sub = await _autoRouteProg(pts[i], pts[i + 1],
+        (path) => { if (onProgress) onProgress([...result, ...path.slice(1)]); },
+        (t)    => { if (onText) onText(segLabel + t); }
+      );
+    }
     if (sub.length <= 2) { fallbacks++; fallbackSegs.push({ a: pts[i], b: pts[i + 1] }); }
     result.push(...sub.slice(1));
     if (onProgress) onProgress([...result]);
@@ -5594,6 +5688,30 @@ function _ensureMap() {
     if (_currentArrowLayer) { _map?.removeLayer(_currentArrowLayer); _currentArrowLayer = null; }
     _navaidFilterPanel.classList.remove('open');
     _navaidFilterBtn.classList.remove('active');
+  });
+
+  // ⓘ About panel — tap either version label to see features + coverage areas
+  const _aboutPanel = document.getElementById('about-panel');
+  const _closeAbout = () => _aboutPanel.classList.remove('open');
+  _addSwipeToClose(_aboutPanel, _closeAbout, 'x', '.nf-title');
+  _makeDraggable(_aboutPanel, _aboutPanel.querySelector('.nf-title'));
+  document.getElementById('about-close').addEventListener('click', _closeAbout);
+  _map.on('click', _closeAbout);
+  function _showAboutPanel() {
+    document.getElementById('about-version').textContent = `AudioChart ${VERSION}`;
+    document.getElementById('about-features').innerHTML =
+      ABOUT_FEATURES.map(f => `<li>${f}</li>`).join('');
+    document.getElementById('about-regions').innerHTML =
+      Object.keys(CRUISE_PROFILES).map(name => `<li>${name}</li>`).join('');
+    _aboutPanel.classList.add('open');
+  }
+  document.getElementById('app-version').addEventListener('click', (e) => {
+    e.stopPropagation();
+    _showAboutPanel();
+  });
+  document.getElementById('map-version-label').addEventListener('click', (e) => {
+    e.stopPropagation();
+    _showAboutPanel();
   });
 
   // ✒ Route picker panel

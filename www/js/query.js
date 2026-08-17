@@ -51,6 +51,8 @@ let landPolygons = null;  // LNDARE polygons for line-of-sight checks
 let _landLoadPromise = null;
 export let depthZones = null;  // 'shallow area' Polygon features — always real geometry
 export let channels   = null;  // FAIRWY polygon features from ENC data
+let channelGraph = null;       // LineString edges: fairway centerlines + recommended tracks
+let _channelIndex = null;      // built once from channelGraph — see _buildChannelIndex
 export let soundings  = null;  // SOUNDG depth sounding points (thinned, ≤30m)
 export let lastBearingResult = null;   // set by bearing queries; read by map view
 export let lastCourseHazards = null;   // set by hazardsOnCourse; [{lat,lon,label,name}]
@@ -274,6 +276,15 @@ export async function loadData(lat, lon) {
         console.log(`[AC] Channels: ${channels ? channels.length : 'not found'}`);
       })
       .catch(() => {});  // optional file — no warning if absent
+  }
+  if (!channelGraph) {
+    fetch('./data/channel_graph.geojson')
+      .then(r => r.ok ? r.json() : null)
+      .then(fc => {
+        if (fc) { channelGraph = fc.features; _channelIndex = _buildChannelIndex(); }
+        console.log(`[AC] Channel graph: ${channelGraph ? channelGraph.length : 'not found'} edges`);
+      })
+      .catch(() => {});  // optional file — no warning if absent; router falls back to normal behavior
   }
   if (!soundings) {
     fetch('./data/soundings.geojson')
@@ -1127,7 +1138,40 @@ function _buildLandEdgeIndex() {
       cx += x; cy += y;
     }
     cx /= outer.length; cy /= outer.length;
-    ringMeta.set(outer, { minX, maxX, minY, maxY, cx, cy });
+
+    // Convex-vertex flags — computed once here, not per route call. A
+    // shortest path around a polygonal obstacle only ever needs to bend at a
+    // CONVEX vertex of that obstacle (a headland poking into free space); a
+    // concave vertex (a cove) is never a necessary bend point, since the taut
+    // string skips over the indentation. This is what auto-routing's node
+    // selection uses instead of an arbitrary "closest N to the line" sample
+    // (see _addRingNodes in app.js) — smaller and more correct, since it
+    // can't exclude a real far-side bend point (e.g. an island's tip) just
+    // because it happens to sit far from the direct line.
+    // n = outer.length-1: outer's last point duplicates the first (closed
+    // ring), so distinct vertices are indices 0..n-1.
+    const n = outer.length - 1;
+    const convex = new Uint8Array(n);
+    if (n >= 3) {
+      let signedArea = 0;
+      for (let k = 0; k < n; k++) {
+        const [x1, y1] = outer[k], [x2, y2] = outer[(k + 1) % n];
+        signedArea += x1 * y2 - x2 * y1;
+      }
+      // Chart data isn't guaranteed consistently wound (CW vs CCW) — compare
+      // each vertex's local turn direction against the ring's OWN overall
+      // winding rather than assuming one, same reasoning _addRingNodes
+      // already applies when it tries both offset-normal signs.
+      const areaSign = signedArea >= 0 ? 1 : -1;
+      for (let k = 0; k < n; k++) {
+        const [vx, vy] = outer[k];
+        const [ax, ay] = outer[(k - 1 + n) % n];
+        const [bx, by] = outer[(k + 1) % n];
+        const cross = (vx - ax) * (by - vy) - (vy - ay) * (bx - vx);
+        if (Math.sign(cross) === areaSign) convex[k] = 1;
+      }
+    }
+    ringMeta.set(outer, { minX, maxX, minY, maxY, cx, cy, convex });
     for (let i = 0, n = outer.length - 1; i < n; i++) {
       const x1 = outer[i][0], y1 = outer[i][1], x2 = outer[i + 1][0], y2 = outer[i + 1][1];
       const edge = {
@@ -1264,13 +1308,133 @@ export function landRingsNear(minLon, maxLon, minLat, maxLat) {
     if (seen.has(edge.ring)) continue;
     seen.add(edge.ring);
     const meta = _landIndex.ringMeta.get(edge.ring);
-    out.push({ ring: edge.ring, rMinX: meta.minX, rMaxX: meta.maxX, rMinY: meta.minY, rMaxY: meta.maxY, cx: meta.cx, cy: meta.cy });
+    out.push({ ring: edge.ring, rMinX: meta.minX, rMaxX: meta.maxX, rMinY: meta.minY, rMaxY: meta.maxY, cx: meta.cx, cy: meta.cy, convex: meta.convex });
   }
   return out;
 }
 
 export function isLandAt(lon, lat) {
   return _isLandAtIndexed(lon, lat);
+}
+
+// A place-name gazetteer entry (e.g. a town or island label) is often
+// positioned on the landmass itself, not in the water someone actually means
+// when they name it as a destination ("York Harbor" → the harbor, not the
+// village on the shore). If a nearby real anchorage/harbor/mooring feature
+// exists, that's a better destination than the literal closest wet pixel —
+// but the bundled offline data doesn't currently carry that feature class
+// anywhere, so this is forward-looking: it activates automatically if/when
+// such labels do appear (a richer regional download, a future server dataset).
+const WATER_BODY_LABELS = new Set(['harbour', 'harbor', 'marina', 'mooring', 'anchorage', 'cove']);
+
+/**
+ * Resolve a point to open water: unchanged if already water, otherwise the
+ * nearest confirmed-water spot within maxRadiusNm (preferring a nearby named
+ * harbor/anchorage/mooring feature over the literal nearest wet pixel, since
+ * that's a more useful destination than "the first patch of water past the
+ * seawall"). Returns null if no water is found within maxRadiusNm (genuinely
+ * landlocked point, or a gap in the bundled land data).
+ */
+export function findWaterNear(lon, lat, maxRadiusNm = 2.0) {
+  if (!isLandAt(lon, lat)) return { lon, lat, movedNm: 0, viaPlace: null };
+
+  let nearestBody = null, nearestBodyNm = Infinity;
+  for (const f of (namedPlaces?.features || [])) {
+    const label = (f.properties.label || '').toLowerCase();
+    if (!WATER_BODY_LABELS.has(label)) continue;
+    const [flon, flat] = f.geometry.coordinates;
+    if (isLandAt(flon, flat)) continue;
+    const d = distanceNm(lon, lat, flon, flat);
+    if (d <= maxRadiusNm && d < nearestBodyNm) { nearestBodyNm = d; nearestBody = f; }
+  }
+  if (nearestBody) {
+    const [flon, flat] = nearestBody.geometry.coordinates;
+    return { lon: flon, lat: flat, movedNm: nearestBodyNm, viaPlace: nearestBody.properties.name };
+  }
+
+  for (let r = 0.02; r <= maxRadiusNm; r += 0.02) {
+    for (let ang = 0; ang < 360; ang += 15) {
+      const rad = ang * Math.PI / 180;
+      const cv = Math.cos(lat * Math.PI / 180);
+      const tx = lon + r / (60 * cv) * Math.cos(rad);
+      const ty = lat + r / 60 * Math.sin(rad);
+      if (!isLandAt(tx, ty)) return { lon: tx, lat: ty, movedNm: r, viaPlace: null };
+    }
+  }
+  return null;
+}
+
+// ── Channel graph (fairway centerlines + recommended tracks) ──────────────
+// Built once at load time, same reasoning as _buildLandEdgeIndex: this can be
+// consulted on every auto-route call, so it shouldn't be rescanned per call.
+// Node identity is coordinate-key rounding (matches the pattern already used
+// for offline-sync dedup elsewhere in this file) — edges from independently
+// generated sources (a polygon-derived centerline vs. a recommended-track
+// LineString) that happen to share an endpoint become the same graph node.
+function _channelNodeKey(lon, lat) { return `${lat.toFixed(4)},${lon.toFixed(4)}`; }
+
+function _buildChannelIndex() {
+  const nodes = new Map();       // key -> {lon, lat}
+  const adjacency = new Map();   // key -> [{key, lon, lat}]
+  const grid = new Map();        // cell key (reuses _cellOf/_cellKey2D) -> [key]
+
+  function ensureNode(lon, lat) {
+    const key = _channelNodeKey(lon, lat);
+    if (!nodes.has(key)) {
+      nodes.set(key, { lon, lat });
+      const c = _cellKey2D(_cellOf(lon), _cellOf(lat));
+      let arr = grid.get(c);
+      if (!arr) { arr = []; grid.set(c, arr); }
+      arr.push(key);
+    }
+    return key;
+  }
+  function connect(keyA, keyB) {
+    if (keyA === keyB) return;
+    const a = nodes.get(keyA), b = nodes.get(keyB);
+    let arrA = adjacency.get(keyA); if (!arrA) { arrA = []; adjacency.set(keyA, arrA); }
+    let arrB = adjacency.get(keyB); if (!arrB) { arrB = []; adjacency.set(keyB, arrB); }
+    if (!arrA.some(n => n.key === keyB)) arrA.push({ key: keyB, lon: b.lon, lat: b.lat });
+    if (!arrB.some(n => n.key === keyA)) arrB.push({ key: keyA, lon: a.lon, lat: a.lat });
+  }
+
+  for (const f of (channelGraph || [])) {
+    const coords = f.geometry?.coordinates;
+    if (!coords || coords.length < 2) continue;
+    for (let i = 0; i < coords.length - 1; i++) {
+      const [alon, alat] = coords[i], [blon, blat] = coords[i + 1];
+      const keyA = ensureNode(alon, alat), keyB = ensureNode(blon, blat);
+      connect(keyA, keyB);
+    }
+  }
+  console.log(`[AC] Channel graph index built — ${nodes.size} nodes, ${channelGraph?.length ?? 0} edges`);
+  return { nodes, adjacency, grid };
+}
+
+/** Channel-graph nodes whose grid cell falls in the given bbox — for auto-route node collection. */
+export function channelNodesNear(minLon, maxLon, minLat, maxLat) {
+  if (!_channelIndex) return [];
+  const c0 = _cellOf(minLon), c1 = _cellOf(maxLon);
+  const r0 = _cellOf(minLat), r1 = _cellOf(maxLat);
+  const out = [];
+  for (let c = c0; c <= c1; c++) {
+    for (let r = r0; r <= r1; r++) {
+      const keys = _channelIndex.grid.get(_cellKey2D(c, r));
+      if (!keys) continue;
+      for (const key of keys) {
+        const n = _channelIndex.nodes.get(key);
+        out.push({ lon: n.lon, lat: n.lat, key });
+      }
+    }
+  }
+  return out;
+}
+
+/** Neighbors of a channel-graph node by its coordinate-derived key, or [] if not a channel node. */
+export function channelNeighbors(lon, lat) {
+  if (!_channelIndex) return [];
+  const key = _channelNodeKey(lon, lat);
+  return _channelIndex.adjacency.get(key) || [];
 }
 
 function _landBlocks(fromLon, fromLat, toLon, toLat) {

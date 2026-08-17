@@ -56,6 +56,20 @@ rockland_to_mdi:
   - US5ME26M/US5ME26M.000   # East Penobscot / MDI approach (44.27-44.82°N)
   - US5ME23M/US5ME23M.000   # East Penobscot Bay to MDI (43.97-44.29°N)
 
+# ── Piscataqua River / Portsmouth Harbor channel proof-of-concept ─────────────
+# Harbor-scale cells carrying real FAIRWY channel polygons and RECTRC/NAVLNE
+# recommended-track lines through the Portsmouth Harbor entrance (New Castle /
+# Kittery Point) — this is the passage the visibility-graph router's escalation
+# retry couldn't resolve (8 separate blocking land rings). All three cells
+# already live under the default chart_dir. Chart-only region: not a full
+# hazard/navaid/place region on its own, meant to be merged into the existing
+# bundled channels.geojson alongside Rockland's data.
+
+piscataqua_channels:
+  - US5PSMBD/US5PSMBD.000
+  - US5PSMCC/US5PSMCC.000
+  - US5PSMCD/US5PSMCD.000
+
 # ── Legacy / reference regions (not processed by default) ─────────────────────
 
 rockland_vinalhaven:

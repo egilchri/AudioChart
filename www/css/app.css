@@ -82,6 +82,7 @@ html, body {
   opacity: 0.5;
   vertical-align: middle;
   letter-spacing: 0;
+  cursor: pointer;
 }
 
 /* Status badges */
@@ -529,7 +530,7 @@ html, body {
   border-radius: 6px;
   padding: 2px 7px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.6);
-  pointer-events: none;
+  cursor: pointer;
 }
 
 /* ── Map overlays ──────────────────────────────────────────────────────────── */
@@ -1107,6 +1108,50 @@ html, body {
   gap: 6px;
 }
 #navaid-filter-panel.open { display: flex; }
+
+#about-panel {
+  display: none;
+  position: absolute;
+  bottom: 100px;
+  left: 10px;
+  z-index: 1001;
+  background: var(--dark-blue);
+  border: 1px solid var(--mid-blue);
+  border-radius: 10px;
+  padding: 10px 14px;
+  min-width: 180px;
+  max-width: 260px;
+  max-height: calc(100vh - 140px);
+  overflow-y: auto;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.7);
+  font-size: 0.85rem;
+  color: var(--text);
+  flex-direction: column;
+  gap: 4px;
+}
+#about-panel.open { display: flex; }
+#about-version {
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+.nf-sub-heading {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted, #8899aa);
+  margin: 6px 0 2px;
+}
+.about-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.about-list li { line-height: 1.4; }
 .nf-title {
   font-size: 0.75rem;
   font-weight: 700;

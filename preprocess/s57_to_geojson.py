@@ -266,6 +266,44 @@ def extract_channels(enc_path, chart_id):
     return features
 
 
+def extract_recommended_tracks(enc_path, chart_id):
+    """
+    Extract RECTRC (recommended track) and NAVLNE (navigation line) LineString
+    features — real, charted routable lines (a harbor pilot's actual approach
+    track), unlike FAIRWY which is only an area outline with no centerline.
+    Where both exist for the same passage, NAVLNE is typically the finer-grained
+    trace and RECTRC the officially-designated subset — both are kept and
+    deduped downstream (merge_charts.py) since consecutive charts' segments
+    chain together into one continuous track (e.g. Portsmouth Harbor's
+    approach, which spans US5PSMBD/US5PSMCD/US5PSMCC as separate chart cells).
+    """
+    features = []
+    layers = set(fiona.listlayers(enc_path))
+    for layer_name in ('RECTRC', 'NAVLNE'):
+        if layer_name not in layers:
+            continue
+        with fiona.open(enc_path, layer=layer_name) as src:
+            for feat in src:
+                geom = feat.get('geometry')
+                if not geom or geom['type'] != 'LineString':
+                    continue
+                props = feat['properties']
+                name = (props.get('OBJNAM') or '').strip()
+                coords = [[round(c[0], 6), round(c[1], 6)] for c in geom['coordinates']]
+                features.append({
+                    'type': 'Feature',
+                    'geometry': {'type': 'LineString', 'coordinates': coords},
+                    'properties': {
+                        'objtype': layer_name,
+                        'label': 'recommended_track',
+                        'name': name,
+                        'name_lower': name.lower(),
+                        'chart': chart_id,
+                    },
+                })
+    return features
+
+
 def process_chart(enc_path):
     chart_id = os.path.splitext(os.path.basename(enc_path))[0]
     print(f'  Processing {chart_id}...', end='', flush=True)
@@ -274,12 +312,13 @@ def process_chart(enc_path):
         places = extract_named_places(enc_path, chart_id)
         navaids = extract_navaids(enc_path, chart_id)
         channels = extract_channels(enc_path, chart_id)
+        tracks = extract_recommended_tracks(enc_path, chart_id)
         soundings = extract_soundings(enc_path, chart_id)
-        print(f' hazards={len(hazards)} places={len(places)} navaids={len(navaids)} channels={len(channels)} soundings={len(soundings)}')
-        return hazards, places, navaids, channels, soundings
+        print(f' hazards={len(hazards)} places={len(places)} navaids={len(navaids)} channels={len(channels)} tracks={len(tracks)} soundings={len(soundings)}')
+        return hazards, places, navaids, channels, tracks, soundings
     except Exception as e:
         print(f' ERROR: {e}')
-        return [], [], [], [], []
+        return [], [], [], [], [], []
 
 
 def write_geojson(features, path):
@@ -294,42 +333,63 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--region', default='rockland_to_mdi',
                         help='Region key from charts.yaml (default: rockland_to_mdi)')
+    parser.add_argument('--chart-dir', default=None,
+                        help='Override the ENC source directory (charts.yaml\'s '
+                             'global chart_dir, or a region entry\'s own chart_dir, '
+                             'still apply if this is omitted)')
     args = parser.parse_args()
 
     config_path = os.path.join(SCRIPT_DIR, 'charts.yaml')
     with open(config_path) as f:
         config = yaml.safe_load(f)
 
-    chart_dir = config['chart_dir']
     output_dir = os.path.normpath(os.path.join(SCRIPT_DIR, config['output_dir']))
-    chart_list = config.get(args.region, [])
+    region_entry = config.get(args.region)
 
-    if not chart_list:
+    if not region_entry:
         print(f'ERROR: region "{args.region}" not found in charts.yaml')
         sys.exit(1)
 
-    print(f'Processing {len(chart_list)} charts for region: {args.region}')
+    # A region entry is either a flat list of chart paths (uses the global
+    # chart_dir) or a dict {chart_dir, charts} overriding it for regions whose
+    # ENC cells live under a different local directory than the default.
+    if isinstance(region_entry, dict):
+        chart_list = region_entry.get('charts', [])
+        chart_dir = region_entry.get('chart_dir', config['chart_dir'])
+    else:
+        chart_list = region_entry
+        chart_dir = config['chart_dir']
+    if args.chart_dir:
+        chart_dir = args.chart_dir
 
-    all_hazards, all_places, all_navaids, all_channels, all_soundings = [], [], [], [], []
+    if not chart_list:
+        print(f'ERROR: region "{args.region}" has no charts listed')
+        sys.exit(1)
+
+    print(f'Processing {len(chart_list)} charts for region: {args.region} (chart_dir={chart_dir})')
+
+    all_hazards, all_places, all_navaids, all_channels, all_tracks, all_soundings = [], [], [], [], [], []
     for rel_path in chart_list:
         enc_path = os.path.join(chart_dir, rel_path)
         if not os.path.exists(enc_path):
             print(f'  SKIP (not found): {rel_path}')
             continue
-        h, p, n, c, s = process_chart(enc_path)
+        h, p, n, c, t, s = process_chart(enc_path)
         all_hazards.extend(h)
         all_places.extend(p)
         all_navaids.extend(n)
         all_channels.extend(c)
+        all_tracks.extend(t)
         all_soundings.extend(s)
 
-    print(f'\nTotals before merge: hazards={len(all_hazards)} places={len(all_places)} navaids={len(all_navaids)} channels={len(all_channels)} soundings={len(all_soundings)}')
+    print(f'\nTotals before merge: hazards={len(all_hazards)} places={len(all_places)} navaids={len(all_navaids)} channels={len(all_channels)} tracks={len(all_tracks)} soundings={len(all_soundings)}')
 
     os.makedirs(output_dir, exist_ok=True)
     write_geojson(all_hazards, os.path.join(output_dir, 'hazards_raw.geojson'))
     write_geojson(all_places, os.path.join(output_dir, 'named_places_raw.geojson'))
     write_geojson(all_navaids, os.path.join(output_dir, 'navaid_raw.geojson'))
     write_geojson(all_channels, os.path.join(output_dir, 'channels_raw.geojson'))
+    write_geojson(all_tracks, os.path.join(output_dir, 'recommended_tracks_raw.geojson'))
     write_geojson(all_soundings, os.path.join(output_dir, 'soundings_raw.geojson'))
 
     print('\nDone. Run merge_charts.py next.')
