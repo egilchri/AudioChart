@@ -189,6 +189,17 @@ function autoRoute(allRings, chGraph, start, end) {
   const bMinLon = Math.min(start.lon, end.lon) - padLon, bMaxLon = Math.max(start.lon, end.lon) + padLon;
   const bMinLat = Math.min(start.lat, end.lat) - padLat, bMaxLat = Math.max(start.lat, end.lat) + padLat;
 
+  // See app.js's matching comment: a directly-blocking ring's "every convex
+  // vertex" rule needs a geographic relevance window, not just a distance-
+  // to-LINE exemption — otherwise a huge simplified coastline ring can offer
+  // up an irrelevant sharp-angled vertex many miles off-route as a "bend
+  // point" (real bug: Portsmouth NH -> York ME routed via Newburyport MA).
+  const relevantNm = Math.min(Math.max(distanceNm(start.lon, start.lat, end.lon, end.lat) * 0.75, 5), 25);
+  const relevantLon = relevantNm / (60 * cosLat), relevantLat = relevantNm / 60;
+  const relMinLon = Math.min(start.lon, end.lon) - relevantLon, relMaxLon = Math.max(start.lon, end.lon) + relevantLon;
+  const relMinLat = Math.min(start.lat, end.lat) - relevantLat, relMaxLat = Math.max(start.lat, end.lat) + relevantLat;
+  const inRelevantWindow = (lon, lat) => lon >= relMinLon && lon <= relMaxLon && lat >= relMinLat && lat <= relMaxLat;
+
   const nodes = [start, end];
 
   const channelNodeIdxSet = new Set();
@@ -208,8 +219,8 @@ function autoRoute(allRings, chGraph, start, end) {
     let indices = [];
     for (let k = 0; k < n; k++) {
       if (convex && !convex[k]) continue;
-      if (isBlocking) { indices.push(k); continue; }
       const [vx, vy] = ring[k];
+      if (isBlocking) { if (inRelevantWindow(vx, vy)) indices.push(k); continue; }
       if (ptSegDistNm(vx, vy, start.lon, start.lat, end.lon, end.lat) <= CORRIDOR_NM) indices.push(k);
     }
     if (isBlocking && indices.length > MAX_BLOCKING_VERTS) {

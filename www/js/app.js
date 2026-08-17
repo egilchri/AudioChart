@@ -2547,6 +2547,30 @@ async function _autoRouteProg(start, end, onUpdate, onText = null) {
   const bMinLat = Math.min(start.lat, end.lat) - padLat;
   const bMaxLat = Math.max(start.lat, end.lat) + padLat;
 
+  // A directly-blocking ring's "every convex vertex" rule (see _addRingNodes)
+  // is only safe when that ring is a normal local landmass — but the bundled
+  // land data also includes a handful of enormous, simplified "whole East
+  // Coast" rings (thousands of vertices, hundreds of miles of bbox) for
+  // broad-area fallback coverage. Real bug found in production: a Portsmouth
+  // NH -> York ME route (~8nm) got routed via a vertex near Newburyport MA
+  // (~20nm off-route) because that vertex just happened to have a sharper
+  // local turn angle than the real, relevant vertices near Kittery Point on
+  // the SAME giant ring — turn-angle ranking alone has no sense of "near
+  // this route" at all. relevantNm bounds candidate vertices (from ANY
+  // ring, not just the oversized ones) to a window that scales with the
+  // route's own length — generous enough for a real local detour (an
+  // island's far side, sized like the old escalation window it replaces)
+  // but nowhere near enough to reach an irrelevant point two towns over.
+  const relevantNm = Math.min(Math.max(Query.distanceNm(start.lon, start.lat, end.lon, end.lat) * 0.75, 5), 25);
+  const relevantLon = relevantNm / (60 * cosLat), relevantLat = relevantNm / 60;
+  const relMinLon = Math.min(start.lon, end.lon) - relevantLon;
+  const relMaxLon = Math.max(start.lon, end.lon) + relevantLon;
+  const relMinLat = Math.min(start.lat, end.lat) - relevantLat;
+  const relMaxLat = Math.max(start.lat, end.lat) + relevantLat;
+  function _inRelevantWindow(lon, lat) {
+    return lon >= relMinLon && lon <= relMaxLon && lat >= relMinLat && lat <= relMaxLat;
+  }
+
   const nodes = [start, end];  // index 0 = start, 1 = end
 
   // ── Channel graph (fairway centerlines + recommended tracks) ─────────────
@@ -2811,8 +2835,12 @@ async function _autoRouteProg(start, end, onUpdate, onText = null) {
       // array — a small polygon approximating a circle is fully convex
       // anyway, so treat a missing array as "every vertex counts".
       if (convex && !convex[k]) continue;
-      if (isBlocking) { indices.push(k); continue; }
       const [vx, vy] = ring[k];
+      // "No distance-to-LINE cutoff" for a blocking ring (that's the real
+      // fix for MDI/Piscataqua-style local detours) is not the same as "no
+      // geographic relevance check at all" — a ring the size of the whole
+      // East Coast still only has a small portion actually near this route.
+      if (isBlocking) { if (_inRelevantWindow(vx, vy)) indices.push(k); continue; }
       if (_ptSegDistNm(vx, vy, start.lon, start.lat, end.lon, end.lat) <= CORRIDOR_NM) indices.push(k);
     }
     if (isBlocking && indices.length > MAX_BLOCKING_VERTS) {
