@@ -711,3 +711,19 @@ async def process_all_charts():
         elif done % 20 == 0:
             print(f'[chartdb] {done}/{total} charts checked...')
     print(f'[chartdb] Done. {new} new charts processed.')
+
+
+if __name__ == '__main__':
+    # Minimal CLI entry point — process_all_charts() previously only ran
+    # implicitly at server.py startup. It's already safe to invoke directly
+    # and re-run: the schema uses CREATE TABLE IF NOT EXISTS and upserts via
+    # INSERT OR REPLACE, so pointing this at a new region's ENC cells adds to
+    # the shared charts.db rather than needing a separate database per region.
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--chart-dir', default=None,
+                     help=f'ENC source directory to scan (default: {ENC_BASE})')
+    args = ap.parse_args()
+    if args.chart_dir:
+        ENC_BASE = os.path.expanduser(args.chart_dir)
+    asyncio.run(process_all_charts())

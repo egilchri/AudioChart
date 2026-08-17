@@ -1,0 +1,25 @@
+# Region definitions for build_regions.py (Pipeline B: charts.db -> www/data/regions/<id>.json).
+# Previously a hardcoded REGIONS dict inside build_regions.py — moved here so
+# registering a new region is a config append, not a source edit. See
+# preprocess/build_region.py for the full per-region pipeline this feeds into.
+
+penobscot-bay:
+  name: Penobscot Bay
+  lat_min: 43.8
+  lat_max: 44.8
+  lon_min: -69.6
+  lon_max: -68.0
+
+casco-bay:
+  name: Casco Bay
+  lat_min: 43.5
+  lat_max: 44.1
+  lon_min: -70.6
+  lon_max: -69.7
+
+piscataqua:
+  name: Piscataqua
+  lat_min: 42.8
+  lat_max: 43.4
+  lon_min: -71.1
+  lon_max: -70.5

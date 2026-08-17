@@ -8650,6 +8650,15 @@ async function runRouteDownload(cruiseName) {
     routeBtn.textContent = '⏳ Chart data…';
     setStatus(`Downloading ${cruiseName} chart data…`);
     try {
+      // regionId (e.g. "piscataqua") drives the land/channels/soundings
+      // path Query.loadData() reads from — a bundled default-only regionId
+      // (dataUrl with no "regions/<id>.json" match) leaves the active
+      // region unset, matching today's unchanged bundled-default behavior.
+      const regionId = profile.dataUrl.match(/regions\/([^/]+)\.json$/)?.[1];
+      if (regionId) {
+        Query.setActiveRegion(regionId);
+        await Query.prepareOfflineRegionGeometry(regionId);
+      }
       const result = await Query.prepareOfflineStatic(profile.dataUrl);
       await Query.loadData(null, null);
       dataLoaded = true;

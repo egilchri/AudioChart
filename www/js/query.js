@@ -54,6 +54,47 @@ export let channels   = null;  // FAIRWY polygon features from ENC data
 let channelGraph = null;       // LineString edges: fairway centerlines + recommended tracks
 let _channelIndex = null;      // built once from channelGraph — see _buildChannelIndex
 export let soundings  = null;  // SOUNDG depth sounding points (thinned, ≤30m)
+
+// ── Active region (Piece 2: parameterized regions) ────────────────────────
+// Land/channels/channel-graph/soundings/depth-zone-source were, until now,
+// always fetched from a single fixed top-level path — completely outside
+// the CRUISE_PROFILES/prepareOfflineStatic per-region download system, so
+// picking a non-default region silently kept serving the bundled default
+// region's geometry. The active region is None by default (the bundled
+// region, unchanged behavior/paths); setActiveRegion() switches it once a
+// user picks a CRUISE_PROFILES entry.
+const ACTIVE_REGION_KEY = 'audiochart-active-region';
+let _activeRegion = null;
+try { _activeRegion = localStorage.getItem(ACTIVE_REGION_KEY) || null; } catch (_) {}
+
+export function getActiveRegion() { return _activeRegion; }
+export function setActiveRegion(id) {
+  const next = id || null;
+  if (next === _activeRegion) return;
+  _activeRegion = next;
+  try {
+    if (_activeRegion) localStorage.setItem(ACTIVE_REGION_KEY, _activeRegion);
+    else localStorage.removeItem(ACTIVE_REGION_KEY);
+  } catch (_) {}
+  // loadData()'s land/channels/channel-graph/soundings/depth-zone fetches
+  // are each guarded by "if (!alreadyLoaded)" — without clearing the
+  // already-loaded state here, switching regions after the bundled default
+  // (or a previous region) already loaded would silently keep serving that
+  // stale geometry forever, since loadData() would see it as "already have
+  // this" and never re-fetch.
+  landPolygons = null; _landIndex = null; _landLoadPromise = null;
+  depthZones = null;
+  channels = null;
+  channelGraph = null; _channelIndex = null;
+  soundings = null;
+}
+
+// Region-scoped path for a geometry file — the bundled default region keeps
+// its exact original top-level path (zero behavior change), any other
+// active region reads from its own www/data/regions/<id>/ subdirectory.
+function _regionPath(filename) {
+  return _activeRegion ? `./data/regions/${_activeRegion}/${filename}` : `./data/${filename}`;
+}
 export let lastBearingResult = null;   // set by bearing queries; read by map view
 export let lastCourseHazards = null;   // set by hazardsOnCourse; [{lat,lon,label,name}]
 export let lastNavaidResults  = null;   // set by navaidsInRadius; [{lat,lon,label,name,colour,characteristic,brg,d}]
@@ -240,13 +281,61 @@ function _prioritiseByChartScale(zones) {
   });
 }
 
+// Fetch a geometry file for the active region: IndexedDB cache first (if a
+// non-default region is active and was previously downloaded), then a
+// region-scoped network fetch, falling back to the bundled default-region
+// file if neither succeeds — this ordering is what keeps the bundled
+// region's own behavior completely unchanged (no active region ⇒ this is
+// just "fetch ./data/<filename>", same as before) while making a real
+// downloaded region take priority once one is active. IDB key is reused
+// (not kept per-region) since the app is used in one cruising area at a
+// time, not several simultaneously.
+async function _fetchRegionGeometry(idbKey, filename) {
+  if (_activeRegion) {
+    try {
+      const cached = await idbGet(idbKey);
+      if (cached) return cached;
+    } catch (_) {}
+    try {
+      const r = await fetch(_regionPath(filename));
+      if (r.ok) {
+        const data = await r.json();
+        idbPut(idbKey, data).catch(() => {});
+        return data;
+      }
+    } catch (_) {}
+    console.warn(`[AC] ${filename} not yet downloaded for region "${_activeRegion}" — using bundled default`);
+  }
+  try {
+    const r = await fetch(`./data/${filename}`);
+    return r.ok ? r.json() : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+/** Fetch+cache the 4 region-scoped geometry files ahead of time (alongside
+ * Query.prepareOfflineStatic's point-feature download) so switching to a
+ * newly-downloaded region doesn't first show stale bundled-default geometry
+ * before the network fetch above completes. */
+export async function prepareOfflineRegionGeometry(regionId) {
+  for (const [idbKey, filename] of [
+    ['land', 'land.geojson'], ['channels', 'channels.geojson'],
+    ['channel_graph', 'channel_graph.geojson'], ['soundings', 'soundings.geojson'],
+  ]) {
+    try {
+      const r = await fetch(`./data/regions/${regionId}/${filename}`);
+      if (r.ok) await idbPut(idbKey, await r.json());
+    } catch (_) {}
+  }
+}
+
 export async function loadData(lat, lon) {
   // Land polygons and depth zones are position-independent — load once regardless of mode.
-  // Depth zones always come from the bundled hazards.geojson so we get real polygon
+  // Depth zones always come from hazards.geojson so we get real polygon
   // geometry even when the server API only returns centroid points.
   if (!landPolygons) {
-    _landLoadPromise = fetch('./data/land.geojson')
-      .then(r => r.ok ? r.json() : null)
+    _landLoadPromise = _fetchRegionGeometry('land', 'land.geojson')
       .then(land => {
         if (land) landPolygons = land;
         console.log(`[AC] Land polygons: ${landPolygons ? landPolygons.features.length : 'FAILED TO LOAD'}`);
@@ -255,8 +344,7 @@ export async function loadData(lat, lon) {
       .catch(() => console.warn('[AC] land.geojson failed to load'));
   }
   if (!depthZones) {
-    fetch('./data/hazards.geojson')
-      .then(r => r.ok ? r.json() : null)
+    _fetchRegionGeometry('hazards_polygons', 'hazards.geojson')
       .then(fc => {
         if (fc) {
           const raw = fc.features.filter(f =>
@@ -269,8 +357,7 @@ export async function loadData(lat, lon) {
       .catch(() => console.warn('[AC] hazards.geojson failed to load for depth zones'));
   }
   if (!channels) {
-    fetch('./data/channels.geojson')
-      .then(r => r.ok ? r.json() : null)
+    _fetchRegionGeometry('channels', 'channels.geojson')
       .then(fc => {
         if (fc) channels = fc.features.filter(f => f.geometry?.type !== 'Point');
         console.log(`[AC] Channels: ${channels ? channels.length : 'not found'}`);
@@ -278,8 +365,7 @@ export async function loadData(lat, lon) {
       .catch(() => {});  // optional file — no warning if absent
   }
   if (!channelGraph) {
-    fetch('./data/channel_graph.geojson')
-      .then(r => r.ok ? r.json() : null)
+    _fetchRegionGeometry('channel_graph', 'channel_graph.geojson')
       .then(fc => {
         if (fc) { channelGraph = fc.features; _channelIndex = _buildChannelIndex(); }
         console.log(`[AC] Channel graph: ${channelGraph ? channelGraph.length : 'not found'} edges`);
@@ -287,8 +373,7 @@ export async function loadData(lat, lon) {
       .catch(() => {});  // optional file — no warning if absent; router falls back to normal behavior
   }
   if (!soundings) {
-    fetch('./data/soundings.geojson')
-      .then(r => r.ok ? r.json() : null)
+    _fetchRegionGeometry('soundings', 'soundings.geojson')
       .then(fc => {
         if (fc) soundings = fc;
         console.log(`[AC] Soundings: ${soundings ? soundings.features.length : 'not found'}`);
@@ -409,9 +494,14 @@ export async function prepareOfflineStatic(dataUrl) {
     await idbPut(idbKey, { type: 'FeatureCollection', features: [...existingFeatures, ...added] });
   }
   const stored = await Promise.all(pairs.map(([k]) => idbGet(k).then(fc => (fc?.features || []).length)));
-  // Record the current data version so the freshness check passes after download
+  // Record the current data version so the freshness check passes after
+  // download — per-region (matching merge_charts.py --region's own
+  // data-version.json) when dataUrl points at a regions/<id>.json bundle,
+  // else the bundled default region's original global path, unchanged.
   try {
-    const vr = await fetch('./data/data-version.json');
+    const regionId = dataUrl.match(/regions\/([^/]+)\.json$/)?.[1];
+    const versionUrl = regionId ? `./data/regions/${regionId}/data-version.json` : './data/data-version.json';
+    const vr = await fetch(versionUrl);
     if (vr.ok) await idbPut('data-version', (await vr.json()).version);
   } catch (_) {}
   return { added: data.count, total: stored.reduce((a, b) => a + b, 0) };

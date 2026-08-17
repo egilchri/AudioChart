@@ -11,29 +11,35 @@ Strategy:
   - Drop slivers smaller than 2e-7 sq-degrees (~42 m × 42 m at 44°N).
 
 Usage:
-    python3 preprocess/extract_land.py
+    python3 preprocess/extract_land.py [--chart-dir DIR] [--bbox minlat,maxlat,minlon,maxlon]
+                                        [--out PATH | --region ID]
 Output:
-    www/data/land.geojson
+    www/data/land.geojson by default, or www/data/regions/<ID>/land.geojson
+    with --region, or an explicit --out path.
 """
 
-import json, os, sys, math
+import argparse, json, os, sys, math
 
 try:
     from osgeo import ogr
 except ImportError:
     sys.exit('GDAL/OGR not found.  pip install gdal')
 
-ENC_BASE = os.path.expanduser('~/Documents/Charts/ENC/US_ME')
-OUT_PATH = os.path.join(os.path.dirname(__file__), '../www/data/land.geojson')
-
-MIN_LAT, MAX_LAT = 43.0, 47.5
-MIN_LON, MAX_LON = -71.5, -66.0
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_ENC_BASE = os.path.expanduser('~/Documents/Charts/ENC/US_ME')
+DEFAULT_OUT_PATH = os.path.join(SCRIPT_DIR, '../www/data/land.geojson')
+DEFAULT_BBOX = (43.0, 47.5, -71.5, -66.0)  # minlat, maxlat, minlon, maxlon
 
 SIMPLIFY_DEG  = 0.0005  # ~55 m — enough detail to catch narrow peninsulas & small islands
 MIN_AREA_DEG2 = 2e-7    # drop slivers < ~0.18 ha (~42m × 42m at 44°N)
 DEDUP_CELL    = 0.003   # 0.003° grid (~330 m) for centroid deduplication
 
 ogr.UseExceptions()
+
+# Set by main() from parsed args — bbox_ok() reads these as module globals
+# rather than a closure so the rest of the file (unchanged logic) doesn't
+# need to be threaded with an extra parameter.
+MIN_LAT = MAX_LAT = MIN_LON = MAX_LON = None
 
 
 # ── Geometry helpers ──────────────────────────────────────────────────────────
@@ -104,9 +110,34 @@ def chart_scale_priority(dirname):
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
+    global MIN_LAT, MAX_LAT, MIN_LON, MAX_LON
+
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--chart-dir', default=DEFAULT_ENC_BASE,
+                     help=f'ENC source directory (default: {DEFAULT_ENC_BASE})')
+    ap.add_argument('--bbox', default=None,
+                     help='minlat,maxlat,minlon,maxlon (default: the bundled Maine-coast bbox)')
+    ap.add_argument('--out', default=None, help='Output path (default: www/data/land.geojson)')
+    ap.add_argument('--region', default=None,
+                     help='Shorthand for --out www/data/regions/<region>/land.geojson')
+    args = ap.parse_args()
+
+    enc_base = os.path.expanduser(args.chart_dir)
+    if args.bbox:
+        MIN_LAT, MAX_LAT, MIN_LON, MAX_LON = (float(x) for x in args.bbox.split(','))
+    else:
+        MIN_LAT, MAX_LAT, MIN_LON, MAX_LON = DEFAULT_BBOX
+
+    if args.out:
+        out_path = args.out
+    elif args.region:
+        out_path = os.path.join(SCRIPT_DIR, '../www/data/regions', args.region, 'land.geojson')
+    else:
+        out_path = DEFAULT_OUT_PATH
+
     enc_dirs = sorted(
-        d for d in os.listdir(ENC_BASE)
-        if os.path.isdir(os.path.join(ENC_BASE, d)) and d.startswith('US')
+        d for d in os.listdir(enc_base)
+        if os.path.isdir(os.path.join(enc_base, d)) and d.startswith('US')
     )
     enc_dirs.sort(key=chart_scale_priority)
 
@@ -115,7 +146,7 @@ def main():
     skipped_dup = skipped_tiny = 0
 
     for enc_dir in enc_dirs:
-        dir_path = os.path.join(ENC_BASE, enc_dir)
+        dir_path = os.path.join(enc_base, enc_dir)
         for fname in sorted(os.listdir(dir_path)):
             if not fname.endswith('.000'):
                 continue
@@ -169,12 +200,12 @@ def main():
     print(f'\nSkipped {skipped_dup} duplicates, {skipped_tiny} slivers')
 
     geojson = {'type': 'FeatureCollection', 'features': features}
-    os.makedirs(os.path.dirname(OUT_PATH), exist_ok=True)
-    with open(OUT_PATH, 'w') as f:
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    with open(out_path, 'w') as f:
         json.dump(geojson, f, separators=(',', ':'))
 
-    size_kb = os.path.getsize(OUT_PATH) // 1024
-    print(f'Wrote {len(features)} polygons → {OUT_PATH} ({size_kb} KB)')
+    size_kb = os.path.getsize(out_path) // 1024
+    print(f'Wrote {len(features)} polygons → {out_path} ({size_kb} KB)')
 
 
 if __name__ == '__main__':

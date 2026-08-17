@@ -152,24 +152,57 @@ The server listens on port 10112 and broadcasts `$GPRMC` sentences at 1 Hz when 
 ## Building static regional data (developer workflow)
 
 Pre-built regional files let the hosted app work offline without a server.
+The bundled default region (mid-coast Maine, Rockland to Mount Desert
+Island — `rockland_to_mdi` in `preprocess/charts.yaml`) is built with each
+script's bare invocation (no `--region` flag), writing straight to the
+top-level `www/data/` files:
 
 ```bash
-# 1. Make sure charts.db is current
-python3 server/server.py  # wait for chart processing to finish, then Ctrl+C
-
-# 2. Build regional GeoJSON files
-python3 preprocess/build_regions.py
+python3 preprocess/s57_to_geojson.py       # raw extraction from ~/Documents/Charts/ENC/US_ME
+python3 preprocess/backfill_light_names.py # patch in real light names from OSM
+python3 preprocess/merge_charts.py         # dedupe, write hazards/named_places/navaid/channels/
+                                            # recommended_tracks/soundings/chart_bounds.geojson + data-version.json
+python3 preprocess/extract_land.py         # write land.geojson
+python3 preprocess/build_channel_graph.py  # derive channel_graph.geojson from channels + tracks
 ```
 
-This writes:
-- `www/data/regions/penobscot-bay.json` — full Penobscot Bay dataset with magvar
-- `www/data/regions/casco-bay.json` — full Casco Bay dataset
-- `www/data/regions/piscataqua.json` — Portsmouth NH / Kittery ME area (uses NOAA NH ENC charts from `~/Documents/Charts/ENC/US_NH/`)
-- Updates `www/data/hazards.geojson`, `named_places.geojson`, `navaid.geojson` (static fallbacks, sourced from Penobscot Bay)
+Separately, `www/data/regions/<id>.json` files (the per-region bundles
+`CRUISE_PROFILES`/`prepareOfflineStatic` actually download at runtime —
+point-feature hazards/places/navaids/restrictions + magvar, no land/channel
+geometry) come from a second pipeline over `server/charts.db`:
 
-Run this whenever ENC charts are updated, then commit and push. GitHub Actions deploys automatically.
+```bash
+python3 server/chartdb.py                  # scan ENC cells into charts.db (additive/idempotent)
+python3 preprocess/build_regions.py        # rebuild every region in preprocess/regions.yaml
+```
 
-**Adding a new region:** Edit `REGIONS` dict in `preprocess/build_regions.py` and add a matching entry to `CRUISE_PROFILES` in `www/js/app.js`.
+Run either whenever ENC charts are updated, then commit and push — GitHub
+Actions deploys the `www/` directory as-is, no build step.
+
+**Adding a genuinely new region** (e.g. a Pacific-coast area with no
+coastline overlap with the bundled default): use the parameterized
+orchestrator, given NOAA ENC `.000` chart cells already downloaded locally
+for that area (sourcing them is a manual prerequisite, same as the bundled
+Maine data already assumes):
+
+```bash
+python3 preprocess/build_region.py <region-id> \
+  --chart-dir ~/Documents/Charts/ENC/US_CA \
+  --bbox minlat,maxlat,minlon,maxlon \
+  --name "Display Name"
+```
+
+This runs the full pipeline (extraction → merge → channel graph → land →
+`charts.db` upsert → regional JSON bundle → validation) and writes
+`www/data/regions/<region-id>/{hazards,named_places,navaid,channels,
+recommended_tracks,soundings,land,channel_graph,chart_bounds,
+data-version}.geojson/.json` plus `www/data/regions/<region-id>.json`,
+without touching the bundled default region's files at all. It prints a
+ready-to-paste `CRUISE_PROFILES` entry — add that to `www/js/app.js`
+(`dataUrl` + a hand-picked `stops` list; no stop/marina auto-discovery),
+then commit `www/data/regions/<region-id>/`,
+`www/data/regions/<region-id>.json`, `preprocess/charts.yaml`, and
+`preprocess/regions.yaml`, and push.
 
 ---
 

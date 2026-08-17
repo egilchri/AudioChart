@@ -152,13 +152,25 @@ def main():
                     help='Print matches without writing files')
     ap.add_argument('--radius', type=float, default=MATCH_RADIUS_M,
                     help=f'Match radius in metres (default: {MATCH_RADIUS_M})')
+    ap.add_argument('--region', default='rockland_to_mdi',
+                    help='Region key matching the raw-file prefix s57_to_geojson.py used '
+                         '(default: rockland_to_mdi, the bundled default region — unprefixed files)')
+    ap.add_argument('--bbox', default=None,
+                    help='minlat,maxlat,minlon,maxlon — use this for the Overpass query instead of '
+                         'deriving one from navaid coordinates. Deriving it is fragile: a single '
+                         'broad-scale safety-fairway chart (e.g. a US2-series "Nantucket to Ambrose" '
+                         'style cell) can pull a stray navaid feature hundreds of miles away, which '
+                         'blows the bbox up to most of the East Coast and reliably times out against '
+                         'the Overpass API — pass --bbox (the same one given to build_region.py) to '
+                         'sidestep this entirely.')
     args = ap.parse_args()
 
     radius_m = args.radius
+    prefix = '' if args.region == 'rockland_to_mdi' else f'{args.region}_'
 
     # Load raw navaid data
-    navaid_path = os.path.join(DATA_DIR, 'navaid_raw.geojson')
-    places_path = os.path.join(DATA_DIR, 'named_places_raw.geojson')
+    navaid_path = os.path.join(DATA_DIR, f'{prefix}navaid_raw.geojson')
+    places_path = os.path.join(DATA_DIR, f'{prefix}named_places_raw.geojson')
     navaid_fc   = load_geojson(navaid_path)
     places_fc   = load_geojson(places_path)
 
@@ -170,8 +182,15 @@ def main():
     ]
     print(f'Unnamed LIGHTS in navaid_raw: {len(unnamed_lights)} of {len(navaids)} total navaids')
 
-    # Bounding box from the navaid data
-    minlat, minlon, maxlat, maxlon = bbox_from_navaids(navaids)
+    # Bounding box: prefer an explicit --bbox (see its help text for why the
+    # derived-from-navaids fallback is fragile); fall back to deriving one
+    # from the navaid data for the bundled default region's existing usage.
+    if args.bbox:
+        minlat, maxlat, minlon, maxlon = (float(x) for x in args.bbox.split(','))
+        pad = 0.05
+        minlat, minlon, maxlat, maxlon = minlat - pad, minlon - pad, maxlat + pad, maxlon + pad
+    else:
+        minlat, minlon, maxlat, maxlon = bbox_from_navaids(navaids)
 
     # Fetch OSM data
     osm_elements = fetch_osm(minlat, minlon, maxlat, maxlon)

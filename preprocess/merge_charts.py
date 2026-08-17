@@ -8,8 +8,9 @@ Pipeline order:
   2. python3 backfill_light_names.py — add names from NGA + manual overrides
   3. python3 merge_charts.py         — deduplicate and write final www/data/ files
 
-Usage: python3 merge_charts.py
+Usage: python3 merge_charts.py [--region ID]
 """
+import argparse
 import hashlib
 import json
 import math
@@ -90,7 +91,7 @@ def deduplicate_places(features):
     return kept
 
 
-def clip_shallow_to_water(hazards):
+def clip_shallow_to_water(hazards, out_dir):
     """Subtract land geometry from 'shallow area' polygons.
 
     The chart's DEPARE depth bands are bounded by the low-water line, while
@@ -98,8 +99,14 @@ def clip_shallow_to_water(hazards):
     overlap in the foreshore/intertidal strip. That makes the depth overlay
     visually bleed onto what looks like dry land. Clipping to the charted
     shoreline keeps the rendered zones from spilling past the coastline.
+
+    land.geojson comes from extract_land.py, which runs AFTER this script in
+    the pipeline (see build_region.py) — so on a brand-new region's first-
+    ever run this will find nothing yet and skip clipping (same graceful
+    fallback the bundled default region has always had, since land.geojson
+    there is simply whatever a previous run already produced).
     """
-    land_path = os.path.join(DATA_DIR, 'land.geojson')
+    land_path = os.path.join(out_dir, 'land.geojson')
     if not os.path.exists(land_path):
         print('  WARNING: land.geojson not found — skipping shallow-area clipping')
         return hazards
@@ -157,8 +164,8 @@ def build_chart_bounds(hazard_features):
     }
 
 
-def load_raw(name):
-    path = os.path.join(DATA_DIR, name)
+def load_raw(raw_dir, name):
+    path = os.path.join(raw_dir, name)
     if not os.path.exists(path):
         print(f'  WARNING: {path} not found — run s57_to_geojson.py first')
         return []
@@ -167,13 +174,31 @@ def load_raw(name):
     return fc.get('features', [])
 
 
-def write(features, name):
+def write(out_dir, features, name):
     fc = {'type': 'FeatureCollection', 'features': features}
-    path = os.path.join(DATA_DIR, name)
+    path = os.path.join(out_dir, name)
+    os.makedirs(out_dir, exist_ok=True)
     with open(path, 'w') as f:
         json.dump(fc, f, separators=(',', ':'))
     size_kb = os.path.getsize(path) // 1024
     print(f'  {name}: {len(features)} features, {size_kb} KB')
+
+
+def deduplicate_tracks(features):
+    """Deduplicate RECTRC/NAVLNE LineString features — chained real-track
+    segments from adjacent chart cells are expected and kept (they're
+    genuinely different edges of one connected route); this only drops exact
+    duplicate geometry, which happens when a segment sits fully inside more
+    than one overlapping chart tile."""
+    seen = set()
+    out = []
+    for f in features:
+        key = (f['properties'].get('objtype'), tuple(tuple(c) for c in f['geometry']['coordinates']))
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(f)
+    return out
 
 
 def deduplicate_channels(features):
@@ -206,14 +231,31 @@ def thin_soundings(features, cell_deg=0.003):
 
 
 def main():
-    print('Loading raw GeoJSON files...')
-    hazards = load_raw('hazards_raw.geojson')
-    places = load_raw('named_places_raw.geojson')
-    navaids = load_raw('navaid_raw.geojson')
-    channels_raw_path = os.path.join(DATA_DIR, 'channels_raw.geojson')
-    channels = load_raw('channels_raw.geojson') if os.path.exists(channels_raw_path) else []
-    soundings_raw_path = os.path.join(DATA_DIR, 'soundings_raw.geojson')
-    soundings = load_raw('soundings_raw.geojson') if os.path.exists(soundings_raw_path) else []
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--region', default='rockland_to_mdi',
+                     help='Region key matching the raw-file prefix from s57_to_geojson.py '
+                          '--region (default: rockland_to_mdi, the bundled default region — '
+                          'unprefixed raw files, output to the top-level www/data/)')
+    args = ap.parse_args()
+
+    # The bundled default region's raw/output paths are exactly what they've
+    # always been (unprefixed, top-level www/data/) — zero behavior change.
+    # Any other region reads its own prefixed raw files and writes to its own
+    # www/data/regions/<id>/ subdirectory, never touching the default's files.
+    is_default = args.region == 'rockland_to_mdi'
+    raw_prefix = '' if is_default else f'{args.region}_'
+    out_dir = DATA_DIR if is_default else os.path.join(DATA_DIR, 'regions', args.region)
+
+    print(f'Loading raw GeoJSON files for region: {args.region}...')
+    hazards = load_raw(DATA_DIR, f'{raw_prefix}hazards_raw.geojson')
+    places = load_raw(DATA_DIR, f'{raw_prefix}named_places_raw.geojson')
+    navaids = load_raw(DATA_DIR, f'{raw_prefix}navaid_raw.geojson')
+    channels_raw_path = os.path.join(DATA_DIR, f'{raw_prefix}channels_raw.geojson')
+    channels = load_raw(DATA_DIR, f'{raw_prefix}channels_raw.geojson') if os.path.exists(channels_raw_path) else []
+    tracks_raw_path = os.path.join(DATA_DIR, f'{raw_prefix}recommended_tracks_raw.geojson')
+    tracks = load_raw(DATA_DIR, f'{raw_prefix}recommended_tracks_raw.geojson') if os.path.exists(tracks_raw_path) else []
+    soundings_raw_path = os.path.join(DATA_DIR, f'{raw_prefix}soundings_raw.geojson')
+    soundings = load_raw(DATA_DIR, f'{raw_prefix}soundings_raw.geojson') if os.path.exists(soundings_raw_path) else []
 
     print(f'Raw counts: hazards={len(hazards)}, places={len(places)}, navaids={len(navaids)}')
 
@@ -221,7 +263,7 @@ def main():
     hazards = deduplicate(hazards)
 
     print('Clipping shallow-area polygons to the shoreline...')
-    hazards = clip_shallow_to_water(hazards)
+    hazards = clip_shallow_to_water(hazards, out_dir)
 
     print('Deduplicating named places...')
     places = deduplicate_places(places)
@@ -240,36 +282,44 @@ def main():
         print('Deduplicating channels...')
         channels = deduplicate_channels(channels)
 
+    if tracks:
+        print('Deduplicating recommended tracks...')
+        tracks = deduplicate_tracks(tracks)
+
     if soundings:
         print(f'Thinning soundings ({len(soundings)} → ', end='', flush=True)
         soundings = thin_soundings(soundings)
         print(f'{len(soundings)})...')
 
-    print('Writing output files...')
-    write(hazards, 'hazards.geojson')
-    write(places, 'named_places.geojson')
-    write(navaids, 'navaid.geojson')
+    print(f'Writing output files to {out_dir}...')
+    write(out_dir, hazards, 'hazards.geojson')
+    write(out_dir, places, 'named_places.geojson')
+    write(out_dir, navaids, 'navaid.geojson')
     if channels:
-        write(channels, 'channels.geojson')
+        write(out_dir, channels, 'channels.geojson')
+    if tracks:
+        write(out_dir, tracks, 'recommended_tracks.geojson')
     if soundings:
-        write(soundings, 'soundings.geojson')
+        write(out_dir, soundings, 'soundings.geojson')
 
     bounds = build_chart_bounds(hazards)
     if bounds:
-        path = os.path.join(DATA_DIR, 'chart_bounds.geojson')
+        path = os.path.join(out_dir, 'chart_bounds.geojson')
         with open(path, 'w') as f:
             json.dump(bounds, f, separators=(',', ':'))
         print(f'  chart_bounds.geojson: coverage polygon written')
 
-    # Generate a version fingerprint from the navaid + hazard file contents.
-    # Stored in data-version.json so the PWA can detect stale IndexedDB data.
+    # Generate a version fingerprint from this region's own file contents —
+    # per-region for a non-default region so the PWA's per-region IndexedDB
+    # staleness check (see query.js) is scoped correctly; the default
+    # region's data-version.json stays at its exact original top-level path.
     digest_input = b''
     for name in ('navaid.geojson', 'hazards.geojson', 'named_places.geojson'):
-        p = os.path.join(DATA_DIR, name)
+        p = os.path.join(out_dir, name)
         with open(p, 'rb') as f:
             digest_input += f.read()
     version = hashlib.sha256(digest_input).hexdigest()[:16]
-    version_path = os.path.join(DATA_DIR, 'data-version.json')
+    version_path = os.path.join(out_dir, 'data-version.json')
     with open(version_path, 'w') as f:
         json.dump({'version': version}, f)
     print(f'  data-version.json: {version}')

@@ -385,12 +385,18 @@ def main():
     print(f'\nTotals before merge: hazards={len(all_hazards)} places={len(all_places)} navaids={len(all_navaids)} channels={len(all_channels)} tracks={len(all_tracks)} soundings={len(all_soundings)}')
 
     os.makedirs(output_dir, exist_ok=True)
-    write_geojson(all_hazards, os.path.join(output_dir, 'hazards_raw.geojson'))
-    write_geojson(all_places, os.path.join(output_dir, 'named_places_raw.geojson'))
-    write_geojson(all_navaids, os.path.join(output_dir, 'navaid_raw.geojson'))
-    write_geojson(all_channels, os.path.join(output_dir, 'channels_raw.geojson'))
-    write_geojson(all_tracks, os.path.join(output_dir, 'recommended_tracks_raw.geojson'))
-    write_geojson(all_soundings, os.path.join(output_dir, 'soundings_raw.geojson'))
+    # Raw/staging files for any NON-default region are prefixed so a second
+    # region's run doesn't clobber the bundled default's mid-pipeline files —
+    # merge_charts.py --region <id> reads back the same prefix. The default
+    # region keeps its exact original unprefixed filenames, so the existing
+    # bundled pipeline (no --region flag anywhere) is byte-for-byte unchanged.
+    prefix = '' if args.region == 'rockland_to_mdi' else f'{args.region}_'
+    write_geojson(all_hazards, os.path.join(output_dir, f'{prefix}hazards_raw.geojson'))
+    write_geojson(all_places, os.path.join(output_dir, f'{prefix}named_places_raw.geojson'))
+    write_geojson(all_navaids, os.path.join(output_dir, f'{prefix}navaid_raw.geojson'))
+    write_geojson(all_channels, os.path.join(output_dir, f'{prefix}channels_raw.geojson'))
+    write_geojson(all_tracks, os.path.join(output_dir, f'{prefix}recommended_tracks_raw.geojson'))
+    write_geojson(all_soundings, os.path.join(output_dir, f'{prefix}soundings_raw.geojson'))
 
     print('\nDone. Run merge_charts.py next.')
 
