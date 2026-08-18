@@ -2509,8 +2509,20 @@ async function _autoRouteProg(start, end, onUpdate, onText = null) {
   // Nodes: start, end, and polygon vertices in the padded bounding box.
   // Edges are checked lazily during A* expansion.
   const PAD_NM    = 2.0;
-  const SAFETY_NM   = 0.05;  // ~100 yards — offset every vertex this far offshore
+  const SAFETY_NM   = 0.05;  // ~100 yards — kept as the hazard/tidal-ring offset floor (see HAZARD_OFFSET_LADDER); no longer used for land-ring standoff
   const CORRIDOR_NM = 3.0;   // include LAND rings within this distance of the direct line
+  // A mariner keeps land at a distance, not right at the safety minimum: try
+  // a comfortable ~0.5nm standoff first, only accepting something tighter
+  // (down to ~0.15nm/275yd) where the geometry genuinely won't allow more —
+  // e.g. island-dense or inland water. Never falls all the way to the old
+  // 100yd floor here; that tight a clearance is reserved for water a real
+  // chart has verified as a marked channel (Query.channelNeighbors' edges,
+  // which don't go through this ladder at all — they follow the charted
+  // centerline directly). Point-hazard/tidal-zone rings are a different
+  // concern (avoiding a specific charted danger, not general coastal
+  // standoff) and keep the original, unchanged ladder.
+  const COASTAL_STANDOFF_LADDER = [0.5, 0.25, 0.15];
+  const HAZARD_OFFSET_LADDER = [SAFETY_NM, SAFETY_NM * 2, SAFETY_NM * 4];
   // One honest wall-clock budget for the WHOLE call (setup + A*), not just the
   // search loop — replaces the old unbounded-setup + 8s-A*-only + up-to-2x-via-
   // escalation pattern, which could legitimately run 16s+ for one leg with no
@@ -2777,9 +2789,7 @@ async function _autoRouteProg(start, end, onUpdate, onText = null) {
   // boundary), so without this the search fails after a single, instant
   // check — which looks like the router "did nothing" rather than having
   // actually searched. Nudge a small distance to the nearest confirmed-water
-  // spot rather than fail outright; leave it alone if none is found nearby
-  // (a real, large landlocked point — the search will then correctly report
-  // no path rather than silently substituting a far-away location).
+  // spot rather than fail outright.
   const SNAP_RADIUS_NM = 0.15;
   function _snapOffLand(pt) {
     if (!_isOnLandLocal(pt.lon, pt.lat)) return pt;
@@ -2791,6 +2801,21 @@ async function _autoRouteProg(start, end, onUpdate, onText = null) {
         const ty = pt.lat + r / 60 * Math.sin(rad);
         if (!_isOnLandLocal(tx, ty)) return { lat: ty, lon: tx };
       }
+    }
+    // Still on land past SNAP_RADIUS_NM — this isn't a chart/basemap
+    // mismatch anymore, the point is genuinely inland (e.g. a waypoint
+    // dropped on a shoreline trail, not in the harbor). Confirmed real case:
+    // a point on York ME's Cliff Walk footpath, ~0.32nm from open water —
+    // just past this local search, but well within reach of a real
+    // destination. Fall back to Query.findWaterNear's wider (2nm default)
+    // search, same mechanism already used for named-destination lookups
+    // (see _drawNameDestBtn), so a start/end that's merely near the coast
+    // still gets a usable, nearby water point instead of a routing failure
+    // that looks like a bug.
+    const water = Query.findWaterNear?.(pt.lon, pt.lat);
+    if (water) {
+      console.warn(`[autoRoute] endpoint was on land — moved ${water.movedNm.toFixed(2)}nm to open water${water.viaPlace ? ` (${water.viaPlace})` : ''}`);
+      return { lat: water.lat, lon: water.lon };
     }
     return pt;
   }
@@ -2826,7 +2851,7 @@ async function _autoRouteProg(start, end, onUpdate, onText = null) {
                                     // than this, keep the sharpest headlands
                                     // (by exterior turn angle), not the
                                     // closest-to-line ones this replaces.
-  function _addRingNodes(entry, isBlocking) {
+  function _addRingNodes(entry, isBlocking, offsetLadder, checkClearance) {
     const { ring, cx, cy, convex } = entry;
     const n = ring.length - 1; // -1: skip closing duplicate vertex
     let indices = [];
@@ -2883,11 +2908,22 @@ async function _autoRouteProg(start, end, onUpdate, onText = null) {
 
       let placed = false;
       for (const [dx, dy] of candidates) {
-        for (const dist of [SAFETY_NM, SAFETY_NM * 2, SAFETY_NM * 4]) {
+        for (const dist of offsetLadder) {
           const cv = Math.cos(vy * Math.PI / 180);
           const nx = vx + dist / (60 * cv) * dx;
           const ny = vy + dist / 60 * dy;
-          if (!_isOnLandLocal(nx, ny)) { nodes.push({ lon: nx, lat: ny }); placed = true; break; }
+          if (_isOnLandLocal(nx, ny)) continue;
+          // "Not literally on land" alone isn't the same as "actually dist
+          // away from land" — the offset direction is derived from THIS
+          // vertex's own ring, but a narrow passage (e.g. a river between two
+          // close banks) can land the candidate clear of ITS ring yet still
+          // close to a different, nearby one. Confirmed as a real gap by the
+          // Piece 1c test suite (a 0.016nm-from-land node on the Portsmouth
+          // approach) before this check existed — only applied for the
+          // coastal standoff ladder (checkClearance), not the unchanged
+          // hazard/tidal-ring ladder, which never claimed a standoff distance.
+          if (checkClearance && Query.distanceToLandNm(nx, ny, dist) < dist * 0.8) continue;
+          nodes.push({ lon: nx, lat: ny }); placed = true; break;
         }
         if (placed) break;
       }
@@ -2903,12 +2939,12 @@ async function _autoRouteProg(start, end, onUpdate, onText = null) {
   const seenRings = new Set(landRingsInBox.map(e => e.ring));
   for (const entry of landRingsInBox) {
     if (Query.ringBlocks(entry.ring, start.lon, start.lat, end.lon, end.lat)) {
-      _addRingNodes(entry, true);
+      _addRingNodes(entry, true, COASTAL_STANDOFF_LADDER, true);
       blockingLandRings.push(entry);
       continue;
     }
     const d = _ptSegDistNm(entry.cx, entry.cy, start.lon, start.lat, end.lon, end.lat);
-    if (d <= CORRIDOR_NM) _addRingNodes(entry, false);
+    if (d <= CORRIDOR_NM) _addRingNodes(entry, false, COASTAL_STANDOFF_LADDER, true);
   }
   // Staggered-obstacle case: a detour around a directly-blocking ring can
   // reveal a second obstacle that doesn't block the ORIGINAL direct line and
@@ -2927,14 +2963,14 @@ async function _autoRouteProg(start, end, onUpdate, onText = null) {
     for (const nb of neighbors) {
       if (seenRings.has(nb.ring)) continue;
       seenRings.add(nb.ring);
-      _addRingNodes(nb, false);
+      _addRingNodes(nb, false, COASTAL_STANDOFF_LADDER, true);
     }
   }
   for (const entry of extraRings) {
     const blocks = Query.ringBlocks(entry.ring, start.lon, start.lat, end.lon, end.lat);
-    if (blocks) { _addRingNodes(entry, true); continue; }
+    if (blocks) { _addRingNodes(entry, true, HAZARD_OFFSET_LADDER); continue; }
     const d = _ptSegDistNm(entry.cx, entry.cy, start.lon, start.lat, end.lon, end.lat);
-    if (d <= EXTRA_CORRIDOR_NM) _addRingNodes(entry, false);
+    if (d <= EXTRA_CORRIDOR_NM) _addRingNodes(entry, false, HAZARD_OFFSET_LADDER);
   }
 
   if (Date.now() - _profT0 > DEADLINE_MS) {

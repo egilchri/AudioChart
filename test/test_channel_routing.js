@@ -180,6 +180,12 @@ function channelNodesNear(chGraph, minLon, maxLon, minLat, maxLat) {
 // call. Point-hazard/tidal obstacles are intentionally omitted (see header).
 
 const PAD_NM = 2.0, SAFETY_NM = 0.05, CORRIDOR_NM = 3.0, MAX_BLOCKING_VERTS = 300;
+// Mirrors app.js's Piece 1c split: land rings get a comfortable-standoff-
+// first ladder (mariner keeps distance from land), hazard/tidal rings keep
+// the original tight ladder (avoiding a specific charted danger, not general
+// coastal standoff).
+const COASTAL_STANDOFF_LADDER = [0.5, 0.25, 0.15];
+const HAZARD_OFFSET_LADDER = [SAFETY_NM, SAFETY_NM * 2, SAFETY_NM * 4];
 
 function autoRoute(allRings, chGraph, start, end) {
   const t0 = Date.now();
@@ -213,7 +219,29 @@ function autoRoute(allRings, chGraph, start, end) {
 
   const landRingsInBox = landRingsNear(allRings, bMinLon, bMaxLon, bMinLat, bMaxLat);
 
-  function addRingNodes(entry, isBlocking) {
+  // Mirrors query.js's Query.distanceToLandNm (Piece 1c) — bbox-rejects rings
+  // and edges outside the search radius first, so this stays cheap enough to
+  // call once per candidate offset point despite the flat (non-indexed) ring
+  // scan this test harness otherwise uses.
+  function distanceToLandNm(lon, lat, maxSearchNm) {
+    const cv = Math.cos(lat * Math.PI / 180) || 1e-9;
+    const padLon = maxSearchNm / (60 * cv), padLat = maxSearchNm / 60;
+    const minX = lon - padLon, maxX = lon + padLon, minY = lat - padLat, maxY = lat + padLat;
+    let best = Infinity;
+    for (const r of allRings) {
+      if (r.rMaxX < minX || r.rMinX > maxX || r.rMaxY < minY || r.rMinY > maxY) continue;
+      const ring = r.ring;
+      for (let i = 0; i < ring.length - 1; i++) {
+        const [x1, y1] = ring[i], [x2, y2] = ring[i + 1];
+        if (Math.max(x1, x2) < minX || Math.min(x1, x2) > maxX || Math.max(y1, y2) < minY || Math.min(y1, y2) > maxY) continue;
+        const d = ptSegDistNm(lon, lat, x1, y1, x2, y2);
+        if (d < best) best = d;
+      }
+    }
+    return best;
+  }
+
+  function addRingNodes(entry, isBlocking, offsetLadder, checkClearance) {
     const { ring, cx, cy, convex } = entry;
     const n = ring.length - 1;
     let indices = [];
@@ -252,11 +280,13 @@ function autoRoute(allRings, chGraph, start, end) {
       const candidates = [[lnx, lny], [-lnx, -lny], [cnx, cny], [-cnx, -cny]];
       let placed = false;
       for (const [dx, dy] of candidates) {
-        for (const dist of [SAFETY_NM, SAFETY_NM * 2, SAFETY_NM * 4]) {
+        for (const dist of offsetLadder) {
           const cv = Math.cos(vy * Math.PI / 180);
           const nx = vx + dist / (60 * cv) * dx;
           const ny = vy + dist / 60 * dy;
-          if (!isOnLand(allRings, nx, ny)) { nodes.push({ lon: nx, lat: ny }); placed = true; break; }
+          if (isOnLand(allRings, nx, ny)) continue;
+          if (checkClearance && distanceToLandNm(nx, ny, dist) < dist * 0.8) continue;
+          nodes.push({ lon: nx, lat: ny }); placed = true; break;
         }
         if (placed) break;
       }
@@ -284,12 +314,12 @@ function autoRoute(allRings, chGraph, start, end) {
   const seenRings = new Set(landRingsInBox.map(e => e.ring));
   for (const entry of landRingsInBox) {
     if (ringBlocks(entry.ring, start.lon, start.lat, end.lon, end.lat)) {
-      addRingNodes(entry, true);
+      addRingNodes(entry, true, COASTAL_STANDOFF_LADDER, true);
       blockingLandRings.push(entry);
       continue;
     }
     const d = ptSegDistNm(entry.cx, entry.cy, start.lon, start.lat, end.lon, end.lat);
-    if (d <= CORRIDOR_NM) addRingNodes(entry, false);
+    if (d <= CORRIDOR_NM) addRingNodes(entry, false, COASTAL_STANDOFF_LADDER, true);
   }
   const corridorLon = CORRIDOR_NM / (60 * cosLat), corridorLat = CORRIDOR_NM / 60;
   for (const entry of blockingLandRings) {
@@ -301,7 +331,7 @@ function autoRoute(allRings, chGraph, start, end) {
     for (const nb of neighbors) {
       if (seenRings.has(nb.ring)) continue;
       seenRings.add(nb.ring);
-      addRingNodes(nb, false);
+      addRingNodes(nb, false, COASTAL_STANDOFF_LADDER, true);
     }
   }
 
@@ -381,6 +411,23 @@ function pathCrossesLand(allRings, points) {
     if (landBlocks(allRings, points[i].lon, points[i].lat, points[i + 1].lon, points[i + 1].lat)) return true;
   }
   return false;
+}
+
+// Concrete, checkable version of "stays off the coast" (Piece 1c) — not just
+// "doesn't cross land". Only meaningful for a point actually offset off a
+// land-ring vertex by _addRingNodes (a raw start/end or a channel-graph node
+// can legitimately sit closer to shore, e.g. a pier or a charted channel).
+function minDistToLandNm(allRings, lon, lat) {
+  let best = Infinity;
+  for (const r of allRings) {
+    const ring = r.ring;
+    for (let i = 0; i < ring.length - 1; i++) {
+      const [x1, y1] = ring[i], [x2, y2] = ring[i + 1];
+      const d = ptSegDistNm(lon, lat, x1, y1, x2, y2);
+      if (d < best) best = d;
+    }
+  }
+  return best;
 }
 
 // ── Certification suite ────────────────────────────────────────────────────────
@@ -466,6 +513,36 @@ function run() {
     const start = { lat: 44.3995406, lon: -68.1998858 };
     const end   = { lat: 44.2415486, lon: -68.4848074 };
     if (!report('[5] Fallback safety (no channel data)', allRings, emptyGraph, start, end)) failures++;
+  }
+
+  // Case 6 — Piece 1c coastal standoff: Portsmouth -> York again, this time
+  // asserting the path's intermediate (non-endpoint, non-channel-node) points
+  // each keep a reasonable distance off land — the concrete, checkable
+  // version of "stay off the coast" per the user's mariner framing ("100
+  // yards is way too close, unless it's a properly marked channel"). Real
+  // charted channel nodes (Piece 1a) are exempt — they follow a verified-safe
+  // centerline directly, not this offset ladder. A small tolerance below the
+  // ladder's 0.15nm floor allows for real chart curvature/rounding, not a
+  // fixed exact bound.
+  {
+    const start = { lat: 43.08077, lon: -70.757141 };
+    const end   = { lat: 43.129213, lon: -70.632961 };
+    const { path, fallback } = autoRoute(allRings, chGraph, start, end);
+    const crosses = pathCrossesLand(allRings, path);
+    const chanKeySet = new Set(chGraph.nodes.keys());
+    const isChannelPoint = p => chanKeySet.has(nodeKey(p.lon, p.lat));
+    const STANDOFF_TOLERANCE_NM = 0.03;
+    let worst = Infinity, worstPt = null;
+    for (let i = 1; i < path.length - 1; i++) {
+      const p = path[i];
+      if (isChannelPoint(p)) continue;
+      const d = minDistToLandNm(allRings, p.lon, p.lat);
+      if (d < worst) { worst = d; worstPt = p; }
+    }
+    const standoffOk = worst === Infinity || worst >= (0.15 - STANDOFF_TOLERANCE_NM);
+    const ok = !fallback && !crosses && standoffOk;
+    console.log(`[6] Portsmouth pier -> York Harbor (coastal standoff): ${ok ? 'PASS' : 'FAIL'} (fallback=${fallback}, crossesLand=${crosses}, worst non-channel standoff=${worst === Infinity ? 'n/a' : worst.toFixed(3) + 'nm'}${worstPt ? ` at ${worstPt.lat.toFixed(5)},${worstPt.lon.toFixed(5)}` : ''})`);
+    if (!ok) failures++;
   }
 
   console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll cases passed.');

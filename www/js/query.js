@@ -1407,6 +1407,37 @@ export function isLandAt(lon, lat) {
   return _isLandAtIndexed(lon, lat);
 }
 
+function _ptSegDistNmLocal(ptLon, ptLat, aLon, aLat, bLon, bLat) {
+  const dx = bLon - aLon, dy = bLat - aLat;
+  const len2 = dx * dx + dy * dy;
+  if (len2 < 1e-12) return distanceNm(ptLon, ptLat, aLon, aLat);
+  const t = Math.max(0, Math.min(1, ((ptLon - aLon) * dx + (ptLat - aLat) * dy) / len2));
+  return distanceNm(ptLon, ptLat, aLon + t * dx, aLat + t * dy);
+}
+
+/**
+ * Distance (nm) from (lon,lat) to the nearest land-ring edge within
+ * maxSearchNm, or Infinity if nothing is that close. Index-backed (reuses
+ * the same edge-level grid _landBlocksIndexed/landRingsNear use), so this
+ * only walks edges near the query point — not whole rings — making it cheap
+ * enough to call once per candidate offset point during auto-route node
+ * placement (see _addRingNodes' COASTAL_STANDOFF_LADDER use in app.js),
+ * unlike a per-A*-edge check which would be too hot a path for this.
+ */
+export function distanceToLandNm(lon, lat, maxSearchNm) {
+  if (!_landIndex) return Infinity;
+  const cv = Math.cos(lat * Math.PI / 180) || 1e-9;
+  const padLon = maxSearchNm / (60 * cv), padLat = maxSearchNm / 60;
+  _idxQueryId++;
+  const edges = _gatherCells(_landIndex.grid2D, lon - padLon, lon + padLon, lat - padLat, lat + padLat, _idxQueryId);
+  let best = Infinity;
+  for (const edge of edges) {
+    const d = _ptSegDistNmLocal(lon, lat, edge.x1, edge.y1, edge.x2, edge.y2);
+    if (d < best) best = d;
+  }
+  return best;
+}
+
 // A place-name gazetteer entry (e.g. a town or island label) is often
 // positioned on the landmass itself, not in the water someone actually means
 // when they name it as a destination ("York Harbor" → the harbor, not the
