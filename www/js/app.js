@@ -2153,7 +2153,18 @@ async function _onDrawConfirm() {
   routes.push(_stampNew({ name, points: pts.map(p => ({ lat: p.lat, lon: p.lon })) }));
   localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
   _populateRouteSelectFn?.();
-  _enterEditMode(routes.length - 1);
+  // A fallback here (autoRoute gave up and returned the raw straight line)
+  // was previously silent — this is the PRIMARY "auto-route to here" entry
+  // point, unlike _reRouteSegments' callers, which already show
+  // _showRouteFallbackWarning for exactly this case. A real gap: the user
+  // draws a route, waits, and gets a straight line across land saved with
+  // zero indication anything went wrong. Only a genuine fallback counts —
+  // 2 points alone isn't enough, since a direct line that's ALREADY clear
+  // (no avoidance needed, e.g. Piece 1d's long-range fast path) also
+  // legitimately returns exactly 2 points.
+  const fellBack = pts.length <= 2 && Query.landBlocks(pts[0].lon, pts[0].lat, pts[1].lon, pts[1].lat);
+  const found = _enterEditMode(routes.length - 1);
+  if (fellBack && !found.length) _showRouteFallbackWarning([{ a: pts[0], b: pts[1] }]);
 }
 
 function _onDrawMouseMove(latlng) {
@@ -6923,9 +6934,16 @@ function _ensureMap() {
 
     _populateRouteSelectFn?.();
     _clearAutoRoute();
+    // Same gap as _onDrawConfirm: this entry point previously spoke "X
+    // planned" via TTS even when autoRoute had silently given up and
+    // returned the raw straight line — actively announcing false success,
+    // worse than staying silent. See the matching comment there.
+    const fellBack = pts.length <= 2 && Query.landBlocks(pts[0].lon, pts[0].lat, pts[1].lon, pts[1].lat);
     const found = _enterEditMode(newIdx);
 
-    if (!found.length) {
+    if (fellBack && !found.length) {
+      _showRouteFallbackWarning([{ a: pts[0], b: pts[1] }]);
+    } else if (!found.length) {
       const msg = `${name} planned — ${totalNm.toFixed(1)} nm.`;
       setStatus(msg);
       TTS.sayImmediate(`${name} planned. ${totalNm.toFixed(1)} nautical miles.`);
