@@ -60,6 +60,23 @@ function ptSegDistNm(ptLon, ptLat, aLon, aLat, bLon, bLat) {
   const t = Math.max(0, Math.min(1, ((ptLon - aLon) * dx + (ptLat - aLat) * dy) / len2));
   return distanceNm(ptLon, ptLat, aLon + t * dx, aLat + t * dy);
 }
+function bearing(lon1, lat1, lon2, lat2) {
+  const phi1 = lat1 * Math.PI / 180, phi2 = lat2 * Math.PI / 180;
+  const dlam = (lon2 - lon1) * Math.PI / 180;
+  const y = Math.sin(dlam) * Math.cos(phi2);
+  const x = Math.cos(phi1) * Math.sin(phi2) - Math.sin(phi1) * Math.cos(phi2) * Math.cos(dlam);
+  return ((Math.atan2(y, x) * 180 / Math.PI) + 360) % 360;
+}
+function offsetCoords(lat, lon, bearingDeg, distNm = 3.0) {
+  const R = 3440.065;
+  const d = distNm / R;
+  const brg = bearingDeg * Math.PI / 180;
+  const lat1 = lat * Math.PI / 180, lon1 = lon * Math.PI / 180;
+  const lat2 = Math.asin(Math.sin(lat1) * Math.cos(d) + Math.cos(lat1) * Math.sin(d) * Math.cos(brg));
+  const lon2 = lon1 + Math.atan2(Math.sin(brg) * Math.sin(d) * Math.cos(lat1),
+                                  Math.cos(d) - Math.sin(lat1) * Math.sin(lat2));
+  return { lat: lat2 * 180 / Math.PI, lon: lon2 * 180 / Math.PI };
+}
 
 // ── Land data (flat scan — fine for a test harness, unlike the app's indexed version) ──
 // Precomputes the same convex-vertex flag per ring that query.js's
@@ -130,6 +147,84 @@ function landRingsNear(allRings, minLon, maxLon, minLat, maxLat) {
   return out;
 }
 
+// Simplified port of Query.findWaterNear — no harbor-preference search (that
+// logic lives entirely in query.js and is out of scope for this land/channel
+// routing suite), just the plain radial spiral fallback.
+function findWaterNearSimple(allRings, lon, lat, maxRadiusNm = 2.0) {
+  if (!isOnLand(allRings, lon, lat)) return { lon, lat };
+  for (let r = 0.02; r <= maxRadiusNm; r += 0.02) {
+    for (let ang = 0; ang < 360; ang += 15) {
+      const rad = ang * Math.PI / 180;
+      const cv = Math.cos(lat * Math.PI / 180);
+      const tx = lon + r / (60 * cv) * Math.cos(rad);
+      const ty = lat + r / 60 * Math.sin(rad);
+      if (!isOnLand(allRings, tx, ty)) return { lon: tx, lat: ty };
+    }
+  }
+  return null;
+}
+
+// Mirrors query.js's _distToLandAlongBearing (Piece 1d) — coarse march then
+// refine, NOT a plain endpoint-only binary search (unsound whenever a ray
+// crosses clean through a landmass and re-emerges in open water beyond it).
+function distToLandAlongBearing(allRings, lon, lat, bearingDeg, maxNm, coarseStepNm = 0.05) {
+  let lastWater = 0;
+  for (let d = coarseStepNm; d <= maxNm; d += coarseStepNm) {
+    const p = offsetCoords(lat, lon, bearingDeg, d);
+    if (isOnLand(allRings, p.lon, p.lat)) {
+      let lo = lastWater, hi = d;
+      for (let i = 0; i < 10; i++) {
+        const mid = (lo + hi) / 2;
+        const pm = offsetCoords(lat, lon, bearingDeg, mid);
+        if (isOnLand(allRings, pm.lon, pm.lat)) hi = mid; else lo = mid;
+      }
+      return lo;
+    }
+    lastWater = d;
+  }
+  return maxNm;
+}
+
+// Mirrors query.js's Query.findClearOffshorePoint (Piece 1d) — ray-cast for
+// the most-open direction (default unrestricted, coneDeg=180 — found live
+// that a harbor's one real opening can point away from the eventual
+// destination entirely, e.g. Bar Harbor's exit is NE into Frenchman Bay,
+// not the SW bearing toward Portsmouth), march out until clearly open. See
+// query.js's version for the full rationale.
+function findClearOffshorePoint(allRings, lon, lat, towardLon, towardLat, opts = {}) {
+  const coneDeg = opts.coneDeg ?? 180;
+  const maxNm = opts.maxNm ?? 8;
+  const rays = opts.rays ?? 24;
+  const openWidthNm = opts.openWidthNm ?? 1.0;
+  const stepNm = opts.stepNm ?? 0.15;
+
+  if (isOnLand(allRings, lon, lat)) {
+    const w = findWaterNearSimple(allRings, lon, lat);
+    if (!w) return null;
+    lon = w.lon; lat = w.lat;
+  }
+
+  const centerBrg = bearing(lon, lat, towardLon, towardLat);
+  let bestBrg = centerBrg, bestOpen = -1;
+  for (let i = 0; i < rays; i++) {
+    const offsetDeg = rays > 1 ? -coneDeg + (2 * coneDeg * i) / (rays - 1) : 0;
+    const brg = (centerBrg + offsetDeg + 360) % 360;
+    const d = distToLandAlongBearing(allRings, lon, lat, brg, maxNm);
+    if (d > bestOpen) { bestOpen = d; bestBrg = brg; }
+  }
+
+  let placed = { lat, lon };
+  for (let d = stepNm; d <= bestOpen; d += stepNm) {
+    const p = offsetCoords(lat, lon, bestBrg, d);
+    if (isOnLand(allRings, p.lon, p.lat)) break;
+    placed = p;
+    const leftNm = distToLandAlongBearing(allRings, p.lon, p.lat, (bestBrg + 90) % 360, openWidthNm);
+    const rightNm = distToLandAlongBearing(allRings, p.lon, p.lat, (bestBrg + 270) % 360, openWidthNm);
+    if (leftNm + rightNm >= openWidthNm * 1.6) break;
+  }
+  return placed;
+}
+
 // ── Channel graph (mirrors query.js's channel index) ──────────────────────────
 
 function nodeKey(lon, lat) { return `${lat.toFixed(4)},${lon.toFixed(4)}`; }
@@ -187,8 +282,21 @@ const PAD_NM = 2.0, SAFETY_NM = 0.05, CORRIDOR_NM = 3.0, MAX_BLOCKING_VERTS = 30
 const COASTAL_STANDOFF_LADDER = [0.5, 0.25, 0.15];
 const HAZARD_OFFSET_LADDER = [SAFETY_NM, SAFETY_NM * 2, SAFETY_NM * 4];
 
+// Mirrors app.js's Piece 1d long-range passage decomposition constants —
+// see app.js's block comment above LONG_RANGE_NM for the full rationale
+// (empirically confirmed: a long coastal passage's visibility graph is
+// disconnected, not just slow — more time doesn't fix it).
+const LONG_RANGE_NM = 20;
+const LONG_RANGE_DEADLINE_MS = 15000;
+const LONG_RANGE_BUFFER_NM = 8;
+const LONG_RANGE_MAX_HOPS = 6;
+
 function autoRoute(allRings, chGraph, start, end) {
   const t0 = Date.now();
+  const directNm0 = distanceNm(start.lon, start.lat, end.lon, end.lat);
+  if (directNm0 > LONG_RANGE_NM) {
+    return longRangeRoute(allRings, chGraph, start, end, t0);
+  }
   const midLat = (start.lat + end.lat) / 2;
   const cosLat = Math.cos(midLat * Math.PI / 180);
   const padLon = PAD_NM / (60 * cosLat), padLat = PAD_NM / 60;
@@ -404,6 +512,126 @@ function autoRoute(allRings, chGraph, start, end) {
   return { path: tracePath(1), fallback: false, expansions, ms, nm: gScore[1] };
 }
 
+// ── Long-range passage decomposition (mirrors app.js's Piece 1d) ──────────────
+
+function isClearOffshoreLine(allRings, a, b) {
+  return !isOnLand(allRings, a.lon, a.lat) && !isOnLand(allRings, b.lon, b.lat) &&
+         !landBlocks(allRings, a.lon, a.lat, b.lon, b.lat);
+}
+
+function transitLeg(allRings, chGraph, a, b, lrT0) {
+  if (isClearOffshoreLine(allRings, a, b)) return { path: [a, b], expansions: 0 };
+
+  const result = [a];
+  let cursor = a;
+  let totalExpansions = 0;
+  for (let hop = 0; hop < LONG_RANGE_MAX_HOPS; hop++) {
+    if (Date.now() - lrT0 > LONG_RANGE_DEADLINE_MS) return null;
+    if (!landBlocks(allRings, cursor.lon, cursor.lat, b.lon, b.lat)) {
+      result.push(b);
+      return { path: result, expansions: totalExpansions };
+    }
+
+    const totalNm = distanceNm(cursor.lon, cursor.lat, b.lon, b.lat);
+    const STEP_NM = 1.0;
+    const steps = Math.max(2, Math.ceil(totalNm / STEP_NM));
+    let firstBlockedT = null, lastBlockedT = null;
+    let prevPt = cursor;
+    for (let i = 1; i <= steps; i++) {
+      const t = i / steps;
+      const pt = { lat: cursor.lat + (b.lat - cursor.lat) * t, lon: cursor.lon + (b.lon - cursor.lon) * t };
+      if (landBlocks(allRings, prevPt.lon, prevPt.lat, pt.lon, pt.lat)) {
+        if (firstBlockedT === null) firstBlockedT = (i - 1) / steps;
+        lastBlockedT = t;
+      }
+      prevPt = pt;
+    }
+    if (firstBlockedT === null) { firstBlockedT = 0; lastBlockedT = 1; }
+
+    const bufferT = Math.min(LONG_RANGE_BUFFER_NM / totalNm, 0.4);
+    const startT = Math.max(0, firstBlockedT - bufferT);
+    let endT = Math.min(1, lastBlockedT + bufferT);
+    const spanNm = (endT - startT) * totalNm;
+    if (spanNm > LONG_RANGE_NM - 1) endT = startT + (LONG_RANGE_NM - 1) / totalNm;
+
+    const bracketStart = startT <= 0 ? cursor
+      : { lat: cursor.lat + (b.lat - cursor.lat) * startT, lon: cursor.lon + (b.lon - cursor.lon) * startT };
+    const bracketEnd = { lat: cursor.lat + (b.lat - cursor.lat) * endT, lon: cursor.lon + (b.lon - cursor.lon) * endT };
+
+    if (startT > 0) result.push(bracketStart);
+    const sub = autoRoute(allRings, chGraph, bracketStart, bracketEnd);
+    totalExpansions += sub.expansions || 0;
+    const patched = sub.path;
+    if (process.env.DEBUG_LR) console.log(`    [debug] hop ${hop}: bracketStart=${JSON.stringify(bracketStart)} bracketEnd=${JSON.stringify(bracketEnd)} spanNm=${(endT-startT)*totalNm} patched=${patched.length}pts fallback=${sub.fallback}`);
+    if (patched.length <= 2 && landBlocks(allRings, patched[0].lon, patched[0].lat, patched[1].lon, patched[1].lat)) {
+      if (process.env.DEBUG_LR) console.log('    [debug] bracket still crosses land — bailing');
+      return null;
+    }
+    for (const p of patched.slice(1)) result.push(p);
+
+    cursor = bracketEnd;
+    if (endT >= 1) return { path: result, expansions: totalExpansions };
+  }
+  if (process.env.DEBUG_LR) console.log('    [debug] hit LONG_RANGE_MAX_HOPS');
+  return null;
+}
+
+function longRangeRoute(allRings, chGraph, start, end, lrT0) {
+  if (isClearOffshoreLine(allRings, start, end)) {
+    return { path: [start, end], fallback: false, expansions: 0, ms: Date.now() - lrT0 };
+  }
+  if (Date.now() - lrT0 > LONG_RANGE_DEADLINE_MS) {
+    return { path: [start, end], fallback: true, expansions: 0, ms: Date.now() - lrT0 };
+  }
+
+  const departurePt = findClearOffshorePoint(allRings, start.lon, start.lat, end.lon, end.lat);
+  const arrivalPt = findClearOffshorePoint(allRings, end.lon, end.lat, start.lon, start.lat);
+  if (process.env.DEBUG_LR) console.log('  [debug] departurePt', departurePt, 'arrivalPt', arrivalPt);
+  if (!departurePt || !arrivalPt) {
+    return { path: [start, end], fallback: true, expansions: 0, ms: Date.now() - lrT0 };
+  }
+  if (Date.now() - lrT0 > LONG_RANGE_DEADLINE_MS) {
+    return { path: [start, end], fallback: true, expansions: 0, ms: Date.now() - lrT0 };
+  }
+
+  const departSub = autoRoute(allRings, chGraph, start, departurePt);
+  if (process.env.DEBUG_LR) console.log('  [debug] departSub', departSub.path.length, 'pts, fallback', departSub.fallback, 'ms', departSub.ms);
+  if (departSub.path.length <= 2 && landBlocks(allRings, departSub.path[0].lon, departSub.path[0].lat, departSub.path[1].lon, departSub.path[1].lat)) {
+    return { path: [start, end], fallback: true, expansions: departSub.expansions, ms: Date.now() - lrT0 };
+  }
+  if (Date.now() - lrT0 > LONG_RANGE_DEADLINE_MS) {
+    return { path: [start, end], fallback: true, expansions: departSub.expansions, ms: Date.now() - lrT0 };
+  }
+
+  const transit = transitLeg(allRings, chGraph, departurePt, arrivalPt, lrT0);
+  if (process.env.DEBUG_LR) console.log('  [debug] transit', transit ? `${transit.path.length}pts` : 'NULL (deadline or too many hops)', 'elapsed', Date.now() - lrT0);
+  if (!transit) {
+    return { path: [start, end], fallback: true, expansions: departSub.expansions, ms: Date.now() - lrT0 };
+  }
+
+  const arriveSub = autoRoute(allRings, chGraph, arrivalPt, end);
+  if (process.env.DEBUG_LR) console.log('  [debug] arriveSub', arriveSub.path.length, 'pts, fallback', arriveSub.fallback, 'ms', arriveSub.ms);
+  if (arriveSub.path.length <= 2 && landBlocks(allRings, arriveSub.path[0].lon, arriveSub.path[0].lat, arriveSub.path[1].lon, arriveSub.path[1].lat)) {
+    return { path: [start, end], fallback: true, expansions: departSub.expansions + transit.expansions, ms: Date.now() - lrT0 };
+  }
+  if (Date.now() - lrT0 > LONG_RANGE_DEADLINE_MS) {
+    return { path: [start, end], fallback: true, expansions: departSub.expansions + transit.expansions, ms: Date.now() - lrT0 };
+  }
+
+  const path = [...departSub.path];
+  for (const p of transit.path.slice(1)) path.push(p);
+  for (const p of arriveSub.path.slice(1)) path.push(p);
+
+  let nm = 0;
+  for (let i = 0; i < path.length - 1; i++) nm += distanceNm(path[i].lon, path[i].lat, path[i + 1].lon, path[i + 1].lat);
+
+  return {
+    path, fallback: false,
+    expansions: (departSub.expansions || 0) + (transit.expansions || 0) + (arriveSub.expansions || 0),
+    ms: Date.now() - lrT0, nm,
+  };
+}
+
 // ── Hazard check (mirrors _checkRouteHazards, land-crossing only for this suite) ──
 
 function pathCrossesLand(allRings, points) {
@@ -543,6 +771,57 @@ function run() {
     const ok = !fallback && !crosses && standoffOk;
     console.log(`[6] Portsmouth pier -> York Harbor (coastal standoff): ${ok ? 'PASS' : 'FAIL'} (fallback=${fallback}, crossesLand=${crosses}, worst non-channel standoff=${worst === Infinity ? 'n/a' : worst.toFixed(3) + 'nm'}${worstPt ? ` at ${worstPt.lat.toFixed(5)},${worstPt.lon.toFixed(5)}` : ''})`);
     if (!ok) failures++;
+  }
+
+  // Case 7 — EXPERIMENTAL, not yet a committed regression case: a real
+  // long-range coastal passage, Portsmouth NH pier all the way to Bar
+  // Harbor ME (~136nm direct), the kind of leg Navionics' autorouting
+  // reportedly handles in one shot. Stress-tests everything built this
+  // session at once — the padded bbox now spans nearly the whole Maine
+  // coast, so MANY more land rings are in play than any case above, and the
+  // single 5000ms DEADLINE_MS budget has to cover all of it in one leg, not
+  // a short local passage. Kept separate from the pass/fail-gated suite
+  // above (doesn't add to `failures`) since this is a new finding to
+  // report, not yet a certified regression target.
+  {
+    const start = { lat: 43.08077, lon: -70.757141 };   // Portsmouth NH pier
+    const end   = { lat: 44.391934, lon: -68.205831 };  // Bar Harbor ME (named place)
+    report('[7] EXPERIMENTAL: Portsmouth NH -> Bar Harbor ME (long-range)', allRings, chGraph, start, end);
+  }
+
+  // Case 8 — long-range fast path: two points >LONG_RANGE_NM apart, both
+  // confirmed off any real land ring, direct line clear. Deterministic
+  // (doesn't depend on fragile real-archipelago geometry the way case 7
+  // does) — asserts the new decomposition branch's cheapest path (an
+  // already-clear crossing needs no search at all) is actually taken:
+  // should return in low milliseconds with just the 2 endpoints, not
+  // seconds with intermediate points.
+  {
+    const start = { lat: 42.0, lon: -68.5 };
+    const end   = { lat: 42.6, lon: -67.5 };
+    const { path, fallback, ms } = autoRoute(allRings, chGraph, start, end);
+    const crosses = pathCrossesLand(allRings, path);
+    const ok = !fallback && !crosses && path.length === 2 && ms < 200;
+    console.log(`[8] Long-range fast path (open Gulf of Maine, >20nm): ${ok ? 'PASS' : 'FAIL'} (fallback=${fallback}, crossesLand=${crosses}, ${path.length}pts, ${ms}ms)`);
+    if (!ok) failures++;
+  }
+
+  // Case 9 — long-range bracket-and-patch: a single synthetic obstacle
+  // placed in the middle of an otherwise-clear >60nm line. Deterministic
+  // (synthetic ring only, not real chart data) proof that the hop-based
+  // walk-forward patcher in transitLeg actually detours around a real
+  // obstacle on a long crossing, rather than only ever taking the fast
+  // path or falling back.
+  {
+    const outer = [[-69.76, 43.995], [-69.76, 44.005], [-69.74, 44.005], [-69.74, 43.995], [-69.76, 43.995]];
+    const syntheticRing = {
+      ring: outer, rMinX: -69.76, rMaxX: -69.74, rMinY: 43.995, rMaxY: 44.005, cx: -69.75, cy: 44.0,
+      convex: computeConvex(outer),
+    };
+    const start = { lat: 44.0, lon: -70.5 };
+    const end   = { lat: 44.0, lon: -69.0 };
+    const emptyGraph = { nodes: new Map(), adjacency: new Map() };
+    if (!report('[9] Long-range bracket-and-patch (synthetic mid-course obstacle)', [syntheticRing], emptyGraph, start, end)) failures++;
   }
 
   console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll cases passed.');

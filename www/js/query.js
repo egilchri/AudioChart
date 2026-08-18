@@ -644,8 +644,190 @@ const _DIRECTIONAL = [
   { re: /^east(?:ern)?\s+(?:end|entrance|side)\s+(?:of|to)\s+/i, bearing: 90 },
   { re: /^north(?:ern)?\s+(?:end|entrance|side)\s+(?:of|to)\s+/i, bearing: 0 },
   { re: /^south(?:ern)?\s+(?:end|entrance|side)\s+(?:of|to)\s+/i, bearing: 180 },
-  { re: /^(?:entrance|entry|mouth)\s+(?:of|to)\s+/i, bearing: null },
+  // "mouth"/"entrance"/"entry" used to be a no-op stub here (bearing: null —
+  // stripped the prefix, then never actually offset anything). Superseded by
+  // resolveWaterEnd below, which finds the real seaward direction instead of
+  // ignoring the qualifier — see HEAD_MOUTH_RE.
 ];
+
+// ── "Head of X" / "Mouth of X" resolution ──────────────────────────────────
+// A mariner naming a river/sound/creek destination usually means one END of
+// it — "mouth" (the seaward opening) or "head" (the innermost, most
+// enclosed end) — not the gazetteer label's raw point, which chart data
+// places wherever the original NOAA name label happened to sit (anywhere
+// along the feature, sometimes on the shore itself). Resolved purely from
+// land.geojson (broadly bundled for every region, unlike the per-region
+// named_places/hazards data) via directional ray-casting from the
+// gazetteer point — no new dataset needed.
+const HEAD_MOUTH_RE = /^(?:the\s+)?(head|mouth|entrance|entry)\s+(?:of|to)\s+(.+)$/i;
+const LINEAR_WATER_WORDS = ['river', 'creek', 'stream', 'brook'];
+
+function _isLinearWaterName(name) {
+  if (!name) return false;
+  return LINEAR_WATER_WORDS.some(w => new RegExp(`\\b${w}\\b`, 'i').test(name));
+}
+
+// Distance (nm) from (lon,lat) to the FIRST land crossing along bearingDeg,
+// capped at maxNm (returns maxNm if nothing is hit within that range —
+// "open" in that direction). A coarse linear march, refined with a short
+// binary search once land is found — NOT a plain binary search against just
+// the far endpoint, which is unsound here: a ray can cross clean through a
+// landmass (an island, a peninsula) and come out the other side back in open
+// water, so "is the far point on land" is not a reliable proxy for "is
+// EVERYTHING in between clear" (found as a real bug: a ray cast west from a
+// point in Somes Sound crosses all of Mount Desert Island and re-emerges in
+// Blue Hill Bay, so the endpoint-only check reported the whole direction as
+// wide open). isLandAt is index-backed, so the march itself is cheap; this
+// only runs a bounded number of times per head/mouth resolution, not in a
+// hot per-A*-edge loop.
+function _distToLandAlongBearing(lon, lat, bearingDeg, maxNm, coarseStepNm = 0.05) {
+  let lastWater = 0;
+  for (let d = coarseStepNm; d <= maxNm; d += coarseStepNm) {
+    const p = offsetCoords(lat, lon, bearingDeg, d);
+    if (isLandAt(p.lon, p.lat)) {
+      let lo = lastWater, hi = d;
+      for (let i = 0; i < 10; i++) {
+        const mid = (lo + hi) / 2;
+        const pm = offsetCoords(lat, lon, bearingDeg, mid);
+        if (isLandAt(pm.lon, pm.lat)) hi = mid; else lo = mid;
+      }
+      return lo;
+    }
+    lastWater = d;
+  }
+  return maxNm;
+}
+
+const WATER_END_RAYS = 16;      // 22.5-degree compass resolution
+const WATER_END_MAX_NM = 6;     // don't chase a channel further than this
+const WATER_END_STEP_NM = 0.15; // march step while looking for the mouth/head
+
+/**
+ * Resolve one end of the water body containing (lon,lat): 'mouth' (the
+ * direction that opens toward the most water — the seaward approach) or
+ * 'head' (roughly the opposite end — the innermost, most enclosed point
+ * still reachable by water). Returns {lat, lon}, or null if the seed is
+ * landlocked with no nearby water at all (same failure mode as
+ * findWaterNear, which this falls back to first if given an on-land seed).
+ */
+export function resolveWaterEnd(lon, lat, which) {
+  if (isLandAt(lon, lat)) {
+    const w = findWaterNear(lon, lat);
+    if (!w) return null;
+    lon = w.lon; lat = w.lat;
+  }
+
+  // Find the most-open compass direction from the seed — the rough "toward
+  // the sea" axis every elongated water body (river, sound, creek) has.
+  let mouthBrg = 0, mouthOpen = -1;
+  for (let i = 0; i < WATER_END_RAYS; i++) {
+    const brg = (360 / WATER_END_RAYS) * i;
+    const d = _distToLandAlongBearing(lon, lat, brg, WATER_END_MAX_NM);
+    if (d > mouthOpen) { mouthOpen = d; mouthBrg = brg; }
+  }
+
+  if (which === 'mouth') {
+    // March outward along the open bearing until the passage is clearly
+    // wide (perpendicular clearance on both sides passes an "this is the
+    // open sea now, not a channel" threshold), or the ray's own land
+    // crossing is reached — whichever comes first.
+    const OPEN_WIDTH_NM = 1.0;
+    let placed = { lat, lon };
+    for (let d = WATER_END_STEP_NM; d <= mouthOpen; d += WATER_END_STEP_NM) {
+      const p = offsetCoords(lat, lon, mouthBrg, d);
+      if (isLandAt(p.lon, p.lat)) break;
+      placed = p;
+      const leftNm = _distToLandAlongBearing(p.lon, p.lat, (mouthBrg + 90) % 360, OPEN_WIDTH_NM);
+      const rightNm = _distToLandAlongBearing(p.lon, p.lat, (mouthBrg + 270) % 360, OPEN_WIDTH_NM);
+      if (leftNm + rightNm >= OPEN_WIDTH_NM * 1.6) break; // wide open — this is the mouth
+    }
+    return placed;
+  }
+
+  // 'head' — seek roughly the opposite bearing from the mouth, refined to
+  // the direction that best CONTINUES the channel nearby (the feature may
+  // bend rather than being perfectly straight — same "most open wins" logic
+  // used for the mouth axis above, just restricted to bearings roughly
+  // opposite it, not minimized: the up-channel direction still has real
+  // clearance for a while, it's not "whichever nearby bearing hits land
+  // soonest," which just points at the nearest wall instead of up-channel).
+  const headSeekBrg = (mouthBrg + 180) % 360;
+  let headBrg = headSeekBrg, headOpen = -1;
+  for (let i = 0; i < WATER_END_RAYS; i++) {
+    const brg = (360 / WATER_END_RAYS) * i;
+    let diff = Math.abs(brg - headSeekBrg); if (diff > 180) diff = 360 - diff;
+    if (diff > 60) continue; // only consider bearings roughly opposite the mouth
+    const d = _distToLandAlongBearing(lon, lat, brg, WATER_END_MAX_NM);
+    if (d > headOpen) { headOpen = d; headBrg = brg; }
+  }
+  let placed = { lat, lon };
+  const STOP_NM = 0.06; // about to run aground
+  for (let d = WATER_END_STEP_NM; d <= WATER_END_MAX_NM; d += WATER_END_STEP_NM) {
+    const p = offsetCoords(lat, lon, headBrg, d);
+    if (isLandAt(p.lon, p.lat)) break;
+    placed = p;
+    if (_distToLandAlongBearing(p.lon, p.lat, headBrg, STOP_NM * 2) < STOP_NM) break;
+  }
+  return placed;
+}
+
+/**
+ * A "get clear of the coast" point — used by long-range passage
+ * decomposition (Piece 1d) to find a departure/arrival point near a harbor
+ * before a long offshore transit. NOT a refactor of resolveWaterEnd above:
+ * that function is a 360°-then-narrow search anchored on harbor/river
+ * naming policy (mouth vs. head, findWaterNear fallback framing); this is a
+ * smaller, separate primitive sharing only the real reusable pieces
+ * (_distToLandAlongBearing, offsetCoords, the "clearly open" width-
+ * threshold march already proven in resolveWaterEnd's 'mouth' branch
+ * above).
+ *
+ * `towardLon`/`towardLat` are used only as the coneDeg-restricted search's
+ * center bearing when the caller narrows it — the DEFAULT is unrestricted
+ * (coneDeg=180, i.e. the whole compass), found necessary live: a harbor's
+ * one genuinely clear opening can point AWAY from the eventual destination
+ * entirely (e.g. Bar Harbor's natural exit is NE into Frenchman Bay, not
+ * the SW bearing toward Portsmouth — Mount Desert Island itself blocks that
+ * direct line). Restricting to a narrow cone toward the destination missed
+ * the real opening and produced a barely-open, wrong point. Since the
+ * subsequent local depart/arrive leg (the existing algorithm) properly
+ * steers around obstacles between the raw endpoint and whatever offshore
+ * point is found, an initial direction "away" from the destination is
+ * fine — only the destination-restricted use case needs coneDeg narrowed.
+ */
+export function findClearOffshorePoint(lon, lat, towardLon, towardLat, opts = {}) {
+  const coneDeg = opts.coneDeg ?? 180;
+  const maxNm = opts.maxNm ?? 8;
+  const rays = opts.rays ?? 24;
+  const openWidthNm = opts.openWidthNm ?? 1.0;
+  const stepNm = opts.stepNm ?? 0.15;
+
+  if (isLandAt(lon, lat)) {
+    const w = findWaterNear(lon, lat);
+    if (!w) return null;
+    lon = w.lon; lat = w.lat;
+  }
+
+  const centerBrg = bearing(lon, lat, towardLon, towardLat);
+  let bestBrg = centerBrg, bestOpen = -1;
+  for (let i = 0; i < rays; i++) {
+    const offsetDeg = rays > 1 ? -coneDeg + (2 * coneDeg * i) / (rays - 1) : 0;
+    const brg = (centerBrg + offsetDeg + 360) % 360;
+    const d = _distToLandAlongBearing(lon, lat, brg, maxNm);
+    if (d > bestOpen) { bestOpen = d; bestBrg = brg; }
+  }
+
+  let placed = { lat, lon };
+  for (let d = stepNm; d <= bestOpen; d += stepNm) {
+    const p = offsetCoords(lat, lon, bestBrg, d);
+    if (isLandAt(p.lon, p.lat)) break;
+    placed = p;
+    const leftNm = _distToLandAlongBearing(p.lon, p.lat, (bestBrg + 90) % 360, openWidthNm);
+    const rightNm = _distToLandAlongBearing(p.lon, p.lat, (bestBrg + 270) % 360, openWidthNm);
+    if (leftNm + rightNm >= openWidthNm * 1.6) break; // clearly open — good enough to depart/arrive from
+  }
+  return placed;
+}
 
 function parseDirectional(query) {
   for (const { re, bearing } of _DIRECTIONAL) {
@@ -677,19 +859,47 @@ function parseDisambiguated(query) {
 
 const ACTIVE_WAYPOINT_ALIASES = new Set(['active waypoint', 'the active waypoint', 'active wp']);
 
-export function findPlaceByName(query) {
+// _skipAutoMouth is internal (not part of the public call contract) — set
+// by findPlaceByName's own recursive calls below to stop the bare-name
+// "assume the mouth" default (near the bottom of this function) from
+// double-applying when the caller is about to compute its OWN explicit
+// head/mouth end on top of the result anyway.
+export function findPlaceByName(query, _skipAutoMouth = false) {
   const normalized = (query || '').trim().toLowerCase();
   if (activeWaypoint && ACTIVE_WAYPOINT_ALIASES.has(normalized)) {
     return { lat: activeWaypoint.lat, lon: activeWaypoint.lon, name: activeWaypoint.name };
   }
 
+  // "Head of X" / "Mouth of X" (and "entrance"/"entry" as mouth synonyms) —
+  // resolve the base name first (recursing through this same function, same
+  // idea as the qualifier disambiguation below — skipping ITS OWN auto-mouth
+  // default, since a bare linear-water name like "Perry Creek" would
+  // otherwise already be mouth-adjusted before this branch applies its own
+  // explicit head/mouth adjustment on top), then walk to that end of the
+  // water body via resolveWaterEnd. Checked before the plain-directional
+  // parsing below since it's a different kind of qualifier (a real end of a
+  // specific water feature, not a fixed compass offset).
+  const hm = normalized.match(HEAD_MOUTH_RE);
+  if (hm) {
+    const which = hm[1].toLowerCase() === 'head' ? 'head' : 'mouth';
+    const innerName = hm[2].replace(/^the\s+/i, '');
+    const base = findPlaceByName(innerName, true);
+    if (!base) return null;
+    const end = resolveWaterEnd(base.lon, base.lat, which);
+    if (!end) return base; // couldn't compute an end — fall back to the raw point
+    const label = which === 'head' ? 'Head' : 'Mouth';
+    return { lat: end.lat, lon: end.lon, name: `${label} of ${base.name}` };
+  }
+
   const { clean, bearing } = parseDirectional(query);
   const { primary, qualifier } = parseDisambiguated(clean);
 
-  // Resolve qualifier to coords for proximity-based disambiguation
+  // Resolve qualifier to coords for proximity-based disambiguation — just a
+  // proximity anchor, never returned as a destination itself, so skip the
+  // auto-mouth default here too.
   let qualLat = null, qualLon = null;
   if (qualifier) {
-    const qr = findPlaceByName(qualifier);
+    const qr = findPlaceByName(qualifier, true);
     if (qr) { qualLat = qr.lat; qualLon = qr.lon; }
   }
 
@@ -739,6 +949,14 @@ export function findPlaceByName(query) {
   if (result && bearing !== null) {
     const { lat, lon } = offsetCoords(result.lat, result.lon, bearing);
     return { ...result, lat, lon };
+  }
+  // A bare river/creek/stream/brook name with no explicit head/mouth/
+  // directional qualifier — default to the mouth, since that's what a
+  // mariner naming e.g. "Perry Creek" as a destination almost always means,
+  // not wherever the chart happened to place the name label.
+  if (result && bearing === null && !_skipAutoMouth && _isLinearWaterName(result.name)) {
+    const end = resolveWaterEnd(result.lon, result.lat, 'mouth');
+    if (end) return { ...result, lat: end.lat, lon: end.lon };
   }
   return result;
 }

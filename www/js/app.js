@@ -2557,6 +2557,16 @@ async function _autoRouteProg(start, end, onUpdate, onText = null) {
   // Let the overlay and preview line paint before we do any real work.
   await delay(0);
 
+  // Long-range passage decomposition (Piece 1d) — everything below this is
+  // completely unchanged for routes under the threshold; see the block
+  // comment above LONG_RANGE_NM (defined after this function) for why more
+  // time alone can't fix a route this long instead.
+  const directNm = Query.distanceNm(start.lon, start.lat, end.lon, end.lat);
+  if (directNm > LONG_RANGE_NM) {
+    console.log(`[autoRoute] long-range passage: ${directNm.toFixed(1)}nm direct (> ${LONG_RANGE_NM}nm threshold) — decomposing instead of one visibility-graph search`);
+    return await _longRangeRoute(start, end, onUpdate, onText);
+  }
+
   // ── Bounding box ───────────────────────────────────────────────────────────
   const midLat = (start.lat + end.lat) / 2;
   const cosLat = Math.cos(midLat * Math.PI / 180);
@@ -3133,6 +3143,148 @@ async function _autoRouteProg(start, end, onUpdate, onText = null) {
   }
 
   return tracePath(1);
+}
+
+// ── Long-range passage decomposition (Piece 1d) ─────────────────────────────
+// The convex-vertex algorithm above is built for local/medium passages —
+// verified fast and correct up to ~22nm. A real long coastal passage (e.g.
+// Portsmouth NH -> Bar Harbor ME, ~136nm) isn't just slower, it's a different
+// problem: tested directly (raising DEADLINE_MS to 30-60s, changing nothing
+// else) and confirmed the search isn't slow, it's STUCK — every
+// COASTAL_STANDOFF_LADDER offset point sits only 0.15-0.5nm off its own
+// headland, with no line of sight past the next cape over, so the
+// visibility graph is provably disconnected between start and end
+// regardless of how long A* is allowed to run (a live probe against real
+// chart data: A* exhausted its entire open set in 4 expansions, ~1s). More
+// time doesn't fix a disconnected graph. The fix, per the user's own
+// mariner's-eye framing: depart the coast, cross open water on a direct
+// line (verified clear, not searched), arrive at the destination coast —
+// see the plan file for the full empirical writeup.
+const LONG_RANGE_NM = 20;          // starting point, not calibrated — see plan's "Threshold" section
+const LONG_RANGE_DEADLINE_MS = 15000; // separate internal budget, independent of DEADLINE_MS above
+const LONG_RANGE_BUFFER_NM = 8;    // buffer on each side of a patched obstacle
+const LONG_RANGE_MAX_HOPS = 6;     // bounded — more disjoint transit obstacles than this falls back honestly
+
+// True if a straight line between two points needs no further checking at
+// all — off land at both ends, and the segment itself doesn't cross land.
+// Deliberately does NOT check hazards/tidal zones (see the plan's "Why not
+// a universal fast-path" section) — that's covered separately, after the
+// route is saved, by the existing _checkRouteHazards/_liveHazardCheck
+// safety net (same mechanism already used for hand-drawn sketch routes).
+function _isClearOffshoreLine(a, b) {
+  return !Query.isLandAt(a.lon, a.lat) && !Query.isLandAt(b.lon, b.lat) &&
+         !Query.landBlocks(a.lon, a.lat, b.lon, b.lat);
+}
+
+// Departure-point -> arrival-point transit leg: a straight line if already
+// clear, otherwise patches just the blocked stretch(es) with the existing
+// local algorithm (bracketed and clamped so each recursive call stays
+// under LONG_RANGE_NM), walking forward one obstacle at a time rather than
+// re-solving the whole span. Returns null on internal deadline exceeded or
+// too many disjoint obstacles (LONG_RANGE_MAX_HOPS) — signals the caller to
+// fall back to the honest full straight line.
+async function _transitLeg(a, b, lrT0, onUpdate, onText) {
+  if (_isClearOffshoreLine(a, b)) return [a, b];
+
+  const result = [a];
+  let cursor = a;
+  for (let hop = 0; hop < LONG_RANGE_MAX_HOPS; hop++) {
+    if (Date.now() - lrT0 > LONG_RANGE_DEADLINE_MS) return null;
+    if (!Query.landBlocks(cursor.lon, cursor.lat, b.lon, b.lat)) {
+      result.push(b);
+      return result;
+    }
+
+    // Coarse march from cursor to b to find where the blockage starts/ends.
+    const totalNm = Query.distanceNm(cursor.lon, cursor.lat, b.lon, b.lat);
+    const STEP_NM = 1.0;
+    const steps = Math.max(2, Math.ceil(totalNm / STEP_NM));
+    let firstBlockedT = null, lastBlockedT = null;
+    let prevPt = cursor;
+    for (let i = 1; i <= steps; i++) {
+      const t = i / steps;
+      const pt = { lat: cursor.lat + (b.lat - cursor.lat) * t, lon: cursor.lon + (b.lon - cursor.lon) * t };
+      if (Query.landBlocks(prevPt.lon, prevPt.lat, pt.lon, pt.lat)) {
+        if (firstBlockedT === null) firstBlockedT = (i - 1) / steps;
+        lastBlockedT = t;
+      }
+      prevPt = pt;
+    }
+    if (firstBlockedT === null) { firstBlockedT = 0; lastBlockedT = 1; } // safety net, shouldn't happen
+
+    // Bracket the blocked stretch with a buffer, clamped so the bracket's
+    // own span stays under LONG_RANGE_NM — guarantees the recursive
+    // _autoRouteProg call below takes the plain/existing branch, never
+    // re-enters this one (an unclamped buffer was a real bug caught during
+    // planning: a long blocked stretch + generous buffers on each side
+    // could itself exceed the long-range threshold).
+    const bufferT = Math.min(LONG_RANGE_BUFFER_NM / totalNm, 0.4);
+    const startT = Math.max(0, firstBlockedT - bufferT);
+    let endT = Math.min(1, lastBlockedT + bufferT);
+    const spanNm = (endT - startT) * totalNm;
+    if (spanNm > LONG_RANGE_NM - 1) endT = startT + (LONG_RANGE_NM - 1) / totalNm;
+
+    const bracketStart = startT <= 0 ? cursor
+      : { lat: cursor.lat + (b.lat - cursor.lat) * startT, lon: cursor.lon + (b.lon - cursor.lon) * startT };
+    const bracketEnd = { lat: cursor.lat + (b.lat - cursor.lat) * endT, lon: cursor.lon + (b.lon - cursor.lon) * endT };
+
+    if (startT > 0) result.push(bracketStart);
+    const patched = await _autoRouteProg(bracketStart, bracketEnd, onUpdate, onText);
+    if (patched.length <= 2 && Query.landBlocks(patched[0].lon, patched[0].lat, patched[1].lon, patched[1].lat)) {
+      return null; // local avoidance also failed for this obstacle — honest fallback, don't splice in a land crossing
+    }
+    for (const p of patched.slice(1)) result.push(p);
+
+    cursor = bracketEnd;
+    if (endT >= 1) return result;
+  }
+  return null; // too many disjoint obstacles along this transit
+}
+
+// Depart the coast near start, cross open water on a direct (verified, not
+// searched) line, arrive at the coast near end — see the block comment
+// above LONG_RANGE_NM. Only called for routes beyond that threshold;
+// _autoRouteProg's existing algorithm is unchanged for everything else.
+// True if a sub-leg's own result is itself a failed fallback — collapsed to
+// a straight 2-point line that still crosses land. `_transitLeg`'s bracket
+// patches already guard against splicing this in; the depart/arrive legs
+// need the identical check (a real gap found live: a Portsmouth -> Port
+// Clyde test case produced a `fallback: false` overall result that still
+// crossed land, because the arrive leg silently fell back and got spliced
+// in unchecked).
+function _legFailed(leg) {
+  return leg.length <= 2 && Query.landBlocks(leg[0].lon, leg[0].lat, leg[1].lon, leg[1].lat);
+}
+
+async function _longRangeRoute(start, end, onUpdate, onText) {
+  const _lrT0 = Date.now();
+  if (onText) onText('Planning long passage…');
+
+  if (_isClearOffshoreLine(start, end)) return [start, end];
+  if (Date.now() - _lrT0 > LONG_RANGE_DEADLINE_MS) return [start, end];
+
+  const departurePt = Query.findClearOffshorePoint(start.lon, start.lat, end.lon, end.lat);
+  const arrivalPt = Query.findClearOffshorePoint(end.lon, end.lat, start.lon, start.lat);
+  if (!departurePt || !arrivalPt) return [start, end];
+  if (Date.now() - _lrT0 > LONG_RANGE_DEADLINE_MS) return [start, end];
+
+  const departLeg = await _autoRouteProg(start, departurePt, onUpdate, onText);
+  if (_legFailed(departLeg)) return [start, end];
+  if (Date.now() - _lrT0 > LONG_RANGE_DEADLINE_MS) return [start, end];
+
+  const transit = await _transitLeg(departurePt, arrivalPt, _lrT0, onUpdate, onText);
+  if (!transit) return [start, end];
+
+  const arriveLeg = await _autoRouteProg(arrivalPt, end, onUpdate, onText);
+  if (_legFailed(arriveLeg)) return [start, end];
+  if (Date.now() - _lrT0 > LONG_RANGE_DEADLINE_MS) return [start, end];
+
+  console.log(`[autoRoute] long-range passage done in ${Date.now() - _lrT0}ms — depart ${departLeg.length}pts, transit ${transit.length}pts, arrive ${arriveLeg.length}pts`);
+
+  const result = [...departLeg];
+  for (const p of transit.slice(1)) result.push(p);
+  for (const p of arriveLeg.slice(1)) result.push(p);
+  return result;
 }
 
 // Auto Route / Draw Route / Re-route all invoke the pathfinder, which is
