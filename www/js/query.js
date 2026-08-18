@@ -1448,6 +1448,24 @@ export function distanceToLandNm(lon, lat, maxSearchNm) {
 // such labels do appear (a richer regional download, a future server dataset).
 const WATER_BODY_LABELS = new Set(['harbour', 'harbor', 'marina', 'mooring', 'anchorage', 'cove']);
 
+// Word-based glossary for when a destination NAME ITSELF already implies a
+// water feature ("York Harbor", "Blue Hill Bay", "Eggemoggin Reach") —
+// distinct from WATER_BODY_LABELS above, which matches a nearby gazetteer
+// feature's label, not the searched-for name's text. A gazetteer entry for
+// a name like this is commonly plotted at the shore/village point, not out
+// in the water — landing on land and moving to the nearest water is the
+// EXPECTED outcome for a name like this, not a surprise worth narrating to
+// the user (see isWaterFeatureName's call site in app.js's named-destination
+// handler, which uses this to skip the "X is on land — moved..." callout).
+const WATER_NAME_WORDS = ['harbor', 'harbour', 'cove', 'bay', 'sound', 'inlet',
+  'anchorage', 'marina', 'mooring', 'channel', 'passage', 'narrows',
+  'thorofare', 'reach', 'gut', 'strait'];
+
+export function isWaterFeatureName(name) {
+  if (!name) return false;
+  return WATER_NAME_WORDS.some(w => new RegExp(`\\b${w}\\b`, 'i').test(name));
+}
+
 /**
  * Resolve a point to open water: unchanged if already water, otherwise the
  * nearest confirmed-water spot within maxRadiusNm (preferring a nearby named

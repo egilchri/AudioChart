@@ -2318,10 +2318,18 @@ _drawNameDestBtn.addEventListener('click', () => {
       return;
     }
     dest = { lat: water.lat, lon: water.lon, name: place.name };
-    const msg = water.viaPlace
-      ? `${place.name} — moved to ${water.viaPlace}, ${water.movedNm.toFixed(1)} nm away.`
-      : `${place.name} is on land — moved ${water.movedNm.toFixed(1)} nm into open water.`;
-    setStatus(msg); TTS.sayImmediate(msg);
+    // A name that's already a water-feature term ("York Harbor", "Blue Hill
+    // Bay") landing on the gazetteer's shore-side point and getting moved to
+    // water is the EXPECTED outcome, not a surprise — narrating "X is on
+    // land, I will move the point" for every such lookup is just noise.
+    // Only announce the move when the name itself gave no hint this was
+    // coming (a town/island name someone used as a stand-in destination).
+    if (!Query.isWaterFeatureName(place.name)) {
+      const msg = water.viaPlace
+        ? `${place.name} — moved to ${water.viaPlace}, ${water.movedNm.toFixed(1)} nm away.`
+        : `${place.name} is on land — moved ${water.movedNm.toFixed(1)} nm into open water.`;
+      setStatus(msg); TTS.sayImmediate(msg);
+    }
   }
   _onDrawClick(L.latLng(dest.lat, dest.lon));
 });
