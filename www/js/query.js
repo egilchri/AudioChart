@@ -411,9 +411,15 @@ export async function loadData(lat, lon) {
   // Offline fallback: check IndexedDB first (pre-downloaded at dock),
   // then fall back to the static files bundled with the app.
   // Version-check: if static files are newer than IDB data, use static files.
+  // Must compare against the *active region's own* data-version.json — the
+  // IDB copy is a downloaded region's data (tagged with that region's
+  // version), so comparing it against the bundled default region's version
+  // always mismatches once a non-default region is active, making
+  // otherwise-current region data look stale and get silently replaced by
+  // the wrong region's bundled hazards/places/navaids.
   let networkVersion = null;
   try {
-    const vr = await fetch('./data/data-version.json');
+    const vr = await fetch(_regionPath('data-version.json'));
     if (vr.ok) networkVersion = (await vr.json()).version;
   } catch (_) {}
 
@@ -440,9 +446,9 @@ export async function loadData(lat, lon) {
       console.log(`[query] IDB data stale (stored=${storedVersion} network=${networkVersion}), using static files`);
     }
     const [h, p, n] = await Promise.all([
-      fetch('./data/hazards.geojson').then(r => r.json()),
-      fetch('./data/named_places.geojson').then(r => r.json()),
-      fetch('./data/navaid.geojson').then(r => r.json()),
+      fetch(_regionPath('hazards.geojson')).then(r => r.json()),
+      fetch(_regionPath('named_places.geojson')).then(r => r.json()),
+      fetch(_regionPath('navaid.geojson')).then(r => r.json()),
     ]);
     hazards = h;
     namedPlaces = p;
