@@ -144,7 +144,7 @@ With OpenCPN running, try these queries to confirm everything works:
 | `OPENCPN LIVE` | Real-time NMEA from OpenCPN TCP output | 5 |
 | `GPS PUCK` | USB GPS puck via Mac serial bridge | 4 |
 | `OPENCPN TRACK` | OpenCPN's last recorded track point | 2 |
-| `PHONE GPS` | Device GPS via browser geolocation | 1 |
+| `DEVICE GPS` | Device GPS via browser geolocation | 1 |
 | `OPENCPN` | OpenCPN config file position (stale, no timestamp) | 0 — loses to everything |
 
 Higher priority wins. Once `TEST POSITION` is active, real GPS cannot displace it until you tap **📍 CLEAR TEST**.

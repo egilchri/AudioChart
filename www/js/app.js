@@ -7986,7 +7986,7 @@ async function showFixMap(lmA, lmB, fix) {
 
 const SOURCE_LABEL = {
   'manual':        'TEST POSITION',
-  'browser':       'PHONE GPS',
+  'browser':       'DEVICE GPS',
   'nmea':          'GPS PUCK',
   'opencpn-nmea':  'OPENCPN LIVE',
   'opencpn-ini':   'OPENCPN',
@@ -8914,6 +8914,11 @@ async function runRouteDownload(cruiseName) {
       const result = await Query.prepareOfflineStatic(profile.dataUrl);
       await Query.loadData(null, null);
       dataLoaded = true;
+      // The coverage badge only recomputes on a live GPS fix — without this,
+      // switching regions leaves it showing the old region's stale verdict
+      // until the next natural position tick happens to arrive.
+      const _switchPos = GPS.getPosition();
+      if (_switchPos) _updateCoverageStatus(_switchPos.lat, _switchPos.lon);
       setStatus(`Chart data ready — caching satellite tiles…`);
     } catch (e) {
       const reason = e.name === 'AbortError' ? 'timed out' : e.message;
