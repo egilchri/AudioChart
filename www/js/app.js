@@ -3157,6 +3157,13 @@ async function _autoRouteProg(start, end, onUpdate, onText = null, _escapeAttemp
     const endBlocked = !_hasClearEdge(end);
     if (startBlocked || endBlocked) {
       console.log(`[autoRoute] locally enclosed endpoint(s) detected — startBlocked=${startBlocked} endBlocked=${endBlocked}, attempting local escape`);
+      // Each recursive sub-call below has its OWN full DEADLINE_MS budget —
+      // without a check between them, a call that's slow-failing (not
+      // instant, like Perry Creek's real case: each sub-attempt legitimately
+      // explores its own local graph before giving up) can compound to
+      // several times DEADLINE_MS. Gate each subsequent step on the OUTER
+      // call's own elapsed time so the whole escape attempt still honors
+      // roughly one DEADLINE_MS-sized budget, same as every other path here.
       let effStart = start, prefix = [];
       let effEnd = end, suffix = [];
       if (startBlocked) {
@@ -3166,14 +3173,14 @@ async function _autoRouteProg(start, end, onUpdate, onText = null, _escapeAttemp
           if (_subLegOk(departLeg)) { prefix = departLeg.slice(0, -1); effStart = departurePt; }
         }
       }
-      if (endBlocked) {
+      if (endBlocked && Date.now() - _profT0 <= DEADLINE_MS) {
         const arrivalPt = Query.findClearOffshorePoint(end.lon, end.lat, start.lon, start.lat);
         if (arrivalPt) {
           const arriveLeg = await _autoRouteProg(arrivalPt, end, onUpdate, onText, true);
           if (_subLegOk(arriveLeg)) { suffix = arriveLeg.slice(1); effEnd = arrivalPt; }
         }
       }
-      if (prefix.length || suffix.length) {
+      if ((prefix.length || suffix.length) && Date.now() - _profT0 <= DEADLINE_MS) {
         const middle = await _autoRouteProg(effStart, effEnd, onUpdate, onText, true);
         if (_subLegOk(middle)) {
           console.log(`[autoRoute] local escape succeeded — prefix ${prefix.length}pts, middle ${middle.length}pts, suffix ${suffix.length}pts`);
