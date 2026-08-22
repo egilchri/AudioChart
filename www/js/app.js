@@ -805,6 +805,26 @@ window._debugMap = () => _map;
 window._debugLiveHazardCheck = () => _liveHazardCheck();
 window._debugShowRouteFallbackWarning = (fallbackSegs) => _showRouteFallbackWarning(fallbackSegs);
 
+// Deletes routes by exact name through the same path as the Routes panel's
+// per-row delete button (tombstones each one, so Drive sync won't resurrect
+// them) without the confirm() prompt — for bulk cleanup of test/junk routes.
+window._debugDeleteRoutesByName = (names) => {
+  const nameSet = new Set(names);
+  const all = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+  const toDelete = all.filter(r => nameSet.has(r.name));
+  toDelete.forEach(r => {
+    _tombstone(r.id, 'route');
+    _hiddenRouteNames.delete(r.name);
+    if (localStorage.getItem('audiochart-last-route') === r.name) localStorage.removeItem('audiochart-last-route');
+  });
+  localStorage.setItem(ROUTE_KEY, JSON.stringify(all.filter(r => !nameSet.has(r.name))));
+  _saveHiddenRoutes();
+  _refreshSavedRouteLayers();
+  _populateRouteSelectFn?.();
+  _buildRoutePickerPanelFn?.();
+  return toDelete.map(r => r.name);
+};
+
 window._debugDepth = () => {
   const feats = Query.hazards?.features || [];
   const shallow = feats.filter(f => f.properties.label === 'shallow area');
@@ -2419,14 +2439,11 @@ function _tombstone(id, type) {
 })();
 
 function _loadHiddenRoutes() {
+  // Every launch starts tidy: everything hidden until the user picks something
+  // to show from the Routes panel. (Previously restored last session's visible
+  // set, but that let disposable test routes pile up as permanently-visible.)
   const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
-  const routeNames = new Set(routes.map(r => r.name));
-  let saved = [];
-  try { saved = JSON.parse(localStorage.getItem(HIDDEN_ROUTES_KEY) || '[]'); } catch (_) {}
-  // Restore whichever routes were actually hidden last session — drop names for
-  // routes that no longer exist. Anything not in the saved hidden-set (including
-  // any route created since) stays visible, same as it already was on-screen.
-  _hiddenRouteNames = new Set(saved.filter(name => routeNames.has(name)));
+  _hiddenRouteNames = new Set(routes.map(r => r.name));
   _saveHiddenRoutes();
 }
 
@@ -2435,11 +2452,9 @@ function _saveHiddenRoutes() {
 }
 
 function _loadHiddenTracks() {
+  // See _loadHiddenRoutes — startup always hides everything, no restore.
   const tracks = JSON.parse(localStorage.getItem(TRACK_KEY) || '[]');
-  const trackNames = new Set(tracks.map(t => t.name));
-  let saved = [];
-  try { saved = JSON.parse(localStorage.getItem(HIDDEN_TRACKS_KEY) || '[]'); } catch (_) {}
-  _hiddenTrackNames = new Set(saved.filter(name => trackNames.has(name)));
+  _hiddenTrackNames = new Set(tracks.map(t => t.name));
   _saveHiddenTracks();
 }
 
@@ -5709,29 +5724,6 @@ function _ensureMap() {
   _refreshSavedRouteLayers();
   _refreshSavedTrackLayers();
 
-  // Let the user know at a glance which route(s) they're resuming, rather than
-  // silently restoring visibility and leaving them to check the Routes panel.
-  // Logged to the transcript too, not just the one-line status bar, since the
-  // status line gets overwritten within a second or two by GPS/chart-load messages.
-  {
-    const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
-    const visibleNames = routes.filter(r => !_hiddenRouteNames.has(r.name)).map(r => r.name);
-    if (visibleNames.length === 1) {
-      const msg = `Resuming route: ${visibleNames[0]}`;
-      setStatus(msg);
-      _appendTranscript(msg);
-    } else if (visibleNames.length > 1) {
-      // Cap the listed names — with enough visible routes (e.g. after a sync
-      // merge produced many conflict copies) this could otherwise be a wall
-      // of text covering most of the screen, including the Routes button.
-      const shown = visibleNames.slice(0, 5).join(', ');
-      const rest  = visibleNames.length - 5;
-      const msg = `Resuming ${visibleNames.length} routes: ${shown}${rest > 0 ? `, and ${rest} more` : ''}`;
-      setStatus(msg);
-      _appendTranscript(msg);
-    }
-  }
-
   // Zoom slider (desktop only — hidden by CSS on mobile)
   const _zoomSlider = document.getElementById('zoom-slider');
   const _zoomLabel  = document.getElementById('zoom-slider-label');
@@ -5975,7 +5967,8 @@ function _ensureMap() {
     const query = document.getElementById('rp-search').value || '';
     const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
     list.innerHTML = '';
-    const filtered = routes.filter(r => _itemMatchesSearch(r, query));
+    const filtered = routes.filter(r => _itemMatchesSearch(r, query))
+      .sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
     if (filtered.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'rp-empty';
@@ -6310,7 +6303,8 @@ function _ensureMap() {
     const query = document.getElementById('tp-search').value || '';
     const tracks = JSON.parse(localStorage.getItem(TRACK_KEY) || '[]');
     list.innerHTML = '';
-    const filtered = tracks.filter(t => _itemMatchesSearch(t, query));
+    const filtered = tracks.filter(t => _itemMatchesSearch(t, query))
+      .sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
     if (filtered.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'rp-empty';
