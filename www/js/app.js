@@ -2538,13 +2538,27 @@ function _clearAutoRoute() {
   if (_autoRoutePreviewLayer) { _autoRoutePreviewLayer.remove(); _autoRoutePreviewLayer = null; }
 }
 
-async function _autoRouteProg(start, end, onUpdate, onText = null) {
+async function _autoRouteProg(start, end, onUpdate, onText = null, _escapeAttempted = false) {
   // Visibility Graph + A* (Euclidean Shortest Path with Polygonal Obstacles).
   // Nodes: start, end, and polygon vertices in the padded bounding box.
   // Edges are checked lazily during A* expansion.
   const PAD_NM    = 2.0;
   const SAFETY_NM   = 0.05;  // ~100 yards — kept as the hazard/tidal-ring offset floor (see HAZARD_OFFSET_LADDER); no longer used for land-ring standoff
   const CORRIDOR_NM = 3.0;   // include LAND rings within this distance of the direct line
+  // A genuinely island-dotted stretch (e.g. Blue Hill Bay/Penobscot Bay —
+  // verified live: 157 separate non-blocking land rings in one 9nm route's
+  // corridor, ~2200 nodes from convex vertices alone) can still overwhelm A*
+  // even with each individual ring's vertex selection unchanged/correct. This
+  // is a NODE budget, not a ring-count budget, because unlike
+  // MAX_EXTRA_NON_BLOCKING_RINGS's uniform tiny synthetic hazard circles,
+  // real coastline rings vary hugely in vertex count (a long mainland stretch
+  // running near-parallel to the route can contribute far more vertices than
+  // a small island) — capping ring COUNT alone barely moved the real node
+  // total in testing. Each already-included ring still keeps its FULL
+  // correct convex-vertex set (no per-ring thinning, unlike hazards); this
+  // only stops pulling in MORE nearby islands, closest-to-the-line first,
+  // once the budget is spent.
+  const MAX_LAND_NON_BLOCKING_NODES = 500;
   // A mariner keeps land at a distance, not right at the safety minimum: try
   // a comfortable ~0.5nm standoff first, only accepting something tighter
   // (down to ~0.15nm/275yd) where the geometry genuinely won't allow more —
@@ -2573,6 +2587,14 @@ async function _autoRouteProg(start, end, onUpdate, onText = null) {
   // 16.5nm line, each promoted to up to 10 nodes, for ~12,900 total nodes
   // before A* even started — most of them irrelevant to any real path.
   const EXTRA_CORRIDOR_NM = 0.5;
+  // Even at 0.5nm, a real Penobscot Bay ledge field can put hundreds of
+  // separate charted rocks in the corridor (verified live: 1781 extra rings
+  // in one 9nm route's bbox, ~420 within EXTRA_CORRIDOR_NM, uncapped, before
+  // this existed). segBlocked/the extraGrid below still checks EVERY extra
+  // ring in the bbox for collisions regardless of this cap — this only
+  // bounds how many get to OFFER themselves as A* routing waypoints, ranked
+  // closest-to-the-line first (see the extraRings loop after _addRingNodes).
+  const MAX_EXTRA_NON_BLOCKING_RINGS = 60;
 
   const delay = ms => new Promise(r => setTimeout(r, ms));
   const _profT0 = Date.now();
@@ -2895,24 +2917,47 @@ async function _autoRouteProg(start, end, onUpdate, onText = null) {
                                     // than this, keep the sharpest headlands
                                     // (by exterior turn angle), not the
                                     // closest-to-line ones this replaces.
-  function _addRingNodes(entry, isBlocking, offsetLadder, checkClearance) {
+  // Real charted shallow-area (DEPARE) polygons among the "extra" rings are
+  // NOT small synthetic hazard circles — they're real charted shapes, and a
+  // real 9nm line through a shoal-strewn bay can directly cross MANY of them
+  // at once. Verified live: 22 separate blocking shallow-area polygons on
+  // one Blue Hill Bay line, ~71 vertices each on average (each individually
+  // well under MAX_BLOCKING_VERTS, so that per-ring cap never triggered) —
+  // 1559 nodes total, the dominant cost after every other lever here. A
+  // single mainland ring can legitimately need up to MAX_BLOCKING_VERTS
+  // vertices to thread a long, complex coastline; a shoal polygon is a much
+  // simpler shape and doesn't need nearly that many per ring even when
+  // several stack up in the same corridor.
+  const MAX_EXTRA_BLOCKING_VERTS = 8;
+  function _addRingNodes(entry, isBlocking, offsetLadder, checkClearance, isExtra) {
     const { ring, cx, cy, convex } = entry;
     const n = ring.length - 1; // -1: skip closing duplicate vertex
     let indices = [];
-    for (let k = 0; k < n; k++) {
-      // extraRings (tidal/hazard circles) don't carry a precomputed convex
-      // array — a small polygon approximating a circle is fully convex
-      // anyway, so treat a missing array as "every vertex counts".
-      if (convex && !convex[k]) continue;
-      const [vx, vy] = ring[k];
-      // "No distance-to-LINE cutoff" for a blocking ring (that's the real
-      // fix for MDI/Piscataqua-style local detours) is not the same as "no
-      // geographic relevance check at all" — a ring the size of the whole
-      // East Coast still only has a small portion actually near this route.
-      if (isBlocking) { if (_inRelevantWindow(vx, vy)) indices.push(k); continue; }
-      if (_ptSegDistNm(vx, vy, start.lon, start.lat, end.lon, end.lat) <= CORRIDOR_NM) indices.push(k);
+    if (isExtra && !isBlocking) {
+      // A non-blocking hazard/tidal circle is tiny (~0.05nm radius) and only
+      // ever needs "pass on this side"/"pass on that side"-style waypoints —
+      // every one of its ~10 vertices being a candidate (today's behavior,
+      // since these rings have no convex[] array) is what let a 9nm open-
+      // water route accumulate 4205 graph nodes from 0 land obstacles. Keep
+      // only the ring's 4 route-relative extremes instead.
+      indices = _pickExtremeVerts(ring, n, cx, cy);
+    } else {
+      for (let k = 0; k < n; k++) {
+        // extraRings (tidal/hazard circles) don't carry a precomputed convex
+        // array — a small polygon approximating a circle is fully convex
+        // anyway, so treat a missing array as "every vertex counts".
+        if (convex && !convex[k]) continue;
+        const [vx, vy] = ring[k];
+        // "No distance-to-LINE cutoff" for a blocking ring (that's the real
+        // fix for MDI/Piscataqua-style local detours) is not the same as "no
+        // geographic relevance check at all" — a ring the size of the whole
+        // East Coast still only has a small portion actually near this route.
+        if (isBlocking) { if (_inRelevantWindow(vx, vy)) indices.push(k); continue; }
+        if (_ptSegDistNm(vx, vy, start.lon, start.lat, end.lon, end.lat) <= CORRIDOR_NM) indices.push(k);
+      }
     }
-    if (isBlocking && indices.length > MAX_BLOCKING_VERTS) {
+    const blockingVertCap = isExtra ? MAX_EXTRA_BLOCKING_VERTS : MAX_BLOCKING_VERTS;
+    if (isBlocking && indices.length > blockingVertCap) {
       const scored = indices.map(k => {
         const [vx, vy] = ring[k];
         const [ax, ay] = ring[(k - 1 + n) % n];
@@ -2923,7 +2968,7 @@ async function _autoRouteProg(start, end, onUpdate, onText = null) {
         return { k, angle: Math.acos(dot) };  // larger = sharper turn
       });
       scored.sort((a, b) => b.angle - a.angle);
-      indices = scored.slice(0, MAX_BLOCKING_VERTS).map(s => s.k);
+      indices = scored.slice(0, blockingVertCap).map(s => s.k);
     }
     for (const k of indices) {
       const [vx, vy] = ring[k];
@@ -2974,6 +3019,34 @@ async function _autoRouteProg(start, end, onUpdate, onText = null) {
     }
   }
 
+  // The only routing-relevant points on a small non-blocking hazard circle
+  // are its extremes relative to the route's OWN direction — the two points
+  // where a path could pass left/right of it, and the two where it could
+  // pass in front of/behind it. (Every other vertex of the ~10-gon circle
+  // approximation is redundant: it can never be a better bend point than one
+  // of these four.) This never changes what segBlocked/Query.ringBlocks
+  // check — those always use the ring's full geometry — it only limits which
+  // vertices get offered to A* as candidate waypoints.
+  function _pickExtremeVerts(ring, n, cx, cy) {
+    const rdx = (end.lon - start.lon) * 60 * cosLat, rdy = (end.lat - start.lat) * 60;
+    const rl = Math.hypot(rdx, rdy) || 1;
+    const ux = rdx / rl, uy = rdy / rl;   // unit vector along the route
+    const px = -uy, py = ux;              // unit vector across the route
+    let iAlongMax = 0, iAlongMin = 0, iSideMax = 0, iSideMin = 0;
+    let alongMax = -Infinity, alongMin = Infinity, sideMax = -Infinity, sideMin = Infinity;
+    for (let k = 0; k < n; k++) {
+      const [vx, vy] = ring[k];
+      const dxNm = (vx - cx) * 60 * cosLat, dyNm = (vy - cy) * 60;
+      const along = dxNm * ux + dyNm * uy;
+      const side  = dxNm * px + dyNm * py;
+      if (along > alongMax) { alongMax = along; iAlongMax = k; }
+      if (along < alongMin) { alongMin = along; iAlongMin = k; }
+      if (side  > sideMax)  { sideMax  = side;  iSideMax  = k; }
+      if (side  < sideMin)  { sideMin  = side;  iSideMin  = k; }
+    }
+    return [...new Set([iAlongMax, iAlongMin, iSideMax, iSideMin])];
+  }
+
   // All blocking rings get full tier-1 treatment in this single pass — this
   // is what actually fixes a multi-obstacle passage (Piscataqua's 8 rings,
   // MDI's 10): every one of them contributes its real bend points into the
@@ -2981,6 +3054,7 @@ async function _autoRouteProg(start, end, onUpdate, onText = null) {
   // instead of only ever getting one ring widened per retry.
   const blockingLandRings = [];
   const seenRings = new Set(landRingsInBox.map(e => e.ring));
+  const nonBlockingLandCandidates = [];
   for (const entry of landRingsInBox) {
     if (Query.ringBlocks(entry.ring, start.lon, start.lat, end.lon, end.lat)) {
       _addRingNodes(entry, true, COASTAL_STANDOFF_LADDER, true);
@@ -2988,7 +3062,18 @@ async function _autoRouteProg(start, end, onUpdate, onText = null) {
       continue;
     }
     const d = _ptSegDistNm(entry.cx, entry.cy, start.lon, start.lat, end.lon, end.lat);
-    if (d <= CORRIDOR_NM) _addRingNodes(entry, false, COASTAL_STANDOFF_LADDER, true);
+    if (d <= CORRIDOR_NM) nonBlockingLandCandidates.push({ entry, d });
+  }
+  // Shared node budget across BOTH non-blocking land sources below (this
+  // corridor pass and the staggered-obstacle pass) — closest-to-the-line
+  // islands get first claim on it either way.
+  let landNonBlockingNodesAdded = 0;
+  nonBlockingLandCandidates.sort((a, b) => a.d - b.d);
+  for (const { entry } of nonBlockingLandCandidates) {
+    if (landNonBlockingNodesAdded >= MAX_LAND_NON_BLOCKING_NODES) break;
+    const before = nodes.length;
+    _addRingNodes(entry, false, COASTAL_STANDOFF_LADDER, true);
+    landNonBlockingNodesAdded += nodes.length - before;
   }
   // Staggered-obstacle case: a detour around a directly-blocking ring can
   // reveal a second obstacle that doesn't block the ORIGINAL direct line and
@@ -2999,6 +3084,7 @@ async function _autoRouteProg(start, end, onUpdate, onText = null) {
   // is exactly what this captures.
   const corridorLon = CORRIDOR_NM / (60 * cosLat);
   const corridorLat = CORRIDOR_NM / 60;
+  const staggeredCandidates = [];
   for (const entry of blockingLandRings) {
     const neighbors = Query.landRingsNear(
       entry.rMinX - corridorLon, entry.rMaxX + corridorLon,
@@ -3007,14 +3093,31 @@ async function _autoRouteProg(start, end, onUpdate, onText = null) {
     for (const nb of neighbors) {
       if (seenRings.has(nb.ring)) continue;
       seenRings.add(nb.ring);
-      _addRingNodes(nb, false, COASTAL_STANDOFF_LADDER, true);
+      staggeredCandidates.push({ entry: nb, d: _ptSegDistNm(nb.cx, nb.cy, start.lon, start.lat, end.lon, end.lat) });
     }
   }
+  staggeredCandidates.sort((a, b) => a.d - b.d);
+  for (const { entry } of staggeredCandidates) {
+    if (landNonBlockingNodesAdded >= MAX_LAND_NON_BLOCKING_NODES) break;
+    const before = nodes.length;
+    _addRingNodes(entry, false, COASTAL_STANDOFF_LADDER, true);
+    landNonBlockingNodesAdded += nodes.length - before;
+  }
+  const nonBlockingExtraCandidates = [];
   for (const entry of extraRings) {
     const blocks = Query.ringBlocks(entry.ring, start.lon, start.lat, end.lon, end.lat);
-    if (blocks) { _addRingNodes(entry, true, HAZARD_OFFSET_LADDER); continue; }
+    if (blocks) { _addRingNodes(entry, true, HAZARD_OFFSET_LADDER, false, true); continue; }
     const d = _ptSegDistNm(entry.cx, entry.cy, start.lon, start.lat, end.lon, end.lat);
-    if (d <= EXTRA_CORRIDOR_NM) _addRingNodes(entry, false, HAZARD_OFFSET_LADDER);
+    if (d <= EXTRA_CORRIDOR_NM) nonBlockingExtraCandidates.push({ entry, d });
+  }
+  // A dense real ledge field can put hundreds of non-blocking hazards in the
+  // corridor at once — cap how many get to contribute routing waypoints,
+  // closest-to-the-line first (they're still all checked for actual
+  // collisions via extraGrid/segBlocked above, cap or no cap). See
+  // MAX_EXTRA_NON_BLOCKING_RINGS's comment for the real case this fixes.
+  nonBlockingExtraCandidates.sort((a, b) => a.d - b.d);
+  for (const { entry } of nonBlockingExtraCandidates.slice(0, MAX_EXTRA_NON_BLOCKING_RINGS)) {
+    _addRingNodes(entry, false, HAZARD_OFFSET_LADDER, false, true);
   }
 
   if (Date.now() - _profT0 > DEADLINE_MS) {
@@ -3023,6 +3126,66 @@ async function _autoRouteProg(start, end, onUpdate, onText = null) {
   }
 
   console.log(`[autoRoute] setup took ${Date.now() - _profT0}ms — ${nodes.length} nodes, ${landRingsInBox.length} land rings in bbox, ${extraRings.length} extra rings`);
+
+  // A tight, enclosed anchorage (e.g. a narrow creek behind close-in ledges)
+  // can leave the raw start/end point with ZERO clear line-of-sight to any
+  // node in the graph at all — not a slow search, a genuinely empty one.
+  // Verified live: a real Perry Creek (Vinalhaven) departure had 0/1057
+  // candidate edges clear (1018 land-blocked, 39 hazard-blocked). No amount
+  // of node thinning fixes that; the fix is the same "get clear of the
+  // immediate shore first" idea _longRangeRoute already uses via
+  // Query.findClearOffshorePoint, just triggered by actual local blockage
+  // instead of only by distance. _escapeAttempted caps this at one retry so
+  // a pathological case can't recurse forever — it just falls back honestly.
+  if (!_escapeAttempted) {
+    const _hasClearEdge = (p) => {
+      for (let j = 0; j < nodes.length; j++) {
+        const q = nodes[j];
+        if (q === p) continue;
+        if (!segBlocked(p.lon, p.lat, q.lon, q.lat)) return true;
+      }
+      return false;
+    };
+    // A sub-leg that fell back to its own raw 2-point line is only a real
+    // success if that line is actually clear — checked against land AND
+    // hazards/shoals via this call's own segBlocked, not the narrower
+    // land-only _legFailed used elsewhere (that gap is pre-existing in
+    // _longRangeRoute too, but matters acutely here since findClearOffshorePoint
+    // itself only rules out LAND along its ray, never hazards).
+    const _subLegOk = (leg) => leg.length > 2 || !segBlocked(leg[0].lon, leg[0].lat, leg[1].lon, leg[1].lat);
+    const startBlocked = !_hasClearEdge(start);
+    const endBlocked = !_hasClearEdge(end);
+    if (startBlocked || endBlocked) {
+      console.log(`[autoRoute] locally enclosed endpoint(s) detected — startBlocked=${startBlocked} endBlocked=${endBlocked}, attempting local escape`);
+      let effStart = start, prefix = [];
+      let effEnd = end, suffix = [];
+      if (startBlocked) {
+        const departurePt = Query.findClearOffshorePoint(start.lon, start.lat, end.lon, end.lat);
+        if (departurePt) {
+          const departLeg = await _autoRouteProg(start, departurePt, onUpdate, onText, true);
+          if (_subLegOk(departLeg)) { prefix = departLeg.slice(0, -1); effStart = departurePt; }
+        }
+      }
+      if (endBlocked) {
+        const arrivalPt = Query.findClearOffshorePoint(end.lon, end.lat, start.lon, start.lat);
+        if (arrivalPt) {
+          const arriveLeg = await _autoRouteProg(arrivalPt, end, onUpdate, onText, true);
+          if (_subLegOk(arriveLeg)) { suffix = arriveLeg.slice(1); effEnd = arrivalPt; }
+        }
+      }
+      if (prefix.length || suffix.length) {
+        const middle = await _autoRouteProg(effStart, effEnd, onUpdate, onText, true);
+        if (_subLegOk(middle)) {
+          console.log(`[autoRoute] local escape succeeded — prefix ${prefix.length}pts, middle ${middle.length}pts, suffix ${suffix.length}pts`);
+          return [...prefix, ...middle, ...suffix.slice(1)];
+        }
+      }
+      // Escape attempt didn't produce a verified-clear path — fall through to
+      // the normal search below, which will honestly report no-path-found
+      // rather than ever return something unverified.
+    }
+  }
+
   if (onText) onText(`Routing… 0 / ${nodes.length} nodes`);
 
   // ── Min-heap helpers ───────────────────────────────────────────────────────
