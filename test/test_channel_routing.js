@@ -824,6 +824,36 @@ function run() {
     if (!report('[9] Long-range bracket-and-patch (synthetic mid-course obstacle)', [syntheticRing], emptyGraph, start, end)) failures++;
   }
 
+  // Case 10 — the user-reported bug, isolated to the actual defect: North
+  // Haven town dock (Fox Islands Thorofare, west mouth) out to the
+  // thorofare's east mouth. The thorofare has NO charted FAIRWY polygon or
+  // RECTRC track in NOAA's ENC data at all — it's marked purely by a chain
+  // of 19 numbered lateral buoys — so before the buoy-chain channel-graph
+  // source (build_channel_graph.py) this leg ran in a straight line,
+  // directly over North Haven, ignoring the marked channel entirely. Real
+  // chart data, real reported start coordinate.
+  {
+    const start = { lat: 44.122212, lon: -68.860267 };  // North Haven town dock
+    const end   = { lat: 44.145, lon: -68.79 };          // east mouth of Fox Islands Thorofare
+    if (!report('[10] Fox Islands Thorofare (buoy-chain channel)', allRings, chGraph, start, end)) failures++;
+  }
+
+  // Case 11 — EXPERIMENTAL, not yet a committed regression case: the user's
+  // full originally-reported route, North Haven town dock all the way to
+  // Stonington ME. Case 10 above confirms the channel-ignoring defect itself
+  // is fixed; this leg continues on past the thorofare's east mouth into the
+  // Merchant Row / Deer Island Thorofare island-dense archipelago near
+  // Stonington, which hits the separate, already-diagnosed base-router gap
+  // for island-dense local archipelagos (see the long-range-routing work).
+  // Kept separate from the gated suite above for the same reason as case 7:
+  // a new/known finding to report, not a regression this session claims to
+  // have fixed.
+  {
+    const start = { lat: 44.122212, lon: -68.860267 };  // North Haven town dock
+    const end   = { lat: 44.157672, lon: -68.666394 };  // Stonington approach
+    report('[11] EXPERIMENTAL: North Haven -> Stonington (full route)', allRings, chGraph, start, end);
+  }
+
   console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll cases passed.');
   process.exit(failures ? 1 : 0);
 }

@@ -24,8 +24,10 @@ Steps (stops on the first failure — no partial-success masking):
   1. s57_to_geojson.py   --region <id> --chart-dir <dir>
   2. backfill_light_names.py --region <id>
   3. merge_charts.py     --region <id>              -> www/data/regions/<id>/{hazards,named_places,navaid,channels,recommended_tracks,soundings,chart_bounds}.geojson
-  4. build_channel_graph.py --region <id>            -> www/data/regions/<id>/channel_graph.geojson
-  5. extract_land.py     --chart-dir <dir> --bbox <bbox> --region <id> -> www/data/regions/<id>/land.geojson
+  4. extract_land.py     --chart-dir <dir> --bbox <bbox> --region <id> -> www/data/regions/<id>/land.geojson
+  5. build_channel_graph.py --region <id>            -> www/data/regions/<id>/channel_graph.geojson
+     (runs after extract_land.py, not before — its buoy-chain source land-checks
+     every synthesized edge and needs land.geojson to already exist)
   6. chartdb.py          --chart-dir <dir>            (additive upsert into the shared server/charts.db)
   7. build_regions.py    --region <id> --bbox <bbox> --name <name> -> www/data/regions/<id>.json
   8. validate_output.py  --region <id> --bbox <bbox>
@@ -103,11 +105,13 @@ def main():
     run([py, 's57_to_geojson.py', '--region', args.region_id, '--chart-dir', chart_dir], cwd=SCRIPT_DIR)
     run([py, 'backfill_light_names.py', '--region', args.region_id, '--bbox', args.bbox], cwd=SCRIPT_DIR)
     run([py, 'merge_charts.py', '--region', args.region_id], cwd=SCRIPT_DIR)
+    run([py, 'extract_land.py', '--chart-dir', chart_dir, '--bbox', args.bbox, '--region', args.region_id], cwd=SCRIPT_DIR)
     run([py, 'build_channel_graph.py',
          '--channels', f'../www/data/regions/{args.region_id}/channels.geojson',
          '--tracks', f'../www/data/regions/{args.region_id}/recommended_tracks.geojson',
+         '--navaid', f'../www/data/regions/{args.region_id}/navaid.geojson',
+         '--land', f'../www/data/regions/{args.region_id}/land.geojson',
          '--out', f'../www/data/regions/{args.region_id}/channel_graph.geojson'], cwd=SCRIPT_DIR)
-    run([py, 'extract_land.py', '--chart-dir', chart_dir, '--bbox', args.bbox, '--region', args.region_id], cwd=SCRIPT_DIR)
     run([py, 'chartdb.py', '--chart-dir', chart_dir], cwd=SERVER_DIR)
     run([py, 'build_regions.py', '--region', args.region_id, '--bbox', args.bbox, '--name', args.name], cwd=SCRIPT_DIR)
     run([py, 'validate_output.py', '--region', args.region_id, '--bbox', args.bbox], cwd=SCRIPT_DIR)

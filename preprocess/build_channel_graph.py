@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Build a routable channel-graph from two ENC-derived sources:
+Build a routable channel-graph from three ENC-derived sources:
 
   1. RECTRC/NAVLNE recommended-track LineStrings (www/data/recommended_tracks.geojson)
      — already real, charted routable lines (a pilot's actual approach track).
@@ -16,22 +16,54 @@ Build a routable channel-graph from two ENC-derived sources:
      longest path for a simple elongated fairway, or kept as a full graph if
      it has a real branch/junction.
 
+  3. Named lateral-buoy/daybeacon chains (www/data/navaid.geojson) — many real,
+     actively-used Maine thorofares/passages/river reaches (Fox Islands
+     Thorofare among them) have NO charted FAIRWY polygon or RECTRC track at
+     all in NOAA's ENC data — they're marked purely by a string of numbered
+     lateral aids. Buoys sharing a common name prefix ("Fox Island Thorofare
+     Buoy 12", "...Gong Buoy 23", ...) are grouped, connected via a
+     minimum-spanning tree (robust to a curving passage, unlike sorting by
+     buoy number alone), and any resulting edge that crosses land is dropped
+     — channel-graph edges are trusted by the router with NO runtime land
+     check (see the "relaxed WITHOUT segBlocked" comment in app.js), so a bad
+     synthesized edge here would be a routing hazard, not just a graph
+     wart. See buoy_chain_edges() below.
+
 Output: www/data/channel_graph.geojson — a FeatureCollection of LineString
 edges (each a 2-point segment), properties: {source, channelName}. Consumed
 by www/js/query.js at runtime (see Query.channelNodesNear / the persistent
 channel index built alongside _landIndex).
 
-Usage: python3 build_channel_graph.py [--channels PATH] [--tracks PATH] [--out PATH]
+Usage: python3 build_channel_graph.py [--channels PATH] [--tracks PATH]
+                                       [--navaid PATH] [--land PATH] [--out PATH]
 """
 import argparse
 import json
 import math
 import os
+import re
 
+import numpy as np
 from pyproj import Transformer
 from shapely.geometry import shape, LineString, MultiPolygon, Polygon
 from shapely.ops import transform as shp_transform
+from shapely.strtree import STRtree
 from scipy.spatial import Voronoi
+from scipy.sparse.csgraph import minimum_spanning_tree
+
+# Buoy/daybeacon name -> (base channel name, trailing number/code), e.g.
+# "Fox Island Thorofare Lighted Gong Buoy 26" -> ("Fox Island Thorofare", "26"),
+# "Fox Island Thorofare Junction Buoy" -> ("Fox Island Thorofare", "").
+BUOY_NAME_RE = re.compile(
+    r'^(.*?)\s+(?:Lighted\s+)?(?:Junction\s+|Gong\s+|Bell\s+|Whistle\s+|Horn\s+)?'
+    r'(?:Buoy|Daybeacon|Beacon)\s*([A-Za-z0-9]*)$'
+)
+# Only build a synthetic chain for names that read as an actual through-passage —
+# a same-scheme buoy cluster around a hazard (e.g. "Long Ledge Buoy 2/4/6") is
+# NOT a route and must never turn into a routable edge.
+CHANNEL_NAME_KEYWORDS = ('thorofare', 'channel', 'passage', 'reach', 'river', 'cut', 'narrows', 'gut')
+CHAIN_NAVAID_TYPES = {'BOYLAT', 'BCNLAT', 'BOYSAW'}
+MIN_CHAIN_BUOYS = 3
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.normpath(os.path.join(SCRIPT_DIR, '..', 'www', 'data'))
@@ -339,10 +371,100 @@ def track_to_edges(feature):
     return [(tuple(coords[i]), tuple(coords[i + 1])) for i in range(len(coords) - 1)]
 
 
+def group_channel_buoys(navaid_features):
+    """navaid features -> {base channel name: [(lon, lat), ...]} for lateral
+    buoy/beacon chains whose shared name reads as a through-passage (see
+    CHANNEL_NAME_KEYWORDS) and that have enough members to plausibly trace a
+    route, not just a hazard-marking pair."""
+    groups = {}
+    for f in navaid_features:
+        props = f['properties']
+        if props.get('objtype') not in CHAIN_NAVAID_TYPES:
+            continue
+        m = BUOY_NAME_RE.match(props.get('name') or '')
+        if not m:
+            continue
+        base = m.group(1).strip()
+        if not any(kw in base.lower() for kw in CHANNEL_NAME_KEYWORDS):
+            continue
+        lon, lat = f['geometry']['coordinates']
+        groups.setdefault(base, []).append((lon, lat))
+    return {name: pts for name, pts in groups.items() if len(pts) >= MIN_CHAIN_BUOYS}
+
+
+def _mst_edges(points_m):
+    """Minimum-spanning-tree edges (as point-index pairs) over points already
+    in local planar meters — robust to a curving passage where buoy numbering
+    order alone wouldn't reliably trace the route, and to buoys marking both
+    sides of the channel (an MST prefers the true along-channel neighbors,
+    not a straight port-to-starboard hop, whenever those are shorter)."""
+    n = len(points_m)
+    dist = np.zeros((n, n))
+    for i in range(n):
+        for j in range(i + 1, n):
+            d = math.hypot(points_m[i][0] - points_m[j][0], points_m[i][1] - points_m[j][1])
+            dist[i, j] = dist[j, i] = d
+    mst = minimum_spanning_tree(dist).toarray()
+    return [(i, j) for i in range(n) for j in range(n) if mst[i, j] > 0]
+
+
+def _connected_components(edges):
+    adj = {}
+    for a, b in edges:
+        adj.setdefault(a, []).append(b)
+        adj.setdefault(b, []).append(a)
+    seen, comps = set(), []
+    for node in adj:
+        if node in seen:
+            continue
+        comp_nodes, frontier = set(), [node]
+        seen.add(node)
+        while frontier:
+            n2 = frontier.pop()
+            comp_nodes.add(n2)
+            for nb in adj[n2]:
+                if nb not in seen:
+                    seen.add(nb)
+                    frontier.append(nb)
+        comps.append([(a, b) for a, b in edges if a in comp_nodes and b in comp_nodes])
+    return comps
+
+
+def buoy_chain_to_edges(name, points, land_tree):
+    """Named lateral-buoy/daybeacon chain -> routable centerline edges. Any
+    MST edge that crosses land is dropped outright rather than guessed at —
+    see the module docstring for why a bad edge here is a routing hazard, not
+    just noise — which can split one chain into several disconnected pieces;
+    each surviving piece is independently collapsed to its longest path (or
+    kept as a real junction/branch) via longest_path_or_full_graph."""
+    c_lon = sum(p[0] for p in points) / len(points)
+    c_lat = sum(p[1] for p in points) / len(points)
+    fwd, inv = local_transformers(c_lon, c_lat)
+    points_m = [fwd.transform(lon, lat) for lon, lat in points]
+
+    kept = []
+    for i, j in _mst_edges(points_m):
+        seg = LineString([points[i], points[j]])
+        if land_tree is not None and len(land_tree.query(seg, predicate='intersects')) > 0:
+            continue
+        kept.append((i, j))
+
+    out_edges = []
+    for comp in _connected_components(kept):
+        comp_edges_m = longest_path_or_full_graph([(points_m[i], points_m[j]) for i, j in comp])
+        for (ax, ay), (bx, by) in comp_edges_m:
+            alon, alat = inv.transform(ax, ay)
+            blon, blat = inv.transform(bx, by)
+            out_edges.append(((alon, alat), (blon, blat)))
+    return out_edges
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--channels', default=os.path.join(DATA_DIR, 'channels.geojson'))
     ap.add_argument('--tracks', default=os.path.join(DATA_DIR, 'recommended_tracks.geojson'))
+    ap.add_argument('--navaid', default=os.path.join(DATA_DIR, 'navaid.geojson'))
+    ap.add_argument('--land', default=os.path.join(DATA_DIR, 'land.geojson'))
     ap.add_argument('--out', default=os.path.join(DATA_DIR, 'channel_graph.geojson'))
     args = ap.parse_args()
 
@@ -375,6 +497,29 @@ def main():
                                               [round(blon, 6), round(blat, 6)]]},
                 'properties': {'source': 'recommended_track', 'channelName': name},
             })
+
+    navaids = load_fc(args.navaid)
+    land_features = load_fc(args.land)
+    land_tree = STRtree([shape(f['geometry']) for f in land_features]) if land_features else None
+    if not land_features:
+        print(f'  WARNING: no land data at {args.land} — buoy-chain edges cannot be '
+              f'land-checked, skipping this source entirely (a bad edge here bypasses '
+              f'routing\'s land check at runtime, see module docstring)')
+    else:
+        groups = group_channel_buoys(navaids)
+        print(f'Deriving centerlines for {len(groups)} named buoy/beacon chain(s) '
+              f'(no charted FAIRWY/track) from {len(navaids)} navaid(s)...')
+        for name, points in groups.items():
+            edges = buoy_chain_to_edges(name, points, land_tree)
+            print(f'  {name}: {len(points)} buoy(s) -> {len(edges)} edge(s)')
+            for (alon, alat), (blon, blat) in edges:
+                out_features.append({
+                    'type': 'Feature',
+                    'geometry': {'type': 'LineString',
+                                 'coordinates': [[round(alon, 6), round(alat, 6)],
+                                                  [round(blon, 6), round(blat, 6)]]},
+                    'properties': {'source': 'buoy_chain', 'channelName': name},
+                })
 
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
     with open(args.out, 'w') as f:
