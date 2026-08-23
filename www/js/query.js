@@ -292,9 +292,23 @@ function _prioritiseByChartScale(zones) {
 // time, not several simultaneously.
 async function _fetchRegionGeometry(idbKey, filename) {
   if (_activeRegion) {
+    // Version-gated, same pattern as loadData()'s hazards/places/navaids
+    // cache below (and the SAME data-version.json/IDB key — one fingerprint
+    // covers both cache families). Without this check, an IndexedDB hit
+    // here returned unconditionally forever: a rebuilt channel_graph.geojson
+    // (or land/channels/soundings) on the server would NEVER reach a
+    // browser that had already cached the old copy, on any version of the
+    // app, with no way to recover short of clearing site data — a real
+    // routing bug (Fox Islands Thorofare, 2026-08-23) shipped a fix that
+    // never actually reached the reporting user's device because of this.
+    let networkVersion = null;
     try {
-      const cached = await idbGet(idbKey);
-      if (cached) return cached;
+      const vr = await fetch(_regionPath('data-version.json'));
+      if (vr.ok) networkVersion = (await vr.json()).version;
+    } catch (_) {}
+    try {
+      const [cached, storedVersion] = await Promise.all([idbGet(idbKey), idbGet('data-version')]);
+      if (cached && networkVersion && storedVersion === networkVersion) return cached;
     } catch (_) {}
     try {
       const r = await fetch(_regionPath(filename));
@@ -303,6 +317,14 @@ async function _fetchRegionGeometry(idbKey, filename) {
         idbPut(idbKey, data).catch(() => {});
         return data;
       }
+    } catch (_) {}
+    // Network fetch failed (offline, and the service worker had no cached
+    // copy of this exact URL either) — fall back to whatever's in
+    // IndexedDB even if its version is stale/unknown; stale offline data
+    // beats no data at all.
+    try {
+      const cached = await idbGet(idbKey);
+      if (cached) return cached;
     } catch (_) {}
     console.warn(`[AC] ${filename} not yet downloaded for region "${_activeRegion}" — using bundled default`);
   }

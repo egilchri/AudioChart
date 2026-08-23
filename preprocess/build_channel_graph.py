@@ -38,6 +38,7 @@ Usage: python3 build_channel_graph.py [--channels PATH] [--tracks PATH]
                                        [--navaid PATH] [--land PATH] [--out PATH]
 """
 import argparse
+import hashlib
 import json
 import math
 import os
@@ -459,6 +460,28 @@ def buoy_chain_to_edges(name, points, land_tree):
     return out_edges
 
 
+def refresh_data_version(out_dir):
+    """Recompute data-version.json from every .geojson file now in out_dir
+    (hazards, named_places, navaid, land, channels, channel_graph,
+    soundings, ...) and overwrite it. This is the ONLY version fingerprint
+    www/js/query.js checks before trusting its IndexedDB cache of any of
+    these files (_fetchRegionGeometry, and the hazards/places/navaids cache
+    in loadData()) — merge_charts.py writes an earlier version of this file
+    from just navaid/hazards/named_places, before land.geojson or
+    channel_graph.geojson even exist in the pipeline, so it can't reflect
+    them; this call (last in the pipeline) is what actually busts a
+    browser's stale cache after a channel-graph or land rebuild."""
+    digest = hashlib.sha256()
+    for name in sorted(os.listdir(out_dir)):
+        if name.endswith('.geojson'):
+            with open(os.path.join(out_dir, name), 'rb') as f:
+                digest.update(f.read())
+    version = digest.hexdigest()[:16]
+    with open(os.path.join(out_dir, 'data-version.json'), 'w') as f:
+        json.dump({'version': version}, f)
+    print(f'  data-version.json refreshed: {version}')
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--channels', default=os.path.join(DATA_DIR, 'channels.geojson'))
@@ -521,10 +544,14 @@ def main():
                     'properties': {'source': 'buoy_chain', 'channelName': name},
                 })
 
-    os.makedirs(os.path.dirname(args.out), exist_ok=True)
+    out_dir = os.path.dirname(args.out) or '.'
+    os.makedirs(out_dir, exist_ok=True)
     with open(args.out, 'w') as f:
         json.dump({'type': 'FeatureCollection', 'features': out_features}, f, separators=(',', ':'))
     print(f'\nWrote {len(out_features)} edge(s) → {args.out}')
+
+    if os.path.exists(os.path.join(out_dir, 'data-version.json')):
+        refresh_data_version(out_dir)
 
 
 if __name__ == '__main__':
