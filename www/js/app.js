@@ -67,17 +67,41 @@ function _hazardMarkerIcon() {
 let _hazardClusterZoomHandler = null;
 
 /** Union-find clustering of `points` ({lat,lon}[]) by on-screen pixel distance
- * at the map's current zoom/pan. Returns arrays of indices into `points`. */
+ * at the map's current zoom/pan. Returns arrays of indices into `points`.
+ * Grid-bucketed (cell size = pixelRadius, each point only compared against
+ * its own + 8 neighboring cells) rather than the naive all-pairs check —
+ * Penobscot Bay alone charts thousands of point hazards, and a full-bay
+ * viewport can put a real fraction of those on screen at once; plain
+ * all-pairs comparison at that count is a genuine multi-second main-thread
+ * hang, not just an inefficiency (found live-testing this feature). */
 function _clusterIndicesByPixel(map, points, pixelRadius) {
   const n = points.length;
   const px = points.map(p => map.latLngToContainerPoint([p.lat, p.lon]));
   const parent = Array.from({ length: n }, (_, i) => i);
   const find = i => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; };
   const union = (a, b) => { const ra = find(a), rb = find(b); if (ra !== rb) parent[ra] = rb; };
+  const cell = Math.max(pixelRadius, 1);
+  const cellKey = (cx, cy) => `${cx},${cy}`;
+  const grid = new Map();
   for (let i = 0; i < n; i++) {
-    for (let j = i + 1; j < n; j++) {
-      const dx = px[i].x - px[j].x, dy = px[i].y - px[j].y;
-      if (dx * dx + dy * dy <= pixelRadius * pixelRadius) union(i, j);
+    const cx = Math.floor(px[i].x / cell), cy = Math.floor(px[i].y / cell);
+    const k = cellKey(cx, cy);
+    if (!grid.has(k)) grid.set(k, []);
+    grid.get(k).push(i);
+  }
+  const r2 = pixelRadius * pixelRadius;
+  for (let i = 0; i < n; i++) {
+    const cx = Math.floor(px[i].x / cell), cy = Math.floor(px[i].y / cell);
+    for (let dcx = -1; dcx <= 1; dcx++) {
+      for (let dcy = -1; dcy <= 1; dcy++) {
+        const neighbors = grid.get(cellKey(cx + dcx, cy + dcy));
+        if (!neighbors) continue;
+        for (const j of neighbors) {
+          if (j <= i) continue; // each unordered pair checked once, still symmetric via union()
+          const dx = px[i].x - px[j].x, dy = px[i].y - px[j].y;
+          if (dx * dx + dy * dy <= r2) union(i, j);
+        }
+      }
     }
   }
   const groups = new Map();
