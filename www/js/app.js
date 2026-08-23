@@ -54,6 +54,89 @@ function _hazardMarkerIcon() {
   return L.icon({ iconUrl: './icons/markicons/Hazard-Warning.svg', iconSize: [28, 28], iconAnchor: [14, 28], tooltipAnchor: [0, -28] });
 }
 
+// ── Hazard marker clustering ────────────────────────────────────────────────
+// A rock-strewn stretch of the Maine coast can put a dozen+ charted hazards
+// within a few boat-lengths of each other — real example: a 0.25nm long-press
+// query near North Haven returning 16+ overlapping triangle icons, unreadable
+// as a pile. Individual hazards still render normally when they're not
+// crowded; only markers close enough on SCREEN (not nautical distance — this
+// is purely a rendering fix, every hazard is still full-accuracy queryable
+// data underneath, just visually merged) at the current zoom get replaced by
+// one soft-edged blob. Re-clusters on zoom so zooming in un-merges them.
+
+let _hazardClusterZoomHandler = null;
+
+/** Union-find clustering of `points` ({lat,lon}[]) by on-screen pixel distance
+ * at the map's current zoom/pan. Returns arrays of indices into `points`. */
+function _clusterIndicesByPixel(map, points, pixelRadius) {
+  const n = points.length;
+  const px = points.map(p => map.latLngToContainerPoint([p.lat, p.lon]));
+  const parent = Array.from({ length: n }, (_, i) => i);
+  const find = i => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; };
+  const union = (a, b) => { const ra = find(a), rb = find(b); if (ra !== rb) parent[ra] = rb; };
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      const dx = px[i].x - px[j].x, dy = px[i].y - px[j].y;
+      if (dx * dx + dy * dy <= pixelRadius * pixelRadius) union(i, j);
+    }
+  }
+  const groups = new Map();
+  for (let i = 0; i < n; i++) {
+    const r = find(i);
+    if (!groups.has(r)) groups.set(r, []);
+    groups.get(r).push(i);
+  }
+  return [...groups.values()];
+}
+
+function _hazardBlobIcon(count, radiusPx) {
+  const r = Math.max(radiusPx, 16);
+  const size = r * 2;
+  const blurId = `hazBlur${Math.round(r)}`;
+  const svg = `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+    <defs><filter id="${blurId}" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="${Math.max(r * 0.18, 3)}" />
+    </filter></defs>
+    <circle cx="${r}" cy="${r}" r="${r * 0.72}" fill="#f5c842" fill-opacity="0.85" filter="url(#${blurId})" />
+    <circle cx="${r}" cy="${r}" r="${Math.max(r * 0.26, 12)}" fill="#8a5a00" fill-opacity="0.92" />
+    <text x="${r}" y="${r}" text-anchor="middle" dominant-baseline="central"
+          font-size="${Math.max(r * 0.3, 12)}" font-weight="700" fill="#fff">${count}</text>
+  </svg>`;
+  return L.divIcon({ className: 'hazard-blob-marker', html: svg, iconSize: [size, size], iconAnchor: [r, r] });
+}
+
+/** Renders hazardPts into layerGroup: an isolated hazard gets its normal
+ * marker (makeMarker(h) — identical to what each caller already built
+ * before this existed), a screen-crowded group gets one blob instead;
+ * clicking a blob zooms in on it (which re-clusters via the zoomend
+ * listener below and reveals the real markers once they're no longer
+ * crowded — nothing is ever hidden permanently or dropped from the data). */
+function _renderClusteredHazards(map, layerGroup, hazardPts, makeMarker) {
+  const CLUSTER_PX = 26; // roughly one hazard-icon width — tune to taste
+  if (_hazardClusterZoomHandler) { map.off('zoomend', _hazardClusterZoomHandler); _hazardClusterZoomHandler = null; }
+  function render() {
+    layerGroup.clearLayers();
+    if (!hazardPts.length) return;
+    for (const idxs of _clusterIndicesByPixel(map, hazardPts, CLUSTER_PX)) {
+      if (idxs.length === 1) { makeMarker(hazardPts[idxs[0]]).addTo(layerGroup); continue; }
+      const members = idxs.map(i => hazardPts[i]);
+      const pxPts = members.map(h => map.latLngToContainerPoint([h.lat, h.lon]));
+      const cx = pxPts.reduce((s, p) => s + p.x, 0) / pxPts.length;
+      const cy = pxPts.reduce((s, p) => s + p.y, 0) / pxPts.length;
+      const radiusPx = Math.max(...pxPts.map(p => Math.hypot(p.x - cx, p.y - cy))) + 16;
+      L.marker(map.containerPointToLatLng([cx, cy]), {
+        icon: _hazardBlobIcon(members.length, radiusPx), zIndexOffset: 500,
+      }).bindTooltip(`${members.length} hazards — tap to expand`, {
+        permanent: false, direction: 'top', className: 'map-tooltip',
+      }).on('click', () => map.fitBounds(L.latLngBounds(members.map(h => [h.lat, h.lon])).pad(0.6)))
+        .addTo(layerGroup);
+    }
+  }
+  render();
+  _hazardClusterZoomHandler = render;
+  map.on('zoomend', _hazardClusterZoomHandler);
+}
+
 function _pinIcon() {
   return L.icon({ iconUrl: './icons/markicons/Marks-Active-Waypoint.svg', iconSize: [32, 32], iconAnchor: [16, 32], tooltipAnchor: [0, -32] });
 }
@@ -8005,8 +8088,8 @@ async function showHazardMap(fromLat, fromLon, hazardPts) {
   _markerByKey.clear();
   _refreshYouLayer();
 
-  const layers = [];
-  for (const h of hazardPts) {
+  const hazardLayer = L.layerGroup();
+  _renderClusteredHazards(_map, hazardLayer, hazardPts, (h) => {
     const marker = L.marker([h.lat, h.lon], { icon: _hazardMarkerIcon() });
     _markerByKey.set(_markerKey(h.lat, h.lon), marker);
     const tip = [h.label, h.name].filter(Boolean).join(', ');
@@ -8019,10 +8102,10 @@ async function showHazardMap(fromLat, fromLon, hazardPts) {
         `${base}, bearing ${bearingToWords(h.brg)}, ${formatDistance(h.d)}.`
       );
     });
-    layers.push(marker);
-  }
+    return marker;
+  });
 
-  _mapLayers = L.layerGroup(layers).addTo(_map);
+  _mapLayers = L.layerGroup([hazardLayer]).addTo(_map);
   const allPts = [[fromLat, fromLon], ...hazardPts.map(h => [h.lat, h.lon])];
   _map.fitBounds(L.latLngBounds(allPts).pad(0.25));
 }
@@ -8073,7 +8156,8 @@ async function showCourseMap(fromLat, fromLon, toLat, toLon, hazardPts) {
   layers.push(L.circleMarker([fromLat, fromLon], { radius: 7, color: '#4a9edd', fillColor: '#4a9edd', fillOpacity: 1, weight: 0 }));
   layers.push(L.circleMarker([toLat, toLon],   { radius: 7, color: '#4a9edd', fillColor: '#4a9edd', fillOpacity: 1, weight: 0 }));
   // Hazard markers
-  for (const h of (hazardPts || [])) {
+  const hazardLayer = L.layerGroup();
+  _renderClusteredHazards(_map, hazardLayer, hazardPts || [], (h) => {
     const m = L.marker([h.lat, h.lon], { icon: _hazardMarkerIcon() });
     if (h.label || h.name) m.bindTooltip(((h.label || '') + ' ' + (h.name || '')).trim(), { permanent: false, direction: 'top', className: 'map-tooltip' });
     m.on('click', () => {
@@ -8092,8 +8176,9 @@ async function showCourseMap(fromLat, fromLon, toLat, toLon, hazardPts) {
       showResponse(displayText);
       TTS.sayImmediate(speechText);
     });
-    layers.push(m);
-  }
+    return m;
+  });
+  layers.push(hazardLayer);
 
   _mapLayers = L.layerGroup(layers).addTo(_map);
   const allPts = [[fromLat, fromLon], [toLat, toLon], ...(hazardPts || []).map(h => [h.lat, h.lon])];
@@ -8279,20 +8364,24 @@ async function handleMapLongPress(latlng, radiusNm = 0.25, radiusLabel = '¼ mil
   layers.push(L.marker([lat, lon], { icon: _pinIcon() })
     .bindTooltip('📍', { permanent: true, direction: 'top', className: 'map-tooltip' }));
 
-  for (const h of hazards) {
-    const m = L.marker([h.lat, h.lon], { icon: _hazardMarkerIcon() });
-    _markerByKey.set(_markerKey(h.lat, h.lon), m);
-    const tip = [h.label, h.name].filter(Boolean).join(', ');
-    if (tip) m.bindTooltip(tip, { permanent: false, direction: 'top', className: 'map-tooltip' });
-    m.on('click', () => {
-      const nameStr = h.name ? `, ${h.name}` : '';
-      const base = `${h.label}${nameStr}`;
-      _highlightAndSpeak(m,
-        `${base}, ${bearingToDisplay(h.brg)}, ${distanceToDisplay(h.d)}`,
-        `${base}, bearing ${bearingToWords(h.brg)}, ${formatDistance(h.d)}.`
-      );
+  {
+    const hazardLayer = L.layerGroup();
+    _renderClusteredHazards(_map, hazardLayer, hazards, (h) => {
+      const m = L.marker([h.lat, h.lon], { icon: _hazardMarkerIcon() });
+      _markerByKey.set(_markerKey(h.lat, h.lon), m);
+      const tip = [h.label, h.name].filter(Boolean).join(', ');
+      if (tip) m.bindTooltip(tip, { permanent: false, direction: 'top', className: 'map-tooltip' });
+      m.on('click', () => {
+        const nameStr = h.name ? `, ${h.name}` : '';
+        const base = `${h.label}${nameStr}`;
+        _highlightAndSpeak(m,
+          `${base}, ${bearingToDisplay(h.brg)}, ${distanceToDisplay(h.d)}`,
+          `${base}, bearing ${bearingToWords(h.brg)}, ${formatDistance(h.d)}.`
+        );
+      });
+      return m;
     });
-    layers.push(m);
+    layers.push(hazardLayer);
   }
 
   for (const n of navaids) {
