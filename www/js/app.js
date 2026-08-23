@@ -113,18 +113,28 @@ function _clusterIndicesByPixel(map, points, pixelRadius) {
   return [...groups.values()];
 }
 
-function _hazardBlobIcon(count, radiusPx) {
-  const r = Math.max(radiusPx, 16);
+function _hazardBlobIcon(count) {
+  // Deliberately NOT sized to the cluster's real pixel spread — a bug found
+  // live (2026-08-23): sizing the blob to maxD-of-members meant that when
+  // the DOM-count safety valve (below) widens the grouping radius on a
+  // hazard-dense view, every resulting blob (and its blur halo) ballooned
+  // to match, and dozens of huge overlapping halos washed the whole chart
+  // in a continuous orange fog instead of reading as distinct local blobs.
+  // A small, count-driven badge size — same convention as any standard map
+  // marker cluster — stays legible and local regardless of how far apart
+  // the real members ended up; the count is still exact, and clicking still
+  // zooms to the members' real bounds (see _renderClusteredHazards).
+  const r = Math.min(14 + Math.sqrt(count) * 2.5, 26);
   const size = r * 2;
   const blurId = `hazBlur${Math.round(r)}`;
   const svg = `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
-    <defs><filter id="${blurId}" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur stdDeviation="${Math.max(r * 0.18, 3)}" />
+    <defs><filter id="${blurId}" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="${Math.max(r * 0.08, 1.5)}" />
     </filter></defs>
-    <circle cx="${r}" cy="${r}" r="${r * 0.72}" fill="#f5c842" fill-opacity="0.85" filter="url(#${blurId})" />
-    <circle cx="${r}" cy="${r}" r="${Math.max(r * 0.26, 12)}" fill="#8a5a00" fill-opacity="0.92" />
+    <circle cx="${r}" cy="${r}" r="${r * 0.9}" fill="#f5c842" fill-opacity="0.9" filter="url(#${blurId})" />
+    <circle cx="${r}" cy="${r}" r="${r * 0.5}" fill="#8a5a00" fill-opacity="0.92" />
     <text x="${r}" y="${r}" text-anchor="middle" dominant-baseline="central"
-          font-size="${Math.max(r * 0.3, 12)}" font-weight="700" fill="#fff">${count}</text>
+          font-size="${Math.max(r * 0.42, 11)}" font-weight="700" fill="#fff">${count}</text>
   </svg>`;
   return L.divIcon({ className: 'hazard-blob-marker', html: svg, iconSize: [size, size], iconAnchor: [r, r] });
 }
@@ -162,10 +172,8 @@ function _renderClusteredHazards(map, layerGroup, hazardPts, makeMarker) {
       const pxPts = members.map(h => map.latLngToContainerPoint([h.lat, h.lon]));
       const cx = pxPts.reduce((s, p) => s + p.x, 0) / pxPts.length;
       const cy = pxPts.reduce((s, p) => s + p.y, 0) / pxPts.length;
-      let maxD = 0;
-      for (const p of pxPts) { const d = Math.hypot(p.x - cx, p.y - cy); if (d > maxD) maxD = d; }
       L.marker(map.containerPointToLatLng([cx, cy]), {
-        icon: _hazardBlobIcon(members.length, maxD + 16), zIndexOffset: 500,
+        icon: _hazardBlobIcon(members.length), zIndexOffset: 500,
       }).bindTooltip(`${members.length} hazards — tap to expand`, {
         permanent: false, direction: 'top', className: 'map-tooltip',
       }).on('click', () => map.fitBounds(L.latLngBounds(members.map(h => [h.lat, h.lon])).pad(0.6)))
