@@ -3661,14 +3661,48 @@ function _showRerouteOverlay(pts) {
   };
 }
 
+// A fallback straight line's own gScore[1]===INF tells us the search never
+// connected start to end — it does NOT tell us WHY (land in the way vs. a
+// charted point-hazard vs. both), and _showRouteFallbackWarning used to
+// always say "land" regardless. Real bug found live (2026-08-23): a route
+// through Fox Islands Thorofare's rock-strewn approach to Merchant Row fell
+// back on a leg that runs directly over a charted underwater rock — open
+// water the whole way, no land anywhere nearby — so a user reading "couldn't
+// avoid land" has every reason to dismiss the warning as not applying here.
+// Classify what a fallback segment actually crosses so the message matches
+// what's really blocking it.
+const _FALLBACK_HAZARD_LABELS = new Set(['underwater rock', 'obstruction', 'wreck', 'UWTROC', 'OBSTRN', 'WRECKS']);
+const _FALLBACK_HAZARD_CORRIDOR_NM = 0.05; // matches HAZARD_SAFETY_NM in _autoRouteProg
+function _classifyFallbackSeg(a, b) {
+  const crossesLand = Query.landBlocks(a.lon, a.lat, b.lon, b.lat);
+  const segLenNm = Query.distanceNm(a.lon, a.lat, b.lon, b.lat);
+  let crossesHazard = false;
+  for (const f of (Query.hazards?.features || [])) {
+    if (f.geometry?.type !== 'Point') continue;
+    const label = f.properties?.label || f.properties?.objtype || '';
+    if (!_FALLBACK_HAZARD_LABELS.has(label)) continue;
+    const [pLon, pLat] = f.geometry.coordinates;
+    const ct = _segCrossTrack(a.lon, a.lat, b.lon, b.lat, pLon, pLat);
+    if (!ct) continue;
+    if (Math.abs(ct.crossTrack) <= _FALLBACK_HAZARD_CORRIDOR_NM && ct.alongTrack >= 0 && ct.alongTrack <= segLenNm) {
+      crossesHazard = true;
+      break;
+    }
+  }
+  return { crossesLand, crossesHazard };
+}
+
 async function _reRouteSegments(pts, onProgress, onText) {
   if (await _blockedByCoverage(pts[0], pts[pts.length - 1], 'Re-route')) {
     return { points: pts, fallbacks: 0, fallbackSegs: [], blocked: true };
   }
   const result = [pts[0]];
   let fallbacks = 0;
-  const fallbackSegs = [];  // {a,b} of each leg that couldn't avoid land — lets the
-                             // caller point the user at exactly where to add a waypoint
+  const fallbackSegs = [];  // {a,b,crossesLand,crossesHazard} of each leg that
+                             // couldn't be routed and fell back to a straight
+                             // line — lets the caller point the user at
+                             // exactly where to add a waypoint, and say what
+                             // it's actually crossing (see _classifyFallbackSeg)
   // Each leg has its own DEADLINE_MS (5s) budget inside _autoRouteProg, but a
   // many-leg re-route had no OVERALL cap — a dozen legs could legitimately
   // run a minute-plus with no way for the caller to know. Cap the running
@@ -3689,19 +3723,35 @@ async function _reRouteSegments(pts, onProgress, onText) {
         (t)    => { if (onText) onText(segLabel + t); }
       );
     }
-    if (sub.length <= 2) { fallbacks++; fallbackSegs.push({ a: pts[i], b: pts[i + 1] }); }
+    if (sub.length <= 2) {
+      fallbacks++;
+      fallbackSegs.push({ a: pts[i], b: pts[i + 1], ..._classifyFallbackSeg(pts[i], pts[i + 1]) });
+    }
     result.push(...sub.slice(1));
     if (onProgress) onProgress([...result]);
   }
   return { points: result, fallbacks, fallbackSegs };
 }
 
-// Auto-route couldn't get a segment around land and silently fell back to a
-// straight line — easy to miss as a status-bar message alone, and land-crossing
-// "routes" are a safety issue, not a cosmetic one. Mark every failed leg's
-// midpoint on the map and pop up an explicit instruction (matches the existing
-// _checkRouteHazards popup pattern) rather than relying on the user to notice
-// the geometry looks wrong.
+// Auto-route couldn't get a segment around an obstacle and silently fell
+// back to a straight line — easy to miss as a status-bar message alone, and
+// an unverified "route" is a safety issue, not a cosmetic one. Mark every
+// failed leg's midpoint on the map and pop up an explicit instruction
+// (matches the existing _checkRouteHazards popup pattern) rather than
+// relying on the user to notice the geometry looks wrong.
+//
+// Every message here used to hard-code "land" regardless of what actually
+// blocked the leg. Real bug found live (2026-08-23): a route through Fox
+// Islands Thorofare's rock-strewn approach fell back on a leg running
+// directly over a charted underwater rock — open water, no land in sight —
+// so "Couldn't avoid land" read as simply wrong and easy to dismiss. Each
+// segment is now labeled by what _classifyFallbackSeg actually found.
+function _fallbackReasonLabel(seg) {
+  if (seg.crossesLand && seg.crossesHazard) return 'land and a charted hazard';
+  if (seg.crossesHazard) return 'a charted hazard (rock/obstruction/wreck)';
+  return 'land'; // crossesLand, or neither flag matched (still an unverified straight line)
+}
+
 let _routeFallbackLayer = null;
 function _showRouteFallbackWarning(fallbackSegs) {
   if (_routeFallbackLayer) { _routeFallbackLayer.clearLayers(); _routeFallbackLayer = null; }
@@ -3713,6 +3763,7 @@ function _showRouteFallbackWarning(fallbackSegs) {
     lon: (seg.a.lon + seg.b.lon) / 2,
   }));
   mids.forEach((m, i) => {
+    const reason = _fallbackReasonLabel(fallbackSegs[i]);
     L.marker([m.lat, m.lon], {
       icon: L.divIcon({
         className: '',
@@ -3721,22 +3772,27 @@ function _showRouteFallbackWarning(fallbackSegs) {
         iconAnchor: [16, 16],
       }),
       zIndexOffset: 900,
-    }).bindTooltip(`Couldn't avoid land here — add a waypoint (leg ${i + 1})`,
+    }).bindTooltip(`Couldn't avoid ${reason} here — add a waypoint (leg ${i + 1})`,
                     { permanent: false, direction: 'top', offset: [0, -6] })
       .on('click', (e) => { L.DomEvent.stopPropagation(e); _map.setView([m.lat, m.lon], 16); })
       .addTo(_routeFallbackLayer);
   });
 
   const n = fallbackSegs.length;
+  const anyHazard = fallbackSegs.some(s => s.crossesHazard);
+  const anyLand   = fallbackSegs.some(s => s.crossesLand || !s.crossesHazard);
+  const reasonSummary = anyHazard && anyLand ? 'land or a charted hazard'
+    : anyHazard ? 'a charted hazard (rock/obstruction/wreck)'
+    : 'land';
   const first = mids[0];
-  const body = `<b>Couldn't avoid land</b> — ${n} leg${n > 1 ? 's' : ''} still cross${n > 1 ? '' : 'es'} land as a straight line.<br>`
+  const body = `<b>Couldn't avoid ${reasonSummary}</b> — ${n} leg${n > 1 ? 's' : ''} still cross${n > 1 ? '' : 'es'} it as a straight line.<br>`
     + `Add a waypoint in the passage${n > 1 ? ' (⚠ marks each spot)' : ''}, then re-route.`;
   L.popup({ maxWidth: 300, autoPan: true })
     .setLatLng([first.lat, first.lon])
     .setContent(`<div style="font-size:13px;line-height:1.5">${body}</div>`)
     .openOn(_map);
 
-  const speakMsg = `Warning: ${n} route leg${n > 1 ? 's' : ''} couldn't avoid land. Add a waypoint and re-route.`;
+  const speakMsg = `Warning: ${n} route leg${n > 1 ? 's' : ''} couldn't avoid ${reasonSummary}. Add a waypoint and re-route.`;
   setStatus(speakMsg);
   TTS.sayImmediate(speakMsg);
 }
