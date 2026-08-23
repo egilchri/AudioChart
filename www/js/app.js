@@ -120,21 +120,21 @@ function _hazardBlobIcon(count) {
   // hazard-dense view, every resulting blob (and its blur halo) ballooned
   // to match, and dozens of huge overlapping halos washed the whole chart
   // in a continuous orange fog instead of reading as distinct local blobs.
-  // A small, count-driven badge size — same convention as any standard map
+  // A small, count-driven size — same convention as any standard map
   // marker cluster — stays legible and local regardless of how far apart
-  // the real members ended up; the count is still exact, and clicking still
-  // zooms to the members' real bounds (see _renderClusteredHazards).
-  const r = Math.min(14 + Math.sqrt(count) * 2.5, 26);
+  // the real members ended up; clicking still zooms to the members' real
+  // bounds (see _renderClusteredHazards), which is how more detail actually
+  // surfaces — no on-blob count/text (user feedback 2026-08-23: the number
+  // badges read as clutter of their own; the exact count is still in the
+  // tooltip on hover/tap, just not permanently painted on the map).
+  const r = Math.min(10 + Math.sqrt(count) * 2.5, 22);
   const size = r * 2;
   const blurId = `hazBlur${Math.round(r)}`;
   const svg = `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
     <defs><filter id="${blurId}" x="-40%" y="-40%" width="180%" height="180%">
-      <feGaussianBlur stdDeviation="${Math.max(r * 0.08, 1.5)}" />
+      <feGaussianBlur stdDeviation="${Math.max(r * 0.1, 1.5)}" />
     </filter></defs>
-    <circle cx="${r}" cy="${r}" r="${r * 0.9}" fill="#f5c842" fill-opacity="0.9" filter="url(#${blurId})" />
-    <circle cx="${r}" cy="${r}" r="${r * 0.5}" fill="#8a5a00" fill-opacity="0.92" />
-    <text x="${r}" y="${r}" text-anchor="middle" dominant-baseline="central"
-          font-size="${Math.max(r * 0.42, 11)}" font-weight="700" fill="#fff">${count}</text>
+    <circle cx="${r}" cy="${r}" r="${r * 0.85}" fill="#f5c842" fill-opacity="0.88" filter="url(#${blurId})" />
   </svg>`;
   return L.divIcon({ className: 'hazard-blob-marker', html: svg, iconSize: [size, size], iconAnchor: [r, r] });
 }
