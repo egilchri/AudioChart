@@ -7951,6 +7951,13 @@ function _refreshNavaidOverlay() {
   }
 
   if (showHazards && Query.hazards?.features) {
+    // This is the big one — a rock-strewn stretch of coast (Penobscot Bay
+    // easily has hundreds of charted point hazards) shows every one of them
+    // in the current viewport with no radius limit, unlike the small-radius
+    // query overlays. Route it through the same clustering helper as those
+    // so a dense field of triangles reads as smooth yellow blobs instead of
+    // an unreadable pile, not just the transient query popups.
+    const hazardPts = [];
     for (const f of Query.hazards.features) {
       // DEPARE features are now polygons — skip them here (shown by Depths layer)
       if (f.geometry.type !== 'Point') continue;
@@ -7958,10 +7965,15 @@ function _refreshNavaidOverlay() {
       if (!bounds.contains([lat, lon])) continue;
       const label = f.properties.label || f.properties.objtype || 'hazard';
       const name  = f.properties.name || label;
-      const m = L.marker([lat, lon], { icon: _hazardMarkerIcon() });
-      m.bindTooltip(name, { permanent: false, direction: 'top', className: 'map-tooltip' });
-      markers.push(m);
+      hazardPts.push({ lat, lon, label, name });
     }
+    const hazardLayer = L.layerGroup();
+    _renderClusteredHazards(_map, hazardLayer, hazardPts, (h) => {
+      const m = L.marker([h.lat, h.lon], { icon: _hazardMarkerIcon() });
+      m.bindTooltip(h.name, { permanent: false, direction: 'top', className: 'map-tooltip' });
+      return m;
+    });
+    markers.push(hazardLayer);
   }
 
   // Mudflat layer — tidal flats (valsou < 0 = seabed above chart datum, always exposed).
