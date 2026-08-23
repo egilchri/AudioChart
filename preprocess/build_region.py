@@ -111,6 +111,7 @@ def main():
          '--tracks', f'../www/data/regions/{args.region_id}/recommended_tracks.geojson',
          '--navaid', f'../www/data/regions/{args.region_id}/navaid.geojson',
          '--land', f'../www/data/regions/{args.region_id}/land.geojson',
+         '--hazards', f'../www/data/regions/{args.region_id}/hazards.geojson',
          '--out', f'../www/data/regions/{args.region_id}/channel_graph.geojson'], cwd=SCRIPT_DIR)
     run([py, 'chartdb.py', '--chart-dir', chart_dir], cwd=SERVER_DIR)
     run([py, 'build_regions.py', '--region', args.region_id, '--bbox', args.bbox, '--name', args.name], cwd=SCRIPT_DIR)

@@ -376,13 +376,17 @@ def group_channel_buoys(navaid_features):
     """navaid features -> {base channel name: [(lon, lat), ...]} for lateral
     buoy/beacon chains whose shared name reads as a through-passage (see
     CHANNEL_NAME_KEYWORDS) and that have enough members to plausibly trace a
-    route, not just a hazard-marking pair."""
+    route, not just a hazard-marking pair. Also returns the set of raw navaid
+    names claimed by a qualifying group, so spatial_buoy_clusters() (a second,
+    riskier source — see its docstring) never reprocesses the same aids."""
     groups = {}
+    names_by_base = {}
     for f in navaid_features:
         props = f['properties']
         if props.get('objtype') not in CHAIN_NAVAID_TYPES:
             continue
-        m = BUOY_NAME_RE.match(props.get('name') or '')
+        name = props.get('name') or ''
+        m = BUOY_NAME_RE.match(name)
         if not m:
             continue
         base = m.group(1).strip()
@@ -390,7 +394,10 @@ def group_channel_buoys(navaid_features):
             continue
         lon, lat = f['geometry']['coordinates']
         groups.setdefault(base, []).append((lon, lat))
-    return {name: pts for name, pts in groups.items() if len(pts) >= MIN_CHAIN_BUOYS}
+        names_by_base.setdefault(base, []).append(name)
+    qualifying = {name: pts for name, pts in groups.items() if len(pts) >= MIN_CHAIN_BUOYS}
+    claimed_names = {n for base in qualifying for n in names_by_base[base]}
+    return qualifying, claimed_names
 
 
 def _mst_edges(points_m):
@@ -431,13 +438,15 @@ def _connected_components(edges):
     return comps
 
 
-def buoy_chain_to_edges(name, points, land_tree):
-    """Named lateral-buoy/daybeacon chain -> routable centerline edges. Any
-    MST edge that crosses land is dropped outright rather than guessed at —
-    see the module docstring for why a bad edge here is a routing hazard, not
-    just noise — which can split one chain into several disconnected pieces;
-    each surviving piece is independently collapsed to its longest path (or
-    kept as a real junction/branch) via longest_path_or_full_graph."""
+def buoy_chain_to_edges(name, points, land_tree, hazard_tree=None):
+    """Lateral-buoy/daybeacon chain -> routable centerline edges. Any MST
+    edge that crosses land, or (when hazard_tree is given) passes within
+    HAZARD_CORRIDOR_M of a charted underwater rock/obstruction/wreck, is
+    dropped outright rather than guessed at — see the module docstring for
+    why a bad edge here is a routing hazard, not just noise — which can
+    split one chain into several disconnected pieces; each surviving piece
+    is independently collapsed to its longest path (or kept as a real
+    junction/branch) via longest_path_or_full_graph."""
     c_lon = sum(p[0] for p in points) / len(points)
     c_lat = sum(p[1] for p in points) / len(points)
     fwd, inv = local_transformers(c_lon, c_lat)
@@ -447,6 +456,8 @@ def buoy_chain_to_edges(name, points, land_tree):
     for i, j in _mst_edges(points_m):
         seg = LineString([points[i], points[j]])
         if land_tree is not None and len(land_tree.query(seg, predicate='intersects')) > 0:
+            continue
+        if hazard_tree is not None and len(hazard_tree.query(seg, predicate='intersects')) > 0:
             continue
         kept.append((i, j))
 
@@ -458,6 +469,111 @@ def buoy_chain_to_edges(name, points, land_tree):
             blon, blat = inv.transform(bx, by)
             out_edges.append(((alon, alat), (blon, blat)))
     return out_edges
+
+
+# ── Spatial (unnamed) buoy-line detection ───────────────────────────────────
+# NOAA usually names each buoy in a real numbered route after the individual
+# hazard it sits beside, not a shared channel name (real example: the
+# approach to Stonington through Merchant Row / Deer Island Thorofare is 8
+# buoys — Roebuck Ledge 15, Dow Ledges 16, Staple Point Ledge 18, Peggy's
+# Island Ledge 19, Crotch Island 23, Moose Island Rock 24, Crotch Island
+# Daybeacon 25, Field Ledge 27 — eight different names, no shared prefix for
+# group_channel_buoys() to find, but a clean, tight, monotonic line: gaps of
+# 0.14-0.51nm between consecutive members). A lateral buoy's number ALONE is
+# not a reliable signal across a whole region — plain number-sharing found
+# "Buoy 2" scattered 2-5nm apart across half a dozen unrelated single-hazard
+# pairs nowhere near each other. Real-world distance is the reliable signal:
+# cluster by geographic proximity, regardless of name or number, and let a
+# real route reveal itself as a tight run of many consecutive-gap members
+# while unrelated hazard-marker buoys stay isolated (too far from any peer to
+# ever join a cluster). Because these buoys are individually named for a
+# nearby hazard (not confirmed as a through-route by a shared name the way
+# group_channel_buoys' chains are), buoy_chain_to_edges is also given a
+# hazard_tree here so a candidate edge that cuts too close to a charted
+# underwater rock/obstruction/wreck (not just land — land.geojson has no
+# submerged hazards) gets rejected as an extra backstop.
+SPATIAL_MAX_GAP_NM = 0.75
+MIN_SPATIAL_CHAIN_BUOYS = 5
+DANGER_LABELS = {'underwater rock', 'obstruction', 'wreck', 'UWTROC', 'OBSTRN', 'WRECKS'}
+HAZARD_CORRIDOR_M = 35.0
+
+
+def _nm_between(lon1, lat1, lon2, lat2):
+    R_NM = 3440.065
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dphi, dlambda = math.radians(lat2 - lat1), math.radians(lon2 - lon1)
+    a = math.sin(dphi / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dlambda / 2) ** 2
+    return R_NM * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+def spatial_buoy_clusters(navaid_features, exclude_names, max_gap_nm=SPATIAL_MAX_GAP_NM,
+                           min_members=MIN_SPATIAL_CHAIN_BUOYS):
+    """{synthetic cluster id: [(lon, lat), ...]} via pure real-world-distance
+    union-find over every lateral buoy/beacon NOT already claimed by
+    group_channel_buoys — see the section docstring above for why distance,
+    not name or number, is the safe grouping signal here."""
+    pts = []
+    for f in navaid_features:
+        props = f['properties']
+        if props.get('objtype') not in CHAIN_NAVAID_TYPES:
+            continue
+        name = props.get('name') or ''
+        if name in exclude_names or not BUOY_NAME_RE.match(name):
+            continue
+        lon, lat = f['geometry']['coordinates']
+        pts.append((lon, lat, name))
+
+    n = len(pts)
+    parent = list(range(n))
+
+    def find(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    def union(a, b):
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[ra] = rb
+
+    for i in range(n):
+        for j in range(i + 1, n):
+            if _nm_between(pts[i][0], pts[i][1], pts[j][0], pts[j][1]) <= max_gap_nm:
+                union(i, j)
+
+    groups = {}
+    for i in range(n):
+        groups.setdefault(find(i), []).append(pts[i])
+    return {f'spatial-{i}': [(lon, lat) for lon, lat, _ in members]
+            for i, members in enumerate(groups.values()) if len(members) >= min_members}
+
+
+def load_hazard_corridor_tree(hazards_path, corridor_m=HAZARD_CORRIDOR_M):
+    """STRtree of charted point-hazard positions (underwater rock/obstruction/
+    wreck), each buffered to an approximate corridor_m-radius circle in
+    lon/lat space (locally scaled by latitude — fine at this small a radius
+    and this narrow a region) — used by buoy_chain_to_edges' hazard_tree
+    check. None if the file is missing or has no such features."""
+    feats = load_fc(hazards_path)
+    circles = []
+    for f in feats:
+        if f['geometry']['type'] != 'Point':
+            continue
+        props = f['properties']
+        label = props.get('label') or props.get('objtype') or ''
+        if label not in DANGER_LABELS:
+            continue
+        lon, lat = f['geometry']['coordinates']
+        deg_per_m_lat = 1.0 / 111320.0
+        deg_per_m_lon = 1.0 / (111320.0 * max(math.cos(math.radians(lat)), 0.01))
+        circle = shape({'type': 'Point', 'coordinates': [lon, lat]}).buffer(1.0, resolution=8)
+        ellipse = shp_transform(
+            lambda x, y, cx=lon, cy=lat: (cx + (x - cx) * corridor_m * deg_per_m_lon,
+                                           cy + (y - cy) * corridor_m * deg_per_m_lat),
+            circle)
+        circles.append(ellipse)
+    return STRtree(circles) if circles else None
 
 
 def refresh_data_version(out_dir):
@@ -488,6 +604,7 @@ def main():
     ap.add_argument('--tracks', default=os.path.join(DATA_DIR, 'recommended_tracks.geojson'))
     ap.add_argument('--navaid', default=os.path.join(DATA_DIR, 'navaid.geojson'))
     ap.add_argument('--land', default=os.path.join(DATA_DIR, 'land.geojson'))
+    ap.add_argument('--hazards', default=os.path.join(DATA_DIR, 'hazards.geojson'))
     ap.add_argument('--out', default=os.path.join(DATA_DIR, 'channel_graph.geojson'))
     args = ap.parse_args()
 
@@ -529,7 +646,7 @@ def main():
               f'land-checked, skipping this source entirely (a bad edge here bypasses '
               f'routing\'s land check at runtime, see module docstring)')
     else:
-        groups = group_channel_buoys(navaids)
+        groups, claimed_names = group_channel_buoys(navaids)
         print(f'Deriving centerlines for {len(groups)} named buoy/beacon chain(s) '
               f'(no charted FAIRWY/track) from {len(navaids)} navaid(s)...')
         for name, points in groups.items():
@@ -542,6 +659,23 @@ def main():
                                  'coordinates': [[round(alon, 6), round(alat, 6)],
                                                   [round(blon, 6), round(blat, 6)]]},
                     'properties': {'source': 'buoy_chain', 'channelName': name},
+                })
+
+        hazard_tree = load_hazard_corridor_tree(args.hazards)
+        spatial_groups = spatial_buoy_clusters(navaids, claimed_names)
+        print(f'Deriving centerlines for {len(spatial_groups)} unnamed spatial buoy '
+              f'line(s) (individually-named aids forming a real geographic line — '
+              f'see spatial_buoy_clusters docstring)...')
+        for cluster_id, points in spatial_groups.items():
+            edges = buoy_chain_to_edges(cluster_id, points, land_tree, hazard_tree)
+            print(f'  {cluster_id}: {len(points)} buoy(s) -> {len(edges)} edge(s)')
+            for (alon, alat), (blon, blat) in edges:
+                out_features.append({
+                    'type': 'Feature',
+                    'geometry': {'type': 'LineString',
+                                 'coordinates': [[round(alon, 6), round(alat, 6)],
+                                                  [round(blon, 6), round(blat, 6)]]},
+                    'properties': {'source': 'spatial_buoy_chain', 'channelName': cluster_id},
                 })
 
     out_dir = os.path.dirname(args.out) or '.'

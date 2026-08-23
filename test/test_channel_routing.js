@@ -840,18 +840,42 @@ function run() {
 
   // Case 11 — EXPERIMENTAL, not yet a committed regression case: the user's
   // full originally-reported route, North Haven town dock all the way to
-  // Stonington ME. Case 10 above confirms the channel-ignoring defect itself
-  // is fixed; this leg continues on past the thorofare's east mouth into the
-  // Merchant Row / Deer Island Thorofare island-dense archipelago near
-  // Stonington, which hits the separate, already-diagnosed base-router gap
-  // for island-dense local archipelagos (see the long-range-routing work).
-  // Kept separate from the gated suite above for the same reason as case 7:
-  // a new/known finding to report, not a regression this session claims to
-  // have fixed.
+  // Stonington ME. Case 10 above (and case 12 below) confirm the
+  // channel-ignoring defect itself is fixed for both Fox Islands Thorofare
+  // and, as of the spatial_buoy_chain source, Merchant Row/Deer Island
+  // Thorofare too — narrowed down live (2026-08-23) to exactly where the
+  // remaining failure is: not the 6nm+ of open bay this route used to fail
+  // on, but specifically the last ~1.4nm approach into Stonington itself
+  // (near Crotch Island/Barred Island) — that pocket has no charted
+  // buoy-line data at all (verified: no FAIRWY/RECTRC/qualifying buoy chain
+  // covers it), so it's the base router's separate, already-diagnosed
+  // island-dense-archipelago gap (see the long-range-routing work), not a
+  // channel-data problem. Kept separate from the gated suite for the same
+  // reason as case 7: a known finding to report, not a regression this
+  // session claims to have fixed.
   {
     const start = { lat: 44.122212, lon: -68.860267 };  // North Haven town dock
     const end   = { lat: 44.157672, lon: -68.666394 };  // Stonington approach
     report('[11] EXPERIMENTAL: North Haven -> Stonington (full route)', allRings, chGraph, start, end);
+  }
+
+  // Case 12 — the Stonington-approach channel-marker gap, isolated: Merchant
+  // Row / Deer Island Thorofare (Roebuck/Dow/Staple Point/Peggy's
+  // Island/Crotch Island/Moose Island Rock/Crotch Island Daybeacon/Field
+  // Ledge — 8 different names, NO shared prefix, only found via
+  // spatial_buoy_clusters' pure-distance grouping) end to end: Field Ledge
+  // Buoy 27 (west entrance) to Humpkins Islet Shoal Buoy 14 (east end,
+  // nearest Stonington). This also crosses the one internal gap
+  // spatial_buoy_clusters left in this chain (an MST edge from Peggy's
+  // Island Ledge 19 to Two Bush Island Point 3 got rejected by the new
+  // hazard-corridor check — a real, correct rejection, verified: that pair
+  // sits within 35m of a charted underwater rock) — confirms a short,
+  // ordinary open-water bridge across that gap is easy for the base router
+  // even though it isn't part of the buoy chain itself.
+  {
+    const start = { lat: 44.1403, lon: -68.6929 };  // Field Ledge Buoy 27
+    const end   = { lat: 44.1563, lon: -68.6336 };  // Humpkins Islet Shoal Buoy 14
+    if (!report('[12] Merchant Row / Deer Island Thorofare (spatial buoy-chain channel)', allRings, chGraph, start, end)) failures++;
   }
 
   console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll cases passed.');
