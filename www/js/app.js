@@ -2137,7 +2137,7 @@ async function _onDrawConfirm() {
   const name    = _drawName;
   const startPt = { lat: _drawStart.lat, lon: _drawStart.lng };
   const endPt   = { lat: _drawEnd.lat, lon: _drawEnd.lng };
-  if (_blockedByCoverage(startPt, endPt, 'Draw Route')) { _exitDrawRouteMode(true); return; }
+  if (await _blockedByCoverage(startPt, endPt, 'Draw Route')) { _exitDrawRouteMode(true); return; }
   _exitDrawRouteMode(true);  // skip route refresh — edit mode handles display after optimization
 
   // Show straight-line preview while optimizing
@@ -3492,7 +3492,15 @@ async function _longRangeRoute(start, end, onUpdate, onText) {
 // passes through reduced coverage between two in-coverage endpoints isn't
 // caught here, but a start/end point outside 'core' is the common real
 // case (the user's own current area) and the cheap check to make.
-function _blockedByCoverage(start, end, actionLabel) {
+async function _blockedByCoverage(start, end, actionLabel) {
+  // Land data can take a couple seconds to (re)load after a cache miss or a
+  // version-invalidated refresh (see the v408 IndexedDB staleness fix) — a
+  // real bug found live: clicking Draw/Auto Route/Re-route in that window
+  // read coverageLevelAt() against a still-empty landPolygons and reported
+  // "no chart data here" even sitting in the middle of fully-charted water.
+  // Only land has an awaitable readiness promise; hazards/places/navaids
+  // loading is unavoidably best-effort here, same as before this fix.
+  await Query.whenLandLoaded();
   const startLevel = Query.coverageLevelAt(start.lon, start.lat);
   const endLevel = Query.coverageLevelAt(end.lon, end.lat);
   if (startLevel === 'core' && endLevel === 'core') return false;
@@ -3523,7 +3531,7 @@ function _showRerouteOverlay(pts) {
 }
 
 async function _reRouteSegments(pts, onProgress, onText) {
-  if (_blockedByCoverage(pts[0], pts[pts.length - 1], 'Re-route')) {
+  if (await _blockedByCoverage(pts[0], pts[pts.length - 1], 'Re-route')) {
     return { points: pts, fallbacks: 0, fallbackSegs: [], blocked: true };
   }
   const result = [pts[0]];
@@ -7057,7 +7065,7 @@ function _ensureMap() {
     const name  = _autoRouteName;
     const start = _autoRouteStart;
     const end   = _autoRouteEnd;
-    if (_blockedByCoverage(start, end, 'Auto Route')) return;
+    if (await _blockedByCoverage(start, end, 'Auto Route')) return;
     setStatus(`Planning "${name}"…`);
 
     if (_autoRoutePreviewLayer) { _autoRoutePreviewLayer.remove(); _autoRoutePreviewLayer = null; }
