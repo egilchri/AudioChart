@@ -136,20 +136,36 @@ function _hazardBlobIcon(count, radiusPx) {
  * listener below and reveals the real markers once they're no longer
  * crowded — nothing is ever hidden permanently or dropped from the data). */
 function _renderClusteredHazards(map, layerGroup, hazardPts, makeMarker) {
-  const CLUSTER_PX = 26; // roughly one hazard-icon width — tune to taste
+  // A whole-bay, zoomed-out view can have hundreds/thousands of hazards
+  // spread widely enough on screen that a small cluster radius barely merges
+  // any of them — still one real DOM marker+SVG icon per point, which is a
+  // genuine multi-second freeze at that count regardless of how fast the
+  // clustering math itself is. Below MAX_HAZARD_MARKERS use a tight radius
+  // (merge only truly-crowded icons, keep isolated ones exact); above it,
+  // widen the radius until the marker count actually produced drops under
+  // the cap — trading precision for a bounded number of DOM nodes only when
+  // the point count demands it.
+  const MAX_HAZARD_MARKERS = 250;
   if (_hazardClusterZoomHandler) { map.off('zoomend', _hazardClusterZoomHandler); _hazardClusterZoomHandler = null; }
   function render() {
     layerGroup.clearLayers();
     if (!hazardPts.length) return;
-    for (const idxs of _clusterIndicesByPixel(map, hazardPts, CLUSTER_PX)) {
+    let clusterPx = 26; // roughly one hazard-icon width
+    let groups = _clusterIndicesByPixel(map, hazardPts, clusterPx);
+    for (let guard = 0; groups.length > MAX_HAZARD_MARKERS && guard < 8; guard++) {
+      clusterPx *= 2;
+      groups = _clusterIndicesByPixel(map, hazardPts, clusterPx);
+    }
+    for (const idxs of groups) {
       if (idxs.length === 1) { makeMarker(hazardPts[idxs[0]]).addTo(layerGroup); continue; }
       const members = idxs.map(i => hazardPts[i]);
       const pxPts = members.map(h => map.latLngToContainerPoint([h.lat, h.lon]));
       const cx = pxPts.reduce((s, p) => s + p.x, 0) / pxPts.length;
       const cy = pxPts.reduce((s, p) => s + p.y, 0) / pxPts.length;
-      const radiusPx = Math.max(...pxPts.map(p => Math.hypot(p.x - cx, p.y - cy))) + 16;
+      let maxD = 0;
+      for (const p of pxPts) { const d = Math.hypot(p.x - cx, p.y - cy); if (d > maxD) maxD = d; }
       L.marker(map.containerPointToLatLng([cx, cy]), {
-        icon: _hazardBlobIcon(members.length, radiusPx), zIndexOffset: 500,
+        icon: _hazardBlobIcon(members.length, maxD + 16), zIndexOffset: 500,
       }).bindTooltip(`${members.length} hazards — tap to expand`, {
         permanent: false, direction: 'top', className: 'map-tooltip',
       }).on('click', () => map.fitBounds(L.latLngBounds(members.map(h => [h.lat, h.lon])).pad(0.6)))
