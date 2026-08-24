@@ -773,28 +773,50 @@ export function resolveWaterEnd(lon, lat, which) {
   }
 
   // 'head' — seek roughly the opposite bearing from the mouth, refined to
-  // the direction that best CONTINUES the channel nearby (the feature may
-  // bend rather than being perfectly straight — same "most open wins" logic
-  // used for the mouth axis above, just restricted to bearings roughly
-  // opposite it, not minimized: the up-channel direction still has real
-  // clearance for a while, it's not "whichever nearby bearing hits land
-  // soonest," which just points at the nearest wall instead of up-channel).
-  const headSeekBrg = (mouthBrg + 180) % 360;
-  let headBrg = headSeekBrg, headOpen = -1;
-  for (let i = 0; i < WATER_END_RAYS; i++) {
-    const brg = (360 / WATER_END_RAYS) * i;
-    let diff = Math.abs(brg - headSeekBrg); if (diff > 180) diff = 360 - diff;
-    if (diff > 60) continue; // only consider bearings roughly opposite the mouth
-    const d = _distToLandAlongBearing(lon, lat, brg, WATER_END_MAX_NM);
-    if (d > headOpen) { headOpen = d; headBrg = brg; }
-  }
+  // the direction that best CONTINUES the channel nearby (same "most open
+  // wins" logic used for the mouth axis above, just restricted to bearings
+  // roughly opposite it, not minimized: the up-channel direction still has
+  // real clearance for a while, it's not "whichever nearby bearing hits
+  // land soonest," which just points at the nearest wall instead of
+  // up-channel).
+  //
+  // A single fixed bearing, walked once, is only right for a straight
+  // channel — real bug found live (2026-08-24): Somes Sound bends noticeably
+  // between its middle (the gazetteer seed) and its true head at Somesville,
+  // so one fixed-bearing march stopped ~3.3nm short, right at the bend.
+  // Iterate instead: re-scan for the best continuing bearing from wherever
+  // the previous pass stopped (using THAT pass's own heading, not the
+  // original mouth-opposite one, as the "roughly continuing" reference —
+  // confirmed live this reaches within ~0.6nm of Somesville in 2 extra
+  // passes, vs. 3.3nm short with one). Bounded by both a pass count and a
+  // cumulative distance cap so a noisy/complex coastline can't loop long.
+  const HEAD_MAX_PASSES = 5;
+  const HEAD_MAX_TOTAL_NM = 10; // cumulative across all passes
+  let curLon = lon, curLat = lat, refBrg = (mouthBrg + 180) % 360;
   let placed = { lat, lon };
-  const STOP_NM = 0.06; // about to run aground
-  for (let d = WATER_END_STEP_NM; d <= WATER_END_MAX_NM; d += WATER_END_STEP_NM) {
-    const p = offsetCoords(lat, lon, headBrg, d);
-    if (isLandAt(p.lon, p.lat)) break;
-    placed = p;
-    if (_distToLandAlongBearing(p.lon, p.lat, headBrg, STOP_NM * 2) < STOP_NM) break;
+  let totalNm = 0;
+  for (let pass = 0; pass < HEAD_MAX_PASSES && totalNm < HEAD_MAX_TOTAL_NM; pass++) {
+    let headBrg = refBrg, headOpen = -1;
+    for (let i = 0; i < WATER_END_RAYS; i++) {
+      const brg = (360 / WATER_END_RAYS) * i;
+      let diff = Math.abs(brg - refBrg); if (diff > 180) diff = 360 - diff;
+      if (diff > 60) continue; // only consider bearings roughly continuing this pass's approach
+      const d = _distToLandAlongBearing(curLon, curLat, brg, WATER_END_MAX_NM);
+      if (d > headOpen) { headOpen = d; headBrg = brg; }
+    }
+    let passPlaced = { lat: curLat, lon: curLon };
+    let passNm = 0;
+    const STOP_NM = 0.06; // about to run aground
+    for (let d = WATER_END_STEP_NM; d <= WATER_END_MAX_NM && totalNm + d <= HEAD_MAX_TOTAL_NM; d += WATER_END_STEP_NM) {
+      const p = offsetCoords(curLat, curLon, headBrg, d);
+      if (isLandAt(p.lon, p.lat)) break;
+      passPlaced = p; passNm = d;
+      if (_distToLandAlongBearing(p.lon, p.lat, headBrg, STOP_NM * 2) < STOP_NM) break;
+    }
+    placed = passPlaced;
+    totalNm += passNm;
+    if (passNm < WATER_END_STEP_NM * 1.5) break; // this pass made no real progress — converged
+    curLon = passPlaced.lon; curLat = passPlaced.lat; refBrg = headBrg;
   }
   return placed;
 }
