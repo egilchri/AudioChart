@@ -930,6 +930,7 @@ async function loadLeaflet() {
 function setStatus(msg) { statusEl.textContent = msg; }
 
 window._debugAutoRoute = (start, end) => _autoRouteProg(start, end, () => {}, () => {});
+window._debugResolveWaterEnd = (lon, lat, which) => Query.resolveWaterEnd(lon, lat, which);
 window._debugEnterEditMode = (idx) => _enterEditMode(idx);
 window._debugCheckRouteHazards = (idx, silent) => _checkRouteHazards(idx, silent);
 window._debugMap = () => _map;
