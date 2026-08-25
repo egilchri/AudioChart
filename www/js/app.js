@@ -1464,7 +1464,12 @@ function _renderDocumentMarkers() {
       <div style="margin-top:6px">${_formatDocBody(p.body)}</div>
       <div style="margin-top:4px;font-style:italic;font-size:0.78em;color:#888">${p.source}</div>
     </div>`;
-    return L.marker([lat, lon], { icon: _documentMarkerIcon() }).bindPopup(html, { maxWidth: 280 });
+    // maxHeight is a built-in Leaflet Popup option — it caps .leaflet-popup-content's
+    // height and adds overflow-y:auto automatically, so a long entry (several
+    // paragraphs) scrolls inside the popup instead of running off the bottom of
+    // the screen, which is what was happening before (visible in a live screenshot —
+    // the last paragraph was cut off at the viewport edge with no way to read it).
+    return L.marker([lat, lon], { icon: _documentMarkerIcon() }).bindPopup(html, { maxWidth: 280, maxHeight: 380 });
   });
   _documentMarkersLayer = L.layerGroup(markers).addTo(_map);
 }
