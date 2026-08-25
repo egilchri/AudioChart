@@ -108,6 +108,9 @@ html, body {
 .status-badge.coverage-land { background: #4a2a00; color: var(--warn); }
 .status-badge.coverage-none { background: #4a1a1a; color: var(--danger); }
 
+.status-badge.rp-hazard-hard { background: #4a1a1a; color: var(--danger); }
+.status-badge.rp-hazard-soft { background: #4a2a00; color: var(--warn); }
+
 /* Offline prep, route download + test position buttons in header */
 #offline-btn, #route-btn, #test-pos-btn, #track-rec-btn, #wake-lock-btn, #clear-screen-btn {
   background: none;

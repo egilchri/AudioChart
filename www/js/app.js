@@ -1482,16 +1482,19 @@ function _routeOvernightIcon() {
 // checks don't nag — but a found hazard ALWAYS opens the popup regardless
 // of silent, since the whole point of auto-checking is to stop routes with
 // real problems from saving without anyone being told.
-function _checkRouteHazards(routeIdx, silent = false, suppressPopup = false) {
-  _lastHazardCheckedIdx = routeIdx;
-  const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
-  const route  = routes[routeIdx];
-  if (!route) return [];
-  const pts   = route.points;
+// Pure hazard scan — no map layer mutation, no popups, no TTS. Used both by
+// _checkRouteHazards below (which adds the map/popup/TTS presentation on
+// top) and by the routes panel's per-route hazard badges (_getRouteHazards),
+// which need just the count without stomping the shared _hazardCheckLayer on
+// every row. Each found entry is tagged kind: 'hard' (rock/obstruction/wreck
+// — always worth fixing) or 'soft' (shallow-area/above-water crossing —
+// draft/tide dependent, not automatically unsafe) so callers can tell them
+// apart without re-deriving the distinction from label strings.
+function _findRouteHazards(points) {
+  const pts   = points;
   const feats = Query.hazards?.features || [];
   const CORRIDOR = 0.05;  // nm (~100 yards each side)
   const DANGER_LABELS = new Set(['underwater rock', 'obstruction', 'wreck', 'UWTROC', 'OBSTRN', 'WRECKS']);
-  const R = 3440.065;
   const seen = new Set();
   const found = [];
   const dangerSegments = new Set(); // segment indices that have a nearby hazard
@@ -1530,6 +1533,7 @@ function _checkRouteHazards(routeIdx, silent = false, suppressPopup = false) {
           side:    crossTrack <= 0 ? 'port' : 'starboard',
           segBrg:  _segBearing(a.lat, a.lon, b.lat, b.lon),
           sideSign: crossTrack > 0 ? 1 : -1,
+          kind: 'hard',
         });
       }
     }
@@ -1569,12 +1573,40 @@ function _checkRouteHazards(routeIdx, silent = false, suppressPopup = false) {
           side:    'crossing',
           segBrg:  _segBearing(a.lat, a.lon, b.lat, b.lon),
           sideSign: 0,
+          kind: 'soft',
         });
       }
     }
     distSoFar += segLen;
   }
   found.sort((a, b) => a.routeNm - b.routeNm);
+  return { found, dangerSegments };
+}
+
+// Cache of _findRouteHazards results for the routes panel's hazard badges,
+// keyed by id+updatedAt so it's invalidated automatically whenever a
+// route's content changes (anything that calls _touch() bumps updatedAt) —
+// no new tracking field needed. Stale entries for edited/deleted routes
+// just become unreachable and sit unused; fine for a cache realistically
+// bounded by tens of saved routes, not worth an eviction policy yet.
+let _routeHazardCountCache = new Map();
+function _getRouteHazards(route) {
+  const key = `${route.id}:${route.updatedAt || route.createdAt || 0}`;
+  let found = _routeHazardCountCache.get(key);
+  if (found === undefined) {
+    found = _findRouteHazards(route.points).found;
+    _routeHazardCountCache.set(key, found);
+  }
+  return found;
+}
+
+function _checkRouteHazards(routeIdx, silent = false, suppressPopup = false) {
+  _lastHazardCheckedIdx = routeIdx;
+  const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+  const route  = routes[routeIdx];
+  if (!route) return [];
+  const pts = route.points;
+  const { found, dangerSegments } = _findRouteHazards(pts);
 
   if (_hazardCheckLayer) _hazardCheckLayer.clearLayers();
   _hazardCheckLayer = L.layerGroup().addTo(_map);
@@ -6357,6 +6389,25 @@ function _ensureMap() {
       const nameText = document.createElement('span');
       nameText.textContent = route.name;
       nameLine.appendChild(nameText);
+      {
+        const hazFound = _getRouteHazards(route);
+        const hardCount = hazFound.filter(h => h.kind === 'hard').length;
+        const softCount = hazFound.length - hardCount;
+        if (hardCount > 0) {
+          const badge = document.createElement('span');
+          badge.className = 'status-badge rp-hazard-hard';
+          badge.textContent = `${hardCount} hard`;
+          badge.title = `${hardCount} rock/obstruction/wreck hazard${hardCount > 1 ? 's' : ''} on this route`;
+          nameLine.appendChild(badge);
+        }
+        if (softCount > 0) {
+          const badge = document.createElement('span');
+          badge.className = 'status-badge rp-hazard-soft';
+          badge.textContent = `${softCount} shallow`;
+          badge.title = `${softCount} shallow-area crossing${softCount > 1 ? 's' : ''} — draft/tide dependent, not automatically unsafe`;
+          nameLine.appendChild(badge);
+        }
+      }
       const delBtn = document.createElement('button');
       delBtn.className = 'rp-delete-btn';
       delBtn.textContent = '×';
