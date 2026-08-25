@@ -917,10 +917,13 @@ let _previewRouteLine = null;
 let _animClickHandler = null;
 let _animTraveled     = 0;
 let _baseTileLayer    = null;
-// Cycled by tapping map-layer-btn: street chart → satellite → USGS bedrock geology
-// (self-contained WMS raster) → Maine bedrock geology (state survey's own, richer
-// vector data — no basemap of its own, shown as an overlay on the street chart) → back.
-const MAP_VIEW_MODES  = ['chart', 'satellite', 'geology-usgs', 'geology-maine'];
+// Cycled by tapping map-layer-btn: street chart → satellite → Maine bedrock
+// geology (state survey's own vector data — no basemap of its own, shown as
+// an overlay on the street chart) → back. USGS's national geology layer was
+// also tried (a self-contained WMS raster) but dropped per live comparison —
+// Maine's own data was "by far the best" (real coastline/place-name context,
+// since it overlays the chart rather than replacing it).
+const MAP_VIEW_MODES  = ['chart', 'satellite', 'geology-maine'];
 let _mapViewMode      = MAP_VIEW_MODES.includes(localStorage.getItem('audiochart-chart-mode'))
   ? localStorage.getItem('audiochart-chart-mode') : 'satellite';
 let _maineGeologyLayer      = null;
@@ -6154,15 +6157,6 @@ function _applyMapLayer() {
       'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
       { minZoom: 4, maxZoom: 18, maxNativeZoom: 17, attribution: '© Esri' }
     ).addTo(_map);
-  } else if (_mapViewMode === 'geology-usgs') {
-    // USGS State Geologic Map Compilation (mrdata.usgs.gov) — self-contained WMS
-    // raster (own background, no basemap needed underneath). Live internet fetch,
-    // same offline limitation as the satellite layer above.
-    _baseTileLayer = L.tileLayer.wms(
-      'https://mrdata.usgs.gov/services/sgmc2',
-      { layers: 'sgmc2', format: 'image/png', transparent: false,
-        minZoom: 4, maxZoom: 18, attribution: 'USGS State Geologic Map Compilation' }
-    ).addTo(_map);
   } else {
     // 'chart' and 'geology-maine' both use the street basemap: 'chart' on its own,
     // 'geology-maine' as context underneath its own polygon overlay (added below) —
@@ -6179,8 +6173,8 @@ function _applyMapLayer() {
   if (_mapViewMode === 'geology-maine') _enableMaineGeologyLayer();
 }
 
-const MAP_VIEW_ICONS  = { chart: '🗺', satellite: '🛰', 'geology-usgs': '🪨', 'geology-maine': '⛰' };
-const MAP_VIEW_LABELS = { chart: 'chart', satellite: 'satellite', 'geology-usgs': 'USGS geology', 'geology-maine': 'Maine geology' };
+const MAP_VIEW_ICONS  = { chart: '🗺', satellite: '🛰', 'geology-maine': '⛰' };
+const MAP_VIEW_LABELS = { chart: 'chart', satellite: 'satellite', 'geology-maine': 'geology' };
 
 function _syncLayerBtn() {
   const btn = document.getElementById('map-layer-btn');
