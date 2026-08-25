@@ -878,7 +878,7 @@ let _drawMapMouseUp   = null;
 let _drawGestureStartPt = null;
 let _drawGestureLastPt  = null;
 let _drawIsPanning      = false;
-const _TAP_TOLERANCE_PX = 15; // matches the rearrange-mode drag tolerance convention; shared with sketch mode
+const _TAP_TOLERANCE_PX = 15; // press-and-move-far-enough-to-count-as-a-pan threshold; shared with sketch mode
 let _focusPlaceMode   = false;  // true while the drag-to-place focus marker is live
 let _focusPlaceMarker = null;   // the draggable L.marker being positioned
 let _focusPlaceSnap   = null;   // {lat, lon, name, type} of the locked-on object, or null
@@ -1098,11 +1098,17 @@ function _makeDraggable(panelEl, handleEl) {
 }
 
 // ── Rearrange mode: drag any permanent UI element out of the way ───────────────
-// Long-press any grouped element (600ms hold, 15px move-cancel tolerance — matching
-// Leaflet's own long-press-to-context-menu convention, the only precedent in this
-// app) to enter a global mode, like iOS home-screen icon jiggle: every group gets a
-// dashed outline + jiggle and can be dragged; normal taps are suppressed everywhere
-// until "Done" is tapped. Related buttons that are visually one unit move together.
+// Tapping the "Rearrange" button (map-overlay-status) enters a global mode, like
+// iOS home-screen icon jiggle: every group gets a dashed outline + jiggle and can
+// be dragged; normal taps are suppressed everywhere until "Done" is tapped.
+// Related buttons that are visually one unit move together.
+//
+// This used to be entered via a 600ms long-press on any grouped element instead
+// of a dedicated button — dropped because a real tap that lingers past 600ms
+// (slow touch release, a brief pause while reading a tooltip) silently hijacked
+// the tap into a drag instead of firing the button, with no visible cause.
+// Reported live: "the long press to move ui elements feature keeps interfering
+// with normal operations."
 let _rearrangeMode = false;
 
 function _enterRearrangeMode() {
@@ -1118,6 +1124,7 @@ function _exitRearrangeMode() {
   const banner = document.getElementById('rearrange-banner');
   if (banner) banner.style.display = 'none';
 }
+document.getElementById('rearrange-btn')?.addEventListener('click', _enterRearrangeMode);
 document.getElementById('rearrange-done-btn')?.addEventListener('click', _exitRearrangeMode);
 
 // Suppress normal tap actions everywhere while rearranging — a single capture-phase
@@ -1155,7 +1162,6 @@ function _resetUiPositions() {
 document.getElementById('rearrange-reset-btn')?.addEventListener('click', _resetUiPositions);
 
 function _makeDraggableGroup(groupId, getEls) {
-  const LONG_PRESS_MS = 600, MOVE_TOLERANCE = 15;
   let curDx = 0, curDy = 0;
   try {
     const saved = JSON.parse(localStorage.getItem(`audiochart-ui-pos-${groupId}`) || 'null');
@@ -1175,7 +1181,7 @@ function _makeDraggableGroup(groupId, getEls) {
     applyOffset(0, 0);
   });
 
-  let dragging = false, pressTimer = null;
+  let dragging = false;
   let startX = 0, startY = 0, baseDx = 0, baseDy = 0, origins = [];
 
   function begin(clientX, clientY) {
@@ -1195,48 +1201,33 @@ function _makeDraggableGroup(groupId, getEls) {
     dragging = false;
     localStorage.setItem(`audiochart-ui-pos-${groupId}`, JSON.stringify({ dx: curDx, dy: curDy }));
   }
-  function armLongPress(onFire) {
-    clearLongPress();
-    pressTimer = setTimeout(() => { pressTimer = null; onFire(); }, LONG_PRESS_MS);
-  }
-  function clearLongPress() {
-    if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
-  }
 
+  // Dragging only ever starts once _rearrangeMode is already on (entered via the
+  // "Rearrange" button) — outside rearrange mode these are plain buttons and every
+  // touch/mouse event here is a no-op, so a normal tap is never intercepted.
   currentEls().forEach(el => {
     el.classList.add('ui-drag-target');
 
     el.addEventListener('touchstart', (e) => {
-      if (e.touches.length !== 1) return;
+      if (!_rearrangeMode || e.touches.length !== 1) return;
       const t = e.touches[0];
-      startX = t.clientX; startY = t.clientY;
-      if (_rearrangeMode) begin(t.clientX, t.clientY);
-      else armLongPress(() => { _enterRearrangeMode(); begin(t.clientX, t.clientY); });
+      begin(t.clientX, t.clientY);
     }, { passive: true });
 
     el.addEventListener('touchmove', (e) => {
-      const t = e.touches[0];
-      if (dragging) {
-        e.preventDefault();
-        moveTo(t.clientX, t.clientY);
-      } else if (pressTimer && Math.hypot(t.clientX - startX, t.clientY - startY) > MOVE_TOLERANCE) {
-        clearLongPress();
-      }
+      if (!dragging) return;
+      e.preventDefault();
+      moveTo(e.touches[0].clientX, e.touches[0].clientY);
     }, { passive: false });
 
-    el.addEventListener('touchend', () => { clearLongPress(); end(); });
-    el.addEventListener('touchcancel', () => { clearLongPress(); end(); });
+    el.addEventListener('touchend', end);
+    el.addEventListener('touchcancel', end);
 
     el.addEventListener('mousedown', (e) => {
-      startX = e.clientX; startY = e.clientY;
-      if (_rearrangeMode) begin(e.clientX, e.clientY);
-      else armLongPress(() => { _enterRearrangeMode(); begin(e.clientX, e.clientY); });
-      const onMove = (ev) => {
-        if (dragging) moveTo(ev.clientX, ev.clientY);
-        else if (pressTimer && Math.hypot(ev.clientX - startX, ev.clientY - startY) > MOVE_TOLERANCE) clearLongPress();
-      };
+      if (!_rearrangeMode) return;
+      begin(e.clientX, e.clientY);
+      const onMove = (ev) => moveTo(ev.clientX, ev.clientY);
       const onUp = () => {
-        clearLongPress();
         end();
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
