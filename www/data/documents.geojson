@@ -943,6 +943,91 @@
         },
         "source": "Provided directly by the island's owner"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.198607, 44.2415277] },
+      "properties": {
+        "title": "Baker Island",
+        "category": "island-info",
+        "place": "Baker Island, Acadia National Park",
+        "islandInfo": {
+          "ownership": "Majority owned by Acadia National Park (NPS) since 1967 — over 75% of the island; the whole island was brought within the park's permanent boundary in 1986. The light tower itself is owned and operated by the U.S. Coast Guard.",
+          "landTrust": null,
+          "onMaineIslandTrail": null,
+          "publicAccess": "Open to the public, but only via NPS ranger-led boat tours running mid-June through mid-September — not a place to land independently",
+          "notes": "162 acres, southeast of Mount Desert Island, marking the southwestern entrance to Frenchman Bay. Preserves a 19th-century homestead, the Baker Island Light Station, and archaeological sites."
+        },
+        "source": "National Park Service — Baker Island (nps.gov/acad); Wikipedia — Baker Island (Maine)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.269655, 44.283369] },
+      "properties": {
+        "title": "Bear Island",
+        "category": "island-info",
+        "place": "Bear Island, Northeast Harbor",
+        "islandInfo": {
+          "ownership": "Private — owned by the Dunbar family since Harvard professor Charles F. Dunbar bought the island in 1886. The lighthouse tower sits within Acadia National Park's boundary but is administered separately from the family's private holdings.",
+          "landTrust": null,
+          "onMaineIslandTrail": null,
+          "publicAccess": "Private island; the historic light station (deactivated 1981) is reported leased to a private individual and is closed to the public",
+          "notes": "11 acres, about half a mile off Mount Desert Island at the entrance to Northeast and Southwest Harbors. Not the same island as the other \"Bear Island\" in this app's data, near Deer Isle in Eggemoggin Reach — a completely different island roughly 40nm away."
+        },
+        "source": "Wikipedia — Bear Island (Maine); Acadia Magic — Bear Island Lighthouse"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.25040954893493, 44.24790442040619] },
+      "properties": {
+        "title": "Great Cranberry Island",
+        "category": "island-info",
+        "place": "Great Cranberry Island, Cranberry Isles",
+        "islandInfo": {
+          "ownership": "Mostly private, with a 19-acre Maine Coast Heritage Trust preserve (Cranberry Shores) on the southern shore, plus MCHT's separate Preble Cove preserve elsewhere on the island",
+          "landTrust": "Maine Coast Heritage Trust (partial — Cranberry Shores and Preble Cove preserves only)",
+          "onMaineIslandTrail": null,
+          "publicAccess": "MCHT preserve areas are open for day use; the rest of the island is private. Reached by ferry from Northeast Harbor or Southwest Harbor.",
+          "notes": "Largest of the five Cranberry Isles, about 2 miles by 1 mile. Year-round population around 40, mostly lobstermen, swelling to 300+ in summer."
+        },
+        "source": "Maine Coast Heritage Trust — Cranberry Shores and Preble Cove preserve pages (mcht.org); Wikipedia — Great Cranberry Island"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.22871540911265, 44.2600897165687] },
+      "properties": {
+        "title": "Islesford (Little Cranberry Island)",
+        "category": "island-info",
+        "place": "Islesford, Cranberry Isles",
+        "islandInfo": {
+          "ownership": "Mostly private, part of the Town of Cranberry Isles",
+          "landTrust": null,
+          "onMaineIslandTrail": null,
+          "publicAccess": "Private island community (the hamlet of Islesford); reached by ferry from Northeast Harbor",
+          "notes": "Also called Little Cranberry Island. Home to the Islesford Historical Museum, an NPS-operated site (part of Acadia National Park) even though the island itself isn't park land. The Cranberry Isles Realty Trust, a local nonprofit founded in 1996, holds a small number of affordable-housing properties here to support year-round residency — a housing trust, not a conservation land trust."
+        },
+        "source": "Wikipedia — Islesford, Maine; Little Cranberry Island; Cranberry Isles Realty Trust"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.4356, 44.1587] },
+      "properties": {
+        "title": "Swans Island",
+        "category": "island-info",
+        "place": "Swans Island, Maine",
+        "islandInfo": {
+          "ownership": "Mostly private, with several publicly owned parcels held by the Town of Swan's Island: High Head Beach (gifted by Maine Coast Heritage Trust), the Quarry Wharf, Quarry Pond, Mill Pond Park, and Burnt Coat Harbor Lighthouse at Hockamock Head",
+          "landTrust": "Maine Coast Heritage Trust (gifted High Head Beach to the town; also holds conservation easements on parts of the island's undeveloped land)",
+          "onMaineIslandTrail": null,
+          "publicAccess": "Town-owned sites (High Head Beach, Mill Pond Park, the lighthouse grounds) are open to the public; most of the island's roughly 7,300 acres remains private",
+          "notes": "Reached by state ferry from Bass Harbor. Six blocks of undeveloped private land exceed 100 acres each, several restricted from development by conservation easements."
+        },
+        "source": "Town of Swan's Island Comprehensive Plan (2022, maine.gov/dacf); Maine Coast Heritage Trust"
+      }
     }
   ]
 }
