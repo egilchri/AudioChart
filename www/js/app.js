@@ -915,7 +915,15 @@ let _previewRouteLine = null;
 let _animClickHandler = null;
 let _animTraveled     = 0;
 let _baseTileLayer    = null;
-let _chartMode        = localStorage.getItem('audiochart-chart-mode') === 'chart';
+// Cycled by tapping map-layer-btn: street chart → satellite → USGS bedrock geology
+// (self-contained WMS raster) → Maine bedrock geology (state survey's own, richer
+// vector data — no basemap of its own, shown as an overlay on the street chart) → back.
+const MAP_VIEW_MODES  = ['chart', 'satellite', 'geology-usgs', 'geology-maine'];
+let _mapViewMode      = MAP_VIEW_MODES.includes(localStorage.getItem('audiochart-chart-mode'))
+  ? localStorage.getItem('audiochart-chart-mode') : 'satellite';
+let _maineGeologyLayer      = null;
+let _maineGeologyMoveEnd    = null;
+let _maineGeologyFetchToken = 0;
 let _wakeLockEnabled  = localStorage.getItem('audiochart-wake-lock') !== 'false'; // on by default
 let _wakeLockSentinel = null;   // the live WakeLockSentinel, or null when not currently held
 let _wakeLockWarned   = false;  // suppresses repeated warnings for the same ongoing failure
@@ -6075,10 +6083,88 @@ function _highlightAndSpeak(marker, displayText, speechText, onEnd) {
 
 // ── Map ───────────────────────────────────────────────────────────────────────
 
+// Deterministic color per bedrock unit code — Maine's own COLOR field is a
+// numbered index into a paper-map color chart, not a usable CSS value, so units
+// are colored by a hash of their CODE instead. Visually arbitrary but stable
+// (the same unit always gets the same color) and gives real unit-to-unit contrast;
+// the actual identity comes from the tooltip (CODE + UNIT_DESCRIPTION), not the hue.
+const _GEOLOGY_PALETTE = ['#c96f4a','#e8b84b','#6fa96f','#5b9bd5','#a06cd5','#d5637a','#4fb0a5','#c9944a','#7c8fa6','#b5cc5e','#d68fb0','#5c9e7c'];
+function _geologyColorFor(code) {
+  let h = 0;
+  for (let i = 0; i < code.length; i++) h = (h * 31 + code.charCodeAt(i)) >>> 0;
+  return _GEOLOGY_PALETTE[h % _GEOLOGY_PALETTE.length];
+}
+
+function _clearMaineGeologyLayer() {
+  if (_maineGeologyMoveEnd) { _map.off('moveend', _maineGeologyMoveEnd); _maineGeologyMoveEnd = null; }
+  if (_maineGeologyLayer) { _map.removeLayer(_maineGeologyLayer); _maineGeologyLayer = null; }
+}
+
+// Maine's bedrock layer is a live ArcGIS FeatureServer (real polygon geometry +
+// attributes, not pre-rendered tiles like the USGS WMS) — re-queried by viewport
+// bbox on every pan/zoom, same moveend-driven refresh pattern as
+// _renderViewportHazards. _maineGeologyFetchToken guards against a slow response
+// for an old viewport landing after a newer request already started.
+async function _refreshMaineGeologyLayer() {
+  if (_mapViewMode !== 'geology-maine' || !_map) return;
+  const b = _map.getBounds();
+  const bbox = `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;
+  const token = ++_maineGeologyFetchToken;
+  let geojson;
+  try {
+    const url = 'https://services1.arcgis.com/RbMX0mRVOFNTdLzd/ArcGIS/rest/services/'
+      + 'MGS_Bedrock_500K_Simplified_Map_Data/FeatureServer/0/query'
+      + '?where=1=1&outFields=CODE,AGE,PROTOLITH,UNIT_DESCRIPTION'
+      + `&geometry=${bbox}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects`
+      + '&f=geojson';
+    geojson = await fetch(url).then(r => r.json());
+  } catch (e) {
+    console.error('[geology-maine] fetch failed', e);
+    return;
+  }
+  if (token !== _maineGeologyFetchToken || _mapViewMode !== 'geology-maine') return;  // stale response or mode changed mid-fetch
+  if (_maineGeologyLayer) _map.removeLayer(_maineGeologyLayer);
+  _maineGeologyLayer = L.geoJSON(geojson, {
+    style: (f) => ({
+      color: '#333', weight: 0.5,
+      fillColor: _geologyColorFor(f.properties.CODE || ''), fillOpacity: 0.55,
+    }),
+    onEachFeature: (f, layer) => {
+      const p = f.properties;
+      layer.bindTooltip(`${p.CODE || ''} — ${p.UNIT_DESCRIPTION || 'Bedrock unit'}`, { sticky: true });
+    },
+  }).addTo(_map);
+}
+
+function _enableMaineGeologyLayer() {
+  _refreshMaineGeologyLayer();
+  _maineGeologyMoveEnd = () => _refreshMaineGeologyLayer();
+  _map.on('moveend', _maineGeologyMoveEnd);
+}
+
 function _applyMapLayer() {
   if (!_map) return;
   if (_baseTileLayer) { _map.removeLayer(_baseTileLayer); _baseTileLayer = null; }
-  if (_chartMode) {
+  _clearMaineGeologyLayer();
+
+  if (_mapViewMode === 'satellite') {
+    _baseTileLayer = L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      { minZoom: 4, maxZoom: 18, maxNativeZoom: 17, attribution: '© Esri' }
+    ).addTo(_map);
+  } else if (_mapViewMode === 'geology-usgs') {
+    // USGS State Geologic Map Compilation (mrdata.usgs.gov) — self-contained WMS
+    // raster (own background, no basemap needed underneath). Live internet fetch,
+    // same offline limitation as the satellite layer above.
+    _baseTileLayer = L.tileLayer.wms(
+      'https://mrdata.usgs.gov/services/sgmc2',
+      { layers: 'sgmc2', format: 'image/png', transparent: false,
+        minZoom: 4, maxZoom: 18, attribution: 'USGS State Geologic Map Compilation' }
+    ).addTo(_map);
+  } else {
+    // 'chart' and 'geology-maine' both use the street basemap: 'chart' on its own,
+    // 'geology-maine' as context underneath its own polygon overlay (added below) —
+    // that dataset has no coastline/place-name context of its own.
     _baseTileLayer = L.tileLayer(
       'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
       // maxZoom stays 18 to match the zoom slider; maxNativeZoom caps actual tile
@@ -6086,19 +6172,20 @@ function _applyMapLayer() {
       // that last tile for zoom 18 instead of leaving a blank screen past 17.
       { minZoom: 4, maxZoom: 18, maxNativeZoom: 17, attribution: '© OpenStreetMap contributors' }
     ).addTo(_map);
-  } else {
-    _baseTileLayer = L.tileLayer(
-      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-      { minZoom: 4, maxZoom: 18, maxNativeZoom: 17, attribution: '© Esri' }
-    ).addTo(_map);
   }
+
+  if (_mapViewMode === 'geology-maine') _enableMaineGeologyLayer();
 }
+
+const MAP_VIEW_ICONS  = { chart: '🗺', satellite: '🛰', 'geology-usgs': '🪨', 'geology-maine': '⛰' };
+const MAP_VIEW_LABELS = { chart: 'chart', satellite: 'satellite', 'geology-usgs': 'USGS geology', 'geology-maine': 'Maine geology' };
 
 function _syncLayerBtn() {
   const btn = document.getElementById('map-layer-btn');
   if (!btn) return;
-  btn.textContent = _chartMode ? '🛰' : '🗺';
-  btn.title       = _chartMode ? 'Switch to satellite' : 'Switch to chart';
+  const next = MAP_VIEW_MODES[(MAP_VIEW_MODES.indexOf(_mapViewMode) + 1) % MAP_VIEW_MODES.length];
+  btn.textContent = MAP_VIEW_ICONS[_mapViewMode];
+  btn.title       = `Switch to ${MAP_VIEW_LABELS[next]}`;
 }
 
 function _ensureMap() {
@@ -6269,8 +6356,8 @@ function _ensureMap() {
 
   document.getElementById('map-layer-btn').addEventListener('click', (e) => {
     e.stopPropagation();
-    _chartMode = !_chartMode;
-    localStorage.setItem('audiochart-chart-mode', _chartMode ? 'chart' : 'satellite');
+    _mapViewMode = MAP_VIEW_MODES[(MAP_VIEW_MODES.indexOf(_mapViewMode) + 1) % MAP_VIEW_MODES.length];
+    localStorage.setItem('audiochart-chart-mode', _mapViewMode);
     _applyMapLayer();
     _syncLayerBtn();
   });
