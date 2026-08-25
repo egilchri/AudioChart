@@ -919,11 +919,15 @@ let _animTraveled     = 0;
 let _baseTileLayer    = null;
 // Cycled by tapping map-layer-btn: street chart → satellite → Maine bedrock
 // geology (state survey's own vector data — no basemap of its own, shown as
-// an overlay on the street chart) → back. USGS's national geology layer was
-// also tried (a self-contained WMS raster) but dropped per live comparison —
-// Maine's own data was "by far the best" (real coastline/place-name context,
-// since it overlays the chart rather than replacing it).
-const MAP_VIEW_MODES  = ['chart', 'satellite', 'geology-maine'];
+// an overlay on the street chart) → history (documents only, same street
+// basemap as chart) → back. USGS's national geology layer was also tried
+// (a self-contained WMS raster) but dropped per live comparison — Maine's
+// own data was "by far the best" (real coastline/place-name context, since
+// it overlays the chart rather than replacing it).
+const MAP_VIEW_MODES  = ['chart', 'satellite', 'geology-maine', 'history'];
+// Maps a display mode to the documents.geojson `category` it shows —
+// the whole reason "switch to Geology/History" needs no separate menu.
+const MAP_VIEW_DOC_CATEGORY = { 'geology-maine': 'geology', 'history': 'history' };
 let _mapViewMode      = MAP_VIEW_MODES.includes(localStorage.getItem('audiochart-chart-mode'))
   ? localStorage.getItem('audiochart-chart-mode') : 'satellite';
 let _maineGeologyLayer      = null;
@@ -1435,16 +1439,24 @@ function _documentMarkerIcon() {
 // 1 (never actually landing on the relevant section), and more fundamentally
 // broke the offline-first principle this app is built on — reading a
 // document while underway can't depend on a live connection. Markers only
-// show in Geology view (called from _applyMapLayer on every mode switch) —
-// per explicit direction, every document is geology right now, so "switch to
-// Geology display" IS the way to see them; no separate menu needed. Once
-// other categories exist, this is the natural place to filter by whichever
-// display is active instead of an always-on/always-off toggle.
+// show for whichever category matches the active display mode
+// (MAP_VIEW_DOC_CATEGORY) — per explicit direction, "switch to Geology/
+// History display" IS the way to see that category's documents, no
+// separate menu. History further filters by _selectedEra, since that
+// category is subdivided by era (colonial/revolution/industrial/modern);
+// 'all' shows every era.
 let _documentMarkersLayer = null;
+let _selectedEra = 'all';
 function _renderDocumentMarkers() {
   if (_documentMarkersLayer) { _map.removeLayer(_documentMarkersLayer); _documentMarkersLayer = null; }
-  if (!_map || !_documents.length || _mapViewMode !== 'geology-maine') return;
-  const markers = _documents.map(f => {
+  const category = MAP_VIEW_DOC_CATEGORY[_mapViewMode];
+  if (!_map || !_documents.length || !category) return;
+  const visible = _documents.filter(f => {
+    if (f.properties.category !== category) return false;
+    if (category === 'history' && _selectedEra !== 'all' && f.properties.era !== _selectedEra) return false;
+    return true;
+  });
+  const markers = visible.map(f => {
     const [lon, lat] = f.geometry.coordinates;
     const p = f.properties;
     const html = `<div style="font-size:13px;line-height:1.5;max-width:260px">
@@ -6217,9 +6229,11 @@ function _applyMapLayer() {
       { minZoom: 4, maxZoom: 18, maxNativeZoom: 17, attribution: '© Esri' }
     ).addTo(_map);
   } else {
-    // 'chart' and 'geology-maine' both use the street basemap: 'chart' on its own,
-    // 'geology-maine' as context underneath its own polygon overlay (added below) —
-    // that dataset has no coastline/place-name context of its own.
+    // 'chart', 'geology-maine', and 'history' all use the street basemap:
+    // 'chart' and 'history' on their own (history's markers need real
+    // coastline/place-name context and have no map layer of their own),
+    // 'geology-maine' as context underneath its own polygon overlay (added
+    // below) — that dataset has no coastline/place-name context of its own.
     _baseTileLayer = L.tileLayer(
       'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
       // maxZoom stays 18 to match the zoom slider; maxNativeZoom caps actual tile
@@ -6231,10 +6245,37 @@ function _applyMapLayer() {
 
   if (_mapViewMode === 'geology-maine') _enableMaineGeologyLayer();
   _renderDocumentMarkers();
+  document.getElementById('history-era-banner').style.display = _mapViewMode === 'history' ? 'flex' : 'none';
+  _syncMapModeTitle();
 }
 
-const MAP_VIEW_ICONS  = { chart: '🗺', satellite: '🛰', 'geology-maine': '⛰' };
-const MAP_VIEW_LABELS = { chart: 'chart', satellite: 'satellite', 'geology-maine': 'geology' };
+const MAP_VIEW_ICONS  = { chart: '🗺', satellite: '🛰', 'geology-maine': '⛰', history: '📜' };
+const MAP_VIEW_LABELS = { chart: 'Chart', satellite: 'Satellite', 'geology-maine': 'Geology', history: 'History' };
+const HISTORY_ERA_LABELS = {
+  all: 'All Eras',
+  colonial: 'Native American & Colonial',
+  revolution: 'Revolution & Early Republic',
+  industrial: '19th-Century Industry & Maritime',
+  modern: '20th Century to Present',
+};
+
+function _syncMapModeTitle() {
+  const el = document.getElementById('map-mode-title');
+  if (!el) return;
+  el.textContent = _mapViewMode === 'history'
+    ? `History — ${HISTORY_ERA_LABELS[_selectedEra]}`
+    : MAP_VIEW_LABELS[_mapViewMode];
+}
+
+document.querySelectorAll('.history-era-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    document.querySelectorAll('.history-era-chip').forEach(c => c.classList.remove('selected'));
+    chip.classList.add('selected');
+    _selectedEra = chip.dataset.era;
+    _renderDocumentMarkers();
+    _syncMapModeTitle();
+  });
+});
 
 function _syncLayerBtn() {
   const btn = document.getElementById('map-layer-btn');

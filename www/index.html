@@ -20,6 +20,7 @@
 
     <div id="map-container" style="display:none">
       <div id="leaflet-map"></div>
+      <div id="map-mode-title">Chart</div>
       <div id="map-version-label"></div>
       <div class="etp-title" id="global-ops-title">Global Ops</div>
       <button id="map-menu-btn" title="Map menu">&#9776;</button>
@@ -218,6 +219,13 @@
       &#9995; Drag anything to move it &nbsp;
       <button id="rearrange-reset-btn" title="Move every button and panel back to its default position">&#8635; Reset positions to defaults</button>
       <button id="rearrange-done-btn" title="Finish rearranging and lock the current positions">&#10003; Done</button>
+    </div>
+    <div id="history-era-banner" style="display:none">
+      <button class="track-chip history-era-chip selected" data-era="all" title="Show documents from every era">All Eras</button>
+      <button class="track-chip history-era-chip" data-era="colonial" title="Show documents from before ~1775">Native American &amp; Colonial</button>
+      <button class="track-chip history-era-chip" data-era="revolution" title="Show documents from 1775-1820">Revolution &amp; Early Republic</button>
+      <button class="track-chip history-era-chip" data-era="industrial" title="Show documents from 1820-1900">19th-Century Industry &amp; Maritime</button>
+      <button class="track-chip history-era-chip" data-era="modern" title="Show documents from 1900-present">20th Century to Present</button>
     </div>
     <div id="anim-banner" style="display:none">
       <span id="anim-banner-text">&#9654;</span>

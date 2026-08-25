@@ -536,6 +536,41 @@ html, body {
   cursor: pointer;
 }
 
+#map-mode-title {
+  position: absolute;
+  /* Below map-overlay-status, not beside it — that bar can wrap to two rows
+     (it did in live testing: GPS badge + 8 buttons hit ~88px tall) and is
+     itself user-draggable in rearrange mode, so a fixed top offset can't
+     track it exactly; parking below its typical max height is the robust
+     compromise over chasing an exact non-collision every layout. */
+  top: 92px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text);
+  background: rgba(15, 35, 70, 0.82);
+  border: 1px solid var(--mid-blue);
+  border-radius: 8px;
+  padding: 3px 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+  pointer-events: none;
+  white-space: nowrap;
+  max-width: 90vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#history-era-banner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 12px;
+  background: var(--dark-blue);
+  border-top: 1px solid var(--mid-blue);
+}
+
 /* ── Map overlays ──────────────────────────────────────────────────────────── */
 #map-overlay-status {
   position: absolute;

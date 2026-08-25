@@ -256,6 +256,78 @@
         "body": "The 2.2-mile Passagassawakeag ('Passy') Rail Trail, laid on a former railroad bed along the river of the same name, happens to cross five distinct bedrock formations in one short walk — the Bucksport Formation, Appleton Ridge Formation, Ghent Phyllite, an unnamed quartz-rich metasiltstone, and the Gushee member of the Penobscot Formation, running roughly northeast to southwest. The trail's northern half sits on the Bucksport Formation specifically: metasedimentary rock that started as ordinary marine sand and calcareous mud, and was later metamorphosed into 'granofels' — a fine-grained, granular rock built from quartz, feldspar, and (in its sandier layers) biotite mica. Large outcrops of it are visible right along the trail, alongside smaller exposures of the neighboring Appleton Ridge Formation.",
         "source": "Maine Geological Survey, Geologic Facts and Localities — The Passagassawakeag Rail Trail, Belfast (2017)"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.81278, 44.46806] },
+      "properties": {
+        "title": "Champlain sails into the bay",
+        "category": "history",
+        "era": "colonial",
+        "place": "Penobscot River mouth",
+        "body": "In September 1604, Samuel de Champlain — part of the first permanent French attempt at a colony in the region, at St. Croix Island that same year — sailed into the Penobscot River with Wabanaki guides who had been helping him read the coast all summer. Here he met and conferred with Bashaba, the sachem the French recorded as principal chief along this river, in one of the earliest documented encounters between Europeans and the Wabanaki people of this exact bay. Champlain pushed on upriver as far as present-day Bangor, hunting for a passage inland and for Norumbega, the legendary city of gold that turned out not to exist. What he did produce, over that summer and the following years exploring the Maine and Massachusetts coast, were among the first accurate charts of this coastline based on real, firsthand survey — work this app's own charts trace their lineage back to, four centuries later.",
+        "source": "University of Maine Canadian-American Center; Maine Memory Network — Champlain and the Settlement of Acadia, 1604-1607"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.81278, 44.46806] },
+      "properties": {
+        "title": "Fort Pownall, built to hold the frontier",
+        "category": "history",
+        "era": "colonial",
+        "place": "Fort Point State Park, Stockton Springs",
+        "body": "In May 1759, during the French and Indian War, 400 men sailed up from Newbury, Massachusetts and built a fort here in a matter of weeks — Massachusetts Governor Thomas Pownall's answer to French and Native resistance further up the Penobscot. Ninety-foot palisaded walls surrounded a moat fifteen feet wide, with a two-story, forty-four-foot blockhouse at the center and diamond-shaped riflemen's flankers at each corner, reached by drawbridge. It was meant to plug the river and make the area safe for English settlement, pushing back the Penobscot and Norridgewock peoples who had long used this water.\n\nThe fort never fired a shot in anger during the war it was built for. Its real moment came at the start of a different war: in 1775, with the Revolution just breaking out, British forces confiscated its guns and ammunition — and a Continental Army colonel named Cargill burned the fort to the ground and filled in its moat himself, rather than let the British hold it. Only earthworks remain today at Fort Point State Park, at the tip of Cape Jellison where it juts into the bay.",
+        "source": "Maine Historic Preservation Commission — Fort Pownall, 1759, Stockton Springs, Waldo County"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.80556, 44.39083] },
+      "properties": {
+        "title": "The Penobscot Expedition — America's forgotten naval disaster",
+        "category": "history",
+        "era": "revolution",
+        "place": "Fort George, Castine (Majabigwaduce Peninsula)",
+        "body": "In June 1779 the British landed about 750 troops on the peninsula where the Bagaduce and Penobscot Rivers meet and began building Fort George — a Loyalist haven, a source of Royal Navy timber, and a naval base to threaten New England's coast. Massachusetts responded with the largest American naval expedition of the whole Revolutionary War: 19 armed vessels and 24 transports, over 1,000 militia, commanded by Commodore Dudley Saltonstall at sea and Brigadier General Solomon Lovell ashore — with the artillery under a lieutenant colonel named Paul Revere.\n\nThe siege dragged on for three weeks without Saltonstall pressing the naval attack he had the firepower to win. On August 13, a British relief fleet of seven warships under Sir George Collier arrived. Rather than fight through them, Saltonstall retreated up the Penobscot River — and the entire American fleet was scuttled or burned by its own crews rather than let it fall into British hands. Forty-two of 44 ships were lost, 474 men killed, wounded, captured, or missing: the worst defeat in American naval history until Pearl Harbor, 162 years later. Saltonstall was court-martialed and dismissed from the service; Paul Revere, also court-martialed over his conduct in the retreat, was eventually acquitted.",
+        "source": "Castine Historical Society; American Battlefield Trust — Penobscot Expedition, 1779"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.89083, 44.035] },
+      "properties": {
+        "title": "The island town that vanished overnight",
+        "category": "history",
+        "era": "industrial",
+        "place": "Hurricane Island, Vinalhaven",
+        "body": "Civil War veteran Davis Tilson bought Hurricane Island in 1870 and built a granite-quarrying operation that, at its 1880s-1900s peak, supported a company town of up to 1,200 people — a Catholic church, a school, a company store, and a genuinely international workforce of Swedish, Finnish, Irish, Scottish, English, and Italian stonecutters and carvers. Granite carved in its sheds went into the Brooklyn Bridge, the Washington Monument, post offices in Baltimore and Pittsburgh, even cobblestones in Havana.\n\nIt ended almost as suddenly as it began. By the 1910s reinforced concrete was replacing granite as the building material of choice nationwide, and in 1914 — not long after a shipment of Hurricane Island granite sank en route to Rockland Harbor and the company's foreman died unexpectedly — the operation simply stopped. Management told the townspeople to leave, provided a few boats, and gave them barely any time to do it. Families who had lived their whole lives on the island abandoned their homes almost overnight. The island today is a field station; walk it and you can still find the quarry pits, building foundations, and the bones of the town that disappeared.",
+        "source": "Hurricane Island Center for Science and Leadership; Wikipedia — Hurricane Island (Maine)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.90833, 44.47278] },
+      "properties": {
+        "title": "One-tenth of America's deep-water captains",
+        "category": "history",
+        "era": "industrial",
+        "place": "Searsport",
+        "body": "For a stretch of the 19th century, this one small Penobscot Bay town produced roughly a tenth of all deep-water sea captains sailing under the American flag — more per square mile than anywhere else in the country, by some counts around 300 commanders in all. It wasn't incidental: captaincy ran in families here, passed from father to son for generations, and at its shipbuilding peak Searsport ran 17 shipyards that turned out some 200 vessels.\n\nThe captains' wealth built the town's distinctive mansions — arched windows, marble fireplaces, exotic art brought home from round-the-world voyages, and a widow's walk on the roof where a family could watch the horizon for a returning sail. In Searsport specifically, it's said about half the captains' wives went to sea with their husbands rather than wait ashore, sometimes bearing and raising children at sea. The Penobscot Marine Museum in the middle of town keeps that history now; Searsport still calls itself Maine's Antique Capital, a quieter legacy of the wealth that maritime trade once brought through here.",
+        "source": "Penobscot Marine Museum; Wikipedia — Searsport, Maine and Searsport Historic District"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.11, 44.24306] },
+      "properties": {
+        "title": "From cargo schooners to the Windjammer Capital of the World",
+        "category": "history",
+        "era": "modern",
+        "place": "Camden Harbor",
+        "body": "By the 1930s, the working schooners that had carried granite, lime, and lumber up and down this coast for a century were being retired wholesale — replaced by trucks, rail, and steel-hulled steamers. A Maine mariner named Captain Frank Swift had a different idea: buy the old vessels as they came off cargo duty, fit them out for passengers, and sell pleasure cruises instead of scrapping them. His first cruise sailed in 1936 aboard a 55-year-old schooner named Mabel. By 1938 he had three vessels and a Life magazine cover story; by 1940 he had five, and Camden had earned the nickname 'Windjammer Capital of the World.'\n\nThe idea outlived its founder. By 1977 there were enough separate schooner businesses operating out of Camden and Rockland that they formed the Maine Windjammer Association to market together, and it's still sailing today — a working fleet, several vessels designated National Historic Landmarks, some hulls dating back to the 1800s, carrying passengers instead of cargo along the same routes their captains once sailed for a living. It's the clearest through-line between the bay's 19th-century working-sail economy and the one that supports it now.",
+        "source": "Maine Windjammer Association; Frommer's — The Maine Windjammers: 75 Years Young"
+      }
     }
   ]
 }
