@@ -283,6 +283,46 @@ def prune_short_branches(edges, min_fraction=0.12):
     return edges
 
 
+def break_artifact_cycles(edges):
+    """A boundary-point Voronoi medial axis is topologically a tree almost
+    always — a locally near-symmetric widening in the polygon boundary can
+    occasionally produce one small closed loop instead (two near-equal-
+    length candidate centerline paths both surviving pruning around a
+    slightly wider stretch). That's a Voronoi artifact, not a genuine
+    second channel branch, but it still leaves 2 nodes with degree 3, which
+    downstream code can't tell apart from a real fork without this.
+    Real case found live (2026-08-24): Rockland Harbor Main Channel's
+    medial axis had exactly one such loop (edge count == node count, i.e.
+    exactly one cycle) and was being rejected outright by the "too many
+    edges to be a real chain" quality gate in channel_to_edges — 158 raw
+    points, correctly flagged as suspicious, but for the wrong reason (it's
+    not a messy/unresolved shape, it's one clean chain plus one small
+    redundant loop).
+    Standard fix: Kruskal's MST over the edge set AS GIVEN (not a complete
+    graph) — sorted shortest-first, keep an edge only if it doesn't close a
+    cycle. This can only ever break real cycles; it never removes an edge
+    from what's already a tree, so it's a no-op on the common case."""
+    parent = {}
+
+    def find(x):
+        parent.setdefault(x, x)
+        path = []
+        while parent[x] != x:
+            path.append(x)
+            x = parent[x]
+        for n in path:
+            parent[n] = x
+        return x
+
+    kept = []
+    for a, b in sorted(edges, key=lambda e: math.hypot(e[0][0] - e[1][0], e[0][1] - e[1][1])):
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[ra] = rb
+            kept.append((a, b))
+    return kept
+
+
 def longest_path_or_full_graph(edges):
     """For a simple chain (no real junction — every node has degree <= 2),
     return the single longest path end-to-end. For a real branch (some node
@@ -323,6 +363,12 @@ def channel_to_edges(feature):
         edges_m = medial_axis_edges(poly_m, densify_m)
         edges_m = snap_nodes(edges_m, snap_m)
         edges_m = prune_spurs(edges_m, prune_m)
+        edges_m = prune_short_branches(edges_m)
+        # Breaking a loop can turn it into a plain whisker (a spur off the
+        # main chain, still meeting the "attachment" node at degree 3) —
+        # loops have no leaves for prune_short_branches to find before this,
+        # so it needs a second pass now that one might exist.
+        edges_m = break_artifact_cycles(edges_m)
         edges_m = prune_short_branches(edges_m)
         edges_m = longest_path_or_full_graph(edges_m)
 

@@ -878,6 +878,20 @@ function run() {
     if (!report('[12] Merchant Row / Deer Island Thorofare (spatial buoy-chain channel)', allRings, chGraph, start, end)) failures++;
   }
 
+  // Case 13 — Rockland Harbor Main Channel, previously entirely absent from
+  // channel_graph.geojson: its medial axis had exactly one small Voronoi-
+  // artifact loop (edge count == node count — a real cycle, not a genuine
+  // second channel branch), which the old pipeline's "too many edges to be
+  // a real chain" quality gate rejected outright with zero edges. Fixed by
+  // break_artifact_cycles (Kruskal's MST over the medial-axis edge set,
+  // breaking any small loop back into a tree) in build_channel_graph.py —
+  // this case just confirms the router actually uses the result end to end.
+  {
+    const start = { lat: 44.10350, lon: -69.09719 };
+    const end   = { lat: 44.10668, lon: -69.10173 };
+    if (!report('[13] Rockland Harbor Main Channel (medial-axis artifact-loop fix)', allRings, chGraph, start, end)) failures++;
+  }
+
   console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll cases passed.');
   process.exit(failures ? 1 : 0);
 }
