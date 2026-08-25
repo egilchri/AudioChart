@@ -464,6 +464,7 @@ const opencpnBtn = document.getElementById('opencpn-btn');
 const focusBtn = document.getElementById('focus-btn');
 const trackRecBtn = document.getElementById('track-rec-btn');
 const wakeLockBtn = document.getElementById('wake-lock-btn');
+const clearScreenBtn = document.getElementById('clear-screen-btn');
 
 function _updateFocusButton() {
   if (!focusBtn) return;
@@ -9230,6 +9231,43 @@ function clearTestPosition() {
 }
 
 testPosClear.addEventListener('click', clearTestPosition);
+
+// One-tap reset for map clutter — a long test/exploration session can leave
+// several routes shown at once (each with its own bearing-label overlay)
+// plus leftover query-result markers (long-press lookups, hazard checks,
+// the fallback-warning triangles), none of which clear themselves. Mirrors
+// exactly what a fresh launch already does for routes/tracks (see
+// _loadHiddenRoutes/_loadHiddenTracks — "every launch starts tidy") without
+// requiring an actual reload, plus clears the transient query-result
+// layers a reload would also naturally drop. Deliberately does NOT touch
+// checkbox-controlled overlays (hazards/navaids/depths/current arrows) or
+// the boat/waypoint layers — those are standing preferences, not clutter.
+function _clearScreen() {
+  const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+  routes.forEach(r => _hiddenRouteNames.add(r.name));
+  _saveHiddenRoutes();
+  _refreshSavedRouteLayers();
+
+  const tracks = JSON.parse(localStorage.getItem(TRACK_KEY) || '[]');
+  tracks.forEach(t => _hiddenTrackNames.add(t.name));
+  _saveHiddenTracks();
+  _refreshSavedTrackLayers();
+
+  for (const layer of [_mapLayers, _hazardCheckLayer, _routeFallbackLayer,
+                        _autoRoutePreviewLayer, _viewportHazardLayer,
+                        _animReportLayer, _animMilestoneLayer]) {
+    if (layer) _map?.removeLayer(layer);
+  }
+  _mapLayers = _hazardCheckLayer = _routeFallbackLayer = null;
+  _autoRoutePreviewLayer = _viewportHazardLayer = null;
+  _animReportLayer = _animMilestoneLayer = null;
+
+  const msg = 'Screen cleared.';
+  setStatus(msg);
+  TTS.sayImmediate(msg);
+}
+
+clearScreenBtn.addEventListener('click', _clearScreen);
 
 // ── Route download ────────────────────────────────────────────────────────────
 
