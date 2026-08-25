@@ -46,16 +46,16 @@
         <div class="nf-title">Routes <button id="rp-close" title="Close">&#10005;</button></div>
         <div class="nf-new-route">
           <button id="rp-draw-route" title="Tap a start point, then a destination — the app plots a safe route">&#10145; Auto Route</button>
-          <button id="rp-sketch">&#9643; Sketch</button>
-          <button id="rp-import-file">&#11015; Import GPX</button>
-          <button id="rp-import-drive">&#9729; Import from Drive</button>
+          <button id="rp-sketch" title="Click points on the map to place a freehand route — not checked against charted hazards">&#9643; Sketch</button>
+          <button id="rp-import-file" title="Import one or more routes from a GPX file">&#11015; Import GPX</button>
+          <button id="rp-import-drive" title="Import routes previously saved to Google Drive">&#9729; Import from Drive</button>
         </div>
         <input id="rp-search" type="text" placeholder="Search routes&hellip;" autocomplete="off">
         <div id="rp-route-list"></div>
         <div class="nf-actions">
-          <button id="rp-show-all">All</button>
-          <button id="rp-hide-all">None</button>
-          <button id="rp-hide-unselected">Only selected</button>
+          <button id="rp-show-all" title="Show every saved route on the map">All</button>
+          <button id="rp-hide-all" title="Hide every saved route from the map">None</button>
+          <button id="rp-hide-unselected" title="Show only the routes currently checked, hide the rest">Only selected</button>
         </div>
         <div class="nf-sync-bar">
           <label class="nf-sync-wifi"><input type="checkbox" id="rp-wifi-sync"> &#128246; Wi-Fi Sync</label>
@@ -69,8 +69,8 @@
         <input id="tp-search" type="text" placeholder="Search tracks&hellip;" autocomplete="off">
         <div id="tp-track-list"></div>
         <div class="nf-actions">
-          <button id="tp-show-all">All</button>
-          <button id="tp-hide-all">None</button>
+          <button id="tp-show-all" title="Show every saved track on the map">All</button>
+          <button id="tp-hide-all" title="Hide every saved track from the map">None</button>
         </div>
         <div class="nf-sync-bar">
           <label class="nf-sync-wifi"><input type="checkbox" id="tp-wifi-sync"> &#128246; Wi-Fi Sync</label>
@@ -91,8 +91,8 @@
           <div id="nf-tide-status" class="nf-sub"></div>
         </div>
         <div class="nf-actions">
-          <button id="nf-refresh">Refresh</button>
-          <button id="nf-clear">Clear</button>
+          <button id="nf-refresh" title="Reload navaid data for the current map area">Refresh</button>
+          <button id="nf-clear" title="Clear all displayed navaid markers from the map">Clear</button>
         </div>
       </div>
       <div id="about-panel">
@@ -122,8 +122,8 @@
         </div>
         <div id="test-pos-form" style="display:none">
           <input id="test-pos-input" type="text" placeholder="Camden  or  Crow Island, Cranberry Isles" autocomplete="off">
-          <button id="test-pos-set">Set</button>
-          <button id="test-pos-clear">Clear</button>
+          <button id="test-pos-set" title="Move the boat's position to the place or coordinates you typed, for testing without a GPS fix">Set</button>
+          <button id="test-pos-clear" title="Clear the test position and resume using the real GPS fix">Clear</button>
         </div>
       </div>
 
@@ -136,38 +136,38 @@
         </div>
         <form id="text-form" autocomplete="off">
           <input id="text-input" type="text" placeholder="Type a command&hellip;" aria-label="Text command input">
-          <button type="submit" id="text-submit">&#9654;</button>
+          <button type="submit" id="text-submit" title="Send this command">&#9654;</button>
         </form>
       </div>
 
       <div id="edit-tools-panel" style="display:none">
         <div class="etp-title" id="etp-title">Node Ops</div>
-        <button id="etp-add-node">&#65291; Add</button>
-        <button id="etp-insert-node">&#8659; Insert</button>
-        <button id="etp-delete">&#10005; Delete</button>
-        <button id="etp-overnight">&#9875; Overnight</button>
-        <button id="etp-animate">&#9654; Animate</button>
-        <button id="etp-reroute">&#8635; Reroute</button>
-        <button id="etp-simulate-track">&#129517; Simulate</button>
+        <button id="etp-add-node" title="Add a new waypoint at the end of the route">&#65291; Add</button>
+        <button id="etp-insert-node" title="Insert a new waypoint between two existing ones">&#8659; Insert</button>
+        <button id="etp-delete" title="Delete the selected waypoint">&#10005; Delete</button>
+        <button id="etp-overnight" title="Mark the selected waypoint as an overnight stop">&#9875; Overnight</button>
+        <button id="etp-animate" title="Preview this route as an animated boat icon moving along it">&#9654; Animate</button>
+        <button id="etp-reroute" title="Recalculate this route to avoid land and hazards">&#8635; Reroute</button>
+        <button id="etp-simulate-track" title="Generate a simulated GPS track following this route, for testing">&#129517; Simulate</button>
       </div>
     </div>
     <div id="sketch-banner" style="display:none">
       &#9998; Click to add waypoints &middot; double-click or tap Done when finished &nbsp;
-      <button id="sketch-done-btn">&#10003; Done</button>
-      <button id="sketch-route-btn">&#8635; Route All</button>
-      <button id="sketch-cancel-btn">&#10005; Cancel</button>
+      <button id="sketch-done-btn" title="Finish sketching and save the route as-drawn">&#10003; Done</button>
+      <button id="sketch-route-btn" title="Replace the sketched points with a routed path between them, avoiding hazards">&#8635; Route All</button>
+      <button id="sketch-cancel-btn" title="Discard this sketch without saving">&#10005; Cancel</button>
     </div>
     <div id="draw-banner" style="display:none">
       &#9998; <span id="draw-banner-label">New route &#8212; click to place start</span>
       &nbsp;<button id="draw-use-position-btn" style="display:none" title="Use my current GPS position as the start">&#128205; My Position</button>
       <button id="draw-name-dest-btn" style="display:none" title="Type a place or waypoint name for the destination">&#128269; Name</button>
-      <button id="draw-confirm-btn" style="display:none">&#10003; OK</button>
-      <button id="draw-cancel-btn">&#10005; Cancel</button>
+      <button id="draw-confirm-btn" style="display:none" title="Confirm this destination and calculate the route">&#10003; OK</button>
+      <button id="draw-cancel-btn" title="Cancel drawing this route">&#10005; Cancel</button>
     </div>
     <div id="focus-place-banner" style="display:none">
       &#127919; <span id="focus-place-banner-label">Placing focus&#8230;</span>
-      &nbsp;<button id="focus-place-confirm-btn">&#10003;</button>
-      <button id="focus-place-cancel-btn">&#10005; Cancel</button>
+      &nbsp;<button id="focus-place-confirm-btn" title="Set the focus point here">&#10003;</button>
+      <button id="focus-place-cancel-btn" title="Cancel placing a focus point">&#10005; Cancel</button>
     </div>
     <div id="sim-track-banner" style="display:none">
       <div class="track-speed-row" style="justify-content:space-between">
@@ -188,40 +188,40 @@
       <div class="track-speed-row">
         <span>Rate:</span>
         <div class="track-chips-scroll">
-          <button class="track-chip track-sim-compress" data-compress="1">1&times;</button>
-          <button class="track-chip track-sim-compress selected" data-compress="10">10&times;</button>
-          <button class="track-chip track-sim-compress" data-compress="100">100&times;</button>
-          <button class="track-chip track-sim-compress" data-compress="500">500&times;</button>
-          <button class="track-chip track-sim-compress" data-compress="1000">1000&times;</button>
-          <button class="track-chip track-sim-compress" data-compress="2000">2000&times;</button>
+          <button class="track-chip track-sim-compress" data-compress="1" title="Play the simulated track at real-world speed">1&times;</button>
+          <button class="track-chip track-sim-compress selected" data-compress="10" title="Play the simulated track 10x faster than real-world speed">10&times;</button>
+          <button class="track-chip track-sim-compress" data-compress="100" title="Play the simulated track 100x faster than real-world speed">100&times;</button>
+          <button class="track-chip track-sim-compress" data-compress="500" title="Play the simulated track 500x faster than real-world speed">500&times;</button>
+          <button class="track-chip track-sim-compress" data-compress="1000" title="Play the simulated track 1000x faster than real-world speed">1000&times;</button>
+          <button class="track-chip track-sim-compress" data-compress="2000" title="Play the simulated track 2000x faster than real-world speed">2000&times;</button>
         </div>
       </div>
       <div class="track-speed-row">
         <span id="sim-track-banner-status">Course: 000&deg;M &mdash; drag handle or Start</span>
       </div>
       <div class="track-speed-row">
-        <button id="sim-track-start-btn">&#9654; Start</button>
+        <button id="sim-track-start-btn" title="Start the simulated track using the course and speed set above">&#9654; Start</button>
       </div>
     </div>
     <div id="edit-banner" style="display:none">
       &#9998; <span id="edit-banner-label"></span> &nbsp;
-      <button id="edit-hazards-btn">Show hazards</button>
-      <button id="edit-info-btn">Show info</button>
-      <button id="edit-copy-wpts-btn">&#128203; Copy waypoints</button>
-      <button id="edit-undo-btn" style="display:none">&#8630; Undo</button>
-      <button id="edit-revert-btn">&#8617; Revert</button>
-      <button id="edit-ok-btn">&#10003; OK</button>
-      <button id="edit-cancel-btn">&#10005; Cancel</button>
+      <button id="edit-hazards-btn" title="Check this route for charted hazards and show them on the map">Show hazards</button>
+      <button id="edit-info-btn" title="Show distance, bearing, and leg details for this route">Show info</button>
+      <button id="edit-copy-wpts-btn" title="Copy this route's waypoint list to the clipboard">&#128203; Copy waypoints</button>
+      <button id="edit-undo-btn" style="display:none" title="Undo the last change to this route">&#8630; Undo</button>
+      <button id="edit-revert-btn" title="Discard all changes and restore the route as it was before editing">&#8617; Revert</button>
+      <button id="edit-ok-btn" title="Save changes and exit editing">&#10003; OK</button>
+      <button id="edit-cancel-btn" title="Exit editing without saving changes">&#10005; Cancel</button>
     </div>
     <div id="rearrange-banner" style="display:none">
       &#9995; Drag anything to move it &nbsp;
-      <button id="rearrange-reset-btn">&#8635; Reset positions to defaults</button>
-      <button id="rearrange-done-btn">&#10003; Done</button>
+      <button id="rearrange-reset-btn" title="Move every button and panel back to its default position">&#8635; Reset positions to defaults</button>
+      <button id="rearrange-done-btn" title="Finish rearranging and lock the current positions">&#10003; Done</button>
     </div>
     <div id="anim-banner" style="display:none">
       <span id="anim-banner-text">&#9654;</span>
       <button id="anim-settings-btn" title="Animation settings">&#9881;</button>
-      <button id="anim-stop-btn">&#10005; Stop</button>
+      <button id="anim-stop-btn" title="Stop the route animation">&#10005; Stop</button>
     </div>
 
     <!-- sidebar is hidden; elements here are kept in DOM for JS references -->
@@ -235,7 +235,7 @@
         <select id="voice-select" title="Speech voice"></select>
       </div>
       <div id="demo-hud" style="display:none"></div>
-      <button id="opencpn-btn" style="display:none">&#8853; Full Chart</button>
+      <button id="opencpn-btn" style="display:none" title="Open the full nautical chart view (more chart detail, no voice guidance)">&#8853; Full Chart</button>
       <div id="history-area">
         <div id="history-list"></div>
         <button id="history-clear" title="Clear history" style="display:none">&#10005;</button>
@@ -264,79 +264,79 @@
           <p>Tap the <strong>&#9014; Share</strong> button at the bottom of Safari, then tap <strong>Add to Home Screen</strong>.</p>
         </div>
         <div id="ob-install-android" style="display:none">
-          <button id="ob-install-btn">&#11015; Install App</button>
+          <button id="ob-install-btn" title="Install AudioChart to your home screen so it works offline">&#11015; Install App</button>
           <p class="welcome-note">Or tap the Chrome menu (&hellip;) &rarr; Add to Home Screen.</p>
         </div>
-        <button id="ob-install-later">Maybe later</button>
+        <button id="ob-install-later" title="Skip installing for now and continue to the app">Maybe later</button>
       </div>
 
     </div>
   </div>
 
   <div id="map-context-menu">
-    <button id="map-ctx-objects-parent">Objects within &rsaquo;</button>
+    <button id="map-ctx-objects-parent" title="Find navaids, hazards, and other charted objects near the tapped point">Objects within &rsaquo;</button>
     <div id="map-ctx-objects-submenu">
-      <button data-radius-nm="0.0494" data-radius-label="100 yards">100 yards</button>
-      <button data-radius-nm="0.0988" data-radius-label="200 yards">200 yards</button>
-      <button data-radius-nm="0.25"   data-radius-label="¼ mile">¼ mile</button>
-      <button data-radius-nm="0.5"    data-radius-label="½ mile">½ mile</button>
-      <button data-radius-nm="1"      data-radius-label="1 mile">1 mile</button>
-      <button data-radius-nm="2"      data-radius-label="2 miles">2 miles</button>
-      <button data-radius-nm="5"      data-radius-label="5 miles">5 miles</button>
+      <button data-radius-nm="0.0494" data-radius-label="100 yards" title="List charted objects within 100 yards of the tapped point">100 yards</button>
+      <button data-radius-nm="0.0988" data-radius-label="200 yards" title="List charted objects within 200 yards of the tapped point">200 yards</button>
+      <button data-radius-nm="0.25"   data-radius-label="¼ mile" title="List charted objects within ¼ mile of the tapped point">¼ mile</button>
+      <button data-radius-nm="0.5"    data-radius-label="½ mile" title="List charted objects within ½ mile of the tapped point">½ mile</button>
+      <button data-radius-nm="1"      data-radius-label="1 mile" title="List charted objects within 1 mile of the tapped point">1 mile</button>
+      <button data-radius-nm="2"      data-radius-label="2 miles" title="List charted objects within 2 miles of the tapped point">2 miles</button>
+      <button data-radius-nm="5"      data-radius-label="5 miles" title="List charted objects within 5 miles of the tapped point">5 miles</button>
     </div>
-    <button id="map-ctx-routes-near-parent">Routes within &rsaquo;</button>
+    <button id="map-ctx-routes-near-parent" title="Find your saved routes that pass near the tapped point">Routes within &rsaquo;</button>
     <div id="map-ctx-routes-near-submenu">
-      <button data-radius-nm="0.0494" data-radius-label="100 yards">100 yards</button>
-      <button data-radius-nm="0.0988" data-radius-label="200 yards">200 yards</button>
-      <button data-radius-nm="0.25"   data-radius-label="¼ mile">¼ mile</button>
-      <button data-radius-nm="0.5"    data-radius-label="½ mile">½ mile</button>
-      <button data-radius-nm="1"      data-radius-label="1 mile">1 mile</button>
-      <button data-radius-nm="2"      data-radius-label="2 miles">2 miles</button>
-      <button data-radius-nm="5"      data-radius-label="5 miles">5 miles</button>
+      <button data-radius-nm="0.0494" data-radius-label="100 yards" title="List saved routes within 100 yards of the tapped point">100 yards</button>
+      <button data-radius-nm="0.0988" data-radius-label="200 yards" title="List saved routes within 200 yards of the tapped point">200 yards</button>
+      <button data-radius-nm="0.25"   data-radius-label="¼ mile" title="List saved routes within ¼ mile of the tapped point">¼ mile</button>
+      <button data-radius-nm="0.5"    data-radius-label="½ mile" title="List saved routes within ½ mile of the tapped point">½ mile</button>
+      <button data-radius-nm="1"      data-radius-label="1 mile" title="List saved routes within 1 mile of the tapped point">1 mile</button>
+      <button data-radius-nm="2"      data-radius-label="2 miles" title="List saved routes within 2 miles of the tapped point">2 miles</button>
+      <button data-radius-nm="5"      data-radius-label="5 miles" title="List saved routes within 5 miles of the tapped point">5 miles</button>
     </div>
-    <button id="map-ctx-tracks-near-parent">Tracks within &rsaquo;</button>
+    <button id="map-ctx-tracks-near-parent" title="Find your recorded tracks that pass near the tapped point">Tracks within &rsaquo;</button>
     <div id="map-ctx-tracks-near-submenu">
-      <button data-radius-nm="0.0494" data-radius-label="100 yards">100 yards</button>
-      <button data-radius-nm="0.0988" data-radius-label="200 yards">200 yards</button>
-      <button data-radius-nm="0.25"   data-radius-label="¼ mile">¼ mile</button>
-      <button data-radius-nm="0.5"    data-radius-label="½ mile">½ mile</button>
-      <button data-radius-nm="1"      data-radius-label="1 mile">1 mile</button>
-      <button data-radius-nm="2"      data-radius-label="2 miles">2 miles</button>
-      <button data-radius-nm="5"      data-radius-label="5 miles">5 miles</button>
+      <button data-radius-nm="0.0494" data-radius-label="100 yards" title="List recorded tracks within 100 yards of the tapped point">100 yards</button>
+      <button data-radius-nm="0.0988" data-radius-label="200 yards" title="List recorded tracks within 200 yards of the tapped point">200 yards</button>
+      <button data-radius-nm="0.25"   data-radius-label="¼ mile" title="List recorded tracks within ¼ mile of the tapped point">¼ mile</button>
+      <button data-radius-nm="0.5"    data-radius-label="½ mile" title="List recorded tracks within ½ mile of the tapped point">½ mile</button>
+      <button data-radius-nm="1"      data-radius-label="1 mile" title="List recorded tracks within 1 mile of the tapped point">1 mile</button>
+      <button data-radius-nm="2"      data-radius-label="2 miles" title="List recorded tracks within 2 miles of the tapped point">2 miles</button>
+      <button data-radius-nm="5"      data-radius-label="5 miles" title="List recorded tracks within 5 miles of the tapped point">5 miles</button>
     </div>
-<button id="map-ctx-route-parent">&#9998; Route &rsaquo;</button>
+<button id="map-ctx-route-parent" title="Route actions for the tapped point">&#9998; Route &rsaquo;</button>
     <div id="map-ctx-route-submenu">
-      <button id="map-ctx-draw-route">Draw Route</button>
-      <button id="map-ctx-sketch">Sketch</button>
-      <button id="map-ctx-route-from-here">Route from here</button>
-      <button id="map-ctx-route-to-here">Route to here</button>
-      <button id="map-ctx-route-rename">Rename route&hellip;</button>
-      <button id="map-ctx-route-edit">Edit route&hellip;</button>
-      <button id="map-ctx-route-delete">Delete last route</button>
-      <button id="map-ctx-route-clear-all">Clear all routes</button>
-      <button id="map-ctx-route-vis-parent">&#9654; Route visibility</button>
+      <button id="map-ctx-draw-route" title="Start drawing a new route, click by click, from the tapped point">Draw Route</button>
+      <button id="map-ctx-sketch" title="Start freehand-sketching a new route from the tapped point">Sketch</button>
+      <button id="map-ctx-route-from-here" title="Start a new auto-route using the tapped point as the starting point">Route from here</button>
+      <button id="map-ctx-route-to-here" title="Start a new auto-route using the tapped point as the destination">Route to here</button>
+      <button id="map-ctx-route-rename" title="Rename the route nearest the tapped point">Rename route&hellip;</button>
+      <button id="map-ctx-route-edit" title="Open the route nearest the tapped point for editing">Edit route&hellip;</button>
+      <button id="map-ctx-route-delete" title="Delete the most recently created route">Delete last route</button>
+      <button id="map-ctx-route-clear-all" title="Delete every saved route — cannot be undone">Clear all routes</button>
+      <button id="map-ctx-route-vis-parent" title="Show or hide individual saved routes">&#9654; Route visibility</button>
       <div id="map-ctx-route-vis-list" style="display:none"></div>
     </div>
-    <button id="map-ctx-track-parent">&#9654; Track &rsaquo;</button>
+    <button id="map-ctx-track-parent" title="Track actions for the tapped point">&#9654; Track &rsaquo;</button>
     <div id="map-ctx-track-submenu">
       <div class="track-two-col">
         <div>
           <div class="track-section-label">Object</div>
           <div class="track-chips">
-            <button class="track-chip track-obj" data-obj="buoy">Buoys</button>
-            <button class="track-chip track-obj" data-obj="light">Lights</button>
-            <button class="track-chip track-obj" data-obj="beacon">Beacons</button>
-            <button class="track-chip track-obj" data-obj="">All</button>
+            <button class="track-chip track-obj" data-obj="buoy" title="Only track buoys">Buoys</button>
+            <button class="track-chip track-obj" data-obj="light" title="Only track lights">Lights</button>
+            <button class="track-chip track-obj" data-obj="beacon" title="Only track beacons">Beacons</button>
+            <button class="track-chip track-obj" data-obj="" title="Track every object type">All</button>
           </div>
         </div>
         <div>
           <div class="track-section-label">Within</div>
           <div class="track-chips">
-            <button class="track-chip track-dist" data-nm="0.25">&frac14; mi</button>
-            <button class="track-chip track-dist" data-nm="0.5">&frac12; mi</button>
-            <button class="track-chip track-dist" data-nm="1">1 mi</button>
-            <button class="track-chip track-dist" data-nm="2">2 mi</button>
-            <button class="track-chip track-dist" data-nm="5">5 mi</button>
+            <button class="track-chip track-dist" data-nm="0.25" title="Search within ¼ mile of the tapped point">&frac14; mi</button>
+            <button class="track-chip track-dist" data-nm="0.5" title="Search within ½ mile of the tapped point">&frac12; mi</button>
+            <button class="track-chip track-dist" data-nm="1" title="Search within 1 mile of the tapped point">1 mi</button>
+            <button class="track-chip track-dist" data-nm="2" title="Search within 2 miles of the tapped point">2 mi</button>
+            <button class="track-chip track-dist" data-nm="5" title="Search within 5 miles of the tapped point">5 mi</button>
           </div>
         </div>
       </div>
@@ -345,7 +345,7 @@
         <select id="track-route-select">
           <option value="">— no routes saved —</option>
         </select>
-        <button id="track-simulate-track" type="button">&#129517; Simulate track</button>
+        <button id="track-simulate-track" type="button" title="Generate a simulated GPS track following the selected route, for testing">&#129517; Simulate track</button>
         <div class="track-speed-row">
           <span>At</span>
           <input id="track-speed-input" type="number" min="0.1" max="50" step="0.1" placeholder="5" value="5">
@@ -355,32 +355,32 @@
         <div class="track-speed-row">
           <span>Speed:</span>
           <div class="track-chips-scroll">
-            <button class="track-chip track-compress" data-compress="1">1&times;</button>
-            <button class="track-chip track-compress" data-compress="10">10&times;</button>
-            <button class="track-chip track-compress" data-compress="100">100&times;</button>
-            <button class="track-chip track-compress selected" data-compress="500">500&times;</button>
-            <button class="track-chip track-compress" data-compress="1000">1000&times;</button>
-            <button class="track-chip track-compress" data-compress="2000">2000&times;</button>
+            <button class="track-chip track-compress" data-compress="1" title="Animate at real-world speed">1&times;</button>
+            <button class="track-chip track-compress" data-compress="10" title="Animate 10x faster than real-world speed">10&times;</button>
+            <button class="track-chip track-compress" data-compress="100" title="Animate 100x faster than real-world speed">100&times;</button>
+            <button class="track-chip track-compress selected" data-compress="500" title="Animate 500x faster than real-world speed">500&times;</button>
+            <button class="track-chip track-compress" data-compress="1000" title="Animate 1000x faster than real-world speed">1000&times;</button>
+            <button class="track-chip track-compress" data-compress="2000" title="Animate 2000x faster than real-world speed">2000&times;</button>
           </div>
         </div>
         <div class="track-speed-row">
           <span>Zoom:</span>
-          <button class="track-chip track-zoom selected" data-zoom="">Auto</button>
-          <button class="track-chip track-zoom" data-zoom="10">10</button>
-          <button class="track-chip track-zoom" data-zoom="12">12</button>
-          <button class="track-chip track-zoom" data-zoom="13">13</button>
-          <button class="track-chip track-zoom" data-zoom="14">14</button>
-          <button class="track-chip track-zoom" data-zoom="15">15</button>
+          <button class="track-chip track-zoom selected" data-zoom="" title="Let the map zoom automatically while animating">Auto</button>
+          <button class="track-chip track-zoom" data-zoom="10" title="Keep the map at zoom level 10 while animating">10</button>
+          <button class="track-chip track-zoom" data-zoom="12" title="Keep the map at zoom level 12 while animating">12</button>
+          <button class="track-chip track-zoom" data-zoom="13" title="Keep the map at zoom level 13 while animating">13</button>
+          <button class="track-chip track-zoom" data-zoom="14" title="Keep the map at zoom level 14 while animating">14</button>
+          <button class="track-chip track-zoom" data-zoom="15" title="Keep the map at zoom level 15 while animating">15</button>
         </div>
         <div class="track-speed-row" style="flex-wrap:wrap;gap:4px">
           <label style="white-space:nowrap"><input type="checkbox" id="track-milestone-checkbox"> Every</label>
           <input id="track-milestone-input" type="number" min="0.1" max="500" step="0.1" value="5" style="width:4em">
           <span>mi, vis:</span>
-          <button class="track-chip track-visibility" data-nm="0.5">&frac12;</button>
-          <button class="track-chip track-visibility" data-nm="1">1</button>
-          <button class="track-chip track-visibility selected" data-nm="2">2</button>
-          <button class="track-chip track-visibility" data-nm="5">5</button>
-          <button class="track-chip track-visibility" data-nm="10">10</button>
+          <button class="track-chip track-visibility" data-nm="0.5" title="Milestone markers become visible within ½ mile">&frac12;</button>
+          <button class="track-chip track-visibility" data-nm="1" title="Milestone markers become visible within 1 mile">1</button>
+          <button class="track-chip track-visibility selected" data-nm="2" title="Milestone markers become visible within 2 miles">2</button>
+          <button class="track-chip track-visibility" data-nm="5" title="Milestone markers become visible within 5 miles">5</button>
+          <button class="track-chip track-visibility" data-nm="10" title="Milestone markers become visible within 10 miles">10</button>
           <span>mi</span>
         </div>
         <div class="track-speed-row" style="border-top:1px solid #2a5080;padding-top:5px">
@@ -390,44 +390,44 @@
         </div>
         <div class="track-speed-row">
           <input id="track-config-name" type="text" placeholder="Config name…" style="flex:1">
-          <button id="track-config-save">Save</button>
+          <button id="track-config-save" title="Save the current track-simulation settings under this name">Save</button>
         </div>
-        <button id="track-route-go">&#9654; Animate</button>
+        <button id="track-route-go" title="Animate a boat icon moving along the selected route">&#9654; Animate</button>
       </div>
     </div>
-    <button id="map-ctx-wp-parent">&#9873; Waypoints &rsaquo;</button>
+    <button id="map-ctx-wp-parent" title="Waypoint actions for the tapped point">&#9873; Waypoints &rsaquo;</button>
     <div id="map-ctx-wp-submenu">
-      <button id="map-ctx-wp-set">Set waypoint here</button>
-      <button id="map-ctx-wp-show">Show</button>
-      <button id="map-ctx-wp-hide">Hide</button>
+      <button id="map-ctx-wp-set" title="Save a waypoint at the tapped point">Set waypoint here</button>
+      <button id="map-ctx-wp-show" title="Show saved waypoints on the map">Show</button>
+      <button id="map-ctx-wp-hide" title="Hide saved waypoints from the map">Hide</button>
     </div>
-    <button id="map-ctx-import-parent">&#11015; Import &rsaquo;</button>
+    <button id="map-ctx-import-parent" title="Import markers or routes from a file">&#11015; Import &rsaquo;</button>
     <div id="map-ctx-import-submenu">
       <div class="import-hint" id="import-hint-text"></div>
-      <button id="map-ctx-import-markers">Markers (GPX)</button>
-      <button id="map-ctx-import-routes">Routes (GPX)</button>
-      <button id="map-ctx-combine-routes">Combine routes (GPX)</button>
+      <button id="map-ctx-import-markers" title="Import waypoint markers from a GPX file">Markers (GPX)</button>
+      <button id="map-ctx-import-routes" title="Import one or more routes from a GPX file">Routes (GPX)</button>
+      <button id="map-ctx-combine-routes" title="Import a GPX file and combine all its tracks into a single route">Combine routes (GPX)</button>
     </div>
     <input type="file" id="gpx-file-input" accept=".gpx" style="display:none">
-    <button id="map-ctx-bring-boat">&#9935; Bring boat here</button>
-    <button id="map-ctx-set-position">&#128205; Set position here</button>
-    <button id="map-ctx-set-focus">&#127919; Set focus here</button>
+    <button id="map-ctx-bring-boat" title="Move your GPS position marker to the tapped point, for testing without a GPS fix">&#9935; Bring boat here</button>
+    <button id="map-ctx-set-position" title="Set a manual test position at the tapped point">&#128205; Set position here</button>
+    <button id="map-ctx-set-focus" title="Set the focus point here — distance/bearing readouts will track it">&#127919; Set focus here</button>
   </div>
 
   <div id="near-point-panel" style="display:none">
     <div class="npp-header">
       <span id="npp-title"></span>
-      <button id="npp-close">&times;</button>
+      <button id="npp-close" title="Close this panel">&times;</button>
     </div>
     <div id="npp-table-wrap"><table class="near-point-table"><thead><tr><th></th><th>Name</th><th>Dist</th><th>Date</th></tr></thead><tbody id="npp-tbody"></tbody></table></div>
-    <button id="npp-hide-others">Hide everything else</button>
+    <button id="npp-hide-others" title="Hide every other route/track/marker so only these results remain visible">Hide everything else</button>
   </div>
 
   <div id="wpt-copy-overlay">
     <div id="wpt-copy-panel">
       <div class="nf-title"><span id="wpt-copy-title">Waypoints</span> <button id="wpt-copy-close" title="Close">&#10005;</button></div>
       <textarea id="wpt-copy-text" readonly></textarea>
-      <button id="wpt-copy-btn">&#128203; Copy</button>
+      <button id="wpt-copy-btn" title="Copy this waypoint list to the clipboard">&#128203; Copy</button>
     </div>
   </div>
 
