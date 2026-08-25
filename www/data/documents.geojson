@@ -179,6 +179,83 @@
         "body": "The rock at the old Thomaston Prison Quarry spans a huge stretch of time — metamorphic rock ranging from Precambrian (possibly as old as 650 million years) to Ordovician (as young as roughly 450 million years). Both age groups were caught up together in the same event around 400 million years ago, the Devonian: the Acadian orogeny, when a microcontinent called Avalon collided with North America and shoved regional thrust sheets of rock into place. That collision is why folding and faulting shows up in coastal Maine bedrock so widely — and it's on vivid display in the quarry itself, where small, tight folds (geologists nickname them Z-folds and S-folds, after the letter shapes they trace) record the rock bending under that pressure.",
         "source": "Maine Geological Survey, Maine Geologic Facts and Localities — Thomaston Prison Quarry, Thomaston (2002)"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.925022, 44.186567] },
+      "properties": {
+        "title": "A submarine canyon was the ancestral Penobscot River",
+        "category": "geology",
+        "place": "Penobscot Bay, West Passage (Owls Head to Vinalhaven)",
+        "body": "The bay itself has a story worth knowing. Southeast of Rockland, in the West Passage, the sea floor drops into a real canyon — over 500 feet deep at one spot between Owls Head and Vinalhaven, visible on ordinary nautical charts if you know to look. It isn't a fluke of erosion by today's currents: it's the drowned channel of the Penobscot River itself.\n\nAt the peak of the last Ice Age, roughly 20,000 years ago, the weight of the ice sheet pressed the land down into the mantle. As the ice melted, the land sprang back up faster than the ocean could refill — dropping relative sea level as much as 180 feet below today's, between about 11,000 and 10,000 years ago. At that low stand, this canyon was dry land: the Penobscot River's own gorge, opening into the sea about seven nautical miles south of modern Vinalhaven. Matinicus was a mountaintop on the mainland. Vinalhaven and North Haven were joined into one long peninsula reaching all the way from Castine and Cape Rosier. A large tidal bay, something like today's Great Bay in New Hampshire, sat just east of Rockland — ten nautical miles long, with the modern Rockland waterfront about 2.5 miles inland from its shore. As the Gulf of Maine keeps rising, the coast keeps changing still.",
+        "source": "Maine Geological Survey, Maine Geologic Facts and Localities — Penobscot Bay 10,000 Years Ago: A Submarine Canyon Was the Ancestral Penobscot River Valley (1999)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.090039, 44.119008] },
+      "properties": {
+        "title": "The 1996 Rockland landslide",
+        "category": "geology",
+        "place": "Rockland Harbor, north shore",
+        "body": "In the early hours of April 16, 1996, a 50-foot bluff on the north shore of Rockland Harbor gave way. Most of the initial slumping happened between 1:15 and 4:00 AM on a falling tide, before any heavy rain — this wasn't simple rain-triggered erosion. Portions of two houses, built about 75 feet back from the bluff edge, collapsed into the slide. Within a week the failure had displaced more than half an acre of the original bluff top, moved material over 400 feet out onto the intertidal mudflats, and disturbed 3.5 acres in total. Smaller blocks kept calving off the scarp for a month afterward.\n\nThe underlying cause: the bluff was built on soft glacial-marine clay, the kind of unstable coastal material found in bluffs up and down this part of the Maine coast. The city, with partial FEMA funding, stabilized the site with a sequenced fill — heavy rock riprap at the toe, progressively lighter cement-kiln dust higher up the slope — then capped it with topsoil and grass. No lives were lost, but the two homes were a total loss and the stabilization project alone ran over $750,000. It's a dramatic example of a slow, ongoing process along much of the Maine coast: marine bluffs built on this kind of soft glacial clay erode, sometimes catastrophically.",
+        "source": "Maine Geological Survey, Maine Geologic Facts and Localities — Aftermath of the 1996 Rockland Landslide (1997)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.964917, 44.411392] },
+      "properties": {
+        "title": "Possibly the largest pockmarks in the world",
+        "category": "geology",
+        "place": "Belfast Bay",
+        "body": "The muddy floor of Belfast Bay is pitted with more than 2,000 crater-like depressions called pockmarks — and some of them, up to 350 meters across and 50 meters deep, are possibly the largest such features found anywhere on Earth. They're not volcanic or impact craters: they're where methane gas, trapped in the mud beneath the seabed, has erupted upward and blown a hole in the sea floor.\n\nMost pockmarks elsewhere in the world form over petroleum deposits, where high-temperature breakdown of oil generates the gas. That's not what's happening here — the bedrock under Belfast Bay is metamorphic and igneous rock that never got hot enough to form oil and gas in the first place. Instead, the methane here is biological: ordinary bacteria breaking down organic matter in mud less than 10,000 years old, the same process that happens in any muddy seabed. What's unusual isn't the methane — it's the sheer size of the pockmark field it produced. Similar, smaller pockmark fields exist in Blue Hill Bay, Oak Bay, and Eggemoggin Reach.",
+        "source": "Maine Geological Survey, Maine Geologic Facts and Localities — Belfast Bay Pockmark Field (1997)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.260778, 43.917797] },
+      "properties": {
+        "title": "Slump-folded mud beneath the lighthouse",
+        "category": "geology",
+        "place": "Marshall Point Lighthouse, Port Clyde",
+        "body": "The rock exposed around Marshall Point Light — the lighthouse made famous by its long walkway, familiar from film — is metamorphic rock of the Benner Hill sequence, originally ordinary sediment deposited in an ocean basin around 440-500 million years ago in the Ordovician. Before it ever hardened into rock, some of those layers of sand and mud slumped down an underwater slope and got folded and contorted while still soft — a shape later locked in permanently as heat and pressure from mountain-building, and nearby intrusions of molten rock between about 440 and 360 million years ago, metamorphosed and further deformed the layers.\n\nLook for the dikes too: younger igneous rock, probably Silurian (~420 million years old), cuts straight across the older metamorphic rock in visible streaks. In places you can see gray granite and dark basalt mingled together in the same dike, with scalloped, interlocking edges — evidence that two different molten rocks were both liquid at once and interacted without fully mixing, the basalt solidifying first because it cools at a higher temperature than granite.",
+        "source": "Maine Geological Survey, Maine Geologic Facts and Localities — Marshall Point Lighthouse and Geology, Port Clyde (2000)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.943642, 44.433106] },
+      "properties": {
+        "title": "Glacial striations and the Ice Age's last mile",
+        "category": "geology",
+        "place": "Moose Point State Park, Searsport",
+        "body": "The bedrock along the Moose Point shoreline is metamorphic rock of the Penobscot Formation, roughly 490 million years old — but the far more recent story here is written on top of it. Rub a pencil across the right patch of weathered ledge and you can reveal glacial striations: scratch marks gouged into the rock as the ice sheet dragged embedded rock debris across it, still pointing south-southeast, the exact direction that ice was flowing between about 30,000 and 15,000 years ago.\n\nDig a little and you'll find glacial till near the park entrance — unsorted rubble dropped directly by the ice — with individual stones still showing their own transport striations. And along the shoreline, layered silt and clay sits right on top of the till: sediment that settled quietly to the floor of the ocean during the marine submergence that followed the ice sheet's retreat, when the weight of the ice was gone but the crust hadn't yet sprung back up.",
+        "source": "Maine Geological Survey, Geologic Site of the Month — Glacial Geology of Moose Point State Park, Searsport (2013)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.881278, 44.444917] },
+      "properties": {
+        "title": "The Penobscot Formation and a glacial beach",
+        "category": "geology",
+        "place": "Sears Island, Searsport",
+        "body": "Sears Island — 937 acres, largely under conservation easement, laced with trails open to non-motorized recreation — is underlain entirely by the Penobscot Formation, a dark gray schist that weathers rusty-brown. It began as fine silty mud on the slope of an ancient ocean-arc system, probably in the late Cambrian to early Ordovician, before a Silurian-age collision between island arcs folded and metamorphosed it into the sheet-like, foliated schist you can see in outcrop along the shore.\n\nThe beach tells a different, much more recent story: boulders and cobbles of rock types that don't match the island's own bedrock at all — granite flecked with feldspar and mica, banded gneiss, garnet-bearing schist — rounded either by glacial transport or by the modern waves. They're erratics, carried here from elsewhere by the ice sheet (or reworked since by the surf) and dropped on an island whose own foundation is a single, uniform formation.",
+        "source": "Maine Geological Survey, Maine Geologic Facts and Localities — Sears Island, Searsport (2018)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.021222, 44.440306] },
+      "properties": {
+        "title": "Five rock formations along the old rail bed",
+        "category": "geology",
+        "place": "Passagassawakeag Rail Trail, Belfast",
+        "body": "The 2.2-mile Passagassawakeag ('Passy') Rail Trail, laid on a former railroad bed along the river of the same name, happens to cross five distinct bedrock formations in one short walk — the Bucksport Formation, Appleton Ridge Formation, Ghent Phyllite, an unnamed quartz-rich metasiltstone, and the Gushee member of the Penobscot Formation, running roughly northeast to southwest. The trail's northern half sits on the Bucksport Formation specifically: metasedimentary rock that started as ordinary marine sand and calcareous mud, and was later metamorphosed into 'granofels' — a fine-grained, granular rock built from quartz, feldspar, and (in its sandier layers) biotite mica. Large outcrops of it are visible right along the trail, alongside smaller exposures of the neighboring Appleton Ridge Formation.",
+        "source": "Maine Geological Survey, Geologic Facts and Localities — The Passagassawakeag Rail Trail, Belfast (2017)"
+      }
     }
   ]
 }
