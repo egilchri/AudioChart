@@ -159,6 +159,13 @@ const PATTERNS = [
     params: {},
   },
 
+  // NEAREST ISLAND
+  {
+    re: /\b((what|which)\s+island|(nearest|closest)\s+island|island\s+name)\b/i,
+    intent: 'NEAREST_ISLAND',
+    params: {},
+  },
+
   // NEAREST HAZARD
   {
     re: /\b(nearest|closest)\s+hazard\b/i,

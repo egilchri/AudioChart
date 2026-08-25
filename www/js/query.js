@@ -1231,6 +1231,37 @@ export function whereAmI(lat, lon, accuracy) {
   };
 }
 
+/** Find nearest named island to (lat, lon). Mirrors nearestHazard below —
+ * same response shape, same lastBearingResult convention, so it gets the
+ * same "show on map" treatment as hazard/navaid/restriction queries. Scoped
+ * to namedPlaces entries with label === 'island' specifically (not the
+ * broader town/coastal-feature/anchorage set findNearestLandmark also
+ * accepts for WHERE_AM_I) — this is "what island is that", not "what's the
+ * nearest landmark of any kind." */
+export function nearestIsland(lat, lon) {
+  if (!namedPlaces || namedPlaces.features.length === 0) {
+    return { text: 'No place data loaded.', speech: 'No place data loaded.' };
+  }
+  let nearest = null, minDist = Infinity;
+  for (const f of namedPlaces.features) {
+    if (f.properties.label !== 'island' || !f.properties.name) continue;
+    const [flon, flat] = f.geometry.coordinates;
+    const d = distanceNm(lon, lat, flon, flat);
+    if (d < minDist) { minDist = d; nearest = f; }
+  }
+  if (!nearest) {
+    return { text: 'No named islands found nearby.', speech: 'No named islands found nearby.' };
+  }
+  const [flon, flat] = nearest.geometry.coordinates;
+  const name = nearest.properties.name;
+  const brg = trueTomagnetic(bearing(lon, lat, flon, flat));
+  lastBearingResult = { destLat: flat, destLon: flon, destName: name, destType: 'island', brg, distNm: minDist };
+  return {
+    text:   `Nearest island: ${name}  ${bearingToDisplay(brg)}  ${distanceToDisplay(minDist)}`,
+    speech: `Nearest island: ${name}, bearing ${bearingToWords(brg)}, ${formatDistance(minDist)}.`,
+  };
+}
+
 /** Find nearest hazard to (lat, lon). Returns spoken response string. */
 export function nearestHazard(lat, lon) {
   if (!hazards || hazards.features.length === 0) return 'No hazard data loaded.';

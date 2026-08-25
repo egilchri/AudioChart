@@ -56,12 +56,14 @@ function _hazardMarkerIcon() {
 
 // Discreet variant for soft/shallow route-check markers (_checkRouteHazards)
 // — same yellow-triangle-with-! asset (the international caution symbol,
-// per user request) as the general hazard layer above, just sized down and
-// without the skull's pulse, so it reads as "worth a glance" rather than
-// "stop and look." A skull for a merely draft/tide-dependent shallow patch
-// was the wrong signal — reserved for hard hazards (rock/obstruction/wreck).
+// per user request) as the general hazard layer above, without the skull's
+// pulse, so it reads as "worth a glance" rather than "stop and look." A
+// skull for a merely draft/tide-dependent shallow patch was the wrong
+// signal — reserved for hard hazards (rock/obstruction/wreck). Originally
+// 16px; doubled to 32px per live feedback that the original size was too
+// small to actually see on the route.
 function _softHazardMarkerIcon() {
-  return L.icon({ iconUrl: './icons/markicons/Hazard-Warning.svg', iconSize: [16, 16], iconAnchor: [8, 8], tooltipAnchor: [0, -8] });
+  return L.icon({ iconUrl: './icons/markicons/Hazard-Warning.svg', iconSize: [32, 32], iconAnchor: [16, 16], tooltipAnchor: [0, -16] });
 }
 
 // ── Hazard marker clustering ────────────────────────────────────────────────
@@ -8688,8 +8690,8 @@ async function handleCommand(transcript) {
 
     if (intent === 'LIST_OBJECTS') {
       const response = {
-        text:   'Hazards (rocks, ledges, shoals) · Buoys · Lights · Beacons · Restrictions (no-anchor, sanctuary) · Named places · Waypoints',
-        speech: 'I can find hazards like rocks, ledges, and shoals; navigation aids including buoys, lights, and beacons; restricted areas like no-anchor zones and sanctuaries; and named places and OpenCPN waypoints for bearing queries.',
+        text:   'Hazards (rocks, ledges, shoals) · Buoys · Lights · Beacons · Restrictions (no-anchor, sanctuary) · Islands · Named places · Waypoints',
+        speech: 'I can find hazards like rocks, ledges, and shoals; navigation aids including buoys, lights, and beacons; restricted areas like no-anchor zones and sanctuaries; nearby islands; and named places and OpenCPN waypoints for bearing queries.',
       };
       showResponse(response.text);
       TTS.sayImmediate(response.speech);
@@ -8866,6 +8868,9 @@ async function handleCommand(transcript) {
         }
         break;
       }
+      case 'NEAREST_ISLAND':
+        response = Query.nearestIsland(pos.lat, pos.lon);
+        break;
       case 'NEAREST_HAZARD':
         response = Query.nearestHazard(pos.lat, pos.lon);
         break;
@@ -9029,7 +9034,7 @@ async function handleCommand(transcript) {
 
     const isCourseIntent = (intent === 'HAZARDS_ON_COURSE' || intent === 'HAZARDS_ALONG_ROUTE');
     const isBearingIntent = (intent === 'BEARING_TO_PLACE' || intent === 'BEARING_TO_COORD' || intent === 'QUERY_FOCUS');
-    const isOtherMapIntent = ['NEAREST_HAZARD', 'NEAREST_NAVAID', 'NEAREST_RESTRICTION'].includes(intent);
+    const isOtherMapIntent = ['NEAREST_ISLAND', 'NEAREST_HAZARD', 'NEAREST_NAVAID', 'NEAREST_RESTRICTION'].includes(intent);
 
     if (isBearingIntent && Query.lastBearingResult) {
       // Accumulate bearing lines — keep the most recent 6 (one per color).
