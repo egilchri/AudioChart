@@ -1028,6 +1028,159 @@
         },
         "source": "Town of Swan's Island Comprehensive Plan (2022, maine.gov/dacf); Maine Coast Heritage Trust"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.08, 44.038] },
+      "properties": {
+        "title": "Ash Island",
+        "category": "island-info",
+        "place": "Ash Island, Owls Head",
+        "islandInfo": {
+          "ownership": "Maine Coast Heritage Trust (acquired 2010 with support from Owls Head residents)",
+          "landTrust": "Maine Coast Heritage Trust",
+          "onMaineIslandTrail": null,
+          "publicAccess": "Day use only — no camping, no fires. Hand-carried boats only; no trailer launching from the island itself.",
+          "notes": "47 acres, about 1 mile east of Birch Point State Park. Currents around the island can be strong. Day-use parking at Birch Point State Park; hand-carried launch from Richard Carver Harbor Park or South Thomaston's Weskeag River launch."
+        },
+        "source": "Maine Coast Heritage Trust — Ash Island preserve page (mcht.org)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.5622452, 44.2367467] },
+      "properties": {
+        "title": "Big Babson Island",
+        "category": "island-info",
+        "place": "Big Babson Island, Brooklin",
+        "islandInfo": {
+          "ownership": "Maine Coast Heritage Trust",
+          "landTrust": "Maine Coast Heritage Trust",
+          "onMaineIslandTrail": null,
+          "publicAccess": "Day use only — no camping",
+          "notes": "In Eggemoggin Reach off Naskeag Point. Western half closed April 1–July 31 to protect nesting osprey. Nearest public access is the Naskeag Point town landing, about 1.2 miles away."
+        },
+        "source": "Maine Coast Heritage Trust — Big Babson Island preserve page (mcht.org)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.7986411, 44.1425806] },
+      "properties": {
+        "title": "Calderwood Island",
+        "category": "island-info",
+        "place": "Calderwood Island, North Haven",
+        "islandInfo": {
+          "ownership": "Maine Coast Heritage Trust (acquired 1997 — half gifted, half purchased)",
+          "landTrust": "Maine Coast Heritage Trust",
+          "onMaineIslandTrail": null,
+          "publicAccess": "Day use and camping at 2 established campsites (2-night limit); groups of 6+ need a permit",
+          "notes": "75 acres, northeast of the Fox Islands Thorofare in East Penobscot Bay. One-mile trail network; the beach on the island's north side is the best landing spot."
+        },
+        "source": "Maine Coast Heritage Trust — Calderwood Island preserve page (mcht.org)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.199, 43.999] },
+      "properties": {
+        "title": "High Island",
+        "category": "island-info",
+        "place": "High Island, St. George",
+        "islandInfo": {
+          "ownership": "Maine Coast Heritage Trust (bargain-sale purchase, June 2016, after a partnership with the Town of St. George and Blueberry Cove 4-H Camp starting in 2014)",
+          "landTrust": "Maine Coast Heritage Trust",
+          "onMaineIslandTrail": null,
+          "publicAccess": "Day use and camping at one established campsite (2-night limit; unavailable on specific dates in July/August); groups of 6+ need a permit",
+          "notes": "20 acres, just north of Tenants Harbor. Trail closed April 1–August 1 to protect nesting great blue herons."
+        },
+        "source": "Maine Coast Heritage Trust — High Island preserve page (mcht.org)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.548, 44.222] },
+      "properties": {
+        "title": "Hog Island",
+        "category": "island-info",
+        "place": "Hog Island, Brooklin",
+        "islandInfo": {
+          "ownership": "Maine Coast Heritage Trust (donated by Allene White and family); previously owned by author E.B. White from 1941, sold in 1954, protected by an Acadia National Park conservation easement in 1976, and repurchased by E.B.'s son Joel White in 1990",
+          "landTrust": "Maine Coast Heritage Trust",
+          "onMaineIslandTrail": null,
+          "publicAccess": "Day use and camping at 3 established campsites (2-night limit); groups of 6+ or commercial use need a permit",
+          "notes": "Off Naskeag Point at the eastern edge of Eggemoggin Reach — seven pocket beaches suitable for small-boat/kayak landing. Access from the Brooklin municipal boat ramp, about 0.6 miles away."
+        },
+        "source": "Maine Coast Heritage Trust — Hog Island preserve page (mcht.org)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.615, 44.352] },
+      "properties": {
+        "title": "Jed's Island",
+        "category": "island-info",
+        "place": "Jed's Island, Blue Hill",
+        "islandInfo": {
+          "ownership": "Jointly acquired in 2007 by Maine Coast Heritage Trust and Blue Hill Heritage Trust",
+          "landTrust": "Maine Coast Heritage Trust and Blue Hill Heritage Trust",
+          "onMaineIslandTrail": null,
+          "publicAccess": "Day use and camping at established campsites (2-night limit)",
+          "notes": "15 acres, plus a small (1.5-acre) adjoining islet called \"My Island\" reachable at low tide. In Morgan Bay between Conary Point and Newbury Neck. Northern shore closed February–August to protect nesting bald eagles."
+        },
+        "source": "Maine Coast Heritage Trust — Jed's Island preserve page (mcht.org)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.6350251, 44.0961931] },
+      "properties": {
+        "title": "Nathan Island",
+        "category": "island-info",
+        "place": "Nathan Island, Merchant Row",
+        "islandInfo": {
+          "ownership": "Maine Coast Heritage Trust",
+          "landTrust": "Maine Coast Heritage Trust",
+          "onMaineIslandTrail": null,
+          "publicAccess": "Day use and camping (2-night limit) — but the entire preserve and campsite is closed until August 1, 2026 due to bald eagle chicks nesting close to the campsite",
+          "notes": "5 acres, tidally connected to its smaller neighbor Little Nathan (under 1 acre) via intertidal ledges and flats. About a mile north of the Isle au Haut town landing. Best landing is on the island's south side."
+        },
+        "source": "Maine Coast Heritage Trust — Merchant Row preserve page (mcht.org); topozone.com"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.709806, 44.15521] },
+      "properties": {
+        "title": "The Fort",
+        "category": "island-info",
+        "place": "The Fort, Merchant Row",
+        "islandInfo": {
+          "ownership": "Maine Coast Heritage Trust",
+          "landTrust": "Maine Coast Heritage Trust",
+          "onMaineIslandTrail": null,
+          "publicAccess": "Day use, kayak/small-boat landing only — no trail, no camping",
+          "notes": "One of the 11 MCHT preserves in the Merchant Row archipelago between Stonington and Isle au Haut."
+        },
+        "source": "Maine Coast Heritage Trust — Merchant Row preserve page (mcht.org)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.93610955089424, 44.27204110216757] },
+      "properties": {
+        "title": "Spruce Island",
+        "category": "island-info",
+        "place": "Spruce Island, Islesboro",
+        "islandInfo": {
+          "ownership": "Split: Islesboro Islands Trust owns the southern half; the northern half is separately (privately) held",
+          "landTrust": "Islesboro Islands Trust (southern half only)",
+          "onMaineIslandTrail": null,
+          "publicAccess": "Southern half only, via Islesboro Islands Trust; northern half is not documented as publicly accessible",
+          "notes": null
+        },
+        "source": "Islesboro Islands Trust (islesboroislandstrust.org)"
+      }
     }
   ]
 }
