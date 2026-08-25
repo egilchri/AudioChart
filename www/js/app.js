@@ -1412,8 +1412,45 @@ function _segCrossTrack(aLon, aLat, bLon, bLat, pLon, pLat) {
 let _documents = [];
 fetch('./data/documents.geojson')
   .then(r => r.json())
-  .then(d => { _documents = d.features || []; })
+  .then(d => { _documents = d.features || []; _renderDocumentMarkers(); })
   .catch(() => {});
+
+function _formatDocBody(text) {
+  return (text || '').split('\n\n').map(p => `<p style="margin:0 0 6px">${p}</p>`).join('');
+}
+
+function _documentMarkerIcon() {
+  return L.divIcon({
+    className: '',
+    html: '<div style="background:#fff;color:#2e7d4f;font-size:13px;width:24px;height:24px;border-radius:50%;border:2.5px solid #2e7d4f;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.6)">📄</div>',
+    iconSize: null,
+    iconAnchor: [12, 12],
+  });
+}
+
+// The full text lives in the geojson (see documents.geojson's own header note)
+// so this popup needs nothing from the network — tap the marker, read the
+// real content, no link-out required. Replaced an earlier "excerpt + Open
+// link" design per direct feedback: the link opened a 60-page PDF from page
+// 1 (never actually landing on the relevant section), and more fundamentally
+// broke the offline-first principle this app is built on — reading a
+// document while underway can't depend on a live connection.
+let _documentMarkersLayer = null;
+function _renderDocumentMarkers() {
+  if (!_map || !_documents.length) return;
+  if (_documentMarkersLayer) { _map.removeLayer(_documentMarkersLayer); }
+  const markers = _documents.map(f => {
+    const [lon, lat] = f.geometry.coordinates;
+    const p = f.properties;
+    const html = `<div style="font-size:13px;line-height:1.5;max-width:260px">
+      <b>${p.title}</b><br><span style="color:#666">${p.place}</span>
+      <div style="margin-top:6px">${_formatDocBody(p.body)}</div>
+      <div style="margin-top:4px;font-style:italic;font-size:0.78em;color:#888">${p.source}</div>
+    </div>`;
+    return L.marker([lat, lon], { icon: _documentMarkerIcon() }).bindPopup(html, { maxWidth: 280 });
+  });
+  _documentMarkersLayer = L.layerGroup(markers).addTo(_map);
+}
 
 function _documentsNearPoint(lat, lon, radiusNm) {
   const results = [];
@@ -1430,7 +1467,7 @@ function _showDocumentsNearPanel(latlng, results, radiusLabel) {
   const panel = document.getElementById('near-point-panel');
   const tbody = document.getElementById('npp-tbody');
   const thead = panel.querySelector('thead tr');
-  thead.innerHTML = '<th></th><th>Title</th><th>Dist</th><th></th>';
+  thead.innerHTML = '<th></th><th>Title</th><th>Dist</th>';
   document.getElementById('npp-hide-others').style.display = 'none';  // no map-visibility concept for documents
   document.getElementById('npp-title').textContent = results.length === 0
     ? `No documents within ${radiusLabel}`
@@ -1441,10 +1478,9 @@ function _showDocumentsNearPanel(latlng, results, radiusLabel) {
       <td>📄</td>
       <td class="npp-row-name">${r.title}<div class="npp-doc-place">${r.place}</div></td>
       <td>${distanceToDisplay(r.distanceNm)}</td>
-      <td><button class="npp-doc-open" type="button">Open ↗</button></td>
     </tr>
     <tr class="npp-doc-excerpt-row" data-idx="${i}" style="display:none">
-      <td colspan="4"><div class="npp-doc-excerpt">${r.excerpt}<div class="npp-doc-source">${r.source}</div></div></td>
+      <td colspan="3"><div class="npp-doc-excerpt">${_formatDocBody(r.body)}<div class="npp-doc-source">${r.source}</div></div></td>
     </tr>`).join('');
 
   const pt = _map.latLngToContainerPoint(latlng);
@@ -1456,18 +1492,14 @@ function _showDocumentsNearPanel(latlng, results, radiusLabel) {
   panel.style.left = Math.max(4, x) + 'px';
   panel.style.top = Math.max(4, y) + 'px';
 
-  // Row click toggles the excerpt open/closed; the "Open" button jumps
-  // straight to the full source instead (separate target, doesn't also
-  // toggle the excerpt — stopPropagation keeps the row click from firing too).
+  // Row click toggles the full text open/closed — reads right there in the
+  // panel, no separate link/action needed (see _renderDocumentMarkers' header
+  // comment for why that changed).
   tbody.querySelectorAll('.npp-doc-row').forEach(row => {
     const idx = row.dataset.idx;
     const excerptRow = tbody.querySelector(`.npp-doc-excerpt-row[data-idx="${idx}"]`);
     row.addEventListener('click', () => {
       excerptRow.style.display = excerptRow.style.display === 'none' ? '' : 'none';
-    });
-    row.querySelector('.npp-doc-open').addEventListener('click', (e) => {
-      e.stopPropagation();
-      window.open(results[idx].url, '_blank', 'noopener');
     });
   });
 
@@ -6273,6 +6305,7 @@ function _ensureMap() {
   _loadHiddenTracks();
   _refreshSavedRouteLayers();
   _refreshSavedTrackLayers();
+  _renderDocumentMarkers();  // no-op if the documents.geojson fetch hasn't resolved yet — it'll self-render then
 
   // Zoom slider (desktop only — hidden by CSS on mobile)
   const _zoomSlider = document.getElementById('zoom-slider');
