@@ -54,6 +54,16 @@ function _hazardMarkerIcon() {
   return L.icon({ iconUrl: './icons/markicons/Hazard-Warning.svg', iconSize: [28, 28], iconAnchor: [14, 28], tooltipAnchor: [0, -28] });
 }
 
+// Discreet variant for soft/shallow route-check markers (_checkRouteHazards)
+// — same yellow-triangle-with-! asset (the international caution symbol,
+// per user request) as the general hazard layer above, just sized down and
+// without the skull's pulse, so it reads as "worth a glance" rather than
+// "stop and look." A skull for a merely draft/tide-dependent shallow patch
+// was the wrong signal — reserved for hard hazards (rock/obstruction/wreck).
+function _softHazardMarkerIcon() {
+  return L.icon({ iconUrl: './icons/markicons/Hazard-Warning.svg', iconSize: [16, 16], iconAnchor: [8, 8], tooltipAnchor: [0, -8] });
+}
+
 // ── Hazard marker clustering ────────────────────────────────────────────────
 // A rock-strewn stretch of the Maine coast can put a dozen+ charted hazards
 // within a few boat-lengths of each other — real example: a 0.25nm long-press
@@ -1634,17 +1644,21 @@ function _checkRouteHazards(routeIdx, silent = false, suppressPopup = false) {
       .addTo(_hazardCheckLayer);
   }
 
-  // Pulsing skull at the hazard location — click zooms to it and edits
+  // Pulsing skull for hard hazards; a small, discreet caution triangle for
+  // soft ones (see _softHazardMarkerIcon) — click zooms to it and edits
   for (const h of found) {
     const tip = `${h.label}${h.name ? ': ' + h.name : ''} — ${h.side}, ${h.routeNm.toFixed(1)} nm along route`;
+    const icon = h.kind === 'soft'
+      ? _softHazardMarkerIcon()
+      : L.divIcon({
+          className: '',
+          html: '<div class="davy-jones-icon">&#9760;</div>',
+          iconSize: [32, 32],
+          iconAnchor: [16, 16],
+        });
     L.marker([h.lat, h.lon], {
-      icon: L.divIcon({
-        className: '',
-        html: '<div class="davy-jones-icon">&#9760;</div>',
-        iconSize: [32, 32],
-        iconAnchor: [16, 16],
-      }),
-      zIndexOffset: 1000,
+      icon,
+      zIndexOffset: h.kind === 'soft' ? 800 : 1000,
     }).bindTooltip(tip, { permanent: false, direction: 'top', offset: [0, -6] })
       .on('click', (e) => {
         L.DomEvent.stopPropagation(e);
