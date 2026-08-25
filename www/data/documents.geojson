@@ -47,6 +47,138 @@
         "body": "A well-known, easy-to-reach exposure of volcanic tuff — part of the same Cranberry Island Series found across the strait on the Cranberry Isles themselves. Look closely at the rock in front of the picnic-ground parking area and you'll see a variety of angular fragments, from a fraction of an inch up to a few inches across, all cemented together after an explosive volcanic eruption roughly 380-400 million years ago.",
         "source": "Maine Geological Survey, Bulletin 38 — The Geology of Mount Desert Island"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.892514, 44.111164] },
+      "properties": {
+        "title": "Ancient Volcanic Rocks of the Vinalhaven Rhyolite",
+        "category": "geology",
+        "place": "Vinalhaven Island",
+        "body": "Vinalhaven splits into two very different stories. The central and southern part of the island is a massive body of pink granite — the famous Vinalhaven granite, quarried through the late 1800s and early 1900s for dimension stone and decorative work on buildings and bridges in Boston, New York, and Chicago. The old quarries are inactive now.\n\nThe northern part, from Middle Mountain to Browns Head, is a suite of volcanic rocks called the Vinalhaven Rhyolite — arguably more interesting, if less famous. It records an ancient volcano: flow-banded rhyolite (a hard, striped rock formed as thick, taffy-like lava was stretched moving up the vent), volcanic breccia (angular fragments blown apart in explosive eruptions), water-laid tuff (volcanic debris sorted into layers by water washing it downslope), and even rare accretionary lapilli — small round \"mud balls\" that form when fine volcanic ash mixes with rain inside an eruption cloud and grows in layers like a hailstone before falling to the ground. The Maine Geological Survey compares the volcanic activity that produced these rocks to what's active today in the Caribbean or the Aegean Sea. Best estimate for its age: Silurian, more than 420 million years old.",
+        "source": "Maine Geological Survey, Maine Geologic Facts and Localities — Ancient Volcanic Rocks on Vinalhaven Island (1998)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.655833, 44.016111] },
+      "properties": {
+        "title": "Supervolcano-scale eruptions at Western Head",
+        "category": "geology",
+        "place": "Isle au Haut",
+        "body": "Most of Isle au Haut sits on granite and gabbro — igneous rock that cooled slowly underground, dated to about 424 million years old. But the western shore, especially Western Head, exposes something rarer: the actual explosive-eruption deposits themselves, more than 3 kilometers thick in places, among the most spectacular examples of this age anywhere on the Maine coast (others include Vinalhaven, Swans Island, Mount Desert Island, and the Cranberry Isles).\n\nThe cliffs there show the full range of pyroclastic rock — deposits of fragments blown apart by violent eruptions, from fine ash to lapilli to house-sized blocks. Look for tuff-breccia, welded layers with flame-shaped \"fiamme\" (flattened pumice fragments), and layering that shows the eruptions came in a rapid series, not one single event. Recent research suggests this was a continental-margin volcanic arc above a subduction zone, part of a chain dramatic enough that some of the eruptions may have reached true supervolcano scale — though with only fragments of the record preserved, that's hard to prove outright.",
+        "source": "Maine Geological Survey, Maine Geologic Facts and Localities — Beautifully Preserved Volcanic Debris in Bedrock, Western Head, Isle au Haut (2015)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.068083, 44.220944] },
+      "properties": {
+        "title": "The Battie Quartzite",
+        "category": "geology",
+        "place": "Mount Battie, Camden",
+        "body": "Mount Battie's famous view over Camden and Penobscot Bay exists because of what's underfoot: the Battie Quartzite, a metamorphic rock hard enough to resist the erosion that wore down everything around it, leaving the mountain standing above its surroundings. The rock began, over 500 million years ago in the Cambrian, as sand and pebbles accumulating on the floor of the Iapetus Ocean — the long-vanished predecessor to the Atlantic — near what was then the south margin of that ocean, not far from the South Pole.\n\nRemarkably, the original sedimentary story survived the metamorphism that hardened it into quartzite around 430 million years ago in the Silurian. Near the summit and down the south side, you can still see the original pebbles as white shapes in the gray rock — a conglomerate, the metamorphosed remains of an ancient pebble beach or channel deposit. Further north and east the rock is mostly bedded quartzite (metamorphosed sand layers), some with cross-lamination showing the sand was rippled by currents before the next layer buried it. The mountain's modern shape is much younger still — the last continental ice sheet finished sculpting it only about 14,000 years ago.",
+        "source": "Maine Geological Survey, Maine Geologic Facts and Localities — The Bedrock Geology of Mount Battie, Camden (2001)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.149722, 44.231667] },
+      "properties": {
+        "title": "The Megunticook Formation along Bald Mountain",
+        "category": "geology",
+        "place": "Bald Mountain, Camden",
+        "body": "The rocks along the Bald Mountain Trail belong to the Megunticook Formation, and like Mount Battie's quartzite nearby, they began as ordinary sediment — quartz-rich sandstone and mudstone — accumulating in an ocean basin over 500 million years ago in the Cambrian. In places the trail still shows recognizable sandstone beds; elsewhere the rock was originally just plain mudstone. These rocks were pushed to a notably high metamorphic grade, probably during the Silurian around 420 million years ago — more intensely altered than many of their neighbors along the coast.",
+        "source": "Maine Geological Survey, Maine Geologic Facts and Localities — Glimpses of Geologic History along the Bald Mountain Trail, Camden (2020)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.097767, 44.0385] },
+      "properties": {
+        "title": "The Spruce Head granite pluton",
+        "category": "geology",
+        "place": "Birch Point Beach, Owls Head",
+        "body": "The white bedrock along this stretch of coast, and on Ash Island just offshore, is part of the Spruce Head pluton — once a large mass of molten rock that cooled and crystallized deep underground about 421 million years ago (give or take a million), later brought back up to the surface by millions of years of uplift and erosion. The same pluton reaches Clark Island a few miles south, where a different zone of it was quarried commercially for a century.",
+        "source": "Maine Geological Survey, Maine Geologic Facts and Localities — Birch Point Beach State Park, Owls Head (2009)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.182333, 43.989833] },
+      "properties": {
+        "title": "Granite, quarries, and an immigrant village",
+        "category": "geology",
+        "place": "Clark Island, St. George",
+        "body": "Clark Island sits on the same Spruce Head Pluton as Birch Point up the coast, dated to about 421 million years old, late in the Silurian. The island's north end (public) is muscovite-biotite-garnet granodiorite and granite; the south end (private) is a different zone entirely — quartz gabbro, quartz diorite, tonalite.\n\nThe real story here, though, is what people did with the rock. The Clark Island — or Hocking — granite quarry opened around 1870 and grew into a serious industrial operation: a pit eventually 500 by 300 feet and 50 feet deep, 8 derricks, a full stone-cutting plant, and an entire company village with its own post office. Immigrant stonecutters from Sweden, Finland, Scotland, and England lived and worked on the island. The larger quarry pit is now a brackish, spring-fed swimming hole, its walls still showing glacial polish and striations from the ice sheet that scraped over this coast at the end of the last Ice Age.",
+        "source": "Maine Geological Survey, Maine Geologic Facts and Localities — Clark Island Preserve, St. George (2024)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.942864, 44.281331] },
+      "properties": {
+        "title": "The Islesboro Formation",
+        "category": "geology",
+        "place": "Grindle Point, Islesboro",
+        "body": "The bedrock at Grindle Point, on northern Penobscot Bay's island of Islesboro, belongs to the Islesboro Formation — metamorphic rock whose original sediment is thought to be Cambrian or even late Precambrian in age, over 500 million years old. Exactly when it was metamorphosed and faulted isn't as well pinned down, but it's probably Silurian. Thin, dark green igneous dikes cut across the formation in many places on the island — later intrusions of molten rock into cracks in the already-solid metamorphic rock.",
+        "source": "Maine Geological Survey, Maine Geologic Facts and Localities — Grindle Point, Islesboro (2007)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.536667, 44.286111] },
+      "properties": {
+        "title": "Two volcanoes, one collision, one ocean opening",
+        "category": "geology",
+        "place": "Harriman Point, Brooklin",
+        "body": "Harriman Point, on the west side of Blue Hill Bay, preserves an unusually complete geologic story. Around 500 million years ago, sediment eroded from nearby land settled here on an ocean floor alongside material from two very different kinds of volcanoes — silica-poor ones like today's Mount Rainier or Mount St. Helens, producing basalt, and their silica-rich counterparts.\n\nBy about 430 million years ago these layers had been buried, heated, and deformed as part of the larger Appalachian mountain-building event, altering their original minerals into metamorphic rock. Much later, starting around 250 million years ago, the supercontinent Pangea began breaking apart and the North Atlantic Ocean started to open; the cracks that formed as the continents pulled away filled with basaltic rock, now solidified into the dark dikes you can still find cutting through the older rock here. After the mountains rose and eroded for some 400 million years, the last Ice Age's ice sheets — beginning about 100,000 years ago — gave the point its present shape.",
+        "source": "Maine Geological Survey, Maine Geologic Facts and Localities — Bedrock, Glaciers, and People at Harriman Point, Brooklin (2022)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.702, 44.285] },
+      "properties": {
+        "title": "A sliver of Earth's mantle",
+        "category": "geology",
+        "place": "Pine Hill, Little Deer Isle",
+        "body": "Pine Hill is a small, unassuming 100-foot knob with one of the strangest rocks anywhere in Maine underfoot: serpentinized peridotite. Peridotite is what Earth's mantle itself is thought to be made of — dense, low-silica, iron- and magnesium-rich rock, quite unlike the granites and volcanics that make up most of the surrounding coast. Here, heat, pressure, and water have converted most of its original olivine into dark green serpentine, giving the rock a distinctive waxy sheen where aligned serpentine plates catch the light.\n\nHow a piece of the mantle ended up exposed on a small Penobscot Bay hilltop is still genuinely debated: it may have risen as magma from great depth, or it could be a sliver of ancient oceanic crust thrust up onto the continent when tectonic plates collided. Either way, the rock's unusual chemistry — low in silica, high in iron and magnesium, low in calcium — supports some of the rarest plant species found anywhere in the state.",
+        "source": "Maine Geological Survey, Maine Geologic Facts and Localities — Pine Hill Serpentinized Peridotite, Little Deer Isle (2016)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.076097, 44.184483] },
+      "properties": {
+        "title": "Lime kilns and glacial grooves",
+        "category": "geology",
+        "place": "Rockport Harbor",
+        "body": "Rockport sits on the same belt of limestone that runs through Rockland and Camden, and for most of the 1800s that limestone was the town's economic engine: quarried nearby (notably at what's now the Simonton Corner Quarry Preserve), then burned in kilns at the harbor to produce lime for mortar and building. The ruins of several old stone lime kilns still stand at the harbor park today.\n\nThe bedrock itself carries an older story too — folded limestone with harder, silica-rich mineral veins running parallel to the fold axis, formed as the rock deformed. And on some of the exposed ledges near the harbor, you can find two sets of glacial grooves gouged directly into the limestone, cut by the ice sheet as it dragged rock debris across the surface during the last Ice Age.",
+        "source": "Maine Geological Survey, Maine Geologic Facts and Localities — Rockin' around Rockport Harbor (2009)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.639753, 44.175353] },
+      "properties": {
+        "title": "The Deer Isle granite pluton",
+        "category": "geology",
+        "place": "Settlement Quarry, Stonington",
+        "body": "Most of Deer Isle — including the town of Stonington and many of the smaller islands scattered south and east of it — sits on a single large body of granite known as the Deer Isle pluton, dated to about 371 million years old in the Devonian Period. For two centuries this granite was a major industry, quarried from multiple sites across the pluton and shipped out to build much of the eastern seaboard. Settlement Quarry itself, on Oceanville Road, has been inactive for decades; the Island Heritage Trust now maintains it as a preserve with walking trails and signage explaining both the geology and the quarrying history on site.",
+        "source": "Maine Geological Survey, Maine Geologic Facts and Localities — Settlement Quarry, Stonington (2011)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.193419, 44.07645] },
+      "properties": {
+        "title": "A microcontinent collision, folded into stone",
+        "category": "geology",
+        "place": "Thomaston Prison Quarry",
+        "body": "The rock at the old Thomaston Prison Quarry spans a huge stretch of time — metamorphic rock ranging from Precambrian (possibly as old as 650 million years) to Ordovician (as young as roughly 450 million years). Both age groups were caught up together in the same event around 400 million years ago, the Devonian: the Acadian orogeny, when a microcontinent called Avalon collided with North America and shoved regional thrust sheets of rock into place. That collision is why folding and faulting shows up in coastal Maine bedrock so widely — and it's on vivid display in the quarry itself, where small, tight folds (geologists nickname them Z-folds and S-folds, after the letter shapes they trace) record the rock bending under that pressure.",
+        "source": "Maine Geological Survey, Maine Geologic Facts and Localities — Thomaston Prison Quarry, Thomaston (2002)"
+      }
     }
   ]
 }

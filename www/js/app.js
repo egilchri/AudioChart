@@ -1434,11 +1434,16 @@ function _documentMarkerIcon() {
 // link" design per direct feedback: the link opened a 60-page PDF from page
 // 1 (never actually landing on the relevant section), and more fundamentally
 // broke the offline-first principle this app is built on — reading a
-// document while underway can't depend on a live connection.
+// document while underway can't depend on a live connection. Markers only
+// show in Geology view (called from _applyMapLayer on every mode switch) —
+// per explicit direction, every document is geology right now, so "switch to
+// Geology display" IS the way to see them; no separate menu needed. Once
+// other categories exist, this is the natural place to filter by whichever
+// display is active instead of an always-on/always-off toggle.
 let _documentMarkersLayer = null;
 function _renderDocumentMarkers() {
-  if (!_map || !_documents.length) return;
-  if (_documentMarkersLayer) { _map.removeLayer(_documentMarkersLayer); }
+  if (_documentMarkersLayer) { _map.removeLayer(_documentMarkersLayer); _documentMarkersLayer = null; }
+  if (!_map || !_documents.length || _mapViewMode !== 'geology-maine') return;
   const markers = _documents.map(f => {
     const [lon, lat] = f.geometry.coordinates;
     const p = f.properties;
@@ -1450,61 +1455,6 @@ function _renderDocumentMarkers() {
     return L.marker([lat, lon], { icon: _documentMarkerIcon() }).bindPopup(html, { maxWidth: 280 });
   });
   _documentMarkersLayer = L.layerGroup(markers).addTo(_map);
-}
-
-function _documentsNearPoint(lat, lon, radiusNm) {
-  const results = [];
-  for (const f of _documents) {
-    const [flon, flat] = f.geometry.coordinates;
-    const d = Query.distanceNm(lon, lat, flon, flat);
-    if (d <= radiusNm) results.push({ ...f.properties, distanceNm: d });
-  }
-  results.sort((a, b) => a.distanceNm - b.distanceNm);
-  return results;
-}
-
-function _showDocumentsNearPanel(latlng, results, radiusLabel) {
-  const panel = document.getElementById('near-point-panel');
-  const tbody = document.getElementById('npp-tbody');
-  const thead = panel.querySelector('thead tr');
-  thead.innerHTML = '<th></th><th>Title</th><th>Dist</th>';
-  document.getElementById('npp-hide-others').style.display = 'none';  // no map-visibility concept for documents
-  document.getElementById('npp-title').textContent = results.length === 0
-    ? `No documents within ${radiusLabel}`
-    : `${results.length} document${results.length > 1 ? 's' : ''} within ${radiusLabel}`;
-
-  tbody.innerHTML = results.map((r, i) => `
-    <tr class="npp-doc-row" data-idx="${i}">
-      <td>📄</td>
-      <td class="npp-row-name">${r.title}<div class="npp-doc-place">${r.place}</div></td>
-      <td>${distanceToDisplay(r.distanceNm)}</td>
-    </tr>
-    <tr class="npp-doc-excerpt-row" data-idx="${i}" style="display:none">
-      <td colspan="3"><div class="npp-doc-excerpt">${_formatDocBody(r.body)}<div class="npp-doc-source">${r.source}</div></div></td>
-    </tr>`).join('');
-
-  const pt = _map.latLngToContainerPoint(latlng);
-  const mapRect = _map.getContainer().getBoundingClientRect();
-  panel.style.display = 'block';
-  const pw = panel.offsetWidth, ph = panel.offsetHeight;
-  const x = Math.min(mapRect.left + pt.x, window.innerWidth - pw - 4);
-  const y = Math.min(mapRect.top + pt.y, window.innerHeight - ph - 4);
-  panel.style.left = Math.max(4, x) + 'px';
-  panel.style.top = Math.max(4, y) + 'px';
-
-  // Row click toggles the full text open/closed — reads right there in the
-  // panel, no separate link/action needed (see _renderDocumentMarkers' header
-  // comment for why that changed).
-  tbody.querySelectorAll('.npp-doc-row').forEach(row => {
-    const idx = row.dataset.idx;
-    const excerptRow = tbody.querySelector(`.npp-doc-excerpt-row[data-idx="${idx}"]`);
-    row.addEventListener('click', () => {
-      excerptRow.style.display = excerptRow.style.display === 'none' ? '' : 'none';
-    });
-  });
-
-  const msg = results.length === 0 ? `No documents within ${radiusLabel}.` : `${results.length} document${results.length > 1 ? 's' : ''} within ${radiusLabel}.`;
-  setStatus(msg); TTS.sayImmediate(msg);
 }
 
 function _routesNearPoint(lat, lon, radiusNm) {
@@ -1945,8 +1895,6 @@ function _showNearPointPanel(kind, latlng, results, radiusLabel) {
 
   const panel = document.getElementById('near-point-panel');
   const tbody = document.getElementById('npp-tbody');
-  panel.querySelector('thead tr').innerHTML = '<th></th><th>Name</th><th>Dist</th><th>Date</th>';
-  document.getElementById('npp-hide-others').style.display = '';
   document.getElementById('npp-title').textContent = results.length === 0
     ? `No ${label}s within ${radiusLabel}`
     : `${results.length} ${label}${results.length > 1 ? 's' : ''} within ${radiusLabel}`;
@@ -6282,6 +6230,7 @@ function _applyMapLayer() {
   }
 
   if (_mapViewMode === 'geology-maine') _enableMaineGeologyLayer();
+  _renderDocumentMarkers();
 }
 
 const MAP_VIEW_ICONS  = { chart: '🗺', satellite: '🛰', 'geology-maine': '⛰' };
@@ -7112,7 +7061,6 @@ function _ensureMap() {
     _ctxSubmenu.style.display    = 'none';
     _routesNearSubmenu.style.display = 'none';
     _tracksNearSubmenu.style.display = 'none';
-    _documentsNearSubmenu.style.display = 'none';
     _wpSubmenu.style.display     = 'none';
     _trackSubmenu.style.display  = 'none';
     _routeSubmenu.style.display  = 'none';
@@ -7143,7 +7091,6 @@ function _ensureMap() {
   const _ctxSubmenu = document.getElementById('map-ctx-objects-submenu');
   const _routesNearSubmenu = document.getElementById('map-ctx-routes-near-submenu');
   const _tracksNearSubmenu = document.getElementById('map-ctx-tracks-near-submenu');
-  const _documentsNearSubmenu = document.getElementById('map-ctx-documents-near-submenu');
   const _wpSubmenu  = document.getElementById('map-ctx-wp-submenu');
 
   // Rebuild the dynamic waypoint rows (below the 3 static buttons)
@@ -7376,7 +7323,6 @@ function _ensureMap() {
     _ctxSubmenu.style.display    = 'none';
     _routesNearSubmenu.style.display = 'none';
     _tracksNearSubmenu.style.display = 'none';
-    _documentsNearSubmenu.style.display = 'none';
     _wpSubmenu.style.display     = 'none';
     _trackSubmenu.style.display  = 'none';
     _routeSubmenu.style.display  = 'none';
@@ -7445,17 +7391,6 @@ function _ensureMap() {
     if (!btn) return;
     _hideCtx();
     if (_ctxLatLng) _showNearPointPanel('track', _ctxLatLng, _tracksNearPoint(_ctxLatLng.lat, _ctxLatLng.lng, parseFloat(btn.dataset.radiusNm)), btn.dataset.radiusLabel);
-  });
-
-  document.getElementById('map-ctx-documents-near-parent').addEventListener('click', () => {
-    _documentsNearSubmenu.style.display = _documentsNearSubmenu.style.display === 'block' ? 'none' : 'block';
-  });
-
-  _documentsNearSubmenu.addEventListener('click', (e) => {
-    const btn = e.target.closest('button[data-radius-nm]');
-    if (!btn) return;
-    _hideCtx();
-    if (_ctxLatLng) _showDocumentsNearPanel(_ctxLatLng, _documentsNearPoint(_ctxLatLng.lat, _ctxLatLng.lng, parseFloat(btn.dataset.radiusNm)), btn.dataset.radiusLabel);
   });
 
   document.getElementById('map-ctx-route-parent').addEventListener('click', () => {
