@@ -773,6 +773,159 @@
         },
         "source": "Maine Coast Heritage Trust — Merchant Row preserve page (mcht.org)"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.823651, 44.235705] },
+      "properties": {
+        "title": "Great Spruce Head Island",
+        "category": "island-info",
+        "place": "Great Spruce Head Island, Deer Isle",
+        "islandInfo": {
+          "ownership": "Privately owned by the Porter family — photographer Eliot Porter and painter Fairfield Porter — for generations",
+          "landTrust": null,
+          "onMaineIslandTrail": null,
+          "publicAccess": "Private; no public access documented",
+          "notes": "Eliot Porter's 1966 photography book Summer Island: Penobscot Country is a visual record of the island. Commonly confused with the Wyeth family's Maine island connections (Monhegan, Southern Island) — this one is the Porters', not the Wyeths'."
+        },
+        "source": "Wikipedia — Great Spruce Head Island"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.7677717, 44.2176662] },
+      "properties": {
+        "title": "Eagle Island",
+        "category": "island-info",
+        "place": "Eagle Island, Penobscot Bay",
+        "islandInfo": {
+          "ownership": "Privately owned by descendants of Samuel Quinn, who bought most of the island from John C. Gray in 1844 — except a small lot Gray had already deeded to the U.S. government in 1837 for the lighthouse",
+          "landTrust": null,
+          "onMaineIslandTrail": null,
+          "publicAccess": "Private; the island has been continuously inhabited by farming and fishing families since 1810 and is not open to the public. The lighthouse (automated since 1959) sits on its own small, separately deeded federal lot.",
+          "notes": "263 acres, between North Haven and Deer Isle; an unincorporated territory of the state, not part of any town."
+        },
+        "source": "Wikipedia — Eagle Island (Penobscot Bay, Maine); Maine Coastal News, \"Robert Quinn of Eagle Island and Camden\" (2022)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.791554, 44.230518] },
+      "properties": {
+        "title": "Butter Island",
+        "category": "island-info",
+        "place": "Butter Island, Penobscot Bay",
+        "islandInfo": {
+          "ownership": "Privately owned by the Cabot family (Tom Cabot bought it in the 1940s); earlier owners included John Lee of Castine, William Gray, and the Witherspoon family, who ran a farm and took in vacationers",
+          "landTrust": null,
+          "onMaineIslandTrail": true,
+          "publicAccess": "Two beaches on the east side — Nubble and Orchard — are open to the public via the Maine Island Trail; the rest of the island is private. Access was tightened in the late 1990s after overuse.",
+          "notes": null
+        },
+        "source": "Island Imago, \"Butter Island: Come, my friends...\" (2015); Active Captain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.757911, 44.243899] },
+      "properties": {
+        "title": "Bradbury Island",
+        "category": "island-info",
+        "place": "Bradbury Island, Penobscot Bay",
+        "islandInfo": {
+          "ownership": "Island Heritage Trust (Deer Isle's local land trust)",
+          "landTrust": "Island Heritage Trust",
+          "onMaineIslandTrail": null,
+          "publicAccess": "Day use only, kayak/small-boat landing — no trail, no dogs, no camping",
+          "notes": null
+        },
+        "source": "Island Heritage Trust — Preserves & Islands (islandheritagetrust.org)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.825129, 44.219756] },
+      "properties": {
+        "title": "Bear Island",
+        "category": "island-info",
+        "place": "Bear Island, Deer Isle (Eggemoggin Reach)",
+        "islandInfo": {
+          "ownership": "Maine Coast Heritage Trust (donated by the Davis family in 2007)",
+          "landTrust": "Maine Coast Heritage Trust",
+          "onMaineIslandTrail": null,
+          "publicAccess": "Day use only, no camping (small campfires under 3 feet allowed, kept below the high-tide line); trail closed February 15–August 31 for nesting osprey",
+          "notes": "21 acres in eastern Eggemoggin Reach. Nearest public boat launch is Naskeag Point in Brooklin."
+        },
+        "source": "Maine Coast Heritage Trust — Bear Island preserve page (mcht.org)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.685732, 44.274259] },
+      "properties": {
+        "title": "Carney Island",
+        "category": "island-info",
+        "place": "Carney Island, Penobscot Bay",
+        "islandInfo": {
+          "ownership": "Split: Island Heritage Trust owns the north half; the south half is separately (privately) held",
+          "landTrust": "Island Heritage Trust (north half only)",
+          "onMaineIslandTrail": null,
+          "publicAccess": "North half only: day use, kayak access, no trail, no dogs, no camping. The south half is not IHT land and is not documented as publicly accessible.",
+          "notes": null
+        },
+        "source": "Island Heritage Trust — Preserves & Islands (islandheritagetrust.org)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.799419, 44.209417] },
+      "properties": {
+        "title": "Fling Island",
+        "category": "island-info",
+        "place": "Fling Island, Penobscot Bay",
+        "islandInfo": {
+          "ownership": "Historically tied to neighboring Eagle Island: Samuel Quinn bought half of Fling Island from John C. Gray in 1844, in the same transaction that conveyed most of Eagle Island. Presumed to remain privately held.",
+          "landTrust": null,
+          "onMaineIslandTrail": null,
+          "publicAccess": "Private; no public access documented",
+          "notes": null
+        },
+        "source": "Maine Coastal News, \"Robert Quinn of Eagle Island and Camden\" (2022)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.725289, 44.201006] },
+      "properties": {
+        "title": "Sheephead Island",
+        "category": "island-info",
+        "place": "Sheephead Island, Deer Isle",
+        "islandInfo": {
+          "ownership": "Privately owned — real estate records describe a 65± acre island with two houses",
+          "landTrust": null,
+          "onMaineIslandTrail": null,
+          "publicAccess": "Private; connects to the mainland near Sylvester Cove and the village of Sunset at low tide",
+          "notes": null
+        },
+        "source": "LandVest / Christie's International Real Estate — Sheephead Island listing, Deer Isle, ME"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.754124, 44.224377] },
+      "properties": {
+        "title": "Hardhead Island",
+        "category": "island-info",
+        "place": "Hardhead Island, Penobscot Bay",
+        "islandInfo": {
+          "ownership": "Ownership not documented in public sources found",
+          "landTrust": null,
+          "onMaineIslandTrail": null,
+          "publicAccess": "Access is restricted in summer for bird nesting, per local paddling-guide accounts",
+          "notes": "Adjacent to Eagle Island; a popular sea-kayaking destination when accessible."
+        },
+        "source": "Sea Kayak Stonington blog, \"Hardhead & Eagle Islands\" (2012)"
+      }
     }
   ]
 }
