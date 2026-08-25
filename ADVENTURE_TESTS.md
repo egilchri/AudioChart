@@ -91,8 +91,17 @@ Starts at the real head of Somes Sound (44.361972,-68.327533, per the user)
 ---
 
 ## Open items carried forward
-- **Somes Sound head resolution** (test 6): confirmed wrong, not yet root-caused.
-- **Rockland Harbor Main Channel**: no channel-graph coverage (medial-axis
-  resolution failure), flagged in test 1, not yet fixed.
+- ~~**Somes Sound head resolution**~~ — fixed v419: `resolveWaterEnd`'s
+  'head' search now iterates (re-scans from where it stops) instead of
+  committing to one fixed bearing, so it follows a bend instead of stopping
+  at it.
+- ~~**Rockland Harbor Main Channel**~~ — fixed v422: its medial axis had one
+  small Voronoi-artifact loop (not real complexity), which was tripping the
+  "too many edges" quality gate. `break_artifact_cycles` (Kruskal's MST over
+  the edge set) breaks it back into a clean tree. Now 7 clean edges, zero
+  land crossings.
 - **Fox Islands Thorofare above-water obstacle** (test 2, leg
-  (44.133129,-68.840748)→(44.134212,-68.77625)): recurring across sessions.
+  (44.133129,-68.840748)→(44.134212,-68.77625)): recurring across sessions,
+  still open — this is the extreme-hazard-density base-router limitation
+  from [[project_fallback_warning_accuracy]], deferred pending more testing
+  per the user's call.
