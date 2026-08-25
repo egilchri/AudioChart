@@ -671,6 +671,108 @@
         },
         "source": "Maine Coast Heritage Trust — Clark Island preserve page (mcht.org); Portland Press Herald, \"Purchase protects Clark Island preserve in the midcoast\" (2020)"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.5822456, 44.1478592] },
+      "properties": {
+        "title": "Saddleback Island",
+        "category": "island-info",
+        "place": "Saddleback Island, Merchant Row",
+        "islandInfo": {
+          "ownership": "Maine Coast Heritage Trust (acquired 2004)",
+          "landTrust": "Maine Coast Heritage Trust",
+          "onMaineIslandTrail": null,
+          "publicAccess": "Day use and camping at one established campsite (2-night limit, first-come first-served); groups of 6+ need a permit (call 207-729-7366 or email stewardship@mcht.org)",
+          "notes": "78 acres on the eastern edge of Merchant Row. The trail's western portion is closed April 1–August 1 for nesting osprey. The cabin on the south side is not open to the public; foot traffic only, pets must be controlled, campfires need a separate town-of-Stonington permit and must be under 3 feet. Boat access only, via the Colwell Boat Ramp in Stonington."
+        },
+        "source": "Maine Coast Heritage Trust — Saddleback Island preserve page (mcht.org)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.6161, 44.1247] },
+      "properties": {
+        "title": "McGlathery Island",
+        "category": "island-info",
+        "place": "McGlathery Island, Merchant Row",
+        "islandInfo": {
+          "ownership": "Maine Coast Heritage Trust (donated 2021, though conservation stewardship of the island dates back to the 1950s)",
+          "landTrust": "Maine Coast Heritage Trust",
+          "onMaineIslandTrail": null,
+          "publicAccess": "Day use and camping at established campsites (2-night limit); groups of 6+ need a permit",
+          "notes": "140 acres (with adjoining Little McGlathery) in the southeastern quadrant of Merchant Row — a well-known, popular cruising anchorage between Stonington and Isle au Haut."
+        },
+        "source": "Maine Coast Heritage Trust — Merchant Row preserve page (mcht.org); Cruising Club of America cruising guide — McGlathery"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.6448, 44.1453] },
+      "properties": {
+        "title": "Green Island",
+        "category": "island-info",
+        "place": "Green Island, Merchant Row",
+        "islandInfo": {
+          "ownership": "Maine Coast Heritage Trust",
+          "landTrust": "Maine Coast Heritage Trust",
+          "onMaineIslandTrail": null,
+          "publicAccess": "Day use and camping at established campsites (2-night limit); groups of 6+ need a permit",
+          "notes": "About 1.75 nautical miles northwest of the McGlathery anchorage. Tie up to the granite wharf inside the notch on the south side, climb a short ladder, and follow the path to a small, clear freshwater former quarry pool used for swimming — MCHT's own visitor notes flag caution here for old quarry stones, metal debris, and unsupervised swimming."
+        },
+        "source": "Maine Coast Heritage Trust — Merchant Row preserve page (mcht.org); Cruising Club of America cruising guide"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.665, 44.135] },
+      "properties": {
+        "title": "Little Camp Island",
+        "category": "island-info",
+        "place": "Little Camp Island, Merchant Row",
+        "islandInfo": {
+          "ownership": "Maine Coast Heritage Trust",
+          "landTrust": "Maine Coast Heritage Trust",
+          "onMaineIslandTrail": null,
+          "publicAccess": "Day use and camping (2-night limit); groups of 6+ need a permit",
+          "notes": "A small, 2.8-acre preserve just 1.2 miles from Stonington harbor, with two beaches that allow landing at any state of the tide."
+        },
+        "source": "Maine Coast Heritage Trust — Merchant Row preserve page (mcht.org)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.60, 44.128] },
+      "properties": {
+        "title": "Pell Island",
+        "category": "island-info",
+        "place": "Pell Island, Merchant Row",
+        "islandInfo": {
+          "ownership": "Maine Coast Heritage Trust (formerly the privately owned Knox family island for decades before donation)",
+          "landTrust": "Maine Coast Heritage Trust",
+          "onMaineIslandTrail": null,
+          "publicAccess": "Day use and camping (2-night limit); groups of 6+ need a permit",
+          "notes": "22 acres — MCHT's eleventh preserve in the Merchant Row archipelago. Smooth granite slabs, a sandy beach, and shaggy spruce woods, cherished for decades under the Knox family's private ownership before the gift to MCHT."
+        },
+        "source": "Maine Coast Heritage Trust, \"The Gift of Pell Island\" (mcht.org)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.615, 44.10] },
+      "properties": {
+        "title": "Bills Island",
+        "category": "island-info",
+        "place": "Bills Island, Merchant Row",
+        "islandInfo": {
+          "ownership": "Maine Coast Heritage Trust",
+          "landTrust": "Maine Coast Heritage Trust",
+          "onMaineIslandTrail": null,
+          "publicAccess": "Day use and camping (2-night limit); groups of 6+ need a permit",
+          "notes": "A small, 5-acre island on the southern side of Merchant Row, ringed with flat granite ledges and mostly spruce-fir forest and grassy meadow. Named for William Barter, an early Isle au Haut settler; likely grazed by sheep from the early 19th century until 1965."
+        },
+        "source": "Maine Coast Heritage Trust — Merchant Row preserve page (mcht.org)"
+      }
     }
   ]
 }
