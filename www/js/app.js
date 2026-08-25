@@ -924,10 +924,10 @@ let _baseTileLayer    = null;
 // (a self-contained WMS raster) but dropped per live comparison — Maine's
 // own data was "by far the best" (real coastline/place-name context, since
 // it overlays the chart rather than replacing it).
-const MAP_VIEW_MODES  = ['chart', 'satellite', 'geology-maine', 'history', 'demographics'];
+const MAP_VIEW_MODES  = ['chart', 'satellite', 'geology-maine', 'history', 'demographics', 'island-info'];
 // Maps a display mode to the documents.geojson `category` it shows —
 // the whole reason "switch to Geology/History" needs no separate menu.
-const MAP_VIEW_DOC_CATEGORY = { 'geology-maine': 'geology', 'history': 'history', 'demographics': 'demographics' };
+const MAP_VIEW_DOC_CATEGORY = { 'geology-maine': 'geology', 'history': 'history', 'demographics': 'demographics', 'island-info': 'island-info' };
 let _mapViewMode      = MAP_VIEW_MODES.includes(localStorage.getItem('audiochart-chart-mode'))
   ? localStorage.getItem('audiochart-chart-mode') : 'satellite';
 let _maineGeologyLayer      = null;
@@ -1455,10 +1455,34 @@ function _formatDemographics(p) {
   return `<table style="width:100%;border-collapse:collapse">${rows.join('')}</table>${bracketsHtml}${seasonalHtml}`;
 }
 
+// Island Info entries answer the boater's practical question before landing:
+// who owns this, can I actually go ashore, is it on the Maine Island Trail
+// (MITA's handshake-agreement network — trail status is never assumed, only
+// stated when a real source confirms or explicitly denies it), and is it
+// held by a land trust. Structured like demographics, not prose, for the
+// same reason: this is lookup data, not a story.
+function _formatIslandInfo(p) {
+  const d = p.islandInfo || {};
+  const rows = [];
+  if (d.ownership) rows.push(`<tr><td style="padding:2px 10px 2px 0;color:#666;vertical-align:top">Ownership</td><td>${d.ownership}</td></tr>`);
+  if (d.landTrust) rows.push(`<tr><td style="padding:2px 10px 2px 0;color:#666;vertical-align:top">Land trust</td><td>${d.landTrust}</td></tr>`);
+  if (d.onMaineIslandTrail != null) {
+    const mitaText = d.onMaineIslandTrail === true ? 'Yes' : (d.onMaineIslandTrail === false ? 'No' : 'Not documented');
+    rows.push(`<tr><td style="padding:2px 10px 2px 0;color:#666;vertical-align:top">Maine Island Trail</td><td>${mitaText}</td></tr>`);
+  }
+  if (d.publicAccess) rows.push(`<tr><td style="padding:2px 10px 2px 0;color:#666;vertical-align:top">Public access</td><td>${d.publicAccess}</td></tr>`);
+  let notesHtml = '';
+  if (d.notes) {
+    notesHtml = `<div style="margin-top:6px;padding-top:6px;border-top:1px solid #ddd;font-size:0.85em">${d.notes}</div>`;
+  }
+  return `<table style="width:100%;border-collapse:collapse">${rows.join('')}</table>${notesHtml}`;
+}
+
 const DOC_MARKER_STYLE = {
   geology:      { color: '#2e7d4f', emoji: '📄' },
   history:      { color: '#8a6d3b', emoji: '📜' },
   demographics: { color: '#2b6cb0', emoji: '👥' },
+  'island-info': { color: '#7c3aed', emoji: '🏝' },
 };
 function _documentMarkerIcon(category) {
   const s = DOC_MARKER_STYLE[category] || DOC_MARKER_STYLE.geology;
@@ -1483,7 +1507,9 @@ function _documentMarkerIcon(category) {
 // separate menu. History further filters by _selectedEra, since that
 // category is subdivided by era (colonial/revolution/industrial/modern);
 // 'all' shows every era. Demographics entries carry structured population/
-// age data (see _formatDemographics) instead of prose body text.
+// age data (see _formatDemographics) instead of prose body text; Island
+// Info entries similarly carry structured ownership/access data (see
+// _formatIslandInfo).
 let _documentMarkersLayer = null;
 let _selectedEra = 'all';
 function _renderDocumentMarkers() {
@@ -1498,7 +1524,9 @@ function _renderDocumentMarkers() {
   const markers = visible.map(f => {
     const [lon, lat] = f.geometry.coordinates;
     const p = f.properties;
-    const bodyHtml = p.category === 'demographics' ? _formatDemographics(p) : _formatDocBody(p.body);
+    const bodyHtml = p.category === 'demographics' ? _formatDemographics(p)
+      : p.category === 'island-info' ? _formatIslandInfo(p)
+      : _formatDocBody(p.body);
     const html = `<div style="font-size:13px;line-height:1.5;max-width:260px">
       <b>${p.title}</b><br><span style="color:#666">${p.place}</span>
       <div style="margin-top:6px">${bodyHtml}</div>
@@ -6274,10 +6302,10 @@ function _applyMapLayer() {
       { minZoom: 4, maxZoom: 18, maxNativeZoom: 17, attribution: '© Esri' }
     ).addTo(_map);
   } else {
-    // 'chart', 'geology-maine', 'history', and 'demographics' all use the
-    // street basemap: 'chart', 'history', and 'demographics' on their own
-    // (their markers need real coastline/place-name context and have no map
-    // layer of their own), 'geology-maine' as context underneath its own
+    // 'chart', 'geology-maine', 'history', 'demographics', and 'island-info'
+    // all use the street basemap: all but 'geology-maine' use it on their
+    // own (their markers need real coastline/place-name context and have no
+    // map layer of their own), 'geology-maine' as context underneath its own
     // polygon overlay (added below) — that dataset has no coastline/
     // place-name context of its own.
     _baseTileLayer = L.tileLayer(
@@ -6295,8 +6323,8 @@ function _applyMapLayer() {
   _syncMapModeTitle();
 }
 
-const MAP_VIEW_ICONS  = { chart: '🗺', satellite: '🛰', 'geology-maine': '⛰', history: '📜', demographics: '👥' };
-const MAP_VIEW_LABELS = { chart: 'Chart', satellite: 'Satellite', 'geology-maine': 'Geology', history: 'History', demographics: 'Demographics' };
+const MAP_VIEW_ICONS  = { chart: '🗺', satellite: '🛰', 'geology-maine': '⛰', history: '📜', demographics: '👥', 'island-info': '🏝' };
+const MAP_VIEW_LABELS = { chart: 'Chart', satellite: 'Satellite', 'geology-maine': 'Geology', history: 'History', demographics: 'Demographics', 'island-info': 'Island Info' };
 const HISTORY_ERA_LABELS = {
   all: 'All Eras',
   colonial: 'Native American & Colonial',

@@ -1,7 +1,7 @@
 {
   "type": "FeatureCollection",
   "properties": {
-    "note": "Hand-curated reference documents tied to a place, shown as a map marker you click for a popup — the full text lives here so it works fully offline, no link-out required. Started with geology, then history (subdivided by era) and demographics (structured population/age data instead of prose — see the 'demographics' property and _formatDemographics in app.js); category field is deliberately generic so this can extend further later (flora/fauna, etc). Add entries as sources are found — see AudioChart session notes for sourcing conventions. Demographics figures are individually dated to their real census year (2020 population; age data is 2010 Census where that's the most recent published for a given small town) rather than implying more current data than exists; seasonal summer/winter contrast is included only where a real source documents something concrete, never fabricated."
+    "note": "Hand-curated reference documents tied to a place, shown as a map marker you click for a popup — the full text lives here so it works fully offline, no link-out required. Started with geology, then history (subdivided by era), demographics (structured population/age data instead of prose — see the 'demographics' property and _formatDemographics in app.js), and island-info (ownership/access/land-trust/Maine-Island-Trail status — see the 'islandInfo' property and _formatIslandInfo); category field is deliberately generic so this can extend further later (flora/fauna, etc). Add entries as sources are found — see AudioChart session notes for sourcing conventions. Demographics figures are individually dated to their real census year (2020 population; age data is 2010 Census where that's the most recent published for a given small town) rather than implying more current data than exists; seasonal summer/winter contrast is included only where a real source documents something concrete, never fabricated. Island-info entries source ownership/access from Maine Coast Heritage Trust preserve pages, NPS, and Wikipedia; onMaineIslandTrail is null (not true/false) when no source confirms or denies MITA status one way or the other — never assumed."
   },
   "features": [
     {
@@ -551,6 +551,125 @@
           "seasonal": null
         },
         "source": "U.S. Census Bureau (2020 population) via Wikipedia — Brooklin, Maine (age distribution is 2010 Census, the most recent published for this town)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.78, 44.35] },
+      "properties": {
+        "title": "Pond Island",
+        "category": "island-info",
+        "place": "Pond Island, Brooksville",
+        "islandInfo": {
+          "ownership": "Maine Coast Heritage Trust (transferred from Philadelphia Conservationists, Inc. in 1995)",
+          "landTrust": "Maine Coast Heritage Trust",
+          "onMaineIslandTrail": null,
+          "publicAccess": "Day use and camping at 3 established campsites (2-night limit); groups of 6+ and commercial use restricted to a permit-only site on the pond's eastern edge",
+          "notes": "32 acres near the western end of Eggemoggin Reach. Reach by boat from the Castine town dock or the Bridge End boat launch on Deer Isle. Town dock floats available May 15–Oct 15. Pets must be kept under control; stay on established trails."
+        },
+        "source": "Maine Coast Heritage Trust — Pond Island, Brooksville preserve page (mcht.org)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.805, 44.45] },
+      "properties": {
+        "title": "Battle Island",
+        "category": "island-info",
+        "place": "Battle Island, Penobscot",
+        "islandInfo": {
+          "ownership": "Maine Coast Heritage Trust (bargain sale in 2011, with support from the Maine Island Trail Association)",
+          "landTrust": "Maine Coast Heritage Trust",
+          "onMaineIslandTrail": true,
+          "publicAccess": "Day use and camping at one established campsite (2-night limit); groups of 6+ and commercial use by permit only; no campfires; carry out all trash",
+          "notes": "Two-acre island rising from the Bagaduce River; connects to the mainland and MCHT's adjoining Till's Point Preserve via mudflats at low tide. Boat access only — land via the staircase on the island's south side. Nearest public launch: Winslow Cove, Penobscot village, just under 2 miles."
+        },
+        "source": "Maine Coast Heritage Trust — Battle Island preserve page (mcht.org)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.035, 44.093] },
+      "properties": {
+        "title": "Sheep Island",
+        "category": "island-info",
+        "place": "Sheep Island, Owls Head",
+        "islandInfo": {
+          "ownership": "Maine Coast Heritage Trust (acquired December 2021)",
+          "landTrust": "Maine Coast Heritage Trust",
+          "onMaineIslandTrail": null,
+          "publicAccess": "Day use and camping at one established campsite (2-night limit, first-come first-served)",
+          "notes": "76 undeveloped acres in West Penobscot Bay. Land on the cobble beach on the north shore — watch for a submerged bar just north of it at low tide. Reach from the Mechanic Street public launch in Rockland (~4 miles) or Richard Carver Harbor Park in Owls Head (~1 mile, hand-carried boats only); overnight parking needs a free permit from the Owls Head town office."
+        },
+        "source": "Maine Coast Heritage Trust — Sheep Island preserve page (mcht.org)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.02, 44.08] },
+      "properties": {
+        "title": "Monroe Island",
+        "category": "island-info",
+        "place": "Monroe Island, Owls Head",
+        "islandInfo": {
+          "ownership": "Maine Coast Heritage Trust (bought from the Faunce family in 2018)",
+          "landTrust": "Maine Coast Heritage Trust",
+          "onMaineIslandTrail": true,
+          "publicAccess": "Day use and camping at established campsites (2-night limit); groups of 6+ need a permit",
+          "notes": "225 acres — one of the largest undeveloped islands on the midcoast, with a 2-mile trail network. Approach from the west side, where six beaches allow safe landing (the float and ramp are currently closed). Reach from Rockland (~4 miles) or Owls Head (~0.5 miles, hand-carried boats only); overnight parking needs a free permit from the Owls Head town office."
+        },
+        "source": "Maine Coast Heritage Trust — Monroe Island, Owls Head preserve page (mcht.org)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.89083, 44.035] },
+      "properties": {
+        "title": "Hurricane Island",
+        "category": "island-info",
+        "place": "Hurricane Island, Vinalhaven",
+        "islandInfo": {
+          "ownership": "Privately owned by the Gaston family; leased since 2010 to the nonprofit Hurricane Island Foundation under a 40-year lease",
+          "landTrust": null,
+          "onMaineIslandTrail": true,
+          "publicAccess": "Operated as a research and education field station (Hurricane Island Center for Science and Leadership); a Maine Island Trail Association campsite is maintained on the island's north end for MITA members",
+          "notes": "A former granite-quarry company town (see the History entry for this island). Ownership stayed private — this isn't a land-trust acquisition — but the long-term lease to a nonprofit operator makes access genuinely public in practice."
+        },
+        "source": "Hurricane Island Center for Science and Leadership (hurricaneisland.net); Wikipedia — Hurricane Island (Maine)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.6534, 44.0664] },
+      "properties": {
+        "title": "Isle au Haut",
+        "category": "island-info",
+        "place": "Isle au Haut",
+        "islandInfo": {
+          "ownership": "Split ownership: roughly half the island is Acadia National Park, donated to the federal government in 1943 by heirs of the island's founding family; the other half is private land, home to the year-round fishing community and summer residents",
+          "landTrust": null,
+          "onMaineIslandTrail": null,
+          "publicAccess": "The Acadia National Park half (Duck Harbor area) is open to hikers and permitted campers; the private half is not — the town/park boundary is not always obvious from the water",
+          "notes": "A working town (year-round population 92 per the 2020 Census — see the Demographics entry) shares this island with a genuinely separate unit of Acadia National Park; the two halves have different rules."
+        },
+        "source": "Acadia National Park / NPS — Isle au Haut Boundary Law (nps.gov/acad); Wikipedia — Isle au Haut, Maine"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.182333, 43.989833] },
+      "properties": {
+        "title": "Clark Island",
+        "category": "island-info",
+        "place": "Clark Island, St. George",
+        "islandInfo": {
+          "ownership": "Maine Coast Heritage Trust owns 124 acres outright (purchased 2020 from the heirs of Albert Nickerson for $3.5M); an additional ~30 acres is under a conservation easement held by the Maine Department of Inland Fisheries & Wildlife",
+          "landTrust": "Maine Coast Heritage Trust",
+          "onMaineIslandTrail": null,
+          "publicAccess": "Open to the public; mowed grass/gravel trails lead to beaches, a flooded former quarry, and varied habitat. Connected to the mainland by a walking-only granite causeway (built 1892) — park at the Craignair Inn (8 designated spaces) and walk in, no boat required.",
+          "notes": null
+        },
+        "source": "Maine Coast Heritage Trust — Clark Island preserve page (mcht.org); Portland Press Herald, \"Purchase protects Clark Island preserve in the midcoast\" (2020)"
       }
     }
   ]
