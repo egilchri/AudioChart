@@ -571,6 +571,17 @@ html, body {
   border-top: 1px solid var(--mid-blue);
 }
 
+/* Leaflet's own popup pane defaults to z-index 700 (leaflet.css), well below
+   this app's custom overlay chrome (status bar, buttons, banners, the mode
+   title above — all 1000+). Any popup opening near one of those visually got
+   partly covered by it — reported live ("popups should rise to the top of
+   the stack so they are unimpeded"). Raised above all of that passive chrome,
+   but intentionally still below the truly modal 9999-tier UI (right-click
+   context menu, near-point-panel) in case those and a popup ever coincide.
+   Cascade order (this file loads after leaflet.css) is enough to win without
+   needing !important. */
+.leaflet-popup-pane { z-index: 5000; }
+
 /* ── Map overlays ──────────────────────────────────────────────────────────── */
 #map-overlay-status {
   position: absolute;
