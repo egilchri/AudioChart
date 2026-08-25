@@ -924,10 +924,10 @@ let _baseTileLayer    = null;
 // (a self-contained WMS raster) but dropped per live comparison — Maine's
 // own data was "by far the best" (real coastline/place-name context, since
 // it overlays the chart rather than replacing it).
-const MAP_VIEW_MODES  = ['chart', 'satellite', 'geology-maine', 'history'];
+const MAP_VIEW_MODES  = ['chart', 'satellite', 'geology-maine', 'history', 'demographics'];
 // Maps a display mode to the documents.geojson `category` it shows —
 // the whole reason "switch to Geology/History" needs no separate menu.
-const MAP_VIEW_DOC_CATEGORY = { 'geology-maine': 'geology', 'history': 'history' };
+const MAP_VIEW_DOC_CATEGORY = { 'geology-maine': 'geology', 'history': 'history', 'demographics': 'demographics' };
 let _mapViewMode      = MAP_VIEW_MODES.includes(localStorage.getItem('audiochart-chart-mode'))
   ? localStorage.getItem('audiochart-chart-mode') : 'satellite';
 let _maineGeologyLayer      = null;
@@ -1423,10 +1423,48 @@ function _formatDocBody(text) {
   return (text || '').split('\n\n').map(p => `<p style="margin:0 0 6px">${p}</p>`).join('');
 }
 
-function _documentMarkerIcon() {
+// Demographics entries carry structured data (population/medianAge/ageBrackets/
+// seasonal) instead of prose — the user asked for "a table showing age and
+// population," not a paragraph. Each figure is individually dated to its real
+// census year rather than implied as current, since 2020-level detail (median
+// age, age brackets) often isn't published yet for small Maine towns and the
+// most recent real number available is still 2010. Seasonal contrast is only
+// shown when a genuine documented source said something concrete — most small
+// island/coastal towns have no such figure, and this omits the row rather than
+// invent one.
+function _formatDemographics(p) {
+  const d = p.demographics || {};
+  const rows = [];
+  if (d.population) {
+    rows.push(`<tr><td style="padding:2px 10px 2px 0;color:#666">Population</td><td><b>${d.population.value.toLocaleString()}</b> <span style="color:#888">(${d.population.year})</span></td></tr>`);
+  }
+  if (d.medianAge && d.medianAge.value != null) {
+    rows.push(`<tr><td style="padding:2px 10px 2px 0;color:#666">Median age</td><td><b>${d.medianAge.value}</b> <span style="color:#888">(${d.medianAge.year})</span></td></tr>`);
+  }
+  let bracketsHtml = '';
+  if (d.ageBrackets && d.ageBrackets.brackets) {
+    bracketsHtml = `<div style="margin-top:6px;font-size:0.82em;color:#666">Age distribution (${d.ageBrackets.year} Census):</div>
+      <table style="width:100%;border-collapse:collapse;margin-top:2px">
+        ${Object.entries(d.ageBrackets.brackets).map(([k, v]) => `<tr><td style="padding:1px 10px 1px 0;color:#555">${k}</td><td>${v}%</td></tr>`).join('')}
+      </table>`;
+  }
+  let seasonalHtml = '';
+  if (d.seasonal) {
+    seasonalHtml = `<div style="margin-top:6px;padding-top:6px;border-top:1px solid #ddd;font-size:0.85em">${d.seasonal}</div>`;
+  }
+  return `<table style="width:100%;border-collapse:collapse">${rows.join('')}</table>${bracketsHtml}${seasonalHtml}`;
+}
+
+const DOC_MARKER_STYLE = {
+  geology:      { color: '#2e7d4f', emoji: '📄' },
+  history:      { color: '#8a6d3b', emoji: '📜' },
+  demographics: { color: '#2b6cb0', emoji: '👥' },
+};
+function _documentMarkerIcon(category) {
+  const s = DOC_MARKER_STYLE[category] || DOC_MARKER_STYLE.geology;
   return L.divIcon({
     className: '',
-    html: '<div style="background:#fff;color:#2e7d4f;font-size:13px;width:24px;height:24px;border-radius:50%;border:2.5px solid #2e7d4f;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.6)">📄</div>',
+    html: `<div style="background:#fff;color:${s.color};font-size:13px;width:24px;height:24px;border-radius:50%;border:2.5px solid ${s.color};display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.6)">${s.emoji}</div>`,
     iconSize: null,
     iconAnchor: [12, 12],
   });
@@ -1444,7 +1482,8 @@ function _documentMarkerIcon() {
 // History display" IS the way to see that category's documents, no
 // separate menu. History further filters by _selectedEra, since that
 // category is subdivided by era (colonial/revolution/industrial/modern);
-// 'all' shows every era.
+// 'all' shows every era. Demographics entries carry structured population/
+// age data (see _formatDemographics) instead of prose body text.
 let _documentMarkersLayer = null;
 let _selectedEra = 'all';
 function _renderDocumentMarkers() {
@@ -1459,9 +1498,10 @@ function _renderDocumentMarkers() {
   const markers = visible.map(f => {
     const [lon, lat] = f.geometry.coordinates;
     const p = f.properties;
+    const bodyHtml = p.category === 'demographics' ? _formatDemographics(p) : _formatDocBody(p.body);
     const html = `<div style="font-size:13px;line-height:1.5;max-width:260px">
       <b>${p.title}</b><br><span style="color:#666">${p.place}</span>
-      <div style="margin-top:6px">${_formatDocBody(p.body)}</div>
+      <div style="margin-top:6px">${bodyHtml}</div>
       <div style="margin-top:4px;font-style:italic;font-size:0.78em;color:#888">${p.source}</div>
     </div>`;
     // maxHeight is a built-in Leaflet Popup option — it caps .leaflet-popup-content's
@@ -1469,7 +1509,7 @@ function _renderDocumentMarkers() {
     // paragraphs) scrolls inside the popup instead of running off the bottom of
     // the screen, which is what was happening before (visible in a live screenshot —
     // the last paragraph was cut off at the viewport edge with no way to read it).
-    return L.marker([lat, lon], { icon: _documentMarkerIcon() }).bindPopup(html, { maxWidth: 280, maxHeight: 380 });
+    return L.marker([lat, lon], { icon: _documentMarkerIcon(p.category) }).bindPopup(html, { maxWidth: 280, maxHeight: 380 });
   });
   _documentMarkersLayer = L.layerGroup(markers).addTo(_map);
 }
@@ -6234,11 +6274,12 @@ function _applyMapLayer() {
       { minZoom: 4, maxZoom: 18, maxNativeZoom: 17, attribution: '© Esri' }
     ).addTo(_map);
   } else {
-    // 'chart', 'geology-maine', and 'history' all use the street basemap:
-    // 'chart' and 'history' on their own (history's markers need real
-    // coastline/place-name context and have no map layer of their own),
-    // 'geology-maine' as context underneath its own polygon overlay (added
-    // below) — that dataset has no coastline/place-name context of its own.
+    // 'chart', 'geology-maine', 'history', and 'demographics' all use the
+    // street basemap: 'chart', 'history', and 'demographics' on their own
+    // (their markers need real coastline/place-name context and have no map
+    // layer of their own), 'geology-maine' as context underneath its own
+    // polygon overlay (added below) — that dataset has no coastline/
+    // place-name context of its own.
     _baseTileLayer = L.tileLayer(
       'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
       // maxZoom stays 18 to match the zoom slider; maxNativeZoom caps actual tile
@@ -6254,8 +6295,8 @@ function _applyMapLayer() {
   _syncMapModeTitle();
 }
 
-const MAP_VIEW_ICONS  = { chart: '🗺', satellite: '🛰', 'geology-maine': '⛰', history: '📜' };
-const MAP_VIEW_LABELS = { chart: 'Chart', satellite: 'Satellite', 'geology-maine': 'Geology', history: 'History' };
+const MAP_VIEW_ICONS  = { chart: '🗺', satellite: '🛰', 'geology-maine': '⛰', history: '📜', demographics: '👥' };
+const MAP_VIEW_LABELS = { chart: 'Chart', satellite: 'Satellite', 'geology-maine': 'Geology', history: 'History', demographics: 'Demographics' };
 const HISTORY_ERA_LABELS = {
   all: 'All Eras',
   colonial: 'Native American & Colonial',

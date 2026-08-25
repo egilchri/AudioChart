@@ -1,7 +1,7 @@
 {
   "type": "FeatureCollection",
   "properties": {
-    "note": "Hand-curated reference documents tied to a place, shown as a map marker you click for a popup — the full text lives here so it works fully offline, no link-out required. Started with geology; category field is deliberately generic so this can extend to history, flora/fauna, etc. later. Add entries as sources are found — see AudioChart session notes for sourcing conventions."
+    "note": "Hand-curated reference documents tied to a place, shown as a map marker you click for a popup — the full text lives here so it works fully offline, no link-out required. Started with geology, then history (subdivided by era) and demographics (structured population/age data instead of prose — see the 'demographics' property and _formatDemographics in app.js); category field is deliberately generic so this can extend further later (flora/fauna, etc). Add entries as sources are found — see AudioChart session notes for sourcing conventions. Demographics figures are individually dated to their real census year (2020 population; age data is 2010 Census where that's the most recent published for a given small town) rather than implying more current data than exists; seasonal summer/winter contrast is included only where a real source documents something concrete, never fabricated."
   },
   "features": [
     {
@@ -327,6 +327,182 @@
         "place": "Camden Harbor",
         "body": "By the 1930s, the working schooners that had carried granite, lime, and lumber up and down this coast for a century were being retired wholesale — replaced by trucks, rail, and steel-hulled steamers. A Maine mariner named Captain Frank Swift had a different idea: buy the old vessels as they came off cargo duty, fit them out for passengers, and sell pleasure cruises instead of scrapping them. His first cruise sailed in 1936 aboard a 55-year-old schooner named Mabel. By 1938 he had three vessels and a Life magazine cover story; by 1940 he had five, and Camden had earned the nickname 'Windjammer Capital of the World.'\n\nThe idea outlived its founder. By 1977 there were enough separate schooner businesses operating out of Camden and Rockland that they formed the Maine Windjammer Association to market together, and it's still sailing today — a working fleet, several vessels designated National Historic Landmarks, some hulls dating back to the 1800s, carrying passengers instead of cargo along the same routes their captains once sailed for a living. It's the clearest through-line between the bay's 19th-century working-sail economy and the one that supports it now.",
         "source": "Maine Windjammer Association; Frommer's — The Maine Windjammers: 75 Years Young"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.8378, 44.0334] },
+      "properties": {
+        "title": "Vinalhaven",
+        "category": "demographics",
+        "place": "Vinalhaven, Maine",
+        "demographics": {
+          "population": { "value": 1279, "year": 2020 },
+          "medianAge": { "value": null, "year": null },
+          "ageBrackets": { "year": 2010, "brackets": { "Under 18": 19.5, "18-24": 7, "25-44": 23.4, "45-64": 33.6, "65+": 16.7 } },
+          "seasonal": "Wikipedia describes Vinalhaven as hosting a summer colony, but no quantitative seasonal population figure is documented."
+        },
+        "source": "U.S. Census Bureau (2020 population) via Wikipedia — Vinalhaven, Maine (age distribution is 2010 Census, the most recent published for this town)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.8801, 44.1301] },
+      "properties": {
+        "title": "North Haven",
+        "category": "demographics",
+        "place": "North Haven, Maine",
+        "demographics": {
+          "population": { "value": 417, "year": 2020 },
+          "medianAge": { "value": 44.5, "year": 2010 },
+          "ageBrackets": null,
+          "seasonal": "Described on Wikipedia as both a year-round island community and a prominent summer colony that has drawn affluent seasonal residents since the 1880s; no quantitative seasonal population figure is documented."
+        },
+        "source": "U.S. Census Bureau (2020 population) via Wikipedia — North Haven, Maine (median age is 2010 Census, the most recent published for this town)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.6534, 44.0664] },
+      "properties": {
+        "title": "Isle au Haut",
+        "category": "demographics",
+        "place": "Isle au Haut, Maine",
+        "demographics": {
+          "population": { "value": 92, "year": 2020 },
+          "medianAge": { "value": 49.5, "year": 2010 },
+          "ageBrackets": null,
+          "seasonal": "Wikipedia states that vacation houses \"more than double Isle au Haut's population during the summer\" — smaller in number than the nearby summer colonies of North Haven, Vinalhaven, and Mount Desert Island, but a real, documented seasonal swing rather than an exact figure."
+        },
+        "source": "U.S. Census Bureau (2020 population) via Wikipedia — Isle au Haut, Maine (median age is 2010 Census, the most recent published for this town)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.6708, 44.1487] },
+      "properties": {
+        "title": "Stonington",
+        "category": "demographics",
+        "place": "Stonington, Maine",
+        "demographics": {
+          "population": { "value": 1056, "year": 2020 },
+          "medianAge": { "value": 50.7, "year": 2010 },
+          "ageBrackets": null,
+          "seasonal": null
+        },
+        "source": "U.S. Census Bureau (2020 population) via Wikipedia — Stonington, Maine (median age is 2010 Census, the most recent published for this town)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.9106, 44.2946] },
+      "properties": {
+        "title": "Islesboro",
+        "category": "demographics",
+        "place": "Islesboro, Maine",
+        "demographics": {
+          "population": { "value": 583, "year": 2020 },
+          "medianAge": { "value": 52.1, "year": 2010 },
+          "ageBrackets": null,
+          "seasonal": "Wikipedia calls Islesboro \"an upper-class enclave and summer colony,\" but gives no quantitative comparison between summer and year-round population."
+        },
+        "source": "U.S. Census Bureau (2020 population) via Wikipedia — Islesboro, Maine (median age is 2010 Census, the most recent published for this town)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.0648, 44.2098] },
+      "properties": {
+        "title": "Camden",
+        "category": "demographics",
+        "place": "Camden, Maine",
+        "demographics": {
+          "population": { "value": 5232, "year": 2020 },
+          "medianAge": { "value": 53.2, "year": 2010 },
+          "ageBrackets": null,
+          "seasonal": "Camden has drawn wealthy seasonal residents since the 1880s per Wikipedia's account of its history as a summer colony, but no quantitative seasonal population figure is documented for the present day."
+        },
+        "source": "U.S. Census Bureau (2020 population) via Wikipedia — Camden, Maine (median age is 2010 Census, the most recent published for this town)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.6789, 44.2223] },
+      "properties": {
+        "title": "Deer Isle",
+        "category": "demographics",
+        "place": "Deer Isle, Maine",
+        "demographics": {
+          "population": { "value": 2194, "year": 2020 },
+          "medianAge": { "value": 51.6, "year": 2010 },
+          "ageBrackets": null,
+          "seasonal": null
+        },
+        "source": "U.S. Census Bureau (2020 population) via Wikipedia — Deer Isle, Maine (median age is 2010 Census, the most recent published for this town)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.925, 44.46] },
+      "properties": {
+        "title": "Searsport",
+        "category": "demographics",
+        "place": "Searsport, Maine",
+        "demographics": {
+          "population": { "value": 2649, "year": 2020 },
+          "medianAge": { "value": 46.9, "year": 2010 },
+          "ageBrackets": { "year": 2010, "brackets": { "Under 18": 19, "18-24": 6.5, "25-44": 22.2, "45-64": 33.5, "65+": 19 } },
+          "seasonal": null
+        },
+        "source": "U.S. Census Bureau (2020 population) via Wikipedia — Searsport, Maine (age distribution is 2010 Census, the most recent published for this town)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.7995, 44.3901] },
+      "properties": {
+        "title": "Castine",
+        "category": "demographics",
+        "place": "Castine, Maine",
+        "demographics": {
+          "population": { "value": 1320, "year": 2020 },
+          "medianAge": { "value": 22.2, "year": 2010 },
+          "ageBrackets": null,
+          "seasonal": "By the 1870s Castine had become a \"flourishing summer colony\" per Wikipedia, though no quantitative seasonal figure is documented for today. Note: the 2010 median age (22.2) is heavily skewed young by Maine Maritime Academy's resident student population, not representative of the year-round community by itself."
+        },
+        "source": "U.S. Census Bureau (2020 population) via Wikipedia — Castine, Maine (median age is 2010 Census, the most recent published for this town)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.1089, 44.1034] },
+      "properties": {
+        "title": "Rockland",
+        "category": "demographics",
+        "place": "Rockland, Maine",
+        "demographics": {
+          "population": { "value": 6936, "year": 2020 },
+          "medianAge": { "value": 47.9, "year": 2020 },
+          "ageBrackets": { "year": 2020, "brackets": { "Under 18": 15.3, "65+": 26.3 } },
+          "seasonal": null
+        },
+        "source": "U.S. Census Bureau, 2020 Census via Wikipedia — Rockland, Maine"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.0067, 44.4259] },
+      "properties": {
+        "title": "Belfast",
+        "category": "demographics",
+        "place": "Belfast, Maine",
+        "demographics": {
+          "population": { "value": 6938, "year": 2020 },
+          "medianAge": { "value": 52.1, "year": 2020 },
+          "ageBrackets": { "year": 2020, "brackets": { "Under 18": 16.8, "65+": 31.6 } },
+          "seasonal": null
+        },
+        "source": "U.S. Census Bureau, 2020 Census via Wikipedia — Belfast, Maine"
       }
     }
   ]
