@@ -1582,6 +1582,13 @@ html, body {
   border-color: #9b59b6;
   background: #f3e5f8;
 }
+/* Selected for "Fix selected nodes" — wins visually over overnight/etc if combined,
+   since an active selection is the thing the user is about to act on right now. */
+.edit-vertex-selected {
+  border-color: #2e86de;
+  background: #d2e9ff;
+}
+.edit-vertex-selected .edit-vertex-num { color: #14508f; }
 .focus-place-marker {
   width: 18px;
   height: 18px;

@@ -813,6 +813,8 @@ let _newVertexIdx          = -1;  // index of freshly inserted vertex — flashe
 let _deleteMode            = false; // single-click on vertex deletes it
 let _addNodeMode           = false; // waiting for click to insert node into nearest segment
 let _overnightMode         = false; // single-click on vertex toggles it as an overnight stop
+let _fixNodesMode          = false; // single-click on vertex fixes hazards near just that node — stays armed like delete/overnight
+let _selectedEditNodeIdx   = new Set(); // indices into _editPoints "lit" — fixed (or checked) this edit session; purely visual, not saved route data
 let _growRouteIdx          = -1;    // index of route being grown; -1 = not in grow mode
 let _editHistory           = [];    // stack of _editPoints snapshots for undo
 let _editOriginalPoints    = [];    // snapshot of route.points as last saved, taken when edit mode was entered
@@ -1601,7 +1603,7 @@ function _getRouteHazards(route) {
   return found;
 }
 
-function _checkRouteHazards(routeIdx, silent = false, suppressPopup = false) {
+function _checkRouteHazards(routeIdx, silent = false) {
   _lastHazardCheckedIdx = routeIdx;
   const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
   const route  = routes[routeIdx];
@@ -1615,13 +1617,7 @@ function _checkRouteHazards(routeIdx, silent = false, suppressPopup = false) {
   // Tapping the flagged part of the route (the red highlight or the skull
   // marker) should jump straight into edit mode — that's the whole reason
   // it's flagged, so fixing it shouldn't require separately hunting for the
-  // route on the map and tapping it again. But the check almost always
-  // fires WHILE ALREADY in edit mode (that's when _enterEditMode runs it),
-  // so "enter edit mode" alone is usually a no-op with no visible effect —
-  // confirmed live: clicking the line while already editing did nothing,
-  // because there was nothing left for it to do. In that case, instead
-  // re-open the hazard popup (Auto-fix/Edit-manually buttons) — that's the
-  // actually actionable thing to give the user again.
+  // route on the map and tapping it again.
   const _jumpToEdit = () => {
     if (!_editMode || _editRouteIdx !== routeIdx) _enterEditMode(routeIdx);
     else _checkRouteHazards(routeIdx, false);
@@ -1670,66 +1666,50 @@ function _checkRouteHazards(routeIdx, silent = false, suppressPopup = false) {
     return found;
   }
 
-  // A hazard was found — this is never silent, regardless of how the check
-  // was triggered: a route with a charted rock or shallow crossing near it
-  // does not get to save/open/edit quietly. Announce it out loud too, not
-  // just as a map popup someone could be looking away from. suppressPopup
-  // is the one exception: used right after Auto-fix, whose own caller
-  // already gives a clearer "fixed X of Y" message than a bare re-popup
-  // that looks identical to the one the user just dismissed would.
-  if (suppressPopup) return found;
-  const mid = pts[Math.floor((pts.length - 1) / 2)];
-  const body = `<b>${route.name}</b> — ${found.length} hazard${found.length > 1 ? 's' : ''} detected:<br>`
-    + found.slice(0, 8).map(h =>
-        `• ${h.label}${h.name ? ' (' + h.name + ')' : ''} — ${h.routeNm.toFixed(1)} nm, ${h.side}`
-      ).join('<br>')
-    + (found.length > 8 ? `<br>…and ${found.length - 8} more` : '');
-  const fixBtnId  = `hazard-fix-${routeIdx}`;
-  const editBtnId = `hazard-edit-${routeIdx}`;
-  const content = `<div style="font-size:13px;line-height:1.5">${body}</div>`
-    + `<div style="display:flex;gap:6px;margin-top:8px">
-         <button id="${fixBtnId}"  style="flex:1;padding:4px 8px;cursor:pointer;">Auto-fix route</button>
-         <button id="${editBtnId}" style="flex:1;padding:4px 8px;cursor:pointer;">Edit manually</button>
-       </div>`;
-  L.popup({ maxWidth: 300, autoPan: false })
-    .setLatLng([mid.lat, mid.lon])
-    .setContent(content)
-    .openOn(_map);
+  // A hazard was found — announce it out loud, not just as a map marker
+  // someone could be looking away from. No popup here: the red segment
+  // highlight and skull/triangle markers above are the persistent visual
+  // signal, and fixing is reached via the Node Ops "Fix selected nodes"
+  // button (select the flagged waypoint, then Fix) or by editing manually.
+  // Reported live: an unprompted popup box, stacked on top of the toolbar,
+  // "is not useful."
   const speakMsg = `Warning: ${route.name} has ${found.length} hazard${found.length > 1 ? 's' : ''} nearby, including ${found[0].label}${found[0].name ? ', ' + found[0].name : ''}.`;
   setStatus(speakMsg);
   TTS.sayImmediate(speakMsg);
-  setTimeout(() => {
-    document.getElementById(fixBtnId)?.addEventListener('click', () => {
-      _map.closePopup(); _autoFixRouteHazards(routeIdx, found.length);
-    });
-    document.getElementById(editBtnId)?.addEventListener('click', () => {
-      _map.closePopup(); _enterEditMode(routeIdx, true);
-      const msg = `Editing ${route.name} — ${found.length} hazard${found.length > 1 ? 's' : ''} to fix.`;
-      setStatus(msg); TTS.sayImmediate(msg);
-    });
-  }, 0);
   return found;
 }
 
-function _autoFixRouteHazards(routeIdx, beforeCount = null) {
+// Fixes hazards near a single waypoint — click "Fix selected nodes" to arm
+// fix mode (stays armed, same as Delete/Overnight), then click waypoints on
+// the map one at a time; each click immediately nudges just that waypoint
+// clear of any charted rock/obstruction/wreck on one of its two adjacent
+// segments, and lights it up ('edit-vertex-selected' in _renderEditLayers)
+// so it's visibly been addressed. Deliberately per-node and immediate, not
+// a batch multi-select-then-fix — matches the existing Delete-mode
+// interaction model per explicit request ("keep deleting till we signal
+// stop... consistent with that... first click button, then start fixing
+// individual nodes"). A hazard is only fixed if THIS node is the specific
+// endpoint the nudge-math would move — if the segment's other, unclicked
+// endpoint is the nearer one, that hazard is left alone rather than moving
+// a node the user didn't click.
+function _fixNodeHazards(idx) {
   const CORRIDOR    = 0.05;
   const SAFETY      = 0.03;
   const MAX_DISP    = 0.15;  // nm cap per vertex move
   const DANGER_LABELS = new Set(['underwater rock','obstruction','wreck','UWTROC','OBSTRN','WRECKS']);
 
-  const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
-  const route  = routes[routeIdx];
-  if (!route) return;
-
-  const pts   = route.points.map(p => ({ ...p }));
+  const pts   = _editPoints;
   const feats = Query.hazards?.features || [];
   const n     = pts.length;
+  const disp  = { dlat: 0, dlon: 0 };
+  let hazardsFixed = 0;
 
-  // Per-vertex displacement accumulator (lat/lon degrees, vector-summed)
-  const disp = Array.from({ length: n }, () => ({ dlat: 0, dlon: 0 }));
+  const adjSegs = [];
+  if (idx > 0)     adjSegs.push(idx - 1);  // segment (idx-1, idx)
+  if (idx < n - 1)  adjSegs.push(idx);      // segment (idx, idx+1)
 
-  for (let i = 0; i < n - 1; i++) {
-    const a = pts[i], b = pts[i+1];
+  for (const i of adjSegs) {
+    const a = pts[i], b = pts[i + 1];
     const segLen = Query.distanceNm(a.lon, a.lat, b.lon, b.lat);
     if (segLen < 1e-6) continue;
     const segBearing = Query.bearing(a.lon, a.lat, b.lon, b.lat);
@@ -1744,65 +1724,42 @@ function _autoFixRouteHazards(routeIdx, beforeCount = null) {
       const { crossTrack, alongTrack } = ct;
       if (Math.abs(crossTrack) > CORRIDOR || alongTrack < 0 || alongTrack > segLen) continue;
 
+      // Move whichever endpoint needs less displacement (see _fixNodeHazards'
+      // header comment) — only proceed if that's the node that was clicked.
+      const frac = alongTrack / segLen;
+      const vi = frac <= 0.5 ? i : i + 1;
+      if (vi !== idx) continue;
+
       const delta       = CORRIDOR + SAFETY - Math.abs(crossTrack);
       const bypassSign  = crossTrack >= 0 ? -1 : 1;  // move perp away from the hazard
       const perpBearing = segBearing + bypassSign * 90;
+      const denom        = frac <= 0.5 ? segLen - alongTrack : alongTrack;
+      const dNeeded       = Math.min(denom > 0.005 ? delta * segLen / denom : MAX_DISP, MAX_DISP);
 
-      // Move whichever endpoint needs less displacement.
-      // Moving A by d shifts crossTrack at position t by d*(segLen-t)/segLen → d_A = delta*segLen/(segLen-t)
-      // Moving B by d shifts crossTrack at position t by d*t/segLen           → d_B = delta*segLen/t
-      // d_A < d_B when t < segLen/2 (hazard in first half → move A)
-      const frac = alongTrack / segLen;
-      let vi, dNeeded;
-      if (frac <= 0.5) {
-        const denom = segLen - alongTrack;
-        vi      = i;
-        dNeeded = Math.min(denom > 0.005 ? delta * segLen / denom : MAX_DISP, MAX_DISP);
-      } else {
-        const denom = alongTrack;
-        vi      = i + 1;
-        dNeeded = Math.min(denom > 0.005 ? delta * segLen / denom : MAX_DISP, MAX_DISP);
-      }
-
-      const moved = _destPoint(pts[vi].lat, pts[vi].lon, perpBearing, dNeeded);
-      disp[vi].dlat += moved.lat - pts[vi].lat;
-      disp[vi].dlon += moved.lon - pts[vi].lon;
+      const moved = _destPoint(pts[idx].lat, pts[idx].lon, perpBearing, dNeeded);
+      disp.dlat += moved.lat - pts[idx].lat;
+      disp.dlon += moved.lon - pts[idx].lon;
+      hazardsFixed++;
     }
   }
 
-  // Apply all accumulated displacements simultaneously
-  for (let j = 0; j < n; j++) {
-    if (disp[j].dlat !== 0 || disp[j].dlon !== 0)
-      pts[j] = { lat: pts[j].lat + disp[j].dlat, lon: pts[j].lon + disp[j].dlon };
+  _selectedEditNodeIdx.add(idx);  // light it up either way — it's been addressed
+
+  if (hazardsFixed === 0) {
+    _renderEditLayers();
+    const msg = 'No nearby rock, obstruction, or wreck hazard to fix on this waypoint.';
+    setStatus(msg); TTS.sayImmediate(msg);
+    return;
   }
 
-  routes[routeIdx].points = pts;
-  _touch(routes[routeIdx]);
-  localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
-  _lastHazardCheckedIdx = routeIdx;
-  _refreshSavedRouteLayers();
-  // Re-checking and re-showing the SAME-looking popup here (as this used to
-  // do) made a real, working fix look exactly like the button had done
-  // nothing — confirmed live: a route that genuinely went from 2 hazards to
-  // 1 produced a popup indistinguishable from the one just dismissed.
-  // suppressPopup=true keeps the red-highlight/skull markers updated (so
-  // remaining problems are still visible) without reopening that popup;
-  // the messaging below makes the actual outcome explicit instead.
-  const afterFound = _checkRouteHazards(routeIdx, true, true);
-  const name = routes[routeIdx].name;
-  if (afterFound.length === 0) {
-    const msg = beforeCount != null
-      ? `Auto-fix cleared all ${beforeCount} hazard${beforeCount > 1 ? 's' : ''} on ${name}.`
-      : `Auto-fix cleared all hazards on ${name}.`;
-    setStatus(msg); TTS.sayImmediate(msg);
-  } else {
-    const fixedCount = beforeCount != null ? beforeCount - afterFound.length : null;
-    const msg = fixedCount != null
-      ? `Auto-fix cleared ${fixedCount} of ${beforeCount} hazards on ${name} — ${afterFound.length} remain. Now editing.`
-      : `Auto-fix left ${afterFound.length} hazard${afterFound.length > 1 ? 's' : ''} on ${name}. Now editing.`;
-    setStatus(msg); TTS.sayImmediate(msg);
-    _enterEditMode(routeIdx, true);
-  }
+  _pushEditHistory();
+  _editPoints[idx] = { ...pts[idx], lat: pts[idx].lat + disp.dlat, lon: pts[idx].lon + disp.dlon };
+  _renderEditLayers();
+  clearTimeout(_liveHazardTimer);
+  _liveHazardTimer = setTimeout(_liveHazardCheck, 300);
+
+  const msg = `Fixed ${hazardsFixed} hazard${hazardsFixed > 1 ? 's' : ''} near this waypoint.`;
+  setStatus(msg); TTS.sayImmediate(msg);
 }
 
 function _bestRouteLabelPos(pts) {
@@ -2917,7 +2874,7 @@ async function _autoRouteProg(start, end, onUpdate, onText = null, _escapeAttemp
   // through the exact same avoidance pipeline (segBlocked, node offsetting,
   // corridor search) rather than adding a parallel obstacle system.
   const HAZARD_SAFETY_NM = 0.05;  // ~100 yards — matches the corridor used by
-                                   // _checkRouteHazards/_autoFixRouteHazards
+                                   // _checkRouteHazards/_autoFixSelectedNodes
   const HAZARD_LABELS = new Set(['underwater rock', 'obstruction', 'wreck', 'UWTROC', 'OBSTRN', 'WRECKS']);
   function _hazardCircleRing(lon, lat, radiusNm, sides = 10) {
     const cv = Math.cos(lat * Math.PI / 180);
@@ -4016,6 +3973,7 @@ function _insertVertex(segIdx, latlng) {
   _pushEditHistory();
   _editPoints.splice(segIdx + 1, 0, { lat: newLat, lon: newLon });
   _newVertexIdx = segIdx + 1;
+  _selectedEditNodeIdx.clear();  // indices past segIdx just shifted
 }
 
 function _nearestSegIdx(pts, latlng) {
@@ -4166,6 +4124,7 @@ function _renderEditLayers() {
     if (isNew) vertexClasses.push('edit-vertex-new');
     else if (_deleteMode) vertexClasses.push('edit-vertex-delete');
     if (pts[idx].overnight) vertexClasses.push('edit-vertex-overnight');
+    if (_selectedEditNodeIdx.has(idx)) vertexClasses.push('edit-vertex-selected');
     const m = L.marker([pts[idx].lat, pts[idx].lon], {
       icon: L.divIcon({
         className: vertexClasses.join(' '),
@@ -4223,6 +4182,7 @@ function _renderEditLayers() {
       if (_deleteMode && _editPoints.length > 2) {
         _pushEditHistory();
         _editPoints.splice(idx, 1);
+        _selectedEditNodeIdx.clear();  // indices past idx just shifted — stale selection would point at the wrong node
         _renderEditLayers();
         // Removing a waypoint can just as easily introduce a hazard (it may
         // have been providing clearance) as fix one — recheck either way.
@@ -4233,6 +4193,8 @@ function _renderEditLayers() {
         const p = _editPoints[idx];
         _editPoints[idx] = p.overnight ? { lat: p.lat, lon: p.lon } : { lat: p.lat, lon: p.lon, overnight: true };
         _renderEditLayers();
+      } else if (_fixNodesMode) {
+        _fixNodeHazards(idx);
       }
     });
     m.on('dblclick', (e) => {
@@ -4240,6 +4202,7 @@ function _renderEditLayers() {
       if (_editPoints.length <= 2) return;
       _pushEditHistory();
       _editPoints.splice(idx, 1);
+      _selectedEditNodeIdx.clear();  // indices past idx just shifted
       _renderEditLayers();
       clearTimeout(_liveHazardTimer);
       _liveHazardTimer = setTimeout(_liveHazardCheck, 300);
@@ -4305,6 +4268,7 @@ function _updateEditToolsPanel() {
   document.getElementById('etp-insert-node')?.classList.toggle('active', _addNodeMode);
   document.getElementById('etp-delete')?.classList.toggle('active', _deleteMode);
   document.getElementById('etp-overnight')?.classList.toggle('active', _overnightMode);
+  document.getElementById('etp-fix-nodes')?.classList.toggle('active', _fixNodesMode);
 }
 
 // Screen-space (not distance-space) match, so it's equally forgiving at any zoom level.
@@ -4517,7 +4481,9 @@ function _enterEditMode(routeIdx, skipHazardCheck = false) {
   _deleteMode = false;
   _addNodeMode = false;
   _overnightMode = false;
+  _fixNodesMode = false;
   _editHistory = [];
+  _selectedEditNodeIdx = new Set();
 
   document.getElementById('edit-banner-label').textContent = route.name;
   document.getElementById('edit-banner').style.display = 'flex';
@@ -4560,7 +4526,9 @@ function _exitEditMode() {
   _deleteMode = false;
   _addNodeMode = false;
   _overnightMode = false;
+  _fixNodesMode = false;
   _editHistory = [];
+  _selectedEditNodeIdx = new Set();
   document.getElementById('edit-undo-btn').style.display = 'none';
   _clearViewportHazards();
   // _checkRouteHazards's red-segment/skull-marker overlay (_hazardCheckLayer)
@@ -4615,6 +4583,7 @@ function _revertEditedRoute() {
   if (!_editOriginalPoints.length) return;
   _pushEditHistory();
   _editPoints = _editOriginalPoints.map(_stripPoint);
+  _selectedEditNodeIdx.clear();
   _renderEditLayers();
   // Also re-write storage immediately — undoes any mid-session "add node"
   // write (_editPlaceNode), which is the actual way an edit can survive
@@ -4686,6 +4655,7 @@ document.getElementById('edit-undo-btn').addEventListener('click', () => {
   if (_editHistory.length === 0) return;
   _editPoints = _editHistory.pop();
   _newVertexIdx = -1;
+  _selectedEditNodeIdx.clear();
   _renderEditLayers();
   document.getElementById('edit-undo-btn').style.display =
     _editHistory.length > 0 ? '' : 'none';
@@ -4732,6 +4702,7 @@ document.getElementById('etp-insert-node').addEventListener('click', () => {
 document.getElementById('etp-delete').addEventListener('click', () => {
   _deleteMode = !_deleteMode;
   _overnightMode = false;
+  _fixNodesMode = false;
   document.getElementById('edit-banner-label').textContent =
     _deleteMode ? _editRouteName + ' — click a node to delete it' : _editRouteName;
   _renderEditLayers();
@@ -4741,8 +4712,20 @@ document.getElementById('etp-delete').addEventListener('click', () => {
 document.getElementById('etp-overnight').addEventListener('click', () => {
   _overnightMode = !_overnightMode;
   _deleteMode = false;
+  _fixNodesMode = false;
   document.getElementById('edit-banner-label').textContent =
     _overnightMode ? _editRouteName + ' — click a node to mark/unmark as an overnight stop' : _editRouteName;
+  _renderEditLayers();
+  _updateEditToolsPanel();
+});
+
+document.getElementById('etp-fix-nodes').addEventListener('click', () => {
+  if (!_editMode) return;
+  _fixNodesMode = !_fixNodesMode;
+  _deleteMode = false;
+  _overnightMode = false;
+  document.getElementById('edit-banner-label').textContent =
+    _fixNodesMode ? _editRouteName + ' — click a node to fix hazards near it' : _editRouteName;
   _renderEditLayers();
   _updateEditToolsPanel();
 });
@@ -4761,6 +4744,7 @@ document.getElementById('etp-reroute').addEventListener('click', () => {
       btn.disabled = false;
       if (blocked) return;  // _reRouteSegments already announced why
       _editPoints = points;
+      _selectedEditNodeIdx.clear();  // re-routing regenerates the whole point list
       _renderEditLayers();
       // Re-routing regenerates every point — a fresh check against real
       // hazard data, not just the land-avoidance the router already did.
@@ -6530,6 +6514,7 @@ function _ensureMap() {
           btn.classList.remove('working');
           if (blocked) return;  // _reRouteSegments already announced why
           _editPoints = points;
+          _selectedEditNodeIdx.clear();  // re-routing regenerates the whole point list
           _renderEditLayers();
           const found = _liveHazardCheck();
           if (!found.length) {
