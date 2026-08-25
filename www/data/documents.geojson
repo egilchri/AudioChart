@@ -1,7 +1,7 @@
 {
   "type": "FeatureCollection",
   "properties": {
-    "note": "Hand-curated reference documents tied to a place, shown as a map marker you click for a popup — the full text lives here so it works fully offline, no link-out required. Started with geology, then history (subdivided by era), demographics (structured population/age data instead of prose — see the 'demographics' property and _formatDemographics in app.js), and island-info (ownership/access/land-trust/Maine-Island-Trail status — see the 'islandInfo' property and _formatIslandInfo); category field is deliberately generic so this can extend further later (flora/fauna, etc). Add entries as sources are found — see AudioChart session notes for sourcing conventions. Demographics figures are individually dated to their real census year (2020 population; age data is 2010 Census where that's the most recent published for a given small town) rather than implying more current data than exists; seasonal summer/winter contrast is included only where a real source documents something concrete, never fabricated. Island-info entries source ownership/access from Maine Coast Heritage Trust preserve pages, NPS, and Wikipedia; onMaineIslandTrail is null (not true/false) when no source confirms or denies MITA status one way or the other — never assumed."
+    "note": "Hand-curated reference documents tied to a place, shown as a map marker you click for a popup — the full text lives here so it works fully offline, no link-out required. Started with geology, then history (subdivided by era), demographics (structured population/age data instead of prose — see the 'demographics' property and _formatDemographics in app.js), and island-info (ownership/access/land-trust/Maine-Island-Trail status — see the 'islandInfo' property and _formatIslandInfo); category field is deliberately generic so this can extend further later (flora/fauna, etc). Add entries as sources are found — see AudioChart session notes for sourcing conventions. Demographics figures are individually dated to their real census year (2020 population; age data is 2010 Census where that's the most recent published for a given small town) rather than implying more current data than exists; seasonal summer/winter contrast is included only where a real source documents something concrete, never fabricated. Island-info entries source ownership/access from Maine Coast Heritage Trust preserve pages, NPS, and Wikipedia; onMaineIslandTrail is null (not true/false) when no source confirms or denies MITA status one way or the other — never assumed. Maine reuses island names constantly (multiple Bear Islands, Green Islands, Crow Islands, Sheep Islands, Stave Islands, etc. across different bays) — every island-info `title` therefore carries a disambiguating \"(Locality)\" suffix, e.g. \"Bear Island (Eggemoggin Reach)\" / \"Bear Island (Northeast Harbor)\", \"Crow Island (Cranberry Isles)\", so the popup header alone is never ambiguous. Apply this to every new island-info entry, not just ones with a known collision — the locality is usually the town or named archipelago from the `place` field. See _bareIslandName() in app.js, which strips this suffix back off before matching against the chart data's own (bare-named) island list for the click-for-name dot layer."
   },
   "features": [
     {
@@ -557,7 +557,7 @@
       "type": "Feature",
       "geometry": { "type": "Point", "coordinates": [-68.78, 44.35] },
       "properties": {
-        "title": "Pond Island",
+        "title": "Pond Island (Brooksville)",
         "category": "island-info",
         "place": "Pond Island, Brooksville",
         "islandInfo": {
@@ -574,7 +574,7 @@
       "type": "Feature",
       "geometry": { "type": "Point", "coordinates": [-68.805, 44.45] },
       "properties": {
-        "title": "Battle Island",
+        "title": "Battle Island (Penobscot)",
         "category": "island-info",
         "place": "Battle Island, Penobscot",
         "islandInfo": {
@@ -591,7 +591,7 @@
       "type": "Feature",
       "geometry": { "type": "Point", "coordinates": [-69.035, 44.093] },
       "properties": {
-        "title": "Sheep Island",
+        "title": "Sheep Island (Owls Head)",
         "category": "island-info",
         "place": "Sheep Island, Owls Head",
         "islandInfo": {
@@ -608,7 +608,7 @@
       "type": "Feature",
       "geometry": { "type": "Point", "coordinates": [-69.02, 44.08] },
       "properties": {
-        "title": "Monroe Island",
+        "title": "Monroe Island (Owls Head)",
         "category": "island-info",
         "place": "Monroe Island, Owls Head",
         "islandInfo": {
@@ -625,7 +625,7 @@
       "type": "Feature",
       "geometry": { "type": "Point", "coordinates": [-68.89083, 44.035] },
       "properties": {
-        "title": "Hurricane Island",
+        "title": "Hurricane Island (Vinalhaven)",
         "category": "island-info",
         "place": "Hurricane Island, Vinalhaven",
         "islandInfo": {
@@ -659,7 +659,7 @@
       "type": "Feature",
       "geometry": { "type": "Point", "coordinates": [-69.182333, 43.989833] },
       "properties": {
-        "title": "Clark Island",
+        "title": "Clark Island (St. George)",
         "category": "island-info",
         "place": "Clark Island, St. George",
         "islandInfo": {
@@ -676,7 +676,7 @@
       "type": "Feature",
       "geometry": { "type": "Point", "coordinates": [-68.5822456, 44.1478592] },
       "properties": {
-        "title": "Saddleback Island",
+        "title": "Saddleback Island (Merchant Row)",
         "category": "island-info",
         "place": "Saddleback Island, Merchant Row",
         "islandInfo": {
@@ -693,7 +693,7 @@
       "type": "Feature",
       "geometry": { "type": "Point", "coordinates": [-68.6161, 44.1247] },
       "properties": {
-        "title": "McGlathery Island",
+        "title": "McGlathery Island (Merchant Row)",
         "category": "island-info",
         "place": "McGlathery Island, Merchant Row",
         "islandInfo": {
@@ -710,7 +710,7 @@
       "type": "Feature",
       "geometry": { "type": "Point", "coordinates": [-68.6448, 44.1453] },
       "properties": {
-        "title": "Green Island",
+        "title": "Green Island (Merchant Row)",
         "category": "island-info",
         "place": "Green Island, Merchant Row",
         "islandInfo": {
@@ -727,7 +727,7 @@
       "type": "Feature",
       "geometry": { "type": "Point", "coordinates": [-68.665, 44.135] },
       "properties": {
-        "title": "Little Camp Island",
+        "title": "Little Camp Island (Merchant Row)",
         "category": "island-info",
         "place": "Little Camp Island, Merchant Row",
         "islandInfo": {
@@ -744,7 +744,7 @@
       "type": "Feature",
       "geometry": { "type": "Point", "coordinates": [-68.60, 44.128] },
       "properties": {
-        "title": "Pell Island",
+        "title": "Pell Island (Merchant Row)",
         "category": "island-info",
         "place": "Pell Island, Merchant Row",
         "islandInfo": {
@@ -761,7 +761,7 @@
       "type": "Feature",
       "geometry": { "type": "Point", "coordinates": [-68.615, 44.10] },
       "properties": {
-        "title": "Bills Island",
+        "title": "Bills Island (Merchant Row)",
         "category": "island-info",
         "place": "Bills Island, Merchant Row",
         "islandInfo": {
@@ -778,7 +778,7 @@
       "type": "Feature",
       "geometry": { "type": "Point", "coordinates": [-68.823651, 44.235705] },
       "properties": {
-        "title": "Great Spruce Head Island",
+        "title": "Great Spruce Head Island (Deer Isle)",
         "category": "island-info",
         "place": "Great Spruce Head Island, Deer Isle",
         "islandInfo": {
@@ -795,7 +795,7 @@
       "type": "Feature",
       "geometry": { "type": "Point", "coordinates": [-68.7677717, 44.2176662] },
       "properties": {
-        "title": "Eagle Island",
+        "title": "Eagle Island (Penobscot Bay)",
         "category": "island-info",
         "place": "Eagle Island, Penobscot Bay",
         "islandInfo": {
@@ -812,7 +812,7 @@
       "type": "Feature",
       "geometry": { "type": "Point", "coordinates": [-68.791554, 44.230518] },
       "properties": {
-        "title": "Butter Island",
+        "title": "Butter Island (Penobscot Bay)",
         "category": "island-info",
         "place": "Butter Island, Penobscot Bay",
         "islandInfo": {
@@ -829,7 +829,7 @@
       "type": "Feature",
       "geometry": { "type": "Point", "coordinates": [-68.757911, 44.243899] },
       "properties": {
-        "title": "Bradbury Island",
+        "title": "Bradbury Island (Deer Isle)",
         "category": "island-info",
         "place": "Bradbury Island, Penobscot Bay",
         "islandInfo": {
@@ -846,7 +846,7 @@
       "type": "Feature",
       "geometry": { "type": "Point", "coordinates": [-68.825129, 44.219756] },
       "properties": {
-        "title": "Bear Island",
+        "title": "Bear Island (Eggemoggin Reach)",
         "category": "island-info",
         "place": "Bear Island, Deer Isle (Eggemoggin Reach)",
         "islandInfo": {
@@ -863,7 +863,7 @@
       "type": "Feature",
       "geometry": { "type": "Point", "coordinates": [-68.685732, 44.274259] },
       "properties": {
-        "title": "Carney Island",
+        "title": "Carney Island (Deer Isle)",
         "category": "island-info",
         "place": "Carney Island, Penobscot Bay",
         "islandInfo": {
@@ -880,7 +880,7 @@
       "type": "Feature",
       "geometry": { "type": "Point", "coordinates": [-68.799419, 44.209417] },
       "properties": {
-        "title": "Fling Island",
+        "title": "Fling Island (Penobscot Bay)",
         "category": "island-info",
         "place": "Fling Island, Penobscot Bay",
         "islandInfo": {
@@ -897,7 +897,7 @@
       "type": "Feature",
       "geometry": { "type": "Point", "coordinates": [-68.725289, 44.201006] },
       "properties": {
-        "title": "Sheephead Island",
+        "title": "Sheephead Island (Deer Isle)",
         "category": "island-info",
         "place": "Sheephead Island, Deer Isle",
         "islandInfo": {
@@ -914,7 +914,7 @@
       "type": "Feature",
       "geometry": { "type": "Point", "coordinates": [-68.754124, 44.224377] },
       "properties": {
-        "title": "Hardhead Island",
+        "title": "Hardhead Island (Deer Isle)",
         "category": "island-info",
         "place": "Hardhead Island, Penobscot Bay",
         "islandInfo": {
@@ -931,7 +931,7 @@
       "type": "Feature",
       "geometry": { "type": "Point", "coordinates": [-68.249, 44.247] },
       "properties": {
-        "title": "Crow Island",
+        "title": "Crow Island (Cranberry Isles)",
         "category": "island-info",
         "place": "Crow Island, off Great Cranberry Island",
         "islandInfo": {
@@ -948,7 +948,7 @@
       "type": "Feature",
       "geometry": { "type": "Point", "coordinates": [-68.198607, 44.2415277] },
       "properties": {
-        "title": "Baker Island",
+        "title": "Baker Island (Acadia National Park)",
         "category": "island-info",
         "place": "Baker Island, Acadia National Park",
         "islandInfo": {
@@ -965,7 +965,7 @@
       "type": "Feature",
       "geometry": { "type": "Point", "coordinates": [-68.269655, 44.283369] },
       "properties": {
-        "title": "Bear Island",
+        "title": "Bear Island (Northeast Harbor)",
         "category": "island-info",
         "place": "Bear Island, Northeast Harbor",
         "islandInfo": {
@@ -1033,7 +1033,7 @@
       "type": "Feature",
       "geometry": { "type": "Point", "coordinates": [-69.08, 44.038] },
       "properties": {
-        "title": "Ash Island",
+        "title": "Ash Island (Owls Head)",
         "category": "island-info",
         "place": "Ash Island, Owls Head",
         "islandInfo": {
@@ -1050,7 +1050,7 @@
       "type": "Feature",
       "geometry": { "type": "Point", "coordinates": [-68.5622452, 44.2367467] },
       "properties": {
-        "title": "Big Babson Island",
+        "title": "Big Babson Island (Brooklin)",
         "category": "island-info",
         "place": "Big Babson Island, Brooklin",
         "islandInfo": {
@@ -1067,7 +1067,7 @@
       "type": "Feature",
       "geometry": { "type": "Point", "coordinates": [-68.7986411, 44.1425806] },
       "properties": {
-        "title": "Calderwood Island",
+        "title": "Calderwood Island (North Haven)",
         "category": "island-info",
         "place": "Calderwood Island, North Haven",
         "islandInfo": {
@@ -1084,7 +1084,7 @@
       "type": "Feature",
       "geometry": { "type": "Point", "coordinates": [-69.199, 43.999] },
       "properties": {
-        "title": "High Island",
+        "title": "High Island (St. George)",
         "category": "island-info",
         "place": "High Island, St. George",
         "islandInfo": {
@@ -1101,7 +1101,7 @@
       "type": "Feature",
       "geometry": { "type": "Point", "coordinates": [-68.548, 44.222] },
       "properties": {
-        "title": "Hog Island",
+        "title": "Hog Island (Brooklin)",
         "category": "island-info",
         "place": "Hog Island, Brooklin",
         "islandInfo": {
@@ -1118,7 +1118,7 @@
       "type": "Feature",
       "geometry": { "type": "Point", "coordinates": [-68.615, 44.352] },
       "properties": {
-        "title": "Jed's Island",
+        "title": "Jed's Island (Blue Hill)",
         "category": "island-info",
         "place": "Jed's Island, Blue Hill",
         "islandInfo": {
@@ -1135,7 +1135,7 @@
       "type": "Feature",
       "geometry": { "type": "Point", "coordinates": [-68.6350251, 44.0961931] },
       "properties": {
-        "title": "Nathan Island",
+        "title": "Nathan Island (Merchant Row)",
         "category": "island-info",
         "place": "Nathan Island, Merchant Row",
         "islandInfo": {
@@ -1152,7 +1152,7 @@
       "type": "Feature",
       "geometry": { "type": "Point", "coordinates": [-68.709806, 44.15521] },
       "properties": {
-        "title": "The Fort",
+        "title": "The Fort (Merchant Row)",
         "category": "island-info",
         "place": "The Fort, Merchant Row",
         "islandInfo": {
@@ -1169,7 +1169,7 @@
       "type": "Feature",
       "geometry": { "type": "Point", "coordinates": [-68.93610955089424, 44.27204110216757] },
       "properties": {
-        "title": "Spruce Island",
+        "title": "Spruce Island (Islesboro)",
         "category": "island-info",
         "place": "Spruce Island, Islesboro",
         "islandInfo": {

@@ -1544,7 +1544,7 @@ function _renderDocumentMarkers() {
 
 // Island Info mode also gets a second, lighter tier: every island the chart
 // data itself knows the name of (Query.namedPlaces, already loaded for
-// search/lookup — reused here, no new fetch), not just the ~20 with a full
+// search/lookup — reused here, no new fetch), not just the ~35 with a full
 // curated ownership/access writeup. There are hundreds of these across
 // Penobscot Bay (the server-backed dataset runs several hundred within the
 // bay alone), too many to label with text directly on the map, so per
@@ -1553,10 +1553,23 @@ function _renderDocumentMarkers() {
 // are skipped here so they don't get a second, duller pin sitting on top
 // of their real one — matched by name AND proximity, not name alone: Maine
 // reuses island names constantly (multiple "Green Island"s, "Crow Island"s,
-// "Sheep Island"s, and "Stave Island"s all exist in different bays — hit
-// this personally while researching Island Info entries), so a documented
-// island must only suppress the dot for that SAME physical island, never
-// every same-named island in the whole bay.
+// "Sheep Island"s, "Bear Island"s, and "Stave Island"s all exist in
+// different bays — hit this personally while researching Island Info
+// entries), so a documented island must only suppress the dot for that
+// SAME physical island, never every same-named island in the whole bay.
+//
+// Per explicit direction, every island-info document's `title` itself now
+// carries a disambiguating "(Locality)" suffix too — e.g. "Bear Island
+// (Eggemoggin Reach)" vs. "Bear Island (Northeast Harbor)", "Crow Island
+// (Cranberry Isles)" — so the popup header alone is never ambiguous, not
+// just the `place` subtitle line. That suffix is stripped back off before
+// matching against Query.namedPlaces here, since the chart data's own
+// island names are bare ("Bear Island", not "Bear Island (...)")
+// — _bareIslandName() is the single place that convention is encoded, so
+// any future rename convention change only needs to happen here.
+function _bareIslandName(title) {
+  return title.replace(/\s*\([^)]*\)\s*$/, '').toLowerCase();
+}
 let _islandLabelsLayer = null;
 function _renderAllIslandLabels() {
   if (_islandLabelsLayer) { _map.removeLayer(_islandLabelsLayer); _islandLabelsLayer = null; }
@@ -1566,7 +1579,7 @@ function _renderAllIslandLabels() {
   const documented = _documents
     .filter(f => f.properties.category === 'island-info')
     .map(f => ({
-      name: f.properties.title.toLowerCase(),
+      name: _bareIslandName(f.properties.title),
       lon: f.geometry.coordinates[0],
       lat: f.geometry.coordinates[1],
     }));
