@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="AudioChart" xmlns="http://www.topografix.com/GPX/1/1">
+  <rte>
+    <name>Adventure Test 1</name>
+    <rtept lat="44.100357" lon="-69.086085"></rtept>
+    <rtept lat="44.095104" lon="-69.0327"></rtept>
+    <rtept lat="44.102051" lon="-68.94648"></rtept>
+    <rtept lat="44.108637" lon="-68.929255"></rtept>
+    <rtept lat="44.1134" lon="-68.923127"></rtept>
+    <rtept lat="44.122957" lon="-68.90324"></rtept>
+    <rtept lat="44.127822" lon="-68.886907"></rtept>
+  </rte>
+  <rte>
+    <name>Adventure Test 2</name>
+    <rtept lat="44.115962" lon="-68.862383"></rtept>
+    <rtept lat="44.116059" lon="-68.860683"></rtept>
+    <rtept lat="44.126431" lon="-68.855453"></rtept>
+    <rtept lat="44.1286" lon="-68.854001"></rtept>
+    <rtept lat="44.133129" lon="-68.840748"></rtept>
+    <rtept lat="44.134212" lon="-68.77625"></rtept>
+    <rtept lat="44.142834" lon="-68.702687"></rtept>
+    <rtept lat="44.143708" lon="-68.698805"></rtept>
+    <rtept lat="44.143514" lon="-68.686583"></rtept>
+    <rtept lat="44.149671" lon="-68.669229"></rtept>
+    <rtept lat="44.152199" lon="-68.66435"></rtept>
+  </rte>
+  <rte>
+    <name>Adventure Test 3</name>
+    <rtept lat="44.15209" lon="-68.661872"></rtept>
+    <rtept lat="44.150304" lon="-68.653132"></rtept>
+    <rtept lat="44.148702" lon="-68.650283"></rtept>
+    <rtept lat="44.143732" lon="-68.637592"></rtept>
+    <rtept lat="44.143463" lon="-68.615009"></rtept>
+    <rtept lat="44.144922" lon="-68.6089"></rtept>
+    <rtept lat="44.143817" lon="-68.602087"></rtept>
+    <rtept lat="44.139979" lon="-68.58578"></rtept>
+    <rtept lat="44.14154" lon="-68.577536"></rtept>
+    <rtept lat="44.135265" lon="-68.51217"></rtept>
+    <rtept lat="44.13342" lon="-68.443276"></rtept>
+    <rtept lat="44.146881" lon="-68.448286"></rtept>
+    <rtept lat="44.146647" lon="-68.445083"></rtept>
+  </rte>
+  <rte>
+    <name>Adventure Test 4</name>
+    <rtept lat="44.147325" lon="-68.44492"></rtept>
+    <rtept lat="44.146881" lon="-68.447015"></rtept>
+    <rtept lat="44.135988" lon="-68.442416"></rtept>
+    <rtept lat="44.119844" lon="-68.457215"></rtept>
+    <rtept lat="44.115276" lon="-68.459298"></rtept>
+    <rtept lat="44.109127" lon="-68.431106"></rtept>
+    <rtept lat="44.140653" lon="-68.389809"></rtept>
+    <rtept lat="44.165708" lon="-68.345171"></rtept>
+    <rtept lat="44.188315" lon="-68.315849"></rtept>
+    <rtept lat="44.235575" lon="-68.25959"></rtept>
+    <rtept lat="44.236814" lon="-68.259347"></rtept>
+    <rtept lat="44.23685" lon="-68.260988"></rtept>
+  </rte>
+  <rte>
+    <name>Adventure Test 5</name>
+    <rtept lat="44.260069" lon="-68.267483"></rtept>
+    <rtept lat="44.28677" lon="-68.295619"></rtept>
+    <rtept lat="44.290059" lon="-68.298501"></rtept>
+    <rtept lat="44.291431" lon="-68.298924"></rtept>
+  </rte>
+  <rte>
+    <name>Adventure Test 6</name>
+    <rtept lat="44.296815" lon="-68.281228"></rtept>
+    <rtept lat="44.292664" lon="-68.278875"></rtept>
+    <rtept lat="44.289577" lon="-68.277021"></rtept>
+    <rtept lat="44.280982" lon="-68.284319"></rtept>
+    <rtept lat="44.290029" lon="-68.304246"></rtept>
+    <rtept lat="44.307259" lon="-68.30801"></rtept>
+  </rte>
+  <rte>
+    <name>Adventure Test 7</name>
+    <rtept lat="44.361972" lon="-68.327533"></rtept>
+    <rtept lat="44.319728" lon="-68.31054"></rtept>
+    <rtept lat="44.290029" lon="-68.304246"></rtept>
+    <rtept lat="44.283044" lon="-68.293981"></rtept>
+    <rtept lat="44.26088" lon="-68.246726"></rtept>
+    <rtept lat="44.259975" lon="-68.239381"></rtept>
+  </rte>
+</gpx>

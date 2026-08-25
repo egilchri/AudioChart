@@ -1,5 +1,9 @@
 # Adventure Tests
 
+All 7 routes are also bundled as `adventure_tests.gpx` (repo root) — import
+via the Routes panel's "⬇ Import GPX" button, then "Show All" to view every
+test route on the map at once.
+
 A running log of user-submitted route tests, checked against live production
 chart data with `node test/test_route_hazard_clearance.js <route.json>`.
 Goal (user's framing): gradually eliminate as many warnings as possible.
