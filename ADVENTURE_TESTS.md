@@ -22,11 +22,13 @@ Rockland Harbor western approach → toward Fox Islands Thorofare.
 - (0.0-5.4m) at 7.25nm — leg (44.108637,-68.929255)→(44.1134,-68.923127)
 - (0.0-5.4m) at 8.36nm — leg (44.122957,-68.90324)→(44.127822,-68.886907)
 
-All three cluster around Rockland Harbor's main approach (lon -68.94 to
--68.89), which has **no channel-graph coverage** — its FAIRWY polygon
-exists in the source chart data but the medial-axis algorithm couldn't
-resolve its shape (`build_channel_graph.py` logs "SKIP unresolved medial
-axis" for Rockland Harbor Main Channel). Flagged, not yet fixed.
+**Correction (2026-08-24, after the fix landed):** the original note here
+wrongly attributed these to the "Rockland Harbor Main Channel" gap — that
+channel's real polygon is at 44.10-44.11°N, -69.10 to -69.097°W (Rockland
+Harbor itself, near the ferry terminal), not -68.94 to -68.89°W where these
+three findings actually are (near North Haven's western shore, ~10-11nm
+east of Rockland Harbor). Different location; the v422 fix does not touch
+these. Still open, uninvestigated.
 
 ## Test 2 — 2026-08-24 (v417)
 Continues from test 1's end → Fox Islands Thorofare → Stonington approach.
@@ -105,3 +107,8 @@ Starts at the real head of Somes Sound (44.361972,-68.327533, per the user)
   still open — this is the extreme-hazard-density base-router limitation
   from [[project_fallback_warning_accuracy]], deferred pending more testing
   per the user's call.
+- **Test 1's 3 shallow-area findings** (near 44.10-44.13°N, -68.94 to
+  -68.89°W, North Haven's western shore): still open, uninvestigated. NOT
+  the same location as Rockland Harbor Main Channel (44.10-44.11°N, -69.10
+  to -69.097°W) — an earlier version of this note wrongly conflated the two;
+  see the correction under Test 1 above.
