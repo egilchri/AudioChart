@@ -1,0 +1,56 @@
+{
+  "type": "FeatureCollection",
+  "properties": {
+    "note": "Hand-curated reference documents tied to a place, tap-to-open. Started with geology; category field is deliberately generic so this can extend to history, flora/fauna, etc. later. Add entries as sources are found — see AudioChart session notes for sourcing conventions."
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.2627675, 44.2493428] },
+      "properties": {
+        "title": "The Cranberry Island Series",
+        "category": "geology",
+        "place": "Cranberry Isles",
+        "excerpt": "The Cranberry Isles are built mostly of volcanic rock — tuff, felsite, and old lava flows — erupted about 380-400 million years ago along what's now the Maine coast. The rock is folded, but the Survey's own bulletin is explicit that it does not show strong metamorphism, unlike the older Ellsworth Schist found elsewhere on Mount Desert Island.",
+        "source": "Maine Geological Survey, Bulletin 38 — The Geology of Mount Desert Island",
+        "url": "https://digitalmaine.com/mgs_publications/36"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.25040954893493, 44.24790442040619] },
+      "properties": {
+        "title": "Volcanic tuff, west shore",
+        "category": "geology",
+        "place": "Great Cranberry Island",
+        "excerpt": "Extensive exposures of volcanic tuff — rock built from small fragments of volcanic debris — line the west shore. The island's southern end instead shows layered sedimentary rock with only occasional tuff beds.",
+        "source": "Maine Geological Survey, Bulletin 38 — The Geology of Mount Desert Island",
+        "url": "https://digitalmaine.com/mgs_publications/36"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.22871540911265, 44.2600897165687] },
+      "properties": {
+        "title": "Old lava flows, north-side ledges",
+        "category": "geology",
+        "place": "Little Cranberry Island",
+        "excerpt": "The ledges on the island's north side expose rock thought to be old lava flows, with a chaotic texture from continuing to move while cooling — solid blocks of rock got engulfed in still-molten lava and crystallized in place around them.",
+        "source": "Maine Geological Survey, Bulletin 38 — The Geology of Mount Desert Island",
+        "url": "https://digitalmaine.com/mgs_publications/36"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.2963998, 44.251223] },
+      "properties": {
+        "title": "Volcanic tuff, Seawall picnic area",
+        "category": "geology",
+        "place": "Seawall, Mount Desert Island",
+        "excerpt": "A well-known roadside exposure of volcanic tuff, part of the same Cranberry Island Series found across the strait — angular volcanic-debris fragments from a fraction of an inch to a few inches across are visible at the picnic ground parking area.",
+        "source": "Maine Geological Survey, Bulletin 38 — The Geology of Mount Desert Island",
+        "url": "https://digitalmaine.com/mgs_publications/36"
+      }
+    }
+  ]
+}

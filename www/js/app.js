@@ -1398,6 +1398,83 @@ function _segCrossTrack(aLon, aLat, bLon, bLat, pLon, pLat) {
   return { crossTrack: dxt, alongTrack: Math.cos(b13 - b12) >= 0 ? dat : -dat };
 }
 
+// ── Documents ─────────────────────────────────────────────────────────────────
+// Hand-curated reference material tied to a place — tap a spot on the map,
+// pick from a table of relevant documents, read a short excerpt, open the
+// full source. Deliberately generic (category field, not a geology-specific
+// shape) per explicit user direction: "not just geology, but other features
+// as well" and eventually community-contributed. Loaded once, eagerly, like
+// the other small local datasets — no offline-region complexity needed yet
+// given how few entries this starts with; the service worker's existing
+// generic network-first/cache-fallback strategy for *.geojson already makes
+// this available offline after the first successful fetch, same as every
+// other data file here.
+let _documents = [];
+fetch('./data/documents.geojson')
+  .then(r => r.json())
+  .then(d => { _documents = d.features || []; })
+  .catch(() => {});
+
+function _documentsNearPoint(lat, lon, radiusNm) {
+  const results = [];
+  for (const f of _documents) {
+    const [flon, flat] = f.geometry.coordinates;
+    const d = Query.distanceNm(lon, lat, flon, flat);
+    if (d <= radiusNm) results.push({ ...f.properties, distanceNm: d });
+  }
+  results.sort((a, b) => a.distanceNm - b.distanceNm);
+  return results;
+}
+
+function _showDocumentsNearPanel(latlng, results, radiusLabel) {
+  const panel = document.getElementById('near-point-panel');
+  const tbody = document.getElementById('npp-tbody');
+  const thead = panel.querySelector('thead tr');
+  thead.innerHTML = '<th></th><th>Title</th><th>Dist</th><th></th>';
+  document.getElementById('npp-hide-others').style.display = 'none';  // no map-visibility concept for documents
+  document.getElementById('npp-title').textContent = results.length === 0
+    ? `No documents within ${radiusLabel}`
+    : `${results.length} document${results.length > 1 ? 's' : ''} within ${radiusLabel}`;
+
+  tbody.innerHTML = results.map((r, i) => `
+    <tr class="npp-doc-row" data-idx="${i}">
+      <td>📄</td>
+      <td class="npp-row-name">${r.title}<div class="npp-doc-place">${r.place}</div></td>
+      <td>${distanceToDisplay(r.distanceNm)}</td>
+      <td><button class="npp-doc-open" type="button">Open ↗</button></td>
+    </tr>
+    <tr class="npp-doc-excerpt-row" data-idx="${i}" style="display:none">
+      <td colspan="4"><div class="npp-doc-excerpt">${r.excerpt}<div class="npp-doc-source">${r.source}</div></div></td>
+    </tr>`).join('');
+
+  const pt = _map.latLngToContainerPoint(latlng);
+  const mapRect = _map.getContainer().getBoundingClientRect();
+  panel.style.display = 'block';
+  const pw = panel.offsetWidth, ph = panel.offsetHeight;
+  const x = Math.min(mapRect.left + pt.x, window.innerWidth - pw - 4);
+  const y = Math.min(mapRect.top + pt.y, window.innerHeight - ph - 4);
+  panel.style.left = Math.max(4, x) + 'px';
+  panel.style.top = Math.max(4, y) + 'px';
+
+  // Row click toggles the excerpt open/closed; the "Open" button jumps
+  // straight to the full source instead (separate target, doesn't also
+  // toggle the excerpt — stopPropagation keeps the row click from firing too).
+  tbody.querySelectorAll('.npp-doc-row').forEach(row => {
+    const idx = row.dataset.idx;
+    const excerptRow = tbody.querySelector(`.npp-doc-excerpt-row[data-idx="${idx}"]`);
+    row.addEventListener('click', () => {
+      excerptRow.style.display = excerptRow.style.display === 'none' ? '' : 'none';
+    });
+    row.querySelector('.npp-doc-open').addEventListener('click', (e) => {
+      e.stopPropagation();
+      window.open(results[idx].url, '_blank', 'noopener');
+    });
+  });
+
+  const msg = results.length === 0 ? `No documents within ${radiusLabel}.` : `${results.length} document${results.length > 1 ? 's' : ''} within ${radiusLabel}.`;
+  setStatus(msg); TTS.sayImmediate(msg);
+}
+
 function _routesNearPoint(lat, lon, radiusNm) {
   const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
   const results = [];
@@ -1836,6 +1913,8 @@ function _showNearPointPanel(kind, latlng, results, radiusLabel) {
 
   const panel = document.getElementById('near-point-panel');
   const tbody = document.getElementById('npp-tbody');
+  panel.querySelector('thead tr').innerHTML = '<th></th><th>Name</th><th>Dist</th><th>Date</th>';
+  document.getElementById('npp-hide-others').style.display = '';
   document.getElementById('npp-title').textContent = results.length === 0
     ? `No ${label}s within ${radiusLabel}`
     : `${results.length} ${label}${results.length > 1 ? 's' : ''} within ${radiusLabel}`;
@@ -7000,6 +7079,7 @@ function _ensureMap() {
     _ctxSubmenu.style.display    = 'none';
     _routesNearSubmenu.style.display = 'none';
     _tracksNearSubmenu.style.display = 'none';
+    _documentsNearSubmenu.style.display = 'none';
     _wpSubmenu.style.display     = 'none';
     _trackSubmenu.style.display  = 'none';
     _routeSubmenu.style.display  = 'none';
@@ -7030,6 +7110,7 @@ function _ensureMap() {
   const _ctxSubmenu = document.getElementById('map-ctx-objects-submenu');
   const _routesNearSubmenu = document.getElementById('map-ctx-routes-near-submenu');
   const _tracksNearSubmenu = document.getElementById('map-ctx-tracks-near-submenu');
+  const _documentsNearSubmenu = document.getElementById('map-ctx-documents-near-submenu');
   const _wpSubmenu  = document.getElementById('map-ctx-wp-submenu');
 
   // Rebuild the dynamic waypoint rows (below the 3 static buttons)
@@ -7262,6 +7343,7 @@ function _ensureMap() {
     _ctxSubmenu.style.display    = 'none';
     _routesNearSubmenu.style.display = 'none';
     _tracksNearSubmenu.style.display = 'none';
+    _documentsNearSubmenu.style.display = 'none';
     _wpSubmenu.style.display     = 'none';
     _trackSubmenu.style.display  = 'none';
     _routeSubmenu.style.display  = 'none';
@@ -7330,6 +7412,17 @@ function _ensureMap() {
     if (!btn) return;
     _hideCtx();
     if (_ctxLatLng) _showNearPointPanel('track', _ctxLatLng, _tracksNearPoint(_ctxLatLng.lat, _ctxLatLng.lng, parseFloat(btn.dataset.radiusNm)), btn.dataset.radiusLabel);
+  });
+
+  document.getElementById('map-ctx-documents-near-parent').addEventListener('click', () => {
+    _documentsNearSubmenu.style.display = _documentsNearSubmenu.style.display === 'block' ? 'none' : 'block';
+  });
+
+  _documentsNearSubmenu.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-radius-nm]');
+    if (!btn) return;
+    _hideCtx();
+    if (_ctxLatLng) _showDocumentsNearPanel(_ctxLatLng, _documentsNearPoint(_ctxLatLng.lat, _ctxLatLng.lng, parseFloat(btn.dataset.radiusNm)), btn.dataset.radiusLabel);
   });
 
   document.getElementById('map-ctx-route-parent').addEventListener('click', () => {
