@@ -1416,7 +1416,7 @@ function _segCrossTrack(aLon, aLat, bLon, bLat, pLon, pLat) {
 let _documents = [];
 fetch('./data/documents.geojson')
   .then(r => r.json())
-  .then(d => { _documents = d.features || []; _renderDocumentMarkers(); })
+  .then(d => { _documents = d.features || []; _renderDocumentMarkers(); _renderAllIslandLabels(); })
   .catch(() => {});
 
 function _formatDocBody(text) {
@@ -1540,6 +1540,75 @@ function _renderDocumentMarkers() {
     return L.marker([lat, lon], { icon: _documentMarkerIcon(p.category) }).bindPopup(html, { maxWidth: 280, maxHeight: 380 });
   });
   _documentMarkersLayer = L.layerGroup(markers).addTo(_map);
+}
+
+// Island Info mode also gets a second, lighter tier: every island the chart
+// data itself knows the name of (Query.namedPlaces, already loaded for
+// search/lookup — reused here, no new fetch), not just the ~20 with a full
+// curated ownership/access writeup. There are hundreds of these across
+// Penobscot Bay (the server-backed dataset runs several hundred within the
+// bay alone), too many to label with text directly on the map, so per
+// explicit direction this is a click-for-name tier: a small plain dot that
+// pops its name on tap. Islands that already have a full Island Info document
+// are skipped here so they don't get a second, duller pin sitting on top
+// of their real one — matched by name AND proximity, not name alone: Maine
+// reuses island names constantly (multiple "Green Island"s, "Crow Island"s,
+// "Sheep Island"s, and "Stave Island"s all exist in different bays — hit
+// this personally while researching Island Info entries), so a documented
+// island must only suppress the dot for that SAME physical island, never
+// every same-named island in the whole bay.
+let _islandLabelsLayer = null;
+function _renderAllIslandLabels() {
+  if (_islandLabelsLayer) { _map.removeLayer(_islandLabelsLayer); _islandLabelsLayer = null; }
+  if (_mapViewMode !== 'island-info' || !_map) return;
+  const features = Query.namedPlaces?.features;
+  if (!features || !features.length) return;
+  const documented = _documents
+    .filter(f => f.properties.category === 'island-info')
+    .map(f => ({
+      name: f.properties.title.toLowerCase(),
+      lon: f.geometry.coordinates[0],
+      lat: f.geometry.coordinates[1],
+    }));
+  const DEDUP_RADIUS_NM = 2;
+  const markers = [];
+  for (const f of features) {
+    if (f.properties.label !== 'island') continue;
+    const name = f.properties.name;
+    if (!name) continue;
+    const [lon, lat] = f.geometry.coordinates;
+    const nameLower = name.toLowerCase();
+    const isDocumented = documented.some(d =>
+      d.name === nameLower && Query.distanceNm(lon, lat, d.lon, d.lat) < DEDUP_RADIUS_NM
+    );
+    if (isDocumented) continue;
+    // L.circleMarker (SVG vector layer) was tried first for this, on the
+    // theory that 300+ divIcon markers would repeat the DOM-count-blowup
+    // hazard-clustering bug — but during testing every circleMarker path
+    // came out degenerate (d="M0 0"). Root cause turned out to be a stale
+    // test-session GPS/region selection feeding Query.namedPlaces data from
+    // a completely different bay, projecting every point to an extreme
+    // off-map pixel offset — not something this circleMarker vs. divIcon
+    // choice actually controls. Kept divIcon anyway since it already proved
+    // out working and fast enough at 600+ markers once the real Penobscot
+    // Bay data was loaded (this app already renders far more DOM-heavy
+    // hazard markers without issue; the earlier blowup was about
+    // marker complexity at 600-1700 count, not a plain 8px dot at this scale).
+    markers.push(
+      L.marker([lat, lon], {
+        icon: L.divIcon({
+          className: '',
+          html: '<div style="width:8px;height:8px;border-radius:50%;background:#fff;border:1.5px solid #7c3aed"></div>',
+          iconSize: null,
+          iconAnchor: [4, 4],
+        }),
+      }).bindPopup(
+        `<div style="font-size:13px"><b>${name}</b><div style="margin-top:4px;color:#888;font-size:0.82em">No ownership/access info yet</div></div>`,
+        { maxWidth: 220 }
+      )
+    );
+  }
+  _islandLabelsLayer = L.layerGroup(markers).addTo(_map);
 }
 
 function _routesNearPoint(lat, lon, radiusNm) {
@@ -6319,6 +6388,7 @@ function _applyMapLayer() {
 
   if (_mapViewMode === 'geology-maine') _enableMaineGeologyLayer();
   _renderDocumentMarkers();
+  _renderAllIslandLabels();
   document.getElementById('history-era-banner').style.display = _mapViewMode === 'history' ? 'flex' : 'none';
   _syncMapModeTitle();
 }
@@ -6370,6 +6440,7 @@ function _ensureMap() {
   _refreshSavedRouteLayers();
   _refreshSavedTrackLayers();
   _renderDocumentMarkers();  // no-op if the documents.geojson fetch hasn't resolved yet — it'll self-render then
+  _renderAllIslandLabels();  // no-op if not in island-info mode, or if Query.namedPlaces hasn't loaded yet
 
   // Zoom slider (desktop only — hidden by CSS on mobile)
   const _zoomSlider = document.getElementById('zoom-slider');

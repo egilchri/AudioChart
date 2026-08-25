@@ -1,1 +1,1 @@
-var APP_VERSION = 'v443';
+var APP_VERSION = 'v444';

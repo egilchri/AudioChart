@@ -926,6 +926,23 @@
         },
         "source": "Sea Kayak Stonington blog, \"Hardhead & Eagle Islands\" (2012)"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.249, 44.247] },
+      "properties": {
+        "title": "Crow Island",
+        "category": "island-info",
+        "place": "Crow Island, off Great Cranberry Island",
+        "islandInfo": {
+          "ownership": "Privately owned",
+          "landTrust": null,
+          "onMaineIslandTrail": null,
+          "publicAccess": "Private; not open to the public",
+          "notes": "A small tidal islet just off Great Cranberry Island, reachable on foot only at low tide."
+        },
+        "source": "Provided directly by the island's owner"
+      }
     }
   ]
 }
