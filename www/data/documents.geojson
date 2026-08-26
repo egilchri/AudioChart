@@ -1181,6 +1181,40 @@
         },
         "source": "Islesboro Islands Trust (islesboroislandstrust.org)"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.74, 43.888] },
+      "properties": {
+        "title": "Seal Island (Penobscot Bay)",
+        "category": "island-info",
+        "place": "Seal Island, outer Penobscot Bay",
+        "islandInfo": {
+          "ownership": "Federal — Seal Island National Wildlife Refuge, established 1972, managed by the U.S. Fish & Wildlife Service in cooperation with the National Audubon Society",
+          "landTrust": null,
+          "onMaineIslandTrail": false,
+          "publicAccess": "Closed to public access year-round — not primarily for seabird protection, but because unexploded ordnance remains from Navy gunnery training during the Cold War. Commercial tour boats view the island's seabirds and seals from offshore.",
+          "notes": "65 acres, about 21 miles off Rockland — one of the most important seabird nesting islands in the Gulf of Maine (Atlantic puffins, razorbills, black guillemots, terns, Leach's storm-petrels) and a gray seal pupping site."
+        },
+        "source": "U.S. Fish & Wildlife Service — Seal Island National Wildlife Refuge (fws.gov); Wikipedia — Seal Island National Wildlife Refuge"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.11072723812633, 44.017241053652924] },
+      "properties": {
+        "title": "Tommy's Island (St. George)",
+        "category": "island-info",
+        "place": "Tommy's Island, Long Cove, St. George",
+        "islandInfo": {
+          "ownership": "Georges River Land Trust",
+          "landTrust": "Georges River Land Trust",
+          "onMaineIslandTrail": null,
+          "publicAccess": "Day use only — no hunting, no overnight camping",
+          "notes": "About 1 acre, in Long Cove across from the former Great Eastern Mussel Company site. Non-native grasses on the island are a holdover from historical sheep grazing."
+        },
+        "source": "Georges River Land Trust — Tommy's Island preserve page (georgesriver.org)"
+      }
     }
   ]
 }
