@@ -582,6 +582,25 @@ html, body {
    needing !important. */
 .leaflet-popup-pane { z-index: 5000; }
 
+/* The z-index override above still leaves popups covered by Leaflet's own
+   floating controls (compass rose, tide cycle, heading/speed readout,
+   follow-progress) — reported live via a screenshot showing the tide-cycle
+   graph and heading/speed box drawn over a popup's text. Confirmed via
+   getComputedStyle that this is structural, not a missing z-index number:
+   .leaflet-control-container's children sit outside .leaflet-map-pane's own
+   stacking context (which popups live inside, capped at z-index 400 and
+   walled off by Leaflet's pan transform) — no z-index on the popup pane can
+   escape that. See the popupopen/popupclose handlers in app.js, which toggle
+   this class on #leaflet-map instead. */
+#leaflet-map.popup-open .compass-rose-ctrl,
+#leaflet-map.popup-open .tide-cycle-ctrl,
+#leaflet-map.popup-open .heading-speed-ctrl,
+#leaflet-map.popup-open .follow-progress-ctrl {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+
 /* ── Map overlays ──────────────────────────────────────────────────────────── */
 #map-overlay-status {
   position: absolute;

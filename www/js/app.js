@@ -6592,6 +6592,28 @@ function _ensureMap() {
   });
   new _FollowProgressReadout().addTo(_map);
 
+  // Popups are supposed to "rise to the top of the stack, unimpeded" (see
+  // the .leaflet-popup-pane z-index override in app.css) — but that only
+  // ever covers other MAP content (tiles, hazard markers, land polygons):
+  // it can't win against these persistent top-corner HUD widgets. Leaflet's
+  // control-container (which .leaflet-top/.leaflet-bottom, and therefore
+  // the compass rose / tide cycle / heading-speed / follow-progress
+  // controls, live in) sits in a structurally separate always-on-top layer
+  // from .leaflet-map-pane (which popups live inside, and which is capped
+  // at z-index 400 in leaflet.css and creates its own stacking context via
+  // Leaflet's pan transform) — no z-index on the popup pane can ever let it
+  // escape above a Leaflet control. Confirmed empirically via
+  // getComputedStyle before reaching for this fix, rather than guessing at
+  // a bigger z-index number that structurally cannot work. Fading these
+  // controls out while any popup is open is the actual fix (see the
+  // #leaflet-map.popup-open rules in app.css).
+  _map.on('popupopen', () => {
+    document.getElementById('leaflet-map')?.classList.add('popup-open');
+  });
+  _map.on('popupclose', () => {
+    document.getElementById('leaflet-map')?.classList.remove('popup-open');
+  });
+
   // Redraw the "now" dot every minute (cheap — pure math against cached
   // extremes); refresh the predictions themselves only when the boat has
   // moved far enough to need a new station, or the cache has gone stale
