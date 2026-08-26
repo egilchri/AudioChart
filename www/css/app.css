@@ -582,20 +582,41 @@ html, body {
    needing !important. */
 .leaflet-popup-pane { z-index: 5000; }
 
-/* The z-index override above still leaves popups covered by Leaflet's own
-   floating controls (compass rose, tide cycle, heading/speed readout,
-   follow-progress) — reported live via a screenshot showing the tide-cycle
-   graph and heading/speed box drawn over a popup's text. Confirmed via
-   getComputedStyle that this is structural, not a missing z-index number:
-   .leaflet-control-container's children sit outside .leaflet-map-pane's own
-   stacking context (which popups live inside, capped at z-index 400 and
-   walled off by Leaflet's pan transform) — no z-index on the popup pane can
-   escape that. See the popupopen/popupclose handlers in app.js, which toggle
-   this class on #leaflet-map instead. */
-#leaflet-map.popup-open .compass-rose-ctrl,
-#leaflet-map.popup-open .tide-cycle-ctrl,
-#leaflet-map.popup-open .heading-speed-ctrl,
-#leaflet-map.popup-open .follow-progress-ctrl {
+/* The z-index override above still leaves popups covered by (a) Leaflet's
+   own floating controls (compass rose, tide cycle, heading/speed readout,
+   follow-progress) and (b) this app's own overlay chrome living outside the
+   map entirely (top button row, mode title, Global Ops title, status bar,
+   panels) — both reported live via screenshots, the second one AFTER the
+   first fix already shipped, because both categories turned out to share
+   one root cause that a bigger z-index number can't touch: everything a
+   popup needs to beat here is either (a) a sibling of .leaflet-map-pane
+   (which popups live inside — Leaflet's control-container, confirmed via
+   getComputedStyle: it sits at z-index 1000, external to map-pane's own
+   z-index-400-capped stacking context created by Leaflet's pan transform),
+   or (b) a sibling of #leaflet-map itself, one level further out (this
+   app's own buttons/banners/panels, all direct children of #map-container
+   at z-index 1000+, confirmed via DOM parentElement walk) — in neither
+   case can .leaflet-popup-pane's own z-index (scoped to its own stacking
+   context) ever escape upward past either sibling boundary.
+   Fix: fade both categories out while any popup is open, via the
+   popupopen/popupclose handlers in app.js, which toggle .popup-open on
+   #map-container (the nearest common ancestor of both categories AND
+   #leaflet-map). The blanket rule below covers every current and future
+   direct-child overlay of #map-container automatically — deliberately NOT
+   enumerated by id, after the first (enumerated, incomplete) attempt missed
+   the button row and mode title. The truly modal 9999-tier UI (right-click
+   context menu, near-point-panel) is untouched by design: both live outside
+   #map-container entirely, as direct children of <body> (confirmed via the
+   same DOM walk), so they stay above a popup if the two ever coincide. */
+#map-container.popup-open > *:not(#leaflet-map) {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+#map-container.popup-open .compass-rose-ctrl,
+#map-container.popup-open .tide-cycle-ctrl,
+#map-container.popup-open .heading-speed-ctrl,
+#map-container.popup-open .follow-progress-ctrl {
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.15s;

@@ -6594,24 +6594,25 @@ function _ensureMap() {
 
   // Popups are supposed to "rise to the top of the stack, unimpeded" (see
   // the .leaflet-popup-pane z-index override in app.css) — but that only
-  // ever covers other MAP content (tiles, hazard markers, land polygons):
-  // it can't win against these persistent top-corner HUD widgets. Leaflet's
-  // control-container (which .leaflet-top/.leaflet-bottom, and therefore
-  // the compass rose / tide cycle / heading-speed / follow-progress
-  // controls, live in) sits in a structurally separate always-on-top layer
-  // from .leaflet-map-pane (which popups live inside, and which is capped
-  // at z-index 400 in leaflet.css and creates its own stacking context via
-  // Leaflet's pan transform) — no z-index on the popup pane can ever let it
-  // escape above a Leaflet control. Confirmed empirically via
-  // getComputedStyle before reaching for this fix, rather than guessing at
-  // a bigger z-index number that structurally cannot work. Fading these
-  // controls out while any popup is open is the actual fix (see the
-  // #leaflet-map.popup-open rules in app.css).
+  // ever covers other MAP content (tiles, hazard markers, land polygons).
+  // It can't win against Leaflet's own floating controls (compass rose,
+  // tide cycle, heading/speed, follow-progress — a structurally separate
+  // always-on-top layer from .leaflet-map-pane, where popups live) OR
+  // against this app's own overlay chrome (top button row, mode title,
+  // Global Ops title, status bar, panels — all direct children of
+  // #map-container, one sibling level further out than #leaflet-map
+  // itself). Both were confirmed live via getComputedStyle / a DOM
+  // parentElement walk rather than guessed at — no z-index on the popup
+  // pane can escape either sibling boundary, so this toggles a class on
+  // #map-container instead (the nearest common ancestor of both
+  // categories) and fades them out via CSS while any popup is open. See
+  // the #map-container.popup-open rules in app.css for the full
+  // reasoning and what's deliberately excluded.
   _map.on('popupopen', () => {
-    document.getElementById('leaflet-map')?.classList.add('popup-open');
+    document.getElementById('map-container')?.classList.add('popup-open');
   });
   _map.on('popupclose', () => {
-    document.getElementById('leaflet-map')?.classList.remove('popup-open');
+    document.getElementById('map-container')?.classList.remove('popup-open');
   });
 
   // Redraw the "now" dot every minute (cheap — pure math against cached
