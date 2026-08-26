@@ -1920,38 +1920,69 @@ function _checkRouteHazards(routeIdx, silent = false) {
 
 // Fixes hazards near a single waypoint — click "Fix selected nodes" to arm
 // fix mode (stays armed, same as Delete/Overnight), then click waypoints on
-// the map one at a time; each click immediately nudges just that waypoint
-// clear of any charted rock/obstruction/wreck on one of its two adjacent
-// segments, and lights it up ('edit-vertex-selected' in _renderEditLayers)
-// so it's visibly been addressed. Deliberately per-node and immediate, not
-// a batch multi-select-then-fix — matches the existing Delete-mode
-// interaction model per explicit request ("keep deleting till we signal
-// stop... consistent with that... first click button, then start fixing
-// individual nodes"). A hazard is only fixed if THIS node is the specific
-// endpoint the nudge-math would move — if the segment's other, unclicked
-// endpoint is the nearer one, that hazard is left alone rather than moving
-// a node the user didn't click.
+// the map one at a time; each click inserts a new bypass waypoint into
+// whichever of its two adjacent segments passes within CORRIDOR of a
+// charted rock/obstruction/wreck, and lights the clicked node up
+// ('edit-vertex-selected' in _renderEditLayers) so it's visibly been
+// addressed. Deliberately per-node and immediate, not a batch multi-
+// select-then-fix — matches the existing Delete-mode interaction model
+// per explicit request ("keep deleting till we signal stop... first click
+// button, then start fixing individual nodes").
+//
+// Originally nudged whichever existing endpoint the hazard sat closer to,
+// and only if that happened to be the node clicked — found live to be a
+// real bug, not just a design choice: the ⚠ warning icon a user is
+// reacting to sits at the segment's geometric MIDPOINT (see
+// _showRouteFallbackWarning), which has no relation to which of the two
+// endpoints is nearer the hazard along the segment. Clicking the "far"
+// endpoint of a genuinely flagged segment silently did nothing — no
+// hazard was fixed, because vi (the computed nearer endpoint) didn't
+// match idx, and the only feedback was a generic "nothing to fix"
+// message easy to miss next to a visibly still-present warning triangle.
+// Confirmed via a live test with a synthetic route and a real charted
+// rock before rewriting this.
+//
+// Inserting a bypass point instead of nudging an endpoint fixes that
+// structurally: it doesn't matter which of the segment's two endpoints
+// gets clicked, since the fix targets the SEGMENT, not either endpoint —
+// and it also stops moving a waypoint the user may have placed on purpose
+// (a marina entrance, an anchorage) just because a hazard happened to be
+// nearer to it.
+//
+// Scoped to charted point-hazards only (rock/obstruction/wreck within a
+// narrow corridor of an otherwise-straight segment) — the same scope the
+// tool always had. A segment that instead crosses LAND (a different
+// fallback-warning cause — see _classifyFallbackSeg) isn't handled here:
+// a single inserted point can't safely route around an arbitrary
+// coastline the way real pathfinding (the existing Reroute button) can,
+// so that case gets a clearer message pointing at Reroute/Insert instead
+// of silently doing nothing.
 function _fixNodeHazards(idx) {
   const CORRIDOR    = 0.05;
   const SAFETY      = 0.03;
-  const MAX_DISP    = 0.15;  // nm cap per vertex move
   const DANGER_LABELS = new Set(['underwater rock','obstruction','wreck','UWTROC','OBSTRN','WRECKS']);
 
   const pts   = _editPoints;
   const feats = Query.hazards?.features || [];
   const n     = pts.length;
-  const disp  = { dlat: 0, dlon: 0 };
-  let hazardsFixed = 0;
 
   const adjSegs = [];
-  if (idx > 0)     adjSegs.push(idx - 1);  // segment (idx-1, idx)
+  if (idx > 0)      adjSegs.push(idx - 1);  // segment (idx-1, idx)
   if (idx < n - 1)  adjSegs.push(idx);      // segment (idx, idx+1)
+
+  // One entry per adjacent segment that has ≥1 hazard to bypass, holding
+  // all its bypass points sorted along the segment — collected against the
+  // ORIGINAL pts array first, applied afterward (highest segment index
+  // first) so earlier insertions never invalidate a later segment's index.
+  const bypassesBySeg = [];
+  let hazardsFixed = 0;
 
   for (const i of adjSegs) {
     const a = pts[i], b = pts[i + 1];
     const segLen = Query.distanceNm(a.lon, a.lat, b.lon, b.lat);
     if (segLen < 1e-6) continue;
     const segBearing = Query.bearing(a.lon, a.lat, b.lon, b.lat);
+    const bypassPts = [];
 
     for (const f of feats) {
       if (f.geometry.type !== 'Point') continue;
@@ -1963,22 +1994,24 @@ function _fixNodeHazards(idx) {
       const { crossTrack, alongTrack } = ct;
       if (Math.abs(crossTrack) > CORRIDOR || alongTrack < 0 || alongTrack > segLen) continue;
 
-      // Move whichever endpoint needs less displacement (see _fixNodeHazards'
-      // header comment) — only proceed if that's the node that was clicked.
-      const frac = alongTrack / segLen;
-      const vi = frac <= 0.5 ? i : i + 1;
-      if (vi !== idx) continue;
-
-      const delta       = CORRIDOR + SAFETY - Math.abs(crossTrack);
-      const bypassSign  = crossTrack >= 0 ? -1 : 1;  // move perp away from the hazard
+      // New waypoint sits at the hazard's own along-track position on the
+      // original straight segment, offset perpendicular by CORRIDOR+SAFETY
+      // — not scaled by segment length the way the old endpoint-nudge math
+      // was, since we're placing a brand new point exactly where clearance
+      // is needed rather than levering a distant endpoint to compensate.
+      const frac        = alongTrack / segLen;
+      const projLat      = a.lat + (b.lat - a.lat) * frac;
+      const projLon      = a.lon + (b.lon - a.lon) * frac;
+      const bypassSign  = crossTrack >= 0 ? -1 : 1;  // offset away from the hazard
       const perpBearing = segBearing + bypassSign * 90;
-      const denom        = frac <= 0.5 ? segLen - alongTrack : alongTrack;
-      const dNeeded       = Math.min(denom > 0.005 ? delta * segLen / denom : MAX_DISP, MAX_DISP);
-
-      const moved = _destPoint(pts[idx].lat, pts[idx].lon, perpBearing, dNeeded);
-      disp.dlat += moved.lat - pts[idx].lat;
-      disp.dlon += moved.lon - pts[idx].lon;
+      const bypass = _destPoint(projLat, projLon, perpBearing, CORRIDOR + SAFETY);
+      bypassPts.push({ alongTrack, point: bypass });
       hazardsFixed++;
+    }
+
+    if (bypassPts.length) {
+      bypassPts.sort((x, y) => x.alongTrack - y.alongTrack);
+      bypassesBySeg.push({ segIdx: i, points: bypassPts.map(bp => bp.point) });
     }
   }
 
@@ -1986,18 +2019,28 @@ function _fixNodeHazards(idx) {
 
   if (hazardsFixed === 0) {
     _renderEditLayers();
-    const msg = 'No nearby rock, obstruction, or wreck hazard to fix on this waypoint.';
+    const onLand = adjSegs.some(i => Query.landBlocks(pts[i].lon, pts[i].lat, pts[i + 1].lon, pts[i + 1].lat));
+    const msg = onLand
+      ? "This waypoint's segment crosses land, not a charted point hazard — try Reroute, or Insert a waypoint manually."
+      : 'No nearby rock, obstruction, or wreck hazard to fix on this waypoint.';
     setStatus(msg); TTS.sayImmediate(msg);
     return;
   }
 
   _pushEditHistory();
-  _editPoints[idx] = { ...pts[idx], lat: pts[idx].lat + disp.dlat, lon: pts[idx].lon + disp.dlon };
+  // Highest segIdx first so each splice's target index is still valid —
+  // an insertion at a lower segIdx shifts everything after it, including
+  // points already inserted by a higher-segIdx pass done earlier.
+  bypassesBySeg.sort((x, y) => y.segIdx - x.segIdx);
+  for (const { segIdx, points } of bypassesBySeg) {
+    _editPoints.splice(segIdx + 1, 0, ...points);
+  }
+  _selectedEditNodeIdx.clear();  // every index past the lowest insertion point just shifted
   _renderEditLayers();
   clearTimeout(_liveHazardTimer);
   _liveHazardTimer = setTimeout(_liveHazardCheck, 300);
 
-  const msg = `Fixed ${hazardsFixed} hazard${hazardsFixed > 1 ? 's' : ''} near this waypoint.`;
+  const msg = `Fixed ${hazardsFixed} hazard${hazardsFixed > 1 ? 's' : ''} near this waypoint — added ${hazardsFixed > 1 ? 'bypass waypoints' : 'a bypass waypoint'}.`;
   setStatus(msg); TTS.sayImmediate(msg);
 }
 
