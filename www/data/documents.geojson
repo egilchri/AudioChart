@@ -1215,6 +1215,23 @@
         },
         "source": "Georges River Land Trust — Tommy's Island preserve page (georgesriver.org)"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.94576740868413, 44.27321216677957] },
+      "properties": {
+        "title": "Warren Island (Islesboro)",
+        "category": "island-info",
+        "place": "Warren Island State Park, Islesboro",
+        "islandInfo": {
+          "ownership": "State-owned — Maine Bureau of Parks and Lands (Dept. of Agriculture, Conservation and Forestry). Maine acquired the island for $1 in 1958 and made it a state park the same year.",
+          "landTrust": null,
+          "onMaineIslandTrail": null,
+          "publicAccess": "Open to the public — a full state-park campground, not a land-trust preserve. 12 campsites plus 2 Adirondack shelters, fresh drinking water, and a pier with docking on the eastern shore; moorings for larger boats available first-come-first-served ($20/night). Reserve campsites through CampWithME.com. Boat access only — no ferry.",
+          "notes": "70 acres, about half a mile off Islesboro and roughly 3 miles from the mainland near Lincolnville. Hiking trails cover the island."
+        },
+        "source": "Wikipedia — Warren Island State Park; Maine Bureau of Parks and Lands (maine.gov/warrenisland)"
+      }
     }
   ]
 }
