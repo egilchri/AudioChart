@@ -1232,6 +1232,40 @@
         },
         "source": "Wikipedia — Warren Island State Park; Maine Bureau of Parks and Lands (maine.gov/warrenisland)"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.05006285861496, 44.20204581975184] },
+      "properties": {
+        "title": "Curtis Island (Camden)",
+        "category": "island-info",
+        "place": "Curtis Island, Camden Harbor",
+        "islandInfo": {
+          "ownership": "Town of Camden — the U.S. Coast Guard transferred the lighthouse to the town in 1972 (after Camden residents lobbied against it being auctioned to a private buyer); the town took full ownership and designated the island a public park",
+          "landTrust": null,
+          "onMaineIslandTrail": null,
+          "publicAccess": "Public park, day use — walking paths open to the public, but the lighthouse and caretaker's house are not open. No dock; land by dinghy or paddle craft and scramble ashore.",
+          "notes": "At the mouth of Camden Harbor. Formerly called Mark Island, then Negro Island (from around 1768), renamed for publisher Cyrus H. K. Curtis in 1934."
+        },
+        "source": "Wikipedia — Curtis Island (Maine); Curtis Island Lighthouse Foundation (curtisisland.org)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.21194577961741, 44.052154370229] },
+      "properties": {
+        "title": "Sears Island (Searsport)",
+        "category": "island-info",
+        "place": "Sears Island, Searsport",
+        "islandInfo": {
+          "ownership": "State of Maine owns the island; Maine Coast Heritage Trust holds a perpetual conservation easement (signed 2009) over 600 of its 940 acres, with the remaining 340 acres left open for possible future port development",
+          "landTrust": "Maine Coast Heritage Trust (easement over 600 acres, not fee ownership)",
+          "onMaineIslandTrail": null,
+          "publicAccess": "Day use — hiking, biking, walking (Friends of Sears Island manages public access to the easement area); no camping or overnight mooring documented. Connected to the mainland by a causeway with year-round vehicle access to a parking area, though vehicles can't drive onto the island itself past that point.",
+          "notes": "One of the largest undeveloped islands on the U.S. Eastern Seaboard. A roughly 1-mile road plus additional trails cross open fields, mixed forest, wetlands, and shoreline."
+        },
+        "source": "Wikipedia — Sears Island; Friends of Sears Island"
+      }
     }
   ]
 }
