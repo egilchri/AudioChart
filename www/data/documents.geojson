@@ -1266,6 +1266,30 @@
         },
         "source": "Wikipedia — Sears Island; Friends of Sears Island"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.8822088, 44.1598321] },
+      "properties": {
+        "title": "The fishing village that filled Pulpit Harbor",
+        "category": "history",
+        "era": "industrial",
+        "place": "Pulpit Harbor, North Haven",
+        "body": "People owned land around Pulpit Harbor as early as 1764, but the village didn't reach its peak until the second half of the nineteenth century, when it was the commercial, religious, and social center of North Haven. An 1898 Rockland Courier-Gazette reporter counted 25 or 30 houses scattered along the shore, with farms behind producing butter, eggs, and berries for local tables. At its height the harbor held two fish processing plants, four mills, a post office, five stores, boat shops, and a school — Roscoe Babbidge's store stood where the town landing sits today, and fishermen traded dried fish there for rum brought up from the Caribbean. A dozen or so two-masted mackerel schooners worked out of the harbor at the fishery's peak.\n\nThe decline set in around 1900. The mackerel fishery dropped off sharply, and steam power was replacing sail up and down the coast — Pulpit Harbor's deep, protected water had been valuable specifically because it suited sailing vessels, and that advantage mattered less once steamships could pass safely through the Thoroughfare instead. The sawmill and gristmill at the head of Mill Stream closed, the wood trade that had supplied the mainland lime kilns ceased, and families began moving away or relocating to the Thoroughfare village. Hanson Crockett's store housed the Pulpit Harbor post office starting in 1903, with his wife Meribah serving as postmaster until it finally closed in 1932 — by then most of the old farmland around the harbor had passed to summer residents.",
+        "source": "North Haven Historical Society — \"Pulpit Harbor: The Old Village\" (northhavenmainehistoricalsociety.org)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.1089, 44.1034] },
+      "properties": {
+        "title": "How a lime-quarrying boom built Rockland Harbor",
+        "category": "history",
+        "era": "industrial",
+        "place": "Rockland Harbor",
+        "body": "Rockland didn't start with that name. European settlers first called this stretch of shore Lermond's Cove, after John Lermond and his brothers, who set up a lumber operation here in 1767; it became known as Shore Village when Thomaston was incorporated in 1777, then East Thomaston when it was set off as its own town in 1848. The town took the name Rockland in 1850, a direct nod to the limestone cliffs that were about to define its economy for the next century.\n\nLimestone quarried from the hills behind town was burned into lime in kilns lined up along the harbor itself, then shipped out in watertight casks to build the mortar and plaster of cities up and down the East Coast. By 1854 Rockland was operating twelve quarries and 125 lime kilns and had become the country's leading lime producer; by 1886 the industry employed over a thousand workers and more than 300 vessels carried the lime to market. Shipbuilding grew up right alongside it — in 1854 alone Rockland's yards launched eleven ships, three barks, six brigs, and four schooners. Between 1881 and 1900 the Army Corps of Engineers built the Rockland Breakwater specifically to protect this harbor and the industry crowded around it, a nearly mile-long stone arm that still reaches out into the bay today.\n\nThe lime industry that built the harbor didn't disappear overnight, but it did eventually run its course: the last of Rockland's kilns went dark in 1958.",
+        "source": "Wikipedia — Rockland, Maine"
+      }
     }
   ]
 }
