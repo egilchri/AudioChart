@@ -453,6 +453,7 @@ window.addEventListener('beforeinstallprompt', e => {
 // DOM elements
 const textForm = document.getElementById('text-form');
 const textInput = document.getElementById('text-input');
+const commandPicker = document.getElementById('command-picker');
 const statusEl = document.getElementById('status-text');
 const positionEl = document.getElementById('position-display');
 const responseEl  = document.getElementById('response-text');
@@ -9397,6 +9398,25 @@ if (textForm) {
     if (!text) return;
     textInput.value = '';
     handleCommand(text);
+  });
+}
+
+// Command reference picker — user asked for this directly ("I can't
+// remember the commands"): picking an option fills its template into
+// #text-input for editing, same click-to-populate-don't-submit pattern
+// already used by the recent-commands history pills (see renderHistory
+// below). Any [bracketed] placeholder in the template gets pre-selected
+// so typing immediately overwrites it instead of requiring a manual
+// select-then-type step.
+if (commandPicker) {
+  commandPicker.addEventListener('change', () => {
+    if (!commandPicker.value) return;
+    textInput.value = commandPicker.value;
+    textInput.focus();
+    const m = commandPicker.value.match(/\[[^\]]*\]/);
+    if (m) textInput.setSelectionRange(m.index, m.index + m[0].length);
+    else textInput.setSelectionRange(textInput.value.length, textInput.value.length);
+    commandPicker.value = '';  // reset to the placeholder so the same option fires `change` again next time
   });
 }
 

@@ -135,6 +135,41 @@
           <p id="response-text"></p>
           <div id="navaid-list"></div>
         </div>
+        <select id="command-picker" title="Pick a command to fill into the box below, then edit and send it" aria-label="Command reference">
+          <option value="" selected>&#128203; Command reference&hellip;</option>
+          <optgroup label="Position &amp; Bearings">
+            <option value="where am I">where am I</option>
+            <option value="bearing to [place]">bearing to [place]</option>
+            <option value="bearing to [lat, lon]">bearing to [lat, lon]</option>
+            <option value="focus on [place]">focus on [place]</option>
+            <option value="clear focus">clear focus</option>
+            <option value="bearing">bearing (repeats last query)</option>
+            <option value="fix [landmark 1] [bearing 1] [landmark 2] [bearing 2]">fix [landmark 1] [bearing 1] [landmark 2] [bearing 2]</option>
+          </optgroup>
+          <optgroup label="Hazards &amp; Safety">
+            <option value="nearest hazard">nearest hazard</option>
+            <option value="hazards within [distance]">hazards within [distance]</option>
+            <option value="hazards from [place] to [place]">hazards from [place] to [place]</option>
+            <option value="hazards along [route name]">hazards along [route name]</option>
+            <option value="nearest restriction">nearest restriction</option>
+            <option value="what's the depth">what's the depth</option>
+          </optgroup>
+          <optgroup label="Navaids">
+            <option value="nearest buoy">nearest buoy</option>
+            <option value="buoys within [distance]">buoys within [distance]</option>
+            <option value="buoys bearing [bearing] +- [tolerance]">buoys bearing [bearing] +- [tolerance]</option>
+          </optgroup>
+          <optgroup label="Places &amp; Waypoints">
+            <option value="nearest island">nearest island</option>
+            <option value="list my waypoints">list my waypoints</option>
+            <option value="delete waypoint [name]">delete waypoint [name]</option>
+          </optgroup>
+          <optgroup label="Status &amp; Help">
+            <option value="offline status">offline status</option>
+            <option value="land data">land data</option>
+            <option value="what can you find">what can you find</option>
+          </optgroup>
+        </select>
         <form id="text-form" autocomplete="off">
           <input id="text-input" type="text" placeholder="Type a command&hellip;" aria-label="Text command input">
           <button type="submit" id="text-submit" title="Send this command">&#9654;</button>

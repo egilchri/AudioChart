@@ -547,15 +547,19 @@ html, body {
   left: 50%;
   transform: translateX(-50%);
   z-index: 1000;
-  font-size: 0.95rem;
-  font-weight: 700;
+  /* Bumped up from 0.95rem/700 weight/1px border — reported as not
+     standing out enough. Position (top: 92px) is untouched: that
+     offset was specifically tuned live to clear #map-overlay-status
+     in its 2-row wrapped state, a different problem from prominence. */
+  font-size: 1.2rem;
+  font-weight: 800;
   letter-spacing: 0.02em;
   color: var(--text);
-  background: rgba(15, 35, 70, 0.82);
-  border: 1px solid var(--mid-blue);
+  background: rgba(15, 35, 70, 0.92);
+  border: 2px solid var(--accent);
   border-radius: 8px;
-  padding: 3px 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+  padding: 5px 16px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.7);
   pointer-events: none;
   white-space: nowrap;
   max-width: 90vw;
@@ -683,6 +687,12 @@ html, body {
 }
 
 #map-overlay-cmd #text-input {
+  background: rgba(26, 58, 92, 0.92);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+#map-overlay-cmd #command-picker {
   background: rgba(26, 58, 92, 0.92);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
@@ -2454,6 +2464,25 @@ html, body {
   font-family: monospace;
   word-break: break-all;
 }
+
+/* Command reference picker — sits above #text-form, same width, same
+   dark-theme treatment as #text-input. Picking an option fills its
+   template into #text-input for editing (see the change handler in
+   app.js) rather than submitting directly, matching the existing
+   .history-pill click-to-populate pattern used for recent commands. */
+#command-picker {
+  flex-shrink: 0;
+  width: 100%;
+  background: var(--dark-blue);
+  border: 1px solid var(--mid-blue);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 0.85rem;
+  padding: 8px 10px;
+  outline: none;
+  -webkit-appearance: none;
+}
+#command-picker:focus { border-color: var(--accent); }
 
 /* Text input */
 #text-form {
