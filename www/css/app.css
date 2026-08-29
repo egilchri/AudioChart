@@ -122,12 +122,23 @@ html, body {
   cursor: pointer;
   white-space: nowrap;
 }
-#offline-btn:hover, #route-btn:hover, #test-pos-btn:hover, #track-rec-btn:hover, #wake-lock-btn:hover, #clear-screen-btn:hover, #rearrange-btn:hover { border-color: var(--accent); color: var(--text); }
+#offline-btn:hover, #route-btn:hover, #test-pos-btn:hover, #track-rec-btn:hover, #wake-lock-btn:hover, #anchor-watch-btn:hover, #anchor-watch-silence-btn:hover, #clear-screen-btn:hover, #rearrange-btn:hover { border-color: var(--accent); color: var(--text); }
 #offline-btn:disabled, #route-btn:disabled { opacity: 0.5; cursor: default; }
 #test-pos-btn.test-active { border-color: var(--danger); color: var(--danger); background: #2a0a0a; font-weight: 700; }
 #test-pos-btn.test-active:hover { border-color: var(--danger); color: #ff8080; background: #3a0a0a; }
 #wake-lock-btn.wake-active { border-color: var(--ok); color: var(--ok); background: #0a2a16; }
 #wake-lock-btn.wake-active:hover { border-color: #2a8b4c; color: #6aeea0; background: #0f3a1e; }
+/* Anchor Watch — armed uses the same "actively monitoring, could alarm" red
+   convention as Track recording; alarming pulses brighter via .anchor-alarming. */
+#anchor-watch-btn.anchor-armed { border-color: var(--danger); color: var(--danger); background: #2a0a0a; font-weight: 700; }
+#anchor-watch-btn.anchor-armed:hover { border-color: var(--danger); color: #ff8080; background: #3a0a0a; }
+#anchor-watch-btn.anchor-alarming { animation: anchor-btn-pulse 1s ease-in-out infinite; }
+#anchor-watch-silence-btn { border-color: var(--warn); color: var(--warn); background: #2a1e08; font-weight: 700; }
+#anchor-watch-silence-btn:hover { border-color: var(--warn); color: #ffcf70; background: #3a2a0a; }
+@keyframes anchor-btn-pulse {
+  0%, 100% { background: #2a0a0a; }
+  50% { background: #6a1414; }
+}
 
 /* Focus (bearing/range readout) button — the most-tapped control while underway,
    so it's deliberately much bigger than its status-bar neighbors: a generous,
@@ -234,6 +245,46 @@ html, body {
   white-space: nowrap;
 }
 #test-pos-clear { background: #4a1a1a; color: var(--danger); }
+
+/* Anchor Watch radius-entry row */
+#anchor-watch-form { display: flex; flex-direction: column; gap: 6px; }
+#anchor-watch-label { font-size: 0.78rem; color: var(--text-dim); }
+#anchor-watch-row { display: flex; gap: 6px; align-items: center; }
+#anchor-watch-radius {
+  width: 70px;
+  background: var(--dark-blue);
+  border: 1px solid var(--mid-blue);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.9rem;
+  padding: 6px 8px;
+  outline: none;
+  -webkit-appearance: none;
+}
+#anchor-watch-radius:focus { border-color: var(--accent); }
+#anchor-watch-start, #anchor-watch-cancel {
+  background: var(--mid-blue);
+  border: none;
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.8rem;
+  padding: 6px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+#anchor-watch-cancel { background: #4a1a1a; color: var(--danger); }
+#anchor-watch-note { font-size: 0.72rem; color: var(--text-dim); font-style: italic; }
+
+/* The anchor watch radius circle drawn on the map — dashed blue while armed,
+   pulsing red (via CSS animation on the SVG path, not JS) while alarming. */
+.anchor-watch-circle { pointer-events: none; }
+.anchor-watch-circle.anchor-watch-alarming {
+  animation: anchor-circle-pulse 1s ease-in-out infinite;
+}
+@keyframes anchor-circle-pulse {
+  0%, 100% { stroke: var(--danger); fill: var(--danger); fill-opacity: 0.06; }
+  50% { stroke: var(--danger); fill: var(--danger); fill-opacity: 0.4; }
+}
 
 /* Position display */
 #position-display {
@@ -642,6 +693,14 @@ html, body {
   width: 100%;
   display: flex;
   gap: 6px;
+  background: rgba(10, 22, 40, 0.92);
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--mid-blue);
+}
+
+#map-overlay-status #anchor-watch-form {
+  width: 100%;
   background: rgba(10, 22, 40, 0.92);
   padding: 8px;
   border-radius: 8px;

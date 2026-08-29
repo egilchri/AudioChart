@@ -477,6 +477,12 @@ const opencpnBtn = document.getElementById('opencpn-btn');
 const focusBtn = document.getElementById('focus-btn');
 const trackRecBtn = document.getElementById('track-rec-btn');
 const wakeLockBtn = document.getElementById('wake-lock-btn');
+const anchorWatchBtn = document.getElementById('anchor-watch-btn');
+const anchorWatchSilenceBtn = document.getElementById('anchor-watch-silence-btn');
+const anchorWatchForm = document.getElementById('anchor-watch-form');
+const anchorWatchRadiusInput = document.getElementById('anchor-watch-radius');
+const anchorWatchStartBtn = document.getElementById('anchor-watch-start');
+const anchorWatchCancelBtn = document.getElementById('anchor-watch-cancel');
 const clearScreenBtn = document.getElementById('clear-screen-btn');
 
 function _updateFocusButton() {
@@ -937,6 +943,26 @@ let _maineGeologyFetchToken = 0;
 let _wakeLockEnabled  = localStorage.getItem('audiochart-wake-lock') !== 'false'; // on by default
 let _wakeLockSentinel = null;   // the live WakeLockSentinel, or null when not currently held
 let _wakeLockWarned   = false;  // suppresses repeated warnings for the same ongoing failure
+
+// ── Anchor Watch state ───────────────────────────────────────────────────────
+const ANCHOR_WATCH_KEY = 'audiochart-anchor-watch'; // {armed, lat, lon, radiusFt, armedAtMs}
+const ANCHOR_OUTSIDE_DEBOUNCE_MS = 30 * 1000;  // must stay outside continuously this long before alarming
+const ANCHOR_RETRIGGER_MS = 5 * 60 * 1000;     // re-alarm after this long silenced if still outside
+const ANCHOR_CHECK_THROTTLE_MS = 5 * 1000;     // don't re-check distance more than once per this
+const FT_PER_NM = 6076.12;
+let _anchorWatchArmed    = false;
+let _anchorLat           = null;
+let _anchorLon           = null;
+let _anchorRadiusFt      = Number(localStorage.getItem('audiochart-anchor-radius-ft')) || 150;
+let _anchorArmedAtMs     = null;
+let _anchorLastCheckMs   = 0;
+let _anchorOutsideSinceMs = null; // set the moment a check finds us outside the radius; cleared when back inside
+let _anchorAlarmActive   = false;
+let _anchorSilencedUntilMs = null;
+let _anchorWakeLockForcedOn = false; // true if arming Anchor Watch is what turned the wake lock on
+let _anchorWatchLayer    = null;
+let _anchorAudioCtx      = null;
+let _anchorOscStopFn     = null;
 let _animReportLayer   = null;
 let _animMilestoneLayer = null;
 let _animFollowMode = false;
@@ -9590,6 +9616,235 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') _requestWakeLock();
 });
 
+// ── Anchor Watch ──────────────────────────────────────────────────────────────
+// Piggybacks on the single shared GPS callback (see _checkAnchorWatch, called
+// from the same place Track recording samples fixes) rather than opening a
+// second geolocation watch or a setInterval poller — the only new per-tick
+// cost is one haversine distance call, occasionally followed by redrawing one
+// L.circle. Reliability, not the monitoring itself, is the real resource
+// question: this only runs while the screen is on and the tab is foregrounded
+// (see _requestWakeLock above), a hard platform limit with no workaround, so
+// arming it forces the wake lock on and says so plainly.
+
+function _renderAnchorWatchCircle() {
+  if (_anchorWatchLayer) { _map.removeLayer(_anchorWatchLayer); _anchorWatchLayer = null; }
+  if (!_anchorWatchArmed || !_map) return;
+  _anchorWatchLayer = L.circle([_anchorLat, _anchorLon], {
+    radius: (_anchorRadiusFt / FT_PER_NM) * 1852,
+    className: 'anchor-watch-circle',
+    color: '#4a9edd',
+    weight: 2,
+    dashArray: '6 6',
+    fillColor: '#4a9edd',
+    fillOpacity: 0.08,
+  }).addTo(_map);
+  if (_anchorAlarmActive) _anchorWatchLayer.getElement()?.classList.add('anchor-watch-alarming');
+}
+
+function _updateAnchorWatchButton() {
+  if (!anchorWatchBtn) return;
+  anchorWatchBtn.textContent = _anchorWatchArmed ? '⚓ Armed' : '⚓ Anchor Watch';
+  anchorWatchBtn.title = _anchorWatchArmed
+    ? `Watching ${_anchorRadiusFt} ft radius — tap to disarm`
+    : 'Watch for anchor drag — alarms if you stray past a set radius';
+  anchorWatchBtn.classList.toggle('anchor-armed', _anchorWatchArmed);
+  anchorWatchBtn.classList.toggle('anchor-alarming', _anchorAlarmActive);
+  anchorWatchSilenceBtn.style.display = _anchorAlarmActive ? 'inline-block' : 'none';
+}
+
+function _playAnchorAlarmTone() {
+  if (_anchorOscStopFn) return; // already playing
+  try {
+    if (!_anchorAudioCtx) _anchorAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = _anchorAudioCtx;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'square';
+    gain.gain.value = 0.25;
+    osc.connect(gain).connect(ctx.destination);
+    osc.start();
+    let high = true;
+    const toggle = setInterval(() => {
+      high = !high;
+      osc.frequency.setValueAtTime(high ? 1200 : 800, ctx.currentTime);
+    }, 400);
+    _anchorOscStopFn = () => {
+      clearInterval(toggle);
+      osc.stop();
+      osc.disconnect(); gain.disconnect();
+    };
+  } catch (err) {
+    console.warn('[anchor watch] tone failed:', err);
+  }
+}
+
+function _stopAnchorAlarmTone() {
+  if (_anchorOscStopFn) { _anchorOscStopFn(); _anchorOscStopFn = null; }
+}
+
+function _triggerAnchorAlarm() {
+  _anchorAlarmActive = true;
+  _anchorSilencedUntilMs = null;
+  _playAnchorAlarmTone();
+  navigator.vibrate?.([400, 200, 400, 200, 400]);
+  const msg = `Anchor alarm — dragging outside the ${_anchorRadiusFt} ft watch radius.`;
+  setStatus(msg); TTS.sayImmediate(msg);
+  _updateAnchorWatchButton();
+  _anchorWatchLayer?.getElement()?.classList.add('anchor-watch-alarming');
+}
+
+function _clearAnchorAlarm() {
+  _anchorAlarmActive = false;
+  _anchorSilencedUntilMs = null;
+  _stopAnchorAlarmTone();
+  _updateAnchorWatchButton();
+  _anchorWatchLayer?.getElement()?.classList.remove('anchor-watch-alarming');
+}
+
+function _anchorWatchSave() {
+  if (_anchorWatchArmed) {
+    localStorage.setItem(ANCHOR_WATCH_KEY, JSON.stringify({
+      armed: true, lat: _anchorLat, lon: _anchorLon,
+      radiusFt: _anchorRadiusFt, armedAtMs: _anchorArmedAtMs,
+    }));
+  } else {
+    localStorage.removeItem(ANCHOR_WATCH_KEY);
+  }
+}
+
+function _armAnchorWatch(lat, lon, radiusFt) {
+  _anchorWatchArmed = true;
+  _anchorLat = lat;
+  _anchorLon = lon;
+  _anchorRadiusFt = radiusFt;
+  _anchorArmedAtMs = Date.now();
+  _anchorOutsideSinceMs = null;
+  localStorage.setItem('audiochart-anchor-radius-ft', String(radiusFt));
+  _anchorWatchSave();
+  if (!_wakeLockEnabled) {
+    _anchorWakeLockForcedOn = true;
+    _wakeLockEnabled = true;
+    localStorage.setItem('audiochart-wake-lock', 'true');
+    _updateWakeLockButton();
+    _requestWakeLock();
+  }
+  _renderAnchorWatchCircle();
+  _updateAnchorWatchButton();
+  const msg = `Anchor watch armed — ${radiusFt} ft radius. Keep the screen on for it to work.`;
+  setStatus(msg); TTS.sayImmediate(msg);
+}
+
+function _disarmAnchorWatch() {
+  _anchorWatchArmed = false;
+  _clearAnchorAlarm();
+  _anchorOutsideSinceMs = null;
+  _anchorWatchSave();
+  if (_anchorWakeLockForcedOn) {
+    _anchorWakeLockForcedOn = false;
+    _wakeLockEnabled = false;
+    localStorage.setItem('audiochart-wake-lock', 'false');
+    _updateWakeLockButton();
+    _releaseWakeLock();
+  }
+  _renderAnchorWatchCircle();
+  _updateAnchorWatchButton();
+  const msg = 'Anchor watch disarmed.';
+  setStatus(msg); TTS.sayImmediate(msg);
+}
+
+function _silenceAnchorAlarm() {
+  _stopAnchorAlarmTone();
+  navigator.vibrate?.(0);
+  _anchorSilencedUntilMs = Date.now() + ANCHOR_RETRIGGER_MS;
+  // Keep _anchorAlarmActive true — still armed and still outside the radius,
+  // just muted; _checkAnchorWatch re-triggers automatically after the cooldown.
+  _updateAnchorWatchButton();
+  setStatus('Anchor alarm silenced — still watching.');
+}
+
+// Called from the shared GPS callback on every fix; throttled internally so
+// it costs nothing on fixes that arrive faster than ANCHOR_CHECK_THROTTLE_MS.
+function _checkAnchorWatch(lat, lon) {
+  if (!_anchorWatchArmed) return;
+  const now = Date.now();
+  if (now - _anchorLastCheckMs < ANCHOR_CHECK_THROTTLE_MS) return;
+  _anchorLastCheckMs = now;
+
+  const distNm = Query.distanceNm(_anchorLon, _anchorLat, lon, lat);
+  const outside = distNm * FT_PER_NM > _anchorRadiusFt;
+
+  if (!outside) {
+    _anchorOutsideSinceMs = null;
+    if (_anchorAlarmActive) _clearAnchorAlarm();
+    return;
+  }
+
+  if (_anchorOutsideSinceMs === null) _anchorOutsideSinceMs = now;
+  const continuouslyOutsideMs = now - _anchorOutsideSinceMs;
+
+  if (!_anchorAlarmActive) {
+    if (continuouslyOutsideMs >= ANCHOR_OUTSIDE_DEBOUNCE_MS) _triggerAnchorAlarm();
+  } else if (_anchorSilencedUntilMs !== null && now >= _anchorSilencedUntilMs) {
+    _triggerAnchorAlarm(); // re-alarm after a silence cooldown, still outside
+  }
+}
+
+function _recoverAnchorWatch() {
+  const raw = localStorage.getItem(ANCHOR_WATCH_KEY);
+  if (!raw) return;
+  try {
+    const { armed, lat, lon, radiusFt, armedAtMs } = JSON.parse(raw);
+    if (!armed || lat == null || lon == null) return;
+    _anchorWatchArmed = true;
+    _anchorLat = lat;
+    _anchorLon = lon;
+    _anchorRadiusFt = radiusFt || _anchorRadiusFt;
+    _anchorArmedAtMs = armedAtMs || Date.now();
+    _renderAnchorWatchCircle();
+    _updateAnchorWatchButton();
+    const mins = Math.round((Date.now() - _anchorArmedAtMs) / 60000);
+    setStatus(`Resumed anchor watch from before reload — armed ${mins} min ago, ${_anchorRadiusFt} ft radius.`);
+  } catch (_) {
+    localStorage.removeItem(ANCHOR_WATCH_KEY);
+  }
+}
+
+function _closeAnchorWatchForm() {
+  anchorWatchForm.style.display = 'none';
+}
+
+anchorWatchBtn?.addEventListener('click', () => {
+  if (_anchorWatchArmed) { _disarmAnchorWatch(); return; }
+  const isOpen = anchorWatchForm.style.display !== 'none';
+  if (isOpen) { _closeAnchorWatchForm(); return; }
+  anchorWatchRadiusInput.value = _anchorRadiusFt;
+  anchorWatchForm.style.display = 'flex';
+});
+
+anchorWatchStartBtn?.addEventListener('click', () => {
+  const pos = GPS.getPosition();
+  if (!pos) {
+    setStatus('No position fix yet — cannot arm anchor watch.');
+    return;
+  }
+  const radiusFt = Math.max(20, Number(anchorWatchRadiusInput.value) || 150);
+  _closeAnchorWatchForm();
+  _armAnchorWatch(pos.lat, pos.lon, radiusFt);
+});
+
+anchorWatchCancelBtn?.addEventListener('click', () => _closeAnchorWatchForm());
+
+anchorWatchSilenceBtn?.addEventListener('click', () => _silenceAnchorAlarm());
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && anchorWatchForm.style.display !== 'none') _closeAnchorWatchForm();
+});
+document.addEventListener('click', (e) => {
+  if (anchorWatchForm.style.display === 'none') return;
+  if (anchorWatchForm.contains(e.target) || anchorWatchBtn.contains(e.target)) return;
+  _closeAnchorWatchForm();
+}, { capture: true });
+
 function _recoverInProgressTrack() {
   const raw = localStorage.getItem(IN_PROGRESS_TRACK_KEY);
   if (!raw) return;
@@ -9892,6 +10147,7 @@ async function init() {
     _ensureMap();
     _map.invalidateSize();
     _initRearrangeGroups();
+    _recoverAnchorWatch();
   }).catch(() => {});
 
   // If opened via QR code with ?server=, persist the server URL and clean the address bar.
@@ -9969,6 +10225,7 @@ async function init() {
       showPosition(lat, lon, accuracy, source);
       _refreshYouLayer();
       _updateFocusRay();
+      _checkAnchorWatch(lat, lon);
       if (source === 'manual') {
         _lastFixForHeading = null; // don't let a teleport corrupt the next real fallback calc
         _updateHeadingRay(lat, lon, null, null);

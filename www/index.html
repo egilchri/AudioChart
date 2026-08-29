@@ -115,6 +115,8 @@
         <button id="focus-btn" title="No focus set">&#127919; --</button>
         <button id="track-rec-btn" title="Record a GPS track">&#9679; Track</button>
         <button id="wake-lock-btn" title="Keep screen awake while using AudioChart" style="display:none">&#9728;&#65039; Awake</button>
+        <button id="anchor-watch-btn" title="Watch for anchor drag — alarms if you stray past a set radius">&#9875; Anchor Watch</button>
+        <button id="anchor-watch-silence-btn" title="Silence the anchor alarm (stays armed)" style="display:none">&#128263; Silence</button>
         <button id="clear-screen-btn" title="Hide all routes/tracks and clear query results from the map">&#129529; Clear Screen</button>
         <button id="rearrange-btn" title="Move buttons and panels around the screen">&#10021; Rearrange</button>
         <div id="cruise-form" style="display:none">
@@ -125,6 +127,15 @@
           <input id="test-pos-input" type="text" placeholder="Camden  or  Crow Island, Cranberry Isles" autocomplete="off">
           <button id="test-pos-set" title="Move the boat's position to the place or coordinates you typed, for testing without a GPS fix">Set</button>
           <button id="test-pos-clear" title="Clear the test position and resume using the real GPS fix">Clear</button>
+        </div>
+        <div id="anchor-watch-form" style="display:none">
+          <span id="anchor-watch-label">Watch radius, centered on your current position:</span>
+          <div id="anchor-watch-row">
+            <input id="anchor-watch-radius" type="number" min="20" max="2000" step="10" value="150" inputmode="numeric"> ft
+            <button id="anchor-watch-start" title="Arm the anchor watch at your current position">Start</button>
+            <button id="anchor-watch-cancel" title="Cancel">Cancel</button>
+          </div>
+          <span id="anchor-watch-note">Keeps the screen awake — needs to stay on and in front to work.</span>
         </div>
       </div>
 
