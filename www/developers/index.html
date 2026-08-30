@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AudioChart — for developers</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #F6F5F1;
+    --ink: #10181F;
+    --ink-dim: #4B5A63;
+    --blueprint: #0E3A5C;
+    --blueprint-deep: #082638;
+    --cyan: #7EC8E3;
+    --cyan-dim: rgba(126,200,227,0.35);
+    --brass: #C08A3E;
+    --line: rgba(16,24,31,0.12);
+    --white: #F2F6F5;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Inter', sans-serif;
+    font-size: 16.5px;
+    line-height: 1.65;
+  }
+
+  h1, h2, h3 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+
+  .mono { font-family: 'IBM Plex Mono', monospace; }
+  a { color: inherit; }
+  code {
+    font-family: 'IBM Plex Mono', monospace;
+    background: rgba(16,24,31,0.06);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 0.9em;
+  }
+
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 32px; }
+
+  /* ===== NAV ===== */
+  .topnav {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(246,245,241,0.92);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+  }
+  .topnav-inner {
+    max-width: 1080px; margin: 0 auto; padding: 16px 32px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .brand {
+    font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 18px;
+    display: flex; align-items: center; gap: 9px;
+  }
+  .brand .mark {
+    width: 8px; height: 8px; background: var(--blueprint);
+    transform: rotate(45deg);
+  }
+  .nav-links { display: flex; align-items: center; gap: 24px; font-size: 14px; }
+  .nav-links a.plain { color: var(--ink-dim); text-decoration: none; font-weight: 500; }
+  .nav-cta {
+    font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 13.5px;
+    background: var(--blueprint); color: var(--white);
+    padding: 9px 16px; border-radius: 3px; text-decoration: none;
+  }
+
+  /* ===== HERO ===== */
+  .hero { padding: 80px 0 60px; }
+  .eyebrow {
+    font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.06em;
+    color: var(--blueprint); text-transform: uppercase; margin-bottom: 16px;
+  }
+  .hero h1 { font-size: 46px; line-height: 1.1; max-width: 18ch; margin-bottom: 18px; }
+  .hero p.lede { font-size: 18px; color: var(--ink-dim); max-width: 58ch; margin-bottom: 30px; }
+  .cta-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 40px; }
+  .btn-primary {
+    background: var(--blueprint); color: var(--white); font-weight: 600; font-size: 14.5px;
+    padding: 13px 22px; border-radius: 3px; text-decoration: none;
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .btn-secondary {
+    border: 1px solid var(--ink); color: var(--ink); font-weight: 500; font-size: 14.5px;
+    padding: 12px 20px; border-radius: 3px; text-decoration: none;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  /* Facts strip */
+  .facts {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  }
+  .fact { padding: 20px 4px; border-right: 1px solid var(--line); }
+  .fact:last-child { border-right: none; }
+  .fact .num { font-family: 'IBM Plex Mono', monospace; font-size: 22px; font-weight: 600; color: var(--blueprint); display: block; }
+  .fact .label { font-size: 12.5px; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 4px; display: block; }
+
+  /* ===== SECTION SCAFFOLD ===== */
+  section { padding: 76px 0; }
+  .section-head { max-width: 640px; margin-bottom: 44px; }
+  .section-head h2 { font-size: 30px; margin-bottom: 12px; }
+  .section-head p { color: var(--ink-dim); font-size: 16px; }
+  .tag {
+    font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--brass); margin-bottom: 10px; display: block;
+  }
+
+  /* ===== ARCHITECTURE (blueprint band) ===== */
+  .blueprint-band { background: var(--blueprint-deep); color: var(--white); }
+  .blueprint-band .section-head p { color: rgba(242,246,245,0.6); }
+  .blueprint-band .tag { color: var(--cyan); }
+
+  .pipeline {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+    position: relative;
+    margin-top: 8px;
+  }
+  .pipe-node {
+    border: 1px solid var(--cyan-dim);
+    background: rgba(126,200,227,0.04);
+    padding: 24px 20px;
+    position: relative;
+  }
+  .pipe-node:not(:first-child) { border-left: none; }
+  .pipe-node .step {
+    font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--cyan);
+    display: block; margin-bottom: 10px;
+  }
+  .pipe-node h3 {
+    font-size: 17px; font-weight: 500; color: var(--white); margin-bottom: 8px;
+  }
+  .pipe-node p { font-size: 13.5px; color: rgba(242,246,245,0.55); margin: 0; line-height: 1.55; }
+  .pipe-node .dir {
+    position: absolute; top: 50%; right: -1px; transform: translate(50%,-50%);
+    width: 18px; height: 18px; background: var(--blueprint-deep);
+    border: 1px solid var(--cyan-dim); border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--cyan); font-size: 11px; z-index: 2;
+  }
+  .pipe-node:last-child .dir { display: none; }
+
+  /* ===== DOCS ===== */
+  .docs-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px;
+    background: var(--line); border: 1px solid var(--line);
+  }
+  .doc-card {
+    background: var(--paper); padding: 26px 28px;
+    text-decoration: none; color: var(--ink);
+    display: block;
+    transition: background 0.15s ease;
+  }
+  .doc-card:hover { background: rgba(14,58,92,0.04); }
+  .doc-card .fname {
+    font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--blueprint);
+    display: block; margin-bottom: 8px;
+  }
+  .doc-card h3 { font-size: 16.5px; font-weight: 600; margin-bottom: 6px; }
+  .doc-card p { font-size: 14px; color: var(--ink-dim); margin: 0; }
+
+  /* ===== BUILT WITH CLAUDE ===== */
+  .collab {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center;
+  }
+  .collab-visual {
+    border: 1px solid var(--line); border-radius: 6px; padding: 28px;
+    background: var(--white);
+  }
+  .commit-row {
+    display: flex; align-items: baseline; gap: 12px; padding: 9px 0;
+    border-bottom: 1px solid var(--line); font-family: 'IBM Plex Mono', monospace; font-size: 13px;
+  }
+  .commit-row:last-child { border-bottom: none; }
+  .commit-row .hash { color: var(--brass); }
+  .commit-row .who { color: var(--ink-dim); font-size: 12px; white-space: nowrap; }
+  .commit-row .msg { color: var(--ink); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ===== GET STARTED ===== */
+  .code-block {
+    background: var(--blueprint-deep); color: var(--white);
+    border-radius: 6px; padding: 24px 26px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 14px;
+    line-height: 1.8; overflow-x: auto;
+  }
+  .code-block .comment { color: rgba(242,246,245,0.4); }
+  .code-block .prompt { color: var(--cyan); }
+
+  /* ===== FOOTER ===== */
+  footer {
+    border-top: 1px solid var(--line); padding: 32px 0;
+    font-size: 13.5px; color: var(--ink-dim);
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;
+  }
+  footer a { text-decoration: none; font-weight: 500; }
+
+  @media (max-width: 860px) {
+    .wrap { padding: 0 20px; }
+    .hero h1 { font-size: 34px; }
+    .facts { grid-template-columns: repeat(2, 1fr); }
+    .pipeline { grid-template-columns: 1fr; }
+    .pipe-node:not(:first-child) { border-left: 1px solid var(--cyan-dim); border-top: none; }
+    .pipe-node .dir { top: auto; bottom: -1px; right: 50%; transform: translate(50%,50%) rotate(90deg); }
+    .docs-grid { grid-template-columns: 1fr; }
+    .collab { grid-template-columns: 1fr; }
+  }
+
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  :focus-visible { outline: 2px solid var(--blueprint); outline-offset: 2px; }
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="topnav-inner">
+    <div class="brand"><span class="mark"></span> AudioChart / dev</div>
+    <div class="nav-links">
+      <a class="plain" href="#architecture">Architecture</a>
+      <a class="plain" href="#docs">Docs</a>
+      <a class="nav-cta" href="https://github.com/egilchri/AudioChart">github.com/egilchri/AudioChart</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="eyebrow">Open source · MIT licensed</span>
+    <h1>Nautical charts, spoken aloud.</h1>
+    <p class="lede">AudioChart is a voice-interface PWA that reads nautical chart data — bearings, hazards, buoys — aloud, and keeps working fully offline once charts are downloaded. The code is public; here's how it's put together.</p>
+    <div class="cta-row">
+      <a class="btn-primary" href="https://github.com/egilchri/AudioChart">View source →</a>
+      <a class="btn-secondary" href="https://egilchri.github.io/AudioChart/">Try the live app</a>
+    </div>
+  </div>
+  <div class="wrap">
+    <div class="facts">
+      <div class="fact"><span class="num">578</span><span class="label">Commits</span></div>
+      <div class="fact"><span class="num">MIT</span><span class="label">License</span></div>
+      <div class="fact"><span class="num">PWA</span><span class="label">Offline-first</span></div>
+      <div class="fact"><span class="num">2</span><span class="label">Contributors</span></div>
+    </div>
+  </div>
+</header>
+
+<section class="blueprint-band" id="architecture">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="tag">Architecture</span>
+      <h2>Chart data in, spoken bearings out.</h2>
+      <p>The repo is organized as a pipeline: raw chart data is prepared once, served to clients, and consumed by an installable offline web app.</p>
+    </div>
+    <div class="pipeline">
+      <div class="pipe-node">
+        <span class="step">01</span>
+        <h3>preprocess/</h3>
+        <p>Prepares raw nautical chart data — buoys, hazards, depths, coastline — into the format the app consumes.</p>
+        <div class="dir">→</div>
+      </div>
+      <div class="pipe-node">
+        <span class="step">02</span>
+        <h3>server/</h3>
+        <p>Backend service that fronts the prepared chart data for the client.</p>
+        <div class="dir">→</div>
+      </div>
+      <div class="pipe-node">
+        <span class="step">03</span>
+        <h3>www/</h3>
+        <p>The installable PWA — map, voice output, offline chart caching, and the on-screen controls.</p>
+        <div class="dir">→</div>
+      </div>
+      <div class="pipe-node">
+        <span class="step">04</span>
+        <h3>.github/workflows/</h3>
+        <p>CI that builds and deploys the app to GitHub Pages on every push to main.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="docs">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="tag">Documentation</span>
+      <h2>Start here before diving into code.</h2>
+      <p>The repo keeps its own history and design decisions in plain markdown.</p>
+    </div>
+    <div class="docs-grid">
+      <a class="doc-card" href="https://github.com/egilchri/AudioChart/blob/main/SPEC.md">
+        <span class="fname">SPEC.md</span>
+        <h3>Architecture &amp; feature specs</h3>
+        <p>Design specs for features, including the region pipeline and app structure.</p>
+      </a>
+      <a class="doc-card" href="https://github.com/egilchri/AudioChart/blob/main/CHANGELOG.md">
+        <span class="fname">CHANGELOG.md</span>
+        <h3>Full version history</h3>
+        <p>Generated from git history — every notable change, in order.</p>
+      </a>
+      <a class="doc-card" href="https://github.com/egilchri/AudioChart/blob/main/RECENT_CHANGES.md">
+        <span class="fname">RECENT_CHANGES.md</span>
+        <h3>What's changed lately</h3>
+        <p>A rolling summary of recent versions, easier to skim than the full changelog.</p>
+      </a>
+      <a class="doc-card" href="https://github.com/egilchri/AudioChart/blob/main/ADVENTURE_TESTS.md">
+        <span class="fname">ADVENTURE_TESTS.md</span>
+        <h3>End-to-end test routes</h3>
+        <p>Real-world GPX test routes used to validate navigation and voice output.</p>
+      </a>
+      <a class="doc-card" href="https://github.com/egilchri/AudioChart/blob/main/COMMITS.md">
+        <span class="fname">COMMITS.md</span>
+        <h3>Commit history log</h3>
+        <p>A running log of development history alongside the chart data itself.</p>
+      </a>
+      <a class="doc-card" href="https://github.com/egilchri/AudioChart/tree/main/test">
+        <span class="fname">test/</span>
+        <h3>Test suite</h3>
+        <p>Automated tests backing the chart pipeline and app behavior.</p>
+      </a>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="section-head">
+      <span class="tag">Get started</span>
+      <h2>Clone it and read the spec.</h2>
+      <p>The fastest way in is the repo itself — SPEC.md covers the architecture in more depth than any landing page will.</p>
+    </div>
+    <div class="code-block">
+<span class="comment"># clone the repo</span><br>
+<span class="prompt">$</span> git clone https://github.com/egilchri/AudioChart.git<br>
+<span class="prompt">$</span> cd AudioChart<br>
+<br>
+<span class="comment"># start with the spec and folder layout</span><br>
+<span class="prompt">$</span> open SPEC.md
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="section-head">
+      <span class="tag">How it's built</span>
+      <h2>Developed in the open, with Claude Code.</h2>
+      <p>AudioChart's commit history is a mix of human and AI-authored changes — a live look at what iterating on a real app with Claude Code looks like over hundreds of commits.</p>
+    </div>
+    <div class="collab">
+      <div>
+        <p style="color: var(--ink-dim); font-size: 15.5px;">Every feature, fix, and chart region added to AudioChart is tracked in the open — from the original offline-PWA groundwork to the latest chart data fixes. Browse the commit log to see the app's actual development process, not just the finished product.</p>
+      </div>
+      <div class="collab-visual">
+        <div class="commit-row"><span class="hash">971e341</span><span class="msg">Make document-marker popups scrollable (v437)</span><span class="who">egilchri + claude</span></div>
+        <div class="commit-row"><span class="hash">a4f21c9</span><span class="msg">Fix Rockland Harbor Main Channel: Voronoi artifact loop</span><span class="who">egilchri + claude</span></div>
+        <div class="commit-row"><span class="hash">7b3e05d</span><span class="msg">Add a parameterized new-region pipeline (v391)</span><span class="who">egilchri + claude</span></div>
+        <div class="commit-row"><span class="hash">2c88f11</span><span class="msg">Add adventure_tests.gpx — all 7 Adventure Test routes</span><span class="who">egilchri + claude</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; width:100%;">
+    <span>MIT Licensed · Public repository</span>
+    <div style="display:flex; gap:20px;">
+      <a href="../sailors/">⚓ For sailors →</a>
+      <a href="https://github.com/egilchri/AudioChart">github.com/egilchri/AudioChart</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

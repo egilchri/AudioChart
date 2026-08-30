@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AudioChart — Voice-driven nautical safety</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #0F2438;
+    --navy-deep: #0A1826;
+    --paper: #EDE6D6;
+    --paper-dim: #E2D9C4;
+    --brass: #C08A3E;
+    --brass-bright: #D9A455;
+    --teal: #2E6B6B;
+    --hazard: #B23A2E;
+    --ink: #1B2A33;
+    --cream: #F7F1E3;
+    --line: rgba(27,42,51,0.14);
+    --line-on-navy: rgba(247,241,227,0.16);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Inter', sans-serif;
+    font-size: 17px;
+    line-height: 1.6;
+  }
+
+  h1, h2, h3 {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    margin: 0;
+    color: inherit;
+  }
+
+  .mono {
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  a { color: inherit; }
+
+  .wrap {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 32px;
+  }
+
+  /* Background chart texture */
+  .chart-bg {
+    background-image:
+      repeating-linear-gradient(0deg, rgba(27,42,51,0.05) 0px, rgba(27,42,51,0.05) 1px, transparent 1px, transparent 64px),
+      repeating-linear-gradient(90deg, rgba(27,42,51,0.05) 0px, rgba(27,42,51,0.05) 1px, transparent 1px, transparent 64px);
+  }
+
+  /* ===== NAV ===== */
+  .topnav {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: rgba(237,230,214,0.92);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+  }
+  .topnav-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 16px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .brand {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 20px;
+    letter-spacing: 0.01em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .brand .mark {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border: 2px solid var(--brass);
+    border-radius: 50%;
+    position: relative;
+  }
+  .brand .mark::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 1px; height: 6px;
+    background: var(--brass);
+    transform: translate(-50%, -100%);
+  }
+  .nav-cta {
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    background: var(--navy);
+    color: var(--cream);
+    padding: 10px 20px;
+    border-radius: 3px;
+    text-decoration: none;
+    letter-spacing: 0.01em;
+  }
+
+  /* ===== HERO ===== */
+  .hero {
+    padding: 88px 0 96px;
+  }
+  .hero-grid {
+    display: grid;
+    grid-template-columns: 1.05fr 0.95fr;
+    gap: 56px;
+    align-items: center;
+  }
+  .eyebrow {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    color: var(--teal);
+    text-transform: uppercase;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .eyebrow::before {
+    content: '';
+    width: 24px;
+    height: 1px;
+    background: var(--teal);
+  }
+  .hero h1 {
+    font-size: 52px;
+    line-height: 1.08;
+    letter-spacing: -0.01em;
+    margin-bottom: 22px;
+  }
+  .hero h1 em {
+    font-style: italic;
+    color: var(--brass);
+  }
+  .hero p.lede {
+    font-size: 19px;
+    line-height: 1.55;
+    color: #3A4A52;
+    max-width: 46ch;
+    margin-bottom: 32px;
+  }
+  .cta-row {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .btn-primary {
+    background: var(--navy);
+    color: var(--cream);
+    font-weight: 600;
+    font-size: 15px;
+    padding: 15px 26px;
+    border-radius: 3px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: background 0.15s ease;
+  }
+  .btn-primary:hover { background: var(--navy-deep); }
+  .btn-secondary {
+    border: 1px solid var(--ink);
+    color: var(--ink);
+    font-weight: 600;
+    font-size: 15px;
+    padding: 14px 24px;
+    border-radius: 3px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* Hero chart illustration */
+  .hero-chart {
+    background: var(--navy);
+    border-radius: 6px;
+    aspect-ratio: 4/3.4;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 24px 60px -20px rgba(15,36,56,0.5);
+  }
+  .hero-chart svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .bearing-callout {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    right: 20px;
+    background: rgba(10,24,38,0.92);
+    border: 1px solid var(--line-on-navy);
+    border-radius: 4px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    backdrop-filter: blur(4px);
+  }
+  .bearing-callout .speaker {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    background: var(--brass);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 14px;
+  }
+  .bearing-callout .txt {
+    color: var(--cream);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13.5px;
+    line-height: 1.4;
+  }
+  .bearing-callout .txt .big { font-size: 15px; font-weight: 500; }
+  .bearing-callout .txt .dim { color: rgba(247,241,227,0.55); }
+
+  /* ===== SECTION SCAFFOLD ===== */
+  section { padding: 84px 0; }
+  .section-head { max-width: 640px; margin-bottom: 52px; }
+  .section-head h2 { font-size: 34px; letter-spacing: -0.01em; margin-bottom: 14px; }
+  .section-head p { font-size: 17px; color: #3A4A52; }
+  .tag {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--brass);
+    margin-bottom: 12px;
+    display: block;
+  }
+
+  /* ===== FEATURES ===== */
+  .feature-band { background: var(--navy); color: var(--cream); }
+  .feature-band .section-head p { color: rgba(247,241,227,0.65); }
+  .feature-band .tag { color: var(--brass-bright); }
+  .features {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--line-on-navy);
+    border: 1px solid var(--line-on-navy);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .feature {
+    background: var(--navy);
+    padding: 32px 28px;
+  }
+  .feature .deg {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: var(--brass);
+    margin-bottom: 16px;
+    display: block;
+  }
+  .feature h3 {
+    font-family: 'Fraunces', serif;
+    font-size: 20px;
+    font-weight: 500;
+    margin-bottom: 10px;
+    color: var(--cream);
+  }
+  .feature p {
+    color: rgba(247,241,227,0.62);
+    font-size: 15px;
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  /* ===== DEMO ===== */
+  .demo-frame {
+    background: var(--navy-deep);
+    border-radius: 6px;
+    aspect-ratio: 16/8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    border: 1px solid var(--line);
+    background-image: repeating-linear-gradient(90deg, rgba(247,241,227,0.03) 0px, rgba(247,241,227,0.03) 1px, transparent 1px, transparent 40px);
+  }
+  .demo-frame .play {
+    width: 68px; height: 68px;
+    border-radius: 50%;
+    background: var(--brass);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 0 14px rgba(192,138,62,0.12);
+  }
+  .demo-frame .play::after {
+    content: '';
+    width: 0; height: 0;
+    border-top: 11px solid transparent;
+    border-bottom: 11px solid transparent;
+    border-left: 18px solid var(--navy-deep);
+    margin-left: 4px;
+  }
+  .demo-note {
+    text-align: center;
+    color: rgba(247,241,227,0.5);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    margin-top: 18px;
+  }
+
+  /* ===== ROUTES SECTION ===== */
+  .routes-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 28px;
+  }
+  .route-card {
+    background: var(--cream);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 30px;
+  }
+  .route-card .deg { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--teal); display: block; margin-bottom: 14px; }
+  .route-card h3 { font-size: 21px; margin-bottom: 10px; }
+  .route-card p { color: #3A4A52; font-size: 15.5px; margin: 0; }
+  .flow-diagram {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 20px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    color: var(--ink);
+    flex-wrap: wrap;
+  }
+  .flow-diagram .node {
+    border: 1px solid var(--ink);
+    padding: 6px 12px;
+    border-radius: 3px;
+    background: var(--paper);
+  }
+  .flow-diagram .arrow { color: var(--brass); font-size: 16px; }
+
+  .bridge-note {
+    margin-top: 40px;
+    border-left: 3px solid var(--brass);
+    padding: 4px 0 4px 22px;
+    max-width: 74ch;
+  }
+  .bridge-note p { margin: 0; color: #3A4A52; font-size: 16px; line-height: 1.65; }
+  .bridge-note .label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--brass);
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  /* ===== INSTALL ===== */
+  .install-band { background: var(--paper-dim); }
+  .install-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+  }
+  .install-card {
+    background: var(--cream);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 28px;
+  }
+  .install-card .platform {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--teal);
+    margin-bottom: 16px;
+    display: block;
+  }
+  .install-card ol {
+    margin: 0;
+    padding-left: 20px;
+    font-size: 15px;
+    color: var(--ink);
+  }
+  .install-card li { margin-bottom: 10px; }
+  .install-card li:last-child { margin-bottom: 0; }
+  .install-tip {
+    margin-top: 16px;
+    font-size: 13.5px;
+    color: var(--hazard);
+    font-weight: 600;
+  }
+
+  /* ===== FOOTER ===== */
+  footer {
+    background: var(--navy);
+    color: rgba(247,241,227,0.5);
+    padding: 40px 0;
+    font-size: 13.5px;
+    font-family: 'IBM Plex Mono', monospace;
+    text-align: center;
+  }
+
+  @media (max-width: 860px) {
+    .hero-grid { grid-template-columns: 1fr; }
+    .hero h1 { font-size: 38px; }
+    .features { grid-template-columns: 1fr; }
+    .install-grid { grid-template-columns: 1fr; }
+    .routes-grid { grid-template-columns: 1fr; }
+    .wrap { padding: 0 20px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--brass);
+    outline-offset: 2px;
+  }
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="topnav-inner">
+    <div class="brand"><span class="mark"></span> AudioChart</div>
+    <a class="nav-cta" href="https://egilchri.github.io/AudioChart/">Open the app</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="eyebrow">A full chart plotter, with a voice</span>
+      <h1>Everything you expect from a chart app — <em>now it talks.</em></h1>
+      <p class="lede">AudioChart works like the navigation app you already know: full charts, routes, and plotting. The difference is everything important is spoken aloud too — range and bearing to a waypoint, a tally of hazards on a new route — while it's still right there on the screen.</p>
+      <div class="cta-row">
+        <a class="btn-primary" href="https://egilchri.github.io/AudioChart/">⚓ Install AudioChart</a>
+        <a class="btn-secondary" href="#demo">▶ Watch a demo</a>
+      </div>
+    </div>
+    <div class="hero-chart">
+      <svg viewBox="0 0 400 340" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <pattern id="grid" width="34" height="34" patternUnits="userSpaceOnUse">
+            <path d="M 34 0 L 0 0 0 34" fill="none" stroke="rgba(247,241,227,0.06)" stroke-width="1"/>
+          </pattern>
+        </defs>
+        <rect width="400" height="340" fill="url(#grid)"/>
+        <path d="M 20 60 Q 120 20 180 90 Q 240 160 340 140" fill="none" stroke="rgba(46,107,107,0.5)" stroke-width="1.5"/>
+        <path d="M 10 140 Q 100 110 170 160 Q 260 210 380 190" fill="none" stroke="rgba(46,107,107,0.35)" stroke-width="1.5"/>
+        <path d="M 40 250 Q 130 220 220 250 Q 300 275 370 250" fill="none" stroke="rgba(46,107,107,0.25)" stroke-width="1.5"/>
+        <path d="M 50 250 L 130 190 L 190 150 L 260 110 L 330 80" fill="none" stroke="#C08A3E" stroke-width="2.5" stroke-dasharray="1 8" stroke-linecap="round"/>
+        <circle cx="50" cy="250" r="5" fill="#F7F1E3"/>
+        <circle cx="130" cy="190" r="4" fill="#F7F1E3" opacity="0.8"/>
+        <circle cx="190" cy="150" r="4" fill="#F7F1E3" opacity="0.8"/>
+        <circle cx="260" cy="110" r="4" fill="#F7F1E3" opacity="0.8"/>
+        <circle cx="330" cy="80" r="6" fill="#B23A2E"/>
+        <circle cx="330" cy="80" r="10" fill="none" stroke="#B23A2E" stroke-width="1" opacity="0.5"/>
+        <g transform="translate(112,192)">
+          <circle r="9" fill="none" stroke="#C08A3E" stroke-width="1.5"/>
+          <line x1="0" y1="-9" x2="0" y2="9" stroke="#C08A3E" stroke-width="1"/>
+          <line x1="-9" y1="0" x2="9" y2="0" stroke="#C08A3E" stroke-width="1"/>
+        </g>
+      </svg>
+      <div class="bearing-callout">
+        <div class="speaker">🔊</div>
+        <div class="txt">
+          <div class="big">090°M — 1.2 nm to Rockland Breakwater</div>
+          <div class="dim">On the chart, and spoken aloud.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section class="feature-band">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="tag">What it does</span>
+      <h2>A real chart plotter. Audio is the extra layer.</h2>
+      <p>Nothing about the chart goes away — AudioChart just adds a voice on top of it.</p>
+    </div>
+    <div class="features">
+      <div class="feature">
+        <span class="deg">180°</span>
+        <h3>Range &amp; bearing, seen and heard</h3>
+        <p>Distance and heading to any waypoint — shown on the chart the way you'd expect, and spoken aloud when your eyes are elsewhere.</p>
+      </div>
+      <div class="feature">
+        <span class="deg">090°</span>
+        <h3>Hazards, tallied out loud</h3>
+        <p>Draw a new route and hazards along it show up on the chart as usual — plus a spoken tally, so you know the count without staring at the screen.</p>
+      </div>
+      <div class="feature">
+        <span class="deg">270°</span>
+        <h3>Fully offline underway</h3>
+        <p>Download your sailing area while you've got Wi‑Fi at the dock. Once you're out of range, the app — chart and voice both — doesn't know the difference.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="demo">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="tag">See it in action</span>
+      <h2>A minute on the water.</h2>
+      <p>A short walkthrough of setting a target, hearing a bearing, and sailing a route offline.</p>
+    </div>
+    <div class="demo-frame">
+      <div class="play"></div>
+    </div>
+    <p class="demo-note">Demo video coming soon</p>
+  </div>
+</section>
+
+<section id="routes">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="tag">Routes</span>
+      <h2>Plan on one device. Sail from another.</h2>
+      <p>A route built at the chart table doesn't need to stay there.</p>
+    </div>
+    <div class="routes-grid">
+      <div class="route-card">
+        <span class="deg">Desktop → Phone</span>
+        <h3>Build it where it's comfortable</h3>
+        <p>Lay out a route on the bigger screen at home, then send it straight to the phone or tablet that's coming aboard.</p>
+        <div class="flow-diagram">
+          <span class="node">Plan a route</span>
+          <span class="arrow">→</span>
+          <span class="node">Share</span>
+          <span class="arrow">→</span>
+          <span class="node">Sail it</span>
+        </div>
+      </div>
+      <div class="route-card">
+        <span class="deg">Any platform</span>
+        <h3>Sharing works both ways</h3>
+        <p>Any route made in AudioChart — on any device — can be shared to another. Plan on the dock, hand it to the crew, or sync it to yourself.</p>
+        <div class="flow-diagram">
+          <span class="node">Device A</span>
+          <span class="arrow">⇄</span>
+          <span class="node">Device B</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="bridge-note">
+      <span class="label">Coming from Navionics</span>
+      <p>Already have routes in Navionics? Import them straight into AudioChart today — no need to rebuild anything from scratch. As routes planned directly in AudioChart get proven out on the water, the goal is to lean on Navionics less and less, until your charts and routes live in one place.</p>
+    </div>
+  </div>
+</section>
+
+<section class="install-band">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="tag">Get it installed</span>
+      <h2>Set it up before you leave the dock.</h2>
+      <p>AudioChart installs like any app — no App Store required. Do this while you've still got Wi‑Fi.</p>
+    </div>
+    <div class="install-grid">
+      <div class="install-card">
+        <span class="platform">iPhone / iPad</span>
+        <ol>
+          <li>Open <span class="mono">egilchri.github.io/AudioChart</span> in Safari.</li>
+          <li>Tap the <strong>Share</strong> button at the bottom of the screen.</li>
+          <li>Tap <strong>Add to Home Screen</strong>.</li>
+        </ol>
+        <p class="install-tip">Must use Safari — not Chrome — for this to work on iOS.</p>
+      </div>
+      <div class="install-card">
+        <span class="platform">Android</span>
+        <ol>
+          <li>Open <span class="mono">egilchri.github.io/AudioChart</span> in Chrome.</li>
+          <li>Tap the <strong>⋮</strong> menu in the top right.</li>
+          <li>Tap <strong>Add to Home Screen</strong>, then confirm.</li>
+        </ol>
+      </div>
+      <div class="install-card">
+        <span class="platform">Desktop</span>
+        <ol>
+          <li>Open <span class="mono">egilchri.github.io/AudioChart</span> in Chrome or Edge.</li>
+          <li>Click the install icon in the address bar (or the browser menu).</li>
+          <li>Confirm — it opens in its own window from then on.</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; width:100%;">
+    <span>⚓ AudioChart — voice-driven nautical safety</span>
+    <a href="../developers/" style="color: rgba(247,241,227,0.65); text-decoration: none; font-weight: 600;">Developer docs →</a>
+  </div>
+</footer>
+
+</body>
+</html>

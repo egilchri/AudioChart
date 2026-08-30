@@ -1,4 +1,4 @@
-/** @version v138 */
+/** @version v139 */
 /**
  * AudioChart Service Worker — offline caching.
  *
@@ -66,6 +66,15 @@ self.addEventListener('fetch', (event) => {
         headers: { ...Object.fromEntries(event.request.headers), 'ngrok-skip-browser-warning': '1' },
       }));
     }
+    return;
+  }
+
+  // Static marketing landing pages (/sailors/, /developers/) sit alongside the
+  // app under this same origin/scope but aren't part of it — leave them alone
+  // entirely rather than let the app's networkFirst() cache them into
+  // audiochart-${APP_VERSION} or, worse, serve the app's own offline-fallback
+  // index.html for them if a visitor is offline and hasn't loaded them before.
+  if (url.pathname.startsWith('/sailors/') || url.pathname.startsWith('/developers/')) {
     return;
   }
 
