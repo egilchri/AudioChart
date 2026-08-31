@@ -1997,7 +1997,7 @@ body.wco-active #wco-titlebar { display: flex; }
   flex-shrink: 0;
   border-top: 2px solid #f5a623;
 }
-#route-dest-cancel-btn {
+#route-dest-name-btn, #route-dest-cancel-btn {
   background: rgba(245,166,35,0.15);
   color: #f5a623;
   border: 1px solid #f5a623;

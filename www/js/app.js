@@ -2922,27 +2922,28 @@ _drawUsePositionBtn.addEventListener('click', () => {
   _onDrawClick(L.latLng(pos.lat, pos.lon));
 });
 
-_drawNameDestBtn.addEventListener('click', () => {
-  const query = prompt('Destination — place or waypoint name:');
-  if (!query || !query.trim()) return;
+// Resolves a typed place/waypoint name to a destination point — shared by
+// Draw Route's own "Name" button and the Location-tile/right-click "Route
+// from here" pending-destination flow (see route-dest-name-btn below).
+// Gazetteer entries are often positioned on the landmass itself (a town or
+// island label), not the water someone means when naming it as a
+// destination — move onto the nearest confirmed water before dropping the
+// point, preferring a real nearby harbor/anchorage/mooring over the literal
+// closest wet pixel (see Query.findWaterNear).
+function _resolveNamedDestination(query) {
   const place = Query.findPlaceByName(query.trim());
   if (!place) {
     const msg = `Couldn't find "${query.trim()}".`;
     setStatus(msg); TTS.sayImmediate(msg);
-    return;
+    return null;
   }
-  // Gazetteer entries are often positioned on the landmass itself (a town or
-  // island label), not the water someone means when naming it as a
-  // destination — move onto the nearest confirmed water before dropping the
-  // point, preferring a real nearby harbor/anchorage/mooring over the literal
-  // closest wet pixel (see Query.findWaterNear).
   let dest = place;
   if (Query.isLandAt(place.lon, place.lat)) {
     const water = Query.findWaterNear(place.lon, place.lat);
     if (!water) {
       const msg = `${place.name} is on land and no nearby water was found — pick a spot on the map instead.`;
       setStatus(msg); TTS.sayImmediate(msg);
-      return;
+      return null;
     }
     dest = { lat: water.lat, lon: water.lon, name: place.name };
     // A name that's already a water-feature term ("York Harbor", "Blue Hill
@@ -2958,6 +2959,14 @@ _drawNameDestBtn.addEventListener('click', () => {
       setStatus(msg); TTS.sayImmediate(msg);
     }
   }
+  return dest;
+}
+
+_drawNameDestBtn.addEventListener('click', () => {
+  const query = prompt('Destination — place or waypoint name:');
+  if (!query || !query.trim()) return;
+  const dest = _resolveNamedDestination(query);
+  if (!dest) return;
   _onDrawClick(L.latLng(dest.lat, dest.lon));
 });
 _drawConfirmBtn.addEventListener('click', _onDrawConfirm);
@@ -8100,6 +8109,13 @@ function _ensureMap() {
     _routeDestBannerLabel.textContent = `Tap the map to set the destination for "${_autoRouteName}"`;
     _routeDestBanner.style.display = 'flex';
   }
+  document.getElementById('route-dest-name-btn').addEventListener('click', () => {
+    const query = prompt('Destination — place or waypoint name:');
+    if (!query || !query.trim()) return;
+    const dest = _resolveNamedDestination(query);
+    if (!dest) return;
+    _setRouteDestination(dest.lat, dest.lon);
+  });
   document.getElementById('route-dest-cancel-btn').addEventListener('click', () => {
     const name = _autoRouteName;
     _clearAutoRoute();
