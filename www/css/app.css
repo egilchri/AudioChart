@@ -93,12 +93,14 @@ html, body {
 }
 
 .status-badge {
+  display: inline-block;
   font-size: 0.7rem;
   font-weight: 600;
   padding: 3px 8px;
   border-radius: 10px;
   background: var(--dark-blue);
   color: var(--text-dim);
+  white-space: nowrap;
 }
 
 .status-badge.gps-ok { background: #1a4a1a; color: var(--ok); }
@@ -587,26 +589,6 @@ html, body {
   cursor: pointer;
 }
 
-/* Folded into #map-overlay-status (v460) so it no longer costs its own row
-   of map real estate — was a separately-floating, absolutely-positioned
-   badge parked below the status bar specifically to avoid colliding with
-   it. Kept visually distinct (accent border, bold) within the bar rather
-   than shrunk to a plain .status-badge, since it was deliberately bumped up
-   in prominence earlier at the user's request. */
-#map-mode-title {
-  font-size: 0.85rem;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  color: var(--text);
-  background: rgba(15, 35, 70, 0.92);
-  border: 2px solid var(--accent);
-  border-radius: 10px;
-  padding: 2px 10px;
-  white-space: nowrap;
-  max-width: 40vw;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 #history-era-banner {
   display: flex;
   flex-wrap: wrap;

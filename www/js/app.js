@@ -531,8 +531,7 @@ const positionEl = document.getElementById('position-display');
 const responseEl  = document.getElementById('response-text');
 const responseAreaEl = document.getElementById('response-area');
 const navaidListEl = document.getElementById('navaid-list');
-const gpsStatusEl = document.getElementById('gps-status');
-const coverageStatusEl = document.getElementById('coverage-status');
+const statusComboEl = document.getElementById('status-combo');
 const historyList = document.getElementById('history-list');
 const historyClear = document.getElementById('history-clear');
 const offlineBtn    = document.getElementById('offline-btn');
@@ -6623,12 +6622,37 @@ const HISTORY_ERA_LABELS = {
   modern: '20th Century to Present',
 };
 
+// ── Combined status badge (mode + GPS + coverage) ───────────────────────────
+// All three used to be separate always-visible elements — folded into one
+// deliberately terse badge (glyphs, not words) to free up top-bar real
+// estate; the full readable text still lives in the badge's `title` for
+// desktop hover. Each of the three producers (mode switch, every GPS fix,
+// coverage-level changes) only owns its own piece of the combined state and
+// calls _renderStatusCombo() to redraw — same pattern as Anchor Watch/Wake
+// Lock's own small bits of independently-updated UI state elsewhere in this
+// file, just three producers sharing one element instead of one.
+let _statusModeGlyph    = '🗺';
+let _statusModeLabel    = 'Chart';
+let _statusGpsCode      = '…';
+let _statusGpsLabel     = 'GPS: waiting';
+let _statusGpsCls       = '';
+let _statusCoverageGlyph = '';
+let _statusCoverageLabel = '';
+let _statusCoverageCls   = '';
+
+function _renderStatusCombo() {
+  if (!statusComboEl) return;
+  statusComboEl.textContent = `${_statusModeGlyph} ${_statusGpsCode}${_statusCoverageGlyph}`;
+  statusComboEl.className = 'status-badge ' + (_statusCoverageCls || _statusGpsCls);
+  statusComboEl.title = [_statusModeLabel, _statusGpsLabel, _statusCoverageLabel].filter(Boolean).join(' · ');
+}
+
 function _syncMapModeTitle() {
-  const el = document.getElementById('map-mode-title');
-  if (!el) return;
-  el.textContent = _mapViewMode === 'history'
+  _statusModeGlyph = MAP_VIEW_ICONS[_mapViewMode] || '🗺';
+  _statusModeLabel = _mapViewMode === 'history'
     ? `History — ${HISTORY_ERA_LABELS[_selectedEra]}`
     : MAP_VIEW_LABELS[_mapViewMode];
+  _renderStatusCombo();
 }
 
 document.querySelectorAll('.history-era-chip').forEach(chip => {
@@ -8968,6 +8992,17 @@ const SOURCE_LABEL = {
   'opencpn-ini':   'OPENCPN',
   'opencpn-track': 'OPENCPN TRACK',
 };
+// One-letter code per source for the combined status badge — lowercase for
+// the two lower-priority/stale sources (opencpn-ini, opencpn-track), matching
+// SOURCE_PRIORITY's own sense of "less authoritative" in gps.js.
+const GPS_CODE = {
+  'manual':        'T',
+  'browser':       'G',
+  'nmea':          'P',
+  'opencpn-nmea':  'O',
+  'opencpn-ini':   'o',
+  'opencpn-track': 't',
+};
 
 positionEl.addEventListener('click', () => {
   const text = positionEl.textContent;
@@ -9025,12 +9060,15 @@ function _updateCoverageStatus(lat, lon, _isRecheck = false) {
   _coverageLevel = level;
 
   if (level === 'core') {
-    coverageStatusEl.style.display = 'none';
+    _statusCoverageGlyph = '';
+    _statusCoverageLabel = '';
+    _statusCoverageCls   = '';
   } else {
-    coverageStatusEl.style.display = 'inline-block';
-    coverageStatusEl.className = `status-badge coverage-${level}`;
-    coverageStatusEl.textContent = level === 'land' ? '⚠ Limited chart data' : '⚠ No chart data';
+    _statusCoverageGlyph = level === 'land' ? '⚠' : '⊘';
+    _statusCoverageLabel = level === 'land' ? 'Limited chart data' : 'No chart data';
+    _statusCoverageCls   = `coverage-${level}`;
   }
+  _renderStatusCombo();
 
   // Don't announce the very first "core" resolution on a normal in-coverage
   // start (prevLevel === null) — only speak up on an actual degrade/recover.
@@ -9044,12 +9082,12 @@ function _updateCoverageStatus(lat, lon, _isRecheck = false) {
 function showPosition(lat, lon, accuracy, source) {
   positionEl.textContent = formatPositionDisplay(lat, lon);
   const label = SOURCE_LABEL[source] || source.toUpperCase();
-  const accText = accuracy && !['opencpn-track', 'manual'].includes(source)
-    ? ` ±${Math.round(accuracy)}m` : '';
-  gpsStatusEl.textContent = `GPS: ${label}${accText}`;
-  gpsStatusEl.className = source === 'manual'
-    ? 'status-badge gps-test'
-    : 'status-badge gps-ok';
+  const hasAcc = accuracy && !['opencpn-track', 'manual'].includes(source);
+  const accText = hasAcc ? ` ±${Math.round(accuracy)}m` : '';
+  _statusGpsCode  = (GPS_CODE[source] || '?') + (hasAcc ? Math.round(accuracy) : '');
+  _statusGpsLabel = `GPS: ${label}${accText}`;
+  _statusGpsCls   = source === 'manual' ? 'gps-test' : 'gps-ok';
+  _renderStatusCombo();
   _updateCoverageStatus(lat, lon);
 
   if (source === 'manual') {
@@ -10422,8 +10460,10 @@ async function init() {
       }
     },
     (err) => {
-      gpsStatusEl.textContent = `GPS: ${err}`;
-      gpsStatusEl.className = 'status-badge gps-error';
+      _statusGpsCode  = '✗';
+      _statusGpsLabel = `GPS: ${err}`;
+      _statusGpsCls   = 'gps-error';
+      _renderStatusCombo();
       setStatus(err);
     }
   );
