@@ -312,8 +312,9 @@ let _boatCtxMapListenerBound = false;
 // the boat menu's click handler (also top-level) can reach it.
 let _routeFromHereFn = null;
 const _boatCtxMenu = document.getElementById('boat-context-menu');
+const _boatCtxItems = [...document.querySelectorAll('#boat-context-menu button')];
 
-function _hideBoatCtx() { _boatCtxMenu.style.display = 'none'; }
+function _hideBoatCtx() { _boatCtxMenu.style.display = 'none'; _disarmBoatCtxDragSelect(); }
 
 function _showBoatCtx(clientX, clientY, latlng) {
   _boatCtxLatLng = latlng;
@@ -323,7 +324,67 @@ function _showBoatCtx(clientX, clientY, latlng) {
   const y = (clientY + mh + 4 > window.innerHeight) ? Math.max(4, clientY - mh) : clientY;
   _boatCtxMenu.style.left = Math.max(4, x) + 'px';
   _boatCtxMenu.style.top  = Math.max(4, y) + 'px';
+  // The mousedown that led here happened on the boat icon, not this menu —
+  // press/release on two different elements never synthesizes a native
+  // 'click' on the second one, by plain DOM behavior, regardless of
+  // anything Leaflet does. So the natural gesture (hold the boat, drag
+  // over to an item, release to pick it — same convention as Android's own
+  // long-press context menus) needs its own pointer tracking rather than
+  // relying on a click landing on the item under the release point.
+  _armBoatCtxDragSelect();
 }
+
+function _armBoatCtxDragSelect() {
+  _disarmBoatCtxDragSelect();
+  const itemAt = (x, y) => {
+    const el = document.elementFromPoint(x, y);
+    return _boatCtxItems.find(b => b.contains(el)) || null;
+  };
+  const move = (e) => {
+    const p = e.touches?.[0] ?? e;
+    const item = itemAt(p.clientX, p.clientY);
+    _boatCtxItems.forEach(b => b.classList.toggle('drag-hover', b === item));
+  };
+  const up = (e) => {
+    const p = e.changedTouches?.[0] ?? e;
+    const item = itemAt(p.clientX, p.clientY);
+    _disarmBoatCtxDragSelect();
+    // Only a genuine drag-release selects — a plain mouseup right back over
+    // the boat (no drag at all) leaves the menu open for a normal separate
+    // tap on an item, the other supported way to use this menu.
+    if (item) item.click();
+  };
+  _boatCtxDragMove = move;
+  _boatCtxDragUp = up;
+  document.addEventListener('mousemove', move);
+  document.addEventListener('mouseup', up);
+  document.addEventListener('touchmove', move, { passive: true });
+  document.addEventListener('touchend', up);
+}
+function _disarmBoatCtxDragSelect() {
+  _boatCtxItems.forEach(b => b.classList.remove('drag-hover'));
+  if (_boatCtxDragMove) {
+    document.removeEventListener('mousemove', _boatCtxDragMove);
+    document.removeEventListener('touchmove', _boatCtxDragMove);
+    _boatCtxDragMove = null;
+  }
+  if (_boatCtxDragUp) {
+    document.removeEventListener('mouseup', _boatCtxDragUp);
+    document.removeEventListener('touchend', _boatCtxDragUp);
+    _boatCtxDragUp = null;
+  }
+  // The release that ends this gesture lands on whatever's under the
+  // cursor — the menu item, not the boat marker itself — so the marker's
+  // OWN Leaflet 'mouseup' listener (bound to its icon element specifically,
+  // see _wireBoatLongPress's cancelPress) never fires and never gets the
+  // chance to re-enable dragging. Do it here instead, unconditionally,
+  // covering every path this menu closes through.
+  const marker = _boatLayer?.getLayers()[0] || _youLayer?.getLayers()[0];
+  marker?.dragging?.enable();
+  _map?.dragging.enable();
+}
+let _boatCtxDragMove = null;
+let _boatCtxDragUp = null;
 
 document.getElementById('boat-ctx-autoroute').addEventListener('click', () => {
   _hideBoatCtx();
@@ -344,9 +405,14 @@ function _wireBoatLongPress(marker) {
   }
   let timer = null;
   const iconEl = () => marker.getElement()?.querySelector('.boat-marker');
+  // Re-enabled on every mouseup (end of this press cycle) so a normal quick
+  // drag — the boat's own existing reposition-to-set-test-position gesture —
+  // still works starting from the NEXT mousedown.
   const cancelPress = () => {
     if (timer) { clearTimeout(timer); timer = null; }
     iconEl()?.classList.remove('boat-pressing');
+    marker.dragging?.enable();
+    _map?.dragging.enable();
   };
   marker.on('mousedown', (e) => {
     cancelPress();
@@ -354,6 +420,15 @@ function _wireBoatLongPress(marker) {
     timer = setTimeout(() => {
       timer = null;
       iconEl()?.classList.remove('boat-pressing');
+      // Confirmed live: without this, moving the cursor toward the menu
+      // while still holding the button — the natural way to reach it — was
+      // picked up by the MAP's own pan-drag handling (the mousedown on the
+      // marker bubbles to it), not the marker's. The map panning under a
+      // stationary-in-world-space marker looks exactly like the boat itself
+      // moving, and firing 'movestart' closed the menu via the listener
+      // below before a selection could even be made.
+      marker.dragging?.disable();
+      _map?.dragging.disable();
       const ll = marker.getLatLng();
       const oe = e.originalEvent;
       const cx = oe.touches?.[0]?.clientX ?? oe.clientX;
