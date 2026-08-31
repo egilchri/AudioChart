@@ -241,6 +241,16 @@ html, body {
   white-space: nowrap;
 }
 .cruise-choice:hover { background: var(--accent); color: var(--navy); }
+#cruise-cancel {
+  background: #4a1a1a;
+  color: var(--danger);
+  border: none;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  padding: 5px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
 
 /* Test position input row */
 #test-pos-form {
@@ -260,7 +270,7 @@ html, body {
   -webkit-appearance: none;
 }
 #test-pos-input:focus { border-color: var(--accent); }
-#test-pos-set, #test-pos-clear {
+#test-pos-set, #test-pos-clear, #test-pos-cancel {
   background: var(--mid-blue);
   border: none;
   border-radius: 6px;
@@ -270,7 +280,7 @@ html, body {
   cursor: pointer;
   white-space: nowrap;
 }
-#test-pos-clear { background: #4a1a1a; color: var(--danger); }
+#test-pos-clear, #test-pos-cancel { background: #4a1a1a; color: var(--danger); }
 
 /* Anchor Watch radius-entry row */
 #anchor-watch-form { display: flex; flex-direction: column; gap: 6px; }

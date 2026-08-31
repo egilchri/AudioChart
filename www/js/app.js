@@ -10148,6 +10148,8 @@ function clearTestPosition() {
 }
 
 testPosClear.addEventListener('click', clearTestPosition);
+document.getElementById('test-pos-cancel').addEventListener('click', _closeTestPosForm);
+document.getElementById('cruise-cancel').addEventListener('click', () => { cruiseForm.style.display = 'none'; });
 
 // One-tap reset for map clutter — a long test/exploration session can leave
 // several routes shown at once (each with its own bearing-label overlay)
