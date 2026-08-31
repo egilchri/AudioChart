@@ -113,8 +113,8 @@ html, body {
 .status-badge.rp-hazard-hard { background: #4a1a1a; color: var(--danger); }
 .status-badge.rp-hazard-soft { background: #4a2a00; color: var(--warn); }
 
-/* Offline prep, route download + test position buttons in header */
-#offline-btn, #route-btn, #test-pos-btn, #track-rec-btn, #wake-lock-btn, #clear-screen-btn, #rearrange-btn {
+/* Offline prep, location + screen menu triggers in header */
+#offline-btn, #location-menu-btn, #screen-menu-btn, #track-rec-btn, #wake-lock-btn {
   background: none;
   border: 1px solid var(--mid-blue);
   border-radius: 6px;
@@ -124,10 +124,34 @@ html, body {
   cursor: pointer;
   white-space: nowrap;
 }
-#offline-btn:hover, #route-btn:hover, #test-pos-btn:hover, #track-rec-btn:hover, #wake-lock-btn:hover, #anchor-watch-btn:hover, #anchor-watch-silence-btn:hover, #clear-screen-btn:hover, #rearrange-btn:hover { border-color: var(--accent); color: var(--text); }
-#offline-btn:disabled, #route-btn:disabled { opacity: 0.5; cursor: default; }
-#test-pos-btn.test-active { border-color: var(--danger); color: var(--danger); background: #2a0a0a; font-weight: 700; }
-#test-pos-btn.test-active:hover { border-color: var(--danger); color: #ff8080; background: #3a0a0a; }
+#offline-btn:hover, #location-menu-btn:hover, #screen-menu-btn:hover, #track-rec-btn:hover, #wake-lock-btn:hover, #anchor-watch-btn:hover, #anchor-watch-silence-btn:hover { border-color: var(--accent); color: var(--text); }
+#offline-btn:disabled { opacity: 0.5; cursor: default; }
+#location-menu-btn.test-active { border-color: var(--danger); color: var(--danger); background: #2a0a0a; font-weight: 700; }
+#location-menu-btn.test-active:hover { border-color: var(--danger); color: #ff8080; background: #3a0a0a; }
+
+/* Location / Screen dropdown menus — same panel treatment as the other
+   inline-reveal rows in this bar (#test-pos-form, #anchor-watch-form). */
+#map-overlay-status #location-menu,
+#map-overlay-status #screen-menu {
+  width: 100%;
+  display: flex;
+  gap: 6px;
+  background: rgba(10, 22, 40, 0.92);
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--mid-blue);
+}
+#location-menu button, #screen-menu button {
+  background: var(--mid-blue);
+  border: none;
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.8rem;
+  padding: 6px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+#location-menu button:hover, #screen-menu button:hover { background: var(--accent); color: var(--navy); }
 #wake-lock-btn.wake-active { border-color: var(--ok); color: var(--ok); background: #0a2a16; }
 #wake-lock-btn.wake-active:hover { border-color: #2a8b4c; color: #6aeea0; background: #0f3a1e; }
 /* Anchor Watch — armed uses the same "actively monitoring, could alarm" red

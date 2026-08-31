@@ -536,10 +536,18 @@ const wcoTitlebarEl = document.getElementById('wco-titlebar');
 const historyList = document.getElementById('history-list');
 const historyClear = document.getElementById('history-clear');
 const offlineBtn    = document.getElementById('offline-btn');
-const routeBtn      = document.getElementById('route-btn');
+// Region-download and test-position-spoofing are now both reached through
+// one "Location" tile (see the Location-menu block below) rather than two
+// separate always-visible buttons — routeBtn/testPosBtn both point at that
+// SAME element so every existing progress-text/active-state update below
+// (there are many) keeps working unchanged, just now surfacing on the
+// shared tile instead of its own dedicated button.
+const locationMenuBtn = document.getElementById('location-menu-btn');
+const locationMenu    = document.getElementById('location-menu');
+const routeBtn      = locationMenuBtn;
 const cruiseForm    = document.getElementById('cruise-form');
 const cruiseChoices = document.getElementById('cruise-choices');
-const testPosBtn = document.getElementById('test-pos-btn');
+const testPosBtn = locationMenuBtn;
 const testPosForm = document.getElementById('test-pos-form');
 const testPosInput = document.getElementById('test-pos-input');
 const testPosSet = document.getElementById('test-pos-set');
@@ -555,7 +563,9 @@ const anchorWatchForm = document.getElementById('anchor-watch-form');
 const anchorWatchRadiusInput = document.getElementById('anchor-watch-radius');
 const anchorWatchStartBtn = document.getElementById('anchor-watch-start');
 const anchorWatchCancelBtn = document.getElementById('anchor-watch-cancel');
-const clearScreenBtn = document.getElementById('clear-screen-btn');
+// Clear Screen and Rearrange are similarly consolidated under a "Screen" tile.
+const screenMenuBtn = document.getElementById('screen-menu-btn');
+const screenMenu    = document.getElementById('screen-menu');
 
 function _updateFocusButton() {
   if (!focusBtn) return;
@@ -1242,7 +1252,8 @@ function _exitRearrangeMode() {
   const banner = document.getElementById('rearrange-banner');
   if (banner) banner.style.display = 'none';
 }
-document.getElementById('rearrange-btn')?.addEventListener('click', _enterRearrangeMode);
+// _enterRearrangeMode is triggered via the Screen tile's menu (see
+// screen-menu-rearrange's click handler further down).
 document.getElementById('rearrange-done-btn')?.addEventListener('click', _exitRearrangeMode);
 
 // Suppress normal tap actions everywhere while rearranging — a single capture-phase
@@ -9606,7 +9617,7 @@ if (commandPicker) {
 
 function syncTestPosButton() {
   const active = GPS.isManualPosition();
-  testPosBtn.textContent = active ? '📍 CLEAR TEST' : '📍 Set Point';
+  testPosBtn.textContent = active ? '📍 CLEAR TEST' : '📍 Location';
   testPosBtn.classList.toggle('test-active', active);
 }
 
@@ -9616,25 +9627,47 @@ function _closeTestPosForm() {
   testPosInput.style.borderColor = '';
 }
 
-testPosBtn.addEventListener('click', () => {
+function _closeLocationMenu() { locationMenu.style.display = 'none'; }
+
+// The Location tile itself: while a spoofed position is active, one tap
+// clears it (the common "oops, undo that" case) — same shortcut the old
+// dedicated Set-Point button had. Otherwise it opens the 2-item menu
+// (Spoof Location / Download Region) rather than jumping straight to either
+// sub-form, since it now covers both.
+locationMenuBtn.addEventListener('click', () => {
   if (GPS.isManualPosition()) {
     clearTestPosition();
     return;
   }
-  const isOpen = testPosForm.style.display !== 'none';
-  if (isOpen) { _closeTestPosForm(); return; }
+  const isOpen = locationMenu.style.display !== 'none';
+  _closeTestPosForm();
+  cruiseForm.style.display = 'none';
+  if (isOpen) { _closeLocationMenu(); return; }
+  locationMenu.style.display = 'flex';
+});
+
+document.getElementById('location-menu-spoof').addEventListener('click', () => {
+  _closeLocationMenu();
   testPosForm.style.display = 'flex';
   testPosInput.focus();
 });
+document.getElementById('location-menu-region').addEventListener('click', () => {
+  _closeLocationMenu();
+  cruiseForm.style.display = 'flex';
+});
 
-// Cancelable: Escape or a click outside the form closes it without setting anything.
+// Cancelable: Escape or a click outside the form/menu closes it without
+// setting anything.
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && testPosForm.style.display !== 'none') _closeTestPosForm();
+  if (e.key === 'Escape') {
+    if (testPosForm.style.display !== 'none') _closeTestPosForm();
+    if (locationMenu.style.display !== 'none') _closeLocationMenu();
+  }
 });
 document.addEventListener('click', (e) => {
-  if (testPosForm.style.display === 'none') return;
-  if (testPosForm.contains(e.target) || testPosBtn.contains(e.target)) return;
-  _closeTestPosForm();
+  if (locationMenuBtn.contains(e.target)) return;
+  if (testPosForm.style.display !== 'none' && !testPosForm.contains(e.target)) _closeTestPosForm();
+  if (locationMenu.style.display !== 'none' && !locationMenu.contains(e.target)) _closeLocationMenu();
 }, { capture: true });
 
 // ── Track recording ──────────────────────────────────────────────────────────
@@ -10161,7 +10194,30 @@ function _clearScreen() {
   TTS.sayImmediate(msg);
 }
 
-clearScreenBtn.addEventListener('click', _clearScreen);
+// Clear Screen and Rearrange are reached via the Screen tile's menu.
+function _closeScreenMenu() { screenMenu.style.display = 'none'; }
+
+screenMenuBtn.addEventListener('click', () => {
+  const isOpen = screenMenu.style.display !== 'none';
+  if (isOpen) { _closeScreenMenu(); return; }
+  screenMenu.style.display = 'flex';
+});
+document.getElementById('screen-menu-clear').addEventListener('click', () => {
+  _closeScreenMenu();
+  _clearScreen();
+});
+document.getElementById('screen-menu-rearrange').addEventListener('click', () => {
+  _closeScreenMenu();
+  _enterRearrangeMode();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && screenMenu.style.display !== 'none') _closeScreenMenu();
+});
+document.addEventListener('click', (e) => {
+  if (screenMenu.style.display === 'none') return;
+  if (screenMenu.contains(e.target) || screenMenuBtn.contains(e.target)) return;
+  _closeScreenMenu();
+}, { capture: true });
 
 // ── Route download ────────────────────────────────────────────────────────────
 
@@ -10378,12 +10434,9 @@ async function init() {
 
   }
 
-  // Route button and cruise picker are always available (standalone + developer)
-  routeBtn.style.display = 'inline-block';
-  routeBtn.addEventListener('click', () => {
-    const isOpen = cruiseForm.style.display !== 'none';
-    cruiseForm.style.display = isOpen ? 'none' : 'flex';
-  });
+  // Region download is reached via the Location tile's menu (see
+  // location-menu-region's click handler above) — always available
+  // (standalone + developer), same as before.
   Object.keys(CRUISE_PROFILES).forEach(cruiseName => {
     const btn = document.createElement('button');
     btn.className = 'cruise-choice';
