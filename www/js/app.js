@@ -10233,7 +10233,7 @@ async function runRouteDownload(cruiseName) {
     } catch (e) {
       const reason = e.name === 'AbortError' ? 'timed out' : e.message;
       setStatus(`Download failed: ${reason}`);
-      routeBtn.textContent = '⬇ Route';
+      routeBtn.textContent = '⬇ Region';
       routeBtn.disabled = false;
       if (offlineBtn) offlineBtn.disabled = false;
       return;
@@ -10252,7 +10252,7 @@ async function runRouteDownload(cruiseName) {
       routeBtn.textContent = `🌊 ${i + 1}/${stops.length}`;
       await _prefetchTideCurrentForOffline(stop.lat, stop.lon, msg => setStatus(`${stop.name}: ${msg}`));
     }
-    routeBtn.textContent = '✓ Route cached';
+    routeBtn.textContent = '✓ Region cached';
     setStatus(`${cruiseName} ready — chart data and satellite tiles cached.`);
     routeBtn.disabled = false;
     if (offlineBtn) offlineBtn.disabled = false;
@@ -10271,7 +10271,7 @@ async function runRouteDownload(cruiseName) {
     } catch (e) {
       const reason = e.name === 'AbortError' ? 'timed out' : e.message;
       setStatus(`Download failed at ${stop.name}: ${reason}`);
-      routeBtn.textContent = '⬇ Route';
+      routeBtn.textContent = '⬇ Region';
       routeBtn.disabled = false;
       if (offlineBtn) offlineBtn.disabled = false;
       return;
@@ -10283,8 +10283,8 @@ async function runRouteDownload(cruiseName) {
     routeBtn.textContent = `🌊 ${i + 1}/${stops.length}`;
     await _prefetchTideCurrentForOffline(stop.lat, stop.lon, msg => setStatus(`${stop.name}: ${msg}`));
   }
-  routeBtn.textContent = '✓ Route cached';
-  setStatus(`${cruiseName} route complete — ${lastResult.total} features + satellite tiles cached.`);
+  routeBtn.textContent = '✓ Region cached';
+  setStatus(`${cruiseName} region complete — ${lastResult.total} features + satellite tiles cached.`);
   routeBtn.disabled = false;
   if (offlineBtn) offlineBtn.disabled = false;
   checkOnboarding();
