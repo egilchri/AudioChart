@@ -9599,7 +9599,7 @@ if (commandPicker) {
 
 function syncTestPosButton() {
   const active = GPS.isManualPosition();
-  testPosBtn.textContent = active ? '📍 CLEAR TEST' : '📍 Point';
+  testPosBtn.textContent = active ? '📍 CLEAR TEST' : '📍 Set Point';
   testPosBtn.classList.toggle('test-active', active);
 }
 
