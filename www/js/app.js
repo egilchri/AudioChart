@@ -10039,6 +10039,16 @@ testPosClear.addEventListener('click', clearTestPosition);
 // checkbox-controlled overlays (hazards/navaids/depths/current arrows) or
 // the boat/waypoint layers — those are standing preferences, not clutter.
 function _clearScreen() {
+  // A route open in edit mode, mid-sketch, or mid-draw renders through its
+  // own layer(s) (_renderEditLayers/_renderSketchLayers/draw-mode rubber
+  // band), entirely separate from _savedRoutesLayer — the hidden-names loop
+  // below never touches them, so without this, "Clear Screen" left whatever
+  // route you were actively working on fully visible. Exiting each mode
+  // tears its own layer down; the hidden-names loop then covers everything.
+  if (_editMode) _exitEditMode();
+  if (_sketchMode) _exitSketchMode();
+  if (_drawMode) _exitDrawRouteMode();
+
   const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
   routes.forEach(r => _hiddenRouteNames.add(r.name));
   _saveHiddenRoutes();
