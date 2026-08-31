@@ -289,11 +289,82 @@ function _boatIcon() {
   const cls = _boatCircleDismissed ? 'boat-marker boat-bare' : 'boat-marker';
   return L.divIcon({
     className: '',
-    html: `<div class="${cls}" onclick="_dismissBoatCircle(this)"><span class="boat-emoji">⛵</span></div>`,
+    html: `<div class="${cls}" onclick="_dismissBoatCircle(this)"><span class="boat-emoji">⛵</span>` +
+          `<svg class="boat-press-ring" viewBox="0 0 54 54"><circle cx="27" cy="27" r="24"/></svg></div>`,
     iconSize: [44, 44],
     iconAnchor: [22, 22],
     tooltipAnchor: [22, -22],
   });
+}
+
+// ── Boat icon long-press menu (Autoroute / Sketch) ──────────────────────────
+// Native contextmenu-on-longpress (already used for the map's own right-click
+// menu) fires only once the press completes, with no way to drive live
+// feedback — so this uses its own mousedown/mouseup timer instead, purely to
+// animate .boat-press-ring while held. Wired fresh onto each new marker
+// _showBoatPosition/_refreshYouLayer create (they don't reuse marker
+// instances), so this must stay cheap and side-effect-free to call repeatedly.
+const BOAT_LONG_PRESS_MS = 600;
+let _boatCtxLatLng = null;
+let _boatCtxMapListenerBound = false;
+// _routeFromHere itself lives inside _ensureMap()'s closure (it calls
+// _triggerAutoRoute, defined there) — bridged out via this top-level ref so
+// the boat menu's click handler (also top-level) can reach it.
+let _routeFromHereFn = null;
+const _boatCtxMenu = document.getElementById('boat-context-menu');
+
+function _hideBoatCtx() { _boatCtxMenu.style.display = 'none'; }
+
+function _showBoatCtx(clientX, clientY, latlng) {
+  _boatCtxLatLng = latlng;
+  _boatCtxMenu.style.display = 'block';
+  const mw = _boatCtxMenu.offsetWidth, mh = _boatCtxMenu.offsetHeight;
+  const x = Math.min(clientX, window.innerWidth - mw - 4);
+  const y = (clientY + mh + 4 > window.innerHeight) ? Math.max(4, clientY - mh) : clientY;
+  _boatCtxMenu.style.left = Math.max(4, x) + 'px';
+  _boatCtxMenu.style.top  = Math.max(4, y) + 'px';
+}
+
+document.getElementById('boat-ctx-autoroute').addEventListener('click', () => {
+  _hideBoatCtx();
+  if (_boatCtxLatLng) _routeFromHereFn?.(_boatCtxLatLng.lat, _boatCtxLatLng.lng);
+});
+document.getElementById('boat-ctx-sketch').addEventListener('click', () => {
+  _hideBoatCtx();
+  _enterSketchMode();
+});
+document.addEventListener('click', (e) => { if (!_boatCtxMenu.contains(e.target)) _hideBoatCtx(); }, { capture: true });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') _hideBoatCtx(); });
+
+function _wireBoatLongPress(marker) {
+  if (_simTrackMode) return; // mid-playback isn't a sensible time to start a new route
+  if (!_boatCtxMapListenerBound && _map) {
+    _boatCtxMapListenerBound = true;
+    _map.on('movestart zoomstart', _hideBoatCtx);
+  }
+  let timer = null;
+  const iconEl = () => marker.getElement()?.querySelector('.boat-marker');
+  const cancelPress = () => {
+    if (timer) { clearTimeout(timer); timer = null; }
+    iconEl()?.classList.remove('boat-pressing');
+  };
+  marker.on('mousedown', (e) => {
+    cancelPress();
+    iconEl()?.classList.add('boat-pressing');
+    timer = setTimeout(() => {
+      timer = null;
+      iconEl()?.classList.remove('boat-pressing');
+      const ll = marker.getLatLng();
+      const oe = e.originalEvent;
+      const cx = oe.touches?.[0]?.clientX ?? oe.clientX;
+      const cy = oe.touches?.[0]?.clientY ?? oe.clientY;
+      _showBoatCtx(cx, cy, ll);
+    }, BOAT_LONG_PRESS_MS);
+  });
+  marker.on('mouseup', cancelPress);
+  marker.on('dragstart', cancelPress);
+  marker.on('drag', cancelPress);
+  marker.on('contextmenu', (e) => { e.originalEvent?.stopPropagation(); cancelPress(); });
 }
 
 function _showBoatPosition(lat, lon) {
@@ -302,7 +373,7 @@ function _showBoatPosition(lat, lon) {
   if (_boatLayer) { _map.removeLayer(_boatLayer); _boatLayer = null; }
   const marker = L.marker([lat, lon], { icon: _boatIcon(), zIndexOffset: 1000, draggable: true });
 
-  marker.on('contextmenu', (e) => e.originalEvent.stopPropagation());
+  _wireBoatLongPress(marker);
   marker.on('drag', (e) => {
     const { lat: dLat, lng: dLon } = e.target.getLatLng();
     _updateBearingLines(dLat, dLon);
@@ -353,6 +424,7 @@ function _refreshYouLayer() {
   if (!pos) return;
   const icon = _simTrackMode ? _animBoatIcon(_simTrackDeg) : _boatIcon();
   const m = L.marker([pos.lat, pos.lon], { icon, zIndexOffset: 800 });
+  _wireBoatLongPress(m);
 
   _youLayer = L.layerGroup([m]).addTo(_map);
 }
@@ -7856,15 +7928,17 @@ function _ensureMap() {
     }
   }
 
-  document.getElementById('map-ctx-route-from-here').addEventListener('click', () => {
-    _hideCtx();
-    if (!_ctxLatLng) return;
+  // Shared by the map context menu's "Route from here" and the boat icon's
+  // long-press "Autoroute" shortcut — same start-a-route flow, just a
+  // different way of supplying the starting point (a right-clicked map
+  // point vs. wherever the boat currently is).
+  function _routeFromHere(lat, lon) {
     const name = prompt('Name for this planned route:', _nextRouteName());
     if (!name) return;
     _autoRouteName  = name;
-    _autoRouteStart = { lat: _ctxLatLng.lat, lon: _ctxLatLng.lng };
+    _autoRouteStart = { lat, lon };
     if (_autoRouteStartMarker) _autoRouteStartMarker.remove();
-    _autoRouteStartMarker = L.circleMarker([_ctxLatLng.lat, _ctxLatLng.lng], {
+    _autoRouteStartMarker = L.circleMarker([lat, lon], {
       radius: 8, color: '#00cc44', fillColor: '#00cc44', fillOpacity: 0.8, weight: 2,
     }).addTo(_map).bindTooltip(`${escapeHtml(name)} — start`, { permanent: false });
     if (_autoRouteEnd) {
@@ -7872,6 +7946,13 @@ function _ensureMap() {
     } else {
       setStatus(`"${name}" start set — right-click map → "Route to here".`);
     }
+  }
+  _routeFromHereFn = _routeFromHere;
+
+  document.getElementById('map-ctx-route-from-here').addEventListener('click', () => {
+    _hideCtx();
+    if (!_ctxLatLng) return;
+    _routeFromHere(_ctxLatLng.lat, _ctxLatLng.lng);
   });
 
   document.getElementById('map-ctx-route-to-here').addEventListener('click', () => {
@@ -9518,7 +9599,7 @@ if (commandPicker) {
 
 function syncTestPosButton() {
   const active = GPS.isManualPosition();
-  testPosBtn.textContent = active ? '📍 CLEAR TEST' : '📍';
+  testPosBtn.textContent = active ? '📍 CLEAR TEST' : '📍 Point';
   testPosBtn.classList.toggle('test-active', active);
 }
 

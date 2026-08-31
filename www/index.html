@@ -111,7 +111,7 @@
         <span id="coverage-status" class="status-badge" style="display:none"></span>
         <button id="offline-btn" title="Download chart data for offline use" style="display:none">&#11015; Offline</button>
         <button id="route-btn" title="Download chart data for a cruise route" style="display:none">&#11015; Route</button>
-        <button id="test-pos-btn" title="Set test position">&#128205;</button>
+        <button id="test-pos-btn" title="Set test position">&#128205; Point</button>
         <button id="focus-btn" title="No focus set">&#127919; --</button>
         <button id="track-rec-btn" title="Record a GPS track">&#9679; Track</button>
         <button id="wake-lock-btn" title="Keep screen awake while using AudioChart" style="display:none">&#9728;&#65039; Awake</button>
@@ -326,6 +326,14 @@
       </div>
 
     </div>
+  </div>
+
+  <!-- Long-press the boat icon: a 2-item shortcut menu (skips the general
+       map context menu's full item list) since Autoroute/Sketch are the two
+       actions started from the boat's own position so often. -->
+  <div id="boat-context-menu">
+    <button id="boat-ctx-autoroute" title="Start a new auto-route from your current position">&#10145; Autoroute</button>
+    <button id="boat-ctx-sketch" title="Start freehand-sketching a new route from your current position">&#9643; Sketch</button>
   </div>
 
   <div id="map-context-menu">

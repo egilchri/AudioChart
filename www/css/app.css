@@ -1538,6 +1538,31 @@ html, body {
 }
 
 /* Map right-click context menu */
+#boat-context-menu {
+  position: fixed;
+  z-index: 9999;
+  background: var(--dark-blue);
+  border: 1px solid var(--mid-blue);
+  border-radius: 6px;
+  padding: 4px 0;
+  display: none;
+  min-width: 160px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.6);
+}
+#boat-context-menu button {
+  display: block;
+  width: 100%;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+}
+#boat-context-menu button:hover,
+#boat-context-menu button:active { background: var(--mid-blue); }
+
 #map-context-menu {
   position: fixed;
   z-index: 9999;
@@ -2438,6 +2463,7 @@ html, body {
 
 /* Boat icon for current position */
 .boat-marker {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2448,6 +2474,37 @@ html, body {
   border: 2px solid #fff;
   border-radius: 50%;
   box-shadow: 0 2px 6px rgba(0,0,0,0.7);
+}
+
+/* Long-press feedback: a ring that fills in over BOAT_LONG_PRESS_MS while
+   held, confirming the press is registering (the actual UX signal — a
+   static "you can long-press this" hint isn't a real convention; this,
+   modeled on iOS/Android's own press-and-hold feedback, is). Instant reset
+   on early release rather than an unwind animation — simpler, and an early
+   release means the gesture didn't complete anyway. */
+.boat-press-ring {
+  position: absolute;
+  top: -5px; left: -5px;
+  width: 54px; height: 54px;
+  opacity: 0;
+  pointer-events: none;
+}
+.boat-marker.boat-pressing .boat-press-ring { opacity: 1; }
+.boat-press-ring circle {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 3;
+  stroke-linecap: round;
+  transform: rotate(-90deg);
+  transform-origin: 27px 27px;
+  stroke-dasharray: 151; /* 2*pi*24, r=24 circle in the 54x54 viewBox */
+  stroke-dashoffset: 151;
+}
+.boat-marker.boat-pressing .boat-press-ring circle {
+  animation: boat-press-fill 600ms linear forwards;
+}
+@keyframes boat-press-fill {
+  to { stroke-dashoffset: 0; }
 }
 .boat-marker.boat-bare {
   background: none;
