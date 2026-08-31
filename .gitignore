@@ -10,3 +10,7 @@ __pycache__/
 # Emacs temp files
 \#*
 .\#*
+
+# Personal working notes / stray files — not part of the project
+my_todo.md
+spawnie

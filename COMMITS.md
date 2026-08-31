@@ -1,5 +1,8 @@
 # AudioChart — Development History
 
+> Frozen historical artifact — no longer maintained. `git log` and
+> [CHANGELOG.md](CHANGELOG.md) are authoritative going forward.
+
 ---
 
 ## May 10

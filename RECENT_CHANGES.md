@@ -1,5 +1,8 @@
 # Recent Changes — Focus Target & Simulate Heading (v317–v325)
 
+> A feature deep-dive, not the changelog — see [CHANGELOG.md](CHANGELOG.md)
+> for the canonical release history.
+
 This document covers a cluster of related features added over several
 sessions between **2026-07-13 and 2026-07-19**, spanning app versions
 **v317 through v325**. It's meant to be read start to finish — each section
