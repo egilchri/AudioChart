@@ -396,10 +396,10 @@ function _refreshWaypointLayer() {
   _waypointLayer = L.layerGroup(
     wps.map(wp => {
       const m = L.marker([wp.lat, wp.lon], { icon: _waypointIcon(), draggable: true });
-      m.bindTooltip(wp.name, { permanent: true, direction: 'top', className: 'map-tooltip' });
+      m.bindTooltip(escapeHtml(wp.name), { permanent: true, direction: 'top', className: 'map-tooltip' });
       m.bindPopup(
         `<div class="navaid-popup">
-           <div class="navaid-popup-name">${wp.name}</div>
+           <div class="navaid-popup-name">${escapeHtml(wp.name)}</div>
            <button class="navaid-popup-focus">&#127919; Set focus</button>
          </div>`,
         { maxWidth: 220, className: 'navaid-popup-wrapper' }
@@ -441,7 +441,7 @@ function _setWaypointsVisible(v) {
   localStorage.setItem('audiochart-waypoints-visible', String(v));
   _refreshWaypointLayer();
 }
-import { formatPositionDisplay, bearingToWords, bearingToDisplay, formatDistance, distanceToDisplay, trueTomagnetic, magneticToTrue, magneticVariation } from './utils.js';
+import { formatPositionDisplay, bearingToWords, bearingToDisplay, formatDistance, distanceToDisplay, trueTomagnetic, magneticToTrue, magneticVariation, escapeHtml } from './utils.js';
 
 // Capture Android PWA install prompt before any user gesture.
 let _pwaInstallPrompt = null;
@@ -1926,7 +1926,7 @@ function _checkRouteHazards(routeIdx, silent = false) {
       const mid = pts[Math.floor((pts.length - 1) / 2)];
       L.popup({ maxWidth: 300, autoPan: false })
         .setLatLng([mid.lat, mid.lon])
-        .setContent(`<div style="font-size:13px;line-height:1.5"><b>${route.name}</b><br>✓ No rocks, obstructions, or wrecks within 100 yds.</div>`)
+        .setContent(`<div style="font-size:13px;line-height:1.5"><b>${escapeHtml(route.name)}</b><br>✓ No rocks, obstructions, or wrecks within 100 yds.</div>`)
         .openOn(_map);
     }
     return found;
@@ -2137,9 +2137,9 @@ function _showNearPointPanel(kind, latlng, results, radiusLabel) {
     : `${results.length} ${label}${results.length > 1 ? 's' : ''} within ${radiusLabel}`;
 
   tbody.innerHTML = results.map(r => `
-    <tr data-name="${r.name}">
+    <tr data-name="${escapeHtml(r.name)}">
       <td><input type="checkbox" class="npp-vis-cb" ${hiddenNames.has(r.name) ? '' : 'checked'}></td>
-      <td class="npp-row-name">${r.name}</td>
+      <td class="npp-row-name">${escapeHtml(r.name)}</td>
       <td>${distanceToDisplay(r.distanceNm)}</td>
       <td>${r.dateLabel}</td>
     </tr>`).join('');
@@ -2253,7 +2253,7 @@ function _refreshSavedRouteLayers() {
     {
       const labelPt = _bestRouteLabelPos(pts);
       const nameMarker = L.marker([labelPt.lat, labelPt.lon], {
-        icon: L.divIcon({ className: 'route-name-label', html: route.name, iconSize: null }),
+        icon: L.divIcon({ className: 'route-name-label', html: escapeHtml(route.name), iconSize: null }),
         pane: 'routeNamePane',
         interactive: true,
       }).on('click', (e) => {
@@ -2329,7 +2329,7 @@ function _refreshSavedTrackLayers() {
     L.polyline(lls, { color: '#c77dff', weight: 3, opacity: 0.8, interactive: false }).addTo(_savedTracksLayer);
     const mid = track.points[Math.floor(track.points.length / 2)];
     L.marker([mid.lat, mid.lon], {
-      icon: L.divIcon({ className: 'route-name-label', html: track.name, iconSize: null }),
+      icon: L.divIcon({ className: 'route-name-label', html: escapeHtml(track.name), iconSize: null }),
       interactive: false,
     }).addTo(_savedTracksLayer);
   });
@@ -2619,8 +2619,10 @@ async function _onDrawConfirm() {
   // (no avoidance needed, e.g. Piece 1d's long-range fast path) also
   // legitimately returns exactly 2 points.
   const fellBack = pts.length <= 2 && Query.landBlocks(pts[0].lon, pts[0].lat, pts[1].lon, pts[1].lat);
+  const marginalSeg = pts.length > 2 ? _marginalLegFromPath(pts) : null;
   const found = _enterEditMode(routes.length - 1);
   if (fellBack && !found.length) _showRouteFallbackWarning([{ a: pts[0], b: pts[1] }]);
+  else if (marginalSeg && !found.length) _showRouteFallbackWarning([marginalSeg]);
 }
 
 function _onDrawMouseMove(latlng) {
@@ -3432,6 +3434,18 @@ async function _autoRouteProg(start, end, onUpdate, onText = null, _escapeAttemp
       const candidates = [[lnx, lny], [-lnx, -lny], [cnx, cny], [-cnx, -cny]];
 
       let placed = false;
+      // Best sub-standard candidate seen (real clearance measured, just short
+      // of this rung's 0.8x target) — kept as a last resort for a passage
+      // genuinely narrower than the ladder's tightest rung can clear (e.g. a
+      // real harbor-mouth gut). Without this, EVERY candidate at EVERY rung
+      // gets rejected, the vertex is dropped with no via-node at all, and the
+      // whole leg silently falls back to a straight line across land instead
+      // — confirmed live as the root cause of the Portsmouth pier -> York
+      // Harbor regression (test/test_channel_routing.js cases [3]/[6]).
+      // MIN_FALLBACK_CLEARANCE_NM stays well above the 0.016nm-from-land bug
+      // this checkClearance gate exists to prevent in the first place.
+      const MIN_FALLBACK_CLEARANCE_NM = 0.03;
+      let bestFallback = null;
       for (const [dx, dy] of candidates) {
         for (const dist of offsetLadder) {
           const cv = Math.cos(vy * Math.PI / 180);
@@ -3447,11 +3461,25 @@ async function _autoRouteProg(start, end, onUpdate, onText = null, _escapeAttemp
           // approach) before this check existed — only applied for the
           // coastal standoff ladder (checkClearance), not the unchanged
           // hazard/tidal-ring ladder, which never claimed a standoff distance.
-          if (checkClearance && Query.distanceToLandNm(nx, ny, dist) < dist * 0.8) continue;
+          if (checkClearance) {
+            const clearance = Query.distanceToLandNm(nx, ny, dist);
+            if (clearance < dist * 0.8) {
+              if (clearance >= MIN_FALLBACK_CLEARANCE_NM &&
+                  (!bestFallback || clearance > bestFallback.clearance)) {
+                bestFallback = { nx, ny, clearance };
+              }
+              continue;
+            }
+          }
           nodes.push({ lon: nx, lat: ny }); placed = true; break;
         }
         if (placed) break;
       }
+      // `marginal: true` survives into the final path (tracePath() below reuses
+      // these exact node objects) so callers can still warn the user even
+      // though this leg didn't fall back to a raw land-crossing line — a real
+      // route was found, it just doesn't meet the normal comfort standoff.
+      if (!placed && bestFallback) nodes.push({ lon: bestFallback.nx, lat: bestFallback.ny, marginal: true });
     }
   }
 
@@ -4031,6 +4059,9 @@ async function _reRouteSegments(pts, onProgress, onText) {
     if (sub.length <= 2) {
       fallbacks++;
       fallbackSegs.push({ a: pts[i], b: pts[i + 1], ..._classifyFallbackSeg(pts[i], pts[i + 1]) });
+    } else {
+      const marginalSeg = _marginalLegFromPath(sub);
+      if (marginalSeg) { fallbacks++; fallbackSegs.push(marginalSeg); }
     }
     result.push(...sub.slice(1));
     if (onProgress) onProgress([...result]);
@@ -4051,7 +4082,26 @@ async function _reRouteSegments(pts, onProgress, onText) {
 // directly over a charted underwater rock — open water, no land in sight —
 // so "Couldn't avoid land" read as simply wrong and easy to dismiss. Each
 // segment is now labeled by what _classifyFallbackSeg actually found.
+// A `marginal` node (see _addRingNodes) means A* found a real, land-avoiding
+// path through this leg, just via a passage tighter than our normal comfort
+// standoff. Pinpoint it (rather than the leg's original endpoints) so the ⚠
+// marker lands where the squeeze actually is.
+function _marginalLegFromPath(path) {
+  const idx = path.findIndex(p => p.marginal);
+  if (idx < 0) return null;
+  return {
+    a: path[Math.max(0, idx - 1)],
+    b: path[Math.min(path.length - 1, idx + 1)],
+    tightClearance: true,
+  };
+}
+
 function _fallbackReasonLabel(seg) {
+  // A real, land-avoiding route WAS found here — just one that squeezes
+  // through a passage tighter than our normal comfort standoff, because no
+  // charted channel/buoy data exists for it (see COASTAL_STANDOFF_LADDER's
+  // fallback in _addRingNodes). Distinct from an actual land/hazard crossing.
+  if (seg.tightClearance) return 'a comfortable margin off shore (no charted channel here)';
   if (seg.crossesLand && seg.crossesHazard) return 'land and a charted hazard';
   if (seg.crossesHazard) return 'a charted hazard (rock/obstruction/wreck)';
   return 'land'; // crossesLand, or neither flag matched (still an unverified straight line)
@@ -4068,7 +4118,9 @@ function _showRouteFallbackWarning(fallbackSegs) {
     lon: (seg.a.lon + seg.b.lon) / 2,
   }));
   mids.forEach((m, i) => {
-    const reason = _fallbackReasonLabel(fallbackSegs[i]);
+    const seg = fallbackSegs[i];
+    const reason = _fallbackReasonLabel(seg);
+    const verb = seg.tightClearance ? 'Passes tight on' : "Couldn't avoid";
     L.marker([m.lat, m.lon], {
       icon: L.divIcon({
         className: '',
@@ -4077,27 +4129,40 @@ function _showRouteFallbackWarning(fallbackSegs) {
         iconAnchor: [16, 16],
       }),
       zIndexOffset: 900,
-    }).bindTooltip(`Couldn't avoid ${reason} here — add a waypoint (leg ${i + 1})`,
+    }).bindTooltip(`${verb} ${reason} here — add a waypoint (leg ${i + 1})`,
                     { permanent: false, direction: 'top', offset: [0, -6] })
       .on('click', (e) => { L.DomEvent.stopPropagation(e); _map.setView([m.lat, m.lon], 16); })
       .addTo(_routeFallbackLayer);
   });
 
   const n = fallbackSegs.length;
+  const anyTight  = fallbackSegs.some(s => s.tightClearance);
   const anyHazard = fallbackSegs.some(s => s.crossesHazard);
-  const anyLand   = fallbackSegs.some(s => s.crossesLand || !s.crossesHazard);
-  const reasonSummary = anyHazard && anyLand ? 'land or a charted hazard'
-    : anyHazard ? 'a charted hazard (rock/obstruction/wreck)'
-    : 'land';
+  const anyLand   = fallbackSegs.some(s => !s.tightClearance && (s.crossesLand || !s.crossesHazard));
   const first = mids[0];
-  const body = `<b>Couldn't avoid ${reasonSummary}</b> — ${n} leg${n > 1 ? 's' : ''} still cross${n > 1 ? '' : 'es'} it as a straight line.<br>`
-    + `Add a waypoint in the passage${n > 1 ? ' (⚠ marks each spot)' : ''}, then re-route.`;
+  let body, speakMsg;
+  if (anyTight && !anyHazard && !anyLand) {
+    // A real route was found for every flagged leg — just tighter than our
+    // normal comfort standoff, since no charted channel/buoy data exists for
+    // this passage. Different from a genuine unresolved land/hazard crossing:
+    // don't tell the user to add a waypoint to "fix" something that already
+    // routed, just to double-check it themselves.
+    body = `<b>${n} leg${n > 1 ? 's pass' : ' passes'} tighter than our normal comfort margin off shore</b> `
+      + `(⚠ marks each spot) — no charted channel data here, so double-check this passage yourself.`;
+    speakMsg = `Note: ${n} route leg${n > 1 ? 's pass' : ' passes'} closer to shore than our normal comfort margin — no charted channel data for this passage, so double-check it.`;
+  } else {
+    const reasonSummary = anyHazard && anyLand ? 'land or a charted hazard'
+      : anyHazard ? 'a charted hazard (rock/obstruction/wreck)'
+      : 'land';
+    body = `<b>Couldn't avoid ${reasonSummary}</b> — ${n} leg${n > 1 ? 's' : ''} still cross${n > 1 ? '' : 'es'} it as a straight line.<br>`
+      + `Add a waypoint in the passage${n > 1 ? ' (⚠ marks each spot)' : ''}, then re-route.`;
+    speakMsg = `Warning: ${n} route leg${n > 1 ? 's' : ''} couldn't avoid ${reasonSummary}. Add a waypoint and re-route.`;
+  }
   L.popup({ maxWidth: 300, autoPan: true })
     .setLatLng([first.lat, first.lon])
     .setContent(`<div style="font-size:13px;line-height:1.5">${body}</div>`)
     .openOn(_map);
 
-  const speakMsg = `Warning: ${n} route leg${n > 1 ? 's' : ''} couldn't avoid ${reasonSummary}. Add a waypoint and re-route.`;
   setStatus(speakMsg);
   TTS.sayImmediate(speakMsg);
 }
@@ -7421,7 +7486,7 @@ function _ensureMap() {
     const speed  = document.getElementById('track-speed-input');
     const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
     sel.innerHTML = routes.length
-      ? routes.map((r, i) => `<option value="${i}">${r.name}</option>`).join('')
+      ? routes.map((r, i) => `<option value="${i}">${escapeHtml(r.name)}</option>`).join('')
       : '<option value="">— no routes saved —</option>';
     // Restore sticky route
     const lastName = localStorage.getItem('audiochart-last-route');
@@ -7453,7 +7518,7 @@ function _ensureMap() {
     const configs = _loadTrackConfigs();
     sel.innerHTML = configs.length
       ? '<option value="">— saved configs —</option>' +
-        configs.map((c, i) => `<option value="${i}">${c.name}</option>`).join('')
+        configs.map((c, i) => `<option value="${i}">${escapeHtml(c.name)}</option>`).join('')
       : '<option value="">— saved configs —</option>';
   }
 
@@ -7482,7 +7547,7 @@ function _ensureMap() {
     const routes   = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
     const routeSel = document.getElementById('track-route-select');
     routeSel.innerHTML = routes.length
-      ? routes.map((r, i) => `<option value="${i}">${r.name}</option>`).join('')
+      ? routes.map((r, i) => `<option value="${i}">${escapeHtml(r.name)}</option>`).join('')
       : '<option value="">— no routes saved —</option>';
     // Try routeName first; fall back to cfg.name for configs saved before route rename was fixed
     let idx = routes.findIndex(r => r.name === cfg.routeName);
@@ -7777,10 +7842,13 @@ function _ensureMap() {
     // returned the raw straight line — actively announcing false success,
     // worse than staying silent. See the matching comment there.
     const fellBack = pts.length <= 2 && Query.landBlocks(pts[0].lon, pts[0].lat, pts[1].lon, pts[1].lat);
+    const marginalSeg = pts.length > 2 ? _marginalLegFromPath(pts) : null;
     const found = _enterEditMode(newIdx);
 
     if (fellBack && !found.length) {
       _showRouteFallbackWarning([{ a: pts[0], b: pts[1] }]);
+    } else if (marginalSeg && !found.length) {
+      _showRouteFallbackWarning([marginalSeg]);
     } else if (!found.length) {
       const msg = `${name} planned — ${totalNm.toFixed(1)} nm.`;
       setStatus(msg);
@@ -7798,7 +7866,7 @@ function _ensureMap() {
     if (_autoRouteStartMarker) _autoRouteStartMarker.remove();
     _autoRouteStartMarker = L.circleMarker([_ctxLatLng.lat, _ctxLatLng.lng], {
       radius: 8, color: '#00cc44', fillColor: '#00cc44', fillOpacity: 0.8, weight: 2,
-    }).addTo(_map).bindTooltip(`${name} — start`, { permanent: false });
+    }).addTo(_map).bindTooltip(`${escapeHtml(name)} — start`, { permanent: false });
     if (_autoRouteEnd) {
       _triggerAutoRoute();
     } else {
@@ -7813,7 +7881,7 @@ function _ensureMap() {
     if (_autoRouteEndMarker) _autoRouteEndMarker.remove();
     _autoRouteEndMarker = L.circleMarker([_ctxLatLng.lat, _ctxLatLng.lng], {
       radius: 8, color: '#cc2200', fillColor: '#cc2200', fillOpacity: 0.8, weight: 2,
-    }).addTo(_map).bindTooltip(`${_autoRouteName || 'Route'} — destination`, { permanent: false });
+    }).addTo(_map).bindTooltip(`${escapeHtml(_autoRouteName || 'Route')} — destination`, { permanent: false });
     if (!_autoRouteStart) {
       setStatus('Destination set — right-click map → "Route from here" to plan route.');
       return;
@@ -8381,7 +8449,7 @@ async function showMap(fromLat, fromLon, result) {
     }));
     const toIcon = _navaidIcon(destType || 'place', color);
     const toMarker = L.marker([destLat, destLon], { icon: toIcon });
-    if (destName) toMarker.bindTooltip(destName, { permanent: true, direction: 'top', className: 'map-tooltip' });
+    if (destName) toMarker.bindTooltip(escapeHtml(destName), { permanent: true, direction: 'top', className: 'map-tooltip' });
     layers.push(toMarker);
     const bearingPolyline = L.polyline([[fLat, fLon], [destLat, destLon]], {
       color, weight: 2, dashArray: '6 4', opacity: 0.85,

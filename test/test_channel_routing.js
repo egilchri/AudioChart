@@ -387,17 +387,34 @@ function autoRoute(allRings, chGraph, start, end) {
       const cnx = cdx / cl, cny = cdy / cl;
       const candidates = [[lnx, lny], [-lnx, -lny], [cnx, cny], [-cnx, -cny]];
       let placed = false;
+      // Mirrors app.js's _addRingNodes fallback: a passage genuinely
+      // narrower than the ladder's tightest rung can clear must not silently
+      // drop the vertex (which starves A* of any via-node and falls back to
+      // a land-crossing straight line) — keep the best sub-standard
+      // candidate above a hard floor as a last resort.
+      const MIN_FALLBACK_CLEARANCE_NM = 0.03;
+      let bestFallback = null;
       for (const [dx, dy] of candidates) {
         for (const dist of offsetLadder) {
           const cv = Math.cos(vy * Math.PI / 180);
           const nx = vx + dist / (60 * cv) * dx;
           const ny = vy + dist / 60 * dy;
           if (isOnLand(allRings, nx, ny)) continue;
-          if (checkClearance && distanceToLandNm(nx, ny, dist) < dist * 0.8) continue;
+          if (checkClearance) {
+            const clearance = distanceToLandNm(nx, ny, dist);
+            if (clearance < dist * 0.8) {
+              if (clearance >= MIN_FALLBACK_CLEARANCE_NM &&
+                  (!bestFallback || clearance > bestFallback.clearance)) {
+                bestFallback = { nx, ny, clearance };
+              }
+              continue;
+            }
+          }
           nodes.push({ lon: nx, lat: ny }); placed = true; break;
         }
         if (placed) break;
       }
+      if (!placed && bestFallback) nodes.push({ lon: bestFallback.nx, lat: bestFallback.ny });
     }
   }
 

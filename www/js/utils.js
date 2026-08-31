@@ -3,6 +3,13 @@
  * All bearing/distance outputs are optimized for TTS clarity.
  */
 
+/** Escape text for safe insertion into an innerHTML template (attribute or text content). */
+export function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[c]));
+}
+
 /**
  * Magnetic variation for the current area, in degrees.
  * Positive = East, Negative = West.

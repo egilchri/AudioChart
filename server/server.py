@@ -418,9 +418,12 @@ async def handle_set_test_position(request):
 async def handle_static(request):
     """Serve files from www/ with SPA fallback to index.html."""
     path = request.match_info.get('path', '')
-    safe_path = os.path.normpath(path).lstrip('/')
-    full_path = os.path.join(WWW_DIR, safe_path)
-    if os.path.isfile(full_path):
+    www_root = os.path.realpath(WWW_DIR)
+    full_path = os.path.realpath(os.path.join(WWW_DIR, path.lstrip('/')))
+    # Confine to www_root even against percent-encoded/symlinked '..' escapes —
+    # os.path.normpath alone doesn't stop a traversal that reaches WWW_DIR's
+    # parent, since it can't collapse '..' past a directory it hasn't resolved.
+    if os.path.commonpath([full_path, www_root]) == www_root and os.path.isfile(full_path):
         return web.FileResponse(full_path, headers={'Cache-Control': 'no-cache'})
     index = os.path.join(WWW_DIR, 'index.html')
     if os.path.isfile(index):

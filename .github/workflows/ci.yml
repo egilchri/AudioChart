@@ -26,10 +26,16 @@ jobs:
           node test/test_query.js
 
       # Integration/regression suites against real chart data. Some cases are
-      # explicitly marked EXPERIMENTAL, and test_channel_routing.js currently
-      # has known non-experimental failures too (Portsmouth pier -> York
-      # Harbor) — non-blocking until those are resolved, but still surfaced
-      # in the job log for a human to read on every PR.
+      # explicitly marked EXPERIMENTAL. test_channel_routing.js's case [6]
+      # also currently fails for a real, understood reason: the Portsmouth
+      # pier -> York Harbor passage is genuinely narrow enough that even the
+      # improved coastal-standoff fallback can't reach our ideal 0.12nm
+      # comfort margin without real charted-channel data (case [3], the
+      # general land-avoidance check for the same route, does pass) — the
+      # live app surfaces this to the user via _showRouteFallbackWarning's
+      # "tight clearance" message rather than staying silent. Non-blocking
+      # until real channel data closes this gap, but still surfaced in the
+      # job log for a human to read on every PR.
       - name: Regression suites (non-blocking)
         continue-on-error: true
         run: |
