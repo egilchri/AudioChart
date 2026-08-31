@@ -3127,11 +3127,17 @@ function _saveRoute(name, points) {
   localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
 }
 
+// _setRouteDestination/_armPendingRouteDestination live inside _ensureMap()'s
+// closure (they call _triggerAutoRoute, defined there) — bridged out via
+// this top-level ref, same pattern as _routeFromHereFn.
+let _disarmPendingRouteDestinationFn = null;
+
 function _clearAutoRoute() {
   _autoRouteStart = _autoRouteEnd = _autoRouteName = null;
   if (_autoRouteStartMarker)  { _autoRouteStartMarker.remove();  _autoRouteStartMarker  = null; }
   if (_autoRouteEndMarker)    { _autoRouteEndMarker.remove();    _autoRouteEndMarker    = null; }
   if (_autoRoutePreviewLayer) { _autoRoutePreviewLayer.remove(); _autoRoutePreviewLayer = null; }
+  _disarmPendingRouteDestinationFn?.();
 }
 
 async function _autoRouteProg(start, end, onUpdate, onText = null, _escapeAttempted = false) {
@@ -8037,7 +8043,11 @@ function _ensureMap() {
     if (_autoRouteEnd) {
       _triggerAutoRoute();
     } else {
-      setStatus(`"${name}" start set — right-click map → "Route to here".`);
+      // Tap the map to finish it immediately — right-click → "Route to
+      // here" still works too, this is just the faster path.
+      _armPendingRouteDestination();
+      setStatus(`"${name}" start set — tap the map for the destination.`);
+      TTS.sayImmediate(`${name} started. Tap the map for the destination.`);
     }
   }
   _routeFromHereFn = _routeFromHere;
@@ -8048,12 +8058,15 @@ function _ensureMap() {
     _routeFromHere(_ctxLatLng.lat, _ctxLatLng.lng);
   });
 
-  document.getElementById('map-ctx-route-to-here').addEventListener('click', () => {
-    _hideCtx();
-    if (!_ctxLatLng) return;
-    _autoRouteEnd = { lat: _ctxLatLng.lat, lon: _ctxLatLng.lng };
+  // Shared by the map context menu's "Route to here" and the pending-click
+  // destination-picker armed after _routeFromHere (see below) — same
+  // set-the-endpoint-and-route flow, just two different ways of supplying
+  // the destination point.
+  function _setRouteDestination(lat, lon) {
+    _disarmPendingRouteDestination();
+    _autoRouteEnd = { lat, lon };
     if (_autoRouteEndMarker) _autoRouteEndMarker.remove();
-    _autoRouteEndMarker = L.circleMarker([_ctxLatLng.lat, _ctxLatLng.lng], {
+    _autoRouteEndMarker = L.circleMarker([lat, lon], {
       radius: 8, color: '#cc2200', fillColor: '#cc2200', fillOpacity: 0.8, weight: 2,
     }).addTo(_map).bindTooltip(`${escapeHtml(_autoRouteName || 'Route')} — destination`, { permanent: false });
     if (!_autoRouteStart) {
@@ -8061,6 +8074,28 @@ function _ensureMap() {
       return;
     }
     _triggerAutoRoute();
+  }
+
+  // Armed by _routeFromHere once a start point is set with no destination
+  // yet — the very next tap anywhere on the map completes the route
+  // immediately, no need to separately right-click and find "Route to
+  // here" in the full context menu. Right-click still works too (this
+  // listener just sits alongside it, on a different mouse gesture).
+  let _pendingRouteDestClick = null;
+  function _disarmPendingRouteDestination() {
+    if (_pendingRouteDestClick) { _map.off('click', _pendingRouteDestClick); _pendingRouteDestClick = null; }
+  }
+  function _armPendingRouteDestination() {
+    _disarmPendingRouteDestination();
+    _pendingRouteDestClick = (e) => _setRouteDestination(e.latlng.lat, e.latlng.lng);
+    _map.on('click', _pendingRouteDestClick);
+  }
+  _disarmPendingRouteDestinationFn = _disarmPendingRouteDestination;
+
+  document.getElementById('map-ctx-route-to-here').addEventListener('click', () => {
+    _hideCtx();
+    if (!_ctxLatLng) return;
+    _setRouteDestination(_ctxLatLng.lat, _ctxLatLng.lng);
   });
 
   const _visParent  = document.getElementById('map-ctx-route-vis-parent');
