@@ -747,32 +747,9 @@ html, body {
   -webkit-backdrop-filter: blur(4px);
 }
 
-/* Floating map menu button */
-#map-menu-btn {
-  position: absolute;
-  bottom: 308px;
-  right: 10px;
-  z-index: 1000;
-  width: 48px;
-  height: 48px;
-  background: var(--dark-blue);
-  color: var(--text);
-  border: 1px solid var(--mid-blue);
-  border-radius: 10px;
-  font-size: 1.3rem;
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  -webkit-tap-highlight-color: transparent;
-}
-#map-menu-btn:active { background: var(--mid-blue); }
-#app.sketch-mode #map-menu-btn,
-#app.anim-mode #map-menu-btn { display: none; }
 #map-layer-btn {
   position: absolute;
-  bottom: 252px;
+  bottom: 308px;
   right: 10px;
   z-index: 1000;
   width: 48px;
@@ -793,7 +770,7 @@ html, body {
 
 #zoom-to-me-btn {
   position: absolute;
-  bottom: 196px;
+  bottom: 252px;
   right: 10px;
   z-index: 1000;
   width: 48px;
@@ -831,7 +808,6 @@ html, body {
 /* Collapsed "peek" state — mirrors #edit-tools-panel.collapsed / Node Ops. Each
    button keeps its own individual position (unlike Node Ops' single flex box)
    so the popup panels anchored to Routes/Tracks/Navaid-filter stay aligned. */
-#app.global-ops-collapsed #map-menu-btn,
 #app.global-ops-collapsed #map-layer-btn,
 #app.global-ops-collapsed #zoom-to-me-btn,
 #app.global-ops-collapsed #navaid-filter-btn,
@@ -868,7 +844,7 @@ html, body {
 
 #reroute-btn {
   position: absolute;
-  bottom: 84px;
+  bottom: 140px;
   right: 10px;
   z-index: 1000;
   width: 48px;
@@ -890,7 +866,7 @@ html, body {
 
 #delete-route-btn {
   position: absolute;
-  bottom: 28px;
+  bottom: 84px;
   right: 10px;
   z-index: 1000;
   width: 48px;
@@ -1710,9 +1686,8 @@ html, body {
 #etp-animate { color: var(--accent); border-color: var(--accent); }
 #etp-animate:active { background: var(--accent); color: var(--navy); }
 
-/* Hide command bar and hamburger while editing */
+/* Hide command bar while editing */
 #app.edit-mode #map-overlay-cmd { display: none !important; }
-#app.edit-mode #map-menu-btn    { display: none; }
 
 .edit-vertex-marker {
   width: 22px;
@@ -2152,7 +2127,7 @@ html, body {
    Leaflet's own control-container flex layout; the transform just visually
    nudges it from wherever it already sits. */
 #map-overlay-status                { transform: var(--ui-pos-status, translate(0,0)); }
-#map-menu-btn, #map-layer-btn, #zoom-to-me-btn, #navaid-filter-btn,
+#map-layer-btn, #zoom-to-me-btn, #navaid-filter-btn,
 #route-picker-btn, #reroute-btn, #delete-route-btn, #track-picker-btn,
 #global-ops-title {
   transform: var(--ui-pos-btncol, translate(0,0));

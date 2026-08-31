@@ -1373,7 +1373,7 @@ function _initRearrangeGroups() {
   _makeDraggableGroup('status', () => [document.getElementById('map-overlay-status')]);
   _makeDraggableGroup('btncol', () => [
     'global-ops-title',
-    'map-menu-btn', 'map-layer-btn', 'zoom-to-me-btn', 'navaid-filter-btn',
+    'map-layer-btn', 'zoom-to-me-btn', 'navaid-filter-btn',
     'route-picker-btn', 'reroute-btn', 'delete-route-btn', 'track-picker-btn',
   ].map(id => document.getElementById(id)));
   _makeDraggableGroup('navctl', () => ['zoom-slider-wrap', 'pan-controls-wrap'].map(id => document.getElementById(id)));
@@ -7482,31 +7482,6 @@ function _ensureMap() {
   });
 
   // Floating ☰ button — opens context menu at current GPS position
-  document.getElementById('map-menu-btn').addEventListener('click', (e) => {
-    e.stopPropagation();
-    const pos = GPS.getPosition();
-    _ctxLatLng = pos ? L.latLng(pos.lat, pos.lon) : _map.getCenter();
-    const btn  = e.currentTarget.getBoundingClientRect();
-    _ctxSubmenu.style.display    = 'none';
-    _routesNearSubmenu.style.display = 'none';
-    _tracksNearSubmenu.style.display = 'none';
-    _wpSubmenu.style.display     = 'none';
-    _trackSubmenu.style.display  = 'none';
-    _routeSubmenu.style.display  = 'none';
-    _importSubmenu.style.display = 'none';
-    _populateWpSubmenu();
-    _populateRouteSelect();
-    const showing = _ctxMenu.style.display === 'block';
-    _ctxMenu.style.display = showing ? 'none' : 'block';
-    if (!showing) {
-      const mw = _ctxMenu.offsetWidth, mh = _ctxMenu.offsetHeight;
-      const x = Math.min(Math.max(4, btn.left - mw), window.innerWidth  - mw - 4);
-      const y = Math.min(Math.max(4, btn.top  - mh - 8), window.innerHeight - mh - 4);
-      _ctxMenu.style.left = x + 'px';
-      _ctxMenu.style.top  = y + 'px';
-    }
-  });
-
   // Refresh depth soundings when map moves or zooms
   _map.on('zoomend moveend', _refreshSoundingsLayer);
 
