@@ -8082,14 +8082,31 @@ function _ensureMap() {
   // here" in the full context menu. Right-click still works too (this
   // listener just sits alongside it, on a different mouse gesture).
   let _pendingRouteDestClick = null;
+  const _routeDestBanner = document.getElementById('route-dest-banner');
+  const _routeDestBannerLabel = document.getElementById('route-dest-banner-label');
   function _disarmPendingRouteDestination() {
     if (_pendingRouteDestClick) { _map.off('click', _pendingRouteDestClick); _pendingRouteDestClick = null; }
+    _routeDestBanner.style.display = 'none';
   }
   function _armPendingRouteDestination() {
     _disarmPendingRouteDestination();
     _pendingRouteDestClick = (e) => _setRouteDestination(e.latlng.lat, e.latlng.lng);
     _map.on('click', _pendingRouteDestClick);
+    // A status-bar message and a spoken line aren't enough on their own —
+    // both are easy to miss, and this is the one moment the user has to
+    // actually DO something (tap the map) rather than just be informed of
+    // something. A persistent banner, same convention as Draw Route's own
+    // step-by-step prompt, stays on screen until they act or cancel.
+    _routeDestBannerLabel.textContent = `Tap the map to set the destination for "${_autoRouteName}"`;
+    _routeDestBanner.style.display = 'flex';
   }
+  document.getElementById('route-dest-cancel-btn').addEventListener('click', () => {
+    const name = _autoRouteName;
+    _clearAutoRoute();
+    const msg = `${name || 'Route'} cancelled.`;
+    setStatus(msg);
+    TTS.sayImmediate(msg);
+  });
   _disarmPendingRouteDestinationFn = _disarmPendingRouteDestination;
 
   document.getElementById('map-ctx-route-to-here').addEventListener('click', () => {
