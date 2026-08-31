@@ -1088,7 +1088,7 @@ let _baseTileLayer    = null;
 // (a self-contained WMS raster) but dropped per live comparison — Maine's
 // own data was "by far the best" (real coastline/place-name context, since
 // it overlays the chart rather than replacing it).
-const MAP_VIEW_MODES  = ['chart', 'satellite', 'geology-maine', 'history', 'demographics', 'island-info'];
+const MAP_VIEW_MODES  = ['chart', 'satellite', 'low-tide', 'geology-maine', 'history', 'demographics', 'island-info'];
 // Maps a display mode to the documents.geojson `category` it shows —
 // the whole reason "switch to Geology/History" needs no separate menu.
 const MAP_VIEW_DOC_CATEGORY = { 'geology-maine': 'geology', 'history': 'history', 'demographics': 'demographics', 'island-info': 'island-info' };
@@ -6681,6 +6681,52 @@ function _enableMaineGeologyLayer() {
   _map.on('moveend', _maineGeologyMoveEnd);
 }
 
+// Maine GeoLibrary's Penobscot Bay 2024 orthoimagery — confirmed live before
+// building this: a public ArcGIS ImageServer, "No restrictions" license
+// (attribution: James W Sewall Company / Maine DEP), and CORS-enabled for
+// this app's actual domain. Flown specifically at low tide (6/26–7/27/24,
+// within 2hrs of spring tides) at 14.5cm resolution — exposes ledges/rocks
+// a generically-timed Satellite layer often hides underwater.
+//
+// Unlike Satellite (a simple pre-tiled MapServer, {z}/{y}/{x} URL template),
+// this is a DYNAMIC ImageServer — confirmed via its own ?f=json: capabilities
+// list "Catalog,Pixels,Image,Metadata" with no "Tilemap", i.e. no pre-baked
+// tile pyramid. Each tile has to be requested via exportImage with a
+// computed bounding box instead. Deterministic per z/x/y, so it still caches
+// like a normal tile through the service worker (see sw.js's LOWTIDE_CACHE).
+const LOW_TIDE_SERVICE_URL = 'https://gis.maine.gov/image/rest/services/Coastal/'
+  + 'Maine_Orthoimagery_Coastal_Penobscot_Bay_2024/ImageServer/exportImage';
+// Marshall Point to Brooklin, ME — the service's own extent (Rockland,
+// Camden, Vinalhaven, North Haven, Islesboro, Deer Isle/Stonington all fall
+// within it); constrains Leaflet to never request tiles outside real
+// coverage. Kept as a plain array, not an L.latLngBounds instance, since L
+// (Leaflet) isn't loaded yet at module-evaluation time — see loadLeaflet()
+// — only ever constructed lazily once _applyMapLayer() actually needs it.
+const LOW_TIDE_BOUNDS_RAW = [[43.7536, -69.264], [44.6817, -68.4854]];
+
+function _tile2lon(x, z) { return x / 2 ** z * 360 - 180; }
+function _tile2lat(y, z) {
+  const n = Math.PI - 2 * Math.PI * y / 2 ** z;
+  return 180 / Math.PI * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
+}
+// Same lazy-construction reason as LOW_TIDE_BOUNDS_RAW above — L.TileLayer
+// doesn't exist until Leaflet has loaded, so this can't be a top-level const.
+let _LowTideTileLayerClass = null;
+function _lowTideTileLayerClass() {
+  if (!_LowTideTileLayerClass) {
+    _LowTideTileLayerClass = L.TileLayer.extend({
+      getTileUrl: function(coords) {
+        const z = coords.z;
+        const lonMin = _tile2lon(coords.x, z), lonMax = _tile2lon(coords.x + 1, z);
+        const latMax = _tile2lat(coords.y, z), latMin = _tile2lat(coords.y + 1, z);
+        return `${LOW_TIDE_SERVICE_URL}?bbox=${lonMin},${latMin},${lonMax},${latMax}`
+          + '&bboxSR=4326&size=256,256&imageSR=4326&format=png&f=image';
+      },
+    });
+  }
+  return _LowTideTileLayerClass;
+}
+
 function _applyMapLayer() {
   if (!_map) return;
   if (_baseTileLayer) { _map.removeLayer(_baseTileLayer); _baseTileLayer = null; }
@@ -6691,6 +6737,13 @@ function _applyMapLayer() {
       'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
       { minZoom: 4, maxZoom: 18, maxNativeZoom: 17, attribution: '© Esri' }
     ).addTo(_map);
+  } else if (_mapViewMode === 'low-tide') {
+    const LowTideTileLayer = _lowTideTileLayerClass();
+    _baseTileLayer = new LowTideTileLayer('', {
+      minZoom: 11, maxZoom: 18, maxNativeZoom: 18,
+      bounds: L.latLngBounds(LOW_TIDE_BOUNDS_RAW[0], LOW_TIDE_BOUNDS_RAW[1]),
+      attribution: 'Imagery: Maine GeoLibrary (James W Sewall Co. / Maine DEP), flown at low tide 2024',
+    }).addTo(_map);
   } else {
     // 'chart', 'geology-maine', 'history', 'demographics', and 'island-info'
     // all use the street basemap: all but 'geology-maine' use it on their
@@ -6714,8 +6767,8 @@ function _applyMapLayer() {
   _syncMapModeTitle();
 }
 
-const MAP_VIEW_ICONS  = { chart: '🗺', satellite: '🛰', 'geology-maine': '⛰', history: '📜', demographics: '👥', 'island-info': '🏝' };
-const MAP_VIEW_LABELS = { chart: 'Chart', satellite: 'Satellite', 'geology-maine': 'Geology', history: 'History', demographics: 'Demographics', 'island-info': 'Island Info' };
+const MAP_VIEW_ICONS  = { chart: '🗺', satellite: '🛰', 'low-tide': '🌊', 'geology-maine': '⛰', history: '📜', demographics: '👥', 'island-info': '🏝' };
+const MAP_VIEW_LABELS = { chart: 'Chart', satellite: 'Satellite', 'low-tide': 'Low-Tide Aerial', 'geology-maine': 'Geology', history: 'History', demographics: 'Demographics', 'island-info': 'Island Info' };
 const HISTORY_ERA_LABELS = {
   all: 'All Eras',
   colonial: 'Native American & Colonial',
