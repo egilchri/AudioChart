@@ -3,6 +3,7 @@
   "short_name": "AudioChart",
   "description": "Offline voice-driven nautical hazard and navigation assistant",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
   "orientation": "portrait",
   "start_url": "./",
   "scope": "./",

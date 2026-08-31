@@ -20,6 +20,14 @@
 
     <div id="map-container" style="display:none">
       <div id="leaflet-map"></div>
+      <!-- Wide, short title strip: mode + GPS + coverage, one line, full width.
+           Deliberately NOT styled like a button/badge (no border-radius, no
+           border, not clickable) since it's a title, not a control. Hidden
+           in favor of #wco-titlebar when the OS draws an actual native
+           title-bar strip for an installed desktop app (Window Controls
+           Overlay) — see _syncWindowControlsOverlay in app.js. -->
+      <div id="status-title-bar" title="Chart · GPS: waiting">🗺 Chart  ·  GPS: waiting</div>
+      <div id="wco-titlebar"></div>
       <div id="map-version-label"></div>
       <div class="etp-title" id="global-ops-title">Global Ops</div>
       <button id="map-layer-btn" title="Switch to chart">&#128506;</button>
@@ -105,7 +113,6 @@
 
       <!-- top-left status overlay -->
       <div id="map-overlay-status">
-        <span id="status-combo" class="status-badge" title="Chart · GPS: waiting">&#128506;&hellip;</span>
         <button id="offline-btn" title="Download chart data for offline use" style="display:none">&#11015; Offline</button>
         <button id="route-btn" title="Download chart data for a cruise route" style="display:none">&#11015; Route</button>
         <button id="test-pos-btn" title="Set test position">&#128205; Set Point</button>

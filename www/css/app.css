@@ -650,9 +650,66 @@ html, body {
 }
 
 /* ── Map overlays ──────────────────────────────────────────────────────────── */
+/* Wide, short title strip — mode + GPS + coverage, one line, full width.
+   Deliberately NOT button/badge-styled (flat, no border-radius, no border,
+   pointer-events:none) since it reads as a title, not something to tap.
+   Sits above the button row rather than inside it, so it never stretches to
+   match a flex row's height the way an in-row badge would. */
+#status-title-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1001;
+  height: 26px;
+  line-height: 26px;
+  padding: 0 12px;
+  background: rgba(10, 22, 40, 0.92);
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-bottom: 1px solid var(--mid-blue);
+  pointer-events: none;
+}
+#status-title-bar.gps-test    { color: var(--warn); border-bottom-color: var(--warn); }
+#status-title-bar.gps-error   { color: var(--danger); border-bottom-color: var(--danger); }
+#status-title-bar.coverage-land { color: var(--warn); border-bottom-color: var(--warn); }
+#status-title-bar.coverage-none { color: var(--danger); border-bottom-color: var(--danger); }
+
+/* When the OS draws a real title-bar strip for an installed desktop app
+   (Window Controls Overlay), the same content goes there instead — see
+   _syncWindowControlsOverlay in app.js — so the in-page strip steps aside. */
+body.wco-active #status-title-bar { display: none; }
+body.wco-active #map-overlay-status { top: 10px; }
+
+#wco-titlebar {
+  display: none;
+  position: fixed;
+  left: env(titlebar-area-x, 0);
+  top: env(titlebar-area-y, 0);
+  width: env(titlebar-area-width, 100%);
+  height: env(titlebar-area-height, 33px);
+  -webkit-app-region: drag;
+  app-region: drag;
+  align-items: center;
+  padding-left: 12px;
+  background: var(--navy);
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  z-index: 99999;
+}
+body.wco-active #wco-titlebar { display: flex; }
+
 #map-overlay-status {
   position: absolute;
-  top: 10px;
+  top: 38px;
   left: 10px;
   z-index: 1001;
   display: flex;

@@ -531,7 +531,8 @@ const positionEl = document.getElementById('position-display');
 const responseEl  = document.getElementById('response-text');
 const responseAreaEl = document.getElementById('response-area');
 const navaidListEl = document.getElementById('navaid-list');
-const statusComboEl = document.getElementById('status-combo');
+const statusComboEl = document.getElementById('status-title-bar');
+const wcoTitlebarEl = document.getElementById('wco-titlebar');
 const historyList = document.getElementById('history-list');
 const historyClear = document.getElementById('history-clear');
 const offlineBtn    = document.getElementById('offline-btn');
@@ -6622,29 +6623,36 @@ const HISTORY_ERA_LABELS = {
   modern: '20th Century to Present',
 };
 
-// ── Combined status badge (mode + GPS + coverage) ───────────────────────────
-// All three used to be separate always-visible elements — folded into one
-// deliberately terse badge (glyphs, not words) to free up top-bar real
-// estate; the full readable text still lives in the badge's `title` for
-// desktop hover. Each of the three producers (mode switch, every GPS fix,
-// coverage-level changes) only owns its own piece of the combined state and
-// calls _renderStatusCombo() to redraw — same pattern as Anchor Watch/Wake
-// Lock's own small bits of independently-updated UI state elsewhere in this
-// file, just three producers sharing one element instead of one.
+// ── Status title bar (mode + GPS + coverage) ────────────────────────────────
+// All three used to be separate always-visible elements (then briefly one
+// cryptic in-row badge, which read as a pushable button it wasn't) — now one
+// wide, short, title-styled strip above the button row. Full readable words,
+// not glyph codes: a title bar has the width to spare, the constraint here
+// is HEIGHT, not width. Each of the three producers (mode switch, every GPS
+// fix, coverage-level changes) only owns its own piece of the combined state
+// and calls _renderStatusCombo() to redraw — mirrored into #wco-titlebar too,
+// for when an installed desktop app has a real native title-bar strip to use
+// instead (see _syncWindowControlsOverlay).
 let _statusModeGlyph    = '🗺';
 let _statusModeLabel    = 'Chart';
-let _statusGpsCode      = '…';
 let _statusGpsLabel     = 'GPS: waiting';
 let _statusGpsCls       = '';
-let _statusCoverageGlyph = '';
 let _statusCoverageLabel = '';
 let _statusCoverageCls   = '';
 
 function _renderStatusCombo() {
-  if (!statusComboEl) return;
-  statusComboEl.textContent = `${_statusModeGlyph} ${_statusGpsCode}${_statusCoverageGlyph}`;
-  statusComboEl.className = 'status-badge ' + (_statusCoverageCls || _statusGpsCls);
-  statusComboEl.title = [_statusModeLabel, _statusGpsLabel, _statusCoverageLabel].filter(Boolean).join(' · ');
+  const text = [`${_statusModeGlyph} ${_statusModeLabel}`, _statusGpsLabel, _statusCoverageLabel]
+    .filter(Boolean).join('  ·  ');
+  const cls = _statusCoverageCls || _statusGpsCls;
+  if (statusComboEl) {
+    statusComboEl.textContent = text;
+    statusComboEl.title = text;
+    statusComboEl.className = cls;
+  }
+  if (wcoTitlebarEl) {
+    wcoTitlebarEl.textContent = text;
+    wcoTitlebarEl.title = text;
+  }
 }
 
 function _syncMapModeTitle() {
@@ -8992,17 +9000,6 @@ const SOURCE_LABEL = {
   'opencpn-ini':   'OPENCPN',
   'opencpn-track': 'OPENCPN TRACK',
 };
-// One-letter code per source for the combined status badge — lowercase for
-// the two lower-priority/stale sources (opencpn-ini, opencpn-track), matching
-// SOURCE_PRIORITY's own sense of "less authoritative" in gps.js.
-const GPS_CODE = {
-  'manual':        'T',
-  'browser':       'G',
-  'nmea':          'P',
-  'opencpn-nmea':  'O',
-  'opencpn-ini':   'o',
-  'opencpn-track': 't',
-};
 
 positionEl.addEventListener('click', () => {
   const text = positionEl.textContent;
@@ -9060,12 +9057,10 @@ function _updateCoverageStatus(lat, lon, _isRecheck = false) {
   _coverageLevel = level;
 
   if (level === 'core') {
-    _statusCoverageGlyph = '';
     _statusCoverageLabel = '';
     _statusCoverageCls   = '';
   } else {
-    _statusCoverageGlyph = level === 'land' ? '⚠' : '⊘';
-    _statusCoverageLabel = level === 'land' ? 'Limited chart data' : 'No chart data';
+    _statusCoverageLabel = level === 'land' ? '⚠ Limited chart data' : '⚠ No chart data';
     _statusCoverageCls   = `coverage-${level}`;
   }
   _renderStatusCombo();
@@ -9084,7 +9079,6 @@ function showPosition(lat, lon, accuracy, source) {
   const label = SOURCE_LABEL[source] || source.toUpperCase();
   const hasAcc = accuracy && !['opencpn-track', 'manual'].includes(source);
   const accText = hasAcc ? ` ±${Math.round(accuracy)}m` : '';
-  _statusGpsCode  = (GPS_CODE[source] || '?') + (hasAcc ? Math.round(accuracy) : '');
   _statusGpsLabel = `GPS: ${label}${accText}`;
   _statusGpsCls   = source === 'manual' ? 'gps-test' : 'gps-ok';
   _renderStatusCombo();
@@ -10298,9 +10292,24 @@ async function runRouteDownload(cruiseName) {
 
 // ── Initialisation ────────────────────────────────────────────────────────────
 
+// Chromium-only (Chrome/Edge desktop, installed app): lets the page draw
+// live content directly into the OS-drawn title-bar strip instead of an
+// in-page element, via manifest.json's display_override + the
+// env(titlebar-area-*) CSS vars sized on #wco-titlebar. No effect at all on
+// unsupported browsers/platforms (mobile, Firefox, Safari) — the in-page
+// #status-title-bar just stays the one in use, no fallback logic needed
+// beyond the plain CSS `body.wco-active` toggle below.
+function _syncWindowControlsOverlay() {
+  if (!('windowControlsOverlay' in navigator)) return;
+  const sync = () => document.body.classList.toggle('wco-active', navigator.windowControlsOverlay.visible);
+  sync();
+  navigator.windowControlsOverlay.addEventListener('geometrychange', sync);
+}
+
 async function init() {
   _loadOfflineCache();
   setStatus('Waiting for GPS...');
+  _syncWindowControlsOverlay();
 
   Query.loadStoredFocus();
   _updateFocusButton();
@@ -10460,7 +10469,6 @@ async function init() {
       }
     },
     (err) => {
-      _statusGpsCode  = '✗';
       _statusGpsLabel = `GPS: ${err}`;
       _statusGpsCls   = 'gps-error';
       _renderStatusCombo();
