@@ -114,7 +114,8 @@ html, body {
 .status-badge.rp-hazard-soft { background: #4a2a00; color: var(--warn); }
 
 /* Offline prep, location + screen menu triggers in header */
-#offline-btn, #location-menu-btn, #screen-menu-btn, #track-rec-btn {
+#offline-btn, #location-menu-btn, #screen-menu-btn, #track-rec-btn,
+#anchor-watch-btn, #anchor-watch-silence-btn {
   background: none;
   border: 1px solid var(--mid-blue);
   border-radius: 6px;
@@ -169,7 +170,14 @@ html, body {
 /* Focus (bearing/range readout) button — the most-tapped control while underway,
    so it's deliberately much bigger than its status-bar neighbors: a generous,
    easy-to-hit target for wet hands/gloves/boat motion, not just a compact label. */
+/* Its own row, and stretched to fill it (flex: 1) rather than sized to the
+   label — so the tappable target is the same size and place underway
+   whether it reads the terse "--" or a long destination name. */
+#focus-row {
+  display: flex;
+}
 #focus-btn {
+  flex: 1;
   background: none;
   border: 2px solid var(--mid-blue);
   border-radius: 10px;
@@ -178,8 +186,11 @@ html, body {
   font-weight: 700;
   padding: 12px 18px;
   min-height: 48px;
+  max-width: 100%;
   cursor: pointer;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   -webkit-tap-highlight-color: transparent;
 }
 #focus-btn:hover { border-color: var(--accent); color: var(--text); }
