@@ -5283,12 +5283,15 @@ document.getElementById('edit-info-btn').addEventListener('click', () => {
 const _wptCopyOverlay = document.getElementById('wpt-copy-overlay');
 const _wptCopyText    = document.getElementById('wpt-copy-text');
 const _wptCopyBtn     = document.getElementById('wpt-copy-btn');
-function _showCopyWaypointsOverlay(name, points) {
-  document.getElementById('wpt-copy-title').textContent = `${name} — ${points.length} waypoints`;
-  const json = JSON.stringify(
+function _waypointsJson(points) {
+  return JSON.stringify(
     points.map(p => ({ lat: +p.lat.toFixed(6), lon: +p.lon.toFixed(6) })),
     null, 2
   );
+}
+function _showCopyWaypointsOverlay(name, points) {
+  document.getElementById('wpt-copy-title').textContent = `${name} — ${points.length} waypoints`;
+  const json = _waypointsJson(points);
   _wptCopyText.value = json;
   _wptCopyOverlay.classList.add('open');
   _wptCopyText.focus();
@@ -5297,6 +5300,19 @@ function _showCopyWaypointsOverlay(name, points) {
 }
 document.getElementById('edit-copy-wpts-btn').addEventListener('click', () => {
   _showCopyWaypointsOverlay(_editRouteName, _editPoints);
+});
+// Phone-friendly alternative to the copy button, for the specific "send this
+// bad route to the developer" flow — copy+paste-into-an-email is klunky on a
+// phone, this prefills a real email instead. Recipient is hardcoded: this
+// app has exactly one developer/maintainer, there's no multi-tenant "admin"
+// to configure.
+document.getElementById('edit-mail-wpts-btn').addEventListener('click', () => {
+  const subject = encodeURIComponent(`AudioChart AutoRoute bug report — ${_editRouteName}`);
+  const body = encodeURIComponent(
+    `Route: ${_editRouteName}\nWaypoints: ${_editPoints.length}\nApp version: ${VERSION}\n\n`
+    + `${_waypointsJson(_editPoints)}`
+  );
+  window.location.href = `mailto:egilchri@gmail.com?subject=${subject}&body=${body}`;
 });
 document.getElementById('wpt-copy-close').addEventListener('click', () => {
   _wptCopyOverlay.classList.remove('open');
