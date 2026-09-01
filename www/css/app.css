@@ -2600,6 +2600,18 @@ body.wco-active #wco-titlebar { display: flex; }
   border: 2px solid #fff;
   border-radius: 50%;
   box-shadow: 0 2px 6px rgba(0,0,0,0.7);
+  /* Without these, holding a finger on the emoji/text inside this marker for
+     ~500-700ms — right in the middle of our own 600ms long-press window —
+     can trigger the browser's OWN long-press behavior instead: iOS's
+     "-webkit-touch-callout" popup, or a text-selection/"Look Up" menu on
+     Android. That's a real touch/timing collision, not just a hunch — the
+     emoji is plain selectable text with no CSS opting it out of any of this
+     by default. Likely culprit behind "long-press feels finicky on mobile"
+     even after the touchstart-vs-mousedown timing fix. */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: none;
 }
 
 /* Long-press feedback: a ring that fills in over BOAT_LONG_PRESS_MS while

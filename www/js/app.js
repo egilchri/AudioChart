@@ -404,6 +404,7 @@ function _wireBoatLongPress(marker) {
     _map.on('movestart zoomstart', _hideBoatCtx);
   }
   let timer = null;
+  let pressedViaTouch = false;
   const iconEl = () => marker.getElement()?.querySelector('.boat-marker');
   // Re-enabled on every mouseup (end of this press cycle) so a normal quick
   // drag — the boat's own existing reposition-to-set-test-position gesture —
@@ -416,6 +417,7 @@ function _wireBoatLongPress(marker) {
   };
   const startPress = (oe) => {
     cancelPress();
+    pressedViaTouch = oe.type === 'touchstart';
     // Leaflet's marker drag threshold defaults to 3px (see Draggable in
     // leaflet.js) — on a real touchscreen, ordinary finger tremor during a
     // held press likely exceeds that almost immediately, firing 'dragstart'
@@ -467,7 +469,24 @@ function _wireBoatLongPress(marker) {
   if (marker.getElement()) wireIcon(); else marker.once('add', wireIcon);
   marker.on('dragstart', cancelPress);
   marker.on('drag', cancelPress);
-  marker.on('contextmenu', (e) => { e.originalEvent?.stopPropagation(); cancelPress(); });
+  // Android Chrome synthesizes a native 'contextmenu' event from an ordinary
+  // touch long-press — the SAME gesture we're already timing, not a
+  // different one — and its timing varies by device/OS version, sometimes
+  // landing well under our own 600ms (BOAT_LONG_PRESS_MS). Unconditionally
+  // canceling here on every contextmenu meant that on a lot of Android
+  // devices this synthesized event would race in and silently kill our own
+  // timer before it ever completed — a real, timing-dependent cause behind
+  // "long-press feels finicky on mobile" (would work sometimes, fail
+  // sometimes, depending on exactly how the race landed). Still
+  // stop/preventDefault always, so no stray system menu or the map's own
+  // long-press-query handler (which listens for the same bubbled event on
+  // empty map areas) fires — but only actually abort OUR press for a real
+  // desktop right-click, where this event isn't a signal to ignore.
+  marker.on('contextmenu', (e) => {
+    e.originalEvent?.stopPropagation();
+    e.originalEvent?.preventDefault();
+    if (!pressedViaTouch) cancelPress();
+  });
 }
 
 function _showBoatPosition(lat, lon) {
