@@ -6852,7 +6852,16 @@ function _wireIslandLookup(marker, lat, lon) {
     const jurisdiction = info.town
       ? `${info.town}${info.county ? `, ${info.county} County` : ''}${info.isUT ? ' — includes Unorganized Territory' : ''}`
       : (info.isUT ? 'Unorganized Territory' : 'Town not found');
-    const parcel = info.parcelId ? ` &middot; Parcel ${info.parcelId}${info.propLoc ? ` (${info.propLoc})` : ''}` : '';
+    // Explicit, not silently omitted: this layer is built from voluntary
+    // per-town submissions to the state (confirmed live — some towns haven't
+    // submitted, others only partially, small islets are exactly the kind of
+    // parcel likely missing even where a town otherwise participates), so "no
+    // parcel found here" reads as "the state doesn't have this on file" only
+    // — never as "no owner" or "not a real parcel". The town's own assessor
+    // can have a complete record this layer simply lacks.
+    const parcel = info.parcelId
+      ? ` &middot; Parcel ${info.parcelId}${info.propLoc ? ` (${info.propLoc})` : ''}`
+      : (info.town ? ' &middot; No parcel on file in the state database (coverage varies by town — the town assessor may still have one)' : '');
     el.innerHTML = `${jurisdiction}${parcel}<br>`
       + `<a href="${mapUrl}" target="_blank" rel="noopener">&#128269; Open in Maine's parcel map</a>`;
   });
