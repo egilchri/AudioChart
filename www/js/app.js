@@ -1150,7 +1150,7 @@ let _baseTileLayer    = null;
 // (a self-contained WMS raster) but dropped per live comparison — Maine's
 // own data was "by far the best" (real coastline/place-name context, since
 // it overlays the chart rather than replacing it).
-const MAP_VIEW_MODES  = ['chart', 'satellite', 'low-tide', 'geology-maine', 'history', 'demographics', 'island-info'];
+const MAP_VIEW_MODES  = ['chart', 'satellite', 'low-tide', 'geology-maine', 'towns-maine', 'history', 'demographics', 'island-info'];
 // Maps a display mode to the documents.geojson `category` it shows —
 // the whole reason "switch to Geology/History" needs no separate menu.
 const MAP_VIEW_DOC_CATEGORY = { 'geology-maine': 'geology', 'history': 'history', 'demographics': 'demographics', 'island-info': 'island-info' };
@@ -1159,6 +1159,9 @@ let _mapViewMode      = MAP_VIEW_MODES.includes(localStorage.getItem('audiochart
 let _maineGeologyLayer      = null;
 let _maineGeologyMoveEnd    = null;
 let _maineGeologyFetchToken = 0;
+let _maineTownsLayer      = null;
+let _maineTownsMoveEnd    = null;
+let _maineTownsFetchToken = 0;
 let _wakeLockEnabled  = localStorage.getItem('audiochart-wake-lock') !== 'false'; // on by default
 let _wakeLockSentinel = null;   // the live WakeLockSentinel, or null when not currently held
 let _wakeLockWarned   = false;  // suppresses repeated warnings for the same ongoing failure
@@ -6781,6 +6784,94 @@ function _enableMaineGeologyLayer() {
   _map.on('moveend', _maineGeologyMoveEnd);
 }
 
+function _clearMaineTownsLayer() {
+  if (_maineTownsMoveEnd) { _map.off('moveend', _maineTownsMoveEnd); _maineTownsMoveEnd = null; }
+  if (_maineTownsLayer) { _map.removeLayer(_maineTownsLayer); _maineTownsLayer = null; }
+}
+
+// Same live-FeatureServer-by-viewport-bbox pattern as _refreshMaineGeologyLayer,
+// same ArcGIS org even (MEGIS) — "Maine Town and Townships Boundary Polygons",
+// the state's own 1:24,000 political boundary layer. Confirmed live against ten
+// of this region's own island coordinates before building this: every one
+// resolved to a real TOWN, including the Unorganized-Territory ones (LURC='y'
+// — Maine's Land Use Planning Commission, née LURC, has jurisdiction over
+// Unorganized Territory specifically, so it's the field that actually answers
+// "does this fall under a town or the state"). That org/UT split is exactly
+// what determines which office an ownership lookup goes to next: a town
+// assessor for an organized town, Maine Revenue Services for UT — the reason
+// this mode exists in the first place.
+//
+// Two separate queries, not one: the source layer isn't dissolved by town, so
+// querying it directly for geometry returned 1171 features / ~5MB for one
+// Penobscot Bay viewport (every little UT island is its own polygon feature —
+// confirmed live before settling on this). MEGIS also publishes a
+// TOWN-dissolved version of the same data (one [Multi]Polygon per town) but it
+// dropped COUNTY/LURC entirely — so geometry comes from the dissolved layer
+// (21 features / ~450KB for that same viewport) and COUNTY/LURC come from a
+// second, geometry-free distinct-attributes query against the original layer
+// (25 rows / ~2KB), joined client-side by TOWN name. A town can straddle both
+// — e.g. "Criehaven Twp" came back with both LURC='n' and LURC='y' rows in
+// live testing — so the tooltip flags UT as "includes", not "is".
+async function _refreshMaineTownsLayer() {
+  if (_mapViewMode !== 'towns-maine' || !_map) return;
+  const b = _map.getBounds();
+  const bbox = `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;
+  const token = ++_maineTownsFetchToken;
+  let geojson, attrRows;
+  try {
+    const geomUrl = 'https://services1.arcgis.com/RbMX0mRVOFNTdLzd/arcgis/rest/services/'
+      + 'Maine_Town_and_Townships_Boundary_Polygons_Dissolved/FeatureServer/0/query'
+      + '?where=1=1&outFields=TOWN'
+      + `&geometry=${bbox}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects`
+      + '&f=geojson';
+    const attrUrl = 'https://services1.arcgis.com/RbMX0mRVOFNTdLzd/arcgis/rest/services/'
+      + 'Maine_Town_and_Townships_Boundary_Polygons/FeatureServer/0/query'
+      + '?where=1=1&outFields=TOWN,COUNTY,LURC&returnDistinctValues=true&returnGeometry=false'
+      + `&geometry=${bbox}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects`
+      + '&f=json';
+    [geojson, attrRows] = await Promise.all([
+      fetch(geomUrl).then(r => r.json()),
+      fetch(attrUrl).then(r => r.json()).then(d => d.features || []),
+    ]);
+  } catch (e) {
+    console.error('[towns-maine] fetch failed', e);
+    return;
+  }
+  if (token !== _maineTownsFetchToken || _mapViewMode !== 'towns-maine') return;  // stale response or mode changed mid-fetch
+  const byTown = new Map();
+  for (const r of attrRows) {
+    const a = r.attributes;
+    const cur = byTown.get(a.TOWN) || { county: a.COUNTY, ut: false };
+    if (a.LURC === 'y') cur.ut = true;
+    byTown.set(a.TOWN, cur);
+  }
+  if (_maineTownsLayer) _map.removeLayer(_maineTownsLayer);
+  _maineTownsLayer = L.geoJSON(geojson, {
+    // Reuses the geology hash-palette — it takes any string, and the same
+    // "stable but visually arbitrary, real identity comes from the tooltip"
+    // reasoning applies here: ~15-20 distinct towns/UT units in this bay,
+    // colored just for at-a-glance boundary contrast, not for the hue to mean
+    // anything on its own.
+    style: (f) => ({
+      color: '#222', weight: 1.5,
+      fillColor: _geologyColorFor(f.properties.TOWN || ''), fillOpacity: 0.18,
+    }),
+    onEachFeature: (f, layer) => {
+      const town = f.properties.TOWN || 'Unnamed';
+      const info = byTown.get(town);
+      const county = info?.county ? `, ${info.county} County` : '';
+      const ut = info?.ut ? ' — includes Unorganized Territory (state LUPC jurisdiction)' : '';
+      layer.bindTooltip(`${town}${county}${ut}`, { sticky: true });
+    },
+  }).addTo(_map);
+}
+
+function _enableMaineTownsLayer() {
+  _refreshMaineTownsLayer();
+  _maineTownsMoveEnd = () => _refreshMaineTownsLayer();
+  _map.on('moveend', _maineTownsMoveEnd);
+}
+
 // Maine GeoLibrary's Penobscot Bay 2024 orthoimagery — confirmed live before
 // building this: a public ArcGIS ImageServer, "No restrictions" license
 // (attribution: James W Sewall Company / Maine DEP), and CORS-enabled for
@@ -6831,6 +6922,7 @@ function _applyMapLayer() {
   if (!_map) return;
   if (_baseTileLayer) { _map.removeLayer(_baseTileLayer); _baseTileLayer = null; }
   _clearMaineGeologyLayer();
+  _clearMaineTownsLayer();
 
   if (_mapViewMode === 'satellite') {
     _baseTileLayer = L.tileLayer(
@@ -6845,12 +6937,12 @@ function _applyMapLayer() {
       attribution: 'Imagery: Maine GeoLibrary (James W Sewall Co. / Maine DEP), flown at low tide 2024',
     }).addTo(_map);
   } else {
-    // 'chart', 'geology-maine', 'history', 'demographics', and 'island-info'
-    // all use the street basemap: all but 'geology-maine' use it on their
-    // own (their markers need real coastline/place-name context and have no
-    // map layer of their own), 'geology-maine' as context underneath its own
-    // polygon overlay (added below) — that dataset has no coastline/
-    // place-name context of its own.
+    // 'chart', 'geology-maine', 'towns-maine', 'history', 'demographics', and
+    // 'island-info' all use the street basemap: all but 'geology-maine' and
+    // 'towns-maine' use it on their own (their markers need real coastline/
+    // place-name context and have no map layer of their own); those two use
+    // it as context underneath their own polygon overlay (added below) —
+    // neither dataset has coastline/place-name context of its own.
     _baseTileLayer = L.tileLayer(
       'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
       // maxZoom stays 18 to match the zoom slider; maxNativeZoom caps actual tile
@@ -6861,14 +6953,15 @@ function _applyMapLayer() {
   }
 
   if (_mapViewMode === 'geology-maine') _enableMaineGeologyLayer();
+  if (_mapViewMode === 'towns-maine') _enableMaineTownsLayer();
   _renderDocumentMarkers();
   _renderAllIslandLabels();
   document.getElementById('history-era-banner').style.display = _mapViewMode === 'history' ? 'flex' : 'none';
   _syncMapModeTitle();
 }
 
-const MAP_VIEW_ICONS  = { chart: '🗺', satellite: '🛰', 'low-tide': '🌊', 'geology-maine': '⛰', history: '📜', demographics: '👥', 'island-info': '🏝' };
-const MAP_VIEW_LABELS = { chart: 'Chart', satellite: 'Satellite', 'low-tide': 'Low-Tide Aerial', 'geology-maine': 'Geology', history: 'History', demographics: 'Demographics', 'island-info': 'Island Info' };
+const MAP_VIEW_ICONS  = { chart: '🗺', satellite: '🛰', 'low-tide': '🌊', 'geology-maine': '⛰', 'towns-maine': '🏛', history: '📜', demographics: '👥', 'island-info': '🏝' };
+const MAP_VIEW_LABELS = { chart: 'Chart', satellite: 'Satellite', 'low-tide': 'Low-Tide Aerial', 'geology-maine': 'Geology', 'towns-maine': 'Towns', history: 'History', demographics: 'Demographics', 'island-info': 'Island Info' };
 const HISTORY_ERA_LABELS = {
   all: 'All Eras',
   colonial: 'Native American & Colonial',
