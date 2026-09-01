@@ -1257,12 +1257,19 @@ document.getElementById('response-area').addEventListener('click', () => {
 });
 // Shrink the transcript to a thin tappable bar when it's in the way — never fully
 // vanishes, so there's always a visible, obvious way back (standard bottom-sheet
-// "peek" pattern). Reappears at full size on the next response/utterance.
+// "peek" pattern). Collapsed by default (see index.html) and stays that way
+// through new lines arriving in the background — only an explicit tap opens it.
 document.getElementById('response-close-btn').addEventListener('click', (e) => {
   e.stopPropagation();
   _collapseResponseArea();
 });
 _addSwipeToClose(responseAreaEl, _collapseResponseArea, 'y');
+// Tapping anywhere outside the expanded transcript closes it back to the peek
+// bar, same as the × button — a normal "open panel, tap away to dismiss" gesture.
+document.addEventListener('click', (e) => {
+  if (responseAreaEl.classList.contains('collapsed')) return;
+  if (!responseAreaEl.contains(e.target)) _collapseResponseArea();
+});
 
 // Swipe-to-close for panels/banners whose only other dismiss control is a small × button.
 // `axis` is the direction that closes it: 'x' swipes right (floating panels near the
@@ -1596,7 +1603,12 @@ function _appendTranscript(text) {
   while (responseEl.children.length > _TRANSCRIPT_MAX_LINES) {
     responseEl.removeChild(responseEl.firstChild);
   }
-  _expandResponseArea();
+  // Per explicit direction, new lines land quietly in the background —
+  // logging a line is not a reason to pop the transcript open over the map.
+  // Only clear the initial inline display:none (so the collapsed peek bar
+  // itself is visible), leave whatever collapsed/expanded state it's
+  // currently in alone either way.
+  responseAreaEl.style.display = '';
   responseAreaEl.scrollTop = responseAreaEl.scrollHeight;
 }
 
@@ -1847,11 +1859,21 @@ function _renderAllIslandLabels() {
       lat: f.geometry.coordinates[1],
     }));
   const DEDUP_RADIUS_NM = 2;
+  // Per explicit direction, bare rocks/ledges/reefs/shoals don't belong in
+  // Island Info even though the chart data tags them the same as real
+  // islands (label:'island') — the giveaway is almost always right in the
+  // name itself ("Black Rock", "Cato Ledge", "Humpkins Ledge"). A name-based
+  // filter isn't perfect (misses ledges with a person's-name-only title,
+  // and would also catch a genuine named island like "Matinicus Rock" that
+  // happens to have "Rock" in its name), but it matches the stated intent
+  // far better than showing all ~300 undocumented dots including two dozen
+  // bare rocks.
+  const ROCK_OR_LEDGE = /\b(rock|rocks|ledge|ledges|reef|reefs|shoal|shoals)\b/i;
   const markers = [];
   for (const f of features) {
     if (f.properties.label !== 'island') continue;
     const name = f.properties.name;
-    if (!name) continue;
+    if (!name || ROCK_OR_LEDGE.test(name)) continue;
     const [lon, lat] = f.geometry.coordinates;
     const nameLower = name.toLowerCase();
     const isDocumented = documented.some(d =>
