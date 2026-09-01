@@ -2600,50 +2600,16 @@ body.wco-active #wco-titlebar { display: flex; }
   border: 2px solid #fff;
   border-radius: 50%;
   box-shadow: 0 2px 6px rgba(0,0,0,0.7);
-  /* Without these, holding a finger on the emoji/text inside this marker for
-     ~500-700ms — right in the middle of our own 600ms long-press window —
-     can trigger the browser's OWN long-press behavior instead: iOS's
+  /* Without these, a tap on the emoji/text inside this marker can trigger
+     the browser's OWN touch behavior instead of ours: iOS's
      "-webkit-touch-callout" popup, or a text-selection/"Look Up" menu on
-     Android. That's a real touch/timing collision, not just a hunch — the
-     emoji is plain selectable text with no CSS opting it out of any of this
-     by default. Likely culprit behind "long-press feels finicky on mobile"
-     even after the touchstart-vs-mousedown timing fix. */
+     Android, or the marker eating a pinch/scroll gesture meant for the map. */
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
   touch-action: none;
 }
 
-/* Long-press feedback: a ring that fills in over BOAT_LONG_PRESS_MS while
-   held, confirming the press is registering (the actual UX signal — a
-   static "you can long-press this" hint isn't a real convention; this,
-   modeled on iOS/Android's own press-and-hold feedback, is). Instant reset
-   on early release rather than an unwind animation — simpler, and an early
-   release means the gesture didn't complete anyway. */
-.boat-press-ring {
-  position: absolute;
-  top: -5px; left: -5px;
-  width: 54px; height: 54px;
-  opacity: 0;
-  pointer-events: none;
-}
-.boat-marker.boat-pressing .boat-press-ring { opacity: 1; }
-.boat-press-ring circle {
-  fill: none;
-  stroke: #fff;
-  stroke-width: 3;
-  stroke-linecap: round;
-  transform: rotate(-90deg);
-  transform-origin: 27px 27px;
-  stroke-dasharray: 151; /* 2*pi*24, r=24 circle in the 54x54 viewBox */
-  stroke-dashoffset: 151;
-}
-.boat-marker.boat-pressing .boat-press-ring circle {
-  animation: boat-press-fill 600ms linear forwards;
-}
-@keyframes boat-press-fill {
-  to { stroke-dashoffset: 0; }
-}
 .boat-marker.boat-bare {
   background: none;
   border: none;

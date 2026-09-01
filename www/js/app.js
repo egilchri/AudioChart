@@ -289,22 +289,24 @@ function _boatIcon() {
   const cls = _boatCircleDismissed ? 'boat-marker boat-bare' : 'boat-marker';
   return L.divIcon({
     className: '',
-    html: `<div class="${cls}" onclick="_dismissBoatCircle(this)"><span class="boat-emoji">⛵</span>` +
-          `<svg class="boat-press-ring" viewBox="0 0 54 54"><circle cx="27" cy="27" r="24"/></svg></div>`,
+    html: `<div class="${cls}" onclick="_dismissBoatCircle(this)"><span class="boat-emoji">⛵</span></div>`,
     iconSize: [44, 44],
     iconAnchor: [22, 22],
     tooltipAnchor: [22, -22],
   });
 }
 
-// ── Boat icon long-press menu (Autoroute / Sketch) ──────────────────────────
-// Native contextmenu-on-longpress (already used for the map's own right-click
-// menu) fires only once the press completes, with no way to drive live
-// feedback — so this uses its own mousedown/mouseup timer instead, purely to
-// animate .boat-press-ring while held. Wired fresh onto each new marker
-// _showBoatPosition/_refreshYouLayer create (they don't reuse marker
-// instances), so this must stay cheap and side-effect-free to call repeatedly.
-const BOAT_LONG_PRESS_MS = 600;
+// ── Boat icon double-tap menu (Autoroute / Sketch) ──────────────────────────
+// Replaced a hold-timer long-press here after it stayed unreliable on real
+// phones through several genuine fix attempts (each one a real bug found by
+// reading Leaflet's source, none of them fully verified live since there's
+// no device to test against in this environment — that gap between
+// confidence and actual verification was the real problem, not any single
+// remaining bug). Double-tap sidesteps the whole category: it's a discrete,
+// already-completed gesture by the time the browser reports it, so none of
+// the held-timer races (touch-callout, Android's contextmenu synthesis,
+// Leaflet's drag threshold) apply. It rides the same native dblclick
+// synthesis Leaflet's own double-tap-to-zoom already depends on everywhere.
 let _boatCtxLatLng = null;
 let _boatCtxMapListenerBound = false;
 // _routeFromHere itself lives inside _ensureMap()'s closure (it calls
@@ -403,89 +405,20 @@ function _wireBoatLongPress(marker) {
     _boatCtxMapListenerBound = true;
     _map.on('movestart zoomstart', _hideBoatCtx);
   }
-  let timer = null;
-  let pressedViaTouch = false;
-  const iconEl = () => marker.getElement()?.querySelector('.boat-marker');
-  // Re-enabled on every mouseup (end of this press cycle) so a normal quick
-  // drag — the boat's own existing reposition-to-set-test-position gesture —
-  // still works starting from the NEXT mousedown.
-  const cancelPress = () => {
-    if (timer) { clearTimeout(timer); timer = null; }
-    iconEl()?.classList.remove('boat-pressing');
-    marker.dragging?.enable();
-    _map?.dragging.enable();
-  };
-  const startPress = (oe) => {
-    cancelPress();
-    pressedViaTouch = oe.type === 'touchstart';
-    // Leaflet's marker drag threshold defaults to 3px (see Draggable in
-    // leaflet.js) — on a real touchscreen, ordinary finger tremor during a
-    // held press likely exceeds that almost immediately, firing 'dragstart'
-    // (which cancelPress() reacts to) well before the timer below completes.
-    // Widening the tolerance here (not via marker options — Marker.Drag
-    // constructs its own Draggable internally with no way to pass options
-    // in) still lets a deliberate drag start once the finger actually moves.
-    if (marker.dragging?._draggable) marker.dragging._draggable.options.clickTolerance = 20;
-    iconEl()?.classList.add('boat-pressing');
-    timer = setTimeout(() => {
-      timer = null;
-      iconEl()?.classList.remove('boat-pressing');
-      // Confirmed live: without this, moving the cursor toward the menu
-      // while still holding the button — the natural way to reach it — was
-      // picked up by the MAP's own pan-drag handling (the mousedown on the
-      // marker bubbles to it), not the marker's. The map panning under a
-      // stationary-in-world-space marker looks exactly like the boat itself
-      // moving, and firing 'movestart' closed the menu via the listener
-      // below before a selection could even be made.
-      marker.dragging?.disable();
-      _map?.dragging.disable();
-      const ll = marker.getLatLng();
-      const cx = oe.touches?.[0]?.clientX ?? oe.clientX;
-      const cy = oe.touches?.[0]?.clientY ?? oe.clientY;
-      _showBoatCtx(cx, cy, ll);
-    }, BOAT_LONG_PRESS_MS);
-  };
-  // The real bug behind "long-press doesn't respond" on a phone: this used
-  // to be marker.on('mousedown', ...), Leaflet's own abstracted event. But
-  // leaflet.js's Map._initEvents only ever binds native
-  // "click dblclick mousedown mouseup mouseover mouseout mousemove
-  // contextmenu keypress keydown keyup" on the map container — no raw touch
-  // types. On a touchscreen, 'mousedown' only exists as a browser-synthesized
-  // compatibility event fired AFTER touchend, as part of replaying the whole
-  // tap as a mouse sequence — never while a finger is actually still down.
-  // A hold-timer built on it can therefore never start until the finger has
-  // already lifted. Binding straight to the icon's native touchstart (the
-  // same event Leaflet's own Draggable listens for, per its
-  // "touchstart mousedown" START binding) starts the timer the instant a
-  // finger actually lands.
-  const wireIcon = () => {
-    const el = marker.getElement();
-    if (!el) return;
-    L.DomEvent.on(el, 'touchstart', startPress);
-    L.DomEvent.on(el, 'mousedown', startPress);
-    L.DomEvent.on(el, 'touchend touchcancel', cancelPress);
-    L.DomEvent.on(el, 'mouseup', cancelPress);
-  };
-  if (marker.getElement()) wireIcon(); else marker.once('add', wireIcon);
-  marker.on('dragstart', cancelPress);
-  marker.on('drag', cancelPress);
-  // Android Chrome synthesizes a native 'contextmenu' event from an ordinary
-  // touch long-press — the SAME gesture we're already timing, not a
-  // different one — and its timing varies by device/OS version, sometimes
-  // landing well under our own 600ms (BOAT_LONG_PRESS_MS). Unconditionally
-  // canceling here on every contextmenu meant that on a lot of Android
-  // devices this synthesized event would race in and silently kill our own
-  // timer before it ever completed — a real, timing-dependent cause behind
-  // "long-press feels finicky on mobile" (would work sometimes, fail
-  // sometimes, depending on exactly how the race landed). Still
-  // stop/preventDefault always, so no stray system menu or the map's own
-  // long-press-query handler (which listens for the same bubbled event on
-  // empty map areas) fires — but only actually abort OUR press for a real
-  // desktop right-click, where this event isn't a signal to ignore.
-  marker.on('contextmenu', (e) => {
-    e.originalEvent?.stopPropagation();
-    e.originalEvent?.preventDefault();
-    if (!pressedViaTouch) cancelPress();
+  marker.on('dblclick', (e) => {
+    const oe = e.originalEvent;
+    // dblclick is a real MouseEvent even when the browser synthesized it
+    // from two taps, so clientX/clientY are always there directly — no
+    // touches/changedTouches fallback needed (that was only ever relevant
+    // for raw touchstart/touchend, not this event type).
+    //
+    // L.DomEvent.stopPropagation (not the native oe.stopPropagation) is what
+    // actually matters here: Leaflet's own _fireDOMEvent walks marker → map
+    // and checks its own internal _stopped flag on the native event, which
+    // only L.DomEvent.stopPropagation sets — without this, the map's default
+    // double-click-zoom fires right along with our menu.
+    L.DomEvent.stopPropagation(oe);
+    _showBoatCtx(oe.clientX, oe.clientY, marker.getLatLng());
   });
 }
 
