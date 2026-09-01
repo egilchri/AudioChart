@@ -963,7 +963,19 @@ export function findPlaceByName(query, _skipAutoMouth = false) {
       if (base >= 0.99) {
         exact.push(f);
       } else {
-        const score = base + rank * 0.001;
+        // rank's weight here has to be big enough to actually move a
+        // decision, not just exist — confirmed live with a real bug:
+        // querying "hurricane" scored "Hurricane Sound" and "Hurricane
+        // Ledge" (both label:'sea area', LABEL_RANK 0) at 0.60 via plain
+        // containment ratio (9/15 chars) against "Hurricane Island"
+        // (label defaults to rank 1) at only 0.562 (9/17 chars) — a
+        // *shorter* incidental name (a sound, a ledge) beating the actual
+        // island purely because it's shorter, with the old 0.001 weight
+        // (a 0.001-vs-0 rank difference) never able to close a 0.038 gap.
+        // 0.1 means a full rank level reliably overturns any base-score gap
+        // under 0.1 per level, without letting rank override a genuinely
+        // decisive text match.
+        const score = base + rank * 0.1;
         if (score > bestScore) { bestScore = score; best = f; }
       }
     }
@@ -1023,36 +1035,54 @@ export function findPlaceByName(query, _skipAutoMouth = false) {
 // so silently picking one here is exactly the kind of wrong-destination risk
 // worth asking about instead. Returns null (no ambiguity to resolve) when
 // there's 0 or 1 match, or the query already carries a qualifier.
-const AMBIGUOUS_DEDUPE_NM = 0.1; // two hits this close are the same real place, not two candidates
+const AMBIGUOUS_DEDUPE_NM = 0.1;   // two hits this close are the same real place, not two candidates
+const AMBIGUOUS_SCORE_MARGIN = 0.05; // candidates within this of the top score count as "tied"
+// Catches two shapes of ambiguity, both real, both confirmed live against
+// "hurricane" as a destination query:
+//  1. An exact name tie ("Hurricane Island" happens to exist off both
+//     Vinalhaven and near Spruce Head/Muscle Ridge — two real islands,
+//     same exact name).
+//  2. A near-tied FUZZY match, which an exact-only check would miss
+//     entirely: querying bare "hurricane" (not the full name) scores BOTH
+//     "Hurricane Island" entries at the same containment-ratio score, which
+//     — after fixing findPlaceByName's rank-weighting bug elsewhere in this
+//     file — now actually ties for the top spot instead of losing to
+//     "Hurricane Sound"/"Hurricane Ledge". Same scoring formula as
+//     findPlaceByName's own fuzzy path (base + rank*0.1) so "which one wins"
+//     stays consistent between the two functions; the only difference here
+//     is asking instead of silently keeping whichever was scored first.
 export function findAmbiguousCandidates(query) {
   const { clean } = parseDirectional(query);
   const { primary, qualifier } = parseDisambiguated(clean);
   if (qualifier) return null;
-  const exact = [];
+  const scored = [];
   const search = (features) => {
     for (const f of (features || [])) {
       const name = f.properties.name_lower || f.properties.name?.toLowerCase() || '';
-      if (similarityScore(primary, name) < 0.99) continue;
+      const base = similarityScore(primary, name);
+      if (base < 0.3) continue; // too weak a match to be a real candidate
+      const rank = LABEL_RANK[f.properties.label] ?? 1;
+      const score = base >= 0.99 ? 1 : base + rank * 0.1;
       const [lon, lat] = f.geometry.coordinates;
-      const dupe = exact.some(e => {
-        const [elon, elat] = e.geometry.coordinates;
-        return distanceNm(lon, lat, elon, elat) < AMBIGUOUS_DEDUPE_NM;
-      });
-      if (!dupe) exact.push(f);
+      const dupe = scored.find(e => distanceNm(lon, lat, e.lon, e.lat) < AMBIGUOUS_DEDUPE_NM);
+      if (dupe) { if (score > dupe.score) { dupe.score = score; dupe.f = f; } continue; }
+      scored.push({ score, f, lon, lat });
     }
   };
   search(waypoints?.features);
   search(namedPlaces?.features);
   search(navaids?.features);
-  if (exact.length <= 1) return null;
+  if (scored.length <= 1) return null;
+  const topScore = Math.max(...scored.map(s => s.score));
+  const tied = scored.filter(s => s.score >= topScore - AMBIGUOUS_SCORE_MARGIN);
+  if (tied.length <= 1) return null;
   // Enrich each candidate with a "near X" qualifier (same nearest-landmark
   // lookup whereAmI uses) so the picker can show something like "Bear Island
   // — near Northeast Harbor" instead of two identically-named, indistinguishable
   // rows. findNearestLandmark searches the same namedPlaces the candidates
   // themselves came from, so it can return the candidate's OWN point back at
   // distance ~0 — excluded explicitly rather than trusting distance alone.
-  return exact.map(f => {
-    const [lon, lat] = f.geometry.coordinates;
+  return tied.map(({ f, lat, lon }) => {
     const name = f.properties.name;
     const lm = findNearestLandmark(lat, lon);
     const near = (lm && lm.name.toLowerCase() !== name.toLowerCase() && lm.dist > 0.05) ? lm.name : null;
@@ -1217,16 +1247,27 @@ function levenshtein(a, b) {
   return dp[m][n];
 }
 
+// Containment (the query is literally a substring of the name, or vice
+// versa) and Levenshtein (coincidental character overlap between two
+// same-ish-length strings) are NOT the same kind of evidence, and used to be
+// scored on one shared 0-1 scale as if they were — confirmed live as a real
+// bug: querying "hurricane" scored "Hurricane Island" (containment, 9/16
+// chars = 0.5625) BELOW "Herricks", an unrelated town, whose Levenshtein
+// distance to "hurricane" happens to be small (edit distance 4 of 9 chars =
+// 0.556) — close enough on the same scale that LABEL_RANK's town-vs-island
+// tiebreak could flip the result to the wrong, coincidentally-similar-looking
+// place entirely. Containment now scores strictly higher than any
+// Levenshtein-only match (0.7-1.0 vs a hard cap under 0.7) since "the query
+// is literally part of this name" is categorically stronger evidence of
+// intent than incidental character overlap — same relative ordering within
+// each tier as before, just no more crossover between them.
 function similarityScore(a, b) {
   if (a === b) return 1.0;
-  // Substring containment: score by coverage ratio, not a flat 1.0.
-  // "camden" in "cdsoa-cruise-camden-day-7" → 6/26 = 0.23
-  // "camden" in "camden harbor"             → 6/13 = 0.46
-  // This prevents a short query from matching a long unrelated name.
-  if (b.includes(a)) return a.length / b.length;
-  if (a.includes(b)) return b.length / a.length;
+  if (b.includes(a)) return 0.7 + 0.3 * (a.length / b.length);
+  if (a.includes(b)) return 0.7 + 0.3 * (b.length / a.length);
   const dist = levenshtein(a, b);
-  return 1 - dist / Math.max(a.length, b.length, 1);
+  const lev = 1 - dist / Math.max(a.length, b.length, 1);
+  return Math.min(lev, 0.69);
 }
 
 // ── Query functions ──────────────────────────────────────────────────────────
