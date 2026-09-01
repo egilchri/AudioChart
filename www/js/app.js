@@ -9900,7 +9900,7 @@ trackRecBtn?.addEventListener('click', () => {
     _trackRecStartMs = Date.now();
     _trackRecPoints = [];
     _trackRecLastSampleTs = 0;
-    trackRecBtn.textContent = '⏹ Stop';
+    trackRecBtn.textContent = '⏹ Stop Track';
     trackRecBtn.classList.add('rec-active');
     return;
   }
@@ -9911,7 +9911,7 @@ trackRecBtn?.addEventListener('click', () => {
 
 // Start recording a track linked to a specific route — auto-named and
 // auto-saved on arrival (see the GPS callback below), with a manual stop
-// always available via the same Track button (now showing "Stop").
+// always available via the same Track button (now showing "Stop Track").
 function _startFollowingRoute(route) {
   if (_trackRecActive) {
     const msg = 'Already recording a track — stop it first.';
@@ -9930,7 +9930,7 @@ function _startFollowingRoute(route) {
   _followingDestLat = last.lat;
   _followingDestLon = last.lon;
   _followingLegIdx = route.points.length > 1 ? 1 : 0;
-  trackRecBtn.textContent = '⏹ Stop';
+  trackRecBtn.textContent = '⏹ Stop Track';
   trackRecBtn.title = `Following "${route.name}" — tap to stop early`;
   trackRecBtn.classList.add('rec-active');
   const msg = `Following "${route.name}" — recording your track.`;
@@ -10252,7 +10252,7 @@ function _recoverInProgressTrack() {
       _followingDestLat = followingDestLat ?? null;
       _followingDestLon = followingDestLon ?? null;
       _followingLegIdx = followingLegIdx ?? 1;
-      trackRecBtn.textContent = '⏹ Stop';
+      trackRecBtn.textContent = '⏹ Stop Track';
       if (followingRouteName) trackRecBtn.title = `Following "${followingRouteName}" — tap to stop early`;
       trackRecBtn.classList.add('rec-active');
     } else {
@@ -10678,7 +10678,7 @@ async function init() {
         _trackRecStartMs = Date.now();
         _trackRecPoints = [];
         _trackRecLastSampleTs = 0;
-        trackRecBtn.textContent = '⏹ Stop';
+        trackRecBtn.textContent = '⏹ Stop Track';
         trackRecBtn.title = 'Recording automatically — tap to stop and save';
         trackRecBtn.classList.add('rec-active');
       }
