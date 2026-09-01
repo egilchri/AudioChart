@@ -1805,17 +1805,24 @@ function _renderDocumentMarkers() {
     const bodyHtml = p.category === 'demographics' ? _formatDemographics(p)
       : p.category === 'island-info' ? _formatIslandInfo(p)
       : _formatDocBody(p.body);
+    const m = L.marker([lat, lon], { icon: _documentMarkerIcon(p.category) });
+    // Island Info's own online-lookup supplement (see _wireIslandLookup) —
+    // never for geology/history/demographics, and appended, never mixed into
+    // bodyHtml, so it stays visually separate from the self-contained
+    // offline write-up above it.
+    const lookupHtml = p.category === 'island-info' ? _wireIslandLookup(m, lat, lon) : '';
     const html = `<div style="font-size:13px;line-height:1.5;max-width:260px">
       <b>${p.title}</b><br><span style="color:#666">${p.place}</span>
       <div style="margin-top:6px">${bodyHtml}</div>
       <div style="margin-top:4px;font-style:italic;font-size:0.78em;color:#888">${p.source}</div>
+      ${lookupHtml}
     </div>`;
     // maxHeight is a built-in Leaflet Popup option — it caps .leaflet-popup-content's
     // height and adds overflow-y:auto automatically, so a long entry (several
     // paragraphs) scrolls inside the popup instead of running off the bottom of
     // the screen, which is what was happening before (visible in a live screenshot —
     // the last paragraph was cut off at the viewport edge with no way to read it).
-    return L.marker([lat, lon], { icon: _documentMarkerIcon(p.category) }).bindPopup(html, { maxWidth: 280, maxHeight: 380 });
+    return m.bindPopup(html, { maxWidth: 280, maxHeight: 380 });
   });
   _documentMarkersLayer = L.layerGroup(markers).addTo(_map);
 }
@@ -1895,19 +1902,20 @@ function _renderAllIslandLabels() {
     // Bay data was loaded (this app already renders far more DOM-heavy
     // hazard markers without issue; the earlier blowup was about
     // marker complexity at 600-1700 count, not a plain 8px dot at this scale).
-    markers.push(
-      L.marker([lat, lon], {
-        icon: L.divIcon({
-          className: '',
-          html: '<div style="width:8px;height:8px;border-radius:50%;background:#fff;border:1.5px solid #7c3aed"></div>',
-          iconSize: null,
-          iconAnchor: [4, 4],
-        }),
-      }).bindPopup(
-        `<div style="font-size:13px"><b>${name}</b><div style="margin-top:4px;color:#888;font-size:0.82em">No ownership/access info yet</div></div>`,
-        { maxWidth: 220 }
-      )
+    const m = L.marker([lat, lon], {
+      icon: L.divIcon({
+        className: '',
+        html: '<div style="width:8px;height:8px;border-radius:50%;background:#fff;border:1.5px solid #7c3aed"></div>',
+        iconSize: null,
+        iconAnchor: [4, 4],
+      }),
+    });
+    const lookupHtml = _wireIslandLookup(m, lat, lon);
+    m.bindPopup(
+      `<div style="font-size:13px"><b>${name}</b><div style="margin-top:4px;color:#888;font-size:0.82em">No ownership/access info yet</div>${lookupHtml}</div>`,
+      { maxWidth: 220 }
     );
+    markers.push(m);
   }
   _islandLabelsLayer = L.layerGroup(markers).addTo(_map);
 }
@@ -6782,6 +6790,73 @@ function _enableMaineGeologyLayer() {
   _refreshMaineGeologyLayer();
   _maineGeologyMoveEnd = () => _refreshMaineGeologyLayer();
   _map.on('moveend', _maineGeologyMoveEnd);
+}
+
+// Island ownership "link-out" lookup. Two live point queries (not bbox —
+// single point, tiny responses) against the same MEGIS FeatureServers Towns
+// mode already uses: town/county/UT status, and (organized towns only —
+// confirmed live that the state has NO owner-name field anywhere, and the
+// Unorganized-Territory parcel layer's GRANTEE field is blank for all 36,661
+// parcels statewide) a parcel id. Never throws — a failed/offline lookup
+// degrades to nulls, which the caller renders as "couldn't look this up".
+async function _lookupIslandJurisdiction(lat, lon) {
+  const pt = `${lon},${lat}`;
+  const townQuery = fetch(
+    'https://services1.arcgis.com/RbMX0mRVOFNTdLzd/arcgis/rest/services/'
+    + 'Maine_Town_and_Townships_Boundary_Polygons/FeatureServer/0/query'
+    + `?where=1=1&outFields=TOWN,COUNTY,LURC&geometry=${pt}&geometryType=esriGeometryPoint`
+    + '&inSR=4326&spatialRel=esriSpatialRelIntersects&returnGeometry=false&f=json'
+  ).then(r => r.json()).catch(() => null);
+  const parcelQuery = fetch(
+    'https://services1.arcgis.com/RbMX0mRVOFNTdLzd/arcgis/rest/services/'
+    + 'Maine_Parcels_Organized_Towns/FeatureServer/10/query'
+    + `?where=1=1&outFields=MAP_BK_LOT,PROP_LOC&geometry=${pt}&geometryType=esriGeometryPoint`
+    + '&inSR=4326&spatialRel=esriSpatialRelIntersects&returnGeometry=false&f=json'
+  ).then(r => r.json()).catch(() => null);
+  const [townResult, parcelResult] = await Promise.all([townQuery, parcelQuery]);
+  const townAttrs = townResult?.features?.[0]?.attributes || null;
+  const parcelAttrs = parcelResult?.features?.[0]?.attributes || null;
+  if (!townAttrs && !parcelAttrs) return null; // both queries failed (offline etc.) — caller shows a connection error
+  return {
+    town: townAttrs?.TOWN || null,
+    county: townAttrs?.COUNTY || null,
+    isUT: townAttrs?.LURC === 'y',
+    parcelId: parcelAttrs?.MAP_BK_LOT || null,
+    propLoc: parcelAttrs?.PROP_LOC || null,
+  };
+}
+
+// Builds the shared "look up this island's town/parcel + open Maine's own
+// parcel map" HTML block, plus wires up a popupopen handler on `marker` that
+// fills in the placeholder once the live lookup resolves. Appended to both
+// the plain undocumented-island dots and the curated island-info popups —
+// deliberately its own visually separate, clearly-online-only block (see
+// _formatIslandInfo's own comment on why linking out was rejected there
+// before: this is a live public-records check, not a substitute for the
+// self-contained offline content, so it must never look like part of it).
+let _islandLookupSeq = 0;
+function _wireIslandLookup(marker, lat, lon) {
+  const id = `island-lookup-${++_islandLookupSeq}`;
+  marker.on('popupopen', async () => {
+    const el = document.getElementById(id);
+    if (!el || el.dataset.loaded) return;
+    el.dataset.loaded = '1';
+    const info = await _lookupIslandJurisdiction(lat, lon);
+    const mapUrl = 'https://www.arcgis.com/apps/webappviewer/index.html'
+      + `?id=28e35c8fcf514d2685357b78bdd0b246&center=${lon},${lat}&level=18`;
+    if (!info) {
+      el.innerHTML = `Couldn't look this up — needs a connection. `
+        + `<a href="${mapUrl}" target="_blank" rel="noopener">Try Maine's parcel map</a>`;
+      return;
+    }
+    const jurisdiction = info.town
+      ? `${info.town}${info.county ? `, ${info.county} County` : ''}${info.isUT ? ' — includes Unorganized Territory' : ''}`
+      : (info.isUT ? 'Unorganized Territory' : 'Town not found');
+    const parcel = info.parcelId ? ` &middot; Parcel ${info.parcelId}${info.propLoc ? ` (${info.propLoc})` : ''}` : '';
+    el.innerHTML = `${jurisdiction}${parcel}<br>`
+      + `<a href="${mapUrl}" target="_blank" rel="noopener">&#128269; Open in Maine's parcel map</a>`;
+  });
+  return `<div id="${id}" style="margin-top:6px;padding-top:6px;border-top:1px solid #ddd;font-size:0.8em;color:#888">Looking up town&hellip; (needs a connection)</div>`;
 }
 
 function _clearMaineTownsLayer() {
