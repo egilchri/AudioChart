@@ -177,7 +177,12 @@ html, body {
   position: fixed;
   left: 50%;
   bottom: 175px;
-  transform: translateX(-50%);
+  /* translateX(-50%) does the centering; var(--ui-pos-focus) is the
+     Rearrange-mode drag offset (see _makeDraggableGroup) layered on top —
+     same combined-transform approach as every other draggable UI piece,
+     applied second so it moves the already-centered button, not the other
+     way around. */
+  transform: translateX(-50%) var(--ui-pos-focus, translate(0, 0));
   z-index: 1002;
   background: var(--dark-blue);
   border: 2px solid var(--mid-blue);

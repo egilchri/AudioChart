@@ -1526,6 +1526,7 @@ function _initRearrangeGroups() {
   _makeDraggableGroup('tide', () => [...document.querySelectorAll('.tide-cycle-ctrl')]);
   _makeDraggableGroup('headingspeed', () => [...document.querySelectorAll('.heading-speed-ctrl')]);
   _makeDraggableGroup('followprogress', () => [...document.querySelectorAll('.follow-progress-ctrl')]);
+  _makeDraggableGroup('focus', () => [document.getElementById('focus-btn')]);
 }
 
 // Touching/clicking the map → expand map to full height, release text input
