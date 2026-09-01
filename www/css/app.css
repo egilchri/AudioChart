@@ -167,26 +167,28 @@ html, body {
   50% { background: #6a1414; }
 }
 
-/* Focus (bearing/range readout) button — the most-tapped control while underway,
-   so it's deliberately much bigger than its status-bar neighbors: a generous,
-   easy-to-hit target for wet hands/gloves/boat motion, not just a compact label. */
-/* Its own row, and stretched to fill it (flex: 1) rather than sized to the
-   label — so the tappable target is the same size and place underway
-   whether it reads the terse "--" or a long destination name. */
-#focus-row {
-  display: flex;
-}
+/* Focus (bearing/range readout) button — the single most-tapped control while
+   underway, so it lives entirely on its own: a fixed pill anchored to the
+   bottom-center of the screen, clear of every other row, menu, and scrolling
+   strip, in the same spot no matter what else is on screen or what state
+   this button itself is in. The idea is a reach-without-looking target your
+   hand learns, for wet hands/gloves/boat motion — not just a compact label. */
 #focus-btn {
-  flex: 1;
-  background: none;
+  position: fixed;
+  left: 50%;
+  bottom: 175px;
+  transform: translateX(-50%);
+  z-index: 1002;
+  background: var(--dark-blue);
   border: 2px solid var(--mid-blue);
-  border-radius: 10px;
+  border-radius: 999px;
   color: var(--text-dim);
   font-size: 1.05rem;
   font-weight: 700;
-  padding: 12px 18px;
-  min-height: 48px;
-  max-width: 100%;
+  padding: 14px 22px;
+  min-height: 52px;
+  max-width: min(260px, calc(100% - 20px));
+  box-shadow: 0 2px 8px rgba(0,0,0,0.6);
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
