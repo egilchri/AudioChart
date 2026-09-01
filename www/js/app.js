@@ -342,7 +342,24 @@ function _armBoatCtxDragSelect() {
     const el = document.elementFromPoint(x, y);
     return _boatCtxItems.find(b => b.contains(el)) || null;
   };
+  // The comment below ("only a genuine drag-release selects") describes what
+  // this was SUPPOSED to do, but the code never actually checked for
+  // movement — it fired on ANY release over an item, dragged or not. That
+  // meant a plain tap-without-drag directly on a menu item double-fired: once
+  // here via the programmatic item.click() below, and once more from the
+  // browser's own native click on that button right afterward — with
+  // _routeFromHere's prompt() in between, that's two name prompts back to
+  // back for what looked like one tap. Real bug, found reading this code
+  // after the user reported the destination-naming step not working — not
+  // caused by the long-press-to-double-tap change, just newly reachable once
+  // double-tap made it past the point long-press rarely got to. `moved`
+  // makes the check real: only a release that followed actual movement
+  // counts as a drag-selection now; a plain tap leaves it to the button's
+  // own native click, exactly like "the other supported way to use this
+  // menu" already assumed.
+  let moved = false;
   const move = (e) => {
+    moved = true;
     const p = e.touches?.[0] ?? e;
     const item = itemAt(p.clientX, p.clientY);
     _boatCtxItems.forEach(b => b.classList.toggle('drag-hover', b === item));
@@ -354,7 +371,7 @@ function _armBoatCtxDragSelect() {
     // Only a genuine drag-release selects — a plain mouseup right back over
     // the boat (no drag at all) leaves the menu open for a normal separate
     // tap on an item, the other supported way to use this menu.
-    if (item) item.click();
+    if (item && moved) item.click();
   };
   _boatCtxDragMove = move;
   _boatCtxDragUp = up;
