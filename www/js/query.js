@@ -1011,6 +1011,55 @@ export function findPlaceByName(query, _skipAutoMouth = false) {
   return result;
 }
 
+// Deliberately separate from findPlaceByName rather than a refactor of it:
+// that function silently picks a single best guess by design, because most
+// of its callers are voice/text queries with no interactive way to ask —
+// this one exists only for the one caller (AutoRoute/Draw-Route destination
+// naming, see _resolveNamedDestination in app.js) that CAN put a question to
+// the user instead of guessing. Returns the raw candidate list when a bare
+// name (no ", qualifier" the caller already used to disambiguate) matches
+// more than one real, distinct place — Maine reuses island names constantly
+// ("Green Island", "Crow Island", "Bear Island" all exist in multiple bays),
+// so silently picking one here is exactly the kind of wrong-destination risk
+// worth asking about instead. Returns null (no ambiguity to resolve) when
+// there's 0 or 1 match, or the query already carries a qualifier.
+const AMBIGUOUS_DEDUPE_NM = 0.1; // two hits this close are the same real place, not two candidates
+export function findAmbiguousCandidates(query) {
+  const { clean } = parseDirectional(query);
+  const { primary, qualifier } = parseDisambiguated(clean);
+  if (qualifier) return null;
+  const exact = [];
+  const search = (features) => {
+    for (const f of (features || [])) {
+      const name = f.properties.name_lower || f.properties.name?.toLowerCase() || '';
+      if (similarityScore(primary, name) < 0.99) continue;
+      const [lon, lat] = f.geometry.coordinates;
+      const dupe = exact.some(e => {
+        const [elon, elat] = e.geometry.coordinates;
+        return distanceNm(lon, lat, elon, elat) < AMBIGUOUS_DEDUPE_NM;
+      });
+      if (!dupe) exact.push(f);
+    }
+  };
+  search(waypoints?.features);
+  search(namedPlaces?.features);
+  search(navaids?.features);
+  if (exact.length <= 1) return null;
+  // Enrich each candidate with a "near X" qualifier (same nearest-landmark
+  // lookup whereAmI uses) so the picker can show something like "Bear Island
+  // — near Northeast Harbor" instead of two identically-named, indistinguishable
+  // rows. findNearestLandmark searches the same namedPlaces the candidates
+  // themselves came from, so it can return the candidate's OWN point back at
+  // distance ~0 — excluded explicitly rather than trusting distance alone.
+  return exact.map(f => {
+    const [lon, lat] = f.geometry.coordinates;
+    const name = f.properties.name;
+    const lm = findNearestLandmark(lat, lon);
+    const near = (lm && lm.name.toLowerCase() !== name.toLowerCase() && lm.dist > 0.05) ? lm.name : null;
+    return { lat, lon, name, near };
+  });
+}
+
 /**
  * Find a navigation landmark by name, prioritizing named lights for position fixes.
  * Searches navaids (lights first), then falls back to findPlaceByName.

@@ -1309,6 +1309,66 @@ body.wco-active #wco-titlebar { display: flex; }
 }
 #wpt-copy-btn:hover { border-color: var(--accent); color: var(--text); }
 #wpt-copy-btn.copied { border-color: var(--accent); color: var(--accent); }
+
+/* Same dimmed modal treatment as #wpt-copy-overlay — shown when a typed
+   AutoRoute/Draw-Route destination name matches more than one real place
+   (Maine reuses island names constantly), so the user picks the right one
+   instead of the app silently guessing. */
+#place-disambig-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  background: rgba(0, 0, 0, 0.6);
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+#place-disambig-overlay.open { display: flex; }
+#place-disambig-panel {
+  background: var(--dark-blue);
+  border: 1px solid var(--mid-blue);
+  border-radius: 10px;
+  padding: 14px;
+  width: min(340px, calc(100vw - 40px));
+  max-height: calc(100vh - 80px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.8);
+}
+#place-disambig-panel .nf-title { cursor: default; }
+#place-disambig-close {
+  background: none;
+  border: none;
+  color: var(--muted, #8899aa);
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+  -webkit-tap-highlight-color: transparent;
+}
+#place-disambig-close:hover { color: var(--text); }
+#place-disambig-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+  max-height: 60vh;
+}
+#place-disambig-list button {
+  background: var(--mid-blue);
+  color: var(--text);
+  border: 1px solid var(--mid-blue);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 0.88rem;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+#place-disambig-list button:hover,
+#place-disambig-list button:active { border-color: var(--accent); background: var(--accent); color: var(--navy); }
+
 #rp-close {
   background: none;
   border: none;

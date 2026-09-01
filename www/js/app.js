@@ -3003,19 +3003,52 @@ _drawUsePositionBtn.addEventListener('click', () => {
   _onDrawClick(L.latLng(pos.lat, pos.lon));
 });
 
+const _placeDisambigOverlay = document.getElementById('place-disambig-overlay');
+const _placeDisambigTitle   = document.getElementById('place-disambig-title');
+const _placeDisambigList    = document.getElementById('place-disambig-list');
+function _hidePlaceDisambig() { _placeDisambigOverlay.classList.remove('open'); }
+// Resolves with the chosen candidate, or null if cancelled. Uses plain
+// onclick (not addEventListener) on the close button and per-candidate
+// buttons built fresh each call — assignment replaces rather than stacking,
+// so no listener cleanup needed between calls.
+function _showPlaceDisambig(query, candidates) {
+  return new Promise((resolve) => {
+    _placeDisambigTitle.textContent = `Multiple places named "${query}"`;
+    _placeDisambigList.innerHTML = '';
+    candidates.forEach((c) => {
+      const btn = document.createElement('button');
+      btn.textContent = c.near ? `${c.name} — near ${c.near}` : c.name;
+      btn.onclick = () => { _hidePlaceDisambig(); resolve(c); };
+      _placeDisambigList.appendChild(btn);
+    });
+    document.getElementById('place-disambig-close').onclick = () => { _hidePlaceDisambig(); resolve(null); };
+    _placeDisambigOverlay.classList.add('open');
+  });
+}
+
 // Resolves a typed place/waypoint name to a destination point — shared by
 // Draw Route's own "Name" button and the Location-tile/right-click "Route
 // from here" pending-destination flow (see route-dest-name-btn below).
+// Checks for name collisions first (Query.findAmbiguousCandidates) and asks
+// the user to pick when a bare name matches more than one real place —
+// Maine reuses island names constantly across different bays, so silently
+// guessing here risked routing toward the wrong one entirely. Only then
+// falls through to Query.findPlaceByName's own single-best-guess behavior,
+// same as every other (non-interactive, voice/text) caller of it.
 // Gazetteer entries are often positioned on the landmass itself (a town or
 // island label), not the water someone means when naming it as a
 // destination — move onto the nearest confirmed water before dropping the
 // point, preferring a real nearby harbor/anchorage/mooring over the literal
 // closest wet pixel (see Query.findWaterNear).
-function _resolveNamedDestination(query) {
-  const place = Query.findPlaceByName(query.trim());
+async function _resolveNamedDestination(query) {
+  const trimmed = query.trim();
+  const candidates = Query.findAmbiguousCandidates(trimmed);
+  const place = candidates ? await _showPlaceDisambig(trimmed, candidates) : Query.findPlaceByName(trimmed);
   if (!place) {
-    const msg = `Couldn't find "${query.trim()}".`;
-    setStatus(msg); TTS.sayImmediate(msg);
+    if (!candidates) { // only speak "couldn't find" for an actual miss, not a cancelled picker
+      const msg = `Couldn't find "${trimmed}".`;
+      setStatus(msg); TTS.sayImmediate(msg);
+    }
     return null;
   }
   let dest = place;
@@ -3043,10 +3076,10 @@ function _resolveNamedDestination(query) {
   return dest;
 }
 
-_drawNameDestBtn.addEventListener('click', () => {
+_drawNameDestBtn.addEventListener('click', async () => {
   const query = prompt('Destination — place or waypoint name:');
   if (!query || !query.trim()) return;
-  const dest = _resolveNamedDestination(query);
+  const dest = await _resolveNamedDestination(query);
   if (!dest) return;
   _onDrawClick(L.latLng(dest.lat, dest.lon));
 });
@@ -8425,10 +8458,10 @@ function _ensureMap() {
     _routeDestBannerLabel.textContent = `Tap the map to set the destination for "${_autoRouteName}"`;
     _routeDestBanner.style.display = 'flex';
   }
-  document.getElementById('route-dest-name-btn').addEventListener('click', () => {
+  document.getElementById('route-dest-name-btn').addEventListener('click', async () => {
     const query = prompt('Destination — place or waypoint name:');
     if (!query || !query.trim()) return;
-    const dest = _resolveNamedDestination(query);
+    const dest = await _resolveNamedDestination(query);
     if (!dest) return;
     _setRouteDestination(dest.lat, dest.lon);
   });
