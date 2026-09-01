@@ -416,6 +416,16 @@ function _wireBoatLongPress(marker) {
   };
   marker.on('mousedown', (e) => {
     cancelPress();
+    // Leaflet's marker drag threshold defaults to 3px (see Draggable in
+    // leaflet.js) — on a real touchscreen, ordinary finger tremor during a
+    // held press likely exceeds that almost immediately, firing 'dragstart'
+    // (which cancelPress() reacts to) well before the timer below completes.
+    // Prime suspect for "long-press doesn't respond" reports on mobile even
+    // though it works fine with a mouse. Widening the tolerance here (not via
+    // marker options — Marker.Drag constructs its own Draggable internally
+    // with no way to pass options in) still lets a deliberate drag start once
+    // the finger actually moves.
+    if (marker.dragging?._draggable) marker.dragging._draggable.options.clickTolerance = 20;
     iconEl()?.classList.add('boat-pressing');
     timer = setTimeout(() => {
       timer = null;
