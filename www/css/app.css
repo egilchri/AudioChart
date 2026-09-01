@@ -114,7 +114,7 @@ html, body {
 .status-badge.rp-hazard-soft { background: #4a2a00; color: var(--warn); }
 
 /* Offline prep, location + screen menu triggers in header */
-#offline-btn, #location-menu-btn, #screen-menu-btn, #track-rec-btn, #wake-lock-btn {
+#offline-btn, #location-menu-btn, #screen-menu-btn, #track-rec-btn {
   background: none;
   border: 1px solid var(--mid-blue);
   border-radius: 6px;
@@ -124,7 +124,7 @@ html, body {
   cursor: pointer;
   white-space: nowrap;
 }
-#offline-btn:hover, #location-menu-btn:hover, #screen-menu-btn:hover, #track-rec-btn:hover, #wake-lock-btn:hover, #anchor-watch-btn:hover, #anchor-watch-silence-btn:hover { border-color: var(--accent); color: var(--text); }
+#offline-btn:hover, #location-menu-btn:hover, #screen-menu-btn:hover, #track-rec-btn:hover, #anchor-watch-btn:hover, #anchor-watch-silence-btn:hover { border-color: var(--accent); color: var(--text); }
 #offline-btn:disabled { opacity: 0.5; cursor: default; }
 #location-menu-btn.test-active { border-color: var(--danger); color: var(--danger); background: #2a0a0a; font-weight: 700; }
 #location-menu-btn.test-active:hover { border-color: var(--danger); color: #ff8080; background: #3a0a0a; }

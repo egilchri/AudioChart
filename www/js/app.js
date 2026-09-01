@@ -9992,6 +9992,7 @@ wakeLockBtn?.addEventListener('click', () => {
   _wakeLockWarned = false;
   _updateWakeLockButton();
   if (_wakeLockEnabled) _requestWakeLock(); else _releaseWakeLock();
+  _closeScreenMenu();
 });
 
 // The Wake Lock spec auto-releases the sentinel whenever the tab is backgrounded
