@@ -414,17 +414,15 @@ function _wireBoatLongPress(marker) {
     marker.dragging?.enable();
     _map?.dragging.enable();
   };
-  marker.on('mousedown', (e) => {
+  const startPress = (oe) => {
     cancelPress();
     // Leaflet's marker drag threshold defaults to 3px (see Draggable in
     // leaflet.js) — on a real touchscreen, ordinary finger tremor during a
     // held press likely exceeds that almost immediately, firing 'dragstart'
     // (which cancelPress() reacts to) well before the timer below completes.
-    // Prime suspect for "long-press doesn't respond" reports on mobile even
-    // though it works fine with a mouse. Widening the tolerance here (not via
-    // marker options — Marker.Drag constructs its own Draggable internally
-    // with no way to pass options in) still lets a deliberate drag start once
-    // the finger actually moves.
+    // Widening the tolerance here (not via marker options — Marker.Drag
+    // constructs its own Draggable internally with no way to pass options
+    // in) still lets a deliberate drag start once the finger actually moves.
     if (marker.dragging?._draggable) marker.dragging._draggable.options.clickTolerance = 20;
     iconEl()?.classList.add('boat-pressing');
     timer = setTimeout(() => {
@@ -440,13 +438,33 @@ function _wireBoatLongPress(marker) {
       marker.dragging?.disable();
       _map?.dragging.disable();
       const ll = marker.getLatLng();
-      const oe = e.originalEvent;
       const cx = oe.touches?.[0]?.clientX ?? oe.clientX;
       const cy = oe.touches?.[0]?.clientY ?? oe.clientY;
       _showBoatCtx(cx, cy, ll);
     }, BOAT_LONG_PRESS_MS);
-  });
-  marker.on('mouseup', cancelPress);
+  };
+  // The real bug behind "long-press doesn't respond" on a phone: this used
+  // to be marker.on('mousedown', ...), Leaflet's own abstracted event. But
+  // leaflet.js's Map._initEvents only ever binds native
+  // "click dblclick mousedown mouseup mouseover mouseout mousemove
+  // contextmenu keypress keydown keyup" on the map container — no raw touch
+  // types. On a touchscreen, 'mousedown' only exists as a browser-synthesized
+  // compatibility event fired AFTER touchend, as part of replaying the whole
+  // tap as a mouse sequence — never while a finger is actually still down.
+  // A hold-timer built on it can therefore never start until the finger has
+  // already lifted. Binding straight to the icon's native touchstart (the
+  // same event Leaflet's own Draggable listens for, per its
+  // "touchstart mousedown" START binding) starts the timer the instant a
+  // finger actually lands.
+  const wireIcon = () => {
+    const el = marker.getElement();
+    if (!el) return;
+    L.DomEvent.on(el, 'touchstart', startPress);
+    L.DomEvent.on(el, 'mousedown', startPress);
+    L.DomEvent.on(el, 'touchend touchcancel', cancelPress);
+    L.DomEvent.on(el, 'mouseup', cancelPress);
+  };
+  if (marker.getElement()) wireIcon(); else marker.once('add', wireIcon);
   marker.on('dragstart', cancelPress);
   marker.on('drag', cancelPress);
   marker.on('contextmenu', (e) => { e.originalEvent?.stopPropagation(); cancelPress(); });
@@ -662,13 +680,47 @@ function _updateFocusButton() {
   _updateFocusRay();
 }
 
-focusBtn?.addEventListener('click', () => {
+function _repeatBearingQuery() {
   if (!Query.focusedTarget) {
     TTS.sayImmediate('No focus set. Say focus on, followed by a place name.');
     return;
   }
   handleCommand('bearing');   // reuses the QUERY_FOCUS path end-to-end
-});
+}
+focusBtn?.addEventListener('click', _repeatBearingQuery);
+
+// Swipe down on the status strip is a second way to trigger the same
+// bearing/range repeat as tapping the target button — no small target to
+// aim for, any downward swipe starting on the strip works, which matters
+// more than button placement on a moving boat. The strip is pointer-events:
+// none by default (so taps normally pass through to the map); enabling it
+// here only for this one element trades away panning-from-that-26px-sliver
+// for the gesture, which is the point.
+(function _wireStatusSwipeDown() {
+  const el = statusComboEl;
+  if (!el) return;
+  el.style.pointerEvents = 'auto';
+  const SWIPE_MIN_DY = 40, SWIPE_MAX_DX = 40;
+  let startX = null, startY = null;
+  const start = (x, y) => { startX = x; startY = y; };
+  const finish = (x, y) => {
+    if (startY == null) return;
+    const dy = y - startY, dx = Math.abs(x - startX);
+    startX = startY = null;
+    if (dy > SWIPE_MIN_DY && dx < SWIPE_MAX_DX) _repeatBearingQuery();
+  };
+  el.addEventListener('touchstart', (e) => {
+    const t = e.touches[0];
+    start(t.clientX, t.clientY);
+  }, { passive: true });
+  el.addEventListener('touchend', (e) => {
+    const t = e.changedTouches[0];
+    finish(t.clientX, t.clientY);
+  });
+  el.addEventListener('touchcancel', () => { startX = startY = null; });
+  el.addEventListener('mousedown', (e) => start(e.clientX, e.clientY));
+  el.addEventListener('mouseup', (e) => finish(e.clientX, e.clientY));
+})();
 
 // Show every TTS utterance in the response area so the user can read along.
 TTS.onSpeak(text => { _appendTranscript(text); });
@@ -1463,6 +1515,22 @@ function _makeDraggableGroup(groupId, getEls) {
       localStorage.setItem(`audiochart-ui-pos-${groupId}`, JSON.stringify({ dx, dy }));
     }
   });
+}
+
+// One-time cleanup: 'tide' and 'headingspeed' just moved from the top-right
+// Leaflet corner to a fixed lower-right lane (see the .tide-cycle-ctrl /
+// .heading-speed-ctrl mobile rule in app.css) — any offset a user dragged in
+// under the OLD base position (saved forever in localStorage by
+// _makeDraggableGroup, and re-applied on every load regardless of how the
+// underlying layout changes) is now measured from the wrong anchor and can
+// land the widget anywhere, including fully offscreen or hidden behind
+// something else. 'compass' didn't move, but gets the same treatment since a
+// stale offset there would be silently just as invisible and just as hard
+// to tell apart from "never rendered at all". Runs once per browser/device —
+// _makeDraggableGroup reads these keys immediately, so this must run first.
+if (localStorage.getItem('audiochart-uipos-migration-v479') !== '1') {
+  ['tide', 'headingspeed', 'compass'].forEach(id => localStorage.removeItem(`audiochart-ui-pos-${id}`));
+  localStorage.setItem('audiochart-uipos-migration-v479', '1');
 }
 
 function _initRearrangeGroups() {
