@@ -771,17 +771,16 @@ body.wco-active #wco-titlebar { display: flex; }
   gap: 6px;
 }
 
-/* Mobile: keep the status tiles in a single row along the top of the screen
-   instead of wrapping into a stacked block, scrolling horizontally if they
-   don't all fit rather than dropping to a second line. */
+/* Mobile: use the full top width so the status tiles wrap into two visible
+   rows instead of one. A single scrolling row (tried first) hid tiles off
+   the right edge with no obvious affordance that more existed — per direct
+   feedback, wrapping to a second line beats a horizontal scroll nobody
+   could tell was there. */
 @media (max-width: 767px) {
   #map-overlay-status {
     max-width: calc(100% - 20px);
   }
   #status-tiles {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
     width: 100%;
   }
 }
