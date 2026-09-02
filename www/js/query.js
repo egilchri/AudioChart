@@ -301,9 +301,19 @@ async function _fetchRegionGeometry(idbKey, filename) {
     // app, with no way to recover short of clearing site data — a real
     // routing bug (Fox Islands Thorofare, 2026-08-23) shipped a fix that
     // never actually reached the reporting user's device because of this.
+    // cache: 'no-store' on both fetches below — confirmed live as a real,
+    // separate gap in this exact freshness check: the service worker's own
+    // networkFirst() strategy still calls a plain fetch() internally, which
+    // is itself subject to the ordinary browser HTTP cache underneath it.
+    // A plain fetch() for data-version.json can return a stale disk-cached
+    // response with the OLD hash, which then matches the (also stale)
+    // IndexedDB copy and wrongly looks current — the version check passing
+    // when it shouldn't, not failing to run at all. no-store forces this
+    // one past every cache layer (HTTP disk cache and SW Cache Storage) so
+    // it can't be fooled the same way twice.
     let networkVersion = null;
     try {
-      const vr = await fetch(_regionPath('data-version.json'));
+      const vr = await fetch(_regionPath('data-version.json'), { cache: 'no-store' });
       if (vr.ok) networkVersion = (await vr.json()).version;
     } catch (_) {}
     try {
@@ -311,7 +321,7 @@ async function _fetchRegionGeometry(idbKey, filename) {
       if (cached && networkVersion && storedVersion === networkVersion) return cached;
     } catch (_) {}
     try {
-      const r = await fetch(_regionPath(filename));
+      const r = await fetch(_regionPath(filename), { cache: 'no-store' });
       if (r.ok) {
         const data = await r.json();
         idbPut(idbKey, data).catch(() => {});
@@ -329,7 +339,7 @@ async function _fetchRegionGeometry(idbKey, filename) {
     console.warn(`[AC] ${filename} not yet downloaded for region "${_activeRegion}" — using bundled default`);
   }
   try {
-    const r = await fetch(`./data/${filename}`);
+    const r = await fetch(`./data/${filename}`, { cache: 'no-store' });
     return r.ok ? r.json() : null;
   } catch (_) {
     return null;
@@ -346,7 +356,7 @@ export async function prepareOfflineRegionGeometry(regionId) {
     ['channel_graph', 'channel_graph.geojson'], ['soundings', 'soundings.geojson'],
   ]) {
     try {
-      const r = await fetch(`./data/regions/${regionId}/${filename}`);
+      const r = await fetch(`./data/regions/${regionId}/${filename}`, { cache: 'no-store' });
       if (r.ok) await idbPut(idbKey, await r.json());
     } catch (_) {}
   }
@@ -439,9 +449,16 @@ export async function loadData(lat, lon) {
   // always mismatches once a non-default region is active, making
   // otherwise-current region data look stale and get silently replaced by
   // the wrong region's bundled hazards/places/navaids.
+  // cache: 'no-store' — see the matching note in _fetchRegionGeometry above.
+  // Confirmed live: without it, this exact fetch can return a stale
+  // disk-cached data-version.json whose hash still matches the (also stale)
+  // IndexedDB copy, so idbCurrent below comes out true when it shouldn't —
+  // a fixed named_places.geojson deployed and verified correct on the
+  // server, but the browser never noticing because the version check itself
+  // was reading a cached answer.
   let networkVersion = null;
   try {
-    const vr = await fetch(_regionPath('data-version.json'));
+    const vr = await fetch(_regionPath('data-version.json'), { cache: 'no-store' });
     if (vr.ok) networkVersion = (await vr.json()).version;
   } catch (_) {}
 
@@ -468,9 +485,9 @@ export async function loadData(lat, lon) {
       console.log(`[query] IDB data stale (stored=${storedVersion} network=${networkVersion}), using static files`);
     }
     const [h, p, n] = await Promise.all([
-      fetch(_regionPath('hazards.geojson')).then(r => r.json()),
-      fetch(_regionPath('named_places.geojson')).then(r => r.json()),
-      fetch(_regionPath('navaid.geojson')).then(r => r.json()),
+      fetch(_regionPath('hazards.geojson'), { cache: 'no-store' }).then(r => r.json()),
+      fetch(_regionPath('named_places.geojson'), { cache: 'no-store' }).then(r => r.json()),
+      fetch(_regionPath('navaid.geojson'), { cache: 'no-store' }).then(r => r.json()),
     ]);
     hazards = h;
     namedPlaces = p;
@@ -529,7 +546,7 @@ export async function prepareOfflineStatic(dataUrl) {
   try {
     const regionId = dataUrl.match(/regions\/([^/]+)\.json$/)?.[1];
     const versionUrl = regionId ? `./data/regions/${regionId}/data-version.json` : './data/data-version.json';
-    const vr = await fetch(versionUrl);
+    const vr = await fetch(versionUrl, { cache: 'no-store' });
     if (vr.ok) await idbPut('data-version', (await vr.json()).version);
   } catch (_) {}
   return { added: data.count, total: stored.reduce((a, b) => a + b, 0) };
