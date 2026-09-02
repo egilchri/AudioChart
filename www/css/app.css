@@ -2573,6 +2573,33 @@ body.wco-active #wco-titlebar { display: flex; }
 #app.anim-mode #sketch-banner {
   display: none !important;
 }
+/* Per explicit request: basically every floating control disappears while
+   the boat animates, except the compass rose — a clean view of the chart
+   and the moving boat, nothing else competing for attention. #anim-banner
+   itself (the "RouteName · N kts" strip and its Cancel button) is the one
+   piece of chrome that's actually part of the animation, so it's left alone. */
+#app.anim-mode #map-overlay-status,
+#app.anim-mode #map-overlay-cmd,
+#app.anim-mode #status-title-bar,
+#app.anim-mode #wco-titlebar,
+#app.anim-mode #map-version-label,
+#app.anim-mode #global-ops-title,
+#app.anim-mode #map-layer-btn,
+#app.anim-mode #zoom-to-me-btn,
+#app.anim-mode #navaid-filter-btn,
+#app.anim-mode #route-picker-btn,
+#app.anim-mode #reroute-btn,
+#app.anim-mode #delete-route-btn,
+#app.anim-mode #track-picker-btn,
+#app.anim-mode #edit-tools-panel,
+#app.anim-mode #zoom-slider-wrap,
+#app.anim-mode #pan-controls-wrap,
+#app.anim-mode .tide-cycle-ctrl,
+#app.anim-mode .heading-speed-ctrl,
+#app.anim-mode .follow-progress-ctrl,
+#app.anim-mode #focus-btn {
+  display: none !important;
+}
 #app.anim-mode #map-container {
   flex: 1 !important;
   height: auto !important;

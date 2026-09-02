@@ -5131,9 +5131,10 @@ function _syncFocusMarker() {
 function _animateEditRoute() {
   if (_editRouteIdx < 0 || _editPoints.length < 2) return;
   const speed = parseFloat(localStorage.getItem('audiochart-last-speed')) || 5;
-  // Captured before _clearScreen() runs below — it exits edit mode as part
-  // of clearing, which would otherwise wipe _editPoints/_editRouteIdx out
-  // from under this function before the animation ever got them.
+  // Captured before _startRouteAnimation runs — it Clear-Screens as its
+  // first step, which exits edit mode as part of that, which would
+  // otherwise wipe _editPoints/_editRouteIdx out from under this function
+  // before the animation ever got them.
   const route = {
     name:   _editRouteName || 'Route',
     points: _editPoints.map(_stripPoint),
@@ -5141,11 +5142,6 @@ function _animateEditRoute() {
   if (!document.querySelector('.track-compress.selected')) {
     document.querySelector('.track-compress[data-compress="500"]')?.classList.add('selected');
   }
-  // Per explicit request: a full Clear Screen before the boat launches, not
-  // just the ad-hoc route-layer cleanup _startRouteAnimation already did on
-  // its own — hazard/fallback/preview layers, hidden tracks, and the
-  // Node Ops/Global Ops button clusters all tidy up too.
-  _clearScreen();
   _startRouteAnimation(route, speed);
 }
 
@@ -6480,6 +6476,15 @@ function _startRouteAnimation(route, speedKnots) {
   if (!_map) return;
   const track = _getTrackSettings();
 
+  // Here, not in either caller — there are two ("Animate" in Node Ops via
+  // _animateEditRoute, and "Animate" in the map's Track submenu via
+  // track-route-go) and putting it in just one left the other with none of
+  // this cleanup at all, which is what got reported. `route` is already a
+  // plain object by the time either caller gets here, so clearing (which
+  // exits edit mode as a side effect) can't wipe out data this function
+  // still needs the way it would have earlier in either caller.
+  _clearScreen();
+
   _animMode = true;
   _appEl.classList.add('anim-mode');
   _animBannerText.textContent = `⛵ ${route.name} · ${speedKnots} kts`;
@@ -6624,6 +6629,19 @@ function _startRouteAnimation(route, speedKnots) {
     _animMarker.setLatLng([lat, lon]);
     _animCurrentLat = lat;
     _animCurrentLon = lon;
+
+    // Per explicit request: keep the boat on screen instead of letting it
+    // sail out of the initial fitBounds view. Soft-follow, not locked-on —
+    // only recenters once the boat gets within 15% of an edge, rather than
+    // every frame, so the view still shows a sensible amount of the route
+    // ahead/behind instead of pinning the boat dead center throughout.
+    const _animPt = _map.latLngToContainerPoint([lat, lon]);
+    const _animSize = _map.getSize();
+    const _marginX = _animSize.x * 0.15, _marginY = _animSize.y * 0.15;
+    if (_animPt.x < _marginX || _animPt.x > _animSize.x - _marginX ||
+        _animPt.y < _marginY || _animPt.y > _animSize.y - _marginY) {
+      _map.panTo([lat, lon], { animate: true, duration: 0.4, noMoveStart: true });
+    }
 
     // Record one sample per real second
     if (recordPoints && Math.floor(elapsed) > lastRecordElapsed) {
