@@ -1406,7 +1406,7 @@ function _resetUiPositions() {
 }
 document.getElementById('rearrange-reset-btn')?.addEventListener('click', _resetUiPositions);
 
-function _makeDraggableGroup(groupId, getEls) {
+function _makeDraggableGroup(groupId, getEls, alwaysOn = false) {
   let curDx = 0, curDy = 0;
   try {
     const saved = JSON.parse(localStorage.getItem(`audiochart-ui-pos-${groupId}`) || 'null');
@@ -1434,16 +1434,28 @@ function _makeDraggableGroup(groupId, getEls) {
   });
 
   let dragging = false;
+  let moved = false; // real movement happened since begin() — see the click-swallow note below
   let startX = 0, startY = 0, baseDx = 0, baseDy = 0, origins = [];
 
   function begin(clientX, clientY) {
     dragging = true;
+    moved = false;
     startX = clientX; startY = clientY;
     baseDx = curDx; baseDy = curDy;
     origins = currentEls();
   }
+  // Below this, a move is ignored outright — no reposition, no click-swallow
+  // flag set. Only matters for alwaysOn groups: in Rearrange mode a "click"
+  // never fires the button's own action anyway (nothing to protect from a
+  // stray micro-jitter), but #focus-btn's whole reason for existing is
+  // reliable taps with wet hands/gloves/boat motion — without a threshold,
+  // ordinary tremor while pressing it would both nudge its position by a
+  // pixel or two AND swallow the bearing announcement on a normal tap.
+  const DRAG_THRESHOLD_PX = 8;
   function moveTo(clientX, clientY) {
     if (!dragging) return;
+    if (!moved && Math.hypot(clientX - startX, clientY - startY) < DRAG_THRESHOLD_PX) return;
+    moved = true;
     const { dx, dy } = _clampGroupOffset(origins, baseDx + (clientX - startX), baseDy + (clientY - startY), baseDx, baseDy);
     curDx = dx; curDy = dy;
     applyOffset(dx, dy);
@@ -1456,12 +1468,21 @@ function _makeDraggableGroup(groupId, getEls) {
 
   // Dragging only ever starts once _rearrangeMode is already on (entered via the
   // "Rearrange" button) — outside rearrange mode these are plain buttons and every
-  // touch/mouse event here is a no-op, so a normal tap is never intercepted.
+  // touch/mouse event here is a no-op, so a normal tap is never intercepted. Groups
+  // passed alwaysOn=true (currently just #focus-btn, per explicit request: draggable
+  // without the Rearrange-mode ceremony) skip that gate entirely and drag any time.
+  // Touch already suppresses its own native 'click' after real movement, but mouse
+  // doesn't — a desktop drag ends with the cursor (and the button, since it followed
+  // it) in the same place, so mouseup there still fires a normal click same-element
+  // click same as any non-dragged click would. The capturing click listener below
+  // swallows exactly one click when `moved` was set during the gesture that just
+  // ended, so dragging #focus-btn on desktop doesn't also speak the bearing.
   currentEls().forEach(el => {
     el.classList.add('ui-drag-target');
+    const gateOpen = () => _rearrangeMode || alwaysOn;
 
     el.addEventListener('touchstart', (e) => {
-      if (!_rearrangeMode || e.touches.length !== 1) return;
+      if (!gateOpen() || e.touches.length !== 1) return;
       const t = e.touches[0];
       begin(t.clientX, t.clientY);
     }, { passive: true });
@@ -1476,7 +1497,7 @@ function _makeDraggableGroup(groupId, getEls) {
     el.addEventListener('touchcancel', end);
 
     el.addEventListener('mousedown', (e) => {
-      if (!_rearrangeMode) return;
+      if (!gateOpen()) return;
       begin(e.clientX, e.clientY);
       const onMove = (ev) => moveTo(ev.clientX, ev.clientY);
       const onUp = () => {
@@ -1487,6 +1508,10 @@ function _makeDraggableGroup(groupId, getEls) {
       document.addEventListener('mousemove', onMove);
       document.addEventListener('mouseup', onUp);
     });
+
+    el.addEventListener('click', (e) => {
+      if (moved) { e.stopImmediatePropagation(); e.preventDefault(); moved = false; }
+    }, { capture: true });
   });
 
   // Re-clamp on viewport resize/orientation change so a previously-dragged group
@@ -1533,7 +1558,12 @@ function _initRearrangeGroups() {
   _makeDraggableGroup('tide', () => [...document.querySelectorAll('.tide-cycle-ctrl')]);
   _makeDraggableGroup('headingspeed', () => [...document.querySelectorAll('.heading-speed-ctrl')]);
   _makeDraggableGroup('followprogress', () => [...document.querySelectorAll('.follow-progress-ctrl')]);
-  _makeDraggableGroup('focus', () => [document.getElementById('focus-btn')]);
+  // alwaysOn: draggable any time, not just in Rearrange mode — per explicit
+  // request, this is the one control worth moving on the fly without the
+  // Screen-menu ceremony, since its whole point is a spot you reach for
+  // without looking. A plain tap still speaks the bearing/range as normal;
+  // see the click-swallow note in _makeDraggableGroup for how the two coexist.
+  _makeDraggableGroup('focus', () => [document.getElementById('focus-btn')], true);
 }
 
 // Touching/clicking the map → expand map to full height, release text input
