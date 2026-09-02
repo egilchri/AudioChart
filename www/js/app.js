@@ -1415,8 +1415,15 @@ function _makeDraggableGroup(groupId, getEls) {
 
   // Exclude currently display:none elements (e.g. #delete-route-btn outside edit mode) —
   // a hidden element's getBoundingClientRect() is a zero-size rect at (0,0), which would
-  // otherwise corrupt the clamp math for the rest of the group.
-  const currentEls = () => getEls().filter(el => el && el.offsetParent !== null);
+  // otherwise corrupt the clamp math for the rest of the group. Was offsetParent !== null,
+  // which does that correctly for statically/absolutely-positioned elements, but per spec
+  // (confirmed the actual cause of the target button not being draggable) offsetParent is
+  // ALWAYS null for a position:fixed element regardless of visibility — silently excluding
+  // #focus-btn (and .tide-cycle-ctrl/.heading-speed-ctrl on mobile, also position:fixed
+  // there) from every group operation, no matter what. getClientRects().length still
+  // correctly comes back empty for a real display:none element, but isn't fooled by fixed
+  // positioning the way offsetParent is.
+  const currentEls = () => getEls().filter(el => el && el.getClientRects().length > 0);
   const applyOffset = (dx, dy) => _appEl.style.setProperty(`--ui-pos-${groupId}`, `translate(${dx}px, ${dy}px)`);
   applyOffset(curDx, curDy); // restore any saved position immediately
 
