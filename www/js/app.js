@@ -7194,10 +7194,18 @@ document.querySelectorAll('.history-era-chip').forEach(chip => {
 // Was a single icon button that cycled through MAP_VIEW_MODES one tap at a
 // time; per explicit request, now a pulldown showing every mode at once
 // (picking a mode you're not adjacent to used to take several taps).
+//
+// Deliberately resets to the hidden "Map Type" placeholder option instead of
+// showing the mode just picked — a plain <select> always displays its
+// current selection in the closed state, so this tile would otherwise just
+// read "History" or "Demographics" sitting there with no indication of what
+// it even is. The status-title-bar strip already shows the active mode
+// (e.g. "🗺 Chart · GPS: ...") elsewhere, so nothing is lost by not also
+// duplicating it here.
 function _syncLayerBtn() {
   const sel = document.getElementById('map-layer-select');
   if (!sel) return;
-  sel.value = _mapViewMode;
+  sel.value = '';
 }
 
 function _ensureMap() {
