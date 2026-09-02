@@ -30,7 +30,6 @@
       <div id="wco-titlebar"></div>
       <div id="map-version-label"></div>
       <div class="etp-title" id="global-ops-title">Global Ops</div>
-      <button id="map-layer-btn" title="Switch to chart">&#128506;</button>
       <button id="zoom-to-me-btn" title="Zoom to my location">&#8857;</button>
       <button id="navaid-filter-btn" title="Show navaids on map">&#9875;</button>
       <button id="route-picker-btn" title="Show/hide routes">&#9998; Routes</button>
@@ -119,6 +118,16 @@
       <!-- top-left status overlay -->
       <div id="map-overlay-status">
         <div id="status-tiles">
+          <select id="map-layer-select" title="Map type">
+            <option value="chart">&#128506; Chart</option>
+            <option value="satellite">&#128752; Satellite</option>
+            <option value="low-tide">&#127754; Low-Tide Aerial</option>
+            <option value="geology-maine">&#9968; Geology</option>
+            <option value="towns-maine">&#127963; Towns</option>
+            <option value="history">&#128220; History</option>
+            <option value="demographics">&#128101; Demographics</option>
+            <option value="island-info">&#127965; Island Info</option>
+          </select>
           <button id="offline-btn" title="Download chart data for offline use" style="display:none">&#11015; Offline</button>
           <button id="location-menu-btn" title="Location options">&#128205; Location</button>
           <button id="track-rec-btn" title="Record a GPS track">&#9679; Start Tracking</button>

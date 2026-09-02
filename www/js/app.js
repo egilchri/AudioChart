@@ -1112,13 +1112,14 @@ let _previewRouteLine = null;
 let _animClickHandler = null;
 let _animTraveled     = 0;
 let _baseTileLayer    = null;
-// Cycled by tapping map-layer-btn: street chart → satellite → Maine bedrock
-// geology (state survey's own vector data — no basemap of its own, shown as
-// an overlay on the street chart) → history (documents only, same street
-// basemap as chart) → back. USGS's national geology layer was also tried
-// (a self-contained WMS raster) but dropped per live comparison — Maine's
-// own data was "by far the best" (real coastline/place-name context, since
-// it overlays the chart rather than replacing it).
+// Picked from the #map-layer-select pulldown (was a cycle-through-on-tap
+// button before): street chart, satellite, Maine bedrock geology (state
+// survey's own vector data — no basemap of its own, shown as an overlay on
+// the street chart), history (documents only, same street basemap as
+// chart), etc. USGS's national geology layer was also tried (a
+// self-contained WMS raster) but dropped per live comparison — Maine's own
+// data was "by far the best" (real coastline/place-name context, since it
+// overlays the chart rather than replacing it).
 const MAP_VIEW_MODES  = ['chart', 'satellite', 'low-tide', 'geology-maine', 'towns-maine', 'history', 'demographics', 'island-info'];
 // Maps a display mode to the documents.geojson `category` it shows —
 // the whole reason "switch to Geology/History" needs no separate menu.
@@ -1548,7 +1549,7 @@ function _initRearrangeGroups() {
   _makeDraggableGroup('status', () => [document.getElementById('map-overlay-status')]);
   _makeDraggableGroup('btncol', () => [
     'global-ops-title',
-    'map-layer-btn', 'zoom-to-me-btn', 'navaid-filter-btn',
+    'zoom-to-me-btn', 'navaid-filter-btn',
     'route-picker-btn', 'reroute-btn', 'delete-route-btn', 'track-picker-btn',
   ].map(id => document.getElementById(id)));
   _makeDraggableGroup('navctl', () => ['zoom-slider-wrap', 'pan-controls-wrap'].map(id => document.getElementById(id)));
@@ -7190,12 +7191,13 @@ document.querySelectorAll('.history-era-chip').forEach(chip => {
   });
 });
 
+// Was a single icon button that cycled through MAP_VIEW_MODES one tap at a
+// time; per explicit request, now a pulldown showing every mode at once
+// (picking a mode you're not adjacent to used to take several taps).
 function _syncLayerBtn() {
-  const btn = document.getElementById('map-layer-btn');
-  if (!btn) return;
-  const next = MAP_VIEW_MODES[(MAP_VIEW_MODES.indexOf(_mapViewMode) + 1) % MAP_VIEW_MODES.length];
-  btn.textContent = MAP_VIEW_ICONS[_mapViewMode];
-  btn.title       = `Switch to ${MAP_VIEW_LABELS[next]}`;
+  const sel = document.getElementById('map-layer-select');
+  if (!sel) return;
+  sel.value = _mapViewMode;
 }
 
 function _ensureMap() {
@@ -7389,9 +7391,8 @@ function _ensureMap() {
   _refreshTideCycle();
   setInterval(_refreshTideCycle, 60 * 1000);
 
-  document.getElementById('map-layer-btn').addEventListener('click', (e) => {
-    e.stopPropagation();
-    _mapViewMode = MAP_VIEW_MODES[(MAP_VIEW_MODES.indexOf(_mapViewMode) + 1) % MAP_VIEW_MODES.length];
+  document.getElementById('map-layer-select').addEventListener('change', (e) => {
+    _mapViewMode = e.target.value;
     localStorage.setItem('audiochart-chart-mode', _mapViewMode);
     _applyMapLayer();
     _syncLayerBtn();

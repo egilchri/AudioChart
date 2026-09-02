@@ -876,26 +876,21 @@ body.wco-active #wco-titlebar { display: flex; }
   -webkit-backdrop-filter: blur(4px);
 }
 
-#map-layer-btn {
-  position: absolute;
-  bottom: 308px;
-  right: 10px;
-  z-index: 1000;
-  width: 48px;
-  height: 48px;
-  background: var(--dark-blue);
-  color: var(--text);
+/* Was a fixed circular button (right edge, part of the Global Ops column)
+   that cycled one mode per tap; per explicit request, now a pulldown living
+   with the other status tiles at the top instead — showing every mode at
+   once beats several taps to reach a non-adjacent one. */
+#map-layer-select {
+  background: none;
   border: 1px solid var(--mid-blue);
-  border-radius: 10px;
-  font-size: 1.3rem;
+  border-radius: 6px;
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  padding: 3px 8px;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  -webkit-tap-highlight-color: transparent;
+  white-space: nowrap;
 }
-#map-layer-btn:active { background: var(--mid-blue); }
+#map-layer-select:hover { border-color: var(--accent); color: var(--text); }
 
 #zoom-to-me-btn {
   position: absolute;
@@ -937,7 +932,6 @@ body.wco-active #wco-titlebar { display: flex; }
 /* Collapsed "peek" state — mirrors #edit-tools-panel.collapsed / Node Ops. Each
    button keeps its own individual position (unlike Node Ops' single flex box)
    so the popup panels anchored to Routes/Tracks/Navaid-filter stay aligned. */
-#app.global-ops-collapsed #map-layer-btn,
 #app.global-ops-collapsed #zoom-to-me-btn,
 #app.global-ops-collapsed #navaid-filter-btn,
 #app.global-ops-collapsed #route-picker-btn,
@@ -2326,7 +2320,7 @@ body.wco-active #wco-titlebar { display: flex; }
    Leaflet's own control-container flex layout; the transform just visually
    nudges it from wherever it already sits. */
 #map-overlay-status                { transform: var(--ui-pos-status, translate(0,0)); }
-#map-layer-btn, #zoom-to-me-btn, #navaid-filter-btn,
+#zoom-to-me-btn, #navaid-filter-btn,
 #route-picker-btn, #reroute-btn, #delete-route-btn, #track-picker-btn,
 #global-ops-title {
   transform: var(--ui-pos-btncol, translate(0,0));
@@ -2584,7 +2578,6 @@ body.wco-active #wco-titlebar { display: flex; }
 #app.anim-mode #wco-titlebar,
 #app.anim-mode #map-version-label,
 #app.anim-mode #global-ops-title,
-#app.anim-mode #map-layer-btn,
 #app.anim-mode #zoom-to-me-btn,
 #app.anim-mode #navaid-filter-btn,
 #app.anim-mode #route-picker-btn,
