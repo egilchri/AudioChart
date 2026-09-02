@@ -4955,10 +4955,18 @@ document.getElementById('edit-hazards-btn').addEventListener('click', () => {
 });
 
 
+// The one word this banner never said, per direct feedback: gold routes are
+// overwhelmingly "open in the Node-Ops editor" (a plain tap on any saved
+// route jumps straight into edit mode), but nothing in the UI ever actually
+// used the word "editing" — just the bare route name next to a pencil icon.
+function _setEditBannerLabel(suffix = '') {
+  document.getElementById('edit-banner-label').textContent = `Editing "${_editRouteName}"${suffix}`;
+}
+
 function _cancelAddNodeMode() {
   _addNodeMode = false;
   if (_map) { _map.dragging.enable(); _map.getContainer().style.cursor = ''; }
-  document.getElementById('edit-banner-label').textContent = _editRouteName;
+  _setEditBannerLabel();
   _updateEditToolsPanel();
 }
 
@@ -5187,7 +5195,7 @@ function _enterEditMode(routeIdx, skipHazardCheck = false) {
   _editHistory = [];
   _selectedEditNodeIdx = new Set();
 
-  document.getElementById('edit-banner-label').textContent = route.name;
+  _setEditBannerLabel();
   document.getElementById('edit-banner').style.display = 'flex';
   _appEl.classList.add('edit-mode');
   _mapContainer.classList.remove('map-compact', 'list-focus', 'input-focus');
@@ -5317,8 +5325,7 @@ document.getElementById('edit-info-btn').addEventListener('click', () => {
   const mi   = (totalNm * 1.15078).toFixed(1);
   const wpts = _editPoints.length;
   TTS.sayImmediate(`${_editRouteName}. ${nm} nautical miles, ${mi} statute miles, ${wpts} waypoints.`);
-  document.getElementById('edit-banner-label').textContent =
-    `${_editRouteName} — ${nm} nm / ${mi} mi · ${wpts} waypoints`;
+  _setEditBannerLabel(` — ${nm} nm / ${mi} mi · ${wpts} waypoints`);
 });
 
 // Shared by the edit-route toolbar and the Routes/Tracks panel row corner
@@ -5413,7 +5420,7 @@ document.getElementById('etp-insert-node').addEventListener('click', () => {
   _renderEditLayers();
   _map.dragging.disable();
   _map.getContainer().style.cursor = 'crosshair';
-  document.getElementById('edit-banner-label').textContent = _editRouteName + ' — click to insert node';
+  _setEditBannerLabel(' — click to insert node');
   _updateEditToolsPanel();
 });
 
@@ -5421,8 +5428,7 @@ document.getElementById('etp-delete').addEventListener('click', () => {
   _deleteMode = !_deleteMode;
   _overnightMode = false;
   _fixNodesMode = false;
-  document.getElementById('edit-banner-label').textContent =
-    _deleteMode ? _editRouteName + ' — click a node to delete it' : _editRouteName;
+  _setEditBannerLabel(_deleteMode ? ' — click a node to delete it' : '');
   _renderEditLayers();
   _updateEditToolsPanel();
 });
@@ -5431,8 +5437,7 @@ document.getElementById('etp-overnight').addEventListener('click', () => {
   _overnightMode = !_overnightMode;
   _deleteMode = false;
   _fixNodesMode = false;
-  document.getElementById('edit-banner-label').textContent =
-    _overnightMode ? _editRouteName + ' — click a node to mark/unmark as an overnight stop' : _editRouteName;
+  _setEditBannerLabel(_overnightMode ? ' — click a node to mark/unmark as an overnight stop' : '');
   _renderEditLayers();
   _updateEditToolsPanel();
 });
@@ -5442,8 +5447,7 @@ document.getElementById('etp-fix-nodes').addEventListener('click', () => {
   _fixNodesMode = !_fixNodesMode;
   _deleteMode = false;
   _overnightMode = false;
-  document.getElementById('edit-banner-label').textContent =
-    _fixNodesMode ? _editRouteName + ' — click a node to fix hazards near it' : _editRouteName;
+  _setEditBannerLabel(_fixNodesMode ? ' — click a node to fix hazards near it' : '');
   _renderEditLayers();
   _updateEditToolsPanel();
 });
