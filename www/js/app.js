@@ -5131,6 +5131,9 @@ function _syncFocusMarker() {
 function _animateEditRoute() {
   if (_editRouteIdx < 0 || _editPoints.length < 2) return;
   const speed = parseFloat(localStorage.getItem('audiochart-last-speed')) || 5;
+  // Captured before _clearScreen() runs below — it exits edit mode as part
+  // of clearing, which would otherwise wipe _editPoints/_editRouteIdx out
+  // from under this function before the animation ever got them.
   const route = {
     name:   _editRouteName || 'Route',
     points: _editPoints.map(_stripPoint),
@@ -5138,6 +5141,11 @@ function _animateEditRoute() {
   if (!document.querySelector('.track-compress.selected')) {
     document.querySelector('.track-compress[data-compress="500"]')?.classList.add('selected');
   }
+  // Per explicit request: a full Clear Screen before the boat launches, not
+  // just the ad-hoc route-layer cleanup _startRouteAnimation already did on
+  // its own — hazard/fallback/preview layers, hidden tracks, and the
+  // Node Ops/Global Ops button clusters all tidy up too.
+  _clearScreen();
   _startRouteAnimation(route, speed);
 }
 
@@ -10720,6 +10728,12 @@ function _clearScreen() {
   _mapLayers = _hazardCheckLayer = _routeFallbackLayer = null;
   _autoRoutePreviewLayer = _viewportHazardLayer = null;
   _animReportLayer = _animMilestoneLayer = null;
+
+  // Per explicit request: tidy the two persistent button clusters too, not
+  // just map layers — collapsed (not toggled) so this is always a clean-up,
+  // never accidentally re-expands them if they were already tucked away.
+  document.getElementById('edit-tools-panel').classList.add('collapsed');
+  _appEl.classList.add('global-ops-collapsed');
 
   const msg = 'Screen cleared.';
   setStatus(msg);
