@@ -899,7 +899,7 @@ body.wco-active #wco-titlebar { display: flex; }
 
 #zoom-to-me-btn {
   position: absolute;
-  bottom: 252px;
+  top: 266px;
   right: 10px;
   z-index: 1000;
   width: 48px;
@@ -920,7 +920,7 @@ body.wco-active #wco-titlebar { display: flex; }
 
 #global-ops-title {
   position: absolute;
-  bottom: 474px;
+  top: 44px;
   right: 10px;
   z-index: 1000;
   background: var(--dark-blue);
@@ -949,7 +949,7 @@ body.wco-active #wco-titlebar { display: flex; }
 
 #route-picker-btn {
   position: absolute;
-  bottom: 420px;
+  top: 98px;
   right: 10px;
   z-index: 1000;
   width: 64px;
@@ -972,7 +972,7 @@ body.wco-active #wco-titlebar { display: flex; }
 
 #reroute-btn {
   position: absolute;
-  bottom: 140px;
+  top: 378px;
   right: 10px;
   z-index: 1000;
   width: 48px;
@@ -994,7 +994,7 @@ body.wco-active #wco-titlebar { display: flex; }
 
 #delete-route-btn {
   position: absolute;
-  bottom: 84px;
+  top: 434px;
   right: 10px;
   z-index: 1000;
   width: 48px;
@@ -1015,7 +1015,7 @@ body.wco-active #wco-titlebar { display: flex; }
 
 #track-picker-btn {
   position: absolute;
-  bottom: 364px;
+  top: 154px;
   right: 10px;
   z-index: 1000;
   width: 64px;
@@ -1039,7 +1039,7 @@ body.wco-active #wco-titlebar { display: flex; }
 #track-picker-panel {
   display: none;
   position: absolute;
-  bottom: 364px;
+  top: 154px;
   right: 10px;
   z-index: 1001;
   background: var(--dark-blue);
@@ -1047,8 +1047,9 @@ body.wco-active #wco-titlebar { display: flex; }
   border-radius: 10px;
   padding: 10px 14px;
   min-width: 200px;
-  /* See #route-picker-panel — the cap must subtract the bottom anchor offset too. */
-  max-height: calc(100dvh - 364px - 12px);
+  /* Shares the button's top anchor and grows downward into whatever room
+     is left above the command bar. */
+  max-height: calc(100dvh - 154px - 12px);
   overflow-y: auto;
   max-width: min(320px, calc(100vw - 80px));
   box-shadow: 0 2px 12px rgba(0,0,0,0.7);
@@ -1382,7 +1383,7 @@ body.wco-active #wco-titlebar { display: flex; }
 
 #navaid-filter-btn {
   position: absolute;
-  bottom: 140px;
+  top: 378px;
   right: 10px;
   z-index: 1000;
   width: 48px;
@@ -1405,7 +1406,7 @@ body.wco-active #wco-titlebar { display: flex; }
 #navaid-filter-panel {
   display: none;
   position: absolute;
-  bottom: 140px;
+  top: 378px;
   right: 10px;
   z-index: 1001;
   background: var(--dark-blue);
