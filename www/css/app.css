@@ -778,6 +778,7 @@ body.wco-active #wco-titlebar { display: flex; }
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-start;
+  align-items: flex-start;
   gap: 6px;
 }
 
@@ -2564,14 +2565,18 @@ body.wco-active #wco-titlebar { display: flex; }
 
 /* Mobile: move the tide-cycle and heading/speed readouts down out of the
    top-right corner (crowded once the status tiles claim the full top row)
-   into their own lane at lower-right, clear of the Global Ops button column
-   which already occupies right:10px there. Tide stacked above speed. */
+   into their own lane at lower-right. Global Ops now defaults to collapsed
+   and lives up near the top (see #status-tiles), not down here, so there's
+   no longer anything to stay clear of — right:10px matches the same small
+   edge margin used everywhere else (compass top/left, this lane's own
+   bottom), per explicit request that all four edge margins match. Tide
+   stacked above speed. */
 @media (max-width: 767px) {
   .tide-cycle-ctrl,
   .heading-speed-ctrl {
     position: fixed;
     left: auto;
-    right: 64px;
+    right: 10px;
     margin: 0;
   }
   .heading-speed-ctrl { bottom: 10px; }
