@@ -11046,20 +11046,6 @@ async function init() {
         _updateHeadingRay(lat, lon, computed.headingDeg, computed.speedKt);
         _updateHeadingSpeedReadout(computed.headingDeg, computed.speedKt);
       }
-      // Auto-start a track the first time a REAL fix (not a test position)
-      // comes in, so a voyage is captured by default without requiring the
-      // user to remember to tap "Track" — testing/simulating a position
-      // never triggers this since source === 'manual' is excluded.
-      if (source !== 'manual' && !_trackRecActive && !_autoTrackEverStarted) {
-        _trackRecActive = true;
-        _autoTrackEverStarted = true;
-        _trackRecStartMs = Date.now();
-        _trackRecPoints = [];
-        _trackRecLastSampleTs = 0;
-        trackRecBtn.textContent = '⏹ Stop Tracking';
-        trackRecBtn.title = 'Recording automatically — tap to stop and save';
-        trackRecBtn.classList.add('rec-active');
-      }
       if (_trackRecActive) {
         const now = Date.now();
         if (now - _trackRecLastSampleTs >= 1000) {

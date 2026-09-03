@@ -116,7 +116,7 @@ html, body {
 /* Offline prep, location + screen menu triggers in header */
 #offline-btn, #location-menu-btn, #screen-menu-btn, #track-rec-btn,
 #anchor-watch-btn, #anchor-watch-silence-btn {
-  background: none;
+  background: rgba(10, 22, 40, 0.92);
   border: 1px solid var(--mid-blue);
   border-radius: 6px;
   color: var(--text-dim);
@@ -776,14 +776,19 @@ body.wco-active #wco-titlebar { display: flex; }
   gap: 6px;
 }
 
-/* Mobile: use the full top width so the status tiles wrap into two visible
-   rows instead of one. A single scrolling row (tried first) hid tiles off
-   the right edge with no obvious affordance that more existed — per direct
-   feedback, wrapping to a second line beats a horizontal scroll nobody
-   could tell was there. */
-@media (max-width: 767px) {
+/* Mobile/tablet: use the full top width so the status tiles wrap into two
+   visible rows instead of one. A single scrolling row (tried first) hid
+   tiles off the right edge with no obvious affordance that more existed —
+   per direct feedback, wrapping to a second line beats a horizontal scroll
+   nobody could tell was there. Extended up through iPad widths (both
+   orientations, up to the 12.9" Pro's 1366px landscape) since at the
+   desktop 55%-max-width the tile count wraps into a tall, sparse column
+   instead of the same tidy two rows phones get, needlessly pushing the row
+   down the page. */
+@media (max-width: 1366px) {
   #map-overlay-status {
     max-width: calc(100% - 20px);
+    top: 34px;
   }
   #status-tiles {
     width: 100%;
@@ -881,7 +886,7 @@ body.wco-active #wco-titlebar { display: flex; }
    with the other status tiles at the top instead — showing every mode at
    once beats several taps to reach a non-adjacent one. */
 #map-layer-select {
-  background: none;
+  background: rgba(10, 22, 40, 0.92);
   border: 1px solid var(--mid-blue);
   border-radius: 6px;
   color: var(--text-dim);
