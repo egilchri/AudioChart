@@ -773,6 +773,7 @@ body.wco-active #wco-titlebar { display: flex; }
 #status-tiles {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-start;
   gap: 6px;
 }
 
@@ -788,7 +789,7 @@ body.wco-active #wco-titlebar { display: flex; }
 @media (max-width: 1366px) {
   #map-overlay-status {
     max-width: calc(100% - 20px);
-    top: 34px;
+    top: 28px;
   }
   #status-tiles {
     width: 100%;
@@ -899,7 +900,7 @@ body.wco-active #wco-titlebar { display: flex; }
 
 #zoom-to-me-btn {
   position: absolute;
-  top: 266px;
+  top: 154px;
   right: 10px;
   z-index: 1000;
   width: 48px;
@@ -920,7 +921,7 @@ body.wco-active #wco-titlebar { display: flex; }
 
 #global-ops-title {
   position: absolute;
-  top: 44px;
+  top: 100px;
   right: 10px;
   z-index: 1000;
   background: var(--dark-blue);
@@ -939,40 +940,30 @@ body.wco-active #wco-titlebar { display: flex; }
    so the popup panels anchored to Routes/Tracks/Navaid-filter stay aligned. */
 #app.global-ops-collapsed #zoom-to-me-btn,
 #app.global-ops-collapsed #navaid-filter-btn,
-#app.global-ops-collapsed #route-picker-btn,
 #app.global-ops-collapsed #reroute-btn,
-#app.global-ops-collapsed #delete-route-btn,
-#app.global-ops-collapsed #track-picker-btn {
+#app.global-ops-collapsed #delete-route-btn {
   display: none;
 }
 #app.global-ops-collapsed #global-ops-title::after { content: '  \25BE'; }
 
 #route-picker-btn {
-  position: absolute;
-  top: 98px;
-  right: 10px;
-  z-index: 1000;
-  width: 64px;
-  height: 48px;
-  background: var(--dark-blue);
-  color: var(--text);
+  background: rgba(10, 22, 40, 0.92);
   border: 1px solid var(--mid-blue);
-  border-radius: 10px;
-  font-size: 0.82rem;
+  border-radius: 6px;
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  padding: 3px 8px;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
+  white-space: nowrap;
   -webkit-tap-highlight-color: transparent;
 }
+#route-picker-btn:hover { border-color: var(--accent); color: var(--text); }
 #route-picker-btn:active { background: var(--mid-blue); }
 #route-picker-btn.active  { background: var(--accent);  color: var(--navy); }
 
 #reroute-btn {
   position: absolute;
-  top: 378px;
+  top: 210px;
   right: 10px;
   z-index: 1000;
   width: 48px;
@@ -994,7 +985,7 @@ body.wco-active #wco-titlebar { display: flex; }
 
 #delete-route-btn {
   position: absolute;
-  top: 434px;
+  top: 266px;
   right: 10px;
   z-index: 1000;
   width: 48px;
@@ -1014,32 +1005,25 @@ body.wco-active #wco-titlebar { display: flex; }
 #delete-route-btn:active { background: #e05252; color: var(--text); }
 
 #track-picker-btn {
-  position: absolute;
-  top: 154px;
-  right: 10px;
-  z-index: 1000;
-  width: 64px;
-  height: 48px;
-  background: var(--dark-blue);
-  color: var(--text);
+  background: rgba(10, 22, 40, 0.92);
   border: 1px solid var(--mid-blue);
-  border-radius: 10px;
-  font-size: 0.82rem;
+  border-radius: 6px;
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  padding: 3px 8px;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
+  white-space: nowrap;
   -webkit-tap-highlight-color: transparent;
 }
+#track-picker-btn:hover { border-color: var(--accent); color: var(--text); }
 #track-picker-btn:active { background: var(--mid-blue); }
 #track-picker-btn.active  { background: var(--accent);  color: var(--navy); }
 
 #track-picker-panel {
   display: none;
   position: absolute;
-  top: 154px;
+  top: 10px;
+  bottom: 70px; /* clear the command bar/text-input row docked at the bottom, same as #route-picker-panel */
   right: 10px;
   z-index: 1001;
   background: var(--dark-blue);
@@ -1047,9 +1031,6 @@ body.wco-active #wco-titlebar { display: flex; }
   border-radius: 10px;
   padding: 10px 14px;
   min-width: 200px;
-  /* Shares the button's top anchor and grows downward into whatever room
-     is left above the command bar. */
-  max-height: calc(100dvh - 154px - 12px);
   overflow-y: auto;
   max-width: min(320px, calc(100vw - 80px));
   box-shadow: 0 2px 12px rgba(0,0,0,0.7);
@@ -1383,7 +1364,7 @@ body.wco-active #wco-titlebar { display: flex; }
 
 #navaid-filter-btn {
   position: absolute;
-  top: 378px;
+  top: 210px;
   right: 10px;
   z-index: 1000;
   width: 48px;
@@ -1406,7 +1387,7 @@ body.wco-active #wco-titlebar { display: flex; }
 #navaid-filter-panel {
   display: none;
   position: absolute;
-  top: 378px;
+  top: 210px;
   right: 10px;
   z-index: 1001;
   background: var(--dark-blue);
@@ -2327,7 +2308,7 @@ body.wco-active #wco-titlebar { display: flex; }
    nudges it from wherever it already sits. */
 #map-overlay-status                { transform: var(--ui-pos-status, translate(0,0)); }
 #zoom-to-me-btn, #navaid-filter-btn,
-#route-picker-btn, #reroute-btn, #delete-route-btn, #track-picker-btn,
+#reroute-btn, #delete-route-btn,
 #global-ops-title {
   transform: var(--ui-pos-btncol, translate(0,0));
 }
@@ -2586,10 +2567,8 @@ body.wco-active #wco-titlebar { display: flex; }
 #app.anim-mode #global-ops-title,
 #app.anim-mode #zoom-to-me-btn,
 #app.anim-mode #navaid-filter-btn,
-#app.anim-mode #route-picker-btn,
 #app.anim-mode #reroute-btn,
 #app.anim-mode #delete-route-btn,
-#app.anim-mode #track-picker-btn,
 #app.anim-mode #edit-tools-panel,
 #app.anim-mode #zoom-slider-wrap,
 #app.anim-mode #pan-controls-wrap,

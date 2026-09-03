@@ -1550,7 +1550,7 @@ function _initRearrangeGroups() {
   _makeDraggableGroup('btncol', () => [
     'global-ops-title',
     'zoom-to-me-btn', 'navaid-filter-btn',
-    'route-picker-btn', 'reroute-btn', 'delete-route-btn', 'track-picker-btn',
+    'reroute-btn', 'delete-route-btn',
   ].map(id => document.getElementById(id)));
   _makeDraggableGroup('navctl', () => ['zoom-slider-wrap', 'pan-controls-wrap'].map(id => document.getElementById(id)));
   _makeDraggableGroup('version', () => [document.getElementById('map-version-label')]);
