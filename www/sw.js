@@ -1,4 +1,4 @@
-/** @version v140 */
+/** @version v505 */
 /**
  * AudioChart Service Worker — offline caching.
  *
@@ -101,7 +101,11 @@ self.addEventListener('fetch', (event) => {
 async function networkFirst(request) {
   const cache = await caches.open(CACHE);
   try {
-    const response = await fetch(request);
+    // no-store: this fetch is the whole "network-first" promise — without it,
+    // the browser's own HTTP disk cache can silently satisfy this call with a
+    // stale response, so "network-first" quietly becomes "browser-cache-first"
+    // underneath the version-keyed Cache Storage layer this function manages.
+    const response = await fetch(request, { cache: 'no-store' });
     if (response.ok && request.method === 'GET') {
       cache.put(request, response.clone());
       return response;
