@@ -1560,7 +1560,6 @@ if (localStorage.getItem('audiochart-uipos-migration-v479') !== '1') {
 function _initRearrangeGroups() {
   _makeDraggableGroup('status', () => [document.getElementById('map-overlay-status')]);
   _makeDraggableGroup('btncol', () => [
-    'global-ops-title',
     'zoom-to-me-btn', 'navaid-filter-btn',
     'reroute-btn', 'delete-route-btn',
   ].map(id => document.getElementById(id)));
@@ -5219,6 +5218,10 @@ function _enterEditMode(routeIdx, skipHazardCheck = false) {
     _map.getContainer().addEventListener('mouseup', _editPlaceNode);
   }
   document.getElementById('edit-tools-panel').style.display = 'flex';
+  document.getElementById('edit-tools-panel').classList.add('collapsed');
+  const _etpTitle = document.getElementById('etp-title');
+  _etpTitle.style.display = '';
+  _etpTitle.classList.add('collapsed');
   document.getElementById('delete-route-btn').style.display = 'flex';
   _updateEditToolsPanel();
   // Check whenever a route is opened for editing — not just on request —
@@ -5272,6 +5275,7 @@ function _exitEditMode() {
   }
   document.getElementById('edit-banner').style.display = 'none';
   document.getElementById('edit-tools-panel').style.display = 'none';
+  document.getElementById('etp-title').style.display = 'none';
   document.getElementById('delete-route-btn').style.display = 'none';
   _appEl.classList.remove('edit-mode');
   if (_justEditedName) {
@@ -5399,10 +5403,13 @@ document.getElementById('edit-undo-btn').addEventListener('click', () => {
     _editHistory.length > 0 ? '' : 'none';
 });
 
-// Shrink Node Ops to just its title bar when it's in the way — mirrors the
-// transcript's collapse-not-vanish "peek" pattern (_collapseResponseArea).
+// Node Ops' title now lives as a tile up in the status row (see
+// #status-tiles) rather than atop its own panel, so its collapsed/expanded
+// state has to be mirrored onto the tile itself (for the chevron) instead
+// of relying on being a descendant of #edit-tools-panel.collapsed.
 document.getElementById('etp-title').addEventListener('click', () => {
-  document.getElementById('edit-tools-panel').classList.toggle('collapsed');
+  const collapsed = document.getElementById('edit-tools-panel').classList.toggle('collapsed');
+  document.getElementById('etp-title').classList.toggle('collapsed', collapsed);
 });
 
 // Same collapse-to-title-bar idea for the right-side button column ("Global Ops").
@@ -10776,6 +10783,7 @@ function _clearScreen() {
   // just map layers — collapsed (not toggled) so this is always a clean-up,
   // never accidentally re-expands them if they were already tucked away.
   document.getElementById('edit-tools-panel').classList.add('collapsed');
+  document.getElementById('etp-title').classList.add('collapsed');
   _appEl.classList.add('global-ops-collapsed');
 
   const msg = 'Screen cleared.';

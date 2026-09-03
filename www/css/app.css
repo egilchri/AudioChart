@@ -759,15 +759,19 @@ body.wco-active #map-overlay-status { top: 10px; }
 }
 body.wco-active #wco-titlebar { display: flex; }
 
+/* Left offset clears the compass rose (top-left Leaflet control, ~70px wide
+   plus its own margin) with roughly a tile's width of gap beyond it, per
+   explicit request — the tile row's top must also match the compass rose's
+   own top (see .leaflet-top below) so the two visually line up as one row. */
 #map-overlay-status {
   position: absolute;
-  top: 38px;
-  left: 10px;
+  top: 30px;
+  left: 170px;
   z-index: 1001;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  max-width: 55%;
+  max-width: calc(100% - 180px);
 }
 
 #status-tiles {
@@ -787,10 +791,6 @@ body.wco-active #wco-titlebar { display: flex; }
    instead of the same tidy two rows phones get, needlessly pushing the row
    down the page. */
 @media (max-width: 1366px) {
-  #map-overlay-status {
-    max-width: calc(100% - 20px);
-    top: 28px;
-  }
   #status-tiles {
     width: 100%;
   }
@@ -919,25 +919,34 @@ body.wco-active #wco-titlebar { display: flex; }
 }
 #zoom-to-me-btn:active { background: var(--mid-blue); }
 
-#global-ops-title {
-  position: absolute;
-  top: 260px;
-  right: 10px;
-  z-index: 1000;
-  background: var(--dark-blue);
-  color: var(--accent);
+/* Global Ops and Node Ops are tiles now too (live in #status-tiles, appended
+   after the others so they land at the end of the tile rows), each still
+   toggling its own group of buttons elsewhere on screen. Most of the time
+   both start collapsed — see #app's default class and edit-mode entry in
+   app.js — so the tile itself, not an expanded button cluster, is what's
+   normally on screen. */
+#global-ops-title,
+#etp-title {
+  background: rgba(10, 22, 40, 0.92);
   border: 1px solid var(--mid-blue);
-  border-radius: 10px;
-  padding: 4px 10px;
-  font-size: 0.72rem;
+  border-radius: 6px;
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+  margin-bottom: 0;
+  padding: 3px 8px;
   cursor: pointer;
   user-select: none;
   white-space: nowrap;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+  -webkit-tap-highlight-color: transparent;
 }
-/* Collapsed "peek" state — mirrors #edit-tools-panel.collapsed / Node Ops. Each
-   button keeps its own individual position (unlike Node Ops' single flex box)
-   so the popup panels anchored to Routes/Tracks/Navaid-filter stay aligned. */
+#global-ops-title:hover,
+#etp-title:hover { border-color: var(--accent); color: var(--text); }
+/* Each Global Ops button keeps its own individual floating position (unlike
+   Node Ops' single flex box) so the popup panels anchored to Routes/Tracks/
+   Navaid-filter stay aligned. */
 #app.global-ops-collapsed #zoom-to-me-btn,
 #app.global-ops-collapsed #navaid-filter-btn,
 #app.global-ops-collapsed #reroute-btn,
@@ -1828,12 +1837,12 @@ body.wco-active #wco-titlebar { display: flex; }
   user-select: none;
 }
 .etp-title::after { content: '  \25B4'; } /* up chevron — tap to collapse */
-/* Collapsed "peek" state — title bar stays visible/tappable, mirrors the
-   transcript's collapse-not-vanish pattern (#response-area.collapsed). */
-#edit-tools-panel.collapsed { gap: 0; padding-bottom: 8px; }
-#edit-tools-panel.collapsed .etp-title { margin-bottom: 0; }
-#edit-tools-panel.collapsed .etp-title::after { content: '  \25BE'; } /* down chevron — tap to expand */
-#edit-tools-panel.collapsed button { display: none; }
+#etp-title.collapsed::after { content: '  \25BE'; } /* down chevron — tap to expand */
+/* Node Ops' title is now a tile up in the status row rather than living
+   atop this panel, so there's no title left behind to peek at — collapsed
+   means the whole panel goes away, same as Global Ops' individually-hidden
+   buttons. */
+#edit-tools-panel.collapsed { display: none !important; }
 #edit-tools-panel button {
   background: var(--dark-blue);
   color: var(--text);
@@ -2308,8 +2317,7 @@ body.wco-active #wco-titlebar { display: flex; }
    nudges it from wherever it already sits. */
 #map-overlay-status                { transform: var(--ui-pos-status, translate(0,0)); }
 #zoom-to-me-btn, #navaid-filter-btn,
-#reroute-btn, #delete-route-btn,
-#global-ops-title {
+#reroute-btn, #delete-route-btn {
   transform: var(--ui-pos-btncol, translate(0,0));
 }
 #pan-controls-wrap                 { transform: var(--ui-pos-navctl, translate(0,0)); }
@@ -2444,20 +2452,28 @@ body.wco-active #wco-titlebar { display: flex; }
 }
 /* Leaflet's own top-corner controls (compass, tide cycle, heading/speed,
    follow-progress) default to top:0 of the map — with our own opaque
-   status-title-bar + status-tiles overlay also anchored at the top and
-   painted above them (higher z-index), that let the compass/tide render
-   partly hidden underneath, reading as if they'd been clipped off the top
-   of the page. Push the whole corner down to clear the tallest that
-   overlay gets (status-tiles wrapped to two rows) plus a small gap —
-   every widget/tile should keep this kind of margin from the edge, not
-   just these two. */
+   status-title-bar overlay also anchored at the top and painted above them
+   (higher z-index), that let the compass render partly hidden underneath,
+   reading as if it'd been clipped off the top of the page. top:30px here
+   deliberately matches #map-overlay-status's own top:30px exactly, per
+   explicit request that the tile row's top line up with the compass
+   rose's top — every widget/tile should keep a small margin from the
+   screen edge, and here that margin is shared between the two so they
+   read as one aligned row. */
 .leaflet-top {
-  top: 96px;
+  top: 30px;
 }
-/* Compass rose control */
-.compass-rose-ctrl {
+.leaflet-left {
+  left: 10px;
+}
+/* Compass rose control — margin zeroed and taken over entirely by
+   .leaflet-top/.leaflet-left above (leaflet.css's own
+   .leaflet-top .leaflet-control / .leaflet-left .leaflet-control margins
+   would otherwise win by specificity and throw off the exact alignment
+   with the tile row). */
+.leaflet-top.leaflet-left .compass-rose-ctrl {
   pointer-events: none;
-  margin: 8px;
+  margin: 0 8px 8px 0;
   opacity: 0.88;
   filter: drop-shadow(0 1px 4px rgba(0,0,0,0.6));
 }
@@ -2576,7 +2592,6 @@ body.wco-active #wco-titlebar { display: flex; }
 #app.anim-mode #status-title-bar,
 #app.anim-mode #wco-titlebar,
 #app.anim-mode #map-version-label,
-#app.anim-mode #global-ops-title,
 #app.anim-mode #zoom-to-me-btn,
 #app.anim-mode #navaid-filter-btn,
 #app.anim-mode #reroute-btn,

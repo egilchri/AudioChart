@@ -16,7 +16,7 @@
   <link rel="stylesheet" href="./css/app.css">
 </head>
 <body>
-  <div id="app">
+  <div id="app" class="global-ops-collapsed">
 
     <div id="map-container" style="display:none">
       <div id="leaflet-map"></div>
@@ -29,7 +29,6 @@
       <div id="status-title-bar" title="Chart · GPS: waiting">🗺 Chart  ·  GPS: waiting</div>
       <div id="wco-titlebar"></div>
       <div id="map-version-label"></div>
-      <div class="etp-title" id="global-ops-title">Global Ops</div>
       <button id="zoom-to-me-btn" title="Zoom to my location">&#8857;</button>
       <button id="navaid-filter-btn" title="Show navaids on map">&#9875;</button>
       <button id="reroute-btn" title="Re-route around land">&#8635;</button>
@@ -135,6 +134,8 @@
           <button id="anchor-watch-btn" title="Watch for anchor drag — alarms if you stray past a set radius">&#9875; Anchor Watch</button>
           <button id="anchor-watch-silence-btn" title="Silence the anchor alarm (stays armed)" style="display:none">&#128263; Silence</button>
           <button id="screen-menu-btn" title="Screen options">&#128421; Screen</button>
+          <div class="etp-title" id="global-ops-title">Global Ops</div>
+          <div class="etp-title" id="etp-title" style="display:none">Node Ops</div>
         </div>
         <div id="location-menu" style="display:none">
           <button id="location-menu-spoof" title="Move the boat's position to a place or coordinates you type, for testing without a GPS fix">&#128205; Spoof Location</button>
@@ -216,7 +217,6 @@
       </div>
 
       <div id="edit-tools-panel" style="display:none">
-        <div class="etp-title" id="etp-title">Node Ops</div>
         <button id="etp-add-node" title="Add a new waypoint at the end of the route">&#65291; Add</button>
         <button id="etp-insert-node" title="Insert a new waypoint between two existing ones">&#8659; Insert</button>
         <button id="etp-delete" title="Delete the selected waypoint">&#10005; Delete</button>
