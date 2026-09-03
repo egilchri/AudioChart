@@ -900,7 +900,7 @@ body.wco-active #wco-titlebar { display: flex; }
 
 #zoom-to-me-btn {
   position: absolute;
-  top: 154px;
+  top: 314px;
   right: 10px;
   z-index: 1000;
   width: 48px;
@@ -921,7 +921,7 @@ body.wco-active #wco-titlebar { display: flex; }
 
 #global-ops-title {
   position: absolute;
-  top: 100px;
+  top: 260px;
   right: 10px;
   z-index: 1000;
   background: var(--dark-blue);
@@ -963,7 +963,7 @@ body.wco-active #wco-titlebar { display: flex; }
 
 #reroute-btn {
   position: absolute;
-  top: 210px;
+  top: 370px;
   right: 10px;
   z-index: 1000;
   width: 48px;
@@ -985,7 +985,7 @@ body.wco-active #wco-titlebar { display: flex; }
 
 #delete-route-btn {
   position: absolute;
-  top: 266px;
+  top: 426px;
   right: 10px;
   z-index: 1000;
   width: 48px;
@@ -1364,7 +1364,7 @@ body.wco-active #wco-titlebar { display: flex; }
 
 #navaid-filter-btn {
   position: absolute;
-  top: 210px;
+  top: 370px;
   right: 10px;
   z-index: 1000;
   width: 48px;
@@ -1387,7 +1387,7 @@ body.wco-active #wco-titlebar { display: flex; }
 #navaid-filter-panel {
   display: none;
   position: absolute;
-  top: 210px;
+  top: 370px;
   right: 10px;
   z-index: 1001;
   background: var(--dark-blue);
@@ -2441,6 +2441,18 @@ body.wco-active #wco-titlebar { display: flex; }
   border-radius: 6px !important;
   border: none !important;
   margin: 4px 0 !important;
+}
+/* Leaflet's own top-corner controls (compass, tide cycle, heading/speed,
+   follow-progress) default to top:0 of the map — with our own opaque
+   status-title-bar + status-tiles overlay also anchored at the top and
+   painted above them (higher z-index), that let the compass/tide render
+   partly hidden underneath, reading as if they'd been clipped off the top
+   of the page. Push the whole corner down to clear the tallest that
+   overlay gets (status-tiles wrapped to two rows) plus a small gap —
+   every widget/tile should keep this kind of margin from the edge, not
+   just these two. */
+.leaflet-top {
+  top: 96px;
 }
 /* Compass rose control */
 .compass-rose-ctrl {

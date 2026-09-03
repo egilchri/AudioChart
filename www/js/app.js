@@ -1426,6 +1426,18 @@ function _makeDraggableGroup(groupId, getEls, alwaysOn = false) {
   // positioning the way offsetParent is.
   const currentEls = () => getEls().filter(el => el && el.getClientRects().length > 0);
   const applyOffset = (dx, dy) => _appEl.style.setProperty(`--ui-pos-${groupId}`, `translate(${dx}px, ${dy}px)`);
+  // Clamp a restored position before ever painting it — a dx/dy saved on a
+  // taller/wider screen (e.g. a tablet) can push a widget off-screen (per
+  // direct report: compass/tide flowing off the top) when the same saved
+  // position loads on a smaller window. The resize listener below only
+  // catches this after an actual resize event, never on a fresh page load.
+  {
+    const els = currentEls();
+    if (els.length) {
+      const clamped = _clampGroupOffset(els, curDx, curDy, 0, 0);
+      curDx = clamped.dx; curDy = clamped.dy;
+    }
+  }
   applyOffset(curDx, curDy); // restore any saved position immediately
 
   _draggableGroupResetters.push(() => {
