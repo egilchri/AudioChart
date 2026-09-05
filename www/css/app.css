@@ -826,11 +826,15 @@ body.wco-active #wco-titlebar { display: flex; }
   border: 1px solid var(--mid-blue);
 }
 
+/* right:212px clears the tide/heading-speed lane now anchored at lower-right
+   on every screen size (see the .tide-cycle-ctrl / .heading-speed-ctrl rule
+   below) — per explicit request, the command bar makes room for that lane
+   rather than the two competing for the same corner. */
 #map-overlay-cmd {
   position: absolute;
   bottom: 10px;
   left: 10px;
-  right: 70px;
+  right: 212px;
   z-index: 1001;
   display: flex;
   flex-direction: column;
@@ -844,15 +848,6 @@ body.wco-active #wco-titlebar { display: flex; }
    above everything all the time. */
 #map-overlay-cmd:has(#response-area:not(.collapsed)) {
   z-index: 1500;
-}
-
-/* Mobile: narrow the command bar so it sits at lower-left, clear of the
-   tide/heading-speed lane now anchored at lower-right (see the
-   .tide-cycle-ctrl / .heading-speed-ctrl mobile rule above). */
-@media (max-width: 767px) {
-  #map-overlay-cmd {
-    right: 212px;
-  }
 }
 
 #map-overlay-cmd #response-area {
@@ -2563,25 +2558,24 @@ body.wco-active #wco-titlebar { display: flex; }
 }
 #tide-play-btn:hover { background: #1a4a7a; }
 
-/* Mobile: move the tide-cycle and heading/speed readouts down out of the
-   top-right corner (crowded once the status tiles claim the full top row)
-   into their own lane at lower-right. Global Ops now defaults to collapsed
-   and lives up near the top (see #status-tiles), not down here, so there's
-   no longer anything to stay clear of — right:10px matches the same small
-   edge margin used everywhere else (compass top/left, this lane's own
-   bottom), per explicit request that all four edge margins match. Tide
-   stacked above speed. */
-@media (max-width: 767px) {
-  .tide-cycle-ctrl,
-  .heading-speed-ctrl {
-    position: fixed;
-    left: auto;
-    right: 10px;
-    margin: 0;
-  }
-  .heading-speed-ctrl { bottom: 10px; }
-  .tide-cycle-ctrl { bottom: 58px; }
+/* Move the tide-cycle and heading/speed readouts down out of the top-right
+   corner (crowded once the status tiles claim the full top row) into their
+   own lane at lower-right — on every screen size, not just mobile, per
+   explicit request. Global Ops now defaults to collapsed and lives up near
+   the top (see #status-tiles), not down here, so there's nothing left to
+   stay clear of — right:10px matches the same small edge margin used
+   everywhere else (compass top/left, this lane's own bottom). #map-overlay-
+   cmd's own right:212px (see above) makes room for this lane rather than
+   the two competing for the same corner. Tide stacked above speed. */
+.tide-cycle-ctrl,
+.heading-speed-ctrl {
+  position: fixed;
+  left: auto;
+  right: 10px;
+  margin: 0;
 }
+.heading-speed-ctrl { bottom: 10px; }
+.tide-cycle-ctrl { bottom: 58px; }
 /* Animation fullscreen mode */
 #app.anim-mode #sidebar,
 #app.anim-mode #sketch-banner {
