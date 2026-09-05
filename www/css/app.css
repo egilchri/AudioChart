@@ -2311,7 +2311,6 @@ body.wco-active #wco-titlebar { display: flex; }
    element underneath is positioned bottom/right, top/left, or lives inside
    Leaflet's own control-container flex layout; the transform just visually
    nudges it from wherever it already sits. */
-#map-overlay-status                { transform: var(--ui-pos-status, translate(0,0)); }
 #zoom-to-me-btn, #navaid-filter-btn,
 #reroute-btn, #delete-route-btn {
   transform: var(--ui-pos-btncol, translate(0,0));

@@ -1572,7 +1572,17 @@ if (localStorage.getItem('audiochart-uipos-migration-v479') !== '1') {
 }
 
 function _initRearrangeGroups() {
-  _makeDraggableGroup('status', () => [document.getElementById('map-overlay-status')]);
+  // The status-tile row (Map Type, Location, Routes/Tracks, Global Ops,
+  // Node Ops, etc.) is no longer draggable at all — per direct report, a
+  // dragged copy of this row ended up stuck at the bottom of a phone
+  // screen with no way back (the Rearrange > Reset button that should have
+  // fixed it was itself unresponsive there). This is the single most
+  // important control surface in the app; per explicit decision, it's not
+  // worth the risk of it ever going missing again just to let it be
+  // repositioned. A one-time cleanup of any already-saved drag offset for
+  // it, so a phone that got into this state self-heals on next load
+  // without needing Reset to work.
+  localStorage.removeItem('audiochart-ui-pos-status');
   _makeDraggableGroup('btncol', () => [
     'zoom-to-me-btn', 'navaid-filter-btn',
     'reroute-btn', 'delete-route-btn',
