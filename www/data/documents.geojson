@@ -1422,6 +1422,39 @@
         "body": "Before 1939, the only way onto Deer Isle from the mainland was a ferry across Eggemoggin Reach, which locals had come to consider antiquated and dangerous. The WPA-funded suspension bridge that replaced it, dedicated June 19, 1939, was designed by Holton D. Robinson and David B. Steinman — and it shared a design flaw with a much more famous bridge: a stiffening girder too shallow for its span, prone to oscillating in the wind, the same flaw that brought down the original Tacoma Narrows Bridge in November 1940.\n\nDeer Isle's bridge never collapsed, but after watching newsreel footage of Tacoma Narrows twisting itself apart, Steinman came back to Eggemoggin Reach himself and retrofitted his own bridge with extra cable and floor stays to stiffen it against exactly that failure. It has carried traffic safely ever since — a bridge that could have been a second famous collapse, saved by its own engineer learning from the first one in time.",
         "source": "Wikipedia — Deer Isle Bridge; Island Institute — The Year Steel and Cable Changed Deer Isle; Living New Deal; HistoricBridges.org"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.45268880502076, 44.142516835814256] },
+      "properties": {
+        "title": "Granite meets basalt at Swan's Island",
+        "category": "geology",
+        "place": "Swan's Island",
+        "body": "Along Swan's Island's shore, granite and basalt meet in a textbook example of \"bimodal magmatism\" — hot, dark mafic magma intruding granite that was still partly molten, some 424 million years ago in the Silurian. Where the two mixed, the mafic magma cooled into rounded, pillow-shaped blobs suspended in the lighter granite; younger mafic dikes cut straight through granite that had already solidified, each edged with a fine-grained chilled margin where it met the cooler rock. Diorite bands nearby likely formed where the two magmas partly mixed rather than staying fully separate. The island's beaches are largely fine sand weathered straight out of that same granite — quartz, feldspar, and biotite ground down by the sea.",
+        "source": "Maine Geological Survey, Maine Geologic Facts and Localities — Pillow Lavas I Have Known; Hamilton College Geosciences — Swan's Island field guide"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.61695589249732, 44.017480984601555] },
+      "properties": {
+        "title": "A second magma story, at the other end of Isle au Haut",
+        "category": "geology",
+        "place": "Eastern Head, Isle au Haut",
+        "body": "Western Head gets the volcanic-eruption story — an ancient supervolcano's ash and lava. Eastern Head and neighboring Eastern Ear Island, a few miles away on the same island, tell a different one entirely: the Isle au Haut Igneous Complex, a 424-million-year-old body of granite intruding a much larger layered complex of gabbro, diorite, and quartz monzodiorite — rock that cooled slowly, deep underground, rather than erupting. Where the granite met the still-hot gabbro, chilled, pillow-shaped contacts formed at the boundary, the same texture Swan's Island shows on a different scale. The granite body alone covers roughly 28 square kilometers; the gabbro-diorite complex beneath and around it, about 51. Two very different rock stories, from two very different depths, are exposed within a few miles of each other on the same island.",
+        "source": "Geological Society of Maine — Geology of Isle au Haut, ME (Summer Field Trip Guide, July 2015), M. Chapman & R. Gerber"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.62282252974285, 44.01784053145374] },
+      "properties": {
+        "title": "A fishing village the sea swallowed, and the beach that outran it",
+        "category": "geology",
+        "place": "Head Harbor, Isle au Haut",
+        "body": "Two pieces of evidence on Isle au Haut tell opposite chapters of the same story. High on the island's south-facing slopes, a cobble beach sits stranded at 220-240 feet above today's sea level — left there roughly 15,500 years ago, right after the last glacier retreated, when the land, freed of the ice's weight, briefly stood higher relative to the sea than it does now. Down at Head Harbor, the opposite process is still visible today: the remains of a 19th-century fishing village lie along the harbor's west shore, now partly drowned as sea level has crept back up. Between those two points — one stranded high and dry, one being reclaimed by the tide — is roughly 15,000 years of the island rising, then the sea catching back up.",
+        "source": "Geological Society of Maine — Geology of Isle au Haut, ME (Summer Field Trip Guide, July 2015), M. Chapman & R. Gerber"
+      }
     }
   ]
 }
