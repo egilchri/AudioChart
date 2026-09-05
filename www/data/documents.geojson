@@ -1290,6 +1290,138 @@
         "body": "Rockland didn't start with that name. European settlers first called this stretch of shore Lermond's Cove, after John Lermond and his brothers, who set up a lumber operation here in 1767; it became known as Shore Village when Thomaston was incorporated in 1777, then East Thomaston when it was set off as its own town in 1848. The town took the name Rockland in 1850, a direct nod to the limestone cliffs that were about to define its economy for the next century.\n\nLimestone quarried from the hills behind town was burned into lime in kilns lined up along the harbor itself, then shipped out in watertight casks to build the mortar and plaster of cities up and down the East Coast. By 1854 Rockland was operating twelve quarries and 125 lime kilns and had become the country's leading lime producer; by 1886 the industry employed over a thousand workers and more than 300 vessels carried the lime to market. Shipbuilding grew up right alongside it — in 1854 alone Rockland's yards launched eleven ships, three barks, six brigs, and four schooners. Between 1881 and 1900 the Army Corps of Engineers built the Rockland Breakwater specifically to protect this harbor and the industry crowded around it, a nearly mile-long stone arm that still reaches out into the bay today.\n\nThe lime industry that built the harbor didn't disappear overnight, but it did eventually run its course: the last of Rockland's kilns went dark in 1958.",
         "source": "Wikipedia — Rockland, Maine"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.665, 44.268] },
+      "properties": {
+        "title": "Three thousand years of camps on Eggemoggin Reach",
+        "category": "history",
+        "era": "colonial",
+        "place": "Scott's Landing, Deer Isle",
+        "body": "Archaeological digs at Scott's Landing in 2007-2008 uncovered a shell midden with seasonal encampments dating back 3,000 to 2,500 years — the oldest layers holding spear points and stone scraping tools, the middle layers showing roughly 2,000 years of intermittent seasonal use, and the uppermost layers turning up 16th- and 17th-century European trade goods: glass beads, clay pipe fragments, worked metal.\n\nThe people early French and English visitors recorded here as \"Etchemins\" — a term used for certain Wabanaki communities of the Maine coast — built fishing weirs across Eggemoggin Reach between Deer Isle and Little Deer Isle to spear flounder as the tide turned, a technique English settlers later adopted themselves. The name Eggemoggin itself is Wabanaki, usually translated as \"fish-weir place\" or \"place where the current runs both ways\" — apt for a reach where the tide reverses direction as it drains two different bays. Long before Deer Isle had a European name, this was already a working, fished, and camped-on shore, generation after generation.",
+        "source": "Maine by Foot — Scott's Landing, Deer Isle; Island Institute — More Than a Pile of Shells"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.67208798412842, 44.21172891842244] },
+      "properties": {
+        "title": "Deer on every shore, then a town called Deer Isle",
+        "category": "history",
+        "era": "colonial",
+        "place": "Deer Isle",
+        "body": "English colonists named these islands for the deer that once crowded their shores in the 1600s and 1700s, long before anyone lived here year-round. The first permanent settler, William Eaton, arrived in 1762 and built near what became known as the Scott Farm; the first English child born on the island, Timothy Billings, followed in May 1764, and the first church went up in 1773.\n\nIncorporated as a town on February 2, 1789, Deer Isle originally stretched across three islands now split into separate towns: Little Deer Isle, Deer Isle proper, and Isle au Haut. Isle au Haut broke away in 1874; a little over a century after incorporation, the granite boom split off the island's southern third as well, forming the town of Stonington in 1897 — itself known simply as \"Green's Landing\" until that name change. What's now three separate towns on the chart was, within living memory of its own founding, all one.",
+        "source": "Wikipedia — Deer Isle, Maine; Genealogy Trails — History of Deer Isle"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.64754510111966, 44.10555753382143] },
+      "properties": {
+        "title": "Why they call it Merchant Row",
+        "category": "history",
+        "era": "colonial",
+        "place": "Merchant Island, Merchant Row",
+        "body": "Every island-studded passage needs a name, and this one takes its name from a person, not a trade: Nathaniel Merchant, an early landowner who grew up on the island that still carries his family name today. The row of islands beyond it — McGlathery, Round, Devil, Spectacle, Hell's Half Acre, and dozens more — inherited the surname as a group identity for the whole archipelago between Stonington and Isle au Haut.\n\nThe islands were inhabited and worked long before any Merchant arrived: a shell midden on the southeast end of nearby Nathan Island shows Native use spanning the Ceramic Period, roughly 3,000 to 500 years ago — a second, separate site from the better-documented one at Scott's Landing on Deer Isle, evidence that this whole archipelago, not just its larger islands, was part of a long-inhabited coastal landscape well before European settlement, land grants, or the family name that stuck.",
+        "source": "Maine Coast Heritage Trust — History of Merchant Row"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.653, 44.058] },
+      "properties": {
+        "title": "The High Island, named in passing by Champlain",
+        "category": "history",
+        "era": "colonial",
+        "place": "Isle au Haut",
+        "body": "Samuel de Champlain named this island in 1604 during the same coasting voyage that brought him into Penobscot Bay — Isle au Haut, \"high island,\" for the way its hills rise above every other island around it, visible from well out to sea. It stayed largely unsettled for nearly two centuries after that; farmers, fishermen, and boatbuilders began arriving in earnest only after the Revolution, with a small summer colony taking root in the 1880s once city visitors discovered it.\n\nIsle au Haut split off from Deer Isle to incorporate as its own town in 1874. Its French name never changed even as everything around it did — mariners and mapmakers alike kept Champlain's word for it, one of the few Penobscot Bay place names from that first summer of contact still in everyday use, spoken by lobstermen radioing each other today exactly as a French explorer wrote it down four centuries ago.",
+        "source": "Wikipedia — Isle au Haut, Maine; Ellsworth American — Away we go to Isle au Haut"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.67388816023507, 44.1420374523932] },
+      "properties": {
+        "title": "Maine's last working granite quarry",
+        "category": "history",
+        "era": "industrial",
+        "place": "Crotch Island, Stonington",
+        "body": "Job L. Goss began quarrying granite on Crotch Island in 1869; his son John L. Goss took over in 1887 and built the operation into the John L. Goss Corporation, which acquired the neighboring F.S. Warren quarry in 1896 and began working Moose Island by the late 1890s. At its peak around 1905, roughly 80 men worked Crotch Island and another 100 worked Moose Island; the main Goss Quarry, opened in 1872, had grown to 350 feet square and 120 feet deep.\n\nCrotch Island's distinctive pink-tinted stone — sold as \"Sherwood pink\" and \"Goss pink\" — went into the approaches of the Brooklyn Bridge and the piers of the Blackwell's Island Bridge over New York's East River (today's Roosevelt Island Bridge), carried south from this one small island by schooner. Like Hurricane Island's quarry, the workforce was heavily immigrant — Swedish, Italian, Scottish, and Finnish stonecutters among them. Reinforced concrete ended most of Maine's island quarrying by the 1920s and 30s; Goss himself died in 1936, and the company changed hands in 1953. Crotch Island's quarry alone survived — closed in 1966, revived in 1979, and still cutting granite today, the last one operating on a Maine island.",
+        "source": "Island Institute — Stonington's Past Carved in Granite; Quarries and Beyond — Maine Granite Quarry List; Deer Isle Granite Museum"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.6707605, 44.1604222] },
+      "properties": {
+        "title": "A granite boomtown outgrows its old name",
+        "category": "history",
+        "era": "industrial",
+        "place": "Stonington (formerly Green's Landing)",
+        "body": "Granite quarrying took off on Deer Isle's southern peninsula around 1870, and within thirty years it had remade the place completely. The waterfront village of Green's Landing swelled toward 4,000 residents by 1900 — quarries running on Green Island (the Russ Stone Quarry, opened 1881), Crotch Island (Goss & Small, from 1889), and beyond, shipping stone to New York and Boston for bridges, banks, and government buildings. By the 1910 census, quarrymen actually outnumbered fishermen here, a startling reversal for a town that had always lived by the sea in the other sense. Local tradition holds that some of the last granite cut on these islands ended up as curbstones on New York's Fifth Avenue.\n\nThe boom was big enough, and different enough from farming, fishing Deer Isle to the north, that the Maine Legislature let the southern third break away as its own town on February 18, 1897 — renamed Stonington, for the industry that built it, replacing the working name Green's Landing had carried for generations.",
+        "source": "Maine: An Encyclopedia — Deer Isle; Town of Stonington — History; Wikipedia — Stonington, Maine"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.69909187724849, 44.16406732370546] },
+      "properties": {
+        "title": "From cod and mackerel to a lobster economy",
+        "category": "history",
+        "era": "industrial",
+        "place": "Burnt Cove, Deer Isle",
+        "body": "For most of the 19th century, cod and mackerel were the backbone of the fishery here, not lobster — canneries at Burnt Cove and at Green's Landing packed mackerel and clams for shipment, part of a regional network that ran 23 lobster canneries by 1880, absorbing roughly two-thirds of the whole Maine catch for Boston and New York markets. Lobster only became the dominant catch later, as overfishing and shifting markets hit the old groundfish stocks hard in the late 1800s and early 1900s.\n\nThe timing lined up with another local collapse: as granite quarrying wound down through the early 1900s, out-of-work quarrymen turned to lobstering to make a living, feeding people and boats into the same waters at the same moment groundfish were declining and lobster demand was rising. That double transition — from cod to lobster, and from stonecutters to lobstermen — is the direct ancestor of the harbor sailors pass through Stonington today, long since Maine's single largest lobster port by value.",
+        "source": "Town of Stonington — History; Downeast Fisheries Trail — Lobster; Wild Maine — Stonington Lobster Economy"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.61804448435336, 44.126438891497415] },
+      "properties": {
+        "title": "How Merchant Row became a conservation landscape",
+        "category": "history",
+        "era": "modern",
+        "place": "McGlathery Island, Merchant Row",
+        "body": "McGlathery Island has one of the longest conservation histories of any Maine island — a Canadian nonprofit called Friends of Nature bought it in 1954, decades before land trusts were common, and held it as an unusually early example of private island conservation before finally transferring it to Maine Coast Heritage Trust in 2021.\n\nMCHT has since built out an eleven-preserve network across the wider archipelago: Green Island (47 acres, donated 1993), Saddleback Island (76 acres, purchased 2004), Nathan and Little Nathan Islands (2001), Bill's Island (an estate gift in 2005), The Fort (2001-2005), Sand Island and Eastern Mark Island (2003-2004), plus Gooseberry, Little Camp, and Andrews Islands added as recently as 2016. Roughly two-thirds of Merchant Row's fifty-some islands are protected today, built up piece by piece over five decades by multiple landowners and organizations rather than any single acquisition — a working example of how an entire named passage, not just one island at a time, can end up conserved.",
+        "source": "Maine Coast Heritage Trust — History of Merchant Row; Ellsworth American — Maine Coast Heritage Trust Protects Islands Along Merchant Row"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.65170312216232, 44.02891142734267] },
+      "properties": {
+        "title": "A gift Isle au Haut didn't entirely want",
+        "category": "history",
+        "era": "modern",
+        "place": "Duck Harbor, Isle au Haut",
+        "body": "Ernest Bowditch — grandson of the navigator Nathaniel Bowditch, whose navigation manual still guides sailors two centuries later — built a summer resort called the Point Lookout Club on Isle au Haut and bought up large tracts of the island around it. Acadia National Park's backers first asked him to donate land around World War I; he said no.\n\nIt was his heirs, led by Richard Bowditch, who wrote to Interior Secretary Harold Ickes on July 6, 1942, proposing the gift Ernest never made — roughly 3,000 acres across the island's southern half, accepted in 1943 and formalized in January 1944. The gift wasn't universally welcomed on the island itself: some year-round residents opposed losing tax base and local control over land their town had always governed alone. Isle au Haut still runs that way today — the town governs most of the island, the Park Service manages only the donated southern portion — an unusually split arrangement for Acadia, and a reminder that \"national park\" and \"island community\" aren't always the same wish.",
+        "source": "National Park Service — Isle au Haut history; Isle au Haut Community Oral History; Island Institute — Acadia's Offshore Island"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.678, 44.155] },
+      "properties": {
+        "title": "The small island town that outlands every other port in Maine",
+        "category": "history",
+        "era": "modern",
+        "place": "Stonington Harbor",
+        "body": "Stonington has been Maine's top lobster port by landed value for years running, not by a small margin — $46.3 million and roughly 15 million pounds in 2011 (its fourth straight year at #1), climbing to $60 million by 2014 and a record $77.3 million in 2021 before settling back to $44.7 million in 2022, still enough to hold the top spot. In 2025 the harbor landed roughly $49 million, about 22 percent of the combined value of Maine's ten busiest ports put together.\n\nOne town's fleet outproducing every other harbor in the state, working the same waters its quarrymen-turned-lobstermen first worked a century ago. It's easy to miss from the water, threading between working boats stacked three deep at the co-op floats, just how much of the state's whole lobster economy funnels through this one small harbor.",
+        "source": "Ellsworth American — Stonington is Maine's Top Lobster Port Once Again; Island Institute — Stonington Tops in Lobster Again, Hitting $60 Million Mark; Rising Tide — Lobster Landings 2025"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.678, 44.298] },
+      "properties": {
+        "title": "The bridge with the same flaw as Tacoma Narrows — fixed in time",
+        "category": "history",
+        "era": "modern",
+        "place": "Deer Isle-Sedgwick Bridge, Eggemoggin Reach",
+        "body": "Before 1939, the only way onto Deer Isle from the mainland was a ferry across Eggemoggin Reach, which locals had come to consider antiquated and dangerous. The WPA-funded suspension bridge that replaced it, dedicated June 19, 1939, was designed by Holton D. Robinson and David B. Steinman — and it shared a design flaw with a much more famous bridge: a stiffening girder too shallow for its span, prone to oscillating in the wind, the same flaw that brought down the original Tacoma Narrows Bridge in November 1940.\n\nDeer Isle's bridge never collapsed, but after watching newsreel footage of Tacoma Narrows twisting itself apart, Steinman came back to Eggemoggin Reach himself and retrofitted his own bridge with extra cable and floor stays to stiffen it against exactly that failure. It has carried traffic safely ever since — a bridge that could have been a second famous collapse, saved by its own engineer learning from the first one in time.",
+        "source": "Wikipedia — Deer Isle Bridge; Island Institute — The Year Steel and Cable Changed Deer Isle; Living New Deal; HistoricBridges.org"
+      }
     }
   ]
 }
