@@ -2459,7 +2459,7 @@ body.wco-active #wco-titlebar { display: flex; }
   transform: translate(-50%, -50%);
   font-style: italic;
   font-size: 0.72rem;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--dark-blue);
   text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 3px #fff;
   white-space: nowrap;
