@@ -2318,7 +2318,6 @@ body.wco-active #wco-titlebar { display: flex; }
 #pan-controls-wrap                 { transform: var(--ui-pos-navctl, translate(0,0)); }
 #map-version-label                 { transform: var(--ui-pos-version, translate(0,0)); }
 #map-overlay-cmd                   { transform: var(--ui-pos-cmdbar, translate(0,0)); }
-.compass-rose-ctrl                 { transform: var(--ui-pos-compass, translate(0,0)); }
 .tide-cycle-ctrl                   { transform: var(--ui-pos-tide, translate(0,0)); }
 .heading-speed-ctrl                { transform: var(--ui-pos-headingspeed, translate(0,0)); }
 .follow-progress-ctrl              { transform: var(--ui-pos-followprogress, translate(0,0)); }
@@ -2334,9 +2333,10 @@ body.wco-active #wco-titlebar { display: flex; }
   cursor: grab;
 }
 #app.rearrange-mode .ui-drag-target:active { cursor: grabbing; }
-/* compass-rose-ctrl and tide-cycle-ctrl are pointer-events:none in normal use (so taps
-   pass through to the map underneath) — re-enable while rearranging so they're grabbable. */
-#app.rearrange-mode .compass-rose-ctrl,
+/* tide-cycle-ctrl is pointer-events:none in normal use (so taps pass through
+   to the map underneath) — re-enable while rearranging so it's grabbable.
+   (compass-rose-ctrl used to get the same treatment, back when it was
+   draggable — no longer is, see _initRearrangeGroups.) */
 #app.rearrange-mode .tide-cycle-ctrl {
   pointer-events: auto;
 }

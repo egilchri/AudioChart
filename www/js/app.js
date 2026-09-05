@@ -1582,7 +1582,12 @@ function _initRearrangeGroups() {
   // repositioned. A one-time cleanup of any already-saved drag offset for
   // it, so a phone that got into this state self-heals on next load
   // without needing Reset to work.
+  // Compass rose: same story as the tile row below — per direct report it
+  // had drifted down to the lower-left, hiding behind other elements, with
+  // no reliable way back. It's a fixed reference instrument, not something
+  // anyone actually wants to relocate; anchored at the top for good now.
   localStorage.removeItem('audiochart-ui-pos-status');
+  localStorage.removeItem('audiochart-ui-pos-compass');
   _makeDraggableGroup('btncol', () => [
     'zoom-to-me-btn', 'navaid-filter-btn',
     'reroute-btn', 'delete-route-btn',
@@ -1590,7 +1595,6 @@ function _initRearrangeGroups() {
   _makeDraggableGroup('navctl', () => ['zoom-slider-wrap', 'pan-controls-wrap'].map(id => document.getElementById(id)));
   _makeDraggableGroup('version', () => [document.getElementById('map-version-label')]);
   _makeDraggableGroup('cmdbar', () => [document.getElementById('map-overlay-cmd')]);
-  _makeDraggableGroup('compass', () => [...document.querySelectorAll('.compass-rose-ctrl')]);
   _makeDraggableGroup('tide', () => [...document.querySelectorAll('.tide-cycle-ctrl')]);
   _makeDraggableGroup('headingspeed', () => [...document.querySelectorAll('.heading-speed-ctrl')]);
   _makeDraggableGroup('followprogress', () => [...document.querySelectorAll('.follow-progress-ctrl')]);
