@@ -2446,6 +2446,27 @@ body.wco-active #wco-titlebar { display: flex; }
   border: none !important;
   margin: 4px 0 !important;
 }
+/* Named-passage labels (Merchant Row, Fox Islands Thorofare, etc. — see
+   NOTABLE_PASSAGES/_renderPassageLabels in app.js) — permanent text drawn
+   right on the water like a real chart's own sea-area names, in every map
+   mode. The white halo (double text-shadow, no blur spread) keeps it
+   legible over both light chart tiles and satellite imagery without a
+   solid background box, the way real charts knock out italic labels
+   against the water. pointer-events:none so it never blocks map drag/tap;
+   the marker itself is also created non-interactive in app.js. */
+.passage-label {
+  display: inline-block;
+  transform: translate(-50%, -50%);
+  font-style: italic;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--dark-blue);
+  text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 3px #fff;
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+}
+
 /* Leaflet's own top-corner controls (compass, tide cycle, heading/speed,
    follow-progress) default to top:0 of the map — with our own opaque
    status-title-bar overlay also anchored at the top and painted above them

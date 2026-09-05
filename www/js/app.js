@@ -1124,6 +1124,20 @@ const MAP_VIEW_MODES  = ['chart', 'satellite', 'low-tide', 'geology-maine', 'tow
 // Maps a display mode to the documents.geojson `category` it shows —
 // the whole reason "switch to Geology/History" needs no separate menu.
 const MAP_VIEW_DOC_CATEGORY = { 'geology-maine': 'geology', 'history': 'history', 'demographics': 'demographics', 'island-info': 'island-info' };
+// Named water passages/reaches/thorofares worth labeling directly on the
+// chart, like a real NOAA chart would — a hand-verified allowlist, not an
+// automatic filter, since Query.namedPlaces' label:'sea area' bucket (532
+// entries bay-wide) covers everything from these down to obscure named
+// coves/ledges/shoals with no prominence field to tell them apart. Every
+// name here was confirmed present in named_places.geojson by exact match
+// before being added — see _renderPassageLabels().
+const NOTABLE_PASSAGES = new Set([
+  'Merchant Row', 'Fox Islands Thorofare', 'Little Thorofare',
+  'Deer Island Thorofare', 'Eggemoggin Reach', 'Isle au Haut Thorofare',
+  'Casco Passage', 'Fisherman Island Passage', 'Pond Island Passage',
+  'Eastern Passage', 'North East Passage', 'Gilley Thorofare',
+  'Bald Hill Reach', 'The Reach', 'Western Way', 'Eastern Way',
+]);
 let _mapViewMode      = MAP_VIEW_MODES.includes(localStorage.getItem('audiochart-chart-mode'))
   ? localStorage.getItem('audiochart-chart-mode') : 'satellite';
 let _maineGeologyLayer      = null;
@@ -1713,7 +1727,7 @@ function _segCrossTrack(aLon, aLat, bLon, bLat, pLon, pLat) {
 let _documents = [];
 fetch('./data/documents.geojson')
   .then(r => r.json())
-  .then(d => { _documents = d.features || []; _renderDocumentMarkers(); _renderAllIslandLabels(); })
+  .then(d => { _documents = d.features || []; _renderDocumentMarkers(); _renderAllIslandLabels(); _renderPassageLabels(); })
   .catch(() => {});
 
 function _formatDocBody(text) {
@@ -1937,6 +1951,39 @@ function _renderAllIslandLabels() {
     markers.push(m);
   }
   _islandLabelsLayer = L.layerGroup(markers).addTo(_map);
+}
+
+// Permanent, always-on text labels for named passages/reaches/thorofares
+// (NOTABLE_PASSAGES) — unlike _renderAllIslandLabels()'s click-for-name
+// dots, these read directly off the chart with no tap required, since the
+// curated set is small enough (16, not ~300) that text doesn't clutter the
+// map. Runs in every map mode, not gated to island-info — per explicit
+// request, these should read like a real chart's own baked-in labels
+// wherever you're looking, not live behind a special mode.
+let _passageLabelsLayer = null;
+function _renderPassageLabels() {
+  if (_passageLabelsLayer) { _map.removeLayer(_passageLabelsLayer); _passageLabelsLayer = null; }
+  if (!_map) return;
+  const features = Query.namedPlaces?.features;
+  if (!features || !features.length) return;
+  const markers = [];
+  for (const f of features) {
+    if (f.properties.label !== 'sea area') continue;
+    const name = f.properties.name;
+    if (!name || !NOTABLE_PASSAGES.has(name)) continue;
+    const [lon, lat] = f.geometry.coordinates;
+    const m = L.marker([lat, lon], {
+      icon: L.divIcon({
+        className: '',
+        html: `<span class="passage-label">${name}</span>`,
+        iconSize: null,
+      }),
+      interactive: false,
+      keyboard: false,
+    });
+    markers.push(m);
+  }
+  _passageLabelsLayer = L.layerGroup(markers).addTo(_map);
 }
 
 function _routesNearPoint(lat, lon, radiusNm) {
@@ -7146,6 +7193,7 @@ function _applyMapLayer() {
   if (_mapViewMode === 'towns-maine') _enableMaineTownsLayer();
   _renderDocumentMarkers();
   _renderAllIslandLabels();
+  _renderPassageLabels();
   document.getElementById('history-era-banner').style.display = _mapViewMode === 'history' ? 'flex' : 'none';
   _syncMapModeTitle();
 }
@@ -7239,6 +7287,7 @@ function _ensureMap() {
   _refreshSavedTrackLayers();
   _renderDocumentMarkers();  // no-op if the documents.geojson fetch hasn't resolved yet — it'll self-render then
   _renderAllIslandLabels();  // no-op if not in island-info mode, or if Query.namedPlaces hasn't loaded yet
+  _renderPassageLabels();    // no-op if Query.namedPlaces hasn't loaded yet
 
   // Zoom slider (desktop only — hidden by CSS on mobile)
   const _zoomSlider = document.getElementById('zoom-slider');
