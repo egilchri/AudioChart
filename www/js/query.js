@@ -47,6 +47,42 @@ export let namedPlaces = null;
 export let navaids = null;
 export let waypoints = null;
 export let restrictions = null;
+
+// Stable identity for de-duplicating features — used both when merging a
+// freshly downloaded region into IndexedDB (prepareOffline/
+// prepareOfflineStatic) and when loading a cached copy back out. A
+// coordinate-only key isn't reliable for named features: independently
+// rebuilding the region data can shift a named place's representative
+// point by enough to produce a different rounded-coordinate key, so the
+// same feature quietly re-accumulates on every "Download Region" across
+// rebuilds — confirmed live: a user's browser had 17 duplicate
+// "Eggemoggin Reach" entries in IndexedDB after repeated downloads over
+// time, invisible until named-passage labels (the first always-on-text
+// rendering of this data) made it visible on the map. Named features key
+// off their name instead, which is stable across rebuilds; unnamed
+// features (most hazards) fall back to the coordinate key.
+function _featureIdentityKey(f) {
+  const nm = f.properties?.name_lower || f.properties?.name?.toLowerCase();
+  if (nm) return `${f.properties.label || f.properties.objtype || ''}:${nm}`;
+  const [lon, lat] = f.geometry.coordinates;
+  return `${lat.toFixed(4)},${lon.toFixed(4)}`;
+}
+
+// Removes duplicate features (by _featureIdentityKey, keeping the first
+// occurrence) from a FeatureCollection — self-heals an IndexedDB copy that
+// accumulated duplicates before this key existed, with no user action
+// (cache-clear, re-download) required.
+function _dedupFeatureCollection(fc) {
+  if (!fc?.features?.length) return fc;
+  const seen = new Set();
+  const features = fc.features.filter(f => {
+    const k = _featureIdentityKey(f);
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+  return features.length === fc.features.length ? fc : { ...fc, features };
+}
 let landPolygons = null;  // LNDARE polygons for line-of-sight checks
 let _landLoadPromise = null;
 export let depthZones = null;  // 'shallow area' Polygon features — always real geometry
@@ -474,11 +510,17 @@ export async function loadData(lat, lon) {
   const idbCurrent = idbH && networkVersion && storedVersion === networkVersion;
 
   if (idbCurrent) {
-    hazards = idbH;
-    namedPlaces = idbP;
-    navaids = idbN;
+    hazards = _dedupFeatureCollection(idbH);
+    namedPlaces = _dedupFeatureCollection(idbP);
+    navaids = _dedupFeatureCollection(idbN);
     waypoints = idbW;
-    restrictions = idbR || null;
+    restrictions = idbR ? _dedupFeatureCollection(idbR) : null;
+    // Persist the cleaned-up copy so a stale, previously-accumulated
+    // duplicate set only ever needs deduping once, not on every load.
+    if (hazards !== idbH) idbPut('hazards', hazards).catch(() => {});
+    if (namedPlaces !== idbP) idbPut('named_places', namedPlaces).catch(() => {});
+    if (navaids !== idbN) idbPut('navaids', navaids).catch(() => {});
+    if (idbR && restrictions !== idbR) idbPut('restrictions', restrictions).catch(() => {});
     console.log(`[query] Loaded offline data from IndexedDB (version ${storedVersion})`);
   } else {
     if (idbH && !idbCurrent) {
@@ -521,10 +563,7 @@ export async function prepareOfflineStatic(dataUrl) {
     localStorage.setItem('audiochart-magvar', String(data.magvar));
   }
 
-  const key = f => {
-    const [lon, lat] = f.geometry.coordinates;
-    return `${lat.toFixed(4)},${lon.toFixed(4)}`;
-  };
+  const key = _featureIdentityKey;
   const pairs = [
     ['hazards',      data.hazards.features],
     ['named_places', data.places.features],
@@ -578,11 +617,7 @@ export async function prepareOffline(lat, lon, radiusNm = 20) {
     localStorage.setItem('audiochart-magvar', String(data.magvar));
   }
 
-  // Coordinate key for deduplication (within ~10m)
-  const key = f => {
-    const [lon, lat] = f.geometry.coordinates;
-    return `${lat.toFixed(4)},${lon.toFixed(4)}`;
-  };
+  const key = _featureIdentityKey;
 
   // Merge each layer with existing IndexedDB data
   const pairs = [
