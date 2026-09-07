@@ -1856,6 +1856,186 @@
         "body": "In the winter of 2012-2013, Vinalhaven's lobstermen did something no group of American lobstermen had organized before: faced with low boat prices and mounting friction with the Maine Lobstermen's Association's own leadership, they formed a union — the first lobstermen's union in the United States.\n\nIt's a distinctly modern chapter in an old story. This is the same island whose granite quarries once employed hundreds under Joseph Bodwell a century earlier; when that industry finally gave way entirely to fishing, the workers who make their living on the water organized themselves the same way industrial workers had, adapting a labor-movement tool built for factories and quarries to a fishery instead.",
         "source": "Wikipedia — Vinalhaven, Maine"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.93, 44.2] },
+      "properties": {
+        "title": "The 'Red Paint People' were never a people at all",
+        "category": "history",
+        "era": "colonial",
+        "place": "Penobscot Bay (regional)",
+        "body": "For decades, popular accounts described a mysterious, vanished \"Red Paint People\" who buried their dead with elaborate red-ocher ceremonies along this coast roughly 5,000 to 3,800 years ago, then disappeared without explanation. Real archaeology tells a different story: this was never a distinct people or race at all, but a shared burial practice — ritual use of powdered red ocher — carried out by multiple separate Archaic-period communities living along the central Gulf of Maine coast. Archaeologists now call the broader tradition these cemeteries belong to the Moorehead burial tradition, spanning a longer stretch of time, roughly 8,500 to 3,700 years ago, than the old \"Red Paint\" story ever accounted for.\n\nThe correction matters: there was no single vanished race practicing a mysterious ritual, just ordinary coastal communities — ancestors of the people who'd later be recorded as Wabanaki — burying their dead with a color and a practice that happened to preserve unusually well in the archaeological record.",
+        "source": "David Sanger, \"'Red Paint People' and Other Myths of Maine Archaeology,\" Maine History 39.3 (2000); EBSCO Research Starters — Red Paint Culture"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.81278, 44.46806] },
+      "properties": {
+        "title": "Whose bay this is",
+        "category": "history",
+        "era": "colonial",
+        "place": "Penobscot River mouth (regional)",
+        "body": "Penobscot Bay and the river that feeds it are the traditional territory of the Penobscot Nation, one of five nations that together make up the Wabanaki Confederacy — alongside the Passamaquoddy, Wolastoqiyik (Maliseet), Mi'kmaq, and Abenaki, each with its own distinct homeland, language, and history across what's now Maine and the Canadian Maritimes. \"Wabanaki\" itself means, roughly, \"people of the dawn land\" — the easternmost place the sun reaches on this continent.\n\nThe Penobscot Nation's seat today is Indian Island, near Old Town, well up the Penobscot River from the bay itself — a reminder that this coastline was always understood as connected to a much larger inland watershed, not a separate place from it. Every named passage, thorofare, and harbor a modern chart shows in this bay sits within territory the Penobscot Nation has continuously occupied and used for thousands of years before any of those English or French names existed.",
+        "source": "Abbe Museum — About the Wabanaki Nations; Wikipedia — Penobscot"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.8045303, 44.3917137] },
+      "properties": {
+        "title": "Bashaba, and the war that ended a confederacy",
+        "category": "history",
+        "era": "colonial",
+        "place": "Penobscot River region (Bashaba's principal territory)",
+        "body": "When Samuel de Champlain sailed into the Penobscot River in 1604, he recorded meeting Bashaba — not a personal name but a title, roughly \"head chief,\" held by the sachem who had primacy over the whole Penobscot River region and commanded real influence beyond it. For the next decade, Bashaba's confederacy was the dominant Native power on this stretch of coast.\n\nIt ended violently. Around 1615, Mi'kmaq and allied raiders — remembered in English colonial records as \"Tarratines\" — struck Bashaba's main village in a surprise attack, killing him along with his family and his chief warriors. His confederacy collapsed with him. Then, in 1616 to 1619, a devastating epidemic — likely introduced through earlier European contact — swept the coast, killing an enormous share of the surviving population, just a few years before the Plymouth Colony's founding in 1620. The Wabanaki world English colonists encountered in the 1620s was already a shattered remnant of the one Champlain had described barely fifteen years earlier.",
+        "source": "Wikipedia — The Tarratine Wars; University of New England — Penobscot Chiefs and Governors"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.8045303, 44.3917137] },
+      "properties": {
+        "title": "A French baron, a Penobscot sachem's daughter, and a village of 160",
+        "category": "history",
+        "era": "colonial",
+        "place": "Bagaduce (Castine)",
+        "body": "Jean-Vincent d'Abbadie, Baron de St. Castin, was a French nobleman who came to Bagaduce — present-day Castine — as a young officer and never really left. He married Pidianiske, baptized Molly Mathilde, daughter of a Penobscot sachem, and settled into a genuinely mixed community of roughly 160 people living alongside French Fort Pentagouet, neither purely French nor purely Penobscot but both at once.\n\nSt. Castin's marriage wasn't a footnote to the fort's history — it was the reason the fort functioned at all in Wabanaki territory, giving French traders and soldiers a real kinship tie into the Penobscot Nation at a moment when English, French, and Wabanaki interests were all competing for the same stretch of coast. His village and the wars that eventually engulfed it — including Dummer's War in the 1720s, which drew the Penobscot in directly as Wabanaki Confederacy members — make Castine one of the few places on this bay where the cross-cultural reality of 17th-century Maine is this concretely documented, not just implied.",
+        "source": "Wikipedia — Fort Pentagouet; Island Institute — Castine has rich native history, too; Wikipedia — Dummer's War"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.78180600573249, 44.53565451397586] },
+      "properties": {
+        "title": "A living nation, not just a history",
+        "category": "history",
+        "era": "colonial",
+        "place": "Upper Penobscot Bay, near the river (regional)",
+        "body": "The Penobscot Nation's history on this bay didn't end with colonization — it continues today, actively and sometimes contentiously. The Maine Indian Claims Settlement Act, signed October 10, 1980, formally defined the Penobscot Reservation as Indian Island and every island northward up the river from it, part of a broader settlement covering the Penobscot and Passamaquoddy nations' land claims across the state.\n\nThat settlement didn't end the legal questions. A 2015 federal court ruling held that the Penobscot Reservation's boundary doesn't extend to the river's waters themselves, even as it affirmed the tribe's sustenance fishing rights there — a real, unresolved tension between where a reservation's legal line sits and where a nation's actual, lived relationship with the water continues. For a bay whose whole character depends on people's relationship with the water, that's not a historical footnote; it's a live legal and cultural question still being worked out today.",
+        "source": "Maine Public — Judge: Penobscot Reservation Does Not Include River's Waters (2015); Cultural Survival — We Are a Riverine People: Penobscot Nation, Maine"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.9082542, 44.3051328] },
+      "properties": {
+        "title": "Mountains in winter, the sea in summer",
+        "category": "history",
+        "era": "colonial",
+        "place": "Penobscot Bay (regional)",
+        "body": "Long before any chart marked this bay's islands by name, Wabanaki families moved through it on a seasonal rhythm: inland toward the mountains and river valleys for winter hunting, back down to the coast every summer for fishing, shellfishing, and gathering, following food rather than staying fixed in one place year-round. Recent GIS research modeling ancestral canoe travel times through the wider Wabanaki homeland (mostly focused on river and portage routes rather than open-water bay crossings) confirms just how much river and seasonal water conditions shaped exactly when and how people could move between those inland and coastal sites.\n\nThe islands scattered across Penobscot Bay were never remote or empty in that world — they were seasonal destinations, reached deliberately, on a calendar that repeated every year for thousands of years before European contact interrupted it.",
+        "source": "National Park Service — Wabanaki Life Thousands of Years Ago; University of New Brunswick — A GIS approach to ancestral Wabanaki canoe routes and travel times"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.9082542, 44.3051328] },
+      "properties": {
+        "title": "A 1,500-year-old village plan, still visible in the ground",
+        "category": "history",
+        "era": "colonial",
+        "place": "Islesboro",
+        "body": "A four-acre shell midden on Islesboro, excavated by Maine State Museum archaeologists in 1980, turned out to hold something rarer than the shell itself: the outline of an actual planned village. Semi-subterranean pit-houses, each roughly 3 to 4 meters across, sat arranged in two neat rows of three, parallel to the shore — a layout, not a random scatter of camps. A 13-meter excavation trench turned up fire-cracked rock, charcoal, pottery, and stone tools, including clear evidence that tools were being manufactured on site, not just used and discarded.\n\nRadiocarbon and artifact dating puts the village at roughly 1,500 years old, and its house style — that particular pit-house form — had already fallen out of use by the time Europeans arrived, meaning it represents a way of living on this island that had already changed at least once before Champlain ever sailed past it. It's one of the best-preserved sites of its kind anywhere in northeastern North America, and it's been on the National Register of Historic Places since February 22, 1982.",
+        "source": "Wikipedia — Archeological Site No. 29-64"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.95269518390627, 44.25656936797985] },
+      "properties": {
+        "title": "A 1692 raid, and the tradition it didn't manage to end",
+        "category": "history",
+        "era": "colonial",
+        "place": "Seven Hundred Acre Island, near Islesboro",
+        "body": "Penobscot and Tarratine people had summered on Islesboro and its neighboring islands to hunt and fish for generations before any European settled there, leaving shell middens along the shore as the physical record of it. In August 1692, during King William's War, English Captain Benjamin Church landed first on Seven Hundred Acre Island, then on Islesboro itself, driving off French traders and Native people he found there and confiscating their beaver and moose pelts — the first recorded European contact on the island, and not a friendly one.\n\nWhat's easy to miss in that raid's aftermath is what it didn't accomplish: Native people kept coming back. From the mainland, they continued returning to Islesboro afterward to pick berries, dig clams, gather sweetgrass for basketry, and split ash for containers — practices that continued, documented, into the 1930s and '40s before finally fading out. A single violent raid in 1692 didn't sever a relationship with this place that had lasted for centuries before it, and clearly outlasted it by a quarter of a millennium.",
+        "source": "Islesboro Historical Society via Maine Memory Network — Historical Overview"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.72623762815562, 44.409282569260064] },
+      "properties": {
+        "title": "One river, two names, and who was winning",
+        "category": "history",
+        "era": "colonial",
+        "place": "Bagaduce River, Castine",
+        "body": "The Etchemin people — ancestral to today's Passamaquoddy Tribe — originally called this river Chiboctous, \"big bay,\" a fitting name for its tidal inlets; Jesuit missionary Pierre Biard recorded Etchemins using that name near the river's mouth in 1611. But the name that stuck and is still used today, Majabigwaduce (shortened in everyday use to Bagaduce), isn't Etchemin at all — it's Mi'kmaq, a nation whose homeland lay in what's now Canada's Maritime provinces and northern Maine.\n\nThat naming shift reflects a real shift in power, not just linguistic drift: through the 1500s, the Mi'kmaq built a lucrative firearms-for-furs trade with French traders, then leveraged the resulting military advantage to raid south along this coast, controlling the Penobscot Bay region by around 1600. Captain John Smith's own 1614 map even labels Isle au Haut \"the Isle of Sorico\" — a name reflecting Mi'kmaq dominance of the area at the time he charted it. The Etchemin name for this river didn't vanish entirely; it survives today in the Passamaquoddy word \"Keipokotus.\"",
+        "source": "Indian Connections — Mi'kmaqs, Etchemins, and the original name of the Bagaduce River in Maine"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.0811519, 44.2125281] },
+      "properties": {
+        "title": "What the mountain and the river are actually saying",
+        "category": "history",
+        "era": "colonial",
+        "place": "Camden and Belfast",
+        "body": "Megunticook — the mountain and lake behind Camden Harbor — is usually translated as \"great swells of the sea,\" though at least one alternate reading gives \"at a stream below a height\" instead; scholars haven't fully settled which is more accurate. Passagassawakeag, the river running through Belfast, is documented as being \"of local Native American origin\" and is generally believed to mean \"a sturgeon's place\" or, more evocatively, \"a place for spearing sturgeon by torchlight\" — a name that describes an actual fishing technique, not just a location.\n\nNeither name has been definitively traced to one specific Wabanaki nation rather than a general regional usage, so it's fairest to describe both as Wabanaki in origin rather than claim more precision than the sources actually support. What's not in doubt is that both names describe this coast the way the people who lived here first actually used it — as water to fish, not just scenery to look at.",
+        "source": "Wikipedia — Megunticook Lake; Wikipedia — Passagassawakeag River; Fannie Hardy Eckstorm, Indian Place-Names of the Penobscot Valley and the Maine Coast (1941)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.89394247338392, 43.86169361280842] },
+      "properties": {
+        "title": "A stolen island, and the price of ignoring a complaint",
+        "category": "history",
+        "era": "colonial",
+        "place": "Matinicus Island",
+        "body": "Penobscot people — recorded in colonial documents as \"Tarratine Penobscots\" — had fished, hunted seabirds and seals, and gathered berries on Matinicus and its neighboring islands for generations before Ebenezer Hall settled there around 1750. Hall burned off grass on neighboring Green Island to make hay for his livestock, destroying land the Penobscot still relied on and depended on seasonally — and their complaints about it went nowhere. By summer 1751, Hall and his son had shot and killed two Native visitors to the island, buried them in Hall's own garden, burned their canoe, and kept their guns. Colonial authorities did nothing; at a formal 1752 conference, Penobscot leader Colonel Louis protested directly — \"the land is ours\" — and was ignored again.\n\nThe Penobscot didn't let it rest. On June 10, 1757, they laid siege to Hall's house, killed and scalped him, and took his wife and two daughters captive. It's a brutal story on both ends, but the actual injustice at its center — a stolen resource, a documented complaint, and years of official indifference before anyone acted — is the part worth understanding, not just the violence it eventually produced.",
+        "source": "Fishermen's Voice — Genghis Khan, Charlemagne, and Ebenezer Hall; Halls of Bristol County — Ebenezer Hall and Matinicus Island"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.3182, 43.7628] },
+      "properties": {
+        "title": "The island that gave Samoset his English",
+        "category": "history",
+        "era": "colonial",
+        "place": "Monhegan Island (just west of Penobscot Bay proper)",
+        "body": "Monhegan's name is an English corruption of the Abenaki word Monchiggon — \"out-to-sea island\" — the term used by Samoset, the Wabanaki sagamore famous for walking into Plymouth Colony in March 1621 and greeting the stunned Pilgrims in fluent English. Wabanaki people used Monhegan as a summer fishing camp, not a year-round settlement, working the rich offshore grounds around it each season.\n\nSamoset's English had an ugly origin story behind it: in 1605, English captain George Waymouth kidnapped five Wabanaki men — including one named Assacumet — from near Pemaquid and New Harbor, just west of here, and carried them back to London. Those men spent years among the English before eventually returning to New England, part of the same chain of forced contact that put enough English in Wabanaki hands, a generation later, for a Wabanaki man to be the one doing the greeting when the Pilgrims arrived. Monhegan and Pemaquid sit just west of Penobscot Bay itself, on the Muscongus Bay side, but they're close enough to this cruising ground, and central enough to this history, to belong in the same story.",
+        "source": "Wikipedia — Monhegan, Maine; Maine: An Encyclopedia — George Waymouth; Wikipedia — Assacumet"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.5991086, 44.4151492] },
+      "properties": {
+        "title": "A place of many fish, and the burial ground Harvard took",
+        "category": "history",
+        "era": "colonial",
+        "place": "Blue Hill",
+        "body": "The Blue Hill area's Wabanaki name was Alamoosook — \"place of many fish\" — long before English settlers Joseph Wood and John Roundy landed on Mill Island in 1762 to find land Native people had already known and used for thousands of years. In the late 1930s, an excavation near Blue Hill Bay uncovered at least 43 ancestral human remains and hundreds of associated items, buried beneath a shell midden whose calcium content had counteracted Maine's naturally acidic soil and preserved everything far better than it otherwise would have survived.\n\nHarvard University and its Robert S. Peabody Institute held those remains for decades afterward, and Maine tribes spent years fighting for their repatriation — a dispute that dragged on long after the excavation itself, and one that's forced a real reckoning with how American institutions have historically treated Native ancestors as research material rather than people owed return and rest.",
+        "source": "Maine Memory Network — Blue Hill; The Maine Monitor — Maine tribes spent decades fighting Harvard for ancestral remains"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.8212496, 44.0508472] },
+      "properties": {
+        "title": "153 sites, and counting, across two small islands",
+        "category": "history",
+        "era": "colonial",
+        "place": "Vinalhaven",
+        "body": "North Haven's Turner Farm gets most of the attention, but Vinalhaven has its own documented pre-contact archaeology, including a site Maine's own Historic Preservation Commission records as the Candage Site. Across the Fox Islands as a whole — North Haven and Vinalhaven together — 153 recorded prehistoric archaeological sites have been identified, a striking density for two islands that, on a modern chart, mostly read as fishing and quarrying towns rather than as one of the more thoroughly documented pre-contact landscapes on this whole bay.\n\nThat density is itself the point: 153 sites isn't the record of occasional visits, it's the record of islands worked, camped on, and returned to constantly, for thousands of years, by people whose presence here didn't leave behind buildings or monuments in the way European settlement later would — just middens, tools, and the kind of evidence archaeologists have spent decades carefully mapping back into a coherent, continuous history.",
+        "source": "Maine Historic Preservation Commission — prehistoric archaeological site index; Wikipedia — Archeological Site No. 29-64"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.04927944374421, 44.33101530706186] },
+      "properties": {
+        "title": "The place of the burning fires",
+        "category": "history",
+        "era": "colonial",
+        "place": "Schoodic Peninsula, Frenchman Bay",
+        "body": "\"Schoodic\" comes from the Passamaquoddy word \"Skutec\" — \"place of the burning fires\" — a name describing generations of use, not a single event. Wabanaki families harvested fish, clams, seabirds, and marine mammals around Frenchman Bay for thousands of years; shell-heap sites here date to somewhere between 1,000 and 2,000 years old, and at least 24 separate Indigenous archaeological sites are documented within what's now Acadia National Park's boundaries, Schoodic included.\n\nUniversity of Maine archaeologist David Sanger — the same researcher who untangled the \"Red Paint People\" myth elsewhere on this coast — led a student excavation at the Schoodic site itself in 1978, part of a long, ongoing effort to properly document Wabanaki heritage in and around this bay rather than let it stay a footnote to the region's more recently arrived summer-colony history.",
+        "source": "Maine Indian Tribal-State Commission — Archaeology Then and Now: Exploring Wabanaki Heritage in and around Frenchman Bay; National Park Service — Indigenizing Archaeology at Acadia National Park"
+      }
     }
   ]
 }
