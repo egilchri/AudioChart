@@ -215,36 +215,45 @@
 
   .screen {
     position: relative;
-    /* Explicit, computed width rather than width:auto — letting the
-       browser's aspect-ratio auto-sizing algorithm interact with
-       container-type:inline-size below turned out to be unreliable: on
-       a wide-but-short desktop window it left width pinned at 100% while
-       height got clamped by max-height, breaking the ratio (the original
-       bug); switching to width:auto to fix that instead broke container
-       query resolution the other way, rendering everything at roughly
-       viewport scale instead of the screen's own ~380-620px scale. This
-       formula picks a hard number directly: never more than the
-       available width, and exactly the width that keeps height at
-       max-height under the current ratio otherwise — the same
-       letterboxing math without leaving anything for the browser to
-       infer differently across viewport shapes. */
-    width: min(100%, calc(78vh * 3 / 4));
+    /* No vh anywhere in this rule, on purpose — three rounds of vh-based
+       "letterboxing" math (width:auto, then min(100%, calc(78vh*ratio)))
+       each fixed one symptom and broke another, because vh is fundamentally
+       a viewport-relative unit and this component doesn't control its own
+       viewport: an embedded artifact can be scaled, framed, or sized by
+       its host in ways that make vh behave unpredictably relative to what
+       actually renders. Plain width:100% + aspect-ratio has no such
+       dependency — height is mechanically derived from width, full stop,
+       and width itself is already bounded by .wrap's own max-width:1160px
+       a few rules up. The one tradeoff: on a short browser window this can
+       run taller than one screen and need a scroll to see the whole
+       mockup. That's a far better failure mode than silently mis-scaling. */
+    width: 100%;
     aspect-ratio: 3 / 4;
-    max-height: 78vh;
     margin: 0 auto;
     background: var(--chart-water);
     border-radius: 4px;
     overflow: hidden;
     border: 1px solid #08131f;
     font-family: var(--font-body);
-    /* Every mini control inside is sized in em, not px — this is the one
-       knob that scales all of them together, so the same mockup reads
-       right whether the container renders phone-narrow or tablet-wide.
-       1cqw = 1% of the screen's own rendered width; 2.63cqw lands at
-       exactly 10px per em on a 380px-wide screen (this design's original
-       reference size), scaling proportionally in either direction from
-       there. */
     container-type: inline-size;
+  }
+  /* Every mini control inside is sized in em, not px — this is the one
+     knob that scales all of them together, so the same mockup reads
+     right whether .screen itself renders phone-narrow or tablet-wide.
+     Set on .screen's direct children, NOT on .screen itself, on purpose:
+     an element can't use its own container-query units to size itself —
+     that's not a bug, it's the spec (avoids the obvious circularity of
+     "my size depends on a unit that depends on my size") — so cqw set
+     directly on .screen silently skipped past it and resolved against
+     .wrap instead, which is a fixed ~1112px regardless of how wide
+     .screen itself actually renders. Whenever those two diverged, text
+     stayed pinned to the wrap-sized reference while its box shrank
+     around it — the actual mechanism behind every "everything's too big"
+     report, present since this file's first version. Moving font-size one
+     level down to .screen's children fixes it structurally: 1cqw is 1% of
+     .screen's own rendered width for anything below this point, always. */
+  .screen > .chart-bg,
+  .screen > .mockup {
     font-size: 2.63cqw;
   }
   /* Keyed to .wrap's own rendered width (see container-name: helm-wrap
@@ -255,7 +264,6 @@
   @container helm-wrap (min-width: 760px) {
     .screen {
       aspect-ratio: 16 / 10;
-      width: min(100%, calc(78vh * 16 / 10));
     }
   }
 
