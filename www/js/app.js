@@ -644,7 +644,9 @@ function _updateFocusButton() {
   const f = Query.focusedTarget;
   focusBtn.textContent = f ? `🎯 ${f.name || 'Point'}` : '🎯 --';
   focusBtn.classList.toggle('focus-active', !!f);
-  focusBtn.title = f ? `Bearing & range to ${f.name || 'focused point'}` : 'No focus set';
+  focusBtn.title = f
+    ? `Bearing & range to ${f.name || 'focused point'} (Drag to move)`
+    : 'No focus set (Drag to move)';
   _syncFocusMarker();
   _updateFocusRay();
 }
@@ -1112,6 +1114,7 @@ let _previewRouteLine = null;
 let _animClickHandler = null;
 let _animTraveled     = 0;
 let _baseTileLayer    = null;
+let _lowTideExtraLayers = []; // second+ low-tide coverage layers — see LOW_TIDE_SERVICES
 // Picked from the #map-layer-select pulldown (was a cycle-through-on-tap
 // button before): street chart, satellite, Maine bedrock geology (state
 // survey's own vector data — no basemap of its own, shown as an overlay on
@@ -7146,23 +7149,40 @@ function _enableMaineTownsLayer() {
 // tile pyramid. Each tile has to be requested via exportImage with a
 // computed bounding box instead. Deterministic per z/x/y, so it still caches
 // like a normal tile through the service worker (see sw.js's LOWTIDE_CACHE).
-const LOW_TIDE_SERVICE_URL = 'https://gis.maine.gov/image/rest/services/Coastal/'
-  + 'Maine_Orthoimagery_Coastal_Penobscot_Bay_2024/ImageServer/exportImage';
-// Marshall Point to Brooklin, ME — the service's own extent (Rockland,
-// Camden, Vinalhaven, North Haven, Islesboro, Deer Isle/Stonington all fall
-// within it); constrains Leaflet to never request tiles outside real
-// coverage. Kept as a plain array, not an L.latLngBounds instance, since L
-// (Leaflet) isn't loaded yet at module-evaluation time — see loadLeaflet()
-// — only ever constructed lazily once _applyMapLayer() actually needs it.
-const LOW_TIDE_BOUNDS_RAW = [[43.7536, -69.264], [44.6817, -68.4854]];
+// Two separate Maine GeoLibrary low-tide flights, covering adjacent (not
+// overlapping) stretches of coast — neither alone covers the whole
+// Penobscot-Bay-to-Acadia cruising range, which read as a hard-edged black
+// void east of Brooklin before this (confirmed live: the bay flight's own
+// documented extent stops there, and a second, newer flight covering
+// exactly that gap exists under a different service name and was never
+// wired up). Both are added as separate layers in low-tide mode so their
+// real coverage areas combine instead of picking just one.
+const LOW_TIDE_SERVICES = [
+  {
+    // Marshall Point to Brooklin, ME (Rockland, Camden, Vinalhaven, North
+    // Haven, Islesboro, Deer Isle/Stonington all fall within it).
+    url: 'https://gis.maine.gov/image/rest/services/Coastal/'
+      + 'Maine_Orthoimagery_Coastal_Penobscot_Bay_2024/ImageServer/exportImage',
+    bounds: [[43.7536, -69.264], [44.6817, -68.4854]],
+  },
+  {
+    // Brooklin east through Mount Desert Island/Acadia and beyond — picks
+    // up exactly where the bay flight's extent ends (confirmed via the
+    // service's own published extent: -68.63 to -67.48).
+    url: 'https://gis.maine.gov/image/rest/services/Coastal/'
+      + 'Maine_Orthoimagery_Coastal_Acadia_2025/ImageServer/exportImage',
+    bounds: [[44.0749, -68.634], [44.6663, -67.4847]],
+  },
+];
 
 function _tile2lon(x, z) { return x / 2 ** z * 360 - 180; }
 function _tile2lat(y, z) {
   const n = Math.PI - 2 * Math.PI * y / 2 ** z;
   return 180 / Math.PI * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
 }
-// Same lazy-construction reason as LOW_TIDE_BOUNDS_RAW above — L.TileLayer
-// doesn't exist until Leaflet has loaded, so this can't be a top-level const.
+// Lazy-constructed — L.TileLayer doesn't exist until Leaflet has loaded, so
+// this can't be built at module-evaluation time (see loadLeaflet()); only
+// ever constructed once _applyMapLayer() actually needs it.
 let _LowTideTileLayerClass = null;
 function _lowTideTileLayerClass() {
   if (!_LowTideTileLayerClass) {
@@ -7171,7 +7191,7 @@ function _lowTideTileLayerClass() {
         const z = coords.z;
         const lonMin = _tile2lon(coords.x, z), lonMax = _tile2lon(coords.x + 1, z);
         const latMax = _tile2lat(coords.y, z), latMin = _tile2lat(coords.y + 1, z);
-        return `${LOW_TIDE_SERVICE_URL}?bbox=${lonMin},${latMin},${lonMax},${latMax}`
+        return `${this.options.serviceUrl}?bbox=${lonMin},${latMin},${lonMax},${latMax}`
           + '&bboxSR=4326&size=256,256&imageSR=4326&format=png&f=image';
       },
     });
@@ -7182,6 +7202,8 @@ function _lowTideTileLayerClass() {
 function _applyMapLayer() {
   if (!_map) return;
   if (_baseTileLayer) { _map.removeLayer(_baseTileLayer); _baseTileLayer = null; }
+  for (const layer of _lowTideExtraLayers) _map.removeLayer(layer);
+  _lowTideExtraLayers = [];
   _clearMaineGeologyLayer();
   _clearMaineTownsLayer();
 
@@ -7192,11 +7214,18 @@ function _applyMapLayer() {
     ).addTo(_map);
   } else if (_mapViewMode === 'low-tide') {
     const LowTideTileLayer = _lowTideTileLayerClass();
+    const [first, ...rest] = LOW_TIDE_SERVICES;
     _baseTileLayer = new LowTideTileLayer('', {
       minZoom: 11, maxZoom: 18, maxNativeZoom: 18,
-      bounds: L.latLngBounds(LOW_TIDE_BOUNDS_RAW[0], LOW_TIDE_BOUNDS_RAW[1]),
-      attribution: 'Imagery: Maine GeoLibrary (James W Sewall Co. / Maine DEP), flown at low tide 2024',
+      serviceUrl: first.url,
+      bounds: L.latLngBounds(first.bounds[0], first.bounds[1]),
+      attribution: 'Imagery: Maine GeoLibrary (James W Sewall Co. / Maine DEP), flown at low tide 2024-2025',
     }).addTo(_map);
+    _lowTideExtraLayers = rest.map(svc => new LowTideTileLayer('', {
+      minZoom: 11, maxZoom: 18, maxNativeZoom: 18,
+      serviceUrl: svc.url,
+      bounds: L.latLngBounds(svc.bounds[0], svc.bounds[1]),
+    }).addTo(_map));
   } else {
     // 'chart', 'geology-maine', 'towns-maine', 'history', 'demographics', and
     // 'island-info' all use the street basemap: all but 'geology-maine' and
