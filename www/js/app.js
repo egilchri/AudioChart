@@ -6060,13 +6060,13 @@ function _fmtDuration(ms) {
 function _tideCycleSvg(now) {
   const W = 132, H = 64;
   const frame = (inner) => `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
-    <rect x="0.5" y="0.5" width="${W - 1}" height="${H - 1}" rx="8" fill="rgba(12,25,45,0.5)" stroke="rgba(42,80,128,0.8)"/>
+    <rect x="0.5" y="0.5" width="${W - 1}" height="${H - 1}" rx="8" fill="rgba(18,13,8,0.5)" stroke="var(--brass-dim)"/>
     ${inner}
   </svg>`;
 
   const ph = _tidePhaseAt(now);
   if (!ph) {
-    return frame(`<text x="${W / 2}" y="${H / 2 + 4}" text-anchor="middle" fill="#8a9ab0" font-family="Arial,sans-serif" font-size="10">Tide: --</text>`);
+    return frame(`<text x="${W / 2}" y="${H / 2 + 4}" text-anchor="middle" fill="var(--parchment-dim)" font-family="var(--font-brass-mono)" font-size="10">Tide: --</text>`);
   }
 
   // Show the bracketing pair plus one extreme on either side — about one cycle
@@ -6109,10 +6109,10 @@ function _tideCycleSvg(now) {
   const labelColor = rising ? '#52c052' : '#e0a030';
 
   return frame(`
-    <path d="${areaD}" fill="rgba(74,158,221,0.16)" stroke="none"/>
-    <path d="${pathD}" fill="none" stroke="rgba(74,158,221,0.7)" stroke-width="1.5"/>
-    <circle cx="${xAt(now.getTime()).toFixed(1)}" cy="${yAt(ph.height).toFixed(1)}" r="3" fill="#e8edf4" stroke="#4a9edd" stroke-width="1.5"/>
-    <text x="${W / 2}" y="${H - 4}" text-anchor="middle" fill="${labelColor}" font-family="Arial,sans-serif" font-size="9" font-weight="bold">${label}</text>
+    <path d="${areaD}" fill="rgba(199,154,72,0.16)" stroke="none"/>
+    <path d="${pathD}" fill="none" stroke="var(--brass)" stroke-width="1.5"/>
+    <circle cx="${xAt(now.getTime()).toFixed(1)}" cy="${yAt(ph.height).toFixed(1)}" r="3" fill="var(--parchment)" stroke="var(--brass-hi)" stroke-width="1.5"/>
+    <text x="${W / 2}" y="${H - 4}" text-anchor="middle" fill="${labelColor}" font-family="var(--font-brass-mono)" font-size="9" font-weight="bold">${label}</text>
   `);
 }
 
@@ -7392,36 +7392,42 @@ function _ensureMap() {
         const major = d % 10 === 0;
         const [x1, y1] = pt(major ? 61 : 64, d);
         const [x2, y2] = pt(68, d);
-        ticks += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${major ? '#6a9bbf' : '#3a5a70'}" stroke-width="${major ? 1.2 : 0.7}"/>`;
+        ticks += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${major ? 'var(--brass-hi)' : 'var(--brass-dim)'}" stroke-width="${major ? 1.2 : 0.7}"/>`;
       }
       const cardinals = new Set([0, 90, 180, 270]);
       let nums = '';
       for (let d = 0; d < 360; d += 30) {
         if (cardinals.has(d)) continue;
         const [x, y] = pt(55, d);
-        nums += `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="middle" fill="#99bbcc" font-family="Arial,sans-serif" font-size="7.5">${d}</text>`;
+        nums += `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="middle" fill="var(--parchment-dim)" font-family="var(--font-brass-mono)" font-size="7.5">${d}</text>`;
       }
       // magneticVariation is negative for westerly (e.g. -15 in Penobscot Bay).
       // rotate(variation) tilts N left toward magnetic north.
       const magRot = magneticVariation;
+      // Chart & Brass palette (see :root in app.css) — engraved-ink dial,
+      // brass rings/ticks, parchment cardinal letters in the app's serif
+      // token. The 8-point rose itself (bold N/S/E/W + dim diagonals) is
+      // kept as-is rather than swapped for the mockup's simpler single
+      // arrow — it's a real, more functional design already; only its
+      // colors and type change here.
       el.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="70" height="70" viewBox="-70 -70 140 140">
-        <circle r="68" fill="rgba(12,25,45,0.85)" stroke="#4a9edd" stroke-width="1.5"/>
+        <circle r="68" fill="var(--brass-ink-2)" stroke="var(--brass)" stroke-width="1.5"/>
         <g transform="rotate(${magRot})">
           ${ticks}
           ${nums}
-          <polygon points="0,0 -7,-14 0,-40 7,-14" fill="#e05252"/>
-          <polygon points="0,0 -7,14 0,40 7,14" fill="rgba(210,210,210,0.88)"/>
-          <polygon points="0,0 14,-7 40,0 14,7" fill="rgba(210,210,210,0.88)"/>
-          <polygon points="0,0 -14,-7 -40,0 -14,7" fill="rgba(210,210,210,0.88)"/>
-          <polygon points="0,0 -3,-8 17,-17 8,-3" fill="rgba(160,160,160,0.55)"/>
-          <polygon points="0,0 8,3 17,17 3,8" fill="rgba(160,160,160,0.55)"/>
-          <polygon points="0,0 3,8 -17,17 -8,3" fill="rgba(160,160,160,0.55)"/>
-          <polygon points="0,0 -8,-3 -17,-17 -3,-8" fill="rgba(160,160,160,0.55)"/>
-          <text x="0" y="-47" text-anchor="middle" dominant-baseline="middle" fill="#e05252" font-family="Arial,sans-serif" font-size="11" font-weight="bold">N</text>
-          <text x="0" y="50" text-anchor="middle" dominant-baseline="middle" fill="#ccc" font-family="Arial,sans-serif" font-size="11" font-weight="bold">S</text>
-          <text x="50" y="0" text-anchor="middle" dominant-baseline="middle" fill="#ccc" font-family="Arial,sans-serif" font-size="11" font-weight="bold">E</text>
-          <text x="-50" y="0" text-anchor="middle" dominant-baseline="middle" fill="#ccc" font-family="Arial,sans-serif" font-size="11" font-weight="bold">W</text>
-          <circle r="5" fill="#1a3a5c" stroke="#4a9edd" stroke-width="2"/>
+          <polygon points="0,0 -7,-14 0,-40 7,-14" fill="var(--brass-needle)"/>
+          <polygon points="0,0 -7,14 0,40 7,14" fill="var(--parchment)"/>
+          <polygon points="0,0 14,-7 40,0 14,7" fill="var(--parchment)"/>
+          <polygon points="0,0 -14,-7 -40,0 -14,7" fill="var(--parchment)"/>
+          <polygon points="0,0 -3,-8 17,-17 8,-3" fill="var(--brass-dim)"/>
+          <polygon points="0,0 8,3 17,17 3,8" fill="var(--brass-dim)"/>
+          <polygon points="0,0 3,8 -17,17 -8,3" fill="var(--brass-dim)"/>
+          <polygon points="0,0 -8,-3 -17,-17 -3,-8" fill="var(--brass-dim)"/>
+          <text x="0" y="-47" text-anchor="middle" dominant-baseline="middle" fill="var(--brass-needle)" font-family="var(--font-brass-serif)" font-size="12" font-weight="700">N</text>
+          <text x="0" y="50" text-anchor="middle" dominant-baseline="middle" fill="var(--parchment)" font-family="var(--font-brass-serif)" font-size="11" font-weight="600">S</text>
+          <text x="50" y="0" text-anchor="middle" dominant-baseline="middle" fill="var(--parchment)" font-family="var(--font-brass-serif)" font-size="11" font-weight="600">E</text>
+          <text x="-50" y="0" text-anchor="middle" dominant-baseline="middle" fill="var(--parchment)" font-family="var(--font-brass-serif)" font-size="11" font-weight="600">W</text>
+          <circle r="5" fill="var(--brass)" stroke="var(--brass-ink)" stroke-width="2"/>
         </g>
       </svg>`;
       return el;
