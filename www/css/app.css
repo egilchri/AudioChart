@@ -219,6 +219,14 @@ html, body {
   align-items: center;
   gap: 8px;
   max-width: calc(100% - 20px);
+  /* Same reasoning as #right-rail's panel treatment — one shared
+     translucent bar is what makes this read as a consolidated HUD
+     instead of three separate widgets that just happen to sit near
+     each other now. */
+  background: rgba(10, 22, 40, 0.55);
+  border: 1px solid var(--mid-blue);
+  border-radius: 10px;
+  padding: 6px 8px;
 }
 #app.underway-mode #bottom-hud .tide-cycle-ctrl { display: none; }
 #track-rec-btn.rec-active { border-color: var(--danger); color: var(--danger); background: #2a0a0a; font-weight: 700; }
@@ -971,11 +979,20 @@ body.wco-active #wco-titlebar { display: flex; }
   z-index: 1000;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  align-items: stretch;
   gap: 6px;
   max-height: calc(100% - 90px);
   overflow-y: auto;
+  /* The panel treatment is what actually reads as "one zone" rather than
+     the same individually-floating buttons just moved closer together —
+     matches the translucent grouped-rail look from the "Helm Layouts"
+     mockup this was built from. */
+  background: rgba(10, 22, 40, 0.55);
+  border: 1px solid var(--mid-blue);
+  border-radius: 10px;
+  padding: 8px;
 }
+#right-rail > * { align-self: flex-end; }
 
 #route-picker-btn {
   background: rgba(10, 22, 40, 0.92);
