@@ -1,0 +1,208 @@
+<title>Zoned Preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+
+<style>
+  :root {
+    --app-navy: #0a1628;
+    --app-dark-blue: #1a3a5c;
+    --app-mid-blue: #2a5080;
+    --app-accent: #4a9edd;
+    --app-text: #e6edf3;
+    --app-text-dim: #9fb3c8;
+    --app-danger: #e05252;
+    --chart-land: #e6dcc2;
+    --chart-land-edge: #c9b98c;
+    --chart-water: #bfdae4;
+    --chart-water-deep: #96bfd0;
+    --font-body: "IBM Plex Sans", system-ui, sans-serif;
+    --font-mono: "IBM Plex Mono", "SF Mono", monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    overflow: hidden;
+    background: var(--chart-water);
+  }
+
+  /* Edge-to-edge, sized to whatever window this actually opens in — no
+     bezel, no comparison-tool chrome, no annotations. This is meant to be
+     opened as its own tab/window so its real aspect ratio IS the preview,
+     the same way the real PWA fills whatever window it's given. */
+  .screen {
+    position: relative;
+    width: 100vw;
+    height: 100dvh;
+    overflow: hidden;
+    font-family: var(--font-body);
+    background: var(--chart-water);
+    container-type: inline-size;
+  }
+  /* font-size set on .screen's children, not .screen itself — see
+     helm-layouts.html's comment on the same rule for why: a container
+     can't use its own container-query units on itself. 2.2cqw here
+     (vs. 2.63 in the comparison tool) because 1cqw is 1% of the FULL
+     window width now, not a ~380-620px framed mockup box, and window
+     widths run larger than that reference size. Adjust this one number
+     if the real control sizes still look off against your actual PWA. */
+  .screen > .chart-bg,
+  .screen > .b-docked,
+  .screen > .b-underway {
+    font-size: 2.2cqw;
+  }
+
+  .chart-bg { position: absolute; inset: 0; }
+  .land {
+    position: absolute;
+    background: var(--chart-land);
+    border: 1.5px solid var(--chart-land-edge);
+  }
+  .deep { position: absolute; background: var(--chart-water-deep); border-radius: 50%; filter: blur(1px); opacity: 0.6; }
+  .route-line {
+    position: absolute;
+    border-top: 3px dashed var(--app-danger);
+    opacity: 0.85;
+    transform-origin: left center;
+  }
+  .hazard {
+    position: absolute;
+    width: 0; height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-bottom: 9px solid #d99a2b;
+  }
+  .boat { position: absolute; font-size: 2em; transform: translate(-50%, -50%); filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5)); }
+
+  .m-tile, .m-btn {
+    font-family: var(--font-body);
+    font-size: 1em;
+    color: var(--app-text-dim);
+    background: rgba(10,22,40,0.92);
+    border: 1px solid var(--app-mid-blue);
+    border-radius: 0.5em;
+    padding: 0.4em 0.7em;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 0.4em;
+    cursor: pointer;
+  }
+  .m-btn.round {
+    border-radius: 50%;
+    width: 3em; height: 3em;
+    justify-content: center;
+    padding: 0;
+    font-size: 1.3em;
+  }
+  .m-titlebar {
+    position: absolute; top: 0; left: 0; right: 0;
+    background: var(--app-navy);
+    color: var(--app-text);
+    font-size: 1em;
+    padding: 0.5em 1em;
+    border-bottom: 1px solid var(--app-mid-blue);
+    z-index: 1;
+  }
+  .m-compass {
+    position: absolute;
+    width: 4.6em; height: 4.6em;
+    border-radius: 50%;
+    background: rgba(12,25,45,0.9);
+    border: 1.5px solid var(--app-accent);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.5em;
+  }
+  .m-hud {
+    background: rgba(20,40,70,0.92);
+    border: 1px solid var(--app-mid-blue);
+    border-radius: 0.6em;
+    color: var(--app-danger);
+    font-family: var(--font-mono);
+    font-weight: 600;
+    font-size: 1em;
+    padding: 0.5em 0.9em;
+  }
+  .m-focus {
+    background: #0d2818;
+    border: 1px solid #6fae7f;
+    color: #7fe0a0;
+    border-radius: 2em;
+    font-size: 1.1em;
+    font-weight: 600;
+    padding: 0.6em 1.4em;
+  }
+
+  .b-underway { display: none; }
+  body.underway .b-docked { display: none; }
+  body.underway .b-underway { display: block; }
+</style>
+
+<div class="screen">
+  <div class="chart-bg">
+    <div class="land" style="top:0; left:0; width:34%; height:40%; border-radius:0 0 60% 30%/0 0 40% 60%;"></div>
+    <div class="land" style="bottom:0; left:6%; width:22%; height:22%; border-radius:40% 60% 0 0/60% 40% 0 0;"></div>
+    <div class="land" style="top:12%; right:8%; width:14%; height:10%; border-radius:50%;"></div>
+    <div class="land" style="bottom:18%; right:14%; width:9%; height:7%; border-radius:50%;"></div>
+    <div class="deep" style="top:30%; left:40%; width:120px; height:120px;"></div>
+    <div class="hazard" style="top:44%; left:52%;"></div>
+    <div class="hazard" style="top:58%; left:46%;"></div>
+    <div class="route-line" style="top:38%; left:34%; width:44%; rotate:8deg;"></div>
+    <div class="boat" style="top:38%; left:34%;">&#9973;</div>
+  </div>
+
+  <div class="m-titlebar">&#128506; Chart &middot; GPS: DEVICE GPS &plusmn;6m</div>
+
+  <div class="b-docked">
+    <div style="position:absolute; top:3.2em; left:0.8em; right:0.8em; display:flex; gap:0.4em; justify-content:center;">
+      <div class="m-tile">&#128506; Map Type</div>
+      <div class="m-tile">&#128205; Location</div>
+      <div class="m-tile">&#128421; Screen</div>
+      <div class="m-tile" id="underwayTile">&#9973; Underway</div>
+    </div>
+    <div class="m-compass" style="top:3.4em; left:0.8em;">&#129517;</div>
+    <div style="position:absolute; top:9.4em; bottom:4.4em; left:0.8em; width:5.2em; display:flex; flex-direction:column; align-items:center; justify-content:space-between; background:rgba(10,22,40,0.55); border:1px solid var(--app-mid-blue); border-radius:0.8em; padding:0.8em 0;">
+      <div style="width:0.6em; height:7em; background:var(--app-mid-blue); border-radius:0.3em; position:relative;"><div style="position:absolute; top:30%; left:-0.4em; width:1.4em; height:1.4em; border-radius:50%; background:var(--app-accent);"></div></div>
+      <div style="display:flex; flex-direction:column; gap:0.3em;">
+        <div class="m-btn round" style="width:2.2em; height:2.2em; font-size:1em;">&#9650;</div>
+        <div class="m-btn round" style="width:2.2em; height:2.2em; font-size:1em;">&#9660;</div>
+      </div>
+    </div>
+    <div style="position:absolute; top:7em; right:0.8em; width:6.4em; display:flex; flex-direction:column; gap:0.5em; background:rgba(10,22,40,0.55); border:1px solid var(--app-mid-blue); border-radius:0.8em; padding:0.8em 0.6em;">
+      <div class="m-tile" style="justify-content:center;">&#9998; Routes</div>
+      <div class="m-tile" style="justify-content:center;">&#9678; Tracks</div>
+      <div class="m-tile" style="justify-content:center;">&#9679; Track</div>
+      <div class="m-tile" style="justify-content:center;">&#9875; Anchor</div>
+      <div class="m-tile" style="justify-content:center;">&#128220; Node</div>
+      <div style="display:flex; gap:0.3em; justify-content:center; margin-top:0.2em;">
+        <div class="m-btn round" style="width:2em;height:2em;font-size:0.9em;">&#8857;</div>
+        <div class="m-btn round" style="width:2em;height:2em;font-size:0.9em;">&#8635;</div>
+      </div>
+    </div>
+    <div style="position:absolute; bottom:0.8em; left:0.8em; right:0.8em; display:flex; align-items:center; gap:0.6em; background:rgba(10,22,40,0.92); border:1px solid var(--app-mid-blue); border-radius:0.8em; padding:0.6em 0.8em;">
+      <div class="m-focus" style="padding:0.4em 1em; font-size:1em;">&#127919; Owls Head 4.2nm</div>
+      <div class="m-hud" style="border:none; background:none; padding:0;">158&deg;M/4.1kt</div>
+      <div style="margin-left:auto; display:flex; align-items:center; gap:0.5em;">
+        <svg viewBox="0 0 60 20" style="width:3.4em; height:1.4em; display:block;"><path d="M0 14 Q15 2 30 10 T60 6" fill="none" stroke="#4a9edd" stroke-width="2"/></svg>
+        <div class="m-btn round" style="width:2.4em;height:2.4em;font-size:1.1em;">&#9998;</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="b-underway">
+    <div class="m-compass" style="top:3.4em; left:0.8em; width:4em; height:4em; font-size:1.3em;">&#129517;</div>
+    <div class="m-tile" id="dockedTile" style="position:absolute; top:0.5em; right:0.6em;">&#9873; Docked</div>
+    <div style="position:absolute; top:3.8em; left:5.6em; right:0.8em; display:flex; align-items:center; gap:0.6em; background:rgba(10,22,40,0.92); border:1px solid var(--app-mid-blue); border-radius:0.8em; padding:0.6em 0.9em;">
+      <div class="m-focus" style="padding:0.3em 0.9em; font-size:1em;">&#127919; 4.2nm</div>
+      <div class="m-hud" style="border:none; background:none; padding:0;">158&deg;/4.1kt</div>
+      <svg viewBox="0 0 60 20" style="width:2.8em; height:1.2em; display:block; margin-left:auto;"><path d="M0 14 Q15 2 30 10 T60 6" fill="none" stroke="#4a9edd" stroke-width="2"/></svg>
+    </div>
+  </div>
+</div>
+
+<script>
+  var body = document.body;
+  document.getElementById('underwayTile').addEventListener('click', function () { body.classList.add('underway'); });
+  document.getElementById('dockedTile').addEventListener('click', function () { body.classList.remove('underway'); });
+</script>

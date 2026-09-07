@@ -215,20 +215,27 @@
 
   .screen {
     position: relative;
-    /* No vh anywhere in this rule, on purpose — three rounds of vh-based
-       "letterboxing" math (width:auto, then min(100%, calc(78vh*ratio)))
-       each fixed one symptom and broke another, because vh is fundamentally
-       a viewport-relative unit and this component doesn't control its own
-       viewport: an embedded artifact can be scaled, framed, or sized by
-       its host in ways that make vh behave unpredictably relative to what
-       actually renders. Plain width:100% + aspect-ratio has no such
-       dependency — height is mechanically derived from width, full stop,
-       and width itself is already bounded by .wrap's own max-width:1160px
-       a few rules up. The one tradeoff: on a short browser window this can
-       run taller than one screen and need a scroll to see the whole
-       mockup. That's a far better failure mode than silently mis-scaling. */
-    width: 100%;
+    /* width:auto (not a hard 100%, not a manual vh formula) + aspect-ratio
+       + max-height is CSS's own built-in "letterboxing" algorithm: when
+       width is auto, a browser computes it from the *clamped* height
+       whenever max-height actually binds, and simply fills the available
+       width otherwise — exactly the behavior this file spent three
+       rounds hand-rolling with vh-based calc()/min() math, each attempt
+       misdiagnosed as broken because of a *different*, real bug (see the
+       font-size comment below) that made it look like width:auto itself
+       was the problem. It never was. Let the browser do this natively. */
+    width: auto;
     aspect-ratio: 3 / 4;
+    /* Not a flat 78vh: that ignores the ~340px of header/description/
+       selector sitting above the bezel, so header + 78% of viewport
+       reliably added up to MORE than 100% of it — the mockup's bottom
+       edge got clamped by its own max-height correctly, then still ran
+       past the fold anyway because of everything stacked above it. This
+       subtracts that header budget directly so header + screen actually
+       fit within one viewport together, which is the property that
+       actually matters (a smaller screen box that's fully visible beats
+       a bigger one you have to scroll to find the bottom of). */
+    max-height: calc(100vh - 380px);
     margin: 0 auto;
     background: var(--chart-water);
     border-radius: 4px;
@@ -543,9 +550,13 @@
             <div class="m-tile">&#128205; Location</div>
             <div class="m-tile">&#128421; Screen</div>
           </div>
-          <!-- left rail: orientation instruments -->
-          <div style="position:absolute; top:7em; bottom:7em; left:0.8em; width:5.2em; display:flex; flex-direction:column; align-items:center; justify-content:space-between; background:rgba(10,22,40,0.55); border:1px solid var(--app-mid-blue); border-radius:0.8em; padding:0.8em 0;">
-            <div class="m-compass" style="position:static; width:3.8em; height:3.8em; font-size:1.3em;">&#129517;</div>
+          <!-- Compass: NOT inside the shaded rail below — a reference
+               instrument, not a grouped control, so it gets its own
+               top-left corner spot like mockup A's, sized up to match
+               (4.6em, same as A's default .m-compass size). -->
+          <div class="m-compass" style="top:3.4em; left:0.8em;">&#129517;</div>
+          <!-- left rail: zoom + pan only, starting below the compass -->
+          <div style="position:absolute; top:9.4em; bottom:0.8em; left:0.8em; width:5.2em; display:flex; flex-direction:column; align-items:center; justify-content:space-between; background:rgba(10,22,40,0.55); border:1px solid var(--app-mid-blue); border-radius:0.8em; padding:0.8em 0;">
             <div style="width:0.6em; height:7em; background:var(--app-mid-blue); border-radius:0.3em; position:relative;"><div style="position:absolute; top:30%; left:-0.4em; width:1.4em; height:1.4em; border-radius:50%; background:var(--app-accent);"></div></div>
             <div style="display:flex; flex-direction:column; gap:0.3em;">
               <div class="m-btn round" style="width:2.2em; height:2.2em; font-size:1em;">&#9650;</div>
@@ -575,7 +586,7 @@
           </div>
 
           <div class="callout" style="top:10%; left:50%;">1</div>
-          <div class="callout" style="top:32%; left:8%;">2</div>
+          <div class="callout" style="top:11%; left:8%;">2</div>
           <div class="callout" style="top:32%; right:6%;">3</div>
           <div class="callout" style="bottom:8%; left:50%;">4</div>
         </div>
@@ -671,7 +682,7 @@
       rev: 'rev B &middot; zoned &middot; docked',
       key: [
         ['1', 'Top bar: mode only', 'Map type, location, and screen options &mdash; things about how you’re viewing the chart, not what you’re doing on it.'],
-        ['2', 'Left rail: orientation', 'Compass, zoom, and pan grouped as one instrument column &mdash; everything about where you are and how you’re looking at it.'],
+        ['2', 'Compass, top-left', 'Its own corner, not grouped into a box with anything else &mdash; a reference instrument you glance at, not a control you pick out of a cluster. Zoom and pan sit in their own rail just below it.'],
         ['3', 'Right rail: route actions', 'Routes, tracks, tracking, anchor watch, node ops, plus the four former loose buttons &mdash; everything that acts on your route or position.'],
         ['4', 'Unified bottom HUD', 'Bearing/range, heading/speed, and tide collapse into one bar instead of three separate floating cards.'],
       ],
