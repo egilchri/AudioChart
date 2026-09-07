@@ -2640,6 +2640,7 @@ body.wco-active #wco-titlebar { display: flex; }
 #app.anim-mode #edit-tools-panel,
 #app.anim-mode #zoom-slider-wrap,
 #app.anim-mode #pan-controls-wrap,
+#app.anim-mode #left-rail-backdrop,
 #app.anim-mode .follow-progress-ctrl,
 #app.anim-mode #bottom-hud {
   display: none !important;
@@ -2664,7 +2665,8 @@ body.wco-active #wco-titlebar { display: flex; }
 #app.underway-mode #map-overlay-status,
 #app.underway-mode #right-rail,
 #app.underway-mode #zoom-slider-wrap,
-#app.underway-mode #pan-controls-wrap {
+#app.underway-mode #pan-controls-wrap,
+#app.underway-mode #left-rail-backdrop {
   display: none !important;
 }
 #docked-btn {
@@ -2948,6 +2950,24 @@ body.wco-active #wco-titlebar { display: flex; }
   align-self: flex-start;
 }
 #history-clear:hover { color: var(--danger); }
+
+/* ── Left rail backdrop (desktop): boxes the compass+zoom+pan column ────── */
+#left-rail-backdrop {
+  display: none;
+  position: absolute;
+  left: 2px;
+  top: 22px;
+  width: 92px;
+  height: 368px;
+  z-index: 900; /* below the compass/zoom/pan (all z-index:1000+), above the map */
+  background: rgba(10, 22, 40, 0.55);
+  border: 1px solid var(--mid-blue);
+  border-radius: 10px;
+  pointer-events: none;
+}
+@media (min-width: 768px) {
+  #left-rail-backdrop { display: block; }
+}
 
 /* ── Zoom slider (desktop map overlay) ───────────────────────────────────── */
 #zoom-slider-wrap {

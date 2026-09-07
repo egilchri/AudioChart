@@ -1611,12 +1611,18 @@ function _initRearrangeGroups() {
   // #bottom-hud moved its baseline to bottom-right. One-time cleanup so
   // everyone's saved offset starts fresh from the new layout, exactly
   // like the status-tile/compass/btncol cleanups above.
+  // navctl (zoom-slider-wrap + pan-controls-wrap) has the exact same
+  // problem, missed in the first pass: it moved from vertically-centered
+  // to directly under the compass, so a pre-existing saved offset renders
+  // it back up over the compass on top of the new baseline. Confirmed
+  // live via screenshot — same bug class as the focus-btn one above.
   localStorage.removeItem('audiochart-ui-pos-status');
   localStorage.removeItem('audiochart-ui-pos-compass');
   localStorage.removeItem('audiochart-ui-pos-btncol');
   localStorage.removeItem('audiochart-ui-pos-focus');
   localStorage.removeItem('audiochart-ui-pos-tide');
   localStorage.removeItem('audiochart-ui-pos-headingspeed');
+  localStorage.removeItem('audiochart-ui-pos-navctl');
   _makeDraggableGroup('navctl', () => ['zoom-slider-wrap', 'pan-controls-wrap'].map(id => document.getElementById(id)));
   _makeDraggableGroup('version', () => [document.getElementById('map-version-label')]);
   _makeDraggableGroup('cmdbar', () => [document.getElementById('map-overlay-cmd')]);

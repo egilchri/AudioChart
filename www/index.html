@@ -50,6 +50,14 @@
         <button id="reroute-btn" title="Re-route around land">&#8635;</button>
         <button id="delete-route-btn" title="Delete this route" style="display:none">&#128465;</button>
       </div>
+      <!-- Purely decorative backdrop, not a real container: the compass is a
+           Leaflet control appended elsewhere in the DOM, so it can't be a
+           flex child of a wrapper the way #right-rail's buttons are. This
+           div just sits at a lower z-index behind the compass + zoom +
+           pan column so the three read as one boxed "left rail" group,
+           matching the boxed left rail from the original Helm Layouts
+           mockup this screen is based on. -->
+      <div id="left-rail-backdrop"></div>
       <div id="zoom-slider-wrap">
         <span id="zoom-slider-label">11</span>
         <input type="range" id="zoom-slider" min="4" max="18" step="1" value="11">
