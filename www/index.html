@@ -30,14 +30,17 @@
       <div id="wco-titlebar"></div>
       <div id="map-version-label"></div>
       <!-- Underway is a pure visibility toggle (see #app.underway-mode in
-           app.css and the underway-btn handler in app.js). One button, not
-           two — it lives outside #map-overlay-status/#screen-menu entirely,
-           on purpose, so it's never swept away by the underway-mode hide-list
-           the way the top bar and right rail are: this is the one control
-           that has to stay reachable in both states, in the same place,
-           without a menu dive, or there's no way back. Its label/title flip
-           between "Underway"/"Docked" in app.js as the mode toggles. -->
-      <button id="underway-btn" title="Hide everything but the compass and the essentials">&#9973; Underway</button>
+           app.css and the underway logic in app.js). A real slide switch, not
+           a tap-button — one control, not two, living outside
+           #map-overlay-status/#screen-menu entirely on purpose, so it's never
+           swept away by the underway-mode hide-list the way the top bar and
+           right rail are: this is the one control that has to stay reachable
+           in both states, in the same place, without a menu dive. -->
+      <label id="underway-btn" title="Slide right to hide everything but the compass and the essentials">
+        <span id="underway-btn-label">Underway</span>
+        <input type="checkbox" id="underway-checkbox">
+        <span id="underway-track"><span id="underway-thumb"></span></span>
+      </label>
       <!-- "Zoned" layout: orientation instruments (compass — a Leaflet
            control, positioned via .leaflet-top/.leaflet-left in app.css —
            plus zoom/pan below it) on the left; route/data actions
@@ -50,19 +53,17 @@
         <button id="anchor-watch-btn" title="Watch for anchor drag — alarms if you stray past a set radius">&#9875; Anchor Watch</button>
         <button id="anchor-watch-silence-btn" title="Silence the anchor alarm (stays armed)" style="display:none">&#128263; Silence</button>
         <div class="etp-title" id="etp-title" style="display:none">Node Ops</div>
-        <button id="zoom-to-me-btn" title="Zoom to my location">&#8857;</button>
-        <button id="navaid-filter-btn" title="Show navaids on map">&#9875;</button>
-        <button id="reroute-btn" title="Re-route around land">&#8635;</button>
-        <button id="delete-route-btn" title="Delete this route" style="display:none">&#128465;</button>
+        <!-- 2x2 grid instead of a 4-tall single column — per direct
+             feedback, these four were using more of the rail's scarce
+             vertical real estate than a set of same-size icon buttons
+             needs to. -->
+        <div id="right-rail-icons">
+          <button id="zoom-to-me-btn" title="Zoom to my location">&#8857;</button>
+          <button id="navaid-filter-btn" title="Show navaids on map">&#9875;</button>
+          <button id="reroute-btn" title="Re-route around land">&#8635;</button>
+          <button id="delete-route-btn" title="Delete this route" style="display:none">&#128465;</button>
+        </div>
       </div>
-      <!-- Purely decorative backdrop, not a real container: the compass is a
-           Leaflet control appended elsewhere in the DOM, so it can't be a
-           flex child of a wrapper the way #right-rail's buttons are. This
-           div just sits at a lower z-index behind the compass + zoom +
-           pan column so the three read as one boxed "left rail" group,
-           matching the boxed left rail from the original Helm Layouts
-           mockup this screen is based on. -->
-      <div id="left-rail-backdrop"></div>
       <div id="zoom-slider-wrap">
         <span id="zoom-slider-label">11</span>
         <input type="range" id="zoom-slider" min="4" max="18" step="1" value="11">
