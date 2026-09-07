@@ -5486,11 +5486,6 @@ document.getElementById('etp-title').addEventListener('click', () => {
   document.getElementById('etp-title').classList.toggle('collapsed', collapsed);
 });
 
-// Same collapse-to-title-bar idea for the right-side button column ("Global Ops").
-document.getElementById('global-ops-title').addEventListener('click', () => {
-  _appEl.classList.toggle('global-ops-collapsed');
-});
-
 document.getElementById('etp-add-node').addEventListener('click', () => {
   if (!_editMode) return;
   const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
@@ -10881,12 +10876,12 @@ function _clearScreen() {
   _autoRoutePreviewLayer = _viewportHazardLayer = null;
   _animReportLayer = _animMilestoneLayer = null;
 
-  // Per explicit request: tidy the two persistent button clusters too, not
-  // just map layers — collapsed (not toggled) so this is always a clean-up,
-  // never accidentally re-expands them if they were already tucked away.
+  // Per explicit request: tidy Node Ops too, not just map layers —
+  // collapsed (not toggled) so this is always a clean-up, never
+  // accidentally re-expands it if it was already tucked away. Global Ops
+  // no longer has a collapse state at all — its buttons are permanent now.
   document.getElementById('edit-tools-panel').classList.add('collapsed');
   document.getElementById('etp-title').classList.add('collapsed');
-  _appEl.classList.add('global-ops-collapsed');
 
   const msg = 'Screen cleared.';
   setStatus(msg);

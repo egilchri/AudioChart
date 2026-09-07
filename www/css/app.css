@@ -915,13 +915,16 @@ body.wco-active #wco-titlebar { display: flex; }
 }
 #zoom-to-me-btn:active { background: var(--mid-blue); }
 
-/* Global Ops and Node Ops are tiles now too (live in #status-tiles, appended
-   after the others so they land at the end of the tile rows), each still
-   toggling its own group of buttons elsewhere on screen. Most of the time
-   both start collapsed — see #app's default class and edit-mode entry in
-   app.js — so the tile itself, not an expanded button cluster, is what's
-   normally on screen. */
-#global-ops-title,
+/* Node Ops is a tile too (lives in #status-tiles, appended after the
+   others so it lands at the end of the tile rows), toggling its own button
+   group elsewhere on screen. Most of the time it starts collapsed — see
+   edit-mode entry in app.js — so the tile itself, not an expanded button
+   cluster, is what's normally on screen. Global Ops no longer has a tile
+   or a collapsed state at all — per explicit decision, its buttons
+   (zoom-to-me, navaid-filter, reroute, delete-route) are just permanently
+   visible along the right side now, each still at its own individual
+   floating position (unlike Node Ops' single flex box) so the popup panels
+   anchored to Routes/Tracks/Navaid-filter stay aligned. */
 #etp-title {
   background: rgba(10, 22, 40, 0.92);
   border: 1px solid var(--mid-blue);
@@ -938,18 +941,7 @@ body.wco-active #wco-titlebar { display: flex; }
   white-space: nowrap;
   -webkit-tap-highlight-color: transparent;
 }
-#global-ops-title:hover,
 #etp-title:hover { border-color: var(--accent); color: var(--text); }
-/* Each Global Ops button keeps its own individual floating position (unlike
-   Node Ops' single flex box) so the popup panels anchored to Routes/Tracks/
-   Navaid-filter stay aligned. */
-#app.global-ops-collapsed #zoom-to-me-btn,
-#app.global-ops-collapsed #navaid-filter-btn,
-#app.global-ops-collapsed #reroute-btn,
-#app.global-ops-collapsed #delete-route-btn {
-  display: none;
-}
-#app.global-ops-collapsed #global-ops-title::after { content: '  \25BE'; }
 
 #route-picker-btn {
   background: rgba(10, 22, 40, 0.92);

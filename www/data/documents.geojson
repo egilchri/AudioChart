@@ -1784,6 +1784,78 @@
         "body": "In the 1930s, Captain Eber Spurling ran mail out to the Cranberry Isles aboard his own launch, the Jerry — one man, one boat, carrying letters and small freight between the mainland and islands that had no other reliable link to it. Today's Beal & Bunker mailboat fleet, running the Double B and the Sea Queen between Northeast Harbor and the Cranberry Isles, descends directly from that same tradition: a private boat operator filling a gap the state ferry system never quite covered for these particular islands, the way it eventually did for places like Swan's Island.",
         "source": "Maine Boats Homes & Harbors"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.885, 44.128] },
+      "properties": {
+        "title": "The site that proved year-round life on the islands",
+        "category": "history",
+        "era": "colonial",
+        "place": "Turner Farm Site, North Haven",
+        "body": "North Haven holds eight sites on the National Register of Historic Places, every one of them a shell midden — but the Turner Farm Site is the most significant of all, showing three distinct occupation phases stretching back thousands of years. The oldest, the Moorehead phase around 5200 BCE, shows fishing supplemented by hunting land mammals. The Susquehanna phase that followed brought bear, moose, and seals taken from nearby rookeries. The latest, the Ceramic phase, shows something more: year-round occupation with a genuinely diverse food base, not just seasonal visits.\n\nThat last point matters — Turner Farm is one of the first sites anywhere on the Maine coast to provide clear evidence that people lived here permanently, all year, long before any European saw the Fox Islands. A 1970s Maine State Museum survey went on to identify more than 49 separate archaeological sites across the island, but Turner Farm remains the one that changed how archaeologists understood pre-contact life on this whole stretch of coast.",
+        "source": "Wikipedia — Archaeological sites in North Haven, Maine"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.8212496, 44.0508472] },
+      "properties": {
+        "title": "Foxes on the shore, then a town named for a Boston lawyer",
+        "category": "history",
+        "era": "colonial",
+        "place": "Vinalhaven",
+        "body": "English captain Martin Pring named these two islands the Fox Islands in 1603, for the silver-gray foxes he saw along the shore — more than a century and a half before anyone from Europe actually settled them. Massachusetts Bay Colony claimed the islands by 1658, but the first permanent English settler, Thaddeus Carver, didn't arrive from Marshfield, Massachusetts until 1766.\n\nThe town covering both islands together incorporated on June 25, 1789, taking the name Vinalhaven after John Vinal, a Boston attorney with no documented connection to the islands beyond however he came to be honored in the naming — a common enough pattern in early Maine town-naming, where the name often tracked land agents, investors, or lawyers rather than settlers themselves. That single town would hold both islands together for the next fifty-eight years, until the split that created North Haven.",
+        "source": "Wikipedia — Vinalhaven, Maine; Maine: An Encyclopedia — Vinalhaven Island"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.87138271272495, 44.12836009735765] },
+      "properties": {
+        "title": "A brief name, then the right one",
+        "category": "history",
+        "era": "industrial",
+        "place": "North Haven",
+        "body": "North Fox Island seceded from the town of Vinalhaven and incorporated as its own town on March 1, 1847 — briefly under the name \"Fox Isle,\" before the legislature settled on North Haven just four and a half months later, on July 13 of that same year. No surviving record spells out exactly why the two islands split after fifty-eight years as one town; what's documented is simply that they did, cleanly and quickly, going from one name to a placeholder to the permanent one inside a single year.\n\nWhatever drove the split, it stuck: North Haven and Vinalhaven have remained two separate towns ever since, sharing the same pair of islands and the thorofare between them, but never reuniting.",
+        "source": "Wikipedia — North Haven, Maine"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.8212496, 44.0508472] },
+      "properties": {
+        "title": "The quarry owner who became governor",
+        "category": "history",
+        "era": "industrial",
+        "place": "Vinalhaven",
+        "body": "Granite quarrying on Vinalhaven began modestly in the 1820s, then took off after the Civil War. Joseph R. Bodwell opened his own Vinalhaven quarries in 1852 and built the operation into the Bodwell Granite Company, one of Maine's largest employers by the 1880s — big enough that Vinalhaven granite was specified by name in major East Coast building contracts, not just supplied generically. Stone cut on this island went into the Washington Monument and the U.S. Capitol Building itself.\n\nBodwell didn't stay just a quarry owner: he went on to become Governor of Maine, one of relatively few instances of a Maine granite baron parlaying an island quarry fortune directly into the state's highest office. The company he built ran until 1919, closing in the same general wave of collapse — cheaper steel and concrete — that ended Hurricane Island's quarry nearby around the same period.",
+        "source": "Meander Maine — Vinalhaven's Granite Legacy; Maine History Journal — Bodwell Blue"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.87138271272495, 44.12836009735765] },
+      "properties": {
+        "title": "A lost race, a faster boat, and 140 years of grudge matches",
+        "category": "history",
+        "era": "industrial",
+        "place": "North Haven",
+        "body": "Summer resident William Weld lost a sailing race here in 1883, went home to Massachusetts still stewing about it, and had a faster boat built for the following season — then came back and beat everyone. His brother, impressed rather than annoyed, commissioned four exact copies from local North Haven builder James O. Brown. Those four boats started racing each other in 1885, and the first official, organized race of the class ran on August 15, 1887.\n\nThat class — the North Haven Dinghy — is still racing today, making it the oldest continuously-raced one-design sailboat fleet in North America, over 140 consecutive years and counting. A grudge over one lost race in 1883 turned into one of American sailing's longest unbroken traditions, still contested on the same water every summer.",
+        "source": "Maine Boats Homes & Harbors — Historic Class of Racing Dinghies; North Haven Dinghy Foundation — History"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.8212496, 44.0508472] },
+      "properties": {
+        "title": "The first lobstermen's union in the country",
+        "category": "history",
+        "era": "modern",
+        "place": "Vinalhaven",
+        "body": "In the winter of 2012-2013, Vinalhaven's lobstermen did something no group of American lobstermen had organized before: faced with low boat prices and mounting friction with the Maine Lobstermen's Association's own leadership, they formed a union — the first lobstermen's union in the United States.\n\nIt's a distinctly modern chapter in an old story. This is the same island whose granite quarries once employed hundreds under Joseph Bodwell a century earlier; when that industry finally gave way entirely to fishing, the workers who make their living on the water organized themselves the same way industrial workers had, adapting a labor-movement tool built for factories and quarries to a fishery instead.",
+        "source": "Wikipedia — Vinalhaven, Maine"
+      }
     }
   ]
 }
