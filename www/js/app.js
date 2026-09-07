@@ -10937,15 +10937,16 @@ document.getElementById('screen-menu-rearrange').addEventListener('click', () =>
 // Underway is a pure visibility toggle — see #app.underway-mode in
 // app.css — never touches edit/follow/animation state, just hides the
 // top bar, #right-rail, zoom/pan, and tide down to the compass +
-// bearing/heading-speed. Two entry points (the Screen-menu button to
-// turn it on, #docked-btn to turn it back off) share one toggle so
-// they can never disagree about the current state.
+// bearing/heading-speed. Two entry points (the always-visible status-tile
+// button to turn it on, #docked-btn to turn it back off) share one toggle
+// so they can never disagree about the current state. Both buttons live
+// outside #screen-menu on purpose — per standing direction, a mode this
+// central shouldn't require opening a menu to find.
 function _setUnderwayMode(on) {
   _appEl.classList.toggle('underway-mode', on);
   localStorage.setItem('audiochart-underway-mode', on ? '1' : '');
 }
 document.getElementById('underway-btn').addEventListener('click', () => {
-  _closeScreenMenu();
   _setUnderwayMode(!_appEl.classList.contains('underway-mode'));
 });
 document.getElementById('docked-btn').addEventListener('click', () => {

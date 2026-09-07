@@ -205,7 +205,20 @@
 
   .screen {
     position: relative;
-    width: auto;
+    /* Explicit, computed width rather than width:auto — letting the
+       browser's aspect-ratio auto-sizing algorithm interact with
+       container-type:inline-size below turned out to be unreliable: on
+       a wide-but-short desktop window it left width pinned at 100% while
+       height got clamped by max-height, breaking the ratio (the original
+       bug); switching to width:auto to fix that instead broke container
+       query resolution the other way, rendering everything at roughly
+       viewport scale instead of the screen's own ~380-620px scale. This
+       formula picks a hard number directly: never more than the
+       available width, and exactly the width that keeps height at
+       max-height under the current ratio otherwise — the same
+       letterboxing math without leaving anything for the browser to
+       infer differently across viewport shapes. */
+    width: min(100%, calc(78vh * 3 / 4));
     aspect-ratio: 3 / 4;
     max-height: 78vh;
     margin: 0 auto;
@@ -225,7 +238,10 @@
     font-size: 2.63cqw;
   }
   @media (min-width: 760px) {
-    .screen { aspect-ratio: 16 / 10; }
+    .screen {
+      aspect-ratio: 16 / 10;
+      width: min(100%, calc(78vh * 16 / 10));
+    }
   }
 
   /* chart backdrop, shared by all three mockups */
