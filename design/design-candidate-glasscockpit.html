@@ -1,0 +1,494 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>AudioChart — Glass Cockpit</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap">
+<style>
+  :root{
+    --water:#a9cdd6;
+    --water-deep:#8db7c3;
+    --land:#ddd0a9;
+    --land-edge:#b39f6d;
+    --hazard:#d99a2b;
+    --route:#e0672f;
+
+    --panel:#0a1116;
+    --panel-2:#0d1a22;
+    --hairline:rgba(210,230,238,0.13);
+    --hairline-strong:rgba(210,230,238,0.24);
+
+    --accent:#3fe3ea;
+    --accent-dim:rgba(63,227,234,0.30);
+    --accent-glow:rgba(63,227,234,0.18);
+
+    --text:#eef5f8;
+    --text-dim:#7e97a2;
+    --text-faint:#4c626c;
+
+    --sans:"Space Grotesk", system-ui, sans-serif;
+    --mono:"JetBrains Mono", ui-monospace, "SF Mono", monospace;
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{
+    margin:0; padding:0; width:100%; height:100%;
+    overflow:hidden;
+    background:#000;
+  }
+  html{
+    font-size: clamp(12.5px, 2.05vmin, 20px);
+  }
+  body{
+    font-family:var(--sans);
+    color:var(--text);
+    -webkit-font-smoothing:antialiased;
+  }
+
+  .screen{
+    position:relative;
+    width:100vw;
+    height:100dvh;
+    overflow:hidden;
+    background:var(--water);
+  }
+
+  /* ---------- chart layer (strictly background, z:0) ---------- */
+  .chart-bg{ position:absolute; inset:0; z-index:0; overflow:hidden; }
+  .land{
+    position:absolute;
+    background:var(--land);
+    border:1px solid var(--land-edge);
+  }
+  .deep{
+    position:absolute; border-radius:50%;
+    background:var(--water-deep);
+    filter:blur(6px); opacity:.55;
+  }
+  .vignette{
+    position:absolute; inset:0;
+    background:radial-gradient(ellipse at 38% 45%, rgba(0,0,0,0) 40%, rgba(4,10,14,0.30) 100%);
+    pointer-events:none;
+  }
+  .range-ring{
+    position:absolute; border-radius:50%;
+    border:1px dashed rgba(10,25,32,0.28);
+    transform:translate(-50%,-50%);
+  }
+  .hazard{
+    position:absolute; width:0; height:0;
+    border-left:5px solid transparent; border-right:5px solid transparent;
+    border-bottom:9px solid var(--hazard);
+    filter:drop-shadow(0 1px 1px rgba(0,0,0,.35));
+  }
+  .route-line{
+    position:absolute;
+    border-top:3px dashed var(--route);
+    opacity:.9;
+    transform-origin:left center;
+  }
+  .boat{
+    position:absolute;
+    transform:translate(-50%,-50%) rotate(158deg);
+    filter:drop-shadow(0 1px 3px rgba(0,0,0,.45));
+  }
+  .boat svg{ display:block; width:1.9rem; height:1.9rem; }
+
+  /* ---------- shared chrome primitives ---------- */
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--hairline-strong);
+  }
+  .label{
+    font-size:.62rem;
+    letter-spacing:.11em;
+    text-transform:uppercase;
+    color:var(--text-dim);
+    font-weight:500;
+  }
+  .hr-v{ width:1px; align-self:stretch; background:var(--hairline); flex:0 0 auto; }
+  .hr-h{ height:1px; width:100%; background:var(--hairline); }
+
+  button{ font-family:inherit; }
+
+  /* ---------- title strip ---------- */
+  .titlebar{
+    position:absolute; top:0; left:0; right:0; z-index:10;
+    height:2.15rem;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:0 .9rem;
+    background:var(--panel);
+    border-bottom:1px solid var(--hairline);
+  }
+  .titlebar .mode{
+    font-size:.72rem; font-weight:600; letter-spacing:.04em;
+    color:var(--text);
+    display:flex; align-items:center; gap:.45em;
+  }
+  .titlebar .mode .dot{
+    width:.4em; height:.4em; border-radius:50%;
+    background:var(--accent); box-shadow:0 0 .4em var(--accent-glow);
+  }
+  .titlebar .gps{
+    font-family:var(--mono); font-size:.66rem; color:var(--text-dim);
+    letter-spacing:.02em;
+  }
+  .titlebar .gps b{ color:var(--accent); font-weight:600; }
+
+  /* ---------- secondary mode-toggle strip (quiet, receded) ---------- */
+  .modebar{
+    position:absolute; top:2.15rem; left:0; right:0; z-index:9;
+    height:2rem;
+    display:flex;
+    background:var(--panel-2);
+    border-bottom:1px solid var(--hairline);
+  }
+  .modebar .seg{
+    flex:1 1 0;
+    display:flex; align-items:center; justify-content:center; gap:.4em;
+    font-size:.66rem; color:var(--text-dim);
+    letter-spacing:.03em; text-transform:uppercase;
+    border:none; background:transparent;
+    cursor:pointer;
+  }
+  .modebar .seg:not(:last-child){ border-right:1px solid var(--hairline); }
+  .modebar .seg .ic{ font-size:.95em; opacity:.85; }
+  .modebar .seg:hover{ color:var(--text); }
+
+  /* ---------- compass instrument: stands entirely alone ---------- */
+  .compass-wrap{
+    position:absolute; z-index:8;
+    top:4.7rem; left:.9rem;
+    width:min(15.5rem,36vw,42vh);
+    aspect-ratio:1/1;
+  }
+  .compass-face{
+    position:relative; width:100%; height:100%; border-radius:50%;
+    background:radial-gradient(circle at 38% 32%, #10202a 0%, #060c10 72%);
+    border:1px solid var(--hairline-strong);
+    box-shadow:0 .3rem 1.1rem rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,0.02);
+  }
+  .compass-face svg{ position:absolute; inset:0; width:100%; height:100%; }
+  .tick{ stroke:rgba(210,230,238,0.55); stroke-width:1.4; }
+  .tick.major{ stroke:rgba(238,245,248,0.9); stroke-width:2.2; }
+  .cardinal{
+    font-family:var(--sans); font-weight:700; fill:var(--text);
+  }
+  .interc{
+    font-family:var(--sans); font-weight:500; fill:var(--text-dim);
+  }
+  .needle{ stroke:var(--accent); stroke-width:2.6; stroke-linecap:round; filter:drop-shadow(0 0 .25rem var(--accent-glow)); }
+  .needle-hub{ fill:var(--accent); }
+  .compass-center{
+    position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+    text-align:center; pointer-events:none;
+  }
+  .compass-center .hdg{
+    font-family:var(--mono); font-weight:700; color:var(--accent);
+    font-size:1.9rem; line-height:1; letter-spacing:-.01em;
+  }
+  .compass-center .hdg sup{ font-size:.5em; font-weight:600; margin-left:.05em; }
+  .compass-center .spd{
+    margin-top:.15rem;
+    font-family:var(--mono); font-size:.78rem; color:var(--text-dim); font-weight:500;
+  }
+  .compass-center .spd b{ color:var(--text); font-weight:600; }
+  .compass-lubber{
+    position:absolute; top:-.05rem; left:50%; transform:translate(-50%,0);
+    width:0; height:0;
+    border-left:.4rem solid transparent; border-right:.4rem solid transparent;
+    border-top:.55rem solid var(--accent);
+    filter:drop-shadow(0 0 .2rem var(--accent-glow));
+  }
+
+  /* ---------- zoom / pan instrument, its own clearly separate box ---------- */
+  .zoompan{
+    position:absolute; z-index:7;
+    top:calc(4.7rem + min(15.5rem,36vw,42vh) + 1rem);
+    left:.9rem;
+    width:min(15.5rem,36vw,42vh);
+    bottom:6.6rem;
+    background:var(--panel);
+    border:1px solid var(--hairline);
+    border-radius:.35rem;
+    display:flex; flex-direction:column; align-items:center;
+    justify-content:space-between;
+    padding:.9rem .6rem;
+    min-height:6rem;
+  }
+  .zoompan .rail{
+    position:relative; width:.28rem; flex:1 1 auto;
+    background:var(--hairline-strong); border-radius:.15rem;
+    margin:.2rem 0;
+  }
+  .zoompan .rail .puck{
+    position:absolute; left:50%; top:28%; transform:translate(-50%,-50%);
+    width:.85rem; height:.85rem; border-radius:50%;
+    background:var(--accent);
+    box-shadow:0 0 .5rem var(--accent-glow);
+  }
+  .zoompan .zbtn{
+    width:1.9rem; height:1.9rem; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--panel-2); border:1px solid var(--hairline-strong);
+    color:var(--text-dim); font-size:.8rem;
+    cursor:pointer;
+  }
+  .zoompan .zbtn:hover{ color:var(--text); border-color:var(--accent-dim); }
+  .zoompan .zgroup{ display:flex; flex-direction:column; gap:.4rem; }
+  .zoompan .zlabel{ margin-top:.5rem; }
+
+  /* ---------- right action rail: secondary, quiet, consistent list ---------- */
+  .rail-actions{
+    position:absolute; z-index:7;
+    top:4.7rem; right:.9rem; bottom:6.6rem;
+    width:min(9.4rem,24vw);
+    display:flex; flex-direction:column;
+  }
+  .rail-actions .list{
+    background:var(--panel);
+    border:1px solid var(--hairline);
+    border-radius:.35rem;
+    overflow:hidden;
+  }
+  .rail-actions .item{
+    display:flex; align-items:center; gap:.55em;
+    padding:.6rem .7rem;
+    font-size:.72rem; color:var(--text-dim); font-weight:500;
+    background:transparent; border:none; width:100%;
+    text-align:left; cursor:pointer;
+    border-bottom:1px solid var(--hairline);
+  }
+  .rail-actions .item:last-child{ border-bottom:none; }
+  .rail-actions .item .ic{ font-size:1em; width:1.1em; text-align:center; opacity:.8; }
+  .rail-actions .item:hover{ color:var(--text); background:rgba(255,255,255,0.025); }
+  .rail-actions .item.rec .ic{ color:#e0672f; }
+
+  .rail-icons{
+    margin-top:.6rem;
+    display:flex; gap:.5rem; justify-content:flex-end;
+  }
+  .rail-icons .ibtn{
+    width:2.1rem; height:2.1rem; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--panel); border:1px solid var(--hairline-strong);
+    color:var(--text-dim); font-size:.85rem; cursor:pointer;
+  }
+  .rail-icons .ibtn:hover{ color:var(--accent); border-color:var(--accent-dim); }
+
+  /* ---------- bottom status readout: ONE consistent instrument strip ---------- */
+  .statusbar{
+    position:absolute; z-index:10;
+    left:.9rem; right:.9rem; bottom:.9rem;
+    background:var(--panel);
+    border:1px solid var(--hairline-strong);
+    border-radius:.4rem;
+    display:flex; align-items:stretch;
+    padding:.55rem .3rem;
+    box-shadow:0 .4rem 1rem rgba(0,0,0,.35);
+  }
+  .stat{
+    display:flex; flex-direction:column; justify-content:center;
+    padding:0 .9rem;
+    min-width:0;
+  }
+  .stat .label{ margin-bottom:.28rem; white-space:nowrap; }
+  .stat .value{
+    font-family:var(--mono); font-weight:600; color:var(--text);
+    font-size:.95rem; white-space:nowrap;
+    display:flex; align-items:baseline; gap:.35em;
+  }
+  .stat .value .unit{ font-size:.62em; color:var(--text-dim); font-weight:500; }
+  .stat.dest .arrow{
+    display:inline-block; transform:rotate(34deg);
+    color:var(--accent); font-size:.85em; margin-right:.05em;
+  }
+
+  .stat.hero{ flex:1 1 auto; }
+  .stat.hero .value{
+    font-size:1.55rem; color:var(--accent);
+    font-weight:700; letter-spacing:-.01em;
+    text-shadow:0 0 .6rem var(--accent-glow);
+  }
+  .stat.hero .value .sep{ color:var(--text-faint); font-weight:400; margin:0 .05em; }
+  .stat.hero .value .u2{ font-size:.5em; color:var(--text-dim); font-weight:600; }
+
+  .stat.tide .trend{ color:#5fd18a; }
+  .stat.tide svg{ display:block; margin-top:.15rem; }
+
+  .stat.editbtn{ justify-content:center; align-items:center; padding:0 .8rem; }
+  .editicon{
+    width:2.3rem; height:2.3rem; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--panel-2); border:1px solid var(--hairline-strong);
+    color:var(--text-dim); font-size:.95rem; cursor:pointer;
+  }
+  .editicon:hover{ color:var(--accent); border-color:var(--accent-dim); }
+
+  @media (max-width: 560px){
+    .rail-actions .item .lbl{ display:none; }
+    .rail-actions{ width:min(3.4rem,14vw); }
+    .rail-actions .item{ justify-content:center; padding:.65rem 0; }
+  }
+</style>
+</head>
+<body>
+<div class="screen">
+
+  <!-- ============ CHART BACKGROUND (behind all chrome) ============ -->
+  <div class="chart-bg">
+    <div class="land" style="top:0; left:0; width:34%; height:40%; border-radius:0 0 60% 30%/0 0 40% 60%;"></div>
+    <div class="land" style="bottom:0; left:6%; width:22%; height:22%; border-radius:40% 60% 0 0/60% 40% 0 0;"></div>
+    <div class="land" style="top:12%; right:8%; width:14%; height:10%; border-radius:50%;"></div>
+    <div class="land" style="bottom:18%; right:14%; width:9%; height:7%; border-radius:50%;"></div>
+    <div class="deep" style="top:28%; left:38%; width:150px; height:150px;"></div>
+
+    <div class="range-ring" style="top:38%; left:34%; width:120px; height:120px;"></div>
+    <div class="range-ring" style="top:38%; left:34%; width:220px; height:220px;"></div>
+
+    <div class="route-line" style="top:38%; left:34%; width:44%; rotate:8deg;"></div>
+    <div class="hazard" style="top:44%; left:52%;"></div>
+    <div class="hazard" style="top:58%; left:46%;"></div>
+
+    <div class="boat" style="top:38%; left:34%;">
+      <svg viewBox="0 0 24 24"><path d="M12 1 L19 21 L12 17 L5 21 Z" fill="#12222c" stroke="#eef5f8" stroke-width="1"/></svg>
+    </div>
+
+    <div class="vignette"></div>
+  </div>
+
+  <!-- ============ TITLE STRIP ============ -->
+  <div class="titlebar">
+    <div class="mode"><span class="dot"></span>CHART MODE</div>
+    <div class="gps">GPS <b>DEVICE</b> &nbsp;±<b>6m</b></div>
+  </div>
+
+  <!-- ============ SECONDARY MODE TOGGLES (quiet, receded) ============ -->
+  <div class="modebar">
+    <button class="seg"><span class="ic">&#9673;</span>Map Type</button>
+    <button class="seg"><span class="ic">&#128205;</span>Location</button>
+    <button class="seg"><span class="ic">&#9714;</span>Screen</button>
+    <button class="seg"><span class="ic">&#9973;</span>Underway</button>
+  </div>
+
+  <!-- ============ COMPASS — hero instrument, stands alone ============ -->
+  <div class="compass-wrap">
+    <div class="compass-face">
+      <div class="compass-lubber"></div>
+      <svg viewBox="0 0 200 200" id="rose"></svg>
+      <div class="compass-center">
+        <div class="hdg">158<sup>°M</sup></div>
+        <div class="spd"><b>4.1</b> kt</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ ZOOM / PAN — its own box, clear of the compass ============ -->
+  <div class="zoompan">
+    <button class="zbtn">&#9650;</button>
+    <div class="rail"><div class="puck"></div></div>
+    <button class="zbtn">&#9660;</button>
+  </div>
+
+  <!-- ============ RIGHT ACTION RAIL — secondary, receded ============ -->
+  <div class="rail-actions">
+    <div class="list">
+      <button class="item"><span class="ic">&#9998;</span><span class="lbl">Routes</span></button>
+      <button class="item"><span class="ic">&#9678;</span><span class="lbl">Tracks</span></button>
+      <button class="item rec"><span class="ic">&#9679;</span><span class="lbl">Track</span></button>
+      <button class="item"><span class="ic">&#9875;</span><span class="lbl">Anchor</span></button>
+      <button class="item"><span class="ic">&#8942;</span><span class="lbl">Node Ops</span></button>
+    </div>
+    <div class="rail-icons">
+      <button class="ibtn" title="Center on me">&#8857;</button>
+      <button class="ibtn" title="Reroute">&#8635;</button>
+    </div>
+  </div>
+
+  <!-- ============ BOTTOM STATUS READOUT — one instrument, four consistent segments ============ -->
+  <div class="statusbar">
+    <div class="stat dest">
+      <div class="label">Dest &middot; Owls Head</div>
+      <div class="value"><span class="arrow">&#10148;</span>4.2<span class="unit">nm</span></div>
+    </div>
+    <div class="hr-v"></div>
+    <div class="stat hero">
+      <div class="label">Heading / Speed</div>
+      <div class="value">158<span class="u2">°M</span><span class="sep">/</span>4.1<span class="u2">kt</span></div>
+    </div>
+    <div class="hr-v"></div>
+    <div class="stat tide">
+      <div class="label">Tide</div>
+      <div class="value"><span class="trend">&#9650;</span>Rising
+        <svg width="46" height="16" viewBox="0 0 46 16"><path d="M0 13 Q11 3 23 8 T46 4" fill="none" stroke="#5fd18a" stroke-width="2"/></svg>
+      </div>
+    </div>
+    <div class="hr-v"></div>
+    <div class="stat editbtn">
+      <button class="editicon" title="Edit route">&#9998;</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // Build the compass rose ticks/labels precisely with trig — purely
+  // presentational geometry, not app logic.
+  (function(){
+    var svg = document.getElementById('rose');
+    var ns = 'http://www.w3.org/2000/svg';
+    var cx = 100, cy = 100, rOuter = 92;
+    var cardinals = {0:'N', 90:'E', 180:'S', 270:'W'};
+    var intercards = {45:'NE', 135:'SE', 225:'SW', 315:'NW'};
+
+    for (var deg = 0; deg < 360; deg += 5) {
+      var isCardinal = cardinals.hasOwnProperty(deg);
+      var isInterc = intercards.hasOwnProperty(deg);
+      var major = isCardinal || isInterc || deg % 30 === 0;
+      var len = isCardinal ? 14 : (isInterc ? 11 : (major ? 9 : 5));
+      var rad = (deg - 90) * Math.PI / 180;
+      var x1 = cx + (rOuter) * Math.cos(rad);
+      var y1 = cy + (rOuter) * Math.sin(rad);
+      var x2 = cx + (rOuter - len) * Math.cos(rad);
+      var y2 = cy + (rOuter - len) * Math.sin(rad);
+      var line = document.createElementNS(ns, 'line');
+      line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+      line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+      line.setAttribute('class', 'tick' + (isCardinal ? ' major' : ''));
+      svg.appendChild(line);
+
+      if (isCardinal || isInterc) {
+        var lr = rOuter - len - 11;
+        var lx = cx + lr * Math.cos(rad);
+        var ly = cy + lr * Math.sin(rad);
+        var t = document.createElementNS(ns, 'text');
+        t.setAttribute('x', lx); t.setAttribute('y', ly);
+        t.setAttribute('text-anchor', 'middle');
+        t.setAttribute('dominant-baseline', 'middle');
+        t.setAttribute('class', isCardinal ? 'cardinal' : 'interc');
+        t.setAttribute('font-size', isCardinal ? 13 : 9);
+        t.textContent = cardinals[deg] || intercards[deg];
+        svg.appendChild(t);
+      }
+    }
+
+    // heading needle at 158 degrees true, from a small hub to near the ring
+    var heading = 158;
+    var rad2 = (heading - 90) * Math.PI / 180;
+    var nx = cx + (rOuter - 6) * Math.cos(rad2);
+    var ny = cy + (rOuter - 6) * Math.sin(rad2);
+    var needle = document.createElementNS(ns, 'line');
+    needle.setAttribute('x1', cx); needle.setAttribute('y1', cy);
+    needle.setAttribute('x2', nx); needle.setAttribute('y2', ny);
+    needle.setAttribute('class', 'needle');
+    svg.appendChild(needle);
+    var hub = document.createElementNS(ns, 'circle');
+    hub.setAttribute('cx', cx); hub.setAttribute('cy', cy); hub.setAttribute('r', 4.5);
+    hub.setAttribute('class', 'needle-hub');
+    svg.appendChild(hub);
+  })();
+</script>
+</body>
+</html>

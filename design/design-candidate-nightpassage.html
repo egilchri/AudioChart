@@ -1,0 +1,382 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Night Passage</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap">
+<style>
+  :root {
+    /* Instrument fascia — deep, quiet, amber-lit. Real boats run amber/red
+       cabin and instrument lighting at night to preserve night vision;
+       this palette borrows that logic even for a daytime screenshot —
+       the chart itself gets to be bright and legible, the frame around
+       it stays dark and recedes instead of competing with it. */
+    --ink-950: #05090f;
+    --ink-900: #0a121e;
+    --ink-800: #121d2e;
+    --ink-700: #1b2a3f;
+    --hairline: #23364d;
+    --amber: #ffb066;
+    --amber-bright: #ffcf9c;
+    --amber-dim: #8a6238;
+    --paper: #cfe0ea;
+    --paper-dim: #7891a3;
+    --danger: #ff7a6b;
+    --good: #7fd9a8;
+
+    /* the chart layer is its own bright thing, untouched by the fascia palette */
+    --chart-water: #bfdae4;
+    --chart-water-deep: #96bfd0;
+    --chart-land: #e6dcc2;
+    --chart-land-edge: #c9b98c;
+
+    --font-display: "Barlow Condensed", "Arial Narrow", sans-serif;
+    --font-body: "Barlow", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%; overflow: hidden;
+    background: var(--ink-950);
+    font-family: var(--font-body);
+  }
+
+  .screen {
+    position: relative;
+    width: 100vw;
+    height: 100dvh;
+    overflow: hidden;
+    container-type: inline-size;
+  }
+  .screen > * { font-size: 2.1cqw; }
+
+  /* ── chart layer ─────────────────────────────────────────────── */
+  .chart {
+    position: absolute; inset: 0;
+    background: var(--chart-water);
+  }
+  .land {
+    position: absolute;
+    background: var(--chart-land);
+    border: 1.5px solid var(--chart-land-edge);
+  }
+  .deep { position: absolute; background: var(--chart-water-deep); border-radius: 50%; filter: blur(1px); opacity: .6; }
+  .route-line { position: absolute; border-top: 3px dashed var(--danger); opacity: .85; transform-origin: left center; }
+  .hazard { position: absolute; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 9px solid #d99a2b; }
+  .boat { position: absolute; font-size: 2em; transform: translate(-50%, -50%); filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
+
+  /* ── title strip: quiet, thin, not a heavy bar ─────────────────── */
+  .titlestrip {
+    position: absolute; top: 0; left: 0; right: 0;
+    display: flex; align-items: center; gap: .5em;
+    padding: .5em 1em;
+    font-family: var(--font-body);
+    font-size: 1em;
+    font-weight: 500;
+    color: var(--paper-dim);
+    /* Solid, not a fade-to-transparent gradient — a gradient's contrast
+       depends on what's behind it, and this can sit over chart water OR
+       land. Legibility can't be conditional on the map underneath it. */
+    background: rgba(5, 9, 15, 0.88);
+    border-bottom: 1px solid var(--hairline);
+    letter-spacing: .01em;
+  }
+  .titlestrip b { color: var(--paper); font-weight: 600; }
+  .gps-dot { width: .5em; height: .5em; border-radius: 50%; background: var(--good); box-shadow: 0 0 .6em var(--good); }
+
+  /* ── the compass: the hero instrument, alone, unmissable ───────── */
+  .compass-wrap {
+    position: absolute;
+    top: 1.6em; left: 1.6em;
+    width: 4.75em; height: 4.75em;
+  }
+  .compass-wrap svg { width: 100%; height: 100%; display: block; }
+  .compass-readout {
+    position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+    margin-top: .35em;
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 1.35em;
+    color: var(--amber-bright);
+    letter-spacing: .02em;
+    white-space: nowrap;
+  }
+
+  /* ── zoom / pan: small, quiet, tucked to the side — not boxed with the compass ── */
+  .navctl {
+    position: absolute;
+    top: 1.6em; left: 7.2em;
+    display: flex; flex-direction: column; align-items: center;
+    gap: .5em;
+  }
+  .navctl .slider-track {
+    width: .3em; height: 5.4em;
+    background: var(--hairline);
+    border-radius: .2em;
+    position: relative;
+  }
+  .navctl .slider-thumb {
+    position: absolute; left: 50%; top: 35%;
+    width: .85em; height: .85em;
+    border-radius: 50%;
+    background: var(--amber);
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 .5em rgba(255,176,102,.6);
+  }
+  .navbtn {
+    width: 1.7em; height: 1.7em;
+    border-radius: 50%;
+    border: 1px solid var(--hairline);
+    background: rgba(10,18,30,.5);
+    color: var(--paper-dim);
+    display: flex; align-items: center; justify-content: center;
+    font-size: .85em;
+    cursor: pointer;
+  }
+  .navbtn:hover { border-color: var(--amber-dim); color: var(--amber); }
+
+  /* ── mode toggles: deliberately small and quiet, top-center ────── */
+  .modebar {
+    /* Left-anchored after the compass+navctl group, NOT centered — a
+       centered element and a left-anchored element (the compass) have
+       independent positions that can collide depending on window width
+       alone, regardless of either one's own size. Anchoring both from
+       the same left edge means the gap between them is fixed, not a
+       function of viewport width. */
+    position: absolute;
+    top: 1.6em; left: 9.6em;
+    display: flex; gap: .35em; flex-wrap: wrap;
+  }
+  .mode-chip {
+    font-family: var(--font-body);
+    font-size: .78em;
+    font-weight: 500;
+    color: var(--paper-dim);
+    background: rgba(6,11,18,.55);
+    border: 1px solid var(--hairline);
+    border-radius: 999px;
+    padding: .45em 1em;
+    display: flex; align-items: center; gap: .4em;
+    white-space: nowrap;
+    cursor: pointer;
+    backdrop-filter: blur(2px);
+  }
+  .mode-chip:hover { color: var(--paper); border-color: var(--amber-dim); }
+  .mode-chip.underway { color: var(--amber); border-color: var(--amber-dim); }
+
+  /* ── right action stack: icon-first, quiet, labels present but small ── */
+  .actionstack {
+    position: absolute;
+    top: 4.6em; right: .9em; bottom: 6.4em;
+    display: flex; flex-direction: column; gap: .5em;
+    width: 8.4em;
+  }
+  .action {
+    display: flex; align-items: center; gap: .55em;
+    font-family: var(--font-body);
+    font-size: .82em;
+    font-weight: 500;
+    color: var(--paper-dim);
+    background: rgba(8,14,23,.55);
+    border: 1px solid var(--hairline);
+    border-radius: .5em;
+    padding: .55em .7em;
+    cursor: pointer;
+    backdrop-filter: blur(2px);
+  }
+  .action .glyph {
+    width: 1.6em; height: 1.6em;
+    border-radius: 50%;
+    background: rgba(255,176,102,.08);
+    display: flex; align-items: center; justify-content: center;
+    font-size: .95em;
+    flex-shrink: 0;
+    color: var(--amber);
+  }
+  .action:hover { color: var(--paper); border-color: var(--amber-dim); }
+  .action-icons { display: flex; gap: .5em; margin-top: .1em; }
+  .icon-btn {
+    width: 2.1em; height: 2.1em;
+    border-radius: 50%;
+    border: 1px solid var(--hairline);
+    background: rgba(8,14,23,.55);
+    color: var(--paper-dim);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1em;
+    cursor: pointer;
+  }
+  .icon-btn:hover { border-color: var(--amber-dim); color: var(--amber); }
+
+  /* ── bottom instrument cluster: ONE unified readout, not three chip styles ── */
+  .instrument-cluster {
+    position: absolute;
+    left: .9em; right: .9em; bottom: .9em;
+    display: flex; align-items: stretch;
+    background: linear-gradient(180deg, rgba(10,17,27,.92), rgba(6,10,17,.96));
+    border: 1px solid var(--hairline);
+    border-radius: .7em;
+    box-shadow: 0 .3em 1.2em rgba(0,0,0,.4);
+    overflow: hidden;
+  }
+  .cluster-cell {
+    display: flex; flex-direction: column; justify-content: center;
+    padding: .7em 1.1em;
+    border-right: 1px solid var(--hairline);
+    min-width: 0;
+  }
+  .cluster-cell:last-child { border-right: none; }
+  .cluster-cell .cl-label {
+    font-family: var(--font-body);
+    font-size: .62em;
+    font-weight: 600;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--paper-dim);
+    margin-bottom: .1em;
+  }
+  .cluster-cell .cl-value {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 1.5em;
+    color: var(--amber-bright);
+    line-height: 1;
+    white-space: nowrap;
+  }
+  .cluster-cell.dest .cl-value { color: var(--good); }
+  .cluster-cell.tide { flex-direction: row; align-items: center; gap: .6em; }
+  .cluster-cell.tide svg { width: 3.2em; height: 1.4em; display: block; flex-shrink: 0; }
+  .cluster-cell.grow { flex: 1; }
+  .cluster-editbtn {
+    display: flex; align-items: center; justify-content: center;
+    padding: 0 1em;
+    color: var(--paper-dim);
+    cursor: pointer;
+    font-size: 1.3em;
+  }
+  .cluster-editbtn:hover { color: var(--amber); }
+</style>
+</head>
+<body>
+
+<div class="screen">
+  <div class="chart">
+    <div class="land" style="top:0; left:0; width:34%; height:40%; border-radius:0 0 60% 30%/0 0 40% 60%;"></div>
+    <div class="land" style="bottom:0; left:6%; width:22%; height:22%; border-radius:40% 60% 0 0/60% 40% 0 0;"></div>
+    <div class="land" style="top:12%; right:8%; width:14%; height:10%; border-radius:50%;"></div>
+    <div class="land" style="bottom:18%; right:14%; width:9%; height:7%; border-radius:50%;"></div>
+    <div class="deep" style="top:30%; left:40%; width:120px; height:120px;"></div>
+    <div class="hazard" style="top:44%; left:52%;"></div>
+    <div class="hazard" style="top:58%; left:46%;"></div>
+    <div class="route-line" style="top:38%; left:34%; width:44%; rotate:8deg;"></div>
+    <div class="boat" style="top:38%; left:34%;">&#9973;</div>
+  </div>
+
+  <div class="titlestrip">
+    <span class="gps-dot"></span>
+    <b>Chart</b>&nbsp;&middot;&nbsp;GPS: DEVICE GPS &plusmn;6m
+  </div>
+
+  <div class="modebar">
+    <div class="mode-chip">&#128506; Map Type</div>
+    <div class="mode-chip">&#128205; Location</div>
+    <div class="mode-chip">&#128421; Screen</div>
+    <div class="mode-chip underway" id="underwayChip">&#9973; Underway</div>
+  </div>
+
+  <div class="compass-wrap" id="compassWrap">
+    <svg viewBox="-100 -100 200 200">
+      <circle r="96" fill="rgba(6,11,18,0.55)" stroke="#3a4f68" stroke-width="1"/>
+      <circle r="88" fill="none" stroke="#3a4f68" stroke-width="1"/>
+      <g id="ticks"></g>
+      <text x="0" y="-72" text-anchor="middle" fill="#ff7a6b" font-family="Barlow Condensed" font-weight="700" font-size="15">N</text>
+      <text x="0" y="79" text-anchor="middle" fill="#cfe0ea" font-family="Barlow Condensed" font-weight="700" font-size="13">S</text>
+      <text x="76" y="5" text-anchor="middle" fill="#cfe0ea" font-family="Barlow Condensed" font-weight="700" font-size="13">E</text>
+      <text x="-76" y="5" text-anchor="middle" fill="#cfe0ea" font-family="Barlow Condensed" font-weight="700" font-size="13">W</text>
+      <g transform="rotate(158)">
+        <polygon points="0,-58 -8,20 0,4 8,20" fill="#ffb066"/>
+        <polygon points="0,58 -8,-20 0,-4 8,-20" fill="#3a4f68"/>
+      </g>
+      <circle r="6" fill="#0a121e" stroke="#ffb066" stroke-width="2"/>
+    </svg>
+    <div class="compass-readout">158&deg;M</div>
+  </div>
+
+  <div class="navctl">
+    <div class="slider-track"><div class="slider-thumb"></div></div>
+    <div class="navbtn">&#9650;</div>
+    <div class="navbtn">&#9660;</div>
+  </div>
+
+  <div class="actionstack">
+    <div class="action"><span class="glyph">&#9998;</span>Routes</div>
+    <div class="action"><span class="glyph">&#9678;</span>Tracks</div>
+    <div class="action"><span class="glyph">&#9679;</span>Track</div>
+    <div class="action"><span class="glyph">&#9875;</span>Anchor</div>
+    <div class="action"><span class="glyph">&#128220;</span>Node</div>
+    <div class="action-icons">
+      <div class="icon-btn">&#8857;</div>
+      <div class="icon-btn">&#8635;</div>
+    </div>
+  </div>
+
+  <div class="instrument-cluster">
+    <div class="cluster-cell dest grow">
+      <div class="cl-label">Bearing &middot; Range</div>
+      <div class="cl-value">&#127919; Owls Head &middot; 4.2nm</div>
+    </div>
+    <div class="cluster-cell">
+      <div class="cl-label">Heading / Speed</div>
+      <div class="cl-value">158&deg;M / 4.1kt</div>
+    </div>
+    <div class="cluster-cell tide">
+      <div>
+        <div class="cl-label">Tide</div>
+        <div class="cl-value" style="font-size:1em;">&#9660; 1h05m</div>
+      </div>
+      <svg viewBox="0 0 60 20"><path d="M0 14 Q15 2 30 10 T60 6" fill="none" stroke="#ffb066" stroke-width="2"/></svg>
+    </div>
+    <div class="cluster-editbtn">&#9998;</div>
+  </div>
+</div>
+
+<script>
+  // Compass tick marks + numerals, generated once.
+  (function () {
+    var g = document.getElementById('ticks');
+    var svgNS = 'http://www.w3.org/2000/svg';
+    for (var d = 0; d < 360; d += 10) {
+      var major = d % 30 === 0;
+      var r1 = major ? 74 : 80;
+      var a = (d - 90) * Math.PI / 180;
+      var x1 = Math.cos(a) * r1, y1 = Math.sin(a) * r1;
+      var x2 = Math.cos(a) * 88, y2 = Math.sin(a) * 88;
+      var line = document.createElementNS(svgNS, 'line');
+      line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+      line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+      line.setAttribute('stroke', major ? '#6a8aa8' : '#3a4f68');
+      line.setAttribute('stroke-width', major ? 1.4 : 0.8);
+      g.appendChild(line);
+      if (major && d !== 0) {
+        var tr = 63;
+        var tx = Math.cos(a) * tr, ty = Math.sin(a) * tr;
+        var t = document.createElementNS(svgNS, 'text');
+        t.setAttribute('x', tx); t.setAttribute('y', ty + 4);
+        t.setAttribute('text-anchor', 'middle');
+        t.setAttribute('fill', '#7891a3');
+        t.setAttribute('font-family', 'Barlow Condensed');
+        t.setAttribute('font-size', '11');
+        t.textContent = d;
+        g.appendChild(t);
+      }
+    }
+  })();
+
+  document.getElementById('underwayChip').addEventListener('click', function () {
+    document.querySelectorAll('.modebar, .actionstack, .navctl').forEach(function (el) {
+      el.style.display = el.style.display === 'none' ? '' : 'none';
+    });
+  });
+</script>
+</body>
+</html>

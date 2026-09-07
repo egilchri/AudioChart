@@ -1,0 +1,385 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Chart &amp; Brass</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+  :root{
+    --ink:        #120d08;
+    --ink-2:      #1b140d;
+    --ink-3:      #241a0f;
+    --brass:      #c79a48;
+    --brass-hi:   #ecc07c;
+    --brass-dim:  #6f5730;
+    --parchment:  #ece2c6;
+    --parchment-dim: #a89a78;
+    --water-deep: #12333c;
+    --water-mid:  #1c4650;
+    --water-shal: #2c6270;
+    --land:       #cbb385;
+    --land-edge:  #8a6f43;
+    --hazard:     #cf5b2e;
+    --needle:     #a83a2c;
+    --font-serif: "Fraunces", Georgia, serif;
+    --font-mono:  "JetBrains Mono", "SF Mono", monospace;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; height:100%; overflow:hidden; background:var(--ink); }
+
+  .screen{
+    position:relative;
+    width:100vw; height:100dvh;
+    overflow:hidden;
+    font-family:var(--font-serif);
+    background:var(--water-deep);
+    container-type: inline-size;
+  }
+  .screen > *{ font-size: clamp(12px, 2.05cqw, 24px); }
+
+  /* ================= CHART BACKGROUND (stays behind everything) ================= */
+  .chart-bg{ position:absolute; inset:0; z-index:0; overflow:hidden; }
+  .chart-bg::after{
+    /* vignette so panel edges read as sitting ABOVE the chart, not stitched into it */
+    content:""; position:absolute; inset:0; pointer-events:none;
+    background: radial-gradient(ellipse at 50% 42%, transparent 55%, rgba(0,0,0,0.32) 100%);
+  }
+  .shoal{ position:absolute; border-radius:50%; background:var(--water-shal); filter: blur(6px); opacity:0.55; }
+  .land{
+    position:absolute; background:var(--land); border:1.5px solid var(--land-edge);
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.25);
+  }
+  .ruler{ position:absolute; opacity:0.28; background-color:transparent; }
+  .ruler.top{ top:0; left:0; right:0; height:10px; background-image:repeating-linear-gradient(to right, var(--brass) 0 1px, transparent 1px 24px); }
+  .ruler.bottom{ bottom:0; left:0; right:0; height:10px; background-image:repeating-linear-gradient(to right, var(--brass) 0 1px, transparent 1px 24px); }
+  .ruler.left{ top:0; bottom:0; left:0; width:10px; background-image:repeating-linear-gradient(to bottom, var(--brass) 0 1px, transparent 1px 24px); }
+  .ruler.right{ top:0; bottom:0; right:0; width:10px; background-image:repeating-linear-gradient(to bottom, var(--brass) 0 1px, transparent 1px 24px); }
+
+  .route-line{ position:absolute; border-top:0.16em dashed var(--hazard); opacity:0.9; transform-origin:left center; }
+  .hazard{ position:absolute; width:0.9em; height:0.9em; }
+  .hazard svg{ width:100%; height:100%; overflow:visible; }
+  .boat{ position:absolute; width:2.1em; height:2.1em; transform:translate(-50%,-50%) rotate(28deg); filter:drop-shadow(0 2px 3px rgba(0,0,0,0.55)); }
+
+  /* ================= SHARED UI PRIMITIVES ================= */
+  .panel{
+    background: rgba(18,13,8,0.95);
+    border: 1px solid var(--brass-dim);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+  }
+  .icon{ display:block; width:1em; height:1em; flex:none; }
+  .icon path, .icon circle, .icon polygon, .icon line{ vector-effect: non-scaling-stroke; }
+
+  /* ---- title strip ---- */
+  .titlebar{
+    position:absolute; top:0; left:0; right:0; z-index:2;
+    height:2.6em;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:0 1em;
+    background: var(--ink);
+    border-bottom:1px solid var(--brass-dim);
+    color:var(--parchment-dim);
+    font-size:0.92em;
+    letter-spacing:0.04em;
+  }
+  .titlebar .mode{ display:flex; align-items:center; gap:0.55em; color:var(--brass-hi); font-weight:500; text-transform:uppercase; font-size:0.86em; letter-spacing:0.12em; }
+  .titlebar .mode .icon{ width:1.1em; height:1.1em; color:var(--brass); }
+  .titlebar .gps{ font-family:var(--font-mono); font-size:0.86em; color:var(--parchment-dim); }
+
+  /* ---- compass: the hero instrument, stands alone ---- */
+  .compass-wrap{
+    position:absolute; z-index:2;
+    top:3.7em; left:0.8em;
+    width:11.4em; height:11.4em;
+  }
+  .compass-wrap svg{ width:100%; height:100%; display:block; overflow:visible; filter: drop-shadow(0 6px 16px rgba(0,0,0,0.5)); }
+
+  /* ---- zoom / pan: small, quiet, clearly separate from compass ---- */
+  .zoom-ctl{
+    position:absolute; z-index:2;
+    top:17.1em; left:2.7em;
+    width:6em;
+    display:flex; flex-direction:column; align-items:center; gap:0.4em;
+    background: rgba(18,13,8,0.94);
+    border:1px solid var(--brass-dim);
+    border-radius:0.5em;
+    padding:0.5em 0.4em;
+  }
+  .zoom-btn{
+    width:1.9em; height:1.9em; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    background: rgba(199,154,72,0.08);
+    border:1px solid var(--brass-dim);
+    color:var(--brass);
+    font-size:0.85em;
+    cursor:pointer;
+  }
+  .zoom-btn .icon{ width:0.9em; height:0.9em; }
+  .zoom-track{ width:0.25em; height:3.2em; background:var(--brass-dim); border-radius:0.2em; position:relative; }
+  .zoom-thumb{ position:absolute; top:32%; left:50%; width:0.7em; height:0.7em; border-radius:50%; background:var(--brass); transform:translateX(-50%); box-shadow:0 0 0 3px rgba(18,13,8,0.55); }
+
+  /* ---- secondary mode toggles (Map Type / Location / Screen / Underway) ---- */
+  .mode-row{
+    position:absolute; z-index:2;
+    top:3.7em; right:0.8em; left:13em;
+    display:flex; justify-content:flex-end; flex-wrap:wrap; gap:0.5em;
+  }
+  .mode-chip{
+    display:flex; align-items:center; gap:0.4em;
+    font-size:0.78em; color:var(--parchment-dim);
+    background: rgba(18,13,8,0.94);
+    border:none; border-bottom:2px solid transparent;
+    padding:0.45em 0.7em 0.35em;
+    white-space:nowrap; cursor:pointer;
+    text-transform:uppercase; letter-spacing:0.06em;
+  }
+  .mode-chip .icon{ width:1em; height:1em; color:var(--brass-dim); }
+  .mode-chip.active{ color:var(--brass-hi); border-bottom-color:var(--brass); }
+  .mode-chip.active .icon{ color:var(--brass); }
+
+  /* ---- right rail: route / tracking actions, secondary weight ---- */
+  .rail{
+    position:absolute; z-index:2;
+    top:6.6em; right:0.8em; bottom:5.1em;
+    width:7.4em;
+    display:flex; flex-direction:column;
+    padding:0.3em 0;
+  }
+  .rail-item{
+    display:flex; align-items:center; gap:0.55em;
+    padding:0.55em 0.6em;
+    color:var(--parchment-dim);
+    font-size:0.78em;
+    border-top:1px solid rgba(111,87,48,0.4);
+    cursor:pointer;
+  }
+  .rail-item:first-child{ border-top:none; }
+  .rail-item .icon{ width:1.05em; height:1.05em; color:var(--brass-dim); }
+  .rail-item.on{ color:var(--brass-hi); }
+  .rail-item.on .icon{ color:var(--brass); }
+  .rail-spacer{ flex:1; min-height:0.6em; }
+  .rail-quick{ display:flex; gap:0.4em; justify-content:center; padding-top:0.5em; border-top:1px solid rgba(111,87,48,0.4); }
+
+  /* ---- bottom status bar: one unified instrument strip ---- */
+  .status-bar{
+    position:absolute; z-index:2;
+    left:0.8em; right:0.8em; bottom:0.8em;
+    height:3.9em;
+    display:flex; align-items:stretch;
+    border-radius:0.35em;
+    overflow:hidden;
+  }
+  .status-seg{
+    display:flex; flex-direction:column; justify-content:center;
+    padding:0 1em;
+    border-right:1px solid var(--brass-dim);
+    white-space:nowrap;
+  }
+  .status-seg:last-child{ border-right:none; }
+  .status-label{
+    font-size:0.6em; letter-spacing:0.14em; text-transform:uppercase;
+    color:var(--parchment-dim); margin-bottom:0.18em;
+  }
+  .status-value{
+    font-family:var(--font-mono); color:var(--parchment); font-size:1em; font-weight:500;
+  }
+  .status-seg.hero{ flex:1 1 auto; }
+  .status-seg.hero .status-value{
+    font-size:1.7em; font-weight:700; color:var(--brass-hi);
+    letter-spacing:0.01em;
+  }
+  .status-seg.hero .status-label{ color:var(--brass-dim); }
+  .status-seg.tide{ }
+  .status-seg.tide .status-value{ display:flex; align-items:center; gap:0.35em; font-family:var(--font-serif); font-size:0.95em; }
+  .status-seg.tide .icon{ width:1em; height:1em; color:var(--brass); }
+  .status-edit{
+    display:flex; align-items:center; justify-content:center;
+    width:3.2em;
+    cursor:pointer;
+  }
+  .status-edit .icon{ width:1.15em; height:1.15em; color:var(--brass); }
+</style>
+</head>
+<body>
+<div class="screen">
+
+  <!-- ===== chart background — behind all UI ===== -->
+  <div class="chart-bg">
+    <div class="ruler top"></div><div class="ruler bottom"></div>
+    <div class="ruler left"></div><div class="ruler right"></div>
+
+    <div class="land" style="top:0; left:0; width:34%; height:40%; border-radius:0 0 60% 30%/0 0 40% 60%;"></div>
+    <div class="land" style="bottom:0; left:6%; width:22%; height:22%; border-radius:40% 60% 0 0/60% 40% 0 0;"></div>
+    <div class="land" style="top:12%; right:8%; width:14%; height:10%; border-radius:50%;"></div>
+    <div class="land" style="bottom:18%; right:14%; width:9%; height:7%; border-radius:50%;"></div>
+    <div class="shoal" style="top:30%; left:41%; width:120px; height:120px;"></div>
+
+    <div class="route-line" style="top:38%; left:34%; width:44%; rotate:8deg;"></div>
+
+    <div class="hazard" style="top:44%; left:52%;">
+      <svg viewBox="0 0 20 20"><polygon points="10,2 18,17 2,17" fill="none" stroke="var(--hazard)" stroke-width="1.6"/><circle cx="10" cy="13" r="1" fill="var(--hazard)"/></svg>
+    </div>
+    <div class="hazard" style="top:58%; left:46%;">
+      <svg viewBox="0 0 20 20"><polygon points="10,2 18,17 2,17" fill="none" stroke="var(--hazard)" stroke-width="1.6"/><circle cx="10" cy="13" r="1" fill="var(--hazard)"/></svg>
+    </div>
+
+    <div class="boat" style="top:38%; left:34%;">
+      <svg viewBox="0 0 24 24"><path d="M12 2 L18 20 L12 16.5 L6 20 Z" fill="var(--parchment)" stroke="var(--ink)" stroke-width="1"/></svg>
+    </div>
+  </div>
+
+  <!-- ===== title strip ===== -->
+  <div class="titlebar">
+    <div class="mode">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2V6z"/><path d="M9 4v14M15 6v14"/></svg>
+      Chart
+    </div>
+    <div class="gps">GPS &plusmn;6m &middot; DEVICE</div>
+  </div>
+
+  <!-- ===== compass — the hero instrument, alone in its corner ===== -->
+  <div class="compass-wrap">
+    <svg viewBox="0 0 200 200" id="compassSvg">
+      <circle cx="100" cy="100" r="97" fill="var(--ink-2)" stroke="var(--brass-dim)" stroke-width="3"/>
+      <circle cx="100" cy="100" r="88" fill="none" stroke="var(--brass)" stroke-width="1.2"/>
+      <circle cx="100" cy="100" r="68" fill="none" stroke="var(--brass-dim)" stroke-width="1"/>
+      <g id="ticks"></g>
+      <g id="labels"></g>
+      <polygon points="100,6 95,20 105,20" fill="var(--brass-hi)"/>
+      <g id="needle">
+        <line x1="100" y1="100" x2="100" y2="30" stroke="var(--needle)" stroke-width="3.4" stroke-linecap="round"/>
+        <line x1="100" y1="100" x2="100" y2="146" stroke="var(--brass-dim)" stroke-width="2.6" stroke-linecap="round"/>
+      </g>
+      <circle cx="100" cy="100" r="7" fill="var(--brass)" stroke="var(--ink)" stroke-width="1.5"/>
+    </svg>
+  </div>
+
+  <!-- ===== zoom / pan — small, quiet, clear of the compass ===== -->
+  <div class="zoom-ctl">
+    <div class="zoom-btn">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+    </div>
+    <div class="zoom-track"><div class="zoom-thumb"></div></div>
+    <div class="zoom-btn">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/></svg>
+    </div>
+  </div>
+
+  <!-- ===== secondary mode toggles ===== -->
+  <div class="mode-row">
+    <div class="mode-chip">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2V6z"/></svg>
+      Map Type
+    </div>
+    <div class="mode-chip">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21s-7-6.1-7-11a7 7 0 0114 0c0 4.9-7 11-7 11z"/><circle cx="12" cy="10" r="2.4"/></svg>
+      Location
+    </div>
+    <div class="mode-chip active">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="18" height="13" rx="1"/><path d="M9 21h6M12 17v4"/></svg>
+      Screen
+    </div>
+    <div class="mode-chip">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 15c3-6 15-6 18 0M6 12l1-4M18 12l-1-4M9 8l.5-3M15 8l-.5-3"/></svg>
+      Underway
+    </div>
+  </div>
+
+  <!-- ===== right rail: route / tracking actions (secondary) ===== -->
+  <div class="rail panel" style="border-radius:0.6em; padding:0.3em 0.3em;">
+    <div class="rail-item">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 19c4-9 5 9 9 0 2-4.5 3.5-4.5 7 0" stroke-dasharray="2.4 2.2"/></svg>
+      Routes
+    </div>
+    <div class="rail-item">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.4" fill="currentColor" stroke="none"/></svg>
+      Tracks
+    </div>
+    <div class="rail-item on">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.4" fill="currentColor" stroke="none"/></svg>
+      Track
+    </div>
+    <div class="rail-item">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3v4M12 21v-6M5 11a7 7 0 0014 0M5 11H3M21 11h-2"/></svg>
+      Anchor
+    </div>
+    <div class="rail-item">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="12" cy="18" r="2"/><path d="M8 6h8M7.3 7.7L11 16M16.7 7.7L13 16"/></svg>
+      Node Ops
+    </div>
+    <div class="rail-spacer"></div>
+    <div class="rail-quick">
+      <div class="zoom-btn">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+      </div>
+      <div class="zoom-btn">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4v5h5M20 20v-5h-5"/><path d="M5 15a8 8 0 0013.9 3.2M19 9A8 8 0 005.1 5.8"/></svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== bottom status bar: one unified instrument strip ===== -->
+  <div class="status-bar panel">
+    <div class="status-seg">
+      <div class="status-label">To Waypoint</div>
+      <div class="status-value">Owls Head &middot; 4.2nm</div>
+    </div>
+    <div class="status-seg hero">
+      <div class="status-label">Heading &middot; Speed</div>
+      <div class="status-value">158&deg;M &nbsp;/&nbsp; 4.1kt</div>
+    </div>
+    <div class="status-seg tide">
+      <div class="status-label">Tide</div>
+      <div class="status-value">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 17c2-6 4 6 6 0s4 6 6 0 4 6 4 0"/><path d="M12 3v9M8 8l4-5 4 5"/></svg>
+        Rising &middot; +1.2ft
+      </div>
+    </div>
+    <div class="status-edit">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20l1-4 11-11 3 3-11 11-4 1z"/><path d="M14 6l3 3"/></svg>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // Compass tick marks + cardinal/degree labels — generated once, purely decorative geometry.
+  (function(){
+    var svgns = "http://www.w3.org/2000/svg";
+    var ticks = document.getElementById('ticks');
+    var labels = document.getElementById('labels');
+    var cx = 100, cy = 100;
+    for (var d = 0; d < 360; d += 10) {
+      var major = (d % 30 === 0);
+      var rOuter = 88, rInner = major ? 74 : 80;
+      var rad = (d - 90) * Math.PI / 180;
+      var x1 = cx + rOuter * Math.cos(rad), y1 = cy + rOuter * Math.sin(rad);
+      var x2 = cx + rInner * Math.cos(rad), y2 = cy + rInner * Math.sin(rad);
+      var line = document.createElementNS(svgns, 'line');
+      line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+      line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+      line.setAttribute('stroke', major ? 'var(--brass-hi)' : 'var(--brass-dim)');
+      line.setAttribute('stroke-width', major ? 1.8 : 1);
+      ticks.appendChild(line);
+
+      if (d % 30 === 0) {
+        var isCardinal = (d % 90 === 0);
+        var rLabel = 60;
+        var lx = cx + rLabel * Math.cos(rad), ly = cy + rLabel * Math.sin(rad);
+        var text = document.createElementNS(svgns, 'text');
+        text.setAttribute('x', lx); text.setAttribute('y', ly);
+        text.setAttribute('text-anchor', 'middle');
+        text.setAttribute('dominant-baseline', 'middle');
+        text.setAttribute('fill', isCardinal ? 'var(--parchment)' : 'var(--parchment-dim)');
+        text.setAttribute('font-family', isCardinal ? 'var(--font-serif)' : 'var(--font-mono)');
+        text.setAttribute('font-size', isCardinal ? 15 : 8.5);
+        text.setAttribute('font-weight', isCardinal ? 600 : 400);
+        var names = {0:'N', 90:'E', 180:'S', 270:'W'};
+        text.textContent = isCardinal ? names[d] : String(d);
+        labels.appendChild(text);
+      }
+    }
+  })();
+</script>
+</body>
+</html>

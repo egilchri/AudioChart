@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Zoned — Quiet Minimal</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --ink:#0a1420;
+    --water:#d6e6ea;
+    --water-deep:#bcd6dc;
+    --land:#e9e0c9;
+    --land-edge:#d2c39b;
+    --hazard:#c98a2e;
+    --route:#c65454;
+
+    --text-hi:#f2f6f9;
+    --text-mid:#9fb1c0;
+    --text-lo:#6c8194;
+    --accent:#4fa3e3;
+    --accent-dim:#2c5878;
+
+    --chip-bg: rgba(8, 16, 26, 0.58);
+    --chip-blur: 10px;
+    --hero-bg: rgba(7, 14, 22, 0.86);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;background:var(--water);}
+  body{font-family:"IBM Plex Sans",system-ui,sans-serif;}
+
+  .screen{
+    position:relative;
+    width:100vw; height:100dvh;
+    overflow:hidden;
+    isolation:isolate;
+  }
+
+  /* ---------- chart background (stays visually behind everything) ---------- */
+  .chart-bg{position:absolute; inset:0; z-index:0; background:var(--water);}
+  .land{position:absolute; background:var(--land); border:1px solid var(--land-edge);}
+  .deep{position:absolute; background:var(--water-deep); border-radius:50%; filter:blur(2px); opacity:.7;}
+  .route-line{position:absolute; border-top:2.5px dashed var(--route); opacity:.75; transform-origin:left center;}
+  .hazard{position:absolute; width:0; height:0; border-left:5px solid transparent; border-right:5px solid transparent; border-bottom:9px solid var(--hazard); opacity:.9;}
+  .boat{position:absolute; font-size:1.8em; transform:translate(-50%,-50%) rotate(20deg); filter:drop-shadow(0 1px 3px rgba(0,0,0,.45));}
+
+  /* a soft vignette that gently darkens the extreme edges only — keeps
+     chrome legible against whatever chart color happens to sit under it,
+     without ever forming a hard box the land can visibly stop at. */
+  .vignette{position:absolute; inset:0; z-index:1; pointer-events:none;
+    background:
+      radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(4,10,16,0.16) 100%);
+  }
+
+  /* ---------- chrome scaffold ---------- */
+  .chrome{
+    position:absolute; inset:0; z-index:2;
+    display:flex; flex-direction:column;
+    padding: clamp(10px,1.6vmin,18px);
+    gap: clamp(10px,1.8vmin,20px);
+    pointer-events:none;
+  }
+  .chrome > *{pointer-events:auto;}
+
+  /* ---------- top row: title (quiet) + mode toggles (quiet) ---------- */
+  .top-row{
+    display:flex; align-items:flex-start; justify-content:space-between;
+    gap: clamp(10px,2vmin,20px);
+  }
+  .title{
+    font-size: clamp(11px,1.5vmin,13px);
+    letter-spacing:.02em;
+    color: var(--text-mid);
+    padding: .35em .1em;
+    white-space:nowrap;
+  }
+  .title b{color:var(--text-hi); font-weight:600;}
+
+  .toggles{
+    display:flex; gap: clamp(10px,1.6vmin,18px);
+    flex-wrap:wrap; justify-content:flex-end;
+  }
+  .toggle{
+    appearance:none; border:none; background:none; cursor:pointer;
+    font-family:inherit;
+    font-size: clamp(11px,1.5vmin,13px);
+    font-weight:500;
+    color: var(--text-lo);
+    padding: .4em .1em;
+    border-bottom: 1.5px solid transparent;
+    white-space:nowrap;
+    display:flex; align-items:center; gap:.4em;
+    transition: color .15s ease;
+  }
+  .toggle .ic{opacity:.75; font-size:1em;}
+  .toggle.active{color:var(--accent); border-bottom-color:var(--accent);}
+
+  /* ---------- main row: left cluster (compass + zoom) / right cluster (rail) ---------- */
+  .main-row{
+    flex:1;
+    display:flex; align-items:stretch; justify-content:space-between;
+    min-height:0;
+  }
+
+  .left-cluster{
+    display:flex; flex-direction:column; align-items:flex-start;
+    gap: clamp(18px,3vmin,30px);
+  }
+
+  /* the compass: the single dominant instrument. genuinely large,
+     stands alone, no shared box with anything else. */
+  .compass-wrap{
+    width: clamp(150px, 27vmin, 270px);
+    height: clamp(150px, 27vmin, 270px);
+    border-radius:50%;
+    background: radial-gradient(circle at 42% 38%, rgba(18,32,48,.72), rgba(6,13,21,.68) 72%);
+    backdrop-filter: blur(var(--chip-blur));
+    -webkit-backdrop-filter: blur(var(--chip-blur));
+    box-shadow: 0 0 0 1px rgba(79,163,227,.22), 0 8px 24px rgba(0,0,0,.22);
+    display:flex; align-items:center; justify-content:center;
+    position:relative;
+    flex-shrink:0;
+  }
+  .compass-wrap svg{width:82%; height:82%; overflow:visible;}
+
+  .compass-instrument{
+    display:flex; flex-direction:column; align-items:center;
+    gap: clamp(6px,1vmin,10px);
+  }
+  .compass-heading{
+    font-family:"IBM Plex Mono",monospace;
+    font-weight:600;
+    font-size: clamp(14px,2vmin,18px);
+    color: var(--text-hi);
+    letter-spacing:.02em;
+    background: var(--chip-bg);
+    backdrop-filter: blur(var(--chip-blur));
+    -webkit-backdrop-filter: blur(var(--chip-blur));
+    border-radius: 6px;
+    padding: .2em .7em;
+  }
+  .compass-heading .u{color:var(--text-lo); font-weight:500; font-size:.7em; margin-left:.3em;}
+
+  .zoom-ctrl{
+    display:flex; align-items:center; gap: clamp(14px,2vmin,20px);
+    padding: clamp(10px,1.4vmin,14px) clamp(12px,1.6vmin,16px);
+    background: var(--chip-bg);
+    backdrop-filter: blur(var(--chip-blur));
+    -webkit-backdrop-filter: blur(var(--chip-blur));
+    border-radius: 999px;
+  }
+  .zoom-track{
+    width: 3px; height: clamp(56px,9vmin,88px);
+    background: rgba(255,255,255,.22);
+    border-radius:2px;
+    position:relative;
+  }
+  .zoom-track .puck{
+    position:absolute; left:50%; top:32%; transform:translate(-50%,-50%);
+    width: 9px; height:9px; border-radius:50%;
+    background: var(--accent);
+    box-shadow:0 0 0 5px rgba(79,163,227,.22);
+  }
+  .zoom-btns{display:flex; flex-direction:column; gap: clamp(8px,1.2vmin,12px);}
+  .icon-btn{
+    appearance:none; cursor:pointer; font-family:inherit;
+    width: clamp(30px,4vmin,38px); height: clamp(30px,4vmin,38px);
+    border-radius:50%;
+    border:1px solid rgba(255,255,255,.16);
+    background: rgba(8,16,26,.4);
+    color: var(--text-mid);
+    display:flex; align-items:center; justify-content:center;
+    font-size: clamp(12px,1.6vmin,15px);
+    line-height:1;
+  }
+  .icon-btn:active{color:var(--text-hi);}
+
+  /* ---------- right cluster: secondary action rail, quiet and small ---------- */
+  .right-cluster{
+    display:flex; flex-direction:column; align-items:flex-end;
+    justify-content:flex-start;
+    gap: clamp(14px,2.2vmin,20px);
+  }
+  .rail{
+    display:flex; flex-direction:column; align-items:stretch;
+    background: var(--chip-bg);
+    backdrop-filter: blur(var(--chip-blur));
+    -webkit-backdrop-filter: blur(var(--chip-blur));
+    border-radius: 10px;
+    padding: clamp(6px,1vmin,10px) 0;
+    min-width: clamp(112px,13vmin,150px);
+  }
+  .rail-item{
+    appearance:none; border:none; background:none; cursor:pointer;
+    font-family:inherit; text-align:left;
+    display:flex; align-items:center; gap:.55em;
+    color: var(--text-mid);
+    font-size: clamp(12px,1.6vmin,14px);
+    font-weight:500;
+    padding: .5em .9em;
+  }
+  .rail-item .ic{width:1.1em; text-align:center; opacity:.8; font-size:.95em;}
+  .rail-item.rec .ic{color:var(--route);}
+  .rail-item:active, .rail-item:hover{color:var(--text-hi);}
+
+  .rail-icons{display:flex; gap: clamp(8px,1.2vmin,12px);}
+
+  /* ---------- bottom bar: the second hero. one consistent treatment,
+     hierarchy by type size/weight, not by mixing borders vs bare text. ---------- */
+  .bottom-bar{
+    display:flex; align-items:center;
+    gap: clamp(14px,2.4vmin,26px);
+    background: var(--hero-bg);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-radius: 12px;
+    padding: clamp(10px,1.6vmin,16px) clamp(16px,2.4vmin,24px);
+  }
+  .stat{display:flex; flex-direction:column; gap:.15em; min-width:0;}
+  .stat .label{
+    font-size: clamp(9.5px,1.2vmin,11px);
+    letter-spacing:.06em; text-transform:uppercase;
+    color: var(--text-lo); font-weight:500;
+  }
+  .stat .value{
+    font-family:"IBM Plex Mono",monospace;
+    color: var(--text-hi);
+    white-space:nowrap;
+  }
+  .stat.dest .value{font-size: clamp(16px,2.3vmin,21px); font-weight:500; color:var(--text-hi);}
+  .stat.dest .value b{color:var(--accent); font-weight:600;}
+  /* the single largest readout on screen besides the compass */
+  .stat.nav .value{font-size: clamp(26px,4.6vmin,42px); font-weight:600; letter-spacing:-.01em;}
+  .stat.tide .value{font-size: clamp(13px,1.8vmin,15px); font-weight:500; display:flex; align-items:center; gap:.5em;}
+
+  .bar-divider{width:1px; align-self:stretch; background:rgba(255,255,255,.12);}
+
+  .bottom-bar .icon-btn{margin-left:auto; flex-shrink:0;}
+  .bottom-bar .stat.tide{margin-left:auto;}
+  .bottom-bar .icon-btn{margin-left:0;}
+
+</style>
+</head>
+<body>
+<div class="screen">
+
+  <div class="chart-bg">
+    <div class="land" style="top:0; left:0; width:34%; height:40%; border-radius:0 0 60% 30%/0 0 40% 60%;"></div>
+    <div class="land" style="bottom:0; left:6%; width:22%; height:22%; border-radius:40% 60% 0 0/60% 40% 0 0;"></div>
+    <div class="land" style="top:12%; right:8%; width:14%; height:10%; border-radius:50%;"></div>
+    <div class="land" style="bottom:18%; right:14%; width:9%; height:7%; border-radius:50%;"></div>
+    <div class="deep" style="top:30%; left:40%; width:11vmax; height:11vmax;"></div>
+    <div class="hazard" style="top:44%; left:52%;"></div>
+    <div class="hazard" style="top:58%; left:46%;"></div>
+    <div class="route-line" style="top:38%; left:34%; width:44%; rotate:8deg;"></div>
+    <div class="boat" style="top:38%; left:34%;">&#9973;</div>
+  </div>
+  <div class="vignette"></div>
+
+  <div class="chrome">
+
+    <div class="top-row">
+      <div class="title">Chart &nbsp;&middot;&nbsp; GPS <b>&plusmn;6m</b></div>
+      <div class="toggles">
+        <button class="toggle"><span class="ic">&#128506;</span>Map Type</button>
+        <button class="toggle"><span class="ic">&#128205;</span>Location</button>
+        <button class="toggle"><span class="ic">&#128421;</span>Screen</button>
+        <button class="toggle active"><span class="ic">&#9973;</span>Underway</button>
+      </div>
+    </div>
+
+    <div class="main-row">
+      <div class="left-cluster">
+        <div class="compass-instrument">
+          <div class="compass-wrap">
+            <svg id="rose" viewBox="0 0 200 200"></svg>
+          </div>
+          <div class="compass-heading">158&deg;<span class="u">M</span></div>
+        </div>
+        <div class="zoom-ctrl">
+          <div class="zoom-track"><div class="puck"></div></div>
+          <div class="zoom-btns">
+            <button class="icon-btn">&#9650;</button>
+            <button class="icon-btn">&#9660;</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="right-cluster">
+        <div class="rail">
+          <button class="rail-item"><span class="ic">&#9998;</span>Routes</button>
+          <button class="rail-item"><span class="ic">&#9678;</span>Tracks</button>
+          <button class="rail-item rec"><span class="ic">&#9679;</span>Track</button>
+          <button class="rail-item"><span class="ic">&#9875;</span>Anchor</button>
+          <button class="rail-item"><span class="ic">&#128220;</span>Node&nbsp;Ops</button>
+        </div>
+        <div class="rail-icons">
+          <button class="icon-btn" title="Center on me">&#8857;</button>
+          <button class="icon-btn" title="Reroute">&#8635;</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="bottom-bar">
+      <div class="stat dest">
+        <div class="label">Destination</div>
+        <div class="value">Owls Head &nbsp;<b>4.2nm</b></div>
+      </div>
+      <div class="bar-divider"></div>
+      <div class="stat nav">
+        <div class="label">Heading / Speed</div>
+        <div class="value">158&deg;M / 4.1kt</div>
+      </div>
+      <div class="bar-divider"></div>
+      <div class="stat tide">
+        <div class="label">Tide</div>
+        <div class="value">
+          <svg viewBox="0 0 60 20" style="width:3em; height:1.3em; display:block;">
+            <path d="M0 14 Q15 2 30 10 T60 6" fill="none" stroke="#4fa3e3" stroke-width="2"/>
+          </svg>
+          Rising
+        </div>
+      </div>
+      <button class="icon-btn" title="Edit route" style="margin-left:auto;">&#9998;</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // draw the compass rose: minor ticks every 30°, cardinal letters at N/E/S/W,
+  // a heading needle. done in a few lines of JS purely to get exact geometry —
+  // no interactivity, this renders once.
+  (function(){
+    var svg = document.getElementById('rose');
+    var ns = 'http://www.w3.org/2000/svg';
+    var cx = 100, cy = 100;
+    function pt(r, deg){
+      var rad = (deg - 90) * Math.PI/180; // 0deg = up
+      // convert so 0 is at top, clockwise
+      var a = deg * Math.PI/180;
+      return { x: cx + r*Math.sin(a), y: cy - r*Math.cos(a) };
+    }
+    function line(p1,p2,stroke,w,op){
+      var l=document.createElementNS(ns,'line');
+      l.setAttribute('x1',p1.x); l.setAttribute('y1',p1.y);
+      l.setAttribute('x2',p2.x); l.setAttribute('y2',p2.y);
+      l.setAttribute('stroke',stroke); l.setAttribute('stroke-width',w);
+      l.setAttribute('stroke-linecap','round');
+      if(op) l.setAttribute('opacity',op);
+      svg.appendChild(l);
+    }
+    // outer rim
+    var rim = document.createElementNS(ns,'circle');
+    rim.setAttribute('cx',cx); rim.setAttribute('cy',cy); rim.setAttribute('r',96);
+    rim.setAttribute('fill','none'); rim.setAttribute('stroke','rgba(255,255,255,.16)');
+    rim.setAttribute('stroke-width','1');
+    svg.appendChild(rim);
+
+    // fine ticks every 10°, longer every 30°, cardinal gap for labels
+    for(var d=0; d<360; d+=10){
+      var isMajor = d % 90 === 0;
+      var isMid = d % 30 === 0;
+      if(isMajor) continue; // reserved for letters
+      var r1 = isMid ? 80 : 88;
+      var r2 = 96;
+      var col = isMid ? 'rgba(255,255,255,.55)' : 'rgba(255,255,255,.28)';
+      line(pt(r1,d), pt(r2,d), col, isMid ? 1.6 : 1);
+    }
+
+    // cardinal letters
+    var labels = [['N',0],['E',90],['S',180],['W',270]];
+    labels.forEach(function(pair){
+      var t = document.createElementNS(ns,'text');
+      var p = pt(72, pair[1]);
+      t.setAttribute('x',p.x); t.setAttribute('y',p.y);
+      t.setAttribute('text-anchor','middle');
+      t.setAttribute('dominant-baseline','middle');
+      t.setAttribute('font-family','IBM Plex Sans, sans-serif');
+      t.setAttribute('font-weight', pair[0]==='N' ? '600':'500');
+      t.setAttribute('font-size', pair[0]==='N' ? '17':'13');
+      t.setAttribute('fill', pair[0]==='N' ? '#4fa3e3' : 'rgba(255,255,255,.6)');
+      t.textContent = pair[0];
+      svg.appendChild(t);
+    });
+
+    // heading needle (158°)
+    var heading = 158;
+    var tail = pt(20, heading+180);
+    var head = pt(70, heading);
+    line(tail, head, '#4fa3e3', 2.5);
+    var tip = document.createElementNS(ns,'circle');
+    var hp = pt(70, heading);
+    tip.setAttribute('cx',hp.x); tip.setAttribute('cy',hp.y); tip.setAttribute('r',3.5);
+    tip.setAttribute('fill','#4fa3e3');
+    svg.appendChild(tip);
+    var hub = document.createElementNS(ns,'circle');
+    hub.setAttribute('cx',cx); hub.setAttribute('cy',cy); hub.setAttribute('r',3);
+    hub.setAttribute('fill','rgba(255,255,255,.7)');
+    svg.appendChild(hub);
+  })();
+</script>
+</body>
+</html>
