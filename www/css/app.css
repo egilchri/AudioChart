@@ -2520,7 +2520,11 @@ body.wco-active #wco-titlebar { display: flex; }
 }
 .follow-progress-ctrl {
   pointer-events: none;
-  margin: 8px 0 0 8px;
+  /* margin-top well beyond the compass rose's own 8px margin-bottom above
+     it — per direct report, the two were crowding together on desktop with
+     only 8px of (collapsed, since both are in the same block-stacked
+     Leaflet corner) separation. */
+  margin: 24px 0 0 8px;
   font-size: 0.85rem;
   font-weight: 600;
   font-family: Arial, sans-serif;

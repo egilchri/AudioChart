@@ -1124,19 +1124,26 @@ const MAP_VIEW_MODES  = ['chart', 'satellite', 'low-tide', 'geology-maine', 'tow
 // Maps a display mode to the documents.geojson `category` it shows —
 // the whole reason "switch to Geology/History" needs no separate menu.
 const MAP_VIEW_DOC_CATEGORY = { 'geology-maine': 'geology', 'history': 'history', 'demographics': 'demographics', 'island-info': 'island-info' };
-// Named water passages/reaches/thorofares worth labeling directly on the
-// chart, like a real NOAA chart would — a hand-verified allowlist, not an
-// automatic filter, since Query.namedPlaces' label:'sea area' bucket (532
-// entries bay-wide) covers everything from these down to obscure named
-// coves/ledges/shoals with no prominence field to tell them apart. Every
-// name here was confirmed present in named_places.geojson by exact match
-// before being added — see _renderPassageLabels().
+// Named water passages/reaches/thorofares (plus a handful of major islands
+// that fall through every other label filter — see below) worth labeling
+// directly on the chart, like a real NOAA chart would — a hand-verified
+// allowlist, not an automatic filter, since Query.namedPlaces' label:'sea
+// area' bucket (532 entries bay-wide) covers everything from these down to
+// obscure named coves/ledges/shoals with no prominence field to tell them
+// apart. Every name here was confirmed present in named_places.geojson by
+// exact match before being added — see _renderPassageLabels().
+// "Isle Au Haut" itself is in here too, not just "Isle au Haut Thorofare" —
+// it's tagged label:"coastal feature" in the source data rather than
+// label:"island", so it silently fell through _renderAllIslandLabels()'s
+// island-only filter and never appeared anywhere on the chart at all,
+// despite being one of the most significant islands in the whole bay.
 const NOTABLE_PASSAGES = new Set([
   'Merchant Row', 'Fox Islands Thorofare', 'Little Thorofare',
   'Deer Island Thorofare', 'Eggemoggin Reach', 'Isle au Haut Thorofare',
   'Casco Passage', 'Fisherman Island Passage', 'Pond Island Passage',
   'Eastern Passage', 'North East Passage', 'Gilley Thorofare',
   'Bald Hill Reach', 'The Reach', 'Western Way', 'Eastern Way',
+  'Isle Au Haut',
 ]);
 let _mapViewMode      = MAP_VIEW_MODES.includes(localStorage.getItem('audiochart-chart-mode'))
   ? localStorage.getItem('audiochart-chart-mode') : 'satellite';
@@ -1982,7 +1989,10 @@ function _renderPassageLabels() {
   if (!features || !features.length) return;
   const markers = [];
   for (const f of features) {
-    if (f.properties.label !== 'sea area') continue;
+    // No label-value check here — NOTABLE_PASSAGES is itself the curation
+    // (see its comment for why: some genuinely notable features, like Isle
+    // Au Haut, are tagged with an unexpected label value in the source
+    // data and would otherwise be silently excluded).
     const name = f.properties.name;
     if (!name || !NOTABLE_PASSAGES.has(name)) continue;
     const [lon, lat] = f.geometry.coordinates;
