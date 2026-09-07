@@ -439,7 +439,7 @@
       </div>
       <div class="track-section track-route-section">
         <div class="track-section-label">Along route</div>
-        <select id="track-route-select">
+        <select id="track-route-select" title="Choose a saved route to simulate a track along">
           <option value="">— no routes saved —</option>
         </select>
         <button id="track-simulate-track" type="button" title="Generate a simulated GPS track following the selected route, for testing">&#129517; Simulate track</button>
@@ -481,7 +481,7 @@
           <span>mi</span>
         </div>
         <div class="track-speed-row" style="border-top:1px solid #2a5080;padding-top:5px">
-          <select id="track-config-select" style="flex:1"><option value="">— saved configs —</option></select>
+          <select id="track-config-select" style="flex:1" title="Choose a saved simulated-track configuration to load or delete"><option value="">— saved configs —</option></select>
           <button id="track-config-load" title="Load config">Load</button>
           <button id="track-config-delete" title="Delete config">✕</button>
         </div>
