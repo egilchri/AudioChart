@@ -1455,6 +1455,78 @@
         "body": "Two pieces of evidence on Isle au Haut tell opposite chapters of the same story. High on the island's south-facing slopes, a cobble beach sits stranded at 220-240 feet above today's sea level — left there roughly 15,500 years ago, right after the last glacier retreated, when the land, freed of the ice's weight, briefly stood higher relative to the sea than it does now. Down at Head Harbor, the opposite process is still visible today: the remains of a 19th-century fishing village lie along the harbor's west shore, now partly drowned as sea level has crept back up. Between those two points — one stranded high and dry, one being reclaimed by the tide — is roughly 15,000 years of the island rising, then the sea catching back up.",
         "source": "Geological Society of Maine — Geology of Isle au Haut, ME (Summer Field Trip Guide, July 2015), M. Chapman & R. Gerber"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.45268880502076, 44.142516835814256] },
+      "properties": {
+        "title": "Shell heaps that predate any English name",
+        "category": "history",
+        "era": "colonial",
+        "place": "Swan's Island",
+        "body": "Shell middens are scattered across Swan's Island — mostly clam, mixed with oyster, sea urchin, fish bone, and deer and waterfowl remains, some large enough to suggest long-term seasonal camps or even year-round settlement rather than brief visits. Wabanaki people built most of what's visible today, over a span running from roughly 4,000 years ago right up through European contact; the Malecite (Wolastoqiyik) people specifically are documented using this stretch of coast before the Indian Wars of 1725-26 disrupted Native life across the region.\n\nArrowheads and other stone tools still turn up occasionally today, surfaced by farming, construction, or ordinary coastal erosion — a reminder that the island had a working, inhabited history for millennia before anyone called it Swan's, or Burnt Coat, or anything in English at all.",
+        "source": "Maine Memory Network — Swan's Island: Canoes and Clamshells"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.4141372, 44.1757015] },
+      "properties": {
+        "title": "Burnt Coat becomes Swan's Island, on a promise of free land",
+        "category": "history",
+        "era": "colonial",
+        "place": "Atlantic, Swan's Island",
+        "body": "Samuel de Champlain charted this island as \"Brule-Côte\" — \"burnt hill\" — for old fire scars visible from the water, a name English speakers anglicized to Burnt Coat, or Burnt Coal. It carried that name for nearly two centuries before a Massachusetts land speculator named Colonel James Swan bought it, along with 24 neighboring islands, from the state in 1786.\n\nSwan offered generous terms to attract settlers he needed to make his purchase worth anything: 100 acres of free land to any family willing to build a house, farm the land, and stay seven years. David Smith, a Revolutionary War veteran, took him up on it in 1791, becoming the island's first permanent European settler. The island eventually took Swan's name instead of Burnt Coat's — though, as it turned out, Swan himself never once set foot on it.",
+        "source": "Wikipedia — Swan's Island, Maine; Maine Memory Network — Early Settlement"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.4527, 44.1425] },
+      "properties": {
+        "title": "The man the island is named for never saw it",
+        "category": "history",
+        "era": "revolution",
+        "place": "Swan's Island",
+        "body": "James Swan earned his island's namesake the hard way. A Sons of Liberty member who took part in the Boston Tea Party, he fought at Bunker Hill in 1775 and was wounded twice; as secretary of Massachusetts's wartime Board of War, he spent down his own personal fortune keeping the Continental Army supplied.\n\nAfter the war he speculated in land — including the 1786 purchase of Burnt Coat Island and two dozen neighbors that would eventually bear his name — and moved to Paris around 1787. In 1795, acting as an agent for France, he restructured roughly $38.4 million (in 2025 dollars) of American Revolutionary War debt owed to France into obligations held by private investors instead. It didn't end well for him personally: French creditors had him thrown into debtors' prison in Paris in 1808, and he stayed there for 22 years, finally released around 1830 — only to die in Paris that same year, on July 31, 1830, having never once visited the island that still carries his name today.",
+        "source": "Wikipedia — James Swan (financier)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.475, 44.145] },
+      "properties": {
+        "title": "A granite village at Minturn",
+        "category": "history",
+        "era": "industrial",
+        "place": "Minturn, Swan's Island",
+        "body": "Granite quarrying reshaped the western side of Swan's Island starting around 1890, when Baird's Quarry opened at Minturn and grew to a working face 500 by 250 feet — big enough that the village around it filled with boarding houses and stores for an immigrant workforce drawn in to cut and finish the stone (one source dates the operation instead to 1901, under the Matthew Baird Contracting Company of New York; the exact opening year isn't fully settled between accounts).\n\nFinished granite went out on barges from Quarry Wharf, towed clear of the harbor on a pulley-and-cable rig anchored to Ringbolt Ledge before the tow vessel raised sail for New York or Boston. Like most of Maine's island quarries, Baird's didn't survive the Depression — but for four decades, Minturn was a company town built entirely around the rock underneath it.",
+        "source": "Maine Memory Network — Baird's Quarry; Working Waterfront Archives — When Rock Was a Star on Swan's Island"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.4417, 44.14] },
+      "properties": {
+        "title": "A lighthouse pair too confusing to keep",
+        "category": "history",
+        "era": "industrial",
+        "place": "Hockamock Head, Swan's Island",
+        "body": "Burnt Coat Harbor Light first shone from Hockamock Head on August 15, 1872 — originally not one light but a pair of range lights meant to be lined up by approaching captains to mark a safe course into the harbor. In practice, mariners found the two lights more confusing than helpful, and the harbor recorded roughly one shipwreck a year until the Lighthouse Board gave up on the range-light arrangement and discontinued one of the pair in 1884.\n\nThe remaining light was automated in 1975, its original fourth-order Fresnel lens removed, and the Coast Guard finally handed the whole station over to the Town of Swans Island in 1993. A restoration effort begun in 2006 has kept the light — and its keeper's house, now a small museum — standing at the harbor mouth today.",
+        "source": "Wikipedia — Burnt Coat Harbor Light; Lighthousefriends.com"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.44535004311568, 44.1474894326225] },
+      "properties": {
+        "title": "From a 44-foot mailboat to the state ferry",
+        "category": "history",
+        "era": "modern",
+        "place": "Burnt Coat Harbor, Swan's Island",
+        "body": "Before the State of Maine ran a ferry here, a privately owned 44-foot boat called the Sea Wind carried passengers, mail, and freight between Bass Harbor (then still called McKinley) and Swan's Island by way of Frenchboro, starting in 1950 — one round trip a day, mail six days a week, and no vehicles at all.\n\nThe Maine Legislature handed ferry service to the newly formed Maine Port Authority in 1957, and the William S. Silsby began real vehicle service in July 1960, carrying seven or eight cars a trip. The route has been upgraded twice since: first to an eleven- or twelve-car boat, then to the Captain Henry Lee in 1992, a sixteen-to-seventeen-car ferry that still runs multiple trips a day between Bass Harbor and Swan's Island — the same crossing the Sea Wind once made alone.",
+        "source": "Maine Memory Network — The Swan's Island Ferry"
+      }
     }
   ]
 }
