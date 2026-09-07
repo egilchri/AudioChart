@@ -1,0 +1,727 @@
+<title>Helm Layouts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+
+<style>
+  :root {
+    /* host chrome — a ship's brass-and-slate instrument panel, deliberately
+       distinct from the mockups' own colors so "frame" never reads as "content" */
+    --slate-950: #10161c;
+    --slate-900: #1a232d;
+    --slate-850: #212c38;
+    --slate-800: #283442;
+    --slate-700: #3a4753;
+    --slate-600: #52616e;
+    --brass: #c99b4a;
+    --brass-bright: #e0b968;
+    --brass-dim: #8a6c38;
+    --paper-ink: #ece5d6;
+    --fog: #8b98a3;
+    --good: #6fae7f;
+
+    /* AudioChart's own real tokens, reused verbatim inside the mockup
+       screens — the whole point is comparing THIS palette's arrangement */
+    --app-navy: #0a1628;
+    --app-dark-blue: #1a3a5c;
+    --app-mid-blue: #2a5080;
+    --app-accent: #4a9edd;
+    --app-text: #e6edf3;
+    --app-text-dim: #9fb3c8;
+    --app-danger: #e05252;
+    --chart-land: #e6dcc2;
+    --chart-land-edge: #c9b98c;
+    --chart-water: #bfdae4;
+    --chart-water-deep: #96bfd0;
+
+    --font-display: "Big Shoulders Display", "Arial Narrow", sans-serif;
+    --font-body: "IBM Plex Sans", system-ui, sans-serif;
+    --font-mono: "IBM Plex Mono", "SF Mono", monospace;
+  }
+
+  * { box-sizing: border-box; }
+  html { color-scheme: dark; }
+
+  body {
+    background: var(--slate-950);
+    color: var(--paper-ink);
+    font-family: var(--font-body);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection { background: var(--brass-dim); color: var(--paper-ink); }
+
+  .wrap {
+    max-width: 1160px;
+    margin: 0 auto;
+    padding: 34px 24px 80px;
+  }
+
+  /* ── Header ─────────────────────────────────────────────────────── */
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 20px;
+    padding-bottom: 22px;
+    margin-bottom: 28px;
+    border-bottom: 1px solid var(--slate-700);
+  }
+  .eyebrow {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 0.78rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--brass);
+    margin: 0 0 6px;
+  }
+  h1 {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: clamp(2rem, 4vw, 2.7rem);
+    letter-spacing: 0.01em;
+    margin: 0 0 8px;
+    text-wrap: balance;
+    color: var(--paper-ink);
+  }
+  header p {
+    max-width: 54ch;
+    color: var(--fog);
+    margin: 0;
+    font-size: 0.98rem;
+  }
+
+  /* ── Selector (3-way rocker switch) ────────────────────────────── */
+  .selector {
+    display: flex;
+    gap: 2px;
+    background: var(--slate-900);
+    border: 1px solid var(--slate-700);
+    border-radius: 3px;
+    padding: 3px;
+    flex-shrink: 0;
+  }
+  .selector button {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 0.92rem;
+    letter-spacing: 0.03em;
+    background: transparent;
+    color: var(--fog);
+    border: none;
+    border-radius: 2px;
+    padding: 10px 18px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .selector button .key {
+    color: var(--brass-dim);
+    margin-right: 6px;
+  }
+  .selector button:hover { color: var(--paper-ink); background: var(--slate-850); }
+  .selector button:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+  .selector button[aria-pressed="true"] {
+    background: var(--brass);
+    color: var(--slate-950);
+  }
+  .selector button[aria-pressed="true"] .key { color: var(--slate-800); }
+
+  /* ── Viewport bezel ─────────────────────────────────────────────── */
+  .bezel {
+    background: linear-gradient(180deg, var(--slate-850), var(--slate-900));
+    border: 1px solid var(--slate-700);
+    border-radius: 10px;
+    padding: 18px;
+    box-shadow: 0 20px 50px -25px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.03);
+  }
+  .bezel-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--fog);
+    letter-spacing: 0.04em;
+    padding: 0 4px 12px;
+    gap: 12px;
+  }
+  .bezel-label .rev { color: var(--brass-dim); flex-shrink: 0; }
+  .status-dot {
+    display: inline-block;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--good);
+    margin-right: 6px;
+    box-shadow: 0 0 6px var(--good);
+  }
+
+  /* the one live control in the whole demo — only meaningful on B, since
+     it's the answer to "how would I flip back and forth" */
+  .underway-toggle {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .underway-toggle.visible { display: flex; }
+  .underway-toggle .ut-label {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 0.74rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--fog);
+    transition: color 0.15s;
+  }
+  .underway-toggle input {
+    position: absolute;
+    opacity: 0;
+    width: 0; height: 0;
+  }
+  .underway-toggle .ut-track {
+    display: inline-block;
+    width: 34px; height: 18px;
+    background: var(--slate-700);
+    border-radius: 10px;
+    position: relative;
+    transition: background 0.15s;
+    flex-shrink: 0;
+  }
+  .underway-toggle .ut-thumb {
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--paper-ink);
+    transition: transform 0.15s;
+  }
+  .underway-toggle input:checked ~ .ut-track { background: var(--brass); }
+  .underway-toggle input:checked ~ .ut-track .ut-thumb { transform: translateX(16px); background: var(--slate-950); }
+  .underway-toggle input:focus-visible ~ .ut-track { outline: 2px solid var(--brass); outline-offset: 2px; }
+  .underway-toggle:has(input:checked) .ut-label { color: var(--brass-bright); }
+
+  .screen {
+    position: relative;
+    width: auto;
+    aspect-ratio: 3 / 4;
+    max-height: 78vh;
+    margin: 0 auto;
+    background: var(--chart-water);
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid #08131f;
+    font-family: var(--font-body);
+    /* Every mini control inside is sized in em, not px — this is the one
+       knob that scales all of them together, so the same mockup reads
+       right whether the container renders phone-narrow or tablet-wide.
+       1cqw = 1% of the screen's own rendered width; 2.63cqw lands at
+       exactly 10px per em on a 380px-wide screen (this design's original
+       reference size), scaling proportionally in either direction from
+       there. */
+    container-type: inline-size;
+    font-size: 2.63cqw;
+  }
+  @media (min-width: 760px) {
+    .screen { aspect-ratio: 16 / 10; }
+  }
+
+  /* chart backdrop, shared by all three mockups */
+  .chart-bg { position: absolute; inset: 0; }
+  .land {
+    position: absolute;
+    background: var(--chart-land);
+    border: 1.5px solid var(--chart-land-edge);
+  }
+  .deep { position: absolute; background: var(--chart-water-deep); border-radius: 50%; filter: blur(1px); opacity: 0.6; }
+  .route-line {
+    position: absolute;
+    border-top: 3px dashed var(--app-danger);
+    opacity: 0.85;
+    transform-origin: left center;
+  }
+  .hazard {
+    position: absolute;
+    width: 0; height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-bottom: 9px solid #d99a2b;
+  }
+  .boat { position: absolute; font-size: 2em; transform: translate(-50%, -50%); filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5)); }
+
+  /* generic mock-UI atoms, styled with AudioChart's real tokens — every
+     size below is in em, scaled as a group by .screen's own cqw-based
+     font-size, not fixed px, so the whole mockup grows or shrinks
+     together with the container instead of staying pinned to one
+     phone-width reference size. */
+  .m-tile, .m-btn {
+    font-family: var(--font-body);
+    font-size: 1em;
+    color: var(--app-text-dim);
+    background: rgba(10,22,40,0.92);
+    border: 1px solid var(--app-mid-blue);
+    border-radius: 0.5em;
+    padding: 0.4em 0.7em;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 0.4em;
+  }
+  .m-btn.round {
+    border-radius: 50%;
+    width: 3em; height: 3em;
+    justify-content: center;
+    padding: 0;
+    font-size: 1.3em;
+  }
+  .m-titlebar {
+    position: absolute; top: 0; left: 0; right: 0;
+    background: var(--app-navy);
+    color: var(--app-text);
+    font-size: 1em;
+    padding: 0.5em 1em;
+    border-bottom: 1px solid var(--app-mid-blue);
+  }
+  .m-compass {
+    position: absolute;
+    width: 4.6em; height: 4.6em;
+    border-radius: 50%;
+    background: rgba(12,25,45,0.9);
+    border: 1.5px solid var(--app-accent);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.5em;
+  }
+  .m-hud {
+    background: rgba(20,40,70,0.92);
+    border: 1px solid var(--app-mid-blue);
+    border-radius: 0.6em;
+    color: var(--app-danger);
+    font-family: var(--font-mono);
+    font-weight: 600;
+    font-size: 1em;
+    padding: 0.5em 0.9em;
+  }
+  .m-focus {
+    background: #0d2818;
+    border: 1px solid var(--good);
+    color: #7fe0a0;
+    border-radius: 2em;
+    font-size: 1.1em;
+    font-weight: 600;
+    padding: 0.6em 1.4em;
+  }
+  .m-tide {
+    background: rgba(20,40,70,0.92);
+    border: 1px solid var(--app-mid-blue);
+    border-radius: 0.6em;
+    width: 7em;
+    padding: 0.5em 0.7em;
+  }
+  .m-tide svg { display: block; width: 100%; height: 2em; }
+  .m-tide .lbl { font-size: 0.8em; color: #d99a2b; margin-top: 0.2em; }
+
+  /* numbered callout badges */
+  .callout {
+    position: absolute;
+    width: 1.8em; height: 1.8em;
+    border-radius: 50%;
+    background: var(--brass);
+    color: var(--slate-950);
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.1em;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 0 0.3em rgba(201,155,74,0.28);
+    transform: translate(-50%, -50%);
+    z-index: 5;
+  }
+
+  .mockup { position: absolute; inset: 0; display: none; }
+  .mockup.active { display: block; }
+
+  /* B's live docked ⇄ underway toggle — same screen, same chart, two states */
+  #view-b .b-underway { display: none; opacity: 0; }
+  #view-b.underway .b-docked { display: none; }
+  #view-b.underway .b-underway { display: block; }
+  @media (prefers-reduced-motion: no-preference) {
+    #view-b .b-docked, #view-b .b-underway { transition: opacity 0.18s ease-out; opacity: 1; }
+    #view-b.underway .b-underway { opacity: 1; animation: fadein 0.18s ease-out; }
+  }
+
+  /* ── Annotation zone ────────────────────────────────────────────── */
+  .below {
+    display: grid;
+    grid-template-columns: 1.1fr 1.4fr;
+    gap: 28px;
+    margin-top: 28px;
+  }
+  @media (max-width: 780px) {
+    .below { grid-template-columns: 1fr; }
+  }
+  .panel {
+    background: var(--slate-900);
+    border: 1px solid var(--slate-700);
+    border-radius: 8px;
+    padding: 20px 22px;
+  }
+  .panel h2 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--brass);
+    margin: 0 0 14px;
+  }
+  .key-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .key-list li { display: flex; gap: 10px; align-items: baseline; font-size: 0.88rem; color: var(--paper-ink); }
+  .key-num {
+    flex-shrink: 0;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 0.78rem;
+    color: var(--slate-950);
+    background: var(--brass);
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    transform: translateY(2px);
+  }
+  .key-list span.detail { color: var(--fog); }
+
+  .philosophy { font-size: 0.98rem; color: var(--paper-ink); margin: 0 0 16px; }
+  .tradeoffs { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .tradeoffs h3 {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin: 0 0 8px;
+  }
+  .tradeoffs .good h3 { color: var(--good); }
+  .tradeoffs .bad h3 { color: var(--app-danger); }
+  .tradeoffs ul { margin: 0; padding-left: 18px; font-size: 0.86rem; color: var(--fog); display: flex; flex-direction: column; gap: 5px; }
+
+  footer.note {
+    margin-top: 34px;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--fog);
+    text-align: center;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .mockup.active { animation: fadein 0.22s ease-out; }
+  }
+  @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <div>
+      <p class="eyebrow">AudioChart &middot; layout comparison</p>
+      <h1>Helm Layouts</h1>
+      <p>Three candidate arrangements of the same controls, over the same chart. Switch between them, read the numbered callouts &mdash; and on B, flip the Underway switch above the screen to see how one layout could serve both docked and moving.</p>
+    </div>
+    <div class="selector" role="tablist" aria-label="Choose a layout">
+      <button type="button" role="tab" data-view="a" aria-pressed="true"><span class="key">A</span>Current</button>
+      <button type="button" role="tab" data-view="b" aria-pressed="false"><span class="key">B</span>Zoned</button>
+      <button type="button" role="tab" data-view="c" aria-pressed="false"><span class="key">C</span>Underway</button>
+    </div>
+  </header>
+
+  <div class="bezel">
+    <div class="bezel-label">
+      <span><span class="status-dot"></span>GPS: DEVICE GPS &plusmn;6m</span>
+      <label class="underway-toggle" id="underwayToggle">
+        <span class="ut-label">Underway</span>
+        <input type="checkbox" id="underwayCheckbox">
+        <span class="ut-track"><span class="ut-thumb"></span></span>
+      </label>
+      <span class="rev" id="revLabel">rev A &middot; current</span>
+    </div>
+
+    <div class="screen">
+      <!-- shared chart backdrop -->
+      <div class="chart-bg">
+        <div class="land" style="top:0; left:0; width:34%; height:40%; border-radius:0 0 60% 30%/0 0 40% 60%;"></div>
+        <div class="land" style="bottom:0; left:6%; width:22%; height:22%; border-radius:40% 60% 0 0/60% 40% 0 0;"></div>
+        <div class="land" style="top:12%; right:8%; width:14%; height:10%; border-radius:50%;"></div>
+        <div class="land" style="bottom:18%; right:14%; width:9%; height:7%; border-radius:50%;"></div>
+        <div class="deep" style="top:30%; left:40%; width:120px; height:120px;"></div>
+        <div class="hazard" style="top:44%; left:52%;"></div>
+        <div class="hazard" style="top:58%; left:46%;"></div>
+        <div class="route-line" style="top:38%; left:34%; width:44%; rotate:8deg;"></div>
+        <div class="boat" style="top:38%; left:34%;">&#9973;</div>
+      </div>
+
+      <!-- ═══ MOCKUP A — CURRENT ═══ -->
+      <div class="mockup active" id="view-a">
+        <div class="m-titlebar">&#128506; Chart &middot; GPS: DEVICE GPS &plusmn;6m</div>
+        <div class="m-compass" style="top:3.4em; left:0.8em;">&#129517;</div>
+        <div style="position:absolute; top:3.4em; left:6.4em; right:0.8em; display:flex; flex-wrap:wrap; gap:0.4em;">
+          <div class="m-tile">&#128506; Map Type</div>
+          <div class="m-tile">&#128205; Location</div>
+          <div class="m-tile">&#9998; Routes</div>
+          <div class="m-tile">&#9678; Tracks</div>
+          <div class="m-tile">&#9679; Track</div>
+          <div class="m-tile">&#9875; Anchor</div>
+          <div class="m-tile">&#128421; Screen</div>
+          <div class="m-tile">&#128220; Node Ops</div>
+        </div>
+        <div style="position:absolute; top:8.4em; right:0.8em; display:flex; flex-direction:column; gap:0.6em;">
+          <div class="m-btn round">&#8857;</div>
+          <div class="m-btn round">&#9875;</div>
+          <div class="m-btn round">&#8635;</div>
+          <div class="m-btn round" style="color:var(--app-danger); border-color:var(--app-danger);">&#128465;</div>
+        </div>
+        <div style="position:absolute; bottom:6.4em; left:50%; transform:translateX(-50%);" class="m-focus">&#127919; Owls Head &middot; 4.2nm</div>
+        <div style="position:absolute; bottom:0.8em; right:0.8em; display:flex; flex-direction:column; gap:0.5em; align-items:flex-end;">
+          <div class="m-tide"><svg viewBox="0 0 60 20"><path d="M0 14 Q15 2 30 10 T60 6" fill="none" stroke="#4a9edd" stroke-width="1.5"/></svg><div class="lbl">&#9660; Low 1h05m</div></div>
+          <div class="m-hud">158&deg;M &middot; 4.1kt</div>
+        </div>
+        <div style="position:absolute; bottom:0.8em; left:0.8em; right:12em;">
+          <div class="m-tile" style="width:100%; justify-content:flex-start;">Type a command&hellip;</div>
+        </div>
+
+        <div class="callout" style="top:11%; left:8%;">1</div>
+        <div class="callout" style="top:11%; left:44%;">2</div>
+        <div class="callout" style="top:23%; right:6%;">3</div>
+        <div class="callout" style="bottom:20%; right:14%;">4</div>
+        <div class="callout" style="bottom:5%; left:50%;">5</div>
+      </div>
+
+      <!-- ═══ MOCKUP B — ZONED (docked ⇄ underway, live toggle) ═══ -->
+      <div class="mockup" id="view-b">
+        <div class="m-titlebar">&#128506; Chart &middot; GPS: DEVICE GPS &plusmn;6m</div>
+
+        <div class="b-docked">
+          <div style="position:absolute; top:3.2em; left:0.8em; right:0.8em; display:flex; gap:0.4em; justify-content:center;">
+            <div class="m-tile">&#128506; Map Type</div>
+            <div class="m-tile">&#128205; Location</div>
+            <div class="m-tile">&#128421; Screen</div>
+          </div>
+          <!-- left rail: orientation instruments -->
+          <div style="position:absolute; top:7em; bottom:7em; left:0.8em; width:5.2em; display:flex; flex-direction:column; align-items:center; justify-content:space-between; background:rgba(10,22,40,0.55); border:1px solid var(--app-mid-blue); border-radius:0.8em; padding:0.8em 0;">
+            <div class="m-compass" style="position:static; width:3.8em; height:3.8em; font-size:1.3em;">&#129517;</div>
+            <div style="width:0.6em; height:7em; background:var(--app-mid-blue); border-radius:0.3em; position:relative;"><div style="position:absolute; top:30%; left:-0.4em; width:1.4em; height:1.4em; border-radius:50%; background:var(--app-accent);"></div></div>
+            <div style="display:flex; flex-direction:column; gap:0.3em;">
+              <div class="m-btn round" style="width:2.2em; height:2.2em; font-size:1em;">&#9650;</div>
+              <div class="m-btn round" style="width:2.2em; height:2.2em; font-size:1em;">&#9660;</div>
+            </div>
+          </div>
+          <!-- right rail: route/data actions -->
+          <div style="position:absolute; top:7em; right:0.8em; width:6.4em; display:flex; flex-direction:column; gap:0.5em; background:rgba(10,22,40,0.55); border:1px solid var(--app-mid-blue); border-radius:0.8em; padding:0.8em 0.6em;">
+            <div class="m-tile" style="justify-content:center;">&#9998; Routes</div>
+            <div class="m-tile" style="justify-content:center;">&#9678; Tracks</div>
+            <div class="m-tile" style="justify-content:center;">&#9679; Track</div>
+            <div class="m-tile" style="justify-content:center;">&#9875; Anchor</div>
+            <div class="m-tile" style="justify-content:center;">&#128220; Node</div>
+            <div style="display:flex; gap:0.3em; justify-content:center; margin-top:0.2em;">
+              <div class="m-btn round" style="width:2em;height:2em;font-size:0.9em;">&#8857;</div>
+              <div class="m-btn round" style="width:2em;height:2em;font-size:0.9em;">&#8635;</div>
+            </div>
+          </div>
+          <!-- unified bottom HUD, docked -->
+          <div style="position:absolute; bottom:0.8em; left:0.8em; right:0.8em; display:flex; align-items:center; gap:0.6em; background:rgba(10,22,40,0.92); border:1px solid var(--app-mid-blue); border-radius:0.8em; padding:0.6em 0.8em;">
+            <div class="m-focus" style="padding:0.4em 1em; font-size:1em;">&#127919; Owls Head 4.2nm</div>
+            <div class="m-hud" style="border:none; background:none; padding:0;">158&deg;M/4.1kt</div>
+            <div style="margin-left:auto; display:flex; align-items:center; gap:0.5em;">
+              <svg viewBox="0 0 60 20" style="width:3.4em; height:1.4em; display:block;"><path d="M0 14 Q15 2 30 10 T60 6" fill="none" stroke="#4a9edd" stroke-width="2"/></svg>
+              <div class="m-btn round" style="width:2.4em;height:2.4em;font-size:1.1em;">&#9998;</div>
+            </div>
+          </div>
+
+          <div class="callout" style="top:10%; left:50%;">1</div>
+          <div class="callout" style="top:32%; left:8%;">2</div>
+          <div class="callout" style="top:32%; right:6%;">3</div>
+          <div class="callout" style="bottom:8%; left:50%;">4</div>
+        </div>
+
+        <div class="b-underway">
+          <div class="m-compass" style="top:3.4em; left:0.8em; width:4em; height:4em; font-size:1.3em;">&#129517;</div>
+          <div style="position:absolute; top:3.8em; left:5.6em; right:0.8em; display:flex; align-items:center; gap:0.6em; background:rgba(10,22,40,0.92); border:1px solid var(--app-mid-blue); border-radius:0.8em; padding:0.6em 0.9em;">
+            <div class="m-focus" style="padding:0.3em 0.9em; font-size:1em;">&#127919; 4.2nm</div>
+            <div class="m-hud" style="border:none; background:none; padding:0;">158&deg;/4.1kt</div>
+            <svg viewBox="0 0 60 20" style="width:2.8em; height:1.2em; display:block; margin-left:auto;"><path d="M0 14 Q15 2 30 10 T60 6" fill="none" stroke="#4a9edd" stroke-width="2"/></svg>
+          </div>
+          <div style="position:absolute; bottom:1.6em; right:1.2em; display:flex; flex-direction:column; align-items:center; gap:0.4em;">
+            <div class="m-btn round" style="width:4.6em; height:4.6em; font-size:1.9em; background:var(--app-mid-blue); border-color:var(--app-accent);">&#9776;</div>
+            <div style="font-family:var(--font-mono); font-size:0.8em; color:var(--app-text-dim);">Menu</div>
+          </div>
+          <div style="position:absolute; bottom:1.6em; left:1.2em;" class="m-btn round">&#127908;</div>
+
+          <div class="callout" style="top:11%; left:8%;">1</div>
+          <div class="callout" style="top:16%; left:50%;">2</div>
+          <div class="callout" style="bottom:14%; right:12%;">3</div>
+        </div>
+      </div>
+
+      <!-- ═══ MOCKUP C — UNDERWAY ═══ -->
+      <div class="mockup" id="view-c">
+        <div class="m-titlebar">&#128506; Chart &middot; GPS: DEVICE GPS &plusmn;6m</div>
+        <div class="m-compass" style="top:3.4em; left:0.8em; width:4em; height:4em; font-size:1.3em;">&#129517;</div>
+        <!-- one consolidated HUD strip, top -->
+        <div style="position:absolute; top:3.8em; left:5.6em; right:0.8em; display:flex; align-items:center; gap:0.6em; background:rgba(10,22,40,0.92); border:1px solid var(--app-mid-blue); border-radius:0.8em; padding:0.6em 0.9em;">
+          <div class="m-focus" style="padding:0.3em 0.9em; font-size:1em;">&#127919; 4.2nm</div>
+          <div class="m-hud" style="border:none; background:none; padding:0;">158&deg;/4.1kt</div>
+          <svg viewBox="0 0 60 20" style="width:2.8em; height:1.2em; display:block; margin-left:auto;"><path d="M0 14 Q15 2 30 10 T60 6" fill="none" stroke="#4a9edd" stroke-width="2"/></svg>
+        </div>
+        <!-- everything else behind one menu tab -->
+        <div style="position:absolute; bottom:1.6em; right:1.2em; display:flex; flex-direction:column; align-items:center; gap:0.4em;">
+          <div class="m-btn round" style="width:4.6em; height:4.6em; font-size:1.9em; background:var(--app-mid-blue); border-color:var(--app-accent);">&#9776;</div>
+          <div style="font-family:var(--font-mono); font-size:0.8em; color:var(--app-text-dim);">Menu</div>
+        </div>
+        <!-- mic/command tab -->
+        <div style="position:absolute; bottom:1.6em; left:1.2em;" class="m-btn round">&#127908;</div>
+
+        <div class="callout" style="top:11%; left:8%;">1</div>
+        <div class="callout" style="top:16%; left:50%;">2</div>
+        <div class="callout" style="bottom:14%; right:12%;">3</div>
+        <div class="callout" style="bottom:14%; left:12%;">4</div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="below">
+    <div class="panel">
+      <h2 id="keyHeading">What's marked</h2>
+      <ul class="key-list" id="keyList"></ul>
+    </div>
+    <div class="panel">
+      <h2>Philosophy &amp; tradeoffs</h2>
+      <p class="philosophy" id="philosophyText"></p>
+      <div class="tradeoffs">
+        <div class="good">
+          <h3>Keep</h3>
+          <ul id="goodList"></ul>
+        </div>
+        <div class="bad">
+          <h3>Risk</h3>
+          <ul id="badList"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="note">All three run the exact same control set over the exact same chart &mdash; only the arrangement changes. On B, Underway is the same screen too &mdash; only a class name changes.</footer>
+
+</div>
+
+<script>
+(function() {
+  var DATA = {
+    a: {
+      rev: 'rev A &middot; current',
+      key: [
+        ['1', 'Compass', 'Fixed top-left, never draggable &mdash; a reference instrument, not a widget.'],
+        ['2', 'Status tile row', 'Everything mode-related and action-related lives in one row: map type, location, routes, tracks, tracking, anchor, screen, node ops.'],
+        ['3', 'Right-side button column', 'Zoom-to-me, navaid filter, reroute, delete &mdash; four single-purpose buttons stacked independently.'],
+        ['4', 'Tide + heading/speed', 'Two separate readouts stacked in the corner, each its own small card.'],
+        ['5', 'Focus button + command bar', 'Bearing/range pill floats center-bottom; text command input runs the full width beneath it.'],
+      ],
+      philosophy: 'What actually ships today. Every control got its own fix, one bug report at a time, until nothing overlapped or fell off-screen &mdash; but nothing was ever laid out as a whole.',
+      good: ['Nothing hidden &mdash; nothing to remember to open', 'Every control already has a proven, stable home', 'Familiar if you’ve used it for months'],
+      bad: ['Eight tiles in one row reads as a wall of buttons', 'Four lookalike round buttons on the right with no grouping logic', 'Three separate bottom-right widgets for what is really one situational-awareness reading'],
+    },
+    b: {
+      rev: 'rev B &middot; zoned &middot; docked',
+      key: [
+        ['1', 'Top bar: mode only', 'Map type, location, and screen options &mdash; things about how you’re viewing the chart, not what you’re doing on it.'],
+        ['2', 'Left rail: orientation', 'Compass, zoom, and pan grouped as one instrument column &mdash; everything about where you are and how you’re looking at it.'],
+        ['3', 'Right rail: route actions', 'Routes, tracks, tracking, anchor watch, node ops, plus the four former loose buttons &mdash; everything that acts on your route or position.'],
+        ['4', 'Unified bottom HUD', 'Bearing/range, heading/speed, and tide collapse into one bar instead of three separate floating cards.'],
+      ],
+      philosophy: 'Same sixteen-odd controls, but grouped by what they’re for rather than by which bug fix put them there. Three zones instead of eight scattered pieces. This is the "at the dock, planning" state &mdash; flip the Underway switch above the chart to see the other one.',
+      good: ['One glance answers "where am I, where’s my boat pointed"', 'Adding a new route action has an obvious home already', 'Cuts the bottom-right clutter from three cards to one strip'],
+      bad: ['Rails need real width &mdash; tight on a phone in portrait', 'Grouping by "function" requires everyone to agree what a control’s function is', 'A bigger rebuild than any single fix so far this session'],
+    },
+    bUnderway: {
+      rev: 'rev B &middot; zoned &middot; underway',
+      key: [
+        ['1', 'Compass stays', 'The one instrument that never goes away in either state.'],
+        ['2', 'Rails collapse into one HUD strip', 'Same bearing/range + heading/speed + tide numbers from the docked bottom bar, just promoted to the top and stripped of the route-rail buttons around them.'],
+        ['3', 'Everything else: one Menu tap', 'Map type, routes, tracks, tracking, anchor, screen, node ops all move behind the &#9776; button &mdash; still there, just not competing for space.'],
+      ],
+      philosophy: 'The same screen, one switch away &mdash; not a different app. Tap Underway leaving the dock; tap it again once you’re tied up and want the rails back for planning.',
+      good: ['One tap, no menu-diving, to get from "planning" to "moving"', 'Nothing is deleted &mdash; Menu still holds everything the rails did', 'Matches how Animate mode already hides the UI elsewhere in the app'],
+      bad: ['Route/track actions now cost an extra tap while underway', 'Two states to design and test instead of one', 'Worth asking whether GPS speed should flip this automatically instead of a manual switch'],
+    },
+    c: {
+      rev: 'rev C &middot; underway',
+      key: [
+        ['1', 'Compass only, always', 'The one instrument you glance at without thinking &mdash; nothing else earns permanent screen space.'],
+        ['2', 'One HUD strip', 'Bearing/range, heading/speed, tide trend &mdash; the three numbers you actually check while moving, and nothing else.'],
+        ['3', 'Everything else behind Menu', 'Map type, routes, tracks, tracking, anchor, screen, node ops &mdash; all one tap away in a sheet, none of them permanently on screen.'],
+        ['4', 'Command input behind a mic tab', 'Still one tap away, but not a full-width bar competing with the chart for attention.'],
+      ],
+      philosophy: 'Built for the boat moving, not the boat at the dock. If you’re not planning a route or fiddling with settings right now, it shouldn’t be on screen right now either.',
+      good: ['Maximum chart visible &mdash; this is what a helm display should prioritize', 'The 3 numbers that matter underway are always in the same glance', 'Scales to a phone screen without crowding'],
+      bad: ['Route/track actions cost an extra tap, every time', 'Wrong choice entirely for planning at the dock &mdash; would need a second "planning" layout', 'A hidden menu means new users can’t see what the app can do'],
+    },
+  };
+
+  var mockups = { a: document.getElementById('view-a'), b: document.getElementById('view-b'), c: document.getElementById('view-c') };
+  var buttons = Array.prototype.slice.call(document.querySelectorAll('.selector button'));
+  var underwayToggle = document.getElementById('underwayToggle');
+  var underwayCheckbox = document.getElementById('underwayCheckbox');
+  var currentView = 'a';
+
+  function renderAnnotations(d) {
+    document.getElementById('revLabel').innerHTML = d.rev;
+
+    var keyList = document.getElementById('keyList');
+    keyList.innerHTML = '';
+    d.key.forEach(function(row) {
+      var li = document.createElement('li');
+      li.innerHTML = '<span class="key-num">' + row[0] + '</span><span><strong>' + row[1] + '.</strong> <span class="detail">' + row[2] + '</span></span>';
+      keyList.appendChild(li);
+    });
+
+    document.getElementById('philosophyText').innerHTML = d.philosophy;
+    var goodList = document.getElementById('goodList');
+    var badList = document.getElementById('badList');
+    goodList.innerHTML = ''; badList.innerHTML = '';
+    d.good.forEach(function(t) { var li = document.createElement('li'); li.innerHTML = t; goodList.appendChild(li); });
+    d.bad.forEach(function(t) { var li = document.createElement('li'); li.innerHTML = t; badList.appendChild(li); });
+  }
+
+  function render(id) {
+    currentView = id;
+    for (var k in mockups) mockups[k].classList.toggle('active', k === id);
+    buttons.forEach(function(b) { b.setAttribute('aria-pressed', b.dataset.view === id ? 'true' : 'false'); });
+
+    underwayToggle.classList.toggle('visible', id === 'b');
+    if (id === 'b') {
+      mockups.b.classList.toggle('underway', underwayCheckbox.checked);
+      renderAnnotations(underwayCheckbox.checked ? DATA.bUnderway : DATA.b);
+    } else {
+      renderAnnotations(DATA[id]);
+    }
+
+    try { localStorage.setItem('helm-layouts-view', id); } catch (e) {}
+  }
+
+  buttons.forEach(function(btn) {
+    btn.addEventListener('click', function() { render(btn.dataset.view); });
+  });
+
+  underwayCheckbox.addEventListener('change', function() {
+    mockups.b.classList.toggle('underway', underwayCheckbox.checked);
+    renderAnnotations(underwayCheckbox.checked ? DATA.bUnderway : DATA.b);
+    try { localStorage.setItem('helm-layouts-underway', underwayCheckbox.checked ? '1' : ''); } catch (e) {}
+  });
+
+  var initial = 'a';
+  try {
+    var saved = localStorage.getItem('helm-layouts-view');
+    if (saved && DATA[saved]) initial = saved;
+    underwayCheckbox.checked = localStorage.getItem('helm-layouts-underway') === '1';
+  } catch (e) {}
+  render(initial);
+})();
+</script>
