@@ -1601,9 +1601,22 @@ function _initRearrangeGroups() {
   // absolute-positioned — dragging one out of a flex column doesn't mean
   // anything sensible anymore, so that drag group is gone too, same
   // reasoning as the other two.
+  // focus/tide/headingspeed keep their drag groups (still individually
+  // repositionable), but their DEFAULT position moved today — from three
+  // independently floating widgets to flex children of #bottom-hud — so
+  // any offset saved against the OLD baseline is now applied relative to
+  // a completely different starting point. Confirmed live: a stale
+  // focus-btn offset of (-146, -343.8), saved back when it was an
+  // independently centered pill, landed it in the middle of the map once
+  // #bottom-hud moved its baseline to bottom-right. One-time cleanup so
+  // everyone's saved offset starts fresh from the new layout, exactly
+  // like the status-tile/compass/btncol cleanups above.
   localStorage.removeItem('audiochart-ui-pos-status');
   localStorage.removeItem('audiochart-ui-pos-compass');
   localStorage.removeItem('audiochart-ui-pos-btncol');
+  localStorage.removeItem('audiochart-ui-pos-focus');
+  localStorage.removeItem('audiochart-ui-pos-tide');
+  localStorage.removeItem('audiochart-ui-pos-headingspeed');
   _makeDraggableGroup('navctl', () => ['zoom-slider-wrap', 'pan-controls-wrap'].map(id => document.getElementById(id)));
   _makeDraggableGroup('version', () => [document.getElementById('map-version-label')]);
   _makeDraggableGroup('cmdbar', () => [document.getElementById('map-overlay-cmd')]);
