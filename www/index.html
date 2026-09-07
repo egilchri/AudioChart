@@ -29,15 +29,27 @@
       <div id="status-title-bar" title="Chart · GPS: waiting">🗺 Chart  ·  GPS: waiting</div>
       <div id="wco-titlebar"></div>
       <div id="map-version-label"></div>
-      <button id="zoom-to-me-btn" title="Zoom to my location">&#8857;</button>
-      <button id="navaid-filter-btn" title="Show navaids on map">&#9875;</button>
-      <button id="reroute-btn" title="Re-route around land">&#8635;</button>
-      <button id="delete-route-btn" title="Delete this route" style="display:none">&#128465;</button>
-      <!-- Bearing/range-to-target readout — the single most-tapped control
-           underway. Deliberately its own fixed circle, away from every other
-           row/menu/scrolling strip, always the same spot regardless of app
-           state, so it becomes a reach-without-looking muscle-memory target. -->
-      <button id="focus-btn" title="No focus set (Drag to move)">&#127919; --</button>
+      <!-- Docked/Underway is a pure visibility toggle (see #app.underway-mode
+           in app.css and the underway-btn handler in app.js) — this button
+           is how you get back, shown only while underway-mode is active. -->
+      <button id="docked-btn" title="Back to the full layout" style="display:none">&#9875; Docked</button>
+      <!-- "Zoned" layout: orientation instruments (compass — a Leaflet
+           control, positioned via .leaflet-top/.leaflet-left in app.css —
+           plus zoom/pan below it) on the left; route/data actions
+           (#right-rail) on the right; one consolidated bottom HUD
+           (#bottom-hud) instead of three independently floating widgets. -->
+      <div id="right-rail">
+        <button id="route-picker-btn" title="Show/hide routes">&#9998; Routes</button>
+        <button id="track-picker-btn" title="Show/hide tracks">&#9678; Tracks</button>
+        <button id="track-rec-btn" title="Record a GPS track">&#9679; Start Tracking</button>
+        <button id="anchor-watch-btn" title="Watch for anchor drag — alarms if you stray past a set radius">&#9875; Anchor Watch</button>
+        <button id="anchor-watch-silence-btn" title="Silence the anchor alarm (stays armed)" style="display:none">&#128263; Silence</button>
+        <div class="etp-title" id="etp-title" style="display:none">Node Ops</div>
+        <button id="zoom-to-me-btn" title="Zoom to my location">&#8857;</button>
+        <button id="navaid-filter-btn" title="Show navaids on map">&#9875;</button>
+        <button id="reroute-btn" title="Re-route around land">&#8635;</button>
+        <button id="delete-route-btn" title="Delete this route" style="display:none">&#128465;</button>
+      </div>
       <div id="zoom-slider-wrap">
         <span id="zoom-slider-label">11</span>
         <input type="range" id="zoom-slider" min="4" max="18" step="1" value="11">
@@ -49,6 +61,19 @@
           <button class="pan-btn" id="pan-east" title="Pan east">&#9658;</button>
         </div>
         <button class="pan-btn" id="pan-south" title="Pan south">&#9660;</button>
+      </div>
+      <!-- Consolidated bottom HUD — focus-btn lives here in markup;
+           .tide-cycle-ctrl and .heading-speed-ctrl are Leaflet controls
+           built dynamically in app.js and re-parented in here right after
+           creation (both are already position:fixed, fully escaped from
+           Leaflet's own control-container layout, so moving them in the
+           DOM is safe — see the map-init code). -->
+      <div id="bottom-hud">
+        <!-- Bearing/range-to-target readout — the single most-tapped control
+             underway. Previously its own isolated fixed circle; now grouped
+             into this one HUD row per the "Zoned" layout, still reachable
+             at the same relative spot every time. -->
+        <button id="focus-btn" title="No focus set (Drag to move)">&#127919; --</button>
       </div>
       <div id="route-picker-panel">
         <div class="nf-title">Routes <button id="rp-close" title="Close">&#10005;</button></div>
@@ -128,13 +153,7 @@
           </select>
           <button id="offline-btn" title="Download chart data for offline use" style="display:none">&#11015; Offline</button>
           <button id="location-menu-btn" title="Location options">&#128205; Location</button>
-          <button id="route-picker-btn" title="Show/hide routes">&#9998; Routes</button>
-          <button id="track-picker-btn" title="Show/hide tracks">&#9678; Tracks</button>
-          <button id="track-rec-btn" title="Record a GPS track">&#9679; Start Tracking</button>
-          <button id="anchor-watch-btn" title="Watch for anchor drag — alarms if you stray past a set radius">&#9875; Anchor Watch</button>
-          <button id="anchor-watch-silence-btn" title="Silence the anchor alarm (stays armed)" style="display:none">&#128263; Silence</button>
           <button id="screen-menu-btn" title="Screen options">&#128421; Screen</button>
-          <div class="etp-title" id="etp-title" style="display:none">Node Ops</div>
         </div>
         <div id="location-menu" style="display:none">
           <button id="location-menu-spoof" title="Move the boat's position to a place or coordinates you type, for testing without a GPS fix">&#128205; Spoof Location</button>
@@ -144,6 +163,7 @@
           <button id="wake-lock-btn" title="Keep screen awake while using AudioChart" style="display:none">&#9728;&#65039; Awake</button>
           <button id="screen-menu-clear" title="Hide all routes/tracks and clear query results from the map">&#129529; Clear Screen</button>
           <button id="screen-menu-rearrange" title="Move buttons and panels around the screen">&#10021; Rearrange</button>
+          <button id="underway-btn" title="Hide everything but the compass and the essentials — tap Docked (top right) or here again to bring routes/tracks/settings back">&#9973; Underway</button>
         </div>
         <div id="cruise-form" style="display:none">
           <span id="cruise-label">Download region:</span>

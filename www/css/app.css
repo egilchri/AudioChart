@@ -174,16 +174,12 @@ html, body {
    this button itself is in. The idea is a reach-without-looking target your
    hand learns, for wet hands/gloves/boat motion — not just a compact label. */
 #focus-btn {
-  position: fixed;
-  left: 50%;
-  bottom: 175px;
-  /* translateX(-50%) does the centering; var(--ui-pos-focus) is the
-     Rearrange-mode drag offset (see _makeDraggableGroup) layered on top —
-     same combined-transform approach as every other draggable UI piece,
-     applied second so it moves the already-centered button, not the other
-     way around. */
-  transform: translateX(-50%) var(--ui-pos-focus, translate(0, 0));
-  z-index: 1002;
+  /* No longer independently positioned — it's a flex child of #bottom-hud
+     now (the "Zoned" layout's one consolidated HUD row instead of three
+     separately floating widgets). var(--ui-pos-focus) is still the
+     always-on drag offset (see _makeDraggableGroup) layered via
+     transform, same as before, just with nothing left to center. */
+  transform: var(--ui-pos-focus, translate(0, 0));
   background: var(--dark-blue);
   border: 2px solid var(--mid-blue);
   border-radius: 999px;
@@ -203,6 +199,28 @@ html, body {
 #focus-btn:hover { border-color: var(--accent); color: var(--text); }
 #focus-btn.focus-active { border-color: #1a6b3c; color: #4ade80; background: #0a2a16; }
 #focus-btn.focus-active:hover { border-color: #2a8b4c; color: #6aeea0; background: #0f3a1e; }
+
+/* "Zoned" layout's one consolidated bottom HUD — focus/bearing, heading
+   & speed, and tide used to be three independently floating widgets;
+   .tide-cycle-ctrl and .heading-speed-ctrl are Leaflet controls
+   re-parented in here right after creation (see the map-init code in
+   app.js) since both are already position:fixed and fully escaped from
+   Leaflet's own control-container layout, so moving them in the DOM is
+   safe. Each child keeps its own drag group (tide/headingspeed/focus)
+   for now — dragging just starts from a different default spot. */
+#bottom-hud {
+  position: fixed;
+  right: 10px;
+  bottom: 10px;
+  z-index: 1002;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100% - 20px);
+}
+#app.underway-mode #bottom-hud .tide-cycle-ctrl { display: none; }
 #track-rec-btn.rec-active { border-color: var(--danger); color: var(--danger); background: #2a0a0a; font-weight: 700; }
 #track-rec-btn.rec-active:hover { border-color: var(--danger); color: #ff8080; background: #3a0a0a; }
 
@@ -826,15 +844,18 @@ body.wco-active #wco-titlebar { display: flex; }
   border: 1px solid var(--mid-blue);
 }
 
-/* right:212px clears the tide/heading-speed lane now anchored at lower-right
-   on every screen size (see the .tide-cycle-ctrl / .heading-speed-ctrl rule
-   below) — per explicit request, the command bar makes room for that lane
-   rather than the two competing for the same corner. */
+/* right clears #bottom-hud (focus/bearing + heading/speed + tide, all in
+   one row now under the "Zoned" layout — see #bottom-hud) so the command
+   bar doesn't compete with it for the same corner. Widened from 212px
+   (tuned for a single tide-or-heading-speed lane) since the combined row
+   can run wider, especially with a long focus-target name; #bottom-hud
+   also wraps to a second line rather than overlapping if it still runs
+   out of room on a narrow screen. */
 #map-overlay-cmd {
   position: absolute;
   bottom: 10px;
   left: 10px;
-  right: 212px;
+  right: 300px;
   z-index: 1001;
   display: flex;
   flex-direction: column;
@@ -895,12 +916,9 @@ body.wco-active #wco-titlebar { display: flex; }
 #map-layer-select:hover { border-color: var(--accent); color: var(--text); }
 
 #zoom-to-me-btn {
-  position: absolute;
-  top: 314px;
-  right: 10px;
-  z-index: 1000;
   width: 48px;
   height: 48px;
+  flex-shrink: 0;
   background: var(--dark-blue);
   color: var(--text);
   border: 1px solid var(--mid-blue);
@@ -915,16 +933,11 @@ body.wco-active #wco-titlebar { display: flex; }
 }
 #zoom-to-me-btn:active { background: var(--mid-blue); }
 
-/* Node Ops is a tile too (lives in #status-tiles, appended after the
-   others so it lands at the end of the tile rows), toggling its own button
+/* Node Ops is a tile that now lives in #right-rail (the "Zoned" layout's
+   route/data column — see #right-rail below), toggling its own button
    group elsewhere on screen. Most of the time it starts collapsed — see
    edit-mode entry in app.js — so the tile itself, not an expanded button
-   cluster, is what's normally on screen. Global Ops no longer has a tile
-   or a collapsed state at all — per explicit decision, its buttons
-   (zoom-to-me, navaid-filter, reroute, delete-route) are just permanently
-   visible along the right side now, each still at its own individual
-   floating position (unlike Node Ops' single flex box) so the popup panels
-   anchored to Routes/Tracks/Navaid-filter stay aligned. */
+   cluster, is what's normally on screen. */
 #etp-title {
   background: rgba(10, 22, 40, 0.92);
   border: 1px solid var(--mid-blue);
@@ -943,6 +956,27 @@ body.wco-active #wco-titlebar { display: flex; }
 }
 #etp-title:hover { border-color: var(--accent); color: var(--text); }
 
+/* "Zoned" layout: every route/data action in one right-side column
+   instead of split between the top tile row and a loose scatter of
+   individually-positioned buttons. align-items:flex-end so both the
+   wide text tiles (Routes, Anchor Watch, ...) and the narrow round
+   icon buttons (zoom-to-me, reroute, ...) share one right edge. No
+   drag group (removed 'btncol' from _initRearrangeGroups) — this is
+   core navigation, not something to lose track of, same reasoning
+   already applied to the status-tile row and the compass. */
+#right-rail {
+  position: absolute;
+  top: 70px;
+  right: 10px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  max-height: calc(100% - 90px);
+  overflow-y: auto;
+}
+
 #route-picker-btn {
   background: rgba(10, 22, 40, 0.92);
   border: 1px solid var(--mid-blue);
@@ -959,12 +993,9 @@ body.wco-active #wco-titlebar { display: flex; }
 #route-picker-btn.active  { background: var(--accent);  color: var(--navy); }
 
 #reroute-btn {
-  position: absolute;
-  top: 370px;
-  right: 10px;
-  z-index: 1000;
   width: 48px;
   height: 48px;
+  flex-shrink: 0;
   background: var(--dark-blue);
   color: var(--text);
   border: 1px solid var(--mid-blue);
@@ -981,12 +1012,9 @@ body.wco-active #wco-titlebar { display: flex; }
 #reroute-btn.working { background: var(--accent); color: var(--navy); }
 
 #delete-route-btn {
-  position: absolute;
-  top: 426px;
-  right: 10px;
-  z-index: 1000;
   width: 48px;
   height: 48px;
+  flex-shrink: 0;
   background: var(--dark-blue);
   color: #e05252;
   border: 1px solid #e05252;
@@ -1360,12 +1388,9 @@ body.wco-active #wco-titlebar { display: flex; }
 #rp-close:hover { color: var(--text); }
 
 #navaid-filter-btn {
-  position: absolute;
-  top: 370px;
-  right: 10px;
-  z-index: 1000;
   width: 48px;
   height: 48px;
+  flex-shrink: 0;
   background: var(--dark-blue);
   color: var(--text);
   border: 1px solid var(--mid-blue);
@@ -1384,7 +1409,7 @@ body.wco-active #wco-titlebar { display: flex; }
 #navaid-filter-panel {
   display: none;
   position: absolute;
-  top: 370px;
+  top: 70px;
   right: 10px;
   z-index: 1001;
   background: var(--dark-blue);
@@ -2303,10 +2328,6 @@ body.wco-active #wco-titlebar { display: flex; }
    element underneath is positioned bottom/right, top/left, or lives inside
    Leaflet's own control-container flex layout; the transform just visually
    nudges it from wherever it already sits. */
-#zoom-to-me-btn, #navaid-filter-btn,
-#reroute-btn, #delete-route-btn {
-  transform: var(--ui-pos-btncol, translate(0,0));
-}
 #pan-controls-wrap                 { transform: var(--ui-pos-navctl, translate(0,0)); }
 #map-version-label                 { transform: var(--ui-pos-version, translate(0,0)); }
 #map-overlay-cmd                   { transform: var(--ui-pos-cmdbar, translate(0,0)); }
@@ -2574,24 +2595,15 @@ body.wco-active #wco-titlebar { display: flex; }
 }
 #tide-play-btn:hover { background: #1a4a7a; }
 
-/* Move the tide-cycle and heading/speed readouts down out of the top-right
-   corner (crowded once the status tiles claim the full top row) into their
-   own lane at lower-right — on every screen size, not just mobile, per
-   explicit request. Global Ops now defaults to collapsed and lives up near
-   the top (see #status-tiles), not down here, so there's nothing left to
-   stay clear of — right:10px matches the same small edge margin used
-   everywhere else (compass top/left, this lane's own bottom). #map-overlay-
-   cmd's own right:212px (see above) makes room for this lane rather than
-   the two competing for the same corner. Tide stacked above speed. */
+/* Both are flex children of #bottom-hud now (the "Zoned" layout's one
+   consolidated HUD row) rather than independently fixed-position
+   widgets — no more position/left/right/bottom of their own, and their
+   old standalone margins are zeroed so they don't double up with
+   #bottom-hud's own gap. */
 .tide-cycle-ctrl,
 .heading-speed-ctrl {
-  position: fixed;
-  left: auto;
-  right: 10px;
   margin: 0;
 }
-.heading-speed-ctrl { bottom: 10px; }
-.tide-cycle-ctrl { bottom: 58px; }
 /* Animation fullscreen mode */
 #app.anim-mode #sidebar,
 #app.anim-mode #sketch-banner {
@@ -2607,17 +2619,12 @@ body.wco-active #wco-titlebar { display: flex; }
 #app.anim-mode #status-title-bar,
 #app.anim-mode #wco-titlebar,
 #app.anim-mode #map-version-label,
-#app.anim-mode #zoom-to-me-btn,
-#app.anim-mode #navaid-filter-btn,
-#app.anim-mode #reroute-btn,
-#app.anim-mode #delete-route-btn,
+#app.anim-mode #right-rail,
 #app.anim-mode #edit-tools-panel,
 #app.anim-mode #zoom-slider-wrap,
 #app.anim-mode #pan-controls-wrap,
-#app.anim-mode .tide-cycle-ctrl,
-#app.anim-mode .heading-speed-ctrl,
 #app.anim-mode .follow-progress-ctrl,
-#app.anim-mode #focus-btn {
+#app.anim-mode #bottom-hud {
   display: none !important;
 }
 #app.anim-mode #map-container {
@@ -2626,6 +2633,44 @@ body.wco-active #wco-titlebar { display: flex; }
   max-height: none !important;
   min-height: 0 !important;
 }
+
+/* Underway mode — a pure visibility toggle (Screen menu's Underway
+   button / #docked-btn, see app.js), modeled directly on anim-mode
+   above: hide everything except the compass and the essentials, but
+   unlike anim-mode this doesn't touch app state at all (no edit/follow/
+   animation mode change) and the user flips it back themselves rather
+   than it ending on its own. Tide is hidden too (see the #bottom-hud
+   rule above) — the "Zoned" mockup this was built from kept the
+   compass and just the two numbers that matter underway (bearing/range,
+   heading/speed); if tide turns out to be missed underway, revisit
+   before adding anything else back. */
+#app.underway-mode #map-overlay-status,
+#app.underway-mode #right-rail,
+#app.underway-mode #zoom-slider-wrap,
+#app.underway-mode #pan-controls-wrap {
+  display: none !important;
+}
+#docked-btn {
+  display: none;
+  position: absolute;
+  top: 70px;
+  right: 10px;
+  z-index: 1000;
+  background: var(--dark-blue);
+  color: var(--text);
+  border: 1px solid var(--mid-blue);
+  border-radius: 6px;
+  font-size: 0.75rem;
+  padding: 3px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  align-items: center;
+  gap: 4px;
+  -webkit-tap-highlight-color: transparent;
+}
+#docked-btn:hover { border-color: var(--accent); color: var(--text); }
+#app.underway-mode #docked-btn { display: flex; }
+
 #anim-banner {
   display: flex;
   align-items: center;
@@ -2892,8 +2937,14 @@ body.wco-active #wco-titlebar { display: flex; }
   display: none;
   position: absolute;
   left: 10px;
-  top: 50%;
-  transform: translateY(-50%) var(--ui-pos-navctl, translate(0,0));
+  /* Sits directly under the compass rose now (was vertically centered,
+     floating mid-screen with no visual relationship to it) — the
+     "Zoned" layout's left orientation rail: compass, zoom, pan, read
+     as one instrument column even though each stays its own element
+     (the compass is a Leaflet control, not something to freely
+     re-parent — see #right-rail's comment for the same reasoning). */
+  top: 110px;
+  transform: var(--ui-pos-navctl, translate(0,0));
   z-index: 1000;
   flex-direction: column;
   align-items: center;
@@ -2930,7 +2981,7 @@ body.wco-active #wco-titlebar { display: flex; }
   display: none;
   position: absolute;
   left: 10px;
-  top: calc(50% + 120px);
+  top: 310px; /* below the compass + #zoom-slider-wrap, same left-rail grouping */
   z-index: 1000;
   flex-direction: column;
   align-items: center;

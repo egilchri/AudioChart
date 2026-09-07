@@ -1596,12 +1596,14 @@ function _initRearrangeGroups() {
   // had drifted down to the lower-left, hiding behind other elements, with
   // no reliable way back. It's a fixed reference instrument, not something
   // anyone actually wants to relocate; anchored at the top for good now.
+  // zoom-to-me/navaid-filter/reroute/delete-route ("btncol") are laid out
+  // in #right-rail's flex column now (the "Zoned" layout), not individually
+  // absolute-positioned — dragging one out of a flex column doesn't mean
+  // anything sensible anymore, so that drag group is gone too, same
+  // reasoning as the other two.
   localStorage.removeItem('audiochart-ui-pos-status');
   localStorage.removeItem('audiochart-ui-pos-compass');
-  _makeDraggableGroup('btncol', () => [
-    'zoom-to-me-btn', 'navaid-filter-btn',
-    'reroute-btn', 'delete-route-btn',
-  ].map(id => document.getElementById(id)));
+  localStorage.removeItem('audiochart-ui-pos-btncol');
   _makeDraggableGroup('navctl', () => ['zoom-slider-wrap', 'pan-controls-wrap'].map(id => document.getElementById(id)));
   _makeDraggableGroup('version', () => [document.getElementById('map-version-label')]);
   _makeDraggableGroup('cmdbar', () => [document.getElementById('map-overlay-cmd')]);
@@ -7460,6 +7462,14 @@ function _ensureMap() {
   });
   new _HeadingSpeedReadout().addTo(_map);
 
+  // "Zoned" layout: tide and heading/speed move out of Leaflet's own
+  // topright control corner into #bottom-hud, the one consolidated HUD
+  // row alongside #focus-btn (already placed there in index.html) —
+  // safe to just re-parent them since both are position:fixed (see
+  // app.css) and already fully escaped Leaflet's control-container
+  // layout; nothing about their own construction/behavior changes.
+  document.getElementById('bottom-hud').append(_tideCycleEl, _headingSpeedEl);
+
   // Route-follow progress readout — next waypoint / distance to end / distance
   // traveled, shown only while a route is being followed (see _startFollowingRoute).
   const _FollowProgressReadout = L.Control.extend({
@@ -10904,6 +10914,25 @@ document.getElementById('screen-menu-rearrange').addEventListener('click', () =>
   _closeScreenMenu();
   _enterRearrangeMode();
 });
+
+// Underway is a pure visibility toggle — see #app.underway-mode in
+// app.css — never touches edit/follow/animation state, just hides the
+// top bar, #right-rail, zoom/pan, and tide down to the compass +
+// bearing/heading-speed. Two entry points (the Screen-menu button to
+// turn it on, #docked-btn to turn it back off) share one toggle so
+// they can never disagree about the current state.
+function _setUnderwayMode(on) {
+  _appEl.classList.toggle('underway-mode', on);
+  localStorage.setItem('audiochart-underway-mode', on ? '1' : '');
+}
+document.getElementById('underway-btn').addEventListener('click', () => {
+  _closeScreenMenu();
+  _setUnderwayMode(!_appEl.classList.contains('underway-mode'));
+});
+document.getElementById('docked-btn').addEventListener('click', () => {
+  _setUnderwayMode(false);
+});
+if (localStorage.getItem('audiochart-underway-mode') === '1') _setUnderwayMode(true);
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && screenMenu.style.display !== 'none') _closeScreenMenu();
 });
