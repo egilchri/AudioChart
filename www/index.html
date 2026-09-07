@@ -29,10 +29,15 @@
       <div id="status-title-bar" title="Chart · GPS: waiting">🗺 Chart  ·  GPS: waiting</div>
       <div id="wco-titlebar"></div>
       <div id="map-version-label"></div>
-      <!-- Docked/Underway is a pure visibility toggle (see #app.underway-mode
-           in app.css and the underway-btn handler in app.js) — this button
-           is how you get back, shown only while underway-mode is active. -->
-      <button id="docked-btn" title="Back to the full layout">&#9875; Docked</button>
+      <!-- Underway is a pure visibility toggle (see #app.underway-mode in
+           app.css and the underway-btn handler in app.js). One button, not
+           two — it lives outside #map-overlay-status/#screen-menu entirely,
+           on purpose, so it's never swept away by the underway-mode hide-list
+           the way the top bar and right rail are: this is the one control
+           that has to stay reachable in both states, in the same place,
+           without a menu dive, or there's no way back. Its label/title flip
+           between "Underway"/"Docked" in app.js as the mode toggles. -->
+      <button id="underway-btn" title="Hide everything but the compass and the essentials">&#9973; Underway</button>
       <!-- "Zoned" layout: orientation instruments (compass — a Leaflet
            control, positioned via .leaflet-top/.leaflet-left in app.css —
            plus zoom/pan below it) on the left; route/data actions
@@ -162,7 +167,6 @@
           <button id="offline-btn" title="Download chart data for offline use" style="display:none">&#11015; Offline</button>
           <button id="location-menu-btn" title="Location options">&#128205; Location</button>
           <button id="screen-menu-btn" title="Screen options">&#128421; Screen</button>
-          <button id="underway-btn" title="Hide everything but the compass and the essentials — tap Docked (top right) or here again to bring routes/tracks/settings back">&#9973; Underway</button>
         </div>
         <div id="location-menu" style="display:none">
           <button id="location-menu-spoof" title="Move the boat's position to a place or coordinates you type, for testing without a GPS fix">&#128205; Spoof Location</button>

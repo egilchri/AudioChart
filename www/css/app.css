@@ -114,7 +114,7 @@ html, body {
 .status-badge.rp-hazard-soft { background: #4a2a00; color: var(--warn); }
 
 /* Offline prep, location + screen menu triggers in header */
-#offline-btn, #location-menu-btn, #screen-menu-btn, #underway-btn, #track-rec-btn,
+#offline-btn, #location-menu-btn, #screen-menu-btn, #track-rec-btn,
 #anchor-watch-btn, #anchor-watch-silence-btn {
   background: rgba(10, 22, 40, 0.92);
   border: 1px solid var(--mid-blue);
@@ -125,7 +125,7 @@ html, body {
   cursor: pointer;
   white-space: nowrap;
 }
-#offline-btn:hover, #location-menu-btn:hover, #screen-menu-btn:hover, #underway-btn:hover, #track-rec-btn:hover, #anchor-watch-btn:hover, #anchor-watch-silence-btn:hover { border-color: var(--accent); color: var(--text); }
+#offline-btn:hover, #location-menu-btn:hover, #screen-menu-btn:hover, #track-rec-btn:hover, #anchor-watch-btn:hover, #anchor-watch-silence-btn:hover { border-color: var(--accent); color: var(--text); }
 #offline-btn:disabled { opacity: 0.5; cursor: default; }
 #location-menu-btn.test-active { border-color: var(--danger); color: var(--danger); background: #2a0a0a; font-weight: 700; }
 #location-menu-btn.test-active:hover { border-color: var(--danger); color: #ff8080; background: #3a0a0a; }
@@ -2634,6 +2634,7 @@ body.wco-active #wco-titlebar { display: flex; }
 #app.anim-mode #map-overlay-status,
 #app.anim-mode #map-overlay-cmd,
 #app.anim-mode #status-title-bar,
+#app.anim-mode #underway-btn,
 #app.anim-mode #wco-titlebar,
 #app.anim-mode #map-version-label,
 #app.anim-mode #right-rail,
@@ -2652,9 +2653,9 @@ body.wco-active #wco-titlebar { display: flex; }
   min-height: 0 !important;
 }
 
-/* Underway mode — a pure visibility toggle (Screen menu's Underway
-   button / #docked-btn, see app.js), modeled directly on anim-mode
-   above: hide everything except the compass and the essentials, but
+/* Underway mode — a pure visibility toggle (#underway-btn, see app.js),
+   modeled directly on anim-mode above: hide everything except the
+   compass and the essentials, but
    unlike anim-mode this doesn't touch app state at all (no edit/follow/
    animation mode change) and the user flips it back themselves rather
    than it ending on its own. Tide is hidden too (see the #bottom-hud
@@ -2669,26 +2670,32 @@ body.wco-active #wco-titlebar { display: flex; }
 #app.underway-mode #left-rail-backdrop {
   display: none !important;
 }
-#docked-btn {
-  display: none;
+/* One button, not two, and deliberately NOT a child of #map-overlay-status
+   (which vanishes entirely in underway-mode above) — this is the one
+   control that has to be reachable in both states without a menu dive,
+   so it lives at the top-level of #map-container instead, overlaid on the
+   right end of #status-title-bar's strip (that title bar is one of the
+   few things underway-mode never hides). Its label/title swap between
+   "Underway"/"Docked" in app.js as the mode toggles. */
+#underway-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   position: absolute;
-  top: 70px;
+  top: 2px;
   right: 10px;
-  z-index: 1000;
+  z-index: 1002;
   background: var(--dark-blue);
   color: var(--text);
   border: 1px solid var(--mid-blue);
   border-radius: 6px;
-  font-size: 0.75rem;
-  padding: 3px 8px;
+  font-size: 0.72rem;
+  padding: 2px 8px;
   cursor: pointer;
   white-space: nowrap;
-  align-items: center;
-  gap: 4px;
   -webkit-tap-highlight-color: transparent;
 }
-#docked-btn:hover { border-color: var(--accent); color: var(--text); }
-#app.underway-mode #docked-btn { display: flex; }
+#underway-btn:hover { border-color: var(--accent); color: var(--text); }
 
 #anim-banner {
   display: flex;

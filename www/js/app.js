@@ -10937,20 +10937,22 @@ document.getElementById('screen-menu-rearrange').addEventListener('click', () =>
 // Underway is a pure visibility toggle — see #app.underway-mode in
 // app.css — never touches edit/follow/animation state, just hides the
 // top bar, #right-rail, zoom/pan, and tide down to the compass +
-// bearing/heading-speed. Two entry points (the always-visible status-tile
-// button to turn it on, #docked-btn to turn it back off) share one toggle
-// so they can never disagree about the current state. Both buttons live
-// outside #screen-menu on purpose — per standing direction, a mode this
-// central shouldn't require opening a menu to find.
+// bearing/heading-speed. One button, always visible in both states (see
+// #underway-btn's own positioning comment in app.css for why it lives
+// outside #map-overlay-status) — its label/title flip so the same control
+// both enters and exits underway mode, rather than two separate buttons
+// that could disagree about which one is currently the "real" toggle.
+const _underwayBtn = document.getElementById('underway-btn');
 function _setUnderwayMode(on) {
   _appEl.classList.toggle('underway-mode', on);
   localStorage.setItem('audiochart-underway-mode', on ? '1' : '');
+  _underwayBtn.innerHTML = on ? '&#9873; Docked' : '&#9973; Underway';
+  _underwayBtn.title = on
+    ? 'Back to the full layout'
+    : 'Hide everything but the compass and the essentials';
 }
-document.getElementById('underway-btn').addEventListener('click', () => {
+_underwayBtn.addEventListener('click', () => {
   _setUnderwayMode(!_appEl.classList.contains('underway-mode'));
-});
-document.getElementById('docked-btn').addEventListener('click', () => {
-  _setUnderwayMode(false);
 });
 if (localStorage.getItem('audiochart-underway-mode') === '1') _setUnderwayMode(true);
 document.addEventListener('keydown', (e) => {

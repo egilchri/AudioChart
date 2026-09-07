@@ -55,6 +55,16 @@
     max-width: 1160px;
     margin: 0 auto;
     padding: 34px 24px 80px;
+    /* Named size container so the phone/desktop switch below can key off
+       THIS column's own rendered width, not the host window's viewport.
+       An embedded artifact frequently renders inside something narrower
+       than the actual browser window (a side panel, a preview pane) —
+       @media (min-width) reads that outer window's width and can get
+       permanently stuck on the narrow branch no matter how much screen
+       the user actually has. @container reads .wrap's own box instead,
+       which is the thing that's actually phone- or desktop-wide. */
+    container-type: inline-size;
+    container-name: helm-wrap;
   }
 
   /* ── Header ─────────────────────────────────────────────────────── */
@@ -237,7 +247,12 @@
     container-type: inline-size;
     font-size: 2.63cqw;
   }
-  @media (min-width: 760px) {
+  /* Keyed to .wrap's own rendered width (see container-name: helm-wrap
+     above), not the host window's viewport — the phone/desktop split
+     needs to match how wide THIS component actually is, which isn't the
+     same thing when it's embedded in something narrower than the full
+     browser window. */
+  @container helm-wrap (min-width: 760px) {
     .screen {
       aspect-ratio: 16 / 10;
       width: min(100%, calc(78vh * 16 / 10));
@@ -373,7 +388,7 @@
     gap: 28px;
     margin-top: 28px;
   }
-  @media (max-width: 780px) {
+  @container helm-wrap (max-width: 780px) {
     .below { grid-template-columns: 1fr; }
   }
   .panel {
