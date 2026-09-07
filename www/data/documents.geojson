@@ -1527,6 +1527,263 @@
         "body": "Before the State of Maine ran a ferry here, a privately owned 44-foot boat called the Sea Wind carried passengers, mail, and freight between Bass Harbor (then still called McKinley) and Swan's Island by way of Frenchboro, starting in 1950 — one round trip a day, mail six days a week, and no vehicles at all.\n\nThe Maine Legislature handed ferry service to the newly formed Maine Port Authority in 1957, and the William S. Silsby began real vehicle service in July 1960, carrying seven or eight cars a trip. The route has been upgraded twice since: first to an eleven- or twelve-car boat, then to the Captain Henry Lee in 1992, a sixteen-to-seventeen-car ferry that still runs multiple trips a day between Bass Harbor and Swan's Island — the same crossing the Sea Wind once made alone.",
         "source": "Maine Memory Network — The Swan's Island Ferry"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.6317635, 44.0718969] },
+      "properties": {
+        "title": "The exclusive club that closed itself off, then gave itself away",
+        "category": "history",
+        "era": "industrial",
+        "place": "Isle au Haut",
+        "body": "In 1879, landscape architect Ernest Bowditch — grandson of navigator Nathaniel Bowditch, and a contemporary of Frederick Law Olmsted, the designer of Central Park — discovered Isle au Haut on a boat trip while fleeing an already-crowded Bar Harbor. He and his partners bought land and founded the Point Lookout Club, an exclusive summer resort that quickly drew wealthy \"rusticators\" from Boston, New York, and Philadelphia. Cottages sat on a hill above the harbor, arranged for privacy and ocean views, linked by curved pathways to a central clubhouse; the club eventually cut trails across much of the island.\n\nThe club closed during World War II as the Bowditch family's scattered holdings became too unwieldy to maintain — the same holdings Richard Bowditch would write to the Interior Secretary about in 1942, leading to the 1943 land donation that put part of Isle au Haut into Acadia National Park. The exclusive resort and the public park it eventually became are, in a real sense, the same land changing hands twice.",
+        "source": "Points East — Isle au Haut: Acadia's Offshore Island; National Parks Traveler — An Island Apart"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.6317635, 44.0718969] },
+      "properties": {
+        "title": "The first family to actually stay",
+        "category": "history",
+        "era": "colonial",
+        "place": "Isle au Haut",
+        "body": "Champlain named the island in 1604, but nobody settled it for nearly two centuries afterward. The first documented permanent European settler was Peletiah Barter, who arrived in 1792 — by 1800, about fifty English and Scottish settlers were living on the island, making a living from sheep-raising, farming, and fishing, the same three trades that would define Isle au Haut's economy for the next century.\n\nThe island incorporated as its own town in 1874, splitting off from Deer Isle, by which point that first handful of families had grown into a real year-round community — one that would go on to peak in population around 1880, before a long, well-documented decline set in.",
+        "source": "Isle Au Haut Historical Society; Wikipedia — Isle au Haut, Maine"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.6317635, 44.0718969] },
+      "properties": {
+        "title": "A town that lost nine of every ten residents",
+        "category": "history",
+        "era": "modern",
+        "place": "Isle au Haut",
+        "body": "Isle au Haut's year-round population peaked at 274 in 1880, then fell almost every decade after: 182 by 1900, 160 by 1910, 102 by 1920, just 75 by 1935. Today it holds somewhere between 30 and 50 year-round residents — under a fifth of its Gilded Age peak.\n\nThe cause is specific and well documented, not just \"rural decline\" in general: mainland advances in motorized boats and rail transport undercut an isolated island's competitiveness for lobstering and fish transport, work that used to require living right where the fish were. Nearly half of today's year-round residents are still lobstermen. About 60 percent of the island is now Acadia National Park land — meaning the island's population loss and its conservation history are really two sides of the same hundred-year story.",
+        "source": "Island Institute — Isle au Haut Community Profile; Mainebiz — On Isle au Haut, Maine's economic woes are magnified"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.309, 44.312] },
+      "properties": {
+        "title": "Pemetic, \"the sloping land\"",
+        "category": "history",
+        "era": "colonial",
+        "place": "Mount Desert Island",
+        "body": "Wabanaki people called this island Pemetic — \"the sloping land\" — and were present here for more than 5,000 years before any European saw it: hunting, fishing, gathering shellfish and plants, living in bark-covered conical shelters, and traveling the coast by birchbark canoe. Samuel de Champlain landed on September 5, 1604, and named it for what he saw from the water: \"the mountain summits are all bare and rocky... I name it Isles des Monts Déserts\" — Islands of the Bare Mountains, since worn down in English to Mount Desert.\n\nFrench Jesuits established the first French mission in what's now the United States here in 1613, at Saint-Sauveur near the mouth of Somes Sound — destroyed by an English raiding party the same year it was founded, one of the opening skirmishes in more than a century of French-English contest for this coast.",
+        "source": "National Park Service — Acadia History Brief; National Park Service — Samuel de Champlain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.32392199706004, 44.366344861477096] },
+      "properties": {
+        "title": "Somesville, the island's first real town",
+        "category": "history",
+        "era": "colonial",
+        "place": "Somesville, Mount Desert Island",
+        "body": "Massachusetts royal governor Francis Bernard obtained a land grant covering Mount Desert Island in 1760; the following year, Abraham Somes and James Richardson settled at the head of what's now Somes Sound, founding the island's first permanent English settlement. The village that grew up around them still carries Somes's name today.\n\nBernard's own claim to the island wouldn't go unchallenged for long — a much older, French royal grant to Antoine de la Mothe Cadillac was about to resurface in the hands of his own descendants, setting up one of the stranger land disputes in Maine history barely a generation later.",
+        "source": "National Park Service — Acadia History Brief"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.28143776394398, 44.29658488203371] },
+      "properties": {
+        "title": "A French noblewoman, a royal grant, and Jefferson's thumb on the scale",
+        "category": "history",
+        "era": "revolution",
+        "place": "Mount Desert Island",
+        "body": "In 1688, Antoine Laumet de la Mothe Cadillac — the same man who'd go on to found Detroit — received a 100,000-acre French royal land grant that included all of Mount Desert Island. It sat unused by his family for a century, through the entire English takeover of the coast and the Revolution itself.\n\nThen, in 1786, Cadillac's granddaughter Marie Thérèse de Gregoire arrived from France with her husband and children to claim her grandfather's old grant — and found powerful American allies willing to back a French noblewoman's inherited claim in the young republic's very first years of independence: both Thomas Jefferson and the Marquis de Lafayette actively sponsored her case, part of a broader wave of post-Revolution American goodwill toward France. By 1787 the Massachusetts General Court granted her most of the island's eastern half. The western half went instead to John Bernard, son of the same royal governor whose 1760 grant had brought the Somes family here in the first place. Madame de Gregoire lived out her life on the island she'd crossed an ocean to claim, until her death in 1811.",
+        "source": "MDIslander — Historical records: Early island ownership; Bangor Daily News — Cadillac Mountain's 'scoundrel' namesake; National Park Service — Acadia History Brief"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.3324, 44.3106] },
+      "properties": {
+        "title": "A quarry that put the island's granite in the Library of Congress",
+        "category": "history",
+        "era": "industrial",
+        "place": "Hall Quarry, Mount Desert Island",
+        "body": "Cyrus Hall opened Hall Quarry on the western shore of Somes Sound in 1871, founding what became the Standard Granite Company — one of roughly fifty quarries that operated across Mount Desert Island at the granite industry's peak. Somes Sound's real fjard-deep water let loaded schooners tie up directly at the quarry face, no lightering required, a genuine geographic advantage most Maine granite islands didn't have.\n\nMDI granite went into the Library of Congress, the Brooklyn Bridge, and the Philadelphia Mint, among other landmark buildings up and down the East Coast. The industry peaked in the 1890s; Hall's own operation closed in 1901 after a major contract fell through, part of the same broader collapse — cheaper structural steel and reinforced concrete — that ended most of Maine's island granite quarrying within a generation.",
+        "source": "Maine Memory Network — The Granite and Ice Industries; Belfast Museum — The Granite Empire of C.J. Hall"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.20583149999999, 44.391934066666664] },
+      "properties": {
+        "title": "Painters discover the island, then everyone else follows",
+        "category": "history",
+        "era": "industrial",
+        "place": "Bar Harbor",
+        "body": "Hudson River School painters — Thomas Cole, Frederic Church among them — began popularizing Mount Desert Island's dramatic scenery in paintings starting in the mid-1800s, well before most Americans could easily travel here. By 1880, some thirty hotels were competing for the vacationers those paintings had sent north.\n\nWhat followed, through the 1880s into the 1920s, was one of the great concentrations of American wealth ever assembled in one small place: Rockefellers, Morgans, Fords, Vanderbilts, Carnegies, and Astors all built lavish summer \"cottages\" — some with dozens of rooms — in Bar Harbor, Northeast Harbor, and Seal Harbor. The word \"cottage\" was a deliberate understatement even then; these were mansions built to look modest against the landscape, not modest in any other sense.",
+        "source": "National Park Service — Acadia History Brief"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.27, 44.34] },
+      "properties": {
+        "title": "A carriage-road network built to keep cars out",
+        "category": "history",
+        "era": "modern",
+        "place": "Mount Desert Island interior",
+        "body": "John D. Rockefeller Jr. personally financed and oversaw construction of 57 miles of carriage roads across Mount Desert Island between 1913 and 1940, spending roughly $3.5 million of his own money — motivated by a simple, stubborn wish: to travel the island by horse and carriage without ever having to share the road with an automobile. Forty-five of those miles lie within today's Acadia National Park; the rest cross private land.\n\nHe financed sixteen of the road system's seventeen stone-faced bridges — each one individually designed, built from steel-reinforced concrete faced in native stone so they'd read as part of the landscape rather than engineering dropped onto it. Rockefeller ultimately donated some 10,000 acres to the public, the entire carriage-road network included — a car-free network built by one of the wealthiest men in America, out of a personal dislike for the automobile.",
+        "source": "National Park Service — Acadia's Historic Carriage Roads; Friends of Acadia — Built to Last"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.211, 44.37] },
+      "properties": {
+        "title": "The man who built a national park out of donated backyards",
+        "category": "history",
+        "era": "modern",
+        "place": "Sieur de Monts Spring, Mount Desert Island",
+        "body": "George B. Dorr and a small group of MDI's wealthy summer residents formed the Hancock County Trustees of Public Reservations in 1901, worried that the same real-estate boom drawing the rich to the island might eventually develop right over its wild land too. By 1913 the group had assembled 6,000 acres, entirely through private land donations — no government purchase involved.\n\nPresident Wilson proclaimed the land Sieur de Monts National Monument in 1916, then signed the act creating Lafayette National Park in 1919 — the first national park east of the Mississippi River — with Dorr installed as its first superintendent, a position he'd essentially spent two decades unofficially auditioning for. The park was renamed Acadia in 1929 and has grown since to protect more than 47,000 acres, almost all of it, like that first 6,000, given rather than bought.",
+        "source": "National Park Service — Acadia History Brief"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.20583149999999, 44.391934066666664] },
+      "properties": {
+        "title": "The fire that ended the Gilded Age cottages",
+        "category": "history",
+        "era": "modern",
+        "place": "Bar Harbor",
+        "body": "It started small: on October 17, 1947, a resident reported smoke from a smoldering cranberry bog near the park boundary. For three days it stayed contained, burning only about 169 acres — until October 21, when strong winds drove it explosively out of control.\n\nBy the time it was fully out, the fire had burned 17,188 acres, roughly half of it inside Acadia National Park itself, destroying 67 of the great Gilded Age summer estates, five large hotels, and 170 year-round homes — over $23 million in 1947 dollars. Bar Harbor's era as a playground for Rockefellers, Morgans, and Vanderbilts effectively ended in those four days; many of the grandest cottages were never rebuilt, and the town that emerged afterward was a fundamentally more modest place than the one that burned.",
+        "source": "Wikipedia — Great Fires of 1947; National Wildfire Coordinating Group — Staff Ride to the Bar Harbor Fire"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.2249, 44.3527] },
+      "properties": {
+        "title": "Cadillac Mountain's pink granite",
+        "category": "geology",
+        "place": "Cadillac Mountain, Mount Desert Island",
+        "body": "The pink granite core of Cadillac Mountain — the highest point on the U.S. Atlantic seaboard north of Rio de Janeiro, at 1,530 feet — is most commonly dated to about 419-424 million years old, straddling the Silurian-Devonian boundary, though at least one published study puts it closer to 365 million years; both figures are worth knowing since the literature hasn't fully settled the question. A shatter zone borders the granite where it intruded older rock, and diabase dikes — dark, sharp-edged bands of a different, later magma — cut straight across it in places, visible right in the exposed summit rock.",
+        "source": "Cadillac Mountain — Wikipedia; USGS Geolex — Cadillac"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.2249, 44.3527] },
+      "properties": {
+        "title": "The \"first sunrise\" claim, and when it's actually true",
+        "category": "geology",
+        "place": "Cadillac Mountain, Mount Desert Island",
+        "body": "Cadillac Mountain is often billed as the first place in the United States to see the sunrise — real, but only for part of the year. Its height (1,530 feet, the tallest point on the whole North Atlantic seaboard) and easterly position let it beat the sun to the mainland only from October 7 through March 6; for the rest of the year, West Quoddy Head near Lubec — flatter, but further east — wins instead, except for a short window (March 7-24 and September 19-October 6) when the two effectively trade the title back and forth as the sun's rising point shifts along the horizon.",
+        "source": "New England Today / Yankee Magazine — Where does the sun shine first in the United States"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.309, 44.312] },
+      "properties": {
+        "title": "Somes Sound: a fjard, not quite a fjord",
+        "category": "geology",
+        "place": "Somes Sound, Mount Desert Island",
+        "body": "Somes Sound is routinely called \"the only fjord on the U.S. East Coast,\" but geologists classify it more precisely as a fjard — a real, glacially carved distinction, not just pedantry. A true Norwegian-style fjord has extreme vertical relief and often poorly mixed, oxygen-starved bottom water; Somes Sound's walls are comparatively gentler, and its water is well-oxygenated and well-mixed rather than stagnant at depth. It's still a genuinely rare landform — the only inlet of its kind on the entire U.S. Atlantic coast — just not, strictly, a fjord.",
+        "source": "Maine Geological Survey — Somes Sound, Mount Desert Island"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.2453, 44.3592] },
+      "properties": {
+        "title": "A boulder that rode the ice nineteen — or forty — miles",
+        "category": "geology",
+        "place": "South Bubble, Mount Desert Island",
+        "body": "Bubble Rock, perched on the southeast corner of South Bubble's summit, is a glacial erratic of white granite that stands out immediately against the pink granite of the Bubbles themselves — because it didn't form there. Retreating glaciers dropped it in place roughly 10,000 years ago, having carried it from a granite outcrop near Lucerne, Maine; sources disagree on exactly how far it traveled, giving distances anywhere from 19 to 40 miles, but agree on the basic story: this rock rode an ice sheet a long way before being set down, balanced, on someone else's mountain.",
+        "source": "The Bubbles (Mount Desert Island) — Wikipedia; Maine Ice Age Trail — The Bubbles"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.1857, 44.3283] },
+      "properties": {
+        "title": "A beach made of shells, not sand",
+        "category": "geology",
+        "place": "Sand Beach, Mount Desert Island",
+        "body": "Sand Beach, tucked between Great Head and Otter Cliff, isn't made of the mineral sand — quartz and feldspar grains — that forms most Maine beaches. It's built almost entirely from finely broken shell fragments: calcium carbonate ground down by waves from the shells of the mussels, barnacles, and sea urchins that live on the rocky coast around it. That composition makes it a genuine geological outlier on a coastline otherwise dominated by granite ledge and mineral-sand beaches, and gives the sand its distinctively pale color and slightly different texture underfoot.",
+        "source": "National Park Service Geodiversity Atlas — Acadia National Park, Maine"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.2607, 44.4102] },
+      "properties": {
+        "title": "The Ovens: sea caves cut along a hidden fault",
+        "category": "geology",
+        "place": "The Ovens, Bar Harbor",
+        "body": "The Ovens — a line of sea caves between Salisbury Cove and Hulls Cove, best seen at low tide — are cut into the Bar Harbor Formation, a siltstone and shale baked and hardened by the nearby intruding Cadillac granite. Small Silurian-age faults offset the rock layers here, juxtaposing a weaker layer against a stronger cap; the sea has spent thousands of years since exploiting exactly that weakness, hollowing out cave after cave along the fault line while the harder rock above holds firm. One of the larger caves, resembling a vaulted ceiling, has long been nicknamed Cathedral Rock.",
+        "source": "Maine Geological Survey, Maine Geologic Facts and Localities — The Ovens, Bar Harbor, ME"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.20583149999999, 44.391934066666664] },
+      "properties": {
+        "title": "Sand and mud on top of a much older rock",
+        "category": "geology",
+        "place": "Bar Harbor Formation, Mount Desert Island",
+        "body": "Much of eastern Mount Desert Island's bedrock is the Bar Harbor Formation — sandstone and siltstone hardened from sand and silt that accumulated on top of the much older Ellsworth Schist, itself a metamorphic rock formed long before this later sediment ever settled on it. It's a genuine layered stratigraphic sequence, older rock buried under younger, distinct from the separately-formed volcanic rocks of the nearby Cranberry Isles — a reminder that \"Mount Desert Island granite\" is really shorthand for at least three or four different rock stories stacked, intruded, and eroded together over hundreds of millions of years.",
+        "source": "National Park Service Geodiversity Atlas — Acadia National Park, Maine"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.25040954893493, 44.24790442040619] },
+      "properties": {
+        "title": "Named for the bog, then set off on its own",
+        "category": "history",
+        "era": "colonial",
+        "place": "Great Cranberry Island",
+        "body": "The Cranberry Isles take their name from an actual 200-acre wild cranberry marsh on Great Cranberry Island — a name prominent enough by 1762 that it shaped Massachusetts Governor Francis Bernard's land grant for the area that same year (the same Bernard grant that, in a roundabout way, later fed into the Cadillac/Gregoire land dispute over Mount Desert Island itself). The earliest arrivals were transient — fishing, cutting barrel staves, then moving on — but the Bunker, Spurling, and Stanley families became the first to actually stay.\n\nOn March 16, 1830, the Maine Legislature set off Great Cranberry, Little Cranberry (Islesford), Sutton's, Baker's, and Bear Islands from the town of Mount Desert, incorporating them as their own town: Cranberry Isles, with Samuel Hadlock, Enoch Spurling, and Joseph Moore as first selectmen. The new town annexed additional Mount Desert land in 1849.",
+        "source": "Cranberry Isles, Maine — Wikipedia"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.1987102731681, 44.24158372026205] },
+      "properties": {
+        "title": "The keeper who wouldn't switch parties",
+        "category": "history",
+        "era": "industrial",
+        "place": "Baker Island",
+        "body": "William and Hannah Gilley settled Baker Island around 1806 with two or three young children; by 1826 they had twelve. Two of their sons stayed on with families of their own, growing the island's year-round population to around twenty through the rest of the century. The U.S. Lighthouse Service built a lighthouse and keeper's house here in 1828 for $3,798.26, and William Gilley became its first keeper.\n\nLighthouse keeperships were political patronage jobs in that era, awarded and revoked with the White House. When Whig candidate Zachary Taylor won the presidency, Gilley — a Democrat — was offered a choice: switch parties, or lose the job. He refused, reportedly saying he wouldn't switch \"for all the lighthouses in the United States,\" and was fired in 1848 at age 63. He simply moved his operation to Great Duck Island, which he'd already bought in 1837 for $300. An 1898 Portland court ruling later upheld the Gilley family's land claim on Baker Island against a government challenge — the family outlasted the politics that had once cost them the lighthouse.",
+        "source": "New England Historical Society — William Gilley, 1st Keeper, Baker Island Lighthouse; Keepers of Baker Island — History"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.23431351210584, 44.26201860760742] },
+      "properties": {
+        "title": "A ships' store that became an island's memory",
+        "category": "history",
+        "era": "modern",
+        "place": "Islesford, Little Cranberry Island",
+        "body": "Around 1850, Edwin Hadlock built a ships' chandlery on Little Cranberry Island to supply the fishing fleet working these waters; it operated as a store until roughly 1875, then became a general market, then apartments by 1912. Physics professor William Otis Sawtelle bought the building and repurposed it as the \"Blue Duck Ships' Store,\" founding the Islesford Historical Society and using the building as its headquarters and museum starting in 1919 — with a dedicated museum building added in 1927.\n\nThe National Park Service acquired the whole property in 1948, folding a private collector's personal preservation project into Acadia National Park itself; it was listed on the National Register of Historic Places on September 30, 1980. A 19th-century chandlery, saved by one professor's fascination with local history, is now a federally protected museum.",
+        "source": "Wikipedia — Islesford Historical Museum and Blue Duck Ships Store"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.28143776394398, 44.29658488203371] },
+      "properties": {
+        "title": "From a captain's launch to a working ferry line",
+        "category": "history",
+        "era": "modern",
+        "place": "Northeast Harbor–Cranberry Isles run",
+        "body": "In the 1930s, Captain Eber Spurling ran mail out to the Cranberry Isles aboard his own launch, the Jerry — one man, one boat, carrying letters and small freight between the mainland and islands that had no other reliable link to it. Today's Beal & Bunker mailboat fleet, running the Double B and the Sea Queen between Northeast Harbor and the Cranberry Isles, descends directly from that same tradition: a private boat operator filling a gap the state ferry system never quite covered for these particular islands, the way it eventually did for places like Swan's Island.",
+        "source": "Maine Boats Homes & Harbors"
+      }
     }
   ]
 }
