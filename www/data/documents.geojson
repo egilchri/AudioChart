@@ -2036,6 +2036,418 @@
         "body": "\"Schoodic\" comes from the Passamaquoddy word \"Skutec\" — \"place of the burning fires\" — a name describing generations of use, not a single event. Wabanaki families harvested fish, clams, seabirds, and marine mammals around Frenchman Bay for thousands of years; shell-heap sites here date to somewhere between 1,000 and 2,000 years old, and at least 24 separate Indigenous archaeological sites are documented within what's now Acadia National Park's boundaries, Schoodic included.\n\nUniversity of Maine archaeologist David Sanger — the same researcher who untangled the \"Red Paint People\" myth elsewhere on this coast — led a student excavation at the Schoodic site itself in 1978, part of a long, ongoing effort to properly document Wabanaki heritage in and around this bay rather than let it stay a footnote to the region's more recently arrived summer-colony history.",
         "source": "Maine Indian Tribal-State Commission — Archaeology Then and Now: Exploring Wabanaki Heritage in and around Frenchman Bay; National Park Service — Indigenizing Archaeology at Acadia National Park"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.6378, 44.1375] },
+      "properties": {
+        "title": "Stonington Harbor — Anchorage & Moorings",
+        "category": "anchorages",
+        "place": "Stonington, Deer Isle",
+        "anchorage": {
+          "moorings": "Downtown moorings, wharves, and the fuel dock are reserved for the working fishing fleet, not visitors. There is a two-hour limit at the town float for yachts (drop-off only, not overnight).",
+          "anchoringNotes": "Visiting yachts are welcome to anchor as long as it's clear of the channel and other boats. One spot is roughly 100 yards E/NE of red nun '16' (stay north of it, since it marks the Thorofare edge). A second, quieter overnight spot is about 3/4 mile south of the town dock off the entrance to Mill Pond on Crotch Island.",
+          "holdingGround": "Good holding in mud reported off Crotch Island/Mill Pond entrance, roughly 7 ft at low water.",
+          "protection": "Stonington Harbor itself gives good all-around protection; the Mill Pond/Crotch Island spot is more sheltered but current can run in the Thorofare.",
+          "notes": "The inner harbor is a busy working lobster port with strong tidal current through the Thorofare — expect to share space with commercial traffic and be mindful of gear."
+        },
+        "source": "Cruising Club of America Cruising Guide to Maine, harbor page for Stonington (guides.cruisingclub.org/harbor/stonington/)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.6423, 44.1698] },
+      "properties": {
+        "title": "Old Quarry Ocean Adventures (Webb Cove) — Moorings",
+        "category": "anchorages",
+        "place": "Webb Cove, Stonington",
+        "anchorage": {
+          "moorings": "Old Quarry Ocean Adventures maintains 14 moorings on Webb Cove plus a deep-water pier and float; rental moorings and dock space are available to visiting boaters, arranged directly with the operator.",
+          "anchoringNotes": "Not documented in available sources — arrange a mooring or dock space with Old Quarry rather than anchoring on your own in the cove.",
+          "contact": "Old Quarry Ocean Adventures, 130 Settlement Road, Stonington, ME; (207) 367-8977"
+        },
+        "source": "Old Quarry Ocean Adventures listing details via LandVest/Christie's property listing and Visit Maine business directory; location per Mapcarta (Webb Cove, Hancock County, ME)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.6807, 44.1481] },
+      "properties": {
+        "title": "Billings Diesel & Marine — Moorings & Dockage",
+        "category": "anchorages",
+        "place": "Moose Island, Deer Isle Thorofare (half-mile west of Stonington)",
+        "anchorage": {
+          "moorings": "Billings Diesel & Marine maintains 11 granite-block moorings for boats up to 50 ft, plus alongside dockage for vessels up to 75 ft. Both moorings and dockage are first-come, first-served (no reservations).",
+          "anchoringNotes": "Not a self-anchor spot — this is a full-service boatyard; visitors take a mooring or dock alongside.",
+          "contact": "VHF Channel 16; phone (207) 367-2328"
+        },
+        "source": "Cruising Club of America Cruising Guide to Maine (Stonington harbor page) and Billings Diesel & Marine business listings (waterwayguide.com, deerisle.com); coordinates per Waterway Guide marina listing"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.6132, 44.1288] },
+      "properties": {
+        "title": "McGlathery Island (Merchant Row) — Anchorage",
+        "category": "anchorages",
+        "place": "Merchant Row, south of Stonington",
+        "anchorage": {
+          "moorings": "None — this is a conserved, undeveloped island (owned by Friends of Nature, transferred to Maine Coast Heritage Trust in 2021); no moorings maintained.",
+          "anchoringNotes": "Popular free anchorage; anchor in the cove between Round Island and McGlathery Island for good swinging room, or off the main anchorage in about 21 ft. Pull far enough in for island wind protection; watch for rocks at low tide on the McGlathery side. A kellet is recommended if not on all-chain rode to limit swing.",
+          "holdingGround": "Good holding, reported as mud.",
+          "protection": "Open and exposed to NE; better protection is found tucked closer in toward the islands.",
+          "notes": "Island is part of the Maine Island Trail network — day access for hiking the shoreline/beach is welcomed, but it is a conservation property (no camping fires etc. per standard MITA/MCHT rules)."
+        },
+        "source": "Cruising Club of America Cruising Guide to Maine (McGlathery harbor page), Waterway Guide anchorage listing (McGlathery Island, 2-1712), and Maine Coast Heritage Trust preserve page (mcht.org/preserve/merchant-row/)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.6269, 44.1531] },
+      "properties": {
+        "title": "Camp Island (Merchant Row) — Anchorage",
+        "category": "anchorages",
+        "place": "Merchant Row, East Penobscot Bay",
+        "anchorage": {
+          "moorings": "None documented — undeveloped island, self-anchor only.",
+          "anchoringNotes": "Ample anchoring room reported by cruisers, with room to swing near the middle of the Merchant Row island cluster.",
+          "holdingGround": "Good holding in mud and rock.",
+          "protection": "Open and exposed to NE winds/wake."
+        },
+        "source": "Waterway Guide anchorage listing (Camp Island, 2-1708) and general Merchant Row cruiser reports"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.641, 44.0728] },
+      "properties": {
+        "title": "Isle au Haut Thorofare / Town Landing — Anchorage & Guest Moorings",
+        "category": "anchorages",
+        "place": "Isle au Haut village, Isle au Haut Thorofare",
+        "anchorage": {
+          "moorings": "Three guest moorings are maintained in the Thorofare; described as first-come, first-served, marked with orange balls labeled \"Rent.\" Picking up other private moorings is not allowed.",
+          "anchoringNotes": "Anchoring outside the mooring area/channel is recommended for boats without a guest mooring. Enter between Isle au Haut Light and Sawyer Ledge Buoy '1', passing south of Inner Ledge Daybeacon '3'; favor the north side slightly at the anchorage entrance choke. Channel is under 6 ft at low water — best transited on a rising tide.",
+          "notes": "The town wharf/float (6 ft alongside reported) is a working ferry landing — fine for dropping off passengers, but boats may not be left there. Village store has some provisions, gasoline, and marine supplies; water available from a nearby well."
+        },
+        "source": "Cruising Club of America Cruising Guide to Maine (Isle au Haut harbor page); Town of Isle au Haut coordinates cross-referenced against Isle au Haut Light (44°03'53\"N, 68°39'05\"W) and Point Lookout (44°05.047'N, 68°37.932'W)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.6541, 44.0291] },
+      "properties": {
+        "title": "Duck Harbor, Isle au Haut — Anchorage (Acadia National Park)",
+        "category": "anchorages",
+        "place": "Duck Harbor, Isle au Haut",
+        "anchorage": {
+          "moorings": "None — no moorings available. Boats anchor on the shore side of the NPS float only.",
+          "anchoringNotes": "Small anchorage, capacity for only about 4-5 boats; arrive early in the day to get a spot. Best holding is found west of the Acadia National Park float on the harbor's south side. A stern anchor is recommended to control swing, especially with other boats present. Entrance is narrow and easy to miss in fog. Tidal range is at least 10 ft, so the harbor looks very different at high vs. low water.",
+          "holdingGround": "Fairly good holding bottom, but described as needing a properly-sized anchor and rode for the conditions.",
+          "protection": "Protected from harsh wind by Eben's Head just outside the entrance, but exposed to west and southwest winds."
+        },
+        "source": "Cruising Club of America Cruising Guide to Maine (Duck Harbor at Isle au Haut page); coordinates per Waterway Guide (Duck Island Harbor listing)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.7213, 44.2122] },
+      "properties": {
+        "title": "Sylvester Cove / Deer Isle Yacht Club — Guest Moorings",
+        "category": "anchorages",
+        "place": "Sylvester Cove, south of Dunham Point, Deer Isle",
+        "anchorage": {
+          "moorings": "Deer Isle Yacht Club maintains guest moorings, free of charge, on a strict first-come, first-served basis (cannot be reserved); maximum stay is 3 nights. Visiting boaters are asked to try to contact the club's Harbor Chairman ahead of arrival, who helps assign a mooring.",
+          "anchoringNotes": "An anchorage also exists in the cove south of Dunham Point for boats not on a club mooring.",
+          "holdingGround": "Good holding, mud and rock.",
+          "protection": "Open and exposed to the west.",
+          "fee": "No charge for the guest moorings.",
+          "contact": "Deer Isle Yacht Club Harbor Committee: HarborCommittee@DeerIsleYachtClub.com"
+        },
+        "source": "Deer Isle Yacht Club Mooring Rules & Regulations and Guest Mooring pages (deerisleyachtclub.wildapricot.org); depth/holding/protection and coordinates per Waterway Guide anchorage listing (Sylvester Cove, 2-1706)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.7382, 44.3382] },
+      "properties": {
+        "title": "Buck's Harbor — Moorings & Anchorage",
+        "category": "anchorages",
+        "place": "South Brooksville, head of Eggemoggin Reach",
+        "anchorage": {
+          "moorings": "Two facilities maintain the mooring field: Bucks Harbor Yacht Club (founded 1905) offers a limited number of guest moorings, first-come first-served, not reservable, in depths of roughly 17-35 ft (specific guest balls reported rated for boats up to 35-40 ft). Bucks Harbor Marina separately maintains 30+ moorings for boats up to 70 ft, available seasonally or transiently.",
+          "anchoringNotes": "Not specifically documented as prohibited, but the harbor is a well-established, well-used mooring field — visitors are generally directed to pick up a guest mooring rather than anchor.",
+          "holdingGround": "Good holding ground reported generally in the harbor.",
+          "protection": "Well protected overall — cited as one of the best-protected harbors on this stretch of coast, sheltered in part by Harbor Island.",
+          "fee": "Bucks Harbor Marina charges $50/night for a visitor mooring, including dinghy tie-up, showers, restrooms, WiFi, pump-out, water, trash/recycling, and coin laundry access. BHYC guest mooring fee not confirmed in available sources.",
+          "contact": "Bucks Harbor Yacht Club monitors VHF Channel 9 and can be reached at (207) 326-0556 (staffed weekends from mid-June, daily in July/August)."
+        },
+        "source": "Bucks Harbor Yacht Club Visitors page (bucksharboryc.org/visitors), Bucks Harbor Marina Moorings page (bucksharbor.com/moorings), and Cruising Club of America Cruising Guide to Maine (Buck's Harbor page)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.048, 44.208] },
+      "properties": {
+        "title": "Camden Outer Harbor — Anchorage & Moorings",
+        "category": "anchorages",
+        "place": "Camden Harbor, Camden, ME",
+        "anchorage": {
+          "moorings": "Town-maintained rental moorings and dock space through the Camden Harbormaster's office; private outer-harbor moorings also available from Lyman-Morse and P.G. Willey's Wharf. Cost not confirmed — town fee schedule is published as an annual PDF, not itemized on the harbor department page.",
+          "anchoringNotes": "Very limited anchoring room in the harbor itself, most of which is congested with moorings. The outer harbor anchorage lies eastward of a line from Eaton Point to the buoy north of Curtis Island; depths 13-33 ft.",
+          "holdingGround": "Soft bottom, good holding in the outer harbor anchorage area.",
+          "protection": "Outer anchorage is exposed and known to be rolly, especially near the outer ledges.",
+          "contact": "Harbormaster Steve Pixley — VHF 16 (working channel 11), office (207) 236-7969, cell (207) 691-4314."
+        },
+        "source": "US Harbors Camden Harbor guide and Camden Harbor Department website (camdenmaine.gov) — harbormaster contact, mooring/dock arrangements, and outer-harbor anchoring depths/holding."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.0692, 44.1867] },
+      "properties": {
+        "title": "Rockport Harbor — Anchorage & Moorings",
+        "category": "anchorages",
+        "place": "Rockport Harbor, Rockport, ME",
+        "anchorage": {
+          "moorings": "Close to 300 moorings in the harbor (commercial and recreational); the town mooring field is reported full with no transient town moorings. Rockport Marine (in the outer harbor) rents out some of its own moorings by the night; inner-harbor moorings are reserved for commercial lobster boats.",
+          "anchoringNotes": "Room to anchor in the harbor is available, mainly in the outer harbor.",
+          "protection": "Good protection except from the east.",
+          "contact": "Harbormaster's office (207) 236-0676, aleonard@rockportmaine.gov; VHF 16 monitored at the Rockport Public Landing."
+        },
+        "source": "Cruising Club of America guide (guides.cruisingclub.org/harbor/rockland) covering Rockport, and Town of Rockport Harbor page (rockportmaine.gov/harbor) — mooring field status and harbormaster contact."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.0906, 44.116] },
+      "properties": {
+        "title": "Rockland Harbor (Breakwater/Jameson Point) — Anchorage & Moorings",
+        "category": "anchorages",
+        "place": "Rockland Harbor, Rockland, ME",
+        "anchorage": {
+          "moorings": "City maintains 20 rental moorings, $50/day or $200/week. Public Landing dock space is first-come, first-served at $2.50/ft/night (including appendages), seasonal floats typically in from mid-May to mid-October.",
+          "anchoringNotes": "Ample designated anchoring space shown on the chart. Two general anchorage areas: one tucked behind the breakwater near Jameson Point (best option, protected from easterly chop), and one in the south corner of the harbor (good in settled weather, but can be affected by seas from the northeast).",
+          "holdingGround": "Sticky mud bottom that holds anchor and chain well.",
+          "protection": "Breakwater/Jameson Point area is protected from easterly chop; the southern anchorage is more exposed to northeast winds.",
+          "contact": "Harbormaster Molly Eddy, (207) 594-0312; office monitors VHF 16 and 09 (also reachable on 11)."
+        },
+        "source": "Cruising Club of America guide (guides.cruisingclub.org/harbor/rockland) and Wikipedia/Fishermen's Voice history of Rockland Breakwater — mooring/dock fees, anchorage locations, holding ground, and harbormaster contact."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.9393, 44.2592] },
+      "properties": {
+        "title": "Gilkey Harbor / Dark Harbor (Islesboro) — Anchorage & Moorings",
+        "category": "anchorages",
+        "place": "Gilkey Harbor, Islesboro, ME",
+        "anchorage": {
+          "moorings": "No town rental moorings in Gilkey Harbor itself. Dark Harbor Boat Yard, in Cradle Cove on Seven Hundred Acre Island, offers about 20 guest moorings at $50/day (first-come, not reservable), plus showers, ship's store, fuel dock, and block ice.",
+          "anchoringNotes": "Anchor in Gilkey Harbor (southwestern side of Islesboro, east of Seven Hundred Acre Island) to access Dark Harbor village; plenty of room to anchor around Cradle Cove between Seven Hundred Acre Island and Spruce Island.",
+          "holdingGround": "Good/excellent holding ground; a secure anchorage frequented by many yachts in summer.",
+          "contact": "Dark Harbor Boat Yard (207) 734-2246; monitors VHF working channels per marina listing."
+        },
+        "source": "Cruising Club of America guide (guides.cruisingclub.org/harbor/islesboro), US Harbors Gilkey Harbor/Islesboro pages, and Dark Harbor Boat Yard website — mooring counts/cost, anchoring area, and holding ground."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.9453, 44.2726] },
+      "properties": {
+        "title": "Warren Island State Park — Anchorage & Moorings",
+        "category": "anchorages",
+        "place": "Warren Island State Park, Islesboro, ME",
+        "anchorage": {
+          "moorings": "State park mooring field, first-come first-served; reported around 9 moorings (some sources say up to 10) at roughly $20/night, payable ashore. Inner moorings are lighter (150 lb mushroom); the two outermost are 1-ton blocks.",
+          "anchoringNotes": "Water-access-only state park just off Islesboro's Gilkey Harbor approach, about 3 miles offshore from Lincolnville; dinghy dock provided for landing.",
+          "fee": "Approximately $20/night per mooring, paid ashore at the park."
+        },
+        "source": "Maine Bureau of Parks and Lands Warren Island State Park materials and Waterway Guide anchorage listing — mooring count, type, and nightly fee."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.0064, 44.4254] },
+      "properties": {
+        "title": "Belfast Harbor — Anchorage & Moorings",
+        "category": "anchorages",
+        "place": "Belfast Harbor, Belfast, ME",
+        "anchorage": {
+          "moorings": "City-run rental moorings and transient slips available through the Belfast Public Landing/Harbor Office; reservations taken by phone or email ahead of arrival.",
+          "anchoringNotes": "Anchoring permitted only in areas and for durations designated by the harbormaster (per city ordinance); anchor out beyond the mooring field. No boats permitted on the Public Landing docks or rental moorings when SE/ESE winds are forecast over 25 knots.",
+          "holdingGround": "Mud bottom, generally good holding.",
+          "protection": "Exposed to southeasterly winds; channel-traffic wakes can cause rolling as boats swing with tide/current.",
+          "contact": "Harbormaster Kathy Given, (207) 338-1142, harbormaster@cityofbelfast.org; VHF 16, working channel 09."
+        },
+        "source": "City of Belfast Harbor Department pages (cityofbelfast.org) and Cruising Club of America Belfast guide — mooring/anchoring rules, holding ground, wind exposure, and harbormaster contact."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.7995, 44.3876] },
+      "properties": {
+        "title": "Castine Town Dock — Moorings (Anchoring Not Recommended)",
+        "category": "anchorages",
+        "place": "Castine Harbor, Castine, ME",
+        "anchorage": {
+          "moorings": "Two visitor moorings reserved primarily for visiting schooners, use requires harbormaster approval. Town Dock floats (seasonal, mid-May to mid-October) offer first-come tie-up limited to 2 hours 9am-5pm, overnight dockage permitted after 5pm at $3/ft/night (up to 80 ft total length).",
+          "anchoringNotes": "Anchoring off the town of Castine itself is not recommended due to poor holding ground and strong currents; cruisers are directed instead to Smith Cove or Holbrook Island area.",
+          "holdingGround": "Poor holding ground in the channel southeast of town (general depth ~72 ft).",
+          "contact": "Harbormaster Scott Vogel, cell (207) 266-9392, dock line (207) 266-7711, on duty 8am-5pm July 1-Labor Day; monitors VHF 09 and 16. Eaton's Boatyard (fuel dock) also on VHF 09."
+        },
+        "source": "Castine, Maine official 'Arriving by Boat' page (castine.me.us) and Cruising Club of America Castine guide — dockage fees/hours, mooring policy, and note on poor holding off town."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.775, 44.398] },
+      "properties": {
+        "title": "Smith Cove (Bagaduce River, near Castine) — Anchorage",
+        "category": "anchorages",
+        "place": "Smith Cove, Castine/Cape Rosier, ME",
+        "anchorage": {
+          "moorings": "No town or commercial mooring field documented; this is an anchor-out cove.",
+          "anchoringNotes": "Popular, spacious anchorage used specifically to avoid the strong currents at the mouth of the Bagaduce River; a preferred alternative to anchoring off Castine itself. Depths run roughly 17-58 ft.",
+          "holdingGround": "Great holding, soft bottom.",
+          "protection": "Excellent protection in all winds; locally regarded as a good hurricane hole."
+        },
+        "source": "Cruising Club of America guide (guides.cruisingclub.org/harbor/smith-cove) — anchorage character, depths, holding, and all-wind protection; general Castine-area location corroborated by Cape Rosier/Holbrook Island geography."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.8845, 44.0348] },
+      "properties": {
+        "title": "Hurricane Island — Anchorage & Moorings",
+        "category": "anchorages",
+        "place": "Hurricane Island, Vinalhaven, ME",
+        "anchorage": {
+          "moorings": "6 moorings rated 3,000 lb plus 1 rated 5,000 lb, maintained by the Hurricane Island Foundation (Center for Science and Leadership) on the east side of the island near the main pier; 1-1/8\" bottom chain, 1\" nylon top gear, inspected annually. First-come, first-served; call ahead on VHF 16 to reserve, as they fill for events/weekends.",
+          "anchoringNotes": "Anchoring in the mooring field is not recommended — the bottom there is littered with debris/artifacts left from the island's granite-quarrying era. A 3.2-acre aquaculture/marine research site off the north end of the island must also be avoided.",
+          "fee": "$25 per night or $15 per day (per Hurricane Island's own facilities page).",
+          "contact": "VHF 16; dockhouse at the head of the main pier; phone (207) 867-6050; email info@hurricaneisland.net.",
+          "notes": "Best approach is from the northeast; an unmarked ledge runs between the mooring field and the rest of Hurricane Sound to the south/southeast."
+        },
+        "source": "Hurricane Island Center for Science and Leadership facilities page (hurricaneisland.net/facilities) and CCA Cruising Guide to Maine (guides.cruisingclub.org/harbor/hurricane-island/)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.8389, 44.0405] },
+      "properties": {
+        "title": "Carvers Harbor — Anchorage & Moorings",
+        "category": "anchorages",
+        "place": "Carvers Harbor, Vinalhaven, ME",
+        "anchorage": {
+          "moorings": "Roughly 100 moorings in the harbor. The town does not rent moorings, but a few private owners leave their moorings open with a \"money jar\" (average about $30/night, pay on the honor system).",
+          "anchoringNotes": "Not a common anchoring destination — the harbor is dense with private/fishing moorings; visiting boats typically pick up an available private mooring rather than anchor.",
+          "contact": "Harbormaster Jim Knowlton, (207) 756-0209 — can also try to arrange a commercial dock space; dinghy tie-up limited to 16 ft or less at the town dock.",
+          "notes": "Hopkins Boatyard can arrange a transient slip with advance notice and has in-water repair capability; the Fishermen's Co-op doesn't officially take transients but may have room."
+        },
+        "source": "Maine Boats, Homes & Harbors (\"Carvers Harbor,\" maineboats.com/print/issue-160/carvers-harbor) and Atlantic Cruising Club (atlanticcruisingclub.com/Marinas/2651)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.8648, 44.1142] },
+      "properties": {
+        "title": "Perry Creek — Anchorage & Moorings",
+        "category": "anchorages",
+        "place": "Perry Creek, Vinalhaven, ME",
+        "anchorage": {
+          "moorings": "A mooring field now dominates what was an undeveloped anchorage; 4 moorings are kept free and are first-come, first-served, with a suggested donation to the Vinalhaven Land Trust, which owns the surrounding land.",
+          "anchoringNotes": "Limited room to anchor in mud with good holding, but moorings occupy most of the usable space. Power cables shown on the chart are real — do not anchor over them.",
+          "holdingGround": "Mud, good holding, where anchoring room exists.",
+          "protection": "All-around protection.",
+          "notes": "Entered from the Fox Islands Thorofare via Seal Cove, curving around Mouse Island. Vinalhaven Land Trust maintains hiking trails from the creek; cell coverage is thin (at most one bar of Verizon)."
+        },
+        "source": "CCA Cruising Guide to Maine, Perry Creek (guides.cruisingclub.org/harbor/perry-creek/); coordinates per USGS topo data via Topozone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.797, 44.106] },
+      "properties": {
+        "title": "Seal Bay — Anchorage",
+        "category": "anchorages",
+        "place": "Seal Bay, Vinalhaven, ME",
+        "anchorage": {
+          "moorings": "No mooring field documented — this is a natural anchorage, not a maintained mooring area.",
+          "anchoringNotes": "Anchoring is the norm here; many possible spots among the bay's coves and islands. The area between Burnt and Hay Islands is a popular hurricane-hole-style anchorage sheltered from big winds. Numerous charted rocks/ledges and lobster gear to navigate around.",
+          "holdingGround": "Good thick mud bottom in the inner harbor areas (per the same source describing the connected Winter Harbor anchoring grounds).",
+          "protection": "All-around protection in the inner coves; the area is comfortable in most conditions but exposed if wind pipes up hard from the north.",
+          "notes": "Entrance is on Vinalhaven's east side, about 1.5-2 miles south of the Fox Islands Thorofare. Bay is largely shallow with ledge/mudflats uncovering at low tide; a dinghy trip at high tide can reach Winter Harbor."
+        },
+        "source": "CCA Cruising Guide to Maine, Seal Bay plus Winter Harbor (guides.cruisingclub.org/harbor/seal-bay-vinalhaven/); coordinates approximate, derived from chart geography (Burnt/Hay Islands) described in that source"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.795, 44.098] },
+      "properties": {
+        "title": "Winter Harbor (Vinalhaven) — Anchorage",
+        "category": "anchorages",
+        "place": "Winter Harbor, Vinalhaven, ME",
+        "anchorage": {
+          "moorings": "No maintained mooring field documented.",
+          "anchoringNotes": "Anchor in the deep water between Davids Island (to starboard) and Hay Island (to port) past the unnamed boulders, or continue into the inner harbor past Burnt Island — both areas have good thick mud bottom.",
+          "holdingGround": "Good, thick mud.",
+          "notes": "Reached from Seal Bay; connects to the Mill River and, on the top half of the tide, to a haulover bridge accessible by dinghy. Watch for rocks in the outer entrance and along the Penobscot Island side of the channel. Vinalhaven Land Trust preserves (Lower Mill Preserve, Carrying Place Bridge Preserve) are accessible by dinghy at mid-tide or higher."
+        },
+        "source": "CCA Cruising Guide to Maine, Seal Bay plus Winter Harbor (guides.cruisingclub.org/harbor/seal-bay-vinalhaven/); coordinates approximate, derived from chart geography described in that source"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.8848, 44.1537] },
+      "properties": {
+        "title": "Pulpit Harbor — Anchorage & Moorings",
+        "category": "anchorages",
+        "place": "Pulpit Harbor, North Haven, ME",
+        "anchorage": {
+          "moorings": "Almost all moorings in the harbor are private — do not pick one up without owner permission. Thayer's Y-Knot Boatyard (Southern Harbor) has installed one rental mooring, about 3-4 boats in from the outer edge of the field; call ahead, (207) 867-4701.",
+          "anchoringNotes": "Anchor in midchannel in the broad part of the harbor, 18-33 ft; a good all-weather spot for small craft is in the southwesterly prong just inside the entrance, 18-27 ft. A more sheltered spot in 8-10 ft is toward the northeast end near the public float. Avoid the crowded, shallow inner harbor.",
+          "holdingGround": "Good holding, mud bottom, in 10-20 ft.",
+          "protection": "Considered a safe, all-weather anchorage.",
+          "fee": "No fee for anchoring; no services of any kind available in the harbor itself (no overboard discharge permitted, no garbage disposal).",
+          "contact": "North Haven Harbormaster (Pulpit Harbor) Adam Campbell, (207) 701-9994, or (207) 867-4433; public landing dinghy dock is the last float before the road bridge."
+        },
+        "source": "CCA Cruising Guide to Maine, Pulpit Harbor (guides.cruisingclub.org/harbor/pulpit-harbor/) and Town of North Haven, \"Sailing to North Haven\" (northhavenmaine.org/sailing_to_north_haven.php / departments/harbormaster.php)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.8842, 44.14] },
+      "properties": {
+        "title": "Southern Harbor — Anchorage & Moorings",
+        "category": "anchorages",
+        "place": "Southern Harbor, Vinalhaven, ME",
+        "anchorage": {
+          "moorings": "Thayer's Y-Knot Boatyard, a full-service yard on site, can provide a limited number of guest moorings (call ahead); they also service moorings out in the Fox Islands Thorofare and Pulpit Harbor.",
+          "anchoringNotes": "A quieter, less-trafficked alternative to Carvers Harbor with room to anchor near the boatyard.",
+          "contact": "Thayer's Y-Knot Boatyard, (207) 867-4701.",
+          "notes": "Approach past Browns Head Light and the Sugarloaves ledges, leaving the Fox's Ear spindle to port, then head due north to the center of outer Southern Harbor toward the boatyard."
+        },
+        "source": "CCA Cruising Guide to Maine / Town of North Haven \"Sailing to North Haven\" summary (northhavenmaine.org/sailing_to_north_haven.php); coordinates per Waterway Guide anchorage listing (waterwayguide.com/anchorage/2-1688/southern-harbor)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.75, 44.128] },
+      "properties": {
+        "title": "Fox Islands Thorofare (North Haven) — Anchorage & Moorings",
+        "category": "anchorages",
+        "place": "North Haven village, Fox Islands Thorofare, ME",
+        "anchorage": {
+          "moorings": "J.O. Brown & Son / Brown's Boatyard maintains rental moorings suitable for boats up to 60 ft, inspected annually, first-come first-served, plus fuel dock, showers, small chandlery and a haul-out lift.",
+          "anchoringNotes": "Good anchorage can be found in the channel of the Thorofare between the entrance of Seal Cove and the western end of North Haven village.",
+          "holdingGround": "Soft bottom, in depths of 23-33 ft in the main anchoring stretch.",
+          "fee": "$35 per night for a rental mooring at Brown's Boatyard.",
+          "contact": "Thorofare Harbormaster Foy W. Brown, (207) 867-4621 or (207) 867-4433; town dock is just west of the ferry terminal, about 12 ft depth.",
+          "notes": "North Haven is a longstanding summer yacht center; Southern Harbor (west of town) and Waterman Cove (east of town) are cited as additional protected anchorages nearby."
+        },
+        "source": "Town of North Haven, \"Sailing to North Haven\" (northhavenmaine.org/sailing_to_north_haven.php) and Town of North Haven Harbormaster page (northhavenmaine.org/departments/harbormaster.php)"
+      }
     }
   ]
 }

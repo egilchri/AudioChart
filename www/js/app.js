@@ -1123,10 +1123,10 @@ let _lowTideExtraLayers = []; // second+ low-tide coverage layers — see LOW_TI
 // self-contained WMS raster) but dropped per live comparison — Maine's own
 // data was "by far the best" (real coastline/place-name context, since it
 // overlays the chart rather than replacing it).
-const MAP_VIEW_MODES  = ['chart', 'satellite', 'low-tide', 'geology-maine', 'towns-maine', 'history', 'demographics', 'island-info'];
+const MAP_VIEW_MODES  = ['chart', 'satellite', 'low-tide', 'geology-maine', 'towns-maine', 'history', 'demographics', 'island-info', 'anchorages'];
 // Maps a display mode to the documents.geojson `category` it shows —
 // the whole reason "switch to Geology/History" needs no separate menu.
-const MAP_VIEW_DOC_CATEGORY = { 'geology-maine': 'geology', 'history': 'history', 'demographics': 'demographics', 'island-info': 'island-info' };
+const MAP_VIEW_DOC_CATEGORY = { 'geology-maine': 'geology', 'history': 'history', 'demographics': 'demographics', 'island-info': 'island-info', 'anchorages': 'anchorages' };
 // Named water passages/reaches/thorofares (plus a handful of major islands
 // that fall through every other label filter — see below) worth labeling
 // directly on the chart, like a real NOAA chart would — a hand-verified
@@ -1849,11 +1849,34 @@ function _formatIslandInfo(p) {
   return `<table style="width:100%;border-collapse:collapse">${rows.join('')}</table>${notesHtml}`;
 }
 
+// Practical mooring/anchoring guidance — deliberately separate from
+// island-info's general facts (ownership, land trust, public access):
+// this is the "where do I actually put the boat tonight" category,
+// safety-adjacent enough to earn its own map mode and marker color
+// rather than being buried in island-info's popups. Same doc-schema
+// pattern as _formatIslandInfo, a d.anchorage sub-object on the document.
+function _formatAnchorage(p) {
+  const d = p.anchorage || {};
+  const rows = [];
+  if (d.moorings) rows.push(`<tr><td style="padding:2px 10px 2px 0;color:#666;vertical-align:top">Moorings</td><td>${d.moorings}</td></tr>`);
+  if (d.anchoringNotes) rows.push(`<tr><td style="padding:2px 10px 2px 0;color:#666;vertical-align:top">Anchoring</td><td>${d.anchoringNotes}</td></tr>`);
+  if (d.holdingGround) rows.push(`<tr><td style="padding:2px 10px 2px 0;color:#666;vertical-align:top">Holding ground</td><td>${d.holdingGround}</td></tr>`);
+  if (d.protection) rows.push(`<tr><td style="padding:2px 10px 2px 0;color:#666;vertical-align:top">Protection</td><td>${d.protection}</td></tr>`);
+  if (d.fee) rows.push(`<tr><td style="padding:2px 10px 2px 0;color:#666;vertical-align:top">Fee</td><td>${d.fee}</td></tr>`);
+  if (d.contact) rows.push(`<tr><td style="padding:2px 10px 2px 0;color:#666;vertical-align:top">Contact</td><td>${d.contact}</td></tr>`);
+  let notesHtml = '';
+  if (d.notes) {
+    notesHtml = `<div style="margin-top:6px;padding-top:6px;border-top:1px solid #ddd;font-size:0.85em">${d.notes}</div>`;
+  }
+  return `<table style="width:100%;border-collapse:collapse">${rows.join('')}</table>${notesHtml}`;
+}
+
 const DOC_MARKER_STYLE = {
   geology:      { color: '#2e7d4f', emoji: '📄' },
   history:      { color: '#8a6d3b', emoji: '📜' },
   demographics: { color: '#2b6cb0', emoji: '👥' },
   'island-info': { color: '#7c3aed', emoji: '🏝' },
+  anchorages:   { color: '#0e7490', emoji: '⚓' },
 };
 function _documentMarkerIcon(category) {
   const s = DOC_MARKER_STYLE[category] || DOC_MARKER_STYLE.geology;
@@ -1897,6 +1920,7 @@ function _renderDocumentMarkers() {
     const p = f.properties;
     const bodyHtml = p.category === 'demographics' ? _formatDemographics(p)
       : p.category === 'island-info' ? _formatIslandInfo(p)
+      : p.category === 'anchorages' ? _formatAnchorage(p)
       : _formatDocBody(p.body);
     const m = L.marker([lat, lon], { icon: _documentMarkerIcon(p.category) });
     // Island Info's own online-lookup supplement (see _wireIslandLookup) —
@@ -7284,8 +7308,8 @@ function _applyMapLayer() {
   _syncMapModeTitle();
 }
 
-const MAP_VIEW_ICONS  = { chart: '🗺', satellite: '🛰', 'low-tide': '🌊', 'geology-maine': '⛰', 'towns-maine': '🏛', history: '📜', demographics: '👥', 'island-info': '🏝' };
-const MAP_VIEW_LABELS = { chart: 'Chart', satellite: 'Satellite', 'low-tide': 'Low-Tide Aerial', 'geology-maine': 'Geology', 'towns-maine': 'Towns', history: 'History', demographics: 'Demographics', 'island-info': 'Island Info' };
+const MAP_VIEW_ICONS  = { chart: '🗺', satellite: '🛰', 'low-tide': '🌊', 'geology-maine': '⛰', 'towns-maine': '🏛', history: '📜', demographics: '👥', 'island-info': '🏝', anchorages: '⚓' };
+const MAP_VIEW_LABELS = { chart: 'Chart', satellite: 'Satellite', 'low-tide': 'Low-Tide Aerial', 'geology-maine': 'Geology', 'towns-maine': 'Towns', history: 'History', demographics: 'Demographics', 'island-info': 'Island Info', anchorages: 'Anchorages' };
 const HISTORY_ERA_LABELS = {
   all: 'All Eras',
   colonial: 'Native American & Colonial',
