@@ -545,16 +545,35 @@ function _refreshWaypointLayer() {
         `<div class="navaid-popup">
            <div class="navaid-popup-name">${escapeHtml(wp.name)}</div>
            <button class="navaid-popup-focus">&#127919; Set focus</button>
+           <button class="navaid-popup-delete">&#128465; Delete</button>
          </div>`,
         { maxWidth: 220, className: 'navaid-popup-wrapper' }
       );
       m.on('popupopen', (e) => {
-        e.popup.getElement().querySelector('.navaid-popup-focus').addEventListener('click', () => {
+        const popupEl = e.popup.getElement();
+        popupEl.querySelector('.navaid-popup-focus').addEventListener('click', () => {
           _map.closePopup();
           Query.setFocus(wp.lat, wp.lon, wp.name, 'waypoint');
           _updateFocusButton();
           const msg = `Focused on ${wp.name}.`;
           showResponse(msg);
+          TTS.sayImmediate(msg);
+        });
+        // Same removal steps as the "delete waypoint [name]" text command —
+        // per direct request, old auto-named waypoints (wp001, wp002, ...)
+        // cluttering the chart needed a way to clear them right from the
+        // map, not just by typing their exact name into the command bar.
+        popupEl.querySelector('.navaid-popup-delete').addEventListener('click', () => {
+          if (!confirm(`Delete waypoint "${wp.name}"? This cannot be undone.`)) return;
+          _map.closePopup();
+          const stored = loadUserWaypoints();
+          const idx = stored.findIndex(w => w.name === wp.name);
+          if (idx !== -1) stored.splice(idx, 1);
+          localStorage.setItem(USER_WP_KEY, JSON.stringify(stored));
+          Query.removeUserWaypoint(wp.name);
+          _refreshWaypointLayer();
+          const msg = `Waypoint ${wp.name} deleted.`;
+          setStatus(msg);
           TTS.sayImmediate(msg);
         });
       });
@@ -3319,6 +3338,12 @@ const TRACK_KEY = 'audiochart-user-tracks';
 const HIDDEN_TRACKS_KEY = 'audiochart-hidden-tracks';
 const IN_PROGRESS_TRACK_KEY = 'audiochart-track-in-progress'; // {startMs, points}
 const TOMBSTONE_KEY = 'audiochart-sync-tombstones'; // [{id, type: 'route'|'track', deletedAt}], for Drive merge sync
+// Route name currently open in edit mode — set on entry, cleared on exit
+// (Cancel/OK/Revert all funnel through _exitEditMode). Only ever survives
+// into a later page load if edit mode was never cleanly exited (app closed/
+// crashed/reloaded mid-edit), which is exactly when _recoverEditMode should
+// resume it — see init().
+const EDITING_ROUTE_KEY = 'audiochart-editing-route';
 
 // id/updatedAt stamping + delete tombstones, feeding the Drive merge sync (see sync_merge.js).
 function _newSyncId() {
@@ -5308,6 +5333,7 @@ function _enterEditMode(routeIdx, skipHazardCheck = false) {
   _editMode = true;
   _editRouteIdx = routeIdx;
   _editRouteName = route.name;
+  localStorage.setItem(EDITING_ROUTE_KEY, route.name);
   _editPoints = route.points.map(_stripPoint);
   _editOriginalPoints = route.points.map(_stripPoint);
   _deleteMode = false;
@@ -5355,6 +5381,7 @@ function _exitEditMode() {
   _editMode = false;
   _editRouteName = null;
   _editRouteIdx = -1;
+  localStorage.removeItem(EDITING_ROUTE_KEY);
   _editPoints = [];
   _newVertexIdx = -1;
   _deleteMode = false;
@@ -10854,6 +10881,29 @@ function _recoverInProgressTrack() {
   } catch (_) { localStorage.removeItem(IN_PROGRESS_TRACK_KEY); }
 }
 
+// Per direct request: if the app closes (crash, killed in background, an
+// accidental reload) while a route is open for editing, reopening it should
+// drop straight back into editing that same route rather than starting
+// fresh. EDITING_ROUTE_KEY only survives a page load when edit mode was
+// never cleanly exited — see the key's own comment — so no confirmation
+// prompt is needed here, unlike _recoverInProgressTrack's: there's nothing
+// ambiguous to ask about, just resume.
+function _recoverEditMode() {
+  const name = localStorage.getItem(EDITING_ROUTE_KEY);
+  if (!name) return;
+  const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+  const idx = routes.findIndex(r => r.name === name);
+  if (idx === -1) { localStorage.removeItem(EDITING_ROUTE_KEY); return; }
+  const found = _enterEditMode(idx);
+  // Same rule _enterEditMode's other callers follow: don't let a routine
+  // status announcement cut off a hazard warning that just fired instead.
+  if (!found.length) {
+    const msg = `Resumed editing "${name}" from before reload.`;
+    setStatus(msg);
+    TTS.sayImmediate(msg);
+  }
+}
+
 testPosSet.addEventListener('click', async () => {
   let raw = testPosInput.value.trim();
   // Empty input → use first stop of the active cruise region as default
@@ -11216,6 +11266,7 @@ async function init() {
     _map.invalidateSize();
     _initRearrangeGroups();
     _recoverAnchorWatch();
+    _recoverEditMode();
   }).catch(() => {});
 
   // If opened via QR code with ?server=, persist the server URL and clean the address bar.

@@ -1781,7 +1781,9 @@ body.wco-active #wco-titlebar { display: flex; }
   margin-bottom: 2px;
 }
 .navaid-popup-brg,
-.navaid-popup-copy {
+.navaid-popup-copy,
+.navaid-popup-focus,
+.navaid-popup-delete {
   background: var(--mid-blue);
   border: none;
   border-radius: 6px;
@@ -1794,7 +1796,12 @@ body.wco-active #wco-titlebar { display: flex; }
   -webkit-tap-highlight-color: transparent;
 }
 .navaid-popup-brg:active,
-.navaid-popup-copy:active { background: var(--accent); color: var(--navy); }
+.navaid-popup-copy:active,
+.navaid-popup-focus:active { background: var(--accent); color: var(--navy); }
+/* Red danger accent, same convention as #delete-route-btn — this one's a
+   real, unconfirmed-undo delete rather than a view/focus action. */
+.navaid-popup-delete { color: #e05252; }
+.navaid-popup-delete:active { background: #e05252; color: #fff; }
 .map-tooltip {
   background: var(--dark-blue) !important;
   border: 1px solid var(--mid-blue) !important;
