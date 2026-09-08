@@ -10217,6 +10217,52 @@ async function handleCommand(transcript) {
         response = { text: 'Focus cleared.', speech: 'Focus cleared.' };
         break;
       }
+      case 'FOLLOW_ROUTE': {
+        const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+        const q = params.routeName.toLowerCase();
+        const route = routes.find(r => r.name.toLowerCase() === q) ||
+                      routes.find(r => r.name.toLowerCase().includes(q));
+        if (!route) {
+          response = { text: `No route named "${params.routeName}".`, speech: `I couldn't find a route called ${params.routeName}.` };
+          break;
+        }
+        // _startFollowingRoute already sets its own status/speech (and
+        // refuses if a track is already recording) — don't let the shared
+        // response handling below speak a second time and cut it off.
+        _startFollowingRoute(route);
+        return;
+      }
+      case 'NEXT_WAYPOINT': {
+        if (!_followingRouteId) {
+          response = { text: 'Not following a route.', speech: 'Not following a route. Say follow route, then the route name, or tap Follow on a route.' };
+          break;
+        }
+        const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+        const route = routes.find(r => r.id === _followingRouteId);
+        const pt = route?.points?.[_followingLegIdx];
+        if (!pt) {
+          response = { text: 'No next waypoint.', speech: 'No next waypoint.' };
+          break;
+        }
+        response = Query.bearingToNamedPoint(pos.lat, pos.lon, pt.lat, pt.lon, `${route.name} — waypoint ${_followingLegIdx + 1}`);
+        break;
+      }
+      case 'BEARING_TO_ROUTE_WAYPOINT': {
+        if (!_followingRouteId) {
+          response = { text: 'Not following a route.', speech: 'Not following a route. Say follow route, then the route name, first.' };
+          break;
+        }
+        const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+        const route = routes.find(r => r.id === _followingRouteId);
+        const idx = params.waypointNum - 1;
+        const pt = route?.points?.[idx];
+        if (!pt) {
+          response = { text: `Waypoint ${params.waypointNum} doesn't exist on "${route?.name || 'this route'}".`, speech: `Waypoint ${params.waypointNum} doesn't exist on this route.` };
+          break;
+        }
+        response = Query.bearingToNamedPoint(pos.lat, pos.lon, pt.lat, pt.lon, `${route.name} — waypoint ${params.waypointNum}`);
+        break;
+      }
       case 'BEARING_TO_PLACE': {
         response = Query.bearingToPlace(pos.lat, pos.lon, params.placeName);
         if (!response && serverUrl) {
@@ -10339,7 +10385,8 @@ async function handleCommand(transcript) {
     TTS.sayImmediate(speechText);
 
     const isCourseIntent = (intent === 'HAZARDS_ON_COURSE' || intent === 'HAZARDS_ALONG_ROUTE');
-    const isBearingIntent = (intent === 'BEARING_TO_PLACE' || intent === 'BEARING_TO_COORD' || intent === 'QUERY_FOCUS');
+    const isBearingIntent = (intent === 'BEARING_TO_PLACE' || intent === 'BEARING_TO_COORD' || intent === 'QUERY_FOCUS' ||
+                              intent === 'NEXT_WAYPOINT' || intent === 'BEARING_TO_ROUTE_WAYPOINT');
     const isOtherMapIntent = ['NEAREST_ISLAND', 'NEAREST_HAZARD', 'NEAREST_NAVAID', 'NEAREST_RESTRICTION'].includes(intent);
 
     if (isBearingIntent && Query.lastBearingResult) {

@@ -328,6 +328,16 @@ const PATTERNS = [
     params: {},
   },
 
+  // NEXT WAYPOINT — bare phrase, must be the WHOLE transcript, same shape as
+  // QUERY_FOCUS above. Always answers from the followed route's current leg
+  // (see _followingLegIdx), independent of whatever the focus target happens
+  // to be — more predictable than relying on focus alone while underway.
+  {
+    re: /^(?:next\s+(?:waypoint|wp|mark|leg))\s*[?.!]?\s*$/i,
+    intent: 'NEXT_WAYPOINT',
+    params: {},
+  },
+
   // SET FOCUS
   {
     re: /\b(?:focus\s+on|set\s+focus\s+(?:to|on)|watch)\s+(.{3,60})$/i,
@@ -340,6 +350,25 @@ const PATTERNS = [
     re: /\b(?:clear|cancel|remove)\s+focus\b/i,
     intent: 'CLEAR_FOCUS',
     params: {},
+  },
+
+  // FOLLOW A SAVED ROUTE BY NAME — lets a route become "the one being
+  // followed" (and so primes next-waypoint bearing tracking) entirely by
+  // voice/text, without needing the right rail's Route picker — usable
+  // from within Underway mode, where the right rail is hidden.
+  {
+    re: /\b(?:follow|navigate)\s+route\s+(.{2,60})$/i,
+    intent: 'FOLLOW_ROUTE',
+    extract: (m) => ({ routeName: m[1].trim() }),
+  },
+
+  // BEARING TO A NUMBERED WAYPOINT ON THE FOLLOWED ROUTE (must come before
+  // BEARING_TO_COORD/BEARING_TO_PLACE below, or "waypoint 3" gets swallowed
+  // as a place name instead).
+  {
+    re: /\b(?:range\s+and\s+bearing|bearing\s+and\s+range|bearing|distance|how\s+far|range)\b.{0,20}(?:to|of)\s+waypoint\s+(\d+)\b/i,
+    intent: 'BEARING_TO_ROUTE_WAYPOINT',
+    extract: (m) => ({ waypointNum: parseInt(m[1], 10) }),
   },
 
   // RANGE AND BEARING TO GPS COORDINATE (checked before named place)

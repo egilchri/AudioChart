@@ -1544,6 +1544,16 @@ function _formatBearingResult(lat, lon, flat, flon, name, isWaypoint, score) {
   };
 }
 
+/**
+ * Bearing/range to an already-known point with a name (a route waypoint,
+ * for instance) — reuses the same formatting/focus-setting every other
+ * bearing query goes through, so "waypoint 3" reads and speaks exactly
+ * like any other bearing answer, and correctly becomes the new focus too.
+ */
+export function bearingToNamedPoint(lat, lon, targetLat, targetLon, name) {
+  return _formatBearingResult(lat, lon, targetLat, targetLon, name, true, 1.0);
+}
+
 /** Compute range and bearing from current position to an explicit coordinate. */
 export function bearingToCoord(lat, lon, targetLat, targetLon) {
   const brg = trueTomagnetic(bearing(lon, lat, targetLon, targetLat));
