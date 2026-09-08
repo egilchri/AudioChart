@@ -2889,6 +2889,153 @@
         },
         "source": "CCA Cruising Guide to Maine, White Islands (guides.cruisingclub.org/harbor/white-islands/); coordinates approximate — the page's own embedded Windy weather-link coordinates (43.989,-69.093) appear stale/wrong (near Boothbay, ~40nm away), so this position is instead estimated from the guide's approach narrative (immediately west/southwest of Hurricane Island, Vinalhaven) cross-referenced against known Penobscot Bay geography, not a precise fix"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.809, 44.225] },
+      "properties": {
+        "title": "Barred Islands",
+        "category": "anchorages",
+        "place": "Between Little Barred Island and Great Spruce Head Island, near Escargot Island, Penobscot Bay (Deer Isle/North Haven outer islands), ME",
+        "anchorage": {
+          "moorings": "As of October 2021, two moorings present: one marked 'Schauffler', frequently used by the owners of Barred Island — do not pick it up. The other might be available for rental but capacity and rental terms are unknown.",
+          "anchoringNotes": "From the north: leave Can 3 off Great Spruce Head Island to starboard and Escargot Island to port; a private mark usually sits on a ledge off the NE end of Little Barred Island — safe water is about halfway between the beacon and Escargot. From the south: head between Little Barred and Great Spruce Head Islands, turn east at the top of Little Barred giving it a wide berth, then turn between Escargot and the ledges off Little Barred. CAUTION: depths through the entry vary 0-10 feet, and the area near the moorings is shallower, close to 5-6 feet at MLW — if unfamiliar, use a dinghy and portable depth sounder to find a safe track before bringing the boat in.",
+          "holdingGround": "Generally good, though swing room is somewhat limited between Barred and Little Barred.",
+          "protection": "A very special anchorage in settled weather; advisable to return another time if significant wind is forecast from SW, NW, or N, or if more than three or four boats are already present.",
+          "notes": "Barred Island is private. Little Barred Island is accessible but under a conservation easement — no fires, pack out all trash/waste. The connecting bar is walkable at low tide when exposed."
+        },
+        "source": "CCA Cruising Guide to Maine, https://guides.cruisingclub.org/harbor/barred-islands/"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.593, 44.145] },
+      "properties": {
+        "title": "Devil & Bold Islands",
+        "category": "anchorages",
+        "place": "Near the eastern end of Merchant Row, adjacent to Deer Island Thorofare, Stonington, ME",
+        "anchorage": {
+          "moorings": "Moorings present in the anchorage but strictly private.",
+          "anchoringNotes": "Entered only from the east. Coming from the west via Deer Island Thorofare, round the NE side of Bold Island observing the two can buoys. Coming from the SW through Merchants Row, watch for reefs/rocks at the east end of Devil Island. Anchor anywhere with sufficient swing room within the marked 18-20 foot depth contour; do not go past the 11-foot sounding — the bottom shoals rapidly to under a foot beyond that.",
+          "holdingGround": "Good, in heavy mud.",
+          "protection": "Open to the east, so unprotected on the rare summer occasions the wind blows from that direction. The afternoon southwesterly can accelerate between Devil Island and Hell's Half Acre but typically dies down late afternoon and never kicks up much wave action.",
+          "notes": "Dinghy/kayak to state-owned Hell's Half Acre (a Maine Island Trail Association campsite) for a roughly quarter-mile walk with magnificent views (some scrambling required); another MITA campsite sits on the unnamed rock off Devil Island's east end. Devil Island itself is private — no landing or hiking without an owner's invitation. Sand beaches are exposed on the ledges at Devil's east end at low tide, good for swimming/exploring. Only 2.5 miles to Stonington (visible at night), reachable by a fast tender for dinner if confident in ground tackle and dinghy range."
+        },
+        "source": "CCA Cruising Guide to Maine, https://guides.cruisingclub.org/harbor/devil-bold-islands/"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.021, 43.985] },
+      "properties": {
+        "title": "Dix Island",
+        "category": "anchorages",
+        "place": "Muscle Ridge Channel, between High and Birch Islands, South Thomaston, ME",
+        "anchorage": {
+          "moorings": "Dix is privately owned by an association of several families, who maintain several private moorings between Dix and Birch — usually occupied by residents.",
+          "anchoringNotes": "Best anchorage is off the NE corner of Dix in front of a sand beach with good holding; some shoal-draft boats anchor off the beach on the NE side of Birch instead. From the NW part of Muscle Ridge Channel, leave Otter Island to port. From the SW part of Muscle Ridge, the best approach is the deep channel between Oak and Dix.",
+          "holdingGround": "Good, off the NE corner of Dix.",
+          "protection": "Good protection from all quadrants except strong NE winds; on the rare occasions offshore swell is running, protection can be good but depends on direction.",
+          "notes": "Historic granite-quarrying island (home to roughly 2,000 residents circa 1875; Dix granite was used in the New York and Philadelphia post offices). Visitors can walk well-marked paths around Dix (routed to avoid private cabins), past old foundations (Aberdeen and Shamrock boarding houses, each once holding ~500 men), water-filled abandoned quarries, granite-lined wells, and abundant birdlife — land the dinghy on the sandy NE beach opposite High Island's granite piers. High Island was recently sold privately and is no longer accessible without permission; Birch Island is also privately owned."
+        },
+        "source": "CCA Cruising Guide to Maine, https://guides.cruisingclub.org/harbor/dix-island/"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.73, 44.27] },
+      "properties": {
+        "title": "Torrey Islands (Eggemoggin Reach)",
+        "category": "anchorages",
+        "place": "Behind the Torrey Islands, Eggemoggin Reach, near Brooklin, ME (coordinates approximate — the page's embedded map link did not match this location)",
+        "anchorage": {
+          "moorings": "No moorings at the anchorage itself; nearest facilities are Brooklin Boatyard (rental moorings, dinghy dock, full mechanical/electrical/electronics services, 207-359-2236 or VHF ch 18) about 0.5 nm away, and Center Harbor Yacht Club (one guest mooring, dinghy dock, no outboards permitted, 207-359-8868) a short dinghy ride away; WoodenBoat School is 1.5 nm distant.",
+          "anchoringNotes": "One of four go-to anchorages when the SW breeze bends around the south end of the Reach and puts you hard on the wind for the last couple of miles (the others being Benjamin River, Center Harbor, and Wooden Boat School/Babson Island). Excellent holding and plenty of space; a lovely beach and tidal sandbar lies between Upper and Lower Torrey Islands.",
+          "protection": "Good protection from all wind directions except NW; generally flat water with minimal wakes or noise.",
+          "notes": "Cell signal is moderate, roughly 1-2 bars of Verizon. During the Eggemoggin Reach Regatta (first weekend of August, 100+ wooden boats), the anchorage off Wooden Boat School fills completely, but the Torrey Island anchorage stays open — and offers a spectacular view of the race start from the Reach side of Torrey Island."
+        },
+        "source": "CCA Cruising Guide to Maine, https://guides.cruisingclub.org/harbor/eggemoggin-reach/"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.745, 44.303] },
+      "properties": {
+        "title": "Benjamin River (Eggemoggin Reach)",
+        "category": "anchorages",
+        "place": "Mouth of the Benjamin River, Eggemoggin Reach, Sedgwick, ME (coordinates approximate — the page's embedded map link did not resolve to this specific spot)",
+        "anchorage": {
+          "moorings": "Benjamin River Marine: several moorings ($30), dinghy dock; 207-412-3161 or benjaminrivermarine@gmail.com; owner John Dunbar.",
+          "anchoringNotes": "One of four anchorages CCA members duck into along Eggemoggin Reach when the afternoon SW breeze bends around the Reach's south end and puts you hard on the wind. Described as 'a peaceful, almost pastoral place with moorings to rent or space to anchor.'",
+          "fee": "$30 per mooring (Benjamin River Marine)",
+          "contact": "Benjamin River Marine, 207-412-3161, benjaminrivermarine@gmail.com, owner John Dunbar"
+        },
+        "source": "CCA Cruising Guide to Maine, https://guides.cruisingclub.org/harbor/eggemoggin-reach/"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.798, 44.362] },
+      "properties": {
+        "title": "Holbrook (Tom Cod Cove / Holbrook Island Sanctuary)",
+        "category": "anchorages",
+        "place": "Tom Cod Cove, between Holbrook Island and the mainland, adjacent to Smith Cove and Castine, Brooksville, ME",
+        "anchorage": {
+          "moorings": "Tom Cod Cove has some guest moorings; check swing room as the tide, while not strong, can be squirrelly in direction.",
+          "anchoringNotes": "Entering from the NW, leave Can 1A off Nautilus Island to port and Holbrook Island to starboard; alternatively, coming up Penobscot Bay from Cape Rosier, turn right at the south end of Holbrook Island into the channel between Holbrook Island and the mainland. CAUTION: shallow, visible rocks on either side of Ram Island, especially one on the SE side of Ram Island in the middle of the channel.",
+          "holdingGround": "Generally good for anchoring off the isthmus beach north of Ram Island, or just outside the Tom Cod Cove moorings.",
+          "protection": "Pristine and quiet with 360-degree protection.",
+          "notes": "Excellent cellular signal, extensive hiking trails through the Holbrook Island Sanctuary (part of Maine's Dept. of Agriculture, Conservation and Forestry lands), multiple sub-anchorages. Dinghy docks at Tom Cod Cove and on Holbrook Island, plus a beach landing at the isthmus. Seals on Ram Island can be noisy. Family cemeteries within the Sanctuary are private, not tourist attractions. Smith Cove (already documented) is the other nearby 'special place,' reached by continuing around through Castine."
+        },
+        "source": "CCA Cruising Guide to Maine, https://guides.cruisingclub.org/harbor/holbrook/"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.917, 44.245] },
+      "properties": {
+        "title": "Cradle Cove (Islesboro)",
+        "category": "anchorages",
+        "place": "Cradle Cove, near Birch Point, Islesboro, ME, just north of Gilkey Harbor/Dark Harbor (coordinates approximate)",
+        "anchorage": {
+          "moorings": "Dark Harbor Boat Yard, in Cradle Cove: 207-734-2246, VHF Ch 9 and 16. Open 7 days a week in July and August. Rental moorings available (not reservable). Fuel dock (gas, diesel, water) can accommodate 8 feet of draft at low tide — come straight in from the mooring area following the private marks to avoid ledges on either side. Showers and a ships store on site.",
+          "anchoringNotes": "A favorite of some CCA members is the NW side of Cradle Cove near Birch Point — be careful of shoal areas near the point and along the shoreline. Approaching from the south, leave the red nuns 4 and 6 to starboard; from the north, leave Can 7 to starboard, give Spruce Island berth, and leave nuns 6 and 4 to port before turning into the cove.",
+          "holdingGround": "Plenty of room for anchoring with excellent holding.",
+          "fee": "Rental moorings available at Dark Harbor Boat Yard (fee not stated)",
+          "contact": "Dark Harbor Boat Yard, 207-734-2246, VHF Ch 9 and 16"
+        },
+        "source": "CCA Cruising Guide to Maine, https://guides.cruisingclub.org/harbor/islesboro/"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.882, 43.862] },
+      "properties": {
+        "title": "Matinicus Island",
+        "category": "anchorages",
+        "place": "Matinicus Harbor, Matinicus Island, ME — outermost year-round inhabited island on the Maine coast (~75 residents)",
+        "anchorage": {
+          "moorings": "About nine guest moorings, marked with tall buoys, orange pennants, and plastic jars — pick up any of them. A map of the island is inside the jar; leave payment in the jar. Moorings are on strong pendants attached to a steel cable running across the harbor floor. No harbormaster; moorings are first-come, first-served. If all guest moorings are full, try asking a fisherman.",
+          "anchoringNotes": "Fishermen use the northern/upper harbor, where a very broad ledge runs across much of the northern half — visiting yachts should stay in the lower (southern) harbor, going straight or turning left on entering the port. Watch for lobster gear/traps and lines, which will foul a prop.",
+          "notes": "Working lobster/crab harbor — active fishing fleet gets underway with diesel engines at early dawn. In July/August the island can be shrouded in fog with a good scattering of ledges around it, though the harbor itself can be safely entered in all conditions. There's an emergency phone on the wharf, mounted in a toolbox on the utility pole. No public restroom on the island — pack out trash. Long dinghy painter needed on the wharf's landward side to accommodate the tide."
+        },
+        "source": "CCA Cruising Guide to Maine, https://guides.cruisingclub.org/harbor/matinicus-island/"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.796, 44.128] },
+      "properties": {
+        "title": "North Haven Village (Brown's Boatyard)",
+        "category": "anchorages",
+        "place": "North Haven Village waterfront, on the Fox Islands Thorofare, North Haven, ME (coordinates approximate)",
+        "anchorage": {
+          "moorings": "J.O. Brown's Boatyard (Brown's Boatyard), in North Haven Village, has served locals and visitors for nearly 150 years and rents moorings on a first-come/first-served basis — pay in the boatyard store when you land at the dock; do not call to reserve. They offer traditional boatyard services but with limited resources for off-island visitors.",
+          "anchoringNotes": "Anchoring directly in the Thorofare is possible but subject to a constant barrage of wakes from passing boats/yachts in summer. Alternatives: anchor in nearby Perry Creek and dinghy to town (already documented); if Perry Creek is busy, Seal Cove or Kent Cove offer more solitude. Southern Harbor (already documented) is good when wind is gusting from N/NW; Thayer's Y-Knot Boatyard (207-867-4701) is located there with rental moorings.",
+          "notes": "Tie up the dinghy at Brown's Boatyard or the town dock (west of the ferry landing), on the side near the ferry pilings where other dinghies raft — the face dock is for lobster boats, and the Casino dock is a private club, members only. The Market at Hopkins Wharf (owned by Amanda Hallowell, former chef at Nebo Lodge) sells prepared foods, deli items, frozen meat, and boat basics (toilet paper, ice, beer, wine); open Tue-Sat 10-4, Mondays by chance. North Haven Market, about 2 miles away near Pulpit Harbor, is reachable by phone at 207-867-2233."
+        },
+        "source": "CCA Cruising Guide to Maine, https://guides.cruisingclub.org/harbor/north-haven-village-islands/"
+      }
     }
   ]
 }
