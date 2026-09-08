@@ -40,10 +40,43 @@ function levenshtein(a, b) {
   return dp[m][n];
 }
 
+// Mirrors www/js/query.js's real similarityScore exactly (not the looser
+// "any containment = 1.0" approximation this file used before) — the
+// Hurricane Island regression below depends on the partial-containment
+// scoring (0.7 + 0.3*ratio) actually producing two close-but-not-identical
+// scores for "hurricane island" against two differently-qualified real
+// names, which a flat 1.0-for-any-containment score can't reproduce.
 function similarityScore(a, b) {
-  if (b.includes(a) || a.includes(b)) return 1.0;
+  if (a === b) return 1.0;
+  if (b.includes(a)) return 0.7 + 0.3 * (a.length / b.length);
+  if (a.includes(b)) return 0.7 + 0.3 * (b.length / a.length);
   const dist = levenshtein(a, b);
-  return 1 - dist / Math.max(a.length, b.length, 1);
+  const lev = 1 - dist / Math.max(a.length, b.length, 1);
+  return Math.min(lev, 0.69);
+}
+
+// Mirrors www/js/query.js's LABEL_RANK + findAmbiguousCandidates — same
+// formula (base + rank*0.1), same "within 0.05 of the top score counts as
+// tied" rule. Kept alongside findPlace's own mirror above rather than
+// importing query.js directly, matching this file's existing no-browser,
+// fixture-only convention (see the file header).
+const LABEL_RANK = { town: 3, harbour: 3, 'coastal feature': 2, 'sea area': 0 };
+const AMBIGUOUS_SCORE_MARGIN = 0.05;
+function findAmbiguousCandidates(query) {
+  const q = query.toLowerCase();
+  const scored = [];
+  for (const f of places.features) {
+    const name = f.properties.name_lower || '';
+    const base = similarityScore(q, name);
+    if (base < 0.3) continue;
+    const rank = LABEL_RANK[f.properties.label] ?? 1;
+    const score = base >= 0.99 ? 1 : base + rank * 0.1;
+    scored.push({ score, f });
+  }
+  if (scored.length <= 1) return null;
+  const topScore = Math.max(...scored.map(s => s.score));
+  const tied = scored.filter(s => s.score >= topScore - AMBIGUOUS_SCORE_MARGIN);
+  return tied.length > 1 ? tied.map(t => t.f) : null;
 }
 
 // ── Load fixtures ─────────────────────────────────────────────────────────────
@@ -137,6 +170,34 @@ assert('Fuzzy "carve our harbor" finds carvers harbor', fuzzyResult && fuzzyResu
 
 const { best: vinalResult } = findPlace('vinalhaven');
 assert('Vinalhaven found', vinalResult && vinalResult.properties.name === 'Vinalhaven');
+
+// ── Hurricane Island: real name-collision regression ────────────────────────────
+// Maine has two real, unrelated islands both named "Hurricane Island" — one off
+// Spruce Head/Muscle Ridge, one off Vinalhaven — confirmed live when an autoroute
+// to "Hurricane Island" silently landed on the wrong one. The actual production
+// bug turned out to be stale offline cache data (a separate, non-unit-testable
+// deployment/sync issue — see git history), but the matching logic itself must
+// keep flagging this as a real ambiguity rather than silently picking one, or a
+// future data or scoring change could reintroduce the silent-wrong-answer failure
+// mode even with fully fresh data.
+console.log('\nHurricane Island name-collision regression');
+
+const hurricaneCandidates = findAmbiguousCandidates('Hurricane Island');
+assert('"Hurricane Island" is flagged ambiguous', !!hurricaneCandidates, 'findAmbiguousCandidates returned null — a real duplicate silently went undetected');
+if (hurricaneCandidates) {
+  const names = hurricaneCandidates.map(f => f.properties.name).sort();
+  assert(
+    'Both real Hurricane Islands are offered as candidates',
+    names.includes('Hurricane Island (Spruce Head)') && names.includes('Hurricane Island (Vinalhaven)'),
+    `got [${names.join(', ')}]`
+  );
+}
+
+// A single-word query with no real collision must NOT be flagged ambiguous —
+// the point of this check is catching genuine duplicates, not making every
+// query interactive.
+const carverAmbiguous = findAmbiguousCandidates('carvers harbor');
+assert('"carvers harbor" is NOT flagged ambiguous (no real collision)', carverAmbiguous === null, `got ${JSON.stringify(carverAmbiguous?.map(f => f.properties.name))}`);
 
 // ── Summary ────────────────────────────────────────────────────────────────────
 console.log(`\n${passed + failed} tests: ${passed} passed, ${failed} failed`);

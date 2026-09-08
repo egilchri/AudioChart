@@ -20,6 +20,21 @@
       "type": "Feature",
       "geometry": {"type": "Point", "coordinates": [-68.830, 44.063]},
       "properties": {"objtype": "BUAARE", "label": "town", "name": "Vinalhaven", "name_lower": "vinalhaven", "chart": "TEST"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [-69.0928139925926, 43.98912161481481]},
+      "properties": {"objtype": "LNDARE", "label": "island", "name": "Hurricane Island (Spruce Head)", "name_lower": "hurricane island (spruce head)", "chart": "TEST"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [-68.8908674, 44.0350818]},
+      "properties": {"objtype": "LNDARE", "label": "island", "name": "Hurricane Island (Vinalhaven)", "name_lower": "hurricane island (vinalhaven)", "chart": "TEST"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [-68.9018070607595, 44.033391132911376]},
+      "properties": {"objtype": "LNDARE", "label": "island", "name": "Little Hurricane Island", "name_lower": "little hurricane island", "chart": "TEST"}
     }
   ]
 }

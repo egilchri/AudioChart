@@ -172,6 +172,16 @@
         <div id="location-menu" style="display:none">
           <button id="location-menu-spoof" title="Move the boat's position to a place or coordinates you type, for testing without a GPS fix">&#128205; Spoof Location</button>
           <button id="location-menu-region" title="Download chart data for a region, e.g. before heading offshore away from wifi">&#11015; Download Region</button>
+          <!-- Downloading a region only ever ADDS place/hazard/navaid data on
+               top of whatever's already cached — it never removes or corrects
+               an entry if the server's copy of that same place later changes.
+               Confirmed live: a stale "Hurricane Island" entry from before a
+               name-disambiguation fix kept winning over the corrected data no
+               matter how many times the region was re-downloaded, because the
+               old entry was simply never removed. This is the actual full
+               reset — wipes the offline place/hazard/navaid/geometry cache
+               and starts clean on the next region download. -->
+          <button id="location-menu-reset-data" title="Wipe all downloaded offline chart data and start fresh — use this if re-downloading a region doesn't fix stale or wrong place names">&#128465; Reset Offline Data</button>
         </div>
         <div id="screen-menu" style="display:none">
           <button id="wake-lock-btn" title="Keep screen awake while using AudioChart" style="display:none">&#9728;&#65039; Awake</button>

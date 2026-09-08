@@ -10398,6 +10398,35 @@ document.getElementById('location-menu-region').addEventListener('click', () => 
   _closeLocationMenu();
   cruiseForm.style.display = 'flex';
 });
+// Confirmed live (the "Hurricane Island" bug): re-downloading a region only
+// ever ADDS place/hazard/navaid data on top of whatever's already cached —
+// it never removes or corrects an entry if the server's copy later changes.
+// A device that downloaded before a name fix shipped keeps the old,
+// stale entry forever, no matter how many times it re-downloads, since the
+// old and new entries just accumulate side by side. This is the actual
+// full reset: wipe the whole offline IndexedDB store and start clean.
+// Saved routes/tracks live in localStorage, not here, so this can't touch them.
+document.getElementById('location-menu-reset-data').addEventListener('click', async () => {
+  _closeLocationMenu();
+  const ok = confirm(
+    "Reset offline data?\n\nThis wipes all downloaded chart data (hazards, place names, navaids) " +
+    "so the next region download starts completely clean instead of merging onto what's already " +
+    "cached. Your saved routes and tracks are not affected.\n\n" +
+    "Use this if re-downloading a region hasn't fixed a stale or wrong result."
+  );
+  if (!ok) return;
+  try {
+    await new Promise((resolve, reject) => {
+      const req = indexedDB.deleteDatabase('audiochart-offline');
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+      req.onblocked = () => resolve(); // other tabs holding it open — still proceed with reload
+    });
+  } catch (e) {
+    console.warn('[reset-offline-data] delete failed:', e.message);
+  }
+  location.reload();
+});
 
 // Cancelable: Escape or a click outside the form/menu closes it without
 // setting anything.
