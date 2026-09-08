@@ -1014,7 +1014,6 @@ let _addNodeMode           = false; // waiting for click to insert node into nea
 let _overnightMode         = false; // single-click on vertex toggles it as an overnight stop
 let _fixNodesMode          = false; // single-click on vertex fixes hazards near just that node — stays armed like delete/overnight
 let _selectedEditNodeIdx   = new Set(); // indices into _editPoints "lit" — fixed (or checked) this edit session; purely visual, not saved route data
-let _growRouteIdx          = -1;    // index of route being grown; -1 = not in grow mode
 let _editHistory           = [];    // stack of _editPoints snapshots for undo
 let _editOriginalPoints    = [];    // snapshot of route.points as last saved, taken when edit mode was entered
 
@@ -2951,7 +2950,6 @@ function _exitSketchMode() {
   _sketchCursorLL  = null;
   _extendingRouteIdx = -1;
   _extendingFromEnd  = true;
-  _growRouteIdx      = -1;
   _refreshSavedRouteLayers();
 }
 
@@ -4660,23 +4658,8 @@ function _finishSketch() {
   const pts         = _sketchWaypoints.slice();
   const extIdx      = _extendingRouteIdx;  // capture before _exitSketchMode resets them
   const extFromEnd  = _extendingFromEnd;
-  const growIdx     = _growRouteIdx;
-  _exitSketchMode(); // resets _extendingRouteIdx/-FromEnd/_growRouteIdx and calls _refreshSavedRouteLayers
+  _exitSketchMode(); // resets _extendingRouteIdx/-FromEnd and calls _refreshSavedRouteLayers
 
-  if (growIdx >= 0 && pts.length > 1) {
-    // Add Nodes mode: append straight-line new nodes (skip anchor pts[0])
-    const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
-    if (routes[growIdx]) {
-      const newPts = pts.slice(1).map(p => ({ lat: p.lat, lon: p.lng }));
-      routes[growIdx].points = [...routes[growIdx].points, ...newPts];
-      _touch(routes[growIdx]);
-      localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
-      _populateRouteSelectFn?.();
-      const found = _enterEditMode(growIdx);
-      if (!found.length) setStatus(`Route extended — ${newPts.length} node(s) added.`);
-    }
-    return;
-  }
   if (pts.length > 1) {
     let totalNm = 0;
     for (let i = 1; i < pts.length; i++) {
@@ -4724,40 +4707,8 @@ async function _finishSketchAutoRoute() {
   const rawPts     = _sketchWaypoints.slice();
   const extIdx     = _extendingRouteIdx;
   const extFromEnd = _extendingFromEnd;
-  const growIdx    = _growRouteIdx;
 
-  _exitSketchMode();  // resets _growRouteIdx / extendingRouteIdx
-
-  if (growIdx >= 0) {
-    // "Add Nodes" grow mode: rawPts[0] is the anchor (existing route's last point);
-    // route only from anchor through the new waypoints, then append (skip anchor).
-    const routePts = rawPts.map(p => ({ lat: p.lat, lon: p.lng }));
-    const ui = _showRerouteOverlay(routePts);
-    try {
-      const { points, fallbacks, fallbackSegs, blocked } = await _reRouteSegments(
-        routePts, ui.update.bind(ui), ui.setText.bind(ui)
-      );
-      ui.remove();
-      if (blocked) return;  // _reRouteSegments already announced why
-      const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
-      if (routes[growIdx]) {
-        routes[growIdx].points = [...routes[growIdx].points, ...points.slice(1)];
-        _touch(routes[growIdx]);
-        localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
-        _populateRouteSelectFn?.();
-        const found = _enterEditMode(growIdx);
-        if (!found.length) {
-          if (fallbacks > 0) _showRouteFallbackWarning(fallbackSegs);
-          else setStatus('Route extended.');
-        }
-      }
-    } catch (err) {
-      ui.remove();
-      setStatus('Auto-route failed.');
-      console.error('[sketchAutoRoute grow]', err);
-    }
-    return;
-  }
+  _exitSketchMode();  // resets extendingRouteIdx
 
   // Waypoints are in placement order; extend-from-start reverses them so the
   // active "tip" is always at the end — reverse back for geographical order.
@@ -5563,22 +5514,37 @@ document.getElementById('etp-title').addEventListener('click', () => {
 });
 _makeDraggable(document.getElementById('edit-tools-panel'), document.getElementById('etp-title'));
 
+// Just plop a new node down near the end of the route and connect it —
+// no map click, no separate sketch-mode round trip (that used to exit edit
+// mode entirely to place it). The node lands a fixed distance away on
+// screen, continuing the same on-screen direction as the last leg when
+// there is one, so it's never hidden directly under the node it's
+// attached to. Vertex markers are already draggable (see
+// _renderEditLayers), so dragging it into its real position is just the
+// normal drag-a-node gesture — no mode switch needed for that either.
 document.getElementById('etp-add-node').addEventListener('click', () => {
-  if (!_editMode) return;
-  const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
-  const route  = routes[_editRouteIdx];
-  if (!route || !route.points.length) return;
-  const lastPt  = route.points[route.points.length - 1];
-  const growIdx = _editRouteIdx;
-  _exitEditMode();
-  _growRouteIdx   = growIdx;
-  const anchorLL  = L.latLng(lastPt.lat, lastPt.lon);
-  _sketchWaypoints = [anchorLL];
-  if (_sketchPath) _map.removeLayer(_sketchPath);
-  _sketchPath = L.polyline([anchorLL], {
-    color: '#e05252', weight: 4, opacity: 0.9, lineJoin: 'round', lineCap: 'round',
-  }).addTo(_map);
-  _enterSketchMode();
+  if (!_editMode || !_editPoints.length || !_map) return;
+  if (_addNodeMode) _cancelAddNodeMode();
+  _pushEditHistory();
+  const last   = _editPoints[_editPoints.length - 1];
+  const lastPx = _map.latLngToContainerPoint([last.lat, last.lon]);
+  const OFFSET_PX = 50;
+  let dx = OFFSET_PX, dy = OFFSET_PX; // single-point route: just offset down-and-right
+  if (_editPoints.length >= 2) {
+    const prev   = _editPoints[_editPoints.length - 2];
+    const prevPx = _map.latLngToContainerPoint([prev.lat, prev.lon]);
+    const vx = lastPx.x - prevPx.x, vy = lastPx.y - prevPx.y;
+    const len = Math.hypot(vx, vy) || 1;
+    dx = (vx / len) * OFFSET_PX;
+    dy = (vy / len) * OFFSET_PX;
+  }
+  const newLatLng = _map.containerPointToLatLng([lastPx.x + dx, lastPx.y + dy]);
+  _editPoints.push({ lat: newLatLng.lat, lon: newLatLng.lng });
+  _newVertexIdx = _editPoints.length - 1;
+  _selectedEditNodeIdx.clear();
+  _renderEditLayers();
+  clearTimeout(_liveHazardTimer);
+  _liveHazardTimer = setTimeout(_liveHazardCheck, 300);
 });
 
 document.getElementById('etp-insert-node').addEventListener('click', () => {
