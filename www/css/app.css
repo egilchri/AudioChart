@@ -882,16 +882,29 @@ body.wco-active #wco-titlebar { display: flex; }
    (tuned for a single tide-or-heading-speed lane) since the combined row
    can run wider, especially with a long focus-target name; #bottom-hud
    also wraps to a second line rather than overlapping if it still runs
-   out of room on a narrow screen. */
+   out of room on a narrow screen.
+
+   Hidden by default — per direct report, the transcript/command-reference/
+   text-input stack piled up against the tide widget into an unreadable
+   mess on a phone. This text-command interface is really an Underway
+   tool (a quick typed query while the map itself is doing the real work),
+   so it now only appears once Underway is switched on — see the
+   #app.underway-mode override below, higher-specificity so it wins over
+   this bare-ID rule without needing !important (which is reserved here
+   for edit/anim mode's hard override, so it still wins even if Underway
+   happens to also be on). */
 #map-overlay-cmd {
   position: absolute;
   bottom: 10px;
   left: 10px;
   right: 300px; /* clears #bottom-hud's width on desktop */
   z-index: 1001;
-  display: flex;
+  display: none;
   flex-direction: column;
   gap: 8px;
+}
+#app.underway-mode #map-overlay-cmd {
+  display: flex;
 }
 /* On a phone-width screen, reserving 300px on the right leaves almost no
    room for the command input at all — confirmed live, this is what "the
