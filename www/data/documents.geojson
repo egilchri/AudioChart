@@ -2856,6 +2856,39 @@
         },
         "source": "https://guides.cruisingclub.org/harbor/cranberry-islands/"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.87, 44.085] },
+      "properties": {
+        "title": "Long Cove (Vinalhaven) — Anchorage",
+        "category": "anchorages",
+        "place": "Long Cove, Vinalhaven, ME",
+        "anchorage": {
+          "moorings": "Private moorings tend to dominate the inner harbor; no public/rental moorings mentioned.",
+          "anchoringNotes": "Located off Hurricane Sound on the west side of Vinalhaven. Entry to the inner harbor is straightforward but private moorings crowd the space, lobster pots can complicate things, and boats should expect an almost-certain 180-degree swing with the tide. A more open area just outside the inner harbor is much better suited for anchoring.",
+          "protection": "Extremely tranquil, well-protected inner cove. Beyond the head of the cove is a picturesque tidal basin reachable by dinghy at or near slack water — check the bar at the cove's head at low tide to judge the entry point before going in.",
+          "notes": "All surrounding property is private with no shore access, though the dinghy trip to the inner basin is scenic. Known as a cellular dead spot, which contributes to the quiet."
+        },
+        "source": "CCA Cruising Guide to Maine, Long Cove, Vinalhaven (guides.cruisingclub.org/harbor/long-cove-vinalhaven/); coordinates approximate — the page's own embedded Windy link is unreliable, so this position is estimated from the guide's embedded chart (near Conway Point) cross-referenced against known Vinalhaven, ME geography, not a precise fix"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.915, 44.025] },
+      "properties": {
+        "title": "White Islands — Anchorage",
+        "category": "anchorages",
+        "place": "Big White Island / Little White Island, off Vinalhaven's west shore, ME",
+        "anchorage": {
+          "moorings": "None; anchorage only.",
+          "anchoringNotes": "Small anchorage, room for only about 4-5 boats — arrive early to find a spot. The most protected spot is alongside Big White Island toward the north end of Little White Island, with little effect from seas even at high tide. A second option lies farther into the archipelago just north of Big White Island and west of Little Green Island, in deeper water; more exposed at high tide as the ledges disappear, but a delightful spot.",
+          "holdingGround": "Generally very good holding in mud in most locations; some areas are narrow but have good depth.",
+          "protection": "Reasonable protection between Big and Little White Islands; current flows through and light summer winds determine how boats lie.",
+          "notes": "Approach from the west across West Penobscot Bay by rounding Big White Island and heading up the narrow-but-deep passage between Big White Island (to port) and Little White Island (to starboard). From the Hurricane Sound/Vinalhaven side, proceed westward leaving Hurricane Island to port and giving berth to the ledges off its north end, then turn up into the Big/Little White passage. If full, Hurricane Island and Carvers Harbor (moorings available) or Long Cove on Vinalhaven are roughly a half hour away as backups. Small sandy beaches appear as the tide falls; shoreline hikes and views of the Camden Hills at sunset."
+        },
+        "source": "CCA Cruising Guide to Maine, White Islands (guides.cruisingclub.org/harbor/white-islands/); coordinates approximate — the page's own embedded Windy weather-link coordinates (43.989,-69.093) appear stale/wrong (near Boothbay, ~40nm away), so this position is instead estimated from the guide's approach narrative (immediately west/southwest of Hurricane Island, Vinalhaven) cross-referenced against known Penobscot Bay geography, not a precise fix"
+      }
     }
   ]
 }
