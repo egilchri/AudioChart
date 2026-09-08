@@ -1736,6 +1736,21 @@ function showNavaidList(navaids) {
 
 const _appEl = document.getElementById('app');
 const _sketchBanner = document.getElementById('sketch-banner');
+
+// #draw-banner and #route-dest-banner are normal-flow siblings of the
+// Leaflet map, so showing one shrinks the map to make room for it at the
+// bottom of the viewport — but #bottom-hud is position:fixed to the
+// viewport's own bottom edge, not to the map's shrunk box, so it doesn't
+// move out of the way on its own. Confirmed live on a phone: the tide
+// widget sat directly on top of the "Name" button in the destination
+// banner, matching the exact same collision #app.edit-mode #bottom-hud
+// already fixes for #edit-banner. Both destination-tap banners share
+// this one helper rather than duplicating the same two lines four times.
+function _setBottomHudHiddenForBanner(hidden) {
+  const el = document.getElementById('bottom-hud');
+  if (el) el.style.display = hidden ? 'none' : '';
+}
+
 const _drawBanner   = document.getElementById('draw-banner');
 const _drawBannerLabel = document.getElementById('draw-banner-label');
 const _drawUsePositionBtn = document.getElementById('draw-use-position-btn');
@@ -3029,6 +3044,7 @@ function _enterDrawRouteMode() {
   _drawUsePositionBtn.style.display = 'inline-block';
   _drawNameDestBtn.style.display = 'none';
   _drawBanner.style.display = 'flex';
+  _setBottomHudHiddenForBanner(true); // see the helper's own comment — same fix as route-dest-banner
   _appEl.classList.add('sketch-mode');
   if (!_map) return;
   _map.dragging.disable();
@@ -3112,6 +3128,7 @@ function _enterDrawRouteMode() {
 function _exitDrawRouteMode(skipRefresh = false) {
   _drawMode = false;
   _drawBanner.style.display = 'none';
+  _setBottomHudHiddenForBanner(false);
   _drawConfirmBtn.style.display = 'none';
   _drawUsePositionBtn.style.display = 'none';
   _drawNameDestBtn.style.display = 'none';
@@ -8672,6 +8689,7 @@ function _ensureMap() {
   function _disarmPendingRouteDestination() {
     if (_pendingRouteDestClick) { _map.off('click', _pendingRouteDestClick); _pendingRouteDestClick = null; }
     _routeDestBanner.style.display = 'none';
+    _setBottomHudHiddenForBanner(false);
   }
   function _armPendingRouteDestination() {
     _disarmPendingRouteDestination();
@@ -8684,6 +8702,12 @@ function _ensureMap() {
     // step-by-step prompt, stays on screen until they act or cancel.
     _routeDestBannerLabel.textContent = `Tap the map to set the destination for "${_autoRouteName}"`;
     _routeDestBanner.style.display = 'flex';
+    // Confirmed live on a phone: this banner's own "Name" button was
+    // sitting right underneath #bottom-hud (fixed to the viewport's own
+    // bottom edge, not aware of this normal-flow banner pushing the map
+    // up) — same root cause and fix as #edit-banner's collision with the
+    // tide widget (see #app.edit-mode #bottom-hud in app.css).
+    _setBottomHudHiddenForBanner(true);
   }
   document.getElementById('route-dest-name-btn').addEventListener('click', async () => {
     const query = prompt('Destination — place or waypoint name:');
