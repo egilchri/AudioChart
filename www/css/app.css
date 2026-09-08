@@ -201,6 +201,11 @@ html, body {
      always-on drag offset (see _makeDraggableGroup) layered via
      transform, same as before, just with nothing left to center. */
   transform: var(--ui-pos-focus, translate(0, 0));
+  /* Hidden by default, same reasoning as the text-command bar — per
+     direct request, this is another Underway-specific tool (a bearing/
+     range readout for the target you're steering toward) rather than
+     something worth showing while docked/planning. */
+  display: none;
   background: var(--brass-ink-2);
   border: 2px solid var(--brass-dim);
   border-radius: 999px;
@@ -217,6 +222,9 @@ html, body {
   overflow: hidden;
   text-overflow: ellipsis;
   -webkit-tap-highlight-color: transparent;
+}
+#app.underway-mode #focus-btn {
+  display: block;
 }
 #focus-btn:hover { border-color: var(--brass); color: var(--brass-hi); }
 #focus-btn.focus-active { border-color: #1a6b3c; color: #4ade80; background: #0a2a16; }
