@@ -1064,6 +1064,7 @@ let _followingRouteName   = null;
 let _followingDestLat     = null;
 let _followingDestLon     = null;
 let _followingLegIdx      = 1; // index of the next not-yet-reached waypoint in the followed route
+let _followFocusLegIdx    = null; // last leg index focus was auto-synced to — see _updateFollowProgress
 const ARRIVAL_THRESHOLD_NM = 0.1; // ~600ft — comfortably above typical GPS drift
 let _extendingRouteIdx = -1;
 let _extendingFromEnd  = true;
@@ -6341,6 +6342,7 @@ function _updateFollowProgress(lat, lon) {
   }
   const nextPt = pts[_followingLegIdx];
   const distToNext = Query.distanceNm(lon, lat, nextPt.lon, nextPt.lat);
+  const brgToNext = trueTomagnetic(Query.bearing(lon, lat, nextPt.lon, nextPt.lat));
   let distToEnd = distToNext;
   for (let i = _followingLegIdx; i < pts.length - 1; i++) {
     distToEnd += Query.distanceNm(pts[i].lon, pts[i].lat, pts[i + 1].lon, pts[i + 1].lat);
@@ -6350,9 +6352,18 @@ function _updateFollowProgress(lat, lon) {
     distTraveled += Query.distanceNm(_trackRecPoints[i - 1].lon, _trackRecPoints[i - 1].lat, _trackRecPoints[i].lon, _trackRecPoints[i].lat);
   }
 
+  // Re-sync focus only on a real leg advance, not every GPS tick — so an
+  // ad-hoc "bearing to X" query in between isn't immediately overwritten.
+  // See the matching initial sync in _startFollowingRoute.
+  if (_followingLegIdx !== _followFocusLegIdx) {
+    Query.setFocus(nextPt.lat, nextPt.lon, `${route.name} — waypoint ${_followingLegIdx + 1}`, 'waypoint');
+    _updateFocusButton();
+    _followFocusLegIdx = _followingLegIdx;
+  }
+
   _followProgressEl.style.display = '';
   _followProgressEl.innerHTML =
-    `<div>Next: ${distToNext.toFixed(1)} nm</div>` +
+    `<div>Next: ${bearingToDisplay(brgToNext)}, ${distToNext.toFixed(1)} nm</div>` +
     `<div>To end: ${distToEnd.toFixed(1)} nm</div>` +
     `<div>Traveled: ${distTraveled.toFixed(1)} nm</div>`;
 }
@@ -10500,6 +10511,7 @@ function _finishTrackRecording(name) {
   _followingDestLat = null;
   _followingDestLon = null;
   _followingLegIdx = 1;
+  _followFocusLegIdx = null;
   if (_followProgressEl) _followProgressEl.style.display = 'none';
   trackRecBtn.textContent = '⏺ Start Tracking';
   trackRecBtn.title = 'Record a GPS track';
@@ -10544,6 +10556,15 @@ function _startFollowingRoute(route) {
   _followingDestLat = last.lat;
   _followingDestLon = last.lon;
   _followingLegIdx = route.points.length > 1 ? 1 : 0;
+  // Prime the focus/bearing system on the next waypoint right away — see
+  // _updateFollowProgress's matching sync, which keeps this current as legs
+  // advance. Together these make "bearing" (or a tap on #focus-btn) answer
+  // "bearing and distance to next waypoint" the instant following starts,
+  // with no separate command needed for the common case.
+  const firstLegPt = route.points[_followingLegIdx];
+  Query.setFocus(firstLegPt.lat, firstLegPt.lon, `${route.name} — waypoint ${_followingLegIdx + 1}`, 'waypoint');
+  _updateFocusButton();
+  _followFocusLegIdx = _followingLegIdx;
   trackRecBtn.textContent = '⏹ Stop Tracking';
   trackRecBtn.title = `Following "${route.name}" — tap to stop early`;
   trackRecBtn.classList.add('rec-active');
