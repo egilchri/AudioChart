@@ -241,14 +241,18 @@ html, body {
   align-items: center;
   gap: 8px;
   max-width: calc(100% - 20px);
-  /* Same reasoning as #right-rail's panel treatment — one shared
-     translucent bar is what makes this read as a consolidated HUD
-     instead of three separate widgets that just happen to sit near
-     each other now. */
-  background: rgba(18, 13, 8, 0.7); /* --brass-ink at reduced opacity */
-  border: 1px solid var(--brass-dim);
-  border-radius: 10px;
-  padding: 6px 8px;
+  /* No background/border/padding of its own — tried that (a shared
+     translucent bar meant to read as one consolidated HUD, same idea as
+     #right-rail's panel treatment) but confirmed live on a phone: a
+     position:fixed flex container with flex-wrap enabled doesn't shrink
+     to fit its wrapped content in any browser tested — it stretches to
+     the full max-width bound instead, so the shared background rendered
+     as a large, mostly-empty box once any wrapping happened (which is
+     the normal case at phone width). width:fit-content does not fix
+     this — confirmed with an isolated repro, not just this page. Each
+     child (#focus-btn, .tide-cycle-ctrl, .heading-speed-ctrl) already
+     carries its own background/border pill, so dropping the wrapper's
+     own styling loses nothing but the oversized box. */
 }
 #app.underway-mode #bottom-hud .tide-cycle-ctrl { display: none; }
 #track-rec-btn.rec-active { border-color: var(--danger); color: var(--danger); background: #2a0a0a; font-weight: 700; }
