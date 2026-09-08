@@ -2689,6 +2689,173 @@
         },
         "source": "Cruising Club of America Digital Cruising Guide to Maine, Blue Hill entry (guides.cruisingclub.org/harbor/blue-hill/), read in full; Town of Blue Hill mooring page (bluehillme.gov/town-services/moorings/); coordinates from Kollegewidgwok Yacht Club's verified Google Maps location, which anchors the main mooring field/anchorage."
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.3192, 44.3355] },
+      "properties": {
+        "title": "Hall Quarry",
+        "category": "anchorages",
+        "place": "West shore of Somes Sound, Mount Desert, Maine — about 1.7 NM north of Valley Cove",
+        "anchorage": {
+          "moorings": "Rental moorings (14 seasonal) via John M. Williams & Co. Boatyard, available July and August only; a ~20-ft alongside float for taking on water.",
+          "anchoringNotes": "Too deep for anchoring, per the CCA Cruising Guide.",
+          "protection": "Protected deep-water location, per the boatyard's own description.",
+          "contact": "John M. Williams & Co. Boatyard, 17 Shipwright Lane, Mount Desert, ME 04660, (207) 244-7854, https://www.jwboatco.com/",
+          "notes": "Site of a historic, now-inactive granite quarry on Somes Sound's west shore. The boatyard has a 50-ton Travelift and offers full-service repair/restoration (woodworking, fiberglass, metal, composite, paint, varnish) plus mechanical, electrical, engine, and plumbing work for power and sailboats up to 55 ft length / 7 ft draft, accommodating up to 200 boats; heated and unheated winter storage."
+        },
+        "source": "CCA Cruising Guide to Maine, Somes Sound (https://guides.cruisingclub.org/harbor/somes-sound/); https://www.jwboatco.com/; coordinates via OpenStreetMap/Nominatim geocoding of 17 Shipwright Lane, Mount Desert, ME"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.3064, 44.3564] },
+      "properties": {
+        "title": "Henry R. Abel & Co. Yacht Yard / Abel's Lobster",
+        "category": "anchorages",
+        "place": "Eastern shore of Somes Sound near the head, Mount Desert, Maine, north of Hall Quarry",
+        "anchorage": {
+          "moorings": "Summer rental moorings and slips for lease via Dockwa.",
+          "anchoringNotes": "Plenty of room for anchoring in good-holding mud off Abel's, at the head of the sound.",
+          "holdingGround": "Good-holding mud",
+          "contact": "Henry R. Abel & Co. Yacht Yard, 20 Abel's Lane, Mount Desert, ME 04660, (207) 276-5057, https://www.abelyachtyard.com/, moorings/slips via Dockwa (dockwa.com/explore/destination/n8c5me-henry-r-abel-co-yacht-yard). On-site restaurant Abel's Lobster, (207) 276-8221, https://www.abelslobstermdi.com/, open mid-May through October, lunch noon-2:30pm, dinner 4:30-8pm.",
+          "notes": "Full-service yard with two Marine Travelifts and nine inside storage buildings; mechanical, electrical, fiberglass, engine/generator, gel coat, painting, buffing/waxing, rigging, and carpentry services; winter and summer storage."
+        },
+        "source": "CCA Cruising Guide to Maine, Somes Sound (https://guides.cruisingclub.org/harbor/somes-sound/); https://www.abelyachtyard.com/; https://www.abelslobstermdi.com/; coordinates via OpenStreetMap/Nominatim geocoding of 20 Abel's Lane, Mount Desert, ME"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.086, 44.383] },
+      "properties": {
+        "title": "Winter Harbor (Schoodic Peninsula)",
+        "category": "anchorages",
+        "place": "Winter Harbor, ME (Schoodic Peninsula, Frenchman Bay) — not to be confused with the Winter Harbor on Vinalhaven",
+        "anchorage": {
+          "moorings": "Winter Harbor Yacht Club (in Sand Cove) rents moorings and runs launch service, open July 4–Labor Day, monitors VHF Ch 9 (Clubhouse 207-963-2275, Dock Office 207-963-2346). 2025 rates: $45 (≤35'), $55 (35'-45'), $65 (45'-60'), $105 (60'+); reservable on Dockwa.",
+          "anchoringNotes": "The head of Winter Harbor has three coves: Sand Cove (bordered by Grindstone Neck) is where most visiting yachts go for ambiance/protection, though it can be a bit rolly; the inner harbor is lobster-boats-only; Henry Cove serves the village and the Bar Harbor ferry.",
+          "protection": "Entrance from the south is straightforward, with rocks near Winter Harbor Light clearly marked; the western approach needs more care (many rocks/islands).",
+          "fee": "See mooring rates above; fee includes launch service (0900-1800), showers (0800-1100, 1400-1700), and one bag of trash disposal.",
+          "contact": "WHYC Clubhouse 207-963-2275, Dock Office 207-963-2346, VHF Ch 9",
+          "notes": "Schoodic Peninsula section of Acadia National Park (~2,366 acres) is right here — less crowded than Mount Desert Island, reached via free Island Explorer shuttle. Village is about a mile from the yacht club (groceries, a few restaurants). Winter Harbor Lobster Boat Races usually the 2nd Saturday of August, starting in Henry Cove."
+        },
+        "source": "https://guides.cruisingclub.org/harbor/winter-harbor-at-schoodic-peninsula/"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.366, 44.138] },
+      "properties": {
+        "title": "Frenchboro (Lunt Harbor)",
+        "category": "anchorages",
+        "place": "Frenchboro, Long Island, ME (outer Blue Hill Bay, south of MDI)",
+        "anchorage": {
+          "moorings": "A ferry dock (Bass Harbor run) is to port entering the outer harbor opposite Harbor Island. A row of a dozen or so old private mooring balls lies to starboard, but the guide advises against using them — unserviced for years.",
+          "anchoringNotes": "Anchor in good mud beyond the moorings, under the shadow of Harbor Island. Watch for strong swirling current and small whirlpools around Harbor Island on tidal changes; be ready to relocate farther into the harbor if needed. The harbor shoals quickly — local knowledge plus a rising tide is needed to go far past the first permanent docks to starboard.",
+          "holdingGround": "Good mud",
+          "protection": "Tight, well-protected inner harbor; easily approached from all directions with hazards well marked.",
+          "notes": "Lunt's dock is unstable from storm damage — don't use it except to pay for a mooring; the town's working dock farther to port welcomes dinghy tie-up. Dockside Deli is permanently closed. Frenchboro (Long Island) Preserve, run by Maine Coast Heritage Trust, has notable headland and tidal-rock hiking trails. Historical Society building is a short walk up from the head of the harbor."
+        },
+        "source": "https://guides.cruisingclub.org/harbor/frenchboro-long-island/"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.355, 44.13] },
+      "properties": {
+        "title": "Eastern Cove (Frenchboro / Long Island)",
+        "category": "anchorages",
+        "place": "Southeastern side of Long Island, near Frenchboro, ME",
+        "anchorage": {
+          "anchoringNotes": "Alternate to Lunt Harbor on the southeastern side of Long Island, at the isthmus connecting Richs Head and Long Island. Generally settled except when wind is from the north or northeast.",
+          "holdingGround": "Rocky bottom — anchoring can be a bit challenging.",
+          "protection": "Settled except with N/NE winds.",
+          "notes": "The connecting isthmus has a distinctive double berm — driftwood piled on the southwest side, smooth rounded stones on the northeast side."
+        },
+        "source": "https://guides.cruisingclub.org/harbor/frenchboro-long-island/"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.446, 44.137] },
+      "properties": {
+        "title": "Burnt Coat Harbor (Swans Island)",
+        "category": "anchorages",
+        "place": "Swans Island, ME (outer Blue Hill Bay)",
+        "anchorage": {
+          "moorings": "Rentable from lobsterman Tim Trafton on the eastern side of the harbor, $25 each (207-266-5600 or timtrafton@outlook.com) — can be slightly exposed to southerly wind funneling through the Hockamock Head channel.",
+          "anchoringNotes": "Anchoring in mud is easy on the western side of the harbor.",
+          "holdingGround": "Mud (western side)",
+          "protection": "Safe in all but directly southerly winds; entrance channel past the Hockamock Head lighthouse is well-marked, and fog dissipates once inside.",
+          "fee": "$25 per mooring rental (Tim Trafton)",
+          "contact": "Tim Trafton 207-266-5600 (moorings/lobster dinners/e-bike rental); Fisherman's Coop dock 207-526-4327 (gas/diesel); TIMS (Island Market & Supply) 207-526-4410",
+          "notes": "Swan's Island is 'dry' — no restaurants or alcohol sales; TIMS store has produce/dry goods plus fresh pizza Wed/Fri nights. Tim Trafton cooks and serves lobster dockside 1600-1800 by prior arrangement. A freshwater swimming quarry is reachable by dinghy east past Tim's dock (aka Swan's Island Yacht Club) to the abandoned fish-plant dock, then a short walk. Burnt Coat Harbor Light (Hockamock Head) has trails and a rentable Keeper's House apartment (Maili Bailey, 207-399-2563, swansislandvacations.com). Pink sand beach in the NW corner of Toothacher Cove. Sweet Chariot Music Festival runs the first full week of August at the Community Hall. Nearby day-stop: Marshall Island (Maine Coast Heritage Trust preserve) — anchor off the cove near Ringtown Island, Sand Cove, or just west of Long Point."
+        },
+        "source": "https://guides.cruisingclub.org/harbor/burnt-coat-harbor/"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.429, 44.177] },
+      "properties": {
+        "title": "Buckle Harbor",
+        "category": "anchorages",
+        "place": "Swans Island, ME (Jericho Bay, off York Narrows)",
+        "anchorage": {
+          "anchoringNotes": "Proceed south into the small harbor until the depth sounder reads 15-20 feet, then anchor on mud. The harbor is narrow and starts to feel crowded with more than 3-4 boats.",
+          "holdingGround": "Mud",
+          "protection": "Well-protected from prevailing summer southerlies; access from the north is fairly unobstructed.",
+          "notes": "Privately owned, part of the Maine Island Trail — landing/hiking welcomed (not on the adjoining Spruce Island), no camping; sign in near the trailhead post/mailbox. Trails circle the shore and lead to the north point; the west shore has wide views over Jericho Bay. Leashed pets OK, pack out solid waste; fires below the high-tide line need a state permit (207-827-1800). A well-known 'green door' land-art installation sits between two trees on the island. Mussels can be gathered at low tide under the seaweed if no Red Tide advisory is in effect. If Buckle is full, alternatives are between Orono and Asa Islands, or along the south shore of Mackerel Cove via York Narrows."
+        },
+        "source": "https://guides.cruisingclub.org/harbor/buckle-harbor/"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.387, 44.347] },
+      "properties": {
+        "title": "Bartlett Narrows (Galley Cove / Great Cove)",
+        "category": "anchorages",
+        "place": "Between Pretty Marsh (Mount Desert Island) and Bartlett Island, ME",
+        "anchorage": {
+          "moorings": "A usually-free mooring is available in Galley Cove on the eastern side of Bartlett Island — good for a lunch stop.",
+          "anchoringNotes": "For an overnight, better options nearby include tucking in behind Squid Island, or Great Cove, which generally has room for a few boats to anchor.",
+          "protection": "A short, straightforward passage between Pretty Marsh and Bartlett Island; favor the Mount Desert side to avoid rocks off Ledges Point, and the Bartlett Island side to avoid a well-charted rock about half a mile beyond the Narrows.",
+          "notes": "Bartlett Island is a private Rockefeller retreat — landing/hiking is discouraged. A popular scenic day-sail passage between Blue Hill and Mount Desert."
+        },
+        "source": "https://guides.cruisingclub.org/harbor/bartlett-narrows/"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.405, 44.34] },
+      "properties": {
+        "title": "Pretty Marsh",
+        "category": "anchorages",
+        "place": "Mount Desert Island, ME (quiet/western side, Acadia National Park)",
+        "anchorage": {
+          "anchoringNotes": "Proceed into the basin and anchor in 15-20 feet on a secure mud bottom.",
+          "holdingGround": "Secure mud",
+          "protection": "Protected seclusion from all but the most raucous southwesterly blow. Approach is relatively unobstructed on either side of John or Folly Island — avoid the reef immediately east of Folly. If Pretty Marsh is full or strong southerlies are forecast overnight, some protection can be found nearby in Somes Cove or Sawyer Cove.",
+          "notes": "Shoreline is largely private (modest summer homes) — limited dinghy landing. A public dock and launch ramp sits on the Bartlett Narrows side of West Point (no services; possible spot for an MDI-based crew change). A picnic area on the eastern side is part of Acadia National Park. Known for abundant birdlife, seals, and eagles."
+        },
+        "source": "https://guides.cruisingclub.org/harbor/pretty-marsh/"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.318, 44.271] },
+      "properties": {
+        "title": "Sutton Island",
+        "category": "anchorages",
+        "place": "Cranberry Isles, ME (Great Harbor of Mount Desert)",
+        "anchorage": {
+          "moorings": "One of the Town of Cranberry Isles' 7 free guest moorings (white balls with a blue horizontal stripe, marked \"Town Guest\", first-come-first-served, 3-day limit) is near the Sutton Island town dock and is rarely used.",
+          "contact": "Harbormaster Norman Sanborn Jr. 207-244-3624 (usually on Great Cranberry); Bruce Fernald 207-244-5283 can also help on Little Cranberry",
+          "notes": "Both the Beal & Bunker and Cranberry Cove ferries will serve Sutton Island on request. Unlike Great Cranberry and Little Cranberry Island, Sutton has only summer homes and no commercial services."
+        },
+        "source": "https://guides.cruisingclub.org/harbor/cranberry-islands/"
+      }
     }
   ]
 }
