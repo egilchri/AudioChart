@@ -47,21 +47,30 @@
            (#right-rail) on the right; one consolidated bottom HUD
            (#bottom-hud) instead of three independently floating widgets. -->
       <div id="right-rail">
-        <button id="route-picker-btn" title="Show/hide routes">&#9998; Routes</button>
-        <button id="track-picker-btn" title="Show/hide tracks">&#9678; Tracks</button>
-        <button id="track-rec-btn" title="Record a GPS track">&#9679; Start Tracking</button>
-        <button id="anchor-watch-btn" title="Watch for anchor drag — alarms if you stray past a set radius">&#9875; Anchor Watch</button>
-        <button id="anchor-watch-silence-btn" title="Silence the anchor alarm (stays armed)" style="display:none">&#128263; Silence</button>
-        <div class="etp-title" id="etp-title" style="display:none">Node Ops</div>
-        <!-- 2x2 grid instead of a 4-tall single column — per direct
-             feedback, these four were using more of the rail's scarce
-             vertical real estate than a set of same-size icon buttons
-             needs to. -->
-        <div id="right-rail-icons">
-          <button id="zoom-to-me-btn" title="Zoom to my location">&#8857;</button>
-          <button id="navaid-filter-btn" title="Show navaids on map">&#9875;</button>
-          <button id="reroute-btn" title="Re-route around land">&#8635;</button>
-          <button id="delete-route-btn" title="Delete this route" style="display:none">&#128465;</button>
+        <!-- Mobile-only: collapses #right-rail-body to just this tab.
+             Inert on desktop (CSS forces the body visible there regardless
+             of the inline style below) — per direct feedback, this rail was
+             "constantly getting in the way" on a phone screen, and the
+             fix is the same tap-to-expand convention already used for
+             Node Ops just below, applied to the whole rail. -->
+        <button id="right-rail-toggle" title="Show/hide route &amp; tracking controls">Actions</button>
+        <div id="right-rail-body">
+          <button id="route-picker-btn" title="Show/hide routes">&#9998; Routes</button>
+          <button id="track-picker-btn" title="Show/hide tracks">&#9678; Tracks</button>
+          <button id="track-rec-btn" title="Record a GPS track">&#9679; Start Tracking</button>
+          <button id="anchor-watch-btn" title="Watch for anchor drag — alarms if you stray past a set radius">&#9875; Anchor Watch</button>
+          <button id="anchor-watch-silence-btn" title="Silence the anchor alarm (stays armed)" style="display:none">&#128263; Silence</button>
+          <div class="etp-title" id="etp-title" style="display:none">Node Ops</div>
+          <!-- 2x2 grid instead of a 4-tall single column — per direct
+               feedback, these four were using more of the rail's scarce
+               vertical real estate than a set of same-size icon buttons
+               needs to. -->
+          <div id="right-rail-icons">
+            <button id="zoom-to-me-btn" title="Zoom to my location">&#8857;</button>
+            <button id="navaid-filter-btn" title="Show navaids on map">&#9875;</button>
+            <button id="reroute-btn" title="Re-route around land">&#8635;</button>
+            <button id="delete-route-btn" title="Delete this route" style="display:none">&#128465;</button>
+          </div>
         </div>
       </div>
       <div id="zoom-slider-wrap">

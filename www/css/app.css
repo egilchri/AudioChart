@@ -1024,8 +1024,10 @@ body.wco-active #wco-titlebar { display: flex; }
   flex-direction: column;
   align-items: stretch;
   gap: 6px;
-  max-height: calc(100% - 90px);
-  overflow-y: auto;
+  /* No max-height/overflow here anymore — those only matter for the
+     scrollable button list, which now lives in #right-rail-body. When
+     the body is collapsed (mobile), this box has nothing to size against
+     but the toggle tab, so it shrinks to fit automatically. */
   /* The panel treatment is what actually reads as "one zone" rather than
      the same individually-floating buttons just moved closer together —
      matches the translucent grouped-rail look from the "Helm Layouts"
@@ -1036,6 +1038,13 @@ body.wco-active #wco-titlebar { display: flex; }
   padding: 8px;
 }
 #right-rail > * { align-self: flex-end; }
+#right-rail-body {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+#right-rail-body > * { align-self: flex-end; }
 /* zoom-to-me/navaid-filter/reroute/delete were a 4-tall single column of
    48px icon buttons — a lot of the rail's scarce vertical space for a
    set of same-size icons. 2x2 instead, at roughly half the height. */
@@ -1045,14 +1054,50 @@ body.wco-active #wco-titlebar { display: flex; }
   gap: 6px;
   justify-content: end;
 }
+/* The toggle tab only exists to collapse the rail on a phone screen —
+   invisible and inert on desktop, where there's no complaint about this
+   rail's footprint. */
+#right-rail-toggle {
+  display: none;
+  background: rgba(18, 13, 8, 0.94); /* --brass-ink */
+  border: 1px solid var(--brass-dim);
+  border-radius: 6px;
+  color: var(--parchment-dim);
+  font-family: var(--font-brass-serif);
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 4px 9px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+#right-rail-toggle:hover { border-color: var(--brass); color: var(--brass-hi); }
+/* Same expand/collapse chevron convention as .etp-title just below it in
+   the DOM — this is meant to read as the same interaction, not a new one. */
+#right-rail-toggle::after { content: '  \25B4'; }
+#right-rail-toggle.collapsed::after { content: '  \25BE'; }
 /* #status-tiles (Map Type/Location/Screen/Underway) wraps to a second row
    below ~1366px wide (see its own @media rule) — 70px of clearance was
    tuned for the single-row desktop case and a wrapped second row can run
    right into #right-rail's top edge on anything narrower. Confirmed live
-   on a phone. max-height grows to match so the rail's bottom doesn't
-   creep past the visible area as its top moves down. */
+   on a phone. */
 @media (max-width: 900px) {
-  #right-rail { top: 122px; max-height: calc(100% - 142px); }
+  #right-rail { top: 122px; }
+  #right-rail-toggle { display: block; }
+  #right-rail-body {
+    max-height: calc(100% - 142px);
+    overflow-y: auto;
+  }
+}
+/* Above the breakpoint, force the body visible regardless of whatever
+   inline display the collapse toggle set — this is what makes the
+   feature completely inert on desktop without a resize listener: nobody
+   below 900px, nobody above it who can even see the toggle button to
+   collapse it in the first place, and if a collapsed state saved on a
+   phone ever reaches a desktop-width session (a synced browser profile,
+   say), the rail simply won't respect it there. */
+@media (min-width: 901px) {
+  #right-rail-body { display: flex !important; }
 }
 
 #route-picker-btn {
