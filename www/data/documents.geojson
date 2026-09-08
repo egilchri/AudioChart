@@ -2467,18 +2467,20 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.305, 44.3395] },
+      "geometry": { "type": "Point", "coordinates": [-68.3309, 44.3614] },
       "properties": {
-        "title": "Somesville / Somes Harbor (Head of Somes Sound) — Anchorage",
+        "title": "Somes Harbor (Somesville) — Head of Somes Sound Anchorage",
         "category": "anchorages",
-        "place": "Somesville, Mount Desert Island, ME",
+        "place": "Somes Harbor, Somesville, Mount Desert Island, ME (head of Somes Sound)",
         "anchorage": {
-          "moorings": "Moorings in the harbor are privately owned; there are no transient/rental moorings. Best avoided unless you know the owner.",
-          "anchoringNotes": "Anchor between Sheep Island and the mainland in about 15 feet MLW. Entrance: leave the red nun marking Myrtle Ledge to starboard, pass the green can close aboard to port, then proceed up to Sheep Island.",
-          "protection": "Quiet, well-protected, and serene; considered a favorite harbor of refuge in nor'easters, tropical storms, and even hurricanes.",
-          "notes": "Dinghies may land at the SW corner of the large float at the Somesville town landing — the floats themselves are privately owned, but visiting boaters are welcome ashore."
+          "moorings": "All moorings in Somes Harbor itself are privately owned — best avoided unless you know the owner. Rental moorings are available a short distance south: at Henry R. Abel & Co. Yacht Yard (bookable via Dockwa, (207) 276-5057) and, July–August only, at John M. Williams & Co. Boatyard at Hall Quarry ((207) 244-7854).",
+          "anchoringNotes": "CCA Cruising Guide to Maine describes 'a fine anchorage between Sheep Island and the mainland in about 15 feet MLW' at the head of the sound off Somesville. Entrance is very narrow: leave the red nun marking Myrtle Ledge to starboard, pass the green can close aboard to port, then proceed up to Sheep Island (approx. 44.3642°N, 68.3245°W). Favor the center-to-west side of the sound once past the entrance flasher — the east side shoals. An alternate, more open anchorage in good-holding mud lies about 0.8 nm south, off Abel's Yacht Yard.",
+          "holdingGround": "Not detailed for the Somes Harbor anchorage itself in the CCA guide. The nearby Abel's anchorage (0.8 nm south) is reported as good-holding mud; Valley Cove (2.5 nm south) is rocky/pebbly with pockets of sticky mud.",
+          "protection": "Quiet, well-protected, and serene — described by CCA as a favorite harbor of refuge in nor'easters, tropical storms, and hurricanes. Expect gusty downdrafts off the surrounding mountains.",
+          "contact": "Henry R. Abel & Co. Yacht Yard: (207) 276-5057 (rental moorings via Dockwa). John M. Williams & Co. Boatyard, Hall Quarry: (207) 244-7854 (rental moorings, July–Aug).",
+          "notes": "Somesville town landing floats (NW side) are privately owned but visiting boaters may leave dinghies at the SW corner of the large float (donation requested via QR code). No NPS restriction applies to anchoring in the open water of Somes Sound itself, but two real, park-specific rules apply nearby: (1) Bar Island, near the sound's mouth, is closed to public landing Feb 15–Aug 31 for bald eagle nesting; (2) Acadia-wide, anchoring or tying a boat to shore is prohibited unless attended. The Valley Cove Trail (a popular hike from the Sound's other main anchorage, ~2.5 nm south) is closed Mar 1–Aug 15 for peregrine falcon nesting."
         },
-        "source": "CCA Cruising Guide to Maine, Somes Sound entry (https://guides.cruisingclub.org/harbor/somes-sound/). Coordinates are estimated from the described location (between Sheep Island and the mainland, head of Somes Sound) — not taken from a specific charted position, so treat as approximate."
+        "source": "CCA Cruising Guide to Maine, Somes Sound entry, read in full (https://guides.cruisingclub.org/harbor/somes-sound/); Acadia National Park Superintendent's Compendium (https://www.nps.gov/acad/learn/management/sc.htm); Sheep Island coordinates from USGS Geographic Names Information System via The History Trust (GNIS Feature ID 575351)."
       }
     },
     {
