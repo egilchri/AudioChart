@@ -10044,7 +10044,15 @@ function _updateCoverageStatus(lat, lon, _isRecheck = false) {
     _coverageRecheckCount++;
     _coverageRecheckTimer = setTimeout(() => {
       _coverageRecheckTimer = null;
-      _updateCoverageStatus(lat, lon, true);
+      // Re-read the CURRENT position rather than reusing the lat/lon
+      // captured when this timer was scheduled — confirmed live as a real
+      // bug: Virtual Journey (and, in principle, any fast-moving source)
+      // can travel well past a coverage boundary in the 2s this timer
+      // waits, so the stale point kept re-asserting an already-passed
+      // coverage level and fighting with the live ticks, causing an
+      // endless "chart data available" / "no chart data" flip-flop.
+      const cur = GPS.getPosition();
+      _updateCoverageStatus(cur?.lat ?? lat, cur?.lon ?? lon, true);
     }, 2000);
   }
 
