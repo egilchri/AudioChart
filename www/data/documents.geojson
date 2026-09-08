@@ -2448,6 +2448,245 @@
         },
         "source": "Town of North Haven, \"Sailing to North Haven\" (northhavenmaine.org/sailing_to_north_haven.php) and Town of North Haven Harbormaster page (northhavenmaine.org/departments/harbormaster.php)"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.3157, 44.309] },
+      "properties": {
+        "title": "Valley Cove (Somes Sound) — Anchorage & Moorings",
+        "category": "anchorages",
+        "place": "Valley Cove, Somes Sound, Mount Desert Island, ME",
+        "anchorage": {
+          "anchoringNotes": "Enter Somes Sound through The Narrows; just beyond Sand Point (to starboard), turn to port into Valley Cove and anchor in about 30 feet MLW along the south side of the cove.",
+          "holdingGround": "Bottom is rocky/pebbly in places, but anchors typically find sticky Maine mud that holds well.",
+          "protection": "Excellent protection from prevailing winds inside the cove, though shifting gusts can funnel down off the surrounding mountains (the cliffs of St. Sauveur/Acadia Mountain rise directly from the water here).",
+          "notes": "One of Somes Sound's most popular anchorages — dramatic cliff scenery, close to Fernald Point at the Sound's mouth (site of a short-lived 1613 French Jesuit settlement)."
+        },
+        "source": "CCA Cruising Guide to Maine, Somes Sound entry (https://guides.cruisingclub.org/harbor/somes-sound/). Coordinates (N44°18.538' W068°18.942') from a Waterway Guide anchorage listing (https://www.waterwayguide.com/anchorage/2-2724/valley-cove); direct fetch of that page was blocked (403), so treat the position as approximate, aggregator-sourced."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.305, 44.3395] },
+      "properties": {
+        "title": "Somesville / Somes Harbor (Head of Somes Sound) — Anchorage",
+        "category": "anchorages",
+        "place": "Somesville, Mount Desert Island, ME",
+        "anchorage": {
+          "moorings": "Moorings in the harbor are privately owned; there are no transient/rental moorings. Best avoided unless you know the owner.",
+          "anchoringNotes": "Anchor between Sheep Island and the mainland in about 15 feet MLW. Entrance: leave the red nun marking Myrtle Ledge to starboard, pass the green can close aboard to port, then proceed up to Sheep Island.",
+          "protection": "Quiet, well-protected, and serene; considered a favorite harbor of refuge in nor'easters, tropical storms, and even hurricanes.",
+          "notes": "Dinghies may land at the SW corner of the large float at the Somesville town landing — the floats themselves are privately owned, but visiting boaters are welcome ashore."
+        },
+        "source": "CCA Cruising Guide to Maine, Somes Sound entry (https://guides.cruisingclub.org/harbor/somes-sound/). Coordinates are estimated from the described location (between Sheep Island and the mainland, head of Somes Sound) — not taken from a specific charted position, so treat as approximate."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.288, 44.2967] },
+      "properties": {
+        "title": "Northeast Harbor — Anchorage & Moorings",
+        "category": "anchorages",
+        "place": "Northeast Harbor, Mount Desert Island, ME",
+        "anchorage": {
+          "moorings": "The harbor itself is fully occupied by private and rental moorings, managed by the town-run Northeast Harbor Marina and by Clifton Dock (an arm of the Northeast Harbor Fleet yacht club). Northeast Harbor Marina also has rental slips, bookable via Dockwa.",
+          "anchoringNotes": "There is no room to anchor inside the harbor itself. Good holding and ample swinging room, even for large boats, is available just outside/east of the harbor entrance.",
+          "protection": "The outer anchorage east of the harbor is fine in settled summer weather, but is open to the southwest and east, so it can become breezy and choppy in an afternoon sea breeze.",
+          "contact": "Northeast Harbor Fleet / Clifton Dock: (207) 276-5101, nehfleet@gmail.com, 48 South Shore Road, Northeast Harbor, ME 04662.",
+          "notes": "One of the premier Down East cruising destinations, with full services, restaurants, and provisioning within walking distance of the town dock."
+        },
+        "source": "CCA Cruising Guide to Maine, Northeast Harbor entry (https://guides.cruisingclub.org/harbor/northeast-harbor/); Northeast Harbor Fleet website (https://www.nehfleet.org/moorings). Coordinates are an approximate position for the harbor entrance/mooring field, not from a specific charted anchorage point."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.312, 44.276] },
+      "properties": {
+        "title": "Southwest Harbor — Anchorage & Moorings",
+        "category": "anchorages",
+        "place": "Southwest Harbor, Mount Desert Island, ME",
+        "anchorage": {
+          "moorings": "The Town of Southwest Harbor rents 6 town moorings off the Manset Town Dock (numbered 1–6, yellow-top/white-middle/red-bottom), first-come first-served. Ellis Boat Co. also has 4 rental moorings in the harbor, first-come first-served. Reserve/renew town moorings online at my.onlinemooring.com/southwestharborME/.",
+          "anchoringNotes": "Anchoring inside Southwest Harbor proper is not permitted. Deep-draft vessels can anchor midway between Greening Island and the southern shore in 34–50 ft; smaller vessels can work farther into the harbor in gradually shallower water down to about 12 ft, outside the mooring field.",
+          "fee": "Town (Manset) moorings: $50/night (2025 rate). Ellis Boat Co. moorings: $60/night or $350/week (2025 rate).",
+          "contact": "Harbormaster Rob Leavitt, (207) 610-2177, weekdays 8:30am–5pm. Southwest Harbor Town Office: (207) 244-5404, PO Box 745, Southwest Harbor, ME 04679.",
+          "notes": "Full-service harbor with fuel, provisioning, and marine services; a major hub for MDI's 'quiet side.'"
+        },
+        "source": "Town of Southwest Harbor website (http://www.southwestharbormaine.org/harbor.html); CCA Cruising Guide to Maine, Southwest Harbor entry (https://guides.cruisingclub.org/harbor/southwest-harbor/); Marinas.com Southwest Harbor Town Moorings Anchorage listing. Coordinates are an approximate position for the main harbor/anchoring area."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.343, 44.2255] },
+      "properties": {
+        "title": "Bass Harbor & Bernard — Anchorage & Moorings",
+        "category": "anchorages",
+        "place": "Bass Harbor / Bernard, Tremont, ME",
+        "anchorage": {
+          "moorings": "Harbor is dense with private moorings, which can make navigation tight for first-time visitors.",
+          "anchoringNotes": "Best entered at half-tide or better; the channel at the north end passes mud flats that look daunting on a first visit but is straightforward once known.",
+          "protection": "Open only to the south; islands lying off the harbor mouth help shelter it from that direction.",
+          "fee": "Town of Tremont transient dockage (160 ft of float space beside Thurston's Lobster Pound in Bernard): $2.50/ft overnight (recent published rate).",
+          "contact": "Harbormaster Tyler Damon, (207) 244-4564 — call ahead; he will meet visiting yachts near the ferry terminal and guide them in through the mooring field.",
+          "notes": "Gas and diesel available at Thurston's Lobster Pound dock, plus a public boat ramp. Up Harbor Marine (26 Columbia Ave, Bernard, ME 04612) also offers dockage and seasonal waterfront lodging in a protected cove; contact directly for current rates, as none were published on their site. Bass Harbor Bar, just south of the harbor mouth, is a known shoaling area — check current chart/tide before crossing, especially for deeper-draft boats."
+        },
+        "source": "Waterway Guide Bass Harbor page (https://www.waterwayguide.com/waterway/162/bass-harbor-me — found via search; direct fetch returned 403); Maine Boats, Homes & Harbors, 'Bass Harbor' (https://maineboats.com/print/issue-191/bass-harbor); Up Harbor Marine website (https://www.upharbor.me/). Coordinates are an approximate position centered near Thurston's Lobster Pound dock in Bernard, not from a specific charted point."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.20422, 44.3918] },
+      "properties": {
+        "title": "Bar Harbor — Anchorage & Moorings",
+        "category": "anchorages",
+        "place": "Bar Harbor, Bar Harbor, ME",
+        "anchorage": {
+          "moorings": "Town-managed mooring field in the main harbor near the Municipal Pier (pier listing shows 13 moorings, 4 slips, ~500 ft of dock); a limited number of guest moorings are available nightly. Reserve a town mooring or dock space via Dockwa.",
+          "anchoringNotes": "The anchorage and town moorings lie south of the fairway leading to the town landing and marina. Recommended entry is around Bald Porcupine Island into the harbor; the western entrance inside the breakwater is awash at high tide.",
+          "protection": "Harbor is enclosed by a granite breakwater on its seaward side; open toward the Porcupine Islands in Frenchman Bay.",
+          "fee": "2025 rates (subject to change): town mooring approx. $57/night; dockage approx. $5.20/ft; an online convenience fee is added to Dockwa bookings.",
+          "contact": "Bar Harbor Harbormaster's Office, (207) 288-5571, VHF 9/16/68.",
+          "notes": "Large dinghy dock and trash dumpster at the town landing, on the west side of the pier, behind the commercial fishing unloading dock."
+        },
+        "source": "CCA Cruising Guide to Maine (guides.cruisingclub.org/harbor/bar-harbor/); US Harbors Bar Harbor guide (usharbors.com); Bar Harbor Municipal Pier listing on Marinas.com (pier coordinates 44°23'30.47\"N 68°12'15.18\"W); Bar Harbor Story newsletter, Feb 2025 (mooring/dockage rates, barharborstory.substack.com)."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.2397, 44.2822] },
+      "properties": {
+        "title": "Seal Harbor — Anchorage & Moorings",
+        "category": "anchorages",
+        "place": "Seal Harbor, Mount Desert, ME",
+        "anchorage": {
+          "moorings": "Moorings are administered by the Seal Harbor Town Wharf. Seal Harbor Yacht Club may have slips available to members of reciprocating yacht clubs (call ahead); neither of the harbor's two marina facilities offers dock tie-ups to transients.",
+          "anchoringNotes": "Approach from the south via Eastern Way, where it meets Frenchman Bay. Expect 11-14 ft depths over a sand/rock bottom inside the harbor. Use NOAA Chart 13313.",
+          "holdingGround": "Sand/rock bottom, 11-14 ft depths.",
+          "notes": "No facilities ashore for boaters — come prepared with your own supplies before anchoring or picking up a mooring here."
+        },
+        "source": "Waterway Guide (waterwayguide.com/directory/anchorage-free-dock/maine/seal-harbor); Marinas.com Seal Harbor listing (coordinates, depth/bottom detail); cross-checked against Wikipedia's Seal Harbor Congregational Church coordinates (44.29361°N, 68.24833°W) to confirm village location."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.259, 44.2515] },
+      "properties": {
+        "title": "Great Cranberry Island — Anchorage & Moorings",
+        "category": "anchorages",
+        "place": "Great Cranberry Island, Cranberry Isles, ME",
+        "anchorage": {
+          "moorings": "The Town of Cranberry Isles maintains 3 free guest moorings at Great Cranberry, first-come-first-served, usable up to 3 days. They are large white balls with a blue horizontal stripe and 'Town Guest' painted on them.",
+          "anchoringNotes": "Comfortable anchoring with good holding and ample swinging room is available outside the mooring field.",
+          "holdingGround": "Described as good holding outside the mooring field; specific bottom composition not stated in source.",
+          "fee": "Town guest moorings are free (limit 3 days).",
+          "contact": "Cranberry Isles Harbormaster Norman Sanborn Jr., (207) 244-3624 (usually based on Great Cranberry); Deputy Harbormaster Bruce Fernald, (207) 244-5283.",
+          "notes": "Great Cranberry has a well-regarded town dock outside the mooring field with plenty of dinghy space (nicer than Islesford's). Many islanders also keep private boats at nearby Spurling Cove."
+        },
+        "source": "Waterway Guide anchorage listing (waterwayguide.com/anchorage/2-4394/great-cranberry-island-moorings, page content only partially retrievable) plus general Cranberry Isles cruising-guide coverage (CCA Cruising Guide to Maine, guides.cruisingclub.org/harbor/cranberry-islands/); Wikipedia (Great Cranberry Island — Spurling Cove reference). COORDINATES ARE ESTIMATED: placed near the island's north-end village/town-dock area (opposite Islesford across the harbor) from described geography — no authoritative source for the exact dock position could be retrieved this session."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.24028, 44.26167] },
+      "properties": {
+        "title": "Islesford (Little Cranberry Island) — Anchorage & Moorings",
+        "category": "anchorages",
+        "place": "Islesford, Little Cranberry Island, Cranberry Isles, ME",
+        "anchorage": {
+          "moorings": "The Town of Cranberry Isles maintains 3 free guest moorings at Little Cranberry, first-come-first-served, usable up to 3 days, marked with large white balls with a blue horizontal stripe and 'Town Guest' painted on them. The Islesford Dock Restaurant separately administers transient moorings in Cranberry Harbor and sells gas and diesel.",
+          "anchoringNotes": "Anchoring is not favorable at Little Cranberry — a kelp-covered bottom makes it hard to get a good set.",
+          "holdingGround": "Poor — kelp bottom, difficult to set an anchor.",
+          "fee": "Town guest moorings are free (limit 3 days).",
+          "contact": "Cranberry Isles Harbormaster Norman Sanborn Jr., (207) 244-3624 (usually based on Great Cranberry); Bruce Fernald, (207) 244-5283, available on Little Cranberry as needed.",
+          "notes": "No services on Islesford beyond the Islesford Dock Restaurant; the town dinghy dock is small and often crowded."
+        },
+        "source": "Cranberry Isles cruising-guide coverage (CCA Cruising Guide to Maine, guides.cruisingclub.org/harbor/cranberry-islands/) and Waterway Guide Cranberry Isles listings. Coordinates taken from Wikipedia's entry for the Islesford Historical Museum and Blue Duck Ships Store (44°15'42\"N 68°14'25\"W), which sits immediately beside the Islesford town dock — used as a close proxy for harbor position, not the dock itself."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.556944, 44.245833] },
+      "properties": {
+        "title": "WoodenBoat School Waterfront — Anchorage & Moorings",
+        "category": "anchorages",
+        "place": "WoodenBoat School, Great Cove, Brooklin, ME",
+        "anchorage": {
+          "moorings": "WoodenBoat School's own waterfront (Great Cove, at the south end of Eggemoggin Reach) has a float, launching ramp, and 'limited moorings' for visiting boats. If prior arrangements are made, waterfront staff will have a mooring reserved for you; otherwise moorings are used first-come, first-served — the School does not monitor a channel or phone line to report open moorings in real time. Waterfront staff are on duty Mon–Fri 8am until dusk and Sat 1–5pm.",
+          "anchoringNotes": "The School's own materials describe it simply as 'a good anchorage.' It sits on Great Cove on the mainland, across from Babson and Little Babson Islands; Center Harbor and Brooklin Boat Yard are just to the west.",
+          "protection": "Sheltered water at the south end of Eggemoggin Reach, screened by Babson and Little Babson Islands.",
+          "contact": "WoodenBoat School office: (207) 359-4651, school@woodenboat.com. Monitors VHF 16 and/or 68.",
+          "notes": "Dinghy float and showers available for students/guests and their families; no dump/pump-out station at the waterfront. Recognizable from the water by the large white WoodenBoat Publications office building on the hill and a long dock on granite piers. Students/visitors are explicitly welcome to bring their own boat, wooden or not."
+        },
+        "source": "WoodenBoat School, 'Good Things to Know 2024' (thewoodenboatschool.com/wp-content/uploads/2023/11/Good-Things-to-Know-2024.pdf) — coordinates as stated by the School itself (44°14'45\"N, 68°33'25\"W)."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.579627, 44.262895] },
+      "properties": {
+        "title": "Center Harbor — Anchorage & Moorings",
+        "category": "anchorages",
+        "place": "Center Harbor, Brooklin, ME",
+        "anchorage": {
+          "moorings": "Brooklin Boat Yard rents moorings to visitors — call (207) 359-2236 or hail VHF 18; renters get free showers and laundry at the yard's dockhouse (confirm current nightly rate directly with the yard). Center Harbor Yacht Club does not advertise transient slips but may accommodate members of reciprocal yacht clubs.",
+          "anchoringNotes": "The harbor is 'so choked with moored boats that anchoring safely inside is nearly impossible' — visitors are advised to anchor outboard of the yacht club mooring fleet or rent a mooring from Brooklin Boat Yard. Where there is anchoring room, bottom is soft mud, south of a line between the yacht yard and the entrance daybeacon. Approach from the north via Eggemoggin Reach; the southern approach past Torrey Island is shoal and inadvisable for strangers.",
+          "holdingGround": "Soft mud in the outer-harbor anchoring area.",
+          "protection": "Well sheltered behind Chatto Island, off Eggemoggin Reach.",
+          "contact": "Brooklin Boat Yard: (207) 359-2236, VHF 18, brooklinboatyard.com.",
+          "notes": "Center Harbor Yacht Club pier/float landing (6 ft alongside) is on the north side of the entrance; water available. Center Harbor is known for its fleet of classic wooden yachts, most maintained by Brooklin Boat Yard."
+        },
+        "source": "Cruising Club of America Digital Cruising Guide to Maine, Eggemoggin Reach entry (guides.cruisingclub.org/harbor/eggemoggin-reach/), read in full; Brooklin Boat Yard (brooklinboatyard.com), phone cross-checked against its Google Maps listing; coordinates from Brooklin Boat Yard's verified map location."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.541932, 44.229903] },
+      "properties": {
+        "title": "Naskeag Harbor — Anchorage",
+        "category": "anchorages",
+        "place": "Naskeag Harbor, Brooklin, ME",
+        "anchorage": {
+          "anchoringNotes": "A small, working harbor at Naskeag Point on the Jericho Bay side of Brooklin, heavily used by commercial lobster boats, with a granite-gravel town launch/landing at its edge. Neither the CCA Digital Cruising Guide nor Waterway Guide carries a dedicated anchorage entry for Naskeag Harbor (confirmed via direct site search) — treat this as a working harbor with no documented depths, holding, or mooring-rental service, rather than an established cruiser destination.",
+          "notes": "Public boat launch at Naskeag Point. Not to be confused with Atlantic Boat Company, whose yard is a few miles north on Flye Point/Herrick Bay, not in Naskeag Harbor itself."
+        },
+        "source": "Coordinates from a Google Maps place marker for 'Naskeag Harbor' — approximate; no numeric position is given in any cruising-guide source found. Harbor-use description from Paddling.com (paddling.com/paddle/locations/naskeag-harbor-brooklin-maine) and US Harbors (usharbors.com/2012/05/exploring-brooklins-finest-in-springtime-naskeag-point/)."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.52527, 44.254286] },
+      "properties": {
+        "title": "Herrick Bay — Anchorage & Moorings",
+        "category": "anchorages",
+        "place": "Herrick Bay, Brooklin/Sedgwick, ME",
+        "anchorage": {
+          "moorings": "Atlantic Boat Company (355 Flye Point Rd, Brooklin) rents seasonal and transient moorings on a first-come, first-served basis with a reservation form; call ahead to confirm availability. Renters get dinghy-float access and a hot shower/washer/dryer at the dockhouse. The yard also does haul-out and repair work.",
+          "anchoringNotes": "Good open-bay anchorage; holding is excellent in hard sand at 7–11 ft depth.",
+          "holdingGround": "Excellent holding in hard sand.",
+          "protection": "Exposed to wind and wake from the southeast; otherwise a broad, fairly open bay.",
+          "contact": "Atlantic Boat Company: (207) 359-4658, info@atlanticboat.com, VHF ch 10 (monitored weekdays 7am–3:30pm)."
+        },
+        "source": "Marinas.com Herrick Bay Anchorage listing (marinas.com/view/anchorage/6vf42m_Herrick_Bay_Anchorage_Brooklin_ME_United_States) for coordinates/depth/holding; Atlantic Boat Company (atlanticboat.com/moorings) for mooring/contact details, phone cross-checked against its Google Maps listing."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.564371, 44.409449] },
+      "properties": {
+        "title": "Blue Hill Harbor — Anchorage & Moorings",
+        "category": "anchorages",
+        "place": "Blue Hill Harbor, Blue Hill, ME",
+        "anchorage": {
+          "moorings": "Kollegewidgwok Yacht Club (KYC) assigns moorings to visitors — hail 'KYC dock' on VHF ch 9 or call (207) 374-5581; moorings for boats over 50 ft are limited. KYC now takes phone reservations, but only within a day or so of arrival (previous policy was strictly first-come, first-served).",
+          "anchoringNotes": "Main anchorage is in the outer harbor, 23–50 ft; a second, more secluded anchorage lies farther in, past can #7 and nun #2, off the golf course, in 10–28 ft over soft bottom. Enter leaving cans #1 and #3 to port, then can #5 to port and nun #2 to starboard, rounding Sculpin Point (can submerge at high tide); a 'fisherman's channel' shortcut between Seal Rock and the Sculpin Point flagpole is only for shoal-draft or locally-experienced boats. Navigate by NOAA Chart 13316.",
+          "holdingGround": "Soft bottom in the inner, more secluded anchorage.",
+          "protection": "A wide, deep, well-protected bay; predictable afternoon sea breezes can kick up some chop, but the harbor itself is 'quite large and safe.'",
+          "fee": "$55 per night for a KYC mooring.",
+          "contact": "Kollegewidgwok Yacht Club: VHF ch 9, (207) 374-5581, kycbluehill.com. Blue Hill Town Office (mooring/outhaul permits): (207) 374-2281.",
+          "notes": "Blue Hill Town Wharf dries out at mean low water — time dinghy trips within a couple of hours of high tide or risk getting stuck on the flats; the town wharf is about a half-mile from the anchorage. Ethanol-free gas/diesel and water at the KYC dock; outside/intermittent pump-out; no shore power. The Town of Blue Hill separately manages a 600+ mooring/outhaul field under its own harbor ordinance and also maintains two complimentary moorings at an anchorage in South Blue Hill, about five miles away."
+        },
+        "source": "Cruising Club of America Digital Cruising Guide to Maine, Blue Hill entry (guides.cruisingclub.org/harbor/blue-hill/), read in full; Town of Blue Hill mooring page (bluehillme.gov/town-services/moorings/); coordinates from Kollegewidgwok Yacht Club's verified Google Maps location, which anchors the main mooring field/anchorage."
+      }
     }
   ]
 }
