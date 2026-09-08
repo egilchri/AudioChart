@@ -5322,8 +5322,8 @@ function _enterEditMode(routeIdx, skipHazardCheck = false) {
     _map.getContainer().addEventListener('mouseup', _editPlaceNode);
   }
   document.getElementById('edit-tools-panel').style.display = 'flex';
-  document.getElementById('edit-tools-panel').classList.add('collapsed');
-  document.getElementById('etp-title').classList.add('collapsed');
+  document.getElementById('edit-tools-panel').classList.remove('collapsed');
+  document.getElementById('etp-title').classList.remove('collapsed');
   document.getElementById('delete-route-btn').style.display = 'flex';
   _updateEditToolsPanel();
   // Check whenever a route is opened for editing — not just on request —
