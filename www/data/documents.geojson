@@ -2609,17 +2609,19 @@
       "type": "Feature",
       "geometry": { "type": "Point", "coordinates": [-68.556944, 44.245833] },
       "properties": {
-        "title": "WoodenBoat School Waterfront — Anchorage & Moorings",
+        "title": "WoodenBoat School Waterfront",
         "category": "anchorages",
-        "place": "WoodenBoat School, Great Cove, Brooklin, ME",
+        "place": "Great Cove, Brooklin, ME (south end of Eggemoggin Reach, off Babson Island)",
         "anchorage": {
-          "moorings": "WoodenBoat School's own waterfront (Great Cove, at the south end of Eggemoggin Reach) has a float, launching ramp, and 'limited moorings' for visiting boats. If prior arrangements are made, waterfront staff will have a mooring reserved for you; otherwise moorings are used first-come, first-served — the School does not monitor a channel or phone line to report open moorings in real time. Waterfront staff are on duty Mon–Fri 8am until dusk and Sat 1–5pm.",
-          "anchoringNotes": "The School's own materials describe it simply as 'a good anchorage.' It sits on Great Cove on the mainland, across from Babson and Little Babson Islands; Center Harbor and Brooklin Boat Yard are just to the west.",
-          "protection": "Sheltered water at the south end of Eggemoggin Reach, screened by Babson and Little Babson Islands.",
-          "contact": "WoodenBoat School office: (207) 359-4651, school@woodenboat.com. Monitors VHF 16 and/or 68.",
-          "notes": "Dinghy float and showers available for students/guests and their families; no dump/pump-out station at the waterfront. Recognizable from the water by the large white WoodenBoat Publications office building on the hill and a long dock on granite piers. Students/visitors are explicitly welcome to bring their own boat, wooden or not."
+          "moorings": "WoodenBoat Store's own visitor guidance states 'around a half dozen guest moorings,' first-come-first-served — heavy granite-block moorings in 8-15 ft of water at low tide. The School's separate annual 'Good Things to Know' pamphlet describes moorage only as 'limited,' with no count; the discrepancy likely reflects that much of this cove's mooring field is occupied by the School's own ~15-boat teaching fleet (Herreshoff 12 1/2s, Haven 12 1/2s, Beetle Cats, etc.), which is permanently moored here and reduces what's free for drop-in visitors on any given week.",
+          "anchoringNotes": "Anchoring off the moorings is also workable; bottom is mud with generally good holding. Listed by the CCA Cruising Guide to Maine as one of Eggemoggin Reach's four go-to anchorages (with Benjamin River, Center Harbor, and behind the Torrey Islands), valued for shelter and the view of the School's wooden-boat fleet.",
+          "holdingGround": "Mud; generally good holding (per WoodenBoat Store), though the anchorage can turn lumpy in a strong blow (see protection).",
+          "protection": "Good shelter from most directions, aided by Babson Island; becomes lumpy/uncomfortable in a strong southerly or northwesterly blow (per WoodenBoat Store visitor guidance).",
+          "fee": "Guest mooring fee paid at the Boathouse (cash/check) or arranged in advance by phone/email; no posted nightly rate found online. Note: a separate $175/week mooring rate is published for enrolled students bringing a boat during a course — not confirmed to be the same as the drop-in guest rate.",
+          "contact": "WoodenBoat School waterfront staff on duty in season Mon-Fri 8am-dusk, Sat 1pm-5pm. VHF 16/68 (monitoring is not guaranteed and is not used to confirm mooring availability). School office: 207-359-4651 / school@woodenboat.com. WoodenBoat Store (visitor info): 207-359-7702.",
+          "notes": "First-come-first-served; boats with prior arrangements get a mooring held for them. Dinghy float at the Boathouse. No shower or pump-out facilities for visiting boats. Nearest provisions: Brooklin General Store, about 1 mile away; no rideshare/public transport in the area."
         },
-        "source": "WoodenBoat School, 'Good Things to Know 2024' (thewoodenboatschool.com/wp-content/uploads/2023/11/Good-Things-to-Know-2024.pdf) — coordinates as stated by the School itself (44°14'45\"N, 68°33'25\"W)."
+        "source": "WoodenBoat Store, 'Make the Most of It' (woodenboatstore.com/pages/make-the-most-of-your-visit-to-the-woodenboat-campus) — mooring count, depth, bottom, protection; WoodenBoat School, 'Good Things To Know 2025' PDF (thewoodenboatschool.com/wp-content/uploads/2024/11/Good-Things-To-Know-2025.pdf) — coordinates, VHF, staff hours, 'limited moorage' language; WoodenBoat School, 'Waterfront Information and Safety' PDF (thewoodenboatschool.com/wp-content/uploads/2023/11/Waterfront-Safety-Info-2024.pdf) — confirms School's own fleet occupies moorings in same cove; CCA Cruising Guide to Maine, Eggemoggin Reach (guides.cruisingclub.org/harbor/eggemoggin-reach/) — one of 4 go-to Reach anchorages; Maine Boats, Homes & Harbors, 'Gizmo' cruising column (maineboats.com/coastal-adventures/gizmo-96) — first-come-first-served visitor experience. Dockwa has no listing for WoodenBoat School."
       }
     },
     {
