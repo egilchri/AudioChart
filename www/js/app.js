@@ -7967,23 +7967,11 @@ function _ensureMap() {
       dateLine.className = 'rp-row-date';
       dateLine.textContent = _routeDateLabel(route);
       row.appendChild(dateLine);
-      const speedKt = parseFloat(localStorage.getItem('audiochart-last-speed')) || 5;
-      const legs = splitIntoLegs(route.points, speedKt);
-      if (legs.length > 0) {
-        const legList = document.createElement('div');
-        legList.className = 'rp-legs';
-        legs.forEach((leg, i) => {
-          const aName = _nearestPlaceName(route.points[leg.startIdx].lat, route.points[leg.startIdx].lon)
-            || formatPositionDisplay(route.points[leg.startIdx].lat, route.points[leg.startIdx].lon);
-          const bName = _nearestPlaceName(route.points[leg.endIdx].lat, route.points[leg.endIdx].lon)
-            || formatPositionDisplay(route.points[leg.endIdx].lat, route.points[leg.endIdx].lon);
-          const legRow = document.createElement('div');
-          legRow.className = 'rp-leg-row';
-          legRow.textContent = `Day ${i + 1}: ${aName} \u2192 ${bName}, ${leg.distNm.toFixed(1)}nm (~${leg.hours.toFixed(1)}h @ ${speedKt}kt)`;
-          legList.appendChild(legRow);
-        });
-        row.appendChild(legList);
-      }
+      // Follow/Virtual Journey come right after the date line, BEFORE the
+      // (potentially long) multi-day legs list below — per direct report,
+      // a route with several legs pushed these action buttons below the
+      // fold, making them easy to miss without scrolling past the whole
+      // leg breakdown first.
       const followBtn = document.createElement('button');
       followBtn.className = 'rp-follow-btn';
       if (_followingRouteId === route.id) {
@@ -8014,11 +8002,28 @@ function _ensureMap() {
         if (_vjRoute?.id === route.id) {
           _stopVirtualJourney();
         } else {
-          const speedKt = parseFloat(localStorage.getItem('audiochart-last-speed')) || 5;
-          _startVirtualJourney(route, speedKt);
+          const speedKt2 = parseFloat(localStorage.getItem('audiochart-last-speed')) || 5;
+          _startVirtualJourney(route, speedKt2);
         }
       });
       row.appendChild(vjBtn);
+      const speedKt = parseFloat(localStorage.getItem('audiochart-last-speed')) || 5;
+      const legs = splitIntoLegs(route.points, speedKt);
+      if (legs.length > 0) {
+        const legList = document.createElement('div');
+        legList.className = 'rp-legs';
+        legs.forEach((leg, i) => {
+          const aName = _nearestPlaceName(route.points[leg.startIdx].lat, route.points[leg.startIdx].lon)
+            || formatPositionDisplay(route.points[leg.startIdx].lat, route.points[leg.startIdx].lon);
+          const bName = _nearestPlaceName(route.points[leg.endIdx].lat, route.points[leg.endIdx].lon)
+            || formatPositionDisplay(route.points[leg.endIdx].lat, route.points[leg.endIdx].lon);
+          const legRow = document.createElement('div');
+          legRow.className = 'rp-leg-row';
+          legRow.textContent = `Day ${i + 1}: ${aName} \u2192 ${bName}, ${leg.distNm.toFixed(1)}nm (~${leg.hours.toFixed(1)}h @ ${speedKt}kt)`;
+          legList.appendChild(legRow);
+        });
+        row.appendChild(legList);
+      }
       row.addEventListener('click', () => {
         if (_hiddenRouteNames.has(route.name)) {
           _hiddenRouteNames.delete(route.name);
