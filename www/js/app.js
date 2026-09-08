@@ -2656,7 +2656,13 @@ function _refreshSavedRouteLayers() {
     const pts = route.points;
     const lls = pts.map(p => [p.lat, p.lon]);
 
-    L.polyline(lls, { color: '#e05252', weight: 8, opacity: 0, interactive: true })
+    // Invisible fat line laid over the thin visible route (below) purely as a
+    // bigger tap target — per direct report, tapping a route to enter edit
+    // mode was too fussy on a phone, needing a near-exact hit on the visible
+    // line's own few CSS pixels. weight is a hit-radius here, not a stroke
+    // width anyone sees (opacity: 0), so it can be generous without changing
+    // how the route looks.
+    L.polyline(lls, { color: '#e05252', weight: 32, opacity: 0, interactive: true })
       .on('click', (e) => {
         L.DomEvent.stopPropagation(e);
         _enterEditMode(routeIdx);
