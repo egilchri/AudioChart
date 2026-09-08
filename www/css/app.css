@@ -1359,6 +1359,19 @@ body.wco-active #wco-titlebar { display: flex; }
   background: #2a0a0a;
   font-weight: 700;
 }
+.rp-vj-btn {
+  display: block;
+  margin: 6px 0 0 18px;
+  background: none;
+  border: 1px solid #f5c842;
+  border-radius: 4px;
+  color: #f5c842;
+  font-size: 0.75rem;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+.rp-vj-btn:hover { background: rgba(245, 200, 66, 0.15); }
+.rp-vj-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .rp-empty {
   font-size: 0.82rem;
   color: var(--text-dim);
@@ -2358,6 +2371,51 @@ body.wco-active #wco-titlebar { display: flex; }
 #sim-track-banner .track-chip:disabled {
   opacity: 0.5;
   cursor: default;
+}
+/* Same layout as #sim-track-banner (shares .track-speed-row/.track-chip/
+   .track-chips-scroll) — a distinct accent (amber, not cyan) so the two
+   playback banners read as different features at a glance. */
+#vjourney-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--navy);
+  color: #f5c842;
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 8px 12px;
+  flex-shrink: 0;
+  border-top: 2px solid #f5c842;
+  max-height: 45dvh;
+  overflow-y: auto;
+}
+#vjourney-banner input[type="number"] {
+  width: 4.5em;
+  background: var(--navy);
+  color: var(--text);
+  border: 1px solid #f5c842;
+  border-radius: 6px;
+  padding: 3px 5px;
+  font-size: 0.85rem;
+  text-align: right;
+}
+#vjourney-pause-btn, #vjourney-stop-btn {
+  background: var(--dark-blue);
+  color: var(--text);
+  border: 1px solid #f5c842;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+#vjourney-pause-btn:active, #vjourney-stop-btn:active { background: #f5c842; color: var(--navy); }
+#vjourney-close-btn {
+  background: none;
+  border: none;
+  color: #f5c842;
+  font-size: 1rem;
+  cursor: pointer;
 }
 #sim-track-start-btn {
   background: var(--ok);

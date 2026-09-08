@@ -1119,6 +1119,21 @@ let _simTrackBaselineNm = 0;      // traveled-nm snapshot taken at the start of 
 let _simTrackRunStartMs = null;   // rAF timestamp anchor for the current run segment
 let _simTrackRafId      = null;
 const SIM_TRACK_DEFAULT_NM = 5;
+// Virtual Journey — plays a saved route back as a genuinely moving GPS fix
+// (GPS.setVirtualPosition), not a cosmetic marker, so the rest of the app
+// (focus/bearing, follow-progress, anchor watch) reacts exactly as if
+// actually underway. Deliberately separate from _animMode's state — see
+// the markup comment on #vjourney-banner for why it can't reuse anim-mode.
+let _vjRoute        = null;   // the route object being played back
+let _vjSegs         = [];     // precomputed {lat1,lon1,lat2,lon2,dist,cumDist,brg}
+let _vjTotalNm      = 0;
+let _vjSpeedKnots   = 5;
+let _vjCompress     = 1;
+let _vjTraveledNm   = 0;      // persists across pause/resume
+let _vjBaselineNm   = 0;      // traveled-nm snapshot at the start of the current run segment
+let _vjRunStartMs   = null;   // rAF timestamp anchor for the current run segment
+let _vjRafId        = null;
+let _vjRunning      = false;  // true only while actually ticking (false while paused)
 let _viewportHazardLayer    = null; // hazard markers for current map viewport (edit mode)
 let _viewportHazardMoveEnd  = null; // moveend listener ref for cleanup
 let _routeNameLabels        = [];   // [{marker, pts}] for viewport-clamping on moveend
@@ -6631,6 +6646,164 @@ function _exitAnimMode() {
 document.getElementById('anim-stop-btn').addEventListener('click', _exitAnimMode);
 
 
+// ── Virtual Journey ──────────────────────────────────────────────────────────
+
+function _startVirtualJourney(route, speedKnots) {
+  if (!route.points || route.points.length < 2) return;
+  if (_trackRecActive) {
+    const msg = 'Already recording/following a route — stop it first.';
+    setStatus(msg); TTS.sayImmediate(msg);
+    return;
+  }
+  _stopVirtualJourney(); // supersede any journey already running
+
+  _vjRoute = route;
+  _vjSpeedKnots = speedKnots;
+  _vjCompress = parseInt(document.querySelector('.vjourney-compress.selected')?.dataset.compress) || 1;
+  _vjTraveledNm = 0;
+  _vjBaselineNm = 0;
+
+  const segs = [];
+  let cumDist = 0;
+  for (let i = 1; i < route.points.length; i++) {
+    const p1 = route.points[i - 1], p2 = route.points[i];
+    const d = Query.distanceNm(p1.lon, p1.lat, p2.lon, p2.lat);
+    const brg = _segBearing(p1.lat, p1.lon, p2.lat, p2.lon);
+    segs.push({ lat1: p1.lat, lon1: p1.lon, lat2: p2.lat, lon2: p2.lon, dist: d, cumDist, brg });
+    cumDist += d;
+  }
+  _vjSegs = segs;
+  _vjTotalNm = cumDist;
+
+  // Reuse _startFollowingRoute's next-waypoint/focus state (same fields
+  // _updateFollowProgress already watches) so "next waypoint", the
+  // follow-progress readout, and #focus-btn all work identically whether
+  // GPS is real or virtual — but skip its track-recording side effect
+  // entirely, since this is a rehearsal, not a real trip to save.
+  const last = route.points[route.points.length - 1];
+  _followingRouteId = route.id;
+  _followingRouteName = route.name;
+  _followingDestLat = last.lat;
+  _followingDestLon = last.lon;
+  _followingLegIdx = route.points.length > 1 ? 1 : 0;
+  const firstLegPt = route.points[_followingLegIdx];
+  Query.setFocus(firstLegPt.lat, firstLegPt.lon, `${route.name} — waypoint ${_followingLegIdx + 1}`, 'waypoint');
+  _updateFocusButton();
+  _followFocusLegIdx = _followingLegIdx;
+
+  document.getElementById('vjourney-route-name').textContent = route.name;
+  document.getElementById('vjourney-speed-input').value = speedKnots;
+  document.getElementById('vjourney-status').textContent = `Underway · ${speedKnots} kts`;
+  document.getElementById('vjourney-pause-btn').textContent = '⏸ Pause';
+  document.getElementById('vjourney-banner').style.display = 'flex';
+  _buildRoutePickerPanelFn?.();
+
+  const msg = `Starting virtual journey: ${route.name}, ${speedKnots} knots.`;
+  setStatus(msg); TTS.sayImmediate(msg);
+
+  _vjRunning = true;
+  _vjRunStartMs = Date.now();
+  _vjRafId = setInterval(_vjStep, VJ_TICK_MS);
+}
+
+// A fixed-interval timer, not requestAnimationFrame — confirmed live that
+// rAF is fully suspended by the browser once the tab is hidden/backgrounded
+// (not just throttled), which would silently stall a journey the moment you
+// switch apps or lock the screen. setInterval still fires (rate-clamped,
+// typically to ~1/sec) in that state, so playback — and so bearing queries,
+// anchor watch, etc. — keeps working for this specifically hands-off,
+// rehearse-while-not-necessarily-watching use case. Elapsed time is real
+// wall-clock (Date.now()), so a clamped/delayed tick still computes the
+// correct position, just updates the display less often.
+const VJ_TICK_MS = 200;
+
+function _vjStep() {
+  if (!_vjRunning) return;
+  const elapsed = (Date.now() - _vjRunStartMs) / 1000;
+  const nmPerRealSec = (_vjSpeedKnots / 3600) * _vjCompress;
+  _vjTraveledNm = _vjBaselineNm + elapsed * nmPerRealSec;
+
+  if (_vjTraveledNm >= _vjTotalNm) {
+    const last = _vjRoute.points[_vjRoute.points.length - 1];
+    const finalSeg = _vjSegs[_vjSegs.length - 1];
+    GPS.setVirtualPosition(last.lat, last.lon, finalSeg?.brg ?? 0, _vjSpeedKnots);
+    const msg = `Virtual journey complete: ${_vjRoute.name}.`;
+    setStatus(msg); TTS.sayImmediate(msg);
+    _stopVirtualJourney();
+    return;
+  }
+
+  let seg = _vjSegs[_vjSegs.length - 1];
+  for (const s of _vjSegs) {
+    if (_vjTraveledNm >= s.cumDist && _vjTraveledNm < s.cumDist + s.dist) { seg = s; break; }
+  }
+  const frac = seg.dist > 0 ? (_vjTraveledNm - seg.cumDist) / seg.dist : 0;
+  const lat = seg.lat1 + (seg.lat2 - seg.lat1) * frac;
+  const lon = seg.lon1 + (seg.lon2 - seg.lon1) * frac;
+  GPS.setVirtualPosition(lat, lon, seg.brg, _vjSpeedKnots);
+
+  document.getElementById('vjourney-status').textContent =
+    `Underway · ${_vjSpeedKnots} kts · ${_vjTraveledNm.toFixed(1)}/${_vjTotalNm.toFixed(1)} nm`;
+}
+
+function _pauseVirtualJourney() {
+  if (!_vjRunning) return;
+  _vjRunning = false;
+  if (_vjRafId) { clearInterval(_vjRafId); _vjRafId = null; }
+  document.getElementById('vjourney-pause-btn').textContent = '▶ Resume';
+  document.getElementById('vjourney-status').textContent = `Paused · ${_vjTraveledNm.toFixed(1)}/${_vjTotalNm.toFixed(1)} nm`;
+}
+
+function _resumeVirtualJourney() {
+  if (_vjRunning || !_vjRoute) return;
+  _vjBaselineNm = _vjTraveledNm;
+  _vjRunStartMs = Date.now();
+  _vjRunning = true;
+  document.getElementById('vjourney-pause-btn').textContent = '⏸ Pause';
+  _vjRafId = setInterval(_vjStep, VJ_TICK_MS);
+}
+
+function _stopVirtualJourney() {
+  _vjRunning = false;
+  if (_vjRafId) { clearInterval(_vjRafId); _vjRafId = null; }
+  if (!_vjRoute) return; // nothing was actually running — safe to call as a guard
+  GPS.clearVirtualPosition();
+  document.getElementById('vjourney-banner').style.display = 'none';
+  _vjRoute = null;
+  _vjSegs = [];
+  _vjTotalNm = 0;
+  _vjTraveledNm = 0;
+  _vjBaselineNm = 0;
+  // Same reset _finishTrackRecording does for the following/next-waypoint
+  // state (Virtual Journey never touched _trackRecActive, so there's no
+  // track to save here — just this bearing-tracking state to clear).
+  _followingRouteId = null;
+  _followingRouteName = null;
+  _followingDestLat = null;
+  _followingDestLon = null;
+  _followingLegIdx = 1;
+  _followFocusLegIdx = null;
+  if (_followProgressEl) _followProgressEl.style.display = 'none';
+  _buildRoutePickerPanelFn?.();
+}
+
+document.getElementById('vjourney-pause-btn').addEventListener('click', () => {
+  if (_vjRunning) _pauseVirtualJourney(); else _resumeVirtualJourney();
+});
+document.getElementById('vjourney-stop-btn').addEventListener('click', _stopVirtualJourney);
+document.getElementById('vjourney-close-btn').addEventListener('click', _stopVirtualJourney);
+document.getElementById('vjourney-banner').addEventListener('click', (e) => {
+  const chip = e.target.closest('.vjourney-compress');
+  if (!chip) return;
+  document.querySelectorAll('.vjourney-compress').forEach(b => b.classList.remove('selected'));
+  chip.classList.add('selected');
+  _vjCompress = parseInt(chip.dataset.compress) || 1;
+});
+document.getElementById('vjourney-speed-input').addEventListener('change', (e) => {
+  const v = parseFloat(e.target.value);
+  if (!isNaN(v) && v > 0) _vjSpeedKnots = v;
+});
+
 function _getTrackSettings() {
   const objChip      = document.querySelector('.track-obj.selected');
   const distChip     = document.querySelector('.track-dist.selected');
@@ -7827,6 +8000,25 @@ function _ensureMap() {
         else _startFollowingRoute(route);
       });
       row.appendChild(followBtn);
+      const vjBtn = document.createElement('button');
+      vjBtn.className = 'rp-vj-btn';
+      if (_vjRoute?.id === route.id) {
+        vjBtn.textContent = '⏹ Stop Journey';
+      } else {
+        vjBtn.textContent = '🕹 Virtual Journey';
+        vjBtn.title = 'Play this route back as a real moving GPS position at a configurable speed — rehearse bearing queries, anchor watch, etc. without leaving the dock';
+        if (_trackRecActive) vjBtn.disabled = true;
+      }
+      vjBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (_vjRoute?.id === route.id) {
+          _stopVirtualJourney();
+        } else {
+          const speedKt = parseFloat(localStorage.getItem('audiochart-last-speed')) || 5;
+          _startVirtualJourney(route, speedKt);
+        }
+      });
+      row.appendChild(vjBtn);
       row.addEventListener('click', () => {
         if (_hiddenRouteNames.has(route.name)) {
           _hiddenRouteNames.delete(route.name);
@@ -9797,6 +9989,7 @@ async function showFixMap(lmA, lmB, fix) {
 
 const SOURCE_LABEL = {
   'manual':        'TEST POSITION',
+  'virtual':       'VIRTUAL JOURNEY',
   'browser':       'DEVICE GPS',
   'nmea':          'GPS PUCK',
   'opencpn-nmea':  'OPENCPN LIVE',
@@ -9880,10 +10073,10 @@ function _updateCoverageStatus(lat, lon, _isRecheck = false) {
 function showPosition(lat, lon, accuracy, source) {
   positionEl.textContent = formatPositionDisplay(lat, lon);
   const label = SOURCE_LABEL[source] || source.toUpperCase();
-  const hasAcc = accuracy && !['opencpn-track', 'manual'].includes(source);
+  const hasAcc = accuracy && !['opencpn-track', 'manual', 'virtual'].includes(source);
   const accText = hasAcc ? ` ±${Math.round(accuracy)}m` : '';
   _statusGpsLabel = `GPS: ${label}${accText}`;
-  _statusGpsCls   = source === 'manual' ? 'gps-test' : 'gps-ok';
+  _statusGpsCls   = ['manual', 'virtual'].includes(source) ? 'gps-test' : 'gps-ok';
   _renderStatusCombo();
   _updateCoverageStatus(lat, lon);
 

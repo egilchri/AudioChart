@@ -13,6 +13,8 @@
 
 const SOURCE_PRIORITY = {
   'manual':        6,   // user-entered test position — overrides everything
+  'virtual':       6,   // Virtual Journey playback — same authority as manual;
+                         // only one of the two is ever active at a time
   'opencpn-nmea':  5,   // real-time NMEA from OpenCPN TCP output
   'nmea':          4,   // USB GPS puck via serial
   'opencpn-track': 2,   // last navobj.db track point (has staleness check)
@@ -126,6 +128,30 @@ export function clearManualPosition() {
 
 export function isManualPosition() {
   return currentPosition?.source === 'manual';
+}
+
+/**
+ * Set a moving position for Virtual Journey playback — a genuinely different
+ * source from setManualPosition (a single static teleport) so the app's GPS
+ * callback can tell them apart: 'manual' intentionally blanks heading/speed
+ * display (a teleport has none worth showing), but a virtual journey's
+ * heading/speed are real and meaningful, computed from the route it's
+ * following each tick.
+ */
+export function setVirtualPosition(lat, lon, headingDeg, speedKt) {
+  updatePosition(lat, lon, 0, 'virtual', headingDeg, speedKt);
+}
+
+/** Clear the virtual-journey override so real GPS (or a separate manual
+    test position) takes over again. */
+export function clearVirtualPosition() {
+  if (currentPosition?.source === 'virtual') {
+    currentPosition = null;
+  }
+}
+
+export function isVirtualPosition() {
+  return currentPosition?.source === 'virtual';
 }
 
 export function getPosition() {
