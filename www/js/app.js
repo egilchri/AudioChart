@@ -1323,10 +1323,17 @@ function _addSwipeToClose(el, closeFn, axis = 'x', excludeSelector = null) {
 // both touch and mouse. Position sticks for the rest of the page session (the panel is
 // just hidden/shown via display, never removed, so the inline left/top persist).
 function _makeDraggable(panelEl, handleEl) {
-  let dragging = false, startX = 0, startY = 0, origLeft = 0, origTop = 0;
+  let dragging = false, moved = false, startX = 0, startY = 0, origLeft = 0, origTop = 0;
+  // Below this, a move is just hand tremor, not a drag attempt — matters for
+  // handles that are ALSO a click target in their own right (e.g. Node Ops'
+  // title doubles as its collapse/expand toggle): without a threshold, the
+  // native click that follows every mouseup/touchend would fire right along
+  // with a real drag, toggling collapse every time the panel gets moved.
+  const DRAG_THRESHOLD_PX = 6;
 
   function begin(clientX, clientY) {
     dragging = true;
+    moved = false;
     startX = clientX;
     startY = clientY;
     const rect = panelEl.getBoundingClientRect();
@@ -1336,6 +1343,8 @@ function _makeDraggable(panelEl, handleEl) {
   }
   function moveTo(clientX, clientY) {
     if (!dragging) return;
+    if (!moved && Math.hypot(clientX - startX, clientY - startY) < DRAG_THRESHOLD_PX) return;
+    moved = true;
     const w = panelEl.offsetWidth, h = panelEl.offsetHeight;
     const newLeft = Math.max(4, Math.min(window.innerWidth  - w - 4, origLeft + (clientX - startX)));
     const newTop  = Math.max(4, Math.min(window.innerHeight - h - 4, origTop  + (clientY - startY)));
@@ -1364,6 +1373,14 @@ function _makeDraggable(panelEl, handleEl) {
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
   });
+
+  // Swallow exactly the one click that follows a real drag gesture — see the
+  // threshold comment above. A plain tap (moved stays false) passes through
+  // untouched, so a handle with no click behavior of its own (every caller
+  // but Node Ops' title) is completely unaffected.
+  handleEl.addEventListener('click', (e) => {
+    if (moved) { e.stopImmediatePropagation(); e.preventDefault(); moved = false; }
+  }, { capture: true });
 }
 
 // ── Rearrange mode: drag any permanent UI element out of the way ───────────────
@@ -5355,9 +5372,7 @@ function _enterEditMode(routeIdx, skipHazardCheck = false) {
   }
   document.getElementById('edit-tools-panel').style.display = 'flex';
   document.getElementById('edit-tools-panel').classList.add('collapsed');
-  const _etpTitle = document.getElementById('etp-title');
-  _etpTitle.style.display = '';
-  _etpTitle.classList.add('collapsed');
+  document.getElementById('etp-title').classList.add('collapsed');
   document.getElementById('delete-route-btn').style.display = 'flex';
   _updateEditToolsPanel();
   // Check whenever a route is opened for editing — not just on request —
@@ -5411,7 +5426,6 @@ function _exitEditMode() {
   }
   document.getElementById('edit-banner').style.display = 'none';
   document.getElementById('edit-tools-panel').style.display = 'none';
-  document.getElementById('etp-title').style.display = 'none';
   document.getElementById('delete-route-btn').style.display = 'none';
   _appEl.classList.remove('edit-mode');
   if (_justEditedName) {
@@ -5539,14 +5553,15 @@ document.getElementById('edit-undo-btn').addEventListener('click', () => {
     _editHistory.length > 0 ? '' : 'none';
 });
 
-// Node Ops' title now lives as a tile up in the status row (see
-// #status-tiles) rather than atop its own panel, so its collapsed/expanded
-// state has to be mirrored onto the tile itself (for the chevron) instead
-// of relying on being a descendant of #edit-tools-panel.collapsed.
+// Node Ops' title toggles its own panel's collapsed state (mirrored onto
+// itself too, for the chevron) and doubles as the panel's drag handle — see
+// _makeDraggable below and the edit-mode hide list in app.css, which hides
+// #right-rail (Node Ops' old home) entirely for the duration of editing.
 document.getElementById('etp-title').addEventListener('click', () => {
   const collapsed = document.getElementById('edit-tools-panel').classList.toggle('collapsed');
   document.getElementById('etp-title').classList.toggle('collapsed', collapsed);
 });
+_makeDraggable(document.getElementById('edit-tools-panel'), document.getElementById('etp-title'));
 
 document.getElementById('etp-add-node').addEventListener('click', () => {
   if (!_editMode) return;

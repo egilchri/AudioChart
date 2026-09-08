@@ -983,30 +983,6 @@ body.wco-active #wco-titlebar { display: flex; }
 }
 #zoom-to-me-btn:active { background: var(--brass-dim); }
 
-/* Node Ops is a tile that now lives in #right-rail (the "Zoned" layout's
-   route/data column — see #right-rail below), toggling its own button
-   group elsewhere on screen. Most of the time it starts collapsed — see
-   edit-mode entry in app.js — so the tile itself, not an expanded button
-   cluster, is what's normally on screen. */
-#etp-title {
-  background: rgba(18, 13, 8, 0.94); /* --brass-ink */
-  border: 1px solid var(--brass-dim);
-  border-radius: 6px;
-  color: var(--parchment-dim);
-  font-family: var(--font-brass-serif);
-  font-size: 0.72rem;
-  font-weight: 400;
-  text-transform: none;
-  letter-spacing: normal;
-  margin-bottom: 0;
-  padding: 4px 9px;
-  cursor: pointer;
-  user-select: none;
-  white-space: nowrap;
-  -webkit-tap-highlight-color: transparent;
-}
-#etp-title:hover { border-color: var(--brass); color: var(--brass-hi); }
-
 /* "Zoned" layout: every route/data action in one right-side column
    instead of split between the top tile row and a loose scatter of
    individually-positioned buttons. align-items:flex-end so both the
@@ -1137,23 +1113,6 @@ body.wco-active #wco-titlebar { display: flex; }
 #reroute-btn:active { background: var(--brass-dim); }
 #reroute-btn.working { background: var(--brass); color: var(--brass-ink); }
 
-#delete-route-btn {
-  width: 48px;
-  height: 48px;
-  flex-shrink: 0;
-  background: var(--brass-ink-2);
-  color: #e05252;
-  border: 1px solid #e05252;
-  border-radius: 10px;
-  font-size: 1.3rem;
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  -webkit-tap-highlight-color: transparent;
-}
-#delete-route-btn:active { background: #e05252; color: var(--parchment); }
 
 #track-picker-btn {
   background: rgba(18, 13, 8, 0.94); /* --brass-ink */
@@ -1939,9 +1898,18 @@ body.wco-active #wco-titlebar { display: flex; }
 #app.sketch-mode #leaflet-map {
   cursor: crosshair !important;
 }
-/* Edit route mode — same full-screen layout */
+/* Edit route mode — same full-screen layout. Everything not essential to
+   editing hides for the duration, same treatment as underway-mode: the
+   map-type/location/screen tiles, the whole right rail (routes/tracks/
+   anchor watch/icons — none of that applies mid-edit), and the zoom/pan
+   controls (pinch/drag on the map covers both). Per direct feedback that
+   these were all just clutter competing with the map while editing. */
 #app.edit-mode #sidebar,
-#app.edit-mode #sketch-banner {
+#app.edit-mode #sketch-banner,
+#app.edit-mode #map-overlay-status,
+#app.edit-mode #right-rail,
+#app.edit-mode #zoom-slider-wrap,
+#app.edit-mode #pan-controls-wrap {
   display: none !important;
 }
 #app.edit-mode #map-container {
@@ -1958,7 +1926,6 @@ body.wco-active #wco-titlebar { display: flex; }
   z-index: 1005;
   display: flex;
   flex-direction: column;
-  gap: 6px;
   background: rgba(10, 22, 40, 0.92);
   border: 1px solid var(--mid-blue);
   border-radius: 10px;
@@ -1968,23 +1935,37 @@ body.wco-active #wco-titlebar { display: flex; }
   -webkit-backdrop-filter: blur(4px);
   min-width: 120px;
 }
+/* Both the collapse/expand toggle AND the drag handle for the whole panel
+   (see _makeDraggable in app.js) — this floats over the map during
+   editing and can end up sitting on top of whatever you're trying to
+   work on, so it needs to be movable on the fly, not just collapsible. */
 .etp-title {
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--accent);
-  margin-bottom: 2px;
-  cursor: pointer;
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--mid-blue);
+  cursor: grab;
   user-select: none;
+  touch-action: none;
 }
+.etp-title:active { cursor: grabbing; }
 .etp-title::after { content: '  \25B4'; } /* up chevron — tap to collapse */
 #etp-title.collapsed::after { content: '  \25BE'; } /* down chevron — tap to expand */
-/* Node Ops' title is now a tile up in the status row rather than living
-   atop this panel, so there's no title left behind to peek at — collapsed
-   means the whole panel goes away, same as Global Ops' individually-hidden
-   buttons. */
-#edit-tools-panel.collapsed { display: none !important; }
+/* Collapsing hides just the button list, not the title — the title is the
+   panel's only visible surface once collapsed (and its drag handle), so it
+   can't disappear along with the rest the way it briefly did when it lived
+   as a separate tile up in #right-rail (removed — see edit-mode's hide
+   list above). */
+#edit-tools-panel.collapsed #edit-tools-body { display: none !important; }
+#edit-tools-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
 #edit-tools-panel button {
   background: var(--dark-blue);
   color: var(--text);
@@ -2431,6 +2412,19 @@ body.wco-active #wco-titlebar { display: flex; }
   font-size: 0.85rem;
   cursor: pointer;
 }
+/* Red danger color kept as-is when this lived in #right-rail-icons —
+   semantic, not part of any reskin — just resized to fit as a normal
+   #edit-banner button instead of a 48px round icon tile. */
+#delete-route-btn {
+  background: var(--navy);
+  color: #e05252;
+  border: 1px solid #e05252;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+#delete-route-btn:active { background: #e05252; color: #fff; }
 #edit-hazards-btn {
   background: var(--navy);
   color: var(--text);

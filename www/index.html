@@ -60,16 +60,16 @@
           <button id="track-rec-btn" title="Record a GPS track">&#9679; Start Tracking</button>
           <button id="anchor-watch-btn" title="Watch for anchor drag — alarms if you stray past a set radius">&#9875; Anchor Watch</button>
           <button id="anchor-watch-silence-btn" title="Silence the anchor alarm (stays armed)" style="display:none">&#128263; Silence</button>
-          <div class="etp-title" id="etp-title" style="display:none">Node Ops</div>
-          <!-- 2x2 grid instead of a 4-tall single column — per direct
-               feedback, these four were using more of the rail's scarce
+          <!-- 3-up grid instead of a tall single column — per direct
+               feedback, these were using more of the rail's scarce
                vertical real estate than a set of same-size icon buttons
-               needs to. -->
+               needs to. Node Ops and Delete route are edit-mode-only and
+               now live on edit-tools-panel/edit-banner instead (see
+               those), since #right-rail itself is hidden while editing. -->
           <div id="right-rail-icons">
             <button id="zoom-to-me-btn" title="Zoom to my location">&#8857;</button>
             <button id="navaid-filter-btn" title="Show navaids on map">&#9875;</button>
             <button id="reroute-btn" title="Re-route around land">&#8635;</button>
-            <button id="delete-route-btn" title="Delete this route" style="display:none">&#128465;</button>
           </div>
         </div>
       </div>
@@ -269,14 +269,24 @@
       </div>
 
       <div id="edit-tools-panel" style="display:none">
-        <button id="etp-add-node" title="Add a new waypoint at the end of the route">&#65291; Add</button>
-        <button id="etp-insert-node" title="Insert a new waypoint between two existing ones">&#8659; Insert</button>
-        <button id="etp-delete" title="Delete the selected waypoint">&#10005; Delete</button>
-        <button id="etp-overnight" title="Mark the selected waypoint as an overnight stop">&#9875; Overnight</button>
-        <button id="etp-fix-nodes" title="Tap to arm, then tap waypoints on the map — each one is immediately nudged clear of nearby rocks, obstructions, or wrecks and lights up blue. Tap this again to stop.">&#128295; Fix selected nodes</button>
-        <button id="etp-animate" title="Preview this route as an animated boat icon moving along it">&#9654; Animate</button>
-        <button id="etp-reroute" title="Recalculate this route to avoid land and hazards">&#8635; Reroute</button>
-        <button id="etp-simulate-track" title="Generate a simulated GPS track following this route, for testing">&#129517; Simulate</button>
+        <!-- Doubles as the panel's own drag handle (see _makeDraggable in
+             app.js) — this panel floats over the map during editing and
+             the buttons below can end up covering whatever you're trying
+             to work on, per direct feedback. Also the collapse/expand
+             toggle (tap to hide/show #edit-tools-body), formerly a
+             separate tile up in #right-rail — moved here since
+             #right-rail itself is now hidden for the whole of edit mode. -->
+        <div class="etp-title" id="etp-title">Node Ops</div>
+        <div id="edit-tools-body">
+          <button id="etp-add-node" title="Add a new waypoint at the end of the route">&#65291; Add</button>
+          <button id="etp-insert-node" title="Insert a new waypoint between two existing ones">&#8659; Insert</button>
+          <button id="etp-delete" title="Delete the selected waypoint">&#10005; Delete</button>
+          <button id="etp-overnight" title="Mark the selected waypoint as an overnight stop">&#9875; Overnight</button>
+          <button id="etp-fix-nodes" title="Tap to arm, then tap waypoints on the map — each one is immediately nudged clear of nearby rocks, obstructions, or wrecks and lights up blue. Tap this again to stop.">&#128295; Fix selected nodes</button>
+          <button id="etp-animate" title="Preview this route as an animated boat icon moving along it">&#9654; Animate</button>
+          <button id="etp-reroute" title="Recalculate this route to avoid land and hazards">&#8635; Reroute</button>
+          <button id="etp-simulate-track" title="Generate a simulated GPS track following this route, for testing">&#129517; Simulate</button>
+        </div>
       </div>
     </div>
     <div id="sketch-banner" style="display:none">
@@ -344,6 +354,7 @@
       <button id="edit-mail-wpts-btn" title="Email this route's waypoint list for debugging">&#9993; Mail waypoints</button>
       <button id="edit-undo-btn" style="display:none" title="Undo the last change to this route">&#8630; Undo</button>
       <button id="edit-revert-btn" title="Discard all changes and restore the route as it was before editing">&#8617; Revert</button>
+      <button id="delete-route-btn" title="Delete this route" style="display:none">&#128465; Delete route</button>
       <button id="edit-ok-btn" title="Save changes and exit editing">&#10003; OK</button>
       <button id="edit-cancel-btn" title="Exit editing without saving changes">&#10005; Cancel</button>
     </div>
