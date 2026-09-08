@@ -156,6 +156,7 @@ html, body {
 #map-overlay-status #screen-menu {
   width: 100%;
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   background: rgba(10, 22, 40, 0.92);
   padding: 8px;
