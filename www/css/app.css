@@ -226,6 +226,27 @@ html, body {
 #app.underway-mode #focus-btn {
   display: block;
 }
+/* Follow and Virtual Journey are themselves a live bearing-to-next-
+   waypoint readout's entire reason to exist, so #focus-btn needs to show
+   for their duration regardless of the Underway switch — confirmed live:
+   it was silently unreachable during a virtual journey with Underway
+   off. Virtual Journey now forces Underway on itself (see
+   _preVjUnderwayMode in app.js), which makes this rule's own job moot
+   there, but real Follow doesn't touch the switch, so it still needs
+   this. */
+#app.following-active #focus-btn {
+  display: block;
+}
+/* ...but during a Virtual Journey specifically, the follow-progress
+   readout (top-left, "Next: bearing, distance") already shows the same
+   bearing/range to the next waypoint — reported as redundant. Real Follow
+   is left alone (not reported, and its readout sits further from
+   #focus-btn than during a journey). Same specificity as the rule above,
+   so source order — this one coming later — is what makes it win whenever
+   both classes are present. */
+#app.vjourney-active #focus-btn {
+  display: none;
+}
 #focus-btn:hover { border-color: var(--brass); color: var(--brass-hi); }
 #focus-btn.focus-active { border-color: #1a6b3c; color: #4ade80; background: #0a2a16; }
 #focus-btn.focus-active:hover { border-color: #2a8b4c; color: #6aeea0; background: #0f3a1e; }
@@ -263,6 +284,11 @@ html, body {
      own styling loses nothing but the oversized box. */
 }
 #app.underway-mode #bottom-hud .tide-cycle-ctrl { display: none; }
+/* Same reasoning as Underway's own tide-hiding rule above, scoped to
+   Virtual Journey specifically (not real Follow, where tide state is
+   still worth having) — per direct report, one more thing crowding the
+   screen during a rehearsal run. */
+#app.vjourney-active #bottom-hud .tide-cycle-ctrl { display: none; }
 #track-rec-btn.rec-active { border-color: var(--danger); color: var(--danger); background: #2a0a0a; font-weight: 700; }
 #track-rec-btn.rec-active:hover { border-color: var(--danger); color: #ff8080; background: #3a0a0a; }
 
@@ -918,6 +944,16 @@ body.wco-active #wco-titlebar { display: flex; }
 #app.underway-mode #map-overlay-cmd {
   display: flex;
 }
+/* Same fix as #app.following-active #focus-btn above, and for the same
+   reason: this bar is the ONLY way to issue any command (typed, or
+   dictated via the phone keyboard's own mic) — including the Follow/
+   Virtual Journey-specific "next waypoint" and "bearing to waypoint N".
+   Gating it purely on the manual Underway toggle silently made those
+   commands unreachable during a virtual journey run with Underway off,
+   same as #focus-btn was. */
+#app.following-active #map-overlay-cmd {
+  display: flex;
+}
 /* On a phone-width screen, reserving 300px on the right leaves almost no
    room for the command input at all — confirmed live, this is what "the
    text box to enter the destination was obscured" turned out to be.
@@ -1225,6 +1261,40 @@ body.wco-active #wco-titlebar { display: flex; }
   gap: 6px;
 }
 #route-picker-panel.open { display: flex; }
+/* Compact mode: while a route is being Followed or run as a Virtual
+   Journey, its Stop control is really all that's needed here — the full
+   top:10/bottom:70 span (see above) exists to fit a scrollable list of
+   dozens of routes, and there's no reason to keep covering the Underway
+   switch (top-right) and most of the map for that one row. Drop the top
+   anchor so the panel just hugs its (now much smaller) content instead,
+   hung from the bottom-right corner. */
+#route-picker-panel.compact {
+  top: auto;
+  max-height: min(50vh, calc(100vh - 90px));
+}
+#route-picker-panel.compact .nf-new-route,
+#route-picker-panel.compact #rp-search,
+#route-picker-panel.compact .nf-actions,
+#route-picker-panel.compact .nf-sync-bar,
+#route-picker-panel.compact #rp-sync-status,
+#route-picker-panel.compact #rp-cleanup-dupes {
+  display: none;
+}
+#rp-compact-toggle {
+  display: none;
+  background: none;
+  border: 1px solid var(--mid-blue);
+  border-radius: 4px;
+  color: var(--text-dim);
+  font-size: 0.68rem;
+  padding: 2px 6px;
+  cursor: pointer;
+  text-transform: none;
+  letter-spacing: normal;
+}
+#rp-compact-toggle:hover { border-color: var(--accent); color: var(--text); }
+#rp-compact-toggle.active { border-color: var(--accent); color: var(--accent); }
+#app.following-active #rp-compact-toggle { display: inline-block; }
 #rp-search {
   width: 100%;
   box-sizing: border-box;
@@ -1266,37 +1336,38 @@ body.wco-active #wco-titlebar { display: flex; }
   align-items: center;
   gap: 6px;
 }
-.rp-row-name::before {
-  content: '✓';
-  font-size: 0.75rem;
-  color: var(--ok);
+/* The activate control: a real, separately-tappable button (not a plain
+   ::before label riding on the row's own click) — a tap here toggles this
+   route/track's shown-on-map state and nothing else, and a tap anywhere
+   else on the row only expands/collapses the details below it. Spelled-out
+   text, not just a symbol, so its effect is legible without knowing the
+   ✓/✗ convention first. See .rp-corner-btn-danger below for where Delete
+   moved — nothing destructive lives anywhere near this button or the rest
+   of the row's own tap target. */
+.rp-activate-btn {
   flex-shrink: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 5px 9px;
+  min-height: 28px;
+  border-radius: 999px;
+  border: 1.5px solid #1a6b3c;
+  color: #4ade80;
+  background: #0a2a16;
+  cursor: pointer;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
 }
-.rp-row.hidden .rp-row-name::before {
-  content: '✗';
-  color: var(--danger);
+.rp-activate-btn:hover { border-color: #2a8b4c; color: #6aeea0; }
+.rp-activate-btn.hidden {
+  border-color: var(--danger);
+  color: #ff8080;
+  background: #2a0a0a;
 }
+.rp-activate-btn.hidden:hover { background: #3a0a0a; }
 .rp-row.hidden .rp-row-name {
   color: var(--text-dim);
 }
-.rp-delete-btn {
-  margin-left: auto;
-  background: none;
-  border: none;
-  color: var(--text-dim);
-  font-size: 1rem;
-  line-height: 1;
-  padding: 0 2px;
-  cursor: pointer;
-  visibility: hidden;
-  flex-shrink: 0;
-}
-.rp-row:hover .rp-delete-btn,
-.rp-row:focus-within .rp-delete-btn {
-  visibility: visible;
-}
-.rp-delete-btn:hover { color: var(--danger); }
-@media (hover: none) { .rp-delete-btn { visibility: visible; } }
 .rp-corner { display: none; margin-left: auto; align-self: flex-end; gap: 6px; }
 .rp-row.expanded .rp-corner { display: flex; }
 .rp-corner-btn {
@@ -1308,6 +1379,17 @@ body.wco-active #wco-titlebar { display: flex; }
   padding: 2px 6px;
   cursor: pointer;
 }
+/* Delete used to be an always-visible "×" inline in the name row, right
+   next to the On map/Hidden mark — confirmed reported as too easy to hit
+   by accident while trying to just activate a route. Now it's the last
+   corner button, only reachable after expanding the row, with its own
+   danger color so it doesn't get confused with the routine actions next
+   to it — a stray tap on a collapsed row can no longer delete anything. */
+.rp-corner-btn-danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.rp-corner-btn-danger:hover { background: var(--danger); color: #fff; }
 .rp-corner-btn:hover { border-color: var(--accent); color: var(--text); }
 .rp-rename-input {
   flex: 1;
@@ -1609,6 +1691,7 @@ body.wco-active #wco-titlebar { display: flex; }
   touch-action: none;
 }
 .nf-title:active { cursor: grabbing; }
+.nf-title-actions { display: flex; align-items: center; gap: 4px; }
 #nf-close {
   background: none;
   border: none;
@@ -2372,6 +2455,17 @@ body.wco-active #wco-titlebar { display: flex; }
   opacity: 0.5;
   cursor: default;
 }
+/* #vjourney-banner is a normal-flow sibling of the map, so it shrinks the
+   map to make room for itself — but #bottom-hud (and #focus-btn inside it)
+   is position:fixed to the VIEWPORT's own bottom-right corner, so it doesn't
+   move up on its own and ends up rendered underneath the banner. Unlike
+   #edit-banner's same conflict (see #app.edit-mode #bottom-hud above), the
+   fix here can't be "just hide it" — Virtual Journey exists specifically to
+   keep #focus-btn live during playback — so instead #app.js keeps
+   --vjourney-h synced to the banner's actual (variable-height) box and
+   #bottom-hud rides up above it. */
+#app.vjourney-active #bottom-hud { bottom: calc(10px + var(--vjourney-h, 0px)); }
+
 /* Same layout as #sim-track-banner (shares .track-speed-row/.track-chip/
    .track-chips-scroll) — a distinct accent (amber, not cyan) so the two
    playback banners read as different features at a glance. */
@@ -2388,6 +2482,24 @@ body.wco-active #wco-titlebar { display: flex; }
   border-top: 2px solid #f5c842;
   max-height: 45dvh;
   overflow-y: auto;
+}
+/* Above phone width — same breakpoint as the zoom slider/pan controls it
+   tucks in beside — trade the full-width docked bar (reported as taking
+   up way too much of the screen) for a narrow card in the left instrument
+   rail instead. position:fixed (not absolute) so it doesn't care where in
+   the DOM it lives, same as #bottom-hud; _syncLeftRailStack keeps its
+   `top` just below #pan-controls-wrap, whatever that currently is. */
+@media (min-width: 768px) {
+  #vjourney-banner {
+    position: fixed;
+    left: 10px;
+    width: 220px;
+    z-index: 1000;
+    border: 1px solid #f5c842;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+    max-height: calc(100vh - 420px);
+  }
 }
 #vjourney-banner input[type="number"] {
   width: 4.5em;
@@ -2410,6 +2522,14 @@ body.wco-active #wco-titlebar { display: flex; }
   cursor: pointer;
 }
 #vjourney-pause-btn:active, #vjourney-stop-btn:active { background: #f5c842; color: var(--navy); }
+/* Speed+Rate share a row, and Status+Pause/Stop/On-map share a row — was
+   5 stacked full-width rows (reported as taking up too much of the
+   screen during a journey); down to 3 including the title. flex-wrap
+   keeps this from overflowing on a narrow phone screen, where it just
+   falls back to roughly the old row-per-group look. */
+.vjourney-row-wrap { flex-wrap: wrap; row-gap: 4px; }
+.vjourney-rate-label { margin-left: 8px; }
+.vjourney-controls { display: flex; gap: 5px; flex-wrap: wrap; }
 #vjourney-close-btn {
   background: none;
   border: none;
