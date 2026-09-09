@@ -1040,6 +1040,7 @@ let _populateRouteSelectFn = null; // set by _ensureMap once DOM is ready
 let _buildRoutePickerPanelFn = null; // set by _ensureMap once DOM is ready — see _populateRouteSelectFn
 let _buildTrackPickerPanelFn = null; // set by _ensureMap once DOM is ready — see _buildRoutePickerPanelFn
 let _exitRoutePanelCompactFn = null; // set by _ensureMap once DOM is ready — resets compact mode when Follow/Virtual Journey ends
+let _closeRoutePickerFn = null; // set by _ensureMap once DOM is ready — used by _startVirtualJourney
 let _savedRoutesLayer  = null;
 let _hiddenRouteNames  = new Set();
 let _savedTracksLayer     = null;
@@ -6781,11 +6782,18 @@ function _startVirtualJourney(route, speedKnots) {
   document.getElementById('vjourney-pause-btn').textContent = '⏸ Pause';
   document.getElementById('vjourney-banner').style.display = 'flex';
   _appEl.classList.add('vjourney-active');
+  _syncVjActivateBtn(route);
   _syncVjBannerClearance();
   if (!_vjBannerRO) {
     _vjBannerRO = new ResizeObserver(_syncVjBannerClearance);
     _vjBannerRO.observe(document.getElementById('vjourney-banner'));
   }
+  // The full routes list has nothing left to offer for the duration of a
+  // journey — see #vjourney-activate-btn below for the one control from
+  // its row (show/hide on the map) that's still relevant, now folded into
+  // this banner directly — and it was reported as taking up too much
+  // screen space sitting open on top of the map the whole time.
+  _closeRoutePickerFn?.();
   _buildRoutePickerPanelFn?.();
 
   const msg = `Starting virtual journey: ${route.name}, ${speedKnots} knots.`;
@@ -6886,6 +6894,27 @@ document.getElementById('vjourney-pause-btn').addEventListener('click', () => {
 });
 document.getElementById('vjourney-stop-btn').addEventListener('click', _stopVirtualJourney);
 document.getElementById('vjourney-close-btn').addEventListener('click', _stopVirtualJourney);
+
+// Show/hide this route on the map — the one control from its row in the
+// (now auto-closed, see _startVirtualJourney) routes list that's still
+// relevant mid-journey; reuses the same pill styling/semantics as
+// .rp-activate-btn there.
+function _syncVjActivateBtn(route) {
+  const btn = document.getElementById('vjourney-activate-btn');
+  const hidden = _hiddenRouteNames.has(route.name);
+  btn.classList.toggle('hidden', hidden);
+  btn.textContent = hidden ? '✗ Hidden' : '✓ On map';
+  btn.title = hidden ? 'Tap to show this route on the map' : 'Tap to hide this route from the map';
+}
+document.getElementById('vjourney-activate-btn').addEventListener('click', () => {
+  if (!_vjRoute) return;
+  if (_hiddenRouteNames.has(_vjRoute.name)) _hiddenRouteNames.delete(_vjRoute.name);
+  else _hiddenRouteNames.add(_vjRoute.name);
+  _saveHiddenRoutes();
+  _refreshSavedRouteLayers();
+  _syncVjActivateBtn(_vjRoute);
+  _buildRoutePickerPanelFn?.();
+});
 document.getElementById('vjourney-banner').addEventListener('click', (e) => {
   const chip = e.target.closest('.vjourney-compress');
   if (!chip) return;
@@ -8653,6 +8682,7 @@ function _ensureMap() {
   _populateRouteSelectFn = _populateRouteSelect;
   _buildRoutePickerPanelFn = _buildRoutePickerPanel;
   _exitRoutePanelCompactFn = () => { if (_routePanelCompact) _setRoutePanelCompact(false); };
+  _closeRoutePickerFn = _closeRoutePicker;
   _buildTrackPickerPanelFn = _buildTrackPickerPanel;
 
   // ── Track config save/load ──────────────────────────────────────────────────
@@ -9796,7 +9826,8 @@ function _refreshNavaidOverlay() {
             const msg = 'No GPS fix yet.';
             showResponse(msg); TTS.sayImmediate(msg); return;
           }
-          const result = Query.bearingToResolvedPlace(pos.lat, pos.lon, lat, lon, n.name);
+          const result = Query.bearingToResolvedPlace(pos.lat, pos.lon, lat, lon, n.name,
+            _followingRouteId ? { keepFocus: true } : undefined);
           showResponse(result.text);
           TTS.sayImmediate(result.speech);
           _bearingAccumulator.push({ fromLat: pos.lat, fromLon: pos.lon, result: Query.lastBearingResult });
@@ -10489,6 +10520,14 @@ async function handleCommand(transcript) {
     console.log('[AudioChart] intent:', intent, params);
     let response;
 
+    // An ad-hoc bearing query while a route is being followed (real or
+    // virtual) shouldn't silently retarget #focus-btn away from the leg
+    // actually being steered to — checking "bearing to waypoint 5" or
+    // "bearing to X" mid-passage is a lookup, not a request to change
+    // course. The target stays locked until the leg advances on its own
+    // or the user explicitly says "focus on X" (SET_FOCUS, unaffected).
+    const _keepFocusOpt = _followingRouteId ? { keepFocus: true } : undefined;
+
     switch (intent) {
       case 'WHERE_AM_I': {
         response = Query.whereAmI(pos.lat, pos.lon, pos.accuracy);
@@ -10527,7 +10566,7 @@ async function handleCommand(transcript) {
         }
         break;
       case 'BEARING_TO_COORD':
-        response = Query.bearingToCoord(pos.lat, pos.lon, params.lat, params.lon);
+        response = Query.bearingToCoord(pos.lat, pos.lon, params.lat, params.lon, _keepFocusOpt);
         break;
       case 'QUERY_FOCUS': {
         response = Query.bearingToFocusedTarget(pos.lat, pos.lon);
@@ -10600,15 +10639,15 @@ async function handleCommand(transcript) {
           response = { text: `Waypoint ${params.waypointNum} doesn't exist on "${route?.name || 'this route'}".`, speech: `Waypoint ${params.waypointNum} doesn't exist on this route.` };
           break;
         }
-        response = Query.bearingToNamedPoint(pos.lat, pos.lon, pt.lat, pt.lon, `${route.name} — waypoint ${params.waypointNum}`);
+        response = Query.bearingToNamedPoint(pos.lat, pos.lon, pt.lat, pt.lon, `${route.name} — waypoint ${params.waypointNum}`, _keepFocusOpt);
         break;
       }
       case 'BEARING_TO_PLACE': {
-        response = Query.bearingToPlace(pos.lat, pos.lon, params.placeName);
+        response = Query.bearingToPlace(pos.lat, pos.lon, params.placeName, _keepFocusOpt);
         if (!response && serverUrl) {
           const place = await Query.findPlaceOnServer(params.placeName);
           if (place) {
-            response = Query.bearingToResolvedPlace(pos.lat, pos.lon, place.lat, place.lon, place.name);
+            response = Query.bearingToResolvedPlace(pos.lat, pos.lon, place.lat, place.lon, place.name, _keepFocusOpt);
           }
         }
         if (!response) {

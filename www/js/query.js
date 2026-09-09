@@ -1480,7 +1480,7 @@ export function hazardsInRadius(lat, lon, radiusNm) {
 }
 
 /** Find bearing and distance to a named place or OpenCPN waypoint. */
-export function bearingToPlace(lat, lon, queryName) {
+export function bearingToPlace(lat, lon, queryName, opts) {
   // Strip directional qualifiers before searching ("west entrance to" etc.)
   const { clean, bearing: dirBearing } = parseDirectional(queryName.toLowerCase().trim());
   const q = clean;
@@ -1523,19 +1523,25 @@ export function bearingToPlace(lat, lon, queryName) {
   }
 
   return _formatBearingResult(lat, lon, flat, flon, best.properties.name,
-                              bestIsWaypoint, bestScore);
+                              bestIsWaypoint, bestScore, opts);
 }
 
 /** Format a bearing result from a pre-resolved coordinate. */
-export function bearingToResolvedPlace(lat, lon, toLat, toLon, toName) {
-  return _formatBearingResult(lat, lon, toLat, toLon, toName, false, 1.0);
+export function bearingToResolvedPlace(lat, lon, toLat, toLon, toName, opts) {
+  return _formatBearingResult(lat, lon, toLat, toLon, toName, false, 1.0, opts);
 }
 
-function _formatBearingResult(lat, lon, flat, flon, name, isWaypoint, score) {
+// opts.keepFocus: true skips the setFocus side effect below — an ad-hoc
+// bearing query (checking a place, or a route waypoint other than the one
+// currently being steered to) shouldn't silently retarget #focus-btn while
+// a route is actively being followed. The target stays whatever it was
+// until the followed leg actually advances, or the user explicitly asks to
+// focus on something else (SET_FOCUS) — see the callers in app.js.
+function _formatBearingResult(lat, lon, flat, flon, name, isWaypoint, score, opts = {}) {
   const brg = trueTomagnetic(bearing(lon, lat, flon, flat));
   const dist = distanceNm(lon, lat, flon, flat);
   lastBearingResult = { destLat: flat, destLon: flon, destName: name, destType: isWaypoint ? 'waypoint' : 'place', brg, distNm: dist };
-  setFocus(flat, flon, name, isWaypoint ? 'waypoint' : 'place');
+  if (!opts.keepFocus) setFocus(flat, flon, name, isWaypoint ? 'waypoint' : 'place');
   const tag = isWaypoint ? ' (waypoint)' : '';
   const matchNote = score < 0.9 ? `Closest match: ${name}${tag}` : `${name}${tag}`;
   return {
@@ -1548,18 +1554,19 @@ function _formatBearingResult(lat, lon, flat, flon, name, isWaypoint, score) {
  * Bearing/range to an already-known point with a name (a route waypoint,
  * for instance) — reuses the same formatting/focus-setting every other
  * bearing query goes through, so "waypoint 3" reads and speaks exactly
- * like any other bearing answer, and correctly becomes the new focus too.
+ * like any other bearing answer. Pass opts.keepFocus to answer without
+ * retargeting #focus-btn (see _formatBearingResult).
  */
-export function bearingToNamedPoint(lat, lon, targetLat, targetLon, name) {
-  return _formatBearingResult(lat, lon, targetLat, targetLon, name, true, 1.0);
+export function bearingToNamedPoint(lat, lon, targetLat, targetLon, name, opts) {
+  return _formatBearingResult(lat, lon, targetLat, targetLon, name, true, 1.0, opts);
 }
 
 /** Compute range and bearing from current position to an explicit coordinate. */
-export function bearingToCoord(lat, lon, targetLat, targetLon) {
+export function bearingToCoord(lat, lon, targetLat, targetLon, opts = {}) {
   const brg = trueTomagnetic(bearing(lon, lat, targetLon, targetLat));
   const dist = distanceNm(lon, lat, targetLon, targetLat);
   lastBearingResult = { destLat: targetLat, destLon: targetLon, destName: null, destType: 'coord', brg, distNm: dist };
-  setFocus(targetLat, targetLon, null, 'coord');
+  if (!opts.keepFocus) setFocus(targetLat, targetLon, null, 'coord');
   const latDir = targetLat >= 0 ? 'N' : 'S';
   const lonDir = targetLon >= 0 ? 'E' : 'W';
   const latAbs = Math.abs(targetLat);
