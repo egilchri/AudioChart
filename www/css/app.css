@@ -2178,6 +2178,24 @@ body.wco-active #wco-titlebar { display: flex; }
 #app.edit-mode #bottom-hud { display: none !important; }
 
 .edit-vertex-marker {
+  /* NOT position:relative — found via bisection to be the actual root
+     cause of a real, dramatic bug: this class name is passed straight
+     through as L.divIcon's own `className`, landing on the exact DOM
+     element Leaflet manages via its own .leaflet-marker-icon class
+     (position:absolute, required for Leaflet's positioning system to
+     work at all). Same specificity + defined later in this stylesheet
+     meant this silently won, knocking every vertex out of Leaflet's
+     absolute-position-plus-transform system entirely — they fell back to
+     wherever normal document flow put them (worse for higher indices,
+     since each stacks after every prior sibling), with Leaflet's zoom
+     transform still layered on top of that wrong base position. That's
+     exactly why zooming in seemed to partially help (the transform part
+     was always correct) without ever fully fixing it, and why it was
+     catastrophic at low zoom (a fixed-pixel flow error is a huge real
+     distance once each pixel covers miles). .leaflet-marker-icon's own
+     position:absolute is already a valid positioning context for the
+     .edit-vertex-overnight-badge child below — nothing here needs to set
+     its own position at all. */
   width: 22px;
   height: 22px;
   background: #fff;
@@ -2199,12 +2217,45 @@ body.wco-active #wco-titlebar { display: flex; }
 }
 .edit-vertex-delete .edit-vertex-num { color: #c0392b; }
 .edit-vertex-overnight .edit-vertex-num { color: #9b59b6; }
+.edit-vertex-overnight-badge {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  font-size: 10px;
+  line-height: 1;
+  background: #fff;
+  border: 2px solid #9b59b6;
+  border-radius: 50%;
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
 @keyframes new-vertex-flash {
   0%, 100% { box-shadow: 0 0 0 2px rgba(200,160,0,0.5); background: #fff; }
   50%       { box-shadow: 0 0 0 7px rgba(200,160,0,0.15); background: #f5c842; }
 }
 .edit-vertex-new {
   animation: new-vertex-flash 0.7s ease-in-out infinite;
+}
+@keyframes anim-overnight-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%      { transform: scale(1.4); opacity: 0.8; }
+}
+.anim-overnight-flash {
+  width: 26px;
+  height: 26px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 3px solid #9b59b6;
+  border-radius: 50%;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  animation: anim-overnight-pulse 0.6s ease-in-out 2;
 }
 .edit-vertex-delete {
   border-color: #c0392b;

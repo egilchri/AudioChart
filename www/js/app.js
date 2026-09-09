@@ -1030,8 +1030,7 @@ let _liveHazardTimer       = null;
 let _newVertexIdx          = -1;  // index of freshly inserted vertex — flashes until dragged
 let _deleteMode            = false; // single-click on vertex deletes it
 let _addNodeMode           = false; // waiting for click to insert node into nearest segment
-let _overnightMode         = false; // single-click on vertex toggles it as an overnight stop
-let _fixNodesMode          = false; // single-click on vertex fixes hazards near just that node — stays armed like delete/overnight
+let _fixNodesMode          = false; // single-click on vertex fixes hazards near just that node — stays armed like delete
 let _selectedEditNodeIdx   = new Set(); // indices into _editPoints "lit" — fixed (or checked) this edit session; purely visual, not saved route data
 let _editHistory           = [];    // stack of _editPoints snapshots for undo
 let _editOriginalPoints    = [];    // snapshot of route.points as last saved, taken when edit mode was entered
@@ -2741,16 +2740,31 @@ function _refreshSavedRouteLayers() {
     // line's own few CSS pixels. weight is a hit-radius here, not a stroke
     // width anyone sees (opacity: 0), so it can be generous without changing
     // how the route looks.
+    // routeIdx is captured once, when this layer group was last (re)built —
+    // a background Wi-Fi Sync merging/reordering routes between then and an
+    // actual later click/tap can leave it pointing at the wrong array slot
+    // entirely (a different route, possibly a conflict-copy duplicate, with
+    // completely different points) even though the map still visibly shows
+    // the route this layer was drawn for. Confirmed live: editing opened a
+    // route whose later waypoints were nowhere near the one actually drawn
+    // on screen. Re-resolve by the route's stable id at the moment each
+    // handler actually fires, instead of trusting the closure's index.
+    const _freshRouteIdx = () => {
+      if (!route.id) return routeIdx;
+      const fresh = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+      const i = fresh.findIndex(r => r.id === route.id);
+      return i >= 0 ? i : routeIdx;
+    };
     L.polyline(lls, { color: '#e05252', weight: 32, opacity: 0, interactive: true })
       .on('click', (e) => {
         L.DomEvent.stopPropagation(e);
-        _enterEditMode(routeIdx);
+        _enterEditMode(_freshRouteIdx());
       })
       .on('dblclick', (e) => { L.DomEvent.stopPropagation(e); })
-      .on('mouseover', () => { _ctxRouteIdx = routeIdx; })
+      .on('mouseover', () => { _ctxRouteIdx = _freshRouteIdx(); })
       .on('contextmenu', (e) => {
         L.DomEvent.stopPropagation(e);
-        _openSelectRoutePopup(routeIdx, e.latlng);
+        _openSelectRoutePopup(_freshRouteIdx(), e.latlng);
       })
       .addTo(_savedRoutesLayer);
     const isSelected = routeIdx === _selectedRouteIdx;
@@ -5065,7 +5079,15 @@ function _renderEditLayers() {
     const m = L.marker([pts[idx].lat, pts[idx].lon], {
       icon: L.divIcon({
         className: vertexClasses.join(' '),
-        html: `<span class="edit-vertex-num">${idx + 1}</span>`,
+        // The purple tint alone (edit-vertex-overnight) was the only cue
+        // that a node is an overnight stop — no actual icon, unlike the
+        // bed-icon marker a saved route gets outside of edit mode.
+        // Keeping the node number is deliberate (waypoints get referred to
+        // by number, e.g. "node 10") — the bed rides as a small badge
+        // instead of replacing it.
+        html: pts[idx].overnight
+          ? `<span class="edit-vertex-num">${idx + 1}</span><span class="edit-vertex-overnight-badge">&#128719;</span>`
+          : `<span class="edit-vertex-num">${idx + 1}</span>`,
         iconSize: [22, 22],
         iconAnchor: [11, 11],
       }),
@@ -5125,18 +5147,6 @@ function _renderEditLayers() {
         // have been providing clearance) as fix one — recheck either way.
         clearTimeout(_liveHazardTimer);
         _liveHazardTimer = setTimeout(_liveHazardCheck, 300);
-      } else if (_overnightMode) {
-        _pushEditHistory();
-        const p = _editPoints[idx];
-        const turningOn = !p.overnight;
-        const isLast = idx === _editPoints.length - 1;
-        _editPoints[idx] = p.overnight ? { lat: p.lat, lon: p.lon } : { lat: p.lat, lon: p.lon, overnight: true };
-        _renderEditLayers();
-        // Marking the route's current end as an overnight stop is exactly
-        // the moment to offer planning tomorrow's leg — un-marking, or
-        // marking an interior point (the route already continues past it),
-        // doesn't need this.
-        if (turningOn && isLast) _promptNextLegAutoRoute(_editPoints[idx]);
       } else if (_fixNodesMode) {
         _fixNodeHazards(idx);
       }
@@ -5219,7 +5229,6 @@ function _cancelAddNodeMode() {
 function _updateEditToolsPanel() {
   document.getElementById('etp-insert-node')?.classList.toggle('active', _addNodeMode);
   document.getElementById('etp-delete')?.classList.toggle('active', _deleteMode);
-  document.getElementById('etp-overnight')?.classList.toggle('active', _overnightMode);
   document.getElementById('etp-fix-nodes')?.classList.toggle('active', _fixNodesMode);
 }
 
@@ -5437,7 +5446,6 @@ function _enterEditMode(routeIdx, skipHazardCheck = false) {
   _editOriginalPoints = route.points.map(_stripPoint);
   _deleteMode = false;
   _addNodeMode = false;
-  _overnightMode = false;
   _fixNodesMode = false;
   _editHistory = [];
   _selectedEditNodeIdx = new Set();
@@ -5447,8 +5455,8 @@ function _enterEditMode(routeIdx, skipHazardCheck = false) {
   _appEl.classList.add('edit-mode');
   _mapContainer.classList.remove('map-compact', 'list-focus', 'input-focus');
   if (_map) {
-    _map.invalidateSize();
     if (_savedRoutesLayer) _map.removeLayer(_savedRoutesLayer);
+    _map.invalidateSize();
     _renderEditLayers();
     _map.getContainer().addEventListener('mouseup', _editPlaceNode);
   }
@@ -5485,7 +5493,6 @@ function _exitEditMode() {
   _newVertexIdx = -1;
   _deleteMode = false;
   _addNodeMode = false;
-  _overnightMode = false;
   _fixNodesMode = false;
   _editHistory = [];
   _selectedEditNodeIdx = new Set();
@@ -5690,27 +5697,42 @@ document.getElementById('etp-insert-node').addEventListener('click', () => {
 
 document.getElementById('etp-delete').addEventListener('click', () => {
   _deleteMode = !_deleteMode;
-  _overnightMode = false;
   _fixNodesMode = false;
   _setEditBannerLabel(_deleteMode ? ' — click a node to delete it' : '');
   _renderEditLayers();
   _updateEditToolsPanel();
 });
 
+// No more arm-a-mode-then-click-a-vertex — per direct request, this
+// always targets the route's own current last waypoint (the one that
+// actually matters for "where am I stopping tonight"), confirms once,
+// and — on a fresh mark — goes straight into the next-leg destination
+// prompt without a second, redundant confirm (this one already served
+// that purpose). An already-marked last waypoint offers to unmark
+// instead, so the toggle behavior isn't lost, just no longer needs a
+// separate click-a-node step to reach.
 document.getElementById('etp-overnight').addEventListener('click', () => {
-  _overnightMode = !_overnightMode;
-  _deleteMode = false;
-  _fixNodesMode = false;
-  _setEditBannerLabel(_overnightMode ? ' — click a node to mark/unmark as an overnight stop' : '');
+  if (!_editMode || _editPoints.length < 1) return;
+  const idx = _editPoints.length - 1;
+  const p = _editPoints[idx];
+  if (p.overnight) {
+    if (!confirm(`Remove the overnight-stop mark from waypoint ${idx + 1}?`)) return;
+    _pushEditHistory();
+    _editPoints[idx] = { lat: p.lat, lon: p.lon };
+    _renderEditLayers();
+    return;
+  }
+  if (!confirm(`Mark waypoint ${idx + 1} (the last on this route) as an overnight stop?`)) return;
+  _pushEditHistory();
+  _editPoints[idx] = { lat: p.lat, lon: p.lon, overnight: true };
   _renderEditLayers();
-  _updateEditToolsPanel();
+  _promptNextLegAutoRoute(_editPoints[idx]);
 });
 
 document.getElementById('etp-fix-nodes').addEventListener('click', () => {
   if (!_editMode) return;
   _fixNodesMode = !_fixNodesMode;
   _deleteMode = false;
-  _overnightMode = false;
   _setEditBannerLabel(_fixNodesMode ? ' — click a node to fix hazards near it' : '');
   _renderEditLayers();
   _updateEditToolsPanel();
@@ -5748,15 +5770,15 @@ document.getElementById('etp-reroute').addEventListener('click', () => {
     });
 });
 
-// Offered the instant the route's current end becomes an overnight stop
-// (see the overnight-toggle branch of the vertex click handler above) —
-// connects "I just marked tonight's anchorage" to "let's plan tomorrow's
-// leg" in one motion instead of leaving the user to separately remember
-// to extend the route later. Mirrors the etp-reroute handler just above,
-// reusing the same _reRouteSegments/_showRerouteOverlay machinery on
-// _editPoints, just for a single new leg instead of the whole route.
+// Called right after the etp-overnight button marks the route's last
+// waypoint as an overnight stop (its own confirm dialog already covers
+// consent for this) — connects "I just marked tonight's anchorage" to
+// "let's plan tomorrow's leg" in one motion instead of leaving the user
+// to separately remember to extend the route later. Mirrors the
+// etp-reroute handler just above, reusing the same
+// _reRouteSegments/_showRerouteOverlay machinery on _editPoints, just for
+// a single new leg instead of the whole route.
 async function _promptNextLegAutoRoute(fromPoint) {
-  if (!confirm("Overnight stop set. Auto-route tomorrow's next leg from here?")) return;
   // Loop on a bad name instead of dropping the whole flow after one try —
   // per direct report, a name that doesn't resolve (a marina/business name
   // like "Billings Marine, Swan's Island" isn't itself a charted place)
@@ -7156,6 +7178,21 @@ function _startRouteAnimation(route, speedKnots) {
   }
   const totalNm = cumDist;
 
+  // Overnight stops the boat should pause and flash at as it passes them —
+  // per direct request. These markers are otherwise invisible during
+  // Animate: _savedRoutesLayer (which is what _routeOvernightIcon markers
+  // live on) gets hidden a few lines up for a cleaner animated view, so
+  // this flash is the only time one would ever be visible during
+  // playback. Index 0 (the route's own start) is excluded — there's
+  // nothing to "arrive at" a moment after the boat begins there.
+  const ANIM_OVERNIGHT_PAUSE_MS = 1200;
+  const overnightIdxs = [];
+  for (let i = 1; i < route.points.length; i++) {
+    if (route.points[i].overnight) overnightIdxs.push(i);
+  }
+  const ptCumNm = route.points.map((_, i) => i < segs.length ? segs[i].cumDist : totalNm);
+  let _nextOvernightPtr = 0;
+
   const _initBearing = segs.length ? _segBearing(segs[0].lat1, segs[0].lon1, segs[0].lat2, segs[0].lon2) : 0;
   if (!_map.getPane('animBoatPane')) _map.createPane('animBoatPane').style.zIndex = '750';
   _animMarker = L.marker(pts[0], { icon: _animBoatIcon(_initBearing), pane: 'animBoatPane' }).addTo(_map);
@@ -7284,6 +7321,36 @@ function _startRouteAnimation(route, speedKnots) {
     if (_animPt.x < _marginX || _animPt.x > _animSize.x - _marginX ||
         _animPt.y < _marginY || _animPt.y > _animSize.y - _marginY) {
       _map.panTo([lat, lon], { animate: true, duration: 0.4, noMoveStart: true });
+    }
+
+    // Reached an overnight stop — snap exactly onto it, flash a bed-icon
+    // marker, and pause briefly before resuming (same pause/resume shape
+    // as the milestone-report branch below: return without scheduling the
+    // next frame, then re-anchor startTime against _animTraveled to
+    // resume cleanly).
+    if (_nextOvernightPtr < overnightIdxs.length && traveled >= ptCumNm[overnightIdxs[_nextOvernightPtr]]) {
+      const opt = route.points[overnightIdxs[_nextOvernightPtr]];
+      _nextOvernightPtr++;
+      _animMarker.setLatLng([opt.lat, opt.lon]);
+      _animCurrentLat = opt.lat;
+      _animCurrentLon = opt.lon;
+      const flashMarker = L.marker([opt.lat, opt.lon], {
+        icon: L.divIcon({ className: 'anim-overnight-flash', html: '&#128719;', iconSize: [26, 26], iconAnchor: [13, 13] }),
+        zIndexOffset: 900,
+      }).addTo(_map);
+      const savedBanner = _animBannerText.textContent;
+      _animBannerText.textContent = '🛏 Overnight stop';
+      TTS.sayImmediate('Overnight stop.');
+      setTimeout(() => {
+        flashMarker.remove();
+        if (!_animMode) return;
+        _animBannerText.textContent = savedBanner;
+        _animRafId = requestAnimationFrame((now2) => {
+          startTime = now2 - (_animTraveled / nmPerRealSec * 1000);
+          step(now2);
+        });
+      }, ANIM_OVERNIGHT_PAUSE_MS);
+      return;
     }
 
     // Record one sample per real second
@@ -8343,6 +8410,25 @@ function _ensureMap() {
         }
       });
       row.appendChild(vjBtn);
+      // Previously the only way in was clicking the route's own line on the
+      // map — awkward or outright impossible to hit reliably at some zoom
+      // levels (reported live: can't see/click a route zoomed all the way
+      // out). Re-resolves by id, same as the map's own click handler, so a
+      // background sync reordering routes between panel-open and this
+      // click can't open the wrong one either.
+      const editBtn = document.createElement('button');
+      editBtn.className = 'rp-follow-btn';
+      editBtn.textContent = '✎ Edit';
+      editBtn.title = 'Open this route in the map editor';
+      editBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const fresh = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+        const idx = fresh.findIndex(r => r.id === route.id);
+        if (idx < 0) return;
+        _closeRoutePicker();
+        _enterEditMode(idx);
+      });
+      row.appendChild(editBtn);
       const speedKt = parseFloat(localStorage.getItem('audiochart-last-speed')) || 5;
       const legs = splitIntoLegs(route.points, speedKt);
       if (legs.length > 0) {
