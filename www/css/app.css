@@ -2229,7 +2229,11 @@ body.wco-active #wco-titlebar { display: flex; }
 .route-overnight-marker {
   width: 16px;
   height: 16px;
-  background: #fff;
+  /* Translucent, not solid — per direct request, so it reads as a light
+     tag rather than a solid disc that can visually block whatever's
+     directly underneath or right next to it (another marker, a hazard)
+     when the mouse/finger is working nearby. */
+  background: rgba(255, 255, 255, 0.55);
   border: 3px solid #9b59b6;
   border-radius: 50%;
   cursor: pointer;
@@ -3024,7 +3028,14 @@ body.wco-active #wco-titlebar { display: flex; }
   position: absolute;
   top: 2px;
   right: 10px;
-  z-index: 1002;
+  /* Higher than every overlay panel (#route-picker-panel and friends top
+     out at 1900) — this is the one control meant to be reachable no
+     matter what else is open, so nothing persistent should be able to
+     render on top of it. Confirmed live: the Routes panel did exactly
+     that. Still well under the transient right-click context menu
+     (9999) and #wco-titlebar (99999, see below) — those are genuinely
+     supposed to win while they're up. */
+  z-index: 1950;
   background: var(--brass-ink-2);
   border: 1px solid var(--brass-dim);
   border-radius: 999px;
@@ -3034,6 +3045,15 @@ body.wco-active #wco-titlebar { display: flex; }
   user-select: none;
   -webkit-tap-highlight-color: transparent;
 }
+/* When the OS draws a real title-bar strip for an installed desktop app
+   (Window Controls Overlay, see #wco-titlebar/body.wco-active below),
+   #map-container's own top:0 now coincides with that reserved strip —
+   #wco-titlebar (z-index 99999, has to win there for native window
+   dragging/controls) would otherwise render right over this button,
+   since it never got the same top-offset adjustment #map-overlay-status
+   already gets a few lines down. Move it below the reserved strip
+   instead of trying to out-stack it. */
+body.wco-active #underway-btn { top: 10px; }
 #underway-btn-label {
   color: var(--parchment-dim);
   font-family: var(--font-brass-serif);
