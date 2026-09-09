@@ -3311,6 +3311,38 @@ function _showPlaceDisambig(query, candidates) {
   });
 }
 
+// On-page window.prompt() replacement. Needed for any flow that might show
+// more than one text prompt in a row (e.g. retrying a destination name that
+// didn't resolve) — confirmed live that a second native prompt() fired
+// right after the first, with no click in between, can be silently
+// suppressed by Chrome/Electron-style webviews' own dialog-spam
+// protection: no dialog appears at all, and the caller just sees an
+// immediate null. This has no such per-page call-count behavior. Resolves
+// with the trimmed, non-empty string, or null if cancelled/left empty —
+// same contract as `prompt()` for a caller checking `if (!result) return;`.
+const _textPromptOverlay = document.getElementById('text-prompt-overlay');
+const _textPromptTitle   = document.getElementById('text-prompt-title');
+const _textPromptInput   = document.getElementById('text-prompt-input');
+function _hideTextPrompt() { _textPromptOverlay.classList.remove('open'); }
+function _showTextPrompt(title, placeholder = '') {
+  return new Promise((resolve) => {
+    _textPromptTitle.textContent = title;
+    _textPromptInput.value = '';
+    _textPromptInput.placeholder = placeholder;
+    const finish = (result) => { _hideTextPrompt(); resolve(result); };
+    const goNow = () => finish(_textPromptInput.value.trim() || null);
+    document.getElementById('text-prompt-go').onclick = goNow;
+    document.getElementById('text-prompt-cancel').onclick = () => finish(null);
+    document.getElementById('text-prompt-close').onclick = () => finish(null);
+    _textPromptInput.onkeydown = (e) => {
+      if (e.key === 'Enter') goNow();
+      else if (e.key === 'Escape') finish(null);
+    };
+    _textPromptOverlay.classList.add('open');
+    setTimeout(() => _textPromptInput.focus(), 0);
+  });
+}
+
 // Resolves a typed place/waypoint name to a destination point — shared by
 // Draw Route's own "Name" button and the Location-tile/right-click "Route
 // from here" pending-destination flow (see route-dest-name-btn below).
@@ -5731,17 +5763,21 @@ async function _promptNextLegAutoRoute(fromPoint) {
   // should let the user immediately try another (e.g. "Stonington"), not
   // force them to re-trigger this whole prompt by re-toggling the
   // overnight flag. Only an actually-cancelled prompt (empty/Cancel) exits.
+  // Uses _showTextPrompt, not window.prompt() — confirmed live that a
+  // second native prompt() fired right after the first one (no click in
+  // between) can be silently suppressed by the browser/webview's own
+  // dialog-spam protection, which is exactly what a retry loop needs to do.
   let dest = null;
   while (!dest) {
-    const query = prompt('Destination — place or waypoint name:');
-    if (!query || !query.trim()) return;
+    const query = await _showTextPrompt('Destination — place or waypoint name:');
+    if (!query) return;
     dest = await _resolveNamedDestination(query);
     if (!dest) {
       // _resolveNamedDestination already announces a genuine "couldn't
       // find" miss, but stays silent when it showed a disambiguation
       // picker and the user closed it without choosing — this is the
       // guaranteed fallback so failing to resolve is never silent here.
-      const msg = `Couldn't resolve "${query.trim()}" — try another name, or Cancel to skip the next leg.`;
+      const msg = `Couldn't resolve "${query}" — try another name, or Cancel to skip the next leg.`;
       setStatus(msg);
       TTS.sayImmediate(msg);
     }

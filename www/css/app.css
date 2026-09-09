@@ -1583,6 +1583,54 @@ body.wco-active #wco-titlebar { display: flex; }
 #place-disambig-list button:hover,
 #place-disambig-list button:active { border-color: var(--accent); background: var(--accent); color: var(--navy); }
 
+/* Generic on-page window.prompt() replacement — see _showTextPrompt in
+   app.js. Same look/structure as #place-disambig-overlay just above. */
+#text-prompt-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  background: rgba(0, 0, 0, 0.6);
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+#text-prompt-overlay.open { display: flex; }
+#text-prompt-panel {
+  background: var(--dark-blue);
+  border: 1px solid var(--mid-blue);
+  border-radius: 10px;
+  padding: 14px;
+  width: min(340px, calc(100vw - 40px));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.8);
+}
+#text-prompt-panel .nf-title { cursor: default; }
+#text-prompt-close {
+  background: none;
+  border: none;
+  color: var(--muted, #8899aa);
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+  -webkit-tap-highlight-color: transparent;
+}
+#text-prompt-close:hover { color: var(--text); }
+#text-prompt-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--mid-blue);
+  border: 1px solid var(--mid-blue);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.95rem;
+  padding: 8px 10px;
+}
+#text-prompt-input:focus { outline: none; border-color: var(--accent); }
+#text-prompt-panel .nf-actions button:last-child { background: var(--accent); color: var(--navy); border-color: var(--accent); }
+
 #rp-close {
   background: none;
   border: none;
