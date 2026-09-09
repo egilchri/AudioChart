@@ -8435,6 +8435,25 @@ function _ensureMap() {
         }
       });
       row.appendChild(vjBtn);
+      // Previously the only way in was clicking the route's own line on the
+      // map — awkward or outright impossible to hit reliably at some zoom
+      // levels (reported live: can't see/click a route zoomed all the way
+      // out). Re-resolves by id, same as the map's own click handler, so a
+      // background sync reordering routes between panel-open and this
+      // click can't open the wrong one either.
+      const editBtn = document.createElement('button');
+      editBtn.className = 'rp-follow-btn';
+      editBtn.textContent = '✎ Edit';
+      editBtn.title = 'Open this route in the map editor';
+      editBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const fresh = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+        const idx = fresh.findIndex(r => r.id === route.id);
+        if (idx < 0) return;
+        _closeRoutePicker();
+        _enterEditMode(idx);
+      });
+      row.appendChild(editBtn);
       const speedKt = parseFloat(localStorage.getItem('audiochart-last-speed')) || 5;
       const legs = splitIntoLegs(route.points, speedKt);
       if (legs.length > 0) {
