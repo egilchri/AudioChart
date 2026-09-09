@@ -1245,6 +1245,40 @@ body.wco-active #wco-titlebar { display: flex; }
   gap: 6px;
 }
 #route-picker-panel.open { display: flex; }
+/* Compact mode: while a route is being Followed or run as a Virtual
+   Journey, its Stop control is really all that's needed here — the full
+   top:10/bottom:70 span (see above) exists to fit a scrollable list of
+   dozens of routes, and there's no reason to keep covering the Underway
+   switch (top-right) and most of the map for that one row. Drop the top
+   anchor so the panel just hugs its (now much smaller) content instead,
+   hung from the bottom-right corner. */
+#route-picker-panel.compact {
+  top: auto;
+  max-height: min(50vh, calc(100vh - 90px));
+}
+#route-picker-panel.compact .nf-new-route,
+#route-picker-panel.compact #rp-search,
+#route-picker-panel.compact .nf-actions,
+#route-picker-panel.compact .nf-sync-bar,
+#route-picker-panel.compact #rp-sync-status,
+#route-picker-panel.compact #rp-cleanup-dupes {
+  display: none;
+}
+#rp-compact-toggle {
+  display: none;
+  background: none;
+  border: 1px solid var(--mid-blue);
+  border-radius: 4px;
+  color: var(--text-dim);
+  font-size: 0.68rem;
+  padding: 2px 6px;
+  cursor: pointer;
+  text-transform: none;
+  letter-spacing: normal;
+}
+#rp-compact-toggle:hover { border-color: var(--accent); color: var(--text); }
+#rp-compact-toggle.active { border-color: var(--accent); color: var(--accent); }
+#app.following-active #rp-compact-toggle { display: inline-block; }
 #rp-search {
   width: 100%;
   box-sizing: border-box;
@@ -1641,6 +1675,7 @@ body.wco-active #wco-titlebar { display: flex; }
   touch-action: none;
 }
 .nf-title:active { cursor: grabbing; }
+.nf-title-actions { display: flex; align-items: center; gap: 4px; }
 #nf-close {
   background: none;
   border: none;

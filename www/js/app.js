@@ -1039,6 +1039,7 @@ let _editOriginalPoints    = [];    // snapshot of route.points as last saved, t
 let _populateRouteSelectFn = null; // set by _ensureMap once DOM is ready
 let _buildRoutePickerPanelFn = null; // set by _ensureMap once DOM is ready — see _populateRouteSelectFn
 let _buildTrackPickerPanelFn = null; // set by _ensureMap once DOM is ready — see _buildRoutePickerPanelFn
+let _exitRoutePanelCompactFn = null; // set by _ensureMap once DOM is ready — resets compact mode when Follow/Virtual Journey ends
 let _savedRoutesLayer  = null;
 let _hiddenRouteNames  = new Set();
 let _savedTracksLayer     = null;
@@ -2332,14 +2333,53 @@ function _findRouteHazards(points) {
 // just become unreachable and sit unused; fine for a cache realistically
 // bounded by tens of saved routes, not worth an eviction policy yet.
 let _routeHazardCountCache = new Map();
+function _routeHazardCacheKey(route) { return `${route.id}:${route.updatedAt || route.createdAt || 0}`; }
 function _getRouteHazards(route) {
-  const key = `${route.id}:${route.updatedAt || route.createdAt || 0}`;
+  const key = _routeHazardCacheKey(route);
   let found = _routeHazardCountCache.get(key);
   if (found === undefined) {
     found = _findRouteHazards(route.points).found;
     _routeHazardCountCache.set(key, found);
   }
   return found;
+}
+// Non-computing lookup for the routes panel's first paint — see
+// _warmRouteHazardCache. A route with hundreds of points against a
+// hazards layer of tens of thousands of features is genuinely expensive;
+// with 100+ saved routes (the "tens" the cache comment above assumed is
+// long since out of date) doing this for every row on every panel open
+// was the multi-second freeze reported live.
+function _getRouteHazardsCached(route) {
+  return _routeHazardCountCache.get(_routeHazardCacheKey(route));
+}
+
+// Computes and caches hazard badges for routes that don't have them yet,
+// a few at a time via setTimeout so the panel itself paints immediately
+// instead of blocking on the full list up front; re-renders the open
+// panel once a batch finishes so badges pop in shortly after, rather than
+// making the user wait for all of them before seeing anything at all.
+let _routeHazardWarmupRunning = false;
+function _warmRouteHazardCache() {
+  if (_routeHazardWarmupRunning) return;
+  const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+  const pending = routes.filter(r => _getRouteHazardsCached(r) === undefined);
+  if (pending.length === 0) return;
+  _routeHazardWarmupRunning = true;
+  const BATCH_SIZE = 10; // small enough per setTimeout tick to stay responsive, large enough to not spend most of the warm-up on repeated full-list re-renders
+  let i = 0;
+  function step() {
+    const end = Math.min(i + BATCH_SIZE, pending.length);
+    for (; i < end; i++) _getRouteHazards(pending[i]);
+    if (i < pending.length) {
+      setTimeout(step, 0);
+    } else {
+      _routeHazardWarmupRunning = false;
+    }
+    if (document.getElementById('route-picker-panel')?.classList.contains('open')) {
+      _buildRoutePickerPanelFn?.();
+    }
+  }
+  setTimeout(step, 0);
 }
 
 function _checkRouteHazards(routeIdx, silent = false) {
@@ -5699,8 +5739,9 @@ ${trkpts}
 // between the Routes and Tracks list panels). getPoints() returns the point array to export;
 // onRename(newName) persists the rename and should itself trigger a re-render of the owning
 // panel; onDelete(), if given, does the same for deletion (own confirm() included) and adds
-// the corner's Delete button — omit it for rows that shouldn't offer deletion here.
-function _buildRpCornerButtons(row, name, getPoints, onRename, onDelete) {
+// the corner's Delete button — omit it for rows that shouldn't offer deletion here. itemLabel
+// ('route'/'track') is just for tooltip wording.
+function _buildRpCornerButtons(row, name, getPoints, onRename, onDelete, itemLabel = 'item') {
   const corner = document.createElement('div');
   corner.className = 'rp-corner';
 
@@ -5708,6 +5749,7 @@ function _buildRpCornerButtons(row, name, getPoints, onRename, onDelete) {
   renameBtn.type = 'button';
   renameBtn.className = 'rp-corner-btn';
   renameBtn.textContent = '✎ Rename';
+  renameBtn.title = `Rename this ${itemLabel}`;
   renameBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     const nameLine = row.querySelector('.rp-row-name');
@@ -5736,6 +5778,7 @@ function _buildRpCornerButtons(row, name, getPoints, onRename, onDelete) {
   exportBtn.type = 'button';
   exportBtn.className = 'rp-corner-btn';
   exportBtn.textContent = '⬇ Export';
+  exportBtn.title = `Save this ${itemLabel} as a GPX file`;
   exportBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     _downloadGpx(getPoints(), name);
@@ -5745,6 +5788,7 @@ function _buildRpCornerButtons(row, name, getPoints, onRename, onDelete) {
   copyWptsBtn.type = 'button';
   copyWptsBtn.className = 'rp-corner-btn';
   copyWptsBtn.textContent = '📋 Copy waypoints';
+  copyWptsBtn.title = `Copy this ${itemLabel}'s waypoints as text`;
   copyWptsBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     _showCopyWaypointsOverlay(name, getPoints());
@@ -5767,6 +5811,7 @@ function _buildRpCornerButtons(row, name, getPoints, onRename, onDelete) {
     deleteBtn.type = 'button';
     deleteBtn.className = 'rp-corner-btn rp-corner-btn-danger';
     deleteBtn.textContent = '🗑 Delete';
+    deleteBtn.title = `Permanently delete this ${itemLabel}`;
     deleteBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       onDelete();
@@ -6831,6 +6876,7 @@ function _stopVirtualJourney() {
   _followingLegIdx = 1;
   _followFocusLegIdx = null;
   _appEl.classList.remove('following-active');
+  _exitRoutePanelCompactFn?.();
   if (_followProgressEl) _followProgressEl.style.display = 'none';
   _buildRoutePickerPanelFn?.();
 }
@@ -7918,14 +7964,38 @@ function _ensureMap() {
   _addSwipeToClose(_routePickerPanel, _closeRoutePicker, 'x', '.nf-title');
   _makeDraggable(_routePickerPanel, _routePickerPanel.querySelector('.nf-title'));
 
+  // Compact mode: while Follow/Virtual Journey is active, the full route
+  // list (sized to span nearly the whole viewport height, see
+  // #route-picker-panel's own CSS comment) has nothing left to offer over
+  // that one route's own Stop control, and it blocks the Underway switch
+  // (top-right) the whole time it's open. Lets the user shrink it down to
+  // just that row on request rather than forcing it — they may still want
+  // the full list open to glance at other routes while one's underway.
+  let _routePanelCompact = false;
+  const _compactToggleBtn = document.getElementById('rp-compact-toggle');
+  function _setRoutePanelCompact(on) {
+    _routePanelCompact = on;
+    _routePickerPanel.classList.toggle('compact', on);
+    _compactToggleBtn.classList.toggle('active', on);
+    _compactToggleBtn.textContent = on ? '⤢ Show full list' : '⤡ Focus active route';
+    _buildRoutePickerPanel();
+  }
+  _compactToggleBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    _setRoutePanelCompact(!_routePanelCompact);
+  });
+
   function _buildRoutePickerPanel() {
     DriveSync.maybeAutoSync();
     const list  = document.getElementById('rp-route-list');
     const query = document.getElementById('rp-search').value || '';
     const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
     list.innerHTML = '';
-    const filtered = routes.filter(r => _itemMatchesSearch(r, query))
+    let filtered = routes.filter(r => _itemMatchesSearch(r, query))
       .sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
+    if (_routePanelCompact) {
+      filtered = filtered.filter(r => r.id === _followingRouteId || r.id === _vjRoute?.id);
+    }
     if (filtered.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'rp-empty';
@@ -7969,7 +8039,13 @@ function _ensureMap() {
       nameText.textContent = route.name;
       nameLine.appendChild(nameText);
       {
-        const hazFound = _getRouteHazards(route);
+        // Cached-only here — computing this per row (route segments ×
+        // tens of thousands of hazard features) blocked the panel's own
+        // first paint for multiple seconds once there were 100+ saved
+        // routes. _warmRouteHazardCache backfills misses in the
+        // background and re-renders once it has; a row just shows no
+        // badge for the moment it isn't cached yet.
+        const hazFound = _getRouteHazardsCached(route) || [];
         const hardCount = hazFound.filter(h => h.kind === 'hard').length;
         const softCount = hazFound.length - hardCount;
         if (hardCount > 0) {
@@ -8017,7 +8093,7 @@ function _ensureMap() {
         _refreshSavedRouteLayers();
         _populateRouteSelectFn?.();
         _buildRoutePickerPanel();
-      }));
+      }, 'route'));
       row.appendChild(nameLine);
       if (startName || endName) {
         const placeLine = document.createElement('div');
@@ -8038,6 +8114,7 @@ function _ensureMap() {
       followBtn.className = 'rp-follow-btn';
       if (_followingRouteId === route.id) {
         followBtn.textContent = '⏹ Stop Following';
+        followBtn.title = 'Stop recording this passage';
         followBtn.classList.add('following');
       } else {
         followBtn.textContent = '▶ Follow';
@@ -8054,6 +8131,7 @@ function _ensureMap() {
       vjBtn.className = 'rp-vj-btn';
       if (_vjRoute?.id === route.id) {
         vjBtn.textContent = '⏹ Stop Journey';
+        vjBtn.title = 'Stop this virtual journey';
       } else {
         vjBtn.textContent = '🕹 Virtual Journey';
         vjBtn.title = 'Play this route back as a real moving GPS position at a configurable speed — rehearse bearing queries, anchor watch, etc. without leaving the dock';
@@ -8099,7 +8177,7 @@ function _ensureMap() {
     const opening = !_routePickerPanel.classList.contains('open');
     _routePickerPanel.classList.toggle('open');
     _routePickerBtn.classList.toggle('active', opening);
-    if (opening) _buildRoutePickerPanel();
+    if (opening) { _buildRoutePickerPanel(); _warmRouteHazardCache(); }
   });
 
   document.getElementById('reroute-btn').addEventListener('click', () => {
@@ -8371,7 +8449,7 @@ function _ensureMap() {
         if (_expandedTrackRowName === track.name) _expandedTrackRowName = null;
         _refreshSavedTrackLayers();
         _buildTrackPickerPanel();
-      }));
+      }, 'track'));
       row.appendChild(nameLine);
       if (startName || endName) {
         const placeLine = document.createElement('div');
@@ -8574,6 +8652,7 @@ function _ensureMap() {
   }
   _populateRouteSelectFn = _populateRouteSelect;
   _buildRoutePickerPanelFn = _buildRoutePickerPanel;
+  _exitRoutePanelCompactFn = () => { if (_routePanelCompact) _setRoutePanelCompact(false); };
   _buildTrackPickerPanelFn = _buildTrackPickerPanel;
 
   // ── Track config save/load ──────────────────────────────────────────────────
@@ -10821,6 +10900,7 @@ function _finishTrackRecording(name) {
   _followingLegIdx = 1;
   _followFocusLegIdx = null;
   _appEl.classList.remove('following-active');
+  _exitRoutePanelCompactFn?.();
   if (_followProgressEl) _followProgressEl.style.display = 'none';
   trackRecBtn.textContent = '⏺ Start Tracking';
   trackRecBtn.title = 'Record a GPS track';
