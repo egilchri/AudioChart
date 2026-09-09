@@ -355,19 +355,21 @@
          waypoint", and anchor watch all respond live, the same as if
          actually underway. Deliberately NOT anim-mode (which hides
          #bottom-hud/#focus-btn entirely) — this is a rehearsal tool, so the
-         normal (or Underway) chrome stays up throughout. -->
+         normal (or Underway) chrome stays up throughout. Docks full-width
+         at the bottom (shrinking the map, like this whole banner family)
+         below 768px; above it, #vjourney-banner's own CSS switches it to a
+         position:fixed card tucked beside the zoom slider instead — see
+         _syncLeftRailStack, which keeps it positioned there. -->
     <div id="vjourney-banner" style="display:none">
       <div class="track-speed-row" style="justify-content:space-between">
         <span>&#127941; Virtual Journey &mdash; <span id="vjourney-route-name"></span></span>
         <button id="vjourney-close-btn" title="Stop and close">&#10005;</button>
       </div>
-      <div class="track-speed-row">
+      <div class="track-speed-row vjourney-row-wrap">
         <span>Speed:</span>
         <input id="vjourney-speed-input" type="number" min="0.1" max="50" step="0.1" placeholder="5" value="5">
         <span>knots</span>
-      </div>
-      <div class="track-speed-row">
-        <span>Rate:</span>
+        <span class="vjourney-rate-label">Rate:</span>
         <div class="track-chips-scroll">
           <button class="track-chip vjourney-compress selected" data-compress="1" title="Play at real-world speed">1&times;</button>
           <button class="track-chip vjourney-compress" data-compress="5" title="Play 5x faster than real-world speed">5&times;</button>
@@ -375,13 +377,13 @@
           <button class="track-chip vjourney-compress" data-compress="60" title="Play 60x faster than real-world speed">60&times;</button>
         </div>
       </div>
-      <div class="track-speed-row">
+      <div class="track-speed-row vjourney-row-wrap" style="justify-content:space-between">
         <span id="vjourney-status">Ready.</span>
-      </div>
-      <div class="track-speed-row">
-        <button id="vjourney-pause-btn" title="Pause/resume the journey">&#9208; Pause</button>
-        <button id="vjourney-stop-btn" title="Stop the journey and return to real GPS">&#9632; Stop</button>
-        <button id="vjourney-activate-btn" class="rp-activate-btn" title="Tap to hide this route from the map">&#10003; On map</button>
+        <div class="vjourney-controls">
+          <button id="vjourney-pause-btn" title="Pause/resume the journey">&#9208; Pause</button>
+          <button id="vjourney-stop-btn" title="Stop the journey and return to real GPS">&#9632; Stop</button>
+          <button id="vjourney-activate-btn" class="rp-activate-btn" title="Tap to hide this route from the map">&#10003; On map</button>
+        </div>
       </div>
     </div>
     <div id="edit-banner" style="display:none">

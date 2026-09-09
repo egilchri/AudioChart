@@ -1136,6 +1136,7 @@ let _vjBaselineNm   = 0;      // traveled-nm snapshot at the start of the curren
 let _vjRunStartMs   = null;   // rAF timestamp anchor for the current run segment
 let _vjRafId        = null;
 let _vjRunning      = false;  // true only while actually ticking (false while paused)
+let _preVjUnderwayMode = null; // Underway switch state from just before this journey forced it on; null when no journey has touched it
 let _viewportHazardLayer    = null; // hazard markers for current map viewport (edit mode)
 let _viewportHazardMoveEnd  = null; // moveend listener ref for cleanup
 let _routeNameLabels        = [];   // [{marker, pts}] for viewport-clamping on moveend
@@ -6401,13 +6402,60 @@ function _updateHeadingRay(lat, lon, headingDeg, speedKt) {
   }
 }
 
+// Keeps #zoom-slider-wrap/#pan-controls-wrap/#vjourney-banner (desktop-only,
+// see their own media query) stacked below whatever's actually in the
+// Leaflet top-left corner (compass, and — only while following a route —
+// the follow-progress readout, which pushed the corner taller than the
+// zoom slider's old hardcoded top:110px assumed and left it overlapping
+// this readout's text, reported live). Measuring instead of hardcoding a
+// second offset keeps this correct regardless of which of those happen to
+// be showing — including zoom/pan themselves being hidden entirely, which
+// Underway mode does with !important, and Virtual Journey now forces
+// Underway on for: in that case each hidden step contributes no height
+// (offsetParent check below) instead of leaving a gap, so #vjourney-banner
+// lands directly under the compass/follow-progress stack instead.
+function _syncLeftRailStack() {
+  if (window.innerWidth < 768 || !_mapContainer) return; // hidden below this width — nothing to sync
+  const mcTop = _mapContainer.getBoundingClientRect().top;
+  const corner = document.querySelector('.leaflet-top.leaflet-left');
+  const zoomWrap = document.getElementById('zoom-slider-wrap');
+  const panWrap = document.getElementById('pan-controls-wrap');
+  const vjBanner = document.getElementById('vjourney-banner');
+  const GAP = 10;
+  if (!zoomWrap || !panWrap) return;
+
+  let bottom = corner ? corner.getBoundingClientRect().bottom : 30 + mcTop; // viewport-relative
+  const zoomTop = bottom + GAP;
+  zoomWrap.style.top = Math.round(zoomTop - mcTop) + 'px';
+  bottom = (zoomWrap.offsetParent !== null) ? zoomWrap.getBoundingClientRect().bottom : zoomTop;
+
+  const panTop = bottom + GAP;
+  panWrap.style.top = Math.round(panTop - mcTop) + 'px';
+  bottom = (panWrap.offsetParent !== null) ? panWrap.getBoundingClientRect().bottom : panTop;
+
+  if (vjBanner && vjBanner.style.display !== 'none') {
+    // vjBanner is position:fixed at this breakpoint (see its CSS) — its
+    // `top` is viewport-relative already, unlike zoomWrap/panWrap above
+    // (position:absolute inside #map-container), so no mcTop offset here.
+    vjBanner.style.top = Math.round(bottom + GAP) + 'px';
+  }
+}
+window.addEventListener('resize', _syncLeftRailStack);
+
 function _updateFollowProgress(lat, lon) {
   if (!_followProgressEl) return;
-  if (!_followingRouteId) { _followProgressEl.style.display = 'none'; return; }
+  const _wasHidden = _followProgressEl.style.display === 'none';
+  if (!_followingRouteId) {
+    if (!_wasHidden) { _followProgressEl.style.display = 'none'; _syncLeftRailStack(); }
+    return;
+  }
   const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
   const route = routes.find(r => r.id === _followingRouteId);
   const pts = route?.points;
-  if (!pts || pts.length < 2) { _followProgressEl.style.display = 'none'; return; }
+  if (!pts || pts.length < 2) {
+    if (!_wasHidden) { _followProgressEl.style.display = 'none'; _syncLeftRailStack(); }
+    return;
+  }
 
   // Advance the "next waypoint" pointer using along-track projection onto the
   // current leg (same _segCrossTrack math as hazard checking), not just a raw
@@ -6446,6 +6494,7 @@ function _updateFollowProgress(lat, lon) {
   }
 
   _followProgressEl.style.display = '';
+  if (_wasHidden) _syncLeftRailStack();
   _followProgressEl.innerHTML =
     `<div>Next: ${bearingToDisplay(brgToNext)}, ${distToNext.toFixed(1)} nm</div>` +
     `<div>To end: ${distToEnd.toFixed(1)} nm</div>` +
@@ -6728,7 +6777,11 @@ document.getElementById('anim-stop-btn').addEventListener('click', _exitAnimMode
 let _vjBannerRO = null;
 function _syncVjBannerClearance() {
   const banner = document.getElementById('vjourney-banner');
-  const h = (banner && banner.style.display !== 'none') ? banner.offsetHeight : 0;
+  // Only below the desktop breakpoint (see #vjourney-banner's own CSS) does
+  // the banner still dock full-width and eat into the bottom of the
+  // viewport — at 768px+ it's position:fixed off in the left rail instead
+  // (see _syncLeftRailStack), so #bottom-hud has nothing to clear there.
+  const h = (window.innerWidth < 768 && banner && banner.style.display !== 'none') ? banner.offsetHeight : 0;
   _appEl.style.setProperty('--vjourney-h', h + 'px');
 }
 
@@ -6740,6 +6793,13 @@ function _startVirtualJourney(route, speedKnots) {
     return;
   }
   _stopVirtualJourney(); // supersede any journey already running
+
+  // Rehearsing "underway" is the whole point of Virtual Journey, so it
+  // should look underway — force the switch on for the duration, same as
+  // if the user had flipped it themselves, and put it back exactly how
+  // they had it once the journey ends (_stopVirtualJourney below).
+  _preVjUnderwayMode = _underwayCheckbox.checked;
+  if (!_preVjUnderwayMode) _setUnderwayMode(true);
 
   _vjRoute = route;
   _vjSpeedKnots = speedKnots;
@@ -6784,8 +6844,9 @@ function _startVirtualJourney(route, speedKnots) {
   _appEl.classList.add('vjourney-active');
   _syncVjActivateBtn(route);
   _syncVjBannerClearance();
+  _syncLeftRailStack();
   if (!_vjBannerRO) {
-    _vjBannerRO = new ResizeObserver(_syncVjBannerClearance);
+    _vjBannerRO = new ResizeObserver(() => { _syncVjBannerClearance(); _syncLeftRailStack(); });
     _vjBannerRO.observe(document.getElementById('vjourney-banner'));
   }
   // The full routes list has nothing left to offer for the duration of a
@@ -6887,6 +6948,11 @@ function _stopVirtualJourney() {
   _exitRoutePanelCompactFn?.();
   if (_followProgressEl) _followProgressEl.style.display = 'none';
   _buildRoutePickerPanelFn?.();
+  if (_preVjUnderwayMode !== null) {
+    _setUnderwayMode(_preVjUnderwayMode);
+    _preVjUnderwayMode = null;
+  }
+  _syncLeftRailStack();
 }
 
 document.getElementById('vjourney-pause-btn').addEventListener('click', () => {
@@ -11505,12 +11571,15 @@ document.getElementById('screen-menu-rearrange').addEventListener('click', () =>
 });
 
 // Underway is a pure visibility toggle — see #app.underway-mode in
-// app.css — never touches edit/follow/animation state, just hides the
-// top bar, #right-rail, zoom/pan, and tide down to the compass +
-// bearing/heading-speed. A real slide switch (checkbox-driven, see
-// #underway-btn in index.html/app.css), always visible in both states —
-// its own positioning comment in app.css explains why it lives outside
-// #map-overlay-status. Slid right (checked) = underway.
+// app.css — hides the top bar, #right-rail, zoom/pan, and tide down to
+// the compass + bearing/heading-speed. A real slide switch (checkbox-
+// driven, see #underway-btn in index.html/app.css), always visible in
+// both states — its own positioning comment in app.css explains why it
+// lives outside #map-overlay-status. Slid right (checked) = underway.
+// The one deliberate exception to "the user flips this themselves":
+// _startVirtualJourney forces it on for the run's duration (a rehearsal
+// should look underway) and _stopVirtualJourney restores whatever it was
+// set to beforehand — see _preVjUnderwayMode.
 const _underwayCheckbox = document.getElementById('underway-checkbox');
 function _setUnderwayMode(on) {
   _appEl.classList.toggle('underway-mode', on);
