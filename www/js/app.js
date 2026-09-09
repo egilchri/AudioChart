@@ -5725,10 +5725,27 @@ document.getElementById('etp-reroute').addEventListener('click', () => {
 // _editPoints, just for a single new leg instead of the whole route.
 async function _promptNextLegAutoRoute(fromPoint) {
   if (!confirm("Overnight stop set. Auto-route tomorrow's next leg from here?")) return;
-  const query = prompt('Destination — place or waypoint name:');
-  if (!query || !query.trim()) return;
-  const dest = await _resolveNamedDestination(query);
-  if (!dest) return;
+  // Loop on a bad name instead of dropping the whole flow after one try —
+  // per direct report, a name that doesn't resolve (a marina/business name
+  // like "Billings Marine, Swan's Island" isn't itself a charted place)
+  // should let the user immediately try another (e.g. "Stonington"), not
+  // force them to re-trigger this whole prompt by re-toggling the
+  // overnight flag. Only an actually-cancelled prompt (empty/Cancel) exits.
+  let dest = null;
+  while (!dest) {
+    const query = prompt('Destination — place or waypoint name:');
+    if (!query || !query.trim()) return;
+    dest = await _resolveNamedDestination(query);
+    if (!dest) {
+      // _resolveNamedDestination already announces a genuine "couldn't
+      // find" miss, but stays silent when it showed a disambiguation
+      // picker and the user closed it without choosing — this is the
+      // guaranteed fallback so failing to resolve is never silent here.
+      const msg = `Couldn't resolve "${query.trim()}" — try another name, or Cancel to skip the next leg.`;
+      setStatus(msg);
+      TTS.sayImmediate(msg);
+    }
+  }
   const destPt = { lat: dest.lat, lon: dest.lon };
   const ui = _showRerouteOverlay([fromPoint, destPt]);
   _reRouteSegments([_stripPoint(fromPoint), destPt], ui.update.bind(ui), ui.setText.bind(ui), 'Next Leg')
