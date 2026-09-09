@@ -2229,7 +2229,11 @@ body.wco-active #wco-titlebar { display: flex; }
 .route-overnight-marker {
   width: 16px;
   height: 16px;
-  background: #fff;
+  /* Translucent, not solid — per direct request, so it reads as a light
+     tag rather than a solid disc that can visually block whatever's
+     directly underneath or right next to it (another marker, a hazard)
+     when the mouse/finger is working nearby. */
+  background: rgba(255, 255, 255, 0.55);
   border: 3px solid #9b59b6;
   border-radius: 50%;
   cursor: pointer;

@@ -2218,7 +2218,10 @@ function _routeEndpointIcon() {
 }
 
 function _routeOvernightIcon() {
-  return L.divIcon({ className: 'route-overnight-marker', html: '&#9875;', iconSize: [16, 16], iconAnchor: [8, 8] });
+  // A bed, not an anchor — &#9875; collided with _NAVAID_SYMBOL.waypoint's
+  // own anchor glyph (see _navaidIcon), so an overnight stop looked like
+  // an ordinary waypoint/anchorage marker at a glance. Per direct request.
+  return L.divIcon({ className: 'route-overnight-marker', html: '&#128719;', iconSize: [16, 16], iconAnchor: [8, 8] });
 }
 
 // silent=true suppresses the "all clear" popup for automatic/background
