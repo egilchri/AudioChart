@@ -5457,17 +5457,31 @@ function _enterEditMode(routeIdx, skipHazardCheck = false) {
   if (_map) {
     // invalidateSize() run synchronously, right after the classList changes
     // just above, can measure the container mid-reflow rather than its
-    // final size — Leaflet then caches the wrong pixel origin, and every
-    // vertex marker (positioned fresh against that origin) ends up offset
-    // from the polylines/tiles by a fixed screen-space amount that
-    // persists across further edits and even re-entering edit mode,
-    // confirmed live. requestAnimationFrame defers this one frame, after
-    // the browser has actually laid out the class changes.
+    // final size, leaving Leaflet's internal view state not fully settled
+    // for a moment. Vertex markers rendered against that transient state
+    // come out positioned at the wrong effective zoom — worse the farther
+    // a point is from wherever the view was mid-settle, and self-
+    // correcting only once the user's own next zoom step forces Leaflet
+    // to recompute every marker's position fresh (confirmed live: a
+    // vertical string of markers stretching hundreds of miles south at a
+    // very zoomed-out view, converging back onto the real route as you
+    // zoom in). One requestAnimationFrame wasn't long enough to cover
+    // this — wait for the map to actually report itself idle instead of
+    // guessing a frame count: 'moveend' fires once any in-progress pan/
+    // zoom settles, with a timeout fallback for the common case where
+    // nothing was actually moving and 'moveend' never fires at all.
     if (_savedRoutesLayer) _map.removeLayer(_savedRoutesLayer);
     requestAnimationFrame(() => {
       if (!_editMode) return; // cancelled out of edit mode before this frame ran
       _map.invalidateSize();
-      _renderEditLayers();
+      let _edRendered = false;
+      const _doEditRender = () => {
+        if (_edRendered || !_editMode) return;
+        _edRendered = true;
+        _renderEditLayers();
+      };
+      _map.once('moveend', _doEditRender);
+      setTimeout(_doEditRender, 350);
     });
     _map.getContainer().addEventListener('mouseup', _editPlaceNode);
   }
