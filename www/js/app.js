@@ -2740,16 +2740,31 @@ function _refreshSavedRouteLayers() {
     // line's own few CSS pixels. weight is a hit-radius here, not a stroke
     // width anyone sees (opacity: 0), so it can be generous without changing
     // how the route looks.
+    // routeIdx is captured once, when this layer group was last (re)built —
+    // a background Wi-Fi Sync merging/reordering routes between then and an
+    // actual later click/tap can leave it pointing at the wrong array slot
+    // entirely (a different route, possibly a conflict-copy duplicate, with
+    // completely different points) even though the map still visibly shows
+    // the route this layer was drawn for. Confirmed live: editing opened a
+    // route whose later waypoints were nowhere near the one actually drawn
+    // on screen. Re-resolve by the route's stable id at the moment each
+    // handler actually fires, instead of trusting the closure's index.
+    const _freshRouteIdx = () => {
+      if (!route.id) return routeIdx;
+      const fresh = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+      const i = fresh.findIndex(r => r.id === route.id);
+      return i >= 0 ? i : routeIdx;
+    };
     L.polyline(lls, { color: '#e05252', weight: 32, opacity: 0, interactive: true })
       .on('click', (e) => {
         L.DomEvent.stopPropagation(e);
-        _enterEditMode(routeIdx);
+        _enterEditMode(_freshRouteIdx());
       })
       .on('dblclick', (e) => { L.DomEvent.stopPropagation(e); })
-      .on('mouseover', () => { _ctxRouteIdx = routeIdx; })
+      .on('mouseover', () => { _ctxRouteIdx = _freshRouteIdx(); })
       .on('contextmenu', (e) => {
         L.DomEvent.stopPropagation(e);
-        _openSelectRoutePopup(routeIdx, e.latlng);
+        _openSelectRoutePopup(_freshRouteIdx(), e.latlng);
       })
       .addTo(_savedRoutesLayer);
     const isSelected = routeIdx === _selectedRouteIdx;
