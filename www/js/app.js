@@ -5440,9 +5440,20 @@ function _enterEditMode(routeIdx, skipHazardCheck = false) {
   _appEl.classList.add('edit-mode');
   _mapContainer.classList.remove('map-compact', 'list-focus', 'input-focus');
   if (_map) {
-    _map.invalidateSize();
+    // invalidateSize() run synchronously, right after the classList changes
+    // just above, can measure the container mid-reflow rather than its
+    // final size — Leaflet then caches the wrong pixel origin, and every
+    // vertex marker (positioned fresh against that origin) ends up offset
+    // from the polylines/tiles by a fixed screen-space amount that
+    // persists across further edits and even re-entering edit mode,
+    // confirmed live. requestAnimationFrame defers this one frame, after
+    // the browser has actually laid out the class changes.
     if (_savedRoutesLayer) _map.removeLayer(_savedRoutesLayer);
-    _renderEditLayers();
+    requestAnimationFrame(() => {
+      if (!_editMode) return; // cancelled out of edit mode before this frame ran
+      _map.invalidateSize();
+      _renderEditLayers();
+    });
     _map.getContainer().addEventListener('mouseup', _editPlaceNode);
   }
   document.getElementById('edit-tools-panel').style.display = 'flex';
