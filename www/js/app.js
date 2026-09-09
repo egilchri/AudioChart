@@ -5065,7 +5065,15 @@ function _renderEditLayers() {
     const m = L.marker([pts[idx].lat, pts[idx].lon], {
       icon: L.divIcon({
         className: vertexClasses.join(' '),
-        html: `<span class="edit-vertex-num">${idx + 1}</span>`,
+        // The purple tint alone (edit-vertex-overnight) was the only cue
+        // that a node is an overnight stop — no actual icon, unlike the
+        // bed-icon marker a saved route gets outside of edit mode.
+        // Keeping the node number is deliberate (waypoints get referred to
+        // by number, e.g. "node 10") — the bed rides as a small badge
+        // instead of replacing it.
+        html: pts[idx].overnight
+          ? `<span class="edit-vertex-num">${idx + 1}</span><span class="edit-vertex-overnight-badge">&#128719;</span>`
+          : `<span class="edit-vertex-num">${idx + 1}</span>`,
         iconSize: [22, 22],
         iconAnchor: [11, 11],
       }),
@@ -7156,6 +7164,21 @@ function _startRouteAnimation(route, speedKnots) {
   }
   const totalNm = cumDist;
 
+  // Overnight stops the boat should pause and flash at as it passes them —
+  // per direct request. These markers are otherwise invisible during
+  // Animate: _savedRoutesLayer (which is what _routeOvernightIcon markers
+  // live on) gets hidden a few lines up for a cleaner animated view, so
+  // this flash is the only time one would ever be visible during
+  // playback. Index 0 (the route's own start) is excluded — there's
+  // nothing to "arrive at" a moment after the boat begins there.
+  const ANIM_OVERNIGHT_PAUSE_MS = 1200;
+  const overnightIdxs = [];
+  for (let i = 1; i < route.points.length; i++) {
+    if (route.points[i].overnight) overnightIdxs.push(i);
+  }
+  const ptCumNm = route.points.map((_, i) => i < segs.length ? segs[i].cumDist : totalNm);
+  let _nextOvernightPtr = 0;
+
   const _initBearing = segs.length ? _segBearing(segs[0].lat1, segs[0].lon1, segs[0].lat2, segs[0].lon2) : 0;
   if (!_map.getPane('animBoatPane')) _map.createPane('animBoatPane').style.zIndex = '750';
   _animMarker = L.marker(pts[0], { icon: _animBoatIcon(_initBearing), pane: 'animBoatPane' }).addTo(_map);
@@ -7284,6 +7307,36 @@ function _startRouteAnimation(route, speedKnots) {
     if (_animPt.x < _marginX || _animPt.x > _animSize.x - _marginX ||
         _animPt.y < _marginY || _animPt.y > _animSize.y - _marginY) {
       _map.panTo([lat, lon], { animate: true, duration: 0.4, noMoveStart: true });
+    }
+
+    // Reached an overnight stop — snap exactly onto it, flash a bed-icon
+    // marker, and pause briefly before resuming (same pause/resume shape
+    // as the milestone-report branch below: return without scheduling the
+    // next frame, then re-anchor startTime against _animTraveled to
+    // resume cleanly).
+    if (_nextOvernightPtr < overnightIdxs.length && traveled >= ptCumNm[overnightIdxs[_nextOvernightPtr]]) {
+      const opt = route.points[overnightIdxs[_nextOvernightPtr]];
+      _nextOvernightPtr++;
+      _animMarker.setLatLng([opt.lat, opt.lon]);
+      _animCurrentLat = opt.lat;
+      _animCurrentLon = opt.lon;
+      const flashMarker = L.marker([opt.lat, opt.lon], {
+        icon: L.divIcon({ className: 'anim-overnight-flash', html: '&#128719;', iconSize: [26, 26], iconAnchor: [13, 13] }),
+        zIndexOffset: 900,
+      }).addTo(_map);
+      const savedBanner = _animBannerText.textContent;
+      _animBannerText.textContent = '🛏 Overnight stop';
+      TTS.sayImmediate('Overnight stop.');
+      setTimeout(() => {
+        flashMarker.remove();
+        if (!_animMode) return;
+        _animBannerText.textContent = savedBanner;
+        _animRafId = requestAnimationFrame((now2) => {
+          startTime = now2 - (_animTraveled / nmPerRealSec * 1000);
+          step(now2);
+        });
+      }, ANIM_OVERNIGHT_PAUSE_MS);
+      return;
     }
 
     // Record one sample per real second
