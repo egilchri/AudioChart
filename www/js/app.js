@@ -1136,7 +1136,6 @@ let _vjBaselineNm   = 0;      // traveled-nm snapshot at the start of the curren
 let _vjRunStartMs   = null;   // rAF timestamp anchor for the current run segment
 let _vjRafId        = null;
 let _vjRunning      = false;  // true only while actually ticking (false while paused)
-let _preVjUnderwayMode = null; // Underway switch state from just before this journey forced it on; null when no journey has touched it
 let _viewportHazardLayer    = null; // hazard markers for current map viewport (edit mode)
 let _viewportHazardMoveEnd  = null; // moveend listener ref for cleanup
 let _routeNameLabels        = [];   // [{marker, pts}] for viewport-clamping on moveend
@@ -4601,8 +4600,8 @@ function _classifyFallbackSeg(a, b) {
   return { crossesLand, crossesHazard };
 }
 
-async function _reRouteSegments(pts, onProgress, onText) {
-  if (await _blockedByCoverage(pts[0], pts[pts.length - 1], 'Re-route')) {
+async function _reRouteSegments(pts, onProgress, onText, actionLabel = 'Re-route') {
+  if (await _blockedByCoverage(pts[0], pts[pts.length - 1], actionLabel)) {
     return { points: pts, fallbacks: 0, fallbackSegs: [], blocked: true };
   }
   const result = [pts[0]];
@@ -5094,8 +5093,15 @@ function _renderEditLayers() {
       } else if (_overnightMode) {
         _pushEditHistory();
         const p = _editPoints[idx];
+        const turningOn = !p.overnight;
+        const isLast = idx === _editPoints.length - 1;
         _editPoints[idx] = p.overnight ? { lat: p.lat, lon: p.lon } : { lat: p.lat, lon: p.lon, overnight: true };
         _renderEditLayers();
+        // Marking the route's current end as an overnight stop is exactly
+        // the moment to offer planning tomorrow's leg — un-marking, or
+        // marking an interior point (the route already continues past it),
+        // doesn't need this.
+        if (turningOn && isLast) _promptNextLegAutoRoute(_editPoints[idx]);
       } else if (_fixNodesMode) {
         _fixNodeHazards(idx);
       }
@@ -5706,6 +5712,45 @@ document.getElementById('etp-reroute').addEventListener('click', () => {
       console.error('[reroute]', err);
     });
 });
+
+// Offered the instant the route's current end becomes an overnight stop
+// (see the overnight-toggle branch of the vertex click handler above) —
+// connects "I just marked tonight's anchorage" to "let's plan tomorrow's
+// leg" in one motion instead of leaving the user to separately remember
+// to extend the route later. Mirrors the etp-reroute handler just above,
+// reusing the same _reRouteSegments/_showRerouteOverlay machinery on
+// _editPoints, just for a single new leg instead of the whole route.
+async function _promptNextLegAutoRoute(fromPoint) {
+  if (!confirm("Overnight stop set. Auto-route tomorrow's next leg from here?")) return;
+  const query = prompt('Destination — place or waypoint name:');
+  if (!query || !query.trim()) return;
+  const dest = await _resolveNamedDestination(query);
+  if (!dest) return;
+  const destPt = { lat: dest.lat, lon: dest.lon };
+  const ui = _showRerouteOverlay([fromPoint, destPt]);
+  _reRouteSegments([_stripPoint(fromPoint), destPt], ui.update.bind(ui), ui.setText.bind(ui), 'Next Leg')
+    .then(({ points, fallbacks, fallbackSegs, blocked }) => {
+      ui.remove();
+      if (blocked) return;  // _reRouteSegments already announced why
+      _pushEditHistory();  // its own undo step, separate from the overnight toggle
+      _editPoints.push(...points.slice(1).map(_stripPoint));  // points[0] duplicates fromPoint
+      _selectedEditNodeIdx.clear();
+      _renderEditLayers();
+      const found = _liveHazardCheck();
+      if (!found.length) {
+        if (fallbacks > 0) _showRouteFallbackWarning(fallbackSegs);
+        else {
+          setStatus('Next leg routed — review and Save when ready.');
+          TTS.sayImmediate('Next leg routed. Review and save when ready.');
+        }
+      }
+    })
+    .catch(err => {
+      ui.remove();
+      setStatus('Auto-route failed.');
+      console.error('[nextLeg]', err);
+    });
+}
 
 // ── GPX export ────────────────────────────────────────────────────────────────
 
@@ -6795,11 +6840,14 @@ function _startVirtualJourney(route, speedKnots) {
   _stopVirtualJourney(); // supersede any journey already running
 
   // Rehearsing "underway" is the whole point of Virtual Journey, so it
-  // should look underway — force the switch on for the duration, same as
-  // if the user had flipped it themselves, and put it back exactly how
-  // they had it once the journey ends (_stopVirtualJourney below).
-  _preVjUnderwayMode = _underwayCheckbox.checked;
-  if (!_preVjUnderwayMode) _setUnderwayMode(true);
+  // should look underway — force the switch on for the duration. Stopping
+  // always forces it back off (not "restore whatever it was") — tried
+  // restoring the prior state first, but that left the user stranded
+  // without Screen/Map Type/Location whenever Underway already happened
+  // to be on before the journey started, since nothing then changed it
+  // back. A journey ending is the clear, unambiguous signal to return to
+  // the normal planning UI.
+  if (!_underwayCheckbox.checked) _setUnderwayMode(true);
 
   _vjRoute = route;
   _vjSpeedKnots = speedKnots;
@@ -6948,10 +6996,7 @@ function _stopVirtualJourney() {
   _exitRoutePanelCompactFn?.();
   if (_followProgressEl) _followProgressEl.style.display = 'none';
   _buildRoutePickerPanelFn?.();
-  if (_preVjUnderwayMode !== null) {
-    _setUnderwayMode(_preVjUnderwayMode);
-    _preVjUnderwayMode = null;
-  }
+  _setUnderwayMode(false);
   _syncLeftRailStack();
 }
 
@@ -11578,8 +11623,10 @@ document.getElementById('screen-menu-rearrange').addEventListener('click', () =>
 // lives outside #map-overlay-status. Slid right (checked) = underway.
 // The one deliberate exception to "the user flips this themselves":
 // _startVirtualJourney forces it on for the run's duration (a rehearsal
-// should look underway) and _stopVirtualJourney restores whatever it was
-// set to beforehand — see _preVjUnderwayMode.
+// should look underway) and _stopVirtualJourney always forces it back
+// off — not a restore-to-prior-state, since that left the user stranded
+// without Screen/Map Type/Location whenever Underway already happened to
+// be on before the journey started.
 const _underwayCheckbox = document.getElementById('underway-checkbox');
 function _setUnderwayMode(on) {
   _appEl.classList.toggle('underway-mode', on);
