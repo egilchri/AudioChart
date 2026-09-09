@@ -7944,6 +7944,27 @@ function _ensureMap() {
       row.className = 'rp-row' + (hidden ? ' hidden' : '') + (expanded ? ' expanded' : '');
       const nameLine = document.createElement('div');
       nameLine.className = 'rp-row-name';
+      // A dedicated button, not just a colored label — this is the "activate"
+      // control (show/hide this route on the map) and it needs to look and
+      // behave like one on its own, separate from tapping the rest of the
+      // row (which only expands/collapses the details below). Previously a
+      // plain-text ::before mark with no click handler of its own — the
+      // whole row doubled as both "activate" AND "expand," a single tap
+      // meaning two unrelated things at once.
+      const activateBtn = document.createElement('button');
+      activateBtn.type = 'button';
+      activateBtn.className = 'rp-activate-btn' + (hidden ? ' hidden' : '');
+      activateBtn.textContent = hidden ? '✗ Hidden' : '✓ On map';
+      activateBtn.title = hidden ? 'Tap to show this route on the map' : 'Tap to hide this route from the map';
+      activateBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (_hiddenRouteNames.has(route.name)) _hiddenRouteNames.delete(route.name);
+        else _hiddenRouteNames.add(route.name);
+        _saveHiddenRoutes();
+        _refreshSavedRouteLayers();
+        _buildRoutePickerPanel();
+      });
+      nameLine.appendChild(activateBtn);
       const nameText = document.createElement('span');
       nameText.textContent = route.name;
       nameLine.appendChild(nameText);
@@ -8066,14 +8087,7 @@ function _ensureMap() {
         row.appendChild(legList);
       }
       row.addEventListener('click', () => {
-        if (_hiddenRouteNames.has(route.name)) {
-          _hiddenRouteNames.delete(route.name);
-        } else {
-          _hiddenRouteNames.add(route.name);
-        }
-        _saveHiddenRoutes();
         _expandedRouteRowName = (_expandedRouteRowName === route.name) ? null : route.name;
-        _refreshSavedRouteLayers();
         _buildRoutePickerPanel();
       });
       list.appendChild(row);
@@ -8317,6 +8331,20 @@ function _ensureMap() {
       row.className = 'rp-row' + (hidden ? ' hidden' : '') + (expanded ? ' expanded' : '');
       const nameLine = document.createElement('div');
       nameLine.className = 'rp-row-name';
+      const activateBtn = document.createElement('button');
+      activateBtn.type = 'button';
+      activateBtn.className = 'rp-activate-btn' + (hidden ? ' hidden' : '');
+      activateBtn.textContent = hidden ? '✗ Hidden' : '✓ On map';
+      activateBtn.title = hidden ? 'Tap to show this track on the map' : 'Tap to hide this track from the map';
+      activateBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (_hiddenTrackNames.has(track.name)) _hiddenTrackNames.delete(track.name);
+        else _hiddenTrackNames.add(track.name);
+        _saveHiddenTracks();
+        _refreshSavedTrackLayers();
+        _buildTrackPickerPanel();
+      });
+      nameLine.appendChild(activateBtn);
       const nameText = document.createElement('span');
       nameText.textContent = track.name;
       nameLine.appendChild(nameText);
@@ -8352,14 +8380,7 @@ function _ensureMap() {
         row.appendChild(placeLine);
       }
       row.addEventListener('click', () => {
-        if (_hiddenTrackNames.has(track.name)) {
-          _hiddenTrackNames.delete(track.name);
-        } else {
-          _hiddenTrackNames.add(track.name);
-        }
-        _saveHiddenTracks();
         _expandedTrackRowName = (_expandedTrackRowName === track.name) ? null : track.name;
-        _refreshSavedTrackLayers();
         _buildTrackPickerPanel();
       });
       list.appendChild(row);

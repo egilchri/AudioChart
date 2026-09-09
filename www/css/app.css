@@ -1276,21 +1276,35 @@ body.wco-active #wco-titlebar { display: flex; }
   align-items: center;
   gap: 6px;
 }
-/* Spelled-out labels, not just a symbol, so a plain tap's effect (toggle
-   shown-on-map) is legible without knowing the ✓/✗ convention first —
-   this row's own click target is now the only thing a stray tap can hit,
-   see .rp-corner-btn-danger below for where Delete moved. */
-.rp-row-name::before {
-  content: '✓ On map';
+/* The activate control: a real, separately-tappable button (not a plain
+   ::before label riding on the row's own click) — a tap here toggles this
+   route/track's shown-on-map state and nothing else, and a tap anywhere
+   else on the row only expands/collapses the details below it. Spelled-out
+   text, not just a symbol, so its effect is legible without knowing the
+   ✓/✗ convention first. See .rp-corner-btn-danger below for where Delete
+   moved — nothing destructive lives anywhere near this button or the rest
+   of the row's own tap target. */
+.rp-activate-btn {
+  flex-shrink: 0;
   font-size: 0.72rem;
   font-weight: 700;
-  color: var(--ok);
-  flex-shrink: 0;
+  padding: 5px 9px;
+  min-height: 28px;
+  border-radius: 999px;
+  border: 1.5px solid #1a6b3c;
+  color: #4ade80;
+  background: #0a2a16;
+  cursor: pointer;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
 }
-.rp-row.hidden .rp-row-name::before {
-  content: '✗ Hidden';
-  color: var(--danger);
+.rp-activate-btn:hover { border-color: #2a8b4c; color: #6aeea0; }
+.rp-activate-btn.hidden {
+  border-color: var(--danger);
+  color: #ff8080;
+  background: #2a0a0a;
 }
+.rp-activate-btn.hidden:hover { background: #3a0a0a; }
 .rp-row.hidden .rp-row-name {
   color: var(--text-dim);
 }
