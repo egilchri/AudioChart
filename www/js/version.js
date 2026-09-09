@@ -1,1 +1,1 @@
-var APP_VERSION = 'v565';
+var APP_VERSION = 'v566';
