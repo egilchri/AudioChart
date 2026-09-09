@@ -99,7 +99,7 @@
         <button id="focus-btn" title="No focus set (Drag to move)">&#127919; --</button>
       </div>
       <div id="route-picker-panel">
-        <div class="nf-title">Routes <span class="nf-title-actions"><button id="rp-compact-toggle" title="Shrink this panel to just the active route, so it stops covering the Underway switch and command bar">&#10530; Focus active route</button><button id="rp-close" title="Close">&#10005;</button></span></div>
+        <div class="nf-title">Routes <button id="rp-close" title="Close">&#10005;</button></div>
         <div class="nf-new-route">
           <button id="rp-draw-route" title="Tap a start point, then a destination — the app plots a safe route">&#10145; Auto Route</button>
           <button id="rp-sketch" title="Click points on the map to place a freehand route — not checked against charted hazards">&#9643; Sketch</button>
@@ -284,7 +284,7 @@
           <button id="etp-add-node" title="Add a new waypoint at the end of the route">&#65291; Add</button>
           <button id="etp-insert-node" title="Insert a new waypoint between two existing ones">&#8659; Insert</button>
           <button id="etp-delete" title="Delete the selected waypoint">&#10005; Delete</button>
-          <button id="etp-overnight" title="Mark this route's last waypoint as an overnight stop, then plan tomorrow's leg">&#128719; Overnight</button>
+          <button id="etp-overnight" title="Mark the selected waypoint as an overnight stop">&#9875; Overnight</button>
           <button id="etp-fix-nodes" title="Tap to arm, then tap waypoints on the map — each one is immediately nudged clear of nearby rocks, obstructions, or wrecks and lights up blue. Tap this again to stop.">&#128295; Fix selected nodes</button>
           <button id="etp-animate" title="Preview this route as an animated boat icon moving along it">&#9654; Animate</button>
           <button id="etp-reroute" title="Recalculate this route to avoid land and hazards">&#8635; Reroute</button>
@@ -355,21 +355,19 @@
          waypoint", and anchor watch all respond live, the same as if
          actually underway. Deliberately NOT anim-mode (which hides
          #bottom-hud/#focus-btn entirely) — this is a rehearsal tool, so the
-         normal (or Underway) chrome stays up throughout. Docks full-width
-         at the bottom (shrinking the map, like this whole banner family)
-         below 768px; above it, #vjourney-banner's own CSS switches it to a
-         position:fixed card tucked beside the zoom slider instead — see
-         _syncLeftRailStack, which keeps it positioned there. -->
+         normal (or Underway) chrome stays up throughout. -->
     <div id="vjourney-banner" style="display:none">
       <div class="track-speed-row" style="justify-content:space-between">
         <span>&#127941; Virtual Journey &mdash; <span id="vjourney-route-name"></span></span>
         <button id="vjourney-close-btn" title="Stop and close">&#10005;</button>
       </div>
-      <div class="track-speed-row vjourney-row-wrap">
+      <div class="track-speed-row">
         <span>Speed:</span>
         <input id="vjourney-speed-input" type="number" min="0.1" max="50" step="0.1" placeholder="5" value="5">
         <span>knots</span>
-        <span class="vjourney-rate-label">Rate:</span>
+      </div>
+      <div class="track-speed-row">
+        <span>Rate:</span>
         <div class="track-chips-scroll">
           <button class="track-chip vjourney-compress selected" data-compress="1" title="Play at real-world speed">1&times;</button>
           <button class="track-chip vjourney-compress" data-compress="5" title="Play 5x faster than real-world speed">5&times;</button>
@@ -377,13 +375,12 @@
           <button class="track-chip vjourney-compress" data-compress="60" title="Play 60x faster than real-world speed">60&times;</button>
         </div>
       </div>
-      <div class="track-speed-row vjourney-row-wrap" style="justify-content:space-between">
+      <div class="track-speed-row">
         <span id="vjourney-status">Ready.</span>
-        <div class="vjourney-controls">
-          <button id="vjourney-pause-btn" title="Pause/resume the journey">&#9208; Pause</button>
-          <button id="vjourney-stop-btn" title="Stop the journey and return to real GPS">&#9632; Stop</button>
-          <button id="vjourney-activate-btn" class="rp-activate-btn" title="Tap to hide this route from the map">&#10003; On map</button>
-        </div>
+      </div>
+      <div class="track-speed-row">
+        <button id="vjourney-pause-btn" title="Pause/resume the journey">&#9208; Pause</button>
+        <button id="vjourney-stop-btn" title="Stop the journey and return to real GPS">&#9632; Stop</button>
       </div>
     </div>
     <div id="edit-banner" style="display:none">
@@ -635,22 +632,6 @@
     <div id="place-disambig-panel">
       <div class="nf-title"><span id="place-disambig-title">Which one?</span> <button id="place-disambig-close" title="Cancel">&#10005;</button></div>
       <div id="place-disambig-list"></div>
-    </div>
-  </div>
-
-  <!-- Generic on-page replacement for window.prompt() — see _showTextPrompt
-       in app.js. Needed because a flow that may show a native prompt()
-       more than once in a row (e.g. retrying a destination name) can have
-       the second one silently suppressed by Chrome/Electron-style
-       webviews' own dialog-spam protection, with no visible dialog at all. -->
-  <div id="text-prompt-overlay">
-    <div id="text-prompt-panel">
-      <div class="nf-title"><span id="text-prompt-title">Enter a value</span> <button id="text-prompt-close" title="Cancel">&#10005;</button></div>
-      <input id="text-prompt-input" type="text" autocomplete="off">
-      <div class="nf-actions">
-        <button id="text-prompt-cancel">Cancel</button>
-        <button id="text-prompt-go">Go</button>
-      </div>
     </div>
   </div>
 

@@ -1030,7 +1030,8 @@ let _liveHazardTimer       = null;
 let _newVertexIdx          = -1;  // index of freshly inserted vertex — flashes until dragged
 let _deleteMode            = false; // single-click on vertex deletes it
 let _addNodeMode           = false; // waiting for click to insert node into nearest segment
-let _fixNodesMode          = false; // single-click on vertex fixes hazards near just that node — stays armed like delete
+let _overnightMode         = false; // single-click on vertex toggles it as an overnight stop
+let _fixNodesMode          = false; // single-click on vertex fixes hazards near just that node — stays armed like delete/overnight
 let _selectedEditNodeIdx   = new Set(); // indices into _editPoints "lit" — fixed (or checked) this edit session; purely visual, not saved route data
 let _editHistory           = [];    // stack of _editPoints snapshots for undo
 let _editOriginalPoints    = [];    // snapshot of route.points as last saved, taken when edit mode was entered
@@ -1038,8 +1039,6 @@ let _editOriginalPoints    = [];    // snapshot of route.points as last saved, t
 let _populateRouteSelectFn = null; // set by _ensureMap once DOM is ready
 let _buildRoutePickerPanelFn = null; // set by _ensureMap once DOM is ready — see _populateRouteSelectFn
 let _buildTrackPickerPanelFn = null; // set by _ensureMap once DOM is ready — see _buildRoutePickerPanelFn
-let _exitRoutePanelCompactFn = null; // set by _ensureMap once DOM is ready — resets compact mode when Follow/Virtual Journey ends
-let _closeRoutePickerFn = null; // set by _ensureMap once DOM is ready — used by _startVirtualJourney
 let _savedRoutesLayer  = null;
 let _hiddenRouteNames  = new Set();
 let _savedTracksLayer     = null;
@@ -2217,10 +2216,7 @@ function _routeEndpointIcon() {
 }
 
 function _routeOvernightIcon() {
-  // A bed, not an anchor — &#9875; collided with _NAVAID_SYMBOL.waypoint's
-  // own anchor glyph (see _navaidIcon), so an overnight stop looked like
-  // an ordinary waypoint/anchorage marker at a glance. Per direct request.
-  return L.divIcon({ className: 'route-overnight-marker', html: '&#128719;', iconSize: [16, 16], iconAnchor: [8, 8] });
+  return L.divIcon({ className: 'route-overnight-marker', html: '&#9875;', iconSize: [16, 16], iconAnchor: [8, 8] });
 }
 
 // silent=true suppresses the "all clear" popup for automatic/background
@@ -2336,53 +2332,14 @@ function _findRouteHazards(points) {
 // just become unreachable and sit unused; fine for a cache realistically
 // bounded by tens of saved routes, not worth an eviction policy yet.
 let _routeHazardCountCache = new Map();
-function _routeHazardCacheKey(route) { return `${route.id}:${route.updatedAt || route.createdAt || 0}`; }
 function _getRouteHazards(route) {
-  const key = _routeHazardCacheKey(route);
+  const key = `${route.id}:${route.updatedAt || route.createdAt || 0}`;
   let found = _routeHazardCountCache.get(key);
   if (found === undefined) {
     found = _findRouteHazards(route.points).found;
     _routeHazardCountCache.set(key, found);
   }
   return found;
-}
-// Non-computing lookup for the routes panel's first paint — see
-// _warmRouteHazardCache. A route with hundreds of points against a
-// hazards layer of tens of thousands of features is genuinely expensive;
-// with 100+ saved routes (the "tens" the cache comment above assumed is
-// long since out of date) doing this for every row on every panel open
-// was the multi-second freeze reported live.
-function _getRouteHazardsCached(route) {
-  return _routeHazardCountCache.get(_routeHazardCacheKey(route));
-}
-
-// Computes and caches hazard badges for routes that don't have them yet,
-// a few at a time via setTimeout so the panel itself paints immediately
-// instead of blocking on the full list up front; re-renders the open
-// panel once a batch finishes so badges pop in shortly after, rather than
-// making the user wait for all of them before seeing anything at all.
-let _routeHazardWarmupRunning = false;
-function _warmRouteHazardCache() {
-  if (_routeHazardWarmupRunning) return;
-  const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
-  const pending = routes.filter(r => _getRouteHazardsCached(r) === undefined);
-  if (pending.length === 0) return;
-  _routeHazardWarmupRunning = true;
-  const BATCH_SIZE = 10; // small enough per setTimeout tick to stay responsive, large enough to not spend most of the warm-up on repeated full-list re-renders
-  let i = 0;
-  function step() {
-    const end = Math.min(i + BATCH_SIZE, pending.length);
-    for (; i < end; i++) _getRouteHazards(pending[i]);
-    if (i < pending.length) {
-      setTimeout(step, 0);
-    } else {
-      _routeHazardWarmupRunning = false;
-    }
-    if (document.getElementById('route-picker-panel')?.classList.contains('open')) {
-      _buildRoutePickerPanelFn?.();
-    }
-  }
-  setTimeout(step, 0);
 }
 
 function _checkRouteHazards(routeIdx, silent = false) {
@@ -2740,31 +2697,16 @@ function _refreshSavedRouteLayers() {
     // line's own few CSS pixels. weight is a hit-radius here, not a stroke
     // width anyone sees (opacity: 0), so it can be generous without changing
     // how the route looks.
-    // routeIdx is captured once, when this layer group was last (re)built —
-    // a background Wi-Fi Sync merging/reordering routes between then and an
-    // actual later click/tap can leave it pointing at the wrong array slot
-    // entirely (a different route, possibly a conflict-copy duplicate, with
-    // completely different points) even though the map still visibly shows
-    // the route this layer was drawn for. Confirmed live: editing opened a
-    // route whose later waypoints were nowhere near the one actually drawn
-    // on screen. Re-resolve by the route's stable id at the moment each
-    // handler actually fires, instead of trusting the closure's index.
-    const _freshRouteIdx = () => {
-      if (!route.id) return routeIdx;
-      const fresh = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
-      const i = fresh.findIndex(r => r.id === route.id);
-      return i >= 0 ? i : routeIdx;
-    };
     L.polyline(lls, { color: '#e05252', weight: 32, opacity: 0, interactive: true })
       .on('click', (e) => {
         L.DomEvent.stopPropagation(e);
-        _enterEditMode(_freshRouteIdx());
+        _enterEditMode(routeIdx);
       })
       .on('dblclick', (e) => { L.DomEvent.stopPropagation(e); })
-      .on('mouseover', () => { _ctxRouteIdx = _freshRouteIdx(); })
+      .on('mouseover', () => { _ctxRouteIdx = routeIdx; })
       .on('contextmenu', (e) => {
         L.DomEvent.stopPropagation(e);
-        _openSelectRoutePopup(_freshRouteIdx(), e.latlng);
+        _openSelectRoutePopup(routeIdx, e.latlng);
       })
       .addTo(_savedRoutesLayer);
     const isSelected = routeIdx === _selectedRouteIdx;
@@ -3322,38 +3264,6 @@ function _showPlaceDisambig(query, candidates) {
     });
     document.getElementById('place-disambig-close').onclick = () => { _hidePlaceDisambig(); resolve(null); };
     _placeDisambigOverlay.classList.add('open');
-  });
-}
-
-// On-page window.prompt() replacement. Needed for any flow that might show
-// more than one text prompt in a row (e.g. retrying a destination name that
-// didn't resolve) — confirmed live that a second native prompt() fired
-// right after the first, with no click in between, can be silently
-// suppressed by Chrome/Electron-style webviews' own dialog-spam
-// protection: no dialog appears at all, and the caller just sees an
-// immediate null. This has no such per-page call-count behavior. Resolves
-// with the trimmed, non-empty string, or null if cancelled/left empty —
-// same contract as `prompt()` for a caller checking `if (!result) return;`.
-const _textPromptOverlay = document.getElementById('text-prompt-overlay');
-const _textPromptTitle   = document.getElementById('text-prompt-title');
-const _textPromptInput   = document.getElementById('text-prompt-input');
-function _hideTextPrompt() { _textPromptOverlay.classList.remove('open'); }
-function _showTextPrompt(title, placeholder = '') {
-  return new Promise((resolve) => {
-    _textPromptTitle.textContent = title;
-    _textPromptInput.value = '';
-    _textPromptInput.placeholder = placeholder;
-    const finish = (result) => { _hideTextPrompt(); resolve(result); };
-    const goNow = () => finish(_textPromptInput.value.trim() || null);
-    document.getElementById('text-prompt-go').onclick = goNow;
-    document.getElementById('text-prompt-cancel').onclick = () => finish(null);
-    document.getElementById('text-prompt-close').onclick = () => finish(null);
-    _textPromptInput.onkeydown = (e) => {
-      if (e.key === 'Enter') goNow();
-      else if (e.key === 'Escape') finish(null);
-    };
-    _textPromptOverlay.classList.add('open');
-    setTimeout(() => _textPromptInput.focus(), 0);
   });
 }
 
@@ -4649,8 +4559,8 @@ function _classifyFallbackSeg(a, b) {
   return { crossesLand, crossesHazard };
 }
 
-async function _reRouteSegments(pts, onProgress, onText, actionLabel = 'Re-route') {
-  if (await _blockedByCoverage(pts[0], pts[pts.length - 1], actionLabel)) {
+async function _reRouteSegments(pts, onProgress, onText) {
+  if (await _blockedByCoverage(pts[0], pts[pts.length - 1], 'Re-route')) {
     return { points: pts, fallbacks: 0, fallbackSegs: [], blocked: true };
   }
   const result = [pts[0]];
@@ -5054,15 +4964,6 @@ function _renderEditLayers() {
     const seg = L.polyline([ptA, ptB], {
       color: '#f5c842', weight: 5, opacity: 0.9, interactive: !_addNodeMode,
     }).addTo(_map);
-    // Confirmed live via console: map.latLngToContainerPoint() computes the
-    // right answer for these exact coordinates at the map's actual current
-    // zoom, but the position .addTo() gave this layer doesn't match it —
-    // it's frozen against some other, stale zoom from whenever this
-    // rendering path last ran at a different zoom level, and Leaflet's own
-    // zoom handling never fully catches these back up (manual zooming only
-    // partially narrows the gap). redraw() forces a fresh reprojection
-    // through the exact same (confirmed-correct) live projection.
-    seg.redraw();
     _editSegmentLayers.push(seg);
 
     // Bearing labels omitted in edit mode — they clutter the map; visible in normal route display
@@ -5088,15 +4989,7 @@ function _renderEditLayers() {
     const m = L.marker([pts[idx].lat, pts[idx].lon], {
       icon: L.divIcon({
         className: vertexClasses.join(' '),
-        // The purple tint alone (edit-vertex-overnight) was the only cue
-        // that a node is an overnight stop — no actual icon, unlike the
-        // bed-icon marker a saved route gets outside of edit mode.
-        // Keeping the node number is deliberate (waypoints get referred to
-        // by number, e.g. "node 10") — the bed rides as a small badge
-        // instead of replacing it.
-        html: pts[idx].overnight
-          ? `<span class="edit-vertex-num">${idx + 1}</span><span class="edit-vertex-overnight-badge">&#128719;</span>`
-          : `<span class="edit-vertex-num">${idx + 1}</span>`,
+        html: `<span class="edit-vertex-num">${idx + 1}</span>`,
         iconSize: [22, 22],
         iconAnchor: [11, 11],
       }),
@@ -5105,7 +4998,6 @@ function _renderEditLayers() {
     }).bindTooltip(tipContent(), {
       permanent: false, direction: 'top', offset: [0, -20], className: 'route-coord-tip edit-coord-tip',
     }).addTo(_map);
-    m.update(); // see the matching comment on seg.redraw() just above
     m.on('dragstart', () => {
       _map.dragging.disable();
       _pushEditHistory();
@@ -5157,6 +5049,11 @@ function _renderEditLayers() {
         // have been providing clearance) as fix one — recheck either way.
         clearTimeout(_liveHazardTimer);
         _liveHazardTimer = setTimeout(_liveHazardCheck, 300);
+      } else if (_overnightMode) {
+        _pushEditHistory();
+        const p = _editPoints[idx];
+        _editPoints[idx] = p.overnight ? { lat: p.lat, lon: p.lon } : { lat: p.lat, lon: p.lon, overnight: true };
+        _renderEditLayers();
       } else if (_fixNodesMode) {
         _fixNodeHazards(idx);
       }
@@ -5239,6 +5136,7 @@ function _cancelAddNodeMode() {
 function _updateEditToolsPanel() {
   document.getElementById('etp-insert-node')?.classList.toggle('active', _addNodeMode);
   document.getElementById('etp-delete')?.classList.toggle('active', _deleteMode);
+  document.getElementById('etp-overnight')?.classList.toggle('active', _overnightMode);
   document.getElementById('etp-fix-nodes')?.classList.toggle('active', _fixNodesMode);
 }
 
@@ -5456,6 +5354,7 @@ function _enterEditMode(routeIdx, skipHazardCheck = false) {
   _editOriginalPoints = route.points.map(_stripPoint);
   _deleteMode = false;
   _addNodeMode = false;
+  _overnightMode = false;
   _fixNodesMode = false;
   _editHistory = [];
   _selectedEditNodeIdx = new Set();
@@ -5465,17 +5364,8 @@ function _enterEditMode(routeIdx, skipHazardCheck = false) {
   _appEl.classList.add('edit-mode');
   _mapContainer.classList.remove('map-compact', 'list-focus', 'input-focus');
   if (_map) {
-    if (_savedRoutesLayer) _map.removeLayer(_savedRoutesLayer);
     _map.invalidateSize();
-    // Vertex markers/segments can render at the wrong screen position —
-    // confirmed live via console this isn't a timing/settle issue (waiting
-    // for the map to report idle didn't help, and the map was already
-    // sitting still at the target zoom before Edit was even clicked) — a
-    // fresh map.latLngToContainerPoint() call for the same coordinates
-    // computes correctly every time, but whatever .addTo() gave these
-    // specific layers doesn't match it. _renderEditLayers forces each one
-    // to recompute via its own update()/redraw(), which is what actually
-    // fixes it — see the comments there.
+    if (_savedRoutesLayer) _map.removeLayer(_savedRoutesLayer);
     _renderEditLayers();
     _map.getContainer().addEventListener('mouseup', _editPlaceNode);
   }
@@ -5512,6 +5402,7 @@ function _exitEditMode() {
   _newVertexIdx = -1;
   _deleteMode = false;
   _addNodeMode = false;
+  _overnightMode = false;
   _fixNodesMode = false;
   _editHistory = [];
   _selectedEditNodeIdx = new Set();
@@ -5716,42 +5607,27 @@ document.getElementById('etp-insert-node').addEventListener('click', () => {
 
 document.getElementById('etp-delete').addEventListener('click', () => {
   _deleteMode = !_deleteMode;
+  _overnightMode = false;
   _fixNodesMode = false;
   _setEditBannerLabel(_deleteMode ? ' — click a node to delete it' : '');
   _renderEditLayers();
   _updateEditToolsPanel();
 });
 
-// No more arm-a-mode-then-click-a-vertex — per direct request, this
-// always targets the route's own current last waypoint (the one that
-// actually matters for "where am I stopping tonight"), confirms once,
-// and — on a fresh mark — goes straight into the next-leg destination
-// prompt without a second, redundant confirm (this one already served
-// that purpose). An already-marked last waypoint offers to unmark
-// instead, so the toggle behavior isn't lost, just no longer needs a
-// separate click-a-node step to reach.
 document.getElementById('etp-overnight').addEventListener('click', () => {
-  if (!_editMode || _editPoints.length < 1) return;
-  const idx = _editPoints.length - 1;
-  const p = _editPoints[idx];
-  if (p.overnight) {
-    if (!confirm(`Remove the overnight-stop mark from waypoint ${idx + 1}?`)) return;
-    _pushEditHistory();
-    _editPoints[idx] = { lat: p.lat, lon: p.lon };
-    _renderEditLayers();
-    return;
-  }
-  if (!confirm(`Mark waypoint ${idx + 1} (the last on this route) as an overnight stop?`)) return;
-  _pushEditHistory();
-  _editPoints[idx] = { lat: p.lat, lon: p.lon, overnight: true };
+  _overnightMode = !_overnightMode;
+  _deleteMode = false;
+  _fixNodesMode = false;
+  _setEditBannerLabel(_overnightMode ? ' — click a node to mark/unmark as an overnight stop' : '');
   _renderEditLayers();
-  _promptNextLegAutoRoute(_editPoints[idx]);
+  _updateEditToolsPanel();
 });
 
 document.getElementById('etp-fix-nodes').addEventListener('click', () => {
   if (!_editMode) return;
   _fixNodesMode = !_fixNodesMode;
   _deleteMode = false;
+  _overnightMode = false;
   _setEditBannerLabel(_fixNodesMode ? ' — click a node to fix hazards near it' : '');
   _renderEditLayers();
   _updateEditToolsPanel();
@@ -5789,66 +5665,6 @@ document.getElementById('etp-reroute').addEventListener('click', () => {
     });
 });
 
-// Called right after the etp-overnight button marks the route's last
-// waypoint as an overnight stop (its own confirm dialog already covers
-// consent for this) — connects "I just marked tonight's anchorage" to
-// "let's plan tomorrow's leg" in one motion instead of leaving the user
-// to separately remember to extend the route later. Mirrors the
-// etp-reroute handler just above, reusing the same
-// _reRouteSegments/_showRerouteOverlay machinery on _editPoints, just for
-// a single new leg instead of the whole route.
-async function _promptNextLegAutoRoute(fromPoint) {
-  // Loop on a bad name instead of dropping the whole flow after one try —
-  // per direct report, a name that doesn't resolve (a marina/business name
-  // like "Billings Marine, Swan's Island" isn't itself a charted place)
-  // should let the user immediately try another (e.g. "Stonington"), not
-  // force them to re-trigger this whole prompt by re-toggling the
-  // overnight flag. Only an actually-cancelled prompt (empty/Cancel) exits.
-  // Uses _showTextPrompt, not window.prompt() — confirmed live that a
-  // second native prompt() fired right after the first one (no click in
-  // between) can be silently suppressed by the browser/webview's own
-  // dialog-spam protection, which is exactly what a retry loop needs to do.
-  let dest = null;
-  while (!dest) {
-    const query = await _showTextPrompt('Destination — place or waypoint name:');
-    if (!query) return;
-    dest = await _resolveNamedDestination(query);
-    if (!dest) {
-      // _resolveNamedDestination already announces a genuine "couldn't
-      // find" miss, but stays silent when it showed a disambiguation
-      // picker and the user closed it without choosing — this is the
-      // guaranteed fallback so failing to resolve is never silent here.
-      const msg = `Couldn't resolve "${query}" — try another name, or Cancel to skip the next leg.`;
-      setStatus(msg);
-      TTS.sayImmediate(msg);
-    }
-  }
-  const destPt = { lat: dest.lat, lon: dest.lon };
-  const ui = _showRerouteOverlay([fromPoint, destPt]);
-  _reRouteSegments([_stripPoint(fromPoint), destPt], ui.update.bind(ui), ui.setText.bind(ui), 'Next Leg')
-    .then(({ points, fallbacks, fallbackSegs, blocked }) => {
-      ui.remove();
-      if (blocked) return;  // _reRouteSegments already announced why
-      _pushEditHistory();  // its own undo step, separate from the overnight toggle
-      _editPoints.push(...points.slice(1).map(_stripPoint));  // points[0] duplicates fromPoint
-      _selectedEditNodeIdx.clear();
-      _renderEditLayers();
-      const found = _liveHazardCheck();
-      if (!found.length) {
-        if (fallbacks > 0) _showRouteFallbackWarning(fallbackSegs);
-        else {
-          setStatus('Next leg routed — review and Save when ready.');
-          TTS.sayImmediate('Next leg routed. Review and save when ready.');
-        }
-      }
-    })
-    .catch(err => {
-      ui.remove();
-      setStatus('Auto-route failed.');
-      console.error('[nextLeg]', err);
-    });
-}
-
 // ── GPX export ────────────────────────────────────────────────────────────────
 
 function _downloadGpx(points, routeName) {
@@ -5879,13 +5695,10 @@ ${trkpts}
   URL.revokeObjectURL(url);
 }
 
-// Builds the lower-right Rename/Export/Copy/Delete corner controls for an .rp-row (shared
-// between the Routes and Tracks list panels). getPoints() returns the point array to export;
-// onRename(newName) persists the rename and should itself trigger a re-render of the owning
-// panel; onDelete(), if given, does the same for deletion (own confirm() included) and adds
-// the corner's Delete button — omit it for rows that shouldn't offer deletion here. itemLabel
-// ('route'/'track') is just for tooltip wording.
-function _buildRpCornerButtons(row, name, getPoints, onRename, onDelete, itemLabel = 'item') {
+// Builds the lower-right Rename/Export corner controls for an .rp-row (shared between the
+// Routes and Tracks list panels). getPoints() returns the point array to export; onRename(newName)
+// persists the rename and should itself trigger a re-render of the owning panel.
+function _buildRpCornerButtons(row, name, getPoints, onRename) {
   const corner = document.createElement('div');
   corner.className = 'rp-corner';
 
@@ -5893,7 +5706,6 @@ function _buildRpCornerButtons(row, name, getPoints, onRename, onDelete, itemLab
   renameBtn.type = 'button';
   renameBtn.className = 'rp-corner-btn';
   renameBtn.textContent = '✎ Rename';
-  renameBtn.title = `Rename this ${itemLabel}`;
   renameBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     const nameLine = row.querySelector('.rp-row-name');
@@ -5922,7 +5734,6 @@ function _buildRpCornerButtons(row, name, getPoints, onRename, onDelete, itemLab
   exportBtn.type = 'button';
   exportBtn.className = 'rp-corner-btn';
   exportBtn.textContent = '⬇ Export';
-  exportBtn.title = `Save this ${itemLabel} as a GPX file`;
   exportBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     _downloadGpx(getPoints(), name);
@@ -5932,7 +5743,6 @@ function _buildRpCornerButtons(row, name, getPoints, onRename, onDelete, itemLab
   copyWptsBtn.type = 'button';
   copyWptsBtn.className = 'rp-corner-btn';
   copyWptsBtn.textContent = '📋 Copy waypoints';
-  copyWptsBtn.title = `Copy this ${itemLabel}'s waypoints as text`;
   copyWptsBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     _showCopyWaypointsOverlay(name, getPoints());
@@ -5941,28 +5751,6 @@ function _buildRpCornerButtons(row, name, getPoints, onRename, onDelete, itemLab
   corner.appendChild(renameBtn);
   corner.appendChild(exportBtn);
   corner.appendChild(copyWptsBtn);
-
-  if (onDelete) {
-    // Deliberately last, its own danger color, and reachable only once the
-    // row is expanded — a plain tap on a collapsed row (the common case)
-    // now unambiguously means "toggle shown on map," with nothing
-    // destructive within reach of a stray tap. Was previously an "×"
-    // sitting inline in the always-visible name row (always-visible on
-    // touch devices, per the old .rp-delete-btn media-query override),
-    // right next to the active/hidden state mark — reported as too easy to
-    // hit by accident while trying to activate a route.
-    const deleteBtn = document.createElement('button');
-    deleteBtn.type = 'button';
-    deleteBtn.className = 'rp-corner-btn rp-corner-btn-danger';
-    deleteBtn.textContent = '🗑 Delete';
-    deleteBtn.title = `Permanently delete this ${itemLabel}`;
-    deleteBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      onDelete();
-    });
-    corner.appendChild(deleteBtn);
-  }
-
   return corner;
 }
 
@@ -6544,60 +6332,13 @@ function _updateHeadingRay(lat, lon, headingDeg, speedKt) {
   }
 }
 
-// Keeps #zoom-slider-wrap/#pan-controls-wrap/#vjourney-banner (desktop-only,
-// see their own media query) stacked below whatever's actually in the
-// Leaflet top-left corner (compass, and — only while following a route —
-// the follow-progress readout, which pushed the corner taller than the
-// zoom slider's old hardcoded top:110px assumed and left it overlapping
-// this readout's text, reported live). Measuring instead of hardcoding a
-// second offset keeps this correct regardless of which of those happen to
-// be showing — including zoom/pan themselves being hidden entirely, which
-// Underway mode does with !important, and Virtual Journey now forces
-// Underway on for: in that case each hidden step contributes no height
-// (offsetParent check below) instead of leaving a gap, so #vjourney-banner
-// lands directly under the compass/follow-progress stack instead.
-function _syncLeftRailStack() {
-  if (window.innerWidth < 768 || !_mapContainer) return; // hidden below this width — nothing to sync
-  const mcTop = _mapContainer.getBoundingClientRect().top;
-  const corner = document.querySelector('.leaflet-top.leaflet-left');
-  const zoomWrap = document.getElementById('zoom-slider-wrap');
-  const panWrap = document.getElementById('pan-controls-wrap');
-  const vjBanner = document.getElementById('vjourney-banner');
-  const GAP = 10;
-  if (!zoomWrap || !panWrap) return;
-
-  let bottom = corner ? corner.getBoundingClientRect().bottom : 30 + mcTop; // viewport-relative
-  const zoomTop = bottom + GAP;
-  zoomWrap.style.top = Math.round(zoomTop - mcTop) + 'px';
-  bottom = (zoomWrap.offsetParent !== null) ? zoomWrap.getBoundingClientRect().bottom : zoomTop;
-
-  const panTop = bottom + GAP;
-  panWrap.style.top = Math.round(panTop - mcTop) + 'px';
-  bottom = (panWrap.offsetParent !== null) ? panWrap.getBoundingClientRect().bottom : panTop;
-
-  if (vjBanner && vjBanner.style.display !== 'none') {
-    // vjBanner is position:fixed at this breakpoint (see its CSS) — its
-    // `top` is viewport-relative already, unlike zoomWrap/panWrap above
-    // (position:absolute inside #map-container), so no mcTop offset here.
-    vjBanner.style.top = Math.round(bottom + GAP) + 'px';
-  }
-}
-window.addEventListener('resize', _syncLeftRailStack);
-
 function _updateFollowProgress(lat, lon) {
   if (!_followProgressEl) return;
-  const _wasHidden = _followProgressEl.style.display === 'none';
-  if (!_followingRouteId) {
-    if (!_wasHidden) { _followProgressEl.style.display = 'none'; _syncLeftRailStack(); }
-    return;
-  }
+  if (!_followingRouteId) { _followProgressEl.style.display = 'none'; return; }
   const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
   const route = routes.find(r => r.id === _followingRouteId);
   const pts = route?.points;
-  if (!pts || pts.length < 2) {
-    if (!_wasHidden) { _followProgressEl.style.display = 'none'; _syncLeftRailStack(); }
-    return;
-  }
+  if (!pts || pts.length < 2) { _followProgressEl.style.display = 'none'; return; }
 
   // Advance the "next waypoint" pointer using along-track projection onto the
   // current leg (same _segCrossTrack math as hazard checking), not just a raw
@@ -6636,7 +6377,6 @@ function _updateFollowProgress(lat, lon) {
   }
 
   _followProgressEl.style.display = '';
-  if (_wasHidden) _syncLeftRailStack();
   _followProgressEl.innerHTML =
     `<div>Next: ${bearingToDisplay(brgToNext)}, ${distToNext.toFixed(1)} nm</div>` +
     `<div>To end: ${distToEnd.toFixed(1)} nm</div>` +
@@ -6908,25 +6648,6 @@ document.getElementById('anim-stop-btn').addEventListener('click', _exitAnimMode
 
 // ── Virtual Journey ──────────────────────────────────────────────────────────
 
-// #bottom-hud (and #focus-btn inside it) is position:fixed to the VIEWPORT's
-// bottom-right corner, not to the map's shrunk box — same layout conflict
-// already hit and documented for #edit-banner. There the fix was to just
-// hide #bottom-hud, but that's the wrong tool here: the whole point of
-// Virtual Journey (vs. the old anim-mode) is that #focus-btn stays live and
-// tappable during playback. So instead, track the banner's real (variable —
-// tide chart, wrapped text) height in a CSS var and let #bottom-hud ride up
-// above it.
-let _vjBannerRO = null;
-function _syncVjBannerClearance() {
-  const banner = document.getElementById('vjourney-banner');
-  // Only below the desktop breakpoint (see #vjourney-banner's own CSS) does
-  // the banner still dock full-width and eat into the bottom of the
-  // viewport — at 768px+ it's position:fixed off in the left rail instead
-  // (see _syncLeftRailStack), so #bottom-hud has nothing to clear there.
-  const h = (window.innerWidth < 768 && banner && banner.style.display !== 'none') ? banner.offsetHeight : 0;
-  _appEl.style.setProperty('--vjourney-h', h + 'px');
-}
-
 function _startVirtualJourney(route, speedKnots) {
   if (!route.points || route.points.length < 2) return;
   if (_trackRecActive) {
@@ -6935,16 +6656,6 @@ function _startVirtualJourney(route, speedKnots) {
     return;
   }
   _stopVirtualJourney(); // supersede any journey already running
-
-  // Rehearsing "underway" is the whole point of Virtual Journey, so it
-  // should look underway — force the switch on for the duration. Stopping
-  // always forces it back off (not "restore whatever it was") — tried
-  // restoring the prior state first, but that left the user stranded
-  // without Screen/Map Type/Location whenever Underway already happened
-  // to be on before the journey started, since nothing then changed it
-  // back. A journey ending is the clear, unambiguous signal to return to
-  // the normal planning UI.
-  if (!_underwayCheckbox.checked) _setUnderwayMode(true);
 
   _vjRoute = route;
   _vjSpeedKnots = speedKnots;
@@ -6979,27 +6690,12 @@ function _startVirtualJourney(route, speedKnots) {
   Query.setFocus(firstLegPt.lat, firstLegPt.lon, `${route.name} — waypoint ${_followingLegIdx + 1}`, 'waypoint');
   _updateFocusButton();
   _followFocusLegIdx = _followingLegIdx;
-  _appEl.classList.add('following-active');
 
   document.getElementById('vjourney-route-name').textContent = route.name;
   document.getElementById('vjourney-speed-input').value = speedKnots;
   document.getElementById('vjourney-status').textContent = `Underway · ${speedKnots} kts`;
   document.getElementById('vjourney-pause-btn').textContent = '⏸ Pause';
   document.getElementById('vjourney-banner').style.display = 'flex';
-  _appEl.classList.add('vjourney-active');
-  _syncVjActivateBtn(route);
-  _syncVjBannerClearance();
-  _syncLeftRailStack();
-  if (!_vjBannerRO) {
-    _vjBannerRO = new ResizeObserver(() => { _syncVjBannerClearance(); _syncLeftRailStack(); });
-    _vjBannerRO.observe(document.getElementById('vjourney-banner'));
-  }
-  // The full routes list has nothing left to offer for the duration of a
-  // journey — see #vjourney-activate-btn below for the one control from
-  // its row (show/hide on the map) that's still relevant, now folded into
-  // this banner directly — and it was reported as taking up too much
-  // screen space sitting open on top of the map the whole time.
-  _closeRoutePickerFn?.();
   _buildRoutePickerPanelFn?.();
 
   const msg = `Starting virtual journey: ${route.name}, ${speedKnots} knots.`;
@@ -7073,8 +6769,6 @@ function _stopVirtualJourney() {
   if (!_vjRoute) return; // nothing was actually running — safe to call as a guard
   GPS.clearVirtualPosition();
   document.getElementById('vjourney-banner').style.display = 'none';
-  _appEl.classList.remove('vjourney-active');
-  _appEl.style.removeProperty('--vjourney-h');
   _vjRoute = null;
   _vjSegs = [];
   _vjTotalNm = 0;
@@ -7089,12 +6783,8 @@ function _stopVirtualJourney() {
   _followingDestLon = null;
   _followingLegIdx = 1;
   _followFocusLegIdx = null;
-  _appEl.classList.remove('following-active');
-  _exitRoutePanelCompactFn?.();
   if (_followProgressEl) _followProgressEl.style.display = 'none';
   _buildRoutePickerPanelFn?.();
-  _setUnderwayMode(false);
-  _syncLeftRailStack();
 }
 
 document.getElementById('vjourney-pause-btn').addEventListener('click', () => {
@@ -7102,27 +6792,6 @@ document.getElementById('vjourney-pause-btn').addEventListener('click', () => {
 });
 document.getElementById('vjourney-stop-btn').addEventListener('click', _stopVirtualJourney);
 document.getElementById('vjourney-close-btn').addEventListener('click', _stopVirtualJourney);
-
-// Show/hide this route on the map — the one control from its row in the
-// (now auto-closed, see _startVirtualJourney) routes list that's still
-// relevant mid-journey; reuses the same pill styling/semantics as
-// .rp-activate-btn there.
-function _syncVjActivateBtn(route) {
-  const btn = document.getElementById('vjourney-activate-btn');
-  const hidden = _hiddenRouteNames.has(route.name);
-  btn.classList.toggle('hidden', hidden);
-  btn.textContent = hidden ? '✗ Hidden' : '✓ On map';
-  btn.title = hidden ? 'Tap to show this route on the map' : 'Tap to hide this route from the map';
-}
-document.getElementById('vjourney-activate-btn').addEventListener('click', () => {
-  if (!_vjRoute) return;
-  if (_hiddenRouteNames.has(_vjRoute.name)) _hiddenRouteNames.delete(_vjRoute.name);
-  else _hiddenRouteNames.add(_vjRoute.name);
-  _saveHiddenRoutes();
-  _refreshSavedRouteLayers();
-  _syncVjActivateBtn(_vjRoute);
-  _buildRoutePickerPanelFn?.();
-});
 document.getElementById('vjourney-banner').addEventListener('click', (e) => {
   const chip = e.target.closest('.vjourney-compress');
   if (!chip) return;
@@ -7196,21 +6865,6 @@ function _startRouteAnimation(route, speedKnots) {
     cumDist += d;
   }
   const totalNm = cumDist;
-
-  // Overnight stops the boat should pause and flash at as it passes them —
-  // per direct request. These markers are otherwise invisible during
-  // Animate: _savedRoutesLayer (which is what _routeOvernightIcon markers
-  // live on) gets hidden a few lines up for a cleaner animated view, so
-  // this flash is the only time one would ever be visible during
-  // playback. Index 0 (the route's own start) is excluded — there's
-  // nothing to "arrive at" a moment after the boat begins there.
-  const ANIM_OVERNIGHT_PAUSE_MS = 1200;
-  const overnightIdxs = [];
-  for (let i = 1; i < route.points.length; i++) {
-    if (route.points[i].overnight) overnightIdxs.push(i);
-  }
-  const ptCumNm = route.points.map((_, i) => i < segs.length ? segs[i].cumDist : totalNm);
-  let _nextOvernightPtr = 0;
 
   const _initBearing = segs.length ? _segBearing(segs[0].lat1, segs[0].lon1, segs[0].lat2, segs[0].lon2) : 0;
   if (!_map.getPane('animBoatPane')) _map.createPane('animBoatPane').style.zIndex = '750';
@@ -7340,36 +6994,6 @@ function _startRouteAnimation(route, speedKnots) {
     if (_animPt.x < _marginX || _animPt.x > _animSize.x - _marginX ||
         _animPt.y < _marginY || _animPt.y > _animSize.y - _marginY) {
       _map.panTo([lat, lon], { animate: true, duration: 0.4, noMoveStart: true });
-    }
-
-    // Reached an overnight stop — snap exactly onto it, flash a bed-icon
-    // marker, and pause briefly before resuming (same pause/resume shape
-    // as the milestone-report branch below: return without scheduling the
-    // next frame, then re-anchor startTime against _animTraveled to
-    // resume cleanly).
-    if (_nextOvernightPtr < overnightIdxs.length && traveled >= ptCumNm[overnightIdxs[_nextOvernightPtr]]) {
-      const opt = route.points[overnightIdxs[_nextOvernightPtr]];
-      _nextOvernightPtr++;
-      _animMarker.setLatLng([opt.lat, opt.lon]);
-      _animCurrentLat = opt.lat;
-      _animCurrentLon = opt.lon;
-      const flashMarker = L.marker([opt.lat, opt.lon], {
-        icon: L.divIcon({ className: 'anim-overnight-flash', html: '&#128719;', iconSize: [26, 26], iconAnchor: [13, 13] }),
-        zIndexOffset: 900,
-      }).addTo(_map);
-      const savedBanner = _animBannerText.textContent;
-      _animBannerText.textContent = '🛏 Overnight stop';
-      TTS.sayImmediate('Overnight stop.');
-      setTimeout(() => {
-        flashMarker.remove();
-        if (!_animMode) return;
-        _animBannerText.textContent = savedBanner;
-        _animRafId = requestAnimationFrame((now2) => {
-          startTime = now2 - (_animTraveled / nmPerRealSec * 1000);
-          step(now2);
-        });
-      }, ANIM_OVERNIGHT_PAUSE_MS);
-      return;
     }
 
     // Record one sample per real second
@@ -8246,38 +7870,14 @@ function _ensureMap() {
   _addSwipeToClose(_routePickerPanel, _closeRoutePicker, 'x', '.nf-title');
   _makeDraggable(_routePickerPanel, _routePickerPanel.querySelector('.nf-title'));
 
-  // Compact mode: while Follow/Virtual Journey is active, the full route
-  // list (sized to span nearly the whole viewport height, see
-  // #route-picker-panel's own CSS comment) has nothing left to offer over
-  // that one route's own Stop control, and it blocks the Underway switch
-  // (top-right) the whole time it's open. Lets the user shrink it down to
-  // just that row on request rather than forcing it — they may still want
-  // the full list open to glance at other routes while one's underway.
-  let _routePanelCompact = false;
-  const _compactToggleBtn = document.getElementById('rp-compact-toggle');
-  function _setRoutePanelCompact(on) {
-    _routePanelCompact = on;
-    _routePickerPanel.classList.toggle('compact', on);
-    _compactToggleBtn.classList.toggle('active', on);
-    _compactToggleBtn.textContent = on ? '⤢ Show full list' : '⤡ Focus active route';
-    _buildRoutePickerPanel();
-  }
-  _compactToggleBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    _setRoutePanelCompact(!_routePanelCompact);
-  });
-
   function _buildRoutePickerPanel() {
     DriveSync.maybeAutoSync();
     const list  = document.getElementById('rp-route-list');
     const query = document.getElementById('rp-search').value || '';
     const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
     list.innerHTML = '';
-    let filtered = routes.filter(r => _itemMatchesSearch(r, query))
+    const filtered = routes.filter(r => _itemMatchesSearch(r, query))
       .sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
-    if (_routePanelCompact) {
-      filtered = filtered.filter(r => r.id === _followingRouteId || r.id === _vjRoute?.id);
-    }
     if (filtered.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'rp-empty';
@@ -8296,38 +7896,11 @@ function _ensureMap() {
       row.className = 'rp-row' + (hidden ? ' hidden' : '') + (expanded ? ' expanded' : '');
       const nameLine = document.createElement('div');
       nameLine.className = 'rp-row-name';
-      // A dedicated button, not just a colored label — this is the "activate"
-      // control (show/hide this route on the map) and it needs to look and
-      // behave like one on its own, separate from tapping the rest of the
-      // row (which only expands/collapses the details below). Previously a
-      // plain-text ::before mark with no click handler of its own — the
-      // whole row doubled as both "activate" AND "expand," a single tap
-      // meaning two unrelated things at once.
-      const activateBtn = document.createElement('button');
-      activateBtn.type = 'button';
-      activateBtn.className = 'rp-activate-btn' + (hidden ? ' hidden' : '');
-      activateBtn.textContent = hidden ? '✗ Hidden' : '✓ On map';
-      activateBtn.title = hidden ? 'Tap to show this route on the map' : 'Tap to hide this route from the map';
-      activateBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (_hiddenRouteNames.has(route.name)) _hiddenRouteNames.delete(route.name);
-        else _hiddenRouteNames.add(route.name);
-        _saveHiddenRoutes();
-        _refreshSavedRouteLayers();
-        _buildRoutePickerPanel();
-      });
-      nameLine.appendChild(activateBtn);
       const nameText = document.createElement('span');
       nameText.textContent = route.name;
       nameLine.appendChild(nameText);
       {
-        // Cached-only here — computing this per row (route segments ×
-        // tens of thousands of hazard features) blocked the panel's own
-        // first paint for multiple seconds once there were 100+ saved
-        // routes. _warmRouteHazardCache backfills misses in the
-        // background and re-renders once it has; a row just shows no
-        // badge for the moment it isn't cached yet.
-        const hazFound = _getRouteHazardsCached(route) || [];
+        const hazFound = _getRouteHazards(route);
         const hardCount = hazFound.filter(h => h.kind === 'hard').length;
         const softCount = hazFound.length - hardCount;
         if (hardCount > 0) {
@@ -8345,6 +7918,26 @@ function _ensureMap() {
           nameLine.appendChild(badge);
         }
       }
+      const delBtn = document.createElement('button');
+      delBtn.className = 'rp-delete-btn';
+      delBtn.textContent = '×';
+      delBtn.title = 'Delete route';
+      delBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!confirm(`Delete route "${route.name}"?`)) return;
+        const all = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+        _tombstone(route.id, 'route');
+        localStorage.setItem(ROUTE_KEY, JSON.stringify(all.filter(r => r.name !== route.name)));
+        _hiddenRouteNames.delete(route.name);
+        _saveHiddenRoutes();
+        if (localStorage.getItem('audiochart-last-route') === route.name)
+          localStorage.removeItem('audiochart-last-route');
+        if (_expandedRouteRowName === route.name) _expandedRouteRowName = null;
+        _refreshSavedRouteLayers();
+        _populateRouteSelectFn?.();
+        _buildRoutePickerPanel();
+      });
+      nameLine.appendChild(delBtn);
       nameLine.appendChild(_buildRpCornerButtons(row, route.name, () => route.points, (newName) => {
         const routes2 = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
         const idx = routes2.findIndex(r => r.name === route.name);
@@ -8362,20 +7955,7 @@ function _ensureMap() {
         _populateRouteSelectFn?.();
         _refreshSavedRouteLayers();
         _buildRoutePickerPanel();
-      }, () => {
-        if (!confirm(`Delete route "${route.name}"?`)) return;
-        const all = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
-        _tombstone(route.id, 'route');
-        localStorage.setItem(ROUTE_KEY, JSON.stringify(all.filter(r => r.name !== route.name)));
-        _hiddenRouteNames.delete(route.name);
-        _saveHiddenRoutes();
-        if (localStorage.getItem('audiochart-last-route') === route.name)
-          localStorage.removeItem('audiochart-last-route');
-        if (_expandedRouteRowName === route.name) _expandedRouteRowName = null;
-        _refreshSavedRouteLayers();
-        _populateRouteSelectFn?.();
-        _buildRoutePickerPanel();
-      }, 'route'));
+      }));
       row.appendChild(nameLine);
       if (startName || endName) {
         const placeLine = document.createElement('div');
@@ -8396,7 +7976,6 @@ function _ensureMap() {
       followBtn.className = 'rp-follow-btn';
       if (_followingRouteId === route.id) {
         followBtn.textContent = '⏹ Stop Following';
-        followBtn.title = 'Stop recording this passage';
         followBtn.classList.add('following');
       } else {
         followBtn.textContent = '▶ Follow';
@@ -8413,7 +7992,6 @@ function _ensureMap() {
       vjBtn.className = 'rp-vj-btn';
       if (_vjRoute?.id === route.id) {
         vjBtn.textContent = '⏹ Stop Journey';
-        vjBtn.title = 'Stop this virtual journey';
       } else {
         vjBtn.textContent = '🕹 Virtual Journey';
         vjBtn.title = 'Play this route back as a real moving GPS position at a configurable speed — rehearse bearing queries, anchor watch, etc. without leaving the dock';
@@ -8429,25 +8007,6 @@ function _ensureMap() {
         }
       });
       row.appendChild(vjBtn);
-      // Previously the only way in was clicking the route's own line on the
-      // map — awkward or outright impossible to hit reliably at some zoom
-      // levels (reported live: can't see/click a route zoomed all the way
-      // out). Re-resolves by id, same as the map's own click handler, so a
-      // background sync reordering routes between panel-open and this
-      // click can't open the wrong one either.
-      const editBtn = document.createElement('button');
-      editBtn.className = 'rp-follow-btn';
-      editBtn.textContent = '✎ Edit';
-      editBtn.title = 'Open this route in the map editor';
-      editBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const fresh = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
-        const idx = fresh.findIndex(r => r.id === route.id);
-        if (idx < 0) return;
-        _closeRoutePicker();
-        _enterEditMode(idx);
-      });
-      row.appendChild(editBtn);
       const speedKt = parseFloat(localStorage.getItem('audiochart-last-speed')) || 5;
       const legs = splitIntoLegs(route.points, speedKt);
       if (legs.length > 0) {
@@ -8466,7 +8025,14 @@ function _ensureMap() {
         row.appendChild(legList);
       }
       row.addEventListener('click', () => {
+        if (_hiddenRouteNames.has(route.name)) {
+          _hiddenRouteNames.delete(route.name);
+        } else {
+          _hiddenRouteNames.add(route.name);
+        }
+        _saveHiddenRoutes();
         _expandedRouteRowName = (_expandedRouteRowName === route.name) ? null : route.name;
+        _refreshSavedRouteLayers();
         _buildRoutePickerPanel();
       });
       list.appendChild(row);
@@ -8478,7 +8044,7 @@ function _ensureMap() {
     const opening = !_routePickerPanel.classList.contains('open');
     _routePickerPanel.classList.toggle('open');
     _routePickerBtn.classList.toggle('active', opening);
-    if (opening) { _buildRoutePickerPanel(); _warmRouteHazardCache(); }
+    if (opening) _buildRoutePickerPanel();
   });
 
   document.getElementById('reroute-btn').addEventListener('click', () => {
@@ -8710,23 +8276,26 @@ function _ensureMap() {
       row.className = 'rp-row' + (hidden ? ' hidden' : '') + (expanded ? ' expanded' : '');
       const nameLine = document.createElement('div');
       nameLine.className = 'rp-row-name';
-      const activateBtn = document.createElement('button');
-      activateBtn.type = 'button';
-      activateBtn.className = 'rp-activate-btn' + (hidden ? ' hidden' : '');
-      activateBtn.textContent = hidden ? '✗ Hidden' : '✓ On map';
-      activateBtn.title = hidden ? 'Tap to show this track on the map' : 'Tap to hide this track from the map';
-      activateBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (_hiddenTrackNames.has(track.name)) _hiddenTrackNames.delete(track.name);
-        else _hiddenTrackNames.add(track.name);
-        _saveHiddenTracks();
-        _refreshSavedTrackLayers();
-        _buildTrackPickerPanel();
-      });
-      nameLine.appendChild(activateBtn);
       const nameText = document.createElement('span');
       nameText.textContent = track.name;
       nameLine.appendChild(nameText);
+      const delBtn = document.createElement('button');
+      delBtn.className = 'rp-delete-btn';
+      delBtn.textContent = '×';
+      delBtn.title = 'Delete track';
+      delBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!confirm(`Delete track "${track.name}"?`)) return;
+        const all = JSON.parse(localStorage.getItem(TRACK_KEY) || '[]');
+        _tombstone(track.id, 'track');
+        localStorage.setItem(TRACK_KEY, JSON.stringify(all.filter(t => t.name !== track.name)));
+        _hiddenTrackNames.delete(track.name);
+        _saveHiddenTracks();
+        if (_expandedTrackRowName === track.name) _expandedTrackRowName = null;
+        _refreshSavedTrackLayers();
+        _buildTrackPickerPanel();
+      });
+      nameLine.appendChild(delBtn);
       nameLine.appendChild(_buildRpCornerButtons(row, track.name, () => track.points, (newName) => {
         const tracks2 = JSON.parse(localStorage.getItem(TRACK_KEY) || '[]');
         const idx = tracks2.findIndex(t => t.name === track.name);
@@ -8740,17 +8309,7 @@ function _ensureMap() {
         if (_expandedTrackRowName === oldName) _expandedTrackRowName = newName;
         _refreshSavedTrackLayers();
         _buildTrackPickerPanel();
-      }, () => {
-        if (!confirm(`Delete track "${track.name}"?`)) return;
-        const all = JSON.parse(localStorage.getItem(TRACK_KEY) || '[]');
-        _tombstone(track.id, 'track');
-        localStorage.setItem(TRACK_KEY, JSON.stringify(all.filter(t => t.name !== track.name)));
-        _hiddenTrackNames.delete(track.name);
-        _saveHiddenTracks();
-        if (_expandedTrackRowName === track.name) _expandedTrackRowName = null;
-        _refreshSavedTrackLayers();
-        _buildTrackPickerPanel();
-      }, 'track'));
+      }));
       row.appendChild(nameLine);
       if (startName || endName) {
         const placeLine = document.createElement('div');
@@ -8759,7 +8318,14 @@ function _ensureMap() {
         row.appendChild(placeLine);
       }
       row.addEventListener('click', () => {
+        if (_hiddenTrackNames.has(track.name)) {
+          _hiddenTrackNames.delete(track.name);
+        } else {
+          _hiddenTrackNames.add(track.name);
+        }
+        _saveHiddenTracks();
         _expandedTrackRowName = (_expandedTrackRowName === track.name) ? null : track.name;
+        _refreshSavedTrackLayers();
         _buildTrackPickerPanel();
       });
       list.appendChild(row);
@@ -8953,8 +8519,6 @@ function _ensureMap() {
   }
   _populateRouteSelectFn = _populateRouteSelect;
   _buildRoutePickerPanelFn = _buildRoutePickerPanel;
-  _exitRoutePanelCompactFn = () => { if (_routePanelCompact) _setRoutePanelCompact(false); };
-  _closeRoutePickerFn = _closeRoutePicker;
   _buildTrackPickerPanelFn = _buildTrackPickerPanel;
 
   // ── Track config save/load ──────────────────────────────────────────────────
@@ -10098,8 +9662,7 @@ function _refreshNavaidOverlay() {
             const msg = 'No GPS fix yet.';
             showResponse(msg); TTS.sayImmediate(msg); return;
           }
-          const result = Query.bearingToResolvedPlace(pos.lat, pos.lon, lat, lon, n.name,
-            _followingRouteId ? { keepFocus: true } : undefined);
+          const result = Query.bearingToResolvedPlace(pos.lat, pos.lon, lat, lon, n.name);
           showResponse(result.text);
           TTS.sayImmediate(result.speech);
           _bearingAccumulator.push({ fromLat: pos.lat, fromLon: pos.lon, result: Query.lastBearingResult });
@@ -10792,14 +10355,6 @@ async function handleCommand(transcript) {
     console.log('[AudioChart] intent:', intent, params);
     let response;
 
-    // An ad-hoc bearing query while a route is being followed (real or
-    // virtual) shouldn't silently retarget #focus-btn away from the leg
-    // actually being steered to — checking "bearing to waypoint 5" or
-    // "bearing to X" mid-passage is a lookup, not a request to change
-    // course. The target stays locked until the leg advances on its own
-    // or the user explicitly says "focus on X" (SET_FOCUS, unaffected).
-    const _keepFocusOpt = _followingRouteId ? { keepFocus: true } : undefined;
-
     switch (intent) {
       case 'WHERE_AM_I': {
         response = Query.whereAmI(pos.lat, pos.lon, pos.accuracy);
@@ -10838,7 +10393,7 @@ async function handleCommand(transcript) {
         }
         break;
       case 'BEARING_TO_COORD':
-        response = Query.bearingToCoord(pos.lat, pos.lon, params.lat, params.lon, _keepFocusOpt);
+        response = Query.bearingToCoord(pos.lat, pos.lon, params.lat, params.lon);
         break;
       case 'QUERY_FOCUS': {
         response = Query.bearingToFocusedTarget(pos.lat, pos.lon);
@@ -10911,15 +10466,15 @@ async function handleCommand(transcript) {
           response = { text: `Waypoint ${params.waypointNum} doesn't exist on "${route?.name || 'this route'}".`, speech: `Waypoint ${params.waypointNum} doesn't exist on this route.` };
           break;
         }
-        response = Query.bearingToNamedPoint(pos.lat, pos.lon, pt.lat, pt.lon, `${route.name} — waypoint ${params.waypointNum}`, _keepFocusOpt);
+        response = Query.bearingToNamedPoint(pos.lat, pos.lon, pt.lat, pt.lon, `${route.name} — waypoint ${params.waypointNum}`);
         break;
       }
       case 'BEARING_TO_PLACE': {
-        response = Query.bearingToPlace(pos.lat, pos.lon, params.placeName, _keepFocusOpt);
+        response = Query.bearingToPlace(pos.lat, pos.lon, params.placeName);
         if (!response && serverUrl) {
           const place = await Query.findPlaceOnServer(params.placeName);
           if (place) {
-            response = Query.bearingToResolvedPlace(pos.lat, pos.lon, place.lat, place.lon, place.name, _keepFocusOpt);
+            response = Query.bearingToResolvedPlace(pos.lat, pos.lon, place.lat, place.lon, place.name);
           }
         }
         if (!response) {
@@ -11210,8 +10765,6 @@ function _finishTrackRecording(name) {
   _followingDestLon = null;
   _followingLegIdx = 1;
   _followFocusLegIdx = null;
-  _appEl.classList.remove('following-active');
-  _exitRoutePanelCompactFn?.();
   if (_followProgressEl) _followProgressEl.style.display = 'none';
   trackRecBtn.textContent = '⏺ Start Tracking';
   trackRecBtn.title = 'Record a GPS track';
@@ -11265,7 +10818,6 @@ function _startFollowingRoute(route) {
   Query.setFocus(firstLegPt.lat, firstLegPt.lon, `${route.name} — waypoint ${_followingLegIdx + 1}`, 'waypoint');
   _updateFocusButton();
   _followFocusLegIdx = _followingLegIdx;
-  _appEl.classList.add('following-active');
   trackRecBtn.textContent = '⏹ Stop Tracking';
   trackRecBtn.title = `Following "${route.name}" — tap to stop early`;
   trackRecBtn.classList.add('rec-active');
@@ -11777,17 +11329,12 @@ document.getElementById('screen-menu-rearrange').addEventListener('click', () =>
 });
 
 // Underway is a pure visibility toggle — see #app.underway-mode in
-// app.css — hides the top bar, #right-rail, zoom/pan, and tide down to
-// the compass + bearing/heading-speed. A real slide switch (checkbox-
-// driven, see #underway-btn in index.html/app.css), always visible in
-// both states — its own positioning comment in app.css explains why it
-// lives outside #map-overlay-status. Slid right (checked) = underway.
-// The one deliberate exception to "the user flips this themselves":
-// _startVirtualJourney forces it on for the run's duration (a rehearsal
-// should look underway) and _stopVirtualJourney always forces it back
-// off — not a restore-to-prior-state, since that left the user stranded
-// without Screen/Map Type/Location whenever Underway already happened to
-// be on before the journey started.
+// app.css — never touches edit/follow/animation state, just hides the
+// top bar, #right-rail, zoom/pan, and tide down to the compass +
+// bearing/heading-speed. A real slide switch (checkbox-driven, see
+// #underway-btn in index.html/app.css), always visible in both states —
+// its own positioning comment in app.css explains why it lives outside
+// #map-overlay-status. Slid right (checked) = underway.
 const _underwayCheckbox = document.getElementById('underway-checkbox');
 function _setUnderwayMode(on) {
   _appEl.classList.toggle('underway-mode', on);
@@ -12067,11 +11614,6 @@ async function init() {
     async (lat, lon, accuracy, source, heading, speedKt) => {
       showPosition(lat, lon, accuracy, source);
       _refreshYouLayer();
-      // Virtual Journey has a real, meaningful heading every tick (the current
-      // route segment's bearing) — swap in the bare, rotated boat icon so it
-      // visibly points toward the next waypoint instead of sitting as the
-      // static circled glyph real/unknown-heading fixes use.
-      if (source === 'virtual' && heading != null) _setBoatIconRotated(heading);
       _updateFocusRay();
       _checkAnchorWatch(lat, lon);
       if (source === 'manual') {
