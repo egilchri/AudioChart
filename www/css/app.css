@@ -928,6 +928,16 @@ body.wco-active #wco-titlebar { display: flex; }
 #app.underway-mode #map-overlay-cmd {
   display: flex;
 }
+/* Same fix as #app.following-active #focus-btn above, and for the same
+   reason: this bar is the ONLY way to issue any command (typed, or
+   dictated via the phone keyboard's own mic) — including the Follow/
+   Virtual Journey-specific "next waypoint" and "bearing to waypoint N".
+   Gating it purely on the manual Underway toggle silently made those
+   commands unreachable during a virtual journey run with Underway off,
+   same as #focus-btn was. */
+#app.following-active #map-overlay-cmd {
+  display: flex;
+}
 /* On a phone-width screen, reserving 300px on the right leaves almost no
    room for the command input at all — confirmed live, this is what "the
    text box to enter the destination was obscured" turned out to be.
