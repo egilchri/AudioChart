@@ -2372,6 +2372,17 @@ body.wco-active #wco-titlebar { display: flex; }
   opacity: 0.5;
   cursor: default;
 }
+/* #vjourney-banner is a normal-flow sibling of the map, so it shrinks the
+   map to make room for itself — but #bottom-hud (and #focus-btn inside it)
+   is position:fixed to the VIEWPORT's own bottom-right corner, so it doesn't
+   move up on its own and ends up rendered underneath the banner. Unlike
+   #edit-banner's same conflict (see #app.edit-mode #bottom-hud above), the
+   fix here can't be "just hide it" — Virtual Journey exists specifically to
+   keep #focus-btn live during playback — so instead #app.js keeps
+   --vjourney-h synced to the banner's actual (variable-height) box and
+   #bottom-hud rides up above it. */
+#app.vjourney-active #bottom-hud { bottom: calc(10px + var(--vjourney-h, 0px)); }
+
 /* Same layout as #sim-track-banner (shares .track-speed-row/.track-chip/
    .track-chips-scroll) — a distinct accent (amber, not cyan) so the two
    playback banners read as different features at a glance. */

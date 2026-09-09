@@ -6648,6 +6648,21 @@ document.getElementById('anim-stop-btn').addEventListener('click', _exitAnimMode
 
 // ── Virtual Journey ──────────────────────────────────────────────────────────
 
+// #bottom-hud (and #focus-btn inside it) is position:fixed to the VIEWPORT's
+// bottom-right corner, not to the map's shrunk box — same layout conflict
+// already hit and documented for #edit-banner. There the fix was to just
+// hide #bottom-hud, but that's the wrong tool here: the whole point of
+// Virtual Journey (vs. the old anim-mode) is that #focus-btn stays live and
+// tappable during playback. So instead, track the banner's real (variable —
+// tide chart, wrapped text) height in a CSS var and let #bottom-hud ride up
+// above it.
+let _vjBannerRO = null;
+function _syncVjBannerClearance() {
+  const banner = document.getElementById('vjourney-banner');
+  const h = (banner && banner.style.display !== 'none') ? banner.offsetHeight : 0;
+  _appEl.style.setProperty('--vjourney-h', h + 'px');
+}
+
 function _startVirtualJourney(route, speedKnots) {
   if (!route.points || route.points.length < 2) return;
   if (_trackRecActive) {
@@ -6696,6 +6711,12 @@ function _startVirtualJourney(route, speedKnots) {
   document.getElementById('vjourney-status').textContent = `Underway · ${speedKnots} kts`;
   document.getElementById('vjourney-pause-btn').textContent = '⏸ Pause';
   document.getElementById('vjourney-banner').style.display = 'flex';
+  _appEl.classList.add('vjourney-active');
+  _syncVjBannerClearance();
+  if (!_vjBannerRO) {
+    _vjBannerRO = new ResizeObserver(_syncVjBannerClearance);
+    _vjBannerRO.observe(document.getElementById('vjourney-banner'));
+  }
   _buildRoutePickerPanelFn?.();
 
   const msg = `Starting virtual journey: ${route.name}, ${speedKnots} knots.`;
@@ -6769,6 +6790,8 @@ function _stopVirtualJourney() {
   if (!_vjRoute) return; // nothing was actually running — safe to call as a guard
   GPS.clearVirtualPosition();
   document.getElementById('vjourney-banner').style.display = 'none';
+  _appEl.classList.remove('vjourney-active');
+  _appEl.style.removeProperty('--vjourney-h');
   _vjRoute = null;
   _vjSegs = [];
   _vjTotalNm = 0;
@@ -11614,6 +11637,11 @@ async function init() {
     async (lat, lon, accuracy, source, heading, speedKt) => {
       showPosition(lat, lon, accuracy, source);
       _refreshYouLayer();
+      // Virtual Journey has a real, meaningful heading every tick (the current
+      // route segment's bearing) — swap in the bare, rotated boat icon so it
+      // visibly points toward the next waypoint instead of sitting as the
+      // static circled glyph real/unknown-heading fixes use.
+      if (source === 'virtual' && heading != null) _setBoatIconRotated(heading);
       _updateFocusRay();
       _checkAnchorWatch(lat, lon);
       if (source === 'manual') {
