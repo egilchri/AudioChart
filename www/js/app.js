@@ -5163,6 +5163,20 @@ function _renderEditLayers() {
     });
     _editVertexMarkers.push(m);
   }
+  // Confirmed live: these vertex markers can render at the wrong screen
+  // position — worse the farther out the current zoom, self-correcting
+  // only once the user does an actual zoom step (which forces Leaflet to
+  // recompute every layer's position from scratch). Proven not a data or
+  // timing bug — copying the route's own points mid-glitch showed
+  // perfectly correct, sane coordinates. So: force that same recompute
+  // pass ourselves, immediately, via the public panBy API rather than
+  // waiting for the user to trigger it by hand. Panning by 1px and back
+  // nets to zero visually and geographically; the point is running
+  // Leaflet's real 'move' pipeline once, which is what actually fixes it.
+  if (_map._loaded) {
+    _map.panBy([1, 0], { animate: false });
+    _map.panBy([-1, 0], { animate: false });
+  }
 }
 
 function _renderViewportHazards() {
