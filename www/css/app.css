@@ -1583,6 +1583,54 @@ body.wco-active #wco-titlebar { display: flex; }
 #place-disambig-list button:hover,
 #place-disambig-list button:active { border-color: var(--accent); background: var(--accent); color: var(--navy); }
 
+/* Generic on-page window.prompt() replacement — see _showTextPrompt in
+   app.js. Same look/structure as #place-disambig-overlay just above. */
+#text-prompt-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  background: rgba(0, 0, 0, 0.6);
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+#text-prompt-overlay.open { display: flex; }
+#text-prompt-panel {
+  background: var(--dark-blue);
+  border: 1px solid var(--mid-blue);
+  border-radius: 10px;
+  padding: 14px;
+  width: min(340px, calc(100vw - 40px));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.8);
+}
+#text-prompt-panel .nf-title { cursor: default; }
+#text-prompt-close {
+  background: none;
+  border: none;
+  color: var(--muted, #8899aa);
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+  -webkit-tap-highlight-color: transparent;
+}
+#text-prompt-close:hover { color: var(--text); }
+#text-prompt-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--mid-blue);
+  border: 1px solid var(--mid-blue);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.95rem;
+  padding: 8px 10px;
+}
+#text-prompt-input:focus { outline: none; border-color: var(--accent); }
+#text-prompt-panel .nf-actions button:last-child { background: var(--accent); color: var(--navy); border-color: var(--accent); }
+
 #rp-close {
   background: none;
   border: none;
@@ -2130,6 +2178,7 @@ body.wco-active #wco-titlebar { display: flex; }
 #app.edit-mode #bottom-hud { display: none !important; }
 
 .edit-vertex-marker {
+  position: relative;
   width: 22px;
   height: 22px;
   background: #fff;
@@ -2151,12 +2200,45 @@ body.wco-active #wco-titlebar { display: flex; }
 }
 .edit-vertex-delete .edit-vertex-num { color: #c0392b; }
 .edit-vertex-overnight .edit-vertex-num { color: #9b59b6; }
+.edit-vertex-overnight-badge {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  font-size: 10px;
+  line-height: 1;
+  background: #fff;
+  border: 2px solid #9b59b6;
+  border-radius: 50%;
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
 @keyframes new-vertex-flash {
   0%, 100% { box-shadow: 0 0 0 2px rgba(200,160,0,0.5); background: #fff; }
   50%       { box-shadow: 0 0 0 7px rgba(200,160,0,0.15); background: #f5c842; }
 }
 .edit-vertex-new {
   animation: new-vertex-flash 0.7s ease-in-out infinite;
+}
+@keyframes anim-overnight-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%      { transform: scale(1.4); opacity: 0.8; }
+}
+.anim-overnight-flash {
+  width: 26px;
+  height: 26px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 3px solid #9b59b6;
+  border-radius: 50%;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  animation: anim-overnight-pulse 0.6s ease-in-out 2;
 }
 .edit-vertex-delete {
   border-color: #c0392b;

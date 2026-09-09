@@ -3311,6 +3311,38 @@ function _showPlaceDisambig(query, candidates) {
   });
 }
 
+// On-page window.prompt() replacement. Needed for any flow that might show
+// more than one text prompt in a row (e.g. retrying a destination name that
+// didn't resolve) — confirmed live that a second native prompt() fired
+// right after the first, with no click in between, can be silently
+// suppressed by Chrome/Electron-style webviews' own dialog-spam
+// protection: no dialog appears at all, and the caller just sees an
+// immediate null. This has no such per-page call-count behavior. Resolves
+// with the trimmed, non-empty string, or null if cancelled/left empty —
+// same contract as `prompt()` for a caller checking `if (!result) return;`.
+const _textPromptOverlay = document.getElementById('text-prompt-overlay');
+const _textPromptTitle   = document.getElementById('text-prompt-title');
+const _textPromptInput   = document.getElementById('text-prompt-input');
+function _hideTextPrompt() { _textPromptOverlay.classList.remove('open'); }
+function _showTextPrompt(title, placeholder = '') {
+  return new Promise((resolve) => {
+    _textPromptTitle.textContent = title;
+    _textPromptInput.value = '';
+    _textPromptInput.placeholder = placeholder;
+    const finish = (result) => { _hideTextPrompt(); resolve(result); };
+    const goNow = () => finish(_textPromptInput.value.trim() || null);
+    document.getElementById('text-prompt-go').onclick = goNow;
+    document.getElementById('text-prompt-cancel').onclick = () => finish(null);
+    document.getElementById('text-prompt-close').onclick = () => finish(null);
+    _textPromptInput.onkeydown = (e) => {
+      if (e.key === 'Enter') goNow();
+      else if (e.key === 'Escape') finish(null);
+    };
+    _textPromptOverlay.classList.add('open');
+    setTimeout(() => _textPromptInput.focus(), 0);
+  });
+}
+
 // Resolves a typed place/waypoint name to a destination point — shared by
 // Draw Route's own "Name" button and the Location-tile/right-click "Route
 // from here" pending-destination flow (see route-dest-name-btn below).
@@ -5033,7 +5065,15 @@ function _renderEditLayers() {
     const m = L.marker([pts[idx].lat, pts[idx].lon], {
       icon: L.divIcon({
         className: vertexClasses.join(' '),
-        html: `<span class="edit-vertex-num">${idx + 1}</span>`,
+        // The purple tint alone (edit-vertex-overnight) was the only cue
+        // that a node is an overnight stop — no actual icon, unlike the
+        // bed-icon marker a saved route gets outside of edit mode.
+        // Keeping the node number is deliberate (waypoints get referred to
+        // by number, e.g. "node 10") — the bed rides as a small badge
+        // instead of replacing it.
+        html: pts[idx].overnight
+          ? `<span class="edit-vertex-num">${idx + 1}</span><span class="edit-vertex-overnight-badge">&#128719;</span>`
+          : `<span class="edit-vertex-num">${idx + 1}</span>`,
         iconSize: [22, 22],
         iconAnchor: [11, 11],
       }),
@@ -5731,17 +5771,21 @@ async function _promptNextLegAutoRoute(fromPoint) {
   // should let the user immediately try another (e.g. "Stonington"), not
   // force them to re-trigger this whole prompt by re-toggling the
   // overnight flag. Only an actually-cancelled prompt (empty/Cancel) exits.
+  // Uses _showTextPrompt, not window.prompt() — confirmed live that a
+  // second native prompt() fired right after the first one (no click in
+  // between) can be silently suppressed by the browser/webview's own
+  // dialog-spam protection, which is exactly what a retry loop needs to do.
   let dest = null;
   while (!dest) {
-    const query = prompt('Destination — place or waypoint name:');
-    if (!query || !query.trim()) return;
+    const query = await _showTextPrompt('Destination — place or waypoint name:');
+    if (!query) return;
     dest = await _resolveNamedDestination(query);
     if (!dest) {
       // _resolveNamedDestination already announces a genuine "couldn't
       // find" miss, but stays silent when it showed a disambiguation
       // picker and the user closed it without choosing — this is the
       // guaranteed fallback so failing to resolve is never silent here.
-      const msg = `Couldn't resolve "${query.trim()}" — try another name, or Cancel to skip the next leg.`;
+      const msg = `Couldn't resolve "${query}" — try another name, or Cancel to skip the next leg.`;
       setStatus(msg);
       TTS.sayImmediate(msg);
     }
@@ -7120,6 +7164,21 @@ function _startRouteAnimation(route, speedKnots) {
   }
   const totalNm = cumDist;
 
+  // Overnight stops the boat should pause and flash at as it passes them —
+  // per direct request. These markers are otherwise invisible during
+  // Animate: _savedRoutesLayer (which is what _routeOvernightIcon markers
+  // live on) gets hidden a few lines up for a cleaner animated view, so
+  // this flash is the only time one would ever be visible during
+  // playback. Index 0 (the route's own start) is excluded — there's
+  // nothing to "arrive at" a moment after the boat begins there.
+  const ANIM_OVERNIGHT_PAUSE_MS = 1200;
+  const overnightIdxs = [];
+  for (let i = 1; i < route.points.length; i++) {
+    if (route.points[i].overnight) overnightIdxs.push(i);
+  }
+  const ptCumNm = route.points.map((_, i) => i < segs.length ? segs[i].cumDist : totalNm);
+  let _nextOvernightPtr = 0;
+
   const _initBearing = segs.length ? _segBearing(segs[0].lat1, segs[0].lon1, segs[0].lat2, segs[0].lon2) : 0;
   if (!_map.getPane('animBoatPane')) _map.createPane('animBoatPane').style.zIndex = '750';
   _animMarker = L.marker(pts[0], { icon: _animBoatIcon(_initBearing), pane: 'animBoatPane' }).addTo(_map);
@@ -7248,6 +7307,36 @@ function _startRouteAnimation(route, speedKnots) {
     if (_animPt.x < _marginX || _animPt.x > _animSize.x - _marginX ||
         _animPt.y < _marginY || _animPt.y > _animSize.y - _marginY) {
       _map.panTo([lat, lon], { animate: true, duration: 0.4, noMoveStart: true });
+    }
+
+    // Reached an overnight stop — snap exactly onto it, flash a bed-icon
+    // marker, and pause briefly before resuming (same pause/resume shape
+    // as the milestone-report branch below: return without scheduling the
+    // next frame, then re-anchor startTime against _animTraveled to
+    // resume cleanly).
+    if (_nextOvernightPtr < overnightIdxs.length && traveled >= ptCumNm[overnightIdxs[_nextOvernightPtr]]) {
+      const opt = route.points[overnightIdxs[_nextOvernightPtr]];
+      _nextOvernightPtr++;
+      _animMarker.setLatLng([opt.lat, opt.lon]);
+      _animCurrentLat = opt.lat;
+      _animCurrentLon = opt.lon;
+      const flashMarker = L.marker([opt.lat, opt.lon], {
+        icon: L.divIcon({ className: 'anim-overnight-flash', html: '&#128719;', iconSize: [26, 26], iconAnchor: [13, 13] }),
+        zIndexOffset: 900,
+      }).addTo(_map);
+      const savedBanner = _animBannerText.textContent;
+      _animBannerText.textContent = '🛏 Overnight stop';
+      TTS.sayImmediate('Overnight stop.');
+      setTimeout(() => {
+        flashMarker.remove();
+        if (!_animMode) return;
+        _animBannerText.textContent = savedBanner;
+        _animRafId = requestAnimationFrame((now2) => {
+          startTime = now2 - (_animTraveled / nmPerRealSec * 1000);
+          step(now2);
+        });
+      }, ANIM_OVERNIGHT_PAUSE_MS);
+      return;
     }
 
     // Record one sample per real second

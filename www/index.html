@@ -638,6 +638,22 @@
     </div>
   </div>
 
+  <!-- Generic on-page replacement for window.prompt() — see _showTextPrompt
+       in app.js. Needed because a flow that may show a native prompt()
+       more than once in a row (e.g. retrying a destination name) can have
+       the second one silently suppressed by Chrome/Electron-style
+       webviews' own dialog-spam protection, with no visible dialog at all. -->
+  <div id="text-prompt-overlay">
+    <div id="text-prompt-panel">
+      <div class="nf-title"><span id="text-prompt-title">Enter a value</span> <button id="text-prompt-close" title="Cancel">&#10005;</button></div>
+      <input id="text-prompt-input" type="text" autocomplete="off">
+      <div class="nf-actions">
+        <button id="text-prompt-cancel">Cancel</button>
+        <button id="text-prompt-go">Go</button>
+      </div>
+    </div>
+  </div>
+
   <script src="./js/version.js"></script>
   <script type="module" src="./js/app.js"></script>
 </body>
