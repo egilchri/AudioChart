@@ -5054,6 +5054,15 @@ function _renderEditLayers() {
     const seg = L.polyline([ptA, ptB], {
       color: '#f5c842', weight: 5, opacity: 0.9, interactive: !_addNodeMode,
     }).addTo(_map);
+    // Confirmed live via console: map.latLngToContainerPoint() computes the
+    // right answer for these exact coordinates at the map's actual current
+    // zoom, but the position .addTo() gave this layer doesn't match it —
+    // it's frozen against some other, stale zoom from whenever this
+    // rendering path last ran at a different zoom level, and Leaflet's own
+    // zoom handling never fully catches these back up (manual zooming only
+    // partially narrows the gap). redraw() forces a fresh reprojection
+    // through the exact same (confirmed-correct) live projection.
+    seg.redraw();
     _editSegmentLayers.push(seg);
 
     // Bearing labels omitted in edit mode — they clutter the map; visible in normal route display
@@ -5096,6 +5105,7 @@ function _renderEditLayers() {
     }).bindTooltip(tipContent(), {
       permanent: false, direction: 'top', offset: [0, -20], className: 'route-coord-tip edit-coord-tip',
     }).addTo(_map);
+    m.update(); // see the matching comment on seg.redraw() just above
     m.on('dragstart', () => {
       _map.dragging.disable();
       _pushEditHistory();
@@ -5162,20 +5172,6 @@ function _renderEditLayers() {
       _liveHazardTimer = setTimeout(_liveHazardCheck, 300);
     });
     _editVertexMarkers.push(m);
-  }
-  // Confirmed live: these vertex markers can render at the wrong screen
-  // position — worse the farther out the current zoom, self-correcting
-  // only once the user does an actual zoom step (which forces Leaflet to
-  // recompute every layer's position from scratch). Proven not a data or
-  // timing bug — copying the route's own points mid-glitch showed
-  // perfectly correct, sane coordinates. So: force that same recompute
-  // pass ourselves, immediately, via the public panBy API rather than
-  // waiting for the user to trigger it by hand. Panning by 1px and back
-  // nets to zero visually and geographically; the point is running
-  // Leaflet's real 'move' pipeline once, which is what actually fixes it.
-  if (_map._loaded) {
-    _map.panBy([1, 0], { animate: false });
-    _map.panBy([-1, 0], { animate: false });
   }
 }
 
@@ -5469,34 +5465,18 @@ function _enterEditMode(routeIdx, skipHazardCheck = false) {
   _appEl.classList.add('edit-mode');
   _mapContainer.classList.remove('map-compact', 'list-focus', 'input-focus');
   if (_map) {
-    // invalidateSize() run synchronously, right after the classList changes
-    // just above, can measure the container mid-reflow rather than its
-    // final size, leaving Leaflet's internal view state not fully settled
-    // for a moment. Vertex markers rendered against that transient state
-    // come out positioned at the wrong effective zoom — worse the farther
-    // a point is from wherever the view was mid-settle, and self-
-    // correcting only once the user's own next zoom step forces Leaflet
-    // to recompute every marker's position fresh (confirmed live: a
-    // vertical string of markers stretching hundreds of miles south at a
-    // very zoomed-out view, converging back onto the real route as you
-    // zoom in). One requestAnimationFrame wasn't long enough to cover
-    // this — wait for the map to actually report itself idle instead of
-    // guessing a frame count: 'moveend' fires once any in-progress pan/
-    // zoom settles, with a timeout fallback for the common case where
-    // nothing was actually moving and 'moveend' never fires at all.
     if (_savedRoutesLayer) _map.removeLayer(_savedRoutesLayer);
-    requestAnimationFrame(() => {
-      if (!_editMode) return; // cancelled out of edit mode before this frame ran
-      _map.invalidateSize();
-      let _edRendered = false;
-      const _doEditRender = () => {
-        if (_edRendered || !_editMode) return;
-        _edRendered = true;
-        _renderEditLayers();
-      };
-      _map.once('moveend', _doEditRender);
-      setTimeout(_doEditRender, 350);
-    });
+    _map.invalidateSize();
+    // Vertex markers/segments can render at the wrong screen position —
+    // confirmed live via console this isn't a timing/settle issue (waiting
+    // for the map to report idle didn't help, and the map was already
+    // sitting still at the target zoom before Edit was even clicked) — a
+    // fresh map.latLngToContainerPoint() call for the same coordinates
+    // computes correctly every time, but whatever .addTo() gave these
+    // specific layers doesn't match it. _renderEditLayers forces each one
+    // to recompute via its own update()/redraw(), which is what actually
+    // fixes it — see the comments there.
+    _renderEditLayers();
     _map.getContainer().addEventListener('mouseup', _editPlaceNode);
   }
   document.getElementById('edit-tools-panel').style.display = 'flex';
