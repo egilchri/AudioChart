@@ -1030,8 +1030,7 @@ let _liveHazardTimer       = null;
 let _newVertexIdx          = -1;  // index of freshly inserted vertex — flashes until dragged
 let _deleteMode            = false; // single-click on vertex deletes it
 let _addNodeMode           = false; // waiting for click to insert node into nearest segment
-let _overnightMode         = false; // single-click on vertex toggles it as an overnight stop
-let _fixNodesMode          = false; // single-click on vertex fixes hazards near just that node — stays armed like delete/overnight
+let _fixNodesMode          = false; // single-click on vertex fixes hazards near just that node — stays armed like delete
 let _selectedEditNodeIdx   = new Set(); // indices into _editPoints "lit" — fixed (or checked) this edit session; purely visual, not saved route data
 let _editHistory           = [];    // stack of _editPoints snapshots for undo
 let _editOriginalPoints    = [];    // snapshot of route.points as last saved, taken when edit mode was entered
@@ -5133,18 +5132,6 @@ function _renderEditLayers() {
         // have been providing clearance) as fix one — recheck either way.
         clearTimeout(_liveHazardTimer);
         _liveHazardTimer = setTimeout(_liveHazardCheck, 300);
-      } else if (_overnightMode) {
-        _pushEditHistory();
-        const p = _editPoints[idx];
-        const turningOn = !p.overnight;
-        const isLast = idx === _editPoints.length - 1;
-        _editPoints[idx] = p.overnight ? { lat: p.lat, lon: p.lon } : { lat: p.lat, lon: p.lon, overnight: true };
-        _renderEditLayers();
-        // Marking the route's current end as an overnight stop is exactly
-        // the moment to offer planning tomorrow's leg — un-marking, or
-        // marking an interior point (the route already continues past it),
-        // doesn't need this.
-        if (turningOn && isLast) _promptNextLegAutoRoute(_editPoints[idx]);
       } else if (_fixNodesMode) {
         _fixNodeHazards(idx);
       }
@@ -5227,7 +5214,6 @@ function _cancelAddNodeMode() {
 function _updateEditToolsPanel() {
   document.getElementById('etp-insert-node')?.classList.toggle('active', _addNodeMode);
   document.getElementById('etp-delete')?.classList.toggle('active', _deleteMode);
-  document.getElementById('etp-overnight')?.classList.toggle('active', _overnightMode);
   document.getElementById('etp-fix-nodes')?.classList.toggle('active', _fixNodesMode);
 }
 
@@ -5445,7 +5431,6 @@ function _enterEditMode(routeIdx, skipHazardCheck = false) {
   _editOriginalPoints = route.points.map(_stripPoint);
   _deleteMode = false;
   _addNodeMode = false;
-  _overnightMode = false;
   _fixNodesMode = false;
   _editHistory = [];
   _selectedEditNodeIdx = new Set();
@@ -5493,7 +5478,6 @@ function _exitEditMode() {
   _newVertexIdx = -1;
   _deleteMode = false;
   _addNodeMode = false;
-  _overnightMode = false;
   _fixNodesMode = false;
   _editHistory = [];
   _selectedEditNodeIdx = new Set();
@@ -5698,27 +5682,42 @@ document.getElementById('etp-insert-node').addEventListener('click', () => {
 
 document.getElementById('etp-delete').addEventListener('click', () => {
   _deleteMode = !_deleteMode;
-  _overnightMode = false;
   _fixNodesMode = false;
   _setEditBannerLabel(_deleteMode ? ' — click a node to delete it' : '');
   _renderEditLayers();
   _updateEditToolsPanel();
 });
 
+// No more arm-a-mode-then-click-a-vertex — per direct request, this
+// always targets the route's own current last waypoint (the one that
+// actually matters for "where am I stopping tonight"), confirms once,
+// and — on a fresh mark — goes straight into the next-leg destination
+// prompt without a second, redundant confirm (this one already served
+// that purpose). An already-marked last waypoint offers to unmark
+// instead, so the toggle behavior isn't lost, just no longer needs a
+// separate click-a-node step to reach.
 document.getElementById('etp-overnight').addEventListener('click', () => {
-  _overnightMode = !_overnightMode;
-  _deleteMode = false;
-  _fixNodesMode = false;
-  _setEditBannerLabel(_overnightMode ? ' — click a node to mark/unmark as an overnight stop' : '');
+  if (!_editMode || _editPoints.length < 1) return;
+  const idx = _editPoints.length - 1;
+  const p = _editPoints[idx];
+  if (p.overnight) {
+    if (!confirm(`Remove the overnight-stop mark from waypoint ${idx + 1}?`)) return;
+    _pushEditHistory();
+    _editPoints[idx] = { lat: p.lat, lon: p.lon };
+    _renderEditLayers();
+    return;
+  }
+  if (!confirm(`Mark waypoint ${idx + 1} (the last on this route) as an overnight stop?`)) return;
+  _pushEditHistory();
+  _editPoints[idx] = { lat: p.lat, lon: p.lon, overnight: true };
   _renderEditLayers();
-  _updateEditToolsPanel();
+  _promptNextLegAutoRoute(_editPoints[idx]);
 });
 
 document.getElementById('etp-fix-nodes').addEventListener('click', () => {
   if (!_editMode) return;
   _fixNodesMode = !_fixNodesMode;
   _deleteMode = false;
-  _overnightMode = false;
   _setEditBannerLabel(_fixNodesMode ? ' — click a node to fix hazards near it' : '');
   _renderEditLayers();
   _updateEditToolsPanel();
@@ -5756,15 +5755,15 @@ document.getElementById('etp-reroute').addEventListener('click', () => {
     });
 });
 
-// Offered the instant the route's current end becomes an overnight stop
-// (see the overnight-toggle branch of the vertex click handler above) —
-// connects "I just marked tonight's anchorage" to "let's plan tomorrow's
-// leg" in one motion instead of leaving the user to separately remember
-// to extend the route later. Mirrors the etp-reroute handler just above,
-// reusing the same _reRouteSegments/_showRerouteOverlay machinery on
-// _editPoints, just for a single new leg instead of the whole route.
+// Called right after the etp-overnight button marks the route's last
+// waypoint as an overnight stop (its own confirm dialog already covers
+// consent for this) — connects "I just marked tonight's anchorage" to
+// "let's plan tomorrow's leg" in one motion instead of leaving the user
+// to separately remember to extend the route later. Mirrors the
+// etp-reroute handler just above, reusing the same
+// _reRouteSegments/_showRerouteOverlay machinery on _editPoints, just for
+// a single new leg instead of the whole route.
 async function _promptNextLegAutoRoute(fromPoint) {
-  if (!confirm("Overnight stop set. Auto-route tomorrow's next leg from here?")) return;
   // Loop on a bad name instead of dropping the whole flow after one try —
   // per direct report, a name that doesn't resolve (a marina/business name
   // like "Billings Marine, Swan's Island" isn't itself a charted place)
