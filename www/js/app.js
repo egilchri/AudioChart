@@ -5695,10 +5695,12 @@ ${trkpts}
   URL.revokeObjectURL(url);
 }
 
-// Builds the lower-right Rename/Export corner controls for an .rp-row (shared between the
-// Routes and Tracks list panels). getPoints() returns the point array to export; onRename(newName)
-// persists the rename and should itself trigger a re-render of the owning panel.
-function _buildRpCornerButtons(row, name, getPoints, onRename) {
+// Builds the lower-right Rename/Export/Copy/Delete corner controls for an .rp-row (shared
+// between the Routes and Tracks list panels). getPoints() returns the point array to export;
+// onRename(newName) persists the rename and should itself trigger a re-render of the owning
+// panel; onDelete(), if given, does the same for deletion (own confirm() included) and adds
+// the corner's Delete button — omit it for rows that shouldn't offer deletion here.
+function _buildRpCornerButtons(row, name, getPoints, onRename, onDelete) {
   const corner = document.createElement('div');
   corner.className = 'rp-corner';
 
@@ -5751,6 +5753,27 @@ function _buildRpCornerButtons(row, name, getPoints, onRename) {
   corner.appendChild(renameBtn);
   corner.appendChild(exportBtn);
   corner.appendChild(copyWptsBtn);
+
+  if (onDelete) {
+    // Deliberately last, its own danger color, and reachable only once the
+    // row is expanded — a plain tap on a collapsed row (the common case)
+    // now unambiguously means "toggle shown on map," with nothing
+    // destructive within reach of a stray tap. Was previously an "×"
+    // sitting inline in the always-visible name row (always-visible on
+    // touch devices, per the old .rp-delete-btn media-query override),
+    // right next to the active/hidden state mark — reported as too easy to
+    // hit by accident while trying to activate a route.
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.className = 'rp-corner-btn rp-corner-btn-danger';
+    deleteBtn.textContent = '🗑 Delete';
+    deleteBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      onDelete();
+    });
+    corner.appendChild(deleteBtn);
+  }
+
   return corner;
 }
 
@@ -6705,6 +6728,7 @@ function _startVirtualJourney(route, speedKnots) {
   Query.setFocus(firstLegPt.lat, firstLegPt.lon, `${route.name} — waypoint ${_followingLegIdx + 1}`, 'waypoint');
   _updateFocusButton();
   _followFocusLegIdx = _followingLegIdx;
+  _appEl.classList.add('following-active');
 
   document.getElementById('vjourney-route-name').textContent = route.name;
   document.getElementById('vjourney-speed-input').value = speedKnots;
@@ -6806,6 +6830,7 @@ function _stopVirtualJourney() {
   _followingDestLon = null;
   _followingLegIdx = 1;
   _followFocusLegIdx = null;
+  _appEl.classList.remove('following-active');
   if (_followProgressEl) _followProgressEl.style.display = 'none';
   _buildRoutePickerPanelFn?.();
 }
@@ -7941,26 +7966,6 @@ function _ensureMap() {
           nameLine.appendChild(badge);
         }
       }
-      const delBtn = document.createElement('button');
-      delBtn.className = 'rp-delete-btn';
-      delBtn.textContent = '×';
-      delBtn.title = 'Delete route';
-      delBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (!confirm(`Delete route "${route.name}"?`)) return;
-        const all = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
-        _tombstone(route.id, 'route');
-        localStorage.setItem(ROUTE_KEY, JSON.stringify(all.filter(r => r.name !== route.name)));
-        _hiddenRouteNames.delete(route.name);
-        _saveHiddenRoutes();
-        if (localStorage.getItem('audiochart-last-route') === route.name)
-          localStorage.removeItem('audiochart-last-route');
-        if (_expandedRouteRowName === route.name) _expandedRouteRowName = null;
-        _refreshSavedRouteLayers();
-        _populateRouteSelectFn?.();
-        _buildRoutePickerPanel();
-      });
-      nameLine.appendChild(delBtn);
       nameLine.appendChild(_buildRpCornerButtons(row, route.name, () => route.points, (newName) => {
         const routes2 = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
         const idx = routes2.findIndex(r => r.name === route.name);
@@ -7977,6 +7982,19 @@ function _ensureMap() {
         if (_expandedRouteRowName === oldName) _expandedRouteRowName = newName;
         _populateRouteSelectFn?.();
         _refreshSavedRouteLayers();
+        _buildRoutePickerPanel();
+      }, () => {
+        if (!confirm(`Delete route "${route.name}"?`)) return;
+        const all = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+        _tombstone(route.id, 'route');
+        localStorage.setItem(ROUTE_KEY, JSON.stringify(all.filter(r => r.name !== route.name)));
+        _hiddenRouteNames.delete(route.name);
+        _saveHiddenRoutes();
+        if (localStorage.getItem('audiochart-last-route') === route.name)
+          localStorage.removeItem('audiochart-last-route');
+        if (_expandedRouteRowName === route.name) _expandedRouteRowName = null;
+        _refreshSavedRouteLayers();
+        _populateRouteSelectFn?.();
         _buildRoutePickerPanel();
       }));
       row.appendChild(nameLine);
@@ -8302,23 +8320,6 @@ function _ensureMap() {
       const nameText = document.createElement('span');
       nameText.textContent = track.name;
       nameLine.appendChild(nameText);
-      const delBtn = document.createElement('button');
-      delBtn.className = 'rp-delete-btn';
-      delBtn.textContent = '×';
-      delBtn.title = 'Delete track';
-      delBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (!confirm(`Delete track "${track.name}"?`)) return;
-        const all = JSON.parse(localStorage.getItem(TRACK_KEY) || '[]');
-        _tombstone(track.id, 'track');
-        localStorage.setItem(TRACK_KEY, JSON.stringify(all.filter(t => t.name !== track.name)));
-        _hiddenTrackNames.delete(track.name);
-        _saveHiddenTracks();
-        if (_expandedTrackRowName === track.name) _expandedTrackRowName = null;
-        _refreshSavedTrackLayers();
-        _buildTrackPickerPanel();
-      });
-      nameLine.appendChild(delBtn);
       nameLine.appendChild(_buildRpCornerButtons(row, track.name, () => track.points, (newName) => {
         const tracks2 = JSON.parse(localStorage.getItem(TRACK_KEY) || '[]');
         const idx = tracks2.findIndex(t => t.name === track.name);
@@ -8330,6 +8331,16 @@ function _ensureMap() {
         if (_hiddenTrackNames.has(oldName)) { _hiddenTrackNames.delete(oldName); _hiddenTrackNames.add(newName); }
         _saveHiddenTracks();
         if (_expandedTrackRowName === oldName) _expandedTrackRowName = newName;
+        _refreshSavedTrackLayers();
+        _buildTrackPickerPanel();
+      }, () => {
+        if (!confirm(`Delete track "${track.name}"?`)) return;
+        const all = JSON.parse(localStorage.getItem(TRACK_KEY) || '[]');
+        _tombstone(track.id, 'track');
+        localStorage.setItem(TRACK_KEY, JSON.stringify(all.filter(t => t.name !== track.name)));
+        _hiddenTrackNames.delete(track.name);
+        _saveHiddenTracks();
+        if (_expandedTrackRowName === track.name) _expandedTrackRowName = null;
         _refreshSavedTrackLayers();
         _buildTrackPickerPanel();
       }));
@@ -10788,6 +10799,7 @@ function _finishTrackRecording(name) {
   _followingDestLon = null;
   _followingLegIdx = 1;
   _followFocusLegIdx = null;
+  _appEl.classList.remove('following-active');
   if (_followProgressEl) _followProgressEl.style.display = 'none';
   trackRecBtn.textContent = '⏺ Start Tracking';
   trackRecBtn.title = 'Record a GPS track';
@@ -10841,6 +10853,7 @@ function _startFollowingRoute(route) {
   Query.setFocus(firstLegPt.lat, firstLegPt.lon, `${route.name} — waypoint ${_followingLegIdx + 1}`, 'waypoint');
   _updateFocusButton();
   _followFocusLegIdx = _followingLegIdx;
+  _appEl.classList.add('following-active');
   trackRecBtn.textContent = '⏹ Stop Tracking';
   trackRecBtn.title = `Following "${route.name}" — tap to stop early`;
   trackRecBtn.classList.add('rec-active');

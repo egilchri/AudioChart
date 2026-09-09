@@ -226,6 +226,16 @@ html, body {
 #app.underway-mode #focus-btn {
   display: block;
 }
+/* Underway is a manual, persisted preference the user flips themselves —
+   it must stay that way (see _setUnderwayMode's "never touches
+   edit/follow/animation state" comment). But Follow and Virtual Journey
+   are themselves a live bearing-to-next-waypoint readout's entire reason
+   to exist, so #focus-btn needs to show for their duration regardless of
+   whatever the Underway switch happens to be set to — confirmed live: it
+   was silently un-reachable during a virtual journey with Underway off. */
+#app.following-active #focus-btn {
+  display: block;
+}
 #focus-btn:hover { border-color: var(--brass); color: var(--brass-hi); }
 #focus-btn.focus-active { border-color: #1a6b3c; color: #4ade80; background: #0a2a16; }
 #focus-btn.focus-active:hover { border-color: #2a8b4c; color: #6aeea0; background: #0f3a1e; }
@@ -1266,37 +1276,24 @@ body.wco-active #wco-titlebar { display: flex; }
   align-items: center;
   gap: 6px;
 }
+/* Spelled-out labels, not just a symbol, so a plain tap's effect (toggle
+   shown-on-map) is legible without knowing the ✓/✗ convention first —
+   this row's own click target is now the only thing a stray tap can hit,
+   see .rp-corner-btn-danger below for where Delete moved. */
 .rp-row-name::before {
-  content: '✓';
-  font-size: 0.75rem;
+  content: '✓ On map';
+  font-size: 0.72rem;
+  font-weight: 700;
   color: var(--ok);
   flex-shrink: 0;
 }
 .rp-row.hidden .rp-row-name::before {
-  content: '✗';
+  content: '✗ Hidden';
   color: var(--danger);
 }
 .rp-row.hidden .rp-row-name {
   color: var(--text-dim);
 }
-.rp-delete-btn {
-  margin-left: auto;
-  background: none;
-  border: none;
-  color: var(--text-dim);
-  font-size: 1rem;
-  line-height: 1;
-  padding: 0 2px;
-  cursor: pointer;
-  visibility: hidden;
-  flex-shrink: 0;
-}
-.rp-row:hover .rp-delete-btn,
-.rp-row:focus-within .rp-delete-btn {
-  visibility: visible;
-}
-.rp-delete-btn:hover { color: var(--danger); }
-@media (hover: none) { .rp-delete-btn { visibility: visible; } }
 .rp-corner { display: none; margin-left: auto; align-self: flex-end; gap: 6px; }
 .rp-row.expanded .rp-corner { display: flex; }
 .rp-corner-btn {
@@ -1308,6 +1305,17 @@ body.wco-active #wco-titlebar { display: flex; }
   padding: 2px 6px;
   cursor: pointer;
 }
+/* Delete used to be an always-visible "×" inline in the name row, right
+   next to the On map/Hidden mark — confirmed reported as too easy to hit
+   by accident while trying to just activate a route. Now it's the last
+   corner button, only reachable after expanding the row, with its own
+   danger color so it doesn't get confused with the routine actions next
+   to it — a stray tap on a collapsed row can no longer delete anything. */
+.rp-corner-btn-danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.rp-corner-btn-danger:hover { background: var(--danger); color: #fff; }
 .rp-corner-btn:hover { border-color: var(--accent); color: var(--text); }
 .rp-rename-input {
   flex: 1;
