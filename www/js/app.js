@@ -10629,6 +10629,7 @@ let _regionBoundsCache = null; // { '' : bbox|null, 'penobscot-bay': bbox|null, 
 const _regionOfferBanner   = document.getElementById('region-offer-banner');
 const _regionOfferText     = document.getElementById('region-offer-text');
 const _regionOfferDownload = document.getElementById('region-offer-download-btn');
+const _regionOfferDismiss  = document.getElementById('region-offer-dismiss-btn');
 let _regionOfferCruiseName = null;
 
 function _regionIdFor(cruiseName) {
@@ -10671,12 +10672,29 @@ function _hideRegionOfferBanner() {
   _regionOfferBanner.style.display = 'none';
   _regionOfferCruiseName = null;
 }
-_regionOfferDownload.addEventListener('click', () => {
+// Confirmed live as a real bug: this used to hide the banner immediately
+// and let runRouteDownload run in the background, whose only progress
+// feedback is routeBtn's text (a small button in the top status row, far
+// from this banner) and setStatus (writes to a permanently-hidden
+// element — no visible feedback at all on its own). From here it looked
+// exactly like tapping Download did nothing. Now the banner stays up and
+// mirrors every progress message directly where the user just tapped.
+_regionOfferDownload.addEventListener('click', async () => {
   const cruiseName = _regionOfferCruiseName;
-  _hideRegionOfferBanner();
-  if (cruiseName) runRouteDownload(cruiseName);
+  if (!cruiseName) return;
+  _regionOfferDownload.disabled = true;
+  _regionOfferDismiss.disabled = true;
+  let lastMsg = '';
+  await runRouteDownload(cruiseName, (msg) => { lastMsg = msg; _regionOfferText.textContent = msg; });
+  _regionOfferDownload.disabled = false;
+  _regionOfferDismiss.disabled = false;
+  // A failure message stays up for the user to actually read and dismiss
+  // manually; success auto-clears itself after a moment.
+  if (!lastMsg.startsWith('Download failed')) {
+    setTimeout(() => { if (_regionOfferCruiseName === cruiseName) _hideRegionOfferBanner(); }, 2000);
+  }
 });
-document.getElementById('region-offer-dismiss-btn').addEventListener('click', _hideRegionOfferBanner);
+_regionOfferDismiss.addEventListener('click', _hideRegionOfferBanner);
 
 // Called (fire-and-forget, from _updateCoverageStatus) whenever the boat's
 // real position has no chart data at all under whatever's currently loaded.
@@ -12212,7 +12230,15 @@ async function checkOnboarding() {
   overlay.style.display = 'none';
 }
 
-async function runRouteDownload(cruiseName) {
+// onProgress is optional (default no-op) — every existing caller (the
+// CRUISE_PROFILES buttons in init()) is unaffected; only the region-offer
+// banner's Download button passes one, so it can mirror progress into its
+// own on-screen text instead of relying solely on routeBtn's text (a small,
+// easy-to-miss button in the top status row, far from wherever the user
+// actually tapped Download) and setStatus (which — confirmed elsewhere this
+// session — writes to a permanently-hidden element and produces no visible
+// feedback at all on its own).
+async function runRouteDownload(cruiseName, onProgress = () => {}) {
   _activeCruiseName = cruiseName;
   const profile = CRUISE_PROFILES[cruiseName];
   cruiseForm.style.display = 'none';
@@ -12225,6 +12251,7 @@ async function runRouteDownload(cruiseName) {
     // Standalone mode — chart data is one regional file, then cache satellite tiles per stop
     routeBtn.textContent = '⏳ Chart data…';
     setStatus(`Downloading ${cruiseName} chart data…`);
+    onProgress(`Downloading ${cruiseName} chart data…`);
     try {
       // regionId (e.g. "piscataqua") drives the land/channels/soundings
       // path Query.loadData() reads from — a bundled default-only regionId
@@ -12244,9 +12271,11 @@ async function runRouteDownload(cruiseName) {
       const _switchPos = GPS.getPosition();
       if (_switchPos) _updateCoverageStatus(_switchPos.lat, _switchPos.lon);
       setStatus(`Chart data ready — caching satellite tiles…`);
+      onProgress(`Chart data ready — caching satellite tiles…`);
     } catch (e) {
       const reason = e.name === 'AbortError' ? 'timed out' : e.message;
       setStatus(`Download failed: ${reason}`);
+      onProgress(`Download failed: ${reason}`);
       routeBtn.textContent = '⬇ Region';
       routeBtn.disabled = false;
       if (offlineBtn) offlineBtn.disabled = false;
@@ -12257,17 +12286,20 @@ async function runRouteDownload(cruiseName) {
       const stop = stops[i];
       routeBtn.textContent = `🛰 ${i + 1}/${stops.length}`;
       await Query.cacheSatelliteTiles(stop.lat, stop.lon, (done, total) => {
-        setStatus(`Satellite tiles ${stop.name}: ${done}/${total}`);
+        const msg = `Satellite tiles ${stop.name}: ${done}/${total}`;
+        setStatus(msg);
+        onProgress(msg);
       });
     }
     // Prefetch tide/current for each stop
     for (let i = 0; i < stops.length; i++) {
       const stop = stops[i];
       routeBtn.textContent = `🌊 ${i + 1}/${stops.length}`;
-      await _prefetchTideCurrentForOffline(stop.lat, stop.lon, msg => setStatus(`${stop.name}: ${msg}`));
+      await _prefetchTideCurrentForOffline(stop.lat, stop.lon, msg => { setStatus(`${stop.name}: ${msg}`); onProgress(`${stop.name}: ${msg}`); });
     }
     routeBtn.textContent = '✓ Region cached';
     setStatus(`${cruiseName} ready — chart data and satellite tiles cached.`);
+    onProgress(`${cruiseName} ready — chart data and satellite tiles cached.`);
     routeBtn.disabled = false;
     if (offlineBtn) offlineBtn.disabled = false;
     checkOnboarding();
@@ -12280,11 +12312,13 @@ async function runRouteDownload(cruiseName) {
     const stop = stops[i];
     routeBtn.textContent = `⏳ ${i + 1}/${stops.length}`;
     setStatus(`Downloading ${stop.name} (${i + 1} of ${stops.length})…`);
+    onProgress(`Downloading ${stop.name} (${i + 1} of ${stops.length})…`);
     try {
       lastResult = await Query.prepareOffline(stop.lat, stop.lon, 25);
     } catch (e) {
       const reason = e.name === 'AbortError' ? 'timed out' : e.message;
       setStatus(`Download failed at ${stop.name}: ${reason}`);
+      onProgress(`Download failed at ${stop.name}: ${reason}`);
       routeBtn.textContent = '⬇ Region';
       routeBtn.disabled = false;
       if (offlineBtn) offlineBtn.disabled = false;
@@ -12292,13 +12326,16 @@ async function runRouteDownload(cruiseName) {
     }
     routeBtn.textContent = `🛰 ${i + 1}/${stops.length}`;
     await Query.cacheSatelliteTiles(stop.lat, stop.lon, (done, total) => {
-      setStatus(`Satellite tiles ${stop.name}: ${done}/${total}`);
+      const msg = `Satellite tiles ${stop.name}: ${done}/${total}`;
+      setStatus(msg);
+      onProgress(msg);
     });
     routeBtn.textContent = `🌊 ${i + 1}/${stops.length}`;
-    await _prefetchTideCurrentForOffline(stop.lat, stop.lon, msg => setStatus(`${stop.name}: ${msg}`));
+    await _prefetchTideCurrentForOffline(stop.lat, stop.lon, msg => { setStatus(`${stop.name}: ${msg}`); onProgress(`${stop.name}: ${msg}`); });
   }
   routeBtn.textContent = '✓ Region cached';
   setStatus(`${cruiseName} region complete — ${lastResult.total} features + satellite tiles cached.`);
+  onProgress(`${cruiseName} region complete — ${lastResult.total} features + satellite tiles cached.`);
   routeBtn.disabled = false;
   if (offlineBtn) offlineBtn.disabled = false;
   checkOnboarding();

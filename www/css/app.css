@@ -3390,6 +3390,11 @@ body.wco-active #underway-btn { top: 10px; }
   cursor: pointer;
   flex-shrink: 0;
 }
+#region-offer-download-btn:disabled,
+#region-offer-dismiss-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
 /* Marker flash animation — triggered when list row is tapped */
 @keyframes marker-pulse {
   0%, 100% { opacity: 1;   transform: scale(1);   }
