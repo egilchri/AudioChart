@@ -386,6 +386,36 @@ html, body {
 }
 #test-pos-clear, #test-pos-cancel { background: #4a1a1a; color: var(--danger); }
 
+/* Search input row — same shape as #test-pos-form just above */
+#search-form {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+#search-input {
+  flex: 1;
+  background: var(--dark-blue);
+  border: 1px solid var(--mid-blue);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.9rem;
+  padding: 6px 10px;
+  outline: none;
+  -webkit-appearance: none;
+}
+#search-input:focus { border-color: var(--accent); }
+#search-go, #search-clear, #search-cancel {
+  background: var(--mid-blue);
+  border: none;
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.8rem;
+  padding: 6px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+#search-clear, #search-cancel { background: #4a1a1a; color: var(--danger); }
+
 /* Anchor Watch radius-entry row */
 #anchor-watch-form { display: flex; flex-direction: column; gap: 6px; }
 #anchor-watch-label { font-size: 0.78rem; color: var(--text-dim); }
@@ -886,6 +916,16 @@ body.wco-active #wco-titlebar { display: flex; }
 }
 
 #map-overlay-status #test-pos-form {
+  width: 100%;
+  display: flex;
+  gap: 6px;
+  background: rgba(10, 22, 40, 0.92);
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--mid-blue);
+}
+
+#map-overlay-status #search-form {
   width: 100%;
   display: flex;
   gap: 6px;
@@ -3419,6 +3459,9 @@ body.wco-active #underway-btn { top: 10px; }
   background: #e0c030;
   border: 2px solid #222;
   box-sizing: border-box;
+}
+.search-pin-marker {
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));
 }
 #map-ctx-where-am-i,
 #map-ctx-wp-parent,

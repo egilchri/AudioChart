@@ -300,6 +300,25 @@ function _boatIcon() {
   });
 }
 
+// Classic teardrop map-pin, for the Search feature — deliberately distinct
+// from every other marker shape in the app (boat/waypoint/overnight) so a
+// dropped search result reads immediately as "not a real chart object,"
+// same convention as the fix-crossing marker's own one-off shape. Anchored
+// at the tip (bottom point), not the center, since that's what's actually
+// over the searched coordinate.
+function _searchPinIcon() {
+  return L.divIcon({
+    className: 'search-pin-marker',
+    html: `<svg width="32" height="42" viewBox="0 0 24 32" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 20 12 20s12-11 12-20c0-6.6-5.4-12-12-12z" fill="#e05252" stroke="#3a0d0d" stroke-width="1"/>
+        <circle cx="12" cy="12" r="5" fill="#fff"/>
+      </svg>`,
+    iconSize: [32, 42],
+    iconAnchor: [16, 42],
+    tooltipAnchor: [0, -38],
+  });
+}
+
 // ── Boat icon double-tap menu (Autoroute / Sketch) ──────────────────────────
 // Replaced a hold-timer long-press here after it stayed unreliable on real
 // phones through several genuine fix attempts (each one a real bug found by
@@ -647,6 +666,9 @@ const testPosForm = document.getElementById('test-pos-form');
 const testPosInput = document.getElementById('test-pos-input');
 const testPosSet = document.getElementById('test-pos-set');
 const testPosClear = document.getElementById('test-pos-clear');
+const searchBtn = document.getElementById('search-btn');
+const searchForm = document.getElementById('search-form');
+const searchInput = document.getElementById('search-input');
 const mapLink = document.getElementById('map-link');
 const opencpnBtn = document.getElementById('opencpn-btn');
 const focusBtn = document.getElementById('focus-btn');
@@ -11338,12 +11360,14 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     if (testPosForm.style.display !== 'none') _closeTestPosForm();
     if (locationMenu.style.display !== 'none') _closeLocationMenu();
+    if (searchForm.style.display !== 'none') _closeSearchForm();
   }
 });
 document.addEventListener('click', (e) => {
-  if (locationMenuBtn.contains(e.target)) return;
+  if (locationMenuBtn.contains(e.target) || searchBtn.contains(e.target)) return;
   if (testPosForm.style.display !== 'none' && !testPosForm.contains(e.target)) _closeTestPosForm();
   if (locationMenu.style.display !== 'none' && !locationMenu.contains(e.target)) _closeLocationMenu();
+  if (searchForm.style.display !== 'none' && !searchForm.contains(e.target)) _closeSearchForm();
 }, { capture: true });
 
 // ── Track recording ──────────────────────────────────────────────────────────
@@ -11864,6 +11888,77 @@ testPosClear.addEventListener('click', clearTestPosition);
 document.getElementById('test-pos-cancel').addEventListener('click', _closeTestPosForm);
 document.getElementById('cruise-cancel').addEventListener('click', () => { cruiseForm.style.display = 'none'; });
 
+// ── Search: jump the map to a place/coordinate and drop a pin ────────────────
+// Deliberately independent of the boat/test-position — this is "show me
+// where X is," not "pretend I'm at X." Reuses the exact same
+// coordinate-or-place resolution _test-pos-form_'s Set button already relies
+// on (parseCoordinate, then server-backed then local place lookup).
+let _searchPinLayer = null;
+
+function _clearSearchPin() {
+  if (_searchPinLayer && _map) { _map.removeLayer(_searchPinLayer); _searchPinLayer = null; }
+}
+
+function _dropSearchPin(lat, lon, name) {
+  _clearSearchPin();
+  const marker = L.marker([lat, lon], { icon: _searchPinIcon(), zIndexOffset: 1200 });
+  marker.bindTooltip(name || formatPositionDisplay(lat, lon), { permanent: false });
+  marker.addTo(_map);
+  _searchPinLayer = marker;
+}
+
+function _closeSearchForm() {
+  searchForm.style.display = 'none';
+  searchInput.style.borderColor = '';
+}
+
+searchBtn.addEventListener('click', () => {
+  const isOpen = searchForm.style.display !== 'none';
+  _closeTestPosForm();
+  _closeLocationMenu();
+  cruiseForm.style.display = 'none';
+  if (isOpen) { _closeSearchForm(); return; }
+  searchForm.style.display = 'flex';
+  searchInput.focus();
+});
+
+async function _runSearch() {
+  const raw = searchInput.value.trim();
+  if (!raw) return;
+  let coord = parseCoordinate(raw);
+  if (!coord) coord = await Query.findPlaceOnServer(raw) || Query.findPlaceByName(raw);
+  if (!coord) {
+    searchInput.style.borderColor = 'var(--danger)';
+    setTimeout(() => { searchInput.style.borderColor = ''; }, 1500);
+    return;
+  }
+  await loadLeaflet();
+  _ensureMap();
+  document.getElementById('map-container').style.display = 'block';
+  _mapContainer.classList.remove('map-compact', 'list-focus', 'input-focus');
+  _closeSearchForm();
+  searchInput.value = '';
+  // Same CSS-transition-then-resize timing _showBoatPosition/flashMarker use
+  // elsewhere — the map container may still be mid-expand from the class
+  // removal above, and invalidateSize()/setView() before that finishes can
+  // compute against the wrong (collapsed) container size.
+  setTimeout(() => {
+    _map.invalidateSize();
+    _map.setView([coord.lat, coord.lon], Math.max(_map.getZoom() || 13, 13));
+    _dropSearchPin(coord.lat, coord.lon, coord.name);
+  }, 300);
+  setStatus(`Found: ${coord.name || formatPositionDisplay(coord.lat, coord.lon)}`);
+}
+
+document.getElementById('search-go').addEventListener('click', _runSearch);
+searchInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') _runSearch(); });
+document.getElementById('search-clear').addEventListener('click', () => {
+  _clearSearchPin();
+  _closeSearchForm();
+  searchInput.value = '';
+});
+document.getElementById('search-cancel').addEventListener('click', _closeSearchForm);
+
 // One-tap reset for map clutter — a long test/exploration session can leave
 // several routes shown at once (each with its own bearing-label overlay)
 // plus leftover query-result markers (long-press lookups, hazard checks,
@@ -11903,6 +11998,7 @@ function _clearScreen() {
   _mapLayers = _hazardCheckLayer = _routeFallbackLayer = null;
   _autoRoutePreviewLayer = _viewportHazardLayer = null;
   _animReportLayer = _animMilestoneLayer = null;
+  _clearSearchPin();
 
   // Per explicit request: tidy Node Ops too, not just map layers —
   // collapsed (not toggled) so this is always a clean-up, never

@@ -176,6 +176,7 @@
             <option value="anchorages">&#9875; Anchorages</option>
           </select>
           <button id="offline-btn" title="Download chart data for offline use" style="display:none">&#11015; Offline</button>
+          <button id="search-btn" title="Search a place name or lat/long and drop a pin there">&#128269; Search</button>
           <button id="location-menu-btn" title="Location options">&#128205; Location</button>
           <button id="screen-menu-btn" title="Screen options">&#128421; Screen</button>
         </div>
@@ -208,6 +209,12 @@
           <button id="test-pos-set" title="Move the boat's position to the place or coordinates you typed, for testing without a GPS fix">Set</button>
           <button id="test-pos-clear" title="Clear the test position and resume using the real GPS fix">Clear</button>
           <button id="test-pos-cancel" title="Cancel">Cancel</button>
+        </div>
+        <div id="search-form" style="display:none">
+          <input id="search-input" type="text" placeholder="Camden  or  44.1018, -69.0752" autocomplete="off">
+          <button id="search-go" title="Jump to this place and drop a pin">Go</button>
+          <button id="search-clear" title="Remove the search pin">Clear</button>
+          <button id="search-cancel" title="Cancel">Cancel</button>
         </div>
         <div id="anchor-watch-form" style="display:none">
           <span id="anchor-watch-label">Watch radius, centered on your current position:</span>
