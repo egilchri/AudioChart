@@ -12127,7 +12127,13 @@ async function init() {
       _statusGpsLabel = `GPS: ${err}`;
       _statusGpsCls   = 'gps-error';
       _renderStatusCombo();
-      setStatus(err);
+      // watchPosition retries on its own (see gps.js's 15s timeout) and will
+      // call back in here again if it keeps failing — say so, so a stale-looking
+      // status reads as "still trying" rather than "the app is stuck." Permission
+      // denial is the one case retrying won't fix, so it's left unadorned.
+      setStatus(err === 'GPS permission denied'
+        ? err
+        : `${err} — retrying automatically. Map and offline chart data still work without a fix.`);
     }
   );
 

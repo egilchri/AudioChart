@@ -1,4 +1,4 @@
-/** @version v580 */
+/** @version v581 */
 /* Bump this comment on every release, even when nothing else in this file
    changes — a service worker only gets reinstalled when its own script
    bytes differ from what's currently active (see the v505 fix), so a
@@ -103,27 +103,51 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(networkFirst(event.request));
 });
 
+// How long a network attempt gets before we give up on it and serve the
+// cached copy instead. A clean OS-level "offline" (airplane mode, no radios
+// active) usually fails a fetch almost instantly — this timeout exists for
+// the messier case: weak/absent cell or Wi-Fi signal where the network stack
+// is still "trying" and can take tens of seconds to actually fail. Without a
+// race, that stall blocks every JS/CSS/HTML fetch — including the very
+// scripts that boot the app — well past the point where the cached app shell
+// could have been served instead.
+const NETWORK_TIMEOUT_MS = 2500;
+
 async function networkFirst(request) {
   const cache = await caches.open(CACHE);
-  try {
-    // no-store: this fetch is the whole "network-first" promise — without it,
-    // the browser's own HTTP disk cache can silently satisfy this call with a
-    // stale response, so "network-first" quietly becomes "browser-cache-first"
-    // underneath the version-keyed Cache Storage layer this function manages.
-    const response = await fetch(request, { cache: 'no-store' });
-    if (response.ok && request.method === 'GET') {
-      cache.put(request, response.clone());
-      return response;
-    }
-    // Non-ok response (e.g. 503 from a dead server): fall back to cache
-    const cached = await cache.match(request);
-    if (cached) return cached;
+  const cached = await cache.match(request);
+
+  // no-store: this fetch is the whole "network-first" promise — without it,
+  // the browser's own HTTP disk cache can silently satisfy this call with a
+  // stale response, so "network-first" quietly becomes "browser-cache-first"
+  // underneath the version-keyed Cache Storage layer this function manages.
+  const networked = fetch(request, { cache: 'no-store' }).then((response) => {
+    if (response.ok && request.method === 'GET') cache.put(request, response.clone());
     return response;
+  });
+  networked.catch(() => {}); // always give it a handler; every path below deals with failure itself
+
+  if (cached) {
+    // Race the network against a short timeout rather than waiting for it to
+    // fail on its own. The real fetch keeps running in the background either
+    // way, so a slow-but-working connection still refreshes the cache for
+    // next time — it just doesn't get to hold up this response.
+    const timedOut = Symbol('timeout');
+    const winner = await Promise.race([
+      networked.catch(() => timedOut),
+      new Promise((resolve) => setTimeout(() => resolve(timedOut), NETWORK_TIMEOUT_MS)),
+    ]);
+    if (winner !== timedOut && winner.ok) return winner;
+    return cached;
+  }
+
+  // No cached copy to fall back to — no point racing a timeout, just wait.
+  try {
+    return await networked;
   } catch (_) {
-    const cached = await cache.match(request);
-    if (cached) return cached;
     if (request.mode === 'navigate') {
-      return cache.match('./index.html');
+      const idx = await cache.match('./index.html');
+      if (idx) return idx;
     }
     return new Response('', { status: 503 });
   }
