@@ -586,6 +586,7 @@ function _refreshWaypointLayer() {
         `<div class="navaid-popup">
            <div class="navaid-popup-name">${escapeHtml(wp.name)}</div>
            ${wp.note ? `<div class="navaid-popup-note">${escapeHtml(wp.note)}</div>` : ''}
+           <div class="navaid-popup-coords"></div>
            <button class="navaid-popup-focus">&#127919; Set focus</button>
            <button class="navaid-popup-rename">&#9998; Rename</button>
            <button class="navaid-popup-delete">&#128465; Delete</button>
@@ -594,9 +595,16 @@ function _refreshWaypointLayer() {
       );
       m.on('popupopen', (e) => {
         const popupEl = e.popup.getElement();
+        // Read the marker's LIVE position, not the closed-over wp.lat/lon —
+        // after a drag those go stale (the marker moved but this callback's
+        // closure didn't), which is exactly the bug just reported: dragging
+        // a pin then reopening its popup showed the coordinates from before
+        // the drag. getLatLng() always reflects wherever it actually is now.
+        const live = m.getLatLng();
+        popupEl.querySelector('.navaid-popup-coords').textContent = formatPositionDisplay(live.lat, live.lng);
         popupEl.querySelector('.navaid-popup-focus').addEventListener('click', () => {
           _map.closePopup();
-          Query.setFocus(wp.lat, wp.lon, wp.name, 'waypoint');
+          Query.setFocus(live.lat, live.lng, wp.name, 'waypoint');
           _updateFocusButton();
           const msg = `Focused on ${wp.name}.`;
           showResponse(msg);
@@ -1232,10 +1240,10 @@ let _lowTideExtraLayers = []; // second+ low-tide coverage layers — see LOW_TI
 // self-contained WMS raster) but dropped per live comparison — Maine's own
 // data was "by far the best" (real coastline/place-name context, since it
 // overlays the chart rather than replacing it).
-const MAP_VIEW_MODES  = ['chart', 'satellite', 'low-tide', 'geology-maine', 'towns-maine', 'history', 'demographics', 'island-info', 'anchorages'];
+const MAP_VIEW_MODES  = ['chart', 'satellite', 'low-tide', 'geology-maine', 'towns-maine', 'history', 'demographics', 'island-info', 'anchorages', 'webcams'];
 // Maps a display mode to the documents.geojson `category` it shows —
 // the whole reason "switch to Geology/History" needs no separate menu.
-const MAP_VIEW_DOC_CATEGORY = { 'geology-maine': 'geology', 'history': 'history', 'demographics': 'demographics', 'island-info': 'island-info', 'anchorages': 'anchorages' };
+const MAP_VIEW_DOC_CATEGORY = { 'geology-maine': 'geology', 'history': 'history', 'demographics': 'demographics', 'island-info': 'island-info', 'anchorages': 'anchorages', 'webcams': 'webcams' };
 // Named water passages/reaches/thorofares (plus a handful of major islands
 // that fall through every other label filter — see below) worth labeling
 // directly on the chart, like a real NOAA chart would — a hand-verified
@@ -2011,12 +2019,31 @@ function _formatAnchorage(p) {
   return `<table style="width:100%;border-collapse:collapse">${rows.join('')}</table>${notesHtml}`;
 }
 
+// Third-party-operated live cameras (harbor/breakwater/osprey-nest views) —
+// only ever a link to the operator's own page, plus an embedded <img> for
+// the minority that turn out to have a real, stable, directly-loadable
+// image URL (most of these are JS-rendered widgets with no such URL —
+// confirmed live checking several while curating documents.geojson).
+// onerror hides a broken/blocked image rather than leaving Leaflet's
+// default broken-image glyph in the popup.
+function _formatWebcam(p) {
+  const w = p.webcam || {};
+  const img = w.imageUrl
+    ? `<img src="${w.imageUrl}" style="width:100%;border-radius:4px;margin-bottom:6px" onerror="this.style.display='none'">`
+    : '';
+  const link = w.url
+    ? `<div style="margin-top:6px"><a href="${w.url}" target="_blank" rel="noopener">&#9654; View live</a></div>`
+    : '';
+  return `${img}${link}`;
+}
+
 const DOC_MARKER_STYLE = {
   geology:      { color: '#2e7d4f', emoji: '📄' },
   history:      { color: '#8a6d3b', emoji: '📜' },
   demographics: { color: '#2b6cb0', emoji: '👥' },
   'island-info': { color: '#7c3aed', emoji: '🏝' },
   anchorages:   { color: '#0e7490', emoji: '⚓' },
+  webcams:      { color: '#c0392b', emoji: '📷' },
 };
 function _documentMarkerIcon(category) {
   const s = DOC_MARKER_STYLE[category] || DOC_MARKER_STYLE.geology;
@@ -2061,6 +2088,7 @@ function _renderDocumentMarkers() {
     const bodyHtml = p.category === 'demographics' ? _formatDemographics(p)
       : p.category === 'island-info' ? _formatIslandInfo(p)
       : p.category === 'anchorages' ? _formatAnchorage(p)
+      : p.category === 'webcams' ? _formatWebcam(p)
       : _formatDocBody(p.body);
     const m = L.marker([lat, lon], { icon: _documentMarkerIcon(p.category) });
     // Island Info's own online-lookup supplement (see _wireIslandLookup) —
@@ -7995,12 +8023,13 @@ function _applyMapLayer() {
       bounds: L.latLngBounds(svc.bounds[0], svc.bounds[1]),
     }).addTo(_map));
   } else {
-    // 'chart', 'geology-maine', 'towns-maine', 'history', 'demographics', and
-    // 'island-info' all use the street basemap: all but 'geology-maine' and
-    // 'towns-maine' use it on their own (their markers need real coastline/
-    // place-name context and have no map layer of their own); those two use
-    // it as context underneath their own polygon overlay (added below) —
-    // neither dataset has coastline/place-name context of its own.
+    // 'chart', 'geology-maine', 'towns-maine', 'history', 'demographics',
+    // 'island-info', 'anchorages', and 'webcams' all use the street basemap:
+    // all but 'geology-maine' and 'towns-maine' use it on their own (their
+    // markers need real coastline/place-name context and have no map layer
+    // of their own); those two use it as context underneath their own
+    // polygon overlay (added below) — neither dataset has coastline/
+    // place-name context of its own.
     _baseTileLayer = L.tileLayer(
       'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
       // maxZoom stays 18 to match the zoom slider; maxNativeZoom caps actual tile
@@ -8019,8 +8048,8 @@ function _applyMapLayer() {
   _syncMapModeTitle();
 }
 
-const MAP_VIEW_ICONS  = { chart: '🗺', satellite: '🛰', 'low-tide': '🌊', 'geology-maine': '⛰', 'towns-maine': '🏛', history: '📜', demographics: '👥', 'island-info': '🏝', anchorages: '⚓' };
-const MAP_VIEW_LABELS = { chart: 'Chart', satellite: 'Satellite', 'low-tide': 'Low-Tide Aerial', 'geology-maine': 'Geology', 'towns-maine': 'Towns', history: 'History', demographics: 'Demographics', 'island-info': 'Island Info', anchorages: 'Anchorages' };
+const MAP_VIEW_ICONS  = { chart: '🗺', satellite: '🛰', 'low-tide': '🌊', 'geology-maine': '⛰', 'towns-maine': '🏛', history: '📜', demographics: '👥', 'island-info': '🏝', anchorages: '⚓', webcams: '📷' };
+const MAP_VIEW_LABELS = { chart: 'Chart', satellite: 'Satellite', 'low-tide': 'Low-Tide Aerial', 'geology-maine': 'Geology', 'towns-maine': 'Towns', history: 'History', demographics: 'Demographics', 'island-info': 'Island Info', anchorages: 'Anchorages', webcams: 'Webcams' };
 const HISTORY_ERA_LABELS = {
   all: 'All Eras',
   colonial: 'Native American & Colonial',

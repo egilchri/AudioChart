@@ -3038,6 +3038,94 @@
         },
         "source": "CCA Cruising Guide to Maine, https://guides.cruisingclub.org/harbor/north-haven-village-islands/"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.0765, 44.1069] },
+      "properties": {
+        "title": "Rockland Breakwater Cam",
+        "category": "webcams",
+        "place": "Rockland",
+        "source": "Rockland Harbor Lights (nonprofit)",
+        "webcam": { "url": "https://rocklandharborlights.org/webcam.html" }
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.1075, 44.1028] },
+      "properties": {
+        "title": "Rockland Harbor Cam",
+        "category": "webcams",
+        "place": "Rockland",
+        "source": "rocklandharbor.info",
+        "webcam": { "url": "https://www.rocklandharbor.info/Webcam.htm" }
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.105, 44.1035] },
+      "properties": {
+        "title": "Windjammer Wharf Osprey Nest",
+        "category": "webcams",
+        "place": "Rockland",
+        "source": "Town of Rockland",
+        "webcam": { "url": "https://www.rocklandmaine.gov/447/Osprey-Livestream" }
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.0648, 44.2098] },
+      "properties": {
+        "title": "Camden Harbor Cam",
+        "category": "webcams",
+        "place": "Camden",
+        "source": "Camden Yacht Club",
+        "webcam": { "url": "https://www.camdenyachtclub.org/webcam" }
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.0064, 44.4256] },
+      "properties": {
+        "title": "Belfast Harbor Cam",
+        "category": "webcams",
+        "place": "Belfast",
+        "source": "Village Soup / Maineport Towboats, Marshall's Wharf",
+        "webcam": { "url": "https://www.penbaypilot.com/webcams/belfast" }
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.6667, 44.1517] },
+      "properties": {
+        "title": "Stonington Harbor Cam",
+        "category": "webcams",
+        "place": "Stonington",
+        "source": "Penobscot Bay Press (Island Ad-Vantages office)",
+        "webcam": { "url": "https://www.penobscotbaypress.com/webcam/iawebcam.html" }
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.7994, 44.3903] },
+      "properties": {
+        "title": "Maine Maritime Academy Waterfront Cam",
+        "category": "webcams",
+        "place": "Castine",
+        "source": "Maine Maritime Academy",
+        "webcam": { "url": "https://mainemaritime.edu/webcam/" }
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.8384, 44.0353] },
+      "properties": {
+        "title": "Carver's Harbor Cam",
+        "category": "webcams",
+        "place": "Vinalhaven",
+        "source": "VinalhavenWeather.com",
+        "webcam": { "url": "https://www.townofvinalhaven.org/1200/Vinalhaven-Weather-Ferry-Terminal-Camera" }
+      }
     }
   ]
 }

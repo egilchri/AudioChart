@@ -2019,6 +2019,15 @@ body.wco-active #wco-titlebar { display: flex; }
   color: var(--text-dim);
   margin-top: -4px;
 }
+/* Filled in on popupopen from the marker's live getLatLng(), not baked in
+   at render time — stays correct after a drag without needing to rebuild
+   the whole popup. */
+.navaid-popup-coords {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  font-family: var(--font-brass-mono, monospace);
+  margin-bottom: 2px;
+}
 .navaid-popup-brg,
 .navaid-popup-copy,
 .navaid-popup-focus,
