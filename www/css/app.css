@@ -3212,6 +3212,17 @@ body.wco-active #underway-btn { top: 10px; }
   gap: 12px;
 }
 #anim-banner-text { flex: 1; }
+#anim-speed-input {
+  width: 3.5em;
+  background: var(--mid-blue);
+  color: var(--text);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 4px 5px;
+  font-size: 0.85rem;
+  text-align: right;
+  flex-shrink: 0;
+}
 #anim-settings-btn {
   background: var(--mid-blue);
   color: var(--text);

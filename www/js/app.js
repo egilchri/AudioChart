@@ -1219,6 +1219,7 @@ let _animMilestoneLayer = null;
 let _animFollowMode = false;
 let _animCurrentLat = null;
 let _animCurrentLon = null;
+let _setAnimSpeedFn = null; // set by _startRouteAnimation, cleared by _exitAnimMode — lets #anim-speed-input change speed live, no restart
 let _lastCourseFrom = null;
 let _lastCourseTo   = null;
 
@@ -6862,6 +6863,7 @@ function _exitAnimMode() {
   _animFollowMode = false;
   _animCurrentLat = null;
   _animCurrentLon = null;
+  _setAnimSpeedFn = null;
   if (_animRafId)      { cancelAnimationFrame(_animRafId); _animRafId = null; }
   if (_animIntervalId) { clearInterval(_animIntervalId);   _animIntervalId = null; }
   TTS.stop();
@@ -6885,6 +6887,10 @@ function _exitAnimMode() {
 }
 
 document.getElementById('anim-stop-btn').addEventListener('click', _exitAnimMode);
+document.getElementById('anim-speed-input').addEventListener('change', (e) => {
+  const v = parseFloat(e.target.value);
+  if (v > 0) _setAnimSpeedFn?.(v);
+});
 
 
 // ── Virtual Journey ──────────────────────────────────────────────────────────
@@ -7153,6 +7159,7 @@ function _startRouteAnimation(route, speedKnots) {
   _animMode = true;
   _appEl.classList.add('anim-mode');
   _animBannerText.textContent = `⛵ ${route.name} · ${speedKnots} kts`;
+  document.getElementById('anim-speed-input').value = speedKnots;
   _animBanner.style.display = 'flex';
   document.getElementById('map-container').style.display = 'block';
   _mapContainer.classList.remove('map-compact', 'list-focus', 'input-focus');
@@ -7201,8 +7208,8 @@ function _startRouteAnimation(route, speedKnots) {
 
   // Apply time compression: 1× = real time, 10× = 10 min sailing per real sec, etc.
   const compress    = track.compress || 1;
-  const nmPerRealSec = (speedKnots / 3600) * compress;
-  const sailTotalMin = Math.round(totalNm / speedKnots * 60); // actual sailing minutes
+  let nmPerRealSec = (speedKnots / 3600) * compress;
+  let sailTotalMin = Math.round(totalNm / speedKnots * 60); // actual sailing minutes
   const compressLabel = compress > 1 ? ` · ${compress}×` : '';
 
   // Prime TTS for iOS audio unlock; animation starts immediately in parallel.
@@ -7452,6 +7459,20 @@ function _startRouteAnimation(route, speedKnots) {
 
     _animRafId = requestAnimationFrame(step);
   }
+  // Lets #anim-speed-input change speed live without restarting — per
+  // direct request, minimal friction: the default speed is fine most of
+  // the time, so the widget only needs to let it be nudged when it isn't,
+  // not force choosing one up front before every run. Re-anchoring
+  // startTime keeps _animTraveled continuous through the change instead
+  // of jumping the boat.
+  _setAnimSpeedFn = (newKt) => {
+    if (!(newKt > 0)) return;
+    speedKnots = newKt;
+    nmPerRealSec = (speedKnots / 3600) * compress;
+    sailTotalMin = Math.round(totalNm / speedKnots * 60);
+    localStorage.setItem('audiochart-last-speed', speedKnots);
+    if (startTime !== null) startTime = performance.now() - (_animTraveled / nmPerRealSec * 1000);
+  };
   // Let the anim-mode CSS take effect and map resize before speech ends
   setTimeout(() => { _map.invalidateSize(); }, 300);
 }
