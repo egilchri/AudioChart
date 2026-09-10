@@ -2827,6 +2827,7 @@ body.wco-active #wco-titlebar { display: flex; }
 #pan-controls-wrap                 { transform: var(--ui-pos-navctl, translate(0,0)); }
 #map-version-label                 { transform: var(--ui-pos-version, translate(0,0)); }
 #map-overlay-cmd                   { transform: var(--ui-pos-cmdbar, translate(0,0)); }
+#right-rail                        { transform: var(--ui-pos-rightrail, translate(0,0)); }
 .tide-cycle-ctrl                   { transform: var(--ui-pos-tide, translate(0,0)); }
 .heading-speed-ctrl                { transform: var(--ui-pos-headingspeed, translate(0,0)); }
 .follow-progress-ctrl              { transform: var(--ui-pos-followprogress, translate(0,0)); }
@@ -2842,13 +2843,11 @@ body.wco-active #wco-titlebar { display: flex; }
   cursor: grab;
 }
 #app.rearrange-mode .ui-drag-target:active { cursor: grabbing; }
-/* tide-cycle-ctrl is pointer-events:none in normal use (so taps pass through
-   to the map underneath) — re-enable while rearranging so it's grabbable.
-   (compass-rose-ctrl used to get the same treatment, back when it was
-   draggable — no longer is, see _initRearrangeGroups.) */
-#app.rearrange-mode .tide-cycle-ctrl {
-  pointer-events: auto;
-}
+/* compass-rose-ctrl used to get the same rearrange-only pointer-events
+   treatment tide-cycle-ctrl had here — no longer applicable, it's not
+   draggable at all any more (see _initRearrangeGroups). tide-cycle-ctrl
+   itself is unconditionally pointer-events:auto now (see its own rule) —
+   dragging it works any time, not just in Rearrange mode. */
 #edit-hazards-btn.active {
   background: #e88a00;
   color: #fff;
@@ -3003,7 +3002,14 @@ body.wco-active #wco-titlebar { display: flex; }
   filter: drop-shadow(0 1px 4px rgba(0,0,0,0.6));
 }
 .tide-cycle-ctrl {
-  pointer-events: none;
+  /* auto, not none — this chip is draggable any time now (see
+     _initRearrangeGroups' alwaysOn 'tide' group), so it needs to actually
+     receive touch/mouse events on its own background, not just pass them
+     through to the map. It already paints an opaque background over
+     whatever's underneath, so there's no real map interaction being lost
+     here — "drag me" replaces "tap through to the map" as this exact
+     footprint's behavior. */
+  pointer-events: auto;
   margin: 8px;
   opacity: 0.95;
   /* Previously borderless/backgroundless — the one HUD chip with no chip

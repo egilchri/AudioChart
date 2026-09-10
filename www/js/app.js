@@ -1488,7 +1488,7 @@ function _resetUiPositions() {
 }
 document.getElementById('rearrange-reset-btn')?.addEventListener('click', _resetUiPositions);
 
-function _makeDraggableGroup(groupId, getEls, alwaysOn = false) {
+function _makeDraggableGroup(groupId, getEls, alwaysOn = false, excludeSelector = null) {
   let curDx = 0, curDy = 0;
   try {
     const saved = JSON.parse(localStorage.getItem(`audiochart-ui-pos-${groupId}`) || 'null');
@@ -1574,9 +1574,17 @@ function _makeDraggableGroup(groupId, getEls, alwaysOn = false) {
   currentEls().forEach(el => {
     el.classList.add('ui-drag-target');
     const gateOpen = () => _rearrangeMode || alwaysOn;
+    // excludeSelector lets an alwaysOn group contain its own drag-driven
+    // controls (tide's scrub slider) without this outer whole-panel drag
+    // hijacking their own touch/mouse gestures — those elements are left
+    // completely alone (no begin(), so no preventDefault on their own
+    // touchmove either) and handle themselves exactly as if this group
+    // didn't exist. Not needed in Rearrange mode, where nothing but
+    // repositioning is expected to work anyway.
+    const excluded = (e) => alwaysOn && excludeSelector && e.target.closest(excludeSelector);
 
     el.addEventListener('touchstart', (e) => {
-      if (!gateOpen() || e.touches.length !== 1) return;
+      if (!gateOpen() || e.touches.length !== 1 || excluded(e)) return;
       const t = e.touches[0];
       begin(t.clientX, t.clientY);
     }, { passive: true });
@@ -1591,7 +1599,7 @@ function _makeDraggableGroup(groupId, getEls, alwaysOn = false) {
     el.addEventListener('touchcancel', end);
 
     el.addEventListener('mousedown', (e) => {
-      if (!gateOpen()) return;
+      if (!gateOpen() || excluded(e)) return;
       begin(e.clientX, e.clientY);
       const onMove = (ev) => moveTo(ev.clientX, ev.clientY);
       const onUp = () => {
@@ -1658,32 +1666,37 @@ function _initRearrangeGroups() {
   // absolute-positioned — dragging one out of a flex column doesn't mean
   // anything sensible anymore, so that drag group is gone too, same
   // reasoning as the other two.
-  // focus/tide/headingspeed keep their drag groups (still individually
-  // repositionable), but their DEFAULT position moved today — from three
-  // independently floating widgets to flex children of #bottom-hud — so
-  // any offset saved against the OLD baseline is now applied relative to
-  // a completely different starting point. Confirmed live: a stale
-  // focus-btn offset of (-146, -343.8), saved back when it was an
-  // independently centered pill, landed it in the middle of the map once
-  // #bottom-hud moved its baseline to bottom-right. One-time cleanup so
-  // everyone's saved offset starts fresh from the new layout, exactly
-  // like the status-tile/compass/btncol cleanups above.
-  // navctl (zoom-slider-wrap + pan-controls-wrap) has the exact same
-  // problem, missed in the first pass: it moved from vertically-centered
-  // to directly under the compass, so a pre-existing saved offset renders
-  // it back up over the compass on top of the new baseline. Confirmed
-  // live via screenshot — same bug class as the focus-btn one above.
+  // focus/tide/headingspeed/navctl keep their drag groups (still
+  // individually repositionable) — their one-time post-migration cleanup
+  // (baseline moved from independently-floating widgets to flex children of
+  // #bottom-hud/#compass) has already run on every device that was going to
+  // hit it. Confirmed live as a real bug just found while adding rightrail
+  // to this same list: those four removeItem calls had no version/one-shot
+  // guard, so they ran on EVERY load, forever — silently discarding any
+  // saved drag position for these groups on the very next reload, no matter
+  // how recently it was set. Removed; only status/compass/btncol (features
+  // that no longer have a _makeDraggableGroup call at all, ever) still need
+  // their key scrubbed, which is harmless to keep doing indefinitely since
+  // nothing can ever re-save to them.
   localStorage.removeItem('audiochart-ui-pos-status');
   localStorage.removeItem('audiochart-ui-pos-compass');
   localStorage.removeItem('audiochart-ui-pos-btncol');
-  localStorage.removeItem('audiochart-ui-pos-focus');
-  localStorage.removeItem('audiochart-ui-pos-tide');
-  localStorage.removeItem('audiochart-ui-pos-headingspeed');
-  localStorage.removeItem('audiochart-ui-pos-navctl');
   _makeDraggableGroup('navctl', () => ['zoom-slider-wrap', 'pan-controls-wrap'].map(id => document.getElementById(id)));
   _makeDraggableGroup('version', () => [document.getElementById('map-version-label')]);
   _makeDraggableGroup('cmdbar', () => [document.getElementById('map-overlay-cmd')]);
-  _makeDraggableGroup('tide', () => [...document.querySelectorAll('.tide-cycle-ctrl')]);
+  // The whole Actions rail as one unit (its own internal flex layout is
+  // untouched) — per direct request, alongside tide. Same pattern as
+  // cmdbar just above: a self-contained panel dragged as a whole, not the
+  // individual-buttons-in-a-flex-column case ruled out in the btncol note
+  // above. alwaysOn (no Rearrange-mode ceremony) per explicit request —
+  // its children are all plain buttons, same threshold+click-swallow
+  // handling as #focus-btn already relies on, so a normal tap still works.
+  _makeDraggableGroup('rightrail', () => [document.getElementById('right-rail')], true);
+  // alwaysOn here too, but excluding the slider/play button so this outer
+  // whole-widget drag doesn't hijack the slider's own drag-to-scrub gesture
+  // — those two elements are left completely alone to handle their own
+  // touch/mouse events exactly as if this group didn't exist.
+  _makeDraggableGroup('tide', () => [...document.querySelectorAll('.tide-cycle-ctrl')], true, '#tide-offset-slider, #tide-play-btn');
   _makeDraggableGroup('headingspeed', () => [...document.querySelectorAll('.heading-speed-ctrl')]);
   _makeDraggableGroup('followprogress', () => [...document.querySelectorAll('.follow-progress-ctrl')]);
   // alwaysOn: draggable any time, not just in Rearrange mode — per explicit
