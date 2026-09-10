@@ -10539,8 +10539,9 @@ async function _offerRegionForPosition(lat, lon) {
   const activeId = Query.getActiveRegion() || '';
 
   if (regionId === null) {
-    const msg = "AudioChart currently covers Penobscot Bay, Casco Bay, and Piscataqua, Maine, only. " +
-                "You're outside all three — set a Test Position inside one of them to try the app out.";
+    const msg = "AudioChart doesn't cover this area yet. For the full experience — History, Geology, " +
+                "Anchorages, and every other layer — set a Test Position in Penobscot Bay, Maine. " +
+                "Casco Bay and Piscataqua are also covered, with less auxiliary detail.";
     setStatus(msg);
     TTS.sayImmediate(msg);
     return;
