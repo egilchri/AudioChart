@@ -1631,6 +1631,53 @@ body.wco-active #wco-titlebar { display: flex; }
 #text-prompt-input:focus { outline: none; border-color: var(--accent); }
 #text-prompt-panel .nf-actions button:last-child { background: var(--accent); color: var(--navy); border-color: var(--accent); }
 
+/* Same modal tier as #place-disambig-overlay/#text-prompt-overlay (z-index
+   3000 — above every ordinary floating widget/panel in the app, which all
+   stay well under 2000) so an important status message can never end up
+   silently buried behind one. Unlike those two, the whole backdrop (not
+   just an explicit close control) dismisses it — this is a pure notice,
+   nothing to choose, so "tap anywhere to dismiss" is the whole interaction. */
+#coverage-alert-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  background: rgba(0, 0, 0, 0.6);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+#coverage-alert-overlay.open { display: flex; }
+#coverage-alert-panel {
+  background: var(--dark-blue);
+  border: 1px solid var(--mid-blue);
+  border-radius: 10px;
+  padding: 18px;
+  width: min(360px, calc(100vw - 40px));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.8);
+  cursor: default;
+  text-align: center;
+}
+#coverage-alert-text {
+  color: var(--text);
+  font-size: 1rem;
+  line-height: 1.4;
+}
+#coverage-alert-dismiss {
+  background: var(--accent);
+  color: var(--navy);
+  border: none;
+  border-radius: 6px;
+  padding: 8px 24px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 #rp-close {
   background: none;
   border: none;

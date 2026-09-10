@@ -69,9 +69,18 @@ export function clearAccessToken() {
   accessToken = null;
 }
 
-function _ensureToken() {
+// interactive=false (background/automatic sync) must never surface Google's
+// full account-chooser/consent screen out of nowhere — confirmed live as a
+// real bug: the ternary below always evaluated `accessToken` AFTER the
+// `if (accessToken)` early-return above it already ruled that case out, so
+// every call that reached requestAccessToken() forced 'consent', including
+// ones triggered just by opening the Routes/Tracks panel. Silent mode
+// (prompt: '') either resolves quietly against an already-granted scope +
+// active Google session, or rejects — never a visible window either way.
+function _ensureToken(interactive = true) {
   return _ensureGisLoaded().then(() => new Promise((resolve, reject) => {
     if (accessToken) { resolve(accessToken); return; }
+    if (!interactive) { reject(new Error('Sign-in required — not prompting for a background sync.')); return; }
     if (!tokenClient) {
       tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: CLIENT_ID,
@@ -84,12 +93,12 @@ function _ensureToken() {
       accessToken = resp.access_token;
       resolve(accessToken);
     };
-    tokenClient.requestAccessToken({ prompt: accessToken ? '' : 'consent' });
+    tokenClient.requestAccessToken({ prompt: 'consent' });
   }));
 }
 
-function _apiFetch(url, opts = {}) {
-  return _ensureToken().then(token => fetch(url, {
+function _apiFetch(url, opts = {}, interactive = true) {
+  return _ensureToken(interactive).then(token => fetch(url, {
     ...opts,
     headers: { ...(opts.headers || {}), Authorization: `Bearer ${token}` },
   })).then(res => {
@@ -99,32 +108,32 @@ function _apiFetch(url, opts = {}) {
   });
 }
 
-function _findFileId() {
+function _findFileId(interactive = true) {
   if (fileId) return Promise.resolve(fileId);
   const q = encodeURIComponent(`name='${DRIVE_FILE_NAME}'`);
   const url = `https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${q}&fields=files(id,name)`;
-  return _apiFetch(url).then(res => res.json()).then(data => {
+  return _apiFetch(url, {}, interactive).then(res => res.json()).then(data => {
     fileId = (data.files && data.files[0] && data.files[0].id) || null;
     return fileId;
   });
 }
 
-function _fetchRemote() {
-  return _findFileId().then(id => {
+function _fetchRemote(interactive = true) {
+  return _findFileId(interactive).then(id => {
     if (!id) return { routes: [], tracks: [], tombstones: [] };
-    return _apiFetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`).then(res => res.json());
+    return _apiFetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {}, interactive).then(res => res.json());
   });
 }
 
-function _writeRemote(payload) {
+function _writeRemote(payload, interactive = true) {
   const body = JSON.stringify(payload);
-  return _findFileId().then(id => {
+  return _findFileId(interactive).then(id => {
     if (id) {
       return _apiFetch(`https://www.googleapis.com/upload/drive/v3/files/${id}?uploadType=media`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body,
-      });
+      }, interactive);
     }
     const metadata = { name: DRIVE_FILE_NAME, parents: ['appDataFolder'] };
     const form = new FormData();
@@ -133,15 +142,17 @@ function _writeRemote(payload) {
     return _apiFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
       method: 'POST',
       body: form,
-    }).then(res => res.json()).then(data => { fileId = data.id; });
+    }, interactive).then(res => res.json()).then(data => { fileId = data.id; });
   });
 }
 
 /**
  * Merge local and remote Routes/Tracks, write the reconciled result back to
  * both sides. Resolves to a summary for the status UI.
+ * interactive=false (background auto-sync) will silently skip rather than
+ * ever pop Google's account-chooser/consent screen unprompted.
  */
-export function runMerge() {
+export function runMerge(interactive = true) {
   if (!navigator.onLine) return Promise.reject(new Error('Offline — cannot sync right now.'));
 
   const localRoutes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
@@ -150,7 +161,7 @@ export function runMerge() {
   const localRouteTombstones = localTombstones.filter(t => t.type === 'route');
   const localTrackTombstones = localTombstones.filter(t => t.type === 'track');
 
-  return _fetchRemote().then(remote => {
+  return _fetchRemote(interactive).then(remote => {
     const remoteTombstones = remote.tombstones || [];
     const remoteRouteTombstones = remoteTombstones.filter(t => t.type === 'route');
     const remoteTrackTombstones = remoteTombstones.filter(t => t.type === 'track');
@@ -177,7 +188,7 @@ export function runMerge() {
       tracks: trackResult.merged,
       tombstones: mergedTombstones,
       savedAt: Date.now(),
-    }).then(() => {
+    }, interactive).then(() => {
       localStorage.setItem(LAST_SYNC_KEY, String(Date.now()));
       return {
         routeCount: routeResult.merged.length,
@@ -188,10 +199,14 @@ export function runMerge() {
   });
 }
 
-/** Called opportunistically (e.g. on panel open) — silently no-ops unless Wi-Fi Sync is on and it's been a while. */
+/** Called opportunistically (e.g. on panel open) — silently no-ops unless Wi-Fi Sync is on and it's been a while.
+ * Never interactive: confirmed live that this could pop Google's full
+ * account-chooser/consent window just from opening the Routes/Tracks panel,
+ * with no sync button ever tapped. Runs only when a token is already cached
+ * or can be silently refreshed; otherwise it quietly skips this round. */
 export function maybeAutoSync() {
   if (!getWifiSyncEnabled() || _autoSyncing) return;
   if (Date.now() - getLastSyncMs() < AUTO_SYNC_MIN_INTERVAL_MS) return;
   _autoSyncing = true;
-  runMerge().catch(() => {}).finally(() => { _autoSyncing = false; });
+  runMerge(false).catch(() => {}).finally(() => { _autoSyncing = false; });
 }

@@ -280,16 +280,20 @@ function _segBearing(lat1, lon1, lat2, lon2) {
   return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
 }
 
-window._dismissBoatCircle = function(el) {
-  _boatCircleDismissed = true;
-  el.classList.add('boat-bare');
+// Tapping the boat toggles its circle background off (declutter) or back on
+// — a one-way dismiss with no way back was the original behavior; per direct
+// feedback, tapping the now-bare boat should restore it rather than leaving
+// it permanently bare until a full reload.
+window._toggleBoatCircle = function(el) {
+  _boatCircleDismissed = !_boatCircleDismissed;
+  el.classList.toggle('boat-bare', _boatCircleDismissed);
 };
 
 function _boatIcon() {
   const cls = _boatCircleDismissed ? 'boat-marker boat-bare' : 'boat-marker';
   return L.divIcon({
     className: '',
-    html: `<div class="${cls}" onclick="_dismissBoatCircle(this)"><span class="boat-emoji">⛵</span></div>`,
+    html: `<div class="${cls}" onclick="_toggleBoatCircle(this)"><span class="boat-emoji">⛵</span></div>`,
     iconSize: [44, 44],
     iconAnchor: [22, 22],
     tooltipAnchor: [22, -22],
@@ -3335,6 +3339,21 @@ function _showPlaceDisambig(query, candidates) {
 // immediate null. This has no such per-page call-count behavior. Resolves
 // with the trimmed, non-empty string, or null if cancelled/left empty —
 // same contract as `prompt()` for a caller checking `if (!result) return;`.
+// A quiet transcript line (see _appendTranscript) can be — and was,
+// confirmed live — visually buried under a floating widget positioned on
+// top of it, for a message important enough that missing it isn't fine
+// (e.g. "no chart data here, X is unavailable"). This flashes center-screen
+// above every ordinary widget instead, and stays up until tapped away —
+// nothing to choose, so any click on it (backdrop or panel) dismisses it.
+const _coverageAlertOverlay = document.getElementById('coverage-alert-overlay');
+const _coverageAlertText    = document.getElementById('coverage-alert-text');
+function _showCoverageAlert(text) {
+  _coverageAlertText.textContent = text;
+  _coverageAlertOverlay.classList.add('open');
+}
+function _hideCoverageAlert() { _coverageAlertOverlay.classList.remove('open'); }
+_coverageAlertOverlay.addEventListener('click', _hideCoverageAlert);
+
 const _textPromptOverlay = document.getElementById('text-prompt-overlay');
 const _textPromptTitle   = document.getElementById('text-prompt-title');
 const _textPromptInput   = document.getElementById('text-prompt-input');
@@ -10544,6 +10563,7 @@ async function _offerRegionForPosition(lat, lon) {
                 "Casco Bay and Piscataqua are also covered, with less auxiliary detail.";
     setStatus(msg);
     TTS.sayImmediate(msg);
+    _showCoverageAlert(msg);
     return;
   }
 
@@ -10552,6 +10572,7 @@ async function _offerRegionForPosition(lat, lon) {
     // coverage; nothing to switch to.
     setStatus(COVERAGE_MESSAGES.none);
     TTS.sayImmediate(COVERAGE_MESSAGES.none);
+    _showCoverageAlert(COVERAGE_MESSAGES.none);
     return;
   }
 
@@ -10621,7 +10642,7 @@ function _updateCoverageStatus(lat, lon, _isRecheck = false) {
   }
   _renderStatusCombo();
 
-  if (level !== 'none') _hideRegionOfferBanner();
+  if (level !== 'none') { _hideRegionOfferBanner(); _hideCoverageAlert(); }
 
   // Don't announce the very first "core" resolution on a normal in-coverage
   // start (prevLevel === null) — only speak up on an actual degrade/recover.

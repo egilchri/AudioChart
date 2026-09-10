@@ -660,6 +660,19 @@
     </div>
   </div>
 
+  <!-- Important, easy-to-miss status messages (e.g. "no chart data here")
+       used to only land as a quiet transcript line, which any floating
+       widget positioned on top of it could visually bury entirely. This
+       flashes center-screen at the same z-index tier as every other modal
+       in the app (above all regular floating widgets/panels) and stays
+       until tapped away — see _showCoverageAlert in app.js. -->
+  <div id="coverage-alert-overlay">
+    <div id="coverage-alert-panel">
+      <p id="coverage-alert-text"></p>
+      <button id="coverage-alert-dismiss">OK</button>
+    </div>
+  </div>
+
   <script src="./js/version.js"></script>
   <script type="module" src="./js/app.js"></script>
 </body>
