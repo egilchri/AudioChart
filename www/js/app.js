@@ -10460,6 +10460,113 @@ const COVERAGE_MESSAGES = {
   none: 'No chart data for this area. Auto Route, Re-route, and hazard checking are unavailable here; Sketch still works but is not checked against real charts.',
 };
 
+// ── Region auto-detection (coverage-none recovery) ──────────────────────────
+// Each CRUISE_PROFILES region (and the bundled default) ships a tiny
+// chart_bounds.geojson rectangle — cheap enough to fetch for all of them
+// just to answer "which region, if any, actually covers this position,"
+// independent of whichever region's full chart data happens to be loaded
+// right now. '' is used as the bundled-default region's id throughout this
+// block (matching Query.getActiveRegion()'s null-means-default convention,
+// coerced to '' so it works as a plain object/Map key).
+let _regionBoundsCache = null; // { '' : bbox|null, 'penobscot-bay': bbox|null, ... }
+const _regionOfferBanner   = document.getElementById('region-offer-banner');
+const _regionOfferText     = document.getElementById('region-offer-text');
+const _regionOfferDownload = document.getElementById('region-offer-download-btn');
+let _regionOfferCruiseName = null;
+
+function _regionIdFor(cruiseName) {
+  return CRUISE_PROFILES[cruiseName]?.dataUrl?.match(/regions\/([^/]+)\.json$/)?.[1] || null;
+}
+
+async function _fetchChartBounds(regionId) {
+  try {
+    const path = regionId ? `./data/regions/${regionId}/chart_bounds.geojson` : './data/chart_bounds.geojson';
+    const r = await fetch(path, { cache: 'no-store' });
+    if (!r.ok) return null;
+    const ring = (await r.json()).features?.[0]?.geometry?.coordinates?.[0];
+    if (!ring) return null;
+    const lons = ring.map(c => c[0]), lats = ring.map(c => c[1]);
+    return { minLon: Math.min(...lons), maxLon: Math.max(...lons), minLat: Math.min(...lats), maxLat: Math.max(...lats) };
+  } catch (_) { return null; }
+}
+
+/** regionId ('' = bundled default) whose chart_bounds contains (lat, lon),
+ * or null if none of the known regions do. Bounds are tiny and fetched once
+ * per session, not re-fetched on every GPS tick. */
+async function _regionContaining(lat, lon) {
+  if (!_regionBoundsCache) {
+    _regionBoundsCache = {};
+    const ids = ['', ...Object.keys(CRUISE_PROFILES).map(_regionIdFor).filter(Boolean)];
+    await Promise.all(ids.map(async (id) => { _regionBoundsCache[id] = await _fetchChartBounds(id); }));
+  }
+  for (const [id, b] of Object.entries(_regionBoundsCache)) {
+    if (b && lon >= b.minLon && lon <= b.maxLon && lat >= b.minLat && lat <= b.maxLat) return id;
+  }
+  return null;
+}
+
+function _showRegionOfferBanner(cruiseName) {
+  _regionOfferCruiseName = cruiseName;
+  _regionOfferText.textContent = `You're near ${cruiseName} — chart data for it isn't downloaded yet.`;
+  _regionOfferBanner.style.display = 'flex';
+}
+function _hideRegionOfferBanner() {
+  _regionOfferBanner.style.display = 'none';
+  _regionOfferCruiseName = null;
+}
+_regionOfferDownload.addEventListener('click', () => {
+  const cruiseName = _regionOfferCruiseName;
+  _hideRegionOfferBanner();
+  if (cruiseName) runRouteDownload(cruiseName);
+});
+document.getElementById('region-offer-dismiss-btn').addEventListener('click', _hideRegionOfferBanner);
+
+// Called (fire-and-forget, from _updateCoverageStatus) whenever the boat's
+// real position has no chart data at all under whatever's currently loaded.
+// Three distinct situations look identical from coverageLevelAt's point of
+// view but call for very different responses:
+//   - genuinely outside every known region  -> explain the app's real
+//     coverage area instead of an unexplained "no chart data" dead end
+//     (this is the case a visitor far from Maine, e.g. in California, hits)
+//   - inside the bundled default region's bounds but a *different* region
+//     is currently active -> switch back silently; it costs nothing (no
+//     download, always on-device) so there's no reason to ask first
+//   - inside a real, non-active downloadable region -> that switch is a
+//     genuine network cost (0.5-5 MB), so offer it as a one-tap action
+//     instead of either pulling it unasked or leaving a dead-end warning
+async function _offerRegionForPosition(lat, lon) {
+  const regionId = await _regionContaining(lat, lon);
+  const activeId = Query.getActiveRegion() || '';
+
+  if (regionId === null) {
+    const msg = "AudioChart currently covers Penobscot Bay, Casco Bay, and Piscataqua, Maine, only. " +
+                "You're outside all three — set a Test Position inside one of them to try the app out.";
+    setStatus(msg);
+    TTS.sayImmediate(msg);
+    return;
+  }
+
+  if (regionId === activeId) {
+    // Already the right region loaded — this spot is just outside its own
+    // coverage; nothing to switch to.
+    setStatus(COVERAGE_MESSAGES.none);
+    TTS.sayImmediate(COVERAGE_MESSAGES.none);
+    return;
+  }
+
+  if (regionId === '') {
+    Query.setActiveRegion(null);
+    await Query.loadData(null, null);
+    dataLoaded = true;
+    setStatus('Switched to Penobscot Bay chart data for your position.');
+    _updateCoverageStatus(lat, lon);
+    return;
+  }
+
+  const cruiseName = Object.keys(CRUISE_PROFILES).find(n => _regionIdFor(n) === regionId);
+  if (cruiseName) _showRegionOfferBanner(cruiseName);
+}
+
 /**
  * Reflects current position against loaded chart coverage — see
  * Query.coverageLevelAt. Runs on every position fix (cheap: memoized bbox
@@ -10513,12 +10620,18 @@ function _updateCoverageStatus(lat, lon, _isRecheck = false) {
   }
   _renderStatusCombo();
 
+  if (level !== 'none') _hideRegionOfferBanner();
+
   // Don't announce the very first "core" resolution on a normal in-coverage
   // start (prevLevel === null) — only speak up on an actual degrade/recover.
   if (prevLevel !== null || level !== 'core') {
-    const msg = COVERAGE_MESSAGES[level] || 'Chart data available — full hazard and navaid checking restored.';
-    setStatus(msg);
-    TTS.sayImmediate(msg);
+    if (level === 'none') {
+      _offerRegionForPosition(lat, lon); // async — sets its own status/TTS once it knows more
+    } else {
+      const msg = COVERAGE_MESSAGES[level] || 'Chart data available — full hazard and navaid checking restored.';
+      setStatus(msg);
+      TTS.sayImmediate(msg);
+    }
   }
 }
 

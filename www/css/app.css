@@ -3244,6 +3244,40 @@ body.wco-active #underway-btn { top: 10px; }
   cursor: pointer;
   flex-shrink: 0;
 }
+#region-offer-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #1a3a5c;
+  border-top: 2px solid var(--accent);
+  color: var(--text);
+  font-size: 0.9rem;
+  padding: 8px 14px;
+  flex-shrink: 0;
+  gap: 12px;
+}
+#region-offer-text { flex: 1; }
+#region-offer-download-btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+#region-offer-dismiss-btn {
+  background: var(--mid-blue);
+  color: var(--text);
+  border: none;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  flex-shrink: 0;
+}
 /* Marker flash animation — triggered when list row is tapped */
 @keyframes marker-pulse {
   0%, 100% { opacity: 1;   transform: scale(1);   }
