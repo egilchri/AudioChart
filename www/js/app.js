@@ -10679,13 +10679,28 @@ function _hideRegionOfferBanner() {
 // element — no visible feedback at all on its own). From here it looked
 // exactly like tapping Download did nothing. Now the banner stays up and
 // mirrors every progress message directly where the user just tapped.
+//
+// _regionOfferDownloading guards against a SECOND real bug found chasing
+// the first one down live: runRouteDownload's own progress calls
+// Query.loadData(), which lets _updateCoverageStatus recompute — and once
+// the new region's land/hazards actually load, coverage genuinely recovers
+// mid-download (before the satellite-tile/tide-current loops even start),
+// which unconditionally hid this exact banner. So the banner would vanish
+// a few hundred ms into a download that was still actively running,
+// silently, in the background — indistinguishable from "the button did
+// nothing," just for a different reason than the first bug. This flag
+// tells _updateCoverageStatus's auto-hide to stand down while a download
+// started from this banner is still in flight.
+let _regionOfferDownloading = false;
 _regionOfferDownload.addEventListener('click', async () => {
   const cruiseName = _regionOfferCruiseName;
   if (!cruiseName) return;
   _regionOfferDownload.disabled = true;
   _regionOfferDismiss.disabled = true;
+  _regionOfferDownloading = true;
   let lastMsg = '';
   await runRouteDownload(cruiseName, (msg) => { lastMsg = msg; _regionOfferText.textContent = msg; });
+  _regionOfferDownloading = false;
   _regionOfferDownload.disabled = false;
   _regionOfferDismiss.disabled = false;
   // A failure message stays up for the user to actually read and dismiss
@@ -10805,7 +10820,7 @@ function _updateCoverageStatus(lat, lon, _isRecheck = false) {
   }
   _renderStatusCombo();
 
-  if (level !== 'none') { _hideRegionOfferBanner(); _hideCoverageAlert(); }
+  if (level !== 'none' && !_regionOfferDownloading) { _hideRegionOfferBanner(); _hideCoverageAlert(); }
 
   // Don't announce the very first "core" resolution on a normal in-coverage
   // start (prevLevel === null) — only speak up on an actual degrade/recover.
