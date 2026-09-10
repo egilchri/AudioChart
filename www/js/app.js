@@ -8106,7 +8106,24 @@ function _syncLayerBtn() {
 
 function _ensureMap() {
   if (_map) return;
-  _map = L.map('leaflet-map', { zoomControl: false, attributionControl: true });
+  // zoomAnimation: false — confirmed live as the real cause of a "duplicate
+  // island" report: Leaflet's normal zoom transition keeps the OLD zoom
+  // level's tiles visible on screen (CSS-scaled to approximate the new
+  // view) until every new tile finishes loading, so the map never looks
+  // fully blank mid-zoom. That's invisible for the fast, pre-tiled chart/
+  // satellite layers, but Low-Tide Aerial's tiles are individually
+  // rendered on demand by a dynamic ArcGIS ImageServer (~0.5s per tile,
+  // regardless of the 512px-vs-256px size — measured directly, size isn't
+  // the bottleneck, the per-request round trip is) — long enough that the
+  // old, differently-scaled tile stays fully visible right alongside the
+  // new ones, showing the same real coastline twice at two slightly
+  // different effective positions. Confirmed live: a stale, room-sized
+  // low-zoom tile was still opacity:1 in the DOM well after zooming in.
+  // zoomAnimation:false can't be toggled per-layer or after construction
+  // (Leaflet snapshots it once at map creation), so this is app-wide —
+  // zoom becomes an instant snap instead of a smooth scale/fade for every
+  // map type, a small cosmetic cost for a real correctness bug.
+  _map = L.map('leaflet-map', { zoomControl: false, attributionControl: true, zoomAnimation: false });
   _map.setView([44.1018, -69.0752], 11);  // Rockland Harbor — default until GPS arrives
   _applyMapLayer();
   _syncLayerBtn();
