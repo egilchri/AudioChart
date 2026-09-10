@@ -9008,6 +9008,20 @@ function _ensureMap() {
   });
   _map.on('moveend', () => { if (_showCurrentArrows) _fetchAndRenderCurrentArrows(); });
 
+  // "Custom GeoLabels" checkbox — one toggle for the whole layer
+  // (manually-dropped wp00N waypoints and Search/Drop-Pin's SP00N pins
+  // alike; both render through the same _waypointsVisible-gated
+  // _refreshWaypointLayer — internal naming stays "waypoints", only the
+  // user-facing label changed). Per direct request: a real on/off control,
+  // since previously the layer only ever turned itself on automatically
+  // when a new pin was created, with no way to hide it again short of
+  // clearing localStorage.
+  const _waypointsCheckbox = document.getElementById('nf-waypoints');
+  _waypointsCheckbox.checked = _waypointsVisible;
+  _waypointsCheckbox.addEventListener('change', function () {
+    _setWaypointsVisible(this.checked);
+  });
+
   // Depths checkbox — show/hide settings and trigger tide fetch + overlay refresh
   const _depthCheckbox  = document.getElementById('nf-depth');
   const _depthSettings  = document.getElementById('nf-depth-settings');
