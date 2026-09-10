@@ -436,6 +436,23 @@ document.getElementById('boat-ctx-sketch').addEventListener('click', () => {
   _hideBoatCtx();
   _enterSketchMode();
 });
+// Same pipeline the Search box uses (nextSearchPinName/saveUserWaypoint with
+// type:'search') — a real, addressable, draggable, renamable pin, just
+// sourced from "here" instead of a typed query. Per direct request: man
+// overboard, marking a spot to come back to, etc. — needs to be one tap,
+// no typing, so this doesn't reuse _runSearch's text-resolution path at all.
+document.getElementById('boat-ctx-drop-pin').addEventListener('click', () => {
+  _hideBoatCtx();
+  if (!_boatCtxLatLng) return;
+  const { lat, lng: lon } = _boatCtxLatLng;
+  const name = nextSearchPinName();
+  saveUserWaypoint(name, lat, lon, 'search', formatPositionDisplay(lat, lon));
+  Query.setActiveWaypoint(lat, lon, name);
+  if (!_waypointsVisible) _setWaypointsVisible(true);
+  const msg = `${name} dropped at your position.`;
+  setStatus(msg);
+  TTS.sayImmediate(msg);
+});
 document.addEventListener('click', (e) => { if (!_boatCtxMenu.contains(e.target)) _hideBoatCtx(); }, { capture: true });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') _hideBoatCtx(); });
 
@@ -570,6 +587,7 @@ function _refreshWaypointLayer() {
            <div class="navaid-popup-name">${escapeHtml(wp.name)}</div>
            ${wp.note ? `<div class="navaid-popup-note">${escapeHtml(wp.note)}</div>` : ''}
            <button class="navaid-popup-focus">&#127919; Set focus</button>
+           <button class="navaid-popup-rename">&#9998; Rename</button>
            <button class="navaid-popup-delete">&#128465; Delete</button>
          </div>`,
         { maxWidth: 220, className: 'navaid-popup-wrapper' }
@@ -582,6 +600,34 @@ function _refreshWaypointLayer() {
           _updateFocusButton();
           const msg = `Focused on ${wp.name}.`;
           showResponse(msg);
+          TTS.sayImmediate(msg);
+        });
+        // Per direct request (originally for search pins' auto-generated
+        // SP00N names, equally true of quick-dropped wp00N ones) — a typed
+        // name is a real, addressable AutoRoute destination just like a
+        // gazetteer place, but "SP003" isn't something you'd remember or
+        // say with confidence a minute later the way "Camden" is.
+        popupEl.querySelector('.navaid-popup-rename').addEventListener('click', async () => {
+          _map.closePopup();
+          const newName = await _showTextPrompt('Rename waypoint', '', wp.name);
+          if (!newName || newName === wp.name) return;
+          const stored = loadUserWaypoints();
+          if (stored.some(w => w.name !== wp.name && w.name.toLowerCase() === newName.toLowerCase())) {
+            const msg = `A waypoint named "${newName}" already exists.`;
+            setStatus(msg);
+            TTS.sayImmediate(msg);
+            return;
+          }
+          const idx = stored.findIndex(w => w.name === wp.name);
+          if (idx === -1) return;
+          stored[idx].name = newName;
+          localStorage.setItem(USER_WP_KEY, JSON.stringify(stored));
+          Query.removeUserWaypoint(wp.name);
+          Query.mergeUserWaypoints([{ name: newName, lat: wp.lat, lon: wp.lon }]);
+          if (Query.activeWaypoint?.name === wp.name) Query.setActiveWaypoint(wp.lat, wp.lon, newName);
+          _refreshWaypointLayer();
+          const msg = `Renamed to ${newName}.`;
+          setStatus(msg);
           TTS.sayImmediate(msg);
         });
         // Same removal steps as the "delete waypoint [name]" text command —
@@ -3395,10 +3441,10 @@ const _textPromptOverlay = document.getElementById('text-prompt-overlay');
 const _textPromptTitle   = document.getElementById('text-prompt-title');
 const _textPromptInput   = document.getElementById('text-prompt-input');
 function _hideTextPrompt() { _textPromptOverlay.classList.remove('open'); }
-function _showTextPrompt(title, placeholder = '') {
+function _showTextPrompt(title, placeholder = '', value = '') {
   return new Promise((resolve) => {
     _textPromptTitle.textContent = title;
-    _textPromptInput.value = '';
+    _textPromptInput.value = value;
     _textPromptInput.placeholder = placeholder;
     const finish = (result) => { _hideTextPrompt(); resolve(result); };
     const goNow = () => finish(_textPromptInput.value.trim() || null);
@@ -3410,7 +3456,9 @@ function _showTextPrompt(title, placeholder = '') {
       else if (e.key === 'Escape') finish(null);
     };
     _textPromptOverlay.classList.add('open');
-    setTimeout(() => _textPromptInput.focus(), 0);
+    // Pre-filled (rename) vs. empty (new value): select-all so typing
+    // replaces it outright, rather than landing the cursor mid-word.
+    setTimeout(() => { _textPromptInput.focus(); _textPromptInput.select(); }, 0);
   });
 }
 
@@ -7892,12 +7940,27 @@ let _LowTideTileLayerClass = null;
 function _lowTideTileLayerClass() {
   if (!_LowTideTileLayerClass) {
     _LowTideTileLayerClass = L.TileLayer.extend({
+      // size=512,512 (not 256,256) for the same 256-CSS-pixel tile slot —
+      // this is a dynamic ImageServer re-rendering the source orthoimagery
+      // on every request, not a pre-baked tile pyramid, so asking for twice
+      // the pixels per side genuinely pulls twice the resolution out of the
+      // 14.5cm-native source before the browser scales it back down to fit;
+      // on a real (non-retina) display that scale-down costs a little
+      // wasted bandwidth/CPU and nothing else, and on any HiDPI screen
+      // (most phones/laptops) it's the difference between a soft, blocky
+      // image and one that actually looks like the source photography.
+      // interpolation=RSP_CubicConvolution replaces exportImage's default
+      // resampling (effectively nearest-neighbor) — confirmed live as the
+      // dominant cause of a grainy/aliased look at any zoom level heavier
+      // than a light downsample; cubic convolution is the standard choice
+      // for resampling continuous-tone aerial photography.
       getTileUrl: function(coords) {
         const z = coords.z;
         const lonMin = _tile2lon(coords.x, z), lonMax = _tile2lon(coords.x + 1, z);
         const latMax = _tile2lat(coords.y, z), latMin = _tile2lat(coords.y + 1, z);
         return `${this.options.serviceUrl}?bbox=${lonMin},${latMin},${lonMax},${latMax}`
-          + '&bboxSR=4326&size=256,256&imageSR=4326&format=png&f=image';
+          + '&bboxSR=4326&size=512,512&imageSR=4326&format=png&f=image'
+          + '&interpolation=RSP_CubicConvolution';
       },
     });
   }
