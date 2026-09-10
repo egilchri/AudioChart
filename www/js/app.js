@@ -562,11 +562,13 @@ function _refreshWaypointLayer() {
   if (!wps.length) return;
   _waypointLayer = L.layerGroup(
     wps.map(wp => {
-      const m = L.marker([wp.lat, wp.lon], { icon: _waypointIcon(), draggable: true });
+      const icon = wp.type === 'search' ? _searchPinIcon() : _waypointIcon();
+      const m = L.marker([wp.lat, wp.lon], { icon, draggable: true });
       m.bindTooltip(escapeHtml(wp.name), { permanent: true, direction: 'top', className: 'map-tooltip' });
       m.bindPopup(
         `<div class="navaid-popup">
            <div class="navaid-popup-name">${escapeHtml(wp.name)}</div>
+           ${wp.note ? `<div class="navaid-popup-note">${escapeHtml(wp.note)}</div>` : ''}
            <button class="navaid-popup-focus">&#127919; Set focus</button>
            <button class="navaid-popup-delete">&#128465; Delete</button>
          </div>`,
@@ -7558,17 +7560,33 @@ function loadUserWaypoints() {
   try { return JSON.parse(localStorage.getItem(USER_WP_KEY) || '[]'); } catch { return []; }
 }
 
-function nextWaypointName() {
+// Each prefix keeps its own numbering — a quick-dropped "wp003" and a
+// search-dropped "SP003" coexisting is fine, but they shouldn't share one
+// counter (searching a few places would otherwise burn through numbers a
+// manually-dropped waypoint would expect to get, and vice versa).
+function _nextNumberedWaypointName(prefix) {
   const nums = loadUserWaypoints()
-    .map(w => parseInt(w.name.replace(/\D/g, ''), 10))
+    .filter(w => w.name.startsWith(prefix))
+    .map(w => parseInt(w.name.slice(prefix.length), 10))
     .filter(n => !isNaN(n));
   const next = nums.length ? Math.max(...nums) + 1 : 1;
-  return 'wp' + String(next).padStart(3, '0');
+  return prefix + String(next).padStart(3, '0');
 }
+function nextWaypointName() { return _nextNumberedWaypointName('wp'); }
+function nextSearchPinName() { return _nextNumberedWaypointName('SP'); }
 
-function saveUserWaypoint(name, lat, lon) {
+// type: undefined for a plain manually-dropped waypoint, 'search' for one
+// created via the Search box (see _runSearch) — only affects which icon
+// _refreshWaypointLayer draws; storage/addressing (AutoRoute, findPlaceByName,
+// drag-to-move) is identical either way. note: the resolved place name/label
+// this pin's coordinates came from, shown as a subtitle in its popup menu —
+// purely informational, never part of its addressable name.
+function saveUserWaypoint(name, lat, lon, type, note) {
   const wps = loadUserWaypoints();
-  wps.push({ name, lat, lon });
+  const entry = { name, lat, lon };
+  if (type) entry.type = type;
+  if (note) entry.note = note;
+  wps.push(entry);
   localStorage.setItem(USER_WP_KEY, JSON.stringify(wps));
   Query.mergeUserWaypoints([{ name, lat, lon }]);
   _refreshWaypointLayer();
@@ -11888,42 +11906,17 @@ testPosClear.addEventListener('click', clearTestPosition);
 document.getElementById('test-pos-cancel').addEventListener('click', _closeTestPosForm);
 document.getElementById('cruise-cancel').addEventListener('click', () => { cruiseForm.style.display = 'none'; });
 
-// ── Search: jump the map to a place/coordinate and drop a pin ────────────────
+// ── Search: jump the map to a place/coordinate and drop a real, addressable pin ──
 // Deliberately independent of the boat/test-position — this is "show me
 // where X is," not "pretend I'm at X." Reuses the exact same
 // coordinate-or-place resolution _test-pos-form_'s Set button already relies
-// on (parseCoordinate, then server-backed then local place lookup).
-let _searchPinLayer = null;
-
-function _clearSearchPin() {
-  if (_searchPinLayer && _map) { _map.removeLayer(_searchPinLayer); _searchPinLayer = null; }
-}
-
-function _dropSearchPin(lat, lon, name) {
-  _clearSearchPin();
-  const marker = L.marker([lat, lon], { icon: _searchPinIcon(), zIndexOffset: 1200 });
-  const label = name || formatPositionDisplay(lat, lon);
-  marker.bindTooltip(label, { permanent: false });
-  // Same popup-menu convention as the user-waypoint markers (navaid-popup) —
-  // click for a menu, tooltip above still shows the name/coords on hover.
-  // No confirm() before deleting: unlike a saved waypoint, a search pin is
-  // throwaway, one search away from being dropped right back.
-  marker.bindPopup(
-    `<div class="navaid-popup">
-       <div class="navaid-popup-name">${escapeHtml(label)}</div>
-       <button class="navaid-popup-delete">&#128465; Delete pin</button>
-     </div>`,
-    { maxWidth: 220, className: 'navaid-popup-wrapper' }
-  );
-  marker.on('popupopen', (e) => {
-    e.popup.getElement().querySelector('.navaid-popup-delete').addEventListener('click', () => {
-      _map.closePopup();
-      _clearSearchPin();
-    });
-  });
-  marker.addTo(_map);
-  _searchPinLayer = marker;
-}
+// on (parseCoordinate, then server-backed then local place lookup). Per
+// direct request, the dropped pin is a real, addressable waypoint (SP001,
+// SP002, ...) — draggable, sayable/typeable as an AutoRoute destination,
+// everything _refreshWaypointLayer already gives a regular waypoint — just
+// tagged type:'search' so it renders with the teardrop pin icon instead of
+// the plain square, and carries the resolved place/coords as a `note` for
+// its popup (see saveUserWaypoint/_refreshWaypointLayer).
 
 function _closeSearchForm() {
   searchForm.style.display = 'none';
@@ -11956,6 +11949,11 @@ async function _runSearch() {
   _mapContainer.classList.remove('map-compact', 'list-focus', 'input-focus');
   _closeSearchForm();
   searchInput.value = '';
+  const name = nextSearchPinName();
+  const note = coord.name || formatPositionDisplay(coord.lat, coord.lon);
+  saveUserWaypoint(name, coord.lat, coord.lon, 'search', note);
+  Query.setActiveWaypoint(coord.lat, coord.lon, name);
+  if (!_waypointsVisible) _setWaypointsVisible(true);
   // Same CSS-transition-then-resize timing _showBoatPosition/flashMarker use
   // elsewhere — the map container may still be mid-expand from the class
   // removal above, and invalidateSize()/setView() before that finishes can
@@ -11963,18 +11961,12 @@ async function _runSearch() {
   setTimeout(() => {
     _map.invalidateSize();
     _map.setView([coord.lat, coord.lon], Math.max(_map.getZoom() || 13, 13));
-    _dropSearchPin(coord.lat, coord.lon, coord.name);
   }, 300);
-  setStatus(`Found: ${coord.name || formatPositionDisplay(coord.lat, coord.lon)}`);
+  setStatus(`${name}: ${note}`);
 }
 
 document.getElementById('search-go').addEventListener('click', _runSearch);
 searchInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') _runSearch(); });
-document.getElementById('search-clear').addEventListener('click', () => {
-  _clearSearchPin();
-  _closeSearchForm();
-  searchInput.value = '';
-});
 document.getElementById('search-cancel').addEventListener('click', _closeSearchForm);
 
 // One-tap reset for map clutter — a long test/exploration session can leave
@@ -12016,7 +12008,9 @@ function _clearScreen() {
   _mapLayers = _hazardCheckLayer = _routeFallbackLayer = null;
   _autoRoutePreviewLayer = _viewportHazardLayer = null;
   _animReportLayer = _animMilestoneLayer = null;
-  _clearSearchPin();
+  // Search pins are real waypoints now (see saveUserWaypoint's type:'search'
+  // in _runSearch) — same as manually-dropped ones, Clear Screen doesn't
+  // touch them; delete via a pin's own popup menu instead.
 
   // Per explicit request: tidy Node Ops too, not just map layers —
   // collapsed (not toggled) so this is always a clean-up, never

@@ -58,19 +58,58 @@ export function parseFromToQuery(text) {
 /**
  * Try to parse a string as a lat/lon coordinate.
  * Handles:
- *   44° 04.8674' N 068° 57.2965' W   (degrees-minutes with symbols)
- *   44 04.8674 N 068 57.2965 W        (degrees-minutes without symbols)
- *   44.0811, -68.9549                  (decimal degrees)
- *   44.0811 -68.9549                   (decimal degrees, space-separated)
+ *   44° 09' 30.5" N 068° 36' 01.4" W    (degrees-minutes-seconds, symbols optional)
+ *   44° 04.8674' N 068° 57.2965' W      (degrees-minutes with symbols)
+ *   44 04.8674 N 068 57.2965 W          (degrees-minutes without symbols)
+ *   44.0811, -68.9549                   (decimal degrees)
+ *   44.0811 -68.9549                    (decimal degrees, space-separated)
+ * The minute/second marks accept both the plain ASCII quote/double-quote a
+ * keyboard types and the proper typographic prime/double-prime (′ ″) most
+ * chart software and copy-pasted GPS coordinates actually use — confirmed
+ * live as a real bug: a coordinate pasted with real ′/″ marks silently
+ * failed to match here (the old character classes only recognized a
+ * straight '), fell through to place-name search, and got fuzzy-matched to
+ * a real but completely unrelated place. A comma between the lat and lon
+ * halves (as opposed to just whitespace) is accepted too, for the same
+ * copy-paste-tolerance reason.
  * Returns {lat, lon} or null.
  */
 export function parseCoordinate(text) {
   const t = text.trim();
+  const MIN_MARK = `['′’]`;   // ' ′ ’
+  const SEC_MARK = `["″”]`;   // " ″ "
+
+  // Degrees-minutes-seconds: D° M' S" N/S D° M' S" E/W
+  // The minutes->seconds gap specifically requires a real separator (a mark
+  // or at least one space) rather than \s*mark?\s* (which can match zero
+  // characters) — confirmed live as a real bug: with a zero-width gap
+  // allowed there, a plain decimal-minutes DM coordinate with no space
+  // before the decimal point (e.g. "44 04.8674 N") could still match THIS
+  // pattern by backtracking minutes down to fewer digits and letting the
+  // rest of the decimal spill into "seconds", silently computing the wrong
+  // position instead of falling through to the (correct) dm pattern below.
+  const MIN_SEC_GAP = `(?:${MIN_MARK}\\s*|\\s+)`;
+  const dms = t.match(new RegExp(
+    `(\\d{1,3})\\s*[°\\s]\\s*(\\d{1,2})${MIN_SEC_GAP}(\\d{1,2}(?:\\.\\d+)?)\\s*${SEC_MARK}?\\s*([NS])` +
+    `\\s*,?\\s*` +
+    `(\\d{1,3})\\s*[°\\s]\\s*(\\d{1,2})${MIN_SEC_GAP}(\\d{1,2}(?:\\.\\d+)?)\\s*${SEC_MARK}?\\s*([EW])`,
+    'i'
+  ));
+  if (dms) {
+    let lat = parseInt(dms[1]) + parseInt(dms[2]) / 60 + parseFloat(dms[3]) / 3600;
+    let lon = parseInt(dms[5]) + parseInt(dms[6]) / 60 + parseFloat(dms[7]) / 3600;
+    if (dms[4].toUpperCase() === 'S') lat = -lat;
+    if (dms[8].toUpperCase() === 'W') lon = -lon;
+    if (lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) return { lat, lon };
+  }
 
   // Degrees-minutes: D° M' N/S D° M' E/W  (symbols optional)
-  const dm = t.match(
-    /(\d{1,3})\s*[°\s]\s*(\d{1,2}(?:\.\d+)?)\s*['\s]*([NS])\s+(\d{1,3})\s*[°\s]\s*(\d{1,2}(?:\.\d+)?)\s*['\s]*([EW])/i
-  );
+  const dm = t.match(new RegExp(
+    `(\\d{1,3})\\s*[°\\s]\\s*(\\d{1,2}(?:\\.\\d+)?)\\s*${MIN_MARK}?\\s*([NS])` +
+    `\\s*,?\\s*` +
+    `(\\d{1,3})\\s*[°\\s]\\s*(\\d{1,2}(?:\\.\\d+)?)\\s*${MIN_MARK}?\\s*([EW])`,
+    'i'
+  ));
   if (dm) {
     let lat = parseInt(dm[1]) + parseFloat(dm[2]) / 60;
     let lon = parseInt(dm[4]) + parseFloat(dm[5]) / 60;

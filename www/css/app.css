@@ -404,7 +404,7 @@ html, body {
   -webkit-appearance: none;
 }
 #search-input:focus { border-color: var(--accent); }
-#search-go, #search-clear, #search-cancel {
+#search-go, #search-cancel {
   background: var(--mid-blue);
   border: none;
   border-radius: 6px;
@@ -414,7 +414,7 @@ html, body {
   cursor: pointer;
   white-space: nowrap;
 }
-#search-clear, #search-cancel { background: #4a1a1a; color: var(--danger); }
+#search-cancel { background: #4a1a1a; color: var(--danger); }
 
 /* Anchor Watch radius-entry row */
 #anchor-watch-form { display: flex; flex-direction: column; gap: 6px; }
@@ -2010,6 +2010,14 @@ body.wco-active #wco-titlebar { display: flex; }
   border-bottom: 1px solid var(--mid-blue);
   padding-bottom: 6px;
   margin-bottom: 2px;
+}
+/* Search pins' resolved place/coords — shown under their SP00N name so the
+   auto-generated addressable id doesn't lose the "why did I drop this"
+   context, without that context being part of the name itself. */
+.navaid-popup-note {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  margin-top: -4px;
 }
 .navaid-popup-brg,
 .navaid-popup-copy,
