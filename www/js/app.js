@@ -10542,17 +10542,22 @@ document.getElementById('region-offer-dismiss-btn').addEventListener('click', _h
 
 // Called (fire-and-forget, from _updateCoverageStatus) whenever the boat's
 // real position has no chart data at all under whatever's currently loaded.
-// Three distinct situations look identical from coverageLevelAt's point of
+// Four distinct situations look identical from coverageLevelAt's point of
 // view but call for very different responses:
 //   - genuinely outside every known region  -> explain the app's real
 //     coverage area instead of an unexplained "no chart data" dead end
 //     (this is the case a visitor far from Maine, e.g. in California, hits)
-//   - inside the bundled default region's bounds but a *different* region
-//     is currently active -> switch back silently; it costs nothing (no
-//     download, always on-device) so there's no reason to ask first
-//   - inside a real, non-active downloadable region -> that switch is a
-//     genuine network cost (0.5-5 MB), so offer it as a one-tap action
-//     instead of either pulling it unasked or leaving a dead-end warning
+//   - inside the currently-active region's own bounds -> nothing to switch
+//     to, this exact spot just has no data
+//   - inside the bundled default region's bounds, or any other region
+//     that's already been downloaded before -> switch to it silently; each
+//     region's geometry now lives in its own IndexedDB slot (see
+//     Query.isRegionDownloaded), so this is a free, offline-safe read, not
+//     a re-download — no reason to ask first
+//   - inside a real region that's never been downloaded -> that first
+//     download is a genuine network cost (0.5-5 MB), so offer it as a
+//     one-tap action instead of either pulling it unasked or leaving a
+//     dead-end warning
 async function _offerRegionForPosition(lat, lon) {
   const regionId = await _regionContaining(lat, lon);
   const activeId = Query.getActiveRegion() || '';
@@ -10576,16 +10581,18 @@ async function _offerRegionForPosition(lat, lon) {
     return;
   }
 
-  if (regionId === '') {
-    Query.setActiveRegion(null);
+  const cruiseName = regionId ? Object.keys(CRUISE_PROFILES).find(n => _regionIdFor(n) === regionId) : null;
+  const alreadyDownloaded = regionId === '' || (regionId && await Query.isRegionDownloaded(regionId));
+
+  if (alreadyDownloaded) {
+    Query.setActiveRegion(regionId || null);
     await Query.loadData(null, null);
     dataLoaded = true;
-    setStatus('Switched to Penobscot Bay chart data for your position.');
+    setStatus(`Switched to ${cruiseName || 'Penobscot Bay'} chart data for your position.`);
     _updateCoverageStatus(lat, lon);
     return;
   }
 
-  const cruiseName = Object.keys(CRUISE_PROFILES).find(n => _regionIdFor(n) === regionId);
   if (cruiseName) _showRegionOfferBanner(cruiseName);
 }
 
@@ -12111,6 +12118,14 @@ async function init() {
   _loadOfflineCache();
   setStatus('Waiting for GPS...');
   _syncWindowControlsOverlay();
+  // Best-effort: ask the browser not to evict IndexedDB under storage
+  // pressure. Matters more now that a region download persists in its own
+  // slot rather than getting replaced by the next one — multiple downloaded
+  // regions is real, if still modest (single-digit MB per region), data
+  // worth keeping around. Most browsers grant this silently based on site
+  // engagement with no user-visible prompt; safe to ignore if unsupported
+  // or denied.
+  navigator.storage?.persist?.().catch(() => {});
 
   Query.loadStoredFocus();
   _updateFocusButton();

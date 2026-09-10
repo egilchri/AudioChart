@@ -317,26 +317,51 @@ function _prioritiseByChartScale(zones) {
   });
 }
 
+// Multiple regions can each have their own downloaded copy sitting in
+// IndexedDB at once — every geometry/version cache key is scoped by region
+// id (bundled default = 'default') so downloading region B never evicts
+// region A's data. Switching _activeRegion back to a previously-downloaded
+// region is then a free, offline-safe IDB read, not a re-download.
+function _regionIdbKey(idbKey, regionId) {
+  return `${idbKey}:${regionId || 'default'}`;
+}
+function _versionIdbKey(regionId) {
+  return `data-version:${regionId || 'default'}`;
+}
+
+/** Whether a region's structural geometry has ever been downloaded (i.e. is
+ * sitting in IndexedDB right now), regardless of whether it's the currently
+ * active region. Used to decide whether switching to it is free or needs a
+ * real download first. */
+export async function isRegionDownloaded(regionId) {
+  try {
+    return !!(await idbGet(_regionIdbKey('land', regionId)));
+  } catch (_) {
+    return false;
+  }
+}
+
 // Fetch a geometry file for the active region: IndexedDB cache first (if a
 // non-default region is active and was previously downloaded), then a
 // region-scoped network fetch, falling back to the bundled default-region
 // file if neither succeeds — this ordering is what keeps the bundled
 // region's own behavior completely unchanged (no active region ⇒ this is
 // just "fetch ./data/<filename>", same as before) while making a real
-// downloaded region take priority once one is active. IDB key is reused
-// (not kept per-region) since the app is used in one cruising area at a
-// time, not several simultaneously.
+// downloaded region take priority once one is active.
 async function _fetchRegionGeometry(idbKey, filename) {
   if (_activeRegion) {
+    const scopedKey = _regionIdbKey(idbKey, _activeRegion);
+    const versionKey = _versionIdbKey(_activeRegion);
     // Version-gated, same pattern as loadData()'s hazards/places/navaids
-    // cache below (and the SAME data-version.json/IDB key — one fingerprint
-    // covers both cache families). Without this check, an IndexedDB hit
-    // here returned unconditionally forever: a rebuilt channel_graph.geojson
-    // (or land/channels/soundings) on the server would NEVER reach a
-    // browser that had already cached the old copy, on any version of the
-    // app, with no way to recover short of clearing site data — a real
-    // routing bug (Fox Islands Thorofare, 2026-08-23) shipped a fix that
-    // never actually reached the reporting user's device because of this.
+    // cache below (and the SAME data-version.json/IDB key family — one
+    // fingerprint per region covers both cache families). Without this
+    // check, an IndexedDB hit here returned unconditionally forever: a
+    // rebuilt channel_graph.geojson (or land/channels/soundings) on the
+    // server would NEVER reach a browser that had already cached the old
+    // copy, on any version of the app, with no way to recover short of
+    // clearing site data — a real routing bug (Fox Islands Thorofare,
+    // 2026-08-23) shipped a fix that never actually reached the reporting
+    // user's device because of this.
     // cache: 'no-store' on both fetches below — confirmed live as a real,
     // separate gap in this exact freshness check: the service worker's own
     // networkFirst() strategy still calls a plain fetch() internally, which
@@ -353,14 +378,14 @@ async function _fetchRegionGeometry(idbKey, filename) {
       if (vr.ok) networkVersion = (await vr.json()).version;
     } catch (_) {}
     try {
-      const [cached, storedVersion] = await Promise.all([idbGet(idbKey), idbGet('data-version')]);
+      const [cached, storedVersion] = await Promise.all([idbGet(scopedKey), idbGet(versionKey)]);
       if (cached && networkVersion && storedVersion === networkVersion) return cached;
     } catch (_) {}
     try {
       const r = await fetch(_regionPath(filename), { cache: 'no-store' });
       if (r.ok) {
         const data = await r.json();
-        idbPut(idbKey, data).catch(() => {});
+        idbPut(scopedKey, data).catch(() => {});
         return data;
       }
     } catch (_) {}
@@ -369,7 +394,7 @@ async function _fetchRegionGeometry(idbKey, filename) {
     // IndexedDB even if its version is stale/unknown; stale offline data
     // beats no data at all.
     try {
-      const cached = await idbGet(idbKey);
+      const cached = await idbGet(scopedKey);
       if (cached) return cached;
     } catch (_) {}
     console.warn(`[AC] ${filename} not yet downloaded for region "${_activeRegion}" — using bundled default`);
@@ -393,7 +418,7 @@ export async function prepareOfflineRegionGeometry(regionId) {
   ]) {
     try {
       const r = await fetch(`./data/regions/${regionId}/${filename}`, { cache: 'no-store' });
-      if (r.ok) await idbPut(idbKey, await r.json());
+      if (r.ok) await idbPut(_regionIdbKey(idbKey, regionId), await r.json());
     } catch (_) {}
   }
 }
@@ -498,13 +523,21 @@ export async function loadData(lat, lon) {
     if (vr.ok) networkVersion = (await vr.json()).version;
   } catch (_) {}
 
+  // hazards/named_places/navaids/waypoints/restrictions are ONE shared,
+  // ever-growing IDB bucket accumulated across every region ever downloaded
+  // (see prepareOfflineStatic) — deliberately NOT region-scoped, unlike the
+  // structural geometry above. The version marker tracks something
+  // narrower: "have I merged the ACTIVE region's current snapshot into that
+  // bucket yet" — scoped per-region so switching between two
+  // already-downloaded regions doesn't spuriously look stale just because
+  // a third region was the most recently downloaded one.
   const [idbH, idbP, idbN, idbW, idbR, storedVersion] = await Promise.all([
     idbGet('hazards').catch(() => null),
     idbGet('named_places').catch(() => null),
     idbGet('navaids').catch(() => null),
     idbGet('waypoints').catch(() => null),
     idbGet('restrictions').catch(() => null),
-    idbGet('data-version').catch(() => null),
+    idbGet(_versionIdbKey(_activeRegion)).catch(() => null),
   ]);
 
   const idbCurrent = idbH && networkVersion && storedVersion === networkVersion;
@@ -522,6 +555,18 @@ export async function loadData(lat, lon) {
     if (navaids !== idbN) idbPut('navaids', navaids).catch(() => {});
     if (idbR && restrictions !== idbR) idbPut('restrictions', restrictions).catch(() => {});
     console.log(`[query] Loaded offline data from IndexedDB (version ${storedVersion})`);
+  } else if (idbH && !navigator.onLine) {
+    // Offline and no fresher copy reachable — stale accumulated IDB data
+    // beats throwing away hazards/places/navaids entirely (the raw fetches
+    // below have no offline fallback of their own). Matches
+    // _fetchRegionGeometry's same "stale beats nothing" rule for the
+    // structural geometry files.
+    hazards = _dedupFeatureCollection(idbH);
+    namedPlaces = _dedupFeatureCollection(idbP);
+    navaids = _dedupFeatureCollection(idbN);
+    waypoints = idbW;
+    restrictions = idbR ? _dedupFeatureCollection(idbR) : null;
+    console.log(`[query] Offline — using stale IndexedDB data (stored=${storedVersion})`);
   } else {
     if (idbH && !idbCurrent) {
       console.log(`[query] IDB data stale (stored=${storedVersion} network=${networkVersion}), using static files`);
@@ -534,7 +579,7 @@ export async function loadData(lat, lon) {
     hazards = h;
     namedPlaces = p;
     navaids = n;
-    if (networkVersion) await idbPut('data-version', networkVersion);
+    if (networkVersion) await idbPut(_versionIdbKey(_activeRegion), networkVersion);
     console.log(`[query] Loaded offline data from static files (version ${networkVersion})`);
   }
 
@@ -586,7 +631,7 @@ export async function prepareOfflineStatic(dataUrl) {
     const regionId = dataUrl.match(/regions\/([^/]+)\.json$/)?.[1];
     const versionUrl = regionId ? `./data/regions/${regionId}/data-version.json` : './data/data-version.json';
     const vr = await fetch(versionUrl, { cache: 'no-store' });
-    if (vr.ok) await idbPut('data-version', (await vr.json()).version);
+    if (vr.ok) await idbPut(_versionIdbKey(regionId), (await vr.json()).version);
   } catch (_) {}
   return { added: data.count, total: stored.reduce((a, b) => a + b, 0) };
 }
@@ -2309,7 +2354,7 @@ export async function offlineReadiness() {
 
   // Navaid data — IDB preferred, static file fallback
   const idbNavaids = await idbGet('navaids').catch(() => null);
-  const idbVersion = await idbGet('data-version').catch(() => null);
+  const idbVersion = await idbGet(_versionIdbKey(_activeRegion)).catch(() => null);
   if (idbNavaids?.features?.length) {
     const ver = idbVersion ? ` (${idbVersion})` : '';
     lines.push(`Navaids: ${idbNavaids.features.length} features in offline store${ver}`);
