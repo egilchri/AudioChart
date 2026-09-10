@@ -11902,7 +11902,25 @@ function _clearSearchPin() {
 function _dropSearchPin(lat, lon, name) {
   _clearSearchPin();
   const marker = L.marker([lat, lon], { icon: _searchPinIcon(), zIndexOffset: 1200 });
-  marker.bindTooltip(name || formatPositionDisplay(lat, lon), { permanent: false });
+  const label = name || formatPositionDisplay(lat, lon);
+  marker.bindTooltip(label, { permanent: false });
+  // Same popup-menu convention as the user-waypoint markers (navaid-popup) —
+  // click for a menu, tooltip above still shows the name/coords on hover.
+  // No confirm() before deleting: unlike a saved waypoint, a search pin is
+  // throwaway, one search away from being dropped right back.
+  marker.bindPopup(
+    `<div class="navaid-popup">
+       <div class="navaid-popup-name">${escapeHtml(label)}</div>
+       <button class="navaid-popup-delete">&#128465; Delete pin</button>
+     </div>`,
+    { maxWidth: 220, className: 'navaid-popup-wrapper' }
+  );
+  marker.on('popupopen', (e) => {
+    e.popup.getElement().querySelector('.navaid-popup-delete').addEventListener('click', () => {
+      _map.closePopup();
+      _clearSearchPin();
+    });
+  });
   marker.addTo(_map);
   _searchPinLayer = marker;
 }
