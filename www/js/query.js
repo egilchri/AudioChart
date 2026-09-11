@@ -228,7 +228,7 @@ export function removeUserWaypoint(name) {
 }
 
 export async function hasOfflineData() {
-  const h = await idbGet('hazards').catch(() => null);
+  const h = await idbGet(_regionIdbKey('hazards', _activeRegion)).catch(() => null);
   return !!(h?.features?.length);
 }
 
@@ -523,20 +523,24 @@ export async function loadData(lat, lon) {
     if (vr.ok) networkVersion = (await vr.json()).version;
   } catch (_) {}
 
-  // hazards/named_places/navaids/waypoints/restrictions are ONE shared,
-  // ever-growing IDB bucket accumulated across every region ever downloaded
-  // (see prepareOfflineStatic) — deliberately NOT region-scoped, unlike the
-  // structural geometry above. The version marker tracks something
-  // narrower: "have I merged the ACTIVE region's current snapshot into that
-  // bucket yet" — scoped per-region so switching between two
-  // already-downloaded regions doesn't spuriously look stale just because
-  // a third region was the most recently downloaded one.
+  // hazards/named_places/navaids/restrictions are region-scoped, same as the
+  // structural geometry above (land/channels/etc) — each was briefly ONE
+  // shared, ever-growing IDB bucket accumulated across every region ever
+  // downloaded (v587), which turned out to be a real, serious bug: two
+  // overlapping-vintage builds of the same geography (the bundled default
+  // and a later curated region rebuild) merge as near-total DUPLICATES, not
+  // genuinely new coverage, since their features don't share exact
+  // coordinates — confirmed live doubling a real corridor's hazard density
+  // (10,961 + 11,938 → 22,801 merged hazards) and choking the auto-router's
+  // A* search well past its deadline on an otherwise-normal route. Only
+  // `waypoints` stays a genuinely shared, unscoped bucket below — those are
+  // the user's own saved pins, which should persist across every region.
   const [idbH, idbP, idbN, idbW, idbR, storedVersion] = await Promise.all([
-    idbGet('hazards').catch(() => null),
-    idbGet('named_places').catch(() => null),
-    idbGet('navaids').catch(() => null),
+    idbGet(_regionIdbKey('hazards', _activeRegion)).catch(() => null),
+    idbGet(_regionIdbKey('named_places', _activeRegion)).catch(() => null),
+    idbGet(_regionIdbKey('navaids', _activeRegion)).catch(() => null),
     idbGet('waypoints').catch(() => null),
-    idbGet('restrictions').catch(() => null),
+    idbGet(_regionIdbKey('restrictions', _activeRegion)).catch(() => null),
     idbGet(_versionIdbKey(_activeRegion)).catch(() => null),
   ]);
 
@@ -550,10 +554,10 @@ export async function loadData(lat, lon) {
     restrictions = idbR ? _dedupFeatureCollection(idbR) : null;
     // Persist the cleaned-up copy so a stale, previously-accumulated
     // duplicate set only ever needs deduping once, not on every load.
-    if (hazards !== idbH) idbPut('hazards', hazards).catch(() => {});
-    if (namedPlaces !== idbP) idbPut('named_places', namedPlaces).catch(() => {});
-    if (navaids !== idbN) idbPut('navaids', navaids).catch(() => {});
-    if (idbR && restrictions !== idbR) idbPut('restrictions', restrictions).catch(() => {});
+    if (hazards !== idbH) idbPut(_regionIdbKey('hazards', _activeRegion), hazards).catch(() => {});
+    if (namedPlaces !== idbP) idbPut(_regionIdbKey('named_places', _activeRegion), namedPlaces).catch(() => {});
+    if (navaids !== idbN) idbPut(_regionIdbKey('navaids', _activeRegion), navaids).catch(() => {});
+    if (idbR && restrictions !== idbR) idbPut(_regionIdbKey('restrictions', _activeRegion), restrictions).catch(() => {});
     console.log(`[query] Loaded offline data from IndexedDB (version ${storedVersion})`);
   } else if (idbH && !navigator.onLine) {
     // Offline and no fresher copy reachable — stale accumulated IDB data
@@ -608,13 +612,23 @@ export async function prepareOfflineStatic(dataUrl) {
     localStorage.setItem('audiochart-magvar', String(data.magvar));
   }
 
+  // Per-region (matching merge_charts.py --region's own data-version.json)
+  // when dataUrl points at a regions/<id>.json bundle, else the bundled
+  // default region's own unscoped keys, unchanged.
+  const regionId = dataUrl.match(/regions\/([^/]+)\.json$/)?.[1];
   const key = _featureIdentityKey;
   const pairs = [
-    ['hazards',      data.hazards.features],
-    ['named_places', data.places.features],
-    ['navaids',      data.navaids.features],
-    ['restrictions', (data.restrictions?.features) || []],
+    [_regionIdbKey('hazards', regionId),      data.hazards.features],
+    [_regionIdbKey('named_places', regionId), data.places.features],
+    [_regionIdbKey('navaids', regionId),      data.navaids.features],
+    [_regionIdbKey('restrictions', regionId), (data.restrictions?.features) || []],
   ];
+  // Additive WITHIN one region's own downloads (e.g. re-downloading after a
+  // server rebuild, or overlapping incremental areas) — never ACROSS
+  // regions. Merging across regions was the v587 bug: two overlapping-
+  // vintage builds of the same geography merge as near-total duplicates
+  // (different digitizations rarely share exact coordinates), silently
+  // doubling hazard density and choking the auto-router's search.
   for (const [idbKey, newFeatures] of pairs) {
     const existing = await idbGet(idbKey).catch(() => null);
     const existingFeatures = existing?.features || [];
@@ -624,11 +638,8 @@ export async function prepareOfflineStatic(dataUrl) {
   }
   const stored = await Promise.all(pairs.map(([k]) => idbGet(k).then(fc => (fc?.features || []).length)));
   // Record the current data version so the freshness check passes after
-  // download — per-region (matching merge_charts.py --region's own
-  // data-version.json) when dataUrl points at a regions/<id>.json bundle,
-  // else the bundled default region's original global path, unchanged.
+  // download.
   try {
-    const regionId = dataUrl.match(/regions\/([^/]+)\.json$/)?.[1];
     const versionUrl = regionId ? `./data/regions/${regionId}/data-version.json` : './data/data-version.json';
     const vr = await fetch(versionUrl, { cache: 'no-store' });
     if (vr.ok) await idbPut(_versionIdbKey(regionId), (await vr.json()).version);
@@ -2353,7 +2364,7 @@ export async function offlineReadiness() {
   }
 
   // Navaid data — IDB preferred, static file fallback
-  const idbNavaids = await idbGet('navaids').catch(() => null);
+  const idbNavaids = await idbGet(_regionIdbKey('navaids', _activeRegion)).catch(() => null);
   const idbVersion = await idbGet(_versionIdbKey(_activeRegion)).catch(() => null);
   if (idbNavaids?.features?.length) {
     const ver = idbVersion ? ` (${idbVersion})` : '';
@@ -2366,7 +2377,7 @@ export async function offlineReadiness() {
   }
 
   // Hazard data
-  const idbHazards = await idbGet('hazards').catch(() => null);
+  const idbHazards = await idbGet(_regionIdbKey('hazards', _activeRegion)).catch(() => null);
   if (idbHazards?.features?.length) {
     lines.push(`Hazards: ${idbHazards.features.length} features in offline store`);
   } else if (await swCached('./data/hazards.geojson')) {
@@ -2376,7 +2387,7 @@ export async function offlineReadiness() {
   }
 
   // Named places (bearing-to-place queries)
-  const idbPlaces = await idbGet('named_places').catch(() => null);
+  const idbPlaces = await idbGet(_regionIdbKey('named_places', _activeRegion)).catch(() => null);
   if (idbPlaces?.features?.length) {
     lines.push(`Named places: ${idbPlaces.features.length} in offline store`);
   } else if (await swCached('./data/named_places.geojson')) {

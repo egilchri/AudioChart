@@ -5518,8 +5518,13 @@ function _animateEditRoute() {
     name:   _editRouteName || 'Route',
     points: _editPoints.map(_stripPoint),
   };
+  // Confirmed live as a real bug: this (and the matching HTML default)
+  // used to fall back to 500x — meaning a whole multi-hour sail flew by
+  // in a few real seconds, giving no chance to actually watch the route.
+  // Real-world speed is the sane default; the user can still speed it up
+  // from the Speed chips.
   if (!document.querySelector('.track-compress.selected')) {
-    document.querySelector('.track-compress[data-compress="500"]')?.classList.add('selected');
+    document.querySelector('.track-compress[data-compress="1"]')?.classList.add('selected');
   }
   _startRouteAnimation(route, speed);
 }
