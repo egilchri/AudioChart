@@ -10547,6 +10547,8 @@ const _regionOfferText     = document.getElementById('region-offer-text');
 const _regionOfferDownload = document.getElementById('region-offer-download-btn');
 const _regionOfferDismiss  = document.getElementById('region-offer-dismiss-btn');
 let _regionOfferCruiseName = null;
+let _regionOfferSwitchOnly = false;
+let _regionOfferRegionId   = null;
 
 function _regionIdFor(cruiseName) {
   return CRUISE_PROFILES[cruiseName]?.dataUrl?.match(/regions\/([^/]+)\.json$/)?.[1] || null;
@@ -10579,14 +10581,25 @@ async function _regionContaining(lat, lon) {
   return null;
 }
 
-function _showRegionOfferBanner(cruiseName) {
+// switchOnly=true: the target region is already downloaded (bundled
+// default or previously fetched) — a free, instant, offline-safe switch,
+// but per direct confirmed regression, "free" is not the same as
+// "wanted right now": one tap always required, never automatic.
+function _showRegionOfferBanner(cruiseName, { switchOnly = false, regionId = null } = {}) {
   _regionOfferCruiseName = cruiseName;
-  _regionOfferText.textContent = `You're near ${cruiseName} — chart data for it isn't downloaded yet.`;
+  _regionOfferSwitchOnly = switchOnly;
+  _regionOfferRegionId = regionId;
+  _regionOfferText.textContent = switchOnly
+    ? `You're near ${cruiseName} — switch chart data to it?`
+    : `You're near ${cruiseName} — chart data for it isn't downloaded yet.`;
+  _regionOfferDownload.textContent = switchOnly ? '⇄ Switch' : '⬇ Download';
   _regionOfferBanner.style.display = 'flex';
 }
 function _hideRegionOfferBanner() {
   _regionOfferBanner.style.display = 'none';
   _regionOfferCruiseName = null;
+  _regionOfferSwitchOnly = false;
+  _regionOfferRegionId = null;
 }
 // Confirmed live as a real bug: this used to hide the banner immediately
 // and let runRouteDownload run in the background, whose only progress
@@ -10611,6 +10624,19 @@ let _regionOfferDownloading = false;
 _regionOfferDownload.addEventListener('click', async () => {
   const cruiseName = _regionOfferCruiseName;
   if (!cruiseName) return;
+  if (_regionOfferSwitchOnly) {
+    const regionId = _regionOfferRegionId;
+    _hideRegionOfferBanner();
+    Query.setActiveRegion(regionId || null);
+    await Query.loadData(null, null);
+    dataLoaded = true;
+    const msg = `Switched to ${cruiseName} chart data.`;
+    setStatus(msg);
+    TTS.sayImmediate(msg);
+    const pos = GPS.getPosition();
+    if (pos) _updateCoverageStatus(pos.lat, pos.lon);
+    return;
+  }
   _regionOfferDownload.disabled = true;
   _regionOfferDismiss.disabled = true;
   _regionOfferDownloading = true;
@@ -10629,22 +10655,24 @@ _regionOfferDismiss.addEventListener('click', _hideRegionOfferBanner);
 
 // Called (fire-and-forget, from _updateCoverageStatus) whenever the boat's
 // real position has no chart data at all under whatever's currently loaded.
-// Four distinct situations look identical from coverageLevelAt's point of
+// Three distinct situations look identical from coverageLevelAt's point of
 // view but call for very different responses:
 //   - genuinely outside every known region  -> explain the app's real
 //     coverage area instead of an unexplained "no chart data" dead end
 //     (this is the case a visitor far from Maine, e.g. in California, hits)
 //   - inside the currently-active region's own bounds -> nothing to switch
 //     to, this exact spot just has no data
-//   - inside the bundled default region's bounds, or any other region
-//     that's already been downloaded before -> switch to it silently; each
-//     region's geometry now lives in its own IndexedDB slot (see
-//     Query.isRegionDownloaded), so this is a free, offline-safe read, not
-//     a re-download — no reason to ask first
-//   - inside a real region that's never been downloaded -> that first
-//     download is a genuine network cost (0.5-5 MB), so offer it as a
-//     one-tap action instead of either pulling it unasked or leaving a
-//     dead-end warning
+//   - inside a DIFFERENT region (bundled default or a downloaded one) ->
+//     offer to switch, whether or not it needs a real download. Confirmed
+//     live as a real regression: this used to silently auto-switch when
+//     the target region was already downloaded/free, on the reasoning that
+//     a free switch needs no confirmation — but "free" only measures
+//     network cost, not disruption. A real GPS position (e.g. this
+//     device's actual location) repeatedly, silently swapping the active
+//     region out from under someone deliberately editing/planning a route
+//     for a DIFFERENT area corrupted that route (routing silently lost
+//     access to the right region's channel graph) with no visible cause.
+//     Every switch is now one tap, never automatic, regardless of cost.
 async function _offerRegionForPosition(lat, lon) {
   const regionId = await _regionContaining(lat, lon);
   const activeId = Query.getActiveRegion() || '';
@@ -10670,17 +10698,14 @@ async function _offerRegionForPosition(lat, lon) {
 
   const cruiseName = regionId ? Object.keys(CRUISE_PROFILES).find(n => _regionIdFor(n) === regionId) : null;
   const alreadyDownloaded = regionId === '' || (regionId && await Query.isRegionDownloaded(regionId));
+  const displayName = cruiseName || 'Penobscot Bay';
 
   if (alreadyDownloaded) {
-    Query.setActiveRegion(regionId || null);
-    await Query.loadData(null, null);
-    dataLoaded = true;
-    setStatus(`Switched to ${cruiseName || 'Penobscot Bay'} chart data for your position.`);
-    _updateCoverageStatus(lat, lon);
+    _showRegionOfferBanner(displayName, { switchOnly: true, regionId });
     return;
   }
 
-  if (cruiseName) _showRegionOfferBanner(cruiseName);
+  if (cruiseName) _showRegionOfferBanner(cruiseName, { switchOnly: false });
 }
 
 /**
