@@ -1,4 +1,4 @@
-/** @version v599 */
+/** @version v600 */
 /* Bump this comment on every release, even when nothing else in this file
    changes — a service worker only gets reinstalled when its own script
    bytes differ from what's currently active (see the v505 fix), so a
@@ -18,7 +18,6 @@ importScripts('./js/version.js');
 const CACHE = `audiochart-${APP_VERSION}`;
 const TILES_CACHE     = 'audiochart-tiles-v1';      // server nautical tiles, LRU
 const SATELLITE_CACHE = 'audiochart-satellite-v1'; // pre-downloaded ESRI tiles, persistent
-const LOWTIDE_CACHE   = 'audiochart-lowtide-v1';   // Maine GeoLibrary low-tide orthoimagery, persistent
 const CHART_CACHE     = 'audiochart-chart-v1';     // OSM + OpenSeaMap chart tiles
 // Web Share Target handoff (see app.js's matching _importSharedGpx for the pickup side).
 // Deliberately unversioned/stable — must survive an activate() that races the share flow.
@@ -46,7 +45,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) =>
       Promise.all(
         keys
-          .filter((k) => k !== CACHE && k !== TILES_CACHE && k !== SATELLITE_CACHE && k !== LOWTIDE_CACHE && k !== CHART_CACHE && k !== SHARE_CACHE)
+          .filter((k) => k !== CACHE && k !== TILES_CACHE && k !== SATELLITE_CACHE && k !== CHART_CACHE && k !== SHARE_CACHE)
           .map((k) => caches.delete(k))
       )
     ).then(() => self.clients.claim())
@@ -91,10 +90,9 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Server nautical tiles, ESRI satellite tiles, and Maine's low-tide orthoimagery
+  // Server nautical tiles and ESRI satellite tiles
   if (url.pathname.match(/\/tiles\/\d+\/\d+\/\d+\.jpg$/) ||
-      url.hostname.includes('arcgisonline.com') ||
-      (url.hostname === 'gis.maine.gov' && url.pathname.includes('/exportImage'))) {
+      url.hostname.includes('arcgisonline.com')) {
     event.respondWith(tileStrategy(event.request));
     return;
   }
@@ -192,14 +190,13 @@ async function chartTileStrategy(request) {
 async function tileStrategy(request) {
   const reqUrl = new URL(request.url);
   const isEsri = reqUrl.hostname.includes('arcgisonline.com');
-  const isLowTide = reqUrl.hostname === 'gis.maine.gov';
 
-  if (isEsri || isLowTide) {
-    // Satellite and low-tide orthoimagery: persistent cache, no LRU eviction —
-    // deliberately-curated imagery a user chose to view/download, not the
-    // incidental churn of panning around that the generic tile cache below
-    // is meant to bound.
-    const persistent = await caches.open(isEsri ? SATELLITE_CACHE : LOWTIDE_CACHE);
+  if (isEsri) {
+    // Satellite tiles: persistent cache, no LRU eviction — deliberately-
+    // curated imagery a user chose to view/download, not the incidental
+    // churn of panning around that the generic tile cache below is meant
+    // to bound.
+    const persistent = await caches.open(SATELLITE_CACHE);
     const hit = await persistent.match(request);
     if (hit) return hit;
     try {

@@ -1231,7 +1231,6 @@ let _previewRouteLine = null;
 let _animClickHandler = null;
 let _animTraveled     = 0;
 let _baseTileLayer    = null;
-let _lowTideExtraLayers = []; // second+ low-tide coverage layers — see LOW_TIDE_SERVICES
 // Picked from the #map-layer-select pulldown (was a cycle-through-on-tap
 // button before): street chart, satellite, Maine bedrock geology (state
 // survey's own vector data — no basemap of its own, shown as an overlay on
@@ -1239,8 +1238,12 @@ let _lowTideExtraLayers = []; // second+ low-tide coverage layers — see LOW_TI
 // chart), etc. USGS's national geology layer was also tried (a
 // self-contained WMS raster) but dropped per live comparison — Maine's own
 // data was "by far the best" (real coastline/place-name context, since it
-// overlays the chart rather than replacing it).
-const MAP_VIEW_MODES  = ['chart', 'satellite', 'low-tide', 'geology-maine', 'towns-maine', 'history', 'demographics', 'island-info', 'anchorages'];
+// overlays the chart rather than replacing it). Low-Tide Aerial (Maine
+// GeoLibrary orthoimagery) was tried and removed — its dynamic per-tile
+// ImageServer rendering caused a real, confirmed duplicate/ghosted-tile
+// bug that a zoomAnimation fix didn't fully resolve; see git history if
+// revisiting this.
+const MAP_VIEW_MODES  = ['chart', 'satellite', 'geology-maine', 'towns-maine', 'history', 'demographics', 'island-info', 'anchorages'];
 // Maps a display mode to the documents.geojson `category` it shows —
 // the whole reason "switch to Geology/History" needs no separate menu.
 const MAP_VIEW_DOC_CATEGORY = { 'geology-maine': 'geology', 'history': 'history', 'demographics': 'demographics', 'island-info': 'island-info', 'anchorages': 'anchorages' };
@@ -7897,89 +7900,9 @@ function _enableMaineTownsLayer() {
   _map.on('moveend', _maineTownsMoveEnd);
 }
 
-// Maine GeoLibrary's Penobscot Bay 2024 orthoimagery — confirmed live before
-// building this: a public ArcGIS ImageServer, "No restrictions" license
-// (attribution: James W Sewall Company / Maine DEP), and CORS-enabled for
-// this app's actual domain. Flown specifically at low tide (6/26–7/27/24,
-// within 2hrs of spring tides) at 14.5cm resolution — exposes ledges/rocks
-// a generically-timed Satellite layer often hides underwater.
-//
-// Unlike Satellite (a simple pre-tiled MapServer, {z}/{y}/{x} URL template),
-// this is a DYNAMIC ImageServer — confirmed via its own ?f=json: capabilities
-// list "Catalog,Pixels,Image,Metadata" with no "Tilemap", i.e. no pre-baked
-// tile pyramid. Each tile has to be requested via exportImage with a
-// computed bounding box instead. Deterministic per z/x/y, so it still caches
-// like a normal tile through the service worker (see sw.js's LOWTIDE_CACHE).
-// Two separate Maine GeoLibrary low-tide flights, covering adjacent (not
-// overlapping) stretches of coast — neither alone covers the whole
-// Penobscot-Bay-to-Acadia cruising range, which read as a hard-edged black
-// void east of Brooklin before this (confirmed live: the bay flight's own
-// documented extent stops there, and a second, newer flight covering
-// exactly that gap exists under a different service name and was never
-// wired up). Both are added as separate layers in low-tide mode so their
-// real coverage areas combine instead of picking just one.
-const LOW_TIDE_SERVICES = [
-  {
-    // Marshall Point to Brooklin, ME (Rockland, Camden, Vinalhaven, North
-    // Haven, Islesboro, Deer Isle/Stonington all fall within it).
-    url: 'https://gis.maine.gov/image/rest/services/Coastal/'
-      + 'Maine_Orthoimagery_Coastal_Penobscot_Bay_2024/ImageServer/exportImage',
-    bounds: [[43.7536, -69.264], [44.6817, -68.4854]],
-  },
-  {
-    // Brooklin east through Mount Desert Island/Acadia and beyond — picks
-    // up exactly where the bay flight's extent ends (confirmed via the
-    // service's own published extent: -68.63 to -67.48).
-    url: 'https://gis.maine.gov/image/rest/services/Coastal/'
-      + 'Maine_Orthoimagery_Coastal_Acadia_2025/ImageServer/exportImage',
-    bounds: [[44.0749, -68.634], [44.6663, -67.4847]],
-  },
-];
-
-function _tile2lon(x, z) { return x / 2 ** z * 360 - 180; }
-function _tile2lat(y, z) {
-  const n = Math.PI - 2 * Math.PI * y / 2 ** z;
-  return 180 / Math.PI * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
-}
-// Lazy-constructed — L.TileLayer doesn't exist until Leaflet has loaded, so
-// this can't be built at module-evaluation time (see loadLeaflet()); only
-// ever constructed once _applyMapLayer() actually needs it.
-let _LowTideTileLayerClass = null;
-function _lowTideTileLayerClass() {
-  if (!_LowTideTileLayerClass) {
-    _LowTideTileLayerClass = L.TileLayer.extend({
-      // size=512,512 (not 256,256) for the same 256-CSS-pixel tile slot —
-      // this is a dynamic ImageServer re-rendering the source orthoimagery
-      // on every request, not a pre-baked tile pyramid, so asking for twice
-      // the pixels per side genuinely pulls twice the resolution out of the
-      // 14.5cm-native source before the browser scales it back down to fit;
-      // on a real (non-retina) display that scale-down costs a little
-      // wasted bandwidth/CPU and nothing else, and on any HiDPI screen
-      // (most phones/laptops) it's the difference between a soft, blocky
-      // image and one that actually looks like the source photography.
-      // interpolation=RSP_CubicConvolution replaces exportImage's default
-      // resampling (effectively nearest-neighbor) — confirmed live as the
-      // dominant cause of a grainy/aliased look at any zoom level heavier
-      // than a light downsample; cubic convolution is the standard choice
-      // for resampling continuous-tone aerial photography.
-      getTileUrl: function(coords) {
-        const z = coords.z;
-        const lonMin = _tile2lon(coords.x, z), lonMax = _tile2lon(coords.x + 1, z);
-        const latMax = _tile2lat(coords.y, z), latMin = _tile2lat(coords.y + 1, z);
-        return `${this.options.serviceUrl}?bbox=${lonMin},${latMin},${lonMax},${latMax}`
-          + '&bboxSR=4326&size=512,512&imageSR=4326&format=png&f=image'
-          + '&interpolation=RSP_CubicConvolution';
-      },
-    });
-  }
-  return _LowTideTileLayerClass;
-}
-
 function _applyMapLayer() {
   if (!_map) return;
   if (_baseTileLayer) { _map.removeLayer(_baseTileLayer); _baseTileLayer = null; }
-  for (const layer of _lowTideExtraLayers) _map.removeLayer(layer);
-  _lowTideExtraLayers = [];
   _clearMaineGeologyLayer();
   _clearMaineTownsLayer();
 
@@ -7988,20 +7911,6 @@ function _applyMapLayer() {
       'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
       { minZoom: 4, maxZoom: 18, maxNativeZoom: 17, attribution: '© Esri' }
     ).addTo(_map);
-  } else if (_mapViewMode === 'low-tide') {
-    const LowTideTileLayer = _lowTideTileLayerClass();
-    const [first, ...rest] = LOW_TIDE_SERVICES;
-    _baseTileLayer = new LowTideTileLayer('', {
-      minZoom: 11, maxZoom: 18, maxNativeZoom: 18,
-      serviceUrl: first.url,
-      bounds: L.latLngBounds(first.bounds[0], first.bounds[1]),
-      attribution: 'Imagery: Maine GeoLibrary (James W Sewall Co. / Maine DEP), flown at low tide 2024-2025',
-    }).addTo(_map);
-    _lowTideExtraLayers = rest.map(svc => new LowTideTileLayer('', {
-      minZoom: 11, maxZoom: 18, maxNativeZoom: 18,
-      serviceUrl: svc.url,
-      bounds: L.latLngBounds(svc.bounds[0], svc.bounds[1]),
-    }).addTo(_map));
   } else {
     // 'chart', 'geology-maine', 'towns-maine', 'history', 'demographics', and
     // 'island-info' all use the street basemap: all but 'geology-maine' and
@@ -8027,8 +7936,8 @@ function _applyMapLayer() {
   _syncMapModeTitle();
 }
 
-const MAP_VIEW_ICONS  = { chart: '🗺', satellite: '🛰', 'low-tide': '🌊', 'geology-maine': '⛰', 'towns-maine': '🏛', history: '📜', demographics: '👥', 'island-info': '🏝', anchorages: '⚓' };
-const MAP_VIEW_LABELS = { chart: 'Chart', satellite: 'Satellite', 'low-tide': 'Low-Tide Aerial', 'geology-maine': 'Geology', 'towns-maine': 'Towns', history: 'History', demographics: 'Demographics', 'island-info': 'Island Info', anchorages: 'Anchorages' };
+const MAP_VIEW_ICONS  = { chart: '🗺', satellite: '🛰', 'geology-maine': '⛰', 'towns-maine': '🏛', history: '📜', demographics: '👥', 'island-info': '🏝', anchorages: '⚓' };
+const MAP_VIEW_LABELS = { chart: 'Chart', satellite: 'Satellite', 'geology-maine': 'Geology', 'towns-maine': 'Towns', history: 'History', demographics: 'Demographics', 'island-info': 'Island Info', anchorages: 'Anchorages' };
 const HISTORY_ERA_LABELS = {
   all: 'All Eras',
   colonial: 'Native American & Colonial',
@@ -8106,24 +8015,14 @@ function _syncLayerBtn() {
 
 function _ensureMap() {
   if (_map) return;
-  // zoomAnimation: false — confirmed live as the real cause of a "duplicate
-  // island" report: Leaflet's normal zoom transition keeps the OLD zoom
-  // level's tiles visible on screen (CSS-scaled to approximate the new
-  // view) until every new tile finishes loading, so the map never looks
-  // fully blank mid-zoom. That's invisible for the fast, pre-tiled chart/
-  // satellite layers, but Low-Tide Aerial's tiles are individually
-  // rendered on demand by a dynamic ArcGIS ImageServer (~0.5s per tile,
-  // regardless of the 512px-vs-256px size — measured directly, size isn't
-  // the bottleneck, the per-request round trip is) — long enough that the
-  // old, differently-scaled tile stays fully visible right alongside the
-  // new ones, showing the same real coastline twice at two slightly
-  // different effective positions. Confirmed live: a stale, room-sized
-  // low-zoom tile was still opacity:1 in the DOM well after zooming in.
-  // zoomAnimation:false can't be toggled per-layer or after construction
-  // (Leaflet snapshots it once at map creation), so this is app-wide —
-  // zoom becomes an instant snap instead of a smooth scale/fade for every
-  // map type, a small cosmetic cost for a real correctness bug.
-  _map = L.map('leaflet-map', { zoomControl: false, attributionControl: true, zoomAnimation: false });
+  // zoomAnimation was briefly forced off app-wide to work around a
+  // duplicate/ghosted-tile bug specific to Low-Tide Aerial's slow,
+  // dynamically-rendered tiles (Leaflet keeps old zoom-level tiles visible,
+  // CSS-scaled, until every new tile loads — fine for fast pre-tiled
+  // layers, but long enough to be visible with a ~0.5s/tile ImageServer).
+  // That layer's been removed entirely, so the every-other-layer-is-fast
+  // assumption holds again — smooth zoom animation restored.
+  _map = L.map('leaflet-map', { zoomControl: false, attributionControl: true });
   _map.setView([44.1018, -69.0752], 11);  // Rockland Harbor — default until GPS arrives
   _applyMapLayer();
   _syncLayerBtn();
