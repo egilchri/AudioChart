@@ -7277,11 +7277,14 @@ function _startRouteAnimation(route, speedKnots) {
   _animCurrentLat = pts[0][0];
   _animCurrentLon = pts[0][1];
 
-  // Apply time compression: 1× = real time, 10× = 10 min sailing per real sec, etc.
-  const compress    = track.compress || 1;
-  let nmPerRealSec = (speedKnots / 3600) * compress;
+  // Fixed real-world playback length, regardless of route length or boat
+  // speed: 10 seconds start to finish, every time — replaces the old
+  // speed×compression pacing (the Speed chips no longer drive the actual
+  // animation rate; speedKnots/sailTotalMin below are still real, just
+  // for the realistic-sailing-time readout in the banner).
+  const ANIMATE_TOTAL_SEC = 10;
+  let nmPerRealSec = totalNm / ANIMATE_TOTAL_SEC;
   let sailTotalMin = Math.round(totalNm / speedKnots * 60); // actual sailing minutes
-  const compressLabel = compress > 1 ? ` · ${compress}×` : '';
 
   // Prime TTS for iOS audio unlock; animation starts immediately in parallel.
   const milesText = `${Math.round(totalNm * 10) / 10} nautical miles.`;
@@ -7330,7 +7333,7 @@ function _startRouteAnimation(route, speedKnots) {
 
     _map.once('click', () => {
       _animReportLayer.clearLayers();
-      _animBannerText.textContent = `⛵ ${route.name} · ${speedKnots} kts${compressLabel}`;
+      _animBannerText.textContent = `⛵ ${route.name} · ${speedKnots} kts`;
       _animClickHandler = _onAnimStop;
       _map.on('click', _onAnimStop);
       _animRafId = requestAnimationFrame((now) => {
@@ -7525,24 +7528,23 @@ function _startRouteAnimation(route, speedKnots) {
     }
 
     const sailMinLeft = Math.round((totalNm - traveled) / speedKnots * 60);
-    const realMinLeft = compress > 1 ? ` (${Math.round(sailMinLeft / compress)} real min)` : '';
-    _animBannerText.textContent = `⛵ ${route.name} · ${speedKnots} kts${compressLabel} · ${sailMinLeft}/${sailTotalMin} min${realMinLeft}`;
+    const realSecLeft = Math.max(0, Math.round((totalNm - traveled) / nmPerRealSec));
+    _animBannerText.textContent = `⛵ ${route.name} · ${speedKnots} kts · ${sailMinLeft}/${sailTotalMin} min (${realSecLeft}s)`;
 
     _animRafId = requestAnimationFrame(step);
   }
   // Lets #anim-speed-input change speed live without restarting — per
   // direct request, minimal friction: the default speed is fine most of
   // the time, so the widget only needs to let it be nudged when it isn't,
-  // not force choosing one up front before every run. Re-anchoring
-  // startTime keeps _animTraveled continuous through the change instead
-  // of jumping the boat.
+  // not force choosing one up front before every run. Playback pace itself
+  // (nmPerRealSec) is fixed to the route's own ANIMATE_TOTAL_SEC budget now,
+  // not to speedKnots, so changing it here only updates the realistic-
+  // sailing-time readout — it can't speed up or slow down the animation.
   _setAnimSpeedFn = (newKt) => {
     if (!(newKt > 0)) return;
     speedKnots = newKt;
-    nmPerRealSec = (speedKnots / 3600) * compress;
     sailTotalMin = Math.round(totalNm / speedKnots * 60);
     localStorage.setItem('audiochart-last-speed', speedKnots);
-    if (startTime !== null) startTime = performance.now() - (_animTraveled / nmPerRealSec * 1000);
   };
   // Let the anim-mode CSS take effect and map resize before speech ends
   setTimeout(() => { _map.invalidateSize(); }, 300);
@@ -12297,7 +12299,9 @@ async function init() {
     _initDraggableGroups();
     _recoverAnchorWatch();
     _recoverEditMode();
-    _hideAppSplash();
+    // A deliberate extra beat once the map is actually ready — per direct
+    // request, so the splash doesn't just flash past on a fast/cached load.
+    setTimeout(_hideAppSplash, 1000);
   }).catch(() => { _hideAppSplash(); });
 
   // If opened via QR code with ?server=, persist the server URL and clean the address bar.
