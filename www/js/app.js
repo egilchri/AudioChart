@@ -348,6 +348,7 @@ let _boatCtxMapListenerBound = false;
 // _triggerAutoRoute, defined there) — bridged out via this top-level ref so
 // the boat menu's click handler (also top-level) can reach it.
 let _routeFromHereFn = null;
+let _autoRouteFromBoatToHereFn = null;
 const _boatCtxMenu = document.getElementById('boat-context-menu');
 const _boatCtxItems = [...document.querySelectorAll('#boat-context-menu button')];
 
@@ -600,6 +601,7 @@ function _refreshWaypointLayer() {
            ${wp.note ? `<div class="navaid-popup-note">${escapeHtml(wp.note)}</div>` : ''}
            <div class="navaid-popup-coords"></div>
            <button class="navaid-popup-focus">&#127919; Set focus</button>
+           <button class="navaid-popup-autoroute">&#9973; AutoRoute from boat position</button>
            <button class="navaid-popup-rename">&#9998; Rename</button>
            <button class="navaid-popup-delete">&#128465; Delete</button>
          </div>`,
@@ -621,6 +623,12 @@ function _refreshWaypointLayer() {
           const msg = `Focused on ${wp.name}.`;
           showResponse(msg);
           TTS.sayImmediate(msg);
+        });
+        // Zero-interaction auto-route: boat's current GPS position → this
+        // pin, no name prompt, no second tap. See _autoRouteFromBoatToHere.
+        popupEl.querySelector('.navaid-popup-autoroute').addEventListener('click', () => {
+          _map.closePopup();
+          _autoRouteFromBoatToHereFn?.(live.lat, live.lng);
         });
         // Per direct request (originally for search pins' auto-generated
         // SP00N names, equally true of quick-dropped wp00N ones) — a typed
@@ -9368,6 +9376,30 @@ function _ensureMap() {
     }
   }
   _routeFromHereFn = _routeFromHere;
+
+  // "AutoRoute from boat position" (a waypoint pin's own popup menu) — same
+  // start→destination→_triggerAutoRoute pipeline as _routeFromHere/
+  // _setRouteDestination, but genuinely zero-interaction per direct
+  // request: no name prompt, no arming a second tap for the destination.
+  // Start is wherever GPS says the boat actually is right now; destination
+  // is the pin whose popup this was opened from.
+  function _autoRouteFromBoatToHere(lat, lon) {
+    const pos = GPS.getPosition();
+    if (!pos) {
+      const msg = 'No GPS fix yet — cannot auto-route from the boat’s position.';
+      setStatus(msg);
+      TTS.sayImmediate(msg);
+      return;
+    }
+    _autoRouteName = _nextRouteName();
+    _autoRouteStart = { lat: pos.lat, lon: pos.lon };
+    if (_autoRouteStartMarker) _autoRouteStartMarker.remove();
+    _autoRouteStartMarker = L.circleMarker([pos.lat, pos.lon], {
+      radius: 8, color: '#00cc44', fillColor: '#00cc44', fillOpacity: 0.8, weight: 2,
+    }).addTo(_map).bindTooltip(`${escapeHtml(_autoRouteName)} — start`, { permanent: false });
+    _setRouteDestination(lat, lon);
+  }
+  _autoRouteFromBoatToHereFn = _autoRouteFromBoatToHere;
 
   document.getElementById('map-ctx-route-from-here').addEventListener('click', () => {
     _hideCtx();
