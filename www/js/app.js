@@ -5521,16 +5521,17 @@ function _animateEditRoute() {
   // Confirmed live as a real bug: this (and the matching HTML default)
   // used to fall back to 500x — meaning a whole multi-hour sail flew by
   // in a few real seconds, giving no chance to actually watch the route.
-  // True real-world speed (1x) overcorrected the other way, though: at a
-  // realistic ~5kt, the boat covers a few meters per real second — sub-
-  // pixel movement at any normal zoom, so it LOOKS frozen even though it's
-  // technically animating. 10x is the sane default: fast enough to see
-  // real progress within a normal watching window, slow enough to still
-  // observe the route (confirmed live — this was the working default
-  // before the 500x regression). The user can still adjust from the Speed
-  // chips.
+  // True real-world speed (1x) overcorrected the other way: at a realistic
+  // ~5kt, the boat covers a few meters per real second — sub-pixel movement
+  // on a zoomed-out full-route view, so it LOOKS frozen even though it's
+  // technically animating (confirmed the multiplier itself was applying
+  // correctly — the banner's own "10x" label was live and accurate; it just
+  // wasn't fast enough to visibly move on screen). 10x had the same problem,
+  // just less severely. 100x is the confirmed-good default: the user's own
+  // manual workaround (50kt at the then-default compression) looked right,
+  // and that's ~10x higher than 10x-at-5kt — this matches it directly.
   if (!document.querySelector('.track-compress.selected')) {
-    document.querySelector('.track-compress[data-compress="10"]')?.classList.add('selected');
+    document.querySelector('.track-compress[data-compress="100"]')?.classList.add('selected');
   }
   _startRouteAnimation(route, speed);
 }
