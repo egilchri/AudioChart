@@ -13,6 +13,18 @@ import { openDriveImportPicker } from './drive_import.js';
 import { migrateLegacyIds } from './sync_merge.js';
 import { splitIntoLegs } from './route_legs.js';
 
+// Cold-start splash (#app-splash in index.html) — hidden once the map is
+// actually ready (see the loadLeaflet().then()/.catch() calls below), with
+// a hard safety-net timeout here so a stuck/erroring init path can never
+// leave it covering the app forever.
+function _hideAppSplash() {
+  const el = document.getElementById('app-splash');
+  if (!el || el.classList.contains('splash-hidden')) return;
+  el.classList.add('splash-hidden');
+  setTimeout(() => el.remove(), 600);
+}
+setTimeout(_hideAppSplash, 6000);
+
 const VERSION = window.APP_VERSION;
 document.getElementById('app-version').textContent = VERSION;
 document.getElementById('map-version-label').textContent = VERSION;
@@ -736,7 +748,7 @@ const anchorWatchForm = document.getElementById('anchor-watch-form');
 const anchorWatchRadiusInput = document.getElementById('anchor-watch-radius');
 const anchorWatchStartBtn = document.getElementById('anchor-watch-start');
 const anchorWatchCancelBtn = document.getElementById('anchor-watch-cancel');
-// Clear Screen and Rearrange are similarly consolidated under a "Screen" tile.
+// Clear Screen is similarly reached under a "Screen" tile.
 const screenMenuBtn = document.getElementById('screen-menu-btn');
 const screenMenu    = document.getElementById('screen-menu');
 
@@ -830,8 +842,13 @@ const CRUISE_PROFILES = {
       { name: 'Great Cranberry Island', lat: 44.2366, lon: -68.3103 },
     ],
   },
+  // 'dev: true' regions are still in progress — hidden from normal use (see
+  // _visibleCruiseProfiles) so a user can't wander into an unfinished area
+  // and get confused, but still fully reachable for continued development
+  // via the ?dev=1 URL unlock (see the DEV_UNLOCK_KEY handling in init()).
   'Casco Bay': {
     dataUrl: './data/regions/casco-bay.json',
+    dev: true,
     stops: [
       { name: 'Portland',  lat: 43.6573, lon: -70.2564 },
       { name: 'Harpswell', lat: 43.7931, lon: -70.0760 },
@@ -839,6 +856,7 @@ const CRUISE_PROFILES = {
   },
   'Piscataqua': {
     dataUrl: './data/regions/piscataqua.json',
+    dev: true,
     stops: [
       { name: 'Portsmouth',     lat: 43.0718, lon: -70.7626 },
       { name: 'Isles of Shoals', lat: 42.9697, lon: -70.6234 },
@@ -846,6 +864,17 @@ const CRUISE_PROFILES = {
     ],
   },
 };
+
+// See the 'dev: true' note above — CRUISE_PROFILES entries flagged that way
+// are hidden from every normal UI surface (onboarding, Download Region menu,
+// About panel, region auto-detect) unless DEV_UNLOCK_KEY is set, which only
+// happens by visiting the app once with ?dev=1 (see init()).
+const DEV_UNLOCK_KEY = 'audiochart-dev-unlocked';
+function _isDevUnlocked() { return localStorage.getItem(DEV_UNLOCK_KEY) === '1'; }
+function _visibleCruiseProfiles() {
+  if (_isDevUnlocked()) return CRUISE_PROFILES;
+  return Object.fromEntries(Object.entries(CRUISE_PROFILES).filter(([, p]) => !p.dev));
+}
 
 // Hand-authored — no feature registry exists to introspect. Shown in the
 // About panel (tap either version label); keep short, update when a major
@@ -1504,46 +1533,8 @@ function _makeDraggable(panelEl, handleEl) {
   }, { capture: true });
 }
 
-// ── Rearrange mode: drag any permanent UI element out of the way ───────────────
-// Tapping the "Rearrange" button (map-overlay-status) enters a global mode, like
-// iOS home-screen icon jiggle: every group gets a dashed outline + jiggle and can
-// be dragged; normal taps are suppressed everywhere until "Done" is tapped.
-// Related buttons that are visually one unit move together.
-//
-// This used to be entered via a 600ms long-press on any grouped element instead
-// of a dedicated button — dropped because a real tap that lingers past 600ms
-// (slow touch release, a brief pause while reading a tooltip) silently hijacked
-// the tap into a drag instead of firing the button, with no visible cause.
-// Reported live: "the long press to move ui elements feature keeps interfering
-// with normal operations."
-let _rearrangeMode = false;
-
-function _enterRearrangeMode() {
-  if (_rearrangeMode) return;
-  _rearrangeMode = true;
-  _appEl.classList.add('rearrange-mode');
-  const banner = document.getElementById('rearrange-banner');
-  if (banner) banner.style.display = 'flex';
-}
-function _exitRearrangeMode() {
-  _rearrangeMode = false;
-  _appEl.classList.remove('rearrange-mode');
-  const banner = document.getElementById('rearrange-banner');
-  if (banner) banner.style.display = 'none';
-}
-// _enterRearrangeMode is triggered via the Screen tile's menu (see
-// screen-menu-rearrange's click handler further down).
-document.getElementById('rearrange-done-btn')?.addEventListener('click', _exitRearrangeMode);
-
-// Suppress normal tap actions everywhere while rearranging — a single capture-phase
-// interceptor instead of guarding every individual button's own click handler.
-document.addEventListener('click', (e) => {
-  if (!_rearrangeMode) return;
-  if (e.target.closest('#rearrange-done-btn') || e.target.closest('#rearrange-reset-btn')) return;
-  e.stopPropagation();
-  e.preventDefault();
-}, true);
-
+// ── Draggable UI groups: a few permanent widgets can be dragged out of the
+// way at any time (focus button, tide widget, right rail) ──────────────────
 function _clampGroupOffset(els, candidateDx, candidateDy, appliedDx, appliedDy) {
   let dx = candidateDx, dy = candidateDy;
   for (const el of els) {
@@ -1562,13 +1553,6 @@ function _clampGroupOffset(els, candidateDx, candidateDy, appliedDx, appliedDy) 
 // `transform` rule in app.css — a transform doesn't care whether the element underneath
 // is positioned bottom/right, top/left, or lives inside Leaflet's control-container flex
 // layout, so this works uniformly across every kind of element without detaching anything.
-const _draggableGroupResetters = [];
-
-function _resetUiPositions() {
-  for (const reset of _draggableGroupResetters) reset();
-}
-document.getElementById('rearrange-reset-btn')?.addEventListener('click', _resetUiPositions);
-
 function _makeDraggableGroup(groupId, getEls, alwaysOn = false, excludeSelector = null) {
   let curDx = 0, curDy = 0;
   try {
@@ -1602,12 +1586,6 @@ function _makeDraggableGroup(groupId, getEls, alwaysOn = false, excludeSelector 
   }
   applyOffset(curDx, curDy); // restore any saved position immediately
 
-  _draggableGroupResetters.push(() => {
-    curDx = 0; curDy = 0;
-    localStorage.removeItem(`audiochart-ui-pos-${groupId}`);
-    applyOffset(0, 0);
-  });
-
   let dragging = false;
   let moved = false; // real movement happened since begin() — see the click-swallow note below
   let startX = 0, startY = 0, baseDx = 0, baseDy = 0, origins = [];
@@ -1620,12 +1598,10 @@ function _makeDraggableGroup(groupId, getEls, alwaysOn = false, excludeSelector 
     origins = currentEls();
   }
   // Below this, a move is ignored outright — no reposition, no click-swallow
-  // flag set. Only matters for alwaysOn groups: in Rearrange mode a "click"
-  // never fires the button's own action anyway (nothing to protect from a
-  // stray micro-jitter), but #focus-btn's whole reason for existing is
-  // reliable taps with wet hands/gloves/boat motion — without a threshold,
-  // ordinary tremor while pressing it would both nudge its position by a
-  // pixel or two AND swallow the bearing announcement on a normal tap.
+  // flag set. #focus-btn's whole reason for existing is reliable taps with
+  // wet hands/gloves/boat motion — without a threshold, ordinary tremor
+  // while pressing it would both nudge its position by a pixel or two AND
+  // swallow the bearing announcement on a normal tap.
   const DRAG_THRESHOLD_PX = 8;
   function moveTo(clientX, clientY) {
     if (!dragging) return;
@@ -1641,27 +1617,23 @@ function _makeDraggableGroup(groupId, getEls, alwaysOn = false, excludeSelector 
     localStorage.setItem(`audiochart-ui-pos-${groupId}`, JSON.stringify({ dx: curDx, dy: curDy }));
   }
 
-  // Dragging only ever starts once _rearrangeMode is already on (entered via the
-  // "Rearrange" button) — outside rearrange mode these are plain buttons and every
-  // touch/mouse event here is a no-op, so a normal tap is never intercepted. Groups
-  // passed alwaysOn=true (currently just #focus-btn, per explicit request: draggable
-  // without the Rearrange-mode ceremony) skip that gate entirely and drag any time.
-  // Touch already suppresses its own native 'click' after real movement, but mouse
-  // doesn't — a desktop drag ends with the cursor (and the button, since it followed
-  // it) in the same place, so mouseup there still fires a normal click same-element
-  // click same as any non-dragged click would. The capturing click listener below
-  // swallows exactly one click when `moved` was set during the gesture that just
-  // ended, so dragging #focus-btn on desktop doesn't also speak the bearing.
+  // Dragging only ever starts for groups passed alwaysOn=true (every current
+  // caller). Touch already suppresses its own native 'click' after real
+  // movement, but mouse doesn't — a desktop drag ends with the cursor (and
+  // the button, since it followed it) in the same place, so mouseup there
+  // still fires a normal click same-element click same as any non-dragged
+  // click would. The capturing click listener below swallows exactly one
+  // click when `moved` was set during the gesture that just ended, so
+  // dragging #focus-btn on desktop doesn't also speak the bearing.
   currentEls().forEach(el => {
     el.classList.add('ui-drag-target');
-    const gateOpen = () => _rearrangeMode || alwaysOn;
+    const gateOpen = () => alwaysOn;
     // excludeSelector lets an alwaysOn group contain its own drag-driven
     // controls (tide's scrub slider) without this outer whole-panel drag
     // hijacking their own touch/mouse gestures — those elements are left
     // completely alone (no begin(), so no preventDefault on their own
     // touchmove either) and handle themselves exactly as if this group
-    // didn't exist. Not needed in Rearrange mode, where nothing but
-    // repositioning is expected to work anyway.
+    // didn't exist.
     const excluded = (e) => alwaysOn && excludeSelector && e.target.closest(excludeSelector);
 
     el.addEventListener('touchstart', (e) => {
@@ -1727,62 +1699,34 @@ if (localStorage.getItem('audiochart-uipos-migration-v479') !== '1') {
   localStorage.setItem('audiochart-uipos-migration-v479', '1');
 }
 
-function _initRearrangeGroups() {
-  // The status-tile row (Map Type, Location, Routes/Tracks, Global Ops,
-  // Node Ops, etc.) is no longer draggable at all — per direct report, a
-  // dragged copy of this row ended up stuck at the bottom of a phone
-  // screen with no way back (the Rearrange > Reset button that should have
-  // fixed it was itself unresponsive there). This is the single most
-  // important control surface in the app; per explicit decision, it's not
-  // worth the risk of it ever going missing again just to let it be
-  // repositioned. A one-time cleanup of any already-saved drag offset for
-  // it, so a phone that got into this state self-heals on next load
-  // without needing Reset to work.
-  // Compass rose: same story as the tile row below — per direct report it
-  // had drifted down to the lower-left, hiding behind other elements, with
-  // no reliable way back. It's a fixed reference instrument, not something
-  // anyone actually wants to relocate; anchored at the top for good now.
-  // zoom-to-me/navaid-filter/reroute/delete-route ("btncol") are laid out
-  // in #right-rail's flex column now (the "Zoned" layout), not individually
-  // absolute-positioned — dragging one out of a flex column doesn't mean
-  // anything sensible anymore, so that drag group is gone too, same
-  // reasoning as the other two.
-  // focus/tide/headingspeed/navctl keep their drag groups (still
-  // individually repositionable) — their one-time post-migration cleanup
-  // (baseline moved from independently-floating widgets to flex children of
-  // #bottom-hud/#compass) has already run on every device that was going to
-  // hit it. Confirmed live as a real bug just found while adding rightrail
-  // to this same list: those four removeItem calls had no version/one-shot
-  // guard, so they ran on EVERY load, forever — silently discarding any
-  // saved drag position for these groups on the very next reload, no matter
-  // how recently it was set. Removed; only status/compass/btncol (features
-  // that no longer have a _makeDraggableGroup call at all, ever) still need
-  // their key scrubbed, which is harmless to keep doing indefinitely since
-  // nothing can ever re-save to them.
-  localStorage.removeItem('audiochart-ui-pos-status');
-  localStorage.removeItem('audiochart-ui-pos-compass');
-  localStorage.removeItem('audiochart-ui-pos-btncol');
-  _makeDraggableGroup('navctl', () => ['zoom-slider-wrap', 'pan-controls-wrap'].map(id => document.getElementById(id)));
-  _makeDraggableGroup('version', () => [document.getElementById('map-version-label')]);
-  _makeDraggableGroup('cmdbar', () => [document.getElementById('map-overlay-cmd')]);
+function _initDraggableGroups() {
+  // Only three widgets are draggable at all now: the focus button, the tide
+  // widget, and the right rail (all alwaysOn — no separate "rearrange mode"
+  // exists to gate anything else). navctl/version/cmdbar/headingspeed/
+  // followprogress/status/compass/btncol used to have their own drag groups
+  // but were all removed over time (either because dragging them made no
+  // sense once laid out in a flex column, or per explicit decision they're
+  // too important to risk going missing with no way back) — their old saved
+  // offsets are scrubbed here so a device that has one lingering in
+  // localStorage from years ago self-heals rather than leaving dead keys
+  // around forever.
+  for (const id of ['status', 'compass', 'btncol', 'navctl', 'version', 'cmdbar', 'headingspeed', 'followprogress']) {
+    localStorage.removeItem(`audiochart-ui-pos-${id}`);
+  }
   // The whole Actions rail as one unit (its own internal flex layout is
-  // untouched) — per direct request, alongside tide. Same pattern as
-  // cmdbar just above: a self-contained panel dragged as a whole, not the
-  // individual-buttons-in-a-flex-column case ruled out in the btncol note
-  // above. alwaysOn (no Rearrange-mode ceremony) per explicit request —
-  // its children are all plain buttons, same threshold+click-swallow
-  // handling as #focus-btn already relies on, so a normal tap still works.
+  // untouched) — per direct request, alongside tide. A self-contained panel
+  // dragged as a whole, not the individual-buttons-in-a-flex-column case
+  // ruled out above. Its children are all plain buttons, same
+  // threshold+click-swallow handling as #focus-btn already relies on, so a
+  // normal tap still works.
   _makeDraggableGroup('rightrail', () => [document.getElementById('right-rail')], true);
-  // alwaysOn here too, but excluding the slider/play button so this outer
-  // whole-widget drag doesn't hijack the slider's own drag-to-scrub gesture
-  // — those two elements are left completely alone to handle their own
-  // touch/mouse events exactly as if this group didn't exist.
+  // Excluding the slider/play button so this outer whole-widget drag
+  // doesn't hijack the slider's own drag-to-scrub gesture — those two
+  // elements are left completely alone to handle their own touch/mouse
+  // events exactly as if this group didn't exist.
   _makeDraggableGroup('tide', () => [...document.querySelectorAll('.tide-cycle-ctrl')], true, '#tide-offset-slider, #tide-play-btn');
-  _makeDraggableGroup('headingspeed', () => [...document.querySelectorAll('.heading-speed-ctrl')]);
-  _makeDraggableGroup('followprogress', () => [...document.querySelectorAll('.follow-progress-ctrl')]);
-  // alwaysOn: draggable any time, not just in Rearrange mode — per explicit
-  // request, this is the one control worth moving on the fly without the
-  // Screen-menu ceremony, since its whole point is a spot you reach for
+  // Draggable at any time per explicit request — this is the one control
+  // worth moving on the fly, since its whole point is a spot you reach for
   // without looking. A plain tap still speaks the bearing/range as normal;
   // see the click-swallow note in _makeDraggableGroup for how the two coexist.
   _makeDraggableGroup('focus', () => [document.getElementById('focus-btn')], true);
@@ -8297,7 +8241,7 @@ function _ensureMap() {
     document.getElementById('about-features').innerHTML =
       ABOUT_FEATURES.map(f => `<li>${f}</li>`).join('');
     document.getElementById('about-regions').innerHTML =
-      Object.keys(CRUISE_PROFILES).map(name => `<li>${name}</li>`).join('');
+      Object.keys(_visibleCruiseProfiles()).map(name => `<li>${name}</li>`).join('');
     _aboutPanel.classList.add('open');
   }
   document.getElementById('app-version').addEventListener('click', (e) => {
@@ -10584,7 +10528,7 @@ async function _fetchChartBounds(regionId) {
 async function _regionContaining(lat, lon) {
   if (!_regionBoundsCache) {
     _regionBoundsCache = {};
-    const ids = ['', ...Object.keys(CRUISE_PROFILES).map(_regionIdFor).filter(Boolean)];
+    const ids = ['', ...Object.keys(_visibleCruiseProfiles()).map(_regionIdFor).filter(Boolean)];
     await Promise.all(ids.map(async (id) => { _regionBoundsCache[id] = await _fetchChartBounds(id); }));
   }
   for (const [id, b] of Object.entries(_regionBoundsCache)) {
@@ -12095,7 +12039,7 @@ function _clearScreen() {
   TTS.sayImmediate(msg);
 }
 
-// Clear Screen and Rearrange are reached via the Screen tile's menu.
+// Clear Screen is reached via the Screen tile's menu.
 function _closeScreenMenu() { screenMenu.style.display = 'none'; }
 
 screenMenuBtn.addEventListener('click', () => {
@@ -12106,10 +12050,6 @@ screenMenuBtn.addEventListener('click', () => {
 document.getElementById('screen-menu-clear').addEventListener('click', () => {
   _closeScreenMenu();
   _clearScreen();
-});
-document.getElementById('screen-menu-rearrange').addEventListener('click', () => {
-  _closeScreenMenu();
-  _enterRearrangeMode();
 });
 
 // Underway is a pure visibility toggle — see #app.underway-mode in
@@ -12354,16 +12294,29 @@ async function init() {
     document.getElementById('map-container').style.display = 'block';
     _ensureMap();
     _map.invalidateSize();
-    _initRearrangeGroups();
+    _initDraggableGroups();
     _recoverAnchorWatch();
     _recoverEditMode();
-  }).catch(() => {});
+    _hideAppSplash();
+  }).catch(() => { _hideAppSplash(); });
 
   // If opened via QR code with ?server=, persist the server URL and clean the address bar.
   const _params = new URLSearchParams(location.search);
   const _serverParam = _params.get('server');
   if (_serverParam) {
     localStorage.setItem('audiochart_server_url', _serverParam);
+    history.replaceState(null, '', location.pathname);
+  }
+
+  // Same pattern as ?server= above: visiting once with ?dev=1 persists the
+  // dev unlock (see DEV_UNLOCK_KEY/_visibleCruiseProfiles) so in-progress
+  // regions come back everywhere for continued development; ?dev=0 re-locks.
+  const _devParam = _params.get('dev');
+  if (_devParam === '1') {
+    localStorage.setItem(DEV_UNLOCK_KEY, '1');
+    history.replaceState(null, '', location.pathname);
+  } else if (_devParam === '0') {
+    localStorage.removeItem(DEV_UNLOCK_KEY);
     history.replaceState(null, '', location.pathname);
   }
 
@@ -12407,9 +12360,10 @@ async function init() {
   }
 
   // Region download is reached via the Location tile's menu (see
-  // location-menu-region's click handler above) — always available
-  // (standalone + developer), same as before.
-  Object.keys(CRUISE_PROFILES).forEach(cruiseName => {
+  // location-menu-region's click handler above). Only shows regions visible
+  // to this user — see _visibleCruiseProfiles: in-progress ('dev: true')
+  // regions stay hidden from normal use, unlocked via the ?dev=1 URL param.
+  Object.keys(_visibleCruiseProfiles()).forEach(cruiseName => {
     const btn = document.createElement('button');
     btn.className = 'cruise-choice';
     btn.textContent = cruiseName;
@@ -12574,9 +12528,9 @@ async function runDemoMode() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Populate onboarding region buttons (Step 1)
+  // Populate onboarding region buttons (Step 1) — see _visibleCruiseProfiles
   const obRegions = document.getElementById('ob-regions');
-  Object.keys(CRUISE_PROFILES).forEach(name => {
+  Object.keys(_visibleCruiseProfiles()).forEach(name => {
     const btn = document.createElement('button');
     btn.className = 'ob-region-btn';
     btn.textContent = name;

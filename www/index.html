@@ -18,6 +18,51 @@
 <body>
   <div id="app">
 
+    <div id="app-splash">
+      <div class="splash-card-wrap">
+        <div class="splash-tickring"></div>
+        <div class="splash-rivets">
+          <span class="r0"></span><span class="r1"></span><span class="r2"></span><span class="r3"></span>
+          <span class="r4"></span><span class="r5"></span><span class="r6"></span><span class="r7"></span>
+        </div>
+        <div class="splash-compass-rose">
+          <span class="c-n">N</span>
+          <span class="c-e">E</span>
+          <span class="c-s">S</span>
+          <span class="c-w">W</span>
+        </div>
+        <div class="splash-compass-cross">
+          <span class="cross-v"></span>
+          <span class="cross-h"></span>
+        </div>
+        <div class="splash-card">
+          <svg class="splash-route-overlay" viewBox="0 0 100 100" aria-hidden="true"><path class="splash-route-path" d="M 86 18 Q 62 30 50 50"/></svg>
+          <svg class="splash-voice-overlay" viewBox="0 0 100 100" aria-hidden="true">
+            <g fill="none" stroke="#14100b" stroke-linecap="round">
+              <path d="M 53.5 46.5 A 5 5 0 0 1 53.5 53.5" stroke-width="0.45" opacity="0.4"/>
+              <path d="M 54.6 45.4 A 6.5 6.5 0 0 1 54.6 54.6" stroke-width="0.4" opacity="0.32"/>
+              <path d="M 55.7 44.3 A 8 8 0 0 1 55.7 55.7" stroke-width="0.9" opacity="0.35"/>
+              <path d="M 57.8 42.2 A 11 11 0 0 1 57.8 57.8" stroke-width="0.7" opacity="0.22" stroke-dasharray="1.8 1.8"/>
+              <path d="M 59.9 40.1 A 14 14 0 0 1 59.9 59.9" stroke-width="0.55" opacity="0.14" stroke-dasharray="1.6 2"/>
+              <path d="M 46.5 46.5 A 5 5 0 0 0 46.5 53.5" stroke-width="0.45" opacity="0.4"/>
+              <path d="M 45.4 45.4 A 6.5 6.5 0 0 0 45.4 54.6" stroke-width="0.4" opacity="0.32"/>
+              <path d="M 44.3 44.3 A 8 8 0 0 0 44.3 55.7" stroke-width="0.9" opacity="0.35"/>
+              <path d="M 42.2 42.2 A 11 11 0 0 0 42.2 57.8" stroke-width="0.7" opacity="0.22" stroke-dasharray="1.8 1.8"/>
+              <path d="M 40.1 40.1 A 14 14 0 0 0 40.1 59.9" stroke-width="0.55" opacity="0.14" stroke-dasharray="1.6 2"/>
+            </g>
+          </svg>
+          <div class="splash-hub">
+            <span class="splash-boat-emoji">⛵</span>
+          </div>
+        </div>
+      </div>
+      <div class="splash-wordmark-block">
+        <p class="splash-wordmark">AudioChart</p>
+        <p class="splash-subtitle">Penobscot Bay Release</p>
+      </div>
+      <div class="splash-readout-row"><span>44°09′N&nbsp; 68°54′W</span><span class="splash-sweep"></span></div>
+    </div>
+
     <div id="map-container" style="display:none">
       <div id="leaflet-map"></div>
       <!-- Wide, short title strip: mode + GPS + coverage, one line, full width.
@@ -197,7 +242,6 @@
         <div id="screen-menu" style="display:none">
           <button id="wake-lock-btn" title="Keep screen awake while using AudioChart" style="display:none">&#9728;&#65039; Awake</button>
           <button id="screen-menu-clear" title="Hide all routes/tracks and clear query results from the map">&#129529; Clear Screen</button>
-          <button id="screen-menu-rearrange" title="Move buttons and panels around the screen">&#10021; Rearrange</button>
         </div>
         <div id="cruise-form" style="display:none">
           <span id="cruise-label">Download region:</span>
@@ -404,11 +448,6 @@
       <button id="edit-ok-btn" title="Save changes and exit editing">&#10003; OK</button>
       <button id="edit-cancel-btn" title="Exit editing without saving changes">&#10005; Cancel</button>
     </div>
-    <div id="rearrange-banner" style="display:none">
-      &#9995; Drag anything to move it &nbsp;
-      <button id="rearrange-reset-btn" title="Move every button and panel back to its default position">&#8635; Reset positions to defaults</button>
-      <button id="rearrange-done-btn" title="Finish rearranging and lock the current positions">&#10003; Done</button>
-    </div>
     <div id="history-era-banner" style="display:none">
       <button class="track-chip history-era-chip selected" data-era="all" title="Show documents from every era">All Eras</button>
       <button class="track-chip history-era-chip" data-era="colonial" title="Show documents from before ~1775">Native American &amp; Colonial</button>
@@ -453,7 +492,7 @@
 
       <!-- Step 1: download chart data -->
       <div id="ob-step-download">
-        <h2>&#9875; AudioChart</h2>
+        <h2>&#9875; AudioChart — Penobscot Bay Release</h2>
         <p>Voice-driven nautical safety — hazards, bearings, buoys — spoken aloud from your phone. Works fully offline once set up.</p>
         <h3>Choose your sailing area</h3>
         <div id="ob-regions"></div>
