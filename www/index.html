@@ -98,20 +98,16 @@
              "constantly getting in the way" on a phone screen, and the
              fix is the same tap-to-expand convention Node Ops already used
              (see edit-tools-panel), applied to the whole rail. -->
-        <button id="right-rail-toggle" title="Show/hide route &amp; tracking controls">Actions</button>
+        <button id="right-rail-toggle" title="Show/hide route &amp; tracking controls"><span class="rrt-label">Actions</span></button>
         <div id="right-rail-body">
           <button id="track-rec-btn" title="Record a GPS track">&#9679; Start Tracking</button>
           <button id="anchor-watch-btn" title="Watch for anchor drag — alarms if you stray past a set radius">&#9875; Anchor Watch</button>
           <button id="anchor-watch-silence-btn" title="Silence the anchor alarm (stays armed)" style="display:none">&#128263; Silence</button>
-          <!-- 3-up grid instead of a tall single column — per direct
-               feedback, these were using more of the rail's scarce
-               vertical real estate than a set of same-size icon buttons
-               needs to. Node Ops and Delete route are edit-mode-only and
-               now live on edit-tools-panel/edit-banner instead (see
-               those), since #right-rail itself is hidden while editing. -->
+          <!-- Node Ops and Delete route are edit-mode-only and now live on
+               edit-tools-panel/edit-banner instead (see those), since
+               #right-rail itself is hidden while editing. -->
           <div id="right-rail-icons">
             <button id="zoom-to-me-btn" title="Zoom to my location">&#8857;</button>
-            <button id="navaid-filter-btn" title="Show navaids on map">&#9875;</button>
             <button id="reroute-btn" title="Re-route around land">&#8635;</button>
           </div>
         </div>
@@ -128,6 +124,14 @@
         </div>
         <button class="pan-btn" id="pan-south" title="Pan south">&#9660;</button>
       </div>
+      <!-- Toggling which navaids show is a display setting, not a route/
+           tracking action — per direct request, pulled out of the right
+           rail entirely and into the left instrument column (below the
+           pan controls on desktop; directly under the compass on mobile,
+           where the pan/zoom controls above it are hidden in favor of
+           touch gestures — see its own CSS for both positions). Standard
+           gear glyph, not the anchor glyph Anchor Watch already owns. -->
+      <button id="navaid-filter-btn" title="Show navaids on map">&#9881;</button>
       <!-- Consolidated bottom HUD — focus-btn lives here in markup;
            .tide-cycle-ctrl and .heading-speed-ctrl are Leaflet controls
            built dynamically in app.js and re-parented in here right after
@@ -680,6 +684,7 @@
       <button id="map-ctx-combine-routes" title="Import a GPX file and combine all its tracks into a single route">Combine routes (GPX)</button>
     </div>
     <input type="file" id="gpx-file-input" accept=".gpx" style="display:none">
+    <button id="map-ctx-drop-pin" title="Drop a named, addressable pin at the tapped point — same as the Search box drops, just from a right-click instead of typing a query">&#128205; Set marker here</button>
     <button id="map-ctx-bring-boat" title="Move your GPS position marker to the tapped point, for testing without a GPS fix">&#9935; Bring boat here</button>
     <button id="map-ctx-set-position" title="Set a manual test position at the tapped point">&#128205; Set position here</button>
     <button id="map-ctx-set-focus" title="Set the focus point here — distance/bearing readouts will track it">&#127919; Set focus here</button>

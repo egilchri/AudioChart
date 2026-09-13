@@ -14,6 +14,7 @@ import * as MarkerIcons from './marker_icons.js';
 import * as HazardClustering from './hazard_clustering.js';
 import * as WaypointsStorage from './waypoints_storage.js';
 import * as WakeLock from './wake_lock.js';
+import * as AnchorWatch from './anchor_watch.js';
 import * as DriveSync from './drive_sync.js';
 import { openDriveImportPicker } from './drive_import.js';
 import { migrateLegacyIds } from './sync_merge.js';
@@ -55,22 +56,6 @@ document.getElementById('voice-select')?.addEventListener('change', (e) => {
   TTS.sayImmediate('Voice selected.');
 });
 // ─────────────────────────────────────────────────────────────────────────────
-
-function _navaidMarkerIcon(navaid) {
-  const c = (navaid.colour || '').toLowerCase();
-  const l = (navaid.label || '').toLowerCase();
-  let url;
-  if (l === 'light')             url = './icons/markicons/Marks-Light-TypeA.svg';
-  else if (l === 'beacon')       url = './icons/markicons/Marks-Beacon-SafeWater.svg';
-  else if (c.includes('green'))  url = './icons/markicons/Marks-Lateral-Port-IALA-B.svg';
-  else if (c.includes('red'))    url = './icons/markicons/Marks-Lateral-Starboard-IALA-B.svg';
-  else                           url = './icons/markicons/Marks-Buoy-TypeA.svg';
-  return L.icon({ iconUrl: url, iconSize: [32, 32], iconAnchor: [16, 32], tooltipAnchor: [0, -32] });
-}
-
-function _hazardMarkerIcon() {
-  return L.icon({ iconUrl: './icons/markicons/Hazard-Warning.svg', iconSize: [28, 28], iconAnchor: [14, 28], tooltipAnchor: [0, -28] });
-}
 
 // ── Boat icon double-tap menu (Autoroute / Sketch) ──────────────────────────
 // Replaced a hold-timer long-press here after it stayed unreliable on real
@@ -1005,25 +990,6 @@ let _maineTownsLayer      = null;
 let _maineTownsMoveEnd    = null;
 let _maineTownsFetchToken = 0;
 
-// ── Anchor Watch state ───────────────────────────────────────────────────────
-const ANCHOR_WATCH_KEY = 'audiochart-anchor-watch'; // {armed, lat, lon, radiusFt, armedAtMs}
-const ANCHOR_OUTSIDE_DEBOUNCE_MS = 30 * 1000;  // must stay outside continuously this long before alarming
-const ANCHOR_RETRIGGER_MS = 5 * 60 * 1000;     // re-alarm after this long silenced if still outside
-const ANCHOR_CHECK_THROTTLE_MS = 5 * 1000;     // don't re-check distance more than once per this
-const FT_PER_NM = 6076.12;
-let _anchorWatchArmed    = false;
-let _anchorLat           = null;
-let _anchorLon           = null;
-let _anchorRadiusFt      = Number(localStorage.getItem('audiochart-anchor-radius-ft')) || 150;
-let _anchorArmedAtMs     = null;
-let _anchorLastCheckMs   = 0;
-let _anchorOutsideSinceMs = null; // set the moment a check finds us outside the radius; cleared when back inside
-let _anchorAlarmActive   = false;
-let _anchorSilencedUntilMs = null;
-let _anchorWakeLockForcedOn = false; // true if arming Anchor Watch is what turned the wake lock on
-let _anchorWatchLayer    = null;
-let _anchorAudioCtx      = null;
-let _anchorOscStopFn     = null;
 let _animReportLayer   = null;
 let _animMilestoneLayer = null;
 let _animFollowMode = false;
@@ -1709,23 +1675,6 @@ function _formatAnchorage(p) {
   return `<table style="width:100%;border-collapse:collapse">${rows.join('')}</table>${notesHtml}`;
 }
 
-const DOC_MARKER_STYLE = {
-  geology:      { color: '#2e7d4f', emoji: '📄' },
-  history:      { color: '#8a6d3b', emoji: '📜' },
-  demographics: { color: '#2b6cb0', emoji: '👥' },
-  'island-info': { color: '#7c3aed', emoji: '🏝' },
-  anchorages:   { color: '#0e7490', emoji: '⚓' },
-};
-function _documentMarkerIcon(category) {
-  const s = DOC_MARKER_STYLE[category] || DOC_MARKER_STYLE.geology;
-  return L.divIcon({
-    className: '',
-    html: `<div style="background:#fff;color:${s.color};font-size:13px;width:24px;height:24px;border-radius:50%;border:2.5px solid ${s.color};display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.6)">${s.emoji}</div>`,
-    iconSize: null,
-    iconAnchor: [12, 12],
-  });
-}
-
 // The full text lives in the geojson (see documents.geojson's own header note)
 // so this popup needs nothing from the network — tap the marker, read the
 // real content, no link-out required. Replaced an earlier "excerpt + Open
@@ -1760,7 +1709,7 @@ function _renderDocumentMarkers() {
       : p.category === 'island-info' ? _formatIslandInfo(p)
       : p.category === 'anchorages' ? _formatAnchorage(p)
       : _formatDocBody(p.body);
-    const m = L.marker([lat, lon], { icon: _documentMarkerIcon(p.category) });
+    const m = L.marker([lat, lon], { icon: MarkerIcons.documentMarkerIcon(p.category) });
     // Island Info's own online-lookup supplement (see _wireIslandLookup) —
     // never for geology/history/demographics, and appended, never mixed into
     // bodyHtml, so it stays visually separate from the self-contained
@@ -1996,17 +1945,6 @@ function _destPoint(lat, lon, bearingDeg, distNm) {
   const lat2 = Math.asin(Math.sin(lat1)*Math.cos(d) + Math.cos(lat1)*Math.sin(d)*Math.cos(brng));
   const lon2 = lon1 + Math.atan2(Math.sin(brng)*Math.sin(d)*Math.cos(lat1), Math.cos(d)-Math.sin(lat1)*Math.sin(lat2));
   return { lat: lat2 * 180/Math.PI, lon: lon2 * 180/Math.PI };
-}
-
-function _routeEndpointIcon() {
-  return L.divIcon({ className: 'route-endpoint-marker', iconSize: [14, 14], iconAnchor: [7, 7] });
-}
-
-function _routeOvernightIcon() {
-  // A bed, not an anchor — &#9875; collided with _NAVAID_SYMBOL.waypoint's
-  // own anchor glyph (see _navaidIcon), so an overnight stop looked like
-  // an ordinary waypoint/anchorage marker at a glance. Per direct request.
-  return L.divIcon({ className: 'route-overnight-marker', html: '&#128719;', iconSize: [16, 16], iconAnchor: [8, 8] });
 }
 
 // silent=true suppresses the "all clear" popup for automatic/background
@@ -2596,7 +2534,7 @@ function _refreshSavedRouteLayers() {
 
     // Endpoint markers with coordinate labels (leader line, offset from route)
     const addEndpointMarker = (pt, fromEnd) => {
-      const m = L.marker([pt.lat, pt.lon], { icon: _routeEndpointIcon() })
+      const m = L.marker([pt.lat, pt.lon], { icon: MarkerIcons.routeEndpointIcon() })
         .addTo(_savedRoutesLayer);
       // Offset label perpendicular to the adjacent segment
       const adjPt   = fromEnd ? pts[pts.length - 2] : pts[1];
@@ -2628,7 +2566,7 @@ function _refreshSavedRouteLayers() {
     // Overnight-stop markers — always visible, not just while editing
     pts.forEach((pt, i) => {
       if (i === 0 || i === pts.length - 1 || !pt.overnight) return;
-      L.marker([pt.lat, pt.lon], { icon: _routeOvernightIcon() })
+      L.marker([pt.lat, pt.lon], { icon: MarkerIcons.routeOvernightIcon() })
         .bindTooltip('Overnight stop', { direction: 'top', offset: [0, -10] })
         .addTo(_savedRoutesLayer);
     });
@@ -3706,14 +3644,6 @@ document.getElementById('sketch-cancel-btn').addEventListener('click', _exitSket
 
 // ── Route edit mode ────────────────────────────────────────────────────────────
 
-function _editVertexIcon() {
-  return L.divIcon({
-    className: 'edit-vertex-marker',
-    iconSize: [16, 16],
-    iconAnchor: [8, 8],
-  });
-}
-
 function _pushEditHistory() {
   _editHistory.push(_editPoints.map(_stripPoint));
   document.getElementById('edit-undo-btn').style.display = '';
@@ -4750,16 +4680,6 @@ const _animBannerText = document.getElementById('anim-banner-text');
 
 // ── Nautical chart display helpers ───────────────────────────────────────────
 
-const _NAVAID_SYMBOL = { buoy: '◆', light: '✦', beacon: '▲', hazard: '⚠', restriction: '⛔', waypoint: '⚓', place: '📍', coord: '✕' };
-
-function _navaidIcon(type, color, label) {
-  const sym = _NAVAID_SYMBOL[type] || '●';
-  const html = label != null
-    ? `<div style="background:#fff;color:${color};font-weight:bold;font-size:12px;min-width:22px;height:22px;padding:0 3px;border-radius:11px;border:2px solid ${color};display:flex;align-items:center;justify-content:center;gap:2px;box-shadow:0 1px 4px rgba(0,0,0,.6);white-space:nowrap">${sym} ${label}</div>`
-    : `<div style="background:#fff;color:${color};font-size:14px;width:24px;height:24px;border-radius:50%;border:2.5px solid ${color};display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.6)">${sym}</div>`;
-  return L.divIcon({ className: '', html, iconSize: null, iconAnchor: [12, 12] });
-}
-
 function _bearingLineLabel(fromLat, fromLon, toLat, toLon, brgMag, distNm, color) {
   const midLat = (fromLat + toLat) / 2;
   const midLon = (fromLon + toLon) / 2;
@@ -5033,19 +4953,6 @@ async function _fetchStationCurrents(stationId) {
   }
 }
 
-function _makeCurrentArrowIcon(speed, dir, type) {
-  const scale = Math.min(1.5, Math.max(0.55, speed * 0.8 + 0.3));
-  const color = '#ff8800';
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60">
-    <g transform="translate(30,30) rotate(${dir}) scale(${scale.toFixed(2)})" opacity="0.88">
-      <polygon points="0,-22 -8,-10 8,-10" fill="${color}"/>
-      <line x1="0" y1="-10" x2="0" y2="14" stroke="${color}" stroke-width="3" stroke-linecap="round"/>
-      <line x1="-9" y1="16" x2="9" y2="16" stroke="${color}" stroke-width="3" stroke-linecap="round"/>
-    </g>
-  </svg>`;
-  return L.divIcon({ html: svg, iconSize: [60, 60], iconAnchor: [30, 30], className: '' });
-}
-
 function _renderCurrentArrows() {
   if (!_showCurrentArrows || !_map || !_currentStationsCache) return;
   if (_currentArrowLayer) { _map.removeLayer(_currentArrowLayer); _currentArrowLayer = null; }
@@ -5063,7 +4970,7 @@ function _renderCurrentArrows() {
     if (!cur || cur.speed < 0.05) continue;
     markers.push(
       L.marker([parseFloat(station.lat), parseFloat(station.lng)], {
-        icon: _makeCurrentArrowIcon(cur.speed, cur.dir, cur.type),
+        icon: MarkerIcons.makeCurrentArrowIcon(cur.speed, cur.dir, cur.type),
         interactive: true, keyboard: false,
       }).bindTooltip(
         `${cur.speed.toFixed(1)} kt ${cur.type}<br><span style="color:#8a9ab0;font-size:0.85em">${station.name}</span>`,
@@ -5982,7 +5889,7 @@ function _startRouteAnimation(route, speedKnots) {
 
   // Overnight stops the boat should pause and flash at as it passes them —
   // per direct request. These markers are otherwise invisible during
-  // Animate: _savedRoutesLayer (which is what _routeOvernightIcon markers
+  // Animate: _savedRoutesLayer (which is what MarkerIcons.routeOvernightIcon markers
   // live on) gets hidden a few lines up for a cleaner animated view, so
   // this flash is the only time one would ever be visible during
   // playback. Index 0 (the route's own start) is excluded — there's
@@ -6041,12 +5948,12 @@ function _startRouteAnimation(route, speedKnots) {
 
     _animReportLayer.clearLayers();
     for (const n of (Query.lastNavaidResults || [])) {
-      const m = L.marker([n.lat, n.lon], { icon: _navaidMarkerIcon(n) });
+      const m = L.marker([n.lat, n.lon], { icon: MarkerIcons.navaidMarkerIcon(n) });
       _animReportLayer.addLayer(m);
       _highlightAndSpeak(m, null, null, null); // just flash, speech handled below
     }
     for (const h of (Query.lastHazardResults || [])) {
-      const m = L.marker([h.lat, h.lon], { icon: _hazardMarkerIcon() });
+      const m = L.marker([h.lat, h.lon], { icon: MarkerIcons.hazardMarkerIcon() });
       _animReportLayer.addLayer(m);
       _highlightAndSpeak(m, null, null, null);
     }
@@ -6182,7 +6089,7 @@ function _startRouteAnimation(route, speedKnots) {
             _animMilestoneLayer.addLayer(L.polyline([[lat, lon], [fix.lat, fix.lon]], {
               color: c, weight: weights[i], dashArray: i === 1 ? '6 4' : null, opacity: 0.95,
             }));
-            _animMilestoneLayer.addLayer(L.marker([fix.lat, fix.lon], { icon: _navaidIcon(fix.type, c) }));
+            _animMilestoneLayer.addLayer(L.marker([fix.lat, fix.lon], { icon: MarkerIcons.navaidIcon(fix.type, c) }));
             if (fix.brg != null && fix.distNm != null) {
               _animMilestoneLayer.addLayer(_bearingLineLabel(lat, lon, fix.lat, fix.lon, fix.brg, fix.distNm, c));
             }
@@ -8758,6 +8665,26 @@ function _ensureMap() {
     });
   }
 
+  // Same pipeline the Search box and the boat icon's own "Drop Pin" menu
+  // item use (nextSearchPinName/saveUserWaypoint with type:'search') — a
+  // real, addressable, draggable, renamable pin, just sourced from a
+  // right-clicked map point instead of a typed query or the boat's own
+  // position. The dropped pin's own popup already has "Autoroute from boat
+  // position" (see _autoRouteFromBoatToHereFn) — no separate "Autoroute to
+  // here" menu item needed alongside this one.
+  document.getElementById('map-ctx-drop-pin').addEventListener('click', () => {
+    _hideCtx();
+    if (!_ctxLatLng) return;
+    const { lat, lng: lon } = _ctxLatLng;
+    const name = WaypointsStorage.nextSearchPinName();
+    saveUserWaypoint(name, lat, lon, 'search', formatPositionDisplay(lat, lon));
+    Query.setActiveWaypoint(lat, lon, name);
+    if (!_waypointsVisible) _setWaypointsVisible(true);
+    const msg = `${name} dropped.`;
+    setStatus(msg);
+    TTS.sayImmediate(msg);
+  });
+
   document.getElementById('map-ctx-bring-boat').addEventListener('click', () => {
     _hideCtx();
     if (!_ctxLatLng) return;
@@ -8885,7 +8812,7 @@ async function showMap(fromLat, fromLon, result) {
     layers.push(L.circleMarker([fLat, fLon], {
       radius: 5, color: '#fff', fillColor: color, fillOpacity: 1, weight: 1.5,
     }));
-    const toIcon = _navaidIcon(destType || 'place', color);
+    const toIcon = MarkerIcons.navaidIcon(destType || 'place', color);
     const toMarker = L.marker([destLat, destLon], { icon: toIcon });
     if (destName) toMarker.bindTooltip(escapeHtml(destName), { permanent: true, direction: 'top', className: 'map-tooltip' });
     layers.push(toMarker);
@@ -8986,7 +8913,7 @@ function _refreshNavaidOverlay() {
       if (!bounds.contains([lat, lon])) continue;
       const n = { label: f.properties.label, colour: f.properties.colour,
                   name: f.properties.name, characteristic: f.properties.characteristic };
-      const m = L.marker([lat, lon], { icon: _navaidMarkerIcon(n) });
+      const m = L.marker([lat, lon], { icon: MarkerIcons.navaidMarkerIcon(n) });
       const tip = [n.name, n.characteristic || n.colour].filter(Boolean).join(' — ');
       if (tip) m.bindTooltip(tip, { permanent: false, direction: 'top', className: 'map-tooltip' });
 
@@ -9059,7 +8986,7 @@ function _refreshNavaidOverlay() {
     }
     const hazardLayer = L.layerGroup();
     HazardClustering.renderClusteredHazards(_map, hazardLayer, hazardPts, (h) => {
-      const m = L.marker([h.lat, h.lon], { icon: _hazardMarkerIcon() });
+      const m = L.marker([h.lat, h.lon], { icon: MarkerIcons.hazardMarkerIcon() });
       m.bindTooltip(h.name, { permanent: false, direction: 'top', className: 'map-tooltip' });
       return m;
     });
@@ -9160,7 +9087,7 @@ async function showNavaidMap(fromLat, fromLon, navaids) {
 
   const layers = [];
   for (const n of navaids) {
-    const marker = L.marker([n.lat, n.lon], { icon: _navaidMarkerIcon(n) });
+    const marker = L.marker([n.lat, n.lon], { icon: MarkerIcons.navaidMarkerIcon(n) });
     _markerByKey.set(_markerKey(n.lat, n.lon), marker);
     const tip = [n.name, n.characteristic || n.colour].filter(Boolean).join(' — ');
     if (tip) marker.bindTooltip(tip, { permanent: false, direction: 'top', className: 'map-tooltip' });
@@ -9192,7 +9119,7 @@ async function showHazardMap(fromLat, fromLon, hazardPts) {
 
   const hazardLayer = L.layerGroup();
   HazardClustering.renderClusteredHazards(_map, hazardLayer, hazardPts, (h) => {
-    const marker = L.marker([h.lat, h.lon], { icon: _hazardMarkerIcon() });
+    const marker = L.marker([h.lat, h.lon], { icon: MarkerIcons.hazardMarkerIcon() });
     _markerByKey.set(_markerKey(h.lat, h.lon), marker);
     const tip = [h.label, h.name].filter(Boolean).join(', ');
     if (tip) marker.bindTooltip(tip, { permanent: false, direction: 'top', className: 'map-tooltip' });
@@ -9260,7 +9187,7 @@ async function showCourseMap(fromLat, fromLon, toLat, toLon, hazardPts) {
   // Hazard markers
   const hazardLayer = L.layerGroup();
   HazardClustering.renderClusteredHazards(_map, hazardLayer, hazardPts || [], (h) => {
-    const m = L.marker([h.lat, h.lon], { icon: _hazardMarkerIcon() });
+    const m = L.marker([h.lat, h.lon], { icon: MarkerIcons.hazardMarkerIcon() });
     if (h.label || h.name) m.bindTooltip(((h.label || '') + ' ' + (h.name || '')).trim(), { permanent: false, direction: 'top', className: 'map-tooltip' });
     m.on('click', () => {
       const label = ((h.label || '') + (h.name || '')).trim();
@@ -9678,7 +9605,7 @@ async function handleMapLongPress(latlng, radiusNm = 0.25, radiusLabel = '¼ mil
   {
     const hazardLayer = L.layerGroup();
     HazardClustering.renderClusteredHazards(_map, hazardLayer, hazards, (h) => {
-      const m = L.marker([h.lat, h.lon], { icon: _hazardMarkerIcon() });
+      const m = L.marker([h.lat, h.lon], { icon: MarkerIcons.hazardMarkerIcon() });
       _markerByKey.set(_markerKey(h.lat, h.lon), m);
       const tip = [h.label, h.name].filter(Boolean).join(', ');
       if (tip) m.bindTooltip(tip, { permanent: false, direction: 'top', className: 'map-tooltip' });
@@ -9696,7 +9623,7 @@ async function handleMapLongPress(latlng, radiusNm = 0.25, radiusLabel = '¼ mil
   }
 
   for (const n of navaids) {
-    const m = L.marker([n.lat, n.lon], { icon: _navaidMarkerIcon(n) });
+    const m = L.marker([n.lat, n.lon], { icon: MarkerIcons.navaidMarkerIcon(n) });
     _markerByKey.set(_markerKey(n.lat, n.lon), m);
     const tip = [n.name, n.characteristic || n.colour].filter(Boolean).join(' — ');
     if (tip) m.bindTooltip(tip, { permanent: false, direction: 'top', className: 'map-tooltip' });
@@ -10442,195 +10369,51 @@ document.addEventListener('visibilitychange', () => {
 // arming it forces the wake lock on and says so plainly.
 
 function _renderAnchorWatchCircle() {
-  if (_anchorWatchLayer) { _map.removeLayer(_anchorWatchLayer); _anchorWatchLayer = null; }
-  if (!_anchorWatchArmed || !_map) return;
-  _anchorWatchLayer = L.circle([_anchorLat, _anchorLon], {
-    radius: (_anchorRadiusFt / FT_PER_NM) * 1852,
-    className: 'anchor-watch-circle',
-    color: '#4a9edd',
-    weight: 2,
-    dashArray: '6 6',
-    fillColor: '#4a9edd',
-    fillOpacity: 0.08,
-  }).addTo(_map);
-  if (_anchorAlarmActive) _anchorWatchLayer.getElement()?.classList.add('anchor-watch-alarming');
+  AnchorWatch.renderCircle(_map);
 }
 
 function _updateAnchorWatchButton() {
   if (!anchorWatchBtn) return;
-  anchorWatchBtn.textContent = _anchorWatchArmed ? '⚓ Armed' : '⚓ Anchor Watch';
-  anchorWatchBtn.title = _anchorWatchArmed
-    ? `Watching ${_anchorRadiusFt} ft radius — tap to disarm`
+  const armed = AnchorWatch.isArmed();
+  const alarming = AnchorWatch.isAlarming();
+  anchorWatchBtn.textContent = armed ? '⚓ Armed' : '⚓ Anchor Watch';
+  anchorWatchBtn.title = armed
+    ? `Watching ${AnchorWatch.getRadiusFt()} ft radius — tap to disarm`
     : 'Watch for anchor drag — alarms if you stray past a set radius';
-  anchorWatchBtn.classList.toggle('anchor-armed', _anchorWatchArmed);
-  anchorWatchBtn.classList.toggle('anchor-alarming', _anchorAlarmActive);
-  anchorWatchSilenceBtn.style.display = _anchorAlarmActive ? 'inline-block' : 'none';
+  anchorWatchBtn.classList.toggle('anchor-armed', armed);
+  anchorWatchBtn.classList.toggle('anchor-alarming', alarming);
+  anchorWatchSilenceBtn.style.display = alarming ? 'inline-block' : 'none';
 }
 
-function _playAnchorAlarmTone() {
-  if (_anchorOscStopFn) return; // already playing
-  try {
-    if (!_anchorAudioCtx) _anchorAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const ctx = _anchorAudioCtx;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'square';
-    gain.gain.value = 0.25;
-    osc.connect(gain).connect(ctx.destination);
-    osc.start();
-    let high = true;
-    const toggle = setInterval(() => {
-      high = !high;
-      osc.frequency.setValueAtTime(high ? 1200 : 800, ctx.currentTime);
-    }, 400);
-    _anchorOscStopFn = () => {
-      clearInterval(toggle);
-      osc.stop();
-      osc.disconnect(); gain.disconnect();
-    };
-  } catch (err) {
-    console.warn('[anchor watch] tone failed:', err);
-  }
-}
-
-function _stopAnchorAlarmTone() {
-  if (_anchorOscStopFn) { _anchorOscStopFn(); _anchorOscStopFn = null; }
-}
-
-function _triggerAnchorAlarm() {
-  _anchorAlarmActive = true;
-  _anchorSilencedUntilMs = null;
-  _playAnchorAlarmTone();
-  navigator.vibrate?.([400, 200, 400, 200, 400]);
-  const msg = `Anchor alarm — dragging outside the ${_anchorRadiusFt} ft watch radius.`;
-  setStatus(msg); TTS.sayImmediate(msg);
-  _updateAnchorWatchButton();
-  _anchorWatchLayer?.getElement()?.classList.add('anchor-watch-alarming');
-}
-
-function _clearAnchorAlarm() {
-  _anchorAlarmActive = false;
-  _anchorSilencedUntilMs = null;
-  _stopAnchorAlarmTone();
-  _updateAnchorWatchButton();
-  _anchorWatchLayer?.getElement()?.classList.remove('anchor-watch-alarming');
-}
-
-function _anchorWatchSave() {
-  if (_anchorWatchArmed) {
-    localStorage.setItem(ANCHOR_WATCH_KEY, JSON.stringify({
-      armed: true, lat: _anchorLat, lon: _anchorLon,
-      radiusFt: _anchorRadiusFt, armedAtMs: _anchorArmedAtMs,
-    }));
-  } else {
-    localStorage.removeItem(ANCHOR_WATCH_KEY);
-  }
-}
-
-function _armAnchorWatch(lat, lon, radiusFt) {
-  _anchorWatchArmed = true;
-  _anchorLat = lat;
-  _anchorLon = lon;
-  _anchorRadiusFt = radiusFt;
-  _anchorArmedAtMs = Date.now();
-  _anchorOutsideSinceMs = null;
-  localStorage.setItem('audiochart-anchor-radius-ft', String(radiusFt));
-  _anchorWatchSave();
-  if (!WakeLock.isEnabled()) {
-    _anchorWakeLockForcedOn = true;
-    WakeLock.setEnabled(true);
-    _updateWakeLockButton();
-    WakeLock.request(setStatus);
-  }
-  _renderAnchorWatchCircle();
-  _updateAnchorWatchButton();
-  const msg = `Anchor watch armed — ${radiusFt} ft radius. Keep the screen on for it to work.`;
-  setStatus(msg); TTS.sayImmediate(msg);
-}
-
-function _disarmAnchorWatch() {
-  _anchorWatchArmed = false;
-  _clearAnchorAlarm();
-  _anchorOutsideSinceMs = null;
-  _anchorWatchSave();
-  if (_anchorWakeLockForcedOn) {
-    _anchorWakeLockForcedOn = false;
-    WakeLock.setEnabled(false);
-    _updateWakeLockButton();
-    WakeLock.release();
-  }
-  _renderAnchorWatchCircle();
-  _updateAnchorWatchButton();
-  const msg = 'Anchor watch disarmed.';
-  setStatus(msg); TTS.sayImmediate(msg);
-}
-
-function _silenceAnchorAlarm() {
-  _stopAnchorAlarmTone();
-  navigator.vibrate?.(0);
-  _anchorSilencedUntilMs = Date.now() + ANCHOR_RETRIGGER_MS;
-  // Keep _anchorAlarmActive true — still armed and still outside the radius,
-  // just muted; _checkAnchorWatch re-triggers automatically after the cooldown.
-  _updateAnchorWatchButton();
-  setStatus('Anchor alarm silenced — still watching.');
-}
-
-// Called from the shared GPS callback on every fix; throttled internally so
-// it costs nothing on fixes that arrive faster than ANCHOR_CHECK_THROTTLE_MS.
+// Called from the shared GPS callback on every fix; AnchorWatch.check()
+// throttles internally so it costs nothing on fixes that arrive faster
+// than its own check interval, and only invokes onButtonUpdate on an
+// actual armed/alarming state transition, not every fix.
 function _checkAnchorWatch(lat, lon) {
-  if (!_anchorWatchArmed) return;
-  const now = Date.now();
-  if (now - _anchorLastCheckMs < ANCHOR_CHECK_THROTTLE_MS) return;
-  _anchorLastCheckMs = now;
-
-  const distNm = Query.distanceNm(_anchorLon, _anchorLat, lon, lat);
-  const outside = distNm * FT_PER_NM > _anchorRadiusFt;
-
-  if (!outside) {
-    _anchorOutsideSinceMs = null;
-    if (_anchorAlarmActive) _clearAnchorAlarm();
-    return;
-  }
-
-  if (_anchorOutsideSinceMs === null) _anchorOutsideSinceMs = now;
-  const continuouslyOutsideMs = now - _anchorOutsideSinceMs;
-
-  if (!_anchorAlarmActive) {
-    if (continuouslyOutsideMs >= ANCHOR_OUTSIDE_DEBOUNCE_MS) _triggerAnchorAlarm();
-  } else if (_anchorSilencedUntilMs !== null && now >= _anchorSilencedUntilMs) {
-    _triggerAnchorAlarm(); // re-alarm after a silence cooldown, still outside
-  }
-}
-
-function _recoverAnchorWatch() {
-  const raw = localStorage.getItem(ANCHOR_WATCH_KEY);
-  if (!raw) return;
-  try {
-    const { armed, lat, lon, radiusFt, armedAtMs } = JSON.parse(raw);
-    if (!armed || lat == null || lon == null) return;
-    _anchorWatchArmed = true;
-    _anchorLat = lat;
-    _anchorLon = lon;
-    _anchorRadiusFt = radiusFt || _anchorRadiusFt;
-    _anchorArmedAtMs = armedAtMs || Date.now();
-    _renderAnchorWatchCircle();
-    _updateAnchorWatchButton();
-    const mins = Math.round((Date.now() - _anchorArmedAtMs) / 60000);
-    setStatus(`Resumed anchor watch from before reload — armed ${mins} min ago, ${_anchorRadiusFt} ft radius.`);
-  } catch (_) {
-    localStorage.removeItem(ANCHOR_WATCH_KEY);
-  }
+  AnchorWatch.check(lat, lon, { onStatus: setStatus, onButtonUpdate: _updateAnchorWatchButton });
 }
 
 function _closeAnchorWatchForm() {
   anchorWatchForm.style.display = 'none';
 }
 
+function _recoverAnchorWatch() {
+  if (!AnchorWatch.recover({ onStatus: setStatus })) return;
+  _renderAnchorWatchCircle();
+  _updateAnchorWatchButton();
+}
+
 anchorWatchBtn?.addEventListener('click', () => {
-  if (_anchorWatchArmed) { _disarmAnchorWatch(); return; }
+  if (AnchorWatch.isArmed()) {
+    const { wakeLockReleased } = AnchorWatch.disarm({ onStatus: setStatus });
+    if (wakeLockReleased) _updateWakeLockButton();
+    _renderAnchorWatchCircle();
+    _updateAnchorWatchButton();
+    return;
+  }
   const isOpen = anchorWatchForm.style.display !== 'none';
   if (isOpen) { _closeAnchorWatchForm(); return; }
-  anchorWatchRadiusInput.value = _anchorRadiusFt;
+  anchorWatchRadiusInput.value = AnchorWatch.getRadiusFt();
   anchorWatchForm.style.display = 'flex';
 });
 
@@ -10642,12 +10425,18 @@ anchorWatchStartBtn?.addEventListener('click', () => {
   }
   const radiusFt = Math.max(20, Number(anchorWatchRadiusInput.value) || 150);
   _closeAnchorWatchForm();
-  _armAnchorWatch(pos.lat, pos.lon, radiusFt);
+  const { wakeLockForced } = AnchorWatch.arm(pos.lat, pos.lon, radiusFt, { onStatus: setStatus });
+  if (wakeLockForced) _updateWakeLockButton();
+  _renderAnchorWatchCircle();
+  _updateAnchorWatchButton();
 });
 
 anchorWatchCancelBtn?.addEventListener('click', () => _closeAnchorWatchForm());
 
-anchorWatchSilenceBtn?.addEventListener('click', () => _silenceAnchorAlarm());
+anchorWatchSilenceBtn?.addEventListener('click', () => {
+  AnchorWatch.silence(setStatus);
+  _updateAnchorWatchButton();
+});
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && anchorWatchForm.style.display !== 'none') _closeAnchorWatchForm();

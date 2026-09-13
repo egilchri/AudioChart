@@ -148,3 +148,90 @@ export function searchPinIcon() {
     tooltipAnchor: [0, -38],
   });
 }
+
+// Phase 4 additions — the remaining scattered pure icon factories
+// (_navaidMarkerIcon, _hazardMarkerIcon, _documentMarkerIcon,
+// _routeEndpointIcon, _routeOvernightIcon, _editVertexIcon, _navaidIcon,
+// _makeCurrentArrowIcon) identified in Phase 3's own comment above as a
+// good follow-up consolidation. Each confirmed pure/parameterized before
+// moving. Note: _editVertexIcon has no live call sites in app.js as of
+// this pass — its CSS class (.edit-vertex-marker) is applied a different
+// way at the actual vertex-marker call site — but it's included here
+// rather than dropped, matching the plan's "move, don't judge" scope.
+
+export function navaidMarkerIcon(navaid) {
+  const c = (navaid.colour || '').toLowerCase();
+  const l = (navaid.label || '').toLowerCase();
+  let url;
+  if (l === 'light')             url = './icons/markicons/Marks-Light-TypeA.svg';
+  else if (l === 'beacon')       url = './icons/markicons/Marks-Beacon-SafeWater.svg';
+  else if (c.includes('green'))  url = './icons/markicons/Marks-Lateral-Port-IALA-B.svg';
+  else if (c.includes('red'))    url = './icons/markicons/Marks-Lateral-Starboard-IALA-B.svg';
+  else                           url = './icons/markicons/Marks-Buoy-TypeA.svg';
+  return L.icon({ iconUrl: url, iconSize: [32, 32], iconAnchor: [16, 32], tooltipAnchor: [0, -32] });
+}
+
+export function hazardMarkerIcon() {
+  return L.icon({ iconUrl: './icons/markicons/Hazard-Warning.svg', iconSize: [28, 28], iconAnchor: [14, 28], tooltipAnchor: [0, -28] });
+}
+
+const _DOC_MARKER_STYLE = {
+  geology:      { color: '#2e7d4f', emoji: '📄' },
+  history:      { color: '#8a6d3b', emoji: '📜' },
+  demographics: { color: '#2b6cb0', emoji: '👥' },
+  'island-info': { color: '#7c3aed', emoji: '🏝' },
+  anchorages:   { color: '#0e7490', emoji: '⚓' },
+};
+export function documentMarkerIcon(category) {
+  const s = _DOC_MARKER_STYLE[category] || _DOC_MARKER_STYLE.geology;
+  return L.divIcon({
+    className: '',
+    html: `<div style="background:#fff;color:${s.color};font-size:13px;width:24px;height:24px;border-radius:50%;border:2.5px solid ${s.color};display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.6)">${s.emoji}</div>`,
+    iconSize: null,
+    iconAnchor: [12, 12],
+  });
+}
+
+export function routeEndpointIcon() {
+  return L.divIcon({ className: 'route-endpoint-marker', iconSize: [14, 14], iconAnchor: [7, 7] });
+}
+
+export function routeOvernightIcon() {
+  // A bed, not an anchor — &#9875; collided with _NAVAID_SYMBOL.waypoint's
+  // own anchor glyph (see navaidIcon below), so an overnight stop looked
+  // like an ordinary waypoint/anchorage marker at a glance. Per direct request.
+  return L.divIcon({ className: 'route-overnight-marker', html: '&#128719;', iconSize: [16, 16], iconAnchor: [8, 8] });
+}
+
+export function editVertexIcon() {
+  return L.divIcon({
+    className: 'edit-vertex-marker',
+    iconSize: [16, 16],
+    iconAnchor: [8, 8],
+  });
+}
+
+const _NAVAID_SYMBOL = { buoy: '◆', light: '✦', beacon: '▲', hazard: '⚠', restriction: '⛔', waypoint: '⚓', place: '📍', coord: '✕' };
+
+export function navaidIcon(type, color, label) {
+  const sym = _NAVAID_SYMBOL[type] || '●';
+  const html = label != null
+    ? `<div style="background:#fff;color:${color};font-weight:bold;font-size:12px;min-width:22px;height:22px;padding:0 3px;border-radius:11px;border:2px solid ${color};display:flex;align-items:center;justify-content:center;gap:2px;box-shadow:0 1px 4px rgba(0,0,0,.6);white-space:nowrap">${sym} ${label}</div>`
+    : `<div style="background:#fff;color:${color};font-size:14px;width:24px;height:24px;border-radius:50%;border:2.5px solid ${color};display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.6)">${sym}</div>`;
+  return L.divIcon({ className: '', html, iconSize: null, iconAnchor: [12, 12] });
+}
+
+// type is unused in the body — pre-existing dead parameter, kept as-is
+// rather than "fixed" during this pure relocation pass.
+export function makeCurrentArrowIcon(speed, dir, type) {
+  const scale = Math.min(1.5, Math.max(0.55, speed * 0.8 + 0.3));
+  const color = '#ff8800';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60">
+    <g transform="translate(30,30) rotate(${dir}) scale(${scale.toFixed(2)})" opacity="0.88">
+      <polygon points="0,-22 -8,-10 8,-10" fill="${color}"/>
+      <line x1="0" y1="-10" x2="0" y2="14" stroke="${color}" stroke-width="3" stroke-linecap="round"/>
+      <line x1="-9" y1="16" x2="9" y2="16" stroke="${color}" stroke-width="3" stroke-linecap="round"/>
+    </g>
+  </svg>`;
+  return L.divIcon({ html: svg, iconSize: [60, 60], iconAnchor: [30, 30], className: '' });
+}

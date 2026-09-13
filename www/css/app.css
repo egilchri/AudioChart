@@ -1131,12 +1131,13 @@ body.wco-active #wco-titlebar { display: flex; }
   gap: 6px;
 }
 #right-rail-body > * { align-self: flex-end; }
-/* zoom-to-me/navaid-filter/reroute/delete were a 4-tall single column of
-   48px icon buttons — a lot of the rail's scarce vertical space for a
-   set of same-size icons. 2x2 instead, at roughly half the height. */
+/* Single vertical column, in line with every other button in the rail
+   (Start Tracking, Anchor Watch, ...) — per direct request, all actions
+   should line up in one column rather than icons breaking into their own
+   2x2 block. */
 #right-rail-icons {
   display: grid;
-  grid-template-columns: repeat(2, 48px);
+  grid-template-columns: 48px;
   gap: 6px;
   justify-content: end;
 }
@@ -1158,9 +1159,13 @@ body.wco-active #wco-titlebar { display: flex; }
   white-space: nowrap;
 }
 #right-rail-toggle:hover { border-color: var(--brass); color: var(--brass-hi); }
+/* Once expanded, the label is redundant with the now-visible panel content
+   underneath — per direct request, only the chevron (still tappable to
+   collapse again) shows once the rail is open. */
+#right-rail-toggle:not(.collapsed) .rrt-label { display: none; }
 /* Same expand/collapse chevron convention as .etp-title just below it in
    the DOM — this is meant to read as the same interaction, not a new one. */
-#right-rail-toggle::after { content: '  \25B4'; }
+#right-rail-toggle::after { content: '\25B4'; }
 #right-rail-toggle.collapsed::after { content: '  \25BE'; }
 /* #status-tiles (Map Type/Location/Screen/Underway) wraps to a second row
    below ~1366px wide (see its own @media rule) — 70px of clearance was
@@ -1760,25 +1765,6 @@ body.wco-active #wco-titlebar { display: flex; }
 }
 #rp-close:hover { color: var(--text); }
 
-#navaid-filter-btn {
-  width: 48px;
-  height: 48px;
-  flex-shrink: 0;
-  background: var(--brass-ink-2);
-  color: var(--brass);
-  border: 1px solid var(--brass-dim);
-  border-radius: 10px;
-  font-size: 1.3rem;
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  -webkit-tap-highlight-color: transparent;
-}
-#navaid-filter-btn:active { background: var(--brass-dim); }
-#navaid-filter-btn.active  { background: var(--brass);  color: var(--brass-ink); }
-
 #navaid-filter-panel {
   display: none;
   position: absolute;
@@ -2249,7 +2235,8 @@ body.wco-active #wco-titlebar { display: flex; }
 #app.edit-mode #map-overlay-status,
 #app.edit-mode #right-rail,
 #app.edit-mode #zoom-slider-wrap,
-#app.edit-mode #pan-controls-wrap {
+#app.edit-mode #pan-controls-wrap,
+#app.edit-mode #navaid-filter-btn {
   display: none !important;
 }
 #app.edit-mode #map-container {
@@ -3210,6 +3197,7 @@ body.wco-active #wco-titlebar { display: flex; }
 #app.anim-mode #edit-tools-panel,
 #app.anim-mode #zoom-slider-wrap,
 #app.anim-mode #pan-controls-wrap,
+#app.anim-mode #navaid-filter-btn,
 #app.anim-mode .follow-progress-ctrl,
 #app.anim-mode #bottom-hud {
   display: none !important;
@@ -3234,7 +3222,8 @@ body.wco-active #wco-titlebar { display: flex; }
 #app.underway-mode #map-overlay-status,
 #app.underway-mode #right-rail,
 #app.underway-mode #zoom-slider-wrap,
-#app.underway-mode #pan-controls-wrap {
+#app.underway-mode #pan-controls-wrap,
+#app.underway-mode #navaid-filter-btn {
   display: none !important;
 }
 /* One button, not two, and deliberately NOT a child of #map-overlay-status
@@ -3720,6 +3709,40 @@ body.wco-active #underway-btn { top: 10px; }
 .pan-btn:active { background: rgba(255,255,255,0.1); }
 @media (min-width: 768px) {
   #pan-controls-wrap { display: flex; }
+}
+
+/* ── Navaid filter toggle (left instrument column) ───────────────────────── */
+/* Own left-column slot, not gated behind the 768px breakpoint like
+   #zoom-slider-wrap/#pan-controls-wrap above — those two are redundant
+   with touch panning on a phone, but this is a display setting that
+   needs to stay reachable on mobile too. Sits directly under the compass
+   (top:110px, the same slot #zoom-slider-wrap uses on desktop) since
+   that slot is empty on mobile; moves down to clear the pan controls
+   once they appear at the 768px breakpoint. */
+#navaid-filter-btn {
+  position: absolute;
+  left: 10px;
+  top: 110px;
+  z-index: 1000;
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  background: var(--brass-ink-2);
+  color: var(--brass);
+  border: 1px solid var(--brass-dim);
+  border-radius: 10px;
+  font-size: 1.3rem;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+#navaid-filter-btn:active { background: var(--brass-dim); }
+#navaid-filter-btn.active  { background: var(--brass);  color: var(--brass-ink); }
+@media (min-width: 768px) {
+  #navaid-filter-btn { top: 424px; } /* clears #pan-controls-wrap (310px + ~104px tall + gap) */
 }
 
 
