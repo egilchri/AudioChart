@@ -635,7 +635,13 @@ def refresh_data_version(out_dir):
     browser's stale cache after a channel-graph or land rebuild."""
     digest = hashlib.sha256()
     for name in sorted(os.listdir(out_dir)):
-        if name.endswith('.geojson'):
+        # curated_routes.json is also read through _fetchRegionGeometry's
+        # same version-gated IndexedDB cache (see query.js) — it needs to be
+        # part of this fingerprint too, or an edit to it (e.g. fixing a
+        # route's name) never reaches a browser that already cached the old
+        # copy. Excluded explicitly rather than matching "*.json" so this
+        # never accidentally hashes data-version.json itself.
+        if name.endswith('.geojson') or name == 'curated_routes.json':
             with open(os.path.join(out_dir, name), 'rb') as f:
                 digest.update(f.read())
     version = digest.hexdigest()[:16]
