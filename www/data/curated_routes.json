@@ -1,8 +1,8 @@
 [
   {
-    "id": "rockland-isle-au-haut",
-    "name": "Rockland to Isle au Haut",
-    "note": "Threads Merchant Row's ledges toward Isle au Haut. Verified live 2026-09-12 as a hand-built route after direct AutoRoute fell back to a straight line on this corridor — kept here as both a sample route and a regression check for the router.",
+    "id": "rockland-carvers-harbor",
+    "name": "Rockland to Carver's Harbor",
+    "note": "Threads the ledges around Old Harbor, The Reach, and Green Island Knob into Carver's Harbor on Vinalhaven. Verified live 2026-09-12 as a hand-built route after direct AutoRoute fell back to a straight line on this corridor — kept here as both a sample route and a regression check for the router.",
     "points": [
       { "lat": 44.102135, "lon": -69.08787 },
       { "lat": 44.088209, "lon": -68.954702 },

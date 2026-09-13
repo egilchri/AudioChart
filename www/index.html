@@ -153,7 +153,21 @@
           <button id="rp-sample-routes" title="Browse ready-made sample routes for this region">&#9733; Sample Routes</button>
         </div>
         <div id="rp-sample-list" style="display:none"></div>
-        <input id="rp-search" type="text" placeholder="Search routes&hellip;" autocomplete="off">
+        <div class="rp-search-row">
+          <input id="rp-search" type="text" placeholder="Search routes&hellip;" autocomplete="off">
+          <select id="rp-sort" title="Sort order">
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="name">Name (A&ndash;Z)</option>
+          </select>
+          <button id="rp-select-toggle" title="Select multiple routes to delete or hide at once">&#9745; Select</button>
+        </div>
+        <div id="rp-bulk-bar" style="display:none">
+          <button id="rp-bulk-select-all" title="Select every route currently shown (respects search)">Select all shown</button>
+          <button id="rp-bulk-hide" title="Hide the selected routes from the map">Hide selected</button>
+          <button id="rp-bulk-delete" class="rp-bulk-danger" title="Permanently delete the selected routes">Delete selected</button>
+          <button id="rp-bulk-cancel" title="Exit selection mode without changing anything">Cancel</button>
+        </div>
         <div id="rp-route-list"></div>
         <div class="nf-actions">
           <button id="rp-show-all" title="Show every saved route on the map">All</button>

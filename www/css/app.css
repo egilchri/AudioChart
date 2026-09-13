@@ -1313,7 +1313,8 @@ body.wco-active #wco-titlebar { display: flex; }
   max-height: min(50vh, calc(100vh - 90px));
 }
 #route-picker-panel.compact .nf-new-route,
-#route-picker-panel.compact #rp-search,
+#route-picker-panel.compact .rp-search-row,
+#route-picker-panel.compact #rp-bulk-bar,
 #route-picker-panel.compact .nf-actions,
 #route-picker-panel.compact .nf-sync-bar,
 #route-picker-panel.compact #rp-sync-status,
@@ -1335,8 +1336,15 @@ body.wco-active #wco-titlebar { display: flex; }
 #rp-compact-toggle:hover { border-color: var(--accent); color: var(--text); }
 #rp-compact-toggle.active { border-color: var(--accent); color: var(--accent); }
 #app.following-active #rp-compact-toggle { display: inline-block; }
+.rp-search-row {
+  display: flex;
+  gap: 6px;
+  padding: 0 10px 6px;
+  align-items: center;
+}
 #rp-search {
-  width: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
   box-sizing: border-box;
   background: var(--mid-blue);
   border: 1px solid var(--mid-blue);
@@ -1347,6 +1355,55 @@ body.wco-active #wco-titlebar { display: flex; }
 }
 #rp-search::placeholder { color: var(--text-dim); }
 #rp-search:focus { outline: none; border-color: var(--accent); }
+#rp-sort {
+  flex-shrink: 0;
+  background: var(--mid-blue);
+  border: 1px solid var(--mid-blue);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.75rem;
+  padding: 5px 4px;
+}
+#rp-select-toggle {
+  flex-shrink: 0;
+  background: var(--dark-blue);
+  border: 1px solid var(--mid-blue);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.75rem;
+  padding: 5px 8px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+#rp-select-toggle.active { border-color: var(--accent); color: var(--accent); }
+#rp-bulk-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 10px 6px;
+}
+#rp-bulk-bar button {
+  flex: 1 1 40%;
+  background: var(--dark-blue);
+  color: var(--text);
+  border: 1px solid var(--mid-blue);
+  border-radius: 6px;
+  padding: 6px 4px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+#rp-bulk-bar button:disabled { opacity: 0.4; cursor: not-allowed; }
+#rp-bulk-bar button.rp-bulk-danger { border-color: #a33; color: #ff8a8a; }
+#rp-bulk-bar button.rp-bulk-danger:not(:disabled):hover { background: #3a0a0a; }
+.rp-row-checkbox {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.rp-row.selected { background: var(--mid-blue); box-shadow: inset 0 0 0 1px var(--accent); }
 #rp-route-list {
   flex: 1 1 auto;
   min-height: 0; /* let a flex child actually shrink/scroll instead of overflowing its column */

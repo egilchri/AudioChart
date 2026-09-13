@@ -1165,6 +1165,9 @@ let _savedTracksLayer     = null;
 let _hiddenTrackNames     = new Set();
 let _expandedRouteRowName = null;   // which Routes panel row (if any) shows Rename/Export
 let _expandedTrackRowName = null;   // same, for the Tracks panel
+let _routeSelectMode = false;       // Routes panel bulk-select mode (checkboxes replace expand-on-tap)
+let _selectedRouteIds = new Set();  // ids of routes currently checked in select mode
+let _routeSortMode = 'newest';      // 'newest' | 'oldest' | 'name' — in-memory only, resets on reload
 let _trackRecActive       = false;  // true while recording a GPS breadcrumb track
 let _trackRecPoints       = [];     // [{lat, lon, t}]
 let _trackRecStartMs      = null;
@@ -8349,6 +8352,26 @@ function _ensureMap() {
     _setRoutePanelCompact(!_routePanelCompact);
   });
 
+  // Sort comparators for the Routes panel's #rp-sort control — 'newest' matches
+  // the sort this list always used before bulk-select existed.
+  const _ROUTE_SORT_COMPARATORS = {
+    newest: (a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0),
+    oldest: (a, b) => (a.updatedAt || a.createdAt || 0) - (b.updatedAt || b.createdAt || 0),
+    name:   (a, b) => a.name.localeCompare(b.name),
+  };
+
+  function _updateBulkBar(shownCount) {
+    const bar = document.getElementById('rp-bulk-bar');
+    bar.style.display = _routeSelectMode ? 'flex' : 'none';
+    if (!_routeSelectMode) return;
+    const n = _selectedRouteIds.size;
+    document.getElementById('rp-bulk-select-all').textContent = `Select all shown (${shownCount})`;
+    document.getElementById('rp-bulk-hide').textContent = `Hide selected (${n})`;
+    document.getElementById('rp-bulk-delete').textContent = `Delete selected (${n})`;
+    document.getElementById('rp-bulk-hide').disabled = n === 0;
+    document.getElementById('rp-bulk-delete').disabled = n === 0;
+  }
+
   function _buildRoutePickerPanel() {
     DriveSync.maybeAutoSync();
     const list  = document.getElementById('rp-route-list');
@@ -8356,10 +8379,11 @@ function _ensureMap() {
     const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
     list.innerHTML = '';
     let filtered = routes.filter(r => _itemMatchesSearch(r, query))
-      .sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
+      .sort(_ROUTE_SORT_COMPARATORS[_routeSortMode] || _ROUTE_SORT_COMPARATORS.newest);
     if (_routePanelCompact) {
       filtered = filtered.filter(r => r.id === _followingRouteId || r.id === _vjRoute?.id);
     }
+    _updateBulkBar(filtered.length);
     if (filtered.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'rp-empty';
@@ -8374,10 +8398,24 @@ function _ensureMap() {
       const endName   = last  ? (_nearestPlaceName(last.lat,  last.lon)  || `${last.lat.toFixed(3)},${last.lon.toFixed(3)}`)   : '';
       const hidden = _hiddenRouteNames.has(route.name);
       const expanded = route.name === _expandedRouteRowName;
+      const selected = _selectedRouteIds.has(route.id);
       const row = document.createElement('button');
-      row.className = 'rp-row' + (hidden ? ' hidden' : '') + (expanded ? ' expanded' : '');
+      row.className = 'rp-row' + (hidden ? ' hidden' : '') + (expanded ? ' expanded' : '') + (selected ? ' selected' : '');
       const nameLine = document.createElement('div');
       nameLine.className = 'rp-row-name';
+      if (_routeSelectMode) {
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'rp-row-checkbox';
+        checkbox.checked = selected;
+        checkbox.addEventListener('click', (e) => e.stopPropagation());
+        checkbox.addEventListener('change', () => {
+          if (checkbox.checked) _selectedRouteIds.add(route.id);
+          else _selectedRouteIds.delete(route.id);
+          _buildRoutePickerPanel();
+        });
+        nameLine.appendChild(checkbox);
+      }
       // A dedicated button, not just a colored label — this is the "activate"
       // control (show/hide this route on the map) and it needs to look and
       // behave like one on its own, separate from tapping the rest of the
@@ -8548,7 +8586,12 @@ function _ensureMap() {
         row.appendChild(legList);
       }
       row.addEventListener('click', () => {
-        _expandedRouteRowName = (_expandedRouteRowName === route.name) ? null : route.name;
+        if (_routeSelectMode) {
+          if (_selectedRouteIds.has(route.id)) _selectedRouteIds.delete(route.id);
+          else _selectedRouteIds.add(route.id);
+        } else {
+          _expandedRouteRowName = (_expandedRouteRowName === route.name) ? null : route.name;
+        }
         _buildRoutePickerPanel();
       });
       list.appendChild(row);
@@ -8754,6 +8797,65 @@ function _ensureMap() {
     _refreshSavedRouteLayers();
     _buildRoutePickerPanel();
   });
+
+  document.getElementById('rp-sort').addEventListener('change', (e) => {
+    _routeSortMode = e.target.value;
+    _buildRoutePickerPanel();
+  });
+
+  const _bulkSelectToggle = document.getElementById('rp-select-toggle');
+  function _setRouteSelectMode(on) {
+    _routeSelectMode = on;
+    _selectedRouteIds.clear();
+    _bulkSelectToggle.classList.toggle('active', on);
+    _bulkSelectToggle.textContent = on ? '✕ Cancel select' : '☑ Select';
+    _buildRoutePickerPanel();
+  }
+  _bulkSelectToggle.addEventListener('click', () => _setRouteSelectMode(!_routeSelectMode));
+  document.getElementById('rp-bulk-cancel').addEventListener('click', () => _setRouteSelectMode(false));
+
+  document.getElementById('rp-bulk-select-all').addEventListener('click', () => {
+    const query = document.getElementById('rp-search').value || '';
+    const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+    routes.filter(r => _itemMatchesSearch(r, query)).forEach(r => _selectedRouteIds.add(r.id));
+    _buildRoutePickerPanel();
+  });
+
+  document.getElementById('rp-bulk-hide').addEventListener('click', () => {
+    if (!_selectedRouteIds.size) return;
+    const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+    routes.filter(r => _selectedRouteIds.has(r.id)).forEach(r => _hiddenRouteNames.add(r.name));
+    _saveHiddenRoutes();
+    _refreshSavedRouteLayers();
+    _setRouteSelectMode(false);
+  });
+
+  document.getElementById('rp-bulk-delete').addEventListener('click', () => {
+    if (!_selectedRouteIds.size) return;
+    const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+    const toDelete = routes.filter(r => _selectedRouteIds.has(r.id));
+    if (!toDelete.length) return;
+    const preview = toDelete.slice(0, 8).map(r => r.name).join(', ');
+    const more = toDelete.length > 8 ? `, and ${toDelete.length - 8} more` : '';
+    if (!confirm(`Delete ${toDelete.length} route${toDelete.length !== 1 ? 's' : ''}? ${preview}${more}\n\nThis cannot be undone.`)) return;
+    toDelete.forEach((r) => {
+      _tombstone(r.id, 'route');
+      _hiddenRouteNames.delete(r.name);
+      if (localStorage.getItem('audiochart-last-route') === r.name) {
+        localStorage.removeItem('audiochart-last-route');
+      }
+      if (_expandedRouteRowName === r.name) _expandedRouteRowName = null;
+    });
+    localStorage.setItem(ROUTE_KEY, JSON.stringify(routes.filter(r => !_selectedRouteIds.has(r.id))));
+    _saveHiddenRoutes();
+    _refreshSavedRouteLayers();
+    _populateRouteSelectFn?.();
+    const msg = `Deleted ${toDelete.length} route${toDelete.length !== 1 ? 's' : ''}.`;
+    setStatus(msg);
+    TTS.sayImmediate(msg);
+    _setRouteSelectMode(false);
+  });
+
   _map.on('click', _closeRoutePicker);
 
   // ◎ Track picker panel
