@@ -1345,6 +1345,22 @@ export function bearing(lon1, lat1, lon2, lat2) {
   return ((Math.atan2(y, x) * 180 / Math.PI) + 360) % 360;
 }
 
+// Cross-track / along-track geometry — how far off the a->b line, and how
+// far along it, a third point p sits. Used by hazard-clearance checks and
+// the router's fallback classification.
+export function segCrossTrack(aLon, aLat, bLon, bLat, pLon, pLat) {
+  const R = 3440.065;
+  const d13 = distanceNm(aLon, aLat, pLon, pLat) / R;
+  if (d13 < 1e-9) return { crossTrack: 0, alongTrack: 0 };
+  const b13 = bearing(aLon, aLat, pLon, pLat) * Math.PI / 180;
+  const b12 = bearing(aLon, aLat, bLon, bLat) * Math.PI / 180;
+  const dxt = Math.asin(Math.sin(d13) * Math.sin(b13 - b12)) * R;
+  const cosDxt = Math.cos(dxt / R);
+  if (Math.abs(cosDxt) < 1e-10) return null;
+  const dat = Math.acos(Math.max(-1, Math.min(1, Math.cos(d13) / cosDxt))) * R;
+  return { crossTrack: dxt, alongTrack: Math.cos(b13 - b12) >= 0 ? dat : -dat };
+}
+
 /** True if point (lon,lat) is within radiusNm nautical miles of (clon,clat) */
 function withinRadius(clon, clat, lon, lat, radiusNm) {
   return distanceNm(clon, clat, lon, lat) <= radiusNm;

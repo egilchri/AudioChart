@@ -25,19 +25,19 @@ jobs:
           node test/test_parser.js
           node test/test_query.js
 
-      # Integration/regression suites against real chart data. Some cases are
-      # explicitly marked EXPERIMENTAL. test_channel_routing.js's case [6]
-      # also currently fails for a real, understood reason: the Portsmouth
-      # pier -> York Harbor passage is genuinely narrow enough that even the
-      # improved coastal-standoff fallback can't reach our ideal 0.12nm
-      # comfort margin without real charted-channel data (case [3], the
-      # general land-avoidance check for the same route, does pass) — the
-      # live app surfaces this to the user via _showRouteFallbackWarning's
-      # "tight clearance" message rather than staying silent. Non-blocking
-      # until real channel data closes this gap, but still surfaced in the
-      # job log for a human to read on every PR.
-      - name: Regression suites (non-blocking)
-        continue-on-error: true
+      # Integration/regression suites against real chart data — since the
+      # 2026-09 router extraction (see the reliability-overhaul plan), these
+      # call the REAL router (www/js/router.js) through the REAL query
+      # engine, not a hand-maintained port that could drift from the shipped
+      # code. Each script's own exit code already separates gating cases
+      # (genuinely fixed, safety-relevant routes — a regression here SHOULD
+      # fail CI) from cases explicitly marked EXPERIMENTAL/KNOWN-FAILING in
+      # test_channel_routing.js's own comments (known, understood, currently-
+      # accepted gaps — e.g. case [10]'s bundled-default-vs-region-data
+      # staleness, or case [14]'s genuine unfixed router timeout) — those are
+      # still run and logged on every PR, just not gating. No longer
+      # continue-on-error: a real regression in a gated case should block.
+      - name: Regression suites
         run: |
           node test/test_channel_routing.js
           node test/test_route_hazard_clearance.js
