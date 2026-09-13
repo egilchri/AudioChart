@@ -42,6 +42,9 @@ let _wakeLockForcedOn = false; // true if arming Anchor Watch is what turned the
 let _layer            = null;
 let _audioCtx         = null;
 let _oscStopFn        = null;
+let _speechIntervalId = null;
+
+const ALARM_SPEECH_REPEAT_MS = 20 * 1000; // re-announce by voice, not just tone, while alarming
 
 export function isArmed()     { return _armed; }
 export function isAlarming()  { return _alarmActive; }
@@ -104,13 +107,29 @@ function _stopAlarmTone() {
   if (_oscStopFn) { _oscStopFn(); _oscStopFn = null; }
 }
 
+// The tone loops on its own (via _playAlarmTone's setInterval) for as long
+// as the alarm is active, but TTS.sayImmediate only ever spoke once, at the
+// moment of the initial trigger — easy to miss if you're not looking at the
+// screen right then. Repeats the same spoken warning on an interval, same
+// lifetime as the tone, so voice keeps pace with the audible beeping until
+// silenced or cleared.
+function _startAlarmSpeech(msg) {
+  _stopAlarmSpeech();
+  TTS.sayImmediate(msg);
+  _speechIntervalId = setInterval(() => TTS.sayImmediate(msg), ALARM_SPEECH_REPEAT_MS);
+}
+
+function _stopAlarmSpeech() {
+  if (_speechIntervalId) { clearInterval(_speechIntervalId); _speechIntervalId = null; }
+}
+
 function _triggerAlarm({ onStatus, onButtonUpdate } = {}) {
   _alarmActive = true;
   _silencedUntilMs = null;
   _playAlarmTone();
   navigator.vibrate?.([400, 200, 400, 200, 400]);
   const msg = `Anchor alarm — dragging outside the ${_radiusFt} ft watch radius.`;
-  onStatus?.(msg); TTS.sayImmediate(msg);
+  onStatus?.(msg); _startAlarmSpeech(msg);
   onButtonUpdate?.();
   _layer?.getElement()?.classList.add('anchor-watch-alarming');
 }
@@ -119,6 +138,7 @@ function _clearAlarm(onButtonUpdate) {
   _alarmActive = false;
   _silencedUntilMs = null;
   _stopAlarmTone();
+  _stopAlarmSpeech();
   onButtonUpdate?.();
   _layer?.getElement()?.classList.remove('anchor-watch-alarming');
 }
@@ -166,6 +186,7 @@ export function disarm({ onStatus } = {}) {
 
 export function silence(onStatus) {
   _stopAlarmTone();
+  _stopAlarmSpeech();
   navigator.vibrate?.(0);
   _silencedUntilMs = Date.now() + ANCHOR_RETRIGGER_MS;
   // Keep _alarmActive true — still armed and still outside the radius,
