@@ -9,6 +9,9 @@ import * as GPS from './gps.js';
 import { parseCommand, parseCoordinate, normalizePlaceName, parseFromToQuery } from './parser.js';
 import * as Query from './query.js';
 import * as Router from './router.js';
+import * as GpxExport from './gpx_export.js';
+import * as MarkerIcons from './marker_icons.js';
+import * as WakeLock from './wake_lock.js';
 import * as DriveSync from './drive_sync.js';
 import { openDriveImportPicker } from './drive_import.js';
 import { migrateLegacyIds } from './sync_merge.js';
@@ -210,127 +213,6 @@ function _renderClusteredHazards(map, layerGroup, hazardPts, makeMarker) {
   map.on('zoomend', _hazardClusterZoomHandler);
 }
 
-function _pinIcon() {
-  return L.icon({ iconUrl: './icons/markicons/Marks-Active-Waypoint.svg', iconSize: [32, 32], iconAnchor: [16, 32], tooltipAnchor: [0, -32] });
-}
-
-function _waypointIcon() {
-  return L.divIcon({
-    className: '',
-    html: '<div class="wp-marker"></div>',
-    iconSize: [14, 14],
-    iconAnchor: [7, 7],
-    tooltipAnchor: [7, -7],
-  });
-}
-
-// The ⛵ glyph is a side-profile boat with the sail/jib leading to the LEFT (screen-west)
-// in its neutral, hull-down orientation. A single continuous rotation can't represent every
-// heading without passing through upside-down/capsized-looking orientations for half the
-// compass. Instead, mirror the glyph horizontally for the eastward half of the compass (so
-// it always faces "forward" toward its target half — left or right) and rotate by at most
-// ±90° from that horizontal reference, so the hull never flips above the sail.
-function _boatIconTransform(bearingDeg) {
-  const b = ((bearingDeg % 360) + 360) % 360;
-  const facingRight = b >= 0 && b <= 180;
-  const rotation = facingRight ? (b - 90) : (b - 270);
-  return facingRight ? `rotate(${rotation}deg) scaleX(-1)` : `rotate(${rotation}deg)`;
-}
-
-function _animBoatIcon(bearingDeg = 0) {
-  return L.divIcon({
-    className: '',
-    html: `<div class="anim-boat" style="transform:${_boatIconTransform(bearingDeg)}"><span class="anim-boat-rock">⛵</span></div>`,
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
-    tooltipAnchor: [14, -14],
-  });
-}
-
-// Place a text label offset perpendicular to a route point, with a solid leader line
-// and an arrowhead whose tip points to the route.
-// side: +1 = right of trueBrg, -1 = left.  offsetNm in nautical miles.
-function _addLeaderLabel(layer, anchorLat, anchorLon, trueBrg, side, offsetNm, html, cssClass) {
-  const perpBrg = ((trueBrg + side * 90) + 360) % 360;
-  const oLat = anchorLat + offsetNm * Math.cos(perpBrg * Math.PI / 180) / 60;
-  const oLon = anchorLon + offsetNm * Math.sin(perpBrg * Math.PI / 180) / 60 / Math.cos(anchorLat * Math.PI / 180);
-
-  // Solid leader line from label to route
-  L.polyline([[oLat, oLon], [anchorLat, anchorLon]], {
-    color: '#6aaad4', weight: 1.5, opacity: 0.7, interactive: false,
-  }).addTo(layer);
-
-  // Arrowhead at the route end: SVG triangle, tip pinned to anchor via transform-origin.
-  // perpBrg goes from anchor → label, so arrowBrg = +180° = direction pointing back to route.
-  const arrowBrg = (perpBrg + 180) % 360;
-  L.marker([anchorLat, anchorLon], {
-    icon: L.divIcon({
-      className: '',
-      html: `<svg style="transform:rotate(${arrowBrg}deg);transform-origin:6px 0px"
-                  width="12" height="12" viewBox="0 0 12 12"
-                  xmlns="http://www.w3.org/2000/svg">
-               <polygon points="6,0 0,11 12,11" fill="#6aaad4" fill-opacity="0.85"/>
-             </svg>`,
-      iconSize: [12, 12],
-      iconAnchor: [6, 0],
-    }),
-    interactive: false,
-  }).addTo(layer);
-
-  // Label at offset position, centered on its anchor point
-  L.marker([oLat, oLon], {
-    icon: L.divIcon({ className: '', html: `<div class="${cssClass}">${html}</div>`, iconSize: [0, 0], iconAnchor: [0, 0] }),
-    interactive: false,
-  }).addTo(layer);
-}
-
-function _segBearing(lat1, lon1, lat2, lon2) {
-  const r = Math.PI / 180;
-  const dLon = (lon2 - lon1) * r;
-  const y = Math.sin(dLon) * Math.cos(lat2 * r);
-  const x = Math.cos(lat1 * r) * Math.sin(lat2 * r) -
-            Math.sin(lat1 * r) * Math.cos(lat2 * r) * Math.cos(dLon);
-  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
-}
-
-// Tapping the boat toggles its circle background off (declutter) or back on
-// — a one-way dismiss with no way back was the original behavior; per direct
-// feedback, tapping the now-bare boat should restore it rather than leaving
-// it permanently bare until a full reload.
-window._toggleBoatCircle = function(el) {
-  _boatCircleDismissed = !_boatCircleDismissed;
-  el.classList.toggle('boat-bare', _boatCircleDismissed);
-};
-
-function _boatIcon() {
-  const cls = _boatCircleDismissed ? 'boat-marker boat-bare' : 'boat-marker';
-  return L.divIcon({
-    className: '',
-    html: `<div class="${cls}" onclick="_toggleBoatCircle(this)"><span class="boat-emoji">⛵</span></div>`,
-    iconSize: [44, 44],
-    iconAnchor: [22, 22],
-    tooltipAnchor: [22, -22],
-  });
-}
-
-// Classic teardrop map-pin, for the Search feature — deliberately distinct
-// from every other marker shape in the app (boat/waypoint/overnight) so a
-// dropped search result reads immediately as "not a real chart object,"
-// same convention as the fix-crossing marker's own one-off shape. Anchored
-// at the tip (bottom point), not the center, since that's what's actually
-// over the searched coordinate.
-function _searchPinIcon() {
-  return L.divIcon({
-    className: 'search-pin-marker',
-    html: `<svg width="32" height="42" viewBox="0 0 24 32" xmlns="http://www.w3.org/2000/svg">
-        <path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 20 12 20s12-11 12-20c0-6.6-5.4-12-12-12z" fill="#e05252" stroke="#3a0d0d" stroke-width="1"/>
-        <circle cx="12" cy="12" r="5" fill="#fff"/>
-      </svg>`,
-    iconSize: [32, 42],
-    iconAnchor: [16, 42],
-    tooltipAnchor: [0, -38],
-  });
-}
 
 // ── Boat icon double-tap menu (Autoroute / Sketch) ──────────────────────────
 // Replaced a hold-timer long-press here after it stayed unreliable on real
@@ -445,7 +327,7 @@ function _showBoatPosition(lat, lon) {
   if (!_map) return;
   if (_simTrackMode) _exitSimTrackMode();
   if (_boatLayer) { _map.removeLayer(_boatLayer); _boatLayer = null; }
-  const marker = L.marker([lat, lon], { icon: _boatIcon(), zIndexOffset: 1000, draggable: true });
+  const marker = L.marker([lat, lon], { icon: MarkerIcons.boatIcon(), zIndexOffset: 1000, draggable: true });
 
   _wireBoatLongPress(marker);
   marker.on('drag', (e) => {
@@ -496,7 +378,7 @@ function _refreshYouLayer() {
   if (_boatLayer) return; // test position already shown by boat layer
   const pos = GPS.getPosition();
   if (!pos) return;
-  const icon = _simTrackMode ? _animBoatIcon(_simTrackDeg) : _boatIcon();
+  const icon = _simTrackMode ? MarkerIcons.animBoatIcon(_simTrackDeg) : MarkerIcons.boatIcon();
   const m = L.marker([pos.lat, pos.lon], { icon, zIndexOffset: 800 });
   _wireBoatLongPress(m);
 
@@ -541,7 +423,7 @@ function _refreshWaypointLayer() {
   if (!wps.length) return;
   _waypointLayer = L.layerGroup(
     wps.map(wp => {
-      const icon = wp.type === 'search' ? _searchPinIcon() : _waypointIcon();
+      const icon = wp.type === 'search' ? MarkerIcons.searchPinIcon() : MarkerIcons.waypointIcon();
       const m = L.marker([wp.lat, wp.lon], { icon, draggable: true });
       m.bindTooltip(escapeHtml(wp.name), { permanent: true, direction: 'top', className: 'map-tooltip' });
       m.bindPopup(
@@ -904,7 +786,6 @@ let _headingRayLine  = null; // live direction-of-travel ray (course over ground
 let _headingRayArrow = null; // arrowhead marker at the tip of _headingRayLine
 let _headingSpeedEl  = null; // DOM element of the heading/speed readout control
 let _followProgressEl = null; // DOM element of the route-follow progress readout control
-let _boatCircleDismissed = false;  // true after user taps the boat once
 let _waypointsVisible = localStorage.getItem('audiochart-waypoints-visible') === 'true';
 let _leafletReady = false;
 let _depthHeatLayer = null;  // leaflet.heat layer for depth blobs (managed separately)
@@ -1265,9 +1146,6 @@ let _maineGeologyFetchToken = 0;
 let _maineTownsLayer      = null;
 let _maineTownsMoveEnd    = null;
 let _maineTownsFetchToken = 0;
-let _wakeLockEnabled  = localStorage.getItem('audiochart-wake-lock') !== 'false'; // on by default
-let _wakeLockSentinel = null;   // the live WakeLockSentinel, or null when not currently held
-let _wakeLockWarned   = false;  // suppresses repeated warnings for the same ongoing failure
 
 // ── Anchor Watch state ───────────────────────────────────────────────────────
 const ANCHOR_WATCH_KEY = 'audiochart-anchor-watch'; // {armed, lat, lon, radiusFt, armedAtMs}
@@ -2327,7 +2205,7 @@ function _findRouteHazards(points) {
           name:  f.properties.name || '',
           routeNm: distSoFar + alongTrack,
           side:    crossTrack <= 0 ? 'port' : 'starboard',
-          segBrg:  _segBearing(a.lat, a.lon, b.lat, b.lon),
+          segBrg:  MarkerIcons.segBearing(a.lat, a.lon, b.lat, b.lon),
           sideSign: crossTrack > 0 ? 1 : -1,
           kind: 'hard',
         });
@@ -2367,7 +2245,7 @@ function _findRouteHazards(points) {
           name:  props.name || '',
           routeNm: distSoFar + hit.t * segLen,
           side:    'crossing',
-          segBrg:  _segBearing(a.lat, a.lon, b.lat, b.lon),
+          segBrg:  MarkerIcons.segBearing(a.lat, a.lon, b.lat, b.lon),
           sideSign: 0,
           kind: 'soft',
         });
@@ -2829,11 +2707,11 @@ function _refreshSavedRouteLayers() {
     for (let i = 0; i < pts.length - 1; i++) {
       const midLat  = (pts[i].lat + pts[i + 1].lat) / 2;
       const midLon  = (pts[i].lon + pts[i + 1].lon) / 2;
-      const trueBrg = _segBearing(pts[i].lat, pts[i].lon, pts[i + 1].lat, pts[i + 1].lon);
+      const trueBrg = MarkerIcons.segBearing(pts[i].lat, pts[i].lon, pts[i + 1].lat, pts[i + 1].lon);
       const magBrg  = Math.round(trueTomagnetic(trueBrg) + 360) % 360;
       const distNm  = Query.distanceNm(pts[i].lon, pts[i].lat, pts[i + 1].lon, pts[i + 1].lat);
       const html    = `${String(magBrg).padStart(3, '0')}&deg;M &thinsp; ${distNm.toFixed(1)}nm`;
-      _addLeaderLabel(_savedRoutesLayer, midLat, midLon, trueBrg, i % 2 === 0 ? 1 : -1, _labelOffsetNm, html, 'route-label-box');
+      MarkerIcons.addLeaderLabel(_savedRoutesLayer, midLat, midLon, trueBrg, i % 2 === 0 ? 1 : -1, _labelOffsetNm, html, 'route-label-box');
     }
 
     // Route name label — viewport-aware position, renders above bearing tooltips
@@ -2866,9 +2744,9 @@ function _refreshSavedRouteLayers() {
       const adjPt   = fromEnd ? pts[pts.length - 2] : pts[1];
       if (adjPt) {
         const segBrg = fromEnd
-          ? _segBearing(adjPt.lat, adjPt.lon, pt.lat, pt.lon)
-          : _segBearing(pt.lat, pt.lon, adjPt.lat, adjPt.lon);
-        _addLeaderLabel(_savedRoutesLayer, pt.lat, pt.lon, segBrg,
+          ? MarkerIcons.segBearing(adjPt.lat, adjPt.lon, pt.lat, pt.lon)
+          : MarkerIcons.segBearing(pt.lat, pt.lon, adjPt.lat, adjPt.lon);
+        MarkerIcons.addLeaderLabel(_savedRoutesLayer, pt.lat, pt.lon, segBrg,
           fromEnd ? -1 : 1, _labelOffsetNm * 1.2,
           formatPositionDisplay(pt.lat, pt.lon), 'route-coord-label-box');
       }
@@ -4920,36 +4798,6 @@ async function _promptNextLegAutoRoute(fromPoint) {
     });
 }
 
-// ── GPX export ────────────────────────────────────────────────────────────────
-
-function _downloadGpx(points, routeName) {
-  const trkpts = points.map(p => {
-    // Route points have no per-point timestamp (they're planned paths, not a real track) —
-    // omit <time> rather than fabricate one.
-    const timeTag = (p.t != null) ? `<time>${new Date(p.t).toISOString()}</time>` : '';
-    const extTag  = p.overnight ? '<extensions><overnight>true</overnight></extensions>' : '';
-    return `    <trkpt lat="${p.lat.toFixed(7)}" lon="${p.lon.toFixed(7)}">${timeTag}${extTag}</trkpt>`;
-  }).join('\n');
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<gpx version="1.1" creator="AudioChart">
-  <trk>
-    <name>${routeName}</name>
-    <trkseg>
-${trkpts}
-    </trkseg>
-  </trk>
-</gpx>`;
-  const blob = new Blob([xml], { type: 'application/gpx+xml' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href     = url;
-  a.download = `${routeName.replace(/\s+/g, '_')}.gpx`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
 // Builds the lower-right Rename/Export/Copy/Delete corner controls for an .rp-row (shared
 // between the Routes and Tracks list panels). getPoints() returns the point array to export;
 // onRename(newName) persists the rename and should itself trigger a re-render of the owning
@@ -4996,7 +4844,7 @@ function _buildRpCornerButtons(row, name, getPoints, onRename, onDelete, itemLab
   exportBtn.title = `Save this ${itemLabel} as a GPX file`;
   exportBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    _downloadGpx(getPoints(), name);
+    GpxExport.downloadGpx(getPoints(), name);
   });
 
   const copyWptsBtn = document.createElement('button');
@@ -5761,7 +5609,7 @@ function _simTrackRefPoint(lat, lon) {
 // marker-creation/drag-handler logic. Both layers are always single-marker L.layerGroups.
 function _setBoatIconRotated(bearingDegTrue) {
   const marker = _boatLayer?.getLayers()[0] || _youLayer?.getLayers()[0];
-  marker?.setIcon(_animBoatIcon(bearingDegTrue));
+  marker?.setIcon(MarkerIcons.animBoatIcon(bearingDegTrue));
 }
 
 // bearingDegTrue: TRUE degrees (matches _destinationPoint/Query.bearing convention).
@@ -5864,7 +5712,7 @@ function _startSimTrack() {
   if (!_map.getPane('simTrackBoatPane')) _map.createPane('simTrackBoatPane').style.zIndex = '760';
   if (!_simTrackBoatMarker) {
     _simTrackBoatMarker = L.marker([_simTrackBoat.lat, _simTrackBoat.lon], {
-      icon: _animBoatIcon(_simTrackDeg), pane: 'simTrackBoatPane',
+      icon: MarkerIcons.animBoatIcon(_simTrackDeg), pane: 'simTrackBoatPane',
     }).addTo(_map);
   }
 
@@ -5923,7 +5771,7 @@ function _exitSimTrackMode() {
   document.querySelectorAll('.track-sim-compress').forEach(b => b.disabled = false);
 
   const marker = _boatLayer?.getLayers()[0] || _youLayer?.getLayers()[0];
-  marker?.setIcon(_boatIcon());
+  marker?.setIcon(MarkerIcons.boatIcon());
 }
 
 function _updateBearingLines(lat, lon) {
@@ -6033,7 +5881,7 @@ function _startVirtualJourney(route, speedKnots) {
   for (let i = 1; i < route.points.length; i++) {
     const p1 = route.points[i - 1], p2 = route.points[i];
     const d = Query.distanceNm(p1.lon, p1.lat, p2.lon, p2.lat);
-    const brg = _segBearing(p1.lat, p1.lon, p2.lat, p2.lon);
+    const brg = MarkerIcons.segBearing(p1.lat, p1.lon, p2.lat, p2.lon);
     segs.push({ lat1: p1.lat, lon1: p1.lon, lat2: p2.lat, lon2: p2.lon, dist: d, cumDist, brg });
     cumDist += d;
   }
@@ -6289,9 +6137,9 @@ function _startRouteAnimation(route, speedKnots) {
   const ptCumNm = route.points.map((_, i) => i < segs.length ? segs[i].cumDist : totalNm);
   let _nextOvernightPtr = 0;
 
-  const _initBearing = segs.length ? _segBearing(segs[0].lat1, segs[0].lon1, segs[0].lat2, segs[0].lon2) : 0;
+  const _initBearing = segs.length ? MarkerIcons.segBearing(segs[0].lat1, segs[0].lon1, segs[0].lat2, segs[0].lon2) : 0;
   if (!_map.getPane('animBoatPane')) _map.createPane('animBoatPane').style.zIndex = '750';
-  _animMarker = L.marker(pts[0], { icon: _animBoatIcon(_initBearing), pane: 'animBoatPane' }).addTo(_map);
+  _animMarker = L.marker(pts[0], { icon: MarkerIcons.animBoatIcon(_initBearing), pane: 'animBoatPane' }).addTo(_map);
   _animCurrentLat = pts[0][0];
   _animCurrentLon = pts[0][1];
 
@@ -6391,7 +6239,7 @@ function _startRouteAnimation(route, speedKnots) {
         const finalT = recordStart + Math.round(totalNm / speedKnots * 3600 * 1000);
         const last = pts[pts.length - 1];
         recordPoints.push({ lat: last[0], lon: last[1], t: finalT });
-        _downloadGpx(recordPoints, route.name);
+        GpxExport.downloadGpx(recordPoints, route.name);
       }
       _map.once('click', _exitAnimMode);
       return;
@@ -6529,9 +6377,9 @@ function _startRouteAnimation(route, speedKnots) {
       }
     }
 
-    const bearing = _segBearing(seg.lat1, seg.lon1, seg.lat2, seg.lon2);
+    const bearing = MarkerIcons.segBearing(seg.lat1, seg.lon1, seg.lat2, seg.lon2);
     const boatEl  = _animMarker.getElement()?.querySelector('.anim-boat');
-    if (boatEl) boatEl.style.transform = _boatIconTransform(bearing);
+    if (boatEl) boatEl.style.transform = MarkerIcons.boatIconTransform(bearing);
 
     if (track.zoom) {
       const b = _map.getBounds();
@@ -9135,7 +8983,7 @@ async function showPositionMap(lat, lon) {
   _ensureMap();
   _map.invalidateSize();
   if (_mapLayers) { _map.removeLayer(_mapLayers); _mapLayers = null; }
-  const dot = L.marker([lat, lon], { icon: _boatIcon(), draggable: true, zIndexOffset: 900 });
+  const dot = L.marker([lat, lon], { icon: MarkerIcons.boatIcon(), draggable: true, zIndexOffset: 900 });
 
   dot.on('contextmenu', (e) => e.originalEvent.stopPropagation());
   dot.on('drag', (e) => {
@@ -9987,7 +9835,7 @@ async function handleMapLongPress(latlng, radiusNm = 0.25, radiusLabel = '¼ mil
 
   _markerByKey.clear();
   const layers = [];
-  layers.push(L.marker([lat, lon], { icon: _pinIcon() })
+  layers.push(L.marker([lat, lon], { icon: MarkerIcons.pinIcon() })
     .bindTooltip('📍', { permanent: true, direction: 'top', className: 'map-tooltip' }));
 
   {
@@ -10721,52 +10569,29 @@ function _stopFollowingRoute(arrived) {
 }
 
 // ── Screen wake lock ─────────────────────────────────────────────────────────
+// State + browser-API calls live in wake_lock.js; this is just the DOM glue.
 function _updateWakeLockButton() {
   if (!wakeLockBtn) return;
-  wakeLockBtn.textContent = _wakeLockEnabled ? '☀️ Awake' : '💤 Sleep OK';
-  wakeLockBtn.title = _wakeLockEnabled
+  const enabled = WakeLock.isEnabled();
+  wakeLockBtn.textContent = enabled ? '☀️ Awake' : '💤 Sleep OK';
+  wakeLockBtn.title = enabled
     ? 'Screen stays awake — tap to allow it to sleep'
     : 'Screen may sleep — tap to keep it awake';
-  wakeLockBtn.classList.toggle('wake-active', _wakeLockEnabled);
-}
-
-async function _requestWakeLock() {
-  if (!_wakeLockEnabled || !('wakeLock' in navigator)) return;
-  if (document.visibilityState !== 'visible') return;
-  if (_wakeLockSentinel) return; // already held
-
-  try {
-    _wakeLockSentinel = await navigator.wakeLock.request('screen');
-    _wakeLockWarned = false;
-    _wakeLockSentinel.addEventListener('release', () => { _wakeLockSentinel = null; });
-  } catch (err) {
-    _wakeLockSentinel = null;
-    if (!_wakeLockWarned) {
-      _wakeLockWarned = true;
-      console.warn('[wakelock] request failed:', err);
-      setStatus(`Screen wake lock unavailable: ${err.message}`);
-    }
-  }
-}
-
-function _releaseWakeLock() {
-  if (_wakeLockSentinel) _wakeLockSentinel.release().catch(() => {});
+  wakeLockBtn.classList.toggle('wake-active', enabled);
 }
 
 wakeLockBtn?.addEventListener('click', () => {
-  _wakeLockEnabled = !_wakeLockEnabled;
-  localStorage.setItem('audiochart-wake-lock', _wakeLockEnabled ? 'true' : 'false');
-  _wakeLockWarned = false;
+  WakeLock.setEnabled(!WakeLock.isEnabled());
   _updateWakeLockButton();
-  if (_wakeLockEnabled) _requestWakeLock(); else _releaseWakeLock();
+  if (WakeLock.isEnabled()) WakeLock.request(setStatus); else WakeLock.release();
   _closeScreenMenu();
 });
 
 // The Wake Lock spec auto-releases the sentinel whenever the tab is backgrounded
-// (fires the 'release' handler above on its own) — re-request it on return, matching
+// (fires its own 'release' handler on its own) — re-request it on return, matching
 // this codebase's one-listener-per-feature convention (no shared visibility dispatcher).
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') _requestWakeLock();
+  if (document.visibilityState === 'visible') WakeLock.request(setStatus);
 });
 
 // ── Anchor Watch ──────────────────────────────────────────────────────────────
@@ -10776,7 +10601,7 @@ document.addEventListener('visibilitychange', () => {
 // cost is one haversine distance call, occasionally followed by redrawing one
 // L.circle. Reliability, not the monitoring itself, is the real resource
 // question: this only runs while the screen is on and the tab is foregrounded
-// (see _requestWakeLock above), a hard platform limit with no workaround, so
+// (see WakeLock.request above), a hard platform limit with no workaround, so
 // arming it forces the wake lock on and says so plainly.
 
 function _renderAnchorWatchCircle() {
@@ -10874,12 +10699,11 @@ function _armAnchorWatch(lat, lon, radiusFt) {
   _anchorOutsideSinceMs = null;
   localStorage.setItem('audiochart-anchor-radius-ft', String(radiusFt));
   _anchorWatchSave();
-  if (!_wakeLockEnabled) {
+  if (!WakeLock.isEnabled()) {
     _anchorWakeLockForcedOn = true;
-    _wakeLockEnabled = true;
-    localStorage.setItem('audiochart-wake-lock', 'true');
+    WakeLock.setEnabled(true);
     _updateWakeLockButton();
-    _requestWakeLock();
+    WakeLock.request(setStatus);
   }
   _renderAnchorWatchCircle();
   _updateAnchorWatchButton();
@@ -10894,10 +10718,9 @@ function _disarmAnchorWatch() {
   _anchorWatchSave();
   if (_anchorWakeLockForcedOn) {
     _anchorWakeLockForcedOn = false;
-    _wakeLockEnabled = false;
-    localStorage.setItem('audiochart-wake-lock', 'false');
+    WakeLock.setEnabled(false);
     _updateWakeLockButton();
-    _releaseWakeLock();
+    WakeLock.release();
   }
   _renderAnchorWatchCircle();
   _updateAnchorWatchButton();
@@ -11503,7 +11326,7 @@ async function init() {
   if ('wakeLock' in navigator) {
     wakeLockBtn.style.display = 'inline-block';
     _updateWakeLockButton();
-    _requestWakeLock();
+    WakeLock.request(setStatus);
   }
 
   // Show the map immediately on all devices (sidebar was removed in v198)
