@@ -3191,8 +3191,17 @@ async function _onDrawConfirm() {
   const fellBack = pts.length <= 2 && Query.landBlocks(pts[0].lon, pts[0].lat, pts[1].lon, pts[1].lat);
   const marginalSeg = pts.length > 2 ? _marginalLegFromPath(pts) : null;
   const found = _enterEditMode(routes.length - 1);
-  if (fellBack && !found.length) _showRouteFallbackWarning([{ a: pts[0], b: pts[1] }]);
-  else if (marginalSeg && !found.length) _showRouteFallbackWarning([marginalSeg]);
+  // Deliberately NOT gated on found.length — a fallback/marginal leg and a
+  // nearby charted hazard are two different problems, and a coastal
+  // fallback line will almost always graze a charted shallow area too
+  // (that's WHY it couldn't route around it). Gating on found.length used
+  // to let _checkRouteHazards' own "N hazards nearby, including shallow
+  // area..." status line silently substitute for this warning — a real bug
+  // found live (2026-09) with a genuine Rockland->Camden fallback: the user
+  // got a status message about shallow areas and no indication whatsoever
+  // that the route was an un-routed straight line across land.
+  if (fellBack) _showRouteFallbackWarning([{ a: pts[0], b: pts[1] }]);
+  else if (marginalSeg) _showRouteFallbackWarning([marginalSeg]);
 }
 
 function _onDrawMouseMove(latlng) {
@@ -9446,9 +9455,14 @@ function _ensureMap() {
     const marginalSeg = pts.length > 2 ? _marginalLegFromPath(pts) : null;
     const found = _enterEditMode(newIdx);
 
-    if (fellBack && !found.length) {
+    // Deliberately NOT gated on found.length here — see the matching
+    // comment in _onDrawConfirm. A fallback/marginal leg is a different,
+    // more urgent problem than "a hazard is charted nearby," and gating on
+    // found.length let a coastal fallback's own nearby-shallow-water hits
+    // silently swallow the one warning that actually mattered.
+    if (fellBack) {
       _showRouteFallbackWarning([{ a: pts[0], b: pts[1] }]);
-    } else if (marginalSeg && !found.length) {
+    } else if (marginalSeg) {
       _showRouteFallbackWarning([marginalSeg]);
     } else if (!found.length) {
       const msg = `${name} planned — ${totalNm.toFixed(1)} nm.`;
