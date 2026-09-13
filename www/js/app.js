@@ -350,7 +350,6 @@ let _boatCtxMapListenerBound = false;
 let _routeFromHereFn = null;
 let _autoRouteFromBoatToHereFn = null;
 const _boatCtxMenu = document.getElementById('boat-context-menu');
-const _boatCtxItems = [...document.querySelectorAll('#boat-context-menu button')];
 
 function _hideBoatCtx() { _boatCtxMenu.style.display = 'none'; _disarmBoatCtxDragSelect(); }
 
@@ -362,84 +361,33 @@ function _showBoatCtx(clientX, clientY, latlng) {
   const y = (clientY + mh + 4 > window.innerHeight) ? Math.max(4, clientY - mh) : clientY;
   _boatCtxMenu.style.left = Math.max(4, x) + 'px';
   _boatCtxMenu.style.top  = Math.max(4, y) + 'px';
-  // The mousedown that led here happened on the boat icon, not this menu —
-  // press/release on two different elements never synthesizes a native
-  // 'click' on the second one, by plain DOM behavior, regardless of
-  // anything Leaflet does. So the natural gesture (hold the boat, drag
-  // over to an item, release to pick it — same convention as Android's own
-  // long-press context menus) needs its own pointer tracking rather than
-  // relying on a click landing on the item under the release point.
-  _armBoatCtxDragSelect();
 }
 
-function _armBoatCtxDragSelect() {
-  _disarmBoatCtxDragSelect();
-  const itemAt = (x, y) => {
-    const el = document.elementFromPoint(x, y);
-    return _boatCtxItems.find(b => b.contains(el)) || null;
-  };
-  // The comment below ("only a genuine drag-release selects") describes what
-  // this was SUPPOSED to do, but the code never actually checked for
-  // movement — it fired on ANY release over an item, dragged or not. That
-  // meant a plain tap-without-drag directly on a menu item double-fired: once
-  // here via the programmatic item.click() below, and once more from the
-  // browser's own native click on that button right afterward — with
-  // _routeFromHere's prompt() in between, that's two name prompts back to
-  // back for what looked like one tap. Real bug, found reading this code
-  // after the user reported the destination-naming step not working — not
-  // caused by the long-press-to-double-tap change, just newly reachable once
-  // double-tap made it past the point long-press rarely got to. `moved`
-  // makes the check real: only a release that followed actual movement
-  // counts as a drag-selection now; a plain tap leaves it to the button's
-  // own native click, exactly like "the other supported way to use this
-  // menu" already assumed.
-  let moved = false;
-  const move = (e) => {
-    moved = true;
-    const p = e.touches?.[0] ?? e;
-    const item = itemAt(p.clientX, p.clientY);
-    _boatCtxItems.forEach(b => b.classList.toggle('drag-hover', b === item));
-  };
-  const up = (e) => {
-    const p = e.changedTouches?.[0] ?? e;
-    const item = itemAt(p.clientX, p.clientY);
-    _disarmBoatCtxDragSelect();
-    // Only a genuine drag-release selects — a plain mouseup right back over
-    // the boat (no drag at all) leaves the menu open for a normal separate
-    // tap on an item, the other supported way to use this menu.
-    if (item && moved) item.click();
-  };
-  _boatCtxDragMove = move;
-  _boatCtxDragUp = up;
-  document.addEventListener('mousemove', move);
-  document.addEventListener('mouseup', up);
-  document.addEventListener('touchmove', move, { passive: true });
-  document.addEventListener('touchend', up);
-}
+// This menu only ever opens from a completed dblclick (see _wireBoatLongPress
+// below — the long-press gesture it's named for was replaced by double-tap/
+// dblclick, per the comment above _boatCtxLatLng), which by definition fires
+// only after the mouse/finger is already back up. A former "hold the boat,
+// drag over an item, release to pick it" input mode used to justify tracking
+// mousemove/mouseup globally from the moment the menu opened and firing
+// item.click() programmatically on release — but with no continued press to
+// track, that global listener just caught the ORDINARY separate click a user
+// makes on a menu item (cursor motion between opening the menu and clicking
+// an item is completely normal, not a drag-select gesture), firing
+// item.click() a second time right alongside the button's own real native
+// click. Confirmed live: this is exactly what made "double-click boat icon ->
+// Autoroute" show the route-naming prompt twice, using whichever name was
+// entered into the SECOND prompt. Removed entirely — each menu button's own
+// addEventListener('click', ...) below is the only thing that should fire it.
 function _disarmBoatCtxDragSelect() {
-  _boatCtxItems.forEach(b => b.classList.remove('drag-hover'));
-  if (_boatCtxDragMove) {
-    document.removeEventListener('mousemove', _boatCtxDragMove);
-    document.removeEventListener('touchmove', _boatCtxDragMove);
-    _boatCtxDragMove = null;
-  }
-  if (_boatCtxDragUp) {
-    document.removeEventListener('mouseup', _boatCtxDragUp);
-    document.removeEventListener('touchend', _boatCtxDragUp);
-    _boatCtxDragUp = null;
-  }
-  // The release that ends this gesture lands on whatever's under the
-  // cursor — the menu item, not the boat marker itself — so the marker's
-  // OWN Leaflet 'mouseup' listener (bound to its icon element specifically,
-  // see _wireBoatLongPress's cancelPress) never fires and never gets the
-  // chance to re-enable dragging. Do it here instead, unconditionally,
-  // covering every path this menu closes through.
+  // The release that ends a menu interaction lands on whatever's under the
+  // cursor — a menu item, not the boat marker itself — so the marker's own
+  // Leaflet 'mouseup' listener never fires and never gets the chance to
+  // re-enable dragging. Do it here instead, unconditionally, covering every
+  // path this menu closes through.
   const marker = _boatLayer?.getLayers()[0] || _youLayer?.getLayers()[0];
   marker?.dragging?.enable();
   _map?.dragging.enable();
 }
-let _boatCtxDragMove = null;
-let _boatCtxDragUp = null;
 
 document.getElementById('boat-ctx-autoroute').addEventListener('click', () => {
   _hideBoatCtx();
@@ -10874,9 +10822,28 @@ async function _offerRegionForPosition(lat, lon) {
   const activeId = Query.getActiveRegion() || '';
 
   if (regionId === null) {
-    const msg = "AudioChart doesn't cover this area yet. For the full experience — History, Geology, " +
-                "Anchorages, and every other layer — set a Test Position in Penobscot Bay, Maine. " +
-                "Casco Bay and Piscataqua are also covered, with less auxiliary detail.";
+    // Genuinely outside every covered region almost always means a visitor
+    // exploring the app from wherever they actually are (see this
+    // function's header comment) rather than a real boat that's drifted out
+    // of range — so rather than making them go find the Location button
+    // themselves, just drop them at Rockland Harbor, the heart of Penobscot
+    // Bay, so the app is immediately explorable. GPS.setManualPosition sets
+    // the 'manual' source (highest priority — see gps.js's SOURCE_PRIORITY),
+    // so this doesn't fight with a real GPS fix if one later arrives; it
+    // simply takes over the same way an intentional Test Position would,
+    // and re-enters this same position pipeline (showPosition ->
+    // _updateCoverageStatus), which resolves to 'core' for Rockland and
+    // updates the status/map on its own — no separate refresh needed here.
+    // showPosition() itself never draws the boat icon (see map-ctx-set-position
+    // and map-ctx-bring-boat for the established convention) — _showBoatPosition
+    // is the separate call that actually puts the marker on the map.
+    GPS.setManualPosition(44.103, -69.088);
+    syncTestPosButton();
+    _showBoatPosition(44.103, -69.088);
+    const msg = "AudioChart doesn't cover this area yet, so we've set a demo position in Rockland Harbor — " +
+                "the heart of Penobscot Bay — for the full experience: History, Geology, Anchorages, and more. " +
+                "Casco Bay and Piscataqua are also covered, with less auxiliary detail. Clear the test position " +
+                "any time to use your real location again.";
     setStatus(msg);
     TTS.sayImmediate(msg);
     _showCoverageAlert(msg);
