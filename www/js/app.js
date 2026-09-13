@@ -11,6 +11,8 @@ import * as Query from './query.js';
 import * as Router from './router.js';
 import * as GpxExport from './gpx_export.js';
 import * as MarkerIcons from './marker_icons.js';
+import * as HazardClustering from './hazard_clustering.js';
+import * as WaypointsStorage from './waypoints_storage.js';
 import * as WakeLock from './wake_lock.js';
 import * as DriveSync from './drive_sync.js';
 import { openDriveImportPicker } from './drive_import.js';
@@ -69,150 +71,6 @@ function _navaidMarkerIcon(navaid) {
 function _hazardMarkerIcon() {
   return L.icon({ iconUrl: './icons/markicons/Hazard-Warning.svg', iconSize: [28, 28], iconAnchor: [14, 28], tooltipAnchor: [0, -28] });
 }
-
-// Discreet variant for soft/shallow route-check markers (_checkRouteHazards)
-// — same yellow-triangle-with-! asset (the international caution symbol,
-// per user request) as the general hazard layer above, without the skull's
-// pulse, so it reads as "worth a glance" rather than "stop and look." A
-// skull for a merely draft/tide-dependent shallow patch was the wrong
-// signal — reserved for hard hazards (rock/obstruction/wreck). Originally
-// 16px; doubled to 32px per live feedback that the original size was too
-// small to actually see on the route.
-function _softHazardMarkerIcon() {
-  return L.icon({ iconUrl: './icons/markicons/Hazard-Warning.svg', iconSize: [32, 32], iconAnchor: [16, 16], tooltipAnchor: [0, -16] });
-}
-
-// ── Hazard marker clustering ────────────────────────────────────────────────
-// A rock-strewn stretch of the Maine coast can put a dozen+ charted hazards
-// within a few boat-lengths of each other — real example: a 0.25nm long-press
-// query near North Haven returning 16+ overlapping triangle icons, unreadable
-// as a pile. Individual hazards still render normally when they're not
-// crowded; only markers close enough on SCREEN (not nautical distance — this
-// is purely a rendering fix, every hazard is still full-accuracy queryable
-// data underneath, just visually merged) at the current zoom get replaced by
-// one soft-edged blob. Re-clusters on zoom so zooming in un-merges them.
-
-let _hazardClusterZoomHandler = null;
-
-/** Union-find clustering of `points` ({lat,lon}[]) by on-screen pixel distance
- * at the map's current zoom/pan. Returns arrays of indices into `points`.
- * Grid-bucketed (cell size = pixelRadius, each point only compared against
- * its own + 8 neighboring cells) rather than the naive all-pairs check —
- * Penobscot Bay alone charts thousands of point hazards, and a full-bay
- * viewport can put a real fraction of those on screen at once; plain
- * all-pairs comparison at that count is a genuine multi-second main-thread
- * hang, not just an inefficiency (found live-testing this feature). */
-function _clusterIndicesByPixel(map, points, pixelRadius) {
-  const n = points.length;
-  const px = points.map(p => map.latLngToContainerPoint([p.lat, p.lon]));
-  const parent = Array.from({ length: n }, (_, i) => i);
-  const find = i => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; };
-  const union = (a, b) => { const ra = find(a), rb = find(b); if (ra !== rb) parent[ra] = rb; };
-  const cell = Math.max(pixelRadius, 1);
-  const cellKey = (cx, cy) => `${cx},${cy}`;
-  const grid = new Map();
-  for (let i = 0; i < n; i++) {
-    const cx = Math.floor(px[i].x / cell), cy = Math.floor(px[i].y / cell);
-    const k = cellKey(cx, cy);
-    if (!grid.has(k)) grid.set(k, []);
-    grid.get(k).push(i);
-  }
-  const r2 = pixelRadius * pixelRadius;
-  for (let i = 0; i < n; i++) {
-    const cx = Math.floor(px[i].x / cell), cy = Math.floor(px[i].y / cell);
-    for (let dcx = -1; dcx <= 1; dcx++) {
-      for (let dcy = -1; dcy <= 1; dcy++) {
-        const neighbors = grid.get(cellKey(cx + dcx, cy + dcy));
-        if (!neighbors) continue;
-        for (const j of neighbors) {
-          if (j <= i) continue; // each unordered pair checked once, still symmetric via union()
-          const dx = px[i].x - px[j].x, dy = px[i].y - px[j].y;
-          if (dx * dx + dy * dy <= r2) union(i, j);
-        }
-      }
-    }
-  }
-  const groups = new Map();
-  for (let i = 0; i < n; i++) {
-    const r = find(i);
-    if (!groups.has(r)) groups.set(r, []);
-    groups.get(r).push(i);
-  }
-  return [...groups.values()];
-}
-
-function _hazardBlobIcon(count) {
-  // Deliberately NOT sized to the cluster's real pixel spread — a bug found
-  // live (2026-08-23): sizing the blob to maxD-of-members meant that when
-  // the DOM-count safety valve (below) widens the grouping radius on a
-  // hazard-dense view, every resulting blob (and its blur halo) ballooned
-  // to match, and dozens of huge overlapping halos washed the whole chart
-  // in a continuous orange fog instead of reading as distinct local blobs.
-  // A small, count-driven size — same convention as any standard map
-  // marker cluster — stays legible and local regardless of how far apart
-  // the real members ended up; clicking still zooms to the members' real
-  // bounds (see _renderClusteredHazards), which is how more detail actually
-  // surfaces — no on-blob count/text (user feedback 2026-08-23: the number
-  // badges read as clutter of their own; the exact count is still in the
-  // tooltip on hover/tap, just not permanently painted on the map).
-  const r = Math.min(10 + Math.sqrt(count) * 2.5, 22);
-  const size = r * 2;
-  const blurId = `hazBlur${Math.round(r)}`;
-  const svg = `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
-    <defs><filter id="${blurId}" x="-40%" y="-40%" width="180%" height="180%">
-      <feGaussianBlur stdDeviation="${Math.max(r * 0.1, 1.5)}" />
-    </filter></defs>
-    <circle cx="${r}" cy="${r}" r="${r * 0.85}" fill="#f5c842" fill-opacity="0.88" filter="url(#${blurId})" />
-  </svg>`;
-  return L.divIcon({ className: 'hazard-blob-marker', html: svg, iconSize: [size, size], iconAnchor: [r, r] });
-}
-
-/** Renders hazardPts into layerGroup: an isolated hazard gets its normal
- * marker (makeMarker(h) — identical to what each caller already built
- * before this existed), a screen-crowded group gets one blob instead;
- * clicking a blob zooms in on it (which re-clusters via the zoomend
- * listener below and reveals the real markers once they're no longer
- * crowded — nothing is ever hidden permanently or dropped from the data). */
-function _renderClusteredHazards(map, layerGroup, hazardPts, makeMarker) {
-  // A whole-bay, zoomed-out view can have hundreds/thousands of hazards
-  // spread widely enough on screen that a small cluster radius barely merges
-  // any of them — still one real DOM marker+SVG icon per point, which is a
-  // genuine multi-second freeze at that count regardless of how fast the
-  // clustering math itself is. Below MAX_HAZARD_MARKERS use a tight radius
-  // (merge only truly-crowded icons, keep isolated ones exact); above it,
-  // widen the radius until the marker count actually produced drops under
-  // the cap — trading precision for a bounded number of DOM nodes only when
-  // the point count demands it.
-  const MAX_HAZARD_MARKERS = 250;
-  if (_hazardClusterZoomHandler) { map.off('zoomend', _hazardClusterZoomHandler); _hazardClusterZoomHandler = null; }
-  function render() {
-    layerGroup.clearLayers();
-    if (!hazardPts.length) return;
-    let clusterPx = 26; // roughly one hazard-icon width
-    let groups = _clusterIndicesByPixel(map, hazardPts, clusterPx);
-    for (let guard = 0; groups.length > MAX_HAZARD_MARKERS && guard < 8; guard++) {
-      clusterPx *= 2;
-      groups = _clusterIndicesByPixel(map, hazardPts, clusterPx);
-    }
-    for (const idxs of groups) {
-      if (idxs.length === 1) { makeMarker(hazardPts[idxs[0]]).addTo(layerGroup); continue; }
-      const members = idxs.map(i => hazardPts[i]);
-      const pxPts = members.map(h => map.latLngToContainerPoint([h.lat, h.lon]));
-      const cx = pxPts.reduce((s, p) => s + p.x, 0) / pxPts.length;
-      const cy = pxPts.reduce((s, p) => s + p.y, 0) / pxPts.length;
-      L.marker(map.containerPointToLatLng([cx, cy]), {
-        icon: _hazardBlobIcon(members.length), zIndexOffset: 500,
-      }).bindTooltip(`${members.length} hazards — tap to expand`, {
-        permanent: false, direction: 'top', className: 'map-tooltip',
-      }).on('click', () => map.fitBounds(L.latLngBounds(members.map(h => [h.lat, h.lon])).pad(0.6)))
-        .addTo(layerGroup);
-    }
-  }
-  render();
-  _hazardClusterZoomHandler = render;
-  map.on('zoomend', _hazardClusterZoomHandler);
-}
-
 
 // ── Boat icon double-tap menu (Autoroute / Sketch) ──────────────────────────
 // Replaced a hold-timer long-press here after it stayed unreliable on real
@@ -289,7 +147,7 @@ document.getElementById('boat-ctx-drop-pin').addEventListener('click', () => {
   _hideBoatCtx();
   if (!_boatCtxLatLng) return;
   const { lat, lng: lon } = _boatCtxLatLng;
-  const name = nextSearchPinName();
+  const name = WaypointsStorage.nextSearchPinName();
   saveUserWaypoint(name, lat, lon, 'search', formatPositionDisplay(lat, lon));
   Query.setActiveWaypoint(lat, lon, name);
   if (!_waypointsVisible) _setWaypointsVisible(true);
@@ -419,7 +277,7 @@ function _refreshWaypointLayer() {
   if (!_map) return;
   if (_waypointLayer) { _map.removeLayer(_waypointLayer); _waypointLayer = null; }
   if (!_waypointsVisible) return;
-  const wps = loadUserWaypoints();
+  const wps = WaypointsStorage.loadUserWaypoints();
   if (!wps.length) return;
   _waypointLayer = L.layerGroup(
     wps.map(wp => {
@@ -470,7 +328,7 @@ function _refreshWaypointLayer() {
           _map.closePopup();
           const newName = await _showTextPrompt('Rename waypoint', '', wp.name);
           if (!newName || newName === wp.name) return;
-          const stored = loadUserWaypoints();
+          const stored = WaypointsStorage.loadUserWaypoints();
           if (stored.some(w => w.name !== wp.name && w.name.toLowerCase() === newName.toLowerCase())) {
             const msg = `A waypoint named "${newName}" already exists.`;
             setStatus(msg);
@@ -480,7 +338,7 @@ function _refreshWaypointLayer() {
           const idx = stored.findIndex(w => w.name === wp.name);
           if (idx === -1) return;
           stored[idx].name = newName;
-          localStorage.setItem(USER_WP_KEY, JSON.stringify(stored));
+          localStorage.setItem(WaypointsStorage.USER_WP_KEY, JSON.stringify(stored));
           Query.removeUserWaypoint(wp.name);
           Query.mergeUserWaypoints([{ name: newName, lat: wp.lat, lon: wp.lon }]);
           if (Query.activeWaypoint?.name === wp.name) Query.setActiveWaypoint(wp.lat, wp.lon, newName);
@@ -496,10 +354,10 @@ function _refreshWaypointLayer() {
         popupEl.querySelector('.navaid-popup-delete').addEventListener('click', () => {
           if (!confirm(`Delete waypoint "${wp.name}"? This cannot be undone.`)) return;
           _map.closePopup();
-          const stored = loadUserWaypoints();
+          const stored = WaypointsStorage.loadUserWaypoints();
           const idx = stored.findIndex(w => w.name === wp.name);
           if (idx !== -1) stored.splice(idx, 1);
-          localStorage.setItem(USER_WP_KEY, JSON.stringify(stored));
+          localStorage.setItem(WaypointsStorage.USER_WP_KEY, JSON.stringify(stored));
           Query.removeUserWaypoint(wp.name);
           _refreshWaypointLayer();
           const msg = `Waypoint ${wp.name} deleted.`;
@@ -510,13 +368,13 @@ function _refreshWaypointLayer() {
       _markerByKey.set(_markerKey(wp.lat, wp.lon), m);
       m.on('dragend', (e) => {
         const { lat: newLat, lng: newLon } = e.target.getLatLng();
-        const stored = loadUserWaypoints();
+        const stored = WaypointsStorage.loadUserWaypoints();
         const idx = stored.findIndex(w => w.name === wp.name);
         if (idx !== -1) {
           _markerByKey.delete(_markerKey(stored[idx].lat, stored[idx].lon));
           stored[idx].lat = newLat;
           stored[idx].lon = newLon;
-          localStorage.setItem(USER_WP_KEY, JSON.stringify(stored));
+          localStorage.setItem(WaypointsStorage.USER_WP_KEY, JSON.stringify(stored));
           Query.removeUserWaypoint(wp.name);
           Query.mergeUserWaypoints([{ name: wp.name, lat: newLat, lon: newLon }]);
           _markerByKey.set(_markerKey(newLat, newLon), m);
@@ -2346,7 +2204,7 @@ function _checkRouteHazards(routeIdx, silent = false) {
   for (const h of found) {
     const tip = `${h.label}${h.name ? ': ' + h.name : ''} — ${h.side}, ${h.routeNm.toFixed(1)} nm along route`;
     const icon = h.kind === 'soft'
-      ? _softHazardMarkerIcon()
+      ? MarkerIcons.softHazardMarkerIcon()
       : L.divIcon({
           className: '',
           html: '<div class="davy-jones-icon">&#9760;</div>',
@@ -4224,7 +4082,7 @@ function _nearestSnapTarget(lat, lon, pxTolerance = 20) {
     }
   }
 
-  for (const w of loadUserWaypoints()) {
+  for (const w of WaypointsStorage.loadUserWaypoints()) {
     const d = pt.distanceTo(_map.latLngToContainerPoint([w.lat, w.lon]));
     if (d < bestD) { bestD = d; best = { lat: w.lat, lon: w.lon, name: w.name, type: 'waypoint' }; }
   }
@@ -6437,27 +6295,6 @@ function _startFollowMode(route) {
 
 // ── User waypoints (localStorage) ────────────────────────────────────────────
 
-const USER_WP_KEY = 'audiochart-user-waypoints';
-
-function loadUserWaypoints() {
-  try { return JSON.parse(localStorage.getItem(USER_WP_KEY) || '[]'); } catch { return []; }
-}
-
-// Each prefix keeps its own numbering — a quick-dropped "wp003" and a
-// search-dropped "SP003" coexisting is fine, but they shouldn't share one
-// counter (searching a few places would otherwise burn through numbers a
-// manually-dropped waypoint would expect to get, and vice versa).
-function _nextNumberedWaypointName(prefix) {
-  const nums = loadUserWaypoints()
-    .filter(w => w.name.startsWith(prefix))
-    .map(w => parseInt(w.name.slice(prefix.length), 10))
-    .filter(n => !isNaN(n));
-  const next = nums.length ? Math.max(...nums) + 1 : 1;
-  return prefix + String(next).padStart(3, '0');
-}
-function nextWaypointName() { return _nextNumberedWaypointName('wp'); }
-function nextSearchPinName() { return _nextNumberedWaypointName('SP'); }
-
 // type: undefined for a plain manually-dropped waypoint, 'search' for one
 // created via the Search box (see _runSearch) — only affects which icon
 // _refreshWaypointLayer draws; storage/addressing (AutoRoute, findPlaceByName,
@@ -6465,12 +6302,12 @@ function nextSearchPinName() { return _nextNumberedWaypointName('SP'); }
 // this pin's coordinates came from, shown as a subtitle in its popup menu —
 // purely informational, never part of its addressable name.
 function saveUserWaypoint(name, lat, lon, type, note) {
-  const wps = loadUserWaypoints();
+  const wps = WaypointsStorage.loadUserWaypoints();
   const entry = { name, lat, lon };
   if (type) entry.type = type;
   if (note) entry.note = note;
   wps.push(entry);
-  localStorage.setItem(USER_WP_KEY, JSON.stringify(wps));
+  localStorage.setItem(WaypointsStorage.USER_WP_KEY, JSON.stringify(wps));
   Query.mergeUserWaypoints([{ name, lat, lon }]);
   _refreshWaypointLayer();
 }
@@ -7905,7 +7742,7 @@ function _ensureMap() {
   function _populateWpSubmenu() {
     // Remove all dynamic items (keep first 4 static children)
     while (_wpSubmenu.children.length > 4) _wpSubmenu.removeChild(_wpSubmenu.lastChild);
-    const wps = loadUserWaypoints();
+    const wps = WaypointsStorage.loadUserWaypoints();
     for (const wp of wps) {
       const itemBtn = document.createElement('button');
       itemBtn.className = 'ctx-wp-item';
@@ -8590,11 +8427,11 @@ function _ensureMap() {
       _hideCtx();
       if (!_ctxLatLng) return;
       const { lat, lng: lon } = _ctxLatLng;
-      const name = nextWaypointName();
+      const name = WaypointsStorage.nextWaypointName();
       saveUserWaypoint(name, lat, lon);
       Query.setActiveWaypoint(lat, lon, name);
       if (!_waypointsVisible) _setWaypointsVisible(true);
-      showWaypointMap(null, null, loadUserWaypoints()).catch(() => {});
+      showWaypointMap(null, null, WaypointsStorage.loadUserWaypoints()).catch(() => {});
       const msg = `Waypoint ${name} set — that's now the Active Waypoint.`;
       setStatus(msg);
       TTS.sayImmediate(msg);
@@ -8606,7 +8443,7 @@ function _ensureMap() {
 
     if (t.id === 'map-ctx-wp-del-sp') {
       _hideCtx();
-      const stored = loadUserWaypoints();
+      const stored = WaypointsStorage.loadUserWaypoints();
       const toDelete = stored.filter(w => w.name.startsWith('SP'));
       if (!toDelete.length) {
         const msg = 'No SP waypoints to delete.';
@@ -8614,7 +8451,7 @@ function _ensureMap() {
         return;
       }
       if (!confirm(`Delete ${toDelete.length} SP* waypoint${toDelete.length === 1 ? '' : 's'}? This cannot be undone.`)) return;
-      localStorage.setItem(USER_WP_KEY, JSON.stringify(stored.filter(w => !w.name.startsWith('SP'))));
+      localStorage.setItem(WaypointsStorage.USER_WP_KEY, JSON.stringify(stored.filter(w => !w.name.startsWith('SP'))));
       for (const w of toDelete) Query.removeUserWaypoint(w.name);
       _refreshWaypointLayer();
       const msg = `Deleted ${toDelete.length} SP* waypoint${toDelete.length === 1 ? '' : 's'}.`;
@@ -8642,7 +8479,7 @@ function _ensureMap() {
       const actions = t.closest('.ctx-wp-actions');
       const name = actions.dataset.wpName;
       _hideCtx();
-      localStorage.setItem(USER_WP_KEY, JSON.stringify(loadUserWaypoints().filter(w => w.name !== name)));
+      localStorage.setItem(WaypointsStorage.USER_WP_KEY, JSON.stringify(WaypointsStorage.loadUserWaypoints().filter(w => w.name !== name)));
       Query.removeUserWaypoint(name);
       _refreshWaypointLayer();
       const msg = `Waypoint ${name} deleted.`;
@@ -8820,7 +8657,7 @@ function _ensureMap() {
     for (const wpt of wpts) {
       const lat  = parseFloat(wpt.getAttribute('lat'));
       const lon  = parseFloat(wpt.getAttribute('lon'));
-      const name = wpt.querySelector('name')?.textContent?.trim() || nextWaypointName();
+      const name = wpt.querySelector('name')?.textContent?.trim() || WaypointsStorage.nextWaypointName();
       if (isNaN(lat) || isNaN(lon)) continue;
       saveUserWaypoint(name, lat, lon);
       count++;
@@ -9221,7 +9058,7 @@ function _refreshNavaidOverlay() {
       hazardPts.push({ lat, lon, label, name });
     }
     const hazardLayer = L.layerGroup();
-    _renderClusteredHazards(_map, hazardLayer, hazardPts, (h) => {
+    HazardClustering.renderClusteredHazards(_map, hazardLayer, hazardPts, (h) => {
       const m = L.marker([h.lat, h.lon], { icon: _hazardMarkerIcon() });
       m.bindTooltip(h.name, { permanent: false, direction: 'top', className: 'map-tooltip' });
       return m;
@@ -9354,7 +9191,7 @@ async function showHazardMap(fromLat, fromLon, hazardPts) {
   _refreshYouLayer();
 
   const hazardLayer = L.layerGroup();
-  _renderClusteredHazards(_map, hazardLayer, hazardPts, (h) => {
+  HazardClustering.renderClusteredHazards(_map, hazardLayer, hazardPts, (h) => {
     const marker = L.marker([h.lat, h.lon], { icon: _hazardMarkerIcon() });
     _markerByKey.set(_markerKey(h.lat, h.lon), marker);
     const tip = [h.label, h.name].filter(Boolean).join(', ');
@@ -9422,7 +9259,7 @@ async function showCourseMap(fromLat, fromLon, toLat, toLon, hazardPts) {
   layers.push(L.circleMarker([toLat, toLon],   { radius: 7, color: '#4a9edd', fillColor: '#4a9edd', fillOpacity: 1, weight: 0 }));
   // Hazard markers
   const hazardLayer = L.layerGroup();
-  _renderClusteredHazards(_map, hazardLayer, hazardPts || [], (h) => {
+  HazardClustering.renderClusteredHazards(_map, hazardLayer, hazardPts || [], (h) => {
     const m = L.marker([h.lat, h.lon], { icon: _hazardMarkerIcon() });
     if (h.label || h.name) m.bindTooltip(((h.label || '') + ' ' + (h.name || '')).trim(), { permanent: false, direction: 'top', className: 'map-tooltip' });
     m.on('click', () => {
@@ -9840,7 +9677,7 @@ async function handleMapLongPress(latlng, radiusNm = 0.25, radiusLabel = '¼ mil
 
   {
     const hazardLayer = L.layerGroup();
-    _renderClusteredHazards(_map, hazardLayer, hazards, (h) => {
+    HazardClustering.renderClusteredHazards(_map, hazardLayer, hazards, (h) => {
       const m = L.marker([h.lat, h.lon], { icon: _hazardMarkerIcon() });
       _markerByKey.set(_markerKey(h.lat, h.lon), m);
       const tip = [h.label, h.name].filter(Boolean).join(', ');
@@ -9925,7 +9762,7 @@ async function handleCommand(transcript) {
     }
 
     if (intent === 'LIST_WAYPOINTS') {
-      const wps = loadUserWaypoints();
+      const wps = WaypointsStorage.loadUserWaypoints();
       if (!wps.length) {
         const msg = 'No waypoints saved yet. Right-click the map and choose Set waypoint here.';
         showResponse(msg);
@@ -9952,7 +9789,7 @@ async function handleCommand(transcript) {
 
     if (intent === 'DELETE_WAYPOINT') {
       const name = params.waypointName;
-      const wps = loadUserWaypoints();
+      const wps = WaypointsStorage.loadUserWaypoints();
       const idx = wps.findIndex(w => w.name.toLowerCase() === name);
       if (idx === -1) {
         const msg = `No waypoint named ${name}.`;
@@ -9961,7 +9798,7 @@ async function handleCommand(transcript) {
         return;
       }
       wps.splice(idx, 1);
-      localStorage.setItem(USER_WP_KEY, JSON.stringify(wps));
+      localStorage.setItem(WaypointsStorage.USER_WP_KEY, JSON.stringify(wps));
       Query.removeUserWaypoint(name);
       _refreshWaypointLayer();
       const msg = `Waypoint ${name} deleted.`;
@@ -11004,7 +10841,7 @@ async function _runSearch() {
   _mapContainer.classList.remove('map-compact', 'list-focus', 'input-focus');
   _closeSearchForm();
   searchInput.value = '';
-  const name = nextSearchPinName();
+  const name = WaypointsStorage.nextSearchPinName();
   const note = coord.name || formatPositionDisplay(coord.lat, coord.lon);
   saveUserWaypoint(name, coord.lat, coord.lon, 'search', note);
   Query.setActiveWaypoint(coord.lat, coord.lon, name);
@@ -11417,7 +11254,7 @@ async function init() {
   if (!serverUrl) {
     Query.loadData(null, null).then(() => {
       dataLoaded = true;
-      Query.mergeUserWaypoints(loadUserWaypoints());
+      Query.mergeUserWaypoints(WaypointsStorage.loadUserWaypoints());
       setStatus('Ready. (offline)');
     }).catch(() => {});
   }
@@ -11470,7 +11307,7 @@ async function init() {
         try {
           await Query.loadData(lat, lon);
           dataLoaded = true;
-          Query.mergeUserWaypoints(loadUserWaypoints());
+          Query.mergeUserWaypoints(WaypointsStorage.loadUserWaypoints());
           setStatus('Ready.');
         } catch (e) {
           setStatus('Chart data unavailable. Try reloading.');

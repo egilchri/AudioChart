@@ -11,6 +11,21 @@ export function pinIcon() {
   return L.icon({ iconUrl: './icons/markicons/Marks-Active-Waypoint.svg', iconSize: [32, 32], iconAnchor: [16, 32], tooltipAnchor: [0, -32] });
 }
 
+// Discreet variant for soft/shallow route-check markers (_checkRouteHazards)
+// — same yellow-triangle-with-! asset (the international caution symbol,
+// per user request) as the general hazard layer, without the skull's
+// pulse, so it reads as "worth a glance" rather than "stop and look." A
+// skull for a merely draft/tide-dependent shallow patch was the wrong
+// signal — reserved for hard hazards (rock/obstruction/wreck). Originally
+// 16px; doubled to 32px per live feedback that the original size was too
+// small to actually see on the route. (Several sibling icon factories —
+// _navaidMarkerIcon, _hazardMarkerIcon, _documentMarkerIcon, etc. — remain
+// scattered through app.js; a good candidate for a future consolidation
+// pass, not attempted here.)
+export function softHazardMarkerIcon() {
+  return L.icon({ iconUrl: './icons/markicons/Hazard-Warning.svg', iconSize: [32, 32], iconAnchor: [16, 16], tooltipAnchor: [0, -16] });
+}
+
 export function waypointIcon() {
   return L.divIcon({
     className: '',
