@@ -130,9 +130,14 @@ html, body {
 .status-badge.rp-hazard-hard { background: #4a1a1a; color: var(--danger); }
 .status-badge.rp-hazard-soft { background: #4a2a00; color: var(--warn); }
 
-/* Offline prep, location + screen menu triggers in header */
-#offline-btn, #location-menu-btn, #screen-menu-btn, #track-rec-btn,
-#anchor-watch-btn, #anchor-watch-silence-btn {
+/* Offline prep, location + screen menu triggers in header. #search-btn,
+   #route-picker-btn and #track-picker-btn share this same pill treatment so
+   the whole top status bar (row 1: Map Type/Offline/Search/Location/Screen;
+   row 2: Routes/Tracks) reads as one consistent, aligned button set —
+   #search-btn previously had no dedicated rule at all and was rendering in
+   the browser's bare default button style, standing out from its row. */
+#offline-btn, #location-menu-btn, #screen-menu-btn, #search-btn, #track-rec-btn,
+#anchor-watch-btn, #anchor-watch-silence-btn, #route-picker-btn, #track-picker-btn {
   background: rgba(18, 13, 8, 0.94); /* --brass-ink */
   border: 1px solid var(--brass-dim);
   border-radius: 6px;
@@ -144,9 +149,13 @@ html, body {
   padding: 4px 9px;
   cursor: pointer;
   white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
 }
-#offline-btn:hover, #location-menu-btn:hover, #screen-menu-btn:hover, #track-rec-btn:hover, #anchor-watch-btn:hover, #anchor-watch-silence-btn:hover { border-color: var(--brass); color: var(--brass-hi); }
+#offline-btn:hover, #location-menu-btn:hover, #screen-menu-btn:hover, #search-btn:hover, #track-rec-btn:hover, #anchor-watch-btn:hover, #anchor-watch-silence-btn:hover,
+#route-picker-btn:hover, #track-picker-btn:hover { border-color: var(--brass); color: var(--brass-hi); }
 #offline-btn:disabled { opacity: 0.5; cursor: default; }
+#route-picker-btn:active, #track-picker-btn:active { background: var(--brass-dim); }
+#route-picker-btn.active, #track-picker-btn.active { background: var(--brass); color: var(--brass-ink); }
 #location-menu-btn.test-active { border-color: var(--danger); color: var(--danger); background: #2a0a0a; font-weight: 700; }
 #location-menu-btn.test-active:hover { border-color: var(--danger); color: #ff8080; background: #3a0a0a; }
 
@@ -892,7 +901,7 @@ body.wco-active #wco-titlebar { display: flex; }
   max-width: calc(100% - 180px);
 }
 
-#status-tiles {
+#status-tiles, #status-tiles-2 {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-start;
@@ -910,7 +919,7 @@ body.wco-active #wco-titlebar { display: flex; }
    instead of the same tidy two rows phones get, needlessly pushing the row
    down the page. */
 @media (max-width: 1366px) {
-  #status-tiles {
+  #status-tiles, #status-tiles-2 {
     width: 100%;
   }
 }
@@ -1177,24 +1186,6 @@ body.wco-active #wco-titlebar { display: flex; }
   #right-rail-body { display: flex !important; }
 }
 
-#route-picker-btn {
-  background: rgba(18, 13, 8, 0.94); /* --brass-ink */
-  border: 1px solid var(--brass-dim);
-  border-radius: 6px;
-  color: var(--parchment-dim);
-  font-family: var(--font-brass-serif);
-  font-size: 0.72rem;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  padding: 4px 9px;
-  cursor: pointer;
-  white-space: nowrap;
-  -webkit-tap-highlight-color: transparent;
-}
-#route-picker-btn:hover { border-color: var(--brass); color: var(--brass-hi); }
-#route-picker-btn:active { background: var(--brass-dim); }
-#route-picker-btn.active  { background: var(--brass);  color: var(--brass-ink); }
-
 #reroute-btn {
   width: 48px;
   height: 48px;
@@ -1214,24 +1205,6 @@ body.wco-active #wco-titlebar { display: flex; }
 #reroute-btn:active { background: var(--brass-dim); }
 #reroute-btn.working { background: var(--brass); color: var(--brass-ink); }
 
-
-#track-picker-btn {
-  background: rgba(18, 13, 8, 0.94); /* --brass-ink */
-  border: 1px solid var(--brass-dim);
-  border-radius: 6px;
-  color: var(--parchment-dim);
-  font-family: var(--font-brass-serif);
-  font-size: 0.72rem;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  padding: 4px 9px;
-  cursor: pointer;
-  white-space: nowrap;
-  -webkit-tap-highlight-color: transparent;
-}
-#track-picker-btn:hover { border-color: var(--brass); color: var(--brass-hi); }
-#track-picker-btn:active { background: var(--brass-dim); }
-#track-picker-btn.active  { background: var(--brass);  color: var(--brass-ink); }
 
 #track-picker-panel {
   display: none;
