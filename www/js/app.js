@@ -1361,6 +1361,38 @@ async function loadLeaflet() {
 function setStatus(msg) { statusEl.textContent = msg; }
 
 window._debugAutoRoute = (start, end) => _autoRouteProg(start, end, () => {}, () => {});
+
+// Regression check for the curated sample-route library (Query.curatedRoutes,
+// see data/regions/<id>/curated_routes.json): re-runs AutoRoute between each
+// sample's own start/end and reports whether the live router can still find
+// *a* safe path — not necessarily identical to the stored one ("or their
+// equivalent" was the point), just genuinely threaded (>2 points) or, if it
+// came back as a plain 2-point line, one that's actually clear rather than a
+// silent fallback (_classifyFallbackSeg is the same land/hazard check the
+// fallback-warning banner itself uses).
+window._verifyCuratedRoutes = async function () {
+  const routes = Query.curatedRoutes || [];
+  const results = [];
+  for (const r of routes) {
+    const start = r.points[0], end = r.points[r.points.length - 1];
+    const t0 = performance.now();
+    const generated = await _autoRouteProg(start, end, () => {}, () => {});
+    const ms = Math.round(performance.now() - t0);
+    let ok, reason;
+    if (generated.length > 2) {
+      ok = true; reason = `threaded path, ${generated.length} points`;
+    } else {
+      const { crossesLand, crossesHazard } = _classifyFallbackSeg(generated[0], generated[1]);
+      ok = !crossesLand && !crossesHazard;
+      reason = ok ? 'direct line, verified clear' : `fell back to a straight line crossing ${crossesLand ? 'land' : 'a hazard'}`;
+    }
+    results.push({ id: r.id, name: r.name, ok, reason, ms, points: generated.length });
+    console.log(`[verifyCuratedRoutes] ${ok ? 'PASS' : 'FAIL'} — ${r.name}: ${reason} (${ms}ms)`);
+  }
+  const passed = results.filter(r => r.ok).length;
+  console.log(`[verifyCuratedRoutes] ${passed}/${results.length} passed`);
+  return results;
+};
 window._debugResolveWaterEnd = (lon, lat, which) => Query.resolveWaterEnd(lon, lat, which);
 window._debugEnterEditMode = (idx) => _enterEditMode(idx);
 window._debugCheckRouteHazards = (idx, silent) => _checkRouteHazards(idx, silent);
@@ -4390,6 +4422,29 @@ async function _autoRouteProg(start, end, onUpdate, onText = null, _escapeAttemp
   gScore[0]    = 0;
   hpush(Query.distanceNm(start.lon, start.lat, end.lon, end.lat), 0);
 
+  // Open-node index, kept in sync via openPos so closing a node is O(1)
+  // (swap it with the last open entry, then shrink) instead of the
+  // relaxation loop re-scanning every node in the graph on every single
+  // expansion regardless of how many are already finalized. Verified live
+  // as a real, measurable cost on a genuinely hazard-dense corridor (Fox
+  // Islands Thorofare / Isle au Haut, 1500+ nodes) — expansions late in a
+  // long search were still paying the full O(N) scan cost of the very
+  // first one.
+  const openList = new Int32Array(N);
+  const openPos  = new Int32Array(N);
+  for (let i = 0; i < N; i++) { openList[i] = i; openPos[i] = i; }
+  let openCount = N;
+  function _closeNode(idx) {
+    closed[idx] = 1;
+    const pos = openPos[idx];
+    const last = --openCount;
+    const movedIdx = openList[last];
+    openList[pos] = movedIdx;
+    openPos[movedIdx] = pos;
+    openList[last] = idx;
+    openPos[idx] = last;
+  }
+
   function tracePath(endIdx) {
     const p = [];
     for (let i = endIdx; i !== -1; i = prev[i]) p.push(nodes[i]);
@@ -4411,11 +4466,11 @@ async function _autoRouteProg(start, end, onUpdate, onText = null, _escapeAttemp
     // relaxation loop for the same node many times over, compounding what
     // should be an O(N) expansion count into something far larger.
     if (closed[curr]) continue;
-    closed[curr] = 1;
+    _closeNode(curr);
 
     const a = nodes[curr];
-    for (let j = 0; j < N; j++) {
-      if (j === curr || closed[j]) continue;
+    for (let oi = 0; oi < openCount; oi++) {
+      const j = openList[oi];
       const b = nodes[j];
       if (segBlocked(a.lon, a.lat, b.lon, b.lat)) continue;
       const ng = gScore[curr] + Query.distanceNm(a.lon, a.lat, b.lon, b.lat);
@@ -8946,8 +9001,8 @@ function _ensureMap() {
 
   // Rebuild the dynamic waypoint rows (below the 3 static buttons)
   function _populateWpSubmenu() {
-    // Remove all dynamic items (keep first 3 static children)
-    while (_wpSubmenu.children.length > 3) _wpSubmenu.removeChild(_wpSubmenu.lastChild);
+    // Remove all dynamic items (keep first 4 static children)
+    while (_wpSubmenu.children.length > 4) _wpSubmenu.removeChild(_wpSubmenu.lastChild);
     const wps = loadUserWaypoints();
     for (const wp of wps) {
       const itemBtn = document.createElement('button');
@@ -9641,6 +9696,24 @@ function _ensureMap() {
     if (t.id === 'map-ctx-wp-show') { _hideCtx(); _setWaypointsVisible(true);  return; }
     if (t.id === 'map-ctx-wp-hide') { _hideCtx(); _setWaypointsVisible(false); return; }
 
+    if (t.id === 'map-ctx-wp-del-sp') {
+      _hideCtx();
+      const stored = loadUserWaypoints();
+      const toDelete = stored.filter(w => w.name.startsWith('SP'));
+      if (!toDelete.length) {
+        const msg = 'No SP waypoints to delete.';
+        setStatus(msg); TTS.sayImmediate(msg);
+        return;
+      }
+      if (!confirm(`Delete ${toDelete.length} SP* waypoint${toDelete.length === 1 ? '' : 's'}? This cannot be undone.`)) return;
+      localStorage.setItem(USER_WP_KEY, JSON.stringify(stored.filter(w => !w.name.startsWith('SP'))));
+      for (const w of toDelete) Query.removeUserWaypoint(w.name);
+      _refreshWaypointLayer();
+      const msg = `Deleted ${toDelete.length} SP* waypoint${toDelete.length === 1 ? '' : 's'}.`;
+      setStatus(msg); TTS.sayImmediate(msg);
+      return;
+    }
+
     if (t.classList.contains('ctx-wp-item')) {
       const name    = t.dataset.wpName;
       const actions = _wpSubmenu.querySelector(`.ctx-wp-actions[data-wp-name="${name}"]`);
@@ -9741,6 +9814,37 @@ function _ensureMap() {
     setStatus('Opening Drive…');
     openDriveImportPicker((text) => _importGpxFromText(text, 'routes'))
       .catch(err => setStatus(err.message || 'Could not open Drive.'));
+  });
+
+  // Sample Routes: a hand-verified library shipped per-region (see
+  // Query.curatedRoutes / data/regions/<id>/curated_routes.json) — gives an
+  // armchair cruiser something to explore immediately, and doubles as a
+  // regression check (see window._verifyCuratedRoutes) that the live router
+  // can still reproduce a safe path for each one.
+  const _sampleList = document.getElementById('rp-sample-list');
+  document.getElementById('rp-sample-routes').addEventListener('click', () => {
+    if (_sampleList.style.display === 'block') { _sampleList.style.display = 'none'; return; }
+    const routes = Query.curatedRoutes || [];
+    _sampleList.innerHTML = routes.length
+      ? routes.map(r => `<button class="rp-sample-item" data-id="${escapeHtml(r.id)}">${escapeHtml(r.name)}${r.note ? `<span class="rp-sample-item-note">${escapeHtml(r.note)}</span>` : ''}</button>`).join('')
+      : '<div class="rp-empty">No sample routes for this region yet.</div>';
+    _sampleList.style.display = 'block';
+  });
+  _sampleList.addEventListener('click', (e) => {
+    const btn = e.target.closest('.rp-sample-item');
+    if (!btn) return;
+    const sample = (Query.curatedRoutes || []).find(r => r.id === btn.dataset.id);
+    if (!sample) return;
+    const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+    const existingNames = new Set(routes.map(r => r.name));
+    const name = _uniqueRouteName(sample.name, existingNames);
+    routes.push(_stampNew({ name, points: sample.points.map(p => ({ lat: p.lat, lon: p.lon })) }));
+    localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
+    _sampleList.style.display = 'none';
+    _buildRoutePickerPanel();
+    const msg = `Loaded sample route "${name}".`;
+    setStatus(msg);
+    TTS.sayImmediate(msg);
   });
 
   _gpxInput.addEventListener('change', () => {

@@ -1952,6 +1952,33 @@ body.wco-active #wco-titlebar { display: flex; }
   -webkit-tap-highlight-color: transparent;
 }
 .nf-new-route button:active { background: var(--mid-blue); }
+#rp-sample-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 0 10px 6px;
+}
+.rp-sample-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--dark-blue);
+  border: 1px solid var(--mid-blue);
+  border-radius: 6px;
+  padding: 6px 8px;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 600;
+  -webkit-tap-highlight-color: transparent;
+}
+.rp-sample-item:hover, .rp-sample-item:active { background: var(--mid-blue); }
+.rp-sample-item-note {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--text-dim);
+}
 #rp-sketch {
   border-color: var(--accent);
   color: var(--accent);

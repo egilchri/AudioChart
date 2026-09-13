@@ -1,0 +1,23 @@
+[
+  {
+    "id": "rockland-isle-au-haut",
+    "name": "Rockland to Isle au Haut",
+    "note": "Threads Merchant Row's ledges toward Isle au Haut. Verified live 2026-09-12 as a hand-built route after direct AutoRoute fell back to a straight line on this corridor — kept here as both a sample route and a regression check for the router.",
+    "points": [
+      { "lat": 44.102135, "lon": -69.08787 },
+      { "lat": 44.088209, "lon": -68.954702 },
+      { "lat": 44.070325, "lon": -68.919908 },
+      { "lat": 44.066849, "lon": -68.895975 },
+      { "lat": 44.046882, "lon": -68.86518 },
+      { "lat": 44.043986, "lon": -68.859837 },
+      { "lat": 44.043381, "lon": -68.858619 },
+      { "lat": 44.042383, "lon": -68.855103 },
+      { "lat": 44.042179, "lon": -68.853901 },
+      { "lat": 44.038726, "lon": -68.849709 },
+      { "lat": 44.036907, "lon": -68.845264 },
+      { "lat": 44.039119, "lon": -68.841042 },
+      { "lat": 44.041479, "lon": -68.839833 },
+      { "lat": 44.042873, "lon": -68.836984 }
+    ]
+  }
+]

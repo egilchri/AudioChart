@@ -90,6 +90,7 @@ export let channels   = null;  // FAIRWY polygon features from ENC data
 let channelGraph = null;       // LineString edges: fairway centerlines + recommended tracks
 let _channelIndex = null;      // built once from channelGraph — see _buildChannelIndex
 export let soundings  = null;  // SOUNDG depth sounding points (thinned, ≤30m)
+export let curatedRoutes = null; // hand-verified sample routes for this region — see [{id,name,points}]
 
 // ── Active region (Piece 2: parameterized regions) ────────────────────────
 // Land/channels/channel-graph/soundings/depth-zone-source were, until now,
@@ -123,6 +124,7 @@ export function setActiveRegion(id) {
   channels = null;
   channelGraph = null; _channelIndex = null;
   soundings = null;
+  curatedRoutes = null;
 }
 
 // Region-scoped path for a geometry file — the bundled default region keeps
@@ -415,6 +417,7 @@ export async function prepareOfflineRegionGeometry(regionId) {
   for (const [idbKey, filename] of [
     ['land', 'land.geojson'], ['channels', 'channels.geojson'],
     ['channel_graph', 'channel_graph.geojson'], ['soundings', 'soundings.geojson'],
+    ['curated_routes', 'curated_routes.json'],
   ]) {
     try {
       const r = await fetch(`./data/regions/${regionId}/${filename}`, { cache: 'no-store' });
@@ -472,6 +475,14 @@ export async function loadData(lat, lon) {
         console.log(`[AC] Soundings: ${soundings ? soundings.features.length : 'not found'}`);
       })
       .catch(() => {});  // optional file — no warning if absent
+  }
+  if (!curatedRoutes) {
+    _fetchRegionGeometry('curated_routes', 'curated_routes.json')
+      .then(list => {
+        curatedRoutes = Array.isArray(list) ? list : [];
+        console.log(`[AC] Curated routes: ${curatedRoutes.length}`);
+      })
+      .catch(() => { curatedRoutes = []; });  // optional file — no warning if absent
   }
 
   // Try server API first
@@ -592,9 +603,9 @@ export async function loadData(lat, lon) {
 }
 
 /**
- * Download a pre-built regional data file and merge into IndexedDB.
+ * Download a pre-built regional data file into IndexedDB, replacing
+ * whatever was previously stored for that region.
  * Used in standalone mode (no Mac server) — fetches from hosted static URL.
- * Downloads are additive, same deduplication logic as prepareOffline().
  */
 export async function prepareOfflineStatic(dataUrl) {
   const controller = new AbortController();
@@ -616,25 +627,25 @@ export async function prepareOfflineStatic(dataUrl) {
   // when dataUrl points at a regions/<id>.json bundle, else the bundled
   // default region's own unscoped keys, unchanged.
   const regionId = dataUrl.match(/regions\/([^/]+)\.json$/)?.[1];
-  const key = _featureIdentityKey;
   const pairs = [
     [_regionIdbKey('hazards', regionId),      data.hazards.features],
     [_regionIdbKey('named_places', regionId), data.places.features],
     [_regionIdbKey('navaids', regionId),      data.navaids.features],
     [_regionIdbKey('restrictions', regionId), (data.restrictions?.features) || []],
   ];
-  // Additive WITHIN one region's own downloads (e.g. re-downloading after a
-  // server rebuild, or overlapping incremental areas) — never ACROSS
-  // regions. Merging across regions was the v587 bug: two overlapping-
-  // vintage builds of the same geography merge as near-total duplicates
-  // (different digitizations rarely share exact coordinates), silently
-  // doubling hazard density and choking the auto-router's search.
+  // Replace, not merge — this bundle IS the region's complete point-data
+  // snapshot, not an incremental patch. Used to be additive (deduped by
+  // _featureIdentityKey) so re-downloading after a server rebuild, or
+  // overlapping incremental areas, wouldn't lose anything — but that
+  // dedup key doesn't survive a real rebuild (regenerated hazard/place
+  // data rarely lands on the exact same coordinates twice), so simply
+  // re-downloading the SAME region silently doubled its hazard density
+  // every time and choked the auto-router's search. A real user hit this
+  // live: 11,938 hazards became 21,069 after one re-download. Replacing
+  // is idempotent by construction — re-downloading a region now always
+  // ends up with exactly that bundle's data, never more.
   for (const [idbKey, newFeatures] of pairs) {
-    const existing = await idbGet(idbKey).catch(() => null);
-    const existingFeatures = existing?.features || [];
-    const seen = new Set(existingFeatures.map(key));
-    const added = newFeatures.filter(f => !seen.has(key(f)));
-    await idbPut(idbKey, { type: 'FeatureCollection', features: [...existingFeatures, ...added] });
+    await idbPut(idbKey, { type: 'FeatureCollection', features: newFeatures });
   }
   const stored = await Promise.all(pairs.map(([k]) => idbGet(k).then(fc => (fc?.features || []).length)));
   // Record the current data version so the freshness check passes after
