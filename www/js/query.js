@@ -1072,37 +1072,61 @@ export function findPlaceByName(query, _skipAutoMouth = false) {
     if (qr) { qualLat = qr.lat; qualLon = qr.lon; }
   }
 
-  let exact = [], best = null, bestScore = 0;
+  let exact = [];
+  const fuzzy = []; // { base, rank, f } — every non-exact candidate worth considering at all
 
   const search = (features) => {
     for (const f of (features || [])) {
-      const name = f.properties.name_lower || f.properties.name?.toLowerCase() || '';
+      // An unnamed feature (49 real unnamed navaid lights, confirmed live)
+      // can never be what a name query is asking for — critically, it also
+      // can't be safely scored at all: similarityScore treats an empty
+      // string as trivially "contained" in anything, so every unnamed
+      // feature falsely scored 0.7 against every query, polluting the
+      // candidate pool. Skip before scoring, not after.
+      const name = f.properties.name_lower || f.properties.name?.toLowerCase();
+      if (!name) continue;
       const base = similarityScore(primary, name);
+      if (base < 0.3) continue; // too weak a match to be worth ranking at all
       const rank = LABEL_RANK[f.properties.label] ?? 1;
-      if (base >= 0.99) {
-        exact.push(f);
-      } else {
-        // rank's weight here has to be big enough to actually move a
-        // decision, not just exist — confirmed live with a real bug:
-        // querying "hurricane" scored "Hurricane Sound" and "Hurricane
-        // Ledge" (both label:'sea area', LABEL_RANK 0) at 0.60 via plain
-        // containment ratio (9/15 chars) against "Hurricane Island"
-        // (label defaults to rank 1) at only 0.562 (9/17 chars) — a
-        // *shorter* incidental name (a sound, a ledge) beating the actual
-        // island purely because it's shorter, with the old 0.001 weight
-        // (a 0.001-vs-0 rank difference) never able to close a 0.038 gap.
-        // 0.1 means a full rank level reliably overturns any base-score gap
-        // under 0.1 per level, without letting rank override a genuinely
-        // decisive text match.
-        const score = base + rank * 0.1;
-        if (score > bestScore) { bestScore = score; best = f; }
-      }
+      if (base >= 0.99) exact.push(f);
+      else fuzzy.push({ base, rank, f });
     }
   };
 
   search(waypoints?.features);
   search(namedPlaces?.features);
   search(navaids?.features);
+
+  // Confirmed live with two real bugs, in opposite directions:
+  //   1. Querying "hurricane" scored "Hurricane Sound"/"Hurricane Ledge"
+  //      (label:'sea area', LABEL_RANK 0) at 0.88 via plain containment
+  //      ratio against "Hurricane Island (Spruce Head)" (label defaults to
+  //      rank 1) at only 0.79 — a *shorter* incidental name (a sound, a
+  //      ledge) beating the actual island purely because it's shorter.
+  //   2. Querying "carve our harbor" scored "Carvers Harbor" (the REAL
+  //      intended match, label:'sea area', rank 0) at 0.69, but a flat
+  //      rank*0.1 bonus let "Carvers Corner" (an unrelated place ~30nm
+  //      away, label:'town', rank 3) win at 0.5+0.3=0.8 despite its base
+  //      text score being 0.19 WORSE — a large enough rank gap could
+  //      overturn *any* size of text-match gap, not just close ones.
+  // Fix: rank only breaks ties among candidates whose OWN text score is
+  // already close to the best text score seen (RANK_TIEBREAK_MARGIN) —
+  // it can promote "Hurricane Island" over "Hurricane Sound" (a real
+  // ~0.09 gap) but can never let a merely-plausible fuzzy match beat a
+  // decisively better one just because of its chart label. The margin
+  // sits between those two real, confirmed gaps (0.09 and 0.19) with
+  // headroom on the case it needs to keep fixing.
+  const RANK_TIEBREAK_MARGIN = 0.12;
+  let best = null, bestScore = 0;
+  if (fuzzy.length) {
+    const maxBase = Math.max(...fuzzy.map((c) => c.base));
+    const inContention = fuzzy.filter((c) => c.base >= maxBase - RANK_TIEBREAK_MARGIN);
+    const winner = inContention.reduce((a, b) =>
+      (b.rank > a.rank || (b.rank === a.rank && b.base > a.base)) ? b : a
+    );
+    best = winner.f;
+    bestScore = winner.base + winner.rank * 0.1;
+  }
 
   let result = null;
   if (exact.length > 0) {
@@ -1177,7 +1201,10 @@ export function findAmbiguousCandidates(query) {
   const scored = [];
   const search = (features) => {
     for (const f of (features || [])) {
-      const name = f.properties.name_lower || f.properties.name?.toLowerCase() || '';
+      // See findPlaceByName's matching guard: an unnamed feature scores a
+      // false 0.7 via similarityScore's empty-string containment case.
+      const name = f.properties.name_lower || f.properties.name?.toLowerCase();
+      if (!name) continue;
       const base = similarityScore(primary, name);
       if (base < 0.3) continue; // too weak a match to be a real candidate
       const exact = base >= 0.99;
@@ -1434,6 +1461,14 @@ const _stripApostrophes = (s) => s.replace(/['’]/g, '');
 function similarityScore(a, b) {
   a = _stripApostrophes(a);
   b = _stripApostrophes(b);
+  // An empty string being trivially "contained" in anything (below) would
+  // otherwise score 0.7 against ANY query — confirmed live: 49 real unnamed
+  // navaid lights all falsely scored 0.7 this way, hijacking fuzzy queries
+  // (findPlaceByName's rank-based tie-break even preferred them over a
+  // real, correctly-scored place). Callers should already skip unnamed
+  // features before scoring, but guarding here too means this can never
+  // silently regress at a call site that forgets to.
+  if (!a || !b) return 0;
   if (a === b) return 1.0;
   if (b.includes(a)) return 0.7 + 0.3 * (a.length / b.length);
   if (a.includes(b)) return 0.7 + 0.3 * (b.length / a.length);
@@ -1610,7 +1645,9 @@ export function bearingToPlace(lat, lon, queryName, opts) {
   // Search OpenCPN waypoints first — user-created marks take priority
   if (waypoints && waypoints.features) {
     for (const f of waypoints.features) {
-      const name = f.properties.name_lower || '';
+      const name = f.properties.name_lower;
+      if (!name) continue; // see findPlaceByName's matching guard — an empty
+      // name falsely scores 0.7 via similarityScore's containment case
       const score = similarityScore(q, name);
       if (score > bestScore) { bestScore = score; best = f; bestIsWaypoint = true; }
     }
@@ -1619,7 +1656,8 @@ export function bearingToPlace(lat, lon, queryName, opts) {
   // Search chart-based named places
   if (namedPlaces && namedPlaces.features) {
     for (const f of namedPlaces.features) {
-      const name = f.properties.name_lower || '';
+      const name = f.properties.name_lower;
+      if (!name) continue;
       const score = similarityScore(q, name);
       if (score > bestScore) { bestScore = score; best = f; bestIsWaypoint = false; }
     }
@@ -1628,7 +1666,8 @@ export function bearingToPlace(lat, lon, queryName, opts) {
   // Search navaids (buoys, lights, beacons) — allows abbreviated names from position fixes
   if (navaids && navaids.features) {
     for (const f of navaids.features) {
-      const name = f.properties.name_lower || f.properties.name?.toLowerCase() || '';
+      const name = f.properties.name_lower || f.properties.name?.toLowerCase();
+      if (!name) continue;
       const score = similarityScore(q, name);
       if (score > bestScore) { bestScore = score; best = f; bestIsWaypoint = false; }
     }

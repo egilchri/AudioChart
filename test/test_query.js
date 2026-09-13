@@ -41,14 +41,6 @@ function assert(desc, cond, detail) {
   else { failed++; console.error(`  ✗ ${desc}${detail ? ': ' + detail : ''}`); }
 }
 
-// For a documented, non-gating known issue — printed but never counted
-// toward pass/fail, same convention test_channel_routing.js uses for its
-// EXPERIMENTAL/KNOWN-FAILING cases (run and shown, not silently dropped,
-// but not blocking CI on a gap that isn't this pass's job to fix).
-function noteKnownIssue(desc, detail) {
-  console.log(`  ⚠ KNOWN ISSUE — ${desc}${detail ? ': ' + detail : ''}`);
-}
-
 async function main() {
   const Query = await import('../www/js/query.js');
 
@@ -128,22 +120,17 @@ async function main() {
   const vinalResult = Query.findPlaceByName('vinalhaven');
   assert('Vinalhaven found', vinalResult && vinalResult.name === 'Vinalhaven');
 
-  // Known, non-gating: a fuzzy (non-exact) query with no exact-match fast
-  // path still runs into the LABEL_RANK issue described in this file's own
-  // header — "carve our harbor" scores against BOTH Carvers Harbor (sea
-  // area, rank 0) and Carvers Corner (town, rank 3, but a much worse text
-  // match) via the same base+rank*0.1 formula, and the rank gap still wins.
-  // The apostrophe/exact-match-tier fix shipped in v623 only protects exact
-  // matches — this fuzzy path is a real, separate, still-open bug.
+  // Regression for a real bug found live: a fuzzy (non-exact) query with no
+  // exact-match fast path used to run into the LABEL_RANK issue described
+  // in this file's own header — "carve our harbor" scored against BOTH
+  // Carvers Harbor (sea area, rank 0) and Carvers Corner (town, rank 3, but
+  // a much worse text match) via the old flat base+rank*0.1 formula, and
+  // the rank gap won regardless of how much better Carvers Harbor's actual
+  // text match was. Fixed by only letting rank break ties among candidates
+  // whose base text score is already close to the best one seen
+  // (RANK_TIEBREAK_MARGIN in query.js) — see findPlaceByName's own comment.
   const fuzzyResult = Query.findPlaceByName('carve our harbor');
-  if (fuzzyResult && fuzzyResult.name === 'Carvers Harbor') {
-    assert('Fuzzy "carve our harbor" finds Carvers Harbor', true);
-  } else {
-    noteKnownIssue(
-      'Fuzzy "carve our harbor" does not resolve to Carvers Harbor',
-      `got "${fuzzyResult?.name}" — LABEL_RANK lets a higher-ranked but unrelated place beat a much closer fuzzy text match`
-    );
-  }
+  assert('Fuzzy "carve our harbor" finds Carvers Harbor', fuzzyResult && fuzzyResult.name === 'Carvers Harbor', `got ${fuzzyResult?.name}`);
 
   // ── Hurricane Island: real name-collision regression ────────────────────
   // Maine has multiple real, unrelated islands named "Hurricane Island" —
