@@ -1180,20 +1180,42 @@ export function findAmbiguousCandidates(query) {
       const name = f.properties.name_lower || f.properties.name?.toLowerCase() || '';
       const base = similarityScore(primary, name);
       if (base < 0.3) continue; // too weak a match to be a real candidate
+      const exact = base >= 0.99;
       const rank = LABEL_RANK[f.properties.label] ?? 1;
-      const score = base >= 0.99 ? 1 : base + rank * 0.1;
+      const score = exact ? 1 : base + rank * 0.1;
       const [lon, lat] = f.geometry.coordinates;
       const dupe = scored.find(e => distanceNm(lon, lat, e.lon, e.lat) < AMBIGUOUS_DEDUPE_NM);
-      if (dupe) { if (score > dupe.score) { dupe.score = score; dupe.f = f; } continue; }
-      scored.push({ score, f, lon, lat });
+      if (dupe) {
+        // An exact match always wins the dupe slot over a fuzzy one at the
+        // same real-world spot, regardless of score.
+        if (exact && !dupe.exact) { dupe.score = score; dupe.f = f; dupe.exact = true; }
+        else if (exact === dupe.exact && score > dupe.score) { dupe.score = score; dupe.f = f; }
+        continue;
+      }
+      scored.push({ score, f, lon, lat, exact });
     }
   };
   search(waypoints?.features);
   search(namedPlaces?.features);
   search(navaids?.features);
   if (scored.length <= 1) return null;
-  const topScore = Math.max(...scored.map(s => s.score));
-  const tied = scored.filter(s => s.score >= topScore - AMBIGUOUS_SCORE_MARGIN);
+  // An exact name match is categorically stronger evidence of intent than
+  // any fuzzy one — same principle as similarityScore's containment-vs-
+  // Levenshtein tiers ("the query is literally this name" beats incidental
+  // character overlap, full stop). Confirmed live: querying the exact name
+  // "Carvers Harbor" (chart-labeled "sea area", LABEL_RANK 0) landed within
+  // AMBIGUOUS_SCORE_MARGIN of "Carvers Corner" (a fuzzy, unrelated match
+  // ~30nm away, but labeled "town", LABEL_RANK 3) purely because of that
+  // rank gap — treating an unambiguous exact match as if it were a genuine
+  // toss-up. Only compare ties within the same tier: exact-vs-exact (a real
+  // name collision, worth asking about — e.g. two real "Hurricane Island"s)
+  // or fuzzy-vs-fuzzy (a bare/partial query with no exact hit, e.g. bare
+  // "hurricane") — never a fuzzy candidate against an exact one.
+  const exactMatches = scored.filter(s => s.exact);
+  const pool = exactMatches.length > 0 ? exactMatches : scored;
+  if (pool.length <= 1) return null;
+  const topScore = Math.max(...pool.map(s => s.score));
+  const tied = pool.filter(s => s.score >= topScore - AMBIGUOUS_SCORE_MARGIN);
   if (tied.length <= 1) return null;
   // Enrich each candidate with a "near X" qualifier (same nearest-landmark
   // lookup whereAmI uses) so the picker can show something like "Bear Island
@@ -1396,7 +1418,22 @@ function levenshtein(a, b) {
 // is literally part of this name" is categorically stronger evidence of
 // intent than incidental character overlap — same relative ordering within
 // each tier as before, just no more crossover between them.
+// Strips straight and curly apostrophes before comparing — found live:
+// "Carver's Harbor" (as written in the route name/UI) against the chart
+// data's "Carvers Harbor" (no apostrophe) missed the a===b exact-match
+// fast path over one punctuation character, fell through to the
+// rank-weighted fuzzy path below, and lost to "Carvers Corner" (an
+// unrelated place ~30nm away near Lincolnville) purely because Carvers
+// Harbor is chart-labeled "sea area" (LABEL_RANK 0) while Carvers Corner
+// is labeled "town" (LABEL_RANK 3) — the AutoRoute then had nowhere near
+// Carvers Corner to route to by water and fell back to a straight line
+// across land. A possessive apostrophe should never be the difference
+// between an exact match and a fuzzy one.
+const _stripApostrophes = (s) => s.replace(/['’]/g, '');
+
 function similarityScore(a, b) {
+  a = _stripApostrophes(a);
+  b = _stripApostrophes(b);
   if (a === b) return 1.0;
   if (b.includes(a)) return 0.7 + 0.3 * (a.length / b.length);
   if (a.includes(b)) return 0.7 + 0.3 * (b.length / a.length);
