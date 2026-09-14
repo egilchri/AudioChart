@@ -224,26 +224,32 @@ async function main() {
 
   // ── New regression cases (2026-09 reliability overhaul) ────────────────────
 
-  // Case 14 — Rockland -> Camden: found live to time out (~5.9s) and fall
-  // back to a straight line crossing land near Owls Head/Beauchamp Point.
-  // A genuine, currently-UNFIXED router gap, real users hit it in
-  // production — so unlike cases 1-13 above, this one deliberately loads
-  // the penobscot-bay REGION dataset (www/data/regions/penobscot-bay/),
-  // not the bundled default. Verified live this session: the two datasets
-  // have materially diverged (770 vs 2386 land rings, 241 vs 5 channel-
-  // graph edges) — the bundled default is a stale snapshot that predates
-  // this region's buoy-chain/Voronoi-loop fixes, and testing this bug
-  // against it gives a false PASS (confirmed: it does, at 253ms). A real,
-  // separate finding from the extraction itself — the historical cases 1-13
-  // above are mostly outside Penobscot Bay anyway (Portsmouth, Mount
-  // Desert Island) and were never written against the region datasets, so
-  // this switches ONLY for this case rather than relitigating all 13.
+  // Case 14 — Rockland -> Camden (~6.45nm): found live to fall back to a
+  // straight line crossing land near Owls Head/Beauchamp Point (the
+  // original note claimed a ~5.9s timeout; re-diagnosed this session it
+  // actually failed fast — 309ms, A* genuinely exhausting its search).
+  //
+  // Root cause, confirmed by isolating obstacle sources in a scratch
+  // router.js copy: land avoidance alone finds a clean path (5 pts, 94ms);
+  // adding back point hazards still works (7 pts, 177ms); adding back
+  // tide-dependent drying/shallow depth zones is what breaks it. The real
+  // bug: _addRingNodes' coastal-standoff node placement treated a tidal
+  // obstacle like a small point hazard (4 route-relative extreme vertices,
+  // a 0.2nm-max offset ladder) — real drying flats along this shoreline
+  // needed up to 1nm of standoff and their full vertex set, the same
+  // treatment a blocking land ring already gets. Fixed by tagging
+  // extraRings entries with their source (tidal vs. point-hazard) and
+  // giving tidal ones land-style treatment (see TIDAL_STANDOFF_LADDER and
+  // _addRingNodes' isTidal branch in router.js). Now genuinely passes
+  // against BOTH bundled-default and the penobscot-bay region dataset —
+  // this deliberately still loads the region dataset (kept from this
+  // case's original setup) rather than because bundled-default needs it.
   Query.setActiveRegion('penobscot-bay');
   await Query.loadData(44.103, -69.088);
   await waitForRegionDataReady(Query);
   await new Promise((r) => setTimeout(r, 500)); // channelGraph resolves slightly after `channels`
-  await runCase(Query, Router, '[14] EXPERIMENTAL/KNOWN-FAILING: Rockland -> Camden (times out, falls back across land)',
-    { lat: 44.103, lon: -69.088 }, { lat: 44.20890463336856, lon: -69.06228505969469 });
+  gate(await runCase(Query, Router, '[14] Rockland -> Camden (tidal-flat standoff)',
+    { lat: 44.103, lon: -69.088 }, { lat: 44.20890463336856, lon: -69.06228505969469 }));
 
   // Case 15 — Rockland to Isle au Haut (Trial Point/Moores Harbor area,
   // ~19nm), found live to fall back to a straight line crossing land. The

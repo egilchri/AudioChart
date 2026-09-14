@@ -50,6 +50,17 @@ export async function autoRouteProg(
   // standoff) and keep the original, unchanged ladder.
   const COASTAL_STANDOFF_LADDER = [0.5, 0.25, 0.15];
   const HAZARD_OFFSET_LADDER = [SAFETY_NM, SAFETY_NM * 2, SAFETY_NM * 4];
+  // A charted drying/shallow zone can be much wider than a small point
+  // hazard's ~100yd safety circle — confirmed live (Rockland -> Camden):
+  // real tidal flats along the Rockport/Glen Cove shoreline needed up to
+  // 1nm of standoff before a candidate cleared them, well past
+  // HAZARD_OFFSET_LADDER's 0.2nm ceiling. Deliberately NOT reusing
+  // COASTAL_STANDOFF_LADDER's own checkClearance=true path — that gate
+  // measures distance to LAND (Query.distanceToLandNm), the wrong
+  // question for a tidal-zone candidate; _isOnLandLocal already rejects
+  // anything still inside the flat (or any other extra ring, or on dry
+  // land), which is the actual test that matters here.
+  const TIDAL_STANDOFF_LADDER = [1.0, 0.5, 0.2, 0.1, 0.05];
   // One honest wall-clock budget for the WHOLE call (setup + A*), not just the
   // search loop — replaces the old unbounded-setup + 8s-A*-only + up-to-2x-via-
   // escalation pattern, which could legitimately run 16s+ for one leg with no
@@ -216,7 +227,7 @@ export async function autoRouteProg(
   if (!Query.getLandPolygons()) console.warn('[autoRoute] land.geojson not loaded — routing without land avoidance');
 
   const extraRings = [];  // tidal obstacle + point-hazard circles for this call
-  function _processExtraRing(outer) {
+  function _processExtraRing(outer, isTidal) {
     let rMinX = Infinity, rMaxX = -Infinity, rMinY = Infinity, rMaxY = -Infinity;
     let cx = 0, cy = 0;
     for (const [x, y] of outer) {
@@ -226,13 +237,13 @@ export async function autoRouteProg(
     }
     if (rMaxX < bMinLon || rMinX > bMaxLon || rMaxY < bMinLat || rMinY > bMaxLat) return;
     cx /= outer.length; cy /= outer.length;
-    extraRings.push({ ring: outer, rMinX, rMaxX, rMinY, rMaxY, cx, cy });
+    extraRings.push({ ring: outer, rMinX, rMaxX, rMinY, rMaxY, cx, cy, isTidal });
   }
 
   for (const feat of tidalObs) {
     const { type, coordinates } = feat.geometry;
     const polys = type === 'Polygon' ? [coordinates] : coordinates;
-    for (const rings of polys) _processExtraRing(rings[0]);
+    for (const rings of polys) _processExtraRing(rings[0], true);
   }
 
   // Point hazards (underwater rocks, obstructions, wrecks) are stored as Point
@@ -263,7 +274,7 @@ export async function autoRouteProg(
     if (!HAZARD_LABELS.has(label)) continue;
     const [lon, lat] = f.geometry.coordinates;
     if (lon < bMinLon || lon > bMaxLon || lat < bMinLat || lat > bMaxLat) continue;
-    _processExtraRing(_hazardCircleRing(lon, lat, HAZARD_SAFETY_NM));
+    _processExtraRing(_hazardCircleRing(lon, lat, HAZARD_SAFETY_NM), false);
   }
 
   // Land rings near the corridor, for graph node generation — cached
@@ -426,17 +437,34 @@ export async function autoRouteProg(
   // several stack up in the same corridor.
   const MAX_EXTRA_BLOCKING_VERTS = 8;
   function _addRingNodes(entry, isBlocking, offsetLadder, checkClearance, isExtra) {
-    const { ring, cx, cy, convex } = entry;
+    const { ring, cx, cy, convex, isTidal } = entry;
     const n = ring.length - 1; // -1: skip closing duplicate vertex
+    // A tidal/depth-zone drying obstacle is architecturally more like a
+    // coastline than a small charted rock — it can be large and irregular,
+    // and needs a real standoff distance, not the tight point-hazard
+    // ladder. Confirmed live: Rockland -> Camden's real drying flats
+    // needed BOTH this ladder and full-vertex treatment below (not just 4
+    // route-relative extremes) to find a path around them at all — the
+    // tight HAZARD_OFFSET_LADDER (max 0.2nm) left every candidate near a
+    // wide flat with no viable standoff distance, so _addRingNodes
+    // silently placed zero usable nodes there while still reporting the
+    // ring as "handled," starving the search of any real edge through
+    // that stretch even though land avoidance alone would have worked.
+    if (isExtra && isTidal) { offsetLadder = TIDAL_STANDOFF_LADDER; }
     let indices = [];
     if (isExtra && !isBlocking) {
-      // A non-blocking hazard/tidal circle is tiny (~0.05nm radius) and only
-      // ever needs "pass on this side"/"pass on that side"-style waypoints —
-      // every one of its ~10 vertices being a candidate (today's behavior,
-      // since these rings have no convex[] array) is what let a 9nm open-
-      // water route accumulate 4205 graph nodes from 0 land obstacles. Keep
-      // only the ring's 4 route-relative extremes instead.
-      indices = _pickExtremeVerts(ring, n, cx, cy);
+      if (isTidal) {
+        indices = ring.slice(0, n).map((_, k) => k); // full vertex set, same as a blocking land ring
+      } else {
+        // A non-blocking point-hazard circle is tiny (~0.05nm radius) and
+        // only ever needs "pass on this side"/"pass on that side"-style
+        // waypoints — every one of its ~10 vertices being a candidate
+        // (today's behavior, since these rings have no convex[] array) is
+        // what let a 9nm open-water route accumulate 4205 graph nodes from
+        // 0 land obstacles. Keep only the ring's 4 route-relative extremes
+        // instead.
+        indices = _pickExtremeVerts(ring, n, cx, cy);
+      }
     } else {
       for (let k = 0; k < n; k++) {
         // extraRings (tidal/hazard circles) don't carry a precomputed convex
@@ -452,7 +480,10 @@ export async function autoRouteProg(
         if (_ptSegDistNm(vx, vy, start.lon, start.lat, end.lon, end.lat) <= CORRIDOR_NM) indices.push(k);
       }
     }
-    const blockingVertCap = isExtra ? MAX_EXTRA_BLOCKING_VERTS : MAX_BLOCKING_VERTS;
+    // A directly-blocking tidal zone gets the same generous land-style cap
+    // as a blocking land ring (it's being treated like one now) — only a
+    // point-hazard circle (small, synthetic, ~10-gon) keeps the tight cap.
+    const blockingVertCap = (isExtra && !isTidal) ? MAX_EXTRA_BLOCKING_VERTS : MAX_BLOCKING_VERTS;
     if (isBlocking && indices.length > blockingVertCap) {
       const scored = indices.map(k => {
         const [vx, vy] = ring[k];
