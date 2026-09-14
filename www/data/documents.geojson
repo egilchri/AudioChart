@@ -2071,9 +2071,10 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.6807, 44.1481] },
+      "geometry": { "type": "Point", "coordinates": [-68.679989, 44.147672] },
       "properties": {
         "title": "Billings Diesel & Marine — Moorings & Dockage",
+        "positionNote": "Position moved to the water immediately off Moose Island (previously the island label point, on land) — description gives no specific side.",
         "category": "anchorages",
         "place": "Moose Island, Deer Isle Thorofare (half-mile west of Stonington)",
         "anchorage": {
@@ -2203,9 +2204,10 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-69.0692, 44.1867] },
+      "geometry": { "type": "Point", "coordinates": [-69.069391, 44.170738] },
       "properties": {
         "title": "Rockport Harbor — Anchorage & Moorings",
+        "positionNote": "Position moved to the harbor's own charted water position (previously a shoreside point) — the description says room to anchor is mainly in the outer harbor.",
         "category": "anchorages",
         "place": "Rockport Harbor, Rockport, ME",
         "anchorage": {
@@ -2252,9 +2254,10 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.9453, 44.2726] },
+      "geometry": { "type": "Point", "coordinates": [-68.942974, 44.2726] },
       "properties": {
         "title": "Warren Island State Park — Anchorage & Moorings",
+        "positionNote": "Position moved to the island's eastern shore, adjacent to the pier, per the description and the park's own materials — previously the island's generic centroid (on land).",
         "category": "anchorages",
         "place": "Warren Island State Park, Islesboro, ME",
         "anchorage": {
@@ -2267,9 +2270,10 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-69.0064, 44.4254] },
+      "geometry": { "type": "Point", "coordinates": [-69.003402, 44.427952] },
       "properties": {
         "title": "Belfast Harbor — Anchorage & Moorings",
+        "positionNote": "Position moved off the shore into the harbor — description gives no specific side beyond anchoring \"beyond the mooring field.\"",
         "category": "anchorages",
         "place": "Belfast Harbor, Belfast, ME",
         "anchorage": {
@@ -2284,9 +2288,10 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.7995, 44.3876] },
+      "geometry": { "type": "Point", "coordinates": [-68.798002, 44.386324] },
       "properties": {
         "title": "Castine Town Dock — Moorings (Anchoring Not Recommended)",
+        "positionNote": "Position moved into the water off the town waterfront (previously the town center point, on land).",
         "category": "anchorages",
         "place": "Castine Harbor, Castine, ME",
         "anchorage": {
@@ -2383,9 +2388,10 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.795, 44.098] },
+      "geometry": { "type": "Point", "coordinates": [-68.806877, 44.089604] },
       "properties": {
         "title": "Winter Harbor (Vinalhaven) — Anchorage",
+        "positionNote": "Position moved to the midpoint between Davids Island and Hay Island, per the description's explicit entry directions.",
         "category": "anchorages",
         "place": "Winter Harbor, Vinalhaven, ME",
         "anchorage": {
@@ -2485,9 +2491,10 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.288, 44.2967] },
+      "geometry": { "type": "Point", "coordinates": [-68.28074, 44.296585] },
       "properties": {
         "title": "Northeast Harbor — Anchorage & Moorings",
+        "positionNote": "Position moved east of the harbor entrance, per the description (there is no room to anchor inside the harbor itself).",
         "category": "anchorages",
         "place": "Northeast Harbor, Mount Desert Island, ME",
         "anchorage": {
@@ -2502,9 +2509,10 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.312, 44.276] },
+      "geometry": { "type": "Point", "coordinates": [-68.30457, 44.278033] },
       "properties": {
         "title": "Southwest Harbor — Anchorage & Moorings",
+        "positionNote": "Position moved to open water between Greening Island and the southern shore, per the description.",
         "category": "anchorages",
         "place": "Southwest Harbor, Mount Desert Island, ME",
         "anchorage": {
@@ -2537,9 +2545,10 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.20422, 44.3918] },
+      "geometry": { "type": "Point", "coordinates": [-68.182484, 44.385357] },
       "properties": {
         "title": "Bar Harbor — Anchorage & Moorings",
+        "positionNote": "Position moved south of Bald Porcupine Island toward the town landing, matching the description's \"south of the fairway\" anchorage location.",
         "category": "anchorages",
         "place": "Bar Harbor, Bar Harbor, ME",
         "anchorage": {
@@ -2589,9 +2598,10 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.24028, 44.26167] },
+      "geometry": { "type": "Point", "coordinates": [-68.229198, 44.255672] },
       "properties": {
         "title": "Islesford (Little Cranberry Island) — Anchorage & Moorings",
+        "positionNote": "Position moved into Cranberry Harbor off the town dock — the original point was an explicitly-noted proxy (a nearby building), not the harbor itself.",
         "category": "anchorages",
         "place": "Islesford, Little Cranberry Island, Cranberry Isles, ME",
         "anchorage": {
@@ -2626,9 +2636,10 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.579627, 44.262895] },
+      "geometry": { "type": "Point", "coordinates": [-68.579892, 44.262274] },
       "properties": {
         "title": "Center Harbor — Anchorage & Moorings",
+        "positionNote": "Position moved just south of Brooklin Boat Yard, toward the harbor mouth, matching the description's \"south of a line between the yacht yard and the entrance daybeacon.\"",
         "category": "anchorages",
         "place": "Center Harbor, Brooklin, ME",
         "anchorage": {
@@ -2675,9 +2686,10 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.564371, 44.409449] },
+      "geometry": { "type": "Point", "coordinates": [-68.564452, 44.409121] },
       "properties": {
         "title": "Blue Hill Harbor — Anchorage & Moorings",
+        "positionNote": "Position nudged into the water immediately off the Kollegewidgwok Yacht Club mooring field.",
         "category": "anchorages",
         "place": "Blue Hill Harbor, Blue Hill, ME",
         "anchorage": {
@@ -2694,9 +2706,10 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.3192, 44.3355] },
+      "geometry": { "type": "Point", "coordinates": [-68.318302, 44.336266] },
       "properties": {
         "title": "Hall Quarry",
+        "positionNote": "Position moved to the water on Somes Sound's west shore at the boatyard, per the description.",
         "category": "anchorages",
         "place": "West shore of Somes Sound, Mount Desert, Maine — about 1.7 NM north of Valley Cove",
         "anchorage": {
@@ -2711,9 +2724,10 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.3064, 44.3564] },
+      "geometry": { "type": "Point", "coordinates": [-68.307207, 44.356067] },
       "properties": {
         "title": "Henry R. Abel & Co. Yacht Yard / Abel's Lobster",
+        "positionNote": "Position moved to the water on Somes Sound's east shore at the head of the sound, per the description.",
         "category": "anchorages",
         "place": "Eastern shore of Somes Sound near the head, Mount Desert, Maine, north of Hall Quarry",
         "anchorage": {
@@ -2830,9 +2844,10 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.405, 44.34] },
+      "geometry": { "type": "Point", "coordinates": [-68.410928, 44.336861] },
       "properties": {
         "title": "Pretty Marsh",
+        "positionNote": "Position moved to the harbor's own charted water position (previously just outside it, on land).",
         "category": "anchorages",
         "place": "Mount Desert Island, ME (quiet/western side, Acadia National Park)",
         "anchorage": {
@@ -2861,9 +2876,10 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.87, 44.085] },
+      "geometry": { "type": "Point", "coordinates": [-68.883912, 44.084999] },
       "properties": {
         "title": "Long Cove (Vinalhaven) — Anchorage",
+        "positionNote": "Position moved just outside the inner harbor toward Hurricane Sound, per the description's recommendation (the inner harbor itself is crowded with private moorings).",
         "category": "anchorages",
         "place": "Long Cove, Vinalhaven, ME",
         "anchorage": {
@@ -2945,9 +2961,10 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.73, 44.27] },
+      "geometry": { "type": "Point", "coordinates": [-68.73, 44.270333] },
       "properties": {
         "title": "Torrey Islands (Eggemoggin Reach)",
+        "positionNote": "Position nudged into water near the Torrey Islands — the source itself flags this position as approximate (its embedded map link did not match the described location), so this is a best-effort correction, not a verified fix.",
         "category": "anchorages",
         "place": "Behind the Torrey Islands, Eggemoggin Reach, near Brooklin, ME (coordinates approximate — the page's embedded map link did not match this location)",
         "anchorage": {
@@ -2977,9 +2994,10 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.798, 44.362] },
+      "geometry": { "type": "Point", "coordinates": [-68.803153, 44.367553] },
       "properties": {
         "title": "Holbrook (Tom Cod Cove / Holbrook Island Sanctuary)",
+        "positionNote": "Position moved north of Ram Island, matching the description's anchoring note.",
         "category": "anchorages",
         "place": "Tom Cod Cove, between Holbrook Island and the mainland, adjacent to Smith Cove and Castine, Brooksville, ME",
         "anchorage": {
@@ -2994,9 +3012,10 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.917, 44.245] },
+      "geometry": { "type": "Point", "coordinates": [-68.941217, 44.261186] },
       "properties": {
         "title": "Cradle Cove (Islesboro)",
+        "positionNote": "Position moved to Cradle Cove's own charted water position (previously an approximate guess, per the original source note).",
         "category": "anchorages",
         "place": "Cradle Cove, near Birch Point, Islesboro, ME, just north of Gilkey Harbor/Dark Harbor (coordinates approximate)",
         "anchorage": {

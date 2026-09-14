@@ -302,6 +302,57 @@ async function main() {
   gate(await runCase(Query, Router, '[16] Rockland -> Carvers Harbor/Vinalhaven (many simultaneous tidal flats)',
     { lat: 44.103, lon: -69.088 }, { lat: 44.045519, lon: -68.835208 }));
 
+  // Case 17 — Rockland -> WoodenBoat School / Center Harbor, Brooklin
+  // (~24.5nm, found live via a user-reported route). EXPERIMENTAL/KNOWN-
+  // FAILING, not gated: this is the same "base-router island-dense-
+  // archipelago limitation" long flagged as an open gap (see
+  // project_long_range_routing notes) — a fresh, concrete repro of it, not
+  // a new distinct bug. Diagnosed live: LONG_RANGE_NM=20 triggers
+  // _longRangeRoute's depart/transit/arrive decomposition (correct — this
+  // is a real long passage); depart and the too-shallow-endpoint snap both
+  // resolve fine. _transitLeg's coarse march finds the direct line blocked
+  // for nearly its whole length (the rhumb line from Rockland to Brooklin
+  // runs through Islesboro and the Eggemoggin Reach / Deer Isle
+  // archipelago, not a single local obstacle) — its bracket-just-the-
+  // blocked-stretch strategy degrades to bracketing nearly the entire
+  // transit (clamped to LONG_RANGE_NM-1=19nm), producing a single huge
+  // local autoRouteProg call: 1671 nodes, 282 land rings, 2713 extra
+  // (tidal/hazard) rings in that bbox. First attempt's A* genuinely
+  // exhausts its open list (1531 expansions, "no path found", not a
+  // timeout) rather than finding a route; a retry then hits DEADLINE_MS
+  // instead (340 expansions). Root issue: _transitLeg's "bracket the
+  // blocked stretch" assumption is a local patch, not a substitute for
+  // real route-finding through a large island-dense area where the safe
+  // path must go a long way around a landmass rather than punch through
+  // near the direct line.
+  //
+  // A first fix attempt was tried and REVERTED after real testing showed
+  // it doesn't work, not just left as a theoretical idea: when a bracket
+  // fails, look up the nearest named "sea area" reading as a real
+  // waterway (Query.isWaterFeatureName) to the bracket's own midpoint,
+  // split the bracket there, and retry each half. Confirmed live this
+  // does not fix this case, for two compounding reasons: (1) many
+  // genuinely useful named channels have their own label coordinate
+  // sitting on LAND in this dataset (e.g. "Eggemoggin Reach"'s point
+  // tests as on-land, excluding it outright without an extra
+  // findWaterNear snap); (2) even after snapping, ranking candidates by
+  // raw distance to the bracket's geometric midpoint surfaces dozens of
+  // small, irrelevant coves near Vinalhaven/North Haven (south of the
+  // direct line) before any candidate actually useful for going AROUND
+  // Islesboro to the north (Dark Harbor, Bracketts Channel, Gilkey
+  // Harbor were all 15-40 candidates deep by that ranking) — trying
+  // enough candidates to reach them is expensive and still not
+  // principled. "Nearest named water feature to the midpoint" is not a
+  // reliable way to find a real detour-around-a-landmass via-point.
+  // Real fix needs an actual coarse/hierarchical router over a graph of
+  // known channels/harbors, not a single nearest-candidate heuristic —
+  // tracked here as a permanent repro pending that larger design.
+  Query.setActiveRegion('penobscot-bay');
+  await Query.loadData(44.103, -69.088);
+  await waitForRegionDataReady(Query);
+  await runCase(Query, Router, '[17] EXPERIMENTAL/KNOWN-FAILING: Rockland -> WoodenBoat School/Center Harbor (long-range archipelago)',
+    { lat: 44.103, lon: -69.088 }, { lat: 44.24462, lon: -68.555493 });
+
   console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll cases passed.');
   console.log(
     '\nNOT PORTED (relied on injecting a synthetic obstacle ring the real\n' +

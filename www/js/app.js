@@ -11035,6 +11035,16 @@ async function init() {
     document.getElementById('map-container').style.display = 'block';
     _ensureMap();
     _map.invalidateSize();
+    // _syncLeftRailStack() is otherwise only wired to reactive events
+    // (follow-progress toggle, Virtual Journey start, window resize) — a
+    // plain cold load never called it, so every fresh page view rendered
+    // the left instrument column (#zoom-slider-wrap/#pan-controls-wrap) at
+    // their hardcoded CSS top: values instead of the measured stack this
+    // function computes. Reported live as the pan controls covering the
+    // zoom slider — the same class of bug this function was written to
+    // fix (see its own comment), just never applied at the one moment
+    // that actually matters for most users: first paint.
+    _syncLeftRailStack();
     _initDraggableGroups();
     _recoverAnchorWatch();
     _recoverEditMode();
