@@ -1960,6 +1960,18 @@ function _destPoint(lat, lon, bearingDeg, distNm) {
 // — always worth fixing) or 'soft' (shallow-area/above-water crossing —
 // draft/tide dependent, not automatically unsafe) so callers can tell them
 // apart without re-deriving the distinction from label strings.
+
+// depth_label is baked at chart-preprocessing time as e.g. "0.0-2.0m"
+// (S-57 DRVAL1/DRVAL2, always meters) — convert to feet here so shallow-
+// area callouts match every other depth readout in the app (soundings,
+// DEPTH_HERE), rather than surfacing the raw chart-source unit.
+function _depthRangeLabelFt(depthLabel) {
+  const m = /^(-?[\d.]+)-(-?[\d.]+)m$/.exec(depthLabel || '');
+  if (!m) return depthLabel;
+  const toFt = (v) => (parseFloat(v) * 3.28084).toFixed(1);
+  return `${toFt(m[1])}-${toFt(m[2])} ft`;
+}
+
 function _findRouteHazards(points) {
   const pts   = points;
   const feats = Query.hazards?.features || [];
@@ -2033,7 +2045,7 @@ function _findRouteHazards(points) {
         if (!hit) continue;
         seen.add(key);
         dangerSegments.add(i);
-        const polyLabel = minDepth < 0 ? 'above-water obstacle' : `shallow area (${props.depth_label})`;
+        const polyLabel = minDepth < 0 ? 'above-water obstacle' : `shallow area (${_depthRangeLabelFt(props.depth_label)})`;
         found.push({
           lat: hit.lat, lon: hit.lon,
           projLat: hit.lat, projLon: hit.lon,
