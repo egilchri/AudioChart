@@ -1715,12 +1715,28 @@ function _renderDocumentMarkers() {
     // bodyHtml, so it stays visually separate from the self-contained
     // offline write-up above it.
     const lookupHtml = p.category === 'island-info' ? _wireIslandLookup(m, lat, lon) : '';
+    // "Navigate to here" — wherever this marker actually sits (the same
+    // anchor position shown on the map), not a re-derived location. Only
+    // for anchorages: this is the one document category that names an
+    // actual place to put the boat, not background reading.
+    const navHtml = p.category === 'anchorages'
+      ? `<button class="doc-popup-navigate" style="margin-top:6px;padding:4px 8px;font-size:0.85em;cursor:pointer">&#9973; Navigate to here</button>`
+      : '';
     const html = `<div style="font-size:13px;line-height:1.5;max-width:260px">
       <b>${p.title}</b><br><span style="color:#666">${p.place}</span>
       <div style="margin-top:6px">${bodyHtml}</div>
       <div style="margin-top:4px;font-style:italic;font-size:0.78em;color:#888">${p.source}</div>
       ${lookupHtml}
+      ${navHtml}
     </div>`;
+    if (p.category === 'anchorages') {
+      m.on('popupopen', (e) => {
+        e.popup.getElement().querySelector('.doc-popup-navigate').addEventListener('click', () => {
+          _map.closePopup();
+          _autoRouteFromBoatToHereFn?.(lat, lon);
+        });
+      });
+    }
     // maxHeight is a built-in Leaflet Popup option — it caps .leaflet-popup-content's
     // height and adds overflow-y:auto automatically, so a long entry (several
     // paragraphs) scrolls inside the popup instead of running off the bottom of
