@@ -283,12 +283,22 @@ async function main() {
   // has 19 SEPARATE blocking tidal-zone polygons on the direct line at
   // once (real charted drying flats are fragmented, unlike a landmass),
   // and reusing land's MAX_BLOCKING_VERTS=300 per-ring cap for all 19 of
-  // them alone pushed setup to 2893 nodes. Fixed with a tidal-specific
-  // MAX_TIDAL_VERTS=40 cap (blocking or not) and an overall node budget
-  // for the non-blocking tidal/hazard loop (MAX_EXTRA_NON_BLOCKING_NODES).
-  // Also sped up every other tidal-heavy case in this suite as a side
-  // effect (cases 10/11/14/15 all got noticeably faster, not just this
-  // one) — confirmed via 3 repeated runs each, not a one-off.
+  // them alone pushed setup to 2893 nodes. Fixed (v628) with a tidal-
+  // specific MAX_TIDAL_VERTS cap (blocking or not) and an overall node
+  // budget for the non-blocking tidal/hazard loop
+  // (MAX_EXTRA_NON_BLOCKING_NODES) — also sped up every other tidal-heavy
+  // case in this suite as a side effect.
+  //
+  // v628's MAX_TIDAL_VERTS=40 still wasn't enough real margin: the SAME
+  // user hit the SAME deadline again on their own real device — their
+  // browser console showed 2151 nodes cut off at 5006ms after only 1120
+  // of the ~1174 expansions a full search needs there (extrapolated
+  // real completion ~5.2s), vs. 2.4s for the identical route/data on this
+  // dev machine — a genuine ~2.2x device-speed gap, not a logic bug or
+  // stale cache (confirmed via the app's own version badge). Lowered to
+  // MAX_TIDAL_VERTS=15 (v629) so this dev machine finishes with real
+  // headroom (~1.6-1.7s, i.e. ~3.5-3.7s even at that same 2.2x gap)
+  // instead of tuning to just barely fit whichever machine tested it last.
   gate(await runCase(Query, Router, '[16] Rockland -> Carvers Harbor/Vinalhaven (many simultaneous tidal flats)',
     { lat: 44.103, lon: -69.088 }, { lat: 44.045519, lon: -68.835208 }));
 

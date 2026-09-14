@@ -458,7 +458,17 @@ export async function autoRouteProg(
   // shallow-area shapes" pattern the comment above already documented for
   // Blue Hill Bay), and 19 x up to 300 alone pushed the whole call past
   // DEADLINE_MS. This sits between the two existing caps.
-  const MAX_TIDAL_VERTS = 40;
+  //
+  // 40 (the v628 value) still wasn't enough real margin — confirmed via a
+  // real user's own browser console on this exact route: 2151 nodes, cut
+  // off at 5006ms after only 1120 of the ~1174 expansions a full search
+  // needed (extrapolated: ~5.2s to actually finish there), while the
+  // identical route/data completes in 2.4s on this dev machine — a real
+  // ~2.2x device-speed gap, not a logic bug. Lowered until this dev
+  // machine finishes with real headroom (under ~2s, leaving margin for a
+  // meaningfully slower device) rather than just barely inside the
+  // deadline on whatever machine last tested it.
+  const MAX_TIDAL_VERTS = 15;
   function _addRingNodes(entry, isBlocking, offsetLadder, checkClearance, isExtra) {
     const { ring, cx, cy, convex, isTidal } = entry;
     const n = ring.length - 1; // -1: skip closing duplicate vertex
