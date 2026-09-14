@@ -184,25 +184,30 @@ async function main() {
   // buoy-chain channel-graph source this leg ran in a straight line,
   // directly over North Haven, ignoring the marked channel entirely.
   //
-  // Reclassified EXPERIMENTAL/non-blocking during the 2026-09 router
-  // extraction: verified live that the CURRENT DEPLOYED (pre-extraction)
-  // _autoRouteProg, run against this exact same bundled-default dataset in
-  // a fresh browser, ALSO falls back here (2 pts, 2203ms) — the buoy-chain
-  // channel-graph fix this case certifies apparently lives in the
-  // penobscot-bay REGION data (www/data/regions/penobscot-bay/
-  // channel_graph.geojson), not the bundled-default copy this suite reads
-  // (www/data/channel_graph.geojson) — a real data-parity gap between the
-  // two, not something this extraction introduced or regressed.
-  await runCase(Query, Router, '[10] EXPERIMENTAL/KNOWN-FAILING: Fox Islands Thorofare (buoy-chain channel)',
-    { lat: 44.122212, lon: -68.860267 }, { lat: 44.145, lon: -68.79 });
+  // Was reclassified EXPERIMENTAL/non-blocking during the 2026-09 router
+  // extraction, believed to be a data-parity gap between bundled-default
+  // and the penobscot-bay region's channel_graph.geojson. That diagnosis
+  // was WRONG — re-diagnosed during the Isle au Haut routing-gap pass
+  // (2026-09): the real cause was this case's own start point sitting
+  // inside a charted drying flat at the router's default draft/tide
+  // assumptions (confirmed live: moved 1.6nm to reach navigable water).
+  // findClearOffshorePoint/autoRouteProg now snap a start/end that lands
+  // on charted-too-shallow water to nearby navigable water automatically
+  // (see Query.snapToNavigableWater) — this case now genuinely passes
+  // against the SAME bundled-default dataset that used to fail it. Gated
+  // for real now, not EXPERIMENTAL.
+  gate(await runCase(Query, Router, '[10] Fox Islands Thorofare (buoy-chain channel)',
+    { lat: 44.122212, lon: -68.860267 }, { lat: 44.145, lon: -68.79 }));
 
-  // Case 11 — EXPERIMENTAL, not yet a committed regression case: the user's
-  // full originally-reported route, North Haven town dock all the way to
-  // Stonington ME. The remaining gap (last ~1.4nm approach into Stonington)
-  // is the base router's separate, already-diagnosed island-dense-
-  // archipelago limitation, not a channel-data problem.
-  await runCase(Query, Router, '[11] EXPERIMENTAL: North Haven -> Stonington (full route)',
-    { lat: 44.122212, lon: -68.860267 }, { lat: 44.157672, lon: -68.666394 });
+  // Case 11 — the user's full originally-reported route, North Haven town
+  // dock all the way to Stonington ME. Was believed to hit a separate,
+  // already-diagnosed "base router island-dense-archipelago limitation" on
+  // the final approach into Stonington — also wrong, per the same
+  // re-diagnosis as case 10 above (this case shares case 10's exact start
+  // point, the real charted drying flat). Now genuinely passes. Gated for
+  // real now, not EXPERIMENTAL.
+  gate(await runCase(Query, Router, '[11] North Haven -> Stonington (full route)',
+    { lat: 44.122212, lon: -68.860267 }, { lat: 44.157672, lon: -68.666394 }));
 
   // Case 12 — Merchant Row / Deer Island Thorofare (spatial buoy-chain
   // channel, 8 differently-named buoys with no shared name prefix, only
@@ -239,6 +244,25 @@ async function main() {
   await new Promise((r) => setTimeout(r, 500)); // channelGraph resolves slightly after `channels`
   await runCase(Query, Router, '[14] EXPERIMENTAL/KNOWN-FAILING: Rockland -> Camden (times out, falls back across land)',
     { lat: 44.103, lon: -69.088 }, { lat: 44.20890463336856, lon: -69.06228505969469 });
+
+  // Case 15 — Rockland to Isle au Haut (Trial Point/Moores Harbor area,
+  // ~19nm), found live to fall back to a straight line crossing land. The
+  // destination sits inside a charted drying flat (valsou=0) at the
+  // router's default draft/tide assumptions — genuinely unreachable there,
+  // not a graph-connectivity or long-range-decomposition problem (both
+  // ruled out live: the richer penobscot-bay region dataset failed
+  // identically, and a scratch test lowering LONG_RANGE_NM confirmed the
+  // decomposition path gets most of the way there too). Fixed the same way
+  // as cases 10/11 above — Query.snapToNavigableWater moves the too-shallow
+  // endpoint to nearby navigable water first. Switches back to
+  // bundled-default explicitly (case 14 above left penobscot-bay active) —
+  // verified live this also passes against the region dataset, but runs
+  // against bundled-default here for parity with cases 1-13.
+  Query.setActiveRegion(null);
+  await Query.loadData(44.103, -69.088);
+  await waitForRegionDataReady(Query);
+  gate(await runCase(Query, Router, '[15] Rockland -> Isle au Haut (charted drying-flat destination)',
+    { lat: 44.103, lon: -69.088 }, { lat: 44.052355, lon: -68.654217 }));
 
   console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll cases passed.');
   console.log(

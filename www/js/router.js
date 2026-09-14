@@ -84,6 +84,24 @@ export async function autoRouteProg(
   // Let the overlay and preview line paint before we do any real work.
   await delay(0);
 
+  // A start/end that lands on charted-too-shallow water (a drying flat, at
+  // the current draft/tide) looks like open water on a simple map click —
+  // snap it to nearby navigable water first, same idea as the existing
+  // on-land snap, extended to cover charted depth too. See
+  // Query.snapToNavigableWater's own comment for the real case this fixes.
+  // Runs on every recursive call (long-range sub-legs, escape sub-legs)
+  // too — cheap and a no-op whenever the point is already fine.
+  const snappedStart = Query.snapToNavigableWater(start.lon, start.lat, draftFt, tideHeightM);
+  if (snappedStart) {
+    console.log(`[autoRoute] start was charted too shallow — moved ${snappedStart.movedNm.toFixed(2)}nm to navigable water`);
+    start = { lat: snappedStart.lat, lon: snappedStart.lon };
+  }
+  const snappedEnd = Query.snapToNavigableWater(end.lon, end.lat, draftFt, tideHeightM);
+  if (snappedEnd) {
+    console.log(`[autoRoute] end was charted too shallow — moved ${snappedEnd.movedNm.toFixed(2)}nm to navigable water`);
+    end = { lat: snappedEnd.lat, lon: snappedEnd.lon };
+  }
+
   // Long-range passage decomposition (Piece 1d) — everything below this is
   // completely unchanged for routes under the threshold; see the block
   // comment above LONG_RANGE_NM (defined after this function) for why more
@@ -671,14 +689,14 @@ export async function autoRouteProg(
       let effStart = start, prefix = [];
       let effEnd = end, suffix = [];
       if (startBlocked) {
-        const departurePt = Query.findClearOffshorePoint(start.lon, start.lat, end.lon, end.lat);
+        const departurePt = Query.findClearOffshorePoint(start.lon, start.lat, end.lon, end.lat, { draftFt, tideHeightM });
         if (departurePt) {
           const departLeg = await autoRouteProg(start, departurePt, onUpdate, onText, true, draftFt, tideHeightM, onSearchProgress);
           if (_subLegOk(departLeg)) { prefix = departLeg.slice(0, -1); effStart = departurePt; }
         }
       }
       if (endBlocked && Date.now() - _profT0 <= DEADLINE_MS) {
-        const arrivalPt = Query.findClearOffshorePoint(end.lon, end.lat, start.lon, start.lat);
+        const arrivalPt = Query.findClearOffshorePoint(end.lon, end.lat, start.lon, start.lat, { draftFt, tideHeightM });
         if (arrivalPt) {
           const arriveLeg = await autoRouteProg(arrivalPt, end, onUpdate, onText, true, draftFt, tideHeightM, onSearchProgress);
           if (_subLegOk(arriveLeg)) { suffix = arriveLeg.slice(1); effEnd = arrivalPt; }
@@ -981,8 +999,8 @@ async function _longRangeRoute(start, end, onUpdate, onText, draftFt, tideHeight
   if (_isClearOffshoreLine(start, end)) return [start, end];
   if (Date.now() - _lrT0 > LONG_RANGE_DEADLINE_MS) return [start, end];
 
-  const departurePt = Query.findClearOffshorePoint(start.lon, start.lat, end.lon, end.lat);
-  const arrivalPt = Query.findClearOffshorePoint(end.lon, end.lat, start.lon, start.lat);
+  const departurePt = Query.findClearOffshorePoint(start.lon, start.lat, end.lon, end.lat, { draftFt, tideHeightM });
+  const arrivalPt = Query.findClearOffshorePoint(end.lon, end.lat, start.lon, start.lat, { draftFt, tideHeightM });
   if (!departurePt || !arrivalPt) return [start, end];
   if (Date.now() - _lrT0 > LONG_RANGE_DEADLINE_MS) return [start, end];
 

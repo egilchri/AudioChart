@@ -827,22 +827,140 @@ function _isLinearWaterName(name) {
 // wide open). isLandAt is index-backed, so the march itself is cheap; this
 // only runs a bounded number of times per head/mouth resolution, not in a
 // hot per-A*-edge loop.
-function _distToLandAlongBearing(lon, lat, bearingDeg, maxNm, coarseStepNm = 0.05) {
+// isBlocked defaults to isLandAt (every existing caller's behavior,
+// unchanged) — findClearOffshorePoint passes a wider land+hazard+tide
+// predicate instead, see _makeObstacleCheck below.
+function _distToLandAlongBearing(lon, lat, bearingDeg, maxNm, coarseStepNm = 0.05, isBlocked = isLandAt) {
   let lastWater = 0;
   for (let d = coarseStepNm; d <= maxNm; d += coarseStepNm) {
     const p = offsetCoords(lat, lon, bearingDeg, d);
-    if (isLandAt(p.lon, p.lat)) {
+    if (isBlocked(p.lon, p.lat)) {
       let lo = lastWater, hi = d;
       for (let i = 0; i < 10; i++) {
         const mid = (lo + hi) / 2;
         const pm = offsetCoords(lat, lon, bearingDeg, mid);
-        if (isLandAt(pm.lon, pm.lat)) hi = mid; else lo = mid;
+        if (isBlocked(pm.lon, pm.lat)) hi = mid; else lo = mid;
       }
       return lo;
     }
     lastWater = d;
   }
   return maxNm;
+}
+
+// Even-odd point-in-ring test — mirrors router.js's own _pointInRing
+// (kept as a separate small copy rather than shared, same reasoning
+// router.js already uses land-index vs. per-call ring lists: this one
+// only needs to run for the pre-filtered, small ring set
+// _makeObstacleCheck builds, not a hot per-A*-edge path).
+function _pointInRing(px, py, ring) {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i], [xj, yj] = ring[j];
+    const intersect = ((yi > py) !== (yj > py)) &&
+      (px < (xj - xi) * (py - yi) / (yj - yi) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+const _HAZARD_SAFETY_NM = 0.05; // matches router.js's HAZARD_SAFETY_NM
+const _HAZARD_LABELS = new Set(['underwater rock', 'obstruction', 'wreck', 'UWTROC', 'OBSTRN', 'WRECKS']);
+
+// Builds a land+hazard+tide-blocked-depth-zone obstacle check, scoped to a
+// bbox around (centerLon,centerLat) so ray-casting doesn't scan every
+// hazard/depth-zone feature in the loaded region on every step.
+//
+// Why findClearOffshorePoint needs this at all: confirmed live on a real
+// AutoRoute failure near Isle au Haut. The plain land-only check could
+// place an "escape" point technically off dry land but still boxed in by
+// charted drying/shallow flats fringing that harbor's approach — the main
+// router's own segBlocked (which DOES check hazards and tide-dependent
+// depth zones, see router.js) then found zero viable edges one step
+// later, because the escape point itself was already fenced in by
+// shallows the two functions disagreed about.
+function _makeObstacleCheck(centerLon, centerLat, maxNm, draftFt, tideHeightM) {
+  const cv = Math.cos(centerLat * Math.PI / 180) || 1e-9;
+  const padLon = maxNm / (60 * cv), padLat = maxNm / 60;
+  const bMinLon = centerLon - padLon, bMaxLon = centerLon + padLon;
+  const bMinLat = centerLat - padLat, bMaxLat = centerLat + padLat;
+
+  const hazardPts = (hazards?.features || [])
+    .filter((f) => {
+      if (f.geometry?.type !== 'Point') return false;
+      const label = f.properties?.label || f.properties?.objtype || '';
+      if (!_HAZARD_LABELS.has(label)) return false;
+      const [flon, flat] = f.geometry.coordinates;
+      return flon >= bMinLon && flon <= bMaxLon && flat >= bMinLat && flat <= bMaxLat;
+    })
+    .map((f) => f.geometry.coordinates);
+
+  const draftM = draftFt * 0.3048;
+  const shallowRings = [];
+  for (const f of (getDepthZones() || [])) {
+    const v = f.properties?.valsou;
+    if (v == null || v + tideHeightM > draftM) continue;
+    const polys = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates;
+    for (const rings of polys) {
+      const outer = rings[0];
+      let rMinLon = Infinity, rMaxLon = -Infinity, rMinLat = Infinity, rMaxLat = -Infinity;
+      for (const [x, y] of outer) {
+        if (x < rMinLon) rMinLon = x; if (x > rMaxLon) rMaxLon = x;
+        if (y < rMinLat) rMinLat = y; if (y > rMaxLat) rMaxLat = y;
+      }
+      if (rMaxLon < bMinLon || rMinLon > bMaxLon || rMaxLat < bMinLat || rMinLat > bMaxLat) continue;
+      shallowRings.push({ outer, rMinLon, rMaxLon, rMinLat, rMaxLat });
+    }
+  }
+
+  return (plon, plat) => {
+    if (isLandAt(plon, plat)) return true;
+    for (const [hLon, hLat] of hazardPts) {
+      if (distanceNm(plon, plat, hLon, hLat) <= _HAZARD_SAFETY_NM) return true;
+    }
+    for (const r of shallowRings) {
+      if (plon < r.rMinLon || plon > r.rMaxLon || plat < r.rMinLat || plat > r.rMaxLat) continue;
+      if (_pointInRing(plon, plat, r.outer)) return true;
+    }
+    return false;
+  };
+}
+
+// Expanding-ring probe for "any nearby clear point" — used only to nudge a
+// findClearOffshorePoint seed that's wet but obstacle-blocked (see its own
+// call site's comment). Not globally-nearest (first clear angle found at
+// the first clear radius wins), which is fine here: this just needs a
+// valid anchor for the real directional search that follows, not the
+// final answer itself.
+function _nearestClearPoint(lon, lat, isBlocked, maxNm) {
+  const RING_STEP_NM = 0.05, RAYS = 16;
+  for (let d = RING_STEP_NM; d <= maxNm; d += RING_STEP_NM) {
+    for (let i = 0; i < RAYS; i++) {
+      const p = offsetCoords(lat, lon, (360 / RAYS) * i, d);
+      if (!isBlocked(p.lon, p.lat)) return p;
+    }
+  }
+  return null;
+}
+
+/**
+ * A destination/start that lands on charted-too-shallow water (a drying
+ * flat, at the given draft/tide) looks like open water on a simple map
+ * display — nothing about a raw click reveals it. Confirmed live: a real
+ * Isle au Haut approach point sits inside a valsou=0 drying flat at
+ * 0-tide/5ft-draft, genuinely unreachable at those assumptions no matter
+ * how the router searches. Same "moved to water" idea already used
+ * elsewhere for a destination that lands on dry land (see
+ * app.js's _resolveNamedDestination / Query.findWaterNear), extended to
+ * cover charted depth too. Returns null when the point is already fine
+ * (the common case), or {lat, lon, movedNm} when it had to move.
+ */
+export function snapToNavigableWater(lon, lat, draftFt, tideHeightM, maxNm = 2) {
+  const isBlocked = _makeObstacleCheck(lon, lat, maxNm, draftFt, tideHeightM);
+  if (!isBlocked(lon, lat)) return null;
+  const p = _nearestClearPoint(lon, lat, isBlocked, maxNm);
+  if (!p) return null;
+  return { lat: p.lat, lon: p.lon, movedNm: distanceNm(lon, lat, p.lon, p.lat) };
 }
 
 const WATER_END_RAYS = 16;      // 22.5-degree compass resolution
@@ -970,6 +1088,13 @@ export function findClearOffshorePoint(lon, lat, towardLon, towardLat, opts = {}
   const rays = opts.rays ?? 24;
   const openWidthNm = opts.openWidthNm ?? 1.0;
   const stepNm = opts.stepNm ?? 0.15;
+  // Optional: when a caller (router.js) supplies draftFt, also treat
+  // charted point hazards and tide-blocked drying/shallow zones as
+  // obstacles, not just dry land — see _makeObstacleCheck's own comment
+  // for why. Omitted, this is unchanged land-only behavior for every
+  // other existing caller (resolveWaterEnd's callers, etc.).
+  const draftFt = opts.draftFt ?? null;
+  const tideHeightM = opts.tideHeightM ?? 0;
 
   if (isLandAt(lon, lat)) {
     const w = findWaterNear(lon, lat);
@@ -977,22 +1102,41 @@ export function findClearOffshorePoint(lon, lat, towardLon, towardLat, opts = {}
     lon = w.lon; lat = w.lat;
   }
 
+  const isBlocked = draftFt == null ? isLandAt : _makeObstacleCheck(lon, lat, maxNm, draftFt, tideHeightM);
+
+  // The seed can be off dry land but still obstacle-blocked — sitting
+  // inside a charted drying/shallow zone at the given draft/tide, or
+  // within a hazard's safety radius. Confirmed live: a real Isle au Haut
+  // approach point sits inside a valsou=0 drying flat at 0-tide/5ft-draft
+  // — findWaterNear's land-only check above doesn't catch this at all,
+  // and the outward ray march below needs a genuinely clear anchor or it
+  // degenerates to "blocked in every direction from step one," returning
+  // the seed itself unmoved. Nudge to the nearest actually-clear spot
+  // first (small expanding-ring probe — the pre-filtered isBlocked
+  // closure above already covers this whole maxNm radius, so no rebuild
+  // needed even though the seed moves).
+  if (draftFt != null && isBlocked(lon, lat)) {
+    const nudged = _nearestClearPoint(lon, lat, isBlocked, maxNm);
+    if (!nudged) return null;
+    lon = nudged.lon; lat = nudged.lat;
+  }
+
   const centerBrg = bearing(lon, lat, towardLon, towardLat);
   let bestBrg = centerBrg, bestOpen = -1;
   for (let i = 0; i < rays; i++) {
     const offsetDeg = rays > 1 ? -coneDeg + (2 * coneDeg * i) / (rays - 1) : 0;
     const brg = (centerBrg + offsetDeg + 360) % 360;
-    const d = _distToLandAlongBearing(lon, lat, brg, maxNm);
+    const d = _distToLandAlongBearing(lon, lat, brg, maxNm, 0.05, isBlocked);
     if (d > bestOpen) { bestOpen = d; bestBrg = brg; }
   }
 
   let placed = { lat, lon };
   for (let d = stepNm; d <= bestOpen; d += stepNm) {
     const p = offsetCoords(lat, lon, bestBrg, d);
-    if (isLandAt(p.lon, p.lat)) break;
+    if (isBlocked(p.lon, p.lat)) break;
     placed = p;
-    const leftNm = _distToLandAlongBearing(p.lon, p.lat, (bestBrg + 90) % 360, openWidthNm);
-    const rightNm = _distToLandAlongBearing(p.lon, p.lat, (bestBrg + 270) % 360, openWidthNm);
+    const leftNm = _distToLandAlongBearing(p.lon, p.lat, (bestBrg + 90) % 360, openWidthNm, 0.05, isBlocked);
+    const rightNm = _distToLandAlongBearing(p.lon, p.lat, (bestBrg + 270) % 360, openWidthNm, 0.05, isBlocked);
     if (leftNm + rightNm >= openWidthNm * 1.6) break; // clearly open — good enough to depart/arrive from
   }
   return placed;
