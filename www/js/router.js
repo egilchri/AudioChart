@@ -85,6 +85,18 @@ export async function autoRouteProg(
   // bounds how many get to OFFER themselves as A* routing waypoints, ranked
   // closest-to-the-line first (see the extraRings loop after _addRingNodes).
   const MAX_EXTRA_NON_BLOCKING_RINGS = 60;
+  // A NODE budget on top of the RING budget above, mirroring
+  // MAX_LAND_NON_BLOCKING_NODES's own reasoning — this ring cap alone was
+  // fine when every extra ring contributed at most 4 nodes (a point-hazard
+  // circle), but a non-blocking tidal ring now contributes its full vertex
+  // set (see _addRingNodes' isTidal branch). Confirmed live as a real
+  // regression: a real ~11.4nm Rockland approach with 60 eligible tidal
+  // rings pushed setup to 2900 total nodes and the whole call past
+  // DEADLINE_MS consistently (5006-5027ms across repeated runs, not a
+  // one-off) — this budget is what keeps that bounded. Less generous than
+  // land's 500 since these are lower-priority secondary obstacles, not
+  // the primary coastline.
+  const MAX_EXTRA_NON_BLOCKING_NODES = 300;
 
   const delay = ms => new Promise(r => setTimeout(r, ms));
   const _profT0 = Date.now();
@@ -436,6 +448,17 @@ export async function autoRouteProg(
   // simpler shape and doesn't need nearly that many per ring even when
   // several stack up in the same corridor.
   const MAX_EXTRA_BLOCKING_VERTS = 8;
+  // Tidal/depth-zone rings need more detail per ring than a synthetic
+  // point-hazard circle (MAX_EXTRA_BLOCKING_VERTS=8 is what made the
+  // original Rockland->Camden fallback fail in the first place — see the
+  // v626 fix), but land's own MAX_BLOCKING_VERTS=300 is sized for the
+  // RARE-simultaneous-blocking-ring case, not this one: confirmed live, a
+  // real ~11.4nm Rockland approach had 19 separate blocking tidal
+  // polygons on the direct line at once (the same "many separate charted
+  // shallow-area shapes" pattern the comment above already documented for
+  // Blue Hill Bay), and 19 x up to 300 alone pushed the whole call past
+  // DEADLINE_MS. This sits between the two existing caps.
+  const MAX_TIDAL_VERTS = 40;
   function _addRingNodes(entry, isBlocking, offsetLadder, checkClearance, isExtra) {
     const { ring, cx, cy, convex, isTidal } = entry;
     const n = ring.length - 1; // -1: skip closing duplicate vertex
@@ -480,11 +503,20 @@ export async function autoRouteProg(
         if (_ptSegDistNm(vx, vy, start.lon, start.lat, end.lon, end.lat) <= CORRIDOR_NM) indices.push(k);
       }
     }
-    // A directly-blocking tidal zone gets the same generous land-style cap
-    // as a blocking land ring (it's being treated like one now) — only a
-    // point-hazard circle (small, synthetic, ~10-gon) keeps the tight cap.
-    const blockingVertCap = (isExtra && !isTidal) ? MAX_EXTRA_BLOCKING_VERTS : MAX_BLOCKING_VERTS;
-    if (isBlocking && indices.length > blockingVertCap) {
+    // Land's own MAX_BLOCKING_VERTS=300 assumes blocking rings are RARE —
+    // in practice a route crosses at most a handful of separate landmasses
+    // directly. Confirmed live that assumption breaks for tidal data: a
+    // real ~11.4nm Rockland approach had 19 SEPARATE blocking tidal-zone
+    // polygons on the direct line at once (charted drying flats are
+    // naturally fragmented into many small/medium shapes, unlike a
+    // landmass), so reusing land's per-ring cap here still let the total
+    // balloon past DEADLINE_MS (19 rings x up to 300 verts each). Tidal
+    // rings — blocking or not — get their own, much tighter per-ring cap
+    // instead; point-hazard circles (isExtra && !isTidal) never reach this
+    // branch at all, they already got their 4 extremes above.
+    const blockingVertCap = isTidal ? MAX_TIDAL_VERTS
+                          : (isExtra ? MAX_EXTRA_BLOCKING_VERTS : MAX_BLOCKING_VERTS);
+    if ((isBlocking || isTidal) && indices.length > blockingVertCap) {
       const scored = indices.map(k => {
         const [vx, vy] = ring[k];
         const [ax, ay] = ring[(k - 1 + n) % n];
@@ -669,8 +701,12 @@ export async function autoRouteProg(
   // collisions via extraGrid/segBlocked above, cap or no cap). See
   // MAX_EXTRA_NON_BLOCKING_RINGS's comment for the real case this fixes.
   nonBlockingExtraCandidates.sort((a, b) => a.d - b.d);
+  let extraNonBlockingNodesAdded = 0;
   for (const { entry } of nonBlockingExtraCandidates.slice(0, MAX_EXTRA_NON_BLOCKING_RINGS)) {
+    if (extraNonBlockingNodesAdded >= MAX_EXTRA_NON_BLOCKING_NODES) break;
+    const before = nodes.length;
     _addRingNodes(entry, false, HAZARD_OFFSET_LADDER, false, true);
+    extraNonBlockingNodesAdded += nodes.length - before;
   }
 
   if (Date.now() - _profT0 > DEADLINE_MS) {

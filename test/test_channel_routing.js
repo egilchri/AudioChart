@@ -270,6 +270,28 @@ async function main() {
   gate(await runCase(Query, Router, '[15] Rockland -> Isle au Haut (charted drying-flat destination)',
     { lat: 44.103, lon: -69.088 }, { lat: 44.052355, lon: -68.654217 }));
 
+  // Case 16 — Rockland to Carvers Harbor/Vinalhaven (~11.4nm) — the
+  // ORIGINAL known gap predating this whole overhaul: curated_routes.json's
+  // own note says this corridor needed a hand-built route because "direct
+  // AutoRoute fell back to a straight line" here. Found live (user report,
+  // production v627, confirmed via a real hard refresh) that even after
+  // the v625/v626 fixes it was STILL failing — but genuinely timing out,
+  // not failing to find a path: confirmed by running it 3x in a row
+  // against the penobscot-bay region dataset, landing at 5006-5027ms
+  // every time. Root cause: the v626 fix gave tidal rings land-style full-
+  // vertex treatment but only capped the NON-blocking case — this corridor
+  // has 19 SEPARATE blocking tidal-zone polygons on the direct line at
+  // once (real charted drying flats are fragmented, unlike a landmass),
+  // and reusing land's MAX_BLOCKING_VERTS=300 per-ring cap for all 19 of
+  // them alone pushed setup to 2893 nodes. Fixed with a tidal-specific
+  // MAX_TIDAL_VERTS=40 cap (blocking or not) and an overall node budget
+  // for the non-blocking tidal/hazard loop (MAX_EXTRA_NON_BLOCKING_NODES).
+  // Also sped up every other tidal-heavy case in this suite as a side
+  // effect (cases 10/11/14/15 all got noticeably faster, not just this
+  // one) — confirmed via 3 repeated runs each, not a one-off.
+  gate(await runCase(Query, Router, '[16] Rockland -> Carvers Harbor/Vinalhaven (many simultaneous tidal flats)',
+    { lat: 44.103, lon: -69.088 }, { lat: 44.045519, lon: -68.835208 }));
+
   console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll cases passed.');
   console.log(
     '\nNOT PORTED (relied on injecting a synthetic obstacle ring the real\n' +
