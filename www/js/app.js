@@ -2891,7 +2891,7 @@ async function _onDrawConfirm() {
   // found live (2026-09) with a genuine Rockland->Camden fallback: the user
   // got a status message about shallow areas and no indication whatsoever
   // that the route was an un-routed straight line across land.
-  if (fellBack) _showRouteFallbackWarning([{ a: pts[0], b: pts[1] }]);
+  if (fellBack) _showRouteFallbackWarning([{ a: pts[0], b: pts[1], legIndex: 0 }]);
   else if (marginalSeg) _showRouteFallbackWarning([marginalSeg]);
 }
 
@@ -3432,11 +3432,17 @@ async function _reRouteSegments(pts, onProgress, onText, actionLabel = 'Re-route
         false, _currentDraftFt(), _tideHeight, _makeSearchDotCallback()
       );
     }
+    // Index of pts[i] within the full route this leg is about to land in —
+    // `result` already holds everything before this leg, so its own last
+    // index IS where this leg starts. Lets a fallback marker's click
+    // insert a new vertex at exactly the right spot (see
+    // _showRouteFallbackWarning) without the caller needing to re-derive it.
+    const legIndex = result.length - 1;
     if (sub.length <= 2) {
       fallbacks++;
-      fallbackSegs.push({ a: pts[i], b: pts[i + 1], ...Router.classifyFallbackSeg(pts[i], pts[i + 1]) });
+      fallbackSegs.push({ a: pts[i], b: pts[i + 1], legIndex, ...Router.classifyFallbackSeg(pts[i], pts[i + 1]) });
     } else {
-      const marginalSeg = _marginalLegFromPath(sub);
+      const marginalSeg = _marginalLegFromPath(sub, legIndex);
       if (marginalSeg) { fallbacks++; fallbackSegs.push(marginalSeg); }
     }
     result.push(...sub.slice(1));
@@ -3462,13 +3468,17 @@ async function _reRouteSegments(pts, onProgress, onText, actionLabel = 'Re-route
 // path through this leg, just via a passage tighter than our normal comfort
 // standoff. Pinpoint it (rather than the leg's original endpoints) so the ⚠
 // marker lands where the squeeze actually is.
-function _marginalLegFromPath(path) {
+// baseIndex offsets `idx` into whatever larger points array `path` will
+// eventually be spliced into — 0 (the default) when `path` already IS
+// that full array, as most callers pass it.
+function _marginalLegFromPath(path, baseIndex = 0) {
   const idx = path.findIndex(p => p.marginal);
   if (idx < 0) return null;
   return {
     a: path[Math.max(0, idx - 1)],
     b: path[Math.min(path.length - 1, idx + 1)],
     tightClearance: true,
+    legIndex: baseIndex + Math.max(0, idx - 1),
   };
 }
 
@@ -3505,9 +3515,33 @@ function _showRouteFallbackWarning(fallbackSegs) {
         iconAnchor: [16, 16],
       }),
       zIndexOffset: 900,
-    }).bindTooltip(`${verb} ${reason} here — add a waypoint (leg ${i + 1})`,
+    }).bindTooltip(`${verb} ${reason} here — tap to help by positioning a node`,
                     { permanent: false, direction: 'top', offset: [0, -6] })
-      .on('click', (e) => { L.DomEvent.stopPropagation(e); _map.setView([m.lat, m.lon], 16); })
+      .on('click', (e) => {
+        L.DomEvent.stopPropagation(e);
+        _map.setView([m.lat, m.lon], 16);
+        // Every real _showRouteFallbackWarning caller already enters edit
+        // mode for the affected route before this warning ever appears
+        // (see _onDrawConfirm/_triggerAutoRoute/the reroute handlers), so
+        // _editPoints already matches — no separate "which route" lookup
+        // needed. Drop a new vertex right at the trouble spot, already
+        // flashing (.edit-vertex-new, via _insertVertex's _newVertexIdx)
+        // and draggable — same "flash a new node, drag to position" UX
+        // Node Ops' own Insert button already uses. Per direct request:
+        // turn a passive warning into "help me by positioning this node"
+        // instead of leaving the user to add a waypoint from scratch.
+        if (seg.legIndex != null && _editMode && _editPoints.length) {
+          _insertVertex(seg.legIndex, L.latLng(m.lat, m.lon));
+          _renderEditLayers();
+          // Inserting shifts every LATER leg's index by one — the other
+          // markers' own legIndex values are now stale. Clear them rather
+          // than risk inserting at the wrong spot; Reroute afterward
+          // regenerates a fresh, correctly-indexed set for anything still
+          // wrong, same rhythm as fixing one thing at a time already
+          // established by the Reroute button itself.
+          _routeFallbackLayer?.clearLayers();
+        }
+      })
       .addTo(_routeFallbackLayer);
   });
 
@@ -4562,6 +4596,11 @@ async function _promptNextLegAutoRoute(fromPoint) {
   }
   const destPt = { lat: dest.lat, lon: dest.lon };
   const ui = _showRerouteOverlay([fromPoint, destPt]);
+  // _reRouteSegments only sees this one new leg in isolation, so its own
+  // legIndex values start at 0 — offset them to where this leg actually
+  // lands once appended to the real _editPoints below (captured now,
+  // before the push, since fromPoint is _editPoints' current last point).
+  const _nextLegBaseIdx = _editPoints.length - 1;
   _reRouteSegments([_stripPoint(fromPoint), destPt], ui.update.bind(ui), ui.setText.bind(ui), 'Next Leg')
     .then(({ points, fallbacks, fallbackSegs, blocked }) => {
       ui.remove();
@@ -4572,8 +4611,9 @@ async function _promptNextLegAutoRoute(fromPoint) {
       _renderEditLayers();
       const found = _liveHazardCheck();
       if (!found.length) {
-        if (fallbacks > 0) _showRouteFallbackWarning(fallbackSegs);
-        else {
+        if (fallbacks > 0) {
+          _showRouteFallbackWarning(fallbackSegs.map(s => ({ ...s, legIndex: s.legIndex + _nextLegBaseIdx })));
+        } else {
           setStatus('Next leg routed — review and Save when ready.');
           TTS.sayImmediate('Next leg routed. Review and save when ready.');
         }
@@ -8049,7 +8089,7 @@ function _ensureMap() {
     // found.length let a coastal fallback's own nearby-shallow-water hits
     // silently swallow the one warning that actually mattered.
     if (fellBack) {
-      _showRouteFallbackWarning([{ a: pts[0], b: pts[1] }]);
+      _showRouteFallbackWarning([{ a: pts[0], b: pts[1], legIndex: 0 }]);
     } else if (marginalSeg) {
       _showRouteFallbackWarning([marginalSeg]);
     } else if (!found.length) {
