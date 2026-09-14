@@ -8397,7 +8397,12 @@ function _ensureMap() {
         setStatus(msg); TTS.sayImmediate(msg);
         return;
       }
-      if (!confirm(`Delete ${toDelete.length} SP* waypoint${toDelete.length === 1 ? '' : 's'}? This cannot be undone.`)) return;
+      // List the actual names, not just a count — after a past report of
+      // this deleting more than expected, a bare count gives no way to
+      // catch a wrong match before committing to an unrecoverable delete
+      // (there's no backup/export path for personal waypoints).
+      const names = toDelete.map(w => w.name).join(', ');
+      if (!confirm(`Delete ${toDelete.length} waypoint${toDelete.length === 1 ? '' : 's'}?\n\n${names}\n\nThis cannot be undone.`)) return;
       localStorage.setItem(WaypointsStorage.USER_WP_KEY, JSON.stringify(stored.filter(w => !w.name.startsWith('SP'))));
       for (const w of toDelete) Query.removeUserWaypoint(w.name);
       _refreshWaypointLayer();
