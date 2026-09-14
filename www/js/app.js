@@ -7685,10 +7685,10 @@ function _ensureMap() {
   const _tracksNearSubmenu = document.getElementById('map-ctx-tracks-near-submenu');
   const _wpSubmenu  = document.getElementById('map-ctx-wp-submenu');
 
-  // Rebuild the dynamic waypoint rows (below the 3 static buttons)
+  // Rebuild the dynamic waypoint rows (below the 5 static buttons)
   function _populateWpSubmenu() {
-    // Remove all dynamic items (keep first 4 static children)
-    while (_wpSubmenu.children.length > 4) _wpSubmenu.removeChild(_wpSubmenu.lastChild);
+    // Remove all dynamic items (keep first 5 static children)
+    while (_wpSubmenu.children.length > 5) _wpSubmenu.removeChild(_wpSubmenu.lastChild);
     const wps = WaypointsStorage.loadUserWaypoints();
     for (const wp of wps) {
       const itemBtn = document.createElement('button');
@@ -8388,6 +8388,21 @@ function _ensureMap() {
     if (t.id === 'map-ctx-wp-show') { _hideCtx(); _setWaypointsVisible(true);  return; }
     if (t.id === 'map-ctx-wp-hide') { _hideCtx(); _setWaypointsVisible(false); return; }
 
+    if (t.id === 'map-ctx-wp-export') {
+      _hideCtx();
+      const stored = WaypointsStorage.loadUserWaypoints();
+      if (!stored.length) {
+        const msg = 'No waypoints to export.';
+        setStatus(msg); TTS.sayImmediate(msg);
+        return;
+      }
+      const stamp = new Date().toISOString().slice(0, 10);
+      GpxExport.downloadWaypointsGpx(stored, `AudioChart_waypoints_${stamp}`);
+      const msg = `Exported ${stored.length} waypoint${stored.length === 1 ? '' : 's'}.`;
+      setStatus(msg); TTS.sayImmediate(msg);
+      return;
+    }
+
     if (t.id === 'map-ctx-wp-del-sp') {
       _hideCtx();
       const stored = WaypointsStorage.loadUserWaypoints();
@@ -8399,8 +8414,9 @@ function _ensureMap() {
       }
       // List the actual names, not just a count — after a past report of
       // this deleting more than expected, a bare count gives no way to
-      // catch a wrong match before committing to an unrecoverable delete
-      // (there's no backup/export path for personal waypoints).
+      // catch a wrong match before committing to an unrecoverable delete.
+      // ("Export all waypoints" above is the recommended safety net before
+      // any bulk delete, now that a backup path actually exists.)
       const names = toDelete.map(w => w.name).join(', ');
       if (!confirm(`Delete ${toDelete.length} waypoint${toDelete.length === 1 ? '' : 's'}?\n\n${names}\n\nThis cannot be undone.`)) return;
       localStorage.setItem(WaypointsStorage.USER_WP_KEY, JSON.stringify(stored.filter(w => !w.name.startsWith('SP'))));
@@ -8611,7 +8627,9 @@ function _ensureMap() {
       const lon  = parseFloat(wpt.getAttribute('lon'));
       const name = wpt.querySelector('name')?.textContent?.trim() || WaypointsStorage.nextWaypointName();
       if (isNaN(lat) || isNaN(lon)) continue;
-      saveUserWaypoint(name, lat, lon);
+      const type = wpt.querySelector('extensions > type')?.textContent?.trim() || undefined;
+      const note = wpt.querySelector('extensions > note')?.textContent?.trim() || undefined;
+      saveUserWaypoint(name, lat, lon, type, note);
       count++;
     }
     if (!_waypointsVisible) _setWaypointsVisible(true);
