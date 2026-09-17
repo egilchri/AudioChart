@@ -291,28 +291,19 @@
   .demo-frame {
     background: var(--navy-deep);
     border-radius: 6px;
-    aspect-ratio: 16/8;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    /* Matches the real recorded clip's own aspect ratio (1000x562) — the
+       app's live UI isn't a 16:8 letterbox shape, so using that ratio here
+       would either crop real content or letterbox it. */
+    aspect-ratio: 1000/562;
+    overflow: hidden;
     position: relative;
     border: 1px solid var(--line);
-    background-image: repeating-linear-gradient(90deg, rgba(247,241,227,0.03) 0px, rgba(247,241,227,0.03) 1px, transparent 1px, transparent 40px);
   }
-  .demo-frame .play {
-    width: 68px; height: 68px;
-    border-radius: 50%;
-    background: var(--brass);
-    display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 0 0 14px rgba(192,138,62,0.12);
-  }
-  .demo-frame .play::after {
-    content: '';
-    width: 0; height: 0;
-    border-top: 11px solid transparent;
-    border-bottom: 11px solid transparent;
-    border-left: 18px solid var(--navy-deep);
-    margin-left: 4px;
+  .demo-frame video {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
   }
   .demo-note {
     text-align: center;
@@ -525,12 +516,12 @@
     <div class="section-head">
       <span class="tag">See it in action</span>
       <h2>A minute on the water.</h2>
-      <p>A short walkthrough of setting a target, hearing a bearing, and sailing a route offline.</p>
+      <p>Switch to Anchorages, find a place to go, and let AudioChart plot the route there — right on the chart.</p>
     </div>
     <div class="demo-frame">
-      <div class="play"></div>
+      <video src="assets/demo.mp4" muted autoplay loop playsinline></video>
     </div>
-    <p class="demo-note">Demo video coming soon</p>
+    <p class="demo-note">Recorded from the live app — no narration, no editing.</p>
   </div>
 </section>
 
