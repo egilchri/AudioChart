@@ -15,6 +15,7 @@ import * as HazardClustering from './hazard_clustering.js';
 import * as WaypointsStorage from './waypoints_storage.js';
 import * as WakeLock from './wake_lock.js';
 import * as AnchorWatch from './anchor_watch.js';
+import * as Tour from './tour.js';
 import * as DriveSync from './drive_sync.js';
 import { openDriveImportPicker } from './drive_import.js';
 import { migrateLegacyIds } from './sync_merge.js';
@@ -1710,6 +1711,10 @@ function _renderDocumentMarkers() {
       : p.category === 'anchorages' ? _formatAnchorage(p)
       : _formatDocBody(p.body);
     const m = L.marker([lat, lon], { icon: MarkerIcons.documentMarkerIcon(p.category) });
+    // Lets the "Take a Tour" engine find a specific document marker by its
+    // title (e.g. the flagship tour's Warren Island step) without a new
+    // fetch or a second data structure — see _findDocumentMarkerByTitle.
+    m._tourTitle = p.title;
     // Island Info's own online-lookup supplement (see _wireIslandLookup) —
     // never for geology/history/demographics, and appended, never mixed into
     // bodyHtml, so it stays visually separate from the self-contained
@@ -1746,6 +1751,153 @@ function _renderDocumentMarkers() {
   });
   _documentMarkersLayer = L.layerGroup(markers).addTo(_map);
 }
+
+// The one place the tour engine needs a narrow, named hook into app.js's
+// marker layer rather than staying purely generic (CSS selector/DOM-only)
+// — Leaflet markers aren't in the DOM at all until their layer is added,
+// and there's no stable selector for "the marker whose popup is titled X."
+function _findDocumentMarkerByTitle(title) {
+  if (!_documentMarkersLayer) return null;
+  let found = null;
+  _documentMarkersLayer.eachLayer(m => { if (m._tourTitle === title) found = m; });
+  return found;
+}
+
+// ── "Take a Tour" content ───────────────────────────────────────────────
+// tour.js owns the generic callout engine; everything here is app-specific
+// step content that plugs into it. Two trigger patterns, per direct
+// request: (1) named tours launched from the About panel's "Guided tours"
+// list (see _showAboutPanel), and (2) a one-step overview auto-shown the
+// first time a user switches into a given map mode (see the
+// map-layer-select 'change' listener). Only one tour's content and one
+// mode's intro are built so far — the framework is meant to grow; add more
+// TOURS entries / MODE_INTROS keys later, no engine changes needed.
+
+// First time in Geology mode, per direct request ("maybe there is a flag
+// so, for their first time in Geology mode, they get an overview").
+// MODE_INTROS has no entries for the other 7 modes — genuinely absent,
+// not stubbed, until there's real content worth writing for each.
+const MODE_INTROS = {
+  'geology-maine': [
+    {
+      target: '#map-layer-select',
+      text: "You're viewing Maine Geological Survey bedrock and surficial data over the chart. Tap any colored marker for the write-up on that spot.",
+    },
+  ],
+};
+
+function _maybeShowModeIntro(mode) {
+  // Never preempt a tour already in progress (e.g. the flagship tour's own
+  // first step switches to Anchorages mode) — the engine only tracks one
+  // active tour at a time, so starting a second here would silently
+  // hijack it. The mode intro simply doesn't fire that time; it'll still
+  // be there the next time this mode is entered outside of a tour.
+  if (Tour.isTourActive() || Tour.isModeIntroSeen(mode) || !MODE_INTROS[mode]) return;
+  Tour.startTour({ id: `mode-intro-${mode}`, steps: MODE_INTROS[mode] }, {
+    onComplete: () => Tour.markModeIntroSeen(mode),
+  });
+}
+
+// Set synchronously by the flagship tour's own step-3 waitFor, the instant
+// the real "Navigate to here" click fires — _autoRouteName is cleared
+// asynchronously by _triggerAutoRoute once routing finishes, so it can't
+// be read lazily from step 4's target resolver; it has to be captured at
+// click time while it's still valid.
+let _tourCapturedRouteName = null;
+
+const WARREN_ISLAND_TITLE = 'Warren Island State Park — Anchorage & Moorings';
+
+const TOURS = [
+  {
+    id: 'discover-destination-route',
+    title: 'Find a destination and plot a route',
+    steps: [
+      {
+        target: '#map-layer-select',
+        text: "Let's find a place to go. Switch the map to Anchorages.",
+        waitFor: (advance) => {
+          const sel = document.getElementById('map-layer-select');
+          // Not e.target.value — _syncLayerBtn() (the app's own change
+          // handler, registered first) resets the <select> back to a blank
+          // placeholder synchronously, before this listener runs. Read the
+          // real selected mode straight from _mapViewMode instead, which
+          // that same handler updates before resetting the element.
+          const h = () => { if (_mapViewMode === 'anchorages') advance(); };
+          sel.addEventListener('change', h);
+          return () => sel.removeEventListener('change', h);
+        },
+      },
+      {
+        target: () => _findDocumentMarkerByTitle(WARREN_ISLAND_TITLE)?.getElement() || null,
+        text: 'Tap the Warren Island marker — a state-park mooring field off Islesboro.',
+        waitFor: (advance) => {
+          const m = _findDocumentMarkerByTitle(WARREN_ISLAND_TITLE);
+          if (!m) return undefined;
+          const h = () => advance();
+          m.on('popupopen', h);
+          return () => m.off('popupopen', h);
+        },
+      },
+      {
+        target: '.doc-popup-navigate',
+        text: "Tap “Navigate to here” to auto-route from your position. (No GPS fix yet? Set a test position from the Screen menu first.)",
+        waitFor: (advance) => {
+          const btn = document.querySelector('.doc-popup-navigate');
+          if (!btn) return undefined;
+          const h = () => { _tourCapturedRouteName = _autoRouteName; advance(); };
+          btn.addEventListener('click', h);
+          return () => btn.removeEventListener('click', h);
+        },
+      },
+      {
+        target: '#edit-ok-btn',
+        text: 'AudioChart just planned the route. Tap OK to save it.',
+        waitFor: (advance) => {
+          const btn = document.getElementById('edit-ok-btn');
+          const h = () => advance();
+          btn.addEventListener('click', h);
+          return () => btn.removeEventListener('click', h);
+        },
+      },
+      {
+        target: '#route-picker-btn',
+        text: 'Tap Routes to open your saved routes.',
+        waitFor: (advance) => {
+          const btn = document.getElementById('route-picker-btn');
+          const h = () => advance();
+          btn.addEventListener('click', h);
+          return () => btn.removeEventListener('click', h);
+        },
+      },
+      {
+        target: () => {
+          const rows = Array.from(document.querySelectorAll('#rp-route-list .rp-row'));
+          const row = rows.find(r => _tourCapturedRouteName && r.textContent.includes(_tourCapturedRouteName));
+          return row?.querySelector('.rp-vj-btn') || null;
+        },
+        text: 'Tap Virtual Journey to watch this route sailed — no need to leave the dock.',
+        // Polls module state (_vjRoute) rather than listening for a click —
+        // two reasons a direct button listener can't be trusted here:
+        // (1) _buildRoutePickerPanel() re-renders the whole row list once a
+        // route's hazard badge finishes loading in the background
+        // (_getRouteHazardsCached), silently orphaning a listener attached
+        // to the original button element; (2) the button's own click
+        // handler calls e.stopPropagation(), so even delegating on an
+        // ancestor never sees the event. _vjRoute itself is set
+        // synchronously by _startVirtualJourney regardless of any of that.
+        waitFor: (advance) => {
+          const t = setInterval(() => {
+            if (_vjRoute && _tourCapturedRouteName && _vjRoute.name === _tourCapturedRouteName) advance();
+          }, 250);
+          return () => clearInterval(t);
+        },
+      },
+      {
+        text: "That's it — AudioChart will call out bearings and hazards as you go.",
+      },
+    ],
+  },
+];
 
 // Island Info mode also gets a second, lighter tier: every island the chart
 // data itself knows the name of (Query.namedPlaces, already loaded for
@@ -6867,6 +7019,7 @@ function _ensureMap() {
     localStorage.setItem('audiochart-chart-mode', _mapViewMode);
     _applyMapLayer();
     _syncLayerBtn();
+    _maybeShowModeIntro(_mapViewMode);
   });
 
   document.getElementById('zoom-to-me-btn').addEventListener('click', (e) => {
@@ -6922,6 +7075,8 @@ function _ensureMap() {
       ABOUT_FEATURES.map(f => `<li>${f}</li>`).join('');
     document.getElementById('about-regions').innerHTML =
       Object.keys(_visibleCruiseProfiles()).map(name => `<li>${name}</li>`).join('');
+    document.getElementById('about-tours').innerHTML =
+      TOURS.map(t => `<li><button class="about-tour-btn" data-tour-id="${t.id}">${escapeHtml(t.title)}</button></li>`).join('');
     _aboutPanel.classList.add('open');
   }
   document.getElementById('app-version').addEventListener('click', (e) => {
@@ -6931,6 +7086,17 @@ function _ensureMap() {
   document.getElementById('map-version-label').addEventListener('click', (e) => {
     e.stopPropagation();
     _showAboutPanel();
+  });
+  // Only launch point built so far for TOURS — a menu of named tours, per
+  // direct request ("several 'Take a tour' options"); more entries added
+  // to TOURS later need no changes here.
+  document.getElementById('about-tours').addEventListener('click', (e) => {
+    const btn = e.target.closest('.about-tour-btn');
+    if (!btn) return;
+    const tour = TOURS.find(t => t.id === btn.dataset.tourId);
+    if (!tour) return;
+    _closeAbout();
+    Tour.startTour(tour);
   });
 
   // ✒ Route picker panel

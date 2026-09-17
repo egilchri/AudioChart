@@ -49,3 +49,49 @@ it").
 personal waypoints (routes/tracks have Drive sync + GPX export; waypoints
 have neither). Worth adding one so a bad delete of any kind is
 recoverable, independent of whether this specific bug is ever reproduced.
+
+---
+
+## 2026-09-17 — v633's "fixed" Warren Island anchorage position was still on land
+
+**Discovered while:** building a new "Rockland to Warren Island" sample
+route and guided tour (v635) — not user-reported.
+
+**What v633 claimed:** the same commit that fixed 19 on-land anchorage
+markers moved Warren Island State Park's anchorage point from the
+island's generic (on-land) centroid to "the island's eastern shore,
+adjacent to the pier," with the commit message stating each new position
+was "verified against real chart data to confirm each new position is in
+water."
+
+**What was actually true:** `Query.isLandAt(-68.942974, 44.2726)` — the
+same function AutoRoute itself uses to decide whether a segment crosses
+land — returned `true` for that v633 point. It was still on land. Mapping
+the coastline around it with a grid of `isLandAt()` probes showed the
+real water was a very narrow (~50-75m) channel gap immediately next to
+the point, easy to miss by eye or with an approximate coordinate, but a
+real, checkable fact the v633 fix apparently never actually checked
+against `isLandAt()` — despite the commit message's "verified" claim.
+
+**Why this matters:** any anchorage's "Navigate to here" button
+(shipped v634) silently depends on its stored coordinate being real
+water — a marker positioned on land makes AutoRoute either fail to find
+a path or fall back to a straight line that crosses land, with no
+indication to the user that the destination itself was the problem.
+
+**Fix (v635):** re-positioned to a confirmed-clear point off the
+island's north end (documented in `documents.geojson`'s own
+`positionNote`), verified two ways: `Query.isLandAt()` directly, and a
+live `Router.autoRouteProg()` call from Rockland that now threads a real
+multi-point path (not a fallback line) — the same regression-check
+standard `window._verifyCuratedRoutes()` applies to the curated-routes
+library. Also confirmed unrelated: a fresh `_verifyCuratedRoutes()` run
+now shows the pre-existing "Rockland to Carver's Harbor" curated route
+failing (AutoRoute falls back to a line crossing land for that corridor)
+— a real, reproducible regression, unrelated to this fix, not
+investigated further here.
+
+**Follow-up, done same day:** ran `Query.isLandAt()` against all 60
+`category: "anchorages"` points in `documents.geojson` (not just the 19
+from v633) — Warren Island was the only one on land. No further cleanup
+needed.

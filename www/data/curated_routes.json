@@ -19,5 +19,19 @@
       { "lat": 44.041479, "lon": -68.839833 },
       { "lat": 44.042873, "lon": -68.836984 }
     ]
+  },
+  {
+    "id": "rockland-warren-island",
+    "name": "Rockland to Warren Island",
+    "note": "Runs up West Penobscot Bay past Camden and Lincolnville, then curves around Warren Island's north end into the state park's mooring field. Verified live 2026-09-17 — AutoRoute threads this corridor cleanly; kept here as both a sample route and a regression check for the router.",
+    "points": [
+      { "lat": 44.0986, "lon": -69.0752 },
+      { "lat": 44.23732643133912, "lon": -68.98084215703494 },
+      { "lat": 44.26706209280887, "lon": -68.95952641534237 },
+      { "lat": 44.27524055069939, "lon": -68.9524045544403 },
+      { "lat": 44.278692564658385, "lon": -68.94764354090552 },
+      { "lat": 44.278639174185294, "lon": -68.94505870250784 },
+      { "lat": 44.278333, "lon": -68.945 }
+    ]
   }
 ]

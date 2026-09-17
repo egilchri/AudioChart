@@ -2254,10 +2254,10 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.942974, 44.2726] },
+      "geometry": { "type": "Point", "coordinates": [-68.945, 44.278333] },
       "properties": {
         "title": "Warren Island State Park — Anchorage & Moorings",
-        "positionNote": "Position moved to the island's eastern shore, adjacent to the pier, per the description and the park's own materials — previously the island's generic centroid (on land).",
+        "positionNote": "Position corrected (v635) to open water just off the island's north end, near the original pier-side point the v633 fix intended — that v633 point (island's eastern shore, adjacent to the pier) turned out to still land inside the digitized coastline polygon (confirmed live via Query.isLandAt() while building the Rockland-to-Warren-Island sample route). This position was chosen by mapping the actual coastline with isLandAt() and confirming the live AutoRoute can thread a real path to it from Rockland, clear of land and hazards.",
         "category": "anchorages",
         "place": "Warren Island State Park, Islesboro, ME",
         "anchorage": {

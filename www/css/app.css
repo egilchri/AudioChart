@@ -2108,6 +2108,53 @@ body.wco-active #wco-titlebar { display: flex; }
 }
 .map-tooltip::before { border-top-color: var(--mid-blue) !important; }
 
+/* "Take a Tour" callouts — same CSS-triangle-pointer technique as
+   .map-tooltip above, but these anchor to arbitrary top-chrome DOM
+   elements (buttons, panels), not Leaflet markers, so they're a real
+   fixed-position element with their own positioning logic (tour.js), not
+   a Leaflet tooltip. z-index 10000 sits one above the general 9999
+   floating-chrome tier (#map-context-menu, #demo-hud) and below
+   #opencpn-btn's 99999 topmost tier. */
+.tour-callout {
+  position: fixed;
+  z-index: 10000;
+  max-width: 280px;
+  background: var(--dark-blue);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 12px 14px;
+  color: var(--text);
+  font-size: 0.85rem;
+  line-height: 1.4;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+}
+.tour-callout::before {
+  content: '';
+  position: absolute;
+  left: var(--tour-arrow-offset, 20px);
+  width: 0; height: 0;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+}
+.tour-callout[data-tour-arrow="bottom"]::before { top: -7px; border-bottom: 7px solid var(--dark-blue); }
+.tour-callout[data-tour-arrow="top"]::before { bottom: -7px; border-top: 7px solid var(--dark-blue); }
+.tour-callout-untargeted::before { display: none; }
+.tour-callout-text { margin-bottom: 10px; }
+.tour-callout-controls { display: flex; align-items: center; gap: 8px; }
+.tour-callout-spacer { flex: 1; }
+.tour-btn {
+  background: none;
+  border: 1px solid var(--mid-blue);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 5px 10px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.tour-btn:hover, .tour-btn:active { background: var(--mid-blue); }
+.tour-btn-next { border-color: var(--accent); color: var(--accent); }
+.tour-btn-skip { border-color: transparent; color: var(--text-dim); }
+
 /* Semi-transparent label for the computed fix position on the map */
 .fix-coord-label {
   background: rgba(20, 35, 55, 0.65);
