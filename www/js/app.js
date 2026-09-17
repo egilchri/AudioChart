@@ -11450,6 +11450,47 @@ async function runDemoMode() {
     await sleep(pauseMs);
   }
 
+  // Discover Warren Island's anchorage — switches to Anchorages mode via
+  // the same real UI path a user would use (the map-layer-select 'change'
+  // event, not a direct internal call), jumps to the marker, then holds a
+  // pulse on it (.marker-speaking — reused from the "currently speaking
+  // about this marker" indicator elsewhere) for a couple of seconds. A
+  // single .marker-flash blip (0.5s) reads fine live but is too quick to
+  // register for someone just watching a recording.
+  //
+  // setView, not flyTo: confirmed live that flyTo's animation genuinely
+  // never completes when this runs in a backgrounded tab (document.hidden
+  // === true) — it fires zoomstart/movestart and exactly one move event,
+  // then nothing, because Chrome throttles requestAnimationFrame (which
+  // flyTo's easing depends on) to near-zero in a hidden tab. A demo meant
+  // to be captured by screen-recording automation can easily run in a
+  // tab that isn't OS-foreground, so relying on flyTo risks silently
+  // stranding the map short of Warren Island in the actual recording.
+  // setView is a synchronous jump cut, not dependent on rAF at all.
+  show('▶  Discovering Warren Island anchorage…');
+  const layerSelect = document.getElementById('map-layer-select');
+  layerSelect.value = 'anchorages';
+  layerSelect.dispatchEvent(new Event('change'));
+  await sleep(500);
+  const warrenIslandMarker = _findDocumentMarkerByTitle('Warren Island State Park — Anchorage & Moorings');
+  if (warrenIslandMarker && _map) {
+    _map.setView(warrenIslandMarker.getLatLng(), 14);
+    await sleep(500);
+    const markerEl = warrenIslandMarker.getElement ? warrenIslandMarker.getElement() : null;
+    if (markerEl) {
+      markerEl.classList.add('marker-speaking');
+      // Re-assert the view partway through the pulse — cheap insurance
+      // against anything else in the app nudging the map in between (a
+      // GPS-fix handler, a coverage check), so the frame a viewer actually
+      // sees the pulse on is guaranteed to still be centered on the marker.
+      await sleep(1000);
+      _map.setView(warrenIslandMarker.getLatLng(), 14);
+      await sleep(1200);
+      markerEl.classList.remove('marker-speaking');
+    }
+  }
+  await sleep(1000);
+
   // Open the full chart map if the button is visible
   if (opencpnBtn && opencpnBtn.style.display !== 'none') {
     show('▶  Opening full chart view…');
