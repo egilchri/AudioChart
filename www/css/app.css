@@ -2127,6 +2127,7 @@ body.wco-active #wco-titlebar { display: flex; }
   font-size: 0.85rem;
   line-height: 1.4;
   box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  cursor: move;
 }
 .tour-callout::before {
   content: '';

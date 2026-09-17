@@ -22,6 +22,11 @@
  *             without waitFor just show a manual Next button.
  * A step with no `target` renders as an untargeted, centered callout —
  * used for a tour's closing step.
+ *
+ * Every callout is draggable (grab anywhere on it) — it can land on top of
+ * whatever it's pointing at (a Leaflet document popup's own content, for
+ * instance), and dragging it aside is the direct fix rather than trying to
+ * predict every real popup's shape in advance.
  */
 
 const MODE_SEEN_KEY = 'audiochart-tour-mode-seen';
@@ -139,6 +144,7 @@ function _renderStep() {
   el.appendChild(controls);
   document.body.appendChild(el);
   _active.el = el;
+  _makeDraggable(el);
 
   const place = () => {
     const target = _resolveTarget(step.target);
@@ -160,6 +166,69 @@ function _renderStep() {
   }
 
   _active.cleanupWaitFor = step.waitFor ? (step.waitFor(() => _advance()) || null) : null;
+}
+
+// Callouts can land on top of whatever they're pointing at (a Leaflet
+// document popup's own content, in the flagship tour's case — confirmed
+// live, the two visibly overlapped). Letting the user drag the callout
+// itself out of the way is the direct fix, rather than trying to predict
+// every real popup's shape in advance. Self-contained (no import from
+// app.js's own _makeDraggable) to keep this module free of app.js
+// dependencies — same split as router.js/wake_lock.js. A plain tap on a
+// Skip/Back/Next button still works: the click-swallow only fires once a
+// real drag (past DRAG_THRESHOLD_PX) has happened.
+const DRAG_THRESHOLD_PX = 6;
+function _makeDraggable(el) {
+  let dragging = false, moved = false, startX = 0, startY = 0, origLeft = 0, origTop = 0;
+
+  function begin(clientX, clientY) {
+    dragging = true;
+    moved = false;
+    startX = clientX;
+    startY = clientY;
+    const rect = el.getBoundingClientRect();
+    origLeft = rect.left;
+    origTop = rect.top;
+  }
+  function moveTo(clientX, clientY) {
+    if (!dragging) return;
+    if (!moved && Math.hypot(clientX - startX, clientY - startY) < DRAG_THRESHOLD_PX) return;
+    moved = true;
+    el.classList.add('tour-callout-untargeted'); // dragging = no longer arrow-pointing at anything; hides the arrow (see CSS)
+    el.style.transform = '';
+    const w = el.offsetWidth, h = el.offsetHeight;
+    const newLeft = Math.max(4, Math.min(window.innerWidth  - w - 4, origLeft + (clientX - startX)));
+    const newTop  = Math.max(4, Math.min(window.innerHeight - h - 4, origTop  + (clientY - startY)));
+    el.style.left = `${newLeft}px`;
+    el.style.top  = `${newTop}px`;
+  }
+  function end() { dragging = false; }
+
+  el.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) return;
+    begin(e.touches[0].clientX, e.touches[0].clientY);
+  }, { passive: true });
+  el.addEventListener('touchmove', (e) => {
+    if (!dragging) return;
+    e.preventDefault();
+    moveTo(e.touches[0].clientX, e.touches[0].clientY);
+  }, { passive: false });
+  el.addEventListener('touchend', end);
+
+  el.addEventListener('mousedown', (e) => {
+    begin(e.clientX, e.clientY);
+    const onMove = (ev) => moveTo(ev.clientX, ev.clientY);
+    const onUp = () => { end(); document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+
+  // Swallow exactly the one click that follows a real drag gesture, so
+  // dragging the callout by grabbing near a button doesn't also fire that
+  // button. A plain tap (moved stays false) passes through untouched.
+  el.addEventListener('click', (e) => {
+    if (moved) { e.stopImmediatePropagation(); e.preventDefault(); moved = false; }
+  }, { capture: true });
 }
 
 function _positionCallout(el, target, placement) {
