@@ -140,10 +140,38 @@ browser automation. Traced to two separate things:
    real explanation for the *original* v627 user report, distinct from
    the tuning gap v628/v629 chased.
 
-**Not yet fixed:** no self-heal exists for an already-poisoned cache (a
-sanity check on load — e.g. an anomalous feature-count jump vs. the
-region's known bundle size — or a forced one-time re-fetch keyed to a
-data-version bump would close this).
+**Fixed (v636):** a one-time, per-region migration flag
+(`audiochart-hazards-dedup-migration-v636:<region>`) forces exactly one
+real network re-fetch of hazards/named_places/navaids per region per
+browser, bypassing the version-check shortcut, then writes the fresh
+result back into IndexedDB (replacing whatever was cached, good or
+poisoned) before never running again for that region. Verified live: a
+manually-poisoned 23,876-feature cache healed back to the correct 11,938
+on load, and stayed correct (11,934 — see below) on subsequent reloads.
+
+Fixing this exposed a second, more serious latent bug found in the
+process: `_featureIdentityKey` (the dedup logic itself) assumed every
+feature is a Point, destructuring `coordinates` directly — `hazards.geojson`
+is ~60% Polygon/MultiPolygon ("shallow area" drying-flat features), which
+crashed it outright the moment this dedup path finally ran end-to-end
+(it hadn't been genuinely exercised by any test before, since `idbCurrent`
+was effectively unreachable in a single-process Node test run and, in a
+real browser, apparently rare enough not to have surfaced yet). Fixed by
+branching on `geometry.type`: Points keep the existing rounded-coordinate
+key (intentional — tolerates real coordinate drift between chart
+rebuilds), non-Points key on the exact full geometry structure instead.
+A first attempt at this (keying non-Points on just their first vertex)
+was itself wrong and caught before shipping: verified against real data
+that it wrongly collided 291 pairs of genuinely different depth-band
+polygons that happen to share a starting vertex (nested/adjacent depth
+contours from the same digitizing source), which would have silently
+dropped 300 real chart features. The shipped fix (exact full-geometry
+match) only collides byte-identical shapes — verified it still catches
+the original doubling case (23,876 → 11,934) while leaving real distinct
+polygons alone (11,938 → 11,934, the only 4 removed being genuine
+pre-existing name-collisions — two different real-world rocks named
+"Channel Rock" and two named "Shag Rock" on different charts — unrelated
+to this fix, not touched).
 
 **A separate mistake made during this investigation:** while testing
 whether stale cached data was the cause, `localStorage.clear()` and all

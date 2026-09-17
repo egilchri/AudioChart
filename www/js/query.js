@@ -64,8 +64,24 @@ export let restrictions = null;
 function _featureIdentityKey(f) {
   const nm = f.properties?.name_lower || f.properties?.name?.toLowerCase();
   if (nm) return `${f.properties.label || f.properties.objtype || ''}:${nm}`;
-  const [lon, lat] = f.geometry.coordinates;
-  return `${lat.toFixed(4)},${lon.toFixed(4)}`;
+  if (f.geometry?.type === 'Point') {
+    const [lon, lat] = f.geometry.coordinates;
+    return `${lat.toFixed(4)},${lon.toFixed(4)}`;
+  }
+  // Non-Point geometry (hazards.geojson's "shallow area" drying-flat
+  // polygons are ~60% of that file) — a coordinate-rounding key is unsafe
+  // here: real, genuinely distinct depth-band polygons for the same
+  // charted area routinely share a first vertex (nested/adjacent depth
+  // contours digitized from the same source) — confirmed against real
+  // data: keying on just the first vertex wrongly collided 291 pairs of
+  // real, different depth-band polygons (e.g. one "-10.6-0.0m" and one
+  // "1.8-3.6m" DEPARE sharing a start point), silently dropping 300 real
+  // chart features. The actual bug this function exists to catch is a
+  // literal duplicate object — the old merge-not-replace bug concatenated
+  // the same array with itself — so an exact match on the full coordinate
+  // structure is both safe and sufficient: it only ever collides two
+  // features that are byte-for-byte the same shape.
+  return `geom:${JSON.stringify(f.geometry)}`;
 }
 
 // Removes duplicate features (by _featureIdentityKey, keeping the first
@@ -555,7 +571,25 @@ export async function loadData(lat, lon) {
     idbGet(_versionIdbKey(_activeRegion)).catch(() => null),
   ]);
 
-  const idbCurrent = idbH && networkVersion && storedVersion === networkVersion;
+  // One-time self-heal for a real, previously-undiscovered bug (see
+  // INCIDENTS.md, 2026-09-17): a browser whose region cache was poisoned
+  // by the old merge-not-replace download bug (see prepareOfflineStatic's
+  // own comment — 11,938 hazards became 21,069) carries doubled hazard
+  // density forever, because the version check below only compares
+  // against the CURRENT network version — a poisoned cache saved under a
+  // still-current version silently never gets re-fetched, and
+  // _dedupFeatureCollection can't catch it either (the two merged vintages
+  // don't share exact-enough coordinates to key-match). Keyed per region
+  // (not global) so a user with more than one region downloaded gets each
+  // one healed independently as it becomes active. Forces exactly one real
+  // network re-fetch per region per browser, replacing whatever's cached
+  // (good or poisoned) with a known-clean copy, then never runs again for
+  // that region.
+  const _dedupMigrationKey = `audiochart-hazards-dedup-migration-v636:${_activeRegion || 'default'}`;
+  let _dedupMigrationDone = true;
+  try { _dedupMigrationDone = localStorage.getItem(_dedupMigrationKey) === '1'; } catch (_) {}
+
+  const idbCurrent = idbH && networkVersion && storedVersion === networkVersion && _dedupMigrationDone;
 
   if (idbCurrent) {
     hazards = _dedupFeatureCollection(idbH);
@@ -595,6 +629,18 @@ export async function loadData(lat, lon) {
     namedPlaces = p;
     navaids = n;
     if (networkVersion) await idbPut(_versionIdbKey(_activeRegion), networkVersion);
+    if (!_dedupMigrationDone) {
+      // Replace whatever's cached for this region — good or poisoned —
+      // with this known-clean fetch, so a poisoned cache can't resurface
+      // on the next load once idbCurrent would otherwise trust it again.
+      await Promise.all([
+        idbPut(_regionIdbKey('hazards', _activeRegion), hazards).catch(() => {}),
+        idbPut(_regionIdbKey('named_places', _activeRegion), namedPlaces).catch(() => {}),
+        idbPut(_regionIdbKey('navaids', _activeRegion), navaids).catch(() => {}),
+      ]);
+      try { localStorage.setItem(_dedupMigrationKey, '1'); } catch (_) {}
+      console.log(`[query] One-time hazards-cache self-heal complete for region "${_activeRegion || 'default'}" — replaced any pre-existing cache with a fresh fetch.`);
+    }
     console.log(`[query] Loaded offline data from static files (version ${networkVersion})`);
   }
 
