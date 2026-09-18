@@ -5,7 +5,10 @@
  * (which element it targets, what advances it) is supplied by the caller;
  * this module owns no knowledge of app.js internals beyond what's passed
  * in, same split as router.js/wake_lock.js (logic here, DOM/content glue
- * stays in app.js).
+ * stays in app.js). tts.js is a foundational module of the same kind
+ * (not app.js itself), so importing it here doesn't break that split —
+ * this app is voice-first throughout, and per direct request a tour step
+ * should be spoken, not just displayed as text on screen.
  *
  * Step shape: { target, text, placement?, waitFor? }
  *   target:   CSS selector string, OR a function returning an Element|null
@@ -28,6 +31,8 @@
  * instance), and dragging it aside is the direct fix rather than trying to
  * predict every real popup's shape in advance.
  */
+
+import * as TTS from './tts.js';
 
 const MODE_SEEN_KEY = 'audiochart-tour-mode-seen';
 const TOUR_DONE_KEY = 'audiochart-tour-completed';
@@ -115,6 +120,7 @@ function _renderStep() {
   const textEl = document.createElement('div');
   textEl.className = 'tour-callout-text';
   textEl.textContent = step.text;
+  TTS.sayImmediate(step.text);
   const controls = document.createElement('div');
   controls.className = 'tour-callout-controls';
   const skipBtn = document.createElement('button');

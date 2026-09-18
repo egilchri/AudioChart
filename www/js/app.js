@@ -1807,6 +1807,24 @@ let _tourCapturedRouteName = null;
 
 const WARREN_ISLAND_TITLE = 'Warren Island State Park — Anchorage & Moorings';
 
+// Shared by any tour step whose action is "switch #map-layer-select to
+// this mode" — same _mapViewMode-not-e.target.value reasoning as the
+// flagship tour's own first step (see its comment): _syncLayerBtn()
+// resets the <select> back to blank synchronously before a second change
+// listener would ever see the real value.
+function _waitForMapMode(mode, advance) {
+  const sel = document.getElementById('map-layer-select');
+  const h = () => { if (_mapViewMode === mode) advance(); };
+  sel.addEventListener('change', h);
+  return () => sel.removeEventListener('change', h);
+}
+
+// The real title of the nearest History-mode document to Warren Island
+// (Seven Hundred Acre Island, ~1nm away — confirmed live against
+// documents.geojson) — reused so the History step in the flagship tour
+// points at a genuine, already-shipped write-up instead of inventing one.
+const SEVEN_HUNDRED_ACRE_RAID_TITLE = "A 1692 raid, and the tradition it didn't manage to end";
+
 const TOURS = [
   {
     id: 'discover-destination-route',
@@ -1892,8 +1910,43 @@ const TOURS = [
           return () => clearInterval(t);
         },
       },
+      // History and geology, added per direct request ("the voice to talk
+      // about the route, and then bring up some of the map modes, to talk
+      // about the history, the geology"). Both steps below are grounded in
+      // real, already-shipped data — the history write-up is a genuine
+      // documents.geojson entry ~1nm from Warren Island (Seven Hundred
+      // Acre Island); the geology line is the real Maine Geological
+      // Survey bedrock classification for this stretch of coast (Zil/Zi/
+      // Zop/Znh — Precambrian gneiss, limestone, marble, slate — and
+      // OCAp — Cambrian-Ordovician schist/marble/gneiss), queried live
+      // against the same MGS_Bedrock_500K FeatureServer
+      // _refreshMaineGeologyLayer itself calls, not invented.
       {
-        text: "That's it — AudioChart will call out bearings and hazards as you go.",
+        target: '#map-layer-select',
+        text: "Before you go, the chart has more to say about this spot. Switch to History mode.",
+        waitFor: (advance) => _waitForMapMode('history', advance),
+      },
+      {
+        target: () => _findDocumentMarkerByTitle(SEVEN_HUNDRED_ACRE_RAID_TITLE)?.getElement() || null,
+        text: 'Tap the marker on Seven Hundred Acre Island, right next door — Penobscot and Tarratine people summered here for generations before any European contact.',
+        waitFor: (advance) => {
+          const m = _findDocumentMarkerByTitle(SEVEN_HUNDRED_ACRE_RAID_TITLE);
+          if (!m) return undefined;
+          const h = () => advance();
+          m.on('popupopen', h);
+          return () => m.off('popupopen', h);
+        },
+      },
+      {
+        target: '#map-layer-select',
+        text: 'Now switch to Geology mode to see the bedrock beneath the bay.',
+        waitFor: (advance) => _waitForMapMode('geology-maine', advance),
+      },
+      {
+        text: "This stretch of coast sits on some of Maine's oldest bedrock — Precambrian gneiss, limestone, marble, and slate, folded long before the granite you'll see further inland. Tap any colored shape on the chart for the exact rock type.",
+      },
+      {
+        text: "That's it — AudioChart will call out bearings and hazards as you go, and there's more like this to find on every mode.",
       },
     ],
   },
