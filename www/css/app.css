@@ -1993,6 +1993,12 @@ body.wco-active #wco-titlebar { display: flex; }
   gap: 3px;
   padding: 0 10px 6px;
 }
+.rp-sample-heading {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--accent);
+  padding: 4px 2px 2px;
+}
 .rp-sample-item {
   display: flex;
   flex-direction: column;

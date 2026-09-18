@@ -7162,10 +7162,24 @@ function _ensureMap() {
       filtered = filtered.filter(r => r.id === _followingRouteId || r.id === _vjRoute?.id);
     }
     _updateBulkBar(filtered.length);
+    // A brand-new user's very first look at this panel was just a bare "No
+    // saved routes." message, with the real sample-route library hidden a
+    // click away behind the "★ Sample Routes" button above — easy to miss
+    // entirely, worst for exactly the audience (new users) who'd benefit
+    // most. Auto-expand the same sample list right here instead of making
+    // them find and click that button first. Once they've got any route of
+    // their own, this goes back to collapsed — the star button still opens
+    // it manually any time.
+    const sampleList = document.getElementById('rp-sample-list');
+    if (routes.length === 0) {
+      _renderSampleRouteList(sampleList, { withHeading: true });
+    } else {
+      sampleList.style.display = 'none';
+    }
     if (filtered.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'rp-empty';
-      empty.textContent = routes.length === 0 ? 'No saved routes.' : 'No routes match.';
+      empty.textContent = routes.length === 0 ? 'No saved routes yet.' : 'No routes match.';
       list.appendChild(empty);
       return;
     }
@@ -8727,15 +8741,22 @@ function _ensureMap() {
   // Query.curatedRoutes / data/regions/<id>/curated_routes.json) — gives an
   // armchair cruiser something to explore immediately, and doubles as a
   // regression check (see window._verifyCuratedRoutes) that the live router
-  // can still reproduce a safe path for each one.
+  // can still reproduce a safe path for each one. Shared by the manual
+  // "★ Sample Routes" toggle below and _buildRoutePickerPanel's own
+  // auto-expand for a brand-new user with no saved routes yet.
+  function _renderSampleRouteList(listEl, { withHeading }) {
+    const routes = Query.curatedRoutes || [];
+    const heading = withHeading ? '<div class="rp-sample-heading">New here? Try a sample route to get started:</div>' : '';
+    const items = routes.length
+      ? routes.map(r => `<button class="rp-sample-item" data-id="${escapeHtml(r.id)}">${escapeHtml(r.name)}${r.note ? `<span class="rp-sample-item-note">${escapeHtml(r.note)}</span>` : ''}</button>`).join('')
+      : '<div class="rp-empty">No sample routes for this region yet.</div>';
+    listEl.innerHTML = heading + items;
+    listEl.style.display = 'block';
+  }
   const _sampleList = document.getElementById('rp-sample-list');
   document.getElementById('rp-sample-routes').addEventListener('click', () => {
     if (_sampleList.style.display === 'block') { _sampleList.style.display = 'none'; return; }
-    const routes = Query.curatedRoutes || [];
-    _sampleList.innerHTML = routes.length
-      ? routes.map(r => `<button class="rp-sample-item" data-id="${escapeHtml(r.id)}">${escapeHtml(r.name)}${r.note ? `<span class="rp-sample-item-note">${escapeHtml(r.note)}</span>` : ''}</button>`).join('')
-      : '<div class="rp-empty">No sample routes for this region yet.</div>';
-    _sampleList.style.display = 'block';
+    _renderSampleRouteList(_sampleList, { withHeading: false });
   });
   _sampleList.addEventListener('click', (e) => {
     const btn = e.target.closest('.rp-sample-item');
