@@ -7167,14 +7167,21 @@ function _ensureMap() {
     // click away behind the "★ Sample Routes" button above — easy to miss
     // entirely, worst for exactly the audience (new users) who'd benefit
     // most. Auto-expand the same sample list right here instead of making
-    // them find and click that button first. Once they've got any route of
-    // their own, this goes back to collapsed — the star button still opens
-    // it manually any time.
-    const sampleList = document.getElementById('rp-sample-list');
+    // them find and click that button first.
+    //
+    // Deliberately a one-way nudge, not a toggle this function owns: this
+    // runs on every rebuild (search keystroke, sort change, follow/stop,
+    // any external route-list update — see the many other call sites of
+    // _buildRoutePickerPanel), not just when the user touches the sample
+    // list. An earlier version also force-closed it whenever routes.length
+    // > 0, which meant clicking "★ Sample Routes" open, then doing
+    // anything else in the panel, silently closed it again — the "★ Sample
+    // Routes" button's own click handler is the only thing that should
+    // ever close it once routes exist; the list is meant to always be
+    // reliably available there, exactly as many times as the user presses
+    // that button, regardless of how many routes they already have.
     if (routes.length === 0) {
-      _renderSampleRouteList(sampleList, { withHeading: true });
-    } else {
-      sampleList.style.display = 'none';
+      _renderSampleRouteList(document.getElementById('rp-sample-list'), { withHeading: true });
     }
     if (filtered.length === 0) {
       const empty = document.createElement('div');
