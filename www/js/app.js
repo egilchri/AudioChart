@@ -11472,13 +11472,19 @@ async function runDemoMode() {
   // marker to open its popup, then click its real "Navigate to here"
   // button — genuine AutoRoute, not staged.
   const WARREN_ISLAND_STEPS = 4;
-  showStep(1, WARREN_ISLAND_STEPS, "Let's find somewhere to anchor. Switching to Anchorages mode.");
+  showStep(1, WARREN_ISLAND_STEPS,
+    "Let's find somewhere to anchor for the night. I'll switch the chart into Anchorages mode, " +
+    "which highlights moorings and anchorages all along the coast. Each one comes with real " +
+    "details on depth, holding ground, and local notes.");
   const layerSelect = document.getElementById('map-layer-select');
   layerSelect.value = 'anchorages';
   layerSelect.dispatchEvent(new Event('change'));
-  await sleep(2200);
+  await sleep(13000);
 
-  showStep(2, WARREN_ISLAND_STEPS, 'Panning over to Warren Island, off Islesboro.');
+  showStep(2, WARREN_ISLAND_STEPS,
+    "Now I'll pan up the coast toward Islesboro, looking for a quiet spot to settle in. Warren " +
+    "Island State Park sits just off Gilkey Harbor, a favorite stop for sailors working their way " +
+    "through Penobscot Bay. It's got a handful of moorings, plus room to anchor nearby.");
   const panNorth = document.getElementById('pan-north');
   const panEast = document.getElementById('pan-east');
   if (panNorth && panEast) {
@@ -11486,25 +11492,31 @@ async function runDemoMode() {
     panNorth.click(); await sleep(500);
     panEast.click();  await sleep(500);
   }
-  await sleep(1500);
+  await sleep(14000);
 
   const warrenIslandMarker = _findDocumentMarkerByTitle('Warren Island State Park — Anchorage & Moorings');
   if (warrenIslandMarker && _map) {
     const markerEl = warrenIslandMarker.getElement ? warrenIslandMarker.getElement() : null;
     if (markerEl) markerEl.classList.add('marker-speaking');
-    showStep(3, WARREN_ISLAND_STEPS, 'Tapping the marker for details.');
+    showStep(3, WARREN_ISLAND_STEPS,
+      "Tapping the marker brings up everything AudioChart knows about this anchorage. You'll see " +
+      "mooring counts, nightly fees, and anchoring notes, pulled from real charts and cruising " +
+      "guides. No need to dig through a paper guidebook while you're underway.");
     await sleep(1400);
     if (markerEl) markerEl.classList.remove('marker-speaking');
     warrenIslandMarker.fire('click'); // real Leaflet click — opens the popup, same as a tap
-    await sleep(2200);
+    await sleep(13000);
 
-    showStep(4, WARREN_ISLAND_STEPS, 'Navigate to here — and AudioChart plots the route.');
+    showStep(4, WARREN_ISLAND_STEPS,
+      "One tap on Navigate to here, and AudioChart plots a real route from your current position. " +
+      "It threads the passage between the islands and ledges, steering clear of hazards along the " +
+      "way. From here, it's ready to call out headings and distances the whole way in.");
     const navBtn = document.querySelector('.doc-popup-navigate');
     if (navBtn) {
       navBtn.scrollIntoView({ block: 'center' });
       await sleep(600);
       navBtn.click();
-      await sleep(3500);
+      await sleep(14000);
     }
   }
   if (stepBadge) stepBadge.style.display = 'none';
