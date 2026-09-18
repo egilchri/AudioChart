@@ -1243,6 +1243,7 @@ body.wco-active #wco-titlebar { display: flex; }
   padding: 10px 14px;
   min-width: 200px;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   max-width: min(320px, calc(100vw - 80px));
   box-shadow: 0 2px 12px rgba(0,0,0,0.7);
   font-size: 0.85rem;
@@ -1290,6 +1291,13 @@ body.wco-active #wco-titlebar { display: flex; }
      panel actively fills most of the vertical viewport when open, instead
      of just sizing to its content and capping at some maximum. */
   overflow-y: auto;
+  /* Without this, a touch swipe inside a nested overflow:auto panel
+     floating over the Leaflet map can fail to actually initiate momentum
+     scrolling on iOS Safari — a real, reported case: the sample-routes
+     list (5 verbose entries, genuinely taller than the panel) looked
+     "stuck" on a phone even though desktop mouse-wheel scrolling over the
+     exact same DOM worked fine. */
+  -webkit-overflow-scrolling: touch;
   max-width: min(320px, calc(100vw - 80px));
   box-shadow: 0 2px 12px rgba(0,0,0,0.7);
   font-size: 0.85rem;
@@ -1817,6 +1825,7 @@ body.wco-active #wco-titlebar { display: flex; }
   max-width: 260px;
   max-height: calc(100vh - 140px);
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   box-shadow: 0 2px 12px rgba(0,0,0,0.7);
   font-size: 0.85rem;
   color: var(--text);
