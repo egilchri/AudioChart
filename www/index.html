@@ -501,7 +501,6 @@
         <span>&#128266;</span>
         <select id="voice-select" title="Speech voice"></select>
       </div>
-      <div id="demo-hud" style="display:none"></div>
       <button id="opencpn-btn" style="display:none" title="Open the full nautical chart view (more chart detail, no voice guidance)">&#8853; Full Chart</button>
       <div id="history-area">
         <div id="history-list"></div>
@@ -544,6 +543,16 @@
   <!-- Long-press the boat icon: a 2-item shortcut menu (skips the general
        map context menu's full item list) since Autoroute/Sketch are the two
        actions started from the boat's own position so often. -->
+  <!-- Not #sidebar — that container is permanently display:none (kept in
+       DOM only for JS references, per its own CSS comment). #demo-hud and
+       #demo-step-badge lived there since they were added and were
+       consequently never actually visible to anyone watching ?demo, live
+       or recorded — confirmed live via getBoundingClientRect returning an
+       all-zero rect despite their own display:block. Moved here, a
+       confirmed-visible top-level area (same as #map-context-menu below). -->
+  <div id="demo-hud" style="display:none"></div>
+  <div id="demo-step-badge" style="display:none"></div>
+
   <div id="boat-context-menu">
     <button id="boat-ctx-autoroute" title="Start a new auto-route from your current position">&#10145; Autoroute</button>
     <button id="boat-ctx-sketch" title="Start freehand-sketching a new route from your current position">&#9643; Sketch</button>

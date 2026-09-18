@@ -11403,7 +11403,18 @@ async function init() {
 async function runDemoMode() {
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const hud = document.getElementById('demo-hud');
+  const stepBadge = document.getElementById('demo-step-badge');
   const show = msg => { if (hud) hud.textContent = msg; };
+  // Speaks the step aloud for anyone watching ?demo live in a real browser
+  // (real TTS, same voice/engine as the rest of the app) — the recorded
+  // clip embedded on the marketing page can't capture that live audio, so
+  // it's narrated separately in post from the same step text; see the
+  // Warren Island block below for the step list this mirrors.
+  const showStep = (n, total, text) => {
+    if (stepBadge) { stepBadge.textContent = `STEP ${n} OF ${total}`; stepBadge.style.display = 'block'; }
+    show(text);
+    TTS.sayImmediate(text);
+  };
 
   hud.style.display = 'block';
   localStorage.setItem('audiochart-welcomed', '1');  // suppress welcome overlay
@@ -11450,46 +11461,54 @@ async function runDemoMode() {
     await sleep(pauseMs);
   }
 
-  // Discover Warren Island's anchorage — switches to Anchorages mode via
-  // the same real UI path a user would use (the map-layer-select 'change'
-  // event, not a direct internal call), jumps to the marker, then holds a
-  // pulse on it (.marker-speaking — reused from the "currently speaking
-  // about this marker" indicator elsewhere) for a couple of seconds. A
-  // single .marker-flash blip (0.5s) reads fine live but is too quick to
-  // register for someone just watching a recording.
-  //
-  // setView, not flyTo: confirmed live that flyTo's animation genuinely
-  // never completes when this runs in a backgrounded tab (document.hidden
-  // === true) — it fires zoomstart/movestart and exactly one move event,
-  // then nothing, because Chrome throttles requestAnimationFrame (which
-  // flyTo's easing depends on) to near-zero in a hidden tab. A demo meant
-  // to be captured by screen-recording automation can easily run in a
-  // tab that isn't OS-foreground, so relying on flyTo risks silently
-  // stranding the map short of Warren Island in the actual recording.
-  // setView is a synchronous jump cut, not dependent on rAF at all.
-  show('▶  Discovering Warren Island anchorage…');
+  // Discover Warren Island's anchorage and route to it — narrated, numbered
+  // steps (see showStep above), matching what's actually recorded for the
+  // sailors landing page's demo clip: switch to Anchorages mode via the
+  // same real UI path a user would use (the map-layer-select 'change'
+  // event), pan there with the real on-screen pan buttons (not an instant
+  // jump — confirmed live that a raw drag gesture doesn't register as a
+  // real Leaflet pan under CDP automation, but clicking the actual pan
+  // buttons does, the same as a real tap), fire a real click on the
+  // marker to open its popup, then click its real "Navigate to here"
+  // button — genuine AutoRoute, not staged.
+  const WARREN_ISLAND_STEPS = 4;
+  showStep(1, WARREN_ISLAND_STEPS, "Let's find somewhere to anchor. Switching to Anchorages mode.");
   const layerSelect = document.getElementById('map-layer-select');
   layerSelect.value = 'anchorages';
   layerSelect.dispatchEvent(new Event('change'));
-  await sleep(500);
+  await sleep(2200);
+
+  showStep(2, WARREN_ISLAND_STEPS, 'Panning over to Warren Island, off Islesboro.');
+  const panNorth = document.getElementById('pan-north');
+  const panEast = document.getElementById('pan-east');
+  if (panNorth && panEast) {
+    panNorth.click(); await sleep(500);
+    panNorth.click(); await sleep(500);
+    panEast.click();  await sleep(500);
+  }
+  await sleep(1500);
+
   const warrenIslandMarker = _findDocumentMarkerByTitle('Warren Island State Park — Anchorage & Moorings');
   if (warrenIslandMarker && _map) {
-    _map.setView(warrenIslandMarker.getLatLng(), 14);
-    await sleep(500);
     const markerEl = warrenIslandMarker.getElement ? warrenIslandMarker.getElement() : null;
-    if (markerEl) {
-      markerEl.classList.add('marker-speaking');
-      // Re-assert the view partway through the pulse — cheap insurance
-      // against anything else in the app nudging the map in between (a
-      // GPS-fix handler, a coverage check), so the frame a viewer actually
-      // sees the pulse on is guaranteed to still be centered on the marker.
-      await sleep(1000);
-      _map.setView(warrenIslandMarker.getLatLng(), 14);
-      await sleep(1200);
-      markerEl.classList.remove('marker-speaking');
+    if (markerEl) markerEl.classList.add('marker-speaking');
+    showStep(3, WARREN_ISLAND_STEPS, 'Tapping the marker for details.');
+    await sleep(1400);
+    if (markerEl) markerEl.classList.remove('marker-speaking');
+    warrenIslandMarker.fire('click'); // real Leaflet click — opens the popup, same as a tap
+    await sleep(2200);
+
+    showStep(4, WARREN_ISLAND_STEPS, 'Navigate to here — and AudioChart plots the route.');
+    const navBtn = document.querySelector('.doc-popup-navigate');
+    if (navBtn) {
+      navBtn.scrollIntoView({ block: 'center' });
+      await sleep(600);
+      navBtn.click();
+      await sleep(3500);
     }
   }
-  await sleep(1000);
+  if (stepBadge) stepBadge.style.display = 'none';
+  await sleep(1500);
 
   // Open the full chart map if the button is visible
   if (opencpnBtn && opencpnBtn.style.display !== 'none') {
@@ -11501,6 +11520,7 @@ async function runDemoMode() {
   show('✓  Demo complete');
   await sleep(2000);
   hud.style.display = 'none';
+  if (stepBadge) stepBadge.style.display = 'none';
 }
 
 document.addEventListener('DOMContentLoaded', () => {

@@ -291,10 +291,10 @@
   .demo-frame {
     background: var(--navy-deep);
     border-radius: 6px;
-    /* Matches the real recorded clip's own aspect ratio (1000x562) — the
+    /* Matches the real recorded clip's own aspect ratio (1000x606) — the
        app's live UI isn't a 16:8 letterbox shape, so using that ratio here
        would either crop real content or letterbox it. */
-    aspect-ratio: 1000/562;
+    aspect-ratio: 1000/606;
     overflow: hidden;
     position: relative;
     border: 1px solid var(--line);
@@ -519,9 +519,9 @@
       <p>Switch to Anchorages, find a place to go, and let AudioChart plot the route there — right on the chart.</p>
     </div>
     <div class="demo-frame">
-      <video src="assets/demo.mp4" muted autoplay loop playsinline></video>
+      <video src="assets/demo.mp4" poster="assets/demo-poster.jpg" controls playsinline></video>
     </div>
-    <p class="demo-note">Recorded from the live app — no narration, no editing.</p>
+    <p class="demo-note">Recorded from the live app, with voice narration — no editing.</p>
   </div>
 </section>
 

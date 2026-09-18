@@ -315,6 +315,25 @@ html, body {
   letter-spacing: 0.03em;
 }
 
+/* Demo mode step counter — a separate, more prominent badge from #demo-hud's
+   descriptive text below, so a discrete step number ("STEP 2 OF 4") reads
+   clearly to someone watching a recording, not just live. */
+#demo-step-badge {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--accent);
+  color: var(--navy);
+  font-size: 1.05rem;
+  font-weight: 800;
+  padding: 8px 22px;
+  border-radius: 20px;
+  z-index: 9999;
+  letter-spacing: 0.05em;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+}
+
 /* OpenCPN draw button — appears between map and response when course query runs */
 #opencpn-btn {
   align-self: flex-start;
