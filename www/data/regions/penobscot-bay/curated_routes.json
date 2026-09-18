@@ -33,5 +33,72 @@
       { "lat": 44.278639174185294, "lon": -68.94505870250784 },
       { "lat": 44.278333, "lon": -68.945 }
     ]
+  },
+  {
+    "id": "rockland-perry-creek",
+    "name": "Rockland to Perry Creek",
+    "note": "Runs up West Penobscot Bay past Camden and Islesboro to the free moorings off Perry Creek's mouth on Vinalhaven/North Haven's Fox Island Thorofare side. Verified live 2026-09-18 — AutoRoute threads this corridor cleanly; kept here as both a sample route and a regression check for the router.",
+    "points": [
+      { "lat": 44.0986, "lon": -69.0752 },
+      { "lat": 44.098388, "lon": -68.941654 },
+      { "lat": 44.115666, "lon": -68.912182 },
+      { "lat": 44.122957, "lon": -68.902079 },
+      { "lat": 44.124773, "lon": -68.897818 },
+      { "lat": 44.125759, "lon": -68.888296 },
+      { "lat": 44.1242, "lon": -68.8648 }
+    ]
+  },
+  {
+    "id": "rockland-stonington-overnight",
+    "name": "Rockland to Stonington (overnight at Perry Creek)",
+    "note": "Two-leg passage: Rockland to the Perry Creek moorings (overnight stop, tagged on that waypoint), then on through the Deer Isle Thorofare approach to Stonington. Both legs verified live 2026-09-18 — AutoRoute threads each cleanly; kept here as both a sample route and a regression check for the router.",
+    "points": [
+      { "lat": 44.0986, "lon": -69.0752 },
+      { "lat": 44.098388, "lon": -68.941654 },
+      { "lat": 44.115666, "lon": -68.912182 },
+      { "lat": 44.122957, "lon": -68.902079 },
+      { "lat": 44.124773, "lon": -68.897818 },
+      { "lat": 44.125759, "lon": -68.888296 },
+      { "lat": 44.1242, "lon": -68.8648, "overnight": true },
+      { "lat": 44.124746, "lon": -68.861669 },
+      { "lat": 44.12582, "lon": -68.857091 },
+      { "lat": 44.127601, "lon": -68.854843 },
+      { "lat": 44.130271, "lon": -68.849221 },
+      { "lat": 44.133447, "lon": -68.83663 },
+      { "lat": 44.131889, "lon": -68.778085 },
+      { "lat": 44.129631, "lon": -68.700809 },
+      { "lat": 44.129754, "lon": -68.693803 },
+      { "lat": 44.1375, "lon": -68.6378 }
+    ]
+  },
+  {
+    "id": "rockland-woodenboat-school",
+    "name": "Rockland to WoodenBoat School",
+    "note": "Long-range passage (~24nm) up through Eggemoggin Reach and the Deer Isle Thorofare archipelago to the WoodenBoat School's moorings in Center Harbor, Brooklin. Verified live 2026-09-18 after fixing a real router bug (a long-range transit bracket's clamped boundary could land on land itself, near the town of Deer Isle, with no nearby-water recovery) — kept here as both a sample route and a regression check for the router.",
+    "points": [
+      { "lat": 44.0986, "lon": -69.0752 },
+      { "lat": 44.100779, "lon": -69.073498 },
+      { "lat": 44.186618, "lon": -68.844162 },
+      { "lat": 44.190264, "lon": -68.827149 },
+      { "lat": 44.193012, "lon": -68.726341 },
+      { "lat": 44.194115, "lon": -68.720847 },
+      { "lat": 44.196138, "lon": -68.718898 },
+      { "lat": 44.200048, "lon": -68.716803 },
+      { "lat": 44.201315, "lon": -68.717042 },
+      { "lat": 44.200048, "lon": -68.716803 },
+      { "lat": 44.195856, "lon": -68.71882 },
+      { "lat": 44.168787, "lon": -68.722863 },
+      { "lat": 44.163484, "lon": -68.719203 },
+      { "lat": 44.152417, "lon": -68.700987 },
+      { "lat": 44.144094, "lon": -68.685155 },
+      { "lat": 44.150155, "lon": -68.667694 },
+      { "lat": 44.154681, "lon": -68.646232 },
+      { "lat": 44.177815, "lon": -68.546482 },
+      { "lat": 44.181387, "lon": -68.532785 },
+      { "lat": 44.192414, "lon": -68.534652 },
+      { "lat": 44.217889, "lon": -68.557998 },
+      { "lat": 44.245309, "lon": -68.579887 },
+      { "lat": 44.24462, "lon": -68.555493 }
+    ]
   }
 ]

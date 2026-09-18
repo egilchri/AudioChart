@@ -1895,7 +1895,13 @@ function _formatBearingResult(lat, lon, flat, flon, name, isWaypoint, score, opt
   const matchNote = score < 0.9 ? `Closest match: ${name}${tag}` : `${name}${tag}`;
   return {
     text:   `${matchNote}  ${bearingToDisplay(brg)}  ${distanceToDisplay(dist)}`,
-    speech: `${score < 0.9 ? `Closest match: ${name}${tag}. ` : `${name}${tag}: `}bearing ${bearingToWords(brg)}, ${formatDistance(dist)}.`,
+    // Deliberately omit `tag` here (unlike `text` above) — it's a literal
+    // " (waypoint)" string meant to be read on screen, and spoken aloud it
+    // came out as the parenthetical itself ("...dot com, open paren,
+    // waypoint, close paren..."-sounding), plus a redundant second
+    // "waypoint" for route callers whose `name` already reads "<route> —
+    // waypoint N" (see bearingToNamedPoint below).
+    speech: `${score < 0.9 ? `Closest match: ${name}. ` : `${name}: `}bearing ${bearingToWords(brg)}, ${formatDistance(dist)}.`,
   };
 }
 

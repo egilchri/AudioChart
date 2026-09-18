@@ -153,12 +153,14 @@ async function main() {
     console.log(`[6] EXPERIMENTAL: Portsmouth pier -> York Harbor (coastal standoff): ${ok ? 'PASS' : 'FAIL'} (fallback=${fallback}, crossesLand=${crosses}, worst non-channel standoff=${worst === Infinity ? 'n/a' : worst.toFixed(3) + 'nm'}${worstPt ? ` at ${worstPt.lat.toFixed(5)},${worstPt.lon.toFixed(5)}` : ''})`);
   }
 
-  // Case 7 — EXPERIMENTAL, not yet a committed regression case: a real
-  // long-range coastal passage, Portsmouth NH pier all the way to Bar
-  // Harbor ME (~136nm direct). Kept non-blocking (doesn't add to
-  // `failures`) — a finding to report, not yet a certified target.
-  await runCase(Query, Router, '[7] EXPERIMENTAL: Portsmouth NH -> Bar Harbor ME (long-range)',
-    { lat: 43.08077, lon: -70.757141 }, { lat: 44.391934, lon: -68.205831 });
+  // Case 7 — a real long-range coastal passage, Portsmouth NH pier all the
+  // way to Bar Harbor ME (~136nm direct). Gated 2026-09-18: a genuine fix
+  // (see case 17's comment for the root cause and the fix itself) turned
+  // this from a straight line crossing land (fallback=true, crossesLand=
+  // true, 2 pts, 5828ms — an unsafe answer a user could have gotten) into a
+  // real 48-point route clear of land in ~3.5s.
+  gate(await runCase(Query, Router, '[7] Portsmouth NH -> Bar Harbor ME (long-range)',
+    { lat: 43.08077, lon: -70.757141 }, { lat: 44.391934, lon: -68.205831 }));
 
   // Case 8 — long-range fast path: two points >LONG_RANGE_NM apart, both
   // off any real land ring, direct line clear. Should return in low
@@ -303,55 +305,53 @@ async function main() {
     { lat: 44.103, lon: -69.088 }, { lat: 44.045519, lon: -68.835208 }));
 
   // Case 17 — Rockland -> WoodenBoat School / Center Harbor, Brooklin
-  // (~24.5nm, found live via a user-reported route). EXPERIMENTAL/KNOWN-
-  // FAILING, not gated: this is the same "base-router island-dense-
-  // archipelago limitation" long flagged as an open gap (see
-  // project_long_range_routing notes) — a fresh, concrete repro of it, not
-  // a new distinct bug. Diagnosed live: LONG_RANGE_NM=20 triggers
-  // _longRangeRoute's depart/transit/arrive decomposition (correct — this
-  // is a real long passage); depart and the too-shallow-endpoint snap both
-  // resolve fine. _transitLeg's coarse march finds the direct line blocked
-  // for nearly its whole length (the rhumb line from Rockland to Brooklin
-  // runs through Islesboro and the Eggemoggin Reach / Deer Isle
-  // archipelago, not a single local obstacle) — its bracket-just-the-
-  // blocked-stretch strategy degrades to bracketing nearly the entire
-  // transit (clamped to LONG_RANGE_NM-1=19nm), producing a single huge
-  // local autoRouteProg call: 1671 nodes, 282 land rings, 2713 extra
-  // (tidal/hazard) rings in that bbox. First attempt's A* genuinely
-  // exhausts its open list (1531 expansions, "no path found", not a
-  // timeout) rather than finding a route; a retry then hits DEADLINE_MS
-  // instead (340 expansions). Root issue: _transitLeg's "bracket the
-  // blocked stretch" assumption is a local patch, not a substitute for
-  // real route-finding through a large island-dense area where the safe
-  // path must go a long way around a landmass rather than punch through
-  // near the direct line.
+  // (~24.5nm, found live via a user-reported route). Long flagged as an
+  // open "base-router island-dense-archipelago limitation" (see
+  // project_long_range_routing notes) with two prior fix attempts tried
+  // and reverted — real root cause finally found and fixed 2026-09-18.
   //
-  // A first fix attempt was tried and REVERTED after real testing showed
-  // it doesn't work, not just left as a theoretical idea: when a bracket
-  // fails, look up the nearest named "sea area" reading as a real
-  // waterway (Query.isWaterFeatureName) to the bracket's own midpoint,
-  // split the bracket there, and retry each half. Confirmed live this
-  // does not fix this case, for two compounding reasons: (1) many
-  // genuinely useful named channels have their own label coordinate
-  // sitting on LAND in this dataset (e.g. "Eggemoggin Reach"'s point
-  // tests as on-land, excluding it outright without an extra
-  // findWaterNear snap); (2) even after snapping, ranking candidates by
-  // raw distance to the bracket's geometric midpoint surfaces dozens of
-  // small, irrelevant coves near Vinalhaven/North Haven (south of the
-  // direct line) before any candidate actually useful for going AROUND
-  // Islesboro to the north (Dark Harbor, Bracketts Channel, Gilkey
-  // Harbor were all 15-40 candidates deep by that ranking) — trying
-  // enough candidates to reach them is expensive and still not
-  // principled. "Nearest named water feature to the midpoint" is not a
-  // reliable way to find a real detour-around-a-landmass via-point.
-  // Real fix needs an actual coarse/hierarchical router over a graph of
-  // known channels/harbors, not a single nearest-candidate heuristic —
-  // tracked here as a permanent repro pending that larger design.
-  Query.setActiveRegion('penobscot-bay');
-  await Query.loadData(44.103, -69.088);
-  await waitForRegionDataReady(Query);
-  await runCase(Query, Router, '[17] EXPERIMENTAL/KNOWN-FAILING: Rockland -> WoodenBoat School/Center Harbor (long-range archipelago)',
-    { lat: 44.103, lon: -69.088 }, { lat: 44.24462, lon: -68.555493 });
+  // Two things this was NOT: (1) a named-water-feature-midpoint heuristic
+  // (first attempt) failed because useful channel names often label a
+  // point that's itself on land, and ranking candidates by raw distance
+  // surfaces dozens of irrelevant coves before a useful one; (2) a plain
+  // geometric-midpoint bisection retry (second attempt) genuinely fixed
+  // the general "one bracket is too much for one visibility-graph search"
+  // failure mode elsewhere (confirmed: Rockland -> Perry Creek's own 19nm
+  // transit bracket, failing before and passing after), but didn't fix
+  // THIS case — every split still failed on the same "back half" no
+  // matter where the split point landed.
+  //
+  // That "always fails reaching the same point regardless of approach"
+  // pattern was the real clue: the bracket's own END point was the
+  // problem, not the span. _transitLeg's clamp (`endT = startT +
+  // (LONG_RANGE_NM-1)/totalNm`) is pure fraction-of-the-line arithmetic —
+  // it has no idea whether the point it lands on is water. Confirmed live:
+  // for this route, that clamped point landed squarely on the town of
+  // Deer Isle — a real landmass a couple of miles across, not a tiny
+  // pocket a small-radius snap could fix, and the direct rhumb line from
+  // Rockland to Brooklin happens to cross it near that exact fraction.
+  // Every patch attempt using that boundary failed no matter what the
+  // OTHER endpoint was, because arriving AT that exact spot is what was
+  // impossible, not the distance or the number of islands en route.
+  //
+  // The fix (kept in router.js, in the same spot the two reverted
+  // attempts occupied): after computing the clamped bracket boundary,
+  // walk it back along the same line in small steps until it's off land,
+  // before ever calling autoRouteProg on it. Verified live: Rockland ->
+  // WoodenBoat School now finds a real 21-point route clear of land in
+  // ~1.5s (was: fallback=true, crossesLand=true, 2 pts). Also flips case 7
+  // (Portsmouth -> Bar Harbor, a real land-crossing fallback before this)
+  // to a genuine passing route — see its own comment above. The geometric-
+  // bisection retry from the second attempt was removed once this made it
+  // provably redundant (disabling it changed neither case's outcome) —
+  // simpler is better once the actual bug has a real fix.
+  gate(await (async () => {
+    Query.setActiveRegion('penobscot-bay');
+    await Query.loadData(44.103, -69.088);
+    await waitForRegionDataReady(Query);
+    return runCase(Query, Router, '[17] Rockland -> WoodenBoat School/Center Harbor (long-range archipelago)',
+      { lat: 44.103, lon: -69.088 }, { lat: 44.2446198, lon: -68.555493 });
+  })());
 
   console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll cases passed.');
   console.log(

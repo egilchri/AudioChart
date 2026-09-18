@@ -1037,6 +1037,29 @@ async function _transitLeg(a, b, lrT0, onUpdate, onText, draftFt, tideHeightM, o
     const spanNm = (endT - startT) * totalNm;
     if (spanNm > LONG_RANGE_NM - 1) endT = startT + (LONG_RANGE_NM - 1) / totalNm;
 
+    // The clamp above is pure fraction-of-the-line math — it has no idea
+    // whether the point it lands on is water. Confirmed live as the real
+    // root cause of a genuine routing failure (Rockland -> WoodenBoat
+    // School/Center Harbor): the clamped endT landed the bracket boundary
+    // squarely on the town of Deer Isle, a real landmass the direct line
+    // crosses near that fraction — not a tiny enclosed pocket a small-
+    // radius snap can fix, but a couple of miles inland. Every patch
+    // attempt using that boundary failed regardless of the OTHER endpoint
+    // (verified: reachable from several different approach points, never
+    // reachable AT that exact spot), because the boundary itself was the
+    // problem. Walk the clamp back along the same line toward startT in
+    // small steps until it's off land, same idea as the coarse march above
+    // but only ever shrinking the bracket, never growing it past the
+    // caller's own budget.
+    const ENDPOINT_LAND_STEP_T = 0.02;
+    let landGuard = 0;
+    while (Query.isLandAt(
+      cursor.lon + (b.lon - cursor.lon) * endT,
+      cursor.lat + (b.lat - cursor.lat) * endT,
+    ) && endT - ENDPOINT_LAND_STEP_T > startT && landGuard++ < 40) {
+      endT -= ENDPOINT_LAND_STEP_T;
+    }
+
     const bracketStart = startT <= 0 ? cursor
       : { lat: cursor.lat + (b.lat - cursor.lat) * startT, lon: cursor.lon + (b.lon - cursor.lon) * startT };
     const bracketEnd = { lat: cursor.lat + (b.lat - cursor.lat) * endT, lon: cursor.lon + (b.lon - cursor.lon) * endT };
