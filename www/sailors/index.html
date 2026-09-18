@@ -288,19 +288,46 @@
   }
 
   /* ===== DEMO ===== */
+  .demo-tabs {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 20px;
+  }
+  .demo-tab {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    letter-spacing: 0.02em;
+    padding: 9px 18px;
+    border-radius: 20px;
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--ink);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .demo-tab:hover { border-color: var(--teal); }
+  .demo-tab.active {
+    background: var(--navy);
+    color: var(--cream);
+    border-color: var(--navy);
+  }
   .demo-frame {
     background: var(--navy-deep);
     border-radius: 6px;
-    /* Matches the real recorded clip's own aspect ratio (1000x606) — the
-       app's live UI isn't a 16:8 letterbox shape, so using that ratio here
-       would either crop real content or letterbox it. */
-    aspect-ratio: 1000/606;
+    /* Each demo clip has its own real recorded aspect ratio (the app's live
+       UI isn't a uniform letterbox shape) — --demo-w/--demo-h are set from
+       the active tab's actual dimensions, not hardcoded, so switching
+       demos never crops or letterboxes either one. */
+    --demo-w: 1000;
+    --demo-h: 606;
+    aspect-ratio: var(--demo-w) / var(--demo-h);
     /* Sized by width up to the .wrap's max-width, but capped by height on
        shorter screens (laptops, browser windows that aren't maximized) —
        without this, a ~1036px-wide frame at this aspect ratio renders
        ~628px tall, which combined with the heading above and caption below
        doesn't fit a lot of real windows and forces a mid-section scroll. */
-    width: min(100%, calc(64vh * 1000 / 606));
+    width: min(100%, calc(64vh * var(--demo-w) / var(--demo-h)));
     margin: 0 auto;
     overflow: hidden;
     position: relative;
@@ -522,15 +549,67 @@
   <div class="wrap">
     <div class="section-head">
       <span class="tag">See it in action</span>
-      <h2>A minute on the water.</h2>
-      <p>Switch to Anchorages, find a place to go, and let AudioChart plot the route there — right on the chart.</p>
+      <h2 id="demo-title">A minute on the water.</h2>
+      <p id="demo-desc">Switch to Anchorages, find a place to go, and let AudioChart plot the route there — right on the chart.</p>
+    </div>
+    <!-- Two demos, meant to be watched in order (1 first) — a returning
+         visitor can jump straight to either one. Content/metadata for each
+         lives in DEMOS below; these buttons just carry which one via
+         data-demo, no separate markup per tab to keep in sync. -->
+    <div class="demo-tabs">
+      <button class="demo-tab active" data-demo="1">1. Discover &amp; Route</button>
+      <button class="demo-tab" data-demo="2">2. Underway &amp; Bearing</button>
     </div>
     <div class="demo-frame">
-      <video src="assets/demo.mp4" poster="assets/demo-poster.jpg" controls playsinline></video>
+      <video id="demo-video" src="assets/demo.mp4" poster="assets/demo-poster.jpg" controls playsinline></video>
     </div>
-    <p class="demo-note">Recorded from the live app, with voice narration — no editing.</p>
+    <p class="demo-note" id="demo-note">Recorded from the live app, with voice narration — no editing.</p>
   </div>
 </section>
+
+<script>
+  // Content for each demo clip — the tab buttons above only carry which one
+  // (data-demo); everything else needed to switch lives here in one place.
+  const DEMOS = {
+    1: {
+      title: 'A minute on the water.',
+      desc: 'Switch to Anchorages, find a place to go, and let AudioChart plot the route there — right on the chart.',
+      src: 'assets/demo.mp4', poster: 'assets/demo-poster.jpg',
+      w: 1000, h: 606,
+    },
+    2: {
+      title: 'Underway, and always oriented.',
+      desc: 'Follow a route, flip on Underway, and tap Target for your bearing and distance — read straight off the chart, spoken aloud.',
+      src: 'assets/demo2.mp4', poster: 'assets/demo2-poster.jpg',
+      w: 1000, h: 550,
+    },
+  };
+
+  const demoFrame = document.querySelector('.demo-frame');
+  const demoVideo = document.getElementById('demo-video');
+  const demoTitle = document.getElementById('demo-title');
+  const demoDesc  = document.getElementById('demo-desc');
+
+  function showDemo(n) {
+    const d = DEMOS[n];
+    if (!d) return;
+    demoFrame.style.setProperty('--demo-w', d.w);
+    demoFrame.style.setProperty('--demo-h', d.h);
+    demoVideo.pause();
+    demoVideo.src = d.src;
+    demoVideo.poster = d.poster;
+    demoVideo.load();
+    demoTitle.textContent = d.title;
+    demoDesc.textContent = d.desc;
+    document.querySelectorAll('.demo-tab').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.demo === String(n));
+    });
+  }
+
+  document.querySelectorAll('.demo-tab').forEach(btn => {
+    btn.addEventListener('click', () => showDemo(btn.dataset.demo));
+  });
+</script>
 
 <section id="routes">
   <div class="wrap">
