@@ -295,6 +295,13 @@
        app's live UI isn't a 16:8 letterbox shape, so using that ratio here
        would either crop real content or letterbox it. */
     aspect-ratio: 1000/606;
+    /* Sized by width up to the .wrap's max-width, but capped by height on
+       shorter screens (laptops, browser windows that aren't maximized) —
+       without this, a ~1036px-wide frame at this aspect ratio renders
+       ~628px tall, which combined with the heading above and caption below
+       doesn't fit a lot of real windows and forces a mid-section scroll. */
+    width: min(100%, calc(64vh * 1000 / 606));
+    margin: 0 auto;
     overflow: hidden;
     position: relative;
     border: 1px solid var(--line);
