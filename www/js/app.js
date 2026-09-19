@@ -1765,13 +1765,15 @@ function _findDocumentMarkerByTitle(title) {
 
 // ── "Take a Tour" content ───────────────────────────────────────────────
 // tour.js owns the generic callout engine; everything here is app-specific
-// step content that plugs into it. Two trigger patterns, per direct
-// request: (1) named tours launched from the About panel's "Guided tours"
-// list (see _showAboutPanel), and (2) a one-step overview auto-shown the
-// first time a user switches into a given map mode (see the
-// map-layer-select 'change' listener). Only one tour's content and one
-// mode's intro are built so far — the framework is meant to grow; add more
-// TOURS entries / MODE_INTROS keys later, no engine changes needed.
+// step content that plugs into it. The only trigger pattern left in active
+// use: a one-step overview auto-shown the first time a user switches into
+// a given map mode (see the map-layer-select 'change' listener). The
+// click-through "discover a destination and plot a route" tour that used
+// to live here (About panel's old "Guided tours" list) was superseded by
+// the per-route auto-playing "movie" (see _playRouteMovie) — a passive,
+// narrated walkthrough is what was actually wanted for showing off what a
+// route offers, not a tutorial requiring the viewer to perform each click
+// themselves.
 
 // First time in Geology mode, per direct request ("maybe there is a flag
 // so, for their first time in Geology mode, they get an overview").
@@ -1787,8 +1789,7 @@ const MODE_INTROS = {
 };
 
 function _maybeShowModeIntro(mode) {
-  // Never preempt a tour already in progress (e.g. the flagship tour's own
-  // first step switches to Anchorages mode) — the engine only tracks one
+  // Never preempt a tour already in progress — the engine only tracks one
   // active tour at a time, so starting a second here would silently
   // hijack it. The mode intro simply doesn't fire that time; it'll still
   // be there the next time this mode is entered outside of a tour.
@@ -1798,159 +1799,60 @@ function _maybeShowModeIntro(mode) {
   });
 }
 
-// Set synchronously by the flagship tour's own step-3 waitFor, the instant
-// the real "Navigate to here" click fires — _autoRouteName is cleared
-// asynchronously by _triggerAutoRoute once routing finishes, so it can't
-// be read lazily from step 4's target resolver; it has to be captured at
-// click time while it's still valid.
-let _tourCapturedRouteName = null;
-
-const WARREN_ISLAND_TITLE = 'Warren Island State Park — Anchorage & Moorings';
-
-// Shared by any tour step whose action is "switch #map-layer-select to
-// this mode" — same _mapViewMode-not-e.target.value reasoning as the
-// flagship tour's own first step (see its comment): _syncLayerBtn()
-// resets the <select> back to blank synchronously before a second change
-// listener would ever see the real value.
-function _waitForMapMode(mode, advance) {
-  const sel = document.getElementById('map-layer-select');
-  const h = () => { if (_mapViewMode === mode) advance(); };
-  sel.addEventListener('change', h);
-  return () => sel.removeEventListener('change', h);
-}
-
-// The real title of the nearest History-mode document to Warren Island
-// (Seven Hundred Acre Island, ~1nm away — confirmed live against
-// documents.geojson) — reused so the History step in the flagship tour
-// points at a genuine, already-shipped write-up instead of inventing one.
-const SEVEN_HUNDRED_ACRE_RAID_TITLE = "A 1692 raid, and the tradition it didn't manage to end";
-
-const TOURS = [
-  {
-    id: 'discover-destination-route',
-    title: 'Find a destination and plot a route',
-    steps: [
-      {
-        target: '#map-layer-select',
-        text: "Let's find a place to go. Switch the map to Anchorages.",
-        waitFor: (advance) => {
-          const sel = document.getElementById('map-layer-select');
-          // Not e.target.value — _syncLayerBtn() (the app's own change
-          // handler, registered first) resets the <select> back to a blank
-          // placeholder synchronously, before this listener runs. Read the
-          // real selected mode straight from _mapViewMode instead, which
-          // that same handler updates before resetting the element.
-          const h = () => { if (_mapViewMode === 'anchorages') advance(); };
-          sel.addEventListener('change', h);
-          return () => sel.removeEventListener('change', h);
-        },
-      },
-      {
-        target: () => _findDocumentMarkerByTitle(WARREN_ISLAND_TITLE)?.getElement() || null,
-        text: 'Tap the Warren Island marker — a state-park mooring field off Islesboro.',
-        waitFor: (advance) => {
-          const m = _findDocumentMarkerByTitle(WARREN_ISLAND_TITLE);
-          if (!m) return undefined;
-          const h = () => advance();
-          m.on('popupopen', h);
-          return () => m.off('popupopen', h);
-        },
-      },
-      {
-        target: '.doc-popup-navigate',
-        text: "Tap “Navigate to here” to auto-route from your position. (No GPS fix yet? Set a test position from the Screen menu first.)",
-        waitFor: (advance) => {
-          const btn = document.querySelector('.doc-popup-navigate');
-          if (!btn) return undefined;
-          const h = () => { _tourCapturedRouteName = _autoRouteName; advance(); };
-          btn.addEventListener('click', h);
-          return () => btn.removeEventListener('click', h);
-        },
-      },
-      {
-        target: '#edit-ok-btn',
-        text: 'AudioChart just planned the route. Tap OK to save it.',
-        waitFor: (advance) => {
-          const btn = document.getElementById('edit-ok-btn');
-          const h = () => advance();
-          btn.addEventListener('click', h);
-          return () => btn.removeEventListener('click', h);
-        },
-      },
-      {
-        target: '#route-picker-btn',
-        text: 'Tap Routes to open your saved routes.',
-        waitFor: (advance) => {
-          const btn = document.getElementById('route-picker-btn');
-          const h = () => advance();
-          btn.addEventListener('click', h);
-          return () => btn.removeEventListener('click', h);
-        },
-      },
-      {
-        target: () => {
-          const rows = Array.from(document.querySelectorAll('#rp-route-list .rp-row'));
-          const row = rows.find(r => _tourCapturedRouteName && r.textContent.includes(_tourCapturedRouteName));
-          return row?.querySelector('.rp-vj-btn') || null;
-        },
-        text: 'Tap Virtual Journey to watch this route sailed — no need to leave the dock.',
-        // Polls module state (_vjRoute) rather than listening for a click —
-        // two reasons a direct button listener can't be trusted here:
-        // (1) _buildRoutePickerPanel() re-renders the whole row list once a
-        // route's hazard badge finishes loading in the background
-        // (_getRouteHazardsCached), silently orphaning a listener attached
-        // to the original button element; (2) the button's own click
-        // handler calls e.stopPropagation(), so even delegating on an
-        // ancestor never sees the event. _vjRoute itself is set
-        // synchronously by _startVirtualJourney regardless of any of that.
-        waitFor: (advance) => {
-          const t = setInterval(() => {
-            if (_vjRoute && _tourCapturedRouteName && _vjRoute.name === _tourCapturedRouteName) advance();
-          }, 250);
-          return () => clearInterval(t);
-        },
-      },
-      // History and geology, added per direct request ("the voice to talk
-      // about the route, and then bring up some of the map modes, to talk
-      // about the history, the geology"). Both steps below are grounded in
-      // real, already-shipped data — the history write-up is a genuine
-      // documents.geojson entry ~1nm from Warren Island (Seven Hundred
-      // Acre Island); the geology line is the real Maine Geological
-      // Survey bedrock classification for this stretch of coast (Zil/Zi/
-      // Zop/Znh — Precambrian gneiss, limestone, marble, slate — and
-      // OCAp — Cambrian-Ordovician schist/marble/gneiss), queried live
-      // against the same MGS_Bedrock_500K FeatureServer
-      // _refreshMaineGeologyLayer itself calls, not invented.
-      {
-        target: '#map-layer-select',
-        text: "Before you go, the chart has more to say about this spot. Switch to History mode.",
-        waitFor: (advance) => _waitForMapMode('history', advance),
-      },
-      {
-        target: () => _findDocumentMarkerByTitle(SEVEN_HUNDRED_ACRE_RAID_TITLE)?.getElement() || null,
-        text: 'Tap the marker on Seven Hundred Acre Island, right next door — Penobscot and Tarratine people summered here for generations before any European contact.',
-        waitFor: (advance) => {
-          const m = _findDocumentMarkerByTitle(SEVEN_HUNDRED_ACRE_RAID_TITLE);
-          if (!m) return undefined;
-          const h = () => advance();
-          m.on('popupopen', h);
-          return () => m.off('popupopen', h);
-        },
-      },
-      {
-        target: '#map-layer-select',
-        text: 'Now switch to Geology mode to see the bedrock beneath the bay.',
-        waitFor: (advance) => _waitForMapMode('geology-maine', advance),
-      },
-      {
-        text: "This stretch of coast sits on some of Maine's oldest bedrock — Precambrian gneiss, limestone, marble, and slate, folded long before the granite you'll see further inland. Tap any colored shape on the chart for the exact rock type.",
-      },
-      {
-        text: "That's it — AudioChart will call out bearings and hazards as you go, and there's more like this to find on every mode.",
-      },
-    ],
+// ── Sample route "movies" ─────────────────────────────────────────────────
+// A passive, auto-playing, narrated walkthrough per curated sample route —
+// per direct request, this replaced an earlier click-through tour design:
+// "it should be a movie, where you basically watch it drive... show the
+// user what's possible, like changing modes and clicking on History and
+// Geology links, and also hit the preview button, to show the little boat
+// sailing along the route." Triggered by the "▶ Watch" button on each
+// sample route in the Routes panel (see _renderSampleRouteList) — the
+// routes themselves stay freely explorable on their own; this is purely an
+// additional, optional demonstration layer.
+//
+// Content below is grounded in real, already-shipped data, not invented:
+// each destinationTitle/historyTitle is a genuine documents.geojson entry
+// (confirmed live, closest real history write-up to each destination —
+// see the commit this was added in for the exact query used), and each
+// geologyFact is the real Maine Geological Survey bedrock classification
+// for that area, queried live against the same MGS_Bedrock_500K
+// FeatureServer _refreshMaineGeologyLayer itself calls.
+const ROUTE_MOVIES = {
+  'rockland-warren-island': {
+    destinationTitle: 'Warren Island State Park — Anchorage & Moorings',
+    historyTitle: "A 1692 raid, and the tradition it didn't manage to end",
+    historyTeaser: "Right next door on Seven Hundred Acre Island — Penobscot and Tarratine people summered here for generations before any European contact.",
+    geologyFact: "This stretch of coast sits on some of Maine's oldest bedrock — Precambrian gneiss, limestone, marble, and slate, folded long before the granite you'll see further inland.",
   },
-];
+  'rockland-carvers-harbor': {
+    destinationTitle: 'Carvers Harbor — Anchorage & Moorings',
+    historyTitle: "The first lobstermen's union in the country",
+    historyTeaser: "Vinalhaven's lobstermen organized the country's first lobstermen's union right here, in the winter of 2012.",
+    geologyFact: "Vinalhaven sits on Silurian granite — the same rock its famous quarries cut for over a century, grading into marine sandstone and slate further out.",
+  },
+  'rockland-perry-creek': {
+    destinationTitle: 'Perry Creek — Anchorage & Moorings',
+    historyTitle: 'A lost race, a faster boat, and 140 years of grudge matches',
+    historyTeaser: "Just offshore at North Haven — a sailor's sore-loser streak in 1883 started a one-design racing rivalry still sailed today.",
+    geologyFact: "The bedrock here is a genuine mash-up — ancient Precambrian marble and gneiss sitting right alongside much younger granite and slate.",
+  },
+  'rockland-stonington-overnight': {
+    destinationTitle: 'Stonington Harbor — Anchorage & Moorings',
+    historyTitle: "Maine's last working granite quarry",
+    historyTeaser: 'Crotch Island, right offshore, is Maine\'s last working granite quarry — cutting stone since 1869.',
+    geologyFact: "It's no coincidence — this whole area is Devonian granite and granodiorite, the same rock the quarry has been cutting for a century and a half.",
+  },
+  'rockland-woodenboat-school': {
+    destinationTitle: 'WoodenBoat School Waterfront',
+    historyTitle: 'Three thousand years of camps on Eggemoggin Reach',
+    historyTeaser: 'Just up the reach at Scott\'s Landing — a shell midden shows people camping here for three thousand years.',
+    geologyFact: 'The bedrock here is Devonian granite, the same family of rock that runs down through Stonington, with older metamorphosed volcanic rock mixed in nearby.',
+  },
+};
+
+// _playRouteMovie itself lives inside _ensureMap() (near _loadSampleRoute,
+// which it depends on) — see there. ROUTE_MOVIES stays top-level since
+// it's plain data with no scope dependencies.
 
 // Island Info mode also gets a second, lighter tier: every island the chart
 // data itself knows the name of (Query.namedPlaces, already loaded for
@@ -7128,8 +7030,6 @@ function _ensureMap() {
       ABOUT_FEATURES.map(f => `<li>${f}</li>`).join('');
     document.getElementById('about-regions').innerHTML =
       Object.keys(_visibleCruiseProfiles()).map(name => `<li>${name}</li>`).join('');
-    document.getElementById('about-tours').innerHTML =
-      TOURS.map(t => `<li><button class="about-tour-btn" data-tour-id="${t.id}">${escapeHtml(t.title)}</button></li>`).join('');
     _aboutPanel.classList.add('open');
   }
   document.getElementById('app-version').addEventListener('click', (e) => {
@@ -7139,17 +7039,6 @@ function _ensureMap() {
   document.getElementById('map-version-label').addEventListener('click', (e) => {
     e.stopPropagation();
     _showAboutPanel();
-  });
-  // Only launch point built so far for TOURS — a menu of named tours, per
-  // direct request ("several 'Take a tour' options"); more entries added
-  // to TOURS later need no changes here.
-  document.getElementById('about-tours').addEventListener('click', (e) => {
-    const btn = e.target.closest('.about-tour-btn');
-    if (!btn) return;
-    const tour = TOURS.find(t => t.id === btn.dataset.tourId);
-    if (!tour) return;
-    _closeAbout();
-    Tour.startTour(tour);
   });
 
   // ✒ Route picker panel
@@ -8808,29 +8697,151 @@ function _ensureMap() {
     const routes = Query.curatedRoutes || [];
     const heading = withHeading ? '<div class="rp-sample-heading">New here? Try a sample route to get started:</div>' : '';
     const items = routes.length
-      ? routes.map(r => `<button class="rp-sample-item" data-id="${escapeHtml(r.id)}">${escapeHtml(r.name)}${r.note ? `<span class="rp-sample-item-note">${escapeHtml(r.note)}</span>` : ''}</button>`).join('')
+      ? routes.map(r => `
+          <div class="rp-sample-item">
+            <button class="rp-sample-item-main" data-id="${escapeHtml(r.id)}">
+              <span class="rp-sample-item-name">${escapeHtml(r.name)}</span>
+              ${r.note ? `<span class="rp-sample-item-note">${escapeHtml(r.note)}</span>` : ''}
+            </button>
+            <button class="rp-sample-item-watch" data-id="${escapeHtml(r.id)}" title="Watch a short auto-playing tour of this route">&#9654; Watch</button>
+          </div>
+        `).join('')
       : '<div class="rp-empty">No sample routes for this region yet.</div>';
     listEl.innerHTML = heading + items;
     listEl.style.display = 'block';
   }
+  // Loads a curated sample as a real saved route — shared by the "load into
+  // my routes" click and _playRouteMovie (which needs a real saved route to
+  // hand Virtual Journey, same as any other route). Reuses an existing
+  // load of the exact same sample (matched by name) rather than creating a
+  // fresh duplicate every time, since Watch can reasonably be tapped more
+  // than once for the same route.
+  function _loadSampleRoute(sample) {
+    const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+    const existing = routes.find(r => r.name === sample.name);
+    if (existing) return existing;
+    const existingNames = new Set(routes.map(r => r.name));
+    const name = _uniqueRouteName(sample.name, existingNames);
+    // Preserve any per-waypoint flags (e.g. `overnight`) — a plain
+    // {lat,lon} copy here would silently drop them.
+    const route = _stampNew({ name, points: sample.points.map(p => ({ ...p })) });
+    routes.push(route);
+    localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
+    return route;
+  }
+
+  // See the big comment on ROUTE_MOVIES (top of file) for what this is and
+  // why — a passive, auto-playing, narrated walkthrough per sample route,
+  // triggered by "▶ Watch" below. Lives in this scope (not top-level, where
+  // ROUTE_MOVIES itself sits) because it needs _loadSampleRoute and
+  // _buildRoutePickerPanel, both local to _ensureMap.
+  async function _playRouteMovie(sample) {
+    const movie = ROUTE_MOVIES[sample.id];
+    if (!movie) return;
+
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    const hud = document.getElementById('demo-hud');
+    const stepBadge = document.getElementById('demo-step-badge');
+    const TOTAL = 5;
+    const showStep = (n, text) => {
+      if (stepBadge) { stepBadge.textContent = `STEP ${n} OF ${TOTAL}`; stepBadge.style.display = 'block'; }
+      if (hud) { hud.textContent = text; hud.style.display = 'block'; }
+      TTS.sayImmediate(text);
+    };
+    const switchMode = (mode) => {
+      const sel = document.getElementById('map-layer-select');
+      sel.value = mode;
+      sel.dispatchEvent(new Event('change'));
+    };
+
+    // A real boat position makes "Virtual Journey" and the route itself
+    // make sense on screen — same Rockland test position used throughout
+    // (the route data's own start point).
+    GPS.setManualPosition(44.0986, -69.0752);
+    syncTestPosButton();
+
+    const myRoute = _loadSampleRoute(sample);
+    _buildRoutePickerPanel();
+
+    // Step 1: discover the destination.
+    showStep(1, `Let's see what's out this way.`);
+    switchMode('anchorages');
+    await sleep(2200);
+    const destMarker = _findDocumentMarkerByTitle(movie.destinationTitle);
+    if (destMarker && _map) {
+      _map.setView(destMarker.getLatLng(), 12);
+      await sleep(900);
+      destMarker.fire('click'); // real Leaflet click — opens the popup, same as a tap
+    }
+    await sleep(2800);
+
+    // Step 2: history — real write-up, if one exists near this destination.
+    if (movie.historyTitle) {
+      showStep(2, `Switching to History mode. ${movie.historyTeaser}`);
+      switchMode('history');
+      await sleep(1400);
+      const histMarker = _findDocumentMarkerByTitle(movie.historyTitle);
+      if (histMarker && _map) {
+        _map.setView(histMarker.getLatLng(), 12);
+        await sleep(700);
+        histMarker.fire('click');
+      }
+      await sleep(3200);
+    }
+
+    // Step 3: geology — real bedrock classification for this area (see the
+    // ROUTE_MOVIES comment for how it was sourced).
+    showStep(3, `Now Geology mode. ${movie.geologyFact}`);
+    switchMode('geology-maine');
+    await sleep(4500); // live FeatureServer fetch + time to read the narration
+
+    // Step 4: back to Chart (clearer view than geology's colored overlay),
+    // open Routes, start a real Virtual Journey on the now-loaded route,
+    // and speed it up so the boat's motion actually reads in a few seconds
+    // rather than requiring real-time hours to cover a real passage.
+    showStep(4, `Here's the route already plotted — watch it sailed.`);
+    switchMode('chart');
+    await sleep(600);
+    document.getElementById('route-picker-btn').click();
+    await sleep(500);
+    const rows = Array.from(document.querySelectorAll('#rp-route-list .rp-row'));
+    const row = rows.find(r => r.textContent.includes(myRoute.name));
+    const vjBtn = row?.querySelector('.rp-vj-btn');
+    if (vjBtn) {
+      vjBtn.click();
+      await sleep(600);
+      document.querySelector('.vjourney-compress[data-compress="60"]')?.click();
+    }
+    await sleep(3000);
+
+    // Step 5: closing — Virtual Journey keeps running after this; the
+    // movie itself is done narrating, not the preview sailing.
+    showStep(5, `That's the passage. Tap Sample Routes any time to watch another.`);
+    await sleep(3500);
+    if (stepBadge) stepBadge.style.display = 'none';
+    if (hud) hud.style.display = 'none';
+  }
+
   const _sampleList = document.getElementById('rp-sample-list');
   document.getElementById('rp-sample-routes').addEventListener('click', () => {
     if (_sampleList.style.display === 'block') { _sampleList.style.display = 'none'; return; }
     _renderSampleRouteList(_sampleList, { withHeading: false });
   });
   _sampleList.addEventListener('click', (e) => {
-    const btn = e.target.closest('.rp-sample-item');
+    const watchBtn = e.target.closest('.rp-sample-item-watch');
+    if (watchBtn) {
+      const sample = (Query.curatedRoutes || []).find(r => r.id === watchBtn.dataset.id);
+      if (sample) { _sampleList.style.display = 'none'; _playRouteMovie(sample); }
+      return;
+    }
+    const btn = e.target.closest('.rp-sample-item-main');
     if (!btn) return;
     const sample = (Query.curatedRoutes || []).find(r => r.id === btn.dataset.id);
     if (!sample) return;
-    const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
-    const existingNames = new Set(routes.map(r => r.name));
-    const name = _uniqueRouteName(sample.name, existingNames);
-    routes.push(_stampNew({ name, points: sample.points.map(p => ({ lat: p.lat, lon: p.lon })) }));
-    localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
+    const route = _loadSampleRoute(sample);
     _sampleList.style.display = 'none';
     _buildRoutePickerPanel();
-    const msg = `Loaded sample route "${name}".`;
+    const msg = `Loaded sample route "${route.name}".`;
     setStatus(msg);
     TTS.sayImmediate(msg);
   });
