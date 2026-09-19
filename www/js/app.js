@@ -8855,44 +8855,32 @@ function _ensureMap() {
     await sleep(1300);
 
     // Step 4: back to Chart (clearer view than geology's colored overlay),
-    // open Routes, start a real Virtual Journey on the now-loaded route,
-    // and speed it up so the boat's motion actually reads in a few seconds
-    // rather than requiring real-time hours to cover a real passage.
+    // then sail it — using the same fixed-10-second boat-icon preview as
+    // the "▶ Preview"/"▶ Animate" buttons elsewhere in the app
+    // (_startRouteAnimation), not Virtual Journey. Virtual Journey is
+    // real-time-scaled by speed×compression, so its actual runtime varies
+    // with route length and doesn't reliably fit the movie's own pacing —
+    // _startRouteAnimation always takes exactly ANIMATE_TOTAL_SEC (10s)
+    // regardless of route length, which is what "the way we do when we
+    // have a route preview" means (v653 fix — Virtual Journey wasn't it).
     switchMode('chart');
     await sleep(600);
-    // Open-only, never toggle: Routes may or may not already be open (the
-    // Sample Routes panel is independent of it now), and a toggle here
-    // would silently close Routes right when Step 4 needs it visible —
-    // the exact bug the v650 standalone-panel fix was for. Mirrors the
-    // "opening" branch of _routePickerBtn's own click handler above.
-    if (!_routePickerPanel.classList.contains('open')) {
-      _routePickerPanel.classList.add('open');
-      _routePickerBtn.classList.add('active');
-      _buildRoutePickerPanel();
-      _warmRouteHazardCache();
-    }
-    await sleep(500);
-    // Narrate before starting Virtual Journey, not after: starting it
-    // fires its own separate, still-live TTS.sayImmediate("Starting
-    // virtual journey...", see _startVirtualJourney) on a different audio
-    // channel than this step's pre-rendered clip — sequencing this first
-    // just keeps the two from talking over each other.
+    // Narrate before starting the animation, not after: _startRouteAnimation
+    // clears the screen and announces itself via its own live TTS
+    // ("Screen cleared." / "Animating {route}…", see _clearScreen and
+    // _startRouteAnimation) on a different audio channel than this step's
+    // pre-rendered clip — sequencing this first keeps the two from
+    // talking over each other.
     await showStep(4, "Here's the route, already plotted. Watch it sail.");
-    await sleep(700);
-    const rows = Array.from(document.querySelectorAll('#rp-route-list .rp-row'));
-    const row = rows.find(r => r.textContent.includes(myRoute.name));
-    const vjBtn = row?.querySelector('.rp-vj-btn');
-    if (vjBtn) {
-      vjBtn.click();
-      await sleep(600);
-      document.querySelector('.vjourney-compress[data-compress="60"]')?.click();
-    }
-    // Give "Starting virtual journey..." (fired by the click above) room
-    // to finish before Step 5's own narration starts.
-    await sleep(3600);
+    await sleep(500);
+    _startRouteAnimation(myRoute, 5);
+    // Fixed real-world length regardless of route — give it room to finish
+    // before Step 5's own narration starts.
+    await sleep(10500);
 
-    // Step 5: closing — Virtual Journey keeps running after this; the
-    // movie itself is done narrating, not the preview sailing.
+    // Step 5: closing — by now the animation has finished and is sitting
+    // on its own "complete · tap map to dismiss" banner (same as the real
+    // Preview/Animate buttons); the movie itself is just done narrating.
     await showStep(5, "That's the passage. Tap Sample Routes any time to watch another.");
     await sleep(1500);
     if (stepBadge) stepBadge.style.display = 'none';
