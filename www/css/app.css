@@ -1306,6 +1306,39 @@ body.wco-active #wco-titlebar { display: flex; }
   gap: 6px;
 }
 #route-picker-panel.open { display: flex; }
+
+/* Same footprint as #route-picker-panel (same rationale for every rule
+   below), but its own standalone panel — not nested inside Routes — so
+   the user can leave it open across an entire sample-route movie and on
+   into watching the next one, per the v649 discoverability fix. One
+   z-index tier above Routes so it always wins the stack on the rare
+   occasion both happen to be open at once (a movie's own Step 4 briefly
+   opens Routes to start Virtual Journey, which then closes Routes again
+   itself — see _startVirtualJourney). Deliberately has no
+   _map.on('click', ...) auto-close, unlike every other panel here — the
+   user asked for this one to stay up until they close it themselves. */
+#sample-routes-panel {
+  display: none;
+  position: absolute;
+  top: 10px;
+  bottom: 70px;
+  right: 10px;
+  z-index: 1901;
+  background: var(--dark-blue);
+  border: 1px solid var(--mid-blue);
+  border-radius: 10px;
+  padding: 10px 14px;
+  min-width: 200px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: min(320px, calc(100vw - 80px));
+  box-shadow: 0 2px 12px rgba(0,0,0,0.7);
+  font-size: 0.85rem;
+  color: var(--text);
+  flex-direction: column;
+  gap: 6px;
+}
+#sample-routes-panel.open { display: flex; }
 /* Compact mode: while a route is being Followed or run as a Virtual
    Journey, its Stop control is really all that's needed here — the full
    top:10/bottom:70 span (see above) exists to fit a scrollable list of

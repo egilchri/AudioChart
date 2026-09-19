@@ -7051,6 +7051,18 @@ function _ensureMap() {
   _addSwipeToClose(_routePickerPanel, _closeRoutePicker, 'x', '.nf-title');
   _makeDraggable(_routePickerPanel, _routePickerPanel.querySelector('.nf-title'));
 
+  // ★ Sample Routes panel — standalone, not nested inside Routes, so the
+  // user can leave it open across an entire movie and on into the next
+  // one. Deliberately no _map.on('click', ...) auto-close like every
+  // other panel here — closes only via its own ✕ or a swipe, both
+  // explicit user actions (see the "leave it up until I close it" v650
+  // fix comment on _playRouteMovie below for the bug this replaced).
+  const _sampleRoutesPanel = document.getElementById('sample-routes-panel');
+  const _closeSampleRoutesPanel = () => _sampleRoutesPanel.classList.remove('open');
+  _addSwipeToClose(_sampleRoutesPanel, _closeSampleRoutesPanel, 'x', '.nf-title');
+  _makeDraggable(_sampleRoutesPanel, _sampleRoutesPanel.querySelector('.nf-title'));
+  document.getElementById('sr-close').addEventListener('click', _closeSampleRoutesPanel);
+
   // Compact mode: while Follow/Virtual Journey is active, the full route
   // list (sized to span nearly the whole viewport height, see
   // #route-picker-panel's own CSS comment) has nothing left to offer over
@@ -7123,6 +7135,7 @@ function _ensureMap() {
     // reliably available there, exactly as many times as the user presses
     // that button, regardless of how many routes they already have.
     if (routes.length === 0) {
+      _sampleRoutesPanel.classList.add('open');
       _renderSampleRouteList(document.getElementById('rp-sample-list'), { withHeading: true });
     }
     if (filtered.length === 0) {
@@ -8743,10 +8756,16 @@ function _ensureMap() {
     const hud = document.getElementById('demo-hud');
     const stepBadge = document.getElementById('demo-step-badge');
     const TOTAL = 5;
+    // Paced by the actual narration, not a guessed fixed sleep: awaits
+    // sayImmediate's onEnd (www/js/tts.js) so a step never advances —
+    // and never cuts a sentence off via sayImmediate's own
+    // cancel-on-next-call behavior — before the line finishes speaking.
+    // The trailing pause afterward gives a beat to actually look at the
+    // screen before the next step moves on (v650: "don't go too fast").
     const showStep = (n, text) => {
       if (stepBadge) { stepBadge.textContent = `STEP ${n} OF ${TOTAL}`; stepBadge.style.display = 'block'; }
       if (hud) { hud.textContent = text; hud.style.display = 'block'; }
-      TTS.sayImmediate(text);
+      return new Promise(resolve => TTS.sayImmediate(text, resolve));
     };
     const switchMode = (mode) => {
       const sel = document.getElementById('map-layer-select');
@@ -8764,46 +8783,72 @@ function _ensureMap() {
     _buildRoutePickerPanel();
 
     // Step 1: discover the destination.
-    showStep(1, `Let's see what's out this way.`);
     switchMode('anchorages');
-    await sleep(2200);
+    await sleep(1000);
     const destMarker = _findDocumentMarkerByTitle(movie.destinationTitle);
     if (destMarker && _map) {
       _map.setView(destMarker.getLatLng(), 12);
-      await sleep(900);
+      await sleep(1200);
       destMarker.fire('click'); // real Leaflet click — opens the popup, same as a tap
+      await sleep(600);
     }
-    await sleep(2800);
+    await showStep(1, `Let's see what's out this way.`);
+    await sleep(1300);
 
     // Step 2: history — real write-up, if one exists near this destination.
     if (movie.historyTitle) {
-      showStep(2, `Switching to History mode. ${movie.historyTeaser}`);
       switchMode('history');
-      await sleep(1400);
+      await sleep(1200);
       const histMarker = _findDocumentMarkerByTitle(movie.historyTitle);
       if (histMarker && _map) {
         _map.setView(histMarker.getLatLng(), 12);
-        await sleep(700);
+        await sleep(900);
         histMarker.fire('click');
+        await sleep(600);
       }
-      await sleep(3200);
+      await showStep(2, `Switching to History mode. ${movie.historyTeaser}`);
+      await sleep(1300);
     }
 
     // Step 3: geology — real bedrock classification for this area (see the
-    // ROUTE_MOVIES comment for how it was sourced).
-    showStep(3, `Now Geology mode. ${movie.geologyFact}`);
+    // ROUTE_MOVIES comment for how it was sourced). Mark the generic
+    // one-time Geology-mode hint (MODE_INTROS) seen before switching, so
+    // it never auto-fires its own TTS.sayImmediate here — the movie's own
+    // narration already covers that ground, and letting both fire would
+    // just have this step's showStep call cancel the hint mid-sentence.
+    Tour.markModeIntroSeen('geology-maine');
     switchMode('geology-maine');
-    await sleep(4500); // live FeatureServer fetch + time to read the narration
+    await sleep(1800); // live FeatureServer fetch + render time
+    await showStep(3, `Now Geology mode. ${movie.geologyFact}`);
+    await sleep(1300);
 
     // Step 4: back to Chart (clearer view than geology's colored overlay),
     // open Routes, start a real Virtual Journey on the now-loaded route,
     // and speed it up so the boat's motion actually reads in a few seconds
     // rather than requiring real-time hours to cover a real passage.
-    showStep(4, `Here's the route already plotted — watch it sailed.`);
     switchMode('chart');
     await sleep(600);
-    document.getElementById('route-picker-btn').click();
+    // Open-only, never toggle: Routes may or may not already be open (the
+    // Sample Routes panel is independent of it now), and a toggle here
+    // would silently close Routes right when Step 4 needs it visible —
+    // the exact bug the v650 standalone-panel fix was for. Mirrors the
+    // "opening" branch of _routePickerBtn's own click handler above.
+    if (!_routePickerPanel.classList.contains('open')) {
+      _routePickerPanel.classList.add('open');
+      _routePickerBtn.classList.add('active');
+      _buildRoutePickerPanel();
+      _warmRouteHazardCache();
+    }
     await sleep(500);
+    // Narrate before starting Virtual Journey, not after: starting it
+    // fires its own separate TTS.sayImmediate("Starting virtual
+    // journey...", see _startVirtualJourney) — calling showStep any time
+    // after that click would cancel that announcement mid-sentence via
+    // sayImmediate's own cancel-on-call semantics, the exact bug this
+    // whole rewrite exists to eliminate. Narrating first, then clicking,
+    // means each announcement gets to run to completion in turn.
+    await showStep(4, `Here's the route already plotted — watch it sailed.`);
+    await sleep(700);
     const rows = Array.from(document.querySelectorAll('#rp-route-list .rp-row'));
     const row = rows.find(r => r.textContent.includes(myRoute.name));
     const vjBtn = row?.querySelector('.rp-vj-btn');
@@ -8812,26 +8857,31 @@ function _ensureMap() {
       await sleep(600);
       document.querySelector('.vjourney-compress[data-compress="60"]')?.click();
     }
-    await sleep(3000);
+    // Give "Starting virtual journey..." (fired by the click above) room
+    // to finish before Step 5's own showStep call cancels it.
+    await sleep(3600);
 
     // Step 5: closing — Virtual Journey keeps running after this; the
     // movie itself is done narrating, not the preview sailing.
-    showStep(5, `That's the passage. Tap Sample Routes any time to watch another.`);
-    await sleep(3500);
+    await showStep(5, `That's the passage. Tap Sample Routes any time to watch another.`);
+    await sleep(1500);
     if (stepBadge) stepBadge.style.display = 'none';
     if (hud) hud.style.display = 'none';
   }
 
   const _sampleList = document.getElementById('rp-sample-list');
   document.getElementById('rp-sample-routes').addEventListener('click', () => {
-    if (_sampleList.style.display === 'block') { _sampleList.style.display = 'none'; return; }
+    _sampleRoutesPanel.classList.add('open');
     _renderSampleRouteList(_sampleList, { withHeading: false });
   });
   _sampleList.addEventListener('click', (e) => {
     const watchBtn = e.target.closest('.rp-sample-item-watch');
     if (watchBtn) {
       const sample = (Query.curatedRoutes || []).find(r => r.id === watchBtn.dataset.id);
-      if (sample) { _sampleList.style.display = 'none'; _playRouteMovie(sample); }
+      // Deliberately does NOT close/hide the Sample Routes panel — it
+      // stays open through the whole movie and into the next one, per
+      // the v650 "leave it up until I close it" fix.
+      if (sample) _playRouteMovie(sample);
       return;
     }
     const btn = e.target.closest('.rp-sample-item-main');

@@ -154,7 +154,6 @@
           <button id="rp-import-drive" title="Import routes previously saved to Google Drive">&#9729; Import from Drive</button>
           <button id="rp-sample-routes" title="Browse ready-made sample routes for this region">&#9733; Sample Routes</button>
         </div>
-        <div id="rp-sample-list" style="display:none"></div>
         <div class="rp-search-row">
           <input id="rp-search" type="text" placeholder="Search routes&hellip;" autocomplete="off">
           <select id="rp-sort" title="Sort order">
@@ -182,6 +181,10 @@
         </div>
         <div id="rp-sync-status" class="nf-sync-status"></div>
         <button id="rp-cleanup-dupes" title="Remove duplicate conflict-copy routes (keeps one of each, asks before removing anything)">&#129529; Clean up duplicates</button>
+      </div>
+      <div id="sample-routes-panel">
+        <div class="nf-title">Sample Routes<button id="sr-close" title="Close">&#10005;</button></div>
+        <div id="rp-sample-list"></div>
       </div>
       <div id="track-picker-panel">
         <div class="nf-title">Tracks <button id="tp-close" title="Close">&#10005;</button></div>
