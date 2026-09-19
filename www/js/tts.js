@@ -73,6 +73,16 @@ function _stopWatchdog() {
 // queue stalls. Poll while an utterance is nominally in flight and, if the engine has
 // silently dropped it, replay that utterance once from the top rather than leave the
 // user with a sentence cut off partway through.
+//
+// Armed immediately when speakNext() calls speak() — not just from onstart, as it used
+// to be. A separate, worse Chromium bug (desktop and Android both) can leave an
+// utterance wedged before it ever starts: onstart/onend never fire at all, speak()
+// never throws, and speechSynthesis.speaking simply never goes true. Waiting for
+// onstart to arm this meant that case was never caught — the utterance just sat dead
+// until some later, unrelated sayImmediate() call cancelled it, which made that later
+// call's cancellation look like *this* utterance had finished normally. That's exactly
+// what was cutting every line of a route movie's narration to silence while its onEnd
+// promise resolved anyway, making playback race through with no sound (v650 bug).
 function _armWatchdog(text) {
   _stopWatchdog();
   _watchdogTimer = setInterval(() => {
@@ -86,8 +96,18 @@ function _armWatchdog(text) {
         if (speaking && !speechSynthesis.speaking) {
           _stopWatchdog();
           speaking = false;
-          if (!_retriedCurrent) { _retriedCurrent = true; queue.unshift(text); }
-          speakNext();
+          if (!_retriedCurrent) {
+            _retriedCurrent = true;
+            queue.unshift(text);
+            speakNext();
+          } else {
+            // Already retried once and it's still dead — give up on this
+            // utterance rather than hang forever, but still resolve the
+            // caller (onEnd), so a chained sequence like a route movie's
+            // narration can't stall indefinitely on permanently dead air.
+            if (queue.length === 0 && _onSpeechEnd) { const cb = _onSpeechEnd; _onSpeechEnd = null; cb(); }
+            speakNext();
+          }
         }
       }, 250);
     }
@@ -111,10 +131,10 @@ function speakNext() {
     if (queue.length === 0 && _onSpeechEnd) { const cb = _onSpeechEnd; _onSpeechEnd = null; cb(); }
     speakNext();
   };
-  utt.onstart = () => _armWatchdog(text);
   utt.onend = finish;
   utt.onerror = finish;
   speechSynthesis.speak(utt);
+  _armWatchdog(text);
 }
 
 /** Queue text for speech output. */
@@ -131,7 +151,12 @@ export function sayImmediate(text, onEnd = null) {
   speechSynthesis.cancel();
   speaking = false;
   queue.push(text);
-  speakNext();
+  // Chrome has a long-standing bug where speak() called in the same tick as
+  // cancel() can leave the engine silently wedged for the new utterance —
+  // see the _armWatchdog comment above for what that looks like from the
+  // caller's side. Deferring to a new task (even a 0ms one, empirically —
+  // this uses a small nonzero delay for safety margin) avoids triggering it.
+  setTimeout(speakNext, 80);
 }
 
 /** Stop all speech and clear queue. */
