@@ -1812,33 +1812,57 @@ function _maybeShowModeIntro(mode) {
 //
 // destinationTitle/historyTitle are each a genuine documents.geojson entry
 // (confirmed live, closest real history write-up to each destination —
-// see the commit this was added in for the exact query used) — used only
-// to locate the real marker/popup to open for that step, never read
-// aloud. The movie's own narration (see STEP_AUDIO below) deliberately
-// doesn't recite these facts — the popup card itself already shows them,
-// and reading them aloud too just made the movie feel like it was
-// "reading the cards" back at the user. Narration is now just short,
-// generic step descriptions, identical across every route.
+// see the commit this was added in for the exact query used), used both
+// to locate the real marker/popup to open for that step AND as the source
+// text for historyCaption below — a ~25-word summary of that document's
+// actual body, not a generic mode-switch line (v656, per direct request:
+// "click on a document, summarize its contents in 25 words or so... take
+// your time, you're trying to entertain the user"). geologyCaption is the
+// real Maine Geological Survey bedrock classification for that area,
+// queried live against the same MGS_Bedrock_500K FeatureServer
+// _refreshMaineGeologyLayer itself calls — geology mode has no clickable
+// per-feature popup the way documents do (only a hover tooltip), so this
+// is authored once from that same live data rather than "clicked" live.
 const ROUTE_MOVIES = {
   'rockland-warren-island': {
     destinationTitle: 'Warren Island State Park — Anchorage & Moorings',
     historyTitle: "A 1692 raid, and the tradition it didn't manage to end",
+    place: 'Warren Island',
+    audioId: 'warren-island',
+    historyCaption: "In 1692, an English captain raided this island, driving off Penobscot and Tarratine people who'd summered here for generations — but they kept coming back for centuries.",
+    geologyCaption: "This stretch of coast sits on some of Maine's oldest bedrock — Precambrian gneiss, limestone, marble, and slate, folded long before the granite you'll see further inland.",
   },
   'rockland-carvers-harbor': {
     destinationTitle: 'Carvers Harbor — Anchorage & Moorings',
     historyTitle: "The first lobstermen's union in the country",
+    place: 'Carvers Harbor',
+    audioId: 'carvers-harbor',
+    historyCaption: "In the winter of 2012, Vinalhaven's lobstermen formed the country's first lobstermen's union — modern labor organizing on an island once built by granite quarrying.",
+    geologyCaption: "Vinalhaven sits on Silurian granite — the same rock its famous quarries cut for over a century, grading into marine sandstone and slate further out.",
   },
   'rockland-perry-creek': {
     destinationTitle: 'Perry Creek — Anchorage & Moorings',
     historyTitle: 'A lost race, a faster boat, and 140 years of grudge matches',
+    place: 'Perry Creek',
+    audioId: 'perry-creek',
+    historyCaption: "A sailor lost a race here in 1883, built a faster boat out of spite, and started what's now the oldest continuously raced one-design fleet in North America.",
+    geologyCaption: "The bedrock here is a genuine mash-up — ancient Precambrian marble and gneiss sitting right alongside much younger granite and slate.",
   },
   'rockland-stonington-overnight': {
     destinationTitle: 'Stonington Harbor — Anchorage & Moorings',
     historyTitle: "Maine's last working granite quarry",
+    place: 'Stonington',
+    audioId: 'stonington',
+    historyCaption: "Crotch Island has been quarried since 1869. Its pink granite went into the Brooklyn Bridge's approaches, and it's still Maine's last working island quarry today.",
+    geologyCaption: "It's no coincidence — this whole area is Devonian granite and granodiorite, the same rock the quarry has been cutting for a century and a half.",
   },
   'rockland-woodenboat-school': {
     destinationTitle: 'WoodenBoat School Waterfront',
     historyTitle: 'Three thousand years of camps on Eggemoggin Reach',
+    place: 'WoodenBoat School',
+    audioId: 'woodenboat-school',
+    historyCaption: "Digs at Scott's Landing found shell middens showing people camping and fishing here for three thousand years — long before Eggemoggin Reach had a European name.",
+    geologyCaption: 'The bedrock here is Devonian granite, the same family of rock that runs down through Stonington, with older metamorphosed volcanic rock mixed in nearby.',
   },
 };
 
@@ -1852,15 +1876,11 @@ const ROUTE_MOVIES = {
 // for the full diagnosis). Pre-rendered audio sidesteps that class of bug
 // entirely; only the narration is canned, everything else in the movie
 // (map panning, popups, live geology data, Virtual Journey) stays real.
-// One shared set of 5 clips, not per-route — the narration text is now
-// identical across every route (see ROUTE_MOVIES comment above).
-const STEP_AUDIO = {
-  1: './audio/movie-step1.mp3',
-  2: './audio/movie-step2.mp3',
-  3: './audio/movie-step3.mp3',
-  4: './audio/movie-step4.mp3',
-  5: './audio/movie-step5.mp3',
-};
+// Steps 1-3 are per-route (real, route-specific content, v656); steps 4-5
+// are generic scripted lines shared by every route.
+function _movieStepAudio(movie, n) {
+  return n <= 3 ? `./audio/movie-${movie.audioId}-step${n}.mp3` : `./audio/movie-step${n}.mp3`;
+}
 
 // _playRouteMovie itself lives inside _ensureMap() (near _loadSampleRoute,
 // which it depends on) — see there. ROUTE_MOVIES stays top-level since
@@ -8768,17 +8788,18 @@ function _ensureMap() {
     const hud = document.getElementById('demo-hud');
     const stepBadge = document.getElementById('demo-step-badge');
     const TOTAL = 5;
-    // Plays the pre-rendered clip for this step (STEP_AUDIO, top of file)
-    // and waits for it to finish before the movie advances — reliable,
-    // fixed-duration playback via a plain <audio> element, not the live
-    // speechSynthesis API. caption is a short step description shown in
-    // the HUD alongside it; it's cosmetic only, not spoken separately.
+    // Plays the pre-rendered clip for this step (_movieStepAudio, top of
+    // file) and waits for it to finish before the movie advances —
+    // reliable, fixed-duration playback via a plain <audio> element, not
+    // the live speechSynthesis API. caption is shown in the HUD alongside
+    // it, mirroring what's actually spoken (cosmetic only — the audio is
+    // what plays, not this text).
     const showStep = (n, caption) => {
       if (stepBadge) { stepBadge.textContent = `STEP ${n} OF ${TOTAL}`; stepBadge.style.display = 'block'; }
       if (hud) { hud.textContent = caption; hud.style.display = 'block'; }
       return new Promise((resolve) => {
         let done = false;
-        const audio = new Audio(STEP_AUDIO[n]);
+        const audio = new Audio(_movieStepAudio(movie, n));
         // Explicitly pause and drop the element once this step is done,
         // whichever way it resolved — a movie creates 5 of these in
         // sequence, and leaving each one dangling (with a possibly still-
@@ -8826,10 +8847,12 @@ function _ensureMap() {
       destMarker.fire('click'); // real Leaflet click — opens the popup, same as a tap
       await sleep(600);
     }
-    await showStep(1, "Let's see what's out this way.");
-    await sleep(1300);
+    await showStep(1, `Let's check out the region around ${movie.place}.`);
+    await sleep(1500);
 
-    // Step 2: history — real write-up, if one exists near this destination.
+    // Step 2: history — a ~25-word summary of the real write-up at this
+    // destination (see ROUTE_MOVIES comment), not just a mode-switch
+    // announcement. Only if a history document exists near it.
     if (movie.historyTitle) {
       switchMode('history');
       await sleep(1200);
@@ -8840,19 +8863,21 @@ function _ensureMap() {
         histMarker.fire('click');
         await sleep(600);
       }
-      await showStep(2, 'Switching to History mode.');
-      await sleep(1300);
+      await showStep(2, `Switching to History mode. ${movie.historyCaption}`);
+      await sleep(1800);
     }
 
-    // Step 3: geology. Mark the generic one-time Geology-mode hint
-    // (MODE_INTROS) seen before switching, so it doesn't auto-fire its own
-    // spoken callout here and talk over this step's narration — the movie
-    // already explains the mode switch itself.
+    // Step 3: geology — a ~25-word summary of the real bedrock
+    // classification for this area (see ROUTE_MOVIES comment). Mark the
+    // generic one-time Geology-mode hint (MODE_INTROS) seen before
+    // switching, so it doesn't auto-fire its own spoken callout here and
+    // talk over this step's narration — the movie already explains the
+    // mode switch itself.
     Tour.markModeIntroSeen('geology-maine');
     switchMode('geology-maine');
     await sleep(1800); // live FeatureServer fetch + render time
-    await showStep(3, 'Now, Geology mode.');
-    await sleep(1300);
+    await showStep(3, `Now, Geology mode. ${movie.geologyCaption}`);
+    await sleep(1800);
 
     // Step 4: back to Chart (clearer view than geology's colored overlay),
     // then sail it — using the same fixed-10-second boat-icon preview as
