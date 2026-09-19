@@ -1810,44 +1810,56 @@ function _maybeShowModeIntro(mode) {
 // routes themselves stay freely explorable on their own; this is purely an
 // additional, optional demonstration layer.
 //
-// Content below is grounded in real, already-shipped data, not invented:
-// each destinationTitle/historyTitle is a genuine documents.geojson entry
+// destinationTitle/historyTitle are each a genuine documents.geojson entry
 // (confirmed live, closest real history write-up to each destination —
-// see the commit this was added in for the exact query used), and each
-// geologyFact is the real Maine Geological Survey bedrock classification
-// for that area, queried live against the same MGS_Bedrock_500K
-// FeatureServer _refreshMaineGeologyLayer itself calls.
+// see the commit this was added in for the exact query used) — used only
+// to locate the real marker/popup to open for that step, never read
+// aloud. The movie's own narration (see STEP_AUDIO below) deliberately
+// doesn't recite these facts — the popup card itself already shows them,
+// and reading them aloud too just made the movie feel like it was
+// "reading the cards" back at the user. Narration is now just short,
+// generic step descriptions, identical across every route.
 const ROUTE_MOVIES = {
   'rockland-warren-island': {
     destinationTitle: 'Warren Island State Park — Anchorage & Moorings',
     historyTitle: "A 1692 raid, and the tradition it didn't manage to end",
-    historyTeaser: "Right next door on Seven Hundred Acre Island — Penobscot and Tarratine people summered here for generations before any European contact.",
-    geologyFact: "This stretch of coast sits on some of Maine's oldest bedrock — Precambrian gneiss, limestone, marble, and slate, folded long before the granite you'll see further inland.",
   },
   'rockland-carvers-harbor': {
     destinationTitle: 'Carvers Harbor — Anchorage & Moorings',
     historyTitle: "The first lobstermen's union in the country",
-    historyTeaser: "Vinalhaven's lobstermen organized the country's first lobstermen's union right here, in the winter of 2012.",
-    geologyFact: "Vinalhaven sits on Silurian granite — the same rock its famous quarries cut for over a century, grading into marine sandstone and slate further out.",
   },
   'rockland-perry-creek': {
     destinationTitle: 'Perry Creek — Anchorage & Moorings',
     historyTitle: 'A lost race, a faster boat, and 140 years of grudge matches',
-    historyTeaser: "Just offshore at North Haven — a sailor's sore-loser streak in 1883 started a one-design racing rivalry still sailed today.",
-    geologyFact: "The bedrock here is a genuine mash-up — ancient Precambrian marble and gneiss sitting right alongside much younger granite and slate.",
   },
   'rockland-stonington-overnight': {
     destinationTitle: 'Stonington Harbor — Anchorage & Moorings',
     historyTitle: "Maine's last working granite quarry",
-    historyTeaser: 'Crotch Island, right offshore, is Maine\'s last working granite quarry — cutting stone since 1869.',
-    geologyFact: "It's no coincidence — this whole area is Devonian granite and granodiorite, the same rock the quarry has been cutting for a century and a half.",
   },
   'rockland-woodenboat-school': {
     destinationTitle: 'WoodenBoat School Waterfront',
     historyTitle: 'Three thousand years of camps on Eggemoggin Reach',
-    historyTeaser: 'Just up the reach at Scott\'s Landing — a shell midden shows people camping here for three thousand years.',
-    geologyFact: 'The bedrock here is Devonian granite, the same family of rock that runs down through Stonington, with older metamorphosed volcanic rock mixed in nearby.',
   },
+};
+
+// Movie narration audio — pre-rendered offline via Piper (same engine used
+// for the sailors-page demo clips' voiceover, see www/audio/ — generated,
+// not hand-recorded), not the live browser speechSynthesis API. Chrome has
+// a real, confirmed bug where speechSynthesis.cancel() immediately
+// followed by speak() can silently wedge the engine — no audio ever
+// plays, onstart/onend never fire — which is exactly what made a live-TTS
+// movie race through fast and silent (see tts.js's _armWatchdog comment
+// for the full diagnosis). Pre-rendered audio sidesteps that class of bug
+// entirely; only the narration is canned, everything else in the movie
+// (map panning, popups, live geology data, Virtual Journey) stays real.
+// One shared set of 5 clips, not per-route — the narration text is now
+// identical across every route (see ROUTE_MOVIES comment above).
+const STEP_AUDIO = {
+  1: './audio/movie-step1.mp3',
+  2: './audio/movie-step2.mp3',
+  3: './audio/movie-step3.mp3',
+  4: './audio/movie-step4.mp3',
+  5: './audio/movie-step5.mp3',
 };
 
 // _playRouteMovie itself lives inside _ensureMap() (near _loadSampleRoute,
@@ -8756,16 +8768,38 @@ function _ensureMap() {
     const hud = document.getElementById('demo-hud');
     const stepBadge = document.getElementById('demo-step-badge');
     const TOTAL = 5;
-    // Paced by the actual narration, not a guessed fixed sleep: awaits
-    // sayImmediate's onEnd (www/js/tts.js) so a step never advances —
-    // and never cuts a sentence off via sayImmediate's own
-    // cancel-on-next-call behavior — before the line finishes speaking.
-    // The trailing pause afterward gives a beat to actually look at the
-    // screen before the next step moves on (v650: "don't go too fast").
-    const showStep = (n, text) => {
+    // Plays the pre-rendered clip for this step (STEP_AUDIO, top of file)
+    // and waits for it to finish before the movie advances — reliable,
+    // fixed-duration playback via a plain <audio> element, not the live
+    // speechSynthesis API. caption is a short step description shown in
+    // the HUD alongside it; it's cosmetic only, not spoken separately.
+    const showStep = (n, caption) => {
       if (stepBadge) { stepBadge.textContent = `STEP ${n} OF ${TOTAL}`; stepBadge.style.display = 'block'; }
-      if (hud) { hud.textContent = text; hud.style.display = 'block'; }
-      return new Promise(resolve => TTS.sayImmediate(text, resolve));
+      if (hud) { hud.textContent = caption; hud.style.display = 'block'; }
+      return new Promise((resolve) => {
+        let done = false;
+        const audio = new Audio(STEP_AUDIO[n]);
+        // Explicitly pause and drop the element once this step is done,
+        // whichever way it resolved — a movie creates 5 of these in
+        // sequence, and leaving each one dangling (with a possibly still-
+        // pending play() promise) risks compounding into browser
+        // autoplay/media-session throttling on later steps.
+        const finish = () => {
+          if (done) return;
+          done = true;
+          try { audio.pause(); } catch (_) {}
+          resolve();
+        };
+        audio.addEventListener('ended', finish, { once: true });
+        audio.addEventListener('error', finish, { once: true });
+        audio.play().catch(finish);
+        // Hard ceiling regardless of how play() settles: confirmed live
+        // that play()'s own promise can be left permanently pending in
+        // some environments — neither resolving nor rejecting — which
+        // would otherwise hang the whole movie forever on one step. Every
+        // clip here runs well under this.
+        setTimeout(finish, 8000);
+      });
     };
     const switchMode = (mode) => {
       const sel = document.getElementById('map-layer-select');
@@ -8792,7 +8826,7 @@ function _ensureMap() {
       destMarker.fire('click'); // real Leaflet click — opens the popup, same as a tap
       await sleep(600);
     }
-    await showStep(1, `Let's see what's out this way.`);
+    await showStep(1, "Let's see what's out this way.");
     await sleep(1300);
 
     // Step 2: history — real write-up, if one exists near this destination.
@@ -8806,20 +8840,18 @@ function _ensureMap() {
         histMarker.fire('click');
         await sleep(600);
       }
-      await showStep(2, `Switching to History mode. ${movie.historyTeaser}`);
+      await showStep(2, 'Switching to History mode.');
       await sleep(1300);
     }
 
-    // Step 3: geology — real bedrock classification for this area (see the
-    // ROUTE_MOVIES comment for how it was sourced). Mark the generic
-    // one-time Geology-mode hint (MODE_INTROS) seen before switching, so
-    // it never auto-fires its own TTS.sayImmediate here — the movie's own
-    // narration already covers that ground, and letting both fire would
-    // just have this step's showStep call cancel the hint mid-sentence.
+    // Step 3: geology. Mark the generic one-time Geology-mode hint
+    // (MODE_INTROS) seen before switching, so it doesn't auto-fire its own
+    // spoken callout here and talk over this step's narration — the movie
+    // already explains the mode switch itself.
     Tour.markModeIntroSeen('geology-maine');
     switchMode('geology-maine');
     await sleep(1800); // live FeatureServer fetch + render time
-    await showStep(3, `Now Geology mode. ${movie.geologyFact}`);
+    await showStep(3, 'Now, Geology mode.');
     await sleep(1300);
 
     // Step 4: back to Chart (clearer view than geology's colored overlay),
@@ -8841,13 +8873,11 @@ function _ensureMap() {
     }
     await sleep(500);
     // Narrate before starting Virtual Journey, not after: starting it
-    // fires its own separate TTS.sayImmediate("Starting virtual
-    // journey...", see _startVirtualJourney) — calling showStep any time
-    // after that click would cancel that announcement mid-sentence via
-    // sayImmediate's own cancel-on-call semantics, the exact bug this
-    // whole rewrite exists to eliminate. Narrating first, then clicking,
-    // means each announcement gets to run to completion in turn.
-    await showStep(4, `Here's the route already plotted — watch it sailed.`);
+    // fires its own separate, still-live TTS.sayImmediate("Starting
+    // virtual journey...", see _startVirtualJourney) on a different audio
+    // channel than this step's pre-rendered clip — sequencing this first
+    // just keeps the two from talking over each other.
+    await showStep(4, "Here's the route, already plotted. Watch it sail.");
     await sleep(700);
     const rows = Array.from(document.querySelectorAll('#rp-route-list .rp-row'));
     const row = rows.find(r => r.textContent.includes(myRoute.name));
@@ -8858,12 +8888,12 @@ function _ensureMap() {
       document.querySelector('.vjourney-compress[data-compress="60"]')?.click();
     }
     // Give "Starting virtual journey..." (fired by the click above) room
-    // to finish before Step 5's own showStep call cancels it.
+    // to finish before Step 5's own narration starts.
     await sleep(3600);
 
     // Step 5: closing — Virtual Journey keeps running after this; the
     // movie itself is done narrating, not the preview sailing.
-    await showStep(5, `That's the passage. Tap Sample Routes any time to watch another.`);
+    await showStep(5, "That's the passage. Tap Sample Routes any time to watch another.");
     await sleep(1500);
     if (stepBadge) stepBadge.style.display = 'none';
     if (hud) hud.style.display = 'none';
