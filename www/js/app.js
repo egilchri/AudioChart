@@ -8874,15 +8874,21 @@ function _ensureMap() {
     await showStep(4, "Here's the route, already plotted. Watch it sail.");
     await sleep(500);
     // Hidden, not closed, for just the animation — floating over the map
-    // right where the boat sails is exactly what got in the way. Its own
-    // .open state (and everything else about "stays open until you close
-    // it", v650) is untouched; this only toggles visibility temporarily.
+    // right where the boat sails is exactly what got in the way. Their
+    // own .open state (and everything else about "stays open until you
+    // close it", v650) is untouched; this only toggles visibility
+    // temporarily. Routes is only reliably open here because that's the
+    // one place "★ Sample Routes" lives — captured rather than assumed,
+    // so this stays correct if that ever changes.
+    const _routesWasOpen = _routePickerPanel.classList.contains('open');
     _sampleRoutesPanel.classList.remove('open');
+    if (_routesWasOpen) _routePickerPanel.classList.remove('open');
     _startRouteAnimation(myRoute, 5);
     // Fixed real-world length regardless of route — give it room to finish
     // before Step 5's own narration starts.
     await sleep(10500);
     _sampleRoutesPanel.classList.add('open');
+    if (_routesWasOpen) _routePickerPanel.classList.add('open');
 
     // Step 5: closing — by now the animation has finished and is sitting
     // on its own "complete · tap map to dismiss" banner (same as the real
