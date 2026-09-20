@@ -7090,7 +7090,11 @@ function _ensureMap() {
   // explicit user actions (see the "leave it up until I close it" v650
   // fix comment on _playRouteMovie below for the bug this replaced).
   const _sampleRoutesPanel = document.getElementById('sample-routes-panel');
-  const _closeSampleRoutesPanel = () => _sampleRoutesPanel.classList.remove('open');
+  const _sampleRoutesBtn   = document.getElementById('sample-routes-btn');
+  const _closeSampleRoutesPanel = () => {
+    _sampleRoutesPanel.classList.remove('open');
+    _sampleRoutesBtn.classList.remove('active');
+  };
   _addSwipeToClose(_sampleRoutesPanel, _closeSampleRoutesPanel, 'x', '.nf-title');
   _makeDraggable(_sampleRoutesPanel, _sampleRoutesPanel.querySelector('.nf-title'));
   document.getElementById('sr-close').addEventListener('click', _closeSampleRoutesPanel);
@@ -7168,6 +7172,7 @@ function _ensureMap() {
     // that button, regardless of how many routes they already have.
     if (routes.length === 0) {
       _sampleRoutesPanel.classList.add('open');
+      _sampleRoutesBtn.classList.add('active');
       _renderSampleRouteList(document.getElementById('rp-sample-list'), { withHeading: true });
     }
     if (filtered.length === 0) {
@@ -8859,13 +8864,15 @@ function _ensureMap() {
     // over the map and were in the way the entire time, not just during
     // the Step 4 animation. Their own .open state (and everything else
     // about "stays open until you close it", v650) is untouched; this
-    // only toggles visibility temporarily. Routes is only reliably open
-    // here because that's the one place "★ Sample Routes" lives —
-    // captured rather than assumed, so this stays correct if that ever
-    // changes. Restored just before the closing line, which tells the
-    // user to tap Sample Routes next.
+    // only toggles visibility temporarily. Routes' prior open-state is
+    // captured rather than assumed (the user may or may not have had it
+    // open — Sample Routes has its own top-chrome button now, v659, so
+    // reaching Watch no longer implies Routes was open). Restored just
+    // before the closing line, which tells the user to tap Sample Routes
+    // next.
     const _routesWasOpen = _routePickerPanel.classList.contains('open');
     _sampleRoutesPanel.classList.remove('open');
+    _sampleRoutesBtn.classList.remove('active');
     if (_routesWasOpen) _routePickerPanel.classList.remove('open');
 
     // Step 1: discover the destination.
@@ -8934,6 +8941,7 @@ function _ensureMap() {
     // before Step 5's own narration starts.
     await sleep(10500);
     _sampleRoutesPanel.classList.add('open');
+    _sampleRoutesBtn.classList.add('active');
     if (_routesWasOpen) _routePickerPanel.classList.add('open');
 
     // Step 5: closing — by now the animation has finished and is sitting
@@ -8948,9 +8956,15 @@ function _ensureMap() {
   }
 
   const _sampleList = document.getElementById('rp-sample-list');
-  document.getElementById('rp-sample-routes').addEventListener('click', () => {
-    _sampleRoutesPanel.classList.add('open');
-    _renderSampleRouteList(_sampleList, { withHeading: false });
+  // Own top-chrome button now (v659), not tucked inside Routes — a real
+  // toggle, matching #route-picker-btn/#navaid-filter-btn's own pattern,
+  // rather than the old "always just opens" in-panel action button.
+  _sampleRoutesBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const opening = !_sampleRoutesPanel.classList.contains('open');
+    _sampleRoutesPanel.classList.toggle('open');
+    _sampleRoutesBtn.classList.toggle('active', opening);
+    if (opening) _renderSampleRouteList(_sampleList, { withHeading: false });
   });
   _sampleList.addEventListener('click', (e) => {
     const watchBtn = e.target.closest('.rp-sample-item-watch');
