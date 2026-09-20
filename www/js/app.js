@@ -8775,6 +8775,14 @@ function _ensureMap() {
     return route;
   }
 
+  // Guards against a second "▶ Watch" click starting a concurrent movie
+  // while one's already playing — two overlapping runs would fight over
+  // the same singleton state (_animMode/_animMarker, GPS position, map
+  // mode, etc.) rather than actually running side by side. Set/cleared at
+  // the click handler below, not inside _playRouteMovie itself, so it
+  // reliably resets even if a step throws partway through.
+  let _movieRunning = false;
+
   // See the big comment on ROUTE_MOVIES (top of file) for what this is and
   // why — a passive, auto-playing, narrated walkthrough per sample route,
   // triggered by "▶ Watch" below. Lives in this scope (not top-level, where
@@ -8811,15 +8819,25 @@ function _ensureMap() {
           try { audio.pause(); } catch (_) {}
           resolve();
         };
-        audio.addEventListener('ended', finish, { once: true });
-        audio.addEventListener('error', finish, { once: true });
-        audio.play().catch(finish);
         // Hard ceiling regardless of how play() settles: confirmed live
         // that play()'s own promise can be left permanently pending in
         // some environments — neither resolving nor rejecting — which
-        // would otherwise hang the whole movie forever on one step. Every
-        // clip here runs well under this.
-        setTimeout(finish, 8000);
+        // would otherwise hang the whole movie forever on one step.
+        // Starts generous (some of the v656 per-route summary clips run
+        // 10-14s — an earlier flat 8s guess here cut those off mid-
+        // sentence) and tightens to the clip's own real duration, plus a
+        // buffer, as soon as metadata loads, so a genuinely stuck clip
+        // still gets caught reasonably fast.
+        let ceiling = setTimeout(finish, 20000);
+        audio.addEventListener('loadedmetadata', () => {
+          if (isFinite(audio.duration)) {
+            clearTimeout(ceiling);
+            ceiling = setTimeout(finish, audio.duration * 1000 + 3000);
+          }
+        }, { once: true });
+        audio.addEventListener('ended', finish, { once: true });
+        audio.addEventListener('error', finish, { once: true });
+        audio.play().catch(finish);
       });
     };
     const switchMode = (mode) => {
@@ -8936,7 +8954,10 @@ function _ensureMap() {
       // Deliberately does NOT close/hide the Sample Routes panel — it
       // stays open through the whole movie and into the next one, per
       // the v650 "leave it up until I close it" fix.
-      if (sample) _playRouteMovie(sample);
+      if (sample && !_movieRunning) {
+        _movieRunning = true;
+        _playRouteMovie(sample).finally(() => { _movieRunning = false; });
+      }
       return;
     }
     const btn = e.target.closest('.rp-sample-item-main');
