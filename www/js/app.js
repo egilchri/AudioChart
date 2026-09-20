@@ -8908,17 +8908,36 @@ function _ensureMap() {
     _sampleRoutesBtn.classList.remove('active');
     if (_routesWasOpen) _routePickerPanel.classList.remove('open');
 
-    // Step 1: discover the destination.
+    // Step 1: discover the destination. Starts wide from the boat's own
+    // position, then flies across the bay to the destination — genuine
+    // lateral panning plus a slow zoom-in (not an instant jump), so place
+    // names have time to become legible as it zooms and the anchorage's
+    // own anchor icon is the last thing to resolve into view. Timed to
+    // run alongside this step's narration, not finish before it starts —
+    // per direct request: "while you are saying [the line], let's first
+    // pan over to it, then zoom in fairly slowly."
     switchMode('anchorages');
-    await sleep(1000);
+    await sleep(600);
     const destMarker = _findDocumentMarkerByTitle(movie.destinationTitle);
     if (destMarker && _map) {
-      _map.setView(destMarker.getLatLng(), 12);
-      await sleep(1200);
+      _map.setView([44.0986, -69.0752], 9);
+      await sleep(300);
+      const FLY_SECONDS = 3.5;
+      // Same lesson as showStep's audio ceiling: flyTo's animation runs
+      // on requestAnimationFrame, which some environments can leave
+      // stalled indefinitely — never let a single 'moveend' that might
+      // not come hang the whole movie forever.
+      const flyDone = new Promise(resolve => {
+        _map.once('moveend', resolve);
+        setTimeout(resolve, (FLY_SECONDS + 2) * 1000);
+      });
+      _map.flyTo(destMarker.getLatLng(), 12, { duration: FLY_SECONDS });
+      await Promise.all([flyDone, showStep(1, `Let's check out the region around ${movie.place}.`)]);
       destMarker.fire('click'); // real Leaflet click — opens the popup, same as a tap
       await sleep(600);
+    } else {
+      await showStep(1, `Let's check out the region around ${movie.place}.`);
     }
-    await showStep(1, `Let's check out the region around ${movie.place}.`);
     await sleep(1500);
 
     // Step 2: history — a ~25-word summary of the real write-up at this
