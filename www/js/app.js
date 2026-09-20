@@ -8949,7 +8949,7 @@ function _ensureMap() {
     // Preview/Animate buttons); the movie itself is just done narrating.
     // Panels are visible again by now, so "Tap Sample Routes" is actually
     // actionable when this line plays.
-    await showStep(5, "That's the passage. Tap Sample Routes any time to watch another.");
+    await showStep(5, "That's the passage. Tap Samples to load any other.");
     await sleep(1500);
     if (stepBadge) stepBadge.style.display = 'none';
     if (hud) hud.style.display = 'none';
