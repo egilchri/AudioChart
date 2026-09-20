@@ -335,6 +335,39 @@ html, body {
   box-shadow: 0 4px 16px rgba(0,0,0,0.4);
 }
 
+/* Route movie's closing "other map types" table (v661) — same confirmed-
+   visible top-level placement and z-index tier as #demo-hud/#demo-step-badge
+   above (see the HTML comment on those for why that matters). */
+#demo-modes-table {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 9999;
+  background: var(--dark-blue);
+  border: 1px solid var(--mid-blue);
+  border-radius: 10px;
+  padding: 14px 16px;
+  max-width: min(360px, calc(100vw - 40px));
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+  color: var(--text);
+}
+#demo-modes-table h4 {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+  color: var(--accent);
+  text-align: center;
+  letter-spacing: 0.03em;
+}
+#demo-modes-table table { width: 100%; border-collapse: collapse; }
+#demo-modes-table td { padding: 6px 4px; vertical-align: top; border-bottom: 1px solid var(--mid-blue); }
+#demo-modes-table tr:last-child td { border-bottom: none; }
+#demo-modes-table td.dmt-icon { width: 26px; font-size: 1.05rem; text-align: center; }
+#demo-modes-table td.dmt-name { font-weight: 700; white-space: nowrap; padding-right: 8px; font-size: 0.85rem; }
+#demo-modes-table td.dmt-desc { color: var(--text-dim); font-size: 0.78rem; line-height: 1.3; }
+
 /* OpenCPN draw button — appears between map and response when course query runs */
 #opencpn-btn {
   align-self: flex-start;

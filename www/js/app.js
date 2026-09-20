@@ -1876,7 +1876,7 @@ const ROUTE_MOVIES = {
 // for the full diagnosis). Pre-rendered audio sidesteps that class of bug
 // entirely; only the narration is canned, everything else in the movie
 // (map panning, popups, live geology data, Virtual Journey) stays real.
-// Steps 1-3 are per-route (real, route-specific content, v656); steps 4-5
+// Steps 1-3 are per-route (real, route-specific content, v656); steps 4-6
 // are generic scripted lines shared by every route.
 function _movieStepAudio(movie, n) {
   return n <= 3 ? `./audio/movie-${movie.audioId}-step${n}.mp3` : `./audio/movie-step${n}.mp3`;
@@ -6713,6 +6713,19 @@ function _applyMapLayer() {
 
 const MAP_VIEW_ICONS  = { chart: '🗺', satellite: '🛰', 'geology-maine': '⛰', 'towns-maine': '🏛', history: '📜', demographics: '👥', 'island-info': '🏝', anchorages: '⚓' };
 const MAP_VIEW_LABELS = { chart: 'Chart', satellite: 'Satellite', 'geology-maine': 'Geology', 'towns-maine': 'Towns', history: 'History', demographics: 'Demographics', 'island-info': 'Island Info', anchorages: 'Anchorages' };
+// One-line, real descriptions of what each mode actually shows — used by
+// the route movie's closing "other map types" table (v661), not shown
+// anywhere else. Keep in sync with MAP_VIEW_MODES/MAP_VIEW_LABELS above.
+const MAP_VIEW_DESCRIPTIONS = {
+  chart: 'Standard nautical chart — depths, buoys, hazards',
+  satellite: 'Real aerial imagery of the coastline',
+  'geology-maine': 'Live Maine bedrock and surficial geology data',
+  'towns-maine': 'Maine town boundaries and names',
+  history: 'Real historical write-ups tied to actual places',
+  demographics: 'Town population, age, and seasonal notes',
+  'island-info': 'Who owns an island, and whether you can land',
+  anchorages: 'Curated moorings and anchorages, with real details',
+};
 const HISTORY_ERA_LABELS = {
   all: 'All Eras',
   colonial: 'Native American & Colonial',
@@ -8800,7 +8813,7 @@ function _ensureMap() {
     const sleep = ms => new Promise(r => setTimeout(r, ms));
     const hud = document.getElementById('demo-hud');
     const stepBadge = document.getElementById('demo-step-badge');
-    const TOTAL = 5;
+    const TOTAL = 6;
     // Plays the pre-rendered clip for this step (_movieStepAudio, top of
     // file) and waits for it to finish before the movie advances —
     // reliable, fixed-duration playback via a plain <audio> element, not
@@ -8849,6 +8862,26 @@ function _ensureMap() {
       const sel = document.getElementById('map-layer-select');
       sel.value = mode;
       sel.dispatchEvent(new Event('change'));
+    };
+    // Step 6's "other map types" reference table — built from the real
+    // mode list (MAP_VIEW_MODES/ICONS/LABELS/DESCRIPTIONS, top of file),
+    // not hand-duplicated here.
+    const _showModesTable = () => {
+      const el = document.getElementById('demo-modes-table');
+      if (!el) return;
+      const rows = MAP_VIEW_MODES.map(m => `
+        <tr>
+          <td class="dmt-icon">${MAP_VIEW_ICONS[m]}</td>
+          <td class="dmt-name">${MAP_VIEW_LABELS[m]}</td>
+          <td class="dmt-desc">${MAP_VIEW_DESCRIPTIONS[m]}</td>
+        </tr>
+      `).join('');
+      el.innerHTML = `<h4>Other map types</h4><table>${rows}</table>`;
+      el.style.display = 'block';
+    };
+    const _hideModesTable = () => {
+      const el = document.getElementById('demo-modes-table');
+      if (el) el.style.display = 'none';
     };
 
     // A real boat position makes "Virtual Journey" and the route itself
@@ -8947,10 +8980,22 @@ function _ensureMap() {
     // Step 5: closing — by now the animation has finished and is sitting
     // on its own "complete · tap map to dismiss" banner (same as the real
     // Preview/Animate buttons); the movie itself is just done narrating.
-    // Panels are visible again by now, so "Tap Sample Routes" is actually
+    // Panels are visible again by now, so "Tap Samples" is actually
     // actionable when this line plays.
     await showStep(5, "That's the passage. Tap Samples to load any other.");
     await sleep(1500);
+
+    // Step 6: there's more to explore — a quick reference table of every
+    // other map mode (MAP_VIEW_MODES, top of file), shown alongside the
+    // narration and left up a while longer after so it's actually
+    // readable, not just glanced at (per direct request: "put up a table
+    // for several seconds").
+    const _modesDonePromise = showStep(6, 'There are a number of other map types, with new ones being added regularly.');
+    _showModesTable();
+    await _modesDonePromise;
+    await sleep(4000);
+    _hideModesTable();
+
     if (stepBadge) stepBadge.style.display = 'none';
     if (hud) hud.style.display = 'none';
   }
