@@ -3205,6 +3205,24 @@
     },
     {
       "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.048, 44.208] },
+      "properties": {
+        "title": "View of Camden Mountains from Penobscot Bay",
+        "category": "paintings",
+        "place": "Camden Outer Harbor, with the Camden Hills beyond",
+        "painting": {
+          "artist": "Fitz Henry Lane",
+          "year": "1852",
+          "collection": "Crystal Bridges Museum of American Art",
+          "publicDomain": true,
+          "imageAsset": "./images/paintings/camden-mountains.jpg",
+          "story": "The same Curtis Island light as Lane's other Camden painting, seen here at sunset with a coasting schooner passing close by and the Camden Hills silhouetted behind — one of several views he made of this exact spot from his repeated 1850s cruises out of Castine."
+        },
+        "source": "Wikimedia Commons (Crystal Bridges Museum of American Art, promised gift)"
+      }
+    },
+    {
+      "type": "Feature",
       "geometry": { "type": "Point", "coordinates": [-68.882, 43.862] },
       "properties": {
         "title": "The Red Vine, Matinicus Island, Maine",
