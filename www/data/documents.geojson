@@ -2238,6 +2238,40 @@
     },
     {
       "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.21008320054746, 43.96609800764899] },
+      "properties": {
+        "title": "Tenants Harbor — Anchorage & Moorings",
+        "category": "anchorages",
+        "place": "Tenants Harbor, St. George, ME",
+        "anchorage": {
+          "moorings": "A number of rental moorings are available — call Tenants Harbor Boat Yard ahead at (207) 372-8063, or hail on VHF 9 or 68 as you approach. The yellow lobster-style buoys scattered through the anchorage are seasonal rentals, not available to transients.",
+          "anchoringNotes": "Anchor outside the marked channel, then dinghy ashore. Long Cove, just to starboard entering the harbor, has no moorings but is an easy, safe place to anchor as well.",
+          "holdingGround": "Good holding ground outside the channel.",
+          "protection": "Harbor opens eastward — an easterly gale raises a chop inside, but a boat with good ground tackle rides safely.",
+          "contact": "St. George harbormaster Ryan Cline, (207) 542-2709 (also covers Port Clyde); Tenants Harbor Boat Yard (207) 372-8063, VHF 9/68."
+        },
+        "source": "Cruising Club of America guide (guides.cruisingclub.org/harbor/tenants-harbor) and US Harbors Tenants Harbor page — mooring/anchoring notes, protection, and harbormaster/boatyard contact."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.2506165, 43.9271392] },
+      "properties": {
+        "title": "Port Clyde — Anchorage & Moorings",
+        "category": "anchorages",
+        "place": "Port Clyde, St. George, ME",
+        "anchorage": {
+          "moorings": "Lyman-Morse, partnered with Colby College (the new owners of the Port Clyde waterfront), offers guest moorings with restrooms, showers, and WiFi ashore; reserve via Dockwa.",
+          "anchoringNotes": "Anchor anywhere in the cove inside Marshall Point, in 23 to 35 feet of water.",
+          "holdingGround": "Good holding ground in the cove inside Marshall Point.",
+          "protection": "Generally a well-protected overnight anchorage; in a hard blow from the south or southwest, Maple Juice Cove (up the St. George River) is a better choice.",
+          "contact": "St. George harbormaster Ryan Cline, (207) 542-2709 (also covers Tenants Harbor). Fields Wharf, just north of Marshall Point Light, has gas/diesel and the Monhegan ferry dock; the town float just north of the wharf carries 5 to 10 feet of water."
+        },
+        "source": "Cruising Club of America guide (guides.cruisingclub.org/harbor/port-clyde) and US Harbors Port Clyde page — anchoring depth/location, mooring arrangement, and harbormaster/fuel dock contact."
+      }
+    },
+    {
+      "type": "Feature",
       "geometry": { "type": "Point", "coordinates": [-68.9393, 44.2592] },
       "properties": {
         "title": "Gilkey Harbor / Dark Harbor (Islesboro) — Anchorage & Moorings",
