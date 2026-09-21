@@ -3148,6 +3148,204 @@
         },
         "source": "CCA Cruising Guide to Maine, https://guides.cruisingclub.org/harbor/north-haven-village-islands/"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.05089912267898, 44.09349584827459] },
+      "properties": {
+        "title": "Owl's Head, Penobscot Bay, Maine",
+        "category": "paintings",
+        "place": "Owls Head",
+        "painting": {
+          "artist": "Fitz Henry Lane",
+          "year": "1862",
+          "collection": "Museum of Fine Arts, Boston",
+          "publicDomain": true,
+          "imageAsset": "./images/paintings/owls-head.jpg",
+          "story": "Lane summered on Penobscot Bay from 1848 on, as a guest of his friend Joseph Stevens' family in Castine, and sailed the bay repeatedly sketching Owl's Head from different angles. This late work, painted three years before his death, shows the lighthouse and the Camden Hills beyond in the pale, glassy light of early morning — the luminist calm his late paintings are known for."
+        },
+        "source": "Fitz Henry Lane Online catalogue (fitzhenrylaneonline.org); Wikimedia Commons (Google Art Project, Museum of Fine Arts Boston)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.798002, 44.386324] },
+      "properties": {
+        "title": "Castine Harbor and Town",
+        "category": "paintings",
+        "place": "Castine",
+        "painting": {
+          "artist": "Fitz Henry Lane",
+          "year": "1851",
+          "collection": "Timken Museum of Art, San Diego",
+          "publicDomain": true,
+          "imageAsset": "./images/paintings/castine.jpg",
+          "story": "Castine was Lane's home base on the bay — his close friend Joseph L. Stevens Jr.'s family lived here, and Lane sailed out from the town on repeated excursions around Penobscot Bay starting in 1850. This view of the harbor and waterfront town is one of several he painted of Castine from different vantage points that same era."
+        },
+        "source": "Fitz Henry Lane Online catalogue (fitzhenrylaneonline.org); Wikimedia Commons (Timken Museum of Art)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.05006285861496, 44.20204581975184] },
+      "properties": {
+        "title": "Lighthouse at Camden, Maine",
+        "category": "paintings",
+        "place": "Camden (Curtis Island Light)",
+        "painting": {
+          "artist": "Fitz Henry Lane",
+          "year": "1851",
+          "collection": "Yale University Art Gallery",
+          "publicDomain": true,
+          "imageAsset": "./images/paintings/camden.jpg",
+          "story": "The light shown is on what's now called Curtis Island, guarding the entrance to Camden's harbor — Lane painted it and the surrounding Camden Hills more than once during his Penobscot Bay summers of the early 1850s."
+        },
+        "source": "Yale University Art Gallery collection record; Wikimedia Commons"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.882, 43.862] },
+      "properties": {
+        "title": "The Red Vine, Matinicus Island, Maine",
+        "category": "paintings",
+        "place": "Matinicus Island",
+        "painting": {
+          "artist": "George Bellows",
+          "year": "1916",
+          "collection": "Metropolitan Museum of Art",
+          "publicDomain": true,
+          "imageAsset": "./images/paintings/matinicus.jpg",
+          "story": "Bellows and his wife Emma spent the autumn of 1916 on Matinicus, then a thriving fishing community 20 miles offshore, and he painted several island scenes during the stay — this one, and its companion piece Ox Team, Wharf at Matinicus, both now at the Met."
+        },
+        "source": "Metropolitan Museum of Art collection record (open access, CC0)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.3182, 43.7628] },
+      "properties": {
+        "title": "Toilers of the Sea",
+        "category": "paintings",
+        "place": "Monhegan Island (just west of Penobscot Bay proper)",
+        "painting": {
+          "artist": "Rockwell Kent",
+          "year": "1907",
+          "collection": null,
+          "publicDomain": true,
+          "imageAsset": "./images/paintings/monhegan.jpg",
+          "story": "Kent first came to Monhegan in 1905 and found its rugged, stark scenery inspiring; this 1907 seascape — two dories hauling gear off Manana Island's cliff — was part of the first Kent show critics took seriously, at New York's Clausen Galleries. It's one of the works that launched his reputation as an early American modernist."
+        },
+        "source": "TheArtStory.org — Rockwell Kent; Wikimedia Commons"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.30884317191996, 44.31186474266785] },
+      "properties": {
+        "title": "Somes Sound, Mount Desert Island, Maine",
+        "category": "paintings",
+        "place": "Somes Sound (near Somesville), Mount Desert Island",
+        "painting": {
+          "artist": "Fitz Henry Lane",
+          "year": "c. 1855",
+          "collection": "Cape Ann Museum, Gloucester, MA",
+          "publicDomain": true,
+          "imageAsset": "./images/paintings/somes-sound.jpg",
+          "story": "Somes Sound is the only true fjard on the U.S. East Coast, cutting nearly four miles into Mount Desert Island — Lane painted its still water and steep, mountain-flanked shoreline during one of his 1850s cruises east from Castine."
+        },
+        "source": "Cape Ann Museum collection record; Wikimedia Commons"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.269655, 44.283369] },
+      "properties": {
+        "title": "Bear Island, Northeast Harbor, Maine",
+        "category": "paintings",
+        "place": "Bear Island, Northeast Harbor",
+        "painting": {
+          "artist": "Fitz Henry Lane",
+          "year": "1855",
+          "collection": "Cape Ann Museum, Gloucester, MA",
+          "publicDomain": true,
+          "imageAsset": "./images/paintings/bear-island-neharbor.jpg",
+          "story": "Bear Island sits at the mouth of Northeast Harbor, its own small lighthouse marking the entrance — Lane painted it on the same 1852 excursion (aboard the sloop Superior) that took him from Castine to Mount Desert Island and Southwest Harbor."
+        },
+        "source": "Cape Ann Museum collection record; Wikimedia Commons"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.182484, 44.385357] },
+      "properties": {
+        "title": "View Across Frenchman's Bay from Mount Desert Island, After a Squall",
+        "category": "paintings",
+        "place": "Bar Harbor / Frenchman's Bay, Mount Desert Island",
+        "painting": {
+          "artist": "Thomas Cole",
+          "year": "1845",
+          "collection": "Cincinnati Art Museum",
+          "publicDomain": true,
+          "imageAsset": "./images/paintings/frenchmans-bay.jpg",
+          "story": "Cole, the founder of the Hudson River School, visited Mount Desert Island with his student Frederic Edwin Church in August-September 1844 — the trip that effectively started the island's long history as an artists' and tourists' destination. This painting, worked up the following year from his sketches, shows the dramatic light right after a storm clears over Frenchman's Bay."
+        },
+        "source": "Cincinnati Art Museum collection record; Wikimedia Commons; Olana State Historic Site, \"Maine Sublime\""
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.30457, 44.278033] },
+      "properties": {
+        "title": "Off Mount Desert Island",
+        "category": "paintings",
+        "place": "Approach to Mount Desert Island, near Southwest Harbor",
+        "painting": {
+          "artist": "Fitz Henry Lane",
+          "year": "1856",
+          "collection": "Brooklyn Museum",
+          "publicDomain": true,
+          "imageAsset": "./images/paintings/off-mount-desert.jpg",
+          "story": "A later, larger seascape than Lane's 1850-52 harbor studies of the island — ships working the open water off Mount Desert's coast, the kind of approach a boat would still make today rounding into Southwest Harbor."
+        },
+        "source": "Brooklyn Museum collection record; Wikimedia Commons"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.5991086, 44.4151492] },
+      "properties": {
+        "title": "Morning in Blue Hill Village, Sept. 1824",
+        "category": "paintings",
+        "place": "Blue Hill",
+        "painting": {
+          "artist": "Jonathan Fisher",
+          "year": "1824",
+          "collection": "Farnsworth Art Museum",
+          "publicDomain": true,
+          "imageAsset": null,
+          "story": "Fisher was Blue Hill's first settled minister and a genuine polymath — architect, farmer, inventor, and self-taught artist who used a camera obscura to get his perspective right. This view of the village is one of the oldest surviving Maine landscape paintings. No digitized reproduction of it was available to bundle for offline viewing at the time this entry was written; the Farnsworth holds the original and much of his other work."
+        },
+        "source": "Farnsworth Art Museum, \"Artist Trivia: Jonathan Fisher\"; Jonathan Fisher House (jonathanfisherhouse.org)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.6378, 44.1375] },
+      "properties": {
+        "title": "Coming Up the Reach, Stonington, Deer Isle",
+        "category": "paintings",
+        "place": "Stonington, Deer Isle",
+        "painting": {
+          "artist": "John Marin",
+          "year": "1928",
+          "collection": "National Gallery of Art",
+          "publicDomain": true,
+          "imageAsset": null,
+          "story": "Marin first stayed in Stonington in 1919 and returned nearly every summer through 1933, sketching the harbor and reach in his fractured, energetic modernist watercolors. No digitized reproduction of this particular work was available to bundle for offline viewing at the time this entry was written; it's held by the National Gallery of Art in Washington."
+        },
+        "source": "National Gallery of Art collection record (nga.gov); Island Institute, \"John Marin's Islands\""
+      }
     }
   ]
 }

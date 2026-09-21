@@ -957,10 +957,10 @@ let _baseTileLayer    = null;
 // ImageServer rendering caused a real, confirmed duplicate/ghosted-tile
 // bug that a zoomAnimation fix didn't fully resolve; see git history if
 // revisiting this.
-const MAP_VIEW_MODES  = ['chart', 'satellite', 'geology-maine', 'towns-maine', 'history', 'demographics', 'island-info', 'anchorages'];
+const MAP_VIEW_MODES  = ['chart', 'satellite', 'geology-maine', 'towns-maine', 'history', 'demographics', 'island-info', 'anchorages', 'paintings'];
 // Maps a display mode to the documents.geojson `category` it shows —
 // the whole reason "switch to Geology/History" needs no separate menu.
-const MAP_VIEW_DOC_CATEGORY = { 'geology-maine': 'geology', 'history': 'history', 'demographics': 'demographics', 'island-info': 'island-info', 'anchorages': 'anchorages' };
+const MAP_VIEW_DOC_CATEGORY = { 'geology-maine': 'geology', 'history': 'history', 'demographics': 'demographics', 'island-info': 'island-info', 'anchorages': 'anchorages', 'paintings': 'paintings' };
 // Named water passages/reaches/thorofares (plus a handful of major islands
 // that fall through every other label filter — see below) worth labeling
 // directly on the chart, like a real NOAA chart would — a hand-verified
@@ -1676,6 +1676,29 @@ function _formatAnchorage(p) {
   return `<table style="width:100%;border-collapse:collapse">${rows.join('')}</table>${notesHtml}`;
 }
 
+// Iconic Painting mode (v1, public-domain only — see the curation note
+// above the paintings entries in documents.geojson for the research
+// standard). Each entry ties one real, documented painting to the
+// specific spot it depicts. Not every entry has an imageAsset: a couple
+// of well-documented paintings (Jonathan Fisher's 1824 Blue Hill view,
+// John Marin's 1928 Stonington watercolor) have no legally-reproducible
+// digitized copy available to bundle offline, so those stay text-and-
+// citation only, same as any other category.
+function _formatPainting(p) {
+  const d = p.painting || {};
+  const rows = [];
+  if (d.artist) rows.push(`<tr><td style="padding:2px 10px 2px 0;color:#666;vertical-align:top">Artist</td><td>${d.artist}</td></tr>`);
+  if (d.year) rows.push(`<tr><td style="padding:2px 10px 2px 0;color:#666;vertical-align:top">Year</td><td>${d.year}</td></tr>`);
+  if (d.collection) rows.push(`<tr><td style="padding:2px 10px 2px 0;color:#666;vertical-align:top">Collection</td><td>${d.collection}</td></tr>`);
+  const imgHtml = d.imageAsset
+    ? `<img src="${d.imageAsset}" alt="${p.title}" style="width:100%;border-radius:4px;margin-bottom:6px;display:block">`
+    : '';
+  const storyHtml = d.story
+    ? `<div style="margin-top:6px;padding-top:6px;border-top:1px solid #ddd;font-size:0.85em">${d.story}</div>`
+    : '';
+  return `${imgHtml}<table style="width:100%;border-collapse:collapse">${rows.join('')}</table>${storyHtml}`;
+}
+
 // The full text lives in the geojson (see documents.geojson's own header note)
 // so this popup needs nothing from the network — tap the marker, read the
 // real content, no link-out required. Replaced an earlier "excerpt + Open
@@ -1709,6 +1732,7 @@ function _renderDocumentMarkers() {
     const bodyHtml = p.category === 'demographics' ? _formatDemographics(p)
       : p.category === 'island-info' ? _formatIslandInfo(p)
       : p.category === 'anchorages' ? _formatAnchorage(p)
+      : p.category === 'paintings' ? _formatPainting(p)
       : _formatDocBody(p.body);
     const m = L.marker([lat, lon], { icon: MarkerIcons.documentMarkerIcon(p.category) });
     // Lets the "Take a Tour" engine find a specific document marker by its
@@ -1727,7 +1751,9 @@ function _renderDocumentMarkers() {
     const navHtml = p.category === 'anchorages'
       ? `<button class="doc-popup-navigate" style="margin-top:6px;padding:4px 8px;font-size:0.85em;cursor:pointer">&#9973; Navigate to here</button>`
       : '';
-    const html = `<div style="font-size:13px;line-height:1.5;max-width:260px">
+    // Paintings gets a wider popup than the other text-only categories —
+    // the bundled reproduction image needs real room, not a 260px squeeze.
+    const html = `<div style="font-size:13px;line-height:1.5;max-width:${p.category === 'paintings' ? 300 : 260}px">
       <b>${p.title}</b><br><span style="color:#666">${p.place}</span>
       <div style="margin-top:6px">${bodyHtml}</div>
       <div style="margin-top:4px;font-style:italic;font-size:0.78em;color:#888">${p.source}</div>
@@ -6687,12 +6713,13 @@ function _applyMapLayer() {
       { minZoom: 4, maxZoom: 18, maxNativeZoom: 17, attribution: '© Esri' }
     ).addTo(_map);
   } else {
-    // 'chart', 'geology-maine', 'towns-maine', 'history', 'demographics', and
-    // 'island-info' all use the street basemap: all but 'geology-maine' and
-    // 'towns-maine' use it on their own (their markers need real coastline/
-    // place-name context and have no map layer of their own); those two use
-    // it as context underneath their own polygon overlay (added below) —
-    // neither dataset has coastline/place-name context of its own.
+    // 'chart', 'geology-maine', 'towns-maine', 'history', 'demographics',
+    // 'island-info', 'anchorages', and 'paintings' all use the street
+    // basemap: all but 'geology-maine' and 'towns-maine' use it on their
+    // own (their markers need real coastline/place-name context and have
+    // no map layer of their own); those two use it as context underneath
+    // their own polygon overlay (added below) — neither dataset has
+    // coastline/place-name context of its own.
     _baseTileLayer = L.tileLayer(
       'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
       // maxZoom stays 18 to match the zoom slider; maxNativeZoom caps actual tile
@@ -6711,8 +6738,8 @@ function _applyMapLayer() {
   _syncMapModeTitle();
 }
 
-const MAP_VIEW_ICONS  = { chart: '🗺', satellite: '🛰', 'geology-maine': '⛰', 'towns-maine': '🏛', history: '📜', demographics: '👥', 'island-info': '🏝', anchorages: '⚓' };
-const MAP_VIEW_LABELS = { chart: 'Chart', satellite: 'Satellite', 'geology-maine': 'Geology', 'towns-maine': 'Towns', history: 'History', demographics: 'Demographics', 'island-info': 'Island Info', anchorages: 'Anchorages' };
+const MAP_VIEW_ICONS  = { chart: '🗺', satellite: '🛰', 'geology-maine': '⛰', 'towns-maine': '🏛', history: '📜', demographics: '👥', 'island-info': '🏝', anchorages: '⚓', paintings: '🎨' };
+const MAP_VIEW_LABELS = { chart: 'Chart', satellite: 'Satellite', 'geology-maine': 'Geology', 'towns-maine': 'Towns', history: 'History', demographics: 'Demographics', 'island-info': 'Island Info', anchorages: 'Anchorages', paintings: 'Paintings' };
 // One-line, real descriptions of what each mode actually shows — used by
 // the route movie's closing "other map types" table (v661), not shown
 // anywhere else. Keep in sync with MAP_VIEW_MODES/MAP_VIEW_LABELS above.
@@ -6725,6 +6752,7 @@ const MAP_VIEW_DESCRIPTIONS = {
   demographics: 'Town population, age, and seasonal notes',
   'island-info': 'Who owns an island, and whether you can land',
   anchorages: 'Curated moorings and anchorages, with real details',
+  paintings: 'Iconic historic paintings, at the real spot each one depicts',
 };
 const HISTORY_ERA_LABELS = {
   all: 'All Eras',

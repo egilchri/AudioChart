@@ -181,6 +181,7 @@ const _DOC_MARKER_STYLE = {
   demographics: { color: '#2b6cb0', emoji: '👥' },
   'island-info': { color: '#7c3aed', emoji: '🏝' },
   anchorages:   { color: '#0e7490', emoji: '⚓' },
+  paintings:    { color: '#b5482e', emoji: '🎨' },
 };
 export function documentMarkerIcon(category) {
   const s = _DOC_MARKER_STYLE[category] || _DOC_MARKER_STYLE.geology;
