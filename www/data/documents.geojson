@@ -3259,6 +3259,24 @@
     },
     {
       "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.3157, 44.309] },
+      "properties": {
+        "title": "Entrance of Somes Sound, Mount Desert, Maine",
+        "category": "paintings",
+        "place": "Entrance of Somes Sound, Mount Desert Island",
+        "painting": {
+          "artist": "Fitz Henry Lane",
+          "year": "1855",
+          "collection": "National Gallery of Art (John Wilmerding Collection)",
+          "publicDomain": true,
+          "imageAsset": "./images/paintings/entrance-somes-sound.jpg",
+          "story": "A graphite field sketch, not a finished oil — Lane's own working notes are visible in his hand at the top: the date (September 1855) and his position when he drew it. Sketches like this one, made straight from the boat, were the raw material he turned into studio paintings later — a rare look at the actual working method behind the polished harbor scenes elsewhere in this mode."
+        },
+        "source": "Fitz Henry Lane Online catalogue (fitzhenrylaneonline.org, inv. 347); Wikimedia Commons"
+      }
+    },
+    {
+      "type": "Feature",
       "geometry": { "type": "Point", "coordinates": [-68.269655, 44.283369] },
       "properties": {
         "title": "Bear Island, Northeast Harbor, Maine",
@@ -3309,24 +3327,6 @@
           "story": "A later, larger seascape than Lane's 1850-52 harbor studies of the island — ships working the open water off Mount Desert's coast, the kind of approach a boat would still make today rounding into Southwest Harbor."
         },
         "source": "Brooklyn Museum collection record; Wikimedia Commons"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.5991086, 44.4151492] },
-      "properties": {
-        "title": "Morning in Blue Hill Village, Sept. 1824",
-        "category": "paintings",
-        "place": "Blue Hill",
-        "painting": {
-          "artist": "Jonathan Fisher",
-          "year": "1824",
-          "collection": "Farnsworth Art Museum",
-          "publicDomain": true,
-          "imageAsset": null,
-          "story": "Fisher was Blue Hill's first settled minister and a genuine polymath — architect, farmer, inventor, and self-taught artist who used a camera obscura to get his perspective right. This view of the village is one of the oldest surviving Maine landscape paintings. No digitized reproduction of it was available to bundle for offline viewing at the time this entry was written; the Farnsworth holds the original and much of his other work."
-        },
-        "source": "Farnsworth Art Museum, \"Artist Trivia: Jonathan Fisher\"; Jonathan Fisher House (jonathanfisherhouse.org)"
       }
     },
     {
