@@ -8953,7 +8953,9 @@ function _ensureMap() {
         histMarker.fire('click');
         await sleep(600);
       }
-      await showStep(2, `Switching to History mode. ${movie.historyCaption}`);
+      // Explain the mode itself before the per-route summary — keep this
+      // clause in sync with MAP_VIEW_DESCRIPTIONS.history.
+      await showStep(2, `Switching to History mode — this shows real historical write-ups tied to actual places. ${movie.historyCaption}`);
       await sleep(1800);
     }
 
@@ -8966,7 +8968,9 @@ function _ensureMap() {
     Tour.markModeIntroSeen('geology-maine');
     switchMode('geology-maine');
     await sleep(1800); // live FeatureServer fetch + render time
-    await showStep(3, `Now, Geology mode. ${movie.geologyCaption}`);
+    // Explain the mode itself before the per-route summary — keep this
+    // clause in sync with MAP_VIEW_DESCRIPTIONS['geology-maine'].
+    await showStep(3, `Now, Geology mode — this shows live Maine bedrock and surficial geology data. ${movie.geologyCaption}`);
     await sleep(1800);
 
     // Step 4: back to Chart (clearer view than geology's colored overlay),
