@@ -3346,24 +3346,6 @@
         },
         "source": "Brooklyn Museum collection record; Wikimedia Commons"
       }
-    },
-    {
-      "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.6378, 44.1375] },
-      "properties": {
-        "title": "Coming Up the Reach, Stonington, Deer Isle",
-        "category": "paintings",
-        "place": "Stonington, Deer Isle",
-        "painting": {
-          "artist": "John Marin",
-          "year": "1928",
-          "collection": "National Gallery of Art",
-          "publicDomain": true,
-          "imageAsset": null,
-          "story": "Marin first stayed in Stonington in 1919 and returned nearly every summer through 1933, sketching the harbor and reach in his fractured, energetic modernist watercolors. No digitized reproduction of this particular work was available to bundle for offline viewing at the time this entry was written; it's held by the National Gallery of Art in Washington."
-        },
-        "source": "National Gallery of Art collection record (nga.gov); Island Institute, \"John Marin's Islands\""
-      }
     }
   ]
 }
