@@ -8990,7 +8990,7 @@ function _ensureMap() {
     // _startRouteAnimation) on a different audio channel than this step's
     // pre-rendered clip — sequencing this first keeps the two from
     // talking over each other.
-    await showStep(4, "Here's the route, already plotted. Watch it sail.");
+    await showStep(4, "Here's the route, already plotted. Watch the sailboat icon trace the route.");
     await sleep(500);
     _startRouteAnimation(myRoute, 5);
     // Fixed real-world length regardless of route — give it room to finish
