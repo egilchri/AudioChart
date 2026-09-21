@@ -491,6 +491,22 @@
     },
     {
       "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.1918186, 44.0199826] },
+      "properties": {
+        "title": "St. George",
+        "category": "demographics",
+        "place": "St. George, Maine",
+        "demographics": {
+          "population": { "value": 2594, "year": 2020 },
+          "medianAge": { "value": 51.7, "year": 2010 },
+          "ageBrackets": null,
+          "seasonal": null
+        },
+        "source": "U.S. Census Bureau, 2020 Census via Wikipedia — St. George, Maine (median age is 2010 Census, the most recent published for this town)"
+      }
+    },
+    {
+      "type": "Feature",
       "geometry": { "type": "Point", "coordinates": [-69.0067, 44.4259] },
       "properties": {
         "title": "Belfast",
@@ -789,6 +805,23 @@
           "notes": "Eliot Porter's 1966 photography book Summer Island: Penobscot Country is a visual record of the island. Commonly confused with the Wyeth family's Maine island connections (Monhegan, Southern Island) — this one is the Porters', not the Wyeths'."
         },
         "source": "Wikipedia — Great Spruce Head Island"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.18699914371578, 43.9615140204752] },
+      "properties": {
+        "title": "Southern Island (Tenants Harbor)",
+        "category": "island-info",
+        "place": "Southern Island, Tenants Harbor",
+        "islandInfo": {
+          "ownership": "Privately owned by artist Jamie Wyeth. His parents, Andrew and Betsy Wyeth, bought the island's lighthouse station (historically Tenants Harbor Light) in 1978; Jamie Wyeth has owned and lived on it since the 1990s.",
+          "landTrust": null,
+          "onMaineIslandTrail": null,
+          "publicAccess": "Private; the lighthouse and grounds are a working residence and studio, not open to the public.",
+          "notes": "Twenty-two acres at the mouth of Tenants Harbor. Andrew Wyeth kept a studio in the base of the light tower and painted the station repeatedly (Easterly, Signal Flags, Fog Bell); Jamie Wyeth has continued painting it since (Lighthouse Dandelions, Southern Island Sunset). The Wyeths' other well-known Maine island connection is Monhegan, not this one — see Great Spruce Head Island's entry for a third, unrelated island family (the Porters)."
+        },
+        "source": "Lighthousefriends.com — Tenants Harbor Light; Wikipedia — Tenants Harbor Light; Frederic Magazine, \"Visit the Maine Lighthouse That Jamie Wyeth Calls Home\""
       }
     },
     {
@@ -1289,6 +1322,30 @@
         "place": "Rockland Harbor",
         "body": "Rockland didn't start with that name. European settlers first called this stretch of shore Lermond's Cove, after John Lermond and his brothers, who set up a lumber operation here in 1767; it became known as Shore Village when Thomaston was incorporated in 1777, then East Thomaston when it was set off as its own town in 1848. The town took the name Rockland in 1850, a direct nod to the limestone cliffs that were about to define its economy for the next century.\n\nLimestone quarried from the hills behind town was burned into lime in kilns lined up along the harbor itself, then shipped out in watertight casks to build the mortar and plaster of cities up and down the East Coast. By 1854 Rockland was operating twelve quarries and 125 lime kilns and had become the country's leading lime producer; by 1886 the industry employed over a thousand workers and more than 300 vessels carried the lime to market. Shipbuilding grew up right alongside it — in 1854 alone Rockland's yards launched eleven ships, three barks, six brigs, and four schooners. Between 1881 and 1900 the Army Corps of Engineers built the Rockland Breakwater specifically to protect this harbor and the industry crowded around it, a nearly mile-long stone arm that still reaches out into the bay today.\n\nThe lime industry that built the harbor didn't disappear overnight, but it did eventually run its course: the last of Rockland's kilns went dark in 1958.",
         "source": "Wikipedia — Rockland, Maine"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.25734014241483, 43.9202185947797] },
+      "properties": {
+        "title": "The lighthouse at the end of Forrest Gump's run",
+        "category": "history",
+        "era": "industrial",
+        "place": "Marshall Point, Port Clyde",
+        "body": "The first light at Marshall Point was built of granite blocks in 1832, marking the entrance to Port Clyde's harbor. It didn't last: the current 31-foot brick tower replaced it in 1857 and was first lit in 1858, connected to the keeper's house by the distinctive white wooden walkway that still crosses the ledge today. The light was automated in 1971, and the station passed from the Coast Guard to the town of St. George in 1998 under the Maine Lights Program. In 1986 the St. George Historical Society restored the keeper's house into the Marshall Point Lighthouse Museum; the original lens now lives at the Maine Lighthouse Museum in Rockland.\n\nMost visitors today know it for a different reason: it's the lighthouse in the 1994 film Forrest Gump, where Tom Hanks' cross-country run ends on that same wooden walkway before he turns around and heads back the way he came.",
+        "source": "Wikipedia — Marshall Point Light; Maine Explored, \"The Marshall Point Lighthouse: Visiting the Forrest Gump Light\""
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.182333, 43.989833] },
+      "properties": {
+        "title": "A granite-cutting village of four hundred, built on an island",
+        "category": "history",
+        "era": "industrial",
+        "place": "Clark Island, St. George",
+        "body": "Quarrying began on Clark Island in the 1830s and grew into one of the largest granite operations on the midcoast. By 1890 about 100 stonecutters and their families lived on the island, alongside crews of quarrymen and sculptors; by 1900 the workforce had grown to 400, 300 of them stonecutters. In 1892 the town of St. George paid to build a granite causeway connecting the island to the mainland so the operation could keep growing.\n\nThe skilled labor came largely from immigrants — Italy, Sweden, Finland, Scotland, and England all sent stonecutters to Clark Island. One, Albert Frederickson, a Swedish immigrant born in 1894, was once recorded cutting 306 paving blocks in a single day for nine dollars' pay. The work was dangerous and the pay was hard: children earned as little as 50 cents a day around the quarries, men topped out near five dollars with no benefits, and dynamite blasts, cave-ins, and stone dust (a chronic lung hazard for cutters and polishers alike) were constant risks. The industry wound down through the early 1900s and was effectively over by World War II, as concrete and steel took over the building trades that granite had once supplied.",
+        "source": "PenBay Pilot, \"The stony history of St. George\"; Maine Memory Network, \"Extracting Wealth\"; The St. George Dragon, \"An overview of the quarries of St. George\""
       }
     },
     {
