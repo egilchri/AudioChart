@@ -9013,7 +9013,7 @@ function _ensureMap() {
     // narration and left up a while longer after so it's actually
     // readable, not just glanced at (per direct request: "put up a table
     // for several seconds").
-    const _modesDonePromise = showStep(6, 'There are a number of other map types, with new ones being added regularly.');
+    const _modesDonePromise = showStep(6, "There are a number of other map types, with new ones being added regularly. In addition to being a navigation app, AudioChart has something for even armchair sailors — it provides map modes as a way of exploring and learning about some diverse aspects of Penobscot Bay.");
     _showModesTable();
     await _modesDonePromise;
     await sleep(4000);
