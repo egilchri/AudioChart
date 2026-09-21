@@ -1768,6 +1768,23 @@ function _renderDocumentMarkers() {
         });
       });
     }
+    // Paintings: Leaflet's autoPan runs once, synchronously, when the popup
+    // opens — using whatever height the DOM has *right then*. The <img>
+    // hasn't loaded yet at that instant (no width/height attribute to give
+    // it intrinsic size up front), so the popup is measured short, autoPan
+    // barely pans (or doesn't), and then the image loads a moment later,
+    // the popup grows underneath it, and the top of a popup near the top of
+    // the viewport ends up off-screen with no further autoPan to fix it.
+    // popup.update() re-measures and re-runs autoPan — call it once the
+    // image (if any) actually finishes loading.
+    if (p.category === 'paintings') {
+      m.on('popupopen', (e) => {
+        const img = e.popup.getElement().querySelector('img');
+        if (img && !img.complete) {
+          img.addEventListener('load', () => e.popup.update(), { once: true });
+        }
+      });
+    }
     // maxHeight is a built-in Leaflet Popup option — it caps .leaflet-popup-content's
     // height and adds overflow-y:auto automatically, so a long entry (several
     // paragraphs) scrolls inside the popup instead of running off the bottom of
