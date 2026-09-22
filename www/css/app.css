@@ -2408,8 +2408,7 @@ body.wco-active #wco-titlebar { display: flex; }
 #app.edit-mode #sketch-banner,
 #app.edit-mode #map-overlay-status,
 #app.edit-mode #right-rail,
-#app.edit-mode #zoom-slider-wrap,
-#app.edit-mode #pan-controls-wrap,
+#app.edit-mode #left-rail-zoom-pan,
 #app.edit-mode #navaid-filter-btn {
   display: none !important;
 }
@@ -3369,8 +3368,7 @@ body.wco-active #wco-titlebar { display: flex; }
 #app.anim-mode #map-version-label,
 #app.anim-mode #right-rail,
 #app.anim-mode #edit-tools-panel,
-#app.anim-mode #zoom-slider-wrap,
-#app.anim-mode #pan-controls-wrap,
+#app.anim-mode #left-rail-zoom-pan,
 #app.anim-mode #navaid-filter-btn,
 #app.anim-mode .follow-progress-ctrl,
 #app.anim-mode #bottom-hud {
@@ -3395,8 +3393,7 @@ body.wco-active #wco-titlebar { display: flex; }
    before adding anything else back. */
 #app.underway-mode #map-overlay-status,
 #app.underway-mode #right-rail,
-#app.underway-mode #zoom-slider-wrap,
-#app.underway-mode #pan-controls-wrap,
+#app.underway-mode #left-rail-zoom-pan,
 #app.underway-mode #navaid-filter-btn {
   display: none !important;
 }
@@ -3805,19 +3802,38 @@ body.wco-active #underway-btn { top: 10px; }
 #history-clear:hover { color: var(--danger); }
 
 
-/* ── Zoom slider (desktop map overlay) ───────────────────────────────────── */
-#zoom-slider-wrap {
+/* ── Zoom slider + pan controls wrapper (desktop map overlay) ────────────── */
+/* Both instruments are flex children of ONE positioned wrapper, stacked with
+   a real CSS `gap` — not two independently `position:absolute; top: Npx`
+   siblings whose non-overlap depended on a JS-computed pixel guess
+   (_syncLeftRailStack in app.js) staying in sync with each one's actual
+   rendered height. That JS still runs, and still matters — it positions
+   this wrapper's own `top` relative to the Leaflet compass control above
+   it, which genuinely does change height (e.g. the route-follow readout
+   stacks below the compass) — but pan-on-top-of-zoom specifically is now
+   structurally impossible regardless of whether that JS ran recently,
+   reported live as still happening after an edit-mode round trip that
+   didn't re-sync. */
+#left-rail-zoom-pan {
   display: none;
   position: absolute;
   left: 10px;
-  /* Sits directly under the compass rose now (was vertically centered,
-     floating mid-screen with no visual relationship to it) — the
-     "Zoned" layout's left orientation rail: compass, zoom, pan, read
-     as one instrument column even though each stays its own element
-     (the compass is a Leaflet control, not something to freely
-     re-parent — see #right-rail's comment for the same reasoning). */
+  /* Sits directly under the compass rose — the "Zoned" layout's left
+     orientation rail: compass, zoom, pan, read as one instrument column
+     even though the compass stays a separate Leaflet control (not
+     something to freely re-parent — see #right-rail's comment for the
+     same reasoning). */
   top: 110px;
   z-index: 1000;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+@media (min-width: 768px) {
+  #left-rail-zoom-pan { display: flex; }
+}
+#zoom-slider-wrap {
+  display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
@@ -3844,17 +3860,10 @@ body.wco-active #underway-btn { top: 10px; }
   accent-color: var(--brass);
   background: transparent;
 }
-@media (min-width: 768px) {
-  #zoom-slider-wrap { display: flex; }
-}
 
-/* ── Pan controls (desktop map overlay) ──────────────────────────────────── */
+/* ── Pan controls ─────────────────────────────────────────────────────────── */
 #pan-controls-wrap {
-  display: none;
-  position: absolute;
-  left: 10px;
-  top: 310px; /* below the compass + #zoom-slider-wrap, same left-rail grouping */
-  z-index: 1000;
+  display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4px;
@@ -3881,18 +3890,15 @@ body.wco-active #underway-btn { top: 10px; }
   -webkit-tap-highlight-color: transparent;
 }
 .pan-btn:active { background: rgba(255,255,255,0.1); }
-@media (min-width: 768px) {
-  #pan-controls-wrap { display: flex; }
-}
 
 /* ── Navaid filter toggle (left instrument column) ───────────────────────── */
 /* Own left-column slot, not gated behind the 768px breakpoint like
-   #zoom-slider-wrap/#pan-controls-wrap above — those two are redundant
-   with touch panning on a phone, but this is a display setting that
-   needs to stay reachable on mobile too. Sits directly under the compass
-   (top:110px, the same slot #zoom-slider-wrap uses on desktop) since
-   that slot is empty on mobile; moves down to clear the pan controls
-   once they appear at the 768px breakpoint. */
+   #left-rail-zoom-pan above — that's redundant with touch panning on a
+   phone, but this is a display setting that needs to stay reachable on
+   mobile too. Sits directly under the compass (top:110px, the same slot
+   #left-rail-zoom-pan uses on desktop) since that slot is empty on
+   mobile; moves down to clear the zoom/pan rail once it appears at the
+   768px breakpoint. */
 #navaid-filter-btn {
   position: absolute;
   left: 10px;
@@ -3916,7 +3922,7 @@ body.wco-active #underway-btn { top: 10px; }
 #navaid-filter-btn:active { background: var(--brass-dim); }
 #navaid-filter-btn.active  { background: var(--brass);  color: var(--brass-ink); }
 @media (min-width: 768px) {
-  #navaid-filter-btn { top: 424px; } /* clears #pan-controls-wrap (310px + ~104px tall + gap) */
+  #navaid-filter-btn { top: 424px; } /* clears #left-rail-zoom-pan (~410px tall incl. its own internal gap) */
 }
 
 

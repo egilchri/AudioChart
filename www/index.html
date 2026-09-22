@@ -112,17 +112,27 @@
           </div>
         </div>
       </div>
-      <div id="zoom-slider-wrap">
-        <span id="zoom-slider-label">11</span>
-        <input type="range" id="zoom-slider" min="4" max="18" step="1" value="11">
-      </div>
-      <div id="pan-controls-wrap">
-        <button class="pan-btn" id="pan-north" title="Pan north">&#9650;</button>
-        <div class="pan-row">
-          <button class="pan-btn" id="pan-west" title="Pan west">&#9668;</button>
-          <button class="pan-btn" id="pan-east" title="Pan east">&#9658;</button>
+      <!-- Zoom slider and pan controls are flex children of one wrapper (not
+           two independently top:-positioned siblings) so pan can never end
+           up rendered on top of zoom — the gap between them is real CSS
+           layout, not a JS-computed pixel guess that only holds if
+           _syncLeftRailStack() happens to have run since the last time
+           either one's actual height changed. See that function's own
+           comment for why the wrapper's own top (relative to the Leaflet
+           compass corner above it) still needs to stay dynamic. -->
+      <div id="left-rail-zoom-pan">
+        <div id="zoom-slider-wrap">
+          <span id="zoom-slider-label">11</span>
+          <input type="range" id="zoom-slider" min="4" max="18" step="1" value="11">
         </div>
-        <button class="pan-btn" id="pan-south" title="Pan south">&#9660;</button>
+        <div id="pan-controls-wrap">
+          <button class="pan-btn" id="pan-north" title="Pan north">&#9650;</button>
+          <div class="pan-row">
+            <button class="pan-btn" id="pan-west" title="Pan west">&#9668;</button>
+            <button class="pan-btn" id="pan-east" title="Pan east">&#9658;</button>
+          </div>
+          <button class="pan-btn" id="pan-south" title="Pan south">&#9660;</button>
+        </div>
       </div>
       <!-- Toggling which navaids show is a display setting, not a route/
            tracking action — per direct request, pulled out of the right

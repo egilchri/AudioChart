@@ -4518,6 +4518,11 @@ function _exitEditMode() {
   document.getElementById('edit-tools-panel').style.display = 'none';
   document.getElementById('delete-route-btn').style.display = 'none';
   _appEl.classList.remove('edit-mode');
+  // Re-shows #left-rail-zoom-pan (hidden for the whole of edit mode) at
+  // whatever top offset was last synced, possibly stale if the Leaflet
+  // compass corner's own height changed while it was hidden — cheap to
+  // just recompute rather than leave that as a latent gap.
+  _syncLeftRailStack();
   if (_justEditedName) {
     _hiddenRouteNames.delete(_justEditedName);
     _saveHiddenRoutes();
@@ -5478,40 +5483,41 @@ function _updateHeadingRay(lat, lon, headingDeg, speedKt) {
   }
 }
 
-// Keeps #zoom-slider-wrap/#pan-controls-wrap/#vjourney-banner (desktop-only,
-// see their own media query) stacked below whatever's actually in the
-// Leaflet top-left corner (compass, and — only while following a route —
-// the follow-progress readout, which pushed the corner taller than the
-// zoom slider's old hardcoded top:110px assumed and left it overlapping
-// this readout's text, reported live). Measuring instead of hardcoding a
-// second offset keeps this correct regardless of which of those happen to
-// be showing — including zoom/pan themselves being hidden entirely, which
-// Underway mode does with !important, and Virtual Journey now forces
-// Underway on for: in that case each hidden step contributes no height
-// (offsetParent check below) instead of leaving a gap, so #vjourney-banner
-// lands directly under the compass/follow-progress stack instead.
+// Keeps #left-rail-zoom-pan/#vjourney-banner (desktop-only, see their own
+// media query) positioned below whatever's actually in the Leaflet top-left
+// corner (compass, and — only while following a route — the follow-progress
+// readout, which pushed the corner taller than the rail's old hardcoded
+// top:110px assumed and left it overlapping this readout's text, reported
+// live). Measuring instead of hardcoding a second offset keeps this correct
+// regardless of which of those happen to be showing. Zoom and pan themselves
+// can no longer overlap EACH OTHER regardless of whether this function has
+// run recently — they're flex children of #left-rail-zoom-pan with a real
+// CSS `gap` now, not two independently-positioned elements whose non-overlap
+// depended on this JS having fired since the last time either one's height
+// changed (reported live as still happening after an edit-mode round trip —
+// see _exitEditMode's own call to this function). This function now only
+// has to get the rail's own top right, not the gap between its two children.
 function _syncLeftRailStack() {
   if (window.innerWidth < 768 || !_mapContainer) return; // hidden below this width — nothing to sync
   const mcTop = _mapContainer.getBoundingClientRect().top;
   const corner = document.querySelector('.leaflet-top.leaflet-left');
-  const zoomWrap = document.getElementById('zoom-slider-wrap');
-  const panWrap = document.getElementById('pan-controls-wrap');
+  const rail = document.getElementById('left-rail-zoom-pan');
   const vjBanner = document.getElementById('vjourney-banner');
   const GAP = 10;
-  if (!zoomWrap || !panWrap) return;
+  if (!rail) return;
 
-  let bottom = corner ? corner.getBoundingClientRect().bottom : 30 + mcTop; // viewport-relative
-  const zoomTop = bottom + GAP;
-  zoomWrap.style.top = Math.round(zoomTop - mcTop) + 'px';
-  bottom = (zoomWrap.offsetParent !== null) ? zoomWrap.getBoundingClientRect().bottom : zoomTop;
-
-  const panTop = bottom + GAP;
-  panWrap.style.top = Math.round(panTop - mcTop) + 'px';
-  bottom = (panWrap.offsetParent !== null) ? panWrap.getBoundingClientRect().bottom : panTop;
+  const cornerBottom = corner ? corner.getBoundingClientRect().bottom : 30 + mcTop; // viewport-relative
+  const railTop = cornerBottom + GAP;
+  rail.style.top = Math.round(railTop - mcTop) + 'px';
+  // Virtual Journey forces Underway mode on, which hides the rail entirely
+  // (!important) — in that case it contributes no height (offsetParent
+  // check) instead of leaving a gap, so #vjourney-banner lands directly
+  // under the compass/follow-progress stack instead.
+  const bottom = (rail.offsetParent !== null) ? rail.getBoundingClientRect().bottom : railTop;
 
   if (vjBanner && vjBanner.style.display !== 'none') {
     // vjBanner is position:fixed at this breakpoint (see its CSS) — its
-    // `top` is viewport-relative already, unlike zoomWrap/panWrap above
+    // `top` is viewport-relative already, unlike the rail above
     // (position:absolute inside #map-container), so no mcTop offset here.
     vjBanner.style.top = Math.round(bottom + GAP) + 'px';
   }
@@ -5820,6 +5826,7 @@ function _exitAnimMode() {
   if (_animIntervalId) { clearInterval(_animIntervalId);   _animIntervalId = null; }
   TTS.stop();
   _appEl.classList.remove('anim-mode');
+  _syncLeftRailStack(); // re-shows #left-rail-zoom-pan — see _exitEditMode's own call for why
   _animBanner.style.display = 'none';
   if (_animMarker       && _map) { _map.removeLayer(_animMarker);       _animMarker       = null; }
   if (_animRouteLine    && _map) { _map.removeLayer(_animRouteLine);    _animRouteLine    = null; }
@@ -11340,6 +11347,7 @@ document.getElementById('screen-menu-clear').addEventListener('click', () => {
 const _underwayCheckbox = document.getElementById('underway-checkbox');
 function _setUnderwayMode(on) {
   _appEl.classList.toggle('underway-mode', on);
+  _syncLeftRailStack(); // re-shows #left-rail-zoom-pan on the way back off — see _exitEditMode's own call for why
   localStorage.setItem('audiochart-underway-mode', on ? '1' : '');
   _underwayCheckbox.checked = on;
 }
