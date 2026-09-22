@@ -3346,6 +3346,166 @@
         },
         "source": "Brooklyn Museum collection record; Wikimedia Commons"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-70.20018574795384, 43.65257620554102] },
+      "properties": {
+        "title": "Casco Bay's drowned drumlins",
+        "category": "geology",
+        "place": "Peaks Island",
+        "body": "Casco Bay's islands were once called the Calendar Islands, after a local claim that there were 365 of them, one for every day of the year — an exaggeration, but not by as much as you'd think; the real count runs into the hundreds. What you're looking at from the water is the drowned top third of a drumlin field: elongated hills of glacial till, plastered onto the bedrock under roughly a mile of Laurentide ice about 13,000 years ago, then partly submerged as meltwater raised sea level faster than the land itself could rebound. Peaks, Great Diamond, Long, and Cushing Islands are the surviving high ground of one such drumlin swarm; Cliff and Jewell Islands, farther out, are what's left of a ridge running off Harpswell Neck.",
+        "source": "NASA Earth Observatory, \"Bay of the Partly Drowned Hills\"; Maine Geological Survey, Surficial Geology of Maine"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-70.20387669008645, 43.64093958662848] },
+      "properties": {
+        "title": "The Cushing Formation, named for this island",
+        "category": "geology",
+        "place": "Cushing Island",
+        "body": "The bedrock under Cushing Island gives its name to the Cushing Formation, the oldest member of the Casco Bay Group — a belt of Ordovician rock, roughly 460 to 475 million years old, running in a narrow strip along the coast from here nearly to Bangor. It began as volcanic and sedimentary material laid down in an ocean basin far from this coast's current position, long before the collision that eventually welded it onto North America. A dated mineral sample from the formation puts its age at about 471 million years.",
+        "source": "Middlebury College thesis, \"Bedrock Geology of the Ordovician Casco Bay Group, Harpswell, Maine\"; USGS Mineral Resources Data System"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-70.21095840649976, 43.62387994064104] },
+      "properties": {
+        "title": "The Cape Elizabeth Formation",
+        "category": "geology",
+        "place": "Portland Head, Cape Elizabeth",
+        "body": "Portland Head Light stands on the Cape Elizabeth Formation, the middle member of the Casco Bay Group and the one that marks a real shift in how this rock was made: the older Cushing Formation nearby is mostly volcanic, laid down by eruptions, while the Cape Elizabeth Formation is sedimentary, formed as that volcanic debris and ordinary seafloor mud settled and compacted instead. Both were later folded and metamorphosed together during the mountain-building collisions that assembled this coastline.",
+        "source": "Maine Geological Survey publication, \"Portland Head Light, Cape Elizabeth, ME\"; Middlebury College thesis, \"Bedrock Geology of the Ordovician Casco Bay Group, Harpswell, Maine\""
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-70.2239054, 43.6521131] },
+      "properties": {
+        "title": "The Spring Point Formation",
+        "category": "geology",
+        "place": "Spring Point, South Portland",
+        "body": "Spring Point Ledge Lighthouse sits on the Spring Point Formation, the third member making up the lower Casco Bay Group alongside the Cushing and Cape Elizabeth Formations. Like its neighbors, it's Ordovician rock — laid down as volcanic and sedimentary material roughly 460 to 475 million years ago, later metamorphosed as this whole belt was folded into the coastline during the Silurian-Devonian mountain-building collisions. The Maine Geological Survey's own mapping of the three formations uses exactly these three places — Cushing Island, Cape Elizabeth, and Spring Point — as the type localities that give each rock unit its name.",
+        "source": "Middlebury College thesis, \"Bedrock Geology of the Ordovician Casco Bay Group, Harpswell, Maine\""
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-70.2568, 43.6591] },
+      "properties": {
+        "title": "The fire that burned half of Portland",
+        "category": "history",
+        "era": "industrial",
+        "place": "Portland waterfront",
+        "body": "On July 4, 1866 — the first Independence Day after the Civil War — a firecracker or a dropped cigar on Commercial Street set off what was, at the time, the worst fire an American city had ever seen (five years before Chicago's). Driven by a strong wind, it burned diagonally across the peninsula through the Old Port and India Street neighborhoods to Munjoy Hill before finally burning itself out early the next morning. About 1,800 buildings — 1,200 of them homes — were destroyed, four people died, and roughly 10,000 were left homeless in a city of about 32,000.\n\nPortland rebuilt in brick rather than wood, installed a citywide fire alarm system the following year, and by 1868 had contracted to pipe in water from Sebago Lake specifically to make sure it never happened again.",
+        "source": "Wikipedia — 1866 Great Fire of Portland, Maine; Portland Press Herald, \"The Night Portland Burned\""
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-70.193333, 43.652778] },
+      "properties": {
+        "title": "A Civil War fort obsolete before it fired a shot",
+        "category": "history",
+        "era": "industrial",
+        "place": "Fort Gorges, Portland Harbor",
+        "body": "Fort Gorges was begun in 1858 and built through the Civil War on Hog Island Ledge, modeled directly on Fort Sumter and meant to work alongside Fort Preble and Fort Scammel to close off Portland Harbor. By the time it was finished in 1864-65, rifled artillery and high-explosive shells developed during the war had already made its granite walls and 56 gun ports obsolete — no shot was ever fired from it, and no troops were ever stationed there. It served as a caretaker's post and, later, a storage depot in both World Wars, before the federal government declared it surplus in 1960 and handed it to the City of Portland, which still owns it today.",
+        "source": "Wikipedia — Fort Gorges; Greater Portland Landmarks; American Battlefield Trust"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-70.05278, 43.71111] },
+      "properties": {
+        "title": "Admiral Peary's island retreat",
+        "category": "history",
+        "era": "modern",
+        "place": "Eagle Island, Harpswell",
+        "body": "Arctic explorer Robert Peary bought this island in 1881 for $200, long before he'd made his name, and in 1904 designed and built a summer house on it — its stone foundation shaped so that, seen from the water, the house looks like a pilothouse rising out of a ship's hull. From then until his death in 1920, Eagle Island was where Peary always came back to: after every expedition, he'd return here to plan the next one, and it's where he sat compiling his data in 1909 after declaring \"The Pole is mine at last.\"\n\nHis children donated the island to the State of Maine in 1967. It's been a National Historic Landmark since 2014.",
+        "source": "Wikipedia — Eagle Island (Casco Bay, Maine); Maine.gov — Eagle Island State Historic Site; Sun Journal, \"Eagle Island: Exploring Admiral Peary's 'promised land'\""
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-70.0925471, 43.6820279] },
+      "properties": {
+        "title": "Four hundred soldiers watching an empty horizon",
+        "category": "history",
+        "era": "modern",
+        "place": "Jewell Island",
+        "body": "During World War II, roughly 400 troops were stationed on Jewell Island, manning two observation towers, a searchlight, two six-inch guns capable of throwing a shell 17 miles, and four 90-millimeter anti-aircraft guns — all to defend a bay that was never actually attacked. The closest the war came was a German U-boat spotted between Jewell and Cape Small in June 1942. The batteries, built after 1922 and garrisoned from 1943 to 1946, were stood down once the war ended.\n\nThe State of Maine bought the southern end of the island in 1972 and the rest four years later. The two concrete observation towers are still standing and still climbable, looking out over a bay that, in the end, never needed them.",
+        "source": "Maine by Foot; The Maine Mag, \"The Jewell of Casco Bay\"; Wikipedia — Jewell Island"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-70.20018574795384, 43.65257620554102] },
+      "properties": {
+        "title": "Peaks Island",
+        "category": "island-info",
+        "place": "Peaks Island",
+        "islandInfo": {
+          "ownership": "Part of the City of Portland — a populated, year-round neighborhood, not privately held.",
+          "landTrust": null,
+          "onMaineIslandTrail": null,
+          "publicAccess": "Fully open — the most visited island in the bay, with cafes, restaurants, and bike/golf-cart rentals; reachable on a 17-minute Casco Bay Lines ferry, about 14 departures a day.",
+          "notes": "Casco Bay's most populous island, with 900+ year-round residents (swelling to a few thousand in summer) — the second-largest island under Portland's jurisdiction by land area."
+        },
+        "source": "Wikipedia — Peaks Island; Casco Bay Lines"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-70.0925471, 43.6820279] },
+      "properties": {
+        "title": "Jewell Island",
+        "category": "island-info",
+        "place": "Jewell Island",
+        "islandInfo": {
+          "ownership": "State of Maine (Bureau of Parks and Recreation) — bought the southern end in 1972, the rest (with Little Jewell) in 1976.",
+          "landTrust": null,
+          "onMaineIslandTrail": true,
+          "publicAccess": "Open for day use and camping; 3.3 miles of trails maintained with the Maine Island Trail Association, including the two WWII concrete observation towers.",
+          "notes": "221 acres — one of the outermost islands in the bay, accessible only by boat. See the History entry for this island's WWII garrison."
+        },
+        "source": "Maine by Foot; MITA Jewell Island brochure; Wikipedia — Jewell Island"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-70.05278, 43.71111] },
+      "properties": {
+        "title": "Eagle Island",
+        "category": "island-info",
+        "place": "Eagle Island, Harpswell",
+        "islandInfo": {
+          "ownership": "State of Maine — Eagle Island State Historic Site, donated by Admiral Peary's children in 1967.",
+          "landTrust": null,
+          "onMaineIslandTrail": null,
+          "publicAccess": "Open seasonally for day visits; Peary's 1904 house is preserved as a museum. See the History entry for the island's own story.",
+          "notes": "On the National Register of Historic Places since 1971; declared a National Historic Landmark in 2014."
+        },
+        "source": "Maine.gov — Eagle Island State Historic Site; Wikipedia — Eagle Island (Casco Bay, Maine)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-70.21281780583766, 43.64963175157224] },
+      "properties": {
+        "title": "House Island",
+        "category": "island-info",
+        "place": "House Island, Portland Harbor",
+        "islandInfo": {
+          "ownership": "Private.",
+          "landTrust": null,
+          "onMaineIslandTrail": false,
+          "publicAccess": "None for casual landing — private, with public access limited to prearranged tours (SeaPortland) of Fort Scammel (1808), the historic fort on the island's west side.",
+          "notes": "The island's other historic role was as an immigration and quarantine station; three summer-rental buildings occupy the east side today."
+        },
+        "source": "Wikipedia — House Island (Maine); Portland Press Herald; SeaPortland tour listings"
+      }
     }
   ]
 }
