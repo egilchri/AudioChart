@@ -31,17 +31,14 @@
     background: var(--paper);
     color: var(--ink);
     font-family: 'Inter', sans-serif;
-    font-size: 14px;
-    line-height: 1.4;
+    font-size: 17px;
+    line-height: 1.6;
   }
 
-  h1, h2, h3, p, ol {
-    font-family: inherit;
-    margin: 0;
-  }
   h1, h2, h3 {
     font-family: 'Fraunces', serif;
     font-weight: 600;
+    margin: 0;
     color: inherit;
   }
 
@@ -54,7 +51,7 @@
   .wrap {
     max-width: 1100px;
     margin: 0 auto;
-    padding: 0 24px;
+    padding: 0 32px;
   }
 
   /* Background chart texture */
@@ -76,7 +73,7 @@
   .topnav-inner {
     max-width: 1100px;
     margin: 0 auto;
-    padding: 4px 24px;
+    padding: 16px 32px;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -84,7 +81,7 @@
   .brand {
     font-family: 'Fraunces', serif;
     font-weight: 600;
-    font-size: 16px;
+    font-size: 20px;
     letter-spacing: 0.01em;
     display: flex;
     align-items: center;
@@ -109,10 +106,10 @@
   .nav-cta {
     font-family: 'Inter', sans-serif;
     font-weight: 600;
-    font-size: 12px;
+    font-size: 14px;
     background: var(--navy);
     color: var(--cream);
-    padding: 6px 14px;
+    padding: 10px 20px;
     border-radius: 3px;
     text-decoration: none;
     letter-spacing: 0.01em;
@@ -120,64 +117,64 @@
 
   /* ===== HERO ===== */
   .hero {
-    padding: 3px 0 2px;
+    padding: 88px 0 96px;
   }
   .hero-grid {
     display: grid;
-    grid-template-columns: 1.15fr 0.85fr;
-    gap: 20px;
+    grid-template-columns: 1.05fr 0.95fr;
+    gap: 56px;
     align-items: center;
   }
   .eyebrow {
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 10px;
+    font-size: 13px;
     letter-spacing: 0.08em;
     color: var(--teal);
     text-transform: uppercase;
-    margin-bottom: 4px;
+    margin-bottom: 18px;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
   }
   .eyebrow::before {
     content: '';
-    width: 20px;
+    width: 24px;
     height: 1px;
     background: var(--teal);
   }
   .hero h1 {
-    font-size: 18px;
-    line-height: 1.15;
+    font-size: 52px;
+    line-height: 1.08;
     letter-spacing: -0.01em;
-    margin-bottom: 4px;
+    margin-bottom: 22px;
   }
   .hero h1 em {
     font-style: italic;
     color: var(--brass);
   }
   .hero p.lede {
-    font-size: 11px;
-    line-height: 1.3;
+    font-size: 19px;
+    line-height: 1.55;
     color: #3A4A52;
-    max-width: 48ch;
-    margin-bottom: 6px;
+    max-width: 46ch;
+    margin-bottom: 32px;
   }
   .cta-row {
     display: flex;
-    gap: 10px;
+    gap: 14px;
     flex-wrap: wrap;
   }
   .btn-primary {
     background: var(--navy);
     color: var(--cream);
     font-weight: 600;
-    font-size: 12.5px;
-    padding: 8px 16px;
+    font-size: 15px;
+    padding: 15px 26px;
     border-radius: 3px;
     text-decoration: none;
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     transition: background 0.15s ease;
   }
   .btn-primary:hover { background: var(--navy-deep); }
@@ -185,73 +182,70 @@
     border: 1px solid var(--ink);
     color: var(--ink);
     font-weight: 600;
-    font-size: 12.5px;
-    padding: 7px 14px;
+    font-size: 15px;
+    padding: 14px 24px;
     border-radius: 3px;
     text-decoration: none;
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
   }
 
-  /* Hero chart illustration — capped by max-height (not left to aspect-ratio
-     alone) so it can't dominate the fold the way the original full-height
-     panel did; the SVG inside just fills whatever box it ends up with. */
+  /* Hero chart illustration */
   .hero-chart {
     background: var(--navy);
     border-radius: 6px;
-    max-height: 82px;
-    min-height: 70px;
+    aspect-ratio: 4/3.4;
     position: relative;
     overflow: hidden;
-    box-shadow: 0 12px 30px -14px rgba(15,36,56,0.5);
+    box-shadow: 0 24px 60px -20px rgba(15,36,56,0.5);
   }
   .hero-chart svg { position: absolute; inset: 0; width: 100%; height: 100%; }
   .bearing-callout {
     position: absolute;
-    bottom: 8px;
-    left: 8px;
-    right: 8px;
+    bottom: 20px;
+    left: 20px;
+    right: 20px;
     background: rgba(10,24,38,0.92);
     border: 1px solid var(--line-on-navy);
     border-radius: 4px;
-    padding: 6px 8px;
+    padding: 14px 16px;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
     backdrop-filter: blur(4px);
   }
   .bearing-callout .speaker {
-    width: 20px; height: 20px;
+    width: 30px; height: 30px;
     border-radius: 50%;
     background: var(--brass);
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    font-size: 10px;
+    font-size: 14px;
   }
   .bearing-callout .txt {
     color: var(--cream);
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 10.5px;
-    line-height: 1.3;
+    font-size: 13.5px;
+    line-height: 1.4;
   }
-  .bearing-callout .txt .big { font-size: 11.5px; font-weight: 500; }
+  .bearing-callout .txt .big { font-size: 15px; font-weight: 500; }
   .bearing-callout .txt .dim { color: rgba(247,241,227,0.55); }
 
   /* ===== SECTION SCAFFOLD ===== */
-  section { padding: 3px 0; }
-  .section-head { max-width: 640px; margin-bottom: 3px; }
-  .section-head h2 { font-size: 14px; letter-spacing: -0.01em; margin-bottom: 1px; }
-  .section-head p { font-size: 10px; color: #3A4A52; }
+  section { padding: 84px 0; }
+  .section-head { max-width: 640px; margin-bottom: 52px; }
+  .section-head h2 { font-size: 34px; letter-spacing: -0.01em; margin-bottom: 14px; }
+  .section-head p { font-size: 17px; color: #3A4A52; }
   .tag {
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 9px;
+    font-size: 12.5px;
     letter-spacing: 0.07em;
     text-transform: uppercase;
     color: var(--brass);
-    margin-bottom: 2px;
+    margin-bottom: 12px;
     display: block;
   }
 
@@ -270,41 +264,41 @@
   }
   .feature {
     background: var(--navy);
-    padding: 5px 7px;
+    padding: 32px 28px;
   }
   .feature .deg {
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 9.5px;
+    font-size: 13px;
     color: var(--brass);
-    margin-bottom: 1px;
+    margin-bottom: 16px;
     display: block;
   }
   .feature h3 {
     font-family: 'Fraunces', serif;
-    font-size: 12px;
+    font-size: 20px;
     font-weight: 500;
-    margin-bottom: 1px;
+    margin-bottom: 10px;
     color: var(--cream);
   }
   .feature p {
     color: rgba(247,241,227,0.62);
-    font-size: 10px;
-    line-height: 1.25;
+    font-size: 15px;
+    line-height: 1.6;
     margin: 0;
   }
 
   /* ===== DEMO ===== */
   .demo-tabs {
     display: flex;
-    gap: 8px;
+    gap: 10px;
     justify-content: center;
-    margin-bottom: 2px;
+    margin-bottom: 20px;
   }
   .demo-tab {
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 10.5px;
+    font-size: 13px;
     letter-spacing: 0.02em;
-    padding: 3px 10px;
+    padding: 9px 18px;
     border-radius: 20px;
     border: 1px solid var(--line);
     background: transparent;
@@ -328,11 +322,12 @@
     --demo-w: 1000;
     --demo-h: 606;
     aspect-ratio: var(--demo-w) / var(--demo-h);
-    /* Capped on both axes (not just height-via-vh) so the whole page — nav
-       through footer — fits one viewport without scrolling: this is by far
-       the biggest single block on the page, so it gets the smallest of
-       "100% of wrap width", "260px", or "17% of viewport height". */
-    width: min(100%, 120px, calc(7.5vh * var(--demo-w) / var(--demo-h)));
+    /* Sized by width up to the .wrap's max-width, but capped by height on
+       shorter screens (laptops, browser windows that aren't maximized) —
+       without this, a ~1036px-wide frame at this aspect ratio renders
+       ~628px tall, which combined with the heading above and caption below
+       doesn't fit a lot of real windows and forces a mid-section scroll. */
+    width: min(100%, calc(64vh * var(--demo-w) / var(--demo-h)));
     margin: 0 auto;
     overflow: hidden;
     position: relative;
@@ -346,60 +341,60 @@
   }
   .demo-note {
     text-align: center;
-    color: #6B7A82;
+    color: rgba(247,241,227,0.5);
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 10px;
-    margin-top: 3px;
+    font-size: 12.5px;
+    margin-top: 18px;
   }
 
   /* ===== ROUTES SECTION ===== */
   .routes-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 8px;
+    gap: 28px;
   }
   .route-card {
     background: var(--cream);
     border: 1px solid var(--line);
     border-radius: 6px;
-    padding: 5px 7px;
+    padding: 30px;
   }
-  .route-card .deg { font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; color: var(--teal); display: block; margin-bottom: 1px; }
-  .route-card h3 { font-size: 12.5px; margin-bottom: 1px; }
-  .route-card p { color: #3A4A52; font-size: 10.5px; margin: 0; line-height: 1.25; }
+  .route-card .deg { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--teal); display: block; margin-bottom: 14px; }
+  .route-card h3 { font-size: 21px; margin-bottom: 10px; }
+  .route-card p { color: #3A4A52; font-size: 15.5px; margin: 0; }
   .flow-diagram {
     display: flex;
     align-items: center;
-    gap: 4px;
-    margin-top: 4px;
+    gap: 10px;
+    margin-top: 20px;
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 9.5px;
+    font-size: 12.5px;
     color: var(--ink);
     flex-wrap: wrap;
   }
   .flow-diagram .node {
     border: 1px solid var(--ink);
-    padding: 2px 6px;
+    padding: 6px 12px;
     border-radius: 3px;
     background: var(--paper);
   }
-  .flow-diagram .arrow { color: var(--brass); font-size: 12px; }
+  .flow-diagram .arrow { color: var(--brass); font-size: 16px; }
 
   .bridge-note {
-    margin-top: 3px;
+    margin-top: 40px;
     border-left: 3px solid var(--brass);
-    padding: 2px 0 2px 12px;
+    padding: 4px 0 4px 22px;
     max-width: 74ch;
   }
-  .bridge-note p { margin: 0; color: #3A4A52; font-size: 11px; line-height: 1.3; }
+  .bridge-note p { margin: 0; color: #3A4A52; font-size: 16px; line-height: 1.65; }
   .bridge-note .label {
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 9px;
+    font-size: 12px;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--brass);
     display: block;
-    margin-bottom: 2px;
+    margin-bottom: 8px;
   }
 
   /* ===== INSTALL ===== */
@@ -407,35 +402,34 @@
   .install-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 6px;
+    gap: 24px;
   }
   .install-card {
     background: var(--cream);
     border: 1px solid var(--line);
     border-radius: 6px;
-    padding: 4px 6px;
+    padding: 28px;
   }
   .install-card .platform {
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 9px;
+    font-size: 12.5px;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--teal);
-    margin-bottom: 2px;
+    margin-bottom: 16px;
     display: block;
   }
   .install-card ol {
     margin: 0;
-    padding-left: 14px;
-    font-size: 10px;
+    padding-left: 20px;
+    font-size: 15px;
     color: var(--ink);
-    line-height: 1.25;
   }
-  .install-card li { margin-bottom: 0; }
+  .install-card li { margin-bottom: 10px; }
   .install-card li:last-child { margin-bottom: 0; }
   .install-tip {
-    margin-top: 2px;
-    font-size: 9.5px;
+    margin-top: 16px;
+    font-size: 13.5px;
     color: var(--hazard);
     font-weight: 600;
   }
@@ -444,19 +438,19 @@
   footer {
     background: var(--navy);
     color: rgba(247,241,227,0.5);
-    padding: 3px 0;
-    font-size: 9.5px;
+    padding: 40px 0;
+    font-size: 13.5px;
     font-family: 'IBM Plex Mono', monospace;
     text-align: center;
   }
 
   @media (max-width: 860px) {
     .hero-grid { grid-template-columns: 1fr; }
-    .hero h1 { font-size: 22px; }
+    .hero h1 { font-size: 38px; }
     .features { grid-template-columns: 1fr; }
     .install-grid { grid-template-columns: 1fr; }
     .routes-grid { grid-template-columns: 1fr; }
-    .wrap { padding: 0 16px; }
+    .wrap { padding: 0 20px; }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -483,7 +477,7 @@
     <div>
       <span class="eyebrow">A full chart plotter, with a voice</span>
       <h1>Everything you expect from a chart app — <em>now it talks.</em></h1>
-      <p class="lede">Full charts, routes, and plotting — plus everything important spoken aloud: range and bearing to a waypoint, a tally of hazards on a new route.</p>
+      <p class="lede">AudioChart works like the navigation app you already know: full charts, routes, and plotting. The difference is everything important is spoken aloud too — range and bearing to a waypoint, a tally of hazards on a new route — while it's still right there on the screen.</p>
       <div class="cta-row">
         <a class="btn-primary" href="https://egilchri.github.io/AudioChart/">⚓ Install AudioChart</a>
         <a class="btn-secondary" href="#demo">▶ Watch a demo</a>
@@ -535,17 +529,17 @@
       <div class="feature">
         <span class="deg">180°</span>
         <h3>Range &amp; bearing, seen and heard</h3>
-        <p>Distance and heading to any waypoint — on the chart, and spoken aloud.</p>
+        <p>Distance and heading to any waypoint — shown on the chart the way you'd expect, and spoken aloud when your eyes are elsewhere.</p>
       </div>
       <div class="feature">
         <span class="deg">090°</span>
         <h3>Hazards, tallied out loud</h3>
-        <p>Draw a route and hazards show up on the chart, plus a spoken tally.</p>
+        <p>Draw a new route and hazards along it show up on the chart as usual — plus a spoken tally, so you know the count without staring at the screen.</p>
       </div>
       <div class="feature">
         <span class="deg">270°</span>
         <h3>Fully offline underway</h3>
-        <p>Download your area at the dock. Out of range, chart and voice both keep working.</p>
+        <p>Download your sailing area while you've got Wi‑Fi at the dock. Once you're out of range, the app — chart and voice both — doesn't know the difference.</p>
       </div>
     </div>
   </div>
@@ -556,7 +550,7 @@
     <div class="section-head">
       <span class="tag">See it in action</span>
       <h2 id="demo-title">A minute on the water.</h2>
-      <p id="demo-desc">Find an anchorage, plot the route — right on the chart.</p>
+      <p id="demo-desc">Switch to Anchorages, find a place to go, and let AudioChart plot the route there — right on the chart.</p>
     </div>
     <!-- Two demos, meant to be watched in order (1 first) — a returning
          visitor can jump straight to either one. Content/metadata for each
@@ -569,7 +563,7 @@
     <div class="demo-frame">
       <video id="demo-video" src="assets/demo.mp4" poster="assets/demo-poster.jpg" controls playsinline></video>
     </div>
-    <p class="demo-note" id="demo-note">Recorded from the live app — no editing.</p>
+    <p class="demo-note" id="demo-note">Recorded from the live app, with voice narration — no editing.</p>
   </div>
 </section>
 
@@ -579,13 +573,13 @@
   const DEMOS = {
     1: {
       title: 'A minute on the water.',
-      desc: 'Find an anchorage, plot the route — right on the chart.',
+      desc: 'Switch to Anchorages, find a place to go, and let AudioChart plot the route there — right on the chart.',
       src: 'assets/demo.mp4', poster: 'assets/demo-poster.jpg',
       w: 1000, h: 606,
     },
     2: {
       title: 'Underway, and always oriented.',
-      desc: 'Bearing and distance to target — read on the chart, spoken aloud.',
+      desc: 'Follow a route, flip on Underway, and tap Target for your bearing and distance — read straight off the chart, spoken aloud.',
       src: 'assets/demo2.mp4', poster: 'assets/demo2-poster.jpg',
       w: 1000, h: 550,
     },
@@ -628,7 +622,7 @@
       <div class="route-card">
         <span class="deg">Desktop → Phone</span>
         <h3>Build it where it's comfortable</h3>
-        <p>Lay out a route at home, send it to the phone coming aboard.</p>
+        <p>Lay out a route on the bigger screen at home, then send it straight to the phone or tablet that's coming aboard.</p>
         <div class="flow-diagram">
           <span class="node">Plan a route</span>
           <span class="arrow">→</span>
@@ -640,7 +634,7 @@
       <div class="route-card">
         <span class="deg">Any platform</span>
         <h3>Sharing works both ways</h3>
-        <p>Any route, any device — plan on the dock, hand it to the crew.</p>
+        <p>Any route made in AudioChart — on any device — can be shared to another. Plan on the dock, hand it to the crew, or sync it to yourself.</p>
         <div class="flow-diagram">
           <span class="node">Device A</span>
           <span class="arrow">⇄</span>
@@ -651,7 +645,7 @@
 
     <div class="bridge-note">
       <span class="label">Coming from Navionics</span>
-      <p>Import your existing Navionics routes today — no rebuilding from scratch.</p>
+      <p>Already have routes in Navionics? Import them straight into AudioChart today — no need to rebuild anything from scratch. As routes planned directly in AudioChart get proven out on the water, the goal is to lean on Navionics less and less, until your charts and routes live in one place.</p>
     </div>
   </div>
 </section>
@@ -661,32 +655,32 @@
     <div class="section-head">
       <span class="tag">Get it installed</span>
       <h2>Set it up before you leave the dock.</h2>
-      <p><span class="mono">egilchri.github.io/AudioChart</span> — no App Store required.</p>
+      <p>AudioChart installs like any app — no App Store required. Do this while you've still got Wi‑Fi.</p>
     </div>
     <div class="install-grid">
       <div class="install-card">
         <span class="platform">iPhone / iPad</span>
         <ol>
-          <li>Open the site in <strong>Safari</strong>.</li>
-          <li>Tap <strong>Share</strong>.</li>
+          <li>Open <span class="mono">egilchri.github.io/AudioChart</span> in Safari.</li>
+          <li>Tap the <strong>Share</strong> button at the bottom of the screen.</li>
           <li>Tap <strong>Add to Home Screen</strong>.</li>
         </ol>
-        <p class="install-tip">Must use Safari, not Chrome, on iOS.</p>
+        <p class="install-tip">Must use Safari — not Chrome — for this to work on iOS.</p>
       </div>
       <div class="install-card">
         <span class="platform">Android</span>
         <ol>
-          <li>Open the site in <strong>Chrome</strong>.</li>
-          <li>Tap the <strong>⋮</strong> menu.</li>
-          <li>Tap <strong>Add to Home Screen</strong>.</li>
+          <li>Open <span class="mono">egilchri.github.io/AudioChart</span> in Chrome.</li>
+          <li>Tap the <strong>⋮</strong> menu in the top right.</li>
+          <li>Tap <strong>Add to Home Screen</strong>, then confirm.</li>
         </ol>
       </div>
       <div class="install-card">
         <span class="platform">Desktop</span>
         <ol>
-          <li>Open in <strong>Chrome</strong> or <strong>Edge</strong>.</li>
-          <li>Click the install icon in the address bar.</li>
-          <li>Confirm — opens in its own window.</li>
+          <li>Open <span class="mono">egilchri.github.io/AudioChart</span> in Chrome or Edge.</li>
+          <li>Click the install icon in the address bar (or the browser menu).</li>
+          <li>Confirm — it opens in its own window from then on.</li>
         </ol>
       </div>
     </div>
