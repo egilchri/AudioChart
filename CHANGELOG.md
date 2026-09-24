@@ -12,6 +12,36 @@
 > deep-dive on the v317–v325 cluster specifically (Focus Target, Simulate
 > Heading); the summaries below start right after that.
 
+## 2026-09-23 — A real hazard-checker bug, and the rock field it was hiding (v678)
+
+Follow-up to v677 below: user flagged a specific land crossing on that same
+route, which led to finding a much bigger problem. The app's land/hazard
+checker (`Query.landBlocks`, `classifyFallbackSeg`) checks against whichever
+chart region happens to be active in a browser's `localStorage`, not the
+region a route actually needs — with the wrong region active (or none
+loaded), it silently reports zero crossings and zero hazards regardless of
+the real route. This had been quietly producing false "verified safe"
+results, including for v677's own SP008 fix below: that fix was never
+actually checked against real chart data, and the route it shipped ran
+straight through a genuine 19-rock field off Crotch Island — the same
+danger originally reported, not actually fixed.
+
+Rebuilt the SP008 approach/departure for real this time: followed the
+actual charted/buoyed channel (Field Ledge, Crotch Island, Moose Island
+Rock, Peggy's Island Ledge buoys) into a genuinely dense ledge field
+beyond it (Merchant Row area), then computed a safe thread through the
+raw charted rock positions via a grid/A* search, simplified, and verified
+segment-by-segment — both against the app's own checker (with the correct
+region now loaded) and independently against the raw NOAA ENC source data
+directly. Also found and fixed a second real bug on the same route: a
+waypoint in the Burnt Coat Harbor loop sat exactly on Burnt Coat Harbor
+Lighthouse's charted rock. A land-crossing sweep also flagged the older
+Rockland–Perry Creek leg (reused by 3 other sample routes); that one
+turned out to be a chart-data pipeline artifact, not a real hazard —
+`extract_land.py`'s dedup let a coarse-scale whole-island outline stand
+in for a real navigable notch the actual harbor-scale chart shows clearly
+— confirmed via the same raw-chart cross-check and left unchanged.
+
 ## 2026-09-23 — Rockland to Hadlock Cove: dangerous reroute fixed (v677)
 
 User reported skull-and-crossbones and yellow-triangle hazard markers, and
