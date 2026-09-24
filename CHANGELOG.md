@@ -12,6 +12,26 @@
 > deep-dive on the v317–v325 cluster specifically (Focus Target, Simulate
 > Heading); the summaries below start right after that.
 
+## 2026-09-23 — Rockland to Hadlock Cove: dangerous reroute fixed (v677)
+
+User reported skull-and-crossbones and yellow-triangle hazard markers, and
+red-highlighted segments, on their saved "Rockland to Hadlock Cove (3
+overnights)" sample route. Root cause: the user had re-tagged the second
+overnight stop themselves (via the app's own Overnight-tag + Reroute
+feature) to a new spot near Crotch Island, off Stonington — the resulting
+AutoRoute reroute threaded a real path directly through a charted rock
+field there (15 hard hazards + 1 obstruction within 100 yds). Not a UI
+glitch; a genuinely dangerous route.
+
+Fixed by keeping the user's preferred overnight location (their
+self-placed search pin, "SP008") but rebuilding the two connecting legs
+around it from scratch and re-verifying live with the app's own hazard
+checker: zero hard or soft hazard flags, cleaner than the original
+Stonington-harbor routing (which had carried 10 soft/shallow warnings).
+Applied to both the user's live saved route and the repo's
+`curated_routes.json` sample data, so new installs get the safe version
+too.
+
 ## 2026-09-23 — Developer docs
 
 Audited developer documentation for staleness: found `CHANGELOG.md`

@@ -104,7 +104,7 @@
   {
     "id": "rockland-hadlock-cove",
     "name": "Rockland to Hadlock Cove (3 nights)",
-    "note": "Four-day, three-overnight passage: Rockland to Perry Creek, to Stonington, to Burnt Coat Harbor (Swans Island), then west of Placentia Island via Western Way into Hadlock Cove. Days 1-2 reuse the verified Rockland-Stonington-via-Perry-Creek path; the Stonington-Burnt Coat and Burnt Coat-Hadlock legs were built and verified live 2026-09-22 (Router.autoRouteProg + classifyFallbackSeg on every sub-leg, none a silent land/hazard fallback).",
+    "note": "Four-day, three-overnight passage: Rockland to Perry Creek, to a Crotch Island-area anchorage off Stonington (user-placed, replacing the harbor itself), to Burnt Coat Harbor (Swans Island), then west of Placentia Island via Western Way into Hadlock Cove. Days 1-2 reuse the verified Rockland-Stonington-approach path; the second overnight was relocated 2026-09-24 after the harbor-side approach threaded a dangerous reroute through a real rock field off Crotch Island (15 charted underwater rocks + 1 obstruction within 100 yds, found live via the app's own hazard check) — the new anchorage point and both its approach/departure legs were re-verified live with zero hard or soft hazard flags, a cleaner result than the original. The Burnt Coat-Hadlock legs were verified live 2026-09-22 (Router.autoRouteProg + classifyFallbackSeg on every sub-leg, none a silent land/hazard fallback).",
     "points": [
       { "lat": 44.0986, "lon": -69.0752 },
       { "lat": 44.098388, "lon": -68.941654 },
@@ -121,9 +121,7 @@
       { "lat": 44.131889, "lon": -68.778085 },
       { "lat": 44.129631, "lon": -68.700809 },
       { "lat": 44.129754, "lon": -68.693803 },
-      { "lat": 44.1375, "lon": -68.6378, "overnight": true },
-      { "lat": 44.14332293537928, "lon": -68.62439477816547 },
-      { "lat": 44.1516667450194, "lon": -68.58432611915275 },
+      { "lat": 44.14817154149576, "lon": -68.6774040716864, "overnight": true },
       { "lat": 44.17602023185234, "lon": -68.52700051319563 },
       { "lat": 44.141479997364655, "lon": -68.50975595013861 },
       { "lat": 44.13851568504757, "lon": -68.50692716198496 },
