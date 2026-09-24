@@ -1,5 +1,125 @@
 # Changelog
 
+> **2026-05-15 to 2026-07-22 isn't logged here.** `COMMITS.md` was frozen
+> around this date with a note naming this file "authoritative going
+> forward," but it wasn't actually kept up — see `COMMITS.md` for its own
+> log through mid-May, or `git log` for the raw commit history in between.
+>
+> The blocks from 2026-07-22 through today (v676) resume coverage, but as
+> a **condensed summary, not a commit-by-commit log** — each groups a real
+> span of work into one entry rather than reproducing every commit
+> message. See [RECENT_CHANGES.md](RECENT_CHANGES.md) for a full prose
+> deep-dive on the v317–v325 cluster specifically (Focus Target, Simulate
+> Heading); the summaries below start right after that.
+
+## 2026-09-18 to 2026-09-23 (v649–v676)
+
+**Route movies.** Replaced the old interactive "tap through this tour
+yourself" onboarding for sample routes with auto-playing, narrated
+"▶ Watch" walkthroughs — real map panning/zooming to the destination, a
+click into that route's actual History and Geology write-ups (~25-word
+summaries of the real content, not a generic mode-announcement), then the
+route itself plotted and sailed via the same 10-second boat-preview
+animation the app's own Preview/Animate buttons use. Narration is
+pre-rendered via Piper (local neural TTS), not live `speechSynthesis` — a
+real, confirmed Chrome bug (`cancel()` immediately followed by `speak()`
+can silently wedge the speech engine) made live narration unreliable.
+Closes with a reference table of all map modes. 6 sample routes now have
+a movie, including a new multi-night one (Rockland → Perry Creek →
+Stonington → Burnt Coat Harbor → Hadlock Cove, 3 overnights, 4 harbors).
+
+**Iconic Painting map mode.** A new mode showing real, public-domain
+historic paintings at the exact spot each one depicts — Fitz Henry Lane,
+George Bellows, Rockwell Kent, Thomas Cole. Deliberately
+public-domain-only (excludes still-copyrighted work like the Wyeth
+family's) so every entry ships a real embedded image, fully offline, no
+exceptions.
+
+**Content gaps filled**: Anchorages, History, Geology, and Island Info
+modes had real coverage gaps — nothing between Owl's Head and Port
+Clyde, and nothing at all yet for Casco Bay (unlocked for real use via
+the existing `?dev=1` flag) — filled with real, sourced entries in both
+areas.
+
+**A real UI bug fixed**: the zoom slider and pan (d-pad) controls could
+render on top of each other — the two were independently-positioned
+elements kept apart by a JS function that wasn't wired to every place
+they get hidden and re-shown (exiting edit mode, exiting route preview,
+toggling Underway off). Restructured so they're flex children of one
+wrapper with a real CSS gap — the overlap is now structurally impossible
+rather than dependent on the right JS having run recently.
+
+## 2026-09-10 to 2026-09-18 (v587–v649)
+
+**Routing-reliability overhaul.** The router, GPX export, marker icons,
+wake lock, hazard clustering, and waypoint storage were split out of the
+monolithic `app.js` into their own modules. Added a curated-routes
+database and bulk-delete for auto-generated waypoints (with an incident
+write-up in `INCIDENTS.md` after a real SP*-prefixed-waypoint delete bug
+was found in the wild). Fixed a real gap where the fallback-warning
+banner (shown when AutoRoute can't find a safe path) never appeared on
+the two *direct* AutoRoute entry points, only the re-route path.
+
+**Multi-region chart storage**: downloaded regions no longer evict each
+other from IndexedDB — previously downloading a second region's data
+could silently wipe the first.
+
+**Webcams map type**: shipped, then reverted after real-world use — the
+link-out-only cams (no embeddable image) "didn't work very well." A
+persistent duplicate/ghosted-tile bug in the since-removed Low-Tide
+Aerial mode got one serious fix attempt (disabling Leaflet's zoom
+animation) that didn't fully resolve it; that mode was later dropped.
+
+## 2026-09-01 to 2026-09-10 (v483–v587)
+
+Island ownership/access became a live link-out lookup (town/parcel
+status + a link to Maine's own parcel map) rather than nothing at all.
+Fixed a real service-worker gotcha found the hard way: `sw.js`'s *own*
+bytes need to change every release (its `@version` comment) or the
+worker silently refreezes on whatever it last installed, even when
+every other file changed — this had been quietly stopping recent CSS/UI
+fixes from ever reaching real devices. Fixed an offline-region-merge bug
+where coordinate-only deduplication let named features (harbors,
+passages) accumulate up to 17× duplicates across repeated downloads of
+the same region. Search fixes: "Hurricane" as a destination query, two
+missing charted islands.
+
+## 2026-08-16 to 2026-08-31 (v387–v483)
+
+**The auto-routing rewrite** — the biggest single body of work in this
+window: coastal standoff distance, a real head/mouth place-name resolver
+("head of Somes Sound," and auto-resolving bare river/creek names to
+their mouths), long-range passage
+decomposition (depart/transit/arrive) for routes over 20nm, and a
+parameterized pipeline for building a brand-new chart region from raw
+NOAA/source data end to end — used to build the Casco Bay and Piscataqua
+regions. Several real, user-found routing bugs fixed along the way
+(wrong search cone on long legs, an unchecked leg-splice that could
+still land on a "successful" route crossing land).
+
+Also: hazard-marker clustering into readable blobs in crowded areas
+(with two real performance bugs found and fixed — an O(n²) hang and a
+DOM-node-count blowup), a fallback-warning accuracy fix, a Clear Screen
+button, hover tooltips added to every button in the app, and scrollable
+document-marker popups.
+
+## 2026-07-22 to 2026-07-28 (v330–v341)
+
+Optional Google Drive backup for saved Routes/Tracks — the first version
+was one-way sync and caused a real data-loss incident within days;
+replaced with a proper bidirectional merge (tombstones, conflict copies)
+the same week. Directional route/track search ("from X to Y"). Overnight
+stops: any route waypoint can be tagged as an overnight stop, with a
+day-by-day leg breakdown using actual routed (not straight-line)
+distance. Swipe-to-close and drag-to-reposition for floating panels. A
+live heading/speed direction-of-travel ray. A round of UI fixes (bigger
+focus button, collapsible transcript, max-zoom blank-tile fix). Screen
+wake lock toggle. Rearrange mode for dragging UI elements out of the
+way. Remembering the last-open route/track across reloads (later
+reverted — see v403 in the 2026-08-16 block above, which replaced it
+with "never auto-show anything stale on launch" after 15 old test
+routes were found cluttering a real screen).
+
 ## 2026-05-15
 
 ### Chart Data

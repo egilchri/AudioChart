@@ -156,7 +156,16 @@ It's a reasonable next feature if wanted.
 
 ---
 
-## Current version
+## This document's own scope
 
-**v325**, deployed to GitHub Pages. Remember **Shift-CMD-R** after an
-update to force the installed PWA to pick up the new version.
+**v325 was current when this document was written (2026-07-19) — it is
+not current now.** This page is a one-time feature deep-dive on a single
+cluster of related work (Focus Target through Simulate Heading), frozen
+at that point deliberately; it was never meant to track the app's actual
+current version. For that, check `www/js/version.js` in the repo, or the
+version label shown in the app's own top-left corner. For what's shipped
+since v325, see [CHANGELOG.md](CHANGELOG.md)'s condensed summaries
+covering 2026-07-22 onward.
+
+Remember **Shift-CMD-R** after any update to force an installed PWA to
+pick up the new version — this part hasn't changed.
