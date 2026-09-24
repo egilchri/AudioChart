@@ -3506,6 +3506,22 @@
         },
         "source": "Wikipedia — House Island (Maine); Portland Press Herald; SeaPortland tour listings"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.23994961687782, 44.258184679553345] },
+      "properties": {
+        "title": "Hadlock Cove — Anchorage",
+        "category": "anchorages",
+        "place": "Hadlock Cove, Mount Desert Island",
+        "anchorage": {
+          "moorings": "A small mooring field fills much of the cove; no confirmed rental/guest program for it specifically. Northeast Harbor Fleet (207-276-5101), about 3.5 miles away by water, is the nearest yacht club with guest moorings and services.",
+          "anchoringNotes": "Anchor outside the mooring field. The tide runs through here with real strength and reverses, so give the hook a couple of tries to bite and set before trusting it.",
+          "holdingGround": "Mixed, and can be slow to grab — muddy/gravelly close to the mooring field, grassy and often kelp-covered farther out.",
+          "notes": "Approached from the west via Western Way, between Great Cranberry Island and Mount Desert Island."
+        },
+        "source": "Waterway Guide — Hadlock Cove anchorage listing"
+      }
     }
   ]
 }

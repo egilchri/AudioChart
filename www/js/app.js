@@ -1907,6 +1907,24 @@ const ROUTE_MOVIES = {
     historyCaption: "Digs at Scott's Landing found shell middens showing people camping and fishing here for three thousand years — long before Eggemoggin Reach had a European name.",
     geologyCaption: 'The bedrock here is Devonian granite, the same family of rock that runs down through Stonington, with older metamorphosed volcanic rock mixed in nearby.',
   },
+  // The one multi-night sample (v676) — 4 days, 3 overnights (Perry Creek,
+  // Stonington, Burnt Coat Harbor) — but the movie template itself needed
+  // no changes: it already shows one destination's History/Geology and
+  // then previews the whole plotted route, and a 44-point, 4-stop route
+  // animating in the same fixed 10s preview as any other sample already
+  // reads as "this one's longer" on its own. The multi-night structure
+  // is instead carried by the sample's own name/note in curated_routes.json
+  // ("(3 nights)" + the day-by-day note) — the same mechanism every other
+  // sample already uses to convey what's distinctive about it, not a new
+  // one invented just for this route.
+  'rockland-hadlock-cove': {
+    destinationTitle: 'Hadlock Cove — Anchorage',
+    historyTitle: "A ships' store that became an island's memory",
+    place: 'Hadlock Cove',
+    audioId: 'hadlock-cove',
+    historyCaption: "In 1850, Edwin Hadlock built a ships' chandlery on nearby Little Cranberry Island — it's now the Islesford Historical Society's museum, listed on the National Register since 1980.",
+    geologyCaption: "The rock around Hadlock Cove is Silurian-Devonian marine sandstone and slate, grading into gneiss and schist toward the southwest — with some volcanic rock mixed in along this stretch of coast.",
+  },
 };
 
 // Movie narration audio — pre-rendered offline via Piper (same engine used
