@@ -12,6 +12,20 @@
 > deep-dive on the v317–v325 cluster specifically (Focus Target, Simulate
 > Heading); the summaries below start right after that.
 
+## 2026-09-23 — Developer docs
+
+Audited developer documentation for staleness: found `CHANGELOG.md`
+itself 744 commits/4.5 months stale (see the header note above), and
+`RECENT_CHANGES.md` asserting a "current version" 350 versions out of
+date. Fixed both, and corrected `www/developers/index.html`'s
+descriptions of each (it had been overselling both as more current than
+they were). No app version bump — docs only, nothing shipped to users.
+
+**Going forward**: per direct instruction, this file (and any other doc
+whose claims a change makes stale — README.md, SPEC.md, the developers
+page) gets updated as part of the change itself, not as an occasional
+catch-up pass like this one.
+
 ## 2026-09-18 to 2026-09-23 (v649–v676)
 
 **Route movies.** Replaced the old interactive "tap through this tour
