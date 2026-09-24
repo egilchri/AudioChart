@@ -179,3 +179,71 @@ IndexedDB databases were deleted on the real hosted production site in a
 real Chrome profile, without asking first — confirmed after the fact by
 the user to be a disposable testing profile with nothing to recover, but
 this should have been confirmed *before* acting, not after.
+
+---
+
+## 2026-09-23 — v677's "fixed" Crotch Island reroute was never actually verified; ran through 19 real rocks
+
+**Reported by:** user, in conversation. User had reported skull-and-
+crossbones/red-highlighted hazard markers on their saved "Rockland to
+Hadlock Cove (3 overnights)" route, traced to a rock field near Crotch
+Island that the app's own AutoRoute had threaded the route through after
+the user relocated an overnight stop via the Overnight-tag + Reroute UI.
+
+**What shipped as v677:** the connecting legs around the relocated
+overnight (a self-placed search pin, "SP008") were rebuilt and checked
+with `window._debugCheckRouteHazards`, which reported zero hard or soft
+hazard flags. Shipped as fixed, to both the user's live saved route and
+`www/data/curated_routes.json`.
+
+**What was actually true:** the check was worthless. `Query.landBlocks`
+and the hazard corridor checker (`classifyFallbackSeg`) check against
+whichever chart region is active per `Query.getActiveRegion()` — backed
+by `localStorage['audiochart-active-region']` — not whatever region
+actually covers the coordinates being checked. The browser tab used for
+verification had a leftover `casco-bay` active-region setting from
+unrelated earlier work, nowhere near Penobscot Bay. With that region
+active, almost no relevant land/hazard data was loaded, so the checker
+silently reported "zero hazards" regardless of what the route actually
+did. This was not caught before shipping.
+
+**Discovery:** in a later conversation, the user reported a second,
+different land crossing on the same route (a headland on Swans Island).
+Investigating that crossing (independently, against raw NOAA ENC source
+data via GDAL/OGR, not just the app's own derived `land.geojson`)
+surfaced the wrong-active-region problem. Re-running the exact same
+"verified" v677 route through `_debugCheckRouteHazards` with the correct
+region loaded this time returned 19 hard hazards — real charted
+underwater rocks — clustered precisely on the SP008 approach/departure
+legs. The original danger the user first reported had never actually
+been fixed; the route that shipped as a fix ran straight through it.
+
+**Fix (v678):** rebuilt the SP008 legs for real — followed the actual
+charted/buoyed approach channel (Field Ledge, Crotch Island, Moose Island
+Rock, and Peggy's Island Ledge buoys), then threaded the genuinely dense
+ledge field beyond it (Merchant Row area, ~50 charted rocks in a small
+area) via a computed visibility path: a grid/A* search directly over the
+raw charted rock positions, simplified, then re-verified segment by
+segment. This time verified two independent ways: the app's own checker
+with the correct region confirmed loaded first, and directly against raw
+NOAA ENC `UWTROC`/`OBSTRN` source data, bypassing the app's derived
+`hazards.geojson` entirely — minimum clearance 0.051nm, just outside the
+app's own 0.05nm hard-hazard corridor.
+
+**Root cause — not yet fixed:** the active-region mismatch bug itself is
+still live in the app. Any hazard/land check run in a browser whose
+`localStorage` active-region doesn't match the route being checked can
+still silently report false "zero hazards." See
+`feedback_active_region_hazard_check_bug.md` in project memory.
+
+**Secondary finding, not a bug:** the same investigation flagged 5
+segments on the much older, previously-"verified" Rockland→Perry Creek
+leg (shared by 3 other sample routes) as land crossings. Traced to a
+`preprocess/extract_land.py` pipeline artifact — its centroid-based
+chart-scale dedup let a coarse (US2, general/offshore-scale) whole-island
+Vinalhaven outline stand in for a real navigable notch that the actual
+harbor-scale (US5) chart shows clearly as open water. Confirmed via the
+same raw-chart cross-check and left unchanged, since it isn't a real
+hazard — but the pipeline weakness itself (centroid-cell dedup, not
+spatial dedup) is also still live and could produce the same false
+land-crossing flag elsewhere.
