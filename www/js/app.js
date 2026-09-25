@@ -7228,7 +7228,9 @@ function _ensureMap() {
         <td>${escapeHtml(p.title)}</td>
         <td>${escapeHtml(p.painting?.artist || '')}</td>
         <td>${escapeHtml(p.painting?.year || '')}</td>
-        <td>${p.painting?.imageAsset ? `<a href="${p.painting.imageAsset}" target="_blank" rel="noopener">View</a>` : '—'}</td>
+        <td>${p.painting?.imageAsset
+          ? `<a href="${p.painting.imageAsset}" target="_blank" rel="noopener"><img class="paintings-table-thumb" src="${p.painting.imageAsset}" alt="${escapeHtml(p.title)}" loading="lazy"></a>`
+          : '—'}</td>
       </tr>`).join('');
     _paintingsTableOverlay.classList.add('open');
   });

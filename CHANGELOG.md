@@ -12,6 +12,14 @@
 > deep-dive on the v317–v325 cluster specifically (Focus Target, Simulate
 > Heading); the summaries below start right after that.
 
+## 2026-09-25 — Paintings table: thumbnails (v683)
+
+Follow-up to v682's "All Paintings" table: the Image column now shows an
+actual 72px thumbnail of each bundled reproduction, not just a "View"
+text link — still a clickable link straight to the full image in a new
+tab, table stays open. Lazy-loaded so opening the table with all 14
+entries doesn't fetch every image at once.
+
 ## 2026-09-25 — Paintings mode: "All Paintings" table (v682)
 
 Quick, dismissible reference table for Paintings mode — a "📋 List"

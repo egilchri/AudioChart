@@ -1868,7 +1868,7 @@ body.wco-active #wco-titlebar { display: flex; }
   border: 1px solid var(--mid-blue);
   border-radius: 10px;
   padding: 10px 14px 14px;
-  width: min(560px, calc(100vw - 32px));
+  width: min(640px, calc(100vw - 32px));
   max-height: min(560px, calc(100vh - 80px));
   display: flex;
   flex-direction: column;
@@ -1909,6 +1909,15 @@ body.wco-active #wco-titlebar { display: flex; }
   text-decoration: none;
 }
 #paintings-table a:hover { text-decoration: underline; }
+.paintings-table-thumb {
+  display: block;
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid var(--mid-blue);
+}
+.paintings-table-thumb:hover { border-color: var(--accent); }
 
 #rp-close {
   background: none;
