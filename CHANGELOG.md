@@ -12,6 +12,39 @@
 > deep-dive on the v317–v325 cluster specifically (Focus Target, Simulate
 > Heading); the summaries below start right after that.
 
+## 2026-09-25 — land.geojson dedup-pipeline fix (script only) + a real snap-point bug (v680)
+
+Follow-up to v678's Perry Creek/Vinalhaven false land-crossing flag (a
+`preprocess/extract_land.py` bug: centroid-based dedup let a coarse
+whole-island chart outline stand in for a real navigable notch a
+harbor-scale chart shows as open water). Rewrote the script's dedup to
+clip each chart tier's LNDARE polygons against a union of every finer
+tier's own official M_COVR chart-coverage footprint (the same mechanism
+real ECDIS software uses to compile overlapping multi-scale charts),
+verified correct against the raw NOAA ENC source data directly.
+
+**Not yet shipped as data**: running the fixed script over the full
+coast produces genuinely more accurate land geometry (e.g. North Haven's
+landmass goes from 83 to 272 vertices — far more real detail, not just a
+different simplification), but that extra detail exposed a real gap in
+the router's pathfinding around tight, real harbor entrances — 4
+previously-solid routes (Fox Islands Thorofare, North Haven→Stonington,
+Portsmouth→Bar Harbor, Rockland→Isle au Haut) started failing against it.
+That's core A*/visibility-graph work, out of scope for this pass — the
+corrected script ships now, documented and tested on its own, but
+`www/data/land.geojson` itself stays as-is (original artifact still
+present) until the router side gets its own dedicated pass.
+
+**A real bug found and fixed along the way, shipped now regardless**:
+`Query.snapToNavigableWater`'s "move a too-shallow/on-land point to the
+nearest clear water" search picked the *first* clear point found, with
+no check that it was actually reachable from — a point can be real,
+charted, obstacle-free water and still sit in a small, mostly-enclosed
+pocket that leaves the router with no escape route. Now prefers a
+candidate that stays clear a bit further out along the same bearing too,
+falling back to the old behavior if nothing better is found. Verified
+against the full router/hazard/query test suites — zero regressions.
+
 ## 2026-09-24 — Fix the active-region hazard-checker bug itself (v679)
 
 Follow-up to v678 below: that entry found but didn't fix the root cause —

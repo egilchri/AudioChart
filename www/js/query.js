@@ -972,21 +972,47 @@ function _makeObstacleCheck(centerLon, centerLat, maxNm, draftFt, tideHeightM) {
   };
 }
 
-// Expanding-ring probe for "any nearby clear point" — used only to nudge a
+// Expanding-ring probe for "any nearby clear point" — used to nudge a
 // findClearOffshorePoint seed that's wet but obstacle-blocked (see its own
-// call site's comment). Not globally-nearest (first clear angle found at
-// the first clear radius wins), which is fine here: this just needs a
-// valid anchor for the real directional search that follows, not the
-// final answer itself.
+// call site's comment), AND as snapToNavigableWater's own mover for a
+// too-shallow/on-land start or end point.
+//
+// Real bug found live (2026-09-24, while testing a still-pending
+// preprocess/extract_land.py dedup fix — see that script's own header):
+// the first-clear-ray-wins behavior can pick a point that's technically
+// clear right there but sits in a small, mostly-enclosed pocket among
+// nearby islands — locally valid, but leaving the router's A* with no
+// escape within its search budget. A more accurate land dataset (less
+// duplicate-polygon bloat) let the search land closer to shore instead of
+// being forced further out into genuinely open water first, and that
+// closer point turned out to be a trap. A point can be real, charted,
+// obstacle-free water and still be a bad place to hand the router a route
+// from — worth this fix regardless of when the land-data rebuild itself
+// ships.
+//
+// Fixed by preferring a candidate that stays clear a bit further out
+// along the SAME bearing too (FORWARD_CHECK_NM) — cheap enough to check
+// on every candidate (one extra isBlocked call), and it's exactly the
+// "is this actually an escape route, not just a clear spot" signal a full
+// graph-connectivity check would answer at far higher cost. Falls back to
+// the plain first-clear-point behavior if nothing at any radius passes
+// the stricter test, so this never returns null where the old code
+// wouldn't have.
 function _nearestClearPoint(lon, lat, isBlocked, maxNm) {
   const RING_STEP_NM = 0.05, RAYS = 16;
+  const FORWARD_CHECK_NM = 0.2;
+  let firstAnyClear = null;
   for (let d = RING_STEP_NM; d <= maxNm; d += RING_STEP_NM) {
     for (let i = 0; i < RAYS; i++) {
-      const p = offsetCoords(lat, lon, (360 / RAYS) * i, d);
-      if (!isBlocked(p.lon, p.lat)) return p;
+      const brg = (360 / RAYS) * i;
+      const p = offsetCoords(lat, lon, brg, d);
+      if (isBlocked(p.lon, p.lat)) continue;
+      if (!firstAnyClear) firstAnyClear = p;
+      const further = offsetCoords(lat, lon, brg, d + FORWARD_CHECK_NM);
+      if (!isBlocked(further.lon, further.lat)) return p;
     }
   }
-  return null;
+  return firstAnyClear;
 }
 
 /**
