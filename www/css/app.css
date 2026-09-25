@@ -1848,6 +1848,68 @@ body.wco-active #wco-titlebar { display: flex; }
   cursor: pointer;
 }
 
+/* Same modal tier/backdrop-dismiss convention as #coverage-alert-overlay
+   just above, but the panel itself stops click propagation (see
+   paintings-table-panel's own listener in app.js) since its rows hold
+   real links that need a normal click, not a dismiss. */
+#paintings-table-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  background: rgba(0, 0, 0, 0.6);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+#paintings-table-overlay.open { display: flex; }
+#paintings-table-panel {
+  background: var(--dark-blue);
+  border: 1px solid var(--mid-blue);
+  border-radius: 10px;
+  padding: 10px 14px 14px;
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(560px, calc(100vh - 80px));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.8);
+  cursor: default;
+}
+#paintings-table-scroll {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+#paintings-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  color: var(--text);
+}
+#paintings-table th {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--mid-blue);
+  color: var(--muted, #8899aa);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  position: sticky;
+  top: 0;
+  background: var(--dark-blue);
+}
+#paintings-table td {
+  padding: 7px 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  vertical-align: top;
+}
+#paintings-table tr:last-child td { border-bottom: none; }
+#paintings-table a {
+  color: var(--accent);
+  text-decoration: none;
+}
+#paintings-table a:hover { text-decoration: underline; }
+
 #rp-close {
   background: none;
   border: none;

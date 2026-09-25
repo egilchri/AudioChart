@@ -6824,6 +6824,7 @@ function _applyMapLayer() {
   _renderAllIslandLabels();
   _renderPassageLabels();
   document.getElementById('history-era-banner').style.display = _mapViewMode === 'history' ? 'flex' : 'none';
+  document.getElementById('paintings-list-btn').style.display = _mapViewMode === 'paintings' ? '' : 'none';
   _syncMapModeTitle();
 }
 
@@ -7201,6 +7202,35 @@ function _ensureMap() {
   document.getElementById('map-version-label').addEventListener('click', (e) => {
     e.stopPropagation();
     _showAboutPanel();
+  });
+
+  // 📋 Paintings table — quick reference for Paintings mode: every entry
+  // at a glance with a direct link to its bundled image. Button itself is
+  // shown/hidden per-mode in _applyMapLayer, same convention as
+  // #history-era-banner. Backdrop click dismisses it (matches every other
+  // modal here), but a click on the panel itself is stopped from bubbling
+  // first — unlike #coverage-alert-panel, this one holds real links that
+  // need a normal click, not "anywhere dismisses."
+  const _paintingsTableBtn     = document.getElementById('paintings-list-btn');
+  const _paintingsTableOverlay = document.getElementById('paintings-table-overlay');
+  const _paintingsTablePanel   = document.getElementById('paintings-table-panel');
+  const _closePaintingsTable   = () => _paintingsTableOverlay.classList.remove('open');
+  _paintingsTablePanel.addEventListener('click', (e) => e.stopPropagation());
+  _paintingsTableOverlay.addEventListener('click', _closePaintingsTable);
+  document.getElementById('paintings-table-close').addEventListener('click', _closePaintingsTable);
+  _paintingsTableBtn.addEventListener('click', () => {
+    const rows = _documents
+      .filter(f => f.properties.category === 'paintings')
+      .map(f => f.properties)
+      .sort((a, b) => a.title.localeCompare(b.title));
+    document.getElementById('paintings-table-body').innerHTML = rows.map(p => `
+      <tr>
+        <td>${escapeHtml(p.title)}</td>
+        <td>${escapeHtml(p.painting?.artist || '')}</td>
+        <td>${escapeHtml(p.painting?.year || '')}</td>
+        <td>${p.painting?.imageAsset ? `<a href="${p.painting.imageAsset}" target="_blank" rel="noopener">View</a>` : '—'}</td>
+      </tr>`).join('');
+    _paintingsTableOverlay.classList.add('open');
   });
 
   // ✒ Route picker panel

@@ -12,6 +12,17 @@
 > deep-dive on the v317–v325 cluster specifically (Focus Target, Simulate
 > Heading); the summaries below start right after that.
 
+## 2026-09-25 — Paintings mode: "All Paintings" table (v682)
+
+Quick, dismissible reference table for Paintings mode — a "📋 List"
+button appears next to Routes/Tracks/Samples only while in that mode,
+opening a modal table of every entry (title, artist, year) with a
+direct link to each one's bundled image. Clicking the dimmed backdrop
+outside the table closes it, same convention as every other modal in
+the app; clicking a link inside it doesn't (rows stop the click from
+bubbling to the backdrop). Framed as a "for now" quick add — a fuller
+per-entry-marker experience already exists via the map itself.
+
 ## 2026-09-25 — Three more Penobscot Bay paintings (v681)
 
 Iconic Painting mode: added three more Fitz Henry Lane works depicting
