@@ -129,6 +129,7 @@ html, body {
 
 .status-badge.rp-hazard-hard { background: #4a1a1a; color: var(--danger); }
 .status-badge.rp-hazard-soft { background: #4a2a00; color: var(--warn); }
+.status-badge.rp-hazard-unverified { background: #4a2a00; color: var(--warn); }
 
 /* Offline prep, location + screen menu triggers in header. #search-btn,
    #route-picker-btn, #track-picker-btn, and #sample-routes-btn share this

@@ -1135,6 +1135,25 @@ async function _longRangeRoute(start, end, onUpdate, onText, draftFt, tideHeight
 // what's really blocking it.
 const _FALLBACK_HAZARD_LABELS = new Set(['underwater rock', 'obstruction', 'wreck', 'UWTROC', 'OBSTRN', 'WRECKS']);
 const _FALLBACK_HAZARD_CORRIDOR_NM = 0.05; // matches HAZARD_SAFETY_NM in _autoRouteProg
+
+// Ranks Query.coverageLevelAt's tri-state so the worse of two endpoints wins.
+const _COVERAGE_RANK = { none: 0, land: 1, core: 2 };
+function _worseCoverage(a, b) { return _COVERAGE_RANK[a] <= _COVERAGE_RANK[b] ? a : b; }
+
+// crossesLand/crossesHazard both silently read whatever land/hazard data
+// happens to be loaded for Query's *currently active region* — if that
+// region doesn't actually cover (a, b) (the classic case: a browser's
+// leftover active-region localStorage value from unrelated earlier work),
+// both checks see little or no data and report "clear" no matter what the
+// real segment does. This produced a real, shipped false "verified safe"
+// route (see INCIDENTS.md, 2026-09-23) that in fact ran through 19 charted
+// rocks. `coverage` surfaces that risk instead of hiding it: 'core' means
+// both endpoints have real hazard/navaid/land data nearby and the result
+// above can be trusted; 'land' means only land-avoidance geometry is
+// present (crossesLand is meaningful, crossesHazard is NOT — there's no
+// hazard data to have checked it against); 'none' means neither result
+// means anything. Callers that skip checking this field keep their old
+// (unsafe) behavior unchanged — this is additive, not a breaking change.
 export function classifyFallbackSeg(a, b) {
   const crossesLand = Query.landBlocks(a.lon, a.lat, b.lon, b.lat);
   const segLenNm = Query.distanceNm(a.lon, a.lat, b.lon, b.lat);
@@ -1151,5 +1170,6 @@ export function classifyFallbackSeg(a, b) {
       break;
     }
   }
-  return { crossesLand, crossesHazard };
+  const coverage = _worseCoverage(Query.coverageLevelAt(a.lon, a.lat), Query.coverageLevelAt(b.lon, b.lat));
+  return { crossesLand, crossesHazard, coverage };
 }

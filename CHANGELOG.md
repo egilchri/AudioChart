@@ -12,6 +12,33 @@
 > deep-dive on the v317–v325 cluster specifically (Focus Target, Simulate
 > Heading); the summaries below start right after that.
 
+## 2026-09-24 — Fix the active-region hazard-checker bug itself (v679)
+
+Follow-up to v678 below: that entry found but didn't fix the root cause —
+`Query.landBlocks`, `Router.classifyFallbackSeg`, and the route hazard
+checker (`_findRouteHazards`/`_checkRouteHazards`, behind the "0 hazards"
+popup and the routes panel's hazard badges) all silently check whatever
+chart region happens to be active, with no signal when that region
+doesn't actually cover the route being checked. Added coverage awareness
+using the app's own existing `Query.coverageLevelAt` (already used to
+gate the live AutoRoute/Reroute buttons, just never wired into these):
+`classifyFallbackSeg` now returns a `coverage` field ('core'/'land'/
+'none'), and `_findRouteHazards`'s result carries a `.coverage` summary
+across the whole route. When coverage isn't 'core', `_checkRouteHazards`
+now says so explicitly — "couldn't check for hazards, no chart data
+loaded for this area" — instead of silently reporting all-clear, and
+does so regardless of the `silent` flag used for routine auto-checks,
+same reasoning as the existing AutoRoute coverage gate: an unverified
+route is a safety issue, not a cosmetic one. The routes panel now shows
+a "? unverified" badge on any route with no hazard badges whose coverage
+wasn't actually 'core', so a clean-looking row can't be mistaken for a
+checked one. Verified live against the exact failure this replaces:
+before the fix, switching the active region away from a route's real
+area made a route with 3 real charted rocks report 0 hazards; after,
+it reports coverage 'none' and refuses to claim it's clear. Confirmed
+against the existing router/hazard/query test suites (all passing) and
+manually reproduced/fixed live in a local build before shipping.
+
 ## 2026-09-23 — A real hazard-checker bug, and the rock field it was hiding (v678)
 
 Follow-up to v677 below: user flagged a specific land crossing on that same

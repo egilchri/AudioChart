@@ -2188,6 +2188,28 @@ function _depthRangeLabelFt(depthLabel) {
   return `${toFt(m[1])}-${toFt(m[2])} ft`;
 }
 
+// Ranks Query.coverageLevelAt's tri-state so the worst point along the
+// route wins — see the matching comment on Router.classifyFallbackSeg.
+const _ROUTE_COVERAGE_RANK = { none: 0, land: 1, core: 2 };
+
+// Whether real hazard data actually exists for this route's area, under
+// whatever region Query currently has loaded. A route whose points fall
+// outside 'core' coverage (wrong/no active region, data not yet
+// downloaded) makes _findRouteHazards' "0 found" result meaningless — it
+// isn't that the route is safe, it's that there was nothing to check
+// against. See INCIDENTS.md, 2026-09-23: this exact gap let a route
+// "verified" as zero-hazard actually ship running through 19 charted
+// rocks, because the check silently ran against the wrong active region.
+function _routeCoverageLevel(points) {
+  let worst = 'core';
+  for (const p of points) {
+    const level = Query.coverageLevelAt(p.lon, p.lat);
+    if (_ROUTE_COVERAGE_RANK[level] < _ROUTE_COVERAGE_RANK[worst]) worst = level;
+    if (worst === 'none') break;
+  }
+  return worst;
+}
+
 function _findRouteHazards(points) {
   const pts   = points;
   const feats = Query.hazards?.features || [];
@@ -2196,6 +2218,7 @@ function _findRouteHazards(points) {
   const seen = new Set();
   const found = [];
   const dangerSegments = new Set(); // segment indices that have a nearby hazard
+  const coverage = _routeCoverageLevel(pts);
 
   const SHALLOW_THRESHOLD = 2.0; // nm depth — flag DEPARE polygons shallower than this
   let distSoFar = 0;
@@ -2278,7 +2301,7 @@ function _findRouteHazards(points) {
     distSoFar += segLen;
   }
   found.sort((a, b) => a.routeNm - b.routeNm);
-  return { found, dangerSegments };
+  return { found, dangerSegments, coverage };
 }
 
 // Cache of _findRouteHazards results for the routes panel's hazard badges,
@@ -2293,7 +2316,9 @@ function _getRouteHazards(route) {
   const key = _routeHazardCacheKey(route);
   let found = _routeHazardCountCache.get(key);
   if (found === undefined) {
-    found = _findRouteHazards(route.points).found;
+    const result = _findRouteHazards(route.points);
+    found = result.found;
+    found.coverage = result.coverage; // see _checkRouteHazards — badge rendering reads this too
     _routeHazardCountCache.set(key, found);
   }
   return found;
@@ -2343,7 +2368,8 @@ function _checkRouteHazards(routeIdx, silent = false) {
   const route  = routes[routeIdx];
   if (!route) return [];
   const pts = route.points;
-  const { found, dangerSegments } = _findRouteHazards(pts);
+  const { found, dangerSegments, coverage } = _findRouteHazards(pts);
+  found.coverage = coverage; // inspectable by callers (incl. window._debugCheckRouteHazards) without changing found's array shape
 
   if (_hazardCheckLayer) _hazardCheckLayer.clearLayers();
   _hazardCheckLayer = L.layerGroup().addTo(_map);
@@ -2390,6 +2416,27 @@ function _checkRouteHazards(routeIdx, silent = false) {
   }
 
   if (found.length === 0) {
+    // 'core' coverage means real hazard data actually exists for this
+    // route's whole length under whatever region is currently loaded — a
+    // "0 found" result can only be trusted at that level. Anything less
+    // (wrong/no active region, data not yet downloaded) means there was
+    // nothing to check against, not that the route is safe: say so loudly,
+    // regardless of `silent` — the same "an unverified route is a safety
+    // issue, not a cosmetic one" reasoning as _blockedByCoverage's refusal
+    // to auto-route into uncovered water. See INCIDENTS.md, 2026-09-23.
+    if (coverage !== 'core') {
+      const msg = coverage === 'none'
+        ? `${route.name}: couldn't check for hazards — no chart data loaded for this area (region may need switching or downloading).`
+        : `${route.name}: couldn't fully check for hazards — only land-avoidance data is loaded for this area, not rock/obstruction/wreck data.`;
+      const mid = pts[Math.floor((pts.length - 1) / 2)];
+      L.popup({ maxWidth: 300, autoPan: false })
+        .setLatLng([mid.lat, mid.lon])
+        .setContent(`<div style="font-size:13px;line-height:1.5"><b>${escapeHtml(route.name)}</b><br>⚠ ${escapeHtml(msg.slice(route.name.length + 2))}</div>`)
+        .openOn(_map);
+      setStatus(msg);
+      TTS.sayImmediate(msg);
+      return found;
+    }
     if (!silent) {
       const mid = pts[Math.floor((pts.length - 1) / 2)];
       L.popup({ maxWidth: 300, autoPan: false })
@@ -7321,9 +7368,25 @@ function _ensureMap() {
         // routes. _warmRouteHazardCache backfills misses in the
         // background and re-renders once it has; a row just shows no
         // badge for the moment it isn't cached yet.
-        const hazFound = _getRouteHazardsCached(route) || [];
+        const hazFoundRaw = _getRouteHazardsCached(route);
+        const hazFound = hazFoundRaw || [];
         const hardCount = hazFound.filter(h => h.kind === 'hard').length;
         const softCount = hazFound.length - hardCount;
+        // A cached result with no hard/soft badges could mean "genuinely
+        // clean" or "nothing was actually checked" (wrong/no active
+        // region for this route's area — see _checkRouteHazards). Absence
+        // of a hazard badge here used to read as "verified safe" either
+        // way; flag the second case explicitly instead of leaving it
+        // indistinguishable from the first. See INCIDENTS.md, 2026-09-23.
+        if (hardCount === 0 && softCount === 0 && hazFoundRaw && hazFoundRaw.coverage && hazFoundRaw.coverage !== 'core') {
+          const badge = document.createElement('span');
+          badge.className = 'status-badge rp-hazard-unverified';
+          badge.textContent = '? unverified';
+          badge.title = hazFoundRaw.coverage === 'none'
+            ? 'No chart data is loaded for this route’s area — hazards were not actually checked'
+            : 'Only land-avoidance data is loaded for this route’s area — rock/obstruction/wreck hazards were not actually checked';
+          nameLine.appendChild(badge);
+        }
         if (hardCount > 0) {
           const badge = document.createElement('span');
           badge.className = 'status-badge rp-hazard-hard';
