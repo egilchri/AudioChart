@@ -12,6 +12,26 @@
 > deep-dive on the v317–v325 cluster specifically (Focus Target, Simulate
 > Heading); the summaries below start right after that.
 
+## 2026-09-25 — Three more Penobscot Bay paintings (v681)
+
+Iconic Painting mode: added three more Fitz Henry Lane works depicting
+Penobscot Bay proper, nearly doubling the count of paintings actually
+set on the bay itself (Owl's Head + the original Castine + the two
+Camden views → adds two more Castine views plus a Penobscot River-mouth
+scene). *Castine Harbor* (1852, Portland Museum of Art) — fishermen
+unloading catch on a rocky island with Dice Head Light beyond. *Castine,
+Maine* (1856, Museum of Fine Arts Boston, aka "Castine from Fort
+George") — a wide hilltop view down over the harbor town. *Lumber
+Schooners at Evening on Penobscot Bay* (1863, National Gallery of Art)
+— two schooners becalmed at dusk near the mouth of the Penobscot River.
+All three verified public domain (CC0/PD-old, confirmed via Wikimedia
+Commons license metadata, not just the museum page) with real bundled
+images, same policy as every other entry in this mode. Sourced from the
+Fitz Henry Lane Online catalogue raisonné; a fourth candidate (Farnsworth
+Art Museum's "Owl's Head Light, Rockland") was found and well-documented
+but has no legally available image anywhere, so left out under the
+mode's image-required rule.
+
 ## 2026-09-25 — land.geojson dedup-pipeline fix (script only) + a real snap-point bug (v680)
 
 Follow-up to v678's Perry Creek/Vinalhaven false land-crossing flag (a

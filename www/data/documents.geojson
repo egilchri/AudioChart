@@ -6,7 +6,13 @@
   "features": [
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.2627675, 44.2493428] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.2627675,
+          44.2493428
+        ]
+      },
       "properties": {
         "title": "The Cranberry Island Series",
         "category": "geology",
@@ -17,7 +23,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.25040954893493, 44.24790442040619] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.25040954893493,
+          44.24790442040619
+        ]
+      },
       "properties": {
         "title": "Volcanic tuff, west shore",
         "category": "geology",
@@ -28,7 +40,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.22871540911265, 44.2600897165687] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.22871540911265,
+          44.2600897165687
+        ]
+      },
       "properties": {
         "title": "Old lava flows, north-side ledges",
         "category": "geology",
@@ -39,7 +57,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.2963998, 44.251223] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.2963998,
+          44.251223
+        ]
+      },
       "properties": {
         "title": "Volcanic tuff, Seawall picnic area",
         "category": "geology",
@@ -50,7 +74,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.892514, 44.111164] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.892514,
+          44.111164
+        ]
+      },
       "properties": {
         "title": "Ancient Volcanic Rocks of the Vinalhaven Rhyolite",
         "category": "geology",
@@ -61,7 +91,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.655833, 44.016111] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.655833,
+          44.016111
+        ]
+      },
       "properties": {
         "title": "Supervolcano-scale eruptions at Western Head",
         "category": "geology",
@@ -72,7 +108,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-69.068083, 44.220944] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -69.068083,
+          44.220944
+        ]
+      },
       "properties": {
         "title": "The Battie Quartzite",
         "category": "geology",
@@ -83,7 +125,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-69.149722, 44.231667] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -69.149722,
+          44.231667
+        ]
+      },
       "properties": {
         "title": "The Megunticook Formation along Bald Mountain",
         "category": "geology",
@@ -94,7 +142,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-69.097767, 44.0385] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -69.097767,
+          44.0385
+        ]
+      },
       "properties": {
         "title": "The Spruce Head granite pluton",
         "category": "geology",
@@ -105,7 +159,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-69.182333, 43.989833] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -69.182333,
+          43.989833
+        ]
+      },
       "properties": {
         "title": "Granite, quarries, and an immigrant village",
         "category": "geology",
@@ -116,7 +176,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.942864, 44.281331] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.942864,
+          44.281331
+        ]
+      },
       "properties": {
         "title": "The Islesboro Formation",
         "category": "geology",
@@ -127,7 +193,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.536667, 44.286111] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.536667,
+          44.286111
+        ]
+      },
       "properties": {
         "title": "Two volcanoes, one collision, one ocean opening",
         "category": "geology",
@@ -138,7 +210,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.702, 44.285] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.702,
+          44.285
+        ]
+      },
       "properties": {
         "title": "A sliver of Earth's mantle",
         "category": "geology",
@@ -149,7 +227,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-69.076097, 44.184483] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -69.076097,
+          44.184483
+        ]
+      },
       "properties": {
         "title": "Lime kilns and glacial grooves",
         "category": "geology",
@@ -160,7 +244,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.639753, 44.175353] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.639753,
+          44.175353
+        ]
+      },
       "properties": {
         "title": "The Deer Isle granite pluton",
         "category": "geology",
@@ -171,7 +261,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-69.193419, 44.07645] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -69.193419,
+          44.07645
+        ]
+      },
       "properties": {
         "title": "A microcontinent collision, folded into stone",
         "category": "geology",
@@ -182,7 +278,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.925022, 44.186567] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.925022,
+          44.186567
+        ]
+      },
       "properties": {
         "title": "A submarine canyon was the ancestral Penobscot River",
         "category": "geology",
@@ -193,7 +295,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-69.090039, 44.119008] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -69.090039,
+          44.119008
+        ]
+      },
       "properties": {
         "title": "The 1996 Rockland landslide",
         "category": "geology",
@@ -204,7 +312,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.964917, 44.411392] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.964917,
+          44.411392
+        ]
+      },
       "properties": {
         "title": "Possibly the largest pockmarks in the world",
         "category": "geology",
@@ -215,7 +329,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-69.260778, 43.917797] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -69.260778,
+          43.917797
+        ]
+      },
       "properties": {
         "title": "Slump-folded mud beneath the lighthouse",
         "category": "geology",
@@ -226,7 +346,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.943642, 44.433106] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.943642,
+          44.433106
+        ]
+      },
       "properties": {
         "title": "Glacial striations and the Ice Age's last mile",
         "category": "geology",
@@ -237,7 +363,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.881278, 44.444917] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.881278,
+          44.444917
+        ]
+      },
       "properties": {
         "title": "The Penobscot Formation and a glacial beach",
         "category": "geology",
@@ -248,7 +380,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-69.021222, 44.440306] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -69.021222,
+          44.440306
+        ]
+      },
       "properties": {
         "title": "Five rock formations along the old rail bed",
         "category": "geology",
@@ -259,7 +397,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.81278, 44.46806] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.81278,
+          44.46806
+        ]
+      },
       "properties": {
         "title": "Champlain sails into the bay",
         "category": "history",
@@ -271,7 +415,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.81278, 44.46806] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.81278,
+          44.46806
+        ]
+      },
       "properties": {
         "title": "Fort Pownall, built to hold the frontier",
         "category": "history",
@@ -283,7 +433,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.80556, 44.39083] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.80556,
+          44.39083
+        ]
+      },
       "properties": {
         "title": "The Penobscot Expedition — America's forgotten naval disaster",
         "category": "history",
@@ -295,7 +451,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.89083, 44.035] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.89083,
+          44.035
+        ]
+      },
       "properties": {
         "title": "The island town that vanished overnight",
         "category": "history",
@@ -307,7 +469,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.90833, 44.47278] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.90833,
+          44.47278
+        ]
+      },
       "properties": {
         "title": "One-tenth of America's deep-water captains",
         "category": "history",
@@ -319,7 +487,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-69.11, 44.24306] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -69.11,
+          44.24306
+        ]
+      },
       "properties": {
         "title": "From cargo schooners to the Windjammer Capital of the World",
         "category": "history",
@@ -331,15 +505,36 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.8378, 44.0334] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.8378,
+          44.0334
+        ]
+      },
       "properties": {
         "title": "Vinalhaven",
         "category": "demographics",
         "place": "Vinalhaven, Maine",
         "demographics": {
-          "population": { "value": 1279, "year": 2020 },
-          "medianAge": { "value": null, "year": null },
-          "ageBrackets": { "year": 2010, "brackets": { "Under 18": 19.5, "18-24": 7, "25-44": 23.4, "45-64": 33.6, "65+": 16.7 } },
+          "population": {
+            "value": 1279,
+            "year": 2020
+          },
+          "medianAge": {
+            "value": null,
+            "year": null
+          },
+          "ageBrackets": {
+            "year": 2010,
+            "brackets": {
+              "Under 18": 19.5,
+              "18-24": 7,
+              "25-44": 23.4,
+              "45-64": 33.6,
+              "65+": 16.7
+            }
+          },
           "seasonal": "Wikipedia describes Vinalhaven as hosting a summer colony, but no quantitative seasonal population figure is documented."
         },
         "source": "U.S. Census Bureau (2020 population) via Wikipedia — Vinalhaven, Maine (age distribution is 2010 Census, the most recent published for this town)"
@@ -347,14 +542,26 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.8801, 44.1301] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.8801,
+          44.1301
+        ]
+      },
       "properties": {
         "title": "North Haven",
         "category": "demographics",
         "place": "North Haven, Maine",
         "demographics": {
-          "population": { "value": 417, "year": 2020 },
-          "medianAge": { "value": 44.5, "year": 2010 },
+          "population": {
+            "value": 417,
+            "year": 2020
+          },
+          "medianAge": {
+            "value": 44.5,
+            "year": 2010
+          },
           "ageBrackets": null,
           "seasonal": "Described on Wikipedia as both a year-round island community and a prominent summer colony that has drawn affluent seasonal residents since the 1880s; no quantitative seasonal population figure is documented."
         },
@@ -363,14 +570,26 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.6534, 44.0664] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.6534,
+          44.0664
+        ]
+      },
       "properties": {
         "title": "Isle au Haut",
         "category": "demographics",
         "place": "Isle au Haut, Maine",
         "demographics": {
-          "population": { "value": 92, "year": 2020 },
-          "medianAge": { "value": 49.5, "year": 2010 },
+          "population": {
+            "value": 92,
+            "year": 2020
+          },
+          "medianAge": {
+            "value": 49.5,
+            "year": 2010
+          },
           "ageBrackets": null,
           "seasonal": "Wikipedia states that vacation houses \"more than double Isle au Haut's population during the summer\" — smaller in number than the nearby summer colonies of North Haven, Vinalhaven, and Mount Desert Island, but a real, documented seasonal swing rather than an exact figure."
         },
@@ -379,14 +598,26 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.6708, 44.1487] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.6708,
+          44.1487
+        ]
+      },
       "properties": {
         "title": "Stonington",
         "category": "demographics",
         "place": "Stonington, Maine",
         "demographics": {
-          "population": { "value": 1056, "year": 2020 },
-          "medianAge": { "value": 50.7, "year": 2010 },
+          "population": {
+            "value": 1056,
+            "year": 2020
+          },
+          "medianAge": {
+            "value": 50.7,
+            "year": 2010
+          },
           "ageBrackets": null,
           "seasonal": null
         },
@@ -395,14 +626,26 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.9106, 44.2946] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.9106,
+          44.2946
+        ]
+      },
       "properties": {
         "title": "Islesboro",
         "category": "demographics",
         "place": "Islesboro, Maine",
         "demographics": {
-          "population": { "value": 583, "year": 2020 },
-          "medianAge": { "value": 52.1, "year": 2010 },
+          "population": {
+            "value": 583,
+            "year": 2020
+          },
+          "medianAge": {
+            "value": 52.1,
+            "year": 2010
+          },
           "ageBrackets": null,
           "seasonal": "Wikipedia calls Islesboro \"an upper-class enclave and summer colony,\" but gives no quantitative comparison between summer and year-round population."
         },
@@ -411,14 +654,26 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-69.0648, 44.2098] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -69.0648,
+          44.2098
+        ]
+      },
       "properties": {
         "title": "Camden",
         "category": "demographics",
         "place": "Camden, Maine",
         "demographics": {
-          "population": { "value": 5232, "year": 2020 },
-          "medianAge": { "value": 53.2, "year": 2010 },
+          "population": {
+            "value": 5232,
+            "year": 2020
+          },
+          "medianAge": {
+            "value": 53.2,
+            "year": 2010
+          },
           "ageBrackets": null,
           "seasonal": "Camden has drawn wealthy seasonal residents since the 1880s per Wikipedia's account of its history as a summer colony, but no quantitative seasonal population figure is documented for the present day."
         },
@@ -427,14 +682,26 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.6789, 44.2223] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.6789,
+          44.2223
+        ]
+      },
       "properties": {
         "title": "Deer Isle",
         "category": "demographics",
         "place": "Deer Isle, Maine",
         "demographics": {
-          "population": { "value": 2194, "year": 2020 },
-          "medianAge": { "value": 51.6, "year": 2010 },
+          "population": {
+            "value": 2194,
+            "year": 2020
+          },
+          "medianAge": {
+            "value": 51.6,
+            "year": 2010
+          },
           "ageBrackets": null,
           "seasonal": null
         },
@@ -443,15 +710,36 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.925, 44.46] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.925,
+          44.46
+        ]
+      },
       "properties": {
         "title": "Searsport",
         "category": "demographics",
         "place": "Searsport, Maine",
         "demographics": {
-          "population": { "value": 2649, "year": 2020 },
-          "medianAge": { "value": 46.9, "year": 2010 },
-          "ageBrackets": { "year": 2010, "brackets": { "Under 18": 19, "18-24": 6.5, "25-44": 22.2, "45-64": 33.5, "65+": 19 } },
+          "population": {
+            "value": 2649,
+            "year": 2020
+          },
+          "medianAge": {
+            "value": 46.9,
+            "year": 2010
+          },
+          "ageBrackets": {
+            "year": 2010,
+            "brackets": {
+              "Under 18": 19,
+              "18-24": 6.5,
+              "25-44": 22.2,
+              "45-64": 33.5,
+              "65+": 19
+            }
+          },
           "seasonal": null
         },
         "source": "U.S. Census Bureau (2020 population) via Wikipedia — Searsport, Maine (age distribution is 2010 Census, the most recent published for this town)"
@@ -459,14 +747,26 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.7995, 44.3901] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.7995,
+          44.3901
+        ]
+      },
       "properties": {
         "title": "Castine",
         "category": "demographics",
         "place": "Castine, Maine",
         "demographics": {
-          "population": { "value": 1320, "year": 2020 },
-          "medianAge": { "value": 22.2, "year": 2010 },
+          "population": {
+            "value": 1320,
+            "year": 2020
+          },
+          "medianAge": {
+            "value": 22.2,
+            "year": 2010
+          },
           "ageBrackets": null,
           "seasonal": "By the 1870s Castine had become a \"flourishing summer colony\" per Wikipedia, though no quantitative seasonal figure is documented for today. Note: the 2010 median age (22.2) is heavily skewed young by Maine Maritime Academy's resident student population, not representative of the year-round community by itself."
         },
@@ -475,15 +775,33 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-69.1089, 44.1034] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -69.1089,
+          44.1034
+        ]
+      },
       "properties": {
         "title": "Rockland",
         "category": "demographics",
         "place": "Rockland, Maine",
         "demographics": {
-          "population": { "value": 6936, "year": 2020 },
-          "medianAge": { "value": 47.9, "year": 2020 },
-          "ageBrackets": { "year": 2020, "brackets": { "Under 18": 15.3, "65+": 26.3 } },
+          "population": {
+            "value": 6936,
+            "year": 2020
+          },
+          "medianAge": {
+            "value": 47.9,
+            "year": 2020
+          },
+          "ageBrackets": {
+            "year": 2020,
+            "brackets": {
+              "Under 18": 15.3,
+              "65+": 26.3
+            }
+          },
           "seasonal": null
         },
         "source": "U.S. Census Bureau, 2020 Census via Wikipedia — Rockland, Maine"
@@ -491,14 +809,26 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-69.1918186, 44.0199826] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -69.1918186,
+          44.0199826
+        ]
+      },
       "properties": {
         "title": "St. George",
         "category": "demographics",
         "place": "St. George, Maine",
         "demographics": {
-          "population": { "value": 2594, "year": 2020 },
-          "medianAge": { "value": 51.7, "year": 2010 },
+          "population": {
+            "value": 2594,
+            "year": 2020
+          },
+          "medianAge": {
+            "value": 51.7,
+            "year": 2010
+          },
           "ageBrackets": null,
           "seasonal": null
         },
@@ -507,15 +837,33 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-69.0067, 44.4259] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -69.0067,
+          44.4259
+        ]
+      },
       "properties": {
         "title": "Belfast",
         "category": "demographics",
         "place": "Belfast, Maine",
         "demographics": {
-          "population": { "value": 6938, "year": 2020 },
-          "medianAge": { "value": 52.1, "year": 2020 },
-          "ageBrackets": { "year": 2020, "brackets": { "Under 18": 16.8, "65+": 31.6 } },
+          "population": {
+            "value": 6938,
+            "year": 2020
+          },
+          "medianAge": {
+            "value": 52.1,
+            "year": 2020
+          },
+          "ageBrackets": {
+            "year": 2020,
+            "brackets": {
+              "Under 18": 16.8,
+              "65+": 31.6
+            }
+          },
           "seasonal": null
         },
         "source": "U.S. Census Bureau, 2020 Census via Wikipedia — Belfast, Maine"
@@ -523,14 +871,26 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.255, 44.249] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.255,
+          44.249
+        ]
+      },
       "properties": {
         "title": "Cranberry Isles",
         "category": "demographics",
         "place": "Cranberry Isles, Maine",
         "demographics": {
-          "population": { "value": 160, "year": 2020 },
-          "medianAge": { "value": 47.7, "year": 2010 },
+          "population": {
+            "value": 160,
+            "year": 2020
+          },
+          "medianAge": {
+            "value": 47.7,
+            "year": 2010
+          },
           "ageBrackets": null,
           "seasonal": "Only two of the five Cranberry Isles — Great Cranberry and Islesford (Little Cranberry) — have year-round populations and post offices per Wikipedia; the outer islands (Sutton, Baker, Bear) are seasonal-only. No quantitative summer-vs-winter population figure is documented for the town as a whole."
         },
@@ -539,14 +899,26 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.4356, 44.1587] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.4356,
+          44.1587
+        ]
+      },
       "properties": {
         "title": "Swans Island",
         "category": "demographics",
         "place": "Swans Island, Maine",
         "demographics": {
-          "population": { "value": 355, "year": 2020 },
-          "medianAge": { "value": 46.3, "year": 2010 },
+          "population": {
+            "value": 355,
+            "year": 2020
+          },
+          "medianAge": {
+            "value": 46.3,
+            "year": 2010
+          },
           "ageBrackets": null,
           "seasonal": "Wikipedia gives a specific, documented seasonal figure here: \"a summertime population of approximately 1,000\" — roughly three times the 355 year-round residents counted in the 2020 Census."
         },
@@ -555,15 +927,36 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.5501, 44.2531] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.5501,
+          44.2531
+        ]
+      },
       "properties": {
         "title": "Brooklin",
         "category": "demographics",
         "place": "Brooklin, Maine",
         "demographics": {
-          "population": { "value": 827, "year": 2020 },
-          "medianAge": { "value": 52.9, "year": 2010 },
-          "ageBrackets": { "year": 2010, "brackets": { "Under 18": 17.2, "18-24": 4.8, "25-44": 16.4, "45-64": 35.4, "65+": 26.1 } },
+          "population": {
+            "value": 827,
+            "year": 2020
+          },
+          "medianAge": {
+            "value": 52.9,
+            "year": 2010
+          },
+          "ageBrackets": {
+            "year": 2010,
+            "brackets": {
+              "Under 18": 17.2,
+              "18-24": 4.8,
+              "25-44": 16.4,
+              "45-64": 35.4,
+              "65+": 26.1
+            }
+          },
           "seasonal": null
         },
         "source": "U.S. Census Bureau (2020 population) via Wikipedia — Brooklin, Maine (age distribution is 2010 Census, the most recent published for this town)"
@@ -571,7 +964,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.78, 44.35] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.78,
+          44.35
+        ]
+      },
       "properties": {
         "title": "Pond Island (Brooksville)",
         "category": "island-info",
@@ -588,7 +987,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.805, 44.45] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.805,
+          44.45
+        ]
+      },
       "properties": {
         "title": "Battle Island (Penobscot)",
         "category": "island-info",
@@ -605,7 +1010,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-69.035, 44.093] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -69.035,
+          44.093
+        ]
+      },
       "properties": {
         "title": "Sheep Island (Owls Head)",
         "category": "island-info",
@@ -622,7 +1033,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-69.02, 44.08] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -69.02,
+          44.08
+        ]
+      },
       "properties": {
         "title": "Monroe Island (Owls Head)",
         "category": "island-info",
@@ -639,7 +1056,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.89083, 44.035] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.89083,
+          44.035
+        ]
+      },
       "properties": {
         "title": "Hurricane Island (Vinalhaven)",
         "category": "island-info",
@@ -656,7 +1079,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.6534, 44.0664] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.6534,
+          44.0664
+        ]
+      },
       "properties": {
         "title": "Isle au Haut",
         "category": "island-info",
@@ -673,7 +1102,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-69.182333, 43.989833] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -69.182333,
+          43.989833
+        ]
+      },
       "properties": {
         "title": "Clark Island (St. George)",
         "category": "island-info",
@@ -690,7 +1125,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.5822456, 44.1478592] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.5822456,
+          44.1478592
+        ]
+      },
       "properties": {
         "title": "Saddleback Island (Merchant Row)",
         "category": "island-info",
@@ -707,7 +1148,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.6161, 44.1247] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.6161,
+          44.1247
+        ]
+      },
       "properties": {
         "title": "McGlathery Island (Merchant Row)",
         "category": "island-info",
@@ -724,7 +1171,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.6448, 44.1453] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.6448,
+          44.1453
+        ]
+      },
       "properties": {
         "title": "Green Island (Merchant Row)",
         "category": "island-info",
@@ -741,7 +1194,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.665, 44.135] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.665,
+          44.135
+        ]
+      },
       "properties": {
         "title": "Little Camp Island (Merchant Row)",
         "category": "island-info",
@@ -758,7 +1217,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.60, 44.128] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.6,
+          44.128
+        ]
+      },
       "properties": {
         "title": "Pell Island (Merchant Row)",
         "category": "island-info",
@@ -775,7 +1240,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.615, 44.10] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.615,
+          44.1
+        ]
+      },
       "properties": {
         "title": "Bills Island (Merchant Row)",
         "category": "island-info",
@@ -792,7 +1263,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.823651, 44.235705] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.823651,
+          44.235705
+        ]
+      },
       "properties": {
         "title": "Great Spruce Head Island (Deer Isle)",
         "category": "island-info",
@@ -809,7 +1286,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-69.18699914371578, 43.9615140204752] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -69.18699914371578,
+          43.9615140204752
+        ]
+      },
       "properties": {
         "title": "Southern Island (Tenants Harbor)",
         "category": "island-info",
@@ -826,7 +1309,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.7677717, 44.2176662] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.7677717,
+          44.2176662
+        ]
+      },
       "properties": {
         "title": "Eagle Island (Penobscot Bay)",
         "category": "island-info",
@@ -843,7 +1332,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.791554, 44.230518] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.791554,
+          44.230518
+        ]
+      },
       "properties": {
         "title": "Butter Island (Penobscot Bay)",
         "category": "island-info",
@@ -860,7 +1355,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.757911, 44.243899] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.757911,
+          44.243899
+        ]
+      },
       "properties": {
         "title": "Bradbury Island (Deer Isle)",
         "category": "island-info",
@@ -877,7 +1378,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.825129, 44.219756] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.825129,
+          44.219756
+        ]
+      },
       "properties": {
         "title": "Bear Island (Eggemoggin Reach)",
         "category": "island-info",
@@ -894,7 +1401,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.685732, 44.274259] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.685732,
+          44.274259
+        ]
+      },
       "properties": {
         "title": "Carney Island (Deer Isle)",
         "category": "island-info",
@@ -911,7 +1424,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.799419, 44.209417] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.799419,
+          44.209417
+        ]
+      },
       "properties": {
         "title": "Fling Island (Penobscot Bay)",
         "category": "island-info",
@@ -928,7 +1447,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.725289, 44.201006] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.725289,
+          44.201006
+        ]
+      },
       "properties": {
         "title": "Sheephead Island (Deer Isle)",
         "category": "island-info",
@@ -945,7 +1470,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.754124, 44.224377] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.754124,
+          44.224377
+        ]
+      },
       "properties": {
         "title": "Hardhead Island (Deer Isle)",
         "category": "island-info",
@@ -962,7 +1493,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.249, 44.247] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.249,
+          44.247
+        ]
+      },
       "properties": {
         "title": "Crow Island (Cranberry Isles)",
         "category": "island-info",
@@ -979,7 +1516,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.198607, 44.2415277] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.198607,
+          44.2415277
+        ]
+      },
       "properties": {
         "title": "Baker Island (Acadia National Park)",
         "category": "island-info",
@@ -996,7 +1539,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.269655, 44.283369] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.269655,
+          44.283369
+        ]
+      },
       "properties": {
         "title": "Bear Island (Northeast Harbor)",
         "category": "island-info",
@@ -1013,7 +1562,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.25040954893493, 44.24790442040619] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.25040954893493,
+          44.24790442040619
+        ]
+      },
       "properties": {
         "title": "Great Cranberry Island",
         "category": "island-info",
@@ -1030,7 +1585,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.22871540911265, 44.2600897165687] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.22871540911265,
+          44.2600897165687
+        ]
+      },
       "properties": {
         "title": "Islesford (Little Cranberry Island)",
         "category": "island-info",
@@ -1047,7 +1608,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.4356, 44.1587] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.4356,
+          44.1587
+        ]
+      },
       "properties": {
         "title": "Swans Island",
         "category": "island-info",
@@ -1064,7 +1631,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-69.08, 44.038] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -69.08,
+          44.038
+        ]
+      },
       "properties": {
         "title": "Ash Island (Owls Head)",
         "category": "island-info",
@@ -1081,7 +1654,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.5622452, 44.2367467] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.5622452,
+          44.2367467
+        ]
+      },
       "properties": {
         "title": "Big Babson Island (Brooklin)",
         "category": "island-info",
@@ -1098,7 +1677,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.7986411, 44.1425806] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.7986411,
+          44.1425806
+        ]
+      },
       "properties": {
         "title": "Calderwood Island (North Haven)",
         "category": "island-info",
@@ -1115,7 +1700,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-69.199, 43.999] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -69.199,
+          43.999
+        ]
+      },
       "properties": {
         "title": "High Island (St. George)",
         "category": "island-info",
@@ -1132,7 +1723,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.548, 44.222] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.548,
+          44.222
+        ]
+      },
       "properties": {
         "title": "Hog Island (Brooklin)",
         "category": "island-info",
@@ -1149,7 +1746,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.615, 44.352] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.615,
+          44.352
+        ]
+      },
       "properties": {
         "title": "Jed's Island (Blue Hill)",
         "category": "island-info",
@@ -1166,7 +1769,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.6350251, 44.0961931] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.6350251,
+          44.0961931
+        ]
+      },
       "properties": {
         "title": "Nathan Island (Merchant Row)",
         "category": "island-info",
@@ -1183,7 +1792,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.709806, 44.15521] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.709806,
+          44.15521
+        ]
+      },
       "properties": {
         "title": "The Fort (Merchant Row)",
         "category": "island-info",
@@ -1200,7 +1815,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.93610955089424, 44.27204110216757] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.93610955089424,
+          44.27204110216757
+        ]
+      },
       "properties": {
         "title": "Spruce Island (Islesboro)",
         "category": "island-info",
@@ -1217,7 +1838,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.74, 43.888] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.74,
+          43.888
+        ]
+      },
       "properties": {
         "title": "Seal Island (Penobscot Bay)",
         "category": "island-info",
@@ -1234,7 +1861,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-69.11072723812633, 44.017241053652924] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -69.11072723812633,
+          44.017241053652924
+        ]
+      },
       "properties": {
         "title": "Tommy's Island (St. George)",
         "category": "island-info",
@@ -1251,7 +1884,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.94576740868413, 44.27321216677957] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.94576740868413,
+          44.27321216677957
+        ]
+      },
       "properties": {
         "title": "Warren Island (Islesboro)",
         "category": "island-info",
@@ -1268,7 +1907,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-69.05006285861496, 44.20204581975184] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -69.05006285861496,
+          44.20204581975184
+        ]
+      },
       "properties": {
         "title": "Curtis Island (Camden)",
         "category": "island-info",
@@ -1285,7 +1930,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-69.21194577961741, 44.052154370229] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -69.21194577961741,
+          44.052154370229
+        ]
+      },
       "properties": {
         "title": "Sears Island (Searsport)",
         "category": "island-info",
@@ -1302,7 +1953,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.8822088, 44.1598321] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.8822088,
+          44.1598321
+        ]
+      },
       "properties": {
         "title": "The fishing village that filled Pulpit Harbor",
         "category": "history",
@@ -1314,7 +1971,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-69.1089, 44.1034] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -69.1089,
+          44.1034
+        ]
+      },
       "properties": {
         "title": "How a lime-quarrying boom built Rockland Harbor",
         "category": "history",
@@ -1326,7 +1989,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-69.25734014241483, 43.9202185947797] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -69.25734014241483,
+          43.9202185947797
+        ]
+      },
       "properties": {
         "title": "The lighthouse at the end of Forrest Gump's run",
         "category": "history",
@@ -1338,7 +2007,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-69.182333, 43.989833] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -69.182333,
+          43.989833
+        ]
+      },
       "properties": {
         "title": "A granite-cutting village of four hundred, built on an island",
         "category": "history",
@@ -1350,7 +2025,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.665, 44.268] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.665,
+          44.268
+        ]
+      },
       "properties": {
         "title": "Three thousand years of camps on Eggemoggin Reach",
         "category": "history",
@@ -1362,7 +2043,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.67208798412842, 44.21172891842244] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.67208798412842,
+          44.21172891842244
+        ]
+      },
       "properties": {
         "title": "Deer on every shore, then a town called Deer Isle",
         "category": "history",
@@ -1374,7 +2061,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.64754510111966, 44.10555753382143] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.64754510111966,
+          44.10555753382143
+        ]
+      },
       "properties": {
         "title": "Why they call it Merchant Row",
         "category": "history",
@@ -1386,7 +2079,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.653, 44.058] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.653,
+          44.058
+        ]
+      },
       "properties": {
         "title": "The High Island, named in passing by Champlain",
         "category": "history",
@@ -1398,7 +2097,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.67388816023507, 44.1420374523932] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.67388816023507,
+          44.1420374523932
+        ]
+      },
       "properties": {
         "title": "Maine's last working granite quarry",
         "category": "history",
@@ -1410,7 +2115,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.6707605, 44.1604222] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.6707605,
+          44.1604222
+        ]
+      },
       "properties": {
         "title": "A granite boomtown outgrows its old name",
         "category": "history",
@@ -1422,7 +2133,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.69909187724849, 44.16406732370546] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.69909187724849,
+          44.16406732370546
+        ]
+      },
       "properties": {
         "title": "From cod and mackerel to a lobster economy",
         "category": "history",
@@ -1434,7 +2151,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.61804448435336, 44.126438891497415] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.61804448435336,
+          44.126438891497415
+        ]
+      },
       "properties": {
         "title": "How Merchant Row became a conservation landscape",
         "category": "history",
@@ -1446,7 +2169,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.65170312216232, 44.02891142734267] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.65170312216232,
+          44.02891142734267
+        ]
+      },
       "properties": {
         "title": "A gift Isle au Haut didn't entirely want",
         "category": "history",
@@ -1458,7 +2187,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.678, 44.155] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.678,
+          44.155
+        ]
+      },
       "properties": {
         "title": "The small island town that outlands every other port in Maine",
         "category": "history",
@@ -1470,7 +2205,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.678, 44.298] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.678,
+          44.298
+        ]
+      },
       "properties": {
         "title": "The bridge with the same flaw as Tacoma Narrows — fixed in time",
         "category": "history",
@@ -1482,7 +2223,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.45268880502076, 44.142516835814256] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.45268880502076,
+          44.142516835814256
+        ]
+      },
       "properties": {
         "title": "Granite meets basalt at Swan's Island",
         "category": "geology",
@@ -1493,7 +2240,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.61695589249732, 44.017480984601555] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.61695589249732,
+          44.017480984601555
+        ]
+      },
       "properties": {
         "title": "A second magma story, at the other end of Isle au Haut",
         "category": "geology",
@@ -1504,7 +2257,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.62282252974285, 44.01784053145374] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.62282252974285,
+          44.01784053145374
+        ]
+      },
       "properties": {
         "title": "A fishing village the sea swallowed, and the beach that outran it",
         "category": "geology",
@@ -1515,7 +2274,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.45268880502076, 44.142516835814256] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.45268880502076,
+          44.142516835814256
+        ]
+      },
       "properties": {
         "title": "Shell heaps that predate any English name",
         "category": "history",
@@ -1527,7 +2292,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.4141372, 44.1757015] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.4141372,
+          44.1757015
+        ]
+      },
       "properties": {
         "title": "Burnt Coat becomes Swan's Island, on a promise of free land",
         "category": "history",
@@ -1539,7 +2310,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.4527, 44.1425] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.4527,
+          44.1425
+        ]
+      },
       "properties": {
         "title": "The man the island is named for never saw it",
         "category": "history",
@@ -1551,7 +2328,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.475, 44.145] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.475,
+          44.145
+        ]
+      },
       "properties": {
         "title": "A granite village at Minturn",
         "category": "history",
@@ -1563,7 +2346,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.4417, 44.14] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.4417,
+          44.14
+        ]
+      },
       "properties": {
         "title": "A lighthouse pair too confusing to keep",
         "category": "history",
@@ -1575,7 +2364,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.44535004311568, 44.1474894326225] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.44535004311568,
+          44.1474894326225
+        ]
+      },
       "properties": {
         "title": "From a 44-foot mailboat to the state ferry",
         "category": "history",
@@ -1587,7 +2382,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.6317635, 44.0718969] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.6317635,
+          44.0718969
+        ]
+      },
       "properties": {
         "title": "The exclusive club that closed itself off, then gave itself away",
         "category": "history",
@@ -1599,7 +2400,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.6317635, 44.0718969] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.6317635,
+          44.0718969
+        ]
+      },
       "properties": {
         "title": "The first family to actually stay",
         "category": "history",
@@ -1611,7 +2418,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.6317635, 44.0718969] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.6317635,
+          44.0718969
+        ]
+      },
       "properties": {
         "title": "A town that lost nine of every ten residents",
         "category": "history",
@@ -1623,7 +2436,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.309, 44.312] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.309,
+          44.312
+        ]
+      },
       "properties": {
         "title": "Pemetic, \"the sloping land\"",
         "category": "history",
@@ -1635,7 +2454,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.32392199706004, 44.366344861477096] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.32392199706004,
+          44.366344861477096
+        ]
+      },
       "properties": {
         "title": "Somesville, the island's first real town",
         "category": "history",
@@ -1647,7 +2472,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.28143776394398, 44.29658488203371] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.28143776394398,
+          44.29658488203371
+        ]
+      },
       "properties": {
         "title": "A French noblewoman, a royal grant, and Jefferson's thumb on the scale",
         "category": "history",
@@ -1659,7 +2490,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.3324, 44.3106] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.3324,
+          44.3106
+        ]
+      },
       "properties": {
         "title": "A quarry that put the island's granite in the Library of Congress",
         "category": "history",
@@ -1671,7 +2508,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.20583149999999, 44.391934066666664] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.20583149999999,
+          44.391934066666664
+        ]
+      },
       "properties": {
         "title": "Painters discover the island, then everyone else follows",
         "category": "history",
@@ -1683,7 +2526,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.27, 44.34] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.27,
+          44.34
+        ]
+      },
       "properties": {
         "title": "A carriage-road network built to keep cars out",
         "category": "history",
@@ -1695,7 +2544,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.211, 44.37] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.211,
+          44.37
+        ]
+      },
       "properties": {
         "title": "The man who built a national park out of donated backyards",
         "category": "history",
@@ -1707,7 +2562,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.20583149999999, 44.391934066666664] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.20583149999999,
+          44.391934066666664
+        ]
+      },
       "properties": {
         "title": "The fire that ended the Gilded Age cottages",
         "category": "history",
@@ -1719,7 +2580,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.2249, 44.3527] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.2249,
+          44.3527
+        ]
+      },
       "properties": {
         "title": "Cadillac Mountain's pink granite",
         "category": "geology",
@@ -1730,7 +2597,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.2249, 44.3527] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.2249,
+          44.3527
+        ]
+      },
       "properties": {
         "title": "The \"first sunrise\" claim, and when it's actually true",
         "category": "geology",
@@ -1741,7 +2614,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.309, 44.312] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.309,
+          44.312
+        ]
+      },
       "properties": {
         "title": "Somes Sound: a fjard, not quite a fjord",
         "category": "geology",
@@ -1752,7 +2631,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.2453, 44.3592] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.2453,
+          44.3592
+        ]
+      },
       "properties": {
         "title": "A boulder that rode the ice nineteen — or forty — miles",
         "category": "geology",
@@ -1763,7 +2648,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.1857, 44.3283] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.1857,
+          44.3283
+        ]
+      },
       "properties": {
         "title": "A beach made of shells, not sand",
         "category": "geology",
@@ -1774,7 +2665,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.2607, 44.4102] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.2607,
+          44.4102
+        ]
+      },
       "properties": {
         "title": "The Ovens: sea caves cut along a hidden fault",
         "category": "geology",
@@ -1785,7 +2682,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.20583149999999, 44.391934066666664] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.20583149999999,
+          44.391934066666664
+        ]
+      },
       "properties": {
         "title": "Sand and mud on top of a much older rock",
         "category": "geology",
@@ -1796,7 +2699,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.25040954893493, 44.24790442040619] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.25040954893493,
+          44.24790442040619
+        ]
+      },
       "properties": {
         "title": "Named for the bog, then set off on its own",
         "category": "history",
@@ -1808,7 +2717,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.1987102731681, 44.24158372026205] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.1987102731681,
+          44.24158372026205
+        ]
+      },
       "properties": {
         "title": "The keeper who wouldn't switch parties",
         "category": "history",
@@ -1820,7 +2735,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.23431351210584, 44.26201860760742] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.23431351210584,
+          44.26201860760742
+        ]
+      },
       "properties": {
         "title": "A ships' store that became an island's memory",
         "category": "history",
@@ -1832,7 +2753,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.28143776394398, 44.29658488203371] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.28143776394398,
+          44.29658488203371
+        ]
+      },
       "properties": {
         "title": "From a captain's launch to a working ferry line",
         "category": "history",
@@ -1844,7 +2771,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.885, 44.128] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.885,
+          44.128
+        ]
+      },
       "properties": {
         "title": "The site that proved year-round life on the islands",
         "category": "history",
@@ -1856,7 +2789,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.8212496, 44.0508472] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.8212496,
+          44.0508472
+        ]
+      },
       "properties": {
         "title": "Foxes on the shore, then a town named for a Boston lawyer",
         "category": "history",
@@ -1868,7 +2807,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.87138271272495, 44.12836009735765] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.87138271272495,
+          44.12836009735765
+        ]
+      },
       "properties": {
         "title": "A brief name, then the right one",
         "category": "history",
@@ -1880,7 +2825,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.8212496, 44.0508472] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.8212496,
+          44.0508472
+        ]
+      },
       "properties": {
         "title": "The quarry owner who became governor",
         "category": "history",
@@ -1892,7 +2843,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.87138271272495, 44.12836009735765] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.87138271272495,
+          44.12836009735765
+        ]
+      },
       "properties": {
         "title": "A lost race, a faster boat, and 140 years of grudge matches",
         "category": "history",
@@ -1904,7 +2861,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.8212496, 44.0508472] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.8212496,
+          44.0508472
+        ]
+      },
       "properties": {
         "title": "The first lobstermen's union in the country",
         "category": "history",
@@ -1916,7 +2879,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.93, 44.2] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.93,
+          44.2
+        ]
+      },
       "properties": {
         "title": "The 'Red Paint People' were never a people at all",
         "category": "history",
@@ -1928,7 +2897,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.81278, 44.46806] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.81278,
+          44.46806
+        ]
+      },
       "properties": {
         "title": "Whose bay this is",
         "category": "history",
@@ -1940,7 +2915,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.8045303, 44.3917137] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.8045303,
+          44.3917137
+        ]
+      },
       "properties": {
         "title": "Bashaba, and the war that ended a confederacy",
         "category": "history",
@@ -1952,7 +2933,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.8045303, 44.3917137] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.8045303,
+          44.3917137
+        ]
+      },
       "properties": {
         "title": "A French baron, a Penobscot sachem's daughter, and a village of 160",
         "category": "history",
@@ -1964,7 +2951,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.78180600573249, 44.53565451397586] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.78180600573249,
+          44.53565451397586
+        ]
+      },
       "properties": {
         "title": "A living nation, not just a history",
         "category": "history",
@@ -1976,7 +2969,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.9082542, 44.3051328] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.9082542,
+          44.3051328
+        ]
+      },
       "properties": {
         "title": "Mountains in winter, the sea in summer",
         "category": "history",
@@ -1988,7 +2987,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.9082542, 44.3051328] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.9082542,
+          44.3051328
+        ]
+      },
       "properties": {
         "title": "A 1,500-year-old village plan, still visible in the ground",
         "category": "history",
@@ -2000,7 +3005,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.95269518390627, 44.25656936797985] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.95269518390627,
+          44.25656936797985
+        ]
+      },
       "properties": {
         "title": "A 1692 raid, and the tradition it didn't manage to end",
         "category": "history",
@@ -2012,7 +3023,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.72623762815562, 44.409282569260064] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.72623762815562,
+          44.409282569260064
+        ]
+      },
       "properties": {
         "title": "One river, two names, and who was winning",
         "category": "history",
@@ -2024,7 +3041,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-69.0811519, 44.2125281] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -69.0811519,
+          44.2125281
+        ]
+      },
       "properties": {
         "title": "What the mountain and the river are actually saying",
         "category": "history",
@@ -2036,7 +3059,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.89394247338392, 43.86169361280842] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.89394247338392,
+          43.86169361280842
+        ]
+      },
       "properties": {
         "title": "A stolen island, and the price of ignoring a complaint",
         "category": "history",
@@ -2048,7 +3077,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-69.3182, 43.7628] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -69.3182,
+          43.7628
+        ]
+      },
       "properties": {
         "title": "The island that gave Samoset his English",
         "category": "history",
@@ -2060,7 +3095,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.5991086, 44.4151492] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.5991086,
+          44.4151492
+        ]
+      },
       "properties": {
         "title": "A place of many fish, and the burial ground Harvard took",
         "category": "history",
@@ -2072,7 +3113,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.8212496, 44.0508472] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.8212496,
+          44.0508472
+        ]
+      },
       "properties": {
         "title": "153 sites, and counting, across two small islands",
         "category": "history",
@@ -2084,7 +3131,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.04927944374421, 44.33101530706186] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.04927944374421,
+          44.33101530706186
+        ]
+      },
       "properties": {
         "title": "The place of the burning fires",
         "category": "history",
@@ -2096,7 +3149,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.6378, 44.1375] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.6378,
+          44.1375
+        ]
+      },
       "properties": {
         "title": "Stonington Harbor — Anchorage & Moorings",
         "category": "anchorages",
@@ -2113,7 +3172,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.6423, 44.1698] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.6423,
+          44.1698
+        ]
+      },
       "properties": {
         "title": "Old Quarry Ocean Adventures (Webb Cove) — Moorings",
         "category": "anchorages",
@@ -2128,7 +3193,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.679989, 44.147672] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.679989,
+          44.147672
+        ]
+      },
       "properties": {
         "title": "Billings Diesel & Marine — Moorings & Dockage",
         "positionNote": "Position moved to the water immediately off Moose Island (previously the island label point, on land) — description gives no specific side.",
@@ -2144,7 +3215,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.6132, 44.1288] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.6132,
+          44.1288
+        ]
+      },
       "properties": {
         "title": "McGlathery Island (Merchant Row) — Anchorage",
         "category": "anchorages",
@@ -2161,7 +3238,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.6269, 44.1531] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.6269,
+          44.1531
+        ]
+      },
       "properties": {
         "title": "Camp Island (Merchant Row) — Anchorage",
         "category": "anchorages",
@@ -2177,7 +3260,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.641, 44.0728] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.641,
+          44.0728
+        ]
+      },
       "properties": {
         "title": "Isle au Haut Thorofare / Town Landing — Anchorage & Guest Moorings",
         "category": "anchorages",
@@ -2192,7 +3281,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.6541, 44.0291] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.6541,
+          44.0291
+        ]
+      },
       "properties": {
         "title": "Duck Harbor, Isle au Haut — Anchorage (Acadia National Park)",
         "category": "anchorages",
@@ -2208,7 +3303,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.7213, 44.2122] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.7213,
+          44.2122
+        ]
+      },
       "properties": {
         "title": "Sylvester Cove / Deer Isle Yacht Club — Guest Moorings",
         "category": "anchorages",
@@ -2226,7 +3327,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.7382, 44.3382] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.7382,
+          44.3382
+        ]
+      },
       "properties": {
         "title": "Buck's Harbor — Moorings & Anchorage",
         "category": "anchorages",
@@ -2244,7 +3351,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-69.048, 44.208] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -69.048,
+          44.208
+        ]
+      },
       "properties": {
         "title": "Camden Outer Harbor — Anchorage & Moorings",
         "category": "anchorages",
@@ -2261,7 +3374,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-69.069391, 44.170738] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -69.069391,
+          44.170738
+        ]
+      },
       "properties": {
         "title": "Rockport Harbor — Anchorage & Moorings",
         "positionNote": "Position moved to the harbor's own charted water position (previously a shoreside point) — the description says room to anchor is mainly in the outer harbor.",
@@ -2278,7 +3397,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-69.0906, 44.116] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -69.0906,
+          44.116
+        ]
+      },
       "properties": {
         "title": "Rockland Harbor (Breakwater/Jameson Point) — Anchorage & Moorings",
         "category": "anchorages",
@@ -2295,7 +3420,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-69.21008320054746, 43.96609800764899] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -69.21008320054746,
+          43.96609800764899
+        ]
+      },
       "properties": {
         "title": "Tenants Harbor — Anchorage & Moorings",
         "category": "anchorages",
@@ -2312,7 +3443,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-69.2506165, 43.9271392] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -69.2506165,
+          43.9271392
+        ]
+      },
       "properties": {
         "title": "Port Clyde — Anchorage & Moorings",
         "category": "anchorages",
@@ -2329,7 +3466,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.9393, 44.2592] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.9393,
+          44.2592
+        ]
+      },
       "properties": {
         "title": "Gilkey Harbor / Dark Harbor (Islesboro) — Anchorage & Moorings",
         "category": "anchorages",
@@ -2345,7 +3488,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.945, 44.278333] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.945,
+          44.278333
+        ]
+      },
       "properties": {
         "title": "Warren Island State Park — Anchorage & Moorings",
         "positionNote": "Position corrected (v635) to open water just off the island's north end, near the original pier-side point the v633 fix intended — that v633 point (island's eastern shore, adjacent to the pier) turned out to still land inside the digitized coastline polygon (confirmed live via Query.isLandAt() while building the Rockland-to-Warren-Island sample route). This position was chosen by mapping the actual coastline with isLandAt() and confirming the live AutoRoute can thread a real path to it from Rockland, clear of land and hazards.",
@@ -2361,7 +3510,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-69.003402, 44.427952] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -69.003402,
+          44.427952
+        ]
+      },
       "properties": {
         "title": "Belfast Harbor — Anchorage & Moorings",
         "positionNote": "Position moved off the shore into the harbor — description gives no specific side beyond anchoring \"beyond the mooring field.\"",
@@ -2379,7 +3534,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.798002, 44.386324] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.798002,
+          44.386324
+        ]
+      },
       "properties": {
         "title": "Castine Town Dock — Moorings (Anchoring Not Recommended)",
         "positionNote": "Position moved into the water off the town waterfront (previously the town center point, on land).",
@@ -2396,7 +3557,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.775, 44.398] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.775,
+          44.398
+        ]
+      },
       "properties": {
         "title": "Smith Cove (Bagaduce River, near Castine) — Anchorage",
         "category": "anchorages",
@@ -2412,7 +3579,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.8845, 44.0348] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.8845,
+          44.0348
+        ]
+      },
       "properties": {
         "title": "Hurricane Island — Anchorage & Moorings",
         "category": "anchorages",
@@ -2429,7 +3602,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.8389, 44.0405] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.8389,
+          44.0405
+        ]
+      },
       "properties": {
         "title": "Carvers Harbor — Anchorage & Moorings",
         "category": "anchorages",
@@ -2445,7 +3624,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.8648, 44.1142] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.8648,
+          44.1142
+        ]
+      },
       "properties": {
         "title": "Perry Creek — Anchorage & Moorings",
         "category": "anchorages",
@@ -2462,7 +3647,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.797, 44.106] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.797,
+          44.106
+        ]
+      },
       "properties": {
         "title": "Seal Bay — Anchorage",
         "category": "anchorages",
@@ -2479,7 +3670,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.806877, 44.089604] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.806877,
+          44.089604
+        ]
+      },
       "properties": {
         "title": "Winter Harbor (Vinalhaven) — Anchorage",
         "positionNote": "Position moved to the midpoint between Davids Island and Hay Island, per the description's explicit entry directions.",
@@ -2496,7 +3693,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.8848, 44.1537] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.8848,
+          44.1537
+        ]
+      },
       "properties": {
         "title": "Pulpit Harbor — Anchorage & Moorings",
         "category": "anchorages",
@@ -2514,7 +3717,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.8842, 44.14] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.8842,
+          44.14
+        ]
+      },
       "properties": {
         "title": "Southern Harbor — Anchorage & Moorings",
         "category": "anchorages",
@@ -2530,7 +3739,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.75, 44.128] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.75,
+          44.128
+        ]
+      },
       "properties": {
         "title": "Fox Islands Thorofare (North Haven) — Anchorage & Moorings",
         "category": "anchorages",
@@ -2548,7 +3763,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.3157, 44.309] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.3157,
+          44.309
+        ]
+      },
       "properties": {
         "title": "Valley Cove (Somes Sound) — Anchorage & Moorings",
         "category": "anchorages",
@@ -2564,7 +3785,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.3309, 44.3614] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.3309,
+          44.3614
+        ]
+      },
       "properties": {
         "title": "Somes Harbor (Somesville) — Head of Somes Sound Anchorage",
         "category": "anchorages",
@@ -2582,7 +3809,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.28074, 44.296585] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.28074,
+          44.296585
+        ]
+      },
       "properties": {
         "title": "Northeast Harbor — Anchorage & Moorings",
         "positionNote": "Position moved east of the harbor entrance, per the description (there is no room to anchor inside the harbor itself).",
@@ -2600,7 +3833,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.30457, 44.278033] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.30457,
+          44.278033
+        ]
+      },
       "properties": {
         "title": "Southwest Harbor — Anchorage & Moorings",
         "positionNote": "Position moved to open water between Greening Island and the southern shore, per the description.",
@@ -2618,7 +3857,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.343, 44.2255] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.343,
+          44.2255
+        ]
+      },
       "properties": {
         "title": "Bass Harbor & Bernard — Anchorage & Moorings",
         "category": "anchorages",
@@ -2636,7 +3881,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.182484, 44.385357] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.182484,
+          44.385357
+        ]
+      },
       "properties": {
         "title": "Bar Harbor — Anchorage & Moorings",
         "positionNote": "Position moved south of Bald Porcupine Island toward the town landing, matching the description's \"south of the fairway\" anchorage location.",
@@ -2655,7 +3906,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.2397, 44.2822] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.2397,
+          44.2822
+        ]
+      },
       "properties": {
         "title": "Seal Harbor — Anchorage & Moorings",
         "category": "anchorages",
@@ -2671,7 +3928,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.259, 44.2515] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.259,
+          44.2515
+        ]
+      },
       "properties": {
         "title": "Great Cranberry Island — Anchorage & Moorings",
         "category": "anchorages",
@@ -2689,7 +3952,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.229198, 44.255672] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.229198,
+          44.255672
+        ]
+      },
       "properties": {
         "title": "Islesford (Little Cranberry Island) — Anchorage & Moorings",
         "positionNote": "Position moved into Cranberry Harbor off the town dock — the original point was an explicitly-noted proxy (a nearby building), not the harbor itself.",
@@ -2708,7 +3977,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.556944, 44.245833] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.556944,
+          44.245833
+        ]
+      },
       "properties": {
         "title": "WoodenBoat School Waterfront",
         "category": "anchorages",
@@ -2727,7 +4002,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.579892, 44.262274] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.579892,
+          44.262274
+        ]
+      },
       "properties": {
         "title": "Center Harbor — Anchorage & Moorings",
         "positionNote": "Position moved just south of Brooklin Boat Yard, toward the harbor mouth, matching the description's \"south of a line between the yacht yard and the entrance daybeacon.\"",
@@ -2746,7 +4027,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.541932, 44.229903] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.541932,
+          44.229903
+        ]
+      },
       "properties": {
         "title": "Naskeag Harbor — Anchorage",
         "category": "anchorages",
@@ -2760,7 +4047,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.52527, 44.254286] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.52527,
+          44.254286
+        ]
+      },
       "properties": {
         "title": "Herrick Bay — Anchorage & Moorings",
         "category": "anchorages",
@@ -2777,7 +4070,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.564452, 44.409121] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.564452,
+          44.409121
+        ]
+      },
       "properties": {
         "title": "Blue Hill Harbor — Anchorage & Moorings",
         "positionNote": "Position nudged into the water immediately off the Kollegewidgwok Yacht Club mooring field.",
@@ -2797,7 +4096,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.318302, 44.336266] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.318302,
+          44.336266
+        ]
+      },
       "properties": {
         "title": "Hall Quarry",
         "positionNote": "Position moved to the water on Somes Sound's west shore at the boatyard, per the description.",
@@ -2815,7 +4120,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.307207, 44.356067] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.307207,
+          44.356067
+        ]
+      },
       "properties": {
         "title": "Henry R. Abel & Co. Yacht Yard / Abel's Lobster",
         "positionNote": "Position moved to the water on Somes Sound's east shore at the head of the sound, per the description.",
@@ -2833,7 +4144,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.086, 44.383] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.086,
+          44.383
+        ]
+      },
       "properties": {
         "title": "Winter Harbor (Schoodic Peninsula)",
         "category": "anchorages",
@@ -2851,7 +4168,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.366, 44.138] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.366,
+          44.138
+        ]
+      },
       "properties": {
         "title": "Frenchboro (Lunt Harbor)",
         "category": "anchorages",
@@ -2868,7 +4191,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.355, 44.13] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.355,
+          44.13
+        ]
+      },
       "properties": {
         "title": "Eastern Cove (Frenchboro / Long Island)",
         "category": "anchorages",
@@ -2884,7 +4213,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.446, 44.137] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.446,
+          44.137
+        ]
+      },
       "properties": {
         "title": "Burnt Coat Harbor (Swans Island)",
         "category": "anchorages",
@@ -2903,7 +4238,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.429, 44.177] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.429,
+          44.177
+        ]
+      },
       "properties": {
         "title": "Buckle Harbor",
         "category": "anchorages",
@@ -2919,7 +4260,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.387, 44.347] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.387,
+          44.347
+        ]
+      },
       "properties": {
         "title": "Bartlett Narrows (Galley Cove / Great Cove)",
         "category": "anchorages",
@@ -2935,7 +4282,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.410928, 44.336861] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.410928,
+          44.336861
+        ]
+      },
       "properties": {
         "title": "Pretty Marsh",
         "positionNote": "Position moved to the harbor's own charted water position (previously just outside it, on land).",
@@ -2952,7 +4305,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.318, 44.271] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.318,
+          44.271
+        ]
+      },
       "properties": {
         "title": "Sutton Island",
         "category": "anchorages",
@@ -2967,7 +4326,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.883912, 44.084999] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.883912,
+          44.084999
+        ]
+      },
       "properties": {
         "title": "Long Cove (Vinalhaven) — Anchorage",
         "positionNote": "Position moved just outside the inner harbor toward Hurricane Sound, per the description's recommendation (the inner harbor itself is crowded with private moorings).",
@@ -2984,7 +4349,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.915, 44.025] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.915,
+          44.025
+        ]
+      },
       "properties": {
         "title": "White Islands — Anchorage",
         "category": "anchorages",
@@ -3001,7 +4372,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.809, 44.225] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.809,
+          44.225
+        ]
+      },
       "properties": {
         "title": "Barred Islands",
         "category": "anchorages",
@@ -3018,7 +4395,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.593, 44.145] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.593,
+          44.145
+        ]
+      },
       "properties": {
         "title": "Devil & Bold Islands",
         "category": "anchorages",
@@ -3035,7 +4418,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-69.021, 43.985] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -69.021,
+          43.985
+        ]
+      },
       "properties": {
         "title": "Dix Island",
         "category": "anchorages",
@@ -3052,7 +4441,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.73, 44.270333] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.73,
+          44.270333
+        ]
+      },
       "properties": {
         "title": "Torrey Islands (Eggemoggin Reach)",
         "positionNote": "Position nudged into water near the Torrey Islands — the source itself flags this position as approximate (its embedded map link did not match the described location), so this is a best-effort correction, not a verified fix.",
@@ -3069,7 +4464,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.745, 44.303] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.745,
+          44.303
+        ]
+      },
       "properties": {
         "title": "Benjamin River (Eggemoggin Reach)",
         "category": "anchorages",
@@ -3085,7 +4486,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.803153, 44.367553] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.803153,
+          44.367553
+        ]
+      },
       "properties": {
         "title": "Holbrook (Tom Cod Cove / Holbrook Island Sanctuary)",
         "positionNote": "Position moved north of Ram Island, matching the description's anchoring note.",
@@ -3103,7 +4510,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.941217, 44.261186] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.941217,
+          44.261186
+        ]
+      },
       "properties": {
         "title": "Cradle Cove (Islesboro)",
         "positionNote": "Position moved to Cradle Cove's own charted water position (previously an approximate guess, per the original source note).",
@@ -3121,7 +4534,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.882, 43.862] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.882,
+          43.862
+        ]
+      },
       "properties": {
         "title": "Matinicus Island",
         "category": "anchorages",
@@ -3136,7 +4555,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.796, 44.128] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.796,
+          44.128
+        ]
+      },
       "properties": {
         "title": "North Haven Village (Brown's Boatyard)",
         "category": "anchorages",
@@ -3151,7 +4576,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-69.05089912267898, 44.09349584827459] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -69.05089912267898,
+          44.09349584827459
+        ]
+      },
       "properties": {
         "title": "Owl's Head, Penobscot Bay, Maine",
         "category": "paintings",
@@ -3169,7 +4600,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.798002, 44.386324] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.798002,
+          44.386324
+        ]
+      },
       "properties": {
         "title": "Castine Harbor and Town",
         "category": "paintings",
@@ -3187,7 +4624,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-69.05006285861496, 44.20204581975184] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -69.05006285861496,
+          44.20204581975184
+        ]
+      },
       "properties": {
         "title": "Lighthouse at Camden, Maine",
         "category": "paintings",
@@ -3205,7 +4648,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-69.048, 44.208] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -69.048,
+          44.208
+        ]
+      },
       "properties": {
         "title": "View of Camden Mountains from Penobscot Bay",
         "category": "paintings",
@@ -3223,7 +4672,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.882, 43.862] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.882,
+          43.862
+        ]
+      },
       "properties": {
         "title": "The Red Vine, Matinicus Island, Maine",
         "category": "paintings",
@@ -3241,7 +4696,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-69.3182, 43.7628] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -69.3182,
+          43.7628
+        ]
+      },
       "properties": {
         "title": "Toilers of the Sea",
         "category": "paintings",
@@ -3259,7 +4720,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.30884317191996, 44.31186474266785] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.30884317191996,
+          44.31186474266785
+        ]
+      },
       "properties": {
         "title": "Somes Sound, Mount Desert Island, Maine",
         "category": "paintings",
@@ -3277,7 +4744,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.3157, 44.309] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.3157,
+          44.309
+        ]
+      },
       "properties": {
         "title": "Entrance of Somes Sound, Mount Desert, Maine",
         "category": "paintings",
@@ -3295,7 +4768,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.269655, 44.283369] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.269655,
+          44.283369
+        ]
+      },
       "properties": {
         "title": "Bear Island, Northeast Harbor, Maine",
         "category": "paintings",
@@ -3313,7 +4792,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.182484, 44.385357] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.182484,
+          44.385357
+        ]
+      },
       "properties": {
         "title": "View Across Frenchman's Bay from Mount Desert Island, After a Squall",
         "category": "paintings",
@@ -3331,7 +4816,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.30457, 44.278033] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.30457,
+          44.278033
+        ]
+      },
       "properties": {
         "title": "Off Mount Desert Island",
         "category": "paintings",
@@ -3349,7 +4840,85 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-70.20018574795384, 43.65257620554102] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.81717683814445,
+          44.38314537452706
+        ]
+      },
+      "properties": {
+        "title": "Castine Harbor, 1852",
+        "category": "paintings",
+        "place": "Castine (view toward Dice Head Light)",
+        "painting": {
+          "artist": "Fitz Henry Lane",
+          "year": "1852",
+          "collection": "Portland Museum of Art (Bequest of Elizabeth B. Noyce)",
+          "publicDomain": true,
+          "imageAsset": "./images/paintings/castine-harbor-1852.jpg",
+          "story": "Painted looking west from one of the small islands off Castine, past anchored vessels toward the town and Dice Head Light — likely the result of a week-long sailing trip Lane took with his friend Joseph Stevens Jr. in 1852. In the foreground, fishermen have pulled their boats up onto the rocks to unload barrels and baskets, probably mackerel or sardines."
+        },
+        "source": "Fitz Henry Lane Online catalogue (fitzhenrylaneonline.org, inv. 71); Wikimedia Commons (Portland Museum of Art)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.804672,
+          44.392345
+        ]
+      },
+      "properties": {
+        "title": "Castine, Maine (Castine from Fort George)",
+        "category": "paintings",
+        "place": "Fort George, Castine",
+        "painting": {
+          "artist": "Fitz Henry Lane",
+          "year": "1856",
+          "collection": "Museum of Fine Arts, Boston (Bequest of Maxim Karolik)",
+          "publicDomain": true,
+          "imageAsset": "./images/paintings/castine-fort-george.jpg",
+          "story": "A wide view down onto the harbor town from atop Fort George, the Revolutionary War-era fort that by the 1850s had become a favorite spot for a stroll — well-dressed visitors and children at play fill the foreground, with men haying in the middle distance and a woman appearing to trade baskets with two figures on the right, likely Penobscot Nation basket-sellers who camped nearby each summer."
+        },
+        "source": "Fitz Henry Lane Online catalogue (fitzhenrylaneonline.org, inv. 52); Wikimedia Commons (Museum of Fine Arts, Boston)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.811755,
+          44.467118
+        ]
+      },
+      "properties": {
+        "title": "Lumber Schooners at Evening on Penobscot Bay",
+        "category": "paintings",
+        "place": "Mouth of the Penobscot River (Fort Point)",
+        "painting": {
+          "artist": "Fitz Henry Lane",
+          "year": "1863",
+          "collection": "National Gallery of Art",
+          "publicDomain": true,
+          "imageAsset": "./images/paintings/lumber-schooners.jpg",
+          "story": "Two lumber schooners sit motionless at dusk near the mouth of the Penobscot River, sails being lowered for the night — a quiet close to a day in the bay's biggest 19th-century trade, floating white pine and spruce down from inland sawmills for shipment south to Boston. Painted two years before Lane's death, its stillness is often read as reflecting his own late-life mood."
+        },
+        "source": "Fitz Henry Lane Online catalogue (fitzhenrylaneonline.org, inv. 343); Wikimedia Commons (National Gallery of Art, open access)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -70.20018574795384,
+          43.65257620554102
+        ]
+      },
       "properties": {
         "title": "Casco Bay's drowned drumlins",
         "category": "geology",
@@ -3360,7 +4929,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-70.20387669008645, 43.64093958662848] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -70.20387669008645,
+          43.64093958662848
+        ]
+      },
       "properties": {
         "title": "The Cushing Formation, named for this island",
         "category": "geology",
@@ -3371,7 +4946,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-70.21095840649976, 43.62387994064104] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -70.21095840649976,
+          43.62387994064104
+        ]
+      },
       "properties": {
         "title": "The Cape Elizabeth Formation",
         "category": "geology",
@@ -3382,7 +4963,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-70.2239054, 43.6521131] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -70.2239054,
+          43.6521131
+        ]
+      },
       "properties": {
         "title": "The Spring Point Formation",
         "category": "geology",
@@ -3393,7 +4980,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-70.2568, 43.6591] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -70.2568,
+          43.6591
+        ]
+      },
       "properties": {
         "title": "The fire that burned half of Portland",
         "category": "history",
@@ -3405,7 +4998,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-70.193333, 43.652778] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -70.193333,
+          43.652778
+        ]
+      },
       "properties": {
         "title": "A Civil War fort obsolete before it fired a shot",
         "category": "history",
@@ -3417,7 +5016,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-70.05278, 43.71111] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -70.05278,
+          43.71111
+        ]
+      },
       "properties": {
         "title": "Admiral Peary's island retreat",
         "category": "history",
@@ -3429,7 +5034,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-70.0925471, 43.6820279] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -70.0925471,
+          43.6820279
+        ]
+      },
       "properties": {
         "title": "Four hundred soldiers watching an empty horizon",
         "category": "history",
@@ -3441,7 +5052,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-70.20018574795384, 43.65257620554102] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -70.20018574795384,
+          43.65257620554102
+        ]
+      },
       "properties": {
         "title": "Peaks Island",
         "category": "island-info",
@@ -3458,7 +5075,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-70.0925471, 43.6820279] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -70.0925471,
+          43.6820279
+        ]
+      },
       "properties": {
         "title": "Jewell Island",
         "category": "island-info",
@@ -3475,7 +5098,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-70.05278, 43.71111] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -70.05278,
+          43.71111
+        ]
+      },
       "properties": {
         "title": "Eagle Island",
         "category": "island-info",
@@ -3492,7 +5121,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-70.21281780583766, 43.64963175157224] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -70.21281780583766,
+          43.64963175157224
+        ]
+      },
       "properties": {
         "title": "House Island",
         "category": "island-info",
@@ -3509,7 +5144,13 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-68.23994961687782, 44.258184679553345] },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.23994961687782,
+          44.258184679553345
+        ]
+      },
       "properties": {
         "title": "Hadlock Cove — Anchorage",
         "category": "anchorages",
