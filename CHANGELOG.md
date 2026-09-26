@@ -12,6 +12,20 @@
 > deep-dive on the v317–v325 cluster specifically (Focus Target, Simulate
 > Heading); the summaries below start right after that.
 
+## 2026-09-26 — AutoRoute demo: fixed "Vinalhaven" mispronunciation
+
+Piper's grapheme-to-phoneme guess for "Vinalhaven" didn't land right.
+Respelled to "Vinyl Haven" (both real dictionary words, so the TTS
+frontend handles it correctly) in the one line that says it, re-synced
+that beat's held-frame timing to the new (slightly longer) clip
+duration, and rebuilt the video. Original Piper voice unchanged — this
+was purely a pronunciation fix, not a voice change (a same-session
+detour into Coqui XTTS voice cloning, tried for a stronger Downeast
+Maine cadence, didn't pan out: XTTS's phoneme decoder pulled pronunciation
+back toward its general-American training distribution regardless of
+reference-clip accent, and eye-dialect spelling made it worse, not
+better, since XTTS's frontend expects real words).
+
 ## 2026-09-26 — Route destination "Name" prompt now uses the in-app modal (v690)
 
 `route-dest-name-btn` (the "Name" button on the pending-destination
