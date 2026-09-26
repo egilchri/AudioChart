@@ -10970,8 +10970,13 @@ if (textForm) {
     if (!text) {
       // Empty box + play: rerun the last command rather than no-op — the
       // history list already has it at index 0, so this is just "repeat".
+      // Show it in the box (rather than leaving the box empty) so it's
+      // visible what got replayed.
       const last = loadHistory()[0];
-      if (last) handleCommand(last);
+      if (last) {
+        textInput.value = last;
+        handleCommand(last);
+      }
       return;
     }
     textInput.value = '';

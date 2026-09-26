@@ -12,6 +12,15 @@
 > deep-dive on the v317–v325 cluster specifically (Focus Target, Simulate
 > Heading); the summaries below start right after that.
 
+## 2026-09-26 — Empty-box replay now shows the replayed command (v696)
+
+Follow-up to v695's "play on an empty box reruns the last command": that
+rerun was silent — the box stayed empty while the command ran in the
+background, with no indication of what had actually happened. Now the
+replayed command's text is written into the box (same text the history
+pill for it would show) at the moment it runs, so it's visible on screen,
+not just audible/in the response area.
+
 ## 2026-09-26 — Target button always shown in journey mode; play button reruns last command (v695)
 
 Two small consistency fixes:
