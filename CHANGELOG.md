@@ -12,6 +12,22 @@
 > deep-dive on the v317–v325 cluster specifically (Focus Target, Simulate
 > Heading); the summaries below start right after that.
 
+## 2026-09-26 — Underway & Bearing demo: fixed "lives" mispronunciation
+
+Piper read "lives" in "Everything you've saved lives right here" as
+the long-i plural noun instead of the short-i verb. Unlike the
+AutoRoute clip (built this session as discrete frame+line pieces),
+this demo predates the session as a single continuous recording with
+no separable script or audio segments — so this was a surgical splice,
+not a re-render: synthesized a corrected clip ("livz" spelling forces
+the short-i reading), time-matched it to the original segment's exact
+duration (atempo, not just trimmed — keeps everything after it in
+sync with the unmodified video track) and loudness (measured via
+volumedetect, not eyeballed), then spliced it into the extracted audio
+track at the real pause boundaries (found via silencedetect, since
+there's no way to transcribe/locate speech automatically here) and
+re-muxed with the original video, untouched (`-c:v copy`).
+
 ## 2026-09-26 — Sailors-page Home button; route-movie map-types blurb speaks once per session (v691)
 
 Two direct requests. (1) The sailors marketing page's sticky top nav
