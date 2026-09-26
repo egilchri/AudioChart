@@ -12,6 +12,14 @@
 > deep-dive on the v317–v325 cluster specifically (Focus Target, Simulate
 > Heading); the summaries below start right after that.
 
+## 2026-09-26 — Tutorial link moved to a top-level button (v693)
+
+Per direct follow-up: v692 tucked "Tutorial" inside the Screen menu,
+but it belongs alongside Routes/Tracks/Samples as a one-tap top-level
+button (`#status-tiles-2`), not buried behind another menu — consistent
+with this project's standing preference for surfacing controls
+directly rather than nesting them.
+
 ## 2026-09-26 — "Tutorial" link from the app back to the sailors demos (v692)
 
 Screen menu (alongside Awake/Clear Screen) gets a "📖 Tutorial" entry —

@@ -11534,13 +11534,15 @@ document.getElementById('screen-menu-clear').addEventListener('click', () => {
   _closeScreenMenu();
   _clearScreen();
 });
-// Opens in a new tab, not the app's own window — this is a PWA, and
-// navigating away in place would abandon whatever's on screen (a route
-// mid-edit, GPS tracking, Underway mode). Needs real internet; the app
-// itself stays fully usable offline either way, this is just a way
-// back to the marketing/tutorial site for whoever has a signal.
-document.getElementById('screen-menu-tutorial').addEventListener('click', () => {
-  _closeScreenMenu();
+// Top-level button (status-tiles-2), not tucked in a menu — per direct
+// request, this and the other primary actions (Routes/Tracks/Samples)
+// stay one tap away rather than buried behind Screen. Opens in a new
+// tab, not the app's own window — this is a PWA, and navigating away in
+// place would abandon whatever's on screen (a route mid-edit, GPS
+// tracking, Underway mode). Needs real internet; the app itself stays
+// fully usable offline either way, this is just a way back to the
+// marketing/tutorial site for whoever has a signal.
+document.getElementById('tutorial-btn').addEventListener('click', () => {
   window.open('https://egilchri.github.io/AudioChart/sailors/#demo', '_blank', 'noopener');
 });
 
