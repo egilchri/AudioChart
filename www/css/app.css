@@ -248,16 +248,13 @@ html, body {
 #app.following-active #focus-btn {
   display: block;
 }
-/* ...but during a Virtual Journey specifically, the follow-progress
-   readout (top-left, "Next: bearing, distance") already shows the same
-   bearing/range to the next waypoint — reported as redundant. Real Follow
-   is left alone (not reported, and its readout sits further from
-   #focus-btn than during a journey). Same specificity as the rule above,
-   so source order — this one coming later — is what makes it win whenever
-   both classes are present. */
-#app.vjourney-active #focus-btn {
-  display: none;
-}
+/* Virtual Journey used to hide #focus-btn here (the top-left follow-
+   progress readout showing the same bearing/range to the next waypoint
+   was judged redundant) — reversed per later direct request: journey
+   mode (real or virtual) should always have a target button available,
+   for consistency between the two. VJ already forces #app.underway-mode
+   on itself (_preVjUnderwayMode in app.js), so the button now shows via
+   that rule with no VJ-specific rule needed here at all. */
 #focus-btn:hover { border-color: var(--brass); color: var(--brass-hi); }
 #focus-btn.focus-active { border-color: #1a6b3c; color: #4ade80; background: #0a2a16; }
 #focus-btn.focus-active:hover { border-color: #2a8b4c; color: #6aeea0; background: #0f3a1e; }

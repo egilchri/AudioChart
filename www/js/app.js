@@ -10967,7 +10967,13 @@ if (textForm) {
   textForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const text = textInput.value.trim();
-    if (!text) return;
+    if (!text) {
+      // Empty box + play: rerun the last command rather than no-op — the
+      // history list already has it at index 0, so this is just "repeat".
+      const last = loadHistory()[0];
+      if (last) handleCommand(last);
+      return;
+    }
     textInput.value = '';
     handleCommand(text);
   });

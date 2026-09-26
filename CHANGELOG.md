@@ -12,6 +12,24 @@
 > deep-dive on the v317–v325 cluster specifically (Focus Target, Simulate
 > Heading); the summaries below start right after that.
 
+## 2026-09-26 — Target button always shown in journey mode; play button reruns last command (v695)
+
+Two small consistency fixes:
+
+- The 🎯 target/bearing button (`#focus-btn`) used to be hidden specifically
+  during a Virtual Journey (reasoning at the time: the journey's own
+  top-left "Next: bearing, distance" readout already showed the same info,
+  so the button felt redundant). Reversed per direct request — journey
+  mode, real or virtual, should always have the target button available,
+  for consistency between the two. Virtual Journey already forces
+  Underway mode on itself, so no VJ-specific CSS rule is needed at all now;
+  removing the old hide-rule was the whole fix.
+- Hitting the ▶ play button on the text-command bar while the box is empty
+  used to be a silent no-op. It now reruns the last command from history
+  (the same list the command-history pills are built from) instead of
+  doing nothing — a quick "repeat that" without retyping or hunting for
+  the pill.
+
 ## 2026-09-26 — Virtual Journey shows its waypoints, in a new green (v694)
 
 While a Virtual Journey is running, its route now shows every intermediate
