@@ -12,6 +12,14 @@
 > deep-dive on the v317–v325 cluster specifically (Focus Target, Simulate
 > Heading); the summaries below start right after that.
 
+## 2026-09-25 — Paintings table button styling (v684)
+
+The "List" button that opens the All Paintings table now reads "List
+Paintings" and matches the same brass tile look (background, border,
+text color, hover state) as Routes/Tracks/Samples next to it — it was
+missing from the shared button-styling selector, so it had been
+rendering in the bare browser default instead of the app's own chrome.
+
 ## 2026-09-25 — Paintings table: thumbnails (v683)
 
 Follow-up to v682's "All Paintings" table: the Image column now shows an

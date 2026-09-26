@@ -139,7 +139,7 @@ html, body {
    dedicated rule at all and was rendering in the browser's bare default
    button style, standing out from its row. */
 #offline-btn, #location-menu-btn, #screen-menu-btn, #search-btn, #track-rec-btn,
-#anchor-watch-btn, #anchor-watch-silence-btn, #route-picker-btn, #track-picker-btn, #sample-routes-btn {
+#anchor-watch-btn, #anchor-watch-silence-btn, #route-picker-btn, #track-picker-btn, #sample-routes-btn, #paintings-list-btn {
   background: rgba(18, 13, 8, 0.94); /* --brass-ink */
   border: 1px solid var(--brass-dim);
   border-radius: 6px;
@@ -154,7 +154,7 @@ html, body {
   -webkit-tap-highlight-color: transparent;
 }
 #offline-btn:hover, #location-menu-btn:hover, #screen-menu-btn:hover, #search-btn:hover, #track-rec-btn:hover, #anchor-watch-btn:hover, #anchor-watch-silence-btn:hover,
-#route-picker-btn:hover, #track-picker-btn:hover, #sample-routes-btn:hover { border-color: var(--brass); color: var(--brass-hi); }
+#route-picker-btn:hover, #track-picker-btn:hover, #sample-routes-btn:hover, #paintings-list-btn:hover { border-color: var(--brass); color: var(--brass-hi); }
 #offline-btn:disabled { opacity: 0.5; cursor: default; }
 #route-picker-btn:active, #track-picker-btn:active, #sample-routes-btn:active { background: var(--brass-dim); }
 #route-picker-btn.active, #track-picker-btn.active, #sample-routes-btn.active { background: var(--brass); color: var(--brass-ink); }
