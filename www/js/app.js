@@ -10019,7 +10019,19 @@ positionEl.addEventListener('click', () => {
 
 // Tracks which coverage tier the boat is currently in, so we only speak up
 // on a real transition (not every GPS tick) — see _updateCoverageStatus.
+// Kept separate from _coverageLastAnnounced (below): this one updates the
+// on-screen badge immediately and always, even during the untrustworthy
+// startup window described there.
 let _coverageLevel = null;
+
+// What we've actually told the user out loud, and whether the app's very
+// first coverage read is trustworthy yet — see _updateCoverageStatus's own
+// comment for the real bug this fixes (a routine in-coverage start could
+// speak a false "Limited chart data" warning, then a confusing "Chart data
+// available" recovery right after, purely from hazard/navaid/named-place
+// data not having finished loading yet when the very first GPS fix landed).
+let _coverageLastAnnounced  = null;
+let _coverageStartupSettled = false;
 
 const COVERAGE_MESSAGES = {
   land: 'Limited chart data here — land avoidance only, no hazard or navaid detail. Auto Route and Re-route are unavailable; Sketch still works.',
@@ -10191,8 +10203,7 @@ async function _offerRegionForPosition(lat, lon) {
     _showBoatPosition(44.103, -69.088);
     const msg = "AudioChart doesn't cover this area yet, so we've set a demo position in Rockland Harbor — " +
                 "the heart of Penobscot Bay — for the full experience: History, Geology, Anchorages, and more. " +
-                "Casco Bay and Piscataqua are also covered, with less auxiliary detail. Clear the test position " +
-                "any time to use your real location again.";
+                "Clear the test position any time to use your real location again.";
     setStatus(msg);
     TTS.sayImmediate(msg);
     _showCoverageAlert(msg);
@@ -10244,7 +10255,8 @@ function _updateCoverageStatus(lat, lon, _isRecheck = false) {
   // rather than trying to detect readiness precisely — capped so someone
   // genuinely out of range (e.g. cruising far outside coverage) doesn't
   // leave a timer polling every 2s for the rest of the voyage.
-  if (level !== 'core' && !_coverageRecheckTimer && _coverageRecheckCount < COVERAGE_RECHECK_MAX) {
+  const willRecheck = level !== 'core' && !_coverageRecheckTimer && _coverageRecheckCount < COVERAGE_RECHECK_MAX;
+  if (willRecheck) {
     _coverageRecheckCount++;
     _coverageRecheckTimer = setTimeout(() => {
       _coverageRecheckTimer = null;
@@ -10260,24 +10272,42 @@ function _updateCoverageStatus(lat, lon, _isRecheck = false) {
     }, 2000);
   }
 
-  if (level === _coverageLevel) return;
-  const prevLevel = _coverageLevel;
-  _coverageLevel = level;
-
-  if (level === 'core') {
-    _statusCoverageLabel = '';
-    _statusCoverageCls   = '';
-  } else {
-    _statusCoverageLabel = level === 'land' ? '⚠ Limited chart data' : '⚠ No chart data';
-    _statusCoverageCls   = `coverage-${level}`;
+  if (level !== _coverageLevel) {
+    _coverageLevel = level;
+    if (level === 'core') {
+      _statusCoverageLabel = '';
+      _statusCoverageCls   = '';
+    } else {
+      _statusCoverageLabel = level === 'land' ? '⚠ Limited chart data' : '⚠ No chart data';
+      _statusCoverageCls   = `coverage-${level}`;
+    }
+    _renderStatusCombo();
+    if (level !== 'none' && !_regionOfferDownloading) { _hideRegionOfferBanner(); _hideCoverageAlert(); }
   }
-  _renderStatusCombo();
 
-  if (level !== 'none' && !_regionOfferDownloading) { _hideRegionOfferBanner(); _hideCoverageAlert(); }
+  // Real bug found live (2026-09): the app's very first coverage read can
+  // land before hazard/navaid/named-place data has finished loading (a
+  // one-shot test position or a slow first GPS fix are the common
+  // triggers), reading as 'land' or 'none' even sitting in the middle of
+  // full Penobscot Bay coverage — this spoke a false "Limited chart data"
+  // warning immediately, then a confusing "Chart data available" recovery
+  // message ~2s later once the race resolved, on what should have been a
+  // silent, ordinary in-coverage start. A read isn't trusted for SPEAKING
+  // purposes until either it's already settled once before, it's
+  // unambiguously 'core', or it has survived every scheduled retry above
+  // (willRecheck just went false) — the badge above still updates in
+  // real time regardless, since a few seconds of a stale-but-harmless
+  // visual badge is a fair trade for not crying wolf out loud.
+  if (!_coverageStartupSettled && level !== 'core' && willRecheck) return;
+  if (level === 'core') _coverageStartupSettled = true;
+
+  if (level === _coverageLastAnnounced) return; // nothing new to actually say
+  const prevAnnounced = _coverageLastAnnounced;
+  _coverageLastAnnounced = level;
 
   // Don't announce the very first "core" resolution on a normal in-coverage
-  // start (prevLevel === null) — only speak up on an actual degrade/recover.
-  if (prevLevel !== null || level !== 'core') {
+  // start (prevAnnounced === null) — only speak up on an actual degrade/recover.
+  if (prevAnnounced !== null || level !== 'core') {
     if (level === 'none') {
       _offerRegionForPosition(lat, lon); // async — sets its own status/TTS once it knows more
     } else {

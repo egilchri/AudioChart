@@ -12,6 +12,29 @@
 > deep-dive on the v317–v325 cluster specifically (Focus Target, Simulate
 > Heading); the summaries below start right after that.
 
+## 2026-09-25 — Fix the confusing startup coverage announcement (v685)
+
+User reported hearing "Limited chart data here — Auto Route and Re-route
+are unavailable; Sketch still works" on a normal launch while testing a
+Penobscot Bay position — it should have "just worked" silently. Root
+cause: the app's very first coverage check can run before hazard/navaid/
+named-place data has finished loading, reading as degraded even sitting
+in the middle of full coverage; that false read got spoken immediately,
+then ~2s later a second, equally confusing "Chart data available" message
+fired once the data-load race resolved on its own. Fixed by not trusting
+a coverage read for *speaking* purposes until it's either unambiguously
+'core', already settled once before, or has survived the existing retry
+window — the on-screen badge still updates in real time regardless, only
+the announcement is held back. A real mid-voyage loss of coverage after
+a normal start still speaks up immediately, no added delay — verified via
+an isolated state-machine simulation covering both cases plus recovery.
+
+Also trimmed the separate "you're outside coverage" message (heard when
+a position resolves nowhere in range at all) to drop its "Casco Bay and
+Piscataqua are also covered" line, since this release ships Penobscot Bay
+only — kept the part explaining *why* Rockland Harbor / Penobscot Bay is
+worth the demo position (History, Geology, Anchorages, and more).
+
 ## 2026-09-25 — Paintings table button styling (v684)
 
 The "List" button that opens the All Paintings table now reads "List
