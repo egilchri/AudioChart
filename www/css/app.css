@@ -2636,6 +2636,13 @@ body.wco-active #wco-titlebar { display: flex; }
 .edit-vertex-new {
   animation: new-vertex-flash 0.7s ease-in-out infinite;
 }
+@keyframes route-dest-name-flash {
+  0%, 100% { background: #fff; box-shadow: none; }
+  50%      { background: #f5c842; box-shadow: 0 0 0 4px rgba(245,200,66,0.5); }
+}
+#route-dest-name-btn.flash-attention {
+  animation: route-dest-name-flash 0.6s ease-in-out 3;
+}
 @keyframes anim-overnight-pulse {
   0%, 100% { transform: scale(1); opacity: 1; }
   50%      { transform: scale(1.4); opacity: 0.8; }

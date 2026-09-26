@@ -8503,8 +8503,8 @@ function _ensureMap() {
       // Tap the map to finish it immediately — right-click → "Route to
       // here" still works too, this is just the faster path.
       _armPendingRouteDestination();
-      setStatus(`"${name}" start set — tap the map for the destination.`);
-      TTS.sayImmediate(`${name} started. Tap the map for the destination.`);
+      setStatus(`"${name}" start set — tap the map for the destination, or type its name in the box below.`);
+      TTS.sayImmediate(`${name} started. Tap the map for the destination, or enter the name of the destination in the text input box.`);
     }
   }
   _routeFromHereFn = _routeFromHere;
@@ -8565,9 +8565,11 @@ function _ensureMap() {
   let _pendingRouteDestClick = null;
   const _routeDestBanner = document.getElementById('route-dest-banner');
   const _routeDestBannerLabel = document.getElementById('route-dest-banner-label');
+  const _routeDestNameBtn = document.getElementById('route-dest-name-btn');
   function _disarmPendingRouteDestination() {
     if (_pendingRouteDestClick) { _map.off('click', _pendingRouteDestClick); _pendingRouteDestClick = null; }
     _routeDestBanner.style.display = 'none';
+    _routeDestNameBtn.classList.remove('flash-attention');
     _setBottomHudHiddenForBanner(false);
   }
   function _armPendingRouteDestination() {
@@ -8579,8 +8581,15 @@ function _ensureMap() {
     // actually DO something (tap the map) rather than just be informed of
     // something. A persistent banner, same convention as Draw Route's own
     // step-by-step prompt, stays on screen until they act or cancel.
-    _routeDestBannerLabel.textContent = `Tap the map to set the destination for "${_autoRouteName}"`;
+    _routeDestBannerLabel.textContent = `Tap the map to set the destination for "${_autoRouteName}" — or tap Name to type it`;
     _routeDestBanner.style.display = 'flex';
+    // Tapping the map is the faster path, but it's easy to miss that typing
+    // a name works too — flash the Name button a few times to draw the eye
+    // to it (finite iteration count, not infinite: this banner can stay up
+    // indefinitely and a forever-pulsing button would just become noise).
+    _routeDestNameBtn.classList.remove('flash-attention');
+    void _routeDestNameBtn.offsetWidth; // restart the animation if it's re-armed before finishing
+    _routeDestNameBtn.classList.add('flash-attention');
     // Confirmed live on a phone: this banner's own "Name" button was
     // sitting right underneath #bottom-hud (fixed to the viewport's own
     // bottom edge, not aware of this normal-flow banner pushing the map

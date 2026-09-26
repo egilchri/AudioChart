@@ -12,6 +12,17 @@
 > deep-dive on the v317–v325 cluster specifically (Focus Target, Simulate
 > Heading); the summaries below start right after that.
 
+## 2026-09-26 — Autoroute destination prompt now mentions typing a name (v689)
+
+The "tap the map for the destination" prompt (spoken + status bar + the
+persistent on-screen banner) only ever mentioned tapping the map, even
+though a "Name" button right next to it has always let you type a place
+or waypoint name instead — easy to miss since nothing called it out. Now
+the spoken line, status text, and banner label all mention both options,
+and the Name button flashes a few times (finite, not infinite — the
+banner can stay up indefinitely) when the banner first appears, to draw
+the eye to it.
+
 ## 2026-09-26 — Structural fix: default to Rockland, never trust an out-of-coverage real fix (v688)
 
 v687's grace window fixed the real-GPS-vs-spoof race reactively — delay
