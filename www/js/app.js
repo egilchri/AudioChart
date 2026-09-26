@@ -8980,6 +8980,13 @@ function _ensureMap() {
   // reliably resets even if a step throws partway through.
   let _movieRunning = false;
 
+  // Step 6 (the "other map types" reference blurb) is the same for every
+  // sample route — watch two or three in one sitting and it repeats
+  // itself verbatim each time. Speak it once per session (in-memory, not
+  // persisted — resets on reload) and skip straight to the closing lines
+  // on every play after that.
+  let _mapTypesBlurbShown = false;
+
   // See the big comment on ROUTE_MOVIES (top of file) for what this is and
   // why — a passive, auto-playing, narrated walkthrough per sample route,
   // triggered by "▶ Watch" below. Lives in this scope (not top-level, where
@@ -9192,11 +9199,21 @@ function _ensureMap() {
     // narration and left up a while longer after so it's actually
     // readable, not just glanced at (per direct request: "put up a table
     // for several seconds").
-    const _modesDonePromise = showStep(6, "There are a number of other map types, with new ones being added regularly. In addition to being a navigation app, AudioChart has something for even armchair sailors — it provides map modes as a way of exploring and learning about some diverse aspects of Penobscot Bay.");
-    _showModesTable();
-    await _modesDonePromise;
-    await sleep(4000);
-    _hideModesTable();
+    if (_mapTypesBlurbShown) {
+      // Same visual (badge + table), just no repeated audio narration.
+      if (stepBadge) { stepBadge.textContent = `STEP 6 OF ${TOTAL}`; stepBadge.style.display = 'block'; }
+      if (hud) { hud.textContent = 'Other map types.'; hud.style.display = 'block'; }
+      _showModesTable();
+      await sleep(4000);
+      _hideModesTable();
+    } else {
+      _mapTypesBlurbShown = true;
+      const _modesDonePromise = showStep(6, "There are a number of other map types, with new ones being added regularly. In addition to being a navigation app, AudioChart has something for even armchair sailors — it provides map modes as a way of exploring and learning about some diverse aspects of Penobscot Bay.");
+      _showModesTable();
+      await _modesDonePromise;
+      await sleep(4000);
+      _hideModesTable();
+    }
 
     if (stepBadge) stepBadge.style.display = 'none';
     if (hud) hud.style.display = 'none';

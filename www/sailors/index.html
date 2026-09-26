@@ -103,6 +103,11 @@
     background: var(--brass);
     transform: translate(-50%, -100%);
   }
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
   .nav-cta {
     font-family: 'Inter', sans-serif;
     font-weight: 600;
@@ -113,6 +118,18 @@
     border-radius: 3px;
     text-decoration: none;
     letter-spacing: 0.01em;
+  }
+  /* Secondary treatment (outline, not filled) so it doesn't visually
+     compete with "Open the app" for primary attention. */
+  .nav-cta-home {
+    background: transparent;
+    color: var(--navy);
+    border: 1px solid var(--navy);
+    padding: 9px 18px;
+  }
+  @media (max-width: 480px) {
+    .nav-cta-home span.home-label { display: none; }
+    .nav-cta { padding: 9px 14px; font-size: 13px; }
   }
 
   /* ===== HERO ===== */
@@ -468,11 +485,14 @@
 <nav class="topnav">
   <div class="topnav-inner">
     <div class="brand"><span class="mark"></span> AudioChart</div>
-    <a class="nav-cta" href="https://egilchri.github.io/AudioChart/">Open the app</a>
+    <div class="nav-links">
+      <a class="nav-cta nav-cta-home" href="#top" title="Back to the top — home and demos">🏠 <span class="home-label">Home</span></a>
+      <a class="nav-cta" href="https://egilchri.github.io/AudioChart/">Open the app</a>
+    </div>
   </div>
 </nav>
 
-<header class="hero">
+<header class="hero" id="top">
   <div class="wrap hero-grid">
     <div>
       <span class="eyebrow">A full chart plotter, with a voice</span>

@@ -12,6 +12,32 @@
 > deep-dive on the v317–v325 cluster specifically (Focus Target, Simulate
 > Heading); the summaries below start right after that.
 
+## 2026-09-26 — Sailors-page Home button; route-movie map-types blurb speaks once per session (v691)
+
+Two direct requests. (1) The sailors marketing page's sticky top nav
+gets a "🏠 Home" link back to the hero/demo section, always reachable
+while scrolled anywhere on the page — outline style so it doesn't
+visually compete with "Open the app" for attention. Plain
+`<a href="#top">`, no JS: an earlier attempt added an explicit
+`scrollIntoView` click handler after live testing seemed to show the
+native anchor-jump not firing, but that was chasing the wrong cause —
+the *identical* symptom (smooth-scroll never completing) showed up on
+a bare `scrollIntoView({behavior:'smooth'})` call too, and disappeared
+entirely with `behavior:'instant'`. That's smooth-scroll animation
+throttling on a hidden/backgrounded automation tab, the same class of
+limitation already known here for `flyTo`'s rAF-driven map animation —
+not a real bug, and not something the extra JS actually fixed (it used
+`behavior:'smooth'` too). Reverted to the plain anchor once the real
+cause was found; verified correct with an instant-scroll equivalent
+since the animated version can't be confirmed from this environment.
+(2) `_playRouteMovie`'s closing "there are a number of other map
+types..." narration is identical for every sample route — watching two
+or three Watch movies in one sitting repeated it verbatim each time.
+Now speaks once per session (an in-memory flag alongside the existing
+`_movieRunning` one, not persisted — resets on reload); every play
+after the first still shows the reference table for the same 4s, just
+without repeating the audio.
+
 ## 2026-09-26 — AutoRoute demo: fixed "Vinalhaven" mispronunciation
 
 Piper's grapheme-to-phoneme guess for "Vinalhaven" didn't land right.
