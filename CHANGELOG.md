@@ -12,6 +12,29 @@
 > deep-dive on the v317–v325 cluster specifically (Focus Target, Simulate
 > Heading); the summaries below start right after that.
 
+## 2026-09-25 — v685's coverage-announcement fix was incomplete (v686)
+
+User reported v685 still spoke the false "Limited chart data" warning
+while spoofing a Penobscot position, even though Auto Route worked fine
+once the app had settled in. Root cause of the gap: v685 gated its
+"is this read trustworthy yet" decision on a fixed ~6-second retry
+window (borrowed from an unrelated existing mechanism) — a real cold
+load of hazard/navaid/named-place data can take longer than that on a
+slower connection, so the fix gave up and spoke the false warning right
+before the data actually finished loading, then never re-checked again
+(no further position update ever arrived to trigger it).
+
+Replaced the timing guess with the real signal: whether
+`Query.hazards`/`namedPlaces`/`navaids` have actually populated yet.
+While they haven't, the app just keeps quietly re-checking every 2s —
+for as long as it takes — with a generous ~30s backstop in case the
+load has genuinely failed for good, after which it falls through to
+the original bounded retry-and-announce behavior. Re-verified with an
+expanded state-machine simulation: silent through a simulated 20-second
+slow load that resolves to full coverage, still eventually speaks up
+once for a genuine total failure, and still speaks immediately (no
+added delay) for a real mid-voyage coverage loss after a normal start.
+
 ## 2026-09-25 — Fix the confusing startup coverage announcement (v685)
 
 User reported hearing "Limited chart data here — Auto Route and Re-route

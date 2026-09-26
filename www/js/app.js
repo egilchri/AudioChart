@@ -10240,24 +10240,45 @@ async function _offerRegionForPosition(lat, lon) {
 let _coverageRecheckTimer = null;
 let _coverageRecheckCount = 0;
 const COVERAGE_RECHECK_MAX = 3; // ~6s of retries — enough for a slow fetch, not an indefinite poll for someone genuinely out of range
+// Separate, much more generous budget for the app's very FIRST data load
+// specifically (see dataReady/stillAwaitingFirstLoad below) — a real cold
+// load (hazards/named_places/navaids, potentially several MB, over a slow
+// connection) can easily take longer than COVERAGE_RECHECK_MAX's ~6s, and
+// that used to be exactly long enough to falsely declare "no chart data"
+// before the load had actually finished, with no way to ever re-check
+// after (Auto Route worked fine once the data DID finish a few seconds
+// later, but the spoken/badge verdict just stayed wrong). ~30s comfortably
+// covers a slow real load while still eventually giving up and saying
+// something if the fetch has genuinely failed for good.
+let _coverageStartupWaitCount = 0;
+const COVERAGE_STARTUP_WAIT_MAX = 15;
 function _updateCoverageStatus(lat, lon, _isRecheck = false) {
   if (!_isRecheck) _coverageRecheckCount = 0;  // a real position update, not a self-retry — start fresh
   const level = Query.coverageLevelAt(lon, lat);
 
-  // The relevant hazard/navaid data for a NEW position (server-bridge mode
-  // re-fetches "nearby" data per position) can still be in flight when this
-  // first runs — "is any core data loaded at all" isn't a reliable signal
-  // for that, since stale data from a previous position already satisfies
-  // it. A real GPS watch self-corrects within a second or two as fixes keep
-  // arriving regardless, but a one-shot test position or a slow first fix
-  // could otherwise get stuck showing a falsely-degraded badge. Take a
-  // handful of unconditional re-checks shortly after any non-core result
-  // rather than trying to detect readiness precisely — capped so someone
-  // genuinely out of range (e.g. cruising far outside coverage) doesn't
-  // leave a timer polling every 2s for the rest of the voyage.
-  const willRecheck = level !== 'core' && !_coverageRecheckTimer && _coverageRecheckCount < COVERAGE_RECHECK_MAX;
+  // The relevant hazard/navaid/named-place data for a NEW position
+  // (server-bridge mode re-fetches "nearby" data per position; static mode
+  // loads it once via Query.loadData) can still be in flight when this
+  // first runs. Real bug found live (2026-09): a fixed ~6s retry budget
+  // (the OLD value of this same guard) was too short for a genuinely slow
+  // first load — Auto Route worked fine once the data actually finished
+  // loading a few seconds later, but the spoken/badge coverage read never
+  // re-evaluated after giving up at 6s, staying wrong indefinitely. Now
+  // keyed off the real signal instead of a guess: dataReady is true only
+  // once hazards/namedPlaces/navaids have actually populated, so a slow
+  // load just keeps politely rechecking every 2s for as long as it takes,
+  // no false "limited/no chart data" verdict along the way. The original
+  // COVERAGE_RECHECK_MAX/~6s budget still applies once dataReady is true
+  // (or coverage has settled once before) — that's the unrelated, already-
+  // working self-correction for a real mid-voyage flip-flop, untouched.
+  const dataReady = Query.hazards !== null && Query.namedPlaces !== null && Query.navaids !== null;
+  const stillAwaitingFirstLoad = !_coverageStartupSettled && !dataReady &&
+    _coverageStartupWaitCount < COVERAGE_STARTUP_WAIT_MAX;
+  const willRecheck = level !== 'core' && !_coverageRecheckTimer &&
+    (stillAwaitingFirstLoad || _coverageRecheckCount < COVERAGE_RECHECK_MAX);
   if (willRecheck) {
-    _coverageRecheckCount++;
+    if (stillAwaitingFirstLoad) _coverageStartupWaitCount++;
+    else _coverageRecheckCount++;
     _coverageRecheckTimer = setTimeout(() => {
       _coverageRecheckTimer = null;
       // Re-read the CURRENT position rather than reusing the lat/lon
@@ -10285,19 +10306,13 @@ function _updateCoverageStatus(lat, lon, _isRecheck = false) {
     if (level !== 'none' && !_regionOfferDownloading) { _hideRegionOfferBanner(); _hideCoverageAlert(); }
   }
 
-  // Real bug found live (2026-09): the app's very first coverage read can
-  // land before hazard/navaid/named-place data has finished loading (a
-  // one-shot test position or a slow first GPS fix are the common
-  // triggers), reading as 'land' or 'none' even sitting in the middle of
-  // full Penobscot Bay coverage — this spoke a false "Limited chart data"
-  // warning immediately, then a confusing "Chart data available" recovery
-  // message ~2s later once the race resolved, on what should have been a
-  // silent, ordinary in-coverage start. A read isn't trusted for SPEAKING
-  // purposes until either it's already settled once before, it's
-  // unambiguously 'core', or it has survived every scheduled retry above
-  // (willRecheck just went false) — the badge above still updates in
-  // real time regardless, since a few seconds of a stale-but-harmless
-  // visual badge is a fair trade for not crying wolf out loud.
+  // A read isn't trusted for SPEAKING purposes until either it's already
+  // settled once before, it's unambiguously 'core', or willRecheck has
+  // gone false (dataReady, or COVERAGE_STARTUP_WAIT_MAX/COVERAGE_RECHECK_MAX
+  // genuinely exhausted) — the badge above still updates in real time
+  // regardless, since a stale-but-harmless visual badge for as long as the
+  // very first load actually takes is a fair trade for not crying wolf out
+  // loud on an ordinary in-coverage start.
   if (!_coverageStartupSettled && level !== 'core' && willRecheck) return;
   if (level === 'core') _coverageStartupSettled = true;
 
