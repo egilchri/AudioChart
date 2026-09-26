@@ -12,6 +12,29 @@
 > deep-dive on the v317–v325 cluster specifically (Focus Target, Simulate
 > Heading); the summaries below start right after that.
 
+## 2026-09-25 — The real root cause: a spoof-grace window (v687)
+
+User reported v686 *still* spoke "Limited chart data here" while testing
+— the actual cause turned out to be different from both prior attempts.
+GPS starts watching for a real position automatically on launch; while
+developing/testing away from the boat, that real fix (wherever the
+device actually is) can genuinely have no coverage there and — correctly,
+for that real location — announces it, moments before a deliberately-set
+test position (Location -> Spoof Location, e.g. Penobscot Bay) overrides
+it. The warning wasn't wrong, it was just about to be superseded and
+never should have been said out loud in the first place.
+
+Fixed by giving a real GPS fix (not a manual/virtual one — those speak
+immediately as before) a 4-second grace window before trusting it enough
+to announce: if a manual or virtual override arrives in that window, the
+real fix's verdict is dropped entirely and never spoken. If nothing
+overrides it, the app falls through to its normal (already-fixed in v686)
+behavior and tells the truth about the real position. Caught and fixed a
+real bug in this fix itself before shipping — an early version could
+re-arm the grace window forever if no spoof ever arrived, silently never
+announcing anything — via an expanded state-machine simulation covering
+that exact case.
+
 ## 2026-09-25 — v685's coverage-announcement fix was incomplete (v686)
 
 User reported v685 still spoke the false "Limited chart data" warning
