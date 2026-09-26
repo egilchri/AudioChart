@@ -11534,6 +11534,15 @@ document.getElementById('screen-menu-clear').addEventListener('click', () => {
   _closeScreenMenu();
   _clearScreen();
 });
+// Opens in a new tab, not the app's own window — this is a PWA, and
+// navigating away in place would abandon whatever's on screen (a route
+// mid-edit, GPS tracking, Underway mode). Needs real internet; the app
+// itself stays fully usable offline either way, this is just a way
+// back to the marketing/tutorial site for whoever has a signal.
+document.getElementById('screen-menu-tutorial').addEventListener('click', () => {
+  _closeScreenMenu();
+  window.open('https://egilchri.github.io/AudioChart/sailors/#demo', '_blank', 'noopener');
+});
 
 // Underway is a pure visibility toggle — see #app.underway-mode in
 // app.css — hides the top bar, #right-rail, zoom/pan, and tide down to

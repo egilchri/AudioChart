@@ -12,6 +12,16 @@
 > deep-dive on the v317–v325 cluster specifically (Focus Target, Simulate
 > Heading); the summaries below start right after that.
 
+## 2026-09-26 — "Tutorial" link from the app back to the sailors demos (v692)
+
+Screen menu (alongside Awake/Clear Screen) gets a "📖 Tutorial" entry —
+opens the sailors marketing page's demo section
+(`sailors/#demo`) in a new tab, not the app's own window, since this is
+a PWA and navigating away in place would abandon whatever's on screen
+(a route mid-edit, GPS tracking, Underway mode). Needs real internet;
+the app itself is unaffected either way. Mirrors the "🏠 Home" link
+added to the sailors page's own nav earlier today, the other direction.
+
 ## 2026-09-26 — Underway & Bearing demo: fixed "lives" mispronunciation
 
 Piper read "lives" in "Everything you've saved lives right here" as
