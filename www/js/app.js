@@ -2767,10 +2767,20 @@ function _refreshSavedRouteLayers() {
       })
       .addTo(_savedRoutesLayer);
     const isSelected = routeIdx === _selectedRouteIdx;
+    // VJ-green wins over "selected" gold if both are true at once (a route
+    // was clicked/highlighted, then also started as a Virtual Journey): the
+    // live "underway right now" state is more time-sensitive than the
+    // passive last-clicked highlight, and the VJ banner already carries the
+    // "this is the active route" signal elsewhere. Color kept in sync with
+    // .vj-waypoint-marker's border in app.css.
+    const isVjActive  = route.id === _vjRoute?.id;
+    const routeLineColor   = isVjActive ? '#1e8a5c' : (isSelected ? '#f5c842' : '#e05252');
+    const routeLineWeight  = (isVjActive || isSelected) ? 5 : 3;
+    const routeLineOpacity = isVjActive ? 0.9 : (isSelected ? 1.0 : 0.7);
     L.polyline(lls, {
-      color: isSelected ? '#f5c842' : '#e05252',
-      weight: isSelected ? 5 : 3,
-      opacity: isSelected ? 1.0 : 0.7,
+      color: routeLineColor,
+      weight: routeLineWeight,
+      opacity: routeLineOpacity,
       interactive: false,
     }).addTo(_savedRoutesLayer);
 
@@ -2845,6 +2855,20 @@ function _refreshSavedRouteLayers() {
         .bindTooltip('Overnight stop', { direction: 'top', offset: [0, -10] })
         .addTo(_savedRoutesLayer);
     });
+
+    // Virtual-Journey intermediate waypoints — every other route only ever
+    // shows its two endpoints (+ overnight stops); the one route actively
+    // running as a Virtual Journey also shows every other point along the
+    // way. Skips the same first/last indices as the endpoint markers, and
+    // any point already drawn above as an overnight marker, so nothing is
+    // drawn twice with two different marker styles.
+    if (route.id === _vjRoute?.id) {
+      pts.forEach((pt, i) => {
+        if (i === 0 || i === pts.length - 1 || pt.overnight) return;
+        L.marker([pt.lat, pt.lon], { icon: MarkerIcons.vjWaypointIcon(), interactive: false })
+          .addTo(_savedRoutesLayer);
+      });
+    }
   });
 }
 
@@ -5958,6 +5982,7 @@ function _startVirtualJourney(route, speedKnots) {
   if (!_underwayCheckbox.checked) _setUnderwayMode(true);
 
   _vjRoute = route;
+  _refreshSavedRouteLayers(); // draws this route in VJ-green with waypoints
   _vjSpeedKnots = speedKnots;
   _vjCompress = parseInt(document.querySelector('.vjourney-compress.selected')?.dataset.compress) || 1;
   _vjTraveledNm = 0;
@@ -6087,6 +6112,7 @@ function _stopVirtualJourney() {
   _appEl.classList.remove('vjourney-active');
   _appEl.style.removeProperty('--vjourney-h');
   _vjRoute = null;
+  _refreshSavedRouteLayers(); // reverts this route out of VJ-green/waypoints
   _vjSegs = [];
   _vjTotalNm = 0;
   _vjTraveledNm = 0;
@@ -7390,9 +7416,18 @@ function _ensureMap() {
         _buildRoutePickerPanel();
       });
       nameLine.appendChild(activateBtn);
+      // flex:1 + ellipsis (not another stacked line) so a long name
+      // truncates instead of pushing the date off the row — the whole
+      // point of a table-like layout is that name/date/hazard line up
+      // in one scannable row instead of each field getting its own line.
       const nameText = document.createElement('span');
+      nameText.className = 'rp-row-name-text';
       nameText.textContent = route.name;
       nameLine.appendChild(nameText);
+      const dateInline = document.createElement('span');
+      dateInline.className = 'rp-row-date-inline';
+      dateInline.textContent = _routeDateLabel(route);
+      nameLine.appendChild(dateInline);
       {
         // Cached-only here — computing this per row (route segments ×
         // tens of thousands of hazard features) blocked the panel's own
@@ -7472,11 +7507,7 @@ function _ensureMap() {
         placeLine.textContent = startName + (endName && endName !== startName ? ' → ' + endName : '');
         row.appendChild(placeLine);
       }
-      const dateLine = document.createElement('div');
-      dateLine.className = 'rp-row-date';
-      dateLine.textContent = _routeDateLabel(route);
-      row.appendChild(dateLine);
-      // Follow/Virtual Journey come right after the date line, BEFORE the
+      // Follow/Virtual Journey come right after the name/date line, BEFORE the
       // (potentially long) multi-day legs list below — per direct report,
       // a route with several legs pushed these action buttons below the
       // fold, making them easy to miss without scrolling past the whole

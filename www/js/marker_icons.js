@@ -204,6 +204,15 @@ export function routeOvernightIcon() {
   return L.divIcon({ className: 'route-overnight-marker', html: '&#128719;', iconSize: [16, 16], iconAnchor: [8, 8] });
 }
 
+export function vjWaypointIcon() {
+  // A quiet trail-of-dots along an in-progress Virtual Journey's route —
+  // smaller/lighter than routeEndpointIcon/routeOvernightIcon since these
+  // aren't meant to compete visually with the two endpoints or overnight
+  // badges. Only ever drawn for the one route currently on a Virtual
+  // Journey (see _refreshSavedRouteLayers).
+  return L.divIcon({ className: 'vj-waypoint-marker', iconSize: [10, 10], iconAnchor: [5, 5] });
+}
+
 export function editVertexIcon() {
   return L.divIcon({
     className: 'edit-vertex-marker',

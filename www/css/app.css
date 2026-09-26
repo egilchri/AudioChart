@@ -1506,6 +1506,24 @@ body.wco-active #wco-titlebar { display: flex; }
   align-items: center;
   gap: 6px;
 }
+/* Name gets the flexible space (with a hard ellipsis truncation, not
+   another stacked line) so date/hazard badges/corner buttons always
+   line up at the same right-hand position across every row instead of
+   floating wherever a long name happens to end — the whole point of a
+   table-like layout is that these columns actually line up. */
+.rp-row-name-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rp-row-date-inline {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--text-dim);
+}
 /* The activate control: a real, separately-tappable button (not a plain
    ::before label riding on the row's own click) — a tap here toggles this
    route/track's shown-on-map state and nothing else, and a tap anywhere
@@ -1572,11 +1590,6 @@ body.wco-active #wco-titlebar { display: flex; }
   padding: 1px 4px;
 }
 .rp-row-places {
-  font-size: 0.75rem;
-  color: var(--text-dim);
-  padding-left: 18px;
-}
-.rp-row-date {
   font-size: 0.75rem;
   color: var(--text-dim);
   padding-left: 18px;
@@ -2745,6 +2758,17 @@ body.wco-active #wco-titlebar { display: flex; }
   justify-content: center;
   font-size: 9px;
   line-height: 1;
+}
+.vj-waypoint-marker {
+  /* Border color kept in sync with the VJ-active polyline color in
+     app.js's _refreshSavedRouteLayers (#1e8a5c). */
+  width: 10px;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.55);
+  border: 2px solid #1e8a5c;
+  border-radius: 50%;
+  box-sizing: border-box;
+  pointer-events: none; /* informational only, unlike the endpoint markers */
 }
 /* Bearing + distance labels — placed off-route via leader line */
 .route-label-box {

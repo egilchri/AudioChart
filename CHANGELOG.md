@@ -12,6 +12,30 @@
 > deep-dive on the v317–v325 cluster specifically (Focus Target, Simulate
 > Heading); the summaries below start right after that.
 
+## 2026-09-26 — Virtual Journey shows its waypoints, in a new green (v694)
+
+While a Virtual Journey is running, its route now shows every intermediate
+waypoint as a small marker (previously only the two endpoints and any
+overnight stops ever got markers, in or out of VJ), and the route line and
+those new waypoint markers render in a new color, `#1e8a5c` — distinct from
+the app's existing greens (`#4ade80` "on map" pill, `#00cc44` AutoRoute
+start marker) so it reads as its own thing rather than a shade of either.
+The Virtual Journey banner and its buttons keep their existing gold
+(`#f5c842`) — only the map's route line/waypoints change. Reverts to
+normal styling and the waypoint markers disappear the moment the journey
+stops. Scoped to Virtual Journey only for now, not real Follow-route
+recording.
+
+Came out of a broader discussion about the app's mode taxonomy (it
+actually has 11 distinct interaction states under the hood — Edit, Sketch,
+Draw, Follow-route, Virtual Journey, Route Animation, Follow-GPS Anim, Sim
+Track, Focus-place, Underway, bulk-select — not a clean 3, though "Edit /
+Journey / just-looking-at-the-chart" remains a reasonable simplified
+mental model for a user). No banner-wording or new mode-indicator changes
+came out of that discussion — both `#edit-banner` ("Editing...") and
+`#vjourney-banner` ("Virtual Journey — ...") already self-identify clearly
+today.
+
 ## 2026-09-26 — Tutorial link moved to a top-level button (v693)
 
 Per direct follow-up: v692 tucked "Tutorial" inside the Screen menu,
