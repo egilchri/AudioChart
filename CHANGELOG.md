@@ -12,23 +12,27 @@
 > deep-dive on the v317–v325 cluster specifically (Focus Target, Simulate
 > Heading); the summaries below start right after that.
 
-## 2026-09-26 — Third sailors-page demo clip: AutoRoute
+## 2026-09-26 — New sailors-page demo clip: AutoRoute (now tab 2)
 
-Added a "3. AutoRoute" tab to the sailors landing page's demo picker,
-alongside the existing Discover & Route / Underway & Bearing clips.
-Narrated walkthrough of both ways to start an AutoRoute: double-tapping
-the boat icon for the fastest path (tap the map or type a name for the
-destination — see the v689 entry below), and searching for a named
-destination, dragging the dropped pin to fine-tune it, then choosing
-"AutoRoute from boat position" from its popup. Unlike demo.mp4/demo2.mp4
-(continuous screen recordings), this clip is a slideshow of real
-screenshots captured live against the actual running app at each step
-(not staged/mocked), each held for its narration line's duration and
-composited via ffmpeg with the same local Piper `en_US-ljspeech-high`
-voice used by the other two clips — no continuous screen-recording
-pipeline was reconstructed this session. Doesn't touch `APP_VERSION`/
-`sw.js` — `/sailors/` is excluded from service-worker caching, same as
-the first two clips.
+Added an "AutoRoute" tab to the sailors landing page's demo picker,
+alongside the existing Discover & Route / Underway & Bearing clips —
+placed second (bumping Underway & Bearing to third), since it's the
+more fundamental workflow. Narrated walkthrough of both ways to start
+an AutoRoute: double-tapping the boat icon for the fastest path (tap
+the map or type a name for the destination — see the v689 entry below),
+and searching for a named destination, dragging the dropped pin to
+fine-tune it, then choosing "AutoRoute from boat position" from its
+popup. The double-tap beat zooms tight on the boat icon and flashes the
+cursor ring twice, visually reading as an actual double-tap rather than
+a single static click marker (per direct request after the first cut).
+Unlike demo.mp4/demo3.mp4 (continuous screen recordings), this clip is
+a slideshow of real screenshots captured live against the actual
+running app at each step (not staged/mocked), each held for its
+narration line's duration and composited via ffmpeg with the same local
+Piper `en_US-ljspeech-high` voice used by the other two clips — no
+continuous screen-recording pipeline was reconstructed this session.
+Doesn't touch `APP_VERSION`/`sw.js` — `/sailors/` is excluded from
+service-worker caching, same as the other clips.
 
 ## 2026-09-26 — Autoroute destination prompt now mentions typing a name (v689)
 
