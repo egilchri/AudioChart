@@ -8598,8 +8598,13 @@ function _ensureMap() {
     _setBottomHudHiddenForBanner(true);
   }
   document.getElementById('route-dest-name-btn').addEventListener('click', async () => {
-    const query = prompt('Destination — place or waypoint name:');
-    if (!query || !query.trim()) return;
+    // _showTextPrompt, not window.prompt() — see _promptNextLegAutoRoute's
+    // own comment: a native prompt() can be silently suppressed by the
+    // browser/webview's dialog-spam protection on a quick repeat trigger,
+    // which this button (re-armable via Cancel + Autoroute again) is just
+    // as exposed to. Matches the pattern already fixed there.
+    const query = await _showTextPrompt('Destination — place or waypoint name:');
+    if (!query) return;
     const dest = await _resolveNamedDestination(query);
     if (!dest) return;
     _setRouteDestination(dest.lat, dest.lon);

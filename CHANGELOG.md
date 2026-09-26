@@ -12,24 +12,42 @@
 > deep-dive on the v317–v325 cluster specifically (Focus Target, Simulate
 > Heading); the summaries below start right after that.
 
+## 2026-09-26 — Route destination "Name" prompt now uses the in-app modal (v690)
+
+`route-dest-name-btn` (the "Name" button on the pending-destination
+banner, added in v689) called native `window.prompt()` — the one
+remaining call site not yet using `_showTextPrompt`, the in-app modal
+that `_promptNextLegAutoRoute` already switched to. Same reasoning
+applies here: a native `prompt()` can be silently suppressed by the
+browser/webview's dialog-spam protection on a quick repeat trigger
+(re-arm via Cancel + Autoroute again), which this button is just as
+exposed to. Switched to `_showTextPrompt` for consistency and to close
+that gap.
+
 ## 2026-09-26 — New sailors-page demo clip: AutoRoute (now tab 2)
 
 Added an "AutoRoute" tab to the sailors landing page's demo picker,
 alongside the existing Discover & Route / Underway & Bearing clips —
 placed second (bumping Underway & Bearing to third), since it's the
-more fundamental workflow. Narrated walkthrough of both ways to start
-an AutoRoute: double-tapping the boat icon for the fastest path (tap
-the map or type a name for the destination — see the v689 entry below),
-and searching for a named destination, dragging the dropped pin to
-fine-tune it, then choosing "AutoRoute from boat position" from its
-popup. The double-tap beat zooms tight on the boat icon and flashes the
-cursor ring twice, visually reading as an actual double-tap rather than
-a single static click marker (per direct request after the first cut).
-Unlike demo.mp4/demo3.mp4 (continuous screen recordings), this clip is
-a slideshow of real screenshots captured live against the actual
-running app at each step (not staged/mocked), each held for its
-narration line's duration and composited via ffmpeg with the same local
-Piper `en_US-ljspeech-high` voice used by the other two clips — no
+more fundamental workflow. ~72s walkthrough (previous cut was ~42s) of
+both ways to start an AutoRoute: double-tapping the boat icon for the
+fastest path — tap the map, or tap Name and type a destination (using
+the newly-`_showTextPrompt`-based modal above, live-typed on screen) —
+then zooming in on the resolved destination marker and panning back out
+to show the full plotted route; and searching for a named destination,
+zooming in on the result, dragging the dropped pin to fine-tune its
+position, tapping it open, and choosing "AutoRoute from boat position"
+from its popup. The double-tap beat zooms tight on the boat icon and
+flashes the cursor ring twice, visually reading as an actual double-tap
+rather than a single static click marker (per direct request after the
+first cut). Unlike demo.mp4/demo3.mp4 (continuous screen recordings),
+this clip is a slideshow of real screenshots captured live against the
+actual running app at each step (not staged/mocked) — except the pin
+drag, depicted with a static drag-arrow overlay after live dragging
+proved unreliable to capture cleanly in this environment (see session
+memory for why) — each beat held for its narration line's duration and
+composited via ffmpeg with the same local Piper `en_US-ljspeech-high`
+voice used by the other two clips — no
 continuous screen-recording pipeline was reconstructed this session.
 Doesn't touch `APP_VERSION`/`sw.js` — `/sailors/` is excluded from
 service-worker caching, same as the other clips.
