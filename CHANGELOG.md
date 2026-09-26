@@ -12,6 +12,35 @@
 > deep-dive on the v317–v325 cluster specifically (Focus Target, Simulate
 > Heading); the summaries below start right after that.
 
+## 2026-09-26 — Structural fix: default to Rockland, never trust an out-of-coverage real fix (v688)
+
+v687's grace window fixed the real-GPS-vs-spoof race reactively — delay
+the announcement long enough for a spoof to override it — but the user
+asked for something simpler: this ship covers Penobscot Bay only, so
+just default to a known-good position (Rockland Harbor) immediately on
+launch, and only ever switch to a real GPS fix once it's confirmed to
+actually be inside coverage. A real fix anywhere else is now ignored
+entirely, as if it never arrived, rather than becoming the current
+position and racing a deliberate override.
+
+Implemented as a new lowest-priority `'default'` GPS source (loses to
+literally everything, including a stale `opencpn-ini` config value) plus
+an optional `shouldAccept(lat, lon)` predicate on `GPS.startGPS`, checked
+only for `'browser'`-sourced fixes (manual/virtual/server sources are
+never filtered). `app.js` wires `Query.coverageLevelAt(...) === 'core'`
+as that predicate and sets the Rockland default immediately after
+`startGPS` is called.
+
+This makes v687's grace window provably dead code — `_updateCoverageStatus`
+can now only ever see a `'browser'` fix that's already inside coverage —
+so it was removed rather than kept as unreachable defensive code.
+
+Real bug caught live before shipping: `GPS.setDefaultPosition(...)` must
+be called *after* `GPS.startGPS(...)`, not before — `startGPS` is what
+registers the position callback, so calling the default-position setter
+first left the initial placeholder fix silently unrendered (no boat
+marker, status stuck on "GPS: waiting").
+
 ## 2026-09-25 — The real root cause: a spoof-grace window (v687)
 
 User reported v686 *still* spoke "Limited chart data here" while testing

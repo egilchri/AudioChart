@@ -10005,6 +10005,7 @@ const SOURCE_LABEL = {
   'opencpn-nmea':  'OPENCPN LIVE',
   'opencpn-ini':   'OPENCPN',
   'opencpn-track': 'OPENCPN TRACK',
+  'default':       'DEMO POSITION',
 };
 
 positionEl.addEventListener('click', () => {
@@ -10139,7 +10140,7 @@ _regionOfferDownload.addEventListener('click', async () => {
     setStatus(msg);
     TTS.sayImmediate(msg);
     const pos = GPS.getPosition();
-    if (pos) _updateCoverageStatus(pos.lat, pos.lon, pos.source);
+    if (pos) _updateCoverageStatus(pos.lat, pos.lon);
     return;
   }
   _regionOfferDownload.disabled = true;
@@ -10253,46 +10254,21 @@ const COVERAGE_RECHECK_MAX = 3; // ~6s of retries — enough for a slow fetch, n
 let _coverageStartupWaitCount = 0;
 const COVERAGE_STARTUP_WAIT_MAX = 15;
 
-// A real GPS fix ('browser' source) reflects wherever the device actually
-// is right now — which, while testing or developing away from the boat,
-// is routinely NOT the area being worked on. Real bug found live
-// (2026-09): a genuine real-location fix with no coverage there spoke up
-// immediately, moments before a deliberately-set test position (Location
-// -> Spoof Location, e.g. a Penobscot Bay coordinate) superseded it — the
-// warning was accurate for the real fix, but pointless and confusing
-// since it was about to be overridden anyway. Give a real GPS fix a brief
-// grace window to see whether a manual/virtual override follows before
-// trusting it enough to speak; a manual/virtual position itself is never
-// held back this way; it says exactly what the user just deliberately set.
-const COVERAGE_SPOOF_GRACE_MS = 4000;
-let _everSawManualPosition = false;
-let _coverageGracePeriodOver = false; // one-shot -- once the grace window has run out once, never hold again
-let _coverageSpoofGraceTimer = null;
-function _updateCoverageStatus(lat, lon, source = null, _isRecheck = false) {
-  if (source === 'manual' || source === 'virtual') _everSawManualPosition = true;
+// v685-v687 each tried to solve a confusing coverage announcement by
+// gating/delaying it further (a data-load-race timeout, then the real
+// signal, then a grace window for a real GPS fix that might get
+// superseded by a deliberate test position). Structurally superseded now:
+// GPS.startGPS's shouldAccept predicate (see its call site in init()) means
+// a real ('browser'-sourced) fix never even becomes the current position
+// unless it's already confirmed inside Penobscot Bay coverage, so this
+// function only ever sees 'browser' with level === 'core' — the whole
+// class of "real fix outside coverage speaks before a spoof can override
+// it" is now impossible by construction rather than papered over. Kept
+// as _isRecheck-only (no source param) since nothing here needs to tell
+// sources apart anymore.
+function _updateCoverageStatus(lat, lon, _isRecheck = false) {
   if (!_isRecheck) _coverageRecheckCount = 0;  // a real position update, not a self-retry — start fresh
   const level = Query.coverageLevelAt(lon, lat);
-
-  // isUnconfirmedRealGps must stop being true once the grace window has
-  // already run its course once — otherwise a real GPS fix that's STILL
-  // non-core when the timer fires (no spoof ever came) re-enters this same
-  // branch and re-arms a fresh timer forever, silently holding the
-  // coverage verdict indefinitely instead of eventually telling the truth
-  // (a real bug caught in an isolated simulation before this shipped).
-  const isUnconfirmedRealGps = source === 'browser' && !_everSawManualPosition && !_coverageGracePeriodOver;
-  if (isUnconfirmedRealGps && level !== 'core') {
-    if (!_coverageSpoofGraceTimer) {
-      _coverageSpoofGraceTimer = setTimeout(() => {
-        _coverageSpoofGraceTimer = null;
-        _coverageGracePeriodOver = true;
-        if (_everSawManualPosition) return; // superseded during the grace window -- this real fix is moot now
-        const cur = GPS.getPosition();
-        if (cur?.source !== 'browser') return; // also superseded
-        _updateCoverageStatus(cur.lat, cur.lon, cur.source, true);
-      }, COVERAGE_SPOOF_GRACE_MS);
-    }
-    return; // hold off entirely (badge included) until the grace window resolves one way or the other
-  }
 
   // The relevant hazard/navaid/named-place data for a NEW position
   // (server-bridge mode re-fetches "nearby" data per position; static mode
@@ -10327,7 +10303,7 @@ function _updateCoverageStatus(lat, lon, source = null, _isRecheck = false) {
       // coverage level and fighting with the live ticks, causing an
       // endless "chart data available" / "no chart data" flip-flop.
       const cur = GPS.getPosition();
-      _updateCoverageStatus(cur?.lat ?? lat, cur?.lon ?? lon, cur?.source ?? source, true);
+      _updateCoverageStatus(cur?.lat ?? lat, cur?.lon ?? lon, true);
     }, 2000);
   }
 
@@ -10374,12 +10350,12 @@ function _updateCoverageStatus(lat, lon, source = null, _isRecheck = false) {
 function showPosition(lat, lon, accuracy, source) {
   positionEl.textContent = formatPositionDisplay(lat, lon);
   const label = SOURCE_LABEL[source] || source.toUpperCase();
-  const hasAcc = accuracy && !['opencpn-track', 'manual', 'virtual'].includes(source);
+  const hasAcc = accuracy && !['opencpn-track', 'manual', 'virtual', 'default'].includes(source);
   const accText = hasAcc ? ` ±${Math.round(accuracy)}m` : '';
   _statusGpsLabel = `GPS: ${label}${accText}`;
-  _statusGpsCls   = ['manual', 'virtual'].includes(source) ? 'gps-test' : 'gps-ok';
+  _statusGpsCls   = ['manual', 'virtual', 'default'].includes(source) ? 'gps-test' : 'gps-ok';
   _renderStatusCombo();
-  _updateCoverageStatus(lat, lon, source);
+  _updateCoverageStatus(lat, lon);
 
   if (source === 'manual') {
     mapLink.href = `https://maps.google.com/?q=${lat},${lon}&z=14`;
@@ -11654,7 +11630,7 @@ async function runRouteDownload(cruiseName, onProgress = () => {}) {
       // switching regions leaves it showing the old region's stale verdict
       // until the next natural position tick happens to arrive.
       const _switchPos = GPS.getPosition();
-      if (_switchPos) _updateCoverageStatus(_switchPos.lat, _switchPos.lon, _switchPos.source);
+      if (_switchPos) _updateCoverageStatus(_switchPos.lat, _switchPos.lon);
       setStatus(`Chart data ready — caching satellite tiles…`);
       onProgress(`Chart data ready — caching satellite tiles…`);
     } catch (e) {
@@ -11880,7 +11856,7 @@ async function init() {
       if (source === 'virtual' && heading != null) _setBoatIconRotated(heading);
       _updateFocusRay();
       _checkAnchorWatch(lat, lon);
-      if (source === 'manual') {
+      if (source === 'manual' || source === 'default') {
         _lastFixForHeading = null; // don't let a teleport corrupt the next real fallback calc
         _updateHeadingRay(lat, lon, null, null);
         _updateHeadingSpeedReadout(null, null);
@@ -11938,8 +11914,31 @@ async function init() {
       setStatus(err === 'GPS permission denied'
         ? err
         : `${err} — retrying automatically. Map and offline chart data still work without a fix.`);
-    }
+    },
+    (lat, lon) => Query.coverageLevelAt(lon, lat) === 'core'
   );
+
+  // This ship covers Penobscot Bay only, and browser geolocation was just
+  // set watching above — while testing/developing away from the boat, a
+  // real fix for wherever the device actually is would otherwise become
+  // the current position (if only briefly) and correctly report that
+  // real, irrelevant location has no coverage, moments before a deliberate
+  // Location -> Spoof Location override reacted to it (see INCIDENTS.md/
+  // CHANGELOG.md, 2026-09-25 — three prior attempts to patch this by
+  // delaying/gating the coverage *announcement* itself all missed the
+  // simpler fix: never treat that real fix as the current position at all
+  // unless it's actually somewhere useful — see startGPS's shouldAccept
+  // param just above). Showing Rockland Harbor — the heart of Penobscot
+  // Bay — immediately, and only ever switching to a real GPS fix once it
+  // reports being genuinely inside coverage, makes the confusing case
+  // structurally impossible rather than papered over. Any explicit
+  // Location -> Spoof Location / Virtual Journey position still overrides
+  // this immediately and unconditionally, same as always. Called AFTER
+  // startGPS (not before) so the onPosition callback registered above is
+  // already wired up when this fires — calling it first left the initial
+  // placeholder fix silently unrendered (no boat marker, no status update)
+  // since nothing was listening yet, a real bug caught before shipping.
+  GPS.setDefaultPosition(44.103, -69.088);
 
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register(`./sw.js?v=${APP_VERSION}`).catch(() => {});

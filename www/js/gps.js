@@ -20,6 +20,8 @@ const SOURCE_PRIORITY = {
   'opencpn-track': 2,   // last navobj.db track point (has staleness check)
   'browser':       1,   // Android/browser geolocation
   'opencpn-ini':   0,   // stale config value — no timestamp, loses to everything
+  'default':      -1,   // app-set placeholder before any real fix has arrived —
+                         // loses to literally everything, including opencpn-ini
 };
 
 let currentPosition = null;
@@ -41,8 +43,34 @@ function updatePosition(lat, lon, accuracy, source, heading = null, speedKt = nu
   if (onPositionCallback) onPositionCallback(lat, lon, accuracy, source, heading, speedKt);
 }
 
-/** Start watching GPS. Calls onPosition(lat, lon, accuracy, source) on updates. */
-export function startGPS(onPosition, onError) {
+/**
+ * Set a low-priority placeholder position — loses to any real fix (browser
+ * GPS, manual/virtual, server sources) the moment one arrives, but shows
+ * something useful immediately rather than sitting on "GPS: waiting" (or,
+ * worse, briefly showing wherever the device's real location actually is
+ * before a deliberate test position overrides it — see startGPS's own
+ * shouldAccept param, which this pairs with).
+ */
+export function setDefaultPosition(lat, lon) {
+  updatePosition(lat, lon, 0, 'default');
+}
+
+/**
+ * Start watching GPS. Calls onPosition(lat, lon, accuracy, source) on updates.
+ * shouldAccept(lat, lon), if given, is checked for 'browser'-sourced fixes
+ * only (never manual/virtual/server sources) — returning false makes this
+ * real fix a no-op, as if it never arrived, rather than becoming the
+ * current position and running onPosition. Real bug found live (2026-09):
+ * this app currently ships coverage for Penobscot Bay only, and browser
+ * geolocation starts automatically on launch — while testing/developing
+ * away from the boat, a real fix for wherever the device actually is would
+ * become the current position (however briefly) before a deliberate
+ * Location -> Spoof Location override could react to it, correctly
+ * reporting that real, irrelevant location has no coverage. shouldAccept
+ * lets the caller filter that out at the source instead of reacting to it
+ * after the fact (see setDefaultPosition and its call site in app.js).
+ */
+export function startGPS(onPosition, onError, shouldAccept = null) {
   onPositionCallback = onPosition;
   onErrorCallback = onError;
 
@@ -54,6 +82,7 @@ export function startGPS(onPosition, onError) {
   watchId = navigator.geolocation.watchPosition(
     (pos) => {
       const { latitude, longitude, accuracy, heading, speed } = pos.coords;
+      if (shouldAccept && !shouldAccept(latitude, longitude)) return;
       // speed is m/s per the Geolocation API spec; convert to knots.
       const speedKt = (speed != null && !isNaN(speed)) ? speed * 1.943844 : null;
       const headingDeg = (heading != null && !isNaN(heading)) ? heading : null;
