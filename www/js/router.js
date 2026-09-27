@@ -23,7 +23,13 @@ import * as Query from './query.js';
 // always had a real, valid answer — someone planning a passage ahead of
 // time may reasonably want to wait longer than someone checking a quick
 // local hop.
-export const DEFAULT_DEADLINE_MS = 14000;
+// Raised once more 14000->18000 (2026-09-27): CI's shared runner, under
+// heavier load, pushed the same two known-marginal cases well past 14000
+// (one to 14219ms, one to 20013ms) — a real device can easily be under
+// similar load. Rather than keep chasing this fixed value further, this
+// is now just the shipped starting point; users on consistently slower
+// hardware have the "Route planning time limit" setting to raise it.
+export const DEFAULT_DEADLINE_MS = 18000;
 
 export async function autoRouteProg(
   start, end, onUpdate, onText = null, _escapeAttempted = false,

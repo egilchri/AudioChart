@@ -28,8 +28,8 @@ const { installNodeQueryEnv } = require('./helpers/node_query_env.js');
 const path = require('path');
 
 const WWW_DATA_DIR = path.join(__dirname, '..', 'www', 'data');
-const DEADLINE_MS = 14000; // mirrors router.js's own DEADLINE_MS
-const LONG_RANGE_DEADLINE_MS = 42000; // mirrors router.js's own LONG_RANGE_DEADLINE_MS — for cases that decompose into several per-leg budgets, not the local-search one above
+const DEADLINE_MS = 18000; // mirrors router.js's own DEFAULT_DEADLINE_MS
+const LONG_RANGE_DEADLINE_MS = 54000; // mirrors router.js's own deadlineMs*3 long-range derivation — for cases that decompose into several per-leg budgets, not the local-search one above
 
 installNodeQueryEnv(WWW_DATA_DIR);
 

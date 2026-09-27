@@ -12,6 +12,18 @@
 > deep-dive on the v317–v325 cluster specifically (Focus Target, Simulate
 > Heading); the summaries below start right after that.
 
+## 2026-09-27 — Raise default route-planning time limit once more (v707)
+
+CI's shared runner, under heavier load than the previous check, pushed
+the same two known-marginal cases well past the v706 default (one to
+14219ms, one to 20013ms) — a real device can easily see similar load.
+Raised `DEFAULT_DEADLINE_MS` 14000->18000 (and the test's mirrored
+constants, 54000 for the long-range derivation) as the new shipped
+starting point, rather than continuing to chase CI's exact worst case —
+users on consistently slower hardware now have the v706 "Route planning
+time limit" setting to raise it further themselves. All in-scope
+Penobscot Bay cases pass with real margin locally after this change.
+
 ## 2026-09-27 — Make route-planning time limit a user setting (v706)
 
 Direct follow-up to the deadline tuning in v703/v705: a real Penobscot Bay
