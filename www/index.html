@@ -218,8 +218,9 @@
         <label><input type="checkbox" id="nf-depth" checked> Depths</label>
         <label><input type="checkbox" id="nf-currents"> Currents</label>
         <label><input type="checkbox" id="nf-waypoints"> Custom GeoLabels</label>
+        <div class="nf-divider"></div>
+        <label class="nf-sub nf-draft-row" title="Used by AutoRoute/Re-route to avoid water too shallow for your boat, regardless of whether the Depths overlay is shown">Boat draft&nbsp;<input type="number" id="nf-draft-ft" min="0" max="30" step="0.5" placeholder="ft"></label>
         <div id="nf-depth-settings" style="display:none">
-          <label class="nf-sub">Draft&nbsp;<input type="number" id="nf-draft-ft" min="0" max="30" step="0.5" placeholder="ft"></label>
           <div id="nf-tide-status" class="nf-sub"></div>
         </div>
         <div class="nf-actions">

@@ -2057,6 +2057,13 @@ body.wco-active #wco-titlebar { display: flex; }
   align-items: center;
   gap: 6px;
 }
+/* A top-level setting (unlike the Depths-overlay sub-items it sits near),
+   so no nested-under-a-checkbox indent. */
+.nf-draft-row { padding-left: 0; }
+#navaid-filter-panel .nf-divider {
+  border-top: 1px solid var(--mid-blue);
+  margin: 6px 0;
+}
 #nf-draft-ft {
   width: 52px;
   background: var(--mid-blue);

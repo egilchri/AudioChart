@@ -12,6 +12,24 @@
 > deep-dive on the v317–v325 cluster specifically (Focus Target, Simulate
 > Heading); the summaries below start right after that.
 
+## 2026-09-27 — Surface boat draft as its own always-visible setting (v704)
+
+Draft already existed as a persisted setting (`nf-draft-ft`, saved to
+localStorage, read by every AutoRoute/Re-route call) but was undiscoverable:
+it lived inside the "Objects" (navaid filter) panel, nested under `Depths`
+and hidden entirely (`display:none`) unless that checkbox — an unrelated
+map-*display* toggle — was checked first. Direct user report: "I need to
+be able to set the draft of my boat in settings" — they couldn't find it.
+
+Moved "Boat draft" out from under the Depths-only wrapper to its own
+always-visible row in the Objects panel (a divider separates it from the
+display-toggle checkboxes above it), independent of whether the Depths
+overlay is shown or hidden. The tide-status readout stays under the
+Depths toggle (that one's genuinely about the overlay). No storage/JS
+logic changed — same key, same restore-on-load, same input listener —
+verified live: value persists across reload, and the draft row stays
+visible with Depths unchecked.
+
 ## 2026-09-27 — Raise routing deadlines: prefer waiting over a false "impossible" (v703)
 
 v702's caching optimization was real (30-45% faster on most cases) but
