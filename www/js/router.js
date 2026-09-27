@@ -14,9 +14,21 @@
 
 import * as Query from './query.js';
 
+// Default per-leg search budget, exported so app.js can offer it as the
+// starting value of a user-configurable "route planning time limit"
+// setting rather than duplicating the number. See DEADLINE_MS's own
+// comment below for why a single fixed value can't be right for every
+// device: a real in-scope Penobscot Bay case varied 9-14s+ run to run
+// across a normal dev machine and a slower CI runner, for a route that
+// always had a real, valid answer — someone planning a passage ahead of
+// time may reasonably want to wait longer than someone checking a quick
+// local hop.
+export const DEFAULT_DEADLINE_MS = 14000;
+
 export async function autoRouteProg(
   start, end, onUpdate, onText = null, _escapeAttempted = false,
   draftFt = 5.0, tideHeightM = 0, onSearchProgress = null, onSnap = null,
+  deadlineMs = DEFAULT_DEADLINE_MS,
 ) {
   // Visibility Graph + A* (Euclidean Shortest Path with Polygonal Obstacles).
   // Nodes: start, end, and polygon vertices in the padded bounding box.
@@ -79,17 +91,19 @@ export async function autoRouteProg(
   // project's stated release goal (AutoRoute must succeed anywhere in
   // Penobscot Bay unless truly impossible), waiting longer is preferable
   // to a false "impossible."
-  // Raised again 10000->14000 (2026-09-27, same day as the 5000->10000
-  // bump above): a real, genuinely in-scope Penobscot Bay case (Rockland
-  // -> Carvers Harbor/Vinalhaven) found a real, valid route every time —
-  // this was never a "no path exists" case — but its own wall-clock
-  // varied 9.2-10s+ run to run right at the old boundary, now that the
-  // wider MAX_EXTRA_NON_BLOCKING_RINGS/NODES budget below (raised for a
-  // different, genuinely-disconnected case) searches more candidates for
-  // every route, not just the ones that need it. Comfortable headroom
-  // above the observed worst case, same "wait longer, don't falsely
-  // report impossible" reasoning as the first increase.
-  const DEADLINE_MS = 14000;
+  // Raised again 10000->14000 as the new DEFAULT_DEADLINE_MS (2026-09-27,
+  // same day as the 5000->10000 bump above): a real, genuinely in-scope
+  // Penobscot Bay case (Rockland -> Carvers Harbor/Vinalhaven) found a
+  // real, valid route every time — this was never a "no path exists"
+  // case — but its own wall-clock varied 9.2-14s+ run to run right at
+  // the old boundary, worse on a slower machine (confirmed on CI), now
+  // that the wider MAX_EXTRA_NON_BLOCKING_RINGS/NODES budget below
+  // (raised for a different, genuinely-disconnected case) searches more
+  // candidates for every route, not just the ones that need it. No
+  // single fixed value is right for every device or every user's
+  // patience, though — see the now-caller-supplied `deadlineMs` param
+  // above (exposed as a user setting in app.js) rather than a hardcoded
+  // constant.
   // Point-hazard/tidal rings only need a graph NODE when genuinely close to
   // the direct line — segBlocked already checks every one of them for every
   // candidate edge regardless of this, so a distant one not getting a node
@@ -168,7 +182,12 @@ export async function autoRouteProg(
   const directNm = Query.distanceNm(start.lon, start.lat, end.lon, end.lat);
   if (directNm > LONG_RANGE_NM) {
     console.log(`[autoRoute] long-range passage: ${directNm.toFixed(1)}nm direct (> ${LONG_RANGE_NM}nm threshold) — decomposing instead of one visibility-graph search`);
-    return await _longRangeRoute(start, end, onUpdate, onText, draftFt, tideHeightM, onSearchProgress, onSnap);
+    // Long-range's own overall envelope is a multiple of the per-leg
+    // budget (matches the fixed 14000/42000 ~3x ratio this replaced) —
+    // a passage that decomposes into several sequential per-leg searches
+    // needs proportionally more total room, not a second independent
+    // setting for the user to reason about.
+    return await _longRangeRoute(start, end, onUpdate, onText, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs, deadlineMs * 3);
   }
 
   // ── Bounding box ───────────────────────────────────────────────────────────
@@ -899,7 +918,7 @@ export async function autoRouteProg(
     extraNonBlockingNodesAdded += nodes.length - before;
   }
 
-  if (Date.now() - _profT0 > DEADLINE_MS) {
+  if (Date.now() - _profT0 > deadlineMs) {
     console.warn('[autoRoute] deadline exceeded during setup — returning straight line');
     return [start, end];
   }
@@ -948,19 +967,19 @@ export async function autoRouteProg(
       if (startBlocked) {
         const departurePt = Query.findClearOffshorePoint(start.lon, start.lat, end.lon, end.lat, { draftFt, tideHeightM });
         if (departurePt) {
-          const departLeg = await autoRouteProg(start, departurePt, onUpdate, onText, true, draftFt, tideHeightM, onSearchProgress, onSnap);
+          const departLeg = await autoRouteProg(start, departurePt, onUpdate, onText, true, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs);
           if (_subLegOk(departLeg)) { prefix = departLeg.slice(0, -1); effStart = departurePt; }
         }
       }
-      if (endBlocked && Date.now() - _profT0 <= DEADLINE_MS) {
+      if (endBlocked && Date.now() - _profT0 <= deadlineMs) {
         const arrivalPt = Query.findClearOffshorePoint(end.lon, end.lat, start.lon, start.lat, { draftFt, tideHeightM });
         if (arrivalPt) {
-          const arriveLeg = await autoRouteProg(arrivalPt, end, onUpdate, onText, true, draftFt, tideHeightM, onSearchProgress, onSnap);
+          const arriveLeg = await autoRouteProg(arrivalPt, end, onUpdate, onText, true, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs);
           if (_subLegOk(arriveLeg)) { suffix = arriveLeg.slice(1); effEnd = arrivalPt; }
         }
       }
-      if ((prefix.length || suffix.length) && Date.now() - _profT0 <= DEADLINE_MS) {
-        const middle = await autoRouteProg(effStart, effEnd, onUpdate, onText, true, draftFt, tideHeightM, onSearchProgress, onSnap);
+      if ((prefix.length || suffix.length) && Date.now() - _profT0 <= deadlineMs) {
+        const middle = await autoRouteProg(effStart, effEnd, onUpdate, onText, true, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs);
         if (_subLegOk(middle)) {
           console.log(`[autoRoute] local escape succeeded — prefix ${prefix.length}pts, middle ${middle.length}pts, suffix ${suffix.length}pts`);
           return [...prefix, ...middle, ...suffix.slice(1)];
@@ -1114,7 +1133,7 @@ export async function autoRouteProg(
       if (pathImproved) { onUpdate(tracePath(1)); pathImproved = false; }
       if (onText) onText(`Routing… ${expansions} / ${N} nodes`);
       await delay(0);
-      if (Date.now() - _profT0 > DEADLINE_MS) {
+      if (Date.now() - _profT0 > deadlineMs) {
         console.warn('[autoRoute] deadline exceeded after', expansions, 'expansions');
         break;
       }
@@ -1154,12 +1173,11 @@ export async function autoRouteProg(
 // line (verified clear, not searched), arrive at the destination coast —
 // see the plan file for the full empirical writeup.
 export const LONG_RANGE_NM = 20;   // starting point, not calibrated — see plan's "Threshold" section
-// Raised alongside DEADLINE_MS's own 2026-09-27 increase (5000->10000) —
-// a long-range passage can legitimately spend several sequential per-leg
-// budgets (depart, transit brackets, arrive), so the overall envelope
-// needs headroom proportional to the per-leg one, not a fixed multiple of
-// the OLD per-leg value.
-const LONG_RANGE_DEADLINE_MS = 42000; // scaled with DEADLINE_MS's own 2nd increase (10000->14000) — separate internal budget, independent of DEADLINE_MS above
+// The long-range overall envelope (independent of the per-leg deadlineMs
+// budget) is now caller-supplied — see autoRouteProg's own call into
+// _longRangeRoute (deadlineMs * 3) — rather than a fixed constant, so a
+// user-configured "wait longer" preference scales the whole passage, not
+// just one leg of it.
 const LONG_RANGE_BUFFER_NM = 8;    // buffer on each side of a patched obstacle
 const LONG_RANGE_MAX_HOPS = 6;     // bounded — more disjoint transit obstacles than this falls back honestly
 
@@ -1181,13 +1199,13 @@ function _isClearOffshoreLine(a, b) {
 // re-solving the whole span. Returns null on internal deadline exceeded or
 // too many disjoint obstacles (LONG_RANGE_MAX_HOPS) — signals the caller to
 // fall back to the honest full straight line.
-async function _transitLeg(a, b, lrT0, onUpdate, onText, draftFt, tideHeightM, onSearchProgress, onSnap) {
+async function _transitLeg(a, b, lrT0, onUpdate, onText, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs, longRangeDeadlineMs) {
   if (_isClearOffshoreLine(a, b)) return [a, b];
 
   const result = [a];
   let cursor = a;
   for (let hop = 0; hop < LONG_RANGE_MAX_HOPS; hop++) {
-    if (Date.now() - lrT0 > LONG_RANGE_DEADLINE_MS) return null;
+    if (Date.now() - lrT0 > longRangeDeadlineMs) return null;
     if (!Query.landBlocks(cursor.lon, cursor.lat, b.lon, b.lat)) {
       result.push(b);
       return result;
@@ -1250,7 +1268,7 @@ async function _transitLeg(a, b, lrT0, onUpdate, onText, draftFt, tideHeightM, o
     const bracketEnd = { lat: cursor.lat + (b.lat - cursor.lat) * endT, lon: cursor.lon + (b.lon - cursor.lon) * endT };
 
     if (startT > 0) result.push(bracketStart);
-    const patched = await autoRouteProg(bracketStart, bracketEnd, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap);
+    const patched = await autoRouteProg(bracketStart, bracketEnd, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs);
     if (patched.length <= 2 && Query.landBlocks(patched[0].lon, patched[0].lat, patched[1].lon, patched[1].lat)) {
       return null; // local avoidance also failed for this obstacle — honest fallback, don't splice in a land crossing
     }
@@ -1277,28 +1295,28 @@ function _legFailed(leg) {
   return leg.length <= 2 && Query.landBlocks(leg[0].lon, leg[0].lat, leg[1].lon, leg[1].lat);
 }
 
-async function _longRangeRoute(start, end, onUpdate, onText, draftFt, tideHeightM, onSearchProgress, onSnap) {
+async function _longRangeRoute(start, end, onUpdate, onText, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs, longRangeDeadlineMs) {
   const _lrT0 = Date.now();
   if (onText) onText('Planning long passage…');
 
   if (_isClearOffshoreLine(start, end)) return [start, end];
-  if (Date.now() - _lrT0 > LONG_RANGE_DEADLINE_MS) return [start, end];
+  if (Date.now() - _lrT0 > longRangeDeadlineMs) return [start, end];
 
   const departurePt = Query.findClearOffshorePoint(start.lon, start.lat, end.lon, end.lat, { draftFt, tideHeightM });
   const arrivalPt = Query.findClearOffshorePoint(end.lon, end.lat, start.lon, start.lat, { draftFt, tideHeightM });
   if (!departurePt || !arrivalPt) return [start, end];
-  if (Date.now() - _lrT0 > LONG_RANGE_DEADLINE_MS) return [start, end];
+  if (Date.now() - _lrT0 > longRangeDeadlineMs) return [start, end];
 
-  const departLeg = await autoRouteProg(start, departurePt, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap);
+  const departLeg = await autoRouteProg(start, departurePt, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs);
   if (_legFailed(departLeg)) return [start, end];
-  if (Date.now() - _lrT0 > LONG_RANGE_DEADLINE_MS) return [start, end];
+  if (Date.now() - _lrT0 > longRangeDeadlineMs) return [start, end];
 
-  const transit = await _transitLeg(departurePt, arrivalPt, _lrT0, onUpdate, onText, draftFt, tideHeightM, onSearchProgress, onSnap);
+  const transit = await _transitLeg(departurePt, arrivalPt, _lrT0, onUpdate, onText, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs, longRangeDeadlineMs);
   if (!transit) return [start, end];
 
-  const arriveLeg = await autoRouteProg(arrivalPt, end, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap);
+  const arriveLeg = await autoRouteProg(arrivalPt, end, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs);
   if (_legFailed(arriveLeg)) return [start, end];
-  if (Date.now() - _lrT0 > LONG_RANGE_DEADLINE_MS) return [start, end];
+  if (Date.now() - _lrT0 > longRangeDeadlineMs) return [start, end];
 
   console.log(`[autoRoute] long-range passage done in ${Date.now() - _lrT0}ms — depart ${departLeg.length}pts, transit ${transit.length}pts, arrive ${arriveLeg.length}pts`);
 

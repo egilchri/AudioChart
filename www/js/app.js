@@ -1028,6 +1028,18 @@ function _currentDraftFt() {
   return parseFloat(document.getElementById('nf-draft-ft')?.value) || 5.0;
 }
 
+// Same pattern as _currentDraftFt — router.js takes the deadline as a
+// plain parameter (Router.DEFAULT_DEADLINE_MS) rather than a hardcoded
+// constant, specifically so this can be a user preference. A single
+// fixed value can't be right for every device or every user's patience:
+// a real Penobscot Bay route varied 9-14s+ run to run between an ordinary
+// dev machine and a slower one, for a route that always had a real, safe
+// answer — see the "Route planning time limit" setting.
+function _currentDeadlineMs() {
+  const s = parseFloat(document.getElementById('nf-route-timeout-s')?.value);
+  return isFinite(s) && s > 0 ? s * 1000 : Router.DEFAULT_DEADLINE_MS;
+}
+
 // router.js's autoRouteProg reports search progress via a plain callback
 // instead of drawing a Leaflet marker itself (see router.js's own comment) —
 // this is the one place that actually draws the dot, shared by every real
@@ -3165,7 +3177,8 @@ async function _onDrawConfirm() {
       (path) => previewLine.setLatLngs(path.map(p => [p.lat, p.lon])),
       (t) => { const el = optOverlay.querySelector('.optimizing-text'); if (el) el.textContent = t; },
       false, _currentDraftFt(), _tideHeight, _makeSearchDotCallback(),
-      (which, snap) => snapEvents.push({ which, ...snap })
+      (which, snap) => snapEvents.push({ which, ...snap }),
+      _currentDeadlineMs()
     );
   } catch (err) {
     optOverlay.remove();
@@ -3744,13 +3757,14 @@ async function _reRouteSegments(pts, onProgress, onText, actionLabel = 'Re-route
                              // line — lets the caller point the user at
                              // exactly where to add a waypoint, and say what
                              // it's actually crossing (see _classifyFallbackSeg)
-  // Each leg has its own DEADLINE_MS (5s) budget inside _autoRouteProg, but a
+  // Each leg has its own deadline budget inside autoRouteProg, but a
   // many-leg re-route had no OVERALL cap — a dozen legs could legitimately
-  // run a minute-plus with no way for the caller to know. Cap the running
+  // run well past it with no way for the caller to know. Cap the running
   // total; once crossed, remaining legs go straight to the honest
   // straight-line fallback instead of spending their own budget too.
   const legCount = pts.length - 1;
-  const overallDeadlineMs = Math.min(5000 * legCount, 20000);
+  const perLegDeadlineMs = _currentDeadlineMs();
+  const overallDeadlineMs = Math.min(perLegDeadlineMs * legCount, perLegDeadlineMs * 4);
   const _reRouteT0 = Date.now();
   for (let i = 0; i < pts.length - 1; i++) {
     const segLabel = pts.length > 2 ? `Seg ${i + 1}/${pts.length - 1}: ` : '';
@@ -3762,7 +3776,7 @@ async function _reRouteSegments(pts, onProgress, onText, actionLabel = 'Re-route
       sub = await Router.autoRouteProg(pts[i], pts[i + 1],
         (path) => { if (onProgress) onProgress([...result, ...path.slice(1)]); },
         (t)    => { if (onText) onText(segLabel + t); },
-        false, _currentDraftFt(), _tideHeight, _makeSearchDotCallback()
+        false, _currentDraftFt(), _tideHeight, _makeSearchDotCallback(), null, perLegDeadlineMs
       );
     }
     // Index of pts[i] within the full route this leg is about to land in —
@@ -8099,11 +8113,16 @@ function _ensureMap() {
   const _depthCheckbox  = document.getElementById('nf-depth');
   const _depthSettings  = document.getElementById('nf-depth-settings');
   const _draftInput     = document.getElementById('nf-draft-ft');
+  const _timeoutInput   = document.getElementById('nf-route-timeout-s');
   _depthSettings.style.display = _depthCheckbox.checked ? '' : 'none';
 
   // Restore saved draft
   const _savedDraft = localStorage.getItem('audiochart-draft-ft');
   if (_savedDraft) _draftInput.value = _savedDraft;
+
+  // Restore saved route-planning time limit
+  const _savedTimeout = localStorage.getItem('audiochart-route-timeout-s');
+  if (_savedTimeout) _timeoutInput.value = _savedTimeout;
 
   _depthCheckbox.addEventListener('change', async () => {
     _depthSettings.style.display = _depthCheckbox.checked ? '' : 'none';
@@ -8117,6 +8136,10 @@ function _ensureMap() {
   _draftInput.addEventListener('input', () => {
     localStorage.setItem('audiochart-draft-ft', _draftInput.value);
     if (_depthCheckbox.checked) _refreshNavaidOverlay();
+  });
+
+  _timeoutInput.addEventListener('input', () => {
+    localStorage.setItem('audiochart-route-timeout-s', _timeoutInput.value);
   });
 
   // Floating ☰ button — opens context menu at current GPS position
@@ -8510,7 +8533,8 @@ function _ensureMap() {
         (path) => _autoRoutePreviewLayer.setLatLngs(path.map(p => [p.lat, p.lon])),
         (t) => { const el = optOverlay.querySelector('.optimizing-text'); if (el) el.textContent = t; },
         false, _currentDraftFt(), _tideHeight, _makeSearchDotCallback(),
-        (which, snap) => snapEvents.push({ which, ...snap })
+        (which, snap) => snapEvents.push({ which, ...snap }),
+        _currentDeadlineMs()
       );
     } catch (err) {
       optOverlay.remove();

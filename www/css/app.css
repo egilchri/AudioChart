@@ -2064,7 +2064,7 @@ body.wco-active #wco-titlebar { display: flex; }
   border-top: 1px solid var(--mid-blue);
   margin: 6px 0;
 }
-#nf-draft-ft {
+#nf-draft-ft, #nf-route-timeout-s {
   width: 52px;
   background: var(--mid-blue);
   border: 1px solid var(--mid-blue);
@@ -2074,8 +2074,8 @@ body.wco-active #wco-titlebar { display: flex; }
   padding: 2px 4px;
   -moz-appearance: textfield;
 }
-#nf-draft-ft::-webkit-inner-spin-button,
-#nf-draft-ft::-webkit-outer-spin-button { opacity: 1; }
+#nf-draft-ft::-webkit-inner-spin-button, #nf-route-timeout-s::-webkit-inner-spin-button,
+#nf-draft-ft::-webkit-outer-spin-button, #nf-route-timeout-s::-webkit-outer-spin-button { opacity: 1; }
 #nf-tide-status { font-style: italic; }
 .nf-actions {
   display: flex;

@@ -12,6 +12,33 @@
 > deep-dive on the v317–v325 cluster specifically (Focus Target, Simulate
 > Heading); the summaries below start right after that.
 
+## 2026-09-27 — Make route-planning time limit a user setting (v706)
+
+Direct follow-up to the deadline tuning in v703/v705: a real Penobscot Bay
+case varied 9.2s to 14s+ run to run across a normal dev machine and a
+slower CI runner, for a route that always had a real, valid answer — no
+single hardcoded `DEADLINE_MS` was going to be right for every device or
+every user's patience. Someone planning a passage the night before can
+reasonably wait longer than someone checking a quick local hop.
+
+`router.js`'s `DEADLINE_MS`/`LONG_RANGE_DEADLINE_MS` constants are now a
+caller-supplied `deadlineMs` parameter on `autoRouteProg` (threaded
+through every recursive call: escape sub-legs, long-range depart/transit/
+arrive), defaulting to a new exported `DEFAULT_DEADLINE_MS` (14000, same
+as before) when not specified. The long-range overall envelope is derived
+as `deadlineMs * 3` rather than a second hardcoded constant, so raising
+the one user-facing number scales both budgets together.
+
+Added "Route planning time limit" as its own setting next to Boat Draft
+in the Objects panel (5-120s, persisted the same way), read via a new
+`_currentDeadlineMs()` helper mirroring `_currentDraftFt()`'s pattern,
+threaded into all three real AutoRoute/Re-route call sites in app.js.
+Verified live: value persists across reload, and `Router.
+DEFAULT_DEADLINE_MS` is correctly exported. Test suite and its two
+long-range cases updated to the new parameterized shape — all previously-
+passing cases still pass identically after the refactor (`test/
+test_query.js` 25/25, `test/test_channel_routing.js` unchanged from v705).
+
 ## 2026-09-27 — Always keep 3ft of clearance under the keel (v705)
 
 Direct requirement: "Always keep at least 3ft under the keel." Every

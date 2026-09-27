@@ -220,6 +220,7 @@
         <label><input type="checkbox" id="nf-waypoints"> Custom GeoLabels</label>
         <div class="nf-divider"></div>
         <label class="nf-sub nf-draft-row" title="Used by AutoRoute/Re-route to avoid water too shallow for your boat, regardless of whether the Depths overlay is shown">Boat draft&nbsp;<input type="number" id="nf-draft-ft" min="0" max="30" step="0.5" placeholder="ft"></label>
+        <label class="nf-sub nf-draft-row" title="How long AutoRoute/Re-route will keep searching for a real safe route before giving up. A hard route on a slow device may need more time than the default — raise this if AutoRoute reports a route as impossible when you expect one exists.">Route planning time limit&nbsp;<input type="number" id="nf-route-timeout-s" min="5" max="120" step="1" placeholder="14 s"></label>
         <div id="nf-depth-settings" style="display:none">
           <div id="nf-tide-status" class="nf-sub"></div>
         </div>
