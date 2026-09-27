@@ -12,6 +12,25 @@
 > deep-dive on the v317–v325 cluster specifically (Focus Target, Simulate
 > Heading); the summaries below start right after that.
 
+## 2026-09-27 — Fix: route name could render at 0px width in the Routes panel (v697)
+
+Found and fixed a real bug in the "table format" Routes-panel row layout
+that shipped, undocumented, bundled into v694: `.rp-row-name-text` used
+`flex: 1`, which implies `flex-basis: 0%`. In a route with a couple of
+hazard badges (e.g. "8 hard" + "15 shallow") plus the date and the
+On-map/Hidden pill, those fixed-width siblings alone already filled the
+~300px panel width, leaving zero *free* space for the name's flex-grow to
+claim — so the name rendered at literal 0px, not just a narrow ellipsis,
+vanishing from the row entirely. Reproduced live with an injected test
+route (8 hard / 15 shallow badges) and confirmed via computed styles
+before fixing.
+
+Fix: `.rp-row-name-text` now has a real `min-width` (90px) so it always
+keeps a visible share of the row regardless of badge count, and
+`.rp-row-name` gained `flex-wrap: wrap` so badges that don't fit on the
+first line drop to a second line instead of squeezing the name out.
+Common case (no/few badges) is unaffected — still one tidy line.
+
 ## 2026-09-26 — Empty-box replay now shows the replayed command (v696)
 
 Follow-up to v695's "play on an empty box reruns the last command": that

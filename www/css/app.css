@@ -1500,17 +1500,28 @@ body.wco-active #wco-titlebar { display: flex; }
   font-size: 0.85rem;
   font-weight: 600;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
 }
 /* Name gets the flexible space (with a hard ellipsis truncation, not
-   another stacked line) so date/hazard badges/corner buttons always
+   another stacked line) so date/hazard badges/corner buttons usually
    line up at the same right-hand position across every row instead of
-   floating wherever a long name happens to end — the whole point of a
-   table-like layout is that these columns actually line up. */
+   floating wherever a long name happens to end. BUG (found live,
+   reproduced with 2 hazard badges + date + the activate pill in a
+   ~300px panel): `flex: 1` alone means a flex-basis of 0%, so when the
+   fixed-width siblings (activate pill, date, flex-shrink:0) plus badges
+   already exceed the row's width on their own, there is no leftover
+   "free space" for this element's flex-grow to claim — it silently
+   renders at literal 0px, not just a narrow ellipsis, hiding the name
+   entirely. `min-width` below is the fix: it guarantees the name a real
+   minimum share of the row regardless of how many badges are present;
+   `flex-wrap` on `.rp-row-name` lets whatever doesn't fit (extra hazard
+   badges) drop to a second line instead, so name visibility never loses
+   to badge count again. */
 .rp-row-name-text {
   flex: 1;
-  min-width: 0;
+  min-width: 90px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
