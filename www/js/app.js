@@ -875,6 +875,11 @@ let _autoRouteName         = null;
 let _autoRouteStartMarker  = null;
 let _autoRouteEndMarker    = null;
 let _autoRoutePreviewLayer = null;
+// Left on the map (NOT cleared by _clearAutoRoute) whenever autoRouteProg had
+// to move a start/end point off charted-too-shallow water — otherwise the
+// only visible trace of that relocation was a console.log line, and the
+// route looked like it silently missed its destination. See INCIDENTS.md.
+let _routeSnapMarkers = [];
 let _drawMode        = false;
 let _drawStart       = null;
 let _drawEnd         = null;
@@ -8465,12 +8470,18 @@ function _ensureMap() {
       '<em class="optimizing-text">Optimizing&#8230;</em>';
     _map.getContainer().appendChild(optOverlay);
 
+    // Populated if autoRouteProg has to move the start/end off charted-too-
+    // shallow water for the current draft/tide — previously only a
+    // console.log, which made a relocated destination look like the router
+    // just missed it. See INCIDENTS.md.
+    const snapEvents = [];
     let pts;
     try {
       pts = await Router.autoRouteProg(start, end,
         (path) => _autoRoutePreviewLayer.setLatLngs(path.map(p => [p.lat, p.lon])),
         (t) => { const el = optOverlay.querySelector('.optimizing-text'); if (el) el.textContent = t; },
-        false, _currentDraftFt(), _tideHeight, _makeSearchDotCallback()
+        false, _currentDraftFt(), _tideHeight, _makeSearchDotCallback(),
+        (which, snap) => snapEvents.push({ which, ...snap })
       );
     } catch (err) {
       optOverlay.remove();
@@ -8480,6 +8491,20 @@ function _ensureMap() {
     }
 
     optOverlay.remove();
+
+    _routeSnapMarkers.forEach(m => m.remove());
+    _routeSnapMarkers = snapEvents.map(s => {
+      const label = s.which === 'end' ? 'destination' : 'start';
+      return L.circleMarker([s.lat, s.lon], {
+        radius: 7, color: '#ffaa00', fillColor: '#ffaa00', fillOpacity: 0.75, weight: 2,
+      }).addTo(_map).bindTooltip(
+        `${escapeHtml(name)} — ${label} moved ${s.movedNm.toFixed(2)}nm (too shallow at current draft/tide)`,
+        { permanent: false }
+      );
+    });
+    const snapNote = snapEvents.map(s =>
+      `${s.which === 'end' ? 'Destination' : 'Start'} was in water too shallow for the current draft — moved ${s.movedNm.toFixed(2)}nm to reach it.`
+    ).join(' ');
 
     const totalNm = pts.reduce((sum, p, idx) =>
       idx === 0 ? 0 : sum + Query.distanceNm(pts[idx - 1].lon, pts[idx - 1].lat, p.lon, p.lat), 0);
@@ -8506,12 +8531,21 @@ function _ensureMap() {
     // silently swallow the one warning that actually mattered.
     if (fellBack) {
       _showRouteFallbackWarning([{ a: pts[0], b: pts[1], legIndex: 0 }]);
+      if (snapNote) { setStatus(snapNote); TTS.sayImmediate(snapNote); }
     } else if (marginalSeg) {
       _showRouteFallbackWarning([marginalSeg]);
+      if (snapNote) { setStatus(snapNote); TTS.sayImmediate(snapNote); }
     } else if (!found.length) {
-      const msg = `${name} planned — ${totalNm.toFixed(1)} nm.`;
+      const msg = snapNote ? `${name} planned — ${totalNm.toFixed(1)} nm. ${snapNote}` : `${name} planned — ${totalNm.toFixed(1)} nm.`;
       setStatus(msg);
-      TTS.sayImmediate(`${name} planned. ${totalNm.toFixed(1)} nautical miles.`);
+      TTS.sayImmediate(snapNote
+        ? `${name} planned. ${totalNm.toFixed(1)} nautical miles. ${snapNote}`
+        : `${name} planned. ${totalNm.toFixed(1)} nautical miles.`);
+    } else if (snapNote) {
+      // found.length: the hazard-check popup _enterEditMode just triggered
+      // already owns status/speech for that warning — don't interrupt it a
+      // moment later, just make sure the snap itself isn't lost entirely.
+      setStatus(snapNote);
     }
   }
 

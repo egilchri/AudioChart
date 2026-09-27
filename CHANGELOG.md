@@ -12,6 +12,29 @@
 > deep-dive on the v317–v325 cluster specifically (Focus Target, Simulate
 > Heading); the summaries below start right after that.
 
+## 2026-09-27 — Surface silent destination/start relocation on shallow water (v698)
+
+`autoRouteProg` already moves a start/end point off charted-too-shallow
+water (for the current draft/tide) to the nearest navigable spot before
+routing — a real, minimal snap, found live: a user dropped a pin, chose
+"AutoRoute from boat position," and the resulting route didn't reach the
+pin at all. Root cause: the relocation was real and correct (confirmed via
+the console log `[autoRoute] end was charted too shallow — moved 1.70nm to
+navigable water`), but was never surfaced anywhere in the UI — only
+console.log — and `_clearAutoRoute()` deletes the temporary destination
+marker once the route is saved, so there was no visual trace of where the
+router actually aimed. The route looked broken; it had actually just
+quietly retargeted itself. Fixed two ways: `autoRouteProg` now takes an
+optional `onSnap(which, {lat, lon, movedNm})` callback, threaded through
+every recursive call (long-range legs, local-escape legs, transit
+patches); `_triggerAutoRoute` uses it to (a) speak/show a status message
+("Destination was in water too shallow for the current draft — moved
+X.XXnm to reach it.") and (b) leave a small amber marker with a tooltip at
+the actual routed point, which survives `_clearAutoRoute()` (cleared only
+by the next AutoRoute call). Verified live: reproduced the exact snap with
+an injected test pin, confirmed both the status message and the marker
+appear at the router's real destination.
+
 ## 2026-09-27 — Fix: route name could render at 0px width in the Routes panel (v697)
 
 Found and fixed a real bug in the "table format" Routes-panel row layout

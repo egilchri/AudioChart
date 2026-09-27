@@ -16,7 +16,7 @@ import * as Query from './query.js';
 
 export async function autoRouteProg(
   start, end, onUpdate, onText = null, _escapeAttempted = false,
-  draftFt = 5.0, tideHeightM = 0, onSearchProgress = null,
+  draftFt = 5.0, tideHeightM = 0, onSearchProgress = null, onSnap = null,
 ) {
   // Visibility Graph + A* (Euclidean Shortest Path with Polygonal Obstacles).
   // Nodes: start, end, and polygon vertices in the padded bounding box.
@@ -118,11 +118,13 @@ export async function autoRouteProg(
   if (snappedStart) {
     console.log(`[autoRoute] start was charted too shallow — moved ${snappedStart.movedNm.toFixed(2)}nm to navigable water`);
     start = { lat: snappedStart.lat, lon: snappedStart.lon };
+    onSnap?.('start', snappedStart);
   }
   const snappedEnd = Query.snapToNavigableWater(end.lon, end.lat, draftFt, tideHeightM);
   if (snappedEnd) {
     console.log(`[autoRoute] end was charted too shallow — moved ${snappedEnd.movedNm.toFixed(2)}nm to navigable water`);
     end = { lat: snappedEnd.lat, lon: snappedEnd.lon };
+    onSnap?.('end', snappedEnd);
   }
 
   // Long-range passage decomposition (Piece 1d) — everything below this is
@@ -132,7 +134,7 @@ export async function autoRouteProg(
   const directNm = Query.distanceNm(start.lon, start.lat, end.lon, end.lat);
   if (directNm > LONG_RANGE_NM) {
     console.log(`[autoRoute] long-range passage: ${directNm.toFixed(1)}nm direct (> ${LONG_RANGE_NM}nm threshold) — decomposing instead of one visibility-graph search`);
-    return await _longRangeRoute(start, end, onUpdate, onText, draftFt, tideHeightM, onSearchProgress);
+    return await _longRangeRoute(start, end, onUpdate, onText, draftFt, tideHeightM, onSearchProgress, onSnap);
   }
 
   // ── Bounding box ───────────────────────────────────────────────────────────
@@ -768,19 +770,19 @@ export async function autoRouteProg(
       if (startBlocked) {
         const departurePt = Query.findClearOffshorePoint(start.lon, start.lat, end.lon, end.lat, { draftFt, tideHeightM });
         if (departurePt) {
-          const departLeg = await autoRouteProg(start, departurePt, onUpdate, onText, true, draftFt, tideHeightM, onSearchProgress);
+          const departLeg = await autoRouteProg(start, departurePt, onUpdate, onText, true, draftFt, tideHeightM, onSearchProgress, onSnap);
           if (_subLegOk(departLeg)) { prefix = departLeg.slice(0, -1); effStart = departurePt; }
         }
       }
       if (endBlocked && Date.now() - _profT0 <= DEADLINE_MS) {
         const arrivalPt = Query.findClearOffshorePoint(end.lon, end.lat, start.lon, start.lat, { draftFt, tideHeightM });
         if (arrivalPt) {
-          const arriveLeg = await autoRouteProg(arrivalPt, end, onUpdate, onText, true, draftFt, tideHeightM, onSearchProgress);
+          const arriveLeg = await autoRouteProg(arrivalPt, end, onUpdate, onText, true, draftFt, tideHeightM, onSearchProgress, onSnap);
           if (_subLegOk(arriveLeg)) { suffix = arriveLeg.slice(1); effEnd = arrivalPt; }
         }
       }
       if ((prefix.length || suffix.length) && Date.now() - _profT0 <= DEADLINE_MS) {
-        const middle = await autoRouteProg(effStart, effEnd, onUpdate, onText, true, draftFt, tideHeightM, onSearchProgress);
+        const middle = await autoRouteProg(effStart, effEnd, onUpdate, onText, true, draftFt, tideHeightM, onSearchProgress, onSnap);
         if (_subLegOk(middle)) {
           console.log(`[autoRoute] local escape succeeded — prefix ${prefix.length}pts, middle ${middle.length}pts, suffix ${suffix.length}pts`);
           return [...prefix, ...middle, ...suffix.slice(1)];
@@ -996,7 +998,7 @@ function _isClearOffshoreLine(a, b) {
 // re-solving the whole span. Returns null on internal deadline exceeded or
 // too many disjoint obstacles (LONG_RANGE_MAX_HOPS) — signals the caller to
 // fall back to the honest full straight line.
-async function _transitLeg(a, b, lrT0, onUpdate, onText, draftFt, tideHeightM, onSearchProgress) {
+async function _transitLeg(a, b, lrT0, onUpdate, onText, draftFt, tideHeightM, onSearchProgress, onSnap) {
   if (_isClearOffshoreLine(a, b)) return [a, b];
 
   const result = [a];
@@ -1065,7 +1067,7 @@ async function _transitLeg(a, b, lrT0, onUpdate, onText, draftFt, tideHeightM, o
     const bracketEnd = { lat: cursor.lat + (b.lat - cursor.lat) * endT, lon: cursor.lon + (b.lon - cursor.lon) * endT };
 
     if (startT > 0) result.push(bracketStart);
-    const patched = await autoRouteProg(bracketStart, bracketEnd, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress);
+    const patched = await autoRouteProg(bracketStart, bracketEnd, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap);
     if (patched.length <= 2 && Query.landBlocks(patched[0].lon, patched[0].lat, patched[1].lon, patched[1].lat)) {
       return null; // local avoidance also failed for this obstacle — honest fallback, don't splice in a land crossing
     }
@@ -1092,7 +1094,7 @@ function _legFailed(leg) {
   return leg.length <= 2 && Query.landBlocks(leg[0].lon, leg[0].lat, leg[1].lon, leg[1].lat);
 }
 
-async function _longRangeRoute(start, end, onUpdate, onText, draftFt, tideHeightM, onSearchProgress) {
+async function _longRangeRoute(start, end, onUpdate, onText, draftFt, tideHeightM, onSearchProgress, onSnap) {
   const _lrT0 = Date.now();
   if (onText) onText('Planning long passage…');
 
@@ -1104,14 +1106,14 @@ async function _longRangeRoute(start, end, onUpdate, onText, draftFt, tideHeight
   if (!departurePt || !arrivalPt) return [start, end];
   if (Date.now() - _lrT0 > LONG_RANGE_DEADLINE_MS) return [start, end];
 
-  const departLeg = await autoRouteProg(start, departurePt, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress);
+  const departLeg = await autoRouteProg(start, departurePt, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap);
   if (_legFailed(departLeg)) return [start, end];
   if (Date.now() - _lrT0 > LONG_RANGE_DEADLINE_MS) return [start, end];
 
-  const transit = await _transitLeg(departurePt, arrivalPt, _lrT0, onUpdate, onText, draftFt, tideHeightM, onSearchProgress);
+  const transit = await _transitLeg(departurePt, arrivalPt, _lrT0, onUpdate, onText, draftFt, tideHeightM, onSearchProgress, onSnap);
   if (!transit) return [start, end];
 
-  const arriveLeg = await autoRouteProg(arrivalPt, end, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress);
+  const arriveLeg = await autoRouteProg(arrivalPt, end, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap);
   if (_legFailed(arriveLeg)) return [start, end];
   if (Date.now() - _lrT0 > LONG_RANGE_DEADLINE_MS) return [start, end];
 
