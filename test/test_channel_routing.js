@@ -28,7 +28,7 @@ const { installNodeQueryEnv } = require('./helpers/node_query_env.js');
 const path = require('path');
 
 const WWW_DATA_DIR = path.join(__dirname, '..', 'www', 'data');
-const DEADLINE_MS = 5000; // mirrors router.js's own DEADLINE_MS
+const DEADLINE_MS = 10000; // mirrors router.js's own DEADLINE_MS
 
 installNodeQueryEnv(WWW_DATA_DIR);
 

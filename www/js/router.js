@@ -67,7 +67,19 @@ export async function autoRouteProg(
   // way for the caller to know. Checked after setup and periodically during A*
   // (both against _profT0 below); exceeding it means the honest straight-line
   // fallback (_showRouteFallbackWarning), never a partial/unverified path.
-  const DEADLINE_MS = 5000;
+  // Raised from 5000 (2026-09-27): a long-range passage decomposes into
+  // several sequential per-leg calls, each independently subject to this
+  // same budget — a real, demonstrably-findable 42-point safe route
+  // (Portsmouth NH -> Bar Harbor) has individual legs that take ~3.2s on
+  // an ordinary dev machine, comfortably under the old 5000ms, but GitHub's
+  // CI runner measured ~1.7-2x slower pushed that same leg past it,
+  // cascading into _longRangeRoute abandoning the WHOLE passage for an
+  // unsafe straight line — even though a safe route provably exists and a
+  // real device only needs to wait a bit longer to find it. Per the
+  // project's stated release goal (AutoRoute must succeed anywhere in
+  // Penobscot Bay unless truly impossible), waiting longer is preferable
+  // to a false "impossible."
+  const DEADLINE_MS = 10000;
   // Point-hazard/tidal rings only need a graph NODE when genuinely close to
   // the direct line — segBlocked already checks every one of them for every
   // candidate edge regardless of this, so a distant one not getting a node
@@ -1107,7 +1119,12 @@ export async function autoRouteProg(
 // line (verified clear, not searched), arrive at the destination coast —
 // see the plan file for the full empirical writeup.
 export const LONG_RANGE_NM = 20;   // starting point, not calibrated — see plan's "Threshold" section
-const LONG_RANGE_DEADLINE_MS = 15000; // separate internal budget, independent of DEADLINE_MS above
+// Raised alongside DEADLINE_MS's own 2026-09-27 increase (5000->10000) —
+// a long-range passage can legitimately spend several sequential per-leg
+// budgets (depart, transit brackets, arrive), so the overall envelope
+// needs headroom proportional to the per-leg one, not a fixed multiple of
+// the OLD per-leg value.
+const LONG_RANGE_DEADLINE_MS = 30000; // separate internal budget, independent of DEADLINE_MS above
 const LONG_RANGE_BUFFER_NM = 8;    // buffer on each side of a patched obstacle
 const LONG_RANGE_MAX_HOPS = 6;     // bounded — more disjoint transit obstacles than this falls back honestly
 

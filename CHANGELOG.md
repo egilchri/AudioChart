@@ -12,6 +12,31 @@
 > deep-dive on the v317–v325 cluster specifically (Focus Target, Simulate
 > Heading); the summaries below start right after that.
 
+## 2026-09-27 — Raise routing deadlines: prefer waiting over a false "impossible" (v703)
+
+v702's caching optimization was real (30-45% faster on most cases) but
+CI still failed 3 cases on the very next push — CI's shared runner
+measured ~1.7-2x slower than local dev hardware, enough to push already-
+marginal legs (`[7]`, `[16]`, `[17]`) past `DEADLINE_MS=5000` even after
+the speedup, with two degrading to an unsafe straight-line-across-land
+fallback. Chasing further micro-optimization has diminishing returns and
+doesn't address the actual constraint: the goal set for this release
+(AutoRoute must succeed anywhere in Penobscot Bay unless truly
+impossible — see `project_penobscot_bay_flawless_autoroute_goal` memory)
+means a slow-but-findable safe route should never be abandoned for an
+unsafe fast one just because a device is having a slow moment.
+
+Raised `DEADLINE_MS` 5000 -> 10000 (per-leg local-search budget) and
+`LONG_RANGE_DEADLINE_MS` 15000 -> 30000 (overall long-range envelope,
+scaled proportionally since a long-range passage can spend several
+sequential per-leg budgets). Test's own mirrored constant updated to
+match. All regression cases pass locally with comfortable margin even
+assuming CI-level slowdown (worst case `[16]` 4190ms vs the new 10000ms
+budget, `[7]`'s worst single leg 3209ms vs the same). This is a
+deliberate latency-for-reliability tradeoff, not a hidden one — a
+genuinely hard route may now take noticeably longer to plan, in exchange
+for actually finding the safe route that exists rather than giving up.
+
 ## 2026-09-27 — Cache point-in-ring containment per coordinate, not per edge (v702)
 
 v701's fix (below) was correct but its cost model was wrong: it re-ran a
