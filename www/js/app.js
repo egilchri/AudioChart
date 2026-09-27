@@ -3153,12 +3153,19 @@ async function _onDrawConfirm() {
     '<em class=”optimizing-text”>Optimizing&#8230;</em>';
   _map.getContainer().appendChild(optOverlay);
 
+  // See the matching comment in _triggerAutoRoute — autoRouteProg can move
+  // startPt/endPt off charted-too-shallow water before routing at all;
+  // this entry point had the exact same silent-relocation gap (a real
+  // report: "AutoRoute to here" via this flow didn't end at the marker at
+  // all, because the marker itself was the one that got moved).
+  const snapEvents = [];
   let pts;
   try {
     pts = await Router.autoRouteProg(startPt, endPt,
       (path) => previewLine.setLatLngs(path.map(p => [p.lat, p.lon])),
       (t) => { const el = optOverlay.querySelector('.optimizing-text'); if (el) el.textContent = t; },
-      false, _currentDraftFt(), _tideHeight, _makeSearchDotCallback()
+      false, _currentDraftFt(), _tideHeight, _makeSearchDotCallback(),
+      (which, snap) => snapEvents.push({ which, ...snap })
     );
   } catch (err) {
     optOverlay.remove();
@@ -3169,6 +3176,20 @@ async function _onDrawConfirm() {
 
   optOverlay.remove();
   previewLine.remove();
+
+  _routeSnapMarkers.forEach(m => m.remove());
+  _routeSnapMarkers = snapEvents.map(s => {
+    const label = s.which === 'end' ? 'destination' : 'start';
+    return L.circleMarker([s.lat, s.lon], {
+      radius: 7, color: '#ffaa00', fillColor: '#ffaa00', fillOpacity: 0.75, weight: 2,
+    }).addTo(_map).bindTooltip(
+      `${escapeHtml(name)} — ${label} moved ${s.movedNm.toFixed(2)}nm (too shallow at current draft/tide)`,
+      { permanent: false }
+    );
+  });
+  const snapNote = snapEvents.map(s =>
+    `${s.which === 'end' ? 'Destination' : 'Start'} was in water too shallow for the current draft — moved ${s.movedNm.toFixed(2)}nm to reach it.`
+  ).join(' ');
 
   const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
   routes.push(_stampNew({ name, points: pts.map(p => ({ lat: p.lat, lon: p.lon })) }));
@@ -3195,8 +3216,16 @@ async function _onDrawConfirm() {
   // found live (2026-09) with a genuine Rockland->Camden fallback: the user
   // got a status message about shallow areas and no indication whatsoever
   // that the route was an un-routed straight line across land.
-  if (fellBack) _showRouteFallbackWarning([{ a: pts[0], b: pts[1], legIndex: 0 }]);
-  else if (marginalSeg) _showRouteFallbackWarning([marginalSeg]);
+  if (fellBack) {
+    _showRouteFallbackWarning([{ a: pts[0], b: pts[1], legIndex: 0 }]);
+    if (snapNote) { setStatus(snapNote); TTS.sayImmediate(snapNote); }
+  } else if (marginalSeg) {
+    _showRouteFallbackWarning([marginalSeg]);
+    if (snapNote) { setStatus(snapNote); TTS.sayImmediate(snapNote); }
+  } else if (snapNote) {
+    setStatus(snapNote);
+    TTS.sayImmediate(snapNote);
+  }
 }
 
 function _onDrawMouseMove(latlng) {

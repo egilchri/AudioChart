@@ -12,6 +12,28 @@
 > deep-dive on the v317–v325 cluster specifically (Focus Target, Simulate
 > Heading); the summaries below start right after that.
 
+## 2026-09-27 — Same shallow-water snap fix, also missed in the "Auto Route" draw flow (v699)
+
+v698 only wired the new `onSnap` surfacing into `_triggerAutoRoute` (the
+marker-popup "AutoRoute from boat position" / map context-menu "Route to
+here" pipeline). Missed that `_onDrawConfirm` — the Routes panel's own
+"Auto Route" button, tap-start/tap-destination flow, and by its own
+existing code comment literally "the PRIMARY 'auto-route to here' entry
+point" — calls `Router.autoRouteProg` directly and independently, with no
+shared code path to `_triggerAutoRoute` at all. It had the exact same
+silent-relocation gap. Found by re-testing after a user report of "no
+progress" on the exact same repro on v698; traced to this second, separate
+call site. Same fix applied: `onSnap` wired through, snap note surfaced
+via setStatus/TTS, persistent amber marker left at the real routed point.
+Verified live (tap-start/tap-destination onto known shallow water):
+status showed both a start-moved and a destination-moved note, and both
+markers appeared at their correct snapped coordinates.
+
+Still open: `_reRouteSegments` (the "Reroute"/"Fix selected nodes" flow in
+edit mode) shares the same `autoRouteProg` call but doesn't have this
+surfacing yet — lower priority since it's re-routing an existing waypoint,
+not silently relocating a fresh destination pin, but the same class of gap.
+
 ## 2026-09-27 — Surface silent destination/start relocation on shallow water (v698)
 
 `autoRouteProg` already moves a start/end point off charted-too-shallow
