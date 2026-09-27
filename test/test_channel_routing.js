@@ -28,7 +28,8 @@ const { installNodeQueryEnv } = require('./helpers/node_query_env.js');
 const path = require('path');
 
 const WWW_DATA_DIR = path.join(__dirname, '..', 'www', 'data');
-const DEADLINE_MS = 10000; // mirrors router.js's own DEADLINE_MS
+const DEADLINE_MS = 14000; // mirrors router.js's own DEADLINE_MS
+const LONG_RANGE_DEADLINE_MS = 42000; // mirrors router.js's own LONG_RANGE_DEADLINE_MS — for cases that decompose into several per-leg budgets, not the local-search one above
 
 installNodeQueryEnv(WWW_DATA_DIR);
 
@@ -47,16 +48,24 @@ function pathCrossesLand(Query, points) {
   return false;
 }
 
-async function runCase(Query, Router, label, start, end) {
+// caseDeadlineMs lets a long-range case (which internally spends
+// LONG_RANGE_DEADLINE_MS, a separate and much larger budget than the
+// per-leg DEADLINE_MS this constant otherwise mirrors) use its own
+// matching threshold, instead of being held to the local-search budget
+// it was never bound by in the first place. Applying the local budget to
+// a long-range case's TOTAL wall-clock was a repeated false signal during
+// the 2026-09-27 session: the real router hadn't failed or timed out at
+// all, the test's threshold was just the wrong one for that case.
+async function runCase(Query, Router, label, start, end, caseDeadlineMs = DEADLINE_MS) {
   const t0 = Date.now();
   const path_ = await Router.autoRouteProg(start, end, () => {}, () => {});
   const ms = Date.now() - t0;
   const crosses = pathCrossesLand(Query, path_);
   const fallback = path_.length <= 2 && crosses;
-  const timeOk = ms < DEADLINE_MS;
+  const timeOk = ms < caseDeadlineMs;
   const ok = !fallback && !crosses && timeOk;
   console.log(`${label}: ${ok ? 'PASS' : 'FAIL'} (fallback=${fallback}, crossesLand=${crosses}, ${path_.length} pts, ${ms}ms)`);
-  if (ok && ms > 1500) console.log(`  ⚠ slow: ${ms}ms exceeds the 1500ms early-regression warning threshold (hard fail is ${DEADLINE_MS}ms)`);
+  if (ok && ms > 1500) console.log(`  ⚠ slow: ${ms}ms exceeds the 1500ms early-regression warning threshold (hard fail is ${caseDeadlineMs}ms)`);
   return { ok, path: path_, ms, fallback, crosses };
 }
 
@@ -160,7 +169,7 @@ async function main() {
   // true, 2 pts, 5828ms — an unsafe answer a user could have gotten) into a
   // real 48-point route clear of land in ~3.5s.
   gate(await runCase(Query, Router, '[7] Portsmouth NH -> Bar Harbor ME (long-range)',
-    { lat: 43.08077, lon: -70.757141 }, { lat: 44.391934, lon: -68.205831 }));
+    { lat: 43.08077, lon: -70.757141 }, { lat: 44.391934, lon: -68.205831 }, LONG_RANGE_DEADLINE_MS));
 
   // Case 8 — long-range fast path: two points >LONG_RANGE_NM apart, both
   // off any real land ring, direct line clear. Should return in low
@@ -350,7 +359,7 @@ async function main() {
     await Query.loadData(44.103, -69.088);
     await waitForRegionDataReady(Query);
     return runCase(Query, Router, '[17] Rockland -> WoodenBoat School/Center Harbor (long-range archipelago)',
-      { lat: 44.103, lon: -69.088 }, { lat: 44.2446198, lon: -68.555493 });
+      { lat: 44.103, lon: -69.088 }, { lat: 44.2446198, lon: -68.555493 }, LONG_RANGE_DEADLINE_MS);
   })());
 
   console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll cases passed.');

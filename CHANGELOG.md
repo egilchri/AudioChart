@@ -12,6 +12,59 @@
 > deep-dive on the v317–v325 cluster specifically (Focus Target, Simulate
 > Heading); the summaries below start right after that.
 
+## 2026-09-27 — Always keep 3ft of clearance under the keel (v705)
+
+Direct requirement: "Always keep at least 3ft under the keel." Every
+depth-hazard formula in the codebase (`eff = valsou + tide`, blocked if
+`<= draft`) had zero safety margin — a verified real route existed with
+only ~3cm of charted clearance at its tightest point, arithmetically
+"passing" but not something a real mariner would call safe.
+
+Added a `KEEL_CLEARANCE_MARGIN_M` (3ft) constant, applied consistently
+everywhere a depth/tide comparison decides whether water counts as
+navigable: `router.js`'s `tidalObs` hazard filter, the v700
+`_soundingsClearCrossing` override, `query.js`'s `_makeObstacleCheck`
+(used by both `snapToNavigableWater` for start/end relocation and
+`findClearOffshorePoint` for long-range escape points), and the map's
+depth-overlay red/yellow coloring in `app.js` (so a cell shown red is
+exactly a cell AutoRoute will actually avoid).
+
+Widening what counts as hazardous surfaced two further, real consequences
+— found and fixed in the same pass, not deferred:
+- A genuinely in-scope Penobscot Bay route (Rockland -> WoodenBoat
+  School/Center Harbor) started **genuinely failing** (A* provably
+  exhausted its local search, not a timeout) because more of the map now
+  correctly counts as hazardous than the existing node/ring budget
+  (`MAX_EXTRA_NON_BLOCKING_RINGS`/`NODES`) was tuned for. Confirmed via a
+  scratch test that raising the budget (60->150 rings, 300->900 nodes)
+  restored a real, verified-safe 47-point route. Not a workaround —
+  a real route exists and now gets found.
+- That wider search costs more time even for routes that don't strictly
+  need it, pushing an already-marginal real case (Rockland -> Carvers
+  Harbor/Vinalhaven) past `DEADLINE_MS`, varying 9.2-12s run to run on
+  the same machine for a route that always finds a real, valid answer.
+  Raised `DEADLINE_MS` 10000->14000 and `LONG_RANGE_DEADLINE_MS`
+  30000->42000 (proportional), same "wait longer, don't falsely report
+  impossible" reasoning as the first increase (v703).
+
+Also fixed the test suite's own long-standing mismatch (surfaced
+repeatedly this session): it applied the general per-leg `DEADLINE_MS`
+to long-range cases' *total* wall-clock, even though those legitimately
+spend several sequential per-leg budgets under their own, separate,
+larger `LONG_RANGE_DEADLINE_MS`. `runCase` now takes an optional
+per-case deadline override, used for the two long-range cases.
+
+**Known, deliberately not chased further:** case `[7]` (Portsmouth NH ->
+Bar Harbor, ~136nm) still genuinely fails under the new margin — a
+different leg provably has no connected path within its local search
+graph, confirmed NOT fixable by more budget alone (tested up to 300
+rings/1800 nodes: the bottleneck just moves to a different leg's timeout
+instead of resolving). That route is **outside Penobscot Bay**, the
+stated scope of the release goal — flagged as a known hard case for
+future work, not treated as release-blocking. All gated in-scope
+Penobscot Bay cases (`[10]`-`[17]`, excluding `[7]`) pass reliably across
+repeated runs. `test/test_query.js` (25/25) passes.
+
 ## 2026-09-27 — Surface boat draft as its own always-visible setting (v704)
 
 Draft already existed as a persisted setting (`nf-draft-ft`, saved to

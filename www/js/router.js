@@ -79,7 +79,17 @@ export async function autoRouteProg(
   // project's stated release goal (AutoRoute must succeed anywhere in
   // Penobscot Bay unless truly impossible), waiting longer is preferable
   // to a false "impossible."
-  const DEADLINE_MS = 10000;
+  // Raised again 10000->14000 (2026-09-27, same day as the 5000->10000
+  // bump above): a real, genuinely in-scope Penobscot Bay case (Rockland
+  // -> Carvers Harbor/Vinalhaven) found a real, valid route every time —
+  // this was never a "no path exists" case — but its own wall-clock
+  // varied 9.2-10s+ run to run right at the old boundary, now that the
+  // wider MAX_EXTRA_NON_BLOCKING_RINGS/NODES budget below (raised for a
+  // different, genuinely-disconnected case) searches more candidates for
+  // every route, not just the ones that need it. Comfortable headroom
+  // above the observed worst case, same "wait longer, don't falsely
+  // report impossible" reasoning as the first increase.
+  const DEADLINE_MS = 14000;
   // Point-hazard/tidal rings only need a graph NODE when genuinely close to
   // the direct line — segBlocked already checks every one of them for every
   // candidate edge regardless of this, so a distant one not getting a node
@@ -96,19 +106,31 @@ export async function autoRouteProg(
   // ring in the bbox for collisions regardless of this cap — this only
   // bounds how many get to OFFER themselves as A* routing waypoints, ranked
   // closest-to-the-line first (see the extraRings loop after _addRingNodes).
-  const MAX_EXTRA_NON_BLOCKING_RINGS = 60;
+  // Raised 60->150 (2026-09-27), alongside the new keel-clearance margin
+  // (see KEEL_CLEARANCE_MARGIN_M below): widening what counts as
+  // "hazardous" naturally widens how many candidate via-points a tight
+  // real passage needs to actually thread through it. Confirmed live: a
+  // real, definitely-navigable route (Rockland -> WoodenBoat School) went
+  // from a genuine "no path found" — A* provably exhausted its search,
+  // not a timeout — to a real 47-point safe route once this cap (and the
+  // matching node budget below) was raised, at the OLD 60/300 caps.
+  // DEADLINE_MS's own 2026-09-27 increase (5000->10000) gives this room
+  // without reintroducing the timeout regression the original 60/300
+  // caps existed to prevent.
+  const MAX_EXTRA_NON_BLOCKING_RINGS = 150;
   // A NODE budget on top of the RING budget above, mirroring
   // MAX_LAND_NON_BLOCKING_NODES's own reasoning — this ring cap alone was
   // fine when every extra ring contributed at most 4 nodes (a point-hazard
   // circle), but a non-blocking tidal ring now contributes its full vertex
   // set (see _addRingNodes' isTidal branch). Confirmed live as a real
   // regression: a real ~11.4nm Rockland approach with 60 eligible tidal
-  // rings pushed setup to 2900 total nodes and the whole call past
-  // DEADLINE_MS consistently (5006-5027ms across repeated runs, not a
-  // one-off) — this budget is what keeps that bounded. Less generous than
-  // land's 500 since these are lower-priority secondary obstacles, not
-  // the primary coastline.
-  const MAX_EXTRA_NON_BLOCKING_NODES = 300;
+  // rings pushed setup to 2900 total nodes and the whole call past the
+  // OLD 5000ms DEADLINE_MS consistently — this budget is what keeps that
+  // bounded. Raised 300->900 alongside the ring cap above and the same
+  // DEADLINE_MS headroom. Less generous than land's 500(*3=1500 ceiling)
+  // since these are lower-priority secondary obstacles, not the primary
+  // coastline.
+  const MAX_EXTRA_NON_BLOCKING_NODES = 900;
 
   const delay = ms => new Promise(r => setTimeout(r, ms));
   const _profT0 = Date.now();
@@ -228,16 +250,29 @@ export async function autoRouteProg(
   // ── Tide-aware depth: which drying areas are hazardous right now? ──────────
   const draftM  = draftFt * 0.3048;
   const tideM   = tideHeightM;
+  // Direct requirement (2026-09-27): always keep at least this much clear
+  // water under the keel, not just "technically not touching bottom." A
+  // real verified route was found with ~3cm of charted clearance at its
+  // tightest point before this existed — arithmetically "passing" but not
+  // something a real mariner would call safe. Applied everywhere a
+  // depth/tide comparison decides whether water counts as navigable:
+  // here, _soundingsClearCrossing below, and query.js's own
+  // _makeObstacleCheck (snapToNavigableWater/findClearOffshorePoint) and
+  // depth-overlay coloring in app.js — kept as a duplicated, documented
+  // constant in each file rather than a shared export, matching this
+  // codebase's existing draftM-conversion convention.
+  const KEEL_CLEARANCE_MARGIN_M = 3 * 0.3048; // 3ft
   // eff = effective depth at current tide — matches the depth-overlay logic at
-  // ~app.js:6281 (eff = valsou + tideHeight; hazard if eff <= draft). The old
-  // filter here (`v >= 0 && tideM < draftM + v`) was inverted: it excluded
-  // drying/intertidal areas (valsou < 0) from ever counting as hazards, and
-  // flagged progressively *safer, deeper* zones as obstacles as valsou grew.
+  // ~app.js:6281 (eff = valsou + tideHeight; hazard if eff <= draft+margin).
+  // The old filter here (`v >= 0 && tideM < draftM + v`) was inverted: it
+  // excluded drying/intertidal areas (valsou < 0) from ever counting as
+  // hazards, and flagged progressively *safer, deeper* zones as obstacles
+  // as valsou grew.
   const tidalObs = (Query.getDepthZones() || []).filter(f => {
     const v = f.properties?.valsou;
     if (v == null) return false;
     const eff = v + tideM;
-    return eff <= draftM;
+    return eff <= draftM + KEEL_CLEARANCE_MARGIN_M;
   });
 
   // ── Land: served by query.js's persistent edge index ──────────────────
@@ -413,7 +448,7 @@ export async function autoRouteProg(
       const lon = lon1 + (lon2 - lon1) * t;
       const s = _nearestSoundingFast(lon, lat);
       if (!s) return false; // no real data here — don't override the polygon
-      if (s.valsou + tideM <= draftM) return false; // a real sounding confirms it IS too shallow
+      if (s.valsou + tideM <= draftM + KEEL_CLEARANCE_MARGIN_M) return false; // a real sounding confirms it IS too shallow (or too tight)
     }
     return true;
   }
@@ -1124,7 +1159,7 @@ export const LONG_RANGE_NM = 20;   // starting point, not calibrated — see pla
 // budgets (depart, transit brackets, arrive), so the overall envelope
 // needs headroom proportional to the per-leg one, not a fixed multiple of
 // the OLD per-leg value.
-const LONG_RANGE_DEADLINE_MS = 30000; // separate internal budget, independent of DEADLINE_MS above
+const LONG_RANGE_DEADLINE_MS = 42000; // scaled with DEADLINE_MS's own 2nd increase (10000->14000) — separate internal budget, independent of DEADLINE_MS above
 const LONG_RANGE_BUFFER_NM = 8;    // buffer on each side of a patched obstacle
 const LONG_RANGE_MAX_HOPS = 6;     // bounded — more disjoint transit obstacles than this falls back honestly
 

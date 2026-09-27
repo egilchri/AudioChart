@@ -9867,13 +9867,19 @@ function _refreshNavaidOverlay() {
   if (showDepths && Query.depthZones) {
     const draftM = _getDraftMeters();
     if (draftM != null) {
+      // Direct requirement (2026-09-27): always keep at least this much
+      // clear water under the keel — matching constant in router.js/
+      // query.js's own hazard-blocking checks, so a cell shown red here
+      // is exactly a cell AutoRoute will actually avoid, not a narrower
+      // "technically doesn't touch bottom" reading.
+      const KEEL_CLEARANCE_MARGIN_M = 3 * 0.3048; // 3ft
       const polyFeatures = [];
       for (const f of Query.depthZones) {
         const eff = (f.properties.valsou ?? 0) + _effectiveTideHeight();
         if (eff <= 0) continue;  // exposed/dry at current tide — not a navigable hazard
         let color = null;
-        if (eff <= draftM)             color = '#e05252';
-        else if (eff < draftM + 1.8288) color = '#f5c518';
+        if (eff <= draftM + KEEL_CLEARANCE_MARGIN_M) color = '#e05252';
+        else if (eff < draftM + 1.8288)               color = '#f5c518';
         if (!color) continue;
         // Suppress warnings inside maintained navigation channels
         const ring = f.geometry.coordinates?.[0];

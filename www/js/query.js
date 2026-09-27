@@ -942,10 +942,16 @@ function _makeObstacleCheck(centerLon, centerLat, maxNm, draftFt, tideHeightM) {
     .map((f) => f.geometry.coordinates);
 
   const draftM = draftFt * 0.3048;
+  // Direct requirement (2026-09-27): always keep at least this much clear
+  // water under the keel — see the matching constant/comment in
+  // router.js for the full rationale. Kept duplicated per-file rather
+  // than a shared export, matching this codebase's existing per-file
+  // draftM-conversion convention.
+  const KEEL_CLEARANCE_MARGIN_M = 3 * 0.3048; // 3ft
   const shallowRings = [];
   for (const f of (getDepthZones() || [])) {
     const v = f.properties?.valsou;
-    if (v == null || v + tideHeightM > draftM) continue;
+    if (v == null || v + tideHeightM > draftM + KEEL_CLEARANCE_MARGIN_M) continue;
     const polys = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates;
     for (const rings of polys) {
       const outer = rings[0];
