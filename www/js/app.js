@@ -6940,11 +6940,17 @@ let _statusModeGlyph    = '🗺';
 let _statusModeLabel    = 'Chart';
 let _statusGpsLabel     = 'GPS: waiting';
 let _statusGpsCls       = '';
+// Direct request (2026-09-27): show which chart region is actually active
+// right next to the GPS label — set by _autoSelectRegionForPosition,
+// never left to go stale, since the active region silently governs which
+// hazard/channel/land data AutoRoute actually uses (see the SP003
+// investigation this same day).
+let _statusRegionLabel  = '';
 let _statusCoverageLabel = '';
 let _statusCoverageCls   = '';
 
 function _renderStatusCombo() {
-  const text = [`${_statusModeGlyph} ${_statusModeLabel}`, _statusGpsLabel, _statusCoverageLabel]
+  const text = [`${_statusModeGlyph} ${_statusModeLabel}`, _statusGpsLabel, _statusRegionLabel, _statusCoverageLabel]
     .filter(Boolean).join('  ·  ');
   const cls = _statusCoverageCls || _statusGpsCls;
   if (statusComboEl) {
@@ -10229,14 +10235,22 @@ async function _fetchChartBounds(regionId) {
 
 /** regionId ('' = bundled default) whose chart_bounds contains (lat, lon),
  * or null if none of the known regions do. Bounds are tiny and fetched once
- * per session, not re-fetched on every GPS tick. */
+ * per session, not re-fetched on every GPS tick. Checks specific (named)
+ * regions BEFORE the bundled default — real bug found live (2026-09-27):
+ * the bundled default's own chart_bounds.geojson covers essentially the
+ * same box as Penobscot Bay's (both ~-69.32..-68.00, 43.75..44.83), so
+ * checking '' first (its old iteration order) meant this function always
+ * returned '' and a real, richer named region was never reached even when
+ * the position was squarely inside it too. Prefer the more specific match. */
 async function _regionContaining(lat, lon) {
   if (!_regionBoundsCache) {
     _regionBoundsCache = {};
     const ids = ['', ...Object.keys(_visibleCruiseProfiles()).map(_regionIdFor).filter(Boolean)];
     await Promise.all(ids.map(async (id) => { _regionBoundsCache[id] = await _fetchChartBounds(id); }));
   }
-  for (const [id, b] of Object.entries(_regionBoundsCache)) {
+  const orderedIds = Object.keys(_regionBoundsCache).filter(id => id !== '').concat(['']);
+  for (const id of orderedIds) {
+    const b = _regionBoundsCache[id];
     if (b && lon >= b.minLon && lon <= b.maxLon && lat >= b.minLat && lat <= b.maxLat) return id;
   }
   return null;
@@ -10313,6 +10327,49 @@ _regionOfferDownload.addEventListener('click', async () => {
   }
 });
 _regionOfferDismiss.addEventListener('click', _hideRegionOfferBanner);
+
+// Direct request (2026-09-27), knowingly reversing the "never automatic"
+// decision documented on _offerRegionForPosition below: when the boat's
+// position sits inside a real region's bounds and that region isn't the
+// active one, switch to it automatically — no tap. Deliberately NOT
+// gated on Query.isRegionDownloaded (unlike _offerRegionForPosition's own
+// banner choice) — that check is about whether a full offline package
+// was pre-cached via runRouteDownload (a real, heavier fetch worth
+// consent for), not whether the region's core chart files are reachable
+// at all. A region's land/hazards/channel/soundings files are ordinary
+// bundled static assets, exactly as cheap to fetch as the bundled
+// default's — loadData()'s own per-file fetches already fail gracefully
+// (falling back to bundled-default geometry) if genuinely offline and
+// uncached, so there's nothing here that needs gating behind a tap.
+// Still guarded against the exact regression that motivated the original
+// manual-only decision (a silent switch mid-edit corrupting a route being
+// worked on for a different area): skipped while editing/sketching/
+// drawing. Always updates the title-bar region label regardless of
+// whether a switch happens, so the active region is never silently wrong
+// on screen — confirmed live this same day that _activeRegion being
+// unexpectedly null was otherwise invisible short of inspecting devtools.
+let _lastAutoRegionId = undefined; // regionId last auto-switched to; avoids redundant re-switch work on every GPS tick
+async function _autoSelectRegionForPosition(lat, lon) {
+  const regionId = await _regionContaining(lat, lon);
+  const activeId = Query.getActiveRegion() || '';
+
+  if (regionId !== null && regionId !== activeId && !_editMode && !_sketchMode && !_drawMode
+      && _lastAutoRegionId !== regionId) {
+    _lastAutoRegionId = regionId;
+    Query.setActiveRegion(regionId || null);
+    await Query.loadData(null, null);
+    const cruiseName = regionId ? Object.keys(CRUISE_PROFILES).find(n => _regionIdFor(n) === regionId) : null;
+    const msg = `Switched to ${cruiseName || 'default'} chart data.`;
+    setStatus(msg);
+    const pos = GPS.getPosition();
+    if (pos) _updateCoverageStatus(pos.lat, pos.lon);
+  }
+
+  const displayId = Query.getActiveRegion() || '';
+  const cruiseName = displayId ? Object.keys(CRUISE_PROFILES).find(n => _regionIdFor(n) === displayId) : null;
+  _statusRegionLabel = `Region: ${cruiseName || 'default'}`;
+  _renderStatusCombo();
+}
 
 // Called (fire-and-forget, from _updateCoverageStatus) whenever the boat's
 // real position has no chart data at all under whatever's currently loaded.
@@ -10511,6 +10568,7 @@ function showPosition(lat, lon, accuracy, source) {
   _statusGpsCls   = ['manual', 'virtual', 'default'].includes(source) ? 'gps-test' : 'gps-ok';
   _renderStatusCombo();
   _updateCoverageStatus(lat, lon);
+  _autoSelectRegionForPosition(lat, lon); // fire-and-forget — sets its own status/title-bar label once it knows more
 
   if (source === 'manual') {
     mapLink.href = `https://maps.google.com/?q=${lat},${lon}&z=14`;

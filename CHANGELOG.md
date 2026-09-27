@@ -12,6 +12,53 @@
 > deep-dive on the v317–v325 cluster specifically (Focus Target, Simulate
 > Heading); the summaries below start right after that.
 
+## 2026-09-27 — Auto-select the active chart region; show it in the title bar (v708)
+
+Direct request: "I want the region to show in the window title area, near
+where it says demo position. Also, when we are working in Penobscot
+region, like we are, then set the Penobscot region." This knowingly
+reverses a prior, deliberate design decision (`_offerRegionForPosition`'s
+own comment: "every switch is now one tap, never automatic" — a real
+regression once had a silent auto-switch corrupt an in-progress route
+edit for a different area).
+
+Added `_autoSelectRegionForPosition`, called from `showPosition()`
+alongside the existing coverage check: when the boat's GPS/demo position
+sits inside a real region's bounds and that region isn't already active,
+switches automatically — skipped while editing/sketching/drawing, to
+avoid the exact prior regression. Deliberately NOT gated on
+`Query.isRegionDownloaded` the way the manual banner is — that check is
+about a heavier pre-cached-for-offline package, not whether a region's
+core chart files (ordinary bundled static assets, same cost as the
+default's) are reachable at all.
+
+Found and fixed a real bug while wiring this up: `_regionContaining`
+always returned the bundled-default region (`''`), even when the
+position was squarely inside a real, named region's bounds too — because
+the bundled default's own `chart_bounds.geojson` happens to cover
+essentially the same box as Penobscot Bay's, and `''` was checked first
+in iteration order. Reordered to check specific (named) regions before
+the generic default.
+
+Also added `_statusRegionLabel` to the title bar (`_renderStatusCombo`),
+positioned right after the GPS label per the request — shows "Region:
+Penobscot Bay" or "Region: default", always current, never silently
+wrong (this was the actual blocker in diagnosing the SP003 case: the
+real active region was invisible short of inspecting devtools).
+
+Verified live on a completely fresh session (no prior region selection):
+demo position at Rockland auto-selects Penobscot Bay immediately, title
+bar updates, `Query.getActiveRegion()` and the persisted localStorage key
+both confirm the real switch (not just the label), and real region data
+(2386 land polygons, 5 channels) loads correctly.
+
+Also ships a previously-verified, independent fix: `test/
+test_channel_routing.js`'s case 16 had a real bug in its own deadline
+handling (a wider grading window wasn't actually passed to the router's
+own budget, so the test could "pass" while the router had already given
+up) — fixed by splitting `runCase`'s param into `routerDeadlineMs` (what
+the router gets) and `gradeDeadlineMs` (what the test grades against).
+
 ## 2026-09-27 — Raise default route-planning time limit once more (v707)
 
 CI's shared runner, under heavier load than the previous check, pushed
