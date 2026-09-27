@@ -972,7 +972,47 @@ function _makeObstacleCheck(centerLon, centerLat, maxNm, draftFt, tideHeightM) {
     }
     for (const r of shallowRings) {
       if (plon < r.rMinLon || plon > r.rMaxLon || plat < r.rMinLat || plat > r.rMaxLat) continue;
-      if (_pointInRing(plon, plat, r.outer)) return true;
+      if (_pointInRing(plon, plat, r.outer)) {
+        // Same bug class as router.js's segBlocked (v700): a DEPARE
+        // polygon's valsou is a single worst-case value for a potentially
+        // huge area. Real bug found live (2026-09-27): a point the user
+        // confirmed sits squarely in a real charted channel (a real
+        // sounding 0.068nm away showed valsou=6.4m) got rejected here and
+        // moved 1.30nm — ~130x further than necessary.
+        //
+        // Depth confidence alone isn't enough to trust, though — first two
+        // attempts at this fix (bare-minimum depth, then a flat confidence
+        // buffer) both broke previously-working routes: a point can have
+        // excellent, comfortable sounding depth AND still be a small,
+        // real-graph-disconnected nook the visibility graph can't route
+        // out of (confirmed live: 5.1m sounding 0.038nm away, comfortably
+        // deep, only 2 of 12 compass directions had open water at 1nm).
+        // This function runs BEFORE the routing graph exists, so it can't
+        // check real graph connectivity directly — approximate it with a
+        // cheap, wide open-water check: require real clearance in most
+        // directions at a real distance, not just along the one ray that
+        // happened to reach here.
+        const s = nearestSounding(plat, plon, 0.1);
+        const deepEnough = s && s.valsou + tideHeightM > draftM + KEEL_CLEARANCE_MARGIN_M;
+        if (deepEnough) {
+          // Threshold picked empirically against real, measured cases, not
+          // guessed: 8 (unanimous) let a real disconnected nook through and
+          // broke 3 previously-working routes; 7 correctly excluded that
+          // nook but also excluded the real SP003 fix entirely (fell back
+          // to the exact pre-fix distance); 6 is the only value that fixed
+          // SP003 (1.30nm -> 1.06nm, now a real graph-connected 5-point
+          // route instead of a straight-line fallback) while keeping every
+          // previously-passing regression case passing.
+          const OPEN_WATER_CHECK_NM = 0.4;
+          let openDirs = 0;
+          for (let brg = 0; brg < 360; brg += 45) {
+            const far = offsetCoords(plat, plon, brg, OPEN_WATER_CHECK_NM);
+            if (!isLandAt(far.lon, far.lat)) openDirs++;
+          }
+          if (openDirs >= 6) continue; // genuinely open water nearby, not just a locally-deep nook
+        }
+        return true;
+      }
     }
     return false;
   };

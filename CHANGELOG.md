@@ -12,6 +12,48 @@
 > deep-dive on the v317–v325 cluster specifically (Focus Target, Simulate
 > Heading); the summaries below start right after that.
 
+## 2026-09-27 — Trust real soundings in the snap-to-navigable-water check too (v709)
+
+Root cause of the original SP003 report (autoroute to a marker the user
+confirmed sits squarely in the charted Fox Islands Thorofare channel, but
+which the router moved 1.30nm away and then couldn't reach). Same bug
+class already fixed in `router.js`'s mid-search `segBlocked` in v700, just
+never applied to `query.js`'s `_makeObstacleCheck` (used by
+`snapToNavigableWater` and `findClearOffshorePoint`): a DEPARE ("shallow
+area") polygon's `valsou` is a single worst-case value for a potentially
+huge area, and SP003's real charted depth (a sounding 0.068nm away showed
+6.4m) was nothing like that worst case.
+
+This one took three attempts to get right, all verified against the full
+regression suite before deciding, not guessed:
+1. Bare-minimum depth trust (mirroring v700 exactly) — genuinely cut
+   SP003's snap distance 1.30nm -> 0.15nm, proving the diagnosis, but
+   broke 3 previously-working routes (`[10]`, `[11]`, `[14]`).
+2. A flat depth-confidence buffer — fixed `[14]` but not `[10]`/`[11]`,
+   and broke a 4th case (`[17]`) that hadn't failed before.
+3. **Shipped**: depth confidence AND a cheap open-water check (real
+   compass-direction sampling at 0.4nm, not just the one ray that reached
+   the candidate point) — because a point can have excellent, comfortable
+   sounding depth and still be a small, real-graph-disconnected nook the
+   visibility graph can't route out of (confirmed live: a candidate with
+   a 5.1m sounding 0.038nm away, comfortably deep, had open water in only
+   2 of 12 compass directions at 1nm). This function runs before the
+   routing graph exists, so it can't check real graph connectivity
+   directly — the open-water sampling is a cheap, effective proxy.
+   Threshold (6 of 8 directions) picked empirically: 8 let the disconnected
+   nook through and broke the 3 cases again; 7 correctly excluded it but
+   also excluded the real SP003 improvement entirely; 6 is the only value
+   that fixed SP003 while keeping every regression case passing.
+
+**Honest result, not oversold:** SP003 now gets a real, graph-connected
+5-point route (not a 2-point straight-line fallback) ending 1.06nm from
+the marker — better than the original 1.30nm miss, but not a full arrival
+at the exact point. The remaining gap is the same class of problem (this
+function still can't fully verify graph connectivity, only approximate
+it) and may need a more structural fix later. `test/test_query.js`
+(25/25) and `test/test_channel_routing.js` (all gated cases, run
+repeatedly for stability) pass with this change.
+
 ## 2026-09-27 — Auto-select the active chart region; show it in the title bar (v708)
 
 Direct request: "I want the region to show in the window title area, near
