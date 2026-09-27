@@ -406,12 +406,56 @@ export async function autoRouteProg(
     return true;
   }
 
+  // Query.ringBlocks only catches a segment CROSSING a ring's boundary — a
+  // segment with BOTH endpoints already inside the same ring never crosses
+  // an edge at all and silently passed as "clear" no matter how deep inside
+  // a hazardous zone it ran. Real bug found live (2026-09-27): a genuinely
+  // charted 0.3-0.6m shallow patch inside a broad tidal DEPARE polygon went
+  // completely unflagged because both graph nodes on that edge already sat
+  // inside the same polygon. Scoped to isTidal rings only — land-avoidance
+  // point-hazard circles are small and their nodes are already placed off-
+  // ring by _addRingNodes, so containment realistically only matters for
+  // the broad tidal polygons.
+  //
+  // A* calls segBlocked thousands of times against the SAME small set of
+  // node coordinates (every relaxation attempt reuses nodes[] entries) — a
+  // fresh point-in-ring ray-cast per (edge, ring) pair, tried first, was a
+  // measured real regression: pushed two already-marginal real routes past
+  // DEADLINE_MS, one degrading all the way to an unsafe straight-line-
+  // across-land fallback (worse than not having this fix at all). Cached
+  // per COORDINATE instead of per edge — each distinct point only ever
+  // pays for its own containment check once, no matter how many candidate
+  // edges later touch it — and only tests rings already in that point's own
+  // grid cell (reusing extraGrid's existing bucketing, not a fresh scan).
+  const _tidalContainCache = new Map();
+  function _tidalRingsContaining(lon, lat) {
+    const key = `${lon},${lat}`;
+    let hit = _tidalContainCache.get(key);
+    if (hit) return hit;
+    hit = [];
+    const arr = extraGrid.get(_extraCellKey(_extraCellX(lon), _extraCellY(lat)));
+    if (arr) {
+      for (const entry of arr) {
+        if (!entry.isTidal) continue;
+        if (lon < entry.rMinX || lon > entry.rMaxX || lat < entry.rMinY || lat > entry.rMaxY) continue;
+        if (_pointInRing(lon, lat, entry.ring)) hit.push(entry);
+      }
+    }
+    _tidalContainCache.set(key, hit);
+    return hit;
+  }
+
   function segBlocked(lon1, lat1, lon2, lat2) {
     if (Query.landBlocks(lon1, lat1, lon2, lat2)) return true;
     const sx = Math.min(lon1, lon2), ex = Math.max(lon1, lon2);
     const sy = Math.min(lat1, lat2), ey = Math.max(lat1, lat2);
     const x0 = _extraCellX(sx), x1 = _extraCellX(ex);
     const y0 = _extraCellY(sy), y1 = _extraCellY(ey);
+    // Lazy + cached: only ever computed for a coordinate that actually
+    // reaches an isTidal ring neither landBlocks nor ringBlocks already
+    // resolved, and then only once total per distinct coordinate (see
+    // _tidalRingsContaining) no matter how many later calls touch it.
+    let p1Rings = null, p2Rings = null;
     _extraQueryId++;
     for (let gx = x0; gx <= x1; gx++) {
       for (let gy = y0; gy <= y1; gy++) {
@@ -422,33 +466,18 @@ export async function autoRouteProg(
           entry._eq = _extraQueryId;
           const { ring, rMinX, rMaxX, rMinY, rMaxY, isTidal } = entry;
           if (rMaxX < sx || rMinX > ex || rMaxY < sy || rMinY > ey) continue;
-          if (Query.ringBlocks(ring, lon1, lat1, lon2, lat2)) {
+          let blocked = Query.ringBlocks(ring, lon1, lat1, lon2, lat2);
+          if (!blocked && isTidal) {
+            if (p1Rings === null) p1Rings = _tidalRingsContaining(lon1, lat1);
+            if (p1Rings.includes(entry)) blocked = true;
+            else {
+              if (p2Rings === null) p2Rings = _tidalRingsContaining(lon2, lat2);
+              blocked = p2Rings.includes(entry);
+            }
+          }
+          if (blocked) {
             if (isTidal && _soundingsClearCrossing(lon1, lat1, lon2, lat2)) continue;
             return true;
-          }
-          // Query.ringBlocks only catches a segment CROSSING the ring's
-          // boundary — a segment with BOTH endpoints already inside the same
-          // ring never crosses an edge at all and was silently passing as
-          // "clear" no matter how deep inside a hazardous zone it ran. Real
-          // bug found live (2026-09-27): a genuinely charted 0.3-0.6m
-          // shallow patch inside a broad DEPARE polygon went completely
-          // unflagged because both graph nodes on that edge already sat
-          // inside the same polygon. A straight line can only have ZERO
-          // boundary crossings if it's either entirely inside or entirely
-          // outside — checking both endpoints for containment closes that
-          // gap. Scoped to isTidal only (first version checked every ring —
-          // land-avoidance point-hazard circles are small and their nodes
-          // are already placed off-ring by _addRingNodes, so this containment
-          // case realistically only matters for the broad tidal polygons —
-          // and doubling every ring check regardless of type was a real,
-          // measured regression: pushed two already-marginal real routes
-          // past DEADLINE_MS, one degrading all the way to an unsafe
-          // straight-line fallback). Own bbox check first — cheap reject
-          // before the full even-odd ray-cast.
-          if (isTidal) {
-            const p1In = lon1 >= rMinX && lon1 <= rMaxX && lat1 >= rMinY && lat1 <= rMaxY && _pointInRing(lon1, lat1, ring);
-            const p2In = !p1In && lon2 >= rMinX && lon2 <= rMaxX && lat2 >= rMinY && lat2 <= rMaxY && _pointInRing(lon2, lat2, ring);
-            if ((p1In || p2In) && !_soundingsClearCrossing(lon1, lat1, lon2, lat2)) return true;
           }
         }
       }

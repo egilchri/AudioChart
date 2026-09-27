@@ -12,6 +12,48 @@
 > deep-dive on the v317–v325 cluster specifically (Focus Target, Simulate
 > Heading); the summaries below start right after that.
 
+## 2026-09-27 — Cache point-in-ring containment per coordinate, not per edge (v702)
+
+v701's fix (below) was correct but its cost model was wrong: it re-ran a
+fresh point-in-ring ray-cast on every `(edge, ring)` pair, even though A*
+calls `segBlocked` thousands of times against the SAME small set of
+`nodes[]` coordinates. Confirmed on GitHub's CI runner (slower/shared than
+local): 3 regression cases failed outright, 2 of them (`[7]` long-range
+Portsmouth NH -> Bar Harbor, `[16]` Rockland -> Carvers Harbor) degrading
+all the way to an unsafe straight-line-across-land fallback — a real,
+live failure of exactly the kind the user's stated release goal (AutoRoute
+must succeed anywhere in Penobscot Bay unless truly impossible — see
+`project_penobscot_bay_flawless_autoroute_goal` memory) rules out.
+
+Fixed by caching containment per distinct coordinate (`_tidalRingsContaining`,
+keyed by exact lon/lat, reusing the point's own `extraGrid` cell so it
+only ever tests rings already spatially local to it) and making the check
+fully lazy — only computed for a coordinate that actually reaches an
+`isTidal` ring neither `landBlocks` nor `Query.ringBlocks` already
+resolved. Each distinct point now pays for its own containment check
+at most once per search, not once per candidate edge that touches it.
+Result: most regression cases dropped 30-45% in wall-clock time versus
+v701 (e.g. `[16]` 4895ms -> ~4200ms, `[17]` 3279ms -> ~2800ms, `[10]`
+1077ms -> 770ms, `[14]` 1578ms -> 874ms) with identical routes/outcomes.
+`test/test_query.js` (25/25) and `test/test_channel_routing.js` (all
+gated cases) pass, repeated 3x locally for stability.
+
+**Still an open concern, not resolved by this entry:** case `[7]`
+specifically (a genuinely large long-range, multi-bracket, ~136nm
+passage) remains marginal — 4.8-5.0s across repeated local runs, i.e.
+within low single-digit percent of `DEADLINE_MS`. Each individual sub-leg
+comfortably fits its own 5000ms budget in every local run (the real
+router would not have fallen back), but the CI failure above shows a
+slow-enough moment can still push one sub-leg over that per-leg wall,
+cascading into `_longRangeRoute` abandoning the whole passage for an
+unsafe straight line — even though a real, safe 42-point route
+demonstrably exists (found in every successful run). This is exactly the
+scenario the stated release goal calls out. Flagged for the user rather
+than resolved unilaterally: either a further algorithmic speedup, or a
+deliberately larger per-leg budget specifically for long-range sub-legs
+(distinct from the general 5s local-search budget), is needed before this
+can be called reliably solved.
+
 ## 2026-09-27 — Fix: segments fully inside a hazard ring went undetected (v701)
 
 Found immediately after v700 while double-checking the fixed route's real
