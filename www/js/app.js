@@ -2301,11 +2301,27 @@ function _findRouteHazards(points) {
         if (!hit) continue;
         seen.add(key);
         dangerSegments.add(i);
-        const polyLabel = minDepth < 0 ? 'above-water obstacle' : `shallow area (${_depthRangeLabelFt(props.depth_label)})`;
+        // The polygon's own depth_label is a worst-case RANGE for its whole
+        // (often broad — see this session's router.js/query.js soundings
+        // work) extent, not the depth at this exact spot. Direct request:
+        // show the real charted depth here too, not just the coarse range.
+        // A real sounding within a tight radius of the actual crossing
+        // point is far more representative than the polygon-wide range;
+        // no sounding that close stays honest and falls back to the range
+        // alone rather than fabricate a precise-looking number. Only
+        // meaningful for a genuine underwater shallow area — an
+        // above-water obstacle has no "depth of water" to report.
+        const nearSounding = minDepth >= 0 ? Query.nearestSounding?.(hit.lat, hit.lon, 0.2) : null;
+        const depthFt = nearSounding ? (nearSounding.valsou * 3.28084) : null;
+        const polyLabel = minDepth < 0 ? 'above-water obstacle'
+          : depthFt != null
+            ? `shallow area (~${depthFt.toFixed(1)} ft here, charted range ${_depthRangeLabelFt(props.depth_label)})`
+            : `shallow area (charted range ${_depthRangeLabelFt(props.depth_label)})`;
         found.push({
           lat: hit.lat, lon: hit.lon,
           projLat: hit.lat, projLon: hit.lon,
           label: polyLabel,
+          depthFt: depthFt != null ? depthFt.toFixed(1) : null,
           name:  props.name || '',
           routeNm: distSoFar + hit.t * segLen,
           side:    'crossing',

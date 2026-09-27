@@ -12,6 +12,34 @@
 > deep-dive on the v317–v325 cluster specifically (Focus Target, Simulate
 > Heading); the summaries below start right after that.
 
+## 2026-09-27 — Show real charted depth on shallow-area warning triangles (v711)
+
+Direct request: for each yellow warning-triangle marker on a route (the
+"soft hazard" shallow-area icon shown while editing/reviewing a route),
+show the actual depth of the water there, in feet.
+
+The marker's tooltip previously showed only the charted DEPARE polygon's
+own worst-case depth *range* for its whole extent (e.g. "shallow area
+(0.0-17.7 ft)") — same coarse-vs-precise theme as this session's other
+fixes (v700/v709/v710): a polygon can span a broad area while the actual
+depth at the specific crossing point is very different. `_findRouteHazards`
+in `app.js` now also looks up a real nearby charted sounding
+(`Query.nearestSounding`, 0.2nm radius) at the exact point the route
+crosses the shallow polygon, and shows it alongside the range: "shallow
+area (~14.8 ft here, charted range 0.0-17.7 ft)". Only applied to genuine
+underwater shallow areas, not the separate "above-water obstacle" case
+(no depth of water to report there). No real sounding found nearby stays
+honest and shows the range alone, same "unverified stays conservative"
+policy used throughout this session — never fabricates a precise-looking
+number without real data behind it.
+
+Display-only change (`app.js`'s hazard-finding/tooltip text), doesn't
+touch router.js pathfinding at all. Verified live: injected the exact
+route from the original standoff-warning report, confirmed both shallow-
+area markers' real tooltips now show the actual nearby sounding depth.
+`test/test_query.js` (25/25) and `test/test_channel_routing.js` (all
+gated cases) pass unchanged.
+
 ## 2026-09-27 — Warn when a route grazes a shallow area, without blocking routing (v710)
 
 Direct follow-up to v709: a user-reported route's leg passed 0.063nm
