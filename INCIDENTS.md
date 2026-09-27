@@ -6,6 +6,44 @@ found, and what shipped, even when the root cause couldn't be confirmed.
 
 ---
 
+## 2026-09-27 — Route names could render invisibly in the Routes panel; unrelated WIP shipped undocumented in v694
+
+**What happened:** An in-progress "compact table" redesign of the Routes
+panel row (`.rp-row-name-text` given `flex: 1`, i.e. `flex-basis: 0%`) was
+never finished or tested — a live-test screenshot during that work showed
+route names missing, the session was interrupted before debugging it, and
+the work was left uncommitted, believed still local-only.
+
+It wasn't. When v694 (an unrelated Virtual Journey feature) was shipped
+in a later session, `git add`/commit swept in every modified file,
+silently bundling the unfinished, known-buggy Routes-panel CSS/JS into
+that commit and push — with no mention in that commit's message or
+CHANGELOG entry. It was live in production, silently dropping route names
+from the panel under certain conditions, from v694 until the fix below
+(v697) — about a day.
+
+**Root cause (confirmed by reproduction):** `flex: 1` alone on
+`.rp-row-name-text` gives it `flex-basis: 0%`. Its siblings in the same
+row (On-map/Hidden pill, date, and — critically — hazard badges like
+"8 hard"/"15 shallow") are all fixed/auto-basis. In the ~300px Routes
+panel, a route with two hazard badges already fills the row with just
+those fixed-width siblings, leaving *zero* free space for flex-grow to
+give the name — so the name rendered at literal 0px width, not merely a
+narrow ellipsis. Routes with no/few hazard badges were unaffected, which
+is likely why this wasn't caught before shipping.
+
+**Fix (v697):** `.rp-row-name-text` now has `min-width: 90px`, guaranteeing
+it a real minimum share of the row regardless of badge count; `.rp-row-name`
+gained `flex-wrap: wrap` so badges that don't fit spill to a second line
+instead of squeezing the name to nothing.
+
+**Process takeaway:** don't `git add` broadly at ship time — known-buggy,
+unrelated WIP can ride along into a commit whose message and CHANGELOG
+entry describe something else entirely, shipping it to production
+silently. Stage the specific files a change actually touches.
+
+---
+
 ## 2026-09-14 — "Delete all SP* waypoints" reported to delete non-SP waypoints
 
 **Reported by:** user, in conversation (no reproduction steps, reported
