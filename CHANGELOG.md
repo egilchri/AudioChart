@@ -12,6 +12,45 @@
 > deep-dive on the v317–v325 cluster specifically (Focus Target, Simulate
 > Heading); the summaries below start right after that.
 
+## 2026-09-27 — Router trusts real soundings over a tidal polygon's worst case (v700)
+
+Follow-up to v698/v699: those fixed the *symptom* (silent destination
+relocation) but a live investigation of the actual reported case (autoroute
+to a Perry Creek search pin) found a real router over-caution underneath
+it. The router's tidal-hazard check flags an entire charted DEPARE
+(depth-range) polygon as blocking if its single worst-case `valsou`
+(minimum depth anywhere in that polygon) would be too shallow at the
+current draft/tide — but a real DEPARE polygon can span a huge area
+(confirmed: one spanned nearly the whole visible chart, `valsou=0`,
+labeled range "0.0-5.4m") while the actual charted soundings along one
+specific candidate edge showed 6-14.6m of real water the entire way. That
+blanket rule forced the router to detour ~2nm out along the Fox Islands
+Thorofare channel and back rather than cutting directly to the
+destination, even though the direct line was genuinely safe (verified via
+real sounding data, not assumed).
+
+Fix: `segBlocked` in `router.js` now takes a tidal-ring block as a
+starting point, not a final answer — it samples real charted soundings
+(`Query.soundings`) every 0.05nm along the specific candidate edge, and
+only overrides the polygon's block if *every* sample has a nearby real
+sounding (0.15nm search radius) showing adequate depth. Any gap in
+sounding coverage stays conservative and keeps the original block — this
+only ever clears a tidal DEPARE block, never a land ring or a point hazard
+(rock/wreck/obstruction), and never on missing data.
+
+First implementation used `Query.nearestSounding` directly and was a real
+regression: a ~20k-feature flat scan per sample, called from inside
+`segBlocked` (itself called thousands of times per search), pushed one
+real route from ~1s to 15s+, blowing `DEADLINE_MS` and silently degrading
+to the straight-line fallback — a worse outcome than before the fix.
+Replaced with a lazily-built, call-scoped spatial grid over
+`Query.soundings` (same pattern as the existing `extraGrid`, cells sized
+to the search radius). Verified live: the same Perry Creek case now
+routes directly (12-14 points depending on draft, ~1.1-1.3s, no detour)
+at both the user's real 3.5ft draft and the 5ft default; both `test/
+test_query.js` (25/25) and `test/test_channel_routing.js` (all cases,
+including the timing-sensitive long-range case) pass with no regressions.
+
 ## 2026-09-27 — Same shallow-water snap fix, also missed in the "Auto Route" draw flow (v699)
 
 v698 only wired the new `onSnap` surfacing into `_triggerAutoRoute` (the

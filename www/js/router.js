@@ -331,6 +331,81 @@ export async function autoRouteProg(
   }
   let _extraQueryId = 0;
 
+  // A tidal DEPARE ring's valsou is the single worst-case depth ANYWHERE in
+  // that (often broad) charted polygon — real data, but coarse. Confirmed
+  // live on a real Fox Islands Thorofare -> Perry Creek crossing: the
+  // blocking polygon there was valsou=0 across a span of nearly the whole
+  // chart, while the actual charted soundings along the one specific edge
+  // being tested showed 6-14.6m of real water the whole way. Before trusting
+  // a tidal ring's blanket block for one specific edge, check what the real
+  // point soundings along THAT edge actually say. Only ever used to CLEAR a
+  // tidal-ring block, never a land ring or a point hazard (rock/wreck/
+  // obstruction) — those have no "maybe it's actually fine" case soundings
+  // could tell you about. Missing sounding coverage anywhere along the
+  // sampled line stays conservative and keeps the polygon's own block, same
+  // "unverified is never treated as safe" policy this project already
+  // applies elsewhere (see classifyFallbackSeg's coverage tri-state).
+  const SOUNDING_STEP_NM = 0.05;
+  const SOUNDING_SEARCH_RADIUS_NM = 0.15;
+  // Query.nearestSounding does a flat O(soundings) scan (~20k features in a
+  // real region) — fine for a one-off voice query, but segBlocked runs
+  // thousands of times per search, and a real tidal-ring block can be tested
+  // against many candidate edges. First attempt (plain Query.nearestSounding
+  // calls) pushed a real search from ~1s to 15s+, blowing DEADLINE_MS and
+  // degrading to the honest-but-worse straight-line fallback. Lazily built
+  // (only if a tidal ring ever actually needs a second opinion) and scoped
+  // to this call's own bbox, same idea as extraGrid above, with cells sized
+  // exactly to the search radius so a 3x3 neighborhood always covers it.
+  let _soundingGrid = null;
+  const _sgCellNm  = SOUNDING_SEARCH_RADIUS_NM;
+  const _sgCellLon = _sgCellNm / (60 * cosLat) || 1e-9;
+  const _sgCellLat = _sgCellNm / 60;
+  const _sgCellX = lon => Math.floor((lon - bMinLon) / _sgCellLon);
+  const _sgCellY = lat => Math.floor((lat - bMinLat) / _sgCellLat);
+  function _buildSoundingGrid() {
+    _soundingGrid = new Map();
+    const feats = Query.soundings?.features;
+    if (!feats) return;
+    for (const f of feats) {
+      const [lon, lat] = f.geometry.coordinates;
+      if (lon < bMinLon || lon > bMaxLon || lat < bMinLat || lat > bMaxLat) continue;
+      const key = `${_sgCellX(lon)},${_sgCellY(lat)}`;
+      let arr = _soundingGrid.get(key);
+      if (!arr) { arr = []; _soundingGrid.set(key, arr); }
+      arr.push({ lon, lat, valsou: f.properties.valsou });
+    }
+  }
+  function _nearestSoundingFast(lon, lat) {
+    if (!_soundingGrid) _buildSoundingGrid();
+    const cx = _sgCellX(lon), cy = _sgCellY(lat);
+    let best = null, bestD = Infinity;
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        const arr = _soundingGrid.get(`${cx + dx},${cy + dy}`);
+        if (!arr) continue;
+        for (const s of arr) {
+          const d = Query.distanceNm(lon, lat, s.lon, s.lat);
+          if (d < SOUNDING_SEARCH_RADIUS_NM && d < bestD) { bestD = d; best = s; }
+        }
+      }
+    }
+    return best;
+  }
+  function _soundingsClearCrossing(lon1, lat1, lon2, lat2) {
+    if (!Query.soundings) return false;
+    const distNm = Query.distanceNm(lon1, lat1, lon2, lat2);
+    const steps = Math.max(1, Math.ceil(distNm / SOUNDING_STEP_NM));
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const lat = lat1 + (lat2 - lat1) * t;
+      const lon = lon1 + (lon2 - lon1) * t;
+      const s = _nearestSoundingFast(lon, lat);
+      if (!s) return false; // no real data here — don't override the polygon
+      if (s.valsou + tideM <= draftM) return false; // a real sounding confirms it IS too shallow
+    }
+    return true;
+  }
+
   function segBlocked(lon1, lat1, lon2, lat2) {
     if (Query.landBlocks(lon1, lat1, lon2, lat2)) return true;
     const sx = Math.min(lon1, lon2), ex = Math.max(lon1, lon2);
@@ -345,9 +420,12 @@ export async function autoRouteProg(
         for (const entry of arr) {
           if (entry._eq === _extraQueryId) continue;
           entry._eq = _extraQueryId;
-          const { ring, rMinX, rMaxX, rMinY, rMaxY } = entry;
+          const { ring, rMinX, rMaxX, rMinY, rMaxY, isTidal } = entry;
           if (rMaxX < sx || rMinX > ex || rMaxY < sy || rMinY > ey) continue;
-          if (Query.ringBlocks(ring, lon1, lat1, lon2, lat2)) return true;
+          if (Query.ringBlocks(ring, lon1, lat1, lon2, lat2)) {
+            if (isTidal && _soundingsClearCrossing(lon1, lat1, lon2, lat2)) continue;
+            return true;
+          }
         }
       }
     }
