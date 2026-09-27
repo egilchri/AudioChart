@@ -1160,7 +1160,54 @@ export async function autoRouteProg(
     return [start, end];
   }
 
-  return tracePath(1);
+  // Real bug found live (2026-09-27): a real, valid route's leg passed
+  // 0.063nm (~115m) from a genuinely charted 0-1.8m shallow polygon
+  // without crossing it — segBlocked correctly lets this through (routing
+  // requires crossing/containment to block an edge, not mere proximity),
+  // but a real mariner would call that uncomfortably tight. First attempt
+  // made this a hard block in segBlocked itself (same standoff distance,
+  // checked during the search) — reverted after the full regression suite
+  // showed it was far too broad for this hazard-dense coastal data: tidal
+  // polygons here are numerous and often huge, so a blanket "stay clear
+  // of any nearby one even when not routing around it" rule cut off most
+  // previously-valid routing space, breaking 6 of 8 regression cases with
+  // search times blowing up 3-5x. This is the safer alternative: a
+  // POST-HOC check on the finished path only (not a search-time block),
+  // reusing the existing `marginal` convention (see the coastal-standoff-
+  // ladder fallback above) so app.js's existing
+  // _marginalLegFromPath/_showRouteFallbackWarning UI picks it up with no
+  // changes there at all — surfaces the concern without ever risking the
+  // router's ability to find a path at all. Runs once per finished route
+  // on a small, bounded number of legs, not thousands of times during the
+  // search itself, so a full per-vertex scan here is cheap regardless of
+  // how broad/numerous the tidal polygons are.
+  const SHALLOW_STANDOFF_WARNING_NM = 0.1; // ~185m
+  function _flagShallowStandoffWarning(path) {
+    for (let i = 0; i < path.length - 1; i++) {
+      if (path[i].marginal || path[i + 1].marginal) continue; // already flagged by the land-standoff ladder
+      const a = path[i], b = path[i + 1];
+      let tooClose = false;
+      for (const entry of extraRings) {
+        if (!entry.isTidal) continue;
+        for (const [vx, vy] of entry.ring) {
+          if (_ptSegDistNm(vx, vy, a.lon, a.lat, b.lon, b.lat) < SHALLOW_STANDOFF_WARNING_NM) { tooClose = true; break; }
+        }
+        if (tooClose) break;
+      }
+      // Same real-soundings override as everywhere else in this file — a
+      // leg confirmed comfortably deep along its whole real charted
+      // soundings doesn't need a warning just because a coarse polygon's
+      // worst-case footprint happens to be nearby.
+      if (tooClose && !_soundingsClearCrossing(a.lon, a.lat, b.lon, b.lat)) {
+        path[i + 1].marginal = true;
+        return; // one warning at a time, matching _marginalLegFromPath's own findIndex-first behavior
+      }
+    }
+  }
+
+  const finalPath = tracePath(1);
+  _flagShallowStandoffWarning(finalPath);
+  return finalPath;
 }
 
 // ── Long-range passage decomposition (Piece 1d) ─────────────────────────────

@@ -12,6 +12,41 @@
 > deep-dive on the v317–v325 cluster specifically (Focus Target, Simulate
 > Heading); the summaries below start right after that.
 
+## 2026-09-27 — Warn when a route grazes a shallow area, without blocking routing (v710)
+
+Direct follow-up to v709: a user-reported route's leg passed 0.063nm
+(~115m) from a real charted 0-1.8m shallow polygon without technically
+crossing it. `segBlocked` correctly lets this through — it only blocks a
+crossing or containment, not mere proximity — but a real mariner would
+call that uncomfortably tight.
+
+First attempt made this a hard block in `segBlocked` itself (checked
+during the A* search, same standoff distance). **Reverted after the full
+regression suite showed it was far too broad**: tidal shallow polygons in
+this coastal data are numerous and often huge, so requiring every
+candidate edge to stay clear of any nearby one — even when not routing
+around it — cut off most previously-valid routing space. 6 of 8
+regression cases broke, with search times blowing up 3-5x (up to 32s on
+one case). Reverted immediately; nothing broken shipped.
+
+Shipped instead: a POST-HOC check on the finished path only, not a
+search-time block. Reuses the existing `marginal` flag/warning machinery
+(`_marginalLegFromPath`/`_showRouteFallbackWarning` in `app.js`, already
+built for the coastal-standoff-ladder's own fallback case) — zero changes
+needed there. Runs once per finished route on a small, bounded number of
+legs rather than thousands of times during the search, so a full
+per-vertex proximity scan is cheap regardless of how broad the tidal
+polygons are. Same real-soundings override as v700/v709: a leg
+confirmed comfortably deep along its real charted soundings the whole way
+isn't warned about just because a coarse polygon's worst-case footprint
+happens to be nearby.
+
+Verified: the mechanism correctly flags a real close-pass leg (confirmed
+on a similar route), and the full regression suite passes identically to
+the pre-change baseline across repeated runs — no timing or outcome
+changes on any of the 8 previously-passing cases. `test/test_query.js`
+(25/25) also passes.
+
 ## 2026-09-27 — Trust real soundings in the snap-to-navigable-water check too (v709)
 
 Root cause of the original SP003 report (autoroute to a marker the user
