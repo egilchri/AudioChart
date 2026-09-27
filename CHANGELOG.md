@@ -12,6 +12,50 @@
 > deep-dive on the v317–v325 cluster specifically (Focus Target, Simulate
 > Heading); the summaries below start right after that.
 
+## 2026-09-27 — Fix: segments fully inside a hazard ring went undetected (v701)
+
+Found immediately after v700 while double-checking the fixed route's real
+minimum depth (not just trusting the router's own pass/fail): a *different*
+segment on the same Perry Creek route crossed real charted soundings of
+0.3-0.6m — genuinely dangerous at a 3.5ft draft — with no hazard flagged
+at all. Confirmed this predates today's session entirely (reproduced
+against the pre-v700 router unchanged).
+
+Root cause: `Query.ringBlocks`/`_ringBlocks` only detects a segment
+*crossing* a ring's boundary edge. A segment whose both endpoints already
+sit inside the same hazard ring never crosses an edge at all — topologically
+zero boundary intersections — so it silently passed as "clear" no matter
+how deep inside a hazardous polygon it actually ran. Real risk anywhere in
+the bay: the broad tidal DEPARE polygons in this dataset are large enough
+(one spans nearly the whole visible chart) that many graph nodes can
+legitimately fall inside one without ever being checked against it.
+
+Fix: `segBlocked` now also checks whether either endpoint is contained
+inside a tidal ring (point-in-ring, using the existing `_pointInRing`
+already in router.js), not just boundary-crossing. Scoped to `isTidal`
+rings only, with a cheap bbox pre-check before the full ray-cast — first
+version checked every ring type and was a measured regression, pushing two
+already-marginal real regression-suite cases (`[7]` long-range Portsmouth
+NH -> Bar Harbor, `[16]` Rockland -> Carvers Harbor) past `DEADLINE_MS`,
+with `[16]` degrading all the way to an unsafe straight-line-across-land
+fallback — a worse outcome than before this fix existed. Re-verified after
+scoping down: both cases pass again (`[7]` 4915ms, `[16]` 4895ms — closer
+to the 5s deadline than is comfortable, flagged as an open concern, not
+resolved by this entry). `test/test_query.js` (25/25) and `test/
+test_channel_routing.js` (all gated cases) both pass.
+
+**Two things this surfaced that still need a decision, not code:**
+1. The real Perry Creek route this fix now produces has only ~3cm of
+   charted clearance at its tightest point (1.1m sounding vs 1.07m draft)
+   — the hazard formula (`eff = valsou + tide`, block if `<= draft`) has
+   *no* safety margin at all; 3cm and 30m both count as "pass." Needs an
+   explicit minimum-clearance buffer, not a judgment call buried in code.
+2. Two real routes in the regression suite now run within ~2% of
+   `DEADLINE_MS` (5000ms) — not yet a real failure, but not much headroom
+   either, and the user's stated release goal is that AutoRoute must
+   succeed anywhere in Penobscot Bay unless truly impossible (see
+   `project_penobscot_bay_flawless_autoroute_goal` memory).
+
 ## 2026-09-27 — Router trusts real soundings over a tidal polygon's worst case (v700)
 
 Follow-up to v698/v699: those fixed the *symptom* (silent destination

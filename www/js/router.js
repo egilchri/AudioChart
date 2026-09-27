@@ -426,6 +426,30 @@ export async function autoRouteProg(
             if (isTidal && _soundingsClearCrossing(lon1, lat1, lon2, lat2)) continue;
             return true;
           }
+          // Query.ringBlocks only catches a segment CROSSING the ring's
+          // boundary — a segment with BOTH endpoints already inside the same
+          // ring never crosses an edge at all and was silently passing as
+          // "clear" no matter how deep inside a hazardous zone it ran. Real
+          // bug found live (2026-09-27): a genuinely charted 0.3-0.6m
+          // shallow patch inside a broad DEPARE polygon went completely
+          // unflagged because both graph nodes on that edge already sat
+          // inside the same polygon. A straight line can only have ZERO
+          // boundary crossings if it's either entirely inside or entirely
+          // outside — checking both endpoints for containment closes that
+          // gap. Scoped to isTidal only (first version checked every ring —
+          // land-avoidance point-hazard circles are small and their nodes
+          // are already placed off-ring by _addRingNodes, so this containment
+          // case realistically only matters for the broad tidal polygons —
+          // and doubling every ring check regardless of type was a real,
+          // measured regression: pushed two already-marginal real routes
+          // past DEADLINE_MS, one degrading all the way to an unsafe
+          // straight-line fallback). Own bbox check first — cheap reject
+          // before the full even-odd ray-cast.
+          if (isTidal) {
+            const p1In = lon1 >= rMinX && lon1 <= rMaxX && lat1 >= rMinY && lat1 <= rMaxY && _pointInRing(lon1, lat1, ring);
+            const p2In = !p1In && lon2 >= rMinX && lon2 <= rMaxX && lat2 >= rMinY && lat2 <= rMaxY && _pointInRing(lon2, lat2, ring);
+            if ((p1In || p2In) && !_soundingsClearCrossing(lon1, lat1, lon2, lat2)) return true;
+          }
         }
       }
     }
