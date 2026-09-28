@@ -2453,6 +2453,7 @@ body.wco-active #wco-titlebar { display: flex; }
 #map-ctx-wp-submenu,
 #map-ctx-track-submenu,
 #map-ctx-route-submenu,
+#map-ctx-testsets-submenu,
 #map-ctx-import-submenu {
   display: none;
   border-top: 1px solid var(--mid-blue);
@@ -3783,11 +3784,13 @@ body.wco-active #underway-btn { top: 10px; }
 }
 #map-ctx-where-am-i,
 #map-ctx-wp-parent,
+#map-ctx-testsets-parent,
 #map-ctx-set-position {
   border-top: 1px solid var(--mid-blue);
 }
 #map-ctx-objects-submenu button,
-#map-ctx-wp-submenu button {
+#map-ctx-wp-submenu button,
+#map-ctx-testsets-submenu button {
   padding-left: 28px;
   font-size: 0.85rem;
   color: var(--text-dim);
@@ -3795,19 +3798,24 @@ body.wco-active #underway-btn { top: 10px; }
 #map-ctx-objects-submenu button:hover,
 #map-ctx-objects-submenu button:active,
 #map-ctx-wp-submenu button:hover,
-#map-ctx-wp-submenu button:active {
+#map-ctx-wp-submenu button:active,
+#map-ctx-testsets-submenu button:hover,
+#map-ctx-testsets-submenu button:active {
   color: var(--text);
   background: var(--mid-blue);
 }
-.ctx-wp-actions {
+.ctx-wp-actions,
+.ctx-ts-actions {
   display: none;
   border-top: 1px solid var(--mid-blue);
   border-bottom: 1px solid var(--mid-blue);
 }
-.ctx-wp-actions button {
+.ctx-wp-actions button,
+.ctx-ts-actions button {
   padding-left: 44px;
 }
-.ctx-wp-del {
+.ctx-wp-del,
+.ctx-ts-del {
   color: var(--danger) !important;
 }
 .import-hint {

@@ -1,5 +1,44 @@
 # Changelog
 
+## 2026-09-28 — Test Sets: save SP* waypoints as a permanent, named snapshot for repeatable testing (v718)
+
+Per direct request, after this session's repeated reliance on saved SP*
+(search-dropped pin) waypoints for testing routing fixes: "save them all
+as TS markers and have a way of bringing them to the screen for
+testing."
+
+Adds a Test Set — a permanent, named SNAPSHOT of the current SP*
+waypoints (coordinates and names copied by value, not a live reference)
+that survives even after those SP* waypoints are later renamed, moved,
+or bulk-deleted via the existing "Delete all SP* waypoints" action. New
+`www/js/test_sets_storage.js` (pure localStorage read/write helpers,
+same split as the existing `waypoints_storage.js`) plus a new "🧪 Test
+Sets ›" entry in the map's right-click context menu, alongside the
+existing "Waypoints ›" menu (which gained a new "Save SP* waypoints as
+Test Set" action, prompting for a name).
+
+A visible Test Set renders its own small, distinct, non-draggable marker
+per waypoint (own icon, own map layer, independent of the regular
+draggable waypoint layer — a Test Set is a frozen reference point, not a
+live editable waypoint). Its popup keeps just the two actions this
+session's own testing actually used repeatedly: "Set position here"
+(jump the boat's test GPS position straight to it) and "AutoRoute from
+boat position" — both mirroring existing, already-tested code paths
+exactly. The Test Sets submenu lists every saved set with a live marker
+count and an eye-icon visibility indicator; each set expands to
+Show/Hide-on-map and Delete actions, the same expand/collapse pattern
+the Waypoints submenu already uses for individual waypoints.
+
+Verified end-to-end in a real browser (not just unit-level): saved a
+real two-point Test Set, confirmed its markers render with the correct
+name/coordinates/Test-Set-name in their popup, confirmed "Set position
+here" actually moves the boat's test GPS position and reloads chart
+data for that spot, confirmed Hide/Show correctly toggles marker
+visibility and persists across a reload, and confirmed Delete removes
+the set from storage and its markers from the map. No console errors
+throughout. `test_query.js` (25/25) unaffected (no query.js/router.js
+changes this release).
+
 ## 2026-09-28 — Fix a fragile long-range transit bracket that failed 0.11nm from a passing route (v717)
 
 Real user report: AutoRoute from Rockland to the WoodenBoat School

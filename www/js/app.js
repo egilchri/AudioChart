@@ -13,6 +13,7 @@ import * as GpxExport from './gpx_export.js';
 import * as MarkerIcons from './marker_icons.js';
 import * as HazardClustering from './hazard_clustering.js';
 import * as WaypointsStorage from './waypoints_storage.js';
+import * as TestSetsStorage from './test_sets_storage.js';
 import * as WakeLock from './wake_lock.js';
 import * as AnchorWatch from './anchor_watch.js';
 import * as Tour from './tour.js';
@@ -378,6 +379,74 @@ function _setWaypointsVisible(v) {
   localStorage.setItem('audiochart-waypoints-visible', String(v));
   _refreshWaypointLayer();
 }
+
+// Draws every waypoint from every currently-VISIBLE Test Set (see
+// TestSetsStorage) as its own small, non-draggable marker layer,
+// independent of _waypointLayer — a Test Set is a frozen snapshot for
+// repeatable testing, not a live editable waypoint, so it deliberately
+// skips the drag/rename/delete machinery _refreshWaypointLayer's markers
+// have. The one popup action worth keeping is the one this session's own
+// testing repeatedly relied on: jumping the boat's test position straight
+// to a saved point, then AutoRouting from there — see the ctx-wp-pos
+// handler this mirrors.
+function _refreshTestSetLayer() {
+  if (!_map) return;
+  if (_testSetLayer) { _map.removeLayer(_testSetLayer); _testSetLayer = null; }
+  const visibleIds = TestSetsStorage.loadVisibleTestSetIds();
+  if (!visibleIds.size) return;
+  const sets = TestSetsStorage.loadTestSets().filter(s => visibleIds.has(s.id));
+  const markers = [];
+  for (const set of sets) {
+    for (const wp of set.waypoints) {
+      const icon = MarkerIcons.testSetMarkerIcon();
+      const m = L.marker([wp.lat, wp.lon], { icon, draggable: false });
+      m.bindTooltip(escapeHtml(wp.name), { permanent: true, direction: 'top', className: 'map-tooltip' });
+      m.bindPopup(
+        `<div class="navaid-popup">
+           <div class="navaid-popup-name">${escapeHtml(wp.name)}</div>
+           <div class="navaid-popup-note">Test Set: ${escapeHtml(set.name)}</div>
+           <div class="navaid-popup-coords">${formatPositionDisplay(wp.lat, wp.lon)}</div>
+           <button class="ts-popup-pos">Set position here</button>
+           <button class="ts-popup-autoroute">&#9973; AutoRoute from boat position</button>
+         </div>`,
+        { maxWidth: 220, className: 'navaid-popup-wrapper' }
+      );
+      m.on('popupopen', (e) => {
+        const popupEl = e.popup.getElement();
+        popupEl.querySelector('.ts-popup-pos').addEventListener('click', () => {
+          _map.closePopup();
+          GPS.setManualPosition(wp.lat, wp.lon);
+          syncTestPosButton();
+          document.getElementById('map-container').style.display = 'block';
+          _mapContainer.classList.remove('map-compact', 'list-focus', 'input-focus');
+          _showBoatPosition(wp.lat, wp.lon);
+          _map.invalidateSize();
+          setStatus(`Position set to ${wp.name}.`);
+          _runWhereAmI(wp.lat, wp.lon);
+          if (serverUrl) {
+            fetch(`${serverUrl}/api/test-position`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ lat: wp.lat, lon: wp.lon }),
+            }).catch(() => {});
+            Query.loadData(wp.lat, wp.lon).then(() => { dataLoaded = true; setStatus(`Ready. (${wp.name})`); }).catch(() => {});
+          }
+        });
+        popupEl.querySelector('.ts-popup-autoroute').addEventListener('click', () => {
+          _map.closePopup();
+          _autoRouteFromBoatToHereFn?.(wp.lat, wp.lon);
+        });
+      });
+      markers.push(m);
+    }
+  }
+  _testSetLayer = L.layerGroup(markers).addTo(_map);
+}
+
+function _setTestSetVisible(id, v) {
+  TestSetsStorage.setTestSetVisible(id, v);
+  _refreshTestSetLayer();
+}
 import { formatPositionDisplay, bearingToWords, bearingToDisplay, formatDistance, distanceToDisplay, trueTomagnetic, magneticToTrue, magneticVariation, escapeHtml } from './utils.js';
 
 // Capture Android PWA install prompt before any user gesture.
@@ -623,6 +692,7 @@ let _mapLayers = null;
 let _navaidFilterLayer = null;
 let _bearingAccumulator = [];   // persists bearing lines across successive bearing queries
 let _waypointLayer = null;
+let _testSetLayer = null;
 let _boatLayer = null;
 let _youLayer = null;
 let _focusRayLine = null;   // ray from the boat toward the current focus target
@@ -8310,11 +8380,12 @@ function _ensureMap() {
   const _routesNearSubmenu = document.getElementById('map-ctx-routes-near-submenu');
   const _tracksNearSubmenu = document.getElementById('map-ctx-tracks-near-submenu');
   const _wpSubmenu  = document.getElementById('map-ctx-wp-submenu');
+  const _testSetsSubmenu = document.getElementById('map-ctx-testsets-submenu');
 
-  // Rebuild the dynamic waypoint rows (below the 5 static buttons)
+  // Rebuild the dynamic waypoint rows (below the 6 static buttons)
   function _populateWpSubmenu() {
-    // Remove all dynamic items (keep first 5 static children)
-    while (_wpSubmenu.children.length > 5) _wpSubmenu.removeChild(_wpSubmenu.lastChild);
+    // Remove all dynamic items (keep first 6 static children)
+    while (_wpSubmenu.children.length > 6) _wpSubmenu.removeChild(_wpSubmenu.lastChild);
     const wps = WaypointsStorage.loadUserWaypoints();
     for (const wp of wps) {
       const itemBtn = document.createElement('button');
@@ -8339,6 +8410,34 @@ function _ensureMap() {
       actions.appendChild(delBtn);
       actions.appendChild(posBtn);
       _wpSubmenu.appendChild(actions);
+    }
+  }
+
+  // Rebuild the dynamic Test Set rows (below the 1 static "Hide all" button)
+  function _populateTestSetsSubmenu() {
+    while (_testSetsSubmenu.children.length > 1) _testSetsSubmenu.removeChild(_testSetsSubmenu.lastChild);
+    const sets = TestSetsStorage.loadTestSets();
+    const visibleIds = TestSetsStorage.loadVisibleTestSetIds();
+    for (const set of sets) {
+      const isVisible = visibleIds.has(set.id);
+      const itemBtn = document.createElement('button');
+      itemBtn.className = 'ctx-ts-item';
+      itemBtn.dataset.tsId = set.id;
+      itemBtn.textContent = `${set.name} (${set.waypoints.length})${isVisible ? ' \u{1F441}' : ''} ›`;
+      _testSetsSubmenu.appendChild(itemBtn);
+
+      const actions = document.createElement('div');
+      actions.className = 'ctx-ts-actions';
+      actions.dataset.tsId = set.id;
+      const toggleBtn = document.createElement('button');
+      toggleBtn.className = 'ctx-ts-toggle';
+      toggleBtn.textContent = isVisible ? 'Hide on map' : 'Show on map';
+      const delBtn = document.createElement('button');
+      delBtn.className = 'ctx-ts-del';
+      delBtn.textContent = 'Delete Test Set';
+      actions.appendChild(toggleBtn);
+      actions.appendChild(delBtn);
+      _testSetsSubmenu.appendChild(actions);
     }
   }
 
@@ -8544,10 +8643,12 @@ function _ensureMap() {
     _routesNearSubmenu.style.display = 'none';
     _tracksNearSubmenu.style.display = 'none';
     _wpSubmenu.style.display     = 'none';
+    _testSetsSubmenu.style.display = 'none';
     _trackSubmenu.style.display  = 'none';
     _routeSubmenu.style.display  = 'none';
     _importSubmenu.style.display = 'none';
     _populateWpSubmenu();
+    _populateTestSetsSubmenu();
     _populateRouteSelect();
     _ctxMenu.style.left    = '0';
     _ctxMenu.style.top     = '0';
@@ -9097,6 +9198,27 @@ function _ensureMap() {
       return;
     }
 
+    if (t.id === 'map-ctx-wp-save-testset') {
+      _hideCtx();
+      const stored = WaypointsStorage.loadUserWaypoints();
+      const spWps = stored.filter(w => w.name.startsWith('SP'));
+      if (!spWps.length) {
+        const msg = 'No SP* waypoints to save as a Test Set.';
+        setStatus(msg); TTS.sayImmediate(msg);
+        return;
+      }
+      (async () => {
+        const name = await _showTextPrompt('Name this Test Set', '', TestSetsStorage.nextTestSetName());
+        if (!name) return;
+        const set = TestSetsStorage.saveTestSet(name, spWps);
+        TestSetsStorage.setTestSetVisible(set.id, true);
+        _refreshTestSetLayer();
+        const msg = `Saved ${spWps.length} SP* waypoint${spWps.length === 1 ? '' : 's'} as Test Set "${name}".`;
+        setStatus(msg); TTS.sayImmediate(msg);
+      })();
+      return;
+    }
+
     if (t.classList.contains('ctx-wp-item')) {
       const name    = t.dataset.wpName;
       const actions = _wpSubmenu.querySelector(`.ctx-wp-actions[data-wp-name="${name}"]`);
@@ -9147,6 +9269,60 @@ function _ensureMap() {
         }).catch(() => {});
         Query.loadData(lat, lon).then(() => { dataLoaded = true; setStatus(`Ready. (${name})`); }).catch(() => {});
       }
+      return;
+    }
+  });
+
+  document.getElementById('map-ctx-testsets-parent').addEventListener('click', () => {
+    _testSetsSubmenu.style.display = _testSetsSubmenu.style.display === 'block' ? 'none' : 'block';
+  });
+
+  _testSetsSubmenu.addEventListener('click', (e) => {
+    const t = e.target;
+
+    if (t.id === 'map-ctx-testsets-hide-all') {
+      _hideCtx();
+      for (const id of TestSetsStorage.loadVisibleTestSetIds()) TestSetsStorage.setTestSetVisible(id, false);
+      _refreshTestSetLayer();
+      const msg = 'Hid all Test Set markers.';
+      setStatus(msg); TTS.sayImmediate(msg);
+      return;
+    }
+
+    if (t.classList.contains('ctx-ts-item')) {
+      const id = t.dataset.tsId;
+      const actions = _testSetsSubmenu.querySelector(`.ctx-ts-actions[data-ts-id="${id}"]`);
+      _testSetsSubmenu.querySelectorAll('.ctx-ts-actions').forEach(a => {
+        if (a !== actions) a.style.display = 'none';
+      });
+      const opening = actions.style.display !== 'block';
+      actions.style.display = opening ? 'block' : 'none';
+      return;
+    }
+
+    if (t.classList.contains('ctx-ts-toggle')) {
+      const actions = t.closest('.ctx-ts-actions');
+      const id = actions.dataset.tsId;
+      const nowVisible = !TestSetsStorage.loadVisibleTestSetIds().has(id);
+      _setTestSetVisible(id, nowVisible);
+      _populateTestSetsSubmenu();
+      const set = TestSetsStorage.loadTestSets().find(s => s.id === id);
+      const msg = `Test Set "${set?.name ?? ''}" ${nowVisible ? 'shown on' : 'hidden from'} the map.`;
+      setStatus(msg); TTS.sayImmediate(msg);
+      return;
+    }
+
+    if (t.classList.contains('ctx-ts-del')) {
+      const actions = t.closest('.ctx-ts-actions');
+      const id = actions.dataset.tsId;
+      const set = TestSetsStorage.loadTestSets().find(s => s.id === id);
+      if (!set) return;
+      if (!confirm(`Delete Test Set "${set.name}" (${set.waypoints.length} marker${set.waypoints.length === 1 ? '' : 's'})? This cannot be undone.`)) return;
+      TestSetsStorage.deleteTestSet(id);
+      _refreshTestSetLayer();
+      _populateTestSetsSubmenu();
+      const msg = `Test Set "${set.name}" deleted.`;
+      setStatus(msg); TTS.sayImmediate(msg);
       return;
     }
   });
@@ -9765,6 +9941,7 @@ function _ensureMap() {
   });
 
   _refreshWaypointLayer();
+  _refreshTestSetLayer();
   _refreshYouLayer();
   _syncFocusMarker();
   _updateFocusRay();

@@ -136,6 +136,23 @@ export function boatIcon() {
 // same convention as the fix-crossing marker's own one-off shape. Anchored
 // at the tip (bottom point), not the center, since that's what's actually
 // over the searched coordinate.
+export function testSetMarkerIcon() {
+  // Distinct from waypointIcon/searchPinIcon on purpose — a saved Test
+  // Set marker is a frozen, non-draggable snapshot brought onto the
+  // screen for repeatable testing (see TestSetsStorage), not a live
+  // waypoint someone would rename/reposition, so it needs its own
+  // unmistakable look.
+  return L.divIcon({
+    className: '',
+    html: '<div style="background:#fff;color:#7c3aed;font-size:13px;width:24px;height:24px;' +
+      'border-radius:50%;border:2.5px solid #7c3aed;display:flex;align-items:center;' +
+      'justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.6)">&#129514;</div>',
+    iconSize: null,
+    iconAnchor: [12, 12],
+    tooltipAnchor: [0, -12],
+  });
+}
+
 export function searchPinIcon() {
   return L.divIcon({
     className: 'search-pin-marker',
