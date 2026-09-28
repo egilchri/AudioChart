@@ -2395,12 +2395,13 @@ function _findRouteHazards(points) {
           // depth_label is only a worst-case range for its whole extent, and
           // flagging every crossing regardless of real depth just trains
           // users to ignore the warning. Same "clearly fine" cutoff as the
-          // depth-heat overlay's own yellow band (draft + 6ft): below it,
-          // still flag as marginal; a sounding-confirmed depth at or above
-          // it is left unflagged. No nearby sounding stays conservative and
-          // keeps flagging, same "unverified is never safe" policy used
+          // depth-heat overlay's own yellow band (draft + 3ft, changed from
+          // 6ft 2026-09-28 after a real live report at a 3.5ft draft): below
+          // it, still flag as marginal; a sounding-confirmed depth at or
+          // above it is left unflagged. No nearby sounding stays conservative
+          // and keeps flagging, same "unverified is never safe" policy used
           // elsewhere this session.
-          if (draftM != null && eff >= draftM + 1.8288) continue;
+          if (draftM != null && eff >= draftM + 0.9144) continue;
         }
         dangerSegments.add(i);
         const polyLabel = minDepth < 0 ? 'above-water obstacle'
@@ -2618,7 +2619,7 @@ function _checkRouteHazards(routeIdx, silent = false) {
 
 // One-tap fix for a nudgeable shallow-area crossing (v713): instead of just
 // warning, try to find real, sounding-verified comfortable water
-// (Query.findComfortableNudgePoint — draft + 6ft, the same cutoff already
+// (Query.findComfortableNudgePoint — draft + 3ft, the same cutoff already
 // used by the depth-heat overlay and this marker's own suppression logic,
 // see v712) near the flagged crossing point, insert it as a new waypoint,
 // and re-route just the two new sub-legs through it — same
@@ -10240,13 +10241,20 @@ function _refreshNavaidOverlay() {
       // is exactly a cell AutoRoute will actually avoid, not a narrower
       // "technically doesn't touch bottom" reading.
       const KEEL_CLEARANCE_MARGIN_M = 3 * 0.3048; // 3ft
+      // COMFORTABLE_CLEARANCE_M in query.js is the source of truth for this
+      // "yellow caution" cutoff (draft + 3ft, changed from 6ft 2026-09-28) —
+      // duplicated here as a literal per this file's own existing convention
+      // for small shared constants (see KEEL_CLEARANCE_MARGIN_M just above).
+      // Now numerically equal to KEEL_CLEARANCE_MARGIN_M, so the yellow band
+      // below has collapsed to zero width (only red/no-color show) until a
+      // possible future settable-in-the-UI margin gives it room again.
       const polyFeatures = [];
       for (const f of Query.depthZones) {
         const eff = (f.properties.valsou ?? 0) + _effectiveTideHeight();
         if (eff <= 0) continue;  // exposed/dry at current tide — not a navigable hazard
         let color = null;
         if (eff <= draftM + KEEL_CLEARANCE_MARGIN_M) color = '#e05252';
-        else if (eff < draftM + 1.8288)               color = '#f5c518';
+        else if (eff < draftM + 0.9144)               color = '#f5c518';
         if (!color) continue;
         // Suppress warnings inside maintained navigation channels
         const ring = f.geometry.coordinates?.[0];

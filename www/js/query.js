@@ -1112,16 +1112,21 @@ export function snapToNavigableWater(lon, lat, draftFt, tideHeightM, maxNm = 2) 
 
 // Matches the depth-heat overlay's own yellow-band cutoff and the
 // shallow-crossing warning triangle's own suppression threshold (v712) —
-// "comfortable" means the same thing everywhere in this app: draft + 6ft,
-// not just draft + the bare 3ft keel-clearance margin. Kept as its own
-// constant (rather than reusing KEEL_CLEARANCE_MARGIN_M) since it answers a
+// "comfortable" means the same thing everywhere in this app: draft + 3ft,
+// not just draft + the bare 3ft keel-clearance margin. Direct request,
+// 2026-09-28 (changed from 6ft after a real live report: with a 3.5ft
+// draft, a genuinely-comfortable real sounding of 8.2-8.9ft was still
+// getting flagged at the old 6ft margin). Kept as its own constant
+// (rather than reusing KEEL_CLEARANCE_MARGIN_M) since it answers a
 // different question — "would a mariner call this comfortable", not "is
-// this technically passable".
-const COMFORTABLE_CLEARANCE_M = 1.8288; // 6ft
+// this technically passable" — even though the two happen to be numerically
+// equal right now; a future settable-in-the-UI margin (discussed, not yet
+// built) would only ever change this one, not the hard keel-clearance floor.
+const COMFORTABLE_CLEARANCE_M = 0.9144; // 3ft
 
 /**
  * Find the nearest point, starting from (lon,lat), with real (sounding-
- * verified, not just polygon-worst-case) comfortable depth — draft + 6ft,
+ * verified, not just polygon-worst-case) comfortable depth — draft + 3ft,
  * same cutoff the depth-heat overlay and the v712 shallow-crossing warning
  * already use. Built for the "nudge this route leg offshore" feature: a
  * route can cross a charted shallow polygon at a point that's technically

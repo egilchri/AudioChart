@@ -1,5 +1,44 @@
 # Changelog
 
+## 2026-09-28 — Lower the "comfortable clearance" margin from draft+6ft to draft+3ft (v722)
+
+Real user report: at their actual 3.5ft draft, AutoRoute flagged two
+shallow-area warning triangles where the real charted soundings showed
+8.2ft and 8.9ft of water — genuinely charted depths, correctly read,
+but not what the user considered worth a caution given their draft.
+Investigated the exact suppression math live: the shared "comfortable"
+margin (`COMFORTABLE_CLEARANCE_M`, draft + 6ft) required 9.5ft of real
+depth to suppress a warning at a 3.5ft draft; both real soundings fell
+just short of it.
+
+Changed the shared constant from 6ft to 3ft, applied consistently
+everywhere it's used (per direct confirmation — "I agree it should be
+everywhere," matching the constant's own existing design intent:
+"comfortable means the same thing everywhere in this app"): the
+shallow-area warning triangle's suppression threshold, the "nudge
+offshore" feature's target depth, and the depth-heat overlay's
+yellow/red shading. Also confirmed the app already uses MLLW (Mean
+Lower Low Water) consistently as the depth datum throughout — real
+soundings, the depth-heat overlay, and the live NOAA tide fetch all
+reference it explicitly.
+
+Known, accepted side effect: 3ft is now numerically equal to the
+existing hard `KEEL_CLEARANCE_MARGIN_M` floor, so the depth-heat
+overlay's yellow "caution" band has collapsed to zero width (only
+red/no-color show) until this margin becomes user-configurable (raised
+as a follow-up idea, not yet built). Kept `COMFORTABLE_CLEARANCE_M` as
+its own named constant rather than merging it into
+`KEEL_CLEARANCE_MARGIN_M`, specifically so a future settable-in-the-UI
+value only has one place to change.
+
+Verified live against the exact reported case: both previously-flagged
+spots (8.2ft, 8.9ft) now correctly suppress at a 3.5ft draft. This is a
+warning-display change only — router.js's actual hazard-avoidance
+logic (`segBlocked`/`_soundingsClearCrossing`) already used the hard
+3ft `KEEL_CLEARANCE_MARGIN_M` floor and is unaffected. Full
+`test_channel_routing.js` and `test_query.js` (25/25) pass with no
+routing changes, as expected for a display-only fix.
+
 ## 2026-09-28 — Fix a real gap letting a route pass within 1.5m of a charted rock (v721)
 
 Real user report, with a saved route: "This was not a wise course. I
