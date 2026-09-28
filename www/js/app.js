@@ -3399,8 +3399,12 @@ async function _onDrawConfirm() {
       { permanent: false }
     );
   });
+  // Spelled out as "nautical miles", not the "nm" abbreviation used in the
+  // tooltip above — this string is passed straight to TTS.sayImmediate
+  // below, and a browser's speech engine reads a bare "nm" as the SI unit
+  // (nanometers), not nautical miles. Real user report, 2026-09-28.
   const snapNote = snapEvents.map(s =>
-    `${s.which === 'end' ? 'Destination' : 'Start'} was in water too shallow for the current draft — moved ${s.movedNm.toFixed(2)}nm to reach it.`
+    `${s.which === 'end' ? 'Destination' : 'Start'} was in water too shallow for the current draft — moved ${s.movedNm.toFixed(2)} nautical miles to reach it.`
   ).join(' ');
 
   const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
@@ -3697,7 +3701,12 @@ async function _resolveNamedDestination(query) {
       const msg = water.viaPlace
         ? `${place.name} — moved to ${water.viaPlace}, ${water.movedNm.toFixed(1)} nm away.`
         : `${place.name} is on land — moved ${water.movedNm.toFixed(1)} nm into open water.`;
-      setStatus(msg); TTS.sayImmediate(msg);
+      // TTS gets "nautical miles" spelled out — a bare "nm" is read as
+      // nanometers by browser speech synthesis. Real user report, 2026-09-28.
+      const spoken = water.viaPlace
+        ? `${place.name} — moved to ${water.viaPlace}, ${water.movedNm.toFixed(1)} nautical miles away.`
+        : `${place.name} is on land — moved ${water.movedNm.toFixed(1)} nautical miles into open water.`;
+      setStatus(msg); TTS.sayImmediate(spoken);
     }
   }
   return dest;
@@ -4168,9 +4177,11 @@ function _finishSketch() {
         // else in the app has verified these points yet.
         const found = _checkRouteHazards(extIdx, true);
         if (!found.length) {
-          const msg = `${route.name} updated — ${totalNm.toFixed(1)} nm`;
-          setStatus(msg);
-          TTS.sayImmediate(msg);
+          // "nm" abbreviation for the visual status line; TTS gets the full
+          // "nautical miles" spelling — a bare "nm" is read as nanometers
+          // by browser speech synthesis. Real user report, 2026-09-28.
+          setStatus(`${route.name} updated — ${totalNm.toFixed(1)} nm`);
+          TTS.sayImmediate(`${route.name} updated — ${totalNm.toFixed(1)} nautical miles`);
         }
       }
     } else {
@@ -4179,9 +4190,8 @@ function _finishSketch() {
       const newIdx = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]').length - 1;
       const found = _checkRouteHazards(newIdx, true);
       if (!found.length) {
-        const msg = `${name} saved — ${totalNm.toFixed(1)} nm`;
-        setStatus(msg);
-        TTS.sayImmediate(msg);
+        setStatus(`${name} saved — ${totalNm.toFixed(1)} nm`);
+        TTS.sayImmediate(`${name} saved — ${totalNm.toFixed(1)} nautical miles`);
       }
     }
     _refreshSavedRouteLayers();
@@ -8809,8 +8819,11 @@ function _ensureMap() {
         { permanent: false }
       );
     });
+    // Spelled out as "nautical miles" — see the matching comment at the
+    // other snapNote call site (_onDrawConfirm): this string goes straight
+    // to TTS.sayImmediate, and a bare "nm" gets read as nanometers.
     const snapNote = snapEvents.map(s =>
-      `${s.which === 'end' ? 'Destination' : 'Start'} was in water too shallow for the current draft — moved ${s.movedNm.toFixed(2)}nm to reach it.`
+      `${s.which === 'end' ? 'Destination' : 'Start'} was in water too shallow for the current draft — moved ${s.movedNm.toFixed(2)} nautical miles to reach it.`
     ).join(' ');
 
     const totalNm = pts.reduce((sum, p, idx) =>

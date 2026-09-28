@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-09-28 — TTS: spell out "nautical miles" instead of "nm" in spoken distances (v720)
+
+Real user report: the app's spoken (TTS) announcements read a distance
+like "0.30nm" as "0.30 nanometers" — a bare "nm" is ambiguous to a
+browser's speech synthesis engine, which defaults to the SI unit
+(nanometers) rather than nautical miles.
+
+Found and fixed the specific reported case (the "moved X nm to reach
+it" announcement spoken after AutoRoute snaps a too-shallow start/end
+point to navigable water — both call sites, `_onDrawConfirm` and
+`_triggerAutoRoute`), then audited every other `TTS.sayImmediate`/
+`TTS.say` call site in `app.js` for the same abbreviated-"nm"-in-spoken-
+text pattern and found three more real instances: the route-
+saved/updated confirmation (two call sites) and the named-destination
+water-snap announcement. All four now follow the pattern already
+correctly used elsewhere in the file (e.g. the AutoRoute planned-route
+summary): the visual status-bar text keeps the "nm" abbreviation, the
+TTS-spoken text spells out "nautical miles" in full.
+
+No other call sites matched the pattern — remaining "nm"-containing
+strings in `app.js` are all visual-only (map tooltips, popup HTML,
+`.textContent` readouts), never passed to TTS.
+
 ## 2026-09-28 — Test Set markers get their own TS001-style labels (v719)
 
 Follow-up to v718, per direct request: "the test set markers need to be
