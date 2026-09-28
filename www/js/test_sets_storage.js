@@ -96,6 +96,36 @@ export function deleteTestSetWaypoint(setId, waypointName) {
   _saveAll(sets);
 }
 
+// One-time self-heal for a real gap found live, 2026-09-28: v719 added
+// TS00N renaming for waypoints saved into a NEW Test Set, but never
+// migrated waypoints already sitting inside Test Sets saved before that
+// fix shipped (v718 copied the source name as-is, no renaming at all) —
+// those kept whatever name they had going in (e.g. "SP003"), rendered
+// with this same purple Test Set marker icon, and confusingly made
+// "Save SP* waypoints as Test Set" report "No SP* waypoints" once the
+// source SP* entry had already been consumed into a Test Set under its
+// old name. Idempotent (a no-op, no write, once nothing needs renaming)
+// — not gated behind a version flag, since re-checking costs nothing
+// once there's genuinely nothing left to fix.
+function _migrateStaleNames() {
+  const sets = loadTestSets();
+  let num = _nextTestMarkerNum(sets);
+  let changed = false;
+  for (const set of sets) {
+    for (const wp of set.waypoints) {
+      if (/^TS\d+$/.test(wp.name)) continue;
+      if (wp.origName === undefined) wp.origName = wp.name;
+      wp.name = `TS${String(++num).padStart(3, '0')}`;
+      changed = true;
+    }
+  }
+  if (changed) {
+    _saveAll(sets);
+    console.log('[TestSetsStorage] One-time self-heal: renamed pre-v719 waypoint names to TS00N.');
+  }
+}
+_migrateStaleNames();
+
 export function loadVisibleTestSetIds() {
   try { return new Set(JSON.parse(localStorage.getItem(VISIBLE_KEY) || '[]')); } catch { return new Set(); }
 }

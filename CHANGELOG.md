@@ -1,5 +1,40 @@
 # Changelog
 
+## 2026-09-28 — Self-heal stale pre-v719 Test Set waypoint names (v725)
+
+Real user report, diagnosed from a screenshot: markers labeled "SP003",
+"SP005", "SP007" were showing on the map with the exact same purple
+Test Set marker icon as a correctly-named "TS007" — and "Save SP*
+waypoints as Test Set" reported "No SP* waypoints to save," even though
+SP-labeled markers were clearly visible.
+
+Root cause: v719 added TS00N renaming for waypoints saved into a NEW
+Test Set, but never migrated waypoints already sitting inside Test Sets
+saved before that fix shipped — v718's original save logic copied the
+source waypoint's name as-is, with no renaming at all. Those older Test
+Set entries kept their original "SP00N" names forever, rendered with
+the Test Set marker icon (matching the screenshot exactly) but never
+picked up by "Save SP* waypoints as Test Set" — that command only ever
+looks at the *separate*, regular waypoint list, and these names were
+already living inside a Test Set, just under a stale name.
+
+Fixed with a one-time, idempotent self-heal in
+`test_sets_storage.js`: on load, scans every stored Test Set for any
+waypoint name that doesn't match `TS\d+`, renames it to the next
+available sequential TS00N label (continuing the existing global
+counter, so it can't collide with an already-correct TS00N elsewhere),
+and preserves the original name as `origName` if not already set. Runs
+automatically, no user action needed — matches this project's existing
+"self-heal on load" pattern (e.g. the hazards-cache dedup migration).
+
+Verified live in a browser: seeded a legacy-shaped Test Set (SP003/
+SP005/SP007, no renaming, matching the reported screenshot) alongside
+an already-correctly-named TS007 in a different set — after reload,
+the stale entries became TS008/TS009/TS010 (continuing past the
+existing TS007, no collision), `origName` preserved, and the
+already-correct TS007 left untouched. Confirmed idempotent: a second
+reload made no further changes. No console errors.
+
 ## 2026-09-28 — Test Set marker delete option; saving now converts SP* waypoints instead of duplicating them (v724)
 
 Two direct follow-ups to the Test Sets feature (v718-v719).
