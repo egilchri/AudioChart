@@ -285,3 +285,49 @@ same raw-chart cross-check and left unchanged, since it isn't a real
 hazard — but the pipeline weakness itself (centroid-cell dedup, not
 spatial dedup) is also still live and could produce the same false
 land-crossing flag elsewhere.
+
+---
+
+## 2026-09-28 — AutoRoute passed within 1.5m of a charted underwater rock, no warning
+
+**What happened:** User reported, with a real saved route (Rockland
+vicinity through the Fox Islands Thorofare/Perry Creek approach): "This
+was not a wise course. I think you should have gone further offshore."
+
+Investigated against the actual chart data, not assumed: the route's
+worst clearance from a real charted underwater rock was **0.0008nm —
+about 1.5 meters**. AutoRoute had returned this route as a normal
+success — no fallback flag, no hazard warning shown to the user. This is
+a direct violation of this project's own "never silently unsafe" bar for
+AutoRoute.
+
+**Root cause (confirmed by reproduction, then fixed):** `router.js`'s
+`segBlocked` builds a small no-go circle (`HAZARD_SAFETY_NM = 0.05nm`)
+around each charted point hazard (underwater rock/obstruction/wreck),
+but only for hazards inside *that specific query's* own padded bounding
+box (`start`/`end` ± `PAD_NM = 2.0nm`). This route's real, necessary
+detour around the thorofare bulges further than `PAD_NM` past the
+direct start-end line — so the rock it grazed, sitting ~0.6nm past the
+query bbox's own edge, never had a no-go circle built for it at all.
+`segBlocked` had no way to know it existed. Unlike land (checked via
+`Query.landBlocks`, a global spatial index, always correct regardless of
+which query built it), point hazards had no bbox-independent fallback.
+
+**Fixed in v721**: added `Query.hazardPointBlocks` — an always-on,
+grid-indexed point-hazard check covering the whole loaded region, not
+scoped to any one query's bbox — wired into `segBlocked` right beside
+the existing `landBlocks` call, giving point hazards the same
+bbox-independent guarantee land already had. Verified live: the same
+route's worst standoff from the same rock improved from ~1.5m to ~51m,
+now routing further offshore as a mariner would expect. Permanent
+regression case `[21]` added in `test/test_channel_routing.js`.
+
+**Implication for future work:** this is a structural class of gap —
+any per-query, bbox-scoped safety mechanism (not just this one) can miss
+a real hazard sitting just outside its own assumed search corridor,
+whenever a route's real, necessary path deviates from the direct
+start-end line by more than that mechanism's own margin. Worth an
+explicit audit of any other bbox-scoped check in `router.js` for the
+same class of blind spot before assuming "no path found" is the only
+failure mode a narrow bbox can cause — this one failed by SUCCEEDING
+unsafely instead, which is worse.
