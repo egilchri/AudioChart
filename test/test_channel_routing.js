@@ -394,6 +394,84 @@ async function main() {
       { lat: 44.103, lon: -69.088 }, { lat: 44.2446198, lon: -68.555493 }, DEADLINE_MS, LONG_RANGE_DEADLINE_MS);
   })());
 
+  // Case 18 — FIXED. Rockland -> Heron Neck Ledge/Vinalhaven vicinity
+  // (~12.8nm), found live 2026-09-27 via a real user-reported AutoRoute.
+  // This is core Penobscot Bay (verified against named_places.geojson:
+  // Heron Neck Ledge, Folly Ledge, Potato Island all within 0.3nm of the
+  // route) — not an out-of-scope destination, despite an initial wrong
+  // guess mid-session that it was near Sullivan/Frenchman Bay (never trust
+  // eyeballed coordinates over checking named_places.geojson, see
+  // feedback_verify_geo_names memory).
+  //
+  // Root cause: the "penobscot-bay" named region's OWN land.geojson was
+  // missing real charted land (near Vinalhaven, and separately near Shag
+  // Rock/Muscongus Bay — the second surfaced only after the first fix
+  // changed the router's chosen path) that the bundled default's
+  // land.geojson correctly has. With penobscot-bay active, AutoRoute found
+  // the destination-region data "clear" and routed straight across real
+  // charted land — a genuine, undetected, unsafe route.
+  //
+  // TWO blanket fix attempts tried and reverted first, both real
+  // regressions: (1) union bundled-default's land data into every named
+  // region at load time (query.js loadData) — fixed this case but broke
+  // case [17]. (2) add just the one specific missing bundled polygon (a
+  // single 88-point landmass) directly to the region file — still broke
+  // case [17] AND still didn't fully fix this case. Root problem both
+  // times: bundled-default represents this whole area as one coarse
+  // landmass, while penobscot-bay represents the SAME real geography as
+  // many smaller, more detailed polygons with real channels/gaps between
+  // separate islands and ledges — pasting in the coarse bundled shape
+  // paves over those real channels. This project's chart data is a
+  // genuine patchwork; no one dataset is uniformly better than another.
+  //
+  // Actual fix: a geometric DIFFERENCE (bundled-default minus
+  // penobscot-bay's own land, via shapely), computed only within a small
+  // bounding box around each real gap, so only the genuinely missing
+  // sliver gets added — never a whole landmass, never anything already
+  // covered by penobscot-bay's own (possibly more detailed) data. Applied
+  // twice: once around Vinalhaven (7 features added), once around Shag
+  // Rock (18 small features added, a real scattered ledge field). Both
+  // verified against the full regression suite before and after.
+  //
+  // A full-region version of this diff (whole chart_bounds box, no local
+  // clip) was tried and found 2456 differing polygons — mostly bundled
+  // having far more inland/river detail (Bangor, Ellsworth, etc., never
+  // relevant to a boat) that penobscot-bay deliberately omits, not real
+  // navigable-water gaps. Applying that blindly is a real risk (same
+  // failure mode as attempt #2 above, just bigger) — not done. Other real
+  // gaps almost certainly exist along the coast; each needs the same
+  // local-diff-and-verify treatment when it actually surfaces, not a
+  // blanket sweep.
+  //
+  // Grading this case deliberately checks the resulting path against the
+  // BUNDLED-DEFAULT land data specifically (real ground truth), not
+  // whatever's active when the route is computed — grading against the
+  // same (possibly incomplete) data the router used to build the route
+  // would be circular and never catch this class of bug.
+  gate(await (async () => {
+    Query.setActiveRegion('penobscot-bay');
+    await Query.loadData(44.103, -69.088);
+    await waitForRegionDataReady(Query);
+    const label = '[18] Rockland -> Heron Neck Ledge/Vinalhaven vicinity (region land-data gap)';
+    const start = { lat: 44.103, lon: -69.088 }, end = { lat: 44.042835, lon: -68.836543 };
+    const t0 = Date.now();
+    const path_ = await Router.autoRouteProg(start, end, () => {}, () => {}, false, 5.0, 0);
+    const ms = Date.now() - t0;
+    // Re-load bundled-default (real ground truth) to grade against, then
+    // switch back so it doesn't leak into later cases.
+    Query.setActiveRegion(null);
+    await Query.loadData(44.103, -69.088);
+    await waitForRegionDataReady(Query);
+    const crosses = pathCrossesLand(Query, path_);
+    const fallback = path_.length <= 2 && crosses;
+    const ok = !fallback && !crosses && ms < DEADLINE_MS;
+    console.log(`${label}: ${ok ? 'PASS' : 'FAIL'} (fallback=${fallback}, crossesLand=${crosses}, ${path_.length} pts, ${ms}ms)`);
+    Query.setActiveRegion('penobscot-bay');
+    await Query.loadData(44.103, -69.088);
+    await waitForRegionDataReady(Query);
+    return { ok };
+  })());
+
   console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll cases passed.');
   console.log(
     '\nNOT PORTED (relied on injecting a synthetic obstacle ring the real\n' +

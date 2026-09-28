@@ -1,5 +1,54 @@
 # Changelog
 
+## 2026-09-27 — Fix real charted-land gaps in the Penobscot Bay region's own map data (v714)
+
+Real user report: AutoRoute from a Penobscot Bay position to a Vinalhaven-
+vicinity destination (Heron Neck Ledge/Folly Ledge/Potato Island — core
+bay, confirmed against named_places.geojson) produced a route that
+straight-lined across real charted land between two of its own waypoints.
+Root cause: the "penobscot-bay" named region's own `land.geojson` is
+missing real land in a couple of spots that the app's generic bundled
+dataset correctly has — this project's chart data is a genuine patchwork,
+not one dataset uniformly better than another (confirmed directly: a
+long-standing route through the Deer Isle/Stonington area depends on
+detail the region's own data has that the generic bundled dataset does
+NOT have there).
+
+Two blanket fixes were tried first and reverted, each because they fixed
+the reported case but broke that Deer Isle/Stonington route: (1) merging
+the entire bundled land dataset into every named region at load time, (2)
+pasting in the one specific missing bundled landmass polygon wholesale.
+Both re-introduced the bundled dataset's own coarser representation of an
+area the region's data already drew correctly with more detail.
+
+Actual fix: a precise geometric difference (bundled-default minus the
+region's own land, via shapely) computed only within a small bounding box
+around each real gap, so only the genuinely missing sliver of land gets
+added — never a whole landmass, never anything already covered by the
+region's own more detailed data. Fixed two real gaps found this way:
+near Vinalhaven (7 small polygons) and near Shag Rock/Muscongus Bay (18
+small polygons, a real scattered ledge field) — the second only surfaced
+after fixing the first changed the router's chosen path through the same
+route. `data-version.json` regenerated so cached devices see the update.
+
+A full-region version of this diff was also tried, purely to survey scope
+(not applied): it found 2,456 differing polygons, but the overwhelming
+majority are the bundled dataset having far more inland/river detail
+(Bangor, Ellsworth, etc.) that this region's data deliberately omits as
+irrelevant to a boat — not real navigable-water gaps. Applying that
+blindly would repeat the same failure mode as the reverted attempts above,
+just at a much larger scale. Other real coastal gaps almost certainly
+exist; each needs this same small, verified, local fix when it actually
+surfaces, not a blanket sweep.
+
+Added a permanent regression case (`test_channel_routing.js` [18])
+grading the resulting path against the bundled dataset specifically (real
+ground truth), not whatever data built the route — otherwise the test
+would be circular and could never catch this class of bug again.
+`test/test_query.js` (25/25) and the full channel-routing suite (all
+gated cases, including the previously-fragile Deer Isle/Stonington case)
+pass.
+
 > **2026-05-15 to 2026-07-22 isn't logged here.** `COMMITS.md` was frozen
 > around this date with a note naming this file "authoritative going
 > forward," but it wasn't actually kept up — see `COMMITS.md` for its own
