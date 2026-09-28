@@ -932,6 +932,13 @@ let _followingDestLat     = null;
 let _followingDestLon     = null;
 let _followingLegIdx      = 1; // index of the next not-yet-reached waypoint in the followed route
 let _followFocusLegIdx    = null; // last leg index focus was auto-synced to — see _updateFollowProgress
+// Live "while underway" hazard re-check (v722, direct request): as the
+// tide changes during a followed route, a crossing that was fine when the
+// route was planned can become genuinely marginal. Reset whenever a new
+// following session starts/stops — see _startFollowingRoute/
+// _stopFollowingRoute and _recheckFollowedRouteHazardsLive.
+let _followedHazardKnownKeys = new Set();
+let _liveFollowHazardLayer   = null;
 const ARRIVAL_THRESHOLD_NM = 0.1; // ~600ft — comfortably above typical GPS drift
 let _extendingRouteIdx = -1;
 let _extendingFromEnd  = true;
@@ -1167,6 +1174,12 @@ window._verifyCuratedRoutes = async function () {
 window._debugResolveWaterEnd = (lon, lat, which) => Query.resolveWaterEnd(lon, lat, which);
 window._debugEnterEditMode = (idx) => _enterEditMode(idx);
 window._debugCheckRouteHazards = (idx, silent) => _checkRouteHazards(idx, silent);
+window._debugRecheckFollowedHazardsLive = (baseline) => _recheckFollowedRouteHazardsLive(baseline);
+window._debugEffectiveTideHeight = () => _effectiveTideHeight();
+// Sets just the "currently following" state _recheckFollowedRouteHazardsLive
+// reads, without _startFollowingRoute's track-recording side effects —
+// testing the live hazard-recheck in isolation.
+window._debugSetFollowing = (routeId, legIdx = 1) => { _followingRouteId = routeId; _followingLegIdx = legIdx; };
 window._debugMap = () => _map;
 window._debugLiveHazardCheck = () => _liveHazardCheck();
 window._debugShowRouteFallbackWarning = (fallbackSegs) => _showRouteFallbackWarning(fallbackSegs);
@@ -2395,13 +2408,13 @@ function _findRouteHazards(points) {
           // depth_label is only a worst-case range for its whole extent, and
           // flagging every crossing regardless of real depth just trains
           // users to ignore the warning. Same "clearly fine" cutoff as the
-          // depth-heat overlay's own yellow band (draft + 3ft, changed from
-          // 6ft 2026-09-28 after a real live report at a 3.5ft draft): below
+          // depth-heat overlay's own yellow band and the user-settable
+          // Comfortable clearance margin setting (v722, default 3ft): below
           // it, still flag as marginal; a sounding-confirmed depth at or
           // above it is left unflagged. No nearby sounding stays conservative
           // and keeps flagging, same "unverified is never safe" policy used
           // elsewhere this session.
-          if (draftM != null && eff >= draftM + 0.9144) continue;
+          if (draftM != null && eff >= draftM + _getComfortMarginMeters()) continue;
         }
         dangerSegments.add(i);
         const polyLabel = minDepth < 0 ? 'above-water obstacle'
@@ -2617,6 +2630,60 @@ function _checkRouteHazards(routeIdx, silent = false) {
   return found;
 }
 
+// Live "while underway" hazard re-check (direct request, 2026-09-28): as
+// real time passes and the tide genuinely changes (see _effectiveTideHeight's
+// now-live interpolation, fixed in the same release), a crossing that was
+// fine when a route was planned/checked can become genuinely marginal by
+// the time the boat actually gets there. Runs periodically (see its
+// setInterval registration, chained onto the existing 60s tide-cycle
+// refresh) against just the REMAINING portion of whatever route is
+// currently being followed — not the whole route, which would keep
+// re-flagging water already safely behind the boat — and only announces
+// hazards that are NEW since the last check, not the same ones repeatedly.
+// Silent no-op when no route is being followed. `baseline=true` (used
+// once, right when following starts) establishes the known-hazard set
+// without announcing anything — otherwise the very first call would treat
+// every already-known hazard on the route as "new" purely because the
+// tracking set started empty.
+function _recheckFollowedRouteHazardsLive(baseline = false) {
+  if (!_followingRouteId || !_map) return;
+  const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+  const route = routes.find(r => r.id === _followingRouteId);
+  const pts = route?.points;
+  if (!pts || pts.length < 2) return;
+  // One leg of overlap behind the "next waypoint" pointer, so a hazard on
+  // the leg the boat is currently transiting isn't missed just because
+  // _followingLegIdx already advanced past that leg's own start point.
+  const aheadStart = Math.max(0, _followingLegIdx - 1);
+  const aheadPts = pts.slice(aheadStart);
+  if (aheadPts.length < 2) return;
+  const { found } = _findRouteHazards(aheadPts);
+
+  if (_liveFollowHazardLayer) _liveFollowHazardLayer.clearLayers();
+  else _liveFollowHazardLayer = L.layerGroup().addTo(_map);
+
+  const currentKeys = new Set();
+  const newOnes = [];
+  for (const h of found) {
+    const key = `${h.lat.toFixed(5)},${h.lon.toFixed(5)}`;
+    currentKeys.add(key);
+    if (!_followedHazardKnownKeys.has(key)) newOnes.push(h);
+    const icon = h.kind === 'soft'
+      ? MarkerIcons.softHazardMarkerIcon()
+      : L.divIcon({ className: '', html: '<div class="davy-jones-icon">&#9760;</div>', iconSize: [32, 32], iconAnchor: [16, 16] });
+    L.marker([h.lat, h.lon], { icon, zIndexOffset: h.kind === 'soft' ? 800 : 1000 })
+      .bindTooltip(`${h.label}${h.name ? ': ' + h.name : ''} — ${h.side}`, { permanent: false, direction: 'top', offset: [0, -6] })
+      .addTo(_liveFollowHazardLayer);
+  }
+  _followedHazardKnownKeys = currentKeys;
+
+  if (newOnes.length && !baseline) {
+    const msg = `Tide update: ${newOnes.length} new shallow-area warning${newOnes.length > 1 ? 's' : ''} ahead on your route — ${newOnes[0].label}${newOnes[0].name ? ', ' + newOnes[0].name : ''}.`;
+    setStatus(msg);
+    TTS.sayImmediate(msg);
+  }
+}
+
 // One-tap fix for a nudgeable shallow-area crossing (v713): instead of just
 // warning, try to find real, sounding-verified comfortable water
 // (Query.findComfortableNudgePoint — draft + 3ft, the same cutoff already
@@ -2638,7 +2705,7 @@ function _nudgeLegOffshore(routeIdx, h) {
   if (!a || !b) return;
 
   const draftFt = _currentDraftFt();
-  const nudge = Query.findComfortableNudgePoint(h.lon, h.lat, draftFt, _tideHeight);
+  const nudge = Query.findComfortableNudgePoint(h.lon, h.lat, draftFt, _tideHeight, 0.15, _getComfortMarginMeters());
   if (!nudge) {
     const msg = "Couldn't find comfortably deep water nearby — added a node here to position by hand.";
     setStatus(msg);
@@ -5320,6 +5387,16 @@ function _getDraftMeters() {
   return isFinite(raw) && raw > 0 ? raw * 0.3048 : null;
 }
 
+// User-configurable version of Query.COMFORTABLE_CLEARANCE_M (v722 shipped
+// it as a fixed 3ft; settable-in-the-UI was the explicitly-flagged
+// follow-up). Falls back to that same default when unset/invalid — never
+// silently 0, which would make everything "comfortable".
+function _getComfortMarginMeters() {
+  const el = document.getElementById('nf-comfort-margin-ft');
+  const raw = el ? parseFloat(el.value) : parseFloat(localStorage.getItem('audiochart-comfort-margin-ft') || '');
+  return isFinite(raw) && raw >= 0 ? raw * 0.3048 : Query.COMFORTABLE_CLEARANCE_M;
+}
+
 async function _ensureTideStation(lat, lon) {
   if (!_tideStationId || _tideStationLat === null ||
       Query.distanceNm(lon, lat, _tideStationLon, _tideStationLat) >= 10) {
@@ -5703,9 +5780,19 @@ function _tideCycleSvg(now) {
   `);
 }
 
+// Was: `if (_tideOffset === 0) return _tideHeight` — a one-time snapshot
+// fetched at load time or whenever the Depths checkbox got toggled, frozen
+// from then on until one of those specific triggers happened again. Every
+// hazard check that calls this (shallow-area warning triangle, depth-heat
+// overlay, nudge-offshore) was silently using a tide reading that could be
+// hours stale during a real passage. Direct request, 2026-09-28: interpolate
+// live from the already-cached tide-extremes curve (_tideExtremes, kept
+// fresh by _refreshTideCycle's own 60s interval) for the CURRENT real time
+// instead, the same math _tidePhaseAt already does for the offset-preview
+// slider — falls back to the old static _tideHeight only if no cycle data
+// has loaded yet.
 function _effectiveTideHeight() {
-  if (_tideOffset === 0) return _tideHeight;
-  const sim = new Date(Date.now() + _tideOffset * 3_600_000);
+  const sim = _tideOffset === 0 ? new Date() : new Date(Date.now() + _tideOffset * 3_600_000);
   return _tidePhaseAt(sim)?.height ?? _tideHeight;
 }
 
@@ -6287,6 +6374,9 @@ function _startVirtualJourney(route, speedKnots) {
   _followingDestLat = last.lat;
   _followingDestLon = last.lon;
   _followingLegIdx = route.points.length > 1 ? 1 : 0;
+  _followedHazardKnownKeys = new Set();
+  if (_liveFollowHazardLayer) { _liveFollowHazardLayer.clearLayers(); _map.removeLayer(_liveFollowHazardLayer); _liveFollowHazardLayer = null; }
+  _recheckFollowedRouteHazardsLive(true); // baseline — don't announce hazards already known from route creation/checks
   const firstLegPt = route.points[_followingLegIdx];
   Query.setFocus(firstLegPt.lat, firstLegPt.lon, `${route.name} — waypoint ${_followingLegIdx + 1}`, 'waypoint');
   _updateFocusButton();
@@ -6402,6 +6492,8 @@ function _stopVirtualJourney() {
   _followingDestLon = null;
   _followingLegIdx = 1;
   _followFocusLegIdx = null;
+  _followedHazardKnownKeys = new Set();
+  if (_liveFollowHazardLayer) { _liveFollowHazardLayer.clearLayers(); _map.removeLayer(_liveFollowHazardLayer); _liveFollowHazardLayer = null; }
   _appEl.classList.remove('following-active');
   _exitRoutePanelCompactFn?.();
   if (_followProgressEl) _followProgressEl.style.display = 'none';
@@ -7439,6 +7531,11 @@ function _ensureMap() {
   };
   _refreshTideCycle();
   setInterval(_refreshTideCycle, 60 * 1000);
+  // Independent of the tide-cycle fetch above — _effectiveTideHeight()
+  // interpolates live from whatever _tideExtremes is already cached, so
+  // this only needs real time to have passed, not a fresh fetch to have
+  // just completed. See _recheckFollowedRouteHazardsLive's own comment.
+  setInterval(_recheckFollowedRouteHazardsLive, 60 * 1000);
 
   document.getElementById('map-layer-select').addEventListener('change', (e) => {
     _mapViewMode = e.target.value;
@@ -8347,12 +8444,19 @@ function _ensureMap() {
   const _depthCheckbox  = document.getElementById('nf-depth');
   const _depthSettings  = document.getElementById('nf-depth-settings');
   const _draftInput     = document.getElementById('nf-draft-ft');
+  const _comfortInput   = document.getElementById('nf-comfort-margin-ft');
   const _timeoutInput   = document.getElementById('nf-route-timeout-s');
   _depthSettings.style.display = _depthCheckbox.checked ? '' : 'none';
 
   // Restore saved draft
   const _savedDraft = localStorage.getItem('audiochart-draft-ft');
   if (_savedDraft) _draftInput.value = _savedDraft;
+
+  // Restore saved comfortable-clearance margin (v722 default: 3ft — see
+  // Query.COMFORTABLE_CLEARANCE_M)
+  const _savedComfort = localStorage.getItem('audiochart-comfort-margin-ft');
+  if (_savedComfort) _comfortInput.value = _savedComfort;
+  else _comfortInput.value = (Query.COMFORTABLE_CLEARANCE_M / 0.3048).toFixed(1);
 
   // Restore saved route-planning time limit
   const _savedTimeout = localStorage.getItem('audiochart-route-timeout-s');
@@ -8369,6 +8473,11 @@ function _ensureMap() {
 
   _draftInput.addEventListener('input', () => {
     localStorage.setItem('audiochart-draft-ft', _draftInput.value);
+    if (_depthCheckbox.checked) _refreshNavaidOverlay();
+  });
+
+  _comfortInput.addEventListener('input', () => {
+    localStorage.setItem('audiochart-comfort-margin-ft', _comfortInput.value);
     if (_depthCheckbox.checked) _refreshNavaidOverlay();
   });
 
@@ -10241,20 +10350,20 @@ function _refreshNavaidOverlay() {
       // is exactly a cell AutoRoute will actually avoid, not a narrower
       // "technically doesn't touch bottom" reading.
       const KEEL_CLEARANCE_MARGIN_M = 3 * 0.3048; // 3ft
-      // COMFORTABLE_CLEARANCE_M in query.js is the source of truth for this
-      // "yellow caution" cutoff (draft + 3ft, changed from 6ft 2026-09-28) —
-      // duplicated here as a literal per this file's own existing convention
-      // for small shared constants (see KEEL_CLEARANCE_MARGIN_M just above).
-      // Now numerically equal to KEEL_CLEARANCE_MARGIN_M, so the yellow band
-      // below has collapsed to zero width (only red/no-color show) until a
-      // possible future settable-in-the-UI margin gives it room again.
+      // _getComfortMarginMeters() is the user-settable "yellow caution"
+      // cutoff (Comfortable clearance margin setting, v722, default 3ft —
+      // same value the shallow-area warning triangle and nudge-offshore
+      // feature use). At the default it's numerically equal to
+      // KEEL_CLEARANCE_MARGIN_M, so the yellow band collapses to zero width
+      // (only red/no-color show) unless the setting is raised above 3ft.
+      const comfortM = _getComfortMarginMeters();
       const polyFeatures = [];
       for (const f of Query.depthZones) {
         const eff = (f.properties.valsou ?? 0) + _effectiveTideHeight();
         if (eff <= 0) continue;  // exposed/dry at current tide — not a navigable hazard
         let color = null;
         if (eff <= draftM + KEEL_CLEARANCE_MARGIN_M) color = '#e05252';
-        else if (eff < draftM + 0.9144)               color = '#f5c518';
+        else if (eff < draftM + comfortM)             color = '#f5c518';
         if (!color) continue;
         // Suppress warnings inside maintained navigation channels
         const ring = f.geometry.coordinates?.[0];
@@ -11608,6 +11717,8 @@ function _finishTrackRecording(name) {
   _followingDestLon = null;
   _followingLegIdx = 1;
   _followFocusLegIdx = null;
+  _followedHazardKnownKeys = new Set();
+  if (_liveFollowHazardLayer) { _liveFollowHazardLayer.clearLayers(); _map.removeLayer(_liveFollowHazardLayer); _liveFollowHazardLayer = null; }
   _appEl.classList.remove('following-active');
   _exitRoutePanelCompactFn?.();
   if (_followProgressEl) _followProgressEl.style.display = 'none';
@@ -11654,6 +11765,9 @@ function _startFollowingRoute(route) {
   _followingDestLat = last.lat;
   _followingDestLon = last.lon;
   _followingLegIdx = route.points.length > 1 ? 1 : 0;
+  _followedHazardKnownKeys = new Set();
+  if (_liveFollowHazardLayer) { _liveFollowHazardLayer.clearLayers(); _map.removeLayer(_liveFollowHazardLayer); _liveFollowHazardLayer = null; }
+  _recheckFollowedRouteHazardsLive(true); // baseline — don't announce hazards already known from route creation/checks
   // Prime the focus/bearing system on the next waypoint right away — see
   // _updateFollowProgress's matching sync, which keeps this current as legs
   // advance. Together these make "bearing" (or a tap on #focus-btn) answer

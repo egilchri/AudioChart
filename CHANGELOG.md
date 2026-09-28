@@ -1,5 +1,57 @@
 # Changelog
 
+## 2026-09-28 — Settable comfort margin, and live hazard re-checking while underway (v723)
+
+Two direct follow-up requests from v722's clearance-margin fix.
+
+**1. Settable clearance margin.** The "comfortable clearance" margin
+(v722: draft + 3ft) is now a real setting — "Comfortable clearance
+margin" in the Objects panel, next to Boat draft — instead of a fixed
+value baked into the code. Wired through all three places it's used
+(the shallow-area warning triangle, the depth-heat overlay, and the
+nudge-offshore feature's target depth), defaulting to 3ft for anyone
+who hasn't touched it. `Query.findComfortableNudgePoint` now takes the
+margin as an optional parameter instead of always reaching for its own
+internal constant.
+
+**2. Live hazard re-checking while following a route, plus a real bug
+this surfaced.** Direct question: "while underway, it should pop up
+warning triangles ad hoc if the tides dictate. Or are you already using
+mean low water as the baseline?" Confirmed MLLW is already the datum
+everywhere (soundings, the live NOAA tide fetch, the depth-heat
+overlay). But investigating the "ad hoc" half surfaced a real, separate
+bug: `_effectiveTideHeight()` was a one-time snapshot fetched at load
+time or whenever the Depths checkbox got toggled — frozen from then on,
+not actually live, even though the app already fetches and caches a
+full tide-extremes curve every 60 seconds for the tide-preview slider.
+Every hazard check silently used a tide reading that could be hours
+stale by the time a boat following a route actually reached a spot.
+
+Fixed `_effectiveTideHeight()` to interpolate live from that
+already-cached curve for the real current time (same math the
+tide-offset slider already used, just pointed at "now" instead of a
+simulated offset) instead of the frozen snapshot. Added a genuinely new
+feature on top: while a route is being followed (real GPS or a Virtual
+Journey rehearsal), a periodic check (chained onto the same 60s
+interval) re-examines just the REMAINING portion of the route ahead of
+the boat's current position against the now-live tide, and announces +
+marks on the map any hazard that's newly crossed the comfort threshold
+since the last check — not the whole route (which would keep
+re-flagging water already safely behind the boat), and not hazards
+already known about (a state-diffed set, so nothing re-announces every
+60 seconds just because it's still there).
+
+Verified live in a browser: the settable margin persists and updates
+suppression behavior correctly; `_effectiveTideHeight()` now visibly
+changes value between two calls seconds apart (previously would have
+returned bit-for-bit the same frozen number); the live re-check
+correctly stays silent on a repeat call with nothing new, and correctly
+announces + draws a marker for a genuinely new hazard on the first
+real check. No console errors. Full `test_channel_routing.js` and
+`test_query.js` (25/25) pass — this release touches only warning
+display and a new opt-in-by-following periodic check, not AutoRoute's
+own routing/avoidance logic.
+
 ## 2026-09-28 — Lower the "comfortable clearance" margin from draft+6ft to draft+3ft (v722)
 
 Real user report: at their actual 3.5ft draft, AutoRoute flagged two

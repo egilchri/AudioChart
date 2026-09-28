@@ -1122,7 +1122,7 @@ export function snapToNavigableWater(lon, lat, draftFt, tideHeightM, maxNm = 2) 
 // this technically passable" — even though the two happen to be numerically
 // equal right now; a future settable-in-the-UI margin (discussed, not yet
 // built) would only ever change this one, not the hard keel-clearance floor.
-const COMFORTABLE_CLEARANCE_M = 0.9144; // 3ft
+export const COMFORTABLE_CLEARANCE_M = 0.9144; // 3ft — default; see app.js's nf-comfort-margin-ft setting
 
 /**
  * Find the nearest point, starting from (lon,lat), with real (sounding-
@@ -1144,8 +1144,8 @@ const COMFORTABLE_CLEARANCE_M = 0.9144; // 3ft
  * comfortable point found within maxNm — or null if nothing within maxNm
  * qualifies (caller should fall back to a manual fix, not guess).
  */
-export function findComfortableNudgePoint(lon, lat, draftFt, tideHeightM, maxNm = 0.15) {
-  const isBlocked = _makeObstacleCheck(lon, lat, maxNm, draftFt, tideHeightM, COMFORTABLE_CLEARANCE_M, false);
+export function findComfortableNudgePoint(lon, lat, draftFt, tideHeightM, maxNm = 0.15, comfortMarginM = COMFORTABLE_CLEARANCE_M) {
+  const isBlocked = _makeObstacleCheck(lon, lat, maxNm, draftFt, tideHeightM, comfortMarginM, false);
   if (!isBlocked(lon, lat)) return null;
   const p = _nearestClearPoint(lon, lat, isBlocked, maxNm);
   if (!p) return null;
