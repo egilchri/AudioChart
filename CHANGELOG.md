@@ -1,5 +1,86 @@
 # Changelog
 
+## 2026-09-28 — Precomputed navigable-water mesh fixes a real "no path found" archipelago gap (v715)
+
+Real user report: AutoRoute from a Penobscot Bay position to SP009 (inside
+Eggemoggin Reach, near Deer Isle) failed completely — not a timeout, a
+genuine "no path found" after A* exhausted its entire candidate graph
+(1,311 expansions, all 1,462 nodes, ~8s). Root cause, confirmed live, not
+assumed: the router's per-query candidate-node generation
+(`router.js`'s `_addRingNodes`/`_pickExtremeVerts`, built fresh from land-
+ring vertices near the direct start-end line on every search) places
+plenty of points on each side of a genuinely complex multi-island passage
+(Deer Isle's coastline, Merchant Row, the reach itself), but has no
+guarantee any combination of them chains all the way through. Ruled out
+directly: not a search budget problem (3x-ing the node/ring caps changed
+nothing), not sparse candidates (hundreds already existed on both sides),
+not a missing-buoy-data problem (the real charted buoy chains on each
+side are genuinely ~3.35nm apart with no markers between them in the
+actual charts — correct behavior, not a bug in how buoy chains are
+built). This is the "island-dense archipelago" limitation already
+flagged in this project's own notes.
+
+Fixed with a new precomputed navigable-water mesh
+(`preprocess/build_water_mesh.py` → `water_mesh_deer_isle.geojson`,
+Penobscot Bay region only for now — a deliberately scoped pilot), reusing
+the same boundary-point-Voronoi medial-axis technique
+`build_channel_graph.py` already uses for real charted channels, applied
+to a computed "open water" polygon instead. Consumed at runtime as
+**ordinary candidate nodes** (`Query.waterMeshPath` precomputes the
+mesh's own shortest path once per query; `router.js` seeds just that
+path into its existing node array) — deliberately **not** given
+`channel_graph.geojson`'s trusted/unchecked treatment, since that data
+is independently surveyed and this mesh is geometrically derived from
+the same land/depth data the runtime already checks. Every mesh-derived
+edge still goes through the router's real, live `segBlocked` check on
+every query, same as any other candidate node.
+
+Getting the underlying water polygon right took several real, live-
+verified iterations, each one a genuine bug caught before shipping:
+- Found and fixed a bug in the *shared* `medial_axis_edges` (used by the
+  real channel pipeline too): it only densified a polygon's outer
+  boundary, never interior rings — a no-op for a real channel polygon
+  (none have holes) but fatal for an open-water polygon full of islands,
+  fragmenting the mesh into dozens of disconnected pieces.
+- Land-only water polygon: the resulting mesh disagreed with the
+  router's own real depth check on 29% of its edges.
+- Blindly subtracting every charted shallow-area polygon: fragmented the
+  water polygon into thousands of disconnected slivers (a DEPARE
+  polygon's `valsou` is a single worst-case value for its whole extent —
+  the same coarse-vs-real theme this project keeps running into).
+- Subtracting only large/significant hazards, eroded by a fixed margin:
+  much better, but still left a real 28-consecutive-edge stretch running
+  straight through Tinker Ledges unrescued, and separately risked
+  cutting a destination off from the mesh entirely when it sits close to
+  a hazard's own charted boundary.
+- What actually works: before subtracting a significant hazard, carve
+  back out of it the union of small circles around every real nearby
+  sounding confirming genuine depth — mirroring `router.js`'s own
+  `_soundingsClearCrossing` rescue logic directly instead of
+  approximating it with a blind buffer.
+
+Verified end-to-end against the real reported route (Rockland → SP009,
+exact coordinate from the user's own saved waypoint): now finds a real,
+9-point, zero-land-crossing route. Verified the fix doesn't regress
+anything else: full `test_channel_routing.js` suite passes, including
+the two cases most likely to be affected by any change in this same
+geography (case 16, Vinalhaven tidal flats; case 17, WoodenBoat
+School/Center Harbor, previously fragile earlier this session) — case
+17's timing, which briefly regressed 3x during an earlier iteration of
+this fix, is back to its normal ~7s baseline in the shipped version.
+Added permanent regression case `[19]` for this exact route.
+`test/test_query.js` (25/25) also passes.
+
+This was a deliberately narrow pilot (Penobscot Bay region only, one
+hard passage) rather than a whole-region sweep — a full-region version
+of the same diff found 2,456 differing polygons, mostly the bundled
+dataset having far more inland/river detail this region's data
+deliberately omits as irrelevant to a boat, not real navigable-water
+gaps. The technique (and every dead end that didn't work) is documented
+in `build_water_mesh.py`'s own module and function docstrings, ready to
+reuse for the next hard passage or region without re-deriving any of
+this.
+
 ## 2026-09-27 — Fix real charted-land gaps in the Penobscot Bay region's own map data (v714)
 
 Real user report: AutoRoute from a Penobscot Bay position to a Vinalhaven-

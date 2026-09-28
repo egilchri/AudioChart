@@ -124,8 +124,25 @@ def densify_ring(coords_m, spacing_m):
 
 def medial_axis_edges(poly_m, densify_spacing_m):
     """Boundary-point Voronoi medial-axis approximation, in local meters.
-    Returns a list of (p1, p2) edges (each a (x, y) tuple) lying inside poly_m."""
+    Returns a list of (p1, p2) edges (each a (x, y) tuple) lying inside poly_m.
+
+    Densifies the exterior ring AND every interior ring (hole) — every real
+    FAIRWY channel polygon this was originally written for is hole-free, so
+    this was a silent no-op there, but a polygon representing a whole water
+    AREA (e.g. water-minus-land over a region full of islands) legitimately
+    has one hole per island. Without boundary points along a hole's own
+    edge, the Voronoi diagram has no sample points near that island at all,
+    so its cell structure comes out wrong nearby — not merely "less
+    precise": confirmed live building a Deer Isle/Eggemoggin Reach water
+    mesh with ~171 real islands-as-holes, omitting interior points left the
+    resulting medial-axis graph fragmented into dozens of disconnected
+    islands of nodes instead of one connected mesh, even with the
+    `poly_m.contains(...)` filter below working exactly as intended — the
+    filter can only ever throw out bad Voronoi ridges, it can't manufacture
+    the good ones that were never generated in the first place."""
     boundary_pts = densify_ring(list(poly_m.exterior.coords), densify_spacing_m)
+    for ring in poly_m.interiors:
+        boundary_pts.extend(densify_ring(list(ring.coords), densify_spacing_m))
     if len(boundary_pts) < 4:
         return []
     vor = Voronoi(boundary_pts)

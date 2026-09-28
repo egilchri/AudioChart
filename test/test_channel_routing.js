@@ -472,6 +472,49 @@ async function main() {
     return { ok };
   })());
 
+  // Case 19 — Rockland -> SP009/Eggemoggin Reach (~21.4nm, real user-
+  // reported waypoint, exact coordinate read from the user's own saved
+  // waypoint data 2026-09-27/28). AutoRoute failed completely — not a
+  // timeout, a genuine "no path found" after A* exhausted its entire
+  // candidate graph (confirmed live: 1311 expansions, all 1462 nodes).
+  // Root cause: the router's per-query candidate-node generation
+  // (_addRingNodes/_pickExtremeVerts) places plenty of points on EACH
+  // side of the Deer Isle/Eggemoggin Reach passage but has no guarantee
+  // any combination of them chains all the way through a real,
+  // genuinely complex multi-island route — not a budget problem (3x-ing
+  // the router's node/ring caps changed nothing) and not a missing-
+  // buoy-data problem (the real charted buoy chains on each side are
+  // genuinely ~3.35nm apart with no markers between them in the actual
+  // charts).
+  //
+  // Fixed with a new precomputed navigable-water mesh
+  // (preprocess/build_water_mesh.py -> water_mesh_deer_isle.geojson),
+  // consumed as ordinary candidate nodes seeded via the mesh's own
+  // precomputed shortest path (Query.waterMeshPath) — never as trusted,
+  // segBlocked-bypassing edges the way real charted channel data is.
+  // Getting the underlying water polygon right took three real, live-
+  // verified iterations: land-only (mesh disagreed with the router's own
+  // depth check 29% of the time), blind shallow-polygon subtraction
+  // (fragmented the water polygon into thousands of disconnected
+  // pieces), fixed-margin erosion around large hazards (still left a
+  // real 28-edge stretch running straight through Tinker Ledges
+  // unrescued, and separately risked cutting a destination off from the
+  // mesh entirely when it sits close to a hazard's charted boundary) —
+  // the version that actually works carves real, sounding-verified deep
+  // water back out of each subtracted hazard, mirroring router.js's own
+  // _soundingsClearCrossing rescue logic instead of approximating it
+  // with a blind buffer. See build_water_mesh.py's own module/function
+  // docstrings for the full iteration history — read those before
+  // touching this again.
+  gate(await (async () => {
+    Query.setActiveRegion('penobscot-bay');
+    await Query.loadData(44.103, -69.088);
+    await waitForRegionDataReady(Query);
+    return runCase(Query, Router, '[19] Rockland -> SP009/Eggemoggin Reach (water-mesh archipelago fix)',
+      { lat: 44.103, lon: -69.088 }, { lat: 44.281015556570566, lon: -68.65824742155965 },
+      DEADLINE_MS, LONG_RANGE_DEADLINE_MS);
+  })());
+
   console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll cases passed.');
   console.log(
     '\nNOT PORTED (relied on injecting a synthetic obstacle ring the real\n' +

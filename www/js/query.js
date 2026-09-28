@@ -105,6 +105,8 @@ export let depthZones = null;  // 'shallow area' Polygon features — always rea
 export let channels   = null;  // FAIRWY polygon features from ENC data
 let channelGraph = null;       // LineString edges: fairway centerlines + recommended tracks
 let _channelIndex = null;      // built once from channelGraph — see _buildChannelIndex
+let waterMesh = null;          // LineString edges: precomputed navigable-water mesh (see waterMeshNodesNear)
+let _waterMeshIndex = null;    // built once from waterMesh — see _buildWaterMeshIndex
 export let soundings  = null;  // SOUNDG depth sounding points (thinned, ≤30m)
 export let curatedRoutes = null; // hand-verified sample routes for this region — see [{id,name,points}]
 
@@ -139,6 +141,7 @@ export function setActiveRegion(id) {
   depthZones = null;
   channels = null;
   channelGraph = null; _channelIndex = null;
+  waterMesh = null; _waterMeshIndex = null;
   soundings = null;
   curatedRoutes = null;
 }
@@ -483,6 +486,23 @@ export async function loadData(lat, lon) {
         console.log(`[AC] Channel graph: ${channelGraph ? channelGraph.length : 'not found'} edges`);
       })
       .catch(() => {});  // optional file — no warning if absent; router falls back to normal behavior
+  }
+  if (!waterMesh) {
+    // Precomputed navigable-water mesh — a supplement to channelGraph for
+    // hard, multi-island passages where the router's per-query candidate
+    // generation structurally fails to find any connected path even
+    // though real open water exists (see build_water_mesh.py's own
+    // header for the full story). Pilot file, not every region has one
+    // yet — "not found" is the expected, harmless case everywhere else.
+    // Unlike channelGraph, this is NOT trusted/unchecked data (see
+    // waterMeshNodesNear's own comment) — consumed only as ordinary
+    // candidate nodes the router still segBlocked-checks itself.
+    _fetchRegionGeometry('water_mesh', 'water_mesh_deer_isle.geojson')
+      .then(fc => {
+        if (fc) { waterMesh = fc.features; _waterMeshIndex = _buildWaterMeshIndex(); }
+        console.log(`[AC] Water mesh: ${waterMesh ? waterMesh.length : 'not found'} edges`);
+      })
+      .catch(() => {});  // optional file — no warning if absent
   }
   if (!soundings) {
     _fetchRegionGeometry('soundings', 'soundings.geojson')
@@ -2505,6 +2525,154 @@ export function channelNeighbors(lon, lat) {
   if (!_channelIndex) return [];
   const key = _channelNodeKey(lon, lat);
   return _channelIndex.adjacency.get(key) || [];
+}
+
+// Builds full adjacency (unlike channelGraph's consumer, this one DOES
+// need it — see waterMeshPath below) — but the adjacency is only ever
+// used to precompute a SHORTEST PATH once per query, never exposed as a
+// trusted, segBlocked-bypassing edge source the way channelNeighbors is.
+// The router still segBlocked-checks every consecutive pair of whatever
+// path this returns, live, the same as any other candidate node — see
+// build_water_mesh.py's module docstring for the full safety reasoning.
+//
+// Why a precomputed shortest path, not just "seed every nearby mesh node
+// as a candidate" (the first approach tried, before this comment):
+// confirmed live that a Voronoi medial-axis mesh over a real multi-island
+// area is dense enough (thousands of nodes) that dumping it into the
+// router's existing complete-graph O(nodes) per-expansion segBlocked pass
+// is a genuine performance problem (60s+, still no path found) — and
+// capping it by distance to the query's own direct start-end line is
+// actively counterproductive for exactly the routes this exists to fix:
+// a real detour around a large island is, by definition, far from that
+// direct line. Precomputing the shortest path WITHIN the mesh's own
+// graph (cheap — a few thousand nodes, plain Dijkstra, single-digit
+// milliseconds) and handing the router only that path's own waypoints
+// keeps the live-verified search small and correctly targeted instead.
+function _buildWaterMeshIndex() {
+  const nodes = new Map();      // key -> {lon, lat}
+  const adjacency = new Map();  // key -> [{key, lon, lat}]
+  const grid = new Map();       // cell key (reuses _cellOf/_cellKey2D) -> [key]
+
+  function ensureNode(lon, lat) {
+    const key = _channelNodeKey(lon, lat);
+    if (!nodes.has(key)) {
+      nodes.set(key, { lon, lat });
+      const c = _cellKey2D(_cellOf(lon), _cellOf(lat));
+      let arr = grid.get(c);
+      if (!arr) { arr = []; grid.set(c, arr); }
+      arr.push(key);
+    }
+    return key;
+  }
+  function connect(keyA, keyB) {
+    if (keyA === keyB) return;
+    const a = nodes.get(keyA), b = nodes.get(keyB);
+    let arrA = adjacency.get(keyA); if (!arrA) { arrA = []; adjacency.set(keyA, arrA); }
+    let arrB = adjacency.get(keyB); if (!arrB) { arrB = []; adjacency.set(keyB, arrB); }
+    if (!arrA.some(n => n.key === keyB)) arrA.push({ key: keyB, lon: b.lon, lat: b.lat });
+    if (!arrB.some(n => n.key === keyA)) arrB.push({ key: keyA, lon: a.lon, lat: a.lat });
+  }
+
+  for (const f of (waterMesh || [])) {
+    const coords = f.geometry?.coordinates;
+    if (!coords || coords.length < 2) continue;
+    for (let i = 0; i < coords.length - 1; i++) {
+      const [alon, alat] = coords[i], [blon, blat] = coords[i + 1];
+      const keyA = ensureNode(alon, alat), keyB = ensureNode(blon, blat);
+      connect(keyA, keyB);
+    }
+  }
+  console.log(`[AC] Water mesh index built — ${nodes.size} nodes, ${waterMesh?.length ?? 0} edges`);
+  return { nodes, adjacency, grid };
+}
+
+// Linear nearest-node scan — the mesh is a few thousand nodes at most
+// (this is a one-time, twice-per-query cost: snapping the query's own
+// start/end onto the mesh), cheap next to the actual pathfinding below.
+function _nearestMeshNode(lon, lat) {
+  if (!_waterMeshIndex || _waterMeshIndex.nodes.size === 0) return null;
+  let bestKey = null, bestD = Infinity;
+  for (const [key, n] of _waterMeshIndex.nodes) {
+    const d = (n.lon - lon) ** 2 + (n.lat - lat) ** 2;
+    if (d < bestD) { bestD = d; bestKey = key; }
+  }
+  return bestKey;
+}
+
+/**
+ * Shortest path through the precomputed water mesh from near (fromLon,
+ * fromLat) to near (toLon,toLat), as a plain [{lon,lat}, ...] waypoint
+ * list — or [] if no mesh is loaded, either endpoint is further than
+ * maxSnapNm from any mesh node, or the mesh itself isn't connected
+ * between them. Plain Dijkstra (binary heap) over the mesh's own graph —
+ * small and fast (thousands of nodes, not the router's own much larger
+ * per-query search space) since it only has to solve connectivity WITHIN
+ * the precomputed mesh, not the whole chart. See the router.js/
+ * query.js consumption contract on this file for why the caller must
+ * still segBlocked-check every leg of the result itself.
+ */
+export function waterMeshPath(fromLon, fromLat, toLon, toLat, maxSnapNm = 3) {
+  if (!_waterMeshIndex || _waterMeshIndex.nodes.size === 0) return [];
+  const startKey = _nearestMeshNode(fromLon, fromLat);
+  const endKey = _nearestMeshNode(toLon, toLat);
+  if (!startKey || !endKey || startKey === endKey) return [];
+  const startNode = _waterMeshIndex.nodes.get(startKey);
+  const endNode = _waterMeshIndex.nodes.get(endKey);
+  if (distanceNm(fromLon, fromLat, startNode.lon, startNode.lat) > maxSnapNm) return [];
+  if (distanceNm(toLon, toLat, endNode.lon, endNode.lat) > maxSnapNm) return [];
+
+  const dist = new Map([[startKey, 0]]);
+  const prev = new Map();
+  const visited = new Set();
+  // Simple binary min-heap, same style as router.js's own A* heap.
+  const heap = [[0, startKey]];
+  const hpush = (d, k) => {
+    heap.push([d, k]);
+    let i = heap.length - 1;
+    while (i > 0) {
+      const p = (i - 1) >> 1;
+      if (heap[p][0] <= heap[i][0]) break;
+      [heap[p], heap[i]] = [heap[i], heap[p]]; i = p;
+    }
+  };
+  const hpop = () => {
+    const top = heap[0], last = heap.pop();
+    if (heap.length) {
+      heap[0] = last;
+      let i = 0;
+      for (;;) {
+        const l = i * 2 + 1, r = l + 1; let m = i;
+        if (l < heap.length && heap[l][0] < heap[m][0]) m = l;
+        if (r < heap.length && heap[r][0] < heap[m][0]) m = r;
+        if (m === i) break;
+        [heap[m], heap[i]] = [heap[i], heap[m]]; i = m;
+      }
+    }
+    return top;
+  };
+
+  while (heap.length) {
+    const [d, key] = hpop();
+    if (visited.has(key)) continue;
+    visited.add(key);
+    if (key === endKey) break;
+    for (const nb of (_waterMeshIndex.adjacency.get(key) || [])) {
+      if (visited.has(nb.key)) continue;
+      const a = _waterMeshIndex.nodes.get(key);
+      const nd = d + distanceNm(a.lon, a.lat, nb.lon, nb.lat);
+      if (nd < (dist.get(nb.key) ?? Infinity)) {
+        dist.set(nb.key, nd);
+        prev.set(nb.key, key);
+        hpush(nd, nb.key);
+      }
+    }
+  }
+  if (!visited.has(endKey)) return [];  // mesh isn't connected between these two points
+
+  const pathKeys = [];
+  for (let k = endKey; k !== undefined; k = prev.get(k)) pathKeys.push(k);
+  pathKeys.reverse();
+  return pathKeys.map(k => { const n = _waterMeshIndex.nodes.get(k); return { lon: n.lon, lat: n.lat }; });
 }
 
 function _landBlocks(fromLon, fromLat, toLon, toLat) {

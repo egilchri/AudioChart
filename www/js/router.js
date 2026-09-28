@@ -251,6 +251,31 @@ export async function autoRouteProg(
     }
   }
 
+  // ── Precomputed water mesh (hard multi-island passages) ──────────────────
+  // Ordinary candidate nodes, deliberately NOT given channel-graph's
+  // trusted/unchecked treatment — every edge to/from one of these still
+  // goes through the normal segBlocked-checked relaxation below, same as
+  // any land-ring standoff node. See query.js's waterMeshPath and
+  // build_water_mesh.py's module docstring for the full safety reasoning.
+  //
+  // Seeds only the mesh's OWN precomputed shortest path between this
+  // query's start and end, not every mesh node in the bbox — tried that
+  // first and reverted it: a Voronoi medial-axis mesh over a real
+  // multi-island area is dense enough (thousands of nodes) that dumping
+  // it into the complete-graph O(nodes) per-expansion segBlocked pass
+  // below is a genuine performance problem (confirmed live: 60s+, still
+  // no path found), and capping by distance to the direct start-end line
+  // is actively counterproductive for exactly what this exists to fix —
+  // a real detour around a large island is, by definition, far from that
+  // line. The mesh's own shortest path is cheap to compute (a few
+  // thousand nodes, single-digit ms) and hands the router a small,
+  // correctly-targeted set of waypoints instead.
+  if (Query.waterMeshPath) {
+    for (const wp of Query.waterMeshPath(start.lon, start.lat, end.lon, end.lat)) {
+      nodes.push({ lon: wp.lon, lat: wp.lat });
+    }
+  }
+
   // ── Point-to-segment distance (nm) ────────────────────────────────────────
   function _ptSegDistNm(ptLon, ptLat, aLon, aLat, bLon, bLat) {
     const dx = bLon - aLon, dy = bLat - aLat;
