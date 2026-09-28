@@ -1,59 +1,5 @@
 # Changelog
 
-## 2026-09-28 — Water mesh: tag risky edges with a cost penalty instead of dropping them (v716)
-
-Follow-up to v715's precomputed water mesh, prompted by an attempt (same
-day, see below) to extend that fix to the bundled-default dataset. That
-attempt hit a real obstacle near Pickering Island (~44.259,-68.742) that
-bundled-default's mesh routed straight through even though a safe,
-already-connected detour existed in the same mesh — the mesh's own
-Dijkstra shortest path had no reason to prefer the longer, safer option.
-A first fix attempt (a more precise per-edge validator that DROPPED any
-edge the router's real live `segBlocked` check would reject) made things
-worse, not better: a single medial-axis skeleton has almost no
-redundancy, so dropping even correctly-identified bad edges fragmented
-connectivity everywhere, including regressing the already-shipped v715
-fix back to "no path found." Fully reverted, not shipped.
-
-This release ships the alternative the abandoned attempt's own
-post-mortem pointed at: `build_water_mesh.py` now TAGS (never drops) a
-mesh edge `risky` when it intersects a small, charted shallow-area
-hazard too small to have been subtracted from the water polygon itself
-(the same class of hazard the router's own live `segBlocked` still
-checks per query regardless). `Query.waterMeshPath`'s precomputed
-Dijkstra now applies a heavy cost penalty (25x) to a risky edge, so it
-strongly prefers an existing safe detour when one exists, but can still
-fall back to a risky edge if there's truly no alternative — every edge
-stays reachable, connectivity is never sacrificed for precision, and
-every mesh-derived edge, risky-tagged or not, still goes through the
-router's real, live `segBlocked` check on every query, unchanged from
-v715.
-
-Verified for the shipped penobscot-bay region: regenerated
-`water_mesh_deer_isle.geojson` (7,415 edges, 607 tagged risky), full
-`test_channel_routing.js` suite still green including case `[19]`'s
-exact SP009 route (timing: ~16.7s, up from the earlier ~12s baseline —
-the risky-edge penalty itself accounts for only part of that increase,
-isolated by re-running with the penalty disabled; still well inside the
-54s hard deadline for this legitimately hard long-range case).
-`test_query.js` (25/25) also passes.
-
-**Bundled-default remains unresolved** — this is infrastructure ready to
-reuse, not a fix for that dataset. Re-tested the same Rockland → SP009
-route against bundled-default with the new tagging: the specific
-Pickering Island near-miss improved substantially (closest approach to
-the hazard went from ~0.02nm — routing directly through it — to
-~0.3nm), but the real router's live AutoRoute still reports "no path
-found" for the full route (11,082 extra hazard rings load in the query
-bbox, vs. penobscot-bay's much sparser data — bundled-default's own
-`segBlocked` check rejects a large fraction of the precomputed mesh
-path's edges live, not just the ones near Pickering). This is a
-different, evidently larger problem than the one this release fixes —
-the mesh-seeding and risk-tagging technique both work as designed, but
-bundled-default's own hazard density needs its own investigation before
-another attempt, not a copy-paste of this fix. Not shipped; no bundled-
-default files changed in this release.
-
 ## 2026-09-28 — Precomputed navigable-water mesh fixes a real "no path found" archipelago gap (v715)
 
 Real user report: AutoRoute from a Penobscot Bay position to SP009 (inside

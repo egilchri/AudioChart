@@ -2564,28 +2564,22 @@ function _buildWaterMeshIndex() {
     }
     return key;
   }
-  function connect(keyA, keyB, risky) {
+  function connect(keyA, keyB) {
     if (keyA === keyB) return;
     const a = nodes.get(keyA), b = nodes.get(keyB);
     let arrA = adjacency.get(keyA); if (!arrA) { arrA = []; adjacency.set(keyA, arrA); }
     let arrB = adjacency.get(keyB); if (!arrB) { arrB = []; adjacency.set(keyB, arrB); }
-    if (!arrA.some(n => n.key === keyB)) arrA.push({ key: keyB, lon: b.lon, lat: b.lat, risky });
-    if (!arrB.some(n => n.key === keyA)) arrB.push({ key: keyA, lon: a.lon, lat: a.lat, risky });
+    if (!arrA.some(n => n.key === keyB)) arrA.push({ key: keyB, lon: b.lon, lat: b.lat });
+    if (!arrB.some(n => n.key === keyA)) arrB.push({ key: keyA, lon: a.lon, lat: a.lat });
   }
 
-  // build_water_mesh.py tags a small subset of edges 'risky' — ones that
-  // thread past a charted hazard too small to have been subtracted from
-  // the water polygon itself (see its build_risk_hazard_index docstring).
-  // Carried through into adjacency so waterMeshPath's Dijkstra below can
-  // penalize (never exclude) them.
   for (const f of (waterMesh || [])) {
     const coords = f.geometry?.coordinates;
     if (!coords || coords.length < 2) continue;
-    const risky = !!f.properties?.risky;
     for (let i = 0; i < coords.length - 1; i++) {
       const [alon, alat] = coords[i], [blon, blat] = coords[i + 1];
       const keyA = ensureNode(alon, alat), keyB = ensureNode(blon, blat);
-      connect(keyA, keyB, risky);
+      connect(keyA, keyB);
     }
   }
   console.log(`[AC] Water mesh index built — ${nodes.size} nodes, ${waterMesh?.length ?? 0} edges`);
@@ -2617,19 +2611,6 @@ function _nearestMeshNode(lon, lat) {
  * query.js consumption contract on this file for why the caller must
  * still segBlocked-check every leg of the result itself.
  */
-// Applied to a risky-tagged edge's own distance cost during Dijkstra
-// relaxation below — a strong PREFERENCE for an existing, already-safe
-// detour over an existing-but-risky shortcut, never an exclusion. A
-// risky edge stays fully reachable (picked when it's genuinely the only
-// way through) and, risky or not, every edge this function returns is
-// still segBlocked-checked live by the router on every query regardless
-// — this penalty only shapes which of several already-connected options
-// Dijkstra prefers. See build_water_mesh.py's build_risk_hazard_index
-// docstring for why tagging replaced an earlier, reverted attempt at
-// dropping risky edges outright (it destroyed the medial axis's own
-// thin redundancy and fragmented connectivity).
-const RISKY_EDGE_PENALTY = 25;
-
 export function waterMeshPath(fromLon, fromLat, toLon, toLat, maxSnapNm = 3) {
   if (!_waterMeshIndex || _waterMeshIndex.nodes.size === 0) return [];
   const startKey = _nearestMeshNode(fromLon, fromLat);
@@ -2678,8 +2659,7 @@ export function waterMeshPath(fromLon, fromLat, toLon, toLat, maxSnapNm = 3) {
     for (const nb of (_waterMeshIndex.adjacency.get(key) || [])) {
       if (visited.has(nb.key)) continue;
       const a = _waterMeshIndex.nodes.get(key);
-      const segNm = distanceNm(a.lon, a.lat, nb.lon, nb.lat);
-      const nd = d + (nb.risky ? segNm * RISKY_EDGE_PENALTY : segNm);
+      const nd = d + distanceNm(a.lon, a.lat, nb.lon, nb.lat);
       if (nd < (dist.get(nb.key) ?? Infinity)) {
         dist.set(nb.key, nd);
         prev.set(nb.key, key);
