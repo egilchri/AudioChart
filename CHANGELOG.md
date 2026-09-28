@@ -1,5 +1,29 @@
 # Changelog
 
+## 2026-09-28 — Test Set markers get their own TS001-style labels (v719)
+
+Follow-up to v718, per direct request: "the test set markers need to be
+labelled like TS001, etc." v718 kept each marker's original SP*/wp* name
+(e.g. "SP001") when snapshotted into a Test Set — confusing once several
+sets are saved, since a marker's on-screen label had nothing to do with
+which Test Set it belonged to.
+
+Every waypoint saved into a Test Set now gets its own sequential
+`TS00N` label instead, numbered GLOBALLY across every Test Set ever
+saved (not restarting per set) — so two different sets shown on the map
+at the same time can never collide on the same label. The original
+SP*/wp* name is kept as `origName` and shown in the marker's popup
+("Test Set: Archipelago test points (from SP001)") so the point it came
+from is still traceable. The Test Set's own free-text NAME (e.g.
+"Archipelago test points") is a separate concept from these per-marker
+labels — its own default-name suggestion changed from "TS001" (which
+collided with the new marker-numbering scheme) to "Test Set N".
+
+Verified in a real browser: saved a Test Set, confirmed its markers now
+tooltip as "TS001"/"TS002" and their popup correctly cites the original
+SP001/SP002 they came from. No console errors. `test_query.js` (25/25)
+unaffected (no query.js/router.js changes this release).
+
 ## 2026-09-28 — Test Sets: save SP* waypoints as a permanent, named snapshot for repeatable testing (v718)
 
 Per direct request, after this session's repeated reliance on saved SP*

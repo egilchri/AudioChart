@@ -404,7 +404,7 @@ function _refreshTestSetLayer() {
       m.bindPopup(
         `<div class="navaid-popup">
            <div class="navaid-popup-name">${escapeHtml(wp.name)}</div>
-           <div class="navaid-popup-note">Test Set: ${escapeHtml(set.name)}</div>
+           <div class="navaid-popup-note">Test Set: ${escapeHtml(set.name)}${wp.origName ? ` (from ${escapeHtml(wp.origName)})` : ''}</div>
            <div class="navaid-popup-coords">${formatPositionDisplay(wp.lat, wp.lon)}</div>
            <button class="ts-popup-pos">Set position here</button>
            <button class="ts-popup-autoroute">&#9973; AutoRoute from boat position</button>
@@ -9208,7 +9208,7 @@ function _ensureMap() {
         return;
       }
       (async () => {
-        const name = await _showTextPrompt('Name this Test Set', '', TestSetsStorage.nextTestSetName());
+        const name = await _showTextPrompt('Name this Test Set', '', TestSetsStorage.nextTestSetDefaultName());
         if (!name) return;
         const set = TestSetsStorage.saveTestSet(name, spWps);
         TestSetsStorage.setTestSetVisible(set.id, true);

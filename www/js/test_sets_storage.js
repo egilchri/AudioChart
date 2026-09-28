@@ -22,15 +22,30 @@ function _saveAll(sets) {
   localStorage.setItem(TEST_SETS_KEY, JSON.stringify(sets));
 }
 
-// Mirrors waypoints_storage.js's own _nextNumberedWaypointName — used only
-// to pre-fill the "name this Test Set" prompt with a reasonable default;
-// the user can always rename it to something descriptive before saving.
-export function nextTestSetName() {
-  const nums = loadTestSets()
-    .map(s => parseInt(s.name.replace(/^TS/, ''), 10))
-    .filter(n => !isNaN(n));
-  const next = nums.length ? Math.max(...nums) + 1 : 1;
-  return 'TS' + String(next).padStart(3, '0');
+// Pre-fills the "name this Test Set" prompt with a reasonable default —
+// the SET's own name (a free-text description, e.g. "Archipelago test
+// points"), not the per-MARKER "TS001" labels below. Deliberately not
+// TS-prefixed itself, so it can't be confused with those marker labels
+// once several sets are on screen at once.
+export function nextTestSetDefaultName() {
+  return `Test Set ${loadTestSets().length + 1}`;
+}
+
+// Every marker ever saved into a Test Set gets its own sequential,
+// globally-unique "TS00N" label (per direct request) — continuing across
+// ALL saved sets, not restarting per set, so two sets shown on the map at
+// the same time never show a duplicate "TS001" label. The original SP*/
+// wp* name is kept as origName (shown in the marker's popup) so the
+// point it came from is still traceable.
+function _nextTestMarkerNum(sets) {
+  let maxNum = 0;
+  for (const s of sets) {
+    for (const wp of s.waypoints) {
+      const m = /^TS(\d+)$/.exec(wp.name);
+      if (m) maxNum = Math.max(maxNum, parseInt(m[1], 10));
+    }
+  }
+  return maxNum;
 }
 
 // waypoints: [{name, lat, lon}, ...] — copied by value, not stored by
@@ -38,11 +53,17 @@ export function nextTestSetName() {
 // already-saved Test Set.
 export function saveTestSet(name, waypoints) {
   const sets = loadTestSets();
+  let num = _nextTestMarkerNum(sets);
   const entry = {
     id: `ts_${Date.now()}_${Math.floor(Math.random() * 1e6)}`,
     name,
     createdAt: new Date().toISOString(),
-    waypoints: waypoints.map(w => ({ name: w.name, lat: w.lat, lon: w.lon })),
+    waypoints: waypoints.map(w => ({
+      name: `TS${String(++num).padStart(3, '0')}`,
+      lat: w.lat,
+      lon: w.lon,
+      origName: w.name,
+    })),
   };
   sets.push(entry);
   _saveAll(sets);
