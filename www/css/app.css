@@ -2302,7 +2302,10 @@ body.wco-active #wco-titlebar { display: flex; }
 .navaid-popup-focus,
 .navaid-popup-rename,
 .navaid-popup-autoroute,
-.navaid-popup-delete {
+.navaid-popup-delete,
+.ts-popup-pos,
+.ts-popup-autoroute,
+.ts-popup-delete {
   background: var(--mid-blue);
   border: none;
   border-radius: 6px;
@@ -2318,11 +2321,15 @@ body.wco-active #wco-titlebar { display: flex; }
 .navaid-popup-copy:active,
 .navaid-popup-focus:active,
 .navaid-popup-autoroute:active,
-.navaid-popup-rename:active { background: var(--accent); color: var(--navy); }
+.navaid-popup-rename:active,
+.ts-popup-pos:active,
+.ts-popup-autoroute:active { background: var(--accent); color: var(--navy); }
 /* Red danger accent, same convention as #delete-route-btn — this one's a
    real, unconfirmed-undo delete rather than a view/focus action. */
-.navaid-popup-delete { color: #e05252; }
-.navaid-popup-delete:active { background: #e05252; color: #fff; }
+.navaid-popup-delete,
+.ts-popup-delete { color: #e05252; }
+.navaid-popup-delete:active,
+.ts-popup-delete:active { background: #e05252; color: #fff; }
 .map-tooltip {
   background: var(--dark-blue) !important;
   border: 1px solid var(--mid-blue) !important;

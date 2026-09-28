@@ -408,6 +408,7 @@ function _refreshTestSetLayer() {
            <div class="navaid-popup-coords">${formatPositionDisplay(wp.lat, wp.lon)}</div>
            <button class="ts-popup-pos">Set position here</button>
            <button class="ts-popup-autoroute">&#9973; AutoRoute from boat position</button>
+           <button class="ts-popup-delete">&#128465; Delete</button>
          </div>`,
         { maxWidth: 220, className: 'navaid-popup-wrapper' }
       );
@@ -435,6 +436,14 @@ function _refreshTestSetLayer() {
         popupEl.querySelector('.ts-popup-autoroute').addEventListener('click', () => {
           _map.closePopup();
           _autoRouteFromBoatToHereFn?.(wp.lat, wp.lon);
+        });
+        popupEl.querySelector('.ts-popup-delete').addEventListener('click', () => {
+          if (!confirm(`Delete ${wp.name} from Test Set "${set.name}"? This cannot be undone.`)) return;
+          _map.closePopup();
+          TestSetsStorage.deleteTestSetWaypoint(set.id, wp.name);
+          _refreshTestSetLayer();
+          const msg = `${wp.name} deleted.`;
+          setStatus(msg); TTS.sayImmediate(msg);
         });
       });
       markers.push(m);
@@ -9335,8 +9344,16 @@ function _ensureMap() {
         if (!name) return;
         const set = TestSetsStorage.saveTestSet(name, spWps);
         TestSetsStorage.setTestSetVisible(set.id, true);
+        // Direct request, 2026-09-28: saving converts the source SP*
+        // waypoints into the Test Set rather than leaving a duplicate
+        // copy behind — they disappear from the regular Waypoints list
+        // (and the map, via _refreshWaypointLayer below) and only exist
+        // as this set's own TS00N markers from here on.
+        localStorage.setItem(WaypointsStorage.USER_WP_KEY, JSON.stringify(stored.filter(w => !w.name.startsWith('SP'))));
+        for (const w of spWps) Query.removeUserWaypoint(w.name);
+        _refreshWaypointLayer();
         _refreshTestSetLayer();
-        const msg = `Saved ${spWps.length} SP* waypoint${spWps.length === 1 ? '' : 's'} as Test Set "${name}".`;
+        const msg = `Converted ${spWps.length} SP* waypoint${spWps.length === 1 ? '' : 's'} to Test Set "${name}".`;
         setStatus(msg); TTS.sayImmediate(msg);
       })();
       return;

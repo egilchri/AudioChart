@@ -3,12 +3,17 @@
  * Set is a permanent, named SNAPSHOT of waypoints (name/lat/lon copied at
  * save time, not a live reference) meant for repeatable testing — per
  * direct request: "save [SP markers] as TS markers and have a way of
- * bringing them to the screen for testing." Deliberately a snapshot, not
- * a reference to the live SP/wp waypoints: a Test Set has to keep working
- * as a fixed set of test coordinates even after the SP markers it was
- * built from are later renamed, moved, or bulk-deleted (see app.js's
- * existing "Delete all SP* waypoints" action). Pure reads/writes, no
- * map/UI dependency — same split as waypoints_storage.js.
+ * bringing them to the screen for testing." A copy, not a live reference,
+ * because a Test Set has to keep working as a fixed set of test
+ * coordinates regardless of what later happens elsewhere — its own
+ * waypoints are only ever removed via deleteTestSet/deleteTestSetWaypoint
+ * below, never as a side effect of editing a regular wp* or SP* waypoint.
+ * (Saving DOES convert the source SP* waypoints into a set — direct
+ * request, 2026-09-28: they're renamed to TS00N and removed from the
+ * regular waypoint list at save time, in app.js's own save handler, not
+ * left behind as a duplicate. This module has no opinion on that; it just
+ * stores whatever waypoints array the caller hands it.) Pure reads/writes,
+ * no map/UI dependency — same split as waypoints_storage.js.
  */
 
 export const TEST_SETS_KEY = 'audiochart-test-sets';
@@ -74,6 +79,21 @@ export function deleteTestSet(id) {
   _saveAll(loadTestSets().filter(s => s.id !== id));
   const visible = loadVisibleTestSetIds();
   if (visible.has(id)) { visible.delete(id); _saveVisibleTestSetIds(visible); }
+}
+
+// Removes a single marker from a Test Set (its own TS00N name, not the
+// set's own name/id). If that was the last marker, deletes the whole
+// (now-empty, no longer useful) set — same cleanup deleteTestSet does.
+export function deleteTestSetWaypoint(setId, waypointName) {
+  const sets = loadTestSets();
+  const set = sets.find(s => s.id === setId);
+  if (!set) return;
+  set.waypoints = set.waypoints.filter(w => w.name !== waypointName);
+  if (set.waypoints.length === 0) {
+    deleteTestSet(setId);
+    return;
+  }
+  _saveAll(sets);
 }
 
 export function loadVisibleTestSetIds() {

@@ -1,5 +1,44 @@
 # Changelog
 
+## 2026-09-28 — Test Set marker delete option; saving now converts SP* waypoints instead of duplicating them (v724)
+
+Two direct follow-ups to the Test Sets feature (v718-v719).
+
+**1. Delete option on individual TS markers.** Each marker's popup
+("Set position here" / "AutoRoute from boat position") had no way to
+remove just that one point — only the whole Test Set, from the Test
+Sets submenu. Added a "Delete" button (confirms first); deleting the
+last waypoint in a set removes the now-empty set entirely, matching the
+same cleanup the "Delete Test Set" action already does. Also fixed a
+real styling gap while in this popup: the existing buttons
+(`ts-popup-pos`/`ts-popup-autoroute`) were never actually added to the
+app's shared popup-button CSS rule back in v718, so they rendered as
+plain unstyled `<button>` elements — folded them (and the new delete
+button, with the same red-danger treatment as every other delete
+button in the app) into that shared rule.
+
+**2. "Save as Test Set" now converts, not duplicates.** Direct request,
+after "not all SP markers are renamed as TS right now" turned out to
+mean the source SP* waypoints were expected to disappear from the
+regular waypoint list once saved into a set, not sit around unchanged
+as a leftover duplicate alongside the new TS-named copy. The save
+handler now removes the source SP* waypoints (from both localStorage
+and the live `Query` waypoint index) immediately after building the
+Test Set, mirroring the existing "Delete all SP* waypoints" bulk-delete
+logic. Status message updated to say "Converted," not "Saved," to
+match. `TestSetsStorage`'s own internal snapshot/copy design (v718) is
+unchanged — this only changes what app.js's save handler does with the
+source waypoints afterward.
+
+Verified live in a browser: saving converts SP001/SP002 into
+TS001/TS002 and removes them from the regular waypoint list (a
+non-SP-prefixed waypoint in the same list correctly survives
+untouched); the new popup buttons render properly styled; deleting one
+marker from a two-marker set leaves the other intact; deleting the
+last marker in a set removes the set entirely, including from the
+visible-sets tracking. No console errors. `test_query.js` (25/25)
+passes — no query.js/router.js changes this release.
+
 ## 2026-09-28 — Settable comfort margin, and live hazard re-checking while underway (v723)
 
 Two direct follow-up requests from v722's clearance-margin fix.
