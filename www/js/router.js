@@ -581,6 +581,9 @@ export async function autoRouteProg(
     }
     return false;
   }
+  if (typeof process !== 'undefined' && process.env && process.env.DEBUG_SEGBLOCKED) {
+    globalThis.__segBlockedFn = segBlocked;
+  }
 
   // Validates a candidate offset point actually landed in open water — a
   // fixed offset direction (e.g. "away from the ring's centroid") can be
@@ -1361,9 +1364,50 @@ async function _transitLeg(a, b, lrT0, onUpdate, onText, draftFt, tideHeightM, o
     // CI runner. The loop's own `longRangeDeadlineMs` guard above already
     // stops a NEW hop from starting once the envelope is spent, so this
     // can't run the whole passage past its documented 3x budget.
-    const remainingMs = Math.max(0, longRangeDeadlineMs - (Date.now() - lrT0));
-    const patched = await autoRouteProg(bracketStart, bracketEnd, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap, remainingMs);
-    if (patched.length <= 2 && Query.landBlocks(patched[0].lon, patched[0].lat, patched[1].lon, patched[1].lat)) {
+    let patched = await autoRouteProg(bracketStart, bracketEnd, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap,
+      Math.max(0, longRangeDeadlineMs - (Date.now() - lrT0)));
+    let failed = patched.length <= 2 && Query.landBlocks(patched[0].lon, patched[0].lat, patched[1].lon, patched[1].lat);
+
+    // A real, live-verified bug (2026-09-28): bracketing the WHOLE
+    // detected blocked stretch in one shot is fragile — a real route
+    // just 0.11nm from an otherwise-identical, already-passing
+    // destination failed completely this way (full graph exhaustion,
+    // not a timeout), purely because THIS destination's own coarse
+    // march happened to detect one long continuous blocked stretch
+    // where the passing case's march detected a shorter one, splitting
+    // naturally into two easier hops. Same underlying passage, same
+    // real water — just a different bracket size. Retry with a much
+    // smaller bite (just past where the blockage STARTS, not its whole
+    // detected span) before giving up entirely: if that smaller,
+    // easier bracket succeeds, the loop's own next iteration will
+    // bracket and solve the REMAINING stretch as a further hop, the
+    // same way the naturally-easier case did on its own.
+    if (failed && endT > startT + ENDPOINT_LAND_STEP_T) {
+      const retryEndT = Math.max(startT + ENDPOINT_LAND_STEP_T, Math.min(endT, firstBlockedT + bufferT + STEP_NM / totalNm));
+      if (retryEndT < endT - 1e-6) {
+        let smallEndT = retryEndT;
+        let landGuard2 = 0;
+        while (Query.isLandAt(
+          cursor.lon + (b.lon - cursor.lon) * smallEndT,
+          cursor.lat + (b.lat - cursor.lat) * smallEndT,
+        ) && smallEndT - ENDPOINT_LAND_STEP_T > startT && landGuard2++ < 40) {
+          smallEndT -= ENDPOINT_LAND_STEP_T;
+        }
+        const smallBracketEnd = { lat: cursor.lat + (b.lat - cursor.lat) * smallEndT, lon: cursor.lon + (b.lon - cursor.lon) * smallEndT };
+        const retryPatched = await autoRouteProg(bracketStart, smallBracketEnd, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap,
+          Math.max(0, longRangeDeadlineMs - (Date.now() - lrT0)));
+        const retryFailed = retryPatched.length <= 2 && Query.landBlocks(retryPatched[0].lon, retryPatched[0].lat, retryPatched[1].lon, retryPatched[1].lat);
+        if (!retryFailed) {
+          patched = retryPatched;
+          failed = false;
+          endT = smallEndT;
+          bracketEnd.lat = smallBracketEnd.lat;
+          bracketEnd.lon = smallBracketEnd.lon;
+        }
+      }
+    }
+
+    if (failed) {
       return null; // local avoidance also failed for this obstacle — honest fallback, don't splice in a land crossing
     }
     for (const p of patched.slice(1)) result.push(p);

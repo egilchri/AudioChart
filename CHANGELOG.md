@@ -1,5 +1,50 @@
 # Changelog
 
+## 2026-09-28 — Fix a fragile long-range transit bracket that failed 0.11nm from a passing route (v717)
+
+Real user report: AutoRoute from Rockland to the WoodenBoat School
+Moorings vicinity in Brooklin failed completely (full A* graph
+exhaustion, not a timeout) — reachable with "no path found — returning
+straight line," a straight line across real charted land. Striking
+detail: this destination is just 0.11nm from case 17's own destination
+(WoodenBoat School/Center Harbor), which has passed in the regression
+suite since the same-day archipelago work earlier today. Confirmed live
+on BOTH bundled-default and the penobscot-bay region — not a region-
+data gap, and not something the precomputed water mesh from earlier
+today's work could fix (confirmed by direct connectivity checks against
+the mesh; also confirmed the failure reproduces identically with no
+water mesh loaded at all on bundled-default).
+
+Root cause, isolated by capturing the router's own internal bracket
+boundaries for both destinations side by side: `_transitLeg` (router.js)
+coarse-marches the direct line from departure to arrival to find where
+a blockage starts and ends, then brackets the WHOLE detected span in
+one local search. For the passing destination, that march happened to
+detect a shorter blocked stretch, splitting the passage naturally into
+two easy local searches. For the failing destination — same real water,
+same real islands, a destination shifted by about a boat's length —
+the march detected one long continuous ~19nm blocked stretch instead,
+handed as a single much harder bracket to the local search, which
+genuinely exhausted its candidate graph trying to solve it in one shot.
+
+Fixed by retrying a failed full-span bracket with a much smaller one —
+just past where the blockage starts, not its whole detected span —
+before giving up on the whole transit leg. If the smaller bracket
+succeeds, `_transitLeg`'s own hop loop naturally continues on to bracket
+and solve the remaining stretch as a further hop, the same way the
+already-passing destination did on its own. This directly targets the
+sensitivity itself (any bracket that's too hard to solve in one shot can
+now split into an easier first bite) rather than one specific spot,
+so it should hold for the next similarly fragile case, not just this one.
+
+Verified: the fix alone (no water-mesh or region-data changes) resolves
+the route on both bundled-default and penobscot-bay. Full
+`test_channel_routing.js` and `test_query.js` (25/25) pass; case 19
+(today's earlier archipelago fix) is unaffected (~15-16s, unchanged).
+Added permanent regression case `[20]`, run against bundled-default
+specifically to prove this is a router-logic fix, not another mesh-
+coverage gap.
+
 ## 2026-09-28 — Give the long-range transit leg its real time budget, not a flat per-call cap (v716)
 
 Follow-up to v715, found by CI rather than a user report this time. An

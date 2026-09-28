@@ -515,6 +515,35 @@ async function main() {
       DEADLINE_MS, LONG_RANGE_DEADLINE_MS);
   })());
 
+  // Case 20 — Rockland -> WoodenBoat School Moorings vicinity, Brooklin
+  // (real user-reported route, 2026-09-28). Just 0.11nm from case 17's
+  // own destination (which already passed), but failed completely
+  // (full A* graph exhaustion, not a timeout) on BOTH bundled-default
+  // and penobscot-bay. Root cause, confirmed live: _transitLeg's coarse
+  // march detects where a direct line's blockage starts/ends, then
+  // brackets the WHOLE detected span in one local search — for this
+  // destination the march happened to detect one long continuous
+  // blocked stretch (~19nm bracket) where case 17's nearly-identical
+  // line detected a shorter one, splitting naturally into two easier
+  // hops. Same real passage, same real water — a fragile difference in
+  // where one coarse-march sample landed relative to a real hazard,
+  // not a difference in what's actually navigable. Fixed by retrying a
+  // failed full-span bracket with a much smaller one (just past where
+  // the blockage starts, not its whole detected span) before giving up
+  // — see router.js's _transitLeg for the fix and full comment. Run
+  // against bundled-default specifically (case 17/19 already cover
+  // penobscot-bay) since this reproduces and is fixed there too, with
+  // no water-mesh data involved at all — proof this is a router-logic
+  // fix, not another mesh-coverage gap.
+  gate(await (async () => {
+    Query.setActiveRegion(null);
+    await Query.loadData(44.103, -69.088);
+    await waitForRegionDataReady(Query);
+    return runCase(Query, Router, '[20] Rockland -> WoodenBoat School Moorings/Brooklin (fragile transit-bracket fix)',
+      { lat: 44.103, lon: -69.088 }, { lat: 44.243724, lon: -68.557738 },
+      DEADLINE_MS, LONG_RANGE_DEADLINE_MS);
+  })());
+
   console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll cases passed.');
   console.log(
     '\nNOT PORTED (relied on injecting a synthetic obstacle ring the real\n' +
