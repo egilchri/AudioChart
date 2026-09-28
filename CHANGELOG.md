@@ -12,6 +12,39 @@
 > deep-dive on the v317–v325 cluster specifically (Focus Target, Simulate
 > Heading); the summaries below start right after that.
 
+## 2026-09-27 — Don't show a shallow-area triangle when a real sounding says the crossing is actually deep (v712)
+
+Direct follow-up to v711: showing the real depth ("~14.8 ft here") next to
+the polygon's coarse range surfaced a UX problem it didn't fix on its
+own — the triangle appeared on *every* crossing of a shallow-labeled
+DEPARE polygon regardless of the real depth at that exact spot, so a
+route could get flagged even where a real sounding showed clearly
+comfortable water. User's reaction: "Seems to me there shouldn't be a
+yellow triangle there in that case."
+
+`_findRouteHazards` in `app.js` now uses the same real-sounding lookup to
+decide whether to flag the crossing at all, not just what number to show.
+If a real sounding is found nearby and its tide-adjusted depth is at or
+above draft + 6ft, the crossing is left unflagged — same "clearly fine"
+cutoff already used by the depth-heat overlay's own yellow band, so a
+route triangle now means the same thing the map's own shading already
+implies. A crossing in the marginal band (draft+3ft to draft+6ft) or
+worse still gets flagged, and a crossing with no real sounding nearby
+stays conservative and flags as before ("unverified is never safe",
+same policy as the rest of this session's soundings work). Above-water
+obstacle crossings are untouched — there's no "depth of water" to
+evaluate there. `dangerSegments` (the red route highlight) is now set
+only when a hazard is actually flagged, so a suppressed crossing doesn't
+leave an unexplained red highlight with no marker.
+
+Verified against real chart data (not synthetic): built two test routes
+from actual charted soundings — a genuine ~4.9ft and ~8.9ft shallow
+crossing (still flagged, real depth shown) and a genuine ~14.8ft crossing
+inside a shallow-labeled polygon (now suppressed) — confirmed live in a
+running app instance. `test/test_query.js` (25/25) and
+`test/test_channel_routing.js` (all gated cases) pass unchanged — display
+logic only, no router.js pathfinding impact.
+
 ## 2026-09-27 — Show real charted depth on shallow-area warning triangles (v711)
 
 Direct request: for each yellow warning-triangle marker on a route (the

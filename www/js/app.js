@@ -2300,7 +2300,6 @@ function _findRouteHazards(points) {
         const hit = _segPolyIntersectPoint(a.lon, a.lat, b.lon, b.lat, ring);
         if (!hit) continue;
         seen.add(key);
-        dangerSegments.add(i);
         // The polygon's own depth_label is a worst-case RANGE for its whole
         // (often broad — see this session's router.js/query.js soundings
         // work) extent, not the depth at this exact spot. Direct request:
@@ -2312,7 +2311,27 @@ function _findRouteHazards(points) {
         // meaningful for a genuine underwater shallow area — an
         // above-water obstacle has no "depth of water" to report.
         const nearSounding = minDepth >= 0 ? Query.nearestSounding?.(hit.lat, hit.lon, 0.2) : null;
-        const depthFt = nearSounding ? (nearSounding.valsou * 3.28084) : null;
+        let depthFt = null;
+        if (nearSounding) {
+          // Same margin constant as router.js/query.js's own hazard
+          // checks and the depth-heat overlay's red/yellow bands.
+          const KEEL_CLEARANCE_MARGIN_M = 3 * 0.3048; // 3ft
+          const draftM = _getDraftMeters();
+          const eff = nearSounding.valsou + _effectiveTideHeight();
+          depthFt = eff * 3.28084;
+          // A real nearby sounding showing comfortably deep water means this
+          // crossing isn't actually worth a caution triangle — the polygon's
+          // depth_label is only a worst-case range for its whole extent, and
+          // flagging every crossing regardless of real depth just trains
+          // users to ignore the warning. Same "clearly fine" cutoff as the
+          // depth-heat overlay's own yellow band (draft + 6ft): below it,
+          // still flag as marginal; a sounding-confirmed depth at or above
+          // it is left unflagged. No nearby sounding stays conservative and
+          // keeps flagging, same "unverified is never safe" policy used
+          // elsewhere this session.
+          if (draftM != null && eff >= draftM + 1.8288) continue;
+        }
+        dangerSegments.add(i);
         const polyLabel = minDepth < 0 ? 'above-water obstacle'
           : depthFt != null
             ? `shallow area (~${depthFt.toFixed(1)} ft here, charted range ${_depthRangeLabelFt(props.depth_label)})`
