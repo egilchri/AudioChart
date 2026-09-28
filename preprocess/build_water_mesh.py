@@ -71,7 +71,7 @@ import json
 import math
 import os
 
-from shapely.geometry import shape, box
+from shapely.geometry import shape, box, LineString
 from shapely.ops import transform as shp_transform, unary_union
 from shapely.strtree import STRtree
 
@@ -198,7 +198,82 @@ def water_polygon(bbox_lonlat, land_features, shallow_features, soundings_featur
     return bbox_geom.difference(unary_union(nearby))
 
 
-def water_piece_to_edges(poly, min_piece_area_m2):
+def build_risk_hazard_index(shallow_features, soundings_features, ref_draft_m):
+    """Small, targeted hazard set used only to TAG mesh edges 'risky',
+    never to drop them. This is deliberately NOT another attempt at the
+    precise per-edge segBlocked port that was tried and reverted earlier
+    (2026-09-28) — that dropped edges outright and fragmented the medial
+    axis's already-thin redundancy, breaking connectivity everywhere,
+    including the already-shipped penobscot-bay fix.
+
+    Here the same "too shallow at ref draft, minus real-sounding
+    rescue" test water_polygon() already applies to SIGNIFICANT hazards
+    is applied again, but to EVERY shallow-area polygon regardless of
+    size (including the small rock/ledge markers water_polygon()
+    deliberately leaves in the water polygon for the router's own live
+    check to handle — see its comment). A large, already-subtracted
+    hazard can never geometrically intersect a medial-axis edge (the
+    polygon that generated the mesh already excludes it), so tagging
+    against the full set is a safe no-op there; it only has teeth against
+    the small hazards the mesh's own geometry doesn't already avoid —
+    exactly the class of case (e.g. a small charted rock a medial-axis
+    lane threads past) a real live segBlocked call would still reject at
+    query time regardless of this tag. The tag is a cost hint for
+    Query.waterMeshPath's precomputed Dijkstra so it prefers an existing,
+    already-safe detour over an existing-but-risky shortcut; it changes
+    no safety behavior on its own — every mesh edge, risky or not, still
+    goes through the router's real, live segBlocked check on every
+    query."""
+    draft_with_margin_m = ref_draft_m + KEEL_CLEARANCE_MARGIN_M
+    good_sounding_circles = []
+    for f in soundings_features:
+        valsou = f['properties'].get('valsou')
+        if valsou is None or valsou <= draft_with_margin_m:
+            continue
+        lon, lat = f['geometry']['coordinates']
+        cv = max(math.cos(math.radians(lat)), 0.01)
+        circle = shape({'type': 'Point', 'coordinates': [lon, lat]}).buffer(1.0, resolution=8)
+        circle = shp_transform(
+            lambda x, y, cx=lon, cy=lat: (
+                cx + (x - cx) * SOUNDING_SEARCH_RADIUS_M / (111320.0 * cv),
+                cy + (y - cy) * SOUNDING_SEARCH_RADIUS_M / 111320.0,
+            ),
+            circle,
+        )
+        good_sounding_circles.append(circle)
+    good_soundings_union = unary_union(good_sounding_circles) if good_sounding_circles else None
+
+    risk_geoms = []
+    for f in shallow_features:
+        valsou = f['properties'].get('valsou')
+        if valsou is None or valsou > ref_draft_m:
+            continue
+        geom = shape(f['geometry']).buffer(0)
+        if good_soundings_union is not None:
+            geom = geom.difference(good_soundings_union)
+        if geom.is_empty:
+            continue
+        # Small conservative buffer (matches the keel-clearance margin, in
+        # degrees at this latitude) — a cost hint should lean cautious
+        # about near-misses, not just literal polygon crossings, since
+        # it only ever nudges Dijkstra's preference, never blocks a path.
+        risk_geoms.append(geom.buffer(KEEL_CLEARANCE_MARGIN_M / 111320.0))
+    if not risk_geoms:
+        return None, []
+    return STRtree(risk_geoms), risk_geoms
+
+
+def edge_is_risky(hazard_tree, hazard_geoms, a_lonlat, b_lonlat):
+    if hazard_tree is None:
+        return False
+    line = LineString([a_lonlat, b_lonlat])
+    for idx in hazard_tree.query(line):
+        if line.intersects(hazard_geoms[idx]):
+            return True
+    return False
+
+
+def water_piece_to_edges(poly, min_piece_area_m2, hazard_tree=None, hazard_geoms=None):
     """One connected water polygon -> medial-axis mesh edges. Reuses
     build_channel_graph.py's medial_axis_edges/snap_nodes/prune_spurs/
     break_artifact_cycles pipeline UNMODIFIED (none of them have any
@@ -209,7 +284,12 @@ def water_piece_to_edges(poly, min_piece_area_m2):
     both are wrong here: a real regional water piece is SUPPOSED to be a
     densely-branching graph (it needs to cover a reach, a thorofare, and
     the open water south of an island all at once), not reduce to one
-    lane or get rejected for having real junctions."""
+    lane or get rejected for having real junctions.
+
+    Every edge is kept regardless of risk (see build_risk_hazard_index's
+    docstring for why dropping was tried and reverted) — hazard_tree/
+    hazard_geoms, if given, only decide the 'risky' property returned
+    alongside each edge for the caller to write into output properties."""
     if poly.is_empty or poly.area <= 0:
         return []
     c = poly.centroid
@@ -225,7 +305,8 @@ def water_piece_to_edges(poly, min_piece_area_m2):
     for (ax, ay), (bx, by) in edges_m:
         alon, alat = inv.transform(ax, ay)
         blon, blat = inv.transform(bx, by)
-        out.append(((alon, alat), (blon, blat)))
+        risky = edge_is_risky(hazard_tree, hazard_geoms, (alon, alat), (blon, blat))
+        out.append(((alon, alat), (blon, blat), risky))
     return out
 
 
@@ -264,6 +345,15 @@ def main():
           f'sounding(s) (ref draft {args.ref_draft_ft}ft)...')
     water = water_polygon(bbox, land_features, shallow_features, soundings_features, ref_draft_m)
 
+    # Separate, deliberately narrower index used only to TAG (never drop)
+    # risky edges — see build_risk_hazard_index's docstring. Reuses the
+    # full unfiltered shallow_features list (not just the "significant
+    # area" subset water_polygon() subtracted) since the small hazards
+    # left inside the water polygon on purpose are exactly the ones a
+    # tag needs to catch.
+    hazard_tree, hazard_geoms = build_risk_hazard_index(shallow_features, soundings_features, ref_draft_m)
+    print(f'Risk-tagging index: {len(hazard_geoms)} hazard polygon(s) after real-sounding rescue')
+
     pieces = [g for g in (water.geoms if hasattr(water, 'geoms') else [water])
               if g.geom_type == 'Polygon' and not g.is_empty]
     print(f'Water polygon has {len(pieces)} piece(s); running medial-axis mesh on each...')
@@ -271,15 +361,19 @@ def main():
     out_features = []
     for i, poly in enumerate(pieces):
         label = f'{args.label} {i + 1}'
-        edges = water_piece_to_edges(poly, args.min_piece_area_m2)
-        print(f'  piece {i + 1} (area {poly.area:.6f} deg^2): {len(edges)} edge(s)')
-        for (alon, alat), (blon, blat) in edges:
+        edges = water_piece_to_edges(poly, args.min_piece_area_m2, hazard_tree, hazard_geoms)
+        n_risky = sum(1 for (_, _, risky) in edges if risky)
+        print(f'  piece {i + 1} (area {poly.area:.6f} deg^2): {len(edges)} edge(s), {n_risky} tagged risky')
+        for (alon, alat), (blon, blat), risky in edges:
+            props = {'source': 'water_mesh', 'channelName': label}
+            if risky:
+                props['risky'] = True
             out_features.append({
                 'type': 'Feature',
                 'geometry': {'type': 'LineString',
                              'coordinates': [[round(alon, 6), round(alat, 6)],
                                               [round(blon, 6), round(blat, 6)]]},
-                'properties': {'source': 'water_mesh', 'channelName': label},
+                'properties': props,
             })
 
     out_dir = os.path.dirname(args.out) or '.'
