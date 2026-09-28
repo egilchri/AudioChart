@@ -1,5 +1,38 @@
 # Changelog
 
+## 2026-09-28 — Give the long-range transit leg its real time budget, not a flat per-call cap (v716)
+
+Follow-up to v715, found by CI rather than a user report this time. An
+earlier same-day attempt to extend the water mesh to a second dataset
+(shipped as v716, then reverted — see git history) got caught by CI
+failing on the exact route v715 fixed: case `[19]`, Rockland → SP009 in
+Eggemoggin Reach. Reverting restored the byte-identical v715 code and
+data, but a direct re-run of that exact unchanged commit's CI job
+**still failed once**, then passed cleanly on a second re-run with no
+changes at all — proving this was never a functional regression, but a
+timing one: v715's own original passing CI run had already used 17,084
+of its 18,000ms per-leg budget (916ms to spare) to find this route.
+Case 19 has always had close to zero margin on CI's shared runners, not
+just under the specific change that got reverted.
+
+The real fix: `_transitLeg`'s per-obstacle bracket search (`router.js`)
+was capped at the flat per-call `deadlineMs` (18s), even though the
+long-range decomposition it's part of already budgets 3x that
+(`longRangeDeadlineMs`, 54s) for the whole passage — and a fast depart
+leg typically leaves nearly all of that unused. The bracket search now
+gets whatever's actually left of the full passage budget instead of a
+flat 18s slice, so a genuinely hard, island-dense bracket (like Deer
+Isle/Eggemoggin Reach) gets real headroom instead of being cut off at
+an arbitrary fraction of a budget that was never actually exhausted.
+The existing per-hop `longRangeDeadlineMs` guard is unchanged, so this
+can't run the whole passage past its documented 3x envelope.
+
+Verified locally: case 19's search still converges the same way it
+always did (1475 expansions, ~16.3s, unchanged from before) — this
+change is pure headroom, invisible when a search is already fast enough,
+and only matters when it isn't. Full `test_channel_routing.js` and
+`test_query.js` (25/25) pass.
+
 ## 2026-09-28 — Precomputed navigable-water mesh fixes a real "no path found" archipelago gap (v715)
 
 Real user report: AutoRoute from a Penobscot Bay position to SP009 (inside

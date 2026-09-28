@@ -1346,7 +1346,23 @@ async function _transitLeg(a, b, lrT0, onUpdate, onText, draftFt, tideHeightM, o
     const bracketEnd = { lat: cursor.lat + (b.lat - cursor.lat) * endT, lon: cursor.lon + (b.lon - cursor.lon) * endT };
 
     if (startT > 0) result.push(bracketStart);
-    const patched = await autoRouteProg(bracketStart, bracketEnd, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs);
+    // Give this bracket's own search whatever's left of the WHOLE passage's
+    // longRangeDeadlineMs budget (3x deadlineMs by default), not just the
+    // flat per-call deadlineMs — a hard, island-dense bracket (e.g. Deer
+    // Isle/Eggemoggin Reach) can genuinely need more than one leg's worth
+    // of search time, and the depart leg + earlier hops typically leave
+    // most of that 3x budget unused (confirmed live: the depart leg for a
+    // real hard case took ~50ms). Real CI timing found this leg had
+    // essentially zero margin at the flat 18s cap (one run: 1475/1980
+    // candidate-node expansions completed with 916ms to spare; a slower
+    // run on the same code/data only got 840 expansions before hitting
+    // that same 18s wall and falling back to an unsafe straight line) —
+    // this directly widens that margin instead of just hoping for a fast
+    // CI runner. The loop's own `longRangeDeadlineMs` guard above already
+    // stops a NEW hop from starting once the envelope is spent, so this
+    // can't run the whole passage past its documented 3x budget.
+    const remainingMs = Math.max(0, longRangeDeadlineMs - (Date.now() - lrT0));
+    const patched = await autoRouteProg(bracketStart, bracketEnd, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap, remainingMs);
     if (patched.length <= 2 && Query.landBlocks(patched[0].lon, patched[0].lat, patched[1].lon, patched[1].lat)) {
       return null; // local avoidance also failed for this obstacle — honest fallback, don't splice in a land crossing
     }
