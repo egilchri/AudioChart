@@ -1,5 +1,46 @@
 # Changelog
 
+## 2026-09-28 — Fix a real gap letting a route pass within 1.5m of a charted rock (v721)
+
+Real user report, with a saved route: "This was not a wise course. I
+think you should have gone further offshore." Investigated with real
+chart data, not assumed: the route's worst clearance from a charted
+underwater rock was **0.0008nm — about 1.5 meters** — confirmed against
+the actual hazard data, not just visually.
+
+Root cause, confirmed live: `router.js`'s `segBlocked` builds a small
+no-go circle (`HAZARD_SAFETY_NM = 0.05nm`) around each charted point
+hazard (underwater rock/obstruction/wreck) and checks candidate route
+edges against it — but only for hazards inside *that query's own*
+padded bounding box (`start`/`end` ± `PAD_NM = 2.0nm`). That's fine for
+steering candidate *node generation* away from a hazard, but a genuine
+blind spot for *edge checking*: this route's real, necessary detour
+around Fox Islands Thorofare/Perry Creek bulges further than `PAD_NM`
+past the direct start-end line, so a real charted rock sitting ~0.6nm
+past the query bbox's own edge never got a no-go circle built for it at
+all — `segBlocked` had literally never heard of it. The route "succeeded"
+with no warning, which is worse than failing loudly: exactly the
+"never silently unsafe" bar this project holds AutoRoute to.
+
+This is the same class of gap `Query.landBlocks` doesn't have — land
+crossing is checked via a global, bbox-independent spatial index, always
+correct regardless of which query built it. Point hazards had no
+equivalent. Fixed by adding `Query.hazardPointBlocks` — a new, always-on,
+grid-indexed (not a per-query bbox scan) check covering every charted
+point hazard in the loaded region, wired into `segBlocked` right
+alongside the existing `Query.landBlocks` call. The existing per-query
+hazard-circle mechanism is untouched (still used for node generation);
+this adds the same always-correct guarantee to edge checking that land
+already had.
+
+Verified live: the fixed route's worst standoff from the same charted
+rock improved from ~1.5m to ~51m — the router now finds a real
+alternative that goes further offshore, exactly as reported. Full
+`test_channel_routing.js` and `test_query.js` (25/25) pass, including a
+new permanent regression case `[21]` for this exact route. No
+meaningful performance change (the new check is grid-indexed, same cost
+class as the existing `landBlocks` call it sits beside).
+
 ## 2026-09-28 — TTS: spell out "nautical miles" instead of "nm" in spoken distances (v720)
 
 Real user report: the app's spoken (TTS) announcements read a distance

@@ -2366,6 +2366,65 @@ function _ptSegDistNmLocal(ptLon, ptLat, aLon, aLat, bLon, bLat) {
   return distanceNm(ptLon, ptLat, aLon + t * dx, aLat + t * dy);
 }
 
+// Global, bbox-independent equivalent of router.js's per-query hazard-
+// circle rings — gives point hazards (underwater rock/obstruction/wreck)
+// the same always-correct guarantee landBlocks already has, instead of
+// only being checked when a query's own bMinLon/bMaxLon/bMinLat/bMaxLat
+// happens to include them.
+//
+// Real gap found live, 2026-09-28: router.js builds a HAZARD_SAFETY_NM
+// no-go circle around each point hazard, but only for hazards inside
+// THAT query's own padded bbox (start/end ± PAD_NM=2.0nm) — fine for
+// steering candidate NODE generation away from a hazard, but a genuine
+// blind spot for EDGE checking. A route whose real, necessary detour
+// bulges further than PAD_NM from the direct start-end line (a real,
+// reproducible case in this hazard-dense archipelago) can pass within
+// meters of a charted rock whose circle was never built, because
+// segBlocked's own bbox-scoped extraGrid never saw it — the route
+// "succeeds" with no warning, which is worse than failing loudly.
+// Confirmed live: a real route passed within 0.0008nm (~1.5m) of a
+// charted underwater rock sitting ~0.6nm past the query bbox's edge.
+//
+// Reuses _HAZARD_LABELS/_HAZARD_SAFETY_NM (already shared with the
+// nudge-offshore obstacle checker) so this can't silently disagree with
+// them on which features count or how much clearance is required.
+let _hazardPointIndex = null; // { grid, builtFrom } — rebuilt whenever `hazards` itself changes
+function _buildHazardPointIndex() {
+  const grid = new Map();
+  for (const f of (hazards?.features || [])) {
+    if (f.geometry?.type !== 'Point') continue;
+    const label = f.properties?.label || f.properties?.objtype || '';
+    if (!_HAZARD_LABELS.has(label)) continue;
+    const [lon, lat] = f.geometry.coordinates;
+    const key = _cellKey2D(_cellOf(lon), _cellOf(lat));
+    let arr = grid.get(key);
+    if (!arr) { arr = []; grid.set(key, arr); }
+    arr.push([lon, lat]);
+  }
+  return { grid, builtFrom: hazards };
+}
+export function hazardPointBlocks(fromLon, fromLat, toLon, toLat) {
+  if (!hazards) return false;
+  if (!_hazardPointIndex || _hazardPointIndex.builtFrom !== hazards) _hazardPointIndex = _buildHazardPointIndex();
+  const { grid } = _hazardPointIndex;
+  if (!grid.size) return false;
+  const cv = Math.cos(((fromLat + toLat) / 2) * Math.PI / 180) || 1e-6;
+  const padLon = _HAZARD_SAFETY_NM / (60 * cv);
+  const padLat = _HAZARD_SAFETY_NM / 60;
+  const x0 = _cellOf(Math.min(fromLon, toLon) - padLon), x1 = _cellOf(Math.max(fromLon, toLon) + padLon);
+  const y0 = _cellOf(Math.min(fromLat, toLat) - padLat), y1 = _cellOf(Math.max(fromLat, toLat) + padLat);
+  for (let gx = x0; gx <= x1; gx++) {
+    for (let gy = y0; gy <= y1; gy++) {
+      const arr = grid.get(_cellKey2D(gx, gy));
+      if (!arr) continue;
+      for (const [plon, plat] of arr) {
+        if (_ptSegDistNmLocal(plon, plat, fromLon, fromLat, toLon, toLat) <= _HAZARD_SAFETY_NM) return true;
+      }
+    }
+  }
+  return false;
+}
+
 /**
  * Distance (nm) from (lon,lat) to the nearest land-ring edge within
  * maxSearchNm, or Infinity if nothing is that close. Index-backed (reuses

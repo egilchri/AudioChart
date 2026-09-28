@@ -544,6 +544,31 @@ async function main() {
       DEADLINE_MS, LONG_RANGE_DEADLINE_MS);
   })());
 
+  // Case 21 — a real user-reported route through the Fox Islands Thorofare/
+  // Perry Creek approach (2026-09-28): "This was not a wise course... you
+  // should have gone further offshore." Root cause, confirmed live: the
+  // per-query hazard-circle rings segBlocked uses only ever get built for
+  // point hazards (underwater rock/obstruction/wreck) inside THAT query's
+  // own padded bbox (start/end +/- PAD_NM=2.0nm) — fine for steering
+  // candidate node generation, but a real blind spot for edge checking.
+  // This route's real, necessary detour bulges further than PAD_NM from
+  // the direct line, so a charted rock ~0.6nm past the bbox's own edge
+  // never got a ring built for it at all — the shipped route (before this
+  // fix) passed within 0.0008nm (~1.5m) of it, silently, with no warning.
+  // Fixed with Query.hazardPointBlocks — a global, bbox-independent
+  // point-hazard check wired into segBlocked right alongside the existing
+  // (always-correct) Query.landBlocks call, giving point hazards the same
+  // guarantee land already had. Verified live: the fixed route's worst
+  // standoff from a real charted rock improved from ~1.5m to ~51m.
+  gate(await (async () => {
+    Query.setActiveRegion('penobscot-bay');
+    await Query.loadData(44.08, -68.8);
+    await waitForRegionDataReady(Query);
+    return runCase(Query, Router, '[21] Fox Islands Thorofare approach (global point-hazard check fix)',
+      { lat: 44.032327, lon: -68.835473 }, { lat: 44.115263, lon: -68.86898 },
+      DEADLINE_MS, LONG_RANGE_DEADLINE_MS);
+  })());
+
   console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll cases passed.');
   console.log(
     '\nNOT PORTED (relied on injecting a synthetic obstacle ring the real\n' +

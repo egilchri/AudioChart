@@ -544,6 +544,15 @@ export async function autoRouteProg(
 
   function segBlocked(lon1, lat1, lon2, lat2) {
     if (Query.landBlocks(lon1, lat1, lon2, lat2)) return true;
+    // Global, bbox-independent backstop for point hazards (underwater
+    // rock/obstruction/wreck) — the per-query hazard-circle rings below
+    // only cover hazards inside THIS query's own bMinLon/bMaxLon/
+    // bMinLat/bMaxLat, which a real, necessary detour can legitimately
+    // bulge past (see Query.hazardPointBlocks' own comment for the real
+    // case this fixes: a route passed within 1.5m of a charted rock
+    // whose circle was never built because it sat just outside the
+    // query bbox). Cheap — grid-indexed, same cost class as landBlocks.
+    if (Query.hazardPointBlocks(lon1, lat1, lon2, lat2)) return true;
     const sx = Math.min(lon1, lon2), ex = Math.max(lon1, lon2);
     const sy = Math.min(lat1, lat2), ey = Math.max(lat1, lat2);
     const x0 = _extraCellX(sx), x1 = _extraCellX(ex);
