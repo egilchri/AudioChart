@@ -12,6 +12,57 @@
 > deep-dive on the v317–v325 cluster specifically (Focus Target, Simulate
 > Heading); the summaries below start right after that.
 
+## 2026-09-27 — "Nudge offshore" one-tap fix for a flagged shallow-area crossing (v713)
+
+Direct follow-up: "if I pass too close to the coast, can't I try moving
+straight out by 25 or 50 yards?" Tapping the yellow shallow-area warning
+triangle now opens a small popup with two choices — "Edit route" (the
+previous, only behavior) and a new "Nudge offshore" that tries to fix it
+automatically.
+
+`Query.findComfortableNudgePoint` (query.js) finds the nearest point with
+real, sounding-verified comfortable depth (draft + 6ft — the same cutoff
+the depth-heat overlay and v712's suppression logic already use), reusing
+the existing `_makeObstacleCheck`/`_nearestClearPoint` machinery from
+`snapToNavigableWater` but parameterized stricter: a wider margin, and
+with the router's own "open-water nook" override turned off entirely
+(that override exists only to keep the A* search from stranding itself —
+a concern this single, user-initiated call doesn't have; nudging should
+find the most conservative nearby answer, not the most permissive one).
+
+Once a comfortable point is found, `_nudgeLegOffshore` (app.js) inserts it
+as a real waypoint and re-routes just the two new sub-legs through it
+(the same `_reRouteSegments`/`_showRerouteOverlay` machinery the Reroute
+button already uses) — the fix is router-validated, not a naive straight
+splice. No comfortable point within ~0.15nm falls back to the previous
+behavior: drop a draggable node at the trouble spot for the user to
+position by hand, with an explicit "couldn't find comfortably deep water
+nearby" message — never guesses. Strictly post-hoc and single-leg, same
+as v710's own shallow-area warning: this never touches `segBlocked`/the
+A* hot path, per the standing rule in this hazard-dense chart data (a
+search-time version of a similar idea broke 6/8 regression cases earlier
+this session).
+
+Also fixed a real, pre-existing bug this surfaced: `_reRouteSegments`
+(app.js) treated ANY 2-point router result as a naive "couldn't avoid
+land" failure, even when the router's own coastal-standoff ladder
+legitimately returns a real, land-avoiding 2-point path marked
+`marginal: true` (just tighter than the normal comfort standoff — see
+router.js's own `_addRingNodes` comment). `_marginalLegFromPath` was only
+ever checked for longer (>2 point) results; a short nudge leg was the
+first thing to actually hit the 2-point-and-marginal case, which was
+being misreported as a land crossing instead of the correct "passes
+tight but real" warning. Fixed by checking the `marginal` flag before
+falling through to `classifyFallbackSeg`'s straight-line check.
+
+Verified against real chart data end-to-end, including the actual popup
+UI (not just debug hooks): a genuine ~4.9ft shallow crossing nudged
+~180yd to real 26.9ft/39.7ft-sounding-verified water, re-routed, and
+confirmed clear via a live in-browser check; a genuine crossing with no
+comfortable water within the cap correctly fell back to the manual-node
+behavior with the right message. `test/test_query.js` (25/25) and
+`test/test_channel_routing.js` (all gated cases) pass unchanged.
+
 ## 2026-09-27 — Don't show a shallow-area triangle when a real sounding says the crossing is actually deep (v712)
 
 Direct follow-up to v711: showing the real depth ("~14.8 ft here") next to

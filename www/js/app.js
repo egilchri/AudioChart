@@ -1100,6 +1100,7 @@ window._debugCheckRouteHazards = (idx, silent) => _checkRouteHazards(idx, silent
 window._debugMap = () => _map;
 window._debugLiveHazardCheck = () => _liveHazardCheck();
 window._debugShowRouteFallbackWarning = (fallbackSegs) => _showRouteFallbackWarning(fallbackSegs);
+window._debugNudgeLegOffshore = (routeIdx, h) => _nudgeLegOffshore(routeIdx, h);
 
 // Deletes routes by exact name through the same path as the Routes panel's
 // per-row delete button (tombstones each one, so Drive sync won't resurrect
@@ -2347,6 +2348,11 @@ function _findRouteHazards(points) {
           segBrg:  MarkerIcons.segBearing(a.lat, a.lon, b.lat, b.lon),
           sideSign: 0,
           kind: 'soft',
+          legIndex: i,
+          // Only a genuine underwater shallow-area crossing has a "move to
+          // deeper water" fix — an above-water obstacle (minDepth < 0) has
+          // no depth dimension to nudge along, see _nudgeLegOffshore.
+          nudgeable: minDepth >= 0,
         });
       }
     }
@@ -2445,7 +2451,7 @@ function _checkRouteHazards(routeIdx, silent = false) {
 
   // Pulsing skull for hard hazards; a small, discreet caution triangle for
   // soft ones (see _softHazardMarkerIcon) — click zooms to it and edits
-  for (const h of found) {
+  found.forEach((h, hIdx) => {
     const tip = `${h.label}${h.name ? ': ' + h.name : ''} — ${h.side}, ${h.routeNm.toFixed(1)} nm along route`;
     const icon = h.kind === 'soft'
       ? MarkerIcons.softHazardMarkerIcon()
@@ -2462,10 +2468,38 @@ function _checkRouteHazards(routeIdx, silent = false) {
       .on('click', (e) => {
         L.DomEvent.stopPropagation(e);
         _map.setView([h.lat, h.lon], 16);
-        _jumpToEdit();
+        // A nudgeable shallow-area crossing gets an extra option — same
+        // "surface it right here, don't bury it in a menu" spirit as the
+        // rest of this app's controls. Everything else (hard hazards,
+        // above-water obstacles) keeps the old single-action behavior:
+        // no fix but "move to deeper water" applies to those.
+        if (h.kind === 'soft' && h.nudgeable && h.legIndex != null) {
+          const editId = `hz-edit-${routeIdx}-${hIdx}`;
+          const nudgeId = `hz-nudge-${routeIdx}-${hIdx}`;
+          const popup = L.popup({ closeButton: true, maxWidth: 260 })
+            .setLatLng([h.lat, h.lon])
+            .setContent(
+              `<div style="font-size:13px;line-height:1.5">${escapeHtml(h.label)}<br>`
+              + `<button id="${nudgeId}" style="margin-top:4px;padding:4px 10px;cursor:pointer;">Nudge offshore</button> `
+              + `<button id="${editId}" style="margin-top:4px;padding:4px 10px;cursor:pointer;">Edit route</button></div>`
+            )
+            .openOn(_map);
+          setTimeout(() => {
+            document.getElementById(nudgeId)?.addEventListener('click', () => {
+              _map.closePopup(popup);
+              _nudgeLegOffshore(routeIdx, h);
+            });
+            document.getElementById(editId)?.addEventListener('click', () => {
+              _map.closePopup(popup);
+              _jumpToEdit();
+            });
+          }, 0);
+        } else {
+          _jumpToEdit();
+        }
       })
       .addTo(_hazardCheckLayer);
-  }
+  });
 
   if (found.length === 0) {
     // 'core' coverage means real hazard data actually exists for this
@@ -2510,6 +2544,66 @@ function _checkRouteHazards(routeIdx, silent = false) {
   setStatus(speakMsg);
   TTS.sayImmediate(speakMsg);
   return found;
+}
+
+// One-tap fix for a nudgeable shallow-area crossing (v713): instead of just
+// warning, try to find real, sounding-verified comfortable water
+// (Query.findComfortableNudgePoint — draft + 6ft, the same cutoff already
+// used by the depth-heat overlay and this marker's own suppression logic,
+// see v712) near the flagged crossing point, insert it as a new waypoint,
+// and re-route just the two new sub-legs through it — same
+// _reRouteSegments/_showRerouteOverlay machinery the Reroute button uses —
+// so the fix is router-validated, not a naive straight splice. Strictly
+// post-hoc and single-leg: never touches segBlocked/the A* hot path,
+// matching the standing rule for standoff/proximity fixes in this
+// hazard-dense chart data (a search-time version of a similar idea broke
+// 6/8 regression cases earlier this session). No comfortable point found
+// nearby → fall back to the existing "drop a draggable node here for the
+// user to position by hand" behavior instead of guessing.
+function _nudgeLegOffshore(routeIdx, h) {
+  if (!_editMode || _editRouteIdx !== routeIdx) _enterEditMode(routeIdx, true);
+  const legIndex = h.legIndex;
+  const a = _editPoints[legIndex], b = _editPoints[legIndex + 1];
+  if (!a || !b) return;
+
+  const draftFt = _currentDraftFt();
+  const nudge = Query.findComfortableNudgePoint(h.lon, h.lat, draftFt, _tideHeight);
+  if (!nudge) {
+    const msg = "Couldn't find comfortably deep water nearby — added a node here to position by hand.";
+    setStatus(msg);
+    TTS.sayImmediate(msg);
+    _insertVertex(legIndex, L.latLng(h.lat, h.lon));
+    _renderEditLayers();
+    return;
+  }
+
+  const legPts = [a, { lat: nudge.lat, lon: nudge.lon }, b];
+  const ui = _showRerouteOverlay(legPts);
+  _reRouteSegments(legPts, ui.update.bind(ui), ui.setText.bind(ui), 'Nudge offshore')
+    .then(({ points: sub, fallbacks, fallbackSegs, blocked }) => {
+      ui.remove();
+      if (blocked) return; // _reRouteSegments already announced why
+      _pushEditHistory();
+      _editPoints.splice(legIndex, 2, ...sub);
+      _newVertexIdx = -1;
+      _selectedEditNodeIdx.clear();
+      _renderEditLayers();
+      // Fresh check against real hazard data, not just the land-avoidance
+      // the router already did — same rhythm the Reroute button uses, and
+      // the same reason: the nudge might clear THIS leg but reveal a
+      // different one nearby, so don't declare success blindly.
+      const movedYd = Math.round(nudge.movedNm * 2025.37); // nm -> yards
+      const stillFound = _liveHazardCheck();
+      if (!stillFound.length) {
+        if (fallbacks > 0) _showRouteFallbackWarning(fallbackSegs);
+        else setStatus(`Nudged route ~${movedYd}yd offshore for more clearance.`);
+      }
+    })
+    .catch(err => {
+      ui.remove();
+      setStatus('Nudge failed.');
+      console.error('[nudge offshore]', err);
+    });
 }
 
 // Fixes hazards near a single waypoint — click "Fix selected nodes" to arm
@@ -3821,8 +3915,26 @@ async function _reRouteSegments(pts, onProgress, onText, actionLabel = 'Re-route
     // _showRouteFallbackWarning) without the caller needing to re-derive it.
     const legIndex = result.length - 1;
     if (sub.length <= 2) {
-      fallbacks++;
-      fallbackSegs.push({ a: pts[i], b: pts[i + 1], legIndex, ...Router.classifyFallbackSeg(pts[i], pts[i + 1]) });
+      // A 2-point result isn't automatically a naive "couldn't route it"
+      // straight line — the coastal-standoff ladder (router.js's
+      // _addRingNodes) can legitimately return just [start, end] with
+      // marginal:true on one of them for a real, land-avoiding path that's
+      // simply tighter than the normal comfort standoff (see its own
+      // comment: "a real route was found, it just doesn't meet the normal
+      // comfort standoff"). Found live testing the nudge-offshore feature
+      // (v713): a short leg to a just-barely-comfortable nudge point kept
+      // getting reported as "couldn't avoid land" even though the router
+      // found a real, verified-clear path — _marginalLegFromPath was only
+      // ever checked for a longer (>2 point) result, so this case fell
+      // through to classifyFallbackSeg's straight-line land/hazard check
+      // instead, which has no idea a real path was actually found.
+      if (sub.some(p => p.marginal)) {
+        fallbacks++;
+        fallbackSegs.push({ a: pts[i], b: pts[i + 1], tightClearance: true, legIndex });
+      } else {
+        fallbacks++;
+        fallbackSegs.push({ a: pts[i], b: pts[i + 1], legIndex, ...Router.classifyFallbackSeg(pts[i], pts[i + 1]) });
+      }
     } else {
       const marginalSeg = _marginalLegFromPath(sub, legIndex);
       if (marginalSeg) { fallbacks++; fallbackSegs.push(marginalSeg); }

@@ -925,7 +925,16 @@ const _HAZARD_LABELS = new Set(['underwater rock', 'obstruction', 'wreck', 'UWTR
 // depth zones, see router.js) then found zero viable edges one step
 // later, because the escape point itself was already fenced in by
 // shallows the two functions disagreed about.
-function _makeObstacleCheck(centerLon, centerLat, maxNm, draftFt, tideHeightM) {
+// marginM/allowOpenWaterOverride let a caller ask for a STRICTER read than
+// the router's own "is this technically passable" question — added for the
+// nudge-offshore feature (findComfortableNudgePoint below), which wants
+// "is this comfortable" (a wider margin) rather than "is this legal", and
+// deliberately skips the open-water-nook override entirely: that override
+// exists to keep the router's A* search from getting needlessly stranded
+// (see the SP003 fix below), a concern a single user-initiated nudge call
+// doesn't have — nudging should find the most conservative nearby answer,
+// not the most permissive one.
+function _makeObstacleCheck(centerLon, centerLat, maxNm, draftFt, tideHeightM, marginM = 3 * 0.3048, allowOpenWaterOverride = true) {
   const cv = Math.cos(centerLat * Math.PI / 180) || 1e-9;
   const padLon = maxNm / (60 * cv), padLat = maxNm / 60;
   const bMinLon = centerLon - padLon, bMaxLon = centerLon + padLon;
@@ -947,7 +956,7 @@ function _makeObstacleCheck(centerLon, centerLat, maxNm, draftFt, tideHeightM) {
   // router.js for the full rationale. Kept duplicated per-file rather
   // than a shared export, matching this codebase's existing per-file
   // draftM-conversion convention.
-  const KEEL_CLEARANCE_MARGIN_M = 3 * 0.3048; // 3ft
+  const KEEL_CLEARANCE_MARGIN_M = marginM;
   const shallowRings = [];
   for (const f of (getDepthZones() || [])) {
     const v = f.properties?.valsou;
@@ -992,7 +1001,7 @@ function _makeObstacleCheck(centerLon, centerLat, maxNm, draftFt, tideHeightM) {
         // cheap, wide open-water check: require real clearance in most
         // directions at a real distance, not just along the one ray that
         // happened to reach here.
-        const s = nearestSounding(plat, plon, 0.1);
+        const s = allowOpenWaterOverride ? nearestSounding(plat, plon, 0.1) : null;
         const deepEnough = s && s.valsou + tideHeightM > draftM + KEEL_CLEARANCE_MARGIN_M;
         if (deepEnough) {
           // Threshold picked empirically against real, measured cases, not
@@ -1075,6 +1084,43 @@ function _nearestClearPoint(lon, lat, isBlocked, maxNm) {
  */
 export function snapToNavigableWater(lon, lat, draftFt, tideHeightM, maxNm = 2) {
   const isBlocked = _makeObstacleCheck(lon, lat, maxNm, draftFt, tideHeightM);
+  if (!isBlocked(lon, lat)) return null;
+  const p = _nearestClearPoint(lon, lat, isBlocked, maxNm);
+  if (!p) return null;
+  return { lat: p.lat, lon: p.lon, movedNm: distanceNm(lon, lat, p.lon, p.lat) };
+}
+
+// Matches the depth-heat overlay's own yellow-band cutoff and the
+// shallow-crossing warning triangle's own suppression threshold (v712) —
+// "comfortable" means the same thing everywhere in this app: draft + 6ft,
+// not just draft + the bare 3ft keel-clearance margin. Kept as its own
+// constant (rather than reusing KEEL_CLEARANCE_MARGIN_M) since it answers a
+// different question — "would a mariner call this comfortable", not "is
+// this technically passable".
+const COMFORTABLE_CLEARANCE_M = 1.8288; // 6ft
+
+/**
+ * Find the nearest point, starting from (lon,lat), with real (sounding-
+ * verified, not just polygon-worst-case) comfortable depth — draft + 6ft,
+ * same cutoff the depth-heat overlay and the v712 shallow-crossing warning
+ * already use. Built for the "nudge this route leg offshore" feature: a
+ * route can cross a charted shallow polygon at a point that's technically
+ * passable (even comfortably deep) and still trip the warning if a nearby
+ * part of that same polygon is genuinely thin — this answers "where's the
+ * closest spot I could move this waypoint to make the warning go away for
+ * real, not just relocate it".
+ *
+ * Deliberately stricter than snapToNavigableWater: passes
+ * allowOpenWaterOverride=false to _makeObstacleCheck, since the override it
+ * skips exists only to keep the router's A* search from stranding itself
+ * (see _makeObstacleCheck's own comment) — a concern this single,
+ * user-initiated call doesn't have. Returns null if (lon,lat) is already
+ * comfortable (nothing to do), or {lat, lon, movedNm} for the nearest
+ * comfortable point found within maxNm — or null if nothing within maxNm
+ * qualifies (caller should fall back to a manual fix, not guess).
+ */
+export function findComfortableNudgePoint(lon, lat, draftFt, tideHeightM, maxNm = 0.15) {
+  const isBlocked = _makeObstacleCheck(lon, lat, maxNm, draftFt, tideHeightM, COMFORTABLE_CLEARANCE_M, false);
   if (!isBlocked(lon, lat)) return null;
   const p = _nearestClearPoint(lon, lat, isBlocked, maxNm);
   if (!p) return null;
