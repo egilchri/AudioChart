@@ -204,7 +204,10 @@ function _showBoatPosition(lat, lon) {
   const zoom = _map.getZoom();
   if (!zoom) _map.setView([lat, lon], 13); else _map.panTo([lat, lon]);
 
-  const _depthOn = document.getElementById('nf-depth')?.checked;
+  // Soundings (own toggle now) also needs a fresh tide height, same as
+  // Depths/mudflats — both render tide-adjusted values.
+  const _depthOn = document.getElementById('nf-depth')?.checked
+    || document.getElementById('nf-soundings')?.checked;
   (_depthOn ? _fetchTideHeight(lat, lon) : Promise.resolve())
     .catch(() => {})
     .then(() => _refreshNavaidOverlay());
@@ -8560,6 +8563,19 @@ function _ensureMap() {
     _refreshNavaidOverlay();
   });
 
+  // Soundings checkbox — split out from Depths into its own toggle, off
+  // by default (direct request). Matches Depths' own pattern: fetch a
+  // fresh tide height on enable (soundings render tide-adjusted
+  // effective depth, same as mudflats), then refresh immediately rather
+  // than waiting for the next pan/zoom.
+  document.getElementById('nf-soundings').addEventListener('change', async function () {
+    if (this.checked) {
+      const pos = GPS.getPosition();
+      if (pos) await _fetchTideHeight(pos.lat, pos.lon);
+    }
+    _refreshSoundingsLayer();
+  });
+
   _draftInput.addEventListener('input', () => {
     localStorage.setItem('audiochart-draft-ft', _draftInput.value);
     if (_depthCheckbox.checked) _refreshNavaidOverlay();
@@ -10205,10 +10221,11 @@ async function showPositionMap(lat, lon) {
   _map.invalidateSize();
 
   // Auto-draw the default overlay so the user sees objects immediately.
-  // Fetch a fresh tide reading first if depths are enabled (same sequence as
-  // clicking the depth checkbox), then render — fire-and-forget so the map
-  // paint isn't blocked.
-  const _depthOn = document.getElementById('nf-depth')?.checked;
+  // Fetch a fresh tide reading first if depths or soundings are enabled
+  // (same sequence as clicking either checkbox), then render —
+  // fire-and-forget so the map paint isn't blocked.
+  const _depthOn = document.getElementById('nf-depth')?.checked
+    || document.getElementById('nf-soundings')?.checked;
   (_depthOn ? _fetchTideHeight(lat, lon) : Promise.resolve())
     .catch(() => {})
     .then(() => _refreshNavaidOverlay());
@@ -10310,7 +10327,10 @@ const MAX_SOUNDING_MARKERS = 5000;
 function _refreshSoundingsLayer() {
   if (!_map) return;
   if (_soundingsLayer) { _map.removeLayer(_soundingsLayer); _soundingsLayer = null; }
-  if (!document.getElementById('nf-depth')?.checked) return;
+  // Split out from the "Depths" (mudflat) checkbox into its own
+  // toggle — direct request, default off (these render densely enough
+  // to clutter the chart when not specifically wanted).
+  if (!document.getElementById('nf-soundings')?.checked) return;
   if (!Query.soundings?.features?.length) return;
   const bounds = _map.getBounds().pad(0.1);
   const inView = Query.soundings.features.filter(f => {
@@ -10634,10 +10654,12 @@ function _refreshNavaidOverlay() {
   if (!_map) return;
   if (_navaidFilterLayer) { _map.removeLayer(_navaidFilterLayer); _navaidFilterLayer = null; }
 
+  // Buoys/Lights/Beacons were 3 separate toggles; combined into one
+  // "Navaids" checkbox per direct request ("make them a settable
+  // parameter" — singular) since all 3 always defaulted on together
+  // anyway and nothing in practice needed them split.
   const types = new Set();
-  if (document.getElementById('nf-buoy')?.checked)   types.add('buoy');
-  if (document.getElementById('nf-light')?.checked)  types.add('light');
-  if (document.getElementById('nf-beacon')?.checked) types.add('beacon');
+  if (document.getElementById('nf-navaids')?.checked) { types.add('buoy'); types.add('light'); types.add('beacon'); }
   const showHazards = document.getElementById('nf-hazard')?.checked;
   const showDepths  = document.getElementById('nf-depth')?.checked;
   if (types.size === 0 && !showHazards && !showDepths) return;

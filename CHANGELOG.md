@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-09-29 — Split Soundings out as its own toggle, off by default (v747)
+
+Direct request: "make those little depth circles a different parameter,
+that I can set. Have them be off, by default. Have all navaids be on,
+by default, and make them a settable parameter." Two changes to the
+Objects filter panel:
+
+1. **Soundings** (the small per-point depth circles, `_refreshSoundingsLayer`)
+   had no toggle of their own — they were tied to the same "Depths"
+   checkbox as the mudflat overlay. Split into a new "Soundings"
+   checkbox, off by default (dense sounding fields cluttered the chart
+   when not specifically wanted). Depths keeps controlling mudflats;
+   both still trigger a fresh tide-height fetch on enable, since both
+   render tide-adjusted values.
+2. **Buoys/Lights/Beacons** were 3 separate checkboxes, each already on
+   by default — confirmed with the user this should become one combined
+   "Navaids" checkbox ("make them a settable parameter," singular),
+   still on by default.
+
 ## 2026-09-29 — Navaid popups: what each buoy is FOR (v746)
 
 Direct follow-up to v745: "I still feel like I'm missing something,
