@@ -10519,15 +10519,29 @@ function _channelSideArrowIcon(sideBrg, channelBrg, colorCls) {
   });
 }
 
-// Centered version for a marker placed exactly AT the midpoint between a
-// real red/green pair (see _findChannelBuoyPairs) — no pixel offset
-// needed, the marker's own lat/lon IS the display position.
-function _midpointArrowIcon(channelBrg, colorCls) {
+// Plain single-headed blue arrow (no background box) offset from the
+// pair's own midpoint ALONG the channel axis (pointBrg — the same
+// direction it's rotated to point), not toward either buoy. Direct
+// follow-up (2026-09-29, with a real screenshot): the original single
+// double-headed icon sat exactly at the midpoint, which for two closely-
+// spaced real marks landed almost on top of one of them; simplified to
+// "no box, single arrowhead, less intrusive" AND moved off the direct
+// red-green line entirely — offsetting along the perpendicular (channel-
+// length) axis stays clear of both source markers regardless of how
+// close together they are, since that's the one axis neither buoy sits
+// on. Called twice per pair (see the loop below), offset in opposite
+// directions, to still read as "channel goes both ways" without needing
+// a single double-headed glyph.
+function _channelFlowArrowIcon(pointBrg) {
+  const PX_DIST = 22;
+  const rad = pointBrg * Math.PI / 180;
+  const dx = PX_DIST * Math.sin(rad);
+  const dy = -PX_DIST * Math.cos(rad);
   return L.divIcon({
     className: '',
-    html: `<div class="navaid-channel-arrow ${colorCls}" style="transform:rotate(${Math.round(channelBrg)}deg)">&#8597;</div>`,
-    iconSize: [20, 20],
-    iconAnchor: [10, 10],
+    html: `<div class="navaid-flow-arrow" style="transform:rotate(${Math.round(pointBrg)}deg)">&#8593;</div>`,
+    iconSize: [16, 16],
+    iconAnchor: [8 - dx, 8 - dy],
   });
 }
 
@@ -10697,19 +10711,28 @@ function _refreshNavaidOverlay() {
     }
   }
 
-  // One shared double-arrow per real red/green channel pair (position-
-  // based, not name-based — see _findChannelBuoyPairs's own comment on
-  // why: name-chain matching alone misses most real Maine channels,
-  // where each buoy is named for its own charted hazard, not a shared
-  // channel prefix). Direct follow-up request: less clutter than one
-  // arrow per buoy.
+  // Two plain single-headed arrows per real red/green channel pair
+  // (position-based, not name-based — see _findChannelBuoyPairs's own
+  // comment on why: name-chain matching alone misses most real Maine
+  // channels, where each buoy is named for its own charted hazard, not a
+  // shared channel prefix). Placed "a little ahead and behind" the
+  // pair's midpoint along the channel axis, pointing away from each
+  // other — direct follow-up, with a real screenshot: a single icon
+  // sitting exactly at the midpoint could land right on top of one of
+  // the source buoys when they're closely spaced; offsetting along the
+  // channel-length axis (perpendicular to the buoy-to-buoy line) clears
+  // both of them regardless of spacing.
   if (lateralBuoysInView.length > 1) {
     for (const { a, b } of _findChannelBuoyPairs(lateralBuoysInView)) {
       const midLat = (a.lat + b.lat) / 2, midLon = (a.lon + b.lon) / 2;
       const crossBrg = Query.bearing(a.lon, a.lat, b.lon, b.lat);
       const channelBrg = (crossBrg + 90) % 360; // along the channel, not across it
       markers.push(L.marker([midLat, midLon], {
-        icon: _midpointArrowIcon(channelBrg, 'channel'),
+        icon: _channelFlowArrowIcon(channelBrg),
+        interactive: false, keyboard: false,
+      }));
+      markers.push(L.marker([midLat, midLon], {
+        icon: _channelFlowArrowIcon((channelBrg + 180) % 360),
         interactive: false, keyboard: false,
       }));
     }

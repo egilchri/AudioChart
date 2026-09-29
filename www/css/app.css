@@ -2359,7 +2359,7 @@ body.wco-active #wco-titlebar { display: flex; }
   opacity: 0.75;
   margin-top: 3px;
 }
-/* On-map double-arrow next to a buoy/beacon (v738) — see
+/* On-map arrow flanking a BOYSAW safe-water mark (v738) — see
    _channelSideArrowIcon's own comment. Solid background + white glyph so
    it stays readable over any base map (chart/satellite/paper), same
    contrast approach as the app's other on-map compass-relative icons. */
@@ -2376,10 +2376,22 @@ body.wco-active #wco-titlebar { display: flex; }
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
   pointer-events: none;
 }
-.navaid-channel-arrow.port       { background: #2e9e42; }
-.navaid-channel-arrow.starboard  { background: #d64545; }
 .navaid-channel-arrow.safewater  { background: #3a86b5; }
-.navaid-channel-arrow.channel    { background: #2266cc; }
+/* Plain single-headed channel-flow arrow (v740) — deliberately no
+   background box, per direct request ("less intrusive," "just a blue
+   arrow"): a plain glyph with a dark text-shadow for contrast, instead
+   of a filled square, reads as a lighter-weight hint at a glance rather
+   than another marker competing with the real buoys for attention. */
+.navaid-flow-arrow {
+  color: #2266cc;
+  font-size: 18px;
+  font-weight: 900;
+  text-shadow:
+    -1px -1px 0 #fff, 1px -1px 0 #fff,
+    -1px  1px 0 #fff, 1px  1px 0 #fff,
+    0 1px 3px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
 /* Plain-language shape/colour/characteristic line (v732) — what a
    mariner checks by eye to confirm they've found the right mark. */
 .navaid-popup-identity {

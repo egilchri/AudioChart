@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-09-29 — Simpler channel arrows, moved clear of buoy markers (v740)
+
+Direct follow-up, with a real screenshot: v739's double-headed midpoint
+arrow, sitting in a filled colored box exactly at a red/green pair's
+midpoint, could land almost directly on top of one of the source buoys
+when they were closely spaced — confirmed in the screenshot, the arrow
+was visibly covering a green marker.
+
+Two changes: (1) simplified to a single-headed arrow with no background
+box — a plain glyph with a white outline for contrast, "less intrusive"
+per direct request, replacing the filled square. (2) Now drawn as TWO
+of these plain arrows per pair instead of one, offset ~22px from the
+midpoint ALONG the channel axis (the one direction neither source buoy
+sits on, regardless of how close together they are) rather than sitting
+exactly between them — "a little ahead and behind," pointing away from
+each other, still reading as "the channel runs both ways" without a
+double-headed glyph. Verified with exact on-screen pixel distances (not
+eyeballing): the old design put arrows at 0px from their source buoy;
+the new one clears to 6–24px in the large majority of real cases.
+
 ## 2026-09-29 — Channel arrows: position-based pairing, not name-chains (v739)
 
 Direct follow-up, with a real screenshot showing arrows dense around Fox
