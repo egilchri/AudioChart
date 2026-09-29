@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-09-28 — Drop the tight-clearance popup+speech (v728)
+
+Direct report, with a screenshot from repeated AutoRoute testing: the
+"N leg(s) pass tighter than our normal comfort margin..." popup (plus its
+TTS) fired for every tight-but-successfully-routed leg — no different in
+weight from the genuinely unresolved land/hazard-crossing warning, even
+though a real route WAS found in this case, just closer to shore than the
+normal comfort standoff. During batch/repeated testing this meant a modal
+popup on nearly every leg — "too much" per direct report.
+
+`_showRouteFallbackWarning` now stays fully silent (no popup, no
+setStatus, no TTS) for the tight-clearance-only case — the ⚠ marker (with
+its hover tooltip) still appears on the map at the exact spot, same as
+before, just passively rather than interrupting. The popup+speech is now
+reserved for the one case that still needs action: an actual unresolved
+land or charted-hazard crossing.
+
 ## 2026-09-28 — Minimal AutoRoute narration (v727)
 
 Direct request: AutoRoute plotting/completion was "too talkative." Removed

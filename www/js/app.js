@@ -4279,25 +4279,25 @@ function _showRouteFallbackWarning(fallbackSegs) {
   const anyTight  = fallbackSegs.some(s => s.tightClearance);
   const anyHazard = fallbackSegs.some(s => s.crossesHazard);
   const anyLand   = fallbackSegs.some(s => !s.tightClearance && (s.crossesLand || !s.crossesHazard));
+  // A real route was found for every flagged leg here — just tighter than
+  // our normal comfort standoff, since no charted channel/buoy data exists
+  // for this passage. Different from a genuine unresolved land/hazard
+  // crossing: the ⚠ marker (with its tooltip, above) already flags exactly
+  // where to double-check — a modal popup + TTS on top of that fired for
+  // EVERY tight leg during repeated/batch AutoRoute testing and was "too
+  // much" per direct report. Reserve the interrupting popup+speech for an
+  // actual unresolved land/hazard crossing, the only case that still needs
+  // a waypoint added before the route is safe to use.
+  if (anyTight && !anyHazard && !anyLand) return;
+
   const first = mids[0];
-  let body, speakMsg;
-  if (anyTight && !anyHazard && !anyLand) {
-    // A real route was found for every flagged leg — just tighter than our
-    // normal comfort standoff, since no charted channel/buoy data exists for
-    // this passage. Different from a genuine unresolved land/hazard crossing:
-    // don't tell the user to add a waypoint to "fix" something that already
-    // routed, just to double-check it themselves.
-    body = `<b>${n} leg${n > 1 ? 's pass' : ' passes'} tighter than our normal comfort margin off shore</b> `
-      + `(⚠ marks each spot) — no charted channel data here, so double-check this passage yourself.`;
-    speakMsg = `Note: ${n} route leg${n > 1 ? 's pass' : ' passes'} closer to shore than our normal comfort margin — no charted channel data for this passage, so double-check it.`;
-  } else {
-    const reasonSummary = anyHazard && anyLand ? 'land or a charted hazard'
-      : anyHazard ? 'a charted hazard (rock/obstruction/wreck)'
-      : 'land';
-    body = `<b>Couldn't avoid ${reasonSummary}</b> — ${n} leg${n > 1 ? 's' : ''} still cross${n > 1 ? '' : 'es'} it as a straight line.<br>`
-      + `Add a waypoint in the passage${n > 1 ? ' (⚠ marks each spot)' : ''}, then re-route.`;
-    speakMsg = `Warning: ${n} route leg${n > 1 ? 's' : ''} couldn't avoid ${reasonSummary}. Add a waypoint and re-route.`;
-  }
+  const reasonSummary = anyHazard && anyLand ? 'land or a charted hazard'
+    : anyHazard ? 'a charted hazard (rock/obstruction/wreck)'
+    : 'land';
+  const body = `<b>Couldn't avoid ${reasonSummary}</b> — ${n} leg${n > 1 ? 's' : ''} still cross${n > 1 ? '' : 'es'} it as a straight line.<br>`
+    + `Add a waypoint in the passage${n > 1 ? ' (⚠ marks each spot)' : ''}, then re-route.`;
+  const speakMsg = `Warning: ${n} route leg${n > 1 ? 's' : ''} couldn't avoid ${reasonSummary}. Add a waypoint and re-route.`;
+
   L.popup({ maxWidth: 300, autoPan: true })
     .setLatLng([first.lat, first.lon])
     .setContent(`<div style="font-size:13px;line-height:1.5">${body}</div>`)
