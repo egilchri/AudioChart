@@ -152,6 +152,23 @@ export function setActiveRegion(id) {
 function _regionPath(filename) {
   return _activeRegion ? `./data/regions/${_activeRegion}/${filename}` : `./data/${filename}`;
 }
+
+// `?v=` cache-buster for data-version.json specifically. `cache:'no-store'`
+// (already used at every fetch of this file) only bypasses the BROWSER's
+// own HTTP cache and the service worker's Cache Storage (see sw.js's own
+// dedicated fix for that layer) — it can't touch a CDN's edge cache
+// sitting in front of the origin. GitHub Pages (Fastly) serves this exact
+// file with `Cache-Control: max-age=600` with no way to configure that
+// header from this repo — confirmed live via `curl -I` against the real
+// production URL, 2026-09-29. A unique query string makes every request a
+// URL the CDN has never cached, sidestepping that TTL entirely regardless
+// of its value. Real chart-data files (navaid.geojson etc.) don't need
+// this themselves — they're only ever fetched AFTER this fingerprint
+// already proved they're stale, so one fresh fingerprint read is enough
+// to unblock the rest of the real fetch.
+function _versionCheckUrl(filename) {
+  return `${_regionPath(filename)}?v=${Date.now()}`;
+}
 export let lastBearingResult = null;   // set by bearing queries; read by map view
 export let lastCourseHazards = null;   // set by hazardsOnCourse; [{lat,lon,label,name}]
 export let lastNavaidResults  = null;   // set by navaidsInRadius; [{lat,lon,label,name,colour,characteristic,brg,d}]
@@ -395,13 +412,33 @@ async function _fetchRegionGeometry(idbKey, filename) {
     // it can't be fooled the same way twice.
     let networkVersion = null;
     try {
-      const vr = await fetch(_regionPath('data-version.json'), { cache: 'no-store' });
+      const vr = await fetch(_versionCheckUrl('data-version.json'), { cache: 'no-store' });
       if (vr.ok) networkVersion = (await vr.json()).version;
     } catch (_) {}
+    // Same one-time self-heal as loadData()'s hazards/navaids migration
+    // (see INCIDENTS.md, 2026-09-29) — a device that ever recorded a
+    // stored version while the freshness check itself was being served
+    // stale (now fixed, both in sw.js and via the cache-busted
+    // data-version.json fetch above) has no way to notice on its own,
+    // since matching wrongly is exactly this bug's failure mode. Keyed
+    // per-region only (not per-file) — one forced re-fetch of whichever
+    // file is requested first is enough to also pick up a fresh
+    // networkVersion to store, which then keeps every other file in this
+    // function honest from that point on.
+    // Deliberately a DIFFERENT key than loadData()'s own migration below —
+    // these are two genuinely independent IDB cache families (this one for
+    // land/channel-graph/soundings/curated-routes, loadData()'s for
+    // hazards/places/navaids), each needing its OWN forced re-fetch; a
+    // shared key would let whichever runs first mark the other "done"
+    // without it ever actually re-fetching its own files.
+    const _staleVersionMigrationKey = `audiochart-stale-version-migration-geom-v735:${_activeRegion}`;
+    let _staleVersionMigrationDone = true;
+    try { _staleVersionMigrationDone = localStorage.getItem(_staleVersionMigrationKey) === '1'; } catch (_) {}
     try {
       const [cached, storedVersion] = await Promise.all([idbGet(scopedKey), idbGet(versionKey)]);
-      if (cached && networkVersion && storedVersion === networkVersion) return cached;
+      if (cached && networkVersion && storedVersion === networkVersion && _staleVersionMigrationDone) return cached;
     } catch (_) {}
+    try { localStorage.setItem(_staleVersionMigrationKey, '1'); } catch (_) {}
     try {
       const r = await fetch(_regionPath(filename), { cache: 'no-store' });
       if (r.ok) {
@@ -566,7 +603,7 @@ export async function loadData(lat, lon) {
   // was reading a cached answer.
   let networkVersion = null;
   try {
-    const vr = await fetch(_regionPath('data-version.json'), { cache: 'no-store' });
+    const vr = await fetch(_versionCheckUrl('data-version.json'), { cache: 'no-store' });
     if (vr.ok) networkVersion = (await vr.json()).version;
   } catch (_) {}
 
@@ -609,7 +646,21 @@ export async function loadData(lat, lon) {
   let _dedupMigrationDone = true;
   try { _dedupMigrationDone = localStorage.getItem(_dedupMigrationKey) === '1'; } catch (_) {}
 
-  const idbCurrent = idbH && networkVersion && storedVersion === networkVersion && _dedupMigrationDone;
+  // One-time self-heal for a second, structurally identical bug (see
+  // INCIDENTS.md, 2026-09-29): a browser that ever recorded a stored
+  // version hash while data-version.json's freshness check was itself
+  // being served stale (the sw.js Cache Storage race, or GitHub Pages'
+  // own CDN edge cache — both fixed alongside this migration, but a
+  // device already stuck with a WRONGLY-matching stored version has no
+  // way to notice, since matching wrongly is exactly this bug's failure
+  // mode — a real update looks current forever). Same mechanism as the
+  // v636 migration above: force exactly one real re-fetch per region per
+  // browser, unconditionally, then never run again for that region.
+  const _staleVersionMigrationKey = `audiochart-stale-version-migration-v735:${_activeRegion || 'default'}`;
+  let _staleVersionMigrationDone = true;
+  try { _staleVersionMigrationDone = localStorage.getItem(_staleVersionMigrationKey) === '1'; } catch (_) {}
+
+  const idbCurrent = idbH && networkVersion && storedVersion === networkVersion && _dedupMigrationDone && _staleVersionMigrationDone;
 
   if (idbCurrent) {
     hazards = _dedupFeatureCollection(idbH);
@@ -649,7 +700,7 @@ export async function loadData(lat, lon) {
     namedPlaces = p;
     navaids = n;
     if (networkVersion) await idbPut(_versionIdbKey(_activeRegion), networkVersion);
-    if (!_dedupMigrationDone) {
+    if (!_dedupMigrationDone || !_staleVersionMigrationDone) {
       // Replace whatever's cached for this region — good or poisoned —
       // with this known-clean fetch, so a poisoned cache can't resurface
       // on the next load once idbCurrent would otherwise trust it again.
@@ -659,7 +710,8 @@ export async function loadData(lat, lon) {
         idbPut(_regionIdbKey('navaids', _activeRegion), navaids).catch(() => {}),
       ]);
       try { localStorage.setItem(_dedupMigrationKey, '1'); } catch (_) {}
-      console.log(`[query] One-time hazards-cache self-heal complete for region "${_activeRegion || 'default'}" — replaced any pre-existing cache with a fresh fetch.`);
+      try { localStorage.setItem(_staleVersionMigrationKey, '1'); } catch (_) {}
+      console.log(`[query] One-time cache self-heal complete for region "${_activeRegion || 'default'}" — replaced any pre-existing cache with a fresh fetch.`);
     }
     console.log(`[query] Loaded offline data from static files (version ${networkVersion})`);
   }
@@ -718,7 +770,7 @@ export async function prepareOfflineStatic(dataUrl) {
   // download.
   try {
     const versionUrl = regionId ? `./data/regions/${regionId}/data-version.json` : './data/data-version.json';
-    const vr = await fetch(versionUrl, { cache: 'no-store' });
+    const vr = await fetch(`${versionUrl}?v=${Date.now()}`, { cache: 'no-store' });
     if (vr.ok) await idbPut(_versionIdbKey(regionId), (await vr.json()).version);
   } catch (_) {}
   return { added: data.count, total: stored.reduce((a, b) => a + b, 0) };

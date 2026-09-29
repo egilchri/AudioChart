@@ -1,5 +1,32 @@
 # Changelog
 
+## 2026-09-29 — Defeat CDN-level staleness + self-heal already-stuck devices (v736)
+
+v735 fixed the service worker's own cache race, but `curl -I` against the
+real live production URL turned up one more layer: GitHub Pages' own CDN
+(Fastly) serves `data-version.json` (and every other static file) with
+`Cache-Control: max-age=600` — a 10-minute edge cache that sits in FRONT
+of the origin, which no repo-level config can change on GitHub Pages.
+`cache: 'no-store'` on a fetch only ever controlled the browser's own
+behavior; it can't reach a CDN edge node at all.
+
+Fixed properly this time: every `data-version.json` fetch now appends a
+`?v=<timestamp>` cache-busting query string, making each request a URL
+the CDN has never cached — sidesteps the 10-minute TTL entirely,
+regardless of its value, with no GitHub Pages configuration needed.
+
+Also added a one-time self-heal (same pattern as the existing v636
+hazards-dedup migration) for a device that's ALREADY stuck: if a stored
+version hash was ever recorded while the freshness check itself was
+being served stale (either bug above), that device has no way to notice
+on its own — matching wrongly is exactly this failure's symptom, not an
+error. Two independent migration flags (one for hazards/places/navaids,
+one for land/channel-graph/soundings/curated-routes — genuinely separate
+IndexedDB cache families) each force exactly one real re-fetch per
+region per browser, then never run again. This is the actual fix for
+the specific device that kept reporting empty buoy popups even after
+v734/v735 shipped real, verified-correct fixes.
+
 ## 2026-09-29 — Fix a real stale-freshness-check race in the service worker (v735)
 
 v734 fixed the actual missing data, but a real user's device still showed
