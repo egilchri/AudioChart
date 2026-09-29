@@ -219,6 +219,17 @@ def extract_navaids(enc_path, chart_id):
                         from s57_codes import BCNSHP_LABEL
                         shape = BCNSHP_LABEL.get(int(raw_shape))
 
+                # Official remark straight from the chart source (S-57
+                # INFORM — the field NOAA/USCG themselves use for real
+                # per-aid notes like "East of shoal", "On spindle",
+                # "Seasonal aid: Replaced by can when endangered by ice").
+                # Verified directly against real downloaded ENC cells
+                # (2026-09-29): populated on ~15% of real navaid features
+                # bay-wide, empty on the rest — never fabricated when
+                # absent. NINFOM (national-language variant) checked too;
+                # empty on every real sample seen, kept as a fallback only.
+                inform = props.get('INFORM') or props.get('NINFOM') or None
+
                 features.append({
                     'type': 'Feature',
                     'geometry': {'type': 'Point', 'coordinates': centroid_point(geom)},
@@ -233,6 +244,7 @@ def extract_navaids(enc_path, chart_id):
                         'catlam':         catlam,
                         'shape':          shape,
                         'chart':          chart_id,
+                        'inform':         inform,
                     },
                 })
 

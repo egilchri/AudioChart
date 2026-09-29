@@ -2359,44 +2359,47 @@ body.wco-active #wco-titlebar { display: flex; }
   opacity: 0.75;
   margin-top: 3px;
 }
-/* On-map arrow flanking a BOYSAW safe-water mark (v738) — see
-   _channelSideArrowIcon's own comment. Solid background + white glyph so
-   it stays readable over any base map (chart/satellite/paper), same
-   contrast approach as the app's other on-map compass-relative icons. */
-.navaid-channel-arrow {
-  width: 20px;
-  height: 20px;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-size: 15px;
-  font-weight: 900;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
-  pointer-events: none;
-}
-.navaid-channel-arrow.safewater  { background: #3a86b5; }
-/* Plain single-headed channel-flow arrow (v740) — deliberately no
-   background box, per direct request ("less intrusive," "just a blue
-   arrow"): a plain glyph with a dark text-shadow for contrast, instead
-   of a filled square, reads as a lighter-weight hint at a glance rather
-   than another marker competing with the real buoys for attention. */
-.navaid-flow-arrow {
-  color: #2266cc;
-  font-size: 18px;
-  font-weight: 900;
-  text-shadow:
-    -1px -1px 0 #fff, 1px -1px 0 #fff,
-    -1px  1px 0 #fff, 1px  1px 0 #fff,
-    0 1px 3px rgba(0, 0, 0, 0.5);
-  pointer-events: none;
-}
 /* Plain-language shape/colour/characteristic line (v732) — what a
    mariner checks by eye to confirm they've found the right mark. */
 .navaid-popup-identity {
   font-size: 0.74rem;
   color: var(--text-dim);
+}
+/* Labeled info rows (v745) — "Location & Context" / "Navigation Rule" /
+   official chart remark, replacing the on-map arrows (v738-744, dropped
+   per direct request: "not working... forget the arrows... I want to
+   see the full information... when I click on it"). Label above value,
+   thin separator between rows, matching the two-column reference layout
+   the request itself provided. */
+.navaid-popup-row {
+  border-top: 1px solid var(--mid-blue);
+  padding-top: 6px;
+  margin-top: 2px;
+}
+.navaid-popup-row-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--text-dim);
+  margin-bottom: 2px;
+}
+.navaid-popup-row-value {
+  font-size: 0.76rem;
+  color: var(--text);
+  line-height: 1.35;
+}
+/* Official chart remark (S-57 INFORM, straight from NOAA/USCG source
+   data — see preprocess/s57_to_geojson.py's own comment) — visually
+   distinct from every other row here since it's the one line that is
+   NOT computed/derived by this app, verbatim from the chart supplier. */
+.navaid-popup-official {
+  font-size: 0.76rem;
+  color: var(--text);
+  font-style: italic;
+  padding: 4px 7px;
+  border-left: 3px solid #f5c518;
+  background: rgba(245, 197, 24, 0.08);
 }
 .navaid-popup-brg,
 .navaid-popup-copy,

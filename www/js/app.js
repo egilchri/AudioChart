@@ -10489,124 +10489,66 @@ function _navaidIdentityHtml(n) {
   return `<div class="navaid-popup-identity">${line}</div>`;
 }
 
-// A double-headed arrow (↕, rotated) placed right on the map next to a
-// buoy/beacon — direct follow-up request: instead of only telling the
-// side in the popup (v731-733), show it AT A GLANCE while just browsing
-// the chart. Double-headed because the arrow marks the CHANNEL/pass-
-// through side, valid for travel in EITHER direction (inbound or
-// outbound) along that same axis — one arrow for a lateral mark (pass on
-// this one side only), two (one per side) for a BOYSAW safe-water mark
-// (pass on either side, a real different fact, not "don't know").
-//
-// `sideBrg`: real compass bearing FROM the buoy TOWARD the side being
-// marked — determines WHERE the icon renders (offset in screen pixels,
-// zoom-independent, not a geographic offset that would shrink to
-// invisible at low zoom). `channelBrg`: the axis the arrow itself is
-// rotated to point along (parallel to the channel, i.e. inbound/
-// outbound) — a SEPARATE bearing from sideBrg, which is perpendicular
-// to it. Both 0deg = up = north, clockwise, same convention as this
-// app's other compass-relative icons.
-function _channelSideArrowIcon(sideBrg, channelBrg, colorCls) {
-  const PX_DIST = 15;
-  const rad = sideBrg * Math.PI / 180;
-  const dx = PX_DIST * Math.sin(rad);
-  const dy = -PX_DIST * Math.cos(rad);
-  return L.divIcon({
-    className: '',
-    html: `<div class="navaid-channel-arrow ${colorCls}" style="transform:rotate(${Math.round(channelBrg)}deg)">&#8597;</div>`,
-    iconSize: [20, 20],
-    iconAnchor: [10 - dx, 10 - dy],
-  });
+// Direct follow-up (2026-09-29): "not working... forget the arrows...
+// don't show them on the screen. For each buoy when I click on it I
+// want to see the full information about how to pass it, and other
+// incidental advice." Replaces the on-map channel arrows (v738-744)
+// entirely with a richer tap popup. The user also asked, mid-build:
+// "can't you get the source of truth from the chart supplier?" — yes:
+// S-57's own INFORM attribute carries real per-aid remarks straight
+// from NOAA/USCG (e.g. "East of shoal," "On spindle," "Seasonal aid:
+// replaced by can when endangered by ice"), extracted into navaid.geojson
+// this same release (see preprocess/s57_to_geojson.py). Verified
+// directly against real downloaded ENC cells: populated on ~15% of real
+// navaid features bay-wide (83 of 504 in this region) — shown here
+// verbatim, visually distinct (see .navaid-popup-official), since it's
+// the one line in this popup NOT computed by this app.
+function _navaidOfficialRemarkHtml(inform) {
+  if (!inform) return '';
+  const safe = inform.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return `<div class="navaid-popup-row">
+    <div class="navaid-popup-row-label">Official Chart Remark</div>
+    <div class="navaid-popup-official">${safe}</div>
+  </div>`;
 }
 
-// Plain single-headed blue arrow (no background box), offset a small
-// fixed SCREEN-pixel distance from the buoy's own marker along pointBrg
-// — zoom-independent, unlike a geographic offset which would shrink to
-// invisible at low zoom.
-//
-// Direct follow-up (2026-09-29): dropped the whole pair/midpoint design
-// (gate vs. sequential classification, two arrows per pair) in favor of
-// one arrow per BUOY, anchored at that buoy's own position, per direct
-// request: "just a single blue arrow on the side of the buoy that is
-// safe to pass on, for every single buoy." The direction points toward
-// the buoy's own nearest OTHER lateral mark (searched across the full
-// bay-wide dataset, not just what's in view or within some pairing
-// radius — see _nearestOtherLateralBuoy) — the real, physical side
-// where the next mark, and the water between them, lies. This avoids
-// the inbound/outbound ambiguity the popup's own "leave to port/
-// starboard" text has to hedge on (see plan doc, "considered and
-// deliberately excluded"): there's no direction-of-travel guess here,
-// just "the marked channel continues that way," a fixed geographic
-// fact independent of which way the boat is heading.
-function _channelFlowArrowIcon(pointBrg) {
-  const PX_DIST = 20;
-  const rad = pointBrg * Math.PI / 180;
-  const dx = PX_DIST * Math.sin(rad);
-  const dy = -PX_DIST * Math.cos(rad);
-  return L.divIcon({
-    className: '',
-    html: `<div class="navaid-flow-arrow" style="transform:rotate(${Math.round(pointBrg)}deg)">&#8593;</div>`,
-    iconSize: [16, 16],
-    iconAnchor: [8 - dx, 8 - dy],
-  });
-}
-
-// Every lateral mark's nearest OTHER lateral mark, searched across the
-// FULL bay-wide dataset (allLateralBuoys), not just whatever's currently
-// in the map's viewport — a buoy near the edge of the visible area can
-// have its real nearest neighbor just outside it, and "every single
-// buoy" needs a real answer, not a view-dependent one. No distance cap:
-// only the BEARING is used (to place a small fixed-pixel-offset arrow
-// right at the buoy itself), so even a real but distant nearest
-// neighbor (verified bay-wide: 12 of 417 buoys have theirs over 2nm
-// away, in sparser stretches) still gives a valid, real-geography
-// direction — it just isn't a tight "gate" there.
-function _nearestOtherLateralBuoy(from, allLateralBuoys) {
-  let best = null, bestNm = Infinity;
-  for (const c of allLateralBuoys) {
-    if (c === from) continue;
-    const d = Query.distanceNm(from.lon, from.lat, c.lon, c.lat);
-    if (d < bestNm) { bestNm = d; best = c; }
+// "Location & Context" row — the two nearest REAL named places (any
+// kind: ledge, cove, town, anchorage — from named_places.geojson),
+// each stated as a real distance+compass-direction, reusing the exact
+// same primitives (Query.compassDir/naturalDist/bearing) already
+// verified and shipped in the app's own "Where am I" feature (see
+// query.js's whereAmI/findNearestLandmark) — not a new, separately-
+// unverified computation. Deliberately factual/terse rather than
+// flowing prose ("off Iron Point, near North Haven") since inventing
+// geographic-relationship adjectives (e.g. "northern," "just west of")
+// beyond what real bearing math supports would be an unverified guess
+// dressed as fact. Capped at 2nm — a place farther than that isn't real
+// "context" for THIS specific mark.
+function _navaidLocationContextHtml(lat, lon) {
+  const places = Query.namedPlaces?.features;
+  if (!places) return '';
+  const LOCAL_RADIUS_NM = 2.0;
+  const withDist = [];
+  for (const f of places) {
+    const name = f.properties?.name;
+    if (!name || f.geometry?.type !== 'Point') continue;
+    const [flon, flat] = f.geometry.coordinates;
+    const d = Query.distanceNm(lon, lat, flon, flat);
+    if (d > LOCAL_RADIUS_NM) continue;
+    withDist.push({ name, dist: d, lat: flat, lon: flon });
   }
-  return best;
-}
-
-// Real bearing math derived once per lateral catlam mark (2026-09-29):
-// for a port-hand (green) mark, the mariner keeps it on their PORT while
-// heading inbound — meaning the actual channel/pass-through water is on
-// the mark's OWN starboard side relative to that same inbound heading
-// (ascendingBrg + 90°); for starboard-hand (red), the channel is on the
-// mark's port side (ascendingBrg - 90°). Worked through concretely with
-// a real "red right returning" example (heading due north inbound: green
-// marks sit west of the channel, so the channel — relative to a green
-// mark — is to its east, i.e. +90° from the inbound heading) before
-// writing this, not guessed.
-function _channelSideBearing(catlam, ascendingBrg) {
-  if (ascendingBrg == null) return null;
-  if (catlam === 'port-hand')      return (ascendingBrg + 90) % 360;
-  if (catlam === 'starboard-hand') return (ascendingBrg + 270) % 360; // -90, kept positive
-  return null;
-}
-
-// Plain port/starboard-hand marks AND preferred-channel marks (a real,
-// separate catlam value marking a channel split/junction) — both are
-// physically a red or green lateral mark with a real "which side is
-// safe" meaning, so both get a per-buoy arrow. Excludes null catlam
-// (lights, safe-water, etc., handled separately) — EXCEPT for a real,
-// verified data gap: checked bay-wide, 3 of 420 real BOYLAT/BCNLAT
-// features (e.g. "Turtle Island Ledge Gong Buoy 2") have their catlam
-// missing from the chart extraction but DO have real colour data (red
-// or green) — the arrow only needs "is this a lateral mark," not which
-// color, so a colour fallback picks these up too rather than silently
-// dropping them from "every single buoy."
-function _isArrowEligibleLateral(catlam, objtype, colour) {
-  if (catlam === 'port-hand' || catlam === 'starboard-hand' ||
-      catlam === 'preferred-channel-port' || catlam === 'preferred-channel-starboard') return true;
-  if (!catlam && (objtype === 'BOYLAT' || objtype === 'BCNLAT')) {
-    const c = (colour || '').toLowerCase();
-    return c.includes('red') || c.includes('green');
-  }
-  return false;
+  withDist.sort((a, b) => a.dist - b.dist);
+  const top = withDist.slice(0, 2);
+  if (!top.length) return '';
+  const phrases = top.map((p) => {
+    const brg = Query.bearing(p.lon, p.lat, lon, lat); // FROM place TOWARD this navaid
+    const dir = Query.compassDir(brg);
+    return `${Query.naturalDist(p.dist)} ${dir} of ${p.name}`;
+  });
+  return `<div class="navaid-popup-row">
+    <div class="navaid-popup-row-label">Location &amp; Context</div>
+    <div class="navaid-popup-row-value">${phrases.join('; ')}</div>
+  </div>`;
 }
 
 function _refreshNavaidOverlay() {
@@ -10624,15 +10566,6 @@ function _refreshNavaidOverlay() {
   const bounds = _map.getBounds();
   const markers = [];
 
-  // Full bay-wide lateral-mark set (not bounds-limited) so a buoy near
-  // the edge of the current view still gets a real nearest-neighbor
-  // bearing — see _nearestOtherLateralBuoy's own comment.
-  const allLateralBuoys = Query.navaids?.features
-    ? Query.navaids.features
-        .filter(f => _isArrowEligibleLateral(f.properties.catlam, f.properties.objtype, f.properties.colour))
-        .map(f => ({ lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0] }))
-    : [];
-
   if (types.size > 0 && Query.navaids?.features) {
     for (const f of Query.navaids.features) {
       if (!types.has(f.properties.label)) continue;
@@ -10641,27 +10574,47 @@ function _refreshNavaidOverlay() {
       const n = { label: f.properties.label, colour: f.properties.colour,
                   name: f.properties.name, characteristic: f.properties.characteristic,
                   catlam: f.properties.catlam, shape: f.properties.shape,
-                  objtype: f.properties.objtype };
+                  objtype: f.properties.objtype, chart: f.properties.chart,
+                  inform: f.properties.inform };
       const m = L.marker([lat, lon], { icon: MarkerIcons.navaidMarkerIcon(n) });
       const tip = [n.name, n.characteristic || n.colour].filter(Boolean).join(' — ');
       if (tip) m.bindTooltip(tip, { permanent: false, direction: 'top', className: 'map-tooltip' });
 
-      // Tap/click → popup with Range & bearing and Copy name. The side
-      // box is filled in on popupopen (below), not here — it depends on
-      // the boat's LIVE heading, which can be stale by the time a user
+      // Tap/click → full info popup (v745, replacing the on-map arrows —
+      // see _navaidOfficialRemarkHtml's own comment). The side box is
+      // filled in on popupopen (below), not here — it depends on the
+      // boat's LIVE heading, which can be stale by the time a user
       // actually taps a marker that was rendered on an earlier refresh.
+      // Location/official-remark rows are static per-mark facts, computed
+      // once here instead.
       const safeName = (n.name || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
       const identityHtml = _navaidIdentityHtml(n);
+      const officialHtml = _navaidOfficialRemarkHtml(n.inform);
+      const locationHtml = _navaidLocationContextHtml(lat, lon);
+      // No "Navigation Rule" section at all for a plain LIGHTS/other
+      // unclassified navaid — _lateralMarkGuidanceHtml returns '' for
+      // those (no port/starboard/junction/safe-water side exists to
+      // state), and an empty labeled row would just be a floating
+      // heading over nothing.
+      const guidanceHtml = _lateralMarkGuidanceHtml(n.catlam, n.objtype);
+      const navRuleHtml = guidanceHtml
+        ? `<div class="navaid-popup-row">
+             <div class="navaid-popup-row-label">Navigation Rule</div>
+             <div class="navaid-popup-side-slot">${guidanceHtml}</div>
+           </div>`
+        : '';
       m.bindPopup(
         `<div class="navaid-popup">
            <div class="navaid-popup-name">${safeName}</div>
            ${identityHtml}
-           <div class="navaid-popup-side-slot">${_lateralMarkGuidanceHtml(n.catlam, n.objtype)}</div>
+           ${officialHtml}
+           ${locationHtml}
+           ${navRuleHtml}
            <button class="navaid-popup-brg">Range &amp; bearing</button>
            <button class="navaid-popup-focus">&#127919; Set focus</button>
            <button class="navaid-popup-copy">Copy name</button>
          </div>`,
-        { maxWidth: 220, className: 'navaid-popup-wrapper' }
+        { maxWidth: 260, className: 'navaid-popup-wrapper' }
       );
       m.on('popupopen', (e) => {
         const el = e.popup.getElement();
@@ -10705,32 +10658,6 @@ function _refreshNavaidOverlay() {
       });
 
       markers.push(m);
-
-      // One plain arrow per lateral mark, anchored at the buoy itself —
-      // zoom-gated below zoom 13 (real chart spacing between close marks
-      // is often only 40-170m, a handful of screen pixels at low zoom;
-      // see this block's header comment for the full verification).
-      if (_isArrowEligibleLateral(n.catlam, n.objtype, n.colour) && _map.getZoom() >= 13) {
-        const neighbor = _nearestOtherLateralBuoy({ lat, lon }, allLateralBuoys);
-        if (neighbor) {
-          const brg = Query.bearing(lon, lat, neighbor.lon, neighbor.lat);
-          markers.push(L.marker([lat, lon], {
-            icon: _channelFlowArrowIcon(brg),
-            interactive: false, keyboard: false,
-          }));
-        }
-      } else if (n.objtype === 'BOYSAW') {
-        // No red/green pairing applies to a safe-water mark — a fixed
-        // perpendicular pair (east/west) still correctly conveys "flanked
-        // on both sides, pass either one," just without claiming a real
-        // channel-axis alignment we don't have data for.
-        for (const brg of [90, 270]) {
-          markers.push(L.marker([lat, lon], {
-            icon: _channelSideArrowIcon(brg, 0, 'safewater'),
-            interactive: false, keyboard: false,
-          }));
-        }
-      }
     }
   }
 

@@ -1,5 +1,53 @@
 # Changelog
 
+## 2026-09-29 — Navaid popups: full info card, on-map arrows removed (v745)
+
+Direct request: "not working. Try a new approach. Forget the arrows.
+Don't show them on the screen... when I click on it I want to see the
+full information about how to pass it, and other incidental advice,"
+with a reference mockup (Location & Context / Navigation Rule rows).
+Removed the entire on-map channel-arrow feature (v738-744: icon
+functions, CSS, the per-buoy/BOYSAW render blocks) and replaced it with
+a richer tap popup.
+
+**Caught and corrected a real error before shipping it**: the
+reference mockup stated "leave to starboard when transiting eastward"
+for Fox Island Thorofare Buoy 14. Checked the real numbered-buoy chain
+directly (buoy 2 at the east end, buoy 27 at the west end — numbers
+increase heading WEST) and cross-checked against an independent web
+source describing the same channel's real buoyage convention — both
+confirmed the opposite of the mockup: numbers ascend, and "red right
+returning" applies, heading WEST, not east. Built the feature on the
+verified direction, not the mockup's specific wording.
+
+**"Are we sure we're getting the richest source of data?"** — checked.
+Downloaded all 34 real NOAA ENC chart cells covering Penobscot Bay and
+extracted S-57's own INFORM attribute — real official USCG/NOAA remarks
+("East of shoal," "On spindle," "Seasonal aid: replaced by can when
+endangered by ice") previously discarded by the extraction pipeline.
+Populated on 83 of 504 real navaid features (~16%) in this region; added
+as a new `inform` field (preprocess/s57_to_geojson.py), re-merged into
+both navaid.geojson files, fingerprints regenerated. Cross-checked
+against the official USCG Light List (Volume I, downloaded and text-
+extracted) for the same buoys — confirmed identical remark text (e.g.
+"East of shoal" on Fox Island Thorofare Buoy 10 in both sources) —
+S-57 INFORM already carries the same core USCG data, so nothing richer
+was being missed for ordinary buoys; the Light List's only notably
+deeper content is fog-signal/sector detail on major lighted aids, out
+of scope for this pass.
+
+**New popup layout** (`_refreshNavaidOverlay` in app.js): Official
+Chart Remark (verbatim INFORM text, visually marked as the one line NOT
+computed by this app) → Location & Context (nearest 2 real named
+places, each a real distance+compass-direction via the same primitives
+already used by "Where am I") → Navigation Rule (existing port/
+starboard box, now labeled and kept — still states both directions with
+live-heading highlighting, never a single guessed side). Verified live
+against the real local build for both an official-remark buoy (Fox
+Island Thorofare Buoy 10) and a no-remark buoy (Buoy 14, matching the
+mockup's own example — confirmed its real INFORM is genuinely empty in
+both NOAA sources, not a pipeline gap).
+
 ## 2026-09-29 — Channel arrows: systematic coverage audit + colour fallback (v744)
 
 Direct request, after v743 shipped: "did you systematically check every
