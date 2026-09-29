@@ -3564,14 +3564,6 @@ async function _onDrawConfirm() {
       { permanent: false }
     );
   });
-  // Spelled out as "nautical miles", not the "nm" abbreviation used in the
-  // tooltip above — this string is passed straight to TTS.sayImmediate
-  // below, and a browser's speech engine reads a bare "nm" as the SI unit
-  // (nanometers), not nautical miles. Real user report, 2026-09-28.
-  const snapNote = snapEvents.map(s =>
-    `${s.which === 'end' ? 'Destination' : 'Start'} was in water too shallow for the current draft — moved ${s.movedNm.toFixed(2)} nautical miles to reach it.`
-  ).join(' ');
-
   const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
   routes.push(_stampNew({ name, points: pts.map(p => ({ lat: p.lat, lon: p.lon })) }));
   localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
@@ -3597,15 +3589,15 @@ async function _onDrawConfirm() {
   // found live (2026-09) with a genuine Rockland->Camden fallback: the user
   // got a status message about shallow areas and no indication whatsoever
   // that the route was an un-routed straight line across land.
+  // Silent below except _showRouteFallbackWarning's own — direct request:
+  // AutoRoute plotting should stay quiet, only speaking/statusing for a
+  // genuine danger (couldn't avoid land/hazard, or a too-tight passage),
+  // never for routine success or a shallow-water relocation note (that's
+  // still visible on the map via the orange snap marker + its tooltip).
   if (fellBack) {
     _showRouteFallbackWarning([{ a: pts[0], b: pts[1], legIndex: 0 }]);
-    if (snapNote) { setStatus(snapNote); TTS.sayImmediate(snapNote); }
   } else if (marginalSeg) {
     _showRouteFallbackWarning([marginalSeg]);
-    if (snapNote) { setStatus(snapNote); TTS.sayImmediate(snapNote); }
-  } else if (snapNote) {
-    setStatus(snapNote);
-    TTS.sayImmediate(snapNote);
   }
 }
 
@@ -5359,7 +5351,6 @@ async function _promptNextLegAutoRoute(fromPoint) {
           _showRouteFallbackWarning(fallbackSegs.map(s => ({ ...s, legIndex: s.legIndex + _nextLegBaseIdx })));
         } else {
           setStatus('Next leg routed — review and Save when ready.');
-          TTS.sayImmediate('Next leg routed. Review and save when ready.');
         }
       }
     })
@@ -9031,13 +9022,6 @@ function _ensureMap() {
         { permanent: false }
       );
     });
-    // Spelled out as "nautical miles" — see the matching comment at the
-    // other snapNote call site (_onDrawConfirm): this string goes straight
-    // to TTS.sayImmediate, and a bare "nm" gets read as nanometers.
-    const snapNote = snapEvents.map(s =>
-      `${s.which === 'end' ? 'Destination' : 'Start'} was in water too shallow for the current draft — moved ${s.movedNm.toFixed(2)} nautical miles to reach it.`
-    ).join(' ');
-
     const totalNm = pts.reduce((sum, p, idx) =>
       idx === 0 ? 0 : sum + Query.distanceNm(pts[idx - 1].lon, pts[idx - 1].lat, p.lon, p.lat), 0);
 
@@ -9061,23 +9045,16 @@ function _ensureMap() {
     // more urgent problem than "a hazard is charted nearby," and gating on
     // found.length let a coastal fallback's own nearby-shallow-water hits
     // silently swallow the one warning that actually mattered.
+    // Silent below except _showRouteFallbackWarning's own — see the matching
+    // comment in _onDrawConfirm: AutoRoute plotting stays quiet except for
+    // a genuine danger, never for routine success or a shallow-water
+    // relocation note (still visible on the map via the orange snap marker).
     if (fellBack) {
       _showRouteFallbackWarning([{ a: pts[0], b: pts[1], legIndex: 0 }]);
-      if (snapNote) { setStatus(snapNote); TTS.sayImmediate(snapNote); }
     } else if (marginalSeg) {
       _showRouteFallbackWarning([marginalSeg]);
-      if (snapNote) { setStatus(snapNote); TTS.sayImmediate(snapNote); }
     } else if (!found.length) {
-      const msg = snapNote ? `${name} planned — ${totalNm.toFixed(1)} nm. ${snapNote}` : `${name} planned — ${totalNm.toFixed(1)} nm.`;
-      setStatus(msg);
-      TTS.sayImmediate(snapNote
-        ? `${name} planned. ${totalNm.toFixed(1)} nautical miles. ${snapNote}`
-        : `${name} planned. ${totalNm.toFixed(1)} nautical miles.`);
-    } else if (snapNote) {
-      // found.length: the hazard-check popup _enterEditMode just triggered
-      // already owns status/speech for that warning — don't interrupt it a
-      // moment later, just make sure the snap itself isn't lost entirely.
-      setStatus(snapNote);
+      setStatus(`${name} planned — ${totalNm.toFixed(1)} nm.`);
     }
   }
 

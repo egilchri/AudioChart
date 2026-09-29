@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-09-28 — Minimal AutoRoute narration (v727)
+
+Direct request: AutoRoute plotting/completion was "too talkative." Removed
+all TTS speech and status-bar text for routine outcomes — successful plan
+completion ("X planned — N nm") and the shallow-water marker-relocation
+note ("Destination was in water too shallow... moved X nm") — from
+`_onDrawConfirm`, `_triggerAutoRoute`, and `_promptNextLegAutoRoute`
+("Next leg routed"). The marker-relocation info stays available passively
+(the existing orange snap marker + its hover tooltip on the map), just
+never proactively announced.
+
+The one thing still spoken/shown is `_showRouteFallbackWarning` — a
+genuine danger (couldn't avoid land/hazard, or a too-tight passage) —
+left untouched, per the same request ("only in the most dangerous
+extreme circumstances").
+
 ## 2026-09-28 — "Try all routes" for Test Sets (v726)
 
 Added a "Try all routes" action to each Test Set's context-menu actions
