@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-09-29 — "Copy location" button on navaid popups (v749)
+
+Direct request: a "Copy location" button on the navaid popup, alongside
+the existing "Copy name." Copies decimal-degree coordinates
+(`lat.toFixed(6), lon.toFixed(6)`) — the most portable format for
+pasting into another maps app, a chartplotter's waypoint entry, or a
+text message, distinct from the DM format (`formatPositionDisplay`)
+already used elsewhere for on-screen reading. Same interaction pattern
+as "Copy name" (click → "✓ Copied" flash → reverts after 1.2s). Live-
+verified: click handler fires and updates the button label correctly.
+
 ## 2026-09-29 — Navaids now refresh automatically on pan/zoom (v748)
 
 Direct report: "I find I have to bring up the panel, and hit Refresh,

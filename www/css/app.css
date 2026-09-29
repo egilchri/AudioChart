@@ -2403,6 +2403,7 @@ body.wco-active #wco-titlebar { display: flex; }
 }
 .navaid-popup-brg,
 .navaid-popup-copy,
+.navaid-popup-copy-loc,
 .navaid-popup-focus,
 .navaid-popup-rename,
 .navaid-popup-autoroute,
@@ -2423,6 +2424,7 @@ body.wco-active #wco-titlebar { display: flex; }
 }
 .navaid-popup-brg:active,
 .navaid-popup-copy:active,
+.navaid-popup-copy-loc:active,
 .navaid-popup-focus:active,
 .navaid-popup-autoroute:active,
 .navaid-popup-rename:active,

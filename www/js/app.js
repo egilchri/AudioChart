@@ -10731,6 +10731,7 @@ function _refreshNavaidOverlay() {
            <button class="navaid-popup-brg">Range &amp; bearing</button>
            <button class="navaid-popup-focus">&#127919; Set focus</button>
            <button class="navaid-popup-copy">Copy name</button>
+           <button class="navaid-popup-copy-loc">Copy location</button>
          </div>`,
         { maxWidth: 260, className: 'navaid-popup-wrapper' }
       );
@@ -10772,6 +10773,16 @@ function _refreshNavaidOverlay() {
           const btn = evt.currentTarget;
           btn.textContent = '✓ Copied';
           setTimeout(() => { btn.textContent = 'Copy name'; }, 1200);
+        });
+        // Decimal degrees — most portable for pasting into another maps
+        // app, GPS/chartplotter waypoint entry, or a text message; the
+        // on-screen DM format (formatPositionDisplay) is for reading,
+        // this is for round-tripping into something else.
+        el.querySelector('.navaid-popup-copy-loc').addEventListener('click', (evt) => {
+          navigator.clipboard.writeText(`${lat.toFixed(6)}, ${lon.toFixed(6)}`).catch(() => {});
+          const btn = evt.currentTarget;
+          btn.textContent = '✓ Copied';
+          setTimeout(() => { btn.textContent = 'Copy location'; }, 1200);
         });
       });
 
