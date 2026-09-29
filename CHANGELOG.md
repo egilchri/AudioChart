@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-09-28 — "Try all routes" for Test Sets (v726)
+
+Added a "Try all routes" action to each Test Set's context-menu actions
+row (alongside Show/Hide and Delete). For a Test Set with N markers, it
+runs N independent AutoRoute calls — boat's current GPS position to each
+marker in turn, not chained marker-to-marker — drawing each leg's path
+on the map as it completes (green = real route found, red = router
+fell back to a straight line) and finishing with a status-bar summary
+of how many legs failed. Silent — no TTS narration, just the visual
+banner/status text, since this is a rapid-fire batch test the user is
+already watching on screen. Cancellable mid-run via a banner button; a
+leg already computing when Cancel is clicked still finishes, gets drawn,
+and is counted in the summary — only the *next* leg is skipped. A
+1-marker Test Set is a valid target (there's no chaining requirement).
+
+Design went through several corrections from the initial draft: chained
+routing between consecutive markers was replaced with boat-to-each-marker
+independently; TTS narration was removed entirely; and a self-found bug
+during verification — cancelling while a leg was in-flight discarded
+that leg's already-completed result instead of recording it — was fixed
+by removing a redundant post-await cancellation check (only the
+loop-top check, which gates starting a *new* leg, enforces Cancel now).
+
 ## 2026-09-28 — Self-heal stale pre-v719 Test Set waypoint names (v725)
 
 Real user report, diagnosed from a screenshot: markers labeled "SP003",

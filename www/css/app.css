@@ -3113,6 +3113,35 @@ body.wco-active #wco-titlebar { display: flex; }
   font-size: 0.85rem;
   cursor: pointer;
 }
+.try-routes-banner {
+  position: absolute;
+  top: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1500;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(20, 30, 50, 0.92);
+  color: #fff;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+  white-space: nowrap;
+}
+.try-routes-cancel-btn {
+  background: #e05252;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 10px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  -webkit-tap-highlight-color: transparent;
+}
+.try-routes-cancel-btn:active { background: #c23e3e; }
+
 .optimizing-overlay {
   position: absolute;
   top: 50%;

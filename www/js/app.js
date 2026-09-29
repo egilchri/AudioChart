@@ -456,6 +456,92 @@ function _setTestSetVisible(id, v) {
   TestSetsStorage.setTestSetVisible(id, v);
   _refreshTestSetLayer();
 }
+
+// Floating, cancellable progress banner for _tryAllTestSetRoutes — unlike
+// _showRerouteOverlay's own spinner (deliberately pointer-events:none,
+// nothing to click), this one needs a real, clickable Cancel button.
+function _showTryAllRoutesBanner() {
+  const banner = document.createElement('div');
+  banner.className = 'try-routes-banner';
+  banner.innerHTML = '<span class="try-routes-status">Testing routes…</span>' +
+                      '<button class="try-routes-cancel-btn">&#9632; Cancel</button>';
+  _map.getContainer().appendChild(banner);
+  banner.querySelector('.try-routes-cancel-btn').addEventListener('click', () => {
+    _tryAllRoutesCancelled = true;
+  });
+  return {
+    setText(t) { const el = banner.querySelector('.try-routes-status'); if (el) el.textContent = t; },
+    remove() { banner.remove(); },
+  };
+}
+
+// "Try all routes" (direct request, 2026-09-28, then corrected — this is
+// NOT a chain between consecutive test points): performs the same
+// "AutoRoute from boat position" each individual marker's own popup
+// already offers, automated across every marker in the set in turn —
+// boat's current GPS position stays the constant "from", each marker is
+// tried as the "to" one at a time. N real routing tests for a set of N
+// waypoints, the same kind of test this whole project's own regression
+// suite runs, just live in the browser against whatever region is
+// currently loaded. Deliberately NOT built on _reRouteSegments/
+// _autoRouteFromBoatToHere's full save-a-route flow (used throughout the
+// rest of the app to persist a single planned route): saving N new named
+// routes to the Routes list as a side effect of a batch TEST would clutter
+// it, and a cancelled or deadline-exceeded test should just stop and
+// report where it got to, not manufacture a saved route for the rest.
+async function _tryAllTestSetRoutes(set) {
+  if (!set.waypoints.length) {
+    setStatus(`Test Set "${set.name}" has no markers to try routes to.`);
+    return;
+  }
+  const pos = GPS.getPosition();
+  if (!pos) {
+    setStatus('No GPS fix yet — cannot try routes from the boat’s position.');
+    return;
+  }
+  _tryAllRoutesCancelled = false;
+  if (_tryAllRoutesLayer) { _tryAllRoutesLayer.clearLayers(); _map.removeLayer(_tryAllRoutesLayer); }
+  _tryAllRoutesLayer = L.layerGroup().addTo(_map);
+  const banner = _showTryAllRoutesBanner();
+
+  const draftFt = _currentDraftFt();
+  const legCount = set.waypoints.length;
+  const results = [];
+  for (let i = 0; i < legCount; i++) {
+    if (_tryAllRoutesCancelled) break;
+    const b = set.waypoints[i];
+    banner.setText(`Testing ${i + 1} of ${legCount}: boat → ${b.name}…`);
+    const path = await Router.autoRouteProg(
+      { lat: pos.lat, lon: pos.lon }, { lat: b.lat, lon: b.lon },
+      () => {}, () => {}, false, draftFt, _effectiveTideHeight(), null, null, _currentDeadlineMs()
+    );
+    // No re-check of _tryAllRoutesCancelled here on purpose: this leg's
+    // real work already finished by the time Cancel could have been
+    // clicked mid-flight — recording and drawing it is free at this point,
+    // and throwing away a completed result would be wasteful, not safer.
+    // The loop's own check above still stops any FURTHER leg from
+    // starting, which is what Cancel is actually for.
+    const fellBack = path.length <= 2 && Query.landBlocks(path[0].lon, path[0].lat, path[1].lon, path[1].lat);
+    L.polyline(path.map(p => [p.lat, p.lon]), {
+      color: fellBack ? '#e05252' : '#3aa655', weight: 4, opacity: 0.85,
+    }).addTo(_tryAllRoutesLayer);
+    results.push({ to: b.name, ok: !fellBack });
+  }
+  const cancelledEarly = _tryAllRoutesCancelled;
+  banner.remove();
+
+  const failed = results.filter(r => !r.ok);
+  const msg = cancelledEarly
+    ? `Cancelled "${set.name}" after testing ${results.length} of ${legCount} ${legCount === 1 ? 'route' : 'routes'} — ${failed.length} failed.`
+    : `Tested ${results.length} ${results.length === 1 ? 'route' : 'routes'} in "${set.name}": ${failed.length} failed` +
+      (failed.length ? ` (${failed.map(f => f.to).join(', ')}).` : '.');
+  // No TTS here, direct request — "the voice is too talkative" for a
+  // rapid-fire batch test the user is already watching on screen (the
+  // banner's own live progress text, plus each route drawing in as it
+  // completes); a spoken summary on top of that is unwanted noise, not
+  // missing information.
+  setStatus(msg);
+}
 import { formatPositionDisplay, bearingToWords, bearingToDisplay, formatDistance, distanceToDisplay, trueTomagnetic, magneticToTrue, magneticVariation, escapeHtml } from './utils.js';
 
 // Capture Android PWA install prompt before any user gesture.
@@ -702,6 +788,8 @@ let _navaidFilterLayer = null;
 let _bearingAccumulator = [];   // persists bearing lines across successive bearing queries
 let _waypointLayer = null;
 let _testSetLayer = null;
+let _tryAllRoutesLayer = null;
+let _tryAllRoutesCancelled = false;
 let _boatLayer = null;
 let _youLayer = null;
 let _focusRayLine = null;   // ray from the boat toward the current focus target
@@ -8561,10 +8649,15 @@ function _ensureMap() {
       const toggleBtn = document.createElement('button');
       toggleBtn.className = 'ctx-ts-toggle';
       toggleBtn.textContent = isVisible ? 'Hide on map' : 'Show on map';
+      const tryBtn = document.createElement('button');
+      tryBtn.className = 'ctx-ts-try-all';
+      tryBtn.textContent = '\u{1F9ED} Try all routes';
+      tryBtn.disabled = set.waypoints.length < 1;
       const delBtn = document.createElement('button');
       delBtn.className = 'ctx-ts-del';
       delBtn.textContent = 'Delete Test Set';
       actions.appendChild(toggleBtn);
+      actions.appendChild(tryBtn);
       actions.appendChild(delBtn);
       _testSetsSubmenu.appendChild(actions);
     }
@@ -9463,6 +9556,16 @@ function _ensureMap() {
       _populateTestSetsSubmenu();
       const msg = `Test Set "${set.name}" deleted.`;
       setStatus(msg); TTS.sayImmediate(msg);
+      return;
+    }
+
+    if (t.classList.contains('ctx-ts-try-all')) {
+      const actions = t.closest('.ctx-ts-actions');
+      const id = actions.dataset.tsId;
+      const set = TestSetsStorage.loadTestSets().find(s => s.id === id);
+      if (!set) return;
+      _hideCtx();
+      _tryAllTestSetRoutes(set);
       return;
     }
   });
