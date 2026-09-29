@@ -1,5 +1,33 @@
 # Changelog
 
+## 2026-09-29 — Channel arrows: one per buoy, not per pair (v743)
+
+Direct request: "start over with the arrows. No blue background. Just a
+single blue arrow on the side of the buoy that is safe to pass on. For
+every single buoy on Penobscot Bay." Dropped the whole pair/midpoint
+design from v739-v742 (gate vs. sequential classification, mutual-
+nearest-neighbor matching, two arrows drawn at a shared midpoint) in
+favor of one plain arrow per BUOY, anchored at that buoy's own position,
+offset a small fixed screen-pixel distance (not a shared point between
+two buoys — avoids ever landing on a real marker regardless of how
+close two marks are).
+
+Direction: each lateral mark's arrow points toward its own nearest
+OTHER lateral mark, searched across the full bay-wide dataset (not just
+the current viewport) so even a buoy near the edge of view gets a real
+answer — the real, physical side where the marked channel continues,
+independent of which way the boat is heading (sidesteps the inbound/
+outbound ambiguity the popup's own text already has to hedge on).
+Extended eligibility to preferred-channel-port/starboard marks too (a
+real, separate catlam value for channel-split junctions), not just
+plain port/starboard-hand — checked bay-wide, 18 of 507 real marks are
+this type. Verified live against the real local build (Chrome extension
+reconnected this session): confirmed on-map arrows now spread broadly
+across the whole visible bay, not one dense cluster, each landing
+directly beside its own buoy rather than orphaned at a distant midpoint.
+Still zoom-gated at 13+ (unchanged from v741 — real close-pair spacing
+is 40-170m, a few screen pixels at low zoom).
+
 ## 2026-09-29 — Channel arrows: drop strict mutual-neighbor requirement (v742)
 
 Direct follow-up, with a real screenshot: "Long Pond Shoal Buoy 8" near
