@@ -10573,15 +10573,32 @@ function _channelFlowArrowIcon(pointBrg) {
 // sized radius, even though the real channel is densely marked.
 //
 // Unified fix: pair every lateral mark with its own NEAREST other
-// lateral mark of ANY color (mutual nearest neighbor, to avoid one mark
-// claiming multiple links) within a longer, real-channel-spacing radius.
-// Classify the pair by distance alone — genuine gates are much closer
-// together than sequential channel-path links, a real, verified gap
-// between the two regimes (~0.02-0.09nm vs ~0.2-0.5nm) — and only THEN
-// decide the arrow's orientation: perpendicular to the connecting line
-// for a close gate pair (the boat passes between them), or ALONG the
-// connecting line for a farther sequential link (the connecting line
-// IS the channel's own path at that point).
+// lateral mark of ANY color within a longer, real-channel-spacing
+// radius. Classify the pair by distance alone — genuine gates are much
+// closer together than sequential channel-path links, a real, verified
+// gap between the two regimes (~0.02-0.09nm vs ~0.2-0.5nm) — and only
+// THEN decide the arrow's orientation: perpendicular to the connecting
+// line for a close gate pair (the boat passes between them), or ALONG
+// the connecting line for a farther sequential link (the connecting
+// line IS the channel's own path at that point).
+//
+// Direct follow-up (2026-09-29): a real screenshot near Mount Desert
+// Island ("Long Pond Shoal Buoy 8") showed a lateral mark with no arrow
+// nearby despite having a real neighbor 0.5nm away, well inside range.
+// Root cause, confirmed against real data: the original MUTUAL
+// nearest-neighbor requirement — added to stop one mark claiming
+// multiple links — was too strict outside dense two-buoy gates. Buoy 8's
+// nearest neighbor's OWN nearest neighbor was a third, different buoy,
+// so the pair was rejected even though it's a perfectly real link.
+// Checked bay-wide: 110 of 417 lateral buoys (26%) were being dropped
+// for exactly this reason — a real neighbor existed in range, but
+// wasn't reciprocal. Dropping the mutual requirement (each mark still
+// links only to its own single nearest neighbor, but pairs are no
+// longer required to be symmetric, and duplicate unordered pairs are
+// deduped) raised verified bay-wide coverage from 59% to 84% while
+// leaving Rockland's tight real gate pairs and Fox Island Thorofare's
+// real sequential run correctly classified — confirmed by rerunning the
+// same real-data verification script this fix was checked against.
 function _findChannelBuoyPairs(lateralBuoys) {
   const LINK_MAX_NM = 1.0;   // longest real consecutive-buoy spacing seen (Fox Island Thorofare)
   const GATE_MAX_NM = 0.15;  // longest real red/green gate spacing seen (Rockland Harbor Bypass)
@@ -10594,19 +10611,20 @@ function _findChannelBuoyPairs(lateralBuoys) {
     }
     return best && bestNm <= LINK_MAX_NM ? { buoy: best, dist: bestNm } : null;
   };
+  const seen = new Set();
   const pairs = [];
-  const used = new Set();
   for (const a of lateralBuoys) {
-    if (used.has(a)) continue;
     const found = nearestOf(a, lateralBuoys);
-    if (!found || used.has(found.buoy)) continue;
-    // Mutual nearest neighbor only — A's closest neighbor must also
-    // consider A its own closest, or these aren't really "linked," just
-    // two marks that happen to be near each other in a hazard-dense area.
-    const back = nearestOf(found.buoy, lateralBuoys);
-    if (!back || back.buoy !== a) continue;
-    used.add(a); used.add(found.buoy);
-    pairs.push({ a, b: found.buoy, isGate: found.dist <= GATE_MAX_NM });
+    if (!found) continue;
+    const b = found.buoy;
+    // Dedup unordered pairs — b's own nearest neighbor may also be a,
+    // which would otherwise produce the same pair twice.
+    const pairKey = lateralBuoys.indexOf(a) < lateralBuoys.indexOf(b)
+      ? `${lateralBuoys.indexOf(a)}|${lateralBuoys.indexOf(b)}`
+      : `${lateralBuoys.indexOf(b)}|${lateralBuoys.indexOf(a)}`;
+    if (seen.has(pairKey)) continue;
+    seen.add(pairKey);
+    pairs.push({ a, b, isGate: found.dist <= GATE_MAX_NM });
   }
   return pairs;
 }

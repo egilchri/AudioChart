@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-09-29 — Channel arrows: drop strict mutual-neighbor requirement (v742)
+
+Direct follow-up, with a real screenshot: "Long Pond Shoal Buoy 8" near
+Mount Desert Island had no arrow nearby despite a real neighbor
+("Bowden Ledge Buoy 6") only 0.5nm away, well inside range. Root cause,
+confirmed against real data: v741's pairing required MUTUAL nearest
+neighbor (A's nearest is B, AND B's nearest is A) specifically to stop
+one mark claiming multiple links. That's too strict outside a dense
+two-buoy gate — Bowden Ledge Buoy 6's own nearest neighbor was a THIRD,
+different buoy, so the real link to Long Pond Shoal Buoy 8 was rejected
+even though it's a genuine nearby pair. Checked bay-wide: 110 of 417
+lateral buoys (26%) were being dropped for exactly this reason — a real
+neighbor existed in range, it just wasn't reciprocal.
+
+Fix: each mark still links to only its own single nearest neighbor
+(distance-classified into gate/sequential exactly as before), but pairs
+no longer need to be symmetric, and duplicate unordered pairs are
+deduped. Verified directly against `navaid.geojson`: bay-wide coverage
+rose from 59% to 84% (349 of 417 buoys), Fox Island Thorofare's real
+pairs went from 6 to 14 (correctly folding in nearby daybeacons marking
+the same channel), and Rockland Harbor Bypass Channel's tight real gate
+pairs stayed correctly classified as gates.
+
 ## 2026-09-29 — Channel arrows: real coverage fix + zoom gate (v741)
 
 Direct follow-up, with a real bay-wide screenshot: "why aren't there
