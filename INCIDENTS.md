@@ -47,10 +47,43 @@ failure there was already handled safely by the caller (falls through
 to not trusting IndexedDB, or to the explicit offline fallback); it just
 needed to be a real failure, never a wrong-but-successful stale answer.
 
+**v735 shipped, verified green on CI — user reported the exact same
+symptom again, on yet another buoy, independently confirmed correct in
+production.** This time verified against the LIVE site directly
+(`curl -I https://egilchri.github.io/AudioChart/data/data-version.json`)
+instead of only the local dev server — found a THIRD, distinct caching
+layer: GitHub Pages' own CDN (Fastly) serves every static file,
+including `data-version.json`, with `Cache-Control: max-age=600` — a
+10-minute edge cache sitting in front of the origin that no repo-level
+config can change on GitHub Pages, and that `cache:'no-store'` (a
+browser-fetch option) can never reach at all, no matter which layer
+underneath it also gets fixed.
+
+Also recognized a *second* real gap: even once the freshness check
+itself is fully fixed, a device that had ALREADY recorded a
+wrongly-matching stored version (from either of the two bugs above)
+would never self-correct — matching wrongly is exactly that failure's
+symptom, indistinguishable from genuinely being current, from that
+device's own point of view.
+
+**Fix (v736):** cache-bust every `data-version.json` fetch with a
+`?v=<timestamp>` query string, making each request a URL the CDN has
+never cached — sidesteps the edge-cache TTL entirely, at any layer,
+regardless of its configured value. Added a one-time self-heal
+(matching the existing v636 hazards-dedup migration's own pattern) that
+forces exactly one real, unconditional re-fetch per region per browser
+per independent cache family, specifically to unstick a device that's
+already in the bad state — the only piece of this whole chain that
+directly fixes the ALREADY-REPORTING user's device, as opposed to just
+preventing new instances of the bug.
+
 **Process takeaway:** when a "still doesn't work" report repeats after a
 believed-complete fix, get fresh evidence on a DIFFERENT specific
-instance before concluding the fix didn't hold — the first fix (v734)
-was real and necessary, just not the only bug in the chain.
+instance before concluding the fix didn't hold — v734 and v735 were
+each real and necessary, just not the only bugs in the chain. And: test
+the actual LIVE production URL directly (`curl -I`), not only a local
+dev server — a dev server has no CDN in front of it, so this exact class
+of bug is invisible there no matter how thoroughly it's tested locally.
 
 ## 2026-09-27 — Route names could render invisibly in the Routes panel; unrelated WIP shipped undocumented in v694
 
