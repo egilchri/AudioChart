@@ -10488,6 +10488,53 @@ function _navaidIdentityHtml(n) {
   return `<div class="navaid-popup-identity">${line}</div>`;
 }
 
+// A double-headed arrow (↕, rotated) placed right on the map next to a
+// buoy/beacon — direct follow-up request: instead of only telling the
+// side in the popup (v731-733), show it AT A GLANCE while just browsing
+// the chart. Double-headed because the arrow marks the CHANNEL/pass-
+// through side, valid for travel in EITHER direction (inbound or
+// outbound) along that same axis — one arrow for a lateral mark (pass on
+// this one side only), two (one per side) for a BOYSAW safe-water mark
+// (pass on either side, a real different fact, not "don't know").
+//
+// `sideBrg`: real compass bearing FROM the buoy TOWARD the side being
+// marked — determines WHERE the icon renders (offset in screen pixels,
+// zoom-independent, not a geographic offset that would shrink to
+// invisible at low zoom). `channelBrg`: the axis the arrow itself is
+// rotated to point along (parallel to the channel, i.e. inbound/
+// outbound) — a SEPARATE bearing from sideBrg, which is perpendicular
+// to it. Both 0deg = up = north, clockwise, same convention as this
+// app's other compass-relative icons.
+function _channelSideArrowIcon(sideBrg, channelBrg, colorCls) {
+  const PX_DIST = 15;
+  const rad = sideBrg * Math.PI / 180;
+  const dx = PX_DIST * Math.sin(rad);
+  const dy = -PX_DIST * Math.cos(rad);
+  return L.divIcon({
+    className: '',
+    html: `<div class="navaid-channel-arrow ${colorCls}" style="transform:rotate(${Math.round(channelBrg)}deg)">&#8597;</div>`,
+    iconSize: [20, 20],
+    iconAnchor: [10 - dx, 10 - dy],
+  });
+}
+
+// Real bearing math derived once per lateral catlam mark (2026-09-29):
+// for a port-hand (green) mark, the mariner keeps it on their PORT while
+// heading inbound — meaning the actual channel/pass-through water is on
+// the mark's OWN starboard side relative to that same inbound heading
+// (ascendingBrg + 90°); for starboard-hand (red), the channel is on the
+// mark's port side (ascendingBrg - 90°). Worked through concretely with
+// a real "red right returning" example (heading due north inbound: green
+// marks sit west of the channel, so the channel — relative to a green
+// mark — is to its east, i.e. +90° from the inbound heading) before
+// writing this, not guessed.
+function _channelSideBearing(catlam, ascendingBrg) {
+  if (ascendingBrg == null) return null;
+  if (catlam === 'port-hand')      return (ascendingBrg + 90) % 360;
+  if (catlam === 'starboard-hand') return (ascendingBrg + 270) % 360; // -90, kept positive
+  return null;
+}
+
 function _refreshNavaidOverlay() {
   if (!_map) return;
   if (_navaidFilterLayer) { _map.removeLayer(_navaidFilterLayer); _navaidFilterLayer = null; }
@@ -10575,6 +10622,36 @@ function _refreshNavaidOverlay() {
       });
 
       markers.push(m);
+
+      // On-map double-arrow(s) — see _channelSideArrowIcon's own comment.
+      // Computed unconditionally here (not gated behind popupopen like the
+      // guidance box) since this needs to show at a glance for every
+      // visible mark, not just one being tapped. Silently draws nothing
+      // for a mark with no computable chain bearing — same "no confident
+      // answer, no guess" rule as everywhere else in this feature.
+      if (n.catlam === 'port-hand' || n.catlam === 'starboard-hand') {
+        const ascendingBrg = _chainAscendingBearing(n.name, lat, lon);
+        const sideBrg = _channelSideBearing(n.catlam, ascendingBrg);
+        if (sideBrg != null) {
+          const colorCls = n.catlam === 'port-hand' ? 'port' : 'starboard';
+          markers.push(L.marker([lat, lon], {
+            icon: _channelSideArrowIcon(sideBrg, ascendingBrg, colorCls),
+            interactive: false, keyboard: false,
+          }));
+        }
+      } else if (n.objtype === 'BOYSAW') {
+        // No chain/lateral-neighbor bearing exists for a safe-water mark
+        // (it isn't part of a numbered lateral sequence) — a fixed
+        // perpendicular pair (east/west) still correctly conveys "flanked
+        // on both sides, pass either one," just without claiming a real
+        // channel-axis alignment we don't have data for.
+        for (const brg of [90, 270]) {
+          markers.push(L.marker([lat, lon], {
+            icon: _channelSideArrowIcon(brg, 0, 'safewater'),
+            interactive: false, keyboard: false,
+          }));
+        }
+      }
     }
   }
 

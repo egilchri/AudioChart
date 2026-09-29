@@ -1,5 +1,30 @@
 # Changelog
 
+## 2026-09-29 — On-map double-arrows show which side to pass a buoy (v738)
+
+Direct follow-up: "when the buoys are displayed, put a double ended
+arrow next to it" — instead of only telling the side in the popup
+(v731-733), show it at a glance right on the chart, no tap needed.
+
+A small green/red rounded square with a white "↕" glyph now renders next
+to every lateral buoy/beacon with a computable chain bearing, offset to
+the actual channel/pass-through side (not the buoy's own side — worked
+through concretely with a real "red right returning" example before
+writing the code: for a green/port-hand mark, the channel is on the
+mark's own STARBOARD side relative to the inbound heading, i.e.
+`ascendingBrg + 90°`; for red/starboard-hand, `ascendingBrg - 90°`),
+rotated to point along the real channel axis (double-headed since that
+axis serves both inbound and outbound travel). A BOYSAW safe-water mark
+gets two arrows, one flanking each side, in blue — a real, different
+fact ("pass on either side"), not a placeholder for missing data.
+
+Silent (draws nothing) for any mark with no computable chain bearing —
+same "no confident answer, no guess" rule as the rest of this feature.
+Live-verified with exact pixel-position math (not just eyeballing a
+screenshot, which was initially misleading) against two real marks:
+Wheeler Bay Buoy 1 (port-hand) and Marshall Point Lighted Buoy MP
+(BOYSAW) — both rendered at the precisely correct offset and rotation.
+
 ## 2026-09-29 — CI fix: guard a latent `navigator` reference (v737)
 
 v736 shipped with CI red — missed before pushing. The new self-heal

@@ -2359,6 +2359,26 @@ body.wco-active #wco-titlebar { display: flex; }
   opacity: 0.75;
   margin-top: 3px;
 }
+/* On-map double-arrow next to a buoy/beacon (v738) — see
+   _channelSideArrowIcon's own comment. Solid background + white glyph so
+   it stays readable over any base map (chart/satellite/paper), same
+   contrast approach as the app's other on-map compass-relative icons. */
+.navaid-channel-arrow {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 900;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+}
+.navaid-channel-arrow.port       { background: #2e9e42; }
+.navaid-channel-arrow.starboard  { background: #d64545; }
+.navaid-channel-arrow.safewater  { background: #3a86b5; }
 /* Plain-language shape/colour/characteristic line (v732) — what a
    mariner checks by eye to confirm they've found the right mark. */
 .navaid-popup-identity {
