@@ -2341,6 +2341,17 @@ body.wco-active #wco-titlebar { display: flex; }
   opacity: 1;
   text-decoration: underline;
 }
+/* Rotated to the real compass bearing of travel that line's rule applies
+   to (see _chainAscendingBearing) — replaces the word "Inbound"/
+   "Outbound" with a picture of which way that means, direct follow-up
+   request since the words alone read as confusing. 0deg = up = north,
+   rotates clockwise with bearing, same convention as this app's other
+   compass-relative icons (e.g. the boat icon). */
+.navaid-side-arrow {
+  display: inline-block;
+  font-weight: 900;
+  margin-right: 2px;
+}
 .navaid-side-hint {
   font-size: 0.66rem;
   font-weight: normal;

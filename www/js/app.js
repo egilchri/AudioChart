@@ -10340,32 +10340,48 @@ function _refreshSoundingsLayer() {
 // complete instruction — it also depends on the conventional direction of
 // buoyage, which for US waters is "red right returning" (inbound = from
 // seaward toward harbor; buoy numbers ascend going inbound, the same
-// convention, not a separate fact). State both directions explicitly
-// rather than a single unqualified "leave to port," which would be
-// correct only half the time. Direct request: the clearest possible
-// wording, since this is the one thing worth reading at a glance while
-// underway.
-function _lateralMarkGuidanceHtml(catlam, objtype, computedGuess) {
+// convention, not a separate fact).
+//
+// Direct follow-up (2026-09-29): the words "Inbound"/"Outbound" read as
+// confusing on their own — replaced with a small arrow rotated to the
+// REAL compass bearing of travel each line applies to (from
+// _chainAscendingBearing), so "which way" is answered by a picture, not
+// a word. Both "Leave to Port" and "Leave to Starboard" always show —
+// never just one — since the mark alone can't say which applies without
+// the direction you're actually heading. Falls back to the plain
+// Inbound:/Outbound: wording only when no chain neighbor was found
+// nearby (no real bearing to draw an arrow toward — see
+// _chainAscendingBearing's own comment on when that happens).
+function _lateralMarkGuidanceHtml(catlam, objtype, ascendingBrg, computedGuess) {
   // computedGuess (from _computeLikelyInboundOutbound, below): 'inbound',
   // 'outbound', or null. When set, bolds the currently-applicable line and
   // adds a one-line caption — an ADDITION, never a replacement: both
   // directions always stay stated in full, since this is a best-guess
   // from the boat's current heading, not a certainty (see that function's
   // own comment for why it can be wrong, and why it stays conservative).
-  const activeLine  = (dir) => computedGuess === dir ? ' active' : '';
-  const hintHtml     = computedGuess
+  const activeLine = (dir) => computedGuess === dir ? ' active' : '';
+  const hintHtml    = computedGuess
     ? '<div class="navaid-side-hint">Based on your current heading</div>' : '';
-  if (catlam === 'port-hand') {
-    return `<div class="navaid-popup-side port">
-      <div class="navaid-side-line${activeLine('inbound')}">&#9973; Inbound: leave to PORT</div>
-      <div class="navaid-side-line${activeLine('outbound')}">Outbound: leave to STARBOARD</div>
-      ${hintHtml}
-    </div>`;
-  }
-  if (catlam === 'starboard-hand') {
-    return `<div class="navaid-popup-side starboard">
-      <div class="navaid-side-line${activeLine('inbound')}">&#9973; Inbound: leave to STARBOARD</div>
-      <div class="navaid-side-line${activeLine('outbound')}">Outbound: leave to PORT</div>
+  const arrowOrWord = (brgDeg, fallbackWord) => brgDeg == null
+    ? `${fallbackWord}:`
+    : `<span class="navaid-side-arrow" style="transform:rotate(${Math.round(brgDeg)}deg)">&#8593;</span>`;
+
+  if (catlam === 'port-hand' || catlam === 'starboard-hand') {
+    const inboundBrg  = ascendingBrg;
+    const outboundBrg = ascendingBrg == null ? null : (ascendingBrg + 180) % 360;
+    // For a port-hand mark, "leave to port" IS the inbound rule; for a
+    // starboard-hand mark it's the outbound rule (and vice versa) — the
+    // two lines' TEXT stays fixed (Port, then Starboard), only which
+    // arrow/guess-highlight attaches to which line flips with catlam.
+    const portBrg      = catlam === 'port-hand' ? inboundBrg  : outboundBrg;
+    const starboardBrg = catlam === 'port-hand' ? outboundBrg : inboundBrg;
+    const portGuess      = catlam === 'port-hand' ? 'inbound' : 'outbound';
+    const starboardGuess = catlam === 'port-hand' ? 'outbound' : 'inbound';
+    const cls = catlam === 'port-hand' ? 'port' : 'starboard';
+    const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+    return `<div class="navaid-popup-side ${cls}">
+      <div class="navaid-side-line${activeLine(portGuess)}">${arrowOrWord(portBrg, capitalize(portGuess))} Leave to PORT</div>
+      <div class="navaid-side-line${activeLine(starboardGuess)}">${arrowOrWord(starboardBrg, capitalize(starboardGuess))} Leave to STARBOARD</div>
       ${hintHtml}
     </div>`;
   }
@@ -10385,27 +10401,18 @@ function _lateralMarkGuidanceHtml(catlam, objtype, computedGuess) {
   return '';
 }
 
-// Best-guess "which direction are you currently heading" for a lateral
-// mark's port/starboard pair, computed from the boat's live GPS course —
-// NOT from any stored "which way is the harbor" fact (none exists; see
-// _lateralMarkGuidanceHtml's own comment on why CATLAM alone can't say
-// this). Instead: buoy numbers ascend inbound by chart convention (a
-// fixed rule, not per-channel data) — find another real charted buoy in
-// the same numbered chain (e.g. "Wheeler Bay Buoy 1" / "...Buoy 3"),
-// which tells us the LOCAL ascending/inbound direction at this exact
-// spot, then compare the boat's live heading against it.
-//
-// Deliberately conservative — returns null (no guess shown) rather than
-// a low-confidence one, whenever: no GPS heading, no chain neighbor
-// found nearby, or the heading is too close to perpendicular to the
-// chain to call confidently (a wrong CONFIDENT answer here is actively
-// dangerous, not just unhelpful — worse than showing nothing extra).
-function _computeLikelyInboundOutbound(catlam, name, lat, lon) {
-  if (catlam !== 'port-hand' && catlam !== 'starboard-hand') return null;
-  const pos = GPS.getPosition();
-  if (!pos || pos.heading == null) return null;
+// The real compass bearing of "ascending" (inbound, by chart convention —
+// buoy numbers ascend inbound, a fixed national rule, not per-channel
+// data) at THIS specific mark: find another real charted buoy/beacon in
+// the same numbered chain (e.g. "Wheeler Bay Buoy 1" / "...Buoy 3") within
+// a reasonable radius and take the bearing toward increasing numbers.
+// Returns null if no chain neighbor is found nearby — never guessed.
+// Independent of the boat's own position/heading; this is a fixed
+// property of the chart itself, used both to draw the popup's directional
+// arrows (always, when available) and by _computeLikelyInboundOutbound
+// (below) to compare against the boat's live heading.
+function _chainAscendingBearing(name, lat, lon) {
   if (!name || !Query.navaids?.features) return null;
-
   const digitMatches = [...name.matchAll(/\d+/g)];
   if (!digitMatches.length) return null;
   const lastMatch = digitMatches[digitMatches.length - 1];
@@ -10433,11 +10440,29 @@ function _computeLikelyInboundOutbound(catlam, name, lat, lon) {
   }
   if (!lower && !higher) return null;
 
-  // Bearing of the local "ascending" (inbound) direction along this chain.
-  let ascendingBrg;
-  if (lower && higher) ascendingBrg = Query.bearing(lower.lon, lower.lat, higher.lon, higher.lat);
-  else if (higher)     ascendingBrg = Query.bearing(lon, lat, higher.lon, higher.lat);
-  else                 ascendingBrg = Query.bearing(lower.lon, lower.lat, lon, lat);
+  if (lower && higher) return Query.bearing(lower.lon, lower.lat, higher.lon, higher.lat);
+  if (higher)           return Query.bearing(lon, lat, higher.lon, higher.lat);
+  return Query.bearing(lower.lon, lower.lat, lon, lat);
+}
+
+// Best-guess "which direction are you currently heading" for a lateral
+// mark's port/starboard pair, computed from the boat's live GPS course
+// compared against _chainAscendingBearing (above) — NOT from any stored
+// "which way is the harbor" fact (none exists; see
+// _lateralMarkGuidanceHtml's own comment on why CATLAM alone can't say
+// this).
+//
+// Deliberately conservative — returns null (no guess shown) rather than
+// a low-confidence one, whenever: no GPS heading, no chain neighbor
+// found nearby, or the heading is too close to perpendicular to the
+// chain to call confidently (a wrong CONFIDENT answer here is actively
+// dangerous, not just unhelpful — worse than showing nothing extra).
+function _computeLikelyInboundOutbound(catlam, name, lat, lon) {
+  if (catlam !== 'port-hand' && catlam !== 'starboard-hand') return null;
+  const pos = GPS.getPosition();
+  if (!pos || pos.heading == null) return null;
+  const ascendingBrg = _chainAscendingBearing(name, lat, lon);
+  if (ascendingBrg == null) return null;
 
   let diff = Math.abs(pos.heading - ascendingBrg) % 360;
   if (diff > 180) diff = 360 - diff;
@@ -10512,8 +10537,9 @@ function _refreshNavaidOverlay() {
         const el = e.popup.getElement();
         const slot = el.querySelector('.navaid-popup-side-slot');
         if (slot) {
+          const ascendingBrg = _chainAscendingBearing(n.name, lat, lon);
           const guess = _computeLikelyInboundOutbound(n.catlam, n.name, lat, lon);
-          slot.innerHTML = _lateralMarkGuidanceHtml(n.catlam, n.objtype, guess);
+          slot.innerHTML = _lateralMarkGuidanceHtml(n.catlam, n.objtype, ascendingBrg, guess);
         }
         el.querySelector('.navaid-popup-brg').addEventListener('click', () => {
           _map.closePopup();

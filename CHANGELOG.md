@@ -1,5 +1,27 @@
 # Changelog
 
+## 2026-09-29 — Replace "Inbound/Outbound" text with directional arrows (v733)
+
+Direct follow-up: the words "Inbound"/"Outbound" in v731/v732's pass-side
+box read as confusing on their own. Replaced with a small arrow rotated
+to the real compass bearing each line's rule applies to — the popup now
+reads "↖ Leave to PORT" / "↘ Leave to STARBOARD" (arrows rotated to
+actual heading, not generic glyphs), so which way is which is answered
+by a picture, not a word.
+
+The real bearing comes from the same chain-neighbor mechanism v732's
+live-heading guess already used (`_chainAscendingBearing`, now factored
+out on its own) — finds another real charted buoy in the same numbered
+chain nearby and takes the bearing toward the higher number. Falls back
+to the original "Inbound:"/"Outbound:" wording only when no chain
+neighbor is found (no real bearing to point an arrow at). The live-
+heading best-guess highlighting from v732 is unchanged, just now
+attached to arrow-based lines instead of word-based ones.
+
+Live-verified against the real Wheeler Bay Buoy 1/3 pair: correct
+arrow directions with no GPS heading set, and correct highlighting
+retained once a heading was set.
+
 ## 2026-09-29 — Richer navaid popup + live heading-based side guess (v732)
 
 Two direct follow-ups to v731, both Penobscot Bay only:
