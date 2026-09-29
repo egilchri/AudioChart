@@ -10592,10 +10592,21 @@ function _channelSideBearing(catlam, ascendingBrg) {
 // separate catlam value marking a channel split/junction) — both are
 // physically a red or green lateral mark with a real "which side is
 // safe" meaning, so both get a per-buoy arrow. Excludes null catlam
-// (lights, safe-water, etc., handled separately).
-function _isLateralCatlam(catlam) {
-  return catlam === 'port-hand' || catlam === 'starboard-hand' ||
-         catlam === 'preferred-channel-port' || catlam === 'preferred-channel-starboard';
+// (lights, safe-water, etc., handled separately) — EXCEPT for a real,
+// verified data gap: checked bay-wide, 3 of 420 real BOYLAT/BCNLAT
+// features (e.g. "Turtle Island Ledge Gong Buoy 2") have their catlam
+// missing from the chart extraction but DO have real colour data (red
+// or green) — the arrow only needs "is this a lateral mark," not which
+// color, so a colour fallback picks these up too rather than silently
+// dropping them from "every single buoy."
+function _isArrowEligibleLateral(catlam, objtype, colour) {
+  if (catlam === 'port-hand' || catlam === 'starboard-hand' ||
+      catlam === 'preferred-channel-port' || catlam === 'preferred-channel-starboard') return true;
+  if (!catlam && (objtype === 'BOYLAT' || objtype === 'BCNLAT')) {
+    const c = (colour || '').toLowerCase();
+    return c.includes('red') || c.includes('green');
+  }
+  return false;
 }
 
 function _refreshNavaidOverlay() {
@@ -10618,7 +10629,7 @@ function _refreshNavaidOverlay() {
   // bearing — see _nearestOtherLateralBuoy's own comment.
   const allLateralBuoys = Query.navaids?.features
     ? Query.navaids.features
-        .filter(f => _isLateralCatlam(f.properties.catlam))
+        .filter(f => _isArrowEligibleLateral(f.properties.catlam, f.properties.objtype, f.properties.colour))
         .map(f => ({ lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0] }))
     : [];
 
@@ -10699,7 +10710,7 @@ function _refreshNavaidOverlay() {
       // zoom-gated below zoom 13 (real chart spacing between close marks
       // is often only 40-170m, a handful of screen pixels at low zoom;
       // see this block's header comment for the full verification).
-      if (_isLateralCatlam(n.catlam) && _map.getZoom() >= 13) {
+      if (_isArrowEligibleLateral(n.catlam, n.objtype, n.colour) && _map.getZoom() >= 13) {
         const neighbor = _nearestOtherLateralBuoy({ lat, lon }, allLateralBuoys);
         if (neighbor) {
           const brg = Query.bearing(lon, lat, neighbor.lon, neighbor.lat);

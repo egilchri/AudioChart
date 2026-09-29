@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-09-29 — Channel arrows: systematic coverage audit + colour fallback (v744)
+
+Direct request, after v743 shipped: "did you systematically check every
+buoy has 1 arrow, or 2 if you can pass on either side?" Answer at the
+time was no — only spot-checked a couple of screenshots. Ran a real
+audit against the full Penobscot Bay dataset (504 navaid features),
+classifying every one into its expected arrow count and checking the
+actual code's behavior against it:
+- 417 catlam port/starboard/preferred-channel marks + 19 BOYSAW (436
+  total) should each get exactly 1 or 2 arrows.
+- 65 LIGHTS should get 0 (a light has no "side" — correct, unchanged).
+
+Found one real gap: 3 of 420 real BOYLAT/BCNLAT features ("Turtle
+Island Ledge Gong Buoy 2," two others) have real colour data (red or
+green) but are missing `catlam` in the chart extraction, so they fell
+through to 0 arrows despite genuinely being lateral marks. Fixed by
+falling back to colour (red/green) when catlam is absent — the arrow
+only needs "is this a lateral mark," not which specific side, so colour
+alone is sufficient. Re-ran the audit against the fixed code: all 504
+real features now land in their correct group with zero failures —
+420 lateral marks each get exactly 1 real (non-null) neighbor bearing,
+19 BOYSAW each get exactly 2, 65 LIGHTS get 0, summing exactly to 504.
+
 ## 2026-09-29 — Channel arrows: one per buoy, not per pair (v743)
 
 Direct request: "start over with the arrows. No blue background. Just a
