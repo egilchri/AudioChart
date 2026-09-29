@@ -10290,19 +10290,36 @@ function _soundingColor(effDepthM) {
   return '#7ec8e3';                       // blue — comfortable
 }
 
+// A hard zoom<14 cutoff used to hide every sounding dot below that level —
+// direct report: the user turned Depths on, saw nothing at their normal
+// zoom, and had no way to force them on regardless. Direct follow-up
+// ("turning them all on, at will") ruled out thinning too: show every
+// real charted sounding in view, at any zoom, no sampling. The safety net
+// below is only a hang-prevention ceiling for a pathological worst case
+// (a huge merged multi-region dataset fully zoomed out) — a real,
+// previously-hit class of bug in this app (see the hazard-clustering
+// O(n²) hang / DOM-count blowup) — not a practical limit under normal use;
+// the real per-region sounding counts (tens of thousands total, already
+// pre-thinned to ≤30m spacing at build time) stay well under it even at
+// a wide viewport.
+const MAX_SOUNDING_MARKERS = 5000;
+
 function _refreshSoundingsLayer() {
   if (!_map) return;
   if (_soundingsLayer) { _map.removeLayer(_soundingsLayer); _soundingsLayer = null; }
   if (!document.getElementById('nf-depth')?.checked) return;
   if (!Query.soundings?.features?.length) return;
-  const zoom = _map.getZoom();
-  if (zoom < 14) return;  // only show at close zoom — dots still add up fast
   const bounds = _map.getBounds().pad(0.1);
-  const markers = [];
-  for (const f of Query.soundings.features) {
+  const inView = Query.soundings.features.filter(f => {
     const [lon, lat] = f.geometry.coordinates;
-    if (!bounds.contains([lat, lon])) continue;
-    const charted = f.properties.valsou;
+    return bounds.contains([lat, lon]);
+  });
+  if (!inView.length) return;
+  const stride = Math.max(1, Math.ceil(inView.length / MAX_SOUNDING_MARKERS));
+  const markers = [];
+  for (let i = 0; i < inView.length; i += stride) {
+    const [lon, lat] = inView[i].geometry.coordinates;
+    const charted = inView[i].properties.valsou;
     const eff = charted + _effectiveTideHeight();
     const effFt = (eff * 3.28084).toFixed(1);
     const color = _soundingColor(eff);
@@ -10312,7 +10329,7 @@ function _refreshSoundingsLayer() {
       }).bindTooltip(`${effFt} ft`, { className: 'map-tooltip', sticky: true })
     );
   }
-  if (markers.length) _soundingsLayer = L.layerGroup(markers).addTo(_map);
+  _soundingsLayer = L.layerGroup(markers).addTo(_map);
 }
 
 function _refreshNavaidOverlay() {

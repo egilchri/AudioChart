@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-09-28 — Depth soundings show at any zoom (v730)
+
+Direct report: the Depths overlay's numeric sounding dots (colored by
+comfort margin, depth on tap) had a hard `zoom < 14` cutoff that hid every
+one of them below that level — with the checkbox itself always on, this
+made the feature look broken ("I don't see them") for anyone not zoomed
+in tight. Removed the cutoff entirely, per direct follow-up ("turning
+them all on, at will"): real soundings in view now always render,
+regardless of zoom.
+
+To avoid reintroducing a real, previously-hit class of bug in this app
+(a dense, unthinned marker set hanging the browser — see the hazard-
+clustering O(n²)/DOM-count fixes), a `MAX_SOUNDING_MARKERS` = 5000
+density cap (even stride-sampling) still applies, but only as a
+worst-case safety net — real per-region sounding counts (already
+pre-thinned to ≤30m spacing at build time) stay well under it even
+across a whole bay at low zoom. Live-verified: ~1000s of real charted
+soundings render smoothly at zoom 10 across all of Penobscot Bay.
+
 ## 2026-09-28 — Drop the nearby-hazard-proximity speech (v729)
 
 Direct request: "Stop saying 'Warning route ... has ... hazards nearby'.
