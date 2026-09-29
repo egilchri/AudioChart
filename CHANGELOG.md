@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-09-29 — Navaids now refresh automatically on pan/zoom (v748)
+
+Direct report: "I find I have to bring up the panel, and hit Refresh,
+to see the Navaids." Confirmed a real gap: `_refreshNavaidOverlay` was
+only ever called on initial map load, an explicit Refresh tap, a
+region switch, or toggling the Depths checkbox — never on plain
+panning or zooming, unlike Soundings and several other viewport-scoped
+overlays in this file which already bind to `moveend`/`zoomend`.
+Panning to a new area showed nothing until manually hitting Refresh.
+Added the same `_map.on('zoomend moveend', _refreshNavaidOverlay)`
+binding soundings already had. Verified live: navaids now populate
+automatically after both a plain pan and a zoom change, with no manual
+Refresh needed.
+
 ## 2026-09-29 — Split Soundings out as its own toggle, off by default (v747)
 
 Direct request: "make those little depth circles a different parameter,

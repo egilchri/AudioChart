@@ -8594,6 +8594,18 @@ function _ensureMap() {
   // Refresh depth soundings when map moves or zooms
   _map.on('zoomend moveend', _refreshSoundingsLayer);
 
+  // Direct follow-up (2026-09-29): navaids only ever redrew on initial
+  // load, an explicit Refresh tap, a region switch, or the Depths
+  // checkbox — never on plain panning/zooming, unlike soundings (just
+  // above) and several other viewport-scoped overlays in this file
+  // (_viewportHazardMoveEnd, _maineGeologyMoveEnd, _maineTownsMoveEnd).
+  // Real complaint: panning to a new area showed nothing until manually
+  // hitting Refresh. `moveend`/`zoomend` only fire once at the END of a
+  // gesture (not continuously during it), so this is the same
+  // lightweight debounce every other viewport-refresh in this file
+  // already relies on.
+  _map.on('zoomend moveend', _refreshNavaidOverlay);
+
   // Sketch route click/dblclick/mousemove handlers are registered in _enterSketchMode()
 
   // Right-click / long-press context menu
