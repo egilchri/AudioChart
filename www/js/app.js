@@ -10533,7 +10533,13 @@ function _channelSideArrowIcon(sideBrg, channelBrg, colorCls) {
 // directions, to still read as "channel goes both ways" without needing
 // a single double-headed glyph.
 function _channelFlowArrowIcon(pointBrg) {
-  const PX_DIST = 22;
+  // Real gate-pairs (verified against actual chart data — see the zoom
+  // gate's own comment) are often only 0.02-0.09nm apart. A smaller
+  // offset than before (was 22px) keeps both arrows visually close to
+  // the true midpoint — reading as clearly "between" the pair, per
+  // direct feedback — while still clearing the boxless 16px glyph
+  // (v740) from the buoys themselves at the zoom levels these now render at.
+  const PX_DIST = 10;
   const rad = pointBrg * Math.PI / 180;
   const dx = PX_DIST * Math.sin(rad);
   const dy = -PX_DIST * Math.cos(rad);
@@ -10547,40 +10553,60 @@ function _channelFlowArrowIcon(pointBrg) {
 
 // Direct follow-up (2026-09-29): per-buoy arrows (via chain-name
 // matching, above) only work where NOAA happens to name every buoy in a
-// channel with a shared prefix (e.g. "Fox Islands Thorofare Buoy 1, 2,
-// 3..."). Confirmed live this produces almost NO arrows through real
-// channels where each buoy is instead named for its own specific charted
-// hazard (e.g. Deer Island Thorofare/Merchant Row: "West Mark Island
-// Ledge Buoy 2", "Brown Cow Ledge Whistle Buoy 2BC" — no shared name to
-// match at all, despite marking the same real channel). This position-
-// based approach needs no name convention: for every red/green pair of
-// lateral marks that are each other's NEAREST opposite-color neighbor
-// within real channel-width distance, draw ONE shared arrow at their
-// midpoint — also directly less cluttered than one arrow per buoy
-// (2 icons -> 1), a separate direct request.
+// channel with a shared prefix. Confirmed live this produces almost NO
+// arrows through real channels where each buoy is instead named for its
+// own specific charted hazard (Deer Island Thorofare/Merchant Row —
+// no shared name to match, despite marking the same real channel). This
+// position-based approach needs no name convention at all.
+//
+// A SECOND real pattern, also confirmed against live chart data, needed
+// a second rule: Fox Island Thorofare's own consecutive numbers (6→7→8→
+// 10→12) trace the channel's actual curving centerline, spaced 0.2-0.5nm
+// apart with the bearing between them shifting smoothly as the channel
+// bends — completely different from a tight ~0.02-0.09nm red/starboard
+// GATE pair (verified via Rockland Harbor Bypass Channel 9&10, 7&8,
+// 3&2) where the boat passes BETWEEN two marks roughly PERPENDICULAR to
+// the line connecting them. An opposite-color-only search misses this
+// second pattern entirely — Fox Island Thorofare has long runs of the
+// SAME color in a row (10,12,14,16,18,20,24 all starboard), so "nearest
+// opposite color" is often far away or doesn't exist within a gate-
+// sized radius, even though the real channel is densely marked.
+//
+// Unified fix: pair every lateral mark with its own NEAREST other
+// lateral mark of ANY color (mutual nearest neighbor, to avoid one mark
+// claiming multiple links) within a longer, real-channel-spacing radius.
+// Classify the pair by distance alone — genuine gates are much closer
+// together than sequential channel-path links, a real, verified gap
+// between the two regimes (~0.02-0.09nm vs ~0.2-0.5nm) — and only THEN
+// decide the arrow's orientation: perpendicular to the connecting line
+// for a close gate pair (the boat passes between them), or ALONG the
+// connecting line for a farther sequential link (the connecting line
+// IS the channel's own path at that point).
 function _findChannelBuoyPairs(lateralBuoys) {
-  const CHANNEL_MAX_NM = 0.5; // real Maine channel widths are typically a few hundred yards
-  const reds = lateralBuoys.filter(b => b.catlam === 'starboard-hand');
-  const greens = lateralBuoys.filter(b => b.catlam === 'port-hand');
+  const LINK_MAX_NM = 1.0;   // longest real consecutive-buoy spacing seen (Fox Island Thorofare)
+  const GATE_MAX_NM = 0.15;  // longest real red/green gate spacing seen (Rockland Harbor Bypass)
   const nearestOf = (from, candidates) => {
     let best = null, bestNm = Infinity;
     for (const c of candidates) {
+      if (c === from) continue;
       const d = Query.distanceNm(from.lon, from.lat, c.lon, c.lat);
       if (d < bestNm) { bestNm = d; best = c; }
     }
-    return bestNm <= CHANNEL_MAX_NM ? best : null;
+    return best && bestNm <= LINK_MAX_NM ? { buoy: best, dist: bestNm } : null;
   };
   const pairs = [];
-  const usedGreens = new Set();
-  for (const r of reds) {
-    const g = nearestOf(r, greens);
-    if (!g || usedGreens.has(g)) continue;
-    // Mutual nearest neighbor only — a red whose closest green considers
-    // some OTHER red its own closest match isn't a real pair, just two
-    // marks that happen to be near each other in a hazard-dense area.
-    if (nearestOf(g, reds) !== r) continue;
-    usedGreens.add(g);
-    pairs.push({ a: r, b: g });
+  const used = new Set();
+  for (const a of lateralBuoys) {
+    if (used.has(a)) continue;
+    const found = nearestOf(a, lateralBuoys);
+    if (!found || used.has(found.buoy)) continue;
+    // Mutual nearest neighbor only — A's closest neighbor must also
+    // consider A its own closest, or these aren't really "linked," just
+    // two marks that happen to be near each other in a hazard-dense area.
+    const back = nearestOf(found.buoy, lateralBuoys);
+    if (!back || back.buoy !== a) continue;
+    used.add(a); used.add(found.buoy);
+    pairs.push({ a, b: found.buoy, isGate: found.dist <= GATE_MAX_NM });
   }
   return pairs;
 }
@@ -10722,11 +10748,32 @@ function _refreshNavaidOverlay() {
   // the source buoys when they're closely spaced; offsetting along the
   // channel-length axis (perpendicular to the buoy-to-buoy line) clears
   // both of them regardless of spacing.
-  if (lateralBuoysInView.length > 1) {
-    for (const { a, b } of _findChannelBuoyPairs(lateralBuoysInView)) {
+  //
+  // Zoom-gated below zoom 13 — direct follow-up, with a real zoom-10
+  // screenshot: verified against real chart data (Rockland Harbor Bypass
+  // Channel buoys 9/10, 7/8, 3/2 — genuine consecutive "gate" pairs) that
+  // the perpendicular rotation IS geometrically correct — paired reds/
+  // greens mark opposite sides of one crossing point, so the arrow
+  // correctly points across the gap, not along the line between them.
+  // The real problem: those real pairs are only 0.02-0.09nm apart
+  // (40-170m) — at zoom 10 that's a handful of SCREEN pixels, so dozens
+  // of independently-correct arrows from a tight, curving real channel
+  // (each pointing a genuinely different way as the channel bends)
+  // compress into what reads as chaos, not from a placement bug. Hiding
+  // them below the zoom where real pairs have enough on-screen room to
+  // read individually is the honest fix, not more positioning math.
+  if (_map.getZoom() >= 13 && lateralBuoysInView.length > 1) {
+    for (const { a, b, isGate } of _findChannelBuoyPairs(lateralBuoysInView)) {
       const midLat = (a.lat + b.lat) / 2, midLon = (a.lon + b.lon) / 2;
       const crossBrg = Query.bearing(a.lon, a.lat, b.lon, b.lat);
-      const channelBrg = (crossBrg + 90) % 360; // along the channel, not across it
+      // A close GATE pair (boat passes BETWEEN the two marks): channel
+      // runs perpendicular to the line connecting them. A farther
+      // SEQUENTIAL link (consecutive marks along one long channel's own
+      // curving path, e.g. Fox Island Thorofare's numbered buoys): the
+      // connecting line itself already IS the channel's direction there
+      // — see _findChannelBuoyPairs's own comment for the real data
+      // behind this distinction.
+      const channelBrg = isGate ? (crossBrg + 90) % 360 : crossBrg;
       markers.push(L.marker([midLat, midLon], {
         icon: _channelFlowArrowIcon(channelBrg),
         interactive: false, keyboard: false,

@@ -1,5 +1,42 @@
 # Changelog
 
+## 2026-09-29 — Channel arrows: real coverage fix + zoom gate (v741)
+
+Direct follow-up, with a real bay-wide screenshot: "why aren't there
+arrows all over Penobscot Bay?" then, pushing further, "yeah, but how
+about coverage?" Two separate real problems, both confirmed against
+actual chart data rather than assumed:
+
+**Coverage gap.** v739's pairing only searched for the NEAREST OPPOSITE
+COLOR buoy within gate range. That misses a second real pattern,
+confirmed via Fox Island Thorofare's actual buoy list: long runs of the
+SAME color in a row (10, 12, 14, 16, 18, 20, 24 — all starboard-hand),
+spaced 0.2–0.5nm apart, tracing the channel's own curving centerline.
+An opposite-color-only search finds nothing there even though the
+channel is densely marked. Rewrote `_findChannelBuoyPairs` to pair every
+lateral mark with its own nearest OTHER lateral mark of any color
+(mutual nearest-neighbor, so no mark claims two links), classified by
+distance alone into two arrow treatments: a close "gate" pair (≤0.15nm,
+verified against Rockland Harbor Bypass Channel's real 9&10/7&8/3&2
+spacing of 0.02–0.09nm) gets a perpendicular arrow — the boat passes
+BETWEEN the two marks; a farther "sequential" link (up to 1.0nm, Fox
+Island Thorofare's real spacing) gets an arrow ALONG the connecting
+line — the line itself IS the channel's path there. Verified directly
+against `navaid.geojson` with standalone scripts (browser extension was
+disconnected this session): Fox Island Thorofare coverage went from
+effectively 0% to 67% (12 of 18 real buoys), while Rockland's real gate
+pairs still classify correctly as gates. Bay-wide: 246 of 417 lateral
+buoys now paired (59%), 34 gate pairs and 89 sequential pairs.
+
+**Low-zoom clutter.** A separate screenshot at zoom 10 showed a chaotic
+arrow "starburst." Not a placement bug: real gate-pair spacing (40–170m)
+compresses to a handful of screen pixels at that zoom, so dozens of
+independently-correct arrows from a tight, curving channel read as
+noise. Channel arrows now only render at zoom ≥13, where real pairs have
+enough on-screen room to read individually; the per-arrow offset from
+the pair's midpoint was also reduced (22px → 10px) to keep both arrows
+visually close to their true pair at the zoom levels they do render at.
+
 ## 2026-09-29 — Simpler channel arrows, moved clear of buoy markers (v740)
 
 Direct follow-up, with a real screenshot: v739's double-headed midpoint
