@@ -10551,6 +10551,85 @@ function _navaidLocationContextHtml(lat, lon) {
   </div>`;
 }
 
+// Direct follow-up (2026-09-29): "what these buoys are FOR — have we
+// exhausted all information about them?" The one real gap: Query.hazards
+// (11,938 real charted features bay-wide) was never cross-referenced
+// against navaids at all, despite already being loaded. Searches only
+// POINT hazards (UWTROC/OBSTRN/WRECKS/CBLOHD — real rocks, obstructions,
+// wrecks, submarine cables) — matches _refreshNavaidOverlay's own
+// existing convention of skipping DEPARE polygons (shown separately by
+// the Depths layer), NOT query.js's nearestHazard, which destructures
+// geometry.coordinates assuming a Point and would silently break on a
+// polygon. Capped at 0.5nm, verified against real bay-wide distances
+// (buoys typically sit 0.02-0.35nm from what they mark) — beyond that
+// it's not really "what this buoy is for," so the row is omitted
+// entirely rather than citing an irrelevant hazard. Only 19 of 11,938
+// hazards bay-wide carry a real name (verified) — most hits state type
+// + charted depth, not a name; that's an honest data limitation, not a
+// bug, and never papered over with invented specificity.
+function _navaidChartedHazardHtml(lat, lon) {
+  const hazards = Query.hazards?.features;
+  if (!hazards) return '';
+  const MAX_NM = 0.5;
+  const TYPE_LABEL = { UWTROC: 'underwater rock', OBSTRN: 'obstruction', WRECKS: 'wreck', CBLOHD: 'submarine cable' };
+  let best = null, bestDist = Infinity, bestBrg = null;
+  for (const f of hazards) {
+    if (f.geometry?.type !== 'Point') continue;
+    if (!TYPE_LABEL[f.properties?.objtype]) continue;
+    const [flon, flat] = f.geometry.coordinates;
+    const d = Query.distanceNm(lon, lat, flon, flat);
+    if (d > MAX_NM || d >= bestDist) continue;
+    bestDist = d; best = f; bestBrg = Query.bearing(flon, flat, lon, lat);
+  }
+  if (!best) return '';
+  const typeLabel = TYPE_LABEL[best.properties.objtype];
+  const name = best.properties.name;
+  const depth = best.properties.valsou;
+  const depthPhrase = (typeof depth === 'number') ? `, charted depth ${depth}ft` : '';
+  const dir = Query.compassDir(bestBrg);
+  const what = name ? `${name} (${typeLabel}${depthPhrase})` : `${typeLabel}${depthPhrase}`;
+  return `<div class="navaid-popup-row">
+    <div class="navaid-popup-row-label">Charted Hazard</div>
+    <div class="navaid-popup-row-value">Marks ${what}, ${Query.naturalDist(bestDist)} ${dir}</div>
+  </div>`;
+}
+
+// STATUS/PERSTA/PEREND — real S-57 attributes, verified against the
+// local GDAL S-57 attribute catalog and real downloaded chart data (see
+// STATUS_LABEL's own comment in preprocess/s57_codes.py). "permanent" is
+// the overwhelming real-world default (531 of 749 real features
+// bay-wide) — deliberately silent about it, since stating the
+// unremarkable case on every single popup would just be noise;
+// surfaces only the genuinely different facts (intermittent, private)
+// and any real seasonal in-place date range.
+function _navaidStatusHtml(status, persta, perend) {
+  const parts = [];
+  if (status && status !== 'permanent') {
+    // status may itself be a single compound S-57 term containing a
+    // literal "/" (e.g. "periodically/intermittent" is ONE code's
+    // label, not two statuses) as well as "/"-joined MULTIPLE real
+    // codes (e.g. a mark that's both periodically/intermittent AND
+    // private) — either way this is one phrase, capitalize only its
+    // first letter rather than treating every "/" as a boundary.
+    parts.push(status.charAt(0).toUpperCase() + status.slice(1));
+  }
+  const fmtDate = (mmdd) => {
+    // Real chart format: "--MMDD" (leading "--" = no year component)
+    const m = /^--(\d{2})(\d{2})$/.exec(mmdd || '');
+    if (!m) return null;
+    const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const mi = parseInt(m[1], 10) - 1;
+    return MONTHS[mi] ? `${MONTHS[mi]} ${parseInt(m[2], 10)}` : null;
+  };
+  const startD = fmtDate(persta), endD = fmtDate(perend);
+  if (startD && endD) parts.push(`In place ${startD} – ${endD}`);
+  if (!parts.length) return '';
+  return `<div class="navaid-popup-row">
+    <div class="navaid-popup-row-label">Status</div>
+    <div class="navaid-popup-row-value">${parts.join(' · ')}</div>
+  </div>`;
+}
+
 function _refreshNavaidOverlay() {
   if (!_map) return;
   if (_navaidFilterLayer) { _map.removeLayer(_navaidFilterLayer); _navaidFilterLayer = null; }
@@ -10575,7 +10654,8 @@ function _refreshNavaidOverlay() {
                   name: f.properties.name, characteristic: f.properties.characteristic,
                   catlam: f.properties.catlam, shape: f.properties.shape,
                   objtype: f.properties.objtype, chart: f.properties.chart,
-                  inform: f.properties.inform };
+                  inform: f.properties.inform, status: f.properties.status,
+                  persta: f.properties.persta, perend: f.properties.perend };
       const m = L.marker([lat, lon], { icon: MarkerIcons.navaidMarkerIcon(n) });
       const tip = [n.name, n.characteristic || n.colour].filter(Boolean).join(' — ');
       if (tip) m.bindTooltip(tip, { permanent: false, direction: 'top', className: 'map-tooltip' });
@@ -10590,7 +10670,9 @@ function _refreshNavaidOverlay() {
       const safeName = (n.name || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
       const identityHtml = _navaidIdentityHtml(n);
       const officialHtml = _navaidOfficialRemarkHtml(n.inform);
+      const hazardHtml = _navaidChartedHazardHtml(lat, lon);
       const locationHtml = _navaidLocationContextHtml(lat, lon);
+      const statusHtml = _navaidStatusHtml(n.status, n.persta, n.perend);
       // No "Navigation Rule" section at all for a plain LIGHTS/other
       // unclassified navaid — _lateralMarkGuidanceHtml returns '' for
       // those (no port/starboard/junction/safe-water side exists to
@@ -10608,7 +10690,9 @@ function _refreshNavaidOverlay() {
            <div class="navaid-popup-name">${safeName}</div>
            ${identityHtml}
            ${officialHtml}
+           ${hazardHtml}
            ${locationHtml}
+           ${statusHtml}
            ${navRuleHtml}
            <button class="navaid-popup-brg">Range &amp; bearing</button>
            <button class="navaid-popup-focus">&#127919; Set focus</button>

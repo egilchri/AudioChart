@@ -230,6 +230,31 @@ def extract_navaids(enc_path, chart_id):
                 # empty on every real sample seen, kept as a fallback only.
                 inform = props.get('INFORM') or props.get('NINFOM') or None
 
+                # STATUS — a real, densely-populated (78% bay-wide,
+                # verified) S-57 attribute; see STATUS_LABEL's own
+                # comment for the verification source. A feature can
+                # carry more than one value (real example seen:
+                # periodically/intermittent AND private together), hence
+                # StringList handling. "permanent" (the overwhelming
+                # default) is intentionally still stored here — the APP
+                # decides to stay silent about it, not the pipeline.
+                raw_status = props.get('STATUS')
+                status = None
+                if raw_status:
+                    from s57_codes import STATUS_LABEL
+                    vals = raw_status if isinstance(raw_status, list) else [raw_status]
+                    labels = [STATUS_LABEL.get(int(v)) for v in vals if v is not None]
+                    labels = [l for l in labels if l]
+                    status = '/'.join(labels) if labels else None
+
+                # PERSTA/PEREND — real seasonal in-place date range
+                # (format "--MMDD", e.g. "--0501"/"--1101" = May 1/Nov
+                # 1), verified against real downloaded data (28 of 749
+                # real navaid features bay-wide). Passed through as the
+                # raw chart string; the app formats it for display.
+                persta = props.get('PERSTA') or None
+                perend = props.get('PEREND') or None
+
                 features.append({
                     'type': 'Feature',
                     'geometry': {'type': 'Point', 'coordinates': centroid_point(geom)},
@@ -245,6 +270,9 @@ def extract_navaids(enc_path, chart_id):
                         'shape':          shape,
                         'chart':          chart_id,
                         'inform':         inform,
+                        'status':         status,
+                        'persta':         persta,
+                        'perend':         perend,
                     },
                 })
 

@@ -1,5 +1,46 @@
 # Changelog
 
+## 2026-09-29 — Navaid popups: what each buoy is FOR (v746)
+
+Direct follow-up to v745: "I still feel like I'm missing something,
+what these buoys are FOR. Have we exhausted all information about
+them?" Researched directly (real data, not assumption): `hazards.geojson`
+(11,938 real charted features, already loaded) was never cross-referenced
+against navaids at all — the single biggest real gap. Added two new
+popup rows:
+
+**Charted Hazard** — nearest real POINT hazard (underwater rock,
+obstruction, wreck, submarine cable — deliberately excluding DEPARE
+shallow-area polygons, matching `_refreshNavaidOverlay`'s own existing
+convention, since `query.js`'s `nearestHazard` doesn't filter to Point
+geometries and would break on them) within 0.5nm, verified against real
+bay-wide distances (buoys typically sit 0.02–0.35nm from what they
+mark). States type + charted depth, and the real name on the rare
+(19 of 11,938 bay-wide) named hit — e.g. "Egg Rock Daybeacon 8A" now
+correctly shows "Marks Egg Rock (underwater rock), less than a quarter
+mile southwest." 403 of 504 real navaids (80%) get a match; the row is
+omitted entirely, never forced, for the rest.
+
+**Status** — extracted two more real, previously-unused S-57 attributes
+(`STATUS`, `PERSTA`/`PEREND`) into the pipeline, decoded against the
+real local GDAL S-57 attribute catalog rather than assumed from memory.
+STATUS is populated on 78% of real navaid features bay-wide — far
+denser than INFORM's 15% — but stays silent for the overwhelming
+"permanent" default (531 of 749); surfaces only genuinely different
+facts like "private" or "periodically/intermittent," plus a real
+seasonal in-place date range when PERSTA/PEREND are set (e.g. "Union
+River Channel Buoy 2: In place May 1 – Nov 1"). 49 navaids get a
+notable status line, 26 get real seasonal dates.
+
+Live-verified in-browser against three real cases: Fox Island Thorofare
+Buoy 14 (unnamed nearby obstruction), Egg Rock Daybeacon 8A (named
+hazard + official remark together), and Union River Channel Buoy 2
+(seasonal + private). Caught and fixed a real display bug during that
+verification: STATUS labels can themselves contain a literal "/" (e.g.
+"periodically/intermittent" is ONE code's label, not two statuses) —
+the original render logic mis-split it into "Periodically,
+Intermittent"; fixed to treat the whole string as one phrase.
+
 ## 2026-09-29 — Navaid popups: full info card, on-map arrows removed (v745)
 
 Direct request: "not working. Try a new approach. Forget the arrows.

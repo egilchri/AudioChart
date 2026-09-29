@@ -105,3 +105,25 @@ BCNSHP_LABEL = {
     6: 'cairn',
     7: 'buoyant beacon',
 }
+
+# STATUS attribute values, BOYLAT/BCNLAT/LIGHTS/BOYSAW — verified
+# 2026-09-29 against the real local GDAL S-57 attribute catalog
+# (s57expectedinput.csv, code 149), not assumed from memory. Checked
+# real population against 34 downloaded ENC cells covering Penobscot
+# Bay: 78% of navaid features carry a STATUS value, overwhelmingly code
+# 1 (permanent — the unremarkable default, worth staying silent about);
+# codes 5 (periodically/intermittent) and 8 (private) are real,
+# different, useful facts worth surfacing. Only the values actually
+# observed in real data are listed; others exist in the full S-57
+# enumeration but were never seen populated here.
+STATUS_LABEL = {
+    1: 'permanent',
+    2: 'occasional',
+    3: 'recommended',
+    4: 'disused',
+    5: 'periodically/intermittent',
+    6: 'reserved',
+    7: 'temporary',
+    8: 'private',
+    9: 'mandatory',
+}
