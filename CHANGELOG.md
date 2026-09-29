@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-09-29 — Buoy pass-side data now on bundled-default too (v734)
+
+Real bug report with a screenshot: a buoy popup showed only its colour
+("Red"), no shape, no pass-side box or arrows at all — v731/v732/v733's
+work never reached it. Root cause, confirmed by inspecting both files
+directly: the reported buoy loads from `www/data/navaid.geojson` (the
+bundled-default dataset, used whenever the "penobscot-bay" *named*
+region isn't the active one) — only the named region's own
+`www/data/regions/penobscot-bay/navaid.geojson` was reprocessed in
+v731/v732. Not a caching bug — a hard reload correctly could not have
+fixed it, since the bundled data genuinely never had the fields.
+
+Applied the identical, already-proven recipe (re-download the same 32
+real NOAA chart cells, re-extract via `extract_navaids()`, merge
+`catlam`+`shape` in by `(chart, name)`, regenerate the fingerprint) to
+`www/data/navaid.geojson`. 483/497 features matched, 415 got `catlam`,
+434 got `shape`; the specific reported buoy ("Fox Island Thorofare Buoy
+2A") verified directly: `catlam: starboard-hand, shape: nun`. No code
+changes — `_lateralMarkGuidanceHtml`/`_navaidIdentityHtml` already read
+whichever dataset is active, so once the data carries the fields the
+existing v731–v733 UI just works, same as it already does for the named
+penobscot-bay region.
+
 ## 2026-09-29 — Replace "Inbound/Outbound" text with directional arrows (v733)
 
 Direct follow-up: the words "Inbound"/"Outbound" in v731/v732's pass-side
