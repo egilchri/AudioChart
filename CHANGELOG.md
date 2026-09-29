@@ -1,5 +1,38 @@
 # Changelog
 
+## 2026-09-29 — Buoy pass-side guidance ("leave to port/starboard") (v731)
+
+Direct request: tapping a buoy should tell you something meaningful for
+underway use, not just its name. Added which side of a channel each
+lateral buoy/beacon denotes, right in its popup.
+
+Verified the source data first rather than assuming: downloaded a real
+NOAA ENC chart cell (US4ME20M) and inspected it directly with `ogrinfo`
+— confirmed CATLAM (category of lateral mark) is a real, fully-populated
+S-57 attribute on every BOYLAT/BCNLAT feature (port-hand, starboard-hand,
+preferred-channel-to-port/-starboard), cross-checked against real buoy
+names/numbers (odd = port-hand/green, even = starboard-hand/red).
+
+- `preprocess/s57_to_geojson.py`'s `extract_navaids()` now extracts CATLAM
+  (BOYLAT/BCNLAT only) via a new `CATLAM_LABEL` map in `s57_codes.py`.
+- Penobscot Bay's `navaid.geojson` re-processed from freshly downloaded
+  chart cells and merged in (name+chart matching, not coordinates — a few
+  charts had been reissued with slightly corrected buoy positions since
+  the region was first built); 417 of 420 real lateral marks now carry
+  `catlam` (the remaining 3 are marks since replaced/renumbered in the
+  current chart edition — correctly left unset, not guessed). Casco
+  Bay/Piscataqua/bundled-default are a separate follow-up.
+- New popup line, deliberately the most visually prominent element in the
+  popup (colored: green for port-hand, red for starboard-hand, amber for
+  a preferred-channel junction mark): e.g. "Inbound: leave to PORT ·
+  Outbound: leave to STARBOARD." States both directions explicitly rather
+  than a single "leave to port," since CATLAM alone doesn't say which way
+  you're heading — only the US "red right returning" convention
+  (buoy numbers ascend inbound) resolves that.
+- Live-verified against two real charted buoys (Ensign Island Lighted
+  Bell Buoy 1 = port-hand, Ensign Island Buoy 14 = starboard-hand):
+  correct color and wording in both cases.
+
 ## 2026-09-28 — Depth soundings show at any zoom (v730)
 
 Direct report: the Depths overlay's numeric sounding dots (colored by

@@ -2297,6 +2297,33 @@ body.wco-active #wco-titlebar { display: flex; }
   font-family: var(--font-brass-mono, monospace);
   margin-bottom: 2px;
 }
+/* Which side to leave a lateral mark on (v731) — deliberately the most
+   visually prominent line in the popup, per direct request ("the clearer
+   the better"): this is the one thing worth reading at a glance while
+   underway, more than the name itself. */
+.navaid-popup-side {
+  font-size: 0.76rem;
+  font-weight: bold;
+  line-height: 1.4;
+  padding: 5px 7px;
+  border-radius: 5px;
+  border: 1px solid;
+}
+.navaid-popup-side.port {
+  color: #4dd05a;
+  background: rgba(77, 208, 90, 0.12);
+  border-color: rgba(77, 208, 90, 0.4);
+}
+.navaid-popup-side.starboard {
+  color: #ff5c5c;
+  background: rgba(255, 92, 92, 0.12);
+  border-color: rgba(255, 92, 92, 0.4);
+}
+.navaid-popup-side.junction {
+  color: #f5c518;
+  background: rgba(245, 197, 24, 0.12);
+  border-color: rgba(245, 197, 24, 0.4);
+}
 .navaid-popup-brg,
 .navaid-popup-copy,
 .navaid-popup-focus,

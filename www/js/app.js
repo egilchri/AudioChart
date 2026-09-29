@@ -1271,6 +1271,7 @@ window._verifyCuratedRoutes = async function () {
 window._debugResolveWaterEnd = (lon, lat, which) => Query.resolveWaterEnd(lon, lat, which);
 window._debugEnterEditMode = (idx) => _enterEditMode(idx);
 window._debugCheckRouteHazards = (idx, silent) => _checkRouteHazards(idx, silent);
+window._debugRefreshNavaidOverlay = () => { _refreshNavaidOverlay(); return _navaidFilterLayer ? _navaidFilterLayer.getLayers().length : 0; };
 window._debugRecheckFollowedHazardsLive = (baseline) => _recheckFollowedRouteHazardsLive(baseline);
 window._debugEffectiveTideHeight = () => _effectiveTideHeight();
 // Sets just the "currently following" state _recheckFollowedRouteHazardsLive
@@ -10332,6 +10333,33 @@ function _refreshSoundingsLayer() {
   _soundingsLayer = L.layerGroup(markers).addTo(_map);
 }
 
+// Real S-57 chart data (CATLAM, verified populated 2026-09-28 against a
+// live NOAA ENC cell — port-hand/starboard-hand/preferred-channel) tells
+// us which side of a channel a lateral mark denotes. That alone isn't a
+// complete instruction — it also depends on the conventional direction of
+// buoyage, which for US waters is "red right returning" (inbound = from
+// seaward toward harbor; buoy numbers ascend going inbound, the same
+// convention, not a separate fact). State both directions explicitly
+// rather than a single unqualified "leave to port," which would be
+// correct only half the time. Direct request: the clearest possible
+// wording, since this is the one thing worth reading at a glance while
+// underway.
+function _lateralMarkGuidanceHtml(catlam) {
+  if (catlam === 'port-hand') {
+    return '<div class="navaid-popup-side port">&#9973; Inbound: leave to PORT<br>Outbound: leave to STARBOARD</div>';
+  }
+  if (catlam === 'starboard-hand') {
+    return '<div class="navaid-popup-side starboard">&#9973; Inbound: leave to STARBOARD<br>Outbound: leave to PORT</div>';
+  }
+  if (catlam === 'preferred-channel-starboard') {
+    return '<div class="navaid-popup-side junction">&#9888; Junction — preferred channel to STARBOARD (inbound)</div>';
+  }
+  if (catlam === 'preferred-channel-port') {
+    return '<div class="navaid-popup-side junction">&#9888; Junction — preferred channel to PORT (inbound)</div>';
+  }
+  return '';
+}
+
 function _refreshNavaidOverlay() {
   if (!_map) return;
   if (_navaidFilterLayer) { _map.removeLayer(_navaidFilterLayer); _navaidFilterLayer = null; }
@@ -10353,16 +10381,19 @@ function _refreshNavaidOverlay() {
       const [lon, lat] = f.geometry.coordinates;
       if (!bounds.contains([lat, lon])) continue;
       const n = { label: f.properties.label, colour: f.properties.colour,
-                  name: f.properties.name, characteristic: f.properties.characteristic };
+                  name: f.properties.name, characteristic: f.properties.characteristic,
+                  catlam: f.properties.catlam };
       const m = L.marker([lat, lon], { icon: MarkerIcons.navaidMarkerIcon(n) });
       const tip = [n.name, n.characteristic || n.colour].filter(Boolean).join(' — ');
       if (tip) m.bindTooltip(tip, { permanent: false, direction: 'top', className: 'map-tooltip' });
 
       // Tap/click → popup with Range & bearing and Copy name
       const safeName = (n.name || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      const sideHtml = _lateralMarkGuidanceHtml(n.catlam);
       m.bindPopup(
         `<div class="navaid-popup">
            <div class="navaid-popup-name">${safeName}</div>
+           ${sideHtml}
            <button class="navaid-popup-brg">Range &amp; bearing</button>
            <button class="navaid-popup-focus">&#127919; Set focus</button>
            <button class="navaid-popup-copy">Copy name</button>

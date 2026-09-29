@@ -192,6 +192,17 @@ def extract_navaids(enc_path, chart_id):
                     height_m = props.get('HEIGHT')
                     range_nm = props.get('VALNMR')
 
+                # Category of lateral mark — which side of a channel this
+                # buoy/beacon denotes (BOYLAT/BCNLAT only; not meaningful
+                # for LIGHTS/BOYSAW). Lets the app tell the user which side
+                # to pass it on, not just its name/color.
+                catlam = None
+                if layer_name in ('BOYLAT', 'BCNLAT'):
+                    raw_catlam = props.get('CATLAM')
+                    if raw_catlam is not None:
+                        from s57_codes import CATLAM_LABEL
+                        catlam = CATLAM_LABEL.get(int(raw_catlam))
+
                 features.append({
                     'type': 'Feature',
                     'geometry': {'type': 'Point', 'coordinates': centroid_point(geom)},
@@ -203,6 +214,7 @@ def extract_navaids(enc_path, chart_id):
                         'characteristic': characteristic,
                         'height_m':       height_m,
                         'range_nm':       range_nm,
+                        'catlam':         catlam,
                         'chart':          chart_id,
                     },
                 })

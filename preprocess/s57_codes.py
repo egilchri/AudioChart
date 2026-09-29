@@ -69,3 +69,14 @@ COLOUR_LABEL = {
     6: 'yellow', 7: 'grey', 8: 'brown', 9: 'amber', 10: 'violet',
     11: 'orange', 12: 'magenta', 13: 'pink',
 }
+
+# CATLAM (category of lateral mark) attribute values, BOYLAT/BCNLAT only —
+# which side of a channel a lateral mark denotes, per IALA buoyage. Verified
+# real/populated against a live NOAA ENC cell (US4ME20M), 2026-09-28: every
+# BOYLAT/BCNLAT feature carries this attribute.
+CATLAM_LABEL = {
+    1: 'port-hand',
+    2: 'starboard-hand',
+    3: 'preferred-channel-starboard',
+    4: 'preferred-channel-port',
+}
