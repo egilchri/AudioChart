@@ -675,7 +675,7 @@ export async function loadData(lat, lon) {
     if (navaids !== idbN) idbPut(_regionIdbKey('navaids', _activeRegion), navaids).catch(() => {});
     if (idbR && restrictions !== idbR) idbPut(_regionIdbKey('restrictions', _activeRegion), restrictions).catch(() => {});
     console.log(`[query] Loaded offline data from IndexedDB (version ${storedVersion})`);
-  } else if (idbH && !navigator.onLine) {
+  } else if (idbH && typeof navigator !== 'undefined' && !navigator.onLine) {
     // Offline and no fresher copy reachable — stale accumulated IDB data
     // beats throwing away hazards/places/navaids entirely (the raw fetches
     // below have no offline fallback of their own). Matches

@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-09-29 — CI fix: guard a latent `navigator` reference (v737)
+
+v736 shipped with CI red — missed before pushing. The new self-heal
+migration's write-back caused `loadData()`'s IndexedDB cache to become
+genuinely populated partway through `test_channel_routing.js`'s Node
+test run (which reuses process state across many test cases), which
+newly exercised an existing, previously-dormant branch —
+`else if (idbH && !navigator.onLine)` — that references the browser-only
+global `navigator`, undefined in Node: `ReferenceError: navigator is not
+defined`. A real latent bug in already-shipped code, just never
+triggered from a clean IDB before. Guarded with a `typeof navigator !==
+'undefined'` check; no behavior change in any real browser, where
+`navigator` always exists. Verified locally against the exact CI
+commands (`test_channel_routing.js`, `test_route_hazard_clearance.js`,
+`test_parser.js`, `test_query.js`, full syntax-check loop) before
+shipping this time.
+
 ## 2026-09-29 — Defeat CDN-level staleness + self-heal already-stuck devices (v736)
 
 v735 fixed the service worker's own cache race, but `curl -I` against the
