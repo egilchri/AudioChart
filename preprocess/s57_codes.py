@@ -80,3 +80,28 @@ CATLAM_LABEL = {
     3: 'preferred-channel-starboard',
     4: 'preferred-channel-port',
 }
+
+# BOYSHP (buoy shape) / BCNSHP (beacon shape) attribute values — the
+# physical shape a mariner actually looks for to confirm a mark by eye.
+# Verified real/populated against the same live NOAA ENC cell (US4ME20M),
+# 2026-09-29, cross-checked against real buoy numbering (odd/green/can
+# vs. even/red/conical matched every sampled case).
+BOYSHP_LABEL = {
+    1: 'nun',
+    2: 'can',
+    3: 'spherical',
+    4: 'pillar',
+    5: 'spar',
+    6: 'barrel',
+    7: 'super-buoy',
+    8: 'ice buoy',
+}
+BCNSHP_LABEL = {
+    1: 'stake/pole',
+    2: 'withy',
+    3: 'beacon tower',
+    4: 'lattice beacon',
+    5: 'pile beacon',
+    6: 'cairn',
+    7: 'buoyant beacon',
+}

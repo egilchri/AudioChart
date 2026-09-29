@@ -203,6 +203,22 @@ def extract_navaids(enc_path, chart_id):
                         from s57_codes import CATLAM_LABEL
                         catlam = CATLAM_LABEL.get(int(raw_catlam))
 
+                # Physical shape (can/nun/pillar/spar/...) — what a mariner
+                # actually looks for through binoculars to confirm a mark.
+                # BOYSHP on buoy layers, BCNSHP (a distinct S-57 attribute)
+                # on beacons; not meaningful for LIGHTS.
+                shape = None
+                if layer_name in ('BOYLAT', 'BOYSAW'):
+                    raw_shape = props.get('BOYSHP')
+                    if raw_shape is not None:
+                        from s57_codes import BOYSHP_LABEL
+                        shape = BOYSHP_LABEL.get(int(raw_shape))
+                elif layer_name == 'BCNLAT':
+                    raw_shape = props.get('BCNSHP')
+                    if raw_shape is not None:
+                        from s57_codes import BCNSHP_LABEL
+                        shape = BCNSHP_LABEL.get(int(raw_shape))
+
                 features.append({
                     'type': 'Feature',
                     'geometry': {'type': 'Point', 'coordinates': centroid_point(geom)},
@@ -215,6 +231,7 @@ def extract_navaids(enc_path, chart_id):
                         'height_m':       height_m,
                         'range_nm':       range_nm,
                         'catlam':         catlam,
+                        'shape':          shape,
                         'chart':          chart_id,
                     },
                 })

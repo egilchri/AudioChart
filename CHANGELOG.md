@@ -1,5 +1,39 @@
 # Changelog
 
+## 2026-09-29 — Richer navaid popup + live heading-based side guess (v732)
+
+Two direct follow-ups to v731, both Penobscot Bay only:
+
+**Complete navaid identity card.** The buoy/beacon popup previously
+showed only the name and the v731 pass-side box; shape, colour, and
+light characteristic were only ever visible in the marker's separate
+hover tooltip. Added `shape` extraction (BOYSHP/BCNSHP — a real S-57
+attribute, same family as CATLAM, verified against a live NOAA chart
+cell before use: `nun`/`can`/`spherical`/`pillar`/`spar`/`barrel`/
+`super-buoy`/`ice buoy` for buoys, `stake-pole`/`withy`/`tower`/`lattice
+beacon`/`pile beacon`/`cairn`/`buoyant beacon` for beacons) and merged
+it into penobscot-bay's `navaid.geojson` (436/487 matched features now
+carry it). The popup now shows a plain "Green can" / "Red/white pillar,
+Fl(1) R 4s" identity line. BOYSAW (safe-water/mid-channel marks) get
+their own honest note — "Safe water — pass on either side" — instead of
+silently having no side guidance at all.
+
+**Live heading-based best guess.** Direct follow-up: "the system could
+compute what side of a marker I should leave it." Implemented
+conservatively — a WRONG confident answer here is dangerous, not just
+unhelpful, so this only ever ADDS emphasis on top of the existing
+both-directions text, never replaces or hides either side. Real buoy
+numbers ascend inbound by chart convention; find another real charted
+buoy in the same numbered chain nearby (e.g. "Wheeler Bay Buoy 1" /
+"...Buoy 3"), which gives the local ascending/inbound bearing at that
+exact spot, then compare the boat's live GPS heading against it. Stays
+silent (shows nothing extra) whenever there's no heading, no chain
+neighbor within 3nm, or the heading is within ~20° of perpendicular to
+the chain — never forces a guess. Live-verified with a virtual GPS
+heading against a real buoy pair (Wheeler Bay Buoy 1/3): correct
+"Inbound" and "Outbound" highlighting in both directions, and correctly
+silent when heading was set perpendicular to the chain.
+
 ## 2026-09-29 — Buoy pass-side guidance ("leave to port/starboard") (v731)
 
 Direct request: tapping a buoy should tell you something meaningful for

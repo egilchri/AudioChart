@@ -1272,6 +1272,7 @@ window._debugResolveWaterEnd = (lon, lat, which) => Query.resolveWaterEnd(lon, l
 window._debugEnterEditMode = (idx) => _enterEditMode(idx);
 window._debugCheckRouteHazards = (idx, silent) => _checkRouteHazards(idx, silent);
 window._debugRefreshNavaidOverlay = () => { _refreshNavaidOverlay(); return _navaidFilterLayer ? _navaidFilterLayer.getLayers().length : 0; };
+window._debugComputeLikelyInboundOutbound = (catlam, name, lat, lon) => _computeLikelyInboundOutbound(catlam, name, lat, lon);
 window._debugRecheckFollowedHazardsLive = (baseline) => _recheckFollowedRouteHazardsLive(baseline);
 window._debugEffectiveTideHeight = () => _effectiveTideHeight();
 // Sets just the "currently following" state _recheckFollowedRouteHazardsLive
@@ -10344,12 +10345,29 @@ function _refreshSoundingsLayer() {
 // correct only half the time. Direct request: the clearest possible
 // wording, since this is the one thing worth reading at a glance while
 // underway.
-function _lateralMarkGuidanceHtml(catlam) {
+function _lateralMarkGuidanceHtml(catlam, objtype, computedGuess) {
+  // computedGuess (from _computeLikelyInboundOutbound, below): 'inbound',
+  // 'outbound', or null. When set, bolds the currently-applicable line and
+  // adds a one-line caption — an ADDITION, never a replacement: both
+  // directions always stay stated in full, since this is a best-guess
+  // from the boat's current heading, not a certainty (see that function's
+  // own comment for why it can be wrong, and why it stays conservative).
+  const activeLine  = (dir) => computedGuess === dir ? ' active' : '';
+  const hintHtml     = computedGuess
+    ? '<div class="navaid-side-hint">Based on your current heading</div>' : '';
   if (catlam === 'port-hand') {
-    return '<div class="navaid-popup-side port">&#9973; Inbound: leave to PORT<br>Outbound: leave to STARBOARD</div>';
+    return `<div class="navaid-popup-side port">
+      <div class="navaid-side-line${activeLine('inbound')}">&#9973; Inbound: leave to PORT</div>
+      <div class="navaid-side-line${activeLine('outbound')}">Outbound: leave to STARBOARD</div>
+      ${hintHtml}
+    </div>`;
   }
   if (catlam === 'starboard-hand') {
-    return '<div class="navaid-popup-side starboard">&#9973; Inbound: leave to STARBOARD<br>Outbound: leave to PORT</div>';
+    return `<div class="navaid-popup-side starboard">
+      <div class="navaid-side-line${activeLine('inbound')}">&#9973; Inbound: leave to STARBOARD</div>
+      <div class="navaid-side-line${activeLine('outbound')}">Outbound: leave to PORT</div>
+      ${hintHtml}
+    </div>`;
   }
   if (catlam === 'preferred-channel-starboard') {
     return '<div class="navaid-popup-side junction">&#9888; Junction — preferred channel to STARBOARD (inbound)</div>';
@@ -10357,7 +10375,92 @@ function _lateralMarkGuidanceHtml(catlam) {
   if (catlam === 'preferred-channel-port') {
     return '<div class="navaid-popup-side junction">&#9888; Junction — preferred channel to PORT (inbound)</div>';
   }
+  // A BOYSAW (safe-water/mid-channel mark) has no lateral side at all —
+  // by design it's safe to pass on either side — a real, different, and
+  // useful fact worth stating plainly rather than just omitting the box
+  // a lateral mark would otherwise get here.
+  if (objtype === 'BOYSAW') {
+    return '<div class="navaid-popup-side safewater">&#9679; Safe water — pass on either side</div>';
+  }
   return '';
+}
+
+// Best-guess "which direction are you currently heading" for a lateral
+// mark's port/starboard pair, computed from the boat's live GPS course —
+// NOT from any stored "which way is the harbor" fact (none exists; see
+// _lateralMarkGuidanceHtml's own comment on why CATLAM alone can't say
+// this). Instead: buoy numbers ascend inbound by chart convention (a
+// fixed rule, not per-channel data) — find another real charted buoy in
+// the same numbered chain (e.g. "Wheeler Bay Buoy 1" / "...Buoy 3"),
+// which tells us the LOCAL ascending/inbound direction at this exact
+// spot, then compare the boat's live heading against it.
+//
+// Deliberately conservative — returns null (no guess shown) rather than
+// a low-confidence one, whenever: no GPS heading, no chain neighbor
+// found nearby, or the heading is too close to perpendicular to the
+// chain to call confidently (a wrong CONFIDENT answer here is actively
+// dangerous, not just unhelpful — worse than showing nothing extra).
+function _computeLikelyInboundOutbound(catlam, name, lat, lon) {
+  if (catlam !== 'port-hand' && catlam !== 'starboard-hand') return null;
+  const pos = GPS.getPosition();
+  if (!pos || pos.heading == null) return null;
+  if (!name || !Query.navaids?.features) return null;
+
+  const digitMatches = [...name.matchAll(/\d+/g)];
+  if (!digitMatches.length) return null;
+  const lastMatch = digitMatches[digitMatches.length - 1];
+  const selfNum = parseInt(lastMatch[0], 10);
+  const chainKey = name.slice(0, lastMatch.index).trim().toLowerCase();
+  if (!chainKey) return null;
+
+  const CHAIN_RADIUS_NM = 3.0;
+  let lower = null, higher = null; // {num, lat, lon}, nearest on each side
+  for (const f of Query.navaids.features) {
+    if (f.properties.objtype !== 'BOYLAT' && f.properties.objtype !== 'BCNLAT') continue;
+    const otherName = f.properties.name;
+    if (!otherName || otherName === name) continue;
+    const otherDigits = [...otherName.matchAll(/\d+/g)];
+    if (!otherDigits.length) continue;
+    const otherLastMatch = otherDigits[otherDigits.length - 1];
+    const otherChainKey = otherName.slice(0, otherLastMatch.index).trim().toLowerCase();
+    if (otherChainKey !== chainKey) continue;
+    const otherNum = parseInt(otherLastMatch[0], 10);
+    if (otherNum === selfNum) continue;
+    const [olon, olat] = f.geometry.coordinates;
+    if (Query.distanceNm(lon, lat, olon, olat) > CHAIN_RADIUS_NM) continue;
+    if (otherNum < selfNum && (!lower || otherNum > lower.num)) lower = { num: otherNum, lat: olat, lon: olon };
+    if (otherNum > selfNum && (!higher || otherNum < higher.num)) higher = { num: otherNum, lat: olat, lon: olon };
+  }
+  if (!lower && !higher) return null;
+
+  // Bearing of the local "ascending" (inbound) direction along this chain.
+  let ascendingBrg;
+  if (lower && higher) ascendingBrg = Query.bearing(lower.lon, lower.lat, higher.lon, higher.lat);
+  else if (higher)     ascendingBrg = Query.bearing(lon, lat, higher.lon, higher.lat);
+  else                 ascendingBrg = Query.bearing(lower.lon, lower.lat, lon, lat);
+
+  let diff = Math.abs(pos.heading - ascendingBrg) % 360;
+  if (diff > 180) diff = 360 - diff;
+  const CONFIDENT_MARGIN_DEG = 20; // stay silent within ~20° of perpendicular
+  if (diff < 90 - CONFIDENT_MARGIN_DEG) return 'inbound';
+  if (diff > 90 + CONFIDENT_MARGIN_DEG) return 'outbound';
+  return null;
+}
+
+// Plain-language "what this actually is" line — shape + colour +
+// (for LIGHTS) characteristic — the physical description a mariner
+// checks by eye to confirm they've found the right mark. Was previously
+// only available in the marker's hover tooltip, a separate interaction;
+// direct request was for the popup itself to be a complete, readable
+// card, not split across two UI surfaces.
+function _navaidIdentityHtml(n) {
+  const parts = [];
+  if (n.colour) parts.push(n.colour.charAt(0).toUpperCase() + n.colour.slice(1));
+  if (n.shape) parts.push(n.shape);
+  let line = parts.join(' ');
+  if (n.characteristic) line = line ? `${line}, ${n.characteristic}` : n.characteristic;
+  if (!line) return '';
+  return `<div class="navaid-popup-identity">${line}</div>`;
 }
 
 function _refreshNavaidOverlay() {
@@ -10382,18 +10485,23 @@ function _refreshNavaidOverlay() {
       if (!bounds.contains([lat, lon])) continue;
       const n = { label: f.properties.label, colour: f.properties.colour,
                   name: f.properties.name, characteristic: f.properties.characteristic,
-                  catlam: f.properties.catlam };
+                  catlam: f.properties.catlam, shape: f.properties.shape,
+                  objtype: f.properties.objtype };
       const m = L.marker([lat, lon], { icon: MarkerIcons.navaidMarkerIcon(n) });
       const tip = [n.name, n.characteristic || n.colour].filter(Boolean).join(' — ');
       if (tip) m.bindTooltip(tip, { permanent: false, direction: 'top', className: 'map-tooltip' });
 
-      // Tap/click → popup with Range & bearing and Copy name
+      // Tap/click → popup with Range & bearing and Copy name. The side
+      // box is filled in on popupopen (below), not here — it depends on
+      // the boat's LIVE heading, which can be stale by the time a user
+      // actually taps a marker that was rendered on an earlier refresh.
       const safeName = (n.name || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-      const sideHtml = _lateralMarkGuidanceHtml(n.catlam);
+      const identityHtml = _navaidIdentityHtml(n);
       m.bindPopup(
         `<div class="navaid-popup">
            <div class="navaid-popup-name">${safeName}</div>
-           ${sideHtml}
+           ${identityHtml}
+           <div class="navaid-popup-side-slot">${_lateralMarkGuidanceHtml(n.catlam, n.objtype)}</div>
            <button class="navaid-popup-brg">Range &amp; bearing</button>
            <button class="navaid-popup-focus">&#127919; Set focus</button>
            <button class="navaid-popup-copy">Copy name</button>
@@ -10402,6 +10510,11 @@ function _refreshNavaidOverlay() {
       );
       m.on('popupopen', (e) => {
         const el = e.popup.getElement();
+        const slot = el.querySelector('.navaid-popup-side-slot');
+        if (slot) {
+          const guess = _computeLikelyInboundOutbound(n.catlam, n.name, lat, lon);
+          slot.innerHTML = _lateralMarkGuidanceHtml(n.catlam, n.objtype, guess);
+        }
         el.querySelector('.navaid-popup-brg').addEventListener('click', () => {
           _map.closePopup();
           // Use exact coordinates — bypasses the parser's alias system which

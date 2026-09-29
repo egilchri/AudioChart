@@ -2324,6 +2324,36 @@ body.wco-active #wco-titlebar { display: flex; }
   background: rgba(245, 197, 24, 0.12);
   border-color: rgba(245, 197, 24, 0.4);
 }
+.navaid-popup-side.safewater {
+  color: #7ec8e3;
+  background: rgba(126, 200, 227, 0.12);
+  border-color: rgba(126, 200, 227, 0.4);
+}
+/* The inbound/outbound pair inside a port/starboard box. Plain by
+   default — both directions always shown, since the mark alone doesn't
+   say which applies. .active marks whichever one a confident live-heading
+   guess (see _computeLikelyInboundOutbound) currently favors; the OTHER
+   line stays fully visible too, just visually quieter, never hidden. */
+.navaid-side-line {
+  opacity: 0.7;
+}
+.navaid-side-line.active {
+  opacity: 1;
+  text-decoration: underline;
+}
+.navaid-side-hint {
+  font-size: 0.66rem;
+  font-weight: normal;
+  font-style: italic;
+  opacity: 0.75;
+  margin-top: 3px;
+}
+/* Plain-language shape/colour/characteristic line (v732) — what a
+   mariner checks by eye to confirm they've found the right mark. */
+.navaid-popup-identity {
+  font-size: 0.74rem;
+  color: var(--text-dim);
+}
 .navaid-popup-brg,
 .navaid-popup-copy,
 .navaid-popup-focus,
