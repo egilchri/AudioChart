@@ -2379,6 +2379,7 @@ body.wco-active #wco-titlebar { display: flex; }
 .navaid-channel-arrow.port       { background: #2e9e42; }
 .navaid-channel-arrow.starboard  { background: #d64545; }
 .navaid-channel-arrow.safewater  { background: #3a86b5; }
+.navaid-channel-arrow.channel    { background: #2266cc; }
 /* Plain-language shape/colour/characteristic line (v732) — what a
    mariner checks by eye to confirm they've found the right mark. */
 .navaid-popup-identity {

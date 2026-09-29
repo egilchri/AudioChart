@@ -1273,6 +1273,7 @@ window._debugEnterEditMode = (idx) => _enterEditMode(idx);
 window._debugCheckRouteHazards = (idx, silent) => _checkRouteHazards(idx, silent);
 window._debugRefreshNavaidOverlay = () => { _refreshNavaidOverlay(); return _navaidFilterLayer ? _navaidFilterLayer.getLayers().length : 0; };
 window._debugComputeLikelyInboundOutbound = (catlam, name, lat, lon) => _computeLikelyInboundOutbound(catlam, name, lat, lon);
+window._debugChainAscendingBearing = (name, lat, lon) => _chainAscendingBearing(name, lat, lon);
 window._debugRecheckFollowedHazardsLive = (baseline) => _recheckFollowedRouteHazardsLive(baseline);
 window._debugEffectiveTideHeight = () => _effectiveTideHeight();
 // Sets just the "currently following" state _recheckFollowedRouteHazardsLive
@@ -10518,6 +10519,58 @@ function _channelSideArrowIcon(sideBrg, channelBrg, colorCls) {
   });
 }
 
+// Centered version for a marker placed exactly AT the midpoint between a
+// real red/green pair (see _findChannelBuoyPairs) — no pixel offset
+// needed, the marker's own lat/lon IS the display position.
+function _midpointArrowIcon(channelBrg, colorCls) {
+  return L.divIcon({
+    className: '',
+    html: `<div class="navaid-channel-arrow ${colorCls}" style="transform:rotate(${Math.round(channelBrg)}deg)">&#8597;</div>`,
+    iconSize: [20, 20],
+    iconAnchor: [10, 10],
+  });
+}
+
+// Direct follow-up (2026-09-29): per-buoy arrows (via chain-name
+// matching, above) only work where NOAA happens to name every buoy in a
+// channel with a shared prefix (e.g. "Fox Islands Thorofare Buoy 1, 2,
+// 3..."). Confirmed live this produces almost NO arrows through real
+// channels where each buoy is instead named for its own specific charted
+// hazard (e.g. Deer Island Thorofare/Merchant Row: "West Mark Island
+// Ledge Buoy 2", "Brown Cow Ledge Whistle Buoy 2BC" — no shared name to
+// match at all, despite marking the same real channel). This position-
+// based approach needs no name convention: for every red/green pair of
+// lateral marks that are each other's NEAREST opposite-color neighbor
+// within real channel-width distance, draw ONE shared arrow at their
+// midpoint — also directly less cluttered than one arrow per buoy
+// (2 icons -> 1), a separate direct request.
+function _findChannelBuoyPairs(lateralBuoys) {
+  const CHANNEL_MAX_NM = 0.5; // real Maine channel widths are typically a few hundred yards
+  const reds = lateralBuoys.filter(b => b.catlam === 'starboard-hand');
+  const greens = lateralBuoys.filter(b => b.catlam === 'port-hand');
+  const nearestOf = (from, candidates) => {
+    let best = null, bestNm = Infinity;
+    for (const c of candidates) {
+      const d = Query.distanceNm(from.lon, from.lat, c.lon, c.lat);
+      if (d < bestNm) { bestNm = d; best = c; }
+    }
+    return bestNm <= CHANNEL_MAX_NM ? best : null;
+  };
+  const pairs = [];
+  const usedGreens = new Set();
+  for (const r of reds) {
+    const g = nearestOf(r, greens);
+    if (!g || usedGreens.has(g)) continue;
+    // Mutual nearest neighbor only — a red whose closest green considers
+    // some OTHER red its own closest match isn't a real pair, just two
+    // marks that happen to be near each other in a hazard-dense area.
+    if (nearestOf(g, reds) !== r) continue;
+    usedGreens.add(g);
+    pairs.push({ a: r, b: g });
+  }
+  return pairs;
+}
+
 // Real bearing math derived once per lateral catlam mark (2026-09-29):
 // for a port-hand (green) mark, the mariner keeps it on their PORT while
 // heading inbound — meaning the actual channel/pass-through water is on
@@ -10549,6 +10602,7 @@ function _refreshNavaidOverlay() {
 
   const bounds = _map.getBounds();
   const markers = [];
+  const lateralBuoysInView = [];
 
   if (types.size > 0 && Query.navaids?.features) {
     for (const f of Query.navaids.features) {
@@ -10623,25 +10677,13 @@ function _refreshNavaidOverlay() {
 
       markers.push(m);
 
-      // On-map double-arrow(s) — see _channelSideArrowIcon's own comment.
-      // Computed unconditionally here (not gated behind popupopen like the
-      // guidance box) since this needs to show at a glance for every
-      // visible mark, not just one being tapped. Silently draws nothing
-      // for a mark with no computable chain bearing — same "no confident
-      // answer, no guess" rule as everywhere else in this feature.
+      // Collected for the position-based red/green pairing pass below
+      // (see _findChannelBuoyPairs) — one shared arrow per real channel
+      // pair, not one per buoy.
       if (n.catlam === 'port-hand' || n.catlam === 'starboard-hand') {
-        const ascendingBrg = _chainAscendingBearing(n.name, lat, lon);
-        const sideBrg = _channelSideBearing(n.catlam, ascendingBrg);
-        if (sideBrg != null) {
-          const colorCls = n.catlam === 'port-hand' ? 'port' : 'starboard';
-          markers.push(L.marker([lat, lon], {
-            icon: _channelSideArrowIcon(sideBrg, ascendingBrg, colorCls),
-            interactive: false, keyboard: false,
-          }));
-        }
+        lateralBuoysInView.push({ lat, lon, catlam: n.catlam });
       } else if (n.objtype === 'BOYSAW') {
-        // No chain/lateral-neighbor bearing exists for a safe-water mark
-        // (it isn't part of a numbered lateral sequence) — a fixed
+        // No red/green pairing applies to a safe-water mark — a fixed
         // perpendicular pair (east/west) still correctly conveys "flanked
         // on both sides, pass either one," just without claiming a real
         // channel-axis alignment we don't have data for.
@@ -10652,6 +10694,24 @@ function _refreshNavaidOverlay() {
           }));
         }
       }
+    }
+  }
+
+  // One shared double-arrow per real red/green channel pair (position-
+  // based, not name-based — see _findChannelBuoyPairs's own comment on
+  // why: name-chain matching alone misses most real Maine channels,
+  // where each buoy is named for its own charted hazard, not a shared
+  // channel prefix). Direct follow-up request: less clutter than one
+  // arrow per buoy.
+  if (lateralBuoysInView.length > 1) {
+    for (const { a, b } of _findChannelBuoyPairs(lateralBuoysInView)) {
+      const midLat = (a.lat + b.lat) / 2, midLon = (a.lon + b.lon) / 2;
+      const crossBrg = Query.bearing(a.lon, a.lat, b.lon, b.lat);
+      const channelBrg = (crossBrg + 90) % 360; // along the channel, not across it
+      markers.push(L.marker([midLat, midLon], {
+        icon: _midpointArrowIcon(channelBrg, 'channel'),
+        interactive: false, keyboard: false,
+      }));
     }
   }
 

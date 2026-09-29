@@ -1,5 +1,38 @@
 # Changelog
 
+## 2026-09-29 — Channel arrows: position-based pairing, not name-chains (v739)
+
+Direct follow-up, with a real screenshot showing arrows dense around Fox
+Islands Thorofare but essentially absent everywhere else in Penobscot
+Bay: "why is this implemented for one small region?" Root cause,
+confirmed by testing v738's `_chainAscendingBearing` live against real
+buoys: it only finds a bearing when two buoys share a literal NAME
+prefix (e.g. "Fox Islands Thorofare Buoy 1"/"...Buoy 3"). Checked real
+buoys near Deer Island Thorofare/Merchant Row directly — each is named
+for its OWN charted hazard ("West Mark Island Ledge Buoy 2", "Brown Cow
+Ledge Whistle Buoy 2BC", "North Bay Ledge Buoy 2"...), never sharing a
+channel-name prefix with its neighbors despite marking the same real
+channel. Name-chain matching was structurally blind to most of the bay,
+not a rendering bug.
+
+Also a direct design request: "a blue double-sided arrow in between red
+and green buoys would produce less clutter" than one arrow per buoy.
+
+Replaced the per-buoy lateral arrow entirely with `_findChannelBuoyPairs`:
+position-based, no name matching at all — for every red (starboard-hand)
+and green (port-hand) mark that are each other's mutual nearest
+opposite-color neighbor within real channel-width distance (0.5nm), draw
+ONE shared blue arrow at their midpoint, oriented along the channel
+(perpendicular to the line connecting them). Works identically whether
+NOAA named the buoys with a shared channel prefix or not. BOYSAW
+safe-water marks keep their existing two-arrow-per-mark treatment
+(unrelated — no red/green pairing applies to them).
+
+Live-verified: the previously-empty Deer Isle/Stonington/Merchant Row
+area now shows 20 real channel arrows (zero before), and total coverage
+across a wide Penobscot Bay view broadened substantially versus the
+old name-chain approach.
+
 ## 2026-09-29 — On-map double-arrows show which side to pass a buoy (v738)
 
 Direct follow-up: "when the buoys are displayed, put a double ended
