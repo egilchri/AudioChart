@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-09-28 — Drop the nearby-hazard-proximity speech (v729)
+
+Direct request: "Stop saying 'Warning route ... has ... hazards nearby'.
+I don't want to hear it" — continuing the same v727/v728 narrowing.
+`_checkRouteHazards`'s "Warning: X has N hazards nearby, including..."
+TTS + status line fired for a charted hazard merely near the route (a
+proximity warning), not one the route actually crosses. Per the same
+"only tell me when I go right over a rock or over land" rule stated for
+v728, this now stays fully silent too — the red segment highlight and
+skull/triangle map markers remain as the persistent visual signal, fixed
+via Node Ops' "Fix selected nodes" as before.
+
 ## 2026-09-28 — Drop the tight-clearance popup+speech (v728)
 
 Direct report, with a screenshot from repeated AutoRoute testing: the

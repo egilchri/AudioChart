@@ -2714,16 +2714,14 @@ function _checkRouteHazards(routeIdx, silent = false) {
     return found;
   }
 
-  // A hazard was found — announce it out loud, not just as a map marker
-  // someone could be looking away from. No popup here: the red segment
-  // highlight and skull/triangle markers above are the persistent visual
-  // signal, and fixing is reached via the Node Ops "Fix selected nodes"
-  // button (select the flagged waypoint, then Fix) or by editing manually.
-  // Reported live: an unprompted popup box, stacked on top of the toolbar,
-  // "is not useful."
-  const speakMsg = `Warning: ${route.name} has ${found.length} hazard${found.length > 1 ? 's' : ''} nearby, including ${found[0].label}${found[0].name ? ', ' + found[0].name : ''}.`;
-  setStatus(speakMsg);
-  TTS.sayImmediate(speakMsg);
+  // A hazard was found nearby — this is a proximity warning, not a crossing
+  // (the route doesn't actually run over it), so per direct request it stays
+  // silent: no popup, no status, no speech. The red segment highlight and
+  // skull/triangle markers above are the persistent visual signal, and
+  // fixing is reached via the Node Ops "Fix selected nodes" button (select
+  // the flagged waypoint, then Fix) or by editing manually. Only an actual
+  // unresolved land/hazard CROSSING (_showRouteFallbackWarning) still
+  // speaks — see the matching comment there.
   return found;
 }
 
