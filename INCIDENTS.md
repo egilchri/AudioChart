@@ -6,6 +6,52 @@ found, and what shipped, even when the root cause couldn't be confirmed.
 
 ---
 
+## 2026-09-29 — Service worker could silently hide real data updates behind a stale freshness check (all data files, not just this feature)
+
+**What happened:** v731/v732 shipped real buoy chart-data fixes (which
+side to pass a lateral mark on). A user reported a specific buoy's popup
+still showed nothing beyond its colour. v734 found and fixed the actual
+gap (the bundled-default dataset, separate from the named region, had
+never been reprocessed) and shipped. The user then reported the SAME
+symptom on a DIFFERENT buoy — one independently confirmed to have
+correct data in both shipped files. A confirmed hard reload had not
+fixed it either time.
+
+**Root cause (confirmed by reading the code, not assumed):**
+`www/sw.js` served `data-version.json` — the fingerprint `query.js`
+compares against its own IndexedDB copy on every load to decide whether
+to trust it or re-fetch real chart data — through the generic
+`networkFirst()` strategy. That strategy races a real network fetch
+against a 2.5-second timeout and returns the *old cached* response if
+the network attempt is merely slow, not failed — a deliberate tradeoff
+for weak marine connectivity, but exactly wrong for this one file: on a
+slow connection, it can silently return a stale hash that still matches
+the (also stale) IndexedDB copy, making the freshness check wrongly
+report "current" and permanently hide a real server-side data update
+from that device — no error, no warning, just silence, indefinitely,
+surviving any number of hard reloads. An earlier fix
+(`cache:'no-store'` on the fetch call inside query.js) only bypassed the
+*browser's* own HTTP disk cache underneath that call; it could never
+reach the service worker's separate Cache Storage layer sitting in
+front of it.
+
+**Scope:** not specific to buoy data — this is the SAME freshness check
+every region's hazards/named_places/navaids/land/channel-graph/soundings
+data goes through. Any past or future data fix could have been silently
+invisible to a user on a slow connection, for however long they kept
+using the app without a full "clear site data."
+
+**Fix (v735):** route `data-version.json` straight to the network in
+`sw.js`, bypassing Cache Storage entirely for that one file — a real
+failure there was already handled safely by the caller (falls through
+to not trusting IndexedDB, or to the explicit offline fallback); it just
+needed to be a real failure, never a wrong-but-successful stale answer.
+
+**Process takeaway:** when a "still doesn't work" report repeats after a
+believed-complete fix, get fresh evidence on a DIFFERENT specific
+instance before concluding the fix didn't hold — the first fix (v734)
+was real and necessary, just not the only bug in the chain.
+
 ## 2026-09-27 — Route names could render invisibly in the Routes panel; unrelated WIP shipped undocumented in v694
 
 **What happened:** An in-progress "compact table" redesign of the Routes
