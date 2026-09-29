@@ -1,4 +1,4 @@
-/** @version v734 */
+/** @version v735 */
 /* Bump this comment on every release, even when nothing else in this file
    changes — a service worker only gets reinstalled when its own script
    bytes differ from what's currently active (see the v505 fix), so a
@@ -94,6 +94,28 @@ self.addEventListener('fetch', (event) => {
   if (url.pathname.match(/\/tiles\/\d+\/\d+\/\d+\.jpg$/) ||
       url.hostname.includes('arcgisonline.com')) {
     event.respondWith(tileStrategy(event.request));
+    return;
+  }
+
+  // data-version.json is the freshness FINGERPRINT query.js's
+  // loadData()/_fetchRegionGeometry compare against their own IndexedDB
+  // copy to decide whether to trust it or re-fetch real chart data.
+  // networkFirst()'s stale-tolerant race below is exactly wrong for THIS
+  // one file: on a real device with a merely-slow (not failed) connection
+  // — the weak-signal marine case that race exists for — it can lose the
+  // race and silently return a STALE cached data-version.json whose hash
+  // still matches the (also stale) IndexedDB copy, permanently hiding a
+  // real data update from the app. Confirmed as the real cause of a
+  // production report, 2026-09-29: two straight chart-data fixes
+  // (v731/v732 buoy data) never reached a real user's device despite
+  // repeated hard reloads, because reads of THIS file kept winning the
+  // race with a stale answer. Network-only, no Cache Storage involved at
+  // all — a failed/timed-out fetch here must surface as a real failure
+  // to the caller, which already handles that safely (falls through to
+  // NOT trusting IndexedDB, or to the explicit navigator.onLine offline
+  // fallback) — never a wrong-but-successful stale answer.
+  if (url.pathname.endsWith('/data-version.json')) {
+    event.respondWith(fetch(event.request, { cache: 'no-store' }));
     return;
   }
 

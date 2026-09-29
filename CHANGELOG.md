@@ -1,5 +1,34 @@
 # Changelog
 
+## 2026-09-29 — Fix a real stale-freshness-check race in the service worker (v735)
+
+v734 fixed the actual missing data, but a real user's device still showed
+the old, empty buoy popup afterward — even after a confirmed hard
+reload, on a *different* buoy this time, whose data was independently
+confirmed correct in both shipped files. That ruled out both "missing
+data" and "ordinary browser cache" as the cause, pointing at the one
+remaining layer: the service worker's own Cache Storage.
+
+Root cause, found by reading `sw.js`: `data-version.json` — the
+fingerprint `query.js` compares against its own IndexedDB copy to decide
+whether to trust it or re-fetch real chart data — was being served
+through the generic `networkFirst()` strategy, which races a real
+network fetch against a 2.5s timeout and returns the OLD cached response
+if the network is merely *slow* (not failed). On a real boat's weak
+signal — exactly the condition that race exists to tolerate — this can
+lose the race and silently return a stale hash that still matches the
+also-stale IndexedDB copy, permanently hiding a real data update. An
+earlier fix (`cache: 'no-store'` on the fetch inside `_fetchRegionGeometry`/
+`loadData()`) only addressed the browser's own HTTP disk cache
+underneath that call — it couldn't reach the service worker's separate
+Cache Storage layer sitting in front of it.
+
+Fixed by routing any `data-version.json` request straight to the network
+— no Cache Storage read or write for this one file at all. A failure
+there was already handled safely by the caller (falls through to not
+trusting IndexedDB, or to the explicit offline fallback) — it just needs
+to be a real failure, never a wrong-but-successful stale answer.
+
 ## 2026-09-29 — Buoy pass-side data now on bundled-default too (v734)
 
 Real bug report with a screenshot: a buoy popup showed only its colour
