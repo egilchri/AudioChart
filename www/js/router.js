@@ -889,10 +889,33 @@ export async function autoRouteProg(
   // MDI's 10): every one of them contributes its real bend points into the
   // same shared node array, so A* can thread between all of them at once,
   // instead of only ever getting one ring widened per retry.
+  // Setup used to run as one unbroken synchronous block from here through
+  // the deadline check below — fine for an ordinary bbox, but a real
+  // hazard-dense one (Carvers Harbor/Vinalhaven: 600-1700 hazards/bbox,
+  // see fallback-warning-accuracy notes) can spend many real seconds in
+  // these two ring loops alone, freezing the tab the whole time and only
+  // finding out it blew past deadlineMs after all of it was already done.
+  // Confirmed live (2026-09-30): a route through this kind of bbox froze
+  // the browser for 45s+ against an 18s deadline. Throttled the same way
+  // as the main A* loop below — yield + recheck every SETUP_YIELD_EVERY
+  // rings — so the tab stays responsive and an overrun is caught mid-setup
+  // instead of only after every ring has already been processed.
+  const SETUP_YIELD_EVERY = 25;
+  let _setupRingCount = 0;
+  async function _setupYieldCheck() {
+    if (++_setupRingCount % SETUP_YIELD_EVERY !== 0) return false;
+    await delay(0);
+    return Date.now() - _profT0 > deadlineMs;
+  }
+
   const blockingLandRings = [];
   const seenRings = new Set(landRingsInBox.map(e => e.ring));
   const nonBlockingLandCandidates = [];
   for (const entry of landRingsInBox) {
+    if (await _setupYieldCheck()) {
+      console.warn('[autoRoute] deadline exceeded during setup (land rings) — returning straight line');
+      return [start, end];
+    }
     if (Query.ringBlocks(entry.ring, start.lon, start.lat, end.lon, end.lat)) {
       _addRingNodes(entry, true, COASTAL_STANDOFF_LADDER, true);
       blockingLandRings.push(entry);
@@ -942,6 +965,10 @@ export async function autoRouteProg(
   }
   const nonBlockingExtraCandidates = [];
   for (const entry of extraRings) {
+    if (await _setupYieldCheck()) {
+      console.warn('[autoRoute] deadline exceeded during setup (extra rings) — returning straight line');
+      return [start, end];
+    }
     const blocks = Query.ringBlocks(entry.ring, start.lon, start.lat, end.lon, end.lat);
     if (blocks) { _addRingNodes(entry, true, HAZARD_OFFSET_LADDER, false, true); continue; }
     const d = _ptSegDistNm(entry.cx, entry.cy, start.lon, start.lat, end.lon, end.lat);

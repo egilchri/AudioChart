@@ -1,5 +1,43 @@
 # Changelog
 
+## 2026-09-30 — AutoRoute setup no longer freezes the tab in hazard-dense water (v758)
+
+"It won't let me do an autoroute to either marker in the snapshot" —
+real production report, SP002/TS014 near Carvers Harbor/Vinalhaven.
+Live investigation found AutoRoute WAS eventually succeeding (correct
+fallback-warning UI appeared), but only after 45s+ with the entire tab
+frozen unresponsive — 2.5x past the intended 18s deadline.
+
+Root cause: `autoRouteProg`'s setup phase (building the visibility-
+graph nodes from every land/hazard ring in the bbox) ran as one
+unbroken synchronous block, checked against the deadline only ONCE,
+after all of it had already finished — never yielding to the browser
+in between. A hazard-dense bbox like this one (600-1700 hazards, per
+earlier fallback-warning-accuracy work) can spend many real seconds in
+that block alone. Added a throttled yield+deadline-recheck (every 25
+rings, same pattern the main A* loop already uses) to both of setup's
+unbounded ring loops, so the tab stays responsive during setup and an
+overrun is caught mid-way instead of only after the fact.
+
+This also answers a related question: can the same route succeed on a
+laptop but fail on a tablet? Yes, and this bug made it worse — the
+deadline is already wall-clock (`Date.now()`), not iteration-count, so
+the CAP itself doesn't change with device speed, but slower hardware
+does the same setup work more slowly in real time, so it could burn
+through most or all of the budget just building the graph, before
+search even starts. The unyielded block meant that overrun went
+undetected until setup was already fully done; now it's caught early,
+so a genuinely-too-slow device gets the existing honest straight-line
+fallback + warning instead of a long freeze. Users on consistently
+slower hardware can still raise the "Route planning time limit"
+setting (`DEFAULT_DEADLINE_MS`'s existing escape hatch) if they want
+more time before that fallback kicks in.
+
+Verified: `node --check`, full local suite incl.
+test_channel_routing.js (all 14 cases still pass, no new timing
+regressions — the two pre-existing "slow" warnings are unrelated
+known-marginal cases).
+
 ## 2026-09-30 — Thicker inbound arrows; "Type a command" narrowed too (v757)
 
 **Thicker arrows**: "try making the blue inbound arrows twice as
