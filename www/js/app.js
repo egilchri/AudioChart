@@ -10101,26 +10101,13 @@ function _ensureMap() {
     TTS.sayImmediate(msg);
   });
 
+  // Combined "Bring boat here" (formerly two separate items — "Bring boat
+  // here" and "Set position here" — merged into one at direct request).
+  // Does everything either one did: moves the manual test position,
+  // refreshes the bearing lines, ensures the map view itself is showing
+  // (exiting any compact/list/input-focus state), and announces a
+  // Where-Am-I readout for the new spot.
   document.getElementById('map-ctx-bring-boat').addEventListener('click', () => {
-    _hideCtx();
-    if (!_ctxLatLng) return;
-    const { lat, lng: lon } = _ctxLatLng;
-    GPS.setManualPosition(lat, lon);
-    syncTestPosButton();
-    _showBoatPosition(lat, lon);
-    _updateBearingLines(lat, lon);
-    setStatus('Boat moved.');
-    if (serverUrl) {
-      fetch(`${serverUrl}/api/test-position`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lat, lon }),
-      }).catch(() => {});
-      Query.loadData(lat, lon).then(() => { dataLoaded = true; }).catch(() => {});
-    }
-  });
-
-  document.getElementById('map-ctx-set-position').addEventListener('click', () => {
     _hideCtx();
     if (!_ctxLatLng) return;
     const { lat, lng: lon } = _ctxLatLng;
@@ -10130,7 +10117,8 @@ function _ensureMap() {
     _mapContainer.classList.remove('map-compact', 'list-focus', 'input-focus');
     _showBoatPosition(lat, lon);
     _map.invalidateSize();
-    setStatus('Test position set from map.');
+    _updateBearingLines(lat, lon);
+    setStatus('Boat moved.');
     _runWhereAmI(lat, lon);
     if (serverUrl) {
       fetch(`${serverUrl}/api/test-position`, {
@@ -11465,9 +11453,9 @@ async function _offerRegionForPosition(lat, lon) {
     // and re-enters this same position pipeline (showPosition ->
     // _updateCoverageStatus), which resolves to 'core' for Rockland and
     // updates the status/map on its own — no separate refresh needed here.
-    // showPosition() itself never draws the boat icon (see map-ctx-set-position
-    // and map-ctx-bring-boat for the established convention) — _showBoatPosition
-    // is the separate call that actually puts the marker on the map.
+    // showPosition() itself never draws the boat icon (see map-ctx-bring-boat
+    // for the established convention) — _showBoatPosition is the separate
+    // call that actually puts the marker on the map.
     GPS.setManualPosition(44.103, -69.088);
     syncTestPosButton();
     _showBoatPosition(44.103, -69.088);
