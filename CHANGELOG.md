@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-09-30 — Thicker inbound arrows; "Type a command" narrowed too (v757)
+
+**Thicker arrows**: "try making the blue inbound arrows twice as
+thick." `font-weight` was already at its CSS maximum (900), so added
+`-webkit-text-stroke` to genuinely add line weight beyond what a bold
+font-weight alone can give a text glyph. Live-verified: visibly bolder.
+
+**Command bar narrowing, part 2**: v756 only narrowed the "Command
+reference" picker; the "Type a command…" input (`#text-input`) still
+stretched full-width via `flex:1`, which wasn't what "make command
+reference and type a command shrunken windows much narrower" asked
+for. Gave it the same treatment — fixed width sized to its placeholder,
+`align-self: flex-start` to escape the parent's flex-column stretch.
+Verified live: both rows are now narrow, with the send button sitting
+right next to the input instead of stretched to the far right.
+
 ## 2026-09-30 — Tap-tooltips, Node Ops trimmed, command-picker overlap fixed (v756)
 
 Three direct requests in one pass:

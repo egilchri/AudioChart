@@ -2446,6 +2446,11 @@ body.wco-active #wco-titlebar { display: flex; }
   color: #2266cc;
   font-size: 18px;
   font-weight: 900;
+  /* font-weight is already at its CSS max (900) — a text glyph has no
+     more room to get bolder that way, so text-stroke adds real extra
+     line weight on top, per direct request ("twice as thick"). */
+  -webkit-text-stroke: 1.2px #2266cc;
+  text-stroke: 1.2px #2266cc;
   text-shadow:
     -1px -1px 0 #fff, 1px -1px 0 #fff,
     -1px  1px 0 #fff, 1px  1px 0 #fff,
@@ -4118,14 +4123,21 @@ body.wco-active #underway-btn { top: 10px; }
 #command-picker:focus { border-color: var(--accent); }
 
 /* Text input */
+/* Direct follow-up (2026-09-30): "make command reference and type a
+   command shrunken windows much narrower" — the first pass only
+   narrowed #command-picker above it; this row was still stretching
+   full-width via flex:1. align-self overrides the parent
+   #map-overlay-cmd's flex-column stretch, same technique. */
 #text-form {
   display: flex;
+  align-self: flex-start;
   gap: 8px;
   flex-shrink: 0;
 }
 
 #text-input {
-  flex: 1;
+  width: 200px;
+  max-width: 100%;
   background: var(--dark-blue);
   border: 1px solid var(--mid-blue);
   border-radius: 8px;
