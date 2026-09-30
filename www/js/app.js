@@ -390,8 +390,8 @@ function _setWaypointsVisible(v) {
 // skips the drag/rename/delete machinery _refreshWaypointLayer's markers
 // have. The one popup action worth keeping is the one this session's own
 // testing repeatedly relied on: jumping the boat's test position straight
-// to a saved point, then AutoRouting from there — see the ctx-wp-pos
-// handler this mirrors.
+// to a saved point, then AutoRouting from there — see _bringBoatTo, the
+// same shared "Bring boat here" action the ctx-wp-pos handler also uses.
 function _refreshTestSetLayer() {
   if (!_map) return;
   if (_testSetLayer) { _map.removeLayer(_testSetLayer); _testSetLayer = null; }
@@ -409,7 +409,7 @@ function _refreshTestSetLayer() {
            <div class="navaid-popup-name">${escapeHtml(wp.name)}</div>
            <div class="navaid-popup-note">Test Set: ${escapeHtml(set.name)}${wp.origName ? ` (from ${escapeHtml(wp.origName)})` : ''}</div>
            <div class="navaid-popup-coords">${formatPositionDisplay(wp.lat, wp.lon)}</div>
-           <button class="ts-popup-pos">Set position here</button>
+           <button class="ts-popup-pos">Bring boat here</button>
            <button class="ts-popup-autoroute">&#9973; AutoRoute from boat position</button>
            <button class="ts-popup-delete">&#128465; Delete</button>
          </div>`,
@@ -419,22 +419,7 @@ function _refreshTestSetLayer() {
         const popupEl = e.popup.getElement();
         popupEl.querySelector('.ts-popup-pos').addEventListener('click', () => {
           _map.closePopup();
-          GPS.setManualPosition(wp.lat, wp.lon);
-          syncTestPosButton();
-          document.getElementById('map-container').style.display = 'block';
-          _mapContainer.classList.remove('map-compact', 'list-focus', 'input-focus');
-          _showBoatPosition(wp.lat, wp.lon);
-          _map.invalidateSize();
-          setStatus(`Position set to ${wp.name}.`);
-          _runWhereAmI(wp.lat, wp.lon);
-          if (serverUrl) {
-            fetch(`${serverUrl}/api/test-position`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ lat: wp.lat, lon: wp.lon }),
-            }).catch(() => {});
-            Query.loadData(wp.lat, wp.lon).then(() => { dataLoaded = true; setStatus(`Ready. (${wp.name})`); }).catch(() => {});
-          }
+          _bringBoatTo(wp.lat, wp.lon, wp.name);
         });
         popupEl.querySelector('.ts-popup-autoroute').addEventListener('click', () => {
           _map.closePopup();
@@ -6401,6 +6386,37 @@ function _updateBearingLines(lat, lon) {
   }
 }
 
+// Shared "Bring boat here" action — moves the manual test position, shows
+// the map (exiting any compact/list/input-focus state), refreshes bearing
+// lines, and announces a Where-Am-I readout. One function backing every
+// place this action is offered (map right-click, a waypoint's own "..."
+// actions, a Test Set marker's popup) so they can't drift out of sync with
+// each other the way the three near-duplicate inline copies used to.
+// `label`, if given, names the point for the status message; omit it for
+// an arbitrary tapped point that has no name of its own.
+function _bringBoatTo(lat, lon, label) {
+  GPS.setManualPosition(lat, lon);
+  syncTestPosButton();
+  document.getElementById('map-container').style.display = 'block';
+  _mapContainer.classList.remove('map-compact', 'list-focus', 'input-focus');
+  _showBoatPosition(lat, lon);
+  _map.invalidateSize();
+  _updateBearingLines(lat, lon);
+  setStatus(label ? `Boat moved to ${label}.` : 'Boat moved.');
+  _runWhereAmI(lat, lon);
+  if (serverUrl) {
+    fetch(`${serverUrl}/api/test-position`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lat, lon }),
+    }).catch(() => {});
+    Query.loadData(lat, lon).then(() => {
+      dataLoaded = true;
+      setStatus(label ? `Ready. (${label})` : 'Ready. (map position)');
+    }).catch(() => {});
+  }
+}
+
 function _exitAnimMode() {
   if (_map) _map.off('click', _exitAnimMode);
   if (_map && _animClickHandler) { _map.off('click', _animClickHandler); _animClickHandler = null; }
@@ -8737,7 +8753,7 @@ function _ensureMap() {
       delBtn.textContent = 'Delete';
       const posBtn = document.createElement('button');
       posBtn.className = 'ctx-wp-pos';
-      posBtn.textContent = 'Set position here';
+      posBtn.textContent = 'Bring boat here';
       actions.appendChild(delBtn);
       actions.appendChild(posBtn);
       _wpSubmenu.appendChild(actions);
@@ -9459,22 +9475,7 @@ function _ensureMap() {
       const lon = parseFloat(actions.dataset.wpLon);
       const name = actions.dataset.wpName;
       _hideCtx();
-      GPS.setManualPosition(lat, lon);
-      syncTestPosButton();
-      document.getElementById('map-container').style.display = 'block';
-      _mapContainer.classList.remove('map-compact', 'list-focus', 'input-focus');
-      _showBoatPosition(lat, lon);
-      _map.invalidateSize();
-      setStatus(`Position set to ${name}.`);
-      _runWhereAmI(lat, lon);
-      if (serverUrl) {
-        fetch(`${serverUrl}/api/test-position`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ lat, lon }),
-        }).catch(() => {});
-        Query.loadData(lat, lon).then(() => { dataLoaded = true; setStatus(`Ready. (${name})`); }).catch(() => {});
-      }
+      _bringBoatTo(lat, lon, name);
       return;
     }
   });
@@ -10107,34 +10108,13 @@ function _ensureMap() {
 
   // Combined "Bring boat here" (formerly two separate items — "Bring boat
   // here" and "Set position here" — merged into one at direct request).
-  // Does everything either one did: moves the manual test position,
-  // refreshes the bearing lines, ensures the map view itself is showing
-  // (exiting any compact/list/input-focus state), and announces a
-  // Where-Am-I readout for the new spot.
+  // See _bringBoatTo, the one shared implementation behind every place
+  // this action is offered.
   document.getElementById('map-ctx-bring-boat').addEventListener('click', () => {
     _hideCtx();
     if (!_ctxLatLng) return;
     const { lat, lng: lon } = _ctxLatLng;
-    GPS.setManualPosition(lat, lon);
-    syncTestPosButton();
-    document.getElementById('map-container').style.display = 'block';
-    _mapContainer.classList.remove('map-compact', 'list-focus', 'input-focus');
-    _showBoatPosition(lat, lon);
-    _map.invalidateSize();
-    _updateBearingLines(lat, lon);
-    setStatus('Boat moved.');
-    _runWhereAmI(lat, lon);
-    if (serverUrl) {
-      fetch(`${serverUrl}/api/test-position`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lat, lon }),
-      }).catch(() => {});
-      Query.loadData(lat, lon).then(() => {
-        dataLoaded = true;
-        setStatus('Ready. (map position)');
-      }).catch(() => {});
-    }
+    _bringBoatTo(lat, lon);
   });
 
   document.getElementById('map-ctx-set-focus').addEventListener('click', () => {
