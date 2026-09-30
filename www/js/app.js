@@ -2002,12 +2002,25 @@ function _renderDocumentMarkers() {
     // bodyHtml, so it stays visually separate from the self-contained
     // offline write-up above it.
     const lookupHtml = p.category === 'island-info' ? _wireIslandLookup(m, lat, lon) : '';
-    // "Navigate to here" — wherever this marker actually sits (the same
-    // anchor position shown on the map), not a re-derived location. Only
-    // for anchorages: this is the one document category that names an
-    // actual place to put the boat, not background reading.
+    // Anchorages: the one document category that names an actual place to
+    // put the boat, not background reading — gets the same action set as a
+    // waypoint's own marker popup (direct request), reusing its exact
+    // button classes for free styling/consistency rather than duplicating
+    // rules under a new doc-popup-* name. "Navigate to here" keeps its
+    // original class/label (doc-popup-navigate, not "AutoRoute from boat
+    // position") alongside the shared one — _takeTour's Warren Island step
+    // narrates "tap Navigate to here" by that exact label and finds it by
+    // that exact class (see _startVirtualJourney below), so both stay put;
+    // navaid-popup-autoroute is added ONLY for matching visual styling.
     const navHtml = p.category === 'anchorages'
-      ? `<button class="doc-popup-navigate" style="margin-top:6px;padding:4px 8px;font-size:0.85em;cursor:pointer">&#9973; Navigate to here</button>`
+      ? `<div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">
+           <button class="doc-popup-navigate navaid-popup-autoroute">&#9973; Navigate to here</button>
+           <button class="navaid-popup-focus">&#127919; Set focus</button>
+           <button class="navaid-popup-bring-boat">&#9935; Bring boat here</button>
+           <button class="navaid-popup-objects">Objects within &rsaquo;</button>
+           <button class="navaid-popup-routes-near">Routes within &rsaquo;</button>
+           <button class="navaid-popup-tracks-near">Tracks within &rsaquo;</button>
+         </div>`
       : '';
     // Paintings gets a wider popup than the other text-only categories —
     // the bundled reproduction image needs real room, not a 260px squeeze.
@@ -2020,9 +2033,37 @@ function _renderDocumentMarkers() {
     </div>`;
     if (p.category === 'anchorages') {
       m.on('popupopen', (e) => {
-        e.popup.getElement().querySelector('.doc-popup-navigate').addEventListener('click', () => {
+        const popupEl = e.popup.getElement();
+        popupEl.querySelector('.doc-popup-navigate').addEventListener('click', () => {
           _map.closePopup();
           _autoRouteFromBoatToHereFn?.(lat, lon);
+        });
+        popupEl.querySelector('.navaid-popup-focus').addEventListener('click', () => {
+          _map.closePopup();
+          Query.setFocus(lat, lon, p.title, 'place');
+          _updateFocusButton();
+          const msg = `Focused on ${p.title}.`;
+          showResponse(msg);
+          TTS.sayImmediate(msg);
+        });
+        popupEl.querySelector('.navaid-popup-bring-boat').addEventListener('click', () => {
+          _map.closePopup();
+          _bringBoatTo(lat, lon, p.title);
+        });
+        popupEl.querySelector('.navaid-popup-objects').addEventListener('click', (ev) => {
+          const rect = ev.currentTarget.getBoundingClientRect(); // before closePopup() detaches it
+          _map.closePopup();
+          _openNearPointFlyout(document.getElementById('map-ctx-objects-submenu'), rect, { lat, lng: lon });
+        });
+        popupEl.querySelector('.navaid-popup-routes-near').addEventListener('click', (ev) => {
+          const rect = ev.currentTarget.getBoundingClientRect();
+          _map.closePopup();
+          _openNearPointFlyout(document.getElementById('map-ctx-routes-near-submenu'), rect, { lat, lng: lon });
+        });
+        popupEl.querySelector('.navaid-popup-tracks-near').addEventListener('click', (ev) => {
+          const rect = ev.currentTarget.getBoundingClientRect();
+          _map.closePopup();
+          _openNearPointFlyout(document.getElementById('map-ctx-tracks-near-submenu'), rect, { lat, lng: lon });
         });
       });
     }

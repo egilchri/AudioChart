@@ -2525,6 +2525,10 @@ body.wco-active #wco-titlebar { display: flex; }
 .navaid-popup-focus,
 .navaid-popup-rename,
 .navaid-popup-autoroute,
+.navaid-popup-bring-boat,
+.navaid-popup-objects,
+.navaid-popup-routes-near,
+.navaid-popup-tracks-near,
 .navaid-popup-delete,
 .ts-popup-pos,
 .ts-popup-autoroute,
@@ -2546,6 +2550,10 @@ body.wco-active #wco-titlebar { display: flex; }
 .navaid-popup-focus:active,
 .navaid-popup-autoroute:active,
 .navaid-popup-rename:active,
+.navaid-popup-bring-boat:active,
+.navaid-popup-objects:active,
+.navaid-popup-routes-near:active,
+.navaid-popup-tracks-near:active,
 .ts-popup-pos:active,
 .ts-popup-autoroute:active { background: var(--accent); color: var(--navy); }
 /* Red danger accent, same convention as #delete-route-btn — this one's a
