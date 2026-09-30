@@ -2352,6 +2352,14 @@ body.wco-active #wco-titlebar { display: flex; }
   font-weight: 900;
   margin-right: 2px;
 }
+/* Plain compass word next to the rotated arrow (v752) — the arrow
+   alone asked the reader to estimate an angle from a spinning glyph;
+   this states the real direction in words, e.g. "(heading northwest)". */
+.navaid-side-dir {
+  font-weight: normal;
+  font-style: italic;
+  opacity: 0.75;
+}
 .navaid-side-hint {
   font-size: 0.66rem;
   font-weight: normal;

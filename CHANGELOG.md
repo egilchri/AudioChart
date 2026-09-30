@@ -1,5 +1,31 @@
 # Changelog
 
+## 2026-09-30 — Popup states the real inbound/outbound direction in words (v752)
+
+Direct goal statement: "for each buoy that refers to inbound and
+outbound, I know what direction they are referring to." Re-reading
+`_lateralMarkGuidanceHtml`'s own output found the real gap: once a real
+bearing was known, the code REPLACED the word "Inbound"/"Outbound"
+entirely with just a small rotated arrow glyph — no text anywhere
+saying which way it pointed, or even which line was inbound vs.
+outbound. Fixed: both the word and the arrow now show together, plus
+the real compass direction in plain text via `Query.compassDir` (the
+same primitive already used for Location & Context/Charted Hazard) —
+e.g. "Outbound (heading east): Leave to PORT." When no chain neighbor
+exists (`_chainAscendingBearing` returns null), stays honest that
+direction isn't available rather than guessing one. Live-verified on
+Fox Island Thorofare Buoy 14, matching the real, independently-verified
+convention from earlier this session (ascending numbers run west).
+
+Also answered two direct follow-ups about the v751 "Inbound" arrows'
+coverage ("I only see arrows in Fox Island Thorofare... how about
+Eggemoggin Reach?") by checking live on production at several other
+real locations — confirmed working correctly bay-wide (Rockland Harbor
+Bypass Channel, Casco Passage, and 2 real pairs in the broader
+Eggemoggin Reach area: The Triangles Buoy 23/25 and Buck's Harbor East
+Channel Buoy 1/2) — the arrows only render at zoom ≥13, so a zoomed-out
+view of the whole bay legitimately shows none.
+
 ## 2026-09-30 — Geometrically accurate "Inbound" arrows return (v751)
 
 Direct follow-up to an analytical question: "how many labels would we

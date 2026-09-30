@@ -10375,16 +10375,20 @@ function _refreshSoundingsLayer() {
 // seaward toward harbor; buoy numbers ascend going inbound, the same
 // convention, not a separate fact).
 //
-// Direct follow-up (2026-09-29): the words "Inbound"/"Outbound" read as
-// confusing on their own — replaced with a small arrow rotated to the
-// REAL compass bearing of travel each line applies to (from
-// _chainAscendingBearing), so "which way" is answered by a picture, not
-// a word. Both "Leave to Port" and "Leave to Starboard" always show —
-// never just one — since the mark alone can't say which applies without
-// the direction you're actually heading. Falls back to the plain
-// Inbound:/Outbound: wording only when no chain neighbor was found
-// nearby (no real bearing to draw an arrow toward — see
-// _chainAscendingBearing's own comment on when that happens).
+// Direct follow-up (2026-09-30): "my goal is for each buoy that refers
+// to inbound and outbound, I know what direction they are referring
+// to." Real gap, found by re-reading this function's own output: once
+// a real bearing was known, the rotated arrow REPLACED the word
+// entirely (see arrowOrWord below) — a bare spinning glyph with no
+// text anywhere saying which way it points, or even that it's
+// "inbound" vs "outbound" at all. Fixed by keeping the word AND the
+// arrow, and adding the real compass direction in plain text (reusing
+// Query.compassDir, the same primitive already used for Location &
+// Context/Charted Hazard) — "Inbound (heading northwest)" rather than
+// an icon alone the reader has to estimate an angle from. When no
+// chain neighbor was found (ascendingBrg null — see
+// _chainAscendingBearing's own comment on when that happens), stays
+// honest that no direction is available rather than guessing one.
 function _lateralMarkGuidanceHtml(catlam, objtype, ascendingBrg, computedGuess) {
   // computedGuess (from _computeLikelyInboundOutbound, below): 'inbound',
   // 'outbound', or null. When set, bolds the currently-applicable line and
@@ -10395,9 +10399,14 @@ function _lateralMarkGuidanceHtml(catlam, objtype, ascendingBrg, computedGuess) 
   const activeLine = (dir) => computedGuess === dir ? ' active' : '';
   const hintHtml    = computedGuess
     ? '<div class="navaid-side-hint">Based on your current heading</div>' : '';
-  const arrowOrWord = (brgDeg, fallbackWord) => brgDeg == null
-    ? `${fallbackWord}:`
-    : `<span class="navaid-side-arrow" style="transform:rotate(${Math.round(brgDeg)}deg)">&#8593;</span>`;
+  const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+  const arrowOrWord = (brgDeg, word) => {
+    const label = capitalize(word);
+    if (brgDeg == null) return `${label} (direction not available):`;
+    const dir = Query.compassDir(brgDeg);
+    return `<span class="navaid-side-arrow" style="transform:rotate(${Math.round(brgDeg)}deg)">&#8593;</span> `
+      + `${label} <span class="navaid-side-dir">(heading ${dir})</span>:`;
+  };
 
   if (catlam === 'port-hand' || catlam === 'starboard-hand') {
     const inboundBrg  = ascendingBrg;
@@ -10411,10 +10420,9 @@ function _lateralMarkGuidanceHtml(catlam, objtype, ascendingBrg, computedGuess) 
     const portGuess      = catlam === 'port-hand' ? 'inbound' : 'outbound';
     const starboardGuess = catlam === 'port-hand' ? 'outbound' : 'inbound';
     const cls = catlam === 'port-hand' ? 'port' : 'starboard';
-    const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
     return `<div class="navaid-popup-side ${cls}">
-      <div class="navaid-side-line${activeLine(portGuess)}">${arrowOrWord(portBrg, capitalize(portGuess))} Leave to PORT</div>
-      <div class="navaid-side-line${activeLine(starboardGuess)}">${arrowOrWord(starboardBrg, capitalize(starboardGuess))} Leave to STARBOARD</div>
+      <div class="navaid-side-line${activeLine(portGuess)}">${arrowOrWord(portBrg, portGuess)} Leave to PORT</div>
+      <div class="navaid-side-line${activeLine(starboardGuess)}">${arrowOrWord(starboardBrg, starboardGuess)} Leave to STARBOARD</div>
       ${hintHtml}
     </div>`;
   }
