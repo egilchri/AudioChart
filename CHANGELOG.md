@@ -1,5 +1,41 @@
 # Changelog
 
+## 2026-09-30 — AutoRoute offers to raise the time limit on a real timeout (v760)
+
+Follow-up to v758's freeze fix: "if it times out, perhaps it could ask
+the user if they want to raise the threshold." A straight-line fallback
+caused by genuinely running out of search time looked identical to one
+caused by a genuinely unroutable graph — same shape, same "add a
+waypoint" advice — even though only the first case means trying again
+with more time could actually help.
+
+router.js: tag the fallback array itself (`_timedOut`, same pattern as
+the existing per-node `marginal` flag) at every place a deadline check
+is what caused a 2-point fallback — setup phase, the main A* loop, and
+`_longRangeRoute`'s own checks, including checking a timed-out sub-leg
+before re-wrapping it in an un-flagged fallback. A genuinely-failed
+local-avoidance or exhausted-open-set case is never flagged, so this
+never suggests raising the limit when that couldn't help.
+
+app.js: `_showRouteFallbackWarning` takes an optional retry callback;
+when the router flagged the fallback as timed-out, its popup adds a
+"Try again with Ns limit" button (doubles the current
+`nf-route-timeout-s`, capped at the setting's own 120s max) alongside
+the existing waypoint advice — additive, not a replacement, since the
+normal advice is still correct for the fallback's own cause even when
+the timeout is also worth trying. Wired into `_triggerAutoRoute` (the
+main "Route from/to here" / waypoint-popup AutoRoute path — the one
+the original SP002/TS014 freeze report hit): retrying removes the
+straight-line route this attempt already saved first (same pop+
+tombstone the v759-removed "Delete last route" button used to do),
+so it doesn't leave a duplicate behind, then re-plans the identical
+start/end/name at the raised limit.
+
+Verified: `node --check` on both files, full local suite (all 14
+channel-routing cases still pass, 25/29/2 on the others), live in
+browser — the ordinary (non-timeout) fallback path still renders
+correctly with no console errors via the existing debug hook.
+
 ## 2026-09-30 — Route/Track removed from the map context menu (v759)
 
 "in the snapshot get rid of Routes and Tracks from the menu" —

@@ -31,6 +31,18 @@ import * as Query from './query.js';
 // hardware have the "Route planning time limit" setting to raise it.
 export const DEFAULT_DEADLINE_MS = 18000;
 
+// A 2-point fallback caused by genuinely running out of time reads
+// identically to one caused by a genuinely unroutable graph (same shape,
+// same land-crossing check) — but only the first case means "try again
+// with more time might actually work." Tag the array itself (same
+// pattern as `marginal: true` on individual nodes elsewhere in this
+// file) so callers can tell them apart without a second return channel.
+function _timedOutFallback(a, b) {
+  const arr = [a, b];
+  arr._timedOut = true;
+  return arr;
+}
+
 export async function autoRouteProg(
   start, end, onUpdate, onText = null, _escapeAttempted = false,
   draftFt = 5.0, tideHeightM = 0, onSearchProgress = null, onSnap = null,
@@ -914,7 +926,7 @@ export async function autoRouteProg(
   for (const entry of landRingsInBox) {
     if (await _setupYieldCheck()) {
       console.warn('[autoRoute] deadline exceeded during setup (land rings) — returning straight line');
-      return [start, end];
+      return _timedOutFallback(start, end);
     }
     if (Query.ringBlocks(entry.ring, start.lon, start.lat, end.lon, end.lat)) {
       _addRingNodes(entry, true, COASTAL_STANDOFF_LADDER, true);
@@ -967,7 +979,7 @@ export async function autoRouteProg(
   for (const entry of extraRings) {
     if (await _setupYieldCheck()) {
       console.warn('[autoRoute] deadline exceeded during setup (extra rings) — returning straight line');
-      return [start, end];
+      return _timedOutFallback(start, end);
     }
     const blocks = Query.ringBlocks(entry.ring, start.lon, start.lat, end.lon, end.lat);
     if (blocks) { _addRingNodes(entry, true, HAZARD_OFFSET_LADDER, false, true); continue; }
@@ -990,7 +1002,7 @@ export async function autoRouteProg(
 
   if (Date.now() - _profT0 > deadlineMs) {
     console.warn('[autoRoute] deadline exceeded during setup — returning straight line');
-    return [start, end];
+    return _timedOutFallback(start, end);
   }
 
   console.log(`[autoRoute] setup took ${Date.now() - _profT0}ms — ${nodes.length} nodes, ${landRingsInBox.length} land rings in bbox, ${extraRings.length} extra rings`);
@@ -1133,6 +1145,7 @@ export async function autoRouteProg(
 
   let expansions = 0;
   let pathImproved = false;
+  let _deadlineHit = false;
 
   while (heap.length) {
     const [, curr] = hpop();
@@ -1205,6 +1218,7 @@ export async function autoRouteProg(
       await delay(0);
       if (Date.now() - _profT0 > deadlineMs) {
         console.warn('[autoRoute] deadline exceeded after', expansions, 'expansions');
+        _deadlineHit = true;
         break;
       }
     }
@@ -1221,7 +1235,7 @@ export async function autoRouteProg(
     // needs a manual waypoint) — return the honest straight-line fallback,
     // never a partial/unverified path.
     console.warn('[autoRoute] no path found — returning straight line');
-    return [start, end];
+    return _deadlineHit ? _timedOutFallback(start, end) : [start, end];
   }
 
   // Real bug found live (2026-09-27): a real, valid route's leg passed
@@ -1474,23 +1488,23 @@ async function _longRangeRoute(start, end, onUpdate, onText, draftFt, tideHeight
   if (onText) onText('Planning long passage…');
 
   if (_isClearOffshoreLine(start, end)) return [start, end];
-  if (Date.now() - _lrT0 > longRangeDeadlineMs) return [start, end];
+  if (Date.now() - _lrT0 > longRangeDeadlineMs) return _timedOutFallback(start, end);
 
   const departurePt = Query.findClearOffshorePoint(start.lon, start.lat, end.lon, end.lat, { draftFt, tideHeightM });
   const arrivalPt = Query.findClearOffshorePoint(end.lon, end.lat, start.lon, start.lat, { draftFt, tideHeightM });
   if (!departurePt || !arrivalPt) return [start, end];
-  if (Date.now() - _lrT0 > longRangeDeadlineMs) return [start, end];
+  if (Date.now() - _lrT0 > longRangeDeadlineMs) return _timedOutFallback(start, end);
 
   const departLeg = await autoRouteProg(start, departurePt, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs);
-  if (_legFailed(departLeg)) return [start, end];
-  if (Date.now() - _lrT0 > longRangeDeadlineMs) return [start, end];
+  if (_legFailed(departLeg)) return departLeg._timedOut ? _timedOutFallback(start, end) : [start, end];
+  if (Date.now() - _lrT0 > longRangeDeadlineMs) return _timedOutFallback(start, end);
 
   const transit = await _transitLeg(departurePt, arrivalPt, _lrT0, onUpdate, onText, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs, longRangeDeadlineMs);
-  if (!transit) return [start, end];
+  if (!transit) return (Date.now() - _lrT0 > longRangeDeadlineMs) ? _timedOutFallback(start, end) : [start, end];
 
   const arriveLeg = await autoRouteProg(arrivalPt, end, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs);
-  if (_legFailed(arriveLeg)) return [start, end];
-  if (Date.now() - _lrT0 > longRangeDeadlineMs) return [start, end];
+  if (_legFailed(arriveLeg)) return arriveLeg._timedOut ? _timedOutFallback(start, end) : [start, end];
+  if (Date.now() - _lrT0 > longRangeDeadlineMs) return _timedOutFallback(start, end);
 
   console.log(`[autoRoute] long-range passage done in ${Date.now() - _lrT0}ms — depart ${departLeg.length}pts, transit ${transit.length}pts, arrive ${arriveLeg.length}pts`);
 

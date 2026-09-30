@@ -4259,7 +4259,13 @@ function _fallbackReasonLabel(seg) {
 }
 
 let _routeFallbackLayer = null;
-function _showRouteFallbackWarning(fallbackSegs) {
+// onRaiseTimeout: optional retry callback, only supplied by a caller that
+// has a live start/end/name in hand and can re-run the same AutoRoute —
+// direct request: "if it times out, perhaps it could ask the user if they
+// want to raise the threshold" instead of just landing on the same
+// "add a waypoint" advice a genuinely-unroutable case gets, which isn't
+// the right fix when the real cause was running out of search time.
+function _showRouteFallbackWarning(fallbackSegs, onRaiseTimeout = null) {
   if (_routeFallbackLayer) { _routeFallbackLayer.clearLayers(); _routeFallbackLayer = null; }
   if (!fallbackSegs || !fallbackSegs.length) return;
   _routeFallbackLayer = L.layerGroup().addTo(_map);
@@ -4329,14 +4335,43 @@ function _showRouteFallbackWarning(fallbackSegs) {
   const reasonSummary = anyHazard && anyLand ? 'land or a charted hazard'
     : anyHazard ? 'a charted hazard (rock/obstruction/wreck)'
     : 'land';
-  const body = `<b>Couldn't avoid ${reasonSummary}</b> — ${n} leg${n > 1 ? 's' : ''} still cross${n > 1 ? '' : 'es'} it as a straight line.<br>`
-    + `Add a waypoint in the passage${n > 1 ? ' (⚠ marks each spot)' : ''}, then re-route.`;
-  const speakMsg = `Warning: ${n} route leg${n > 1 ? 's' : ''} couldn't avoid ${reasonSummary}. Add a waypoint and re-route.`;
 
-  L.popup({ maxWidth: 300, autoPan: true })
+  // A timed-out search and a genuinely-unroutable one look identical here
+  // (same straight-line fallback, same land/hazard crossing) — only
+  // router.js itself knows which happened (see its own `_timedOutFallback`
+  // comment), passed down as onRaiseTimeout being non-null. Raising the
+  // limit is real advice only for the timeout case: it can't help a truly
+  // disconnected graph, so the ordinary "add a waypoint" wording stays the
+  // default and this is additive, not a replacement.
+  const timeoutInput = document.getElementById('nf-route-timeout-s');
+  const currentS = _currentDeadlineMs() / 1000;
+  const raisedS = Math.min(120, Math.round(currentS * 2));
+  const canRaise = onRaiseTimeout && raisedS > currentS;
+
+  const body = `<b>Couldn't avoid ${reasonSummary}</b> — ${n} leg${n > 1 ? 's' : ''} still cross${n > 1 ? '' : 'es'} it as a straight line.<br>`
+    + `Add a waypoint in the passage${n > 1 ? ' (⚠ marks each spot)' : ''}, then re-route.`
+    + (canRaise
+        ? `<br><br>This may have run out of search time (${currentS}s limit) rather than being truly impossible.<br>`
+          + `<button id="rfw-raise-timeout-btn" style="margin-top:4px">Try again with ${raisedS}s limit</button>`
+        : '');
+  const speakMsg = `Warning: ${n} route leg${n > 1 ? 's' : ''} couldn't avoid ${reasonSummary}. Add a waypoint and re-route.`
+    + (canRaise ? ` This may have run out of search time — tap the popup to try again with more time.` : '');
+
+  const popup = L.popup({ maxWidth: 300, autoPan: true })
     .setLatLng([first.lat, first.lon])
     .setContent(`<div style="font-size:13px;line-height:1.5">${body}</div>`)
     .openOn(_map);
+
+  if (canRaise) {
+    // Popup content is a fresh DOM node each time it's opened — wire the
+    // click after openOn, same pattern _showRouteFallbackWarning's own
+    // ⚠ markers use above.
+    popup.getElement()?.querySelector('#rfw-raise-timeout-btn')?.addEventListener('click', () => {
+      if (timeoutInput) timeoutInput.value = raisedS;
+      _map.closePopup(popup);
+      onRaiseTimeout();
+    });
+  }
 
   setStatus(speakMsg);
   TTS.sayImmediate(speakMsg);
@@ -9083,7 +9118,25 @@ function _ensureMap() {
     // a genuine danger, never for routine success or a shallow-water
     // relocation note (still visible on the map via the orange snap marker).
     if (fellBack) {
-      _showRouteFallbackWarning([{ a: pts[0], b: pts[1], legIndex: 0 }]);
+      _showRouteFallbackWarning([{ a: pts[0], b: pts[1], legIndex: 0 }], pts._timedOut ? () => {
+        // Retry re-plans the identical start/end/name at the raised limit —
+        // remove the straight-line fallback route this attempt just saved
+        // first, so a retry doesn't leave a duplicate/broken route behind
+        // (same pop+tombstone the removed "Delete last route" context-menu
+        // button used to do — see v759).
+        const cur = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+        const idx = cur.findIndex(r => r.id === routes[newIdx].id);
+        if (idx >= 0) {
+          const [deleted] = cur.splice(idx, 1);
+          _tombstone(deleted.id, 'route');
+          localStorage.setItem(ROUTE_KEY, JSON.stringify(cur));
+        }
+        if (_editMode && _editRouteIdx === newIdx) _exitEditMode();
+        _refreshSavedRouteLayers();
+        _populateRouteSelectFn?.();
+        _autoRouteName = name; _autoRouteStart = start; _autoRouteEnd = end;
+        _triggerAutoRoute();
+      } : null);
     } else if (marginalSeg) {
       _showRouteFallbackWarning([marginalSeg]);
     } else if (!found.length) {
