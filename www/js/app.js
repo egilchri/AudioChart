@@ -9349,24 +9349,6 @@ function _ensureMap() {
     _openAnimSettings(this);
   });
 
-  // "Set waypoint here" acts on the specific right-clicked point
-  // (_ctxLatLng), so it stays a flat context-menu button — see
-  // #waypoints-panel's own comment in index.html for why the rest of
-  // this menu was promoted to a standalone top-row panel instead.
-  document.getElementById('map-ctx-wp-set').addEventListener('click', () => {
-    _hideCtx();
-    if (!_ctxLatLng) return;
-    const { lat, lng: lon } = _ctxLatLng;
-    const name = WaypointsStorage.nextWaypointName();
-    saveUserWaypoint(name, lat, lon);
-    Query.setActiveWaypoint(lat, lon, name);
-    if (!_waypointsVisible) _setWaypointsVisible(true);
-    showWaypointMap(null, null, WaypointsStorage.loadUserWaypoints()).catch(() => {});
-    const msg = `Waypoint ${name} set — that's now the Active Waypoint.`;
-    setStatus(msg);
-    TTS.sayImmediate(msg);
-  });
-
   _wpSubmenu.addEventListener('click', (e) => {
     const t = e.target;
 
@@ -11765,7 +11747,7 @@ async function handleCommand(transcript) {
     if (intent === 'LIST_WAYPOINTS') {
       const wps = WaypointsStorage.loadUserWaypoints();
       if (!wps.length) {
-        const msg = 'No waypoints saved yet. Right-click the map and choose Set waypoint here.';
+        const msg = 'No waypoints saved yet. Right-click the map and choose Set marker here.';
         showResponse(msg);
         TTS.sayImmediate(msg);
         return;
