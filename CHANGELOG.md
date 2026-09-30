@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-09-30 — Fixed white-background Waypoints/Test Sets buttons (v755)
+
+Direct follow-up: the two new top-row buttons from v754 rendered with
+the browser's bare default white button style instead of matching
+Routes/Tracks/Samples. Real cause: the dark brass-pill styling is a
+shared rule scoped to a fixed list of button IDs, and the two new IDs
+were never added to it. Added `#waypoints-panel-btn`/`#testsets-panel-btn`
+to that shared rule (base style, hover, active-press, and the toggled
+`.active` state), matching the other buttons exactly. Live-verified.
+
 ## 2026-09-30 — Waypoints and Test Sets promoted to top-row buttons (v754)
 
 Direct request: "I want them to become buttons that are always
