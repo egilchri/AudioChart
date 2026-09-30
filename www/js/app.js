@@ -606,6 +606,11 @@ const anchorWatchCancelBtn = document.getElementById('anchor-watch-cancel');
 // Clear Screen is similarly reached under a "Screen" tile.
 const screenMenuBtn = document.getElementById('screen-menu-btn');
 const screenMenu    = document.getElementById('screen-menu');
+// Import is a top-level button (status-tiles-2), not tucked in the map's
+// right-click context menu — moved out per direct request, since it
+// doesn't act on a tapped point like the rest of that menu does.
+const importMenuBtn = document.getElementById('import-menu-btn');
+const importMenu    = document.getElementById('import-menu');
 
 function _updateFocusButton() {
   if (!focusBtn) return;
@@ -8965,8 +8970,6 @@ function _ensureMap() {
   });
   // ────────────────────────────────────────────────────────────────────────────
 
-  const _importSubmenu = document.getElementById('map-ctx-import-submenu');
-
   _map.on('contextmenu', (e) => {
     _ctxLatLng = e.latlng;
     _ctxSubmenu.style.display    = 'none';
@@ -8979,7 +8982,6 @@ function _ensureMap() {
     // app's CSS override with an inline style, leaving those panels
     // looking empty every time they're opened after any right-click.
     _trackSubmenu.style.display  = 'none';
-    _importSubmenu.style.display = 'none';
     _populateRouteSelect();
     _ctxMenu.style.left    = '0';
     _ctxMenu.style.top     = '0';
@@ -9538,19 +9540,21 @@ function _ensureMap() {
     }
   });
 
-  document.getElementById('map-ctx-import-parent').addEventListener('click', () => {
+  importMenuBtn.addEventListener('click', () => {
+    const isOpen = importMenu.style.display !== 'none';
+    if (isOpen) { _closeImportMenu(); return; }
     const isMobile = navigator.maxTouchPoints > 1;
     document.getElementById('import-hint-text').textContent = isMobile
       ? 'Export from Navionics → Files app first'
       : '~/Library/Application Support/opencpn/';
-    _importSubmenu.style.display = _importSubmenu.style.display === 'block' ? 'none' : 'block';
+    importMenu.style.display = 'flex';
   });
 
   const _gpxInput = document.getElementById('gpx-file-input');
   let _gpxMode = null;
 
   document.getElementById('map-ctx-import-markers').addEventListener('click', () => {
-    _hideCtx();
+    _closeImportMenu();
     _gpxMode = 'markers';
     _gpxInput.multiple = false;
     _gpxInput.value = '';
@@ -9558,7 +9562,7 @@ function _ensureMap() {
   });
 
   document.getElementById('map-ctx-import-routes').addEventListener('click', () => {
-    _hideCtx();
+    _closeImportMenu();
     _gpxMode = 'routes';
     _gpxInput.multiple = false;
     _gpxInput.value = '';
@@ -9566,7 +9570,7 @@ function _ensureMap() {
   });
 
   document.getElementById('map-ctx-combine-routes').addEventListener('click', () => {
-    _hideCtx();
+    _closeImportMenu();
     _gpxMode = 'combine';
     _gpxInput.multiple = true;
     _gpxInput.value = '';
@@ -12768,6 +12772,9 @@ function _clearScreen() {
 // Clear Screen is reached via the Screen tile's menu.
 function _closeScreenMenu() { screenMenu.style.display = 'none'; }
 
+// Import GPX markers/routes — reached via its own top-level Import tile.
+function _closeImportMenu() { importMenu.style.display = 'none'; }
+
 screenMenuBtn.addEventListener('click', () => {
   const isOpen = screenMenu.style.display !== 'none';
   if (isOpen) { _closeScreenMenu(); return; }
@@ -12834,11 +12841,17 @@ _setRightRailCollapsed(_storedRailCollapsed === null ? true : _storedRailCollaps
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && screenMenu.style.display !== 'none') _closeScreenMenu();
+  if (e.key === 'Escape' && importMenu.style.display !== 'none') _closeImportMenu();
 });
 document.addEventListener('click', (e) => {
   if (screenMenu.style.display === 'none') return;
   if (screenMenu.contains(e.target) || screenMenuBtn.contains(e.target)) return;
   _closeScreenMenu();
+}, { capture: true });
+document.addEventListener('click', (e) => {
+  if (importMenu.style.display === 'none') return;
+  if (importMenu.contains(e.target) || importMenuBtn.contains(e.target)) return;
+  _closeImportMenu();
 }, { capture: true });
 
 // ── Route download ────────────────────────────────────────────────────────────

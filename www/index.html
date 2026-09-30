@@ -278,6 +278,7 @@
           <button id="search-btn" title="Search a place name or lat/long and drop a pin there">&#128269; Search</button>
           <button id="location-menu-btn" title="Location options">&#128205; Location</button>
           <button id="screen-menu-btn" title="Screen options">&#128421; Screen</button>
+          <button id="import-menu-btn" title="Import markers or routes from a GPX file">&#11015; Import</button>
         </div>
         <div id="status-tiles-2">
           <button id="route-picker-btn" title="Show/hide routes">&#9998; Routes</button>
@@ -306,6 +307,13 @@
           <button id="wake-lock-btn" title="Keep screen awake while using AudioChart" style="display:none">&#9728;&#65039; Awake</button>
           <button id="screen-menu-clear" title="Hide all routes/tracks and clear query results from the map">&#129529; Clear Screen</button>
         </div>
+        <div id="import-menu" style="display:none">
+          <div class="import-hint" id="import-hint-text"></div>
+          <button id="map-ctx-import-markers" title="Import waypoint markers from a GPX file">Markers (GPX)</button>
+          <button id="map-ctx-import-routes" title="Import one or more routes from a GPX file">Routes (GPX)</button>
+          <button id="map-ctx-combine-routes" title="Import a GPX file and combine all its tracks into a single route">Combine routes (GPX)</button>
+        </div>
+        <input type="file" id="gpx-file-input" accept=".gpx" style="display:none">
         <div id="cruise-form" style="display:none">
           <span id="cruise-label">Download region:</span>
           <div id="cruise-choices"></div>
@@ -708,15 +716,10 @@
          standalone top-row panels (#waypoints-panel/#testsets-panel) — see
          them near #navaid-filter-panel. "Set waypoint here" removed (direct
          request) — "Set marker here" below covers the same tapped-point
-         save-a-waypoint need via an SP*-named pin instead. -->
-    <button id="map-ctx-import-parent" title="Import markers or routes from a file">&#11015; Import &rsaquo;</button>
-    <div id="map-ctx-import-submenu">
-      <div class="import-hint" id="import-hint-text"></div>
-      <button id="map-ctx-import-markers" title="Import waypoint markers from a GPX file">Markers (GPX)</button>
-      <button id="map-ctx-import-routes" title="Import one or more routes from a GPX file">Routes (GPX)</button>
-      <button id="map-ctx-combine-routes" title="Import a GPX file and combine all its tracks into a single route">Combine routes (GPX)</button>
-    </div>
-    <input type="file" id="gpx-file-input" accept=".gpx" style="display:none">
+         save-a-waypoint need via an SP*-named pin instead. Import moved out
+         to its own top-row button (#import-menu-btn near #screen-menu-btn),
+         also direct request — it doesn't act on a tapped point like the
+         rest of this menu, so it didn't need to live here either. -->
     <button id="map-ctx-drop-pin" title="Drop a named, addressable pin at the tapped point — same as the Search box drops, just from a right-click instead of typing a query">&#128205; Set marker here</button>
     <button id="map-ctx-bring-boat" title="Move your GPS position marker to the tapped point, for testing without a GPS fix">&#9935; Bring boat here</button>
     <button id="map-ctx-set-focus" title="Set the focus point here — distance/bearing readouts will track it">&#127919; Set focus here</button>

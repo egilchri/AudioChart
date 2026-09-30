@@ -138,7 +138,7 @@ html, body {
    one consistent, aligned button set — #search-btn previously had no
    dedicated rule at all and was rendering in the browser's bare default
    button style, standing out from its row. */
-#offline-btn, #location-menu-btn, #screen-menu-btn, #search-btn, #track-rec-btn,
+#offline-btn, #location-menu-btn, #screen-menu-btn, #import-menu-btn, #search-btn, #track-rec-btn,
 #anchor-watch-btn, #anchor-watch-silence-btn, #route-picker-btn, #track-picker-btn, #sample-routes-btn, #paintings-list-btn,
 #waypoints-panel-btn, #testsets-panel-btn {
   background: rgba(18, 13, 8, 0.94); /* --brass-ink */
@@ -154,7 +154,7 @@ html, body {
   white-space: nowrap;
   -webkit-tap-highlight-color: transparent;
 }
-#offline-btn:hover, #location-menu-btn:hover, #screen-menu-btn:hover, #search-btn:hover, #track-rec-btn:hover, #anchor-watch-btn:hover, #anchor-watch-silence-btn:hover,
+#offline-btn:hover, #location-menu-btn:hover, #screen-menu-btn:hover, #import-menu-btn:hover, #search-btn:hover, #track-rec-btn:hover, #anchor-watch-btn:hover, #anchor-watch-silence-btn:hover,
 #route-picker-btn:hover, #track-picker-btn:hover, #sample-routes-btn:hover, #paintings-list-btn:hover,
 #waypoints-panel-btn:hover, #testsets-panel-btn:hover { border-color: var(--brass); color: var(--brass-hi); }
 #offline-btn:disabled { opacity: 0.5; cursor: default; }
@@ -163,10 +163,11 @@ html, body {
 #location-menu-btn.test-active { border-color: var(--danger); color: var(--danger); background: #2a0a0a; font-weight: 700; }
 #location-menu-btn.test-active:hover { border-color: var(--danger); color: #ff8080; background: #3a0a0a; }
 
-/* Location / Screen dropdown menus — same panel treatment as the other
-   inline-reveal rows in this bar (#test-pos-form, #anchor-watch-form). */
+/* Location / Screen / Import dropdown menus — same panel treatment as the
+   other inline-reveal rows in this bar (#test-pos-form, #anchor-watch-form). */
 #map-overlay-status #location-menu,
-#map-overlay-status #screen-menu {
+#map-overlay-status #screen-menu,
+#map-overlay-status #import-menu {
   width: 100%;
   display: flex;
   flex-wrap: wrap;
@@ -176,7 +177,7 @@ html, body {
   border-radius: 8px;
   border: 1px solid var(--mid-blue);
 }
-#location-menu button, #screen-menu button {
+#location-menu button, #screen-menu button, #import-menu button {
   background: var(--mid-blue);
   border: none;
   border-radius: 6px;
@@ -186,7 +187,8 @@ html, body {
   cursor: pointer;
   white-space: nowrap;
 }
-#location-menu button:hover, #screen-menu button:hover { background: var(--accent); color: var(--navy); }
+#location-menu button:hover, #screen-menu button:hover, #import-menu button:hover { background: var(--accent); color: var(--navy); }
+#import-menu .import-hint { flex-basis: 100%; padding: 0 0 2px; }
 #wake-lock-btn.wake-active { border-color: var(--ok); color: var(--ok); background: #0a2a16; }
 #wake-lock-btn.wake-active:hover { border-color: #2a8b4c; color: #6aeea0; background: #0f3a1e; }
 /* Anchor Watch — armed uses the same "actively monitoring, could alarm" red
@@ -2684,20 +2686,9 @@ body.wco-active #wco-titlebar { display: flex; }
 #map-ctx-wp-submenu,
 #map-ctx-track-submenu,
 #map-ctx-route-submenu,
-#map-ctx-testsets-submenu,
-#map-ctx-import-submenu {
+#map-ctx-testsets-submenu {
   display: none;
   border-top: 1px solid var(--mid-blue);
-}
-#map-ctx-import-submenu button {
-  padding-left: 28px;
-  font-size: 0.85rem;
-  color: var(--text-dim);
-}
-#map-ctx-import-submenu button:hover,
-#map-ctx-import-submenu button:active {
-  color: var(--text);
-  background: var(--mid-blue);
 }
 #map-ctx-route-parent {
   border-top: 1px solid var(--mid-blue);
