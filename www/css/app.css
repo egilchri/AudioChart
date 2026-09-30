@@ -1105,6 +1105,17 @@ body.wco-active #wco-titlebar { display: flex; }
   max-height: 40dvh;
   overflow-y: auto;
 }
+/* Direct follow-up: the shrunken/peek state should be as narrow as
+   possible — shrink to fit just its own "tap to expand" label, not the
+   260px the EXPANDED transcript above needs for reading full lines.
+   Needs the same #map-overlay-cmd #response-area.collapsed specificity
+   (two ID selectors) to actually beat that rule's own width:260px —
+   a plain #response-area.collapsed (one ID + one class) loses that
+   fight regardless of source order. */
+#map-overlay-cmd #response-area.collapsed {
+  width: fit-content;
+  max-width: 80vw;
+}
 
 #map-overlay-cmd #text-form {
   display: flex;
