@@ -1396,6 +1396,37 @@ function _addSwipeToClose(el, closeFn, axis = 'x', excludeSelector = null) {
   });
 }
 
+// Tap-shown tooltip — see .btn-tap-tooltip's own comment in app.css for
+// why this exists (native `title` never appears on a touch-only device).
+// Purely additive: touchstart shows the bubble, the button's own click
+// still fires completely normally right afterward. One shared bubble
+// element reused across every button this is attached to, rather than
+// creating/destroying a fresh element per tap.
+let _tapTooltipEl = null;
+let _tapTooltipTimer = null;
+function _addTapTooltip(btn) {
+  const text = btn.getAttribute('title');
+  if (!text) return;
+  btn.addEventListener('touchstart', () => {
+    if (!_tapTooltipEl) {
+      _tapTooltipEl = document.createElement('div');
+      _tapTooltipEl.className = 'btn-tap-tooltip';
+      document.body.appendChild(_tapTooltipEl);
+    }
+    clearTimeout(_tapTooltipTimer);
+    _tapTooltipEl.textContent = text;
+    _tapTooltipEl.style.display = 'block';
+    const rect = btn.getBoundingClientRect();
+    const bubbleRect = _tapTooltipEl.getBoundingClientRect();
+    let left = rect.left + rect.width / 2 - bubbleRect.width / 2;
+    left = Math.min(Math.max(4, left), window.innerWidth - bubbleRect.width - 4);
+    const top = Math.max(4, rect.top - bubbleRect.height - 8);
+    _tapTooltipEl.style.left = `${left}px`;
+    _tapTooltipEl.style.top = `${top}px`;
+    _tapTooltipTimer = setTimeout(() => { _tapTooltipEl.style.display = 'none'; }, 1800);
+  }, { passive: true });
+}
+
 // Drag-to-reposition for floating panels, so they can be moved out of the way — grab
 // `handleEl` (its title bar) and drag; position is clamped to stay on-screen. Works with
 // both touch and mouse. Position sticks for the rest of the page session (the panel is
@@ -4742,7 +4773,6 @@ function _cancelAddNodeMode() {
 function _updateEditToolsPanel() {
   document.getElementById('etp-insert-node')?.classList.toggle('active', _addNodeMode);
   document.getElementById('etp-delete')?.classList.toggle('active', _deleteMode);
-  document.getElementById('etp-fix-nodes')?.classList.toggle('active', _fixNodesMode);
 }
 
 // Screen-space (not distance-space) match, so it's equally forgiving at any zoom level.
@@ -5100,6 +5130,13 @@ function _revertEditedRoute() {
 document.getElementById('edit-ok-btn').addEventListener('click', _saveEditedRoute);
 document.getElementById('edit-cancel-btn').addEventListener('click', _exitEditMode);
 document.getElementById('edit-revert-btn').addEventListener('click', _revertEditedRoute);
+
+// Direct request (2026-09-30): tap-tooltips for the #edit-banner toolbar
+// (Show hazards/Show info/Copy waypoints/Mail waypoints/Revert/Delete
+// route/OK/Cancel) — see _addTapTooltip's own comment for why.
+['edit-hazards-btn', 'edit-info-btn', 'edit-copy-wpts-btn', 'edit-mail-wpts-btn',
+ 'edit-revert-btn', 'delete-route-btn', 'edit-ok-btn', 'edit-cancel-btn']
+  .forEach(id => _addTapTooltip(document.getElementById(id)));
 document.getElementById('edit-info-btn').addEventListener('click', () => {
   let totalNm = 0;
   for (let i = 0; i < _editPoints.length - 1; i++) {
@@ -5259,55 +5296,16 @@ document.getElementById('etp-overnight').addEventListener('click', () => {
   _promptNextLegAutoRoute(_editPoints[idx]);
 });
 
-document.getElementById('etp-fix-nodes').addEventListener('click', () => {
-  if (!_editMode) return;
-  _fixNodesMode = !_fixNodesMode;
-  _deleteMode = false;
-  _setEditBannerLabel(_fixNodesMode ? ' — click a node to fix hazards near it' : '');
-  _renderEditLayers();
-  _updateEditToolsPanel();
-});
-
 document.getElementById('etp-animate').addEventListener('click', _animateEditRoute);
-document.getElementById('etp-simulate-track').addEventListener('click', _enterSimTrackMode);
-
-document.getElementById('etp-reroute').addEventListener('click', () => {
-  if (!_editMode || _editPoints.length < 2) return;
-  const btn = document.getElementById('etp-reroute');
-  btn.disabled = true;
-  const ui = _showRerouteOverlay(_editPoints);
-  _reRouteSegments(_editPoints.map(_stripPoint), ui.update.bind(ui), ui.setText.bind(ui))
-    .then(({ points, fallbacks, fallbackSegs, blocked }) => {
-      ui.remove();
-      btn.disabled = false;
-      if (blocked) return;  // _reRouteSegments already announced why
-      _editPoints = points;
-      _selectedEditNodeIdx.clear();  // re-routing regenerates the whole point list
-      _renderEditLayers();
-      // Re-routing regenerates every point — a fresh check against real
-      // hazard data, not just the land-avoidance the router already did.
-      const found = _liveHazardCheck();
-      if (!found.length) {
-        if (fallbacks > 0) _showRouteFallbackWarning(fallbackSegs);
-        else setStatus('Re-routed.');
-      }
-    })
-    .catch(err => {
-      ui.remove();
-      btn.disabled = false;
-      setStatus('Re-route failed.');
-      console.error('[reroute]', err);
-    });
-});
 
 // Called right after the etp-overnight button marks the route's last
 // waypoint as an overnight stop (its own confirm dialog already covers
 // consent for this) — connects "I just marked tonight's anchorage" to
 // "let's plan tomorrow's leg" in one motion instead of leaving the user
-// to separately remember to extend the route later. Mirrors the
-// etp-reroute handler just above, reusing the same
-// _reRouteSegments/_showRerouteOverlay machinery on _editPoints, just for
-// a single new leg instead of the whole route.
+// to separately remember to extend the route later. Reuses the same
+// _reRouteSegments/_showRerouteOverlay machinery the (now-removed)
+// etp-reroute button used, just for a single new leg instead of the
+// whole route.
 async function _promptNextLegAutoRoute(fromPoint) {
   // Loop on a bad name instead of dropping the whole flow after one try —
   // per direct report, a name that doesn't resolve (a marina/business name

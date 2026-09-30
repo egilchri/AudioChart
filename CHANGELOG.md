@@ -1,5 +1,36 @@
 # Changelog
 
+## 2026-09-30 — Tap-tooltips, Node Ops trimmed, command-picker overlap fixed (v756)
+
+Three direct requests in one pass:
+
+**Tap-tooltips for the edit-mode toolbar.** "We need tooltips for all
+the buttons in the snapshot" — the #edit-banner buttons (Show hazards/
+Show info/Copy waypoints/Mail waypoints/Revert/Delete route/OK/Cancel)
+already had real `title` text, but native browser tooltips only ever
+appear on mouse HOVER, which doesn't exist on the user's own device (a
+Galaxy tablet). Added a small reusable `_addTapTooltip` helper: shows
+the button's title text in a floating bubble on `touchstart`, purely
+additive (never intercepts the real click), auto-hides after ~1.8s.
+
+**Trimmed the Node Ops panel.** Removed "Fix selected nodes,"
+"Reroute," and "Simulate" per direct request. Removed the buttons and
+their direct click listeners; left the small amount of now-dead
+supporting state (`_fixNodesMode` and its resets) in place rather than
+chase a full removal, since `_reRouteSegments`/`_enterSimTrackMode`
+themselves are still real, live functions used elsewhere (the
+overnight-leg auto-route flow, and the Tracks panel's own Simulate
+button) — only these 3 specific entry points went away.
+
+**Fixed the version badge overlapping the command reference picker.**
+The Command reference `<select>` was full-width (matching the text
+input below it), and narrowing it alone wasn't enough — measured live,
+both it and `#map-version-label` start at the exact same bottom-left
+corner with overlapping Y ranges, two independently-positioned
+elements that happened to collide. Sized the picker to its own
+placeholder text and gave it a left offset clearing the badge's real
+~48px width. Verified live: zero overlap.
+
 ## 2026-09-30 — Fixed white-background Waypoints/Test Sets buttons (v755)
 
 Direct follow-up: the two new top-row buttons from v754 rendered with

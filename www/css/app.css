@@ -2535,6 +2535,31 @@ body.wco-active #wco-titlebar { display: flex; }
 }
 .map-tooltip::before { border-top-color: var(--mid-blue) !important; }
 
+/* Tap-shown tooltip for plain HTML buttons (v756) — direct request,
+   with the real motivating case: the browser's native `title` attribute
+   tooltip only ever appears on mouse HOVER, which does not exist on a
+   touch-only device (confirmed relevant: the user's own device is a
+   Galaxy tablet) — every #edit-banner button already had a real `title`
+   describing it, but on touch that text was simply unreachable. Shown
+   on touchstart, positioned above its button (clamped to the viewport,
+   same technique as .tour-callout, simplified — no arrow/auto-flip
+   needed for a one-line label), auto-hides after a couple seconds.
+   pointer-events:none so it never blocks the button's own real tap. */
+.btn-tap-tooltip {
+  position: fixed;
+  z-index: 10000;
+  background: var(--dark-blue);
+  border: 1px solid var(--mid-blue);
+  border-radius: 6px;
+  padding: 5px 9px;
+  color: var(--text);
+  font-size: 0.78rem;
+  line-height: 1.3;
+  max-width: 220px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+  pointer-events: none;
+}
+
 /* "Take a Tour" callouts — same CSS-triangle-pointer technique as
    .map-tooltip above, but these anchor to arbitrary top-chrome DOM
    elements (buttons, panels), not Leaflet markers, so they're a real
@@ -2782,7 +2807,7 @@ body.wco-active #wco-titlebar { display: flex; }
   -webkit-tap-highlight-color: transparent;
 }
 #edit-tools-panel button:active { background: var(--mid-blue); }
-#etp-overnight, #etp-simulate-track { align-self: flex-start; }
+#etp-overnight { align-self: flex-start; }
 #edit-tools-panel button.active {
   background: var(--accent);
   color: var(--navy);
@@ -4055,14 +4080,29 @@ body.wco-active #underway-btn { top: 10px; }
   word-break: break-all;
 }
 
-/* Command reference picker — sits above #text-form, same width, same
-   dark-theme treatment as #text-input. Picking an option fills its
-   template into #text-input for editing (see the change handler in
-   app.js) rather than submitting directly, matching the existing
-   .history-pill click-to-populate pattern used for recent commands. */
+/* Command reference picker — sits above #text-form. Picking an option
+   fills its template into #text-input for editing (see the change
+   handler in app.js) rather than submitting directly, matching the
+   existing .history-pill click-to-populate pattern used for recent
+   commands. Direct follow-up (2026-09-30): was full-width (matching
+   #text-input below it), which made it stretch out edge-to-edge and
+   overlap #map-version-label sitting at the same bottom-left corner —
+   sized to its own placeholder text instead ("only wide enough to show
+   their titles"), not left to auto-size (a plain browser auto-width
+   would size to its WIDEST option, e.g. the long "fix [landmark 1]
+   [bearing 1]..." entry, not the short placeholder actually shown).
+   align-self overrides the parent's flex-column stretch. Narrowing it
+   alone wasn't enough — measured live, both elements start at the exact
+   same x:10/left edge with overlapping Y ranges (#map-version-label is
+   independently `position:fixed; bottom:60px; left:10px`), so the
+   picker also needs its own left offset clearing the badge's ~48px
+   width, not just a narrower box that still starts under it. */
 #command-picker {
   flex-shrink: 0;
-  width: 100%;
+  align-self: flex-start;
+  width: 200px;
+  max-width: 100%;
+  margin-left: 64px; /* clears #map-version-label's real ~48px width + a small gap */
   background: var(--dark-blue);
   border: 1px solid var(--mid-blue);
   border-radius: 8px;
@@ -4071,6 +4111,9 @@ body.wco-active #underway-btn { top: 10px; }
   padding: 8px 10px;
   outline: none;
   -webkit-appearance: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 #command-picker:focus { border-color: var(--accent); }
 
