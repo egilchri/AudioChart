@@ -1,24 +1,29 @@
 /**
- * Optional Google Drive backup for saved Routes/Tracks — a true merge, not a
- * one-way push/pull. Every sync reconciles local and remote (see
- * sync_merge.js for the algorithm) so you never have to know or guess which
- * side is "right"; the empty-local-vs-populated-remote case that once wiped
- * a real backup now just self-heals. localStorage remains fully functional
- * offline regardless of Drive auth/connectivity state — Google's auth
- * script only loads the first time a sync actually runs.
+ * Optional Google Drive backup for saved Routes/Tracks/Test Sets — a true
+ * merge, not a one-way push/pull. Every sync reconciles local and remote
+ * (see sync_merge.js for the algorithm) so you never have to know or guess
+ * which side is "right"; the empty-local-vs-populated-remote case that once
+ * wiped a real backup now just self-heals. localStorage remains fully
+ * functional offline regardless of Drive auth/connectivity state — Google's
+ * auth script only loads the first time a sync actually runs.
  */
 
 import { mergeCollections, pruneTombstones } from './sync_merge.js';
+import { TEST_SETS_KEY } from './test_sets_storage.js';
 
 const CLIENT_ID = '211452396461-9bilt4qfu063r4pup4an5gu5n47h9kfb.apps.googleusercontent.com';
-// drive.appdata backs the routes/tracks JSON blob below (hidden, app-private).
-// drive.file backs drive_import.js's "Import from Drive" Picker (user-visible
-// files the user explicitly picks) — both are non-sensitive scopes, so
-// requesting them together still needs no Google app verification.
+// drive.appdata backs the routes/tracks/test-sets JSON blob below (hidden,
+// app-private). drive.file backs drive_import.js's "Import from Drive"
+// Picker (user-visible files the user explicitly picks) — both are
+// non-sensitive scopes, so requesting them together still needs no Google
+// app verification.
 const SCOPE = 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/drive.file';
 // Public, referrer-restricted key for the Google Picker widget (not a secret;
 // restrict it in Google Cloud Console to this app's origin + Picker API only).
 export const PICKER_API_KEY = 'AIzaSyCFLws631M1uoiP-cZmwinduPyuqhgiU2E';
+// Filename kept as-is even though it now also covers Test Sets (added
+// v761) — a new field in the same existing blob is backward compatible;
+// renaming the file would just be needless churn for existing backups.
 const DRIVE_FILE_NAME = 'audiochart-routes-tracks.json';
 const ROUTE_KEY = 'audiochart-user-routes';
 const TRACK_KEY = 'audiochart-user-tracks';
@@ -120,7 +125,7 @@ function _findFileId(interactive = true) {
 
 function _fetchRemote(interactive = true) {
   return _findFileId(interactive).then(id => {
-    if (!id) return { routes: [], tracks: [], tombstones: [] };
+    if (!id) return { routes: [], tracks: [], testSets: [], tombstones: [] };
     return _apiFetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {}, interactive).then(res => res.json());
   });
 }
@@ -147,24 +152,27 @@ function _writeRemote(payload, interactive = true) {
 }
 
 /**
- * Merge local and remote Routes/Tracks, write the reconciled result back to
- * both sides. Resolves to a summary for the status UI.
+ * Merge local and remote Routes/Tracks/Test Sets, write the reconciled
+ * result back to both sides. Resolves to a summary for the status UI.
  * interactive=false (background auto-sync) will silently skip rather than
  * ever pop Google's account-chooser/consent screen unprompted.
  */
 export function runMerge(interactive = true) {
   if (!navigator.onLine) return Promise.reject(new Error('Offline — cannot sync right now.'));
 
-  const localRoutes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
-  const localTracks = JSON.parse(localStorage.getItem(TRACK_KEY) || '[]');
+  const localRoutes   = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+  const localTracks   = JSON.parse(localStorage.getItem(TRACK_KEY) || '[]');
+  const localTestSets = JSON.parse(localStorage.getItem(TEST_SETS_KEY) || '[]');
   const localTombstones = JSON.parse(localStorage.getItem(TOMBSTONE_KEY) || '[]');
-  const localRouteTombstones = localTombstones.filter(t => t.type === 'route');
-  const localTrackTombstones = localTombstones.filter(t => t.type === 'track');
+  const localRouteTombstones   = localTombstones.filter(t => t.type === 'route');
+  const localTrackTombstones   = localTombstones.filter(t => t.type === 'track');
+  const localTestSetTombstones = localTombstones.filter(t => t.type === 'testset');
 
   return _fetchRemote(interactive).then(remote => {
     const remoteTombstones = remote.tombstones || [];
-    const remoteRouteTombstones = remoteTombstones.filter(t => t.type === 'route');
-    const remoteTrackTombstones = remoteTombstones.filter(t => t.type === 'track');
+    const remoteRouteTombstones   = remoteTombstones.filter(t => t.type === 'route');
+    const remoteTrackTombstones   = remoteTombstones.filter(t => t.type === 'track');
+    const remoteTestSetTombstones = remoteTombstones.filter(t => t.type === 'testset');
 
     const routeResult = mergeCollections({
       localItems: localRoutes, remoteItems: remote.routes || [],
@@ -174,18 +182,28 @@ export function runMerge(interactive = true) {
       localItems: localTracks, remoteItems: remote.tracks || [],
       localTombstones: localTrackTombstones, remoteTombstones: remoteTrackTombstones,
     });
+    // Test Sets store their content under `waypoints`, not `points` —
+    // everything else about the merge (id/updatedAt/tombstones/conflict
+    // copies) is identical, see sync_merge.js's own contentKey comment.
+    const testSetResult = mergeCollections({
+      localItems: localTestSets, remoteItems: remote.testSets || [],
+      localTombstones: localTestSetTombstones, remoteTombstones: remoteTestSetTombstones,
+      contentKey: 'waypoints',
+    });
     const mergedTombstones = pruneTombstones(
-      [...routeResult.tombstones, ...trackResult.tombstones],
+      [...routeResult.tombstones, ...trackResult.tombstones, ...testSetResult.tombstones],
       { maxCount: 2000 }
     );
 
     localStorage.setItem(ROUTE_KEY, JSON.stringify(routeResult.merged));
     localStorage.setItem(TRACK_KEY, JSON.stringify(trackResult.merged));
+    localStorage.setItem(TEST_SETS_KEY, JSON.stringify(testSetResult.merged));
     localStorage.setItem(TOMBSTONE_KEY, JSON.stringify(mergedTombstones));
 
     return _writeRemote({
       routes: routeResult.merged,
       tracks: trackResult.merged,
+      testSets: testSetResult.merged,
       tombstones: mergedTombstones,
       savedAt: Date.now(),
     }, interactive).then(() => {
@@ -193,7 +211,8 @@ export function runMerge(interactive = true) {
       return {
         routeCount: routeResult.merged.length,
         trackCount: trackResult.merged.length,
-        conflictCount: routeResult.conflictCount + trackResult.conflictCount,
+        testSetCount: testSetResult.merged.length,
+        conflictCount: routeResult.conflictCount + trackResult.conflictCount + testSetResult.conflictCount,
       };
     });
   });

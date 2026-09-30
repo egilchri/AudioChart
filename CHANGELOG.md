@@ -1,5 +1,37 @@
 # Changelog
 
+## 2026-09-30 — Google Drive sync now covers Test Sets, not just Routes/Tracks (v761)
+
+Test Sets (`test_sets_storage.js`) predated Drive sync and were never
+folded in — only Routes/Tracks got backed up. Same shared-blob merge
+approach as those, extended rather than duplicated.
+
+sync_merge.js: `mergeCollections`/`contentEquals` take a `contentKey`
+param (defaults to `points`) so the same id/updatedAt/tombstone/
+conflict-copy logic works for Test Sets' `waypoints` field too, with no
+behavior change for existing Routes/Tracks callers.
+
+test_sets_storage.js: added `updatedAt` (set on save and on individual
+waypoint delete) since `mergeCollections` needs it for last-write-wins;
+a one-time migration backfills it from each set's existing `createdAt`
+for sets saved before this version, so an old set doesn't win a tie
+against a genuinely newer edit on another device just because this
+device happened to sync first.
+
+drive_sync.js: `testSets` added to the shared
+`audiochart-routes-tracks.json` blob (filename kept as-is — a new field
+in an existing blob is backward compatible, renaming would just be
+churn for existing backups).
+
+app.js: tombstone a Test Set's own id (type `testset`) both when its
+last waypoint is deleted (which deletes the whole set) and when the set
+itself is deleted directly, so sync doesn't resurrect it on another
+device. Wired the Test Sets panel's own Sync button/status into the
+same shared sync handler as the Routes/Tracks panels.
+
+index.html: added the Sync button, Wi-Fi-sync checkbox, and status line
+to the Test Sets panel.
+
 ## 2026-09-30 — AutoRoute offers to raise the time limit on a real timeout (v760)
 
 Follow-up to v758's freeze fix: "if it times out, perhaps it could ask

@@ -1,8 +1,8 @@
 /**
- * Pure merge logic for syncing Routes/Tracks across devices via a single
- * shared Drive blob. No localStorage/Drive/DOM access here — everything
- * takes plain arrays in and returns plain arrays out, so it's easy to
- * hand-verify in isolation.
+ * Pure merge logic for syncing Routes/Tracks/Test Sets across devices via a
+ * single shared Drive blob. No localStorage/Drive/DOM access here —
+ * everything takes plain arrays in and returns plain arrays out, so it's
+ * easy to hand-verify in isolation.
  */
 
 function _newId() {
@@ -29,22 +29,26 @@ export function migrateLegacyIds(items) {
   return items;
 }
 
-export function contentEquals(a, b) {
-  return a.name === b.name && JSON.stringify(a.points) === JSON.stringify(b.points);
+// contentKey names the array field that holds an item's actual content —
+// `points` for routes/tracks, `waypoints` for Test Sets. Everything else
+// about a collection (id/name/updatedAt-based merge, tombstones, conflict
+// copies) is identical regardless of what that content looks like.
+export function contentEquals(a, b, contentKey = 'points') {
+  return a.name === b.name && JSON.stringify(a[contentKey]) === JSON.stringify(b[contentKey]);
 }
 
-// Points-only equality — used to recognize when a conflict copy already
+// Content-only equality — used to recognize when a conflict copy already
 // captures a given item's content under a different (conflict-copy) name,
 // so a repeatedly-recurring tie doesn't mint an endless stream of copies.
-function _pointsEqual(a, b) {
-  return JSON.stringify(a.points) === JSON.stringify(b.points);
+function _contentEqual(a, b, contentKey) {
+  return JSON.stringify(a[contentKey]) === JSON.stringify(b[contentKey]);
 }
 
 /**
- * Merge one collection (routes, or tracks) from two sources.
+ * Merge one collection (routes, tracks, or Test Sets) from two sources.
  * @returns {{merged: object[], tombstones: object[], conflictCount: number, conflicts: {id, name}[]}}
  */
-export function mergeCollections({ localItems, remoteItems, localTombstones, remoteTombstones, now = Date.now() }) {
+export function mergeCollections({ localItems, remoteItems, localTombstones, remoteTombstones, now = Date.now(), contentKey = 'points' }) {
   const tombById = new Map();
   for (const t of [...localTombstones, ...remoteTombstones]) {
     const existing = tombById.get(t.id);
@@ -68,7 +72,7 @@ export function mergeCollections({ localItems, remoteItems, localTombstones, rem
       usedNames.add(item.name);
       return;
     }
-    if (contentEquals(existing, item)) {
+    if (contentEquals(existing, item, contentKey)) {
       // Same content either side — keep whichever has the higher updatedAt (or existing on a tie).
       if (item.updatedAt > existing.updatedAt) byId.set(item.id, item);
       return;
@@ -90,7 +94,7 @@ export function mergeCollections({ localItems, remoteItems, localTombstones, rem
     // anywhere under this item's name, don't duplicate it again.
     const alreadyCaptured = [...byId.values()].some(v =>
       (v.name === item.name || v.name.startsWith(`${item.name} (conflict copy`)) &&
-      _pointsEqual(v, item)
+      _contentEqual(v, item, contentKey)
     );
     if (alreadyCaptured) return;
 

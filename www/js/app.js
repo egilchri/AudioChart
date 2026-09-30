@@ -443,6 +443,11 @@ function _refreshTestSetLayer() {
         popupEl.querySelector('.ts-popup-delete').addEventListener('click', () => {
           if (!confirm(`Delete ${wp.name} from Test Set "${set.name}"? This cannot be undone.`)) return;
           _map.closePopup();
+          // deleteTestSetWaypoint deletes the whole set (not just this one
+          // marker) once it's the last waypoint left — tombstone the SET's
+          // own id in that case so Drive sync doesn't resurrect it on
+          // another device (see v761's Test Set sync).
+          if (set.waypoints.length <= 1) _tombstone(set.id, 'testset');
           TestSetsStorage.deleteTestSetWaypoint(set.id, wp.name);
           _refreshTestSetLayer();
           const msg = `${wp.name} deleted.`;
@@ -8527,12 +8532,14 @@ function _ensureMap() {
   });
   _map.on('click', _closeTrackPicker);
 
-  // ☁ Drive sync — shared between the Routes and Tracks panels (one backup blob covers both).
-  // A single Sync action merges local and remote; nothing here ever wholesale-overwrites
-  // either side, so there's no "wrong direction" to accidentally pick (see sync_merge.js).
+  // ☁ Drive sync — shared between the Routes, Tracks, and Test Sets panels
+  // (one backup blob covers all three, see drive_sync.js). A single Sync
+  // action merges local and remote; nothing here ever wholesale-overwrites
+  // either side, so there's no "wrong direction" to accidentally pick (see
+  // sync_merge.js).
   (function _wireDriveSyncUI() {
-    const statusEls = [document.getElementById('rp-sync-status'), document.getElementById('tp-sync-status')];
-    const wifiCheckboxes = [document.getElementById('rp-wifi-sync'), document.getElementById('tp-wifi-sync')];
+    const statusEls = [document.getElementById('rp-sync-status'), document.getElementById('tp-sync-status'), document.getElementById('ts-sync-status')];
+    const wifiCheckboxes = [document.getElementById('rp-wifi-sync'), document.getElementById('tp-wifi-sync'), document.getElementById('ts-wifi-sync')];
     const setStatus = (text) => statusEls.forEach(el => { if (el) el.textContent = text; });
     const refreshLastSynced = () => {
       const last = DriveSync.getLastSyncMs();
@@ -8561,24 +8568,26 @@ function _ensureMap() {
       if (lastRoute && !routeNames.has(lastRoute)) localStorage.removeItem('audiochart-last-route');
     }
 
-    [document.getElementById('rp-sync-now'), document.getElementById('tp-sync-now')].forEach(btn => {
+    [document.getElementById('rp-sync-now'), document.getElementById('tp-sync-now'), document.getElementById('ts-sync-now')].forEach(btn => {
       if (!btn) return;
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         setStatus('Syncing…');
         DriveSync.runMerge()
-          .then(({ routeCount, trackCount, conflictCount }) => {
+          .then(({ routeCount, trackCount, testSetCount, conflictCount }) => {
             const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
             const tracks = JSON.parse(localStorage.getItem(TRACK_KEY) || '[]');
             _reconcileHiddenNamesAfterMerge(routes, tracks);
             _refreshSavedRouteLayers();
             _refreshSavedTrackLayers();
+            _refreshTestSetLayer();
+            if (document.getElementById('testsets-panel').classList.contains('open')) _populateTestSetsSubmenu();
             _populateRouteSelectFn?.();
             if (_routePickerPanel.classList.contains('open')) _buildRoutePickerPanel();
             if (_trackPickerPanel.classList.contains('open')) _buildTrackPickerPanel();
             setStatus(conflictCount > 0
-              ? `Synced — ${routeCount} routes, ${trackCount} tracks, ${conflictCount} conflict cop${conflictCount === 1 ? 'y' : 'ies'} (review in the list)`
-              : `Synced — ${routeCount} routes, ${trackCount} tracks, up to date`);
+              ? `Synced — ${routeCount} routes, ${trackCount} tracks, ${testSetCount} test sets, ${conflictCount} conflict cop${conflictCount === 1 ? 'y' : 'ies'} (review in the list)`
+              : `Synced — ${routeCount} routes, ${trackCount} tracks, ${testSetCount} test sets, up to date`);
           })
           .catch(err => setStatus(err.message || 'Sync failed.'));
       });
@@ -9527,6 +9536,7 @@ function _ensureMap() {
       const set = TestSetsStorage.loadTestSets().find(s => s.id === id);
       if (!set) return;
       if (!confirm(`Delete Test Set "${set.name}" (${set.waypoints.length} marker${set.waypoints.length === 1 ? '' : 's'})? This cannot be undone.`)) return;
+      _tombstone(id, 'testset'); // see v761's Test Set sync
       TestSetsStorage.deleteTestSet(id);
       _refreshTestSetLayer();
       _populateTestSetsSubmenu();

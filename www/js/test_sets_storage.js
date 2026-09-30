@@ -63,6 +63,7 @@ export function saveTestSet(name, waypoints) {
     id: `ts_${Date.now()}_${Math.floor(Math.random() * 1e6)}`,
     name,
     createdAt: new Date().toISOString(),
+    updatedAt: Date.now(), // drive_sync.js's mergeCollections needs this for last-write-wins
     waypoints: waypoints.map(w => ({
       name: `TS${String(++num).padStart(3, '0')}`,
       lat: w.lat,
@@ -93,6 +94,7 @@ export function deleteTestSetWaypoint(setId, waypointName) {
     deleteTestSet(setId);
     return;
   }
+  set.updatedAt = Date.now();
   _saveAll(sets);
 }
 
@@ -125,6 +127,29 @@ function _migrateStaleNames() {
   }
 }
 _migrateStaleNames();
+
+// One-time backfill for Test Sets saved before Drive sync existed for
+// them (see drive_sync.js) — they already have a real `id`, just no
+// `updatedAt`, which mergeCollections needs for last-write-wins. Best
+// guess from the existing createdAt (an ISO string here, unlike routes/
+// tracks' numeric one) rather than "now", so a set that's actually old
+// doesn't win a tie against a genuinely newer edit on another device
+// just because this device happened to sync first.
+function _migrateMissingUpdatedAt() {
+  const sets = loadTestSets();
+  let changed = false;
+  for (const set of sets) {
+    if (typeof set.updatedAt === 'number') continue;
+    const parsed = Date.parse(set.createdAt);
+    set.updatedAt = isFinite(parsed) ? parsed : 0;
+    changed = true;
+  }
+  if (changed) {
+    _saveAll(sets);
+    console.log('[TestSetsStorage] One-time self-heal: backfilled updatedAt for pre-sync Test Sets.');
+  }
+}
+_migrateMissingUpdatedAt();
 
 export function loadVisibleTestSetIds() {
   try { return new Set(JSON.parse(localStorage.getItem(VISIBLE_KEY) || '[]')); } catch { return new Set(); }
