@@ -11258,6 +11258,7 @@ _regionOfferDownload.addEventListener('click', async () => {
     TTS.sayImmediate(msg);
     const pos = GPS.getPosition();
     if (pos) _updateCoverageStatus(pos.lat, pos.lon);
+    _refreshNavaidOverlay(); // otherwise the OLD region's navaids stay on screen after a switch
     return;
   }
   _regionOfferDownload.disabled = true;
@@ -11311,6 +11312,7 @@ async function _autoSelectRegionForPosition(lat, lon) {
     setStatus(msg);
     const pos = GPS.getPosition();
     if (pos) _updateCoverageStatus(pos.lat, pos.lon);
+    _refreshNavaidOverlay(); // otherwise the OLD region's navaids stay on screen after a switch
   }
 
   const displayId = Query.getActiveRegion() || '';
@@ -12819,6 +12821,7 @@ async function runRouteDownload(cruiseName, onProgress = () => {}) {
       // until the next natural position tick happens to arrive.
       const _switchPos = GPS.getPosition();
       if (_switchPos) _updateCoverageStatus(_switchPos.lat, _switchPos.lon);
+      _refreshNavaidOverlay(); // otherwise the OLD region's navaids stay on screen after a switch
       setStatus(`Chart data ready — caching satellite tiles…`);
       onProgress(`Chart data ready — caching satellite tiles…`);
     } catch (e) {
@@ -13030,6 +13033,13 @@ async function init() {
       dataLoaded = true;
       Query.mergeUserWaypoints(WaypointsStorage.loadUserWaypoints());
       setStatus('Ready. (offline)');
+      // Direct report (2026-09-29): "navaids by default" wasn't working —
+      // real cause, this real boot path never told the overlay to redraw
+      // once chart data actually finished loading. The map may already be
+      // visible on a fresh load with nothing else pending to trigger a
+      // redraw (no pan/zoom yet); _refreshNavaidOverlay() itself no-ops
+      // safely if the map isn't up yet.
+      _refreshNavaidOverlay();
     }).catch(() => {});
   }
 
@@ -13083,6 +13093,7 @@ async function init() {
           dataLoaded = true;
           Query.mergeUserWaypoints(WaypointsStorage.loadUserWaypoints());
           setStatus('Ready.');
+          _refreshNavaidOverlay(); // see the standalone-boot path's own comment above
         } catch (e) {
           setStatus('Chart data unavailable. Try reloading.');
           showResponse('Could not load chart data. If offline, ensure data files are cached.');

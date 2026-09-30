@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-09-29 — Fixed: navaids not actually showing by default (v750)
+
+Direct report: "I had asked you to show navaids by default. That's not
+working yet." v748 fixed pan/zoom triggering a redraw, but that only
+helps once you MOVE the map — the real root cause was upstream: none of
+the app's actual `Query.loadData()` completion points (the real
+standalone-boot path, the first real GPS fix, both manual and
+auto region-switch, and the region-download flow) ever called
+`_refreshNavaidOverlay()` once chart data actually finished loading.
+On a fresh load the map can already be sitting still with nothing else
+pending to trigger a redraw, so navaids never appeared until a manual
+pan/zoom or the Refresh button. Added the call at all five real
+completion points (`_refreshNavaidOverlay()` itself already no-ops
+safely if the map isn't up yet). Verified live: cleared all storage,
+loaded fresh, touched nothing — navaids now render immediately once
+data loads, no interaction required.
+
 ## 2026-09-29 — "Copy location" button on navaid popups (v749)
 
 Direct request: a "Copy location" button on the navaid popup, alongside
