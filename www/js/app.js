@@ -10459,31 +10459,74 @@ function _chainAscendingBearing(name, lat, lon) {
   const lastMatch = digitMatches[digitMatches.length - 1];
   const selfNum = parseInt(lastMatch[0], 10);
   const chainKey = name.slice(0, lastMatch.index).trim().toLowerCase();
-  if (!chainKey) return null;
 
   const CHAIN_RADIUS_NM = 3.0;
   let lower = null, higher = null; // {num, lat, lon}, nearest on each side
+  if (chainKey) {
+    for (const f of Query.navaids.features) {
+      if (f.properties.objtype !== 'BOYLAT' && f.properties.objtype !== 'BCNLAT') continue;
+      const otherName = f.properties.name;
+      if (!otherName || otherName === name) continue;
+      const otherDigits = [...otherName.matchAll(/\d+/g)];
+      if (!otherDigits.length) continue;
+      const otherLastMatch = otherDigits[otherDigits.length - 1];
+      const otherChainKey = otherName.slice(0, otherLastMatch.index).trim().toLowerCase();
+      if (otherChainKey !== chainKey) continue;
+      const otherNum = parseInt(otherLastMatch[0], 10);
+      if (otherNum === selfNum) continue;
+      const [olon, olat] = f.geometry.coordinates;
+      if (Query.distanceNm(lon, lat, olon, olat) > CHAIN_RADIUS_NM) continue;
+      if (otherNum < selfNum && (!lower || otherNum > lower.num)) lower = { num: otherNum, lat: olat, lon: olon };
+      if (otherNum > selfNum && (!higher || otherNum < higher.num)) higher = { num: otherNum, lat: olat, lon: olon };
+    }
+  }
+  if (lower || higher) {
+    if (lower && higher) return Query.bearing(lower.lon, lower.lat, higher.lon, higher.lat);
+    if (higher)           return Query.bearing(lon, lat, higher.lon, higher.lat);
+    return Query.bearing(lower.lon, lower.lat, lon, lat);
+  }
+
+  // Fallback (2026-09-30), direct request: "every buoy seems to know
+  // what's inbound and outbound, I would like to know too." Real finding
+  // checked directly against Eggemoggin Reach's own data: NOAA often
+  // names each buoy for the specific hazard it marks (e.g. "Pumpkin
+  // Island Ledge Buoy 27," "Thrumcap Ledge Buoy 28") rather than a
+  // shared channel name — but the NUMBERS still run as one real,
+  // continuous, alternating red/green sequence for the whole passage
+  // (verified: Eggemoggin Reach runs 1→33 straight through, mixing many
+  // different hazard names). Exact-name chain-matching above is blind to
+  // this. Falls back to the nearest OTHER lateral mark of ANY name
+  // within a real, verified radius whose number is within 2 of this
+  // one's — checked bay-wide before shipping: of 402 real lateral marks'
+  // nearest-neighbor pairs, 295 have a number difference of 2 or less
+  // (a real sequence signal) vs. 41 with a bigger jump that are
+  // genuinely different, unrelated nearby marks (correctly excluded by
+  // this same threshold, e.g. "Fox Island Thorofare Buoy 27" 0.38nm from
+  // the unrelated "Inner Bay Ledges Buoy 7").
+  return _sequenceNeighborBearing(name, selfNum, lat, lon);
+}
+
+function _sequenceNeighborBearing(name, selfNum, lat, lon) {
+  const LINK_MAX_NM = 1.0;
+  const MAX_NUM_DIFF = 2;
+  let best = null, bestDist = Infinity;
   for (const f of Query.navaids.features) {
     if (f.properties.objtype !== 'BOYLAT' && f.properties.objtype !== 'BCNLAT') continue;
     const otherName = f.properties.name;
     if (!otherName || otherName === name) continue;
     const otherDigits = [...otherName.matchAll(/\d+/g)];
     if (!otherDigits.length) continue;
-    const otherLastMatch = otherDigits[otherDigits.length - 1];
-    const otherChainKey = otherName.slice(0, otherLastMatch.index).trim().toLowerCase();
-    if (otherChainKey !== chainKey) continue;
-    const otherNum = parseInt(otherLastMatch[0], 10);
-    if (otherNum === selfNum) continue;
+    const otherNum = parseInt(otherDigits[otherDigits.length - 1][0], 10);
+    if (otherNum === selfNum || Math.abs(otherNum - selfNum) > MAX_NUM_DIFF) continue;
     const [olon, olat] = f.geometry.coordinates;
-    if (Query.distanceNm(lon, lat, olon, olat) > CHAIN_RADIUS_NM) continue;
-    if (otherNum < selfNum && (!lower || otherNum > lower.num)) lower = { num: otherNum, lat: olat, lon: olon };
-    if (otherNum > selfNum && (!higher || otherNum < higher.num)) higher = { num: otherNum, lat: olat, lon: olon };
+    const d = Query.distanceNm(lon, lat, olon, olat);
+    if (d > LINK_MAX_NM || d >= bestDist) continue;
+    bestDist = d; best = { num: otherNum, lat: olat, lon: olon };
   }
-  if (!lower && !higher) return null;
-
-  if (lower && higher) return Query.bearing(lower.lon, lower.lat, higher.lon, higher.lat);
-  if (higher)           return Query.bearing(lon, lat, higher.lon, higher.lat);
-  return Query.bearing(lower.lon, lower.lat, lon, lat);
+  if (!best) return null;
+  return best.num > selfNum
+    ? Query.bearing(lon, lat, best.lon, best.lat)
+    : Query.bearing(best.lon, best.lat, lon, lat);
 }
 
 // Best-guess "which direction are you currently heading" for a lateral
@@ -10672,46 +10715,61 @@ function _navaidStatusHtml(status, persta, perend) {
 
 // Direct request (2026-09-30), reintroducing on-map arrows after v745
 // removed them: "geometrically accurate" — one arrow per CONSECUTIVE
-// same-chain buoy pair (e.g. Buoy 12 -> Buoy 14), each pointing in that
-// specific segment's own real ascending/inbound bearing, rather than
-// one straight arrow per whole named channel (which can't stay accurate
-// along a real curve — verified earlier this session that Fox Island
-// Thorofare's consecutive bearings shift 109°->257°->204°->235° along
-// its own length). Same chain-grouping _chainAscendingBearing already
-// uses (name with the trailing number stripped), same BOYLAT/BCNLAT-only
-// filter, same 1.0nm real-spacing cap verified against actual chart data
-// in earlier arrow work this session. Verified bay-wide before writing
-// this: 69 real consecutive pairs across 31 real named channels — not
-// one per buoy, and not the ~400 an all-buoys version would need.
+// buoy pair, each pointing in that specific segment's own real
+// ascending/inbound bearing, rather than one straight arrow per whole
+// named channel (which can't stay accurate along a real curve —
+// verified earlier this session that Fox Island Thorofare's consecutive
+// bearings shift 109°->257°->204°->235° along its own length).
+//
+// Direct follow-up (2026-09-30): originally grouped by exact chain name
+// (name with the trailing number stripped), matching
+// _chainAscendingBearing's ORIGINAL logic — but that's blind to real
+// channels where NOAA names each buoy for its own specific hazard
+// rather than a shared channel name (verified: Eggemoggin Reach runs a
+// real, continuous, alternating red/green 1->33 sequence straight
+// through many different hazard names). Now uses the SAME unified
+// number+proximity matching _chainAscendingBearing itself falls back to
+// — nearest OTHER lateral mark within 1.0nm whose number is within 2 of
+// this one's (verified bay-wide: 295 of 402 real marks' nearest
+// neighbors have a number difference of 2 or less, a real sequence
+// signal; 41 with a bigger jump are genuinely unrelated nearby marks,
+// correctly excluded).
 function _findInboundChainPairs() {
   if (!Query.navaids?.features) return [];
-  const groups = new Map();
+  const marks = [];
   for (const f of Query.navaids.features) {
     if (f.properties.objtype !== 'BOYLAT' && f.properties.objtype !== 'BCNLAT') continue;
     const name = f.properties.name;
     if (!name) continue;
     const digitMatches = [...name.matchAll(/\d+/g)];
     if (!digitMatches.length) continue;
-    const lastMatch = digitMatches[digitMatches.length - 1];
-    const num = parseInt(lastMatch[0], 10);
-    const chainKey = name.slice(0, lastMatch.index).trim().toLowerCase();
-    if (!chainKey) continue;
+    const num = parseInt(digitMatches[digitMatches.length - 1][0], 10);
     const [lon, lat] = f.geometry.coordinates;
-    if (!groups.has(chainKey)) groups.set(chainKey, []);
-    groups.get(chainKey).push({ num, lat, lon });
+    marks.push({ num, lat, lon });
   }
-  const LINK_MAX_NM = 1.0; // verified real max consecutive-buoy spacing (Fox Island Thorofare)
+  const LINK_MAX_NM = 1.0;   // verified real max consecutive-buoy spacing (Fox Island Thorofare)
+  const MAX_NUM_DIFF = 2;    // verified real signal threshold (see this function's own comment)
+  const seen = new Set();
   const pairs = [];
-  for (const members of groups.values()) {
-    if (members.length < 2) continue;
-    members.sort((a, b) => a.num - b.num);
-    for (let i = 0; i < members.length - 1; i++) {
-      const a = members[i], b = members[i + 1];
-      const dist = Query.distanceNm(a.lon, a.lat, b.lon, b.lat);
-      if (dist > LINK_MAX_NM) continue; // real numbering/data gap, not a real adjacent pair
-      pairs.push({ aLat: a.lat, aLon: a.lon, bLat: b.lat, bLon: b.lon,
-                   brg: Query.bearing(a.lon, a.lat, b.lon, b.lat) });
+  for (let i = 0; i < marks.length; i++) {
+    const a = marks[i];
+    let best = null, bestDist = Infinity, bestIdx = -1;
+    for (let j = 0; j < marks.length; j++) {
+      if (i === j) continue;
+      const b = marks[j];
+      if (b.num === a.num || Math.abs(b.num - a.num) > MAX_NUM_DIFF) continue;
+      const d = Query.distanceNm(a.lon, a.lat, b.lon, b.lat);
+      if (d > LINK_MAX_NM || d >= bestDist) continue;
+      bestDist = d; best = b; bestIdx = j;
     }
+    if (!best) continue;
+    const key = i < bestIdx ? `${i}|${bestIdx}` : `${bestIdx}|${i}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const lower = a.num < best.num ? a : best;
+    const higher = a.num < best.num ? best : a;
+    pairs.push({ aLat: lower.lat, aLon: lower.lon, bLat: higher.lat, bLon: higher.lon,
+                 brg: Query.bearing(lower.lon, lower.lat, higher.lon, higher.lat) });
   }
   return pairs;
 }

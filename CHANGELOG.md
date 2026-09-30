@@ -1,5 +1,32 @@
 # Changelog
 
+## 2026-09-30 — Inbound/outbound direction, and the arrows, work bay-wide now (v753)
+
+Direct follow-up: "every buoy seems to know what's inbound and
+outbound, I would like to know too" and "I want this to be working all
+over the entire map." Real cause, found by directly inspecting
+Eggemoggin Reach's own data: NOAA often names each buoy for the specific
+hazard it marks ("Pumpkin Island Ledge Buoy 27," "Thrumcap Ledge Buoy
+28") rather than a shared channel name — but the real chart NUMBERS
+still run as one continuous, alternating red/green sequence for the
+whole passage (verified: Eggemoggin Reach runs 1→33 straight through,
+mixing many different hazard names). Both `_chainAscendingBearing`
+(feeds the popup's Navigation Rule text) and `_findInboundChainPairs`
+(the on-map arrows) only matched buoys sharing an EXACT name prefix, so
+they were blind to this real pattern.
+
+Both now fall back to (or, for the arrows, are fully replaced by) the
+same unified check: nearest OTHER lateral mark within 1.0nm whose
+number is within 2 of this one's. Verified bay-wide before shipping:
+of 402 real lateral marks, 295 have a nearest-neighbor number
+difference of 2 or less (a real sequence signal), while 41 with a
+bigger jump are genuinely unrelated nearby marks — correctly excluded
+by the same threshold. On-map arrow coverage rose from 69 pairs across
+31 named channels to 204 pairs covering 307 of 402 real lateral marks
+(76%, up from a much narrower slice). Live-verified: Eggemoggin Reach,
+previously nearly arrow-free, now shows arrows spread across its length
+(12 in one representative view, up from 0-2).
+
 ## 2026-09-30 — Popup states the real inbound/outbound direction in words (v752)
 
 Direct goal statement: "for each buoy that refers to inbound and
