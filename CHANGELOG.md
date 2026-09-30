@@ -1,5 +1,39 @@
 # Changelog
 
+## 2026-09-30 — Route/Track removed from the map context menu (v759)
+
+"in the snapshot get rid of Routes and Tracks from the menu" —
+clarified via follow-up to mean the "✎ Route ›" and "▶ Track ›"
+entries (actions for the tapped point: Draw Route, Sketch, Route
+from/to here, Rename/Edit/Delete route, the whole "Along route"
+simulated-track toolkit), not "Routes within ›"/"Tracks within ›"
+(find nearby saved routes/tracks — kept).
+
+Route's submenu had no other entry point, so it's fully removed (HTML
++ all its button listeners) — every action it held is either dropped
+(Draw Route/Sketch/Delete last/Clear all/route visibility, all
+context-menu-only) or already reachable elsewhere (Rename/Edit are
+both on every route's row in the Routes panel; "Route from here" is
+still on the boat icon's long-press → Autoroute).
+
+Track's submenu is NOT context-menu-only — it's the same DOM node
+`_openAnimSettings()`/the ⚙ Animation Settings button reposition and
+reuse as a standalone floating panel, confirmed live before touching
+any JS (an earlier same-day attempt deleted the whole submenu and was
+caught + stashed before shipping, since that would have broken
+Animation Settings too). Removed only the "▶ Track ›" toggle button;
+the submenu div and all its content — object/distance filters, the
+full simulated-track toolkit, saved configs — stay intact and fully
+reachable via the gear icon, unchanged.
+
+Verified live (local server, not yet the production build): context
+menu now shows Objects/Routes/Tracks within, Set waypoint, Import, and
+the flat point actions — no Route/Track entries; `#anim-settings-btn`
+still opens and closes the same preserved panel correctly; no console
+errors. `node --check` on both changed JS files, full local test
+suite (test_query.js, test_parser.js, test_route_hazard_clearance.js —
+router.js/test_channel_routing.js untouched this round) all pass.
+
 ## 2026-09-30 — AutoRoute setup no longer freezes the tab in hazard-dense water (v758)
 
 "It won't let me do an autoroute to either marker in the snapshot" —

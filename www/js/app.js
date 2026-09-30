@@ -8921,7 +8921,6 @@ function _ensureMap() {
   });
   // ────────────────────────────────────────────────────────────────────────────
 
-  const _routeSubmenu  = document.getElementById('map-ctx-route-submenu');
   const _importSubmenu = document.getElementById('map-ctx-import-submenu');
 
   _map.on('contextmenu', (e) => {
@@ -8936,7 +8935,6 @@ function _ensureMap() {
     // app's CSS override with an inline style, leaving those panels
     // looking empty every time they're opened after any right-click.
     _trackSubmenu.style.display  = 'none';
-    _routeSubmenu.style.display  = 'none';
     _importSubmenu.style.display = 'none';
     _populateRouteSelect();
     _ctxMenu.style.left    = '0';
@@ -9001,47 +8999,6 @@ function _ensureMap() {
     if (!btn) return;
     _hideCtx();
     if (_ctxLatLng) _showNearPointPanel('track', _ctxLatLng, _tracksNearPoint(_ctxLatLng.lat, _ctxLatLng.lng, parseFloat(btn.dataset.radiusNm)), btn.dataset.radiusLabel);
-  });
-
-  document.getElementById('map-ctx-route-parent').addEventListener('click', () => {
-    _routeSubmenu.style.display = _routeSubmenu.style.display === 'block' ? 'none' : 'block';
-  });
-
-  document.getElementById('map-ctx-draw-route').addEventListener('click', () => {
-    _hideCtx();
-    _enterDrawRouteMode();
-  });
-
-  document.getElementById('map-ctx-sketch').addEventListener('click', () => {
-    _hideCtx();
-    _enterSketchMode();
-  });
-
-  document.getElementById('map-ctx-route-delete').addEventListener('click', () => {
-    _hideCtx();
-    const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
-    if (!routes.length) { TTS.sayImmediate('No routes saved.'); return; }
-    const deleted = routes.pop();
-    _tombstone(deleted.id, 'route');
-    localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
-    _refreshSavedRouteLayers();
-    const msg = `${deleted.name} deleted.`;
-    setStatus(msg);
-    TTS.sayImmediate(msg);
-  });
-
-  document.getElementById('map-ctx-route-clear-all').addEventListener('click', () => {
-    _hideCtx();
-    const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
-    if (!routes.length) { TTS.sayImmediate('No routes saved.'); return; }
-    if (!confirm(`Delete all ${routes.length} route${routes.length > 1 ? 's' : ''}?`)) return;
-    routes.forEach(r => _tombstone(r.id, 'route'));
-    localStorage.setItem(ROUTE_KEY, JSON.stringify([]));
-    _refreshSavedRouteLayers();
-    _populateRouteSelectFn?.();
-    const msg = 'All routes cleared.';
-    setStatus(msg);
-    TTS.sayImmediate(msg);
   });
 
   async function _triggerAutoRoute() {
@@ -9183,16 +9140,11 @@ function _ensureMap() {
   }
   _autoRouteFromBoatToHereFn = _autoRouteFromBoatToHere;
 
-  document.getElementById('map-ctx-route-from-here').addEventListener('click', () => {
-    _hideCtx();
-    if (!_ctxLatLng) return;
-    _routeFromHere(_ctxLatLng.lat, _ctxLatLng.lng);
-  });
-
-  // Shared by the map context menu's "Route to here" and the pending-click
-  // destination-picker armed after _routeFromHere (see below) — same
-  // set-the-endpoint-and-route flow, just two different ways of supplying
-  // the destination point.
+  // Shared by the pending-click destination-picker armed after
+  // _routeFromHere (see below), a waypoint/Test Set popup's own AutoRoute
+  // button, and the typed-name destination flow below — same
+  // set-the-endpoint-and-route flow, just several different ways of
+  // supplying the destination point.
   function _setRouteDestination(lat, lon) {
     _disarmPendingRouteDestination();
     _autoRouteEnd = { lat, lon };
@@ -9201,7 +9153,7 @@ function _ensureMap() {
       radius: 8, color: '#cc2200', fillColor: '#cc2200', fillOpacity: 0.8, weight: 2,
     }).addTo(_map).bindTooltip(`${escapeHtml(_autoRouteName || 'Route')} — destination`, { permanent: false });
     if (!_autoRouteStart) {
-      setStatus('Destination set — right-click map → "Route from here" to plan route.');
+      setStatus('Destination set — long-press the boat icon → Autoroute to plan a route.');
       return;
     }
     _triggerAutoRoute();
@@ -9209,9 +9161,9 @@ function _ensureMap() {
 
   // Armed by _routeFromHere once a start point is set with no destination
   // yet — the very next tap anywhere on the map completes the route
-  // immediately, no need to separately right-click and find "Route to
-  // here" in the full context menu. Right-click still works too (this
-  // listener just sits alongside it, on a different mouse gesture).
+  // immediately, no need to separately find a destination-picker
+  // elsewhere. Typing a name via the banner's Name button works too (see
+  // route-dest-name-btn below), same underlying _setRouteDestination call.
   let _pendingRouteDestClick = null;
   const _routeDestBanner = document.getElementById('route-dest-banner');
   const _routeDestBannerLabel = document.getElementById('route-dest-banner-label');
@@ -9268,84 +9220,7 @@ function _ensureMap() {
   });
   _disarmPendingRouteDestinationFn = _disarmPendingRouteDestination;
 
-  document.getElementById('map-ctx-route-to-here').addEventListener('click', () => {
-    _hideCtx();
-    if (!_ctxLatLng) return;
-    _setRouteDestination(_ctxLatLng.lat, _ctxLatLng.lng);
-  });
-
-  const _visParent  = document.getElementById('map-ctx-route-vis-parent');
-  const _visList    = document.getElementById('map-ctx-route-vis-list');
-  _visParent.addEventListener('click', () => {
-    const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
-    _visList.innerHTML = '';
-    routes.forEach((route) => {
-      const hidden = _hiddenRouteNames.has(route.name);
-      const btn = document.createElement('button');
-      btn.textContent = (hidden ? '✗ ' : '✓ ') + route.name;
-      btn.style.paddingLeft = '36px';
-      btn.style.fontSize = '0.85rem';
-      btn.style.color = hidden ? 'var(--danger)' : 'var(--text-dim)';
-      btn.addEventListener('click', () => {
-        if (_hiddenRouteNames.has(route.name)) {
-          _hiddenRouteNames.delete(route.name);
-        } else {
-          _hiddenRouteNames.add(route.name);
-        }
-        _saveHiddenRoutes();
-        _refreshSavedRouteLayers();
-        _hideCtx();
-      });
-      _visList.appendChild(btn);
-    });
-    _visList.style.display = _visList.style.display === 'block' ? 'none' : 'block';
-  });
-
-  document.getElementById('map-ctx-route-rename').addEventListener('click', () => {
-    _hideCtx();
-    const sel    = document.getElementById('track-route-select');
-    const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
-    const idx    = (_selectedRouteIdx >= 0 && routes[_selectedRouteIdx]) ? _selectedRouteIdx
-                 : (_ctxRouteIdx >= 0 && routes[_ctxRouteIdx]) ? _ctxRouteIdx
-                 : parseInt(sel.value);
-    if (isNaN(idx) || !routes[idx]) {
-      alert('Select a route in the Track panel first, then rename.');
-      return;
-    }
-    const newName = prompt('Rename route:', routes[idx].name);
-    if (!newName || !newName.trim()) return;
-    const oldName = routes[idx].name;
-    routes[idx].name = newName.trim();
-    _touch(routes[idx]);
-    localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
-    localStorage.setItem('audiochart-last-route', newName.trim());
-    _hiddenRouteNames.delete(oldName);
-    _saveHiddenRoutes();
-    _populateRouteSelect();
-    const newIdx = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]')
-      .findIndex(r => r.name === newName.trim());
-    if (newIdx >= 0) sel.value = String(newIdx);
-  });
-
-  document.getElementById('map-ctx-route-edit').addEventListener('click', () => {
-    _hideCtx();
-    const sel    = document.getElementById('track-route-select');
-    const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
-    const idx    = (_selectedRouteIdx >= 0 && routes[_selectedRouteIdx]) ? _selectedRouteIdx
-                 : (_ctxRouteIdx >= 0 && routes[_ctxRouteIdx]) ? _ctxRouteIdx
-                 : parseInt(sel.value);
-    if (isNaN(idx) || !routes[idx]) {
-      alert('Select a route in the Track → Along route panel first, then edit.');
-      return;
-    }
-    _enterEditMode(idx);
-  });
-
   const _trackSubmenu = document.getElementById('map-ctx-track-submenu');
-  document.getElementById('map-ctx-track-parent').addEventListener('click', () => {
-    _populateRouteSelect();
-    _trackSubmenu.style.display = _trackSubmenu.style.display === 'block' ? 'none' : 'block';
-  });
 
   // Track chip selection — single-select per group
   _trackSubmenu.addEventListener('click', (e) => {
