@@ -1083,7 +1083,19 @@ body.wco-active #wco-titlebar { display: flex; }
   z-index: 1500;
 }
 
+/* Direct follow-up (2026-09-30, reported live on a Pixel phone):
+   #command-picker/#text-input below were already narrowed the same day
+   (see their own comments), but this one was left at the parent's
+   default flex-column stretch — full #map-overlay-cmd width, which on a
+   phone is nearly the whole screen. align-self overrides that stretch,
+   same technique as the other two; kept noticeably wider than the
+   picker/input (it holds read sentences, not short option/input text),
+   bounded by vw so it can't still run edge-to-edge on a narrower phone
+   than this was measured against. */
 #map-overlay-cmd #response-area {
+  align-self: flex-start;
+  width: 260px;
+  max-width: 80vw;
   background: rgba(26, 58, 92, 0.92);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
@@ -4096,8 +4108,10 @@ body.wco-active #underway-btn { top: 10px; }
 #command-picker {
   flex-shrink: 0;
   align-self: flex-start;
-  width: 200px;
-  max-width: 100%;
+  width: 130px;   /* 2nd direct follow-up, reported live on a Pixel phone —
+                     200px was still "too wide"; 40vw below is the real
+                     binding constraint on a narrow phone either way. */
+  max-width: 40vw;
   margin-left: 64px; /* clears #map-version-label's real ~48px width + a small gap */
   background: var(--dark-blue);
   border: 1px solid var(--mid-blue);
@@ -4127,8 +4141,8 @@ body.wco-active #underway-btn { top: 10px; }
 }
 
 #text-input {
-  width: 200px;
-  max-width: 100%;
+  width: 130px;   /* 2nd direct follow-up, see #command-picker's own comment */
+  max-width: 40vw;
   background: var(--dark-blue);
   border: 1px solid var(--mid-blue);
   border-radius: 8px;
