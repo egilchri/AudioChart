@@ -1,5 +1,29 @@
 # Changelog
 
+## 2026-09-30 — Waypoints and Test Sets promoted to top-row buttons (v754)
+
+Direct request: "I want them to become buttons that are always
+visible, in the rows of buttons at the top of the screen." Waypoints
+and Test Sets were nested submenus inside the right-click/long-press
+map context menu ("Waypoints ›", "Test Sets ›"). Both are now
+standalone panels (`#waypoints-panel`, `#testsets-panel`) opened by
+always-visible buttons next to Routes/Tracks/Samples, using the same
+open/close/drag/swipe pattern as every other top-row panel.
+
+"Set waypoint here" stays in the context menu as its own flat button —
+it acts on the specific right-clicked point, which only exists in that
+flow, unlike the rest of the old submenu (Show/Hide/Export/Delete
+SP*/Save as Test Set), which moved to the new Waypoints panel. The
+existing per-waypoint and per-Test-Set expandable rows (Delete, Set
+position here, Show/Hide on map, Try all routes) are unchanged — their
+click handlers were already bound directly to the moved elements, not
+dependent on being inside the context menu, so no interaction logic
+needed rewriting. Found and fixed one real bug during verification: the
+map's right-click handler still force-hid these elements with an
+inline style on every right-click, which would have out-ranked the new
+panel's CSS and left both panels looking empty whenever opened after
+any right-click.
+
 ## 2026-09-30 — Inbound/outbound direction, and the arrows, work bay-wide now (v753)
 
 Direct follow-up: "every buoy seems to know what's inbound and

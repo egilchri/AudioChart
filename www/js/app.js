@@ -7668,6 +7668,53 @@ function _ensureMap() {
   document.getElementById('nf-refresh').addEventListener('click', () => {
     _refreshNavaidOverlay();
   });
+
+  // Waypoints / Test Sets panels — promoted from nested right-click
+  // context-menu submenus to standalone top-row panels, per direct
+  // request. Same open/close/drag/swipe pattern as every other panel
+  // here; their button-click HANDLING (Show/Hide/Export/etc.) is
+  // unchanged — see _wpSubmenu/_testSetsSubmenu's own listeners below,
+  // which still work identically since they're bound to the same
+  // elements regardless of where those elements live in the DOM.
+  const _waypointsPanelBtn   = document.getElementById('waypoints-panel-btn');
+  const _waypointsPanel      = document.getElementById('waypoints-panel');
+  const _closeWaypointsPanel = () => {
+    _waypointsPanel.classList.remove('open');
+    _waypointsPanelBtn.classList.remove('active');
+  };
+  _addSwipeToClose(_waypointsPanel, _closeWaypointsPanel, 'x', '.nf-title');
+  _makeDraggable(_waypointsPanel, _waypointsPanel.querySelector('.nf-title'));
+  _waypointsPanelBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    _waypointsPanel.classList.toggle('open');
+    _waypointsPanelBtn.classList.toggle('active', _waypointsPanel.classList.contains('open'));
+    // Dynamic per-waypoint rows only ever got (re)built on right-click
+    // before (removed above) — rebuild here so a waypoint saved/deleted
+    // elsewhere shows up without a full reload.
+    if (_waypointsPanel.classList.contains('open')) _populateWpSubmenu();
+  });
+  document.getElementById('waypoints-panel-close').addEventListener('click', _closeWaypointsPanel);
+  _map.on('click', _closeWaypointsPanel);
+
+  const _testSetsPanelBtn   = document.getElementById('testsets-panel-btn');
+  const _testSetsPanel      = document.getElementById('testsets-panel');
+  const _closeTestSetsPanel = () => {
+    _testSetsPanel.classList.remove('open');
+    _testSetsPanelBtn.classList.remove('active');
+  };
+  _addSwipeToClose(_testSetsPanel, _closeTestSetsPanel, 'x', '.nf-title');
+  _makeDraggable(_testSetsPanel, _testSetsPanel.querySelector('.nf-title'));
+  _testSetsPanelBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    _testSetsPanel.classList.toggle('open');
+    _testSetsPanelBtn.classList.toggle('active', _testSetsPanel.classList.contains('open'));
+    // Dynamic per-Test-Set rows only ever got (re)built when the OLD
+    // submenu's parent toggle fired (removed above) — rebuild here so a
+    // Test Set created/deleted elsewhere shows up without a full reload.
+    if (_testSetsPanel.classList.contains('open')) _populateTestSetsSubmenu();
+  });
+  document.getElementById('testsets-panel-close').addEventListener('click', _closeTestSetsPanel);
+  _map.on('click', _closeTestSetsPanel);
   document.getElementById('nf-clear').addEventListener('click', () => {
     if (_navaidFilterLayer) { _map?.removeLayer(_navaidFilterLayer); _navaidFilterLayer = null; }
     if (_depthHeatLayer)    { _map?.removeLayer(_depthHeatLayer);    _depthHeatLayer = null; }
@@ -8884,13 +8931,15 @@ function _ensureMap() {
     _ctxSubmenu.style.display    = 'none';
     _routesNearSubmenu.style.display = 'none';
     _tracksNearSubmenu.style.display = 'none';
-    _wpSubmenu.style.display     = 'none';
-    _testSetsSubmenu.style.display = 'none';
+    // _wpSubmenu/_testSetsSubmenu are no longer context-menu submenus —
+    // they now live inside the standalone #waypoints-panel/#testsets-panel
+    // (see that panel's own open handler, which populates them fresh);
+    // forcing them to display:none here would permanently out-rank this
+    // app's CSS override with an inline style, leaving those panels
+    // looking empty every time they're opened after any right-click.
     _trackSubmenu.style.display  = 'none';
     _routeSubmenu.style.display  = 'none';
     _importSubmenu.style.display = 'none';
-    _populateWpSubmenu();
-    _populateTestSetsSubmenu();
     _populateRouteSelect();
     _ctxMenu.style.left    = '0';
     _ctxMenu.style.top     = '0';
@@ -9365,27 +9414,26 @@ function _ensureMap() {
     _openAnimSettings(this);
   });
 
-  document.getElementById('map-ctx-wp-parent').addEventListener('click', () => {
-    _wpSubmenu.style.display = _wpSubmenu.style.display === 'block' ? 'none' : 'block';
+  // "Set waypoint here" acts on the specific right-clicked point
+  // (_ctxLatLng), so it stays a flat context-menu button — see
+  // #waypoints-panel's own comment in index.html for why the rest of
+  // this menu was promoted to a standalone top-row panel instead.
+  document.getElementById('map-ctx-wp-set').addEventListener('click', () => {
+    _hideCtx();
+    if (!_ctxLatLng) return;
+    const { lat, lng: lon } = _ctxLatLng;
+    const name = WaypointsStorage.nextWaypointName();
+    saveUserWaypoint(name, lat, lon);
+    Query.setActiveWaypoint(lat, lon, name);
+    if (!_waypointsVisible) _setWaypointsVisible(true);
+    showWaypointMap(null, null, WaypointsStorage.loadUserWaypoints()).catch(() => {});
+    const msg = `Waypoint ${name} set — that's now the Active Waypoint.`;
+    setStatus(msg);
+    TTS.sayImmediate(msg);
   });
 
   _wpSubmenu.addEventListener('click', (e) => {
     const t = e.target;
-
-    if (t.id === 'map-ctx-wp-set') {
-      _hideCtx();
-      if (!_ctxLatLng) return;
-      const { lat, lng: lon } = _ctxLatLng;
-      const name = WaypointsStorage.nextWaypointName();
-      saveUserWaypoint(name, lat, lon);
-      Query.setActiveWaypoint(lat, lon, name);
-      if (!_waypointsVisible) _setWaypointsVisible(true);
-      showWaypointMap(null, null, WaypointsStorage.loadUserWaypoints()).catch(() => {});
-      const msg = `Waypoint ${name} set — that's now the Active Waypoint.`;
-      setStatus(msg);
-      TTS.sayImmediate(msg);
-      return;
-    }
 
     if (t.id === 'map-ctx-wp-show') { _hideCtx(); _setWaypointsVisible(true);  return; }
     if (t.id === 'map-ctx-wp-hide') { _hideCtx(); _setWaypointsVisible(false); return; }
@@ -9510,10 +9558,6 @@ function _ensureMap() {
       }
       return;
     }
-  });
-
-  document.getElementById('map-ctx-testsets-parent').addEventListener('click', () => {
-    _testSetsSubmenu.style.display = _testSetsSubmenu.style.display === 'block' ? 'none' : 'block';
   });
 
   _testSetsSubmenu.addEventListener('click', (e) => {

@@ -1284,6 +1284,67 @@ body.wco-active #wco-titlebar { display: flex; }
   gap: 6px;
 }
 #track-picker-panel.open { display: flex; }
+
+/* Waypoints/Test Sets panels (v754) — promoted from nested right-click
+   context-menu submenus to standalone top-row panels, per direct
+   request: "I want them to become buttons that are always visible, in
+   the rows of buttons at the top of the screen." Same footprint as
+   #track-picker-panel above (same rationale). */
+#waypoints-panel,
+#testsets-panel {
+  display: none;
+  position: absolute;
+  top: 10px;
+  bottom: 70px;
+  right: 10px;
+  z-index: 1001;
+  background: var(--dark-blue);
+  border: 1px solid var(--mid-blue);
+  border-radius: 10px;
+  padding: 10px 14px;
+  min-width: 200px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: min(320px, calc(100vw - 80px));
+  box-shadow: 0 2px 12px rgba(0,0,0,0.7);
+  font-size: 0.85rem;
+  color: var(--text);
+  flex-direction: column;
+  gap: 6px;
+}
+#waypoints-panel.open,
+#testsets-panel.open { display: flex; }
+
+/* Override the old nested-submenu look (dim, indented, no border-radius —
+   #map-ctx-wp-submenu button etc.) now that these are the PRIMARY content
+   of a standalone panel, not a secondary indented level under a parent
+   item. Higher specificity (two IDs) than the old rules, so no !important
+   needed. Matches the action-button look used elsewhere (.navaid-popup-brg
+   etc.) for visual consistency with the rest of the app's floating panels. */
+#waypoints-panel #map-ctx-wp-submenu,
+#testsets-panel #map-ctx-testsets-submenu {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-top: none;
+}
+#waypoints-panel #map-ctx-wp-submenu button,
+#testsets-panel #map-ctx-testsets-submenu button {
+  padding: 7px 10px;
+  font-size: 0.82rem;
+  color: var(--text);
+  background: var(--mid-blue);
+  border-radius: 6px;
+}
+#waypoints-panel #map-ctx-wp-submenu button:hover,
+#waypoints-panel #map-ctx-wp-submenu button:active,
+#testsets-panel #map-ctx-testsets-submenu button:hover,
+#testsets-panel #map-ctx-testsets-submenu button:active {
+  background: var(--accent);
+  color: var(--navy);
+}
+/* .ctx-wp-del/.ctx-ts-del already force var(--danger) with !important
+   (existing rule, unaffected by relocation) — no override needed here. */
 #tp-search {
   width: 100%;
   box-sizing: border-box;
@@ -3950,8 +4011,7 @@ body.wco-active #underway-btn { top: 10px; }
   filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));
 }
 #map-ctx-where-am-i,
-#map-ctx-wp-parent,
-#map-ctx-testsets-parent,
+#map-ctx-wp-set,
 #map-ctx-set-position {
   border-top: 1px solid var(--mid-blue);
 }
