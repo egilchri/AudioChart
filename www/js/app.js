@@ -10662,6 +10662,69 @@ function _navaidStatusHtml(status, persta, perend) {
   </div>`;
 }
 
+// Direct request (2026-09-30), reintroducing on-map arrows after v745
+// removed them: "geometrically accurate" — one arrow per CONSECUTIVE
+// same-chain buoy pair (e.g. Buoy 12 -> Buoy 14), each pointing in that
+// specific segment's own real ascending/inbound bearing, rather than
+// one straight arrow per whole named channel (which can't stay accurate
+// along a real curve — verified earlier this session that Fox Island
+// Thorofare's consecutive bearings shift 109°->257°->204°->235° along
+// its own length). Same chain-grouping _chainAscendingBearing already
+// uses (name with the trailing number stripped), same BOYLAT/BCNLAT-only
+// filter, same 1.0nm real-spacing cap verified against actual chart data
+// in earlier arrow work this session. Verified bay-wide before writing
+// this: 69 real consecutive pairs across 31 real named channels — not
+// one per buoy, and not the ~400 an all-buoys version would need.
+function _findInboundChainPairs() {
+  if (!Query.navaids?.features) return [];
+  const groups = new Map();
+  for (const f of Query.navaids.features) {
+    if (f.properties.objtype !== 'BOYLAT' && f.properties.objtype !== 'BCNLAT') continue;
+    const name = f.properties.name;
+    if (!name) continue;
+    const digitMatches = [...name.matchAll(/\d+/g)];
+    if (!digitMatches.length) continue;
+    const lastMatch = digitMatches[digitMatches.length - 1];
+    const num = parseInt(lastMatch[0], 10);
+    const chainKey = name.slice(0, lastMatch.index).trim().toLowerCase();
+    if (!chainKey) continue;
+    const [lon, lat] = f.geometry.coordinates;
+    if (!groups.has(chainKey)) groups.set(chainKey, []);
+    groups.get(chainKey).push({ num, lat, lon });
+  }
+  const LINK_MAX_NM = 1.0; // verified real max consecutive-buoy spacing (Fox Island Thorofare)
+  const pairs = [];
+  for (const members of groups.values()) {
+    if (members.length < 2) continue;
+    members.sort((a, b) => a.num - b.num);
+    for (let i = 0; i < members.length - 1; i++) {
+      const a = members[i], b = members[i + 1];
+      const dist = Query.distanceNm(a.lon, a.lat, b.lon, b.lat);
+      if (dist > LINK_MAX_NM) continue; // real numbering/data gap, not a real adjacent pair
+      pairs.push({ aLat: a.lat, aLon: a.lon, bLat: b.lat, bLon: b.lon,
+                   brg: Query.bearing(a.lon, a.lat, b.lon, b.lat) });
+    }
+  }
+  return pairs;
+}
+
+// Plain single-headed arrow, no background box (the same visual
+// language as the earlier, never-complained-about v740 style) — offset
+// a small fixed SCREEN-pixel distance from its anchor point along brg,
+// zoom-independent so it doesn't shrink to invisible at low zoom.
+function _inboundArrowIcon(brg) {
+  const PX_DIST = 14;
+  const rad = brg * Math.PI / 180;
+  const dx = PX_DIST * Math.sin(rad);
+  const dy = -PX_DIST * Math.cos(rad);
+  return L.divIcon({
+    className: '',
+    html: `<div class="navaid-inbound-arrow" style="transform:rotate(${Math.round(brg)}deg)">&#8593;</div>`,
+    iconSize: [16, 16],
+    iconAnchor: [8 - dx, 8 - dy],
+  });
+}
+
 function _refreshNavaidOverlay() {
   if (!_map) return;
   if (_navaidFilterLayer) { _map.removeLayer(_navaidFilterLayer); _navaidFilterLayer = null; }
@@ -10787,6 +10850,22 @@ function _refreshNavaidOverlay() {
       });
 
       markers.push(m);
+    }
+  }
+
+  // One "Inbound" arrow per real consecutive same-chain buoy pair — see
+  // _findInboundChainPairs's own comment. Zoom-gated below 13 — real
+  // gate-tight pairs in this same data were verified earlier this
+  // session to be only 40-170m apart, a handful of screen pixels at low
+  // zoom, reading as clutter rather than a placement problem.
+  if (types.size > 0 && _map.getZoom() >= 13) {
+    for (const { aLat, aLon, bLat, bLon, brg } of _findInboundChainPairs()) {
+      const midLat = (aLat + bLat) / 2, midLon = (aLon + bLon) / 2;
+      if (!bounds.pad(0.1).contains([midLat, midLon])) continue;
+      markers.push(L.marker([midLat, midLon], {
+        icon: _inboundArrowIcon(brg),
+        interactive: true, keyboard: false,
+      }).bindTooltip('Inbound', { permanent: false, direction: 'top', className: 'map-tooltip' }));
     }
   }
 

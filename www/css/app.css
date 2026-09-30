@@ -2365,6 +2365,23 @@ body.wco-active #wco-titlebar { display: flex; }
   font-size: 0.74rem;
   color: var(--text-dim);
 }
+/* On-map "Inbound" direction arrow (v751) — reintroduced after v745
+   removed the earlier arrow feature, this time geometrically accurate
+   per consecutive same-chain buoy pair rather than one per whole
+   channel (see _findInboundChainPairs). Same plain-glyph, no-background
+   visual language as the earlier v740 arrows — that style itself was
+   never the complaint, only chain-vs-buoy inconsistency and coverage. */
+.navaid-inbound-arrow {
+  color: #2266cc;
+  font-size: 18px;
+  font-weight: 900;
+  text-shadow:
+    -1px -1px 0 #fff, 1px -1px 0 #fff,
+    -1px  1px 0 #fff, 1px  1px 0 #fff,
+    0 1px 3px rgba(0, 0, 0, 0.5);
+  pointer-events: auto;
+  cursor: pointer;
+}
 /* Labeled info rows (v745) — "Location & Context" / "Navigation Rule" /
    official chart remark, replacing the on-map arrows (v738-744, dropped
    per direct request: "not working... forget the arrows... I want to

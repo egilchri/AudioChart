@@ -1,5 +1,33 @@
 # Changelog
 
+## 2026-09-30 — Geometrically accurate "Inbound" arrows return (v751)
+
+Direct follow-up to an analytical question: "how many labels would we
+need to label all of Penobscot Bay with Inbound direction indicators?"
+Computed 38 if one straight arrow covers each whole named channel, but
+flagged that's inaccurate for a curving channel (verified earlier this
+session that Fox Island Thorofare's real consecutive bearings shift
+109°→257°→204°→235° along its length). Direct request: "let's go with
+the geometrically accurate version instead" — confirmed this means
+reintroducing on-map arrows (removed in v745) alongside, not instead
+of, the tap-popup info card.
+
+New design, genuinely different from the earlier v738-744 arrows: one
+arrow per CONSECUTIVE same-chain buoy pair (e.g. Buoy 12→14), each
+pointing that specific segment's own real bearing, rather than one
+per buoy pointing at its nearest neighbor of any chain (the old,
+removed design). Reuses `_chainAscendingBearing`'s own chain-grouping
+and BOYLAT/BCNLAT filter, and the same 1.0nm real-spacing cap verified
+against actual chart data in the earlier arrow work. Verified bay-wide
+before building: 69 real consecutive pairs across 31 real named
+channels (not ~400 for an all-buoys version). Same plain-glyph,
+no-background visual language as the earlier v740 arrows and the same
+zoom≥13 gate (real gate-tight pairs are only 40-170m apart — a few
+screen pixels at low zoom). Live-verified: arrows correctly track the
+real channel curve at Fox Island Thorofare, zoom-gate works, and all
+existing popup content (hazard/location/status/nav-rule rows, Copy
+location) still renders correctly alongside the arrows.
+
 ## 2026-09-29 — Fixed: navaids not actually showing by default (v750)
 
 Direct report: "I had asked you to show navaids by default. That's not
