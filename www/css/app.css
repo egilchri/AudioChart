@@ -2682,7 +2682,48 @@ body.wco-active #wco-titlebar { display: flex; }
 #map-context-menu button:active {
   background: var(--mid-blue);
 }
+/* Objects/Routes/Tracks-within radius pickers — standalone floating panels
+   (opened from a marker's own popup via _openNearPointFlyout in app.js),
+   not nested inside #map-context-menu, so unlike the list below they carry
+   their own full positioning/look rather than inheriting it from a parent
+   menu. JS only ever toggles display + sets left/top. */
 #map-ctx-objects-submenu,
+#map-ctx-routes-near-submenu,
+#map-ctx-tracks-near-submenu {
+  position: fixed;
+  z-index: 10000;
+  display: none;
+  background: var(--dark-blue);
+  border: 1px solid var(--mid-blue);
+  border-radius: 6px;
+  padding: 4px 0;
+  min-width: 180px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.6);
+  max-height: 92vh;
+  max-height: 92dvh;
+  overflow-y: auto;
+}
+#map-ctx-objects-submenu button,
+#map-ctx-routes-near-submenu button,
+#map-ctx-tracks-near-submenu button {
+  display: block;
+  width: 100%;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+}
+#map-ctx-objects-submenu button:hover,
+#map-ctx-objects-submenu button:active,
+#map-ctx-routes-near-submenu button:hover,
+#map-ctx-routes-near-submenu button:active,
+#map-ctx-tracks-near-submenu button:hover,
+#map-ctx-tracks-near-submenu button:active {
+  background: var(--mid-blue);
+}
 #map-ctx-wp-submenu,
 #map-ctx-track-submenu,
 #map-ctx-route-submenu,
@@ -3159,39 +3200,6 @@ body.wco-active #wco-titlebar { display: flex; }
   padding: 4px 10px;
   font-size: 0.85rem;
   font-weight: 700;
-  cursor: pointer;
-}
-#focus-place-banner {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  background: var(--navy);
-  color: #4ade80;
-  font-weight: 600;
-  font-size: 0.9rem;
-  padding: 8px 12px;
-  flex-shrink: 0;
-  border-top: 2px solid #4ade80;
-}
-#focus-place-confirm-btn {
-  background: var(--ok);
-  color: var(--navy);
-  border: none;
-  border-radius: 6px;
-  padding: 4px 10px;
-  font-size: 0.85rem;
-  font-weight: 700;
-  cursor: pointer;
-}
-#focus-place-cancel-btn {
-  background: rgba(74,222,128,0.12);
-  color: #4ade80;
-  border: 1px solid #4ade80;
-  border-radius: 6px;
-  padding: 4px 10px;
-  font-size: 0.85rem;
   cursor: pointer;
 }
 #sim-track-banner {
@@ -4033,20 +4041,12 @@ body.wco-active #underway-btn { top: 10px; }
 .search-pin-marker {
   filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));
 }
-#map-ctx-where-am-i,
-#map-ctx-wp-set,
-#map-ctx-set-position {
-  border-top: 1px solid var(--mid-blue);
-}
-#map-ctx-objects-submenu button,
 #map-ctx-wp-submenu button,
 #map-ctx-testsets-submenu button {
   padding-left: 28px;
   font-size: 0.85rem;
   color: var(--text-dim);
 }
-#map-ctx-objects-submenu button:hover,
-#map-ctx-objects-submenu button:active,
 #map-ctx-wp-submenu button:hover,
 #map-ctx-wp-submenu button:active,
 #map-ctx-testsets-submenu button:hover,

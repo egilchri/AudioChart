@@ -280,7 +280,11 @@ function _refreshWaypointLayer() {
            ${wp.note ? `<div class="navaid-popup-note">${escapeHtml(wp.note)}</div>` : ''}
            <div class="navaid-popup-coords"></div>
            <button class="navaid-popup-focus">&#127919; Set focus</button>
+           <button class="navaid-popup-bring-boat">&#9935; Bring boat here</button>
            <button class="navaid-popup-autoroute">&#9973; AutoRoute from boat position</button>
+           <button class="navaid-popup-objects">Objects within &rsaquo;</button>
+           <button class="navaid-popup-routes-near">Routes within &rsaquo;</button>
+           <button class="navaid-popup-tracks-near">Tracks within &rsaquo;</button>
            <button class="navaid-popup-rename">&#9998; Rename</button>
            <button class="navaid-popup-delete">&#128465; Delete</button>
          </div>`,
@@ -303,11 +307,38 @@ function _refreshWaypointLayer() {
           showResponse(msg);
           TTS.sayImmediate(msg);
         });
+        // Formerly the right-click menu's own "Bring boat here" — moved
+        // here per direct request, since right-click on empty water no
+        // longer offers it (only "Set marker here" does). Same shared
+        // implementation as the Waypoints-panel and Test-Set-popup call sites.
+        popupEl.querySelector('.navaid-popup-bring-boat').addEventListener('click', () => {
+          _map.closePopup();
+          _bringBoatTo(live.lat, live.lng, wp.name);
+        });
         // Zero-interaction auto-route: boat's current GPS position → this
         // pin, no name prompt, no second tap. See _autoRouteFromBoatToHere.
         popupEl.querySelector('.navaid-popup-autoroute').addEventListener('click', () => {
           _map.closePopup();
           _autoRouteFromBoatToHereFn?.(live.lat, live.lng);
+        });
+        // Formerly the right-click menu's own Objects/Routes/Tracks-within
+        // radius pickers — moved here per direct request. All three open
+        // the same singleton flyout elements _openNearPointFlyout always
+        // used, just anchored to this button instead of a context-menu row.
+        popupEl.querySelector('.navaid-popup-objects').addEventListener('click', (ev) => {
+          const rect = ev.currentTarget.getBoundingClientRect(); // before closePopup() detaches it
+          _map.closePopup();
+          _openNearPointFlyout(document.getElementById('map-ctx-objects-submenu'), rect, live);
+        });
+        popupEl.querySelector('.navaid-popup-routes-near').addEventListener('click', (ev) => {
+          const rect = ev.currentTarget.getBoundingClientRect();
+          _map.closePopup();
+          _openNearPointFlyout(document.getElementById('map-ctx-routes-near-submenu'), rect, live);
+        });
+        popupEl.querySelector('.navaid-popup-tracks-near').addEventListener('click', (ev) => {
+          const rect = ev.currentTarget.getBoundingClientRect();
+          _map.closePopup();
+          _openNearPointFlyout(document.getElementById('map-ctx-tracks-near-submenu'), rect, live);
         });
         // Per direct request (originally for search pins' auto-generated
         // SP00N names, equally true of quick-dropped wp00N ones) — a typed
@@ -1073,9 +1104,6 @@ let _drawGestureStartPt = null;
 let _drawGestureLastPt  = null;
 let _drawIsPanning      = false;
 const _TAP_TOLERANCE_PX = 15; // press-and-move-far-enough-to-count-as-a-pan threshold; shared with sketch mode
-let _focusPlaceMode   = false;  // true while the drag-to-place focus marker is live
-let _focusPlaceMarker = null;   // the draggable L.marker being positioned
-let _focusPlaceSnap   = null;   // {lat, lon, name, type} of the locked-on object, or null
 let _focusMarker      = null;   // persistent, always-draggable marker for the current focus
 let _simTrackMode       = false;  // true while the Simulate Track aiming/running UI is active
 let _simTrackRunning    = false;  // true only once Start has been pressed and the DR loop is animating
@@ -3907,8 +3935,6 @@ _drawNameDestBtn.addEventListener('click', async () => {
   _onDrawClick(L.latLng(dest.lat, dest.lon));
 });
 _drawConfirmBtn.addEventListener('click', _onDrawConfirm);
-document.getElementById('focus-place-confirm-btn').addEventListener('click', _confirmFocusPlace);
-document.getElementById('focus-place-cancel-btn').addEventListener('click', _cancelFocusPlace);
 document.getElementById('track-simulate-track').addEventListener('click', () => {
   document.getElementById('map-context-menu').style.display = 'none';
   _enterSimTrackMode();
@@ -4849,66 +4875,12 @@ function _nearestSnapTarget(lat, lon, pxTolerance = 20) {
   return best;
 }
 
-// Drag-to-place focus marker: shows an idle-pulsing marker the user can drag, which snaps
-// to and flashes near named objects, then confirms via the #focus-place-banner.
-function _enterFocusPlaceMode(latlng) {
-  if (_sketchMode || _drawMode) return;   // those modes hijack touch/click in capture phase
-  if (_addNodeMode) _cancelAddNodeMode(); // avoid a stray _editPlaceNode mouseup inserting a route node
-  _focusPlaceMode = true;
-  _focusPlaceSnap = null;
-
-  _focusPlaceMarker = L.marker(latlng, {
-    icon: L.divIcon({ className: 'focus-place-marker focus-place-idle', iconSize: [18, 18], iconAnchor: [9, 9] }),
-    draggable: true,
-    zIndexOffset: 1200,
-  }).addTo(_map);
-
-  _focusPlaceMarker.on('drag', () => {
-    const ll = _focusPlaceMarker.getLatLng();
-    const snap = _nearestSnapTarget(ll.lat, ll.lng);
-    _focusPlaceSnap = snap;
-    const el = _focusPlaceMarker.getElement();
-    if (snap) {
-      _focusPlaceMarker.setLatLng([snap.lat, snap.lon]);
-      el?.classList.replace('focus-place-idle', 'focus-place-locked');
-      document.getElementById('focus-place-banner-label').textContent = `🎯 Snapped: ${snap.name}`;
-    } else {
-      el?.classList.replace('focus-place-locked', 'focus-place-idle');
-      document.getElementById('focus-place-banner-label').textContent = 'Placing focus…';
-    }
-  });
-
-  document.getElementById('focus-place-banner-label').textContent = 'Placing focus…';
-  document.getElementById('focus-place-banner').style.display = 'flex';
-}
-
-function _confirmFocusPlace() {
-  const ll   = _focusPlaceMarker.getLatLng();
-  const snap = _focusPlaceSnap;
-  const lat  = snap ? snap.lat : ll.lat;
-  const lon  = snap ? snap.lon : ll.lng;
-  const name = snap ? snap.name : null;
-  const type = snap ? snap.type : 'coord';
-  Query.setFocus(lat, lon, name, type);
-  _updateFocusButton();
-  const msg = `Focused on ${name || 'this point'}.`;
-  showResponse(msg);
-  TTS.sayImmediate(msg);
-  _exitFocusPlaceMode();
-}
-
-function _cancelFocusPlace() { _exitFocusPlaceMode(); }
-
-function _exitFocusPlaceMode() {
-  _focusPlaceMode = false;
-  document.getElementById('focus-place-banner').style.display = 'none';
-  if (_focusPlaceMarker) { _map.removeLayer(_focusPlaceMarker); _focusPlaceMarker = null; }
-  _focusPlaceSnap = null;
-}
-
 // Persistent, always-draggable marker for the current focus — lets the user nudge the
-// focus point at any time, not just during initial placement. Snaps the same way
-// _enterFocusPlaceMode's temporary marker does.
+// focus point at any time, not just during initial placement. Snaps the same way the
+// old drag-to-place-focus flow's temporary marker used to (that flow existed only
+// behind the right-click menu's "Set focus here", now removed — a marker's own popup
+// already has a point to focus on directly, so it calls Query.setFocus right away
+// instead of needing a drag-and-snap step of its own).
 function _syncFocusMarker() {
   if (!_map) return;
   const f = Query.focusedTarget;
@@ -6245,7 +6217,7 @@ function _updateSimTrackBannerText() {
 }
 
 function _enterSimTrackMode() {
-  if (_sketchMode || _drawMode || _focusPlaceMode || _animMode) return; // _editMode intentionally allowed
+  if (_sketchMode || _drawMode || _animMode) return; // _editMode intentionally allowed
   const pos = GPS.getPosition();
   if (!pos) { TTS.sayImmediate("Set the boat's position first."); return; }
   if (_addNodeMode) _cancelAddNodeMode(); // avoid edit-mode's node-placement mouseup racing the drag handle
@@ -6414,6 +6386,41 @@ function _bringBoatTo(lat, lon, label) {
       dataLoaded = true;
       setStatus(label ? `Ready. (${label})` : 'Ready. (map position)');
     }).catch(() => {});
+  }
+}
+
+// Objects/Routes/Tracks-within radius pickers — standalone floating panels
+// (see the #map-ctx-*-submenu CSS rule for the look), opened from a
+// marker's own popup rather than the right-click menu (moved there per
+// direct request). _nearPointOrigin holds the {lat, lng} point the flyout
+// that's currently open should act on once a radius is picked — set right
+// before showing a flyout, read once by its one delegated click handler
+// (wired once in _ensureMap, same singleton elements every time), so
+// reopening the same flyout for a different marker can't act on a stale
+// point left over from the last one.
+let _nearPointOrigin = null;
+
+// `anchorRect`, not a live element — callers that close a Leaflet popup
+// before opening the flyout (every current caller does, to avoid the
+// popup and the flyout both being open at once) need their anchor
+// button's position captured BEFORE closePopup() removes it from the DOM,
+// not after; a rect survives that, an element reference's geometry doesn't.
+function _openNearPointFlyout(el, anchorRect, origin) {
+  _closeNearPointFlyouts();
+  _nearPointOrigin = origin;
+  el.style.display = 'block';
+  const mw = el.offsetWidth, mh = el.offsetHeight;
+  const anchor = anchorRect || null;
+  const left = anchor ? Math.min(anchor.right - mw, window.innerWidth  - mw - 4) : 4;
+  const top  = anchor ? Math.max(4, anchor.top  - mh - 4)                        : 4;
+  el.style.left = Math.max(4, left) + 'px';
+  el.style.top  = Math.max(4, top)  + 'px';
+}
+
+function _closeNearPointFlyouts() {
+  for (const id of ['map-ctx-objects-submenu', 'map-ctx-routes-near-submenu', 'map-ctx-tracks-near-submenu']) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
   }
 }
 
@@ -8988,9 +8995,10 @@ function _ensureMap() {
 
   _map.on('contextmenu', (e) => {
     _ctxLatLng = e.latlng;
-    _ctxSubmenu.style.display    = 'none';
-    _routesNearSubmenu.style.display = 'none';
-    _tracksNearSubmenu.style.display = 'none';
+    // Objects/Routes/Tracks-within are no longer part of this menu at all
+    // (see _openNearPointFlyout) — just close a stray one left open from a
+    // marker popup, since a fresh right-click means a fresh point anyway.
+    _closeNearPointFlyouts();
     // _wpSubmenu/_testSetsSubmenu are no longer context-menu submenus —
     // they now live inside the standalone #waypoints-panel/#testsets-panel
     // (see that panel's own open handler, which populates them fresh);
@@ -9030,37 +9038,33 @@ function _ensureMap() {
     if (e.key === 'Escape') { _hideCtx(); if (_addNodeMode) _cancelAddNodeMode(); if (_simTrackMode) _exitSimTrackMode(); }
   });
 
-  document.getElementById('map-ctx-objects-parent').addEventListener('click', () => {
-    _ctxSubmenu.style.display = _ctxSubmenu.style.display === 'block' ? 'none' : 'block';
-  });
-
+  // Objects/Routes/Tracks-within radius pickers — opened from a marker's own
+  // popup now (see _openNearPointFlyout + the navaid-popup template in
+  // _refreshWaypointLayer), not from this right-click menu anymore. These
+  // listeners just act on whatever point _openNearPointFlyout last recorded
+  // in _nearPointOrigin, same three singleton flyout elements either way.
   _ctxSubmenu.addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-radius-nm]');
     if (!btn) return;
-    _hideCtx();
-    if (_ctxLatLng) handleMapLongPress(_ctxLatLng, parseFloat(btn.dataset.radiusNm), btn.dataset.radiusLabel);
-  });
-
-  document.getElementById('map-ctx-routes-near-parent').addEventListener('click', () => {
-    _routesNearSubmenu.style.display = _routesNearSubmenu.style.display === 'block' ? 'none' : 'block';
+    const origin = _nearPointOrigin;
+    _closeNearPointFlyouts();
+    if (origin) handleMapLongPress(origin, parseFloat(btn.dataset.radiusNm), btn.dataset.radiusLabel);
   });
 
   _routesNearSubmenu.addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-radius-nm]');
     if (!btn) return;
-    _hideCtx();
-    if (_ctxLatLng) _showNearPointPanel('route', _ctxLatLng, _routesNearPoint(_ctxLatLng.lat, _ctxLatLng.lng, parseFloat(btn.dataset.radiusNm)), btn.dataset.radiusLabel);
-  });
-
-  document.getElementById('map-ctx-tracks-near-parent').addEventListener('click', () => {
-    _tracksNearSubmenu.style.display = _tracksNearSubmenu.style.display === 'block' ? 'none' : 'block';
+    const origin = _nearPointOrigin;
+    _closeNearPointFlyouts();
+    if (origin) _showNearPointPanel('route', origin, _routesNearPoint(origin.lat, origin.lng, parseFloat(btn.dataset.radiusNm)), btn.dataset.radiusLabel);
   });
 
   _tracksNearSubmenu.addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-radius-nm]');
     if (!btn) return;
-    _hideCtx();
-    if (_ctxLatLng) _showNearPointPanel('track', _ctxLatLng, _tracksNearPoint(_ctxLatLng.lat, _ctxLatLng.lng, parseFloat(btn.dataset.radiusNm)), btn.dataset.radiusLabel);
+    const origin = _nearPointOrigin;
+    _closeNearPointFlyouts();
+    if (origin) _showNearPointPanel('track', origin, _tracksNearPoint(origin.lat, origin.lng, parseFloat(btn.dataset.radiusNm)), btn.dataset.radiusLabel);
   });
 
   async function _triggerAutoRoute() {
@@ -10106,22 +10110,16 @@ function _ensureMap() {
     TTS.sayImmediate(msg);
   });
 
-  // Combined "Bring boat here" (formerly two separate items — "Bring boat
-  // here" and "Set position here" — merged into one at direct request).
-  // See _bringBoatTo, the one shared implementation behind every place
-  // this action is offered.
-  document.getElementById('map-ctx-bring-boat').addEventListener('click', () => {
-    _hideCtx();
-    if (!_ctxLatLng) return;
-    const { lat, lng: lon } = _ctxLatLng;
-    _bringBoatTo(lat, lon);
-  });
-
-  document.getElementById('map-ctx-set-focus').addEventListener('click', () => {
-    _hideCtx();
-    if (!_ctxLatLng) return;
-    _enterFocusPlaceMode(_ctxLatLng);
-  });
+  // "Bring boat here" and "Set focus here" no longer live on this menu —
+  // per direct request, right-click now only offers "Set marker here", and
+  // every point-specific action moved to that marker's own popup instead
+  // (see the navaid-popup template in _refreshWaypointLayer). "Set focus"
+  // there calls Query.setFocus directly rather than porting over
+  // _enterFocusPlaceMode's snap-while-dragging flow — that flow existed to
+  // turn an anonymous tapped coordinate into a nameable point; a marker
+  // already has both, so the direct call is the correct fit, not a
+  // shortcut. _bringBoatTo (used by the popup's own "Bring boat here") is
+  // still shared with the Waypoints-panel and Test-Set-popup call sites.
 
   _refreshWaypointLayer();
   _refreshTestSetLayer();
@@ -11437,9 +11435,9 @@ async function _offerRegionForPosition(lat, lon) {
     // and re-enters this same position pipeline (showPosition ->
     // _updateCoverageStatus), which resolves to 'core' for Rockland and
     // updates the status/map on its own — no separate refresh needed here.
-    // showPosition() itself never draws the boat icon (see map-ctx-bring-boat
-    // for the established convention) — _showBoatPosition is the separate
-    // call that actually puts the marker on the map.
+    // showPosition() itself never draws the boat icon (see _bringBoatTo for
+    // the established convention) — _showBoatPosition is the separate call
+    // that actually puts the marker on the map.
     GPS.setManualPosition(44.103, -69.088);
     syncTestPosButton();
     _showBoatPosition(44.103, -69.088);

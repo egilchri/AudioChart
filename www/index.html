@@ -428,11 +428,6 @@
       <button id="draw-confirm-btn" style="display:none" title="Confirm this destination and calculate the route">&#10003; OK</button>
       <button id="draw-cancel-btn" title="Cancel drawing this route">&#10005; Cancel</button>
     </div>
-    <div id="focus-place-banner" style="display:none">
-      &#127919; <span id="focus-place-banner-label">Placing focus&#8230;</span>
-      &nbsp;<button id="focus-place-confirm-btn" title="Set the focus point here">&#10003;</button>
-      <button id="focus-place-cancel-btn" title="Cancel placing a focus point">&#10005; Cancel</button>
-    </div>
     <div id="sim-track-banner" style="display:none">
       <div class="track-speed-row" style="justify-content:space-between">
         <span>&#129517; Simulate Track</span>
@@ -605,36 +600,6 @@
   </div>
 
   <div id="map-context-menu">
-    <button id="map-ctx-objects-parent" title="Find navaids, hazards, and other charted objects near the tapped point">Objects within &rsaquo;</button>
-    <div id="map-ctx-objects-submenu">
-      <button data-radius-nm="0.0494" data-radius-label="100 yards" title="List charted objects within 100 yards of the tapped point">100 yards</button>
-      <button data-radius-nm="0.0988" data-radius-label="200 yards" title="List charted objects within 200 yards of the tapped point">200 yards</button>
-      <button data-radius-nm="0.25"   data-radius-label="¼ mile" title="List charted objects within ¼ mile of the tapped point">¼ mile</button>
-      <button data-radius-nm="0.5"    data-radius-label="½ mile" title="List charted objects within ½ mile of the tapped point">½ mile</button>
-      <button data-radius-nm="1"      data-radius-label="1 mile" title="List charted objects within 1 mile of the tapped point">1 mile</button>
-      <button data-radius-nm="2"      data-radius-label="2 miles" title="List charted objects within 2 miles of the tapped point">2 miles</button>
-      <button data-radius-nm="5"      data-radius-label="5 miles" title="List charted objects within 5 miles of the tapped point">5 miles</button>
-    </div>
-    <button id="map-ctx-routes-near-parent" title="Find your saved routes that pass near the tapped point">Routes within &rsaquo;</button>
-    <div id="map-ctx-routes-near-submenu">
-      <button data-radius-nm="0.0494" data-radius-label="100 yards" title="List saved routes within 100 yards of the tapped point">100 yards</button>
-      <button data-radius-nm="0.0988" data-radius-label="200 yards" title="List saved routes within 200 yards of the tapped point">200 yards</button>
-      <button data-radius-nm="0.25"   data-radius-label="¼ mile" title="List saved routes within ¼ mile of the tapped point">¼ mile</button>
-      <button data-radius-nm="0.5"    data-radius-label="½ mile" title="List saved routes within ½ mile of the tapped point">½ mile</button>
-      <button data-radius-nm="1"      data-radius-label="1 mile" title="List saved routes within 1 mile of the tapped point">1 mile</button>
-      <button data-radius-nm="2"      data-radius-label="2 miles" title="List saved routes within 2 miles of the tapped point">2 miles</button>
-      <button data-radius-nm="5"      data-radius-label="5 miles" title="List saved routes within 5 miles of the tapped point">5 miles</button>
-    </div>
-    <button id="map-ctx-tracks-near-parent" title="Find your recorded tracks that pass near the tapped point">Tracks within &rsaquo;</button>
-    <div id="map-ctx-tracks-near-submenu">
-      <button data-radius-nm="0.0494" data-radius-label="100 yards" title="List recorded tracks within 100 yards of the tapped point">100 yards</button>
-      <button data-radius-nm="0.0988" data-radius-label="200 yards" title="List recorded tracks within 200 yards of the tapped point">200 yards</button>
-      <button data-radius-nm="0.25"   data-radius-label="¼ mile" title="List recorded tracks within ¼ mile of the tapped point">¼ mile</button>
-      <button data-radius-nm="0.5"    data-radius-label="½ mile" title="List recorded tracks within ½ mile of the tapped point">½ mile</button>
-      <button data-radius-nm="1"      data-radius-label="1 mile" title="List recorded tracks within 1 mile of the tapped point">1 mile</button>
-      <button data-radius-nm="2"      data-radius-label="2 miles" title="List recorded tracks within 2 miles of the tapped point">2 miles</button>
-      <button data-radius-nm="5"      data-radius-label="5 miles" title="List recorded tracks within 5 miles of the tapped point">5 miles</button>
-    </div>
     <div id="map-ctx-track-submenu">
       <div class="track-two-col">
         <div>
@@ -712,17 +677,51 @@
         <button id="track-route-go" title="Animate a boat icon moving along the selected route">&#9654; Animate</button>
       </div>
     </div>
-    <!-- Waypoint/Test Set management (Show/Hide/Export/Delete/etc.) moved to
-         standalone top-row panels (#waypoints-panel/#testsets-panel) — see
-         them near #navaid-filter-panel. "Set waypoint here" removed (direct
-         request) — "Set marker here" below covers the same tapped-point
-         save-a-waypoint need via an SP*-named pin instead. Import moved out
-         to its own top-row button (#import-menu-btn near #screen-menu-btn),
-         also direct request — it doesn't act on a tapped point like the
-         rest of this menu, so it didn't need to live here either. -->
+    <!-- The right-click background menu now does exactly one thing — drop a
+         named, addressable pin at the tapped point (direct request: "This
+         leaves right button only bringing up 'Set marker here'"). Every
+         other action that used to live here (Objects/Routes/Tracks within,
+         Bring boat here, Set focus) moved to that pin's own popup instead —
+         see the navaid-popup template in _refreshWaypointLayer — since
+         right-click on empty water has no marker yet to act on; everything
+         point-specific now happens on the marker the first tap creates.
+         Waypoint/Test Set management (Show/Hide/Export/Delete/etc.) is
+         further moved to standalone top-row panels (#waypoints-panel/
+         #testsets-panel) — see them near #navaid-filter-panel. -->
     <button id="map-ctx-drop-pin" title="Drop a named, addressable pin at the tapped point — same as the Search box drops, just from a right-click instead of typing a query">&#128205; Set marker here</button>
-    <button id="map-ctx-bring-boat" title="Move your GPS position marker to the tapped point, for testing without a GPS fix">&#9935; Bring boat here</button>
-    <button id="map-ctx-set-focus" title="Set the focus point here — distance/bearing readouts will track it">&#127919; Set focus here</button>
+  </div>
+
+  <!-- Objects/Routes/Tracks-within radius pickers — formerly nested in
+       #map-context-menu, now standalone floating panels opened from a
+       marker's own popup (see _openNearPointFlyout in app.js), the same
+       "standalone" pattern #map-ctx-track-submenu already used for the
+       animation-settings gear icon. -->
+  <div id="map-ctx-objects-submenu" style="display:none">
+    <button data-radius-nm="0.0494" data-radius-label="100 yards" title="List charted objects within 100 yards of this marker">100 yards</button>
+    <button data-radius-nm="0.0988" data-radius-label="200 yards" title="List charted objects within 200 yards of this marker">200 yards</button>
+    <button data-radius-nm="0.25"   data-radius-label="¼ mile" title="List charted objects within ¼ mile of this marker">¼ mile</button>
+    <button data-radius-nm="0.5"    data-radius-label="½ mile" title="List charted objects within ½ mile of this marker">½ mile</button>
+    <button data-radius-nm="1"      data-radius-label="1 mile" title="List charted objects within 1 mile of this marker">1 mile</button>
+    <button data-radius-nm="2"      data-radius-label="2 miles" title="List charted objects within 2 miles of this marker">2 miles</button>
+    <button data-radius-nm="5"      data-radius-label="5 miles" title="List charted objects within 5 miles of this marker">5 miles</button>
+  </div>
+  <div id="map-ctx-routes-near-submenu" style="display:none">
+    <button data-radius-nm="0.0494" data-radius-label="100 yards" title="List saved routes within 100 yards of this marker">100 yards</button>
+    <button data-radius-nm="0.0988" data-radius-label="200 yards" title="List saved routes within 200 yards of this marker">200 yards</button>
+    <button data-radius-nm="0.25"   data-radius-label="¼ mile" title="List saved routes within ¼ mile of this marker">¼ mile</button>
+    <button data-radius-nm="0.5"    data-radius-label="½ mile" title="List saved routes within ½ mile of this marker">½ mile</button>
+    <button data-radius-nm="1"      data-radius-label="1 mile" title="List saved routes within 1 mile of this marker">1 mile</button>
+    <button data-radius-nm="2"      data-radius-label="2 miles" title="List saved routes within 2 miles of this marker">2 miles</button>
+    <button data-radius-nm="5"      data-radius-label="5 miles" title="List saved routes within 5 miles of this marker">5 miles</button>
+  </div>
+  <div id="map-ctx-tracks-near-submenu" style="display:none">
+    <button data-radius-nm="0.0494" data-radius-label="100 yards" title="List recorded tracks within 100 yards of this marker">100 yards</button>
+    <button data-radius-nm="0.0988" data-radius-label="200 yards" title="List recorded tracks within 200 yards of this marker">200 yards</button>
+    <button data-radius-nm="0.25"   data-radius-label="¼ mile" title="List recorded tracks within ¼ mile of this marker">¼ mile</button>
+    <button data-radius-nm="0.5"    data-radius-label="½ mile" title="List recorded tracks within ½ mile of this marker">½ mile</button>
+    <button data-radius-nm="1"      data-radius-label="1 mile" title="List recorded tracks within 1 mile of this marker">1 mile</button>
+    <button data-radius-nm="2"      data-radius-label="2 miles" title="List recorded tracks within 2 miles of this marker">2 miles</button>
+    <button data-radius-nm="5"      data-radius-label="5 miles" title="List recorded tracks within 5 miles of this marker">5 miles</button>
   </div>
 
   <div id="near-point-panel" style="display:none">
