@@ -272,7 +272,14 @@ function _refreshWaypointLayer() {
   _waypointLayer = L.layerGroup(
     wps.map(wp => {
       const icon = wp.type === 'search' ? MarkerIcons.searchPinIcon() : MarkerIcons.waypointIcon();
-      const m = L.marker([wp.lat, wp.lon], { icon, draggable: true });
+      // Direct report: buoys were "getting in the way" of tapping a user's
+      // own markers — navaids render with no zIndexOffset (effectively 0),
+      // so without one here Leaflet's default y-position stacking decided
+      // the winner by coincidence. A user's own waypoint/search pin should
+      // always win that fight, above every charted navaid/hazard symbol
+      // (hazards top out at 1000, see their own zIndexOffset) regardless
+      // of screen position.
+      const m = L.marker([wp.lat, wp.lon], { icon, draggable: true, zIndexOffset: 1050 });
       m.bindTooltip(escapeHtml(wp.name), { permanent: true, direction: 'top', className: 'map-tooltip' });
       m.bindPopup(
         `<div class="navaid-popup">
@@ -433,7 +440,10 @@ function _refreshTestSetLayer() {
   for (const set of sets) {
     for (const wp of set.waypoints) {
       const icon = MarkerIcons.testSetMarkerIcon();
-      const m = L.marker([wp.lat, wp.lon], { icon, draggable: false });
+      // See the matching zIndexOffset comment in _refreshWaypointLayer —
+      // same direct report, same fix: a user's own marker should always
+      // win over charted navaid/hazard symbols for tap priority.
+      const m = L.marker([wp.lat, wp.lon], { icon, draggable: false, zIndexOffset: 1050 });
       m.bindTooltip(escapeHtml(wp.name), { permanent: true, direction: 'top', className: 'map-tooltip' });
       m.bindPopup(
         `<div class="navaid-popup">
