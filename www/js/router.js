@@ -1490,19 +1490,60 @@ async function _longRangeRoute(start, end, onUpdate, onText, draftFt, tideHeight
   if (_isClearOffshoreLine(start, end)) return [start, end];
   if (Date.now() - _lrT0 > longRangeDeadlineMs) return _timedOutFallback(start, end);
 
-  const departurePt = Query.findClearOffshorePoint(start.lon, start.lat, end.lon, end.lat, { draftFt, tideHeightM });
-  const arrivalPt = Query.findClearOffshorePoint(end.lon, end.lat, start.lon, start.lat, { draftFt, tideHeightM });
+  let departurePt = Query.findClearOffshorePoint(start.lon, start.lat, end.lon, end.lat, { draftFt, tideHeightM });
+  let arrivalPt = Query.findClearOffshorePoint(end.lon, end.lat, start.lon, start.lat, { draftFt, tideHeightM });
   if (!departurePt || !arrivalPt) return [start, end];
   if (Date.now() - _lrT0 > longRangeDeadlineMs) return _timedOutFallback(start, end);
 
-  const departLeg = await autoRouteProg(start, departurePt, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs);
+  let departLeg = await autoRouteProg(start, departurePt, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs);
+  if (_legFailed(departLeg) && !departLeg._timedOut && Date.now() - _lrT0 <= longRangeDeadlineMs) {
+    // Retry once with a destination-ALIGNED departure point instead of the
+    // plain most-open one — see findClearOffshorePoint's own comment on
+    // alignThresholdNm for why this is scoped to the failure path only
+    // (a route whose original pick already works is untouched either way,
+    // so this can't regress it the way making alignment the unconditional
+    // default once did — confirmed live, see that comment for specifics).
+    const altPt = Query.findClearOffshorePoint(start.lon, start.lat, end.lon, end.lat, { draftFt, tideHeightM, alignThresholdNm: true });
+    if (altPt && (altPt.lat !== departurePt.lat || altPt.lon !== departurePt.lon)) {
+      const altLeg = await autoRouteProg(start, altPt, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs);
+      if (!_legFailed(altLeg)) { departurePt = altPt; departLeg = altLeg; }
+    }
+  }
   if (_legFailed(departLeg)) return departLeg._timedOut ? _timedOutFallback(start, end) : [start, end];
   if (Date.now() - _lrT0 > longRangeDeadlineMs) return _timedOutFallback(start, end);
 
-  const transit = await _transitLeg(departurePt, arrivalPt, _lrT0, onUpdate, onText, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs, longRangeDeadlineMs);
+  let transit = await _transitLeg(departurePt, arrivalPt, _lrT0, onUpdate, onText, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs, longRangeDeadlineMs);
+  if (!transit && Date.now() - _lrT0 <= longRangeDeadlineMs) {
+    // Retry with a destination-ALIGNED arrival point — see
+    // findClearOffshorePoint's alignThresholdNm comment. This is TS016's
+    // actual failure mode, confirmed live: the plain most-open arrival
+    // point sat far enough off the real approach bearing that THIS leg's
+    // own hop-based bracket search between departurePt and arrivalPt found
+    // no connected path within budget at all — the arriveLeg retry below
+    // never even got a chance to run, since this returns first.
+    const altArrivalPt = Query.findClearOffshorePoint(end.lon, end.lat, start.lon, start.lat, { draftFt, tideHeightM, alignThresholdNm: true });
+    if (altArrivalPt && (altArrivalPt.lat !== arrivalPt.lat || altArrivalPt.lon !== arrivalPt.lon)) {
+      const altTransit = await _transitLeg(departurePt, altArrivalPt, _lrT0, onUpdate, onText, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs, longRangeDeadlineMs);
+      if (altTransit) { arrivalPt = altArrivalPt; transit = altTransit; }
+    }
+  }
   if (!transit) return (Date.now() - _lrT0 > longRangeDeadlineMs) ? _timedOutFallback(start, end) : [start, end];
 
-  const arriveLeg = await autoRouteProg(arrivalPt, end, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs);
+  let arriveLeg = await autoRouteProg(arrivalPt, end, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs);
+  if (_legFailed(arriveLeg) && !arriveLeg._timedOut && Date.now() - _lrT0 <= longRangeDeadlineMs) {
+    // Same retry, arrival side — the actual TS016 case this was built for:
+    // the plain most-open arrival point sat far enough off the real
+    // approach bearing that the local search back to the destination found
+    // no connected path at all, not just an inefficient one.
+    const altPt = Query.findClearOffshorePoint(end.lon, end.lat, start.lon, start.lat, { draftFt, tideHeightM, alignThresholdNm: true });
+    if (altPt && (altPt.lat !== arrivalPt.lat || altPt.lon !== arrivalPt.lon)) {
+      const altTransit = await _transitLeg(departurePt, altPt, _lrT0, onUpdate, onText, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs, longRangeDeadlineMs);
+      if (altTransit) {
+        const altLeg = await autoRouteProg(altPt, end, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs);
+        if (!_legFailed(altLeg)) { arrivalPt = altPt; transit = altTransit; arriveLeg = altLeg; }
+      }
+    }
+  }
   if (_legFailed(arriveLeg)) return arriveLeg._timedOut ? _timedOutFallback(start, end) : [start, end];
   if (Date.now() - _lrT0 > longRangeDeadlineMs) return _timedOutFallback(start, end);
 

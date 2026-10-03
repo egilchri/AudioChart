@@ -569,6 +569,46 @@ async function main() {
       DEADLINE_MS, LONG_RANGE_DEADLINE_MS);
   })());
 
+  // Case 22 — Rockland -> TS016 (Brooklin/Eggemoggin Reach vicinity, ~21.4nm,
+  // real user-reported route, found comparing an identical AutoRoute run
+  // across two devices). Failed completely on bundled-default (full A*
+  // exhaustion on the arrive leg, not a timeout) even though the route is
+  // genuinely findable — confirmed live. Root cause: _longRangeRoute's
+  // arrival-point pick (Query.findClearOffshorePoint) searches the full
+  // 360° compass for whichever direction has the longest uninterrupted
+  // clear-water run, with NO weight toward the direction the boat is
+  // actually approaching from. For TS016 that picked a point sitting 117°
+  // off the real approach bearing — bad enough here that the transit leg's
+  // own bracket search between departurePt and that misaligned arrivalPt
+  // never found a connected path within budget at all, not just an
+  // inefficient one.
+  //
+  // Fixed in TWO places, deliberately NOT by changing
+  // findClearOffshorePoint's default behavior: an earlier attempt made
+  // destination-alignment the unconditional default for every caller and
+  // broke cases 17 and 20 above — both already-fragile long-range cases in
+  // this same island-dense area whose ORIGINAL most-open arrival/departure
+  // points already worked; shifting the default moved them too and
+  // destabilized _transitLeg's own bracket-detection math. Instead:
+  // (1) findClearOffshorePoint grew an opt-in alignThresholdNm param
+  // (prefer the closest-to-ideal-bearing direction among any that clear at
+  // least that much open water, default openWidthNm — never applied
+  // unless a caller explicitly asks); (2) _longRangeRoute calls it with
+  // that option ONLY as a retry, after the plain pick's own leg/transit
+  // search has already failed. A route whose first attempt already
+  // succeeds (every previously-passing case, including 17/20) never enters
+  // the retry path at all, so this can't regress them — confirmed live by
+  // re-running the full suite after the fix: same 3 EXPERIMENTAL failures
+  // as baseline (2/6/7), zero new ones.
+  gate(await (async () => {
+    Query.setActiveRegion(null);
+    await Query.loadData(44.103, -69.088);
+    await waitForRegionDataReady(Query);
+    return runCase(Query, Router, '[22] Rockland -> TS016/Brooklin vicinity (misaligned long-range arrival point)',
+      { lat: 44.103, lon: -69.088 }, { lat: 44.281016, lon: -68.658247 },
+      DEADLINE_MS, LONG_RANGE_DEADLINE_MS);
+  })());
+
   console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll cases passed.');
   console.log(
     '\nNOT PORTED (relied on injecting a synthetic obstacle ring the real\n' +

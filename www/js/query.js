@@ -1362,14 +1362,39 @@ export function findClearOffshorePoint(lon, lat, towardLon, towardLat, opts = {}
     lon = nudged.lon; lat = nudged.lat;
   }
 
+  // Direct report (TS016): the plain most-open-direction pick below can
+  // land 60°+ off the actual approach bearing, which the subsequent depart/
+  // arrive leg then has to claw back with an avoidable multi-nm detour —
+  // or, confirmed live against TS016's real chart data, can fail outright
+  // (the local search from that misaligned point back to the destination
+  // found no connected path at all). opts.alignThresholdNm opts into
+  // preferring a destination-aligned direction instead, but ONLY when it's
+  // at least that open (default, if passed with no value: openWidthNm —
+  // this function's own existing "clearly open" bar) — never the default
+  // for this function itself. Deliberately NOT applied automatically to
+  // every caller: an earlier version made it the unconditional default and
+  // broke 2 previously-passing long-range regression cases near Brooklin/
+  // Eggemoggin Reach, because it also shifts the depart/arrive points for
+  // routes whose ORIGINAL most-open pick already worked fine — exactly
+  // what _transitLeg's own bracket-detection/retry logic (see its "fragile
+  // transit-bracket fix" comment in test_channel_routing.js) turned out to
+  // be sensitive to. _longRangeRoute instead calls this with the option
+  // only as a retry, after the plain pick's own leg search has already
+  // failed — see its own comment for why that's the safe scope.
   const centerBrg = bearing(lon, lat, towardLon, towardLat);
   let bestBrg = centerBrg, bestOpen = -1;
+  let bestAlignedBrg = null, bestAlignedOpen = -1, bestAlignedOffset = Infinity;
+  const alignThresholdNm = opts.alignThresholdNm === true ? openWidthNm : opts.alignThresholdNm;
   for (let i = 0; i < rays; i++) {
     const offsetDeg = rays > 1 ? -coneDeg + (2 * coneDeg * i) / (rays - 1) : 0;
     const brg = (centerBrg + offsetDeg + 360) % 360;
     const d = _distToLandAlongBearing(lon, lat, brg, maxNm, 0.05, isBlocked);
     if (d > bestOpen) { bestOpen = d; bestBrg = brg; }
+    if (alignThresholdNm != null && d >= alignThresholdNm && Math.abs(offsetDeg) < bestAlignedOffset) {
+      bestAlignedOffset = Math.abs(offsetDeg); bestAlignedBrg = brg; bestAlignedOpen = d;
+    }
   }
+  if (bestAlignedBrg !== null) { bestBrg = bestAlignedBrg; bestOpen = bestAlignedOpen; }
 
   let placed = { lat, lon };
   for (let d = stepNm; d <= bestOpen; d += stepNm) {
