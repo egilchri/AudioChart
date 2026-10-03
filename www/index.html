@@ -134,14 +134,6 @@
           <button class="pan-btn" id="pan-south" title="Pan south">&#9660;</button>
         </div>
       </div>
-      <!-- Toggling which navaids show is a display setting, not a route/
-           tracking action — per direct request, pulled out of the right
-           rail entirely and into the left instrument column (below the
-           pan controls on desktop; directly under the compass on mobile,
-           where the pan/zoom controls above it are hidden in favor of
-           touch gestures — see its own CSS for both positions). Standard
-           gear glyph, not the anchor glyph Anchor Watch already owns. -->
-      <button id="navaid-filter-btn" title="Show navaids on map">&#9881;</button>
       <!-- Consolidated bottom HUD — focus-btn lives here in markup;
            .tide-cycle-ctrl and .heading-speed-ctrl are Leaflet controls
            built dynamically in app.js and re-parented in here right after
@@ -210,24 +202,26 @@
         <div id="tp-sync-status" class="nf-sync-status"></div>
       </div>
       <div id="navaid-filter-panel">
-        <div class="nf-title">Objects<button id="nf-close" title="Close">&#10005;</button></div>
-        <label><input type="checkbox" id="nf-navaids" checked> Navaids</label>
-        <label><input type="checkbox" id="nf-hazard" checked> Hazards</label>
-        <label><input type="checkbox" id="nf-depth" checked> Depths</label>
-        <label><input type="checkbox" id="nf-soundings"> Soundings</label>
-        <label><input type="checkbox" id="nf-currents"> Currents</label>
-        <label><input type="checkbox" id="nf-waypoints"> Custom GeoLabels</label>
-        <div class="nf-divider"></div>
-        <label class="nf-sub nf-draft-row" title="Used by AutoRoute/Re-route to avoid water too shallow for your boat, regardless of whether the Depths overlay is shown">Boat draft&nbsp;<input type="number" id="nf-draft-ft" min="0" max="30" step="0.5" placeholder="ft"></label>
-        <label class="nf-sub nf-draft-row" title="How much clearance beyond your draft counts as &quot;comfortable&quot; — below this, a real charted depth still gets a caution triangle even though it's technically passable. Used by the shallow-area warning, the depth-heat overlay's yellow band, and the nudge-offshore fix. Does not change AutoRoute's own hard safety floor.">Comfortable clearance margin&nbsp;<input type="number" id="nf-comfort-margin-ft" min="0" max="20" step="0.5" placeholder="3 ft"></label>
-        <label class="nf-sub nf-draft-row" title="How long AutoRoute/Re-route will keep searching for a real safe route before giving up. A hard route on a slow device may need more time than the default — raise this if AutoRoute reports a route as impossible when you expect one exists.">Route planning time limit&nbsp;<input type="number" id="nf-route-timeout-s" min="5" max="120" step="1" placeholder="14 s"></label>
-        <div id="nf-depth-settings" style="display:none">
-          <div id="nf-tide-status" class="nf-sub"></div>
-          <div id="nf-draft-hint" class="nf-sub" style="font-style:italic"></div>
-        </div>
-        <div class="nf-actions">
-          <button id="nf-refresh" title="Reload navaid data for the current map area">Refresh</button>
-          <button id="nf-clear" title="Clear all displayed navaid markers from the map">Clear</button>
+        <div class="nf-title nf-title-collapsible" id="nf-panel-title">Objects</div>
+        <div id="nf-body">
+          <label><input type="checkbox" id="nf-navaids" checked> Navaids</label>
+          <label><input type="checkbox" id="nf-hazard" checked> Hazards</label>
+          <label><input type="checkbox" id="nf-depth" checked> Depths</label>
+          <label><input type="checkbox" id="nf-soundings"> Soundings</label>
+          <label><input type="checkbox" id="nf-currents"> Currents</label>
+          <label><input type="checkbox" id="nf-waypoints"> Custom GeoLabels</label>
+          <div class="nf-divider"></div>
+          <label class="nf-sub nf-draft-row" title="Used by AutoRoute/Re-route to avoid water too shallow for your boat, regardless of whether the Depths overlay is shown">Boat draft&nbsp;<input type="number" id="nf-draft-ft" min="0" max="30" step="0.5" placeholder="ft"></label>
+          <label class="nf-sub nf-draft-row" title="How much clearance beyond your draft counts as &quot;comfortable&quot; — below this, a real charted depth still gets a caution triangle even though it's technically passable. Used by the shallow-area warning, the depth-heat overlay's yellow band, and the nudge-offshore fix. Does not change AutoRoute's own hard safety floor.">Comfortable clearance margin&nbsp;<input type="number" id="nf-comfort-margin-ft" min="0" max="20" step="0.5" placeholder="3 ft"></label>
+          <label class="nf-sub nf-draft-row" title="How long AutoRoute/Re-route will keep searching for a real safe route before giving up. A hard route on a slow device may need more time than the default — raise this if AutoRoute reports a route as impossible when you expect one exists.">Route planning time limit&nbsp;<input type="number" id="nf-route-timeout-s" min="5" max="120" step="1" placeholder="14 s"></label>
+          <div id="nf-depth-settings" style="display:none">
+            <div id="nf-tide-status" class="nf-sub"></div>
+            <div id="nf-draft-hint" class="nf-sub" style="font-style:italic"></div>
+          </div>
+          <div class="nf-actions">
+            <button id="nf-refresh" title="Reload navaid data for the current map area">Refresh</button>
+            <button id="nf-clear" title="Clear all displayed navaid markers from the map">Clear</button>
+          </div>
         </div>
       </div>
       <div id="waypoints-panel">

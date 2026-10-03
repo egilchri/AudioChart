@@ -7774,22 +7774,27 @@ function _ensureMap() {
     _map.flyTo([pos.lat, pos.lon], 15, { duration: 0.6 });
   });
 
-  // ⚓ Navaid filter panel
-  const _navaidFilterBtn   = document.getElementById('navaid-filter-btn');
+  // ⚓ Objects panel — direct request: always on screen (no more open/
+  // closed via a separate button, #navaid-filter-btn removed), collapsible
+  // to just its own title in place instead. Same collapse/expand mechanism
+  // as Node Ops' #etp-title/#edit-tools-body (see that comment), persisted
+  // across reloads the same way #right-rail's own collapsed state is —
+  // default collapsed on first-ever load (it's now a permanent fixture,
+  // so starting out of the way matters more than starting open), remember
+  // whatever the user leaves it at after that.
   const _navaidFilterPanel = document.getElementById('navaid-filter-panel');
-  const _closeNavaidPanel = () => {
-    _navaidFilterPanel.classList.remove('open');
-    _navaidFilterBtn.classList.remove('active');
+  const _navaidFilterTitle = document.getElementById('nf-panel-title');
+  const _setNavaidPanelCollapsed = (collapsed) => {
+    _navaidFilterPanel.classList.toggle('collapsed', collapsed);
+    _navaidFilterTitle.classList.toggle('collapsed', collapsed);
+    localStorage.setItem('audiochart-navaid-panel-collapsed', collapsed ? '1' : '');
   };
-  _addSwipeToClose(_navaidFilterPanel, _closeNavaidPanel, 'x', '.nf-title');
-  _makeDraggable(_navaidFilterPanel, _navaidFilterPanel.querySelector('.nf-title'));
-  _navaidFilterBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    _navaidFilterPanel.classList.toggle('open');
-    _navaidFilterBtn.classList.toggle('active', _navaidFilterPanel.classList.contains('open'));
+  const _storedNavaidCollapsed = localStorage.getItem('audiochart-navaid-panel-collapsed');
+  _setNavaidPanelCollapsed(_storedNavaidCollapsed === null ? true : _storedNavaidCollapsed === '1');
+  _navaidFilterTitle.addEventListener('click', () => {
+    _setNavaidPanelCollapsed(!_navaidFilterPanel.classList.contains('collapsed'));
   });
-  document.getElementById('nf-close').addEventListener('click', _closeNavaidPanel);
-  _map.on('click', _closeNavaidPanel);
+  _makeDraggable(_navaidFilterPanel, _navaidFilterTitle);
   document.getElementById('nf-refresh').addEventListener('click', () => {
     _refreshNavaidOverlay();
   });
@@ -7845,8 +7850,6 @@ function _ensureMap() {
     if (_depthHeatLayer)    { _map?.removeLayer(_depthHeatLayer);    _depthHeatLayer = null; }
     if (_mudflatLayer)      { _map?.removeLayer(_mudflatLayer);      _mudflatLayer   = null; }
     if (_currentArrowLayer) { _map?.removeLayer(_currentArrowLayer); _currentArrowLayer = null; }
-    _navaidFilterPanel.classList.remove('open');
-    _navaidFilterBtn.classList.remove('active');
   });
 
   // ⓘ About panel — tap either version label to see features + coverage areas
@@ -9947,8 +9950,8 @@ function _ensureMap() {
 
   const _sampleList = document.getElementById('rp-sample-list');
   // Own top-chrome button now (v659), not tucked inside Routes — a real
-  // toggle, matching #route-picker-btn/#navaid-filter-btn's own pattern,
-  // rather than the old "always just opens" in-panel action button.
+  // toggle, matching #route-picker-btn's own pattern, rather than the old
+  // "always just opens" in-panel action button.
   _sampleRoutesBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     const opening = !_sampleRoutesPanel.classList.contains('open');
@@ -11064,8 +11067,6 @@ function hideMap() {
   if (_depthHeatLayer)    { _map?.removeLayer(_depthHeatLayer);    _depthHeatLayer = null; }
   if (_channelLayer)      { _map?.removeLayer(_channelLayer);      _channelLayer = null; }
   if (_soundingsLayer)    { _map?.removeLayer(_soundingsLayer);    _soundingsLayer = null; }
-  document.getElementById('navaid-filter-panel')?.classList.remove('open');
-  document.getElementById('navaid-filter-btn')?.classList.remove('active');
 }
 
 async function showNavaidMap(fromLat, fromLon, navaids) {

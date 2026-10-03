@@ -2048,8 +2048,16 @@ body.wco-active #wco-titlebar { display: flex; }
 }
 #rp-close:hover { color: var(--text); }
 
+/* Direct request: "keep the Objects menu always on the screen, but be
+   able to shrink to just a title, in place" — no more open/closed via a
+   separate button (#navaid-filter-btn removed); always display:flex,
+   collapse/expand toggles #nf-body instead (same mechanism as Node Ops'
+   own #etp-title/#edit-tools-body — see that comment for the pattern this
+   mirrors). Also narrowed to about half its old rendered width (~130px
+   min-width, content pushed it out to ~280px in practice) per direct
+   follow-up. */
 #navaid-filter-panel {
-  display: none;
+  display: flex;
   position: absolute;
   top: 70px;
   right: 10px;
@@ -2062,14 +2070,16 @@ body.wco-active #wco-titlebar { display: flex; }
   border: 1px solid var(--mid-blue);
   border-radius: 10px;
   padding: 10px 14px;
-  min-width: 130px;
+  width: 140px;
   box-shadow: 0 2px 12px rgba(0,0,0,0.7);
   font-size: 0.85rem;
   color: var(--text);
   flex-direction: column;
   gap: 6px;
 }
-#navaid-filter-panel.open { display: flex; }
+#navaid-filter-panel.collapsed #nf-body { display: none !important; }
+.nf-title-collapsible::after { content: '  \25B4'; } /* up chevron — tap to collapse */
+.nf-title-collapsible.collapsed::after { content: '  \25BE'; } /* down chevron — tap to expand */
 
 #about-panel {
   display: none;
@@ -2135,17 +2145,6 @@ body.wco-active #wco-titlebar { display: flex; }
 }
 .nf-title:active { cursor: grabbing; }
 .nf-title-actions { display: flex; align-items: center; gap: 4px; }
-#nf-close {
-  background: none;
-  border: none;
-  color: var(--muted, #8899aa);
-  font-size: 0.9rem;
-  cursor: pointer;
-  padding: 0 2px;
-  line-height: 1;
-  -webkit-tap-highlight-color: transparent;
-}
-#nf-close:hover { color: var(--text); }
 #navaid-filter-panel label {
   display: flex;
   align-items: center;
@@ -2820,7 +2819,7 @@ body.wco-active #wco-titlebar { display: flex; }
 #app.edit-mode #map-overlay-status,
 #app.edit-mode #right-rail,
 #app.edit-mode #left-rail-zoom-pan,
-#app.edit-mode #navaid-filter-btn {
+#app.edit-mode #navaid-filter-panel {
   display: none !important;
 }
 #app.edit-mode #map-container {
@@ -3800,7 +3799,7 @@ body.wco-active #wco-titlebar { display: flex; }
 #app.anim-mode #right-rail,
 #app.anim-mode #edit-tools-panel,
 #app.anim-mode #left-rail-zoom-pan,
-#app.anim-mode #navaid-filter-btn,
+#app.anim-mode #navaid-filter-panel,
 #app.anim-mode .follow-progress-ctrl,
 #app.anim-mode #bottom-hud {
   display: none !important;
@@ -3824,8 +3823,7 @@ body.wco-active #wco-titlebar { display: flex; }
    before adding anything else back. */
 #app.underway-mode #map-overlay-status,
 #app.underway-mode #right-rail,
-#app.underway-mode #left-rail-zoom-pan,
-#app.underway-mode #navaid-filter-btn {
+#app.underway-mode #left-rail-zoom-pan {
   display: none !important;
 }
 /* One button, not two, and deliberately NOT a child of #map-overlay-status
@@ -4346,40 +4344,6 @@ body.wco-active #underway-btn { top: 10px; }
   -webkit-tap-highlight-color: transparent;
 }
 .pan-btn:active { background: rgba(255,255,255,0.1); }
-
-/* ── Navaid filter toggle (left instrument column) ───────────────────────── */
-/* Own left-column slot, not gated behind the 768px breakpoint like
-   #left-rail-zoom-pan above — that's redundant with touch panning on a
-   phone, but this is a display setting that needs to stay reachable on
-   mobile too. Sits directly under the compass (top:110px, the same slot
-   #left-rail-zoom-pan uses on desktop) since that slot is empty on
-   mobile; moves down to clear the zoom/pan rail once it appears at the
-   768px breakpoint. */
-#navaid-filter-btn {
-  position: absolute;
-  left: 10px;
-  top: 110px;
-  z-index: 1000;
-  width: 48px;
-  height: 48px;
-  flex-shrink: 0;
-  background: var(--brass-ink-2);
-  color: var(--brass);
-  border: 1px solid var(--brass-dim);
-  border-radius: 10px;
-  font-size: 1.3rem;
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  -webkit-tap-highlight-color: transparent;
-}
-#navaid-filter-btn:active { background: var(--brass-dim); }
-#navaid-filter-btn.active  { background: var(--brass);  color: var(--brass-ink); }
-@media (min-width: 768px) {
-  #navaid-filter-btn { top: 424px; } /* clears #left-rail-zoom-pan (~410px tall incl. its own internal gap) */
-}
 
 
 
