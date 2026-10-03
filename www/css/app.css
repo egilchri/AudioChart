@@ -1295,7 +1295,11 @@ body.wco-active #wco-titlebar { display: flex; }
   top: 10px;
   bottom: 70px; /* clear the command bar/text-input row docked at the bottom, same as #route-picker-panel */
   right: 10px;
-  z-index: 1001;
+  /* Direct follow-up: "all windows such as Test Sets window should come up
+     on top of all other buttons and ui elements" — same "above every other
+     panel/banner" tier #route-picker-panel already uses (see its own
+     comment), just never applied here when this panel was split out. */
+  z-index: 1900;
   background: var(--dark-blue);
   border: 1px solid var(--mid-blue);
   border-radius: 10px;
@@ -1324,7 +1328,11 @@ body.wco-active #wco-titlebar { display: flex; }
   top: 10px;
   bottom: 70px;
   right: 10px;
-  z-index: 1001;
+  /* Direct follow-up: "all windows such as Test Sets window should come up
+     on top of all other buttons and ui elements" — same "above every other
+     panel/banner" tier #route-picker-panel already uses (see its own
+     comment), just never applied here when this panel was split out. */
+  z-index: 1900;
   background: var(--dark-blue);
   border: 1px solid var(--mid-blue);
   border-radius: 10px;
@@ -2045,7 +2053,11 @@ body.wco-active #wco-titlebar { display: flex; }
   position: absolute;
   top: 70px;
   right: 10px;
-  z-index: 1001;
+  /* Direct follow-up: "all windows such as Test Sets window should come up
+     on top of all other buttons and ui elements" — same "above every other
+     panel/banner" tier #route-picker-panel already uses (see its own
+     comment), just never applied here when this panel was split out. */
+  z-index: 1900;
   background: var(--dark-blue);
   border: 1px solid var(--mid-blue);
   border-radius: 10px;
@@ -2064,7 +2076,11 @@ body.wco-active #wco-titlebar { display: flex; }
   position: absolute;
   bottom: 100px;
   left: 10px;
-  z-index: 1001;
+  /* Direct follow-up: "all windows such as Test Sets window should come up
+     on top of all other buttons and ui elements" — same "above every other
+     panel/banner" tier #route-picker-panel already uses (see its own
+     comment), just never applied here when this panel was split out. */
+  z-index: 1900;
   background: var(--dark-blue);
   border: 1px solid var(--mid-blue);
   border-radius: 10px;
