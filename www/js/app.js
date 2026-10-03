@@ -6840,6 +6840,61 @@ function _startRouteAnimation(route, speedKnots) {
   _animMarker = L.marker(pts[0], { icon: MarkerIcons.animBoatIcon(_initBearing), pane: 'animBoatPane' }).addTo(_map);
   _animCurrentLat = pts[0][0];
   _animCurrentLon = pts[0][1];
+  // Direct request: clicking the animated boat — typically once it's
+  // arrived and sitting at the route's end — should bring up the same
+  // marker menu every other marker in the app already has. Reuses the
+  // exact navaid-popup-* classes/shared helpers (_bringBoatTo,
+  // _openNearPointFlyout) rather than a one-off template. Live position,
+  // not the route's fixed endpoint — works mid-animation too, not just
+  // after arrival (nothing about a live marker's position makes "here"
+  // ambiguous while it's still moving).
+  _animMarker.bindPopup(
+    `<div class="navaid-popup">
+       <div class="navaid-popup-name">${escapeHtml(route.name)}</div>
+       <button class="navaid-popup-focus">&#127919; Set focus</button>
+       <button class="navaid-popup-bring-boat">&#9935; Bring boat here</button>
+       <button class="navaid-popup-autoroute">&#9973; AutoRoute from boat position</button>
+       <button class="navaid-popup-objects">Objects within &rsaquo;</button>
+       <button class="navaid-popup-routes-near">Routes within &rsaquo;</button>
+       <button class="navaid-popup-tracks-near">Tracks within &rsaquo;</button>
+     </div>`,
+    { maxWidth: 220, className: 'navaid-popup-wrapper' }
+  );
+  _animMarker.on('popupopen', (e) => {
+    const popupEl = e.popup.getElement();
+    const live = _animMarker.getLatLng();
+    popupEl.querySelector('.navaid-popup-focus').addEventListener('click', () => {
+      _map.closePopup();
+      Query.setFocus(live.lat, live.lng, route.name, 'place');
+      _updateFocusButton();
+      const msg = `Focused on ${route.name}.`;
+      showResponse(msg);
+      TTS.sayImmediate(msg);
+    });
+    popupEl.querySelector('.navaid-popup-bring-boat').addEventListener('click', () => {
+      _map.closePopup();
+      _bringBoatTo(live.lat, live.lng, route.name);
+    });
+    popupEl.querySelector('.navaid-popup-autoroute').addEventListener('click', () => {
+      _map.closePopup();
+      _autoRouteFromBoatToHereFn?.(live.lat, live.lng);
+    });
+    popupEl.querySelector('.navaid-popup-objects').addEventListener('click', (ev) => {
+      const rect = ev.currentTarget.getBoundingClientRect(); // before closePopup() detaches it
+      _map.closePopup();
+      _openNearPointFlyout(document.getElementById('map-ctx-objects-submenu'), rect, { lat: live.lat, lng: live.lng });
+    });
+    popupEl.querySelector('.navaid-popup-routes-near').addEventListener('click', (ev) => {
+      const rect = ev.currentTarget.getBoundingClientRect();
+      _map.closePopup();
+      _openNearPointFlyout(document.getElementById('map-ctx-routes-near-submenu'), rect, { lat: live.lat, lng: live.lng });
+    });
+    popupEl.querySelector('.navaid-popup-tracks-near').addEventListener('click', (ev) => {
+      const rect = ev.currentTarget.getBoundingClientRect();
+      _map.closePopup();
+      _openNearPointFlyout(document.getElementById('map-ctx-tracks-near-submenu'), rect, { lat: live.lat, lng: live.lng });
+    });
+  });
 
   // Fixed real-world playback length, regardless of route length or boat
   // speed: 10 seconds start to finish, every time — replaces the old
