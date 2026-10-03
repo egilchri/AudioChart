@@ -10944,6 +10944,26 @@ function _refreshNavaidOverlay() {
     markers.push(hazardLayer);
   }
 
+  // Direct report: toggling Depths with no boat draft set produced total
+  // silence — the heat-layer block below is draft-gated (needs a number to
+  // compute effective clearance against) and was failing that check with
+  // no feedback at all, reading as "broken" rather than "needs one more
+  // field filled in". A dedicated element, not a repurposed #nf-tide-status
+  // — that one's legitimately updated by _fetchTideHeight far less often
+  // than this function runs (every pan/zoom), so clearing/setting it HERE
+  // on every refresh would just as often stomp a real tide reading right
+  // back out. This one only ever says one thing, so it's always safe to
+  // set it unconditionally on every call — no stale leftover text possible
+  // once a draft is actually entered (confirmed live: an earlier version
+  // that reused #nf-tide-status left the hint showing even after typing a
+  // real draft value, since nothing ever cleared it back out).
+  const _depthDraftHint = document.getElementById('nf-draft-hint');
+  if (_depthDraftHint) {
+    _depthDraftHint.textContent = (showDepths && _getDraftMeters() == null)
+      ? 'Set your boat draft above to see this overlay.'
+      : '';
+  }
+
   // Mudflat layer — tidal flats (valsou < 0 = seabed above chart datum, always exposed).
   if (_mudflatLayer) { _map.removeLayer(_mudflatLayer); _mudflatLayer = null; }
   if (showDepths && Query.depthZones) {
