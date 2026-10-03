@@ -2872,9 +2872,16 @@ body.wco-active #wco-titlebar { display: flex; }
    as a separate tile up in #right-rail (removed — see edit-mode's hide
    list above). */
 #edit-tools-panel.collapsed #edit-tools-body { display: none !important; }
+/* Direct request: symbol-only buttons (was symbol + word, e.g. "✛ Add") —
+   a row of small square icon buttons reads better than a column of
+   near-empty full-width bars once the word's gone; the full description
+   that used to be the visible label is still there as both buttons'
+   native `title` and (for touch, where `title` never shows) the tap-
+   tooltip wired up alongside these ids in app.js. */
 #edit-tools-body {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  flex-wrap: wrap;
   gap: 6px;
 }
 #edit-tools-panel button {
@@ -2882,16 +2889,15 @@ body.wco-active #wco-titlebar { display: flex; }
   color: var(--text);
   border: 1px solid var(--mid-blue);
   border-radius: 6px;
-  padding: 8px 12px;
-  font-size: 0.85rem;
+  padding: 8px 10px;
+  font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
-  text-align: left;
+  text-align: center;
   -webkit-tap-highlight-color: transparent;
 }
 #edit-tools-panel button:active { background: var(--mid-blue); }
-#etp-overnight { align-self: flex-start; }
 #edit-tools-panel button.active {
   background: var(--accent);
   color: var(--navy);

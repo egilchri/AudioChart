@@ -5190,6 +5190,14 @@ document.getElementById('edit-revert-btn').addEventListener('click', _revertEdit
 ['edit-hazards-btn', 'edit-info-btn', 'edit-copy-wpts-btn', 'edit-mail-wpts-btn',
  'edit-revert-btn', 'delete-route-btn', 'edit-ok-btn', 'edit-cancel-btn']
   .forEach(id => _addTapTooltip(document.getElementById(id)));
+
+// Direct request: Node Ops down to symbol-only buttons (was symbol + word,
+// e.g. "✛ Add") — their existing `title` text is already the full
+// description, same tap-tooltip wiring as the #edit-banner toolbar above
+// so that description is still reachable on a touch-only device now that
+// the word itself is gone from the button face.
+['etp-add-node', 'etp-insert-node', 'etp-delete', 'etp-overnight', 'etp-animate']
+  .forEach(id => _addTapTooltip(document.getElementById(id)));
 document.getElementById('edit-info-btn').addEventListener('click', () => {
   let totalNm = 0;
   for (let i = 0; i < _editPoints.length - 1; i++) {
