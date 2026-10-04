@@ -1428,6 +1428,73 @@ window._debugDepth = () => {
   console.log('draft (m):', _getDraftMeters());
 };
 
+// Longtest(setName, iterations) — end-to-end AutoRoute soak test, user's
+// own design (2026-10-04): bring the boat to a random marker of a Test
+// Set, AutoRoute to another random marker of the same set, play the boat
+// along the result, then repeat from wherever it arrived. Uses the same
+// router call and the same fallback/marginal grading as a real AutoRoute
+// (_triggerAutoRoute), but deliberately doesn't save the test routes into
+// the user's Routes list. Run from the console:  await Longtest('TS001', 3)
+// Resolves to one result row per iteration (also printed as a table).
+window.Longtest = async (setName, iterations = 3, { speedKnots = 5 } = {}) => {
+  const set = TestSetsStorage.loadTestSets().find(s => s.name.toLowerCase() === String(setName).toLowerCase());
+  if (!set) throw new Error(`No Test Set named "${setName}". Have: ${TestSetsStorage.loadTestSets().map(s => s.name).join(', ')}`);
+  if (set.waypoints.length < 2) throw new Error(`Test Set "${set.name}" needs at least 2 markers.`);
+  const pick = (exclude) => {
+    const pool = set.waypoints.filter(w => w !== exclude);
+    return pool[Math.floor(Math.random() * pool.length)];
+  };
+  const results = [];
+  let here = pick(null);
+  _bringBoatTo(here.lat, here.lon, here.name);
+  for (let i = 1; i <= iterations; i++) {
+    const dest = pick(here);
+    const start = { lat: here.lat, lon: here.lon };
+    const end = { lat: dest.lat, lon: dest.lon };
+    setStatus(`Longtest ${i}/${iterations}: ${here.name} → ${dest.name}…`);
+    const t0 = performance.now();
+    let pts;
+    try {
+      pts = await Router.autoRouteProg(start, end, () => {}, () => {}, false,
+        _currentDraftFt(), _tideHeight, null, null, _currentDeadlineMs());
+    } catch (err) {
+      results.push({ iter: i, from: here.name, to: dest.name, result: `ERROR: ${err.message}` });
+      break;
+    }
+    const ms = Math.round(performance.now() - t0);
+    const crossesLand = pts.some((p, k) => k > 0 && Query.landBlocks(pts[k - 1].lon, pts[k - 1].lat, p.lon, p.lat));
+    const fellBack = pts.length <= 2 && crossesLand;
+    const marginal = pts.length > 2 ? _marginalLegFromPath(pts) : null;
+    const nm = pts.reduce((s, p, k) => k ? s + Query.distanceNm(pts[k - 1].lon, pts[k - 1].lat, p.lon, p.lat) : 0, 0);
+    const result = fellBack ? (pts._timedOut ? 'FAIL: timed out → straight line' : 'FAIL: no path → straight line')
+      : crossesLand ? 'FAIL: route crosses land'
+      : marginal ? 'WARN: leg too close to land/hazard'
+      : 'PASS';
+    results.push({ iter: i, from: here.name, to: dest.name, result, points: pts.length, nm: +nm.toFixed(1), ms });
+    // Play it — even a failed route, so a straight line through land is visible.
+    _startRouteAnimation({ name: `Longtest ${i}: ${here.name} → ${dest.name}`, points: pts }, speedKnots);
+    await new Promise((resolve) => {
+      const tick = setInterval(() => {
+        if (!_animMode || _animBannerText.textContent.startsWith('✓')) { clearInterval(tick); resolve(); }
+      }, 250);
+    });
+    await new Promise(r => setTimeout(r, 1500)); // let the arrival view settle
+    if (_animMode) _exitAnimMode();
+    // Advance: the boat continues from where it arrived. After a failed leg
+    // the route's end isn't a real arrival, so jump to the intended
+    // destination marker instead and keep testing rather than stopping.
+    const last = pts[pts.length - 1];
+    here = (fellBack || crossesLand) ? dest : { ...dest, lat: last.lat, lon: last.lon };
+    _bringBoatTo(here.lat, here.lon, dest.name);
+  }
+  console.table(results);
+  const passed = results.filter(r => r.result === 'PASS').length;
+  const summary = `Longtest ${set.name}: ${passed}/${results.length} legs passed.`;
+  setStatus(summary);
+  console.log(summary);
+  return results;
+};
+
 // ── Map / list focus toggle ───────────────────────────────────────────────────
 const _mapContainer = document.getElementById('map-container');
 // Clicking the response area (list) → list expands, map shrinks. If it's collapsed

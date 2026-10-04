@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-04 — Longtest: end-to-end AutoRoute soak test (v775)
+
+User's design. From the browser console, `await Longtest('TS001', 3)`
+brings the boat to a random marker of the named Test Set, AutoRoutes to
+another random marker of the same set, plays the boat along the result,
+then repeats from the arrival point. After a failed leg the boat jumps
+to the intended destination and keeps going. Uses the same router call
+(draft, tide, time limit) and the same fallback/marginal grading as a
+real AutoRoute, but doesn't save the test routes into the Routes list.
+Prints a results table (PASS / WARN / FAIL with reason, points, nm, ms).
+
 ## 2026-10-04 — Sync tutorial: detailed first-time setup (v774)
 
 Direct request. The tutorial page's "4. Sync" tab (sailors/index.html)
