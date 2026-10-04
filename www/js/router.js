@@ -43,15 +43,86 @@ function _timedOutFallback(a, b) {
   return arr;
 }
 
+// Retries for a genuine "no path" (A* exhausted its graph — not a timeout),
+// added 2026-10-04 from Longtest failures. Two distinct causes seen live:
+//  1. Search area too narrow: the visibility graph only covers the start/end
+//     bounding box padded by PAD_NM. Two points almost due north/south of
+//     each other across an island (Bay Ledge → Eggemoggin Reach, Deer Isle
+//     between) have no connected water inside that box — the real route
+//     runs ~2nm east of it. A wider pad finds it.
+//  2. Endpoint snapped into unreachable water: an on-land/too-shallow
+//     endpoint is moved to the single NEAREST navigable point, which can be
+//     an enclosed pocket (a "Brooksville" pin → Snow Cove, not connected to
+//     the bay in this chart data). Trying the next-nearest water in other
+//     directions finds one the router can reach.
+// Only the top-level call retries; the core's own recursive sub-legs call
+// _autoRouteCore directly, so retries never nest. Retries get their own
+// budget (total capped at 2x deadlineMs) — this project's standing call is
+// "wait longer" over "falsely claim impossible".
+const WIDE_PAD_NM = 6.0;
+const MAX_ALT_ENDPOINTS = 4;
+
+function _isNoPath(p) {
+  return p.length <= 2 && !p._timedOut &&
+    Query.landBlocks(p[0].lon, p[0].lat, p[p.length - 1].lon, p[p.length - 1].lat);
+}
+
 export async function autoRouteProg(
   start, end, onUpdate, onText = null, _escapeAttempted = false,
   draftFt = 5.0, tideHeightM = 0, onSearchProgress = null, onSnap = null,
   deadlineMs = DEFAULT_DEADLINE_MS,
 ) {
+  const t0 = Date.now();
+  const run = (s, e, pad, budget, snapCb = onSnap) => _autoRouteCore(s, e, onUpdate, onText, _escapeAttempted,
+    draftFt, tideHeightM, onSearchProgress, snapCb, budget, pad);
+  let path = await run(start, end, 2.0, deadlineMs);
+  if (!_isNoPath(path)) return path;
+  const remaining = () => 2 * deadlineMs - (Date.now() - t0);
+
+  // Retry 1: wider search area.
+  if (remaining() > 1000) {
+    console.log(`[autoRoute] no path in the ${2.0}nm-padded area — retrying with ${WIDE_PAD_NM}nm`);
+    path = await run(start, end, WIDE_PAD_NM, Math.min(deadlineMs, remaining()));
+    if (!_isNoPath(path)) return path;
+  }
+
+  // Retry 2: an endpoint that had to be moved to water may have landed in
+  // water the route can't reach — try other nearby water for that end.
+  const ends = [];
+  if (Query.snapToNavigableWater(end.lon, end.lat, draftFt, tideHeightM)) ends.push('end');
+  if (Query.snapToNavigableWater(start.lon, start.lat, draftFt, tideHeightM)) ends.push('start');
+  for (const which of ends) {
+    const orig = which === 'end' ? end : start;
+    const firstSnap = Query.snapToNavigableWater(orig.lon, orig.lat, draftFt, tideHeightM);
+    const alts = Query.navigableWaterCandidates(orig.lon, orig.lat, draftFt, tideHeightM)
+      .filter(c => !firstSnap || Query.distanceNm(c.lon, c.lat, firstSnap.lon, firstSnap.lat) > 0.4)
+      .slice(0, MAX_ALT_ENDPOINTS);
+    for (const alt of alts) {
+      if (remaining() <= 1000) return path;
+      console.log(`[autoRoute] retrying with the ${which} moved ${alt.movedNm.toFixed(2)}nm to other nearby water`);
+      const s = which === 'start' ? { lat: alt.lat, lon: alt.lon } : start;
+      const e = which === 'end' ? { lat: alt.lat, lon: alt.lon } : end;
+      // Suppress the core's own snap reports for this attempt (the alt point
+      // is already in water); report the alt move ourselves if it works.
+      const attempt = await run(s, e, WIDE_PAD_NM, Math.min(deadlineMs, remaining()), null);
+      if (!_isNoPath(attempt) && !attempt._timedOut) {
+        onSnap?.(which, alt);
+        return attempt;
+      }
+    }
+  }
+  return path;
+}
+
+async function _autoRouteCore(
+  start, end, onUpdate, onText = null, _escapeAttempted = false,
+  draftFt = 5.0, tideHeightM = 0, onSearchProgress = null, onSnap = null,
+  deadlineMs = DEFAULT_DEADLINE_MS, padNm = 2.0,
+) {
   // Visibility Graph + A* (Euclidean Shortest Path with Polygonal Obstacles).
   // Nodes: start, end, and polygon vertices in the padded bounding box.
   // Edges are checked lazily during A* expansion.
-  const PAD_NM    = 2.0;
+  const PAD_NM    = padNm;
   const SAFETY_NM   = 0.05;  // ~100 yards — kept as the hazard/tidal-ring offset floor (see HAZARD_OFFSET_LADDER); no longer used for land-ring standoff
   const CORRIDOR_NM = 3.0;   // include LAND rings within this distance of the direct line
   // A genuinely island-dotted stretch (e.g. Blue Hill Bay/Penobscot Bay —
@@ -1049,19 +1120,19 @@ export async function autoRouteProg(
       if (startBlocked) {
         const departurePt = Query.findClearOffshorePoint(start.lon, start.lat, end.lon, end.lat, { draftFt, tideHeightM });
         if (departurePt) {
-          const departLeg = await autoRouteProg(start, departurePt, onUpdate, onText, true, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs);
+          const departLeg = await _autoRouteCore(start, departurePt, onUpdate, onText, true, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs);
           if (_subLegOk(departLeg)) { prefix = departLeg.slice(0, -1); effStart = departurePt; }
         }
       }
       if (endBlocked && Date.now() - _profT0 <= deadlineMs) {
         const arrivalPt = Query.findClearOffshorePoint(end.lon, end.lat, start.lon, start.lat, { draftFt, tideHeightM });
         if (arrivalPt) {
-          const arriveLeg = await autoRouteProg(arrivalPt, end, onUpdate, onText, true, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs);
+          const arriveLeg = await _autoRouteCore(arrivalPt, end, onUpdate, onText, true, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs);
           if (_subLegOk(arriveLeg)) { suffix = arriveLeg.slice(1); effEnd = arrivalPt; }
         }
       }
       if ((prefix.length || suffix.length) && Date.now() - _profT0 <= deadlineMs) {
-        const middle = await autoRouteProg(effStart, effEnd, onUpdate, onText, true, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs);
+        const middle = await _autoRouteCore(effStart, effEnd, onUpdate, onText, true, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs);
         if (_subLegOk(middle)) {
           console.log(`[autoRoute] local escape succeeded — prefix ${prefix.length}pts, middle ${middle.length}pts, suffix ${suffix.length}pts`);
           return [...prefix, ...middle, ...suffix.slice(1)];
@@ -1414,7 +1485,7 @@ async function _transitLeg(a, b, lrT0, onUpdate, onText, draftFt, tideHeightM, o
     // CI runner. The loop's own `longRangeDeadlineMs` guard above already
     // stops a NEW hop from starting once the envelope is spent, so this
     // can't run the whole passage past its documented 3x budget.
-    let patched = await autoRouteProg(bracketStart, bracketEnd, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap,
+    let patched = await _autoRouteCore(bracketStart, bracketEnd, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap,
       Math.max(0, longRangeDeadlineMs - (Date.now() - lrT0)));
     let failed = patched.length <= 2 && Query.landBlocks(patched[0].lon, patched[0].lat, patched[1].lon, patched[1].lat);
 
@@ -1444,7 +1515,7 @@ async function _transitLeg(a, b, lrT0, onUpdate, onText, draftFt, tideHeightM, o
           smallEndT -= ENDPOINT_LAND_STEP_T;
         }
         const smallBracketEnd = { lat: cursor.lat + (b.lat - cursor.lat) * smallEndT, lon: cursor.lon + (b.lon - cursor.lon) * smallEndT };
-        const retryPatched = await autoRouteProg(bracketStart, smallBracketEnd, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap,
+        const retryPatched = await _autoRouteCore(bracketStart, smallBracketEnd, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap,
           Math.max(0, longRangeDeadlineMs - (Date.now() - lrT0)));
         const retryFailed = retryPatched.length <= 2 && Query.landBlocks(retryPatched[0].lon, retryPatched[0].lat, retryPatched[1].lon, retryPatched[1].lat);
         if (!retryFailed) {
@@ -1495,7 +1566,7 @@ async function _longRangeRoute(start, end, onUpdate, onText, draftFt, tideHeight
   if (!departurePt || !arrivalPt) return [start, end];
   if (Date.now() - _lrT0 > longRangeDeadlineMs) return _timedOutFallback(start, end);
 
-  let departLeg = await autoRouteProg(start, departurePt, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs);
+  let departLeg = await _autoRouteCore(start, departurePt, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs);
   if (_legFailed(departLeg) && !departLeg._timedOut && Date.now() - _lrT0 <= longRangeDeadlineMs) {
     // Retry once with a destination-ALIGNED departure point instead of the
     // plain most-open one — see findClearOffshorePoint's own comment on
@@ -1505,7 +1576,7 @@ async function _longRangeRoute(start, end, onUpdate, onText, draftFt, tideHeight
     // default once did — confirmed live, see that comment for specifics).
     const altPt = Query.findClearOffshorePoint(start.lon, start.lat, end.lon, end.lat, { draftFt, tideHeightM, alignThresholdNm: true });
     if (altPt && (altPt.lat !== departurePt.lat || altPt.lon !== departurePt.lon)) {
-      const altLeg = await autoRouteProg(start, altPt, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs);
+      const altLeg = await _autoRouteCore(start, altPt, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs);
       if (!_legFailed(altLeg)) { departurePt = altPt; departLeg = altLeg; }
     }
   }
@@ -1529,7 +1600,7 @@ async function _longRangeRoute(start, end, onUpdate, onText, draftFt, tideHeight
   }
   if (!transit) return (Date.now() - _lrT0 > longRangeDeadlineMs) ? _timedOutFallback(start, end) : [start, end];
 
-  let arriveLeg = await autoRouteProg(arrivalPt, end, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs);
+  let arriveLeg = await _autoRouteCore(arrivalPt, end, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs);
   if (_legFailed(arriveLeg) && !arriveLeg._timedOut && Date.now() - _lrT0 <= longRangeDeadlineMs) {
     // Same retry, arrival side — the actual TS016 case this was built for:
     // the plain most-open arrival point sat far enough off the real
@@ -1539,7 +1610,7 @@ async function _longRangeRoute(start, end, onUpdate, onText, draftFt, tideHeight
     if (altPt && (altPt.lat !== arrivalPt.lat || altPt.lon !== arrivalPt.lon)) {
       const altTransit = await _transitLeg(departurePt, altPt, _lrT0, onUpdate, onText, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs, longRangeDeadlineMs);
       if (altTransit) {
-        const altLeg = await autoRouteProg(altPt, end, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs);
+        const altLeg = await _autoRouteCore(altPt, end, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs);
         if (!_legFailed(altLeg)) { arrivalPt = altPt; transit = altTransit; arriveLeg = altLeg; }
       }
     }

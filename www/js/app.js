@@ -1447,7 +1447,17 @@ window.Longtest = async (setName, iterations = 3, { speedKnots = 5 } = {}) => {
   const results = [];
   let here = pick(null);
   _bringBoatTo(here.lat, here.lon, here.name);
+  // Chrome stretches a hidden tab's timers to ~1s, and the router yields on
+  // a timer every few dozen steps — a route that takes 8s in front took 51s
+  // hidden and "timed out" (2026-10-04, two false failures). Wait until the
+  // tab is visible before each leg's routing and playback.
+  const whenVisible = () => document.hidden ? new Promise(resolve => {
+    setStatus('Longtest paused — bring this tab to the front to continue.');
+    const onVis = () => { if (!document.hidden) { document.removeEventListener('visibilitychange', onVis); resolve(); } };
+    document.addEventListener('visibilitychange', onVis);
+  }) : Promise.resolve();
   for (let i = 1; i <= iterations; i++) {
+    await whenVisible();
     const dest = pick(here);
     const start = { lat: here.lat, lon: here.lon };
     const end = { lat: dest.lat, lon: dest.lon };

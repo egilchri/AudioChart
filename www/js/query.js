@@ -1162,6 +1162,38 @@ export function snapToNavigableWater(lon, lat, draftFt, tideHeightM, maxNm = 2) 
   return { lat: p.lat, lon: p.lon, movedNm: distanceNm(lon, lat, p.lon, p.lat) };
 }
 
+// Several candidate navigable-water points around (lon,lat), nearest first
+// and spread across directions — for when snapToNavigableWater's single
+// nearest pick turns out to be water the router can't reach (confirmed
+// 2026-10-04: a "Brooksville" pin snapped 1.3nm into Snow Cove, which this
+// chart data doesn't connect to the bay, so every route to it failed). One
+// candidate per compass ray (its first clear point with a little clear
+// water beyond it), duplicates within minSepNm dropped, up to `count`.
+export function navigableWaterCandidates(lon, lat, draftFt, tideHeightM, maxNm = 4, count = 6, minSepNm = 0.4) {
+  const isBlocked = _makeObstacleCheck(lon, lat, maxNm, draftFt, tideHeightM);
+  const RAYS = 24, STEP_NM = 0.1, FORWARD_CHECK_NM = 0.2;
+  const found = [];
+  for (let i = 0; i < RAYS; i++) {
+    const brg = (360 / RAYS) * i;
+    for (let d = STEP_NM; d <= maxNm; d += STEP_NM) {
+      const p = offsetCoords(lat, lon, brg, d);
+      if (isBlocked(p.lon, p.lat)) continue;
+      const further = offsetCoords(lat, lon, brg, d + FORWARD_CHECK_NM);
+      if (isBlocked(further.lon, further.lat)) continue;
+      found.push({ lat: p.lat, lon: p.lon, movedNm: d });
+      break;
+    }
+  }
+  found.sort((a, b) => a.movedNm - b.movedNm);
+  const out = [];
+  for (const c of found) {
+    if (out.some(o => distanceNm(o.lon, o.lat, c.lon, c.lat) < minSepNm)) continue;
+    out.push(c);
+    if (out.length >= count) break;
+  }
+  return out;
+}
+
 // Matches the depth-heat overlay's own yellow-band cutoff and the
 // shallow-crossing warning triangle's own suppression threshold (v712) —
 // "comfortable" means the same thing everywhere in this app: draft + 3ft,

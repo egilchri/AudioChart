@@ -1,5 +1,36 @@
 # Changelog
 
+## 2026-10-04 — AutoRoute retries "no path" before giving up; Longtest pauses when hidden (v776)
+
+Four Longtest failures plus one user-reported route, investigated with the
+real router against real chart data:
+
+- **Search area too narrow** (Bay Ledge → Eggemoggin Reach): A* exhausted
+  the visibility graph because it only covers the start/end box padded
+  2nm, and with the points almost due N/S across Deer Isle there's no
+  connected water inside it — the real route runs ~2nm east via Jericho
+  Bay. Fix: on a genuine no-path (not a timeout), retry with a 6nm pad.
+- **Endpoint snapped into unreachable water** (TS018 → TS011, TS014 →
+  TS018): TS018 is the Brooksville town-center point, on land.
+  snapToNavigableWater moved it to the single nearest water, in Snow Cove,
+  which this chart data doesn't connect to the bay (unreachable even at
+  1ft draft/high tide). Fix: if the wider retry still finds no path and an
+  endpoint had been moved, try the next-nearest water in other directions
+  (new Query.navigableWaterCandidates) — Brooksville now resolves to Bucks
+  Harbor.
+- **False timeouts** (TS012 → TS016, TS016 → TS011): not router bugs.
+  Both legs were planned in a hidden tab, where Chrome stretches the
+  router's yield timers to ~1s — the same route took 51s hidden vs ~8s
+  visible. Longtest now pauses until its tab is visible.
+
+router.js: the old autoRouteProg became _autoRouteCore (with a padNm
+parameter); the exported autoRouteProg wraps it with the retries, total
+budget capped at 2x the deadline. Internal recursive sub-legs call the
+core directly, so retries never nest. A genuinely impossible route now
+takes up to ~2x longer to give up (experimental case [7]: 27.6s → 51.6s).
+New regression cases [23]-[25]; full suite passes, same 3 experimental
+failures as before.
+
 ## 2026-10-04 — Longtest: end-to-end AutoRoute soak test (v775)
 
 User's design. From the browser console, `await Longtest('TS001', 3)`

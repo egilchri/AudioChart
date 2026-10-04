@@ -609,6 +609,28 @@ async function main() {
       DEADLINE_MS, LONG_RANGE_DEADLINE_MS);
   })());
 
+  // Cases 23-25 — found by Longtest (2026-10-04), all genuine "no path"
+  // (A* exhausted, not a timeout), fixed by autoRouteProg's top-level
+  // retries (see the WIDE_PAD_NM comment in router.js). Graded against the
+  // long-range budget because a retry can take up to 2x the deadline.
+  //  23: start/end almost due N/S across Deer Isle — no connected water in
+  //      the 2nm-padded box; the real route runs east via Jericho Bay.
+  //  24/25: TS018 is the Brooksville town-center point (on land). The
+  //      nearest-water snap picked Snow Cove, which this chart data doesn't
+  //      connect to the bay; the retry moves it to Bucks Harbor instead.
+  for (const [label, a, b] of [
+    ['[23] Bay Ledge -> Eggemoggin Reach (search area too narrow)', { lat: 44.087963, lon: -68.657477 }, { lat: 44.263155, lon: -68.616097 }],
+    ['[24] TS018 Brooksville -> TS011 North Haven side (endpoint snapped into unreachable water)', { lat: 44.3477829, lon: -68.6912832 }, { lat: 44.115263, lon: -68.86898 }],
+    ['[25] TS014 -> TS018 Brooksville (long-range, unreachable snapped endpoint)', { lat: 44.043153, lon: -68.835473 }, { lat: 44.3477829, lon: -68.6912832 }],
+  ]) {
+    gate(await (async () => {
+      Query.setActiveRegion('penobscot-bay');
+      await Query.loadData(44.103, -69.088);
+      await waitForRegionDataReady(Query);
+      return runCase(Query, Router, label, a, b, DEADLINE_MS, LONG_RANGE_DEADLINE_MS);
+    })());
+  }
+
   console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll cases passed.');
   console.log(
     '\nNOT PORTED (relied on injecting a synthetic obstacle ring the real\n' +
