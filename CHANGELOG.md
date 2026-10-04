@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-04 — Shrink buttons made visible (v765)
+
+v764's ▴ shrink button was a small, muted, borderless glyph that the user
+couldn't find in the title bars. It's now a bordered blue chip
+(`.nf-shrink-btn`) beside each window's ✕.
+
 ## 2026-10-04 — Shrink buttons on every floating window (v764)
 
 Direct request: "put shrink buttons on all the ui windows, like the

@@ -2050,19 +2050,24 @@ body.wco-active #wco-titlebar { display: flex; }
 
 /* Shrink-to-title button added by _makeCollapsible() to every open/close
    floating panel (Routes, Tracks, Samples, Waypoints, Test Sets, About). */
+/* A visible chip, not a bare glyph — v764's muted, borderless ▴ was too
+   faint to notice in the title bar. */
 .nf-shrink-btn {
-  background: none;
-  border: none;
-  color: var(--muted, #8899aa);
-  font-size: 1.1rem;
+  background: rgba(74, 158, 221, 0.15);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  color: var(--accent);
+  font-size: 1rem;
+  font-weight: 700;
   cursor: pointer;
-  min-width: 32px;
+  min-width: 34px;
   min-height: 28px;
-  padding: 0 6px;
+  margin-right: 6px;
+  padding: 0 8px;
   line-height: 1;
   -webkit-tap-highlight-color: transparent;
 }
-.nf-shrink-btn:hover { color: var(--text); }
+.nf-shrink-btn:hover { background: rgba(74, 158, 221, 0.3); color: var(--text); }
 .panel-collapsed > :not(.nf-title) { display: none !important; }
 .panel-collapsed {
   /* Most of these panels are sized by pinning both top and bottom; drop
