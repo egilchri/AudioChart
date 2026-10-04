@@ -1556,6 +1556,46 @@ function _makeDraggable(panelEl, handleEl) {
   }, { capture: true });
 }
 
+// Shrink-to-title for the open/close floating panels — direct request: "put
+// shrink buttons on all the ui windows, like the Objects window already
+// has." Objects/Node Ops toggle by tapping the title itself; these panels'
+// titles already carry a ✕ (and Routes' a Focus toggle), so this adds an
+// explicit ▴/▾ button beside the ✕ instead. Collapsed hides every child but
+// .nf-title (CSS: .panel-collapsed). Reopening a closed panel always starts
+// expanded — you open a panel to use it, not to find just its title bar.
+function _makeCollapsible(panelEl) {
+  const title = panelEl.querySelector('.nf-title');
+  const closeBtn = title.querySelector('button[id$="close"]');
+  let actions = closeBtn.closest('.nf-title-actions');
+  if (!actions) {
+    actions = document.createElement('span');
+    actions.className = 'nf-title-actions';
+    title.insertBefore(actions, closeBtn);
+    actions.appendChild(closeBtn);
+  }
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'nf-shrink-btn';
+  const sync = () => {
+    const collapsed = panelEl.classList.contains('panel-collapsed');
+    btn.textContent = collapsed ? '▾' : '▴';
+    btn.title = collapsed ? 'Expand this window' : 'Shrink this window to just its title';
+  };
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    panelEl.classList.toggle('panel-collapsed');
+    sync();
+  });
+  actions.insertBefore(btn, closeBtn);
+  let wasOpen = panelEl.classList.contains('open');
+  new MutationObserver(() => {
+    const isOpen = panelEl.classList.contains('open');
+    if (isOpen && !wasOpen) { panelEl.classList.remove('panel-collapsed'); sync(); }
+    wasOpen = isOpen;
+  }).observe(panelEl, { attributes: true, attributeFilter: ['class'] });
+  sync();
+}
+
 // ── Draggable UI groups: a few permanent widgets can be dragged out of the
 // way at any time (focus button, tide widget, right rail) ──────────────────
 function _clampGroupOffset(els, candidateDx, candidateDy, appliedDx, appliedDy) {
@@ -7900,6 +7940,7 @@ function _ensureMap() {
   };
   _addSwipeToClose(_waypointsPanel, _closeWaypointsPanel, 'x', '.nf-title');
   _makeDraggable(_waypointsPanel, _waypointsPanel.querySelector('.nf-title'));
+  _makeCollapsible(_waypointsPanel);
   _waypointsPanelBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     _waypointsPanel.classList.toggle('open');
@@ -7920,6 +7961,7 @@ function _ensureMap() {
   };
   _addSwipeToClose(_testSetsPanel, _closeTestSetsPanel, 'x', '.nf-title');
   _makeDraggable(_testSetsPanel, _testSetsPanel.querySelector('.nf-title'));
+  _makeCollapsible(_testSetsPanel);
   _testSetsPanelBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     _testSetsPanel.classList.toggle('open');
@@ -7943,6 +7985,7 @@ function _ensureMap() {
   const _closeAbout = () => _aboutPanel.classList.remove('open');
   _addSwipeToClose(_aboutPanel, _closeAbout, 'x', '.nf-title');
   _makeDraggable(_aboutPanel, _aboutPanel.querySelector('.nf-title'));
+  _makeCollapsible(_aboutPanel);
   document.getElementById('about-close').addEventListener('click', _closeAbout);
   _map.on('click', _closeAbout);
   function _showAboutPanel() {
@@ -8002,6 +8045,7 @@ function _ensureMap() {
   };
   _addSwipeToClose(_routePickerPanel, _closeRoutePicker, 'x', '.nf-title');
   _makeDraggable(_routePickerPanel, _routePickerPanel.querySelector('.nf-title'));
+  _makeCollapsible(_routePickerPanel);
 
   // ★ Sample Routes panel — standalone, not nested inside Routes, so the
   // user can leave it open across an entire movie and on into the next
@@ -8017,6 +8061,7 @@ function _ensureMap() {
   };
   _addSwipeToClose(_sampleRoutesPanel, _closeSampleRoutesPanel, 'x', '.nf-title');
   _makeDraggable(_sampleRoutesPanel, _sampleRoutesPanel.querySelector('.nf-title'));
+  _makeCollapsible(_sampleRoutesPanel);
   document.getElementById('sr-close').addEventListener('click', _closeSampleRoutesPanel);
 
   // Compact mode: while Follow/Virtual Journey is active, the full route
@@ -8599,6 +8644,7 @@ function _ensureMap() {
   };
   _addSwipeToClose(_trackPickerPanel, _closeTrackPicker, 'x', '.nf-title');
   _makeDraggable(_trackPickerPanel, _trackPickerPanel.querySelector('.nf-title'));
+  _makeCollapsible(_trackPickerPanel);
 
   function _buildTrackPickerPanel() {
     DriveSync.maybeAutoSync();

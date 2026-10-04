@@ -2048,6 +2048,32 @@ body.wco-active #wco-titlebar { display: flex; }
 }
 #rp-close:hover { color: var(--text); }
 
+/* Shrink-to-title button added by _makeCollapsible() to every open/close
+   floating panel (Routes, Tracks, Samples, Waypoints, Test Sets, About). */
+.nf-shrink-btn {
+  background: none;
+  border: none;
+  color: var(--muted, #8899aa);
+  font-size: 1.1rem;
+  cursor: pointer;
+  min-width: 32px;
+  min-height: 28px;
+  padding: 0 6px;
+  line-height: 1;
+  -webkit-tap-highlight-color: transparent;
+}
+.nf-shrink-btn:hover { color: var(--text); }
+.panel-collapsed > :not(.nf-title) { display: none !important; }
+.panel-collapsed {
+  /* Most of these panels are sized by pinning both top and bottom; drop
+     the bottom pin so the box shrinks to its title. */
+  bottom: auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+}
+.panel-collapsed > .nf-title { margin-bottom: 0; }
+
 /* Direct request: "keep the Objects menu always on the screen, but be
    able to shrink to just a title, in place" — no more open/closed via a
    separate button (#navaid-filter-btn removed); always display:flex,

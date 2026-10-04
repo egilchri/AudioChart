@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-04 — Shrink buttons on every floating window (v764)
+
+Direct request: "put shrink buttons on all the ui windows, like the
+Objects window already has." Routes, Tracks, Sample Routes, Waypoints,
+Test Sets and About now have a ▴/▾ button beside their ✕
+(`_makeCollapsible()` in app.js). Shrunk shows only the title bar
+(`.panel-collapsed` hides every other child, and drops the `bottom` pin
+most of these panels use for their height). Reopening a closed window
+always starts expanded. Objects and Node Ops keep their existing
+tap-the-title toggle.
+
 ## 2026-10-03 — Autoroute destination prompt readable again; dead onboarding overlay disabled (v763)
 
 The bottom "Tap the map to set the destination… / Name / Cancel" banner
