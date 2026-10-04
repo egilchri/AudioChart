@@ -4622,7 +4622,17 @@ body.wco-active #underway-btn { top: 10px; }
   gap: 6px;
   height: auto;
   width: auto;
+  /* Shrink to the toolbar's max-width and wrap, instead of growing to one
+     long line (seen at iPhone width: it ran off to 1400px). */
+  flex: 1 1 auto;
+  min-width: 0;
   touch-action: auto;
+}
+/* Spread is a temporary "show me everything" view — on a phone it wraps to
+   ~6 rows, so lift it above the Objects panel (1900) and Actions rail. */
+#map-overlay-status:has(#card-stack.stack-spread) { width: calc(100% - 110px); z-index: 1950; }
+@media (min-width: 601px) {
+  #map-overlay-status:has(#card-stack.stack-spread) { width: calc(100% - 180px); }
 }
 #card-stack.stack-spread .stack-break { display: block; flex-basis: 100%; height: 0; }
 #card-stack.stack-spread .stack-card {

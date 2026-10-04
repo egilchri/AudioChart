@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-04 — Card stack fits iPhone width; spread view wraps (v770)
+
+At iPhone width (402px) the v769 handle pushed the stack off the right
+edge (Tutorial cut off) — even 14px slivers didn't fit. layout() now
+narrows the cards (min 100px) when slivers alone can't fit. The spread
+view also ran off as one 1400px line; it now wraps within the toolbar
+width and sits above the Objects panel/Actions rail while open.
+Verified at 402px on the Pixel emulator via a DevTools width override.
+
 ## 2026-10-04 — Handle to spread the card stack into two rows (v769)
 
 Direct request: "a handle that can make the buttons all spring into two

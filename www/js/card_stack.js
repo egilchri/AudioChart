@@ -19,6 +19,7 @@
 
 const SLIVER_PX = 41;
 const MIN_SLIVER_PX = 14;
+const MIN_CARD_PX = 100;
 const SLIDE_THRESHOLD_PX = 8;
 const CANCEL_OFF_STACK_PX = 40;
 
@@ -73,18 +74,25 @@ export function initCardStack() {
     // Pixel emulator. The ResizeObserver below re-runs this once it shows.
     if (spread) {
       // Ordinary flow layout (CSS .stack-spread) — clear the stacked positions.
-      for (const c of stack.querySelectorAll('.stack-card')) { c.style.left = ''; c.style.zIndex = ''; }
+      for (const c of stack.querySelectorAll('.stack-card')) { c.style.left = ''; c.style.zIndex = ''; c.style.width = ''; }
       stack.style.width = '';
       return;
     }
     if (!cards.length || !stack.offsetParent) return;
-    const cardW = cards[0].offsetWidth;
+    for (const c of cards) c.style.width = ''; // back to the CSS width before measuring
+    let cardW = cards[0].offsetWidth;
     // #map-overlay-status is absolutely positioned and shrink-wraps its
     // content, so its own width is just the stack's. Measure the real room:
     // from the stack's left edge to the map container's right edge, less a margin.
     const host = document.getElementById('map-overlay-status') || bar.parentElement;
     const box = (host.offsetParent || document.body).getBoundingClientRect();
     const avail = box.right - stack.getBoundingClientRect().left - 10;
+    // If even minimum slivers won't fit (iPhone width plus the handle), narrow
+    // the cards rather than letting the stack run off the right edge.
+    if (cards.length > 1 && (avail - cardW) / (cards.length - 1) < MIN_SLIVER_PX) {
+      cardW = Math.max(MIN_CARD_PX, Math.floor(avail - (cards.length - 1) * MIN_SLIVER_PX));
+      for (const c of cards) c.style.width = `${cardW}px`;
+    }
     step = cards.length > 1
       ? Math.max(MIN_SLIVER_PX, Math.min(SLIVER_PX, (avail - cardW) / (cards.length - 1)))
       : SLIVER_PX;
