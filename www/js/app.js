@@ -142,7 +142,14 @@ document.getElementById('boat-ctx-drop-pin').addEventListener('click', () => {
   setStatus(msg);
   TTS.sayImmediate(msg);
 });
-document.addEventListener('click', (e) => { if (!_boatCtxMenu.contains(e.target)) _hideBoatCtx(); }, { capture: true });
+// The second tap of a touch double-tap (see _wireBoatLongPress) is still
+// followed by its own click on the boat — don't let that close the menu it
+// just opened.
+let _boatCtxTapOpenedAt = 0;
+document.addEventListener('click', (e) => {
+  if (Date.now() - _boatCtxTapOpenedAt < 500) return;
+  if (!_boatCtxMenu.contains(e.target)) _hideBoatCtx();
+}, { capture: true });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') _hideBoatCtx(); });
 
 function _wireBoatLongPress(marker) {
@@ -165,6 +172,30 @@ function _wireBoatLongPress(marker) {
     // double-click-zoom fires right along with our menu.
     L.DomEvent.stopPropagation(oe);
     _showBoatCtx(oe.clientX, oe.clientY, marker.getLatLng());
+  });
+  // iOS Safari doesn't reliably synthesize dblclick from two taps here, and
+  // Leaflet's own tap-counting fallback skips iOS's taps because their
+  // click events report pointerType 'mouse'. Confirmed in the iOS 27
+  // simulator: two taps arrive as pointerup×2 + one click, no dblclick, no
+  // menu. Detect the double-tap ourselves from touch pointerups instead.
+  marker.on('add', () => {
+    const el = marker.getElement();
+    if (!el || el._boatTapWired) return;
+    el._boatTapWired = true;
+    let downX = 0, downY = 0, lastUp = 0, lastX = 0, lastY = 0;
+    el.addEventListener('pointerdown', (e) => { downX = e.clientX; downY = e.clientY; });
+    el.addEventListener('pointerup', (e) => {
+      if (e.pointerType !== 'touch') return;
+      if (Math.hypot(e.clientX - downX, e.clientY - downY) > 10) { lastUp = 0; return; } // a drag, not a tap
+      const now = Date.now();
+      if (now - lastUp < 400 && Math.hypot(e.clientX - lastX, e.clientY - lastY) < 30) {
+        lastUp = 0;
+        _boatCtxTapOpenedAt = now;
+        _showBoatCtx(e.clientX, e.clientY, marker.getLatLng());
+      } else {
+        lastUp = now; lastX = e.clientX; lastY = e.clientY;
+      }
+    });
   });
 }
 

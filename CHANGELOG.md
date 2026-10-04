@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-10-03 — Boat double-tap menu now works on iPhone (v762)
+
+Double-tapping the boat icon never opened the Autoroute/Sketch/Drop Pin
+menu in iOS Safari. Reproduced in the iOS 27 simulator: two taps arrive
+as two touch pointerups plus a single click, with no dblclick. Leaflet's
+own double-tap fallback skips them because iOS click events report
+`pointerType: 'mouse'`. (A debug overlay with a document-level click
+listener made it start working, which masked the bug during the first
+test pass.)
+
+`_wireBoatLongPress` now also detects the double-tap itself from touch
+`pointerup`s on the marker element (within 400ms and 30px, ignoring drags).
+The document-level outside-click handler ignores the trailing click for
+500ms so it can't close the menu that click's tap just opened. Desktop
+dblclick path unchanged.
+
 ## 2026-09-30 — Google Drive sync now covers Test Sets, not just Routes/Tracks (v761)
 
 Test Sets (`test_sets_storage.js`) predated Drive sync and were never
