@@ -26,18 +26,44 @@ export function initCardStack() {
   const rows = [document.getElementById('status-tiles'), document.getElementById('status-tiles-2')];
   if (rows.some(r => !r)) return;
 
+  // A handle to the left of the stack springs the cards apart into their
+  // two original rows as ordinary full-width buttons, and folds them back
+  // (direct request 2026-10-04). The choice is remembered.
+  const bar = document.createElement('div');
+  bar.id = 'card-stack-bar';
+  const handle = document.createElement('button');
+  handle.id = 'card-stack-handle';
+  handle.type = 'button';
   const stack = document.createElement('div');
   stack.id = 'card-stack';
-  rows[0].parentNode.insertBefore(stack, rows[0]);
-  for (const row of rows) {
+  bar.append(handle, stack);
+  rows[0].parentNode.insertBefore(bar, rows[0]);
+  rows.forEach((row, ri) => {
+    if (ri > 0) {
+      const br = document.createElement('div');
+      br.className = 'stack-break'; // forces the second row when spread
+      stack.appendChild(br);
+    }
     for (const el of [...row.children]) {
       el.classList.add('stack-card');
       stack.appendChild(el);
     }
     row.style.display = 'none';
-  }
+  });
 
-  const visibleCards = () => [...stack.children].filter(c => c.style.display !== 'none');
+  const visibleCards = () => [...stack.children].filter(c => c.classList.contains('stack-card') && c.style.display !== 'none');
+
+  let spread = false;
+  function setSpread(on) {
+    spread = on;
+    stack.classList.toggle('stack-spread', on);
+    handle.textContent = on ? '\u25B4' : '\u25BE';
+    handle.title = on ? 'Fold the buttons back into a stack' : 'Spread the buttons out into two rows';
+    try { localStorage.setItem('audiochart-card-stack-spread', on ? '1' : ''); } catch {}
+    raise(null);
+    layout();
+  }
+  handle.addEventListener('click', () => setSpread(!spread));
 
   let step = SLIVER_PX;
   function layout() {
@@ -45,14 +71,20 @@ export function initCardStack() {
     // While the toolbar is hidden (startup, edit/anim/underway modes) every
     // measurement reads 0 — laying out then gave a far-too-wide stack on the
     // Pixel emulator. The ResizeObserver below re-runs this once it shows.
-    if (!cards.length || !stack.parentElement.offsetParent) return;
+    if (spread) {
+      // Ordinary flow layout (CSS .stack-spread) — clear the stacked positions.
+      for (const c of stack.querySelectorAll('.stack-card')) { c.style.left = ''; c.style.zIndex = ''; }
+      stack.style.width = '';
+      return;
+    }
+    if (!cards.length || !stack.offsetParent) return;
     const cardW = cards[0].offsetWidth;
     // #map-overlay-status is absolutely positioned and shrink-wraps its
     // content, so its own width is just the stack's. Measure the real room:
-    // from its left edge to the map container's right edge, less a margin.
-    const host = stack.parentElement;
+    // from the stack's left edge to the map container's right edge, less a margin.
+    const host = document.getElementById('map-overlay-status') || bar.parentElement;
     const box = (host.offsetParent || document.body).getBoundingClientRect();
-    const avail = box.right - host.getBoundingClientRect().left - 10;
+    const avail = box.right - stack.getBoundingClientRect().left - 10;
     step = cards.length > 1
       ? Math.max(MIN_SLIVER_PX, Math.min(SLIVER_PX, (avail - cardW) / (cards.length - 1)))
       : SLIVER_PX;
@@ -88,7 +120,7 @@ export function initCardStack() {
   // ── Touch ──
   let touchId = null, startX = 0, sliding = false, swallowClick = false, lowerTimer = 0;
   stack.addEventListener('pointerdown', (e) => {
-    if (e.pointerType === 'mouse' || touchId !== null) return;
+    if (spread || e.pointerType === 'mouse' || touchId !== null) return;
     touchId = e.pointerId;
     startX = e.clientX;
     sliding = false;
@@ -96,6 +128,7 @@ export function initCardStack() {
     raise(cardAt(e.clientX));
   });
   stack.addEventListener('pointermove', (e) => {
+    if (spread) return;
     if (e.pointerType === 'mouse') { raise(cardAt(e.clientX)); return; }
     if (e.pointerId !== touchId) return;
     if (!sliding && Math.abs(e.clientX - startX) < SLIDE_THRESHOLD_PX) return;
@@ -124,7 +157,7 @@ export function initCardStack() {
 
   // ── Mouse / keyboard ──
   stack.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') raise(null); });
-  stack.addEventListener('focusin', (e) => raise(e.target.closest('.stack-card')));
+  stack.addEventListener('focusin', (e) => { if (!spread) raise(e.target.closest('.stack-card')); });
   stack.addEventListener('focusout', () => raise(null));
 
   // Re-lay-out when a card is shown/hidden (offline-btn, paintings-list-btn)
@@ -142,13 +175,16 @@ export function initCardStack() {
   // initCardStack runs before the map container has its final size (seen on
   // the Pixel emulator: first layout measured too much room, slivers ran off
   // the right edge). Re-measure whenever the container actually resizes.
-  const container = stack.parentElement.offsetParent;
+  const container = (document.getElementById('map-overlay-status') || bar.parentElement).offsetParent;
   if ('ResizeObserver' in window) {
     const ro = new ResizeObserver(layout);
     if (container) ro.observe(container);
-    ro.observe(stack.parentElement); // 0 → real size when the toolbar is shown
+    ro.observe(bar.parentElement); // 0 → real size when the toolbar is shown
   }
   window.addEventListener('load', layout);
   visibleKey = visibleCards().map(c => c.id).join(',');
+  let storedSpread = null;
+  try { storedSpread = localStorage.getItem('audiochart-card-stack-spread'); } catch {}
+  setSpread(storedSpread === '1');
   layout();
 }

@@ -4592,3 +4592,42 @@ body.wco-active #underway-btn { top: 10px; }
   letter-spacing: 0.05em;
   padding: 6px 10px;
 }
+
+/* Handle that spreads the card stack into two rows / folds it back. */
+#card-stack-bar {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+#card-stack-handle {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 34px;
+  padding: 0;
+  background: rgba(18, 13, 8, 0.96);
+  border: 1px solid var(--brass);
+  border-radius: 8px;
+  color: var(--brass-hi);
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+#card-stack-handle:hover { background: var(--brass-ink-2); }
+#card-stack .stack-break { display: none; }
+/* Spread: ordinary wrapping rows of full buttons, no overlap. */
+#card-stack.stack-spread {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  height: auto;
+  width: auto;
+  touch-action: auto;
+}
+#card-stack.stack-spread .stack-break { display: block; flex-basis: 100%; height: 0; }
+#card-stack.stack-spread .stack-card {
+  position: static !important;
+  width: auto;
+  padding: 0 10px !important;
+  box-shadow: none;
+}

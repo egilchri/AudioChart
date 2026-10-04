@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-04 — Handle to spread the card stack into two rows (v769)
+
+Direct request: "a handle that can make the buttons all spring into two
+rows, separated, or alternatively shrink them down the way they are now."
+A ▾ handle left of the card stack springs the buttons out into their two
+original rows as ordinary full-width buttons (wrapping further on narrow
+screens); ▴ folds them back into the stack. Slide/hover raising is off
+while spread. Remembered across reloads (`audiochart-card-stack-spread`).
+
 ## 2026-10-04 — Tide widget shrinkable (v768)
 
 Direct request. The tide widget (bottom right) gets a ▴ button in its
