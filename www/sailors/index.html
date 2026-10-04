@@ -364,6 +364,48 @@
     margin-top: 18px;
   }
 
+  /* Sync tab's first-time setup guide — same card treatment as
+     .install-card / .route-card (the demo section is on the light paper
+     background, not navy). */
+  .setup-guide {
+    max-width: 74ch;
+    margin: 28px auto 0;
+    background: var(--cream);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    color: var(--ink);
+  }
+  .setup-guide summary {
+    cursor: pointer;
+    padding: 16px 22px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--teal);
+  }
+  .setup-body { padding: 0 22px 22px; font-size: 15.5px; line-height: 1.6; }
+  .setup-lead { margin: 0 0 14px; color: #3A4A52; }
+  .setup-body ol { margin: 0; padding-left: 22px; }
+  .setup-body li { margin-bottom: 12px; color: #3A4A52; }
+  .setup-body li strong { color: var(--ink); }
+  .setup-body .mono { font-family: 'IBM Plex Mono', monospace; font-size: 0.92em; }
+  .setup-notes { margin-top: 20px; border-top: 1px solid var(--line); padding-top: 16px; }
+  .setup-notes p { margin: 0 0 12px; color: #3A4A52; font-size: 14.5px; }
+  .setup-notes .label {
+    display: block;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--brass);
+    margin-bottom: 2px;
+  }
+  @media (max-width: 600px) {
+    .setup-guide summary { padding: 14px 16px; }
+    .setup-body { padding: 0 16px 18px; }
+  }
+
   /* ===== ROUTES SECTION ===== */
   .routes-grid {
     display: grid;
@@ -587,6 +629,31 @@
       <video id="demo-video" src="assets/demo.mp4" poster="assets/demo-poster.jpg" controls playsinline></video>
     </div>
     <p class="demo-note" id="demo-note">Recorded from the live app, with voice narration — no editing.</p>
+
+    <!-- Sync tab only (see showDemo): detailed first-time setup, per direct
+         request 2026-10-04. Facts here match drive_sync.js — keep them in
+         step if that changes (what syncs, sign-in lifetime, auto-sync rules). -->
+    <details class="setup-guide" id="sync-setup" hidden>
+      <summary>First-time setup, step by step</summary>
+      <div class="setup-body">
+        <p class="setup-lead">You need a Google account and an internet connection. Do this once on each phone, tablet, or computer you want to keep in step — always with the <strong>same</strong> Google account.</p>
+        <ol>
+          <li><strong>Open a window that has Sync.</strong> Tap <strong>✎ Routes</strong>, <strong>◎ Tracks</strong>, or <strong>🧪 Test Sets</strong> in the button stack at the top of the map. All three share one backup, so it doesn't matter which you use. The Sync controls are at the bottom of the window.</li>
+          <li><strong>Tap ☁ Sync.</strong> The line under it changes to <em>Syncing…</em> and Google's sign-in window opens.</li>
+          <li><strong>Choose your Google account.</strong> If nothing appears, your browser may have blocked the pop-up — allow pop-ups for <span class="mono">egilchri.github.io</span> and tap Sync again.</li>
+          <li><strong>Allow both permissions.</strong> Google asks to let AudioChart keep its own private data in your Drive, and to open only the Drive files you pick yourself (used by <em>Import from Drive</em>). AudioChart can't see anything else in your Drive.</li>
+          <li><strong>Check the result.</strong> The status line should read <em>Synced — N routes, N tracks, N test sets, up to date</em>. On a brand-new setup the numbers are just what's on this device.</li>
+          <li><strong>Repeat on your other devices.</strong> Each one merges with the same backup, so after the second device syncs, both have everything. Sync the first device once more to pick up anything the second one added.</li>
+          <li><strong>Optional: tick 📶 Wi-Fi Sync.</strong> After you've tapped Sync once, AudioChart also syncs on its own whenever you open the Routes or Tracks window (at most once a minute). Despite the name it doesn't check for Wi-Fi — it syncs whenever the device is online.</li>
+        </ol>
+        <div class="setup-notes">
+          <p><span class="label">What's backed up</span>Routes, Tracks, and Test Sets. Saved waypoints are <strong>not</strong> included — use <em>Waypoints → Export all waypoints (GPX)</em> to keep a copy of those.</p>
+          <p><span class="label">Where it lives</span>A hidden, app-only folder in your own Google Drive. You won't see it in your Drive file list, and nobody else can read it.</p>
+          <p><span class="label">Nothing gets overwritten</span>Every sync merges both sides. If the same route was changed on two devices, you keep both — the second appears as a <em>conflict copy</em> in the list for you to review.</p>
+          <p><span class="label">Signing in again</span>The Google sign-in lasts until you close or reload AudioChart. After that, tap Sync again — Google will ask you to confirm. Wi-Fi Sync stays paused until you do.</p>
+        </div>
+      </div>
+    </details>
   </div>
 </section>
 
@@ -642,6 +709,8 @@
     demoVideo.load();
     demoTitle.textContent = d.title;
     demoDesc.textContent = d.desc;
+    const syncSetup = document.getElementById('sync-setup');
+    syncSetup.hidden = String(n) !== '4';
     document.querySelectorAll('.demo-tab').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.demo === String(n));
     });

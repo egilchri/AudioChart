@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-04 — Sync tutorial: detailed first-time setup (v774)
+
+Direct request. The tutorial page's "4. Sync" tab (sailors/index.html)
+now shows a "First-time setup, step by step" guide under the video:
+opening a window with Sync, Google sign-in and the two permissions,
+checking the result, repeating on each device, and Wi-Fi Sync — plus
+notes on what's backed up (not waypoints), where the backup lives,
+conflict copies, and signing in again after a reload. Written against
+drive_sync.js's actual behavior, including two quirks worth knowing:
+Wi-Fi Sync syncs whenever online (no Wi-Fi check), and background sync
+stays paused until a manual Sync in that session.
+
 ## 2026-10-04 — "Add to Test Set…" on SP marker popups (v773)
 
 Direct request. An SP marker's popup now has "🧪 Add to Test Set…", which
