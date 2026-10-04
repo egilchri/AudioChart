@@ -14,6 +14,7 @@ import * as MarkerIcons from './marker_icons.js';
 import * as HazardClustering from './hazard_clustering.js';
 import * as WaypointsStorage from './waypoints_storage.js';
 import * as TestSetsStorage from './test_sets_storage.js';
+import { initCardStack } from './card_stack.js';
 import * as WakeLock from './wake_lock.js';
 import * as AnchorWatch from './anchor_watch.js';
 import * as Tour from './tour.js';
@@ -13626,6 +13627,7 @@ document.addEventListener('DOMContentLoaded', () => {
     localStorage.setItem('audiochart-install-dismissed', '1');
   });
 
+  initCardStack();
   init();
   checkOnboarding();
 });

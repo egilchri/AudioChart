@@ -4510,3 +4510,60 @@ body.wco-active #underway-btn { top: 10px; }
   .splash-route-path { animation: none !important; stroke-dashoffset: 0 !important; }
   .splash-sweep::after { animation: none !important; transform: translateX(24px); opacity: 1; }
 }
+
+/* ── Card-stack toolbar (js/card_stack.js) ─────────────────────────────────
+   The top-row buttons as one row of overlapping cards: each card's left
+   edge (its symbol) shows, the card under the cursor/finger rises to full
+   width. Positions (left/z-index) are set by card_stack.js; the !important
+   overrides below normalize the buttons' differing per-id pill styles into
+   identical cards. Design: design/card-stack-toolbar.html. */
+#card-stack {
+  position: relative;
+  height: 34px;
+  flex-shrink: 0;
+  touch-action: none; /* the stack owns slide gestures that start on it */
+}
+#card-stack .stack-card {
+  position: absolute !important;
+  top: 0;
+  width: 132px;
+  height: 34px;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0 10px 0 6px !important;
+  text-align: left;
+  background: rgba(18, 13, 8, 0.96) !important;
+  border: 1px solid var(--brass-dim) !important;
+  border-radius: 8px !important;
+  color: var(--parchment-dim) !important;
+  font-family: var(--font-brass-serif);
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: -3px 0 8px rgba(0, 0, 0, 0.55);
+  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+#card-stack .stack-card.active {
+  background: var(--brass) !important;
+  color: var(--brass-ink) !important;
+}
+#card-stack .stack-card.stack-raised {
+  z-index: 60 !important;
+  transform: translateY(-2px) scale(1.04);
+  border-color: var(--brass) !important;
+  color: var(--brass-hi) !important;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.7);
+}
+#card-stack .stack-card.active.stack-raised { color: var(--brass-ink) !important; }
+/* Phones: start right after the compass instead of 170px in, so the stack
+   has ~290px to work with rather than ~220px. */
+@media (max-width: 600px) {
+  #map-overlay-status {
+    left: 100px;
+    max-width: calc(100% - 110px);
+  }
+}

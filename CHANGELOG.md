@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-10-04 — Card-stack toolbar for the top buttons (v766)
+
+Direct request: overlap the top-of-screen buttons like cards so only each
+one's symbol shows, raising the one under the cursor. Prototyped in
+design/card-stack-toolbar.html; user picked "one stack, 41 pixels",
+tightening to fit on phones, with Actions/Objects/Underway left separate.
+
+New js/card_stack.js moves the real #status-tiles / #status-tiles-2
+elements into one #card-stack (no copies, so existing listeners, .active
+states and show/hide toggles keep working). Hover raises a card on
+desktop; on touch, a plain tap is native and a finger slide raises the
+card under it, lifting presses it. Phones (≤600px) start the toolbar right
+after the compass (left:100px) to give the stack ~340px.
+
+Bugs found and fixed while testing on the Pixel emulator: the slide's
+click-swallow guard ate the press itself (now armed after pressing), and
+layout ran while the toolbar was still hidden, reading zero sizes (now
+skipped until visible, with a ResizeObserver to re-run it).
+
 ## 2026-10-04 — Shrink buttons made visible (v765)
 
 v764's ▴ shrink button was a small, muted, borderless glyph that the user
