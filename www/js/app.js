@@ -13004,7 +13004,18 @@ function _isPWA() {
   return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 }
 
+const ONBOARDING_DISABLED = true;
 async function checkOnboarding() {
+  // Disabled 2026-10-03 (v763). #welcome-overlay's z-index:100 sat below
+  // Leaflet's panes, so the map always painted over it — this onboarding
+  // was never actually visible since it was added. But it still covered the
+  // bottom banners (z auto) with its 92% navy fill, making the Autoroute
+  // "Tap the map to set the destination" prompt unreadable on any browser
+  // with no offline data or an undismissed install step. Making it visible
+  // would force a new, untested first-run flow on everyone, so per user
+  // decision it stays off; the code below is kept in case it's revived.
+  document.getElementById('welcome-overlay').style.display = 'none';
+  if (ONBOARDING_DISABLED) return;
   if (new URLSearchParams(location.search).has('demo')) return;
 
   const overlay   = document.getElementById('welcome-overlay');

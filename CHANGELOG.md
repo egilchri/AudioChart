@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-10-03 — Autoroute destination prompt readable again; dead onboarding overlay disabled (v763)
+
+The bottom "Tap the map to set the destination… / Name / Cancel" banner
+was nearly invisible (dark on dark) in a plain browser tab. Cause:
+#welcome-overlay (first-run onboarding) was showing with z-index:100 —
+below Leaflet's panes, so the map always painted over it (the onboarding
+was never actually visible since it was added), but above the bottom
+banners, which sat under its 92% navy fill. Shown whenever the browser had
+no offline data or an undismissed install step — e.g. every fresh iPhone
+Safari visit. Confirmed in the iOS 27 simulator via elementFromPoint.
+
+Making it visible would have forced a new, untested first-run flow
+(mandatory download, then install prompt) on everyone, so per user
+decision `checkOnboarding()` now always hides it (`ONBOARDING_DISABLED`);
+the old logic is kept below the early return.
+
 ## 2026-10-03 — Boat double-tap menu now works on iPhone (v762)
 
 Double-tapping the boat icon never opened the Autoroute/Sketch/Drop Pin
