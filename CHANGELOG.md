@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-10-04 — Fix v776's CI failure; Penobscot Bay-only test suite (v777)
+
+v776 failed GitHub CI on its own new case [25] (TS014 → Brooksville):
+41.6s on CI's slower runner, past the retries' 2x-deadline cap (29s
+locally). Cause: the wide-pad retry ran even though this is a long-range
+passage, whose sub-legs never use that pad — a full wasted re-plan. The
+long-range test was meant to skip it but measured the UNSNAPPED endpoints
+(19.98nm, just under the 20nm threshold) while the core measures the
+snapped ones (21.2nm). Now measured after snapping; case [25] 29s → 16.7s.
+
+Removed test cases [3], [6], [7] (Portsmouth NH / York Harbor /
+Portsmouth → Bar Harbor) per direct request — this release is Penobscot
+Bay only.
+
 ## 2026-10-04 — AutoRoute retries "no path" before giving up; Longtest pauses when hidden (v776)
 
 Four Longtest failures plus one user-reported route, investigated with the

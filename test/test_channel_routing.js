@@ -104,90 +104,9 @@ async function main() {
   await runCase(Query, Router, '[2] EXPERIMENTAL/KNOWN-FAILING: Mount Desert Island 10-ring regression',
     { lat: 44.3995406, lon: -68.1998858 }, { lat: 44.2415486, lon: -68.4848074 });
 
-  // Case 3 — the originally-reported bug, full end to end: Portsmouth NH pier
-  // to York Harbor ME.
-  gate(await runCase(Query, Router, '[3] Portsmouth pier -> York Harbor (full route)',
-    { lat: 43.08077, lon: -70.757141 }, { lat: 43.129213, lon: -70.632961 }));
-
-  // Case 5 (was: fallback safety with channel-graph forced empty) — the
-  // real Query module has no public way to swap in an empty channel graph
-  // for one call without a full region reset+reload, and case 2 above
-  // already proves land-only routing works for a route that (per the
-  // original comment) "doesn't depend on channel data to begin with." Not
-  // re-run separately; see "NOT PORTED" at the bottom for the honest gap.
-
-  // Case 6 — Piece 1c coastal standoff: Portsmouth -> York again, this time
-  // asserting the path's intermediate (non-endpoint, non-channel-node)
-  // points each keep a reasonable distance off land, not just avoid
-  // crossing it outright. Real charted channel nodes are exempt (they
-  // follow a verified-safe centerline directly). Distance-to-land is
-  // measured by bisecting along the bearing to the nearest land hit against
-  // Query.landBlocks — same idea as query.js's own distToLandAlongBearing,
-  // just used here as a read-only measurement of the router's output.
-  {
-    const start = { lat: 43.08077, lon: -70.757141 };
-    const end = { lat: 43.129213, lon: -70.632961 };
-    const { path: pts, fallback, crosses } = await (async () => {
-      const t0 = Date.now();
-      const p = await Router.autoRouteProg(start, end, () => {}, () => {});
-      return { path: p, fallback: p.length <= 2 && pathCrossesLand(Query, p), crosses: pathCrossesLand(Query, p), ms: Date.now() - t0 };
-    })();
-    const isChannelPoint = (p) => (Query.channelNeighbors(p.lon, p.lat) || []).length > 0;
-    const distToLandNm = (lon, lat, bearingDeg, maxNm = 1.0) => {
-      let lo = 0, hi = maxNm;
-      if (!Query.landBlocks(lon, lat, ...Object.values(offsetPoint(lon, lat, bearingDeg, maxNm)))) return maxNm;
-      for (let i = 0; i < 12; i++) {
-        const mid = (lo + hi) / 2;
-        const { lon: mx, lat: my } = offsetPoint(lon, lat, bearingDeg, mid);
-        if (Query.isLandAt(mx, my)) hi = mid; else lo = mid;
-      }
-      return lo;
-    };
-    function offsetPoint(lon, lat, bearingDeg, distNm) {
-      const R = 3440.065, d = distNm / R, brg = bearingDeg * Math.PI / 180;
-      const lat1 = lat * Math.PI / 180, lon1 = lon * Math.PI / 180;
-      const lat2 = Math.asin(Math.sin(lat1) * Math.cos(d) + Math.cos(lat1) * Math.sin(d) * Math.cos(brg));
-      const lon2 = lon1 + Math.atan2(Math.sin(brg) * Math.sin(d) * Math.cos(lat1), Math.cos(d) - Math.sin(lat1) * Math.sin(lat2));
-      return { lon: lon2 * 180 / Math.PI, lat: lat2 * 180 / Math.PI };
-    }
-    const STANDOFF_TOLERANCE_NM = 0.03;
-    let worst = Infinity, worstPt = null;
-    for (let i = 1; i < pts.length - 1; i++) {
-      const p = pts[i];
-      if (isChannelPoint(p)) continue;
-      // Sample 8 bearings around the point, take the nearest land hit.
-      let nearest = Infinity;
-      for (let b = 0; b < 360; b += 45) nearest = Math.min(nearest, distToLandNm(p.lon, p.lat, b));
-      if (nearest < worst) { worst = nearest; worstPt = p; }
-    }
-    const standoffOk = worst === Infinity || worst >= (0.15 - STANDOFF_TOLERANCE_NM);
-    const ok = !fallback && !crosses && standoffOk;
-    // EXPERIMENTAL/non-blocking: this port's own distance-to-land measurement
-    // (8-direction bisection) is a simpler approximation than the original
-    // port's, and hasn't been cross-checked against the pre-extraction code
-    // the way cases 2/10 were — a failure here says the measurement found a
-    // tight spot, not confirmed proof of a regression. Case 3 above (same
-    // route) already gates on the core safety property (no land crossing).
-    console.log(`[6] EXPERIMENTAL: Portsmouth pier -> York Harbor (coastal standoff): ${ok ? 'PASS' : 'FAIL'} (fallback=${fallback}, crossesLand=${crosses}, worst non-channel standoff=${worst === Infinity ? 'n/a' : worst.toFixed(3) + 'nm'}${worstPt ? ` at ${worstPt.lat.toFixed(5)},${worstPt.lon.toFixed(5)}` : ''})`);
-  }
-
-  // Case 7 — a real long-range coastal passage, Portsmouth NH pier all the
-  // way to Bar Harbor ME (~136nm direct). Was gated 2026-09-18 after a
-  // genuine fix (see case 17's comment for the root cause) turned this
-  // from a straight line crossing land into a real route clear of land.
-  // UNGATED 2026-09-27, same session as the KEEL_CLEARANCE_MARGIN_M/node-
-  // budget work above: confirmed live (direct trace, not guesswork) that
-  // under the new stricter margin, one leg of this specific route
-  // genuinely has no connected path in its local search graph — not a
-  // timeout, not fixable by more budget (tested up to 300 rings/1800
-  // nodes: the bottleneck just moves to a different leg). Per explicit
-  // direction, this release's scope is Penobscot Bay — this route runs
-  // from Portsmouth NH to Bar Harbor, well outside it. EXPERIMENTAL/non-
-  // blocking rather than deleted: still worth watching for regressions,
-  // just not something that should fail CI for an out-of-scope route.
-  const _case7 = await runCase(Query, Router, '[7] EXPERIMENTAL (out of Penobscot Bay scope): Portsmouth NH -> Bar Harbor ME (long-range)',
-    { lat: 43.08077, lon: -70.757141 }, { lat: 44.391934, lon: -68.205831 }, DEADLINE_MS, LONG_RANGE_DEADLINE_MS);
-  if (!_case7.ok) console.log('  (not gated — see comment above: known hard case, out of Penobscot Bay scope)');
+  // Cases 3, 6, 7 (Portsmouth NH / York Harbor / Portsmouth -> Bar Harbor)
+  // removed 2026-10-04 per direct request: this release is Penobscot Bay
+  // only. (Case 5's gap note, which lived between them, is in git history.)
 
   // Case 8 — long-range fast path: two points >LONG_RANGE_NM apart, both
   // off any real land ring, direct line clear. Should return in low

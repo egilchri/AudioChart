@@ -79,8 +79,17 @@ export async function autoRouteProg(
   if (!_isNoPath(path)) return path;
   const remaining = () => 2 * deadlineMs - (Date.now() - t0);
 
-  // Retry 1: wider search area.
-  if (remaining() > 1000) {
+  // Retry 1: wider search area. Skipped for long-range passages — those
+  // decompose into sub-legs (_longRangeRoute) that never use this pad, so
+  // re-running one is pure wasted budget (it pushed case [25] past its cap
+  // on CI's slower runner, 2026-10-04).
+  // Measured between the SNAPPED endpoints, same as the core's own
+  // long-range test — an on-land endpoint can sit just under the threshold
+  // before snapping and just over it after (case [25]: 19.98nm vs 21.2nm).
+  const sS = Query.snapToNavigableWater(start.lon, start.lat, draftFt, tideHeightM) || start;
+  const sE = Query.snapToNavigableWater(end.lon, end.lat, draftFt, tideHeightM) || end;
+  const longRange = Query.distanceNm(sS.lon, sS.lat, sE.lon, sE.lat) > LONG_RANGE_NM;
+  if (!longRange && remaining() > 1000) {
     console.log(`[autoRoute] no path in the ${2.0}nm-padded area — retrying with ${WIDE_PAD_NM}nm`);
     path = await run(start, end, WIDE_PAD_NM, Math.min(deadlineMs, remaining()));
     if (!_isNoPath(path)) return path;
