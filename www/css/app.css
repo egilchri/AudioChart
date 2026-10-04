@@ -1181,7 +1181,7 @@ body.wco-active #wco-titlebar { display: flex; }
    already applied to the status-tile row and the compass. */
 #right-rail {
   position: absolute;
-  top: 70px;
+  top: 122px; /* below the always-on Objects panel (top:70px), which would otherwise cover the collapsed Actions tab */
   right: 10px;
   z-index: 1000;
   display: flex;
@@ -1258,16 +1258,10 @@ body.wco-active #wco-titlebar { display: flex; }
     overflow-y: auto;
   }
 }
-/* Above the breakpoint, force the body visible regardless of whatever
-   inline display the collapse toggle set — this is what makes the
-   feature completely inert on desktop without a resize listener: nobody
-   below 900px, nobody above it who can even see the toggle button to
-   collapse it in the first place, and if a collapsed state saved on a
-   phone ever reaches a desktop-width session (a synced browser profile,
-   say), the rail simply won't respect it there. */
-@media (min-width: 901px) {
-  #right-rail-body { display: flex !important; }
-}
+/* Collapse now works at every width (direct request 2026-10-04: "the
+   window … needs to be shrinkable" — on desktop). Previously the toggle
+   was phone-only and this breakpoint forced the body visible. */
+#right-rail-toggle { display: block; align-self: flex-end; }
 
 #reroute-btn {
   width: 48px;

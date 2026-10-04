@@ -13011,9 +13011,7 @@ _underwayCheckbox.addEventListener('change', () => {
 });
 if (localStorage.getItem('audiochart-underway-mode') === '1') _setUnderwayMode(true);
 
-// #right-rail collapse — mobile only, see the matching CSS comment on
-// #right-rail-toggle for why this is completely inert on desktop without
-// needing to check window width here at all. Same localStorage-persisted-
+// #right-rail collapse — every screen size (was mobile-only). Same localStorage-persisted-
 // toggle shape as underway mode just above.
 const _rightRailToggle = document.getElementById('right-rail-toggle');
 const _rightRailBody = document.getElementById('right-rail-body');
@@ -13025,10 +13023,11 @@ function _setRightRailCollapsed(collapsed) {
 _rightRailToggle.addEventListener('click', () => {
   _setRightRailCollapsed(_rightRailBody.style.display !== 'none');
 });
-// Default to collapsed on first-ever load — less clutter on open is the
-// whole point; once someone picks a state, remember it from then on.
+// Default to collapsed on a phone's first-ever load — less clutter on open
+// is the whole point; desktop (where the toggle used to be hidden) starts
+// expanded as it always has. Once someone picks a state, remember it.
 const _storedRailCollapsed = localStorage.getItem('audiochart-right-rail-collapsed');
-_setRightRailCollapsed(_storedRailCollapsed === null ? true : _storedRailCollapsed === '1');
+_setRightRailCollapsed(_storedRailCollapsed === null ? window.innerWidth <= 900 : _storedRailCollapsed === '1');
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && screenMenu.style.display !== 'none') _closeScreenMenu();

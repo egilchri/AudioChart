@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-04 — Actions panel shrinkable on desktop too (v767)
+
+The right-side tools panel (Start Tracking, Anchor Watch, ⊙, ↻) could
+only collapse to its "ACTIONS ▾" tab on screens ≤900px; on desktop the
+toggle was hidden and the body forced visible. Direct request: make it
+shrinkable. The toggle now shows at every width (desktop still starts
+expanded on first load; phones still start collapsed), and #right-rail
+moved from top:70px to top:122px everywhere so the Objects panel no
+longer covers it.
+
 ## 2026-10-04 — Card-stack toolbar for the top buttons (v766)
 
 Direct request: overlap the top-of-screen buttons like cards so only each
