@@ -4631,6 +4631,18 @@ body.wco-active #underway-btn { top: 10px; }
 /* Spread is a temporary "show me everything" view — on a phone it wraps to
    ~6 rows, so lift it above the Objects panel (1900) and Actions rail. */
 #map-overlay-status:has(#card-stack.stack-spread) { width: calc(100% - 110px); z-index: 1950; }
+/* v772: that full-width box is invisible but was catching clicks meant for
+   the floating windows underneath it (their shrink/close buttons stopped
+   responding on desktop). Only the buttons themselves take clicks... */
+#map-overlay-status:has(#card-stack.stack-spread),
+#map-overlay-status:has(#card-stack.stack-spread) #card-stack-bar,
+#card-stack.stack-spread { pointer-events: none; }
+#card-stack.stack-spread > *,
+#map-overlay-status:has(#card-stack.stack-spread) #card-stack-handle,
+#map-overlay-status:has(#card-stack.stack-spread) > :not(#card-stack-bar) { pointer-events: auto; }
+/* ...and a window you open always sits above the toolbar. */
+#waypoints-panel.open, #testsets-panel.open, #about-panel.open,
+#route-picker-panel.open, #sample-routes-panel.open, #track-picker-panel.open { z-index: 1960; }
 @media (min-width: 601px) {
   #map-overlay-status:has(#card-stack.stack-spread) { width: calc(100% - 180px); }
 }

@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-04 — Window shrink/close buttons dead while toolbar spread (v772)
+
+User report (desktop screenshot of Test Sets): the ▴ and ✕ didn't respond.
+Cause, confirmed with elementFromPoint: with the card stack spread (v769),
+#map-overlay-status was stretched to full width at z-index 1950 — above
+the floating windows (1900) — so its invisible box swallowed clicks on
+their title-bar buttons. Fix: the spread toolbar's container is
+click-through (only its buttons take clicks), and an open floating
+window now sits above it (z-index 1960). Verified with real clicks:
+shrink and close both work with the toolbar spread.
+
 ## 2026-10-04 — Zoom + pan shrink as one unit (v771)
 
 Direct request. A ▴ toggle on top of the left zoom slider + pan pad
