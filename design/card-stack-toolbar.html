@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Card Stack Toolbar</title>
+<!--
+  Mockup (2026-10-04): top-of-screen buttons as overlapping cards — only each
+  card's left edge (its symbol) shows; the card under the cursor or finger
+  rises to the front at full width. Touch: press anywhere on a stack and
+  slide; lift on a card to press it, slide off vertically to cancel.
+  Desktop: hover to raise, click to press. Not wired into the app.
+-->
+<style>
+:root {
+  --navy: #0a1628;
+  --brass-ink: #120d08;
+  --brass-ink-2: #1b140d;
+  --brass: #c79a48;
+  --brass-hi: #ecc07c;
+  --brass-dim: #6f5730;
+  --parchment: #e9dcc0;
+  --accent: #4a9edd;
+  --serif: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+  --mono: "SF Mono", Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; height: 100%; overflow: hidden;
+  background: #0d2a2a;
+  font-family: system-ui, -apple-system, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+}
+
+/* Stand-in for the map so the toolbar is judged in context. */
+#sea {
+  position: fixed; inset: 0;
+  background:
+    radial-gradient(ellipse 40% 30% at 20% 65%, #4a5a33 0 60%, transparent 61%),
+    radial-gradient(ellipse 25% 18% at 70% 45%, #4a5a33 0 60%, transparent 61%),
+    radial-gradient(ellipse 18% 10% at 55% 80%, #4a5a33 0 60%, transparent 61%),
+    linear-gradient(160deg, #123838, #0b2430 70%);
+}
+.buoy { position: fixed; width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; }
+.buoy.r { border-bottom: 14px solid #d33; }
+.buoy.g { border-bottom: 14px solid #2c2; }
+
+#status-bar {
+  position: fixed; top: 0; left: 0; right: 0; height: 34px;
+  background: var(--brass-ink); border-bottom: 1px solid var(--brass-dim);
+  color: var(--brass-hi); font: 600 14px var(--serif);
+  display: flex; align-items: center; padding: 0 12px; gap: 8px; white-space: nowrap; overflow: hidden;
+}
+#compass {
+  position: fixed; top: 44px; left: 10px; width: 78px; height: 78px; border-radius: 50%;
+  background: radial-gradient(circle, #2a2218 0 55%, var(--brass-dim) 56% 60%, var(--brass-ink) 61%);
+  border: 2px solid var(--brass-dim); display: grid; place-items: center;
+  color: var(--brass-hi); font: 700 15px var(--serif);
+}
+
+/* ── The card stacks ─────────────────────────────────────────────────── */
+#stacks { position: fixed; top: 44px; left: 100px; right: 10px; display: flex; flex-direction: column; gap: 10px; }
+.stack {
+  position: relative; height: 44px;
+  touch-action: none;           /* we own every gesture that starts here */
+}
+.card {
+  position: absolute; top: 0; height: 44px;
+  width: var(--card-w, 138px);
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 12px 0 9px;
+  background: var(--brass-ink-2);
+  color: var(--parchment);
+  border: 1px solid var(--brass-dim);
+  border-radius: 10px;
+  box-shadow: -3px 0 8px rgba(0,0,0,0.55);
+  font: 600 13px var(--serif); letter-spacing: 0.06em; text-transform: uppercase;
+  white-space: nowrap; overflow: hidden;
+  cursor: pointer;
+  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease, background 140ms ease;
+}
+.card .sym { flex: 0 0 auto; width: 22px; text-align: center; font-size: 18px; line-height: 1; }
+.card .lbl { opacity: 0.55; transition: opacity 140ms ease; }
+.card.raised {
+  z-index: 50 !important;
+  transform: translateY(-3px) scale(1.04);
+  border-color: var(--brass);
+  background: #2a1f13;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.7);
+}
+.card.raised .lbl { opacity: 1; color: var(--brass-hi); }
+.card.pressed { background: var(--brass); color: var(--brass-ink); }
+.card.pressed .lbl { color: var(--brass-ink); }
+.card.active { border-color: var(--accent); }
+.card.active .sym::after { content: ''; position: absolute; left: 6px; bottom: 4px; width: 26px; height: 2px; background: var(--accent); border-radius: 1px; }
+
+/* Name tag that floats under the raised card — the label is often clipped
+   by the next card over, so this guarantees it's readable mid-slide. */
+#tag {
+  position: fixed; z-index: 100; pointer-events: none;
+  padding: 3px 8px; border-radius: 6px;
+  background: rgba(18,13,8,0.92); border: 1px solid var(--brass-dim);
+  color: var(--brass-hi); font: 600 12px var(--serif); letter-spacing: 0.05em; text-transform: uppercase;
+  opacity: 0; transition: opacity 100ms ease;
+}
+#tag.show { opacity: 1; }
+
+/* Stand-in for whatever the button opens. */
+#panel {
+  position: fixed; left: 50%; top: 52%; transform: translate(-50%, -50%);
+  min-width: 220px; max-width: calc(100% - 32px);
+  padding: 16px 18px; border-radius: 12px;
+  background: rgba(10,22,40,0.94); border: 1px solid #2a5080; color: #e8edf4;
+  font-size: 15px; text-align: center;
+  opacity: 0; pointer-events: none; transition: opacity 160ms ease;
+}
+#panel.show { opacity: 1; }
+#panel b { color: var(--accent); }
+
+/* Mockup controls (not part of the design). */
+#controls {
+  position: fixed; left: 16px; right: 16px; bottom: 16px; margin: 0 auto; max-width: 440px;
+  padding: 10px 12px; border-radius: 10px;
+  background: rgba(18,13,8,0.9); border: 1px dashed var(--brass-dim);
+  color: var(--parchment); font-size: 13px;
+  display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center;
+}
+#controls .title { width: 100%; color: var(--brass); font: 600 11px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; }
+#controls label { display: flex; align-items: center; gap: 6px; }
+#controls input[type=range] { width: 110px; accent-color: var(--brass); }
+#controls button {
+  background: var(--brass-ink-2); color: var(--parchment); border: 1px solid var(--brass-dim);
+  border-radius: 6px; padding: 5px 10px; font-size: 13px;
+}
+#controls button.on { border-color: var(--brass); color: var(--brass-hi); }
+</style>
+</head>
+<body>
+<div id="sea"></div>
+<div class="buoy r" style="left:62%;top:58%"></div>
+<div class="buoy g" style="left:48%;top:62%"></div>
+<div class="buoy r" style="left:80%;top:70%"></div>
+<div class="buoy g" style="left:33%;top:40%"></div>
+
+<div id="status-bar">🛰 Satellite · GPS: Demo position · Region: Penobscot Bay</div>
+<div id="compass">N</div>
+
+<div id="stacks"></div>
+<div id="tag"></div>
+<div id="panel"></div>
+
+<div id="controls">
+  <div class="title">Mockup controls — not part of the design</div>
+  <span>Layout</span>
+  <button id="lay-two" class="on">Two stacks</button>
+  <button id="lay-one">One stack</button>
+  <label>Sliver <input id="sliver" type="range" min="26" max="48" value="34"><span id="sliver-v">34px</span></label>
+</div>
+
+<script>
+// Same buttons, symbols and order as the real top rows (index.html
+// #status-tiles / #status-tiles-2). Two stacks mirror those two groups.
+const GROUPS = [
+  [
+    { sym: '🗺', label: 'Map Type' },
+    { sym: '🔍', label: 'Search' },
+    { sym: '📍', label: 'Location' },
+    { sym: '🖥', label: 'Screen' },
+    { sym: '⬇', label: 'Import' },
+  ],
+  [
+    { sym: '✎', label: 'Routes', toggle: true },
+    { sym: '◎', label: 'Tracks', toggle: true },
+    { sym: '★', label: 'Samples', toggle: true },
+    { sym: '⚑', label: 'Waypoints', toggle: true },
+    { sym: '🧪', label: 'Test Sets', toggle: true },
+    { sym: '📖', label: 'Tutorial' },
+  ],
+];
+
+const stacksEl = document.getElementById('stacks');
+const tagEl = document.getElementById('tag');
+const panelEl = document.getElementById('panel');
+let layout = 'two';
+let sliver = 34;
+const CARD_W = 138;
+let panelTimer = 0;
+
+function build() {
+  stacksEl.innerHTML = '';
+  const groups = layout === 'two' ? GROUPS : [GROUPS.flat()];
+  for (const items of groups) {
+    const stack = document.createElement('div');
+    stack.className = 'stack';
+    items.forEach((it, i) => {
+      const c = document.createElement('div');
+      c.className = 'card';
+      c.setAttribute('role', 'button');
+      c.tabIndex = 0;
+      c.innerHTML = `<span class="sym">${it.sym}</span><span class="lbl">${it.label}</span>`;
+      c._item = it;
+      c.style.zIndex = String(i + 1);  // later cards sit on top, so each one's LEFT edge peeks out
+      stack.appendChild(c);
+    });
+    stacksEl.appendChild(stack);
+    wire(stack);
+  }
+  layoutCards();
+}
+
+// Fit each stack to the available width: shrink the sliver if needed so the
+// last (fully visible) card still fits on a phone.
+function layoutCards() {
+  const avail = stacksEl.clientWidth;
+  for (const stack of stacksEl.children) {
+    const cards = [...stack.children];
+    const n = cards.length;
+    const step = Math.max(22, Math.min(sliver, (avail - CARD_W) / Math.max(1, n - 1)));
+    stack._step = step;
+    cards.forEach((c, i) => { c.style.left = `${i * step}px`; c.style.setProperty('--card-w', CARD_W + 'px'); });
+    stack.style.width = `${(n - 1) * step + CARD_W}px`;
+  }
+}
+
+function cardAt(stack, clientX) {
+  const r = stack.getBoundingClientRect();
+  const cards = stack.children;
+  const i = Math.floor((clientX - r.left) / stack._step);
+  return cards[Math.max(0, Math.min(cards.length - 1, i))];
+}
+
+function raise(stack, card) {
+  for (const s of stacksEl.children) for (const c of s.children) if (c !== card) c.classList.remove('raised');
+  if (!card) { tagEl.classList.remove('show'); return; }
+  card.classList.add('raised');
+  const r = card.getBoundingClientRect();
+  tagEl.textContent = card._item.label;
+  tagEl.style.left = `${Math.min(window.innerWidth - tagEl.offsetWidth - 6, Math.max(6, r.left))}px`;
+  tagEl.style.top = `${r.bottom + 6}px`;
+  tagEl.classList.add('show');
+}
+
+function press(card) {
+  const it = card._item;
+  card.classList.add('pressed');
+  setTimeout(() => card.classList.remove('pressed'), 160);
+  let msg;
+  if (it.toggle) {
+    const on = !card.classList.contains('active');
+    card.classList.toggle('active', on);
+    msg = `<b>${it.label}</b> panel ${on ? 'opened' : 'closed'}`;
+  } else {
+    msg = `<b>${it.label}</b> pressed`;
+  }
+  panelEl.innerHTML = msg;
+  panelEl.classList.add('show');
+  clearTimeout(panelTimer);
+  panelTimer = setTimeout(() => panelEl.classList.remove('show'), 1400);
+}
+
+function wire(stack) {
+  let touchActive = false;
+
+  stack.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse') return;   // mouse uses hover + click below
+    touchActive = true;
+    stack.setPointerCapture(e.pointerId);
+    raise(stack, cardAt(stack, e.clientX));
+    e.preventDefault();
+  });
+  stack.addEventListener('pointermove', (e) => {
+    if (e.pointerType === 'mouse') {
+      raise(stack, cardAt(stack, e.clientX));
+      return;
+    }
+    if (!touchActive) return;
+    const r = stack.getBoundingClientRect();
+    const off = e.clientY < r.top - 40 || e.clientY > r.bottom + 40;  // slid off vertically → cancel
+    raise(stack, off ? null : cardAt(stack, e.clientX));
+  });
+  const finish = (e, cancelled) => {
+    if (!touchActive) return;
+    touchActive = false;
+    const card = stack.querySelector('.card.raised');
+    if (card && !cancelled) press(card);
+    setTimeout(() => raise(stack, null), 250);
+  };
+  stack.addEventListener('pointerup', (e) => { if (e.pointerType !== 'mouse') finish(e, false); });
+  stack.addEventListener('pointercancel', (e) => finish(e, true));
+
+  stack.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') raise(stack, null); });
+  stack.addEventListener('click', (e) => {
+    // Mouse click only — touch already pressed on pointerup.
+    if (e.pointerType && e.pointerType !== 'mouse') return;
+    const card = e.target.closest('.card');
+    if (card) press(card);
+  });
+  stack.addEventListener('focusin', (e) => { const c = e.target.closest('.card'); if (c) raise(stack, c); });
+  stack.addEventListener('focusout', () => raise(stack, null));
+  stack.addEventListener('keydown', (e) => {
+    const c = e.target.closest('.card');
+    if (!c) return;
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); press(c); }
+    if (e.key === 'ArrowRight') c.nextElementSibling?.focus();
+    if (e.key === 'ArrowLeft') c.previousElementSibling?.focus();
+  });
+}
+
+document.getElementById('lay-two').onclick = (e) => { layout = 'two'; e.target.classList.add('on'); document.getElementById('lay-one').classList.remove('on'); build(); };
+document.getElementById('lay-one').onclick = (e) => { layout = 'one'; e.target.classList.add('on'); document.getElementById('lay-two').classList.remove('on'); build(); };
+document.getElementById('sliver').oninput = (e) => { sliver = +e.target.value; document.getElementById('sliver-v').textContent = sliver + 'px'; layoutCards(); };
+window.addEventListener('resize', layoutCards);
+build();
+</script>
+</body>
+</html>
