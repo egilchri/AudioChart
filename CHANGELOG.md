@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-04 — Zoom + pan shrink as one unit (v771)
+
+Direct request. A ▴ toggle on top of the left zoom slider + pan pad
+(#left-rail-zoom-pan) folds both into one small "⊕ ▾" tab; tapping it
+expands them again. Remembered across reloads
+(`audiochart-zoompan-collapsed`). The rail itself still only appears on
+screens ≥768px wide, as before.
+
 ## 2026-10-04 — Card stack fits iPhone width; spread view wraps (v770)
 
 At iPhone width (402px) the v769 handle pushed the stack off the right

@@ -13028,6 +13028,22 @@ _underwayCheckbox.addEventListener('change', () => {
 });
 if (localStorage.getItem('audiochart-underway-mode') === '1') _setUnderwayMode(true);
 
+// Zoom slider + pan pad shrink together to one small tab — direct request
+// 2026-10-04 ("put the zoom and pan widgets as a unit that can be shrunk").
+// Remembered across reloads.
+const _zoomPanRail = document.getElementById('left-rail-zoom-pan');
+const _zoomPanToggle = document.getElementById('zoom-pan-toggle');
+function _setZoomPanCollapsed(collapsed) {
+  _zoomPanRail.classList.toggle('zp-collapsed', collapsed);
+  _zoomPanToggle.textContent = collapsed ? '\u2295 \u25BE' : '\u25B4';
+  _zoomPanToggle.title = collapsed ? 'Show the zoom & pan controls' : 'Shrink the zoom & pan controls';
+  try { localStorage.setItem('audiochart-zoompan-collapsed', collapsed ? '1' : ''); } catch {}
+}
+_zoomPanToggle.addEventListener('click', () => _setZoomPanCollapsed(!_zoomPanRail.classList.contains('zp-collapsed')));
+let _storedZoomPan = null;
+try { _storedZoomPan = localStorage.getItem('audiochart-zoompan-collapsed'); } catch {}
+_setZoomPanCollapsed(_storedZoomPan === '1');
+
 // #right-rail collapse — every screen size (was mobile-only). Same localStorage-persisted-
 // toggle shape as underway mode just above.
 const _rightRailToggle = document.getElementById('right-rail-toggle');
