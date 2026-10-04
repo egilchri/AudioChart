@@ -2569,6 +2569,8 @@ body.wco-active #wco-titlebar { display: flex; }
 .navaid-popup-objects,
 .navaid-popup-routes-near,
 .navaid-popup-tracks-near,
+.navaid-popup-add-testset,
+.navaid-popup-testset-pick,
 .navaid-popup-delete,
 .ts-popup-pos,
 .ts-popup-autoroute,
@@ -2594,6 +2596,8 @@ body.wco-active #wco-titlebar { display: flex; }
 .navaid-popup-objects:active,
 .navaid-popup-routes-near:active,
 .navaid-popup-tracks-near:active,
+.navaid-popup-add-testset:active,
+.navaid-popup-testset-pick:active,
 .ts-popup-pos:active,
 .ts-popup-autoroute:active { background: var(--accent); color: var(--navy); }
 /* Red danger accent, same convention as #delete-route-btn — this one's a
@@ -4673,3 +4677,7 @@ body.wco-active #underway-btn { top: 10px; }
 #zoom-pan-toggle:hover { border-color: var(--brass); color: var(--brass-hi); }
 #left-rail-zoom-pan.zp-collapsed > :not(#zoom-pan-toggle) { display: none !important; }
 #left-rail-zoom-pan.zp-collapsed #zoom-pan-toggle { padding: 6px 8px; }
+
+/* SP popup "Add to Test Set…" choices — indented under their button. */
+.navaid-popup-testset-choices { margin: 2px 0 2px 12px; }
+.navaid-popup-testset-choices .navaid-popup-testset-pick { margin-top: 4px; background: var(--dark-blue); border: 1px solid var(--mid-blue); }

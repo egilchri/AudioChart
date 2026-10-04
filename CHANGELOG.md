@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-04 — "Add to Test Set…" on SP marker popups (v773)
+
+Direct request. An SP marker's popup now has "🧪 Add to Test Set…", which
+lists the existing Test Sets plus "＋ New Test Set…". Picking one moves
+just that marker into the set as its next TS00N (new
+TestSetsStorage.addWaypointToTestSet, same globally-unique labels as the
+bulk save). Like the bulk "Save SP* waypoints as Test Set", the SP
+waypoint is converted, not copied — it leaves the regular waypoint list.
+The set is made visible so the new purple TS marker shows right away.
+Verified both paths on a local copy (existing set → TS002, new set → TS003).
+
 ## 2026-10-04 — Window shrink/close buttons dead while toolbar spread (v772)
 
 User report (desktop screenshot of Test Sets): the ▴ and ✕ didn't respond.

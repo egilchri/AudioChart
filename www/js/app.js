@@ -325,6 +325,8 @@ function _refreshWaypointLayer() {
            <button class="navaid-popup-routes-near">Routes within &rsaquo;</button>
            <button class="navaid-popup-tracks-near">Tracks within &rsaquo;</button>
            <button class="navaid-popup-rename">&#9998; Rename</button>
+           ${wp.name.startsWith('SP') ? `<button class="navaid-popup-add-testset">&#129514; Add to Test Set&hellip;</button>
+           <div class="navaid-popup-testset-choices" style="display:none"></div>` : ''}
            <button class="navaid-popup-delete">&#128465; Delete</button>
          </div>`,
         { maxWidth: 220, className: 'navaid-popup-wrapper' }
@@ -406,6 +408,46 @@ function _refreshWaypointLayer() {
           const msg = `Renamed to ${newName}.`;
           setStatus(msg);
           TTS.sayImmediate(msg);
+        });
+        // SP markers only — move this ONE marker into a Test Set (existing
+        // or new). Direct request 2026-10-04; the bulk "Save SP* waypoints
+        // as Test Set" in the Waypoints window was the only path before.
+        // Like the bulk save, the SP waypoint is converted, not copied: it
+        // leaves the regular waypoint list and becomes the set's next TS00N.
+        const addTsBtn = popupEl.querySelector('.navaid-popup-add-testset');
+        if (addTsBtn) addTsBtn.addEventListener('click', () => {
+          const choices = popupEl.querySelector('.navaid-popup-testset-choices');
+          if (choices.style.display !== 'none') { choices.style.display = 'none'; return; }
+          const sets = TestSetsStorage.loadTestSets();
+          choices.innerHTML = sets.map(set =>
+            `<button class="navaid-popup-testset-pick" data-set-id="${escapeHtml(set.id)}">${escapeHtml(set.name)} (${set.waypoints.length})</button>`
+          ).join('') + `<button class="navaid-popup-testset-pick" data-set-id="">&#65291; New Test Set&hellip;</button>`;
+          choices.style.display = 'block';
+          choices.querySelectorAll('.navaid-popup-testset-pick').forEach(b => b.addEventListener('click', async () => {
+            _map.closePopup();
+            const live = WaypointsStorage.loadUserWaypoints().find(w => w.name === wp.name);
+            if (!live) return;
+            let setId = b.dataset.setId, setName, tsName;
+            if (!setId) {
+              setName = await _showTextPrompt('Name this Test Set', '', TestSetsStorage.nextTestSetDefaultName());
+              if (!setName) return;
+              const set = TestSetsStorage.saveTestSet(setName, [live]);
+              setId = set.id;
+              tsName = set.waypoints[0].name;
+            } else {
+              setName = TestSetsStorage.loadTestSets().find(x => x.id === setId)?.name;
+              tsName = TestSetsStorage.addWaypointToTestSet(setId, live);
+              if (!tsName) return;
+            }
+            TestSetsStorage.setTestSetVisible(setId, true);
+            localStorage.setItem(WaypointsStorage.USER_WP_KEY, JSON.stringify(WaypointsStorage.loadUserWaypoints().filter(w => w.name !== wp.name)));
+            Query.removeUserWaypoint(wp.name);
+            _refreshWaypointLayer();
+            _refreshTestSetLayer();
+            const msg = `${wp.name} added to Test Set "${setName}" as ${tsName}.`;
+            setStatus(msg);
+            TTS.sayImmediate(msg);
+          }));
         });
         // Same removal steps as the "delete waypoint [name]" text command —
         // per direct request, old auto-named waypoints (wp001, wp002, ...)

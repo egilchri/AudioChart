@@ -76,6 +76,22 @@ export function saveTestSet(name, waypoints) {
   return entry;
 }
 
+// Appends ONE waypoint to an existing Test Set as its next TS00N marker —
+// direct request 2026-10-04, the per-marker counterpart to saveTestSet's
+// bulk save (an SP marker popup's "Add to Test Set…"). Same copy-by-value,
+// globally-unique-label rules as saveTestSet. Returns the new marker's
+// name, or null if the set no longer exists.
+export function addWaypointToTestSet(setId, waypoint) {
+  const sets = loadTestSets();
+  const set = sets.find(s => s.id === setId);
+  if (!set) return null;
+  const name = `TS${String(_nextTestMarkerNum(sets) + 1).padStart(3, '0')}`;
+  set.waypoints.push({ name, lat: waypoint.lat, lon: waypoint.lon, origName: waypoint.name });
+  set.updatedAt = Date.now();
+  _saveAll(sets);
+  return name;
+}
+
 export function deleteTestSet(id) {
   _saveAll(loadTestSets().filter(s => s.id !== id));
   const visible = loadVisibleTestSetIds();
