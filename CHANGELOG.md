@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-04 — Tide widget shrinkable (v768)
+
+Direct request. The tide widget (bottom right) gets a ▴ button in its
+corner that shrinks it to a small "TIDE ▾" tab; tapping the tab expands
+it again. The state is remembered across reloads
+(`audiochart-tide-collapsed`).
+
 ## 2026-10-04 — Actions panel shrinkable on desktop too (v767)
 
 The right-side tools panel (Start Tracking, Anchor Watch, ⊙, ↻) could

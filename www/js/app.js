@@ -7771,6 +7771,7 @@ function _ensureMap() {
       L.DomEvent.disableClickPropagation(el);
       L.DomEvent.disableScrollPropagation(el);
       el.innerHTML = `
+        <button class="tide-shrink-btn" type="button" title="Shrink the tide widget"></button>
         <div class="tide-svg-wrapper"></div>
         <div class="tide-slider-row">
           <input type="range" id="tide-offset-slider" min="-6" max="24" step="0.25" value="0">
@@ -7793,6 +7794,22 @@ function _ensureMap() {
         ev.stopPropagation();
         _startTidePlay();
       });
+      // Shrink to a small "TIDE ▾" tab — direct request 2026-10-04, same
+      // idea as the other windows' shrink buttons. Remembered across reloads.
+      const shrinkBtn = el.querySelector('.tide-shrink-btn');
+      const setCollapsed = (collapsed) => {
+        el.classList.toggle('tide-collapsed', collapsed);
+        shrinkBtn.textContent = collapsed ? 'Tide \u25BE' : '\u25B4';
+        shrinkBtn.title = collapsed ? 'Expand the tide widget' : 'Shrink the tide widget';
+        try { localStorage.setItem('audiochart-tide-collapsed', collapsed ? '1' : ''); } catch {}
+      };
+      shrinkBtn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        setCollapsed(!el.classList.contains('tide-collapsed'));
+      });
+      let storedTide = null;
+      try { storedTide = localStorage.getItem('audiochart-tide-collapsed'); } catch {}
+      setCollapsed(storedTide === '1');
       _redrawTideCycle();
       return el;
     },

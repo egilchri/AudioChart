@@ -4561,3 +4561,34 @@ body.wco-active #underway-btn { top: 10px; }
     max-width: calc(100% - 110px);
   }
 }
+
+/* Tide widget shrink control (see _TideCycle in app.js). */
+.tide-cycle-ctrl { position: relative; }
+.tide-shrink-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 2;
+  background: rgba(18, 13, 8, 0.9);
+  border: 1px solid var(--brass-dim);
+  border-radius: 6px;
+  color: var(--brass);
+  font-family: var(--font-brass-serif);
+  font-size: 0.8rem;
+  font-weight: 700;
+  min-width: 28px;
+  min-height: 24px;
+  padding: 0 6px;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.tide-shrink-btn:hover { border-color: var(--brass); color: var(--brass-hi); }
+.tide-cycle-ctrl.tide-collapsed > :not(.tide-shrink-btn) { display: none !important; }
+.tide-cycle-ctrl.tide-collapsed { padding: 0 !important; min-width: 0 !important; width: auto !important; }
+.tide-cycle-ctrl.tide-collapsed .tide-shrink-btn {
+  position: static;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 6px 10px;
+}
