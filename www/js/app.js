@@ -13607,6 +13607,47 @@ async function init() {
   if (new URLSearchParams(location.search).has('demo')) {
     runDemoMode();
   }
+  const _longtestParam = new URLSearchParams(location.search).get('longtest');
+  if (_longtestParam) _runLongtestFromUrl(_longtestParam);
+}
+
+// ?longtest=TS001,10 — starts Longtest(setName, iterations) once the map and
+// chart data are ready, then shows the results table on screen. For devices
+// with no reachable console (iPhone/Pixel simulators, real phones). Direct
+// request 2026-10-05. The parameter is stripped from the address bar as the
+// run starts, so a reload (or reopening an installed app) can't rerun it.
+async function _runLongtestFromUrl(param) {
+  const [name, n] = param.split(',');
+  const iterations = Math.max(1, Math.min(50, parseInt(n, 10) || 3));
+  const url = new URL(location.href);
+  url.searchParams.delete('longtest');
+  history.replaceState(null, '', url.pathname + url.search + url.hash);
+  await Query.whenLandLoaded();
+  while (!_map) await new Promise(r => setTimeout(r, 200));
+  await new Promise(r => setTimeout(r, 1500)); // let startup panels settle
+  document.getElementById('sr-close')?.click();
+  let rows, err = null;
+  try { rows = await window.Longtest(name, iterations); }
+  catch (e) { err = e.message; }
+  _showLongtestResults(name, rows, err);
+}
+
+function _showLongtestResults(name, rows, err) {
+  document.getElementById('longtest-results')?.remove();
+  const el = document.createElement('div');
+  el.id = 'longtest-results';
+  const body = err
+    ? `<p class="lt-err">${escapeHtml(err)}</p>`
+    : `<table><tr><th>#</th><th>Leg</th><th>Result</th><th>nm</th><th>s</th></tr>${rows.map(r =>
+        `<tr class="${r.result === 'PASS' ? 'lt-pass' : r.result.startsWith('WARN') ? 'lt-warn' : 'lt-fail'}"><td>${r.iter}</td><td>${escapeHtml(r.from)} → ${escapeHtml(r.to)}</td><td>${escapeHtml(r.result)}</td><td>${r.nm ?? ''}</td><td>${r.ms != null ? (r.ms / 1000).toFixed(1) : ''}</td></tr>`
+      ).join('')}</table>`;
+  const passed = rows ? rows.filter(r => r.result === 'PASS').length : 0;
+  const failed = rows ? rows.filter(r => r.result.startsWith('FAIL')).length : 0;
+  el.innerHTML = `<div class="lt-head"><strong>Longtest ${escapeHtml(name)}</strong>
+      <span>${rows ? `${rows.length} legs · ${passed} pass · ${failed} fail` : 'error'}</span>
+      <button type="button" aria-label="Close">&#10005;</button></div>${body}`;
+  el.querySelector('button').addEventListener('click', () => el.remove());
+  document.body.appendChild(el);
 }
 
 // ── Demo mode ─────────────────────────────────────────────────────────────────

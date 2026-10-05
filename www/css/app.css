@@ -4681,3 +4681,31 @@ body.wco-active #underway-btn { top: 10px; }
 /* SP popup "Add to Test Set…" choices — indented under their button. */
 .navaid-popup-testset-choices { margin: 2px 0 2px 12px; }
 .navaid-popup-testset-choices .navaid-popup-testset-pick { margin-top: 4px; background: var(--dark-blue); border: 1px solid var(--mid-blue); }
+
+/* ?longtest= results table (see _showLongtestResults). */
+#longtest-results {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 20000;
+  width: min(560px, calc(100% - 32px));
+  max-height: calc(100% - 32px);
+  overflow: auto;
+  background: rgba(10, 22, 40, 0.97);
+  border: 1px solid var(--mid-blue);
+  border-radius: 10px;
+  padding: 12px 14px;
+  color: var(--text);
+  font-size: 0.85rem;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.7);
+}
+#longtest-results .lt-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+#longtest-results .lt-head span { color: var(--text-dim); flex: 1; }
+#longtest-results .lt-head button { background: none; border: none; color: var(--text); font-size: 1.1rem; cursor: pointer; min-width: 32px; min-height: 32px; }
+#longtest-results table { width: 100%; border-collapse: collapse; }
+#longtest-results th, #longtest-results td { text-align: left; padding: 4px 6px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+#longtest-results .lt-pass td:nth-child(3) { color: #6fd08c; }
+#longtest-results .lt-warn td:nth-child(3) { color: #f5c518; }
+#longtest-results .lt-fail td:nth-child(3) { color: #ff6b6b; font-weight: 700; }
+#longtest-results .lt-err { color: #ff6b6b; }

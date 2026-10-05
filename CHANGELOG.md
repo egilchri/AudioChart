@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-05 — ?longtest= URL switch (v780)
+
+Direct request. Opening the app with `?longtest=TS001,10` starts
+Longtest(setName, iterations) once the map and chart data are ready,
+then shows a results table on screen (PASS/WARN/FAIL per leg, nm,
+seconds) — for devices with no reachable console, like the iPhone/Pixel
+simulators and real phones. The parameter is stripped from the address
+bar as the run starts, so reloading or reopening an installed app can't
+rerun it. Iterations capped at 50.
+
 ## 2026-10-04 — Long-range routes: wider search for detours and depart/arrive legs (v779)
 
 Found by Longtest: TS027 Northeast Harbor → TS015 Belfast Harbor (31nm)
