@@ -1217,6 +1217,37 @@ async function _autoRouteCore(
     openPos[idx] = last;
   }
 
+  // The channel-edge trust below is for SMALL land/channel misalignment
+  // (independently digitized ENC layers, a few tens of meters at most). It
+  // must not cover a channel edge that cuts straight across real land —
+  // found by Longtest 2026-10-04 (TS014 → TS010 at tide ≥2m): a straight
+  // channel edge by Lawrys Narrows ran 349m over Lawrys Island (654m on
+  // the bundled-default data), and became a real route leg crossing land.
+  // An edge with more land along it than the tolerance gets no trust and
+  // is simply skipped (the normal segBlocked check would block it anyway).
+  // 150m: above the largest genuine misalignment seen (a charted fairway
+  // centerline in Rockland Harbor, 71m over simplified land), well below the
+  // smallest real cut (292m). A full scan found 4 such edges, all synthetic
+  // buoy-chain edges SW of Vinalhaven (292/324/355/791m).
+  const CHANNEL_LAND_TOLERANCE_M = 150;
+  const _channelEdgeLandCache = new Map();
+  function _channelEdgeCutsLand(a, b) {
+    const key = a.lon < b.lon || (a.lon === b.lon && a.lat < b.lat)
+      ? `${a.lon},${a.lat}|${b.lon},${b.lat}` : `${b.lon},${b.lat}|${a.lon},${a.lat}`;
+    let cuts = _channelEdgeLandCache.get(key);
+    if (cuts !== undefined) return cuts;
+    const lenM = Query.distanceNm(a.lon, a.lat, b.lon, b.lat) * 1852;
+    const steps = Math.max(2, Math.ceil(lenM / 15)); // sample every ~15m
+    let landSamples = 0;
+    for (let s = 1; s < steps; s++) {
+      const t = s / steps;
+      if (Query.isLandAt(a.lon + (b.lon - a.lon) * t, a.lat + (b.lat - a.lat) * t)) landSamples++;
+    }
+    cuts = (landSamples / steps) * lenM > CHANNEL_LAND_TOLERANCE_M;
+    _channelEdgeLandCache.set(key, cuts);
+    return cuts;
+  }
+
   function tracePath(endIdx) {
     const p = [];
     for (let i = endIdx; i !== -1; i = prev[i]) p.push(nodes[i]);
@@ -1267,6 +1298,7 @@ async function _autoRouteCore(
       for (const nb of Query.channelNeighbors(a.lon, a.lat)) {
         const j = channelKeyToIdx.get(nb.key);
         if (j === undefined || closed[j]) continue;
+        if (_channelEdgeCutsLand(a, nb)) continue;
         const ng = gScore[curr] + Query.distanceNm(a.lon, a.lat, nb.lon, nb.lat);
         if (ng < gScore[j]) {
           gScore[j] = ng;

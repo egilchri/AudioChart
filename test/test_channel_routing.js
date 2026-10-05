@@ -550,6 +550,28 @@ async function main() {
     })());
   }
 
+  // Case 26 — TS014 -> TS010 at 2m tide, 3.5ft draft (found by Longtest,
+  // 2026-10-04): a real 14-point route whose leg cut 349m across Lawrys
+  // Island along a synthetic buoy-chain channel edge, which the router
+  // used to trust without a land check. At tide 0-1m a different route
+  // won and the bug stayed hidden, so this case pins the tide. Fixed by
+  // router.js's CHANNEL_LAND_TOLERANCE_M guard.
+  gate(await (async () => {
+    Query.setActiveRegion('penobscot-bay');
+    await Query.loadData(44.103, -69.088);
+    await waitForRegionDataReady(Query);
+    const label = '[26] TS014 -> TS010 at 2m tide (channel edge cutting across Lawrys Island)';
+    const t0 = Date.now();
+    const p = await Router.autoRouteProg({ lat: 44.043153, lon: -68.835473 }, { lat: 44.154127, lon: -68.884358 },
+      () => {}, () => {}, false, 3.5, 2.0, null, null, DEADLINE_MS);
+    const ms = Date.now() - t0;
+    const crosses = pathCrossesLand(Query, p);
+    const fallback = p.length <= 2 && crosses;
+    const ok = !fallback && !crosses && ms < LONG_RANGE_DEADLINE_MS;
+    console.log(`${label}: ${ok ? 'PASS' : 'FAIL'} (fallback=${fallback}, crossesLand=${crosses}, ${p.length} pts, ${ms}ms)`);
+    return { ok };
+  })());
+
   console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll cases passed.');
   console.log(
     '\nNOT PORTED (relied on injecting a synthetic obstacle ring the real\n' +

@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-10-04 — AutoRoute no longer trusts channel edges that cut across land (v778)
+
+Found by Longtest (TS014 → TS010, v777): a real 14-point route — not a
+straight-line fallback — with a leg crossing 349m of Lawrys Island, only
+at tide ≥2m (at lower tide a different route won). Cause: the router
+relaxes channel-graph edges WITHOUT the land check, on purpose — the
+chart's land and channel layers are digitized independently, so a real
+channel edge can clip simplified coastline by a few tens of meters. But
+some synthetic buoy-chain edges (straight lines between buoys) cut
+straight across islands. A scan of the Penobscot Bay channel graph found
+4 (292/324/355/791m over land, all SW of Vinalhaven); bundled-default's
+worst is a genuine 71m misalignment (Rockland Harbor fairway).
+
+Fix: a channel edge with more than 150m of land along it gets no trust
+(cached per edge). New regression case [26] pins the 2m tide. Full suite
+passes, including the buoy-chain channel cases [10]/[12].
+
 ## 2026-10-04 — Fix v776's CI failure; Penobscot Bay-only test suite (v777)
 
 v776 failed GitHub CI on its own new case [25] (TS014 → Brooksville):
