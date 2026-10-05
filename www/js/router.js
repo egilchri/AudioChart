@@ -76,7 +76,12 @@ export async function autoRouteProg(
   const run = (s, e, pad, budget, snapCb = onSnap) => _autoRouteCore(s, e, onUpdate, onText, _escapeAttempted,
     draftFt, tideHeightM, onSearchProgress, snapCb, budget, pad);
   let path = await run(start, end, 2.0, deadlineMs);
-  if (!_isNoPath(path)) return path;
+  // A timed-out straight line only counts as retryable when an endpoint had
+  // to be moved to water (checked below): on a slower machine the doomed
+  // search into cut-off water hits the deadline instead of exhausting its
+  // graph — CI's runner did exactly that on case [28], so no retry ran.
+  const timedOutFallback = path._timedOut && path.length <= 2;
+  if (!_isNoPath(path) && !timedOutFallback) return path;
   const remaining = () => 2 * deadlineMs - (Date.now() - t0);
 
   // Measured between the SNAPPED endpoints, same as the core's own
@@ -116,6 +121,10 @@ export async function autoRouteProg(
       }
     }
   }
+
+  // A plain timeout with no moved endpoint isn't a "no path" — leave it to
+  // the caller's existing timeout handling (Retry button, raise the limit).
+  if (timedOutFallback) return path;
 
   // Retry B: wider search area with the original endpoints. Skipped for
   // long-range passages — those decompose into sub-legs (_longRangeRoute)

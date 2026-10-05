@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-05 — Retry other nearby water after a timeout too (v782)
+
+v781 failed GitHub CI on its own new case [28]: on the slower runner the
+first attempt (into cut-off Snow Cove water) hit the 18s deadline instead
+of exhausting its graph, and retries only ran after a genuine no-path. A
+phone would do the same. Now, when an endpoint had to be moved to water,
+a timed-out straight-line fallback also triggers the other-nearby-water
+retry (a plain timeout with no moved endpoint still goes to the existing
+timeout handling). Verified by simulating a slow device (12s limit): first
+attempt times out, the Bucks Harbor retry succeeds.
+
 ## 2026-10-05 — AutoRoute tries other nearby water before widening (v781)
 
 Found by the new ?longtest= switch: TS008 → TS018 (Brooksville), the
