@@ -60,6 +60,9 @@ function _timedOutFallback(a, b) {
 // budget (total capped at 2x deadlineMs) — this project's standing call is
 // "wait longer" over "falsely claim impossible".
 const WIDE_PAD_NM = 6.0;
+// Distance from shore under which a router-placed waypoint counts as "tight"
+// and gets a ⚠ (see the coastal standoff ladder's bestFallback).
+const SHORE_TIGHT_WARNING_NM = 100 / 1852;
 // The user's own start/destination for the route being planned (original
 // and water-snapped), so the shallow-water warning can ignore shoals right
 // at them — see ENDPOINT_SHALLOW_EXEMPT_NM. Set by autoRouteProg for the
@@ -1068,7 +1071,10 @@ async function _autoRouteCore(
       // warning on every route (diagnosed 2026-10-05: 107-694m flags,
       // only 3 of them really under 222m).
       if (!placed && bestFallback) {
-        const tight = bestFallback.clearance < Math.min(...offsetLadder) * 0.8;
+        // 100m (direct request 2026-10-05): the earlier cutoff (smallest
+        // rung × 0.8 ≈ 222m) still flagged passes 177-200m off shore, which
+        // sailors wouldn't call tight. Only genuinely close passes warn now.
+        const tight = bestFallback.clearance < SHORE_TIGHT_WARNING_NM;
         nodes.push(tight
           ? { lon: bestFallback.nx, lat: bestFallback.ny, marginal: true, marginalKind: 'shore', marginalClearanceNm: bestFallback.clearance }
           : { lon: bestFallback.nx, lat: bestFallback.ny });

@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-05 — "Near shore" warning cutoff lowered to 100m (v786)
+
+Direct request. A router-placed waypoint is now flagged "near shore" only
+when it's under 100m from land (SHORE_TIGHT_WARNING_NM). The v783 cutoff
+(smallest standoff rung × 0.8 ≈ 222m) still flagged passes 177-200m off
+shore on the iPhone Longtest run — not what sailors call tight. Warning
+labeling only; routes are unchanged.
+
 ## 2026-10-05 — Longtest: WARN split into shore/shoal, with distance (v785)
 
 Direct request. Longtest's results now say "WARN: near shore (Nm)" or
