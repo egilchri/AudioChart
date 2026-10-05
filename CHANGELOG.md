@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-05 — Long-range detours: 12nm search as a last resort (v788)
+
+v787 escalated every failed detour patch to 12nm straight away, which
+slowed two routes that already worked on CI ([20] 22.7s → 38.3s, [25]
+25.5s → 35.8s): their cheap smaller-bracket retry used to succeed first.
+The 12nm search now runs only after both the normal and smaller-bracket
+attempts fail. Valley Cove → Belfast still routes (3-5s).
+
 ## 2026-10-05 — Long-range detours escalate to a 12nm search; Longtest picker fix (v787)
 
 Found by Longtest on the iPhone simulator: TS028 Valley Cove (Somes Sound)
