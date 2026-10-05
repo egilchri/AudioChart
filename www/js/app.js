@@ -1476,9 +1476,13 @@ window.Longtest = async (setName, iterations = 3, { speedKnots = 5 } = {}) => {
     const fellBack = pts.length <= 2 && crossesLand;
     const marginal = pts.length > 2 ? _marginalLegFromPath(pts) : null;
     const nm = pts.reduce((s, p, k) => k ? s + Query.distanceNm(pts[k - 1].lon, pts[k - 1].lat, p.lon, p.lat) : 0, 0);
+    // Which kind of "tight" and how tight — router.js tags the flagged node
+    // with marginalKind and marginalClearanceNm (2026-10-05, direct request).
+    const mNode = marginal ? pts.find(p => p.marginal) : null;
+    const mDist = mNode?.marginalClearanceNm != null ? ` (${Math.round(mNode.marginalClearanceNm * 1852)}m)` : '';
     const result = fellBack ? (pts._timedOut ? 'FAIL: timed out → straight line' : 'FAIL: no path → straight line')
       : crossesLand ? 'FAIL: route crosses land'
-      : marginal ? 'WARN: leg too close to land/hazard'
+      : marginal ? (mNode?.marginalKind === 'shoal' ? `WARN: near shoal${mDist}` : `WARN: near shore${mDist}`)
       : 'PASS';
     results.push({ iter: i, from: here.name, to: dest.name, result, points: pts.length, nm: +nm.toFixed(1), ms });
     // Play it — even a failed route, so a straight line through land is visible.

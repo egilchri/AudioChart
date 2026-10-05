@@ -1070,7 +1070,7 @@ async function _autoRouteCore(
       if (!placed && bestFallback) {
         const tight = bestFallback.clearance < Math.min(...offsetLadder) * 0.8;
         nodes.push(tight
-          ? { lon: bestFallback.nx, lat: bestFallback.ny, marginal: true, marginalKind: 'shore' }
+          ? { lon: bestFallback.nx, lat: bestFallback.ny, marginal: true, marginalKind: 'shore', marginalClearanceNm: bestFallback.clearance }
           : { lon: bestFallback.nx, lat: bestFallback.ny });
       }
     }
@@ -1529,6 +1529,7 @@ async function _autoRouteCore(
       if (c < SHALLOW_WARNING_NM && !_soundingsClearCrossing(a.lon, a.lat, b.lon, b.lat)) {
         path[i + 1].marginal = true;
         path[i + 1].marginalKind = 'shoal';
+        path[i + 1].marginalClearanceNm = c;
         return; // one warning at a time, matching _marginalLegFromPath's own findIndex-first behavior
       }
     }

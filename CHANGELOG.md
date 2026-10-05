@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-05 — Longtest: WARN split into shore/shoal, with distance (v785)
+
+Direct request. Longtest's results now say "WARN: near shore (Nm)" or
+"WARN: near shoal (Nm)" instead of one generic "leg too close to
+land/hazard". router.js tags the flagged node with marginalClearanceNm
+(the ladder fallback's real land clearance, or the leg's shoal clearance)
+alongside marginalKind.
+
 ## 2026-10-05 — AutoRoute keeps clear of shoals (soft cost); meaningful shoal warnings (v784)
 
 The router never crossed water too shallow for the boat but kept NO margin
