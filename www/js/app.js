@@ -1505,6 +1505,7 @@ window.Longtest = async (setName, iterations = 3, { speedKnots = 5 } = {}) => {
     _bringBoatTo(here.lat, here.lon, dest.name);
   }
   console.table(results);
+  _showLongtestResults(set.name, results, null); // on-screen table, however Longtest was started
   const passed = results.filter(r => r.result === 'PASS').length;
   const summary = `Longtest ${set.name}: ${passed}/${results.length} legs passed.`;
   setStatus(summary);
@@ -13639,10 +13640,9 @@ async function _runLongtestFromUrl(param) {
   while (!_map) await new Promise(r => setTimeout(r, 200));
   await new Promise(r => setTimeout(r, 1500)); // let startup panels settle
   document.getElementById('sr-close')?.click();
-  let rows, err = null;
-  try { rows = await window.Longtest(name, iterations); }
-  catch (e) { err = e.message; }
-  _showLongtestResults(name, rows, err);
+  // Longtest shows its own results table; only an error needs showing here.
+  try { await window.Longtest(name, iterations); }
+  catch (e) { _showLongtestResults(name, null, e.message); }
 }
 
 function _showLongtestResults(name, rows, err) {

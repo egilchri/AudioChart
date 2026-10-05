@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-05 — Longtest always shows its results table (v789)
+
+Direct request. The on-screen results table used to appear only for a run
+started from the ?longtest= URL; a run started from the console printed
+to the console alone. Longtest now shows the table itself at the end of
+every run.
+
 ## 2026-10-05 — Long-range detours: 12nm search as a last resort (v788)
 
 v787 escalated every failed detour patch to 12nm straight away, which
