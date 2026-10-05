@@ -1672,8 +1672,8 @@ async function _transitLeg(a, b, lrT0, onUpdate, onText, draftFt, tideHeightM, o
     // CI runner. The loop's own `longRangeDeadlineMs` guard above already
     // stops a NEW hop from starting once the envelope is spent, so this
     // can't run the whole passage past its documented 3x budget.
-    let patched = await _autoRouteCore(bracketStart, bracketEnd, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap,
-      Math.max(0, longRangeDeadlineMs - (Date.now() - lrT0)), WIDE_PAD_NM);
+    let patched = await _patchWithEscalation(bracketStart, bracketEnd, onUpdate, onText, draftFt, tideHeightM, onSearchProgress, onSnap,
+      () => Math.max(0, longRangeDeadlineMs - (Date.now() - lrT0)));
     let failed = patched.length <= 2 && Query.landBlocks(patched[0].lon, patched[0].lat, patched[1].lon, patched[1].lat);
 
     // A real, live-verified bug (2026-09-28): bracketing the WHOLE
@@ -1702,8 +1702,8 @@ async function _transitLeg(a, b, lrT0, onUpdate, onText, draftFt, tideHeightM, o
           smallEndT -= ENDPOINT_LAND_STEP_T;
         }
         const smallBracketEnd = { lat: cursor.lat + (b.lat - cursor.lat) * smallEndT, lon: cursor.lon + (b.lon - cursor.lon) * smallEndT };
-        const retryPatched = await _autoRouteCore(bracketStart, smallBracketEnd, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap,
-          Math.max(0, longRangeDeadlineMs - (Date.now() - lrT0)), WIDE_PAD_NM);
+        const retryPatched = await _patchWithEscalation(bracketStart, smallBracketEnd, onUpdate, onText, draftFt, tideHeightM, onSearchProgress, onSnap,
+          () => Math.max(0, longRangeDeadlineMs - (Date.now() - lrT0)));
         const retryFailed = retryPatched.length <= 2 && Query.landBlocks(retryPatched[0].lon, retryPatched[0].lat, retryPatched[1].lon, retryPatched[1].lat);
         if (!retryFailed) {
           patched = retryPatched;
@@ -1739,6 +1739,21 @@ async function _transitLeg(a, b, lrT0, onUpdate, onText, draftFt, tideHeightM, o
 // in unchecked).
 function _legFailed(leg) {
   return leg.length <= 2 && Query.landBlocks(leg[0].lon, leg[0].lat, leg[1].lon, leg[1].lat);
+}
+
+// Transit detour patches: search with WIDE_PAD_NM, and on a genuine no-path
+// escalate once to EXTRA_WIDE_PAD_NM. Some detours leave even a 6nm box —
+// Valley Cove (Somes Sound) → Belfast Harbor's patch from inner Blue Hill
+// Bay toward Castine has to go south via Eggemoggin Reach's east entrance,
+// ~2.4nm past the 6nm box (Longtest on iPhone, 2026-10-05). 9-12nm route
+// it in 1.2-2.1s. Escalating instead of widening everything keeps the
+// common case fast. budget() is re-read so the retry gets what's left.
+const EXTRA_WIDE_PAD_NM = 12.0;
+async function _patchWithEscalation(a, b, onUpdate, onText, draftFt, tideHeightM, onSearchProgress, onSnap, budget) {
+  const leg = await _autoRouteCore(a, b, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap, budget(), WIDE_PAD_NM);
+  if (!_isNoPath(leg) || budget() <= 1000) return leg;
+  console.log(`[autoRoute] transit patch: no path in the ${WIDE_PAD_NM}nm area — retrying with ${EXTRA_WIDE_PAD_NM}nm`);
+  return _autoRouteCore(a, b, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap, budget(), EXTRA_WIDE_PAD_NM);
 }
 
 // Depart/arrive legs of a long-range passage are ordinary local searches

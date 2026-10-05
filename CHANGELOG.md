@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-10-05 — Long-range detours escalate to a 12nm search; Longtest picker fix (v787)
+
+Found by Longtest on the iPhone simulator: TS028 Valley Cove (Somes Sound)
+→ TS015 Belfast Harbor (30nm) fell back to a straight line in ~3s. Traced
+to a _transitLeg detour patch from inner Blue Hill Bay toward Castine that
+found no path even in the 6nm box — the water route goes south via
+Eggemoggin Reach's east entrance, ~2.4nm past it. Detour patches now
+escalate once to EXTRA_WIDE_PAD_NM (12nm) on a genuine no-path; the route
+now plans in 1.8-2.9s. New case [29].
+
+Longtest: the "don't pick the marker you're at" check compared objects,
+but after each leg the boat's position is a fresh object — so a leg could
+pick the same marker (TS025 → TS025, 0nm). Now compares by name.
+
 ## 2026-10-05 — "Near shore" warning cutoff lowered to 100m (v786)
 
 Direct request. A router-placed waypoint is now flagged "near shore" only

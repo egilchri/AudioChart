@@ -1440,8 +1440,11 @@ window.Longtest = async (setName, iterations = 3, { speedKnots = 5 } = {}) => {
   const set = TestSetsStorage.loadTestSets().find(s => s.name.toLowerCase() === String(setName).toLowerCase());
   if (!set) throw new Error(`No Test Set named "${setName}". Have: ${TestSetsStorage.loadTestSets().map(s => s.name).join(', ')}`);
   if (set.waypoints.length < 2) throw new Error(`Test Set "${set.name}" needs at least 2 markers.`);
+  // Compare by name, not object: after a leg, `here` is a fresh object
+  // (the route's real end point), so an identity check let a leg pick the
+  // marker it was already at (TS025 → TS025, 0nm, on 2026-10-05).
   const pick = (exclude) => {
-    const pool = set.waypoints.filter(w => w !== exclude);
+    const pool = set.waypoints.filter(w => !exclude || w.name !== exclude.name);
     return pool[Math.floor(Math.random() * pool.length)];
   };
   const results = [];

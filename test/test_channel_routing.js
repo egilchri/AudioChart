@@ -606,6 +606,20 @@ async function main() {
     return { ok };
   })());
 
+  // Case 29 — TS028 Valley Cove (Somes Sound) -> TS015 Belfast Harbor (30nm,
+  // Longtest on the iPhone simulator, 2026-10-05). The transit detour from
+  // inner Blue Hill Bay toward Castine must go south via Eggemoggin Reach's
+  // east entrance, outside even the 6nm box; detour patches now escalate to
+  // EXTRA_WIDE_PAD_NM (12nm) on a genuine no-path.
+  gate(await (async () => {
+    Query.setActiveRegion('penobscot-bay');
+    await Query.loadData(44.103, -69.088);
+    await waitForRegionDataReady(Query);
+    return runCase(Query, Router, '[29] TS028 Valley Cove -> TS015 Belfast Harbor (transit patch escalates to 12nm)',
+      { lat: 44.310281, lon: -68.317108 }, { lat: 44.424461, lon: -68.992427 },
+      DEADLINE_MS, LONG_RANGE_DEADLINE_MS);
+  })());
+
   console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll cases passed.');
   console.log(
     '\nNOT PORTED (relied on injecting a synthetic obstacle ring the real\n' +
