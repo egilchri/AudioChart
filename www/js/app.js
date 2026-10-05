@@ -13216,6 +13216,35 @@ function _isPWA() {
   return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 }
 
+// "Not for navigation" notice (2026-10-05, ahead of a public beta). Shown on
+// first open and whenever DISCLAIMER_VERSION changes (bump it if the
+// wording changes materially, so everyone sees the new text once). Not
+// shown for ?demo recordings. Re-openable from the About panel.
+const DISCLAIMER_VERSION = '1';
+const DISCLAIMER_KEY = 'audiochart-disclaimer-accepted';
+function _showDisclaimer() {
+  const overlay = document.getElementById('disclaimer-overlay');
+  if (!overlay) return;
+  overlay.style.display = 'flex';
+  document.getElementById('disclaimer-accept')?.focus();
+}
+function _initDisclaimer() {
+  const overlay = document.getElementById('disclaimer-overlay');
+  if (!overlay) return;
+  document.getElementById('disclaimer-accept').addEventListener('click', () => {
+    try { localStorage.setItem(DISCLAIMER_KEY, DISCLAIMER_VERSION); } catch {}
+    overlay.style.display = 'none';
+  });
+  document.getElementById('about-disclaimer-link')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    _showDisclaimer();
+  });
+  if (new URLSearchParams(location.search).has('demo')) return;
+  let accepted = null;
+  try { accepted = localStorage.getItem(DISCLAIMER_KEY); } catch {}
+  if (accepted !== DISCLAIMER_VERSION) _showDisclaimer();
+}
+
 const ONBOARDING_DISABLED = true;
 async function checkOnboarding() {
   // Disabled 2026-10-03 (v763). #welcome-overlay's z-index:100 sat below
@@ -13833,6 +13862,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   initCardStack();
+  _initDisclaimer();
   init();
   checkOnboarding();
 });

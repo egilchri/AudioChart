@@ -4709,3 +4709,51 @@ body.wco-active #underway-btn { top: 10px; }
 #longtest-results .lt-warn td:nth-child(3) { color: #f5c518; }
 #longtest-results .lt-fail td:nth-child(3) { color: #ff6b6b; font-weight: 700; }
 #longtest-results .lt-err { color: #ff6b6b; }
+
+/* "Not for navigation" notice (see _initDisclaimer in app.js). Above
+   everything, including the Longtest results table (20000). */
+#disclaimer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30000;
+  background: rgba(10, 22, 40, 0.94);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+#disclaimer-box {
+  width: min(520px, 100%);
+  max-height: calc(100% - 32px);
+  overflow-y: auto;
+  background: var(--dark-blue);
+  border: 1px solid var(--mid-blue);
+  border-top: 4px solid #f5a623;
+  border-radius: 12px;
+  padding: 20px 22px;
+  color: var(--text);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7);
+}
+#disclaimer-box h2 { margin: 0 0 10px; color: #f5a623; font-size: 1.25rem; }
+#disclaimer-box p { margin: 0 0 10px; }
+#disclaimer-box ul { margin: 0 0 12px; padding-left: 20px; }
+#disclaimer-box li { margin-bottom: 6px; }
+#disclaimer-box .disclaimer-fine { font-size: 0.8rem; color: var(--text-dim); }
+#disclaimer-box a { color: var(--accent); }
+#disclaimer-accept {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  margin-top: 6px;
+  background: var(--accent);
+  color: var(--navy);
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.about-legal { margin-top: 10px; font-size: 0.8rem; }
+.about-legal a { color: var(--accent); }

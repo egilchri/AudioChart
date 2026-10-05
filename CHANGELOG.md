@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-10-05 — "Not for navigation" notice and privacy policy (v790)
+
+Ahead of a public beta (the user's go-ahead after the release-readiness
+review):
+
+- **First-run notice** (#disclaimer-overlay, inline in index.html so it
+  works offline): not a substitute for official charts/equipment/
+  seamanship; data and AutoRoute can be wrong; GPS can be inaccurate;
+  skipper is responsible; "as is", no warranty or liability. Shown until
+  accepted (audiochart-disclaimer-accepted = DISCLAIMER_VERSION — bump the
+  version to re-show after a material wording change). Skipped for ?demo.
+  Re-openable from the About panel.
+- **Privacy policy** at /privacy/, written against what the code actually
+  does: no accounts/analytics/tracking; data stays in browser storage;
+  the outside services contacted (OSM and Esri tiles, NOAA tides, Maine
+  GeoLibrary on ArcGIS, browser speech recognition, Google Maps links,
+  GitHub Pages hosting); optional Google Drive Sync (drive.appdata +
+  drive.file, waypoints not included, sign-in not stored); Google API
+  Limited Use statement; how to delete data. Linked from the notice, the
+  About panel and the tutorial page footer.
+
+Not legal advice: wording should be reviewed before a public launch.
+
 ## 2026-10-05 — Longtest always shows its results table (v789)
 
 Direct request. The on-screen results table used to appear only for a run

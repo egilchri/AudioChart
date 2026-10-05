@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AudioChart — Privacy Policy</title>
+<!--
+  Facts below were checked against the app's code on 2026-10-05 (every
+  external host app.js/query.js/drive_sync.js/speech.js contact). If the app
+  starts talking to a new service, add it here in the same change.
+-->
+<style>
+  :root {
+    --navy: #0F2438;
+    --paper: #EDE6D6;
+    --cream: #F7F1E3;
+    --brass: #C08A3E;
+    --teal: #2E6B6B;
+    --hazard: #B23A2E;
+    --ink: #1B2A33;
+    --ink-dim: #3A4A52;
+    --line: rgba(27,42,51,0.14);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 17px;
+    line-height: 1.6;
+  }
+  .topnav { background: var(--navy); color: var(--cream); }
+  .topnav-inner {
+    max-width: 760px; margin: 0 auto; padding: 14px 16px;
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  }
+  .brand { font-family: Georgia, serif; font-weight: 700; font-size: 19px; }
+  .topnav a { color: var(--cream); text-decoration: none; font-weight: 600; font-size: 15px; }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 16px 56px; }
+  h1 { font-family: Georgia, serif; font-size: 34px; line-height: 1.15; margin: 0 0 6px; }
+  .updated { color: var(--ink-dim); font-size: 14px; margin: 0 0 28px; }
+  h2 { font-family: Georgia, serif; font-size: 22px; margin: 34px 0 10px; }
+  p, li { color: var(--ink-dim); }
+  ul { padding-left: 22px; }
+  li { margin-bottom: 8px; }
+  strong { color: var(--ink); }
+  .summary {
+    background: var(--cream); border: 1px solid var(--line); border-left: 4px solid var(--teal);
+    border-radius: 6px; padding: 16px 18px; margin: 0 0 8px;
+  }
+  .summary p { margin: 0; color: var(--ink); }
+  .safety {
+    background: var(--cream); border: 1px solid var(--line); border-left: 4px solid var(--hazard);
+    border-radius: 6px; padding: 16px 18px;
+  }
+  .safety p { margin: 0; color: var(--ink); }
+  a { color: var(--teal); }
+  code { font-family: ui-monospace, Menlo, monospace; font-size: 0.9em; }
+</style>
+</head>
+<body>
+<nav class="topnav">
+  <div class="topnav-inner">
+    <div class="brand">⚓ AudioChart</div>
+    <a href="../">Open the app</a>
+  </div>
+</nav>
+
+<main>
+  <h1>Privacy Policy</h1>
+  <p class="updated">Last updated October 5, 2026</p>
+
+  <div class="summary">
+    <p><strong>In short:</strong> AudioChart has no accounts, no ads, no analytics and no tracking. Your routes, tracks, waypoints and settings stay in your own browser. A few map, tide and lookup services see your connection and the area you're viewing, and Google Drive is used only if you turn on Sync.</p>
+  </div>
+
+  <h2>What stays on your device</h2>
+  <p>Everything you create or set in AudioChart is stored in your browser's own storage on that device: routes, tracks, waypoints, Test Sets, boat draft and other settings, and downloaded chart data for offline use. It is not sent to us. There is no AudioChart account and no AudioChart server that collects your data.</p>
+  <p>Your GPS position is used on your device to show where you are, plan routes and give spoken bearings. AudioChart does not send your position to anyone. (If you run AudioChart's optional companion server on your own computer, the app can send its position to that computer, which you control.)</p>
+
+  <h2>Services the app talks to</h2>
+  <p>To show maps and live information, your browser contacts these services directly. Like any website, they receive your IP address and the details of what was requested:</p>
+  <ul>
+    <li><strong>Map pictures:</strong> OpenStreetMap (street map) and Esri (satellite) receive requests for the map tiles covering the area you're looking at, or the area you download for offline use.</li>
+    <li><strong>Tides and currents:</strong> NOAA's Tides &amp; Currents service receives requests for the stations near your area.</li>
+    <li><strong>Geology and town lookups:</strong> the Maine GeoLibrary (hosted on ArcGIS) receives the map area or the point you tap when you use the Geology or Towns map types.</li>
+    <li><strong>Voice commands:</strong> if you speak a command, your browser's built-in speech recognition handles it. Chrome sends the audio to Google and Safari to Apple, under their own privacy policies. Spoken replies are generated on your device.</li>
+    <li><strong>Google Maps:</strong> only if you tap a "view in Google Maps" link, which opens that location in Google Maps.</li>
+    <li><strong>Hosting:</strong> the app is served by GitHub Pages, which keeps standard server logs, such as IP addresses, under GitHub's privacy policy.</li>
+  </ul>
+  <p>AudioChart doesn't control these services. Their own privacy policies apply.</p>
+
+  <h2>Google Drive Sync (optional)</h2>
+  <p>Sync is off until you tap ☁ Sync and sign in with Google. If you do:</p>
+  <ul>
+    <li>AudioChart asks for two Drive permissions. <strong>App data</strong> lets it keep one backup file of your routes, tracks and Test Sets in a hidden folder in your own Drive that only AudioChart can see. <strong>Files you choose</strong> lets <em>Import from Drive</em> open files you pick yourself. It cannot see anything else in your Drive.</li>
+    <li>Waypoints are not included in the backup.</li>
+    <li>The backup goes straight from your browser to your Google Drive. We never receive it.</li>
+    <li>The sign-in only lasts while AudioChart is open. It isn't stored, and it ends when you close or reload the app.</li>
+    <li>To remove access and the backup, go to your Google Account → Security → Third-party apps, or Google Drive → Settings → Manage apps, and remove AudioChart.</li>
+  </ul>
+  <p>AudioChart's use of information received from Google APIs follows the Google API Services User Data Policy, including its Limited Use requirements.</p>
+
+  <h2>Cookies and tracking</h2>
+  <p>AudioChart sets no tracking cookies and uses no analytics, advertising or fingerprinting. Browser storage is used only to keep your own data and settings, and to make the app work offline.</p>
+
+  <h2>Deleting your data</h2>
+  <p>Clear AudioChart's site data in your browser's settings, or delete the installed app. That removes everything stored on that device. If you used Sync, also remove AudioChart's access in your Google account as described above, which deletes its hidden backup file.</p>
+
+  <h2>Children</h2>
+  <p>AudioChart is a boating tool, not directed at children, and collects no personal information from anyone.</p>
+
+  <h2>Changes</h2>
+  <p>If this policy changes, the new version will be posted here with a new date. AudioChart's source code is public, so you can check what it does yourself.</p>
+
+  <h2>Contact</h2>
+  <p>Questions or concerns: open an issue at <a href="https://github.com/egilchri/AudioChart/issues">github.com/egilchri/AudioChart/issues</a>.</p>
+
+  <h2>Safety</h2>
+  <div class="safety">
+    <p><strong>Not for navigation.</strong> AudioChart is a planning and awareness aid, not a substitute for official charts, proper navigation equipment or seamanship. See the notice shown when you first open the app.</p>
+  </div>
+</main>
+</body>
+</html>

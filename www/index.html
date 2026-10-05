@@ -253,6 +253,7 @@
         <ul id="about-features" class="about-list"></ul>
         <h4 class="nf-sub-heading">Coverage areas</h4>
         <ul id="about-regions" class="about-list"></ul>
+        <p class="about-legal"><a href="#" id="about-disclaimer-link">Not for navigation</a> &middot; <a href="./privacy/" target="_blank" rel="noopener">Privacy policy</a></p>
       </div>
 
       <!-- top-left status overlay -->
@@ -787,6 +788,23 @@
           <tbody id="paintings-table-body"></tbody>
         </table>
       </div>
+    </div>
+  </div>
+
+  <!-- "Not for navigation" notice — shown until accepted (see
+       _initDisclaimer in app.js). Inline, not fetched, so it works offline. -->
+  <div id="disclaimer-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="disclaimer-title">
+    <div id="disclaimer-box">
+      <h2 id="disclaimer-title">&#9888; Not for navigation</h2>
+      <p>AudioChart is a planning and awareness aid. It is <strong>not a substitute</strong> for official NOAA charts, proper navigation equipment, or good seamanship.</p>
+      <ul>
+        <li>Chart data, depths, hazards, tides and buoys may be incomplete, out of date, or wrong.</li>
+        <li>AutoRoute suggestions can pass close to hazards, or miss them. Always check a route against official charts and what you see on the water.</li>
+        <li>GPS position and spoken bearings can be inaccurate or unavailable.</li>
+        <li>You alone are responsible for the safe navigation of your vessel.</li>
+      </ul>
+      <p class="disclaimer-fine">AudioChart is provided &ldquo;as is&rdquo;, without warranty of any kind, and its authors accept no liability for any loss, damage or injury arising from its use. See the <a href="./privacy/" target="_blank" rel="noopener">privacy policy</a>.</p>
+      <button id="disclaimer-accept" type="button">I understand &mdash; continue</button>
     </div>
   </div>
 
