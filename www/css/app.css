@@ -4710,7 +4710,7 @@ body.wco-active #underway-btn { top: 10px; }
 #longtest-results .lt-fail td:nth-child(3) { color: #ff6b6b; font-weight: 700; }
 #longtest-results .lt-err { color: #ff6b6b; }
 
-/* "Not for navigation" notice (see _initDisclaimer in app.js). Above
+/* "Navigate with care" notice (see _initDisclaimer in app.js). Above
    everything, including the Longtest results table (20000). */
 #disclaimer-overlay {
   position: fixed;

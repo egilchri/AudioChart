@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-05 — Notice reworded: "Navigate with care" (v792)
+
+User's request: "Not for navigation" read oddly for an app meant to be used
+on the water like Navionics. Heading is now "Navigate with care" and the
+lead says AudioChart is an aid to navigation to use alongside official
+charts, equipment and seamanship, not instead of them. The other points
+(data/AutoRoute can be wrong, GPS can be off, skipper responsible, "as is")
+are unchanged. DISCLAIMER_VERSION 1 → 2 so everyone sees the new wording
+once. Privacy page and About link updated to match.
+
 ## 2026-10-05 — Privacy policy: no voice input (v791)
 
 The user pointed out the app has no voice commands — confirmed:

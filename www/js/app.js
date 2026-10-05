@@ -13216,11 +13216,11 @@ function _isPWA() {
   return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 }
 
-// "Not for navigation" notice (2026-10-05, ahead of a public beta). Shown on
+// "Navigate with care" notice (2026-10-05, ahead of a public beta). Shown on
 // first open and whenever DISCLAIMER_VERSION changes (bump it if the
 // wording changes materially, so everyone sees the new text once). Not
 // shown for ?demo recordings. Re-openable from the About panel.
-const DISCLAIMER_VERSION = '1';
+const DISCLAIMER_VERSION = '2'; // v2 (2026-10-05): "Navigate with care" wording, re-shown once to everyone
 const DISCLAIMER_KEY = 'audiochart-disclaimer-accepted';
 function _showDisclaimer() {
   const overlay = document.getElementById('disclaimer-overlay');
