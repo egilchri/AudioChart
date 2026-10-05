@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-05 — Privacy policy: no voice input (v791)
+
+The user pointed out the app has no voice commands — confirmed:
+js/speech.js exists but nothing imports it. Removed the speech-
+recognition bullet; added an accurate note that spoken announcements use
+the browser's own text-to-speech (tts.js prefers on-device voices, but
+some browser voices, e.g. Chrome's online "Google" voices, are generated
+server-side) and that the app doesn't use the microphone.
+
 ## 2026-10-05 — "Not for navigation" notice and privacy policy (v790)
 
 Ahead of a public beta (the user's go-ahead after the release-readiness
@@ -15,7 +24,7 @@ review):
 - **Privacy policy** at /privacy/, written against what the code actually
   does: no accounts/analytics/tracking; data stays in browser storage;
   the outside services contacted (OSM and Esri tiles, NOAA tides, Maine
-  GeoLibrary on ArcGIS, browser speech recognition, Google Maps links,
+  GeoLibrary on ArcGIS, Google Maps links,
   GitHub Pages hosting); optional Google Drive Sync (drive.appdata +
   drive.file, waypoints not included, sign-in not stored); Google API
   Limited Use statement; how to delete data. Linked from the notice, the
