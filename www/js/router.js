@@ -1527,7 +1527,7 @@ async function _transitLeg(a, b, lrT0, onUpdate, onText, draftFt, tideHeightM, o
     // stops a NEW hop from starting once the envelope is spent, so this
     // can't run the whole passage past its documented 3x budget.
     let patched = await _autoRouteCore(bracketStart, bracketEnd, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap,
-      Math.max(0, longRangeDeadlineMs - (Date.now() - lrT0)));
+      Math.max(0, longRangeDeadlineMs - (Date.now() - lrT0)), WIDE_PAD_NM);
     let failed = patched.length <= 2 && Query.landBlocks(patched[0].lon, patched[0].lat, patched[1].lon, patched[1].lat);
 
     // A real, live-verified bug (2026-09-28): bracketing the WHOLE
@@ -1557,7 +1557,7 @@ async function _transitLeg(a, b, lrT0, onUpdate, onText, draftFt, tideHeightM, o
         }
         const smallBracketEnd = { lat: cursor.lat + (b.lat - cursor.lat) * smallEndT, lon: cursor.lon + (b.lon - cursor.lon) * smallEndT };
         const retryPatched = await _autoRouteCore(bracketStart, smallBracketEnd, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap,
-          Math.max(0, longRangeDeadlineMs - (Date.now() - lrT0)));
+          Math.max(0, longRangeDeadlineMs - (Date.now() - lrT0)), WIDE_PAD_NM);
         const retryFailed = retryPatched.length <= 2 && Query.landBlocks(retryPatched[0].lon, retryPatched[0].lat, retryPatched[1].lon, retryPatched[1].lat);
         if (!retryFailed) {
           patched = retryPatched;
@@ -1595,6 +1595,26 @@ function _legFailed(leg) {
   return leg.length <= 2 && Query.landBlocks(leg[0].lon, leg[0].lat, leg[1].lon, leg[1].lat);
 }
 
+// Depart/arrive legs of a long-range passage are ordinary local searches
+// with the same narrow-box weakness autoRouteProg's top-level retry covers
+// (WIDE_PAD_NM) — but sub-legs call the core directly, so they never got
+// that retry. Found by Longtest 2026-10-04: Northeast Harbor → Belfast
+// Harbor (31nm) failed because every departure leg out of Northeast Harbor
+// found no path in the 2nm box; with 6nm it routes. Same rule as the top
+// level: retry only on a genuine no-path, never on a timeout.
+// Also used for _transitLeg's bracket patches (the detour around land on
+// the cross-bay transit) — that's where Northeast Harbor → Belfast actually
+// failed. The retry gets whatever is left of the same budget, not a fresh one.
+async function _legWithWideRetry(a, b, onUpdate, onText, esc, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs) {
+  const t0 = Date.now();
+  const leg = await _autoRouteCore(a, b, onUpdate, onText, esc, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs);
+  if (!_isNoPath(leg)) return leg;
+  const left = deadlineMs - (Date.now() - t0);
+  if (left <= 1000) return leg;
+  console.log(`[autoRoute] long-range leg: no path in the 2nm-padded area — retrying with ${WIDE_PAD_NM}nm`);
+  return _autoRouteCore(a, b, onUpdate, onText, esc, draftFt, tideHeightM, onSearchProgress, onSnap, left, WIDE_PAD_NM);
+}
+
 async function _longRangeRoute(start, end, onUpdate, onText, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs, longRangeDeadlineMs) {
   const _lrT0 = Date.now();
   if (onText) onText('Planning long passage…');
@@ -1607,7 +1627,7 @@ async function _longRangeRoute(start, end, onUpdate, onText, draftFt, tideHeight
   if (!departurePt || !arrivalPt) return [start, end];
   if (Date.now() - _lrT0 > longRangeDeadlineMs) return _timedOutFallback(start, end);
 
-  let departLeg = await _autoRouteCore(start, departurePt, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs);
+  let departLeg = await _legWithWideRetry(start, departurePt, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs);
   if (_legFailed(departLeg) && !departLeg._timedOut && Date.now() - _lrT0 <= longRangeDeadlineMs) {
     // Retry once with a destination-ALIGNED departure point instead of the
     // plain most-open one — see findClearOffshorePoint's own comment on
@@ -1617,7 +1637,7 @@ async function _longRangeRoute(start, end, onUpdate, onText, draftFt, tideHeight
     // default once did — confirmed live, see that comment for specifics).
     const altPt = Query.findClearOffshorePoint(start.lon, start.lat, end.lon, end.lat, { draftFt, tideHeightM, alignThresholdNm: true });
     if (altPt && (altPt.lat !== departurePt.lat || altPt.lon !== departurePt.lon)) {
-      const altLeg = await _autoRouteCore(start, altPt, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs);
+      const altLeg = await _legWithWideRetry(start, altPt, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs);
       if (!_legFailed(altLeg)) { departurePt = altPt; departLeg = altLeg; }
     }
   }
@@ -1641,7 +1661,7 @@ async function _longRangeRoute(start, end, onUpdate, onText, draftFt, tideHeight
   }
   if (!transit) return (Date.now() - _lrT0 > longRangeDeadlineMs) ? _timedOutFallback(start, end) : [start, end];
 
-  let arriveLeg = await _autoRouteCore(arrivalPt, end, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs);
+  let arriveLeg = await _legWithWideRetry(arrivalPt, end, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs);
   if (_legFailed(arriveLeg) && !arriveLeg._timedOut && Date.now() - _lrT0 <= longRangeDeadlineMs) {
     // Same retry, arrival side — the actual TS016 case this was built for:
     // the plain most-open arrival point sat far enough off the real
@@ -1651,7 +1671,7 @@ async function _longRangeRoute(start, end, onUpdate, onText, draftFt, tideHeight
     if (altPt && (altPt.lat !== arrivalPt.lat || altPt.lon !== arrivalPt.lon)) {
       const altTransit = await _transitLeg(departurePt, altPt, _lrT0, onUpdate, onText, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs, longRangeDeadlineMs);
       if (altTransit) {
-        const altLeg = await _autoRouteCore(altPt, end, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs);
+        const altLeg = await _legWithWideRetry(altPt, end, onUpdate, onText, false, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs);
         if (!_legFailed(altLeg)) { arrivalPt = altPt; transit = altTransit; arriveLeg = altLeg; }
       }
     }

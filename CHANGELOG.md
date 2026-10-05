@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-10-04 — Long-range routes: wider search for detours and depart/arrive legs (v779)
+
+Found by Longtest: TS027 Northeast Harbor → TS015 Belfast Harbor (31nm)
+fell back to a straight line in ~1s. Traced (stack-annotated no-path
+logs) to _transitLeg's bracket patches — the detour around land on the
+cross-bay transit line — finding no path inside the 2nm-padded box, the
+same narrow-box weakness v776 fixed only at the top level. Now:
+- bracket patches search with WIDE_PAD_NM (6nm) from the start (a
+  retry-on-failure version worked but took 40s; starting wide: 21s);
+- long-range depart/arrive legs retry wide on a genuine no-path
+  (_legWithWideRetry), using what's left of the same budget.
+New case [27]. Full suite passes; other long-range cases got faster
+([22] 17.6s → 10.3s).
+
 ## 2026-10-04 — AutoRoute no longer trusts channel edges that cut across land (v778)
 
 Found by Longtest (TS014 → TS010, v777): a real 14-point route — not a

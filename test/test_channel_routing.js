@@ -572,6 +572,19 @@ async function main() {
     return { ok };
   })());
 
+  // Case 27 — TS027 Northeast Harbor -> TS015 Belfast Harbor (31nm, found by
+  // Longtest 2026-10-04). Long-range: the transit leg's bracket patches (the
+  // detour around land on the cross-bay line) found no path in the 2nm-
+  // padded box. They now search with WIDE_PAD_NM from the start.
+  gate(await (async () => {
+    Query.setActiveRegion('penobscot-bay');
+    await Query.loadData(44.103, -69.088);
+    await waitForRegionDataReady(Query);
+    return runCase(Query, Router, '[27] TS027 Northeast Harbor -> TS015 Belfast Harbor (long-range transit patch)',
+      { lat: 44.298915, lon: -68.282175 }, { lat: 44.424461, lon: -68.992427 },
+      DEADLINE_MS, LONG_RANGE_DEADLINE_MS);
+  })());
+
   console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll cases passed.');
   console.log(
     '\nNOT PORTED (relied on injecting a synthetic obstacle ring the real\n' +
