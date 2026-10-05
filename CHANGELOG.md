@@ -1,5 +1,37 @@
 # Changelog
 
+## 2026-10-05 — AutoRoute keeps clear of shoals (soft cost); meaningful shoal warnings (v784)
+
+The router never crossed water too shallow for the boat but kept NO margin
+from it — all 14 test routes between TS001 markers came within 0-2m of a
+shoal outline, and the old "within 185m of a shoal corner" warning fired
+on every route. A hard standoff was tried long ago and broke most
+regression cases (it cut off real passages), so this is a COST, not a block:
+
+- A leg passing within 0.05nm (~93m) of shoal water costs up to 1nm
+  extra, scaled by closeness (shoal outlines gridded per route, edges
+  densified so long straight shoal sides count). The search prefers
+  roomier routes and still threads a tight passage when that's the only
+  way. Heuristic stays admissible.
+- Not penalized: the part of a leg within ~370m of the user's own start/
+  destination (or their snapped/substituted stand-ins) — same as the
+  user's option 1 for warnings. Without this, a harbor-to-harbor route
+  (case [13]) detoured 1.5km to avoid harbor shallows.
+- Channel edges that clip simplified land (within the 150m tolerance)
+  now pay the same penalty, so they can't beat a clean direct line just
+  because channel edges skip the shoal cost (case [13] briefly switched
+  to land-clipping fairway edges).
+- Warning rewritten: flag a leg only if it still passes closer than ~46m
+  to shoal water — excluding charted channel legs, the start/destination
+  areas, and soundings-confirmed legs.
+- A* now skips a candidate leg that can't improve the route BEFORE the
+  land/shoal checks — a pure speedup.
+
+14 TS001 routes: closest pass 0-2m on all 14 → 34-89m on 6 (the rest
+mostly charted channels / single necessary passes); distance +4.5%;
+total planning time 73.8s → 61.7s; warnings 14/14 → 3/14. Full suite
+passes and most cases got faster.
+
 ## 2026-10-05 — Route warnings: fewer false "tight" flags, clearer wording (v783)
 
 Every AutoRoute showed "leg too close to land/hazard". Diagnosed by

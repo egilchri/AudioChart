@@ -666,6 +666,91 @@ async function _autoRouteCore(
     return hit;
   }
 
+  // ── Shoal standoff: soft cost (2026-10-05) ───────────────────────────────
+  // The router never crosses water too shallow for the boat (the isTidal
+  // rings above) but used to keep NO margin from it, so routes skimmed shoal
+  // corners — 14/14 real TS001 routes passed within 46m of one, and the
+  // post-hoc warning fired on every route. A hard standoff was tried before
+  // and broke most regression cases (it cut off real passages), so this is
+  // a COST, not a block: a leg passing within SHOAL_STANDOFF_NM of shoal
+  // water costs up to SHOAL_PENALTY_NM extra, scaled by how close it gets.
+  // The search then prefers roomier routes, but still threads a tight
+  // passage when that's the only way through. Penalties are >= 0, so the
+  // straight-line heuristic stays admissible.
+  const SHOAL_STANDOFF_NM = 0.05;  // ~93m — same as the hazard offset ladder's first rung (SAFETY_NM)
+  const SHOAL_PENALTY_NM = 1.0;    // worst-case extra cost for a leg touching shoal water (0.3 left 12/14 test routes <46m off; 1.0 → 9/14, mostly charted channels, +4.6% distance)
+  // Near the user's own start/destination (or their water-snapped/
+  // substituted stand-ins), being close to shallows is unavoidable — they
+  // chose that harbor. Exempt from BOTH the penalty and the warning (user's
+  // option 1, 2026-10-05): judged by where the leg is when it passes the
+  // shoal point (its closest point), within ~370m of an endpoint.
+  const ENDPOINT_SHALLOW_EXEMPT_NM = 0.2;
+  const _passesNearRouteEndpoint = (vx, vy, aLon, aLat, bLon, bLat) => {
+    if (!_routeEndpointsForWarnings.length) return false;
+    const dx = bLon - aLon, dy = bLat - aLat, len2 = dx * dx + dy * dy;
+    const t = len2 < 1e-12 ? 0 : Math.max(0, Math.min(1, ((vx - aLon) * dx + (vy - aLat) * dy) / len2));
+    const cx = aLon + t * dx, cy = aLat + t * dy;
+    return _routeEndpointsForWarnings.some(e => Query.distanceNm(cx, cy, e.lon, e.lat) < ENDPOINT_SHALLOW_EXEMPT_NM);
+  };
+
+  // Grid of shoal outline points (ring vertices plus points interpolated
+  // along each ring edge, so a long straight shoal edge isn't invisible
+  // between its corners). Cell ≈ the standoff distance; a leg checks only
+  // the cells it passes through and their neighbors.
+  const _shoalCellDeg = SHOAL_STANDOFF_NM / 60;
+  const shoalGrid = new Map();
+  const _shoalKey = (gx, gy) => gx * 1000003 + gy;
+  const _shoalGx = (lon) => Math.floor(lon * cosLat / _shoalCellDeg);
+  const _shoalGy = (lat) => Math.floor(lat / _shoalCellDeg);
+  function _addShoalPt(x, y) {
+    const k = _shoalKey(_shoalGx(x), _shoalGy(y));
+    const arr = shoalGrid.get(k);
+    if (arr) arr.push(x, y); else shoalGrid.set(k, [x, y]);
+  }
+  for (const entry of extraRings) {
+    if (!entry.isTidal) continue;
+    const r = entry.ring;
+    for (let i = 0; i < r.length; i++) {
+      const [x1, y1] = r[i];
+      _addShoalPt(x1, y1);
+      const [x2, y2] = r[(i + 1) % r.length];
+      const segDeg = Math.hypot((x2 - x1) * cosLat, y2 - y1);
+      const steps = Math.floor(segDeg / (_shoalCellDeg * 0.5));
+      for (let s = 1; s < steps; s++) _addShoalPt(x1 + (x2 - x1) * s / steps, y1 + (y2 - y1) * s / steps);
+    }
+  }
+  // Clearance (nm, capped at SHOAL_STANDOFF_NM) between a leg and the
+  // nearest shoal outline point.
+  function _shoalClearanceNm(lon1, lat1, lon2, lat2, skipPt = null) {
+    if (!shoalGrid.size) return SHOAL_STANDOFF_NM;
+    let best = SHOAL_STANDOFF_NM;
+    const lenDeg = Math.hypot((lon2 - lon1) * cosLat, lat2 - lat1);
+    const steps = Math.max(1, Math.ceil(lenDeg / (_shoalCellDeg * 0.5)));
+    const seen = new Set();
+    for (let s = 0; s <= steps; s++) {
+      const t = s / steps;
+      const gx = _shoalGx(lon1 + (lon2 - lon1) * t), gy = _shoalGy(lat1 + (lat2 - lat1) * t);
+      for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
+        const k = _shoalKey(gx + dx, gy + dy);
+        if (seen.has(k)) continue;
+        seen.add(k);
+        const arr = shoalGrid.get(k);
+        if (!arr) continue;
+        for (let i = 0; i < arr.length; i += 2) {
+          if (skipPt && skipPt(arr[i], arr[i + 1])) continue;
+          const d = _ptSegDistNm(arr[i], arr[i + 1], lon1, lat1, lon2, lat2);
+          if (d < best) { best = d; if (best === 0) return 0; }
+        }
+      }
+    }
+    return best;
+  }
+  function _shoalPenaltyNm(lon1, lat1, lon2, lat2) {
+    const c = _shoalClearanceNm(lon1, lat1, lon2, lat2,
+      (vx, vy) => _passesNearRouteEndpoint(vx, vy, lon1, lat1, lon2, lat2));
+    return c >= SHOAL_STANDOFF_NM ? 0 : SHOAL_PENALTY_NM * (1 - c / SHOAL_STANDOFF_NM);
+  }
+
   function segBlocked(lon1, lat1, lon2, lat2) {
     if (Query.landBlocks(lon1, lat1, lon2, lat2)) return true;
     // Global, bbox-independent backstop for point hazards (underwater
@@ -1318,8 +1403,10 @@ async function _autoRouteCore(
     for (let oi = 0; oi < openCount; oi++) {
       const j = openList[oi];
       const b = nodes[j];
+      const baseNg = gScore[curr] + Query.distanceNm(a.lon, a.lat, b.lon, b.lat);
+      if (baseNg >= gScore[j]) continue; // can't improve even before any shoal penalty
       if (segBlocked(a.lon, a.lat, b.lon, b.lat)) continue;
-      const ng = gScore[curr] + Query.distanceNm(a.lon, a.lat, b.lon, b.lat);
+      const ng = baseNg + _shoalPenaltyNm(a.lon, a.lat, b.lon, b.lat);
       if (ng < gScore[j]) {
         gScore[j] = ng;
         prev[j]   = curr;
@@ -1342,7 +1429,13 @@ async function _autoRouteCore(
         const j = channelKeyToIdx.get(nb.key);
         if (j === undefined || closed[j]) continue;
         if (_channelEdgeCutsLand(a, nb)) continue;
-        const ng = gScore[curr] + Query.distanceNm(a.lon, a.lat, nb.lon, nb.lat);
+        // A channel edge that clips simplified land at all (within the
+        // tolerance above) stays usable but pays the shoal penalty, so it
+        // can't beat a clean direct line just because channel edges skip the
+        // new shoal cost. Without this, Rockland Harbor (case [13]) switched
+        // from a clean 3-point line to channel edges clipping land.
+        const clipPenalty = Query.landBlocks(a.lon, a.lat, nb.lon, nb.lat) ? SHOAL_PENALTY_NM : 0;
+        const ng = gScore[curr] + Query.distanceNm(a.lon, a.lat, nb.lon, nb.lat) + clipPenalty;
         if (ng < gScore[j]) {
           gScore[j] = ng;
           prev[j]   = curr;
@@ -1414,39 +1507,26 @@ async function _autoRouteCore(
   // on a small, bounded number of legs, not thousands of times during the
   // search itself, so a full per-vertex scan here is cheap regardless of
   // how broad/numerous the tidal polygons are.
-  const SHALLOW_STANDOFF_WARNING_NM = 0.1; // ~185m
-  // Shallows right at the user's own start/destination don't count — they
-  // chose to start or end in that harbor, and flagging it put a warning on
-  // leg 1 of most routes (10 of 14 in the 2026-10-05 diagnosis). User's
-  // decision (option 1): ignore the part of a leg within this distance of
-  // the route's own endpoints (or their water-snapped stand-ins), keep
-  // 185m everywhere else. Judged by where the LEG is when it passes the
-  // shoal (its closest point), not where the shoal corner is — a first leg
-  // still leaving a harbor can pass a corner that's itself 400m+ out.
-  const ENDPOINT_SHALLOW_EXEMPT_NM = 0.2; // ~370m
-  const _passesNearRouteEndpoint = (vx, vy, aLon, aLat, bLon, bLat) => {
-    const dx = bLon - aLon, dy = bLat - aLat, len2 = dx * dx + dy * dy;
-    const t = len2 < 1e-12 ? 0 : Math.max(0, Math.min(1, ((vx - aLon) * dx + (vy - aLat) * dy) / len2));
-    const cx = aLon + t * dx, cy = aLat + t * dy;
-    return _routeEndpointsForWarnings.some(e => Query.distanceNm(cx, cy, e.lon, e.lat) < ENDPOINT_SHALLOW_EXEMPT_NM);
-  };
+  // Post-hoc warning, rewritten 2026-10-05 alongside the soft shoal cost
+  // above: the search now keeps clear of shoal water wherever a roomier
+  // route exists, so a leg still passing closer than half the standoff
+  // (~46m) is one where no roomier option was found — that's worth a ⚠.
+  // (The old rule — within 185m of any shoal CORNER — fired on 14/14 real
+  // routes and said nothing.) Not counted: charted channel legs (buoys mark
+  // the safe way between shoals), the part of a leg near the user's own
+  // start/destination (ENDPOINT_SHALLOW_EXEMPT_NM, user's choice), and legs
+  // whose real soundings confirm depth (_soundingsClearCrossing).
+  const SHALLOW_WARNING_NM = SHOAL_STANDOFF_NM * 0.5; // ~46m
+  const _isChannelLeg = (a, b) => (Query.channelNeighbors?.(a.lon, a.lat) || [])
+    .some(n => Math.abs(n.lon - b.lon) < 1e-9 && Math.abs(n.lat - b.lat) < 1e-9);
   function _flagShallowStandoffWarning(path) {
     for (let i = 0; i < path.length - 1; i++) {
       if (path[i].marginal || path[i + 1].marginal) continue; // already flagged by the land-standoff ladder
       const a = path[i], b = path[i + 1];
-      let tooClose = false;
-      for (const entry of extraRings) {
-        if (!entry.isTidal) continue;
-        for (const [vx, vy] of entry.ring) {
-          if (_ptSegDistNm(vx, vy, a.lon, a.lat, b.lon, b.lat) < SHALLOW_STANDOFF_WARNING_NM && !_passesNearRouteEndpoint(vx, vy, a.lon, a.lat, b.lon, b.lat)) { tooClose = true; break; }
-        }
-        if (tooClose) break;
-      }
-      // Same real-soundings override as everywhere else in this file — a
-      // leg confirmed comfortably deep along its whole real charted
-      // soundings doesn't need a warning just because a coarse polygon's
-      // worst-case footprint happens to be nearby.
-      if (tooClose && !_soundingsClearCrossing(a.lon, a.lat, b.lon, b.lat)) {
+      if (_isChannelLeg(a, b) || _isChannelLeg(b, a)) continue;
+      const c = _shoalClearanceNm(a.lon, a.lat, b.lon, b.lat,
+        (vx, vy) => _passesNearRouteEndpoint(vx, vy, a.lon, a.lat, b.lon, b.lat));
+      if (c < SHALLOW_WARNING_NM && !_soundingsClearCrossing(a.lon, a.lat, b.lon, b.lat)) {
         path[i + 1].marginal = true;
         path[i + 1].marginalKind = 'shoal';
         return; // one warning at a time, matching _marginalLegFromPath's own findIndex-first behavior
