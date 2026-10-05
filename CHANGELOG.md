@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-10-05 — AutoRoute tries other nearby water before widening (v781)
+
+Found by the new ?longtest= switch: TS008 → TS018 (Brooksville), the
+reverse of case [24], failed in the browser after 37.7s. In Node it did
+route, but in ~35s at 0-1m tide — over the browser's budget. Breakdown:
+15.7s first attempt (end snapped into Snow Cove, cut off from the bay),
+15.7s on the wide-area retry with that same unreachable end (a wider box
+can't fix that), then 3.7s for the Bucks Harbor alternative that works.
+
+autoRouteProg now tries other nearby water for a snapped endpoint FIRST
+(with the wide box), and only then the plain wide-area retry. 0m tide:
+35s → 19s; 2-3m: 11s → 6s. New case [28]. Full suite passes, no other
+case slower.
+
 ## 2026-10-05 — ?longtest= URL switch (v780)
 
 Direct request. Opening the app with `?longtest=TS001,10` starts

@@ -585,6 +585,27 @@ async function main() {
       DEADLINE_MS, LONG_RANGE_DEADLINE_MS);
   })());
 
+  // Case 28 — TS008 (North Haven side) -> TS018 Brooksville, the reverse of
+  // case 24, at 0m tide / 3.5ft draft (Longtest via ?longtest=, 2026-10-05).
+  // Routed, but only after ~35s — over the browser's budget, so it failed
+  // there. The wide-area retry was wasted on the unreachable Snow Cove end;
+  // trying other nearby water first brings it to ~19s.
+  gate(await (async () => {
+    Query.setActiveRegion('penobscot-bay');
+    await Query.loadData(44.103, -69.088);
+    await waitForRegionDataReady(Query);
+    const label = '[28] TS008 -> TS018 Brooksville at 0m tide (try other water before widening)';
+    const t0 = Date.now();
+    const p = await Router.autoRouteProg({ lat: 44.115263, lon: -68.86898 }, { lat: 44.3477829, lon: -68.6912832 },
+      () => {}, () => {}, false, 3.5, 0, null, null, DEADLINE_MS);
+    const ms = Date.now() - t0;
+    const crosses = pathCrossesLand(Query, p);
+    const fallback = p.length <= 2 && crosses;
+    const ok = !fallback && !crosses && ms < LONG_RANGE_DEADLINE_MS;
+    console.log(`${label}: ${ok ? 'PASS' : 'FAIL'} (fallback=${fallback}, crossesLand=${crosses}, ${p.length} pts, ${ms}ms)`);
+    return { ok };
+  })());
+
   console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll cases passed.');
   console.log(
     '\nNOT PORTED (relied on injecting a synthetic obstacle ring the real\n' +
