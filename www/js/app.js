@@ -4464,7 +4464,7 @@ async function _reRouteSegments(pts, onProgress, onText, actionLabel = 'Re-route
       // instead, which has no idea a real path was actually found.
       if (sub.some(p => p.marginal)) {
         fallbacks++;
-        fallbackSegs.push({ a: pts[i], b: pts[i + 1], tightClearance: true, legIndex });
+        fallbackSegs.push({ a: pts[i], b: pts[i + 1], tightClearance: true, kind: sub.find(p => p.marginal).marginalKind || 'shore', legIndex });
       } else {
         fallbacks++;
         fallbackSegs.push({ a: pts[i], b: pts[i + 1], legIndex, ...Router.classifyFallbackSeg(pts[i], pts[i + 1]) });
@@ -4506,6 +4506,7 @@ function _marginalLegFromPath(path, baseIndex = 0) {
     a: path[Math.max(0, idx - 1)],
     b: path[Math.min(path.length - 1, idx + 1)],
     tightClearance: true,
+    kind: path[idx].marginalKind || 'shore', // 'shore' (close to land) or 'shoal' (close to charted shallows)
     legIndex: baseIndex + Math.max(0, idx - 1),
   };
 }
@@ -4515,7 +4516,12 @@ function _fallbackReasonLabel(seg) {
   // through a passage tighter than our normal comfort standoff, because no
   // charted channel/buoy data exists for it (see COASTAL_STANDOFF_LADDER's
   // fallback in _addRingNodes). Distinct from an actual land/hazard crossing.
-  if (seg.tightClearance) return 'a comfortable margin off shore (no charted channel here)';
+  // Two different "real route found, just tight" cases (router.js tags
+  // which): close to shore, or close to charted water too shallow for the
+  // boat. One shared label used to describe both as "off shore" (2026-10-05).
+  if (seg.tightClearance) return seg.kind === 'shoal'
+    ? 'charted shallow water (too shallow for your draft at this tide)'
+    : 'shore (no charted channel here)';
   if (seg.crossesLand && seg.crossesHazard) return 'land and a charted hazard';
   if (seg.crossesHazard) return 'a charted hazard (rock/obstruction/wreck)';
   return 'land'; // crossesLand, or neither flag matched (still an unverified straight line)
@@ -4540,7 +4546,7 @@ function _showRouteFallbackWarning(fallbackSegs, onRaiseTimeout = null) {
   mids.forEach((m, i) => {
     const seg = fallbackSegs[i];
     const reason = _fallbackReasonLabel(seg);
-    const verb = seg.tightClearance ? 'Passes tight on' : "Couldn't avoid";
+    const verb = seg.tightClearance ? 'Passes close to' : "Couldn't avoid";
     L.marker([m.lat, m.lon], {
       icon: L.divIcon({
         className: '',

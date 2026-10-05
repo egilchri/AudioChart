@@ -60,6 +60,12 @@ function _timedOutFallback(a, b) {
 // budget (total capped at 2x deadlineMs) — this project's standing call is
 // "wait longer" over "falsely claim impossible".
 const WIDE_PAD_NM = 6.0;
+// The user's own start/destination for the route being planned (original
+// and water-snapped), so the shallow-water warning can ignore shoals right
+// at them — see ENDPOINT_SHALLOW_EXEMPT_NM. Set by autoRouteProg for the
+// duration of one route; sub-legs' own endpoints are deliberately NOT
+// included (a joint mid-route is not somewhere the user chose to be).
+let _routeEndpointsForWarnings = [];
 const MAX_ALT_ENDPOINTS = 4;
 
 function _isNoPath(p) {
@@ -73,6 +79,17 @@ export async function autoRouteProg(
   deadlineMs = DEFAULT_DEADLINE_MS,
 ) {
   const t0 = Date.now();
+  _routeEndpointsForWarnings = [start, end,
+    Query.snapToNavigableWater(start.lon, start.lat, draftFt, tideHeightM),
+    Query.snapToNavigableWater(end.lon, end.lat, draftFt, tideHeightM)].filter(Boolean);
+  try {
+    return await _autoRouteWithRetries(start, end, onUpdate, onText, _escapeAttempted, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs, t0);
+  } finally {
+    _routeEndpointsForWarnings = [];
+  }
+}
+
+async function _autoRouteWithRetries(start, end, onUpdate, onText, _escapeAttempted, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs, t0) {
   const run = (s, e, pad, budget, snapCb = onSnap) => _autoRouteCore(s, e, onUpdate, onText, _escapeAttempted,
     draftFt, tideHeightM, onSearchProgress, snapCb, budget, pad);
   let path = await run(start, end, 2.0, deadlineMs);
@@ -110,6 +127,7 @@ export async function autoRouteProg(
     for (const alt of alts) {
       if (remaining() <= 1000) return path;
       console.log(`[autoRoute] retrying with the ${which} moved ${alt.movedNm.toFixed(2)}nm to other nearby water`);
+      _routeEndpointsForWarnings.push(alt); // the substitute start/destination counts as the user's own
       const s = which === 'start' ? { lat: alt.lat, lon: alt.lon } : start;
       const e = which === 'end' ? { lat: alt.lat, lon: alt.lon } : end;
       // Suppress the core's own snap reports for this attempt (the alt point
@@ -958,7 +976,18 @@ async function _autoRouteCore(
       // these exact node objects) so callers can still warn the user even
       // though this leg didn't fall back to a raw land-crossing line — a real
       // route was found, it just doesn't meet the normal comfort standoff.
-      if (!placed && bestFallback) nodes.push({ lon: bestFallback.nx, lat: bestFallback.ny, marginal: true });
+      // Only "tight" if it's genuinely under the ladder's LOOSEST standard
+      // (smallest rung × 0.8 ≈ 222m). bestFallback is the best candidate
+      // across ALL rungs, so it's often a 0.5nm-rung spot that missed its
+      // own 741m target but sits 300-700m off shore — flagging those put a
+      // warning on every route (diagnosed 2026-10-05: 107-694m flags,
+      // only 3 of them really under 222m).
+      if (!placed && bestFallback) {
+        const tight = bestFallback.clearance < Math.min(...offsetLadder) * 0.8;
+        nodes.push(tight
+          ? { lon: bestFallback.nx, lat: bestFallback.ny, marginal: true, marginalKind: 'shore' }
+          : { lon: bestFallback.nx, lat: bestFallback.ny });
+      }
     }
   }
 
@@ -1386,6 +1415,21 @@ async function _autoRouteCore(
   // search itself, so a full per-vertex scan here is cheap regardless of
   // how broad/numerous the tidal polygons are.
   const SHALLOW_STANDOFF_WARNING_NM = 0.1; // ~185m
+  // Shallows right at the user's own start/destination don't count — they
+  // chose to start or end in that harbor, and flagging it put a warning on
+  // leg 1 of most routes (10 of 14 in the 2026-10-05 diagnosis). User's
+  // decision (option 1): ignore the part of a leg within this distance of
+  // the route's own endpoints (or their water-snapped stand-ins), keep
+  // 185m everywhere else. Judged by where the LEG is when it passes the
+  // shoal (its closest point), not where the shoal corner is — a first leg
+  // still leaving a harbor can pass a corner that's itself 400m+ out.
+  const ENDPOINT_SHALLOW_EXEMPT_NM = 0.2; // ~370m
+  const _passesNearRouteEndpoint = (vx, vy, aLon, aLat, bLon, bLat) => {
+    const dx = bLon - aLon, dy = bLat - aLat, len2 = dx * dx + dy * dy;
+    const t = len2 < 1e-12 ? 0 : Math.max(0, Math.min(1, ((vx - aLon) * dx + (vy - aLat) * dy) / len2));
+    const cx = aLon + t * dx, cy = aLat + t * dy;
+    return _routeEndpointsForWarnings.some(e => Query.distanceNm(cx, cy, e.lon, e.lat) < ENDPOINT_SHALLOW_EXEMPT_NM);
+  };
   function _flagShallowStandoffWarning(path) {
     for (let i = 0; i < path.length - 1; i++) {
       if (path[i].marginal || path[i + 1].marginal) continue; // already flagged by the land-standoff ladder
@@ -1394,7 +1438,7 @@ async function _autoRouteCore(
       for (const entry of extraRings) {
         if (!entry.isTidal) continue;
         for (const [vx, vy] of entry.ring) {
-          if (_ptSegDistNm(vx, vy, a.lon, a.lat, b.lon, b.lat) < SHALLOW_STANDOFF_WARNING_NM) { tooClose = true; break; }
+          if (_ptSegDistNm(vx, vy, a.lon, a.lat, b.lon, b.lat) < SHALLOW_STANDOFF_WARNING_NM && !_passesNearRouteEndpoint(vx, vy, a.lon, a.lat, b.lon, b.lat)) { tooClose = true; break; }
         }
         if (tooClose) break;
       }
@@ -1404,6 +1448,7 @@ async function _autoRouteCore(
       // worst-case footprint happens to be nearby.
       if (tooClose && !_soundingsClearCrossing(a.lon, a.lat, b.lon, b.lat)) {
         path[i + 1].marginal = true;
+        path[i + 1].marginalKind = 'shoal';
         return; // one warning at a time, matching _marginalLegFromPath's own findIndex-first behavior
       }
     }

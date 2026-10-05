@@ -1,5 +1,31 @@
 # Changelog
 
+## 2026-10-05 — Route warnings: fewer false "tight" flags, clearer wording (v783)
+
+Every AutoRoute showed "leg too close to land/hazard". Diagnosed by
+tagging router.js's two warning sources over 14 real TS001 routes (all
+14 flagged):
+
+- **Shore ("tight squeeze") — bug fixed.** The coastal standoff ladder's
+  best sub-standard candidate is kept across ALL rungs, so a waypoint from
+  the 0.5nm rung that missed its own 741m target but sat 300-700m off
+  shore was marked tight. Now only flagged when under the ladder's
+  loosest standard (smallest rung × 0.8 ≈ 222m). Of 30+ shore flags, the
+  3 genuinely under 222m (107/134/151m) remain.
+- **Shoal (near water too shallow for the draft) — user's option 1.**
+  Ignored where the leg passes within 0.2nm (~370m) of the route's own
+  start/destination or their water-snapped stand-ins (incl. a substituted
+  endpoint like Bucks Harbor); 185m kept everywhere else.
+- **Wording.** Both kinds used to read "a comfortable margin off shore";
+  the ⚠ tooltip now says "Passes close to shore (no charted channel
+  here)" or "Passes close to charted shallow water (too shallow for your
+  draft at this tide)".
+
+Still open (reported to the user, not changed): mid-route legs routinely
+pass within 185m — and even within 46m — of some too-shallow area's
+corner, because the router avoids crossing shoals but keeps no margin
+from them, so shoal warnings still appear on most routes.
+
 ## 2026-10-05 — Retry other nearby water after a timeout too (v782)
 
 v781 failed GitHub CI on its own new case [28]: on the slower runner the
