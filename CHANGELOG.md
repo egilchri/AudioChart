@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-10-06 — "Show <place>" moves the map there; AutoRoute frames off-screen routes (v805)
+
+- New SHOW_PLACE command: "Show Carvers Harbor", "Zoom to Camden", "Find
+  …", "Search for …" move the map to the place (zoom ≥15) — no pin, no
+  route ("go to X" still means AutoRoute). Last in the parser list so
+  every more specific command wins; an exactly-matching visible button
+  ("Show hazards", "Show info") is pressed instead.
+- AutoRoute from the boat (marker popup button, voice "AutoRoute to here",
+  "AutoRoute to <place>") now frames the boat and destination whenever
+  either is off screen; left alone when both are in view. Moved into the
+  shared _autoRouteFromBoatToHere (replaces v802's AUTOROUTE_TO_PLACE-only
+  version). Found recording a demo: zoomed into Carvers Harbor, the new
+  route was entirely off screen.
+
+Found, not fixed (next): from Rockland, AutoRoute to a marker in Carvers
+Harbor's mooring field ends 0.65 nm due south of it, outside the harbor,
+with no message.
+
 ## 2026-10-06 — Tutorial 6 rebuilt as a simple hold-Space demo (sailors page only, app still v804)
 
 "6. Say Any Button" is now ~21s: hold Space, say "Chart", "Objects",

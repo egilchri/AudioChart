@@ -9587,6 +9587,13 @@ function _ensureMap() {
       TTS.sayImmediate(msg);
       return;
     }
+    // If the boat or the destination is off screen (a named place, or a
+    // marker you're zoomed in on), frame both first so the new route is
+    // actually visible. Left alone when both are already in view.
+    const view = _map.getBounds();
+    if (!view.contains([pos.lat, pos.lon]) || !view.contains([lat, lon])) {
+      _map.fitBounds(L.latLngBounds([[pos.lat, pos.lon], [lat, lon]]), { padding: [80, 80], maxZoom: 13 });
+    }
     _autoRouteName = _nextRouteName();
     _autoRouteStart = { lat: pos.lat, lon: pos.lon };
     if (_autoRouteStartMarker) _autoRouteStartMarker.remove();
@@ -12094,7 +12101,7 @@ async function handleCommand(transcript) {
   // background noise, keyboard-mic feedback, and TTS audio picked up by the mic.
   // An explicit "press X" is deliberate, so it still goes through.
   if (TTS.isSpeaking() && intent === 'UNKNOWN' && !explicitPress) return;
-  if (!['SET_MARKER', 'POINTER_PRESS', 'AUTOROUTE_TO_PLACE'].includes(intent)) {
+  if (!['SET_MARKER', 'POINTER_PRESS', 'AUTOROUTE_TO_PLACE', 'SHOW_PLACE'].includes(intent)) {
     const msg = _runMarkerMenuCommand(transcript, intent);
     if (msg) {
       addToHistory(transcript);
@@ -12403,6 +12410,28 @@ async function handleCommand(transcript) {
         response = Query.bearingToNamedPoint(pos.lat, pos.lon, pt.lat, pt.lon, `${route.name} — waypoint ${params.waypointNum}`, _keepFocusOpt);
         break;
       }
+      case 'SHOW_PLACE': {
+        // A visible button named exactly that ("Show hazards") wins over a
+        // fuzzy place-name match.
+        const btn = VoiceLabels.matchLabel(transcript, VoiceLabels.visibleTargets().map((t) => t.raw));
+        if (btn.ok && btn.score <= 0.1) {
+          const r = VoiceLabels.pressVisibleLabel(transcript);
+          if (r.ok) { response = { text: `Pressed "${r.label.replace(/\s+/g, ' ').trim()}".`, speech: '' }; break; }
+        }
+        let coord = parseCoordinate(params.placeName);
+        if (!coord) coord = await Query.findPlaceOnServer(params.placeName) || Query.findPlaceByName(params.placeName);
+        if (!coord || !_map) {
+          // "Show hazards", "Show info"… are buttons, not places.
+          const r = VoiceLabels.pressVisibleLabel(transcript);
+          response = r.ok
+            ? { text: `Pressed "${r.label.replace(/\s+/g, ' ').trim()}".`, speech: '' }
+            : { text: `Couldn't find "${params.placeName}".`, speech: `Couldn't find ${params.placeName}.` };
+          break;
+        }
+        _map.setView([coord.lat, coord.lon], Math.max(_map.getZoom() || 13, 15));
+        response = { text: `Showing ${coord.name || params.placeName}.`, speech: '' };
+        break;
+      }
       case 'POINTER_PRESS': {
         const msg = _pressAtPointer(params.menu);
         response = { text: msg, speech: /^(For safety|Point at|Nothing)/.test(msg) ? msg : '' };
@@ -12451,12 +12480,6 @@ async function handleCommand(transcript) {
         const dest = await _resolveNamedDestination(params.placeName);
         if (!dest) { response = { text: `Couldn't find "${params.placeName}".`, speech: '' }; break; }
         if (!_autoRouteFromBoatToHereFn) { response = { text: 'Open the map first, then try again.', speech: '' }; break; }
-        // A named destination is often off screen (or the map is zoomed in
-        // on something else), so frame the boat and the destination first —
-        // otherwise the new route can run straight off the edge.
-        if (_map && pos) {
-          _map.fitBounds(L.latLngBounds([[pos.lat, pos.lon], [dest.lat, dest.lon]]), { padding: [80, 80], maxZoom: 13 });
-        }
         _autoRouteFromBoatToHereFn(dest.lat, dest.lon);
         response = { text: `AutoRoute to ${dest.name || params.placeName}…`, speech: '' };
         break;
@@ -12611,7 +12634,7 @@ async function handleCommand(transcript) {
       opencpnBtn.style.display = 'none';
     } else if (intent === 'SET_FOCUS' || intent === 'CLEAR_FOCUS' || intent === 'AUTOROUTE_TO_PLACE' ||
                intent === 'MARKER_AUTOROUTE' || intent === 'MARKER_BRING_BOAT' || intent === 'SET_MARKER' ||
-               intent === 'POINTER_PRESS') {
+               intent === 'POINTER_PRESS' || intent === 'SHOW_PLACE') {
       // Leave the current map view as-is — these only change the focus target.
     } else {
       _bearingAccumulator = [];

@@ -476,6 +476,16 @@ const PATTERNS = [
     intent: 'BEARING_TO_PLACE',
     extract: (m) => ({ placeName: m[3].trim() }),
   },
+
+  // SHOW A PLACE ON THE MAP (2026-10-06, direct request) — just moves the
+  // map there: no pin, no route ("go to X" already means AutoRoute). Last,
+  // so every more specific command wins; app.js falls back to pressing a
+  // button when no place has that name ("show hazards" is a button).
+  {
+    re: /^(?:please\s+)?(?:show(?:\s+me)?|zoom\s+(?:in\s+)?(?:to|on)|find|look\s+at|center\s+on|search(?:\s+for)?)\s+(?:the\s+)?(.{2,60}?)[.!?\s]*$/i,
+    intent: 'SHOW_PLACE',
+    extract: (m) => ({ placeName: m[1].trim() }),
+  },
 ];
 
 /**
