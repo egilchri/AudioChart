@@ -27,6 +27,11 @@ const PLACE_ALIASES = {
 
 /** Normalize a place name for matching: lowercase, strip articles, apply aliases. */
 export function normalizePlaceName(raw) {
+  // An anchorage code said aloud — "A S zero zero three", "ay ess 3" —
+  // would lose its "A" to the article stripping below; keep it as "as …"
+  // (resolved by app.js's _markerByName).
+  const code = raw.toLowerCase().replace(/\./g, ' ').trim().match(/^(?:a|ay)\s*(?:s|ess)\s+(.+)$/);
+  if (code) return `as ${code[1].replace(/\s+/g, ' ').trim()}`;
   let s = raw.toLowerCase()
     .replace(/\b(the|a|an)\b/g, '')
     .replace(/harbour/g, 'harbor')

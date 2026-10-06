@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-10-06 — Anchorages labelled AS001…AS063, usable by voice (v807)
+
+Direct request: anchorages should be labelled AS001, AS002, …
+- documents.geojson: each anchorage gets a stable "code" (AS001–AS063, in
+  file order; new anchorages take the next number). Added as one inserted
+  line per entry — no re-serialization. (documents.geojson is network-
+  first in sw.js, not fingerprint-gated, so data-version.json is untouched.)
+- Anchorages map: each marker shows its code as a label; the popup title
+  reads "AS005 · Camp Island (Merchant Row) — Anchorage".
+- Voice: "AutoRoute to AS005", "Bring boat to A S zero zero three" (marker
+  lookup now includes anchorage codes; replies name the anchorage), and
+  pointing at an anchorage marker its menu items can be said directly.
+- parser.js normalizePlaceName: a spoken "A S …" / "ay ess …" kept its
+  "A" stripped as an article, so "A S zero zero three" became a fuzzy place
+  search ("S zero zero three" → Saint George / Fort George). Now kept as
+  "as …".
+Checked in desktop Chrome: 63 labels; AS003 bring-boat; AS005 AutoRoute.
+
 ## 2026-10-06 — "AutoRoute to TS003", "Bring boat to …" by name (v806)
 
 Direct request: on every platform, "AutoRoute to TS…" and "Bring boat to

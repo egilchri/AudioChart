@@ -2230,6 +2230,9 @@ function _renderDocumentMarkers() {
       : p.category === 'paintings' ? _formatPainting(p)
       : _formatDocBody(p.body);
     const m = L.marker([lat, lon], { icon: MarkerIcons.documentMarkerIcon(p.category) });
+    // Anchorages carry a short code (AS001…, in documents.geojson) so they
+    // can be named by voice — "AutoRoute to AS005" — like SP/TS markers.
+    if (p.code) m.bindTooltip(escapeHtml(p.code), { permanent: true, direction: 'top', className: 'map-tooltip' });
     // Lets the "Take a Tour" engine find a specific document marker by its
     // title (e.g. the flagship tour's Warren Island step) without a new
     // fetch or a second data structure — see _findDocumentMarkerByTitle.
@@ -2262,7 +2265,7 @@ function _renderDocumentMarkers() {
     // Paintings gets a wider popup than the other text-only categories —
     // the bundled reproduction image needs real room, not a 260px squeeze.
     const html = `<div style="font-size:13px;line-height:1.5;max-width:${p.category === 'paintings' ? 300 : 260}px">
-      <b>${p.title}</b><br><span style="color:#666">${p.place}</span>
+      <b>${p.code ? `${p.code} · ` : ''}${p.title}</b><br><span style="color:#666">${p.place}</span>
       <div style="margin-top:6px">${bodyHtml}</div>
       <div style="margin-top:4px;font-style:italic;font-size:0.78em;color:#888">${p.source}</div>
       ${lookupHtml}
@@ -12416,8 +12419,9 @@ async function handleCommand(transcript) {
         const dest = mk || await _resolveNamedDestination(params.placeName);
         if (!dest) { response = { text: `Couldn't find "${params.placeName}".`, speech: '' }; break; }
         if (mk) _currentMarkerLL = { lat: mk.lat, lng: mk.lon };
-        _bringBoatTo(dest.lat, dest.lon, dest.name || params.placeName);
-        response = { text: `Boat moved to ${dest.name || params.placeName}.`, speech: '' };
+        const label = mk?.title ? `${mk.name}, ${mk.title}` : (dest.name || params.placeName);
+        _bringBoatTo(dest.lat, dest.lon, label);
+        response = { text: `Boat moved to ${label}.`, speech: '' };
         break;
       }
       case 'SHOW_PLACE': {
@@ -12493,7 +12497,7 @@ async function handleCommand(transcript) {
           if (!_autoRouteFromBoatToHereFn) { response = { text: 'Open the map first, then try again.', speech: '' }; break; }
           _currentMarkerLL = { lat: mk.lat, lng: mk.lon };
           _autoRouteFromBoatToHereFn(mk.lat, mk.lon);
-          response = { text: `AutoRoute to ${mk.name}…`, speech: '' };
+          response = { text: `AutoRoute to ${mk.title ? `${mk.name}, ${mk.title}` : mk.name}…`, speech: '' };
           break;
         }
         const dest = await _resolveNamedDestination(params.placeName);
@@ -12704,12 +12708,15 @@ function _markerByName(text) {
   const all = [
     ...WaypointsStorage.loadUserWaypoints().map((w) => ({ name: w.name, lat: w.lat, lon: w.lon })),
     ...TestSetsStorage.loadTestSets().flatMap((s) => s.waypoints.map((w) => ({ name: w.name, lat: w.lat, lon: w.lon }))),
+    ..._documents.filter((f) => f.properties.code).map((f) => ({
+      name: f.properties.code, title: f.properties.title, lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0],
+    })),
   ];
   const exact = all.find((w) => w.name.toLowerCase() === t);
   if (exact) return exact;
-  const m = t.match(/^(t ?s|tee ?ess|tea ?s|teas|tease|s ?p|ess ?pee)\s?-?\s?(.+)$/);
+  const m = t.match(/^(t ?s|tee ?ess|tea ?s|teas|tease|s ?p|ess ?pee|a ?s|ay ?ess|ace|as)\s?-?\s?(.+)$/);
   if (!m) return null;
-  const prefix = /^(t|tee|tea)/.test(m[1]) ? 'TS' : 'SP';
+  const prefix = /^(t|tee|tea)/.test(m[1]) ? 'TS' : /^(a|ay)/.test(m[1]) ? 'AS' : 'SP';
   const num = _spokenNumber(m[2].replace(/-/g, ' ').split(' ').filter(Boolean));
   if (!Number.isFinite(num)) return null;
   const hit = all.find((w) => w.name.toUpperCase().startsWith(prefix) && parseInt(w.name.slice(2), 10) === num);
@@ -12726,6 +12733,7 @@ let _currentMarkerLL = null;
 function _userMarkerLayers() {
   const out = [];
   for (const g of [_waypointLayer, _testSetLayer]) g?.eachLayer((l) => out.push(l));
+  if (_mapViewMode === 'anchorages') _documentMarkersLayer?.eachLayer((l) => out.push(l));
   return out;
 }
 function _markerUnderPointer() {
@@ -12751,10 +12759,10 @@ function _runMarkerMenuCommand(transcript, intent) {
   if (typeof content !== 'string') return null;
   const box = document.createElement('div');
   box.innerHTML = content;
-  const items = [...box.querySelectorAll('button')].map((b) => ({ cls: b.classList[0], label: b.textContent.trim() }));
+  const items = [...box.querySelectorAll('button')].map((b) => ({ cls: b.classList[0], all: b.className, label: b.textContent.trim() }));
   let item = null;
-  if (intent === 'MARKER_AUTOROUTE') item = items.find((i) => /autoroute/.test(i.cls));
-  else if (intent === 'MARKER_BRING_BOAT') item = items.find((i) => /bring-boat|ts-popup-pos/.test(i.cls));
+  if (intent === 'MARKER_AUTOROUTE') item = items.find((i) => /autoroute/.test(i.all));
+  else if (intent === 'MARKER_BRING_BOAT') item = items.find((i) => /bring-boat|ts-popup-pos/.test(i.all));
   else {
     const m = VoiceLabels.matchLabel(transcript, items.map((i) => i.label));
     if (!m.ok) return m.reason === 'destructive' ? `For safety, "${m.label.replace(/^\W+/, '')}" has to be clicked by hand.` : null;

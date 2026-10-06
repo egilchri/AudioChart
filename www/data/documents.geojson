@@ -2100,6 +2100,7 @@
       "properties": {
         "title": "Stonington Harbor — Anchorage & Moorings",
         "category": "anchorages",
+        "code": "AS001",
         "place": "Stonington, Deer Isle",
         "anchorage": {
           "moorings": "Downtown moorings, wharves, and the fuel dock are reserved for the working fishing fleet, not visitors. There is a two-hour limit at the town float for yachts (drop-off only, not overnight).",
@@ -2117,6 +2118,7 @@
       "properties": {
         "title": "Old Quarry Ocean Adventures (Webb Cove) — Moorings",
         "category": "anchorages",
+        "code": "AS002",
         "place": "Webb Cove, Stonington",
         "anchorage": {
           "moorings": "Old Quarry Ocean Adventures maintains 14 moorings on Webb Cove plus a deep-water pier and float; rental moorings and dock space are available to visiting boaters, arranged directly with the operator.",
@@ -2133,6 +2135,7 @@
         "title": "Billings Diesel & Marine — Moorings & Dockage",
         "positionNote": "Position moved to the water immediately off Moose Island (previously the island label point, on land) — description gives no specific side.",
         "category": "anchorages",
+        "code": "AS003",
         "place": "Moose Island, Deer Isle Thorofare (half-mile west of Stonington)",
         "anchorage": {
           "moorings": "Billings Diesel & Marine maintains 11 granite-block moorings for boats up to 50 ft, plus alongside dockage for vessels up to 75 ft. Both moorings and dockage are first-come, first-served (no reservations).",
@@ -2148,6 +2151,7 @@
       "properties": {
         "title": "McGlathery Island (Merchant Row) — Anchorage",
         "category": "anchorages",
+        "code": "AS004",
         "place": "Merchant Row, south of Stonington",
         "anchorage": {
           "moorings": "None — this is a conserved, undeveloped island (owned by Friends of Nature, transferred to Maine Coast Heritage Trust in 2021); no moorings maintained.",
@@ -2165,6 +2169,7 @@
       "properties": {
         "title": "Camp Island (Merchant Row) — Anchorage",
         "category": "anchorages",
+        "code": "AS005",
         "place": "Merchant Row, East Penobscot Bay",
         "anchorage": {
           "moorings": "None documented — undeveloped island, self-anchor only.",
@@ -2181,6 +2186,7 @@
       "properties": {
         "title": "Isle au Haut Thorofare / Town Landing — Anchorage & Guest Moorings",
         "category": "anchorages",
+        "code": "AS006",
         "place": "Isle au Haut village, Isle au Haut Thorofare",
         "anchorage": {
           "moorings": "Three guest moorings are maintained in the Thorofare; described as first-come, first-served, marked with orange balls labeled \"Rent.\" Picking up other private moorings is not allowed.",
@@ -2196,6 +2202,7 @@
       "properties": {
         "title": "Duck Harbor, Isle au Haut — Anchorage (Acadia National Park)",
         "category": "anchorages",
+        "code": "AS007",
         "place": "Duck Harbor, Isle au Haut",
         "anchorage": {
           "moorings": "None — no moorings available. Boats anchor on the shore side of the NPS float only.",
@@ -2212,6 +2219,7 @@
       "properties": {
         "title": "Sylvester Cove / Deer Isle Yacht Club — Guest Moorings",
         "category": "anchorages",
+        "code": "AS008",
         "place": "Sylvester Cove, south of Dunham Point, Deer Isle",
         "anchorage": {
           "moorings": "Deer Isle Yacht Club maintains guest moorings, free of charge, on a strict first-come, first-served basis (cannot be reserved); maximum stay is 3 nights. Visiting boaters are asked to try to contact the club's Harbor Chairman ahead of arrival, who helps assign a mooring.",
@@ -2230,6 +2238,7 @@
       "properties": {
         "title": "Buck's Harbor — Moorings & Anchorage",
         "category": "anchorages",
+        "code": "AS009",
         "place": "South Brooksville, head of Eggemoggin Reach",
         "anchorage": {
           "moorings": "Two facilities maintain the mooring field: Bucks Harbor Yacht Club (founded 1905) offers a limited number of guest moorings, first-come first-served, not reservable, in depths of roughly 17-35 ft (specific guest balls reported rated for boats up to 35-40 ft). Bucks Harbor Marina separately maintains 30+ moorings for boats up to 70 ft, available seasonally or transiently.",
@@ -2248,6 +2257,7 @@
       "properties": {
         "title": "Camden Outer Harbor — Anchorage & Moorings",
         "category": "anchorages",
+        "code": "AS010",
         "place": "Camden Harbor, Camden, ME",
         "anchorage": {
           "moorings": "Town-maintained rental moorings and dock space through the Camden Harbormaster's office; private outer-harbor moorings also available from Lyman-Morse and P.G. Willey's Wharf. Cost not confirmed — town fee schedule is published as an annual PDF, not itemized on the harbor department page.",
@@ -2266,6 +2276,7 @@
         "title": "Rockport Harbor — Anchorage & Moorings",
         "positionNote": "Position moved to the harbor's own charted water position (previously a shoreside point) — the description says room to anchor is mainly in the outer harbor.",
         "category": "anchorages",
+        "code": "AS011",
         "place": "Rockport Harbor, Rockport, ME",
         "anchorage": {
           "moorings": "Close to 300 moorings in the harbor (commercial and recreational); the town mooring field is reported full with no transient town moorings. Rockport Marine (in the outer harbor) rents out some of its own moorings by the night; inner-harbor moorings are reserved for commercial lobster boats.",
@@ -2282,6 +2293,7 @@
       "properties": {
         "title": "Rockland Harbor (Breakwater/Jameson Point) — Anchorage & Moorings",
         "category": "anchorages",
+        "code": "AS012",
         "place": "Rockland Harbor, Rockland, ME",
         "anchorage": {
           "moorings": "City maintains 20 rental moorings, $50/day or $200/week. Public Landing dock space is first-come, first-served at $2.50/ft/night (including appendages), seasonal floats typically in from mid-May to mid-October.",
@@ -2299,6 +2311,7 @@
       "properties": {
         "title": "Tenants Harbor — Anchorage & Moorings",
         "category": "anchorages",
+        "code": "AS013",
         "place": "Tenants Harbor, St. George, ME",
         "anchorage": {
           "moorings": "A number of rental moorings are available — call Tenants Harbor Boat Yard ahead at (207) 372-8063, or hail on VHF 9 or 68 as you approach. The yellow lobster-style buoys scattered through the anchorage are seasonal rentals, not available to transients.",
@@ -2316,6 +2329,7 @@
       "properties": {
         "title": "Port Clyde — Anchorage & Moorings",
         "category": "anchorages",
+        "code": "AS014",
         "place": "Port Clyde, St. George, ME",
         "anchorage": {
           "moorings": "Lyman-Morse, partnered with Colby College (the new owners of the Port Clyde waterfront), offers guest moorings with restrooms, showers, and WiFi ashore; reserve via Dockwa.",
@@ -2333,6 +2347,7 @@
       "properties": {
         "title": "Gilkey Harbor / Dark Harbor (Islesboro) — Anchorage & Moorings",
         "category": "anchorages",
+        "code": "AS015",
         "place": "Gilkey Harbor, Islesboro, ME",
         "anchorage": {
           "moorings": "No town rental moorings in Gilkey Harbor itself. Dark Harbor Boat Yard, in Cradle Cove on Seven Hundred Acre Island, offers about 20 guest moorings at $50/day (first-come, not reservable), plus showers, ship's store, fuel dock, and block ice.",
@@ -2350,6 +2365,7 @@
         "title": "Warren Island State Park — Anchorage & Moorings",
         "positionNote": "Position corrected (v635) to open water just off the island's north end, near the original pier-side point the v633 fix intended — that v633 point (island's eastern shore, adjacent to the pier) turned out to still land inside the digitized coastline polygon (confirmed live via Query.isLandAt() while building the Rockland-to-Warren-Island sample route). This position was chosen by mapping the actual coastline with isLandAt() and confirming the live AutoRoute can thread a real path to it from Rockland, clear of land and hazards.",
         "category": "anchorages",
+        "code": "AS016",
         "place": "Warren Island State Park, Islesboro, ME",
         "anchorage": {
           "moorings": "State park mooring field, first-come first-served; reported around 9 moorings (some sources say up to 10) at roughly $20/night, payable ashore. Inner moorings are lighter (150 lb mushroom); the two outermost are 1-ton blocks.",
@@ -2366,6 +2382,7 @@
         "title": "Belfast Harbor — Anchorage & Moorings",
         "positionNote": "Position moved off the shore into the harbor — description gives no specific side beyond anchoring \"beyond the mooring field.\"",
         "category": "anchorages",
+        "code": "AS017",
         "place": "Belfast Harbor, Belfast, ME",
         "anchorage": {
           "moorings": "City-run rental moorings and transient slips available through the Belfast Public Landing/Harbor Office; reservations taken by phone or email ahead of arrival.",
@@ -2384,6 +2401,7 @@
         "title": "Castine Town Dock — Moorings (Anchoring Not Recommended)",
         "positionNote": "Position moved into the water off the town waterfront (previously the town center point, on land).",
         "category": "anchorages",
+        "code": "AS018",
         "place": "Castine Harbor, Castine, ME",
         "anchorage": {
           "moorings": "Two visitor moorings reserved primarily for visiting schooners, use requires harbormaster approval. Town Dock floats (seasonal, mid-May to mid-October) offer first-come tie-up limited to 2 hours 9am-5pm, overnight dockage permitted after 5pm at $3/ft/night (up to 80 ft total length).",
@@ -2400,6 +2418,7 @@
       "properties": {
         "title": "Smith Cove (Bagaduce River, near Castine) — Anchorage",
         "category": "anchorages",
+        "code": "AS019",
         "place": "Smith Cove, Castine/Cape Rosier, ME",
         "anchorage": {
           "moorings": "No town or commercial mooring field documented; this is an anchor-out cove.",
@@ -2416,6 +2435,7 @@
       "properties": {
         "title": "Hurricane Island — Anchorage & Moorings",
         "category": "anchorages",
+        "code": "AS020",
         "place": "Hurricane Island, Vinalhaven, ME",
         "anchorage": {
           "moorings": "6 moorings rated 3,000 lb plus 1 rated 5,000 lb, maintained by the Hurricane Island Foundation (Center for Science and Leadership) on the east side of the island near the main pier; 1-1/8\" bottom chain, 1\" nylon top gear, inspected annually. First-come, first-served; call ahead on VHF 16 to reserve, as they fill for events/weekends.",
@@ -2433,6 +2453,7 @@
       "properties": {
         "title": "Carvers Harbor — Anchorage & Moorings",
         "category": "anchorages",
+        "code": "AS021",
         "place": "Carvers Harbor, Vinalhaven, ME",
         "anchorage": {
           "moorings": "Roughly 100 moorings in the harbor. The town does not rent moorings, but a few private owners leave their moorings open with a \"money jar\" (average about $30/night, pay on the honor system).",
@@ -2449,6 +2470,7 @@
       "properties": {
         "title": "Perry Creek — Anchorage & Moorings",
         "category": "anchorages",
+        "code": "AS022",
         "place": "Perry Creek, Vinalhaven, ME",
         "anchorage": {
           "moorings": "A mooring field now dominates what was an undeveloped anchorage; 4 moorings are kept free and are first-come, first-served, with a suggested donation to the Vinalhaven Land Trust, which owns the surrounding land.",
@@ -2466,6 +2488,7 @@
       "properties": {
         "title": "Seal Bay — Anchorage",
         "category": "anchorages",
+        "code": "AS023",
         "place": "Seal Bay, Vinalhaven, ME",
         "anchorage": {
           "moorings": "No mooring field documented — this is a natural anchorage, not a maintained mooring area.",
@@ -2484,6 +2507,7 @@
         "title": "Winter Harbor (Vinalhaven) — Anchorage",
         "positionNote": "Position moved to the midpoint between Davids Island and Hay Island, per the description's explicit entry directions.",
         "category": "anchorages",
+        "code": "AS024",
         "place": "Winter Harbor, Vinalhaven, ME",
         "anchorage": {
           "moorings": "No maintained mooring field documented.",
@@ -2500,6 +2524,7 @@
       "properties": {
         "title": "Pulpit Harbor — Anchorage & Moorings",
         "category": "anchorages",
+        "code": "AS025",
         "place": "Pulpit Harbor, North Haven, ME",
         "anchorage": {
           "moorings": "Almost all moorings in the harbor are private — do not pick one up without owner permission. Thayer's Y-Knot Boatyard (Southern Harbor) has installed one rental mooring, about 3-4 boats in from the outer edge of the field; call ahead, (207) 867-4701.",
@@ -2518,6 +2543,7 @@
       "properties": {
         "title": "Southern Harbor — Anchorage & Moorings",
         "category": "anchorages",
+        "code": "AS026",
         "place": "Southern Harbor, Vinalhaven, ME",
         "anchorage": {
           "moorings": "Thayer's Y-Knot Boatyard, a full-service yard on site, can provide a limited number of guest moorings (call ahead); they also service moorings out in the Fox Islands Thorofare and Pulpit Harbor.",
@@ -2534,6 +2560,7 @@
       "properties": {
         "title": "Fox Islands Thorofare (North Haven) — Anchorage & Moorings",
         "category": "anchorages",
+        "code": "AS027",
         "place": "North Haven village, Fox Islands Thorofare, ME",
         "anchorage": {
           "moorings": "J.O. Brown & Son / Brown's Boatyard maintains rental moorings suitable for boats up to 60 ft, inspected annually, first-come first-served, plus fuel dock, showers, small chandlery and a haul-out lift.",
@@ -2552,6 +2579,7 @@
       "properties": {
         "title": "Valley Cove (Somes Sound) — Anchorage & Moorings",
         "category": "anchorages",
+        "code": "AS028",
         "place": "Valley Cove, Somes Sound, Mount Desert Island, ME",
         "anchorage": {
           "anchoringNotes": "Enter Somes Sound through The Narrows; just beyond Sand Point (to starboard), turn to port into Valley Cove and anchor in about 30 feet MLW along the south side of the cove.",
@@ -2568,6 +2596,7 @@
       "properties": {
         "title": "Somes Harbor (Somesville) — Head of Somes Sound Anchorage",
         "category": "anchorages",
+        "code": "AS029",
         "place": "Somes Harbor, Somesville, Mount Desert Island, ME (head of Somes Sound)",
         "anchorage": {
           "moorings": "All moorings in Somes Harbor itself are privately owned — best avoided unless you know the owner. Rental moorings are available a short distance south: at Henry R. Abel & Co. Yacht Yard (bookable via Dockwa, (207) 276-5057) and, July–August only, at John M. Williams & Co. Boatyard at Hall Quarry ((207) 244-7854).",
@@ -2587,6 +2616,7 @@
         "title": "Northeast Harbor — Anchorage & Moorings",
         "positionNote": "Position moved east of the harbor entrance, per the description (there is no room to anchor inside the harbor itself).",
         "category": "anchorages",
+        "code": "AS030",
         "place": "Northeast Harbor, Mount Desert Island, ME",
         "anchorage": {
           "moorings": "The harbor itself is fully occupied by private and rental moorings, managed by the town-run Northeast Harbor Marina and by Clifton Dock (an arm of the Northeast Harbor Fleet yacht club). Northeast Harbor Marina also has rental slips, bookable via Dockwa.",
@@ -2605,6 +2635,7 @@
         "title": "Southwest Harbor — Anchorage & Moorings",
         "positionNote": "Position moved to open water between Greening Island and the southern shore, per the description.",
         "category": "anchorages",
+        "code": "AS031",
         "place": "Southwest Harbor, Mount Desert Island, ME",
         "anchorage": {
           "moorings": "The Town of Southwest Harbor rents 6 town moorings off the Manset Town Dock (numbered 1–6, yellow-top/white-middle/red-bottom), first-come first-served. Ellis Boat Co. also has 4 rental moorings in the harbor, first-come first-served. Reserve/renew town moorings online at my.onlinemooring.com/southwestharborME/.",
@@ -2622,6 +2653,7 @@
       "properties": {
         "title": "Bass Harbor & Bernard — Anchorage & Moorings",
         "category": "anchorages",
+        "code": "AS032",
         "place": "Bass Harbor / Bernard, Tremont, ME",
         "anchorage": {
           "moorings": "Harbor is dense with private moorings, which can make navigation tight for first-time visitors.",
@@ -2641,6 +2673,7 @@
         "title": "Bar Harbor — Anchorage & Moorings",
         "positionNote": "Position moved south of Bald Porcupine Island toward the town landing, matching the description's \"south of the fairway\" anchorage location.",
         "category": "anchorages",
+        "code": "AS033",
         "place": "Bar Harbor, Bar Harbor, ME",
         "anchorage": {
           "moorings": "Town-managed mooring field in the main harbor near the Municipal Pier (pier listing shows 13 moorings, 4 slips, ~500 ft of dock); a limited number of guest moorings are available nightly. Reserve a town mooring or dock space via Dockwa.",
@@ -2659,6 +2692,7 @@
       "properties": {
         "title": "Seal Harbor — Anchorage & Moorings",
         "category": "anchorages",
+        "code": "AS034",
         "place": "Seal Harbor, Mount Desert, ME",
         "anchorage": {
           "moorings": "Moorings are administered by the Seal Harbor Town Wharf. Seal Harbor Yacht Club may have slips available to members of reciprocating yacht clubs (call ahead); neither of the harbor's two marina facilities offers dock tie-ups to transients.",
@@ -2675,6 +2709,7 @@
       "properties": {
         "title": "Great Cranberry Island — Anchorage & Moorings",
         "category": "anchorages",
+        "code": "AS035",
         "place": "Great Cranberry Island, Cranberry Isles, ME",
         "anchorage": {
           "moorings": "The Town of Cranberry Isles maintains 3 free guest moorings at Great Cranberry, first-come-first-served, usable up to 3 days. They are large white balls with a blue horizontal stripe and 'Town Guest' painted on them.",
@@ -2694,6 +2729,7 @@
         "title": "Islesford (Little Cranberry Island) — Anchorage & Moorings",
         "positionNote": "Position moved into Cranberry Harbor off the town dock — the original point was an explicitly-noted proxy (a nearby building), not the harbor itself.",
         "category": "anchorages",
+        "code": "AS036",
         "place": "Islesford, Little Cranberry Island, Cranberry Isles, ME",
         "anchorage": {
           "moorings": "The Town of Cranberry Isles maintains 3 free guest moorings at Little Cranberry, first-come-first-served, usable up to 3 days, marked with large white balls with a blue horizontal stripe and 'Town Guest' painted on them. The Islesford Dock Restaurant separately administers transient moorings in Cranberry Harbor and sells gas and diesel.",
@@ -2712,6 +2748,7 @@
       "properties": {
         "title": "WoodenBoat School Waterfront",
         "category": "anchorages",
+        "code": "AS037",
         "place": "Great Cove, Brooklin, ME (south end of Eggemoggin Reach, off Babson Island)",
         "anchorage": {
           "moorings": "WoodenBoat Store's own visitor guidance states 'around a half dozen guest moorings,' first-come-first-served — heavy granite-block moorings in 8-15 ft of water at low tide. The School's separate annual 'Good Things to Know' pamphlet describes moorage only as 'limited,' with no count; the discrepancy likely reflects that much of this cove's mooring field is occupied by the School's own ~15-boat teaching fleet (Herreshoff 12 1/2s, Haven 12 1/2s, Beetle Cats, etc.), which is permanently moored here and reduces what's free for drop-in visitors on any given week.",
@@ -2732,6 +2769,7 @@
         "title": "Center Harbor — Anchorage & Moorings",
         "positionNote": "Position moved just south of Brooklin Boat Yard, toward the harbor mouth, matching the description's \"south of a line between the yacht yard and the entrance daybeacon.\"",
         "category": "anchorages",
+        "code": "AS038",
         "place": "Center Harbor, Brooklin, ME",
         "anchorage": {
           "moorings": "Brooklin Boat Yard rents moorings to visitors — call (207) 359-2236 or hail VHF 18; renters get free showers and laundry at the yard's dockhouse (confirm current nightly rate directly with the yard). Center Harbor Yacht Club does not advertise transient slips but may accommodate members of reciprocal yacht clubs.",
@@ -2750,6 +2788,7 @@
       "properties": {
         "title": "Naskeag Harbor — Anchorage",
         "category": "anchorages",
+        "code": "AS039",
         "place": "Naskeag Harbor, Brooklin, ME",
         "anchorage": {
           "anchoringNotes": "A small, working harbor at Naskeag Point on the Jericho Bay side of Brooklin, heavily used by commercial lobster boats, with a granite-gravel town launch/landing at its edge. Neither the CCA Digital Cruising Guide nor Waterway Guide carries a dedicated anchorage entry for Naskeag Harbor (confirmed via direct site search) — treat this as a working harbor with no documented depths, holding, or mooring-rental service, rather than an established cruiser destination.",
@@ -2764,6 +2803,7 @@
       "properties": {
         "title": "Herrick Bay — Anchorage & Moorings",
         "category": "anchorages",
+        "code": "AS040",
         "place": "Herrick Bay, Brooklin/Sedgwick, ME",
         "anchorage": {
           "moorings": "Atlantic Boat Company (355 Flye Point Rd, Brooklin) rents seasonal and transient moorings on a first-come, first-served basis with a reservation form; call ahead to confirm availability. Renters get dinghy-float access and a hot shower/washer/dryer at the dockhouse. The yard also does haul-out and repair work.",
@@ -2782,6 +2822,7 @@
         "title": "Blue Hill Harbor — Anchorage & Moorings",
         "positionNote": "Position nudged into the water immediately off the Kollegewidgwok Yacht Club mooring field.",
         "category": "anchorages",
+        "code": "AS041",
         "place": "Blue Hill Harbor, Blue Hill, ME",
         "anchorage": {
           "moorings": "Kollegewidgwok Yacht Club (KYC) assigns moorings to visitors — hail 'KYC dock' on VHF ch 9 or call (207) 374-5581; moorings for boats over 50 ft are limited. KYC now takes phone reservations, but only within a day or so of arrival (previous policy was strictly first-come, first-served).",
@@ -2802,6 +2843,7 @@
         "title": "Hall Quarry",
         "positionNote": "Position moved to the water on Somes Sound's west shore at the boatyard, per the description.",
         "category": "anchorages",
+        "code": "AS042",
         "place": "West shore of Somes Sound, Mount Desert, Maine — about 1.7 NM north of Valley Cove",
         "anchorage": {
           "moorings": "Rental moorings (14 seasonal) via John M. Williams & Co. Boatyard, available July and August only; a ~20-ft alongside float for taking on water.",
@@ -2820,6 +2862,7 @@
         "title": "Henry R. Abel & Co. Yacht Yard / Abel's Lobster",
         "positionNote": "Position moved to the water on Somes Sound's east shore at the head of the sound, per the description.",
         "category": "anchorages",
+        "code": "AS043",
         "place": "Eastern shore of Somes Sound near the head, Mount Desert, Maine, north of Hall Quarry",
         "anchorage": {
           "moorings": "Summer rental moorings and slips for lease via Dockwa.",
@@ -2837,6 +2880,7 @@
       "properties": {
         "title": "Winter Harbor (Schoodic Peninsula)",
         "category": "anchorages",
+        "code": "AS044",
         "place": "Winter Harbor, ME (Schoodic Peninsula, Frenchman Bay) — not to be confused with the Winter Harbor on Vinalhaven",
         "anchorage": {
           "moorings": "Winter Harbor Yacht Club (in Sand Cove) rents moorings and runs launch service, open July 4–Labor Day, monitors VHF Ch 9 (Clubhouse 207-963-2275, Dock Office 207-963-2346). 2025 rates: $45 (≤35'), $55 (35'-45'), $65 (45'-60'), $105 (60'+); reservable on Dockwa.",
@@ -2855,6 +2899,7 @@
       "properties": {
         "title": "Frenchboro (Lunt Harbor)",
         "category": "anchorages",
+        "code": "AS045",
         "place": "Frenchboro, Long Island, ME (outer Blue Hill Bay, south of MDI)",
         "anchorage": {
           "moorings": "A ferry dock (Bass Harbor run) is to port entering the outer harbor opposite Harbor Island. A row of a dozen or so old private mooring balls lies to starboard, but the guide advises against using them — unserviced for years.",
@@ -2872,6 +2917,7 @@
       "properties": {
         "title": "Eastern Cove (Frenchboro / Long Island)",
         "category": "anchorages",
+        "code": "AS046",
         "place": "Southeastern side of Long Island, near Frenchboro, ME",
         "anchorage": {
           "anchoringNotes": "Alternate to Lunt Harbor on the southeastern side of Long Island, at the isthmus connecting Richs Head and Long Island. Generally settled except when wind is from the north or northeast.",
@@ -2888,6 +2934,7 @@
       "properties": {
         "title": "Burnt Coat Harbor (Swans Island)",
         "category": "anchorages",
+        "code": "AS047",
         "place": "Swans Island, ME (outer Blue Hill Bay)",
         "anchorage": {
           "moorings": "Rentable from lobsterman Tim Trafton on the eastern side of the harbor, $25 each (207-266-5600 or timtrafton@outlook.com) — can be slightly exposed to southerly wind funneling through the Hockamock Head channel.",
@@ -2907,6 +2954,7 @@
       "properties": {
         "title": "Buckle Harbor",
         "category": "anchorages",
+        "code": "AS048",
         "place": "Swans Island, ME (Jericho Bay, off York Narrows)",
         "anchorage": {
           "anchoringNotes": "Proceed south into the small harbor until the depth sounder reads 15-20 feet, then anchor on mud. The harbor is narrow and starts to feel crowded with more than 3-4 boats.",
@@ -2923,6 +2971,7 @@
       "properties": {
         "title": "Bartlett Narrows (Galley Cove / Great Cove)",
         "category": "anchorages",
+        "code": "AS049",
         "place": "Between Pretty Marsh (Mount Desert Island) and Bartlett Island, ME",
         "anchorage": {
           "moorings": "A usually-free mooring is available in Galley Cove on the eastern side of Bartlett Island — good for a lunch stop.",
@@ -2940,6 +2989,7 @@
         "title": "Pretty Marsh",
         "positionNote": "Position moved to the harbor's own charted water position (previously just outside it, on land).",
         "category": "anchorages",
+        "code": "AS050",
         "place": "Mount Desert Island, ME (quiet/western side, Acadia National Park)",
         "anchorage": {
           "anchoringNotes": "Proceed into the basin and anchor in 15-20 feet on a secure mud bottom.",
@@ -2956,6 +3006,7 @@
       "properties": {
         "title": "Sutton Island",
         "category": "anchorages",
+        "code": "AS051",
         "place": "Cranberry Isles, ME (Great Harbor of Mount Desert)",
         "anchorage": {
           "moorings": "One of the Town of Cranberry Isles' 7 free guest moorings (white balls with a blue horizontal stripe, marked \"Town Guest\", first-come-first-served, 3-day limit) is near the Sutton Island town dock and is rarely used.",
@@ -2972,6 +3023,7 @@
         "title": "Long Cove (Vinalhaven) — Anchorage",
         "positionNote": "Position moved just outside the inner harbor toward Hurricane Sound, per the description's recommendation (the inner harbor itself is crowded with private moorings).",
         "category": "anchorages",
+        "code": "AS052",
         "place": "Long Cove, Vinalhaven, ME",
         "anchorage": {
           "moorings": "Private moorings tend to dominate the inner harbor; no public/rental moorings mentioned.",
@@ -2988,6 +3040,7 @@
       "properties": {
         "title": "White Islands — Anchorage",
         "category": "anchorages",
+        "code": "AS053",
         "place": "Big White Island / Little White Island, off Vinalhaven's west shore, ME",
         "anchorage": {
           "moorings": "None; anchorage only.",
@@ -3005,6 +3058,7 @@
       "properties": {
         "title": "Barred Islands",
         "category": "anchorages",
+        "code": "AS054",
         "place": "Between Little Barred Island and Great Spruce Head Island, near Escargot Island, Penobscot Bay (Deer Isle/North Haven outer islands), ME",
         "anchorage": {
           "moorings": "As of October 2021, two moorings present: one marked 'Schauffler', frequently used by the owners of Barred Island — do not pick it up. The other might be available for rental but capacity and rental terms are unknown.",
@@ -3022,6 +3076,7 @@
       "properties": {
         "title": "Devil & Bold Islands",
         "category": "anchorages",
+        "code": "AS055",
         "place": "Near the eastern end of Merchant Row, adjacent to Deer Island Thorofare, Stonington, ME",
         "anchorage": {
           "moorings": "Moorings present in the anchorage but strictly private.",
@@ -3039,6 +3094,7 @@
       "properties": {
         "title": "Dix Island",
         "category": "anchorages",
+        "code": "AS056",
         "place": "Muscle Ridge Channel, between High and Birch Islands, South Thomaston, ME",
         "anchorage": {
           "moorings": "Dix is privately owned by an association of several families, who maintain several private moorings between Dix and Birch — usually occupied by residents.",
@@ -3057,6 +3113,7 @@
         "title": "Torrey Islands (Eggemoggin Reach)",
         "positionNote": "Position nudged into water near the Torrey Islands — the source itself flags this position as approximate (its embedded map link did not match the described location), so this is a best-effort correction, not a verified fix.",
         "category": "anchorages",
+        "code": "AS057",
         "place": "Behind the Torrey Islands, Eggemoggin Reach, near Brooklin, ME (coordinates approximate — the page's embedded map link did not match this location)",
         "anchorage": {
           "moorings": "No moorings at the anchorage itself; nearest facilities are Brooklin Boatyard (rental moorings, dinghy dock, full mechanical/electrical/electronics services, 207-359-2236 or VHF ch 18) about 0.5 nm away, and Center Harbor Yacht Club (one guest mooring, dinghy dock, no outboards permitted, 207-359-8868) a short dinghy ride away; WoodenBoat School is 1.5 nm distant.",
@@ -3073,6 +3130,7 @@
       "properties": {
         "title": "Benjamin River (Eggemoggin Reach)",
         "category": "anchorages",
+        "code": "AS058",
         "place": "Mouth of the Benjamin River, Eggemoggin Reach, Sedgwick, ME (coordinates approximate — the page's embedded map link did not resolve to this specific spot)",
         "anchorage": {
           "moorings": "Benjamin River Marine: several moorings ($30), dinghy dock; 207-412-3161 or benjaminrivermarine@gmail.com; owner John Dunbar.",
@@ -3090,6 +3148,7 @@
         "title": "Holbrook (Tom Cod Cove / Holbrook Island Sanctuary)",
         "positionNote": "Position moved north of Ram Island, matching the description's anchoring note.",
         "category": "anchorages",
+        "code": "AS059",
         "place": "Tom Cod Cove, between Holbrook Island and the mainland, adjacent to Smith Cove and Castine, Brooksville, ME",
         "anchorage": {
           "moorings": "Tom Cod Cove has some guest moorings; check swing room as the tide, while not strong, can be squirrelly in direction.",
@@ -3108,6 +3167,7 @@
         "title": "Cradle Cove (Islesboro)",
         "positionNote": "Position moved to Cradle Cove's own charted water position (previously an approximate guess, per the original source note).",
         "category": "anchorages",
+        "code": "AS060",
         "place": "Cradle Cove, near Birch Point, Islesboro, ME, just north of Gilkey Harbor/Dark Harbor (coordinates approximate)",
         "anchorage": {
           "moorings": "Dark Harbor Boat Yard, in Cradle Cove: 207-734-2246, VHF Ch 9 and 16. Open 7 days a week in July and August. Rental moorings available (not reservable). Fuel dock (gas, diesel, water) can accommodate 8 feet of draft at low tide — come straight in from the mooring area following the private marks to avoid ledges on either side. Showers and a ships store on site.",
@@ -3125,6 +3185,7 @@
       "properties": {
         "title": "Matinicus Island",
         "category": "anchorages",
+        "code": "AS061",
         "place": "Matinicus Harbor, Matinicus Island, ME — outermost year-round inhabited island on the Maine coast (~75 residents)",
         "anchorage": {
           "moorings": "About nine guest moorings, marked with tall buoys, orange pennants, and plastic jars — pick up any of them. A map of the island is inside the jar; leave payment in the jar. Moorings are on strong pendants attached to a steel cable running across the harbor floor. No harbormaster; moorings are first-come, first-served. If all guest moorings are full, try asking a fisherman.",
@@ -3140,6 +3201,7 @@
       "properties": {
         "title": "North Haven Village (Brown's Boatyard)",
         "category": "anchorages",
+        "code": "AS062",
         "place": "North Haven Village waterfront, on the Fox Islands Thorofare, North Haven, ME (coordinates approximate)",
         "anchorage": {
           "moorings": "J.O. Brown's Boatyard (Brown's Boatyard), in North Haven Village, has served locals and visitors for nearly 150 years and rents moorings on a first-come/first-served basis — pay in the boatyard store when you land at the dock; do not call to reserve. They offer traditional boatyard services but with limited resources for off-island visitors.",
@@ -3567,6 +3629,7 @@
       "properties": {
         "title": "Hadlock Cove — Anchorage",
         "category": "anchorages",
+        "code": "AS063",
         "place": "Hadlock Cove, Mount Desert Island",
         "anchorage": {
           "moorings": "A small mooring field fills much of the cove; no confirmed rental/guest program for it specifically. Northeast Harbor Fleet (207-276-5101), about 3.5 miles away by water, is the nearest yacht club with guest moorings and services.",

@@ -222,6 +222,8 @@ expect('empty-ish', 'um', 'UNKNOWN');
     ['move the boat to Camden.', 'BRING_BOAT_TO_PLACE', null],
     ['bring boat here', 'MARKER_BRING_BOAT', null],
     ['AutoRoute to T S zero zero one', 'AUTOROUTE_TO_PLACE', 't s zero zero one'],
+    ['Bring boat to A S zero zero three', 'BRING_BOAT_TO_PLACE', null],
+    ['AutoRoute to A S five', 'AUTOROUTE_TO_PLACE', 'as five'],
     ['go', 'UNKNOWN', null],
     ['sail', 'UNKNOWN', null],
     ['route to Herring Cove', 'AUTOROUTE_TO_PLACE', 'herring cove'],
