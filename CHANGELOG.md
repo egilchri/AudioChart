@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-10-06 — Say (or type) any visible button's label to press it (v797)
+
+Direct request: voice should be able to activate any button or menu item
+that's showing. New js/voice_labels.js, used by the command box (so it
+works typed, with phone keyboard dictation, or desktop dictation):
+- "press X" / "click X" / "tap X" always means a control on screen;
+- a bare label ("anchor watch", "satellite", "close") is tried when it
+  isn't one of the regular commands.
+Candidates are what a sighted user could tap right now — visible, enabled,
+on screen and not covered (sample points at the center and both edges, so
+card-stack buttons showing only a sliver count): buttons, menu items,
+links, checkbox labels, and options of visible drop-downs (e.g. Map Type →
+"Satellite"). Symbol-only buttons (✕, ＋) match by their aria-label or
+tooltip, so "close" finds ✕. Fuzzy matching (exact, prefix, then edit
+distance ≤ 30%); two equally good different matches → asks you to tap.
+Never pressed by voice: anything labelled delete/remove/erase/discard.
+
+Also: an explicit "press X" is no longer dropped while the app is speaking
+(the noise filter still drops other unrecognized input then). The Actions
+toggle gets aria-label="Actions" (its open state shows only ▴).
+
 ## 2026-10-06 — Commands that act on the current marker (v796)
 
 Direct request: a two-step flow using what already exists. Step 1:

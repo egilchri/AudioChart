@@ -12084,15 +12084,16 @@ async function handleCommand(transcript) {
   // Parse first so we can gate on intent before touching any UI.
   const { intent, params } = parseCommand(transcript);
 
-  // While TTS is speaking, silently drop anything that doesn't parse — covers
-  // background noise, keyboard-mic feedback, and TTS audio picked up by the mic.
-  if (TTS.isSpeaking() && intent === 'UNKNOWN') return;
-
   // Press any visible button / menu item by its label (direct request
   // 2026-10-06). "press X" / "click X" always means a control on screen;
   // a bare label ("Anchor Watch", "Satellite") is tried only when it isn't
   // one of the regular commands. See voice_labels.js.
   const explicitPress = VoiceLabels.isExplicitPress(transcript);
+
+  // While TTS is speaking, silently drop anything that doesn't parse — covers
+  // background noise, keyboard-mic feedback, and TTS audio picked up by the mic.
+  // An explicit "press X" is deliberate, so it still goes through.
+  if (TTS.isSpeaking() && intent === 'UNKNOWN' && !explicitPress) return;
   if (explicitPress || intent === 'UNKNOWN') {
     const r = VoiceLabels.pressVisibleLabel(transcript);
     if (r.ok || explicitPress) {
