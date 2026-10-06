@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-06 — Tutorial 7 re-recorded without "Menu" (sailors page only, app still v804)
+
+"7. Point & Speak" now shows the v804 flow: point, "Set marker here",
+then "AutoRoute to here" straight away — no "Menu" step. Recorded
+against live v804 (~25s).
+
 ## 2026-10-06 — Say a marker's menu items without opening its menu (v804)
 
 Direct request: pointing at an SP (or saved-waypoint) marker or a Test
