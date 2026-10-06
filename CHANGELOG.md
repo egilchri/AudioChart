@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-06 — Tutorial 6 rebuilt as a simple hold-Space demo (sailors page only, app still v804)
+
+"6. Say Any Button" is now ~21s: hold Space, say "Chart", "Objects",
+"Anchorages", let go — each shows the app's own voice strip result.
+Replaces the longer dictation-based tutorial + demo. Recorded against
+live v804.
+
 ## 2026-10-06 — Tutorial 7 re-recorded without "Menu" (sailors page only, app still v804)
 
 "7. Point & Speak" now shows the v804 flow: point, "Set marker here",
