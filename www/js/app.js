@@ -12094,6 +12094,16 @@ async function handleCommand(transcript) {
   // background noise, keyboard-mic feedback, and TTS audio picked up by the mic.
   // An explicit "press X" is deliberate, so it still goes through.
   if (TTS.isSpeaking() && intent === 'UNKNOWN' && !explicitPress) return;
+  if (!['SET_MARKER', 'POINTER_PRESS', 'AUTOROUTE_TO_PLACE'].includes(intent)) {
+    const msg = _runMarkerMenuCommand(transcript, intent);
+    if (msg) {
+      addToHistory(transcript);
+      setStatus(msg);
+      showResponse(msg);
+      if (msg.startsWith('For safety')) TTS.sayImmediate(msg);
+      return;
+    }
+  }
   if (explicitPress || intent === 'UNKNOWN') {
     const r = VoiceLabels.pressVisibleLabel(transcript);
     if (r.ok || explicitPress) {
@@ -12623,6 +12633,67 @@ let _pointerXY = null;
 document.addEventListener('mousemove', (e) => { _pointerXY = { x: e.clientX, y: e.clientY }; }, { passive: true });
 document.documentElement.addEventListener('mouseleave', () => { _pointerXY = null; });
 
+// ── A marker's menu by voice, without opening it first ───────────────────────
+// Direct request 2026-10-06: pointing at an SP (or saved-waypoint) marker or
+// a Test Set marker, any item on its popup menu can just be said ("bring
+// boat here", "set focus", "objects within"). With nothing pointed at, the
+// current marker is used — the one last placed or last acted on. Runs the
+// popup's own button, so the behavior is exactly a click.
+let _currentMarkerLL = null;
+function _userMarkerLayers() {
+  const out = [];
+  for (const g of [_waypointLayer, _testSetLayer]) g?.eachLayer((l) => out.push(l));
+  return out;
+}
+function _markerUnderPointer() {
+  if (!_pointerXY) return null;
+  const el = document.elementFromPoint(_pointerXY.x, _pointerXY.y);
+  if (!el) return null;
+  return _userMarkerLayers().find((l) => l._icon?.contains(el) || l.getTooltip?.()?.getElement?.()?.contains(el)) || null;
+}
+function _currentMarker() {
+  const aw = Query.activeWaypoint;
+  const ll = _currentMarkerLL || (aw && { lat: aw.lat, lng: aw.lon });
+  if (!ll) return null;
+  return _userMarkerLayers().find((l) => {
+    const p = l.getLatLng();
+    return Math.abs(p.lat - ll.lat) < 1e-7 && Math.abs(p.lng - ll.lng) < 1e-7;
+  }) || null;
+}
+// Returns a reply when the words were one of the marker's menu items (or a
+// refused Delete), else null so the command is handled as usual.
+function _runMarkerMenuCommand(transcript, intent) {
+  const layer = _markerUnderPointer() || _currentMarker();
+  const content = layer?.getPopup?.()?.getContent?.();
+  if (typeof content !== 'string') return null;
+  const box = document.createElement('div');
+  box.innerHTML = content;
+  const items = [...box.querySelectorAll('button')].map((b) => ({ cls: b.classList[0], label: b.textContent.trim() }));
+  let item = null;
+  if (intent === 'MARKER_AUTOROUTE') item = items.find((i) => /autoroute/.test(i.cls));
+  else if (intent === 'MARKER_BRING_BOAT') item = items.find((i) => /bring-boat|ts-popup-pos/.test(i.cls));
+  else {
+    const m = VoiceLabels.matchLabel(transcript, items.map((i) => i.label));
+    if (!m.ok) return m.reason === 'destructive' ? `For safety, "${m.label.replace(/^\W+/, '')}" has to be clicked by hand.` : null;
+    // A regular command ("nearest hazard"…) only gives way to a near-exact menu item.
+    if (intent !== 'UNKNOWN' && m.score > 0.1) return null;
+    item = items[m.index];
+  }
+  if (!item) return null;
+  const ll = layer.getLatLng();
+  _currentMarkerLL = { lat: ll.lat, lng: ll.lng };
+  const popup = layer.getPopup();
+  const autoPan = popup.options.autoPan;
+  popup.options.autoPan = false; // run it in place — don't pan the map
+  layer.openPopup();
+  popup.options.autoPan = autoPan;
+  const btn = popup.getElement()?.querySelector(`.${item.cls}`);
+  if (!btn) return null;
+  btn.click();
+  const name = layer.getTooltip?.()?.getContent?.() || 'marker';
+  return `${item.label.replace(/^[^\p{L}]+/u, '').replace(/[›…]$/, '').trim()} — ${name}.`;
+}
+
 // "Press" / "Menu" with no label: act on what's under the mouse pointer.
 // A marker opens its popup (its menu); "menu" on bare map opens the
 // right-click menu at that spot. Delete-type controls still need a click.
@@ -12647,6 +12718,7 @@ function _pressAtPointer(menu) {
   return label ? `Pressed "${label.slice(0, 40)}".` : 'Pressed.';
 }
 function _dropMarkerAt(lat, lon) {
+  _currentMarkerLL = { lat, lng: lon };
   const name = WaypointsStorage.nextSearchPinName();
   saveUserWaypoint(name, lat, lon, 'search', formatPositionDisplay(lat, lon));
   Query.setActiveWaypoint(lat, lon, name);

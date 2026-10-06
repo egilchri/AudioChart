@@ -88,17 +88,35 @@ export function visibleTargets() {
  * Try to press the visible control whose label best matches `text`.
  * Returns {ok:true, label} after pressing, or {ok:false, reason, label?}.
  */
-export function pressVisibleLabel(text) {
+function scoreAgainst(text, targets) {
   const q = clean(text.trim().replace(VERB_PREFIX, ''));
-  if (q.length < 2) return { ok: false, reason: 'empty' };
-  const targets = visibleTargets();
-  const scored = targets.map(t => {
+  if (q.length < 2) return null;
+  return targets.map(t => {
     let score;
     if (t.label === q) score = 0;
     else if (q.length >= 4 && (t.label.startsWith(q + ' ') || q.startsWith(t.label + ' '))) score = 0.1;
     else score = lev(q, t.label) / Math.max(q.length, t.label.length);
     return { ...t, score };
   }).sort((a, b) => a.score - b.score);
+}
+
+/**
+ * Best match for `text` among a fixed list of labels (e.g. a marker's menu,
+ * which may not be on screen). Returns {ok:true, index, label, score} or
+ * {ok:false, reason, label?} — same rules as pressVisibleLabel.
+ */
+export function matchLabel(text, rawLabels) {
+  const scored = scoreAgainst(text, rawLabels.map((raw, index) => ({ raw, index, label: clean(raw) })));
+  if (!scored) return { ok: false, reason: 'empty' };
+  const best = scored[0];
+  if (!best || best.score > 0.3) return { ok: false, reason: 'no-match' };
+  if (DESTRUCTIVE.test(best.raw)) return { ok: false, reason: 'destructive', label: best.raw };
+  return { ok: true, index: best.index, label: best.raw, score: best.score };
+}
+
+export function pressVisibleLabel(text) {
+  const scored = scoreAgainst(text, visibleTargets());
+  if (!scored) return { ok: false, reason: 'empty' };
   const best = scored[0];
   if (!best || best.score > 0.3) return { ok: false, reason: 'no-match' };
   // Two different controls equally good (e.g. two "Close" buttons) — don't guess.

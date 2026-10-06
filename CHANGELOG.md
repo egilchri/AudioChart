@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-10-06 — Say a marker's menu items without opening its menu (v804)
+
+Direct request: pointing at an SP (or saved-waypoint) marker or a Test
+Set marker, any item on its popup menu can be said directly — "Bring
+boat here", "Set focus", "Objects within", "Rename", "AutoRoute to here"
+— no "Menu" first. With nothing pointed at, commands go to the current
+marker: the one last placed ("Set marker here" / right-click) or last
+acted on. Runs the popup's own button (popup opened without panning), so
+it behaves exactly like a click; "Delete" is still refused by voice. A
+regular command ("nearest hazard") only gives way to a near-exact menu
+item. voice_labels.js gains matchLabel() (same scoring, fixed label list).
+Checked in desktop Chrome: SP current-marker and pointed-marker cases, a
+TS marker's AutoRoute (route ends at the TS point, not the newer SP),
+Delete refused, Nearest hazard unaffected.
+
 ## 2026-10-06 — Hold to talk; "Set marker here", "Menu"/"Press" at the pointer; tutorial 7 (v803)
 
 Direct request: "I just want to hold down a button and talk."
