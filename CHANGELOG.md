@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-06 — Hazard groups: small yellow warning symbols instead of blobs (v795)
+
+Direct request. A screen-crowded group of charted hazards used to draw as
+a soft, blurred yellow circle (25-45px) that read as an abstract smudge.
+It's now a small (18×17px) yellow ⚠ "stack" — a warning triangle with a
+second one offset behind it — so it reads as "several hazards here" and is
+easy to tell apart from a single hazard's ⚠. Tooltip (count) and
+tap-to-zoom-and-split behavior unchanged. hazardBlobIcon() in
+hazard_clustering.js.
+
 ## 2026-10-06 — "AutoRoute to <place>" command (v794)
 
 Step 1 toward voice-driven AutoRoute (direct request). The command box now

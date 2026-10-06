@@ -59,30 +59,24 @@ export function clusterIndicesByPixel(map, points, pixelRadius) {
   return [...groups.values()];
 }
 
+// A crowded group of hazards draws as one small yellow ⚠ "stack" — two
+// offset warning triangles — so it reads as "several hazards here" at a
+// glance and stays small. Direct request 2026-10-06: replaced the soft
+// yellow blob (25-45px, blurred), which read as an abstract smudge rather
+// than a warning. Fixed size regardless of member count (the count is in
+// the tooltip; tapping zooms in and splits the group, see
+// renderClusteredHazards), so dense views stay legible.
 export function hazardBlobIcon(count) {
-  // Deliberately NOT sized to the cluster's real pixel spread — a bug found
-  // live (2026-08-23): sizing the blob to maxD-of-members meant that when
-  // the DOM-count safety valve (below) widens the grouping radius on a
-  // hazard-dense view, every resulting blob (and its blur halo) ballooned
-  // to match, and dozens of huge overlapping halos washed the whole chart
-  // in a continuous orange fog instead of reading as distinct local blobs.
-  // A small, count-driven size — same convention as any standard map
-  // marker cluster — stays legible and local regardless of how far apart
-  // the real members ended up; clicking still zooms to the members' real
-  // bounds (see renderClusteredHazards), which is how more detail actually
-  // surfaces — no on-blob count/text (user feedback 2026-08-23: the number
-  // badges read as clutter of their own; the exact count is still in the
-  // tooltip on hover/tap, just not permanently painted on the map).
-  const r = Math.min(10 + Math.sqrt(count) * 2.5, 22);
-  const size = r * 2;
-  const blurId = `hazBlur${Math.round(r)}`;
-  const svg = `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
-    <defs><filter id="${blurId}" x="-40%" y="-40%" width="180%" height="180%">
-      <feGaussianBlur stdDeviation="${Math.max(r * 0.1, 1.5)}" />
-    </filter></defs>
-    <circle cx="${r}" cy="${r}" r="${r * 0.85}" fill="#f5c842" fill-opacity="0.88" filter="url(#${blurId})" />
+  const w = 18, h = 17;
+  const tri = (dx, dy, fill) =>
+    `<path d="M${7 + dx} ${1 + dy} L${13.5 + dx} ${13 + dy} L${0.5 + dx} ${13 + dy} Z" fill="${fill}" stroke="#4a3900" stroke-width="1" stroke-linejoin="round"/>`;
+  const svg = `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">
+    ${tri(4, 3, '#d9a400')}
+    ${tri(0, 0, '#ffd21f')}
+    <rect x="6.25" y="4.6" width="1.5" height="4.6" rx="0.6" fill="#2a2000"/>
+    <circle cx="7" cy="11" r="0.9" fill="#2a2000"/>
   </svg>`;
-  return L.divIcon({ className: 'hazard-blob-marker', html: svg, iconSize: [size, size], iconAnchor: [r, r] });
+  return L.divIcon({ className: 'hazard-blob-marker', html: svg, iconSize: [w, h], iconAnchor: [w / 2, h / 2] });
 }
 
 /** Renders hazardPts into layerGroup: an isolated hazard gets its normal
