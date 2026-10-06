@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-06 — Clearer ⌨ command button, no longer covers the transcript (v800)
+
+Found while recording the desktop "say any button" tutorial: the ⌨
+character draws tiny in the system fonts, and with the command box open
+the button sat on top of the "Transcript — tap to expand" strip. The
+button now uses a brass keyboard icon (inline SVG), and while the box is
+open it moves to the end of the input row, right of ▶ — measured from
+the ▶ button itself (_placeCmdOpenBtn), since that row sits in a
+different place on phones and desktop. Checked on desktop Chrome and the
+Pixel emulator.
+
 ## 2026-10-06 — Android app groundwork: speech fix, voice strip, push-to-talk hook (v799)
 
 For the Android wrapper app (android/, not yet committed), where holding

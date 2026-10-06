@@ -4777,6 +4777,8 @@ body.wco-active #underway-btn { top: 10px; }
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
   -webkit-tap-highlight-color: transparent;
 }
+#cmd-open-btn svg { display: block; margin: auto; }
+/* While the box is open it moves next to ▶ — see _placeCmdOpenBtn. */
 #cmd-open-btn:hover { border-color: var(--brass); color: var(--brass-hi); }
 #cmd-open-btn.active { background: var(--brass); color: var(--brass-ink); }
 /* Underway already shows the box; edit/animation modes hide it. */

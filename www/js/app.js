@@ -12637,8 +12637,26 @@ const _cmdOpenBtn = document.getElementById('cmd-open-btn');
 function _setCmdOpen(open) {
   document.getElementById('app').classList.toggle('cmd-open', open);
   _cmdOpenBtn?.classList.toggle('active', open);
+  _placeCmdOpenBtn();
   if (open) setTimeout(() => textInput?.focus(), 0);
 }
+// While the box is open, sit at the end of its input row (right of ▶) rather
+// than on top of the transcript strip. The row is in a different place on
+// phones and desktop, so measure it instead of hard-coding a position.
+function _placeCmdOpenBtn() {
+  if (!_cmdOpenBtn) return;
+  const submit = document.getElementById('text-submit');
+  if (!document.getElementById('app').classList.contains('cmd-open') || !submit?.offsetWidth) {
+    _cmdOpenBtn.style.left = _cmdOpenBtn.style.top = _cmdOpenBtn.style.bottom = '';
+    return;
+  }
+  const r = submit.getBoundingClientRect();
+  const p = _cmdOpenBtn.offsetParent?.getBoundingClientRect() || { left: 0, top: 0 };
+  _cmdOpenBtn.style.left = `${Math.round(r.right - p.left + 8)}px`;
+  _cmdOpenBtn.style.top = `${Math.round(r.top - p.top + (r.height - _cmdOpenBtn.offsetHeight) / 2)}px`;
+  _cmdOpenBtn.style.bottom = 'auto';
+}
+window.addEventListener('resize', _placeCmdOpenBtn);
 _cmdOpenBtn?.addEventListener('click', (e) => {
   e.stopPropagation();
   _setCmdOpen(!document.getElementById('app').classList.contains('cmd-open'));
