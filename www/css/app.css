@@ -4705,9 +4705,9 @@ body.wco-active #underway-btn { top: 10px; }
 #longtest-results .lt-head button { background: none; border: none; color: var(--text); font-size: 1.1rem; cursor: pointer; min-width: 32px; min-height: 32px; }
 #longtest-results table { width: 100%; border-collapse: collapse; }
 #longtest-results th, #longtest-results td { text-align: left; padding: 4px 6px; border-bottom: 1px solid rgba(255,255,255,0.08); }
-#longtest-results .lt-pass td:nth-child(3) { color: #6fd08c; }
-#longtest-results .lt-warn td:nth-child(3) { color: #f5c518; }
-#longtest-results .lt-fail td:nth-child(3) { color: #ff6b6b; font-weight: 700; }
+#longtest-results .lt-pass td:nth-child(4) { color: #6fd08c; }
+#longtest-results .lt-warn td:nth-child(4) { color: #f5c518; }
+#longtest-results .lt-fail td:nth-child(4) { color: #ff6b6b; font-weight: 700; }
 #longtest-results .lt-err { color: #ff6b6b; }
 
 /* "Navigate with care" notice (see _initDisclaimer in app.js). Above

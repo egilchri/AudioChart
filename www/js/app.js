@@ -1436,7 +1436,11 @@ window._debugDepth = () => {
 // (_triggerAutoRoute), but deliberately doesn't save the test routes into
 // the user's Routes list. Run from the console:  await Longtest('TS001', 3)
 // Resolves to one result row per iteration (also printed as a table).
-window.Longtest = async (setName, iterations = 3, { speedKnots = 5 } = {}) => {
+// Optional untilSec (2026-10-05, for a music-timed demo movie): start no
+// new leg after that many seconds — the leg in progress still finishes,
+// then the run ends with the usual results table.
+window.Longtest = async (setName, iterations = 3, { speedKnots = 5, untilSec = null } = {}) => {
+  const ltStart = Date.now();
   const set = TestSetsStorage.loadTestSets().find(s => s.name.toLowerCase() === String(setName).toLowerCase());
   if (!set) throw new Error(`No Test Set named "${setName}". Have: ${TestSetsStorage.loadTestSets().map(s => s.name).join(', ')}`);
   if (set.waypoints.length < 2) throw new Error(`Test Set "${set.name}" needs at least 2 markers.`);
@@ -1448,6 +1452,21 @@ window.Longtest = async (setName, iterations = 3, { speedKnots = 5 } = {}) => {
     return pool[Math.floor(Math.random() * pool.length)];
   };
   const results = [];
+  // Every second leg, switch to the next map type (direct request
+  // 2026-10-05) so a run also exercises each mode's layers with routes and
+  // the moving boat on top. Switched directly rather than through the
+  // menu's change handler, so it neither overwrites the user's saved map
+  // type nor starts that mode's first-visit intro tour mid-run. The
+  // original map type is restored at the end.
+  const mapSelect = document.getElementById('map-layer-select');
+  const mapTypes = mapSelect ? [...mapSelect.options].map(o => o.value).filter(Boolean) : [];
+  const originalMapType = _mapViewMode;
+  const setMapType = (mode) => {
+    _mapViewMode = mode;
+    if (mapSelect) mapSelect.value = mode;
+    _applyMapLayer();
+    _syncLayerBtn();
+  };
   let here = pick(null);
   _bringBoatTo(here.lat, here.lon, here.name);
   // Chrome stretches a hidden tab's timers to ~1s, and the router yields on
@@ -1461,6 +1480,11 @@ window.Longtest = async (setName, iterations = 3, { speedKnots = 5 } = {}) => {
   }) : Promise.resolve();
   for (let i = 1; i <= iterations; i++) {
     await whenVisible();
+    if (untilSec && (Date.now() - ltStart) / 1000 >= untilSec) break;
+    if (i > 1 && i % 2 === 1 && mapTypes.length) {
+      const next = mapTypes[(mapTypes.indexOf(_mapViewMode) + 1) % mapTypes.length];
+      setMapType(next);
+    }
     const dest = pick(here);
     const start = { lat: here.lat, lon: here.lon };
     const end = { lat: dest.lat, lon: dest.lon };
@@ -1487,7 +1511,7 @@ window.Longtest = async (setName, iterations = 3, { speedKnots = 5 } = {}) => {
       : crossesLand ? 'FAIL: route crosses land'
       : marginal ? (mNode?.marginalKind === 'shoal' ? `WARN: near shoal${mDist}` : `WARN: near shore${mDist}`)
       : 'PASS';
-    results.push({ iter: i, from: here.name, to: dest.name, result, points: pts.length, nm: +nm.toFixed(1), ms });
+    results.push({ iter: i, from: here.name, to: dest.name, map: _mapViewMode, result, points: pts.length, nm: +nm.toFixed(1), ms });
     // Play it — even a failed route, so a straight line through land is visible.
     _startRouteAnimation({ name: `Longtest ${i}: ${here.name} → ${dest.name}`, points: pts }, speedKnots);
     await new Promise((resolve) => {
@@ -1504,8 +1528,10 @@ window.Longtest = async (setName, iterations = 3, { speedKnots = 5 } = {}) => {
     here = (fellBack || crossesLand) ? dest : { ...dest, lat: last.lat, lon: last.lon };
     _bringBoatTo(here.lat, here.lon, dest.name);
   }
+  if (mapTypes.length && _mapViewMode !== originalMapType) setMapType(originalMapType);
   console.table(results);
   _showLongtestResults(set.name, results, null); // on-screen table, however Longtest was started
+  window._longtestEndedAt = Date.now(); // lets a screen recording be trimmed to the run's end
   const passed = results.filter(r => r.result === 'PASS').length;
   const summary = `Longtest ${set.name}: ${passed}/${results.length} legs passed.`;
   setStatus(summary);
@@ -13660,8 +13686,11 @@ async function init() {
 // request 2026-10-05. The parameter is stripped from the address bar as the
 // run starts, so a reload (or reopening an installed app) can't rerun it.
 async function _runLongtestFromUrl(param) {
-  const [name, n] = param.split(',');
+  // ?longtest=SET,N[,SECONDS] — the optional third part stops starting new
+  // legs after that many seconds (see untilSec on Longtest).
+  const [name, n, until] = param.split(',');
   const iterations = Math.max(1, Math.min(50, parseInt(n, 10) || 3));
+  const untilSec = parseFloat(until) > 0 ? parseFloat(until) : null;
   const url = new URL(location.href);
   url.searchParams.delete('longtest');
   history.replaceState(null, '', url.pathname + url.search + url.hash);
@@ -13670,7 +13699,7 @@ async function _runLongtestFromUrl(param) {
   await new Promise(r => setTimeout(r, 1500)); // let startup panels settle
   document.getElementById('sr-close')?.click();
   // Longtest shows its own results table; only an error needs showing here.
-  try { await window.Longtest(name, iterations); }
+  try { await window.Longtest(name, iterations, { untilSec }); }
   catch (e) { _showLongtestResults(name, null, e.message); }
 }
 
@@ -13680,8 +13709,8 @@ function _showLongtestResults(name, rows, err) {
   el.id = 'longtest-results';
   const body = err
     ? `<p class="lt-err">${escapeHtml(err)}</p>`
-    : `<table><tr><th>#</th><th>Leg</th><th>Result</th><th>nm</th><th>s</th></tr>${rows.map(r =>
-        `<tr class="${r.result === 'PASS' ? 'lt-pass' : r.result.startsWith('WARN') ? 'lt-warn' : 'lt-fail'}"><td>${r.iter}</td><td>${escapeHtml(r.from)} → ${escapeHtml(r.to)}</td><td>${escapeHtml(r.result)}</td><td>${r.nm ?? ''}</td><td>${r.ms != null ? (r.ms / 1000).toFixed(1) : ''}</td></tr>`
+    : `<table><tr><th>#</th><th>Leg</th><th>Map</th><th>Result</th><th>nm</th><th>s</th></tr>${rows.map(r =>
+        `<tr class="${r.result === 'PASS' ? 'lt-pass' : r.result.startsWith('WARN') ? 'lt-warn' : 'lt-fail'}"><td>${r.iter}</td><td>${escapeHtml(r.from)} → ${escapeHtml(r.to)}</td><td>${escapeHtml(r.map || '')}</td><td>${escapeHtml(r.result)}</td><td>${r.nm ?? ''}</td><td>${r.ms != null ? (r.ms / 1000).toFixed(1) : ''}</td></tr>`
       ).join('')}</table>`;
   const passed = rows ? rows.filter(r => r.result === 'PASS').length : 0;
   const failed = rows ? rows.filter(r => r.result.startsWith('FAIL')).length : 0;

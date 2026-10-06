@@ -92,17 +92,63 @@ export async function autoRouteProg(
   }
 }
 
+// Session memory of endpoints whose nearest water turned out to be cut off
+// from the bay, and the substitute water that worked (2026-10-05). The first
+// route to such a place (e.g. Brooksville's town point → Snow Cove) still
+// pays for the doomed first search (~15-20s at low tide); every later route
+// there goes straight to the working substitute (Bucks Harbor). A quick
+// up-front "is this water connected?" probe was tried and didn't work —
+// Snow Cove is a sizable water body, so a local probe finds open water
+// inside it. Keyed by the user's original point, draft and tide (0.5m
+// buckets), since a different tide can open or close a passage.
+const _substituteWaterCache = new Map();
+const _subKey = (p, draftFt, tideHeightM) =>
+  `${p.lat.toFixed(5)},${p.lon.toFixed(5)}|${draftFt}|${Math.round(tideHeightM * 2) / 2}`;
+
 async function _autoRouteWithRetries(start, end, onUpdate, onText, _escapeAttempted, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs, t0) {
   const run = (s, e, pad, budget, snapCb = onSnap) => _autoRouteCore(s, e, onUpdate, onText, _escapeAttempted,
     draftFt, tideHeightM, onSearchProgress, snapCb, budget, pad);
-  let path = await run(start, end, 2.0, deadlineMs);
+  const remaining = () => 2 * deadlineMs - (Date.now() - t0);
+
+  // Route with one end moved to substitute water; on success, report the
+  // move and remember it for this session.
+  async function tryAlt(which, alt) {
+    _routeEndpointsForWarnings.push(alt); // the substitute start/destination counts as the user's own
+    const s = which === 'start' ? { lat: alt.lat, lon: alt.lon } : start;
+    const e = which === 'end' ? { lat: alt.lat, lon: alt.lon } : end;
+    // Suppress the core's own snap reports for this attempt (the alt point
+    // is already in water); report the alt move ourselves if it works.
+    const attempt = await run(s, e, WIDE_PAD_NM, Math.min(deadlineMs, remaining()), null);
+    if (_isNoPath(attempt) || attempt._timedOut) return null;
+    onSnap?.(which, alt);
+    _substituteWaterCache.set(_subKey(which === 'start' ? start : end, draftFt, tideHeightM), alt);
+    return attempt;
+  }
+
+  // Known from earlier this session: go straight to the substitute.
+  for (const which of ['end', 'start']) {
+    const key = _subKey(which === 'start' ? start : end, draftFt, tideHeightM);
+    const alt = _substituteWaterCache.get(key);
+    if (!alt) continue;
+    console.log(`[autoRoute] using remembered substitute water for the ${which} (${alt.movedNm.toFixed(2)}nm away)`);
+    const p = await tryAlt(which, alt);
+    if (p) return p;
+    _substituteWaterCache.delete(key); // no longer works — fall through to the normal search
+  }
+
+  // Hold the first attempt's "endpoint moved" reports until we know that
+  // attempt is the one being returned — otherwise a doomed first try into
+  // cut-off water left a stray "moved here" marker on the map (Snow Cove)
+  // next to the substitute that was actually used (Bucks Harbor).
+  const firstSnaps = [];
+  let path = await run(start, end, 2.0, Math.min(deadlineMs, remaining()), (w, sn) => firstSnaps.push([w, sn]));
+  const reportFirstSnaps = () => { for (const [w, sn] of firstSnaps) onSnap?.(w, sn); };
   // A timed-out straight line only counts as retryable when an endpoint had
   // to be moved to water (checked below): on a slower machine the doomed
   // search into cut-off water hits the deadline instead of exhausting its
   // graph — CI's runner did exactly that on case [28], so no retry ran.
   const timedOutFallback = path._timedOut && path.length <= 2;
-  if (!_isNoPath(path) && !timedOutFallback) return path;
-  const remaining = () => 2 * deadlineMs - (Date.now() - t0);
+  if (!_isNoPath(path) && !timedOutFallback) { reportFirstSnaps(); return path; }
 
   // Measured between the SNAPPED endpoints, same as the core's own
   // long-range test — an on-land endpoint can sit just under the threshold
@@ -128,24 +174,16 @@ async function _autoRouteWithRetries(start, end, onUpdate, onText, _escapeAttemp
       .filter(c => Query.distanceNm(c.lon, c.lat, firstSnap.lon, firstSnap.lat) > 0.4)
       .slice(0, MAX_ALT_ENDPOINTS);
     for (const alt of alts) {
-      if (remaining() <= 1000) return path;
+      if (remaining() <= 1000) { reportFirstSnaps(); return path; }
       console.log(`[autoRoute] retrying with the ${which} moved ${alt.movedNm.toFixed(2)}nm to other nearby water`);
-      _routeEndpointsForWarnings.push(alt); // the substitute start/destination counts as the user's own
-      const s = which === 'start' ? { lat: alt.lat, lon: alt.lon } : start;
-      const e = which === 'end' ? { lat: alt.lat, lon: alt.lon } : end;
-      // Suppress the core's own snap reports for this attempt (the alt point
-      // is already in water); report the alt move ourselves if it works.
-      const attempt = await run(s, e, WIDE_PAD_NM, Math.min(deadlineMs, remaining()), null);
-      if (!_isNoPath(attempt) && !attempt._timedOut) {
-        onSnap?.(which, alt);
-        return attempt;
-      }
+      const p = await tryAlt(which, alt);
+      if (p) return p;
     }
   }
 
   // A plain timeout with no moved endpoint isn't a "no path" — leave it to
   // the caller's existing timeout handling (Retry button, raise the limit).
-  if (timedOutFallback) return path;
+  if (timedOutFallback) { reportFirstSnaps(); return path; }
 
   // Retry B: wider search area with the original endpoints. Skipped for
   // long-range passages — those decompose into sub-legs (_longRangeRoute)
@@ -154,7 +192,9 @@ async function _autoRouteWithRetries(start, end, onUpdate, onText, _escapeAttemp
   if (!longRange && remaining() > 1000) {
     console.log(`[autoRoute] no path in the ${2.0}nm-padded area — retrying with ${WIDE_PAD_NM}nm`);
     path = await run(start, end, WIDE_PAD_NM, Math.min(deadlineMs, remaining()));
+    return path; // this run reported its own moves through onSnap
   }
+  reportFirstSnaps();
   return path;
 }
 

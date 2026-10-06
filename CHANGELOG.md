@@ -1,5 +1,29 @@
 # Changelog
 
+## 2026-10-06 — Faster repeat routes to cut-off places; Longtest map cycling and time limit (v793)
+
+**Router — remembered substitute water.** Longtest (desktop, v792):
+TS010 → TS018 Brooksville timed out; in Node it routes but takes ~21-25s
+at 0-1m tide, because the first search goes toward Snow Cove (the nearest
+water, cut off from the bay in this chart data) before the Bucks Harbor
+substitute works. AutoRoute now remembers, for the session, which
+substitute water worked for an endpoint (keyed by point, draft and tide
+to 0.5m) and goes straight to it next time: repeat Brooksville routes
+~28s → 5-11s. An up-front "is this water connected?" probe was tried and
+didn't work (Snow Cove is big enough that a local probe finds open water
+inside it), so the first route there is still slow.
+
+Also fixed: a doomed first attempt's "endpoint moved" report was passed
+on alongside the substitute's, leaving a stray orange "moved here" marker
+at Snow Cove. Only the attempt actually returned reports moves now.
+
+**Longtest.** Every second leg switches to the next map type (directly —
+no intro tours, saved map choice untouched, original restored at the end);
+the results table gains a Map column. New optional time limit: a third URL
+part (?longtest=TS001,50,168) or untilSec starts no new leg after that many
+seconds; the leg in progress still finishes. Used to film a music-timed
+demo movie.
+
 ## 2026-10-05 — Notice reworded: "Navigate with care" (v792)
 
 User's request: "Not for navigation" read oddly for an app meant to be used
