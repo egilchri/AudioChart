@@ -12426,6 +12426,12 @@ async function handleCommand(transcript) {
         const dest = await _resolveNamedDestination(params.placeName);
         if (!dest) { response = { text: `Couldn't find "${params.placeName}".`, speech: '' }; break; }
         if (!_autoRouteFromBoatToHereFn) { response = { text: 'Open the map first, then try again.', speech: '' }; break; }
+        // A named destination is often off screen (or the map is zoomed in
+        // on something else), so frame the boat and the destination first —
+        // otherwise the new route can run straight off the edge.
+        if (_map && pos) {
+          _map.fitBounds(L.latLngBounds([[pos.lat, pos.lon], [dest.lat, dest.lon]]), { padding: [80, 80], maxZoom: 13 });
+        }
         _autoRouteFromBoatToHereFn(dest.lat, dest.lon);
         response = { text: `AutoRoute to ${dest.name || params.placeName}…`, speech: '' };
         break;

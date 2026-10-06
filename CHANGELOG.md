@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-10-06 — "AutoRoute to <place>" frames the route on screen (v802)
+
+Found while recording the voice demo: after "Nearest hazard" (which zooms
+right in), "AutoRoute to Pulpit Harbor" plotted a route that ran straight
+off the edge of the map. The command now fits the boat and the
+destination in view (max zoom 13) before plotting, since a named
+destination is usually off screen. Other AutoRoute entry points, where
+the destination was picked on the map, are unchanged.
+
+Also seen while choosing a demo destination (not fixed here, logged):
+from Rockland, "AutoRoute to Lincolnville" ends with "1 route leg
+couldn't avoid land", and Owls Head Harbor / Pulpit Harbor each end with
+a hazard-flagged (red) final leg and no warning text.
+
 ## 2026-10-06 — Tutorial 6 "Say Any Button" (desktop); voice ignores the Command reference list (v801)
 
 - Sailors page: new tab "6. Say Any Button" (assets/demo6.mp4, ~60s,
