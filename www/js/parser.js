@@ -401,6 +401,20 @@ const PATTERNS = [
     extract: (m) => ({ routeName: m[1].trim() }),
   },
 
+  // AUTOROUTE FROM THE BOAT TO A NAMED PLACE (2026-10-06, direct request —
+  // step 1 toward voice-driven AutoRoute; also works by typing, or through
+  // the phone keyboard's own dictation mic). Anchored at the start and
+  // requires "to" right after the verb, so it can't swallow "follow route
+  // X", "hazards from X to Y" or "bearing to X". Accepts the forms
+  // dictation tends to produce: "Auto route to Bucks Harbor.", "autoroute
+  // me to the Castine town dock", "route to Stonington", "take me to …",
+  // "plot a course to …", "navigate to …".
+  {
+    re: /^(?:please\s+|ok(?:ay)?\s+|hey\s+)?(?:auto\s*-?\s*route|route|plot\s+(?:a\s+)?(?:route|course)|plan\s+(?:a\s+)?route|take\s+me|navigate|sail|go)\s+(?:me\s+)?to\s+(?:the\s+)?(.{2,60}?)[.!?\s]*$/i,
+    intent: 'AUTOROUTE_TO_PLACE',
+    extract: (m) => ({ placeName: m[1].trim() }),
+  },
+
   // BEARING TO A NUMBERED WAYPOINT ON THE FOLLOWED ROUTE (must come before
   // BEARING_TO_COORD/BEARING_TO_PLACE below, or "waypoint 3" gets swallowed
   // as a place name instead).

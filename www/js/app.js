@@ -12370,6 +12370,20 @@ async function handleCommand(transcript) {
         response = Query.bearingToNamedPoint(pos.lat, pos.lon, pt.lat, pt.lon, `${route.name} — waypoint ${params.waypointNum}`, _keepFocusOpt);
         break;
       }
+      case 'AUTOROUTE_TO_PLACE': {
+        // Same pipeline as a waypoint popup's "AutoRoute from boat
+        // position": start at the boat, destination resolved by name the
+        // same way Draw Route's "Name" button does (asks which one when a
+        // name is shared by several places; moves an on-land name onto
+        // nearby water). Text-only acknowledgement — AutoRoute plotting
+        // stays quiet except for real danger warnings.
+        const dest = await _resolveNamedDestination(params.placeName);
+        if (!dest) { response = { text: `Couldn't find "${params.placeName}".`, speech: '' }; break; }
+        if (!_autoRouteFromBoatToHereFn) { response = { text: 'Open the map first, then try again.', speech: '' }; break; }
+        _autoRouteFromBoatToHereFn(dest.lat, dest.lon);
+        response = { text: `AutoRoute to ${dest.name || params.placeName}…`, speech: '' };
+        break;
+      }
       case 'BEARING_TO_PLACE': {
         response = Query.bearingToPlace(pos.lat, pos.lon, params.placeName, _keepFocusOpt);
         if (!response && serverUrl) {
@@ -12489,7 +12503,10 @@ async function handleCommand(transcript) {
     const navaidList  = response?._navaidList ?? null;
     showResponse(displayText);
     if (navaidList) showNavaidList(navaidList);
-    TTS.sayImmediate(speechText);
+    // Empty speech means "nothing to say" — calling sayImmediate('') would
+    // cancel whatever is already being spoken (e.g. AUTOROUTE_TO_PLACE's
+    // "X is on land — moved to Y" from _resolveNamedDestination).
+    if (speechText) TTS.sayImmediate(speechText);
 
     const isCourseIntent = (intent === 'HAZARDS_ON_COURSE' || intent === 'HAZARDS_ALONG_ROUTE');
     const isBearingIntent = (intent === 'BEARING_TO_PLACE' || intent === 'BEARING_TO_COORD' || intent === 'QUERY_FOCUS' ||
@@ -12515,7 +12532,7 @@ async function handleCommand(transcript) {
       _bearingAccumulator = [];
       showMap(pos.lat, pos.lon, Query.lastBearingResult).catch(() => {});
       opencpnBtn.style.display = 'none';
-    } else if (intent === 'SET_FOCUS' || intent === 'CLEAR_FOCUS') {
+    } else if (intent === 'SET_FOCUS' || intent === 'CLEAR_FOCUS' || intent === 'AUTOROUTE_TO_PLACE') {
       // Leave the current map view as-is — these only change the focus target.
     } else {
       _bearingAccumulator = [];

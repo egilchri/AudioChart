@@ -178,5 +178,34 @@ console.log('\nUNKNOWN fallback');
 expect('garbage input', 'banana orange apple', 'UNKNOWN');
 expect('empty-ish', 'um', 'UNKNOWN');
 
-console.log(`\n${passed + failed} tests: ${passed} passed, ${failed} failed`);
-process.exit(failed > 0 ? 1 : 0);
+// AUTOROUTE_TO_PLACE (2026-10-06) — tested against the REAL www/js/parser.js
+// via dynamic import (the inlined copy above predates it and isn't kept in
+// sync), including the phrasings phone dictation produces and the existing
+// commands it must not swallow.
+(async () => {
+  const real = await import('../www/js/parser.js');
+  console.log('\nAUTOROUTE_TO_PLACE (real parser)');
+  const cases = [
+    ['autoroute to Bucks Harbor', 'AUTOROUTE_TO_PLACE', 'bucks harbor'],
+    ['Auto route to Bucks Harbor.', 'AUTOROUTE_TO_PLACE', 'bucks harbor'],
+    ['Auto-route me to the Castine town dock', 'AUTOROUTE_TO_PLACE', 'castine town dock'],
+    ['route to Stonington', 'AUTOROUTE_TO_PLACE', 'stonington'],
+    ['take me to Camden', 'AUTOROUTE_TO_PLACE', 'camden'],
+    ['Plot a course to Isle au Haut', 'AUTOROUTE_TO_PLACE', 'isle au haut'],
+    ['OK autoroute to Seal Harbor', 'AUTOROUTE_TO_PLACE', 'seal harbor'],
+    ['bearing to Castine', 'BEARING_TO_PLACE', null],
+    ['how far to Camden', 'BEARING_TO_PLACE', null],
+    ['follow route Rockland to Camden', 'FOLLOW_ROUTE', null],
+    ['navigate route Sunday sail', 'FOLLOW_ROUTE', null],
+    ['hazards from Rockland to Camden', 'HAZARDS_ON_COURSE', null],
+    ['bearing to waypoint 3', 'BEARING_TO_ROUTE_WAYPOINT', null],
+  ];
+  for (const [text, intent, place] of cases) {
+    const r = real.parseCommand(text);
+    const ok = r.intent === intent && (place === null || r.params.placeName === place);
+    if (ok) { passed++; console.log(`  ✓ ${text}`); }
+    else { failed++; console.error(`  ✗ ${text}: got ${r.intent} ${JSON.stringify(r.params)}`); }
+  }
+  console.log(`\n${passed + failed} tests: ${passed} passed, ${failed} failed`);
+  process.exit(failed > 0 ? 1 : 0);
+})();

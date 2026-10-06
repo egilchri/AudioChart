@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-10-06 — "AutoRoute to <place>" command (v794)
+
+Step 1 toward voice-driven AutoRoute (direct request). The command box now
+understands "autoroute to Bucks Harbor", "route to Stonington", "take me
+to Camden", "plot a course to Isle au Haut", "navigate to North Haven" —
+including the forms phone dictation produces ("Auto route to Bucks
+Harbor.", "Auto-route me to the …"). It routes from the boat, resolving
+the name the same way Draw Route's "Name" button does (asks which one for
+a shared name; moves an on-land name onto nearby water). Works typed, or
+spoken through the phone keyboard's own dictation mic. Text-only
+acknowledgement — AutoRoute stays quiet except for real danger warnings.
+
+New parser intent AUTOROUTE_TO_PLACE, anchored at the start and requiring
+"to" right after the verb, so "follow route X", "bearing to X" and
+"hazards from X to Y" are unaffected. test_parser.js now also tests the
+REAL parser.js via dynamic import (the inlined copy it used predates this).
+
+Also: the command handler no longer calls speech with empty text, which
+used to cut off anything already being spoken.
+
 ## 2026-10-06 — Faster repeat routes to cut-off places; Longtest map cycling and time limit (v793)
 
 **Router — remembered substitute water.** Longtest (desktop, v792):
