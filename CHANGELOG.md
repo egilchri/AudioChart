@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-10-06 — Android app groundwork: speech fix, voice strip, push-to-talk hook (v799)
+
+For the Android wrapper app (android/, not yet committed), where holding
+volume-down starts push-to-talk:
+
+- New js/speech_shim.js: Android's WebView has no browser speech
+  synthesis, so tts.js threw on load and the app never started. The shim
+  stands in for it — speaking through the Android app's TextToSpeech
+  bridge when present, silent otherwise — and does nothing in normal
+  browsers, which already have speech.
+- Voice status strip (#voice-hud) near the top: "Listening…", the
+  partial words heard, then "“objects” → Pressed …" for a few seconds.
+- Page bridge for the app: audioChartVoiceHints (visible labels, used to
+  bias recognition), audioChartVoiceStatus, audioChartVoiceCommand (runs
+  the text through handleCommand like a typed command).
+- The Objects panel header is now role="button", so saying "objects" opens
+  it (it was the one visible control the label finder skipped).
+
+Verified on the Pixel emulator: short volume-down still lowers volume,
+long press starts listening, a failed listen shows a clear message, and
+"objects" (no "press" needed) opens the Objects panel. Real spoken
+recognition not yet tested on a phone.
+
 ## 2026-10-06 — ⌨ button opens the command box any time (v798)
 
 Found while preparing the "say any button" tutorial: the command box only

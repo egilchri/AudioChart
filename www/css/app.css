@@ -4784,3 +4784,23 @@ body.wco-active #underway-btn { top: 10px; }
 #app.following-active #cmd-open-btn,
 #app.edit-mode #cmd-open-btn,
 #app.anim-mode #cmd-open-btn { display: none; }
+
+/* Voice status strip for the Android app's hold-volume-down-to-talk
+   (audioChartVoiceStatus / audioChartVoiceCommand in app.js). */
+#voice-hud {
+  position: absolute;
+  top: 54px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2500;
+  max-width: calc(100% - 32px);
+  padding: 8px 14px;
+  border-radius: 18px;
+  background: rgba(10, 22, 40, 0.94);
+  border: 1px solid var(--accent);
+  color: var(--text);
+  font-size: 0.95rem;
+  text-align: center;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+}

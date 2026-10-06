@@ -12592,6 +12592,41 @@ async function handleCommand(transcript) {
   }
 }
 
+// ── Voice bridge for the Android app (2026-10-06 prototype) ──────────────────
+// The Android wrapper (android/ in the repo) adds hold-VOLUME-DOWN-to-talk:
+// it asks for audioChartVoiceHints() (the visible button labels, to nudge
+// recognition toward them), reports progress through audioChartVoiceStatus(),
+// and hands the heard text to audioChartVoiceCommand(), which runs it like a
+// typed command. #voice-hud shows "Listening…", what was heard, and the
+// result, since the command box's own reply area is hidden unless it's open.
+const _voiceHud = document.getElementById('voice-hud');
+let _voiceHudTimer = 0;
+function _showVoiceHud(text, holdMs = 0) {
+  if (!_voiceHud) return;
+  clearTimeout(_voiceHudTimer);
+  _voiceHud.textContent = text;
+  _voiceHud.style.display = 'block';
+  if (holdMs) _voiceHudTimer = setTimeout(() => { _voiceHud.style.display = 'none'; }, holdMs);
+}
+window.audioChartVoiceHints = () => {
+  const labels = VoiceLabels.visibleTargets().map(t => t.raw.replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim()).filter(Boolean);
+  return [...new Set([...labels, 'bring boat here', 'autoroute from boat position', 'autoroute to'])];
+};
+window.audioChartVoiceStatus = (state, text) => {
+  if (state === 'listening') _showVoiceHud('🎤 Listening…');
+  else if (state === 'partial') _showVoiceHud(`🎤 “${text}”`);
+  else if (state === 'thinking') _showVoiceHud('🎤 …');
+  else if (state === 'error') _showVoiceHud(`🎤 ${text}`, 4000);
+};
+window.audioChartVoiceCommand = async (text) => {
+  _showVoiceHud(`🎤 “${text}”`);
+  const before = document.getElementById('response-text')?.lastChild;
+  await handleCommand(text);
+  const after = document.getElementById('response-text')?.lastChild;
+  const reply = after && after !== before ? after.textContent.replace(/^\d{1,2}:\d{2}\s*[AP]M/, '').trim() : '';
+  _showVoiceHud(reply ? `🎤 “${text}” → ${reply}` : `🎤 “${text}”`, 5000);
+};
+
 // ── Command box on demand ─────────────────────────────────────────────────────
 // The command box shows by itself only in Underway / while following a route
 // (see #map-overlay-cmd in app.css). This button — and "/" on a keyboard —

@@ -78,6 +78,7 @@
            otherwise only shows in Underway, but say-any-button / AutoRoute /
            marker commands are needed with Underway off too. Planned to
            become the hold-to-talk mic. See _setCmdOpen in app.js. -->
+      <div id="voice-hud" role="status" aria-live="polite" style="display:none"></div>
       <button id="cmd-open-btn" type="button" title="Type or dictate a command (shortcut: /)" aria-label="Command">&#9000;</button>
       <!-- Underway is a pure visibility toggle (see #app.underway-mode in
            app.css and the underway logic in app.js). A real slide switch, not
@@ -208,7 +209,7 @@
         <div id="tp-sync-status" class="nf-sync-status"></div>
       </div>
       <div id="navaid-filter-panel">
-        <div class="nf-title nf-title-collapsible" id="nf-panel-title">Objects</div>
+        <div class="nf-title nf-title-collapsible" id="nf-panel-title" role="button">Objects</div>
         <div id="nf-body">
           <label><input type="checkbox" id="nf-navaids" checked> Navaids</label>
           <label><input type="checkbox" id="nf-hazard" checked> Hazards</label>
@@ -813,6 +814,7 @@
     </div>
   </div>
 
+  <script src="./js/speech_shim.js"></script>
   <script src="./js/version.js"></script>
   <script type="module" src="./js/app.js"></script>
 </body>
