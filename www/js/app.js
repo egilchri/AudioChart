@@ -15,6 +15,7 @@ import * as HazardClustering from './hazard_clustering.js';
 import * as WaypointsStorage from './waypoints_storage.js';
 import * as TestSetsStorage from './test_sets_storage.js';
 import { initCardStack } from './card_stack.js';
+import * as VoiceLabels from './voice_labels.js';
 import * as WakeLock from './wake_lock.js';
 import * as AnchorWatch from './anchor_watch.js';
 import * as Tour from './tour.js';
@@ -12087,6 +12088,27 @@ async function handleCommand(transcript) {
   // background noise, keyboard-mic feedback, and TTS audio picked up by the mic.
   if (TTS.isSpeaking() && intent === 'UNKNOWN') return;
 
+  // Press any visible button / menu item by its label (direct request
+  // 2026-10-06). "press X" / "click X" always means a control on screen;
+  // a bare label ("Anchor Watch", "Satellite") is tried only when it isn't
+  // one of the regular commands. See voice_labels.js.
+  const explicitPress = VoiceLabels.isExplicitPress(transcript);
+  if (explicitPress || intent === 'UNKNOWN') {
+    const r = VoiceLabels.pressVisibleLabel(transcript);
+    if (r.ok || explicitPress) {
+      addToHistory(transcript);
+      const clean = (t) => t.replace(/\s+/g, ' ').trim();
+      const msg = r.ok ? `Pressed "${clean(r.label)}".`
+        : r.reason === 'destructive' ? `For safety, "${clean(r.label)}" has to be tapped by hand.`
+        : r.reason === 'ambiguous' ? `More than one "${clean(r.label)}" is showing — tap the one you mean.`
+        : `No button like "${transcript.trim().replace(/^\S+\s+/, '')}" is showing right now.`;
+      setStatus(msg);
+      showResponse(msg);
+      if (!r.ok) TTS.sayImmediate(msg);
+      return;
+    }
+  }
+
   console.log('[AudioChart] handleCommand:', transcript);
   try {
     setStatus(`Command: "${transcript}"`);
@@ -12370,6 +12392,29 @@ async function handleCommand(transcript) {
         response = Query.bearingToNamedPoint(pos.lat, pos.lon, pt.lat, pt.lon, `${route.name} — waypoint ${params.waypointNum}`, _keepFocusOpt);
         break;
       }
+      case 'MARKER_AUTOROUTE':
+      case 'MARKER_BRING_BOAT': {
+        // "The marker" = the active waypoint, which "Set marker here" (and
+        // Search) set when they drop a pin. Its live position comes from the
+        // saved waypoint, so a marker dragged after it was set still counts.
+        const aw = Query.activeWaypoint;
+        const saved = aw && WaypointsStorage.loadUserWaypoints().find(w => w.name === aw.name);
+        const m = saved ? { lat: saved.lat, lon: saved.lon, name: saved.name } : aw;
+        if (!m) {
+          const t = 'No marker set. Right-click or long-press the map and choose "Set marker here" first.';
+          response = { text: t, speech: t };
+          break;
+        }
+        if (intent === 'MARKER_BRING_BOAT') {
+          _bringBoatTo(m.lat, m.lon, m.name);
+          response = { text: `Boat moved to ${m.name}.`, speech: '' };
+        } else {
+          if (!_autoRouteFromBoatToHereFn) { response = { text: 'Open the map first, then try again.', speech: '' }; break; }
+          _autoRouteFromBoatToHereFn(m.lat, m.lon);
+          response = { text: `AutoRoute to ${m.name}…`, speech: '' };
+        }
+        break;
+      }
       case 'AUTOROUTE_TO_PLACE': {
         // Same pipeline as a waypoint popup's "AutoRoute from boat
         // position": start at the boat, destination resolved by name the
@@ -12532,7 +12577,8 @@ async function handleCommand(transcript) {
       _bearingAccumulator = [];
       showMap(pos.lat, pos.lon, Query.lastBearingResult).catch(() => {});
       opencpnBtn.style.display = 'none';
-    } else if (intent === 'SET_FOCUS' || intent === 'CLEAR_FOCUS' || intent === 'AUTOROUTE_TO_PLACE') {
+    } else if (intent === 'SET_FOCUS' || intent === 'CLEAR_FOCUS' || intent === 'AUTOROUTE_TO_PLACE' ||
+               intent === 'MARKER_AUTOROUTE' || intent === 'MARKER_BRING_BOAT') {
       // Leave the current map view as-is — these only change the focus target.
     } else {
       _bearingAccumulator = [];

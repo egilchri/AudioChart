@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-10-06 — Commands that act on the current marker (v796)
+
+Direct request: a two-step flow using what already exists. Step 1:
+right-click / long-press → "Set marker here" (drops an SP marker and makes
+it the active waypoint). Step 2, typed or dictated:
+- "autoroute from boat position", "autoroute to here", "autoroute",
+  "route to this position", "take me there" → AutoRoute from the boat to
+  the marker (same as the marker popup's button);
+- "bring boat here", "bring the boat to this position", "move boat to the
+  marker" → move the boat there (same as the popup's "Bring boat here").
+The marker's saved position is used, so one dragged after being set still
+counts. With no marker set, it says how to set one.
+
+Parser intents MARKER_AUTOROUTE / MARKER_BRING_BOAT come before
+AUTOROUTE_TO_PLACE (so "autoroute to here" isn't a place lookup). Bare
+"autoroute" is allowed; other verbs need a target, so a stray "go" or
+"sail" does nothing. 12 more parser tests.
+
 ## 2026-10-06 — Hazard groups: small yellow warning symbols instead of blobs (v795)
 
 Direct request. A screen-crowded group of charted hazards used to draw as

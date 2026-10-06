@@ -199,6 +199,19 @@ expect('empty-ish', 'um', 'UNKNOWN');
     ['navigate route Sunday sail', 'FOLLOW_ROUTE', null],
     ['hazards from Rockland to Camden', 'HAZARDS_ON_COURSE', null],
     ['bearing to waypoint 3', 'BEARING_TO_ROUTE_WAYPOINT', null],
+    // MARKER_* (2026-10-06): act on the marker from "Set marker here"
+    ['autoroute from boat position', 'MARKER_AUTOROUTE', null],
+    ['Autoroute from the boat position.', 'MARKER_AUTOROUTE', null],
+    ['autoroute to here', 'MARKER_AUTOROUTE', null],
+    ['autoroute', 'MARKER_AUTOROUTE', null],
+    ['route to this position', 'MARKER_AUTOROUTE', null],
+    ['take me there', 'MARKER_AUTOROUTE', null],
+    ['bring boat here', 'MARKER_BRING_BOAT', null],
+    ['Bring the boat to this position.', 'MARKER_BRING_BOAT', null],
+    ['move boat to the marker', 'MARKER_BRING_BOAT', null],
+    ['go', 'UNKNOWN', null],
+    ['sail', 'UNKNOWN', null],
+    ['route to Herring Cove', 'AUTOROUTE_TO_PLACE', 'herring cove'],
   ];
   for (const [text, intent, place] of cases) {
     const r = real.parseCommand(text);

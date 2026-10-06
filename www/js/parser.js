@@ -401,6 +401,25 @@ const PATTERNS = [
     extract: (m) => ({ routeName: m[1].trim() }),
   },
 
+  // ACT ON THE CURRENT MARKER (2026-10-06, direct request) — a two-step
+  // flow using what already exists: "Set marker here" (right-click/long-
+  // press) drops an SP marker and makes it the active waypoint; these then
+  // run that marker's own popup actions by voice/text. Must come before
+  // AUTOROUTE_TO_PLACE, or "autoroute to here" would look up a place
+  // called "here".
+  {
+    // Bare "autoroute" is allowed; the other verbs need an explicit target so
+    // a stray "go" or "sail" can't plan a route.
+    re: /^(?:please\s+|ok(?:ay)?\s+)?(?:auto\s*-?\s*route(?:\s+from\s+(?:the\s+)?boat(?:\s+position)?)?(?:\s+(?:to\s+)?(?:here|there|this\s+(?:position|spot|point|marker)|(?:the\s+)?marker))?|(?:route|take\s+me|navigate|go|sail|plot\s+(?:a\s+)?(?:route|course))(?:\s+from\s+(?:the\s+)?boat(?:\s+position)?)?\s+(?:to\s+)?(?:here|there|this\s+(?:position|spot|point|marker)|(?:the\s+)?marker))[.!?\s]*$/i,
+    intent: 'MARKER_AUTOROUTE',
+    params: {},
+  },
+  {
+    re: /^(?:please\s+|ok(?:ay)?\s+)?(?:bring|move|put)\s+(?:the\s+)?boat\s+(?:here|there|to\s+(?:here|there|this\s+(?:position|spot|point|marker)|(?:the\s+)?marker))[.!?\s]*$/i,
+    intent: 'MARKER_BRING_BOAT',
+    params: {},
+  },
+
   // AUTOROUTE FROM THE BOAT TO A NAMED PLACE (2026-10-06, direct request —
   // step 1 toward voice-driven AutoRoute; also works by typing, or through
   // the phone keyboard's own dictation mic). Anchored at the start and
