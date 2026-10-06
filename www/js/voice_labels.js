@@ -72,7 +72,9 @@ export function visibleTargets() {
     if (label) out.push({ label, raw: labelOf(el).trim(), el });
   }
   for (const s of document.querySelectorAll('select')) {
-    if (!isTappable(s)) continue;
+    // The Command reference list holds example commands, not choices —
+    // matching one would just fill the box with "[place]" placeholders.
+    if (s.id === 'command-picker' || !isTappable(s)) continue;
     for (const o of s.options) {
       if (o.disabled || o.hidden || !o.value) continue;
       const label = clean(o.text);

@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-10-06 — Tutorial 6 "Say Any Button" (desktop); voice ignores the Command reference list (v801)
+
+- Sailors page: new tab "6. Say Any Button" (assets/demo6.mp4, ~60s,
+  Piper narration). On a computer: press / (or the keyboard button),
+  start Mac dictation, say a button's name, press Return. Shows Chart,
+  Objects, the Soundings checkbox, and "AutoRoute to Camden", and that
+  delete buttons still need a real click. Recorded against live v800 as
+  stills; the dictated words are typed in, and the tab's note says so
+  (DEMOS entries can now carry their own `note`).
+- voice_labels.js: the Command reference drop-down's example commands
+  ("where am I", "delete waypoint [name]", …) were being offered as
+  pressable items, so a spoken word could fuzzily match one and fill the
+  box with a "[place]" template. That list is now skipped.
+
 ## 2026-10-06 — Clearer ⌨ command button, no longer covers the transcript (v800)
 
 Found while recording the desktop "say any button" tutorial: the ⌨

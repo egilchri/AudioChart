@@ -624,6 +624,7 @@
       <button class="demo-tab" data-demo="3">3. Underway &amp; Bearing</button>
       <button class="demo-tab" data-demo="4">4. Sync</button>
       <button class="demo-tab" data-demo="5">5. Import</button>
+      <button class="demo-tab" data-demo="6">6. Say Any Button</button>
     </div>
     <div class="demo-frame">
       <video id="demo-video" src="assets/demo.mp4" poster="assets/demo-poster.jpg" controls playsinline></video>
@@ -691,12 +692,21 @@
       src: 'assets/demo5.mp4', poster: 'assets/demo5-poster.jpg',
       w: 1000, h: 516,
     },
+    6: {
+      title: 'Just say the button.',
+      desc: 'On a computer, press / to open the command box, dictate any button’s name, and press Return — no need to say “press”. Commands like “AutoRoute to Camden” work too.',
+      note: 'Recorded from the live app. The spoken words are shown typed in, the way Mac dictation enters them.',
+      src: 'assets/demo6.mp4', poster: 'assets/demo6-poster.jpg',
+      w: 1000, h: 510,
+    },
   };
 
   const demoFrame = document.querySelector('.demo-frame');
   const demoVideo = document.getElementById('demo-video');
   const demoTitle = document.getElementById('demo-title');
   const demoDesc  = document.getElementById('demo-desc');
+  const demoNote  = document.getElementById('demo-note');
+  const DEFAULT_NOTE = demoNote.textContent;
 
   function showDemo(n) {
     const d = DEMOS[n];
@@ -709,6 +719,7 @@
     demoVideo.load();
     demoTitle.textContent = d.title;
     demoDesc.textContent = d.desc;
+    demoNote.textContent = d.note || DEFAULT_NOTE;
     const syncSetup = document.getElementById('sync-setup');
     syncSetup.hidden = String(n) !== '4';
     document.querySelectorAll('.demo-tab').forEach(btn => {
