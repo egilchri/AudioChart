@@ -436,6 +436,14 @@ const PATTERNS = [
     intent: 'MARKER_BRING_BOAT',
     params: {},
   },
+  {
+    // "Bring boat to TS003" / "move the boat to Camden" — a saved marker by
+    // name first, else a place (2026-10-06, direct request). After
+    // MARKER_BRING_BOAT so "to here/the marker" still means the current one.
+    re: /^(?:please\s+|ok(?:ay)?\s+)?(?:bring|move|put|take|send)\s+(?:the\s+)?boat\s+(?:over\s+)?to\s+(.+?)[.!?\s]*$/i,
+    intent: 'BRING_BOAT_TO_PLACE',
+    extract: (m) => ({ placeName: m[1].trim() }),
+  },
 
   // AUTOROUTE FROM THE BOAT TO A NAMED PLACE (2026-10-06, direct request —
   // step 1 toward voice-driven AutoRoute; also works by typing, or through

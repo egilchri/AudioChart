@@ -12101,7 +12101,7 @@ async function handleCommand(transcript) {
   // background noise, keyboard-mic feedback, and TTS audio picked up by the mic.
   // An explicit "press X" is deliberate, so it still goes through.
   if (TTS.isSpeaking() && intent === 'UNKNOWN' && !explicitPress) return;
-  if (!['SET_MARKER', 'POINTER_PRESS', 'AUTOROUTE_TO_PLACE', 'SHOW_PLACE'].includes(intent)) {
+  if (!['SET_MARKER', 'POINTER_PRESS', 'AUTOROUTE_TO_PLACE', 'SHOW_PLACE', 'BRING_BOAT_TO_PLACE'].includes(intent)) {
     const msg = _runMarkerMenuCommand(transcript, intent);
     if (msg) {
       addToHistory(transcript);
@@ -12410,6 +12410,16 @@ async function handleCommand(transcript) {
         response = Query.bearingToNamedPoint(pos.lat, pos.lon, pt.lat, pt.lon, `${route.name} — waypoint ${params.waypointNum}`, _keepFocusOpt);
         break;
       }
+      case 'BRING_BOAT_TO_PLACE': {
+        const mk = _markerByName(params.placeName);
+        if (mk?.missing) { response = { text: `No marker called ${mk.name}.`, speech: `No marker called ${mk.name}.` }; break; }
+        const dest = mk || await _resolveNamedDestination(params.placeName);
+        if (!dest) { response = { text: `Couldn't find "${params.placeName}".`, speech: '' }; break; }
+        if (mk) _currentMarkerLL = { lat: mk.lat, lng: mk.lon };
+        _bringBoatTo(dest.lat, dest.lon, dest.name || params.placeName);
+        response = { text: `Boat moved to ${dest.name || params.placeName}.`, speech: '' };
+        break;
+      }
       case 'SHOW_PLACE': {
         // A visible button named exactly that ("Show hazards") wins over a
         // fuzzy place-name match.
@@ -12477,6 +12487,15 @@ async function handleCommand(transcript) {
         // name is shared by several places; moves an on-land name onto
         // nearby water). Text-only acknowledgement — AutoRoute plotting
         // stays quiet except for real danger warnings.
+        const mk = _markerByName(params.placeName);
+        if (mk?.missing) { response = { text: `No marker called ${mk.name}.`, speech: `No marker called ${mk.name}.` }; break; }
+        if (mk) {
+          if (!_autoRouteFromBoatToHereFn) { response = { text: 'Open the map first, then try again.', speech: '' }; break; }
+          _currentMarkerLL = { lat: mk.lat, lng: mk.lon };
+          _autoRouteFromBoatToHereFn(mk.lat, mk.lon);
+          response = { text: `AutoRoute to ${mk.name}…`, speech: '' };
+          break;
+        }
         const dest = await _resolveNamedDestination(params.placeName);
         if (!dest) { response = { text: `Couldn't find "${params.placeName}".`, speech: '' }; break; }
         if (!_autoRouteFromBoatToHereFn) { response = { text: 'Open the map first, then try again.', speech: '' }; break; }
@@ -12634,7 +12653,7 @@ async function handleCommand(transcript) {
       opencpnBtn.style.display = 'none';
     } else if (intent === 'SET_FOCUS' || intent === 'CLEAR_FOCUS' || intent === 'AUTOROUTE_TO_PLACE' ||
                intent === 'MARKER_AUTOROUTE' || intent === 'MARKER_BRING_BOAT' || intent === 'SET_MARKER' ||
-               intent === 'POINTER_PRESS' || intent === 'SHOW_PLACE') {
+               intent === 'POINTER_PRESS' || intent === 'SHOW_PLACE' || intent === 'BRING_BOAT_TO_PLACE') {
       // Leave the current map view as-is — these only change the focus target.
     } else {
       _bearingAccumulator = [];
@@ -12655,6 +12674,47 @@ let _mapPointerLatLng = null;
 let _pointerXY = null;
 document.addEventListener('mousemove', (e) => { _pointerXY = { x: e.clientX, y: e.clientY }; }, { passive: true });
 document.documentElement.addEventListener('mouseleave', () => { _pointerXY = null; });
+
+// ── Saved markers by spoken name ─────────────────────────────────────────────
+// "AutoRoute to TS003", "Bring boat to SP001" (2026-10-06, direct request).
+// Speech engines write these many ways — "T S zero zero three", "TS 3",
+// "teas three", "S P one" — so the prefix and the number are read loosely
+// and matched by value (TS3 = TS003). Any other saved waypoint matches by
+// its exact name. Returns {name, lat, lon}, {name, missing:true} when it
+// was clearly a marker name that doesn't exist, or null (not a marker name).
+const _NUM_WORDS = { zero: 0, oh: 0, o: 0, one: 1, won: 1, two: 2, to: 2, too: 2, three: 3, four: 4, for: 4,
+  five: 5, six: 6, seven: 7, eight: 8, ate: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13,
+  fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19 };
+const _TENS_WORDS = { twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90 };
+function _spokenNumber(words) {
+  let out = '';
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i];
+    if (/^\d+$/.test(w)) out += w;
+    else if (w in _TENS_WORDS) {
+      const unit = _NUM_WORDS[words[i + 1]];
+      if (unit >= 1 && unit <= 9) { out += String(_TENS_WORDS[w] + unit); i++; } else out += String(_TENS_WORDS[w]);
+    } else if (w in _NUM_WORDS) out += String(_NUM_WORDS[w]);
+    else return NaN;
+  }
+  return out ? parseInt(out, 10) : NaN;
+}
+function _markerByName(text) {
+  const t = text.toLowerCase().replace(/[.!?,]/g, ' ').replace(/\s+/g, ' ').trim();
+  const all = [
+    ...WaypointsStorage.loadUserWaypoints().map((w) => ({ name: w.name, lat: w.lat, lon: w.lon })),
+    ...TestSetsStorage.loadTestSets().flatMap((s) => s.waypoints.map((w) => ({ name: w.name, lat: w.lat, lon: w.lon }))),
+  ];
+  const exact = all.find((w) => w.name.toLowerCase() === t);
+  if (exact) return exact;
+  const m = t.match(/^(t ?s|tee ?ess|tea ?s|teas|tease|s ?p|ess ?pee)\s?-?\s?(.+)$/);
+  if (!m) return null;
+  const prefix = /^(t|tee|tea)/.test(m[1]) ? 'TS' : 'SP';
+  const num = _spokenNumber(m[2].replace(/-/g, ' ').split(' ').filter(Boolean));
+  if (!Number.isFinite(num)) return null;
+  const hit = all.find((w) => w.name.toUpperCase().startsWith(prefix) && parseInt(w.name.slice(2), 10) === num);
+  return hit || { name: prefix + String(num).padStart(3, '0'), missing: true };
+}
 
 // ── A marker's menu by voice, without opening it first ───────────────────────
 // Direct request 2026-10-06: pointing at an SP (or saved-waypoint) marker or

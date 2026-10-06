@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-10-06 — "AutoRoute to TS003", "Bring boat to …" by name (v806)
+
+Direct request: on every platform, "AutoRoute to TS…" and "Bring boat to
+…" should work by saying the marker's name — no pointing needed.
+- _markerByName: saved waypoints (SP… and others, exact name) and Test
+  Set markers; reads spoken forms loosely — "T S zero zero three", "TS 3",
+  "teas three", "S P one", "twenty one" — and matches by number (TS3 =
+  TS003). A clear marker name that doesn't exist answers "No marker called
+  TS009." instead of searching places.
+- AUTOROUTE_TO_PLACE tries a marker name first, then places.
+- New BRING_BOAT_TO_PLACE: "Bring/move the boat to <marker or place>"
+  (places via the same resolver as AutoRoute, so on-land names land in
+  water). "Bring boat here / to the marker" still means the current one.
+Checked in desktop Chrome: TS002 by "T S zero zero two", Camden, missing
+TS009, and AutoRoute to "teas one" ending exactly on TS001.
+
 ## 2026-10-06 — "Show <place>" moves the map there; AutoRoute frames off-screen routes (v805)
 
 - New SHOW_PLACE command: "Show Carvers Harbor", "Zoom to Camden", "Find
