@@ -12592,6 +12592,33 @@ async function handleCommand(transcript) {
   }
 }
 
+// ── Command box on demand ─────────────────────────────────────────────────────
+// The command box shows by itself only in Underway / while following a route
+// (see #map-overlay-cmd in app.css). This button — and "/" on a keyboard —
+// opens it any time, so typed or dictated commands (say-any-button,
+// "autoroute to X", marker commands) work with Underway off too. Tap again,
+// or Escape, to close.
+const _cmdOpenBtn = document.getElementById('cmd-open-btn');
+function _setCmdOpen(open) {
+  document.getElementById('app').classList.toggle('cmd-open', open);
+  _cmdOpenBtn?.classList.toggle('active', open);
+  if (open) setTimeout(() => textInput?.focus(), 0);
+}
+_cmdOpenBtn?.addEventListener('click', (e) => {
+  e.stopPropagation();
+  _setCmdOpen(!document.getElementById('app').classList.contains('cmd-open'));
+});
+document.addEventListener('keydown', (e) => {
+  const typing = e.target.closest?.('input, textarea, select, [contenteditable="true"]');
+  if (e.key === '/' && !typing && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    e.preventDefault();
+    _setCmdOpen(true);
+  } else if (e.key === 'Escape' && document.getElementById('app').classList.contains('cmd-open')) {
+    _setCmdOpen(false);
+    textInput?.blur();
+  }
+});
+
 // ── Text input ────────────────────────────────────────────────────────────────
 
 if (textForm) {

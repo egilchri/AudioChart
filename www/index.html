@@ -74,6 +74,11 @@
       <div id="status-title-bar" title="Chart · GPS: waiting">🗺 Chart  ·  GPS: waiting</div>
       <div id="wco-titlebar"></div>
       <div id="map-version-label"></div>
+      <!-- Opens the command box on demand (direct request 2026-10-06): the box
+           otherwise only shows in Underway, but say-any-button / AutoRoute /
+           marker commands are needed with Underway off too. Planned to
+           become the hold-to-talk mic. See _setCmdOpen in app.js. -->
+      <button id="cmd-open-btn" type="button" title="Type or dictate a command (shortcut: /)" aria-label="Command">&#9000;</button>
       <!-- Underway is a pure visibility toggle (see #app.underway-mode in
            app.css and the underway logic in app.js). A real slide switch, not
            a tap-button — one control, not two, living outside

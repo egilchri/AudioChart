@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-10-06 — ⌨ button opens the command box any time (v798)
+
+Found while preparing the "say any button" tutorial: the command box only
+appears in Underway (or while following a route) — by design, after it
+cluttered phones — but Underway hides most buttons. So say-any-button,
+"autoroute to X" and the marker commands were effectively unreachable
+with Underway off; earlier tests submitted text through code and never
+noticed the box wasn't on screen.
+
+New round ⌨ button (bottom left, above the version label) opens the
+command box on demand and focuses it; tap again or Escape to close. On a
+keyboard, "/" opens it. Hidden in Underway/following (box already shown)
+and in edit/animation modes. This button is planned to become the
+hold-to-talk mic. Verified with real clicks/typing in desktop Chrome.
+
 ## 2026-10-06 — Say (or type) any visible button's label to press it (v797)
 
 Direct request: voice should be able to activate any button or menu item
