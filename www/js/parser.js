@@ -160,6 +160,23 @@ function navaidFilters(text) {
 }
 
 const PATTERNS = [
+  {
+    // "Set marker (here)" — step one of the marker flow by voice: drops the
+    // marker under the mouse pointer (or the map's center when there's no
+    // pointer over the map). First in the list: it's a whole-phrase match,
+    // and otherwise "marker … here" reads as a nearby-buoys search.
+    re: /^(?:please\s+|ok(?:ay)?\s+)?(?:set|drop|put|place|add)\s+(?:a\s+|the\s+)?(?:marker|pin|mark)(?:\s+(?:here|there))?[.!?\s]*$/i,
+    intent: 'SET_MARKER',
+    params: {},
+  },
+  {
+    // A bare "press" / "click" / "menu" acts on whatever the mouse pointer is
+    // over (2026-10-06, direct request): point at a marker, say "menu", and
+    // its popup opens; on bare map, "menu" opens the right-click menu there.
+    re: /^(?:please\s+|ok(?:ay)?\s+)?(menu|press|click|tap|open|select)(?:\s+(?:here|this|it|that|there))?[.!?\s]*$/i,
+    intent: 'POINTER_PRESS',
+    extract: (m) => ({ menu: /menu/i.test(m[1]) }),
+  },
   // LIST OBJECTS
   {
     re: /\b(list\s+objects?|what\s+objects?|what\s+can\s+you\s+(find|tell|do)|what\s+types?|object\s+types?)\b/i,

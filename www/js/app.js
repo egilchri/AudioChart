@@ -16,6 +16,7 @@ import * as WaypointsStorage from './waypoints_storage.js';
 import * as TestSetsStorage from './test_sets_storage.js';
 import { initCardStack } from './card_stack.js';
 import * as VoiceLabels from './voice_labels.js';
+import * as PushToTalk from './push_to_talk.js';
 import * as WakeLock from './wake_lock.js';
 import * as AnchorWatch from './anchor_watch.js';
 import * as Tour from './tour.js';
@@ -10472,15 +10473,13 @@ function _ensureMap() {
   document.getElementById('map-ctx-drop-pin').addEventListener('click', () => {
     _hideCtx();
     if (!_ctxLatLng) return;
-    const { lat, lng: lon } = _ctxLatLng;
-    const name = WaypointsStorage.nextSearchPinName();
-    saveUserWaypoint(name, lat, lon, 'search', formatPositionDisplay(lat, lon));
-    Query.setActiveWaypoint(lat, lon, name);
-    if (!_waypointsVisible) _setWaypointsVisible(true);
-    const msg = `${name} dropped.`;
+    const msg = _dropMarkerAt(_ctxLatLng.lat, _ctxLatLng.lng);
     setStatus(msg);
     TTS.sayImmediate(msg);
   });
+  // Where the mouse is over the map, for the "Set marker" voice command.
+  _map.on('mousemove', (e) => { _mapPointerLatLng = e.latlng; });
+  _map.on('mouseout', () => { _mapPointerLatLng = null; });
 
   // "Bring boat here" and "Set focus here" no longer live on this menu —
   // per direct request, right-click now only offers "Set marker here", and
@@ -12088,7 +12087,8 @@ async function handleCommand(transcript) {
   // 2026-10-06). "press X" / "click X" always means a control on screen;
   // a bare label ("Anchor Watch", "Satellite") is tried only when it isn't
   // one of the regular commands. See voice_labels.js.
-  const explicitPress = VoiceLabels.isExplicitPress(transcript);
+  // "press this" / "open it" mean the thing under the pointer, not a label.
+  const explicitPress = intent !== 'POINTER_PRESS' && VoiceLabels.isExplicitPress(transcript);
 
   // While TTS is speaking, silently drop anything that doesn't parse — covers
   // background noise, keyboard-mic feedback, and TTS audio picked up by the mic.
@@ -12393,6 +12393,20 @@ async function handleCommand(transcript) {
         response = Query.bearingToNamedPoint(pos.lat, pos.lon, pt.lat, pt.lon, `${route.name} — waypoint ${params.waypointNum}`, _keepFocusOpt);
         break;
       }
+      case 'POINTER_PRESS': {
+        const msg = _pressAtPointer(params.menu);
+        response = { text: msg, speech: /^(For safety|Point at|Nothing)/.test(msg) ? msg : '' };
+        break;
+      }
+      case 'SET_MARKER': {
+        // Under the mouse pointer when it's over the map (point, then hold
+        // Space and say it), else the middle of the map.
+        if (!_map) { response = { text: 'Open the map first, then try again.', speech: '' }; break; }
+        const at = _mapPointerLatLng || _map.getCenter();
+        const msg = _dropMarkerAt(at.lat, at.lng);
+        response = { text: msg, speech: msg };
+        break;
+      }
       case 'MARKER_AUTOROUTE':
       case 'MARKER_BRING_BOAT': {
         // "The marker" = the active waypoint, which "Set marker here" (and
@@ -12402,10 +12416,11 @@ async function handleCommand(transcript) {
         const saved = aw && WaypointsStorage.loadUserWaypoints().find(w => w.name === aw.name);
         const m = saved ? { lat: saved.lat, lon: saved.lon, name: saved.name } : aw;
         if (!m) {
-          const t = 'No marker set. Right-click or long-press the map and choose "Set marker here" first.';
+          const t = 'No marker set. Point at a spot and say "Set marker", or right-click or long-press the map and choose "Set marker here".';
           response = { text: t, speech: t };
           break;
         }
+        _map?.closePopup(); // same as the popup's own buttons
         if (intent === 'MARKER_BRING_BOAT') {
           _bringBoatTo(m.lat, m.lon, m.name);
           response = { text: `Boat moved to ${m.name}.`, speech: '' };
@@ -12585,7 +12600,8 @@ async function handleCommand(transcript) {
       showMap(pos.lat, pos.lon, Query.lastBearingResult).catch(() => {});
       opencpnBtn.style.display = 'none';
     } else if (intent === 'SET_FOCUS' || intent === 'CLEAR_FOCUS' || intent === 'AUTOROUTE_TO_PLACE' ||
-               intent === 'MARKER_AUTOROUTE' || intent === 'MARKER_BRING_BOAT') {
+               intent === 'MARKER_AUTOROUTE' || intent === 'MARKER_BRING_BOAT' || intent === 'SET_MARKER' ||
+               intent === 'POINTER_PRESS') {
       // Leave the current map view as-is — these only change the focus target.
     } else {
       _bearingAccumulator = [];
@@ -12596,6 +12612,46 @@ async function handleCommand(transcript) {
     console.error('[AudioChart] handleCommand error:', err);
     showResponse(`Error: ${err.message}`);
   }
+}
+
+// "Set marker here" — shared by the right-click menu and the "Set marker"
+// voice/text command. Drops an SP marker and makes it the active waypoint,
+// so "autoroute from boat position" / "bring boat here" act on it next.
+let _mapPointerLatLng = null;
+// Where the mouse pointer is on screen, for "press" / "menu" by voice.
+let _pointerXY = null;
+document.addEventListener('mousemove', (e) => { _pointerXY = { x: e.clientX, y: e.clientY }; }, { passive: true });
+document.documentElement.addEventListener('mouseleave', () => { _pointerXY = null; });
+
+// "Press" / "Menu" with no label: act on what's under the mouse pointer.
+// A marker opens its popup (its menu); "menu" on bare map opens the
+// right-click menu at that spot. Delete-type controls still need a click.
+function _pressAtPointer(menu) {
+  if (!_pointerXY) return 'Point at something with the mouse first.';
+  const { x, y } = _pointerXY;
+  const el = document.elementFromPoint(x, y);
+  if (!el) return 'Nothing there to press.';
+  const target = el.closest('button, [role="button"], [role="menuitem"], a[href], label, select, .leaflet-marker-icon, .leaflet-interactive') || el;
+  const label = (target.innerText || target.getAttribute?.('aria-label') || target.title || '').replace(/\s+/g, ' ').trim();
+  if (/\b(delete|remove|erase|discard)\b/i.test(label)) return `For safety, "${label}" has to be clicked by hand.`;
+  const onBareMap = el.closest('#leaflet-map') && target === el && !el.closest('.leaflet-popup, .leaflet-control, .leaflet-marker-icon');
+  const opts = { bubbles: true, cancelable: true, view: window, clientX: x, clientY: y, button: menu && onBareMap ? 2 : 0 };
+  if (menu && onBareMap) {
+    el.dispatchEvent(new MouseEvent('contextmenu', opts));
+    return 'Opened the menu.';
+  }
+  el.dispatchEvent(new MouseEvent('mousedown', opts));
+  el.dispatchEvent(new MouseEvent('mouseup', opts));
+  el.dispatchEvent(new MouseEvent('click', opts));
+  if (target.classList?.contains('leaflet-marker-icon')) return 'Opened the menu.';
+  return label ? `Pressed "${label.slice(0, 40)}".` : 'Pressed.';
+}
+function _dropMarkerAt(lat, lon) {
+  const name = WaypointsStorage.nextSearchPinName();
+  saveUserWaypoint(name, lat, lon, 'search', formatPositionDisplay(lat, lon));
+  Query.setActiveWaypoint(lat, lon, name);
+  if (!_waypointsVisible) _setWaypointsVisible(true);
+  return `${name} dropped.`;
 }
 
 // ── Voice bridge for the Android app (2026-10-06 prototype) ──────────────────
@@ -12616,13 +12672,14 @@ function _showVoiceHud(text, holdMs = 0) {
 }
 window.audioChartVoiceHints = () => {
   const labels = VoiceLabels.visibleTargets().map(t => t.raw.replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim()).filter(Boolean);
-  return [...new Set([...labels, 'bring boat here', 'autoroute from boat position', 'autoroute to'])];
+  return [...new Set([...labels, 'set marker here', 'menu', 'press', 'bring boat here', 'autoroute from boat position', 'autoroute to'])];
 };
 window.audioChartVoiceStatus = (state, text) => {
   if (state === 'listening') _showVoiceHud('🎤 Listening…');
   else if (state === 'partial') _showVoiceHud(`🎤 “${text}”`);
   else if (state === 'thinking') _showVoiceHud('🎤 …');
   else if (state === 'error') _showVoiceHud(`🎤 ${text}`, 4000);
+  else if (state === 'info') _showVoiceHud(`🎤 ${text}`, 6000);
 };
 window.audioChartVoiceCommand = async (text) => {
   _showVoiceHud(`🎤 “${text}”`);
@@ -12665,8 +12722,64 @@ function _placeCmdOpenBtn() {
 window.addEventListener('resize', _placeCmdOpenBtn);
 _cmdOpenBtn?.addEventListener('click', (e) => {
   e.stopPropagation();
+  if (_pttSuppressClick) { _pttSuppressClick = false; return; } // that was a hold-to-talk
   _setCmdOpen(!document.getElementById('app').classList.contains('cmd-open'));
 });
+
+// ── Hold to talk (push_to_talk.js) ───────────────────────────────────────────
+// Hold the round button — or the Space bar when not typing — speak, let go.
+// A quick tap still opens the typing box, so one button does both. Uses the
+// same strip (#voice-hud) and command path as the Android app's bridge above.
+const PTT_HOLD_MS = 250;
+let _pttHoldTimer = 0;
+let _pttActive = false;
+let _pttSuppressClick = false;
+function _pttStart() {
+  if (_pttActive) return;
+  _pttActive = true;
+  PushToTalk.start({
+    hints: window.audioChartVoiceHints(),
+    onStatus: window.audioChartVoiceStatus,
+    onText: window.audioChartVoiceCommand,
+    beforeListen: () => TTS.stop(), // don't let the app hear itself
+  });
+}
+function _pttStop() {
+  if (!_pttActive) return;
+  _pttActive = false;
+  PushToTalk.stop();
+}
+if (_cmdOpenBtn && PushToTalk.isSupported()) {
+  _cmdOpenBtn.classList.add('ptt');
+  _cmdOpenBtn.title = 'Hold to talk · tap to type (keyboard: hold Space, or press /)';
+  _cmdOpenBtn.setAttribute('aria-label', 'Talk');
+  _cmdOpenBtn.innerHTML = '<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M9 21h6"/></svg>';
+  _cmdOpenBtn.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    _pttHoldTimer = setTimeout(() => { _pttSuppressClick = true; _cmdOpenBtn.classList.add('talking'); _pttStart(); }, PTT_HOLD_MS);
+  });
+  const release = () => {
+    clearTimeout(_pttHoldTimer);
+    _cmdOpenBtn.classList.remove('talking');
+    _pttStop();
+  };
+  for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) _cmdOpenBtn.addEventListener(ev, release);
+  _cmdOpenBtn.addEventListener('contextmenu', (e) => e.preventDefault()); // long-press menu on phones
+  // Space bar: hold to talk anywhere except while typing in a field.
+  const isTyping = (t) => t.closest?.('input, textarea, select, [contenteditable="true"]');
+  document.addEventListener('keydown', (e) => {
+    if (e.code !== 'Space' || isTyping(e.target) || e.metaKey || e.ctrlKey || e.altKey) return;
+    e.preventDefault(); // also stops Space from re-pressing whichever button has focus
+    if (!e.repeat) { _cmdOpenBtn.classList.add('talking'); _pttStart(); }
+  });
+  document.addEventListener('keyup', (e) => {
+    if (e.code !== 'Space' || isTyping(e.target)) return;
+    e.preventDefault();
+    _cmdOpenBtn.classList.remove('talking');
+    _pttStop();
+  });
+  window.addEventListener('blur', release);
+}
 document.addEventListener('keydown', (e) => {
   const typing = e.target.closest?.('input, textarea, select, [contenteditable="true"]');
   if (e.key === '/' && !typing && !e.metaKey && !e.ctrlKey && !e.altKey) {

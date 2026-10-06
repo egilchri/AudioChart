@@ -1,5 +1,30 @@
 # Changelog
 
+## 2026-10-06 — Hold to talk; "Set marker here", "Menu"/"Press" at the pointer; tutorial 7 (v803)
+
+Direct request: "I just want to hold down a button and talk."
+- New js/push_to_talk.js: hold the Space bar (when not typing) or hold the
+  round button — now a mic — speak, let go. A quick tap still opens the
+  typing box. Uses the browser's own speech recognition, preferring
+  on-device (Chrome: one-time English speech-pack download, then offline,
+  audio never leaves the device); other browsers use their standard
+  recognizer. Beep + #voice-hud strip show Listening… / what was heard /
+  the result. Visible button labels are passed as recognition hints.
+  speech.js (the 2026-05 original) stays unused.
+- "Set marker here" / "set marker" / "drop a pin" (SET_MARKER): drops the
+  marker under the mouse pointer (map center if none) — same action as the
+  right-click menu item, now shared as _dropMarkerAt.
+- "Menu" / "Press" / "Click" alone (POINTER_PRESS): acts on what the
+  pointer is over — a marker opens its popup; "menu" on bare map opens the
+  right-click menu there. Delete-type controls are refused.
+- Voice "AutoRoute to here" / "Bring boat here" now close the marker popup,
+  like the popup's own buttons.
+- Privacy policy: describes microphone use (only while held).
+- Sailors page: new tab "7. Point & Speak" (assets/demo7.mp4, ~24s).
+
+Not yet verified with a real microphone: headless test Chrome only got
+silence from the mic; everything around recognition was tested.
+
 ## 2026-10-06 — Tutorial 6 gains a voice demo (sailors page only, app still v802)
 
 "6. Say Any Button" now ends with a ~35s demo after the teaching part: a
