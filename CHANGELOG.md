@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-06 — Tutorial 6 gains a voice demo (sailors page only, app still v802)
+
+"6. Say Any Button" now ends with a ~35s demo after the teaching part: a
+sailor's voice (Piper en_US-ryan) says "Anchorages", "Where am I?",
+"What's the depth?", "Nearest hazard" and "AutoRoute to Rockport
+Harbor"; AudioChart's replies are its real answers from that run, voiced
+by Piper en_US-lessac. Clip is now ~96s. Recorded against live v802 with
+the app's own test position (Rockland default spot), since headless
+Chrome's emulated GPS kept flipping to "permission denied".
+
 ## 2026-10-06 — "AutoRoute to <place>" frames the route on screen (v802)
 
 Found while recording the voice demo: after "Nearest hazard" (which zooms
