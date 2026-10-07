@@ -1,5 +1,32 @@
 # Changelog
 
+## 2026-10-06 — AutoRoute into Carvers Harbor; say when a route stops short (v808)
+
+Found recording a voice demo: from Rockland, AutoRoute to a marker in
+Carvers Harbor's mooring field ended 0.65 nm due south, outside the
+harbor, with no message.
+- Cause: the land data (both the bundled land.geojson and the penobscot-bay
+  region's) drew all of Carvers Harbor as one solid landmass — the old
+  extraction's coarse-chart outline. The marker was "on land", so the
+  router moved the destination to the nearest open water.
+- Fix: re-ran preprocess/extract_land.py (M_COVR coverage clipping) for
+  just a 0.06° x 0.04° box around the harbor (-68.8795..-68.8205,
+  44.0171..44.0591) and spliced it into both files — old polygons clipped
+  to outside the box, new detailed ones added inside. Not a full rebuild:
+  the detailed land data has broken tight-harbor routing elsewhere before
+  (see feedback_land_pipeline_dedup_artifact). data-version.json
+  fingerprints regenerated for both datasets.
+  Result: region data ends 0.10 nm from the marker (inside the harbor,
+  last bit too shallow at 5 ft / 0 tide); default data ends on it.
+- The router's "destination moved" notice was only an orange dot with a
+  hover tooltip. AutoRoute now says it in the transcript ("The route ends
+  0.6 nautical miles short of the destination — it's on land or too
+  shallow there…") when the end moved ≥0.1 nm, and speaks it at ≥0.25 nm.
+- test_channel_routing.js case [30]: Rockland → Carvers Harbor mooring
+  field must end within 0.2 nm without crossing land, on both datasets.
+  Full suite green (twice; one earlier run had case [28] time out at 36s
+  under extra CPU load — it passes at ~16s alone and in reruns).
+
 ## 2026-10-06 — Anchorages labelled AS001…AS063, usable by voice (v807)
 
 Direct request: anchorages should be labelled AS001, AS002, …

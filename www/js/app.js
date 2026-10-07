@@ -9497,6 +9497,16 @@ function _ensureMap() {
         { permanent: false }
       );
     });
+    // The orange dot alone was easy to miss — a route that silently stops
+    // well short of the marker reads as "it worked" (Carvers Harbor,
+    // 2026-10-06: ended 0.65 nm outside the harbor with no message). Say it.
+    const endMove = snapEvents.find(s => s.which === 'end' && s.movedNm >= 0.1);
+    if (endMove) {
+      const msg = `The route ends ${endMove.movedNm.toFixed(1)} nautical miles short of the destination — it's on land or too shallow there for a ${_currentDraftFt()} ft draft at the current tide.`;
+      setStatus(msg);
+      showResponse(msg);
+      if (endMove.movedNm >= 0.25) TTS.sayImmediate(msg);
+    }
     const totalNm = pts.reduce((sum, p, idx) =>
       idx === 0 ? 0 : sum + Query.distanceNm(pts[idx - 1].lon, pts[idx - 1].lat, p.lon, p.lat), 0);
 

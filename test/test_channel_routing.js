@@ -620,6 +620,31 @@ async function main() {
       DEADLINE_MS, LONG_RANGE_DEADLINE_MS);
   })());
 
+  // Case 30 — Rockland -> a marker in Carvers Harbor's mooring field
+  // (2026-10-06, found recording a voice demo). The land data drew the
+  // whole harbor as one solid landmass, so the destination was "on land"
+  // and silently moved 0.65 nm south, outside the harbor. Fixed by
+  // re-extracting land for that box from the detailed charts. Must end
+  // inside the harbor (within 0.2 nm), on both datasets.
+  for (const region of ['penobscot-bay', null]) {
+    gate(await (async () => {
+      Query.setActiveRegion(region);
+      await Query.loadData(44.103, -69.088);
+      await waitForRegionDataReady(Query);
+      const label = `[30] Rockland -> Carvers Harbor mooring field (${region || 'default'} data)`;
+      const end = { lat: 44.04336530728454, lon: -68.83608341217042 };
+      const t0 = Date.now();
+      const p = await Router.autoRouteProg({ lat: 44.103, lon: -69.088 }, end, () => {}, () => {}, false, 5.0, 0, null, null, DEADLINE_MS);
+      const ms = Date.now() - t0;
+      const crosses = pathCrossesLand(Query, p);
+      const last = p[p.length - 1];
+      const gapNm = Query.distanceNm(last.lon, last.lat, end.lon, end.lat);
+      const ok = p.length > 2 && !crosses && gapNm <= 0.2 && ms < LONG_RANGE_DEADLINE_MS;
+      console.log(`${label}: ${ok ? 'PASS' : 'FAIL'} (crossesLand=${crosses}, ends ${gapNm.toFixed(2)}nm from marker, ${p.length} pts, ${ms}ms)`);
+      return { ok };
+    })());
+  }
+
   console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll cases passed.');
   console.log(
     '\nNOT PORTED (relied on injecting a synthetic obstacle ring the real\n' +
