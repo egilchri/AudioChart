@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-10-07 — Overnight stops anywhere on a route, dragged into place (v812)
+
+Direct request: 🛏 in Node Ops now offers a choice —
+- "Last waypoint (#N) — then plan tomorrow's leg": as before (or removes
+  the mark if it's already set).
+- "After a waypoint I click…": click any waypoint (a crosshair + hint
+  strip; Esc cancels) and a new 🛏 stop is inserted right after it,
+  midway to the next one (or a quarter mile on past the last).
+- "After waypoint #N (selected)" when one waypoint is selected; "Remove the
+  overnight mark from #N" when the selected one is a mid-route stop.
+Dragging any overnight stop to its mooring/anchorage re-routes the legs on
+both sides (_rerouteAroundOvernight; the stop may be nudged off land or
+shallows) and smooths the joins: an in-between point is dropped only if
+its neighbours can be joined directly with no land and nothing the
+editor's own hazard check (_findRouteHazards — rocks, ledges, drying and
+shallow areas) would flag. A first version tested only land and point
+rocks and cut straight across a drying ledge leaving Rockport Harbor;
+caught in testing, fixed before shipping. window._lastOvernightReroute
+records the router's legs vs. what smoothing kept.
+New reusable _showChoice(title, options) dialog (same panel as the place
+chooser). Checked in desktop Chrome: Rockland→Camden route, stop inserted
+after #3, dragged into Rockport Harbor → re-routed, "✓ Route clear".
+
 ## 2026-10-07 — Towns map: each bay town's office, harbormaster and harbor contacts (v811)
 
 Direct request: in the Towns map type, clicking a town's name shows vital

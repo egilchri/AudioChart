@@ -4773,3 +4773,6 @@ body.wco-active #underway-btn { top: 10px; }
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
   pointer-events: none;
 }
+
+/* 🛏 "After a waypoint I click…" — waiting for the user to pick a node. */
+.overnight-picking, .overnight-picking .edit-vertex-marker { cursor: crosshair !important; }

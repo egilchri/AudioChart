@@ -4122,6 +4122,23 @@ function _showPlaceDisambig(query, candidates) {
   });
 }
 
+// A short list of choices in the same overlay — resolves with the chosen
+// option's value, or null if closed. (Same panel as the place chooser above.)
+function _showChoice(title, options) {
+  return new Promise((resolve) => {
+    _placeDisambigTitle.textContent = title;
+    _placeDisambigList.innerHTML = '';
+    for (const o of options) {
+      const btn = document.createElement('button');
+      btn.textContent = o.label;
+      btn.onclick = () => { _hidePlaceDisambig(); resolve(o.value); };
+      _placeDisambigList.appendChild(btn);
+    }
+    document.getElementById('place-disambig-close').onclick = () => { _hidePlaceDisambig(); resolve(null); };
+    _placeDisambigOverlay.classList.add('open');
+  });
+}
+
 // On-page window.prompt() replacement. Needed for any flow that might show
 // more than one text prompt in a row (e.g. retrying a destination name that
 // didn't resolve) — confirmed live that a second native prompt() fired
@@ -5047,12 +5064,14 @@ function _renderEditLayers() {
       requestAnimationFrame(() => {
         _renderEditLayers();
         _map.dragging.enable();
+        if (_editPoints[idx]?.overnight) { _rerouteAroundOvernight(idx); return; }
         clearTimeout(_liveHazardTimer);
         _liveHazardTimer = setTimeout(_liveHazardCheck, 300);
       });
     });
     m.on('click', (e) => {
       L.DomEvent.stopPropagation(e);
+      if (_overnightPickMode) { _endOvernightPick(); _insertOvernightAfter(idx); return; }
       if (_deleteMode && _editPoints.length > 2) {
         _pushEditHistory();
         _editPoints.splice(idx, 1);
@@ -5603,23 +5622,151 @@ document.getElementById('etp-delete').addEventListener('click', () => {
 // that purpose). An already-marked last waypoint offers to unmark
 // instead, so the toggle behavior isn't lost, just no longer needs a
 // separate click-a-node step to reach.
-document.getElementById('etp-overnight').addEventListener('click', () => {
-  if (!_editMode || _editPoints.length < 1) return;
-  const idx = _editPoints.length - 1;
-  const p = _editPoints[idx];
-  if (p.overnight) {
-    if (!confirm(`Remove the overnight-stop mark from waypoint ${idx + 1}?`)) return;
-    _pushEditHistory();
-    _editPoints[idx] = { lat: p.lat, lon: p.lon };
-    _renderEditLayers();
-    return;
+// 🛏 Overnight (2026-10-07, direct request): either mark the LAST waypoint
+// (then plan tomorrow's leg, as before), or put a new overnight stop right
+// after a waypoint the user clicks. The new stop starts between that
+// waypoint and the next; dragging it to the real mooring/anchorage
+// re-routes the legs on both sides and smooths out the joins (see
+// _rerouteAroundOvernight, run from the vertex dragend).
+let _overnightPickMode = false;
+function _endOvernightPick() {
+  _overnightPickMode = false;
+  _map?.getContainer().classList.remove('overnight-picking');
+  if (_voiceHud) _voiceHud.style.display = 'none';
+}
+function _insertOvernightAfter(n) {
+  const a = _editPoints[n];
+  const b = _editPoints[n + 1];
+  let lat, lon;
+  if (b) { lat = (a.lat + b.lat) / 2; lon = (a.lon + b.lon) / 2; }
+  else {
+    // After the last waypoint: a short step on past it, along the last leg.
+    const prev = _editPoints[n - 1] || { lat: a.lat - 0.001, lon: a.lon };
+    const dLat = a.lat - prev.lat, dLon = (a.lon - prev.lon) * Math.cos(a.lat * Math.PI / 180);
+    const len = Math.hypot(dLat, dLon) || 1, step = 0.25 / 60; // 0.25 nm
+    lat = a.lat + dLat / len * step;
+    lon = a.lon + dLon / len * step / Math.cos(a.lat * Math.PI / 180);
   }
-  if (!confirm(`Mark waypoint ${idx + 1} (the last on this route) as an overnight stop?`)) return;
   _pushEditHistory();
-  _editPoints[idx] = { lat: p.lat, lon: p.lon, overnight: true };
+  _editPoints.splice(n + 1, 0, { lat, lon, overnight: true });
+  _newVertexIdx = n + 1;
+  _selectedEditNodeIdx.clear();
   _renderEditLayers();
-  _promptNextLegAutoRoute(_editPoints[idx]);
+  const msg = `Overnight stop added after waypoint ${n + 1}. Drag the 🛏 to where you'll moor or anchor — the route re-routes when you let go.`;
+  setStatus(msg); showResponse(msg);
+  _showVoiceHud(`🛏 Drag the new stop (#${n + 2}) to your mooring or anchorage`, 8000);
+}
+document.getElementById('etp-overnight').addEventListener('click', async () => {
+  if (!_editMode || _editPoints.length < 1) return;
+  const last = _editPoints.length - 1;
+  const lastP = _editPoints[last];
+  const sel = [..._selectedEditNodeIdx];
+  const options = [
+    { label: lastP.overnight ? `Last waypoint (#${last + 1}) — remove its overnight mark` : `Last waypoint (#${last + 1}) — then plan tomorrow's leg`, value: 'last' },
+  ];
+  if (sel.length === 1 && _editPoints[sel[0]].overnight && sel[0] !== last) {
+    options.push({ label: `Remove the overnight mark from #${sel[0] + 1}`, value: 'unmark' });
+  } else if (sel.length === 1) {
+    options.push({ label: `After waypoint #${sel[0] + 1} (selected)`, value: 'sel' });
+  }
+  options.push({ label: 'After a waypoint I click…', value: 'pick' });
+  const choice = await _showChoice('Overnight stop', options);
+  if (choice === 'last') {
+    _pushEditHistory();
+    _editPoints[last] = lastP.overnight ? { lat: lastP.lat, lon: lastP.lon } : { lat: lastP.lat, lon: lastP.lon, overnight: true };
+    _renderEditLayers();
+    if (!lastP.overnight) _promptNextLegAutoRoute(_editPoints[last]);
+  } else if (choice === 'unmark') {
+    _pushEditHistory();
+    const q = _editPoints[sel[0]];
+    _editPoints[sel[0]] = { lat: q.lat, lon: q.lon };
+    _renderEditLayers();
+  } else if (choice === 'sel') {
+    _insertOvernightAfter(sel[0]);
+  } else if (choice === 'pick') {
+    _overnightPickMode = true;
+    _map.getContainer().classList.add('overnight-picking');
+    _showVoiceHud('🛏 Click the waypoint the overnight stop comes after (Esc to cancel)');
+  }
 });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && _overnightPickMode) _endOvernightPick(); });
+
+// Re-route the legs either side of an overnight stop that was just moved,
+// then smooth the joins: within that stretch, drop any in-between point
+// whose neighbours can be joined directly without crossing land or a
+// charted hazard (with real chart coverage to check against). The
+// overnight stop and the stretch's own ends always stay.
+async function _rerouteAroundOvernight(idx) {
+  const prev = idx > 0 ? _stripPoint(_editPoints[idx - 1]) : null;
+  const next = idx < _editPoints.length - 1 ? _stripPoint(_editPoints[idx + 1]) : null;
+  const stop = _stripPoint(_editPoints[idx]);
+  if (!prev && !next) return;
+  const ui = _showRerouteOverlay([prev, stop, next].filter(Boolean));
+  try {
+    let legA = [stop], legB = [stop];
+    const fallbackSegs = [];
+    if (prev) {
+      const r = await _reRouteSegments([prev, stop], ui.update.bind(ui), ui.setText.bind(ui), 'Overnight');
+      if (r.blocked) { ui.remove(); return; }
+      legA = r.points.map(_stripPoint);
+      fallbackSegs.push(...r.fallbackSegs.map(f => ({ ...f, legIndex: f.legIndex + idx - 1 })));
+    }
+    const stopAt = legA[legA.length - 1]; // may have been nudged off land/shallows
+    if (next) {
+      const r = await _reRouteSegments([stopAt, next], ui.update.bind(ui), ui.setText.bind(ui), 'Overnight');
+      if (r.blocked) { ui.remove(); return; }
+      legB = r.points.map(_stripPoint);
+      const base = (prev ? idx - 1 : idx) + legA.length - 1;
+      fallbackSegs.push(...r.fallbackSegs.map(f => ({ ...f, legIndex: f.legIndex + base })));
+    }
+    ui.remove();
+    // Stretch = prev … stop … next, with the stop's position remembered.
+    let stretch = [...legA, ...legB.slice(1)];
+    let stopIdx = legA.length - 1;
+    const rawCount = stretch.length;
+    // Smooth: string-pull the in-between points (not the ends, not the stop).
+    // A shortcut must pass the SAME check the editor's hazard warnings use
+    // (_findRouteHazards — rocks, ledges, drying and shallow areas), not just
+    // "no land": the router's bends often exist to go around a drying ledge,
+    // and an earlier land-only test cut straight across one leaving Rockport.
+    const clear = (a, b) => {
+      const c = Router.classifyFallbackSeg(a, b);
+      if (c.crossesLand || c.coverage !== 'core') return false;
+      return _findRouteHazards([a, b]).found.length === 0;
+    };
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (let i = 1; i < stretch.length - 1; i++) {
+        if (i === stopIdx) continue;
+        if (clear(stretch[i - 1], stretch[i + 1])) {
+          stretch.splice(i, 1);
+          if (i < stopIdx) stopIdx--;
+          changed = true;
+          break;
+        }
+      }
+    }
+    stretch[stopIdx] = { ...stretch[stopIdx], overnight: true };
+    // Inspectable from the console (and tests): what the router returned vs.
+    // what smoothing kept.
+    window._lastOvernightReroute = { legA, legB, rawCount, smoothed: stretch.map(p => ({ ...p })) };
+    const from = prev ? idx - 1 : idx;
+    const to = next ? idx + 1 : idx;
+    _editPoints.splice(from, to - from + 1, ...stretch);
+    _selectedEditNodeIdx.clear();
+    _renderEditLayers();
+    const found = _liveHazardCheck();
+    if (!found.length) {
+      if (fallbackSegs.length) _showRouteFallbackWarning(fallbackSegs);
+      else setStatus('Re-routed around the overnight stop.');
+    }
+  } catch (err) {
+    ui.remove();
+    setStatus('Re-route failed.');
+    console.error('[overnight reroute]', err);
+  }
+}
 
 document.getElementById('etp-animate').addEventListener('click', _animateEditRoute);
 
