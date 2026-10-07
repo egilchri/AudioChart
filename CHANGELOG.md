@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-10-07 — Phone: a command no longer blanks the screen; more ways to say "this position"; Clear Screen hides markers (v809)
+
+Real report from the Pixel: searched Stonington, dragged the pin onto
+water, said "Autoroute to this position" → "didn't understand", then a
+blank blue screen with no way back.
+- The blue screen: handleCommand's fallback branch called hideMap() after
+  any command it didn't map-handle (including "didn't understand") — from
+  the old layout where answers replaced the map. On desktop a wide-screen
+  CSS rule (#map-container display:block !important) hid the bug; on a
+  phone the map really vanished. That branch no longer hides the map.
+- "Didn't understand": that exact wording already parsed; phone
+  recognizers write it differently. Now accepted: "2" for "to" after
+  route/boat/go/sail/navigate ("auto route 2 this position", "bring boat 2
+  TS003"), "auto routes", a trailing "please", and this/that/the/my +
+  position/location/spot/point/place/marker/pin.
+- A marker you've just dragged becomes the current marker for voice.
+Checked at phone size (412x900, touch) in Chrome: gibberish then AutoRoute
+by "Auto route 2 this position" — map stays up throughout.
+- Clear Screen (button, or voice "Clear screen" / "clear the map") now
+  also HIDES markers — SP/waypoint pins and all Test Set markers (direct
+  request). Nothing is deleted: Waypoints / Test Sets show toggles bring
+  them back, and setting a new marker turns waypoints back on.
+
 ## 2026-10-06 — AutoRoute into Carvers Harbor; say when a route stops short (v808)
 
 Found recording a voice demo: from Rockland, AutoRoute to a marker in

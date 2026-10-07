@@ -472,6 +472,7 @@ function _refreshWaypointLayer() {
       _markerByKey.set(_markerKey(wp.lat, wp.lon), m);
       m.on('dragend', (e) => {
         const { lat: newLat, lng: newLon } = e.target.getLatLng();
+        _currentMarkerLL = { lat: newLat, lng: newLon }; // the marker just moved is the one voice commands mean
         const stored = WaypointsStorage.loadUserWaypoints();
         const idx = stored.findIndex(w => w.name === wp.name);
         if (idx !== -1) {
@@ -12456,6 +12457,11 @@ async function handleCommand(transcript) {
         response = { text: `Showing ${coord.name || params.placeName}.`, speech: '' };
         break;
       }
+      case 'CLEAR_SCREEN': {
+        _clearScreen();
+        response = { text: 'Screen cleared.', speech: '' };
+        break;
+      }
       case 'POINTER_PRESS': {
         const msg = _pressAtPointer(params.menu);
         response = { text: msg, speech: /^(For safety|Point at|Nothing)/.test(msg) ? msg : '' };
@@ -12667,11 +12673,15 @@ async function handleCommand(transcript) {
       opencpnBtn.style.display = 'none';
     } else if (intent === 'SET_FOCUS' || intent === 'CLEAR_FOCUS' || intent === 'AUTOROUTE_TO_PLACE' ||
                intent === 'MARKER_AUTOROUTE' || intent === 'MARKER_BRING_BOAT' || intent === 'SET_MARKER' ||
-               intent === 'POINTER_PRESS' || intent === 'SHOW_PLACE' || intent === 'BRING_BOAT_TO_PLACE') {
+               intent === 'POINTER_PRESS' || intent === 'SHOW_PLACE' || intent === 'BRING_BOAT_TO_PLACE' || intent === 'CLEAR_SCREEN') {
       // Leave the current map view as-is — these only change the focus target.
     } else {
+      // Used to call hideMap() — from when a command's answer replaced the
+      // map on screen. The map IS the app now: on a phone that left a blank
+      // blue screen with no way back (2026-10-07, after "didn't understand").
+      // Desktop never showed it only because a wide-screen CSS rule forces
+      // the map visible.
       _bearingAccumulator = [];
-      hideMap();
       opencpnBtn.style.display = 'none';
     }
   } catch (err) {
@@ -13556,9 +13566,14 @@ function _clearScreen() {
   _mapLayers = _hazardCheckLayer = _routeFallbackLayer = null;
   _autoRoutePreviewLayer = _viewportHazardLayer = null;
   _animReportLayer = _animMilestoneLayer = null;
-  // Search pins are real waypoints now (see saveUserWaypoint's type:'search'
-  // in _runSearch) — same as manually-dropped ones, Clear Screen doesn't
-  // touch them; delete via a pin's own popup menu instead.
+  // Markers too (direct request 2026-10-07): SP/waypoint pins and every
+  // Test Set's TS markers are HIDDEN, never deleted — they come back with
+  // the Waypoints / Test Sets panels' show toggles, and a newly set marker
+  // turns waypoints back on by itself (_dropMarkerAt).
+  if (_waypointsVisible) _setWaypointsVisible(false);
+  for (const id of TestSetsStorage.loadVisibleTestSetIds()) TestSetsStorage.setTestSetVisible(id, false);
+  _refreshTestSetLayer();
+  _currentMarkerLL = null;
 
   // Per explicit request: tidy Node Ops too, not just map layers —
   // collapsed (not toggled) so this is always a clean-up, never

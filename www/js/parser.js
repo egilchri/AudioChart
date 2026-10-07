@@ -166,6 +166,13 @@ function navaidFilters(text) {
 
 const PATTERNS = [
   {
+    // Same as the Screen menu's Clear Screen button, which isn't on screen
+    // unless that menu is open.
+    re: /^(?:please\s+)?(?:clear|clean|tidy)(?:\s+up)?\s+(?:the\s+)?(?:screen|map)[.!?\s]*$/i,
+    intent: 'CLEAR_SCREEN',
+    params: {},
+  },
+  {
     // "Set marker (here)" — step one of the marker flow by voice: drops the
     // marker under the mouse pointer (or the map's center when there's no
     // pointer over the map). First in the list: it's a whole-phrase match,
@@ -432,12 +439,12 @@ const PATTERNS = [
   {
     // Bare "autoroute" is allowed; the other verbs need an explicit target so
     // a stray "go" or "sail" can't plan a route.
-    re: /^(?:please\s+|ok(?:ay)?\s+)?(?:auto\s*-?\s*route(?:\s+from\s+(?:the\s+)?boat(?:\s+position)?)?(?:\s+(?:to\s+)?(?:here|there|this\s+(?:position|spot|point|marker)|(?:the\s+)?marker))?|(?:route|take\s+me|navigate|go|sail|plot\s+(?:a\s+)?(?:route|course))(?:\s+from\s+(?:the\s+)?boat(?:\s+position)?)?\s+(?:to\s+)?(?:here|there|this\s+(?:position|spot|point|marker)|(?:the\s+)?marker))[.!?\s]*$/i,
+    re: /^(?:please\s+|ok(?:ay)?\s+)?(?:auto\s*-?\s*routes?(?:\s+from\s+(?:the\s+)?boat(?:\s+position)?)?(?:\s+(?:to\s+)?(?:here|there|(?:this|that|the|my)\s+(?:position|location|spot|point|place|marker|pin)|(?:the\s+)?marker))?|(?:route|take\s+me|navigate|go|sail|plot\s+(?:a\s+)?(?:route|course))(?:\s+from\s+(?:the\s+)?boat(?:\s+position)?)?\s+(?:to\s+)?(?:here|there|(?:this|that|the|my)\s+(?:position|location|spot|point|place|marker|pin)|(?:the\s+)?marker))[.!?\s]*$/i,
     intent: 'MARKER_AUTOROUTE',
     params: {},
   },
   {
-    re: /^(?:please\s+|ok(?:ay)?\s+)?(?:bring|move|put)\s+(?:the\s+)?boat\s+(?:here|there|to\s+(?:here|there|this\s+(?:position|spot|point|marker)|(?:the\s+)?marker))[.!?\s]*$/i,
+    re: /^(?:please\s+|ok(?:ay)?\s+)?(?:bring|move|put)\s+(?:the\s+)?boat\s+(?:here|there|to\s+(?:here|there|(?:this|that|the|my)\s+(?:position|location|spot|point|place|marker|pin)|(?:the\s+)?marker))[.!?\s]*$/i,
     intent: 'MARKER_BRING_BOAT',
     params: {},
   },
@@ -506,7 +513,11 @@ const PATTERNS = [
  * Returns {intent, params} or {intent: 'UNKNOWN', transcript}.
  */
 export function parseCommand(transcript) {
-  const t = transcript.trim();
+  // Phone speech recognizers write "to" as "2" ("auto route 2 Camden",
+  // "bring boat 2 TS003"), and add a trailing "please".
+  const t = transcript.trim()
+    .replace(/\b(route|routes|boat|go|sail|navigate)\s+2\s+/gi, '$1 to ')
+    .replace(/[,\s]+please[.!?]*$/i, '');
   for (const pattern of PATTERNS) {
     const m = t.match(pattern.re);
     if (m) {
