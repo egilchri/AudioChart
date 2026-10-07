@@ -4167,13 +4167,15 @@ const _textPromptOverlay = document.getElementById('text-prompt-overlay');
 const _textPromptTitle   = document.getElementById('text-prompt-title');
 const _textPromptInput   = document.getElementById('text-prompt-input');
 function _hideTextPrompt() { _textPromptOverlay.classList.remove('open'); }
-function _showTextPrompt(title, placeholder = '', value = '') {
+// allowEmpty: Go with a blank box resolves '' (still null on Cancel), for
+// prompts where "nothing typed" is a real answer (Node Ops ＋ Add).
+function _showTextPrompt(title, placeholder = '', value = '', { allowEmpty = false } = {}) {
   return new Promise((resolve) => {
     _textPromptTitle.textContent = title;
     _textPromptInput.value = value;
     _textPromptInput.placeholder = placeholder;
     const finish = (result) => { _hideTextPrompt(); resolve(result); };
-    const goNow = () => finish(_textPromptInput.value.trim() || null);
+    const goNow = () => finish(_textPromptInput.value.trim() || (allowEmpty ? '' : null));
     document.getElementById('text-prompt-go').onclick = goNow;
     document.getElementById('text-prompt-cancel').onclick = () => finish(null);
     document.getElementById('text-prompt-close').onclick = () => finish(null);
@@ -5572,9 +5574,17 @@ _makeDraggable(document.getElementById('edit-tools-panel'), document.getElementB
 // attached to. Vertex markers are already draggable (see
 // _renderEditLayers), so dragging it into its real position is just the
 // normal drag-a-node gesture — no mode switch needed for that either.
-document.getElementById('etp-add-node').addEventListener('click', () => {
+// ＋ Add: type a place (or marker name) to AutoRoute from the route's last
+// waypoint to it and splice that leg onto the end (2026-10-07, direct
+// request) — or leave it blank for the old behavior, a plain new waypoint
+// just past the end to drag into place.
+document.getElementById('etp-add-node').addEventListener('click', async () => {
   if (!_editMode || !_editPoints.length || !_map) return;
   if (_addNodeMode) _cancelAddNodeMode();
+  const q = await _showTextPrompt('Add to the end of the route',
+    'Place to route to (e.g. Camden, TS003) — or leave blank for a waypoint', '', { allowEmpty: true });
+  if (q === null || !_editMode) return;  // cancelled
+  if (q) { _promptNextLegAutoRoute(_editPoints[_editPoints.length - 1], q); return; }
   _pushEditHistory();
   const last   = _editPoints[_editPoints.length - 1];
   const lastPx = _map.latLngToContainerPoint([last.lat, last.lon]);
@@ -5778,7 +5788,7 @@ document.getElementById('etp-animate').addEventListener('click', _animateEditRou
 // _reRouteSegments/_showRerouteOverlay machinery the (now-removed)
 // etp-reroute button used, just for a single new leg instead of the
 // whole route.
-async function _promptNextLegAutoRoute(fromPoint) {
+async function _promptNextLegAutoRoute(fromPoint, initialQuery = null) {
   // Loop on a bad name instead of dropping the whole flow after one try —
   // per direct report, a name that doesn't resolve (a marina/business name
   // like "Billings Marine, Swan's Island" isn't itself a charted place)
@@ -5790,10 +5800,13 @@ async function _promptNextLegAutoRoute(fromPoint) {
   // between) can be silently suppressed by the browser/webview's own
   // dialog-spam protection, which is exactly what a retry loop needs to do.
   let dest = null;
+  let query = initialQuery;
   while (!dest) {
-    const query = await _showTextPrompt('Destination — place or waypoint name:');
+    if (!query) query = await _showTextPrompt('Destination — place or waypoint name:');
     if (!query) return;
-    dest = await _resolveNamedDestination(query);
+    // Saved markers by name first (TS003, SP001, AS005…), then places.
+    const mk = _markerByName(query);
+    dest = mk && !mk.missing ? mk : await _resolveNamedDestination(query);
     if (!dest) {
       // _resolveNamedDestination already announces a genuine "couldn't
       // find" miss, but stays silent when it showed a disambiguation
@@ -5802,6 +5815,7 @@ async function _promptNextLegAutoRoute(fromPoint) {
       const msg = `Couldn't resolve "${query}" — try another name, or Cancel to skip the next leg.`;
       setStatus(msg);
       TTS.sayImmediate(msg);
+      query = null;  // ask again rather than retrying the same name
     }
   }
   const destPt = { lat: dest.lat, lon: dest.lon };
@@ -5819,6 +5833,8 @@ async function _promptNextLegAutoRoute(fromPoint) {
       _editPoints.push(...points.slice(1).map(_stripPoint));  // points[0] duplicates fromPoint
       _selectedEditNodeIdx.clear();
       _renderEditLayers();
+      // Show the whole new leg — a named destination is usually off screen.
+      _map.fitBounds(L.latLngBounds(points.map(p => [p.lat, p.lon])), { padding: [60, 60], maxZoom: 14 });
       const found = _liveHazardCheck();
       if (!found.length) {
         if (fallbacks > 0) {

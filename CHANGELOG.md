@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-10-07 — Node Ops ＋ Add can route to a named place (v813)
+
+Direct request: in edit mode, ＋ Add now asks "Add to the end of the
+route" — type a place (or a marker name: TS003, SP001, AS005) and it
+AutoRoutes from the route's last waypoint to it and splices that leg onto
+the end (same machinery as the overnight "plan tomorrow's leg" step,
+_promptNextLegAutoRoute, which now takes an initial name and checks
+saved markers before places). Leave it blank and press Go for the old
+behavior (a plain waypoint just past the end); Cancel does nothing. The
+map then fits the new leg. _showTextPrompt gained { allowEmpty } so a
+blank Go ('') is distinguishable from Cancel (null). Also fixed: an
+unresolvable name in that loop would have retried the same name forever
+once it could be pre-filled; it now asks again.
+Checked in desktop Chrome: Rockland→Camden + "Belfast" → 18-waypoint
+route, "✓ Route clear"; blank → one waypoint; Cancel → unchanged.
+
 ## 2026-10-07 — Overnight stops anywhere on a route, dragged into place (v812)
 
 Direct request: 🛏 in Node Ops now offers a choice —
