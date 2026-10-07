@@ -1933,13 +1933,6 @@ function _initDraggableGroups() {
   for (const id of ['status', 'compass', 'btncol', 'navctl', 'version', 'cmdbar', 'headingspeed', 'followprogress']) {
     localStorage.removeItem(`audiochart-ui-pos-${id}`);
   }
-  // The whole Actions rail as one unit (its own internal flex layout is
-  // untouched) — per direct request, alongside tide. A self-contained panel
-  // dragged as a whole, not the individual-buttons-in-a-flex-column case
-  // ruled out above. Its children are all plain buttons, same
-  // threshold+click-swallow handling as #focus-btn already relies on, so a
-  // normal tap still works.
-  _makeDraggableGroup('rightrail', () => [document.getElementById('right-rail')], true);
   // Excluding the slider/play button so this outer whole-widget drag
   // doesn't hijack the slider's own drag-to-scrub gesture — those two
   // elements are left completely alone to handle their own touch/mouse
@@ -4506,8 +4499,18 @@ async function _reRouteSegments(pts, onProgress, onText, actionLabel = 'Re-route
         fallbacks++;
         fallbackSegs.push({ a: pts[i], b: pts[i + 1], tightClearance: true, kind: sub.find(p => p.marginal).marginalKind || 'shore', legIndex });
       } else {
-        fallbacks++;
-        fallbackSegs.push({ a: pts[i], b: pts[i + 1], legIndex, ...Router.classifyFallbackSeg(pts[i], pts[i + 1]) });
+        // A 2-point answer is also what the router returns for a leg that's
+        // simply open water — the normal case when re-routing an already-
+        // routed route, whose consecutive points are clear by construction.
+        // Found 2026-10-07 once Re-route became reachable in edit mode: a
+        // "✓ Route clear" Camden route came back with "8 legs couldn't
+        // avoid land". Only a leg that really crosses land/a hazard — or
+        // can't be checked (thin coverage) — is a fallback.
+        const cls = Router.classifyFallbackSeg(pts[i], pts[i + 1]);
+        if (cls.crossesLand || cls.crossesHazard || cls.coverage !== 'core') {
+          fallbacks++;
+          fallbackSegs.push({ a: pts[i], b: pts[i + 1], legIndex, ...cls });
+        }
       }
     } else {
       const marginalSeg = _marginalLegFromPath(sub, legIndex);
@@ -7920,7 +7923,12 @@ function _ensureMap() {
           <text x="-50" y="0" text-anchor="middle" dominant-baseline="middle" fill="var(--parchment)" font-family="var(--font-brass-serif)" font-size="11" font-weight="600">W</text>
           <circle r="5" fill="var(--brass)" stroke="var(--brass-ink)" stroke-width="2"/>
         </g>
-      </svg>`;
+      </svg>
+      <button id="zoom-to-me-btn" type="button" title="Zoom to my location" aria-label="Zoom to me">&#8857;</button>`;
+      // ⊙ Zoom to me lives on the compass (2026-10-07; was in the removed
+      // right-hand panel): the compass is the one instrument shown in every
+      // mode, Underway included. Handler is wired below with the other
+      // map-init listeners.
       return el;
     },
   });
@@ -8566,60 +8574,36 @@ function _ensureMap() {
     if (opening) { _buildRoutePickerPanel(); _warmRouteHazardCache(); }
   });
 
+  // Node Ops' ↻ (moved from the removed right-hand panel, 2026-10-07) —
+  // re-solves the route being edited. The old panel also re-routed a
+  // "selected" saved route outside edit mode (with a native alert() when
+  // none was selected); to re-route a saved route now, open it and use this.
   document.getElementById('reroute-btn').addEventListener('click', () => {
     const btn = document.getElementById('reroute-btn');
-    if (_editMode) {
-      if (_editPoints.length < 2) return;
-      btn.classList.add('working');
-      const ui = _showRerouteOverlay(_editPoints);
-      _reRouteSegments(_editPoints.map(_stripPoint), ui.update.bind(ui), ui.setText.bind(ui))
-        .then(({ points, fallbacks, fallbackSegs, blocked }) => {
-          ui.remove();
-          btn.classList.remove('working');
-          if (blocked) return;  // _reRouteSegments already announced why
-          _editPoints = points;
-          _selectedEditNodeIdx.clear();  // re-routing regenerates the whole point list
-          _renderEditLayers();
-          const found = _liveHazardCheck();
-          if (!found.length) {
-            if (fallbacks > 0) _showRouteFallbackWarning(fallbackSegs);
-            else setStatus('Re-routed.');
-          }
-        })
-        .catch(err => {
-          ui.remove();
-          btn.classList.remove('working');
-          setStatus('Re-route failed.');
-          console.error('[reroute-btn]', err);
-        });
-    } else {
-      const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
-      const idx = (_ctxRouteIdx >= 0 && routes[_ctxRouteIdx]) ? _ctxRouteIdx
-                : parseInt(document.getElementById('track-route-select').value);
-      if (isNaN(idx) || !routes[idx]) { alert('Select a route first.'); return; }
-      btn.classList.add('working');
-      const ui = _showRerouteOverlay(routes[idx].points);
-      _reRouteSegments(routes[idx].points, ui.update.bind(ui), ui.setText.bind(ui))
-        .then(({ points, fallbacks, fallbackSegs, blocked }) => {
-          ui.remove();
-          btn.classList.remove('working');
-          if (blocked) return;  // _reRouteSegments already announced why
-          routes[idx].points = points;
-          _touch(routes[idx]);
-          localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
-          const found = _enterEditMode(idx);
-          if (!found.length) {
-            if (fallbacks > 0) _showRouteFallbackWarning(fallbackSegs);
-            else setStatus('Re-routed.');
-          }
-        })
-        .catch(err => {
-          ui.remove();
-          btn.classList.remove('working');
-          setStatus('Re-route failed.');
-          console.error('[reroute-btn]', err);
-        });
-    }
+    if (!_editMode) return;
+    if (_editPoints.length < 2) return;
+    btn.classList.add('working');
+    const ui = _showRerouteOverlay(_editPoints);
+    _reRouteSegments(_editPoints.map(_stripPoint), ui.update.bind(ui), ui.setText.bind(ui))
+      .then(({ points, fallbacks, fallbackSegs, blocked }) => {
+        ui.remove();
+        btn.classList.remove('working');
+        if (blocked) return;  // _reRouteSegments already announced why
+        _editPoints = points;
+        _selectedEditNodeIdx.clear();  // re-routing regenerates the whole point list
+        _renderEditLayers();
+        const found = _liveHazardCheck();
+        if (!found.length) {
+          if (fallbacks > 0) _showRouteFallbackWarning(fallbackSegs);
+          else setStatus('Re-routed.');
+        }
+      })
+      .catch(err => {
+        ui.remove();
+        btn.classList.remove('working');
+        setStatus('Re-route failed.');
+        console.error('[reroute-btn]', err);
+      });
   });
   document.getElementById('delete-route-btn').addEventListener('click', () => {
     if (!_editMode) return;
@@ -12115,7 +12099,8 @@ async function handleCommand(transcript) {
   // background noise, keyboard-mic feedback, and TTS audio picked up by the mic.
   // An explicit "press X" is deliberate, so it still goes through.
   if (TTS.isSpeaking() && intent === 'UNKNOWN' && !explicitPress) return;
-  if (!['SET_MARKER', 'POINTER_PRESS', 'AUTOROUTE_TO_PLACE', 'SHOW_PLACE', 'BRING_BOAT_TO_PLACE'].includes(intent)) {
+  if (!['SET_MARKER', 'POINTER_PRESS', 'AUTOROUTE_TO_PLACE', 'SHOW_PLACE', 'BRING_BOAT_TO_PLACE', 'START_TRACKING',
+        'STOP_TRACKING', 'ANCHOR_WATCH', 'STOP_ANCHOR_WATCH', 'SILENCE_ALARM', 'CLEAR_SCREEN'].includes(intent)) {
     const msg = _runMarkerMenuCommand(transcript, intent);
     if (msg) {
       addToHistory(transcript);
@@ -12457,6 +12442,26 @@ async function handleCommand(transcript) {
         response = { text: `Showing ${coord.name || params.placeName}.`, speech: '' };
         break;
       }
+      case 'START_TRACKING':
+        response = _trackRecActive ? { text: 'Already recording.', speech: 'Already recording.' }
+          : (_startTrackRecording(), { text: 'Recording your track — Stop is at the top right.', speech: 'Recording your track.' });
+        break;
+      case 'STOP_TRACKING':
+        response = _stopTrackRecording() ? { text: 'Stopping — name the track to save it.', speech: '' } : { text: 'Not recording a track.', speech: 'Not recording a track.' };
+        break;
+      case 'ANCHOR_WATCH': {
+        const ft = params.radiusFt || AnchorWatch.getRadiusFt();
+        response = _armAnchorWatch(ft) ? { text: `Anchor watch on — ${ft} ft around here.`, speech: '' }
+          : { text: 'No position fix yet — cannot arm anchor watch.', speech: 'No position fix yet.' };
+        break;
+      }
+      case 'STOP_ANCHOR_WATCH':
+        response = _stopAnchorWatch() ? { text: 'Anchor watch off.', speech: '' } : { text: 'Anchor watch is not on.', speech: 'Anchor watch is not on.' };
+        break;
+      case 'SILENCE_ALARM':
+        if (AnchorWatch.isAlarming()) { AnchorWatch.silence(setStatus); _updateAnchorWatchButton(); response = { text: 'Alarm silenced — anchor watch still on.', speech: '' }; }
+        else response = { text: 'No alarm sounding.', speech: '' };
+        break;
       case 'CLEAR_SCREEN': {
         _clearScreen();
         response = { text: 'Screen cleared.', speech: '' };
@@ -12673,7 +12678,8 @@ async function handleCommand(transcript) {
       opencpnBtn.style.display = 'none';
     } else if (intent === 'SET_FOCUS' || intent === 'CLEAR_FOCUS' || intent === 'AUTOROUTE_TO_PLACE' ||
                intent === 'MARKER_AUTOROUTE' || intent === 'MARKER_BRING_BOAT' || intent === 'SET_MARKER' ||
-               intent === 'POINTER_PRESS' || intent === 'SHOW_PLACE' || intent === 'BRING_BOAT_TO_PLACE' || intent === 'CLEAR_SCREEN') {
+               intent === 'POINTER_PRESS' || intent === 'SHOW_PLACE' || intent === 'BRING_BOAT_TO_PLACE' || intent === 'CLEAR_SCREEN' ||
+               ['START_TRACKING', 'STOP_TRACKING', 'ANCHOR_WATCH', 'STOP_ANCHOR_WATCH', 'SILENCE_ALARM'].includes(intent)) {
       // Leave the current map view as-is — these only change the focus target.
     } else {
       // Used to call hideMap() — from when a command's answer replaced the
@@ -13130,27 +13136,39 @@ function _finishTrackRecording(name) {
   _appEl.classList.remove('following-active');
   _exitRoutePanelCompactFn?.();
   if (_followProgressEl) _followProgressEl.style.display = 'none';
-  trackRecBtn.textContent = '⏺ Start Tracking';
-  trackRecBtn.title = 'Record a GPS track';
-  trackRecBtn.classList.remove('rec-active');
+  _updateActiveStrip();
   _refreshSavedTrackLayers();
 }
 
-trackRecBtn?.addEventListener('click', () => {
-  if (!_trackRecActive) {
-    _trackRecActive = true;
-    _autoTrackEverStarted = true;
-    _trackRecStartMs = Date.now();
-    _trackRecPoints = [];
-    _trackRecLastSampleTs = 0;
-    trackRecBtn.textContent = '⏹ Stop Tracking';
-    trackRecBtn.classList.add('rec-active');
-    return;
-  }
-  if (_followingRouteId) { _stopFollowingRoute(false); return; }
-  const name = prompt('Save track as:', `Track ${new Date(_trackRecStartMs).toLocaleString()}`);
-  _finishTrackRecording(name && name.trim() ? name.trim() : null);
-});
+// Start recording — from the boat's menu, the Tracks window, or voice
+// ("start tracking"). Stopping is the strip's Stop button (#track-rec-btn).
+function _startTrackRecording() {
+  if (_trackRecActive) return false;
+  _trackRecActive = true;
+  _autoTrackEverStarted = true;
+  _trackRecStartMs = Date.now();
+  _trackRecPoints = [];
+  _trackRecLastSampleTs = 0;
+  _updateActiveStrip();
+  return true;
+}
+function _stopTrackRecording() {
+  if (!_trackRecActive) return false;
+  if (_followingRouteId) { _stopFollowingRoute(false); return true; }
+  // _showTextPrompt, not native prompt(): voice-friendly, and a native
+  // dialog blocks the page (and any automation) until dismissed.
+  // Cancelling keeps recording — with native prompt() a cancel silently
+  // threw the whole track away.
+  _showTextPrompt('Save track as:', '', `Track ${new Date(_trackRecStartMs).toLocaleString()}`).then((name) => {
+    if (!name) { setStatus('Still recording.'); return; }
+    const enough = _trackRecPoints.length >= 2;
+    _finishTrackRecording(name);
+    const msg = enough ? `Track saved as "${name}".` : 'Stopped — too short to save a track.';
+    setStatus(msg); showResponse(msg);
+  });
+  return true;
+}
+trackRecBtn?.addEventListener('click', () => { _stopTrackRecording(); });
 
 // Start recording a track linked to a specific route — auto-named and
 // auto-saved on arrival (see the GPS callback below), with a manual stop
@@ -13186,9 +13204,7 @@ function _startFollowingRoute(route) {
   _updateFocusButton();
   _followFocusLegIdx = _followingLegIdx;
   _appEl.classList.add('following-active');
-  trackRecBtn.textContent = '⏹ Stop Tracking';
-  trackRecBtn.title = `Following "${route.name}" — tap to stop early`;
-  trackRecBtn.classList.add('rec-active');
+  _updateActiveStrip();
   const msg = `Following "${route.name}" — recording your track.`;
   setStatus(msg); TTS.sayImmediate(msg);
   _buildRoutePickerPanelFn?.();
@@ -13249,18 +13265,69 @@ function _renderAnchorWatchCircle() {
   AnchorWatch.renderCircle(_map);
 }
 
-function _updateAnchorWatchButton() {
-  if (!anchorWatchBtn) return;
-  const armed = AnchorWatch.isArmed();
-  const alarming = AnchorWatch.isAlarming();
-  anchorWatchBtn.textContent = armed ? '⚓ Armed' : '⚓ Anchor Watch';
-  anchorWatchBtn.title = armed
-    ? `Watching ${AnchorWatch.getRadiusFt()} ft radius — tap to disarm`
-    : 'Watch for anchor drag — alarms if you stray past a set radius';
-  anchorWatchBtn.classList.toggle('anchor-armed', armed);
-  anchorWatchBtn.classList.toggle('anchor-alarming', alarming);
-  anchorWatchSilenceBtn.style.display = alarming ? 'inline-block' : 'none';
+function _updateAnchorWatchButton() { _updateActiveStrip(); }
+
+// ── Active strip (#active-strip) ─────────────────────────────────────────────
+// What's running right now — track recording, anchor watch — with its Stop
+// (and Silence) button, visible in every mode including Underway. Refreshed
+// on every state change and GPS fix, plus a slow timer for elapsed time.
+function _fmtElapsed(ms) {
+  const m = Math.floor(ms / 60000);
+  return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}`;
 }
+function _updateActiveStrip() {
+  const recEl = document.getElementById('as-rec');
+  const ancEl = document.getElementById('as-anchor');
+  if (!recEl || !ancEl) return;
+  if (_trackRecActive) {
+    let nm = 0;
+    for (let i = 1; i < _trackRecPoints.length; i++) {
+      const a = _trackRecPoints[i - 1], b = _trackRecPoints[i];
+      nm += Query.distanceNm(a.lon, a.lat, b.lon, b.lat);
+    }
+    const what = _followingRouteName ? `Following “${_followingRouteName}”` : 'Recording track';
+    document.getElementById('as-rec-text').textContent =
+      `● ${what} · ${nm.toFixed(1)} nm · ${_fmtElapsed(Date.now() - (_trackRecStartMs || Date.now()))}`;
+    recEl.style.display = '';
+  } else {
+    recEl.style.display = 'none';
+  }
+  if (AnchorWatch.isArmed()) {
+    const alarming = AnchorWatch.isAlarming();
+    const a = AnchorWatch.getAnchor();
+    const pos = GPS.getPosition();
+    const away = a && pos ? Math.round(Query.distanceNm(a.lon, a.lat, pos.lon, pos.lat) * 6076.12) : null;
+    const silenced = AnchorWatch.isSilenced();
+    document.getElementById('as-anchor-text').textContent =
+      `⚓ ${alarming ? (silenced ? 'Dragging (silenced) — ' : 'DRAGGING — ') : 'Anchor watch '}${AnchorWatch.getRadiusFt()} ft` + (away !== null ? ` · ${away} ft from anchor` : '');
+    ancEl.classList.toggle('alarming', alarming && !silenced);
+    anchorWatchSilenceBtn.style.display = alarming && !silenced ? '' : 'none';
+    ancEl.style.display = '';
+  } else {
+    ancEl.style.display = 'none';
+  }
+  _appEl.classList.toggle('activity-on', _trackRecActive || AnchorWatch.isArmed());
+  // The start buttons double as stop while running.
+  const boatTrack = document.getElementById('boat-ctx-track');
+  if (boatTrack) boatTrack.innerHTML = _trackRecActive ? '&#9632; Stop tracking' : '&#9679; Start tracking';
+  const tpRecord = document.getElementById('tp-record');
+  if (tpRecord) tpRecord.innerHTML = _trackRecActive ? '&#9632; Stop recording' : '&#9679; Record a new track';
+  const boatAnchor = document.getElementById('boat-ctx-anchor');
+  if (boatAnchor) boatAnchor.innerHTML = AnchorWatch.isArmed() ? '&#9632; Stop anchor watch' : '&#9875; Anchor watch here';
+}
+function _toggleTrackRecording() {
+  if (_trackRecActive) { _stopTrackRecording(); return; }
+  _startTrackRecording();
+  const msg = 'Recording your track — Stop is at the top right.';
+  setStatus(msg); showResponse(msg); TTS.sayImmediate('Recording your track.');
+}
+document.getElementById('boat-ctx-track')?.addEventListener('click', () => { _hideBoatCtx(); _toggleTrackRecording(); });
+document.getElementById('tp-record')?.addEventListener('click', () => _toggleTrackRecording());
+document.getElementById('boat-ctx-anchor')?.addEventListener('click', () => {
+  _hideBoatCtx();
+  if (AnchorWatch.isArmed()) _stopAnchorWatch(); else _openAnchorWatchForm();
+});
+setInterval(() => { if (_trackRecActive || AnchorWatch.isArmed()) _updateActiveStrip(); }, 30000);
 
 // Called from the shared GPS callback on every fix; AnchorWatch.check()
 // throttles internally so it costs nothing on fixes that arrive faster
@@ -13280,33 +13347,37 @@ function _recoverAnchorWatch() {
   _updateAnchorWatchButton();
 }
 
-anchorWatchBtn?.addEventListener('click', () => {
-  if (AnchorWatch.isArmed()) {
-    const { wakeLockReleased } = AnchorWatch.disarm({ onStatus: setStatus });
-    if (wakeLockReleased) _updateWakeLockButton();
-    _renderAnchorWatchCircle();
-    _updateAnchorWatchButton();
-    return;
-  }
-  const isOpen = anchorWatchForm.style.display !== 'none';
-  if (isOpen) { _closeAnchorWatchForm(); return; }
+// The strip's Stop button (#anchor-watch-btn) — it's only shown while armed.
+function _stopAnchorWatch() {
+  if (!AnchorWatch.isArmed()) return false;
+  const { wakeLockReleased } = AnchorWatch.disarm({ onStatus: setStatus });
+  if (wakeLockReleased) _updateWakeLockButton();
+  _renderAnchorWatchCircle();
+  _updateAnchorWatchButton();
+  return true;
+}
+anchorWatchBtn?.addEventListener('click', () => { _stopAnchorWatch(); });
+
+// Opened from the boat's menu ("Anchor watch here"); the form now lives in
+// #active-strip, so it works in Underway too.
+function _openAnchorWatchForm() {
   anchorWatchRadiusInput.value = AnchorWatch.getRadiusFt();
   anchorWatchForm.style.display = 'flex';
-});
-
-anchorWatchStartBtn?.addEventListener('click', () => {
+}
+function _armAnchorWatch(radiusFt) {
   const pos = GPS.getPosition();
   if (!pos) {
     setStatus('No position fix yet — cannot arm anchor watch.');
-    return;
+    return false;
   }
-  const radiusFt = Math.max(20, Number(anchorWatchRadiusInput.value) || 150);
   _closeAnchorWatchForm();
-  const { wakeLockForced } = AnchorWatch.arm(pos.lat, pos.lon, radiusFt, { onStatus: setStatus });
+  const { wakeLockForced } = AnchorWatch.arm(pos.lat, pos.lon, Math.max(20, radiusFt || 150), { onStatus: setStatus });
   if (wakeLockForced) _updateWakeLockButton();
   _renderAnchorWatchCircle();
   _updateAnchorWatchButton();
-});
+  return true;
+}
+anchorWatchStartBtn?.addEventListener('click', () => _armAnchorWatch(Number(anchorWatchRadiusInput.value)));
 
 anchorWatchCancelBtn?.addEventListener('click', () => _closeAnchorWatchForm());
 
@@ -13320,7 +13391,7 @@ document.addEventListener('keydown', (e) => {
 });
 document.addEventListener('click', (e) => {
   if (anchorWatchForm.style.display === 'none') return;
-  if (anchorWatchForm.contains(e.target) || anchorWatchBtn.contains(e.target)) return;
+  if (anchorWatchForm.contains(e.target) || e.target.closest?.('#boat-ctx-anchor')) return;
   _closeAnchorWatchForm();
 }, { capture: true });
 
@@ -13345,9 +13416,7 @@ function _recoverInProgressTrack() {
       _followingDestLat = followingDestLat ?? null;
       _followingDestLon = followingDestLon ?? null;
       _followingLegIdx = followingLegIdx ?? 1;
-      trackRecBtn.textContent = '⏹ Stop Tracking';
-      if (followingRouteName) trackRecBtn.title = `Following "${followingRouteName}" — tap to stop early`;
-      trackRecBtn.classList.add('rec-active');
+      _updateActiveStrip();
     } else {
       const name = prompt('Save the recovered points as a track before discarding? Leave blank to discard.', '');
       if (name && name.trim()) {
@@ -13654,24 +13723,6 @@ let _storedZoomPan = null;
 try { _storedZoomPan = localStorage.getItem('audiochart-zoompan-collapsed'); } catch {}
 _setZoomPanCollapsed(_storedZoomPan === '1');
 
-// #right-rail collapse — every screen size (was mobile-only). Same localStorage-persisted-
-// toggle shape as underway mode just above.
-const _rightRailToggle = document.getElementById('right-rail-toggle');
-const _rightRailBody = document.getElementById('right-rail-body');
-function _setRightRailCollapsed(collapsed) {
-  _rightRailBody.style.display = collapsed ? 'none' : '';
-  _rightRailToggle.classList.toggle('collapsed', collapsed);
-  localStorage.setItem('audiochart-right-rail-collapsed', collapsed ? '1' : '');
-}
-_rightRailToggle.addEventListener('click', () => {
-  _setRightRailCollapsed(_rightRailBody.style.display !== 'none');
-});
-// Default to collapsed on a phone's first-ever load — less clutter on open
-// is the whole point; desktop (where the toggle used to be hidden) starts
-// expanded as it always has. Once someone picks a state, remember it.
-const _storedRailCollapsed = localStorage.getItem('audiochart-right-rail-collapsed');
-_setRightRailCollapsed(_storedRailCollapsed === null ? window.innerWidth <= 900 : _storedRailCollapsed === '1');
-
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && screenMenu.style.display !== 'none') _closeScreenMenu();
   if (e.key === 'Escape' && importMenu.style.display !== 'none') _closeImportMenu();
@@ -13907,6 +13958,7 @@ async function init() {
   _updateFocusButton();
   Query.loadStoredActiveWaypoint();
   _recoverInProgressTrack();
+  _updateActiveStrip();
 
   if ('wakeLock' in navigator) {
     wakeLockBtn.style.display = 'inline-block';
@@ -14035,6 +14087,7 @@ async function init() {
       if (source === 'virtual' && heading != null) _setBoatIconRotated(heading);
       _updateFocusRay();
       _checkAnchorWatch(lat, lon);
+      if (_trackRecActive || AnchorWatch.isArmed()) _updateActiveStrip();
       if (source === 'manual' || source === 'default') {
         _lastFixForHeading = null; // don't let a teleport corrupt the next real fallback calc
         _updateHeadingRay(lat, lon, null, null);

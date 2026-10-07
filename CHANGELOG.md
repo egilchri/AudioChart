@@ -1,5 +1,44 @@
 # Changelog
 
+## 2026-10-07 — Right-hand panel retired; its four controls moved; Re-route false warnings fixed (v810)
+
+Direct request: pull the Start Tracking / Anchor Watch window's four
+functions out and integrate them elsewhere. The panel (#right-rail) also
+had real problems: Underway mode hid it — so tracking couldn't be
+started/stopped underway, and an anchor alarm's Silence button was
+invisible with the Underway switch on — and edit mode hid it too, so
+Re-route was unreachable exactly when editing a route.
+- ⊙ Zoom to me → a small button on the compass's edge (the compass shows
+  in every mode).
+- ↻ Re-route → Node Ops in the route editor. The old out-of-edit "re-route
+  the selected route" path (with its native alert()) is gone: open the
+  route, then Re-route.
+- ● Start tracking → the boat's double-tap menu and the top of the Tracks
+  window ("Record a new track"); both flip to Stop while recording. Stop
+  now asks for the name with the in-app prompt; Cancel keeps recording
+  (native prompt()'s cancel used to throw the track away).
+- ⚓ Anchor watch → the boat's double-tap menu ("Anchor watch here"); the
+  radius form moved with it so it works in Underway too.
+- New #active-strip (where the panel was): "● Recording track · 1.4 nm ·
+  23 min [Stop]" and "⚓ Anchor watch 150 ft · 42 ft from anchor [Stop]",
+  pulsing red with [Silence] when dragging ("Dragging (silenced)" while
+  muted). Visible in every mode. Finishes the old "anchor watch stray
+  readout" idea.
+- Voice: "start/stop tracking", "anchor watch [200 feet]", "stop anchor
+  watch", "silence".
+- Re-route fix (pre-existing, exposed by the move): re-routing an
+  already-routed route flagged every open-water leg as "couldn't avoid
+  land" (a clear Camden route → "8 legs couldn't avoid land") because any
+  2-point router answer was treated as a fallback. Now only a leg that
+  really crosses land/a hazard, or can't be checked (thin coverage), is
+  flagged. Shared by Nudge offshore / Next Leg / drawn routes too.
+Checked in desktop and phone-size Chrome: menus, strip in Underway, real
+anchor alarm after 30s outside → Silence → muted; track save/cancel;
+Re-route on a clean route stays clear.
+Also found: `node --check` on app.js doesn't catch a duplicate top-level
+function name (fatal in a module — the whole app fails to start); checked
+here by syntax-checking each file as .mjs.
+
 ## 2026-10-07 — Phone: a command no longer blanks the screen; more ways to say "this position"; Clear Screen hides markers (v809)
 
 Real report from the Pixel: searched Stonington, dragged the pin onto

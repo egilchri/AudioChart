@@ -48,8 +48,12 @@ const ALARM_SPEECH_REPEAT_MS = 20 * 1000; // re-announce by voice, not just tone
 
 export function isArmed()     { return _armed; }
 export function isAlarming()  { return _alarmActive; }
+/** Alarm muted by Silence (still outside the radius; re-sounds after the cooldown). */
+export function isSilenced()  { return _alarmActive && !!_silencedUntilMs && Date.now() < _silencedUntilMs; }
 export function getRadiusFt() { return _radiusFt; }
 export function getArmedAtMs() { return _armedAtMs; }
+/** Where the watch was armed, {lat, lon}, or null — for the status strip's distance readout. */
+export function getAnchor()   { return _armed ? { lat: _lat, lon: _lon } : null; }
 
 function _save() {
   if (_armed) {

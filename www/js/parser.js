@@ -165,6 +165,33 @@ function navaidFilters(text) {
 }
 
 const PATTERNS = [
+  // TRACKING / ANCHOR WATCH (2026-10-07 — their buttons moved off the
+  // removed right-hand panel; these work from anywhere, Underway included).
+  {
+    re: /^(?:please\s+)?(?:start|begin)\s+(?:recording|tracking|a\s+track|(?:recording|my|the)\s+track)[.!?\s]*$|^(?:record|track)\s+(?:my|the|a)?\s*track[.!?\s]*$/i,
+    intent: 'START_TRACKING',
+    params: {},
+  },
+  {
+    re: /^(?:please\s+)?(?:stop|end|finish)\s+(?:recording|tracking|(?:the\s+|my\s+)?track)[.!?\s]*$/i,
+    intent: 'STOP_TRACKING',
+    params: {},
+  },
+  {
+    re: /^(?:please\s+)?(?:stop|end|cancel|disarm|turn\s+off)\s+(?:the\s+)?anchor\s+(?:watch|alarm)[.!?\s]*$|^anchor\s+(?:watch|alarm)\s+off[.!?\s]*$/i,
+    intent: 'STOP_ANCHOR_WATCH',
+    params: {},
+  },
+  {
+    re: /^(?:please\s+)?(?:silence|mute|quiet)(?:\s+(?:the\s+)?(?:anchor\s+)?alarm)?[.!?\s]*$/i,
+    intent: 'SILENCE_ALARM',
+    params: {},
+  },
+  {
+    re: /^(?:please\s+)?(?:set\s+|start\s+|arm\s+|turn\s+on\s+)?(?:the\s+|an\s+)?anchor\s+(?:watch|alarm)(?:\s+on)?(?:\s+(?:at\s+|of\s+|for\s+)?(\d{2,4})\s*(?:feet|foot|ft))?[.!?\s]*$/i,
+    intent: 'ANCHOR_WATCH',
+    extract: (m) => ({ radiusFt: m[1] ? parseInt(m[1], 10) : null }),
+  },
   {
     // Same as the Screen menu's Clear Screen button, which isn't on screen
     // unless that menu is open.

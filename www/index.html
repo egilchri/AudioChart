@@ -94,28 +94,35 @@
       </label>
       <!-- "Zoned" layout: orientation instruments (compass — a Leaflet
            control, positioned via .leaflet-top/.leaflet-left in app.css —
-           plus zoom/pan below it) on the left; route/data actions
-           (#right-rail) on the right; one consolidated bottom HUD
+           plus zoom/pan below it) on the left; running-activity status
+           (#active-strip) on the right; one consolidated bottom HUD
            (#bottom-hud) instead of three independently floating widgets. -->
-      <div id="right-rail">
-        <!-- Mobile-only: collapses #right-rail-body to just this tab.
-             Inert on desktop (CSS forces the body visible there regardless
-             of the inline style below) — per direct feedback, this rail was
-             "constantly getting in the way" on a phone screen, and the
-             fix is the same tap-to-expand convention Node Ops already used
-             (see edit-tools-panel), applied to the whole rail. -->
-        <button id="right-rail-toggle" title="Show/hide route &amp; tracking controls" aria-label="Actions"><span class="rrt-label">Actions</span></button>
-        <div id="right-rail-body">
-          <button id="track-rec-btn" title="Record a GPS track">&#9679; Start Tracking</button>
-          <button id="anchor-watch-btn" title="Watch for anchor drag — alarms if you stray past a set radius">&#9875; Anchor Watch</button>
+      <!-- Things that are running: track recording, anchor watch. Replaces
+           #right-rail (removed 2026-10-07 — it hid in Underway, so an anchor
+           alarm's Silence button could be unreachable). Shown only while
+           something is active, in every mode including Underway. Starting
+           either lives elsewhere: the boat's double-tap menu, the Tracks
+           window, or voice ("start tracking", "anchor watch"). The ids
+           track-rec-btn / anchor-watch-btn are kept as the Stop buttons so
+           the existing handlers in app.js still apply. -->
+      <div id="active-strip">
+        <div id="as-rec" class="as-chip" style="display:none">
+          <span id="as-rec-text" class="as-text"></span>
+          <button id="track-rec-btn" title="Stop recording and save the track">&#9632; Stop</button>
+        </div>
+        <div id="as-anchor" class="as-chip" style="display:none">
+          <span id="as-anchor-text" class="as-text"></span>
           <button id="anchor-watch-silence-btn" title="Silence the anchor alarm (stays armed)" style="display:none">&#128263; Silence</button>
-          <!-- Node Ops and Delete route are edit-mode-only and now live on
-               edit-tools-panel/edit-banner instead (see those), since
-               #right-rail itself is hidden while editing. -->
-          <div id="right-rail-icons">
-            <button id="zoom-to-me-btn" title="Zoom to my location">&#8857;</button>
-            <button id="reroute-btn" title="Re-route around land">&#8635;</button>
+          <button id="anchor-watch-btn" title="Turn off the anchor watch">&#9632; Stop</button>
+        </div>
+        <div id="anchor-watch-form" style="display:none">
+          <span id="anchor-watch-label">Watch radius, centered on your current position:</span>
+          <div id="anchor-watch-row">
+            <input id="anchor-watch-radius" type="number" min="20" max="2000" step="10" value="150" inputmode="numeric"> ft
+            <button id="anchor-watch-start" title="Arm the anchor watch at your current position">Start</button>
+            <button id="anchor-watch-cancel" title="Cancel">Cancel</button>
           </div>
+          <span id="anchor-watch-note">Keeps the screen awake — needs to stay on and in front to work.</span>
         </div>
       </div>
       <!-- Zoom slider and pan controls are flex children of one wrapper (not
@@ -196,6 +203,7 @@
       </div>
       <div id="track-picker-panel">
         <div class="nf-title">Tracks <button id="tp-close" title="Close">&#10005;</button></div>
+        <button id="tp-record" title="Record your GPS track — shown at the top of the map while recording, with a Stop button">&#9679; Record a new track</button>
         <input id="tp-search" type="text" placeholder="Search tracks&hellip;" autocomplete="off">
         <div id="tp-track-list"></div>
         <div class="nf-actions">
@@ -333,15 +341,7 @@
           <button id="search-go" title="Jump to this place and drop a pin, named SP001, SP002, ...">Go</button>
           <button id="search-cancel" title="Cancel">Cancel</button>
         </div>
-        <div id="anchor-watch-form" style="display:none">
-          <span id="anchor-watch-label">Watch radius, centered on your current position:</span>
-          <div id="anchor-watch-row">
-            <input id="anchor-watch-radius" type="number" min="20" max="2000" step="10" value="150" inputmode="numeric"> ft
-            <button id="anchor-watch-start" title="Arm the anchor watch at your current position">Start</button>
-            <button id="anchor-watch-cancel" title="Cancel">Cancel</button>
-          </div>
-          <span id="anchor-watch-note">Keeps the screen awake — needs to stay on and in front to work.</span>
-        </div>
+
       </div>
 
       <!-- bottom command overlay -->
@@ -401,8 +401,8 @@
              the buttons below can end up covering whatever you're trying
              to work on, per direct feedback. Also the collapse/expand
              toggle (tap to hide/show #edit-tools-body), formerly a
-             separate tile up in #right-rail — moved here since
-             #right-rail itself is now hidden for the whole of edit mode. -->
+             separate tile in the old right-hand panel (#right-rail, since
+             removed). Re-route moved here from that panel too, 2026-10-07. -->
         <div class="etp-title" id="etp-title">Node Ops</div>
         <div id="edit-tools-body">
           <button id="etp-add-node" title="Add a new waypoint at the end of the route">&#65291;</button>
@@ -410,6 +410,7 @@
           <button id="etp-delete" title="Delete the selected waypoint">&#10005;</button>
           <button id="etp-overnight" title="Mark this route's last waypoint as an overnight stop, then plan tomorrow's leg">&#128719;</button>
           <button id="etp-animate" title="Preview this route as an animated boat icon moving along it">&#9654;</button>
+          <button id="reroute-btn" title="Re-route: re-solve this route around land and hazards" aria-label="Re-route">&#8635;</button>
         </div>
       </div>
     </div>
@@ -600,6 +601,8 @@
     <button id="boat-ctx-autoroute" title="Start a new auto-route from your current position">&#10145; Autoroute</button>
     <button id="boat-ctx-sketch" title="Start freehand-sketching a new route from your current position">&#9643; Sketch</button>
     <button id="boat-ctx-drop-pin" title="Drop a named, addressable pin at your current position — man overboard, a spot to remember, etc.">&#128205; Drop Pin</button>
+    <button id="boat-ctx-track" title="Record your track from here">&#9679; Start tracking</button>
+    <button id="boat-ctx-anchor" title="Alarm if the boat drifts more than a set distance from here">&#9875; Anchor watch here</button>
   </div>
 
   <div id="map-context-menu">
