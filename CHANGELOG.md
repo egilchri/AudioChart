@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-10-07 — ＋ Add: click the chart for the next end point (v814)
+
+Direct request: when choosing ＋ in Node Ops, clicking the chart should set
+the next end point. The ＋ prompt is now a small non-modal bar at the top
+(#append-bar) instead of a full-screen dialog, so the chart stays clickable
+and pannable:
+- Click anywhere on the chart → AutoRoute from the route's last waypoint
+  to that spot and splice the leg on (a click on a buoy/hazard marker
+  counts as that spot — markers otherwise swallow the click).
+- Or type a place / marker name and Go (as in v813).
+- "Plain waypoint" → the original ＋ behavior; ✕, Esc, or tapping ＋ again
+  cancels. Leaving edit mode closes the bar.
+Refactor: _promptNextLegAutoRoute now resolves the name and calls the new
+_appendLegTo(from, dest), which the map click uses directly.
+Checked in desktop Chrome: open-water click → leg routed out of Camden
+Harbor to the spot, "✓ Route clear"; click on a buoy → same; cancel →
+unchanged.
+
 ## 2026-10-07 — Node Ops ＋ Add can route to a named place (v813)
 
 Direct request: in edit mode, ＋ Add now asks "Add to the end of the

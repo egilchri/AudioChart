@@ -5377,6 +5377,7 @@ function _enterEditMode(routeIdx, skipHazardCheck = false) {
 }
 
 function _exitEditMode() {
+  window._acEndAppendMode?.(); // ＋ Add bar (defined further down; may not exist yet during startup)
   const _justEditedName = _editRouteName;
   _editMode = false;
   _editRouteName = null;
@@ -5574,17 +5575,28 @@ _makeDraggable(document.getElementById('edit-tools-panel'), document.getElementB
 // attached to. Vertex markers are already draggable (see
 // _renderEditLayers), so dragging it into its real position is just the
 // normal drag-a-node gesture — no mode switch needed for that either.
-// ＋ Add: type a place (or marker name) to AutoRoute from the route's last
-// waypoint to it and splice that leg onto the end (2026-10-07, direct
-// request) — or leave it blank for the old behavior, a plain new waypoint
-// just past the end to drag into place.
-document.getElementById('etp-add-node').addEventListener('click', async () => {
-  if (!_editMode || !_editPoints.length || !_map) return;
-  if (_addNodeMode) _cancelAddNodeMode();
-  const q = await _showTextPrompt('Add to the end of the route',
-    'Place to route to (e.g. Camden, TS003) — or leave blank for a waypoint', '', { allowEmpty: true });
-  if (q === null || !_editMode) return;  // cancelled
-  if (q) { _promptNextLegAutoRoute(_editPoints[_editPoints.length - 1], q); return; }
+// ＋ Add (2026-10-07, direct requests): click the chart for the next end
+// point — or type a place / marker name (TS003, AS005…) — and the leg from
+// the route's last waypoint is AutoRouted and spliced onto the end. "Plain
+// waypoint" keeps the original behavior. Non-modal bar (#append-bar) so the
+// chart stays clickable and pannable while choosing.
+const _appendBar = document.getElementById('append-bar');
+const _appendInput = document.getElementById('append-input');
+let _appendActive = false;
+function _endAppendMode() {
+  if (!_appendActive) return;
+  _appendActive = false;
+  _appendBar.style.display = 'none';
+  _map?.off('click', _onAppendMapClick);
+  _map?.getContainer().removeEventListener('click', _onAppendMarkerClick, true);
+  _map?.getContainer().classList.remove('append-picking');
+}
+function _onAppendMapClick(e) {
+  if (!_appendActive || !_editMode) return;
+  _endAppendMode();
+  _appendLegTo(_editPoints[_editPoints.length - 1], { lat: e.latlng.lat, lon: e.latlng.lng });
+}
+function _appendPlainWaypoint() {
   _pushEditHistory();
   const last   = _editPoints[_editPoints.length - 1];
   const lastPx = _map.latLngToContainerPoint([last.lat, last.lon]);
@@ -5605,7 +5617,47 @@ document.getElementById('etp-add-node').addEventListener('click', async () => {
   _renderEditLayers();
   clearTimeout(_liveHazardTimer);
   _liveHazardTimer = setTimeout(_liveHazardCheck, 300);
+}
+// Buoy/hazard markers swallow map clicks, so in a busy area a click "did
+// nothing" — while choosing, a click on any chart marker (not the route's
+// own waypoints) counts as that spot.
+function _onAppendMarkerClick(e) {
+  if (!_appendActive || !_editMode) return;
+  const icon = e.target.closest?.('.leaflet-marker-icon');
+  if (!icon || icon.classList.contains('edit-vertex-marker')) return;
+  e.stopPropagation(); e.preventDefault();
+  const ll = _map.mouseEventToLatLng(e);
+  _endAppendMode();
+  _appendLegTo(_editPoints[_editPoints.length - 1], { lat: ll.lat, lon: ll.lng });
+}
+document.getElementById('etp-add-node').addEventListener('click', () => {
+  if (!_editMode || !_editPoints.length || !_map) return;
+  if (_addNodeMode) _cancelAddNodeMode();
+  if (_appendActive) { _endAppendMode(); return; }  // second tap = cancel
+  _map.getContainer().addEventListener('click', _onAppendMarkerClick, true);
+  _appendActive = true;
+  _appendInput.value = '';
+  _appendBar.style.display = 'flex';
+  _map.getContainer().classList.add('append-picking');
+  _map.on('click', _onAppendMapClick);
+  setTimeout(() => _appendInput.focus(), 0);
 });
+const _appendGo = () => {
+  const q = _appendInput.value.trim();
+  const from = _editPoints[_editPoints.length - 1];
+  _endAppendMode();
+  if (q) _promptNextLegAutoRoute(from, q);
+  else _appendPlainWaypoint();
+};
+document.getElementById('append-go').addEventListener('click', _appendGo);
+_appendInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') _appendGo();
+  else if (e.key === 'Escape') _endAppendMode();
+});
+document.getElementById('append-plain').addEventListener('click', () => { _endAppendMode(); _appendPlainWaypoint(); });
+document.getElementById('append-cancel').addEventListener('click', _endAppendMode);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && _appendActive) _endAppendMode(); });
+window._acEndAppendMode = _endAppendMode;
 
 document.getElementById('etp-insert-node').addEventListener('click', () => {
   _addNodeMode = true;
@@ -5818,7 +5870,12 @@ async function _promptNextLegAutoRoute(fromPoint, initialQuery = null) {
       query = null;  // ask again rather than retrying the same name
     }
   }
-  const destPt = { lat: dest.lat, lon: dest.lon };
+  _appendLegTo(fromPoint, { lat: dest.lat, lon: dest.lon });
+}
+
+// AutoRoute from fromPoint (the route's current last waypoint) to destPt and
+// splice the leg onto the end of the route being edited.
+function _appendLegTo(fromPoint, destPt) {
   const ui = _showRerouteOverlay([fromPoint, destPt]);
   // _reRouteSegments only sees this one new leg in isolation, so its own
   // legIndex values start at 0 — offset them to where this leg actually

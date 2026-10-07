@@ -4776,3 +4776,45 @@ body.wco-active #underway-btn { top: 10px; }
 
 /* 🛏 "After a waypoint I click…" — waiting for the user to pick a node. */
 .overnight-picking, .overnight-picking .edit-vertex-marker { cursor: crosshair !important; }
+
+/* Node Ops ＋ Add bar — see #append-bar in index.html. */
+#append-bar {
+  position: absolute;
+  top: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1200;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  max-width: calc(100% - 24px);
+  padding: 8px 10px;
+  background: rgba(10, 22, 40, 0.95);
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.6);
+  color: var(--parchment);
+  font-size: 0.85rem;
+}
+#append-bar input {
+  width: 170px;
+  background: var(--mid-blue);
+  border: 1px solid var(--mid-blue);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 5px 8px;
+  font-size: 0.85rem;
+}
+#append-bar button {
+  background: var(--dark-blue);
+  color: var(--text);
+  border: 1px solid var(--mid-blue);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+#append-go { background: var(--accent) !important; color: var(--navy) !important; font-weight: 700; }
+.append-picking, .append-picking .leaflet-interactive { cursor: crosshair !important; }

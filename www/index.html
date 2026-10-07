@@ -105,6 +105,16 @@
            window, or voice ("start tracking", "anchor watch"). The ids
            track-rec-btn / anchor-watch-btn are kept as the Stop buttons so
            the existing handlers in app.js still apply. -->
+      <!-- Node Ops ＋ Add (2026-10-07): click the chart for the next end
+           point, or type a place — the leg is AutoRouted and spliced onto
+           the end of the route. Non-modal so the chart stays clickable. -->
+      <div id="append-bar" style="display:none">
+        <span class="ab-text">&#65291; Click the chart for the next end point &mdash; or type a place:</span>
+        <input id="append-input" type="text" placeholder="e.g. Camden, TS003" autocomplete="off">
+        <button id="append-go" type="button">Go</button>
+        <button id="append-plain" type="button" title="Add a plain waypoint just past the end, to drag into place">Plain waypoint</button>
+        <button id="append-cancel" type="button" title="Cancel" aria-label="Cancel">&#10005;</button>
+      </div>
       <div id="active-strip">
         <div id="as-rec" class="as-chip" style="display:none">
           <span id="as-rec-text" class="as-text"></span>
