@@ -3639,6 +3639,973 @@
         },
         "source": "Waterway Guide — Hadlock Cove anchorage listing"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.08913673140374, 44.09968786551049] },
+      "properties": {
+        "title": "Rockland",
+        "category": "town-info",
+        "place": "Rockland, Maine",
+        "townInfo": {
+          "rows": [
+            [
+              "Town office",
+              "City Hall 207-594-0300 · 270 Pleasant Street"
+            ],
+            [
+              "Harbormaster",
+              "Molly Eddy · 207-594-0312 · harbor@rocklandmaine.gov"
+            ],
+            [
+              "Public Landing",
+              "Docks 207-594-0314 · transient dockage (draft under 8 ft), May 15–Oct 15 · showers, laundry, ice, water, power · dinghy storage"
+            ],
+            [
+              "Moorings",
+              "16 city rental moorings, first come, first served"
+            ],
+            [
+              "Pump-out",
+              "At the Public Landing"
+            ],
+            [
+              "Ferry",
+              "Maine State Ferry, Rockland terminal 207-596-5400 (Vinalhaven, North Haven, Matinicus)"
+            ],
+            [
+              "Emergency",
+              "VHF 16 or 911 · USCG Station Rockland 207-596-6667"
+            ],
+            [
+              "Hospital",
+              "Pen Bay Medical Center, Rockport (24-hr emergency)"
+            ]
+          ]
+        },
+        "source": "City of Rockland — Harbor & Waterfront Department (rocklandmaine.gov/216); Maine State Ferry Service",
+        "checked": "2026-10-07"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.05352337950848, 44.20929747927681] },
+      "properties": {
+        "title": "Camden",
+        "category": "town-info",
+        "place": "Camden, Maine",
+        "townInfo": {
+          "rows": [
+            [
+              "Town office",
+              "207-236-3353 · 29 Elm Street · Mon–Thu 7:30–3:30, Fri 7:30–noon"
+            ],
+            [
+              "Harbormaster",
+              "Steve Pixley · office 207-236-7969 · mobile 207-691-4314 · VHF 16 · 2 Public Landing"
+            ],
+            [
+              "Services",
+              "Moorings, transient docking, public launch ramp, pump-out boat — arrange through the harbormaster"
+            ],
+            [
+              "Emergency",
+              "VHF 16 or 911 · USCG Station Rockland 207-596-6667"
+            ],
+            [
+              "Hospital",
+              "Pen Bay Medical Center, Rockport (24-hr emergency)"
+            ]
+          ]
+        },
+        "source": "Town of Camden — Harbor Department (camdenmaine.gov)",
+        "checked": "2026-10-07"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.06939098830782, 44.17073820513819] },
+      "properties": {
+        "title": "Rockport",
+        "category": "town-info",
+        "place": "Rockport, Maine",
+        "townInfo": {
+          "rows": [
+            [
+              "Town office",
+              "207-236-9648 · 101 Main Street · Mon–Fri 8–4"
+            ],
+            [
+              "Harbormaster",
+              "Abbie Leonard · office 207-236-0676 · cell 207-939-1507 · VHF 16 · Marine Park, 111 Pascal Ave"
+            ],
+            [
+              "Dockage",
+              "Overnight to 140 ft by reservation with the harbormaster · water and 30/50 A power"
+            ],
+            [
+              "Moorings",
+              "Mooring field currently full (waitlist)"
+            ],
+            [
+              "Facilities",
+              "Pump-out, restrooms, laundry, launch ramp"
+            ],
+            [
+              "Emergency",
+              "VHF 16 or 911 · USCG Station Rockland 207-596-6667"
+            ],
+            [
+              "Hospital",
+              "Pen Bay Medical Center, Rockport (24-hr emergency)"
+            ]
+          ]
+        },
+        "source": "Town of Rockport — Harbor (rockportmaine.gov/harbor)",
+        "checked": "2026-10-07"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.05083150926079, 44.08539982718819] },
+      "properties": {
+        "title": "Owls Head",
+        "category": "town-info",
+        "place": "Owls Head, Maine",
+        "townInfo": {
+          "rows": [
+            [
+              "Town office",
+              "207-594-7434 ext 1 · 224 Ash Point Drive"
+            ],
+            [
+              "Harbormaster",
+              "Adam Philbrook 207-595-8220 · deputy Walter Wotton 207-594-8915"
+            ],
+            [
+              "Emergency",
+              "911 or 207-596-6552 · VHF 16"
+            ],
+            [
+              "Hospital",
+              "Pen Bay Medical Center, Rockport (24-hr emergency)"
+            ]
+          ]
+        },
+        "source": "Town of Owls Head — FAQs (owlshead.maine.gov)",
+        "checked": "2026-10-07"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.21008320054746, 43.96609800764899] },
+      "properties": {
+        "title": "St. George",
+        "category": "town-info",
+        "place": "St. George, Maine",
+        "townInfo": {
+          "rows": [
+            [
+              "Town office",
+              "207-372-6363 · 3 School St, Tenants Harbor · Mon–Fri 8–4"
+            ],
+            [
+              "Harbormaster",
+              "Ryan Cline 207-542-2709"
+            ],
+            [
+              "Public landings",
+              "Tenants Harbor (off Commercial St) and Port Clyde — landing rules on the town site"
+            ],
+            [
+              "Emergency",
+              "Search and rescue: 911 · VHF 16"
+            ],
+            [
+              "Hospital",
+              "Pen Bay Medical Center, Rockport (24-hr emergency)"
+            ]
+          ]
+        },
+        "source": "Town of St. George — Harbors (stgeorgemaine.com)",
+        "checked": "2026-10-07"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-69.13080349995343, 43.99368846087399] },
+      "properties": {
+        "title": "South Thomaston",
+        "category": "town-info",
+        "place": "South Thomaston, Maine",
+        "townInfo": {
+          "rows": [
+            [
+              "Town office",
+              "207-596-6584 · 125 Spruce Head Road · Mon 8:30–5, Tue 8:30–6, Wed–Thu 8:30–5, closed Fri"
+            ],
+            [
+              "Harbormaster",
+              "Not listed on the town site — call the town office"
+            ],
+            [
+              "Emergency",
+              "VHF 16 or 911 · USCG Station Rockland 207-596-6667"
+            ],
+            [
+              "Hospital",
+              "Pen Bay Medical Center, Rockport (24-hr emergency)"
+            ]
+          ]
+        },
+        "source": "Town of South Thomaston (souththomaston.me)",
+        "checked": "2026-10-07"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.99293446995337, 44.29003754612163] },
+      "properties": {
+        "title": "Lincolnville",
+        "category": "town-info",
+        "place": "Lincolnville, Maine",
+        "townInfo": {
+          "rows": [
+            [
+              "Town office",
+              "207-763-3555 · 493 Hope Road · Mon–Thu 8:30–5, Fri 8:30–4:30"
+            ],
+            [
+              "Harbormaster",
+              "David Kinney · deputy Matt Deane — reach through the town office"
+            ],
+            [
+              "Ferry",
+              "Maine State Ferry to Islesboro, Lincolnville terminal 207-789-5611"
+            ],
+            [
+              "Emergency",
+              "VHF 16 or 911 · USCG Station Rockland 207-596-6667"
+            ]
+          ]
+        },
+        "source": "Town of Lincolnville — Harbor (town.lincolnville.me.us); Maine State Ferry Service",
+        "checked": "2026-10-07"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.95305318364277, 44.338713635717255] },
+      "properties": {
+        "title": "Northport",
+        "category": "town-info",
+        "place": "Northport, Maine",
+        "townInfo": {
+          "rows": [
+            [
+              "Town office",
+              "207-338-3819 · 16 Beech Hill Road"
+            ],
+            [
+              "Harbormaster",
+              "Scott Munroe · harbormaster@northportmaine.org"
+            ],
+            [
+              "Emergency",
+              "VHF 16 or 911 · USCG Station Rockland 207-596-6667"
+            ],
+            [
+              "Hospital",
+              "Waldo County General Hospital, Belfast (24-hr emergency)"
+            ]
+          ]
+        },
+        "source": "Town of Northport — Town Directory (northportmaine.org)",
+        "checked": "2026-10-07"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.99487216941868, 44.426865212226254] },
+      "properties": {
+        "title": "Belfast",
+        "category": "town-info",
+        "place": "Belfast, Maine",
+        "townInfo": {
+          "rows": [
+            [
+              "Town office",
+              "City Hall 207-338-3370 · 131 Church Street · Mon–Thu 7–6"
+            ],
+            [
+              "Harbormaster",
+              "Katherine Given · 207-338-1142 · harbormaster@cityofbelfast.org · office 25 Front St"
+            ],
+            [
+              "Harbor office hours",
+              "Memorial Day–Aug daily 7–5 · Sep–Columbus Day Mon–Fri 7–3:30"
+            ],
+            [
+              "Services",
+              "Transient dockage, rental moorings, public float and ramp, showers and restrooms"
+            ],
+            [
+              "Fuel & pump-out",
+              "Non-ethanol gasoline and diesel · pump-out"
+            ],
+            [
+              "Emergency",
+              "VHF 16 or 911 · USCG Station Rockland 207-596-6667"
+            ],
+            [
+              "Hospital",
+              "Waldo County General Hospital, Belfast (24-hr emergency)"
+            ]
+          ]
+        },
+        "source": "City of Belfast — Harbor (cityofbelfast.org/157/Harbor)",
+        "checked": "2026-10-07"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.91781886241166, 44.45078117402132] },
+      "properties": {
+        "title": "Searsport",
+        "category": "town-info",
+        "place": "Searsport, Maine",
+        "townInfo": {
+          "rows": [
+            [
+              "Town office",
+              "207-548-6372 · 1 Union St · Mon–Fri 8:30–4"
+            ],
+            [
+              "Harbormaster",
+              "Travis Otis · 207-322-3926 (year-round) · VHF 9 or 16 in season · SearsportHarbormaster@gmail.com"
+            ],
+            [
+              "Emergency",
+              "VHF 16 or 911 · USCG Station Rockland 207-596-6667"
+            ],
+            [
+              "Hospital",
+              "Waldo County General Hospital, Belfast (24-hr emergency)"
+            ]
+          ]
+        },
+        "source": "Town of Searsport — Harbormaster (searsport.maine.gov)",
+        "checked": "2026-10-07"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.86500472558372, 44.46682770657939] },
+      "properties": {
+        "title": "Stockton Springs",
+        "category": "town-info",
+        "place": "Stockton Springs, Maine",
+        "townInfo": {
+          "rows": [
+            [
+              "Town office",
+              "207-567-3404 · 217 Main Street · Mon–Thu 9–5, closed Fri"
+            ],
+            [
+              "Harbormaster",
+              "Dave Estes · 207-323-1132 · harbor@stocktonsprings.org"
+            ],
+            [
+              "Moorings",
+              "All moorings permitted through the harbormaster (waitlist)"
+            ],
+            [
+              "Dockage",
+              "Overnight $1/ft with harbormaster approval"
+            ],
+            [
+              "Pump-out",
+              "Pump-out barge, free (donations welcome)"
+            ],
+            [
+              "Emergency",
+              "VHF 16 or 911 · USCG Station Rockland 207-596-6667"
+            ],
+            [
+              "Hospital",
+              "Waldo County General Hospital, Belfast (24-hr emergency)"
+            ]
+          ]
+        },
+        "source": "Town of Stockton Springs — Harbor (stocktonsprings.org/harbor)",
+        "checked": "2026-10-07"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.859322, 44.551967] },
+      "properties": {
+        "title": "Prospect",
+        "category": "town-info",
+        "place": "Prospect, Maine",
+        "townInfo": {
+          "rows": [
+            [
+              "Town office",
+              "207-567-3661 · Tue 10–1 & 2–7, Thu–Fri 10–4"
+            ],
+            [
+              "Emergency",
+              "VHF 16 or 911 · USCG Station Rockland 207-596-6667"
+            ],
+            [
+              "Hospital",
+              "Waldo County General Hospital, Belfast (24-hr emergency)"
+            ]
+          ]
+        },
+        "source": "Town of Prospect (prospectmaine.gov)",
+        "checked": "2026-10-07"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.78180600573249, 44.53565451397586] },
+      "properties": {
+        "title": "Verona Island",
+        "category": "town-info",
+        "place": "Verona Island, Maine",
+        "townInfo": {
+          "rows": [
+            [
+              "Town office",
+              "207-469-7965 · 16 School Street"
+            ],
+            [
+              "Boat ramp",
+              "State boat launching ramp on the island's east channel"
+            ],
+            [
+              "Emergency",
+              "VHF 16 or 911 · USCG Station Rockland 207-596-6667"
+            ]
+          ]
+        },
+        "source": "Maine Secretary of State — municipal clerk directory; Town of Bucksport harbor page (ramp)",
+        "checked": "2026-10-07"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.79307609793479, 44.574834020317205] },
+      "properties": {
+        "title": "Bucksport",
+        "category": "town-info",
+        "place": "Bucksport, Maine",
+        "townInfo": {
+          "rows": [
+            [
+              "Town office",
+              "207-469-7368 · 50 Main Street · Mon–Thu 7:30–5:30"
+            ],
+            [
+              "Harbormaster",
+              "Mike Ormsby (also marina manager) · office 207-469-5902 · cell 207-469-8186"
+            ],
+            [
+              "Municipal marina",
+              "May 15–Oct 15 · 50 slips incl. transient · showers, power, water, ice"
+            ],
+            [
+              "Fuel & pump-out",
+              "Gasoline, diesel and public pump-out at the municipal marina"
+            ],
+            [
+              "Emergency",
+              "VHF 16 or 911 · USCG Station Rockland 207-596-6667"
+            ]
+          ]
+        },
+        "source": "Town of Bucksport — Harbor (bucksportmaine.gov/services/harbor.php)",
+        "checked": "2026-10-07"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.73985, 44.574128] },
+      "properties": {
+        "title": "Orland",
+        "category": "town-info",
+        "place": "Orland, Maine",
+        "townInfo": {
+          "rows": [
+            [
+              "Town office",
+              "207-469-3186 · 25 School House Road · Tue–Fri 8–12, 1–5"
+            ],
+            [
+              "Harbormaster",
+              "Not listed on the town site — call the town office"
+            ],
+            [
+              "Emergency",
+              "VHF 16 or 911 · USCG Station Rockland 207-596-6667"
+            ]
+          ]
+        },
+        "source": "Town of Orland (townoforland.org)",
+        "checked": "2026-10-07"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.72191310382976, 44.45615446377615] },
+      "properties": {
+        "title": "Penobscot",
+        "category": "town-info",
+        "place": "Penobscot, Maine",
+        "townInfo": {
+          "rows": [
+            [
+              "Town office",
+              "207-326-4364 · 1 Southern Bay Road · Mon 9–1, Tue 9–1 & 4–7, Thu 9–4"
+            ],
+            [
+              "Harbormaster",
+              "Not listed on the town site — call the town office"
+            ],
+            [
+              "Emergency",
+              "VHF 16 or 911 · USCG Station Rockland 207-596-6667"
+            ],
+            [
+              "Hospital",
+              "Northern Light Blue Hill Hospital 207-374-3400 (24 hr)"
+            ]
+          ]
+        },
+        "source": "Town of Penobscot — Town Office (penobscotmaine.org)",
+        "checked": "2026-10-07"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.79235517791797, 44.38932519189127] },
+      "properties": {
+        "title": "Castine",
+        "category": "town-info",
+        "place": "Castine, Maine",
+        "townInfo": {
+          "rows": [
+            [
+              "Town office",
+              "207-326-4502 · Emerson Hall, 67 Court Street"
+            ],
+            [
+              "Harbormaster",
+              "Scott Vogell · 207-266-9392 (call or text) · on-duty cell 207-266-7711 · VHF 9 and 16"
+            ],
+            [
+              "Town dock",
+              "Dock attendant weekends from June; daily 8–4, July 1–Labor Day"
+            ],
+            [
+              "Emergency",
+              "VHF 16 or 911 · USCG Station Rockland 207-596-6667"
+            ],
+            [
+              "Hospital",
+              "Northern Light Blue Hill Hospital 207-374-3400 (24 hr)"
+            ]
+          ]
+        },
+        "source": "Town of Castine — Departments & Staff (castine.me.us)",
+        "checked": "2026-10-07"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.73782655283318, 44.33437102281901] },
+      "properties": {
+        "title": "Brooksville",
+        "category": "town-info",
+        "place": "Brooksville, Maine",
+        "townInfo": {
+          "rows": [
+            [
+              "Town office",
+              "207-326-4518 · 1 Town House Rd · Mon & Wed 9–2, Thu 6–8 pm"
+            ],
+            [
+              "Harbormaster",
+              "Debrae Bishop · harbormaster@brooksvillemaine.org"
+            ],
+            [
+              "Emergency",
+              "911 · VHF 16 · fire chief Matt Dow 207-479-1911"
+            ],
+            [
+              "Hospital",
+              "Northern Light Blue Hill Hospital 207-374-3400 (24 hr)"
+            ]
+          ]
+        },
+        "source": "Town of Brooksville (brooksvillemaine.org)",
+        "checked": "2026-10-07"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.62472177098401, 44.29421574219109] },
+      "properties": {
+        "title": "Sedgwick",
+        "category": "town-info",
+        "place": "Sedgwick, Maine",
+        "townInfo": {
+          "rows": [
+            [
+              "Town office",
+              "207-359-2275 · 719 North Sedgwick Road · Mon–Wed 9–3, Thu 9–5:30, Fri 9–1 (mooring and dinghy permits)"
+            ],
+            [
+              "Harbormaster",
+              "William Grant 207-359-2232"
+            ],
+            [
+              "Emergency",
+              "VHF 16 or 911 · USCG Station Rockland 207-596-6667"
+            ],
+            [
+              "Hospital",
+              "Northern Light Blue Hill Hospital 207-374-3400 (24 hr)"
+            ]
+          ]
+        },
+        "source": "Town of Sedgwick — Departments & Staff (sedgwickmaine.org/directory)",
+        "checked": "2026-10-07"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.579892, 44.262274] },
+      "properties": {
+        "title": "Brooklin",
+        "category": "town-info",
+        "place": "Brooklin, Maine",
+        "townInfo": {
+          "rows": [
+            [
+              "Town office",
+              "207-359-8394 · 23 Bay Road"
+            ],
+            [
+              "Harbormaster",
+              "Not listed on the town site — call the town office"
+            ],
+            [
+              "Public landings",
+              "Seven public access landings (see the town's Harbor Management Committee)"
+            ],
+            [
+              "Emergency",
+              "911 · VHF 16 · fire chief Sam Friend 207-669-2469"
+            ],
+            [
+              "Hospital",
+              "Northern Light Blue Hill Hospital 207-374-3400 (24 hr)"
+            ]
+          ]
+        },
+        "source": "Town of Brooklin — Town Government (brooklinmaine.com)",
+        "checked": "2026-10-07"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.69047474634364, 44.22919257950284] },
+      "properties": {
+        "title": "Deer Isle",
+        "category": "town-info",
+        "place": "Deer Isle, Maine",
+        "townInfo": {
+          "rows": [
+            [
+              "Town office",
+              "207-348-2324 · 70 Church Street (clerk 207-348-6060)"
+            ],
+            [
+              "Harbormaster",
+              "The Deer Isle Select Board serves as harbormasters — call the town office"
+            ],
+            [
+              "Emergency",
+              "VHF 16 or 911 · USCG Station Rockland 207-596-6667"
+            ],
+            [
+              "Hospital",
+              "Northern Light Blue Hill Hospital 207-374-3400 (24 hr)"
+            ]
+          ]
+        },
+        "source": "Town of Deer Isle — Harbors (deerislemaine.gov/harbor)",
+        "checked": "2026-10-07"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.6678587, 44.1511261] },
+      "properties": {
+        "title": "Stonington",
+        "category": "town-info",
+        "place": "Stonington, Maine",
+        "townInfo": {
+          "rows": [
+            [
+              "Town office",
+              "207-367-2351 ext 1 · 32 Main Street · Mon–Fri 8–12"
+            ],
+            [
+              "Harbormaster",
+              "Harbor Master's office 207-367-5891 · VHF 16 · Municipal Fish Pier off Main St · deputies Dana Webb, Cory Robertson"
+            ],
+            [
+              "Emergency",
+              "VHF 16 or 911 · USCG Station Rockland 207-596-6667"
+            ],
+            [
+              "Hospital",
+              "Northern Light Blue Hill Hospital 207-374-3400 (24 hr)"
+            ]
+          ]
+        },
+        "source": "Town of Stonington — Harbor Master (stoningtonmaine.org)",
+        "checked": "2026-10-07"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.64660365568221, 44.06989731380933] },
+      "properties": {
+        "title": "Isle au Haut",
+        "category": "town-info",
+        "place": "Isle au Haut, Maine",
+        "townInfo": {
+          "rows": [
+            [
+              "Town office",
+              "207-335-5001 · PO Box 71"
+            ],
+            [
+              "Harbormaster",
+              "Not listed on the town site — call the town office"
+            ],
+            [
+              "Emergency",
+              "VHF 16 or 911 · USCG Station Rockland 207-596-6667"
+            ],
+            [
+              "Hospital",
+              "Northern Light Blue Hill Hospital 207-374-3400 (24 hr)"
+            ]
+          ]
+        },
+        "source": "Town of Isle au Haut (isleauhautmaine.org)",
+        "checked": "2026-10-07"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.93053750359441, 44.25945982939449] },
+      "properties": {
+        "title": "Islesboro",
+        "category": "town-info",
+        "place": "Islesboro, Maine",
+        "townInfo": {
+          "rows": [
+            [
+              "Town office",
+              "207-734-2253 · 150 Main Road · Mon, Tue, Thu, Fri 8:30–4:30, Wed 10–4:30 (closed 12:30–1:30)"
+            ],
+            [
+              "Harbormaster",
+              "Earl MacKenzie · deputy Dylan Purington — reach through the town office"
+            ],
+            [
+              "Ferry",
+              "Maine State Ferry to Lincolnville, terminal 207-789-5611"
+            ],
+            [
+              "Emergency",
+              "VHF 16 or 911 · USCG Station Rockland 207-596-6667"
+            ]
+          ]
+        },
+        "source": "Town of Islesboro — Town Office and Harbor Committee (townofislesboro.com); Maine State Ferry Service",
+        "checked": "2026-10-07"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.796, 44.128] },
+      "properties": {
+        "title": "North Haven",
+        "category": "town-info",
+        "place": "North Haven, Maine",
+        "townInfo": {
+          "rows": [
+            [
+              "Town office",
+              "207-867-4433 · 16 Town Office Sq · Mon–Thu 7–3"
+            ],
+            [
+              "Harbormaster, Thorofare",
+              "Foy W. Brown 207-867-4621"
+            ],
+            [
+              "Harbormaster, Pulpit Harbor",
+              "Alexander Curtis 207-593-6838"
+            ],
+            [
+              "Ferry",
+              "Maine State Ferry, 207-596-5400 option 3 · terminal 18 Main Street"
+            ],
+            [
+              "Emergency",
+              "VHF 16 or 911 · USCG Station Rockland 207-596-6667"
+            ]
+          ]
+        },
+        "source": "Town of North Haven — Harbormaster (northhavenmaine.org); Maine State Ferry Service",
+        "checked": "2026-10-07"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.83520809342585, 44.047184718662415] },
+      "properties": {
+        "title": "Vinalhaven",
+        "category": "town-info",
+        "place": "Vinalhaven, Maine",
+        "townInfo": {
+          "rows": [
+            [
+              "Town office",
+              "207-863-4471 · 19 Washington School Rd · Mon–Thu 8–5, Fri 8–12"
+            ],
+            [
+              "Harbormaster",
+              "James Knowlton 207-701-2018 · deputy Peter Gasperini 207-542-1992"
+            ],
+            [
+              "Ferry",
+              "Maine State Ferry, Vinalhaven terminal 207-596-5450 · 79 Sands Road"
+            ],
+            [
+              "Emergency",
+              "911 · VHF 16 · emergency services 207-863-4604 · ambulance director 207-863-2119"
+            ]
+          ]
+        },
+        "source": "Town of Vinalhaven — Staff Directory and Hours & Locations (townofvinalhaven.org); Maine State Ferry Service",
+        "checked": "2026-10-07"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.44535004311568, 44.1474894326225] },
+      "properties": {
+        "title": "Swans Island",
+        "category": "town-info",
+        "place": "Swans Island, Maine",
+        "townInfo": {
+          "rows": [
+            [
+              "Town office",
+              "207-526-4279 · hours vary — call or email"
+            ],
+            [
+              "Harbormaster",
+              "Josh Joyce 207-266-1937 · assistant Jason Matthews 207-266-1076"
+            ],
+            [
+              "Ferry",
+              "Maine State Ferry, Swan's Island terminal 207-526-4273 · Bass Harbor terminal 207-244-3254"
+            ],
+            [
+              "Health center",
+              "Mill Pond Health Center 207-526-4264"
+            ],
+            [
+              "Emergency",
+              "911 · VHF 16"
+            ]
+          ]
+        },
+        "source": "Town of Swan's Island — Town Officials (townofswansisland.gov); Maine State Ferry Service",
+        "checked": "2026-10-07"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.366, 44.138] },
+      "properties": {
+        "title": "Frenchboro",
+        "category": "town-info",
+        "place": "Frenchboro, Maine",
+        "townInfo": {
+          "rows": [
+            [
+              "Town office",
+              "207-334-2933 · email is the town's preferred contact: frenchboro@gmail.com"
+            ],
+            [
+              "Harbormaster",
+              "Jay Fiandaca — reach through the town office"
+            ],
+            [
+              "Ferry",
+              "Maine State Ferry from Bass Harbor, terminal 207-244-3254"
+            ],
+            [
+              "Emergency",
+              "911 · VHF 16"
+            ]
+          ]
+        },
+        "source": "Town of Frenchboro — Town News and Contacts (frenchboro.maine.gov); Maine State Ferry Service",
+        "checked": "2026-10-07"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-68.87829273916557, 43.86407424189172] },
+      "properties": {
+        "title": "Matinicus Isle",
+        "category": "town-info",
+        "place": "Matinicus Isle, Maine",
+        "townInfo": {
+          "rows": [
+            [
+              "Town office",
+              "207-366-3970 · 17 South Rd · hours: call"
+            ],
+            [
+              "Harbormaster",
+              "None — Matinicus has no harbormaster"
+            ],
+            [
+              "Ferry",
+              "Maine State Ferry from Rockland, 207-596-5400"
+            ],
+            [
+              "Emergency",
+              "911 · VHF 16"
+            ]
+          ]
+        },
+        "source": "Matinicus Isle Plantation — Contact Us and Staff Directory (matinicusisle.gov)",
+        "checked": "2026-10-07"
+      }
     }
   ]
 }

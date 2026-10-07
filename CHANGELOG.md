@@ -1,5 +1,35 @@
 # Changelog
 
+## 2026-10-07 — Towns map: each bay town's office, harbormaster and harbor contacts (v811)
+
+Direct request: in the Towns map type, clicking a town's name shows vital
+information in a table — town office phone, harbormaster name and phone,
+and whatever else is relevant.
+- documents.geojson: new category "town-info", 29 entries (Penobscot Bay
+  towns from St. George to Frenchboro and Matinicus), each at its harbor or
+  village, with rows for town office (phone, address, hours), harbormaster
+  (name, phone, VHF), and where a town publishes them: public landing,
+  moorings, dockage, fuel & pump-out, ferry, emergency, nearby hospital.
+  Inserted as text (no re-serialization).
+- Every value came from the town's own website (or Maine State Ferry
+  Service / Secretary of State), checked 2026-10-07; each entry cites its
+  source. Search-engine summaries were often stale — e.g. Searsport's
+  (now Travis Otis), North Haven's Pulpit Harbor, Vinalhaven's deputy
+  number — so nothing was taken from a summary unverified. Where a town
+  lists no harbormaster (or no phone for one), the row says so / points to
+  the town office rather than guessing. Two hospital numbers couldn't be
+  verified (site blocks automated reads) and are listed by name only.
+- Towns map: a 🏛 marker with the town's name as a label at each town;
+  clicking the name (or marker), or anywhere inside the town's boundary,
+  opens the table. Phone numbers are tap-to-call, emails mailto. Popup
+  also has Navigate to here / Bring boat here / Set focus. Bundled, so it
+  works offline even when the live boundaries can't load.
+- Voice: "harbormaster Castine", "who is the harbor master for
+  Stonington", "Camden town office", "town info Vinalhaven"; "who's the
+  harbormaster" alone = the town nearest the boat. Switches to Towns.
+Checked in desktop and phone-size Chrome, including offline (state
+boundary service blocked).
+
 ## 2026-10-07 — Right-hand panel retired; its four controls moved; Re-route false warnings fixed (v810)
 
 Direct request: pull the Start Tracking / Anchor Watch window's four

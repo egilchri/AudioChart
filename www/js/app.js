@@ -1252,7 +1252,7 @@ let _baseTileLayer    = null;
 const MAP_VIEW_MODES  = ['chart', 'satellite', 'geology-maine', 'towns-maine', 'history', 'demographics', 'island-info', 'anchorages', 'paintings'];
 // Maps a display mode to the documents.geojson `category` it shows —
 // the whole reason "switch to Geology/History" needs no separate menu.
-const MAP_VIEW_DOC_CATEGORY = { 'geology-maine': 'geology', 'history': 'history', 'demographics': 'demographics', 'island-info': 'island-info', 'anchorages': 'anchorages', 'paintings': 'paintings' };
+const MAP_VIEW_DOC_CATEGORY = { 'geology-maine': 'geology', 'towns-maine': 'town-info', 'history': 'history', 'demographics': 'demographics', 'island-info': 'island-info', 'anchorages': 'anchorages', 'paintings': 'paintings' };
 // Named water passages/reaches/thorofares (plus a handful of major islands
 // that fall through every other label filter — see below) worth labeling
 // directly on the chart, like a real NOAA chart would — a hand-verified
@@ -2120,6 +2120,23 @@ function _formatDemographics(p) {
   return `<table style="width:100%;border-collapse:collapse">${rows.join('')}</table>${bracketsHtml}${seasonalHtml}`;
 }
 
+// Town Info (2026-10-07, direct request): the vital contacts a visiting boater
+// needs for each Penobscot Bay town — town office, harbormaster (name, phone,
+// VHF), landing, moorings, fuel/pump-out, ferry, emergency. Researched from
+// each town's own website and bundled (works offline); every entry carries
+// its source and the date it was checked, and names/numbers change, so the
+// footer says to call ahead. Rows are [label, text] in the data; phone
+// numbers become tap-to-call links here.
+function _formatTownInfo(p) {
+  const rows = p.townInfo?.rows || [];
+  const cell = (t) => escapeHtml(t)
+    .replace(/(\b\d{3}-\d{3}-\d{4}\b)(\s+(?:ext|option)\.?\s*\d+)?/g, (m, num, ext) => `<a href="tel:+1${num.replace(/-/g, '')}" style="white-space:nowrap">${num}</a>${ext || ''}`)
+    .replace(/\b([\w.+-]+@[\w-]+(?:\.[\w-]+)+)\b/g, '<a href="mailto:$1">$1</a>');
+  return `<table style="width:100%;border-collapse:collapse">${rows.map(([k, v]) =>
+      `<tr><td style="padding:3px 10px 3px 0;color:#666;vertical-align:top;white-space:nowrap">${escapeHtml(k)}</td><td style="padding:3px 0">${cell(v)}</td></tr>`).join('')}</table>`
+    + `<div style="margin-top:6px;font-size:0.78em;color:#888">Checked ${escapeHtml(p.checked || '')} · harbormasters and numbers change — call ahead.</div>`;
+}
+
 // Island Info entries answer the boater's practical question before landing:
 // who owns this, can I actually go ashore, is it on the Maine Island Trail
 // (MITA's handshake-agreement network — trail status is never assumed, only
@@ -2221,12 +2238,19 @@ function _renderDocumentMarkers() {
     const bodyHtml = p.category === 'demographics' ? _formatDemographics(p)
       : p.category === 'island-info' ? _formatIslandInfo(p)
       : p.category === 'anchorages' ? _formatAnchorage(p)
+      : p.category === 'town-info' ? _formatTownInfo(p)
       : p.category === 'paintings' ? _formatPainting(p)
       : _formatDocBody(p.body);
     const m = L.marker([lat, lon], { icon: MarkerIcons.documentMarkerIcon(p.category) });
     // Anchorages carry a short code (AS001…, in documents.geojson) so they
     // can be named by voice — "AutoRoute to AS005" — like SP/TS markers.
     if (p.code) m.bindTooltip(escapeHtml(p.code), { permanent: true, direction: 'top', className: 'map-tooltip' });
+    // Towns: the town's name is the label, and clicking the name opens its
+    // table too (direct request: "when the user clicks on the name of the town").
+    if (p.category === 'town-info') {
+      m.bindTooltip(escapeHtml(p.title), { permanent: true, direction: 'top', className: 'map-tooltip town-name-label', interactive: true });
+      m.getTooltip().on('click', () => m.openPopup());
+    }
     // Lets the "Take a Tour" engine find a specific document marker by its
     // title (e.g. the flagship tour's Warren Island step) without a new
     // fetch or a second data structure — see _findDocumentMarkerByTitle.
@@ -2246,7 +2270,7 @@ function _renderDocumentMarkers() {
     // narrates "tap Navigate to here" by that exact label and finds it by
     // that exact class (see _startVirtualJourney below), so both stay put;
     // navaid-popup-autoroute is added ONLY for matching visual styling.
-    const navHtml = p.category === 'anchorages'
+    const navHtml = (p.category === 'anchorages' || p.category === 'town-info')
       ? `<div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">
            <button class="doc-popup-navigate navaid-popup-autoroute">&#9973; Navigate to here</button>
            <button class="navaid-popup-focus">&#127919; Set focus</button>
@@ -2265,7 +2289,7 @@ function _renderDocumentMarkers() {
       ${lookupHtml}
       ${navHtml}
     </div>`;
-    if (p.category === 'anchorages') {
+    if (p.category === 'anchorages' || p.category === 'town-info') {
       m.on('popupopen', (e) => {
         const popupEl = e.popup.getElement();
         popupEl.querySelector('.doc-popup-navigate').addEventListener('click', () => {
@@ -7608,6 +7632,11 @@ function _wireIslandLookup(marker, lat, lon) {
   return `<div id="${id}" style="margin-top:6px;padding-top:6px;border-top:1px solid #ddd;font-size:0.8em;color:#888">Looking up town&hellip; (needs a connection)</div>`;
 }
 
+function _townKey(name) {
+  return (name || '').toLowerCase().replace(/\./g, '').replace(/^saint\s+/, 'st ')
+    .replace(/\s+(plt|plantation|twp|township)$/, '').replace(/\s+/g, ' ').trim();
+}
+
 function _clearMaineTownsLayer() {
   if (_maineTownsMoveEnd) { _map.off('moveend', _maineTownsMoveEnd); _maineTownsMoveEnd = null; }
   if (_maineTownsLayer) { _map.removeLayer(_maineTownsLayer); _maineTownsLayer = null; }
@@ -7686,6 +7715,15 @@ async function _refreshMaineTownsLayer() {
       const county = info?.county ? `, ${info.county} County` : '';
       const ut = info?.ut ? ' — includes Unorganized Territory (state LUPC jurisdiction)' : '';
       layer.bindTooltip(`${town}${county}${ut}`, { sticky: true });
+      // Clicking anywhere in a bay town opens its Town Info table (if we
+      // have one). The state's names differ slightly from ours — "Saint
+      // George", "Matinicus Isle Plt" — so compare normalized.
+      layer.on('click', () => {
+        const key = _townKey(town);
+        const doc = _documents.find(d => d.properties.category === 'town-info' && _townKey(d.properties.title) === key);
+        const m = doc && _findDocumentMarkerByTitle(doc.properties.title);
+        if (m) m.openPopup();
+      });
     },
   }).addTo(_map);
 }
@@ -7743,7 +7781,7 @@ const MAP_VIEW_DESCRIPTIONS = {
   chart: 'Standard nautical chart — depths, buoys, hazards',
   satellite: 'Real aerial imagery of the coastline',
   'geology-maine': 'Live Maine bedrock and surficial geology data',
-  'towns-maine': 'Maine town boundaries and names',
+  'towns-maine': 'Town boundaries, plus each bay town’s office, harbormaster and harbor contacts',
   history: 'Real historical write-ups tied to actual places',
   demographics: 'Town population, age, and seasonal notes',
   'island-info': 'Who owns an island, and whether you can land',
@@ -12099,7 +12137,7 @@ async function handleCommand(transcript) {
   // background noise, keyboard-mic feedback, and TTS audio picked up by the mic.
   // An explicit "press X" is deliberate, so it still goes through.
   if (TTS.isSpeaking() && intent === 'UNKNOWN' && !explicitPress) return;
-  if (!['SET_MARKER', 'POINTER_PRESS', 'AUTOROUTE_TO_PLACE', 'SHOW_PLACE', 'BRING_BOAT_TO_PLACE', 'START_TRACKING',
+  if (!['SET_MARKER', 'POINTER_PRESS', 'AUTOROUTE_TO_PLACE', 'SHOW_PLACE', 'BRING_BOAT_TO_PLACE', 'START_TRACKING', 'TOWN_INFO',
         'STOP_TRACKING', 'ANCHOR_WATCH', 'STOP_ANCHOR_WATCH', 'SILENCE_ALARM', 'CLEAR_SCREEN'].includes(intent)) {
     const msg = _runMarkerMenuCommand(transcript, intent);
     if (msg) {
@@ -12420,6 +12458,41 @@ async function handleCommand(transcript) {
         response = { text: `Boat moved to ${label}.`, speech: '' };
         break;
       }
+      case 'TOWN_INFO': {
+        const towns = _documents.filter(d => d.properties.category === 'town-info');
+        let doc = null;
+        if (params.town) {
+          const key = _townKey(params.town.replace(/^(?:the\s+)?town\s+of\s+/i, ''));
+          doc = towns.find(d => _townKey(d.properties.title) === key)
+            || towns.find(d => _townKey(d.properties.title).startsWith(key) || key.startsWith(_townKey(d.properties.title)));
+        } else if (pos) {
+          // No town named: the one nearest the boat.
+          let best = Infinity;
+          for (const d of towns) {
+            const [lon, lat] = d.geometry.coordinates;
+            const nm = Query.distanceNm(pos.lon, pos.lat, lon, lat);
+            if (nm < best) { best = nm; doc = d; }
+          }
+        }
+        if (!doc) {
+          const t = params.town ? `No town info for "${params.town}".` : 'No town info nearby.';
+          response = { text: t, speech: t };
+          break;
+        }
+        if (_mapViewMode !== 'towns-maine') {
+          _mapViewMode = 'towns-maine';
+          localStorage.setItem('audiochart-chart-mode', _mapViewMode);
+          const sel = document.getElementById('map-layer-select');
+          if (sel) sel.value = _mapViewMode;
+          _applyMapLayer();
+          _syncLayerBtn();
+        }
+        const [lon, lat] = doc.geometry.coordinates;
+        _map?.setView([lat, lon], Math.max(_map.getZoom() || 12, 12));
+        setTimeout(() => _findDocumentMarkerByTitle(doc.properties.title)?.openPopup(), 400);
+        response = { text: `${doc.properties.title} — town info.`, speech: '' };
+        break;
+      }
       case 'SHOW_PLACE': {
         // A visible button named exactly that ("Show hazards") wins over a
         // fuzzy place-name match.
@@ -12678,7 +12751,7 @@ async function handleCommand(transcript) {
       opencpnBtn.style.display = 'none';
     } else if (intent === 'SET_FOCUS' || intent === 'CLEAR_FOCUS' || intent === 'AUTOROUTE_TO_PLACE' ||
                intent === 'MARKER_AUTOROUTE' || intent === 'MARKER_BRING_BOAT' || intent === 'SET_MARKER' ||
-               intent === 'POINTER_PRESS' || intent === 'SHOW_PLACE' || intent === 'BRING_BOAT_TO_PLACE' || intent === 'CLEAR_SCREEN' ||
+               intent === 'POINTER_PRESS' || intent === 'SHOW_PLACE' || intent === 'BRING_BOAT_TO_PLACE' || intent === 'CLEAR_SCREEN' || intent === 'TOWN_INFO' ||
                ['START_TRACKING', 'STOP_TRACKING', 'ANCHOR_WATCH', 'STOP_ANCHOR_WATCH', 'SILENCE_ALARM'].includes(intent)) {
       // Leave the current map view as-is — these only change the focus target.
     } else {

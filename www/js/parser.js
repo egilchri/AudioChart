@@ -524,6 +524,25 @@ const PATTERNS = [
     extract: (m) => ({ placeName: m[3].trim() }),
   },
 
+  // TOWN INFO (2026-10-07, direct request) — a town's office/harbormaster
+  // table from the Towns map. "who's the harbormaster" with no town means
+  // the town nearest the boat.
+  {
+    re: /^(?:please\s+)?(?:show\s+(?:me\s+)?)?(?:town\s+info(?:rmation)?|town\s+office|contacts?)\s+(?:for\s+|in\s+|on\s+|about\s+|of\s+)?(.+?)[.!?\s]*$/i,
+    intent: 'TOWN_INFO',
+    extract: (m) => ({ town: m[1].trim() }),
+  },
+  {
+    re: /^(?:please\s+)?(?:who(?:'s|\s+is)\s+)?(?:the\s+)?harbou?r\s*-?\s*master(?:'s\s+(?:number|phone))?(?:\s+(?:for|in|at|of))?\s*(.*?)[.!?\s]*$/i,
+    intent: 'TOWN_INFO',
+    extract: (m) => ({ town: m[1].trim() }),
+  },
+  {
+    re: /^(?:please\s+)?(.+?)\s+(?:town\s+office|town\s+info(?:rmation)?|harbou?r\s*-?\s*master)[.!?\s]*$/i,
+    intent: 'TOWN_INFO',
+    extract: (m) => ({ town: m[1].trim() }),
+  },
+
   // SHOW A PLACE ON THE MAP (2026-10-06, direct request) — just moves the
   // map there: no pin, no route ("go to X" already means AutoRoute). Last,
   // so every more specific command wins; app.js falls back to pressing a
