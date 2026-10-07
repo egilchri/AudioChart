@@ -18,6 +18,13 @@ jobs:
           for f in www/js/*.js; do
             echo "checking $f"
             node --check "$f"
+            # Browsers load these as ES modules, where some mistakes (e.g. a
+            # duplicate top-level function name) are fatal but `node --check`
+            # on a .js file doesn't see them — it parses as a plain script.
+            # Re-check each file as a module (.mjs). Caught in v810 dev: the
+            # app failed to start in the browser while this step passed.
+            cp "$f" "$RUNNER_TEMP/module-check.mjs"
+            node --check "$RUNNER_TEMP/module-check.mjs"
           done
 
       - name: Unit tests (parser, query)
