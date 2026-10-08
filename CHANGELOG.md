@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-10-08 — 3D view: anchoring at the end, wider corner chart (v824)
+
+Direct request. Reaching the end of the route in the 3D helm view (its own
+Play, or a followed Virtual Journey finishing) now anchors: the view walks
+forward past the mast and looks down at the bow (the foredeck hides the
+water at the stem from the tiller, as on the real boat), the anchor goes off
+the roller with the chain rattling out, splashes (spray and spreading rings
+on the water, with a splash sound made in Web Audio), and after a few
+seconds the view goes back aft with an ⚓ Anchored badge. Sound needs one
+click or key press in that window first (browser rule). The corner chart is
+zoomed out two levels (4.8 nm to the edge, 2 nm scale bar) so neighbouring
+shores show and the trip has context.
+
 ## 2026-10-08 — 3D helm view of any route (v823)
 
 Direct request: what the 3D samples showed should become the Virtual

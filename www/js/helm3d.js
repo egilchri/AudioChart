@@ -714,13 +714,155 @@ function drawTape(look, hfov) {
   c.fillStyle = '#e0a843'; c.beginPath(); c.moveTo(W / 2 - 6, 28); c.lineTo(W / 2 + 6, 28); c.lineTo(W / 2, 20); c.closePath(); c.fill();
 }
 
+// ── Arrival: the anchor goes down off the bow roller, chain rattling, with a splash ──
+// Sound is made here with Web Audio (no files). Browsers only allow it after a click or key
+// press in this window, so the context is unlocked on the first one.
+let audioCtx = null;
+const unlockAudio = () => {
+  try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); audioCtx.resume(); } catch (_) {}
+};
+addEventListener('pointerdown', unlockAudio); addEventListener('keydown', unlockAudio);
+function noiseBuffer(sec) {
+  const b = audioCtx.createBuffer(1, Math.round(audioCtx.sampleRate * sec), audioCtx.sampleRate), d = b.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  return b;
+}
+function playChain(sec) {
+  if (!audioCtx || audioCtx.state !== 'running') return;
+  let at = audioCtx.currentTime, gap = 0.045;
+  while (at < audioCtx.currentTime + sec) {
+    const src = audioCtx.createBufferSource(), hp = audioCtx.createBiquadFilter(), g = audioCtx.createGain();
+    src.buffer = noiseBuffer(0.03); hp.type = 'bandpass'; hp.frequency.value = 2500 + Math.random() * 2500; hp.Q.value = 4;
+    g.gain.setValueAtTime(0.25 + Math.random() * 0.2, at); g.gain.exponentialRampToValueAtTime(0.001, at + 0.03);
+    src.connect(hp).connect(g).connect(audioCtx.destination); src.start(at);
+    at += gap + Math.random() * 0.03; gap *= 1.04;   // links running out, slowing as the anchor settles
+  }
+}
+function playSplash() {
+  if (!audioCtx || audioCtx.state !== 'running') return;
+  const now = audioCtx.currentTime;
+  const src = audioCtx.createBufferSource(), lp = audioCtx.createBiquadFilter(), g = audioCtx.createGain();
+  src.buffer = noiseBuffer(1.2); lp.type = 'lowpass';
+  lp.frequency.setValueAtTime(4000, now); lp.frequency.exponentialRampToValueAtTime(500, now + 1.0);
+  g.gain.setValueAtTime(0.0001, now); g.gain.exponentialRampToValueAtTime(0.7, now + 0.015); g.gain.exponentialRampToValueAtTime(0.001, now + 1.1);
+  src.connect(lp).connect(g).connect(audioCtx.destination); src.start(now);
+  const o = audioCtx.createOscillator(), og = audioCtx.createGain();
+  o.frequency.setValueAtTime(110, now); o.frequency.exponentialRampToValueAtTime(45, now + 0.18);
+  og.gain.setValueAtTime(0.5, now); og.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+  o.connect(og).connect(audioCtx.destination); o.start(now); o.stop(now + 0.25);
+}
+const anchorNote = document.getElementById('anchornote');
+const ROLLER = new THREE.Vector3(0, 1.12, -5.25);   // stem-head roller, boat frame
+const anchorObj = new THREE.Group();
+{
+  const galv = new THREE.MeshLambertMaterial({ color: 0x6f767b });
+  const shank = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.75, 0.05), galv); shank.position.y = -0.37; anchorObj.add(shank);
+  const stock = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.6, 6), galv); stock.rotation.z = Math.PI / 2; stock.position.y = -0.72; anchorObj.add(stock);
+  for (const sgn of [-1, 1]) {
+    const fluke = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.42, 3), galv); fluke.position.set(sgn * 0.13, -0.55, 0); fluke.rotation.z = Math.PI; anchorObj.add(fluke);
+  }
+}
+anchorObj.visible = false; scene.add(anchorObj);
+const chainGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+const chain = new THREE.Line(chainGeo, new THREE.LineBasicMaterial({ color: 0x3d4246 })); chain.visible = false; chain.frustumCulled = false; scene.add(chain);
+const SPRAY = 140;
+const sprayGeo = new THREE.BufferGeometry(); sprayGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(SPRAY * 3), 3));
+const dropTex = (() => {   // soft round droplet
+  const c = document.createElement('canvas'); c.width = c.height = 32;
+  const g = c.getContext('2d'), gr = g.createRadialGradient(16, 16, 0, 16, 16, 16);
+  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.5, 'rgba(240,247,250,0.8)'); gr.addColorStop(1, 'rgba(240,247,250,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 32, 32);
+  return new THREE.CanvasTexture(c);
+})();
+const spray = new THREE.Points(sprayGeo, new THREE.PointsMaterial({ color: 0xf4f8fa, map: dropTex, size: 0.16, transparent: true, opacity: 0.9, depthWrite: false }));
+spray.visible = false; spray.frustumCulled = false; scene.add(spray);
+const rings = [0, 0.35, 0.8].map(() => {
+  const r = new THREE.Mesh(new THREE.RingGeometry(0.93, 1, 64), new THREE.MeshBasicMaterial({ color: 0xe8f0f3, transparent: true, opacity: 0, depthWrite: false }));
+  r.rotation.x = -Math.PI / 2; r.visible = false; scene.add(r); return r;
+});
+const RING_DELAY = [0, 0.35, 0.8];
+const anchor = { state: 'up', t: 0, v: 0, splashAt: null, vel: new Float32Array(SPRAY * 3) };
+// The foredeck hides the water at the stem from the tiller (as on the real boat), so on arrival
+// the view walks forward past the mast and looks down at the bow, lets the anchor go, watches the
+// splash, then goes back aft. arrive() starts it; dropAnchor() is the actual let-go.
+const TILLER = new THREE.Vector3(0.35, EYE, 1.0), AT_MAST = new THREE.Vector3(0.3, 2.6, -3.2);   // on the foredeck, just forward of the mast
+let camK = 0;
+function arrive() {
+  anchor.state = 'walking'; anchor.t = 0; anchorNote.hidden = false;
+  anchorObj.visible = true;   // sitting on the roller until it's let go
+}
+function dropAnchor() {
+  anchor.state = 'falling'; anchor.t = 0; anchor.v = 0;
+  anchorObj.position.copy(boat.localToWorld(ROLLER.clone())); anchorObj.rotation.set(0, boat.rotation.y, 0); anchorObj.visible = true;
+  chain.visible = true; anchorNote.hidden = false;
+  playChain(2.6);
+}
+function raiseAnchor() {
+  anchor.state = 'up'; anchorObj.visible = chain.visible = spray.visible = false;
+  for (const r of rings) r.visible = false;
+  anchorNote.hidden = true;
+}
+function splash(at) {
+  anchor.splashAt = at.clone(); anchor.splashT = 0;
+  const pos = sprayGeo.attributes.position.array;
+  for (let i = 0; i < SPRAY; i++) {
+    const a = Math.random() * Math.PI * 2, out = 0.6 + Math.random() * 2.0, up = 2.5 + Math.random() * 3.0;
+    pos[i * 3] = at.x; pos[i * 3 + 1] = 0.05; pos[i * 3 + 2] = at.z;
+    anchor.vel[i * 3] = Math.cos(a) * out; anchor.vel[i * 3 + 1] = up; anchor.vel[i * 3 + 2] = Math.sin(a) * out;
+  }
+  sprayGeo.attributes.position.needsUpdate = true; spray.visible = true;
+  rings.forEach(r => { r.position.set(at.x, 0.03, at.z); r.scale.setScalar(0.3); r.visible = true; r.material.opacity = 0; });
+  playSplash();
+}
+function updateAnchor(dt) {
+  anchor.t += dt;
+  // how far forward the view is: out over 1.6 s, held while the anchor goes, back aft after
+  const wantForward = ['walking', 'falling', 'sinking', 'sunk'].includes(anchor.state);
+  camK = Math.max(0, Math.min(1, camK + (wantForward ? dt : -dt) / 1.6));
+  if (anchor.state === 'up') return;
+  if (anchor.state === 'walking') {
+    anchorObj.position.copy(boat.localToWorld(ROLLER.clone())); anchorObj.rotation.set(0, boat.rotation.y, 0);
+    if (camK >= 1) dropAnchor();
+    return;
+  }
+  const roller = boat.localToWorld(ROLLER.clone());
+  if (anchor.state === 'falling') {
+    anchor.v += 9.8 * dt; anchorObj.position.y -= anchor.v * dt;
+    if (anchorObj.position.y <= 0) { anchor.state = 'sinking'; splash(anchorObj.position); }
+  } else if (anchor.state === 'sinking') {
+    anchorObj.position.y -= 0.9 * dt;   // gone below the surface; the rode stays angled down to it
+    if (anchorObj.position.y < -6) anchor.state = 'sunk';
+  } else if (anchor.state === 'sunk' && anchor.t > 6) {   // seconds since let-go: then back to the tiller
+    anchor.state = 'set';
+  }
+  const cp = chainGeo.attributes.position;
+  cp.setXYZ(0, roller.x, roller.y, roller.z);
+  cp.setXYZ(1, anchorObj.position.x, Math.max(anchorObj.position.y, -0.05), anchorObj.position.z);
+  cp.needsUpdate = true;
+  if (anchor.splashAt) {
+    anchor.splashT += dt;
+    const pos = sprayGeo.attributes.position.array;
+    for (let i = 0; i < SPRAY; i++) {
+      anchor.vel[i * 3 + 1] -= 9.8 * dt;
+      pos[i * 3] += anchor.vel[i * 3] * dt; pos[i * 3 + 1] = Math.max(-0.2, pos[i * 3 + 1] + anchor.vel[i * 3 + 1] * dt); pos[i * 3 + 2] += anchor.vel[i * 3 + 2] * dt;
+    }
+    sprayGeo.attributes.position.needsUpdate = true;
+    spray.material.opacity = Math.max(0, 0.9 * (1 - anchor.splashT / 1.4)); spray.visible = spray.material.opacity > 0;
+    rings.forEach((r, k) => {
+      const tt = anchor.splashT - RING_DELAY[k];
+      if (tt < 0) return;
+      r.scale.setScalar(0.3 + tt * 1.6); r.material.opacity = Math.max(0, 0.7 * (1 - tt / 3)); r.visible = r.material.opacity > 0;
+    });
+  }
+}
+
 // Corner chart: land/water raster from the same elevation the 3D view uses (so they agree),
 // north up, centred on the boat, with the route, buoys and the bearing you're looking along.
 const chartEl = document.getElementById('minichart'), cctx = chartEl.getContext('2d'), showChart = document.getElementById('showchart');
 showChart.addEventListener('change', () => { chartEl.hidden = !showChart.checked; });
 const CH = (() => {
   const lons = routeLL.map(p => p[0]), lats = routeLL.map(p => p[1]);
-  const west = Math.min(...lons) - 0.06, east = Math.max(...lons) + 0.06, south = Math.min(...lats) - 0.045, north = Math.max(...lats) + 0.045;
+  const west = Math.min(...lons) - 0.16, east = Math.max(...lons) + 0.16, south = Math.min(...lats) - 0.12, north = Math.max(...lats) + 0.12;
   const ppd = 3000, W = Math.round((east - west) * ppd), H = Math.round((north - south) * ppd);
   const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
   const c = cv.getContext('2d'), img = c.createImageData(W, H), d = img.data;
@@ -741,7 +883,7 @@ function drawChart(pos, course, look, hfov) {
   if (chartEl.width !== Math.round(size * dpr)) { chartEl.width = chartEl.height = Math.round(size * dpr); }
   const c = cctx; c.setTransform(dpr, 0, 0, dpr, 0, 0);
   const lon = pos[0] / MX + LON0, lat = -pos[1] / MY + LAT0;
-  const RANGE_NM = 1.2, pxPerNm = size / (2 * RANGE_NM);
+  const RANGE_NM = 4.8, pxPerNm = size / (2 * RANGE_NM);
   const sx = pxPerNm * 60 * Math.cos(LAT0 * Math.PI / 180), sy = pxPerNm * 60;      // px per degree
   const X = lo => size / 2 + (lo - lon) * sx, Y = la => size / 2 - (la - lat) * sy;
   c.imageSmoothingEnabled = true;
@@ -762,7 +904,7 @@ function drawChart(pos, course, look, hfov) {
     if (m.kind !== 'buoy') continue;
     const x = X(m.n.x), y = Y(m.n.y); if (x < -5 || y < -5 || x > size + 5 || y > size + 5) continue;
     c.fillStyle = (m.n.c || '').startsWith('red') ? '#c23a2e' : (m.n.c || '').startsWith('green') ? '#2b8a4a' : '#555';
-    c.beginPath(); c.arc(x, y, 3, 0, 7); c.fill();
+    c.beginPath(); c.arc(x, y, 2, 0, 7); c.fill();
   }
   // what you're looking at, then the boat
   const cx = size / 2, cy = size / 2, a0 = (look - hfov / 2 - 90) * Math.PI / 180, a1 = (look + hfov / 2 - 90) * Math.PI / 180;
@@ -774,8 +916,8 @@ function drawChart(pos, course, look, hfov) {
   // north arrow and scale
   c.fillStyle = '#1d2a30'; c.font = '600 11px "Source Sans 3", system-ui, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'top';
   c.fillText('N', 14, 4); c.beginPath(); c.moveTo(14, 17); c.lineTo(10, 25); c.lineTo(18, 25); c.closePath(); c.fill();
-  const bar = pxPerNm * 0.5; c.fillRect(size - 10 - bar, size - 12, bar, 2.5);
-  c.textAlign = 'right'; c.textBaseline = 'bottom'; c.font = '500 10px "JetBrains Mono", monospace'; c.fillText('0.5 nm', size - 10, size - 14);
+  const bar = pxPerNm * 2; c.fillRect(size - 10 - bar, size - 12, bar, 2.5);
+  c.textAlign = 'right'; c.textBaseline = 'bottom'; c.font = '500 10px "JetBrains Mono", monospace'; c.fillText('2 nm', size - 10, size - 14);
   c.strokeStyle = 'rgba(20,35,42,0.35)'; c.lineWidth = 1; c.strokeRect(0.5, 0.5, size - 1, size - 1);
 }
 
@@ -798,6 +940,9 @@ function frame() {
     posEl.value = (S / NM).toFixed(3);
   }
   else if (playing) { S += dt * 6 * NM / 3600 * Number(speedEl.value); if (S >= TOTAL) { S = TOTAL; setPlaying(false); } posEl.value = (S / NM).toFixed(3); }
+  if (anchor.state === 'up' && S >= TOTAL - 1) arrive();
+  else if (anchor.state !== 'up' && S < TOTAL - 50) raiseAnchor();
+  updateAnchor(dt);
   const pos = posAt(S), course = courseAt(S);
   if (t - lastTileCheck > 0.5) { lastTileCheck = t; updateTiles(pos[0], pos[1]); }
   smoothCourse = smoothCourse == null ? course : smoothCourse + (((course - smoothCourse + 540) % 360) - 180) * Math.min(1, dt * 1.5);
@@ -807,7 +952,9 @@ function frame() {
   camera.fov = 55 / zoom; camera.updateProjectionMatrix();
   const roll = Math.sin(t * 0.9) * 0.012;
   boat.rotation.set(Math.sin(t * 0.7) * 0.012, -THREE.MathUtils.degToRad(smoothCourse), roll * 2, 'YXZ');
-  camera.rotation.set(THREE.MathUtils.degToRad(pitch), -THREE.MathUtils.degToRad(yawOff), -roll * 1.6, 'YXZ');
+  const ease = camK * camK * (3 - 2 * camK);
+  camera.position.lerpVectors(TILLER, AT_MAST, ease);
+  camera.rotation.set(THREE.MathUtils.degToRad(pitch + (-38 - pitch) * ease), -THREE.MathUtils.degToRad(yawOff * (1 - ease)), -roll * 1.6, 'YXZ');
   for (const m of marks) {
     if (!m.fixedMark) { const d = Math.hypot(m.g.position.x - pos[0], m.g.position.z - pos[1]); m.g.scale.setScalar(Math.max(1, Math.min(6, d / 150))); m.g.position.y = Math.sin(t * 1.4 + m.phase) * 0.18; m.g.rotation.z = Math.sin(t * 1.1 + m.phase) * 0.06; m.g.rotation.x = Math.cos(t * 0.9 + m.phase) * 0.05; }
     if (m.lamp && m.fl) { const ph = (t + m.phase) % m.fl.per; m.lamp.visible = m.fl.fixed || (m.fl.iso ? ph < m.fl.per / 2 : ph < 0.45); }
@@ -845,12 +992,13 @@ try {
   ch.onmessage = (e) => {
     const m = e.data || {};
     if (m.routeId !== ROUTE.id) return;
+    if (!m.running && vjFollow && m.frac >= 0.999) S = TOTAL;   // journey complete: arrive
     vjFollow = m.running ? { frac: Math.max(0, Math.min(1, m.frac)) } : null;
     vjNote.hidden = !vjFollow;
     playBtn.disabled = !!vjFollow;
   };
 } catch (_) {}
-window.__helm3d = { scene, renderer, camera, tiles, updateTiles, posAt, TOTAL, wx, wz };   // console/testing hooks
+window.__helm3d = { scene, renderer, camera, tiles, updateTiles, posAt, TOTAL, wx, wz, frame, setS: v => { S = v; }, setLook: (y, p) => { yawOff = y; pitch = p; } };   // console/testing hooks
 }
 
 // No route chosen: list saved routes and the samples.
