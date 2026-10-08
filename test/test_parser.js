@@ -244,6 +244,10 @@ expect('empty-ish', 'um', 'UNKNOWN');
     ['go', 'UNKNOWN', null],
     ['sail', 'UNKNOWN', null],
     ['route to Herring Cove', 'AUTOROUTE_TO_PLACE', 'herring cove'],
+    // Multi-stop lists keep every stop (app.js _splitDestinationList splits them).
+    ['autoroute to Perry Creek, Stonington', 'AUTOROUTE_TO_PLACE', 'perry creek, stonington'],
+    ['autoroute to TS001-TS004', 'AUTOROUTE_TO_PLACE', 'ts001-ts004'],
+    ['autoroute to SP001, SP002, SP003, Camden Harbor, Bucks Harbor, Castine', 'AUTOROUTE_TO_PLACE', 'sp001, sp002, sp003, camden harbor, bucks harbor, castine'],
   ];
   for (const [text, intent, place] of cases) {
     const r = real.parseCommand(text);

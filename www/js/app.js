@@ -1161,6 +1161,10 @@ let _hazardCheckLayer       = null; // temporary markers from Check for Hazards
 let _lastHazardCheckedIdx   = -1;  // route idx of most recent hazard check, for auto-recheck after save
 let _autoRouteStart        = null;
 let _autoRouteEnd          = null;
+// Stops between start and _autoRouteEnd, in order — a typed destination list
+// ("Perry Creek, Stonington", "TS001-TS004"); see _resolveDestinationList.
+let _autoRouteVias         = [];
+let _autoRouteViaMarkers   = [];
 let _autoRouteName         = null;
 let _autoRouteStartMarker  = null;
 let _autoRouteEndMarker    = null;
@@ -4190,6 +4194,51 @@ function _showTextPrompt(title, placeholder = '', value = '', { allowEmpty = fal
   });
 }
 
+// Multi-stop AutoRoute (2026-10-08, direct request): a typed destination can
+// be a comma-separated list ("Perry Creek, Stonington", "SP001, SP002,
+// SP003") or a marker range ("TS001-TS004", also "TS1-4" / "TS001 to
+// TS004"), routed leg by leg into one route. A comma used to only mean
+// "X, Y" = the X near Y (Query's parseDisambiguated); that form now needs
+// the word: "Northeast Harbor, near Swans Island" stays one destination.
+function _splitDestinationList(query) {
+  const parts = [];
+  for (const raw of query.split(',')) {
+    const p = raw.trim();
+    if (!p) continue;
+    if (/^near\s/i.test(p) && parts.length) { parts[parts.length - 1] += `, ${p}`; continue; }
+    const r = p.match(/^([a-z]{2})\s*-?\s*(\d{1,4})\s*(?:-|–|to|through|thru)\s*(?:([a-z]{2})\s*-?\s*)?(\d{1,4})$/i);
+    if (r && (!r[3] || r[3].toUpperCase() === r[1].toUpperCase())) {
+      const a = parseInt(r[2], 10), b = parseInt(r[4], 10);
+      if (Math.abs(b - a) <= 50) {
+        const step = a <= b ? 1 : -1;
+        for (let n = a; n !== b + step; n += step) parts.push(r[1].toUpperCase() + String(n).padStart(3, '0'));
+        continue;
+      }
+    }
+    parts.push(p);
+  }
+  return parts;
+}
+
+// Resolves every stop of a destination list (saved markers by name first —
+// TS003, SP001, AS005 — then places), in order. null if any one fails; the
+// miss has already been announced.
+async function _resolveDestinationList(query) {
+  const out = [];
+  for (const name of _splitDestinationList(query)) {
+    const mk = _markerByName(name);
+    if (mk?.missing) {
+      const msg = `No marker called ${mk.name}.`;
+      setStatus(msg); TTS.sayImmediate(msg);
+      return null;
+    }
+    const d = mk || await _resolveNamedDestination(name);
+    if (!d) return null;
+    out.push({ lat: d.lat, lon: d.lon, name: mk ? mk.name : (d.name || name) });
+  }
+  return out.length ? out : null;
+}
+
 // Resolves a typed place/waypoint name to a destination point — shared by
 // Draw Route's own "Name" button and the Location-tile/right-click "Route
 // from here" pending-destination flow (see route-dest-name-btn below).
@@ -4430,6 +4479,9 @@ let _disarmPendingRouteDestinationFn = null;
 
 function _clearAutoRoute() {
   _autoRouteStart = _autoRouteEnd = _autoRouteName = null;
+  _autoRouteVias = [];
+  _autoRouteViaMarkers.forEach(m => m.remove());
+  _autoRouteViaMarkers = [];
   if (_autoRouteStartMarker)  { _autoRouteStartMarker.remove();  _autoRouteStartMarker  = null; }
   if (_autoRouteEndMarker)    { _autoRouteEndMarker.remove();    _autoRouteEndMarker    = null; }
   if (_autoRoutePreviewLayer) { _autoRoutePreviewLayer.remove(); _autoRoutePreviewLayer = null; }
@@ -9691,12 +9743,19 @@ function _ensureMap() {
     const name  = _autoRouteName;
     const start = _autoRouteStart;
     const end   = _autoRouteEnd;
-    if (await _blockedByCoverage(start, end, 'Auto Route')) return;
+    const vias  = _autoRouteVias;
+    // A destination list routes leg by leg into ONE saved route (each leg
+    // starts where the last one actually ended, in case its stop was moved
+    // off shallow water).
+    const stops = [start, ...vias, end];
+    for (let i = 0; i + 1 < stops.length; i++) {
+      if (await _blockedByCoverage(stops[i], stops[i + 1], 'Auto Route')) return;
+    }
     setStatus(`Planning "${name}"…`);
 
     if (_autoRoutePreviewLayer) { _autoRoutePreviewLayer.remove(); _autoRoutePreviewLayer = null; }
     _autoRoutePreviewLayer = L.polyline(
-      [[start.lat, start.lon], [end.lat, end.lon]],
+      stops.map(p => [p.lat, p.lon]),
       { color: '#3399ff', weight: 3, dashArray: '8 6', opacity: 0.9 }
     ).addTo(_map);
 
@@ -9712,15 +9771,26 @@ function _ensureMap() {
     // console.log, which made a relocated destination look like the router
     // just missed it. See INCIDENTS.md.
     const snapEvents = [];
-    let pts;
+    const pts = [];
+    const fallbackSegs = [];
+    let timedOut = false;
     try {
-      pts = await Router.autoRouteProg(start, end,
-        (path) => _autoRoutePreviewLayer.setLatLngs(path.map(p => [p.lat, p.lon])),
-        (t) => { const el = optOverlay.querySelector('.optimizing-text'); if (el) el.textContent = t; },
-        false, _currentDraftFt(), _tideHeight, _makeSearchDotCallback(),
-        (which, snap) => snapEvents.push({ which, ...snap }),
-        _currentDeadlineMs()
-      );
+      for (let i = 0; i + 1 < stops.length; i++) {
+        const from = pts.length ? pts[pts.length - 1] : stops[i];
+        const legPts = await Router.autoRouteProg(from, stops[i + 1],
+          (path) => _autoRoutePreviewLayer.setLatLngs([...pts, ...path, ...stops.slice(i + 2)].map(p => [p.lat, p.lon])),
+          (t) => { const el = optOverlay.querySelector('.optimizing-text'); if (el) el.textContent = stops.length > 2 ? `Leg ${i + 1} of ${stops.length - 1}: ${t}` : t; },
+          false, _currentDraftFt(), _tideHeight, _makeSearchDotCallback(),
+          (which, snap) => snapEvents.push({ which, stop: which === 'end' ? i + 1 : i, ...snap }),
+          _currentDeadlineMs()
+        );
+        if (legPts.length <= 2 && Query.landBlocks(legPts[0].lon, legPts[0].lat, legPts[1].lon, legPts[1].lat)) {
+          fallbackSegs.push({ a: legPts[0], b: legPts[1], legIndex: Math.max(0, pts.length - 1) });
+          if (legPts._timedOut) timedOut = true;
+        }
+        const joins = pts.length && legPts[0].lat === from.lat && legPts[0].lon === from.lon;
+        pts.push(...(joins ? legPts.slice(1) : legPts));
+      }
     } catch (err) {
       optOverlay.remove();
       console.error('[autoRoute] error:', err);
@@ -9731,8 +9801,9 @@ function _ensureMap() {
     optOverlay.remove();
 
     _routeSnapMarkers.forEach(m => m.remove());
+    const stopLabel = (k) => k === 0 ? 'start' : k === stops.length - 1 ? 'destination' : (stops[k].name || `stop ${k}`);
     _routeSnapMarkers = snapEvents.map(s => {
-      const label = s.which === 'end' ? 'destination' : 'start';
+      const label = stopLabel(s.stop);
       return L.circleMarker([s.lat, s.lon], {
         radius: 7, color: '#ffaa00', fillColor: '#ffaa00', fillOpacity: 0.75, weight: 2,
       }).addTo(_map).bindTooltip(
@@ -9743,9 +9814,10 @@ function _ensureMap() {
     // The orange dot alone was easy to miss — a route that silently stops
     // well short of the marker reads as "it worked" (Carvers Harbor,
     // 2026-10-06: ended 0.65 nm outside the harbor with no message). Say it.
-    const endMove = snapEvents.find(s => s.which === 'end' && s.movedNm >= 0.1);
-    if (endMove) {
-      const msg = `The route ends ${endMove.movedNm.toFixed(1)} nautical miles short of the destination — it's on land or too shallow there for a ${_currentDraftFt()} ft draft at the current tide.`;
+    for (const endMove of snapEvents.filter(s => s.which === 'end' && s.movedNm >= 0.1)) {
+      const msg = endMove.stop === stops.length - 1
+        ? `The route ends ${endMove.movedNm.toFixed(1)} nautical miles short of the destination — it's on land or too shallow there for a ${_currentDraftFt()} ft draft at the current tide.`
+        : `The route stops ${endMove.movedNm.toFixed(1)} nautical miles short of ${stopLabel(endMove.stop)} — it's on land or too shallow there for a ${_currentDraftFt()} ft draft at the current tide.`;
       setStatus(msg);
       showResponse(msg);
       if (endMove.movedNm >= 0.25) TTS.sayImmediate(msg);
@@ -9764,7 +9836,6 @@ function _ensureMap() {
     // planned" via TTS even when autoRoute had silently given up and
     // returned the raw straight line — actively announcing false success,
     // worse than staying silent. See the matching comment there.
-    const fellBack = pts.length <= 2 && Query.landBlocks(pts[0].lon, pts[0].lat, pts[1].lon, pts[1].lat);
     const marginalSeg = pts.length > 2 ? _marginalLegFromPath(pts) : null;
     const found = _enterEditMode(newIdx);
 
@@ -9777,8 +9848,8 @@ function _ensureMap() {
     // comment in _onDrawConfirm: AutoRoute plotting stays quiet except for
     // a genuine danger, never for routine success or a shallow-water
     // relocation note (still visible on the map via the orange snap marker).
-    if (fellBack) {
-      _showRouteFallbackWarning([{ a: pts[0], b: pts[1], legIndex: 0 }], pts._timedOut ? () => {
+    if (fallbackSegs.length) {
+      _showRouteFallbackWarning(fallbackSegs, timedOut ? () => {
         // Retry re-plans the identical start/end/name at the raised limit —
         // remove the straight-line fallback route this attempt just saved
         // first, so a retry doesn't leave a duplicate/broken route behind
@@ -9794,13 +9865,13 @@ function _ensureMap() {
         if (_editMode && _editRouteIdx === newIdx) _exitEditMode();
         _refreshSavedRouteLayers();
         _populateRouteSelectFn?.();
-        _autoRouteName = name; _autoRouteStart = start; _autoRouteEnd = end;
+        _autoRouteName = name; _autoRouteStart = start; _autoRouteEnd = end; _autoRouteVias = vias;
         _triggerAutoRoute();
       } : null);
     } else if (marginalSeg) {
       _showRouteFallbackWarning([marginalSeg]);
     } else if (!found.length) {
-      setStatus(`${name} planned — ${totalNm.toFixed(1)} nm.`);
+      setStatus(`${name} planned — ${totalNm.toFixed(1)} nm${vias.length ? `, ${vias.length + 1} legs` : ''}.`);
     }
   }
 
@@ -9835,7 +9906,7 @@ function _ensureMap() {
   // request: no name prompt, no arming a second tap for the destination.
   // Start is wherever GPS says the boat actually is right now; destination
   // is the pin whose popup this was opened from.
-  function _autoRouteFromBoatToHere(lat, lon) {
+  function _autoRouteFromBoatToHere(lat, lon, vias = []) {
     const pos = GPS.getPosition();
     if (!pos) {
       const msg = 'No GPS fix yet — cannot auto-route from the boat’s position.';
@@ -9847,8 +9918,9 @@ function _ensureMap() {
     // marker you're zoomed in on), frame both first so the new route is
     // actually visible. Left alone when both are already in view.
     const view = _map.getBounds();
-    if (!view.contains([pos.lat, pos.lon]) || !view.contains([lat, lon])) {
-      _map.fitBounds(L.latLngBounds([[pos.lat, pos.lon], [lat, lon]]), { padding: [80, 80], maxZoom: 13 });
+    const all = [[pos.lat, pos.lon], ...vias.map(v => [v.lat, v.lon]), [lat, lon]];
+    if (!all.every(ll => view.contains(ll))) {
+      _map.fitBounds(L.latLngBounds(all), { padding: [80, 80], maxZoom: 13 });
     }
     _autoRouteName = _nextRouteName();
     _autoRouteStart = { lat: pos.lat, lon: pos.lon };
@@ -9856,7 +9928,7 @@ function _ensureMap() {
     _autoRouteStartMarker = L.circleMarker([pos.lat, pos.lon], {
       radius: 8, color: '#00cc44', fillColor: '#00cc44', fillOpacity: 0.8, weight: 2,
     }).addTo(_map).bindTooltip(`${escapeHtml(_autoRouteName)} — start`, { permanent: false });
-    _setRouteDestination(lat, lon);
+    _setRouteDestination(lat, lon, vias);
   }
   _autoRouteFromBoatToHereFn = _autoRouteFromBoatToHere;
 
@@ -9865,9 +9937,15 @@ function _ensureMap() {
   // button, and the typed-name destination flow below — same
   // set-the-endpoint-and-route flow, just several different ways of
   // supplying the destination point.
-  function _setRouteDestination(lat, lon) {
+  // vias: stops before this destination, in order (a typed destination list).
+  function _setRouteDestination(lat, lon, vias = []) {
     _disarmPendingRouteDestination();
     _autoRouteEnd = { lat, lon };
+    _autoRouteVias = vias;
+    _autoRouteViaMarkers.forEach(m => m.remove());
+    _autoRouteViaMarkers = vias.map((v, k) => L.circleMarker([v.lat, v.lon], {
+      radius: 7, color: '#cc2200', fillColor: '#ffffff', fillOpacity: 0.9, weight: 2,
+    }).addTo(_map).bindTooltip(`${escapeHtml(_autoRouteName || 'Route')} — stop ${k + 1}: ${escapeHtml(v.name || '')}`, { permanent: false }));
     if (_autoRouteEndMarker) _autoRouteEndMarker.remove();
     _autoRouteEndMarker = L.circleMarker([lat, lon], {
       radius: 8, color: '#cc2200', fillColor: '#cc2200', fillOpacity: 0.8, weight: 2,
@@ -9925,11 +10003,12 @@ function _ensureMap() {
     // browser/webview's dialog-spam protection on a quick repeat trigger,
     // which this button (re-armable via Cancel + Autoroute again) is just
     // as exposed to. Matches the pattern already fixed there.
-    const query = await _showTextPrompt('Destination — place or waypoint name:');
+    const query = await _showTextPrompt('Destination — place or waypoint name (several: comma-separated, or a range like TS001-TS004):');
     if (!query) return;
-    const dest = await _resolveNamedDestination(query);
-    if (!dest) return;
-    _setRouteDestination(dest.lat, dest.lon);
+    const dests = await _resolveDestinationList(query);
+    if (!dests) return;
+    const dest = dests.pop();
+    _setRouteDestination(dest.lat, dest.lon, dests);
   });
   document.getElementById('route-dest-cancel-btn').addEventListener('click', () => {
     const name = _autoRouteName;
@@ -12805,6 +12884,17 @@ async function handleCommand(transcript) {
         // name is shared by several places; moves an on-land name onto
         // nearby water). Text-only acknowledgement — AutoRoute plotting
         // stays quiet except for real danger warnings.
+        // Several stops ("autoroute to Perry Creek, Stonington", "… to
+        // TS001-TS004"): one route through all of them, in order.
+        if (_splitDestinationList(params.placeName).length > 1) {
+          if (!_autoRouteFromBoatToHereFn) { response = { text: 'Open the map first, then try again.', speech: '' }; break; }
+          const dests = await _resolveDestinationList(params.placeName);
+          if (!dests) { response = { text: `Couldn't resolve "${params.placeName}".`, speech: '' }; break; }
+          const last = dests.pop();
+          _autoRouteFromBoatToHereFn(last.lat, last.lon, dests);
+          response = { text: `AutoRoute via ${[...dests, last].map(d => d.name).join(', ')}…`, speech: '' };
+          break;
+        }
         const mk = _markerByName(params.placeName);
         if (mk?.missing) { response = { text: `No marker called ${mk.name}.`, speech: `No marker called ${mk.name}.` }; break; }
         if (mk) {

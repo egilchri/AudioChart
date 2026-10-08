@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-08 — AutoRoute to several stops in one go (v818)
+
+A typed AutoRoute destination can now be a list: "Perry Creek,
+Stonington", "SP001, SP002, SP003", or a marker range "TS001-TS004"
+(also "TS1-4", "TS001 to TS004"). Works in the route-destination Name
+box and the command line ("autoroute to Owls Head, Camden"). Each stop
+is resolved the usual way (saved markers first, then places, on-land
+names moved to water), routed leg by leg, and saved as ONE route; each
+leg starts where the last actually ended. Fallback/"ends short" warnings
+name the leg or stop concerned. Change: a comma no longer means "X near
+Y" on its own — write "Northeast Harbor, near Swans Island" for that.
+
 ## 2026-10-08 — AutoRoute: "other nearby water" no longer jumps across an island (v817)
 
 Found while testing v816. On the Somes Sound → west-side-of-MDI leg, the

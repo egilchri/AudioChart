@@ -493,7 +493,7 @@ const PATTERNS = [
   // me to the Castine town dock", "route to Stonington", "take me to …",
   // "plot a course to …", "navigate to …".
   {
-    re: /^(?:please\s+|ok(?:ay)?\s+|hey\s+)?(?:auto\s*-?\s*route|route|plot\s+(?:a\s+)?(?:route|course)|plan\s+(?:a\s+)?route|take\s+me|navigate|sail|go)\s+(?:me\s+)?to\s+(?:the\s+)?(.{2,60}?)[.!?\s]*$/i,
+    re: /^(?:please\s+|ok(?:ay)?\s+|hey\s+)?(?:auto\s*-?\s*route|route|plot\s+(?:a\s+)?(?:route|course)|plan\s+(?:a\s+)?route|take\s+me|navigate|sail|go)\s+(?:me\s+)?to\s+(?:the\s+)?(.{2,160}?)[.!?\s]*$/i,
     intent: 'AUTOROUTE_TO_PLACE',
     extract: (m) => ({ placeName: m[1].trim() }),
   },
