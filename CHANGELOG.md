@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-08 — Tooltips on every Node Ops button (v821)
+
+Direct request. Every Node Ops button now shows its description in a
+bubble straight away, on mouse hover as well as on tap (before: the
+browser's own title tooltip, after a delay, on mouse only; tap bubbles
+on five of the seven). Simplify and Re-route were missing the tap
+bubble. The bubble flips below the button when there's no room above.
+Same change applies to the edit toolbar's buttons, which share the
+helper.
+
 ## 2026-10-08 — Simplify button for saved routes (v820)
 
 Direct request. Route edit toolbar has a new ✂ Simplify button that runs

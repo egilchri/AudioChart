@@ -1629,27 +1629,41 @@ function _addSwipeToClose(el, closeFn, axis = 'x', excludeSelector = null) {
 // creating/destroying a fresh element per tap.
 let _tapTooltipEl = null;
 let _tapTooltipTimer = null;
+// Also shown on mouse hover (2026-10-08, direct request: tooltips for each
+// Node Ops button) — straight away rather than after the browser's own
+// ~1s title delay. The title moves to data-tip so the native tooltip
+// doesn't pop up on top of this one; aria-label keeps it for screen readers.
 function _addTapTooltip(btn) {
   const text = btn.getAttribute('title');
   if (!text) return;
-  btn.addEventListener('touchstart', () => {
+  btn.dataset.tip = text;
+  btn.removeAttribute('title');
+  if (!btn.hasAttribute('aria-label')) btn.setAttribute('aria-label', text);
+  const show = (autoHide) => {
     if (!_tapTooltipEl) {
       _tapTooltipEl = document.createElement('div');
       _tapTooltipEl.className = 'btn-tap-tooltip';
       document.body.appendChild(_tapTooltipEl);
     }
     clearTimeout(_tapTooltipTimer);
-    _tapTooltipEl.textContent = text;
+    _tapTooltipEl.textContent = btn.dataset.tip;
     _tapTooltipEl.style.display = 'block';
     const rect = btn.getBoundingClientRect();
     const bubbleRect = _tapTooltipEl.getBoundingClientRect();
     let left = rect.left + rect.width / 2 - bubbleRect.width / 2;
     left = Math.min(Math.max(4, left), window.innerWidth - bubbleRect.width - 4);
-    const top = Math.max(4, rect.top - bubbleRect.height - 8);
+    // Above the button, or below it when there's no room above.
+    let top = rect.top - bubbleRect.height - 8;
+    if (top < 4) top = rect.bottom + 8;
     _tapTooltipEl.style.left = `${left}px`;
     _tapTooltipEl.style.top = `${top}px`;
-    _tapTooltipTimer = setTimeout(() => { _tapTooltipEl.style.display = 'none'; }, 1800);
-  }, { passive: true });
+    _tapTooltipTimer = autoHide ? setTimeout(() => { _tapTooltipEl.style.display = 'none'; }, 1800) : null;
+  };
+  btn.addEventListener('touchstart', () => show(true), { passive: true });
+  btn.addEventListener('mouseenter', (e) => { if (!e.sourceCapabilities?.firesTouchEvents) show(false); });
+  btn.addEventListener('mouseleave', () => {
+    if (_tapTooltipEl && !_tapTooltipTimer) _tapTooltipEl.style.display = 'none';
+  });
 }
 
 // Drag-to-reposition for floating panels, so they can be moved out of the way — grab
@@ -5534,7 +5548,8 @@ document.getElementById('edit-revert-btn').addEventListener('click', _revertEdit
 // description, same tap-tooltip wiring as the #edit-banner toolbar above
 // so that description is still reachable on a touch-only device now that
 // the word itself is gone from the button face.
-['etp-add-node', 'etp-insert-node', 'etp-delete', 'etp-overnight', 'etp-animate']
+['etp-add-node', 'etp-insert-node', 'etp-delete', 'etp-overnight', 'etp-animate',
+ 'etp-simplify', 'reroute-btn']
   .forEach(id => _addTapTooltip(document.getElementById(id)));
 document.getElementById('edit-info-btn').addEventListener('click', () => {
   let totalNm = 0;
