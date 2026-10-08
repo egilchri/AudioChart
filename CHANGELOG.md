@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-10-08 — 3D view inside the main window during Virtual Journey (v825)
+
+Direct request. Starting a Virtual Journey now shows the 3D helm view over
+the map (helm3d.html in embed mode, in an iframe: just the view and its
+corner chart, no header or playback controls), driven by the journey. The
+journey banner gains a ⛰ 3D / 🗺 Map button; the choice is remembered. It
+defaults to 3D on desktop and to the map on touch devices, until the 3D view
+has a tablet-grade quality setting. Stopping the journey closes the 3D view
+and frees its GPU memory; when the journey completes, the view stays up so
+the anchoring plays out, with a ✕ Close 3D view button. A 3D view that
+finishes loading asks the app for the journey's latest state (hello
+handshake), so one that loads after the journey has already arrived still
+anchors.
+
 ## 2026-10-08 — 3D view: anchoring at the end, wider corner chart (v824)
 
 Direct request. Reaching the end of the route in the 3D helm view (its own

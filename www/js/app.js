@@ -7178,6 +7178,7 @@ function _startVirtualJourney(route, speedKnots) {
   _vjRunning = true;
   _vjRunStartMs = Date.now();
   _vjRafId = setInterval(_vjStep, VJ_TICK_MS);
+  if (_vj3dWanted()) _showVj3d(route); else _syncVj3dBtn();
 }
 
 // A fixed-interval timer, not requestAnimationFrame — confirmed live that
@@ -7191,13 +7192,63 @@ function _startVirtualJourney(route, speedKnots) {
 // correct position, just updates the display less often.
 const VJ_TICK_MS = 200;
 
+// 3D helm view inside the main window during a Virtual Journey (v825, direct request: the 3D
+// view should replace the Virtual Journey display). helm3d.html runs in an iframe over the map
+// (embed mode: no header or playback controls, the journey drives it via _broadcastVj), above
+// the map's own controls and below the app's chrome and the journey banner. Toggled from the
+// banner; the choice is remembered. Defaults off on touch devices until the 3D view has a
+// tablet-grade quality setting. When the journey completes the view stays up so the anchoring
+// plays out, with a Close button; stopping the journey yourself closes it.
+const VJ3D_KEY = 'audiochart-vj3d';
+let _vj3dWrap = null;
+function _vj3dWanted() {
+  try { const v = localStorage.getItem(VJ3D_KEY); if (v) return v === 'on'; } catch (_) {}
+  return !matchMedia('(pointer: coarse)').matches;
+}
+function _syncVj3dBtn() {
+  const b = document.getElementById('vjourney-3d-btn');
+  if (b) b.textContent = _vj3dWrap && !_vj3dWrap.hidden ? '🗺 Map' : '⛰ 3D';
+}
+function _showVj3d(route) {
+  if (!_vj3dWrap) {
+    _vj3dWrap = document.createElement('div');
+    _vj3dWrap.id = 'vj3d-wrap';
+    _vj3dWrap.innerHTML = '<iframe title="3D helm view" allow="autoplay"></iframe><button type="button" class="vj3d-close" hidden>✕ Close 3D view</button>';
+    _vj3dWrap.querySelector('.vj3d-close').addEventListener('click', _hideVj3d);
+    const leaflet = document.getElementById('leaflet-map');
+    leaflet.parentElement.insertBefore(_vj3dWrap, leaflet.nextSibling);
+  }
+  const src = `./helm3d.html?route=${encodeURIComponent(route.id || route.name)}&embed=1`;
+  const frame = _vj3dWrap.querySelector('iframe');
+  if (!frame.src.endsWith(src.slice(1))) frame.src = src;
+  _vj3dWrap.querySelector('.vj3d-close').hidden = true;
+  _vj3dWrap.hidden = false;
+  _syncVj3dBtn();
+}
+function _hideVj3d() {
+  if (!_vj3dWrap) return;
+  _vj3dWrap.hidden = true;
+  _vj3dWrap.querySelector('iframe').src = 'about:blank';   // frees the GPU memory the 3D view holds
+  _syncVj3dBtn();
+}
+
 // Tells an open 3D helm view (helm3d.html) where the Virtual Journey is, as a fraction of
 // the route, so it can sail along with it.
-let _vjChannel = null;
+// A 3D view that finishes loading says hello; it gets the latest state back, so one that
+// loads after the journey has already arrived still anchors.
+let _vjChannel = null, _vjLastMsg = null;
+function _vjChan() {
+  if (!_vjChannel) {
+    _vjChannel = new BroadcastChannel('audiochart-vj');
+    _vjChannel.onmessage = (e) => { if (e.data?.hello && _vjLastMsg) _vjChannel.postMessage(_vjLastMsg); };
+  }
+  return _vjChannel;
+}
 function _broadcastVj(running) {
   try {
-    _vjChannel = _vjChannel || new BroadcastChannel('audiochart-vj');
-    if (_vjRoute) _vjChannel.postMessage({ routeId: _vjRoute.id || _vjRoute.name, running, frac: _vjTotalNm ? _vjTraveledNm / _vjTotalNm : 0 });
+    if (!_vjRoute) return;
+    _vjLastMsg = { routeId: _vjRoute.id || _vjRoute.name, running, frac: _vjTotalNm ? _vjTraveledNm / _vjTotalNm : 0 };
+    _vjChan().postMessage(_vjLastMsg);
   } catch (_) {}
 }
 
@@ -7214,6 +7265,7 @@ function _vjStep() {
     GPS.setVirtualPosition(last.lat, last.lon, finalSeg?.brg ?? 0, _vjSpeedKnots);
     const msg = `Virtual journey complete: ${_vjRoute.name}.`;
     setStatus(msg); TTS.sayImmediate(msg);
+    _vjCompleted = true;   // leave the 3D view up so the anchoring plays out
     _stopVirtualJourney();
     return;
   }
@@ -7248,7 +7300,13 @@ function _resumeVirtualJourney() {
   _vjRafId = setInterval(_vjStep, VJ_TICK_MS);
 }
 
+let _vjCompleted = false;
 function _stopVirtualJourney() {
+  const completed = _vjCompleted; _vjCompleted = false;
+  if (_vj3dWrap && !_vj3dWrap.hidden) {
+    if (completed) _vj3dWrap.querySelector('.vj3d-close').hidden = false;
+    else _hideVj3d();
+  }
   _vjRunning = false;
   if (_vjRafId) { clearInterval(_vjRafId); _vjRafId = null; }
   if (!_vjRoute) return; // nothing was actually running — safe to call as a guard
@@ -7286,6 +7344,11 @@ document.getElementById('vjourney-pause-btn').addEventListener('click', () => {
   if (_vjRunning) _pauseVirtualJourney(); else _resumeVirtualJourney();
 });
 document.getElementById('vjourney-stop-btn').addEventListener('click', _stopVirtualJourney);
+document.getElementById('vjourney-3d-btn').addEventListener('click', () => {
+  const on = !(_vj3dWrap && !_vj3dWrap.hidden);
+  try { localStorage.setItem(VJ3D_KEY, on ? 'on' : 'off'); } catch (_) {}
+  if (on && _vjRoute) _showVj3d(_vjRoute); else _hideVj3d();
+});
 document.getElementById('vjourney-close-btn').addEventListener('click', _stopVirtualJourney);
 
 // Show/hide this route on the map — the one control from its row in the

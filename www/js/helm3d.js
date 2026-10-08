@@ -21,6 +21,7 @@ const BREAKWATER = [[-69.08197, 44.11540], [-69.07751, 44.10410]];
 async function main() {
 // ── Route and region ────────────────────────────────────────────────────────
 const params = new URLSearchParams(location.search);
+if (params.get('embed')) document.body.classList.add('embed');   // inside AudioChart during a Virtual Journey
 const REGIONS = ['penobscot-bay', 'casco-bay', 'piscataqua'];
 async function getJSON(url) { const r = await fetch(url); if (!r.ok) throw new Error(`Could not load ${url}`); return r.json(); }
 async function findRoute() {
@@ -992,11 +993,12 @@ try {
   ch.onmessage = (e) => {
     const m = e.data || {};
     if (m.routeId !== ROUTE.id) return;
-    if (!m.running && vjFollow && m.frac >= 0.999) S = TOTAL;   // journey complete: arrive
+    if (!m.running && m.frac >= 0.999) S = TOTAL;   // journey complete: arrive
     vjFollow = m.running ? { frac: Math.max(0, Math.min(1, m.frac)) } : null;
     vjNote.hidden = !vjFollow;
     playBtn.disabled = !!vjFollow;
   };
+  ch.postMessage({ hello: true });   // ask the app where the journey is (it may already have arrived)
 } catch (_) {}
 window.__helm3d = { scene, renderer, camera, tiles, updateTiles, posAt, TOTAL, wx, wz, frame, setS: v => { S = v; }, setLook: (y, p) => { yawOff = y; pitch = p; } };   // console/testing hooks
 }

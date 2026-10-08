@@ -54,6 +54,12 @@ kbd { font-family: var(--mono); font-size: 0.8em; border: 1px solid var(--rule);
 .badge { font-family: var(--mono); font-size: 0.8rem; color: var(--brass); border: 1px solid var(--brass); border-radius: 4px; padding: 2px 6px; }
 #tileload { position: absolute; left: 12px; bottom: 12px; z-index: 2; font-size: 0.8rem; color: #f3f6f7; background: rgba(20,34,42,0.6); border-radius: 4px; padding: 3px 8px; }
 [hidden] { display: none !important; }
+/* embed=1: inside AudioChart's main window during a Virtual Journey — just the view */
+body.embed { background: #9db3c2; }
+body.embed .wrap { max-width: none; padding: 0; gap: 0; }
+body.embed header, body.embed .strip, body.embed .controls, body.embed .note, body.embed #chooser { display: none; }
+body.embed .scene { aspect-ratio: auto; height: 100vh; height: 100dvh; border-radius: 0; }
+body.embed #minichart { top: auto; bottom: 12px; right: 12px; }
 </style>
 </head>
 <body>
