@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-10-08 — AutoRoute drops unneeded waypoints on near-straight runs (v819)
+
+Direct request (Route 433, 96 points). After AutoRoute finds a route, a
+waypoint that only marks a near-straight bend is removed: under 15° of
+turn and within ~185 m of the straight line, or within ~25 m at any
+angle. A point is only dropped if the shortcut passes the router's own
+safety check (land, charted rocks, water too shallow for this draft and
+tide) and doesn't bring the route within ~46 m of shoal water (or any
+closer, if a replaced leg already was). Long passages get one more pass
+over the whole route, since the joins between their separately searched
+pieces sit on straight transit lines. Regression routes are 10–25%
+shorter in waypoints, all still passing. Route 433's own points: 96 →
+83. Most of what's left really is the route stepping round charted
+ledges and rocks, so it can't be dropped safely. New router export:
+simplifyRoutePath(path, draftFt, tideHeightM).
+
 ## 2026-10-08 — AutoRoute to several stops in one go (v818)
 
 A typed AutoRoute destination can now be a list: "Perry Creek,

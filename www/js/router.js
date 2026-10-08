@@ -92,6 +92,18 @@ export async function autoRouteProg(
   }
 }
 
+// Drops waypoints that only mark a near-straight bend from a finished
+// route, with the same safety checks the router itself uses (see
+// _simplifyStraightRuns). Every point must be water the route reaches;
+// endpoints are always kept.
+export async function simplifyRoutePath(path, draftFt = 5.0, tideHeightM = 0) {
+  if (!path || path.length <= 2) return path;
+  const lons = path.map(p => p.lon), lats = path.map(p => p.lat);
+  return _autoRouteCore(
+    { lat: Math.min(...lats), lon: Math.min(...lons) }, { lat: Math.max(...lats), lon: Math.max(...lons) },
+    () => {}, null, true, draftFt, tideHeightM, null, null, DEFAULT_DEADLINE_MS, 0.5, path);
+}
+
 // Session memory of endpoints whose nearest water turned out to be cut off
 // from the bay, and the substitute water that worked (2026-10-05). The first
 // route to such a place (e.g. Brooksville's town point → Snow Cove) still
@@ -201,7 +213,7 @@ async function _autoRouteWithRetries(start, end, onUpdate, onText, _escapeAttemp
 async function _autoRouteCore(
   start, end, onUpdate, onText = null, _escapeAttempted = false,
   draftFt = 5.0, tideHeightM = 0, onSearchProgress = null, onSnap = null,
-  deadlineMs = DEFAULT_DEADLINE_MS, padNm = 2.0,
+  deadlineMs = DEFAULT_DEADLINE_MS, padNm = 2.0, simplifyOnly = null,
 ) {
   // Visibility Graph + A* (Euclidean Shortest Path with Polygonal Obstacles).
   // Nodes: start, end, and polygon vertices in the padded bounding box.
@@ -335,13 +347,13 @@ async function _autoRouteCore(
   // Query.snapToNavigableWater's own comment for the real case this fixes.
   // Runs on every recursive call (long-range sub-legs, escape sub-legs)
   // too — cheap and a no-op whenever the point is already fine.
-  const snappedStart = Query.snapToNavigableWater(start.lon, start.lat, draftFt, tideHeightM);
+  const snappedStart = !simplifyOnly && Query.snapToNavigableWater(start.lon, start.lat, draftFt, tideHeightM);
   if (snappedStart) {
     console.log(`[autoRoute] start was charted too shallow — moved ${snappedStart.movedNm.toFixed(2)}nm to navigable water`);
     start = { lat: snappedStart.lat, lon: snappedStart.lon };
     onSnap?.('start', snappedStart);
   }
-  const snappedEnd = Query.snapToNavigableWater(end.lon, end.lat, draftFt, tideHeightM);
+  const snappedEnd = !simplifyOnly && Query.snapToNavigableWater(end.lon, end.lat, draftFt, tideHeightM);
   if (snappedEnd) {
     console.log(`[autoRoute] end was charted too shallow — moved ${snappedEnd.movedNm.toFixed(2)}nm to navigable water`);
     end = { lat: snappedEnd.lat, lon: snappedEnd.lon };
@@ -353,14 +365,24 @@ async function _autoRouteCore(
   // comment above LONG_RANGE_NM (defined after this function) for why more
   // time alone can't fix a route this long instead.
   const directNm = Query.distanceNm(start.lon, start.lat, end.lon, end.lat);
-  if (directNm > LONG_RANGE_NM) {
+  if (directNm > LONG_RANGE_NM && !simplifyOnly) {
     console.log(`[autoRoute] long-range passage: ${directNm.toFixed(1)}nm direct (> ${LONG_RANGE_NM}nm threshold) — decomposing instead of one visibility-graph search`);
     // Long-range's own overall envelope is a multiple of the per-leg
     // budget (matches the fixed 14000/42000 ~3x ratio this replaced) —
     // a passage that decomposes into several sequential per-leg searches
     // needs proportionally more total room, not a second independent
     // setting for the user to reason about.
-    return await _longRangeRoute(start, end, onUpdate, onText, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs, deadlineMs * 3);
+    const lr = await _longRangeRoute(start, end, onUpdate, onText, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs, deadlineMs * 3);
+    if (lr.length <= 2) return lr;
+    // Each sub-search cleaned up its own piece, but the joins between the
+    // pieces (bracket ends on a straight transit line) are still there:
+    // Route 433's crossings had 3-4 points within 5 degrees of one line.
+    // One check-only pass over the whole passage removes them, padded so
+    // obstacles just off the route are seen too.
+    const lons = lr.map(p => p.lon), lats = lr.map(p => p.lat);
+    return await _autoRouteCore(
+      { lat: Math.min(...lats), lon: Math.min(...lons) }, { lat: Math.max(...lats), lon: Math.max(...lons) },
+      onUpdate, onText, true, draftFt, tideHeightM, null, null, deadlineMs, 0.5, lr);
   }
 
   // ── Bounding box ───────────────────────────────────────────────────────────
@@ -845,6 +867,62 @@ async function _autoRouteCore(
   if (typeof process !== 'undefined' && process.env && process.env.DEBUG_SEGBLOCKED) {
     globalThis.__segBlockedFn = segBlocked;
   }
+
+  const SHALLOW_WARNING_NM = SHOAL_STANDOFF_NM * 0.5; // ~46m
+  // Drop waypoints that only mark a near-straight bend (direct request
+  // 2026-10-08, Route 433: 96 points, many a few degrees off a straight
+  // line). Greedy, smallest offset first, re-measured against the new
+  // neighbours after each drop so a long gentle curve round a headland
+  // keeps its real bends. A point only goes if the shortcut passes the
+  // same segBlocked check the search used (land, rocks, drying/too-shallow
+  // water for this draft and tide) and doesn't bring the route within
+  // SHALLOW_WARNING_NM of shoal water (or any closer, if a replaced leg
+  // already was). Land-standoff-flagged
+  // (marginal) points stay, so their warning still shows.
+  const SIMPLIFY_MAX_TURN_DEG = 15, SIMPLIFY_MAX_OFFSET_NM = 0.1, SIMPLIFY_ANY_TURN_NM = 0.0135; // ~185m, ~25m
+  function _simplifyStraightRuns(path) {
+    const kx = Math.cos(path[0].lat * Math.PI / 180);
+    const offsetNm = (p, a, b) => {
+      const bx = (b.lon - a.lon) * kx * 60, by = (b.lat - a.lat) * 60;
+      const px = (p.lon - a.lon) * kx * 60, py = (p.lat - a.lat) * 60;
+      const L2 = bx * bx + by * by;
+      const t = L2 ? Math.max(0, Math.min(1, (px * bx + py * by) / L2)) : 0;
+      return Math.hypot(px - t * bx, py - t * by);
+    };
+    const turnDeg = (a, p, b) => {
+      const h1 = Math.atan2((p.lon - a.lon) * kx, p.lat - a.lat);
+      const h2 = Math.atan2((b.lon - p.lon) * kx, b.lat - p.lat);
+      return Math.abs(((h2 - h1) * 180 / Math.PI + 540) % 360 - 180);
+    };
+    const clearance = (a, b) => _shoalClearanceNm(a.lon, a.lat, b.lon, b.lat,
+      (vx, vy) => _passesNearRouteEndpoint(vx, vy, a.lon, a.lat, b.lon, b.lat));
+    const pts = path.slice();
+    const rejected = new Set(); // shortcuts already found unsafe — don't re-test
+    for (;;) {
+      let best = -1, bestOff = Infinity;
+      for (let i = 1; i < pts.length - 1; i++) {
+        const a = pts[i - 1], p = pts[i], b = pts[i + 1];
+        if (p.marginal || rejected.has(`${a.lon},${a.lat}|${p.lon},${p.lat}|${b.lon},${b.lat}`)) continue;
+        const off = offsetNm(p, a, b);
+        if (off >= bestOff) continue;
+        if (off <= SIMPLIFY_ANY_TURN_NM || (off <= SIMPLIFY_MAX_OFFSET_NM && turnDeg(a, p, b) <= SIMPLIFY_MAX_TURN_DEG)) {
+          best = i; bestOff = off;
+        }
+      }
+      if (best < 0) break;
+      const a = pts[best - 1], p = pts[best], b = pts[best + 1];
+      const ok = !segBlocked(a.lon, a.lat, b.lon, b.lat)
+        && clearance(a, b) >= Math.min(SHALLOW_WARNING_NM, clearance(a, p), clearance(p, b));
+      if (ok) pts.splice(best, 1);
+      else rejected.add(`${a.lon},${a.lat}|${p.lon},${p.lat}|${b.lon},${b.lat}`);
+    }
+    return pts;
+  }
+
+  // Check-only mode (see autoRouteProg's long-range branch): obstacles are
+  // set up for the finished route's own area — no search, just the cleanup.
+  if (simplifyOnly) return _simplifyStraightRuns(simplifyOnly);
+
 
   // Validates a candidate offset point actually landed in open water — a
   // fixed offset direction (e.g. "away from the ring's centroid") can be
@@ -1562,7 +1640,6 @@ async function _autoRouteCore(
   // the safe way between shoals), the part of a leg near the user's own
   // start/destination (ENDPOINT_SHALLOW_EXEMPT_NM, user's choice), and legs
   // whose real soundings confirm depth (_soundingsClearCrossing).
-  const SHALLOW_WARNING_NM = SHOAL_STANDOFF_NM * 0.5; // ~46m
   const _isChannelLeg = (a, b) => (Query.channelNeighbors?.(a.lon, a.lat) || [])
     .some(n => Math.abs(n.lon - b.lon) < 1e-9 && Math.abs(n.lat - b.lat) < 1e-9);
   function _flagShallowStandoffWarning(path) {
@@ -1581,7 +1658,7 @@ async function _autoRouteCore(
     }
   }
 
-  const finalPath = tracePath(1);
+  const finalPath = _simplifyStraightRuns(tracePath(1));
   _flagShallowStandoffWarning(finalPath);
   return finalPath;
 }
