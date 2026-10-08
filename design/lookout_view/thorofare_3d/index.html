@@ -1,4 +1,4 @@
-<title>Rockland to the Thorofare 3D</title>
+<title>Rockland to Perry Creek 3D</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
@@ -25,6 +25,9 @@ h1 { font-family: var(--display); font-weight: 600; font-size: 1.9rem; letter-sp
   text-shadow: 0 0 3px rgba(15,30,38,0.9), 0 0 1px rgba(15,30,38,1); padding-bottom: 6px; border-bottom: 0; }
 .lbl::after { content: ""; position: absolute; left: 50%; bottom: 0; width: 1px; height: 6px; background: rgba(255,255,255,0.6); }
 .lbl.buoy { font-family: var(--mono); font-weight: 500; font-size: 11px; }
+.scene #minichart { height: auto; }
+#minichart { position: absolute; right: 12px; top: 40px; width: clamp(130px, 17%, 210px); aspect-ratio: 1; border-radius: 6px; box-shadow: 0 2px 10px rgba(10,20,26,0.35); pointer-events: none; z-index: 2; }
+#minichart[hidden] { display: none; }
 #tape { position: absolute; left: 0; right: 0; top: 0; height: 28px; background: rgba(16,28,34,0.5); pointer-events: none; }
 #status[hidden], #labels[hidden], .lbl[hidden] { display: none; }
 #status { position: absolute; inset: 0; display: grid; place-items: center; color: #f3f6f7; font-family: var(--display); font-size: 1.3rem; letter-spacing: 0.04em; background: rgba(20,34,42,0.55); text-align: center; padding-inline: 16px; }
@@ -46,13 +49,14 @@ kbd { font-family: var(--mono); font-size: 0.8em; border: 1px solid var(--rule);
 
 <div class="wrap">
   <header>
-    <h1>Rockland to the Thorofare 3D</h1>
-    <p class="sub">Route 434 from the helm, leaving Rockland Harbor for the Fox Islands Thorofare. Built from USGS aerial photos (NAIP) and elevation, with buoys and lights from AudioChart's chart data.</p>
+    <h1>Rockland to Perry Creek 3D</h1>
+    <p class="sub">Your Perry Creek route from the tiller of a Cape Dory 25D: out of Rockland Harbor, across West Penobscot Bay, through the Fox Islands Thorofare and into Perry Creek. Built from USGS aerial photos (NAIP) and elevation, with buoys and lights from AudioChart's chart data.</p>
   </header>
 
   <div class="scene" id="scene">
     <canvas id="tapecv"></canvas>
     <div id="labels"></div>
+    <canvas id="minichart" aria-label="Chart showing the boat's position on the route"></canvas>
     <div id="status">Loading terrain and aerial photos (25 MB)…</div>
   </div>
 
@@ -75,9 +79,10 @@ kbd { font-family: var(--mono); font-size: 0.8em; border: 1px solid var(--rule);
       </select>
     </label>
     <label for="showlbl"><input id="showlbl" type="checkbox" checked> Labels</label>
+    <label for="showchart"><input id="showchart" type="checkbox" checked> Chart</label>
     <button id="reset" type="button">Look ahead</button>
   </div>
-  <p class="note">Drag the view to look around, scroll to zoom like binoculars, <kbd>Space</kbd> to play or pause. Eye height 2.5 m. Land is USGS elevation (10 m around Rockland and the Thorofare, 30 m beyond) with tree height added where the aerial photo shows forest, since the elevation data is bare earth. Photos are from USDA's NAIP survey, so moored boats and shadows are frozen as they were that summer. Buoys are drawn up to 6× real size at a distance so they stay visible. Rockland Breakwater isn't in the elevation data, so it's traced from the aerial photo. Desktop browser with WebGL needed.</p>
+  <p class="note">Drag the view to look around, scroll to zoom like binoculars, <kbd>Space</kbd> to play or pause. Eye height 2.0 m, seated at the tiller just to starboard of the centreline. Land is USGS elevation (10 m around Rockland and the Thorofare, 30 m beyond) with tree height added where the aerial photo shows forest, since the elevation data is bare earth. Photos are from USDA's NAIP survey, so moored boats and shadows are frozen as they were that summer. Buoys are drawn up to 6× real size at a distance so they stay visible. Rockland Breakwater isn't in the elevation data, so it's traced from the aerial photo. Desktop browser with WebGL needed.</p>
 </div>
 
 <script type="importmap">
@@ -97,7 +102,7 @@ window.addEventListener('error', e => fail('Something went wrong: ' + e.message)
 
 const LON0 = -68.87, LAT0 = 44.12, MX = 111320 * Math.cos(LAT0 * Math.PI / 180), MY = 111120;
 const wx = lon => (lon - LON0) * MX, wz = lat => -(lat - LAT0) * MY;
-const EYE = 2.5, NM = 1852;
+const EYE = 2.0, NM = 1852;   // seated at the tiller
 
 // Everything runs inside main() (no top-level await), so the page counts as loaded
 // and shows its loading message while the 24 MB of terrain and photos stream in.
@@ -216,14 +221,13 @@ function heightAt(lon, lat) {
 }
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
-renderer.setPixelRatio(Math.min(1.5, devicePixelRatio));
+renderer.setPixelRatio(Math.min(1.25, devicePixelRatio));
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 0.55;
 const sceneEl = document.getElementById('scene');
 sceneEl.prepend(renderer.domElement);
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(55, 2, 0.3, 80000);
-scene.add(camera);
 const HAZE = new THREE.Color(0xb9c9d3);
 scene.fog = new THREE.FogExp2(HAZE, 0.000075);
 
@@ -317,38 +321,116 @@ for (const p of [...patches, far]) for (const m of terrainMeshes(p)) scene.add(m
   window.__trees = spots.length + ' (' + spots.filter(s => s[3]).length + ' detailed)';
 }
 
-// The foredeck, pulpit and forestay, carried with the camera (seen from the helm).
+// Cape Dory 25D (Alberg design: 25 ft LOA, 8 ft beam), seen from the tiller. Boat frame:
+// y up from the waterline, -z forward, x to starboard; the helmsman's eye is at (0.35, EYE, 0).
 const bow = new THREE.Group();
 {
-  const deckShape = new THREE.Shape();
-  deckShape.moveTo(-1.55, 0); deckShape.quadraticCurveTo(-1.45, -3.6, 0, -6.2); deckShape.quadraticCurveTo(1.45, -3.6, 1.55, 0); deckShape.lineTo(-1.55, 0);
-  const deck = new THREE.Mesh(new THREE.ExtrudeGeometry(deckShape, { depth: 0.25, bevelEnabled: true, bevelThickness: 0.06, bevelSize: 0.06, bevelSegments: 2 }),
-    new THREE.MeshLambertMaterial({ color: 0xf2eee4, emissive: 0x2a2824 }));
-  deck.rotation.x = Math.PI / 2; bow.add(deck);
-  // cabin-top edge in the foreground and a hatch
-  const hatch = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.12, 0.75), new THREE.MeshLambertMaterial({ color: 0xc9c2b2 })); hatch.position.set(0, 0.06, -1.6); bow.add(hatch);
-  const cabin = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.5, 0.6), new THREE.MeshLambertMaterial({ color: 0xdcd6c8 })); cabin.position.set(0, 0.25, 0.1); bow.add(cabin);
-  // toe rail
-  const rail = new THREE.MeshLambertMaterial({ color: 0x8a5a33 });
-  const steel = new THREE.MeshLambertMaterial({ color: 0xb9c1c5 });
-  const sideCurve = s => new THREE.QuadraticBezierCurve3(new THREE.Vector3(s * 1.5, 0.05, 0), new THREE.Vector3(s * 1.42, 0.05, -3.6), new THREE.Vector3(0, 0.05, -6.1));
-  for (const s of [-1, 1]) bow.add(new THREE.Mesh(new THREE.TubeGeometry(sideCurve(s), 24, 0.05, 6), rail));
-  // pulpit: a U of tube round the stem at ~0.65 m
-  const pul = new THREE.CatmullRomCurve3([new THREE.Vector3(-1.05, 0.7, -4.0), new THREE.Vector3(-0.6, 0.72, -5.4), new THREE.Vector3(0, 0.72, -6.0), new THREE.Vector3(0.6, 0.72, -5.4), new THREE.Vector3(1.05, 0.7, -4.0)]);
-  bow.add(new THREE.Mesh(new THREE.TubeGeometry(pul, 40, 0.025, 6), steel));
-  for (const [x, z] of [[-1.05, -4.0], [1.05, -4.0], [-0.45, -5.6], [0.45, -5.6]]) {
-    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.7, 6), steel); leg.position.set(x, 0.35, z); bow.add(leg);
+  const M = c => new THREE.MeshLambertMaterial({ color: c });
+  const BUFF = M(0xe4d9bf), WHITE = M(0xf3f0e8), TEAK = M(0x93613a), BRONZE = M(0xa8743a), STEEL = M(0xc3cacf);
+  const SPAR = M(0xd8dcdf), COVER = M(0x22304d), GLASS = M(0x1d2a30);
+  const Z0 = -0.9, ZS = -5.0, L = ZS - Z0;                  // cockpit bulkhead → stem
+  const tOf = z => (z - Z0) / L;                             // 0 at cockpit, 1 at stem
+  const half = z => 1.2 * Math.sqrt(Math.max(0, 1 - Math.pow(Math.min(1, tOf(z)), 2.4)));
+  const sheer = z => 0.85 + 0.22 * Math.pow(Math.max(0, tOf(z)), 1.6);
+  const deckY = (z, x) => { const b = half(z) || 1e-3; return sheer(z) + 0.06 * (1 - Math.min(1, (x / b) ** 2)); };
+  // lofted surface helper: rows along z, columns across x
+  function loft(nz, nx, f, mat) {
+    const pos = [], idx = [];
+    for (let i = 0; i <= nz; i++) for (let j = 0; j <= nx; j++) pos.push(...f(i / nz, j / nx));
+    for (let i = 0; i < nz; i++) for (let j = 0; j < nx; j++) {
+      const a = i * (nx + 1) + j, b = a + 1, c = a + nx + 1, d = c + 1;
+      idx.push(a, c, b, b, c, d);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+    const m = new THREE.Mesh(g, mat); m.material.side = THREE.DoubleSide; return m;
   }
-  // lifelines aft from the pulpit
+  const zAt = u => Z0 + u * L;
+  // deck (buff non-skid) and white margin at the edge
+  bow.add(loft(48, 16, (u, v) => { const z = zAt(u), b = half(z), x = (v * 2 - 1) * b; return [x, deckY(z, x), z]; }, BUFF));
+  // topsides: white, from the sheer down to the waterline with a little flare
+  for (const s of [-1, 1]) bow.add(loft(48, 4, (u, v) => {
+    const z = zAt(u), b = half(z), y = sheer(z) * (1 - v); return [s * b * (1 - 0.12 * v), y, z];
+  }, WHITE));
+  // cabin trunk: rounded-front plan, sides leaning in slightly, cambered top
+  const TZ0 = Z0, TZ1 = -3.0, TL = TZ1 - TZ0;
+  const thw = z => { const t = (z - TZ0) / TL; return Math.min(half(z) - 0.3, 0.86) * Math.pow(Math.max(0, 1 - Math.pow(t, 6)), 0.5); };
+  const trunkBase = z => sheer(z) + 0.04, trunkTop = (z, x) => sheer(z) + 0.46 - 0.06 * ((z - TZ0) / TL) + 0.05 * (1 - Math.min(1, (x / (thw(z) || 1e-3)) ** 2));
+  const tz = u => TZ0 + u * TL;
+  bow.add(loft(36, 12, (u, v) => { const z = tz(u), w = thw(z) - 0.04, x = (v * 2 - 1) * w; return [x, trunkTop(z, x), z]; }, BUFF));
+  for (const s of [-1, 1]) bow.add(loft(36, 2, (u, v) => {
+    const z = tz(u), w = thw(z); return [s * (w - 0.04 * v), trunkBase(z) + v * (trunkTop(z, s * (w - 0.04)) - trunkBase(z)), z];
+  }, WHITE));
+  // bronze oval portlights, two each side
+  for (const s of [-1, 1]) for (const z of [-1.55, -2.3]) {
+    const w = thw(z), y = (trunkBase(z) + trunkTop(z, s * w)) / 2;
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.018, 6, 20), BRONZE); rim.scale.set(1, 0.5, 1);
+    rim.position.set(s * (w + 0.005), y, z); rim.rotation.y = Math.PI / 2; bow.add(rim);
+    const gl = new THREE.Mesh(new THREE.CircleGeometry(0.1, 16), GLASS); gl.scale.set(1, 0.5, 1);
+    gl.position.set(s * (w + 0.003), y, z); gl.rotation.y = s * Math.PI / 2; bow.add(gl);
+  }
+  // teak handrails along the cabin top
   for (const s of [-1, 1]) {
-    const ll = new THREE.Mesh(new THREE.TubeGeometry(new THREE.LineCurve3(new THREE.Vector3(s * 1.05, 0.7, -4.0), new THREE.Vector3(s * 1.5, 0.62, 0.3)), 2, 0.008, 4), steel); bow.add(ll);
+    const z0 = -1.15, z1 = -2.65, x = s * 0.58, y = trunkTop(-1.9, x) + 0.07;
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.035, Math.abs(z1 - z0)), TEAK); rail.position.set(x, y, (z0 + z1) / 2); bow.add(rail);
+    for (let k = 0; k <= 4; k++) { const z = z0 + (z1 - z0) * k / 4, p = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.07, 0.05), TEAK); p.position.set(x, y - 0.04, z); bow.add(p); }
   }
-  // forestay from the stem head up and aft to the masthead (out of view above)
-  const stay = new THREE.Mesh(new THREE.TubeGeometry(new THREE.LineCurve3(new THREE.Vector3(0, 0.15, -6.0), new THREE.Vector3(0, 14, 2.5)), 2, 0.006, 4), steel); bow.add(stay);
-  // eye 2.5 m above water; deck ~1.6 m below the eye, starting a little ahead of the helm
-  bow.position.set(0, -1.85, -3.0);
+  // companionway sliding hatch and its teak garage
+  const hatch = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.07, 0.6), WHITE); hatch.position.set(0, trunkTop(-1.2, 0) + 0.035, -1.2); bow.add(hatch);
+  for (const s of [-1, 1]) { const r = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.08, 0.75), TEAK); r.position.set(s * 0.38, trunkTop(-1.25, 0) + 0.03, -1.25); bow.add(r); }
+  // forward hatch on the foredeck
+  const fh = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.1, 0.5), WHITE); fh.position.set(0, deckY(-3.55, 0) + 0.05, -3.55); bow.add(fh);
+  const fhr = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.06, 0.56), TEAK); fhr.position.set(0, deckY(-3.55, 0) + 0.02, -3.55); bow.add(fhr);
+  // teak toe rails along the sheer
+  for (const s of [-1, 1]) {
+    const pts = []; for (let i = 0; i <= 30; i++) { const z = Z0 + (L + 0.02) * i / 30; pts.push(new THREE.Vector3(s * (half(z) - 0.02), sheer(z) + 0.04, z)); }
+    bow.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 40, 0.03, 5), TEAK));
+  }
+  // bronze bow chocks and a mooring cleat
+  for (const s of [-1, 1]) { const c = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.18), BRONZE); c.position.set(s * (half(-4.6) - 0.06), sheer(-4.6) + 0.07, -4.6); bow.add(c); }
+  const cleat = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.05, 0.22), BRONZE); cleat.position.set(0, deckY(-4.2, 0) + 0.04, -4.2); bow.add(cleat);
+  // spars: deck-stepped mast on the cabin top, boom with a navy sail cover over the cockpit
+  const MZ = -2.75, MTOP = 10.5, mastFoot = trunkTop(MZ, 0);
+  const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.065, MTOP - mastFoot, 12), SPAR); mast.position.set(0, (MTOP + mastFoot) / 2, MZ); bow.add(mast);
+  const BY = mastFoot + 1.2;
+  const boom = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 3.2, 10), SPAR); boom.rotation.x = Math.PI / 2; boom.position.set(0, BY, MZ + 1.6); bow.add(boom);
+  const cover = new THREE.Mesh(new THREE.CapsuleGeometry(0.11, 2.7, 4, 10), COVER); cover.rotation.x = Math.PI / 2; cover.position.set(0, BY + 0.11, MZ + 1.5); bow.add(cover);
+  // standing rigging (thin stainless wire)
+  const wire = (a, b, r = 0.006) => bow.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.LineCurve3(new THREE.Vector3(...a), new THREE.Vector3(...b)), 1, r, 4), STEEL));
+  const head = [0, MTOP, MZ];
+  wire(head, [0, sheer(ZS) + 0.12, ZS - 0.02]);                                   // forestay
+  for (const s of [-1, 1]) {
+    const cx = s * (half(MZ) - 0.05), cy = sheer(MZ) + 0.05;
+    wire([0, MTOP - 0.4, MZ], [cx, cy, MZ]);                                       // uppers
+    wire([0, 5.6, MZ], [cx, cy, MZ - 0.45]); wire([0, 5.6, MZ], [cx, cy, MZ + 0.45]);   // lowers
+    const spreader = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.04, 0.05), SPAR); spreader.position.set(s * 0.38, 5.6, MZ); bow.add(spreader);
+  }
+  // bow pulpit, stanchions and lifelines
+  const PH = 0.62;
+  const pul = new THREE.CatmullRomCurve3([[-0.62, -4.25], [-0.42, -4.75], [0, -5.12], [0.42, -4.75], [0.62, -4.25]].map(([x, z]) => new THREE.Vector3(x, sheer(z) + PH, z)));
+  bow.add(new THREE.Mesh(new THREE.TubeGeometry(pul, 40, 0.022, 6), STEEL));
+  for (const [x, z] of [[-0.62, -4.25], [0.62, -4.25], [-0.3, -4.95], [0.3, -4.95]]) {
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, PH, 6), STEEL); leg.position.set(x, sheer(z) + PH / 2, z); bow.add(leg);
+  }
+  const stz = [-3.3, -1.9, -0.6];
+  for (const s of [-1, 1]) {
+    const tops = [[s * 0.62, sheer(-4.25) + PH, -4.25]];
+    for (const z of stz) {
+      const x = s * (half(Math.min(z, Z0)) - 0.08), h = sheer(Math.min(z, Z0));
+      const st = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, PH, 6), STEEL); st.position.set(x, h + PH / 2, z); bow.add(st);
+      tops.push([x, h + PH, z]);
+    }
+    for (let k = 1; k < tops.length; k++) { wire(tops[k - 1], tops[k], 0.005); wire([tops[k - 1][0], tops[k - 1][1] - 0.3, tops[k - 1][2]], [tops[k][0], tops[k][1] - 0.3, tops[k][2]], 0.005); }
+  }
 }
-camera.add(bow);
+// The boat is its own object: it points along the course and pitches/rolls; the camera sits at
+// the tiller inside it, so looking around turns your head, not the boat.
+const boat = new THREE.Group();
+boat.add(bow);
+scene.add(boat);
+boat.add(camera);
+camera.position.set(0.35, EYE, 1.0);   // at the tiller, aft end of the cockpit
+
 
 // Water: ripple normals generated here (no image download), sky and shore reflected.
 function rippleNormals(size = 256) {
@@ -373,7 +455,7 @@ function rippleNormals(size = 256) {
   return t;
 }
 const water = new Water(new THREE.PlaneGeometry(120000, 120000), {
-  textureWidth: 768, textureHeight: 768, waterNormals: rippleNormals(),
+  textureWidth: 512, textureHeight: 512, waterNormals: rippleNormals(),
   sunDirection: sun.clone().normalize(), sunColor: 0xfff4e0, waterColor: 0x1f3c48, distortionScale: 1.2, fog: true,
 });
 water.rotation.x = -Math.PI / 2;
@@ -544,6 +626,72 @@ function drawTape(look, hfov) {
   c.fillStyle = '#e0a843'; c.beginPath(); c.moveTo(W / 2 - 6, 28); c.lineTo(W / 2 + 6, 28); c.lineTo(W / 2, 20); c.closePath(); c.fill();
 }
 
+// Corner chart: land/water raster from the same elevation the 3D view uses (so they agree),
+// north up, centred on the boat, with the route, buoys and the bearing you're looking along.
+const chartEl = document.getElementById('minichart'), cctx = chartEl.getContext('2d'), showChart = document.getElementById('showchart');
+showChart.addEventListener('change', () => { chartEl.hidden = !showChart.checked; });
+const CH = (() => {
+  const lons = meta.route.map(p => p[0]), lats = meta.route.map(p => p[1]);
+  const west = Math.min(...lons) - 0.06, east = Math.max(...lons) + 0.06, south = Math.min(...lats) - 0.045, north = Math.max(...lats) + 0.045;
+  const ppd = 7000, W = Math.round((east - west) * ppd), H = Math.round((north - south) * ppd);
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const c = cv.getContext('2d'), img = c.createImageData(W, H), d = img.data;
+  const land = new Uint8Array(W * H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) land[y * W + x] = heightAt(west + (x + 0.5) / ppd, north - (y + 0.5) / ppd) > 0.4 ? 1 : 0;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = y * W + x, o = i * 4;
+    const edge = land[i] && ((x > 0 && !land[i - 1]) || (x < W - 1 && !land[i + 1]) || (y > 0 && !land[i - W]) || (y < H - 1 && !land[i + W]));
+    const [r, g, b] = edge ? [120, 104, 74] : land[i] ? [236, 223, 190] : [200, 222, 234];
+    d[o] = r; d[o + 1] = g; d[o + 2] = b; d[o + 3] = 255;
+  }
+  c.putImageData(img, 0, 0);
+  return { cv, west, north, ppd };
+})();
+const routeLL = meta.route;
+function drawChart(pos, course, look, hfov) {
+  if (!showChart.checked) return;
+  const dpr = Math.min(2, devicePixelRatio), size = chartEl.clientWidth;
+  if (chartEl.width !== Math.round(size * dpr)) { chartEl.width = chartEl.height = Math.round(size * dpr); }
+  const c = cctx; c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const lon = pos[0] / MX + LON0, lat = -pos[1] / MY + LAT0;
+  const RANGE_NM = 1.2, pxPerNm = size / (2 * RANGE_NM);
+  const sx = pxPerNm * 60 * Math.cos(LAT0 * Math.PI / 180), sy = pxPerNm * 60;      // px per degree
+  const X = lo => size / 2 + (lo - lon) * sx, Y = la => size / 2 - (la - lat) * sy;
+  c.imageSmoothingEnabled = true;
+  c.fillStyle = 'rgb(200,222,234)'; c.fillRect(0, 0, size, size);
+  c.drawImage(CH.cv, X(CH.west), Y(CH.north), CH.cv.width / CH.ppd * sx, CH.cv.height / CH.ppd * sy);
+  // route ahead (dashed) and run so far (solid)
+  c.lineWidth = 2; c.strokeStyle = '#a5741f'; c.setLineDash([5, 4]); c.beginPath();
+  routeLL.forEach(([lo, la], i) => i ? c.lineTo(X(lo), Y(la)) : c.moveTo(X(lo), Y(la))); c.stroke(); c.setLineDash([]);
+  let acc = 0; c.lineWidth = 3; c.strokeStyle = '#7a4f0e'; c.beginPath(); c.moveTo(X(routeLL[0][0]), Y(routeLL[0][1]));
+  for (let i = 1; i < route.length; i++) {
+    const segLen = cum[i] - cum[i - 1];
+    if (acc + segLen >= S) { c.lineTo(X(lon), Y(lat)); break; }
+    c.lineTo(X(routeLL[i][0]), Y(routeLL[i][1])); acc += segLen;
+  }
+  c.stroke();
+  // buoys
+  for (const m of marks) {
+    if (m.kind !== 'buoy') continue;
+    const x = X(m.n.x), y = Y(m.n.y); if (x < -5 || y < -5 || x > size + 5 || y > size + 5) continue;
+    c.fillStyle = (m.n.c || '').startsWith('red') ? '#c23a2e' : (m.n.c || '').startsWith('green') ? '#2b8a4a' : '#555';
+    c.beginPath(); c.arc(x, y, 3, 0, 7); c.fill();
+  }
+  // what you're looking at, then the boat
+  const cx = size / 2, cy = size / 2, a0 = (look - hfov / 2 - 90) * Math.PI / 180, a1 = (look + hfov / 2 - 90) * Math.PI / 180;
+  c.fillStyle = 'rgba(214,162,74,0.22)'; c.beginPath(); c.moveTo(cx, cy); c.arc(cx, cy, size * 0.42, a0, a1); c.closePath(); c.fill();
+  c.save(); c.translate(cx, cy); c.rotate(course * Math.PI / 180);
+  c.fillStyle = '#1d2a30'; c.strokeStyle = '#fbfcf8'; c.lineWidth = 1.5;
+  c.beginPath(); c.moveTo(0, -9); c.quadraticCurveTo(5, -2, 4, 7); c.lineTo(-4, 7); c.quadraticCurveTo(-5, -2, 0, -9); c.closePath(); c.fill(); c.stroke();
+  c.restore();
+  // north arrow and scale
+  c.fillStyle = '#1d2a30'; c.font = '600 11px "Source Sans 3", system-ui, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'top';
+  c.fillText('N', 14, 4); c.beginPath(); c.moveTo(14, 17); c.lineTo(10, 25); c.lineTo(18, 25); c.closePath(); c.fill();
+  const bar = pxPerNm * 0.5; c.fillRect(size - 10 - bar, size - 12, bar, 2.5);
+  c.textAlign = 'right'; c.textBaseline = 'bottom'; c.font = '500 10px "JetBrains Mono", monospace'; c.fillText('0.5 nm', size - 10, size - 14);
+  c.strokeStyle = 'rgba(20,35,42,0.35)'; c.lineWidth = 1; c.strokeRect(0.5, 0.5, size - 1, size - 1);
+}
+
 function resize() {
   const w = sceneEl.clientWidth, h = sceneEl.clientHeight;
   renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
@@ -561,10 +709,11 @@ function frame() {
   smoothCourse = smoothCourse == null ? course : smoothCourse + (((course - smoothCourse + 540) % 360) - 180) * Math.min(1, dt * 1.5);
   const look = smoothCourse + yawOff;
   const bob = Math.sin(t * 1.1) * 0.12 + Math.sin(t * 0.63 + 1) * 0.08;
-  camera.position.set(pos[0], EYE + bob, pos[1]);
+  boat.position.set(pos[0], bob, pos[1]);
   camera.fov = 55 / zoom; camera.updateProjectionMatrix();
   const roll = Math.sin(t * 0.9) * 0.012;
-  camera.rotation.set(THREE.MathUtils.degToRad(pitch) + Math.sin(t * 0.7) * 0.006, -THREE.MathUtils.degToRad(look), roll, 'YXZ');
+  boat.rotation.set(Math.sin(t * 0.7) * 0.012, -THREE.MathUtils.degToRad(smoothCourse), roll * 2, 'YXZ');
+  camera.rotation.set(THREE.MathUtils.degToRad(pitch), -THREE.MathUtils.degToRad(yawOff), -roll * 1.6, 'YXZ');
   for (const m of marks) {
     if (!m.fixedMark) { const d = Math.hypot(m.g.position.x - pos[0], m.g.position.z - pos[1]); m.g.scale.setScalar(Math.max(1, Math.min(6, d / 150))); m.g.position.y = Math.sin(t * 1.4 + m.phase) * 0.18; m.g.rotation.z = Math.sin(t * 1.1 + m.phase) * 0.06; m.g.rotation.x = Math.cos(t * 0.9 + m.phase) * 0.05; }
     if (m.lamp && m.fl) { const ph = (t + m.phase) % m.fl.per; m.lamp.visible = m.fl.fixed || (m.fl.iso ? ph < m.fl.per / 2 : ph < 0.45); }
@@ -574,6 +723,7 @@ function frame() {
   updateLabels(pos);
   const hfov = 2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect) * 180 / Math.PI;
   drawTape(((look % 360) + 360) % 360, hfov);
+  drawChart(pos, (smoothCourse + 360) % 360, ((look % 360) + 360) % 360, hfov);
   document.getElementById('ro-cog').textContent = String(Math.round((smoothCourse + 360) % 360)).padStart(3, '0') + '° T';
   document.getElementById('ro-look').textContent = String(Math.round(((look % 360) + 360) % 360)).padStart(3, '0') + '° T';
   document.getElementById('ro-run').textContent = `${(S / NM).toFixed(1)}/${(TOTAL / NM).toFixed(1)} nm`;

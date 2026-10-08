@@ -30,3 +30,17 @@ The data files are not committed (≈12 MB, regenerable):
 - Buoys scale up with distance (×1 under 150 m, up to ×6).
 - No top-level await, and photos load via fetch + createImageBitmap, so the page's load event
   isn't held up by 24 MB of data. The artifact host still shows a blank frame for ~1 min on first load.
+
+## v3 (2026-10-08): Perry Creek route, Cape Dory 25D, corner chart
+
+- Route is the user's "Perry Creek" (saved 2026-10-08 19:48 UTC, 11 points, Rockland Harbor →
+  Fox Islands Thorofare → Perry Creek, Vinalhaven), copied into scene.json.
+- Boat is now its own object (points along the course, pitches/rolls); the camera sits inside it
+  at the tiller (0.35 m to starboard, 1 m aft of the cockpit bulkhead, eye 2.0 m), so looking
+  around turns your head, not the boat. Cape Dory 25D modelled from its published dimensions
+  (25 ft LOA, 8 ft beam): lofted deck with sheer and camber, cabin trunk with bronze oval
+  portlights and teak handrails, companionway and forward hatches, teak toe rails, deck-stepped
+  mast with spreaders, uppers and fore/aft lowers, boom with navy sail cover, bow pulpit,
+  stanchions and double lifelines.
+- Corner chart: north-up land/water raster built in the browser from the same elevation the 3D
+  view uses (so they agree), route ahead dashed, run so far solid, buoys, boat, view wedge.
