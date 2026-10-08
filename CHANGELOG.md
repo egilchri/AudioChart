@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-10-07 — Region land data: restore missing Mount Desert Island / Trenton tiles (v815)
+
+Real report: a route leg ran from the head of Somes Sound straight across
+Mount Desert Island. Cause: the penobscot-bay region's land.geojson was
+missing whole tiles — the northwest quarter of MDI west of Somes Sound,
+and all land north of about 44.4°N east of 68.4°W (Trenton, Lamoine,
+Hancock, upper Frenchman Bay) — so the router treated them as water.
+Re-extracted from the detailed charts (extract_land.py) for both boxes
+and spliced into the region file; data-version.json regenerated. That
+leg now gets the honest "couldn't avoid land — add a waypoint" warning
+instead of a silent straight line across the island.
+- New regression case [31].
+- Case [29] (Somes Sound → Belfast) turned out to have been "passing"
+  across 4.5 nm of the island; it now fails honestly and is non-gating
+  with an explanation.
+- Not fixed yet (see INCIDENTS.md 2026-10-07): the router can't yet plan
+  the long way round a big island, and the region's northeast corner
+  also lacks depth soundings and hazards — a router fix was held back so
+  it wouldn't route confidently through that data-less area.
+
 ## 2026-10-07 — ＋ Add: click the chart for the next end point (v814)
 
 Direct request: when choosing ＋ in Node Ops, clicking the chart should set

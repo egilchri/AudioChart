@@ -6,6 +6,48 @@ found, and what shipped, even when the root cause couldn't be confirmed.
 
 ---
 
+## 2026-10-07 — AutoRoute drew a route straight across Mount Desert Island as if it were water
+
+**What happened:** The user reported a route whose leg 90→91 ran from the
+head of Somes Sound about 3.5 nm due west, straight across Mount Desert
+Island, with no warning. They expected it to head back out of Somes Sound
+to the south.
+
+**Root cause (confirmed):** The penobscot-bay region's `land.geojson` (the
+land data the router uses in the bay) was missing whole tiles: the
+northwest quarter of Mount Desert Island west of Somes Sound, and all
+land north of about 44.4°N east of 68.4°W (Trenton, Lamoine, Hancock,
+upper Frenchman Bay). To the router that was open water, so the straight
+line was "clear". The bundled default land data had the land, which is
+how this was confirmed. The same corner also has no depth soundings or
+hazards in the region data (nearest sounding to Mount Desert Narrows is
+about 3 nm away). The region build seems never to have included the
+chart cells for that corner. Not yet fixed — see below.
+
+**Also found:** Regression case [29] (Somes Sound → Belfast Harbor) had
+been passing with a route that crossed 4.5 nm of Mount Desert Island. The
+suite checks land only against the same incomplete region data, so it
+couldn't see this.
+
+**What shipped (v815):** Land re-extracted from the detailed NOAA charts
+(`preprocess/extract_land.py`, the M_COVR-clipped version) for both boxes
+and spliced into the region file. This was not a full rebuild, because a
+full rebuild of detailed land broke tight-harbour routing before. Region
+`data-version.json` regenerated. New case [31] asserts the land is there
+and that this leg never comes back as a land-free straight line. Case [29]
+is now honestly failing and is marked non-gating with this explanation.
+
+**Still open:** (1) the router can't yet find the long way around a big
+island when that way lies far from the direct line. A last-resort retry
+that does find a water path exists (scratchpad `router_retryC.patch`) but
+was held back, because without depth data in the northeast corner it
+preferred Mount Desert Narrows — a route through an area with no depth or
+hazard data, presented as clear. (2) Rebuild the region's northeast corner
+(land, soundings, depth areas, hazards) from the right chart cells. (3)
+There is no bridge clearance data anywhere in the app.
+
+---
+
 ## 2026-09-29 — Service worker could silently hide real data updates behind a stale freshness check (all data files, not just this feature)
 
 **What happened:** v731/v732 shipped real buoy chart-data fixes (which
