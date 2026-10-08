@@ -633,7 +633,7 @@ async function main() {
   // Lamoine, Hancock), so a route from the head of Somes Sound to the west
   // side of MDI went straight across the island as "clear". Patched from the
   // detailed charts; these points must be land, and that leg must NOT come
-  // back as a land-free straight line.
+  // back as a land-free straight line, or start from water across the island.
   gate(await (async () => {
     Query.setActiveRegion('penobscot-bay');
     await Query.loadData(44.103, -69.088);
@@ -643,8 +643,11 @@ async function main() {
     const p = await Router.autoRouteProg({ lat: 44.365466, lon: -68.328266 }, { lat: 44.366706, lon: -68.409293 },
       () => {}, () => {}, false, 5.0, 0, null, null, DEADLINE_MS);
     const silentlyAcross = p.length <= 2 && !pathCrossesLand(Query, p);
-    const ok = missing.length === 0 && !silentlyAcross;
-    console.log(`[31] Region land covers Mount Desert Island / Trenton (no silent straight line across MDI): ${ok ? 'PASS' : 'FAIL'} (missing land at ${JSON.stringify(missing)}, ${p.length} pts, crossesLand=${pathCrossesLand(Query, p)})`);
+    // v816: nor may the start be silently swapped for "other nearby water"
+    // on the far side of the island (it jumped 2.7nm to Mount Desert Narrows).
+    const startJumpNm = Query.distanceNm(p[0].lon, p[0].lat, -68.328266, 44.365466);
+    const ok = missing.length === 0 && !silentlyAcross && startJumpNm < 0.5;
+    console.log(`[31] Region land covers Mount Desert Island / Trenton (no silent straight line across MDI): ${ok ? 'PASS' : 'FAIL'} (missing land at ${JSON.stringify(missing)}, ${p.length} pts, crossesLand=${pathCrossesLand(Query, p)}, start moved ${startJumpNm.toFixed(2)}nm)`);
     return { ok };
   })());
 

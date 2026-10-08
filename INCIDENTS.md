@@ -6,6 +6,33 @@ found, and what shipped, even when the root cause couldn't be confirmed.
 
 ---
 
+## 2026-10-08 — v816 made the Somes Sound leg silently start from Mount Desert Narrows, across the island
+
+**What happened:** Found in testing, never reported from the field. After
+v816 added the northeast-corner chart cells, the same leg 90→91 (head of
+Somes Sound → west side of MDI) stopped giving the honest "couldn't avoid
+land" warning. It came back as a clean 4-point route that started 2.7 nm
+away in Mount Desert Narrows, on the far side of the island. The jump from
+the real start was never drawn or checked.
+
+**Cause:** When an endpoint's water looks cut off, the router retries
+with "other nearby water" (Query.navigableWaterCandidates). That search
+walked each compass bearing outward up to 4 nm and stepped straight over
+land, so "nearby" could mean the far side of an island. The new depth data
+made the Somes Sound start count as too shallow, which triggered that
+retry for the first time on this leg.
+
+**Fix (v817):** Once a bearing has reached water it now stops at land
+(a pin dropped on land can still walk off it, so the Brooksville cases
+[24]/[25]/[28] still pass). The leg is back to the honest warning. Case [31]
+now also fails if the route starts more than 0.5 nm from the requested start.
+
+**Still open:** The proper fix for this leg is a real detour round the
+island (design/pending/router_retryC.patch). It still finds no path out of
+Somes Sound with the new data, so it is still held back.
+
+---
+
 ## 2026-10-07 — AutoRoute drew a route straight across Mount Desert Island as if it were water
 
 **What happened:** The user reported a route whose leg 90→91 ran from the

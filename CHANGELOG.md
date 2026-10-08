@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-08 — AutoRoute: "other nearby water" no longer jumps across an island (v817)
+
+Found while testing v816. On the Somes Sound → west-side-of-MDI leg, the
+router swapped the start for water 2.7 nm away in Mount Desert Narrows,
+across Mount Desert Island, and returned that route with no warning. The
+"other nearby water" search (navigableWaterCandidates) now stops each
+bearing at land once it has reached water, so the leg gets the honest
+"couldn't avoid land" warning again. Case [31] now checks that the route
+starts where it was asked to. See INCIDENTS.md 2026-10-08.
+
 ## 2026-10-08 — Region chart data: add the missing northeast-corner charts (v816)
 
 Follow-up to v815. The penobscot-bay region was built without 8 NOAA

@@ -1175,8 +1175,16 @@ export function navigableWaterCandidates(lon, lat, draftFt, tideHeightM, maxNm =
   const found = [];
   for (let i = 0; i < RAYS; i++) {
     const brg = (360 / RAYS) * i;
+    let prev = isLandAt(lon, lat) ? null : { lon, lat }; // last point of this ray known to be in water
     for (let d = STEP_NM; d <= maxNm; d += STEP_NM) {
       const p = offsetCoords(lat, lon, brg, d);
+      // Once a ray has reached water it stops at land: crossing shoals is
+      // the point of moving, but water on the far side of an island isn't
+      // "nearby" (2026-10-08: the head of Somes Sound got a candidate 2.7nm
+      // away in Mount Desert Narrows, across Mount Desert Island, and routed
+      // from there silently). A pin dropped on land may still walk off it.
+      if (prev && landBlocks(prev.lon, prev.lat, p.lon, p.lat)) break;
+      if (!isLandAt(p.lon, p.lat)) prev = p;
       if (isBlocked(p.lon, p.lat)) continue;
       const further = offsetCoords(lat, lon, brg, d + FORWARD_CHECK_NM);
       if (isBlocked(further.lon, further.lat)) continue;
