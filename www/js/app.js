@@ -8915,6 +8915,35 @@ function _ensureMap() {
         console.error('[reroute-btn]', err);
       });
   });
+  // Drops waypoints that only mark a near-straight bend from the route
+  // being edited — the same cleanup new AutoRoutes get (v819), for routes
+  // saved before it. Overnight stops are always kept.
+  document.getElementById('etp-simplify').addEventListener('click', async () => {
+    const btn = document.getElementById('etp-simplify');
+    if (!_editMode || _editPoints.length < 3 || btn.classList.contains('working')) return;
+    btn.classList.add('working');
+    const ui = _showRerouteOverlay(_editPoints);
+    ui.setText('Simplifying\u2026');
+    try {
+      const before = _editPoints.length;
+      const pts = await Router.simplifyRoutePath(_editPoints.map(_stripPoint), _currentDraftFt(), _tideHeight);
+      if (pts.length < before) {
+        _pushEditHistory();  // Undo brings the old waypoints back
+        _editPoints = pts;
+        _selectedEditNodeIdx.clear();
+        _renderEditLayers();
+        setStatus(`Simplified: ${before} \u2192 ${pts.length} waypoints.`);
+      } else {
+        setStatus('Nothing to simplify \u2014 every waypoint is needed.');
+      }
+    } catch (err) {
+      setStatus('Simplify failed.');
+      console.error('[etp-simplify]', err);
+    } finally {
+      ui.remove();
+      btn.classList.remove('working');
+    }
+  });
   document.getElementById('delete-route-btn').addEventListener('click', () => {
     if (!_editMode) return;
     const name = _editRouteName;

@@ -878,7 +878,8 @@ async function _autoRouteCore(
   // water for this draft and tide) and doesn't bring the route within
   // SHALLOW_WARNING_NM of shoal water (or any closer, if a replaced leg
   // already was). Land-standoff-flagged
-  // (marginal) points stay, so their warning still shows.
+  // (marginal) points stay, so their warning still shows, and so do
+  // overnight stops (simplifying a saved route).
   const SIMPLIFY_MAX_TURN_DEG = 15, SIMPLIFY_MAX_OFFSET_NM = 0.1, SIMPLIFY_ANY_TURN_NM = 0.0135; // ~185m, ~25m
   function _simplifyStraightRuns(path) {
     const kx = Math.cos(path[0].lat * Math.PI / 180);
@@ -902,7 +903,7 @@ async function _autoRouteCore(
       let best = -1, bestOff = Infinity;
       for (let i = 1; i < pts.length - 1; i++) {
         const a = pts[i - 1], p = pts[i], b = pts[i + 1];
-        if (p.marginal || rejected.has(`${a.lon},${a.lat}|${p.lon},${p.lat}|${b.lon},${b.lat}`)) continue;
+        if (p.marginal || p.overnight || rejected.has(`${a.lon},${a.lat}|${p.lon},${p.lat}|${b.lon},${b.lat}`)) continue;
         const off = offsetNm(p, a, b);
         if (off >= bestOff) continue;
         if (off <= SIMPLIFY_ANY_TURN_NM || (off <= SIMPLIFY_MAX_OFFSET_NM && turnDeg(a, p, b) <= SIMPLIFY_MAX_TURN_DEG)) {

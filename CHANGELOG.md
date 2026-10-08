@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-08 — Simplify button for saved routes (v820)
+
+Direct request. Route edit toolbar has a new ✂ Simplify button that runs
+v819's near-straight-waypoint cleanup on the route being edited, so
+routes saved before v819 can get it too. Same safety checks (current
+draft and tide); overnight stops are always kept; Undo restores the old
+waypoints. Status line reports "Simplified: N → M waypoints" or that
+nothing could go.
+
 ## 2026-10-08 — AutoRoute drops unneeded waypoints on near-straight runs (v819)
 
 Direct request (Route 433, 96 points). After AutoRoute finds a route, a

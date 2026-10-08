@@ -1233,7 +1233,7 @@ body.wco-active #wco-titlebar { display: flex; }
   border: 1px solid var(--mid-blue);
 }
 /* Node Ops' Re-route (moved from the removed right-hand panel). */
-#reroute-btn.working { background: var(--brass); color: var(--brass-ink); }
+#reroute-btn.working, #etp-simplify.working { background: var(--brass); color: var(--brass-ink); }
 
 
 #track-picker-panel {
