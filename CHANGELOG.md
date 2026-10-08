@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-10-08 — Region chart data: add the missing northeast-corner charts (v816)
+
+Follow-up to v815. The penobscot-bay region was built without 8 NOAA
+chart cells covering its northeast corner (US5ME33M, US5ME34M,
+US5ME2HL/2HM/2HN/2HO, US4ME1EJ, US4ME1DJ): upper Frenchman Bay, Mount
+Desert Narrows, the Union River and NW Mount Desert Island had no depth
+areas, rocks, soundings, buoys or place names. Those cells were built on
+their own and merged in additively (new preprocess/merge_region_patch.py)
+rather than rebuilding the region, so earlier hand edits to navaids,
+place names and land are kept. Features inside water the existing
+detailed charts already cover were skipped, so no coarse duplicates
+there. Added: 1844 hazards/depth areas, 45 navaids, 189 named places,
+3612 soundings, the Union River channel, 5 recommended tracks.
+data-version.json regenerated.
+- Not done yet: the channel graph wasn't rebuilt for the new Union River
+  buoys, and the held-back router detour fix
+  (design/pending/router_retryC.patch) is next.
+
 ## 2026-10-07 — Region land data: restore missing Mount Desert Island / Trenton tiles (v815)
 
 Real report: a route leg ran from the head of Somes Sound straight across
