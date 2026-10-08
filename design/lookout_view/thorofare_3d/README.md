@@ -44,3 +44,15 @@ The data files are not committed (≈12 MB, regenerable):
   stanchions and double lifelines.
 - Corner chart: north-up land/water raster built in the browser from the same elevation the 3D
   view uses (so they agree), route ahead dashed, run so far solid, buoys, boat, view wedge.
+
+## v4 (2026-10-08): demo picker, Warren Island, terrain LOD
+
+- `build_demo.py <curated-id> <prefix>` builds any curated demo: 0.07°×0.045° near tiles (10 m DEM +
+  NAIP photo) within 2.5 km of the route, plus a 30 m far DEM + photo ±0.2°/±0.15° around it,
+  plus nav/places from the Penobscot Bay region data. Warren Island: 14 tiles, 39 MB.
+- Page picks the demo from the hash (`#warren`; dev: `#warren-11.6` = start 11.6 nm along).
+- Terrain LOD: each near tile has a full (10 m) and a ¼-res mesh, switched at 2.5 km from the boat;
+  far mesh at ½ res. Warren Island went from 17 M to 2.9 M triangles/frame (17.7 ms on the M3).
+- Hosting limit: the artifact host fetches every published file before showing the page, so first
+  load is ~2 min with two demos (63 MB). Both USGS services send CORS `*` (NAIP exportImage, and
+  3DEP COGs with range requests), so a GitHub Pages build could fetch per-route data at runtime.

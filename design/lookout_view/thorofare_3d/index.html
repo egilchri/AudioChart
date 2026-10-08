@@ -1,4 +1,4 @@
-<title>Rockland to Perry Creek 3D</title>
+<title>Demo Routes 3D</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
@@ -14,6 +14,7 @@
 :root[data-theme="dark"] { --bg: #11181c; --panel: #182227; --ink: #e3eaec; --muted: #93a3a9; --rule: #2a383e; --brass: #d6a24a; color-scheme: dark }
 body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; }
 .wrap { max-width: 1400px; margin: 0 auto; padding-inline: 16px; padding-block: 18px 28px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+header .demo-pick { font-size: 0.9rem; }
 header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; }
 h1 { font-family: var(--display); font-weight: 600; font-size: 1.9rem; letter-spacing: 0.02em; margin: 0; }
 .sub { color: var(--muted); margin: 0; flex: 1 1 380px; min-width: 0; line-height: 1.4; }
@@ -49,8 +50,14 @@ kbd { font-family: var(--mono); font-size: 0.8em; border: 1px solid var(--rule);
 
 <div class="wrap">
   <header>
-    <h1>Rockland to Perry Creek 3D</h1>
-    <p class="sub">Your Perry Creek route from the tiller of a Cape Dory 25D: out of Rockland Harbor, across West Penobscot Bay, through the Fox Islands Thorofare and into Perry Creek. Built from USGS aerial photos (NAIP) and elevation, with buoys and lights from AudioChart's chart data.</p>
+    <h1 id="demo-title">Rockland to Perry Creek</h1>
+    <label for="demo" class="demo-pick">Demo route
+      <select id="demo">
+        <option value="perry">Rockland to Perry Creek</option>
+        <option value="warren">Rockland to Warren Island</option>
+      </select>
+    </label>
+    <p class="sub">From the tiller of a Cape Dory 25D. Built from USGS aerial photos (NAIP) and elevation, with buoys and lights from AudioChart's chart data.</p>
   </header>
 
   <div class="scene" id="scene">
@@ -107,7 +114,15 @@ const EYE = 2.0, NM = 1852;   // seated at the tiller
 // Everything runs inside main() (no top-level await), so the page counts as loaded
 // and shows its loading message while the 24 MB of terrain and photos stream in.
 async function main() {
-const meta = await (await fetch('scene.json')).json();
+// Demo picker: #warren etc. picks the demo; each demo has its own scene file and tiles.
+const DEMOS = { perry: 'scene.json', warren: 'scene_warren.json' };
+const [hashDemo, hashStart] = location.hash.slice(1).split('-');   // e.g. #warren or #warren-11.6 (start nm)
+const demoKey = DEMOS[hashDemo] ? hashDemo : 'perry';
+const demoSel = document.getElementById('demo');
+demoSel.value = demoKey;
+demoSel.addEventListener('change', () => { location.hash = demoSel.value; location.reload(); });
+const meta = await (await fetch(DEMOS[demoKey])).json();
+document.getElementById('demo-title').textContent = meta.routeName || 'Rockland to Perry Creek';
 
 async function loadDem(g) {
   // gzipped int16 decimetres, base64 so it can be served as text
@@ -236,36 +251,55 @@ scene.add(new THREE.HemisphereLight(0xe4ecf2, 0x4a5644, 1.7));
 const dl = new THREE.DirectionalLight(0xfff3e0, 2.1); dl.position.copy(sun).multiplyScalar(1000); scene.add(dl);
 
 // One mesh per photo tile, over the DEM cells under it (plus one cell of overlap so tiles meet).
-function terrainMeshes(p) {
-  const dem = p.dem;
-  return p.tiles.map(t => {
-    const c0 = Math.max(0, Math.floor((t.west - dem.west) / dem.dx - 1)), c1 = Math.min(dem.w - 1, Math.ceil((t.east - dem.west) / dem.dx));
-    const r0 = Math.max(0, Math.floor((dem.north - t.north) / dem.dy - 1)), r1 = Math.min(dem.h - 1, Math.ceil((dem.north - t.south) / dem.dy));
-    const w = c1 - c0 + 1, h = r1 - r0 + 1;
-    const pos = new Float32Array(w * h * 3), uv = new Float32Array(w * h * 2);
-    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-      const gi = (r0 + y) * dem.w + (c0 + x), i = y * w + x;
-      const lon = dem.west + (c0 + x + 0.5) * dem.dx, lat = dem.north - (r0 + y + 0.5) * dem.dy;
-      pos[i * 3] = wx(lon); pos[i * 3 + 1] = dem.elev[gi]; pos[i * 3 + 2] = wz(lat);
-      uv[i * 2] = (lon - t.west) / (t.east - t.west); uv[i * 2 + 1] = (t.north - lat) / (t.north - t.south);   // ImageBitmap textures aren't flipped
-    }
-    const idx = new Uint32Array((w - 1) * (h - 1) * 6); let k = 0;
-    for (let y = 0; y < h - 1; y++) for (let x = 0; x < w - 1; x++) {
-      const a = y * w + x, b = a + 1, c = a + w, d = c + 1;
-      idx[k++] = a; idx[k++] = c; idx[k++] = b; idx[k++] = b; idx[k++] = c; idx[k++] = d;
-    }
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
-    g.setIndex(new THREE.BufferAttribute(idx, 1));
-    g.computeVertexNormals();
-    const tex = new THREE.Texture(t.img); tex.flipY = false; tex.needsUpdate = true;
-    tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
-    tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
-    return new THREE.Mesh(g, new THREE.MeshLambertMaterial({ map: tex }));
-  });
+// Built at a given stride: 1 = every 10 m cell, 4 = every 40 m, for tiles far from the boat.
+function tileMesh(dem, t, stride, mat) {
+  const c0 = Math.max(0, Math.floor((t.west - dem.west) / dem.dx - 1)), c1 = Math.min(dem.w - 1, Math.ceil((t.east - dem.west) / dem.dx));
+  const r0 = Math.max(0, Math.floor((dem.north - t.north) / dem.dy - 1)), r1 = Math.min(dem.h - 1, Math.ceil((dem.north - t.south) / dem.dy));
+  const cols = [], rows = [];
+  for (let x = c0; x < c1; x += stride) cols.push(x); cols.push(c1);
+  for (let y = r0; y < r1; y += stride) rows.push(y); rows.push(r1);
+  const w = cols.length, h = rows.length;
+  const pos = new Float32Array(w * h * 3), uv = new Float32Array(w * h * 2);
+  rows.forEach((gy, y) => cols.forEach((gx, x) => {
+    const gi = gy * dem.w + gx, i = y * w + x;
+    const lon = dem.west + (gx + 0.5) * dem.dx, lat = dem.north - (gy + 0.5) * dem.dy;
+    pos[i * 3] = wx(lon); pos[i * 3 + 1] = dem.elev[gi]; pos[i * 3 + 2] = wz(lat);
+    uv[i * 2] = (lon - t.west) / (t.east - t.west); uv[i * 2 + 1] = (t.north - lat) / (t.north - t.south);   // ImageBitmap textures aren't flipped
+  }));
+  const idx = new Uint32Array((w - 1) * (h - 1) * 6); let k = 0;
+  for (let y = 0; y < h - 1; y++) for (let x = 0; x < w - 1; x++) {
+    const a = y * w + x, b = a + 1, c = a + w, d = c + 1;
+    idx[k++] = a; idx[k++] = c; idx[k++] = b; idx[k++] = b; idx[k++] = c; idx[k++] = d;
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  g.setIndex(new THREE.BufferAttribute(idx, 1));
+  g.computeVertexNormals();
+  return new THREE.Mesh(g, mat);
 }
-for (const p of [...patches, far]) for (const m of terrainMeshes(p)) scene.add(m);
+function tileMat(t) {
+  const tex = new THREE.Texture(t.img); tex.flipY = false; tex.needsUpdate = true;
+  tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+  return new THREE.MeshLambertMaterial({ map: tex });
+}
+// Near tiles: a full-detail and a coarse mesh, switched by distance from the boat each frame.
+const LOD_NEAR_M = 2500;
+const lodTiles = [];
+for (const p of patches) for (const t of p.tiles) {
+  const mat = tileMat(t), full = tileMesh(p.dem, t, 1, mat), coarse = tileMesh(p.dem, t, 4, mat);
+  full.visible = false; scene.add(full); scene.add(coarse);
+  lodTiles.push({ full, coarse, x0: wx(t.west), x1: wx(t.east), z0: wz(t.north), z1: wz(t.south) });
+}
+for (const t of far.tiles) scene.add(tileMesh(far.dem, t, 2, tileMat(t)));
+function updateLod(px, pz) {
+  for (const L of lodTiles) {
+    const dx = Math.max(L.x0 - px, 0, px - L.x1), dz = Math.max(L.z0 - pz, 0, pz - L.z1);
+    const near = Math.hypot(dx, dz) < LOD_NEAR_M;
+    L.full.visible = near; L.coarse.visible = !near;
+  }
+}
 
 // Rockland Breakwater: granite, ~1.4 km, not in the elevation data (water is flattened there),
 // traced from the aerial photo. The lighthouse sits on its outer end.
@@ -544,7 +578,7 @@ function courseAt(s) {   // degrees true, from a short look-ahead so turns are s
   return (Math.atan2(b[0] - a[0], -(b[1] - a[1])) * 180 / Math.PI + 360) % 360;
 }
 
-let S = (Number(location.hash.slice(1)) || 0.05) * NM, playing = false, yawOff = 0, pitch = -1.2, zoom = 1, smoothCourse = null;
+let S = (Number(hashStart) || 0.05) * NM, playing = false, yawOff = 0, pitch = -1.2, zoom = 1, smoothCourse = null;
 const posEl = document.getElementById('pos'); posEl.max = (TOTAL / NM).toFixed(3); posEl.value = (S / NM).toFixed(3);
 const playBtn = document.getElementById('play'), speedEl = document.getElementById('speed');
 const setPlaying = on => { playing = on; playBtn.innerHTML = on ? '&#10074;&#10074; Pause' : '&#9654; Play'; if (on && S >= TOTAL - 1) S = 0; };
@@ -706,6 +740,7 @@ function frame() {
   const dt = Math.min(0.1, clock.getDelta()); t += dt;
   if (playing) { S += dt * 6 * NM / 3600 * Number(speedEl.value); if (S >= TOTAL) { S = TOTAL; setPlaying(false); } posEl.value = (S / NM).toFixed(3); }
   const pos = posAt(S), course = courseAt(S);
+  updateLod(pos[0], pos[1]);
   smoothCourse = smoothCourse == null ? course : smoothCourse + (((course - smoothCourse + 540) % 360) - 180) * Math.min(1, dt * 1.5);
   const look = smoothCourse + yawOff;
   const bob = Math.sin(t * 1.1) * 0.12 + Math.sin(t * 0.63 + 1) * 0.08;
