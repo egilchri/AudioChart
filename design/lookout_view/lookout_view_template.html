@@ -167,6 +167,7 @@ function draw() {
   const yOf = ang => { const a = ang - DIP; return HY - a * VEX / (1 + Math.abs(a) * VEX / AMAX) * pxRad; };
   const xOf = rel => W / 2 + rel * pxDeg;
   const c = vctx; c.setTransform(DPR, 0, 0, DPR, 0, 0);
+  c.lineJoin = 'round';  // miter joins put spikes on M and W in outlined labels
   // sky and water
   let g = c.createLinearGradient(0, 0, 0, HY);
   g.addColorStop(0, '#7f9fb4'); g.addColorStop(1, '#d4dfe4'); c.fillStyle = g; c.fillRect(0, 0, W, HY);
@@ -358,6 +359,6 @@ playBtn.addEventListener('click', () => setPlaying(!playing));
 posEl.addEventListener('input', () => { S = Number(posEl.value); draw(); });
 new ResizeObserver(resize).observe(view.parentElement);
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', draw);
-S = 3.1;   // start just inside the Thorofare's western approach
+S = 7.4;   // just inside the Thorofare's western approach
 resize();
 </script>
