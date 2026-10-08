@@ -1,4 +1,4 @@
-<title>Fox Islands Thorofare 3D</title>
+<title>Rockland to the Thorofare 3D</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
@@ -46,14 +46,14 @@ kbd { font-family: var(--mono); font-size: 0.8em; border: 1px solid var(--rule);
 
 <div class="wrap">
   <header>
-    <h1>Fox Islands Thorofare 3D</h1>
-    <p class="sub">Route 434 from the helm, built from USGS aerial photos (NAIP) and elevation, with buoys and lights from AudioChart's chart data.</p>
+    <h1>Rockland to the Thorofare 3D</h1>
+    <p class="sub">Route 434 from the helm, leaving Rockland Harbor for the Fox Islands Thorofare. Built from USGS aerial photos (NAIP) and elevation, with buoys and lights from AudioChart's chart data.</p>
   </header>
 
   <div class="scene" id="scene">
     <canvas id="tapecv"></canvas>
     <div id="labels"></div>
-    <div id="status">Loading terrain and aerial photos (10 MB)…</div>
+    <div id="status">Loading terrain and aerial photos (25 MB)…</div>
   </div>
 
   <div class="strip">
@@ -77,7 +77,7 @@ kbd { font-family: var(--mono); font-size: 0.8em; border: 1px solid var(--rule);
     <label for="showlbl"><input id="showlbl" type="checkbox" checked> Labels</label>
     <button id="reset" type="button">Look ahead</button>
   </div>
-  <p class="note">Drag the view to look around, scroll to zoom like binoculars, <kbd>Space</kbd> to play or pause. Eye height 2.5 m. Land is USGS elevation (10 m around the Thorofare, 30 m beyond) with tree height added where the aerial photo shows forest, since the elevation data is bare earth. Photos are from USDA's NAIP survey, so moored boats and shadows are frozen as they were that summer. Desktop browser with WebGL needed.</p>
+  <p class="note">Drag the view to look around, scroll to zoom like binoculars, <kbd>Space</kbd> to play or pause. Eye height 2.5 m. Land is USGS elevation (10 m around Rockland and the Thorofare, 30 m beyond) with tree height added where the aerial photo shows forest, since the elevation data is bare earth. Photos are from USDA's NAIP survey, so moored boats and shadows are frozen as they were that summer. Buoys are drawn up to 6× real size at a distance so they stay visible. Rockland Breakwater isn't in the elevation data, so it's traced from the aerial photo. Desktop browser with WebGL needed.</p>
 </div>
 
 <script type="importmap">
@@ -99,41 +99,56 @@ const LON0 = -68.87, LAT0 = 44.12, MX = 111320 * Math.cos(LAT0 * Math.PI / 180),
 const wx = lon => (lon - LON0) * MX, wz = lat => -(lat - LAT0) * MY;
 const EYE = 2.5, NM = 1852;
 
+// Everything runs inside main() (no top-level await), so the page counts as loaded
+// and shows its loading message while the 24 MB of terrain and photos stream in.
+async function main() {
 const meta = await (await fetch('scene.json')).json();
 
-async function loadDem(file, g) {
+async function loadDem(g) {
   // gzipped int16 decimetres, base64 so it can be served as text
-  const b64 = (await (await fetch(file)).text()).replace(/\s+/g, '');
+  const b64 = (await (await fetch(g.file)).text()).replace(/\s+/g, '');
   const bytes = Uint8Array.from(atob(b64), ch => ch.charCodeAt(0));
   const buf = await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
   const q = new Int16Array(buf), h = new Float32Array(q.length);
   for (let i = 0; i < q.length; i++) h[i] = q[i] / 10;
   return { ...g, elev: h };
 }
-const loadImg = src => new Promise((ok, bad) => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => bad(new Error('Could not load ' + src)); im.src = src; });
+// fetch + createImageBitmap rather than <img>: image elements hold up the page's load event
+const loadImg = async src => {
+  const res = await fetch(src); if (!res.ok) throw new Error('Could not load ' + src);
+  return createImageBitmap(await res.blob());
+};
+async function loadPatch(p) {
+  const [dem, imgs] = await Promise.all([loadDem(p.dem), Promise.all(p.tiles.map(t => loadImg(t.file)))]);
+  return { name: p.name, dem, tiles: p.tiles.map((t, i) => ({ ...t, img: imgs[i] })) };
+}
+const [patches, far] = await Promise.all([Promise.all(meta.patches.map(loadPatch)), loadPatch(meta.far)]);
 
-const [near, far, imgs, farImg] = await Promise.all([
-  loadDem('dem_near.b64.txt', meta.near), loadDem('dem_far.b64.txt', meta.far),
-  Promise.all(meta.nearImg.tiles.flat().map(loadImg)), loadImg(meta.farImg.file),
-]);
-
-// Near imagery: stitch the 2×2 tiles into one texture canvas.
-const tw = imgs[0].width, th = imgs[0].height;
-const nearCanvas = document.createElement('canvas'); nearCanvas.width = tw * 2; nearCanvas.height = th * 2;
-{ const c = nearCanvas.getContext('2d'); imgs.forEach((im, i) => c.drawImage(im, (i % 2) * tw, Math.floor(i / 2) * th)); }
-const farCanvas = document.createElement('canvas'); farCanvas.width = farImg.width; farCanvas.height = farImg.height;
-farCanvas.getContext('2d').drawImage(farImg, 0, 0);
+// Each photo tile carries its true extent (the imagery service snaps to square pixels).
+// Sample the photos onto a DEM grid: one RGBA value per cell.
+function photoAtCells(dem, tiles) {
+  const out = new Uint8ClampedArray(dem.w * dem.h * 4);
+  for (const t of tiles) {
+    const c0 = Math.max(0, Math.floor((t.west - dem.west) / dem.dx)), c1 = Math.min(dem.w, Math.ceil((t.east - dem.west) / dem.dx));
+    const r0 = Math.max(0, Math.floor((dem.north - t.north) / dem.dy)), r1 = Math.min(dem.h, Math.ceil((dem.north - t.south) / dem.dy));
+    if (c1 <= c0 || r1 <= r0) continue;
+    const cv = document.createElement('canvas'); cv.width = c1 - c0; cv.height = r1 - r0;
+    const c = cv.getContext('2d', { willReadFrequently: true });
+    const gx = (t.west - dem.west) / dem.dx - c0, gy = (dem.north - t.north) / dem.dy - r0;
+    c.drawImage(t.img, gx, gy, (t.east - t.west) / dem.dx, (t.north - t.south) / dem.dy);
+    const px = c.getImageData(0, 0, cv.width, cv.height).data;
+    for (let r = r0; r < r1; r++) for (let x = c0; x < c1; x++) {
+      const s = ((r - r0) * cv.width + (x - c0)) * 4, d = (r * dem.w + x) * 4;
+      if (px[s + 3]) { out[d] = px[s]; out[d + 1] = px[s + 1]; out[d + 2] = px[s + 2]; out[d + 3] = 255; }
+    }
+  }
+  return out;
+}
 
 // Tree height: the elevation is bare earth, so lift cells the photo shows as forest
 // (dark, green-leaning) by a typical Maine spruce height, smoothed at the edges.
-function addCanopy(dem, srcCanvas, img, liftAt = null) {
-  const { w, h } = dem, cv = document.createElement('canvas'); cv.width = w; cv.height = h;
-  const c = cv.getContext('2d', { willReadFrequently: true });
-  // the DEM grid and the image share north/west edges; map the image's extent onto the grid
-  const gx0 = (img.west - dem.west) / dem.dx, gy0 = (dem.north - img.north) / dem.dy;
-  const gw = (img.east - img.west) / dem.dx, gh = (img.north - img.south) / dem.dy;
-  c.drawImage(srcCanvas, gx0, gy0, gw, gh);
-  const px = c.getImageData(0, 0, w, h).data;
+function addCanopy(dem, tiles, liftAt = null) {
+  const { w, h } = dem, px = photoAtCells(dem, tiles);
   let m = new Float32Array(w * h);
   for (let i = 0; i < w * h; i++) {
     const r = px[i * 4], g = px[i * 4 + 1], b = px[i * 4 + 2], lum = 0.3 * r + 0.59 * g + 0.11 * b;
@@ -156,7 +171,7 @@ function addCanopy(dem, srcCanvas, img, liftAt = null) {
   dem.canopy = m;
 }
 // Near the route, forest is real 3D spruce (below) instead of a raised surface; the lift
-// fades back in from 2.0 to 2.4 km out, where single trees are too small to see.
+// fades back in past the tree corridor, where single trees are too small to see.
 const routeW = meta.route.map(([x, y]) => [wx(x), wz(y)]);
 function routeDist(px, pz) {
   let best = Infinity;
@@ -168,29 +183,36 @@ function routeDist(px, pz) {
   return best;
 }
 const cellW = (dem, x, y) => [wx(dem.west + (x + 0.5) * dem.dx), wz(dem.north - (y + 0.5) * dem.dy)];
-const nearRD = new Float32Array(near.w * near.h);
-for (let y = 0; y < near.h; y += 4) for (let x = 0; x < near.w; x += 4) {   // coarse, then filled in
-  const [px, pz] = cellW(near, x, y), d = routeDist(px, pz);
-  for (let yy = y; yy < Math.min(near.h, y + 4); yy++) for (let xx = x; xx < Math.min(near.w, x + 4); xx++) nearRD[yy * near.w + xx] = d;
-}
 const CORRIDOR = 1500, FADE = 300, DETAIL = 600;
-addCanopy(near, nearCanvas, meta.nearImg, (x, y) => Math.max(0, Math.min(1, (nearRD[y * near.w + x] - CORRIDOR) / FADE)));
-addCanopy(far, farCanvas, meta.farImg);
-// Sink the coarse terrain under the detailed patch so the two don't overlap.
+for (const p of patches) {
+  const dem = p.dem, rd = new Float32Array(dem.w * dem.h);
+  for (let y = 0; y < dem.h; y += 4) for (let x = 0; x < dem.w; x += 4) {   // coarse, then filled in
+    const [px, pz] = cellW(dem, x, y), d = routeDist(px, pz);
+    for (let yy = y; yy < Math.min(dem.h, y + 4); yy++) for (let xx = x; xx < Math.min(dem.w, x + 4); xx++) rd[yy * dem.w + xx] = d;
+  }
+  dem.rd = rd;
+  addCanopy(dem, p.tiles, (x, y) => Math.max(0, Math.min(1, (rd[y * dem.w + x] - CORRIDOR) / FADE)));
+}
+addCanopy(far.dem, far.tiles);
+// Sink the coarse terrain under the detailed patches so they don't overlap.
+const inPatch = (lon, lat, d, inset) => lon > d.west + inset && lon < d.west + d.w * d.dx - inset && lat < d.north - inset && lat > d.north - d.h * d.dy + inset;
 {
-  const n = meta.nearImg, f = far;
+  const f = far.dem;
   for (let y = 0; y < f.h; y++) for (let x = 0; x < f.w; x++) {
     const lon = f.west + (x + 0.5) * f.dx, lat = f.north - (y + 0.5) * f.dy;
-    if (lon > n.west + 0.0004 && lon < n.east - 0.0004 && lat > n.south + 0.0004 && lat < n.north - 0.0004) f.elev[y * f.w + x] = -20;
+    if (patches.some(p => inPatch(lon, lat, p.dem, 0.0004))) f.elev[y * f.w + x] = -20;
   }
 }
 
 function heightAt(lon, lat) {
-  for (const d of [near, far]) {
+  for (const p of patches) {
+    const d = p.dem;
+    if (!inPatch(lon, lat, d, 0)) continue;
     const c = Math.floor((lon - d.west) / d.dx), r = Math.floor((d.north - lat) / d.dy);
-    if (c >= 0 && r >= 0 && c < d.w && r < d.h) { const v = d.elev[r * d.w + c]; if (d === far || v > -20) return v; }
+    return d.elev[r * d.w + c];
   }
-  return -3;
+  const d = far.dem, c = Math.floor((lon - d.west) / d.dx), r = Math.floor((d.north - lat) / d.dy);
+  return (c >= 0 && r >= 0 && c < d.w && r < d.h) ? d.elev[r * d.w + c] : -3;
 }
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
@@ -200,7 +222,8 @@ renderer.toneMappingExposure = 0.55;
 const sceneEl = document.getElementById('scene');
 sceneEl.prepend(renderer.domElement);
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(55, 2, 0.5, 80000);
+const camera = new THREE.PerspectiveCamera(55, 2, 0.3, 80000);
+scene.add(camera);
 const HAZE = new THREE.Color(0xb9c9d3);
 scene.fog = new THREE.FogExp2(HAZE, 0.000075);
 
@@ -208,60 +231,124 @@ const sun = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToR
 scene.add(new THREE.HemisphereLight(0xe4ecf2, 0x4a5644, 1.7));
 const dl = new THREE.DirectionalLight(0xfff3e0, 2.1); dl.position.copy(sun).multiplyScalar(1000); scene.add(dl);
 
-function terrainMesh(dem, tex, img) {
-  const { w, h } = dem, pos = new Float32Array(w * h * 3), uv = new Float32Array(w * h * 2);
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const i = y * w + x, lon = dem.west + (x + 0.5) * dem.dx, lat = dem.north - (y + 0.5) * dem.dy;
-    pos[i * 3] = wx(lon); pos[i * 3 + 1] = dem.elev[i]; pos[i * 3 + 2] = wz(lat);
-    uv[i * 2] = (lon - img.west) / (img.east - img.west); uv[i * 2 + 1] = (lat - img.south) / (img.north - img.south);
-  }
-  const idx = new Uint32Array((w - 1) * (h - 1) * 6); let k = 0;
-  for (let y = 0; y < h - 1; y++) for (let x = 0; x < w - 1; x++) {
-    const a = y * w + x, b = a + 1, c = a + w, d = c + 1;
-    idx[k++] = a; idx[k++] = c; idx[k++] = b; idx[k++] = b; idx[k++] = c; idx[k++] = d;
-  }
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
-  g.setIndex(new THREE.BufferAttribute(idx, 1));
-  g.computeVertexNormals();
-  const t = new THREE.CanvasTexture(tex); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = renderer.capabilities.getMaxAnisotropy();
-  return new THREE.Mesh(g, new THREE.MeshLambertMaterial({ map: t }));
+// One mesh per photo tile, over the DEM cells under it (plus one cell of overlap so tiles meet).
+function terrainMeshes(p) {
+  const dem = p.dem;
+  return p.tiles.map(t => {
+    const c0 = Math.max(0, Math.floor((t.west - dem.west) / dem.dx - 1)), c1 = Math.min(dem.w - 1, Math.ceil((t.east - dem.west) / dem.dx));
+    const r0 = Math.max(0, Math.floor((dem.north - t.north) / dem.dy - 1)), r1 = Math.min(dem.h - 1, Math.ceil((dem.north - t.south) / dem.dy));
+    const w = c1 - c0 + 1, h = r1 - r0 + 1;
+    const pos = new Float32Array(w * h * 3), uv = new Float32Array(w * h * 2);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const gi = (r0 + y) * dem.w + (c0 + x), i = y * w + x;
+      const lon = dem.west + (c0 + x + 0.5) * dem.dx, lat = dem.north - (r0 + y + 0.5) * dem.dy;
+      pos[i * 3] = wx(lon); pos[i * 3 + 1] = dem.elev[gi]; pos[i * 3 + 2] = wz(lat);
+      uv[i * 2] = (lon - t.west) / (t.east - t.west); uv[i * 2 + 1] = (t.north - lat) / (t.north - t.south);   // ImageBitmap textures aren't flipped
+    }
+    const idx = new Uint32Array((w - 1) * (h - 1) * 6); let k = 0;
+    for (let y = 0; y < h - 1; y++) for (let x = 0; x < w - 1; x++) {
+      const a = y * w + x, b = a + 1, c = a + w, d = c + 1;
+      idx[k++] = a; idx[k++] = c; idx[k++] = b; idx[k++] = b; idx[k++] = c; idx[k++] = d;
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    g.setIndex(new THREE.BufferAttribute(idx, 1));
+    g.computeVertexNormals();
+    const tex = new THREE.Texture(t.img); tex.flipY = false; tex.needsUpdate = true;
+    tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+    return new THREE.Mesh(g, new THREE.MeshLambertMaterial({ map: tex }));
+  });
 }
-scene.add(terrainMesh(near, nearCanvas, meta.nearImg));
-scene.add(terrainMesh(far, farCanvas, meta.farImg));
+for (const p of [...patches, far]) for (const m of terrainMeshes(p)) scene.add(m);
+
+// Rockland Breakwater: granite, ~1.4 km, not in the elevation data (water is flattened there),
+// traced from the aerial photo. The lighthouse sits on its outer end.
+{
+  const [[lo0, la0], [lo1, la1]] = meta.breakwater;
+  const ax = wx(lo0), az = wz(la0), bx = wx(lo1), bz = wz(la1), len = Math.hypot(bx - ax, bz - az);
+  const bw = new THREE.Mesh(new THREE.BoxGeometry(7, 9, len), new THREE.MeshLambertMaterial({ color: 0x8d877f }));
+  bw.position.set((ax + bx) / 2, -0.5, (az + bz) / 2); bw.rotation.y = Math.atan2(bx - ax, bz - az);
+  scene.add(bw);
+  const g = new THREE.Group(), white = new THREE.MeshLambertMaterial({ color: 0xf1eee6 });
+  const deck = new THREE.Mesh(new THREE.BoxGeometry(16, 1, 16), new THREE.MeshLambertMaterial({ color: 0x8d877f })); deck.position.y = 3.5; g.add(deck);
+  const house = new THREE.Mesh(new THREE.BoxGeometry(9, 6, 7), white); house.position.set(-1.5, 7, 1); g.add(house);
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(6.2, 3, 4), new THREE.MeshLambertMaterial({ color: 0x7a2f26 }));
+  roof.position.set(-1.5, 11.5, 1); roof.rotation.y = Math.PI / 4; roof.scale.set(1.05, 1, 0.82); g.add(roof);
+  const tower = new THREE.Mesh(new THREE.BoxGeometry(3, 11, 3), white); tower.position.set(3.5, 9.5, -2); g.add(tower);
+  const lantern = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.4, 2, 8), new THREE.MeshLambertMaterial({ color: 0x262626 })); lantern.position.set(3.5, 16, -2); g.add(lantern);
+  g.position.set(bx, 0, bz); g.rotation.y = Math.atan2(bx - ax, bz - az);
+  scene.add(g);
+}
 
 // Spruce: one tree per forested 10 m cell in the corridor, jittered, varied in size and shade.
 {
   let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   const spots = [];
-  for (let y = 1; y < near.h - 1; y++) for (let x = 1; x < near.w - 1; x++) {
-    const i = y * near.w + x;
-    if (nearRD[i] > CORRIDOR + FADE * rnd() || near.elev[i] <= 0.6 || near.canopy[i] < 0.45) continue;
-    spots.push([x + rnd(), y + rnd(), nearRD[i] < DETAIL]);
+  for (const p of patches) {
+    const dem = p.dem;
+    for (let y = 1; y < dem.h - 1; y++) for (let x = 1; x < dem.w - 1; x++) {
+      const i = y * dem.w + x;
+      if (dem.rd[i] > CORRIDOR + FADE * rnd() || dem.elev[i] <= 0.6 || dem.canopy[i] < 0.45) continue;
+      const lon = dem.west + (x + rnd()) * dem.dx, lat = dem.north - (y + rnd()) * dem.dy;
+      if (patches.some(q => q !== p && patches.indexOf(q) < patches.indexOf(p) && inPatch(lon, lat, q.dem, 0))) continue;
+      spots.push([wx(lon), dem.elev[i], wz(lat), dem.rd[i] < DETAIL]);
+    }
   }
   // tiered spruce profile (radius, height), turned on a lathe
   const prof = [[0.06, 0], [1, 0.12], [0.45, 0.33], [0.72, 0.35], [0.3, 0.6], [0.48, 0.62], [0.02, 1]];
   const detailed = new THREE.LatheGeometry(prof.map(([r, h]) => new THREE.Vector2(r, h)), 6);
   const simple = new THREE.ConeGeometry(0.8, 1, 5); simple.translate(0, 0.5, 0);
   const treeMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
-  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), p = new THREE.Vector3(), col = new THREE.Color(), up = new THREE.Vector3(0, 1, 0);
-  for (const near_ of [true, false]) {
-    const set = spots.filter(s => s[2] === near_);
-    const trees = new THREE.InstancedMesh(near_ ? detailed : simple, treeMat, set.length);
-    set.forEach(([fx, fy], j) => {
-      const lon = near.west + fx * near.dx, lat = near.north - fy * near.dy;
-      const ix = Math.min(near.w - 1, Math.floor(fx)), iy = Math.min(near.h - 1, Math.floor(fy));
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), pv = new THREE.Vector3(), col = new THREE.Color(), up = new THREE.Vector3(0, 1, 0);
+  for (const detail of [true, false]) {
+    const set = spots.filter(s => s[3] === detail);
+    const trees = new THREE.InstancedMesh(detail ? detailed : simple, treeMat, set.length);
+    set.forEach(([x, y, z], j) => {
       const hgt = 9 + rnd() * 10, r = hgt * (0.19 + rnd() * 0.08);
-      p.set(wx(lon), near.elev[iy * near.w + ix] - 0.5, wz(lat)); sc.set(r, hgt, r);
+      pv.set(x, y - 0.5, z); sc.set(r, hgt, r);
       q.setFromAxisAngle(up, rnd() * 6.28);
-      trees.setMatrixAt(j, m4.compose(p, q, sc));
+      trees.setMatrixAt(j, m4.compose(pv, q, sc));
       col.setRGB(0.055 + rnd() * 0.035, 0.09 + rnd() * 0.05, 0.07 + rnd() * 0.03); trees.setColorAt(j, col);
     });
     scene.add(trees);
   }
-  window.__trees = spots.length + ' (' + spots.filter(s => s[2]).length + ' detailed)';
+  window.__trees = spots.length + ' (' + spots.filter(s => s[3]).length + ' detailed)';
 }
+
+// The foredeck, pulpit and forestay, carried with the camera (seen from the helm).
+const bow = new THREE.Group();
+{
+  const deckShape = new THREE.Shape();
+  deckShape.moveTo(-1.55, 0); deckShape.quadraticCurveTo(-1.45, -3.6, 0, -6.2); deckShape.quadraticCurveTo(1.45, -3.6, 1.55, 0); deckShape.lineTo(-1.55, 0);
+  const deck = new THREE.Mesh(new THREE.ExtrudeGeometry(deckShape, { depth: 0.25, bevelEnabled: true, bevelThickness: 0.06, bevelSize: 0.06, bevelSegments: 2 }),
+    new THREE.MeshLambertMaterial({ color: 0xf2eee4, emissive: 0x2a2824 }));
+  deck.rotation.x = Math.PI / 2; bow.add(deck);
+  // cabin-top edge in the foreground and a hatch
+  const hatch = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.12, 0.75), new THREE.MeshLambertMaterial({ color: 0xc9c2b2 })); hatch.position.set(0, 0.06, -1.6); bow.add(hatch);
+  const cabin = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.5, 0.6), new THREE.MeshLambertMaterial({ color: 0xdcd6c8 })); cabin.position.set(0, 0.25, 0.1); bow.add(cabin);
+  // toe rail
+  const rail = new THREE.MeshLambertMaterial({ color: 0x8a5a33 });
+  const steel = new THREE.MeshLambertMaterial({ color: 0xb9c1c5 });
+  const sideCurve = s => new THREE.QuadraticBezierCurve3(new THREE.Vector3(s * 1.5, 0.05, 0), new THREE.Vector3(s * 1.42, 0.05, -3.6), new THREE.Vector3(0, 0.05, -6.1));
+  for (const s of [-1, 1]) bow.add(new THREE.Mesh(new THREE.TubeGeometry(sideCurve(s), 24, 0.05, 6), rail));
+  // pulpit: a U of tube round the stem at ~0.65 m
+  const pul = new THREE.CatmullRomCurve3([new THREE.Vector3(-1.05, 0.7, -4.0), new THREE.Vector3(-0.6, 0.72, -5.4), new THREE.Vector3(0, 0.72, -6.0), new THREE.Vector3(0.6, 0.72, -5.4), new THREE.Vector3(1.05, 0.7, -4.0)]);
+  bow.add(new THREE.Mesh(new THREE.TubeGeometry(pul, 40, 0.025, 6), steel));
+  for (const [x, z] of [[-1.05, -4.0], [1.05, -4.0], [-0.45, -5.6], [0.45, -5.6]]) {
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.7, 6), steel); leg.position.set(x, 0.35, z); bow.add(leg);
+  }
+  // lifelines aft from the pulpit
+  for (const s of [-1, 1]) {
+    const ll = new THREE.Mesh(new THREE.TubeGeometry(new THREE.LineCurve3(new THREE.Vector3(s * 1.05, 0.7, -4.0), new THREE.Vector3(s * 1.5, 0.62, 0.3)), 2, 0.008, 4), steel); bow.add(ll);
+  }
+  // forestay from the stem head up and aft to the masthead (out of view above)
+  const stay = new THREE.Mesh(new THREE.TubeGeometry(new THREE.LineCurve3(new THREE.Vector3(0, 0.15, -6.0), new THREE.Vector3(0, 14, 2.5)), 2, 0.006, 4), steel); bow.add(stay);
+  // eye 2.5 m above water; deck ~1.6 m below the eye, starting a little ahead of the helm
+  bow.position.set(0, -1.85, -3.0);
+}
+camera.add(bow);
 
 // Water: ripple normals generated here (no image download), sky and shore reflected.
 function rippleNormals(size = 256) {
@@ -297,6 +384,8 @@ water.material.fragmentShader = water.material.fragmentShader
   .replace('float rf0 = 0.3;', 'float rf0 = 0.02;')
   .replace('reflectionSample * 0.9 +', 'reflectionSample * 0.78 +');
 water.material.needsUpdate = true;
+// keep the boat's own bow out of the water's reflection pass
+{ const mirror = water.onBeforeRender; water.onBeforeRender = (...a) => { bow.visible = false; mirror(...a); bow.visible = true; }; }
 scene.add(water);
 
 const sky = new Sky(); sky.scale.setScalar(70000); sky.renderOrder = -1; sky.material.depthTest = false; scene.add(sky);
@@ -348,6 +437,7 @@ for (const n of meta.nav.filter(n => n.t !== 'LIGHTS')) {
 // Lights not on a buoy: a short white tower with its light.
 for (const l of lights) {
   if (meta.nav.some(n => n.t !== 'LIGHTS' && Math.hypot((l.x - n.x) * MX, (l.y - n.y) * MY) < 40)) continue;
+  if (Math.hypot((l.x - meta.breakwater[1][0]) * MX, (l.y - meta.breakwater[1][1]) * MY) < 80) continue;
   const g = new THREE.Group(), base = Math.max(0, heightAt(l.x, l.y));
   const tower = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.6, 9, 16), mat(0xf0eee6)); tower.position.y = 4.5; g.add(tower);
   const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 1.2, 12), mat(0x2b2b2b)); cap.position.y = 9.6; g.add(cap);
@@ -372,13 +462,13 @@ function courseAt(s) {   // degrees true, from a short look-ahead so turns are s
   return (Math.atan2(b[0] - a[0], -(b[1] - a[1])) * 180 / Math.PI + 360) % 360;
 }
 
-let S = (Number(location.hash.slice(1)) || 9.2) * NM, playing = false, yawOff = 0, pitch = -1.0, zoom = 1, smoothCourse = null;
+let S = (Number(location.hash.slice(1)) || 0.05) * NM, playing = false, yawOff = 0, pitch = -1.2, zoom = 1, smoothCourse = null;
 const posEl = document.getElementById('pos'); posEl.max = (TOTAL / NM).toFixed(3); posEl.value = (S / NM).toFixed(3);
 const playBtn = document.getElementById('play'), speedEl = document.getElementById('speed');
 const setPlaying = on => { playing = on; playBtn.innerHTML = on ? '&#10074;&#10074; Pause' : '&#9654; Play'; if (on && S >= TOTAL - 1) S = 0; };
 playBtn.addEventListener('click', () => setPlaying(!playing));
 posEl.addEventListener('input', () => { S = Number(posEl.value) * NM; smoothCourse = null; });
-document.getElementById('reset').addEventListener('click', () => { yawOff = 0; pitch = -1.0; zoom = 1; });
+document.getElementById('reset').addEventListener('click', () => { yawOff = 0; pitch = -1.2; zoom = 1; });
 addEventListener('keydown', e => { if (e.code === 'Space' && e.target === document.body) { e.preventDefault(); setPlaying(!playing); } });
 let drag = null;
 sceneEl.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY, yaw: yawOff, pitch }; sceneEl.setPointerCapture(e.pointerId); sceneEl.classList.add('dragging'); });
@@ -476,7 +566,7 @@ function frame() {
   const roll = Math.sin(t * 0.9) * 0.012;
   camera.rotation.set(THREE.MathUtils.degToRad(pitch) + Math.sin(t * 0.7) * 0.006, -THREE.MathUtils.degToRad(look), roll, 'YXZ');
   for (const m of marks) {
-    if (!m.fixedMark) { m.g.position.y = Math.sin(t * 1.4 + m.phase) * 0.18; m.g.rotation.z = Math.sin(t * 1.1 + m.phase) * 0.06; m.g.rotation.x = Math.cos(t * 0.9 + m.phase) * 0.05; }
+    if (!m.fixedMark) { const d = Math.hypot(m.g.position.x - pos[0], m.g.position.z - pos[1]); m.g.scale.setScalar(Math.max(1, Math.min(6, d / 150))); m.g.position.y = Math.sin(t * 1.4 + m.phase) * 0.18; m.g.rotation.z = Math.sin(t * 1.1 + m.phase) * 0.06; m.g.rotation.x = Math.cos(t * 0.9 + m.phase) * 0.05; }
     if (m.lamp && m.fl) { const ph = (t + m.phase) % m.fl.per; m.lamp.visible = m.fl.fixed || (m.fl.iso ? ph < m.fl.per / 2 : ph < 0.45); }
   }
   water.material.uniforms.time.value += dt * 0.6;
@@ -508,4 +598,6 @@ window.__timeRender = (n = 10) => { const gl = renderer.getContext(); gl.finish(
   const px = new Uint8Array(4);
   for (let i = 0; i < n; i++) { water.material.uniforms.time.value += 0.01; renderer.render(scene, camera); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); }
   return ((performance.now() - t0) / n).toFixed(1) + ' ms/frame at ' + renderer.domElement.width + 'x' + renderer.domElement.height; };
+}
+main().catch(e => fail('Something went wrong: ' + e.message));
 </script>

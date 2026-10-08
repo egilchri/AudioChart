@@ -1,4 +1,4 @@
-# Fox Islands Thorofare 3D (desktop WebGL sample)
+# Rockland to the Thorofare 3D (desktop WebGL sample)
 
 Live: https://claude.ai/artifact/R6Ar3gqPFnJmRWkpqThs9J
 
@@ -16,3 +16,17 @@ The data files are not committed (≈12 MB, regenerable):
     S="https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?bboxSR=4326&imageSR=4326&format=jpg&compressionQuality=82&f=image"
     # near_0..3.jpg: 2×2 tiles of bbox -68.975,44.075,-68.765,44.165 at size=4000,2400 (row-major, north row first)
     # far.jpg: bbox -69.16,43.98,-68.62,44.28 at size=4000,3086
+
+## v2 (2026-10-08): from Rockland, bow, buoys
+
+- Starts in Rockland Harbor: second 10 m patch (-69.13..-68.97, 44.055..44.135), 2×2 photo tiles.
+- Photo tiles now carry their true extent. The NAIP service snaps requests to square pixels in
+  degrees, so a 4000×2400 request for a 0.105°×0.045° box came back covering 0.063° of latitude;
+  v1's textures were misregistered by hundreds of metres. `fetch_naip_tiles.py` sizes requests
+  for square pixels and records the extent from `f=json`. One terrain mesh per tile.
+- Rockland Breakwater: not in 3DEP (water hydro-flattened), traced from the photo:
+  (-69.08197, 44.11540) → (-69.07751, 44.10410); lighthouse modelled at the outer end.
+- Foredeck/pulpit/forestay attached to the camera, hidden from the water's mirror pass.
+- Buoys scale up with distance (×1 under 150 m, up to ×6).
+- No top-level await, and photos load via fetch + createImageBitmap, so the page's load event
+  isn't held up by 24 MB of data. The artifact host still shows a blank frame for ~1 min on first load.
