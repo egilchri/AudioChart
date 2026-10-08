@@ -1,0 +1,363 @@
+<title>Lookout View</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a single wide "window" onto the water, instrument strip beneath, small chart inset beside it. */
+:root {
+  --bg: #eef1f2; --panel: #ffffff; --ink: #1d2a30; --muted: #5b6a71; --rule: #cfd8db; --brass: #a5741f;
+  --display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #11181c; --panel: #182227; --ink: #e3eaec; --muted: #93a3a9; --rule: #2a383e; --brass: #d6a24a; color-scheme: dark } }
+:root[data-theme="dark"] { --bg: #11181c; --panel: #182227; --ink: #e3eaec; --muted: #93a3a9; --rule: #2a383e; --brass: #d6a24a; color-scheme: dark }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-inline: 16px; padding-block: 20px 32px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+header { display: grid; gap: 4px; }
+h1 { font-family: var(--display); font-weight: 600; font-size: 2rem; letter-spacing: 0.02em; margin: 0; text-wrap: balance; }
+.sub { color: var(--muted); margin: 0; max-width: 68ch; line-height: 1.45; }
+.stage { display: grid; grid-template-columns: minmax(0, 1fr) 230px; gap: 14px; align-items: start; }
+@media (max-width: 760px) { .stage { grid-template-columns: minmax(0, 1fr); } }
+.scene { min-width: 0; position: relative; border-radius: 6px; overflow: hidden; background: #8fa9b6; box-shadow: 0 1px 0 var(--rule); }
+#view { display: block; width: 100%; height: auto; touch-action: pan-y; }
+.side { display: grid; gap: 10px; }
+#chart { display: block; width: 100%; max-width: 230px; aspect-ratio: 1; background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; }
+.readouts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; padding: 10px 12px; }
+.ro span { display: block; font-size: 0.7rem; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
+.ro b { font-family: var(--mono); font-weight: 500; font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+.ro.wide { grid-column: 1 / -1; }
+.ro.wide b { font-family: var(--body); font-weight: 600; font-size: 0.95rem; }
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+button, select { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--rule); border-radius: 5px; padding: 7px 14px; cursor: pointer; }
+#play { font-family: var(--display); font-weight: 600; font-size: 1.05rem; letter-spacing: 0.04em; min-width: 92px; border-color: var(--brass); color: var(--brass); }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+#pos { flex: 1 1 260px; min-width: 0; accent-color: var(--brass); }
+label { color: var(--muted); font-size: 0.85rem; display: flex; align-items: center; gap: 6px; }
+.note { color: var(--muted); font-size: 0.85rem; line-height: 1.45; max-width: 80ch; margin: 0; }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Lookout View</h1>
+    <p class="sub">What you'd see over the bow on Route 434, from Rockland out through the Fox Islands Thorofare. Drawn live from AudioChart's own chart data: shoreline, buoys, beacons, lights and island names.</p>
+  </header>
+
+  <div class="stage">
+    <div class="scene"><canvas id="view" aria-label="Lookout view over the bow"></canvas></div>
+    <div class="side">
+      <canvas id="chart" aria-label="Chart inset showing the boat and what the view covers"></canvas>
+      <div class="readouts">
+        <div class="ro"><span>Course</span><b id="ro-cog">—</b></div>
+        <div class="ro"><span>Run</span><b id="ro-run">—</b></div>
+        <div class="ro wide"><span>Off the bow</span><b id="ro-ahead">—</b></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button id="play" type="button">&#9654; Play</button>
+    <input id="pos" type="range" min="0" max="1" step="0.005" value="0" aria-label="Position along the route">
+    <label for="speed">Pace
+      <select id="speed">
+        <option value="60">6 kn × 60</option>
+        <option value="150" selected>6 kn × 150</option>
+        <option value="400">6 kn × 400</option>
+      </select>
+    </label>
+  </div>
+  <p class="note">Eye height 2.5 m. The chart has no terrain heights, so land height is guessed from each island's size (ledges ~4 m, small islands ~12 m, large islands and mainland 25–40 m) and drawn up to 4× taller than true so it reads on screen. A buoy or name is hidden when land on that bearing is nearer.</p>
+</div>
+
+<script>
+const DATA = __DATA__;
+const NM = 1852, R_EARTH = 6371000, EYE = 2.5, VEX = 4, MAXR = 12;
+const lat0 = 44.12, KX = Math.cos(lat0 * Math.PI / 180);
+const toXY = (lon, lat) => [(lon) * KX * 60, lat * 60];           // nm, absolute
+const route = DATA.route.map(([x, y]) => toXY(x, y));
+const cum = [0]; for (let i = 1; i < route.length; i++) cum.push(cum[i - 1] + Math.hypot(route[i][0] - route[i - 1][0], route[i][1] - route[i - 1][1]));
+const TOTAL = cum[cum.length - 1];
+const segs = [];   // [ax, ay, bx, by, ring, h]
+for (const l of DATA.land) { const p = l.p.map(([x, y]) => toXY(x, y)); for (let i = 1; i < p.length; i++) segs.push([p[i - 1][0], p[i - 1][1], p[i][0], p[i][1], l.r, l.h]); }
+const nav = DATA.nav.map(n => ({ ...n, xy: toXY(n.x, n.y) }));
+const buoys = nav.filter(n => n.t !== 'LIGHTS');
+const fixedLights = nav.filter(n => n.t === 'LIGHTS' && !buoys.some(b => Math.hypot(b.xy[0] - n.xy[0], b.xy[1] - n.xy[1]) < 0.03));
+const places = DATA.places.map(p => ({ ...p, xy: toXY(p.x, p.y) }));
+
+function posAt(s) {
+  s = Math.max(0, Math.min(TOTAL, s));
+  let i = 1; while (i < cum.length - 1 && cum[i] < s) i++;
+  const t = (s - cum[i - 1]) / ((cum[i] - cum[i - 1]) || 1);
+  return [route[i - 1][0] + t * (route[i][0] - route[i - 1][0]), route[i - 1][1] + t * (route[i][1] - route[i - 1][1])];
+}
+function headingAt(s) {  // look-ahead course, so turns are smooth
+  const a = posAt(s - 0.05), b = posAt(Math.min(TOTAL, s + 0.25));
+  const c = (s + 0.25 > TOTAL) ? posAt(TOTAL - 0.3) : a;
+  const p = s + 0.25 > TOTAL ? [c, posAt(TOTAL)] : [a, b];
+  return (Math.atan2(p[1][0] - p[0][0], p[1][1] - p[0][1]) * 180 / Math.PI + 360) % 360;
+}
+const wrap180 = d => ((d + 540) % 360) - 180;
+const mix = (c1, c2, t) => `rgb(${c1.map((v, i) => Math.round(v + (c2[i] - v) * t)).join(',')})`;
+
+const view = document.getElementById('view'), vctx = view.getContext('2d');
+const chart = document.getElementById('chart'), cctx = chart.getContext('2d');
+let W = 0, H = 0, DPR = 1, FOV = 72;
+function resize() {
+  DPR = Math.min(2, window.devicePixelRatio || 1);
+  W = view.parentElement.clientWidth; H = Math.round(Math.max(240, Math.min(520, W * 0.46)));
+  FOV = W < 600 ? 52 : 72;
+  view.width = W * DPR; view.height = H * DPR; view.style.height = H + 'px';
+  const cw = chart.clientWidth || 230; chart.width = cw * DPR; chart.height = cw * DPR;
+  draw();
+}
+
+const BIN = 0.125;
+const DIP = -Math.sqrt(2 * EYE / R_EARTH);
+function scan(bx, by, hdg) {
+  const n = Math.ceil((FOV + 6) / BIN), start = -FOV / 2 - 3;
+  const bins = Array.from({ length: n }, () => []);
+  for (const s of segs) {
+    const ax = s[0] - bx, ay = s[1] - by, cx = s[2] - bx, cy = s[3] - by;
+    if (Math.hypot(ax, ay) > MAXR && Math.hypot(cx, cy) > MAXR) continue;
+    let ra = wrap180(Math.atan2(ax, ay) * 180 / Math.PI - hdg), rb = wrap180(Math.atan2(cx, cy) * 180 / Math.PI - hdg);
+    if (Math.abs(rb - ra) > 180) continue;
+    let lo = Math.min(ra, rb), hi = Math.max(ra, rb);
+    if (hi < start || lo > -start) continue;
+    const k0 = Math.max(0, Math.floor((lo - start) / BIN)), k1 = Math.min(n - 1, Math.floor((hi - start) / BIN));
+    const dx = cx - ax, dy = cy - ay;
+    for (let k = k0; k <= k1; k++) {
+      const phi = (hdg + start + (k + 0.5) * BIN) * Math.PI / 180, ux = Math.sin(phi), uy = Math.cos(phi);
+      const den = ux * dy - uy * dx; if (Math.abs(den) < 1e-12) continue;
+      const t = (ax * dy - ay * dx) / den, u = (ax * uy - ay * ux) / den;
+      if (t > 0.005 && u >= 0 && u <= 1) bins[k].push([t, s[4], s[5]]);
+    }
+  }
+  // Pair entry/exit hits per island into chunks: a rounded hill whose height grows with the chord.
+  return bins.map((hits, bins_k) => {
+    hits.sort((a, b) => a[0] - b[0]);
+    const byRing = new Map();
+    for (const h of hits) { if (!byRing.has(h[1])) byRing.set(h[1], []); byRing.get(h[1]).push(h); }
+    const chunks = [];
+    for (const [ring, hs] of byRing) for (let i = 0; i < hs.length; i += 2) {
+      const near = hs[i][0], far = hs[i + 1] ? hs[i + 1][0] : near + 0.2, chord = (far - near) * NM;
+      // Rolling tops: a smooth bump field over world position, so a big island isn't a flat mesa.
+      const midNm = (near + far) / 2, phi = (hdg + start + (bins_k + 0.5) * BIN) * Math.PI / 180;
+      const wx = bx + Math.sin(phi) * midNm, wy = by + Math.cos(phi) * midNm;
+      const roll = 0.72 + 0.28 * Math.sin(wx * 6.1 + 1.3) * Math.cos(wy * 4.7 + 0.4);
+      const h = Math.min(hs[i][2] * roll, 3 + 0.07 * chord), mid = midNm * NM;
+      chunks.push({ ring, near, top: Math.atan((h - EYE) / mid) - mid / (2 * R_EARTH), base: Math.max(-(EYE / (near * NM) + near * NM / (2 * R_EARTH)), DIP) });
+    }
+    chunks.sort((a, b) => a.near - b.near);
+    return chunks;
+  });
+}
+
+let S = 0, playing = false, last = 0;
+const posEl = document.getElementById('pos'); posEl.max = TOTAL.toFixed(3);
+const SPRUCE = [38, 56, 46], HAZE = [150, 172, 184], GRANITE = [124, 116, 110];
+
+function draw() {
+  if (!W) return;
+  const [bx, by] = posAt(S), hdg = headingAt(S);
+  const pxDeg = W / FOV, pxRad = pxDeg * 180 / Math.PI, pxRadV = pxRad * VEX;
+  const HY = Math.round(H * 0.5);
+  // Heights drawn VEX× taller, easing off for big angles so land close
+  // aboard doesn't tower off the top of the view.
+  const AMAX = 0.13;
+  const yOf = ang => { const a = ang - DIP; return HY - a * VEX / (1 + Math.abs(a) * VEX / AMAX) * pxRad; };
+  const xOf = rel => W / 2 + rel * pxDeg;
+  const c = vctx; c.setTransform(DPR, 0, 0, DPR, 0, 0);
+  // sky and water
+  let g = c.createLinearGradient(0, 0, 0, HY);
+  g.addColorStop(0, '#7f9fb4'); g.addColorStop(1, '#d4dfe4'); c.fillStyle = g; c.fillRect(0, 0, W, HY);
+  g = c.createLinearGradient(0, HY, 0, H);
+  g.addColorStop(0, '#6f8b98'); g.addColorStop(1, '#2c4552'); c.fillStyle = g; c.fillRect(0, HY, W, H - HY);
+  // wave streaks, fixed to the water so they slide past as the boat moves
+  c.strokeStyle = 'rgba(220,235,240,0.16)'; c.lineWidth = 1;
+  for (let i = 0; i < 70; i++) {
+    const wx = Math.floor(bx * 40) / 40 + ((i * 37) % 23) / 40 - 0.28, wy = Math.floor(by * 40) / 40 + ((i * 53) % 29) / 40 - 0.1;
+    const dx = wx - bx, dy = wy - by, d = Math.hypot(dx, dy); if (d < 0.02) continue;
+    const rel = wrap180(Math.atan2(dx, dy) * 180 / Math.PI - hdg); if (Math.abs(rel) > FOV / 2) continue;
+    const y = yOf(-(EYE / (d * NM))), len = Math.min(40, 2.4 / d);
+    if (y > H) continue; c.beginPath(); c.moveTo(xOf(rel) - len / 2, y); c.lineTo(xOf(rel) + len / 2, y); c.stroke();
+  }
+  // land, far to near
+  const bins = scan(bx, by, hdg), start = -FOV / 2 - 3, bw = BIN * pxDeg;
+  const all = [];
+  bins.forEach((ch, k) => ch.forEach(cn => all.push([k, cn])));
+  all.sort((a, b) => b[1].near - a[1].near);
+  for (const [k, cn] of all) {
+    const x = Math.floor(xOf(start + k * BIN)), yt = Math.min(yOf(cn.top), yOf(cn.base) - 1), yb = yOf(cn.base);
+    const haze = 1 - Math.exp(-cn.near / 3.2);
+    c.fillStyle = mix(SPRUCE, HAZE, haze); c.fillRect(x, yt, Math.ceil(bw) + 1, yb - yt);
+    if (cn.near < 2.5 && yb - yt > 3) { const gh = Math.min(4, (yb - yt) * 0.22); c.fillStyle = mix(GRANITE, HAZE, haze); c.fillRect(x, yb - gh, Math.ceil(bw) + 1, gh); }
+  }
+  const frontAt = rel => { const k = Math.floor((rel - start) / BIN); return bins[k] || []; };
+  const nearestLand = rel => { const ch = frontAt(rel); return ch.length ? ch[0].near : Infinity; };
+  // lighthouses (named) and fixed lights
+  const marks = [];
+  for (const p of places) if (p.t === 'LIGHTS') marks.push({ kind: 'house', xy: p.xy, label: p.n.replace(/ Light( Station)?$| Lighthouse$/, ' Lt') });
+  for (const l of fixedLights) marks.push({ kind: 'light', xy: l.xy, colour: l.c, label: l.ch });
+  for (const b of buoys) marks.push({ kind: b.s || 'stake/pole', xy: b.xy, colour: b.c || '', label: (b.n || '').match(/(\S{1,3})$/)?.[1] || '', name: b.n });
+  const shown = [];
+  for (const m of marks) {
+    const dx = m.xy[0] - bx, dy = m.xy[1] - by, d = Math.hypot(dx, dy);
+    const range = m.kind === 'house' ? 9 : 3.2;
+    if (d > range || d < 0.02) continue;
+    const rel = wrap180(Math.atan2(dx, dy) * 180 / Math.PI - hdg); if (Math.abs(rel) > FOV / 2) continue;
+    if (nearestLand(rel) < d - (m.kind === 'house' ? 0.15 : 0.01)) continue;
+    shown.push({ ...m, d, rel });
+  }
+  shown.sort((a, b) => b.d - a.d);
+  numPlaced.length = 0;
+  for (const m of shown) drawMark(c, m, xOf(m.rel), yOf(-(EYE / (m.d * NM) + m.d * NM / (2 * R_EARTH))), m.d, pxRadV);
+  // island and point names, nearest first so close names win the space
+  const placed = numPlaced.slice();  // names keep clear of buoy numbers
+  const named = [];
+  for (const p of places) {
+    if (p.t === 'LIGHTS' || p.r < 0) continue;
+    const dx = p.xy[0] - bx, dy = p.xy[1] - by, d = Math.hypot(dx, dy); if (d > 8 || d < 0.05) continue;
+    const rel = wrap180(Math.atan2(dx, dy) * 180 / Math.PI - hdg); if (Math.abs(rel) > FOV / 2 - 1) continue;
+    const ch = frontAt(rel), mine = ch.find(cn => cn.ring === p.r); if (!mine) continue;
+    const before = ch.filter(cn => cn.near < mine.near);
+    if (before.some(cn => yOf(cn.top) <= yOf(mine.top) + 1)) continue;
+    named.push({ p, d, rel, y: Math.min(yOf(mine.top), yOf(mine.base) - 1) });
+  }
+  named.sort((a, b) => a.d - b.d);
+  c.textAlign = 'center'; c.textBaseline = 'bottom';
+  for (const n of named) {
+    const fs = Math.round(Math.max(11, Math.min(15, 17 - n.d))); c.font = `600 ${fs}px "Source Sans 3", system-ui, sans-serif`;
+    const w = c.measureText(n.p.n).width + 8, x = xOf(n.rel);
+    let ly = n.y - 10, ok = false;
+    for (let tries = 0; tries < 4 && ly - fs >= 34; tries++) {
+      ok = !placed.some(r => x - w / 2 < r[2] && x + w / 2 > r[0] && ly - fs < r[3] && ly > r[1]);
+      if (ok) break;
+      ly -= fs + 4;
+    }
+    if (!ok) continue;
+    placed.push([x - w / 2, ly - fs, x + w / 2, ly]);
+    c.strokeStyle = 'rgba(255,255,255,0.55)'; c.lineWidth = 1; c.beginPath(); c.moveTo(x, ly); c.lineTo(x, n.y - 1); c.stroke();
+    c.lineWidth = 3; c.strokeStyle = 'rgba(25,40,48,0.55)'; c.strokeText(n.p.n, x, ly - 1);
+    c.fillStyle = '#fbfcf8'; c.fillText(n.p.n, x, ly - 1);
+  }
+  drawBow(c, HY);
+  drawTape(c, hdg, pxDeg);
+  drawChart(bx, by, hdg);
+  // readouts
+  document.getElementById('ro-cog').textContent = String(Math.round(hdg) % 360).padStart(3, '0') + '° T';
+  document.getElementById('ro-run').textContent = `${S.toFixed(1)}/${TOTAL.toFixed(1)} nm`;
+  const ahead = named.filter(n => Math.abs(n.rel) < 12).sort((a, b) => Math.abs(a.rel) - Math.abs(b.rel))[0];
+  const bAhead = shown.filter(m => m.name && Math.abs(m.rel) < 15).sort((a, b) => a.d - b.d)[0];
+  document.getElementById('ro-ahead').textContent = ahead ? `${ahead.p.n}, ${ahead.d.toFixed(1)} nm` + (bAhead ? ` · ${bAhead.name} ${bAhead.d.toFixed(2)} nm` : '')
+    : bAhead ? `${bAhead.name}, ${bAhead.d.toFixed(2)} nm` : 'Open water';
+  posEl.value = S.toFixed(3);
+}
+
+const numPlaced = [];
+function drawMark(c, m, x, y, d, pxRadV) {
+  const s = Math.max(7, Math.min(40, 11 / d));
+  const col = m.colour.startsWith('green') ? '#2f8a4c' : m.colour.startsWith('red') ? '#c8382e' : m.colour.startsWith('yellow') ? '#e2b832' : '#f2f2ee';
+  c.save(); c.translate(x, y);
+  c.fillStyle = 'rgba(20,35,42,0.35)'; c.fillRect(-s * 0.4, -1, s * 0.8, 2);
+  if (m.kind === 'house') {
+    const h = Math.max(10, Math.min(70, 20 / (d * NM) * pxRadV));
+    c.fillStyle = '#f4f2ea'; c.beginPath(); c.moveTo(-h * 0.09, 0); c.lineTo(h * 0.09, 0); c.lineTo(h * 0.06, -h); c.lineTo(-h * 0.06, -h); c.closePath(); c.fill();
+    c.fillStyle = '#2b2b2b'; c.fillRect(-h * 0.08, -h * 1.14, h * 0.16, h * 0.14);
+    c.fillStyle = 'rgba(255,240,180,0.9)'; c.beginPath(); c.arc(0, -h * 1.07, Math.max(2, h * 0.05), 0, 7); c.fill();
+    label(c, m.label, -h * 1.2 - 4, 12);
+  } else if (m.kind === 'light') {
+    c.fillStyle = '#e9e6dc'; c.fillRect(-s * 0.08, -s * 0.9, s * 0.16, s * 0.9);
+    c.fillStyle = col; c.shadowColor = col; c.shadowBlur = 8; c.beginPath(); c.arc(0, -s * 0.95, Math.max(1.6, s * 0.09), 0, 7); c.fill();
+  } else if (m.kind === 'can') {
+    c.fillStyle = col; c.fillRect(-s * 0.28, -s * 0.8, s * 0.56, s * 0.8);
+    if (m.colour.includes('/')) { c.fillStyle = '#c8382e'; c.fillRect(-s * 0.28, -s * 0.52, s * 0.56, s * 0.24); }
+  } else if (m.kind === 'nun') {
+    c.fillStyle = col; c.beginPath(); c.moveTo(-s * 0.3, 0); c.lineTo(s * 0.3, 0); c.lineTo(s * 0.3, -s * 0.5); c.lineTo(0, -s * 0.95); c.lineTo(-s * 0.3, -s * 0.5); c.closePath(); c.fill();
+    if (m.colour.includes('/')) { c.fillStyle = '#2f8a4c'; c.fillRect(-s * 0.3, -s * 0.4, s * 0.6, s * 0.18); }
+  } else if (m.kind === 'pillar') {
+    c.fillStyle = col; c.fillRect(-s * 0.32, -s * 0.28, s * 0.64, s * 0.28);
+    c.strokeStyle = col; c.lineWidth = Math.max(1, s * 0.07); c.beginPath();
+    c.moveTo(-s * 0.22, -s * 0.28); c.lineTo(-s * 0.08, -s * 1.2); c.moveTo(s * 0.22, -s * 0.28); c.lineTo(s * 0.08, -s * 1.2);
+    c.moveTo(-s * 0.16, -s * 0.7); c.lineTo(s * 0.16, -s * 0.7); c.stroke();
+    if (m.colour === 'red/white') { c.strokeStyle = '#f2f2ee'; c.beginPath(); c.moveTo(0, -s * 0.28); c.lineTo(0, -s * 1.2); c.stroke(); }
+  } else {  // daybeacon on a pole
+    c.strokeStyle = '#4a4a44'; c.lineWidth = Math.max(1, s * 0.07); c.beginPath(); c.moveTo(0, 0); c.lineTo(0, -s * 1.3); c.stroke();
+    c.fillStyle = col;
+    if (m.colour.startsWith('red')) { c.beginPath(); c.moveTo(-s * 0.3, -s * 1.0); c.lineTo(s * 0.3, -s * 1.0); c.lineTo(0, -s * 1.5); c.closePath(); c.fill(); }
+    else c.fillRect(-s * 0.26, -s * 1.5, s * 0.52, s * 0.5);
+  }
+  if (m.label && m.kind !== 'house' && m.kind !== 'light' && d < 1.6) {
+    const t = `"${m.label}"`, ty = -s * 1.6 - 3, w = t.length * 7 + 4, r = [x - w / 2, y + ty - 13, x + w / 2, y + ty];
+    if (!numPlaced.some(q => r[0] < q[2] && r[2] > q[0] && r[1] < q[3] && r[3] > q[1])) { numPlaced.push(r); label(c, t, ty, 11); }
+  }
+  c.restore();
+}
+function label(c, t, y, fs) {
+  c.font = `500 ${fs}px "JetBrains Mono", ui-monospace, monospace`; c.textAlign = 'center'; c.textBaseline = 'bottom';
+  c.lineWidth = 3; c.strokeStyle = 'rgba(20,35,42,0.6)'; c.strokeText(t, 0, y); c.fillStyle = '#fbfcf8'; c.fillText(t, 0, y);
+}
+function drawBow(c, HY) {
+  // the foredeck and pulpit, so the view reads as standing at the helm
+  const bw = Math.min(W * 0.5, 420), top = H - Math.min(H * 0.2, 90);
+  c.fillStyle = '#e7e3d8';
+  c.beginPath(); c.moveTo(W / 2 - bw / 2, H); c.quadraticCurveTo(W / 2 - bw * 0.18, top + 14, W / 2, top); c.quadraticCurveTo(W / 2 + bw * 0.18, top + 14, W / 2 + bw / 2, H); c.closePath(); c.fill();
+  c.fillStyle = '#b9b2a2'; c.fillRect(W / 2 - bw * 0.06, top + 22, bw * 0.12, H - top);
+  c.strokeStyle = '#9aa3a6'; c.lineWidth = 2; c.beginPath();
+  c.moveTo(W / 2 - bw * 0.22, H - 2); c.lineTo(W / 2 - bw * 0.1, top - 10); c.lineTo(W / 2 + bw * 0.1, top - 10); c.lineTo(W / 2 + bw * 0.22, H - 2); c.stroke();
+  c.strokeStyle = 'rgba(70,78,82,0.7)'; c.lineWidth = 1.2; c.beginPath(); c.moveTo(W / 2, top); c.lineTo(W / 2 + 6, 0); c.stroke();  // forestay
+}
+function drawTape(c, hdg, pxDeg) {
+  c.fillStyle = 'rgba(16,28,34,0.55)'; c.fillRect(0, 0, W, 30);
+  c.strokeStyle = 'rgba(240,244,245,0.8)'; c.fillStyle = '#eef3f4'; c.lineWidth = 1;
+  c.font = '500 11px "JetBrains Mono", ui-monospace, monospace'; c.textAlign = 'center'; c.textBaseline = 'top';
+  const card = { 0: 'N', 45: 'NE', 90: 'E', 135: 'SE', 180: 'S', 225: 'SW', 270: 'W', 315: 'NW' };
+  for (let b = Math.floor((hdg - FOV / 2) / 5) * 5; b <= hdg + FOV / 2; b += 5) {
+    const x = W / 2 + (b - hdg) * pxDeg, bb = (b + 360) % 360;
+    c.beginPath(); c.moveTo(x, 30); c.lineTo(x, bb % 10 === 0 ? 21 : 25); c.stroke();
+    if (bb % 10 === 0) c.fillText(card[bb] || String(bb).padStart(3, '0'), x, 5);
+  }
+  c.fillStyle = '#e0a843'; c.beginPath(); c.moveTo(W / 2 - 6, 30); c.lineTo(W / 2 + 6, 30); c.lineTo(W / 2, 22); c.closePath(); c.fill();
+}
+function drawChart(bx, by, hdg) {
+  const cw = chart.width / DPR, c = cctx, R = 3, k = cw / (2 * R);
+  const cs = getComputedStyle(document.documentElement);
+  c.setTransform(DPR, 0, 0, DPR, 0, 0); c.clearRect(0, 0, cw, cw);
+  const P = (x, y) => [cw / 2 + (x - bx) * k, cw / 2 - (y - by) * k];
+  c.strokeStyle = cs.getPropertyValue('--muted'); c.lineWidth = 1;
+  c.beginPath();
+  for (const s of segs) {
+    if (Math.abs(s[0] - bx) > R + 0.3 || Math.abs(s[1] - by) > R + 0.3) continue;
+    const a = P(s[0], s[1]), b = P(s[2], s[3]); c.moveTo(a[0], a[1]); c.lineTo(b[0], b[1]);
+  }
+  c.stroke();
+  // view wedge
+  c.fillStyle = 'rgba(214,162,74,0.18)'; c.beginPath(); c.moveTo(cw / 2, cw / 2);
+  c.arc(cw / 2, cw / 2, cw * 0.48, (hdg - FOV / 2 - 90) * Math.PI / 180, (hdg + FOV / 2 - 90) * Math.PI / 180); c.closePath(); c.fill();
+  c.strokeStyle = cs.getPropertyValue('--brass'); c.lineWidth = 1.5; c.setLineDash([4, 3]); c.beginPath();
+  route.forEach((p, i) => { const q = P(p[0], p[1]); i ? c.lineTo(q[0], q[1]) : c.moveTo(q[0], q[1]); }); c.stroke(); c.setLineDash([]);
+  c.save(); c.translate(cw / 2, cw / 2); c.rotate(hdg * Math.PI / 180);
+  c.fillStyle = cs.getPropertyValue('--ink'); c.beginPath(); c.moveTo(0, -8); c.lineTo(5, 6); c.lineTo(-5, 6); c.closePath(); c.fill(); c.restore();
+  c.fillStyle = cs.getPropertyValue('--muted'); c.font = '11px "JetBrains Mono", monospace'; c.textAlign = 'left'; c.textBaseline = 'top';
+  c.fillText('N↑  3 nm', 6, 6);
+}
+
+const playBtn = document.getElementById('play'), speedEl = document.getElementById('speed');
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+function tick(t) {
+  if (!playing) return;
+  const dt = last ? Math.min(0.1, (t - last) / 1000) : 0; last = t;
+  S += dt * 6 / 3600 * Number(speedEl.value);
+  if (S >= TOTAL) { S = TOTAL; setPlaying(false); }
+  draw(); if (playing) requestAnimationFrame(tick);
+}
+function setPlaying(on) {
+  playing = on; last = 0; playBtn.innerHTML = on ? '&#10074;&#10074; Pause' : '&#9654; Play';
+  if (on) { if (S >= TOTAL - 0.01) S = 0; requestAnimationFrame(tick); }
+}
+playBtn.addEventListener('click', () => setPlaying(!playing));
+posEl.addEventListener('input', () => { S = Number(posEl.value); draw(); });
+new ResizeObserver(resize).observe(view.parentElement);
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', draw);
+S = 3.1;   // start just inside the Thorofare's western approach
+resize();
+</script>
