@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>3D helm view · AudioChart</title>
+<style>
+/* Layout: one big window onto the water; instrument strip and controls beneath. */
+:root {
+  --bg: #eef1f2; --panel: #ffffff; --ink: #1d2a30; --muted: #5b6a71; --rule: #cfd8db; --brass: #a5741f;
+  --display: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+  --body: system-ui, -apple-system, sans-serif;
+  --mono: Menlo, "Courier New", monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #11181c; --panel: #182227; --ink: #e3eaec; --muted: #93a3a9; --rule: #2a383e; --brass: #d6a24a; color-scheme: dark } }
+:root[data-theme="dark"] { --bg: #11181c; --panel: #182227; --ink: #e3eaec; --muted: #93a3a9; --rule: #2a383e; --brass: #d6a24a; color-scheme: dark }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; }
+.wrap { max-width: 1400px; margin: 0 auto; padding-inline: 16px; padding-block: 18px 28px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; }
+h1 { font-family: var(--display); font-weight: 600; font-size: 1.9rem; letter-spacing: 0.02em; margin: 0; }
+.sub { color: var(--muted); margin: 0; flex: 1 1 380px; min-width: 0; line-height: 1.4; }
+.scene { position: relative; min-width: 0; aspect-ratio: 16 / 8; max-width: 100%; border-radius: 6px; overflow: hidden; background: #9db3c2; cursor: grab; }
+.scene.dragging { cursor: grabbing; }
+.scene canvas { display: block; width: 100%; height: 100%; }
+#labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.lbl { position: absolute; transform: translate(-50%, -100%); white-space: nowrap; color: #fbfcf8; font-weight: 600; font-size: 13px;
+  text-shadow: 0 0 3px rgba(15,30,38,0.9), 0 0 1px rgba(15,30,38,1); padding-bottom: 6px; border-bottom: 0; }
+.lbl::after { content: ""; position: absolute; left: 50%; bottom: 0; width: 1px; height: 6px; background: rgba(255,255,255,0.6); }
+.lbl.buoy { font-family: var(--mono); font-weight: 500; font-size: 11px; }
+.scene #minichart { height: auto; }
+#minichart { position: absolute; right: 12px; top: 40px; width: clamp(130px, 17%, 210px); aspect-ratio: 1; border-radius: 6px; box-shadow: 0 2px 10px rgba(10,20,26,0.35); pointer-events: none; z-index: 2; }
+#minichart[hidden] { display: none; }
+#tape { position: absolute; left: 0; right: 0; top: 0; height: 28px; background: rgba(16,28,34,0.5); pointer-events: none; }
+#status[hidden], #labels[hidden], .lbl[hidden] { display: none; }
+#status { position: absolute; inset: 0; display: grid; place-items: center; color: #f3f6f7; font-family: var(--display); font-size: 1.3rem; letter-spacing: 0.04em; background: rgba(20,34,42,0.55); text-align: center; padding-inline: 16px; }
+.strip { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; }
+.ro { display: grid; }
+.ro span { font-size: 0.68rem; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
+.ro b { font-family: var(--mono); font-weight: 500; font-size: 1.02rem; font-variant-numeric: tabular-nums; }
+.ro.ahead { flex: 1 1 260px; min-width: 0; }
+.ro.ahead b { font-family: var(--body); font-weight: 600; font-size: 0.95rem; }
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+button, select { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--rule); border-radius: 5px; padding: 7px 14px; cursor: pointer; }
+#play { font-family: var(--display); font-weight: 600; font-size: 1.05rem; letter-spacing: 0.04em; min-width: 92px; border-color: var(--brass); color: var(--brass); }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+#pos { flex: 1 1 260px; min-width: 0; accent-color: var(--brass); }
+label { color: var(--muted); font-size: 0.85rem; display: flex; align-items: center; gap: 6px; }
+.note { color: var(--muted); font-size: 0.85rem; line-height: 1.45; max-width: 90ch; margin: 0; }
+kbd { font-family: var(--mono); font-size: 0.8em; border: 1px solid var(--rule); border-radius: 3px; padding: 0 4px; background: var(--panel); }
+#chooser { display: grid; gap: 8px; }
+#chooser ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; }
+#chooser a, header a { color: var(--brass); }
+.badge { font-family: var(--mono); font-size: 0.8rem; color: var(--brass); border: 1px solid var(--brass); border-radius: 4px; padding: 2px 6px; }
+#tileload { position: absolute; left: 12px; bottom: 12px; z-index: 2; font-size: 0.8rem; color: #f3f6f7; background: rgba(20,34,42,0.6); border-radius: 4px; padding: 3px 8px; }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1 id="route-name">3D helm view</h1>
+    <p class="sub">From the tiller of a Cape Dory 25D. Built from USGS elevation and USDA aerial photos (NAIP), downloaded for this route and kept for offline use, with buoys and lights from AudioChart's chart data. <a href="./">Back to AudioChart</a></p>
+  </header>
+
+  <div id="chooser" hidden>
+    <p class="note">Choose a route, or open one from AudioChart's Routes panel with ⛰ 3D view.</p>
+    <ul></ul>
+  </div>
+
+  <div class="scene" id="scene">
+    <canvas id="tapecv"></canvas>
+    <div id="labels"></div>
+    <canvas id="minichart" aria-label="Chart showing the boat's position on the route"></canvas>
+    <div id="tileload" hidden>Loading terrain ahead…</div>
+    <div id="status">Loading…</div>
+  </div>
+
+  <div class="strip">
+    <div class="ro"><span>Course</span><b id="ro-cog">—</b></div>
+    <div class="ro"><span>Looking</span><b id="ro-look">—</b></div>
+    <div class="ro"><span>Run</span><b id="ro-run">—</b></div>
+    <div class="ro"><span>Zoom</span><b id="ro-zoom">1×</b></div>
+    <div class="ro ahead"><span>Nearest mark ahead</span><b id="ro-ahead">—</b></div>
+  </div>
+
+  <div class="controls">
+    <button id="play" type="button">&#9654; Play</button>
+    <input id="pos" type="range" min="0" max="1" step="0.002" value="0" aria-label="Position along the route">
+    <label for="speed">Pace
+      <select id="speed">
+        <option value="20">6 kn × 20</option>
+        <option value="60" selected>6 kn × 60</option>
+        <option value="200">6 kn × 200</option>
+      </select>
+    </label>
+    <label for="showlbl"><input id="showlbl" type="checkbox" checked> Labels</label>
+    <label for="showchart"><input id="showchart" type="checkbox" checked> Chart</label>
+    <button id="reset" type="button">Look ahead</button>
+    <span class="badge" id="vjnote" hidden>Following Virtual Journey</span>
+  </div>
+  <p class="note">Drag the view to look around, scroll to zoom like binoculars, <kbd>Space</kbd> to play or pause. While a Virtual Journey of this route runs in AudioChart, this view follows it. Eye height 2.0 m at the tiller. Land is USGS elevation (10 m near the route, about 37 m beyond) with tree height added where the photo shows forest, since the elevation data is bare earth. Photos are a single survey summer, so moored boats and shadows are frozen in place. Buoys are drawn up to 6× real size at a distance so they stay visible. Desktop browser with WebGL needed; the first run of a route downloads 20–40 MB.</p>
+</div>
+<script type="importmap">
+{ "imports": { "three": "./js/lib/three/three.module.min.js" } }
+</script>
+<script src="./js/lib/geotiff.js"></script>
+<script type="module" src="./js/helm3d.js"></script>
+</body>
+</html>

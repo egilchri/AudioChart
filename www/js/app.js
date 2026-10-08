@@ -7191,11 +7191,22 @@ function _startVirtualJourney(route, speedKnots) {
 // correct position, just updates the display less often.
 const VJ_TICK_MS = 200;
 
+// Tells an open 3D helm view (helm3d.html) where the Virtual Journey is, as a fraction of
+// the route, so it can sail along with it.
+let _vjChannel = null;
+function _broadcastVj(running) {
+  try {
+    _vjChannel = _vjChannel || new BroadcastChannel('audiochart-vj');
+    if (_vjRoute) _vjChannel.postMessage({ routeId: _vjRoute.id || _vjRoute.name, running, frac: _vjTotalNm ? _vjTraveledNm / _vjTotalNm : 0 });
+  } catch (_) {}
+}
+
 function _vjStep() {
   if (!_vjRunning) return;
   const elapsed = (Date.now() - _vjRunStartMs) / 1000;
   const nmPerRealSec = (_vjSpeedKnots / 3600) * _vjCompress;
   _vjTraveledNm = _vjBaselineNm + elapsed * nmPerRealSec;
+  _broadcastVj(true);
 
   if (_vjTraveledNm >= _vjTotalNm) {
     const last = _vjRoute.points[_vjRoute.points.length - 1];
@@ -7241,6 +7252,7 @@ function _stopVirtualJourney() {
   _vjRunning = false;
   if (_vjRafId) { clearInterval(_vjRafId); _vjRafId = null; }
   if (!_vjRoute) return; // nothing was actually running — safe to call as a guard
+  _broadcastVj(false);
   GPS.clearVirtualPosition();
   document.getElementById('vjourney-banner').style.display = 'none';
   _appEl.classList.remove('vjourney-active');
@@ -8846,6 +8858,18 @@ function _ensureMap() {
         }
       });
       row.appendChild(vjBtn);
+      // 3D helm view (v823): the route sailed in 3D from USGS elevation + aerial photos, in its
+      // own window. It follows a Virtual Journey of the same route while one runs (see
+      // _broadcastVj). Desktop-class graphics needed; first run of a route downloads 20–40 MB.
+      const h3dBtn = document.createElement('button');
+      h3dBtn.className = 'rp-follow-btn';
+      h3dBtn.textContent = '⛰ 3D view';
+      h3dBtn.title = 'Sail this route in 3D from the tiller (opens a new window; follows a Virtual Journey of this route)';
+      h3dBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        window.open(`./helm3d.html?route=${encodeURIComponent(route.id || route.name)}`, 'audiochart-helm3d');
+      });
+      row.appendChild(h3dBtn);
       // Previously the only way in was clicking the route's own line on the
       // map — awkward or outright impossible to hit reliably at some zoom
       // levels (reported live: can't see/click a route zoomed all the way

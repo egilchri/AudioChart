@@ -1,4 +1,4 @@
-/** @version v822 */
+/** @version v823 */
 /* Bump this comment on every release, even when nothing else in this file
    changes — a service worker only gets reinstalled when its own script
    bytes differ from what's currently active (see the v505 fix), so a
@@ -22,6 +22,7 @@ const CHART_CACHE     = 'audiochart-chart-v1';     // OSM + OpenSeaMap chart til
 // Web Share Target handoff (see app.js's matching _importSharedGpx for the pickup side).
 // Deliberately unversioned/stable — must survive an activate() that races the share flow.
 const SHARE_CACHE = 'audiochart-share-target';
+const HELM3D_CACHE = 'audiochart-helm3d-v1';   // 3D helm view's USGS downloads (helm3d.js manages it)
 const SHARE_PAYLOAD_KEY = './shared-gpx-payload';
 const TILES_MAX = 800;
 
@@ -45,7 +46,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) =>
       Promise.all(
         keys
-          .filter((k) => k !== CACHE && k !== TILES_CACHE && k !== SATELLITE_CACHE && k !== CHART_CACHE && k !== SHARE_CACHE)
+          .filter((k) => k !== CACHE && k !== TILES_CACHE && k !== SATELLITE_CACHE && k !== CHART_CACHE && k !== SHARE_CACHE && k !== HELM3D_CACHE)
           .map((k) => caches.delete(k))
       )
     ).then(() => self.clients.claim())
@@ -84,6 +85,10 @@ self.addEventListener('fetch', (event) => {
   }
 
   // OSM + OpenSeaMap chart tiles
+  // USGS elevation (range reads of 300 MB files) and aerial photos for the 3D helm view: let the
+  // browser fetch them directly; helm3d.js caches what it uses in HELM3D_CACHE itself.
+  if (url.hostname === 'prd-tnm.s3.amazonaws.com' || url.hostname === 'imagery.nationalmap.gov') return;
+
   if (url.hostname === 'tile.openstreetmap.org' ||
       url.hostname === 'tiles.openseamap.org') {
     event.respondWith(chartTileStrategy(event.request));

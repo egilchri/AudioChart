@@ -1,5 +1,27 @@
 # Changelog
 
+## 2026-10-08 — 3D helm view of any route (v823)
+
+Direct request: what the 3D samples showed should become the Virtual
+Journey display. First stage, desktop: each route in the Routes panel has
+a ⛰ 3D view button that opens `helm3d.html?route=<id>` in its own window
+(`?sample=<curated id>` for the demos; no parameter lists both). The route
+is sailed from the tiller of a Cape Dory 25D over terrain built at runtime
+from USGS 3DEP elevation (10 m near the route, the files' ~37 m overview to
+the horizon, read by range request through geotiff.js) and USDA NAIP aerial
+photos, with tree height added where the photo shows forest and real 3D
+spruce near the route. Buoys, beacons, lights and names come from the
+region's chart data; a corner chart follows the boat. Near terrain streams
+in ~5 km tiles as the boat approaches and is dropped behind it, so long
+passages stay within GPU memory. Everything downloaded is kept in its own
+cache (`audiochart-helm3d-v1`, kept by the service worker, which now lets
+the USGS requests through untouched), so a second run, or one at the dock
+with no signal, needs no network. While a Virtual Journey runs, the app
+broadcasts its progress and an open 3D view of the same route follows it.
+three.js 0.160 and geotiff.js 2.1.3 are vendored under `js/lib/` (MIT).
+Not yet: tablet-grade quality settings, and the 3D view inside the main
+window in place of the map during a Virtual Journey.
+
 ## 2026-10-08 — Play animation at half speed (v822)
 
 Direct request. The ▶ Play / Preview sailboat now takes 20 seconds start
