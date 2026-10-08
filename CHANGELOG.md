@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-08 — Play animation at half speed (v822)
+
+Direct request. The ▶ Play / Preview sailboat now takes 20 seconds start
+to finish instead of 10. The sample-route movies (narration timed to the
+10s run) and the Longtest harness keep 10s.
+
 ## 2026-10-08 — Tooltips on every Node Ops button (v821)
 
 Direct request. Every Node Ops button now shows its description in a

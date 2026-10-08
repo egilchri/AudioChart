@@ -1520,7 +1520,7 @@ window.Longtest = async (setName, iterations = 3, { speedKnots = 5, untilSec = n
       : 'PASS';
     results.push({ iter: i, from: here.name, to: dest.name, map: _mapViewMode, result, points: pts.length, nm: +nm.toFixed(1), ms });
     // Play it — even a failed route, so a straight line through land is visible.
-    _startRouteAnimation({ name: `Longtest ${i}: ${here.name} → ${dest.name}`, points: pts }, speedKnots);
+    _startRouteAnimation({ name: `Longtest ${i}: ${here.name} → ${dest.name}`, points: pts }, speedKnots, ANIMATE_MOVIE_SEC);
     await new Promise((resolve) => {
       const tick = setInterval(() => {
         if (!_animMode || _animBannerText.textContent.startsWith('✓')) { clearInterval(tick); resolve(); }
@@ -7329,7 +7329,12 @@ function _getTrackSettings() {
   };
 }
 
-function _startRouteAnimation(route, speedKnots) {
+// Play/Preview length: 20s start to finish (was 10s; direct request
+// 2026-10-08, half the speed). The sample movies and Longtest pass
+// ANIMATE_MOVIE_SEC instead — the movie's narration is timed to it.
+const ANIMATE_TOTAL_SEC = 20;
+const ANIMATE_MOVIE_SEC = 10;
+function _startRouteAnimation(route, speedKnots, totalSec = ANIMATE_TOTAL_SEC) {
   if (!_map) return;
   const track = _getTrackSettings();
 
@@ -7448,12 +7453,11 @@ function _startRouteAnimation(route, speedKnots) {
   });
 
   // Fixed real-world playback length, regardless of route length or boat
-  // speed: 10 seconds start to finish, every time — replaces the old
-  // speed×compression pacing (the Speed chips no longer drive the actual
-  // animation rate; speedKnots/sailTotalMin below are still real, just
-  // for the realistic-sailing-time readout in the banner).
-  const ANIMATE_TOTAL_SEC = 10;
-  let nmPerRealSec = totalNm / ANIMATE_TOTAL_SEC;
+  // speed (ANIMATE_TOTAL_SEC) — replaces the old speed×compression pacing
+  // (the Speed chips no longer drive the actual animation rate;
+  // speedKnots/sailTotalMin below are still real, just for the
+  // realistic-sailing-time readout in the banner).
+  let nmPerRealSec = totalNm / totalSec;
   let sailTotalMin = Math.round(totalNm / speedKnots * 60); // actual sailing minutes
 
   // Prime TTS for iOS audio unlock; animation starts immediately in parallel.
@@ -10591,7 +10595,7 @@ function _ensureMap() {
     // (_startRouteAnimation), not Virtual Journey. Virtual Journey is
     // real-time-scaled by speed×compression, so its actual runtime varies
     // with route length and doesn't reliably fit the movie's own pacing —
-    // _startRouteAnimation always takes exactly ANIMATE_TOTAL_SEC (10s)
+    // _startRouteAnimation always takes exactly ANIMATE_MOVIE_SEC (10s) here
     // regardless of route length, which is what "the way we do when we
     // have a route preview" means (v653 fix — Virtual Journey wasn't it).
     switchMode('chart');
@@ -10604,7 +10608,7 @@ function _ensureMap() {
     // talking over each other.
     await showStep(4, "Here's the route, already plotted. Watch the sailboat icon trace the route.");
     await sleep(500);
-    _startRouteAnimation(myRoute, 5);
+    _startRouteAnimation(myRoute, 5, ANIMATE_MOVIE_SEC);
     // Fixed real-world length regardless of route — give it room to finish
     // before Step 5's own narration starts.
     await sleep(10500);
