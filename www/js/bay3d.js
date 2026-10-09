@@ -345,7 +345,7 @@ function updateTowns() {
 // beyond the waterfront (the town) and the least under the camera and the line in (so it sits
 // over open water, looking in). The aim then moves to the shore on the camera's side.
 function townView(t) {   // t: {x, z}, a point on the town's waterfront
-  const dist = 1100, tilt = 66 * DEG, back = dist * Math.sin(tilt);
+  const dist = 1100, tilt = 71 * DEG, back = dist * Math.sin(tilt);
   const landAt = (x, z) => heightAt(lonOf(x), latOf(z)) > 0.5;
   let best = null;
   if (t.az != null) best = { az: t.az, fx: Math.sin(t.az), fz: -Math.cos(t.az) };
@@ -513,8 +513,13 @@ function updateLabels() {
     }
     if (view.dist < 30000) {
       const R = view.dist * 1.3;
-      const near = places.map(p => ({ p, d: Math.hypot(p.x - view.x, p.z - view.z) })).filter(o => o.d < R).sort((a, b) => a.d - b.d).slice(0, 60);
+      const near = places.map(p => ({ p, d: Math.hypot(p.x - view.x, p.z - view.z) })).filter(o => o.d < R && !o.p.elev).sort((a, b) => a.d - b.d).slice(0, 60);
       for (const { p, d } of near) cand.push({ text: p.n, x: p.x, y: p.y + 6, z: p.z, cls: '', pri: 1 + d / R });
+      for (const p of places) {   // summits: from farther off, ahead of nearer names
+        if (!p.elev) continue;
+        const d = Math.hypot(p.x - view.x, p.z - view.z), RS = Math.max(R, 9000);
+        if (d < RS) cand.push({ text: p.n, x: p.x, y: p.y + 6, z: p.z, cls: '', pri: 0.5 + d / RS });
+      }
     }
     if (view.dist < 3000) {
       for (const sset of buoySets) for (const b of sset.list) {

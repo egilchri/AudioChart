@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-09 — Bird's-eye: summits labelled from town views (v849)
+
+In the Bird's-eye view, summits are now labelled up to 9 km away (other places
+only within ~1.3× the camera distance) and ahead of nearer names, and town
+views sit a little lower (71° tilt, was 66°), so the hills behind a town are in
+the picture: Cadillac and Sargent behind Bar Harbor, Mount Battie and
+Megunticook behind Camden.
+
 ## 2026-10-09 — No more buildings standing in the water (v848)
 
 Reported from tutorial 8 at 1:23: a building standing in Camden harbor. It
