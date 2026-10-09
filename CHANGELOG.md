@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-09 — Tutorial 9: Bird's-eye (sailors page)
+
+Requested: a demo about the Bird's-eye map mode, mentioning that it is one of
+the growing list of map types for the armchair sailor, like History and
+Geology. www/sailors/assets/demo9.mp4 (76 s): the Map Type menu, opening over
+Rockland, Whole bay, drag / scroll-zoom / right-drag to turn and tilt (marked
+with white circles), flying to Camden (Mount Battie) and across the bay to Bar
+Harbor (Cadillac Mountain), and Back to chart. Recorded in headless Chrome
+with a CDP screencast, Piper narration. Sailors page only.
+
 ## 2026-10-09 — Bird's-eye: summits labelled from town views (v849)
 
 In the Bird's-eye view, summits are now labelled up to 9 km away (other places
