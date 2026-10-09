@@ -641,6 +641,120 @@ function courseAt(s) {   // degrees true, from a short look-ahead so turns are s
   return (Math.atan2(b[0] - a[0], -(b[1] - a[1])) * 180 / Math.PI + 360) % 360;
 }
 
+// ── Fox Islands ferries (v846): when the route passes near the Rockland–Vinalhaven or Rockland–
+// North Haven ferry line (data/ferries.json, from OpenStreetMap), a ferry is staged to come by:
+// across your bow about 400 m ahead if you cross its line, or meeting you port to port if you run
+// along it. Where it is depends only on how far you have sailed (S), at its own speed against the
+// boat's 6 kn, so it keeps its place with Play, the slider and a Virtual Journey alike. Before its
+// time it waits at its terminal; after, it lies at the other one. Near the meeting its path is
+// eased off the charted line toward you (so it passes close enough to see from the Drone view),
+// back onto the line within a couple of kilometres either way, so it still leaves and reaches
+// its terminals on the real track.
+const ferries = [];
+function ferryModel() {   // a Maine State Ferry–style car ferry, ~47 m: bow toward -z, waterline at y = 0
+  const g = new THREE.Group(), white = mat(0xf2f1ec), hullM = mat(0x22324a), deckM = mat(0x7d8287), dark = mat(0x1d2328);
+  const outline = [[-6, 22], [6, 22], [6, -15], [3.2, -22.5], [-3.2, -22.5], [-6, -15]];
+  const hullShape = new THREE.Shape(outline.map(([x, z]) => new THREE.Vector2(x, -z)));
+  const hull = new THREE.Mesh(new THREE.ExtrudeGeometry(hullShape, { depth: 3.4, bevelEnabled: false }), hullM);
+  hull.rotation.x = -Math.PI / 2; hull.position.y = -0.9; g.add(hull);
+  const deck = new THREE.Mesh(new THREE.ExtrudeGeometry(hullShape, { depth: 0.2, bevelEnabled: false }), deckM);
+  deck.rotation.x = -Math.PI / 2; deck.position.y = 2.5; g.add(deck);
+  const stripe = new THREE.Mesh(new THREE.ExtrudeGeometry(hullShape, { depth: 0.35, bevelEnabled: false }), white);
+  stripe.rotation.x = -Math.PI / 2; stripe.position.y = 2.15; stripe.scale.set(1.004, 1.004, 1); g.add(stripe);
+  for (const sx of [-1, 1]) { const bw = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.2, 36), white); bw.position.set(sx * 5.85, 3.3, 3); g.add(bw); }
+  // passenger cabin along the starboard side, wheelhouse on top, a stack aft of it
+  const cabin = new THREE.Mesh(new THREE.BoxGeometry(4.2, 2.8, 26), white); cabin.position.set(3.6, 4.0, 2); g.add(cabin);
+  const win = new THREE.Mesh(new THREE.BoxGeometry(4.26, 0.9, 22), dark); win.position.set(3.6, 4.4, 2); g.add(win);
+  const bridge = new THREE.Mesh(new THREE.BoxGeometry(4.6, 2.4, 7), white); bridge.position.set(3.6, 6.6, -6); g.add(bridge);
+  const bwin = new THREE.Mesh(new THREE.BoxGeometry(4.66, 0.8, 7.06), dark); bwin.position.set(3.6, 7.1, -6); g.add(bwin);
+  const stack = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.8, 3.2, 12), white); stack.position.set(3.6, 7.0, 6); g.add(stack);
+  const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.72, 0.72, 0.6, 12), dark); cap.position.set(3.6, 8.7, 6); g.add(cap);
+  // vehicles on the open deck
+  const carCols = [0xb8bcc0, 0x8c1f1f, 0x23415f, 0xe8e6e0, 0x2f2f2f, 0x5b6b4a, 0xa88f5c];
+  let k = 0;
+  for (const z of [-12, -7, -2, 3, 8, 13]) for (const x of [-3.6, -1.0]) {
+    if ((k * 7 + 3) % 5 === 0) { k++; continue; }   // a few gaps
+    const car = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.4, 4.4), mat(carCols[k++ % carCols.length])); car.position.set(x, 3.3, z); g.add(car);
+  }
+  const truck = new THREE.Mesh(new THREE.BoxGeometry(2.4, 3.2, 9), mat(0xd9d6cf)); truck.position.set(-2.3, 4.2, 17); g.add(truck);
+  // wake: a fading white fan astern, and a little bow wave
+  const wc = document.createElement('canvas'); wc.width = 64; wc.height = 256;
+  const wx2 = wc.getContext('2d'), grd = wx2.createLinearGradient(0, 0, 0, 256);
+  grd.addColorStop(0, 'rgba(245,250,252,0.85)'); grd.addColorStop(1, 'rgba(245,250,252,0)');
+  wx2.fillStyle = grd; wx2.beginPath(); wx2.moveTo(22, 0); wx2.lineTo(42, 0); wx2.lineTo(64, 256); wx2.lineTo(0, 256); wx2.closePath(); wx2.fill();
+  const wakeMat = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(wc), transparent: true, depthWrite: false });
+  const wake = new THREE.Mesh(new THREE.PlaneGeometry(34, 150), wakeMat);
+  wake.rotation.x = -Math.PI / 2; wake.position.set(0, 0.06, 22 + 75); g.add(wake);
+  const bowWave = new THREE.Mesh(new THREE.RingGeometry(6, 9, 24, 1, Math.PI * 0.15, Math.PI * 0.7), new THREE.MeshBasicMaterial({ color: 0xf2f7f9, transparent: true, opacity: 0.55, depthWrite: false }));
+  bowWave.rotation.x = -Math.PI / 2; bowWave.position.set(0, 0.07, -16); g.add(bowWave);
+  g.userData.wake = [wake, bowWave];
+  return g;
+}
+function ferryAt(fy, f) {   // point on the line f metres from Rockland, and the smoothed direction there
+  const pt = d => {
+    d = Math.max(0, Math.min(fy.L, d));
+    let i = 1; while (i < fy.fc.length - 1 && fy.fc[i] < d) i++;
+    const t = (d - fy.fc[i - 1]) / ((fy.fc[i] - fy.fc[i - 1]) || 1);
+    return [fy.P[i - 1][0] + t * (fy.P[i][0] - fy.P[i - 1][0]), fy.P[i - 1][1] + t * (fy.P[i][1] - fy.P[i - 1][1])];
+  };
+  const [x, z] = pt(f), a = pt(f - 90), b = pt(f + 90), l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+  return { x, z, tx: (b[0] - a[0]) / l, tz: (b[1] - a[1]) / l };
+}
+function setupFerries(data) {
+  for (const F of data.ferries || []) {
+    const P = F.line.map(([lo, la]) => [wx(lo), wz(la)]), fc = [0];
+    for (let i = 1; i < P.length; i++) fc.push(fc[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
+    const fy = { F, P, fc, L: fc[fc.length - 1] };
+    const nearest = (x, z) => {   // distance to the line and how far along it
+      let best = { d: Infinity, f: 0 };
+      for (let i = 1; i < P.length; i++) {
+        const [ax, az] = P[i - 1], [bx, bz] = P[i], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz;
+        const t = L2 ? Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / L2)) : 0;
+        const d = Math.hypot(x - ax - t * dx, z - az - t * dz);
+        if (d < best.d) best = { d, f: fc[i - 1] + t * Math.sqrt(L2) };
+      }
+      return best;
+    };
+    const samples = [];
+    for (let s = 0; s <= TOTAL; s += 50) { const [x, z] = posAt(s); samples.push({ s, x, z, ...nearest(x, z) }); }
+    const dmin = Math.min(...samples.map(o => o.d));
+    if (!(dmin <= 1.5 * NM)) continue;   // never within sight of this ferry's line
+    // where to meet: of the stretch within 1 nm of the line, the place nearest mid-route, clear of both ends
+    let cands = samples.filter(o => o.d <= Math.max(NM, dmin + 50) && o.s > 800 && o.s < TOTAL - 800);
+    if (!cands.length) cands = samples.filter(o => o.d <= dmin + 1);
+    const c = cands.reduce((a, b) => Math.abs(b.s - TOTAL / 2) < Math.abs(a.s - TOTAL / 2) ? b : a);
+    const [ax, az] = posAt(c.s - 60), [bx, bz] = posAt(c.s + 60), bl = Math.hypot(bx - ax, bz - az) || 1, ux = (bx - ax) / bl, uz = (bz - az) / bl;
+    const T0 = ferryAt(fy, c.f), along = ux * T0.tx + uz * T0.tz;   // +1: the boat heads the way the line runs (out from Rockland)
+    const portX = uz, portZ = -ux;   // the boat's port side there
+    fy.k = F.knots / 6; fy.f0 = c.f; fy.off = [0, 0];
+    if (Math.abs(along) > 0.8) {   // running along it: meet head-on, passing port to port at least 200 m off
+      fy.dir = along > 0 ? -1 : 1; fy.sCross = c.s;
+      fy.off = [c.x - T0.x + portX * 220, c.z - T0.z + portZ * 220];   // through the spot 220 m off your port side
+    } else {   // crossing it: the ferry crosses your course ~400 m ahead
+      fy.dir = (Math.round(c.s / 50) % 2) ? 1 : -1; fy.sCross = c.s - 400;
+      fy.off = [c.x - T0.x, c.z - T0.z];   // through your track, not up to a mile off it
+    }
+    fy.label = `Ferry to ${fy.dir > 0 ? F.to : F.from}`;
+    fy.group = ferryModel(); scene.add(fy.group);
+    ferries.push(fy);
+    console.log(`[helm3d] ${F.name} ferry: ${along > 0.8 || along < -0.8 ? 'meets' : 'crosses'} the route ${(c.s / NM).toFixed(1)} nm in, ${(c.d / NM).toFixed(2)} nm from its line`);
+  }
+}
+getJSON('./data/ferries.json').then(setupFerries).catch(err => console.warn('[helm3d] ferries', err));
+function ferryPos(fy, f) {   // on the line, eased toward the meeting point near f0
+  const p = ferryAt(fy, f), w = Math.exp(-(((f - fy.f0) / 2200) ** 2));
+  return [p.x + fy.off[0] * w, p.z + fy.off[1] * w];
+}
+function updateFerries(t) {
+  for (const fy of ferries) {
+    const raw = fy.f0 + fy.dir * fy.k * (S - fy.sCross), f = Math.max(0, Math.min(fy.L, raw)), under = raw > 0 && raw < fy.L;
+    const [x, z] = ferryPos(fy, f), a = ferryPos(fy, f - 60 * fy.dir), b = ferryPos(fy, f + 60 * fy.dir);
+    fy.group.position.set(x, Math.sin(t * 0.5 + fy.L) * 0.08, z);
+    if (Math.hypot(b[0] - a[0], b[1] - a[1]) > 1) fy.group.rotation.y = -Math.atan2(b[0] - a[0], -(b[1] - a[1]));
+    for (const w of fy.group.userData.wake) w.visible = under;
+  }
+}
+
 let S = (Number(params.get('start')) || 0.05) * NM, playing = false, yawOff = 0, pitch = -1.2, zoom = 1, smoothCourse = null;
 const posEl = document.getElementById('pos'); posEl.max = (TOTAL / NM).toFixed(3); posEl.value = (S / NM).toFixed(3);
 const playBtn = document.getElementById('play'), speedEl = document.getElementById('speed');
@@ -686,6 +800,10 @@ function updateLabels(pos) {
       if (m.kind !== 'buoy' || !m.num) continue;
       const d = Math.hypot(m.g.position.x - pos[0], m.g.position.z - pos[1]); if (d > 1.3 * NM) continue;
       cand.push({ text: `"${m.num}"`, v: new THREE.Vector3(m.g.position.x, 5.5, m.g.position.z), d, cls: 'buoy', w: [m.g.position.x, m.g.position.z], h: 3 });
+    }
+    for (const fy of ferries) {
+      const fp = fy.group.position, d = Math.hypot(fp.x - pos[0], fp.z - pos[1]); if (d > 3 * NM) continue;
+      cand.push({ text: fy.label, v: new THREE.Vector3(fp.x, 12, fp.z), d: d * 0.5, cls: '', w: [fp.x, fp.z], h: 8 });
     }
     cand.sort((a, b) => a.d - b.d);
     lblCache = cand.slice(0, 40).filter(c => sightClear(pos, c.w, c.h)).slice(0, 14);
@@ -963,6 +1081,10 @@ function drawChart(pos, course, look, hfov) {
     c.fillStyle = (m.n.c || '').startsWith('red') ? '#c23a2e' : (m.n.c || '').startsWith('green') ? '#2b8a4a' : '#555';
     c.beginPath(); c.arc(x, y, 2, 0, 7); c.fill();
   }
+  for (const fy of ferries) {   // ferries: a small dark hull
+    const fp = fy.group.position, x = X(fp.x / MX + LON0), y = Y(-fp.z / MY + LAT0); if (x < -5 || y < -5 || x > size + 5 || y > size + 5) continue;
+    c.save(); c.translate(x, y); c.rotate(-fy.group.rotation.y); c.fillStyle = '#22324a'; c.strokeStyle = '#fbfcf8'; c.lineWidth = 1; c.fillRect(-2.5, -6, 5, 12); c.strokeRect(-2.5, -6, 5, 12); c.restore();
+  }
   // what you're looking at, then the boat
   const cx = size / 2, cy = size / 2, a0 = (look - hfov / 2 - 90) * Math.PI / 180, a1 = (look + hfov / 2 - 90) * Math.PI / 180;
   c.fillStyle = 'rgba(214,162,74,0.22)'; c.beginPath(); c.moveTo(cx, cy); c.arc(cx, cy, size * 0.42, a0, a1); c.closePath(); c.fill();
@@ -1006,6 +1128,7 @@ function frame() {
   const look = smoothCourse + yawOff;
   const bob = Math.sin(t * 1.1) * 0.12 + Math.sin(t * 0.63 + 1) * 0.08;
   boat.position.set(pos[0], bob, pos[1]);
+  updateFerries(t);
   camera.fov = 55 / zoom; camera.updateProjectionMatrix();
   const roll = Math.sin(t * 0.9) * 0.012;
   const wantSails = eyeH > 24 && anchor.state === 'up';
@@ -1127,7 +1250,7 @@ try {
   };
   ch.postMessage({ hello: true });   // ask the app where the journey is (it may already have arrived)
 } catch (_) {}
-window.__helm3d = { scene, renderer, camera, tiles, updateTiles, posAt, TOTAL, wx, wz, frame, setS: v => { S = v; }, setLook: (y, p) => { yawOff = y; pitch = p; }, setZoom: z => { zoom = z; } };   // console/testing hooks
+window.__helm3d = { scene, renderer, camera, tiles, ferries, updateTiles, posAt, TOTAL, wx, wz, frame, setS: v => { S = v; }, setLook: (y, p) => { yawOff = y; pitch = p; }, setZoom: z => { zoom = z; } };   // console/testing hooks
 }
 
 // No route chosen: list saved routes and the samples.

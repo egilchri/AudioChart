@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-10-09 — Fox Islands ferries in the 3D journey (v846)
+
+Requested: when a Virtual Journey crosses the path of the North Haven or
+Vinalhaven ferry, have the ferry come into view (in Drone view). New
+www/data/ferries.json holds the Rockland–Vinalhaven and Rockland–North Haven
+ferry lines from OpenStreetMap (ODbL), with their speeds (11.5 and 9.5 kn).
+helm3d.js stages one ferry per line that the route comes within 1.5 nm of:
+it crosses about 400 m ahead if the route crosses the line, or meets you
+head-on, passing 220 m to port, if the route runs along it. The meeting is
+placed nearest mid-route, clear of both ends. The ferry's place depends only
+on distance sailed, at its real speed relative to the boat's 6 kn, so it
+behaves the same with Play, the slider and a Virtual Journey; before and
+after, it lies at its terminals. Near the meeting its path eases off the line
+toward you, back onto it within ~2 km. Model: ~47 m car ferry with cabin,
+wheelhouse, stack, cars, wake and bow wave; labelled "Ferry to …" and drawn
+on the corner chart.
+
 ## 2026-10-09 — 3D trees in the Bird's-eye view (v845)
 
 Requested: 3D trees in the bird's-eye view. Detail tiles now carry one spruce
