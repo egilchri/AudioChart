@@ -18,7 +18,9 @@ speed between two nearby ports with buildings. www/sailors/assets/demo8.mp4
 (95 s): Routes → Virtual Journey (and the Node Ops 3D button), the Virtual
 Journey bar's speed and 60× rate, then real footage of Rockport → Camden
 (4.7 nm, an AutoRoute route) at 60× in the 3D Drone view, through the anchor
-going down. Recorded in headless Chrome (stills, then a CDP screencast of the
+going down. Updated the same day: during the run the narrator explains the
+labels and shows dragging the view to look around (a real drag, marked with a
+fingertip), turning toward the labelled Mount Battie (v847). Recorded in headless Chrome (stills, then a CDP screencast of the
 journey), narrated with Piper en_US-amy-medium. App sounds are not in it
 (recorded muted). Sailors page only; no app version change.
 
