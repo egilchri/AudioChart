@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-09 — 3D view: Bar Harbor and Castine buildings (v842)
+
+Requested: Bar Harbor and Castine. Bar Harbor (downtown, the waterfront and
+the west shore to Hulls Cove road): 1,510 buildings (1,346 OSM, 164 Microsoft)
+and 19 wharves, floats and the breakwater stub. Castine (village, Maine
+Maritime Academy and the town dock): 607 buildings (OSM had only 95; 512 from
+Microsoft) and 28 wharves. Bar Harbor spans two Microsoft quadkeys
+(030233112 + 030233113, concatenated).
+
 ## 2026-10-09 — 3D view: Southwest Harbor and the WoodenBoat School (v841)
 
 Requested: Southwest Harbor and the WoodenBoat School. Southwest Harbor (with

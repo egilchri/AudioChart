@@ -5,7 +5,7 @@
 whose bbox is near the route. Built so far: Carvers Harbor (v833), North Haven village
 and the Fox Islands Thorofare (v835), Camden (v836), Rockland and Rockport (v839),
 Stonington, Islesford, Great Cranberry and Northeast Harbor (v840), Southwest Harbor and the
-WoodenBoat School in Brooklin (v841; the MDI towns use
+WoodenBoat School in Brooklin (v841), Bar Harbor and Castine (v842; the MDI towns use
 the ME_MidCoast_1_2021 lidar survey, via `EPT=`).
 
 Sources:
