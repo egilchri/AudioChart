@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-08 — 3D view: subtler anchor splash (v827)
+
+Reported: the anchor splash sounded like a firecracker. It now fades in over
+70 ms instead of 15 ms at about a quarter of the volume, is low-passed from
+1.6 kHz down to 350 Hz (was from 4 kHz), drops the low thump, and trails off
+with a few faint bubbles. The chain clinks are quieter and lower too.
+
 ## 2026-10-08 — 3D view in Virtual Journey: compass strip visible again (v826)
 
 Reported: the compass heading strip across the top of the 3D view was gone

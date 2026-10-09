@@ -730,27 +730,36 @@ function noiseBuffer(sec) {
 }
 function playChain(sec) {
   if (!audioCtx || audioCtx.state !== 'running') return;
-  let at = audioCtx.currentTime, gap = 0.045;
+  // soft metallic clinks of chain running over the roller, slowing as the anchor settles
+  let at = audioCtx.currentTime, gap = 0.06;
   while (at < audioCtx.currentTime + sec) {
-    const src = audioCtx.createBufferSource(), hp = audioCtx.createBiquadFilter(), g = audioCtx.createGain();
-    src.buffer = noiseBuffer(0.03); hp.type = 'bandpass'; hp.frequency.value = 2500 + Math.random() * 2500; hp.Q.value = 4;
-    g.gain.setValueAtTime(0.25 + Math.random() * 0.2, at); g.gain.exponentialRampToValueAtTime(0.001, at + 0.03);
-    src.connect(hp).connect(g).connect(audioCtx.destination); src.start(at);
-    at += gap + Math.random() * 0.03; gap *= 1.04;   // links running out, slowing as the anchor settles
+    const src = audioCtx.createBufferSource(), bp = audioCtx.createBiquadFilter(), g = audioCtx.createGain();
+    src.buffer = noiseBuffer(0.08); bp.type = 'bandpass'; bp.frequency.value = 1400 + Math.random() * 900; bp.Q.value = 9;
+    g.gain.setValueAtTime(0.0001, at); g.gain.linearRampToValueAtTime(0.06 + Math.random() * 0.04, at + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.0001, at + 0.07);
+    src.connect(bp).connect(g).connect(audioCtx.destination); src.start(at);
+    at += gap + Math.random() * 0.04; gap *= 1.05;
   }
 }
+// A small anchor going in: a soft, low whoosh with no hard attack, then a few bubbles.
 function playSplash() {
   if (!audioCtx || audioCtx.state !== 'running') return;
   const now = audioCtx.currentTime;
   const src = audioCtx.createBufferSource(), lp = audioCtx.createBiquadFilter(), g = audioCtx.createGain();
-  src.buffer = noiseBuffer(1.2); lp.type = 'lowpass';
-  lp.frequency.setValueAtTime(4000, now); lp.frequency.exponentialRampToValueAtTime(500, now + 1.0);
-  g.gain.setValueAtTime(0.0001, now); g.gain.exponentialRampToValueAtTime(0.7, now + 0.015); g.gain.exponentialRampToValueAtTime(0.001, now + 1.1);
+  src.buffer = noiseBuffer(1.6); lp.type = 'lowpass'; lp.Q.value = 0.7;
+  lp.frequency.setValueAtTime(1600, now); lp.frequency.exponentialRampToValueAtTime(350, now + 1.2);
+  g.gain.setValueAtTime(0.0001, now); g.gain.linearRampToValueAtTime(0.16, now + 0.07);
+  g.gain.exponentialRampToValueAtTime(0.0001, now + 1.4);
   src.connect(lp).connect(g).connect(audioCtx.destination); src.start(now);
-  const o = audioCtx.createOscillator(), og = audioCtx.createGain();
-  o.frequency.setValueAtTime(110, now); o.frequency.exponentialRampToValueAtTime(45, now + 0.18);
-  og.gain.setValueAtTime(0.5, now); og.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
-  o.connect(og).connect(audioCtx.destination); o.start(now); o.stop(now + 0.25);
+  // bubbles: short soft sine blips that rise in pitch, trailing off
+  for (let k = 0; k < 6; k++) {
+    const t0 = now + 0.25 + k * (0.09 + Math.random() * 0.12), f0 = 260 + Math.random() * 260;
+    const o = audioCtx.createOscillator(), og = audioCtx.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(f0, t0); o.frequency.exponentialRampToValueAtTime(f0 * 2.2, t0 + 0.06);
+    og.gain.setValueAtTime(0.0001, t0); og.gain.linearRampToValueAtTime(0.035 * (1 - k / 7), t0 + 0.01);
+    og.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.07);
+    o.connect(og).connect(audioCtx.destination); o.start(t0); o.stop(t0 + 0.08);
+  }
 }
 const anchorNote = document.getElementById('anchornote');
 const ROLLER = new THREE.Vector3(0, 1.12, -5.25);   // stem-head roller, boat frame
