@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-08 — 3D view in Virtual Journey: compass strip visible again (v826)
+
+Reported: the compass heading strip across the top of the 3D view was gone
+in the main-window (Virtual Journey) version. It was still there, covered by
+the app's status title bar, which sits on top of the map area. The embedded
+3D view now starts just below that bar.
+
 ## 2026-10-08 — 3D view inside the main window during Virtual Journey (v825)
 
 Direct request. Starting a Virtual Journey now shows the 3D helm view over

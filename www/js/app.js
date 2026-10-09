@@ -7223,6 +7223,9 @@ function _showVj3d(route) {
   if (!frame.src.endsWith(src.slice(1))) frame.src = src;
   _vj3dWrap.querySelector('.vj3d-close').hidden = true;
   _vj3dWrap.hidden = false;
+  // start below the status title bar (it sits on top of the map area and hid the 3D view's
+  // compass heading strip)
+  _vj3dWrap.style.top = (document.getElementById('status-title-bar')?.offsetHeight || 26) + 'px';
   _syncVj3dBtn();
 }
 function _hideVj3d() {

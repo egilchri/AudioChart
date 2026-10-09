@@ -802,7 +802,7 @@ html, body {
 /* 3D helm view over the map during a Virtual Journey (app.js _showVj3d). z-index 1000 and
    placed right after #leaflet-map: above the map's own controls (also 1000, earlier in the
    DOM), below every later 1000+ sibling (the app's chrome and the journey banner). */
-#vj3d-wrap { position: absolute; inset: 0; z-index: 1000; background: var(--navy); }
+#vj3d-wrap { position: absolute; inset: 26px 0 0 0; z-index: 1000; background: var(--navy); }   /* top: below #status-title-bar (set exactly in _showVj3d) */
 #vj3d-wrap[hidden] { display: none; }
 #vj3d-wrap iframe { width: 100%; height: 100%; border: 0; display: block; }
 #vj3d-wrap .vj3d-close { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); padding: 8px 16px; border-radius: 6px; border: 1px solid var(--mid-blue); background: var(--dark-blue); color: var(--text); font: inherit; cursor: pointer; }
