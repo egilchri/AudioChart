@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-09 — 3D view: mainsail and jib in Drone view (v837)
+
+Requested: a mainsail and jib on the boat in Drone view, on a broad reach,
+starboard tack for now. In Drone view while under way, the sail cover comes
+off and the boom swings ~62° out to port with the mainsail. The jib is set on
+the forestay and sheeted well out to port. Both are curved surfaces with a
+belly (deepest ~40% back from the luff), and the main twists off toward the
+head. The hull heels 5° to port, easing in; the camera doesn't heel, so the
+horizon stays level from any angle. Sails come down and the boom centres when
+the anchor goes, and in the lower views, where they would block the view
+forward. The boom is now a group pivoting at the gooseneck.
+
 ## 2026-10-09 — 3D view: Camden's buildings and wharves (v836)
 
 Requested: Camden next. OpenStreetMap had only 541 of Camden's ~2,300

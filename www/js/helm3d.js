@@ -603,6 +603,8 @@ addTowns();
 
 // Cape Dory 25D (Alberg design: 25 ft LOA, 8 ft beam), seen from the tiller. Boat frame:
 // y up from the waterline, -z forward, x to starboard; the helmsman's eye is at (0.35, EYE, 0).
+// mainsail and jib, set while sailing in Drone view (see the sails in the model below); heel eases in with them
+let setSails = () => {}, sailsUp = false, heel = 0;
 const bow = new THREE.Group();
 {
   const M = c => new THREE.MeshLambertMaterial({ color: c });
@@ -673,8 +675,10 @@ const bow = new THREE.Group();
   const MZ = -2.75, MTOP = 10.5, mastFoot = trunkTop(MZ, 0);
   const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.065, MTOP - mastFoot, 12), SPAR); mast.position.set(0, (MTOP + mastFoot) / 2, MZ); bow.add(mast);
   const BY = mastFoot + 1.2;
-  const boom = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 3.2, 10), SPAR); boom.rotation.x = Math.PI / 2; boom.position.set(0, BY, MZ + 1.6); bow.add(boom);
-  const cover = new THREE.Mesh(new THREE.CapsuleGeometry(0.11, 2.7, 4, 10), COVER); cover.rotation.x = Math.PI / 2; cover.position.set(0, BY + 0.11, MZ + 1.5); bow.add(cover);
+  // the boom swings from the gooseneck: its group pivots at the mast
+  const boomG = new THREE.Group(); boomG.position.set(0, BY, MZ); bow.add(boomG);
+  const boom = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 3.2, 10), SPAR); boom.rotation.x = Math.PI / 2; boom.position.set(0, 0, 1.6); boomG.add(boom);
+  const cover = new THREE.Mesh(new THREE.CapsuleGeometry(0.11, 2.7, 4, 10), COVER); cover.rotation.x = Math.PI / 2; cover.position.set(0, 0.11, 1.5); boomG.add(cover);
   // standing rigging (thin stainless wire)
   const wire = (a, b, r = 0.006) => bow.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.LineCurve3(new THREE.Vector3(...a), new THREE.Vector3(...b)), 1, r, 4), STEEL));
   const head = [0, MTOP, MZ];
@@ -733,6 +737,42 @@ const bow = new THREE.Group();
   const spul = new THREE.CatmullRomCurve3([[-halfA(1.7) + 0.06, 1.7], [-0.7, ZT - 0.05], [0.7, ZT - 0.05], [halfA(1.7) - 0.06, 1.7]].map(([x, z]) => new THREE.Vector3(x, sheerA(z) + PH, z)));
   bow.add(new THREE.Mesh(new THREE.TubeGeometry(spul, 30, 0.02, 6), STEEL));
   for (const [x, z] of [[-0.7, ZT - 0.05], [0.7, ZT - 0.05]]) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, PH, 6), STEEL); leg.position.set(x, sheerA(z) + PH / 2, z); bow.add(leg); }
+  // Sails (Drone view, v837): mainsail and jib drawing on a broad reach, starboard tack, so the
+  // wind comes over the starboard quarter and both sails are out to port. Each is a lofted
+  // surface with a belly (deepest ~40% back from the luff) and twist toward the head.
+  const CLOTH = new THREE.MeshLambertMaterial({ color: 0xf5f2ea, side: THREE.DoubleSide });
+  function sail(luff, leech, belly, nu = 14, nv = 10) {   // luff(u), leech(u): points; belly(u): leeward unit vector
+    const pos = [], idx = [];
+    for (let i = 0; i <= nu; i++) {
+      const u = i / nu, a = luff(u), b = leech(u), w = belly(u), chord = a.distanceTo(b);
+      for (let j = 0; j <= nv; j++) {
+        const v = j / nv, depth = chord * 0.11 * Math.sin(Math.PI * Math.pow(v, 0.8));
+        const p = a.clone().lerp(b, v).addScaledVector(w, depth); pos.push(p.x, p.y, p.z);
+      }
+    }
+    for (let i = 0; i < nu; i++) for (let j = 0; j < nv; j++) { const k = i * (nv + 1) + j; idx.push(k, k + nv + 1, k + 1, k + 1, k + nv + 1, k + nv + 2); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+    return new THREE.Mesh(g, CLOTH);
+  }
+  const BOOM_OUT = THREE.MathUtils.degToRad(-62), V3 = THREE.Vector3;
+  // mainsail in the boom's frame (the group turns with the boom): luff up the mast, foot along
+  // the boom, the leech curving in from the clew to the head, twisting off further outboard aloft
+  const mainH = MTOP - 0.35 - BY, twist = u => THREE.MathUtils.degToRad(-12) * u;
+  const main = sail(
+    u => new V3(0, 0.08 + u * mainH, 0.06),
+    u => { const r = 3.05 * (1 - u) * (1 + 0.18 * Math.sin(Math.PI * u)) + 0.12 * u, t = twist(u); return new V3(Math.sin(t) * r, 0.08 + u * mainH, 0.06 + Math.cos(t) * r); },
+    u => new V3(-Math.cos(twist(u)), 0, Math.sin(twist(u)) * 0.2).normalize());
+  main.visible = false; boomG.add(main);
+  // jib: luff on the forestay, clew sheeted well out to port for the broad reach
+  const tack = new V3(0, sheer(ZS) + 0.25, ZS + 0.05), stayTop = new V3(0, MTOP, MZ), headJ = tack.clone().lerp(stayTop, 0.84);
+  const clew = new V3(-1.55, 1.75, MZ + 0.2);
+  const jib = sail(u => tack.clone().lerp(headJ, u), u => clew.clone().lerp(headJ, u),
+    u => { const c = clew.clone().lerp(headJ, u).sub(tack.clone().lerp(headJ, u)); return new V3(-c.z, 0, c.x).normalize().multiplyScalar(-1).setY(0).normalize(); });
+  jib.visible = false; bow.add(jib);
+  setSails = on => {
+    main.visible = jib.visible = on; cover.visible = !on;
+    boomG.rotation.y = on ? BOOM_OUT : 0;
+  };
 }
 // The boat is its own object: it points along the course and pitches/rolls; the camera sits at
 // the tiller inside it, so looking around turns your head, not the boat.
@@ -1267,6 +1307,10 @@ function frame() {
   boat.position.set(pos[0], bob, pos[1]);
   camera.fov = 55 / zoom; camera.updateProjectionMatrix();
   const roll = Math.sin(t * 0.9) * 0.012;
+  const wantSails = eyeH > 24 && anchor.state === 'up';
+  if (wantSails !== sailsUp) { sailsUp = wantSails; setSails(sailsUp); }
+  heel += ((sailsUp ? THREE.MathUtils.degToRad(5) : 0) - heel) * Math.min(1, dt * 0.8);   // heeling to port
+  bow.rotation.z = heel;   // the hull heels; the camera (a child of boat, not bow) stays level
   boat.rotation.set(Math.sin(t * 0.7) * 0.012, -THREE.MathUtils.degToRad(smoothCourse), roll * 2, 'YXZ');
   const ease = camK * camK * (3 - 2 * camK);
   // viewpoint height (Helm / 20 ft / 60 ft), eased so changes glide
