@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-09 — 3D view: Belfast and Searsport buildings (v843)
+
+Requested: Belfast and Searsport. Belfast (downtown, the waterfront and East
+Belfast across the river mouth): 1,735 buildings (886 OSM, 849 Microsoft) and
+10 wharves and floats. Searsport (village, harbor and the Mack Point terminal):
+905 buildings (OSM had only 154; 751 from Microsoft) and 4 wharves.
+
 ## 2026-10-09 — 3D view: Bar Harbor and Castine buildings (v842)
 
 Requested: Bar Harbor and Castine. Bar Harbor (downtown and the waterfront

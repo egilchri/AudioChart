@@ -11,5 +11,7 @@
   { "file": "southwest-harbor.json", "name": "Southwest Harbor and Manset", "bbox": [-68.345, 44.26, -68.305, 44.29] },
   { "file": "woodenboat.json", "name": "WoodenBoat School and Center Harbor, Brooklin", "bbox": [-68.585, 44.24, -68.545, 44.27] },
   { "file": "bar-harbor.json", "name": "Bar Harbor", "bbox": [-68.225, 44.375, -68.19, 44.40] },
-  { "file": "castine.json", "name": "Castine", "bbox": [-68.82, 44.375, -68.78, 44.40] }
+  { "file": "castine.json", "name": "Castine", "bbox": [-68.82, 44.375, -68.78, 44.40] },
+  { "file": "belfast.json", "name": "Belfast", "bbox": [-69.03, 44.415, -68.985, 44.44] },
+  { "file": "searsport.json", "name": "Searsport and Mack Point", "bbox": [-68.94, 44.445, -68.895, 44.47] }
 ]
