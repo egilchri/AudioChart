@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-10-09 — AutoRoute to Carvers Harbor stops inside the harbor instead of failing (v830)
+
+Reported: AutoRoute from home (Rockland) to Carvers Harbor couldn't find a
+route (Route 442, a straight line). Not a code regression — it failed at v808
+too. The charted Carvers Harbor point is at the town landing; two rocks that
+cover and uncover sit 140–170 m south-east of it, and the router's 93 m
+clearance around each, against the coarse shoreline, leaves no way into the
+head of the harbor in this data. v808 fixed the outer mooring field, not the
+landing. Now, when no route reaches the destination, AutoRoute ends at the
+nearest water the search did reach if that's within 1 nm, and says why: "The
+route ends 0.2 nautical miles short of the destination — charted rocks or
+shoals block the last stretch in." (here: inside the harbor, 0.16 nm from the
+landing). Only for the AutoRoute entry points that report moved endpoints;
+re-routing a saved route's legs is unchanged. Test case [32].
+
 ## 2026-10-08 — 3D view: starts ~3× faster; blue sky with clouds (v829)
 
 Reported: the wait before a 3D journey starts. Measured cold start (fresh

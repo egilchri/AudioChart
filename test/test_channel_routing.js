@@ -676,6 +676,31 @@ async function main() {
     })());
   }
 
+  // Case 32 — "AutoRoute to Carvers Harbor" from the user's home position
+  // (Route 442, 2026-10-09). The charted Carvers Harbor point is at the
+  // landing, behind two drying rocks that close the head of the harbor in
+  // this data, so no route reaches it. It must stop inside the harbor and
+  // say so (onSnap 'end' with blocked), not fail outright.
+  gate(await (async () => {
+    Query.setActiveRegion('penobscot-bay');
+    await Query.loadData(44.103, -69.088);
+    await waitForRegionDataReady(Query);
+    const label = '[32] Home -> Carvers Harbor landing (stops short, says so)';
+    const end = { lat: 44.04694901640202, lon: -68.83553601902793 };
+    const snaps = [];
+    const t0 = Date.now();
+    const p = await Router.autoRouteProg({ lat: 44.0986, lon: -69.0752 }, end, () => {}, () => {}, false, 5.0, 0, null,
+      (which, sn) => snaps.push({ which, ...sn }), DEADLINE_MS);
+    const ms = Date.now() - t0;
+    const crosses = pathCrossesLand(Query, p);
+    const last = p[p.length - 1];
+    const gapNm = Query.distanceNm(last.lon, last.lat, end.lon, end.lat);
+    const told = snaps.some(s => s.which === 'end' && s.blocked);
+    const ok = p.length > 2 && !crosses && gapNm <= 0.3 && told && ms < 2 * DEADLINE_MS;
+    console.log(`${label}: ${ok ? 'PASS' : 'FAIL'} (crossesLand=${crosses}, ends ${gapNm.toFixed(2)}nm from the landing, reported=${told}, ${p.length} pts, ${ms}ms)`);
+    return { ok };
+  })());
+
   console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll cases passed.');
   console.log(
     '\nNOT PORTED (relied on injecting a synthetic obstacle ring the real\n' +

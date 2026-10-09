@@ -70,6 +70,12 @@ const SHORE_TIGHT_WARNING_NM = 100 / 1852;
 // included (a joint mid-route is not somewhere the user chose to be).
 let _routeEndpointsForWarnings = [];
 const MAX_ALT_ENDPOINTS = 4;
+// Last resort when no route reaches the destination at all: end at the
+// nearest water the search did reach, if it's this close. Carvers Harbor's
+// charted landing (Route 442, 2026-10-09) sits behind two drying rocks whose
+// 93m clearance, against the coarse shoreline, closes the head of the harbor;
+// the whole route failed instead of stopping 0.1nm short.
+const PARTIAL_MAX_NM = 1.0;
 
 function _isNoPath(p) {
   return p.length <= 2 && !p._timedOut &&
@@ -118,8 +124,28 @@ const _subKey = (p, draftFt, tideHeightM) =>
   `${p.lat.toFixed(5)},${p.lon.toFixed(5)}|${draftFt}|${Math.round(tideHeightM * 2) / 2}`;
 
 async function _autoRouteWithRetries(start, end, onUpdate, onText, _escapeAttempted, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs, t0) {
-  const run = (s, e, pad, budget, snapCb = onSnap) => _autoRouteCore(s, e, onUpdate, onText, _escapeAttempted,
-    draftFt, tideHeightM, onSearchProgress, snapCb, budget, pad);
+  // Partial routes from no-path searches with the user's own destination,
+  // nearest-to-it first — see PARTIAL_MAX_NM.
+  const partials = [];
+  const run = async (s, e, pad, budget, snapCb = onSnap) => {
+    const p = await _autoRouteCore(s, e, onUpdate, onText, _escapeAttempted,
+      draftFt, tideHeightM, onSearchProgress, snapCb, budget, pad);
+    if (p._partial && e === end) partials.push(p._partial);
+    return p;
+  };
+  // Nothing reaches the destination: stop at the nearest water the search
+  // did reach, reported through onSnap so the caller says so (only callers
+  // that pass onSnap — a silent short stop is what v808 removed).
+  function stopShort(path) {
+    if (!_isNoPath(path) || !onSnap) return path;
+    const best = partials.filter(pt => pt.gapNm <= PARTIAL_MAX_NM && pt.path.length >= 2)
+      .sort((a, b) => a.gapNm - b.gapNm)[0];
+    if (!best) return path;
+    const last = best.path[best.path.length - 1];
+    console.log(`[autoRoute] no way through to the destination — stopping ${best.gapNm.toFixed(2)}nm short`);
+    onSnap('end', { lat: last.lat, lon: last.lon, movedNm: best.gapNm, blocked: true });
+    return best.path;
+  }
   const remaining = () => 2 * deadlineMs - (Date.now() - t0);
 
   // Route with one end moved to substitute water; on success, report the
@@ -186,7 +212,7 @@ async function _autoRouteWithRetries(start, end, onUpdate, onText, _escapeAttemp
       .filter(c => Query.distanceNm(c.lon, c.lat, firstSnap.lon, firstSnap.lat) > 0.4)
       .slice(0, MAX_ALT_ENDPOINTS);
     for (const alt of alts) {
-      if (remaining() <= 1000) { reportFirstSnaps(); return path; }
+      if (remaining() <= 1000) { reportFirstSnaps(); return stopShort(path); }
       console.log(`[autoRoute] retrying with the ${which} moved ${alt.movedNm.toFixed(2)}nm to other nearby water`);
       const p = await tryAlt(which, alt);
       if (p) return p;
@@ -204,10 +230,10 @@ async function _autoRouteWithRetries(start, end, onUpdate, onText, _escapeAttemp
   if (!longRange && remaining() > 1000) {
     console.log(`[autoRoute] no path in the ${2.0}nm-padded area — retrying with ${WIDE_PAD_NM}nm`);
     path = await run(start, end, WIDE_PAD_NM, Math.min(deadlineMs, remaining()));
-    return path; // this run reported its own moves through onSnap
+    return stopShort(path); // this run reported its own moves through onSnap
   }
   reportFirstSnaps();
-  return path;
+  return stopShort(path);
 }
 
 async function _autoRouteCore(
@@ -1608,7 +1634,18 @@ async function _autoRouteCore(
     // needs a manual waypoint) — return the honest straight-line fallback,
     // never a partial/unverified path.
     console.warn('[autoRoute] no path found — returning straight line');
-    return _deadlineHit ? _timedOutFallback(start, end) : [start, end];
+    if (_deadlineHit) return _timedOutFallback(start, end);
+    // The searched water nearest the destination, for the top-level call's
+    // "stop short" last resort (see PARTIAL_MAX_NM).
+    const fb = [start, end];
+    let best = -1, bestNm = Infinity;
+    for (let i = 0; i < N; i++) {
+      if (!closed[i] || i === 1) continue;
+      const d = Query.distanceNm(nodes[i].lon, nodes[i].lat, end.lon, end.lat);
+      if (d < bestNm) { bestNm = d; best = i; }
+    }
+    if (best > 0) fb._partial = { path: tracePath(best), gapNm: bestNm };
+    return fb;
   }
 
   // Real bug found live (2026-09-27): a real, valid route's leg passed

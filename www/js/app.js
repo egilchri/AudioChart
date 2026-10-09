@@ -3935,7 +3935,7 @@ async function _onDrawConfirm() {
     return L.circleMarker([s.lat, s.lon], {
       radius: 7, color: '#ffaa00', fillColor: '#ffaa00', fillOpacity: 0.75, weight: 2,
     }).addTo(_map).bindTooltip(
-      `${escapeHtml(name)} — ${label} moved ${s.movedNm.toFixed(2)}nm (too shallow at current draft/tide)`,
+      `${escapeHtml(name)} — ${label} moved ${s.movedNm.toFixed(2)}nm (${s.blocked ? 'charted rocks or shoals block the way in' : 'too shallow at current draft/tide'})`,
       { permanent: false }
     );
   });
@@ -9945,7 +9945,7 @@ function _ensureMap() {
       return L.circleMarker([s.lat, s.lon], {
         radius: 7, color: '#ffaa00', fillColor: '#ffaa00', fillOpacity: 0.75, weight: 2,
       }).addTo(_map).bindTooltip(
-        `${escapeHtml(name)} — ${label} moved ${s.movedNm.toFixed(2)}nm (too shallow at current draft/tide)`,
+        `${escapeHtml(name)} — ${label} moved ${s.movedNm.toFixed(2)}nm (${s.blocked ? 'charted rocks or shoals block the way in' : 'too shallow at current draft/tide'})`,
         { permanent: false }
       );
     });
@@ -9953,9 +9953,12 @@ function _ensureMap() {
     // well short of the marker reads as "it worked" (Carvers Harbor,
     // 2026-10-06: ended 0.65 nm outside the harbor with no message). Say it.
     for (const endMove of snapEvents.filter(s => s.which === 'end' && s.movedNm >= 0.1)) {
+      const why = endMove.blocked
+        ? `charted rocks or shoals block the last stretch in`
+        : `it's on land or too shallow there for a ${_currentDraftFt()} ft draft at the current tide`;
       const msg = endMove.stop === stops.length - 1
-        ? `The route ends ${endMove.movedNm.toFixed(1)} nautical miles short of the destination — it's on land or too shallow there for a ${_currentDraftFt()} ft draft at the current tide.`
-        : `The route stops ${endMove.movedNm.toFixed(1)} nautical miles short of ${stopLabel(endMove.stop)} — it's on land or too shallow there for a ${_currentDraftFt()} ft draft at the current tide.`;
+        ? `The route ends ${endMove.movedNm.toFixed(1)} nautical miles short of the destination — ${why}.`
+        : `The route stops ${endMove.movedNm.toFixed(1)} nautical miles short of ${stopLabel(endMove.stop)} — ${why}.`;
       setStatus(msg);
       showResponse(msg);
       if (endMove.movedNm >= 0.25) TTS.sayImmediate(msg);
