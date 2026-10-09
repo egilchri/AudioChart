@@ -6,6 +6,33 @@ found, and what shipped, even when the root cause couldn't be confirmed.
 
 ---
 
+## 2026-10-09 — AutoRoute sailed straight through the Rockland Harbor Breakwater
+
+**What happened:** Reported by the user from the 3D view ("You crashed right
+through the breakwater"). An AutoRoute from Rockland Harbor (44.103, −69.088)
+to Camden had its first leg running NE straight across the 1.3 km Rockland
+Harbor Breakwater, with no warning. The 3D view made it obvious, because the
+breakwater is modelled there. The router itself had never known it existed.
+
+**Cause:** The ENC charts draw breakwaters as shoreline-construction lines
+(S-57 SLCONS, CATSLC 1), not as land areas (LNDARE). extract_land.py only reads
+LNDARE, so no breakwater, groyne, mole or training wall anywhere was in the
+land data or the hazards. Every route through one was "clear".
+
+**Fix (v838):** New preprocess/extract_breakwaters.py takes SLCONS categories
+1/2/3/7 from the charts and gives lines a 20 m solid width. Its 25 polygons
+were appended to both the region and bundled land files: Rockland, Bar Harbor,
+Northeast Harbor, Great Cranberry's groynes, and small ones elsewhere. Data
+fingerprints were bumped. The same route now goes out round the breakwater
+light. Test case [33], both datasets. The full suite passes.
+
+**Still open:** Routes saved before v838 still cross it; re-route them (the
+route editor's Re-route) to fix them. Other regions' land files (Casco Bay,
+Piscataqua) haven't had breakwaters added. Piers and wharves are deliberately
+not land (routes end at them).
+
+---
+
 ## 2026-10-08 — v816 made the Somes Sound leg silently start from Mount Desert Narrows, across the island
 
 **What happened:** Found in testing, never reported from the field. After

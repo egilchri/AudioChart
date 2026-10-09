@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-09 — AutoRoute avoids breakwaters (v838)
+
+Reported: a Rockland → Camden route crossed straight through the Rockland
+Harbor Breakwater. Breakwaters, groynes, moles and training walls are lines in
+the charts (SLCONS), which the land extraction never read, so the router didn't
+know about any of them. New preprocess/extract_breakwaters.py adds them to the
+land data with a 20 m width: 25 in Penobscot Bay (Rockland, Bar Harbor,
+Northeast Harbor, Great Cranberry and others), in both the region and bundled
+land files, with fingerprints bumped. The route now goes out around the
+breakwater light. Test [33]. See INCIDENTS.md. Saved routes that cross a
+breakwater need a re-route.
+
 ## 2026-10-09 — 3D view: mainsail and jib in Drone view (v837)
 
 Requested: a mainsail and jib on the boat in Drone view, on a broad reach,

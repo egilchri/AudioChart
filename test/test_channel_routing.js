@@ -701,6 +701,33 @@ async function main() {
     return { ok };
   })());
 
+  // Case 33 — Rockland Harbor -> Camden (user report 2026-10-09: "you crashed right through the
+  // breakwater"). The charts draw the Rockland Harbor Breakwater as a line (SLCONS), which the
+  // land extraction never picked up, so the router took a straight line across it. Breakwaters
+  // are now land (preprocess/extract_breakwaters.py). Must not cross it, on both datasets.
+  for (const region of ['penobscot-bay', null]) {
+    gate(await (async () => {
+      Query.setActiveRegion(region);
+      await Query.loadData(44.103, -69.088);
+      await waitForRegionDataReady(Query);
+      const label = `[33] Rockland Harbor -> Camden, around the breakwater (${region || 'default'} data)`;
+      const cr = (a, b, c) => (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+      const BW = [[-69.08196, 44.11532], [-69.07744, 44.10397]];   // the breakwater as charted
+      const t0 = Date.now();
+      const p = await Router.autoRouteProg({ lat: 44.103, lon: -69.088 }, { lat: 44.20763, lon: -69.057992 }, () => {}, () => {}, false, 5.0, 0, null, null, DEADLINE_MS);
+      const ms = Date.now() - t0;
+      let crossesBW = false;
+      for (let i = 1; i < p.length; i++) {
+        const a = [p[i - 1].lon, p[i - 1].lat], b = [p[i].lon, p[i].lat];
+        if (cr(BW[0], BW[1], a) * cr(BW[0], BW[1], b) < 0 && cr(a, b, BW[0]) * cr(a, b, BW[1]) < 0) crossesBW = true;
+      }
+      const crosses = pathCrossesLand(Query, p);
+      const ok = p.length > 2 && !crosses && !crossesBW && ms < DEADLINE_MS;
+      console.log(`${label}: ${ok ? 'PASS' : 'FAIL'} (crossesBreakwater=${crossesBW}, crossesLand=${crosses}, ${p.length} pts, ${ms}ms)`);
+      return { ok };
+    })());
+  }
+
   console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll cases passed.');
   console.log(
     '\nNOT PORTED (relied on injecting a synthetic obstacle ring the real\n' +
