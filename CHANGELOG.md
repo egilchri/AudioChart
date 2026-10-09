@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-10-09 — 3D view: Carvers Harbor's buildings and wharves (v833)
+
+Requested: realistic buildings in Carvers Harbor. 709 buildings and 18
+wharves/piers from OpenStreetMap, each sized from the USGS 3DEP lidar survey
+(ME MidCoast 2021): ground level, eave and ridge height (median house: 4.0 m
+eave, 7.5 m ridge), pier deck heights. Roof colours come from the NAIP aerial
+photo, and walls from a Maine coastal palette. Rectangular footprints (79%)
+get gable roofs along their long side; the rest keep their outline with a
+flat roof. Walls show clapboard and sash windows, with wider spacing on large
+wharf buildings. Wharves stand on pilings. The whole town is two meshes (walls,
+roofs). Loaded from www/data/buildings/ (index.json lists towns by bbox) when
+a route passes near; cached for offline like other app data. Credit "Buildings
+© OpenStreetMap contributors" shows in the scene. Build scripts and method:
+design/buildings/. Also a setZoom testing hook.
+
 ## 2026-10-09 — 3D journeys start in Drone view (v832)
 
 Requested: Drone as the default view for 3D journeys. The 3D view now opens

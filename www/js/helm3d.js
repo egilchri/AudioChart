@@ -452,6 +452,153 @@ if (BREAKWATER_IN_VIEW) {
   scene.add(g);
 }
 
+// Town buildings and wharves (v833: Carvers Harbor). Prebuilt per town by
+// design/buildings/build_buildings.py: OpenStreetMap footprints, eave and ridge heights and
+// ground level from USGS 3DEP lidar, roof colours from the NAIP photo. Rectangular footprints get
+// a gable roof along their long side; the rest keep their outline with a flat roof. All walls
+// share one mesh and all roofs another, so a whole town is two draw calls.
+function townTex(draw) {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 128;
+  draw(cv.getContext('2d'));
+  const t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 4; return t;
+}
+const WALL_TEX = townTex(c => {   // one window bay of one storey: clapboard, a trimmed sash window
+  c.fillStyle = '#fff'; c.fillRect(0, 0, 128, 128);
+  c.fillStyle = 'rgba(0,0,0,0.10)'; for (let y = 4; y < 128; y += 8) c.fillRect(0, y, 128, 1.5);
+  c.fillStyle = '#f4f4f0'; c.fillRect(40, 30, 48, 66);                // trim
+  c.fillStyle = '#26313a'; c.fillRect(45, 35, 38, 56);                // glass
+  c.fillStyle = '#e8e8e2'; c.fillRect(45, 61, 38, 4); c.fillRect(62, 35, 4, 56);   // muntins
+});
+const ROOF_TEX = townTex(c => {   // asphalt shingle courses
+  c.fillStyle = '#fff'; c.fillRect(0, 0, 128, 128);
+  for (let y = 0; y < 128; y += 16) {
+    c.fillStyle = 'rgba(0,0,0,0.16)'; c.fillRect(0, y, 128, 2);
+    c.fillStyle = 'rgba(0,0,0,0.07)'; for (let x = (y / 16) % 2 ? 0 : 16; x < 128; x += 32) c.fillRect(x, y, 2, 16);
+  }
+});
+const BAY_M = 2.8, STOREY_M = 2.9, SHINGLE_M = 2.2;
+async function addTowns() {
+  let list;
+  try { list = await getJSON('./data/buildings/index.json'); } catch (_) { return; }
+  const lons = routeLL.map(p => p[0]), lats = routeLL.map(p => p[1]), padLon = 0.06, padLat = 0.045;
+  for (const town of list) {
+    const [w, s, e, n] = town.bbox;
+    if (e < Math.min(...lons) - padLon || w > Math.max(...lons) + padLon || n < Math.min(...lats) - padLat || s > Math.max(...lats) + padLat) continue;
+    try { buildTown(await getJSON(`./data/buildings/${town.file}`)); } catch (err) { console.warn('[helm3d] buildings', town.file, err); }
+  }
+}
+function buildTown(T) {
+  const wall = { pos: [], uv: [], col: [] }, roof = { pos: [], uv: [], col: [] };
+  const lin = (rgb, f = 1) => { const c = new THREE.Color().setRGB(rgb[0] / 255 * f, rgb[1] / 255 * f, rgb[2] / 255 * f, THREE.SRGBColorSpace); return [c.r, c.g, c.b]; };
+  // a quad a-b-c-d (counter-clockwise seen from outside), uv per corner
+  function quad(G, a, b, c, d, ua, ub, uc, ud, col) {
+    for (const [p, u] of [[a, ua], [b, ub], [c, uc], [a, ua], [c, uc], [d, ud]]) { G.pos.push(...p); G.uv.push(...u); G.col.push(...col); }
+  }
+  function tri(G, a, b, c, ua, ub, uc, col) { for (const [p, u] of [[a, ua], [b, ub], [c, uc]]) { G.pos.push(...p); G.uv.push(...u); G.col.push(...col); } }
+  let bay = BAY_M;   // window spacing; wider on big commercial and wharf buildings
+  function wallStrip(ax, az, bx, bz, y0, y1, g, col) {   // outward = right of a→b when the ring is clockwise in x/z
+    const L = Math.hypot(bx - ax, bz - az), u1 = L / bay, v0 = (y0 - g) / STOREY_M, v1 = (y1 - g) / STOREY_M;
+    quad(wall, [ax, y0, az], [bx, y0, bz], [bx, y1, bz], [ax, y1, az], [0, v0], [u1, v0], [u1, v1], [0, v1], col);
+  }
+  for (const b of T.buildings) {
+    const g = b.g ?? 2.5, foot = g - 3, eave = g + b.e, ridge = g + b.r;
+    const wc = lin(b.wc, 1.12), rc = lin(b.rc, 1.08);
+    let P = b.p.map(([lo, la]) => [wx(lo), wz(la)]);
+    // make the ring wind so the outside is on the right of each edge (signed area in x/z)
+    let A = 0; for (let i = 0; i < P.length; i++) { const [x1, z1] = P[i], [x2, z2] = P[(i + 1) % P.length]; A += x1 * z2 - x2 * z1; }
+    bay = Math.abs(A) / 2 > 350 ? BAY_M * 2 : BAY_M;
+    if (A < 0) P = P.reverse();
+    if (b.s === 'gable') {
+      // the footprint's minimum-area rectangle; ridge along its long side
+      let best = null;
+      for (let i = 0; i < P.length; i++) {
+        const [x1, z1] = P[i], [x2, z2] = P[(i + 1) % P.length], L = Math.hypot(x2 - x1, z2 - z1); if (L < 1e-3) continue;
+        const ux = (x2 - x1) / L, uz = (z2 - z1) / L; let a0 = Infinity, a1 = -Infinity, c0 = Infinity, c1 = -Infinity;
+        for (const [x, z] of P) { const a = x * ux + z * uz, c = -x * uz + z * ux; a0 = Math.min(a0, a); a1 = Math.max(a1, a); c0 = Math.min(c0, c); c1 = Math.max(c1, c); }
+        const area = (a1 - a0) * (c1 - c0); if (!best || area < best.area) best = { area, ux, uz, a0, a1, c0, c1 };
+      }
+      let { ux, uz, a0, a1, c0, c1 } = best;
+      if (a1 - a0 < c1 - c0) { [ux, uz] = [-uz, ux]; [a0, a1, c0, c1] = [c0, c1, -a1, -a0]; }   // u = long axis
+      const at = (a, c) => [a * ux - c * uz, a * uz + c * ux];   // back to x/z
+      const k = [at(a0, c0), at(a1, c0), at(a1, c1), at(a0, c1)];
+      let ar = 0; for (let i = 0; i < 4; i++) { const [x1, z1] = k[i], [x2, z2] = k[(i + 1) % 4]; ar += x1 * z2 - x2 * z1; }
+      if (ar < 0) k.reverse();
+      for (let i = 0; i < 4; i++) wallStrip(k[i][0], k[i][1], k[(i + 1) % 4][0], k[(i + 1) % 4][1], foot, eave, g, wc);
+      // gable ends: triangles on the two short sides
+      const half = (c1 - c0) / 2, cm = (c0 + c1) / 2, rise = ridge - eave, vE = (eave - g) / STOREY_M, vR = (ridge - g) / STOREY_M;
+      for (const a of [a0, a1]) {
+        const p = at(a, c0), q = at(a, c1), m = at(a, cm), out = a === a0 ? -1 : 1;
+        const [P1, P2] = (out > 0) === (ar >= 0) ? [p, q] : [q, p];
+        tri(wall, [P1[0], eave, P1[1]], [P2[0], eave, P2[1]], [m[0], ridge, m[1]], [0, vE], [2 * half / bay, vE], [half / bay, vR], wc);
+      }
+      // roof: two slopes with a little overhang at the eaves and the gable ends
+      const oh = 0.45, ohEnd = 0.3, drop = rise / half * oh, slopeLen = Math.hypot(half + oh, rise + drop) / SHINGLE_M, runLen = (a1 - a0 + 2 * ohEnd) / SHINGLE_M;
+      for (const side of [-1, 1]) {
+        const ce = side < 0 ? c0 - oh : c1 + oh, e0 = at(a0 - ohEnd, ce), e1 = at(a1 + ohEnd, ce), r0 = at(a0 - ohEnd, cm), r1 = at(a1 + ohEnd, cm), ye = eave - drop;
+        const pts = [[e0[0], ye, e0[1]], [e1[0], ye, e1[1]], [r1[0], ridge, r1[1]], [r0[0], ridge, r0[1]]];
+        const uvs = [[0, 0], [runLen, 0], [runLen, slopeLen], [0, slopeLen]];
+        // both windings, so each slope shows from above whatever the rectangle's handedness
+        quad(roof, pts[0], pts[1], pts[2], pts[3], uvs[0], uvs[1], uvs[2], uvs[3], rc);
+        quad(roof, pts[3], pts[2], pts[1], pts[0], uvs[3], uvs[2], uvs[1], uvs[0], rc);
+      }
+    } else {
+      for (let i = 0; i < P.length; i++) wallStrip(P[i][0], P[i][1], P[(i + 1) % P.length][0], P[(i + 1) % P.length][1], foot, eave, g, wc);
+      const contour = P.map(([x, z]) => new THREE.Vector2(x, z));
+      for (const [i, j, k] of THREE.ShapeUtils.triangulateShape(contour, [])) {
+        const t = [P[i], P[j], P[k]].map(([x, z]) => [x, eave, z]), uv = [P[i], P[j], P[k]].map(([x, z]) => [x / SHINGLE_M, z / SHINGLE_M]);
+        tri(roof, t[0], t[1], t[2], uv[0], uv[1], uv[2], rc); tri(roof, t[2], t[1], t[0], uv[2], uv[1], uv[0], rc);
+      }
+    }
+  }
+  for (const [G, map] of [[wall, WALL_TEX], [roof, ROOF_TEX]]) {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(G.pos, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(G.uv, 2));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(G.col, 3));
+    geo.computeVertexNormals();
+    scene.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true, map, side: map === WALL_TEX ? THREE.DoubleSide : THREE.FrontSide })));
+  }
+  // wharves and piers: a plank deck at the lidar's deck height on pilings; breakwaters in granite
+  const deckMat = new THREE.MeshLambertMaterial({ color: 0x8a7a64 }), pileMat = new THREE.MeshLambertMaterial({ color: 0x4b4136 }), stoneMat = new THREE.MeshLambertMaterial({ color: 0x8d877f });
+  const pileGeo = new THREE.CylinderGeometry(0.18, 0.18, 1, 6), piles = [];
+  for (const pr of T.piers) {
+    const P = pr.p.map(([lo, la]) => [wx(lo), wz(la)]), deckY = Math.max(0.6, pr.d), stone = pr.kind === 'breakwater';
+    if (pr.area && !stone) {
+      const shape = new THREE.Shape(P.map(([x, z]) => new THREE.Vector2(x, -z)));
+      const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.35, bevelEnabled: false }); geo.rotateX(-Math.PI / 2); geo.translate(0, deckY - 0.35, 0);
+      scene.add(new THREE.Mesh(geo, deckMat));
+      const xs = P.map(p => p[0]), zs = P.map(p => p[1]);
+      for (let x = Math.min(...xs); x <= Math.max(...xs); x += 3.5) for (let z = Math.min(...zs); z <= Math.max(...zs); z += 3.5) {
+        let inside = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) { const [xi, zi] = P[i], [xj, zj] = P[j]; if ((zi > z) !== (zj > z) && x < (xj - xi) * (z - zi) / (zj - zi) + xi) inside = !inside; }
+        if (inside) piles.push([x, z, deckY]);
+      }
+      continue;
+    }
+    for (let i = 0; i + 1 < P.length; i++) {
+      const [ax, az] = P[i], [bx, bz] = P[i + 1], L = Math.hypot(bx - ax, bz - az); if (L < 0.5) continue;
+      const h = stone ? deckY + 3 : 0.35, m = new THREE.Mesh(new THREE.BoxGeometry(pr.w, h, L + (stone ? 0 : pr.w * 0.5)), stone ? stoneMat : deckMat);
+      m.position.set((ax + bx) / 2, deckY - h / 2, (az + bz) / 2); m.rotation.y = Math.atan2(bx - ax, bz - az); scene.add(m);
+      if (!stone) for (let t = 0; t <= L; t += 3.5) for (const sgn of [-1, 1]) {
+        const nx = (bz - az) / L * sgn * pr.w * 0.4, nz = -(bx - ax) / L * sgn * pr.w * 0.4;
+        piles.push([ax + (bx - ax) * t / L + nx, az + (bz - az) * t / L + nz, deckY]);
+      }
+    }
+  }
+  if (piles.length) {
+    const inst = new THREE.InstancedMesh(pileGeo, pileMat, piles.length), mtx = new THREE.Matrix4();
+    piles.forEach(([x, z, y], i) => { const h = y + 3; inst.setMatrixAt(i, mtx.makeScale(1, h, 1).setPosition(x, y - h / 2, z)); });
+    scene.add(inst);
+  }
+  if (!document.getElementById('town-credit')) {
+    const c = document.createElement('div'); c.id = 'town-credit'; c.textContent = 'Buildings © OpenStreetMap contributors';
+    c.style.cssText = 'position:absolute;left:8px;bottom:6px;z-index:2;font-size:10px;color:rgba(255,255,255,0.75);text-shadow:0 0 3px rgba(0,0,0,0.6);pointer-events:none';
+    document.querySelector('.scene').appendChild(c);
+  }
+  console.log(`[helm3d] ${T.name}: ${T.buildings.length} buildings, ${T.piers.length} piers`);
+}
+addTowns();
+
 // Cape Dory 25D (Alberg design: 25 ft LOA, 8 ft beam), seen from the tiller. Boat frame:
 // y up from the waterline, -z forward, x to starboard; the helmsman's eye is at (0.35, EYE, 0).
 const bow = new THREE.Group();
@@ -1171,7 +1318,7 @@ try {
   };
   ch.postMessage({ hello: true });   // ask the app where the journey is (it may already have arrived)
 } catch (_) {}
-window.__helm3d = { scene, renderer, camera, tiles, updateTiles, posAt, TOTAL, wx, wz, frame, setS: v => { S = v; }, setLook: (y, p) => { yawOff = y; pitch = p; } };   // console/testing hooks
+window.__helm3d = { scene, renderer, camera, tiles, updateTiles, posAt, TOTAL, wx, wz, frame, setS: v => { S = v; }, setLook: (y, p) => { yawOff = y; pitch = p; }, setZoom: z => { zoom = z; } };   // console/testing hooks
 }
 
 // No route chosen: list saved routes and the samples.
