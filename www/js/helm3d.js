@@ -926,16 +926,16 @@ const FT60 = 60 * 0.3048, _back = m => Math.max(0, (m - EYE) * 2.2), _tilt = m =
 const _toDrone = m => Math.min(1, Math.max(0, (m - FT60) / (DRONE_M - FT60)));   // 60 ft -> drone, so the change glides
 const eyeBack = m => m <= FT60 ? _back(m) : _back(FT60) + (50 - _back(FT60)) * _toDrone(m);
 const eyeTilt = m => m <= FT60 ? _tilt(m) : _tilt(FT60) + (20 - _tilt(FT60)) * _toDrone(m);
-let eyeTarget = EYE;
+let eyeTarget = DRONE_M;   // Drone by default (direct request, v832); a choice made since is remembered
 {
   let want = Number(params.get('eye')) * 0.3048;   // feet in the URL; metres stored
-  if (!want) { try { want = Number(localStorage.getItem('audiochart-helm3d-eye')); } catch (_) {} }
+  if (!want) { try { want = Number(localStorage.getItem('audiochart-helm3d-view')); } catch (_) {} }
   if (want > 0) eyeTarget = want;
 }
 let eyeH = eyeTarget;
 const eyeBox = document.getElementById('eyepick');
 function syncEyeButtons() { for (const b of eyeBox.querySelectorAll('button')) b.classList.toggle('on', Math.abs(Number(b.dataset.m) - eyeTarget) < 0.2); }
-function setEye(m) { eyeTarget = m; try { localStorage.setItem('audiochart-helm3d-eye', String(m)); } catch (_) {} syncEyeButtons(); }
+function setEye(m) { eyeTarget = m; try { localStorage.setItem('audiochart-helm3d-view', String(m)); } catch (_) {} syncEyeButtons(); }
 for (const c of EYE_CHOICES) {
   const b = document.createElement('button'); b.type = 'button'; b.textContent = c.label; b.dataset.m = c.m;
   b.addEventListener('pointerdown', e => e.stopPropagation());   // not a look-around drag

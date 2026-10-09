@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-09 — 3D journeys start in Drone view (v832)
+
+Requested: Drone as the default view for 3D journeys. The 3D view now opens
+in Drone unless a view has been picked since; the remembered choice moved to
+a new key (audiochart-helm3d-view) so a view picked before this, often just
+the old Helm default, doesn't keep overriding it.
+
 ## 2026-10-09 — Node Ops 3D Virtual Journey button; Drone view in 3D (v831)
 
 Requested: a Node Ops button for a 3D Virtual Journey. ⛰ (after ✂ Simplify)
