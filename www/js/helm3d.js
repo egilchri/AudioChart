@@ -4,7 +4,6 @@
 // (helm3d.html?route=<id>) or for a sample (?sample=<curated id>). Desktop browser with WebGL.
 import * as THREE from 'three';
 import { Water } from './lib/three/Water.js';
-import { Sky } from './lib/three/Sky.js';
 
 const statusEl = document.getElementById('status');
 const loadingNote = document.getElementById('tileload');
@@ -63,7 +62,8 @@ async function cachedFetch(url, key = url) {
   if (c) c.put(key, res.clone()).catch(() => {});
   return res;
 }
-const SYNTH = location.origin + '/__helm3d/';   // cache keys for data we compute (never fetched)
+const SYNTH = location.origin + '/__helm3d/';
+const tlog = window.__helm3dLog = []; const T0 = performance.now(); const tmark = (what) => tlog.push(`${Math.round(performance.now() - T0)} ${what}`);   // cache keys for data we compute (never fetched)
 
 // ── USGS 3DEP elevation: 1/3 arc-second COGs, read by window through geotiff.js ──
 const COG = cell => `https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/13/TIFF/current/${cell}/USGS_13_${cell}.tif`;
@@ -82,25 +82,31 @@ async function readDem(w, s, e, n, level) {
     const hit = await c.match(key);
     if (hit) { const meta = JSON.parse(hit.headers.get('x-grid')); return { ...meta, elev: new Float32Array(await hit.arrayBuffer()) }; }
   }
-  let grid = null;
-  for (const cell of cellsFor(w, s, e, n)) {
-    let tiff; try { tiff = await cogFor(cell); } catch (_) { continue; }   // no file = open ocean or outside coverage
+  // open every 1°-square file the window touches at once, then read them all in parallel
+  const opened = (await Promise.all(cellsFor(w, s, e, n).map(async cell => {
+    let tiff; try { tiff = await cogFor(cell); } catch (_) { return null; }   // no file = open ocean or outside coverage
     const img0 = await tiff.getImage(0), img = await tiff.getImage(Math.min(level, (await tiff.getImageCount()) - 1));
     const [ox, oy] = img0.getOrigin(), f = img0.getWidth() / img.getWidth();
-    const dx = img0.getResolution()[0] * f, dy = -img0.getResolution()[1] * f;
-    if (!grid) {
-      const west = ox + Math.floor((w - ox) / dx) * dx, north = oy - Math.floor((oy - n) / dy) * dy;
-      const gw = Math.ceil((e - west) / dx), gh = Math.ceil((north - s) / dy);
-      grid = { w: gw, h: gh, west, north, dx, dy, elev: new Float32Array(gw * gh).fill(-3) };
-    }
-    const x0 = Math.round((grid.west - ox) / dx), y0 = Math.round((oy - grid.north) / dy);
-    const win = [Math.max(0, x0), Math.max(0, y0), Math.min(img.getWidth(), x0 + grid.w), Math.min(img.getHeight(), y0 + grid.h)];
-    if (win[2] <= win[0] || win[3] <= win[1]) continue;
-    const data = (await img.readRasters({ window: win, samples: [0] }))[0], ww = win[2] - win[0];
-    for (let y = win[1]; y < win[3]; y++) for (let x = win[0]; x < win[2]; x++) {
-      const v = data[(y - win[1]) * ww + (x - win[0])];
-      grid.elev[(y - y0) * grid.w + (x - x0)] = (v > 0.4 && v < 9000) ? v : -3;
-    }
+    return { img, ox, oy, dx: img0.getResolution()[0] * f, dy: -img0.getResolution()[1] * f };
+  }))).filter(Boolean);
+  tmark(`dem L${level} opened ${opened.length}`);
+  let grid = null;
+  if (opened.length) {
+    const { ox, oy, dx, dy } = opened[0];
+    const west = ox + Math.floor((w - ox) / dx) * dx, north = oy - Math.floor((oy - n) / dy) * dy;
+    const gw = Math.ceil((e - west) / dx), gh = Math.ceil((north - s) / dy);
+    grid = { w: gw, h: gh, west, north, dx, dy, elev: new Float32Array(gw * gh).fill(-3) };
+    await Promise.all(opened.map(async ({ img, ox, oy, dx, dy }) => {
+      const x0 = Math.round((grid.west - ox) / dx), y0 = Math.round((oy - grid.north) / dy);
+      const win = [Math.max(0, x0), Math.max(0, y0), Math.min(img.getWidth(), x0 + grid.w), Math.min(img.getHeight(), y0 + grid.h)];
+      if (win[2] <= win[0] || win[3] <= win[1]) return;
+      const data = (await img.readRasters({ window: win, samples: [0] }))[0], ww = win[2] - win[0];
+      for (let y = win[1]; y < win[3]; y++) for (let x = win[0]; x < win[2]; x++) {
+        const v = data[(y - win[1]) * ww + (x - win[0])];
+        grid.elev[(y - y0) * grid.w + (x - x0)] = (v > 0.4 && v < 9000) ? v : -3;
+      }
+    }));
+    tmark(`dem L${level} read`);
   }
   if (!grid) {   // nothing but water
     const dx = 1 / 10800 * (level ? 4 : 1);
@@ -116,15 +122,19 @@ async function readDem(w, s, e, n, level) {
 
 // ── USDA NAIP aerial photos through The National Map's image service ──
 // The service snaps every request to square pixels in degrees, so ask for square pixels and
-// take the true extent from its JSON answer (v1 of the sample was misaligned by hundreds of metres).
+// account for that (v1 of the sample, which did not, was misaligned by hundreds of metres).
 const NAIP = 'https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage';
 async function photo(w, s, e, n, maxPx = 4000) {
-  const res = Math.max(e - w, n - s) / maxPx;
-  const q = new URLSearchParams({ bbox: `${w},${s},${e},${n}`, bboxSR: 4326, imageSR: 4326, size: `${Math.round((e - w) / res)},${Math.round((n - s) / res)}`, format: 'jpg', compressionQuality: 82 });
-  const meta = await (await cachedFetch(`${NAIP}?${q}&f=json`)).json();
+  const res = Math.max(e - w, n - s) / maxPx, W = Math.round((e - w) / res), H = Math.round((n - s) / res);
+  const q = new URLSearchParams({ bbox: `${w},${s},${e},${n}`, bboxSR: 4326, imageSR: 4326, size: `${W},${H}`, format: 'jpg', compressionQuality: 82 });
+  tmark('photo start');
   const blob = await (await cachedFetch(`${NAIP}?${q}&f=image`)).blob();
-  const ex = meta.extent;
-  return { img: await createImageBitmap(blob), west: ex.xmin, east: ex.xmax, south: ex.ymin, north: ex.ymax };
+  tmark('photo done');
+  // The service grows the box about its centre until the pixels are square; the same rule here
+  // reproduces the extent it reports (checked against its f=json answers to ~1e-12°), saving a
+  // round trip to a service that is sometimes very slow.
+  const r = Math.max((e - w) / W, (n - s) / H), cx = (w + e) / 2, cy = (s + n) / 2;
+  return { img: await createImageBitmap(blob), west: cx - W * r / 2, east: cx + W * r / 2, south: cy - H * r / 2, north: cy + H * r / 2 };
 }
 
 // Sample a photo onto a DEM grid: one RGBA value per cell.
@@ -243,61 +253,81 @@ function treeGeoms() {
   SPRUCE_SIMPLE = new THREE.ConeGeometry(0.8, 1, 5); SPRUCE_SIMPLE.translate(0, 0.5, 0);
   TREE_MAT = new THREE.MeshLambertMaterial({ color: 0xffffff });
 }
+// Plain land colour shown until a tile's aerial photo arrives, so the view can start on the
+// elevation alone (fast) while the photos (slow, from a busy service) fill in.
+const PLAIN = new THREE.MeshLambertMaterial({ color: 0x66735c });
+// Tiles load in two steps: elevation → plain terrain, ready to sail over; then, in the
+// background, the photo → canopy height, photo texture and spruce.
 async function loadTile(T) {
-  T.state = 'loading';
+  T.state = 'loading'; const gen = (T.gen = (T.gen || 0) + 1);
   try {
     const M = 0.0002;   // ~2 cells of overlap so neighbouring tiles meet
-    const [dem, ph] = await Promise.all([readDem(T.w - M, T.s - M, T.e + M, T.n + M, 0), photo(T.w, T.s, T.e, T.n)]);
-    if (T.state !== 'loading') { ph.img.close?.(); return; }   // dropped while downloading
-    const rd = new Float32Array(dem.w * dem.h);
-    for (let y = 0; y < dem.h; y += 4) for (let x = 0; x < dem.w; x += 4) {
-      const d = routeDist(wx(dem.west + (x + 0.5) * dem.dx), wz(dem.north - (y + 0.5) * dem.dy));
-      for (let yy = y; yy < Math.min(dem.h, y + 4); yy++) for (let xx = x; xx < Math.min(dem.w, x + 4); xx++) rd[yy * dem.w + xx] = d;
-    }
-    addCanopy(dem, ph, (x, y) => Math.max(0, Math.min(1, (rd[y * dem.w + x] - CORRIDOR) / FADE)));
-    const mat = photoMat(ph);
-    T.full = gridMesh(dem, ph, 1, mat); T.coarse = gridMesh(dem, ph, 4, mat); T.full.visible = false;
-    T.dem = dem; T.mat = mat; T.img = ph.img;
-    // spruce in the corridor, one per forested 10 m cell, jittered and varied
-    treeGeoms();
-    let seed = Math.round((T.w + 200) * 1e4 + T.s * 1e3); const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-    const spots = [];
-    for (let y = 1; y < dem.h - 1; y++) for (let x = 1; x < dem.w - 1; x++) {
-      const i = y * dem.w + x;
-      if (rd[i] > CORRIDOR + FADE * rnd() || dem.elev[i] <= 0.6 || dem.canopy[i] < 0.45) continue;
-      const lon = dem.west + (x + rnd()) * dem.dx, lat = dem.north - (y + rnd()) * dem.dy;
-      if (lon < T.w || lon >= T.e || lat < T.s || lat >= T.n) continue;   // the overlap belongs to the neighbour
-      spots.push([wx(lon), dem.elev[i], wz(lat), rd[i] < DETAIL]);
-    }
-    T.trees = [];
-    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), pv = new THREE.Vector3(), col = new THREE.Color(), up = new THREE.Vector3(0, 1, 0);
-    for (const detail of [true, false]) {
-      const set = spots.filter(sp => sp[3] === detail); if (!set.length) continue;
-      const trees = new THREE.InstancedMesh(detail ? SPRUCE_DETAILED : SPRUCE_SIMPLE, TREE_MAT, set.length);
-      set.forEach(([x, y, z], j) => {
-        const hgt = 9 + rnd() * 10, r = hgt * (0.19 + rnd() * 0.08);
-        pv.set(x, y - 0.5, z); sc.set(r, hgt, r); q.setFromAxisAngle(up, rnd() * 6.28);
-        trees.setMatrixAt(j, m4.compose(pv, q, sc));
-        col.setRGB(0.055 + rnd() * 0.035, 0.09 + rnd() * 0.05, 0.07 + rnd() * 0.03); trees.setColorAt(j, col);
-      });
-      T.trees.push(trees);
-    }
-    scene.add(T.full, T.coarse, ...T.trees);
+    const photoP = photo(T.w, T.s, T.e, T.n); photoP.catch(() => {});   // starts now, alongside the elevation
+    const dem = await readDem(T.w - M, T.s - M, T.e + M, T.n + M, 0);
+    if (T.state !== 'loading' || T.gen !== gen) { photoP.then(ph => ph.img.close?.(), () => {}); return; }   // dropped meanwhile
+    const rect = { west: T.w, east: T.e, south: T.s, north: T.n };
+    Object.assign(T, { dem, mat: PLAIN, img: null, trees: [], photo: 'pending',
+      full: gridMesh(dem, rect, 1, PLAIN), coarse: gridMesh(dem, rect, 4, PLAIN) });
+    T.full.visible = false;
+    scene.add(T.full, T.coarse);
     sinkFar(T, true);
     T.state = 'ready';
+    photoP.then(ph => dressTile(T, gen, ph)).catch(err => { console.warn('[helm3d] photo failed', T, err); T.photo = 'failed'; });
   } catch (err) {
     console.warn('[helm3d] tile failed', T, err);
     T.state = 'failed';
   }
 }
+function dressTile(T, gen, ph) {
+  if (T.state !== 'ready' || T.gen !== gen) { ph.img.close?.(); return; }   // dropped or reloaded meanwhile
+  const dem = T.dem;
+  const rd = new Float32Array(dem.w * dem.h);
+  for (let y = 0; y < dem.h; y += 4) for (let x = 0; x < dem.w; x += 4) {
+    const d = routeDist(wx(dem.west + (x + 0.5) * dem.dx), wz(dem.north - (y + 0.5) * dem.dy));
+    for (let yy = y; yy < Math.min(dem.h, y + 4); yy++) for (let xx = x; xx < Math.min(dem.w, x + 4); xx++) rd[yy * dem.w + xx] = d;
+  }
+  addCanopy(dem, ph, (x, y) => Math.max(0, Math.min(1, (rd[y * dem.w + x] - CORRIDOR) / FADE)));
+  const mat = photoMat(ph), wasNear = T.full.visible;
+  scene.remove(T.full, T.coarse); T.full.geometry.dispose(); T.coarse.geometry.dispose();
+  T.full = gridMesh(dem, ph, 1, mat); T.coarse = gridMesh(dem, ph, 4, mat);
+  T.full.visible = wasNear; T.coarse.visible = !wasNear;
+  T.mat = mat; T.img = ph.img;
+  // spruce in the corridor, one per forested 10 m cell, jittered and varied
+  treeGeoms();
+  let seed = Math.round((T.w + 200) * 1e4 + T.s * 1e3); const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const spots = [];
+  for (let y = 1; y < dem.h - 1; y++) for (let x = 1; x < dem.w - 1; x++) {
+    const i = y * dem.w + x;
+    if (rd[i] > CORRIDOR + FADE * rnd() || dem.elev[i] <= 0.6 || dem.canopy[i] < 0.45) continue;
+    const lon = dem.west + (x + rnd()) * dem.dx, lat = dem.north - (y + rnd()) * dem.dy;
+    if (lon < T.w || lon >= T.e || lat < T.s || lat >= T.n) continue;   // the overlap belongs to the neighbour
+    spots.push([wx(lon), dem.elev[i], wz(lat), rd[i] < DETAIL]);
+  }
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), pv = new THREE.Vector3(), col = new THREE.Color(), up = new THREE.Vector3(0, 1, 0);
+  for (const detail of [true, false]) {
+    const set = spots.filter(sp => sp[3] === detail); if (!set.length) continue;
+    const trees = new THREE.InstancedMesh(detail ? SPRUCE_DETAILED : SPRUCE_SIMPLE, TREE_MAT, set.length);
+    set.forEach(([x, y, z], j) => {
+      const hgt = 9 + rnd() * 10, r = hgt * (0.19 + rnd() * 0.08);
+      pv.set(x, y - 0.5, z); sc.set(r, hgt, r); q.setFromAxisAngle(up, rnd() * 6.28);
+      trees.setMatrixAt(j, m4.compose(pv, q, sc));
+      col.setRGB(0.055 + rnd() * 0.035, 0.09 + rnd() * 0.05, 0.07 + rnd() * 0.03); trees.setColorAt(j, col);
+    });
+    T.trees.push(trees);
+  }
+  scene.add(T.full, T.coarse, ...T.trees);
+  T.photo = 'done';
+}
 function dropTile(T) {
   if (T.state === 'loading') { T.state = 'idle'; return; }
   if (T.state !== 'ready') return;
   scene.remove(T.full, T.coarse, ...T.trees);
-  T.full.geometry.dispose(); T.coarse.geometry.dispose(); T.mat.map.dispose(); T.mat.dispose(); T.img.close?.();
+  T.full.geometry.dispose(); T.coarse.geometry.dispose();
+  if (T.mat !== PLAIN) { T.mat.map.dispose(); T.mat.dispose(); }
+  T.img?.close?.();
   for (const tr of T.trees) tr.dispose();
   sinkFar(T, false);
-  Object.assign(T, { state: 'idle', full: null, coarse: null, trees: null, dem: null, mat: null, img: null });
+  Object.assign(T, { state: 'idle', full: null, coarse: null, trees: null, dem: null, mat: null, img: null, photo: null });
 }
 let tiles = [], loadingCount = 0;
 function updateTiles(px, pz) {
@@ -311,21 +341,34 @@ function updateTiles(px, pz) {
     const T = want.shift(); loadingCount++;
     loadTile(T).finally(() => { loadingCount--; });
   }
-  const busy = tiles.some(T => T.state === 'loading' && rectDist(T, px, pz) < LOD_NEAR_M);
-  loadingNote.hidden = !busy;
+  const near = tiles.filter(T => rectDist(T, px, pz) < LOD_NEAR_M);
+  loadingNote.textContent = near.some(T => T.state === 'loading') ? 'Loading terrain ahead…' : 'Loading aerial photos…';
+  loadingNote.hidden = !near.some(T => T.state === 'loading' || (T.state === 'ready' && T.photo === 'pending'));
 }
 
 // ── Far terrain: ~37 m elevation + one photo out to the horizon ──
-let far = null;
-async function loadFar() {
+let far = null, buildChart = null;   // buildChart is set once the corner chart exists
+const farBbox = () => {
   const lons = routeLL.map(p => p[0]), lats = routeLL.map(p => p[1]);
-  const W = Math.min(...lons) - 0.2, E = Math.max(...lons) + 0.2, S0 = Math.min(...lats) - 0.15, N = Math.max(...lats) + 0.15;
-  const [dem, ph] = await Promise.all([readDem(W, S0, E, N, 2), photo(W, S0, E, N)]);
-  addCanopy(dem, ph);
+  return [Math.min(...lons) - 0.2, Math.min(...lats) - 0.15, Math.max(...lons) + 0.2, Math.max(...lats) + 0.15];
+};
+async function loadFar() {
+  const [W, S0, E, N] = farBbox();
+  const photoP = photo(W, S0, E, N, 2048); photoP.catch(() => {});   // 2048 px is plenty this far off
+  const dem = await readDem(W, S0, E, N, 2);
   const stride = dem.w * dem.h > 3e6 ? 2 : 1;
-  const mesh = gridMesh(dem, { west: ph.west, east: ph.east, south: ph.south, north: ph.north }, stride, photoMat(ph));
+  const mesh = gridMesh(dem, { west: W, east: E, south: S0, north: N }, stride, PLAIN);
   scene.add(mesh);
   far = { dem, mesh, bbox: [W, S0, E, N] };
+  for (const T of tiles) if (T.state === 'ready') sinkFar(T, true);   // tiles that arrived first
+  buildChart?.();
+  photoP.then(ph => {   // drape the photo when it comes
+    addCanopy(dem, ph);
+    const m2 = gridMesh(dem, ph, stride, photoMat(ph));
+    scene.remove(far.mesh); far.mesh.geometry.dispose();
+    far.mesh = m2; scene.add(m2);
+    for (const T of tiles) if (T.state === 'ready') sinkFar(T, true);
+  }).catch(err => console.warn('[helm3d] horizon photo failed', err));
 }
 // Lower the coarse terrain under a loaded near tile (and restore it when the tile is dropped).
 function sinkFar(T, down) {
@@ -367,7 +410,7 @@ const sceneEl = document.getElementById('scene');
 sceneEl.prepend(renderer.domElement);
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(55, 2, 0.3, 80000);
-const HAZE = new THREE.Color(0xb9c9d3);
+const HAZE = new THREE.Color(0xb2cbe0);   // distant haze, a clear-day blue
 scene.fog = new THREE.FogExp2(HAZE, 0.000075);
 
 const sun = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - 32), THREE.MathUtils.degToRad(205));
@@ -375,21 +418,20 @@ scene.add(new THREE.HemisphereLight(0xe4ecf2, 0x4a5644, 1.7));
 const dl = new THREE.DirectionalLight(0xfff3e0, 2.1); dl.position.copy(sun).multiplyScalar(1000); scene.add(dl);
 
 
-setStatus('Downloading terrain and aerial photos for the horizon…');
-await loadFar();
-const [FW, FS, FE, FN] = far.bbox, inFar = ([x, y]) => x >= FW && x <= FE && y >= FS && y <= FN;
+setStatus('Downloading terrain…');
+tiles = nearTiles();
+{   // the horizon and the tiles around the start, all at once; photos keep arriving afterwards
+  const [sx, sz] = routeW[0], first = tiles.filter(T => rectDist(T, sx, sz) < LOD_NEAR_M);
+  // sail as soon as the start tiles are in; the horizon (bigger, slower) fills in a moment later
+  loadFar().catch(err => console.warn('[helm3d] horizon failed', err));
+  await Promise.all(first.map(loadTile));
+}
+const [FW, FS, FE, FN] = farBbox(), inFar = ([x, y]) => x >= FW && x <= FE && y >= FS && y <= FN;
 const BREAKWATER_IN_VIEW = BREAKWATER.every(inFar);
 const nav = navGJ.features.filter(f => inFar(f.geometry.coordinates) && ['BOYLAT', 'BCNLAT', 'BOYSAW', 'BOYSPP', 'BOYCAR', 'BOYISD', 'LIGHTS'].includes(f.properties.objtype))
   .map(f => ({ t: f.properties.objtype, n: f.properties.name, c: f.properties.colour, s: f.properties.shape, ch: f.properties.characteristic, x: f.geometry.coordinates[0], y: f.geometry.coordinates[1] }));
 const places = placesGJ.features.filter(f => f.geometry.type === 'Point' && inFar(f.geometry.coordinates) && ['LNDARE', 'LNDRGN', 'LIGHTS', 'BUAARE'].includes(f.properties.objtype))
   .map(f => ({ t: f.properties.objtype, n: f.properties.name, x: f.geometry.coordinates[0], y: f.geometry.coordinates[1] }));
-tiles = nearTiles();
-{   // the tiles around the start, before sailing
-  const [sx, sz] = routeW[0], first = tiles.filter(T => rectDist(T, sx, sz) < LOD_NEAR_M);
-  let done = 0;
-  setStatus(`Downloading the start area: 0 of ${first.length} tiles…`);
-  await Promise.all(first.map(T => loadTile(T).then(() => setStatus(`Downloading the start area: ${++done} of ${first.length} tiles…`))));
-}
 
 // Rockland Breakwater: granite, ~1.4 km, not in the elevation data (water is flattened there),
 // traced from the aerial photo. The lighthouse sits on its outer end.
@@ -590,10 +632,55 @@ water.material.needsUpdate = true;
 { const mirror = water.onBeforeRender; water.onBeforeRender = (...a) => { bow.visible = false; mirror(...a); bow.visible = true; }; }
 scene.add(water);
 
-const sky = new Sky(); sky.scale.setScalar(70000); sky.renderOrder = -1; sky.material.depthTest = false; scene.add(sky);
-sky.material.uniforms.turbidity.value = 5; sky.material.uniforms.rayleigh.value = 1.6;
-sky.material.uniforms.mieCoefficient.value = 0.004; sky.material.uniforms.mieDirectionalG.value = 0.82;
-sky.material.uniforms.sunPosition.value.copy(sun);
+// Sky: a clear-day gradient dome, deep blue overhead fading to the haze colour at the horizon
+// (so distant land and water blend into it), with a soft glow around the sun. Drawn first,
+// behind everything; not tone-mapped, so the blue stays blue.
+const sky = new THREE.Mesh(new THREE.SphereGeometry(60000, 32, 16), new THREE.ShaderMaterial({
+  side: THREE.BackSide, depthWrite: false, depthTest: false, fog: false, toneMapped: false,
+  uniforms: { zenith: { value: new THREE.Color(0x2f62a8) }, horizon: { value: HAZE.clone() }, sunDir: { value: sun.clone().normalize() } },
+  vertexShader: 'varying vec3 vDir; void main() { vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader: `uniform vec3 zenith; uniform vec3 horizon; uniform vec3 sunDir; varying vec3 vDir;
+    void main() {
+      float h = max(vDir.y, 0.0);
+      vec3 c = mix(horizon, zenith, pow(h, 0.55));
+      float g = max(dot(normalize(vDir), sunDir), 0.0);
+      c += vec3(1.0, 0.95, 0.85) * (pow(g, 300.0) * 1.2 + pow(g, 12.0) * 0.12);
+      gl_FragColor = vec4(c, 1.0);
+      #include <colorspace_fragment>
+    }`,
+}));
+sky.renderOrder = -1; sky.frustumCulled = false;
+scene.add(sky);
+
+// Fair-weather clouds: a drifting deck ~1.5 km up, from tileable noise made here (no download).
+// Fog thins them into the haze toward the horizon; the water reflects them.
+const clouds = (() => {
+  const N = 512, img = new ImageData(N, N), rand = (() => { let sd = 5; return () => (sd = (sd * 16807) % 2147483647) / 2147483647; })();
+  const octaves = [8, 16, 32, 64].map(L => ({ L, g: Float32Array.from({ length: L * L }, rand) }));
+  const smooth = t => t * t * (3 - 2 * t);
+  const noise = (x, y) => {   // periodic value noise, summed over octaves; 0..1
+    let v = 0, amp = 0.5, tot = 0;
+    for (const { L, g } of octaves) {
+      const fx = x / N * L, fy = y / N * L, x0 = Math.floor(fx), y0 = Math.floor(fy), tx = smooth(fx - x0), ty = smooth(fy - y0);
+      const at = (i, j) => g[((j + L) % L) * L + ((i + L) % L)];
+      const a = at(x0, y0) + (at(x0 + 1, y0) - at(x0, y0)) * tx, b = at(x0, y0 + 1) + (at(x0 + 1, y0 + 1) - at(x0, y0 + 1)) * tx;
+      v += (a + (b - a) * ty) * amp; tot += amp; amp *= 0.5;
+    }
+    return v / tot;
+  };
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const n = noise(x, y), o = (y * N + x) * 4;
+    const a = Math.max(0, Math.min(1, (n - 0.585) / 0.09));     // only the higher noise is cloud: separate puffs
+    const shade = 222 + 33 * Math.min(1, (n - 0.585) / 0.14);    // white middles, faintly grey edges
+    img.data[o] = shade; img.data[o + 1] = shade; img.data[o + 2] = Math.min(255, shade + 4); img.data[o + 3] = a * 235;
+  }
+  const cv = document.createElement('canvas'); cv.width = cv.height = N; cv.getContext('2d').putImageData(img, 0, 0);
+  const tex = new THREE.CanvasTexture(cv); tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(9, 9); tex.colorSpace = THREE.SRGBColorSpace;
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(90000, 90000), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide, fog: true, toneMapped: false }));
+  m.rotation.x = Math.PI / 2; m.position.y = 1500;
+  scene.add(m);
+  return m;
+})();
 
 // Buoys, beacons and lights from the chart.
 const COLORS = { green: 0x2b8a4a, red: 0xc23a2e, yellow: 0xe0b531, white: 0xeeeeea };
@@ -929,7 +1016,8 @@ function updateAnchor(dt) {
 // north up, centred on the boat, with the route, buoys and the bearing you're looking along.
 const chartEl = document.getElementById('minichart'), cctx = chartEl.getContext('2d'), showChart = document.getElementById('showchart');
 showChart.addEventListener('change', () => { chartEl.hidden = !showChart.checked; });
-const CH = (() => {
+let CH = null;
+buildChart = () => { CH = (() => {
   const lons = routeLL.map(p => p[0]), lats = routeLL.map(p => p[1]);
   const west = Math.min(...lons) - 0.16, east = Math.max(...lons) + 0.16, south = Math.min(...lats) - 0.12, north = Math.max(...lats) + 0.12;
   const ppd = 3000, W = Math.round((east - west) * ppd), H = Math.round((north - south) * ppd);
@@ -945,7 +1033,8 @@ const CH = (() => {
   }
   c.putImageData(img, 0, 0);
   return { cv, west, north, ppd };
-})();
+})(); };
+if (far) buildChart();
 function drawChart(pos, course, look, hfov) {
   if (!showChart.checked) return;
   const dpr = Math.min(2, devicePixelRatio), size = chartEl.clientWidth;
@@ -957,7 +1046,7 @@ function drawChart(pos, course, look, hfov) {
   const X = lo => size / 2 + (lo - lon) * sx, Y = la => size / 2 - (la - lat) * sy;
   c.imageSmoothingEnabled = true;
   c.fillStyle = 'rgb(200,222,234)'; c.fillRect(0, 0, size, size);
-  c.drawImage(CH.cv, X(CH.west), Y(CH.north), CH.cv.width / CH.ppd * sx, CH.cv.height / CH.ppd * sy);
+  if (CH) c.drawImage(CH.cv, X(CH.west), Y(CH.north), CH.cv.width / CH.ppd * sx, CH.cv.height / CH.ppd * sy);
   // route ahead (dashed) and run so far (solid)
   c.lineWidth = 2; c.strokeStyle = '#a5741f'; c.setLineDash([5, 4]); c.beginPath();
   routeLL.forEach(([lo, la], i) => i ? c.lineTo(X(lo), Y(la)) : c.moveTo(X(lo), Y(la))); c.stroke(); c.setLineDash([]);
@@ -1032,6 +1121,8 @@ function frame() {
     if (m.lamp && m.fl) { const ph = (t + m.phase) % m.fl.per; m.lamp.visible = m.fl.fixed || (m.fl.iso ? ph < m.fl.per / 2 : ph < 0.45); }
   }
   water.material.uniforms.time.value += dt * 0.6;
+  sky.position.set(boat.position.x, 0, boat.position.z);   // the dome travels with the boat
+  clouds.material.map.offset.x += dt * 0.0004; clouds.material.map.offset.y += dt * 0.00015;   // drifting on a light westerly
   renderer.render(scene, camera);
   updateLabels(pos);
   const hfov = 2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect) * 180 / Math.PI;
@@ -1054,6 +1145,7 @@ function frame() {
   requestAnimationFrame(frame);
 }
 statusEl.hidden = true;
+window.__helm3dReadyMs = Math.round(performance.now());   // time to first view, for measuring startup
 requestAnimationFrame(frame);
 
 // Follow a Virtual Journey running in the AudioChart window (it broadcasts its progress).

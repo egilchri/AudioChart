@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-10-08 — 3D view: starts ~3× faster; blue sky with clouds (v829)
+
+Reported: the wait before a 3D journey starts. Measured cold start (fresh
+browser, nothing cached, Perry Creek): 11.4 s → about 3.9 s; Warren Island
+6.3 s; with the route's data cached, about 0.6 s. Changes: the elevation
+files a window touches are opened and read in parallel (were one after
+another); the horizon and the start tiles load together, and sailing starts
+as soon as the start tiles' elevation is in (horizon and corner chart fill in
+a moment later); land shows in a plain colour until its aerial photo arrives,
+then gets the photo, tree height and spruce; each photo is one request
+instead of two (the snapped extent the image service reports is now
+computed locally, checked against its answers to ~1e-14°); the horizon photo
+is 2048 px. Also requested: a bluer sky with clouds. The three.js sky model
+(pale at this exposure) is replaced by a gradient dome, deep blue overhead to
+the haze colour at the horizon with a sun glow, and a drifting deck of
+fair-weather clouds ~1.5 km up from noise generated in the page; the water
+reflects both. Sky.js is no longer vendored.
+
 ## 2026-10-08 — 3D view: raise the viewpoint to 20 or 60 ft (v828)
 
 Direct request: a setting to move the point of view to about 20 ft above
