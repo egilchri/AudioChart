@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-10-09 — 3D view: Record a journey as a movie (v834)
+
+Asked: can the movie be saved? The 3D view has a ⏺ Record button (top left,
+under View). It records what's on screen: the 3D picture, heading tape,
+labels, corner chart and the OSM credit, plus the anchor sounds, as an MP4
+(WebM where a browser has no MP4 recorder). It stops itself a moment after
+the anchor is set, or on a second click (⏹ Stop m:ss), and saves to
+Downloads as "<route> - 3D journey.mp4". Works inside Virtual Journey too.
+Frames are added as drawn, at real-time speed. The sound track is only added
+when the page's audio is actually running: a stalled one held the video clock
+back, which squeezed 13 s into 2 s in testing. All sounds now share one gain
+node so the recording can take them. Checked headless: a 14 s recording through
+the anchor drop, H.264 1352×676 at ~42 fps, AAC with the splash in it.
+
 ## 2026-10-09 — 3D view: Carvers Harbor's buildings and wharves (v833)
 
 Requested: realistic buildings in Carvers Harbor. 709 buildings and 18

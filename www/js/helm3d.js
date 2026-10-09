@@ -983,7 +983,9 @@ function drawTape(look, hfov) {
 // ── Arrival: the anchor goes down off the bow roller, chain rattling, with a splash ──
 // Sound is made here with Web Audio (no files). Browsers only allow it after a click or key
 // press in this window, so the context is unlocked on the first one.
-let audioCtx = null;
+let audioCtx = null, audioMaster = null;
+// all sound goes through one gain node, so a recording (see Record) can take it too
+const audioOut = () => { if (!audioMaster) { audioMaster = audioCtx.createGain(); audioMaster.connect(audioCtx.destination); } return audioMaster; };
 const unlockAudio = () => {
   try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); audioCtx.resume(); } catch (_) {}
 };
@@ -1002,7 +1004,7 @@ function playChain(sec) {
     src.buffer = noiseBuffer(0.08); bp.type = 'bandpass'; bp.frequency.value = 1400 + Math.random() * 900; bp.Q.value = 9;
     g.gain.setValueAtTime(0.0001, at); g.gain.linearRampToValueAtTime(0.06 + Math.random() * 0.04, at + 0.004);
     g.gain.exponentialRampToValueAtTime(0.0001, at + 0.07);
-    src.connect(bp).connect(g).connect(audioCtx.destination); src.start(at);
+    src.connect(bp).connect(g).connect(audioOut()); src.start(at);
     at += gap + Math.random() * 0.04; gap *= 1.05;
   }
 }
@@ -1015,7 +1017,7 @@ function playSplash() {
   lp.frequency.setValueAtTime(1600, now); lp.frequency.exponentialRampToValueAtTime(350, now + 1.2);
   g.gain.setValueAtTime(0.0001, now); g.gain.linearRampToValueAtTime(0.16, now + 0.07);
   g.gain.exponentialRampToValueAtTime(0.0001, now + 1.4);
-  src.connect(lp).connect(g).connect(audioCtx.destination); src.start(now);
+  src.connect(lp).connect(g).connect(audioOut()); src.start(now);
   // bubbles: short soft sine blips that rise in pitch, trailing off
   for (let k = 0; k < 6; k++) {
     const t0 = now + 0.25 + k * (0.09 + Math.random() * 0.12), f0 = 260 + Math.random() * 260;
@@ -1023,7 +1025,7 @@ function playSplash() {
     o.type = 'sine'; o.frequency.setValueAtTime(f0, t0); o.frequency.exponentialRampToValueAtTime(f0 * 2.2, t0 + 0.06);
     og.gain.setValueAtTime(0.0001, t0); og.gain.linearRampToValueAtTime(0.035 * (1 - k / 7), t0 + 0.01);
     og.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.07);
-    o.connect(og).connect(audioCtx.destination); o.start(t0); o.stop(t0 + 0.08);
+    o.connect(og).connect(audioOut()); o.start(t0); o.stop(t0 + 0.08);
   }
 }
 const anchorNote = document.getElementById('anchornote');
@@ -1283,6 +1285,7 @@ function frame() {
   const hfov = 2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect) * 180 / Math.PI;
   drawTape(((look % 360) + 360) % 360, hfov);
   drawChart(pos, (smoothCourse + 360) % 360, ((look % 360) + 360) % 360, hfov);
+  if (rec) recFrame();
   document.getElementById('ro-cog').textContent = String(Math.round((smoothCourse + 360) % 360)).padStart(3, '0') + '° T';
   document.getElementById('ro-look').textContent = String(Math.round(((look % 360) + 360) % 360)).padStart(3, '0') + '° T';
   document.getElementById('ro-run').textContent = `${(S / NM).toFixed(1)}/${(TOTAL / NM).toFixed(1)} nm`;
@@ -1300,6 +1303,65 @@ function frame() {
   requestAnimationFrame(frame);
 }
 statusEl.hidden = true;
+// ── Record: saves the view as a movie (direct request, v834) ──
+// Each frame the 3D picture, heading tape, labels and corner chart are drawn onto one canvas,
+// recorded with the anchor sounds by MediaRecorder; MP4 where the browser can (Chrome), else
+// WebM. Stops itself once the anchor is set, or on a second click; the file goes to Downloads.
+let rec = null;
+const recBtn = document.createElement('button');
+recBtn.type = 'button'; recBtn.id = 'recbtn'; recBtn.textContent = '⏺ Record';
+recBtn.title = 'Record this journey as a movie (saved to your Downloads folder)';
+recBtn.style.cssText = 'position:absolute;left:12px;top:74px;z-index:2;font:inherit;font-size:0.78rem;color:#e6eef1;background:rgba(20,34,42,0.55);border:0;border-radius:6px;padding:5px 10px;cursor:pointer';
+recBtn.addEventListener('pointerdown', e => e.stopPropagation());
+recBtn.addEventListener('click', () => rec ? stopRec() : startRec());
+sceneEl.appendChild(recBtn);
+async function startRec() {
+  recBtn.disabled = true;
+  unlockAudio();
+  // only record sound that is actually running: a stalled audio track holds back the movie's clock
+  if (audioCtx && audioCtx.state !== 'running') await Promise.race([audioCtx.resume(), new Promise(r => setTimeout(r, 400))]).catch(() => {});
+  recBtn.disabled = false;
+  const src = renderer.domElement, cv = document.createElement('canvas');
+  cv.width = src.width - (src.width % 2); cv.height = src.height - (src.height % 2);
+  const stream = cv.captureStream(0), vtrack = stream.getVideoTracks()[0];   // a frame each time one is drawn
+  if (audioCtx?.state === 'running') { const dest = audioCtx.createMediaStreamDestination(); audioOut().connect(dest); for (const t of dest.stream.getAudioTracks()) stream.addTrack(t); }
+  const type = ['video/mp4;codecs=avc1.640028,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm'].find(t => MediaRecorder.isTypeSupported(t)) || '';
+  const mr = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 12e6 }), chunks = [];
+  mr.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+  mr.onstop = () => {
+    const ext = type.startsWith('video/mp4') ? 'mp4' : 'webm', blob = new Blob(chunks, { type: type.split(';')[0] || 'video/webm' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = `${ROUTE.name.replace(/[\\/:*?"<>|]/g, '-')} - 3D journey.${ext}`;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+    recBtn.textContent = '⏺ Record'; recBtn.style.background = 'rgba(20,34,42,0.55)';
+  };
+  mr.start(1000);
+  rec = { mr, cv, vtrack, c: cv.getContext('2d'), t0: performance.now(), stopAt: null };
+  recBtn.style.background = 'rgba(176,40,32,0.85)';
+}
+function stopRec() { if (!rec) return; const r = rec; rec = null; r.mr.stop(); }
+function recFrame() {
+  const { c, cv } = rec, src = renderer.domElement, k = cv.width / sceneEl.clientWidth, box = sceneEl.getBoundingClientRect();
+  c.drawImage(src, 0, 0, cv.width, cv.height);
+  c.save(); c.scale(k, k);
+  c.drawImage(tape, 0, 0, sceneEl.clientWidth, 28);
+  if (!labelsEl.hidden) for (const el of labelPool) {
+    if (el.hidden) continue;
+    const x = parseFloat(el.style.left), y = parseFloat(el.style.top), buoy = el.classList.contains('buoy');
+    c.font = buoy ? '500 11px "JetBrains Mono", monospace' : '600 13px system-ui, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'bottom';
+    c.shadowColor = 'rgba(0,0,0,0.75)'; c.shadowBlur = 4; c.fillStyle = '#fbfcf8'; c.fillText(el.textContent, x, y - 7);
+    c.shadowBlur = 0; c.fillStyle = 'rgba(255,255,255,0.6)'; c.fillRect(x - 0.5, y - 6, 1, 6);
+  }
+  if (!chartEl.hidden && chartEl.offsetParent) { const r = chartEl.getBoundingClientRect(); c.drawImage(chartEl, r.left - box.left, r.top - box.top, r.width, r.height); }
+  const credit = document.getElementById('town-credit');
+  if (credit) { c.font = '10px system-ui, sans-serif'; c.textAlign = 'left'; c.textBaseline = 'bottom'; c.shadowColor = 'rgba(0,0,0,0.6)'; c.shadowBlur = 3; c.fillStyle = 'rgba(255,255,255,0.8)'; c.fillText(credit.textContent, 8, sceneEl.clientHeight - 6); }
+  c.restore();
+  rec.vtrack.requestFrame?.();
+  const sec = Math.floor((performance.now() - rec.t0) / 1000);
+  recBtn.textContent = `⏹ Stop ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+  if (anchor.state === 'set' && rec.stopAt == null) rec.stopAt = performance.now() + 2500;   // a moment at anchor, then save
+  if (rec.stopAt != null && performance.now() > rec.stopAt) stopRec();
+}
 window.__helm3dReadyMs = Math.round(performance.now());   // time to first view, for measuring startup
 requestAnimationFrame(frame);
 
