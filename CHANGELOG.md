@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-09 — Tutorial 8: Virtual Journey (sailors page)
+
+Requested: a narrated demo of how to start a Virtual Journey, then one at fast
+speed between two nearby ports with buildings. www/sailors/assets/demo8.mp4
+(95 s): Routes → Virtual Journey (and the Node Ops 3D button), the Virtual
+Journey bar's speed and 60× rate, then real footage of Rockport → Camden
+(4.7 nm, an AutoRoute route) at 60× in the 3D Drone view, through the anchor
+going down. Recorded in headless Chrome (stills, then a CDP screencast of the
+journey), narrated with Piper en_US-amy-medium. App sounds are not in it
+(recorded muted). Sailors page only; no app version change.
+
 ## 2026-10-09 — Fox Islands ferries in the 3D journey (v846)
 
 Requested: when a Virtual Journey crosses the path of the North Haven or
