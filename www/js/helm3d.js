@@ -4,7 +4,7 @@
 // (helm3d.html?route=<id>) or for a sample (?sample=<curated id>). Desktop browser with WebGL.
 import * as THREE from 'three';
 import { Water } from './lib/three/Water.js';
-import { LON0, LAT0, MX, MY, wx, wz, cachedFetch, readDem, photo, photoAtCells, addCanopy, gridMesh, photoMat, buildTown, tlog, tmark } from './terrain3d.js';
+import { LON0, LAT0, MX, MY, wx, wz, cachedFetch, readDem, photo, photoAtCells, addCanopy, gridMesh, photoMat, buildTown, spruce, tlog, tmark } from './terrain3d.js';
 
 const statusEl = document.getElementById('status');
 const loadingNote = document.getElementById('tileload');
@@ -81,13 +81,7 @@ function nearTiles() {
 const rectDist = (T, px, pz) => Math.hypot(Math.max(T.x0 - px, 0, px - T.x1), Math.max(T.z0 - pz, 0, pz - T.z1));
 
 let SPRUCE_DETAILED = null, SPRUCE_SIMPLE = null, TREE_MAT = null;
-function treeGeoms() {
-  if (SPRUCE_DETAILED) return;
-  const prof = [[0.06, 0], [1, 0.12], [0.45, 0.33], [0.72, 0.35], [0.3, 0.6], [0.48, 0.62], [0.02, 1]];   // tiered spruce (radius, height)
-  SPRUCE_DETAILED = new THREE.LatheGeometry(prof.map(([r, h]) => new THREE.Vector2(r, h)), 6);
-  SPRUCE_SIMPLE = new THREE.ConeGeometry(0.8, 1, 5); SPRUCE_SIMPLE.translate(0, 0.5, 0);
-  TREE_MAT = new THREE.MeshLambertMaterial({ color: 0xffffff });
-}
+function treeGeoms() { if (!SPRUCE_DETAILED) ({ detailed: SPRUCE_DETAILED, simple: SPRUCE_SIMPLE, mat: TREE_MAT } = spruce()); }
 // Plain land colour shown until a tile's aerial photo arrives, so the view can start on the
 // elevation alone (fast) while the photos (slow, from a busy service) fill in.
 const PLAIN = new THREE.MeshLambertMaterial({ color: 0x66735c });

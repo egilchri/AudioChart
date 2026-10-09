@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-09 — 3D trees in the Bird's-eye view (v845)
+
+Requested: 3D trees in the bird's-eye view. Detail tiles now carry one spruce
+per forested 10 m cell (forest found from the photo, as in the helm view),
+standing on the bare-earth ground instead of the old 13 m canopy lift. The
+trees are rebuilt as the view moves: all of them near the camera, thinning
+with distance (kept with chance (K/d)², the kept ones drawn wider), a tiered
+spruce within 600 m and a plain cone beyond, about 15k–45k trees and 60 fps
+in testing. The spruce shapes moved into terrain3d.js, shared with the helm view.
+
 ## 2026-10-09 — 3D Bird's-eye view of Penobscot Bay (v844)
 
 Requested: a bird's-eye view of the bay that can zoom into the towns with

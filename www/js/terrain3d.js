@@ -172,6 +172,18 @@ export function photoMat(t, aniso = 8) {
   return new THREE.MeshLambertMaterial({ map: tex });
 }
 
+// Spruce for 3D trees: a tiered lathe up close, a plain cone farther off. Unit height; instances
+// scale them. White material so per-instance colours show as they are. Made once, shared.
+let SPRUCE = null;
+export function spruce() {
+  if (SPRUCE) return SPRUCE;
+  const prof = [[0.06, 0], [1, 0.12], [0.45, 0.33], [0.72, 0.35], [0.3, 0.6], [0.48, 0.62], [0.02, 1]];   // tiered spruce (radius, height)
+  const detailed = new THREE.LatheGeometry(prof.map(([r, h]) => new THREE.Vector2(r, h)), 6);
+  const simple = new THREE.ConeGeometry(0.8, 1, 5); simple.translate(0, 0.5, 0);
+  const mat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+  return (SPRUCE = { detailed, simple, mat });
+}
+
 // Town buildings and wharves (v833 on). Prebuilt per town by
 // design/buildings/build_buildings.py: OpenStreetMap footprints, eave and ridge heights and
 // ground level from USGS 3DEP lidar, roof colours from the NAIP photo. Rectangular footprints get

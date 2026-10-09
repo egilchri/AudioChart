@@ -10,7 +10,7 @@
 // you are looking once you are low enough to see them. Town buildings load near their town.
 import * as THREE from 'three';
 import { Water } from './lib/three/Water.js';
-import { LON0, LAT0, MX, MY, wx, wz, readDem, photo, addCanopy, gridMesh, photoMat, buildTown, disposeGroup } from './terrain3d.js';
+import { LON0, LAT0, MX, MY, wx, wz, readDem, photo, addCanopy, gridMesh, photoMat, buildTown, disposeGroup, spruce } from './terrain3d.js';
 
 const statusEl = document.getElementById('status');
 const loadingEl = document.getElementById('loading');
@@ -212,7 +212,8 @@ async function loadTile(T) {
     T.full.visible = false; scene.add(T.full, T.coarse); sinkOverview(T, true); T.state = 'ready';
     photoP.then(ph => {
       if (T.state !== 'ready' || T.gen !== gen) { ph.img.close?.(); return; }
-      addCanopy(dem, ph);
+      addCanopy(dem, ph, () => 0);   // forest mask only: the 3D trees give the forest its height here
+      T.spots = treeSpots(T, dem); treesDirty = true;
       const mat = photoMat(ph, ANISO), wasNear = T.full.visible;
       scene.remove(T.full, T.coarse); T.full.geometry.dispose(); T.coarse.geometry.dispose();
       T.full = gridMesh(dem, ph, 1, mat); T.coarse = gridMesh(dem, ph, 4, mat);
@@ -227,8 +228,70 @@ function dropTile(T) {
   scene.remove(T.full, T.coarse); T.full.geometry.dispose(); T.coarse.geometry.dispose();
   if (T.mat !== PLAIN) { T.mat.map.dispose(); T.mat.dispose(); }
   T.img?.close?.(); sinkOverview(T, false);
+  if (T.spots) { T.spots = null; treesDirty = true; }
   Object.assign(T, { state: 'idle', full: null, coarse: null, dem: null, mat: null, img: null, photo: null });
 }
+// ── 3D trees: one spruce per forested 10 m cell of a detail tile (from the photo, as in the
+// helm view), on the bare-earth ground. Rebuilt as the view moves: every tree near the camera,
+// thinning with distance (kept with chance (K/d)², the kept ones drawn wider to fill in), a
+// tiered spruce up close and a plain cone beyond. ~60k trees at most.
+const SP = 10;   // floats per tree: x, y, z, height, radius, turn, r, g, b, chance
+function treeSpots(T, dem) {
+  let seed = Math.round((T.w + 200) * 1e4 + T.s * 1e3); const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const out = [];
+  for (let y = 1; y < dem.h - 1; y++) for (let x = 1; x < dem.w - 1; x++) {
+    const i = y * dem.w + x;
+    if (dem.elev[i] <= 0.6 || dem.canopy[i] < 0.45) continue;
+    const lon = dem.west + (x + rnd()) * dem.dx, lat = dem.north - (y + rnd()) * dem.dy;
+    if (lon < T.w || lon >= T.e || lat < T.s || lat >= T.n) continue;   // the overlap belongs to the neighbour
+    const hgt = 9 + rnd() * 10;
+    out.push(wx(lon), dem.elev[i] - 0.5, wz(lat), hgt, hgt * (0.19 + rnd() * 0.08), rnd() * 6.28,
+      0.055 + rnd() * 0.035, 0.09 + rnd() * 0.05, 0.07 + rnd() * 0.03, rnd());
+  }
+  return Float32Array.from(out);
+}
+const TREE_CAP = 60000, NEAR_TREE = 600;
+const TREES = (() => {
+  const { detailed, simple, mat } = spruce();
+  const mk = geo => { const m = new THREE.InstancedMesh(geo, mat, TREE_CAP); m.count = 0; m.frustumCulled = false; m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); scene.add(m); return m; };
+  return { near: mk(detailed), far: mk(simple), K: 900, at: null };
+})();
+let treesDirty = false;
+function updateTrees() {
+  const cp = camera.position, on = view.dist < DETAIL_BELOW;
+  const moved = !TREES.at || Math.hypot(cp.x - TREES.at.x, cp.y - TREES.at.y, cp.z - TREES.at.z) > Math.max(40, view.dist * 0.06);
+  if (!treesDirty && !moved) return;
+  treesDirty = false; TREES.at = cp.clone();
+  let nN = 0, nF = 0;
+  if (on) {
+    const R = clamp(view.dist * 2.4, 1500, 6000), K2 = TREES.K * TREES.K;
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), pv = new THREE.Vector3(), col = new THREE.Color(), up = new THREE.Vector3(0, 1, 0);
+    let wanted = 0;
+    for (const T of tiles) {
+      if (!T.spots || rectDist(T, view.x, view.z) > R) continue;
+      const A = T.spots;
+      for (let i = 0; i < A.length; i += SP) {
+        const dx = A[i] - cp.x, dy = A[i + 1] - cp.y, dz = A[i + 2] - cp.z, d2 = dx * dx + dy * dy + dz * dz;
+        const keep = d2 < K2 ? 1 : K2 / d2;
+        if (A[i + 9] > keep) continue;
+        if (Math.hypot(A[i] - view.x, A[i + 2] - view.z) > R) continue;
+        wanted++;
+        const near = d2 < NEAR_TREE * NEAR_TREE, mesh = near ? TREES.near : TREES.far, k = near ? nN : nF;
+        if (k >= TREE_CAP) continue;
+        const wide = Math.min(2.5, 1 / Math.sqrt(keep));
+        pv.set(A[i], A[i + 1], A[i + 2]); sc.set(A[i + 4] * wide, A[i + 3], A[i + 4] * wide); q.setFromAxisAngle(up, A[i + 5]);
+        mesh.setMatrixAt(k, m.compose(pv, q, sc)); mesh.setColorAt(k, col.setRGB(A[i + 6], A[i + 7], A[i + 8]));
+        if (near) nN++; else nF++;
+      }
+    }
+    // keep the total near the cap: thin harder next time if over, less if well under
+    if (wanted > TREE_CAP * 1.6) TREES.K *= 0.85; else if (wanted < TREE_CAP * 0.6 && TREES.K < 1800) { TREES.K *= 1.15; treesDirty = true; }
+  }
+  for (const [mesh, n] of [[TREES.near, nN], [TREES.far, nF]]) {
+    mesh.count = n; mesh.instanceMatrix.needsUpdate = true; if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  }
+}
+
 let loadingCount = 0;
 const DETAIL_BELOW = 7000;   // camera distance under which 10 m tiles load
 function updateTiles() {
@@ -508,6 +571,7 @@ function frame(now) {
   stepAnim(now ?? performance.now());
   clampView(); placeCamera();
   if (t - lastCheck > 0.4) { lastCheck = t; updateTiles(); updateTowns(); updateMarks(); }
+  if (!drag && !anim) updateTrees(); else if (t - (TREES.lastMove || 0) > 0.25) { TREES.lastMove = t; updateTrees(); }
   const cy = camera.position.y;
   scene.fog.density = 0.000075 * clamp(1500 / cy, 0.03, 1);   // thinner haze the higher you are
   clouds.visible = cy < 1300;
@@ -525,7 +589,7 @@ window.__bay3d = {   // for AudioChart (returning to the chart where you were) a
   getView: () => ({ lat: latOf(view.z), lon: lonOf(view.x), dist: view.dist, az: view.az / DEG, tilt: view.tilt / DEG }),
   setView: v => { anim = null; Object.assign(view, { x: wx(v.lon), z: wz(v.lat), dist: v.dist ?? view.dist, az: (v.az ?? view.az / DEG) * DEG, tilt: (v.tilt ?? view.tilt / DEG) * DEG }); clampView(); placeCamera(); },
   goTown: id => { const tw = townList.find(x => x.id === id); if (tw) goTown(tw); return !!tw; },
-  goWhole, towns: townList, tiles, scene, renderer,
+  goWhole, towns: townList, tiles, scene, renderer, trees: () => ({ near: TREES.near.count, far: TREES.far.count, K: TREES.K }),
 };
 }
 main().catch(err => { console.error(err); fail('Could not start the 3D view: ' + err.message); });
