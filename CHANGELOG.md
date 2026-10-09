@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-09 — 3D view: Southwest Harbor and the WoodenBoat School (v841)
+
+Requested: Southwest Harbor and the WoodenBoat School. Southwest Harbor (with
+Manset and Clark Point): 1,327 buildings (1,090 OSM, 237 Microsoft) and 114
+wharves and floats. WoodenBoat School with Center Harbor and the Brooklin Boat
+Yard: 309 buildings (OSM had only 50; 259 from Microsoft) and 2 wharves.
+
 ## 2026-10-09 — 3D view: Stonington, Islesford, Great Cranberry and Northeast Harbor buildings (v840)
 
 Requested: Stonington, Islesford, Great Cranberry Island and Northeast Harbor.

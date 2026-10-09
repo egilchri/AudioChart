@@ -7,5 +7,7 @@
   { "file": "stonington.json", "name": "Stonington", "bbox": [-68.70, 44.145, -68.645, 44.17] },
   { "file": "islesford.json", "name": "Islesford, Little Cranberry Island", "bbox": [-68.245, 44.248, -68.215, 44.272] },
   { "file": "great-cranberry.json", "name": "Great Cranberry Island", "bbox": [-68.29, 44.225, -68.245, 44.258] },
-  { "file": "northeast-harbor.json", "name": "Northeast Harbor", "bbox": [-68.30, 44.285, -68.27, 44.31] }
+  { "file": "northeast-harbor.json", "name": "Northeast Harbor", "bbox": [-68.30, 44.285, -68.27, 44.31] },
+  { "file": "southwest-harbor.json", "name": "Southwest Harbor and Manset", "bbox": [-68.345, 44.26, -68.305, 44.29] },
+  { "file": "woodenboat.json", "name": "WoodenBoat School and Center Harbor, Brooklin", "bbox": [-68.585, 44.24, -68.545, 44.27] }
 ]
