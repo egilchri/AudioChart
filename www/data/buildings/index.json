@@ -1,5 +1,7 @@
 [
   { "file": "carvers-harbor.json", "name": "Carvers Harbor, Vinalhaven", "bbox": [-68.85, 44.035, -68.82, 44.06] },
   { "file": "north-haven.json", "name": "North Haven village and Fox Islands Thorofare", "bbox": [-68.89, 44.115, -68.83, 44.14] },
-  { "file": "camden.json", "name": "Camden", "bbox": [-69.085, 44.195, -69.035, 44.225] }
+  { "file": "camden.json", "name": "Camden", "bbox": [-69.085, 44.195, -69.035, 44.225] },
+  { "file": "rockland.json", "name": "Rockland", "bbox": [-69.13, 44.08, -69.07, 44.125] },
+  { "file": "rockport.json", "name": "Rockport", "bbox": [-69.10, 44.17, -69.06, 44.195] }
 ]

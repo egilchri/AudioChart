@@ -74,14 +74,18 @@ if os.environ.get('MS'):
         if not (W <= lo <= E and S_ <= la <= N) or covered(lo, la): continue
         els.append({'type': 'way', 'id': f'ms{i}', 'tags': {'building': 'yes'}, 'geometry': [{'lon': p[0], 'lat': p[1]} for p in ring]}); added += 1
     print('Microsoft footprints added:', added)
+SKIP = {'Rockland Breakwater', 'Rockland Breakwater Lighthouse'}
 B, PIERS, stats = [], [], {'measured':0,'default':0}
 for e in els:
     tags = e.get('tags', {}); g = e.get('geometry')
     if not g: continue
     ll = [(p['lon'], p['lat']) for p in g]
+    if tags.get('name') in SKIP: continue   # modelled by hand in helm3d.js (Rockland's breakwater and light)
     if 'building' in tags:
         if ll[0] == ll[-1]: ll = ll[:-1]
         if len(ll) < 3: continue
+        cx, cy = sum(p[0] for p in ll) / len(ll), sum(p[1] for p in ll) / len(ll)
+        if not (W <= cx <= E and S_ <= cy <= N): continue   # belongs to the neighbouring town's file
         mx, my = merc(np.array([p[0] for p in ll]), np.array([p[1] for p in ll]))
         poly = list(zip(mx, my)); pad = 8*k
         Q = pts_in_box(mx.min()-pad, my.min()-pad, mx.max()+pad, my.max()+pad)

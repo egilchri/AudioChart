@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-10-09 — 3D view: Rockland and Rockport buildings and wharves (v839)
+
+Requested: Rockland, then Rockport. Rockland (South End to North End along
+the harbor): 4,017 buildings, 611 from OpenStreetMap (Farnsworth Museum,
+courthouse, library, Samoset) and the rest from Microsoft's footprints, plus
+176 wharves, floats and riprap walls. Rockport (harbor and village, up to
+Camden's edge): 874 buildings (113 OSM) and 16 wharves. Heights come from the
+3DEP lidar and roof colours from NAIP, as before. The OSM copies of the
+Rockland breakwater and its light are left out, since the 3D view's own
+models of them are better. Buildings are kept only in the town whose bbox
+holds their centre (a few edge duplicates removed from existing files). A
+route loading both towns is 161k triangles; 57 fps in testing.
+
 ## 2026-10-09 — AutoRoute avoids breakwaters (v838)
 
 Reported: a Rockland → Camden route crossed straight through the Rockland

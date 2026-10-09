@@ -3,7 +3,7 @@
 `www/data/buildings/<town>.json` is built offline per town and listed in
 `www/data/buildings/index.json` (file + bbox); `helm3d.js` loads every town
 whose bbox is near the route. Built so far: Carvers Harbor (v833), North Haven village
-and the Fox Islands Thorofare (v835), Camden (v836).
+and the Fox Islands Thorofare (v835), Camden (v836), Rockland and Rockport (v839).
 
 Sources:
 
@@ -22,6 +22,10 @@ Sources:
   and Z is NAVD88, the same datum as the 3DEP DEM the terrain uses.
 - **Roof colours:** the USDA NAIP image of the bbox from
   imagery.nationalmap.gov `exportImage` (4000 px).
+
+Buildings whose centre is outside the town's bbox are skipped, since they belong to the neighbouring town's file.
+Rockland's breakwater and its light are skipped by name (SKIP), because helm3d.js models them by hand.
+An area spanning two quadkeys gets its Microsoft files concatenated (`cat a.gz b.gz > ms.csv.gz`).
 
 Steps (Python venv with `laspy[lazrs] numpy pillow`). Each script reads the town from the environment:
 `BBOX=west,south,east,north`, `TOWN="display name"`, and `EPT=<lidar project>`
