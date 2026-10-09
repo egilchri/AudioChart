@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Penobscot Bay 3D · AudioChart</title>
+<style>
+/* One full-window view of the bay; a towns list and small overlays on top. */
+:root {
+  --ink: #e9eff1; --muted: #b9c7cc; --glass: rgba(18, 31, 38, 0.62); --glass-hi: rgba(18, 31, 38, 0.8);
+  --brass: #e0a843; --brass-ink: #1b2328; --sky: #9db3c2;
+  --display: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+  --body: system-ui, -apple-system, sans-serif;
+  --mono: Menlo, "Courier New", monospace;
+  color-scheme: dark;
+}
+html, body { height: 100%; margin: 0; }
+body { background: var(--sky); color: var(--ink); font-family: var(--body); font-size: 14px; overflow: hidden; }
+#scene { position: fixed; inset: 0; touch-action: none; cursor: grab; }
+#scene.dragging { cursor: grabbing; }
+#scene canvas { display: block; width: 100%; height: 100%; }
+#labels { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+.lbl { position: absolute; transform: translate(-50%, -100%); white-space: nowrap; font-weight: 600; font-size: 12px; padding-bottom: 6px;
+  text-shadow: 0 0 3px rgba(12, 24, 30, 0.95), 0 0 1px rgba(12, 24, 30, 1); }
+.lbl::after { content: ""; position: absolute; left: 50%; bottom: 0; width: 1px; height: 6px; background: rgba(255, 255, 255, 0.6); }
+.lbl.buoy { font-family: var(--mono); font-weight: 500; font-size: 11px; }
+.lbl.town { pointer-events: auto; cursor: pointer; font-family: var(--display); font-size: 15px; letter-spacing: 0.02em; color: #fff7e6; }
+.lbl.town:hover { color: var(--brass); }
+.lbl[hidden] { display: none; }
+.panel { position: fixed; left: max(12px, env(safe-area-inset-left)); top: calc(12px + env(safe-area-inset-top, 0px)); z-index: 3; background: var(--glass);
+  border-radius: 8px; padding: 10px; display: grid; gap: 8px; max-height: calc(100% - 80px); overflow: auto; width: 13.5rem; box-sizing: border-box; }
+.panel h1 { margin: 0; font-family: var(--display); font-weight: 600; font-size: 1.12rem; letter-spacing: 0.02em; }
+.panel h1 small { display: block; font-family: var(--body); font-weight: 400; font-size: 0.74rem; color: var(--muted); letter-spacing: 0; margin-top: 2px; }
+.panel .head { display: flex; align-items: start; justify-content: space-between; gap: 8px; }
+#towns-toggle { display: none; }
+#towns { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+#towns button, .panel .whole { width: 100%; text-align: left; font: inherit; color: var(--ink); background: transparent; border: 0; border-radius: 5px; padding: 5px 8px; cursor: pointer; }
+#towns button:hover, .panel .whole:hover { background: rgba(255, 255, 255, 0.1); }
+#towns button.on, .panel .whole.on { background: var(--brass); color: var(--brass-ink); }
+.panel .whole { font-weight: 600; }
+.sect { font-size: 0.66rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); padding-left: 8px; }
+.panel a { color: var(--brass); font-size: 0.8rem; padding-left: 8px; }
+button:focus-visible { outline: 2px solid var(--brass); outline-offset: 1px; }
+#help { position: fixed; right: 12px; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); z-index: 2; font-size: 0.74rem; color: var(--muted); background: var(--glass); border-radius: 5px; padding: 4px 9px; max-width: calc(100% - 24px); box-sizing: border-box; }
+#loading { position: fixed; left: 50%; top: calc(14px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); z-index: 2; font-size: 0.8rem; background: var(--glass-hi); border-radius: 5px; padding: 4px 10px; }
+#credit { position: fixed; left: 12px; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); z-index: 2; font-size: 10px; color: rgba(255, 255, 255, 0.8); text-shadow: 0 0 3px rgba(0, 0, 0, 0.6); pointer-events: none; max-width: 55%; }
+#status { position: fixed; inset: 0; z-index: 5; display: grid; place-items: center; font-family: var(--display); font-size: 1.3rem; letter-spacing: 0.04em; background: rgba(20, 34, 42, 0.55); text-align: center; padding-inline: 16px; }
+#scale { position: fixed; right: 12px; top: calc(12px + env(safe-area-inset-top, 0px)); z-index: 2; font-family: var(--mono); font-size: 0.72rem; background: var(--glass); border-radius: 5px; padding: 4px 8px; display: flex; align-items: center; gap: 8px; }
+#compass { width: 22px; height: 22px; cursor: pointer; pointer-events: auto; }
+[hidden] { display: none !important; }
+body.embed .panel a.back { display: none; }
+/* Phone: the towns list folds away behind its title */
+@media (max-width: 640px) {
+  .panel { width: auto; right: 12px; }
+  #towns-toggle { display: inline-block; font: inherit; color: var(--ink); background: rgba(255, 255, 255, 0.12); border: 0; border-radius: 5px; padding: 4px 9px; cursor: pointer; }
+  .panel.folded .body { display: none; }
+  #help { display: none; }
+  #scale { top: auto; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+}
+</style>
+</head>
+<body>
+<div id="scene"></div>
+<div id="labels"></div>
+<nav class="panel" id="panel" aria-label="Places">
+  <div class="head">
+    <h1>Penobscot Bay<small>Bird's-eye view</small></h1>
+    <button id="towns-toggle" type="button" aria-expanded="false">Towns ▾</button>
+  </div>
+  <div class="body">
+    <button class="whole" id="whole" type="button">⤢ Whole bay</button>
+    <div class="sect">Towns and harbors</div>
+    <ul id="towns"></ul>
+    <a class="back" href="./">Back to AudioChart</a>
+  </div>
+</nav>
+<div id="scale"><svg id="compass" viewBox="-11 -11 22 22" role="button" aria-label="Turn north up"><circle r="10" fill="rgba(0,0,0,0.25)"/><g id="needle"><path d="M0,-8 L3,0 L-3,0 Z" fill="#d9534f"/><path d="M0,8 L3,0 L-3,0 Z" fill="#e9eff1"/></g></svg><span id="alt">—</span></div>
+<div id="loading" hidden>Loading…</div>
+<div id="help">Drag to move · right-drag or Shift-drag to turn and tilt · scroll or pinch to zoom · click a town</div>
+<div id="credit">Elevation USGS 3DEP · Photos USDA NAIP</div>
+<div id="status">Loading Penobscot Bay…</div>
+<script type="importmap">
+{ "imports": { "three": "./js/lib/three/three.module.min.js" } }
+</script>
+<script src="./js/lib/geotiff.js"></script>
+<script type="module" src="./js/bay3d.js"></script>
+</body>
+</html>

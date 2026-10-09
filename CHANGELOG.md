@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-10-09 — 3D Bird's-eye view of Penobscot Bay (v844)
+
+Requested: a bird's-eye view of the bay that can zoom into the towns with
+buildings, as a map mode. New "3D Bird's-eye" in the Map Type menu opens
+bay3d.html over the chart, starting where the chart is looking; "Back to
+chart" returns the chart to wherever the 3D view ended up. Drag to move,
+right-drag or Shift-drag to turn and tilt, scroll or pinch to zoom; a towns
+list (and clickable town names) flies down to each of the 15 towns.
+
+Two levels of detail: one coarse mesh of the whole bay (3DEP overview level 3,
+about 80 m, one NAIP photo of ~35 m) and the helm view's 10 m tiles with their
+own photos, loaded around the view below about 7 km. Town buildings load
+within 5 km of a town. Each town is framed from the open water nearest its
+densest cluster of buildings; index.json can name a "focus" point instead
+(WoodenBoat School). Buoys and lighthouses are drawn larger from up high.
+
+The terrain, photo, cache and building code moved unchanged from helm3d.js
+into a shared module, js/terrain3d.js, so both 3D views use one copy and one
+download cache. Not yet: a whole-bay offline download (only what you have
+looked at is cached), 3D trees, and a check on a tablet.
+
 ## 2026-10-09 — 3D view: Belfast and Searsport buildings (v843)
 
 Requested: Belfast and Searsport. Belfast (downtown, the waterfront and East

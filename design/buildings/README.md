@@ -33,7 +33,8 @@ An area spanning two quadkeys gets its Microsoft files concatenated (`cat a.gz b
 Steps (Python venv with `laspy[lazrs] numpy pillow`). Each script reads the town from the environment:
 `BBOX=west,south,east,north`, `TOWN="display name"`, and `EPT=<lidar project>`
 (the default is ME_MidCoast_2_2021). Fetch the NAIP image at a size with the bbox's aspect ratio.
-Then add the town to index.json:
+Then add the town to index.json (an optional `"focus": [lon, lat]` tells the bird's-eye view,
+bay3d.html, where to aim when flying to the town; without it, it aims at the densest cluster of buildings):
 
     python ept_hier.py ept.json nodes.json             # EPT nodes touching the bbox, point counts per depth
     python ept_fetch.py nodes.json pts.npy 9           # points to depth 9 (~0.7 pts/m²), clipped to the bbox

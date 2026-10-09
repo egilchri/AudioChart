@@ -1466,7 +1466,7 @@ window.Longtest = async (setName, iterations = 3, { speedKnots = 5, untilSec = n
   // type nor starts that mode's first-visit intro tour mid-run. The
   // original map type is restored at the end.
   const mapSelect = document.getElementById('map-layer-select');
-  const mapTypes = mapSelect ? [...mapSelect.options].map(o => o.value).filter(Boolean) : [];
+  const mapTypes = mapSelect ? [...mapSelect.options].map(o => o.value).filter(v => v && v !== 'bay3d') : [];
   const originalMapType = _mapViewMode;
   const setMapType = (mode) => {
     _mapViewMode = mode;
@@ -7247,6 +7247,40 @@ function _hideVj3d() {
   _syncVj3dBtn();
 }
 
+// 3D Bird's-eye (v844): the bay in 3D (bay3d.html) over the chart, starting where the chart is
+// looking; closing it brings the chart to wherever the 3D view ended up.
+let _bay3dWrap = null;
+function _showBay3d() {
+  _ensureMap();
+  if (!_bay3dWrap) {
+    _bay3dWrap = document.createElement('div');
+    _bay3dWrap.id = 'bay3d-wrap';
+    _bay3dWrap.innerHTML = '<iframe title="Penobscot Bay in 3D"></iframe><button type="button" class="bay3d-close">🗺 Back to chart</button>';
+    _bay3dWrap.querySelector('.bay3d-close').addEventListener('click', _hideBay3d);
+    const leaflet = document.getElementById('leaflet-map');
+    leaflet.parentElement.insertBefore(_bay3dWrap, leaflet.nextSibling);
+  }
+  const c = _map.getCenter(), z = _map.getZoom();
+  // camera distance that shows about what the chart shows: the chart's width in metres, times 0.8
+  const dist = Math.round(40075016 * Math.cos(c.lat * Math.PI / 180) / Math.pow(2, z) * _map.getSize().x / 256 * 0.8);
+  _bay3dWrap.querySelector('iframe').src = `./bay3d.html?embed=1&lat=${c.lat.toFixed(5)}&lon=${c.lng.toFixed(5)}&dist=${dist}`;
+  _bay3dWrap.style.top = (document.getElementById('status-title-bar')?.offsetHeight || 26) + 'px';
+  _bay3dWrap.hidden = false;
+}
+function _hideBay3d() {
+  if (!_bay3dWrap) return;
+  const frame = _bay3dWrap.querySelector('iframe');
+  try {
+    const v = frame.contentWindow?.__bay3d?.getView();
+    if (v) {
+      const z = Math.log2(40075016 * Math.cos(v.lat * Math.PI / 180) * _map.getSize().x / 256 / (v.dist / 0.8));
+      _map.setView([v.lat, v.lon], Math.max(8, Math.min(16, Math.round(z))));
+    }
+  } catch (_) {}
+  _bay3dWrap.hidden = true;
+  frame.src = 'about:blank';   // frees the GPU memory the 3D view holds
+}
+
 // Tells an open 3D helm view (helm3d.html) where the Virtual Journey is, as a fraction of
 // the route, so it can sail along with it.
 // A 3D view that finishes loading says hello; it gets the latest state back, so one that
@@ -8491,6 +8525,8 @@ function _ensureMap() {
   setInterval(_recheckFollowedRouteHazardsLive, 60 * 1000);
 
   document.getElementById('map-layer-select').addEventListener('change', (e) => {
+    // 3D Bird's-eye isn't a chart layer: it opens the 3D bay view over the chart (v844)
+    if (e.target.value === 'bay3d') { _syncLayerBtn(); _showBay3d(); return; }
     _mapViewMode = e.target.value;
     localStorage.setItem('audiochart-chart-mode', _mapViewMode);
     _applyMapLayer();

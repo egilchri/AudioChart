@@ -1,4 +1,4 @@
-/** @version v843 */
+/** @version v844 */
 /* Bump this comment on every release, even when nothing else in this file
    changes — a service worker only gets reinstalled when its own script
    bytes differ from what's currently active (see the v505 fix), so a
@@ -86,7 +86,7 @@ self.addEventListener('fetch', (event) => {
 
   // OSM + OpenSeaMap chart tiles
   // USGS elevation (range reads of 300 MB files) and aerial photos for the 3D helm view: let the
-  // browser fetch them directly; helm3d.js caches what it uses in HELM3D_CACHE itself.
+  // browser fetch them directly; the 3D views (terrain3d.js) cache what they use in HELM3D_CACHE.
   if (url.hostname === 'prd-tnm.s3.amazonaws.com' || url.hostname === 'imagery.nationalmap.gov') return;
 
   if (url.hostname === 'tile.openstreetmap.org' ||
