@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-08 — 3D view: raise the viewpoint to 20 or 60 ft (v828)
+
+Direct request: a setting to move the point of view to about 20 ft above
+the boat. A View control in the 3D scene (works inside the app's Virtual
+Journey too) switches Helm (2 m eye at the tiller) / 20 ft / 60 ft; the H key
+cycles it, `?eye=<feet>` sets it, and the choice is remembered. Raised views
+sit astern of the boat and tilt down a little (20 ft: ~9 m astern, 8° down;
+60 ft: ~36 m astern, 20° down) so the boat stays in the picture, and the
+view glides between heights. The Cape Dory model gained its aft half for
+this: side decks around an open cockpit with teak coamings, the transom,
+tiller, backstay, stern pulpit, and lifelines carried aft.
+
 ## 2026-10-08 — 3D view: subtler anchor splash (v827)
 
 Reported: the anchor splash sounded like a firecracker. It now fades in over

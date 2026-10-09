@@ -501,16 +501,47 @@ const bow = new THREE.Group();
   for (const [x, z] of [[-0.62, -4.25], [0.62, -4.25], [-0.3, -4.95], [0.3, -4.95]]) {
     const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, PH, 6), STEEL); leg.position.set(x, sheer(z) + PH / 2, z); bow.add(leg);
   }
-  const stz = [-3.3, -1.9, -0.6];
+  const stz = [-3.3, -1.9, 0.4, 1.7];   // the last two on the side decks beside the cockpit
   for (const s of [-1, 1]) {
     const tops = [[s * 0.62, sheer(-4.25) + PH, -4.25]];
     for (const z of stz) {
-      const x = s * (half(Math.min(z, Z0)) - 0.08), h = sheer(Math.min(z, Z0));
+      const x = s * ((z > Z0 ? 1.2 - 0.27 * Math.pow((z - Z0) / 3.5, 1.5) : half(z)) - 0.08), h = z > Z0 ? 0.85 + 0.08 * ((z - Z0) / 3.5) ** 2 : sheer(z);
       const st = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, PH, 6), STEEL); st.position.set(x, h + PH / 2, z); bow.add(st);
       tops.push([x, h + PH, z]);
     }
     for (let k = 1; k < tops.length; k++) { wire(tops[k - 1], tops[k], 0.005); wire([tops[k - 1][0], tops[k - 1][1] - 0.3, tops[k - 1][2]], [tops[k][0], tops[k][1] - 0.3, tops[k][2]], 0.005); }
   }
+  // aft half (seen from the raised views): side decks round a recessed cockpit, transom, tiller,
+  // backstay, stern pulpit. LOA 25 ft puts the transom ~2.6 m aft of the cockpit bulkhead.
+  const ZT = 2.6, tA = z => (z - Z0) / (ZT - Z0);
+  const halfA = z => 1.2 - 0.27 * Math.pow(Math.max(0, tA(z)), 1.5), sheerA = z => 0.85 + 0.08 * tA(z) ** 2;
+  const CW2 = 0.725, CZ1d = 1.95;   // half-width and aft end of the cockpit opening
+  for (const sd of [-1, 1]) bow.add(loft(16, 3, (u, v) => { const z = Z0 + u * (CZ1d - Z0), b = halfA(z), x = sd * (CW2 + v * (b - CW2)); return [x, sheerA(z) + 0.04 * (1 - (x / b) ** 2), z]; }, BUFF));   // side decks
+  bow.add(loft(6, 12, (u, v) => { const z = CZ1d + u * (ZT - CZ1d), b = halfA(z), x = (v * 2 - 1) * b; return [x, sheerA(z) + 0.04 * (1 - (x / b) ** 2), z]; }, BUFF));   // aft deck
+  for (const sd of [-1, 1]) bow.add(loft(16, 4, (u, v) => { const z = Z0 + u * (ZT - Z0), b = halfA(z); return [sd * b * (1 - 0.1 * v), sheerA(z) * (1 - v) + 0.15 * v, z]; }, WHITE));
+  { // transom
+    const sh = new THREE.Shape(), b = halfA(ZT), y0 = 0.15, y1 = sheerA(ZT);
+    sh.moveTo(-b * 0.9, y0); sh.lineTo(b * 0.9, y0); sh.lineTo(b, y1); sh.lineTo(-b, y1); sh.closePath();
+    const tr = new THREE.Mesh(new THREE.ShapeGeometry(sh), WHITE); tr.position.z = ZT; tr.material.side = THREE.DoubleSide; bow.add(tr);
+  }
+  { // cockpit well and coamings
+    const CZ0 = Z0 + 0.05, CZ1 = 1.95, CW = 1.45, sole = 0.45;
+    const well = new THREE.Mesh(new THREE.BoxGeometry(CW, 0.02, CZ1 - CZ0), M(0x8d8676)); well.position.set(0, sole, (CZ0 + CZ1) / 2); bow.add(well);
+    for (const sd of [-1, 1]) {
+      const seat = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.04, CZ1 - CZ0 - 0.1), BUFF); seat.position.set(sd * (CW / 2 - 0.21), 0.78, (CZ0 + CZ1) / 2); bow.add(seat);
+      const coam = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.22, CZ1 - CZ0), TEAK); coam.position.set(sd * (CW / 2 + 0.03), 1.0, (CZ0 + CZ1) / 2); bow.add(coam);
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.45, CZ1 - CZ0), WHITE); wall.position.set(sd * CW / 2, sole + 0.22, (CZ0 + CZ1) / 2); bow.add(wall);
+    }
+    const aftWall = new THREE.Mesh(new THREE.BoxGeometry(CW, 0.45, 0.02), WHITE); aftWall.position.set(0, sole + 0.22, CZ1); bow.add(aftWall);
+  }
+  // tiller from the rudder head at the transom forward into the cockpit
+  const tillerG = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, 1.5, 8), TEAK);
+  tillerG.position.set(0.05, sheerA(ZT) + 0.22, ZT - 0.7); tillerG.rotation.x = Math.PI / 2 - 0.18; bow.add(tillerG);
+  // backstay and stern pulpit
+  wire([0, MTOP, MZ], [0, sheerA(ZT) + 0.1, ZT - 0.05]);
+  const spul = new THREE.CatmullRomCurve3([[-halfA(1.7) + 0.06, 1.7], [-0.7, ZT - 0.05], [0.7, ZT - 0.05], [halfA(1.7) - 0.06, 1.7]].map(([x, z]) => new THREE.Vector3(x, sheerA(z) + PH, z)));
+  bow.add(new THREE.Mesh(new THREE.TubeGeometry(spul, 30, 0.02, 6), STEEL));
+  for (const [x, z] of [[-0.7, ZT - 0.05], [0.7, ZT - 0.05]]) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, PH, 6), STEEL); leg.position.set(x, sheerA(z) + PH / 2, z); bow.add(leg); }
 }
 // The boat is its own object: it points along the course and pitches/rolls; the camera sits at
 // the tiller inside it, so looking around turns your head, not the boat.
@@ -659,7 +690,7 @@ function sightClear(from, to, toH) {
   const dx = to[0] - from[0], dz = to[1] - from[1], d = Math.hypot(dx, dz);
   for (let t = 40; t < d - 60; t += Math.max(15, t * 0.02)) {
     const x = from[0] + dx * t / d, z = from[1] + dz * t / d;
-    const hT = heightAt(x / MX + LON0, -z / MY + LAT0), los = EYE + (toH - EYE) * t / d;
+    const hT = heightAt(x / MX + LON0, -z / MY + LAT0), los = eyeH + (toH - eyeH) * t / d;
     if (hT > los) return false;
   }
   return true;
@@ -795,6 +826,34 @@ const anchor = { state: 'up', t: 0, v: 0, splashAt: null, vel: new Float32Array(
 // The foredeck hides the water at the stem from the tiller (as on the real boat), so on arrival
 // the view walks forward past the mast and looks down at the bow, lets the anchor go, watches the
 // splash, then goes back aft. arrive() starts it; dropAnchor() is the actual let-go.
+// Viewpoint height: the helm (2 m), or raised above the boat for a wider look at the water and
+// shore, e.g. 20 ft (~6 m) as if from the spreaders, or 60 ft (~18 m). From the "View" buttons
+// in the scene, the H key, or ?eye=<feet>; remembered in this browser.
+// Raised views sit astern and tilt down a little, so the boat stays in the picture and the
+// mast doesn't split it: back = metres astern of the tiller, tilt = degrees down.
+const EYE_CHOICES = [{ label: 'Helm', m: EYE }, { label: '20 ft', m: 20 * 0.3048 }, { label: '60 ft', m: 60 * 0.3048 }];
+const eyeBack = m => Math.max(0, (m - EYE) * 2.2), eyeTilt = m => Math.max(0, (m - EYE) * 2.4) / (1 + Math.max(0, m - EYE) / 18);
+let eyeTarget = EYE;
+{
+  let want = Number(params.get('eye'));
+  if (!want) { try { want = Number(localStorage.getItem('audiochart-helm3d-eye')); } catch (_) {} }
+  if (want > 0) eyeTarget = want > 7 ? want * 0.3048 : want;   // feet in the URL; metres stored
+}
+let eyeH = eyeTarget;
+const eyeBox = document.getElementById('eyepick');
+function syncEyeButtons() { for (const b of eyeBox.querySelectorAll('button')) b.classList.toggle('on', Math.abs(Number(b.dataset.m) - eyeTarget) < 0.2); }
+function setEye(m) { eyeTarget = m; try { localStorage.setItem('audiochart-helm3d-eye', String(m)); } catch (_) {} syncEyeButtons(); }
+for (const c of EYE_CHOICES) {
+  const b = document.createElement('button'); b.type = 'button'; b.textContent = c.label; b.dataset.m = c.m;
+  b.addEventListener('pointerdown', e => e.stopPropagation());   // not a look-around drag
+  b.addEventListener('click', () => setEye(c.m)); eyeBox.appendChild(b);
+}
+syncEyeButtons();
+addEventListener('keydown', e => {
+  if (e.key !== 'h' && e.key !== 'H') return;
+  const i = EYE_CHOICES.findIndex(c => Math.abs(c.m - eyeTarget) < 0.2);
+  setEye(EYE_CHOICES[(i + 1) % EYE_CHOICES.length].m);
+});
 const TILLER = new THREE.Vector3(0.35, EYE, 1.0), AT_MAST = new THREE.Vector3(0.3, 2.6, -3.2);   // on the foredeck, just forward of the mast
 let camK = 0;
 function arrive() {
@@ -963,8 +1022,11 @@ function frame() {
   const roll = Math.sin(t * 0.9) * 0.012;
   boat.rotation.set(Math.sin(t * 0.7) * 0.012, -THREE.MathUtils.degToRad(smoothCourse), roll * 2, 'YXZ');
   const ease = camK * camK * (3 - 2 * camK);
+  // viewpoint height (Helm / 20 ft / 60 ft), eased so changes glide
+  eyeH += (eyeTarget - eyeH) * Math.min(1, dt * 2.5);
+  TILLER.set(0.35 * (eyeH <= EYE + 0.3 ? 1 : 0), eyeH, 1.0 + eyeBack(eyeH));
   camera.position.lerpVectors(TILLER, AT_MAST, ease);
-  camera.rotation.set(THREE.MathUtils.degToRad(pitch + (-38 - pitch) * ease), -THREE.MathUtils.degToRad(yawOff * (1 - ease)), -roll * 1.6, 'YXZ');
+  camera.rotation.set(THREE.MathUtils.degToRad((pitch - eyeTilt(eyeH)) + (-38 - (pitch - eyeTilt(eyeH))) * ease), -THREE.MathUtils.degToRad(yawOff * (1 - ease)), -roll * 1.6, 'YXZ');
   for (const m of marks) {
     if (!m.fixedMark) { const d = Math.hypot(m.g.position.x - pos[0], m.g.position.z - pos[1]); m.g.scale.setScalar(Math.max(1, Math.min(6, d / 150))); m.g.position.y = Math.sin(t * 1.4 + m.phase) * 0.18; m.g.rotation.z = Math.sin(t * 1.1 + m.phase) * 0.06; m.g.rotation.x = Math.cos(t * 0.9 + m.phase) * 0.05; }
     if (m.lamp && m.fl) { const ph = (t + m.phase) % m.fl.per; m.lamp.visible = m.fl.fixed || (m.fl.iso ? ph < m.fl.per / 2 : ph < 0.45); }
