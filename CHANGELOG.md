@@ -2,9 +2,9 @@
 
 ## 2026-10-09 — 3D view: Bar Harbor and Castine buildings (v842)
 
-Requested: Bar Harbor and Castine. Bar Harbor (downtown, the waterfront and
-the west shore to Hulls Cove road): 1,510 buildings (1,346 OSM, 164 Microsoft)
-and 19 wharves, floats and the breakwater stub. Castine (village, Maine
+Requested: Bar Harbor and Castine. Bar Harbor (downtown and the waterfront
+from the Bar Island bar to the shore south of town): 1,510 buildings (1,346
+OSM, 164 Microsoft), 18 wharves and floats, and OSM's breakwater. Castine (village, Maine
 Maritime Academy and the town dock): 607 buildings (OSM had only 95; 512 from
 Microsoft) and 28 wharves. Bar Harbor spans two Microsoft quadkeys
 (030233112 + 030233113, concatenated).
