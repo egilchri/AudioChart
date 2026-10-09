@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-09 — 3D view: Stonington, Islesford, Great Cranberry and Northeast Harbor buildings (v840)
+
+Requested: Stonington, Islesford, Great Cranberry Island and Northeast Harbor.
+Stonington: 976 buildings (134 OSM, the rest Microsoft footprints) and 26
+wharves. Islesford (Little Cranberry): 234 buildings, 4 wharves. Great
+Cranberry: 252 buildings, 8 wharves. Northeast Harbor: 768 buildings, 13
+wharves. OSM was close to complete on the Cranberries and in Northeast Harbor
+(21–100 gap-filled). The MDI-area towns use the ME_MidCoast_1_2021 lidar
+survey; Stonington uses ME_MidCoast_2_2021 like the earlier towns.
+
 ## 2026-10-09 — 3D view: Rockland and Rockport buildings and wharves (v839)
 
 Requested: Rockland, then Rockport. Rockland (South End to North End along
