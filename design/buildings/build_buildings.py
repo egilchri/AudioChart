@@ -92,6 +92,9 @@ for e in els:
         ins = inside(Q[:,0], Q[:,1], poly) if len(Q) else np.zeros(0,bool)
         gr = Q[(~ins) & (Q[:,3]==2)][:,2] if len(Q) else np.zeros(0)
         ground = float(np.percentile(gr, 30)) if len(gr) >= 3 else None
+        # A Microsoft footprint with no ground anywhere around it is out on the water: the model
+        # took a moored boat or a float for a building (Camden's mooring field, 2026-10-09).
+        if ground is None and str(e.get('id', '')).startswith('ms'): stats['water'] = stats.get('water', 0) + 1; continue
         roof = Q[ins & (Q[:,3]!=2) & (Q[:,3]!=9)][:,2] if len(Q) else np.zeros(0)
         xy = local(ll); A = 0.5*abs(np.dot(xy[:,0],np.roll(xy[:,1],1))-np.dot(xy[:,1],np.roll(xy[:,0],1)))
         ob = obb(xy); rect = A/ob[0] if ob and ob[0] > 0 else 0

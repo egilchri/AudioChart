@@ -18,6 +18,8 @@ Sources:
   `MS=<file.csv.gz>`. A Microsoft footprint is used only where no OSM building covers its
   centre or sits within 8 m. Camden: OSM had 541 buildings and Microsoft filled in 1,851.
   The scene credit then adds Microsoft.
+  A Microsoft footprint with no ground-class lidar within 8 m is dropped: it is on the water
+  (a moored boat or float the model took for a building).
 - **Heights:** the USGS 3DEP lidar point cloud. The Entwine EPT is on AWS:
   `usgs-lidar-public/<project>/ept.json`. Carvers Harbor uses
   ME_MidCoast_2_2021, found with hobuinc/usgs-lidar's

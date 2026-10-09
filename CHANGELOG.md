@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-09 — No more buildings standing in the water (v848)
+
+Reported from tutorial 8 at 1:23: a building standing in Camden harbor. It
+was a Microsoft machine-learned footprint (7 × 11 m) on a moored boat in the
+mooring field; with no ground under it in the lidar it got default heights
+and stood in open water. build_buildings.py now drops any Microsoft
+footprint with no ground-class lidar within 8 m (OSM buildings are kept as
+mapped). Rebuilt the 13 towns that use Microsoft footprints: 17 removed
+(Rockland 6, Southwest Harbor 4, Bar Harbor 4, Camden, Northeast Harbor,
+Castine 1 each); every other building and wharf is unchanged.
+
 ## 2026-10-09 — Summit labels in the 3D views (v847)
 
 Mount Battie wasn't labelled (the chart's place names have no hilltops). New
