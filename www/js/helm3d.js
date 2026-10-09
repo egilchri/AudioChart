@@ -229,7 +229,7 @@ const routeLL = ROUTE.points;
 const routeW = routeLL.map(([x, y]) => [wx(x), wz(y)]);
 const regionDir = await regionFor(routeLL[0][0], routeLL[0][1]);
 setStatus('Loading chart data…');
-const [navGJ, placesGJ] = await Promise.all([getJSON(`${regionDir}/navaid.geojson`), getJSON(`${regionDir}/named_places.geojson`)]);
+const [navGJ, placesGJ, landGJ] = await Promise.all([getJSON(`${regionDir}/navaid.geojson`), getJSON(`${regionDir}/named_places.geojson`), getJSON('./data/landmarks.json').catch(() => ({ landmarks: [] }))]);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
 renderer.setPixelRatio(Math.min(1.25, devicePixelRatio));
@@ -261,6 +261,8 @@ const nav = navGJ.features.filter(f => inFar(f.geometry.coordinates) && ['BOYLAT
   .map(f => ({ t: f.properties.objtype, n: f.properties.name, c: f.properties.colour, s: f.properties.shape, ch: f.properties.characteristic, x: f.geometry.coordinates[0], y: f.geometry.coordinates[1] }));
 const places = placesGJ.features.filter(f => f.geometry.type === 'Point' && inFar(f.geometry.coordinates) && ['LNDARE', 'LNDRGN', 'LIGHTS', 'BUAARE'].includes(f.properties.objtype))
   .map(f => ({ t: f.properties.objtype, n: f.properties.name, x: f.geometry.coordinates[0], y: f.geometry.coordinates[1] }));
+// summits (data/landmarks.json): labelled from farther off, at their real height
+for (const l of landGJ.landmarks || []) if (inFar([l.lon, l.lat])) places.push({ t: 'SUMMIT', n: l.name, x: l.lon, y: l.lat, elev: l.elev_m });
 
 // Rockland Breakwater: granite, ~1.4 km, not in the elevation data (water is flattened there),
 // traced from the aerial photo. The lighthouse sits on its outer end.
@@ -786,15 +788,15 @@ function sightClear(from, to, toH) {
   }
   return true;
 }
-const placeLabels = places.filter(p => p.t !== 'LIGHTS').map(p => ({ ...p, w: [wx(p.x), wz(p.y)], h: Math.max(4, heightAt(p.x, p.y)) }));
+const placeLabels = places.filter(p => p.t !== 'LIGHTS').map(p => ({ ...p, w: [wx(p.x), wz(p.y)], h: Math.max(4, p.elev ?? heightAt(p.x, p.y)) }));
 let lblFrame = 0, lblCache = [];
 function updateLabels(pos) {
   if (!showLbl.checked) { labelsEl.hidden = true; return; } labelsEl.hidden = false;
   if (lblFrame++ % 8 === 0) {   // sight-line checks are the costly part; refresh a few times a second
     const cand = [];
     for (const p of placeLabels) {
-      const d = Math.hypot(p.w[0] - pos[0], p.w[1] - pos[1]); if (d > 5 * NM || d < 60) continue;
-      cand.push({ text: p.n, v: new THREE.Vector3(p.w[0], p.h + 8, p.w[1]), d, cls: '', w: p.w, h: p.h });
+      const d = Math.hypot(p.w[0] - pos[0], p.w[1] - pos[1]); if (d > (p.t === 'SUMMIT' ? 10 : 5) * NM || d < 60) continue;
+      cand.push({ text: p.n, v: new THREE.Vector3(p.w[0], p.h + 8, p.w[1]), d: p.t === 'SUMMIT' ? d * 0.4 : d, cls: '', w: p.w, h: p.h });   // summits win a place among the labels
     }
     for (const m of marks) {
       if (m.kind !== 'buoy' || !m.num) continue;

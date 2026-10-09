@@ -416,9 +416,10 @@ foldPanel(true);
 }
 
 // ── Buoys and lighthouses from the chart: instanced, drawn larger the farther off they are ──
-const [navGJ, placesGJ] = await Promise.all([
+const [navGJ, placesGJ, landGJ] = await Promise.all([
   getJSON('./data/regions/penobscot-bay/navaid.geojson').catch(() => ({ features: [] })),
   getJSON('./data/regions/penobscot-bay/named_places.geojson').catch(() => ({ features: [] })),
+  getJSON('./data/landmarks.json').catch(() => ({ landmarks: [] })),
 ]);
 const inBay = ([x, y]) => x >= OW && x <= OE && y >= OS && y <= ON;
 const navs = navGJ.features.filter(f => f.geometry?.type === 'Point' && inBay(f.geometry.coordinates));
@@ -498,7 +499,8 @@ const labelsEl = document.getElementById('labels'), pool = [];
 const places = placesGJ.features.filter(f => f.geometry?.type === 'Point' && inBay(f.geometry.coordinates) && ['LNDARE', 'LNDRGN', 'BUAARE'].includes(f.properties.objtype))
   .map(f => ({ n: f.properties.name, x: wx(f.geometry.coordinates[0]), z: wz(f.geometry.coordinates[1]), lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] }))
   .filter(p => p.n);
-for (const p of places) p.y = Math.max(4, heightAt(p.lon, p.lat));
+for (const l of landGJ.landmarks || []) places.push({ n: l.name, x: wx(l.lon), z: wz(l.lat), lon: l.lon, lat: l.lat, elev: l.elev_m });   // summits
+for (const p of places) p.y = Math.max(4, p.elev ?? heightAt(p.lon, p.lat));
 for (const t of townList) t.y = Math.max(10, heightAt(t.lon, t.lat)) + 20;
 let lblTick = 0, cand = [];
 const v3 = new THREE.Vector3();

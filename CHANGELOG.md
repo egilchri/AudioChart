@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-09 — Summit labels in the 3D views (v847)
+
+Mount Battie wasn't labelled (the chart's place names have no hilltops). New
+www/data/landmarks.json lists 11 summits: Mount Battie, Mount Megunticook,
+Ragged and Bald Mountains (Camden Hills); Cadillac, Sargent, Penobscot,
+Champlain, Acadia and Beech Mountains (Mount Desert); Blue Hill. Each position
+is the highest USGS 3DEP cell near the summit, checked against its published
+height (within ~5 m); Dorr, Norumbega and Bernard were left out because that
+check failed. The helm view labels summits out to 10 nm (other places 5 nm),
+at their real height, ahead of nearer names; the bird's-eye view labels them too.
+
 ## 2026-10-09 — Tutorial 8: Virtual Journey (sailors page)
 
 Requested: a narrated demo of how to start a Virtual Journey, then one at fast

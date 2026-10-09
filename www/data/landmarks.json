@@ -1,0 +1,71 @@
+{
+ "about": "Summits labelled in the 3D views. Each position is the highest USGS 3DEP 1/3-arc-second cell near the named summit, checked against its published height (within ~5 m); elev_m is that cell's height (NAVD88). 2026-10-09.",
+ "landmarks": [
+  {
+   "name": "Mount Battie",
+   "lat": 44.22282,
+   "lon": -69.06912,
+   "elev_m": 244.8
+  },
+  {
+   "name": "Mount Megunticook",
+   "lat": 44.24125,
+   "lon": -69.06755,
+   "elev_m": 419.6
+  },
+  {
+   "name": "Ragged Mountain",
+   "lat": 44.21245,
+   "lon": -69.15088,
+   "elev_m": 397.0
+  },
+  {
+   "name": "Bald Mountain",
+   "lat": 44.22949,
+   "lon": -69.13634,
+   "elev_m": 387.4
+  },
+  {
+   "name": "Cadillac Mountain",
+   "lat": 44.35134,
+   "lon": -68.22653,
+   "elev_m": 465.6
+  },
+  {
+   "name": "Sargent Mountain",
+   "lat": 44.34329,
+   "lon": -68.27347,
+   "elev_m": 416.3
+  },
+  {
+   "name": "Penobscot Mountain",
+   "lat": 44.33301,
+   "lon": -68.26671,
+   "elev_m": 361.9
+  },
+  {
+   "name": "Champlain Mountain",
+   "lat": 44.35079,
+   "lon": -68.19403,
+   "elev_m": 321.8
+  },
+  {
+   "name": "Acadia Mountain",
+   "lat": 44.3231,
+   "lon": -68.32264,
+   "elev_m": 207.4
+  },
+  {
+   "name": "Beech Mountain",
+   "lat": 44.31079,
+   "lon": -68.34514,
+   "elev_m": 256.4
+  },
+  {
+   "name": "Blue Hill",
+   "lat": 44.43412,
+   "lon": -68.59079,
+   "elev_m": 284.8
+  }
+ ]
+}
