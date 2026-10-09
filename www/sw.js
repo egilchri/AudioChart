@@ -1,4 +1,4 @@
-/** @version v849 */
+/** @version v850 */
 /* Bump this comment on every release, even when nothing else in this file
    changes — a service worker only gets reinstalled when its own script
    bytes differ from what's currently active (see the v505 fix), so a
@@ -88,6 +88,10 @@ self.addEventListener('fetch', (event) => {
   // USGS elevation (range reads of 300 MB files) and aerial photos for the 3D helm view: let the
   // browser fetch them directly; the 3D views (terrain3d.js) cache what they use in HELM3D_CACHE.
   if (url.hostname === 'prd-tnm.s3.amazonaws.com' || url.hostname === 'imagery.nationalmap.gov') return;
+
+  // Google Analytics (v850): its script and its hits go straight to Google, never cached or
+  // replayed from the cache (offline, they simply fail, which is harmless).
+  if (/(^|\.)(googletagmanager|google-analytics)\.com$/.test(url.hostname) || url.hostname.endsWith('.analytics.google.com')) return;
 
   if (url.hostname === 'tile.openstreetmap.org' ||
       url.hostname === 'tiles.openseamap.org') {

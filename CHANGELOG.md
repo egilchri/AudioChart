@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-09 — Google Analytics (v850)
+
+Requested: track the AudioChart site with Google Analytics (G-W6S54QD148).
+The Google tag is in the head of the app (index.html), the sailors page, the
+developers page and the privacy policy; not in the 3D pages (helm3d.html,
+bay3d.html), which open inside the app and would count twice. sw.js leaves
+Google's tag and analytics hosts alone, so hits are never cached or replayed.
+The privacy policy said "no analytics and no tracking"; it now describes
+Google Analytics (what it receives and doesn't, cookies, how to opt out) and
+is dated October 9, 2026. Checked in a browser: the page view reaches Google
+(204), with and without the service worker in control.
+
 ## 2026-10-09 — Tutorial 9: Bird's-eye (sailors page)
 
 Requested: a demo about the Bird's-eye map mode, mentioning that it is one of
