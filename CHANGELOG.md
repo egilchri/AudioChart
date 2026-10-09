@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-09 — Node Ops 3D Virtual Journey button; Drone view in 3D (v831)
+
+Requested: a Node Ops button for a 3D Virtual Journey. ⛰ (after ✂ Simplify)
+saves the route being edited and starts its Virtual Journey with the 3D view
+up, whatever the banner's 3D/Map choice. Also requested: a drone view of the
+boat as an alternative. The 3D view's View picker gains Drone: 100 ft up,
+50 m astern, tilted to show the whole boat with the shore and horizon beyond;
+the change from 60 ft glides. In the raised views (20 ft, 60 ft, Drone),
+dragging to look around now circles the camera around the boat. Fixed on the
+way: a remembered 60 ft choice came back as ~18 ft on the next visit (stored
+metres were read as feet); `?eye=` is in feet, storage in metres.
+
 ## 2026-10-09 — AutoRoute to Carvers Harbor stops inside the harbor instead of failing (v830)
 
 Reported: AutoRoute from home (Rockland) to Carvers Harbor couldn't find a

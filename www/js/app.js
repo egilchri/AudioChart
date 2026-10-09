@@ -5549,7 +5549,7 @@ document.getElementById('edit-revert-btn').addEventListener('click', _revertEdit
 // so that description is still reachable on a touch-only device now that
 // the word itself is gone from the button face.
 ['etp-add-node', 'etp-insert-node', 'etp-delete', 'etp-overnight', 'etp-animate',
- 'etp-simplify', 'reroute-btn']
+ 'etp-simplify', 'etp-vj3d', 'reroute-btn']
   .forEach(id => _addTapTooltip(document.getElementById(id)));
 document.getElementById('edit-info-btn').addEventListener('click', () => {
   let totalNm = 0;
@@ -5898,6 +5898,18 @@ async function _rerouteAroundOvernight(idx) {
 }
 
 document.getElementById('etp-animate').addEventListener('click', _animateEditRoute);
+// 3D Virtual Journey of the route being edited (direct request, 2026-10-09). The 3D view reads
+// the saved route, so the edits are saved first; asked for directly, it shows the 3D view
+// whatever the Virtual Journey banner's 3D/Map choice is.
+document.getElementById('etp-vj3d').addEventListener('click', () => {
+  if (!_editMode || _editPoints.length < 2) return;
+  const idx = _editRouteIdx;
+  _saveEditedRoute();
+  const route = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]')[idx];
+  if (!route) return;
+  _startVirtualJourney(route, parseFloat(localStorage.getItem('audiochart-last-speed')) || 5);
+  if (_vjRoute === route || _vjRoute?.id === route.id) _showVj3d(route);
+});
 
 // Called right after the etp-overnight button marks the route's last
 // waypoint as an overnight stop (its own confirm dialog already covers

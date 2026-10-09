@@ -918,13 +918,19 @@ const anchor = { state: 'up', t: 0, v: 0, splashAt: null, vel: new Float32Array(
 // in the scene, the H key, or ?eye=<feet>; remembered in this browser.
 // Raised views sit astern and tilt down a little, so the boat stays in the picture and the
 // mast doesn't split it: back = metres astern of the tiller, tilt = degrees down.
-const EYE_CHOICES = [{ label: 'Helm', m: EYE }, { label: '20 ft', m: 20 * 0.3048 }, { label: '60 ft', m: 60 * 0.3048 }];
-const eyeBack = m => Math.max(0, (m - EYE) * 2.2), eyeTilt = m => Math.max(0, (m - EYE) * 2.4) / (1 + Math.max(0, m - EYE) / 18);
+// Drone (100 ft, 50 m astern) looks down on the whole boat with the shore beyond; looking
+// around from a raised view circles the camera around the boat instead of turning in place.
+const DRONE_M = 100 * 0.3048;
+const EYE_CHOICES = [{ label: 'Helm', m: EYE }, { label: '20 ft', m: 20 * 0.3048 }, { label: '60 ft', m: 60 * 0.3048 }, { label: 'Drone', m: DRONE_M }];
+const FT60 = 60 * 0.3048, _back = m => Math.max(0, (m - EYE) * 2.2), _tilt = m => Math.max(0, (m - EYE) * 2.4) / (1 + Math.max(0, m - EYE) / 18);
+const _toDrone = m => Math.min(1, Math.max(0, (m - FT60) / (DRONE_M - FT60)));   // 60 ft -> drone, so the change glides
+const eyeBack = m => m <= FT60 ? _back(m) : _back(FT60) + (50 - _back(FT60)) * _toDrone(m);
+const eyeTilt = m => m <= FT60 ? _tilt(m) : _tilt(FT60) + (20 - _tilt(FT60)) * _toDrone(m);
 let eyeTarget = EYE;
 {
-  let want = Number(params.get('eye'));
+  let want = Number(params.get('eye')) * 0.3048;   // feet in the URL; metres stored
   if (!want) { try { want = Number(localStorage.getItem('audiochart-helm3d-eye')); } catch (_) {} }
-  if (want > 0) eyeTarget = want > 7 ? want * 0.3048 : want;   // feet in the URL; metres stored
+  if (want > 0) eyeTarget = want;
 }
 let eyeH = eyeTarget;
 const eyeBox = document.getElementById('eyepick');
@@ -943,6 +949,7 @@ addEventListener('keydown', e => {
 });
 const TILLER = new THREE.Vector3(0.35, EYE, 1.0), AT_MAST = new THREE.Vector3(0.3, 2.6, -3.2);   // on the foredeck, just forward of the mast
 let camK = 0;
+const UP_AXIS = new THREE.Vector3(0, 1, 0);
 function arrive() {
   anchor.state = 'walking'; anchor.t = 0; anchorNote.hidden = false;
   anchorObj.visible = true;   // sitting on the roller until it's let go
@@ -1114,6 +1121,7 @@ function frame() {
   // viewpoint height (Helm / 20 ft / 60 ft), eased so changes glide
   eyeH += (eyeTarget - eyeH) * Math.min(1, dt * 2.5);
   TILLER.set(0.35 * (eyeH <= EYE + 0.3 ? 1 : 0), eyeH, 1.0 + eyeBack(eyeH));
+  if (eyeH > EYE + 0.3) TILLER.applyAxisAngle(UP_AXIS, -THREE.MathUtils.degToRad(yawOff * (1 - ease)));   // orbit the boat
   camera.position.lerpVectors(TILLER, AT_MAST, ease);
   camera.rotation.set(THREE.MathUtils.degToRad((pitch - eyeTilt(eyeH)) + (-38 - (pitch - eyeTilt(eyeH))) * ease), -THREE.MathUtils.degToRad(yawOff * (1 - ease)), -roll * 1.6, 'YXZ');
   for (const m of marks) {
