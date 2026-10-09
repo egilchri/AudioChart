@@ -2,7 +2,8 @@
 
 `www/data/buildings/<town>.json` is built offline per town and listed in
 `www/data/buildings/index.json` (file + bbox); `helm3d.js` loads every town
-whose bbox is near the route. Carvers Harbor (v833) is the only one so far.
+whose bbox is near the route. Built so far: Carvers Harbor (v833), North Haven village
+and the Fox Islands Thorofare (v835).
 
 Sources:
 
@@ -17,7 +18,10 @@ Sources:
 - **Roof colours:** the USDA NAIP image of the bbox from
   imagery.nationalmap.gov `exportImage` (4000 px).
 
-Steps (Python venv with `laspy[lazrs] numpy pillow`; the bbox is set at the top of each script):
+Steps (Python venv with `laspy[lazrs] numpy pillow`). Each script reads the town from the environment:
+`BBOX=west,south,east,north`, `TOWN="display name"`, and `EPT=<lidar project>`
+(the default is ME_MidCoast_2_2021). Fetch the NAIP image at a size with the bbox's aspect ratio.
+Then add the town to index.json:
 
     python ept_hier.py ept.json nodes.json             # EPT nodes touching the bbox, point counts per depth
     python ept_fetch.py nodes.json pts.npy 9           # points to depth 9 (~0.7 pts/m²), clipped to the bbox

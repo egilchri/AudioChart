@@ -1,3 +1,4 @@
 [
-  { "file": "carvers-harbor.json", "name": "Carvers Harbor, Vinalhaven", "bbox": [-68.85, 44.035, -68.82, 44.06] }
+  { "file": "carvers-harbor.json", "name": "Carvers Harbor, Vinalhaven", "bbox": [-68.85, 44.035, -68.82, 44.06] },
+  { "file": "north-haven.json", "name": "North Haven village and Fox Islands Thorofare", "bbox": [-68.89, 44.115, -68.83, 44.14] }
 ]

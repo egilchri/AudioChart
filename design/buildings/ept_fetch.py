@@ -1,9 +1,10 @@
 import json, sys, os, math, urllib.request, concurrent.futures as cf
 import numpy as np, laspy
-BASE='https://s3-us-west-2.amazonaws.com/usgs-lidar-public/ME_MidCoast_2_2021/'
+BASE='https://s3-us-west-2.amazonaws.com/usgs-lidar-public/' + __import__('os').environ.get('EPT', 'ME_MidCoast_2_2021') + '/'
 R=6378137.0
 def merc(lon,lat): return (math.radians(lon)*R, math.log(math.tan(math.pi/4+math.radians(lat)/2))*R)
-W,S_,E,N=-68.85,44.035,-68.82,44.06
+import os
+W,S_,E,N = map(float, os.environ.get('BBOX', '-68.85,44.035,-68.82,44.06').split(','))   # town bbox: west,south,east,north
 x0,y0=merc(W,S_); x1,y1=merc(E,N)
 nodes=[k for k,n in json.load(open(sys.argv[1])) if int(k.split('-')[0])<=int(sys.argv[3])]
 def one(k):

@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-09 — 3D view: North Haven's buildings and wharves (v835)
+
+Requested: town features for Rockland, Rockport, North Haven and Camden,
+starting with North Haven. North Haven village and both shores of the Fox
+Islands Thorofare (bbox −68.89…−68.83, 44.115…44.14): 354 buildings and 60
+wharves/floats from OpenStreetMap, sized from the same 3DEP lidar survey
+(median house 3.9 m eave, 7.8 m ridge), roof colours from NAIP. Shows on the
+Perry Creek route and any other route through the Thorofare. The build
+scripts now take the town from BBOX/TOWN/EPT environment variables.
+
 ## 2026-10-09 — 3D view: Record a journey as a movie (v834)
 
 Asked: can the movie be saved? The 3D view has a ⏺ Record button (top left,

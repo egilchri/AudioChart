@@ -3,11 +3,12 @@ import json, math, sys, hashlib
 import numpy as np
 from PIL import Image
 osm_p, pts_p, naip_p, out_p = sys.argv[1:5]
-W,S_,E,N = -68.85,44.035,-68.82,44.06
+import os
+W,S_,E,N = map(float, os.environ.get('BBOX', '-68.85,44.035,-68.82,44.06').split(','))   # town bbox: west,south,east,north
 R = 6378137.0
 def merc(lon, lat): return (np.radians(lon)*R, np.log(np.tan(np.pi/4+np.radians(lat)/2))*R)
 P = np.load(pts_p)                   # x y z class return nret (web mercator)
-k = 1/math.cos(math.radians(44.047)) # mercator metres per true metre here
+k = 1/math.cos(math.radians((S_ + N) / 2)) # mercator metres per true metre here
 CELL = 4.0*k
 gx = np.floor(P[:,0]/CELL).astype(np.int64); gy = np.floor(P[:,1]/CELL).astype(np.int64)
 order = np.lexsort((gy, gx)); gx, gy, P = gx[order], gy[order], P[order]
@@ -41,7 +42,7 @@ def obb(xy):  # min-area rectangle in local metres: (area, ux, uy, len, wid)
         A = (a.max()-a.min())*(c.max()-c.min())
         if best is None or A < best[0]: best = (A, u, a.max()-a.min(), c.max()-c.min())
     return best
-lat0 = 44.047; mx_lon = 111320*math.cos(math.radians(lat0)); my_lat = 110540
+lat0 = (S_ + N) / 2; mx_lon = 111320*math.cos(math.radians(lat0)); my_lat = 110540
 def local(ll): return np.array([[(lo-W)*mx_lon, (la-S_)*my_lat] for lo,la in ll])
 PALETTE = [((236,234,226),45),((150,146,138),22),((228,214,160),8),((196,204,208),8),((140,52,40),7),((150,166,140),5),((206,190,160),5)]
 def wall_colour(seed):
@@ -109,7 +110,7 @@ for e in els:
         PIERS.append({'p': [[round(lo,7), round(la,7)] for lo,la in ll], 'kind': tags['man_made'], 'area': closed,
                       'w': w or (6 if tags['man_made']=='breakwater' else 3), 'd': round(deck if deck is not None else (1.5 if tags['man_made']=='breakwater' else 3.0), 2),
                       **({'n': tags['name']} if tags.get('name') else {})})
-json.dump({'name': 'Carvers Harbor, Vinalhaven', 'bbox': [W,S_,E,N],
+json.dump({'name': os.environ.get('TOWN', 'Carvers Harbor, Vinalhaven'), 'bbox': [W,S_,E,N],
   'credit': 'Buildings © OpenStreetMap contributors (ODbL); heights from USGS 3DEP lidar (ME MidCoast 2021); roof colours from USDA NAIP',
   'datum': 'metres; g (ground) and d (deck) are NAVD88 elevations from the lidar; e/r (eave/ridge) are above g',
   'buildings': B, 'piers': PIERS}, open(out_p, 'w'), separators=(',', ':'))
