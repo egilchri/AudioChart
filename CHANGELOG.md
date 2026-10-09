@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-09 — 3D view: Camden's buildings and wharves (v836)
+
+Requested: Camden next. OpenStreetMap had only 541 of Camden's ~2,300
+buildings (the downtown, the Opera House, the library, the inns), so gaps are
+filled from Microsoft's ML building footprints (ODbL): 1,851 added where no
+OSM building covers the spot. That makes 2,392 buildings plus 85 wharves and
+floats, sized from the 3DEP lidar (median house 4.0 m eave, 8.2 m ridge),
+with roof colours from NAIP. The scene credit adds Microsoft for this town.
+The town is 55k triangles in an 8.5M-triangle scene; still 60 fps in testing.
+build_buildings.py takes MS=<quadkey .csv.gz> for the gap fill.
+
 ## 2026-10-09 — 3D view: North Haven's buildings and wharves (v835)
 
 Requested: town features for Rockland, Rockport, North Haven and Camden,

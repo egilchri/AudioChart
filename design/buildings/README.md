@@ -3,13 +3,18 @@
 `www/data/buildings/<town>.json` is built offline per town and listed in
 `www/data/buildings/index.json` (file + bbox); `helm3d.js` loads every town
 whose bbox is near the route. Built so far: Carvers Harbor (v833), North Haven village
-and the Fox Islands Thorofare (v835).
+and the Fox Islands Thorofare (v835), Camden (v836).
 
 Sources:
 
 - **Footprints:** OpenStreetMap (ODbL). Credit is shown in the scene.
   Overpass query: `way["building"]` plus `way["man_made"~"pier|breakwater"]`
   in the bbox, `out geom tags`. Send a User-Agent, or overpass-api.de returns 406.
+- **Gap fill (optional):** Microsoft's ML building footprints (ODbL), one quadkey file per
+  area: look the zoom-9 quadkey up in `global-buildings/dataset-links.csv`, then pass
+  `MS=<file.csv.gz>`. A Microsoft footprint is used only where no OSM building covers its
+  centre or sits within 8 m. Camden: OSM had 541 buildings and Microsoft filled in 1,851.
+  The scene credit then adds Microsoft.
 - **Heights:** the USGS 3DEP lidar point cloud. The Entwine EPT is on AWS:
   `usgs-lidar-public/<project>/ept.json`. Carvers Harbor uses
   ME_MidCoast_2_2021, found with hobuinc/usgs-lidar's

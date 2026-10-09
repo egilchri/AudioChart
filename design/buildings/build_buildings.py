@@ -52,6 +52,28 @@ def wall_colour(seed):
         t -= wgt
     return PALETTE[0][0]
 els = json.load(open(osm_p))['elements']
+# Optional gap fill from Microsoft's ML building footprints (ODbL, same licence as OSM): one
+# quadkey file (.csv.gz of GeoJSON lines) given as MS=<path>. A Microsoft footprint is used only
+# where no OSM building covers its centre or sits within 8 m of it (Camden: OSM had 541 of ~2300).
+if os.environ.get('MS'):
+    import gzip
+    osm_polys = []
+    for e in els:
+        if 'building' in e.get('tags', {}) and e.get('geometry'):
+            g = e['geometry']; osm_polys.append(([(p['lon'], p['lat']) for p in g], sum(p['lon'] for p in g) / len(g), sum(p['lat'] for p in g) / len(g)))
+    def covered(lo, la):
+        for ring, cx, cy in osm_polys:
+            if abs(cx - lo) * mx_lon < 8 and abs(cy - la) * my_lat < 8: return True
+            if abs(cx - lo) * mx_lon > 300 or abs(cy - la) * my_lat > 300: continue
+            if inside(np.array([lo]), np.array([la]), ring)[0]: return True
+        return False
+    added = 0
+    for i, line in enumerate(gzip.open(os.environ['MS'], 'rt')):
+        f = json.loads(line); ring = f['geometry']['coordinates'][0]
+        lo = sum(p[0] for p in ring) / len(ring); la = sum(p[1] for p in ring) / len(ring)
+        if not (W <= lo <= E and S_ <= la <= N) or covered(lo, la): continue
+        els.append({'type': 'way', 'id': f'ms{i}', 'tags': {'building': 'yes'}, 'geometry': [{'lon': p[0], 'lat': p[1]} for p in ring]}); added += 1
+    print('Microsoft footprints added:', added)
 B, PIERS, stats = [], [], {'measured':0,'default':0}
 for e in els:
     tags = e.get('tags', {}); g = e.get('geometry')
@@ -111,7 +133,7 @@ for e in els:
                       'w': w or (6 if tags['man_made']=='breakwater' else 3), 'd': round(deck if deck is not None else (1.5 if tags['man_made']=='breakwater' else 3.0), 2),
                       **({'n': tags['name']} if tags.get('name') else {})})
 json.dump({'name': os.environ.get('TOWN', 'Carvers Harbor, Vinalhaven'), 'bbox': [W,S_,E,N],
-  'credit': 'Buildings © OpenStreetMap contributors (ODbL); heights from USGS 3DEP lidar (ME MidCoast 2021); roof colours from USDA NAIP',
+  'credit': 'Buildings © OpenStreetMap contributors' + (' and Microsoft (ODbL)' if os.environ.get('MS') else ' (ODbL)') + '; heights from USGS 3DEP lidar (ME MidCoast 2021); roof colours from USDA NAIP',
   'datum': 'metres; g (ground) and d (deck) are NAVD88 elevations from the lidar; e/r (eave/ridge) are above g',
   'buildings': B, 'piers': PIERS}, open(out_p, 'w'), separators=(',', ':'))
 print(len(B), 'buildings', stats, len(PIERS), 'piers; water z', round(WATER_Z,2))

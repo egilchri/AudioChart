@@ -590,11 +590,13 @@ function buildTown(T) {
     piles.forEach(([x, z, y], i) => { const h = y + 3; inst.setMatrixAt(i, mtx.makeScale(1, h, 1).setPosition(x, y - h / 2, z)); });
     scene.add(inst);
   }
-  if (!document.getElementById('town-credit')) {
-    const c = document.createElement('div'); c.id = 'town-credit'; c.textContent = 'Buildings © OpenStreetMap contributors';
+  let c = document.getElementById('town-credit');
+  if (!c) {
+    c = document.createElement('div'); c.id = 'town-credit'; c.textContent = 'Buildings © OpenStreetMap contributors';
     c.style.cssText = 'position:absolute;left:8px;bottom:6px;z-index:2;font-size:10px;color:rgba(255,255,255,0.75);text-shadow:0 0 3px rgba(0,0,0,0.6);pointer-events:none';
     document.querySelector('.scene').appendChild(c);
   }
+  if (/Microsoft/.test(T.credit || '') && !/Microsoft/.test(c.textContent)) c.textContent += ', Microsoft';   // gaps filled from Microsoft's footprints
   console.log(`[helm3d] ${T.name}: ${T.buildings.length} buildings, ${T.piers.length} piers`);
 }
 addTowns();
