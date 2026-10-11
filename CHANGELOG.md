@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-10-11 — Weather in the Bird's-eye view (v860)
+
+Requested: weather in the bird's-eye view too. The weather engine, the Weather
+panel and the NWS forecast moved from helm3d.js into a shared module,
+js/weather3d.js (makeSky, makeEnv, weatherPanel, startConditions,
+forecastConditions); both 3D views use it and share the remembered choice.
+bay3d adds what belongs to a view from above:
+- Fog is a white blanket on the water (70 m deep, thick fog 110 m) with hills
+  standing out of it and names under it hidden, until you come down into it.
+- The overcast deck hides the sky only from below it (1,800 m); rain shows below
+  1,500 m.
+- Whitecaps are drawn larger from higher up, so they still show.
+- At dusk, at night and in fog every charted light flashes its characteristic
+  and the towns' windows light up.
+The panel sits under the height readout, top right; the forecast is for where
+you're looking.
+
 ## 2026-10-11 — Weather from the forecast (v859)
 
 The Weather panel's "⟳ Forecast now" sets the conditions from the National Weather

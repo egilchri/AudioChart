@@ -10,7 +10,8 @@
 // you are looking once you are low enough to see them. Town buildings load near their town.
 import * as THREE from 'three';
 import { Water } from './lib/three/Water.js';
-import { LON0, LAT0, MX, MY, wx, wz, readDem, photo, addCanopy, gridMesh, photoMat, buildTown, disposeGroup, spruce } from './terrain3d.js';
+import { LON0, LAT0, MX, MY, wx, wz, readDem, photo, addCanopy, gridMesh, photoMat, buildTown, disposeGroup, spruce, TOWN_NIGHT } from './terrain3d.js';
+import { SUN, makeSky, makeEnv, glowSprite, flashFor, flashOn, weatherPanel, startConditions } from './weather3d.js';
 
 const statusEl = document.getElementById('status');
 const loadingEl = document.getElementById('loading');
@@ -45,8 +46,8 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(50, 2, 1, 400000);
 const HAZE = new THREE.Color(0xb2cbe0);
 scene.fog = new THREE.FogExp2(HAZE, 0.000075);
-const sun = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - 32), THREE.MathUtils.degToRad(205));
-scene.add(new THREE.HemisphereLight(0xe4ecf2, 0x4a5644, 1.7));
+const sun = SUN;
+const hemi = new THREE.HemisphereLight(0xe4ecf2, 0x4a5644, 1.7); scene.add(hemi);
 const dl = new THREE.DirectionalLight(0xfff3e0, 2.1); dl.position.copy(sun).multiplyScalar(1000); scene.add(dl);
 const PLAIN = new THREE.MeshLambertMaterial({ color: 0x66735c });
 
@@ -425,6 +426,8 @@ const inBay = ([x, y]) => x >= OW && x <= OE && y >= OS && y <= ON;
 const navs = navGJ.features.filter(f => f.geometry?.type === 'Point' && inBay(f.geometry.coordinates));
 const BUOY_T = ['BOYLAT', 'BCNLAT', 'BOYSAW', 'BOYSPP', 'BOYCAR', 'BOYISD'];
 const buoys = navs.filter(f => BUOY_T.includes(f.properties.objtype)).map(f => ({ x: wx(f.geometry.coordinates[0]), z: wz(f.geometry.coordinates[1]), c: (f.properties.colour || '').split('/')[0], num: (f.properties.name || '').match(/(\S{1,3})$/)?.[1] || '' }));
+// every charted light, for the night: a glow that flashes its own characteristic
+const litNavs = navs.filter(f => f.properties.objtype === 'LIGHTS').map(f => ({ x: wx(f.geometry.coordinates[0]), z: wz(f.geometry.coordinates[1]), fl: flashFor(f.properties.characteristic), lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] }));
 const lightsAshore = navs.filter(f => f.properties.objtype === 'LIGHTS').filter(f => !buoys.some(b => Math.hypot(b.x - wx(f.geometry.coordinates[0]), b.z - wz(f.geometry.coordinates[1])) < 40))
   .map(f => ({ x: wx(f.geometry.coordinates[0]), z: wz(f.geometry.coordinates[1]), y: Math.max(0, heightAt(...f.geometry.coordinates)) }));
 const BUOY_COL = { red: 0xc23a2e, green: 0x2b8a4a, yellow: 0xe0b531 };
@@ -472,17 +475,7 @@ water.rotation.x = -Math.PI / 2; water.material.uniforms.size.value = 6;
 water.material.fragmentShader = water.material.fragmentShader.replace('float rf0 = 0.3;', 'float rf0 = 0.04;').replace('reflectionSample * 0.9 +', 'reflectionSample * 0.78 +');
 water.material.needsUpdate = true;
 scene.add(water);
-const sky = new THREE.Mesh(new THREE.SphereGeometry(150000, 32, 16), new THREE.ShaderMaterial({
-  side: THREE.BackSide, depthWrite: false, depthTest: false, fog: false, toneMapped: false,
-  uniforms: { zenith: { value: new THREE.Color(0x2f62a8) }, horizon: { value: HAZE.clone() }, sunDir: { value: sun.clone().normalize() } },
-  vertexShader: 'varying vec3 vDir; void main() { vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-  fragmentShader: `uniform vec3 zenith; uniform vec3 horizon; uniform vec3 sunDir; varying vec3 vDir;
-    void main() { float h = max(vDir.y, 0.0); vec3 c = mix(horizon, zenith, pow(h, 0.55)); float g = max(dot(normalize(vDir), sunDir), 0.0);
-      c += vec3(1.0, 0.95, 0.85) * (pow(g, 300.0) * 1.2 + pow(g, 12.0) * 0.12); gl_FragColor = vec4(c, 1.0);
-      #include <colorspace_fragment>
-    }`,
-}));
-sky.renderOrder = -1; sky.frustumCulled = false; scene.add(sky);
+const sky = makeSky(150000); scene.add(sky);
 const clouds = (() => {
   const N = 512, img = new ImageData(N, N), rand = (() => { let sd = 5; return () => (sd = (sd * 16807) % 2147483647) / 2147483647; })();
   const octaves = [8, 16, 32, 64].map(L => ({ L, g: Float32Array.from({ length: L * L }, rand) })), smooth = t => t * t * (3 - 2 * t);
@@ -493,6 +486,71 @@ const clouds = (() => {
   const m = new THREE.Mesh(new THREE.PlaneGeometry(90000, 90000), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide, fog: true, toneMapped: false }));
   m.rotation.x = Math.PI / 2; m.position.y = 1500; scene.add(m); return m;
 })();
+
+// ── Weather (v860, direct request): the helm view's conditions (weather3d.js), seen from above.
+// Fog from up here is a white blanket on the water with the hills standing out of it, until you
+// come down into it; a cloud deck hides the sky only from below it; at dusk, at night and in fog
+// the lights come out: the charted lights flash, and the towns' windows light up.
+const env = makeEnv({ renderer, scene, hemi, dl, sky, water, clouds, starsR: 140000, deckSize: 300000, deckY: 1800, foamR: 1400, foamTile: 24 });
+const blanket = (() => {   // the top of a fog bank: a flat layer, with a lumpy cloud-textured skin just over it
+  const g = new THREE.Group();
+  const flat = new THREE.Mesh(new THREE.PlaneGeometry(300000, 300000), new THREE.MeshBasicMaterial({ color: 0xbcc5cc, transparent: true, opacity: 0.97, fog: true, toneMapped: false }));
+  flat.rotation.x = -Math.PI / 2; g.add(flat);
+  const tex = clouds.material.map.clone(); tex.needsUpdate = true; tex.repeat.set(36, 36); tex.rotation = 0.6;
+  const skin = new THREE.Mesh(new THREE.PlaneGeometry(300000, 300000), new THREE.MeshBasicMaterial({ map: tex, color: 0xffffff, transparent: true, opacity: 0.45, depthWrite: false, fog: true, toneMapped: false }));
+  skin.rotation.x = -Math.PI / 2; skin.position.y = 6; g.add(skin);
+  g.visible = false; scene.add(g);
+  return { g, flat, skin };
+})();
+const FOG_TOP = { fog: 70, thick: 110 };
+const glows = litNavs.filter(l => l.fl).map(l => {
+  const ashore = lightsAshore.some(a => Math.hypot(a.x - l.x, a.z - l.z) < 5);
+  const sp = glowSprite(l.fl.col, ashore ? 0.016 : 0.01);
+  sp.position.set(l.x, ashore ? Math.max(0, heightAt(l.lon, l.lat)) + 12 : 3, l.z); scene.add(sp);
+  return { sp, fl: l.fl, phase: Math.random() * 6, range: (ashore ? 9 : 3.5) * 1852 };
+});
+let wxPanel = null, aboveFog = null;
+function applyConditions(next = {}) {
+  env.apply(next);
+  TOWN_NIGHT.value = env.lightsK;
+  blanket.flat.material.color.copy(env.fogC); blanket.skin.material.color.copy(env.fogC).lerp(new THREE.Color(0xffffff), env.night ? 0.05 : 0.35);
+  aboveFog = null;   // re-decide the sky in the next frame
+  wxPanel?.sync(env.C, env.W);
+}
+const _sky = { zen: new THREE.Color(), hor: new THREE.Color() };
+function updateWeather(dt, t) {
+  const cy = camera.position.y, top = FOG_TOP[env.C.vis];
+  // fog: from above its top, the blanket and the sky above it; inside it, the scene fog
+  const above = env.foggy && cy > top + 40;
+  if (above !== aboveFog) {
+    aboveFog = above;
+    blanket.g.visible = above;
+    const su = sky.material.uniforms, T = env.T;
+    if (above) {   // the sky over the fog bank: the time of day's own (or the overcast) sky
+      _sky.zen.set(env.over ? T.over : T.zen); _sky.hor.set(env.over ? T.fog : T.haze);
+      su.zenith.value.copy(_sky.zen); su.horizon.value.copy(_sky.hor); scene.fog.color.copy(_sky.hor);
+      su.sunCol.value.fromArray(env.over ? [0, 0, 0] : T.glow); su.moonK.value = env.night && !env.over ? 1 : 0;
+      env.stars.visible = env.night && !env.over;
+    } else env.apply({});   // back to the conditions as they are at sea level
+  }
+  if (above) blanket.g.position.set(camera.position.x, top, camera.position.z);
+  const base = above ? 0.000075 : 1.98 / env.visM;
+  scene.fog.density = env.foggy && !above ? base : base * clamp(1500 / cy, 0.03, 1);   // thinner haze the higher you are
+  clouds.visible = env.cloudsOn && cy < 1300;
+  env.deck.visible = env.deckOn && cy < 1700;
+  env.rain.visible = env.rainOn && cy < 1500;
+  env.foam.visible = env.foamOn && view.dist < 15000 && !above;
+  env.update(dt, camera, { x: view.x, z: view.z }, clamp(view.dist / 400, 1, 20), Math.max(0.06, view.dist * 0.0004));   // lifted a little from up high, clear of the water's depth
+  env.stars.position.copy(camera.position);
+  // the lights
+  const lk = Math.min(1, env.lightsK * 1.4);
+  for (const g of glows) {
+    if (!lk) { g.sp.visible = false; continue; }
+    const d = Math.hypot(g.sp.position.x - camera.position.x, g.sp.position.z - camera.position.z), k = Math.min(1, 1.25 - d / (Math.min(g.range, env.visM * 1.6) + cy)) * lk;
+    g.sp.visible = k > 0 && flashOn(g.fl, t + g.phase) && !(above && g.sp.position.y < top);
+    if (g.sp.visible) g.sp.material.opacity = k;
+  }
+}
 
 // ── Labels: towns (click to fly there) from up high; place names and buoy numbers lower down ──
 const labelsEl = document.getElementById('labels'), pool = [];
@@ -527,6 +585,7 @@ function updateLabels() {
         if (b.num && d < 2200) cand.push({ text: `"${b.num}"`, x: b.x, y: 6, z: b.z, cls: 'buoy', pri: 3 + d / 2200 });
       }
     }
+    if (aboveFog) { const top = FOG_TOP[env.C.vis]; cand = cand.filter(c => c.cls === 'town' || c.y - 6 > top); }   // names under the fog bank don't show
     cand.sort((a, b) => a.pri - b.pri);
   }
   const W = sceneEl.clientWidth, H = sceneEl.clientHeight, placed = [];
@@ -582,24 +641,23 @@ function frame(now) {
   clampView(); placeCamera();
   if (t - lastCheck > 0.4) { lastCheck = t; updateTiles(); updateTowns(); updateMarks(); }
   if (!drag && !anim) updateTrees(); else if (t - (TREES.lastMove || 0) > 0.25) { TREES.lastMove = t; updateTrees(); }
-  const cy = camera.position.y;
-  scene.fog.density = 0.000075 * clamp(1500 / cy, 0.03, 1);   // thinner haze the higher you are
-  clouds.visible = cy < 1300;
   water.position.set(view.x, 0, view.z);
   sky.position.copy(camera.position);
-  water.material.uniforms.time.value += dt * 0.6;
-  clouds.material.map.offset.x += dt * 0.0004; clouds.material.map.offset.y += dt * 0.00015;
+  updateWeather(dt, t);
   renderer.render(scene, camera);
   updateLabels(); updateReadout();
   requestAnimationFrame(frame);
 }
+// Weather panel: in the readout box, top right; the forecast is for where you're looking
+wxPanel = weatherPanel({ host: document.getElementById('scale'), panelParent: document.body, where: () => [lonOf(view.x), latOf(view.z)], pick: applyConditions });
+applyConditions(startConditions(params));
 statusEl.hidden = true;
 requestAnimationFrame(frame);
 window.__bay3d = {   // for AudioChart (returning to the chart where you were) and for testing
   getView: () => ({ lat: latOf(view.z), lon: lonOf(view.x), dist: view.dist, az: view.az / DEG, tilt: view.tilt / DEG }),
   setView: v => { anim = null; Object.assign(view, { x: wx(v.lon), z: wz(v.lat), dist: v.dist ?? view.dist, az: (v.az ?? view.az / DEG) * DEG, tilt: (v.tilt ?? view.tilt / DEG) * DEG }); clampView(); placeCamera(); },
   goTown: id => { const tw = townList.find(x => x.id === id); if (tw) goTown(tw); return !!tw; },
-  goWhole, towns: townList, tiles, scene, renderer, trees: () => ({ near: TREES.near.count, far: TREES.far.count, K: TREES.K }),
+  goWhole, towns: townList, tiles, scene, env, applyConditions, renderer, trees: () => ({ near: TREES.near.count, far: TREES.far.count, K: TREES.K }),
 };
 }
 main().catch(err => { console.error(err); fail('Could not start the 3D view: ' + err.message); });

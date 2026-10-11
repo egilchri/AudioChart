@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import { Water } from './lib/three/Water.js';
 import { LON0, LAT0, MX, MY, wx, wz, cachedFetch, readDem, photo, photoAtCells, addCanopy, gridMesh, photoMat, buildTown, spruce, tlog, tmark, TOWN_NIGHT } from './terrain3d.js';
+import { makeSky, makeEnv, glowSprite, flashFor, weatherPanel, startConditions } from './weather3d.js';
 
 const statusEl = document.getElementById('status');
 const loadingNote = document.getElementById('tileload');
@@ -524,26 +525,8 @@ water.material.needsUpdate = true;
 { const mirror = water.onBeforeRender; water.onBeforeRender = (...a) => { bow.visible = false; mirror(...a); bow.visible = true; }; }
 scene.add(water);
 
-// Sky: a clear-day gradient dome, deep blue overhead fading to the haze colour at the horizon
-// (so distant land and water blend into it), with a soft glow around the sun. Drawn first,
-// behind everything; not tone-mapped, so the blue stays blue.
-const sky = new THREE.Mesh(new THREE.SphereGeometry(60000, 32, 16), new THREE.ShaderMaterial({
-  side: THREE.BackSide, depthWrite: false, depthTest: false, fog: false, toneMapped: false,
-  uniforms: { zenith: { value: new THREE.Color(0x2f62a8) }, horizon: { value: HAZE.clone() }, sunDir: { value: sun.clone().normalize() }, moonK: { value: 0 }, sunCol: { value: new THREE.Vector3(1, 0.95, 0.85) } },
-  vertexShader: 'varying vec3 vDir; void main() { vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-  fragmentShader: `uniform vec3 zenith; uniform vec3 horizon; uniform vec3 sunDir; uniform float moonK; uniform vec3 sunCol; varying vec3 vDir;
-    void main() {
-      float h = max(vDir.y, 0.0);
-      vec3 c = mix(horizon, zenith, pow(h, 0.55));
-      float g = max(dot(normalize(vDir), sunDir), 0.0);
-      c += mix(sunCol * (pow(g, 300.0) * 1.2 + pow(g, 12.0) * 0.12),   // the sun's glow by day
-               vec3(0.93, 0.94, 0.88) * smoothstep(0.99993, 0.99996, g) + vec3(0.55, 0.62, 0.75) * (pow(g, 2000.0) * 0.35 + pow(g, 30.0) * 0.05), moonK);   // the moon's disc and halo
-
-      gl_FragColor = vec4(c, 1.0);
-      #include <colorspace_fragment>
-    }`,
-}));
-sky.renderOrder = -1; sky.frustumCulled = false;
+// Sky: the shared dome (weather3d.js): blue overhead fading to the haze colour at the horizon, sun or moon.
+const sky = makeSky(60000);
 scene.add(sky);
 
 // Fair-weather clouds: a drifting deck ~1.5 km up, from tileable noise made here (no download).
@@ -582,12 +565,6 @@ const colOf = c => COLORS[(c || 'white').split('/')[0]] ?? 0xdddddd;
 const mat = c => new THREE.MeshLambertMaterial({ color: c });
 const lights = nav.filter(n => n.t === 'LIGHTS');
 const marks = [];
-function flashFor(ch) {
-  if (!ch) return null;
-  const per = parseFloat((ch.match(/(\d+(?:\.\d+)?)s/) || [])[1]) || (/^Q/.test(ch) ? 1 : 4);
-  const col = /\bG\b/.test(ch) ? 0x5dff8a : /\bR\b/.test(ch) ? 0xff4b3a : /\bY\b/.test(ch) ? 0xffd75a : 0xfff6d8;
-  return { per, col, iso: /^Iso|^Oc/.test(ch), fixed: /^F\b/.test(ch) };
-}
 for (const n of nav.filter(n => n.t !== 'LIGHTS')) {
   const g = new THREE.Group(), c = colOf(n.c), s = n.s || 'stake/pole';
   if (s === 'can') {
@@ -630,110 +607,15 @@ for (const l of lights) {
   marks.push({ g, n: l, fl, lamp, phase: 0, fixedMark: true, kind: 'light', name: l.ch });
 }
 
-// ── Weather and time of day (v858, direct request; grew out of Night, v855) ──
-// One set of conditions, four independent choices that combine:
-//   time  day | sunset | dawn | night   the light: sun or moon, sky colours, lights coming on
-//   vis   clear | haze | fog | thick     how far you can see (the scene fog), and how far lights and labels carry
-//   sky   fair | overcast | rain         a cloud deck, flat light, rain streaks
-//   wind  calm | breezy | fresh | rough  sea state, whitecaps, how much the boat heels and moves (windFrom: degrees)
-// At dusk, at night and in fog the lights come out: every charted light flashes its own rhythm and
+// ── Weather and time of day (v858; shared with the bird's-eye view in weather3d.js since v860) ──
+// The conditions (time, visibility, sky, wind) restyle the sky, light, sea and clouds there; this
+// view adds the lights: at dusk, at night and in fog every charted light flashes its own rhythm and
 // colour as a glow, house windows light up in the towns, the ferries show their windows and running
-// lights, and your own boat shows hers (sidelights and stern light under way, an all-round white light
-// at the masthead at anchor), each over its proper arc, as at sea. Chosen from the Weather panel
-// (or N for night); remembered.
-const sunAt = (alt, brg) => new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - alt), THREE.MathUtils.degToRad(180 - brg));   // theta runs from south
-const moon = sunAt(22, 150);
-const TIMES = {
-  day:    { exp: 0.55, sky: 0xe4ecf2, gnd: 0x4a5644, hemi: 1.7, dlc: 0xfff3e0, dl: 2.1, dir: sun, haze: 0xb2cbe0, zen: 0x2f62a8, water: 0x3268a0, glint: 0xfff4e0, glow: [1, 0.95, 0.85], lights: 0, fog: 0xbcc5cc, cloud: 0xffffff, over: 0x9aa3ab, deck: 0xa9b1b8 },
-  sunset: { exp: 0.6, sky: 0xffc49a, gnd: 0x3b3631, hemi: 0.95, dlc: 0xffa055, dl: 2.0, dir: sunAt(4, 282), haze: 0xeaa47c, zen: 0x2e4a7a, water: 0x2b4a6e, glint: 0xffa860, glow: [1, 0.62, 0.32], lights: 0.55, fog: 0xbfa194, cloud: 0xffc6a0, over: 0x857a7e, deck: 0x8f8384 },
-  dawn:   { exp: 0.58, sky: 0xd9c8e2, gnd: 0x35363c, hemi: 1.0, dlc: 0xffc49a, dl: 1.7, dir: sunAt(4, 72), haze: 0xe8bfb2, zen: 0x35558c, water: 0x2c4c72, glint: 0xffcf9c, glow: [1, 0.78, 0.58], lights: 0.35, fog: 0xc4b8b6, cloud: 0xffd9cc, over: 0x8c8a93, deck: 0x9a96a0 },
-  night:  { exp: 0.55, sky: 0x8aa2c8, gnd: 0x1a2129, hemi: 0.62, dlc: 0xc6d4ee, dl: 0.75, dir: moon, haze: 0x152236, zen: 0x03070f, water: 0x0c1e33, glint: 0x37415a, glow: [0, 0, 0], lights: 1, fog: 0x1a2330, cloud: 0x3a4250, over: 0x0f141b, deck: 0x151a21 },
-};
-const VIS_M = { clear: 26000, haze: 8000, fog: 900, thick: 250 };   // metres to where the fog is ~98% thick
-const WINDS = {
-  calm:   { dist: 0.5, size: 8, speed: 0.35, heel: 0, move: 0.35, foam: 0, kn: '0–4 kn' },
-  breezy: { dist: 1.2, size: 6, speed: 0.6, heel: 5, move: 1, foam: 0, kn: '5–11 kn' },
-  fresh:  { dist: 2.2, size: 4, speed: 0.9, heel: 12, move: 1.8, foam: 0.55, kn: '12–19 kn' },
-  rough:  { dist: 3.4, size: 2.6, speed: 1.3, heel: 18, move: 3, foam: 1, kn: '20+ kn' },
-};
-const COND = { time: 'day', vis: 'clear', sky: 'fair', wind: 'breezy', windFrom: 225 };
-let lightsK = 0, visM = VIS_M.clear, WND = WINDS.breezy;
-const stars = (() => {   // ~2,500 stars above the horizon, a few bright, fixed to the sky dome
-  const n = 2500, pos = new Float32Array(n * 3), col = new Float32Array(n * 3);
-  let sd = 7; const rr = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
-  for (let i = 0; i < n; i++) {
-    const y = Math.pow(rr(), 0.8), a = rr() * Math.PI * 2, r = Math.sqrt(1 - y * y), b = Math.pow(rr(), 6) * 0.9 + 0.12;
-    pos.set([Math.cos(a) * r * 50000, y * 50000, Math.sin(a) * r * 50000], i * 3);
-    const warm = rr(); col.set([b * (0.9 + warm * 0.1), b * 0.95, b * (1.05 - warm * 0.12)], i * 3);
-  }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  const p = new THREE.Points(geo, new THREE.PointsMaterial({ size: 1.6, sizeAttenuation: false, vertexColors: true, fog: false, toneMapped: false, depthWrite: false }));
-  p.renderOrder = -0.5; p.frustumCulled = false; p.visible = false; scene.add(p);
-  return p;
-})();
-// Overcast: a solid deck above the broken clouds, which turn grey under it
-const deck = new THREE.Mesh(new THREE.PlaneGeometry(90000, 90000), new THREE.MeshBasicMaterial({ color: 0xa9b1b8, side: THREE.DoubleSide, fog: true, toneMapped: false }));
-deck.rotation.x = Math.PI / 2; deck.position.y = 1800; deck.visible = false; scene.add(deck);
-// Whitecaps (fresh and rough): sparse white flecks over a disc round the boat, fading out with
-// distance, fixed to the water (the disc moves in whole texture tiles) and drifting downwind.
-const FOAM_TILE = 24;
-const foam = (() => {
-  const N = 256, img = new ImageData(N, N);
-  let sd = 3; const rr = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
-  const sm = t => t * t * (3 - 2 * t);
-  const oct = [[16, 0.55], [48, 0.3], [96, 0.15]].map(([L, w]) => ({ L, w, g: Float32Array.from({ length: L * L }, rr) }));
-  const noise = (x, y) => {   // periodic value noise over three octaves: crests broken into small, ragged patches
-    let v = 0;
-    for (const { L, w, g } of oct) {
-      const at = (i, j) => g[((j % L) + L) % L * L + ((i % L) + L) % L];
-      const fx = x / N * L, fy = y / N * L, x0 = Math.floor(fx), y0 = Math.floor(fy), tx = sm(fx - x0), ty = sm(fy - y0);
-      const a = at(x0, y0) + (at(x0 + 1, y0) - at(x0, y0)) * tx, b = at(x0, y0 + 1) + (at(x0 + 1, y0 + 1) - at(x0, y0 + 1)) * tx;
-      v += (a + (b - a) * ty) * w;
-    }
-    return v;
-  };
-  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-    const v = noise(x, y), o = (y * N + x) * 4, k = Math.max(0, Math.min(1, (v - 0.74) / 0.06)) * (0.5 + 0.5 * rr());
-    img.data[o] = img.data[o + 1] = img.data[o + 2] = 255; img.data[o + 3] = k * 255;
-  }
-  const cv = document.createElement('canvas'); cv.width = cv.height = N; cv.getContext('2d').putImageData(img, 0, 0);
-  const tex = new THREE.CanvasTexture(cv); tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  const R = 1400, geo = new THREE.CircleGeometry(R, 48, 0, Math.PI * 2);
-  geo.rotateX(-Math.PI / 2);
-  const p = geo.attributes.position, uv = geo.attributes.uv, cols = new Float32Array(p.count * 4);
-  for (let i = 0; i < p.count; i++) {
-    const x = p.getX(i), z = p.getZ(i);
-    uv.setXY(i, x / FOAM_TILE, -z / FOAM_TILE);
-    cols.set([1, 1, 1, Math.max(0, 1 - Math.hypot(x, z) / R) ** 1.5], i * 4);
-  }
-  geo.setAttribute('color', new THREE.BufferAttribute(cols, 4));
-  const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: tex, vertexColors: true, transparent: true, depthWrite: false, fog: true, toneMapped: false }));
-  m.position.y = 0.06; m.renderOrder = 1; m.visible = false; scene.add(m);
-  return m;
-})();
-// Rain: short falling streaks in a box round the eye, slanting downwind
-const RAIN_N = 1600;
-const rain = (() => {
-  const geo = new THREE.BufferGeometry(), pos = new Float32Array(RAIN_N * 6);
-  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  const m = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: 0xc6d0da, transparent: true, opacity: 0.38, fog: false, depthWrite: false, toneMapped: false }));
-  m.frustumCulled = false; m.visible = false; scene.add(m);
-  m.userData.drops = Float32Array.from({ length: RAIN_N * 3 }, (_, i) => i % 3 === 1 ? Math.random() * 60 : (Math.random() - 0.5) * 80);
-  return m;
-})();
-// none of these show in the water's reflection: ripples break starlight up, and the foam and rain are on or over it
-{ const mirror = water.onBeforeRender; water.onBeforeRender = (...a) => { const v = [stars.visible, foam.visible, rain.visible]; stars.visible = foam.visible = rain.visible = false; mirror(...a); [stars.visible, foam.visible, rain.visible] = v; }; }
-const GLOW = (() => {   // a soft round glow, tinted per light
-  const cv = document.createElement('canvas'); cv.width = cv.height = 64; const c = cv.getContext('2d');
-  const gr = c.createRadialGradient(32, 32, 0, 32, 32, 32);
-  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.15, 'rgba(255,255,255,0.9)'); gr.addColorStop(0.4, 'rgba(255,255,255,0.2)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
-  c.fillStyle = gr; c.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(cv);
-})();
-function glowSprite(color, size, metres = false) {   // the same size on screen however far off (it fades with distance instead), or `metres` across
-  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, fog: false, toneMapped: false, sizeAttenuation: metres }));
-  sp.scale.setScalar(size); sp.visible = false; return sp;
-}
+// lights, and your own boat shows hers (sidelights and stern light under way, an all-round white
+// light at the masthead at anchor), each over its proper arc, as at sea, and the boat heels and
+// moves with the wind. Chosen from the Weather panel (or N for night); remembered.
+const env = makeEnv({ renderer, scene, hemi, dl, sky, water, clouds, starsR: 50000, deckSize: 90000, deckY: 1800, foamR: 1400, foamTile: 24 });
+let lightsK = 0, visM = 26000, WND = env.W;
 // running lights on a vessel: a glow at `at` (the parent's local frame, bow toward -z) shown over
 // an arc of `arc` degrees each side of `toward` (degrees from ahead, + to starboard); arc 180 = all round
 const runLights = [];
@@ -770,58 +652,22 @@ ownLight([0.45, 1.68, -4.75], 0x2bff6a, SIDE, SIDE, [2.2, -5, 5], underWay);    
 ownLight([0, 1.56, 2.66], 0xfff2d6, 180, 67.5, [0, 5, 6], underWay);             // stern light
 ownLight([0, 10.6, -2.75], 0xfff2d6, 0, 180, [0, -1, 14], atAnchor);               // anchor light at the masthead
 const litMats = [];   // materials with an emissive glow that comes on with the lights (ferry windows)
-let wxBtn = null, wxSync = () => {};
+let wxPanel = null;
 for (const m of marks) if (m.lamp) {   // a glow on every charted light, over its lamp
   m.glow = glowSprite(m.fl?.col ?? 0xfff6d8, m.kind === 'light' ? 0.03 : 0.02);
   m.range = (m.kind === 'light' ? 9 : 3.5) * NM;
   scene.add(m.glow);
 }
-const _col = h => new THREE.Color(h);
 function applyConditions(next = {}) {
-  Object.assign(COND, next);
-  const T = TIMES[COND.time] || TIMES.day, over = COND.sky !== 'fair', wet = COND.sky === 'rain', night = COND.time === 'night';
-  WND = WINDS[COND.wind] || WINDS.breezy;
-  visM = Math.min(VIS_M[COND.vis] || VIS_M.clear, wet ? 6000 : Infinity);
-  const foggy = visM < 2000;
-  // lights: at dusk and night, and (as vessels must) in fog
-  lightsK = Math.max(T.lights, foggy ? 0.6 : 0, wet && !night ? 0.2 : 0);
-  renderer.toneMappingExposure = T.exp;
-  // what you see in the distance, and the sky over it
-  const fogC = _col(foggy || over ? T.fog : T.haze); if (wet) fogC.multiplyScalar(0.85);
-  const zen = _col(over ? T.over : T.zen); if (wet) zen.multiplyScalar(0.75);
-  if (foggy) zen.lerp(fogC, 0.85);
-  scene.fog.color.copy(fogC); scene.fog.density = 1.98 / visM;
-  const su = sky.material.uniforms;
-  su.horizon.value.copy(fogC); su.zenith.value.copy(zen);
-  su.sunDir.value.copy(T.dir).normalize();
-  su.moonK.value = night && !over && !foggy ? 1 : 0;
-  su.sunCol.value.fromArray(over || foggy ? [0, 0, 0] : T.glow);
-  // light: flat and dim under cloud, softer in fog
-  hemi.color.setHex(T.sky); hemi.groundColor.setHex(T.gnd); hemi.intensity = T.hemi * (over ? (wet ? 0.95 : 1.1) : 1);
-  dl.color.setHex(T.dlc); dl.intensity = T.dl * (over ? 0.25 : 1) * (foggy ? 0.5 : 1); dl.position.copy(T.dir).multiplyScalar(1000);
-  // clouds: broken fair-weather cloud by day; a grey deck when overcast; none in fog or on a clear night
-  clouds.visible = !foggy && (over || !night);
-  clouds.material.color.set(over ? _col(T.deck).multiplyScalar(wet ? 0.7 : 0.85) : _col(T.cloud));
-  deck.visible = over && !foggy; deck.material.color.set(_col(T.deck).multiplyScalar(wet ? 0.8 : 1));
-  stars.visible = night && !over && !foggy;
-  // the sea
-  const wu = water.material.uniforms;
-  wu.waterColor.value.set(_col(T.water).lerp(_col(night ? 0x0c1218 : 0x4b5862), over ? 0.35 : 0).lerp(fogC, foggy ? 0.3 : 0));
-  wu.sunColor.value.set(_col(T.glint).multiplyScalar((over ? 0.12 : 1) * (foggy ? 0.3 : 1)));
-  wu.sunDirection.value.copy(T.dir).normalize();
-  wu.distortionScale.value = WND.dist + (wet ? 0.8 : 0); wu.size.value = WND.size;
-  foam.visible = WND.foam > 0; foam.material.color.set(_col(0xffffff).multiplyScalar(night ? 0.3 : T.lights ? 0.75 : 1)); foam.material.opacity = WND.foam * 0.8;
+  env.apply(next);
+  ({ lightsK, visM, W: WND } = env);
   for (const n of nightOnly) if (n.pool) n.o.material.opacity = 0.4 * Math.max(0, (lightsK - 0.3) / 0.7);   // pools of light only show once it's dim
-  rain.visible = wet; rain.material.color.setHex(night ? 0x5d6672 : 0xc6d0da);
-  // the lights
   TOWN_NIGHT.value = lightsK;
   for (const m of litMats) m.emissiveIntensity = lightsK;
   const lo = Math.min(1, lightsK * 1.4);
   for (const r of runLights) r.sp.material.opacity = lo;
   if (!lightsK) { for (const r of runLights) r.sp.visible = false; for (const n of nightOnly) n.o.visible = false; for (const m of marks) if (m.glow) m.glow.visible = false; }
-  document.body.classList.toggle('night', night);
-  try { localStorage.setItem('audiochart-helm3d-conditions', JSON.stringify(COND)); } catch (_) {}
-  wxSync();
+  wxPanel?.sync(env.C, WND);
 }
 const _p = new THREE.Vector3(), _c = new THREE.Vector3(), _d = new THREE.Vector3();
 function updateLights(pos) {   // after the boat and ferries have moved, before the render
@@ -843,70 +689,6 @@ function updateLights(pos) {   // after the boat and ferries have moved, before 
     r.sp.visible = l < carry && (r.cos <= -0.999 || (tx * _d.x + tz * _d.z) / (l * dl2) >= r.cos);
   }
 }
-function updateWeather(dt) {
-  const to = THREE.MathUtils.degToRad(COND.windFrom + 180), wxv = Math.sin(to), wzv = -Math.cos(to);   // the way the wind blows, in x (east) and z (south)
-  clouds.material.map.offset.x += dt * 0.0004 * wxv; clouds.material.map.offset.y += dt * 0.0004 * wzv;
-  if (foam.visible) {
-    foam.position.x = Math.round(boat.position.x / FOAM_TILE) * FOAM_TILE; foam.position.z = Math.round(boat.position.z / FOAM_TILE) * FOAM_TILE;
-    foam.material.map.offset.x -= dt * 0.012 * wxv; foam.material.map.offset.y += dt * 0.012 * wzv;
-  }
-  if (rain.visible) {
-    camera.getWorldPosition(_c);
-    const d = rain.userData.drops, pos = rain.geometry.attributes.position.array, top = _c.y + 25, sl = 0.08 + WND.move * 0.06;
-    for (let i = 0; i < RAIN_N; i++) {
-      let y = d[i * 3 + 1] - dt * 9; if (y < 0) y += top;
-      d[i * 3 + 1] = y;
-      const x = _c.x + d[i * 3], z = _c.z + d[i * 3 + 2];
-      pos.set([x, y, z, x - wxv * sl * 6, y + 0.7, z - wzv * sl * 6], i * 6);
-    }
-    rain.geometry.attributes.position.needsUpdate = true;
-  }
-}
-
-// ── NOAA forecast → conditions (v859) ──
-function sunPos(lat, lon, date) {   // the sun's altitude and bearing, degrees (NOAA's approximate formulas)
-  const rad = Math.PI / 180, d = (date - Date.UTC(2000, 0, 1, 12)) / 864e5;
-  const g = (357.529 + 0.98560028 * d) * rad, q = 280.459 + 0.98564736 * d;
-  const L = (q + 1.915 * Math.sin(g) + 0.020 * Math.sin(2 * g)) * rad, e = (23.439 - 0.00000036 * d) * rad;
-  const ra = Math.atan2(Math.cos(e) * Math.sin(L), Math.cos(L)), dec = Math.asin(Math.sin(e) * Math.sin(L));
-  const gmst = (18.697374558 + 24.06570982441908 * d) % 24, ha = ((gmst * 15 + lon) * rad - ra);
-  const alt = Math.asin(Math.sin(lat * rad) * Math.sin(dec) + Math.cos(lat * rad) * Math.cos(dec) * Math.cos(ha));
-  const az = Math.atan2(-Math.sin(ha), Math.tan(dec) * Math.cos(lat * rad) - Math.sin(lat * rad) * Math.cos(ha));
-  return { alt: alt / rad, brg: (az / rad + 360) % 360 };
-}
-function seriesAt(series, t) {   // the value of an NWS gridpoint series at time t (ms)
-  for (const v of series?.values || []) {
-    const [start, dur] = v.validTime.split('/'), m = dur.match(/P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?)?/) || [];
-    const t0 = Date.parse(start), t1 = t0 + ((+m[1] || 0) * 24 + (+m[2] || 0)) * 3600e3 + (+m[3] || 0) * 60e3;
-    if (t >= t0 && t < t1) return v.value;
-  }
-  return null;
-}
-async function forecastConditions(lat, lon, now) {
-  const get = async url => { const r = await fetch(url, { headers: { Accept: 'application/geo+json' } }); if (!r.ok) throw new Error(`NWS ${r.status}`); return r.json(); };
-  const pt = await get(`https://api.weather.gov/points/${lat.toFixed(4)},${lon.toFixed(4)}`);
-  const grid = (await get(pt.properties.forecastGridData)).properties, t = now.getTime();
-  const kn = (seriesAt(grid.windSpeed, t) ?? 15) / 1.852, from = seriesAt(grid.windDirection, t) ?? 225;
-  const cover = seriesAt(grid.skyCover, t) ?? 30, pop = seriesAt(grid.probabilityOfPrecipitation, t) ?? 0;
-  const visKm = (seriesAt(grid.visibility, t) ?? 16000) / 1000, waveFt = (seriesAt(grid.waveHeight, t) ?? 0) * 3.281;
-  const wx = (seriesAt(grid.weather, t) || []).filter(w => w && w.weather);
-  const has = re => wx.some(w => re.test(w.weather) && !/slight_chance|chance/.test(w.coverage || ''));
-  const C = { windFrom: Math.round(from / 45) % 8 * 45 };
-  C.wind = kn < 5 ? 'calm' : kn < 12 ? 'breezy' : kn < 20 ? 'fresh' : 'rough';
-  if (waveFt >= 4 && C.wind !== 'rough') C.wind = waveFt >= 6 ? 'rough' : 'fresh';
-  const fog = has(/fog/), wet = pop >= 50 || has(/rain|drizzle|showers|thunder/);
-  C.sky = wet ? 'rain' : cover >= 80 ? 'overcast' : 'fair';
-  const visNm = visKm / 1.852;
-  C.vis = visNm < 0.5 ? 'thick' : visNm < 1 || fog ? 'fog' : visNm < 4 ? 'haze' : 'clear';
-  const sp = sunPos(lat, lon, now);
-  C.time = sp.alt < -6 ? 'night' : sp.alt < 8 ? (sp.brg < 180 ? 'dawn' : 'sunset') : 'day';
-  const hr = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-  const DIRS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
-  const skyTxt = wet ? `rain likely (${pop}%)` : fog ? 'fog' : cover >= 80 ? 'overcast' : cover >= 40 ? 'partly cloudy' : 'clear skies';
-  const note = `NWS forecast, ${hr}: ${DIRS[Math.round(from / 45) % 8]} ${Math.round(kn)} kn, ${skyTxt}, visibility ${visNm >= 10 ? '10+' : visNm.toFixed(visNm < 2 ? 1 : 0)} nm` + (waveFt ? `, seas ${Math.max(1, Math.round(waveFt))} ft` : '') + '.';
-  return { C, note };
-}
-
 // Route and motion
 const route = routeLL.map(([x, y]) => [wx(x), wz(y)]);
 const cum = [0]; for (let i = 1; i < route.length; i++) cum.push(cum[i - 1] + Math.hypot(route[i][0] - route[i - 1][0], route[i][1] - route[i - 1][1]));
@@ -1285,79 +1067,9 @@ for (const c of EYE_CHOICES) {
   b.addEventListener('click', () => setEye(c.m)); eyeBox.appendChild(b);
 }
 syncEyeButtons();
-{   // Weather (v858): a button at the end of the View buttons opens the conditions panel; N toggles night.
-  // ?time= &vis= &sky= &wind= &windFrom= in the URL (and the older ?night=1), else what you chose last.
-  const ROWS = [
-    ['time', 'Time', [['day', 'Day'], ['dawn', 'Dawn'], ['sunset', 'Sunset'], ['night', 'Night']]],
-    ['vis', 'Visibility', [['clear', 'Clear'], ['haze', 'Haze'], ['fog', 'Fog'], ['thick', 'Thick fog']]],
-    ['sky', 'Sky', [['fair', 'Fair'], ['overcast', 'Overcast'], ['rain', 'Rain']]],
-    ['wind', 'Wind', [['calm', 'Calm'], ['breezy', 'Breezy'], ['fresh', 'Fresh'], ['rough', 'Rough']]],
-  ];
-  const DIRS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
-  wxBtn = document.createElement('button'); wxBtn.type = 'button'; wxBtn.className = 'wxbtn'; wxBtn.setAttribute('aria-expanded', 'false');
-  wxBtn.title = 'Weather and time of day (N toggles night)';
-  wxBtn.addEventListener('pointerdown', e => e.stopPropagation());
-  eyeBox.appendChild(wxBtn);
-  const panel = document.createElement('div'); panel.id = 'wxpanel'; panel.hidden = true;
-  panel.addEventListener('pointerdown', e => e.stopPropagation());
-  for (const [key, label, opts] of ROWS) {
-    const row = document.createElement('div'); row.className = 'wxrow'; row.setAttribute('role', 'group'); row.setAttribute('aria-label', label);
-    row.innerHTML = `<span>${label}</span>`;
-    for (const [v, txt] of opts) {
-      const b = document.createElement('button'); b.type = 'button'; b.textContent = txt; b.dataset.k = key; b.dataset.v = v;
-      b.addEventListener('click', () => applyConditions({ [key]: v })); row.appendChild(b);
-    }
-    panel.appendChild(row);
-  }
-  const dirRow = document.createElement('div'); dirRow.className = 'wxrow'; dirRow.innerHTML = '<span>Wind from</span>';
-  const sel = document.createElement('select'); sel.setAttribute('aria-label', 'Wind direction');
-  DIRS.forEach((d, i) => { const o = document.createElement('option'); o.value = String(i * 45); o.textContent = d; sel.appendChild(o); });
-  sel.addEventListener('change', () => applyConditions({ windFrom: Number(sel.value) }));
-  const kn = document.createElement('em'); dirRow.append(sel, kn); panel.appendChild(dirRow);
-  // Forecast (v859): the National Weather Service's hourly gridpoint forecast for the middle of the
-  // route, for this hour, mapped onto the choices above. Online only; the request carries just that
-  // one position. The time of day comes from the sun's height there now.
-  const fcRow = document.createElement('div'); fcRow.className = 'wxrow wxfc';
-  const fcBtn = document.createElement('button'); fcBtn.type = 'button'; fcBtn.textContent = '⟳ Forecast now';
-  fcBtn.title = "Set the weather from the National Weather Service forecast for this route, this hour (needs internet)";
-  const fcNote = document.createElement('small'); fcNote.textContent = 'or pick conditions below';
-  fcRow.append(fcBtn, fcNote); panel.prepend(fcRow);
-  fcBtn.addEventListener('click', async () => {
-    const [lon, lat] = routeLL[Math.floor(routeLL.length / 2)];
-    fcBtn.disabled = true; fcNote.textContent = 'Asking the National Weather Service…';
-    try {
-      const { C, note } = await forecastConditions(lat, lon, new Date());
-      applyConditions(C); fcNote.textContent = note;
-    } catch (err) {
-      fcNote.textContent = navigator.onLine === false ? 'Offline: the forecast needs internet. Pick conditions below.' : `No forecast (${err.message}). Pick conditions below.`;
-    }
-    fcBtn.disabled = false;
-  });
-  sceneEl.appendChild(panel);
-  wxBtn.addEventListener('click', () => { panel.hidden = !panel.hidden; wxBtn.setAttribute('aria-expanded', String(!panel.hidden)); });
-  wxSync = () => {
-    for (const b of panel.querySelectorAll('button[data-k]')) b.classList.toggle('on', COND[b.dataset.k] === b.dataset.v);
-    sel.value = String(Math.round(COND.windFrom / 45) % 8 * 45);
-    kn.textContent = WND.kn;
-    const icon = COND.time === 'night' ? '☾' : COND.sky === 'rain' ? '🌧' : COND.vis === 'fog' || COND.vis === 'thick' ? '🌫' : COND.sky === 'overcast' ? '☁' : COND.time === 'day' ? '☀' : '🌅';
-    wxBtn.textContent = `${icon} Weather ▾`;
-    wxBtn.classList.toggle('on', COND.time !== 'day' || COND.vis !== 'clear' || COND.sky !== 'fair' || COND.wind !== 'breezy');
-  };
-  addEventListener('keydown', e => {
-    if ((e.key === 'n' || e.key === 'N') && !e.metaKey && !e.ctrlKey && !/INPUT|SELECT/.test(e.target.tagName)) applyConditions({ time: COND.time === 'night' ? 'day' : 'night' });
-  });
-  let saved = {};
-  try { saved = JSON.parse(localStorage.getItem('audiochart-helm3d-conditions') || 'null') || (localStorage.getItem('audiochart-helm3d-night') === '1' ? { time: 'night' } : {}); } catch (_) {}
-  const fromUrl = {};
-  for (const k of ['time', 'vis', 'sky', 'wind']) if (params.get(k)) fromUrl[k] = params.get(k);
-  if (params.get('windFrom')) fromUrl.windFrom = Number(params.get('windFrom'));
-  if (params.get('night') != null) fromUrl.time = params.get('night') === '1' ? 'night' : 'day';
-  const ok = { time: TIMES, vis: VIS_M, sky: { fair: 1, overcast: 1, rain: 1 }, wind: WINDS };
-  const start = { ...saved, ...fromUrl };
-  for (const k of Object.keys(ok)) if (start[k] != null && !(start[k] in ok[k])) delete start[k];
-  if (!(start.windFrom >= 0 && start.windFrom < 360)) delete start.windFrom;
-  applyConditions(start);
-}
+// Weather (v858): a button at the end of the View buttons opens the conditions panel (weather3d.js)
+wxPanel = weatherPanel({ host: eyeBox, panelParent: sceneEl, where: () => routeLL[Math.floor(routeLL.length / 2)], pick: applyConditions });
+applyConditions(startConditions(params));
 addEventListener('keydown', e => {
   if (e.key !== 'h' && e.key !== 'H') return;
   const i = EYE_CHOICES.findIndex(c => Math.abs(c.m - eyeTarget) < 0.2);
@@ -1554,10 +1266,9 @@ function frame() {
     if (m.lamp && m.fl) { const ph = (t + m.phase) % m.fl.per; m.lamp.visible = m.fl.fixed || (m.fl.iso ? ph < m.fl.per / 2 : ph < 0.45); }
   }
   updateLights(pos);
-  water.material.uniforms.time.value += dt * WND.speed;
   sky.position.set(boat.position.x, 0, boat.position.z);   // the dome travels with the boat
-  stars.position.copy(sky.position);
-  updateWeather(dt);
+  env.stars.position.copy(sky.position);
+  env.update(dt, camera, boat.position);
   renderer.render(scene, camera);
   updateLabels(pos);
   const hfov = 2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect) * 180 / Math.PI;
@@ -1658,7 +1369,7 @@ try {
   };
   ch.postMessage({ hello: true });   // ask the app where the journey is (it may already have arrived)
 } catch (_) {}
-window.__helm3d = { forecastConditions, sunPos, setNight: on => applyConditions({ time: on ? 'night' : 'day' }), applyConditions, COND, scene, renderer, camera, tiles, ferries, updateTiles, posAt, TOTAL, wx, wz, frame, setS: v => { S = v; }, setLook: (y, p) => { yawOff = y; pitch = p; }, setZoom: z => { zoom = z; } };   // console/testing hooks
+window.__helm3d = { env, setNight: on => applyConditions({ time: on ? 'night' : 'day' }), applyConditions, COND: env.C, scene, renderer, camera, tiles, ferries, updateTiles, posAt, TOTAL, wx, wz, frame, setS: v => { S = v; }, setLook: (y, p) => { yawOff = y; pitch = p; }, setZoom: z => { zoom = z; } };   // console/testing hooks
 }
 
 // No route chosen: list saved routes and the samples.
