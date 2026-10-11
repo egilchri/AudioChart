@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-10-11 — Weather in the 3D view (v858)
+
+Requested: weather for Virtual Journeys, every option. The Night button becomes
+"Weather ▾", a panel of four choices that combine (remembered; N still toggles
+night; also `?time=&vis=&sky=&wind=&windFrom=`):
+- Time: day, dawn (sun low in the east), sunset (low in the west, glitter path),
+  night (v855). Lights come on at dusk, at night and in fog.
+- Visibility: clear, haze (8 km), fog (900 m), thick fog (250 m). The scene fog,
+  sky and sea take the fog colour; charted lights and running lights carry only a
+  little beyond it; labels stop at it.
+- Sky: fair, overcast (a grey deck, flat light, no glare), rain (darker, streaks
+  slanting downwind, roughened water, visibility at most 6 km).
+- Wind: calm (sails down, glassy), breezy (as before), fresh and rough (bigger
+  waves, whitecaps drifting downwind, the boat heels 12°/18° and moves more);
+  wind direction sets the drift of clouds, foam and rain.
+Also: the pools of light from your running lights show only once it's dim.
+
 ## 2026-10-11 — Running lights you can see; no stars in the sea (v857)
 
 Requested: running lights at night. Your own boat's lights were glows a few pixels

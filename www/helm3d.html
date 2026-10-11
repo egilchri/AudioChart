@@ -56,8 +56,18 @@ kbd { font-family: var(--mono); font-size: 0.8em; border: 1px solid var(--rule);
 #eyepick span { padding: 0 6px 0 4px; letter-spacing: 0.06em; text-transform: uppercase; font-size: 0.68rem; opacity: 0.85; }
 #eyepick button { font: inherit; color: inherit; background: transparent; border: 0; border-radius: 4px; padding: 3px 8px; cursor: pointer; }
 #eyepick button.on { background: rgba(224,168,67,0.9); color: #1b2328; }
-#eyepick .nightbtn { margin-left: 4px; box-shadow: -3px 0 0 -2px rgba(230,238,241,0.35); }
-#eyepick .nightbtn.on { background: #c9d4ea; color: #0b1626; }
+#eyepick .wxbtn { margin-left: 4px; box-shadow: -3px 0 0 -2px rgba(230,238,241,0.35); }
+#eyepick .wxbtn.on { background: #c9d4ea; color: #0b1626; }
+/* Weather panel (v858): under the View row */
+#wxpanel { position: absolute; left: 12px; top: 70px; z-index: 4; display: grid; gap: 4px; background: rgba(20,34,42,0.88); border-radius: 6px; padding: 8px; font-size: 0.78rem; color: #e6eef1; max-width: calc(100% - 24px); box-sizing: border-box; }
+#wxpanel[hidden] { display: none; }
+#wxpanel .wxrow { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; }
+#wxpanel .wxrow > span { width: 5.6em; letter-spacing: 0.06em; text-transform: uppercase; font-size: 0.66rem; opacity: 0.85; }
+#wxpanel button { font: inherit; color: inherit; background: transparent; border: 0; border-radius: 4px; padding: 3px 8px; cursor: pointer; }
+#wxpanel button:hover { background: rgba(255,255,255,0.1); }
+#wxpanel button.on { background: rgba(224,168,67,0.9); color: #1b2328; }
+#wxpanel select { font: inherit; color: #1b2328; background: #e6eef1; border: 0; border-radius: 4px; padding: 2px 4px; }
+#wxpanel em { font-style: normal; opacity: 0.75; margin-left: 8px; font-family: "JetBrains Mono", monospace; font-size: 0.72rem; }
 body.embed.night { background: #0a1422; }
 #tileload { position: absolute; left: 12px; bottom: 12px; z-index: 2; font-size: 0.8rem; color: #f3f6f7; background: rgba(20,34,42,0.6); border-radius: 4px; padding: 3px 8px; }
 [hidden] { display: none !important; }
@@ -115,7 +125,7 @@ body.embed #minichart { top: auto; bottom: 12px; right: 12px; }
     <span class="badge" id="vjnote" hidden>Following Virtual Journey</span>
     <span class="badge" id="anchornote" hidden>⚓ Anchored</span>
   </div>
-  <p class="note">Drag the view to look around, scroll to zoom like binoculars, <kbd>Space</kbd> to play or pause, <kbd>H</kbd> or the View buttons to raise your eye from the helm to 20 or 60 ft, <kbd>N</kbd> or ☾ Night for a moonlit night with the lights of buoys, lighthouses, towns and boats. While a Virtual Journey of this route runs in AudioChart, this view follows it. At the end of the route the anchor goes down (click once in this window first so the browser allows the sound). Eye height 2.0 m at the tiller. Land is USGS elevation (10 m near the route, about 37 m beyond) with tree height added where the photo shows forest, since the elevation data is bare earth. Photos are a single survey summer, so moored boats and shadows are frozen in place. Buoys are drawn up to 6× real size at a distance so they stay visible. Desktop browser with WebGL needed; the first run of a route downloads 20–40 MB.</p>
+  <p class="note">Drag the view to look around, scroll to zoom like binoculars, <kbd>Space</kbd> to play or pause, <kbd>H</kbd> or the View buttons to raise your eye from the helm to 20 or 60 ft, Weather for the time of day (dawn, sunset, a moonlit night with the lights of buoys, lighthouses, towns and boats), fog, overcast or rain, and the wind and sea; <kbd>N</kbd> toggles night. While a Virtual Journey of this route runs in AudioChart, this view follows it. At the end of the route the anchor goes down (click once in this window first so the browser allows the sound). Eye height 2.0 m at the tiller. Land is USGS elevation (10 m near the route, about 37 m beyond) with tree height added where the photo shows forest, since the elevation data is bare earth. Photos are a single survey summer, so moored boats and shadows are frozen in place. Buoys are drawn up to 6× real size at a distance so they stay visible. Desktop browser with WebGL needed; the first run of a route downloads 20–40 MB.</p>
 </div>
 <script type="importmap">
 { "imports": { "three": "./js/lib/three/three.module.min.js" } }

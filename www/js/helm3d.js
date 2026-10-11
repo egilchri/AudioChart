@@ -529,14 +529,14 @@ scene.add(water);
 // behind everything; not tone-mapped, so the blue stays blue.
 const sky = new THREE.Mesh(new THREE.SphereGeometry(60000, 32, 16), new THREE.ShaderMaterial({
   side: THREE.BackSide, depthWrite: false, depthTest: false, fog: false, toneMapped: false,
-  uniforms: { zenith: { value: new THREE.Color(0x2f62a8) }, horizon: { value: HAZE.clone() }, sunDir: { value: sun.clone().normalize() }, moonK: { value: 0 } },
+  uniforms: { zenith: { value: new THREE.Color(0x2f62a8) }, horizon: { value: HAZE.clone() }, sunDir: { value: sun.clone().normalize() }, moonK: { value: 0 }, sunCol: { value: new THREE.Vector3(1, 0.95, 0.85) } },
   vertexShader: 'varying vec3 vDir; void main() { vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-  fragmentShader: `uniform vec3 zenith; uniform vec3 horizon; uniform vec3 sunDir; uniform float moonK; varying vec3 vDir;
+  fragmentShader: `uniform vec3 zenith; uniform vec3 horizon; uniform vec3 sunDir; uniform float moonK; uniform vec3 sunCol; varying vec3 vDir;
     void main() {
       float h = max(vDir.y, 0.0);
       vec3 c = mix(horizon, zenith, pow(h, 0.55));
       float g = max(dot(normalize(vDir), sunDir), 0.0);
-      c += mix(vec3(1.0, 0.95, 0.85) * (pow(g, 300.0) * 1.2 + pow(g, 12.0) * 0.12),   // the sun's glow by day
+      c += mix(sunCol * (pow(g, 300.0) * 1.2 + pow(g, 12.0) * 0.12),   // the sun's glow by day
                vec3(0.93, 0.94, 0.88) * smoothstep(0.99993, 0.99996, g) + vec3(0.55, 0.62, 0.75) * (pow(g, 2000.0) * 0.35 + pow(g, 30.0) * 0.05), moonK);   // the moon's disc and halo
 
       gl_FragColor = vec4(c, 1.0);
@@ -630,18 +630,34 @@ for (const l of lights) {
   marks.push({ g, n: l, fl, lamp, phase: 0, fixedMark: true, kind: 'light', name: l.ch });
 }
 
-// ── Night (direct request, v855): a clear night under a high moon. The sky goes dark with
-// stars and the moon (its light glitters on the water), the land is lit by moonlight only,
-// clouds clear away, and the lights come out: every charted light flashes its own rhythm and
-// colour as a glow you can see miles off, house windows light up in the towns, the ferries
-// show their windows and running lights, and your own boat shows hers (sidelights and stern
-// light under way, an all-round white light at the masthead at anchor). Each running light
-// shows only over its proper arc, as at sea. Toggled by the Night button (or N); remembered.
-const moon = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - 22), THREE.MathUtils.degToRad(180 - 150));   // 22° up, bearing 150° (theta runs from south)
-const LOOK = {
-  day:   { exp: 0.55, sky: 0xe4ecf2, gnd: 0x4a5644, hemi: 1.7, dlc: 0xfff3e0, dl: 2.1, dir: sun, haze: 0xb2cbe0, zen: 0x2f62a8, water: 0x3268a0, glint: 0xfff4e0 },
-  night: { exp: 0.55, sky: 0x8aa2c8, gnd: 0x1a2129, hemi: 0.62, dlc: 0xc6d4ee, dl: 0.75, dir: moon, haze: 0x152236, zen: 0x03070f, water: 0x0c1e33, glint: 0x37415a },
+// ── Weather and time of day (v858, direct request; grew out of Night, v855) ──
+// One set of conditions, four independent choices that combine:
+//   time  day | sunset | dawn | night   the light: sun or moon, sky colours, lights coming on
+//   vis   clear | haze | fog | thick     how far you can see (the scene fog), and how far lights and labels carry
+//   sky   fair | overcast | rain         a cloud deck, flat light, rain streaks
+//   wind  calm | breezy | fresh | rough  sea state, whitecaps, how much the boat heels and moves (windFrom: degrees)
+// At dusk, at night and in fog the lights come out: every charted light flashes its own rhythm and
+// colour as a glow, house windows light up in the towns, the ferries show their windows and running
+// lights, and your own boat shows hers (sidelights and stern light under way, an all-round white light
+// at the masthead at anchor), each over its proper arc, as at sea. Chosen from the Weather panel
+// (or N for night); remembered.
+const sunAt = (alt, brg) => new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - alt), THREE.MathUtils.degToRad(180 - brg));   // theta runs from south
+const moon = sunAt(22, 150);
+const TIMES = {
+  day:    { exp: 0.55, sky: 0xe4ecf2, gnd: 0x4a5644, hemi: 1.7, dlc: 0xfff3e0, dl: 2.1, dir: sun, haze: 0xb2cbe0, zen: 0x2f62a8, water: 0x3268a0, glint: 0xfff4e0, glow: [1, 0.95, 0.85], lights: 0, fog: 0xbcc5cc, cloud: 0xffffff, over: 0x9aa3ab, deck: 0xa9b1b8 },
+  sunset: { exp: 0.6, sky: 0xffc49a, gnd: 0x3b3631, hemi: 0.95, dlc: 0xffa055, dl: 2.0, dir: sunAt(4, 282), haze: 0xeaa47c, zen: 0x2e4a7a, water: 0x2b4a6e, glint: 0xffa860, glow: [1, 0.62, 0.32], lights: 0.55, fog: 0xbfa194, cloud: 0xffc6a0, over: 0x857a7e, deck: 0x8f8384 },
+  dawn:   { exp: 0.58, sky: 0xd9c8e2, gnd: 0x35363c, hemi: 1.0, dlc: 0xffc49a, dl: 1.7, dir: sunAt(4, 72), haze: 0xe8bfb2, zen: 0x35558c, water: 0x2c4c72, glint: 0xffcf9c, glow: [1, 0.78, 0.58], lights: 0.35, fog: 0xc4b8b6, cloud: 0xffd9cc, over: 0x8c8a93, deck: 0x9a96a0 },
+  night:  { exp: 0.55, sky: 0x8aa2c8, gnd: 0x1a2129, hemi: 0.62, dlc: 0xc6d4ee, dl: 0.75, dir: moon, haze: 0x152236, zen: 0x03070f, water: 0x0c1e33, glint: 0x37415a, glow: [0, 0, 0], lights: 1, fog: 0x1a2330, cloud: 0x3a4250, over: 0x0f141b, deck: 0x151a21 },
 };
+const VIS_M = { clear: 26000, haze: 8000, fog: 900, thick: 250 };   // metres to where the fog is ~98% thick
+const WINDS = {
+  calm:   { dist: 0.5, size: 8, speed: 0.35, heel: 0, move: 0.35, foam: 0, kn: '0–4 kn' },
+  breezy: { dist: 1.2, size: 6, speed: 0.6, heel: 5, move: 1, foam: 0, kn: '5–11 kn' },
+  fresh:  { dist: 2.2, size: 4, speed: 0.9, heel: 12, move: 1.8, foam: 0.55, kn: '12–19 kn' },
+  rough:  { dist: 3.4, size: 2.6, speed: 1.3, heel: 18, move: 3, foam: 1, kn: '20+ kn' },
+};
+const COND = { time: 'day', vis: 'clear', sky: 'fair', wind: 'breezy', windFrom: 225 };
+let lightsK = 0, visM = VIS_M.clear, WND = WINDS.breezy;
 const stars = (() => {   // ~2,500 stars above the horizon, a few bright, fixed to the sky dome
   const n = 2500, pos = new Float32Array(n * 3), col = new Float32Array(n * 3);
   let sd = 7; const rr = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
@@ -654,10 +670,60 @@ const stars = (() => {   // ~2,500 stars above the horizon, a few bright, fixed 
   geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
   const p = new THREE.Points(geo, new THREE.PointsMaterial({ size: 1.6, sizeAttenuation: false, vertexColors: true, fog: false, toneMapped: false, depthWrite: false }));
   p.renderOrder = -0.5; p.frustumCulled = false; p.visible = false; scene.add(p);
-  // not in the water's reflection: ripples break starlight up, so stars don't show on the sea
-  { const mirror = water.onBeforeRender; water.onBeforeRender = (...a) => { const v = p.visible; p.visible = false; mirror(...a); p.visible = v; }; }
   return p;
 })();
+// Overcast: a solid deck above the broken clouds, which turn grey under it
+const deck = new THREE.Mesh(new THREE.PlaneGeometry(90000, 90000), new THREE.MeshBasicMaterial({ color: 0xa9b1b8, side: THREE.DoubleSide, fog: true, toneMapped: false }));
+deck.rotation.x = Math.PI / 2; deck.position.y = 1800; deck.visible = false; scene.add(deck);
+// Whitecaps (fresh and rough): sparse white flecks over a disc round the boat, fading out with
+// distance, fixed to the water (the disc moves in whole texture tiles) and drifting downwind.
+const FOAM_TILE = 24;
+const foam = (() => {
+  const N = 256, img = new ImageData(N, N);
+  let sd = 3; const rr = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+  const sm = t => t * t * (3 - 2 * t);
+  const oct = [[16, 0.55], [48, 0.3], [96, 0.15]].map(([L, w]) => ({ L, w, g: Float32Array.from({ length: L * L }, rr) }));
+  const noise = (x, y) => {   // periodic value noise over three octaves: crests broken into small, ragged patches
+    let v = 0;
+    for (const { L, w, g } of oct) {
+      const at = (i, j) => g[((j % L) + L) % L * L + ((i % L) + L) % L];
+      const fx = x / N * L, fy = y / N * L, x0 = Math.floor(fx), y0 = Math.floor(fy), tx = sm(fx - x0), ty = sm(fy - y0);
+      const a = at(x0, y0) + (at(x0 + 1, y0) - at(x0, y0)) * tx, b = at(x0, y0 + 1) + (at(x0 + 1, y0 + 1) - at(x0, y0 + 1)) * tx;
+      v += (a + (b - a) * ty) * w;
+    }
+    return v;
+  };
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const v = noise(x, y), o = (y * N + x) * 4, k = Math.max(0, Math.min(1, (v - 0.74) / 0.06)) * (0.5 + 0.5 * rr());
+    img.data[o] = img.data[o + 1] = img.data[o + 2] = 255; img.data[o + 3] = k * 255;
+  }
+  const cv = document.createElement('canvas'); cv.width = cv.height = N; cv.getContext('2d').putImageData(img, 0, 0);
+  const tex = new THREE.CanvasTexture(cv); tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  const R = 1400, geo = new THREE.CircleGeometry(R, 48, 0, Math.PI * 2);
+  geo.rotateX(-Math.PI / 2);
+  const p = geo.attributes.position, uv = geo.attributes.uv, cols = new Float32Array(p.count * 4);
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), z = p.getZ(i);
+    uv.setXY(i, x / FOAM_TILE, -z / FOAM_TILE);
+    cols.set([1, 1, 1, Math.max(0, 1 - Math.hypot(x, z) / R) ** 1.5], i * 4);
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(cols, 4));
+  const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: tex, vertexColors: true, transparent: true, depthWrite: false, fog: true, toneMapped: false }));
+  m.position.y = 0.06; m.renderOrder = 1; m.visible = false; scene.add(m);
+  return m;
+})();
+// Rain: short falling streaks in a box round the eye, slanting downwind
+const RAIN_N = 1600;
+const rain = (() => {
+  const geo = new THREE.BufferGeometry(), pos = new Float32Array(RAIN_N * 6);
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const m = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: 0xc6d0da, transparent: true, opacity: 0.38, fog: false, depthWrite: false, toneMapped: false }));
+  m.frustumCulled = false; m.visible = false; scene.add(m);
+  m.userData.drops = Float32Array.from({ length: RAIN_N * 3 }, (_, i) => i % 3 === 1 ? Math.random() * 60 : (Math.random() - 0.5) * 80);
+  return m;
+})();
+// none of these show in the water's reflection: ripples break starlight up, and the foam and rain are on or over it
+{ const mirror = water.onBeforeRender; water.onBeforeRender = (...a) => { const v = [stars.visible, foam.visible, rain.visible]; stars.visible = foam.visible = rain.visible = false; mirror(...a); [stars.visible, foam.visible, rain.visible] = v; }; }
 const GLOW = (() => {   // a soft round glow, tinted per light
   const cv = document.createElement('canvas'); cv.width = cv.height = 64; const c = cv.getContext('2d');
   const gr = c.createRadialGradient(32, 32, 0, 32, 32, 32);
@@ -694,7 +760,7 @@ function ownLight(at, color, toward, arc, pool, when) {
   lamp.position.set(...at); lamp.visible = false; bow.add(lamp); nightOnly.push({ o: lamp, when });
   if (pool) {   // [x, z, size]: on the water, in the boat's frame
     const m = new THREE.Mesh(new THREE.PlaneGeometry(pool[2], pool[2]), new THREE.MeshBasicMaterial({ map: POOL, color, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
-    m.rotation.x = -Math.PI / 2; m.position.set(pool[0], 0.12, pool[1]); m.visible = false; m.renderOrder = 2; boat.add(m); nightOnly.push({ o: m, when });
+    m.rotation.x = -Math.PI / 2; m.position.set(pool[0], 0.12, pool[1]); m.visible = false; m.renderOrder = 2; boat.add(m); nightOnly.push({ o: m, when, pool: true });
   }
 }
 const SIDE = 112.5 / 2;   // each sidelight shows from dead ahead to 22.5° abaft the beam
@@ -703,39 +769,68 @@ ownLight([-0.45, 1.68, -4.75], 0xff2a1e, -SIDE, SIDE, [-2.2, -5, 5], underWay); 
 ownLight([0.45, 1.68, -4.75], 0x2bff6a, SIDE, SIDE, [2.2, -5, 5], underWay);      // starboard sidelight, green
 ownLight([0, 1.56, 2.66], 0xfff2d6, 180, 67.5, [0, 5, 6], underWay);             // stern light
 ownLight([0, 10.6, -2.75], 0xfff2d6, 0, 180, [0, -1, 14], atAnchor);               // anchor light at the masthead
-const litMats = [];
-let nightBtn = null;   // materials with an emissive glow that comes on at night (ferry windows)
-let night = false;
+const litMats = [];   // materials with an emissive glow that comes on with the lights (ferry windows)
+let wxBtn = null, wxSync = () => {};
 for (const m of marks) if (m.lamp) {   // a glow on every charted light, over its lamp
   m.glow = glowSprite(m.fl?.col ?? 0xfff6d8, m.kind === 'light' ? 0.03 : 0.02);
   m.range = (m.kind === 'light' ? 9 : 3.5) * NM;
   scene.add(m.glow);
 }
-function setNight(on) {
-  night = on;
-  const L = on ? LOOK.night : LOOK.day;
-  renderer.toneMappingExposure = L.exp;
-  hemi.color.setHex(L.sky); hemi.groundColor.setHex(L.gnd); hemi.intensity = L.hemi;
-  dl.color.setHex(L.dlc); dl.intensity = L.dl; dl.position.copy(L.dir).multiplyScalar(1000);
-  scene.fog.color.setHex(L.haze);
-  sky.material.uniforms.horizon.value.setHex(L.haze); sky.material.uniforms.zenith.value.setHex(L.zen);
-  sky.material.uniforms.sunDir.value.copy(L.dir).normalize(); sky.material.uniforms.moonK.value = on ? 1 : 0;
+const _col = h => new THREE.Color(h);
+function applyConditions(next = {}) {
+  Object.assign(COND, next);
+  const T = TIMES[COND.time] || TIMES.day, over = COND.sky !== 'fair', wet = COND.sky === 'rain', night = COND.time === 'night';
+  WND = WINDS[COND.wind] || WINDS.breezy;
+  visM = Math.min(VIS_M[COND.vis] || VIS_M.clear, wet ? 6000 : Infinity);
+  const foggy = visM < 2000;
+  // lights: at dusk and night, and (as vessels must) in fog
+  lightsK = Math.max(T.lights, foggy ? 0.6 : 0, wet && !night ? 0.2 : 0);
+  renderer.toneMappingExposure = T.exp;
+  // what you see in the distance, and the sky over it
+  const fogC = _col(foggy || over ? T.fog : T.haze); if (wet) fogC.multiplyScalar(0.85);
+  const zen = _col(over ? T.over : T.zen); if (wet) zen.multiplyScalar(0.75);
+  if (foggy) zen.lerp(fogC, 0.85);
+  scene.fog.color.copy(fogC); scene.fog.density = 1.98 / visM;
+  const su = sky.material.uniforms;
+  su.horizon.value.copy(fogC); su.zenith.value.copy(zen);
+  su.sunDir.value.copy(T.dir).normalize();
+  su.moonK.value = night && !over && !foggy ? 1 : 0;
+  su.sunCol.value.fromArray(over || foggy ? [0, 0, 0] : T.glow);
+  // light: flat and dim under cloud, softer in fog
+  hemi.color.setHex(T.sky); hemi.groundColor.setHex(T.gnd); hemi.intensity = T.hemi * (over ? (wet ? 0.95 : 1.1) : 1);
+  dl.color.setHex(T.dlc); dl.intensity = T.dl * (over ? 0.25 : 1) * (foggy ? 0.5 : 1); dl.position.copy(T.dir).multiplyScalar(1000);
+  // clouds: broken fair-weather cloud by day; a grey deck when overcast; none in fog or on a clear night
+  clouds.visible = !foggy && (over || !night);
+  clouds.material.color.set(over ? _col(T.deck).multiplyScalar(wet ? 0.7 : 0.85) : _col(T.cloud));
+  deck.visible = over && !foggy; deck.material.color.set(_col(T.deck).multiplyScalar(wet ? 0.8 : 1));
+  stars.visible = night && !over && !foggy;
+  // the sea
   const wu = water.material.uniforms;
-  wu.waterColor.value.setHex(L.water); wu.sunColor.value.setHex(L.glint); wu.sunDirection.value.copy(L.dir).normalize();
-  clouds.visible = !on; stars.visible = on;
-  TOWN_NIGHT.value = on ? 1 : 0;
-  for (const m of litMats) m.emissiveIntensity = on ? 1 : 0;
-  if (!on) { for (const r of runLights) r.sp.visible = false; for (const n of nightOnly) n.o.visible = false; for (const m of marks) if (m.glow) m.glow.visible = false; }
-  document.body.classList.toggle('night', on);
-  nightBtn?.classList.toggle('on', on);
+  wu.waterColor.value.set(_col(T.water).lerp(_col(night ? 0x0c1218 : 0x4b5862), over ? 0.35 : 0).lerp(fogC, foggy ? 0.3 : 0));
+  wu.sunColor.value.set(_col(T.glint).multiplyScalar((over ? 0.12 : 1) * (foggy ? 0.3 : 1)));
+  wu.sunDirection.value.copy(T.dir).normalize();
+  wu.distortionScale.value = WND.dist + (wet ? 0.8 : 0); wu.size.value = WND.size;
+  foam.visible = WND.foam > 0; foam.material.color.set(_col(0xffffff).multiplyScalar(night ? 0.3 : T.lights ? 0.75 : 1)); foam.material.opacity = WND.foam * 0.8;
+  for (const n of nightOnly) if (n.pool) n.o.material.opacity = 0.4 * Math.max(0, (lightsK - 0.3) / 0.7);   // pools of light only show once it's dim
+  rain.visible = wet; rain.material.color.setHex(night ? 0x5d6672 : 0xc6d0da);
+  // the lights
+  TOWN_NIGHT.value = lightsK;
+  for (const m of litMats) m.emissiveIntensity = lightsK;
+  const lo = Math.min(1, lightsK * 1.4);
+  for (const r of runLights) r.sp.material.opacity = lo;
+  if (!lightsK) { for (const r of runLights) r.sp.visible = false; for (const n of nightOnly) n.o.visible = false; for (const m of marks) if (m.glow) m.glow.visible = false; }
+  document.body.classList.toggle('night', night);
+  try { localStorage.setItem('audiochart-helm3d-conditions', JSON.stringify(COND)); } catch (_) {}
+  wxSync();
 }
 const _p = new THREE.Vector3(), _c = new THREE.Vector3(), _d = new THREE.Vector3();
-function updateNight(pos) {   // after the boat and ferries have moved, before the render
-  if (!night) return;
+function updateLights(pos) {   // after the boat and ferries have moved, before the render
+  if (!lightsK) return;
   camera.getWorldPosition(_c);
+  const lk = Math.min(1, lightsK * 1.4), carry = visM * 1.6;   // in fog a light shows a little beyond where land does
   for (const m of marks) {
     if (!m.glow) continue;
-    const d = Math.hypot(m.g.position.x - pos[0], m.g.position.z - pos[1]), k = Math.min(1, 1.25 - d / m.range);
+    const range = Math.min(m.range, carry), d = Math.hypot(m.g.position.x - pos[0], m.g.position.z - pos[1]), k = Math.min(1, 1.25 - d / range) * lk;
     m.glow.visible = m.lamp.visible && k > 0;
     if (m.glow.visible) { m.lamp.getWorldPosition(m.glow.position); m.glow.material.opacity = k; }
   }
@@ -745,7 +840,26 @@ function updateNight(pos) {   // after the boat and ferries have moved, before t
     if (!par || (r.when && !r.when())) { r.sp.visible = false; continue; }
     r.sp.getWorldPosition(_p); _d.copy(r.dir).transformDirection(par.matrixWorld);
     const tx = _c.x - _p.x, tz = _c.z - _p.z, l = Math.hypot(tx, tz) || 1, dl2 = Math.hypot(_d.x, _d.z) || 1;
-    r.sp.visible = r.cos <= -0.999 || (tx * _d.x + tz * _d.z) / (l * dl2) >= r.cos;
+    r.sp.visible = l < carry && (r.cos <= -0.999 || (tx * _d.x + tz * _d.z) / (l * dl2) >= r.cos);
+  }
+}
+function updateWeather(dt) {
+  const to = THREE.MathUtils.degToRad(COND.windFrom + 180), wxv = Math.sin(to), wzv = -Math.cos(to);   // the way the wind blows, in x (east) and z (south)
+  clouds.material.map.offset.x += dt * 0.0004 * wxv; clouds.material.map.offset.y += dt * 0.0004 * wzv;
+  if (foam.visible) {
+    foam.position.x = Math.round(boat.position.x / FOAM_TILE) * FOAM_TILE; foam.position.z = Math.round(boat.position.z / FOAM_TILE) * FOAM_TILE;
+    foam.material.map.offset.x -= dt * 0.012 * wxv; foam.material.map.offset.y += dt * 0.012 * wzv;
+  }
+  if (rain.visible) {
+    camera.getWorldPosition(_c);
+    const d = rain.userData.drops, pos = rain.geometry.attributes.position.array, top = _c.y + 25, sl = 0.08 + WND.move * 0.06;
+    for (let i = 0; i < RAIN_N; i++) {
+      let y = d[i * 3 + 1] - dt * 9; if (y < 0) y += top;
+      d[i * 3 + 1] = y;
+      const x = _c.x + d[i * 3], z = _c.z + d[i * 3 + 2];
+      pos.set([x, y, z, x - wxv * sl * 6, y + 0.7, z - wzv * sl * 6], i * 6);
+    }
+    rain.geometry.attributes.position.needsUpdate = true;
   }
 }
 
@@ -805,7 +919,7 @@ function ferryModel(F) {   // a Maine State Ferry Service car ferry: bow toward 
   })();
   const house = (w, h, len, x, y, z, windows) => {
     const rep = t => { t = t.clone(); t.needsUpdate = true; t.repeat.set(Math.max(1, Math.round(len / 4)), 1); return t; };
-    const sideMat = windows ? new THREE.MeshLambertMaterial({ map: rep(winTex), emissive: 0xffd9a0, emissiveMap: rep(winLit), emissiveIntensity: night ? 1 : 0 }) : white;
+    const sideMat = windows ? new THREE.MeshLambertMaterial({ map: rep(winTex), emissive: 0xffd9a0, emissiveMap: rep(winLit), emissiveIntensity: lightsK }) : white;
     if (windows) litMats.push(sideMat);
     const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, len), [sideMat, sideMat, white, white, white, white]);
     m.position.set(x, y + h / 2, z); g.add(m); return m;
@@ -968,16 +1082,16 @@ function updateLabels(pos) {
   if (lblFrame++ % 8 === 0) {   // sight-line checks are the costly part; refresh a few times a second
     const cand = [];
     for (const p of placeLabels) {
-      const d = Math.hypot(p.w[0] - pos[0], p.w[1] - pos[1]); if (d > (p.t === 'SUMMIT' ? 10 : 5) * NM || d < 60) continue;
+      const d = Math.hypot(p.w[0] - pos[0], p.w[1] - pos[1]); if (d > Math.min((p.t === 'SUMMIT' ? 10 : 5) * NM, visM * 1.2) || d < 60) continue;
       cand.push({ text: p.n, v: new THREE.Vector3(p.w[0], p.h + 8, p.w[1]), d: p.t === 'SUMMIT' ? d * 0.4 : d, cls: '', w: p.w, h: p.h });   // summits win a place among the labels
     }
     for (const m of marks) {
       if (m.kind !== 'buoy' || !m.num) continue;
-      const d = Math.hypot(m.g.position.x - pos[0], m.g.position.z - pos[1]); if (d > 1.3 * NM) continue;
+      const d = Math.hypot(m.g.position.x - pos[0], m.g.position.z - pos[1]); if (d > Math.min(1.3 * NM, visM * 1.2)) continue;
       cand.push({ text: `"${m.num}"`, v: new THREE.Vector3(m.g.position.x, 5.5, m.g.position.z), d, cls: 'buoy', w: [m.g.position.x, m.g.position.z], h: 3 });
     }
     for (const fy of ferries) {
-      const fp = fy.group.position, d = Math.hypot(fp.x - pos[0], fp.z - pos[1]); if (d > 3 * NM) continue;
+      const fp = fy.group.position, d = Math.hypot(fp.x - pos[0], fp.z - pos[1]); if (d > Math.min(3 * NM, visM * 1.2)) continue;
       cand.push({ text: fy.label, v: new THREE.Vector3(fp.x, 12, fp.z), d: d * 0.5, cls: '', w: [fp.x, fp.z], h: 8 });
     }
     cand.sort((a, b) => a.d - b.d);
@@ -1127,16 +1241,59 @@ for (const c of EYE_CHOICES) {
   b.addEventListener('click', () => setEye(c.m)); eyeBox.appendChild(b);
 }
 syncEyeButtons();
-{   // Night (v855): a toggle at the end of the View buttons; ?night=1 or 0 in the URL, else remembered
-  nightBtn = document.createElement('button'); nightBtn.type = 'button'; nightBtn.className = 'nightbtn'; nightBtn.textContent = '☾ Night';
-  nightBtn.title = 'Night: moonlight, stars, and the lights of buoys, lighthouses, towns and boats (N)';
-  nightBtn.addEventListener('pointerdown', e => e.stopPropagation());
-  const toggle = () => { setNight(!night); try { localStorage.setItem('audiochart-helm3d-night', night ? '1' : '0'); } catch (_) {} };
-  nightBtn.addEventListener('click', toggle); eyeBox.appendChild(nightBtn);
-  addEventListener('keydown', e => { if ((e.key === 'n' || e.key === 'N') && !e.metaKey && !e.ctrlKey && e.target.tagName !== 'INPUT') toggle(); });
-  let want = params.get('night');
-  if (want == null) { try { want = localStorage.getItem('audiochart-helm3d-night'); } catch (_) {} }
-  setNight(want === '1');
+{   // Weather (v858): a button at the end of the View buttons opens the conditions panel; N toggles night.
+  // ?time= &vis= &sky= &wind= &windFrom= in the URL (and the older ?night=1), else what you chose last.
+  const ROWS = [
+    ['time', 'Time', [['day', 'Day'], ['dawn', 'Dawn'], ['sunset', 'Sunset'], ['night', 'Night']]],
+    ['vis', 'Visibility', [['clear', 'Clear'], ['haze', 'Haze'], ['fog', 'Fog'], ['thick', 'Thick fog']]],
+    ['sky', 'Sky', [['fair', 'Fair'], ['overcast', 'Overcast'], ['rain', 'Rain']]],
+    ['wind', 'Wind', [['calm', 'Calm'], ['breezy', 'Breezy'], ['fresh', 'Fresh'], ['rough', 'Rough']]],
+  ];
+  const DIRS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+  wxBtn = document.createElement('button'); wxBtn.type = 'button'; wxBtn.className = 'wxbtn'; wxBtn.setAttribute('aria-expanded', 'false');
+  wxBtn.title = 'Weather and time of day (N toggles night)';
+  wxBtn.addEventListener('pointerdown', e => e.stopPropagation());
+  eyeBox.appendChild(wxBtn);
+  const panel = document.createElement('div'); panel.id = 'wxpanel'; panel.hidden = true;
+  panel.addEventListener('pointerdown', e => e.stopPropagation());
+  for (const [key, label, opts] of ROWS) {
+    const row = document.createElement('div'); row.className = 'wxrow'; row.setAttribute('role', 'group'); row.setAttribute('aria-label', label);
+    row.innerHTML = `<span>${label}</span>`;
+    for (const [v, txt] of opts) {
+      const b = document.createElement('button'); b.type = 'button'; b.textContent = txt; b.dataset.k = key; b.dataset.v = v;
+      b.addEventListener('click', () => applyConditions({ [key]: v })); row.appendChild(b);
+    }
+    panel.appendChild(row);
+  }
+  const dirRow = document.createElement('div'); dirRow.className = 'wxrow'; dirRow.innerHTML = '<span>Wind from</span>';
+  const sel = document.createElement('select'); sel.setAttribute('aria-label', 'Wind direction');
+  DIRS.forEach((d, i) => { const o = document.createElement('option'); o.value = String(i * 45); o.textContent = d; sel.appendChild(o); });
+  sel.addEventListener('change', () => applyConditions({ windFrom: Number(sel.value) }));
+  const kn = document.createElement('em'); dirRow.append(sel, kn); panel.appendChild(dirRow);
+  sceneEl.appendChild(panel);
+  wxBtn.addEventListener('click', () => { panel.hidden = !panel.hidden; wxBtn.setAttribute('aria-expanded', String(!panel.hidden)); });
+  wxSync = () => {
+    for (const b of panel.querySelectorAll('button[data-k]')) b.classList.toggle('on', COND[b.dataset.k] === b.dataset.v);
+    sel.value = String(Math.round(COND.windFrom / 45) % 8 * 45);
+    kn.textContent = WND.kn;
+    const icon = COND.time === 'night' ? '☾' : COND.sky === 'rain' ? '🌧' : COND.vis === 'fog' || COND.vis === 'thick' ? '🌫' : COND.sky === 'overcast' ? '☁' : COND.time === 'day' ? '☀' : '🌅';
+    wxBtn.textContent = `${icon} Weather ▾`;
+    wxBtn.classList.toggle('on', COND.time !== 'day' || COND.vis !== 'clear' || COND.sky !== 'fair' || COND.wind !== 'breezy');
+  };
+  addEventListener('keydown', e => {
+    if ((e.key === 'n' || e.key === 'N') && !e.metaKey && !e.ctrlKey && !/INPUT|SELECT/.test(e.target.tagName)) applyConditions({ time: COND.time === 'night' ? 'day' : 'night' });
+  });
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem('audiochart-helm3d-conditions') || 'null') || (localStorage.getItem('audiochart-helm3d-night') === '1' ? { time: 'night' } : {}); } catch (_) {}
+  const fromUrl = {};
+  for (const k of ['time', 'vis', 'sky', 'wind']) if (params.get(k)) fromUrl[k] = params.get(k);
+  if (params.get('windFrom')) fromUrl.windFrom = Number(params.get('windFrom'));
+  if (params.get('night') != null) fromUrl.time = params.get('night') === '1' ? 'night' : 'day';
+  const ok = { time: TIMES, vis: VIS_M, sky: { fair: 1, overcast: 1, rain: 1 }, wind: WINDS };
+  const start = { ...saved, ...fromUrl };
+  for (const k of Object.keys(ok)) if (start[k] != null && !(start[k] in ok[k])) delete start[k];
+  if (!(start.windFrom >= 0 && start.windFrom < 360)) delete start.windFrom;
+  applyConditions(start);
 }
 addEventListener('keydown', e => {
   if (e.key !== 'h' && e.key !== 'H') return;
@@ -1312,16 +1469,16 @@ function frame() {
   if (t - lastTileCheck > 0.5) { lastTileCheck = t; updateTiles(pos[0], pos[1]); }
   smoothCourse = smoothCourse == null ? course : smoothCourse + (((course - smoothCourse + 540) % 360) - 180) * Math.min(1, dt * 1.5);
   const look = smoothCourse + yawOff;
-  const bob = Math.sin(t * 1.1) * 0.12 + Math.sin(t * 0.63 + 1) * 0.08;
+  const mv = WND.move, bob = (Math.sin(t * 1.1) * 0.12 + Math.sin(t * 0.63 + 1) * 0.08) * mv;
   boat.position.set(pos[0], bob, pos[1]);
   updateFerries(t);
   camera.fov = 55 / zoom; camera.updateProjectionMatrix();
-  const roll = Math.sin(t * 0.9) * 0.012;
-  const wantSails = eyeH > 24 && anchor.state === 'up';
+  const roll = Math.sin(t * 0.9) * 0.012 * Math.pow(mv, 0.8);
+  const wantSails = eyeH > 24 && anchor.state === 'up' && WND.heel > 0;
   if (wantSails !== sailsUp) { sailsUp = wantSails; setSails(sailsUp); }
-  heel += ((sailsUp ? THREE.MathUtils.degToRad(5) : 0) - heel) * Math.min(1, dt * 0.8);   // heeling to port
+  heel += ((sailsUp ? THREE.MathUtils.degToRad(WND.heel) : 0) - heel) * Math.min(1, dt * 0.8);   // heeling to port
   bow.rotation.z = heel;   // the hull heels; the camera (a child of boat, not bow) stays level
-  boat.rotation.set(Math.sin(t * 0.7) * 0.012, -THREE.MathUtils.degToRad(smoothCourse), roll * 2, 'YXZ');
+  boat.rotation.set((Math.sin(t * 0.7) * 0.012 + Math.sin(t * 0.45 + 2) * 0.01 * Math.max(0, mv - 1)) * mv, -THREE.MathUtils.degToRad(smoothCourse), roll * 2, 'YXZ');
   const ease = camK * camK * (3 - 2 * camK);
   // viewpoint height (Helm / 20 ft / 60 ft), eased so changes glide
   eyeH += (eyeTarget - eyeH) * Math.min(1, dt * 2.5);
@@ -1333,11 +1490,11 @@ function frame() {
     if (!m.fixedMark) { const d = Math.hypot(m.g.position.x - pos[0], m.g.position.z - pos[1]); m.g.scale.setScalar(Math.max(1, Math.min(6, d / 150))); m.g.position.y = Math.sin(t * 1.4 + m.phase) * 0.18; m.g.rotation.z = Math.sin(t * 1.1 + m.phase) * 0.06; m.g.rotation.x = Math.cos(t * 0.9 + m.phase) * 0.05; }
     if (m.lamp && m.fl) { const ph = (t + m.phase) % m.fl.per; m.lamp.visible = m.fl.fixed || (m.fl.iso ? ph < m.fl.per / 2 : ph < 0.45); }
   }
-  updateNight(pos);
-  water.material.uniforms.time.value += dt * 0.6;
+  updateLights(pos);
+  water.material.uniforms.time.value += dt * WND.speed;
   sky.position.set(boat.position.x, 0, boat.position.z);   // the dome travels with the boat
   stars.position.copy(sky.position);
-  clouds.material.map.offset.x += dt * 0.0004; clouds.material.map.offset.y += dt * 0.00015;   // drifting on a light westerly
+  updateWeather(dt);
   renderer.render(scene, camera);
   updateLabels(pos);
   const hfov = 2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect) * 180 / Math.PI;
@@ -1438,7 +1595,7 @@ try {
   };
   ch.postMessage({ hello: true });   // ask the app where the journey is (it may already have arrived)
 } catch (_) {}
-window.__helm3d = { setNight, scene, renderer, camera, tiles, ferries, updateTiles, posAt, TOTAL, wx, wz, frame, setS: v => { S = v; }, setLook: (y, p) => { yawOff = y; pitch = p; }, setZoom: z => { zoom = z; } };   // console/testing hooks
+window.__helm3d = { setNight: on => applyConditions({ time: on ? 'night' : 'day' }), applyConditions, COND, scene, renderer, camera, tiles, ferries, updateTiles, posAt, TOTAL, wx, wz, frame, setS: v => { S = v; }, setLook: (y, p) => { yawOff = y; pitch = p; }, setZoom: z => { zoom = z; } };   // console/testing hooks
 }
 
 // No route chosen: list saved routes and the samples.
