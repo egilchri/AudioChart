@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-11 — 3D view sails at your boat's speed; slower paces (v862)
+
+Reported: the 3D view's Pace said "6 kn" though the boat is set to 5 kn, and it
+offered nothing slower than × 20. Play now uses the boat speed from AudioChart's
+settings (audiochart-last-speed, the one Virtual Journeys use; 5 kn if unset),
+and Pace offers real time, × 5, × 20, × 60 and × 200 (remembered). The ferries'
+timing uses the same speed.
+
 ## 2026-10-11 — 3D journey controls no longer overlap (v861)
 
 Reported: on the Virtual Journey screen the control windows on the left

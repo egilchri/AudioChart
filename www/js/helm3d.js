@@ -227,6 +227,8 @@ if (!ROUTE) { showChooser(); return; }
 document.title = `${ROUTE.name} · 3D`;
 document.getElementById('route-name').textContent = ROUTE.name;
 const routeLL = ROUTE.points;
+// your boat's speed from AudioChart's settings (the same one a Virtual Journey uses), else 5 kn (v862)
+const BOAT_KN = (() => { let v = NaN; try { v = parseFloat(localStorage.getItem('audiochart-last-speed')); } catch (_) {} return v > 0 && v < 40 ? v : 5; })();
 const routeW = routeLL.map(([x, y]) => [wx(x), wz(y)]);
 const regionDir = await regionFor(routeLL[0][0], routeLL[0][1]);
 setStatus('Loading chart data…');
@@ -708,7 +710,7 @@ function courseAt(s) {   // degrees true, from a short look-ahead so turns are s
 // North Haven ferry line (data/ferries.json, from OpenStreetMap), a ferry is staged to come by:
 // across your bow about 400 m ahead if you cross its line, or meeting you port to port if you run
 // along it. Where it is depends only on how far you have sailed (S), at its own speed against the
-// boat's 6 kn, so it keeps its place with Play, the slider and a Virtual Journey alike. Before its
+// boat's speed (BOAT_KN), so it keeps its place with Play, the slider and a Virtual Journey alike. Before its
 // time it waits at its terminal; after, it lies at the other one. Near the meeting its path is
 // eased off the charted line toward you (so it passes close enough to see from the Drone view),
 // back onto the line within a couple of kilometres either way, so it still leaves and reaches
@@ -841,7 +843,7 @@ function setupFerries(data) {
     const [ax, az] = posAt(c.s - 60), [bx, bz] = posAt(c.s + 60), bl = Math.hypot(bx - ax, bz - az) || 1, ux = (bx - ax) / bl, uz = (bz - az) / bl;
     const T0 = ferryAt(fy, c.f), along = ux * T0.tx + uz * T0.tz;   // +1: the boat heads the way the line runs (out from Rockland)
     const portX = uz, portZ = -ux;   // the boat's port side there
-    fy.k = F.knots / 6; fy.f0 = c.f; fy.off = [0, 0];
+    fy.k = F.knots / BOAT_KN; fy.f0 = c.f; fy.off = [0, 0];
     if (Math.abs(along) > 0.8) {   // running along it: meet head-on, passing port to port at least 200 m off
       fy.dir = along > 0 ? -1 : 1; fy.sCross = c.s;
       fy.off = [c.x - T0.x + portX * 220, c.z - T0.z + portZ * 220];   // through the spot 220 m off your port side
@@ -873,6 +875,13 @@ function updateFerries(t) {
 let S = (Number(params.get('start')) || 0.05) * NM, playing = false, yawOff = 0, pitch = -1.2, zoom = 1, smoothCourse = null;
 const posEl = document.getElementById('pos'); posEl.max = (TOTAL / NM).toFixed(3); posEl.value = (S / NM).toFixed(3);
 const playBtn = document.getElementById('play'), speedEl = document.getElementById('speed');
+{   // Pace: your boat's speed, from real time up to 200 times as fast; the choice is remembered (v862)
+  const kn = String(Math.round(BOAT_KN * 10) / 10);
+  speedEl.innerHTML = [[1, 'real time'], [5, '× 5'], [20, '× 20'], [60, '× 60'], [200, '× 200']].map(([v, t]) => `<option value="${v}">${kn} kn ${t}</option>`).join('');
+  let pace = '60'; try { pace = localStorage.getItem('audiochart-helm3d-pace') || pace; } catch (_) {}
+  speedEl.value = [...speedEl.options].some(o => o.value === pace) ? pace : '60';
+  speedEl.addEventListener('change', () => { try { localStorage.setItem('audiochart-helm3d-pace', speedEl.value); } catch (_) {} });
+}
 const setPlaying = on => { playing = on; playBtn.innerHTML = on ? '&#10074;&#10074; Pause' : '&#9654; Play'; if (on && S >= TOTAL - 1) S = 0; };
 playBtn.addEventListener('click', () => setPlaying(!playing));
 posEl.addEventListener('input', () => { S = Number(posEl.value) * NM; smoothCourse = null; });
@@ -1236,7 +1245,7 @@ function frame() {
     S = Math.abs(target - S) > 500 ? target : S + (target - S) * Math.min(1, dt * 2);
     posEl.value = (S / NM).toFixed(3);
   }
-  else if (playing) { S += dt * 6 * NM / 3600 * Number(speedEl.value); if (S >= TOTAL) { S = TOTAL; setPlaying(false); } posEl.value = (S / NM).toFixed(3); }
+  else if (playing) { S += dt * BOAT_KN * NM / 3600 * Number(speedEl.value); if (S >= TOTAL) { S = TOTAL; setPlaying(false); } posEl.value = (S / NM).toFixed(3); }
   if (anchor.state === 'up' && S >= TOTAL - 1) arrive();
   else if (anchor.state !== 'up' && S < TOTAL - 50) raiseAnchor();
   updateAnchor(dt);
