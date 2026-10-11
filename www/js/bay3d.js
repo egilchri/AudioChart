@@ -466,10 +466,10 @@ function rippleNormals(size = 256) {
 }
 const water = new Water(new THREE.PlaneGeometry(400000, 400000), {
   textureWidth: 512, textureHeight: 512, waterNormals: rippleNormals(),
-  sunDirection: sun.clone().normalize(), sunColor: 0xfff4e0, waterColor: 0x1f3c48, distortionScale: 1.2, fog: true,
+  sunDirection: sun.clone().normalize(), sunColor: 0xfff4e0, waterColor: 0x3d6b7a, distortionScale: 1.2, fog: true,
 });
 water.rotation.x = -Math.PI / 2; water.material.uniforms.size.value = 6;
-water.material.fragmentShader = water.material.fragmentShader.replace('float rf0 = 0.3;', 'float rf0 = 0.02;').replace('reflectionSample * 0.9 +', 'reflectionSample * 0.78 +');
+water.material.fragmentShader = water.material.fragmentShader.replace('float rf0 = 0.3;', 'float rf0 = 0.04;').replace('reflectionSample * 0.9 +', 'reflectionSample * 0.78 +');
 water.material.needsUpdate = true;
 scene.add(water);
 const sky = new THREE.Mesh(new THREE.SphereGeometry(150000, 32, 16), new THREE.ShaderMaterial({

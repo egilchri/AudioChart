@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-11 — Brighter water in the 3D views (v852)
+
+Requested: brighten the water. In both the 3D journey and Bird's-eye, the
+water colour is lighter (0x3d6b7a, was 0x1f3c48, a dark slate) and it reflects
+a little more sky looking down (rf0 0.04, was 0.02), so it reads as sea-blue
+rather than grey while keeping the shore reflections.
+
 ## 2026-10-11 — Smaller command bar during 3D playback (v851)
 
 Requested: during a Virtual Journey in 3D, shrink the command reference and
