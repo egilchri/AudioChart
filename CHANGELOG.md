@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-11 — Weather from the forecast (v859)
+
+The Weather panel's "⟳ Forecast now" sets the conditions from the National Weather
+Service's hourly gridpoint forecast (api.weather.gov) for the middle of the route,
+this hour: wind speed and direction (seas of 4 ft or more raise it to fresh or
+rough), sky cover and chance of rain, visibility and fog; the time of day from the
+sun's height there now. A line in the panel says what the forecast was. Online
+only: offline it says so and the manual choices stay. sw.js never caches it; the
+privacy policy lists it (one position is sent, only when you press it).
+
 ## 2026-10-11 — Weather in the 3D view (v858)
 
 Requested: weather for Virtual Journeys, every option. The Night button becomes

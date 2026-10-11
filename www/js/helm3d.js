@@ -863,6 +863,50 @@ function updateWeather(dt) {
   }
 }
 
+// ── NOAA forecast → conditions (v859) ──
+function sunPos(lat, lon, date) {   // the sun's altitude and bearing, degrees (NOAA's approximate formulas)
+  const rad = Math.PI / 180, d = (date - Date.UTC(2000, 0, 1, 12)) / 864e5;
+  const g = (357.529 + 0.98560028 * d) * rad, q = 280.459 + 0.98564736 * d;
+  const L = (q + 1.915 * Math.sin(g) + 0.020 * Math.sin(2 * g)) * rad, e = (23.439 - 0.00000036 * d) * rad;
+  const ra = Math.atan2(Math.cos(e) * Math.sin(L), Math.cos(L)), dec = Math.asin(Math.sin(e) * Math.sin(L));
+  const gmst = (18.697374558 + 24.06570982441908 * d) % 24, ha = ((gmst * 15 + lon) * rad - ra);
+  const alt = Math.asin(Math.sin(lat * rad) * Math.sin(dec) + Math.cos(lat * rad) * Math.cos(dec) * Math.cos(ha));
+  const az = Math.atan2(-Math.sin(ha), Math.tan(dec) * Math.cos(lat * rad) - Math.sin(lat * rad) * Math.cos(ha));
+  return { alt: alt / rad, brg: (az / rad + 360) % 360 };
+}
+function seriesAt(series, t) {   // the value of an NWS gridpoint series at time t (ms)
+  for (const v of series?.values || []) {
+    const [start, dur] = v.validTime.split('/'), m = dur.match(/P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?)?/) || [];
+    const t0 = Date.parse(start), t1 = t0 + ((+m[1] || 0) * 24 + (+m[2] || 0)) * 3600e3 + (+m[3] || 0) * 60e3;
+    if (t >= t0 && t < t1) return v.value;
+  }
+  return null;
+}
+async function forecastConditions(lat, lon, now) {
+  const get = async url => { const r = await fetch(url, { headers: { Accept: 'application/geo+json' } }); if (!r.ok) throw new Error(`NWS ${r.status}`); return r.json(); };
+  const pt = await get(`https://api.weather.gov/points/${lat.toFixed(4)},${lon.toFixed(4)}`);
+  const grid = (await get(pt.properties.forecastGridData)).properties, t = now.getTime();
+  const kn = (seriesAt(grid.windSpeed, t) ?? 15) / 1.852, from = seriesAt(grid.windDirection, t) ?? 225;
+  const cover = seriesAt(grid.skyCover, t) ?? 30, pop = seriesAt(grid.probabilityOfPrecipitation, t) ?? 0;
+  const visKm = (seriesAt(grid.visibility, t) ?? 16000) / 1000, waveFt = (seriesAt(grid.waveHeight, t) ?? 0) * 3.281;
+  const wx = (seriesAt(grid.weather, t) || []).filter(w => w && w.weather);
+  const has = re => wx.some(w => re.test(w.weather) && !/slight_chance|chance/.test(w.coverage || ''));
+  const C = { windFrom: Math.round(from / 45) % 8 * 45 };
+  C.wind = kn < 5 ? 'calm' : kn < 12 ? 'breezy' : kn < 20 ? 'fresh' : 'rough';
+  if (waveFt >= 4 && C.wind !== 'rough') C.wind = waveFt >= 6 ? 'rough' : 'fresh';
+  const fog = has(/fog/), wet = pop >= 50 || has(/rain|drizzle|showers|thunder/);
+  C.sky = wet ? 'rain' : cover >= 80 ? 'overcast' : 'fair';
+  const visNm = visKm / 1.852;
+  C.vis = visNm < 0.5 ? 'thick' : visNm < 1 || fog ? 'fog' : visNm < 4 ? 'haze' : 'clear';
+  const sp = sunPos(lat, lon, now);
+  C.time = sp.alt < -6 ? 'night' : sp.alt < 8 ? (sp.brg < 180 ? 'dawn' : 'sunset') : 'day';
+  const hr = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const DIRS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+  const skyTxt = wet ? `rain likely (${pop}%)` : fog ? 'fog' : cover >= 80 ? 'overcast' : cover >= 40 ? 'partly cloudy' : 'clear skies';
+  const note = `NWS forecast, ${hr}: ${DIRS[Math.round(from / 45) % 8]} ${Math.round(kn)} kn, ${skyTxt}, visibility ${visNm >= 10 ? '10+' : visNm.toFixed(visNm < 2 ? 1 : 0)} nm` + (waveFt ? `, seas ${Math.max(1, Math.round(waveFt))} ft` : '') + '.';
+  return { C, note };
+}
+
 // Route and motion
 const route = routeLL.map(([x, y]) => [wx(x), wz(y)]);
 const cum = [0]; for (let i = 1; i < route.length; i++) cum.push(cum[i - 1] + Math.hypot(route[i][0] - route[i - 1][0], route[i][1] - route[i - 1][1]));
@@ -1270,6 +1314,25 @@ syncEyeButtons();
   DIRS.forEach((d, i) => { const o = document.createElement('option'); o.value = String(i * 45); o.textContent = d; sel.appendChild(o); });
   sel.addEventListener('change', () => applyConditions({ windFrom: Number(sel.value) }));
   const kn = document.createElement('em'); dirRow.append(sel, kn); panel.appendChild(dirRow);
+  // Forecast (v859): the National Weather Service's hourly gridpoint forecast for the middle of the
+  // route, for this hour, mapped onto the choices above. Online only; the request carries just that
+  // one position. The time of day comes from the sun's height there now.
+  const fcRow = document.createElement('div'); fcRow.className = 'wxrow wxfc';
+  const fcBtn = document.createElement('button'); fcBtn.type = 'button'; fcBtn.textContent = '⟳ Forecast now';
+  fcBtn.title = "Set the weather from the National Weather Service forecast for this route, this hour (needs internet)";
+  const fcNote = document.createElement('small'); fcNote.textContent = 'or pick conditions below';
+  fcRow.append(fcBtn, fcNote); panel.prepend(fcRow);
+  fcBtn.addEventListener('click', async () => {
+    const [lon, lat] = routeLL[Math.floor(routeLL.length / 2)];
+    fcBtn.disabled = true; fcNote.textContent = 'Asking the National Weather Service…';
+    try {
+      const { C, note } = await forecastConditions(lat, lon, new Date());
+      applyConditions(C); fcNote.textContent = note;
+    } catch (err) {
+      fcNote.textContent = navigator.onLine === false ? 'Offline: the forecast needs internet. Pick conditions below.' : `No forecast (${err.message}). Pick conditions below.`;
+    }
+    fcBtn.disabled = false;
+  });
   sceneEl.appendChild(panel);
   wxBtn.addEventListener('click', () => { panel.hidden = !panel.hidden; wxBtn.setAttribute('aria-expanded', String(!panel.hidden)); });
   wxSync = () => {
@@ -1595,7 +1658,7 @@ try {
   };
   ch.postMessage({ hello: true });   // ask the app where the journey is (it may already have arrived)
 } catch (_) {}
-window.__helm3d = { setNight: on => applyConditions({ time: on ? 'night' : 'day' }), applyConditions, COND, scene, renderer, camera, tiles, ferries, updateTiles, posAt, TOTAL, wx, wz, frame, setS: v => { S = v; }, setLook: (y, p) => { yawOff = y; pitch = p; }, setZoom: z => { zoom = z; } };   // console/testing hooks
+window.__helm3d = { forecastConditions, sunPos, setNight: on => applyConditions({ time: on ? 'night' : 'day' }), applyConditions, COND, scene, renderer, camera, tiles, ferries, updateTiles, posAt, TOTAL, wx, wz, frame, setS: v => { S = v; }, setLook: (y, p) => { yawOff = y; pitch = p; }, setZoom: z => { zoom = z; } };   // console/testing hooks
 }
 
 // No route chosen: list saved routes and the samples.

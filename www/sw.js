@@ -1,4 +1,4 @@
-/** @version v858 */
+/** @version v859 */
 /* Bump this comment on every release, even when nothing else in this file
    changes — a service worker only gets reinstalled when its own script
    bytes differ from what's currently active (see the v505 fix), so a
@@ -92,6 +92,9 @@ self.addEventListener('fetch', (event) => {
   // Google Analytics (v850): its script and its hits go straight to Google, never cached or
   // replayed from the cache (offline, they simply fail, which is harmless).
   if (/(^|\.)(googletagmanager|google-analytics)\.com$/.test(url.hostname) || url.hostname.endsWith('.analytics.google.com')) return;
+
+  // National Weather Service forecast for the 3D view's Weather panel (v859): always live, never cached.
+  if (url.hostname === 'api.weather.gov') return;
 
   if (url.hostname === 'tile.openstreetmap.org' ||
       url.hostname === 'tiles.openseamap.org') {
