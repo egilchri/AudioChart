@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-11 — Realistic Fox Islands ferries (v854)
+
+Requested: make the ferry look more realistic. Rebuilt in the Maine State
+Ferry Service livery, from Commons photos of the fleet: red hull with a black
+boot-top, high white sides round the car deck, a white passenger house with a
+row of windows, a white pilothouse with dark glass under a radar mast, small
+exhaust stacks, cars and a truck on deck, a raised stern ramp, and her name on
+both sides forward. Each line has its real vessel and length (data/ferries.json,
+from the MSFS 2024 fleet presentation): CAPT. E. FRANK THOMPSON, 154 ft, on
+Vinalhaven; CAPT. NEAL BURGESS, 130 ft, on North Haven.
+
 ## 2026-10-11 — Bluer water in the 3D views (v853)
 
 Requested: bluer than v852. Water colour 0x3268a0 (was 0x3d6b7a, a green-leaning

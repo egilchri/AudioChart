@@ -653,42 +653,81 @@ function courseAt(s) {   // degrees true, from a short look-ahead so turns are s
 // back onto the line within a couple of kilometres either way, so it still leaves and reaches
 // its terminals on the real track.
 const ferries = [];
-function ferryModel() {   // a Maine State Ferry–style car ferry, ~47 m: bow toward -z, waterline at y = 0
-  const g = new THREE.Group(), white = mat(0xf2f1ec), hullM = mat(0x22324a), deckM = mat(0x7d8287), dark = mat(0x1d2328);
-  const outline = [[-6, 22], [6, 22], [6, -15], [3.2, -22.5], [-3.2, -22.5], [-6, -15]];
-  const hullShape = new THREE.Shape(outline.map(([x, z]) => new THREE.Vector2(x, -z)));
-  const hull = new THREE.Mesh(new THREE.ExtrudeGeometry(hullShape, { depth: 3.4, bevelEnabled: false }), hullM);
-  hull.rotation.x = -Math.PI / 2; hull.position.y = -0.9; g.add(hull);
-  const deck = new THREE.Mesh(new THREE.ExtrudeGeometry(hullShape, { depth: 0.2, bevelEnabled: false }), deckM);
-  deck.rotation.x = -Math.PI / 2; deck.position.y = 2.5; g.add(deck);
-  const stripe = new THREE.Mesh(new THREE.ExtrudeGeometry(hullShape, { depth: 0.35, bevelEnabled: false }), white);
-  stripe.rotation.x = -Math.PI / 2; stripe.position.y = 2.15; stripe.scale.set(1.004, 1.004, 1); g.add(stripe);
-  for (const sx of [-1, 1]) { const bw = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.2, 36), white); bw.position.set(sx * 5.85, 3.3, 3); g.add(bw); }
-  // passenger cabin along the starboard side, wheelhouse on top, a stack aft of it
-  const cabin = new THREE.Mesh(new THREE.BoxGeometry(4.2, 2.8, 26), white); cabin.position.set(3.6, 4.0, 2); g.add(cabin);
-  const win = new THREE.Mesh(new THREE.BoxGeometry(4.26, 0.9, 22), dark); win.position.set(3.6, 4.4, 2); g.add(win);
-  const bridge = new THREE.Mesh(new THREE.BoxGeometry(4.6, 2.4, 7), white); bridge.position.set(3.6, 6.6, -6); g.add(bridge);
-  const bwin = new THREE.Mesh(new THREE.BoxGeometry(4.66, 0.8, 7.06), dark); bwin.position.set(3.6, 7.1, -6); g.add(bwin);
-  const stack = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.8, 3.2, 12), white); stack.position.set(3.6, 7.0, 6); g.add(stack);
-  const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.72, 0.72, 0.6, 12), dark); cap.position.set(3.6, 8.7, 6); g.add(cap);
-  // vehicles on the open deck
+function ferryModel(F) {   // a Maine State Ferry Service car ferry: bow toward -z, waterline at y = 0
+  // The fleet's look (MSFS photos): red hull with a black boot-top at the waterline, high white sides
+  // round the car deck, a white passenger house with a row of windows, and a white pilothouse with
+  // dark glass up top under a radar mast. Length from data/ferries.json (Thompson 154 ft, Burgess 130 ft).
+  const L = F.length_m || 46, B = Math.min(12.2, L * 0.26), g = new THREE.Group();
+  const white = mat(0xf3f2ee), red = mat(0xc83a2e), black = mat(0x1d1f22), deckM = mat(0x6f7378), glass = mat(0x1e2a33);
+  const half = L / 2, taper = L * 0.16;
+  const outline = [[-B / 2, half], [B / 2, half], [B / 2, -half + taper], [B * 0.27, -half], [-B * 0.27, -half], [-B / 2, -half + taper]];
+  const slab = (y0, y1, m, sc = 1) => {   // a horizontal slice of the hull outline
+    const sh = new THREE.Shape(outline.map(([x, z]) => new THREE.Vector2(x * sc, -z * sc)));
+    const mesh = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: y1 - y0, bevelEnabled: false }), m);
+    mesh.rotation.x = -Math.PI / 2; mesh.position.y = y0; g.add(mesh); return mesh;
+  };
+  slab(-1.1, 0.25, black, 0.995);   // boot-top
+  slab(0.25, 2.2, red);             // red hull
+  slab(2.2, 2.4, deckM, 0.985);     // car deck
+  // windows: one canvas texture, repeated along the white houses' sides
+  const winTex = (() => {
+    const cv = document.createElement('canvas'); cv.width = 128; cv.height = 32; const c = cv.getContext('2d');
+    c.fillStyle = '#f3f2ee'; c.fillRect(0, 0, 128, 32); c.fillStyle = '#26323b';
+    for (let x = 8; x < 128; x += 32) c.fillRect(x, 9, 20, 13);
+    const t = new THREE.CanvasTexture(cv); t.wrapS = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; return t;
+  })();
+  const house = (w, h, len, x, y, z, windows) => {
+    const sideMat = windows ? new THREE.MeshLambertMaterial({ map: (() => { const t = winTex.clone(); t.needsUpdate = true; t.repeat.set(Math.max(1, Math.round(len / 4)), 1); return t; })() }) : white;
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, len), [sideMat, sideMat, white, white, white, white]);
+    m.position.set(x, y + h / 2, z); g.add(m); return m;
+  };
+  // high white sides round the car deck (open at the stern for the ramp), and a white forecastle
+  const sideLen = L - taper - 2;
+  for (const sx of [-1, 1]) house(0.35, 2.2, sideLen, sx * (B / 2 - 0.18), 2.2, half - 1 - sideLen / 2, false);
+  slab(2.2, 4.4, white, 1.0).scale.set(1, 1, 1);   // full-height white skin at the bow…
+  const fore = g.children[g.children.length - 1];
+  fore.geometry.dispose();
+  { const sh = new THREE.Shape([[-B / 2, half - L + taper + 2], [B / 2, half - L + taper + 2], [B / 2, -half + taper], [B * 0.27, -half], [-B * 0.27, -half], [-B / 2, -half + taper]].map(([x, z]) => new THREE.Vector2(x, -z)));
+    fore.geometry = new THREE.ExtrudeGeometry(sh, { depth: 2.2, bevelEnabled: false }); }   // …only over the forecastle
+  // passenger house along the starboard side, with windows; the pilothouse spans the beam above it
+  const hz = -L * 0.06, hLen = L * 0.42;
+  house(4.2, 2.6, hLen, B / 2 - 2.3, 4.4, hz, true);
+  house(B - 0.4, 0.25, L * 0.2, 0, 7.0, -L * 0.18, false);                // bridge deck over the car deck
+  const ph = house(B * 0.5, 2.3, 5.2, B * 0.18, 7.25, -L * 0.18, false);   // pilothouse
+  const band = new THREE.Mesh(new THREE.BoxGeometry(B * 0.5 + 0.06, 0.9, 5.26), glass); band.position.set(ph.position.x, 8.75, ph.position.z); g.add(band);
+  // radar mast, horn, two small exhaust stacks
+  const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.15, 3.2, 8), white); mast.position.set(ph.position.x, 11.2, ph.position.z + 1); g.add(mast);
+  const radar = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.18, 0.3), black); radar.position.set(ph.position.x, 12.6, ph.position.z + 1); g.add(radar);
+  for (const dz of [-0.5, 0.5]) { const st = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 2.6, 10), black); st.position.set(B / 2 - 2.3 + dz * 1.2, 8.1, hz + hLen * 0.35); g.add(st); }
+  // her name on both sides, forward
+  if (F.vessel) {
+    const cv = document.createElement('canvas'); cv.width = 512; cv.height = 64; const c = cv.getContext('2d');
+    c.fillStyle = '#f3f2ee'; c.fillRect(0, 0, 512, 64); c.fillStyle = '#1d2328'; c.font = 'bold 34px Helvetica, Arial, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(F.vessel, 256, 34);
+    const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace;
+    for (const sx of [-1, 1]) {
+      const plate = new THREE.Mesh(new THREE.PlaneGeometry(9, 1.1), new THREE.MeshLambertMaterial({ map: t }));
+      plate.position.set(sx * (B / 2 + 0.02), 3.4, -L * 0.22); plate.rotation.y = sx * Math.PI / 2; g.add(plate);
+    }
+  }
+  // vehicles on the open deck (port side and the stern, where the house doesn't cover them)
   const carCols = [0xb8bcc0, 0x8c1f1f, 0x23415f, 0xe8e6e0, 0x2f2f2f, 0x5b6b4a, 0xa88f5c];
   let k = 0;
-  for (const z of [-12, -7, -2, 3, 8, 13]) for (const x of [-3.6, -1.0]) {
-    if ((k * 7 + 3) % 5 === 0) { k++; continue; }   // a few gaps
-    const car = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.4, 4.4), mat(carCols[k++ % carCols.length])); car.position.set(x, 3.3, z); g.add(car);
+  for (let z = -L * 0.3; z < half - 4; z += 5) for (const x of [-B / 2 + 1.6, -B / 2 + 4.0]) {
+    if ((k * 7 + 3) % 5 === 0) { k++; continue; }
+    const car = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.4, 4.4), mat(carCols[k++ % carCols.length])); car.position.set(x, 3.1, z); g.add(car);
   }
-  const truck = new THREE.Mesh(new THREE.BoxGeometry(2.4, 3.2, 9), mat(0xd9d6cf)); truck.position.set(-2.3, 4.2, 17); g.add(truck);
+  const truck = new THREE.Mesh(new THREE.BoxGeometry(2.4, 3.2, 9), mat(0xd9d6cf)); truck.position.set(0.6, 4.0, half - 7); g.add(truck);
+  // stern ramp, raised
+  const ramp = new THREE.Mesh(new THREE.BoxGeometry(B * 0.55, 0.3, 4), deckM); ramp.position.set(0, 3.6, half + 0.4); ramp.rotation.x = -1.1; g.add(ramp);
   // wake: a fading white fan astern, and a little bow wave
   const wc = document.createElement('canvas'); wc.width = 64; wc.height = 256;
   const wx2 = wc.getContext('2d'), grd = wx2.createLinearGradient(0, 0, 0, 256);
   grd.addColorStop(0, 'rgba(245,250,252,0.85)'); grd.addColorStop(1, 'rgba(245,250,252,0)');
   wx2.fillStyle = grd; wx2.beginPath(); wx2.moveTo(22, 0); wx2.lineTo(42, 0); wx2.lineTo(64, 256); wx2.lineTo(0, 256); wx2.closePath(); wx2.fill();
-  const wakeMat = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(wc), transparent: true, depthWrite: false });
-  const wake = new THREE.Mesh(new THREE.PlaneGeometry(34, 150), wakeMat);
-  wake.rotation.x = -Math.PI / 2; wake.position.set(0, 0.06, 22 + 75); g.add(wake);
-  const bowWave = new THREE.Mesh(new THREE.RingGeometry(6, 9, 24, 1, Math.PI * 0.15, Math.PI * 0.7), new THREE.MeshBasicMaterial({ color: 0xf2f7f9, transparent: true, opacity: 0.55, depthWrite: false }));
-  bowWave.rotation.x = -Math.PI / 2; bowWave.position.set(0, 0.07, -16); g.add(bowWave);
+  const wake = new THREE.Mesh(new THREE.PlaneGeometry(B * 2.8, 150), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(wc), transparent: true, depthWrite: false }));
+  wake.rotation.x = -Math.PI / 2; wake.position.set(0, 0.06, half + 75); g.add(wake);
+  const bowWave = new THREE.Mesh(new THREE.RingGeometry(B * 0.5, B * 0.75, 24, 1, Math.PI * 0.15, Math.PI * 0.7), new THREE.MeshBasicMaterial({ color: 0xf2f7f9, transparent: true, opacity: 0.55, depthWrite: false }));
+  bowWave.rotation.x = -Math.PI / 2; bowWave.position.set(0, 0.07, -half + 6); g.add(bowWave);
   g.userData.wake = [wake, bowWave];
   return g;
 }
@@ -736,8 +775,8 @@ function setupFerries(data) {
       fy.dir = (Math.round(c.s / 50) % 2) ? 1 : -1; fy.sCross = c.s - 400;
       fy.off = [c.x - T0.x, c.z - T0.z];   // through your track, not up to a mile off it
     }
-    fy.label = `Ferry to ${fy.dir > 0 ? F.to : F.from}`;
-    fy.group = ferryModel(); scene.add(fy.group);
+    fy.label = `Ferry to ${fy.dir > 0 ? F.to : F.from}`;   // (she is F.vessel; the label says where she's bound)
+    fy.group = ferryModel(F); scene.add(fy.group);
     ferries.push(fy);
     console.log(`[helm3d] ${F.name} ferry: ${along > 0.8 || along < -0.8 ? 'meets' : 'crosses'} the route ${(c.s / NM).toFixed(1)} nm in, ${(c.d / NM).toFixed(2)} nm from its line`);
   }

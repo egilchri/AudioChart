@@ -131,7 +131,9 @@
      -68.839459,
      44.043099
     ]
-   ]
+   ],
+   "vessel": "CAPT. E. FRANK THOMPSON",
+   "length_m": 46.9
   },
   {
    "name": "Rockland \u2013 North Haven",
@@ -271,7 +273,10 @@
      -68.873157,
      44.126625
     ]
-   ]
+   ],
+   "vessel": "CAPT. NEAL BURGESS",
+   "length_m": 39.6
   }
- ]
+ ],
+ "vessels_note": "Vessels and lengths from Maine State Ferry Service (presentation 2024-12-11): Thompson 154 ft on Vinalhaven, Burgess 130 ft on North Haven. Look (red hull, black boot-top, white sides and houses) from Commons photos of the MSFS fleet."
 }
