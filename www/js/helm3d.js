@@ -510,7 +510,7 @@ function rippleNormals(size = 256) {
 }
 const water = new Water(new THREE.PlaneGeometry(120000, 120000), {
   textureWidth: 512, textureHeight: 512, waterNormals: rippleNormals(),
-  sunDirection: sun.clone().normalize(), sunColor: 0xfff4e0, waterColor: 0x3d6b7a, distortionScale: 1.2, fog: true,
+  sunDirection: sun.clone().normalize(), sunColor: 0xfff4e0, waterColor: 0x3268a0, distortionScale: 1.2, fog: true,
 });
 water.rotation.x = -Math.PI / 2;
 water.material.uniforms.size.value = 6;

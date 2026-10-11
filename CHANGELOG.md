@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-11 — Bluer water in the 3D views (v853)
+
+Requested: bluer than v852. Water colour 0x3268a0 (was 0x3d6b7a, a green-leaning
+teal) in both 3D views, at about the same brightness.
+
 ## 2026-10-11 — Brighter water in the 3D views (v852)
 
 Requested: brighten the water. In both the 3D journey and Bird's-eye, the
