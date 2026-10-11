@@ -69,6 +69,13 @@ body.embed header, body.embed .strip, body.embed .controls, body.embed .note, bo
 body.embed .scene { aspect-ratio: auto; height: 100vh; height: 100dvh; border-radius: 0; }
 body.embed .wrap { padding-block: 0; }
 body.embed #minichart { top: auto; bottom: 12px; right: 12px; }
+/* Inside a Virtual Journey the app's journey panel and transcript take the left side, so this
+   view's own controls move to the top centre and its notes to the bottom centre (v861) */
+body.embed #eyepick { left: 50%; transform: translateX(-50%); }
+body.embed #recbtn { left: 50% !important; transform: translateX(-50%); top: 72px !important; }
+body.embed #wxpanel { left: 50%; transform: translateX(-50%); top: 104px; }
+body.embed #tileload { left: 50%; transform: translateX(-50%); bottom: 22px; }
+body.embed #town-credit { left: 50% !important; transform: translateX(-50%); white-space: nowrap; }
 </style>
 </head>
 <body>

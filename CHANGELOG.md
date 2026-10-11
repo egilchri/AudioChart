@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-11 — 3D journey controls no longer overlap (v861)
+
+Reported: on the Virtual Journey screen the control windows on the left
+interfered with each other. The 3D view's View buttons, Record button and Weather
+panel sat in the same left column as the app's Virtual Journey panel, and its
+"Loading aerial photos" note and building credit on the transcript box. Inside a
+journey (embed mode) they now sit at the top centre and the bottom centre.
+
 ## 2026-10-11 — Weather in the Bird's-eye view (v860)
 
 Requested: weather in the bird's-eye view too. The weather engine, the Weather
