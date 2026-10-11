@@ -565,7 +565,10 @@ new ResizeObserver(resize).observe(sceneEl); resize();
   const town = townList.find(t => t.id === params.get('town'));
   const lat = Number(params.get('lat')), lon = Number(params.get('lon')), dist = Number(params.get('dist'));
   if (town) { Object.assign(view, { x: wx(WHOLE.lon), z: wz(WHOLE.lat) }); clampView(); placeCamera(); goTown(town); }
-  else if (lat && lon) { Object.assign(view, { x: wx(lon), z: wz(lat), dist: dist || 20000, tilt: 45 * DEG, az: 0 }); markCurrent(null); }
+  else if (lat && lon) {   // az/tilt: coming back to a view left earlier (AudioChart's Back to 3D)
+    const az = Number(params.get('az')) || 0, tilt = Number(params.get('tilt')) || 45;
+    Object.assign(view, { x: wx(lon), z: wz(lat), dist: dist || 20000, tilt: tilt * DEG, az: az * DEG }); markCurrent(null);
+  }
   else markCurrent('whole');
 }
 clampView(); placeCamera();

@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-11 — Back to 3D from the chart (v856)
+
+Requested: flip back to 3D as easily as to the map. After "Back to chart" in the
+Bird's-eye view, a "🦅 Back to 3D" button sits in the same spot on the chart and
+returns to the 3D view you left (the same spot, height, heading and tilt), or, if
+you've moved the chart since, to where the chart now is with your heading and tilt.
+bay3d.html takes `az` and `tilt` in the URL for this.
+
 ## 2026-10-11 — Night in the 3D view (v855)
 
 Requested: a night mode for Virtual Journeys. helm3d gets a ☾ Night button at the

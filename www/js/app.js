@@ -7252,8 +7252,10 @@ function _hideVj3d() {
 }
 
 // 3D Bird's-eye (v844): the bay in 3D (bay3d.html) over the chart, starting where the chart is
-// looking; closing it brings the chart to wherever the 3D view ended up.
-let _bay3dWrap = null;
+// looking; closing it brings the chart to wherever the 3D view ended up. Once closed, a
+// "Back to 3D" button in the same spot flips back (v856, direct request): to the very view you
+// left if the chart hasn't moved since, else to where the chart now is, keeping your heading and tilt.
+let _bay3dWrap = null, _bay3dLast = null, _bay3dBackBtn = null;
 function _showBay3d() {
   _ensureMap();
   if (!_bay3dWrap) {
@@ -7266,8 +7268,15 @@ function _showBay3d() {
   }
   const c = _map.getCenter(), z = _map.getZoom();
   // camera distance that shows about what the chart shows: the chart's width in metres, times 0.8
-  const dist = Math.round(40075016 * Math.cos(c.lat * Math.PI / 180) / Math.pow(2, z) * _map.getSize().x / 256 * 0.8);
-  _bay3dWrap.querySelector('iframe').src = `./bay3d.html?embed=1&lat=${c.lat.toFixed(5)}&lon=${c.lng.toFixed(5)}&dist=${dist}`;
+  let dist = Math.round(40075016 * Math.cos(c.lat * Math.PI / 180) / Math.pow(2, z) * _map.getSize().x / 256 * 0.8);
+  let lat = c.lat, lon = c.lng, turn = '';
+  if (_bay3dLast) {
+    const L0 = _bay3dLast;
+    if (L0.chartZoom === z && Math.abs(L0.chartLat - c.lat) < 1e-6 && Math.abs(L0.chartLon - c.lng) < 1e-6) { lat = L0.lat; lon = L0.lon; dist = Math.round(L0.dist); }
+    turn = `&az=${L0.az.toFixed(1)}&tilt=${L0.tilt.toFixed(1)}`;
+  }
+  _bay3dWrap.querySelector('iframe').src = `./bay3d.html?embed=1&lat=${lat.toFixed(5)}&lon=${lon.toFixed(5)}&dist=${dist}${turn}`;
+  if (_bay3dBackBtn) _bay3dBackBtn.hidden = true;
   _bay3dWrap.style.top = (document.getElementById('status-title-bar')?.offsetHeight || 26) + 'px';
   _bay3dWrap.hidden = false;
 }
@@ -7278,11 +7287,21 @@ function _hideBay3d() {
     const v = frame.contentWindow?.__bay3d?.getView();
     if (v) {
       const z = Math.log2(40075016 * Math.cos(v.lat * Math.PI / 180) * _map.getSize().x / 256 / (v.dist / 0.8));
-      _map.setView([v.lat, v.lon], Math.max(8, Math.min(16, Math.round(z))));
+      _map.setView([v.lat, v.lon], Math.max(8, Math.min(16, Math.round(z))), { animate: false });
+      const c = _map.getCenter();
+      _bay3dLast = { ...v, chartLat: c.lat, chartLon: c.lng, chartZoom: _map.getZoom() };
     }
   } catch (_) {}
   _bay3dWrap.hidden = true;
   frame.src = 'about:blank';   // frees the GPU memory the 3D view holds
+  if (!_bay3dBackBtn) {
+    _bay3dBackBtn = document.createElement('button');
+    _bay3dBackBtn.type = 'button'; _bay3dBackBtn.id = 'bay3d-back'; _bay3dBackBtn.textContent = '🦅 Back to 3D';
+    _bay3dBackBtn.title = "Back to the 3D Bird's-eye view";
+    _bay3dBackBtn.addEventListener('click', _showBay3d);
+    _bay3dWrap.parentElement.insertBefore(_bay3dBackBtn, _bay3dWrap.nextSibling);
+  }
+  _bay3dBackBtn.hidden = false;
 }
 
 // Tells an open 3D helm view (helm3d.html) where the Virtual Journey is, as a fraction of
