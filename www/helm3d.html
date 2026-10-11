@@ -76,6 +76,33 @@ body.embed #recbtn { left: 50% !important; transform: translateX(-50%); top: 72p
 body.embed #wxpanel { left: 50%; transform: translateX(-50%); top: 104px; }
 body.embed #tileload { left: 50%; transform: translateX(-50%); bottom: 22px; }
 body.embed #town-credit { left: 50% !important; transform: translateX(-50%); white-space: nowrap; }
+/* Phones (v862, direct request: the view was a thin strip): the 3D picture fills the screen,
+   with a one-line title above and the readouts and controls compact beneath; the long note
+   is still there below for anyone who scrolls. */
+@media (max-width: 700px) {
+  .wrap { padding-inline: 0; padding-block: 0 16px; gap: 8px; }
+  header { padding: 6px 12px 0; gap: 0 10px; flex-wrap: nowrap; align-items: center; }
+  h1 { font-size: 1.05rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1 1 auto; }
+  .sub { flex: 0 0 auto; font-size: 0; }
+  .sub a { font-size: 0.85rem; white-space: nowrap; }
+  .scene { aspect-ratio: auto; height: calc(100dvh - 190px); min-height: 320px; border-radius: 0; }
+  #eyepick { left: 8px; right: 8px; top: 34px; flex-wrap: wrap; font-size: 0.74rem; }
+  #eyepick span { display: none; }
+  #eyepick button { white-space: nowrap; padding: 4px 7px; }
+  #eyepick .wxbtn { margin-left: auto; }
+  #recbtn { top: auto !important; bottom: 10px; left: 8px !important; }
+  #wxpanel { left: 8px; right: 8px; top: 72px; }
+  #minichart { top: auto; bottom: 10px; right: 8px; width: 104px; }
+  #tileload { left: 50%; transform: translateX(-50%); bottom: 44px; }
+  #town-credit { display: none; }
+  .strip { padding-inline: 12px; gap: 4px 14px; }
+  .ro b { font-size: 0.9rem; }
+  .ro.ahead { flex-basis: 100%; }
+  .controls, .note, #chooser { padding-inline: 12px; }
+  .controls { gap: 8px 10px; }
+  #play { min-width: 0; padding: 6px 12px; }
+  #pos { flex-basis: 100%; order: -1; }
+}
 </style>
 </head>
 <body>

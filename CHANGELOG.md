@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-11 — 3D view fills a phone screen (v863)
+
+Requested: on mobile the 3D view was a thin strip under a large title and
+description. Below 700 px wide the picture now takes the screen (all but ~190 px),
+with a one-line title and Back link above, the View/Weather row compact across the
+top, Record and a smaller corner chart at the bottom, and the readouts, slider and
+Play/Pace controls just beneath. The long note is still further down.
+
 ## 2026-10-11 — 3D view sails at your boat's speed; slower paces (v862)
 
 Reported: the 3D view's Pace said "6 kn" though the boat is set to 5 kn, and it
