@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-11 — Smaller command bar during 3D playback (v851)
+
+Requested: during a Virtual Journey in 3D, shrink the command reference and
+transcript. While the 3D view is shown (#app.vj3d-on), the transcript peek is
+a small "Transcript" tab, Command reference shows only its 📋 icon, the
+command box is shorter, and the bar is slightly see-through until hovered or
+focused. It sits a little higher, clear of the 3D view's own loading note and
+credit; the version badge is hidden meanwhile. An open transcript folds
+closed when the 3D view opens. Normal layout returns when 3D closes.
+
 ## 2026-10-09 — Google Analytics (v850)
 
 Requested: track the AudioChart site with Google Analytics (G-W6S54QD148).

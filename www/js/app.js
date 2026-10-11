@@ -7235,6 +7235,9 @@ function _showVj3d(route) {
   if (!frame.src.endsWith(src.slice(1))) frame.src = src;
   _vj3dWrap.querySelector('.vj3d-close').hidden = true;
   _vj3dWrap.hidden = false;
+  // shrink the command bar over the 3D picture (see #app.vj3d-on in app.css)
+  document.getElementById('app')?.classList.add('vj3d-on');
+  if (!responseAreaEl.classList.contains('collapsed')) _collapseResponseArea();
   // start below the status title bar (it sits on top of the map area and hid the 3D view's
   // compass heading strip)
   _vj3dWrap.style.top = (document.getElementById('status-title-bar')?.offsetHeight || 26) + 'px';
@@ -7244,6 +7247,7 @@ function _hideVj3d() {
   if (!_vj3dWrap) return;
   _vj3dWrap.hidden = true;
   _vj3dWrap.querySelector('iframe').src = 'about:blank';   // frees the GPU memory the 3D view holds
+  document.getElementById('app')?.classList.remove('vj3d-on');
   _syncVj3dBtn();
 }
 
