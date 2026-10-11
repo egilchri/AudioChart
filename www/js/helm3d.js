@@ -654,6 +654,8 @@ const stars = (() => {   // ~2,500 stars above the horizon, a few bright, fixed 
   geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
   const p = new THREE.Points(geo, new THREE.PointsMaterial({ size: 1.6, sizeAttenuation: false, vertexColors: true, fog: false, toneMapped: false, depthWrite: false }));
   p.renderOrder = -0.5; p.frustumCulled = false; p.visible = false; scene.add(p);
+  // not in the water's reflection: ripples break starlight up, so stars don't show on the sea
+  { const mirror = water.onBeforeRender; water.onBeforeRender = (...a) => { const v = p.visible; p.visible = false; mirror(...a); p.visible = v; }; }
   return p;
 })();
 const GLOW = (() => {   // a soft round glow, tinted per light
@@ -662,24 +664,45 @@ const GLOW = (() => {   // a soft round glow, tinted per light
   gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.15, 'rgba(255,255,255,0.9)'); gr.addColorStop(0.4, 'rgba(255,255,255,0.2)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
   c.fillStyle = gr; c.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(cv);
 })();
-function glowSprite(color, size) {   // the same size on screen however far off (it fades with distance instead)
-  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, fog: false, toneMapped: false, sizeAttenuation: false }));
+function glowSprite(color, size, metres = false) {   // the same size on screen however far off (it fades with distance instead), or `metres` across
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, fog: false, toneMapped: false, sizeAttenuation: metres }));
   sp.scale.setScalar(size); sp.visible = false; return sp;
 }
 // running lights on a vessel: a glow at `at` (the parent's local frame, bow toward -z) shown over
 // an arc of `arc` degrees each side of `toward` (degrees from ahead, + to starboard); arc 180 = all round
 const runLights = [];
-function runLight(parent, at, color, toward, arc, when = null, size = 0.014) {
-  const sp = glowSprite(color, size); sp.position.set(...at); parent.add(sp);
+function runLight(parent, at, color, toward, arc, when = null, size = 0.014, metres = false) {
+  const sp = glowSprite(color, size, metres); sp.position.set(...at); parent.add(sp);
   const a = THREE.MathUtils.degToRad(toward);
   runLights.push({ sp, dir: new THREE.Vector3(Math.sin(a), 0, -Math.cos(a)), cos: Math.cos(THREE.MathUtils.degToRad(arc)), when });
   return sp;
 }
+// Your own boat's lights are close, so they get more than a glow (v857, direct request): a lit lamp
+// you can see from any side, a glow a metre and a half across over the lamp's arc, and the pool of
+// coloured light each one throws on the water beside the boat, which is what you notice from the
+// Drone view astern, where the rules hide the sidelights themselves.
+const nightOnly = [];   // shown only at night, each with an optional condition
+const POOL = (() => {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 64; const c = cv.getContext('2d');
+  const gr = c.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(255,255,255,0.9)'); gr.addColorStop(0.5, 'rgba(255,255,255,0.3)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  c.fillStyle = gr; c.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(cv);
+})();
+function ownLight(at, color, toward, arc, pool, when) {
+  runLight(bow, at, color, toward, arc, when, 1.5, true);
+  const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 8), new THREE.MeshBasicMaterial({ color, toneMapped: false }));
+  lamp.position.set(...at); lamp.visible = false; bow.add(lamp); nightOnly.push({ o: lamp, when });
+  if (pool) {   // [x, z, size]: on the water, in the boat's frame
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(pool[2], pool[2]), new THREE.MeshBasicMaterial({ map: POOL, color, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+    m.rotation.x = -Math.PI / 2; m.position.set(pool[0], 0.12, pool[1]); m.visible = false; m.renderOrder = 2; boat.add(m); nightOnly.push({ o: m, when });
+  }
+}
 const SIDE = 112.5 / 2;   // each sidelight shows from dead ahead to 22.5° abaft the beam
-runLight(bow, [-0.42, 1.68, -4.75], 0xff3b2e, -SIDE, SIDE, () => anchor.state === 'up');   // port, red
-runLight(bow, [0.42, 1.68, -4.75], 0x3dff7a, SIDE, SIDE, () => anchor.state === 'up');     // starboard, green
-runLight(bow, [0, 1.56, 2.62], 0xfff2d6, 180, 67.5, () => anchor.state === 'up');         // stern light
-runLight(bow, [0, 10.6, -2.75], 0xfff2d6, 0, 180, () => anchor.state !== 'up');           // anchor light at the masthead
+const underWay = () => anchor.state === 'up', atAnchor = () => anchor.state !== 'up';
+ownLight([-0.45, 1.68, -4.75], 0xff2a1e, -SIDE, SIDE, [-2.2, -5, 5], underWay);   // port sidelight, red
+ownLight([0.45, 1.68, -4.75], 0x2bff6a, SIDE, SIDE, [2.2, -5, 5], underWay);      // starboard sidelight, green
+ownLight([0, 1.56, 2.66], 0xfff2d6, 180, 67.5, [0, 5, 6], underWay);             // stern light
+ownLight([0, 10.6, -2.75], 0xfff2d6, 0, 180, [0, -1, 14], atAnchor);               // anchor light at the masthead
 const litMats = [];
 let nightBtn = null;   // materials with an emissive glow that comes on at night (ferry windows)
 let night = false;
@@ -702,7 +725,7 @@ function setNight(on) {
   clouds.visible = !on; stars.visible = on;
   TOWN_NIGHT.value = on ? 1 : 0;
   for (const m of litMats) m.emissiveIntensity = on ? 1 : 0;
-  if (!on) { for (const r of runLights) r.sp.visible = false; for (const m of marks) if (m.glow) m.glow.visible = false; }
+  if (!on) { for (const r of runLights) r.sp.visible = false; for (const n of nightOnly) n.o.visible = false; for (const m of marks) if (m.glow) m.glow.visible = false; }
   document.body.classList.toggle('night', on);
   nightBtn?.classList.toggle('on', on);
 }
@@ -716,6 +739,7 @@ function updateNight(pos) {   // after the boat and ferries have moved, before t
     m.glow.visible = m.lamp.visible && k > 0;
     if (m.glow.visible) { m.lamp.getWorldPosition(m.glow.position); m.glow.material.opacity = k; }
   }
+  for (const n of nightOnly) n.o.visible = !n.when || n.when();
   for (const r of runLights) {
     const par = r.sp.parent;
     if (!par || (r.when && !r.when())) { r.sp.visible = false; continue; }

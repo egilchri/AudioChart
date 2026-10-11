@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-11 — Running lights you can see; no stars in the sea (v857)
+
+Requested: running lights at night. Your own boat's lights were glows a few pixels
+across. Each is now a lit lamp (red and green on the bow pulpit, white on the
+transom, white at the masthead at anchor), a glow 1.5 m across over its proper arc,
+and a pool of its coloured light on the water beside the boat, so from the Drone
+view astern you see red and green either side of the bow and white astern. Also,
+the stars no longer reflect in the water (asked: is that realistic? No: ripples
+break starlight up).
+
 ## 2026-10-11 — Back to 3D from the chart (v856)
 
 Requested: flip back to 3D as easily as to the map. After "Back to chart" in the
