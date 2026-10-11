@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-11 — Night in the 3D view (v855)
+
+Requested: a night mode for Virtual Journeys. helm3d gets a ☾ Night button at the
+end of the View buttons (or N; `?night=1`; remembered). A clear night with the moon
+22° up at bearing 150°: dark sky with stars and the moon's disc and halo, moonlight
+on the land and water, clouds cleared. Every charted light shows as a glow in its
+own colour and rhythm, fading out beyond 3.5 nm (buoys) or 9 nm (lighthouses).
+About half the windows in each town are lit (terrain3d.js TOWN_NIGHT, a per-window
+hash), the ferries light their windows, and the ferries and your own boat show
+running lights over their proper arcs: sidelights and stern light under way, an
+all-round white anchor light at the masthead once the anchor is down.
+
 ## 2026-10-11 — Realistic Fox Islands ferries (v854)
 
 Requested: make the ferry look more realistic. Rebuilt in the Maine State

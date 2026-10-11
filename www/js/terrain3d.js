@@ -209,6 +209,24 @@ const ROOF_TEX = townTex(c => {   // asphalt shingle courses
     c.fillStyle = 'rgba(0,0,0,0.07)'; for (let x = (y / 16) % 2 ? 0 : 16; x < 128; x += 32) c.fillRect(x, y, 2, 16);
   }
 });
+// Night (helm3d's Night view, v855): 0 by day; at 1 about half the windows glow, chosen per window
+// from a hash of its bay and storey and the building's wall colour, so each house differs.
+export const TOWN_NIGHT = { value: 0 };
+const GLASS_TEX = townTex(c => {   // the glass panes of WALL_TEX, white on black
+  c.fillStyle = '#000'; c.fillRect(0, 0, 128, 128);
+  c.fillStyle = '#fff'; c.fillRect(45, 35, 38, 56);
+  c.fillStyle = '#000'; c.fillRect(45, 61, 38, 4); c.fillRect(62, 35, 4, 56);
+});
+function wallMat() {
+  const m = new THREE.MeshLambertMaterial({ vertexColors: true, map: WALL_TEX, side: THREE.DoubleSide, emissive: 0xffc77a, emissiveMap: GLASS_TEX });
+  m.onBeforeCompile = sh => {
+    sh.uniforms.townNight = TOWN_NIGHT;
+    sh.fragmentShader = 'uniform float townNight;\n' + sh.fragmentShader.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+      { float h = fract(sin(dot(floor(vEmissiveMapUv) + vColor.rg * 97.0 + vColor.b * 31.0, vec2(12.9898, 78.233))) * 43758.5453);
+        totalEmissiveRadiance *= townNight * step(0.5, h) * (0.7 + 1.2 * h); }`);
+  };
+  return m;
+}
 export const BAY_M = 2.8, STOREY_M = 2.9, SHINGLE_M = 2.2;
 export function buildTown(T) {   // → a Group of the town's buildings and wharves, in world coordinates
   const group = new THREE.Group(); group.name = T.name;
@@ -280,7 +298,7 @@ export function buildTown(T) {   // → a Group of the town's buildings and whar
     geo.setAttribute('uv', new THREE.Float32BufferAttribute(G.uv, 2));
     geo.setAttribute('color', new THREE.Float32BufferAttribute(G.col, 3));
     geo.computeVertexNormals();
-    group.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true, map, side: map === WALL_TEX ? THREE.DoubleSide : THREE.FrontSide })));
+    group.add(new THREE.Mesh(geo, map === WALL_TEX ? wallMat() : new THREE.MeshLambertMaterial({ vertexColors: true, map })));
   }
   // wharves and piers: a plank deck at the lidar's deck height on pilings; breakwaters in granite
   const deckMat = new THREE.MeshLambertMaterial({ color: 0x8a7a64 }), pileMat = new THREE.MeshLambertMaterial({ color: 0x4b4136 }), stoneMat = new THREE.MeshLambertMaterial({ color: 0x8d877f });

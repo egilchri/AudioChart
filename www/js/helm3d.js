@@ -4,7 +4,7 @@
 // (helm3d.html?route=<id>) or for a sample (?sample=<curated id>). Desktop browser with WebGL.
 import * as THREE from 'three';
 import { Water } from './lib/three/Water.js';
-import { LON0, LAT0, MX, MY, wx, wz, cachedFetch, readDem, photo, photoAtCells, addCanopy, gridMesh, photoMat, buildTown, spruce, tlog, tmark } from './terrain3d.js';
+import { LON0, LAT0, MX, MY, wx, wz, cachedFetch, readDem, photo, photoAtCells, addCanopy, gridMesh, photoMat, buildTown, spruce, tlog, tmark, TOWN_NIGHT } from './terrain3d.js';
 
 const statusEl = document.getElementById('status');
 const loadingNote = document.getElementById('tileload');
@@ -243,7 +243,7 @@ const HAZE = new THREE.Color(0xb2cbe0);   // distant haze, a clear-day blue
 scene.fog = new THREE.FogExp2(HAZE, 0.000075);
 
 const sun = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - 32), THREE.MathUtils.degToRad(205));
-scene.add(new THREE.HemisphereLight(0xe4ecf2, 0x4a5644, 1.7));
+const hemi = new THREE.HemisphereLight(0xe4ecf2, 0x4a5644, 1.7); scene.add(hemi);
 const dl = new THREE.DirectionalLight(0xfff3e0, 2.1); dl.position.copy(sun).multiplyScalar(1000); scene.add(dl);
 
 
@@ -529,14 +529,16 @@ scene.add(water);
 // behind everything; not tone-mapped, so the blue stays blue.
 const sky = new THREE.Mesh(new THREE.SphereGeometry(60000, 32, 16), new THREE.ShaderMaterial({
   side: THREE.BackSide, depthWrite: false, depthTest: false, fog: false, toneMapped: false,
-  uniforms: { zenith: { value: new THREE.Color(0x2f62a8) }, horizon: { value: HAZE.clone() }, sunDir: { value: sun.clone().normalize() } },
+  uniforms: { zenith: { value: new THREE.Color(0x2f62a8) }, horizon: { value: HAZE.clone() }, sunDir: { value: sun.clone().normalize() }, moonK: { value: 0 } },
   vertexShader: 'varying vec3 vDir; void main() { vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-  fragmentShader: `uniform vec3 zenith; uniform vec3 horizon; uniform vec3 sunDir; varying vec3 vDir;
+  fragmentShader: `uniform vec3 zenith; uniform vec3 horizon; uniform vec3 sunDir; uniform float moonK; varying vec3 vDir;
     void main() {
       float h = max(vDir.y, 0.0);
       vec3 c = mix(horizon, zenith, pow(h, 0.55));
       float g = max(dot(normalize(vDir), sunDir), 0.0);
-      c += vec3(1.0, 0.95, 0.85) * (pow(g, 300.0) * 1.2 + pow(g, 12.0) * 0.12);
+      c += mix(vec3(1.0, 0.95, 0.85) * (pow(g, 300.0) * 1.2 + pow(g, 12.0) * 0.12),   // the sun's glow by day
+               vec3(0.93, 0.94, 0.88) * smoothstep(0.99993, 0.99996, g) + vec3(0.55, 0.62, 0.75) * (pow(g, 2000.0) * 0.35 + pow(g, 30.0) * 0.05), moonK);   // the moon's disc and halo
+
       gl_FragColor = vec4(c, 1.0);
       #include <colorspace_fragment>
     }`,
@@ -628,6 +630,101 @@ for (const l of lights) {
   marks.push({ g, n: l, fl, lamp, phase: 0, fixedMark: true, kind: 'light', name: l.ch });
 }
 
+// ── Night (direct request, v855): a clear night under a high moon. The sky goes dark with
+// stars and the moon (its light glitters on the water), the land is lit by moonlight only,
+// clouds clear away, and the lights come out: every charted light flashes its own rhythm and
+// colour as a glow you can see miles off, house windows light up in the towns, the ferries
+// show their windows and running lights, and your own boat shows hers (sidelights and stern
+// light under way, an all-round white light at the masthead at anchor). Each running light
+// shows only over its proper arc, as at sea. Toggled by the Night button (or N); remembered.
+const moon = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - 22), THREE.MathUtils.degToRad(180 - 150));   // 22° up, bearing 150° (theta runs from south)
+const LOOK = {
+  day:   { exp: 0.55, sky: 0xe4ecf2, gnd: 0x4a5644, hemi: 1.7, dlc: 0xfff3e0, dl: 2.1, dir: sun, haze: 0xb2cbe0, zen: 0x2f62a8, water: 0x3268a0, glint: 0xfff4e0 },
+  night: { exp: 0.55, sky: 0x8aa2c8, gnd: 0x1a2129, hemi: 0.62, dlc: 0xc6d4ee, dl: 0.75, dir: moon, haze: 0x152236, zen: 0x03070f, water: 0x0c1e33, glint: 0x37415a },
+};
+const stars = (() => {   // ~2,500 stars above the horizon, a few bright, fixed to the sky dome
+  const n = 2500, pos = new Float32Array(n * 3), col = new Float32Array(n * 3);
+  let sd = 7; const rr = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < n; i++) {
+    const y = Math.pow(rr(), 0.8), a = rr() * Math.PI * 2, r = Math.sqrt(1 - y * y), b = Math.pow(rr(), 6) * 0.9 + 0.12;
+    pos.set([Math.cos(a) * r * 50000, y * 50000, Math.sin(a) * r * 50000], i * 3);
+    const warm = rr(); col.set([b * (0.9 + warm * 0.1), b * 0.95, b * (1.05 - warm * 0.12)], i * 3);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  const p = new THREE.Points(geo, new THREE.PointsMaterial({ size: 1.6, sizeAttenuation: false, vertexColors: true, fog: false, toneMapped: false, depthWrite: false }));
+  p.renderOrder = -0.5; p.frustumCulled = false; p.visible = false; scene.add(p);
+  return p;
+})();
+const GLOW = (() => {   // a soft round glow, tinted per light
+  const cv = document.createElement('canvas'); cv.width = cv.height = 64; const c = cv.getContext('2d');
+  const gr = c.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.15, 'rgba(255,255,255,0.9)'); gr.addColorStop(0.4, 'rgba(255,255,255,0.2)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  c.fillStyle = gr; c.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(cv);
+})();
+function glowSprite(color, size) {   // the same size on screen however far off (it fades with distance instead)
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, fog: false, toneMapped: false, sizeAttenuation: false }));
+  sp.scale.setScalar(size); sp.visible = false; return sp;
+}
+// running lights on a vessel: a glow at `at` (the parent's local frame, bow toward -z) shown over
+// an arc of `arc` degrees each side of `toward` (degrees from ahead, + to starboard); arc 180 = all round
+const runLights = [];
+function runLight(parent, at, color, toward, arc, when = null, size = 0.014) {
+  const sp = glowSprite(color, size); sp.position.set(...at); parent.add(sp);
+  const a = THREE.MathUtils.degToRad(toward);
+  runLights.push({ sp, dir: new THREE.Vector3(Math.sin(a), 0, -Math.cos(a)), cos: Math.cos(THREE.MathUtils.degToRad(arc)), when });
+  return sp;
+}
+const SIDE = 112.5 / 2;   // each sidelight shows from dead ahead to 22.5° abaft the beam
+runLight(bow, [-0.42, 1.68, -4.75], 0xff3b2e, -SIDE, SIDE, () => anchor.state === 'up');   // port, red
+runLight(bow, [0.42, 1.68, -4.75], 0x3dff7a, SIDE, SIDE, () => anchor.state === 'up');     // starboard, green
+runLight(bow, [0, 1.56, 2.62], 0xfff2d6, 180, 67.5, () => anchor.state === 'up');         // stern light
+runLight(bow, [0, 10.6, -2.75], 0xfff2d6, 0, 180, () => anchor.state !== 'up');           // anchor light at the masthead
+const litMats = [];
+let nightBtn = null;   // materials with an emissive glow that comes on at night (ferry windows)
+let night = false;
+for (const m of marks) if (m.lamp) {   // a glow on every charted light, over its lamp
+  m.glow = glowSprite(m.fl?.col ?? 0xfff6d8, m.kind === 'light' ? 0.03 : 0.02);
+  m.range = (m.kind === 'light' ? 9 : 3.5) * NM;
+  scene.add(m.glow);
+}
+function setNight(on) {
+  night = on;
+  const L = on ? LOOK.night : LOOK.day;
+  renderer.toneMappingExposure = L.exp;
+  hemi.color.setHex(L.sky); hemi.groundColor.setHex(L.gnd); hemi.intensity = L.hemi;
+  dl.color.setHex(L.dlc); dl.intensity = L.dl; dl.position.copy(L.dir).multiplyScalar(1000);
+  scene.fog.color.setHex(L.haze);
+  sky.material.uniforms.horizon.value.setHex(L.haze); sky.material.uniforms.zenith.value.setHex(L.zen);
+  sky.material.uniforms.sunDir.value.copy(L.dir).normalize(); sky.material.uniforms.moonK.value = on ? 1 : 0;
+  const wu = water.material.uniforms;
+  wu.waterColor.value.setHex(L.water); wu.sunColor.value.setHex(L.glint); wu.sunDirection.value.copy(L.dir).normalize();
+  clouds.visible = !on; stars.visible = on;
+  TOWN_NIGHT.value = on ? 1 : 0;
+  for (const m of litMats) m.emissiveIntensity = on ? 1 : 0;
+  if (!on) { for (const r of runLights) r.sp.visible = false; for (const m of marks) if (m.glow) m.glow.visible = false; }
+  document.body.classList.toggle('night', on);
+  nightBtn?.classList.toggle('on', on);
+}
+const _p = new THREE.Vector3(), _c = new THREE.Vector3(), _d = new THREE.Vector3();
+function updateNight(pos) {   // after the boat and ferries have moved, before the render
+  if (!night) return;
+  camera.getWorldPosition(_c);
+  for (const m of marks) {
+    if (!m.glow) continue;
+    const d = Math.hypot(m.g.position.x - pos[0], m.g.position.z - pos[1]), k = Math.min(1, 1.25 - d / m.range);
+    m.glow.visible = m.lamp.visible && k > 0;
+    if (m.glow.visible) { m.lamp.getWorldPosition(m.glow.position); m.glow.material.opacity = k; }
+  }
+  for (const r of runLights) {
+    const par = r.sp.parent;
+    if (!par || (r.when && !r.when())) { r.sp.visible = false; continue; }
+    r.sp.getWorldPosition(_p); _d.copy(r.dir).transformDirection(par.matrixWorld);
+    const tx = _c.x - _p.x, tz = _c.z - _p.z, l = Math.hypot(tx, tz) || 1, dl2 = Math.hypot(_d.x, _d.z) || 1;
+    r.sp.visible = r.cos <= -0.999 || (tx * _d.x + tz * _d.z) / (l * dl2) >= r.cos;
+  }
+}
+
 // Route and motion
 const route = routeLL.map(([x, y]) => [wx(x), wz(y)]);
 const cum = [0]; for (let i = 1; i < route.length; i++) cum.push(cum[i - 1] + Math.hypot(route[i][0] - route[i - 1][0], route[i][1] - route[i - 1][1]));
@@ -676,8 +773,16 @@ function ferryModel(F) {   // a Maine State Ferry Service car ferry: bow toward 
     for (let x = 8; x < 128; x += 32) c.fillRect(x, 9, 20, 13);
     const t = new THREE.CanvasTexture(cv); t.wrapS = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; return t;
   })();
+  const winLit = (() => {   // the same windows lit, for the emissive glow at night
+    const cv = document.createElement('canvas'); cv.width = 128; cv.height = 32; const c = cv.getContext('2d');
+    c.fillStyle = '#000'; c.fillRect(0, 0, 128, 32); c.fillStyle = '#fff';
+    for (let x = 8; x < 128; x += 32) c.fillRect(x, 9, 20, 13);
+    const t = new THREE.CanvasTexture(cv); t.wrapS = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; return t;
+  })();
   const house = (w, h, len, x, y, z, windows) => {
-    const sideMat = windows ? new THREE.MeshLambertMaterial({ map: (() => { const t = winTex.clone(); t.needsUpdate = true; t.repeat.set(Math.max(1, Math.round(len / 4)), 1); return t; })() }) : white;
+    const rep = t => { t = t.clone(); t.needsUpdate = true; t.repeat.set(Math.max(1, Math.round(len / 4)), 1); return t; };
+    const sideMat = windows ? new THREE.MeshLambertMaterial({ map: rep(winTex), emissive: 0xffd9a0, emissiveMap: rep(winLit), emissiveIntensity: night ? 1 : 0 }) : white;
+    if (windows) litMats.push(sideMat);
     const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, len), [sideMat, sideMat, white, white, white, white]);
     m.position.set(x, y + h / 2, z); g.add(m); return m;
   };
@@ -698,6 +803,11 @@ function ferryModel(F) {   // a Maine State Ferry Service car ferry: bow toward 
   // radar mast, horn, two small exhaust stacks
   const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.15, 3.2, 8), white); mast.position.set(ph.position.x, 11.2, ph.position.z + 1); g.add(mast);
   const radar = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.18, 0.3), black); radar.position.set(ph.position.x, 12.6, ph.position.z + 1); g.add(radar);
+  // running lights: masthead, sidelights on the bridge wings, stern light
+  runLight(g, [ph.position.x, 12.9, ph.position.z + 1], 0xfff2d6, 0, 112.5, null, 0.018);
+  runLight(g, [-(B / 2 - 0.3), 7.6, -L * 0.18], 0xff3b2e, -SIDE, SIDE, null, 0.018);
+  runLight(g, [B / 2 - 0.3, 7.6, -L * 0.18], 0x3dff7a, SIDE, SIDE, null, 0.018);
+  runLight(g, [0, 4.8, half], 0xfff2d6, 180, 67.5, null, 0.018);
   for (const dz of [-0.5, 0.5]) { const st = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 2.6, 10), black); st.position.set(B / 2 - 2.3 + dz * 1.2, 8.1, hz + hLen * 0.35); g.add(st); }
   // her name on both sides, forward
   if (F.vessel) {
@@ -985,7 +1095,7 @@ let eyeTarget = DRONE_M;   // Drone by default (direct request, v832); a choice 
 }
 let eyeH = eyeTarget;
 const eyeBox = document.getElementById('eyepick');
-function syncEyeButtons() { for (const b of eyeBox.querySelectorAll('button')) b.classList.toggle('on', Math.abs(Number(b.dataset.m) - eyeTarget) < 0.2); }
+function syncEyeButtons() { for (const b of eyeBox.querySelectorAll('button[data-m]')) b.classList.toggle('on', Math.abs(Number(b.dataset.m) - eyeTarget) < 0.2); }
 function setEye(m) { eyeTarget = m; try { localStorage.setItem('audiochart-helm3d-view', String(m)); } catch (_) {} syncEyeButtons(); }
 for (const c of EYE_CHOICES) {
   const b = document.createElement('button'); b.type = 'button'; b.textContent = c.label; b.dataset.m = c.m;
@@ -993,6 +1103,17 @@ for (const c of EYE_CHOICES) {
   b.addEventListener('click', () => setEye(c.m)); eyeBox.appendChild(b);
 }
 syncEyeButtons();
+{   // Night (v855): a toggle at the end of the View buttons; ?night=1 or 0 in the URL, else remembered
+  nightBtn = document.createElement('button'); nightBtn.type = 'button'; nightBtn.className = 'nightbtn'; nightBtn.textContent = '☾ Night';
+  nightBtn.title = 'Night: moonlight, stars, and the lights of buoys, lighthouses, towns and boats (N)';
+  nightBtn.addEventListener('pointerdown', e => e.stopPropagation());
+  const toggle = () => { setNight(!night); try { localStorage.setItem('audiochart-helm3d-night', night ? '1' : '0'); } catch (_) {} };
+  nightBtn.addEventListener('click', toggle); eyeBox.appendChild(nightBtn);
+  addEventListener('keydown', e => { if ((e.key === 'n' || e.key === 'N') && !e.metaKey && !e.ctrlKey && e.target.tagName !== 'INPUT') toggle(); });
+  let want = params.get('night');
+  if (want == null) { try { want = localStorage.getItem('audiochart-helm3d-night'); } catch (_) {} }
+  setNight(want === '1');
+}
 addEventListener('keydown', e => {
   if (e.key !== 'h' && e.key !== 'H') return;
   const i = EYE_CHOICES.findIndex(c => Math.abs(c.m - eyeTarget) < 0.2);
@@ -1188,8 +1309,10 @@ function frame() {
     if (!m.fixedMark) { const d = Math.hypot(m.g.position.x - pos[0], m.g.position.z - pos[1]); m.g.scale.setScalar(Math.max(1, Math.min(6, d / 150))); m.g.position.y = Math.sin(t * 1.4 + m.phase) * 0.18; m.g.rotation.z = Math.sin(t * 1.1 + m.phase) * 0.06; m.g.rotation.x = Math.cos(t * 0.9 + m.phase) * 0.05; }
     if (m.lamp && m.fl) { const ph = (t + m.phase) % m.fl.per; m.lamp.visible = m.fl.fixed || (m.fl.iso ? ph < m.fl.per / 2 : ph < 0.45); }
   }
+  updateNight(pos);
   water.material.uniforms.time.value += dt * 0.6;
   sky.position.set(boat.position.x, 0, boat.position.z);   // the dome travels with the boat
+  stars.position.copy(sky.position);
   clouds.material.map.offset.x += dt * 0.0004; clouds.material.map.offset.y += dt * 0.00015;   // drifting on a light westerly
   renderer.render(scene, camera);
   updateLabels(pos);
@@ -1291,7 +1414,7 @@ try {
   };
   ch.postMessage({ hello: true });   // ask the app where the journey is (it may already have arrived)
 } catch (_) {}
-window.__helm3d = { scene, renderer, camera, tiles, ferries, updateTiles, posAt, TOTAL, wx, wz, frame, setS: v => { S = v; }, setLook: (y, p) => { yawOff = y; pitch = p; }, setZoom: z => { zoom = z; } };   // console/testing hooks
+window.__helm3d = { setNight, scene, renderer, camera, tiles, ferries, updateTiles, posAt, TOTAL, wx, wz, frame, setS: v => { S = v; }, setLook: (y, p) => { yawOff = y; pitch = p; }, setZoom: z => { zoom = z; } };   // console/testing hooks
 }
 
 // No route chosen: list saved routes and the samples.
