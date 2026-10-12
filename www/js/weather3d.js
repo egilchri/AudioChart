@@ -23,10 +23,10 @@ export const TIMES = {
 };
 export const VIS_M = { clear: 26000, haze: 8000, fog: 900, thick: 250 };   // metres to where the fog is ~98% thick
 export const WINDS = {
-  calm:   { dist: 0.5, size: 8, speed: 0.35, heel: 0, move: 0.35, foam: 0, kn: '0–4 kn' },
-  breezy: { dist: 1.2, size: 6, speed: 0.6, heel: 5, move: 1, foam: 0, kn: '5–11 kn' },
-  fresh:  { dist: 2.2, size: 4, speed: 0.9, heel: 12, move: 1.8, foam: 0.55, kn: '12–19 kn' },
-  rough:  { dist: 3.4, size: 2.6, speed: 1.3, heel: 18, move: 3, foam: 1, kn: '20+ kn' },
+  calm:   { dist: 0.5, size: 8, speed: 0.35, heel: 0, move: 0.35, foam: 0, tws: 2, kn: '0–4 kn' },
+  breezy: { dist: 1.2, size: 6, speed: 0.6, heel: 5, move: 1, foam: 0, tws: 8, kn: '5–11 kn' },
+  fresh:  { dist: 2.2, size: 4, speed: 0.9, heel: 12, move: 1.8, foam: 0.55, tws: 15, kn: '12–19 kn' },
+  rough:  { dist: 3.4, size: 2.6, speed: 1.3, heel: 18, move: 3, foam: 1, tws: 24, kn: '20+ kn' },
 };
 export const DEFAULT_COND = { time: 'day', vis: 'clear', sky: 'fair', wind: 'breezy', windFrom: 225 };
 const KEY = 'audiochart-helm3d-conditions';
@@ -255,7 +255,7 @@ export function weatherPanel({ host, panelParent, where, pick, btnClass = '' }) 
     ['sky', 'Sky', [['fair', 'Fair'], ['overcast', 'Overcast'], ['rain', 'Rain']]],
     ['wind', 'Wind', [['calm', 'Calm'], ['breezy', 'Breezy'], ['fresh', 'Fresh'], ['rough', 'Rough']]],
   ];
-  const DIRS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+  const DIRS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];   // 16 points (v869)
   const stop = e => e.stopPropagation();   // not a drag of the view underneath
   const btn = document.createElement('button'); btn.type = 'button'; btn.className = ('wxbtn ' + btnClass).trim(); btn.setAttribute('aria-expanded', 'false');
   btn.title = 'Weather and time of day (N toggles night)';
@@ -287,7 +287,7 @@ export function weatherPanel({ host, panelParent, where, pick, btnClass = '' }) 
   }
   const dirRow = document.createElement('div'); dirRow.className = 'wxrow'; dirRow.innerHTML = '<span>Wind from</span>';
   const sel = document.createElement('select'); sel.setAttribute('aria-label', 'Wind direction');
-  DIRS.forEach((d, i) => { const op = document.createElement('option'); op.value = String(i * 45); op.textContent = d; sel.appendChild(op); });
+  DIRS.forEach((d, i) => { const op = document.createElement('option'); op.value = String(i * 22.5); op.textContent = d; sel.appendChild(op); });
   sel.addEventListener('change', () => pick({ windFrom: Number(sel.value) }));
   const kn = document.createElement('em'); dirRow.append(sel, kn); panel.appendChild(dirRow);
   panelParent.appendChild(panel);
@@ -300,7 +300,7 @@ export function weatherPanel({ host, panelParent, where, pick, btnClass = '' }) 
     sync(C, W) {
       cur = C;
       for (const b of panel.querySelectorAll('button[data-k]')) b.classList.toggle('on', C[b.dataset.k] === b.dataset.v);
-      sel.value = String(Math.round(C.windFrom / 45) % 8 * 45);
+      sel.value = String(Math.round(C.windFrom / 22.5) % 16 * 22.5);
       kn.textContent = W.kn;
       const icon = C.time === 'night' ? '☾' : C.sky === 'rain' ? '🌧' : C.vis === 'fog' || C.vis === 'thick' ? '🌫' : C.sky === 'overcast' ? '☁' : C.time === 'day' ? '☀' : '🌅';
       btn.textContent = `${icon} Weather ▾`;
@@ -337,7 +337,7 @@ export async function forecastConditions(lat, lon, now) {
   const visKm = (seriesAt(grid.visibility, t) ?? 16000) / 1000, waveFt = (seriesAt(grid.waveHeight, t) ?? 0) * 3.281;
   const wx = (seriesAt(grid.weather, t) || []).filter(w => w && w.weather);
   const has = re => wx.some(w => re.test(w.weather) && !/slight_chance|chance/.test(w.coverage || ''));
-  const C = { windFrom: Math.round(from / 45) % 8 * 45 };
+  const C = { windFrom: Math.round(from / 22.5) % 16 * 22.5 };
   C.wind = kn < 5 ? 'calm' : kn < 12 ? 'breezy' : kn < 20 ? 'fresh' : 'rough';
   if (waveFt >= 4 && C.wind !== 'rough') C.wind = waveFt >= 6 ? 'rough' : 'fresh';
   const fog = has(/fog/), wet = pop >= 50 || has(/rain|drizzle|showers|thunder/);
@@ -347,8 +347,8 @@ export async function forecastConditions(lat, lon, now) {
   const sp = sunPos(lat, lon, now);
   C.time = sp.alt < -6 ? 'night' : sp.alt < 8 ? (sp.brg < 180 ? 'dawn' : 'sunset') : 'day';
   const hr = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-  const DIRS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+  const DIRS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
   const skyTxt = wet ? `rain likely (${pop}%)` : fog ? 'fog' : cover >= 80 ? 'overcast' : cover >= 40 ? 'partly cloudy' : 'clear skies';
-  const note = `NWS forecast, ${hr}: ${DIRS[Math.round(from / 45) % 8]} ${Math.round(kn)} kn, ${skyTxt}, visibility ${visNm >= 10 ? '10+' : visNm.toFixed(visNm < 2 ? 1 : 0)} nm` + (waveFt ? `, seas ${Math.max(1, Math.round(waveFt))} ft` : '') + '.';
+  const note = `NWS forecast, ${hr}: ${DIRS[Math.round(from / 22.5) % 16]} ${Math.round(kn)} kn, ${skyTxt}, visibility ${visNm >= 10 ? '10+' : visNm.toFixed(visNm < 2 ? 1 : 0)} nm` + (waveFt ? `, seas ${Math.max(1, Math.round(waveFt))} ft` : '') + '.';
   return { C, note };
 }

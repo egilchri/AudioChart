@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-10-12 — 3D view: sails trimmed to the wind; magnetic headings (v869)
+
+Requested: a wind direction, with the main and jib trimmed to suit it. The Weather
+panel's "Wind from" now has 16 points (and the forecast fills it to the nearest
+one). From the wind and the boat's heading the 3D view works out the apparent wind
+(true wind plus the boat's own speed) and trims both sails to it: boom about half the
+apparent wind angle less 12°, the jib sheeted in step, both out to leeward on the
+tack she's on; within 40° of the wind the jib is furled and the main sheeted flat
+(motor-sailing). Heel goes to leeward, greatest close-hauled and reaching, little on a
+run. Tacks and gybes swing the boom across. A new WIND readout names the point of sail
+("S 12–19 kn · beam reach, starboard tack").
+
+Also requested: headings in magnetic. The compass tape and the COURSE/LOOKING readouts
+now read magnetic (° M), using the region's charted variation (15.3° W in Penobscot
+Bay). Wind directions stay true, as forecasts give them.
+
 ## 2026-10-12 — Short note for the Hadlock Cove sample (v868)
 
 Its note (shown under the name in ★ Sample Routes) was a long verification log;

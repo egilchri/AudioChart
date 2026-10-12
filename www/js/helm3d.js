@@ -234,6 +234,11 @@ const routeW = routeLL.map(([x, y]) => [wx(x), wz(y)]);
 const regionDir = await regionFor(routeLL[0][0], routeLL[0][1]);
 setStatus('Loading chart data…');
 const [navGJ, placesGJ, landGJ] = await Promise.all([getJSON(`${regionDir}/navaid.geojson`), getJSON(`${regionDir}/named_places.geojson`), getJSON('./data/landmarks.json').catch(() => ({ landmarks: [] }))]);
+// Headings are magnetic (v869, requested), as on a boat's compass: the region's charted variation
+// (e.g. 15.3° W in Penobscot Bay, stored as -15.3, east positive), magnetic = true - variation.
+let MAGVAR = -15.3;
+getJSON(`${regionDir}.json`).then(r => { if (typeof r.magvar === 'number') MAGVAR = r.magvar; }).catch(() => {});
+const toMag = t => ((t - MAGVAR) % 360 + 360) % 360;
 // Depth readout (v865): charted depth under the boat from the region's soundings and DEPARE
 // shallow-area bands (shared depth.js). Loaded in the background; the readout shows — until then.
 let depthSnd = null, depthZones = null;
@@ -319,7 +324,7 @@ addTowns();
 // Cape Dory 25D (Alberg design: 25 ft LOA, 8 ft beam), seen from the tiller. Boat frame:
 // y up from the waterline, -z forward, x to starboard; the helmsman's eye is at (0.35, EYE, 0).
 // mainsail and jib, set while sailing in Drone view (see the sails in the model below); heel eases in with them
-let setSails = () => {}, sailsUp = false, heel = 0;
+let setSails = () => {}, trimSails = () => {}, sailsUp = false, heel = 0;
 const bow = new THREE.Group();
 {
   const M = c => new THREE.MeshLambertMaterial({ color: c });
@@ -452,8 +457,8 @@ const bow = new THREE.Group();
   const spul = new THREE.CatmullRomCurve3([[-halfA(1.7) + 0.06, 1.7], [-0.7, ZT - 0.05], [0.7, ZT - 0.05], [halfA(1.7) - 0.06, 1.7]].map(([x, z]) => new THREE.Vector3(x, sheerA(z) + PH, z)));
   bow.add(new THREE.Mesh(new THREE.TubeGeometry(spul, 30, 0.02, 6), STEEL));
   for (const [x, z] of [[-0.7, ZT - 0.05], [0.7, ZT - 0.05]]) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, PH, 6), STEEL); leg.position.set(x, sheerA(z) + PH / 2, z); bow.add(leg); }
-  // Sails (Drone view, v837): mainsail and jib drawing on a broad reach, starboard tack, so the
-  // wind comes over the starboard quarter and both sails are out to port. Each is a lofted
+  // Sails (Drone view, v837): mainsail and jib, built out to port and trimmed to the wind by
+  // trimSails (v869: boom angle, jib sheet, tack and heel follow the wind direction). Each is a lofted
   // surface with a belly (deepest ~40% back from the luff) and twist toward the head.
   const CLOTH = new THREE.MeshLambertMaterial({ color: 0xf5f2ea, side: THREE.DoubleSide });
   function sail(luff, leech, belly, nu = 14, nv = 10) {   // luff(u), leech(u): points; belly(u): leeward unit vector
@@ -469,7 +474,7 @@ const bow = new THREE.Group();
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
     return new THREE.Mesh(g, CLOTH);
   }
-  const BOOM_OUT = THREE.MathUtils.degToRad(-62), V3 = THREE.Vector3;
+  const V3 = THREE.Vector3;
   // mainsail in the boom's frame (the group turns with the boom): luff up the mast, foot along
   // the boom, the leech curving in from the clew to the head, twisting off further outboard aloft
   const mainH = MTOP - 0.35 - BY, twist = u => THREE.MathUtils.degToRad(-12) * u;
@@ -478,17 +483,62 @@ const bow = new THREE.Group();
     u => { const r = 3.05 * (1 - u) * (1 + 0.18 * Math.sin(Math.PI * u)) + 0.12 * u, t = twist(u); return new V3(Math.sin(t) * r, 0.08 + u * mainH, 0.06 + Math.cos(t) * r); },
     u => new V3(-Math.cos(twist(u)), 0, Math.sin(twist(u)) * 0.2).normalize());
   main.visible = false; boomG.add(main);
-  // jib: luff on the forestay, clew sheeted well out to port for the broad reach
+  // jib: luff on the forestay; the clew swings round the tack as it is sheeted (trimSails)
   const tack = new V3(0, sheer(ZS) + 0.25, ZS + 0.05), stayTop = new V3(0, MTOP, MZ), headJ = tack.clone().lerp(stayTop, 0.84);
-  const clew = new V3(-1.55, 1.75, MZ + 0.2);
-  const jib = sail(u => tack.clone().lerp(headJ, u), u => clew.clone().lerp(headJ, u),
-    u => { const c = clew.clone().lerp(headJ, u).sub(tack.clone().lerp(headJ, u)); return new V3(-c.z, 0, c.x).normalize().multiplyScalar(-1).setY(0).normalize(); });
+  const CLEW_R = Math.hypot(1.55, MZ + 0.2 - tack.z), CLEW_Y = 1.75;
+  const jibAt = (deg, side) => {   // side +1: out to port
+    const a = THREE.MathUtils.degToRad(deg), clew = new V3(-side * Math.sin(a) * CLEW_R, CLEW_Y, tack.z + Math.cos(a) * CLEW_R);
+    return sail(u => tack.clone().lerp(headJ, u), u => clew.clone().lerp(headJ, u),
+      u => { const c = clew.clone().lerp(headJ, u).sub(tack.clone().lerp(headJ, u)); return new V3(c.z, 0, -c.x).multiplyScalar(side).setY(0).normalize(); }).geometry;
+  };
+  const jib = new THREE.Mesh(jibAt(36, 1), CLOTH);
   jib.visible = false; bow.add(jib);
+  let jibKey = '';
   setSails = on => {
     main.visible = jib.visible = on; cover.visible = !on;
-    boomG.rotation.y = on ? BOOM_OUT : 0;
+    if (!on) boomG.rotation.y = 0;
+  };
+  // Sail trim (v869): boom and jib clew angles in degrees off the centreline, side +1 = sails out
+  // to port (wind from starboard), jibOn false = jib furled (motoring to windward).
+  trimSails = (boomDeg, jibDeg, side, jibOn) => {
+    boomG.rotation.y = -side * THREE.MathUtils.degToRad(boomDeg);
+    main.scale.x = side < 0 ? -1 : 1;   // the mainsail's belly to leeward
+    jib.visible = main.visible && jibOn;
+    const key = `${Math.round(jibDeg * 2)},${Math.sign(side)}`;
+    if (jibOn && key !== jibKey) { jibKey = key; jib.geometry.dispose(); jib.geometry = jibAt(jibDeg, Math.sign(side) || 1); }
   };
 }
+// Point of sail and trim (v869). True wind angle from the Weather panel's wind direction and the
+// boat's heading, then the apparent wind (true wind plus the headwind of the boat's own speed),
+// which is what the sails are trimmed to: boom ≈ half the apparent wind angle less ~12°, the jib
+// sheeted in step until its lead runs out, both strapped in close-hauled. Inside 40° of the true
+// wind she can't sail, so the jib is furled and the main sheeted flat (motor-sailing). Heel is
+// greatest close-hauled and on a reach, little on a run. The angles ease so tacks and gybes swing
+// across; dead downwind she keeps her side until the wind is clearly on the other quarter.
+const WIND_DIRS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+const sailSm = { boom: 0, jib: 12, side: 1, signed: null };
+function pointOfSail(course, dt) {
+  const twa = ((env.C.windFrom - course + 540) % 360) - 180;   // + : wind from starboard
+  const r = THREE.MathUtils.degToRad(twa), tws = WND.tws ?? 8;
+  const ax = tws * Math.sin(r), ay = tws * Math.cos(r) + BOAT_KN;
+  const awa = Math.abs(Math.atan2(ax, ay)) * 180 / Math.PI, atwa = Math.abs(twa);
+  if (atwa < 170 || Math.sign(twa) === sailSm.side) sailSm.side = twa >= 0 ? 1 : -1;
+  const noGo = atwa < 40;
+  const boom = noGo ? 2 : THREE.MathUtils.clamp(awa * 0.55 - 12, 4, 80);
+  const jib = THREE.MathUtils.clamp(awa * 0.3 - 2, 9, 32);
+  const k = Math.min(1, dt * 1.6);
+  // eased as a signed angle (port +), so a tack or gybe swings the boom across the centreline
+  const target = sailSm.side * boom;
+  sailSm.signed = sailSm.signed == null ? target : sailSm.signed + (target - sailSm.signed) * k;
+  const signed = sailSm.signed; sailSm.boom = Math.abs(signed);
+  sailSm.jib += (jib - sailSm.jib) * k;
+  const heelK = noGo ? 0.25 : 1 - 0.75 * THREE.MathUtils.clamp((awa - 70) / 110, 0, 1);
+  const name = WND.heel === 0 ? 'calm' : noGo ? 'too close to the wind — motor-sailing' : atwa < 60 ? 'close-hauled' : atwa < 80 ? 'close reach'
+    : atwa < 110 ? 'beam reach' : atwa < 150 ? 'broad reach' : 'running';
+  const tackTxt = WND.heel === 0 || noGo ? '' : `, ${sailSm.side > 0 ? 'starboard' : 'port'} tack`;   // the side the boom is on, dead downwind too
+  return { boom: sailSm.boom, jib: sailSm.jib, side: Math.sign(signed) || sailSm.side, jibOn: !noGo, heelK, label: name + tackTxt };
+}
+
 // The boat is its own object: it points along the course and pitches/rolls; the camera sits at
 // the tiller inside it, so looking around turns your head, not the boat.
 const boat = new THREE.Group();
@@ -1269,7 +1319,9 @@ function frame() {
   const roll = Math.sin(t * 0.9) * 0.012 * Math.pow(mv, 0.8);
   const wantSails = eyeH > 24 && anchor.state === 'up' && WND.heel > 0;
   if (wantSails !== sailsUp) { sailsUp = wantSails; setSails(sailsUp); }
-  heel += ((sailsUp ? THREE.MathUtils.degToRad(WND.heel) : 0) - heel) * Math.min(1, dt * 0.8);   // heeling to port
+  const pt = pointOfSail(smoothCourse, dt);
+  if (sailsUp) trimSails(pt.boom, pt.jib, pt.side, pt.jibOn);
+  heel += ((sailsUp ? pt.side * pt.heelK * THREE.MathUtils.degToRad(WND.heel) : 0) - heel) * Math.min(1, dt * 0.8);   // heeling to leeward
   bow.rotation.z = heel;   // the hull heels; the camera (a child of boat, not bow) stays level
   boat.rotation.set((Math.sin(t * 0.7) * 0.012 + Math.sin(t * 0.45 + 2) * 0.01 * Math.max(0, mv - 1)) * mv, -THREE.MathUtils.degToRad(smoothCourse), roll * 2, 'YXZ');
   const ease = camK * camK * (3 - 2 * camK);
@@ -1290,13 +1342,14 @@ function frame() {
   renderer.render(scene, camera);
   updateLabels(pos);
   const hfov = 2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect) * 180 / Math.PI;
-  drawTape(((look % 360) + 360) % 360, hfov);
+  drawTape(toMag(look), hfov);   // a magnetic compass card
   drawChart(pos, (smoothCourse + 360) % 360, ((look % 360) + 360) % 360, hfov);
   if (rec) recFrame();
-  document.getElementById('ro-cog').textContent = String(Math.round((smoothCourse + 360) % 360)).padStart(3, '0') + '° T';
-  document.getElementById('ro-look').textContent = String(Math.round(((look % 360) + 360) % 360)).padStart(3, '0') + '° T';
+  document.getElementById('ro-cog').textContent = String(Math.round(toMag(smoothCourse)) % 360).padStart(3, '0') + '° M';
+  document.getElementById('ro-look').textContent = String(Math.round(toMag(look)) % 360).padStart(3, '0') + '° M';
   document.getElementById('ro-run').textContent = `${(S / NM).toFixed(1)}/${(TOTAL / NM).toFixed(1)} nm`;
   document.getElementById('ro-zoom').textContent = zoom.toFixed(1) + '×';
+  if (lblFrame % 8 === 1) document.getElementById('ro-wind').textContent = `${WIND_DIRS[Math.round(env.C.windFrom / 22.5) % 16]} ${WND.kn} · ${pt.label}`;
   if (lblFrame % 8 === 1) {
     let best = null;
     for (const m of marks) {
