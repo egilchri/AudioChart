@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { Water } from './lib/three/Water.js';
 import { depthAtFrom } from './depth.js';
 import { LON0, LAT0, MX, MY, wx, wz, cachedFetch, readDem, photo, photoAtCells, addCanopy, gridMesh, photoMat, buildTown, spruce, tlog, tmark, TOWN_NIGHT } from './terrain3d.js';
-import { makeSky, makeEnv, glowSprite, flashFor, weatherPanel, startConditions } from './weather3d.js';
+import { makeSky, makeEnv, glowSprite, flashFor, weatherPanel, startConditions, makeTrimmer } from './weather3d.js';
 
 const statusEl = document.getElementById('status');
 const loadingNote = document.getElementById('tileload');
@@ -323,7 +323,7 @@ addTowns();
 
 // Cape Dory 25D (Alberg design: 25 ft LOA, 8 ft beam), seen from the tiller. Boat frame:
 // y up from the waterline, -z forward, x to starboard; the helmsman's eye is at (0.35, EYE, 0).
-// mainsail and jib, set while sailing in Drone view (see the sails in the model below); heel eases in with them
+// mainsail and jib, set while under way with any wind (see the sails in the model below); heel eases in with them
 let setSails = () => {}, trimSails = () => {}, sailsUp = false, heel = 0;
 const bow = new THREE.Group();
 {
@@ -508,35 +508,13 @@ const bow = new THREE.Group();
     if (jibOn && key !== jibKey) { jibKey = key; jib.geometry.dispose(); jib.geometry = jibAt(jibDeg, Math.sign(side) || 1); }
   };
 }
-// Point of sail and trim (v869). True wind angle from the Weather panel's wind direction and the
-// boat's heading, then the apparent wind (true wind plus the headwind of the boat's own speed),
-// which is what the sails are trimmed to: boom ≈ half the apparent wind angle less ~12°, the jib
-// sheeted in step until its lead runs out, both strapped in close-hauled. Inside 40° of the true
-// wind she can't sail, so the jib is furled and the main sheeted flat (motor-sailing). Heel is
-// greatest close-hauled and on a reach, little on a run. The angles ease so tacks and gybes swing
-// across; dead downwind she keeps her side until the wind is clearly on the other quarter.
+// Point of sail and trim (v869): weather3d.js's makeTrimmer, shared with the Bird's-eye fleet.
 const WIND_DIRS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
-const sailSm = { boom: 0, jib: 12, side: 1, signed: null };
+const trimmer = makeTrimmer();
 function pointOfSail(course, dt) {
-  const twa = ((env.C.windFrom - course + 540) % 360) - 180;   // + : wind from starboard
-  const r = THREE.MathUtils.degToRad(twa), tws = WND.tws ?? 8;
-  const ax = tws * Math.sin(r), ay = tws * Math.cos(r) + BOAT_KN;
-  const awa = Math.abs(Math.atan2(ax, ay)) * 180 / Math.PI, atwa = Math.abs(twa);
-  if (atwa < 170 || Math.sign(twa) === sailSm.side) sailSm.side = twa >= 0 ? 1 : -1;
-  const noGo = atwa < 40;
-  const boom = noGo ? 2 : THREE.MathUtils.clamp(awa * 0.55 - 12, 4, 80);
-  const jib = THREE.MathUtils.clamp(awa * 0.3 - 2, 9, 32);
-  const k = Math.min(1, dt * 1.6);
-  // eased as a signed angle (port +), so a tack or gybe swings the boom across the centreline
-  const target = sailSm.side * boom;
-  sailSm.signed = sailSm.signed == null ? target : sailSm.signed + (target - sailSm.signed) * k;
-  const signed = sailSm.signed; sailSm.boom = Math.abs(signed);
-  sailSm.jib += (jib - sailSm.jib) * k;
-  const heelK = noGo ? 0.25 : 1 - 0.75 * THREE.MathUtils.clamp((awa - 70) / 110, 0, 1);
-  const name = WND.heel === 0 ? 'calm' : noGo ? 'too close to the wind — motor-sailing' : atwa < 60 ? 'close-hauled' : atwa < 80 ? 'close reach'
-    : atwa < 110 ? 'beam reach' : atwa < 150 ? 'broad reach' : 'running';
-  const tackTxt = WND.heel === 0 || noGo ? '' : `, ${sailSm.side > 0 ? 'starboard' : 'port'} tack`;   // the side the boom is on, dead downwind too
-  return { boom: sailSm.boom, jib: sailSm.jib, side: Math.sign(signed) || sailSm.side, jibOn: !noGo, heelK, label: name + tackTxt };
+  const p = trimmer(env.C.windFrom, course, WND.tws ?? 8, BOAT_KN, dt);
+  const tackTxt = WND.heel === 0 || p.noGo ? '' : `, ${p.tack > 0 ? 'starboard' : 'port'} tack`;   // the side the boom is on, dead downwind too
+  return { ...p, label: (WND.heel === 0 ? 'calm' : p.name) + tackTxt };
 }
 
 // The boat is its own object: it points along the course and pitches/rolls; the camera sits at
@@ -1317,7 +1295,7 @@ function frame() {
   updateFerries(t);
   camera.fov = 55 / zoom; camera.updateProjectionMatrix();
   const roll = Math.sin(t * 0.9) * 0.012 * Math.pow(mv, 0.8);
-  const wantSails = eyeH > 24 && anchor.state === 'up' && WND.heel > 0;
+  const wantSails = anchor.state === 'up' && WND.heel > 0;   // set in every view while under way with wind (v870; was Drone only)
   if (wantSails !== sailsUp) { sailsUp = wantSails; setSails(sailsUp); }
   const pt = pointOfSail(smoothCourse, dt);
   if (sailsUp) trimSails(pt.boom, pt.jib, pt.side, pt.jibOn);

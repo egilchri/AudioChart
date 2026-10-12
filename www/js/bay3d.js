@@ -11,7 +11,8 @@
 import * as THREE from 'three';
 import { Water } from './lib/three/Water.js';
 import { LON0, LAT0, MX, MY, wx, wz, readDem, photo, addCanopy, gridMesh, photoMat, buildTown, disposeGroup, spruce, TOWN_NIGHT } from './terrain3d.js';
-import { SUN, makeSky, makeEnv, glowSprite, flashFor, flashOn, weatherPanel, startConditions } from './weather3d.js';
+import { SUN, makeSky, makeEnv, glowSprite, flashFor, flashOn, weatherPanel, startConditions, makeTrimmer } from './weather3d.js';
+import { makeSailboat } from './sailboat3d.js';
 
 const statusEl = document.getElementById('status');
 const loadingEl = document.getElementById('loading');
@@ -552,6 +553,65 @@ function updateWeather(dt, t) {
   }
 }
 
+// ── A fleet of sailboats (v870, requested: the helm view's sail trim, seen from the air) ──
+// Forty boats on open water, each sailing short legs round its own patch of the bay and trimmed
+// to the Weather panel's wind (weather3d.js's makeTrimmer): they never point inside 45° of the
+// wind, tack and gybe as they turn, heel to leeward, and stop with sails furled in a calm. Close up
+// they sail at a real 5 kn; from higher up time runs faster (up to 20×) so you can see them move.
+// Like the buoys, they're drawn bigger the farther off you are.
+const FLEET_N = 40, BOAT_KN = 5, NMm = 1852;
+const isWater = (x, z) => heightAt(lonOf(x), latOf(z)) <= 0.3;
+const clearLeg = (x, z, h, len) => { const a = h * DEG; for (let d = 120; d <= len + 200; d += 120) if (!isWater(x + Math.sin(a) * d, z - Math.cos(a) * d)) return false; return true; };
+const fleet = [];
+{
+  let sd = 20261012; const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+  const [BW, BS, BE, BN] = BAY;
+  for (let tries = 0; fleet.length < FLEET_N && tries < 6000; tries++) {
+    const x = wx(BW + rnd() * (BE - BW)), z = wz(BS + rnd() * (BN - BS));
+    if (fleet.some(b => Math.hypot(b.home.x - x, b.home.z - z) < 1.6 * NMm)) continue;
+    let ok = isWater(x, z);
+    for (let k = 0; ok && k < 8; k++) ok = isWater(x + Math.sin(k * Math.PI / 4) * 0.45 * NMm, z - Math.cos(k * Math.PI / 4) * 0.45 * NMm);
+    if (!ok) continue;
+    const boat = makeSailboat(fleet.length);
+    scene.add(boat.group);
+    fleet.push({ boat, home: { x, z }, x, z, h: rnd() * 360, want: null, left: 0, trim: makeTrimmer(), rnd });
+  }
+}
+function pickLeg(b) {
+  const wf = env.C.windFrom, calm = env.W.heel === 0, away = Math.hypot(b.x - b.home.x, b.z - b.home.z);
+  const homeBrg = Math.atan2(b.home.x - b.x, -(b.home.z - b.z)) / DEG;
+  for (let i = 0; i < 30; i++) {
+    const h = (b.rnd() * 360), twa = Math.abs(((wf - h + 540) % 360) - 180), len = (0.25 + b.rnd() * 0.3) * NMm;
+    if (!calm && twa < 45) continue;
+    if (away > 0.45 * NMm && Math.cos((h - homeBrg) * DEG) < 0.3) continue;   // head back toward home
+    if (!clearLeg(b.x, b.z, h, len)) continue;
+    b.want = h; b.left = len; return;
+  }
+  b.want = homeBrg; b.left = 300;   // nothing better: back toward open water at home
+}
+function updateFleet(dt) {
+  const up = env.W.heel > 0, heel = env.W.heel * DEG, cp = camera.position, show = !aboveFog;
+  const FLEET_K = clamp(view.dist / 150, 1, 20);
+  for (const b of fleet) {
+    b.boat.group.visible = show;
+    if (b.want == null || b.left <= 0) pickLeg(b);
+    const twa = Math.abs(((env.C.windFrom - b.want + 540) % 360) - 180);
+    if (up && twa < 40) pickLeg(b);   // the wind shifted onto her bow: bear away onto a new leg
+    if (up) {
+      const turn = ((b.want - b.h + 540) % 360) - 180, step = 25 * dt * FLEET_K / 6;
+      b.h = (b.h + clamp(turn, -step, step) + 360) % 360;
+      const v = BOAT_KN * NMm / 3600 * FLEET_K * dt, a = b.h * DEG;
+      b.x += Math.sin(a) * v; b.z -= Math.cos(a) * v; b.left -= v;
+    }
+    const p = b.trim(env.C.windFrom, b.h, env.W.tws ?? 8, up ? BOAT_KN : 0, dt * FLEET_K / 4);
+    b.boat.trim(p, heel, up);
+    const s = clamp(Math.hypot(b.x - cp.x, cp.y, b.z - cp.z) / 250, 1.6, 90);   // never smaller than 1.6×: the closest you can come is ~120 m
+    b.boat.group.scale.setScalar(s);
+    b.boat.group.position.set(b.x, 0, b.z);
+    b.boat.group.rotation.y = -b.h * DEG;
+  }
+}
+
 // ── Labels: towns (click to fly there) from up high; place names and buoy numbers lower down ──
 const labelsEl = document.getElementById('labels'), pool = [];
 const places = placesGJ.features.filter(f => f.geometry?.type === 'Point' && inBay(f.geometry.coordinates) && ['LNDARE', 'LNDRGN', 'BUAARE'].includes(f.properties.objtype))
@@ -644,6 +704,7 @@ function frame(now) {
   water.position.set(view.x, 0, view.z);
   sky.position.copy(camera.position);
   updateWeather(dt, t);
+  updateFleet(dt);
   renderer.render(scene, camera);
   updateLabels(); updateReadout();
   requestAnimationFrame(frame);
@@ -657,7 +718,7 @@ window.__bay3d = {   // for AudioChart (returning to the chart where you were) a
   getView: () => ({ lat: latOf(view.z), lon: lonOf(view.x), dist: view.dist, az: view.az / DEG, tilt: view.tilt / DEG }),
   setView: v => { anim = null; Object.assign(view, { x: wx(v.lon), z: wz(v.lat), dist: v.dist ?? view.dist, az: (v.az ?? view.az / DEG) * DEG, tilt: (v.tilt ?? view.tilt / DEG) * DEG }); clampView(); placeCamera(); },
   goTown: id => { const tw = townList.find(x => x.id === id); if (tw) goTown(tw); return !!tw; },
-  goWhole, towns: townList, tiles, scene, env, applyConditions, renderer, trees: () => ({ near: TREES.near.count, far: TREES.far.count, K: TREES.K }),
+  goWhole, towns: townList, tiles, scene, env, applyConditions, fleet, isWater: (lat, lon) => isWater(wx(lon), wz(lat)), boatAt: i => ({ lat: latOf(fleet[i].z), lon: lonOf(fleet[i].x), h: fleet[i].h }), renderer, trees: () => ({ near: TREES.near.count, far: TREES.far.count, K: TREES.K }),
 };
 }
 main().catch(err => { console.error(err); fail('Could not start the 3D view: ' + err.message); });

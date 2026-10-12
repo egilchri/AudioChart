@@ -352,3 +352,31 @@ export async function forecastConditions(lat, lon, now) {
   const note = `NWS forecast, ${hr}: ${DIRS[Math.round(from / 22.5) % 16]} ${Math.round(kn)} kn, ${skyTxt}, visibility ${visNm >= 10 ? '10+' : visNm.toFixed(visNm < 2 ? 1 : 0)} nm` + (waveFt ? `, seas ${Math.max(1, Math.round(waveFt))} ft` : '') + '.';
   return { C, note };
 }
+
+// ── Sail trim (v869 helm view, v870 shared with the Bird's-eye fleet) ──
+// The true wind angle from the wind direction and the boat's heading, then the apparent wind
+// (true wind plus the headwind of the boat's own speed), which is what the sails are trimmed to:
+// boom ≈ half the apparent wind angle less ~12°, the jib sheeted in step until its lead runs
+// out, both strapped in close-hauled. Inside 40° of the true wind she can't sail, so the jib is
+// furled and the main sheeted flat (motor-sailing). Heel is greatest close-hauled and on a reach,
+// little on a run. makeTrimmer() eases the angles so tacks and gybes swing the boom across; dead
+// downwind she keeps her side until the wind is clearly on the other quarter.
+export const POINTS_OF_SAIL = atwa => atwa < 40 ? 'too close to the wind — motor-sailing' : atwa < 60 ? 'close-hauled' : atwa < 80 ? 'close reach'
+  : atwa < 110 ? 'beam reach' : atwa < 150 ? 'broad reach' : 'running';
+export function makeTrimmer() {
+  const sm = { jib: 12, side: 1, signed: null };
+  // windFrom, course: degrees true; tws, boatKn: knots. Returns angles in degrees off the centreline,
+  // side +1 = sails out to port (wind from starboard), heelK 0..1 of the wind's full heel.
+  return (windFrom, course, tws, boatKn, dt) => {
+    const twa = ((windFrom - course + 540) % 360) - 180, atwa = Math.abs(twa), r = twa * Math.PI / 180;
+    const awa = Math.abs(Math.atan2(tws * Math.sin(r), tws * Math.cos(r) + boatKn)) * 180 / Math.PI;
+    if (atwa < 170 || Math.sign(twa) === sm.side) sm.side = twa >= 0 ? 1 : -1;
+    const noGo = atwa < 40, clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+    const boom = noGo ? 2 : clamp(awa * 0.55 - 12, 4, 80), jib = clamp(awa * 0.3 - 2, 9, 32);
+    const k = Math.min(1, dt * 1.6), target = sm.side * boom;   // eased as a signed angle, port +
+    sm.signed = sm.signed == null ? target : sm.signed + (target - sm.signed) * k;
+    sm.jib += (jib - sm.jib) * k;
+    return { boom: Math.abs(sm.signed), jib: sm.jib, side: Math.sign(sm.signed) || sm.side, tack: sm.side, jibOn: !noGo, noGo, atwa,
+      heelK: noGo ? 0.25 : 1 - 0.75 * clamp((awa - 70) / 110, 0, 1), name: POINTS_OF_SAIL(atwa) };
+  };
+}

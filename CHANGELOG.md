@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-10-12 — Bird's-eye fleet trimmed to the wind; sails set in every helm view (v870)
+
+Requested: the sail trim in the Bird's-eye view too. It had no boats, so it now has a
+fleet: forty sloops (new www/js/sailboat3d.js) on open water round the bay, each
+sailing short legs about its own patch, never pointing inside 45° of the wind, tacking
+and gybing as they turn, heeling to leeward, sails furled in a calm. They're trimmed
+by the same code as the helm view (makeTrimmer, moved into weather3d.js). Close up they
+sail at a real 5 kn; from higher up time runs faster (to 20×), and like the buoys
+they're drawn larger with distance. Hidden under a fog bank seen from above.
+
+Reported: "I don't see that the sails are set" (v869). The helm view only set sail in
+Drone view; Helm, 20 ft and 60 ft motored with the sail cover on. Sails now set in
+every view whenever she's under way with wind, so from the tiller you see the boom and
+main trimmed out over the side.
+
 ## 2026-10-12 — 3D view: sails trimmed to the wind; magnetic headings (v869)
 
 Requested: a wind direction, with the main and jib trimmed to suit it. The Weather
