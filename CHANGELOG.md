@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-12 — Short note for the Hadlock Cove sample (v868)
+
+Its note (shown under the name in ★ Sample Routes) was a long verification log;
+now a two-line description of the trip. Both copies of curated_routes.json and
+both data-version.json fingerprints updated.
+
 ## 2026-10-12 — Rockland to Hadlock Cove back in the Penobscot Bay samples (v867)
 
 The 3-night sample (v676) was only in the bundled data/curated_routes.json, so with
