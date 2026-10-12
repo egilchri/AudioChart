@@ -4,6 +4,7 @@
 // (helm3d.html?route=<id>) or for a sample (?sample=<curated id>). Desktop browser with WebGL.
 import * as THREE from 'three';
 import { Water } from './lib/three/Water.js';
+import { depthAtFrom } from './depth.js';
 import { LON0, LAT0, MX, MY, wx, wz, cachedFetch, readDem, photo, photoAtCells, addCanopy, gridMesh, photoMat, buildTown, spruce, tlog, tmark, TOWN_NIGHT } from './terrain3d.js';
 import { makeSky, makeEnv, glowSprite, flashFor, weatherPanel, startConditions } from './weather3d.js';
 
@@ -233,6 +234,14 @@ const routeW = routeLL.map(([x, y]) => [wx(x), wz(y)]);
 const regionDir = await regionFor(routeLL[0][0], routeLL[0][1]);
 setStatus('Loading chart data…');
 const [navGJ, placesGJ, landGJ] = await Promise.all([getJSON(`${regionDir}/navaid.geojson`), getJSON(`${regionDir}/named_places.geojson`), getJSON('./data/landmarks.json').catch(() => ({ landmarks: [] }))]);
+// Depth readout (v865): charted depth under the boat from the region's soundings and DEPARE
+// shallow-area bands (shared depth.js). Loaded in the background; the readout shows — until then.
+let depthSnd = null, depthZones = null;
+getJSON(`${regionDir}/soundings.geojson`).then(fc => { depthSnd = fc; }).catch(() => {});
+getJSON(`${regionDir}/hazards.geojson`).then(fc => {
+  depthZones = fc.features.filter(f => f.properties?.label === 'shallow area' && f.geometry?.type !== 'Point');
+}).catch(() => {});
+const DRAFT_FT = (() => { let v = NaN; try { v = parseFloat(localStorage.getItem('audiochart-draft-ft')); } catch (_) {} return v > 0 ? v : 5; })();
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
 renderer.setPixelRatio(Math.min(1.25, devicePixelRatio));
@@ -1296,6 +1305,11 @@ function frame() {
       const rel = Math.abs((((Math.atan2(dx, -dz) * 180 / Math.PI) - smoothCourse + 540) % 360) - 180);
       if (rel < 30 && d < 3 * NM && (!best || d < best.d)) best = { m, d, rel };
     }
+    const dEl = document.getElementById('ro-depth');
+    const dep = depthSnd ? depthAtFrom(depthSnd, depthZones, LAT0 - pos[1] / MY, LON0 + pos[0] / MX) : null;
+    const ft = dep ? dep.m * 3.28084 : null;
+    dEl.textContent = ft == null ? '—' : `${ft < 10 ? ft.toFixed(1) : Math.round(ft)} ft`;
+    dEl.className = ft == null ? '' : ft < DRAFT_FT + 1 ? 'alarm' : ft < DRAFT_FT + 3 ? 'warn' : '';
     document.getElementById('ro-ahead').textContent = best ? `${best.m.name}, ${(best.d / NM).toFixed(2)} nm` : 'None within 3 nm';
   }
   requestAnimationFrame(frame);

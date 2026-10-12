@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-12 — Depth readout in the 3D view (v866)
+
+The v865 sounder lives in the app's Virtual Journey panel, so the 3D view opened on
+its own (with its own Play) showed no depth. Its readout row now has DEPTH: the
+charted depth under the boat (at MLLW), amber within 3 ft of the keel and red within
+1 ft. The estimate moved from query.js into a shared www/js/depth.js, so the sounder
+and the 3D view read the same numbers.
+
 ## 2026-10-12 — Depth sounder in the Virtual Journey panel (v865)
 
 Requested: show the depths being crossed, like a depth sounder. The journey panel
