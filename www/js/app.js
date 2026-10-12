@@ -7208,14 +7208,15 @@ const VJ_TICK_MS = 200;
 // view should replace the Virtual Journey display). helm3d.html runs in an iframe over the map
 // (embed mode: no header or playback controls, the journey drives it via _broadcastVj), above
 // the map's own controls and below the app's chrome and the journey banner. Toggled from the
-// banner; the choice is remembered. Defaults off on touch devices until the 3D view has a
-// tablet-grade quality setting. When the journey completes the view stays up so the anchoring
+// banner; the choice is remembered. On by default everywhere, phones included (v864; it was off
+// on touch devices until v863 gave phones a full-screen 3D layout). The key was renamed in v864
+// so a Map choice saved under the old phone default doesn't keep phones on the map. When the journey completes the view stays up so the anchoring
 // plays out, with a Close button; stopping the journey yourself closes it.
-const VJ3D_KEY = 'audiochart-vj3d';
+const VJ3D_KEY = 'audiochart-vj3d-v864';
 let _vj3dWrap = null;
 function _vj3dWanted() {
   try { const v = localStorage.getItem(VJ3D_KEY); if (v) return v === 'on'; } catch (_) {}
-  return !matchMedia('(pointer: coarse)').matches;
+  return true;
 }
 function _syncVj3dBtn() {
   const b = document.getElementById('vjourney-3d-btn');

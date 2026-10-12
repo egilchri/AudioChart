@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-11 — Virtual Journeys open in 3D on phones too (v864)
+
+Requested: the 3D view is now the default for a Virtual Journey on touch devices
+as well as desktops. The banner's 🗺 Map / ⛰ 3D button still switches, and the
+choice is remembered (under a new key, so a Map choice saved under the old phone
+default doesn't stick).
+
 ## 2026-10-11 — 3D view fills a phone screen (v863)
 
 Requested: on mobile the 3D view was a thin strip under a large title and
