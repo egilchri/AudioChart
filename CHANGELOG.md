@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-12 — Depth sounder in the Virtual Journey panel (v865)
+
+Requested: show the depths being crossed, like a depth sounder. The journey panel
+now has a sounder: the depth in feet (charted depth plus the current tide) and a
+bottom profile that scrolls past, with a dashed line at the boat's draft. It turns
+amber within 3 ft of the keel, and red with a spoken "Shallow water" warning within
+1 ft. Depth comes from the new Query.depthAt: the nearest soundings blended by
+distance, held inside any charted depth-area band covering the point ("approx."
+when the nearest sounding is over 0.3 nm away).
+
 ## 2026-10-11 — Virtual Journeys open in 3D on phones too (v864)
 
 Requested: the 3D view is now the default for a Virtual Journey on touch devices

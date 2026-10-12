@@ -7166,6 +7166,7 @@ function _startVirtualJourney(route, speedKnots) {
   document.getElementById('vjourney-route-name').textContent = route.name;
   document.getElementById('vjourney-speed-input').value = speedKnots;
   document.getElementById('vjourney-status').textContent = `Underway · ${speedKnots} kts`;
+  _vjSounderReset();
   document.getElementById('vjourney-pause-btn').textContent = '⏸ Pause';
   document.getElementById('vjourney-banner').style.display = 'flex';
   _appEl.classList.add('vjourney-active');
@@ -7351,9 +7352,81 @@ function _vjStep() {
   const lat = seg.lat1 + (seg.lat2 - seg.lat1) * frac;
   const lon = seg.lon1 + (seg.lon2 - seg.lon1) * frac;
   GPS.setVirtualPosition(lat, lon, seg.brg, _vjSpeedKnots);
+  _vjSound(lat, lon);
 
   document.getElementById('vjourney-status').textContent =
     `Underway · ${_vjSpeedKnots} kts · ${_vjTraveledNm.toFixed(1)}/${_vjTotalNm.toFixed(1)} nm`;
+}
+
+// Depth sounder in the journey panel (v865, requested: show the depths we're crossing, like a
+// depth sounder). Charted depth from Query.depthAt (soundings blended, held inside any DEPARE
+// band) plus the current tide; the trace scrolls one sample per tick. Shallow alarm: amber within
+// 3 ft of the keel, red and a spoken warning within 1 ft (once, until it clears 3 ft again).
+const VJS_SAMPLES = 100;
+let _vjsTrace = [], _vjsAlarmed = false;
+function _vjSounderReset() {
+  _vjsTrace = []; _vjsAlarmed = false;
+  const el = document.getElementById('vjourney-sounder');
+  if (!el) return;
+  el.classList.remove('warn', 'alarm');
+  el.querySelector('.vjs-val').textContent = '--';
+  el.querySelector('.vjs-note').textContent = '';
+  _vjsDraw();
+}
+function _vjSound(lat, lon) {
+  const el = document.getElementById('vjourney-sounder');
+  if (!el) return;
+  const d = Query.depthAt(lat, lon);
+  const ft = d ? Math.max(0, (d.m + (_tideHeight || 0)) * 3.28084) : null;
+  _vjsTrace.push(ft);
+  if (_vjsTrace.length > VJS_SAMPLES) _vjsTrace.shift();
+  const draft = _currentDraftFt();
+  el.querySelector('.vjs-val').textContent = ft == null ? '--' : ft < 10 ? ft.toFixed(1) : Math.round(ft);
+  const tideFt = (_tideHeight || 0) * 3.28084;
+  el.querySelector('.vjs-note').textContent = ft == null ? 'no soundings nearby'
+    : (d.nearNm != null && d.nearNm > 0.3 ? 'approx. · ' : '')
+      + (Math.abs(tideFt) >= 0.1 ? `tide ${tideFt >= 0 ? '+' : ''}${tideFt.toFixed(1)} ft` : 'charted depth');
+  const warn = ft != null && ft < draft + 3, alarm = ft != null && ft < draft + 1;
+  el.classList.toggle('warn', warn && !alarm);
+  el.classList.toggle('alarm', alarm);
+  if (alarm && !_vjsAlarmed) {
+    _vjsAlarmed = true;
+    TTS.sayImmediate(`Shallow water, ${ft < 10 ? ft.toFixed(1) : Math.round(ft)} feet.`);
+  } else if (!warn) _vjsAlarmed = false;
+  _vjsDraw();
+}
+function _vjsDraw() {
+  const cv = document.querySelector('#vjourney-sounder canvas');
+  if (!cv) return;
+  const W = cv.clientWidth || 200, H = cv.clientHeight || 44, dpr = window.devicePixelRatio || 1;
+  if (cv.width !== Math.round(W * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+  const g = cv.getContext('2d');
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, W, H);
+  const vals = _vjsTrace.filter(v => v != null);
+  const draft = _currentDraftFt();
+  const maxFt = Math.max(20, draft * 2, ...vals) * 1.15;
+  const y = (ft) => 2 + (ft / maxFt) * (H - 4);
+  const step = W / (VJS_SAMPLES - 1), x0 = W - (_vjsTrace.length - 1) * step;
+  // bottom: filled from the trace down, like a sounder's bottom return
+  g.beginPath();
+  let started = false;
+  _vjsTrace.forEach((v, i) => {
+    if (v == null) return;
+    const x = x0 + i * step;
+    if (!started) { g.moveTo(x, H); started = true; }
+    g.lineTo(x, y(v));
+  });
+  if (started) {
+    const lastX = x0 + (_vjsTrace.length - 1) * step;
+    g.lineTo(lastX, H); g.closePath();
+    const grad = g.createLinearGradient(0, 0, 0, H);
+    grad.addColorStop(0, '#e0a040'); grad.addColorStop(1, '#7a3b12');
+    g.fillStyle = grad; g.fill();
+  }
+  // keel line
+  g.strokeStyle = 'rgba(255,91,77,0.8)'; g.setLineDash([3, 3]); g.lineWidth = 1;
+  g.beginPath(); g.moveTo(0, y(draft)); g.lineTo(W, y(draft)); g.stroke(); g.setLineDash([]);
 }
 
 function _pauseVirtualJourney() {

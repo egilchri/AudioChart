@@ -3415,3 +3415,91 @@ export function nearestSounding(lat, lon, radiusNm = 0.15) {
   }
   return best;
 }
+
+// ── Charted depth at a point (v865, the Virtual Journey's depth sounder) ──────────────────────
+// Soundings are scattered points (~0.2 nm apart in open bay, closer inshore), so the depth
+// between them is an inverse-distance blend of the nearest few. Where a DEPARE shallow-area
+// band covers the point, the blend is held inside that band (a 1.8-3.6 m area never reads 6 m
+// because a deep sounding sits just outside it). Indexes are built lazily and rebuilt when the
+// region's data objects change.
+const _DEPTH_CELL = 0.01;   // degrees, ~0.5 nm
+let _sndIdx = null, _sndIdxSrc = null, _bandIdx = null, _bandIdxSrc = null;
+
+function _soundingIndex() {
+  if (_sndIdxSrc === soundings && _sndIdx) return _sndIdx;
+  _sndIdxSrc = soundings; _sndIdx = new Map();
+  for (const f of soundings?.features || []) {
+    const [lon, lat] = f.geometry.coordinates, v = f.properties?.valsou;
+    if (typeof v !== 'number') continue;
+    const k = `${Math.floor(lon / _DEPTH_CELL)},${Math.floor(lat / _DEPTH_CELL)}`;
+    if (!_sndIdx.has(k)) _sndIdx.set(k, []);
+    _sndIdx.get(k).push([lon, lat, v]);
+  }
+  return _sndIdx;
+}
+
+function _depthBandIndex() {
+  if (_bandIdxSrc === depthZones && _bandIdx) return _bandIdx;
+  _bandIdxSrc = depthZones; _bandIdx = new Map();
+  for (const f of depthZones || []) {
+    const m = (f.properties?.depth_label || '').match(/^(-?[\d.]+)-(-?[\d.]+)m$/);
+    if (!m) continue;
+    const g = f.geometry;
+    const rings = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
+    for (const poly of rings) {
+      const r = poly[0]; let minLon = Infinity, maxLon = -Infinity, minLat = Infinity, maxLat = -Infinity;
+      for (const [x, y] of r) { if (x < minLon) minLon = x; if (x > maxLon) maxLon = x; if (y < minLat) minLat = y; if (y > maxLat) maxLat = y; }
+      const e = { minLon, maxLon, minLat, maxLat, poly, lo: Math.max(0, +m[1]), hi: +m[2] };
+      for (let c = Math.floor(minLon / _DEPTH_CELL); c <= Math.floor(maxLon / _DEPTH_CELL); c++)
+        for (let rr = Math.floor(minLat / _DEPTH_CELL); rr <= Math.floor(maxLat / _DEPTH_CELL); rr++) {
+          const k = `${c},${rr}`; if (!_bandIdx.has(k)) _bandIdx.set(k, []); _bandIdx.get(k).push(e);
+        }
+    }
+  }
+  return _bandIdx;
+}
+
+function _inRing(r, lon, lat) {
+  let inside = false;
+  for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
+    const [xi, yi] = r[i], [xj, yj] = r[j];
+    if ((yi > lat) !== (yj > lat) && lon < (xj - xi) * (lat - yi) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
+/**
+ * Estimated charted depth (metres below chart datum, MLLW) at a point.
+ * Returns {m, nearNm, band:[lo,hi]|null} or null when there is no data within ~1 nm.
+ */
+export function depthAt(lat, lon) {
+  const idx = _soundingIndex();
+  const c0 = Math.floor(lon / _DEPTH_CELL), r0 = Math.floor(lat / _DEPTH_CELL);
+  const near = [];
+  for (let ring = 0; ring <= 2; ring++) {
+    for (let c = c0 - ring; c <= c0 + ring; c++)
+      for (let r = r0 - ring; r <= r0 + ring; r++) {
+        if (Math.max(Math.abs(c - c0), Math.abs(r - r0)) !== ring) continue;
+        for (const s of idx.get(`${c},${r}`) || []) near.push([distanceNm(lon, lat, s[0], s[1]), s[2]]);
+      }
+    if (near.length >= 6 && ring >= 1) break;
+  }
+  near.sort((a, b) => a[0] - b[0]);
+  const use = near.slice(0, 6).filter(n => n[0] < 1);
+  let band = null;
+  for (const e of _depthBandIndex().get(`${c0},${r0}`) || []) {
+    if (lon < e.minLon || lon > e.maxLon || lat < e.minLat || lat > e.maxLat) continue;
+    if (_inRing(e.poly[0], lon, lat) && !e.poly.slice(1).some(h => _inRing(h, lon, lat))) {
+      if (!band || e.hi < band[1]) band = [e.lo, e.hi];
+    }
+  }
+  if (!use.length && !band) return null;
+  let m;
+  if (use.length) {
+    let w = 0, sum = 0;
+    for (const [d, v] of use) { const wi = 1 / Math.max(d, 0.01) ** 2; w += wi; sum += wi * v; }
+    m = sum / w;
+  } else m = (band[0] + band[1]) / 2;
+  if (band) m = Math.min(band[1], Math.max(band[0], m));
+  return { m, nearNm: use.length ? use[0][0] : null, band };
+}
