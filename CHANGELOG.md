@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-12 — Rockland to Hadlock Cove back in the Penobscot Bay samples (v867)
+
+The 3-night sample (v676) was only in the bundled data/curated_routes.json, so with
+the Penobscot Bay region active (everyone, since v401) it was missing from
+★ Sample Routes and the 3D view's route list. Copied into
+data/regions/penobscot-bay/curated_routes.json and refreshed that region's
+data-version.json fingerprint.
+
 ## 2026-10-12 — Depth readout in the 3D view (v866)
 
 The v865 sounder lives in the app's Virtual Journey panel, so the 3D view opened on
