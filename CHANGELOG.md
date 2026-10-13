@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-13 — 3D view: optional waypoints (v872)
+
+Requested: optionally show waypoints on Virtual Journeys. A ◆ Waypoints toggle in the
+3D view's View row (visible during a journey; also the W key; remembered) shows a
+numbered marker on a pole at each of the route's waypoints (green; amber with ☾ for an
+overnight stop, red with ⚓ at the end), drawn bigger with distance like the buoys; the
+route as a dashed line on the water; the next waypoint labelled with its distance;
+diamonds on the corner chart; and a NEXT WAYPOINT readout (distance and magnetic
+bearing) under the picture. ?wpts=1 turns it on from the URL.
+
 ## 2026-10-12 — Bird's-eye: ⛵ Follow a sailboat; no black treetops above fog (v871)
 
 Reported: "I do not know where to look for the boats", with a snapshot of black cones

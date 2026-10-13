@@ -28,6 +28,11 @@ h1 { font-family: var(--display); font-weight: 600; font-size: 1.9rem; letter-sp
   text-shadow: 0 0 3px rgba(15,30,38,0.9), 0 0 1px rgba(15,30,38,1); padding-bottom: 6px; border-bottom: 0; }
 .lbl::after { content: ""; position: absolute; left: 50%; bottom: 0; width: 1px; height: 6px; background: rgba(255,255,255,0.6); }
 .lbl.buoy { font-family: var(--mono); font-weight: 500; font-size: 11px; }
+.lbl.wpt { color: #c9f2d6; font-size: 12px; }
+.lbl.wpt.next { color: #1b2328; background: rgba(201,242,214,0.92); border-radius: 4px; padding: 1px 6px; }
+#eyepick .wpbtn { margin-left: 4px; box-shadow: -3px 0 0 -2px rgba(230,238,241,0.35); }
+#eyepick .wpbtn.on { background: rgba(47,163,90,0.9); color: #fff; }
+.ro[hidden] { display: none; }
 .scene #minichart { height: auto; }
 #minichart { position: absolute; right: 12px; top: 40px; width: clamp(130px, 17%, 210px); aspect-ratio: 1; border-radius: 6px; box-shadow: 0 2px 10px rgba(10,20,26,0.35); pointer-events: none; z-index: 2; }
 #minichart[hidden] { display: none; }
@@ -134,6 +139,7 @@ body.embed #town-credit { left: 50% !important; transform: translateX(-50%); whi
     <div class="ro"><span>Run</span><b id="ro-run">—</b></div>
     <div class="ro" title="Charted depth under the boat (at mean lower low water), estimated from the chart's soundings"><span>Depth</span><b id="ro-depth">—</b></div>
     <div class="ro"><span>Zoom</span><b id="ro-zoom">1×</b></div>
+    <div class="ro ahead" hidden><span>Next waypoint</span><b id="ro-wp">—</b></div>
     <div class="ro ahead"><span>Wind</span><b id="ro-wind">—</b></div>
     <div class="ro ahead"><span>Nearest mark ahead</span><b id="ro-ahead">—</b></div>
   </div>
@@ -152,7 +158,7 @@ body.embed #town-credit { left: 50% !important; transform: translateX(-50%); whi
     <span class="badge" id="vjnote" hidden>Following Virtual Journey</span>
     <span class="badge" id="anchornote" hidden>⚓ Anchored</span>
   </div>
-  <p class="note">Drag the view to look around, scroll to zoom like binoculars, <kbd>Space</kbd> to play or pause, <kbd>H</kbd> or the View buttons to raise your eye from the helm to 20 or 60 ft, Weather for the time of day (dawn, sunset, a moonlit night with the lights of buoys, lighthouses, towns and boats), fog, overcast or rain, and the wind and sea; <kbd>N</kbd> toggles night. While a Virtual Journey of this route runs in AudioChart, this view follows it. At the end of the route the anchor goes down (click once in this window first so the browser allows the sound). Eye height 2.0 m at the tiller. Land is USGS elevation (10 m near the route, about 37 m beyond) with tree height added where the photo shows forest, since the elevation data is bare earth. Photos are a single survey summer, so moored boats and shadows are frozen in place. Buoys are drawn up to 6× real size at a distance so they stay visible. Desktop browser with WebGL needed; the first run of a route downloads 20–40 MB.</p>
+  <p class="note">Drag the view to look around, scroll to zoom like binoculars, <kbd>Space</kbd> to play or pause, <kbd>H</kbd> or the View buttons to raise your eye from the helm to 20 or 60 ft, Weather for the time of day (dawn, sunset, a moonlit night with the lights of buoys, lighthouses, towns and boats), fog, overcast or rain, and the wind and sea; <kbd>N</kbd> toggles night; ◆ Waypoints (or <kbd>W</kbd>) shows the route's waypoints and the distance to the next. While a Virtual Journey of this route runs in AudioChart, this view follows it. At the end of the route the anchor goes down (click once in this window first so the browser allows the sound). Eye height 2.0 m at the tiller. Land is USGS elevation (10 m near the route, about 37 m beyond) with tree height added where the photo shows forest, since the elevation data is bare earth. Photos are a single survey summer, so moored boats and shadows are frozen in place. Buoys are drawn up to 6× real size at a distance so they stay visible. Desktop browser with WebGL needed; the first run of a route downloads 20–40 MB.</p>
 </div>
 <script type="importmap">
 { "imports": { "three": "./js/lib/three/three.module.min.js" } }

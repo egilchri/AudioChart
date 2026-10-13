@@ -30,13 +30,13 @@ async function findRoute() {
     let routes = [];
     try { routes = JSON.parse(localStorage.getItem('audiochart-user-routes') || '[]'); } catch (_) {}
     const r = routes.find(x => x.id === id) || routes.find(x => x.name === id);
-    if (r) return { id: r.id || r.name, name: r.name, points: r.points.map(p => [p.lon, p.lat]) };
+    if (r) return { id: r.id || r.name, name: r.name, points: r.points.map(p => [p.lon, p.lat]), overnight: r.points.map(p => !!p.overnight) };
   }
   if (sample) {
     for (const url of [...REGIONS.map(g => `./data/regions/${g}/curated_routes.json`), './data/curated_routes.json']) {
       let list; try { list = await getJSON(url); } catch (_) { continue; }
       const r = list.find(x => x.id === sample);
-      if (r) return { id: r.id, name: r.name, points: r.points.map(p => Array.isArray(p) ? p : [p.lon, p.lat]) };
+      if (r) return { id: r.id, name: r.name, points: r.points.map(p => Array.isArray(p) ? p : [p.lon, p.lat]), overnight: r.points.map(p => !Array.isArray(p) && !!p.overnight) };
     }
   }
   return null;
@@ -743,6 +743,36 @@ function courseAt(s) {   // degrees true, from a short look-ahead so turns are s
   return (Math.atan2(b[0] - a[0], -(b[1] - a[1])) * 180 / Math.PI + 360) % 360;
 }
 
+// ── Waypoints (v872, requested: optionally show them on Virtual Journeys) ──
+// The ◆ Waypoints toggle in the View row (and W) shows a numbered marker at each of the route's
+// waypoints (green; amber for an overnight stop, red at the end), the route itself as a dashed
+// line on the water, and the next waypoint's distance and magnetic bearing. Remembered.
+const WP_KEY = 'audiochart-helm3d-waypoints';
+let wpOn = params.get('wpts') ? params.get('wpts') === '1' : (() => { try { return localStorage.getItem(WP_KEY) === 'on'; } catch (_) { return false; } })();
+const wpGroup = new THREE.Group(); wpGroup.visible = wpOn; scene.add(wpGroup);
+const wps = route.map((w, i) => {
+  const night = !!ROUTE.overnight?.[i], last = i === route.length - 1;
+  const col = last ? 0xd0342c : night ? 0xe0a843 : 0x2fa35a;
+  const g = new THREE.Group(); g.position.set(w[0], 0, w[1]);
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 3.2, 6), new THREE.MeshLambertMaterial({ color: 0xf2f2ee })); pole.position.y = 1.6; g.add(pole);
+  const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.55), new THREE.MeshLambertMaterial({ color: col, emissive: col, emissiveIntensity: 0.35 })); gem.position.y = 3.6; gem.scale.y = 1.4; g.add(gem);
+  wpGroup.add(g);
+  return { g, w, i, night, last, label: `WP ${i + 1}` + (night ? ' ☾' : last ? ' ⚓' : '') };
+});
+const wpLine = (() => {
+  const pts = route.map(([x, z]) => new THREE.Vector3(x, 0.3, z));
+  const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineDashedMaterial({ color: 0xe0a843, dashSize: 12, gapSize: 8 }));
+  l.computeLineDistances(); wpGroup.add(l); return l;
+})();
+function nextWp(s) { for (let i = 1; i < cum.length; i++) if (cum[i] > s + 5) return wps[i]; return null; }
+function updateWaypoints(pos) {
+  if (!wpOn) return;
+  for (const p of wps) {   // drawn bigger with distance, like the buoys, so they read from afar
+    const d = Math.hypot(p.w[0] - pos[0], p.w[1] - pos[1]);
+    p.g.scale.setScalar(Math.max(1, Math.min(14, d / 120)));
+  }
+}
+
 // ── Fox Islands ferries (v846): when the route passes near the Rockland–Vinalhaven or Rockland–
 // North Haven ferry line (data/ferries.json, from OpenStreetMap), a ferry is staged to come by:
 // across your bow about 400 m ahead if you cross its line, or meeting you port to port if you run
@@ -962,6 +992,14 @@ function updateLabels(pos) {
       const d = Math.hypot(m.g.position.x - pos[0], m.g.position.z - pos[1]); if (d > Math.min(1.3 * NM, visM * 1.2)) continue;
       cand.push({ text: `"${m.num}"`, v: new THREE.Vector3(m.g.position.x, 5.5, m.g.position.z), d, cls: 'buoy', w: [m.g.position.x, m.g.position.z], h: 3 });
     }
+    if (wpOn) {
+      const nx = nextWp(S);
+      for (const p of wps) {
+        const d = Math.hypot(p.w[0] - pos[0], p.w[1] - pos[1]); if (d > Math.min(4 * NM, visM * 1.2) || d < 15) continue;
+        const k = p.g.scale.x, text = p === nx ? `${p.label} · ${(d / NM).toFixed(2)} nm` : p.label;
+        cand.push({ text, v: new THREE.Vector3(p.w[0], 4.6 * k, p.w[1]), d: p === nx ? 0 : d * 0.6, cls: 'wpt' + (p === nx ? ' next' : ''), w: p.w, h: 4 * k });
+      }
+    }
     for (const fy of ferries) {
       const fp = fy.group.position, d = Math.hypot(fp.x - pos[0], fp.z - pos[1]); if (d > Math.min(3 * NM, visM * 1.2)) continue;
       cand.push({ text: fy.label, v: new THREE.Vector3(fp.x, 12, fp.z), d: d * 0.5, cls: '', w: [fp.x, fp.z], h: 8 });
@@ -1116,6 +1154,16 @@ syncEyeButtons();
 // Weather (v858): a button at the end of the View buttons opens the conditions panel (weather3d.js)
 wxPanel = weatherPanel({ host: eyeBox, panelParent: sceneEl, where: () => routeLL[Math.floor(routeLL.length / 2)], pick: applyConditions });
 applyConditions(startConditions(params));
+const wpBtn = document.createElement('button'); wpBtn.type = 'button'; wpBtn.className = 'wpbtn'; wpBtn.textContent = '◆ Waypoints';
+wpBtn.title = 'Show the route\'s waypoints and the next one\'s distance (W)';
+const setWp = on => {
+  wpOn = on; wpGroup.visible = on; wpBtn.classList.toggle('on', on); wpBtn.setAttribute('aria-pressed', String(on));
+  try { localStorage.setItem(WP_KEY, on ? 'on' : 'off'); } catch (_) {}
+  lblFrame = 0;   // relabel now
+};
+wpBtn.addEventListener('pointerdown', e => e.stopPropagation());
+wpBtn.addEventListener('click', () => setWp(!wpOn)); eyeBox.appendChild(wpBtn); setWp(wpOn);
+addEventListener('keydown', e => { if ((e.key === 'w' || e.key === 'W') && !e.metaKey && !e.ctrlKey && !/INPUT|SELECT/.test(e.target.tagName)) setWp(!wpOn); });
 addEventListener('keydown', e => {
   if (e.key !== 'h' && e.key !== 'H') return;
   const i = EYE_CHOICES.findIndex(c => Math.abs(c.m - eyeTarget) < 0.2);
@@ -1238,6 +1286,11 @@ function drawChart(pos, course, look, hfov) {
     c.lineTo(X(routeLL[i][0]), Y(routeLL[i][1])); acc += segLen;
   }
   c.stroke();
+  if (wpOn) for (const p of wps) {   // waypoints
+    const x = X(routeLL[p.i][0]), y = Y(routeLL[p.i][1]); if (x < -5 || y < -5 || x > size + 5 || y > size + 5) continue;
+    c.fillStyle = p.last ? '#d0342c' : p.night ? '#e0a843' : '#2fa35a'; c.strokeStyle = '#fbfcf8'; c.lineWidth = 1;
+    c.beginPath(); c.moveTo(x, y - 4.5); c.lineTo(x + 3.5, y); c.lineTo(x, y + 4.5); c.lineTo(x - 3.5, y); c.closePath(); c.fill(); c.stroke();
+  }
   // buoys
   for (const m of marks) {
     if (m.kind !== 'buoy') continue;
@@ -1327,6 +1380,13 @@ function frame() {
   document.getElementById('ro-look').textContent = String(Math.round(toMag(look)) % 360).padStart(3, '0') + '° M';
   document.getElementById('ro-run').textContent = `${(S / NM).toFixed(1)}/${(TOTAL / NM).toFixed(1)} nm`;
   document.getElementById('ro-zoom').textContent = zoom.toFixed(1) + '×';
+  updateWaypoints(pos);
+  if (lblFrame % 8 === 1) {
+    const nx = wpOn && nextWp(S), el = document.getElementById('ro-wp');
+    el.parentElement.hidden = !wpOn;
+    if (nx) { const dx = nx.w[0] - pos[0], dz = nx.w[1] - pos[1]; el.textContent = `${nx.label} · ${(Math.hypot(dx, dz) / NM).toFixed(2)} nm · ${String(Math.round(toMag(Math.atan2(dx, -dz) * 180 / Math.PI)) % 360).padStart(3, '0')}° M`; }
+    else if (wpOn) el.textContent = 'Arrived';
+  }
   if (lblFrame % 8 === 1) document.getElementById('ro-wind').textContent = `${WIND_DIRS[Math.round(env.C.windFrom / 22.5) % 16]} ${WND.kn} · ${pt.label}`;
   if (lblFrame % 8 === 1) {
     let best = null;
