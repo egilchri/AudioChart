@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-13 — Bird's-eye: your boat underway (v874)
+
+Requested: show the boat underway in the Bird's-eye view. With a route chosen under
+Route waypoints, your boat (a red-hulled sloop labelled "⛵ You") sits at its start;
+▶ Sail it sails her along it at your boat's speed from AudioChart's settings, times
+1-200 (remembered), trimmed to the wind like the fleet, with the view flying in and
+following her until you drag. Progress and point of sail show under the buttons. While
+a Virtual Journey of the same route runs in AudioChart, she follows the journey
+instead (the same broadcast the helm view listens to).
+
 ## 2026-10-13 — Bird's-eye: route waypoints (v873)
 
 Requested: waypoints in the Bird's-eye view too. Its panel has a Route waypoints picker

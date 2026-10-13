@@ -655,7 +655,7 @@ function showRoute(id, fly) {
   const r = routeChoices.find(c => c.id === id);
   wpSel.value = r ? id : '';
   try { localStorage.setItem(WPR_KEY, r ? id : ''); } catch (_) {}
-  if (!r) return;
+  if (!r) { setOwnRoute(null); return; }
   const pts = r.points.map(p => Array.isArray(p) ? { lon: p[0], lat: p[1] } : p);
   pts.forEach((p, i) => {
     const last = i === pts.length - 1, night = !!p.overnight, col = last ? 0xd0342c : night ? 0xe0a843 : 0x2fa35a;
@@ -667,6 +667,7 @@ function showRoute(id, fly) {
   });
   const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts.map(p => new THREE.Vector3(wx(p.lon), 1.5, wz(p.lat)))), new THREE.LineBasicMaterial({ color: 0xe0a843 }));
   wpGroup.add(line);
+  setOwnRoute(r, pts);
   if (fly) {
     const xs = pts.map(p => wx(p.lon)), zs = pts.map(p => wz(p.lat));
     const x0 = Math.min(...xs), x1 = Math.max(...xs), z0 = Math.min(...zs), z1 = Math.max(...zs);
@@ -679,6 +680,81 @@ function updateWaypoints() {
   for (const p of wps) p.g.scale.setScalar(clamp(Math.hypot(p.g.position.x - cp.x, cp.y, p.g.position.z - cp.z) / 150, 1, 80));
   wpGroup.visible = !aboveFog;
 }
+// ── Your boat underway (v874, requested): a sloop sailing the chosen route, trimmed to the wind
+// like the fleet. ▶ Sail it plays it at a pace (your boat's speed from AudioChart's settings,
+// times 1–200) with the view following her; drag to look elsewhere. While a Virtual Journey of
+// the same route runs in AudioChart, she follows the journey instead (it broadcasts progress).
+const OWN_KN = (() => { let v = NaN; try { v = parseFloat(localStorage.getItem('audiochart-last-speed')); } catch (_) {} return v > 0 && v < 40 ? v : 5; })();
+const PACE_KEY = 'audiochart-bay3d-pace';
+const own = { boat: makeSailboat(4), trim: makeTrimmer(), r: null, pts: [], cum: [0], total: 0, S: 0, playing: false, vj: null, x: 0, z: 0, h: 0 };
+own.boat.group.visible = false; scene.add(own.boat.group);
+const sailRow = document.getElementById('sailrow'), sailBtn = document.getElementById('sailit'), paceSel = document.getElementById('sailpace'), sailNote = document.getElementById('sailnote');
+for (const k of [1, 5, 20, 60, 200]) { const o = document.createElement('option'); o.value = k; o.textContent = k === 1 ? `${OWN_KN} kn real time` : `${OWN_KN} kn × ${k}`; paceSel.appendChild(o); }
+try { paceSel.value = localStorage.getItem(PACE_KEY) || '60'; } catch (_) { paceSel.value = '60'; }
+if (!paceSel.value) paceSel.value = '60';
+paceSel.addEventListener('change', () => { try { localStorage.setItem(PACE_KEY, paceSel.value); } catch (_) {} });
+function setOwnRoute(r, pts) {
+  own.r = r; own.playing = false; own.S = 0; sailBtn.textContent = '▶ Sail it';
+  sailRow.hidden = !r; sailNote.hidden = !r; own.boat.group.visible = !!r;
+  if (!r) return;
+  own.pts = pts.map(p => [wx(p.lon), wz(p.lat)]);
+  own.cum = [0]; for (let i = 1; i < own.pts.length; i++) own.cum.push(own.cum[i - 1] + Math.hypot(own.pts[i][0] - own.pts[i - 1][0], own.pts[i][1] - own.pts[i - 1][1]));
+  own.total = own.cum[own.cum.length - 1];
+  placeOwn(0);
+}
+function ownPosAt(s) {
+  s = clamp(s, 0, own.total);
+  let i = 1; while (i < own.cum.length - 1 && own.cum[i] < s) i++;
+  const t = (s - own.cum[i - 1]) / ((own.cum[i] - own.cum[i - 1]) || 1), a = own.pts[i - 1], b = own.pts[i];
+  return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+}
+function placeOwn(dt) {
+  const [x, z] = ownPosAt(own.S), s2 = Math.min(own.S, own.total - 300);
+  const a = ownPosAt(s2 - 60), b = ownPosAt(s2 + 300), want = (Math.atan2(b[0] - a[0], -(b[1] - a[1])) / DEG + 360) % 360;
+  own.h = dt ? (own.h + clamp((((want - own.h) + 540) % 360) - 180, -90 * dt, 90 * dt) + 360) % 360 : want;
+  own.x = x; own.z = z;
+}
+sailBtn.addEventListener('click', () => {
+  if (!own.r || own.vj) return;
+  if (own.S >= own.total) own.S = 0;
+  own.playing = !own.playing; sailBtn.textContent = own.playing ? '❚❚ Pause' : '▶ Sail it';
+  if (own.playing) {
+    if (env.W.heel === 0) applyConditions({ wind: 'breezy' });   // she can't sail in a calm
+    markCurrent(null); follow = own; document.getElementById('sailboat').classList.remove('on');
+    if (view.dist > 1500) flyTo({ x: own.x, z: own.z, dist: 450, tilt: 60 * DEG, az: (own.h + 30) * DEG }, 2500);
+  }
+});
+function updateOwn(dt) {
+  if (!own.r) return;
+  const pace = Number(paceSel.value) || 60;
+  if (own.vj) own.S = own.vj.frac * own.total;
+  else if (own.playing) {
+    own.S += OWN_KN * NMm / 3600 * pace * dt;
+    if (own.S >= own.total) { own.S = own.total; own.playing = false; sailBtn.textContent = '▶ Sail it'; }
+  }
+  placeOwn(own.playing || own.vj ? dt : 0);
+  const up = env.W.heel > 0 && own.S < own.total;
+  const p = own.trim(env.C.windFrom, own.h, env.W.tws ?? 8, up ? OWN_KN : 0, dt * Math.min(pace, 8));
+  own.boat.trim(p, env.W.heel * DEG, up);
+  const cp = camera.position;
+  own.boat.group.scale.setScalar(clamp(Math.hypot(own.x - cp.x, cp.y, own.z - cp.z) / 250, 1.6, 90));
+  own.boat.group.position.set(own.x, 0, own.z); own.boat.group.rotation.y = -own.h * DEG;
+  own.boat.group.visible = !aboveFog;
+  if (lblTick % 6 === 0) sailNote.textContent = (own.vj ? 'Following your Virtual Journey · ' : '') + `${(own.S / NMm).toFixed(1)} / ${(own.total / NMm).toFixed(1)} nm` + (up ? ` · ${p.name}` : env.W.heel === 0 ? ' · calm' : ' · arrived');
+}
+try {   // a Virtual Journey of this route running in AudioChart
+  const ch = new BroadcastChannel('audiochart-vj');
+  ch.onmessage = e => {
+    const m = e.data || {};
+    if (!own.r || (m.routeId !== own.r.id && 'sample:' + m.routeId !== own.r.id && m.routeId !== own.r.name)) return;
+    own.vj = m.running ? { frac: clamp(m.frac, 0, 1) } : null;
+    if (!m.running && m.frac >= 0.999) own.S = own.total;
+    sailBtn.disabled = !!own.vj;
+    if (own.vj && !follow && !drag) follow = own;
+  };
+  ch.postMessage({ hello: true });
+} catch (_) {}
+
 wpSel.addEventListener('change', () => { showRoute(wpSel.value, true); foldPanel(true); });
 {
   let start = params.get('route') || ''; try { if (!start) start = localStorage.getItem(WPR_KEY) || ''; } catch (_) {}
@@ -720,6 +796,7 @@ function updateLabels() {
         if (b.num && d < 2200) cand.push({ text: `"${b.num}"`, x: b.x, y: 6, z: b.z, cls: 'buoy', pri: 3 + d / 2200 });
       }
     }
+    if (own.r && own.boat.group.visible) cand.push({ text: '⛵ You', x: own.x, y: 12 * own.boat.group.scale.x, z: own.z, cls: 'you', pri: -1 });
     if (view.dist < 40000) for (const p of wps) {   // route waypoints
       const d = Math.hypot(p.g.position.x - view.x, p.g.position.z - view.z);
       if (d < Math.max(view.dist * 2, 3000)) cand.push({ text: p.label, x: p.g.position.x, y: 4.6 * p.g.scale.x, z: p.g.position.z, cls: 'wpt', pri: 0.8 + d / Math.max(view.dist * 2, 3000) });
@@ -785,6 +862,7 @@ function frame(now) {
   updateWeather(dt, t);
   updateFleet(dt);
   updateWaypoints();
+  updateOwn(dt);
   if (follow && !anim) { const k = Math.min(1, dt * 4); view.x += (follow.x - view.x) * k; view.z += (follow.z - view.z) * k; }
   renderer.render(scene, camera);
   updateLabels(); updateReadout();
@@ -799,7 +877,7 @@ window.__bay3d = {   // for AudioChart (returning to the chart where you were) a
   getView: () => ({ lat: latOf(view.z), lon: lonOf(view.x), dist: view.dist, az: view.az / DEG, tilt: view.tilt / DEG }),
   setView: v => { anim = null; Object.assign(view, { x: wx(v.lon), z: wz(v.lat), dist: v.dist ?? view.dist, az: (v.az ?? view.az / DEG) * DEG, tilt: (v.tilt ?? view.tilt / DEG) * DEG }); clampView(); placeCamera(); },
   goTown: id => { const tw = townList.find(x => x.id === id); if (tw) goTown(tw); return !!tw; },
-  goWhole, towns: townList, tiles, scene, env, applyConditions, fleet, isWater: (lat, lon) => isWater(wx(lon), wz(lat)), boatAt: i => ({ lat: latOf(fleet[i].z), lon: lonOf(fleet[i].x), h: fleet[i].h }), renderer, trees: () => ({ near: TREES.near.count, far: TREES.far.count, K: TREES.K }),
+  goWhole, towns: townList, tiles, scene, env, applyConditions, fleet, own, isWater: (lat, lon) => isWater(wx(lon), wz(lat)), boatAt: i => ({ lat: latOf(fleet[i].z), lon: lonOf(fleet[i].x), h: fleet[i].h }), renderer, trees: () => ({ near: TREES.near.count, far: TREES.far.count, K: TREES.K }),
 };
 }
 main().catch(err => { console.error(err); fail('Could not start the 3D view: ' + err.message); });
