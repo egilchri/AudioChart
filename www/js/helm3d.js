@@ -21,7 +21,8 @@ const BREAKWATER = [[-69.08197, 44.11540], [-69.07751, 44.10410]];
 async function main() {
 // ── Route and region ────────────────────────────────────────────────────────
 const params = new URLSearchParams(location.search);
-if (params.get('embed')) document.body.classList.add('embed');   // inside AudioChart during a Virtual Journey
+if (params.get('embed')) document.body.classList.add('embed');
+if (params.get('inchart')) document.body.classList.add('inchart');   // in the chart's Bird's-eye frame (v882)   // inside AudioChart during a Virtual Journey
 const REGIONS = ['penobscot-bay', 'casco-bay', 'piscataqua'];
 async function getJSON(url) { const r = await fetch(url); if (!r.ok) throw new Error(`Could not load ${url}`); return r.json(); }
 async function findRoute() {

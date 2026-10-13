@@ -82,6 +82,8 @@ body.embed #minichart { top: auto; bottom: 12px; right: 12px; }
 body.embed #eyepick { left: 50%; transform: translateX(-50%); }
 body.embed #recbtn { left: 50% !important; transform: translateX(-50%); top: 72px !important; }
 body.embed #wxpanel { left: 50%; transform: translateX(-50%); top: 104px; }
+/* inside the chart's Bird's-eye frame (v882) the chart's toolbar covers the top: the View row goes under it */
+body.inchart #minichart { bottom: 140px; } body.inchart #eyepick { top: 76px; } body.inchart #recbtn { top: 108px !important; } body.inchart #wxpanel { top: 140px; }
 body.embed #tileload { left: 50%; transform: translateX(-50%); bottom: 22px; }
 body.embed #town-credit { left: 50% !important; transform: translateX(-50%); white-space: nowrap; }
 /* Phones (v862, direct request: the view was a thin strip): the 3D picture fills the screen,

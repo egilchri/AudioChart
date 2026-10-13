@@ -802,17 +802,38 @@ wpSel.addEventListener('change', () => { showRoute(wpSel.value, true); foldPanel
   }
 }
 
-// "◀ 3D helm": back to the helm view of this route, from where your boat is now (v875)
-if (params.get('from') === 'helm') {
-  const b = document.getElementById('tohelm'); b.hidden = false;
+// "◀ 3D helm": back to the helm view of this route, from where your boat is now (v875). Opened from
+// the chart, the same button is "🚁 Drone" (v882, requested: Drone from Bird's-eye and back): the
+// helm view's Drone, at your boat's place on the route shown; its Bird's-eye button comes back here.
+{
+  const b = document.getElementById('tohelm'), fromHelm = params.get('from') === 'helm';
+  if (!fromHelm) { b.textContent = '🚁 Drone'; b.title = 'The 3D view from just above your boat, on this route'; }
+  // the helm view sails a route, so this needs one (a saved route or a sample, not an unsaved edit)
+  const sync = () => { b.hidden = !(fromHelm || (document.body.classList.contains('embed') && own.r && own.r.id !== 'editing')); };
+  sync(); setInterval(sync, 1000);
+  // how far along the route your boat is: the route's own progress, or the chart's boat projected onto it
+  const along = () => {
+    if (!own.ext) return own.S;
+    let best = Infinity, S = 0;
+    for (let i = 1; i < own.pts.length; i++) {
+      const [ax, az] = own.pts[i - 1], [bx, bz] = own.pts[i], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz || 1;
+      const t = clamp(((own.x - ax) * dx + (own.z - az) * dz) / L2, 0, 1), d = Math.hypot(ax + dx * t - own.x, az + dz * t - own.z);
+      if (d < best) { best = d; S = own.cum[i - 1] + t * (own.cum[i] - own.cum[i - 1]); }
+    }
+    return S;
+  };
   b.addEventListener('click', () => {
     const q = new URLSearchParams(), id = own.r?.id || params.get('route') || '';
     if (id.startsWith('sample:')) q.set('sample', id.slice(7));
     else if (routeChoices.some(c => c.id === id)) q.set('route', id);
     else q.set('sample', id);
-    if (own.r) q.set('start', (own.S / NMm).toFixed(3));
+    if (own.r) q.set('start', (along() / NMm).toFixed(3));
     q.set('pace', paceSel.value); if (own.playing) q.set('play', '1');
+    if (!fromHelm) q.set('eye', '100');   // Drone
     if (params.get('embed')) q.set('embed', '1');
+    // inside the chart (#bay3d-wrap) the chart's toolbar sits over the top-left, so the helm view's
+    // View row moves down a little there
+    try { if (window.frameElement?.closest('#bay3d-wrap')) q.set('inchart', '1'); } catch (_) {}
     location.href = './helm3d.html?' + q;
   });
 }

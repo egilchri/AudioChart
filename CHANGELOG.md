@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-13 — Drone from Bird's-eye, and back (v882)
+
+Requested: "I should have access to drone view from bird's-eye, and vice versa". Bird's-eye
+opened from Map Type now has a 🚁 Drone button beside Weather (when a route is shown): it
+switches to the 3D helm view's Drone, at your boat's place on that route. Drone's own
+Bird's-eye button returns, as before. Inside the chart the helm view's View row and mini
+chart move clear of the chart's toolbar and tide readout.
+
 ## 2026-10-13 — Routes panel over Bird's-eye (v881)
 
 Found while recording a narrated Bird's-eye demo: in Bird's-eye the panels the toolbar
