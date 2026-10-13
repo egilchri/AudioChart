@@ -733,34 +733,38 @@ sailBtn.addEventListener('click', () => {
 // ⌖ Follow (v876): keep your boat centred, at whatever height and heading you've set; panning or
 // dragging lets go, this picks her up again.
 const followBtn = document.getElementById('followown');
+function followOwn() {
+  markCurrent(null); follow = own;
+  if (view.dist > 20000) flyTo({ x: own.x, z: own.z, dist: 6000, tilt: 50 * DEG, az: view.az }, 2200);
+}
 followBtn.addEventListener('click', () => {
   if (!own.r) return;
   if (follow === own) { stopFollow(); return; }
-  markCurrent(null); follow = own;
-  if (view.dist > 20000) flyTo({ x: own.x, z: own.z, dist: 6000, tilt: 50 * DEG, az: view.az }, 2200);
+  followOwn();
 });
-// Inside the chart (embed, v876, requested: fold Bird's-eye into the chart's interface): the chart
-// keeps its own compass rose, zoom and pan over this view, so the big places panel goes and the
-// controls that matter here sit in one row across the top: route, Sail it and pace, Follow, a
-// fleet boat, Whole bay. The same elements, moved; nothing is duplicated.
-if (document.body.classList.contains('embed')) {
-  const bar = document.getElementById('bar');
-  document.getElementById('sailboat').textContent = '⛵ Fleet';
-  document.getElementById('sailboat').title = 'Fly to one of the sailboats around the bay and follow her; again for the next';
-  bar.append(wpSel, sailRow, followBtn, document.getElementById('sailboat'), document.getElementById('whole'), sailNote);
-  bar.hidden = false;
-}
+// Inside the chart (embed; v876, then v880 on request: "minimize the change in interface"), this
+// view has no controls of its own: the chart's compass rose, zoom and pan drive it, and your boat
+// is the chart's boat (own.ext, set by AudioChart through __bay3d.setBoat), so the chart's own
+// Play (a Virtual Journey, or Animate) sails her and its ⊙ follows her. The panel stays hidden.
 function updateOwn(dt) {
-  if (!own.r) return;
   const pace = Number(paceSel.value) || 60;
-  if (own.vj) own.S = own.vj.frac * own.total;
-  else if (own.playing) {
-    own.S += OWN_KN * NMm / 3600 * pace * dt;
-    if (own.S >= own.total) { own.S = own.total; own.playing = false; sailBtn.textContent = '▶ Sail it'; }
+  let up, kn = OWN_KN;
+  if (own.ext) {   // the chart's boat
+    const e = own.ext;
+    own.x = e.x; own.z = e.z;
+    own.h = dt ? (own.h + clamp((((e.h - own.h) + 540) % 360) - 180, -90 * dt, 90 * dt) + 360) % 360 : e.h;
+    up = env.W.heel > 0 && e.moving; kn = e.kn > 0 ? e.kn : OWN_KN;
+  } else {
+    if (!own.r) return;
+    if (own.vj) own.S = own.vj.frac * own.total;
+    else if (own.playing) {
+      own.S += OWN_KN * NMm / 3600 * pace * dt;
+      if (own.S >= own.total) { own.S = own.total; own.playing = false; sailBtn.textContent = '▶ Sail it'; }
+    }
+    placeOwn(own.playing || own.vj ? dt : 0);
+    up = env.W.heel > 0 && own.S < own.total;
   }
-  placeOwn(own.playing || own.vj ? dt : 0);
-  const up = env.W.heel > 0 && own.S < own.total;
-  const p = own.trim(env.C.windFrom, own.h, env.W.tws ?? 8, up ? OWN_KN : 0, dt * Math.min(pace, 8));
+  const p = own.trim(env.C.windFrom, own.h, env.W.tws ?? 8, up ? kn : 0, dt * Math.min(pace, 8));
   own.boat.trim(p, env.W.heel * DEG, up);
   const cp = camera.position;
   own.boat.group.scale.setScalar(clamp(Math.hypot(own.x - cp.x, cp.y, own.z - cp.z) / 250, 1.6, 90));
@@ -768,12 +772,13 @@ function updateOwn(dt) {
   own.boat.group.visible = !aboveFog;
   followBtn.classList.toggle('on', follow === own);
   const day = own.nights.length ? `Day ${1 + own.nights.filter(c => own.S >= c - 1).length} of ${own.nights.length + 1} · ` : '';
-  if (lblTick % 6 === 0) sailNote.textContent = (own.vj ? 'Following your Virtual Journey · ' : '') + day + `${(own.S / NMm).toFixed(1)} / ${(own.total / NMm).toFixed(1)} nm` + (up ? ` · ${p.name}` : env.W.heel === 0 ? ' · calm' : ' · arrived');
+  if (!own.ext && lblTick % 6 === 0) sailNote.textContent = (own.vj ? 'Following your Virtual Journey · ' : '') + day + `${(own.S / NMm).toFixed(1)} / ${(own.total / NMm).toFixed(1)} nm` + (up ? ` · ${p.name}` : env.W.heel === 0 ? ' · calm' : ' · arrived');
 }
 try {   // a Virtual Journey of this route running in AudioChart
   const ch = new BroadcastChannel('audiochart-vj');
   ch.onmessage = e => {
     const m = e.data || {};
+    if (own.ext) return;   // inside the chart, the chart's boat already is the journey
     if (!own.r || (m.routeId !== own.r.id && 'sample:' + m.routeId !== own.r.id && m.routeId !== own.r.name)) return;
     own.vj = m.running ? { frac: clamp(m.frac, 0, 1) } : null;
     if (!m.running && m.frac >= 0.999) own.S = own.total;
@@ -932,6 +937,21 @@ window.__bay3d = {   // for AudioChart (returning to the chart where you were) a
     const k = view.dist * 0.25 * Math.sin(Math.max(view.tilt, 0.3)) + view.dist * 0.1, fx = Math.sin(view.az), fz = -Math.cos(view.az);
     view.x += (Math.cos(view.az) * dx + fx * dy) * k; view.z += (Math.sin(view.az) * dx + fz * dy) * k; clampView();
   },
+  // the chart's boat (v880): {lat, lon, h, kn, moving, routeId}, ~10 times a second; null hides her.
+  // When she starts moving the view picks her up; the route she's on gets its waypoints.
+  setBoat: b => {
+    if (!b) { own.ext = null; own.boat.group.visible = !!own.r; return; }
+    const first = !own.ext, h = Number.isFinite(b.h) ? b.h : own.ext?.h ?? own.h;
+    own.ext = { x: wx(b.lon), z: wz(b.lat), h, kn: b.kn, moving: !!b.moving };
+    if (first) own.h = h;
+    if (b.routeId) {
+      const c = routeChoices.find(c => c.id === b.routeId || c.id === 'sample:' + b.routeId || c.name === b.routeId);
+      if (c && wpSel.value !== c.id) showRoute(c.id, false);
+    }
+    if (b.moving && !own.extMoving) followOwn();
+    own.extMoving = !!b.moving;
+  },
+  followBoat: () => followOwn(),
   setDist: m => { if (anim) anim.to.dist = m; else view.dist = m; clampView(); },
   northUp: () => flyTo({ x: view.x, z: view.z, dist: view.dist, az: 0, tilt: view.tilt }, 900),
   setView: v => { anim = null; Object.assign(view, { x: wx(v.lon), z: wz(v.lat), dist: v.dist ?? view.dist, az: (v.az ?? view.az / DEG) * DEG, tilt: (v.tilt ?? view.tilt / DEG) * DEG }); clampView(); placeCamera(); },

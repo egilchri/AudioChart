@@ -1238,6 +1238,7 @@ let _animMode = false;
 let _animRafId = null;
 let _animIntervalId = null;
 let _animMarker = null;
+let _animRouteId = null;   // the animated route, for Bird's-eye's waypoints (v880)
 let _animRouteLine    = null;
 let _previewRouteLine = null;
 let _animClickHandler = null;
@@ -7194,7 +7195,8 @@ function _startVirtualJourney(route, speedKnots) {
   _vjRunning = true;
   _vjRunStartMs = Date.now();
   _vjRafId = setInterval(_vjStep, VJ_TICK_MS);
-  if (_vj3dWanted()) _showVj3d(route); else _syncVj3dBtn();
+  // over Bird's-eye the journey plays in it (its boat is the chart's boat, v880), not in a 3D view of its own
+  if (_vj3dWanted() && !(_bay3dWrap && !_bay3dWrap.hidden)) _showVj3d(route); else _syncVj3dBtn();
 }
 
 // A fixed-interval timer, not requestAnimationFrame — confirmed live that
@@ -7308,9 +7310,20 @@ const _bay3dDistOf = (z, lat) => 40075016 * Math.cos(lat * Math.PI / 180) / Math
 function _startBay3dSync() {
   clearInterval(_bay3dSyncTimer);
   const rose = document.querySelector('.compass-rose-ctrl svg');
+  let prev = null;
   _bay3dSyncTimer = setInterval(() => {
-    const v = _bay3dApi()?.getView?.();
+    const api = _bay3dApi(), v = api?.getView?.();
     if (!v) return;
+    // the chart's boat is Bird's-eye's boat (v880): an Animate boat, else the GPS position (a
+    // Virtual Journey's, a real fix, or the placeholder), so the chart's own Play sails her there
+    let b = null;
+    if (_animMode && _animMarker) { const ll = _animMarker.getLatLng(); b = { lat: ll.lat, lon: ll.lng, moving: true, routeId: _animRouteId }; }
+    else { const p = GPS.getPosition(); if (p) b = { lat: p.lat, lon: p.lon, h: p.heading, kn: p.speedKt, moving: _vjRunning || p.speedKt > 0.5, routeId: _vjRoute ? (_vjRoute.id || _vjRoute.name) : null }; }
+    if (b && !Number.isFinite(b.h) && prev && (Math.abs(b.lat - prev.lat) + Math.abs(b.lon - prev.lon)) > 2e-6)
+      b.h = MarkerIcons.segBearing(prev.lat, prev.lon, b.lat, b.lon);
+    if (b && !Number.isFinite(b.h) && prev) b.h = prev.h;
+    prev = b;
+    api.setBoat?.(b);
     if (rose) rose.style.transform = `rotate(${-v.az}deg)`;
     if (Date.now() - _bay3dSliderAt > 600) {
       const z = Math.max(4, Math.min(18, Math.round(_bay3dZoomOf(v.dist, v.lat))));
@@ -7606,6 +7619,7 @@ function _startRouteAnimation(route, speedKnots, totalSec = ANIMATE_TOTAL_SEC) {
   _clearScreen();
 
   _animMode = true;
+  _animRouteId = route.id || route.name;
   _appEl.classList.add('anim-mode');
   _animBannerText.textContent = `⛵ ${route.name} · ${speedKnots} kts`;
   document.getElementById('anim-speed-input').value = speedKnots;
@@ -8686,6 +8700,7 @@ function _ensureMap() {
 
   document.getElementById('zoom-to-me-btn').addEventListener('click', (e) => {
     e.stopPropagation();
+    if (_bay3dApi()?.followBoat) { _bay3dApi().followBoat(); return; }   // Bird's-eye: fly to your boat and keep her in view (v880)
     const pos = GPS.getPosition();
     if (!pos) {
       const msg = 'No GPS fix yet. Please wait for a position.';

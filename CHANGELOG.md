@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-10-13 — Bird's-eye uses the chart's own controls (v880)
+
+Requested: "minimize the change in interface" — use the Play button rather than a special
+Sail it, zoom out rather than a Whole bay button, and so on. Inside the chart Bird's-eye
+now has no toolbar of its own (route picker, Sail it, pace, Follow, Fleet and Whole bay
+are gone; only Weather stays):
+- Your 3D boat is the chart's boat: wherever the chart shows it (GPS, a Virtual Journey, or
+  Animate), she is there, heading the same way. So the chart's own Play sails her; a
+  Virtual Journey started over Bird's-eye plays in it instead of opening its own 3D view,
+  and the view picks the boat up when she starts moving. The route she's on gets its
+  waypoints.
+- ⊙ zoom to me flies to the boat and keeps her in view; the pan buttons let go of her.
+- The zoom slider (or scroll/pinch) does what Whole bay did; the height readout is gone too.
+The standalone bay3d.html page keeps its full panel.
+
 ## 2026-10-13 — Bird's-eye switches like a map type; Map Type while editing (v879)
 
 Requested: switch to Bird's-eye "kind of like how we switch from Chart View to Satellite

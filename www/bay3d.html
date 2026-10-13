@@ -64,26 +64,13 @@ button:focus-visible { outline: 2px solid var(--brass); outline-offset: 1px; }
 [hidden] { display: none !important; }
 body.embed .panel a.back { display: none; }
 /* Inside the chart (v876): the chart's compass rose, zoom and pan stay over this view, so the
-   places panel, the help line and this page's own compass go, and the controls sit in one row */
+   places panel, the help line and this page's own compass go */
 body.embed .panel, body.embed #help, body.embed #compass { display: none !important; }
-#bar { position: fixed; left: 50%; transform: translateX(-50%); top: calc(10px + env(safe-area-inset-top, 0px)); z-index: 3; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px 6px;
-  background: var(--glass); border-radius: 7px; padding: 4px 6px; max-width: calc(100% - 340px); box-sizing: border-box; font-size: 0.82rem; }
-#bar[hidden] { display: none !important; }
-#bar #wproute { width: auto; max-width: 15rem; }
-#bar .whole { width: auto; padding: 4px 8px; white-space: nowrap; font: inherit; font-weight: 600; color: var(--ink); background: rgba(255,255,255,0.1); border: 0; border-radius: 5px; cursor: pointer; }
-#bar .whole:hover { background: rgba(255,255,255,0.18); }
-#bar .whole.on { background: var(--brass); color: var(--brass-ink); }
-#bar #sailpace { flex: 0 0 auto; }
-#bar #sailnote { flex-basis: 100%; text-align: center; padding: 0; }
-/* As a map type (v879) the chart's tile row, Objects panel and tide/heading readout sit over this view,
-   so the toolbar goes to the bottom middle and the height/Weather readout above the chart's readout */
-body.embed #bar { top: auto; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); max-width: calc(100% - 600px); }
-body.embed #scale { top: auto; bottom: calc(130px + env(safe-area-inset-bottom, 0px)); }
-body.embed #wxpanel { top: auto; bottom: calc(166px + env(safe-area-inset-bottom, 0px)); }
-@media (max-width: 1100px) { body.embed #bar { left: 8px; right: 8px; transform: none; max-width: none; bottom: calc(130px + env(safe-area-inset-bottom, 0px)); }
-  body.embed #scale { bottom: calc(200px + env(safe-area-inset-bottom, 0px)); } body.embed #wxpanel { bottom: calc(236px + env(safe-area-inset-bottom, 0px)); } }
-@media (max-width: 760px) { #bar { left: 92px; right: 8px; transform: none; max-width: none; } }
-@media (max-width: 640px) { body.embed #scale { bottom: calc(262px + env(safe-area-inset-bottom, 0px)); } body.embed #wxpanel { bottom: calc(298px + env(safe-area-inset-bottom, 0px)); } }   /* above the toolbar, which wraps to three rows */
+/* As a map type (v879/v880) the chart's tile row, Objects panel and tide/heading readout sit over this
+   view and drive it; all it keeps of its own is Weather, above the chart's tide readout */
+body.embed #alt { display: none; }
+body.embed #scale { top: auto; bottom: calc(140px + env(safe-area-inset-bottom, 0px)); }
+body.embed #wxpanel { top: auto; bottom: calc(176px + env(safe-area-inset-bottom, 0px)); }
 /* Phone: the towns list folds away behind its title */
 @media (max-width: 640px) {
   .panel { width: auto; right: 12px; }
@@ -98,7 +85,6 @@ body.embed #wxpanel { top: auto; bottom: calc(166px + env(safe-area-inset-bottom
 <body>
 <div id="scene"></div>
 <div id="labels"></div>
-<div id="bar" hidden role="toolbar" aria-label="Bird's-eye controls"></div>
 <nav class="panel" id="panel" aria-label="Places">
   <div class="head">
     <h1>Penobscot Bay<small>Bird's-eye view</small></h1>

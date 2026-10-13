@@ -823,12 +823,11 @@ html, body {
 /* v876: Bird's-eye keeps the chart's compass rose and zoom/pan rail over it (they drive the 3D view) */
 #app.bay3d-on .leaflet-top.leaflet-left, #app.bay3d-on #left-rail-zoom-pan { z-index: 1990; }
 #app.bay3d-on .compass-rose-ctrl svg { pointer-events: auto; cursor: pointer; transition: transform 0.12s linear; }
-#app.bay3d-on #zoom-to-me-btn { display: none; }
 #bay3d-wrap iframe { width: 100%; height: 100%; border: 0; display: block; }
 /* Bird's-eye as a map type (v879): the chart's tile row (Map Type et al.), Objects panel and bottom
    HUD stay on top of it, as they do over Chart or Satellite */
 #app.bay3d-on #map-overlay-status, #app.bay3d-on #navaid-filter-panel, #app.bay3d-on #bottom-hud,
-#app.bay3d-on #edit-banner { z-index: 1990 !important; }   /* !important: the spread toolbar's own :has() z-index (1950) outranks a plain rule */
+#app.bay3d-on #edit-banner, #app.bay3d-on #vjourney-banner, #app.bay3d-on #anim-banner { z-index: 1990 !important; }   /* !important: the spread toolbar's own :has() z-index (1950) outranks a plain rule */
 /* Node Ops can't edit in 3D: hidden while Bird's-eye previews the route being edited */
 #app.bay3d-on #edit-tools-panel { display: none !important; }
 
