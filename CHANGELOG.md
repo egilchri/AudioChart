@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-13 — Map Type works while a 3D view is up (v877)
+
+Reported with a snapshot: "it's not letting me switch to other map types". During a
+Virtual Journey its 3D view (here switched to Bird's-eye) covers the chart, so a
+chart type picked from Map Type changed only the chart hidden underneath. Picking a
+chart type now closes the covering 3D view (the journey's, or Bird's-eye) so the
+chosen chart shows; the journey banner's ⛰ 3D brings the journey's view back. A stale
+"🦅 Back to 3D" button left from an earlier Bird's-eye visit no longer sits over the
+journey's 3D view.
+
 ## 2026-10-13 — Bird's-eye folded into the chart's interface (v876)
 
 Requested: Bird's-eye felt like a whole new interface; keep the chart's compass rose

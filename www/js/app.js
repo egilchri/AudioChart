@@ -7237,6 +7237,7 @@ function _showVj3d(route) {
   if (!frame.src.endsWith(src.slice(1))) frame.src = src;
   _vj3dWrap.querySelector('.vj3d-close').hidden = true;
   _vj3dWrap.hidden = false;
+  if (_bay3dBackBtn) _bay3dBackBtn.hidden = true;   // it would sit over the journey's 3D view (v877)
   // shrink the command bar over the 3D picture (see #app.vj3d-on in app.css)
   document.getElementById('app')?.classList.add('vj3d-on');
   if (!responseAreaEl.classList.contains('collapsed')) _collapseResponseArea();
@@ -8668,6 +8669,13 @@ function _ensureMap() {
   document.getElementById('map-layer-select').addEventListener('change', (e) => {
     // 3D Bird's-eye isn't a chart layer: it opens the 3D bay view over the chart (v844)
     if (e.target.value === 'bay3d') { _syncLayerBtn(); _showBay3d(); return; }
+    // A chart type chosen while a 3D view covers the chart (a Virtual Journey's 3D view, or
+    // Bird's-eye) changed only the chart hidden underneath it; reported (v877) as "it's not
+    // letting me switch to other map types". Close the 3D view so the chosen chart shows (the
+    // journey banner's ⛰ 3D brings the journey's back), and drop a stale "Back to 3D" button.
+    if (_vj3dWrap && !_vj3dWrap.hidden) _hideVj3d();
+    if (_bay3dWrap && !_bay3dWrap.hidden) _hideBay3d();
+    if (_bay3dBackBtn) _bay3dBackBtn.hidden = true;
     _mapViewMode = e.target.value;
     localStorage.setItem('audiochart-chart-mode', _mapViewMode);
     _applyMapLayer();
