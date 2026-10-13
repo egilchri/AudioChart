@@ -428,7 +428,7 @@ const [navGJ, placesGJ, landGJ] = await Promise.all([
 const inBay = ([x, y]) => x >= OW && x <= OE && y >= OS && y <= ON;
 const navs = navGJ.features.filter(f => f.geometry?.type === 'Point' && inBay(f.geometry.coordinates));
 const BUOY_T = ['BOYLAT', 'BCNLAT', 'BOYSAW', 'BOYSPP', 'BOYCAR', 'BOYISD'];
-const buoys = navs.filter(f => BUOY_T.includes(f.properties.objtype)).map(f => ({ x: wx(f.geometry.coordinates[0]), z: wz(f.geometry.coordinates[1]), c: (f.properties.colour || '').split('/')[0], num: (f.properties.name || '').match(/(\S{1,3})$/)?.[1] || '' }));
+const buoys = navs.filter(f => BUOY_T.includes(f.properties.objtype)).map(f => ({ x: wx(f.geometry.coordinates[0]), z: wz(f.geometry.coordinates[1]), c: (f.properties.colour || '').split('/')[0], num: ((f.properties.name || '').replace(/"/g, '').match(/(\S{1,3})$/)?.[1] || '').replace(/^(?!.*\d).*$/, '') }));
 // every charted light, for the night: a glow that flashes its own characteristic
 const litNavs = navs.filter(f => f.properties.objtype === 'LIGHTS').map(f => ({ x: wx(f.geometry.coordinates[0]), z: wz(f.geometry.coordinates[1]), fl: flashFor(f.properties.characteristic), lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] }));
 const lightsAshore = navs.filter(f => f.properties.objtype === 'LIGHTS').filter(f => !buoys.some(b => Math.hypot(b.x - wx(f.geometry.coordinates[0]), b.z - wz(f.geometry.coordinates[1])) < 40))
@@ -648,7 +648,7 @@ const routeChoices = [];
   for (const c of routeChoices) { const o = document.createElement('option'); o.value = c.id; o.textContent = c.name; wpSel.appendChild(o); }
 }
 const wpGroup = new THREE.Group(); scene.add(wpGroup);
-let wps = [], routeFlew = false;
+let wps = [], routeFlew = false, followOwnAtStart = false;
 function showRoute(id, fly) {
   for (const o of [...wpGroup.children]) { wpGroup.remove(o); o.traverse(m => { m.geometry?.dispose(); }); }
   wps = [];
@@ -761,6 +761,27 @@ wpSel.addEventListener('change', () => { showRoute(wpSel.value, true); foldPanel
   if (start && !routeChoices.some(c => c.id === start)) start = routeChoices.find(c => c.id === 'sample:' + start)?.id || '';
   routeFlew = !!start && !!params.get('route') && !params.get('lat');
   showRoute(start, routeFlew);
+  // from the helm view's Bird's-eye button (v875): your boat where she was, still sailing if she was
+  if (own.r && params.get('at')) {
+    own.S = clamp(Number(params.get('at')) || 0, 0, 1) * own.total; placeOwn(0); followOwnAtStart = true;
+    if ([...paceSel.options].some(o => o.value === params.get('pace'))) paceSel.value = params.get('pace');
+    if (params.get('play') === '1') { own.playing = true; sailBtn.textContent = '❚❚ Pause'; }
+  }
+}
+
+// "◀ 3D helm": back to the helm view of this route, from where your boat is now (v875)
+if (params.get('from') === 'helm') {
+  const b = document.getElementById('tohelm'); b.hidden = false;
+  b.addEventListener('click', () => {
+    const q = new URLSearchParams(), id = own.r?.id || params.get('route') || '';
+    if (id.startsWith('sample:')) q.set('sample', id.slice(7));
+    else if (routeChoices.some(c => c.id === id)) q.set('route', id);
+    else q.set('sample', id);
+    if (own.r) q.set('start', (own.S / NMm).toFixed(3));
+    q.set('pace', paceSel.value); if (own.playing) q.set('play', '1');
+    if (params.get('embed')) q.set('embed', '1');
+    location.href = './helm3d.html?' + q;
+  });
 }
 
 // ── Labels: towns (click to fly there) from up high; place names and buoy numbers lower down ──
@@ -846,6 +867,7 @@ new ResizeObserver(resize).observe(sceneEl); resize();
   }
   else if (!routeFlew) markCurrent('whole');
 }
+if (followOwnAtStart) follow = own;   // after the start view, which clears any follow
 clampView(); placeCamera();
 
 const clock = new THREE.Clock();

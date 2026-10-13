@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-13 — Bird's-eye as a choice in the 3D view (v875)
+
+Requested: make Bird's-eye one of the 3D view's choices. The View row (Helm, 20 ft,
+60 ft, Drone) now ends with Bird's-eye: it switches the window to the Bird's-eye view
+with this route chosen and your boat where she is, still sailing at the same pace if
+she was, the view following her. A "◀ 3D helm" button there (top right) comes back
+to the helm view at her new position, still sailing. Inside a Virtual Journey both
+follow the journey. Also: Bird's-eye buoy labels showed the last three letters of
+names without a number ("uoy" from "... Buoy"); now only a real number shows.
+
 ## 2026-10-13 — Bird's-eye: your boat underway (v874)
 
 Requested: show the boat underway in the Bird's-eye view. With a route chosen under

@@ -46,7 +46,7 @@ body { background: var(--sky); color: var(--ink); font-family: var(--body); font
 #sailpace { flex: 1; min-width: 0; font: inherit; font-size: 0.8rem; color: var(--ink); background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.18); border-radius: 5px; }
 #sailpace option { color: #1b2328; background: #f3f1ea; }
 #sailnote { font-size: 0.74rem; color: var(--muted); padding-left: 8px; font-variant-numeric: tabular-nums; }
-#sailnote[hidden], #sailrow[hidden] { display: none; }
+#sailnote[hidden], #sailrow[hidden], #tohelm[hidden] { display: none; }
 .lbl.you { color: #1b2328; background: rgba(224,168,67,0.95); border-radius: 4px; padding: 1px 6px; }
 #wproute option { color: #1b2328; background: #f3f1ea; }
 .lbl.wpt { color: #c9f2d6; }
@@ -94,7 +94,7 @@ body.embed .panel a.back { display: none; }
     <a class="back" href="./">Back to AudioChart</a>
   </div>
 </nav>
-<div id="scale"><svg id="compass" viewBox="-11 -11 22 22" role="button" aria-label="Turn north up"><circle r="10" fill="rgba(0,0,0,0.25)"/><g id="needle"><path d="M0,-8 L3,0 L-3,0 Z" fill="#d9534f"/><path d="M0,8 L3,0 L-3,0 Z" fill="#e9eff1"/></g></svg><span id="alt">—</span></div>
+<div id="scale"><button type="button" id="tohelm" class="wxbtn" hidden title="Back to the 3D view from the boat">◀ 3D helm</button><svg id="compass" viewBox="-11 -11 22 22" role="button" aria-label="Turn north up"><circle r="10" fill="rgba(0,0,0,0.25)"/><g id="needle"><path d="M0,-8 L3,0 L-3,0 Z" fill="#d9534f"/><path d="M0,8 L3,0 L-3,0 Z" fill="#e9eff1"/></g></svg><span id="alt">—</span></div>
 <div id="loading" hidden>Loading…</div>
 <div id="help">Drag to move · right-drag or Shift-drag to turn and tilt · scroll or pinch to zoom · click a town or ⛵ Follow a sailboat · Route waypoints shows a route, ▶ Sail it sails it · Weather for fog, rain, wind, dawn, sunset and night (N); the sailboats trim to its wind</div>
 <div id="credit">Elevation USGS 3DEP · Photos USDA NAIP</div>

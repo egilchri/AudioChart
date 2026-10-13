@@ -950,10 +950,12 @@ const playBtn = document.getElementById('play'), speedEl = document.getElementBy
   speedEl.addEventListener('change', () => { try { localStorage.setItem('audiochart-helm3d-pace', speedEl.value); } catch (_) {} });
 }
 const setPlaying = on => { playing = on; playBtn.innerHTML = on ? '&#10074;&#10074; Pause' : '&#9654; Play'; if (on && S >= TOTAL - 1) S = 0; };
+if (params.get('pace') && [...speedEl.options].some(o => o.value === params.get('pace'))) speedEl.value = params.get('pace');   // back from Bird's-eye (v875)
 playBtn.addEventListener('click', () => setPlaying(!playing));
 posEl.addEventListener('input', () => { S = Number(posEl.value) * NM; smoothCourse = null; });
 document.getElementById('reset').addEventListener('click', () => { yawOff = 0; pitch = -1.2; zoom = 1; });
 addEventListener('keydown', e => { if (e.code === 'Space' && e.target === document.body) { e.preventDefault(); setPlaying(!playing); } });
+if (params.get('play') === '1') setPlaying(true);   // still sailing, back from Bird's-eye (v875)
 let drag = null;
 sceneEl.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY, yaw: yawOff, pitch }; sceneEl.setPointerCapture(e.pointerId); sceneEl.classList.add('dragging'); });
 sceneEl.addEventListener('pointermove', e => {
@@ -1151,6 +1153,24 @@ for (const c of EYE_CHOICES) {
   b.addEventListener('click', () => setEye(c.m)); eyeBox.appendChild(b);
 }
 syncEyeButtons();
+// Bird's-eye (v875, requested: one of the 3D view's choices): switches this window to the
+// Bird's-eye view of the bay with this route and your boat where she is now (still sailing if she
+// was), and its "◀ 3D helm" button comes back here. In a Virtual Journey both follow the journey.
+{
+  const b = document.createElement('button'); b.type = 'button'; b.textContent = "Bird's-eye"; b.className = 'birdbtn';
+  b.title = 'The whole bay from the air, with your boat on this route';
+  b.addEventListener('pointerdown', e => e.stopPropagation());
+  b.addEventListener('click', () => {
+    const p = posAt(S), q = new URLSearchParams();
+    q.set('route', params.get('route') || ROUTE.id);
+    q.set('lat', (-p[1] / MY + LAT0).toFixed(5)); q.set('lon', (p[0] / MX + LON0).toFixed(5));
+    q.set('dist', '700'); q.set('tilt', '55'); q.set('az', String(Math.round(smoothCourse ?? 0)));
+    q.set('at', (S / TOTAL).toFixed(5)); q.set('pace', speedEl.value); if (playing) q.set('play', '1');
+    q.set('from', 'helm'); if (params.get('embed')) q.set('embed', '1');
+    location.href = './bay3d.html?' + q;
+  });
+  eyeBox.appendChild(b);
+}
 // Weather (v858): a button at the end of the View buttons opens the conditions panel (weather3d.js)
 wxPanel = weatherPanel({ host: eyeBox, panelParent: sceneEl, where: () => routeLL[Math.floor(routeLL.length / 2)], pick: applyConditions });
 applyConditions(startConditions(params));
