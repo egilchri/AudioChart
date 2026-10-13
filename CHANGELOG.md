@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-10-13 — Bird's-eye switches like a map type; Map Type while editing (v879)
+
+Requested: switch to Bird's-eye "kind of like how we switch from Chart View to Satellite
+View", without a whole new screen, and keep Map Type available while editing a route.
+
+- Bird's-eye no longer covers the chart's chrome: the toolbar (Map Type, Search, Routes…),
+  the Objects panel and the tide/heading readout stay on top of it, the title bar reads
+  "Bird's-eye", and Map Type shows it as the current type. Picking Chart, Satellite or any
+  other type switches back; the separate Back to chart / Back to 3D buttons are gone.
+- Its own controls (route, ▶ Sail it, pace, Follow, Fleet, Whole bay) moved to the bottom
+  middle and its height/Weather readout above the tide widget, clear of the toolbar. This
+  also clears the overlap with the toolbar in a Virtual Journey's 3D view.
+- Route editing keeps the Map Type pulldown (only that; the rest of the toolbar stays
+  hidden). Picking 3D Bird's-eye mid-edit previews the route being edited in 3D, unsaved
+  changes included, with Node Ops hidden; switching back to Chart or Satellite resumes
+  editing, and OK/Cancel from Bird's-eye returns to the chart.
+- Fixed in passing: choosing a map type while Bird's-eye was open could set it to nothing
+  (the pulldown was reset before it was read).
+
 ## 2026-10-13 — Zoom to me works after a Virtual Journey (v878)
 
 Reported with a snapshot: the ⊙ zoom-to-me button said "No GPS fix yet" while the

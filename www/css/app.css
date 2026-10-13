@@ -825,9 +825,12 @@ html, body {
 #app.bay3d-on .compass-rose-ctrl svg { pointer-events: auto; cursor: pointer; transition: transform 0.12s linear; }
 #app.bay3d-on #zoom-to-me-btn { display: none; }
 #bay3d-wrap iframe { width: 100%; height: 100%; border: 0; display: block; }
-#bay3d-wrap .bay3d-close { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); padding: 8px 16px; border-radius: 6px; border: 1px solid var(--mid-blue); background: var(--dark-blue); color: var(--text); font: inherit; cursor: pointer; }
-#bay3d-back { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 1000; padding: 8px 16px; border-radius: 6px; border: 1px solid var(--mid-blue); background: var(--dark-blue); color: var(--text); font: inherit; cursor: pointer; }   /* v856: same spot as Back to chart, so the two flip */
-#bay3d-back[hidden] { display: none; }
+/* Bird's-eye as a map type (v879): the chart's tile row (Map Type et al.), Objects panel and bottom
+   HUD stay on top of it, as they do over Chart or Satellite */
+#app.bay3d-on #map-overlay-status, #app.bay3d-on #navaid-filter-panel, #app.bay3d-on #bottom-hud,
+#app.bay3d-on #edit-banner { z-index: 1990 !important; }   /* !important: the spread toolbar's own :has() z-index (1950) outranks a plain rule */
+/* Node Ops can't edit in 3D: hidden while Bird's-eye previews the route being edited */
+#app.bay3d-on #edit-tools-panel { display: none !important; }
 
 #map-version-label {
   position: absolute;
@@ -2843,11 +2846,20 @@ body.wco-active #wco-titlebar { display: flex; }
    these were all just clutter competing with the map while editing. */
 #app.edit-mode #sidebar,
 #app.edit-mode #sketch-banner,
-#app.edit-mode #map-overlay-status,
 #app.edit-mode #left-rail-zoom-pan,
 #app.edit-mode #navaid-filter-panel {
   display: none !important;
 }
+/* ...except Map Type (v879, requested): the tile row stays, showing only the Map Type pulldown,
+   so the chart under an edit can switch (Chart, Satellite, or Bird's-eye to preview it in 3D) */
+#app.edit-mode #map-overlay-status > :not(#card-stack-bar),
+#app.edit-mode #card-stack-handle,
+#app.edit-mode #card-stack > :not(#map-layer-select) {
+  display: none !important;
+}
+/* the stack lays its cards out with inline left/width; alone, Map Type sits at the start, full width */
+#app.edit-mode #card-stack { width: 132px !important; display: block !important; }
+#app.edit-mode #card-stack > #map-layer-select { left: 0 !important; width: 132px !important; position: absolute !important; }
 #app.edit-mode #map-container {
   flex: 1 !important;
   height: auto !important;

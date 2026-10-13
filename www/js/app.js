@@ -1097,6 +1097,8 @@ let _sketchWaypoints = [];
 let _sketchRubber    = null;
 let _sketchCursorLL  = null;
 let _editMode              = false;
+// Bird's-eye 3D layer over the chart (v844; declared up here since the map-type title reads it, v879)
+let _bay3dWrap = null, _bay3dLast = null;
 let _editRouteName         = null;
 let _editRouteIdx          = -1;
 let _editPoints            = [];
@@ -5443,6 +5445,7 @@ function _enterEditMode(routeIdx, skipHazardCheck = false) {
 }
 
 function _exitEditMode() {
+  if (_bay3dWrap && !_bay3dWrap.hidden) _hideBay3d();   // OK/Cancel from Bird's-eye lands back on the chart (v879)
   window._acEndAppendMode?.(); // ＋ Add bar (defined further down; may not exist yet during startup)
   const _justEditedName = _editRouteName;
   _editMode = false;
@@ -7237,7 +7240,6 @@ function _showVj3d(route) {
   if (!frame.src.endsWith(src.slice(1))) frame.src = src;
   _vj3dWrap.querySelector('.vj3d-close').hidden = true;
   _vj3dWrap.hidden = false;
-  if (_bay3dBackBtn) _bay3dBackBtn.hidden = true;   // it would sit over the journey's 3D view (v877)
   // shrink the command bar over the 3D picture (see #app.vj3d-on in app.css)
   document.getElementById('app')?.classList.add('vj3d-on');
   if (!responseAreaEl.classList.contains('collapsed')) _collapseResponseArea();
@@ -7255,17 +7257,17 @@ function _hideVj3d() {
 }
 
 // 3D Bird's-eye (v844): the bay in 3D (bay3d.html) over the chart, starting where the chart is
-// looking; closing it brings the chart to wherever the 3D view ended up. Once closed, a
-// "Back to 3D" button in the same spot flips back (v856, direct request): to the very view you
-// left if the chart hasn't moved since, else to where the chart now is, keeping your heading and tilt.
-let _bay3dWrap = null, _bay3dLast = null, _bay3dBackBtn = null;
+// looking; closing it brings the chart to wherever the 3D view ended up. Since v879 it's switched
+// like any map type: Map Type, the tile row and the HUD stay on top of it, and picking 3D Bird's-eye
+// again goes back to the very view you left if the chart hasn't moved since, else to where the chart
+// now is, keeping your heading and tilt.
 function _showBay3d() {
   _ensureMap();
   if (!_bay3dWrap) {
     _bay3dWrap = document.createElement('div');
     _bay3dWrap.id = 'bay3d-wrap';
-    _bay3dWrap.innerHTML = '<iframe title="Penobscot Bay in 3D"></iframe><button type="button" class="bay3d-close">🗺 Back to chart</button>';
-    _bay3dWrap.querySelector('.bay3d-close').addEventListener('click', _hideBay3d);
+    // no Back to chart button (v879): Bird's-eye is a map type, and Map Type (still on top) switches back
+    _bay3dWrap.innerHTML = '<iframe title="Penobscot Bay in 3D"></iframe>';
     const leaflet = document.getElementById('leaflet-map');
     leaflet.parentElement.insertBefore(_bay3dWrap, leaflet.nextSibling);
   }
@@ -7280,13 +7282,18 @@ function _showBay3d() {
   }
   // the route to show waypoints for (v873): the Virtual Journey's, else the newest one showing on the chart
   let rid = _vjRoute?.id || '';
+  // a route being edited (v879): its working points, unsaved changes and all, go over in localStorage
+  if (_editMode) {
+    rid = 'editing';
+    try { localStorage.setItem('audiochart-bay3d-editing', JSON.stringify({ name: _editRouteName || 'Route', points: _editPoints })); } catch (_) {}
+  }
   if (!rid) { try { rid = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]').filter(r => !_hiddenRouteNames.has(r.name)).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0]?.id || ''; } catch (_) {} }
   _bay3dWrap.querySelector('iframe').src = `./bay3d.html?embed=1&lat=${lat.toFixed(5)}&lon=${lon.toFixed(5)}&dist=${dist}${turn}${rid ? `&route=${encodeURIComponent(rid)}` : ''}`;
-  if (_bay3dBackBtn) _bay3dBackBtn.hidden = true;
   _bay3dWrap.style.top = (document.getElementById('status-title-bar')?.offsetHeight || 26) + 'px';
   _bay3dWrap.hidden = false;
   _appEl.classList.add('bay3d-on');
   _startBay3dSync();
+  _syncLayerBtn(); _syncMapModeTitle();
 }
 // Bird's-eye inside the chart (v876, requested: keep the chart's compass rose and pan, and zoom,
 // over the 3D view rather than a whole new interface): with #app.bay3d-on the compass rose and the
@@ -7331,16 +7338,9 @@ function _hideBay3d() {
   } catch (_) {}
   _bay3dWrap.hidden = true;
   _stopBay3dSync();
+  _syncLayerBtn(); _syncMapModeTitle();
   const z0 = _map.getZoom(); document.getElementById('zoom-slider').value = z0; document.getElementById('zoom-slider-label').textContent = z0;
   frame.src = 'about:blank';   // frees the GPU memory the 3D view holds
-  if (!_bay3dBackBtn) {
-    _bay3dBackBtn = document.createElement('button');
-    _bay3dBackBtn.type = 'button'; _bay3dBackBtn.id = 'bay3d-back'; _bay3dBackBtn.textContent = '🦅 Back to 3D';
-    _bay3dBackBtn.title = "Back to the 3D Bird's-eye view";
-    _bay3dBackBtn.addEventListener('click', _showBay3d);
-    _bay3dWrap.parentElement.insertBefore(_bay3dBackBtn, _bay3dWrap.nextSibling);
-  }
-  _bay3dBackBtn.hidden = false;
 }
 
 // Tells an open 3D helm view (helm3d.html) where the Virtual Journey is, as a fraction of
@@ -8384,6 +8384,7 @@ function _renderStatusCombo() {
 }
 
 function _syncMapModeTitle() {
+  if (_bay3dWrap && !_bay3dWrap.hidden) { _statusModeGlyph = '🦅'; _statusModeLabel = "Bird's-eye"; _renderStatusCombo(); return; }
   _statusModeGlyph = MAP_VIEW_ICONS[_mapViewMode] || '🗺';
   _statusModeLabel = _mapViewMode === 'history'
     ? `History — ${HISTORY_ERA_LABELS[_selectedEra]}`
@@ -8415,7 +8416,7 @@ document.querySelectorAll('.history-era-chip').forEach(chip => {
 function _syncLayerBtn() {
   const sel = document.getElementById('map-layer-select');
   if (!sel) return;
-  sel.value = '';
+  sel.value = _bay3dWrap && !_bay3dWrap.hidden ? 'bay3d' : '';   // Bird's-eye shows as the current map type (v879)
 }
 
 function _ensureMap() {
@@ -8667,16 +8668,16 @@ function _ensureMap() {
   setInterval(_recheckFollowedRouteHazardsLive, 60 * 1000);
 
   document.getElementById('map-layer-select').addEventListener('change', (e) => {
+    const mode = e.target.value;   // read first: closing Bird's-eye below resyncs the pulldown
     // 3D Bird's-eye isn't a chart layer: it opens the 3D bay view over the chart (v844)
-    if (e.target.value === 'bay3d') { _syncLayerBtn(); _showBay3d(); return; }
+    if (mode === 'bay3d') { if (!_bay3dWrap || _bay3dWrap.hidden) _showBay3d(); _syncLayerBtn(); return; }
     // A chart type chosen while a 3D view covers the chart (a Virtual Journey's 3D view, or
     // Bird's-eye) changed only the chart hidden underneath it; reported (v877) as "it's not
     // letting me switch to other map types". Close the 3D view so the chosen chart shows (the
-    // journey banner's ⛰ 3D brings the journey's back), and drop a stale "Back to 3D" button.
+    // journey banner's ⛰ 3D brings the journey's back).
     if (_vj3dWrap && !_vj3dWrap.hidden) _hideVj3d();
     if (_bay3dWrap && !_bay3dWrap.hidden) _hideBay3d();
-    if (_bay3dBackBtn) _bay3dBackBtn.hidden = true;
-    _mapViewMode = e.target.value;
+    _mapViewMode = mode;
     localStorage.setItem('audiochart-chart-mode', _mapViewMode);
     _applyMapLayer();
     _syncLayerBtn();

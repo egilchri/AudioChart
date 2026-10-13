@@ -75,8 +75,15 @@ body.embed .panel, body.embed #help, body.embed #compass { display: none !import
 #bar .whole.on { background: var(--brass); color: var(--brass-ink); }
 #bar #sailpace { flex: 0 0 auto; }
 #bar #sailnote { flex-basis: 100%; text-align: center; padding: 0; }
+/* As a map type (v879) the chart's tile row, Objects panel and tide/heading readout sit over this view,
+   so the toolbar goes to the bottom middle and the height/Weather readout above the chart's readout */
+body.embed #bar { top: auto; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); max-width: calc(100% - 600px); }
+body.embed #scale { top: auto; bottom: calc(130px + env(safe-area-inset-bottom, 0px)); }
+body.embed #wxpanel { top: auto; bottom: calc(166px + env(safe-area-inset-bottom, 0px)); }
+@media (max-width: 1100px) { body.embed #bar { left: 8px; right: 8px; transform: none; max-width: none; bottom: calc(130px + env(safe-area-inset-bottom, 0px)); }
+  body.embed #scale { bottom: calc(200px + env(safe-area-inset-bottom, 0px)); } body.embed #wxpanel { bottom: calc(236px + env(safe-area-inset-bottom, 0px)); } }
 @media (max-width: 760px) { #bar { left: 92px; right: 8px; transform: none; max-width: none; } }
-@media (max-width: 640px) { body.embed #scale { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); } body.embed #wxpanel { bottom: calc(112px + env(safe-area-inset-bottom, 0px)); } }   /* clear of the chart's Back to chart */
+@media (max-width: 640px) { body.embed #scale { bottom: calc(262px + env(safe-area-inset-bottom, 0px)); } body.embed #wxpanel { bottom: calc(298px + env(safe-area-inset-bottom, 0px)); } }   /* above the toolbar, which wraps to three rows */
 /* Phone: the towns list folds away behind its title */
 @media (max-width: 640px) {
   .panel { width: auto; right: 12px; }

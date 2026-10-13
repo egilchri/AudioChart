@@ -642,6 +642,10 @@ const wpSel = document.getElementById('wproute');
 const routeChoices = [];
 {
   let saved = []; try { saved = JSON.parse(localStorage.getItem('audiochart-user-routes') || '[]'); } catch (_) {}
+  // opened mid-edit (v879): the route being edited, with its unsaved changes, comes first
+  if (params.get('route') === 'editing') {
+    try { const e = JSON.parse(localStorage.getItem('audiochart-bay3d-editing') || 'null'); if (e?.points?.length) routeChoices.push({ id: 'editing', name: `${e.name} (editing)`, points: e.points }); } catch (_) {}
+  }
   saved.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).forEach(r => routeChoices.push({ id: r.id || r.name, name: r.name, points: r.points }));
   const samples = await getJSON('./data/regions/penobscot-bay/curated_routes.json').catch(() => []);
   for (const r of samples) if (!routeChoices.some(c => c.name === r.name)) routeChoices.push({ id: 'sample:' + r.id, name: r.name + ' (sample)', points: r.points });
@@ -654,7 +658,7 @@ function showRoute(id, fly) {
   wps = [];
   const r = routeChoices.find(c => c.id === id);
   wpSel.value = r ? id : '';
-  try { localStorage.setItem(WPR_KEY, r ? id : ''); } catch (_) {}
+  if (id !== 'editing') try { localStorage.setItem(WPR_KEY, r ? id : ''); } catch (_) {}
   if (!r) { setOwnRoute(null); return; }
   const pts = r.points.map(p => Array.isArray(p) ? { lon: p[0], lat: p[1] } : p);
   pts.forEach((p, i) => {
