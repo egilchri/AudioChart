@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-13 — Sailors page: new Bird's-eye tutorial (9)
+
+Tutorial 9 replaced with a new narrated recording of Bird's-eye as a map type (v879–v881):
+the chart's own controls over it, the homing button, zoom and pan, a Virtual Journey played
+in it, Weather, back to Satellite, and Map Type while editing a route. The old recording
+showed the removed panel and Back to chart button. New file names (demo9b) so browsers
+don't show the cached old video.
+
 ## 2026-10-13 — Turn Bird's-eye with the compass rose (v883)
 
 Requested: "I should be able to rotate the map in bird's-eye view". It could already turn
