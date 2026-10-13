@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-13 — Turn Bird's-eye with the compass rose (v883)
+
+Requested: "I should be able to rotate the map in bird's-eye view". It could already turn
+(right-drag or Shift-drag, two-finger twist), but nothing on screen said so. Now the chart's
+compass rose, which already turns with the view, can be dragged round to turn it; a tap
+still turns it north up.
+
 ## 2026-10-13 — Drone from Bird's-eye, and back (v882)
 
 Requested: "I should have access to drone view from bird's-eye, and vice versa". Bird's-eye

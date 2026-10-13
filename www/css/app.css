@@ -822,7 +822,7 @@ html, body {
 #bay3d-wrap[hidden] { display: none; }
 /* v876: Bird's-eye keeps the chart's compass rose and zoom/pan rail over it (they drive the 3D view) */
 #app.bay3d-on .leaflet-top.leaflet-left, #app.bay3d-on #left-rail-zoom-pan { z-index: 1990; }
-#app.bay3d-on .compass-rose-ctrl svg { pointer-events: auto; cursor: pointer; transition: transform 0.12s linear; }
+#app.bay3d-on .compass-rose-ctrl svg { pointer-events: auto; cursor: grab; touch-action: none; transition: transform 0.12s linear; }   /* drag round to turn, tap for north up */
 #bay3d-wrap iframe { width: 100%; height: 100%; border: 0; display: block; }
 /* Bird's-eye as a map type (v879): the chart's tile row (Map Type et al.), Objects panel and bottom
    HUD stay on top of it, as they do over Chart or Satellite */

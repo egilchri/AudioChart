@@ -8542,7 +8542,28 @@ function _ensureMap() {
   });
   new _CompassRose().addTo(_map);
   // in Bird's-eye the rose turns with the view; tapping it turns the view north up (v876)
-  document.querySelector('.compass-rose-ctrl svg')?.addEventListener('click', () => _bay3dApi()?.northUp?.());
+  // In Bird's-eye (v883, requested: rotate the map there): drag the rose round to turn the view,
+  // the way the rose itself turns with it; a tap without turning still means north up.
+  {
+    const rose = document.querySelector('.compass-rose-ctrl svg');
+    let turn = null, turned = false;
+    const angOf = (e, c) => Math.atan2(e.clientY - c.y, e.clientX - c.x) * 180 / Math.PI;
+    rose?.addEventListener('pointerdown', (e) => {
+      const api = _bay3dApi(); if (!api?.setAz) return;
+      const r = rose.getBoundingClientRect(), c = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+      turn = { c, a0: angOf(e, c), az0: api.getView().az }; turned = false;
+      rose.setPointerCapture(e.pointerId); e.preventDefault(); e.stopPropagation();
+    });
+    rose?.addEventListener('pointermove', (e) => {
+      if (!turn) return;
+      const d = ((angOf(e, turn.c) - turn.a0 + 540) % 360) - 180;
+      if (Math.abs(d) > 3) turned = true;
+      if (turned) _bay3dApi()?.setAz?.(turn.az0 - d);   // the rose shows -az, so it follows the finger
+    });
+    const end = () => { turn = null; };
+    rose?.addEventListener('pointerup', end); rose?.addEventListener('pointercancel', end);
+    rose?.addEventListener('click', () => { if (!turned) _bay3dApi()?.northUp?.(); turned = false; });
+  }
 
   // Tide-cycle overlay — translucent sinusoid showing where "now" sits in the
   // current tide cycle. Mirrors the compass rose: a small always-on, click-
