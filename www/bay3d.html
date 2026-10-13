@@ -39,6 +39,9 @@ body { background: var(--sky); color: var(--ink); font-family: var(--body); font
 #towns button.on, .panel .whole.on { background: var(--brass); color: var(--brass-ink); }
 .panel .whole { font-weight: 600; }
 .sect { font-size: 0.66rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); padding-left: 8px; }
+#wproute { font: inherit; font-size: 0.82rem; color: var(--ink); background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.18); border-radius: 5px; padding: 4px 6px; width: 100%; }
+#wproute option { color: #1b2328; background: #f3f1ea; }
+.lbl.wpt { color: #c9f2d6; }
 .panel a { color: var(--brass); font-size: 0.8rem; padding-left: 8px; }
 button:focus-visible { outline: 2px solid var(--brass); outline-offset: 1px; }
 #help { position: fixed; right: 12px; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); z-index: 2; font-size: 0.74rem; color: var(--muted); background: var(--glass); border-radius: 5px; padding: 4px 9px; max-width: calc(100% - 24px); box-sizing: border-box; }
@@ -74,6 +77,8 @@ body.embed .panel a.back { display: none; }
   <div class="body">
     <button class="whole" id="whole" type="button">⤢ Whole bay</button>
     <button class="whole" id="sailboat" type="button" title="Fly to a sailboat and follow it; click again for the next one">⛵ Follow a sailboat</button>
+    <div class="sect">Route waypoints</div>
+    <select id="wproute" aria-label="Show a route's waypoints"><option value="">None</option></select>
     <div class="sect">Towns and harbors</div>
     <ul id="towns"></ul>
     <a class="back" href="./">Back to AudioChart</a>
@@ -81,7 +86,7 @@ body.embed .panel a.back { display: none; }
 </nav>
 <div id="scale"><svg id="compass" viewBox="-11 -11 22 22" role="button" aria-label="Turn north up"><circle r="10" fill="rgba(0,0,0,0.25)"/><g id="needle"><path d="M0,-8 L3,0 L-3,0 Z" fill="#d9534f"/><path d="M0,8 L3,0 L-3,0 Z" fill="#e9eff1"/></g></svg><span id="alt">—</span></div>
 <div id="loading" hidden>Loading…</div>
-<div id="help">Drag to move · right-drag or Shift-drag to turn and tilt · scroll or pinch to zoom · click a town or ⛵ Follow a sailboat · Weather for fog, rain, wind, dawn, sunset and night (N); the sailboats trim to its wind</div>
+<div id="help">Drag to move · right-drag or Shift-drag to turn and tilt · scroll or pinch to zoom · click a town or ⛵ Follow a sailboat · Route waypoints shows a route · Weather for fog, rain, wind, dawn, sunset and night (N); the sailboats trim to its wind</div>
 <div id="credit">Elevation USGS 3DEP · Photos USDA NAIP</div>
 <div id="status">Loading Penobscot Bay…</div>
 <script type="importmap">

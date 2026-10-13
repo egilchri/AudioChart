@@ -7277,7 +7277,10 @@ function _showBay3d() {
     if (L0.chartZoom === z && Math.abs(L0.chartLat - c.lat) < 1e-6 && Math.abs(L0.chartLon - c.lng) < 1e-6) { lat = L0.lat; lon = L0.lon; dist = Math.round(L0.dist); }
     turn = `&az=${L0.az.toFixed(1)}&tilt=${L0.tilt.toFixed(1)}`;
   }
-  _bay3dWrap.querySelector('iframe').src = `./bay3d.html?embed=1&lat=${lat.toFixed(5)}&lon=${lon.toFixed(5)}&dist=${dist}${turn}`;
+  // the route to show waypoints for (v873): the Virtual Journey's, else the newest one showing on the chart
+  let rid = _vjRoute?.id || '';
+  if (!rid) { try { rid = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]').filter(r => !_hiddenRouteNames.has(r.name)).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0]?.id || ''; } catch (_) {} }
+  _bay3dWrap.querySelector('iframe').src = `./bay3d.html?embed=1&lat=${lat.toFixed(5)}&lon=${lon.toFixed(5)}&dist=${dist}${turn}${rid ? `&route=${encodeURIComponent(rid)}` : ''}`;
   if (_bay3dBackBtn) _bay3dBackBtn.hidden = true;
   _bay3dWrap.style.top = (document.getElementById('status-title-bar')?.offsetHeight || 26) + 'px';
   _bay3dWrap.hidden = false;

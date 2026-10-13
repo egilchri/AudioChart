@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-13 — Bird's-eye: route waypoints (v873)
+
+Requested: waypoints in the Bird's-eye view too. Its panel has a Route waypoints picker
+(saved routes, newest first, then the samples); the chosen route shows a marker at
+each waypoint (green; amber ☾ overnight, red ⚓ at the end), drawn bigger with
+distance, the route as a line on the water and "WP n" labels, and the view flies to
+fit it. Opened from the chart, the Virtual Journey's route (else the newest route
+showing on the chart) comes preselected; otherwise the last choice is remembered.
+
 ## 2026-10-13 — 3D view: optional waypoints (v872)
 
 Requested: optionally show waypoints on Virtual Journeys. A ◆ Waypoints toggle in the

@@ -632,6 +632,61 @@ function updateFleet(dt) {
   }
 }
 
+// ── Route waypoints (v873, requested: as in the helm view) ──
+// Pick a saved route or a sample under "Route waypoints" (opened from the chart, the route the
+// chart is showing comes preselected): a marker on a pole at each waypoint (green; amber ☾ for an
+// overnight stop, red ⚓ at the end), drawn bigger with distance, the route as a line on the water,
+// "WP n" labels, and the view flies to fit it. The choice is remembered.
+const WPR_KEY = 'audiochart-bay3d-route';
+const wpSel = document.getElementById('wproute');
+const routeChoices = [];
+{
+  let saved = []; try { saved = JSON.parse(localStorage.getItem('audiochart-user-routes') || '[]'); } catch (_) {}
+  saved.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).forEach(r => routeChoices.push({ id: r.id || r.name, name: r.name, points: r.points }));
+  const samples = await getJSON('./data/regions/penobscot-bay/curated_routes.json').catch(() => []);
+  for (const r of samples) if (!routeChoices.some(c => c.name === r.name)) routeChoices.push({ id: 'sample:' + r.id, name: r.name + ' (sample)', points: r.points });
+  for (const c of routeChoices) { const o = document.createElement('option'); o.value = c.id; o.textContent = c.name; wpSel.appendChild(o); }
+}
+const wpGroup = new THREE.Group(); scene.add(wpGroup);
+let wps = [], routeFlew = false;
+function showRoute(id, fly) {
+  for (const o of [...wpGroup.children]) { wpGroup.remove(o); o.traverse(m => { m.geometry?.dispose(); }); }
+  wps = [];
+  const r = routeChoices.find(c => c.id === id);
+  wpSel.value = r ? id : '';
+  try { localStorage.setItem(WPR_KEY, r ? id : ''); } catch (_) {}
+  if (!r) return;
+  const pts = r.points.map(p => Array.isArray(p) ? { lon: p[0], lat: p[1] } : p);
+  pts.forEach((p, i) => {
+    const last = i === pts.length - 1, night = !!p.overnight, col = last ? 0xd0342c : night ? 0xe0a843 : 0x2fa35a;
+    const g = new THREE.Group(); g.position.set(wx(p.lon), 0, wz(p.lat));
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 3.2, 6), new THREE.MeshLambertMaterial({ color: 0xf2f2ee })); pole.position.y = 1.6; g.add(pole);
+    const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.55), new THREE.MeshLambertMaterial({ color: col, emissive: col, emissiveIntensity: 0.35 })); gem.position.y = 3.6; gem.scale.y = 1.4; g.add(gem);
+    wpGroup.add(g);
+    wps.push({ g, label: `WP ${i + 1}` + (night ? ' ☾' : last ? ' ⚓' : '') });
+  });
+  const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts.map(p => new THREE.Vector3(wx(p.lon), 1.5, wz(p.lat)))), new THREE.LineBasicMaterial({ color: 0xe0a843 }));
+  wpGroup.add(line);
+  if (fly) {
+    const xs = pts.map(p => wx(p.lon)), zs = pts.map(p => wz(p.lat));
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), z0 = Math.min(...zs), z1 = Math.max(...zs);
+    markCurrent(null);
+    flyTo({ x: (x0 + x1) / 2, z: (z0 + z1) / 2, dist: clamp(Math.max(x1 - x0, z1 - z0) * 1.5, 2500, 90000), tilt: 45 * DEG, az: 0 }, 2800);
+  }
+}
+function updateWaypoints() {
+  const cp = camera.position;
+  for (const p of wps) p.g.scale.setScalar(clamp(Math.hypot(p.g.position.x - cp.x, cp.y, p.g.position.z - cp.z) / 150, 1, 80));
+  wpGroup.visible = !aboveFog;
+}
+wpSel.addEventListener('change', () => { showRoute(wpSel.value, true); foldPanel(true); });
+{
+  let start = params.get('route') || ''; try { if (!start) start = localStorage.getItem(WPR_KEY) || ''; } catch (_) {}
+  if (start && !routeChoices.some(c => c.id === start)) start = routeChoices.find(c => c.id === 'sample:' + start)?.id || '';
+  routeFlew = !!start && !!params.get('route') && !params.get('lat');
+  showRoute(start, routeFlew);
+}
+
 // ── Labels: towns (click to fly there) from up high; place names and buoy numbers lower down ──
 const labelsEl = document.getElementById('labels'), pool = [];
 const places = placesGJ.features.filter(f => f.geometry?.type === 'Point' && inBay(f.geometry.coordinates) && ['LNDARE', 'LNDRGN', 'BUAARE'].includes(f.properties.objtype))
@@ -664,6 +719,10 @@ function updateLabels() {
         const d = Math.hypot(b.x - view.x, b.z - view.z);
         if (b.num && d < 2200) cand.push({ text: `"${b.num}"`, x: b.x, y: 6, z: b.z, cls: 'buoy', pri: 3 + d / 2200 });
       }
+    }
+    if (view.dist < 40000) for (const p of wps) {   // route waypoints
+      const d = Math.hypot(p.g.position.x - view.x, p.g.position.z - view.z);
+      if (d < Math.max(view.dist * 2, 3000)) cand.push({ text: p.label, x: p.g.position.x, y: 4.6 * p.g.scale.x, z: p.g.position.z, cls: 'wpt', pri: 0.8 + d / Math.max(view.dist * 2, 3000) });
     }
     if (aboveFog) { const top = FOG_TOP[env.C.vis]; cand = cand.filter(c => c.cls === 'town' || c.y - 6 > top); }   // names under the fog bank don't show
     cand.sort((a, b) => a.pri - b.pri);
@@ -708,7 +767,7 @@ new ResizeObserver(resize).observe(sceneEl); resize();
     const az = Number(params.get('az')) || 0, tilt = Number(params.get('tilt')) || 45;
     Object.assign(view, { x: wx(lon), z: wz(lat), dist: dist || 20000, tilt: tilt * DEG, az: az * DEG }); markCurrent(null);
   }
-  else markCurrent('whole');
+  else if (!routeFlew) markCurrent('whole');
 }
 clampView(); placeCamera();
 
@@ -725,6 +784,7 @@ function frame(now) {
   sky.position.copy(camera.position);
   updateWeather(dt, t);
   updateFleet(dt);
+  updateWaypoints();
   if (follow && !anim) { const k = Math.min(1, dt * 4); view.x += (follow.x - view.x) * k; view.z += (follow.z - view.z) * k; }
   renderer.render(scene, camera);
   updateLabels(); updateReadout();
