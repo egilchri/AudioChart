@@ -820,6 +820,10 @@ html, body {
 #app.vj3d-on #map-overlay-cmd #text-submit { padding: 4px 8px; font-size: 0.8rem; }
 #bay3d-wrap { position: absolute; inset: 26px 0 0 0; z-index: 1980; background: var(--navy); }   /* above the chart's own controls and panels (up to 1960), below dialogs (3000+); top set in _showBay3d */
 #bay3d-wrap[hidden] { display: none; }
+/* v876: Bird's-eye keeps the chart's compass rose and zoom/pan rail over it (they drive the 3D view) */
+#app.bay3d-on .leaflet-top.leaflet-left, #app.bay3d-on #left-rail-zoom-pan { z-index: 1990; }
+#app.bay3d-on .compass-rose-ctrl svg { pointer-events: auto; cursor: pointer; transition: transform 0.12s linear; }
+#app.bay3d-on #zoom-to-me-btn { display: none; }
 #bay3d-wrap iframe { width: 100%; height: 100%; border: 0; display: block; }
 #bay3d-wrap .bay3d-close { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); padding: 8px 16px; border-radius: 6px; border: 1px solid var(--mid-blue); background: var(--dark-blue); color: var(--text); font: inherit; cursor: pointer; }
 #bay3d-back { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 1000; padding: 8px 16px; border-radius: 6px; border: 1px solid var(--mid-blue); background: var(--dark-blue); color: var(--text); font: inherit; cursor: pointer; }   /* v856: same spot as Back to chart, so the two flip */

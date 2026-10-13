@@ -7284,6 +7284,37 @@ function _showBay3d() {
   if (_bay3dBackBtn) _bay3dBackBtn.hidden = true;
   _bay3dWrap.style.top = (document.getElementById('status-title-bar')?.offsetHeight || 26) + 'px';
   _bay3dWrap.hidden = false;
+  _appEl.classList.add('bay3d-on');
+  _startBay3dSync();
+}
+// Bird's-eye inside the chart (v876, requested: keep the chart's compass rose and pan, and zoom,
+// over the 3D view rather than a whole new interface): with #app.bay3d-on the compass rose and the
+// zoom/pan rail sit above the 3D view (app.css). The pan buttons and zoom slider drive the 3D view
+// (bay3d.js's __bay3d.pan / setDist); a 10 Hz poll turns the rose with the view's heading and keeps
+// the slider at the view's height. Tapping the rose turns the view north up.
+let _bay3dSyncTimer = null, _bay3dSliderAt = 0;
+const _bay3dApi = () => { try { return _bay3dWrap && !_bay3dWrap.hidden ? _bay3dWrap.querySelector('iframe').contentWindow.__bay3d || null : null; } catch (_) { return null; } };
+// the chart zoom whose view is about as wide as the 3D view at distance d (as _showBay3d/_hideBay3d)
+const _bay3dZoomOf = (d, lat) => Math.log2(40075016 * Math.cos(lat * Math.PI / 180) * _map.getSize().x / 256 / (d / 0.8));
+const _bay3dDistOf = (z, lat) => 40075016 * Math.cos(lat * Math.PI / 180) / Math.pow(2, z) * _map.getSize().x / 256 * 0.8;
+function _startBay3dSync() {
+  clearInterval(_bay3dSyncTimer);
+  const rose = document.querySelector('.compass-rose-ctrl svg');
+  _bay3dSyncTimer = setInterval(() => {
+    const v = _bay3dApi()?.getView?.();
+    if (!v) return;
+    if (rose) rose.style.transform = `rotate(${-v.az}deg)`;
+    if (Date.now() - _bay3dSliderAt > 600) {
+      const z = Math.max(4, Math.min(18, Math.round(_bay3dZoomOf(v.dist, v.lat))));
+      const sl = document.getElementById('zoom-slider'), lb = document.getElementById('zoom-slider-label');
+      if (sl) sl.value = z; if (lb) lb.textContent = z;
+    }
+  }, 100);
+}
+function _stopBay3dSync() {
+  clearInterval(_bay3dSyncTimer); _bay3dSyncTimer = null;
+  const rose = document.querySelector('.compass-rose-ctrl svg'); if (rose) rose.style.transform = '';
+  _appEl.classList.remove('bay3d-on');
 }
 function _hideBay3d() {
   if (!_bay3dWrap) return;
@@ -7298,6 +7329,8 @@ function _hideBay3d() {
     }
   } catch (_) {}
   _bay3dWrap.hidden = true;
+  _stopBay3dSync();
+  const z0 = _map.getZoom(); document.getElementById('zoom-slider').value = z0; document.getElementById('zoom-slider-label').textContent = z0;
   frame.src = 'about:blank';   // frees the GPU memory the 3D view holds
   if (!_bay3dBackBtn) {
     _bay3dBackBtn = document.createElement('button');
@@ -8413,16 +8446,22 @@ function _ensureMap() {
     _zoomSlider.value = z;
     _zoomLabel.textContent = z;
   };
-  _zoomSlider.addEventListener('input', () => _map.setZoom(parseInt(_zoomSlider.value, 10)));
+  _zoomSlider.addEventListener('input', () => {
+    const b3 = _bay3dApi();   // Bird's-eye open over the chart: the slider sets its height (v876)
+    if (b3) { _bay3dSliderAt = Date.now(); _zoomLabel.textContent = _zoomSlider.value; b3.setDist(_bay3dDistOf(parseInt(_zoomSlider.value, 10), b3.getView().lat)); return; }
+    _map.setZoom(parseInt(_zoomSlider.value, 10));
+  });
   _map.on('zoomend', _syncZoomSlider);
   _syncZoomSlider();
 
   // Pan buttons (desktop only — hidden by CSS on mobile)
   const PAN_PX = 200;
-  document.getElementById('pan-north').addEventListener('click', () => _map.panBy([0, -PAN_PX], { animate: true, duration: 0.25 }));
-  document.getElementById('pan-south').addEventListener('click', () => _map.panBy([0, +PAN_PX], { animate: true, duration: 0.25 }));
-  document.getElementById('pan-west') .addEventListener('click', () => _map.panBy([-PAN_PX, 0], { animate: true, duration: 0.25 }));
-  document.getElementById('pan-east') .addEventListener('click', () => _map.panBy([+PAN_PX, 0], { animate: true, duration: 0.25 }));
+  // with Bird's-eye open they move the 3D view instead, relative to the screen (v876)
+  const _pan = (dx, dy) => { const b3 = _bay3dApi(); if (b3) b3.pan(dx, -dy); else _map.panBy([dx * PAN_PX, dy * PAN_PX], { animate: true, duration: 0.25 }); };
+  document.getElementById('pan-north').addEventListener('click', () => _pan(0, -1));
+  document.getElementById('pan-south').addEventListener('click', () => _pan(0, +1));
+  document.getElementById('pan-west') .addEventListener('click', () => _pan(-1, 0));
+  document.getElementById('pan-east') .addEventListener('click', () => _pan(+1, 0));
 
   // Compass rose overlay
   const _CompassRose = L.Control.extend({
@@ -8486,6 +8525,8 @@ function _ensureMap() {
     },
   });
   new _CompassRose().addTo(_map);
+  // in Bird's-eye the rose turns with the view; tapping it turns the view north up (v876)
+  document.querySelector('.compass-rose-ctrl svg')?.addEventListener('click', () => _bay3dApi()?.northUp?.());
 
   // Tide-cycle overlay — translucent sinusoid showing where "now" sits in the
   // current tide cycle. Mirrors the compass rose: a small always-on, click-

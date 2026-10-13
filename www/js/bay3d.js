@@ -686,7 +686,7 @@ function updateWaypoints() {
 // the same route runs in AudioChart, she follows the journey instead (it broadcasts progress).
 const OWN_KN = (() => { let v = NaN; try { v = parseFloat(localStorage.getItem('audiochart-last-speed')); } catch (_) {} return v > 0 && v < 40 ? v : 5; })();
 const PACE_KEY = 'audiochart-bay3d-pace';
-const own = { boat: makeSailboat(4), trim: makeTrimmer(), r: null, pts: [], cum: [0], total: 0, S: 0, playing: false, vj: null, x: 0, z: 0, h: 0 };
+const own = { boat: makeSailboat(4), trim: makeTrimmer(), r: null, pts: [], cum: [0], nights: [], total: 0, S: 0, playing: false, vj: null, x: 0, z: 0, h: 0 };
 own.boat.group.visible = false; scene.add(own.boat.group);
 const sailRow = document.getElementById('sailrow'), sailBtn = document.getElementById('sailit'), paceSel = document.getElementById('sailpace'), sailNote = document.getElementById('sailnote');
 for (const k of [1, 5, 20, 60, 200]) { const o = document.createElement('option'); o.value = k; o.textContent = k === 1 ? `${OWN_KN} kn real time` : `${OWN_KN} kn × ${k}`; paceSel.appendChild(o); }
@@ -695,11 +695,12 @@ if (!paceSel.value) paceSel.value = '60';
 paceSel.addEventListener('change', () => { try { localStorage.setItem(PACE_KEY, paceSel.value); } catch (_) {} });
 function setOwnRoute(r, pts) {
   own.r = r; own.playing = false; own.S = 0; sailBtn.textContent = '▶ Sail it';
-  sailRow.hidden = !r; sailNote.hidden = !r; own.boat.group.visible = !!r;
+  sailRow.hidden = !r; sailNote.hidden = !r; followBtn.hidden = !r; own.boat.group.visible = !!r;
   if (!r) return;
   own.pts = pts.map(p => [wx(p.lon), wz(p.lat)]);
   own.cum = [0]; for (let i = 1; i < own.pts.length; i++) own.cum.push(own.cum[i - 1] + Math.hypot(own.pts[i][0] - own.pts[i - 1][0], own.pts[i][1] - own.pts[i - 1][1]));
   own.total = own.cum[own.cum.length - 1];
+  own.nights = pts.map((p, i) => p.overnight && i < pts.length - 1 ? own.cum[i] : null).filter(v => v != null);   // where each day ends (v876)
   placeOwn(0);
 }
 function ownPosAt(s) {
@@ -721,9 +722,30 @@ sailBtn.addEventListener('click', () => {
   if (own.playing) {
     if (env.W.heel === 0) applyConditions({ wind: 'breezy' });   // she can't sail in a calm
     markCurrent(null); follow = own; document.getElementById('sailboat').classList.remove('on');
-    if (view.dist > 1500) flyTo({ x: own.x, z: own.z, dist: 450, tilt: 60 * DEG, az: (own.h + 30) * DEG }, 2500);
+    // high enough to see her among the islands and coastline around her (v876; was 450 m)
+    if (view.dist < 1500 || view.dist > 20000) flyTo({ x: own.x, z: own.z, dist: 6000, tilt: 50 * DEG, az: 0 }, 2500);
   }
 });
+// ⌖ Follow (v876): keep your boat centred, at whatever height and heading you've set; panning or
+// dragging lets go, this picks her up again.
+const followBtn = document.getElementById('followown');
+followBtn.addEventListener('click', () => {
+  if (!own.r) return;
+  if (follow === own) { stopFollow(); return; }
+  markCurrent(null); follow = own;
+  if (view.dist > 20000) flyTo({ x: own.x, z: own.z, dist: 6000, tilt: 50 * DEG, az: view.az }, 2200);
+});
+// Inside the chart (embed, v876, requested: fold Bird's-eye into the chart's interface): the chart
+// keeps its own compass rose, zoom and pan over this view, so the big places panel goes and the
+// controls that matter here sit in one row across the top: route, Sail it and pace, Follow, a
+// fleet boat, Whole bay. The same elements, moved; nothing is duplicated.
+if (document.body.classList.contains('embed')) {
+  const bar = document.getElementById('bar');
+  document.getElementById('sailboat').textContent = '⛵ Fleet';
+  document.getElementById('sailboat').title = 'Fly to one of the sailboats around the bay and follow her; again for the next';
+  bar.append(wpSel, sailRow, followBtn, document.getElementById('sailboat'), document.getElementById('whole'), sailNote);
+  bar.hidden = false;
+}
 function updateOwn(dt) {
   if (!own.r) return;
   const pace = Number(paceSel.value) || 60;
@@ -740,7 +762,9 @@ function updateOwn(dt) {
   own.boat.group.scale.setScalar(clamp(Math.hypot(own.x - cp.x, cp.y, own.z - cp.z) / 250, 1.6, 90));
   own.boat.group.position.set(own.x, 0, own.z); own.boat.group.rotation.y = -own.h * DEG;
   own.boat.group.visible = !aboveFog;
-  if (lblTick % 6 === 0) sailNote.textContent = (own.vj ? 'Following your Virtual Journey · ' : '') + `${(own.S / NMm).toFixed(1)} / ${(own.total / NMm).toFixed(1)} nm` + (up ? ` · ${p.name}` : env.W.heel === 0 ? ' · calm' : ' · arrived');
+  followBtn.classList.toggle('on', follow === own);
+  const day = own.nights.length ? `Day ${1 + own.nights.filter(c => own.S >= c - 1).length} of ${own.nights.length + 1} · ` : '';
+  if (lblTick % 6 === 0) sailNote.textContent = (own.vj ? 'Following your Virtual Journey · ' : '') + day + `${(own.S / NMm).toFixed(1)} / ${(own.total / NMm).toFixed(1)} nm` + (up ? ` · ${p.name}` : env.W.heel === 0 ? ' · calm' : ' · arrived');
 }
 try {   // a Virtual Journey of this route running in AudioChart
   const ch = new BroadcastChannel('audiochart-vj');
@@ -896,7 +920,16 @@ applyConditions(startConditions(params));
 statusEl.hidden = true;
 requestAnimationFrame(frame);
 window.__bay3d = {   // for AudioChart (returning to the chart where you were) and for testing
-  getView: () => ({ lat: latOf(view.z), lon: lonOf(view.x), dist: view.dist, az: view.az / DEG, tilt: view.tilt / DEG }),
+  getView: () => ({ lat: latOf(view.z), lon: lonOf(view.x), dist: view.dist, az: view.az / DEG, tilt: view.tilt / DEG, following: follow === own }),
+  // the chart's pan buttons and zoom slider, while this is open over it (v876): pan by a quarter of
+  // the view's distance, relative to the screen (+dy = ahead in the picture); setDist keeps following
+  pan: (dx, dy) => {
+    stopFollow(); anim = null;
+    const k = view.dist * 0.25 * Math.sin(Math.max(view.tilt, 0.3)) + view.dist * 0.1, fx = Math.sin(view.az), fz = -Math.cos(view.az);
+    view.x += (Math.cos(view.az) * dx + fx * dy) * k; view.z += (Math.sin(view.az) * dx + fz * dy) * k; clampView();
+  },
+  setDist: m => { if (anim) anim.to.dist = m; else view.dist = m; clampView(); },
+  northUp: () => flyTo({ x: view.x, z: view.z, dist: view.dist, az: 0, tilt: view.tilt }, 900),
   setView: v => { anim = null; Object.assign(view, { x: wx(v.lon), z: wz(v.lat), dist: v.dist ?? view.dist, az: (v.az ?? view.az / DEG) * DEG, tilt: (v.tilt ?? view.tilt / DEG) * DEG }); clampView(); placeCamera(); },
   goTown: id => { const tw = townList.find(x => x.id === id); if (tw) goTown(tw); return !!tw; },
   goWhole, towns: townList, tiles, scene, env, applyConditions, fleet, own, isWater: (lat, lon) => isWater(wx(lon), wz(lat)), boatAt: i => ({ lat: latOf(fleet[i].z), lon: lonOf(fleet[i].x), h: fleet[i].h }), renderer, trees: () => ({ near: TREES.near.count, far: TREES.far.count, K: TREES.K }),

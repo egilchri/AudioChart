@@ -63,6 +63,20 @@ button:focus-visible { outline: 2px solid var(--brass); outline-offset: 1px; }
 #compass { width: 22px; height: 22px; cursor: pointer; pointer-events: auto; }
 [hidden] { display: none !important; }
 body.embed .panel a.back { display: none; }
+/* Inside the chart (v876): the chart's compass rose, zoom and pan stay over this view, so the
+   places panel, the help line and this page's own compass go, and the controls sit in one row */
+body.embed .panel, body.embed #help, body.embed #compass { display: none !important; }
+#bar { position: fixed; left: 50%; transform: translateX(-50%); top: calc(10px + env(safe-area-inset-top, 0px)); z-index: 3; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px 6px;
+  background: var(--glass); border-radius: 7px; padding: 4px 6px; max-width: calc(100% - 340px); box-sizing: border-box; font-size: 0.82rem; }
+#bar[hidden] { display: none !important; }
+#bar #wproute { width: auto; max-width: 15rem; }
+#bar .whole { width: auto; padding: 4px 8px; white-space: nowrap; font: inherit; font-weight: 600; color: var(--ink); background: rgba(255,255,255,0.1); border: 0; border-radius: 5px; cursor: pointer; }
+#bar .whole:hover { background: rgba(255,255,255,0.18); }
+#bar .whole.on { background: var(--brass); color: var(--brass-ink); }
+#bar #sailpace { flex: 0 0 auto; }
+#bar #sailnote { flex-basis: 100%; text-align: center; padding: 0; }
+@media (max-width: 760px) { #bar { left: 92px; right: 8px; transform: none; max-width: none; } }
+@media (max-width: 640px) { body.embed #scale { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); } body.embed #wxpanel { bottom: calc(112px + env(safe-area-inset-bottom, 0px)); } }   /* clear of the chart's Back to chart */
 /* Phone: the towns list folds away behind its title */
 @media (max-width: 640px) {
   .panel { width: auto; right: 12px; }
@@ -77,6 +91,7 @@ body.embed .panel a.back { display: none; }
 <body>
 <div id="scene"></div>
 <div id="labels"></div>
+<div id="bar" hidden role="toolbar" aria-label="Bird's-eye controls"></div>
 <nav class="panel" id="panel" aria-label="Places">
   <div class="head">
     <h1>Penobscot Bay<small>Bird's-eye view</small></h1>
@@ -89,6 +104,7 @@ body.embed .panel a.back { display: none; }
     <select id="wproute" aria-label="Show a route's waypoints"><option value="">None</option></select>
     <div id="sailrow" hidden><button type="button" id="sailit">▶ Sail it</button><select id="sailpace" aria-label="Pace"></select></div>
     <div id="sailnote" hidden></div>
+    <button class="whole" id="followown" type="button" hidden title="Keep your boat in the middle of the view">⌖ Follow</button>
     <div class="sect">Towns and harbors</div>
     <ul id="towns"></ul>
     <a class="back" href="./">Back to AudioChart</a>

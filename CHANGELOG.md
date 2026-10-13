@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-10-13 — Bird's-eye folded into the chart's interface (v876)
+
+Requested: Bird's-eye felt like a whole new interface; keep the chart's compass rose
+and pan (and zoom), drop the big list of ports, and be able to watch the Rockland to
+Hadlock Cove trip from the air with the boat kept in view among the islands.
+
+- Opened from the chart, the compass rose and the zoom/pan rail stay over the 3D view
+  (#app.bay3d-on). The rose turns with the view's heading (tap it for north up), the
+  pan buttons move the view relative to the screen, and the zoom slider sets its
+  height and follows a scroll-wheel zoom (app.js polls __bay3d.getView at 10 Hz;
+  new __bay3d.pan / setDist / northUp).
+- Inside the chart Bird's-eye drops its places panel, help line and own compass; its
+  controls sit in one row across the top: route, ▶ Sail it and pace, ⌖ Follow,
+  ⛵ Fleet, ⤢ Whole bay, with the progress line under them. Opened on its own (or
+  from the helm view) it keeps the full panel.
+- ▶ Sail it now keeps the height you're at (1.5-20 km) or flies to about 3 nm up,
+  north up, so the islands and coastline stay in frame, instead of diving to 450 m.
+  Following keeps your zoom and heading; panning lets go, ⌖ Follow picks her up again.
+- The progress line counts days from the route's overnight stops: "Day 2 of 4 ·
+  9.9 / 49.5 nm · running".
+
 ## 2026-10-13 — Bird's-eye as a choice in the 3D view (v875)
 
 Requested: make Bird's-eye one of the 3D view's choices. The View row (Helm, 20 ft,
