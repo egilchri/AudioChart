@@ -850,7 +850,7 @@ function updateLabels() {
         if (b.num && d < 2200) cand.push({ text: `"${b.num}"`, x: b.x, y: 6, z: b.z, cls: 'buoy', pri: 3 + d / 2200 });
       }
     }
-    if (own.r && own.boat.group.visible) cand.push({ text: '⛵ You', x: own.x, y: 12 * own.boat.group.scale.x, z: own.z, cls: 'you', pri: -1 });
+    if ((own.r || own.ext) && own.boat.group.visible) cand.push({ text: '⛵ You', x: own.x, y: 12 * own.boat.group.scale.x, z: own.z, cls: 'you', pri: -1 });
     if (view.dist < 40000) for (const p of wps) {   // route waypoints
       const d = Math.hypot(p.g.position.x - view.x, p.g.position.z - view.z);
       if (d < Math.max(view.dist * 2, 3000)) cand.push({ text: p.label, x: p.g.position.x, y: 4.6 * p.g.scale.x, z: p.g.position.z, cls: 'wpt', pri: 0.8 + d / Math.max(view.dist * 2, 3000) });

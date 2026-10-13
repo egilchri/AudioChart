@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-13 — Routes panel over Bird's-eye (v881)
+
+Found while recording a narrated Bird's-eye demo: in Bird's-eye the panels the toolbar
+opens (Routes, Samples, Tracks, Waypoints, About) opened underneath the 3D view, so a
+Virtual Journey couldn't be started there. They now open on top. The 3D boat is also
+labelled "⛵ You" when it's simply where the chart's boat is, not only when on a route.
+
 ## 2026-10-13 — Bird's-eye uses the chart's own controls (v880)
 
 Requested: "minimize the change in interface" — use the Play button rather than a special
