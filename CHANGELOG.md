@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-12 — Bird's-eye: ⛵ Follow a sailboat; no black treetops above fog (v871)
+
+Reported: "I do not know where to look for the boats", with a snapshot of black cones
+on white. That was the view from above a fog bank at sunset: the fleet is hidden
+under fog, and the trees whose tops poke out of it showed as scattered black cones
+with no ground. Trees standing in the fog are now hidden when you're above it. A new
+⛵ Follow a sailboat button (under Whole bay) flies to the boat nearest the middle of
+the view, keeps it centred from off its quarter until you drag, and on the next click
+goes to another; it clears fog and a calm first, since you'd never see her sail in
+either.
+
 ## 2026-10-12 — Bird's-eye fleet trimmed to the wind; sails set in every helm view (v870)
 
 Requested: the sail trim in the Bird's-eye view too. It had no boats, so it now has a

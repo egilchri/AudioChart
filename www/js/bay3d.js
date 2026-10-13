@@ -89,6 +89,7 @@ function flyTo(to, dur = 2600) {
 }
 function stepAnim(now) {
   if (!anim) return;
+  if (follow) { anim.to.x = follow.x; anim.to.z = follow.z; }   // she keeps sailing while we fly there
   const u = clamp((now - anim.t0) / anim.dur, 0, 1), e = u * u * (3 - 2 * u), { from, to } = anim;
   view.x = from.x + (to.x - from.x) * e; view.z = from.z + (to.z - from.z) * e;
   view.az = from.az + (to.az - from.az) * e; view.tilt = from.tilt + (to.tilt - from.tilt) * e;
@@ -101,6 +102,7 @@ const pointers = new Map();
 let drag = null;
 sceneEl.addEventListener('contextmenu', e => e.preventDefault());
 sceneEl.addEventListener('pointerdown', e => {
+  stopFollow();
   anim = null; sceneEl.setPointerCapture(e.pointerId);
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   sceneEl.classList.add('dragging');
@@ -258,7 +260,7 @@ const TREES = (() => {
   const mk = geo => { const m = new THREE.InstancedMesh(geo, mat, TREE_CAP); m.count = 0; m.frustumCulled = false; m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); scene.add(m); return m; };
   return { near: mk(detailed), far: mk(simple), K: 900, at: null };
 })();
-let treesDirty = false;
+let treesDirty = false, treeFogCut = -Infinity;   // above a fog bank, trees standing in it are hidden (v871)
 function updateTrees() {
   const cp = camera.position, on = view.dist < DETAIL_BELOW;
   const moved = !TREES.at || Math.hypot(cp.x - TREES.at.x, cp.y - TREES.at.y, cp.z - TREES.at.z) > Math.max(40, view.dist * 0.06);
@@ -275,7 +277,7 @@ function updateTrees() {
       for (let i = 0; i < A.length; i += SP) {
         const dx = A[i] - cp.x, dy = A[i + 1] - cp.y, dz = A[i + 2] - cp.z, d2 = dx * dx + dy * dy + dz * dz;
         const keep = d2 < K2 ? 1 : K2 / d2;
-        if (A[i + 9] > keep) continue;
+        if (A[i + 9] > keep || A[i + 1] < treeFogCut) continue;
         if (Math.hypot(A[i] - view.x, A[i + 2] - view.z) > R) continue;
         wanted++;
         const near = d2 < NEAR_TREE * NEAR_TREE, mesh = near ? TREES.near : TREES.far, k = near ? nN : nF;
@@ -367,7 +369,7 @@ function townView(t) {   // t: {x, z}, a point on the town's waterfront
 const townsUl = document.getElementById('towns'), wholeBtn = document.getElementById('whole');
 let current = null;
 function markCurrent(id) {
-  current = id;
+  current = id; stopFollow();
   for (const b of townsUl.querySelectorAll('button')) b.classList.toggle('on', b.dataset.id === id);
   wholeBtn.classList.toggle('on', id === 'whole');
 }
@@ -525,6 +527,7 @@ function updateWeather(dt, t) {
   const above = env.foggy && cy > top + 40;
   if (above !== aboveFog) {
     aboveFog = above;
+    treeFogCut = above ? top - 4 : -Infinity; treesDirty = true;
     blanket.g.visible = above;
     const su = sky.material.uniforms, T = env.T;
     if (above) {   // the sky over the fog bank: the time of day's own (or the overcast) sky
@@ -589,6 +592,23 @@ function pickLeg(b) {
   }
   b.want = homeBrg; b.left = 300;   // nothing better: back toward open water at home
 }
+// ⛵ Follow a sailboat (v871): the boats are small and spread over the bay, so this flies to the
+// one nearest the middle of the view (the next one along on each click) and keeps it centred,
+// seen from off its quarter, until you drag or zoom.
+let follow = null;
+function followBoat() {
+  if (!fleet.length) return;
+  const order = fleet.map(b => ({ b, d: Math.hypot(b.x - view.x, b.z - view.z) })).sort((p, q) => p.d - q.d).map(o => o.b);
+  const b = follow ? fleet[(fleet.indexOf(follow) + 1) % fleet.length] : order[0];
+  markCurrent(null); document.getElementById('sailboat').classList.add('on'); foldPanel(true);
+  if (aboveFog || env.foggy) applyConditions({ vis: 'clear' });   // in fog you'd never find her
+  if (env.W.heel === 0) applyConditions({ wind: 'breezy' });       // and in a calm she isn't sailing
+  follow = b;
+  flyTo({ x: b.x, z: b.z, dist: 150, tilt: 62 * DEG, az: (b.h + 35) * DEG }, 3000);
+}
+document.getElementById('sailboat').addEventListener('click', followBoat);
+function stopFollow() { if (!follow) return; follow = null; document.getElementById('sailboat').classList.remove('on'); }
+
 function updateFleet(dt) {
   const up = env.W.heel > 0, heel = env.W.heel * DEG, cp = camera.position, show = !aboveFog;
   const FLEET_K = clamp(view.dist / 150, 1, 20);
@@ -705,6 +725,7 @@ function frame(now) {
   sky.position.copy(camera.position);
   updateWeather(dt, t);
   updateFleet(dt);
+  if (follow && !anim) { const k = Math.min(1, dt * 4); view.x += (follow.x - view.x) * k; view.z += (follow.z - view.z) * k; }
   renderer.render(scene, camera);
   updateLabels(); updateReadout();
   requestAnimationFrame(frame);
