@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-13 — Zoom to me works after a Virtual Journey (v878)
+
+Reported with a snapshot: the ⊙ zoom-to-me button said "No GPS fix yet" while the
+boat sat on the chart. Ending a Virtual Journey cleared the position to nothing, even
+though the boat marker stayed where the journey left it. Now a real GPS fix that
+arrived during the journey takes over, and with none the boat keeps the journey's last
+position (as a placeholder any real fix replaces), so zoom to me and the
+"where am I" questions have a position.
+
 ## 2026-10-13 — Map Type works while a 3D view is up (v877)
 
 Reported with a snapshot: "it's not letting me switch to other map types". During a

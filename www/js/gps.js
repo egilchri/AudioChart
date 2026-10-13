@@ -36,7 +36,12 @@ function priority(source) {
   return SOURCE_PRIORITY[source] ?? 0;
 }
 
+// Each source's newest fix, kept even while an override (test position, Virtual Journey)
+// outranks it, so clearing the override can fall back to it (v878)
+const lastBySource = {};
+
 function updatePosition(lat, lon, accuracy, source, heading = null, speedKt = null) {
+  lastBySource[source] = { lat, lon, accuracy, source, heading, speedKt };
   // Only update if this source is at least as authoritative as the current one
   if (currentPosition && priority(source) < priority(currentPosition.source)) return;
   currentPosition = { lat, lon, accuracy, source, heading, speedKt };
@@ -174,8 +179,18 @@ export function setVirtualPosition(lat, lon, headingDeg, speedKt) {
 /** Clear the virtual-journey override so real GPS (or a separate manual
     test position) takes over again. */
 export function clearVirtualPosition() {
-  if (currentPosition?.source === 'virtual') {
-    currentPosition = null;
+  if (currentPosition?.source !== 'virtual') return;
+  // A real fix that arrived during the journey takes over; with none, the boat stays where
+  // the journey left it (as a placeholder any real fix replaces), so "zoom to me" still has
+  // a position instead of "No GPS fix yet" (v878)
+  const real = Object.values(lastBySource)
+    .filter(p => p.source !== 'virtual' && p.source !== 'manual' && p.source !== 'default')
+    .sort((a, b) => priority(b.source) - priority(a.source))[0];
+  if (real) {
+    currentPosition = real;
+    if (onPositionCallback) onPositionCallback(real.lat, real.lon, real.accuracy, real.source, real.heading, real.speedKt);
+  } else {
+    currentPosition = { ...currentPosition, source: 'default', speedKt: null };
   }
 }
 
