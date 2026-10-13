@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-13 — Tilt in Bird's-eye; Map Type and zoom/pan stay up underway (v884)
+
+Requested: tilt Bird's-eye to see more land toward the horizon, and "we always need
+access while underway to all controls that govern the boat and also affect the weather,
+day or night".
+- Bird's-eye adds a TILT slider under the pan arrows (up = toward the horizon); it follows
+  any tilt made with a right-drag or two-finger drag.
+- Underway mode (which a Virtual Journey turns on) no longer hides Map Type or the zoom/pan
+  rail, so you can switch views (Bird's-eye, with Weather for wind, fog and day or night)
+  and zoom mid-journey; the rest of the tile row still hides. The journey panel now sits
+  beside the rail instead of under it.
+
 ## 2026-10-13 — Sailors page: new Bird's-eye tutorial (9)
 
 Tutorial 9 replaced with a new narrated recording of Bird's-eye as a map type (v879–v881):

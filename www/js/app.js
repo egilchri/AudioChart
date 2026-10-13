@@ -6689,7 +6689,12 @@ function _syncLeftRailStack() {
     // vjBanner is position:fixed at this breakpoint (see its CSS) — its
     // `top` is viewport-relative already, unlike the rail above
     // (position:absolute inside #map-container), so no mcTop offset here.
-    vjBanner.style.top = Math.round(bottom + GAP) + 'px';
+    // Since v884 the rail stays up underway too; the banner then sits beside it, top-aligned,
+    // rather than under it, where it would run off the bottom of a laptop screen
+    if (rail.offsetParent !== null) {
+      const rr = rail.getBoundingClientRect();
+      vjBanner.style.top = Math.round(rr.top) + 'px'; vjBanner.style.left = Math.round(rr.right + GAP) + 'px';
+    } else { vjBanner.style.top = Math.round(bottom + GAP) + 'px'; vjBanner.style.left = ''; }
   }
 }
 window.addEventListener('resize', _syncLeftRailStack);
@@ -7302,7 +7307,9 @@ function _showBay3d() {
 // zoom/pan rail sit above the 3D view (app.css). The pan buttons and zoom slider drive the 3D view
 // (bay3d.js's __bay3d.pan / setDist); a 10 Hz poll turns the rose with the view's heading and keeps
 // the slider at the view's height. Tapping the rose turns the view north up.
-let _bay3dSyncTimer = null, _bay3dSliderAt = 0;
+let _bay3dSyncTimer = null, _bay3dSliderAt = 0, _bay3dTiltAt = 0;
+// the tilt slider (v884, requested: tilt to see more of the land on the horizon), shown only in Bird's-eye
+document.getElementById('tilt-slider')?.addEventListener('input', (e) => { _bay3dTiltAt = Date.now(); _bay3dApi()?.setTilt?.(+e.target.value); });
 const _bay3dApi = () => { try { return _bay3dWrap && !_bay3dWrap.hidden ? _bay3dWrap.querySelector('iframe').contentWindow.__bay3d || null : null; } catch (_) { return null; } };
 // the chart zoom whose view is about as wide as the 3D view at distance d (as _showBay3d/_hideBay3d)
 const _bay3dZoomOf = (d, lat) => Math.log2(40075016 * Math.cos(lat * Math.PI / 180) * _map.getSize().x / 256 / (d / 0.8));
@@ -7325,6 +7332,8 @@ function _startBay3dSync() {
     prev = b;
     api.setBoat?.(b);
     if (rose) rose.style.transform = `rotate(${-v.az}deg)`;
+    const ts = document.getElementById('tilt-slider');
+    if (ts && Date.now() - _bay3dTiltAt > 600) ts.value = Math.round(v.tilt);
     if (Date.now() - _bay3dSliderAt > 600) {
       const z = Math.max(4, Math.min(18, Math.round(_bay3dZoomOf(v.dist, v.lat))));
       const sl = document.getElementById('zoom-slider'), lb = document.getElementById('zoom-slider-label');

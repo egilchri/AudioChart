@@ -166,6 +166,11 @@
           </div>
           <button class="pan-btn" id="pan-south" title="Pan south">&#9660;</button>
         </div>
+        <!-- Bird's-eye only (v884): tilt from looking straight down up toward the horizon -->
+        <div id="tilt-slider-wrap" title="Tilt: up to see more of the land toward the horizon">
+          <span id="tilt-slider-label">TILT</span>
+          <input type="range" id="tilt-slider" min="0" max="80" step="1" value="45" aria-label="Tilt">
+        </div>
       </div>
       <!-- Consolidated bottom HUD — focus-btn lives here in markup;
            .tide-cycle-ctrl and .heading-speed-ctrl are Leaflet controls
