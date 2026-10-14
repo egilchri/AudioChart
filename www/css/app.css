@@ -3421,6 +3421,15 @@ body.wco-active #wco-titlebar { display: flex; }
 #vjourney-banner.vj-folded > .vjourney-row-wrap:has(#vjourney-speed-input),
 #vjourney-banner.vj-folded #vjourney-sounder,
 #vjourney-banner.vj-folded #vjourney-3d-btn, #vjourney-banner.vj-folded #vjourney-activate-btn { display: none !important; }
+/* Free Sailing (v890) borrows this panel: its own title and a course row; no route, so no 3D or On map */
+#vjourney-banner .vj-title-fs, #vjourney-banner #fs-course-row { display: none; }
+#vjourney-banner.fs-mode .vj-title-fs { display: inline; }
+#vjourney-banner.fs-mode #fs-course-row { display: flex; }
+#vjourney-banner.fs-mode .vj-title-vj, #vjourney-banner.fs-mode #vjourney-3d-btn, #vjourney-banner.fs-mode #vjourney-activate-btn { display: none !important; }
+#vjourney-banner.vj-folded #fs-course-row { display: none !important; }
+#vjourney-banner.fs-mode #fs-course-row { flex-wrap: nowrap; gap: 3px; align-items: center; }
+#fs-course-row .fs-turn { padding: 2px 8px; }
+#fs-course-input { flex: 0 0 3.1em; width: 3.1em; padding-inline: 2px; text-align: center; }
 @media (min-width: 768px) { #vjourney-banner > .track-speed-row:first-child { cursor: move; touch-action: none; } }
 #vjourney-close-btn {
   background: none;

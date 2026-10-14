@@ -506,7 +506,7 @@
          _syncLeftRailStack, which keeps it positioned there. -->
     <div id="vjourney-banner" style="display:none">
       <div class="track-speed-row" style="justify-content:space-between">
-        <span>&#127941; Virtual Journey &mdash; <span id="vjourney-route-name"></span></span>
+        <span><span class="vj-title-vj">&#127941; Virtual Journey &mdash; <span id="vjourney-route-name"></span></span><span class="vj-title-fs">&#9973; Free Sailing</span></span>
         <button id="vjourney-close-btn" title="Stop and close">&#10005;</button>
       </div>
       <div class="track-speed-row vjourney-row-wrap">
@@ -520,6 +520,12 @@
           <button class="track-chip vjourney-compress" data-compress="20" title="Play 20x faster than real-world speed">20&times;</button>
           <button class="track-chip vjourney-compress" data-compress="60" title="Play 60x faster than real-world speed">60&times;</button>
         </div>
+      </div>
+      <div class="track-speed-row vjourney-row-wrap" id="fs-course-row" title="Course to steer, degrees magnetic">
+        <button class="track-chip fs-turn" data-turn="-10" title="10° to port">&#9664;10</button>
+        <input id="fs-course-input" type="number" min="0" max="359" step="1" value="0" aria-label="Course, degrees magnetic">
+        <span>&deg;M</span>
+        <button class="track-chip fs-turn" data-turn="10" title="10° to starboard">10&#9654;</button>
       </div>
       <div id="vjourney-sounder" title="Depth sounder: charted depth here plus the current tide, estimated from the chart's soundings">
         <canvas width="200" height="44" aria-hidden="true"></canvas>
@@ -635,6 +641,7 @@
     <button id="boat-ctx-sketch" title="Start freehand-sketching a new route from your current position">&#9643; Sketch</button>
     <button id="boat-ctx-drop-pin" title="Drop a named, addressable pin at your current position — man overboard, a spot to remember, etc.">&#128205; Drop Pin</button>
     <button id="boat-ctx-track" title="Record your track from here">&#9679; Start tracking</button>
+    <button id="boat-ctx-freesail" title="Sail from here on a course and speed you set; say &quot;course 090&quot;, &quot;come left 20&quot; or &quot;head for Rockland light&quot;">&#9973; Free sail</button>
     <button id="boat-ctx-anchor" title="Alarm if the boat drifts more than a set distance from here">&#9875; Anchor watch here</button>
   </div>
 

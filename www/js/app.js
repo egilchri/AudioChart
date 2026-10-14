@@ -7151,6 +7151,7 @@ function _startVirtualJourney(route, speedKnots) {
     return;
   }
   _stopVirtualJourney(); // supersede any journey already running
+  _stopFreeSail(true);   // and Free Sailing (v890)
 
   // Rehearsing "underway" is the whole point of Virtual Journey, so it
   // should look underway — force the switch on for the duration. Stopping
@@ -7601,16 +7602,22 @@ function _stopVirtualJourney() {
   _syncLeftRailStack();
 }
 
-document.getElementById('vjourney-pause-btn').addEventListener('click', () => {
+document.getElementById('vjourney-pause-btn').addEventListener('click', (e) => {
+  if (_fs) {   // Free Sailing borrows this panel (v890)
+    _fs.running = !_fs.running; _fs.lastMs = Date.now();
+    e.currentTarget.textContent = _fs.running ? '⏸ Pause' : '▶ Resume';
+    GPS.setVirtualPosition(_fs.lat, _fs.lon, _fs.hdg, _fs.running ? _vjSpeedKnots : 0); _fsStatus();
+    return;
+  }
   if (_vjRunning) _pauseVirtualJourney(); else _resumeVirtualJourney();
 });
-document.getElementById('vjourney-stop-btn').addEventListener('click', _stopVirtualJourney);
+document.getElementById('vjourney-stop-btn').addEventListener('click', () => { if (_fs) _stopFreeSail(); else _stopVirtualJourney(); });
 document.getElementById('vjourney-3d-btn').addEventListener('click', () => {
   const on = !(_vj3dWrap && !_vj3dWrap.hidden);
   try { localStorage.setItem(VJ3D_KEY, on ? 'on' : 'off'); } catch (_) {}
   if (on && _vjRoute) _showVj3d(_vjRoute); else _hideVj3d();
 });
-document.getElementById('vjourney-close-btn').addEventListener('click', _stopVirtualJourney);
+document.getElementById('vjourney-close-btn').addEventListener('click', () => { if (_fs) _stopFreeSail(); else _stopVirtualJourney(); });
 // Movable and shrinkable (v886, requested for Bird's-eye, where it sits over the view): drag it by
 // its title row (above phone width, where it's a floating card), and ▴ folds it to the title and
 // the status line with Pause/Stop; ▾ brings back speed, rate and the depth sounder. The fold is
@@ -7664,6 +7671,225 @@ document.getElementById('vjourney-banner').addEventListener('click', (e) => {
 document.getElementById('vjourney-speed-input').addEventListener('change', (e) => {
   const v = parseFloat(e.target.value);
   if (!isNaN(v) && v > 0) _vjSpeedKnots = v;
+});
+
+// ── Free Sailing (v890, requested: "I set a course and speed and the boat just goes") ──
+// No route: the virtual boat (GPS.setVirtualPosition, like a Virtual Journey) sails a course at a
+// speed, from wherever the boat is. It borrows the journey panel (speed, rate, depth sounder,
+// Pause/Stop, drag and fold) with a course row of its own. Courses are degrees magnetic. Said or
+// typed: "course 090", "come left 20", "speed 6 knots", "head for Rockland light", "head towards
+// buoy number 2", "all stop". Looking ahead (6 minutes' sailing, at least half a mile) it calls out
+// charted rocks, wrecks and obstructions near the line and land ahead, and it stops short of land
+// rather than sail through it.
+let _fs = null;   // {lat, lon, hdg (true), target {lat, lon, name} | null, running, held, lastMs, known, lookAt, landSaid}
+let _fsTimer = null;
+const _fsMagOf = (t) => Math.round(trueTomagnetic(t)) % 360;
+const _fsDeg3 = (d) => String(d).padStart(3, '0');
+const _fsSay = (msg) => { setStatus(msg); TTS.sayImmediate(msg); };
+function _fsSyncCourse() {
+  const inp = document.getElementById('fs-course-input');
+  if (inp && document.activeElement !== inp) inp.value = _fsMagOf(_fs.hdg);
+}
+function _fsStatus() {
+  if (!_fs) return;
+  const t = _fs.target;
+  const tail = t ? ` · for ${t.name}, ${Query.distanceNm(_fs.lon, _fs.lat, t.lon, t.lat).toFixed(2)} nm` : '';
+  document.getElementById('vjourney-status').textContent = _fs.held ? `Stopped · ${_fs.held}`
+    : !_fs.running ? `Paused · ${_fsDeg3(_fsMagOf(_fs.hdg))}° M`
+    : `${_fsDeg3(_fsMagOf(_fs.hdg))}° M · ${_vjSpeedKnots} kts${tail}`;
+}
+function _startFreeSail({ course = null, speed = null } = {}) {
+  if (_trackRecActive) { _fsSay('Already recording/following a route — stop it first.'); return false; }
+  const p = GPS.getPosition();
+  if (!p) { _fsSay('No boat position yet — bring the boat somewhere first.'); return false; }
+  if (_vjRoute) _stopVirtualJourney();
+  if (!_underwayCheckbox.checked) _setUnderwayMode(true);
+  const hdg = course != null ? magneticToTrue(course) : (Number.isFinite(p.heading) ? p.heading : magneticToTrue(0));
+  if (speed > 0) _vjSpeedKnots = speed;
+  else _vjSpeedKnots = parseFloat(document.getElementById('vjourney-speed-input').value) || 5;
+  _vjCompress = parseInt(document.querySelector('.vjourney-compress.selected')?.dataset.compress) || 1;
+  _fs = { lat: p.lat, lon: p.lon, hdg, target: null, running: true, held: null, lastMs: Date.now(), known: new Set(), lookAt: 0, landSaid: false };
+  const banner = document.getElementById('vjourney-banner');
+  banner.classList.add('fs-mode');
+  document.getElementById('vjourney-speed-input').value = _vjSpeedKnots;
+  document.getElementById('vjourney-pause-btn').textContent = '⏸ Pause';
+  _vjSounderReset();
+  banner.style.display = 'flex';
+  _appEl.classList.add('vjourney-active');
+  _syncVjBannerClearance(); _syncLeftRailStack();
+  if (!_vjBannerRO) {
+    _vjBannerRO = new ResizeObserver(() => { _syncVjBannerClearance(); _syncLeftRailStack(); });
+    _vjBannerRO.observe(banner);
+  }
+  _fsSyncCourse(); _fsStatus();
+  GPS.setVirtualPosition(_fs.lat, _fs.lon, _fs.hdg, _vjSpeedKnots);
+  clearInterval(_fsTimer); _fsTimer = setInterval(_fsStep, VJ_TICK_MS);
+  _fsSay(`Free sailing. Course ${_fsDeg3(_fsMagOf(hdg))} magnetic, ${_vjSpeedKnots} knots.`);
+  return true;
+}
+function _stopFreeSail(quiet = false) {
+  if (!_fs) return;
+  clearInterval(_fsTimer); _fsTimer = null; _fs = null;
+  GPS.clearVirtualPosition();   // the boat stays where she is (v878)
+  const banner = document.getElementById('vjourney-banner');
+  banner.classList.remove('fs-mode'); banner.style.display = 'none';
+  _appEl.classList.remove('vjourney-active'); _appEl.style.removeProperty('--vjourney-h');
+  _setUnderwayMode(false); _syncLeftRailStack();
+  if (!quiet) _fsSay('Free sailing ended.');
+}
+function _fsSetCourse(magDeg, say = true) {
+  if (!_fs && !_startFreeSail({ course: magDeg })) return;
+  _fs.target = null; _fs.held = null; _fs.known.clear(); _fs.landSaid = false; _fs.lookAt = 0;
+  _fs.hdg = magneticToTrue(((magDeg % 360) + 360) % 360);
+  _fsSyncCourse(); _fsStatus();
+  if (say) _fsSay(`Course ${_fsDeg3(_fsMagOf(_fs.hdg))} magnetic.`);
+}
+function _fsSetSpeed(kn) {
+  kn = Math.max(0.5, Math.min(50, Math.round(kn * 10) / 10));
+  if (!_fs && !_startFreeSail({ speed: kn })) return;
+  _vjSpeedKnots = kn; _fs.held = null;
+  document.getElementById('vjourney-speed-input').value = kn;
+  _fsStatus(); _fsSay(`${kn} knots.`);
+}
+// "buoy number 2", "can 7", "green 3", "the bell": the nearest such navaid, favouring ones ahead
+const _FS_NUMS = { one: '1', two: '2', three: '3', four: '4', five: '5', six: '6', seven: '7', eight: '8', nine: '9', ten: '10', eleven: '11', twelve: '12' };
+function _fsFindNavaid(text, lat, lon, hdg) {
+  const q = text.toLowerCase().replace(/^the\s+/, '').trim();
+  const feats = Query.navaids?.features || [];
+  const ahead = (f) => { const [flon, flat] = f.geometry.coordinates; const rel = Math.abs(((Query.bearing(lon, lat, flon, flat) - hdg + 540) % 360) - 180); return Query.distanceNm(lon, lat, flon, flat) * (rel <= 60 ? 1 : 2); };
+  const best = (list) => list.length ? list.map(f => ({ f, s: ahead(f) })).sort((a, b) => a.s - b.s)[0].f : null;
+  const m = q.match(/^(?:(?:green|red)\s+)?(?:buoy|can|nun|bell|gong|whistle|beacon|daybeacon|day\s+beacon|marker|mark)?\s*(?:number|no\.?|#)?\s*([0-9]{1,3}[a-z]?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)$/i);
+  if (m && /\d|number|buoy|can|nun|bell|gong|whistle|beacon|mark/i.test(q)) {
+    const num = (_FS_NUMS[m[1].toLowerCase()] || m[1]).toUpperCase();
+    const re = new RegExp(`\\b(?:buoy|can|nun|bell|gong|whistle|beacon|daybeacon|light)\\s+"?${num}"?\\s*$`, 'i');
+    const f = best(feats.filter(f => f.geometry?.type === 'Point' && re.test(f.properties.name || '')));
+    return f ? { lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0], name: f.properties.name } : null;
+  }
+  if (/\b(?:light|buoy|beacon|bell|gong|whistle|daybeacon|can|nun|lighthouse)\b/i.test(q)) {
+    const words = q.replace(/\blighthouse\b/, 'light').split(/\s+/).filter(w => !['the', 'number', 'of'].includes(w));
+    const f = best(feats.filter(f => { const n = (f.properties.name || '').toLowerCase(); return f.geometry?.type === 'Point' && words.every(w => n.includes(w)); }));
+    if (f) return { lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0], name: f.properties.name };
+  }
+  return null;
+}
+async function _fsSetTarget(text) {
+  const p = _fs || GPS.getPosition();
+  if (!p) { _fsSay('No boat position yet.'); return; }
+  const hdg = _fs?.hdg ?? (Number.isFinite(p.heading) ? p.heading : 0);
+  let dest = /^(?:here|there|(?:this|that|the)\s+(?:marker|pin|spot|point))$/i.test(text.trim()) && _currentMarkerLL
+    ? { lat: _currentMarkerLL.lat, lon: _currentMarkerLL.lng, name: 'the marker' } : null;
+  if (!dest) { const mk = _markerByName(text); if (mk && !mk.missing) dest = { lat: mk.lat, lon: mk.lon, name: mk.title ? `${mk.name}, ${mk.title}` : mk.name }; }
+  if (!dest) dest = _fsFindNavaid(text, p.lat, p.lon, hdg);
+  if (!dest) dest = await _resolveNamedDestination(text);   // speaks its own "couldn't find"
+  if (!dest) return;
+  if (!_fs && !_startFreeSail({})) return;
+  _fs.target = { lat: dest.lat, lon: dest.lon, name: dest.name || text };
+  _fs.held = null; _fs.known.clear(); _fs.landSaid = false; _fs.lookAt = 0;
+  _fs.hdg = Query.bearing(_fs.lon, _fs.lat, dest.lon, dest.lat);
+  _fsSyncCourse(); _fsStatus();
+  const d = Query.distanceNm(_fs.lon, _fs.lat, dest.lon, dest.lat);
+  let msg = `Heading for ${_fs.target.name}, ${formatDistance(d)}, ${_fsDeg3(_fsMagOf(_fs.hdg))} magnetic.`;
+  Query.hazardsOnCourse(_fs.lat, _fs.lon, dest.lat, dest.lon, 0.1);
+  const hz = (Query.lastCourseHazards || []).filter(h => h.label !== 'shallow area');
+  if (Query.landBlocks(_fs.lon, _fs.lat, dest.lon, dest.lat)) msg += ' Caution: land is in the way on that line.';
+  else if (hz.length) msg += ` Caution: ${hz.length} charted hazard${hz.length > 1 ? 's' : ''} on that line.`;
+  _fsSay(msg);
+}
+// how far ahead (nm) land starts on the line, or null: halve the segment down to ~10 m
+function _fsLandAhead(lat, lon, hdg, nm) {
+  const end = Query.offsetCoords(lat, lon, hdg, nm);
+  if (!Query.landBlocks(lon, lat, end.lon, end.lat)) return null;
+  let lo = 0, hi = nm;
+  while (hi - lo > 0.005) {
+    const mid = (lo + hi) / 2, e = Query.offsetCoords(lat, lon, hdg, mid);
+    if (Query.landBlocks(lon, lat, e.lon, e.lat)) hi = mid; else lo = mid;
+  }
+  return lo;
+}
+const _fsSide = (rel) => Math.abs(rel) < 6 ? 'dead ahead' : `${Math.abs(rel) < 30 ? 'fine on the' : 'on the'} ${rel < 0 ? 'port' : 'starboard'} bow`;
+function _fsLookAhead() {
+  const L = Math.max(0.5, _vjSpeedKnots * 0.1);   // six minutes' sailing
+  const land = _fsLandAhead(_fs.lat, _fs.lon, _fs.hdg, L);
+  if (land != null && land < 0.03) { _fsAllStop('land ahead'); return; }
+  if (land != null && !_fs.landSaid) { _fs.landSaid = true; TTS.say(`Land ahead, ${formatDistance(land)}.`); }
+  else if (land == null) _fs.landSaid = false;
+  const end = Query.offsetCoords(_fs.lat, _fs.lon, _fs.hdg, land != null ? land : L);
+  Query.hazardsOnCourse(_fs.lat, _fs.lon, end.lat, end.lon, 0.1);
+  const fresh = [];
+  for (const h of (Query.lastCourseHazards || [])) {
+    if (h.label === 'shallow area') continue;   // the depth sounder's shallow alarm covers those, against the keel
+    const key = `${h.lat.toFixed(5)},${h.lon.toFixed(5)}`;
+    if (_fs.known.has(key)) continue;
+    _fs.known.add(key); fresh.push(h);
+  }
+  if (!fresh.length) return;
+  const h = fresh[0], d = Query.distanceNm(_fs.lon, _fs.lat, h.lon, h.lat);
+  const rel = ((Query.bearing(_fs.lon, _fs.lat, h.lon, h.lat) - _fs.hdg + 540) % 360) - 180;
+  // a rock or wreck right on the line and only yards off: stop rather than hit it
+  if (d < 0.03 && Math.abs(rel) < 25) { _fsAllStop(`${h.label} ahead`); return; }
+  const what = h.label.charAt(0).toUpperCase() + h.label.slice(1);
+  TTS.say(`${what}${h.name ? ', ' + h.name : ''}, ${formatDistance(d)}, ${_fsSide(rel)}.${fresh.length > 1 ? ` ${fresh.length - 1} more beyond.` : ''}`);
+}
+function _fsAllStop(why) {
+  _fs.held = why;
+  GPS.setVirtualPosition(_fs.lat, _fs.lon, _fs.hdg, 0);
+  _fsStatus();
+  _fsSay(`All stop, ${why}. Give a new course.`);
+}
+function _fsStep() {
+  if (!_fs) return;
+  const now = Date.now(), dt = Math.min(2, (now - _fs.lastMs) / 1000);
+  _fs.lastMs = now;
+  if (!_fs.running || _fs.held) return;
+  const t = _fs.target;
+  if (t) {
+    const d = Query.distanceNm(_fs.lon, _fs.lat, t.lon, t.lat);
+    if (d < 0.05) {
+      _fs.target = null;
+      _fsSay(`At ${t.name}. Holding ${_fsDeg3(_fsMagOf(_fs.hdg))} magnetic.`);
+    } else _fs.hdg = Query.bearing(_fs.lon, _fs.lat, t.lon, t.lat);
+  }
+  const nm = _vjSpeedKnots / 3600 * _vjCompress * dt;
+  const next = Query.offsetCoords(_fs.lat, _fs.lon, _fs.hdg, nm);
+  if (Query.landBlocks(_fs.lon, _fs.lat, next.lon, next.lat)) { _fsAllStop('land ahead'); return; }   // never through land
+  _fs.lat = next.lat; _fs.lon = next.lon;
+  GPS.setVirtualPosition(_fs.lat, _fs.lon, _fs.hdg, _vjSpeedKnots);
+  _vjSound(_fs.lat, _fs.lon);
+  if (now >= _fs.lookAt) { _fs.lookAt = now + 1500; _fsLookAhead(); }
+  _fsSyncCourse(); _fsStatus();
+}
+// spoken/typed commands (parser.js FREE_SAIL_*): the reply text, or null when it isn't ours
+async function _freeSailCommand(intent, params) {
+  switch (intent) {
+    case 'FREE_SAIL_START':
+      if (_fs) { if (params.course != null) _fsSetCourse(params.course, false); if (params.speed) _vjSpeedKnots = params.speed; _fsSay(`Course ${_fsDeg3(_fsMagOf(_fs.hdg))} magnetic, ${_vjSpeedKnots} knots.`); }
+      else _startFreeSail(params);
+      return '';
+    case 'FREE_SAIL_COURSE': _fsSetCourse(params.course); return '';
+    case 'FREE_SAIL_TURN':
+      if (!_fs) { _fsSay('Not free sailing. Say "free sail" first.'); return ''; }
+      _fsSetCourse(_fsMagOf(_fs.hdg) + params.turn); return '';
+    case 'FREE_SAIL_SPEED':
+      if (params.delta && !_fs) return null;
+      _fsSetSpeed(params.delta ? (_vjSpeedKnots || 5) + params.delta : params.speed); return '';
+    case 'FREE_SAIL_TARGET': await _fsSetTarget(params.target); return '';
+    case 'FREE_SAIL_STOP':
+      if (!_fs) return null;
+      _stopFreeSail(); return '';
+  }
+  return null;
+}
+document.getElementById('fs-course-row').addEventListener('click', (e) => {
+  const b = e.target.closest('.fs-turn');
+  if (b && _fs) _fsSetCourse(_fsMagOf(_fs.hdg) + parseInt(b.dataset.turn, 10), false);
+});
+document.getElementById('fs-course-input').addEventListener('change', (e) => {
+  const v = parseInt(e.target.value, 10);
+  if (_fs && Number.isFinite(v)) _fsSetCourse(v, false);
+});
+document.getElementById('boat-ctx-freesail')?.addEventListener('click', () => {
+  _hideBoatCtx();
+  if (_fs) _stopFreeSail(); else _startFreeSail({});
 });
 
 function _getTrackSettings() {
@@ -12885,7 +13111,13 @@ async function handleMapLongPress(latlng, radiusNm = 0.25, radiusLabel = '¼ mil
 
 async function handleCommand(transcript) {
   // Parse first so we can gate on intent before touching any UI.
-  const { intent, params } = parseCommand(transcript);
+  let { intent, params } = parseCommand(transcript);
+  // Free Sailing (v890): course, turn, speed, head-for and stop
+  if (intent.startsWith('FREE_SAIL_')) {
+    const r = await _freeSailCommand(intent, params);
+    if (r !== null) { addToHistory(transcript); return; }
+    intent = 'UNKNOWN'; params = { transcript };   // e.g. "stop" when not sailing: press a Stop button instead
+  }
 
   // Press any visible button / menu item by its label (direct request
   // 2026-10-06). "press X" / "click X" always means a control on screen;

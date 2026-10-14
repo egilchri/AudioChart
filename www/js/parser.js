@@ -164,7 +164,66 @@ function navaidFilters(text) {
   return types.length ? types : null;
 }
 
+// Free Sailing (v890) courses: "090", "90", or digit by digit as said aloud ("zero nine zero",
+// "two seven oh").
+const DIGIT_WORDS = { zero: 0, oh: 0, o: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, niner: 9 };
+const COURSE_RE = '(\\d{1,3}|(?:(?:zero|oh|o|one|two|three|four|five|six|seven|eight|nine|niner)[\\s-]*){2,3})';
+const DEG_RE = '(?:\\s*(?:°|degrees?|deg))?(?:\\s*(?:magnetic|mag|m))?';
+const SPEED_RE = '(\\d+(?:\\.\\d+)?)\\s*(?:knots?|kts?|kn)?';
+const LEAD_RE = '^(?:please\\s+|ok(?:ay)?\\s+)?';
+const END_RE = '[.!?\\s]*$';
+function courseNum(s) {
+  if (s == null) return null;
+  const n = /^\d+$/.test(s) ? parseInt(s, 10) : parseInt(s.trim().split(/[\s-]+/).map(w => DIGIT_WORDS[w.toLowerCase()]).join(''), 10);
+  return Number.isFinite(n) && n >= 0 && n <= 360 ? n % 360 : null;
+}
+const FREE_SAIL_PATTERNS = [
+  {
+    // "free sail", "start free sailing", "start sailing", "sail 090", "sail a course of 120 at 5 knots"
+    re: new RegExp(LEAD_RE + '(?:(?:start\\s+)?free[\\s-]*sail(?:ing)?|start\\s+sailing|(?:start\\s+)?sail\\s+(?:a\\s+)?(?:course\\s+(?:of\\s+)?)?' + COURSE_RE + DEG_RE + ')(?:\\s+(?:at\\s+)?' + SPEED_RE + ')?' + END_RE, 'i'),
+    intent: 'FREE_SAIL_START',
+    extract: (m) => ({ course: courseNum(m[1]), speed: m[2] != null ? parseFloat(m[2]) : null }),
+  },
+  {
+    // "course 270", "steer 270", "come to 270", "new course zero four five"
+    re: new RegExp(LEAD_RE + '(?:(?:new\\s+)?course|steer|come\\s+to|heading|head)\\s+(?:of\\s+|to\\s+)?' + COURSE_RE + DEG_RE + END_RE, 'i'),
+    intent: 'FREE_SAIL_COURSE',
+    extract: (m) => { const c = courseNum(m[1]); return c == null ? null : { course: c }; },
+  },
+  {
+    // "come left 20", "turn right 10 degrees", "port 15", "come to starboard 30"
+    re: new RegExp(LEAD_RE + '(?:(?:come|turn|bear|alter\\s+course)\\s+(?:to\\s+)?)?(left|right|port|starboard)\\s+(\\d{1,3})(?:\\s*(?:°|degrees?))?' + END_RE, 'i'),
+    intent: 'FREE_SAIL_TURN',
+    extract: (m) => ({ turn: (/left|port/i.test(m[1]) ? -1 : 1) * parseInt(m[2], 10) }),
+  },
+  {
+    // "speed 6 knots", "make 4.5 knots", "6 knots"
+    re: new RegExp(LEAD_RE + '(?:(?:set\\s+)?speed\\s+(?:to\\s+)?|make\\s+)?(\\d+(?:\\.\\d+)?)\\s*(?:knots?|kts?|kn)' + END_RE + '|' + LEAD_RE + 'speed\\s+(?:to\\s+)?(\\d+(?:\\.\\d+)?)' + END_RE, 'i'),
+    intent: 'FREE_SAIL_SPEED',
+    extract: (m) => ({ speed: parseFloat(m[1] ?? m[2]) }),
+  },
+  {
+    re: new RegExp(LEAD_RE + '(?:slow\\s+down|slower|speed\\s+up|faster)' + END_RE, 'i'),
+    intent: 'FREE_SAIL_SPEED',
+    extract: (m) => ({ delta: /slow/i.test(m[0]) ? -1 : 1 }),
+  },
+  {
+    // "head towards buoy number 2", "head for Rockland light", "steer for Owls Head".
+    // Not "sail to X" or "go to X": those are AutoRoute.
+    re: new RegExp(LEAD_RE + '(?:(?:head|steer|make|point|aim)\\s+(?:for|towards?|to|at)|sail\\s+(?:for|towards?))\\s+(?:the\\s+)?(.{2,80}?)' + END_RE, 'i'),
+    intent: 'FREE_SAIL_TARGET',
+    extract: (m) => ({ target: m[1].trim() }),
+  },
+  {
+    // a bare "stop" only means the boat while Free Sailing (app.js); otherwise it presses a Stop button
+    re: new RegExp(LEAD_RE + '(?:all\\s+stop|stop(?:\\s+(?:free\\s+)?sailing|\\s+the\\s+boat)?|heave\\s+to)' + END_RE, 'i'),
+    intent: 'FREE_SAIL_STOP',
+    params: {},
+  },
+];
+
 const PATTERNS = [
+  ...FREE_SAIL_PATTERNS,
   // TRACKING / ANCHOR WATCH (2026-10-07 — their buttons moved off the
   // removed right-hand panel; these work from anywhere, Underway included).
   {

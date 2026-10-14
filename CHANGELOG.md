@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-10-14 — Free Sailing (v890)
+
+Requested: "I set a course and speed and the boat just goes", with obstructions called out and
+commands like "head towards buoy number 2" or "Rockland light". The virtual boat
+(GPS.setVirtualPosition, as in a Virtual Journey) sails a course from wherever it is, so the chart,
+Bird's-eye, heading ray and Underway mode all follow it. Start from the boat's menu (⛵ Free sail) or
+by voice/typing. It borrows the journey panel (speed, rate, depth sounder, Pause/Stop, drag/fold) with
+a course row (◀10, degrees magnetic, 10▶).
+- Commands (parser.js FREE_SAIL_*): "free sail", "sail 090 at 5 knots", "course 270" / "steer two
+  seven oh", "come left 20" / "port 15", "speed 6 knots" / "slow down", "head for Rockland light",
+  "head towards buoy number 2" (nearest such buoy, preferring ones ahead), "head for TS003",
+  "all stop" / "stop". "Sail to X" stays AutoRoute; a bare "stop" when not free sailing still presses
+  a Stop button.
+- Looking ahead six minutes' sailing (at least 0.5 nm): charted rocks, wrecks and obstructions within
+  0.1 nm of the line are called out once each with distance and side; land ahead is called out, and
+  the boat stops itself ~50 m short of land (or of a rock right on the line) and asks for a new course.
+  It never steps through land. Heading for a place says whether land or hazards lie on that line.
+- Shallow water: the depth sounder's existing keel alarm.
+- Drone/helm view isn't wired to Free Sailing yet (it follows routes).
+
 ## 2026-10-14 — Wildlife polish; Bird's-eye tutorial adds rotation, tilt, wildlife and Drone (v889)
 
 - Gulls over a moving boat stay with her at any journey pace (they used to jump every few seconds at 60×).
