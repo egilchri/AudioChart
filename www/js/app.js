@@ -1676,7 +1676,7 @@ function _addTapTooltip(btn) {
 // `handleEl` (its title bar) and drag; position is clamped to stay on-screen. Works with
 // both touch and mouse. Position sticks for the rest of the page session (the panel is
 // just hidden/shown via display, never removed, so the inline left/top persist).
-function _makeDraggable(panelEl, handleEl) {
+function _makeDraggable(panelEl, handleEl, onMoved) {
   let dragging = false, moved = false, startX = 0, startY = 0, origLeft = 0, origTop = 0;
   // Below this, a move is just hand tremor, not a drag attempt — matters for
   // handles that are ALSO a click target in their own right (e.g. Node Ops'
@@ -1706,6 +1706,7 @@ function _makeDraggable(panelEl, handleEl) {
     panelEl.style.top    = `${newTop}px`;
     panelEl.style.right  = 'auto';
     panelEl.style.bottom = 'auto';
+    onMoved?.();
   }
   function end() { dragging = false; }
 
@@ -6688,7 +6689,7 @@ function _syncLeftRailStack() {
   // under the compass/follow-progress stack instead.
   const bottom = (rail.offsetParent !== null) ? rail.getBoundingClientRect().bottom : railTop;
 
-  if (vjBanner && vjBanner.style.display !== 'none') {
+  if (vjBanner && vjBanner.style.display !== 'none' && !vjBanner.dataset.userMoved) {
     // vjBanner is position:fixed at this breakpoint (see its CSS) — its
     // `top` is viewport-relative already, unlike the rail above
     // (position:absolute inside #map-container), so no mcTop offset here.
@@ -7579,6 +7580,28 @@ document.getElementById('vjourney-3d-btn').addEventListener('click', () => {
   if (on && _vjRoute) _showVj3d(_vjRoute); else _hideVj3d();
 });
 document.getElementById('vjourney-close-btn').addEventListener('click', _stopVirtualJourney);
+// Movable and shrinkable (v886, requested for Bird's-eye, where it sits over the view): drag it by
+// its title row (above phone width, where it's a floating card), and ▴ folds it to the title and
+// the status line with Pause/Stop; ▾ brings back speed, rate and the depth sounder. The fold is
+// remembered; a moved panel stays where it was put (_syncLeftRailStack leaves it alone).
+{
+  const banner = document.getElementById('vjourney-banner'), head = banner.firstElementChild;
+  const closeBtn = document.getElementById('vjourney-close-btn'), KEY = 'audiochart-vj-folded';
+  const fold = document.createElement('button');
+  fold.type = 'button'; fold.id = 'vjourney-fold-btn'; fold.className = 'nf-shrink-btn';
+  const setFold = (on) => {
+    banner.classList.toggle('vj-folded', on);
+    fold.textContent = on ? '▾' : '▴';
+    fold.title = on ? 'Show speed, rate and the depth sounder' : 'Shrink this panel';
+    try { localStorage.setItem(KEY, on ? '1' : ''); } catch (_) {}
+  };
+  fold.addEventListener('click', (e) => { e.stopPropagation(); setFold(!banner.classList.contains('vj-folded')); });
+  const btns = document.createElement('span'); btns.className = 'vj-head-btns';
+  closeBtn.replaceWith(btns); btns.append(fold, closeBtn);
+  let folded = false; try { folded = localStorage.getItem(KEY) === '1'; } catch (_) {}
+  setFold(folded);
+  _makeDraggable(banner, head, () => { banner.dataset.userMoved = '1'; });
+}
 
 // Show/hide this route on the map — the one control from its row in the
 // (now auto-closed, see _startVirtualJourney) routes list that's still

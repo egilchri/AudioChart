@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-13 — Virtual Journey panel: movable and shrinkable (v886)
+
+Requested for Bird's-eye, where the journey panel sits over the view: drag it by its title
+row anywhere on screen (above phone width, where it's a floating card; it then stays where
+it was put), and ▴ beside ✕ folds it to the title and the status line with Pause and Stop
+(▾ brings back speed, rate, the depth sounder and the 3D/On map buttons). The fold is
+remembered.
+
 ## 2026-10-13 — Focus moves to each next waypoint underway (v885)
 
 Reported: "while underway, I don't think the app is automatically changing the focus to

@@ -3415,6 +3415,13 @@ body.wco-active #wco-titlebar { display: flex; }
 #vjourney-sounder.warn .vjs-val, #vjourney-sounder.warn .vjs-unit { color: #f5c842; }
 #vjourney-sounder.alarm .vjs-val, #vjourney-sounder.alarm .vjs-unit { color: #ff5b4d; }
 #vjourney-sounder.alarm { border-color: #ff5b4d; }
+/* v886: fold (▴/▾) beside ✕; folded keeps the title and the status line with Pause/Stop */
+#vjourney-banner .vj-head-btns { display: flex; align-items: center; flex-shrink: 0; }
+#vjourney-fold-btn { min-width: 28px; min-height: 24px; font-size: 0.85rem; margin-right: 4px; color: #f5c842; border-color: #f5c842; background: rgba(245, 200, 66, 0.12); }
+#vjourney-banner.vj-folded > .vjourney-row-wrap:has(#vjourney-speed-input),
+#vjourney-banner.vj-folded #vjourney-sounder,
+#vjourney-banner.vj-folded #vjourney-3d-btn, #vjourney-banner.vj-folded #vjourney-activate-btn { display: none !important; }
+@media (min-width: 768px) { #vjourney-banner > .track-speed-row:first-child { cursor: move; touch-action: none; } }
 #vjourney-close-btn {
   background: none;
   border: none;
