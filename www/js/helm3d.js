@@ -1153,7 +1153,7 @@ const anchor = { state: 'up', t: 0, v: 0, splashAt: null, vel: new Float32Array(
 // Drone (100 ft, 50 m astern) looks down on the whole boat with the shore beyond; looking
 // around from a raised view circles the camera around the boat instead of turning in place.
 const DRONE_M = 100 * 0.3048;
-const EYE_CHOICES = [{ label: 'Helm', m: EYE }, { label: '20 ft', m: 20 * 0.3048 }, { label: '60 ft', m: 60 * 0.3048 }, { label: 'Drone', m: DRONE_M }];
+const EYE_CHOICES = [{ label: 'Helm', m: EYE, title: 'Deck level, at the tiller' }, { label: '20 ft', m: 20 * 0.3048 }, { label: '60 ft', m: 60 * 0.3048 }, { label: 'Drone', m: DRONE_M }];
 const FT60 = 60 * 0.3048, _back = m => Math.max(0, (m - EYE) * 2.2), _tilt = m => Math.max(0, (m - EYE) * 2.4) / (1 + Math.max(0, m - EYE) / 18);
 const _toDrone = m => Math.min(1, Math.max(0, (m - FT60) / (DRONE_M - FT60)));   // 60 ft -> drone, so the change glides
 const eyeBack = m => m <= FT60 ? _back(m) : _back(FT60) + (50 - _back(FT60)) * _toDrone(m);
@@ -1168,8 +1168,17 @@ let eyeH = eyeTarget;
 const eyeBox = document.getElementById('eyepick');
 function syncEyeButtons() { for (const b of eyeBox.querySelectorAll('button[data-m]')) b.classList.toggle('on', Math.abs(Number(b.dataset.m) - eyeTarget) < 0.2); }
 function setEye(m) { eyeTarget = m; try { localStorage.setItem('audiochart-helm3d-view', String(m)); } catch (_) {} syncEyeButtons(); }
+// "🗺 Chart" (v895, requested: pass between all the views): inside AudioChart, back to the 2D chart
+{
+  let hook = null; try { if (window.parent !== window) hook = window.parent.__audioChartViews; } catch (_) {}
+  if (hook) {
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = '🗺 Chart'; b.className = 'birdbtn';
+    b.title = 'Back to the chart'; b.addEventListener('pointerdown', e => e.stopPropagation());
+    b.addEventListener('click', () => hook.chart()); eyeBox.appendChild(b);
+  }
+}
 for (const c of EYE_CHOICES) {
-  const b = document.createElement('button'); b.type = 'button'; b.textContent = c.label; b.dataset.m = c.m;
+  const b = document.createElement('button'); b.type = 'button'; b.textContent = c.label; b.dataset.m = c.m; if (c.title) b.title = c.title;
   b.addEventListener('pointerdown', e => e.stopPropagation());   // not a look-around drag
   b.addEventListener('click', () => setEye(c.m)); eyeBox.appendChild(b);
 }

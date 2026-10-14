@@ -7933,6 +7933,8 @@ document.getElementById('boat-ctx-freesail')?.addEventListener('click', () => {
   if (_fs) _stopFreeSail(); else _startFreeSail({});
 });
 // Bird's-eye's own "⛵ Free sail" button (v894) starts it from inside the 3D view
+// the 3D views' "🗺 Chart" button (v895): back to the 2D chart from either 3D frame
+window.__audioChartViews = { chart: () => { if (_vj3dWrap && !_vj3dWrap.hidden) _hideVj3d(); if (_bay3dWrap && !_bay3dWrap.hidden) _hideBay3d(); } };
 window.__audioChartFreeSail = { active: () => !!_fs, busy: () => _vjRunning, start: () => { if (!_fs) _startFreeSail({}); } };
 
 function _getTrackSettings() {

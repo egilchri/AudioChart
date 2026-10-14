@@ -57,6 +57,9 @@ button:focus-visible { outline: 2px solid var(--brass); outline-offset: 1px; }
 #credit { position: fixed; left: 12px; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); z-index: 2; font-size: 10px; color: rgba(255, 255, 255, 0.8); text-shadow: 0 0 3px rgba(0, 0, 0, 0.6); pointer-events: none; max-width: 55%; }
 #status { position: fixed; inset: 0; z-index: 5; display: grid; place-items: center; font-family: var(--display); font-size: 1.3rem; letter-spacing: 0.04em; background: rgba(20, 34, 42, 0.55); text-align: center; padding-inline: 16px; }
 #scale { position: fixed; right: 12px; top: calc(12px + env(safe-area-inset-top, 0px)); z-index: 2; font-family: var(--mono); font-size: 0.72rem; background: var(--glass); border-radius: 5px; padding: 4px 8px; display: flex; align-items: center; gap: 8px; }
+#views { display: flex; flex-wrap: wrap; gap: 2px; }
+#scale #views .wxbtn.on { background: rgba(224,168,67,0.9); color: #1b2328; cursor: default; }
+#scale { flex-wrap: wrap; justify-content: flex-end; max-width: calc(100vw - 24px); box-sizing: border-box; }
 #scale .wxbtn { font: inherit; font-family: var(--body); font-size: 0.76rem; color: var(--ink); background: rgba(255,255,255,0.12); border: 0; border-radius: 4px; padding: 2px 8px; cursor: pointer; }
 /* Weather panel (weather3d.js styles it): under the readout, top right */
 #wxpanel { position: fixed; right: 12px; top: calc(48px + env(safe-area-inset-top, 0px)); z-index: 4; }

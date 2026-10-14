@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-14 — One View row in every 3D view: Chart · Helm · 20 ft · 60 ft · Drone · Bird's-eye (v895)
+
+Requested ("I should be able to pass between these views"). Bird's-eye had only one way out
+("◀ 3D helm" or "🚁 Drone"); it now has the helm view's full View row, with Bird's-eye marked as
+the current one, and each height opens the helm view at that height. Both 3D views gain
+"🗺 Chart" inside AudioChart (`window.__audioChartViews.chart()`), which closes whichever 3D view
+is open, back to the 2D chart. The helm view's Helm button is titled "Deck level, at the tiller".
+
 ## 2026-10-14 — "⛵ Free sail" button in Bird's-eye (v894)
 
 Requested (the user, in Bird's-eye, couldn't see how to start sailing: the boat's menu is on the

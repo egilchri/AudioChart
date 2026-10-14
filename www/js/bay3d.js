@@ -838,7 +838,24 @@ wpSel.addEventListener('change', () => { showRoute(wpSel.value, true); foldPanel
   // the helm view sails a route, so this needs one (a saved route or a sample, not an unsaved edit)
   // with no route (Free Sailing, v891) it opens the helm view's free mode at the chart's boat
   const freeBoat = () => !own.r && own.ext;
-  const sync = () => { b.hidden = !(fromHelm || (document.body.classList.contains('embed') && ((own.r && own.r.id !== 'editing') || freeBoat()))); };
+  // the same View choices as the helm view's row (v895, requested: pass between all the views):
+  // Chart (inside AudioChart), Helm, 20 ft, 60 ft, Drone, and this one, Bird's-eye. The old single
+  // button stays as the click target the others go through.
+  b.hidden = true;
+  const views = document.createElement('span'); views.id = 'views'; views.setAttribute('role', 'group'); views.setAttribute('aria-label', 'View');
+  b.before(views);
+  let hook = null; try { if (window.parent !== window) hook = window.parent.__audioChartViews; } catch (_) {}
+  const mk = (label, title, fn) => { const x = document.createElement('button'); x.type = 'button'; x.className = 'wxbtn'; x.textContent = label; x.title = title; x.addEventListener('click', fn); views.appendChild(x); return x; };
+  if (hook) mk('🗺 Chart', 'Back to the chart', () => hook.chart());
+  let goEye = 100;
+  const helmBtns = [['Helm', 'Deck level, at the tiller', 6.5], ['20 ft', 'From 20 ft up', 20], ['60 ft', 'From 60 ft up', 60], ['🚁 Drone', 'From just above and astern of your boat', 100]]
+    .map(([l, t, ft]) => mk(l, t, () => { goEye = ft; b.click(); }));
+  const here = mk("Bird's-eye", 'This view: the whole bay from the air', () => {}); here.classList.add('on'); here.setAttribute('aria-current', 'true');
+  const sync = () => {
+    const can = fromHelm || (document.body.classList.contains('embed') && ((own.r && own.r.id !== 'editing') || freeBoat()));
+    for (const x of helmBtns) x.hidden = !can;
+    views.hidden = !hook && !can;
+  };
   sync(); setInterval(sync, 1000);
   // how far along the route your boat is: the route's own progress, or the chart's boat projected onto it
   const along = () => {
@@ -856,7 +873,7 @@ wpSel.addEventListener('change', () => { showRoute(wpSel.value, true); foldPanel
     if (freeBoat() || (!own.r && params.get('free'))) {
       const bx = own.ext ? own.x : view.x, bz = own.ext ? own.z : view.z;   // the chart's boat, else where you're looking
       q.set('free', '1'); q.set('lat', latOf(bz).toFixed(5)); q.set('lon', lonOf(bx).toFixed(5));
-      q.set('hdg', String(Math.round(own.ext?.h ?? own.h ?? 0))); q.set('kn', String(own.ext?.kn ?? 0)); q.set('eye', '100');
+      q.set('hdg', String(Math.round(own.ext?.h ?? own.h ?? 0))); q.set('kn', String(own.ext?.kn ?? 0)); q.set('eye', String(goEye));
       if (params.get('embed')) q.set('embed', '1');
       try { if (window.frameElement?.closest('#bay3d-wrap')) q.set('inchart', '1'); } catch (_) {}
       location.href = './helm3d.html?' + q; return;
@@ -866,7 +883,7 @@ wpSel.addEventListener('change', () => { showRoute(wpSel.value, true); foldPanel
     else q.set('sample', id);
     if (own.r) q.set('start', (along() / NMm).toFixed(3));
     q.set('pace', paceSel.value); if (own.playing) q.set('play', '1');
-    if (!fromHelm) q.set('eye', '100');   // Drone
+    q.set('eye', String(goEye));   // the View button pressed (Drone for the old single button)
     if (params.get('embed')) q.set('embed', '1');
     // inside the chart (#bay3d-wrap) the chart's toolbar sits over the top-left, so the helm view's
     // View row moves down a little there
