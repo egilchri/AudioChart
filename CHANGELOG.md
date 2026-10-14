@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-14 — Seagulls and seals in the 3D views (v888)
+
+Requested. New `www/js/wildlife3d.js`, used by Bird's-eye (`bay3d.js`) and the helm/Drone view
+(`helm3d.js`). Two loose flocks of gulls (16 in all) wheel over your boat (or wherever Bird's-eye is
+looking) and over the nearest seal ledge, gliding and flapping, and roost at night. Harbor seals
+haul out, 2-4 at a time, on the 5 charted ledges awash (hazards.geojson UWTROC watlev 4) nearest
+you, lifting their heads now and then; six more swim nearby, diving and surfacing elsewhere.
+Nothing is drawn beyond ~2.5 km; Bird's-eye draws them 2-6× life size so they read from the air.
+
 ## 2026-10-14 — Sailors page: Bird's-eye tutorial shows an overnight stop
 
 - Tutorial 9 (`demo9c.mp4`, was `demo9b.mp4`) adds a scene where the Virtual Journey reaches its first overnight stop: the journey pauses, sunset, night and dawn pass in about 5 s (v887), and the boat sails on. New narration line; the dull stretch before the stop is cut.

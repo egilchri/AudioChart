@@ -13,6 +13,7 @@ import { Water } from './lib/three/Water.js';
 import { LON0, LAT0, MX, MY, wx, wz, readDem, photo, addCanopy, gridMesh, photoMat, buildTown, disposeGroup, spruce, TOWN_NIGHT } from './terrain3d.js';
 import { SUN, makeSky, makeEnv, glowSprite, flashFor, flashOn, weatherPanel, startConditions, makeTrimmer, cycleLook } from './weather3d.js';
 import { makeSailboat } from './sailboat3d.js';
+import { makeWildlife, ledgesFrom } from './wildlife3d.js';
 
 const statusEl = document.getElementById('status');
 const loadingEl = document.getElementById('loading');
@@ -632,6 +633,10 @@ function updateFleet(dt) {
   }
 }
 
+// ── Seagulls and seals (v888, requested; wildlife3d.js), round where you're looking ──
+const wildlife = makeWildlife({ scene });
+getJSON('./data/regions/penobscot-bay/hazards.geojson').then(fc => wildlife.setLedges(ledgesFrom(fc, wx, wz))).catch(() => {});
+
 // ── Route waypoints (v873, requested: as in the helm view) ──
 // Pick a saved route or a sample under "Route waypoints" (opened from the chart, the route the
 // chart is showing comes preselected): a marker on a pole at each waypoint (green; amber ☾ for an
@@ -949,6 +954,7 @@ function frame(now) {
   updateFleet(dt);
   updateWaypoints();
   updateOwn(dt);
+  wildlife.update(dt, t, view, camera.position, { hidden: !!aboveFog, night: env.C.time === 'night', boat: (own.ext || own.r) ? own : null, scale: d => clamp(d / 50, 2, 6) });
   if (follow && !anim) { const k = Math.min(1, dt * 4); view.x += (follow.x - view.x) * k; view.z += (follow.z - view.z) * k; }
   renderer.render(scene, camera);
   updateLabels(); updateReadout();

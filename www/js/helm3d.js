@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { Water } from './lib/three/Water.js';
 import { depthAtFrom } from './depth.js';
 import { LON0, LAT0, MX, MY, wx, wz, cachedFetch, readDem, photo, photoAtCells, addCanopy, gridMesh, photoMat, buildTown, spruce, tlog, tmark, TOWN_NIGHT } from './terrain3d.js';
+import { makeWildlife, ledgesFrom } from './wildlife3d.js';
 import { makeSky, makeEnv, glowSprite, flashFor, weatherPanel, startConditions, makeTrimmer, cycleLook } from './weather3d.js';
 
 const statusEl = document.getElementById('status');
@@ -242,10 +243,11 @@ getJSON(`${regionDir}.json`).then(r => { if (typeof r.magvar === 'number') MAGVA
 const toMag = t => ((t - MAGVAR) % 360 + 360) % 360;
 // Depth readout (v865): charted depth under the boat from the region's soundings and DEPARE
 // shallow-area bands (shared depth.js). Loaded in the background; the readout shows — until then.
-let depthSnd = null, depthZones = null;
+let depthSnd = null, depthZones = null, wildlifeLedges = null, wildlife = null;
 getJSON(`${regionDir}/soundings.geojson`).then(fc => { depthSnd = fc; }).catch(() => {});
 getJSON(`${regionDir}/hazards.geojson`).then(fc => {
   depthZones = fc.features.filter(f => f.properties?.label === 'shallow area' && f.geometry?.type !== 'Point');
+  wildlifeLedges = ledgesFrom(fc, wx, wz); wildlife?.setLedges(wildlifeLedges);
 }).catch(() => {});
 const DRAFT_FT = (() => { let v = NaN; try { v = parseFloat(localStorage.getItem('audiochart-draft-ft')); } catch (_) {} return v > 0 ? v : 5; })();
 
@@ -655,6 +657,8 @@ for (const l of lights) {
 // light at the masthead at anchor), each over its proper arc, as at sea, and the boat heels and
 // moves with the wind. Chosen from the Weather panel (or N for night); remembered.
 const env = makeEnv({ renderer, scene, hemi, dl, sky, water, clouds, starsR: 50000, deckSize: 90000, deckY: 1800, foamR: 1400, foamTile: 24 });
+// seagulls over the boat and seals on the ledges nearby (v888, requested; wildlife3d.js)
+wildlife = makeWildlife({ scene, ledges: wildlifeLedges || [] });
 let lightsK = 0, visM = 26000, WND = env.W;
 // running lights on a vessel: a glow at `at` (the parent's local frame, bow toward -z) shown over
 // an arc of `arc` degrees each side of `toward` (degrees from ahead, + to starboard); arc 180 = all round
@@ -1348,6 +1352,7 @@ const clock = new THREE.Clock();
 let t = 0;
 let fpsN = 0, fpsT = performance.now(); window.__fps = 0;
 let lastTileCheck = -1;
+const _camW = new THREE.Vector3();
 function frame() {
   if (++fpsN === 60) { window.__fps = Math.round(60000 / (performance.now() - fpsT)); fpsN = 0; fpsT = performance.now(); }
   const dt = Math.min(0.1, clock.getDelta()); t += dt;
@@ -1392,6 +1397,7 @@ function frame() {
   sky.position.set(boat.position.x, 0, boat.position.z);   // the dome travels with the boat
   env.stars.position.copy(sky.position);
   env.update(dt, camera, boat.position);
+  wildlife.update(dt, t, boat.position, camera.getWorldPosition(_camW), { night: env.C.time === 'night', boat: boat.position, scale: d => Math.min(2.5, Math.max(1, d / 150)) });
   renderer.render(scene, camera);
   updateLabels(pos);
   const hfov = 2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect) * 180 / Math.PI;
