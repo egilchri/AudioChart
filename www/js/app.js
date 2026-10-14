@@ -7814,7 +7814,34 @@ function _fsLandAhead(lat, lon, hdg, nm) {
   return lo;
 }
 const _fsSide = (rel) => Math.abs(rel) < 6 ? 'dead ahead' : `${Math.abs(rel) < 30 ? 'fine on the' : 'on the'} ${rel < 0 ? 'port' : 'starboard'} bow`;
+// towns (the chart's own BUAARE points) called once as they come within 2 nm,
+// again only after dropping past 3 nm; at the start, just the nearest one
+const _fsBearingWords = (rel) => {
+  const a = Math.abs(rel), side = rel < 0 ? 'port' : 'starboard';
+  return a < 15 ? 'ahead' : a < 70 ? `on the ${side} bow` : a < 110 ? `abeam to ${side}` : a < 160 ? `on the ${side} quarter` : 'astern';
+};
+function _fsTowns() {
+  const feats = Query.namedPlaces?.features;
+  if (!feats) return;
+  const first = !_fs.towns;
+  if (first) _fs.towns = new Set();
+  const near = [];
+  for (const f of feats) {
+    if (f.properties.objtype !== 'BUAARE' || !f.properties.name) continue;
+    const [lon, lat] = f.geometry.coordinates, name = f.properties.name;
+    const d = Query.distanceNm(_fs.lon, _fs.lat, lon, lat);
+    if (d > 3) _fs.towns.delete(name);
+    else if (d <= 2 && !_fs.towns.has(name)) near.push({ name, lat, lon, d });
+  }
+  if (!near.length) return;
+  near.sort((a, b) => a.d - b.d);
+  near.forEach(t => _fs.towns.add(t.name));
+  const t = near[0];
+  const rel = ((Query.bearing(_fs.lon, _fs.lat, t.lon, t.lat) - _fs.hdg + 540) % 360) - 180;
+  TTS.say(`${first ? 'Off ' : ''}${t.name}, ${formatDistance(t.d)}, ${_fsBearingWords(rel)}.`);
+}
 function _fsLookAhead() {
+  _fsTowns();
   const L = Math.max(0.5, _vjSpeedKnots * 0.1);   // six minutes' sailing
   const land = _fsLandAhead(_fs.lat, _fs.lon, _fs.hdg, L);
   if (land != null && land < 0.03) { _fsAllStop('land ahead'); return; }

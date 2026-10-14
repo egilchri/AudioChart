@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-14 — Free Sailing names the towns you pass (v892)
+
+Requested ("should identify towns"). While Free Sailing, the look-ahead also checks the chart's own
+town points (BUAARE in named_places, offline). A town is called once when it comes within 2 nm, as
+"Rockport, 1.9 nautical miles, on the port bow." (ahead / bow / abeam / quarter / astern), and can be
+called again only after the boat drops more than 3 nm away. At the start only the nearest town is
+said, as "Off Glen Cove, …". "Head for Camden" already worked through the named-destination lookup.
+
 ## 2026-10-14 — Drone view follows Free Sailing (v891)
 
 Requested. `helm3d.html?free=1&lat=&lon=&hdg=` is a route-less mode of the helm/Drone view: the
