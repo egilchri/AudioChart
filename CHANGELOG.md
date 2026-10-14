@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-10-13 — Focus moves to each next waypoint underway (v885)
+
+Reported: "while underway, I don't think the app is automatically changing the focus to
+the next waypoint". It did change, but wrongly: the next-waypoint pointer skipped any leg
+the boat was "past the end of" along that leg's line, even legs it was nowhere near, so on
+a route that doubles back (into a harbor and out) it raced ahead — on Rockland to Hadlock
+Cove from waypoint 15 to 41, then sat on the last waypoint mid-route with "Next" and "To
+end" growing. Now the boat's leg is the nearest one among the current leg and those within
+2 nm of route ahead (ties keep the earlier leg), plus arrival within 0.1 nm of a waypoint.
+Re-run at 40 kts × 60: the focus stepped waypoint by waypoint to the last (71), "To end"
+counting down. The focus button now shows the number first ("🎯 WP 13 · Rockland to…") so
+the change is visible when the route name is cut off.
+
 ## 2026-10-13 — Tilt in Bird's-eye; Map Type and zoom/pan stay up underway (v884)
 
 Requested: tilt Bird's-eye to see more land toward the horizon, and "we always need

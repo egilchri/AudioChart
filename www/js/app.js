@@ -718,7 +718,10 @@ const importMenu    = document.getElementById('import-menu');
 function _updateFocusButton() {
   if (!focusBtn) return;
   const f = Query.focusedTarget;
-  focusBtn.textContent = f ? `🎯 ${f.name || 'Point'}` : '🎯 --';
+  // a followed route's waypoint shows its number first ("WP 13 · Rockland to…"), so the change of
+  // focus at each waypoint is visible even when the route name is cut off (v885)
+  const wp = f?.name && /^(.*) — waypoint (\d+)$/.exec(f.name);
+  focusBtn.textContent = f ? (wp ? `🎯 WP ${wp[2]} · ${wp[1]}` : `🎯 ${f.name || 'Point'}`) : '🎯 --';
   focusBtn.classList.toggle('focus-active', !!f);
   focusBtn.title = f
     ? `Bearing & range to ${f.name || 'focused point'} (Drag to move)`
@@ -6719,14 +6722,35 @@ function _updateFollowProgress(lat, lon) {
   // arrival-radius check — a route that cuts a corner near a waypoint (never
   // coming within ARRIVAL_THRESHOLD_NM of it) would otherwise get the pointer
   // stuck there for the rest of the trip, since it'd never trip that check.
-  while (_followingLegIdx < pts.length - 1) {
-    const a = pts[_followingLegIdx - 1], b = pts[_followingLegIdx];
-    const segLen = Query.distanceNm(a.lon, a.lat, b.lon, b.lat);
+  //
+  // v885: "past the end along this leg's line" alone was too greedy — reported as focus not
+  // moving to the next waypoint underway. Where a route doubles back (into a harbor and out,
+  // around a point), the boat is "past the end" of later legs it's nowhere near, so the pointer
+  // raced ahead (waypoint 15 → 41 on Rockland to Hadlock Cove, then sat on the last one while
+  // the boat was still mid-route). Now the boat's leg is whichever leg it's NEAREST, among the
+  // current one and those starting within LOOKAHEAD_NM of route distance after it (ties keep the
+  // earlier leg, so in-and-out legs over the same water are taken in order); arriving within
+  // ARRIVAL_THRESHOLD_NM of a waypoint still advances past it.
+  const LOOKAHEAD_NM = 2;
+  const legDist = (j) => {   // boat's distance from leg j (pts[j-1] → pts[j]), clamped to the leg
+    const a = pts[j - 1], b = pts[j], segLen = Query.distanceNm(a.lon, a.lat, b.lon, b.lat);
     const ct = Query.segCrossTrack(a.lon, a.lat, b.lon, b.lat, lon, lat);
-    const pastSegment = ct
-      ? ct.alongTrack >= segLen
-      : Query.distanceNm(lon, lat, b.lon, b.lat) <= ARRIVAL_THRESHOLD_NM;
-    if (!pastSegment) break;
+    if (!ct || ct.alongTrack <= 0) return Query.distanceNm(lon, lat, a.lon, a.lat);
+    if (ct.alongTrack >= segLen) return Query.distanceNm(lon, lat, b.lon, b.lat);
+    return Math.abs(ct.crossTrack);
+  };
+  {
+    let best = _followingLegIdx, bestD = legDist(_followingLegIdx), ahead = 0;
+    for (let j = _followingLegIdx + 1; j < pts.length; j++) {
+      ahead += Query.distanceNm(pts[j - 2].lon, pts[j - 2].lat, pts[j - 1].lon, pts[j - 1].lat);
+      if (ahead > Query.distanceNm(pts[_followingLegIdx - 1].lon, pts[_followingLegIdx - 1].lat, pts[_followingLegIdx].lon, pts[_followingLegIdx].lat) + LOOKAHEAD_NM) break;
+      const d = legDist(j);
+      if (d < bestD - 0.01) { best = j; bestD = d; }
+    }
+    _followingLegIdx = best;
+  }
+  while (_followingLegIdx < pts.length - 1 &&
+         Query.distanceNm(lon, lat, pts[_followingLegIdx].lon, pts[_followingLegIdx].lat) <= ARRIVAL_THRESHOLD_NM) {
     _followingLegIdx++;
   }
   const nextPt = pts[_followingLegIdx];
