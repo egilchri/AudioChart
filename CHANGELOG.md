@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-10-14 — Sailors page: Bird's-eye tutorial shows an overnight stop
+
+- Tutorial 9 (`demo9c.mp4`, was `demo9b.mp4`) adds a scene where the Virtual Journey reaches its first overnight stop: the journey pauses, sunset, night and dawn pass in about 5 s (v887), and the boat sails on. New narration line; the dull stretch before the stop is cut.
+
 ## 2026-10-13 — Overnight stops on a Virtual Journey: sunset, night, dawn, day (v887)
 
 Requested: at an overnight stop, cycle through sunset, night, dawn and day over about 5
