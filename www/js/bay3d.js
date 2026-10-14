@@ -823,7 +823,9 @@ wpSel.addEventListener('change', () => { showRoute(wpSel.value, true); foldPanel
   const b = document.getElementById('tohelm'), fromHelm = params.get('from') === 'helm';
   if (!fromHelm) { b.textContent = '🚁 Drone'; b.title = 'The 3D view from just above your boat, on this route'; }
   // the helm view sails a route, so this needs one (a saved route or a sample, not an unsaved edit)
-  const sync = () => { b.hidden = !(fromHelm || (document.body.classList.contains('embed') && own.r && own.r.id !== 'editing')); };
+  // with no route (Free Sailing, v891) it opens the helm view's free mode at the chart's boat
+  const freeBoat = () => !own.r && own.ext;
+  const sync = () => { b.hidden = !(fromHelm || (document.body.classList.contains('embed') && ((own.r && own.r.id !== 'editing') || freeBoat()))); };
   sync(); setInterval(sync, 1000);
   // how far along the route your boat is: the route's own progress, or the chart's boat projected onto it
   const along = () => {
@@ -838,6 +840,14 @@ wpSel.addEventListener('change', () => { showRoute(wpSel.value, true); foldPanel
   };
   b.addEventListener('click', () => {
     const q = new URLSearchParams(), id = own.r?.id || params.get('route') || '';
+    if (freeBoat() || (!own.r && params.get('free'))) {
+      const bx = own.ext ? own.x : view.x, bz = own.ext ? own.z : view.z;   // the chart's boat, else where you're looking
+      q.set('free', '1'); q.set('lat', latOf(bz).toFixed(5)); q.set('lon', lonOf(bx).toFixed(5));
+      q.set('hdg', String(Math.round(own.ext?.h ?? own.h ?? 0))); q.set('kn', String(own.ext?.kn ?? 0)); q.set('eye', '100');
+      if (params.get('embed')) q.set('embed', '1');
+      try { if (window.frameElement?.closest('#bay3d-wrap')) q.set('inchart', '1'); } catch (_) {}
+      location.href = './helm3d.html?' + q; return;
+    }
     if (id.startsWith('sample:')) q.set('sample', id.slice(7));
     else if (routeChoices.some(c => c.id === id)) q.set('route', id);
     else q.set('sample', id);

@@ -26,7 +26,23 @@ if (params.get('embed')) document.body.classList.add('embed');
 if (params.get('inchart')) document.body.classList.add('inchart');   // in the chart's Bird's-eye frame (v882)   // inside AudioChart during a Virtual Journey
 const REGIONS = ['penobscot-bay', 'casco-bay', 'piscataqua'];
 async function getJSON(url) { const r = await fetch(url); if (!r.ok) throw new Error(`Could not load ${url}`); return r.json(); }
+// Free Sailing (v890/v891, requested: Drone view follows free sailing): no route, so the scene is
+// built for a 10 × 10 nm square round the boat: a "route" of east-west sweeps 3 km apart across
+// it, which every route-shaped piece below (near tiles, the horizon, trees, towns) is happy with.
+// The boat goes wherever AudioChart's free-sailing boat goes (BroadcastChannel, {free}); near the
+// square's edge the view reloads centred on her again.
+const FREE = params.get('free') ? { lat: +params.get('lat'), lon: +params.get('lon'), hdg: +params.get('hdg') || 0, kn: +params.get('kn') || 0 } : null;
+const FREE_R = 5 * 1852;
+function freeRoute() {
+  const dLat = FREE_R / 111120, dLon = FREE_R / (111320 * Math.cos(FREE.lat * Math.PI / 180)), pts = [[FREE.lon, FREE.lat]];
+  for (let k = 0, y = -dLat; y <= dLat + 1e-9; y += 3000 / 111120, k++) {
+    const row = [[FREE.lon - dLon, FREE.lat + y], [FREE.lon + dLon, FREE.lat + y]];
+    pts.push(...(k % 2 ? row.reverse() : row));
+  }
+  return { id: 'free', name: 'Free Sailing', points: pts, overnight: [] };
+}
 async function findRoute() {
+  if (FREE) return freeRoute();
   const id = params.get('route'), sample = params.get('sample');
   if (id) {
     let routes = [];
@@ -753,7 +769,7 @@ function courseAt(s) {   // degrees true, from a short look-ahead so turns are s
 // waypoints (green; amber for an overnight stop, red at the end), the route itself as a dashed
 // line on the water, and the next waypoint's distance and magnetic bearing. Remembered.
 const WP_KEY = 'audiochart-helm3d-waypoints';
-let wpOn = params.get('wpts') ? params.get('wpts') === '1' : (() => { try { return localStorage.getItem(WP_KEY) === 'on'; } catch (_) { return false; } })();
+let wpOn = FREE ? false : params.get('wpts') ? params.get('wpts') === '1' : (() => { try { return localStorage.getItem(WP_KEY) === 'on'; } catch (_) { return false; } })();
 const wpGroup = new THREE.Group(); wpGroup.visible = wpOn; scene.add(wpGroup);
 const wps = route.map((w, i) => {
   const night = !!ROUTE.overnight?.[i], last = i === route.length - 1;
@@ -929,7 +945,7 @@ function setupFerries(data) {
     console.log(`[helm3d] ${F.name} ferry: ${along > 0.8 || along < -0.8 ? 'meets' : 'crosses'} the route ${(c.s / NM).toFixed(1)} nm in, ${(c.d / NM).toFixed(2)} nm from its line`);
   }
 }
-getJSON('./data/ferries.json').then(setupFerries).catch(err => console.warn('[helm3d] ferries', err));
+if (!FREE) getJSON('./data/ferries.json').then(setupFerries).catch(err => console.warn('[helm3d] ferries', err));
 function ferryPos(fy, f) {   // on the line, eased toward the meeting point near f0
   const p = ferryAt(fy, f), w = Math.exp(-(((f - fy.f0) / 2200) ** 2));
   return [p.x + fy.off[0] * w, p.z + fy.off[1] * w];
@@ -1166,11 +1182,11 @@ syncEyeButtons();
   b.title = 'The whole bay from the air, with your boat on this route';
   b.addEventListener('pointerdown', e => e.stopPropagation());
   b.addEventListener('click', () => {
-    const p = posAt(S), q = new URLSearchParams();
-    q.set('route', params.get('route') || ROUTE.id);
+    const p = FREE ? [freeP.x, freeP.z] : posAt(S), q = new URLSearchParams();
+    if (FREE) q.set('free', '1'); else q.set('route', params.get('route') || ROUTE.id);
     q.set('lat', (-p[1] / MY + LAT0).toFixed(5)); q.set('lon', (p[0] / MX + LON0).toFixed(5));
     q.set('dist', '700'); q.set('tilt', '55'); q.set('az', String(Math.round(smoothCourse ?? 0)));
-    q.set('at', (S / TOTAL).toFixed(5)); q.set('pace', speedEl.value); if (playing) q.set('play', '1');
+    if (!FREE) { q.set('at', (S / TOTAL).toFixed(5)); q.set('pace', speedEl.value); if (playing) q.set('play', '1'); }
     q.set('from', 'helm'); if (params.get('embed')) q.set('embed', '1');
     location.href = './bay3d.html?' + q;
   });
@@ -1187,8 +1203,8 @@ const setWp = on => {
   lblFrame = 0;   // relabel now
 };
 wpBtn.addEventListener('pointerdown', e => e.stopPropagation());
-wpBtn.addEventListener('click', () => setWp(!wpOn)); eyeBox.appendChild(wpBtn); setWp(wpOn);
-addEventListener('keydown', e => { if ((e.key === 'w' || e.key === 'W') && !e.metaKey && !e.ctrlKey && !/INPUT|SELECT/.test(e.target.tagName)) setWp(!wpOn); });
+wpBtn.addEventListener('click', () => setWp(!wpOn)); if (!FREE) eyeBox.appendChild(wpBtn); setWp(wpOn);
+addEventListener('keydown', e => { if (!FREE && (e.key === 'w' || e.key === 'W') && !e.metaKey && !e.ctrlKey && !/INPUT|SELECT/.test(e.target.tagName)) setWp(!wpOn); });
 addEventListener('keydown', e => {
   if (e.key !== 'h' && e.key !== 'H') return;
   const i = EYE_CHOICES.findIndex(c => Math.abs(c.m - eyeTarget) < 0.2);
@@ -1302,6 +1318,7 @@ function drawChart(pos, course, look, hfov) {
   c.fillStyle = 'rgb(200,222,234)'; c.fillRect(0, 0, size, size);
   if (CH) c.drawImage(CH.cv, X(CH.west), Y(CH.north), CH.cv.width / CH.ppd * sx, CH.cv.height / CH.ppd * sy);
   // route ahead (dashed) and run so far (solid)
+  if (!FREE) {
   c.lineWidth = 2; c.strokeStyle = '#a5741f'; c.setLineDash([5, 4]); c.beginPath();
   routeLL.forEach(([lo, la], i) => i ? c.lineTo(X(lo), Y(la)) : c.moveTo(X(lo), Y(la))); c.stroke(); c.setLineDash([]);
   let acc = 0; c.lineWidth = 3; c.strokeStyle = '#7a4f0e'; c.beginPath(); c.moveTo(X(routeLL[0][0]), Y(routeLL[0][1]));
@@ -1311,6 +1328,7 @@ function drawChart(pos, course, look, hfov) {
     c.lineTo(X(routeLL[i][0]), Y(routeLL[i][1])); acc += segLen;
   }
   c.stroke();
+  }
   if (wpOn) for (const p of wps) {   // waypoints
     const x = X(routeLL[p.i][0]), y = Y(routeLL[p.i][1]); if (x < -5 || y < -5 || x > size + 5 || y > size + 5) continue;
     c.fillStyle = p.last ? '#d0342c' : p.night ? '#e0a843' : '#2fa35a'; c.strokeStyle = '#fbfcf8'; c.lineWidth = 1;
@@ -1357,16 +1375,18 @@ function frame() {
   if (++fpsN === 60) { window.__fps = Math.round(60000 / (performance.now() - fpsT)); fpsN = 0; fpsT = performance.now(); }
   const dt = Math.min(0.1, clock.getDelta()); t += dt;
   updateNight();
-  if (vjFollow) {   // ease toward the journey's broadcast position, which arrives once per tick
+  if (FREE) updateFree(dt);
+  else if (vjFollow) {   // ease toward the journey's broadcast position, which arrives once per tick
     const target = vjFollow.frac * TOTAL;
     S = Math.abs(target - S) > 500 ? target : S + (target - S) * Math.min(1, dt * 2);
     posEl.value = (S / NM).toFixed(3);
   }
   else if (playing) { S += dt * BOAT_KN * NM / 3600 * Number(speedEl.value); if (S >= TOTAL) { S = TOTAL; setPlaying(false); } posEl.value = (S / NM).toFixed(3); }
-  if (anchor.state === 'up' && S >= TOTAL - 1) arrive();
+  if (FREE) { /* no end of the route to anchor at */ }
+  else if (anchor.state === 'up' && S >= TOTAL - 1) arrive();
   else if (anchor.state !== 'up' && S < TOTAL - 50) raiseAnchor();
   updateAnchor(dt);
-  const pos = posAt(S), course = courseAt(S);
+  const pos = FREE ? [freeP.x, freeP.z] : posAt(S), course = FREE ? freeP.h : courseAt(S);
   if (t - lastTileCheck > 0.5) { lastTileCheck = t; updateTiles(pos[0], pos[1]); }
   smoothCourse = smoothCourse == null ? course : smoothCourse + (((course - smoothCourse + 540) % 360) - 180) * Math.min(1, dt * 1.5);
   const look = smoothCourse + yawOff;
@@ -1406,7 +1426,7 @@ function frame() {
   if (rec) recFrame();
   document.getElementById('ro-cog').textContent = String(Math.round(toMag(smoothCourse)) % 360).padStart(3, '0') + '° M';
   document.getElementById('ro-look').textContent = String(Math.round(toMag(look)) % 360).padStart(3, '0') + '° M';
-  document.getElementById('ro-run').textContent = `${(S / NM).toFixed(1)}/${(TOTAL / NM).toFixed(1)} nm`;
+  document.getElementById('ro-run').textContent = FREE ? (freeP.kn ? `${freeP.kn} kn` : 'stopped') : `${(S / NM).toFixed(1)}/${(TOTAL / NM).toFixed(1)} nm`;
   document.getElementById('ro-zoom').textContent = zoom.toFixed(1) + '×';
   updateWaypoints(pos);
   if (lblFrame % 8 === 1) {
@@ -1496,6 +1516,32 @@ function recFrame() {
 window.__helm3dReadyMs = Math.round(performance.now());   // time to first view, for measuring startup
 requestAnimationFrame(frame);
 
+// Free Sailing: AudioChart's boat ~5 times a second; eased in between so she glides
+const freeP = FREE ? { x: wx(FREE.lon), z: wz(FREE.lat), h: FREE.hdg, kn: FREE.kn, tx: wx(FREE.lon), tz: wz(FREE.lat), th: FREE.hdg } : null;
+const FREE_C = FREE ? { x: wx(FREE.lon), z: wz(FREE.lat) } : null;
+let freeLeaving = false;
+function freeAim(f) {
+  freeP.tx = wx(f.lon); freeP.tz = wz(f.lat); freeP.th = f.hdg; freeP.kn = f.running ? f.kn : 0;
+  if (Math.hypot(freeP.tx - freeP.x, freeP.tz - freeP.z) > 500) { freeP.x = freeP.tx; freeP.z = freeP.tz; }   // a jump, not a glide
+  // near the edge of the scene: start again centred on her
+  if (!freeLeaving && Math.hypot(freeP.tx - FREE_C.x, freeP.tz - FREE_C.z) > FREE_R - 1.5 * NM) {
+    freeLeaving = true;
+    const q = new URLSearchParams(location.search);
+    q.set('lat', f.lat.toFixed(5)); q.set('lon', f.lon.toFixed(5)); q.set('hdg', String(Math.round(f.hdg))); q.set('kn', String(freeP.kn));
+    location.replace('./helm3d.html?' + q);
+  }
+}
+function updateFree(dt) {
+  const k = Math.min(1, dt * 3);
+  freeP.x += (freeP.tx - freeP.x) * k; freeP.z += (freeP.tz - freeP.z) * k;
+  freeP.h = (freeP.h + (((freeP.th - freeP.h + 540) % 360) - 180) * Math.min(1, dt * 1.5) + 360) % 360;
+}
+if (FREE) {   // nothing to play along: the boat is sailed from AudioChart
+  for (const id of ['play', 'pos']) { const el = document.getElementById(id); if (el) el.hidden = true; }
+  const sp = document.getElementById('speed')?.closest('label'); if (sp) sp.hidden = true;
+  const vn = document.getElementById('vjnote'); vn.textContent = 'Following Free Sailing'; vn.hidden = false;
+}
+
 // Follow a Virtual Journey running in the AudioChart window (it broadcasts its progress).
 let vjFollow = null;
 // an overnight stop on the journey (v887): sunset, night, dawn and day again over its few seconds
@@ -1512,6 +1558,7 @@ try {
   ch.onmessage = (e) => {
     const m = e.data || {};
     if (m.cycle && m.cycle.start !== nightSeen) { nightSeen = m.cycle.start; night = { ...m.cycle, from: env.C.time }; }   // an overnight stop (v887)
+    if (FREE) { if (m.free) freeAim(m.free); return; }
     if (m.routeId !== ROUTE.id) return;
     if (!m.running && m.frac >= 0.999) S = TOTAL;   // journey complete: arrive
     vjFollow = m.running ? { frac: Math.max(0, Math.min(1, m.frac)) } : null;

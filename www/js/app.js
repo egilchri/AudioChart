@@ -7276,9 +7276,11 @@ function _showVj3d(route) {
     const leaflet = document.getElementById('leaflet-map');
     leaflet.parentElement.insertBefore(_vj3dWrap, leaflet.nextSibling);
   }
-  const src = `./helm3d.html?route=${encodeURIComponent(route.id || route.name)}&embed=1`;
+  // no route: Free Sailing (v891), the helm view's free mode at the boat
+  const src = route ? `./helm3d.html?route=${encodeURIComponent(route.id || route.name)}&embed=1`
+    : `./helm3d.html?free=1&lat=${_fs.lat.toFixed(5)}&lon=${_fs.lon.toFixed(5)}&hdg=${Math.round(_fs.hdg)}&kn=${_vjSpeedKnots}&eye=100&embed=1`;
   const frame = _vj3dWrap.querySelector('iframe');
-  if (!frame.src.endsWith(src.slice(1))) frame.src = src;
+  if (route ? !frame.src.endsWith(src.slice(1)) : !/[?&]free=1/.test(frame.src)) frame.src = src;
   _vj3dWrap.querySelector('.vj3d-close').hidden = true;
   _vj3dWrap.hidden = false;
   // shrink the command bar over the 3D picture (see #app.vj3d-on in app.css)
@@ -7606,7 +7608,7 @@ document.getElementById('vjourney-pause-btn').addEventListener('click', (e) => {
   if (_fs) {   // Free Sailing borrows this panel (v890)
     _fs.running = !_fs.running; _fs.lastMs = Date.now();
     e.currentTarget.textContent = _fs.running ? '⏸ Pause' : '▶ Resume';
-    GPS.setVirtualPosition(_fs.lat, _fs.lon, _fs.hdg, _fs.running ? _vjSpeedKnots : 0); _fsStatus();
+    GPS.setVirtualPosition(_fs.lat, _fs.lon, _fs.hdg, _fs.running ? _vjSpeedKnots : 0); _fsStatus(); _fsBroadcast();
     return;
   }
   if (_vjRunning) _pauseVirtualJourney(); else _resumeVirtualJourney();
@@ -7615,7 +7617,7 @@ document.getElementById('vjourney-stop-btn').addEventListener('click', () => { i
 document.getElementById('vjourney-3d-btn').addEventListener('click', () => {
   const on = !(_vj3dWrap && !_vj3dWrap.hidden);
   try { localStorage.setItem(VJ3D_KEY, on ? 'on' : 'off'); } catch (_) {}
-  if (on && _vjRoute) _showVj3d(_vjRoute); else _hideVj3d();
+  if (on && _vjRoute) _showVj3d(_vjRoute); else if (on && _fs) _showVj3d(null); else _hideVj3d();
 });
 document.getElementById('vjourney-close-btn').addEventListener('click', () => { if (_fs) _stopFreeSail(); else _stopVirtualJourney(); });
 // Movable and shrinkable (v886, requested for Bird's-eye, where it sits over the view): drag it by
@@ -7724,12 +7726,17 @@ function _startFreeSail({ course = null, speed = null } = {}) {
   _fsSyncCourse(); _fsStatus();
   GPS.setVirtualPosition(_fs.lat, _fs.lon, _fs.hdg, _vjSpeedKnots);
   clearInterval(_fsTimer); _fsTimer = setInterval(_fsStep, VJ_TICK_MS);
+  _fsBroadcast();
+  // the Drone view comes up as a journey's 3D view does, unless you turned that off (or Bird's-eye is up)
+  if (_vj3dWanted() && !(_bay3dWrap && !_bay3dWrap.hidden)) _showVj3d(null); else _syncVj3dBtn();
   _fsSay(`Free sailing. Course ${_fsDeg3(_fsMagOf(hdg))} magnetic, ${_vjSpeedKnots} knots.`);
   return true;
 }
 function _stopFreeSail(quiet = false) {
   if (!_fs) return;
-  clearInterval(_fsTimer); _fsTimer = null; _fs = null;
+  clearInterval(_fsTimer); _fsTimer = null;
+  _fs.running = false; _fsBroadcast(); _fs = null; _vjLastMsg = null;
+  if (_vj3dWrap && !_vj3dWrap.hidden && /[?&]free=1/.test(_vj3dWrap.querySelector('iframe').src)) _hideVj3d();
   GPS.clearVirtualPosition();   // the boat stays where she is (v878)
   const banner = document.getElementById('vjourney-banner');
   banner.classList.remove('fs-mode'); banner.style.display = 'none';
@@ -7830,10 +7837,17 @@ function _fsLookAhead() {
   const what = h.label.charAt(0).toUpperCase() + h.label.slice(1);
   TTS.say(`${what}${h.name ? ', ' + h.name : ''}, ${formatDistance(d)}, ${_fsSide(rel)}.${fresh.length > 1 ? ` ${fresh.length - 1} more beyond.` : ''}`);
 }
+// the 3D views follow along (v891): the helm view's free mode, from AudioChart's channel
+function _fsBroadcast() {
+  try {
+    _vjLastMsg = { free: _fs ? { lat: _fs.lat, lon: _fs.lon, hdg: _fs.hdg, kn: _vjSpeedKnots, running: _fs.running && !_fs.held } : null };
+    _vjChan().postMessage(_vjLastMsg);
+  } catch (_) {}
+}
 function _fsAllStop(why) {
   _fs.held = why;
   GPS.setVirtualPosition(_fs.lat, _fs.lon, _fs.hdg, 0);
-  _fsStatus();
+  _fsStatus(); _fsBroadcast();
   _fsSay(`All stop, ${why}. Give a new course.`);
 }
 function _fsStep() {
@@ -7856,7 +7870,7 @@ function _fsStep() {
   GPS.setVirtualPosition(_fs.lat, _fs.lon, _fs.hdg, _vjSpeedKnots);
   _vjSound(_fs.lat, _fs.lon);
   if (now >= _fs.lookAt) { _fs.lookAt = now + 1500; _fsLookAhead(); }
-  _fsSyncCourse(); _fsStatus();
+  _fsSyncCourse(); _fsStatus(); _fsBroadcast();
 }
 // spoken/typed commands (parser.js FREE_SAIL_*): the reply text, or null when it isn't ours
 async function _freeSailCommand(intent, params) {

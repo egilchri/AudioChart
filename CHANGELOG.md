@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-14 — Drone view follows Free Sailing (v891)
+
+Requested. `helm3d.html?free=1&lat=&lon=&hdg=` is a route-less mode of the helm/Drone view: the
+scene is built for a 10 × 10 nm square round the boat (a synthetic "route" of east-west sweeps 3 km
+apart, so near tiles, horizon, trees and towns load as for a route), and the boat follows
+AudioChart's free-sailing boat over the `audiochart-vj` BroadcastChannel (`{free: {lat, lon, hdg,
+kn, running}}`, ~5/s, eased in between). Within 1.5 nm of the square's edge it reloads centred on
+the boat. No waypoints, route lines, ferries, Play or anchoring in this mode.
+- Opens like a journey's 3D view when Free Sailing starts (the panel's ⛰ 3D button now shows in
+  Free Sailing too), and from Bird's-eye's 🚁 Drone button, which now also shows for a boat with no
+  route; the helm view's Bird's-eye button comes back to free mode.
+
 ## 2026-10-14 — Free Sailing (v890)
 
 Requested: "I set a course and speed and the boat just goes", with obstructions called out and
