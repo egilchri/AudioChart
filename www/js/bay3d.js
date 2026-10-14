@@ -816,6 +816,19 @@ wpSel.addEventListener('change', () => { showRoute(wpSel.value, true); foldPanel
   }
 }
 
+// "⛵ Free sail" (v894): start Free Sailing from here, at the chart's boat and heading, without going
+// back to the chart for the boat's menu; shown only inside AudioChart, while nothing is sailing
+{
+  const b = document.createElement('button');
+  b.type = 'button'; b.id = 'tofree'; b.className = 'wxbtn'; b.hidden = true;
+  b.textContent = '⛵ Free sail'; b.title = 'Sail from your boat on a course and speed you set (Free Sailing)';
+  document.getElementById('tohelm').before(b);
+  const fs = () => { try { return window.parent !== window ? window.parent.__audioChartFreeSail : null; } catch (_) { return null; } };
+  const sync = () => { const f = fs(); b.hidden = !(f && document.body.classList.contains('embed') && !f.active() && !f.busy()); };
+  sync(); setInterval(sync, 1000);
+  b.addEventListener('click', () => { fs()?.start(); sync(); });
+}
+
 // "◀ 3D helm": back to the helm view of this route, from where your boat is now (v875). Opened from
 // the chart, the same button is "🚁 Drone" (v882, requested: Drone from Bird's-eye and back): the
 // helm view's Drone, at your boat's place on the route shown; its Bird's-eye button comes back here.

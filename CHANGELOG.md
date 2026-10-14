@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-14 — "⛵ Free sail" button in Bird's-eye (v894)
+
+Requested (the user, in Bird's-eye, couldn't see how to start sailing: the boat's menu is on the
+2D chart only). Bird's-eye inside AudioChart now has "⛵ Free sail" beside Drone and Weather; it
+starts Free Sailing at the boat's position and heading through `window.__audioChartFreeSail`, and
+hides while Free Sailing or a Virtual Journey is running.
+
 ## 2026-10-14 — "Bow" spoken to rhyme with "how" (v893)
 
 Requested. Speech voices read "port bow" as the ribbon kind. `tts.js` now respells a ship's bow

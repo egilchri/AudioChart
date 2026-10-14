@@ -7932,6 +7932,8 @@ document.getElementById('boat-ctx-freesail')?.addEventListener('click', () => {
   _hideBoatCtx();
   if (_fs) _stopFreeSail(); else _startFreeSail({});
 });
+// Bird's-eye's own "⛵ Free sail" button (v894) starts it from inside the 3D view
+window.__audioChartFreeSail = { active: () => !!_fs, busy: () => _vjRunning, start: () => { if (!_fs) _startFreeSail({}); } };
 
 function _getTrackSettings() {
   const objChip      = document.querySelector('.track-obj.selected');
