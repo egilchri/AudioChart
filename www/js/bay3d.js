@@ -861,6 +861,8 @@ wpSel.addEventListener('change', () => { showRoute(wpSel.value, true); foldPanel
   b.addEventListener('click', () => { fs()?.start(); sync(); });
 }
 
+// to another 3D view: inside AudioChart the chart loads it behind this one and fades it in (v899)
+const goView = url => { try { if (window.parent !== window && window.parent.__audioChartViews?.go?.(window, url)) return; } catch (_) {} location.href = url; };
 // "◀ 3D helm": back to the helm view of this route, from where your boat is now (v875). Opened from
 // the chart, the same button is "🚁 Drone" (v882, requested: Drone from Bird's-eye and back): the
 // helm view's Drone, at your boat's place on the route shown; its Bird's-eye button comes back here.
@@ -908,7 +910,7 @@ wpSel.addEventListener('change', () => { showRoute(wpSel.value, true); foldPanel
       q.set('hdg', String(Math.round(own.ext?.h ?? own.h ?? 0))); q.set('kn', String(own.ext?.kn ?? 0)); q.set('eye', String(goEye));
       if (params.get('embed')) q.set('embed', '1');
       try { if (window.frameElement?.closest('#bay3d-wrap')) q.set('inchart', '1'); } catch (_) {}
-      location.href = './helm3d.html?' + q; return;
+      goView('./helm3d.html?' + q); return;
     }
     if (id.startsWith('sample:')) q.set('sample', id.slice(7));
     else if (routeChoices.some(c => c.id === id)) q.set('route', id);
@@ -920,7 +922,7 @@ wpSel.addEventListener('change', () => { showRoute(wpSel.value, true); foldPanel
     // inside the chart (#bay3d-wrap) the chart's toolbar sits over the top-left, so the helm view's
     // View row moves down a little there
     try { if (window.frameElement?.closest('#bay3d-wrap')) q.set('inchart', '1'); } catch (_) {}
-    location.href = './helm3d.html?' + q;
+    goView('./helm3d.html?' + q);
   });
 }
 

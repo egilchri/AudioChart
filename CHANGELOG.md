@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-14 — Smooth 3D view switches with a small loading pill (v899)
+
+Requested ("make the transitions to and from various modes smoother … show some sort of
+in-progress widget, but not turn the whole screen a brown color while we wait"). Every 3D view
+now loads unseen: opening Bird's-eye or a journey's 3D view keeps the chart showing (the wrap stays
+see-through), and switching between 3D views (Bird's-eye ↔ Helm/20 ft/60 ft/Drone) keeps the
+current view up while the next loads in a second iframe behind it (`__audioChartViews.go()`). A
+small pill under the toolbar shows a spinner and the loading step ("Downloading terrain…"); the new
+view fades in (0.35 s) when its own Loading cover goes, or after 45 s. Outside AudioChart the 3D
+pages navigate as before.
+
 ## 2026-10-14 — Fix: a real mouse double-click on the boat in the 3D views (v898)
 
 v896/v897's boat-menu double-click listened on the 3D canvas, but a real press captures the pointer

@@ -1212,6 +1212,8 @@ for (const c of EYE_CHOICES) {
   b.addEventListener('click', () => setEye(c.m)); eyeBox.appendChild(b);
 }
 syncEyeButtons();
+// to another 3D view: inside AudioChart the chart loads it behind this one and fades it in (v899)
+const goView = url => { try { if (window.parent !== window && window.parent.__audioChartViews?.go?.(window, url)) return; } catch (_) {} location.href = url; };
 // Bird's-eye (v875, requested: one of the 3D view's choices): switches this window to the
 // Bird's-eye view of the bay with this route and your boat where she is now (still sailing if she
 // was), and its "◀ 3D helm" button comes back here. In a Virtual Journey both follow the journey.
@@ -1226,7 +1228,7 @@ syncEyeButtons();
     q.set('dist', '700'); q.set('tilt', '55'); q.set('az', String(Math.round(smoothCourse ?? 0)));
     if (!FREE) { q.set('at', (S / TOTAL).toFixed(5)); q.set('pace', speedEl.value); if (playing) q.set('play', '1'); }
     q.set('from', 'helm'); if (params.get('embed')) q.set('embed', '1');
-    location.href = './bay3d.html?' + q;
+    goView('./bay3d.html?' + q);
   });
   eyeBox.appendChild(b);
 }

@@ -828,6 +828,16 @@ html, body {
 #tilt-slider { writing-mode: vertical-lr; direction: rtl; height: 90px; width: 24px; cursor: pointer; accent-color: var(--brass); background: transparent; }   /* up = toward the horizon */
 #app.bay3d-on .compass-rose-ctrl svg { pointer-events: auto; cursor: grab; touch-action: none; transition: transform 0.12s linear; }   /* drag round to turn, tap for north up */
 #bay3d-wrap iframe { width: 100%; height: 100%; border: 0; display: block; }
+/* smooth 3D switches (v899): a view loads unseen and fades in; over the chart the wrap stays clear */
+#bay3d-wrap, #vj3d-wrap { overflow: hidden; }
+#bay3d-wrap iframe, #vj3d-wrap iframe { transition: opacity 0.35s ease; }
+#bay3d-wrap iframe.next3d, #vj3d-wrap iframe.next3d { position: absolute; inset: 0; }
+#bay3d-wrap.loading3d, #vj3d-wrap.loading3d { background: transparent; pointer-events: none; }
+#view3d-loading { position: fixed; left: 50%; top: calc(64px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); z-index: 2600; display: flex; align-items: center; gap: 8px; padding: 6px 14px 6px 10px; border-radius: 999px; background: var(--dark-blue); color: var(--text); border: 1px solid var(--mid-blue); box-shadow: 0 2px 10px rgba(0,0,0,0.45); font-size: 0.85rem; pointer-events: none; max-width: calc(100vw - 32px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#view3d-loading[hidden] { display: none; }
+#view3d-loading .spin { flex: none; width: 14px; height: 14px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: view3d-spin 0.8s linear infinite; }
+@keyframes view3d-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { #view3d-loading .spin { animation-duration: 2.4s; } #bay3d-wrap iframe, #vj3d-wrap iframe { transition: none; } }
 /* Bird's-eye as a map type (v879): the chart's tile row (Map Type et al.), Objects panel and bottom
    HUD stay on top of it, as they do over Chart or Satellite */
 #app.bay3d-on #map-overlay-status, #app.bay3d-on #navaid-filter-panel, #app.bay3d-on #bottom-hud,

@@ -7263,6 +7263,52 @@ const VJ_TICK_MS = 200;
 // so a Map choice saved under the old phone default doesn't keep phones on the map. When the journey completes the view stays up so the anchoring
 // plays out, with a Close button; stopping the journey yourself closes it.
 const VJ3D_KEY = 'audiochart-vj3d-v864';
+// Smooth 3D switches (v899, requested: "show some sort of in-progress widget, but not turn the whole
+// screen a brown color while we wait"). A 3D view loads hidden: over the chart the wrap stays
+// see-through, and between 3D views the old one stays up while the new one loads in a second iframe
+// behind it. A small pill shows the loading step; the new view fades in once its own "Loading…"
+// cover has gone (its #status hidden), or after 45 s whatever it shows.
+function _viewPill(text) {
+  let el = document.getElementById('view3d-loading');
+  if (!el) {
+    el = document.createElement('div'); el.id = 'view3d-loading'; el.setAttribute('role', 'status');
+    el.innerHTML = '<span class="spin" aria-hidden="true"></span><span class="txt"></span>';
+    document.body.appendChild(el);
+  }
+  el.hidden = !text; if (text) el.querySelector('.txt').textContent = text;
+}
+function _cancel3dLoad(wrap) {
+  if (!wrap) return;
+  if (wrap._load) { clearInterval(wrap._load); wrap._load = null; _viewPill(null); }
+  wrap.querySelectorAll('iframe.next3d').forEach(f => { f.src = 'about:blank'; f.remove(); });
+  wrap.classList.remove('loading3d');
+  const f = wrap.querySelector('iframe'); if (f) f.style.opacity = '';
+}
+function _load3d(wrap, url, label, from = null) {
+  _cancel3dLoad(wrap);
+  const cur = from || wrap.querySelector('iframe');
+  const showing = !wrap.hidden && cur && cur.src && !cur.src.startsWith('about:');
+  let fr = cur;
+  if (showing) {
+    fr = document.createElement('iframe'); fr.title = cur.title; if (cur.allow) fr.allow = cur.allow;
+    fr.className = 'next3d'; wrap.appendChild(fr);
+  } else wrap.classList.add('loading3d');
+  fr.style.opacity = '0'; fr.src = url;
+  const t0 = Date.now();
+  _viewPill(`Opening ${label}…`);
+  wrap._load = setInterval(() => {
+    let ready = false;
+    try {
+      const d = fr.contentDocument, st = d?.getElementById('status');
+      if (st && !st.hidden && st.textContent) _viewPill(st.textContent);
+      ready = !!st && st.hidden && d.readyState !== 'loading';
+    } catch (_) {}
+    if (!ready && Date.now() - t0 < 45000) return;
+    clearInterval(wrap._load); wrap._load = null; _viewPill(null);
+    wrap.classList.remove('loading3d'); fr.style.opacity = '';
+    if (fr !== cur) setTimeout(() => { if (cur.parentElement === wrap) { cur.src = 'about:blank'; cur.remove(); } fr.classList.remove('next3d'); }, 400);
+  }, 200);
+}
 let _vj3dWrap = null;
 function _vj3dWanted() {
   try { const v = localStorage.getItem(VJ3D_KEY); if (v) return v === 'on'; } catch (_) {}
@@ -7285,7 +7331,7 @@ function _showVj3d(route) {
   const src = route ? `./helm3d.html?route=${encodeURIComponent(route.id || route.name)}&embed=1`
     : `./helm3d.html?free=1&lat=${_fs.lat.toFixed(5)}&lon=${_fs.lon.toFixed(5)}&hdg=${Math.round(_fs.hdg)}&kn=${_vjSpeedKnots}&eye=100&embed=1`;
   const frame = _vj3dWrap.querySelector('iframe');
-  if (route ? !frame.src.endsWith(src.slice(1)) : !/[?&]free=1/.test(frame.src)) frame.src = src;
+  if (route ? !frame.src.endsWith(src.slice(1)) : !/[?&]free=1/.test(frame.src)) _load3d(_vj3dWrap, src, route ? 'the 3D view' : 'the Drone view');
   _vj3dWrap.querySelector('.vj3d-close').hidden = true;
   _vj3dWrap.hidden = false;
   // shrink the command bar over the 3D picture (see #app.vj3d-on in app.css)
@@ -7298,6 +7344,7 @@ function _showVj3d(route) {
 }
 function _hideVj3d() {
   if (!_vj3dWrap) return;
+  _cancel3dLoad(_vj3dWrap);
   _vj3dWrap.hidden = true;
   _vj3dWrap.querySelector('iframe').src = 'about:blank';   // frees the GPU memory the 3D view holds
   document.getElementById('app')?.classList.remove('vj3d-on');
@@ -7336,7 +7383,7 @@ function _showBay3d() {
     try { localStorage.setItem('audiochart-bay3d-editing', JSON.stringify({ name: _editRouteName || 'Route', points: _editPoints })); } catch (_) {}
   }
   if (!rid) { try { rid = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]').filter(r => !_hiddenRouteNames.has(r.name)).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0]?.id || ''; } catch (_) {} }
-  _bay3dWrap.querySelector('iframe').src = `./bay3d.html?embed=1&lat=${lat.toFixed(5)}&lon=${lon.toFixed(5)}&dist=${dist}${turn}${rid ? `&route=${encodeURIComponent(rid)}` : ''}`;
+  _load3d(_bay3dWrap, `./bay3d.html?embed=1&lat=${lat.toFixed(5)}&lon=${lon.toFixed(5)}&dist=${dist}${turn}${rid ? `&route=${encodeURIComponent(rid)}` : ''}`, "Bird's-eye");
   _bay3dWrap.style.top = (document.getElementById('status-title-bar')?.offsetHeight || 26) + 'px';
   _bay3dWrap.hidden = false;
   _appEl.classList.add('bay3d-on');
@@ -7399,6 +7446,7 @@ function _hideBay3d() {
       _bay3dLast = { ...v, chartLat: c.lat, chartLon: c.lng, chartZoom: _map.getZoom() };
     }
   } catch (_) {}
+  _cancel3dLoad(_bay3dWrap);
   _bay3dWrap.hidden = true;
   _stopBay3dSync();
   _syncLayerBtn(); _syncMapModeTitle();
@@ -7948,6 +7996,13 @@ window.__audioChartViews = {
     if (!fr || !p) return;
     const r = fr.getBoundingClientRect();
     _showBoatCtx(r.left + x, r.top + y, L.latLng(p.lat, p.lon), true);
+  },
+  // a 3D view switching to another (Bird's-eye ↔ the helm/Drone view): load it behind, then fade (v899)
+  go: (win, url) => {
+    const fr = [...document.querySelectorAll('#bay3d-wrap iframe, #vj3d-wrap iframe')].find(f => f.contentWindow === win);
+    if (!fr) return false;
+    _load3d(fr.parentElement, new URL(url, win.location.href).href, /bay3d/.test(url) ? "Bird's-eye" : /eye=100\b/.test(url) ? 'the Drone view' : 'the view from your boat', fr);
+    return true;
   },
   hideBoatMenu: () => { if (_boatCtxMenu.style.display !== 'none') _hideBoatCtx(); },
 };
