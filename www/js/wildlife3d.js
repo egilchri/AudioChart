@@ -121,7 +121,7 @@ export function makeWildlife({ scene, ledges = [] }) {
     const target = [opts.boat || focus, sites[0] || focus];
     for (let f = 0; f < 2; f++) {
       const A = anchors[f], T = target[f];
-      if (!A || Math.hypot(T.x - A.x, T.z - A.z) > 900) anchors[f] = { x: T.x, z: T.z };
+      if (!A || (f === 0 && opts.boat) || Math.hypot(T.x - A.x, T.z - A.z) > 900) anchors[f] = { x: T.x, z: T.z };   // the boat's flock keeps up with her, at any pace
       else { const k = Math.min(1, dt * 0.25); A.x += (T.x - A.x) * k; A.z += (T.z - A.z) * k; }   // a flock drifts after its target
     }
     for (const b of gulls) {

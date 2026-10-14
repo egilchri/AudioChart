@@ -954,7 +954,7 @@ function frame(now) {
   updateFleet(dt);
   updateWaypoints();
   updateOwn(dt);
-  wildlife.update(dt, t, view, camera.position, { hidden: !!aboveFog, night: env.C.time === 'night', boat: (own.ext || own.r) ? own : null, scale: d => clamp(d / 50, 2, 6) });
+  wildlife.update(dt, t, view, camera.position, { hidden: !!aboveFog, night: env.C.time === 'night', boat: (own.ext || own.r) ? own : null, scale: d => clamp(d / 35, 3, 8) });
   if (follow && !anim) { const k = Math.min(1, dt * 4); view.x += (follow.x - view.x) * k; view.z += (follow.z - view.z) * k; }
   renderer.render(scene, camera);
   updateLabels(); updateReadout();

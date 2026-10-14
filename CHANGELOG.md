@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-14 — Wildlife polish; Bird's-eye tutorial adds rotation, tilt, wildlife and Drone (v889)
+
+- Gulls over a moving boat stay with her at any journey pace (they used to jump every few seconds at 60×).
+- Bird's-eye draws the gulls and seals 3-8× life size (was 2-6×), so they read at the closest zoom.
+- Sailors page tutorial 9 (`demo9d.mp4`, was `demo9c.mp4`) adds: turning the view by dragging the compass
+  rose and tapping it for north up, the tilt slider, a close look at seals and gulls on a ledge off
+  Owls Head, and Drone from Bird's-eye and back during the journey. The waits for the Drone view to load
+  are cut.
+
 ## 2026-10-14 — Seagulls and seals in the 3D views (v888)
 
 Requested. New `www/js/wildlife3d.js`, used by Bird's-eye (`bay3d.js`) and the helm/Drone view
