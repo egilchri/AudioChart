@@ -1168,6 +1168,20 @@ let eyeH = eyeTarget;
 const eyeBox = document.getElementById('eyepick');
 function syncEyeButtons() { for (const b of eyeBox.querySelectorAll('button[data-m]')) b.classList.toggle('on', Math.abs(Number(b.dataset.m) - eyeTarget) < 0.2); }
 function setEye(m) { eyeTarget = m; try { localStorage.setItem('audiochart-helm3d-view', String(m)); } catch (_) {} syncEyeButtons(); }
+// double-click the boat (v896, requested): AudioChart's boat menu (Free sail, Autoroute, …)
+{
+  let hook = null; try { if (window.parent !== window) hook = window.parent.__audioChartViews; } catch (_) {}
+  if (hook?.boatMenu) {
+    const rc = new THREE.Raycaster(), v = new THREE.Vector2();
+    renderer.domElement.addEventListener('pointerdown', () => hook.hideBoatMenu());
+    renderer.domElement.addEventListener('dblclick', e => {
+      const r = renderer.domElement.getBoundingClientRect();
+      v.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+      rc.setFromCamera(v, camera);
+      if (rc.intersectObject(boat, true).length) hook.boatMenu(window, e.clientX, e.clientY);
+    });
+  }
+}
 // "🗺 Chart" (v895, requested: pass between all the views): inside AudioChart, back to the 2D chart
 {
   let hook = null; try { if (window.parent !== window) hook = window.parent.__audioChartViews; } catch (_) {}

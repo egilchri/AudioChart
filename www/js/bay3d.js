@@ -816,6 +816,22 @@ wpSel.addEventListener('change', () => { showRoute(wpSel.value, true); foldPanel
   }
 }
 
+// double-click your boat (v896, requested): AudioChart's boat menu (Free sail, Autoroute, …)
+{
+  let hook = null; try { if (window.parent !== window) hook = window.parent.__audioChartViews; } catch (_) {}
+  if (hook?.boatMenu) {
+    const pv = new THREE.Vector3();
+    renderer.domElement.addEventListener('pointerdown', () => hook.hideBoatMenu());
+    renderer.domElement.addEventListener('dblclick', e => {
+      if (!own.boat.group.visible) return;
+      const r = renderer.domElement.getBoundingClientRect();
+      pv.set(own.x, 6 * own.boat.group.scale.x, own.z).project(camera);
+      const sx = r.left + (pv.x + 1) / 2 * r.width, sy = r.top + (1 - pv.y) / 2 * r.height;
+      if (pv.z < 1 && Math.hypot(e.clientX - sx, e.clientY - sy) < 45) { e.stopImmediatePropagation(); hook.boatMenu(window, e.clientX, e.clientY); }
+    });
+  }
+}
+
 // "⛵ Free sail" (v894): start Free Sailing from here, at the chart's boat and heading, without going
 // back to the chart for the boat's menu; shown only inside AudioChart, while nothing is sailing
 {

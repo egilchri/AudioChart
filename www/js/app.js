@@ -84,8 +84,11 @@ const _boatCtxMenu = document.getElementById('boat-context-menu');
 
 function _hideBoatCtx() { _boatCtxMenu.style.display = 'none'; _disarmBoatCtxDragSelect(); }
 
-function _showBoatCtx(clientX, clientY, latlng) {
-  _boatCtxLatLng = latlng;
+let _boatCtxFrom3d = false;   // opened by double-clicking the boat in a 3D view (v896)
+function _showBoatCtx(clientX, clientY, latlng, from3d = false) {
+  _boatCtxLatLng = latlng; _boatCtxFrom3d = from3d;
+  const fsBtn = document.getElementById('boat-ctx-freesail');
+  if (fsBtn) fsBtn.textContent = typeof _fs !== 'undefined' && _fs ? '⛵ Stop free sailing' : '⛵ Free sail';
   _boatCtxMenu.style.display = 'block';
   const mw = _boatCtxMenu.offsetWidth, mh = _boatCtxMenu.offsetHeight;
   const x = Math.min(clientX, window.innerWidth - mw - 4);
@@ -122,10 +125,12 @@ function _disarmBoatCtxDragSelect() {
 
 document.getElementById('boat-ctx-autoroute').addEventListener('click', () => {
   _hideBoatCtx();
+  if (_boatCtxFrom3d) window.__audioChartViews.chart();   // routes are planned on the chart
   if (_boatCtxLatLng) _routeFromHereFn?.(_boatCtxLatLng.lat, _boatCtxLatLng.lng);
 });
 document.getElementById('boat-ctx-sketch').addEventListener('click', () => {
   _hideBoatCtx();
+  if (_boatCtxFrom3d) window.__audioChartViews.chart();
   _enterSketchMode();
 });
 // Same pipeline the Search box uses (nextSearchPinName/saveUserWaypoint with
@@ -7934,7 +7939,18 @@ document.getElementById('boat-ctx-freesail')?.addEventListener('click', () => {
 });
 // Bird's-eye's own "⛵ Free sail" button (v894) starts it from inside the 3D view
 // the 3D views' "🗺 Chart" button (v895): back to the 2D chart from either 3D frame
-window.__audioChartViews = { chart: () => { if (_vj3dWrap && !_vj3dWrap.hidden) _hideVj3d(); if (_bay3dWrap && !_bay3dWrap.hidden) _hideBay3d(); } };
+window.__audioChartViews = {
+  chart: () => { if (_vj3dWrap && !_vj3dWrap.hidden) _hideVj3d(); if (_bay3dWrap && !_bay3dWrap.hidden) _hideBay3d(); },
+  // double-click the boat in a 3D view (v896, requested): the same boat menu as on the chart
+  boatMenu: (win, x, y) => {
+    const fr = [...document.querySelectorAll('#bay3d-wrap iframe, #vj3d-wrap iframe')].find(f => f.contentWindow === win);
+    const p = GPS.getPosition();
+    if (!fr || !p) return;
+    const r = fr.getBoundingClientRect();
+    _showBoatCtx(r.left + x, r.top + y, L.latLng(p.lat, p.lon), true);
+  },
+  hideBoatMenu: () => { if (_boatCtxMenu.style.display !== 'none') _hideBoatCtx(); },
+};
 window.__audioChartFreeSail = { active: () => !!_fs, busy: () => _vjRunning, start: () => { if (!_fs) _startFreeSail({}); } };
 
 function _getTrackSettings() {

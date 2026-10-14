@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-14 — Double-click the boat in any 3D view for its menu (v896)
+
+Requested ("Anytime the boat is stopped, I ought to be able to double click on it to go into sail
+mode or start an autoroute"). Double-clicking your boat in the helm/Drone view (a hit on the boat's
+mesh) or in Bird's-eye (within 45 px of the boat) opens the chart's own boat menu over the 3D view,
+through `window.__audioChartViews.boatMenu()`. Autoroute and Sketch go back to the chart first,
+since routes are planned there; Free sail, Drop Pin, tracking and anchor watch stay in the 3D view.
+The menu's Free sail item reads "Stop free sailing" while you are. The chart's double-click was
+already working.
+
 ## 2026-10-14 — One View row in every 3D view: Chart · Helm · 20 ft · 60 ft · Drone · Bird's-eye (v895)
 
 Requested ("I should be able to pass between these views"). Bird's-eye had only one way out
