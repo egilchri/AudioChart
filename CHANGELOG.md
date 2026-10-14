@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-14 — Sailors page: Bird's-eye tutorial adds Free Sailing (demo9e)
+
+Requested ("make the demo video show free sailing too"). After the journey, the tutorial double-clicks
+the boat for its menu, starts Free sailing, turns 10°, types "head for Curtis Island light", and
+sails at 60× past Rockport to the all stop at Curtis Island; the app's own spoken words (logged from
+speechSynthesis during the recording) are voiced by a second Piper voice, scheduled around the
+narration. The Bird's-eye ↔ Drone switches now show v899's loading pill and fade.
+
 ## 2026-10-14 — Command box usable over Bird's-eye (v900)
 
 Found while recording the demo: in Bird's-eye (as a map type) the command box opened by "/" or the
