@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-14 — "Bow" spoken to rhyme with "how" (v893)
+
+Requested. Speech voices read "port bow" as the ribbon kind. `tts.js` now respells a ship's bow
+("port/starboard/the/off/over/from/at bow") as "bough" in the spoken text only; the printed status
+keeps "bow".
+
 ## 2026-10-14 — Free Sailing names the towns you pass (v892)
 
 Requested ("should identify towns"). While Free Sailing, the look-ahead also checks the chart's own

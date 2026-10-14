@@ -119,7 +119,9 @@ function speakNext() {
   const text = queue.shift();
   speaking = true;
   _retriedCurrent = false;
-  const utt = new SpeechSynthesisUtterance(text);
+  // a ship's bow rhymes with "how"; voices read it as the ribbon kind, so spell it the
+  // way it sounds (speech only — the printed text keeps "bow")
+  const utt = new SpeechSynthesisUtterance(text.replace(/\b(port|starboard|the|off|over|from|at)\s+bow\b/gi, '$1 bough'));
   utt.rate = 0.85;
   utt.pitch = 1.0;
   utt.volume = 1.0;
