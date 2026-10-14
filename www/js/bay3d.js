@@ -11,7 +11,7 @@
 import * as THREE from 'three';
 import { Water } from './lib/three/Water.js';
 import { LON0, LAT0, MX, MY, wx, wz, readDem, photo, addCanopy, gridMesh, photoMat, buildTown, disposeGroup, spruce, TOWN_NIGHT } from './terrain3d.js';
-import { SUN, makeSky, makeEnv, glowSprite, flashFor, flashOn, weatherPanel, startConditions, makeTrimmer } from './weather3d.js';
+import { SUN, makeSky, makeEnv, glowSprite, flashFor, flashOn, weatherPanel, startConditions, makeTrimmer, cycleLook } from './weather3d.js';
 import { makeSailboat } from './sailboat3d.js';
 
 const statusEl = document.getElementById('status');
@@ -774,10 +774,19 @@ function updateOwn(dt) {
   const day = own.nights.length ? `Day ${1 + own.nights.filter(c => own.S >= c - 1).length} of ${own.nights.length + 1} · ` : '';
   if (!own.ext && lblTick % 6 === 0) sailNote.textContent = (own.vj ? 'Following your Virtual Journey · ' : '') + day + `${(own.S / NMm).toFixed(1)} / ${(own.total / NMm).toFixed(1)} nm` + (up ? ` · ${p.name}` : env.W.heel === 0 ? ' · calm' : ' · arrived');
 }
+// an overnight stop on a Virtual Journey (v887): sunset, night, dawn and day again over its few seconds
+let night = null, nightSeen = 0;
+function updateNight() {
+  if (!night) return;
+  const u = (Date.now() - night.start) / night.dur;
+  if (u >= 1) { night = null; applyConditions({ time: 'day' }); return; }
+  const L = cycleLook(night.from, u); env.blendT = L.T; applyConditions({ time: L.time }); env.blendT = null;
+}
 try {   // a Virtual Journey of this route running in AudioChart
   const ch = new BroadcastChannel('audiochart-vj');
   ch.onmessage = e => {
     const m = e.data || {};
+    if (m.cycle && m.cycle.start !== nightSeen) { nightSeen = m.cycle.start; night = { ...m.cycle, from: env.C.time }; }   // an overnight stop (v887)
     if (own.ext) return;   // inside the chart, the chart's boat already is the journey
     if (!own.r || (m.routeId !== own.r.id && 'sample:' + m.routeId !== own.r.id && m.routeId !== own.r.name)) return;
     own.vj = m.running ? { frac: clamp(m.frac, 0, 1) } : null;
@@ -935,6 +944,7 @@ function frame(now) {
   if (!drag && !anim) updateTrees(); else if (t - (TREES.lastMove || 0) > 0.25) { TREES.lastMove = t; updateTrees(); }
   water.position.set(view.x, 0, view.z);
   sky.position.copy(camera.position);
+  updateNight();
   updateWeather(dt, t);
   updateFleet(dt);
   updateWaypoints();

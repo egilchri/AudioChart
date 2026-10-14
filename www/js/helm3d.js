@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { Water } from './lib/three/Water.js';
 import { depthAtFrom } from './depth.js';
 import { LON0, LAT0, MX, MY, wx, wz, cachedFetch, readDem, photo, photoAtCells, addCanopy, gridMesh, photoMat, buildTown, spruce, tlog, tmark, TOWN_NIGHT } from './terrain3d.js';
-import { makeSky, makeEnv, glowSprite, flashFor, weatherPanel, startConditions, makeTrimmer } from './weather3d.js';
+import { makeSky, makeEnv, glowSprite, flashFor, weatherPanel, startConditions, makeTrimmer, cycleLook } from './weather3d.js';
 
 const statusEl = document.getElementById('status');
 const loadingNote = document.getElementById('tileload');
@@ -1351,6 +1351,7 @@ let lastTileCheck = -1;
 function frame() {
   if (++fpsN === 60) { window.__fps = Math.round(60000 / (performance.now() - fpsT)); fpsN = 0; fpsT = performance.now(); }
   const dt = Math.min(0.1, clock.getDelta()); t += dt;
+  updateNight();
   if (vjFollow) {   // ease toward the journey's broadcast position, which arrives once per tick
     const target = vjFollow.frac * TOTAL;
     S = Math.abs(target - S) > 500 ? target : S + (target - S) * Math.min(1, dt * 2);
@@ -1491,11 +1492,20 @@ requestAnimationFrame(frame);
 
 // Follow a Virtual Journey running in the AudioChart window (it broadcasts its progress).
 let vjFollow = null;
+// an overnight stop on the journey (v887): sunset, night, dawn and day again over its few seconds
+let night = null, nightSeen = 0;
+function updateNight() {
+  if (!night) return;
+  const u = (Date.now() - night.start) / night.dur;
+  if (u >= 1) { night = null; applyConditions({ time: 'day' }); return; }
+  const L = cycleLook(night.from, u); env.blendT = L.T; applyConditions({ time: L.time }); env.blendT = null;
+}
 const vjNote = document.getElementById('vjnote');
 try {
   const ch = new BroadcastChannel('audiochart-vj');
   ch.onmessage = (e) => {
     const m = e.data || {};
+    if (m.cycle && m.cycle.start !== nightSeen) { nightSeen = m.cycle.start; night = { ...m.cycle, from: env.C.time }; }   // an overnight stop (v887)
     if (m.routeId !== ROUTE.id) return;
     if (!m.running && m.frac >= 0.999) S = TOTAL;   // journey complete: arrive
     vjFollow = m.running ? { frac: Math.max(0, Math.min(1, m.frac)) } : null;

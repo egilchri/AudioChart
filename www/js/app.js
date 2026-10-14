@@ -1228,7 +1228,11 @@ let _vjTotalNm      = 0;
 let _vjSpeedKnots   = 5;
 let _vjCompress     = 1;
 let _vjTraveledNm   = 0;      // persists across pause/resume
-let _vjBaselineNm   = 0;      // traveled-nm snapshot at the start of the current run segment
+let _vjBaselineNm   = 0;
+// Overnight stops (v887, requested): at each, the boat holds for VJ_NIGHT_MS while the 3D views
+// play sunset → night → dawn → day, then the journey goes on the next day.
+const VJ_NIGHT_MS = 5000;
+let _vjNights = [], _vjNightIdx = 0, _vjHoldUntil = 0, _vjHoldAt = 0, _vjCycleStart = 0, _vjDay = 1;      // traveled-nm snapshot at the start of the current run segment
 let _vjRunStartMs   = null;   // rAF timestamp anchor for the current run segment
 let _vjRafId        = null;
 let _vjRunning      = false;  // true only while actually ticking (false while paused)
@@ -7176,6 +7180,10 @@ function _startVirtualJourney(route, speedKnots) {
   }
   _vjSegs = segs;
   _vjTotalNm = cumDist;
+  // overnight stops along the way (not the start or the end): route distance, waypoint index, name
+  _vjNights = route.points.map((p, i) => (p.overnight && i > 0 && i < route.points.length - 1)
+    ? { nm: segs[i - 1].cumDist + segs[i - 1].dist, i, name: p.name } : null).filter(Boolean);
+  _vjNightIdx = 0; _vjHoldUntil = 0; _vjCycleStart = 0; _vjDay = 1;
 
   // Reuse _startFollowingRoute's next-waypoint/focus state (same fields
   // _updateFollowProgress already watches) so "next waypoint", the
@@ -7405,16 +7413,39 @@ function _vjChan() {
 function _broadcastVj(running) {
   try {
     if (!_vjRoute) return;
-    _vjLastMsg = { routeId: _vjRoute.id || _vjRoute.name, running, frac: _vjTotalNm ? _vjTraveledNm / _vjTotalNm : 0 };
+    _vjLastMsg = { routeId: _vjRoute.id || _vjRoute.name, running, frac: _vjTotalNm ? _vjTraveledNm / _vjTotalNm : 0,
+      // an overnight stop's sunset-to-day cycle, timed by the 3D views themselves from `start`
+      cycle: _vjCycleStart && Date.now() - _vjCycleStart < VJ_NIGHT_MS ? { start: _vjCycleStart, dur: VJ_NIGHT_MS } : null };
     _vjChan().postMessage(_vjLastMsg);
   } catch (_) {}
 }
 
 function _vjStep() {
   if (!_vjRunning) return;
+  // holding at an overnight stop: the boat stays put until the night has passed, then sails on
+  if (_vjHoldUntil) {
+    if (Date.now() < _vjHoldUntil) { _broadcastVj(true); return; }
+    _vjHoldUntil = 0; _vjBaselineNm = _vjHoldAt; _vjRunStartMs = Date.now(); _vjDay++;
+    const msg = `Day ${_vjDay}. Under way again.`;
+    setStatus(msg); TTS.sayImmediate(msg);
+  }
   const elapsed = (Date.now() - _vjRunStartMs) / 1000;
   const nmPerRealSec = (_vjSpeedKnots / 3600) * _vjCompress;
   _vjTraveledNm = _vjBaselineNm + elapsed * nmPerRealSec;
+  while (_vjNights[_vjNightIdx] && _vjNights[_vjNightIdx].nm < _vjBaselineNm - 1e-6) _vjNightIdx++;   // already behind us (e.g. resumed past it)
+  const night = _vjNights[_vjNightIdx];
+  if (night && _vjTraveledNm >= night.nm) {
+    _vjNightIdx++;
+    _vjTraveledNm = _vjHoldAt = night.nm;
+    _vjHoldUntil = _vjCycleStart = Date.now(); _vjHoldUntil += VJ_NIGHT_MS;
+    const p = _vjRoute.points[night.i], seg = _vjSegs[night.i - 1];
+    GPS.setVirtualPosition(p.lat, p.lon, seg?.brg ?? 0, 0);
+    document.getElementById('vjourney-status').textContent = `Overnight · day ${_vjDay} ends · ${_vjTraveledNm.toFixed(1)}/${_vjTotalNm.toFixed(1)} nm`;
+    const msg = `Overnight stop${night.name ? ' at ' + night.name : ''}.`;
+    setStatus(msg); TTS.sayImmediate(msg);
+    _broadcastVj(true);
+    return;
+  }
   _broadcastVj(true);
 
   if (_vjTraveledNm >= _vjTotalNm) {

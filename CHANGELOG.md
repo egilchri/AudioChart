@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-13 — Overnight stops on a Virtual Journey: sunset, night, dawn, day (v887)
+
+Requested: at an overnight stop, cycle through sunset, night, dawn and day over about 5
+seconds and restart the journey the next day. The journey now holds at each overnight
+waypoint for 5 s ("Overnight stop at …", then "Day 2. Under way again."); any open 3D view
+(Bird's-eye, Drone/helm) blends smoothly from the current time of day through sunset, night
+and dawn to day (weather3d.js cycleLook, applied per frame via env.blendT, which isn't saved
+as your chosen conditions). Checked on Rockland to Hadlock Cove: three nights, each ~5 s,
+the journey resuming after each.
+
 ## 2026-10-13 — Virtual Journey panel: movable and shrinkable (v886)
 
 Requested for Bird's-eye, where the journey panel sits over the view: drag it by its title

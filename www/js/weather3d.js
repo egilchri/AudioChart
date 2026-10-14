@@ -21,6 +21,25 @@ export const TIMES = {
   dawn:   { exp: 0.58, sky: 0xd9c8e2, gnd: 0x35363c, hemi: 1.0, dlc: 0xffc49a, dl: 1.7, dir: sunAt(4, 72), haze: 0xe8bfb2, zen: 0x35558c, water: 0x2c4c72, glint: 0xffcf9c, glow: [1, 0.78, 0.58], lights: 0.35, fog: 0xc4b8b6, cloud: 0xffd9cc, over: 0x8c8a93, deck: 0x9a96a0 },
   night:  { exp: 0.55, sky: 0x8aa2c8, gnd: 0x1a2129, hemi: 0.62, dlc: 0xc6d4ee, dl: 0.75, dir: MOON, haze: 0x152236, zen: 0x03070f, water: 0x0c1e33, glint: 0x37415a, glow: [0, 0, 0], lights: 1, fog: 0x1a2330, cloud: 0x3a4250, over: 0x0f141b, deck: 0x151a21 },
 };
+// An overnight stop on a Virtual Journey (v887): from the current time of day through sunset,
+// night and dawn to day, u (0–1) of the way through, as a blend of the TIMES looks; the views
+// apply it by setting env.blendT for one applyConditions call.
+const CYCLE = ['sunset', 'night', 'dawn', 'day'];
+function blendTimes(A, B, k) {
+  const T = {};
+  for (const key in A) {
+    const a = A[key], b = B[key];
+    if (key === 'dir') T.dir = a.clone().lerp(b, k).normalize();
+    else if (Array.isArray(a)) T[key] = a.map((v, j) => v + (b[j] - v) * k);
+    else if (key === 'exp' || key === 'hemi' || key === 'dl' || key === 'lights') T[key] = a + (b - a) * k;
+    else T[key] = new THREE.Color(a).lerp(new THREE.Color(b), k).getHex();
+  }
+  return T;
+}
+export function cycleLook(from, u) {
+  const seq = [TIMES[from] ? from : 'day', ...CYCLE], x = Math.min(0.9999, Math.max(0, u)) * (seq.length - 1), i = Math.floor(x), k = x - i;
+  return { time: k < 0.5 ? seq[i] : seq[i + 1], T: blendTimes(TIMES[seq[i]], TIMES[seq[i + 1]], k) };
+}
 export const VIS_M = { clear: 26000, haze: 8000, fog: 900, thick: 250 };   // metres to where the fog is ~98% thick
 export const WINDS = {
   calm:   { dist: 0.5, size: 8, speed: 0.35, heel: 0, move: 0.35, foam: 0, tws: 2, kn: '0–4 kn' },
@@ -148,7 +167,7 @@ export function makeEnv(o) {
   const env = { stars, deck, foam, rain, C: { ...DEFAULT_COND }, T: TIMES.day, W: WINDS.breezy, visM: VIS_M.clear, lightsK: 0, foggy: false, over: false, wet: false, night: false, fogC: col(0xb2cbe0) };
   env.apply = (next = {}) => {
     const C = Object.assign(env.C, next);
-    const T = env.T = TIMES[C.time] || TIMES.day, over = env.over = C.sky !== 'fair', wet = env.wet = C.sky === 'rain', night = env.night = C.time === 'night';
+    const T = env.T = env.blendT || TIMES[C.time] || TIMES.day, over = env.over = C.sky !== 'fair', wet = env.wet = C.sky === 'rain', night = env.night = C.time === 'night';
     env.W = WINDS[C.wind] || WINDS.breezy;
     env.visM = Math.min(VIS_M[C.vis] || VIS_M.clear, wet ? 6000 : Infinity);
     const foggy = env.foggy = env.visM < 2000;
@@ -184,7 +203,7 @@ export function makeEnv(o) {
     foam.material.color.set(col(0xffffff).multiplyScalar(night ? 0.3 : T.lights ? 0.75 : 1)); foam.material.opacity = env.W.foam * 0.8;
     env.rainOn = wet; rain.visible = wet; rain.material.color.setHex(night ? 0x5d6672 : 0xc6d0da);
     document.body.classList.toggle('night', night);
-    try { localStorage.setItem(KEY, JSON.stringify(C)); } catch (_) {}
+    if (!env.blendT) try { localStorage.setItem(KEY, JSON.stringify(C)); } catch (_) {}   // not each frame of an overnight cycle
     return env;
   };
   // every frame: the sea moves, clouds drift, the foam follows `at` (a point on the water) and drifts, rain falls round the eye
