@@ -1173,20 +1173,23 @@ function setEye(m) { eyeTarget = m; try { localStorage.setItem('audiochart-helm3
   let hook = null; try { if (window.parent !== window) hook = window.parent.__audioChartViews; } catch (_) {}
   if (hook?.boatMenu) {
     const rc = new THREE.Raycaster(), v = new THREE.Vector2();
-    renderer.domElement.addEventListener('pointerdown', () => hook.hideBoatMenu());
+    // on the page, not the canvas: a press captures the pointer to the scene's container, so the
+    // dblclick and pointerup land there (v898); controls are left alone
+    const onScene = e => !e.target.closest?.('button, input, select, textarea, a, label, .panel, #wxpanel');
+    addEventListener('pointerdown', () => hook.hideBoatMenu());
     const tryMenu = (x, y) => {
       const r = renderer.domElement.getBoundingClientRect();
       v.set(((x - r.left) / r.width) * 2 - 1, -((y - r.top) / r.height) * 2 + 1);
       rc.setFromCamera(v, camera);
       if (rc.intersectObject(boat, true).length) hook.boatMenu(window, x, y);
     };
-    renderer.domElement.addEventListener('dblclick', e => tryMenu(e.clientX, e.clientY));
+    addEventListener('dblclick', e => { if (onScene(e)) tryMenu(e.clientX, e.clientY); });
     // a phone's double-tap (v897): two quick touch taps close together; browsers don't reliably
     // turn those into dblclick (iOS never does here), the same reason the chart detects its own
     let downX = 0, downY = 0, lastUp = 0, lastX = 0, lastY = 0;
-    renderer.domElement.addEventListener('pointerdown', e => { downX = e.clientX; downY = e.clientY; });
-    renderer.domElement.addEventListener('pointerup', e => {
-      if (e.pointerType !== 'touch') return;
+    addEventListener('pointerdown', e => { downX = e.clientX; downY = e.clientY; });
+    addEventListener('pointerup', e => {
+      if (e.pointerType !== 'touch' || !onScene(e)) return;
       if (Math.hypot(e.clientX - downX, e.clientY - downY) > 10) { lastUp = 0; return; }   // a drag, not a tap
       const now = Date.now();
       if (now - lastUp < 400 && Math.hypot(e.clientX - lastX, e.clientY - lastY) < 30) { lastUp = 0; tryMenu(e.clientX, e.clientY); }
@@ -1213,7 +1216,7 @@ syncEyeButtons();
 // Bird's-eye view of the bay with this route and your boat where she is now (still sailing if she
 // was), and its "◀ 3D helm" button comes back here. In a Virtual Journey both follow the journey.
 {
-  const b = document.createElement('button'); b.type = 'button'; b.textContent = "Bird's-eye"; b.className = 'birdbtn';
+  const b = document.createElement('button'); b.type = 'button'; b.textContent = "Bird's-eye"; b.className = 'birdbtn'; b.id = 'tobird';
   b.title = 'The whole bay from the air, with your boat on this route';
   b.addEventListener('pointerdown', e => e.stopPropagation());
   b.addEventListener('click', () => {

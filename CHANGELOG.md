@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-14 — Fix: a real mouse double-click on the boat in the 3D views (v898)
+
+v896/v897's boat-menu double-click listened on the 3D canvas, but a real press captures the pointer
+to the scene's container, so the browser delivered the dblclick there and the menu never opened
+(the v896 test had dispatched the event straight at the canvas, which hid this). Both 3D views now
+listen at the page and skip their own controls; verified with real CDP mouse double-clicks
+(Bird's-eye and Drone) and touch double-taps at phone width. Also: Bird's-eye's View-row buttons
+carry `data-eye`, the helm view's Bird's-eye button is `#tobird`, and `__bay3d.boatOnScreen()`
+gives the boat's screen position, for tests and the demo video.
+
 ## 2026-10-14 — Double-tap the boat on a phone in the 3D views; Record button fix (v897)
 
 Requested ("make double-tap work on the phone too"). Bird's-eye and the helm/Drone view detect a

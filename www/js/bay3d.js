@@ -821,7 +821,10 @@ wpSel.addEventListener('change', () => { showRoute(wpSel.value, true); foldPanel
   let hook = null; try { if (window.parent !== window) hook = window.parent.__audioChartViews; } catch (_) {}
   if (hook?.boatMenu) {
     const pv = new THREE.Vector3();
-    renderer.domElement.addEventListener('pointerdown', () => hook.hideBoatMenu());
+    // on the page, not the canvas: a press captures the pointer to the scene's container, so the
+    // dblclick and pointerup land there (v898); controls are left alone
+    const onScene = e => !e.target.closest?.('button, input, select, textarea, a, label, .panel, #wxpanel');
+    addEventListener('pointerdown', () => hook.hideBoatMenu());
     const tryMenu = (x, y) => {
       if (!own.boat.group.visible) return false;
       const r = renderer.domElement.getBoundingClientRect();
@@ -830,13 +833,13 @@ wpSel.addEventListener('change', () => { showRoute(wpSel.value, true); foldPanel
       if (!(pv.z < 1 && Math.hypot(x - sx, y - sy) < 45)) return false;
       hook.boatMenu(window, x, y); return true;
     };
-    renderer.domElement.addEventListener('dblclick', e => { if (tryMenu(e.clientX, e.clientY)) e.stopImmediatePropagation(); });
+    addEventListener('dblclick', e => { if (onScene(e) && tryMenu(e.clientX, e.clientY)) e.stopImmediatePropagation(); });
     // a phone's double-tap (v897): two quick touch taps close together; browsers don't reliably
     // turn those into dblclick (iOS never does here), the same reason the chart detects its own
     let downX = 0, downY = 0, lastUp = 0, lastX = 0, lastY = 0;
-    renderer.domElement.addEventListener('pointerdown', e => { downX = e.clientX; downY = e.clientY; });
-    renderer.domElement.addEventListener('pointerup', e => {
-      if (e.pointerType !== 'touch') return;
+    addEventListener('pointerdown', e => { downX = e.clientX; downY = e.clientY; });
+    addEventListener('pointerup', e => {
+      if (e.pointerType !== 'touch' || !onScene(e)) return;
       if (Math.hypot(e.clientX - downX, e.clientY - downY) > 10) { lastUp = 0; return; }   // a drag, not a tap
       const now = Date.now();
       if (now - lastUp < 400 && Math.hypot(e.clientX - lastX, e.clientY - lastY) < 30) { lastUp = 0; tryMenu(e.clientX, e.clientY); }
@@ -878,7 +881,7 @@ wpSel.addEventListener('change', () => { showRoute(wpSel.value, true); foldPanel
   if (hook) mk('🗺 Chart', 'Back to the chart', () => hook.chart());
   let goEye = 100;
   const helmBtns = [['Helm', 'Deck level, at the tiller', 6.5], ['20 ft', 'From 20 ft up', 20], ['60 ft', 'From 60 ft up', 60], ['🚁 Drone', 'From just above and astern of your boat', 100]]
-    .map(([l, t, ft]) => mk(l, t, () => { goEye = ft; b.click(); }));
+    .map(([l, t, ft]) => { const x = mk(l, t, () => { goEye = ft; b.click(); }); x.dataset.eye = ft; return x; });
   const here = mk("Bird's-eye", 'This view: the whole bay from the air', () => {}); here.classList.add('on'); here.setAttribute('aria-current', 'true');
   const sync = () => {
     const can = fromHelm || (document.body.classList.contains('embed') && ((own.r && own.r.id !== 'editing') || freeBoat()));
@@ -1036,6 +1039,12 @@ statusEl.hidden = true;
 requestAnimationFrame(frame);
 window.__bay3d = {   // for AudioChart (returning to the chart where you were) and for testing
   getView: () => ({ lat: latOf(view.z), lon: lonOf(view.x), dist: view.dist, az: view.az / DEG, tilt: view.tilt / DEG, following: follow === own }),
+  // where your boat is on screen, [x, y] in this page's pixels, or null (for testing and the demo video)
+  boatOnScreen: () => {
+    if (!own.boat.group.visible) return null;
+    const v = new THREE.Vector3(own.x, 6 * own.boat.group.scale.x, own.z).project(camera), r = renderer.domElement.getBoundingClientRect();
+    return v.z < 1 ? [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height] : null;
+  },
   // the chart's pan buttons and zoom slider, while this is open over it (v876): pan by a quarter of
   // the view's distance, relative to the screen (+dy = ahead in the picture); setDist keeps following
   pan: (dx, dy) => {
