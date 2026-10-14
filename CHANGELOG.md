@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-14 — Command box usable over Bird's-eye (v900)
+
+Found while recording the demo: in Bird's-eye (as a map type) the command box opened by "/" or the
+mic button sat under the 3D view, so it couldn't be typed in, and a click aimed at it landed on the
+3D scene instead (which also stopped the view following the boat). `#map-overlay-cmd` and
+`#cmd-open-btn` now join the panels raised over Bird's-eye.
+
 ## 2026-10-14 — Smooth 3D view switches with a small loading pill (v899)
 
 Requested ("make the transitions to and from various modes smoother … show some sort of

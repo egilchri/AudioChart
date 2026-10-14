@@ -843,7 +843,10 @@ html, body {
 #app.bay3d-on #map-overlay-status, #app.bay3d-on #navaid-filter-panel, #app.bay3d-on #bottom-hud,
 #app.bay3d-on #edit-banner, #app.bay3d-on #vjourney-banner, #app.bay3d-on #anim-banner,
 #app.bay3d-on #route-picker-panel, #app.bay3d-on #sample-routes-panel, #app.bay3d-on #track-picker-panel,
-#app.bay3d-on #waypoints-panel, #app.bay3d-on #testsets-panel, #app.bay3d-on #about-panel { z-index: 1990 !important; }   /* the panels the toolbar opens too (v880: Routes opened under the 3D view, so Virtual Journey couldn't be pressed); !important: the spread toolbar's own :has() z-index (1950) outranks a plain rule */
+#app.bay3d-on #waypoints-panel, #app.bay3d-on #testsets-panel, #app.bay3d-on #about-panel,
+#app.bay3d-on #map-overlay-cmd, #app.bay3d-on #cmd-open-btn { z-index: 1990 !important; }   /* the panels the toolbar opens too (v880: Routes opened under the 3D view, so Virtual Journey couldn't be pressed); !important: the spread toolbar's own :has() z-index (1950) outranks a plain rule */
+/* the command box ("/" or the mic button) over Bird's-eye too (v900): it opened under the 3D view, where
+   it couldn't be typed in */
 /* Node Ops can't edit in 3D: hidden while Bird's-eye previews the route being edited */
 #app.bay3d-on #edit-tools-panel { display: none !important; }
 
