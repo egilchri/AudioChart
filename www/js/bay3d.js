@@ -822,12 +822,25 @@ wpSel.addEventListener('change', () => { showRoute(wpSel.value, true); foldPanel
   if (hook?.boatMenu) {
     const pv = new THREE.Vector3();
     renderer.domElement.addEventListener('pointerdown', () => hook.hideBoatMenu());
-    renderer.domElement.addEventListener('dblclick', e => {
-      if (!own.boat.group.visible) return;
+    const tryMenu = (x, y) => {
+      if (!own.boat.group.visible) return false;
       const r = renderer.domElement.getBoundingClientRect();
       pv.set(own.x, 6 * own.boat.group.scale.x, own.z).project(camera);
       const sx = r.left + (pv.x + 1) / 2 * r.width, sy = r.top + (1 - pv.y) / 2 * r.height;
-      if (pv.z < 1 && Math.hypot(e.clientX - sx, e.clientY - sy) < 45) { e.stopImmediatePropagation(); hook.boatMenu(window, e.clientX, e.clientY); }
+      if (!(pv.z < 1 && Math.hypot(x - sx, y - sy) < 45)) return false;
+      hook.boatMenu(window, x, y); return true;
+    };
+    renderer.domElement.addEventListener('dblclick', e => { if (tryMenu(e.clientX, e.clientY)) e.stopImmediatePropagation(); });
+    // a phone's double-tap (v897): two quick touch taps close together; browsers don't reliably
+    // turn those into dblclick (iOS never does here), the same reason the chart detects its own
+    let downX = 0, downY = 0, lastUp = 0, lastX = 0, lastY = 0;
+    renderer.domElement.addEventListener('pointerdown', e => { downX = e.clientX; downY = e.clientY; });
+    renderer.domElement.addEventListener('pointerup', e => {
+      if (e.pointerType !== 'touch') return;
+      if (Math.hypot(e.clientX - downX, e.clientY - downY) > 10) { lastUp = 0; return; }   // a drag, not a tap
+      const now = Date.now();
+      if (now - lastUp < 400 && Math.hypot(e.clientX - lastX, e.clientY - lastY) < 30) { lastUp = 0; tryMenu(e.clientX, e.clientY); }
+      else { lastUp = now; lastX = e.clientX; lastY = e.clientY; }
     });
   }
 }

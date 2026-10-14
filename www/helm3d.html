@@ -101,6 +101,9 @@ body.embed #town-credit { left: 50% !important; transform: translateX(-50%); whi
   #eyepick button { white-space: nowrap; padding: 4px 7px; }
   #eyepick .wxbtn { margin-left: auto; }
   #recbtn { top: auto !important; bottom: 10px; left: 8px !important; }
+  /* inside AudioChart the embed/inchart rules also set a top, which with this bottom stretched the
+     button down the middle of the view, over the boat (v897); bottom-left, clear of the chart's tide box */
+  body.embed #recbtn, body.inchart #recbtn { top: auto !important; bottom: 150px; left: 8px !important; transform: none; }
   #wxpanel { left: 8px; right: 8px; top: 72px; }
   #minichart { top: auto; bottom: 10px; right: 8px; width: 104px; }
   #tileload { left: 50%; transform: translateX(-50%); bottom: 44px; }

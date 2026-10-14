@@ -1174,11 +1174,23 @@ function setEye(m) { eyeTarget = m; try { localStorage.setItem('audiochart-helm3
   if (hook?.boatMenu) {
     const rc = new THREE.Raycaster(), v = new THREE.Vector2();
     renderer.domElement.addEventListener('pointerdown', () => hook.hideBoatMenu());
-    renderer.domElement.addEventListener('dblclick', e => {
+    const tryMenu = (x, y) => {
       const r = renderer.domElement.getBoundingClientRect();
-      v.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+      v.set(((x - r.left) / r.width) * 2 - 1, -((y - r.top) / r.height) * 2 + 1);
       rc.setFromCamera(v, camera);
-      if (rc.intersectObject(boat, true).length) hook.boatMenu(window, e.clientX, e.clientY);
+      if (rc.intersectObject(boat, true).length) hook.boatMenu(window, x, y);
+    };
+    renderer.domElement.addEventListener('dblclick', e => tryMenu(e.clientX, e.clientY));
+    // a phone's double-tap (v897): two quick touch taps close together; browsers don't reliably
+    // turn those into dblclick (iOS never does here), the same reason the chart detects its own
+    let downX = 0, downY = 0, lastUp = 0, lastX = 0, lastY = 0;
+    renderer.domElement.addEventListener('pointerdown', e => { downX = e.clientX; downY = e.clientY; });
+    renderer.domElement.addEventListener('pointerup', e => {
+      if (e.pointerType !== 'touch') return;
+      if (Math.hypot(e.clientX - downX, e.clientY - downY) > 10) { lastUp = 0; return; }   // a drag, not a tap
+      const now = Date.now();
+      if (now - lastUp < 400 && Math.hypot(e.clientX - lastX, e.clientY - lastY) < 30) { lastUp = 0; tryMenu(e.clientX, e.clientY); }
+      else { lastUp = now; lastX = e.clientX; lastY = e.clientY; }
     });
   }
 }

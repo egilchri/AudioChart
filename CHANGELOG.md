@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-14 — Double-tap the boat on a phone in the 3D views; Record button fix (v897)
+
+Requested ("make double-tap work on the phone too"). Bird's-eye and the helm/Drone view detect a
+touch double-tap themselves (two taps within 400 ms and 30 px, no drag), as the chart does, since
+browsers don't reliably make a dblclick from them. Found while testing at phone width: inside
+AudioChart the helm view's ⏺ Record button had both a top and a bottom, stretching it to about
+72 × 700 px down the middle of the view, over the boat, where it took taps (and could start a
+recording). On phones it now sits bottom-left at its normal size.
+
 ## 2026-10-14 — Double-click the boat in any 3D view for its menu (v896)
 
 Requested ("Anytime the boat is stopped, I ought to be able to double click on it to go into sail
