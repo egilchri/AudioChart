@@ -7340,7 +7340,7 @@ function _showVj3d(route) {
   // start below the status title bar (it sits on top of the map area and hid the 3D view's
   // compass heading strip)
   _vj3dWrap.style.top = (document.getElementById('status-title-bar')?.offsetHeight || 26) + 'px';
-  _syncVj3dBtn();
+  _syncVj3dBtn(); _syncVjBay();
 }
 function _hideVj3d() {
   if (!_vj3dWrap) return;
@@ -7348,7 +7348,7 @@ function _hideVj3d() {
   _vj3dWrap.hidden = true;
   _vj3dWrap.querySelector('iframe').src = 'about:blank';   // frees the GPU memory the 3D view holds
   document.getElementById('app')?.classList.remove('vj3d-on');
-  _syncVj3dBtn();
+  _syncVj3dBtn(); _syncVjBay();
 }
 
 // 3D Bird's-eye (v844): the bay in 3D (bay3d.html) over the chart, starting where the chart is
@@ -7398,7 +7398,26 @@ function _showBay3d() {
 let _bay3dSyncTimer = null, _bay3dSliderAt = 0, _bay3dTiltAt = 0;
 // the tilt slider (v884, requested: tilt to see more of the land on the horizon), shown only in Bird's-eye
 document.getElementById('tilt-slider')?.addEventListener('input', (e) => { _bay3dTiltAt = Date.now(); _bay3dApi()?.setTilt?.(+e.target.value); });
-const _bay3dApi = () => { try { return _bay3dWrap && !_bay3dWrap.hidden ? _bay3dWrap.querySelector('iframe').contentWindow.__bay3d || null : null; } catch (_) { return null; } };
+const _bay3dApi = () => {
+  try {
+    if (_bay3dWrap && !_bay3dWrap.hidden) return _bay3dWrap.querySelector('iframe').contentWindow.__bay3d || null;
+    if (_vjBayFrame()) return _vjBayFrame().contentWindow.__bay3d || null;
+  } catch (_) {}
+  return null;
+};
+// Bird's-eye reached from a journey's 3D view (its VIEW bar, v903; reported: no compass rose there):
+// that page sits in the journey's frame, not Bird's-eye's own, so it gets the same treatment here —
+// the rose and the zoom/pan/tilt rail above it, turning and driving the view.
+const _vjBayFrame = () => {
+  if (!_vj3dWrap || _vj3dWrap.hidden) return null;
+  const frs = _vj3dWrap.querySelectorAll('iframe'), fr = frs[frs.length - 1];   // the newest: the one loading or shown
+  return fr && /bay3d\.html/.test(fr.src) ? fr : null;
+};
+function _syncVjBay() {
+  const on = !!_vjBayFrame() && !(_bay3dWrap && !_bay3dWrap.hidden);
+  if (on && !_appEl.classList.contains('vj-bay')) { _appEl.classList.add('vj-bay', 'bay3d-on'); _startBay3dSync(); }
+  else if (!on && _appEl.classList.contains('vj-bay')) { _appEl.classList.remove('vj-bay'); if (!(_bay3dWrap && !_bay3dWrap.hidden)) _stopBay3dSync(); }
+}
 // the chart zoom whose view is about as wide as the 3D view at distance d (as _showBay3d/_hideBay3d)
 const _bay3dZoomOf = (d, lat) => Math.log2(40075016 * Math.cos(lat * Math.PI / 180) * _map.getSize().x / 256 / (d / 0.8));
 const _bay3dDistOf = (z, lat) => 40075016 * Math.cos(lat * Math.PI / 180) / Math.pow(2, z) * _map.getSize().x / 256 * 0.8;
@@ -8007,6 +8026,7 @@ window.__audioChartViews = {
     const fr = [...document.querySelectorAll('#bay3d-wrap iframe, #vj3d-wrap iframe')].find(f => f.contentWindow === win);
     if (!fr) return false;
     _load3d(fr.parentElement, new URL(url, win.location.href).href, /bay3d/.test(url) ? "Bird's-eye" : /eye=100\b/.test(url) ? 'the Drone view' : 'the view from your boat', fr);
+    setTimeout(_syncVjBay, 0);
     return true;
   },
   hideBoatMenu: () => { if (_boatCtxMenu.style.display !== 'none') _hideBoatCtx(); },

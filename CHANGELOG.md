@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-15 — Compass rose over Bird's-eye from a journey's 3D view (v904)
+
+Reported with a screenshot: no compass rose. Bird's-eye chosen as a map type had it, but Bird's-eye
+reached from a Virtual Journey's (or Free Sailing's) 3D view, via its VIEW bar, loads in the
+journey's own frame, which never raised the rose above the 3D view or ran its sync. Now whenever
+that frame is showing Bird's-eye, the app treats it as Bird's-eye: the rose (turning with the view,
+drag to turn, tap for north up), the zoom/pan rail and the tilt slider sit on top and drive it;
+switching back to Helm/Drone puts things back.
+
 ## 2026-10-15 — The Cape Dory's cabin: no more sea inside the boat (v903)
 
 Reported with a screenshot: from the tiller, the cabin trunk's after end was open, and through it the
