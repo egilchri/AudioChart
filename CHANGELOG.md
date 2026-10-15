@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-15 — No "You" label over your boat in Bird's-eye (v907)
+
+Requested: "get rid of the box that follows the boat, and says 'You'". The gold "⛵ You" label that sat
+over your boat in the Bird's-eye view (on a route or following a journey or free sail) is gone; the
+boat itself, Follow and the other labels are unchanged.
+
 ## 2026-10-15 — Angelique, built properly: the view from her wheel (v906)
 
 Requested: "make the Angelique look better up close from the wheel. Like, WAY better." v905 used the
