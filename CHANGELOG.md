@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-15 — The Cape Dory's cabin: no more sea inside the boat (v903)
+
+Reported with a screenshot: from the tiller, the cabin trunk's after end was open, and through it the
+hull was an empty shell with the water surface running through it. Now the bridge-deck bulkhead
+closes the trunk with the companionway open in it, and below (requested: "a couple of berths, a
+galley sink, etc.") is the 25D's cabin: teak-and-holly sole, ladder over the diesel's box, galley to
+port (sink with pump faucet, two-burner stove), icebox to starboard, settee berths with backrests and
+ceiling strips, the drop-leaf table on the compression post, the main bulkhead's doorway and the
+V-berth. The deck no longer runs across under the cabin top (it made a false ceiling inside), and a
+depth-only cap across the hull at the bridge deck's height, drawn before the water, keeps the sea
+surface out of the bilge.
+
 ## 2026-10-15 — A more authentic Cape Dory 25D in the 3D views (v902)
 
 Requested ("the Cape Dory 25D in drone mode to look more authentic"). The hull had slab sides

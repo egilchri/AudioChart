@@ -368,8 +368,6 @@ const bow = new THREE.Group();
     const m = new THREE.Mesh(g, mat); m.material.side = THREE.DoubleSide; return m;
   }
   const zAt = u => Z0 + u * L;
-  // deck (buff non-skid) and white margin at the edge
-  bow.add(loft(48, 16, (u, v) => { const z = zAt(u), b = half(z), x = (v * 2 - 1) * b; return [x, deckY(z, x), z]; }, BUFF));
   // topsides (v902, more like the real boat): white, from the sheer down to the waterline. An
   // Alberg spoon bow: the stem rakes well forward of where it meets the water (LOA 24'7", LWL 19'),
   // its profile curving aft ever faster toward the waterline; under it, red antifouling down to the
@@ -397,6 +395,8 @@ const bow = new THREE.Group();
   const thw = z => { const t = (z - TZ0) / TL; return Math.min(half(z) - 0.3, 0.86) * Math.pow(Math.max(0, 1 - Math.pow(t, 6)), 0.5); };
   const trunkBase = z => sheer(z) + 0.04, trunkTop = (z, x) => sheer(z) + 0.46 - 0.06 * ((z - TZ0) / TL) + 0.05 * (1 - Math.min(1, (x / (thw(z) || 1e-3)) ** 2));
   const tz = u => TZ0 + u * TL;
+  // deck (buff non-skid), open under the trunk (v903: it ran across inside the cabin as a false ceiling)
+  for (const sd of [-1, 1]) bow.add(loft(48, 8, (u, v) => { const z = zAt(u), b = half(z), w = Math.min(thw(z), b), x = sd * (w + v * (b - w)); return [x, deckY(z, x), z]; }, BUFF));
   bow.add(loft(36, 12, (u, v) => { const z = tz(u), w = thw(z) - 0.04, x = (v * 2 - 1) * w; return [x, trunkTop(z, x), z]; }, BUFF));
   for (const s of [-1, 1]) bow.add(loft(36, 2, (u, v) => {
     const z = tz(u), w = thw(z); return [s * (w - 0.04 * v), trunkBase(z) + v * (trunkTop(z, s * (w - 0.04)) - trunkBase(z)), z];
@@ -510,6 +510,66 @@ const bow = new THREE.Group();
       const wall = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.45, CZ1 - CZ0), WHITE); wall.position.set(sd * CW / 2, sole + 0.22, (CZ0 + CZ1) / 2); bow.add(wall);
     }
     const aftWall = new THREE.Mesh(new THREE.BoxGeometry(CW, 0.45, 0.02), WHITE); aftWall.position.set(0, sole + 0.22, CZ1); bow.add(aftWall);
+  }
+  // Below (v903, reported: from the tiller you looked through the open after end of the cabin into an
+  // empty hull with the sea running through it). The bridge-deck bulkhead now closes the trunk, with
+  // the companionway open in it, and below is the 25D's cabin: teak-and-holly sole, companionway
+  // ladder over the engine box, galley to port (sink with its pump faucet, two-burner stove), icebox to starboard,
+  // settee berths each side with backrests, the drop-leaf table on the compression post, the main
+  // bulkhead with its doorway and the V-berth beyond. The sea is kept out of the hull by a
+  // depth-only cap across the inside at the bridge deck's height (drawn after the cabin, before the
+  // water), so the water plane can't show through the bilge.
+  {
+    const SOLE = -0.22, IN = M(0xf0ebe0), CUSH = M(0x2f4a6b), STAIN = M(0xb9c0c4), BLACK = M(0x26292c), HOLLY = M(0xc9a978);
+    const box = (w, h, d, x, y, z, m) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); bow.add(b); return b; };
+    // bridge-deck bulkhead at the trunk's after end, the companionway cut out of it
+    const BZ = Z0 + 0.01, tw0 = thw(Z0), sh = new THREE.Shape();
+    sh.moveTo(-0.725, 0.45); sh.lineTo(0.725, 0.45); sh.lineTo(0.725, trunkBase(Z0)); sh.lineTo(tw0, trunkBase(Z0));
+    for (let k = 0; k <= 12; k++) { const x = tw0 - 2 * tw0 * k / 12; sh.lineTo(x, trunkTop(Z0, x) - 0.01); }
+    sh.lineTo(-tw0, trunkBase(Z0)); sh.lineTo(-0.725, trunkBase(Z0)); sh.closePath();
+    const door = new THREE.Path(), dy0 = 0.86, dy1 = trunkTop(Z0, 0) - 0.07;
+    door.moveTo(-0.27, dy0); door.lineTo(-0.24, dy1); door.lineTo(0.24, dy1); door.lineTo(0.27, dy0); door.closePath(); sh.holes.push(door);
+    const bh = new THREE.Mesh(new THREE.ShapeGeometry(sh, 4), WHITE); bh.position.z = BZ; bow.add(bh);
+    for (const s of [-1, 1]) box(0.05, dy1 - dy0, 0.05, s * 0.28, (dy0 + dy1) / 2, BZ + 0.02, TEAK);   // companionway trim
+    box(0.6, 0.04, 0.06, 0, dy0 - 0.02, BZ + 0.02, TEAK);                                               // sill
+    // sole and ladder
+    box(0.7, 0.03, 2.2, 0, SOLE, -2.0, HOLLY);
+    box(0.66, 0.97, 0.3, 0, SOLE + 0.485, BZ - 0.16, IN);                                              // the diesel's box, under the bridge deck
+    for (let k = 0; k < 3; k++) box(0.42, 0.035, 0.16, 0, SOLE + 0.24 * (k + 1), BZ - 0.38 - 0.16 * (2 - k), TEAK);
+    for (const s of [-1, 1]) { const rail = box(0.035, 1.05, 0.06, s * 0.23, SOLE + 0.42, BZ - 0.55, TEAK); rail.rotation.x = -0.45; }
+    // galley to port: counter, sink with a pump faucet, two-burner stove; icebox to starboard
+    box(0.55, 0.62, 0.7, -0.68, SOLE + 0.31, -1.3, IN);
+    box(0.58, 0.04, 0.73, -0.68, SOLE + 0.64, -1.3, TEAK);
+    box(0.3, 0.02, 0.26, -0.7, SOLE + 0.665, -1.12, STAIN); box(0.24, 0.025, 0.2, -0.7, SOLE + 0.668, -1.12, BLACK);   // sink, its basin
+    const tap = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.22, 6), STAIN); tap.position.set(-0.86, SOLE + 0.76, -1.12); bow.add(tap);
+    const spout = box(0.02, 0.02, 0.12, -0.86, SOLE + 0.86, -1.07, STAIN);
+    box(0.34, 0.08, 0.3, -0.68, SOLE + 0.7, -1.47, STAIN);                                              // stove
+    for (const dz of [-0.07, 0.07]) { const b = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.01, 4, 12), BLACK); b.rotation.x = Math.PI / 2; b.position.set(-0.68, SOLE + 0.75, -1.47 + dz); bow.add(b); }
+    box(0.55, 0.62, 0.7, 0.68, SOLE + 0.31, -1.3, IN); box(0.58, 0.04, 0.73, 0.68, SOLE + 0.64, -1.3, TEAK);
+    box(0.32, 0.02, 0.32, 0.66, SOLE + 0.665, -1.3, IN);                                               // icebox lid
+    // settee berths with backrests, port and starboard
+    for (const s of [-1, 1]) {
+      box(0.5, 0.36, 1.3, s * 0.62, SOLE + 0.18, -2.3, IN);
+      box(0.52, 0.11, 1.3, s * 0.62, SOLE + 0.42, -2.3, CUSH);
+      const back = box(0.1, 0.4, 1.3, s * 0.9, SOLE + 0.7, -2.3, CUSH); back.rotation.z = s * 0.18;
+      for (const y of [0.98, 1.12]) box(0.02, 0.04, 1.3, s * 0.97, SOLE + y, -2.3, TEAK);             // ceiling strips above
+    }
+    // drop-leaf table on the compression post under the mast
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 1.5, 8), TEAK); post.position.set(0, SOLE + 0.75, -2.72); bow.add(post);
+    box(0.5, 0.03, 0.75, 0, SOLE + 0.68, -2.35, TEAK);
+    // main bulkhead with its doorway, the V-berth forward
+    const mb = new THREE.Shape(), MBZ = -3.02, mw = 0.98;
+    mb.moveTo(-mw, SOLE); mb.lineTo(mw, SOLE); mb.lineTo(mw, 1.25); mb.lineTo(-mw, 1.25); mb.closePath();
+    const dw = new THREE.Path(); dw.moveTo(-0.22, SOLE + 0.05); dw.lineTo(0.22, SOLE + 0.05); dw.lineTo(0.22, 1.1); dw.lineTo(-0.22, 1.1); dw.closePath(); mb.holes.push(dw);
+    const mbm = new THREE.Mesh(new THREE.ShapeGeometry(mb), TEAK); mbm.position.z = MBZ; bow.add(mbm);
+    const vb = new THREE.Shape(); vb.moveTo(-0.85, 0); vb.lineTo(0.85, 0); vb.lineTo(0.1, -1.5); vb.lineTo(-0.1, -1.5); vb.closePath();
+    const vg = new THREE.ExtrudeGeometry(vb, { depth: 0.12, bevelEnabled: false }); vg.rotateX(Math.PI / 2);
+    const vm = new THREE.Mesh(vg, CUSH); vm.position.set(0, SOLE + 0.62, MBZ - 0.05); bow.add(vm);
+    // keep the sea out: the inside of the hull at the bridge deck's height, depth only
+    const cap = new THREE.MeshBasicMaterial({ colorWrite: false });
+    const y = 0.42, fwd = (s, u) => fwdPt(s, u, 1 - y / sheer(zAt(u)), -0.01);   // the hull's own section there, a hair inside
+    const mask = loft(48, 1, (u, a) => { const p = fwd(-1, u), q = fwd(1, u); return [p[0] + (q[0] - p[0]) * a, y, p[2]]; }, cap);
+    mask.renderOrder = 1; bow.add(mask);
   }
   // tiller from the rudder head at the transom forward into the cockpit
   const tillerG = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, 1.6, 8), TEAK);
@@ -677,6 +737,7 @@ water.material.fragmentShader = water.material.fragmentShader
 water.material.needsUpdate = true;
 // keep the boat's own bow out of the water's reflection pass
 { const mirror = water.onBeforeRender; water.onBeforeRender = (...a) => { bow.visible = false; mirror(...a); bow.visible = true; }; }
+water.renderOrder = 2;   // after the hull's sea-excluding cap (v903)
 scene.add(water);
 
 // Sky: the shared dome (weather3d.js): blue overhead fading to the haze colour at the horizon, sun or moon.
