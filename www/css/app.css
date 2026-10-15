@@ -3442,6 +3442,18 @@ body.wco-active #wco-titlebar { display: flex; }
 #vjourney-banner.vj-folded #fs-course-row { display: none !important; }
 #vjourney-banner.fs-mode #fs-course-row { flex-wrap: nowrap; gap: 3px; align-items: center; }
 #fs-course-row .fs-turn { padding: 2px 8px; }
+/* The ship's wheel (v901): over the chart and both 3D views (Bird's-eye is 1980), under dialogs (3000+) */
+#fs-wheel { position: fixed; left: 50%; bottom: calc(44px + var(--vjourney-h, 0px)); transform: translateX(-50%); z-index: 1995;
+  display: flex; flex-direction: column; align-items: center; gap: 2px; user-select: none; -webkit-user-select: none; }
+#fs-wheel[hidden] { display: none; }
+#fs-wheel svg { width: 150px; height: 150px; touch-action: none; cursor: grab; filter: drop-shadow(0 3px 5px rgba(0,0,0,0.55)); }
+#fs-wheel svg:active { cursor: grabbing; }
+#fs-wheel .fsw-grip { cursor: move; touch-action: none; padding: 0 12px; border-radius: 6px 6px 0 0; font-size: 0.8rem; line-height: 1.3;
+  color: #f5c842; background: rgba(6, 19, 31, 0.75); }
+#fs-wheel .fsw-rudder { padding: 1px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; color: #f5c842;
+  background: rgba(6, 19, 31, 0.8); font-variant-numeric: tabular-nums; }
+#fs-wheel .fsw-rudder.hard { color: #ff5b4d; }
+@media (max-width: 767px) { #fs-wheel { bottom: calc(96px + var(--vjourney-h, 0px)); } #fs-wheel svg { width: 120px; height: 120px; } }
 #fs-course-input { flex: 0 0 3.1em; width: 3.1em; padding-inline: 2px; text-align: center; }
 @media (min-width: 768px) { #vjourney-banner > .track-speed-row:first-child { cursor: move; touch-action: none; } }
 #vjourney-close-btn {

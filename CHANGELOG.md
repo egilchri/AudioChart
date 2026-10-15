@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-15 — Ship's wheel for Free Sailing (v901)
+
+Requested ("an old-timey steering wheel on the screen, to steer the boat"). While Free Sailing a
+wooden eight-spoke wheel sits at the bottom of the screen, over the chart and both 3D views. Drag
+round the rim (or use the mouse wheel) to turn it; like a real helm it stays where it's left and the
+boat keeps turning — a full turn each way is hard over (35° rudder, 8°/s). The rudder angle shows
+beneath it; the brass-banded king spoke is up amidships; double-tap the hub to centre it. A course
+given outright (typed, said, ◀10/10▶, "head for …") centres the wheel. Stopped short of land, the
+wheel can bring her round and she gets under way once the bow is clear. Drag its ⠿ tab to move it
+(remembered); the ☸ button in the course row hides/shows it.
+
 ## 2026-10-14 — Sailors page: Bird's-eye tutorial adds Free Sailing (demo9e)
 
 Requested ("make the demo video show free sailing too"). After the journey, the tutorial double-clicks

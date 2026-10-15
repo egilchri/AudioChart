@@ -7782,6 +7782,7 @@ function _startFreeSail({ course = null, speed = null } = {}) {
   _fsBroadcast();
   // the Drone view comes up as a journey's 3D view does, unless you turned that off (or Bird's-eye is up)
   if (_vj3dWanted() && !(_bay3dWrap && !_bay3dWrap.hidden)) _showVj3d(null); else _syncVj3dBtn();
+  _fsWheelMidships(); _fsWheelShow();
   _fsSay(`Free sailing. Course ${_fsDeg3(_fsMagOf(hdg))} magnetic, ${_vjSpeedKnots} knots.`);
   return true;
 }
@@ -7789,6 +7790,7 @@ function _stopFreeSail(quiet = false) {
   if (!_fs) return;
   clearInterval(_fsTimer); _fsTimer = null;
   _fs.running = false; _fsBroadcast(); _fs = null; _vjLastMsg = null;
+  _fsWheelShow();
   if (_vj3dWrap && !_vj3dWrap.hidden && /[?&]free=1/.test(_vj3dWrap.querySelector('iframe').src)) _hideVj3d();
   GPS.clearVirtualPosition();   // the boat stays where she is (v878)
   const banner = document.getElementById('vjourney-banner');
@@ -7801,6 +7803,7 @@ function _fsSetCourse(magDeg, say = true) {
   if (!_fs && !_startFreeSail({ course: magDeg })) return;
   _fs.target = null; _fs.held = null; _fs.known.clear(); _fs.landSaid = false; _fs.lookAt = 0;
   _fs.hdg = magneticToTrue(((magDeg % 360) + 360) % 360);
+  _fsWheelMidships();   // a course given outright: the wheel back amidships to hold it
   _fsSyncCourse(); _fsStatus();
   if (say) _fsSay(`Course ${_fsDeg3(_fsMagOf(_fs.hdg))} magnetic.`);
 }
@@ -7844,6 +7847,7 @@ async function _fsSetTarget(text) {
   if (!dest) return;
   if (!_fs && !_startFreeSail({})) return;
   _fs.target = { lat: dest.lat, lon: dest.lon, name: dest.name || text };
+  _fsWheelMidships();
   _fs.held = null; _fs.known.clear(); _fs.landSaid = false; _fs.lookAt = 0;
   _fs.hdg = Query.bearing(_fs.lon, _fs.lat, dest.lon, dest.lat);
   _fsSyncCourse(); _fsStatus();
@@ -7934,6 +7938,7 @@ function _fsStep() {
   if (!_fs) return;
   const now = Date.now(), dt = Math.min(2, (now - _fs.lastMs) / 1000);
   _fs.lastMs = now;
+  if (_fs.running && _fsWheelDeg) _fsWheelTurn(dt);
   if (!_fs.running || _fs.held) return;
   const t = _fs.target;
   if (t) {
@@ -8006,6 +8011,119 @@ window.__audioChartViews = {
   },
   hideBoatMenu: () => { if (_boatCtxMenu.style.display !== 'none') _hideBoatCtx(); },
 };
+// ── The ship's wheel (v901, requested: "an old-timey steering wheel on the screen, to steer the boat") ──
+// Shown while Free Sailing, over the chart and the 3D views alike. Turn it by dragging round the rim
+// (or the mouse wheel): like a real helm it stays where you leave it, and the boat keeps turning
+// while it's over — a full turn each way to hard over, 8° a second at full lock. The king
+// spoke (brass band) is up when the rudder is amidships; double-tap the hub to centre it. A course
+// given outright (typed, said, ◀10/10▶, "head for …") brings it back amidships. Drag it by its tab.
+const FS_WHEEL_LOCK = 360, FS_WHEEL_MAX_RATE = 8, FS_WHEEL_KEY = 'audiochart-fs-wheel', FS_WHEEL_POS_KEY = 'audiochart-fs-wheel-pos';
+let _fsWheelDeg = 0, _fsWheelEl = null;
+function _fsWheelTurn(dt) {
+  _fs.hdg = ((_fs.hdg + _fsWheelDeg / FS_WHEEL_LOCK * FS_WHEEL_MAX_RATE * dt) % 360 + 360) % 360;
+  _fs.target = null;   // hand steering takes over from "head for …"
+  if (_fs.held) {
+    // stopped short of land: she can be brought round, and gets under way once the bow is clear
+    const e = Query.offsetCoords(_fs.lat, _fs.lon, _fs.hdg, 0.05);
+    if (!Query.landBlocks(_fs.lon, _fs.lat, e.lon, e.lat)) {
+      _fs.held = null; _fs.landSaid = false; _fs.lookAt = 0;
+      _fsSay(`Clear ahead. Under way, ${_fsDeg3(_fsMagOf(_fs.hdg))} magnetic.`);
+    }
+    GPS.setVirtualPosition(_fs.lat, _fs.lon, _fs.hdg, _fs.held ? 0 : _vjSpeedKnots);
+    _fsSyncCourse(); _fsStatus(); _fsBroadcast();
+  }
+}
+function _fsWheelWanted() { try { return localStorage.getItem(FS_WHEEL_KEY) !== 'off'; } catch (_) { return true; } }
+function _fsWheelShow() {
+  const on = !!_fs && _fsWheelWanted();
+  document.getElementById('fs-wheel-btn')?.classList.toggle('selected', on);
+  if (!on) { if (_fsWheelEl) _fsWheelEl.hidden = true; return; }
+  if (!_fsWheelEl) _fsWheelBuild();
+  _fsWheelEl.hidden = false;
+  // a moved wheel stays where it was put, kept on screen
+  if (_fsWheelEl.style.left) {
+    const r = _fsWheelEl.getBoundingClientRect();
+    _fsWheelEl.style.left = `${Math.max(4, Math.min(window.innerWidth - r.width - 4, r.left))}px`;
+    _fsWheelEl.style.top = `${Math.max(4, Math.min(window.innerHeight - r.height - 4, r.top))}px`;
+  }
+}
+function _fsWheelMidships() { _fsWheelDeg = 0; _fsWheelDraw(); }
+function _fsWheelDraw() {
+  if (!_fsWheelEl) return;
+  _fsWheelEl.querySelector('.fsw-rot').setAttribute('transform', `rotate(${_fsWheelDeg})`);
+  const rud = Math.round(_fsWheelDeg / FS_WHEEL_LOCK * 35);
+  const lbl = _fsWheelEl.querySelector('.fsw-rudder');
+  lbl.textContent = !rud ? 'Midships' : `${rud < 0 ? '◀ ' : ''}${Math.abs(rud)}° ${rud < 0 ? 'port' : 'starboard'}${rud > 0 ? ' ▶' : ''}`;
+  lbl.classList.toggle('hard', Math.abs(_fsWheelDeg) >= FS_WHEEL_LOCK);
+}
+function _fsWheelBuild() {
+  const NS = 'http://www.w3.org/2000/svg';
+  let spokes = '';
+  for (let i = 0; i < 8; i++) {
+    spokes += `<g transform="rotate(${i * 45})">
+      <path d="M-3.2,-14 L-2.6,-78 L2.6,-78 L3.2,-14 Z" fill="url(#fsw-wood)" stroke="#3b2410" stroke-width="0.8"/>
+      <path d="M0,-78 C-6,-80 -6,-84 -4,-86 C-7,-89 -6,-95 0,-98 C6,-95 7,-89 4,-86 C6,-84 6,-80 0,-78 Z" fill="url(#fsw-wood)" stroke="#3b2410" stroke-width="0.8"/>
+      ${i === 0 ? '<rect x="-5" y="-80" width="10" height="5" rx="1" fill="url(#fsw-brass)" stroke="#6e4e14" stroke-width="0.6"/>' : ''}
+    </g>`;
+  }
+  const el = document.createElement('div');
+  el.id = 'fs-wheel'; el.hidden = true;
+  el.innerHTML = `<div class="fsw-grip" title="Drag to move the wheel">⠿</div>
+    <svg viewBox="-102 -102 204 204" role="slider" aria-label="Ship's wheel: drag round to steer" aria-valuemin="-35" aria-valuemax="35" xmlns="${NS}">
+      <defs>
+        <linearGradient id="fsw-wood" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b07a3e"/><stop offset="0.5" stop-color="#8a5a2b"/><stop offset="1" stop-color="#5e3a18"/></linearGradient>
+        <radialGradient id="fsw-brass" cx="0.4" cy="0.35" r="0.7"><stop offset="0" stop-color="#fbe6a2"/><stop offset="0.55" stop-color="#d4a640"/><stop offset="1" stop-color="#8a6420"/></radialGradient>
+      </defs>
+      <g class="fsw-rot">
+        ${spokes}
+        <circle r="66" fill="none" stroke="#3b2410" stroke-width="15"/>
+        <circle r="66" fill="none" stroke="url(#fsw-wood)" stroke-width="12.5"/>
+        <circle r="66" fill="none" stroke="rgba(255,235,200,0.25)" stroke-width="1" stroke-dasharray="3 9"/>
+        <circle r="18" fill="url(#fsw-brass)" stroke="#6e4e14" stroke-width="1.2"/>
+        <circle r="7" fill="#8a6420" stroke="#fbe6a2" stroke-width="0.8"/>
+      </g>
+    </svg>
+    <div class="fsw-rudder">Midships</div>`;
+  _appEl.appendChild(el);
+  _fsWheelEl = el;
+  try {
+    const pos = JSON.parse(localStorage.getItem(FS_WHEEL_POS_KEY) || 'null');
+    if (pos) { el.style.left = `${pos.left}px`; el.style.top = `${pos.top}px`; el.style.bottom = 'auto'; el.style.transform = 'none'; }
+  } catch (_) {}
+  const grip = el.querySelector('.fsw-grip');
+  _makeDraggable(el, grip, () => {
+    el.style.transform = 'none';
+    try { localStorage.setItem(FS_WHEEL_POS_KEY, JSON.stringify({ left: parseFloat(el.style.left), top: parseFloat(el.style.top) })); } catch (_) {}
+  });
+  const svg = el.querySelector('svg');
+  const setDeg = (d) => { _fsWheelDeg = Math.max(-FS_WHEEL_LOCK, Math.min(FS_WHEEL_LOCK, d)); _fsWheelDraw(); };
+  let lastAng = null, lastTap = 0;
+  const angOf = (e) => { const r = svg.getBoundingClientRect(); return Math.atan2(e.clientY - (r.top + r.height / 2), e.clientX - (r.left + r.width / 2)) * 180 / Math.PI; };
+  svg.addEventListener('pointerdown', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    const r = svg.getBoundingClientRect();
+    if (Math.hypot(e.clientX - (r.left + r.width / 2), e.clientY - (r.top + r.height / 2)) < r.width * 0.11) {   // the hub
+      if (Date.now() - lastTap < 400) { _fsWheelMidships(); lastTap = 0; return; }
+      lastTap = Date.now(); return;
+    }
+    svg.setPointerCapture(e.pointerId); lastAng = angOf(e);
+  });
+  svg.addEventListener('pointermove', (e) => {
+    if (lastAng == null) return;
+    const a = angOf(e);
+    setDeg(_fsWheelDeg + ((a - lastAng + 540) % 360) - 180);
+    lastAng = a;
+  });
+  const up = () => { if (lastAng == null) return; lastAng = null; if (Math.abs(_fsWheelDeg) < 8) _fsWheelMidships(); };   // a near-centred wheel settles amidships
+  svg.addEventListener('pointerup', up); svg.addEventListener('pointercancel', up);
+  svg.addEventListener('wheel', (e) => { e.preventDefault(); setDeg(_fsWheelDeg + Math.sign(e.deltaY) * 15); }, { passive: false });
+  svg.addEventListener('dblclick', (e) => { e.preventDefault(); e.stopPropagation(); });
+  _fsWheelDraw();
+}
+document.getElementById('fs-wheel-btn').addEventListener('click', () => {
+  try { localStorage.setItem(FS_WHEEL_KEY, _fsWheelWanted() ? 'off' : 'on'); } catch (_) {}
+  _fsWheelShow();
+});
 window.__audioChartFreeSail = { active: () => !!_fs, busy: () => _vjRunning, start: () => { if (!_fs) _startFreeSail({}); } };
 
 function _getTrackSettings() {
