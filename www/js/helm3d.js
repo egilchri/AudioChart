@@ -7,6 +7,7 @@ import { Water } from './lib/three/Water.js';
 import { depthAtFrom } from './depth.js';
 import { LON0, LAT0, MX, MY, wx, wz, cachedFetch, readDem, photo, photoAtCells, addCanopy, gridMesh, photoMat, buildTown, spruce, tlog, tmark, TOWN_NIGHT } from './terrain3d.js';
 import { makeWildlife, ledgesFrom } from './wildlife3d.js';
+import { makeSailboat } from './sailboat3d.js';
 import { makeSky, makeEnv, glowSprite, flashFor, weatherPanel, startConditions, makeTrimmer, cycleLook } from './weather3d.js';
 
 const statusEl = document.getElementById('status');
@@ -15,7 +16,14 @@ const fail = (msg) => { statusEl.textContent = msg; statusEl.hidden = false; };
 window.addEventListener('error', e => fail('Something went wrong: ' + e.message));
 const setStatus = (msg) => { statusEl.textContent = msg; };
 
-const EYE = 2.0, NM = 1852;   // seated at the tiller
+// Your boat (v905, requested: "an alternative boat choice, like a Camden Windjammer, such as the
+// Angelique"): the Cape Dory 25D, or the 95 ft gaff topsail ketch Angelique (sailboat3d.js), from
+// ?boat= or the choice remembered in this browser (the Bird's-eye view shares it).
+const BOAT_KEY = 'audiochart-boat', BOATS = { cd25: 'Cape Dory 25D', angelique: 'Angelique' };
+const BOAT_TYPE = (() => { let b = new URLSearchParams(location.search).get('boat'); if (!b) { try { b = localStorage.getItem(BOAT_KEY); } catch (_) {} } return BOATS[b] ? b : 'cd25'; })();
+const ANGEL = BOAT_TYPE === 'angelique';
+// the helmsman's eye: seated at the Cape Dory's tiller, or standing at Angelique's wheel on her afterdeck
+const EYE = ANGEL ? 4.0 : 2.0, HELM_X = ANGEL ? 0 : 0.35, HELM_Z = ANGEL ? 12.0 : 1.0, NM = 1852;
 // Rockland Breakwater: not in the elevation data (water is flattened there); traced from the photo.
 const BREAKWATER = [[-69.08197, 44.11540], [-69.07751, 44.10410]];
 
@@ -394,11 +402,18 @@ const bow = new THREE.Group();
   const TZ0 = Z0, TZ1 = -3.0, TL = TZ1 - TZ0;
   const thw = z => { const t = (z - TZ0) / TL; return Math.min(half(z) - 0.3, 0.86) * Math.pow(Math.max(0, 1 - Math.pow(t, 6)), 0.5); };
   const trunkBase = z => sheer(z) + 0.04, trunkTop = (z, x) => sheer(z) + 0.46 - 0.06 * ((z - TZ0) / TL) + 0.05 * (1 - Math.min(1, (x / (thw(z) || 1e-3)) ** 2));
-  const tz = u => TZ0 + u * TL;
+  // trunk stations crowd toward its rounded front, where the width falls away fast; the deck's inner
+  // edge uses the very same stations, so no sliver of open hull shows between deck and trunk (v905,
+  // reported from the Drone view: dark holes either side of the trunk's forward end)
+  const tz = u => TZ0 + (1 - Math.pow(1 - u, 3)) * TL;
   // deck (buff non-skid), open under the trunk (v903: it ran across inside the cabin as a false ceiling)
-  for (const sd of [-1, 1]) bow.add(loft(48, 8, (u, v) => { const z = zAt(u), b = half(z), w = Math.min(thw(z), b), x = sd * (w + v * (b - w)); return [x, deckY(z, x), z]; }, BUFF));
-  bow.add(loft(36, 12, (u, v) => { const z = tz(u), w = thw(z) - 0.04, x = (v * 2 - 1) * w; return [x, trunkTop(z, x), z]; }, BUFF));
-  for (const s of [-1, 1]) bow.add(loft(36, 2, (u, v) => {
+  const deckRow = (z, sd, v) => { const b = half(z), w = Math.min(thw(z), b), x = sd * (w + v * (b - w)); return [x, deckY(z, x), z]; };
+  for (const sd of [-1, 1]) {
+    bow.add(loft(48, 8, (u, v) => deckRow(tz(u), sd, v), BUFF));                        // beside the trunk
+    bow.add(loft(32, 8, (u, v) => deckRow(TZ1 + u * (ZS - TZ1), sd, v), BUFF));         // foredeck
+  }
+  bow.add(loft(48, 12, (u, v) => { const z = tz(u), w = thw(z) - 0.04, x = (v * 2 - 1) * w; return [x, trunkTop(z, x), z]; }, BUFF));
+  for (const s of [-1, 1]) bow.add(loft(48, 2, (u, v) => {
     const z = tz(u), w = thw(z); return [s * (w - 0.04 * v), trunkBase(z) + v * (trunkTop(z, s * (w - 0.04)) - trunkBase(z)), z];
   }, WHITE));
   // bronze oval portlights, two each side
@@ -545,8 +560,27 @@ const bow = new THREE.Group();
     const spout = box(0.02, 0.02, 0.12, -0.86, SOLE + 0.86, -1.07, STAIN);
     box(0.34, 0.08, 0.3, -0.68, SOLE + 0.7, -1.47, STAIN);                                              // stove
     for (const dz of [-0.07, 0.07]) { const b = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.01, 4, 12), BLACK); b.rotation.x = Math.PI / 2; b.position.set(-0.68, SOLE + 0.75, -1.47 + dz); bow.add(b); }
+    // chart table to starboard (v905, requested: "galley sink, chart table, and berths"), over the
+    // icebox: a chart of the bay on it with parallel rules, the VHF and depth sounder on the bulkhead above
     box(0.55, 0.62, 0.7, 0.68, SOLE + 0.31, -1.3, IN); box(0.58, 0.04, 0.73, 0.68, SOLE + 0.64, -1.3, TEAK);
-    box(0.32, 0.02, 0.32, 0.66, SOLE + 0.665, -1.3, IN);                                               // icebox lid
+    for (const dz of [-0.36, 0.36]) box(0.58, 0.03, 0.02, 0.68, SOLE + 0.675, -1.3 + dz, TEAK);        // fiddles
+    {
+      const c = document.createElement('canvas'); c.width = 128; c.height = 160; const g = c.getContext('2d');
+      g.fillStyle = '#dfeaf0'; g.fillRect(0, 0, 128, 160);                                             // water
+      g.fillStyle = '#efe2b8';                                                                          // land and islands
+      g.beginPath(); g.moveTo(0, 0); g.lineTo(46, 0); g.bezierCurveTo(30, 40, 52, 70, 26, 110); g.lineTo(0, 160); g.closePath(); g.fill();
+      for (const [x, y, r] of [[80, 40, 10], [96, 90, 14], [70, 128, 7], [112, 140, 6]]) { g.beginPath(); g.ellipse(x, y, r, r * 0.7, 0.6, 0, 7); g.fill(); }
+      g.strokeStyle = '#9ab3c2'; g.lineWidth = 1; for (let k = 0; k < 6; k++) { g.beginPath(); g.moveTo(0, 20 + k * 25); g.bezierCurveTo(50, 30 + k * 25, 80, 10 + k * 25, 128, 22 + k * 25); g.stroke(); }
+      g.strokeStyle = '#7a4b9a'; g.beginPath(); g.arc(92, 30, 16, 0, 7); g.stroke();                   // compass rose
+      g.strokeStyle = '#333'; g.setLineDash([4, 3]); g.beginPath(); g.moveTo(40, 150); g.lineTo(60, 96); g.lineTo(88, 60); g.stroke();   // pencilled course
+      const chart = new THREE.Mesh(new THREE.PlaneGeometry(0.44, 0.56), new THREE.MeshLambertMaterial({ map: new THREE.CanvasTexture(c) }));
+      chart.rotation.x = -Math.PI / 2; chart.rotation.z = 0.08; chart.position.set(0.67, SOLE + 0.663, -1.3); bow.add(chart);
+      const rule = box(0.05, 0.012, 0.36, 0.6, SOLE + 0.67, -1.28, M(0x9fb6c0)); rule.rotation.y = 0.5;   // parallel rules
+    }
+    box(0.26, 0.09, 0.05, 0.55, SOLE + 1.0, BZ - 0.04, BLACK);                                          // VHF
+    box(0.05, 0.04, 0.012, 0.6, SOLE + 1.0, BZ - 0.068, M(0x6fd08a));                                   // its display
+    box(0.12, 0.12, 0.04, 0.82, SOLE + 1.0, BZ - 0.04, BLACK);                                          // depth sounder
+    box(0.08, 0.06, 0.012, 0.82, SOLE + 1.01, BZ - 0.063, M(0xd8e8a0));
     // settee berths with backrests, port and starboard
     for (const s of [-1, 1]) {
       box(0.5, 0.36, 1.3, s * 0.62, SOLE + 0.18, -2.3, IN);
@@ -558,9 +592,13 @@ const bow = new THREE.Group();
     const post = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 1.5, 8), TEAK); post.position.set(0, SOLE + 0.75, -2.72); bow.add(post);
     box(0.5, 0.03, 0.75, 0, SOLE + 0.68, -2.35, TEAK);
     // main bulkhead with its doorway, the V-berth forward
-    const mb = new THREE.Shape(), MBZ = -3.02, mw = 0.98;
-    mb.moveTo(-mw, SOLE); mb.lineTo(mw, SOLE); mb.lineTo(mw, 1.25); mb.lineTo(-mw, 1.25); mb.closePath();
-    const dw = new THREE.Path(); dw.moveTo(-0.22, SOLE + 0.05); dw.lineTo(0.22, SOLE + 0.05); dw.lineTo(0.22, 1.1); dw.lineTo(-0.22, 1.1); dw.closePath(); mb.holes.push(dw);
+    const mb = new THREE.Shape(), MBZ = -3.02;
+    // cut to the hull and under the deck's crown (v905: it stood 1.25 m tall, through the foredeck either side of the trunk)
+    const mt = half(MBZ) - 0.05, mbTop = x => deckY(MBZ, x) - 0.02;
+    mb.moveTo(-0.7, SOLE); mb.lineTo(0.7, SOLE); mb.lineTo(mt, 0.55);
+    for (let k = 0; k <= 12; k++) { const x = mt - 2 * mt * k / 12; mb.lineTo(x, mbTop(x)); }
+    mb.lineTo(-mt, 0.55); mb.closePath();
+    const dw = new THREE.Path(), dTop = mbTop(0) - 0.08; dw.moveTo(-0.22, SOLE + 0.05); dw.lineTo(0.22, SOLE + 0.05); dw.lineTo(0.22, dTop); dw.lineTo(-0.22, dTop); dw.closePath(); mb.holes.push(dw);
     const mbm = new THREE.Mesh(new THREE.ShapeGeometry(mb), TEAK); mbm.position.z = MBZ; bow.add(mbm);
     const vb = new THREE.Shape(); vb.moveTo(-0.85, 0); vb.lineTo(0.85, 0); vb.lineTo(0.1, -1.5); vb.lineTo(-0.1, -1.5); vb.closePath();
     const vg = new THREE.ExtrudeGeometry(vb, { depth: 0.12, bevelEnabled: false }); vg.rotateX(Math.PI / 2);
@@ -654,11 +692,17 @@ const boat = new THREE.Group();
 boat.add(bow);
 scene.add(boat);
 boat.add(camera);
-camera.position.set(0.35, EYE, 1.0);   // at the tiller, aft end of the cockpit
+camera.position.set(HELM_X, EYE, HELM_Z);   // at the tiller, aft end of the cockpit (Angelique: her wheel)
+// Angelique in place of the Cape Dory: the Cape Dory's model is hidden (the lights added to bow
+// below are placed for whichever boat it is); she heels and trims herself (frame())
+const angel = ANGEL ? makeSailboat('angelique', 1) : null;
+if (angel) { for (const o of bow.children) o.visible = false; angel.wake(0); boat.add(angel.group); }
+if (angel) { const sub = document.querySelector('.sub'); if (sub) sub.firstChild.textContent = sub.firstChild.textContent.replace('From the tiller of a Cape Dory 25D', "From the wheel of Angelique, Camden's gaff topsail ketch"); }
 // her own wake (v902; the ferries had one, she didn't): a fading fan of foam astern and a curl at
 // the bow, on a level group that follows her position and heading (not her bob, pitch or heel,
 // which tipped the far end of a 50 m fan under the water), showing with her speed through the water
 const wakeG = new THREE.Group(); scene.add(wakeG);
+if (ANGEL) wakeG.scale.setScalar(3.6);   // Angelique's wake: the same foam, sized to her
 const ownWake = (() => {
   // foam drawn on a canvas, the apex at the top (forward): the two diverging arms of the wake,
   // broken and fading, and (astern only) the churned streak right behind her
@@ -736,7 +780,7 @@ water.material.fragmentShader = water.material.fragmentShader
   .replace('reflectionSample * 0.9 +', 'reflectionSample * 0.78 +');
 water.material.needsUpdate = true;
 // keep the boat's own bow out of the water's reflection pass
-{ const mirror = water.onBeforeRender; water.onBeforeRender = (...a) => { bow.visible = false; mirror(...a); bow.visible = true; }; }
+{ const mirror = water.onBeforeRender; water.onBeforeRender = (...a) => { bow.visible = false; if (angel) angel.group.visible = false; mirror(...a); bow.visible = true; if (angel) angel.group.visible = true; }; }
 water.renderOrder = 2;   // after the hull's sea-excluding cap (v903)
 scene.add(water);
 
@@ -864,10 +908,17 @@ function ownLight(at, color, toward, arc, pool, when) {
 }
 const SIDE = 112.5 / 2;   // each sidelight shows from dead ahead to 22.5° abaft the beam
 const underWay = () => anchor.state === 'up', atAnchor = () => anchor.state !== 'up';
+if (ANGEL) {   // Angelique: sidelight boards in the main shrouds, stern light on the taffrail, anchor light in the forestay
+  ownLight([-3.75, 3.4, -5.2], 0xff2a1e, -SIDE, SIDE, [-6, -5, 12], underWay);
+  ownLight([3.75, 3.4, -5.2], 0x2bff6a, SIDE, SIDE, [6, -5, 12], underWay);
+  ownLight([0, 3.0, 14.6], 0xfff2d6, 180, 67.5, [0, 18, 14], underWay);
+  ownLight([0, 9.0, -14.0], 0xfff2d6, 0, 180, [0, -14, 26], atAnchor);
+} else {
 ownLight([-0.45, 1.68, -4.75], 0xff2a1e, -SIDE, SIDE, [-2.2, -5, 5], underWay);   // port sidelight, red
 ownLight([0.45, 1.68, -4.75], 0x2bff6a, SIDE, SIDE, [2.2, -5, 5], underWay);      // starboard sidelight, green
 ownLight([0, 1.56, 2.66], 0xfff2d6, 180, 67.5, [0, 5, 6], underWay);             // stern light
 ownLight([0, 10.6, -2.75], 0xfff2d6, 0, 180, [0, -1, 14], atAnchor);               // anchor light at the masthead
+}
 const litMats = [];   // materials with an emissive glow that comes on with the lights (ferry windows)
 let wxPanel = null;
 for (const m of marks) if (m.lamp) {   // a glow on every charted light, over its lamp
@@ -1269,7 +1320,7 @@ function playSplash() {
   }
 }
 const anchorNote = document.getElementById('anchornote');
-const ROLLER = new THREE.Vector3(0, 1.12, -5.25);   // stem-head roller, boat frame
+const ROLLER = ANGEL ? new THREE.Vector3(0, 2.9, -15.0) : new THREE.Vector3(0, 1.12, -5.25);   // stem-head roller, boat frame
 const anchorObj = new THREE.Group();
 {
   const galv = new THREE.MeshLambertMaterial({ color: 0x6f767b });
@@ -1310,16 +1361,17 @@ const anchor = { state: 'up', t: 0, v: 0, splashAt: null, vel: new Float32Array(
 // Drone (100 ft, 50 m astern) looks down on the whole boat with the shore beyond; looking
 // around from a raised view circles the camera around the boat instead of turning in place.
 const DRONE_M = 100 * 0.3048;
-const EYE_CHOICES = [{ label: 'Helm', m: EYE, title: 'Deck level, at the tiller' }, { label: '20 ft', m: 20 * 0.3048 }, { label: '60 ft', m: 60 * 0.3048 }, { label: 'Drone', m: DRONE_M }];
+const EYE_CHOICES = [{ label: 'Helm', m: EYE, title: ANGEL ? 'On deck, at the wheel' : 'Deck level, at the tiller' }, { label: '20 ft', m: 20 * 0.3048 }, { label: '60 ft', m: 60 * 0.3048 }, { label: 'Drone', m: DRONE_M }];
 const FT60 = 60 * 0.3048, _back = m => Math.max(0, (m - EYE) * 2.2), _tilt = m => Math.max(0, (m - EYE) * 2.4) / (1 + Math.max(0, m - EYE) / 18);
 const _toDrone = m => Math.min(1, Math.max(0, (m - FT60) / (DRONE_M - FT60)));   // 60 ft -> drone, so the change glides
-const eyeBack = m => m <= FT60 ? _back(m) : _back(FT60) + (50 - _back(FT60)) * _toDrone(m);
+const DRONE_BACK = ANGEL ? 90 : 50;   // she's 130 ft overall: the Drone stands farther off to see all of her
+const eyeBack = m => m <= FT60 ? _back(m) : _back(FT60) + (DRONE_BACK - _back(FT60)) * _toDrone(m);
 const eyeTilt = m => m <= FT60 ? _tilt(m) : _tilt(FT60) + (20 - _tilt(FT60)) * _toDrone(m);
 let eyeTarget = DRONE_M;   // Drone by default (direct request, v832); a choice made since is remembered
 {
   let want = Number(params.get('eye')) * 0.3048;   // feet in the URL; metres stored
   if (!want) { try { want = Number(localStorage.getItem('audiochart-helm3d-view')); } catch (_) {} }
-  if (want > 0) eyeTarget = want;
+  if (want > 0) eyeTarget = Math.max(EYE, want);   // a Cape Dory helm height remembered would put you below Angelique's deck
 }
 let eyeH = eyeTarget;
 const eyeBox = document.getElementById('eyepick');
@@ -1389,6 +1441,21 @@ const goView = url => { try { if (window.parent !== window && window.parent.__au
   });
   eyeBox.appendChild(b);
 }
+// Boat (v905): Cape Dory 25D or Angelique; the scene is rebuilt for her, where you are now
+{
+  const b = document.createElement('button'); b.type = 'button'; b.className = 'birdbtn'; b.id = 'boatbtn';
+  b.textContent = ANGEL ? '⛵ Angelique' : '⛵ Cape Dory'; b.title = `Your boat: ${BOATS[BOAT_TYPE]}. Click for ${ANGEL ? 'the Cape Dory 25D' : 'Angelique, the Camden windjammer'}`;
+  b.addEventListener('pointerdown', e => e.stopPropagation());
+  b.addEventListener('click', () => {
+    const next = ANGEL ? 'cd25' : 'angelique', q = new URLSearchParams(location.search);
+    try { localStorage.setItem(BOAT_KEY, next); } catch (_) {}
+    q.set('boat', next);
+    if (FREE) { q.set('lat', (-freeP.z / MY + LAT0).toFixed(5)); q.set('lon', (freeP.x / MX + LON0).toFixed(5)); q.set('hdg', String(Math.round(freeP.h))); }
+    else { q.set('start', (S / NM).toFixed(3)); if (playing) q.set('play', '1'); else q.delete('play'); q.set('pace', speedEl.value); }
+    location.replace(location.pathname + '?' + q);
+  });
+  eyeBox.appendChild(b);
+}
 // Weather (v858): a button at the end of the View buttons opens the conditions panel (weather3d.js)
 wxPanel = weatherPanel({ host: eyeBox, panelParent: sceneEl, where: () => routeLL[Math.floor(routeLL.length / 2)], pick: applyConditions });
 applyConditions(startConditions(params));
@@ -1407,7 +1474,7 @@ addEventListener('keydown', e => {
   const i = EYE_CHOICES.findIndex(c => Math.abs(c.m - eyeTarget) < 0.2);
   setEye(EYE_CHOICES[(i + 1) % EYE_CHOICES.length].m);
 });
-const TILLER = new THREE.Vector3(0.35, EYE, 1.0), AT_MAST = new THREE.Vector3(0.3, 2.6, -3.2);   // on the foredeck, just forward of the mast
+const TILLER = new THREE.Vector3(HELM_X, EYE, HELM_Z), AT_MAST = ANGEL ? new THREE.Vector3(0.3, 4.6, -10.5) : new THREE.Vector3(0.3, 2.6, -3.2);   // on the foredeck, just forward of the mast
 let camK = 0;
 const UP_AXIS = new THREE.Vector3(0, 1, 0);
 function arrive() {
@@ -1593,17 +1660,18 @@ function frame() {
   camera.fov = 55 / zoom; camera.updateProjectionMatrix();
   const roll = Math.sin(t * 0.9) * 0.012 * Math.pow(mv, 0.8);
   const wantSails = anchor.state === 'up' && WND.heel > 0;   // set in every view while under way with wind (v870; was Drone only)
-  if (wantSails !== sailsUp) { sailsUp = wantSails; setSails(sailsUp); }
+  if (wantSails !== sailsUp) { sailsUp = wantSails; if (!angel) setSails(sailsUp); }   // (Angelique sets her own, below)
   const pt = pointOfSail(smoothCourse, dt);
-  if (sailsUp) trimSails(pt.boom, pt.jib, pt.side, pt.jibOn);
+  if (sailsUp && !angel) trimSails(pt.boom, pt.jib, pt.side, pt.jibOn);
   heel += ((sailsUp ? pt.side * pt.heelK * THREE.MathUtils.degToRad(WND.heel) : 0) - heel) * Math.min(1, dt * 0.8);   // heeling to leeward
   bow.rotation.z = heel;   // the hull heels; the camera (a child of boat, not bow) stays level
+  if (angel) angel.trim(pt, Math.abs(heel) / Math.max(1e-3, pt.heelK || 1), sailsUp);   // she sets the heel herself (stiffer than the Cape Dory)
   boat.rotation.set((Math.sin(t * 0.7) * 0.012 + Math.sin(t * 0.45 + 2) * 0.01 * Math.max(0, mv - 1)) * mv, -THREE.MathUtils.degToRad(smoothCourse), roll * 2, 'YXZ');
   ownWake(pos, dt);
   const ease = camK * camK * (3 - 2 * camK);
   // viewpoint height (Helm / 20 ft / 60 ft), eased so changes glide
   eyeH += (eyeTarget - eyeH) * Math.min(1, dt * 2.5);
-  TILLER.set(0.35 * (eyeH <= EYE + 0.3 ? 1 : 0), eyeH, 1.0 + eyeBack(eyeH));
+  TILLER.set(HELM_X * (eyeH <= EYE + 0.3 ? 1 : 0), eyeH, HELM_Z + eyeBack(eyeH));
   if (eyeH > EYE + 0.3) TILLER.applyAxisAngle(UP_AXIS, -THREE.MathUtils.degToRad(yawOff * (1 - ease)));   // orbit the boat
   camera.position.lerpVectors(TILLER, AT_MAST, ease);
   camera.rotation.set(THREE.MathUtils.degToRad((pitch - eyeTilt(eyeH)) + (-38 - (pitch - eyeTilt(eyeH))) * ease), -THREE.MathUtils.degToRad(yawOff * (1 - ease)), -roll * 1.6, 'YXZ');

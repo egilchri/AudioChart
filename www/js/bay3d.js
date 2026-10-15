@@ -12,7 +12,7 @@ import * as THREE from 'three';
 import { Water } from './lib/three/Water.js';
 import { LON0, LAT0, MX, MY, wx, wz, readDem, photo, addCanopy, gridMesh, photoMat, buildTown, disposeGroup, spruce, TOWN_NIGHT } from './terrain3d.js';
 import { SUN, makeSky, makeEnv, glowSprite, flashFor, flashOn, weatherPanel, startConditions, makeTrimmer, cycleLook } from './weather3d.js';
-import { makeSailboat } from './sailboat3d.js';
+import { makeSailboat, fleetType } from './sailboat3d.js';
 import { makeWildlife, ledgesFrom } from './wildlife3d.js';
 
 const statusEl = document.getElementById('status');
@@ -564,6 +564,9 @@ function updateWeather(dt, t) {
 // they sail at a real 5 kn; from higher up time runs faster (up to 20×) so you can see them move.
 // Like the buoys, they're drawn bigger the farther off you are.
 const FLEET_N = 40, BOAT_KN = 5, NMm = 1852;
+// drawn bigger the farther off, as the buoys are; a big boat needs less of it, so a windjammer stays
+// bigger than a daysailer at any range without becoming an island from the heights (v905)
+const boatScale = (boat, d) => Math.max(1.6, clamp(d / 250, 1.6, 90) * Math.sqrt(8 / boat.L));
 const isWater = (x, z) => heightAt(lonOf(x), latOf(z)) <= 0.3;
 const clearLeg = (x, z, h, len) => { const a = h * DEG; for (let d = 120; d <= len + 200; d += 120) if (!isWater(x + Math.sin(a) * d, z - Math.cos(a) * d)) return false; return true; };
 const fleet = [];
@@ -576,7 +579,7 @@ const fleet = [];
     let ok = isWater(x, z);
     for (let k = 0; ok && k < 8; k++) ok = isWater(x + Math.sin(k * Math.PI / 4) * 0.45 * NMm, z - Math.cos(k * Math.PI / 4) * 0.45 * NMm);
     if (!ok) continue;
-    const boat = makeSailboat(fleet.length);
+    const boat = makeSailboat(fleetType(rnd), fleet.length);   // a mixed fleet (v905)
     scene.add(boat.group);
     fleet.push({ boat, home: { x, z }, x, z, h: rnd() * 360, want: null, left: 0, trim: makeTrimmer(), rnd });
   }
@@ -586,7 +589,7 @@ function pickLeg(b) {
   const homeBrg = Math.atan2(b.home.x - b.x, -(b.home.z - b.z)) / DEG;
   for (let i = 0; i < 30; i++) {
     const h = (b.rnd() * 360), twa = Math.abs(((wf - h + 540) % 360) - 180), len = (0.25 + b.rnd() * 0.3) * NMm;
-    if (!calm && twa < 45) continue;
+    if (!calm && !b.boat.power && twa < 45) continue;   // a powerboat goes any way she likes
     if (away > 0.45 * NMm && Math.cos((h - homeBrg) * DEG) < 0.3) continue;   // head back toward home
     if (!clearLeg(b.x, b.z, h, len)) continue;
     b.want = h; b.left = len; return;
@@ -615,19 +618,20 @@ function updateFleet(dt) {
   const FLEET_K = clamp(view.dist / 150, 1, 20);
   for (const b of fleet) {
     b.boat.group.visible = show;
+    const go = up || b.boat.power, kn = b.boat.kn || BOAT_KN;   // a lobster boat works in a calm too
     if (b.want == null || b.left <= 0) pickLeg(b);
     const twa = Math.abs(((env.C.windFrom - b.want + 540) % 360) - 180);
-    if (up && twa < 40) pickLeg(b);   // the wind shifted onto her bow: bear away onto a new leg
-    if (up) {
+    if (up && !b.boat.power && twa < 40) pickLeg(b);   // the wind shifted onto her bow: bear away onto a new leg
+    if (go) {
       const turn = ((b.want - b.h + 540) % 360) - 180, step = 25 * dt * FLEET_K / 6;
       b.h = (b.h + clamp(turn, -step, step) + 360) % 360;
-      const v = BOAT_KN * NMm / 3600 * FLEET_K * dt, a = b.h * DEG;
+      const v = kn * NMm / 3600 * FLEET_K * dt, a = b.h * DEG;
       b.x += Math.sin(a) * v; b.z -= Math.cos(a) * v; b.left -= v;
     }
-    const p = b.trim(env.C.windFrom, b.h, env.W.tws ?? 8, up ? BOAT_KN : 0, dt * FLEET_K / 4);
+    const p = b.trim(env.C.windFrom, b.h, env.W.tws ?? 8, up ? kn : 0, dt * FLEET_K / 4);
     b.boat.trim(p, heel, up);
-    const s = clamp(Math.hypot(b.x - cp.x, cp.y, b.z - cp.z) / 250, 1.6, 90);   // never smaller than 1.6×: the closest you can come is ~120 m
-    b.boat.group.scale.setScalar(s);
+    b.boat.wake(go ? Math.min(1, kn / 8) : 0);
+    b.boat.group.scale.setScalar(boatScale(b.boat, Math.hypot(b.x - cp.x, cp.y, b.z - cp.z)));   // never smaller than 1.6×: the closest you can come is ~120 m
     b.boat.group.position.set(b.x, 0, b.z);
     b.boat.group.rotation.y = -b.h * DEG;
   }
@@ -695,7 +699,9 @@ function updateWaypoints() {
 // the same route runs in AudioChart, she follows the journey instead (it broadcasts progress).
 const OWN_KN = (() => { let v = NaN; try { v = parseFloat(localStorage.getItem('audiochart-last-speed')); } catch (_) {} return v > 0 && v < 40 ? v : 5; })();
 const PACE_KEY = 'audiochart-bay3d-pace';
-const own = { boat: makeSailboat(4), trim: makeTrimmer(), r: null, pts: [], cum: [0], nights: [], total: 0, S: 0, playing: false, vj: null, x: 0, z: 0, h: 0 };
+// your boat: the Cape Dory 25D, or Angelique if that's your choice in the helm view (v905, same key)
+const OWN_TYPE = (() => { let b = params.get('boat'); if (!b) { try { b = localStorage.getItem('audiochart-boat'); } catch (_) {} } return b === 'angelique' ? 'angelique' : 'cd25'; })();
+const own = { boat: makeSailboat(OWN_TYPE, 4), trim: makeTrimmer(), r: null, pts: [], cum: [0], nights: [], total: 0, S: 0, playing: false, vj: null, x: 0, z: 0, h: 0 };
 own.boat.group.visible = false; scene.add(own.boat.group);
 const sailRow = document.getElementById('sailrow'), sailBtn = document.getElementById('sailit'), paceSel = document.getElementById('sailpace'), sailNote = document.getElementById('sailnote');
 for (const k of [1, 5, 20, 60, 200]) { const o = document.createElement('option'); o.value = k; o.textContent = k === 1 ? `${OWN_KN} kn real time` : `${OWN_KN} kn × ${k}`; paceSel.appendChild(o); }
@@ -771,8 +777,9 @@ function updateOwn(dt) {
   }
   const p = own.trim(env.C.windFrom, own.h, env.W.tws ?? 8, up ? kn : 0, dt * Math.min(pace, 8));
   own.boat.trim(p, env.W.heel * DEG, up);
+  own.boat.wake(up ? Math.min(1, kn / 8) : 0);
   const cp = camera.position;
-  own.boat.group.scale.setScalar(clamp(Math.hypot(own.x - cp.x, cp.y, own.z - cp.z) / 250, 1.6, 90));
+  own.boat.group.scale.setScalar(boatScale(own.boat, Math.hypot(own.x - cp.x, cp.y, own.z - cp.z)));
   own.boat.group.position.set(own.x, 0, own.z); own.boat.group.rotation.y = -own.h * DEG;
   own.boat.group.visible = !aboveFog;
   followBtn.classList.toggle('on', follow === own);

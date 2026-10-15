@@ -1,5 +1,34 @@
 # Changelog
 
+## 2026-10-15 — Angelique as your boat, a mixed Bird's-eye fleet, a chart table below (v905)
+
+**Your boat** (requested: "an alternative boat choice, like a Camden Windjammer, such as the
+Angelique"): a new button in the 3D view's VIEW bar switches between the Cape Dory 25D and Angelique,
+Camden's gaff topsail ketch (1980, steel, 95 ft on deck, 130 ft overall, ~24 ft beam): glossy green
+hull, deep burgundy gaff sails with a topsail over each, mainmast forward and the shorter mizzen aft,
+two headsails off the bowsprit. The scene reloads where you are with her in place: the Helm view stands
+at her wheel (eye 4 m), the Drone stands 90 m off instead of 50, the anchor goes from her stem head, her
+sidelights, stern and anchor lights sit where hers would, and her wake is sized to her. The choice is
+remembered (`audiochart-boat`) and the Bird's-eye view uses it for your boat too. A remembered Cape
+Dory helm height can no longer put the camera below her deck.
+
+**Bird's-eye fleet** (requested: "do the same for the fleet boats, with some variety in their sizes and
+types"): sailboat3d.js now lofts six types the way the Cape Dory is built (overhangs, stripes and
+boot-top, antifouling, cabin or wheelhouse, seamed sailcloth, a wake that comes up with speed):
+17 ft daysailers, 25-28 ft classic cruisers in assorted colours, 34 ft modern sloops, Maine lobster
+boats under power (they work in a calm and go any way they like), and the odd windjammer. Each sails at
+her own speed; a big boat is enlarged less with distance, so a windjammer stays bigger than a
+daysailer at any range without becoming an island from the heights.
+
+**The Cape Dory's cabin** (requested: "galley sink, chart table, and berths"): the starboard counter
+is now a chart table with fiddles, a chart of the bay with a pencilled course and parallel rules, the
+VHF and depth sounder on the bulkhead above. Reported from the Drone view: dark holes either side of
+the cabin trunk's forward end. Two causes, both fixed: the teak main bulkhead stood 1.25 m tall,
+through the foredeck (now cut to the hull and under the deck's crown), and the deck's inner edge and
+the trunk sides were sampled at different stations round the trunk's rounded front (now shared, and
+crowded toward the front). Not reproduced at v904: water showing through the companionway; the drone,
+20 ft and 60 ft views all show the ladder, sole and engine box.
+
 ## 2026-10-15 — Compass rose over Bird's-eye from a journey's 3D view (v904)
 
 Reported with a screenshot: no compass rose. Bird's-eye chosen as a map type had it, but Bird's-eye
