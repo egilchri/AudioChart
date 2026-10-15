@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-10-15 — Binoculars in the 3D view (v908)
+
+Requested: "a spyglass, or binoculars … you would stop the boat, and then point the binoculars towards
+the shore, and scan, for details." A Binoculars button in the VIEW bar (or B) raises 7× glasses at the
+helm, from whichever view you were in: two round eyepieces, black round them, a mil-scale cross-hair,
+and along the bottom a magnetic compass scale as in a pair of marine 7×50s. Under it a readout gives
+the bearing, the range to the land under the cross-hair (marched out along the sight line over the
+terrain, allowing for the earth's curve; aiming at a shoreline just beyond where the sight line meets
+the water still ranges it) and the nearest named place. Drag or the arrow keys to scan; a slow wander
+from your hands and the boat, more in a seaway. Terrain in the direction you're looking is shown and
+loaded in full detail out to ~9 km (tiles off the route's corridor are added for it), so a distant
+shore is sharp rather than the far view's coarse photo. Esc, B, Look ahead or any View button lowers
+them and puts your view back. If an older cached copy of the page meets the new script, the script
+makes the eyepiece canvas itself instead of failing.
+
 ## 2026-10-15 — No "You" label over your boat in Bird's-eye (v907)
 
 Requested: "get rid of the box that follows the boat, and says 'You'". The gold "⛵ You" label that sat

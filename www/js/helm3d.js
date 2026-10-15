@@ -187,13 +187,33 @@ function dropTile(T) {
   Object.assign(T, { state: 'idle', full: null, coarse: null, trees: null, dem: null, mat: null, img: null, photo: null });
 }
 let tiles = [], loadingCount = 0;
-function updateTiles(px, pz) {
-  for (const T of tiles) {
-    const d = rectDist(T, px, pz);
-    if (T.state === 'ready') { const nearT = d < LOD_NEAR_M; T.full.visible = nearT; T.coarse.visible = !nearT; }
-    if (d > DROP_M && (T.state === 'ready' || T.state === 'loading')) dropTile(T);
+// Through the binoculars (v908) the shore you're looking at, out to BINO_M, gets full detail: tiles
+// along the sight lines are added to the grid if the route didn't need them, loaded first, and kept.
+let binocView = null;   // { bearing (true), hfov } while the glasses are up
+const tileKey = new Set();
+function binocTiles(px, pz) {
+  if (!binocView) return new Set();
+  const seen = new Set();
+  for (const off of [-0.5, -0.25, 0, 0.25, 0.5]) {
+    const b = THREE.MathUtils.degToRad(binocView.bearing + off * binocView.hfov);
+    for (let t = 800; t <= 9000; t += 700) {
+      const lon = (px + Math.sin(b) * t) / MX + LON0, lat = -(pz - Math.cos(b) * t) / MY + LAT0;
+      const w = +(Math.floor(lon / TW) * TW).toFixed(4), s0 = +(Math.floor(lat / TH) * TH).toFixed(4), k = `${w},${s0}`;
+      if (!tileKey.has(k)) { tileKey.add(k); const e = +(w + TW).toFixed(4), n = +(s0 + TH).toFixed(4); tiles.push({ w, s: s0, e, n, x0: wx(w), x1: wx(e), z0: wz(n), z1: wz(s0), state: 'idle' }); }
+      seen.add(k);
+    }
   }
-  const want = tiles.filter(T => T.state === 'idle' && rectDist(T, px, pz) < LOAD_M).sort((a, b) => rectDist(a, px, pz) - rectDist(b, px, pz));
+  return seen;
+}
+function updateTiles(px, pz) {
+  if (!tileKey.size) for (const T of tiles) tileKey.add(`${T.w},${T.s}`);
+  const inGlass = binocTiles(px, pz), seen = T => inGlass.has(`${T.w},${T.s}`) && rectDist(T, px, pz) < BINO_M;
+  for (const T of tiles) {
+    const d = rectDist(T, px, pz), g = seen(T);
+    if (T.state === 'ready') { const nearT = d < LOD_NEAR_M || g; T.full.visible = nearT; T.coarse.visible = !nearT; }
+    if (d > DROP_M && !g && (T.state === 'ready' || T.state === 'loading')) dropTile(T);
+  }
+  const want = tiles.filter(T => T.state === 'idle' && (rectDist(T, px, pz) < LOAD_M || seen(T))).sort((a, b) => (seen(b) - seen(a)) || rectDist(a, px, pz) - rectDist(b, px, pz));
   while (loadingCount < 2 && want.length) {
     const T = want.shift(); loadingCount++;
     loadTile(T).finally(() => { loadingCount--; });
@@ -1185,7 +1205,7 @@ const setPlaying = on => { playing = on; playBtn.innerHTML = on ? '&#10074;&#100
 if (params.get('pace') && [...speedEl.options].some(o => o.value === params.get('pace'))) speedEl.value = params.get('pace');   // back from Bird's-eye (v875)
 playBtn.addEventListener('click', () => setPlaying(!playing));
 posEl.addEventListener('input', () => { S = Number(posEl.value) * NM; smoothCourse = null; });
-document.getElementById('reset').addEventListener('click', () => { yawOff = 0; pitch = -1.2; zoom = 1; });
+document.getElementById('reset').addEventListener('click', () => { if (binoc.on) setBinoc(false); yawOff = 0; pitch = -1.2; zoom = 1; });
 addEventListener('keydown', e => { if (e.code === 'Space' && e.target === document.body) { e.preventDefault(); setPlaying(!playing); } });
 if (params.get('play') === '1') setPlaying(true);   // still sailing, back from Bird's-eye (v875)
 let drag = null;
@@ -1197,7 +1217,7 @@ sceneEl.addEventListener('pointermove', e => {
 });
 const endDrag = () => { drag = null; sceneEl.classList.remove('dragging'); };
 sceneEl.addEventListener('pointerup', endDrag); sceneEl.addEventListener('pointercancel', endDrag);
-sceneEl.addEventListener('wheel', e => { e.preventDefault(); zoom = Math.max(1, Math.min(8, zoom * Math.exp(-e.deltaY * 0.0015))); }, { passive: false });
+sceneEl.addEventListener('wheel', e => { e.preventDefault(); if (binoc.on) return; zoom = Math.max(1, Math.min(8, zoom * Math.exp(-e.deltaY * 0.0015))); }, { passive: false });
 
 // Labels: projected each frame; hidden when terrain on that sight line is in the way.
 const labelsEl = document.getElementById('labels'), showLbl = document.getElementById('showlbl');
@@ -1379,7 +1399,8 @@ let eyeTarget = DRONE_M;   // Drone by default (direct request, v832); a choice 
 let eyeH = eyeTarget;
 const eyeBox = document.getElementById('eyepick');
 function syncEyeButtons() { for (const b of eyeBox.querySelectorAll('button[data-m]')) b.classList.toggle('on', Math.abs(Number(b.dataset.m) - eyeTarget) < 0.2); }
-function setEye(m) { eyeTarget = m; try { localStorage.setItem('audiochart-helm3d-view', String(m)); } catch (_) {} syncEyeButtons(); }
+const binoc = { on: false, prevEye: 0, prevZoom: 1, range: null, rangeT: 0 };   // binoculars (v908), below
+function setEye(m) { if (binoc.on) setBinoc(false); eyeTarget = m; try { localStorage.setItem('audiochart-helm3d-view', String(m)); } catch (_) {} syncEyeButtons(); }
 // double-click the boat (v896, requested): AudioChart's boat menu (Free sail, Autoroute, …)
 {
   let hook = null; try { if (window.parent !== window) hook = window.parent.__audioChartViews; } catch (_) {}
@@ -1424,6 +1445,98 @@ for (const c of EYE_CHOICES) {
   b.addEventListener('click', () => setEye(c.m)); eyeBox.appendChild(b);
 }
 syncEyeButtons();
+// Binoculars (v908, requested: "a spyglass, or binoculars … stop the boat, and then point the
+// binoculars towards the shore, and scan, for details"): 7× glasses raised at the helm. Two round
+// eyepieces, black round them; a compass reticle along the bottom like a pair of marine 7×50s; a
+// range to the land under the cross-hair, with the nearest named place; a little shake from your
+// hands and the boat. Drag (or the arrow keys) to scan; terrain in the direction you're looking is
+// loaded in full detail out to ~9 km so a distant shore is sharp. B toggles, Esc lowers them.
+const BINO_ZOOM = 7, BINO_M = 9000;
+const binBtn = document.createElement('button'); binBtn.type = 'button'; binBtn.className = 'binbtn'; binBtn.textContent = 'Binoculars';
+binBtn.title = '7× binoculars from the helm: drag or use the arrow keys to scan the shore (B; Esc to lower them)';
+binBtn.addEventListener('pointerdown', e => e.stopPropagation());
+binBtn.addEventListener('click', () => setBinoc(!binoc.on));
+eyeBox.appendChild(binBtn);
+// made here if the page is an older cached copy without it (its new script with an old page would otherwise fail)
+const binCv = document.getElementById('binoc') || (() => { const c = document.createElement('canvas'); c.id = 'binoc'; c.hidden = true; document.getElementById('labels').after(c); return c; })();
+Object.assign(binCv.style, { position: 'absolute', inset: '0', width: '100%', height: '100%', pointerEvents: 'none', zIndex: '1' });
+const binCtx = binCv.getContext('2d');
+function setBinoc(on) {
+  if (on === binoc.on) return;
+  binoc.on = on; binBtn.classList.toggle('on', on); binBtn.setAttribute('aria-pressed', String(on));
+  document.body.classList.toggle('binoc', on); binCv.hidden = !on;
+  if (on) { binoc.prevEye = eyeTarget; binoc.prevZoom = zoom; eyeTarget = EYE; eyeH = EYE; zoom = BINO_ZOOM; if (pitch < -6) pitch = -0.6; }
+  else { eyeTarget = binoc.prevEye; zoom = binoc.prevZoom; }
+  syncEyeButtons(); lastTileCheck = -1;
+}
+addEventListener('keydown', e => {
+  if (e.metaKey || e.ctrlKey || e.altKey || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
+  if (e.key === 'b' || e.key === 'B') { setBinoc(!binoc.on); return; }
+  if (!binoc.on) return;
+  const step = camera.fov / 5;
+  if (e.key === 'Escape') setBinoc(false);
+  else if (e.key === 'ArrowLeft') yawOff -= step; else if (e.key === 'ArrowRight') yawOff += step;
+  else if (e.key === 'ArrowUp') pitch = Math.min(30, pitch + step / 2); else if (e.key === 'ArrowDown') pitch = Math.max(-30, pitch - step / 2);
+  else return;
+  e.preventDefault();
+});
+// the range to whatever land the cross-hair is on: march out along the sight line over the terrain
+function binocRange(bearing, pitchDeg, eyeY) {
+  const b = THREE.MathUtils.degToRad(bearing), tp = Math.tan(THREE.MathUtils.degToRad(pitchDeg)), ox = boat.position.x, oz = boat.position.z;
+  let wet = false;
+  for (let t = 25; t < 20000; t += Math.max(8, t * 0.008)) {
+    let y = eyeY + tp * t - t * t / (2 * 6.4e6 / 0.87);   // earth's curve less refraction
+    if (y < 0) wet = true;                                   // the sight line has met the water…
+    if (wet) y = 0.5;                                         // …keep looking along the bearing for the shore beyond
+    const x = ox + Math.sin(b) * t, z = oz - Math.cos(b) * t;
+    if (heightAt(x / MX + LON0, -z / MY + LAT0) > y) {
+      if (wet && Math.abs(Math.atan(eyeY / t) + Math.atan(tp)) > THREE.MathUtils.degToRad(0.4)) return null;   // that shore is well above the cross-hair: you're looking at water
+      let name = null, best = 1500;
+      for (const p of placeLabels) { const d = Math.hypot(p.w[0] - x, p.w[1] - z); if (d < best) { best = d; name = p.n; } }
+      return { d: t, name };
+    }
+  }
+  return null;
+}
+function drawBinoc(lookTrue, hfov) {
+  const dpr = Math.min(2, devicePixelRatio || 1), W = Math.round(sceneEl.clientWidth * dpr), H = Math.round(sceneEl.clientHeight * dpr);
+  if (binCv.width !== W || binCv.height !== H) { binCv.width = W; binCv.height = H; }
+  const c = binCtx, r = Math.min(H * 0.47, W * 0.3), cx = W / 2, cy = H / 2, off = r * 0.6;
+  c.globalCompositeOperation = 'source-over'; c.clearRect(0, 0, W, H);
+  c.fillStyle = '#050607'; c.fillRect(0, 0, W, H);
+  c.globalCompositeOperation = 'destination-out';
+  for (const x of [cx - off, cx + off]) {
+    const g = c.createRadialGradient(x, cy, r * 0.8, x, cy, r);
+    g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    c.fillStyle = g; c.beginPath(); c.arc(x, cy, r, 0, Math.PI * 2); c.fill();
+  }
+  c.globalCompositeOperation = 'source-over';
+  const ink = 'rgba(232,236,230,0.85)', px = W / hfov;   // canvas pixels per degree
+  c.strokeStyle = ink; c.fillStyle = ink; c.lineWidth = Math.max(1, dpr);
+  // cross-hair: a horizontal mil scale through the centre and a short vertical index
+  c.beginPath(); c.moveTo(cx - r * 0.55, cy); c.lineTo(cx + r * 0.55, cy);
+  for (let k = -10; k <= 10; k++) { const x = cx + k * px * 0.1, hgt = (k % 5 ? 4 : 8) * dpr; c.moveTo(x, cy - hgt); c.lineTo(x, cy + hgt); }
+  c.moveTo(cx, cy - r * 0.18); c.lineTo(cx, cy + r * 0.18); c.stroke();
+  // compass along the bottom, magnetic, as in a pair of marine glasses
+  const mag = toMag(lookTrue), yS = cy + r * 0.66, span = r * 0.7;
+  c.save(); c.beginPath(); c.rect(cx - span, yS - 26 * dpr, span * 2, 52 * dpr); c.clip();
+  c.font = `${11 * dpr}px ui-monospace, Menlo, monospace`; c.textAlign = 'center'; c.textBaseline = 'top';
+  c.beginPath();
+  for (let h = Math.floor(mag - hfov / 2) * 2 - 2; h <= (mag + hfov / 2) * 2 + 2; h++) {   // half-degree ticks, every degree numbered
+    const d = h / 2, x = cx + (d - mag) * px, whole = h % 2 === 0;
+    c.moveTo(x, yS); c.lineTo(x, yS - (whole ? 10 : 5) * dpr);
+    if (whole && px > 40 && Math.abs(x - cx) < span - 14 * dpr) c.fillText(String(((d % 360) + 360) % 360).padStart(3, '0'), x, yS + 3 * dpr);
+  }
+  c.stroke(); c.restore();
+  c.beginPath(); c.moveTo(cx, yS - 16 * dpr); c.lineTo(cx - 5 * dpr, yS - 24 * dpr); c.lineTo(cx + 5 * dpr, yS - 24 * dpr); c.closePath(); c.fill();
+  // the readout: bearing, range to the land under the cross-hair, the nearest named place
+  const R = binoc.range, brg = String(Math.round(mag) % 360).padStart(3, '0') + '° M';
+  const txt = R ? `${brg} · ${R.d < 926 ? Math.round(R.d / 0.9144 / 10) * 10 + ' yd' : (R.d / NM).toFixed(R.d < 9260 ? 2 : 1) + ' nm'}${R.name ? ' · ' + R.name : ''}` : brg;
+  c.font = `600 ${13 * dpr}px system-ui, sans-serif`; c.textBaseline = 'middle'; c.textAlign = 'center';
+  const tw = c.measureText(txt).width + 20 * dpr;
+  c.fillStyle = 'rgba(5,6,7,0.55)'; c.fillRect(cx - tw / 2, cy + r * 0.82 - 11 * dpr, tw, 22 * dpr);
+  c.fillStyle = '#f3f1e8'; c.fillText(txt, cx, cy + r * 0.82);
+}
 // to another 3D view: inside AudioChart the chart loads it behind this one and fades it in (v899)
 const goView = url => { try { if (window.parent !== window && window.parent.__audioChartViews?.go?.(window, url)) return; } catch (_) {} location.href = url; };
 // Bird's-eye (v875, requested: one of the 3D view's choices): switches this window to the
@@ -1682,6 +1795,11 @@ function frame() {
   if (eyeH > EYE + 0.3) TILLER.applyAxisAngle(UP_AXIS, -THREE.MathUtils.degToRad(yawOff * (1 - ease)));   // orbit the boat
   camera.position.lerpVectors(TILLER, AT_MAST, ease);
   camera.rotation.set(THREE.MathUtils.degToRad((pitch - eyeTilt(eyeH)) + (-38 - (pitch - eyeTilt(eyeH))) * ease), -THREE.MathUtils.degToRad(yawOff * (1 - ease)), -roll * 1.6, 'YXZ');
+  if (binoc.on) {   // hands and the boat: a slow wander, a little more in a seaway
+    const k = 0.05 * (0.6 + mv);
+    camera.rotation.x += THREE.MathUtils.degToRad(k * (Math.sin(t * 1.3) + 0.5 * Math.sin(t * 3.1 + 1)));
+    camera.rotation.y += THREE.MathUtils.degToRad(k * (Math.sin(t * 0.9 + 2) + 0.5 * Math.sin(t * 2.3)));
+  }
   for (const m of marks) {
     if (!m.fixedMark) { const d = Math.hypot(m.g.position.x - pos[0], m.g.position.z - pos[1]); m.g.scale.setScalar(Math.max(1, Math.min(6, d / 150))); m.g.position.y = Math.sin(t * 1.4 + m.phase) * 0.18; m.g.rotation.z = Math.sin(t * 1.1 + m.phase) * 0.06; m.g.rotation.x = Math.cos(t * 0.9 + m.phase) * 0.05; }
     if (m.lamp && m.fl) { const ph = (t + m.phase) % m.fl.per; m.lamp.visible = m.fl.fixed || (m.fl.iso ? ph < m.fl.per / 2 : ph < 0.45); }
@@ -1695,6 +1813,11 @@ function frame() {
   updateLabels(pos);
   const hfov = 2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect) * 180 / Math.PI;
   drawTape(toMag(look), hfov);   // a magnetic compass card
+  binocView = binoc.on ? { bearing: look, hfov } : null;
+  if (binoc.on) {
+    if (t - binoc.rangeT > 0.25) { binoc.rangeT = t; binoc.range = binocRange(look, pitch, boat.position.y + eyeH); }
+    drawBinoc(look, hfov);
+  }
   drawChart(pos, (smoothCourse + 360) % 360, ((look % 360) + 360) % 360, hfov);
   if (rec) recFrame();
   document.getElementById('ro-cog').textContent = String(Math.round(toMag(smoothCourse)) % 360).padStart(3, '0') + '° M';
