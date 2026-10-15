@@ -349,6 +349,7 @@ const bow = new THREE.Group();
   const M = c => new THREE.MeshLambertMaterial({ color: c });
   const BUFF = M(0xe4d9bf), WHITE = M(0xf3f0e8), TEAK = M(0x93613a), BRONZE = M(0xa8743a), STEEL = M(0xc3cacf);
   const SPAR = M(0xd8dcdf), COVER = M(0x22304d), GLASS = M(0x1d2a30);
+  const STRIPE = M(0x1f3352), BOTTOM = M(0x6e2a22);   // navy boot-top and cove stripes, red antifouling
   const Z0 = -0.9, ZS = -5.0, L = ZS - Z0;                  // cockpit bulkhead → stem
   const tOf = z => (z - Z0) / L;                             // 0 at cockpit, 1 at stem
   const half = z => 1.2 * Math.sqrt(Math.max(0, 1 - Math.pow(Math.min(1, tOf(z)), 2.4)));
@@ -369,10 +370,28 @@ const bow = new THREE.Group();
   const zAt = u => Z0 + u * L;
   // deck (buff non-skid) and white margin at the edge
   bow.add(loft(48, 16, (u, v) => { const z = zAt(u), b = half(z), x = (v * 2 - 1) * b; return [x, deckY(z, x), z]; }, BUFF));
-  // topsides: white, from the sheer down to the waterline with a little flare
-  for (const s of [-1, 1]) bow.add(loft(48, 4, (u, v) => {
-    const z = zAt(u), b = half(z), y = sheer(z) * (1 - v); return [s * b * (1 - 0.12 * v), y, z];
-  }, WHITE));
+  // topsides (v902, more like the real boat): white, from the sheer down to the waterline. An
+  // Alberg spoon bow: the stem rakes well forward of where it meets the water (LOA 24'7", LWL 19'),
+  // its profile curving aft ever faster toward the waterline; under it, red antifouling down to the
+  // turn of the bilge (seen when she heels). v: 0 at the sheer, 1 at the waterline.
+  const OVB = 0.85, huF = u => 1.2 * Math.sqrt(Math.max(0, 1 - Math.pow(Math.min(1, u), 2.4)));
+  const fwdPt = (s, u, v, out = 0) => {
+    const zd = zAt(u), f = v ** 1.8, z = zd + (Z0 + u * (L + OVB) - zd) * f;
+    return [s * huF(u) * (1 - 0.1 * f) * (1 + out), sheer(zd) * (1 - v), z];
+  };
+  const fwdUnder = (s, u, v) => { const z = Z0 + u * (L + OVB + 0.55 * v); return [s * huF(u) * 0.9 * (1 - 0.55 * v ** 1.3), -0.45 * v, z]; };
+  // a stripe from depth d0 to d1 below the sheer (each a number or a function of u), just proud of the topsides
+  const band = (pt, sh, d0, d1, mat, n = 48) => {
+    const at = (d, u) => typeof d === 'function' ? d(u) : d;
+    for (const s of [-1, 1]) bow.add(loft(n, 1, (u, a) => pt(s, u, (at(d0, u) + (at(d1, u) - at(d0, u)) * a) / sh(u), 0.006), mat));
+  };
+  for (const s of [-1, 1]) {
+    bow.add(loft(48, 6, (u, v) => fwdPt(s, u, v), WHITE));
+    bow.add(loft(32, 4, (u, v) => fwdUnder(s, u, v), BOTTOM));
+  }
+  const shF = u => sheer(zAt(u));
+  band(fwdPt, shF, u => shF(u) - 0.1, shF, STRIPE);   // boot-top, 4" above the water
+  band(fwdPt, shF, 0.1, 0.13, STRIPE);                 // cove stripe under the toe rail
   // cabin trunk: rounded-front plan, sides leaning in slightly, cambered top
   const TZ0 = Z0, TZ1 = -3.0, TL = TZ1 - TZ0;
   const thw = z => { const t = (z - TZ0) / TL; return Math.min(half(z) - 0.3, 0.86) * Math.pow(Math.max(0, 1 - Math.pow(t, 6)), 0.5); };
@@ -452,11 +471,35 @@ const bow = new THREE.Group();
   const CW2 = 0.725, CZ1d = 1.95;   // half-width and aft end of the cockpit opening
   for (const sd of [-1, 1]) bow.add(loft(16, 3, (u, v) => { const z = Z0 + u * (CZ1d - Z0), b = halfA(z), x = sd * (CW2 + v * (b - CW2)); return [x, sheerA(z) + 0.04 * (1 - (x / b) ** 2), z]; }, BUFF));   // side decks
   bow.add(loft(6, 12, (u, v) => { const z = CZ1d + u * (ZT - CZ1d), b = halfA(z), x = (v * 2 - 1) * b; return [x, sheerA(z) + 0.04 * (1 - (x / b) ** 2), z]; }, BUFF));   // aft deck
-  for (const sd of [-1, 1]) bow.add(loft(16, 4, (u, v) => { const z = Z0 + u * (ZT - Z0), b = halfA(z); return [sd * b * (1 - 0.1 * v), sheerA(z) * (1 - v) + 0.15 * v, z]; }, WHITE));
-  { // transom
-    const sh = new THREE.Shape(), b = halfA(ZT), y0 = 0.15, y1 = sheerA(ZT);
-    sh.moveTo(-b * 0.9, y0); sh.lineTo(b * 0.9, y0); sh.lineTo(b, y1); sh.lineTo(-b, y1); sh.closePath();
-    const tr = new THREE.Mesh(new THREE.ShapeGeometry(sh), WHITE); tr.position.z = ZT; tr.material.side = THREE.DoubleSide; bow.add(tr);
+  // aft topsides (v902): a short counter, the raked transom meeting the water OVS forward of its top
+  const OVS = 0.55, aftPt = (s, u, v, out = 0) => {
+    const zd = Z0 + u * (ZT - Z0), f = v ** 1.3, z = zd + (Z0 + u * (ZT - OVS - Z0) - zd) * f;
+    return [s * halfA(zd) * (1 - 0.16 * f) * (1 + out), sheerA(zd) * (1 - v), z];
+  };
+  const aftUnder = (s, u, v) => { const z = Z0 + u * (ZT - OVS - Z0) - 0.5 * u ** 3 * v; return [s * halfA(Z0 + u * (ZT - Z0)) * 0.84 * (1 - (0.45 + 0.4 * u) * v ** 1.2), -0.45 * v, z]; };
+  for (const sd of [-1, 1]) {
+    bow.add(loft(16, 6, (u, v) => aftPt(sd, u, v), WHITE));
+    bow.add(loft(12, 4, (u, v) => aftUnder(sd, u, v), BOTTOM));
+  }
+  const shA = u => sheerA(Z0 + u * (ZT - Z0));
+  band(aftPt, shA, u => shA(u) - 0.1, shA, STRIPE, 16);
+  band(aftPt, shA, 0.1, 0.13, STRIPE, 16);
+  // transom: the raked plane between the two topsides' after edges, a touch of round to it, the
+  // boot-top carried across; under it, the bottom closes in to the rudder
+  const trPt = (a, v, out = 0) => { const p = aftPt(-1, 1, v), q = aftPt(1, 1, v); return [p[0] + (q[0] - p[0]) * a, p[1], p[2] + 0.05 * Math.sin(Math.PI * a) + out]; };
+  bow.add(loft(8, 10, (v, a) => trPt(a, v), WHITE));
+  bow.add(loft(1, 10, (v, a) => trPt(a, 1 - (0.1 * (1 - v)) / sheerA(ZT), 0.006), STRIPE));
+  bow.add(loft(4, 8, (v, a) => { const p = aftUnder(-1, 1, v), q = aftUnder(1, 1, v); return [p[0] + (q[0] - p[0]) * a, p[1], p[2]]; }, BOTTOM));
+  { // transom-hung "barn door" rudder (as the 25D's): its leading edge follows the transom's rake,
+    // bronze pintles, the tiller over the transom from the rudder head
+    const zLE = y => ZT - OVS + OVS * y / sheerA(ZT), sh = new THREE.Shape(), top = sheerA(ZT) + 0.17;
+    sh.moveTo(zLE(top) + 0.02, top); sh.lineTo(zLE(top) + 0.16, top);
+    sh.bezierCurveTo(zLE(0.5) + 0.22, 0.5, zLE(0.1) + 0.42, 0.1, zLE(-0.5) + 0.46, -0.5);
+    sh.quadraticCurveTo(zLE(-1.0) + 0.42, -1.05, zLE(-1.0) + 0.05, -1.0);
+    sh.lineTo(zLE(-1.0), -1.0); sh.lineTo(zLE(top), top);
+    const rud = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: 0.05, bevelEnabled: true, bevelThickness: 0.012, bevelSize: 0.012, bevelSegments: 1, curveSegments: 10 }), WHITE);
+    rud.rotation.y = -Math.PI / 2; rud.position.x = 0.025; bow.add(rud);
+    for (const y of [0.75, 0.25, -0.35]) { const pin = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.06, 0.14), BRONZE); pin.position.set(0, y, zLE(y) + 0.02); pin.rotation.x = Math.atan(OVS / sheerA(ZT)); bow.add(pin); }
   }
   { // cockpit well and coamings
     const CZ0 = Z0 + 0.05, CZ1 = 1.95, CW = 1.45, sole = 0.45;
@@ -469,8 +512,8 @@ const bow = new THREE.Group();
     const aftWall = new THREE.Mesh(new THREE.BoxGeometry(CW, 0.45, 0.02), WHITE); aftWall.position.set(0, sole + 0.22, CZ1); bow.add(aftWall);
   }
   // tiller from the rudder head at the transom forward into the cockpit
-  const tillerG = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, 1.5, 8), TEAK);
-  tillerG.position.set(0.05, sheerA(ZT) + 0.22, ZT - 0.7); tillerG.rotation.x = Math.PI / 2 - 0.18; bow.add(tillerG);
+  const tillerG = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, 1.6, 8), TEAK);
+  tillerG.position.set(0, sheerA(ZT) + 0.27, ZT - 0.67); tillerG.rotation.x = Math.PI / 2 + 0.12; bow.add(tillerG);
   // backstay and stern pulpit
   wire([0, MTOP, MZ], [0, sheerA(ZT) + 0.1, ZT - 0.05]);
   const spul = new THREE.CatmullRomCurve3([[-halfA(1.7) + 0.06, 1.7], [-0.7, ZT - 0.05], [0.7, ZT - 0.05], [halfA(1.7) - 0.06, 1.7]].map(([x, z]) => new THREE.Vector3(x, sheerA(z) + PH, z)));
@@ -479,18 +522,27 @@ const bow = new THREE.Group();
   // Sails (Drone view, v837): mainsail and jib, built out to port and trimmed to the wind by
   // trimSails (v869: boom angle, jib sheet, tack and heel follow the wind direction). Each is a lofted
   // surface with a belly (deepest ~40% back from the luff) and twist toward the head.
-  const CLOTH = new THREE.MeshLambertMaterial({ color: 0xf5f2ea, side: THREE.DoubleSide });
+  // v902: Dacron white with cross-cut panel seams and a leech tabling (a canvas texture), and a
+  // little glow of its own so a sail seen against the light reads as cloth, not grey board
+  const clothTex = (() => {
+    const c = document.createElement('canvas'); c.width = 128; c.height = 512;
+    const x = c.getContext('2d'); x.fillStyle = '#f7f4ec'; x.fillRect(0, 0, 128, 512);
+    x.fillStyle = 'rgba(120,110,90,0.28)'; for (let k = 1; k < 11; k++) x.fillRect(0, Math.round(k * 512 / 11), 128, 2);
+    x.fillStyle = 'rgba(150,140,120,0.35)'; x.fillRect(122, 0, 6, 512); x.fillRect(0, 0, 3, 512);
+    const t = new THREE.CanvasTexture(c); t.anisotropy = 4; return t;
+  })();
+  const CLOTH = new THREE.MeshLambertMaterial({ color: 0xffffff, map: clothTex, emissive: 0x5a5750, side: THREE.DoubleSide });
   function sail(luff, leech, belly, nu = 14, nv = 10) {   // luff(u), leech(u): points; belly(u): leeward unit vector
-    const pos = [], idx = [];
+    const pos = [], idx = [], uv = [];
     for (let i = 0; i <= nu; i++) {
       const u = i / nu, a = luff(u), b = leech(u), w = belly(u), chord = a.distanceTo(b);
       for (let j = 0; j <= nv; j++) {
         const v = j / nv, depth = chord * 0.11 * Math.sin(Math.PI * Math.pow(v, 0.8));
-        const p = a.clone().lerp(b, v).addScaledVector(w, depth); pos.push(p.x, p.y, p.z);
+        const p = a.clone().lerp(b, v).addScaledVector(w, depth); pos.push(p.x, p.y, p.z); uv.push(v, u);
       }
     }
     for (let i = 0; i < nu; i++) for (let j = 0; j < nv; j++) { const k = i * (nv + 1) + j; idx.push(k, k + nv + 1, k + 1, k + 1, k + nv + 1, k + nv + 2); }
-    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
     return new THREE.Mesh(g, CLOTH);
   }
   const V3 = THREE.Vector3;
@@ -543,6 +595,50 @@ boat.add(bow);
 scene.add(boat);
 boat.add(camera);
 camera.position.set(0.35, EYE, 1.0);   // at the tiller, aft end of the cockpit
+// her own wake (v902; the ferries had one, she didn't): a fading fan of foam astern and a curl at
+// the bow, on a level group that follows her position and heading (not her bob, pitch or heel,
+// which tipped the far end of a 50 m fan under the water), showing with her speed through the water
+const wakeG = new THREE.Group(); scene.add(wakeG);
+const ownWake = (() => {
+  // foam drawn on a canvas, the apex at the top (forward): the two diverging arms of the wake,
+  // broken and fading, and (astern only) the churned streak right behind her
+  const foam = (w, h, spread, churn) => {
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const x = c.getContext('2d'); let sd = 7; const rr = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+    for (let i = 0; i < 2600; i++) {
+      const t = rr() ** 0.8, side = rr() < 0.5 ? -1 : 1, a = (1 - t) ** 1.4;
+      const arm = w / 2 + side * (w * 0.04 + spread * w * t) + (rr() - 0.5) * (3 + 14 * t);
+      x.fillStyle = `rgba(246,250,252,${(0.25 + 0.5 * rr()) * a})`;
+      x.beginPath(); x.ellipse(arm, t * h, 1 + 3 * rr() * (0.4 + t), 2 + 6 * rr(), 0, 0, 2 * Math.PI); x.fill();
+      if (churn && rr() < 0.6) {
+        const tc = rr() ** 1.3, ac = (1 - tc) ** 2;
+        x.fillStyle = `rgba(240,247,250,${(0.2 + 0.35 * rr()) * ac})`;
+        x.beginPath(); x.ellipse(w / 2 + (rr() - 0.5) * w * (0.08 + 0.18 * tc), tc * h, 2 + 5 * rr(), 3 + 8 * rr(), 0, 0, 2 * Math.PI); x.fill();
+      }
+    }
+    return new THREE.CanvasTexture(c);
+  };
+  const mat = new THREE.MeshBasicMaterial({ map: foam(256, 1024, 0.42, true), transparent: true, depthWrite: false, opacity: 0 });
+  const fan = new THREE.Mesh(new THREE.PlaneGeometry(14, 50), mat);
+  fan.rotation.x = -Math.PI / 2; fan.position.set(0, 0.05, 1.7 + 25); fan.renderOrder = 1; wakeG.add(fan);
+  // the bow wave: the same arms from the stem, peeling off along her sides
+  const bmat = new THREE.MeshBasicMaterial({ map: foam(128, 256, 0.46, false), transparent: true, opacity: 0, depthWrite: false });
+  const curl = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 5), bmat);
+  curl.rotation.x = -Math.PI / 2; curl.position.set(0, 0.06, -4.3 + 2.5); curl.renderOrder = 1; wakeG.add(curl);
+  let spd = 0, last = null;
+  return (pos, dt) => {   // pos: [x, z] this frame
+    wakeG.position.set(pos[0], 0, pos[1]); wakeG.rotation.y = boat.rotation.y;
+    if (last && dt > 0) {
+      const v = Math.hypot(pos[0] - last[0], pos[1] - last[1]) / dt;
+      if (v < 40) spd += (v - spd) * Math.min(1, dt * 1.2);   // a jump (reload, slider) isn't speed
+    }
+    last = [pos[0], pos[1]];
+    const k = Math.min(1, spd / 2.6);   // full at ~5 knots
+    mat.opacity = 0.7 * k; bmat.opacity = 0.8 * k;
+    fan.scale.y = 0.4 + 0.6 * k; fan.position.z = 1.7 + 25 * fan.scale.y;
+    fan.visible = curl.visible = k > 0.02;
+  };
+})();
 
 
 // Water: ripple normals generated here (no image download), sky and shore reflected.
@@ -1442,6 +1538,7 @@ function frame() {
   heel += ((sailsUp ? pt.side * pt.heelK * THREE.MathUtils.degToRad(WND.heel) : 0) - heel) * Math.min(1, dt * 0.8);   // heeling to leeward
   bow.rotation.z = heel;   // the hull heels; the camera (a child of boat, not bow) stays level
   boat.rotation.set((Math.sin(t * 0.7) * 0.012 + Math.sin(t * 0.45 + 2) * 0.01 * Math.max(0, mv - 1)) * mv, -THREE.MathUtils.degToRad(smoothCourse), roll * 2, 'YXZ');
+  ownWake(pos, dt);
   const ease = camK * camK * (3 - 2 * camK);
   // viewpoint height (Helm / 20 ft / 60 ft), eased so changes glide
   eyeH += (eyeTarget - eyeH) * Math.min(1, dt * 2.5);

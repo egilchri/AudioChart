@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-15 — A more authentic Cape Dory 25D in the 3D views (v902)
+
+Requested ("the Cape Dory 25D in drone mode to look more authentic"). The hull had slab sides
+straight down to the water, no stripes, no rudder, and she left no wake (the ferries did). Now:
+an Alberg spoon bow and a short counter with a raked transom (the waterline shorter than the deck,
+as LOA 24'7" over LWL 19'); a navy cove stripe under the toe rail and a navy boot-top, carried across
+the transom; red antifouling below the waterline (seen as she heels); a transom-hung rudder with
+bronze pintles and the tiller over the transom from its head. Sails are Dacron white with cross-cut
+seams and a leech tabling, with a little glow of their own so they no longer read grey against the
+light. Her own wake: broken foam arms and a churned streak astern plus a bow wave, fading in with her
+speed, on a level group so her bob and pitch don't tip it under the water.
+
 ## 2026-10-15 — Ship's wheel for Free Sailing (v901)
 
 Requested ("an old-timey steering wheel on the screen, to steer the boat"). While Free Sailing a
