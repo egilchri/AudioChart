@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-10-15 — Angelique, built properly: the view from her wheel (v906)
+
+Requested: "make the Angelique look better up close from the wheel. Like, WAY better." v905 used the
+Bird's-eye fleet's low-poly ketch for her; she now has her own model, angelique3d.js, used by the helm
+view and by Bird's-eye for your boat (the fleet keeps the light one). Everything that doesn't move is
+merged into one mesh per material, so she draws as fast as the Cape Dory.
+
+From the wheel, forward: a spoked wheel (brass hub and inlay, a turk's head on the king spoke) on its
+wheel box, turning as she turns; the binnacle with its brass hood, the card under glass and the
+quadrantal spheres; the after doghouse with brass ports and companion doors facing you; benches along
+the bulwarks; planked fir deck; green bulwarks, white inside with stanchions, a varnished cap rail and
+life rings lettered ANGELIQUE / CAMDEN. The mizzen with mast hoops, a fife rail of belaying pins with
+coils hanging, a line flaked down on deck, its boom overhead; the main deckhouse with windows (lit at
+night), a skylight in brass bars and the galley's Charlie Noble; both masts' shrouds on deadeyes and
+lanyards with ratlines and sheer poles, pin rails with coils, sidelight boards; the main hatch's
+grating, the windlass and chain, stocked anchors at the catheads, and the bowsprit with bobstay,
+whiskers, footropes and netting. Gaff mainsail and mizzen with a gaff topsail over each, staysail and
+jib, in tanbark brown (reported: "brown topsails"), with cloths, bolt rope and reef points; in a calm
+they're furled on the booms with the gaffs lowered. Her name and hailing port are on the transom, her
+name on quarterboards at the bow.
+
 ## 2026-10-15 — Angelique as your boat, a mixed Bird's-eye fleet, a chart table below (v905)
 
 **Your boat** (requested: "an alternative boat choice, like a Camden Windjammer, such as the

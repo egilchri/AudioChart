@@ -7,7 +7,7 @@ import { Water } from './lib/three/Water.js';
 import { depthAtFrom } from './depth.js';
 import { LON0, LAT0, MX, MY, wx, wz, cachedFetch, readDem, photo, photoAtCells, addCanopy, gridMesh, photoMat, buildTown, spruce, tlog, tmark, TOWN_NIGHT } from './terrain3d.js';
 import { makeWildlife, ledgesFrom } from './wildlife3d.js';
-import { makeSailboat } from './sailboat3d.js';
+import { makeAngelique, ANGELIQUE } from './angelique3d.js';
 import { makeSky, makeEnv, glowSprite, flashFor, weatherPanel, startConditions, makeTrimmer, cycleLook } from './weather3d.js';
 
 const statusEl = document.getElementById('status');
@@ -23,7 +23,7 @@ const BOAT_KEY = 'audiochart-boat', BOATS = { cd25: 'Cape Dory 25D', angelique: 
 const BOAT_TYPE = (() => { let b = new URLSearchParams(location.search).get('boat'); if (!b) { try { b = localStorage.getItem(BOAT_KEY); } catch (_) {} } return BOATS[b] ? b : 'cd25'; })();
 const ANGEL = BOAT_TYPE === 'angelique';
 // the helmsman's eye: seated at the Cape Dory's tiller, or standing at Angelique's wheel on her afterdeck
-const EYE = ANGEL ? 4.0 : 2.0, HELM_X = ANGEL ? 0 : 0.35, HELM_Z = ANGEL ? 12.0 : 1.0, NM = 1852;
+const EYE = ANGEL ? ANGELIQUE.helm[1] : 2.0, HELM_X = ANGEL ? ANGELIQUE.helm[0] : 0.35, HELM_Z = ANGEL ? ANGELIQUE.helm[2] : 1.0, NM = 1852;
 // Rockland Breakwater: not in the elevation data (water is flattened there); traced from the photo.
 const BREAKWATER = [[-69.08197, 44.11540], [-69.07751, 44.10410]];
 
@@ -695,7 +695,7 @@ boat.add(camera);
 camera.position.set(HELM_X, EYE, HELM_Z);   // at the tiller, aft end of the cockpit (Angelique: her wheel)
 // Angelique in place of the Cape Dory: the Cape Dory's model is hidden (the lights added to bow
 // below are placed for whichever boat it is); she heels and trims herself (frame())
-const angel = ANGEL ? makeSailboat('angelique', 1) : null;
+const angel = ANGEL ? makeAngelique() : null;   // angelique3d.js (v906: her own detailed model)
 if (angel) { for (const o of bow.children) o.visible = false; angel.wake(0); boat.add(angel.group); }
 if (angel) { const sub = document.querySelector('.sub'); if (sub) sub.firstChild.textContent = sub.firstChild.textContent.replace('From the tiller of a Cape Dory 25D', "From the wheel of Angelique, Camden's gaff topsail ketch"); }
 // her own wake (v902; the ferries had one, she didn't): a fading fan of foam astern and a curl at
@@ -909,10 +909,11 @@ function ownLight(at, color, toward, arc, pool, when) {
 const SIDE = 112.5 / 2;   // each sidelight shows from dead ahead to 22.5° abaft the beam
 const underWay = () => anchor.state === 'up', atAnchor = () => anchor.state !== 'up';
 if (ANGEL) {   // Angelique: sidelight boards in the main shrouds, stern light on the taffrail, anchor light in the forestay
-  ownLight([-3.75, 3.4, -5.2], 0xff2a1e, -SIDE, SIDE, [-6, -5, 12], underWay);
-  ownLight([3.75, 3.4, -5.2], 0x2bff6a, SIDE, SIDE, [6, -5, 12], underWay);
-  ownLight([0, 3.0, 14.6], 0xfff2d6, 180, 67.5, [0, 18, 14], underWay);
-  ownLight([0, 9.0, -14.0], 0xfff2d6, 0, 180, [0, -14, 26], atAnchor);
+  const LT = ANGELIQUE.lights;
+  ownLight(LT.port, 0xff2a1e, -SIDE, SIDE, [-6, LT.port[2], 12], underWay);
+  ownLight(LT.stbd, 0x2bff6a, SIDE, SIDE, [6, LT.stbd[2], 12], underWay);
+  ownLight(LT.stern, 0xfff2d6, 180, 67.5, [0, 18, 14], underWay);
+  ownLight(LT.anchor, 0xfff2d6, 0, 180, [0, -14, 26], atAnchor);
 } else {
 ownLight([-0.45, 1.68, -4.75], 0xff2a1e, -SIDE, SIDE, [-2.2, -5, 5], underWay);   // port sidelight, red
 ownLight([0.45, 1.68, -4.75], 0x2bff6a, SIDE, SIDE, [2.2, -5, 5], underWay);      // starboard sidelight, green
@@ -931,6 +932,7 @@ function applyConditions(next = {}) {
   ({ lightsK, visM, W: WND } = env);
   for (const n of nightOnly) if (n.pool) n.o.material.opacity = 0.4 * Math.max(0, (lightsK - 0.3) / 0.7);   // pools of light only show once it's dim
   TOWN_NIGHT.value = lightsK;
+  if (angel) angel.setNight(lightsK > 0.3);   // lamplight in her deckhouse windows
   for (const m of litMats) m.emissiveIntensity = lightsK;
   const lo = Math.min(1, lightsK * 1.4);
   for (const r of runLights) r.sp.material.opacity = lo;
@@ -1168,6 +1170,7 @@ function updateFerries(t) {
   }
 }
 
+let lastCourse = null;
 let S = (Number(params.get('start')) || 0.05) * NM, playing = false, yawOff = 0, pitch = -1.2, zoom = 1, smoothCourse = null;
 const posEl = document.getElementById('pos'); posEl.max = (TOTAL / NM).toFixed(3); posEl.value = (S / NM).toFixed(3);
 const playBtn = document.getElementById('play'), speedEl = document.getElementById('speed');
@@ -1320,7 +1323,7 @@ function playSplash() {
   }
 }
 const anchorNote = document.getElementById('anchornote');
-const ROLLER = ANGEL ? new THREE.Vector3(0, 2.9, -15.0) : new THREE.Vector3(0, 1.12, -5.25);   // stem-head roller, boat frame
+const ROLLER = ANGEL ? new THREE.Vector3(...ANGELIQUE.roller) : new THREE.Vector3(0, 1.12, -5.25);   // stem-head roller, boat frame
 const anchorObj = new THREE.Group();
 {
   const galv = new THREE.MeshLambertMaterial({ color: 0x6f767b });
@@ -1364,7 +1367,7 @@ const DRONE_M = 100 * 0.3048;
 const EYE_CHOICES = [{ label: 'Helm', m: EYE, title: ANGEL ? 'On deck, at the wheel' : 'Deck level, at the tiller' }, { label: '20 ft', m: 20 * 0.3048 }, { label: '60 ft', m: 60 * 0.3048 }, { label: 'Drone', m: DRONE_M }];
 const FT60 = 60 * 0.3048, _back = m => Math.max(0, (m - EYE) * 2.2), _tilt = m => Math.max(0, (m - EYE) * 2.4) / (1 + Math.max(0, m - EYE) / 18);
 const _toDrone = m => Math.min(1, Math.max(0, (m - FT60) / (DRONE_M - FT60)));   // 60 ft -> drone, so the change glides
-const DRONE_BACK = ANGEL ? 90 : 50;   // she's 130 ft overall: the Drone stands farther off to see all of her
+const DRONE_BACK = ANGEL ? ANGELIQUE.droneBack : 50;   // she's 130 ft overall: the Drone stands farther off to see all of her
 const eyeBack = m => m <= FT60 ? _back(m) : _back(FT60) + (DRONE_BACK - _back(FT60)) * _toDrone(m);
 const eyeTilt = m => m <= FT60 ? _tilt(m) : _tilt(FT60) + (20 - _tilt(FT60)) * _toDrone(m);
 let eyeTarget = DRONE_M;   // Drone by default (direct request, v832); a choice made since is remembered
@@ -1474,7 +1477,7 @@ addEventListener('keydown', e => {
   const i = EYE_CHOICES.findIndex(c => Math.abs(c.m - eyeTarget) < 0.2);
   setEye(EYE_CHOICES[(i + 1) % EYE_CHOICES.length].m);
 });
-const TILLER = new THREE.Vector3(HELM_X, EYE, HELM_Z), AT_MAST = ANGEL ? new THREE.Vector3(0.3, 4.6, -10.5) : new THREE.Vector3(0.3, 2.6, -3.2);   // on the foredeck, just forward of the mast
+const TILLER = new THREE.Vector3(HELM_X, EYE, HELM_Z), AT_MAST = ANGEL ? new THREE.Vector3(...ANGELIQUE.atMast) : new THREE.Vector3(0.3, 2.6, -3.2);   // on the foredeck, just forward of the mast
 let camK = 0;
 const UP_AXIS = new THREE.Vector3(0, 1, 0);
 function arrive() {
@@ -1665,7 +1668,11 @@ function frame() {
   if (sailsUp && !angel) trimSails(pt.boom, pt.jib, pt.side, pt.jibOn);
   heel += ((sailsUp ? pt.side * pt.heelK * THREE.MathUtils.degToRad(WND.heel) : 0) - heel) * Math.min(1, dt * 0.8);   // heeling to leeward
   bow.rotation.z = heel;   // the hull heels; the camera (a child of boat, not bow) stays level
-  if (angel) angel.trim(pt, Math.abs(heel) / Math.max(1e-3, pt.heelK || 1), sailsUp);   // she sets the heel herself (stiffer than the Cape Dory)
+  if (angel) {
+    angel.trim(pt, Math.abs(heel) / Math.max(1e-3, pt.heelK || 1), sailsUp);   // she sets the heel herself (stiffer than the Cape Dory)
+    angel.steer(dt > 0 && lastCourse != null ? (((smoothCourse - lastCourse + 540) % 360) - 180) / dt : 0, dt);   // the wheel follows her turning
+  }
+  lastCourse = smoothCourse;
   boat.rotation.set((Math.sin(t * 0.7) * 0.012 + Math.sin(t * 0.45 + 2) * 0.01 * Math.max(0, mv - 1)) * mv, -THREE.MathUtils.degToRad(smoothCourse), roll * 2, 'YXZ');
   ownWake(pos, dt);
   const ease = camK * camK * (3 - 2 * camK);

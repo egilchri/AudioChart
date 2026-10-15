@@ -13,6 +13,7 @@ import { Water } from './lib/three/Water.js';
 import { LON0, LAT0, MX, MY, wx, wz, readDem, photo, addCanopy, gridMesh, photoMat, buildTown, disposeGroup, spruce, TOWN_NIGHT } from './terrain3d.js';
 import { SUN, makeSky, makeEnv, glowSprite, flashFor, flashOn, weatherPanel, startConditions, makeTrimmer, cycleLook } from './weather3d.js';
 import { makeSailboat, fleetType } from './sailboat3d.js';
+import { makeAngelique } from './angelique3d.js';
 import { makeWildlife, ledgesFrom } from './wildlife3d.js';
 
 const statusEl = document.getElementById('status');
@@ -701,7 +702,7 @@ const OWN_KN = (() => { let v = NaN; try { v = parseFloat(localStorage.getItem('
 const PACE_KEY = 'audiochart-bay3d-pace';
 // your boat: the Cape Dory 25D, or Angelique if that's your choice in the helm view (v905, same key)
 const OWN_TYPE = (() => { let b = params.get('boat'); if (!b) { try { b = localStorage.getItem('audiochart-boat'); } catch (_) {} } return b === 'angelique' ? 'angelique' : 'cd25'; })();
-const own = { boat: makeSailboat(OWN_TYPE, 4), trim: makeTrimmer(), r: null, pts: [], cum: [0], nights: [], total: 0, S: 0, playing: false, vj: null, x: 0, z: 0, h: 0 };
+const own = { boat: OWN_TYPE === 'angelique' ? makeAngelique() : makeSailboat(OWN_TYPE, 4), trim: makeTrimmer(), r: null, pts: [], cum: [0], nights: [], total: 0, S: 0, playing: false, vj: null, x: 0, z: 0, h: 0 };
 own.boat.group.visible = false; scene.add(own.boat.group);
 const sailRow = document.getElementById('sailrow'), sailBtn = document.getElementById('sailit'), paceSel = document.getElementById('sailpace'), sailNote = document.getElementById('sailnote');
 for (const k of [1, 5, 20, 60, 200]) { const o = document.createElement('option'); o.value = k; o.textContent = k === 1 ? `${OWN_KN} kn real time` : `${OWN_KN} kn × ${k}`; paceSel.appendChild(o); }
