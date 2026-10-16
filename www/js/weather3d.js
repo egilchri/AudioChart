@@ -4,6 +4,7 @@
 //   vis   clear | haze | fog | thick     how far you can see, and how far lights and labels carry
 //   sky   fair | overcast | rain         a cloud deck, flat light, rain streaks
 //   wind  calm | breezy | fresh | rough  sea state, whitecaps (windFrom: degrees)
+//   moon  tonight | new | crescent | quarter | gibbous | full   the moon's phase at night (v912)
 // Each view builds its sky, water and clouds, hands them to makeEnv(), and calls env.apply(C)
 // whenever the conditions change and env.update() every frame; the view adds what is its own
 // (the helm view's running lights and boat motion, the bird's-eye view's fog blanket).
@@ -47,7 +48,19 @@ export const WINDS = {
   fresh:  { dist: 2.2, size: 4, speed: 0.9, heel: 12, move: 1.8, foam: 0.55, tws: 15, kn: '12–19 kn' },
   rough:  { dist: 3.4, size: 2.6, speed: 1.3, heel: 18, move: 3, foam: 1, tws: 24, kn: '20+ kn' },
 };
-export const DEFAULT_COND = { time: 'day', vis: 'clear', sky: 'fair', wind: 'breezy', windFrom: 225 };
+export const DEFAULT_COND = { time: 'day', vis: 'clear', sky: 'fair', wind: 'breezy', windFrom: 225, moon: 'tonight' };
+// The moon's phase (v912, requested: "a setting for the moon phase, so we can see it at night"):
+// phase angle 0 = new, π = full, and which side is lit (+1 waxing: the right-hand side, toward where the
+// sun set, as seen from Maine). "Tonight" is the real phase for today's date, from the mean synodic month
+// counted from the new moon of 6 Jan 2000 18:14 UTC (good to within a day or so).
+export const MOON_PHASES = { tonight: null, new: [0, 1], crescent: [Math.PI / 3, 1], quarter: [Math.PI / 2, 1], gibbous: [2 * Math.PI / 3, 1], full: [Math.PI, 1] };
+export function moonPhase(name, when = Date.now()) {
+  const fixed = MOON_PHASES[name];
+  if (fixed) return { phi: fixed[0], side: fixed[1] };
+  const SYN = 29.530588853, age = (((when - Date.UTC(2000, 0, 6, 18, 14)) / 86400000) % SYN + SYN) % SYN;
+  return { phi: 2 * Math.PI * age / SYN, side: age < SYN / 2 ? 1 : -1, age };
+}
+const moonIcon = ({ phi, side }) => { const k = (1 - Math.cos(phi)) / 2; return k < 0.06 ? '🌑' : k > 0.94 ? '🌕' : k < 0.4 ? (side > 0 ? '🌒' : '🌘') : k < 0.6 ? (side > 0 ? '🌓' : '🌗') : (side > 0 ? '🌔' : '🌖'); };
 const KEY = 'audiochart-helm3d-conditions';
 
 // The sky dome: deep blue overhead fading to the haze colour at the horizon (so distant land and
@@ -55,15 +68,26 @@ const KEY = 'audiochart-helm3d-conditions';
 export function makeSky(radius) {
   const m = new THREE.Mesh(new THREE.SphereGeometry(radius, 32, 16), new THREE.ShaderMaterial({
     side: THREE.BackSide, depthWrite: false, depthTest: false, fog: false, toneMapped: false,
-    uniforms: { zenith: { value: new THREE.Color(0x2f62a8) }, horizon: { value: new THREE.Color(0xb2cbe0) }, sunDir: { value: SUN.clone() }, moonK: { value: 0 }, sunCol: { value: new THREE.Vector3(1, 0.95, 0.85) } },
+    uniforms: { zenith: { value: new THREE.Color(0x2f62a8) }, horizon: { value: new THREE.Color(0xb2cbe0) }, sunDir: { value: SUN.clone() }, moonK: { value: 0 }, moonPhase: { value: Math.PI }, moonSide: { value: 1 }, sunCol: { value: new THREE.Vector3(1, 0.95, 0.85) } },
     vertexShader: 'varying vec3 vDir; void main() { vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-    fragmentShader: `uniform vec3 zenith; uniform vec3 horizon; uniform vec3 sunDir; uniform float moonK; uniform vec3 sunCol; varying vec3 vDir;
+    fragmentShader: `uniform vec3 zenith; uniform vec3 horizon; uniform vec3 sunDir; uniform float moonK; uniform float moonPhase; uniform float moonSide; uniform vec3 sunCol; varying vec3 vDir;
       void main() {
-        float h = max(vDir.y, 0.0);
+        vec3 d = normalize(vDir);
+        float h = max(d.y, 0.0);
         vec3 c = mix(horizon, zenith, pow(h, 0.55));
-        float g = max(dot(normalize(vDir), sunDir), 0.0);
-        c += mix(sunCol * (pow(g, 300.0) * 1.2 + pow(g, 12.0) * 0.12),   // the sun's glow by day
-                 vec3(0.93, 0.94, 0.88) * smoothstep(0.99993, 0.99996, g) + vec3(0.55, 0.62, 0.75) * (pow(g, 2000.0) * 0.35 + pow(g, 30.0) * 0.05), moonK);   // the moon's disc and halo
+        float g = max(dot(d, sunDir), 0.0);
+        c += sunCol * (pow(g, 300.0) * 1.2 + pow(g, 12.0) * 0.12) * (1.0 - moonK);   // the sun's glow by day
+        // the moon at night (sunDir holds its direction): a sphere lit from its phase angle, the dark side
+        // faint with earthshine, a hint of the maria, and a halo as bright as the moon is full (v912)
+        vec3 rt = normalize(cross(sunDir, vec3(0.0, 1.0, 0.0))), up = cross(rt, sunDir);
+        vec2 q = vec2(dot(d, rt), dot(d, up)) / 0.0105;
+        float r2 = dot(q, q), disc = (1.0 - smoothstep(0.86, 1.0, r2)) * step(0.0, dot(d, sunDir));
+        vec3 n = vec3(q, sqrt(max(0.0, 1.0 - r2)));
+        float lit = smoothstep(-0.07, 0.07, dot(n, vec3(sin(moonPhase) * moonSide, 0.0, -cos(moonPhase))));
+        float mare = 0.84 + 0.16 * sin(q.x * 4.3 + 1.3) * sin(q.y * 3.7 - 0.7);
+        float k = 0.5 - 0.5 * cos(moonPhase);
+        c = mix(c, mix(vec3(0.045, 0.05, 0.065), vec3(0.93, 0.94, 0.88) * mare, lit), disc * moonK);
+        c += vec3(0.55, 0.62, 0.75) * (pow(g, 2000.0) * 0.35 + pow(g, 30.0) * 0.05) * k * (1.0 - disc) * moonK;
         gl_FragColor = vec4(c, 1.0);
         #include <colorspace_fragment>
       }`,
@@ -183,10 +207,12 @@ export function makeEnv(o) {
     su.horizon.value.copy(fogC); su.zenith.value.copy(zen);
     su.sunDir.value.copy(T.dir).normalize();
     su.moonK.value = night && !over && !foggy ? 1 : 0;
+    const MP = moonPhase(C.moon), moonLit = (1 - Math.cos(MP.phi)) / 2;   // 0 new … 1 full
+    su.moonPhase.value = MP.phi; su.moonSide.value = MP.side;
     su.sunCol.value.fromArray(over || foggy ? [0, 0, 0] : T.glow);
     // light: flat and dim under cloud, softer in fog
     hemi.color.setHex(T.sky); hemi.groundColor.setHex(T.gnd); hemi.intensity = T.hemi * (over ? (wet ? 0.95 : 1.1) : 1);
-    dl.color.setHex(T.dlc); dl.intensity = T.dl * (over ? 0.25 : 1) * (foggy ? 0.5 : 1); dl.position.copy(T.dir).multiplyScalar(1000);
+    dl.color.setHex(T.dlc); dl.intensity = T.dl * (over ? 0.25 : 1) * (foggy ? 0.5 : 1) * (night ? 0.3 + 0.7 * moonLit : 1); dl.position.copy(T.dir).multiplyScalar(1000);   // a new moon's night is darker
     // clouds: broken fair-weather cloud by day; a grey deck when overcast; none in fog or on a clear night
     env.cloudsOn = !foggy && (over || !night);
     clouds.material.color.set(over ? col(T.deck).multiplyScalar(wet ? 0.7 : 0.85) : col(T.cloud));
@@ -196,7 +222,7 @@ export function makeEnv(o) {
     // the sea
     const wu = water.material.uniforms;
     wu.waterColor.value.set(col(T.water).lerp(col(night ? 0x0c1218 : 0x4b5862), over ? 0.35 : 0).lerp(fogC, foggy ? 0.3 : 0));
-    wu.sunColor.value.set(col(T.glint).multiplyScalar((over ? 0.12 : 1) * (foggy ? 0.3 : 1)));
+    wu.sunColor.value.set(col(T.glint).multiplyScalar((over ? 0.12 : 1) * (foggy ? 0.3 : 1) * (night ? 0.15 + 0.85 * moonLit : 1)));   // the moon's path on the water
     wu.sunDirection.value.copy(T.dir).normalize();
     wu.distortionScale.value = env.W.dist + (wet ? 0.8 : 0); wu.size.value = env.W.size;
     env.foamOn = env.W.foam > 0; foam.visible = env.foamOn;
@@ -238,10 +264,10 @@ export function startConditions(params) {
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem(KEY) || 'null') || (localStorage.getItem('audiochart-helm3d-night') === '1' ? { time: 'night' } : {}); } catch (_) {}
   const fromUrl = {};
-  for (const k of ['time', 'vis', 'sky', 'wind']) if (params.get(k)) fromUrl[k] = params.get(k);
+  for (const k of ['time', 'vis', 'sky', 'wind', 'moon']) if (params.get(k)) fromUrl[k] = params.get(k);
   if (params.get('windFrom')) fromUrl.windFrom = Number(params.get('windFrom'));
   if (params.get('night') != null) fromUrl.time = params.get('night') === '1' ? 'night' : 'day';
-  const ok = { time: TIMES, vis: VIS_M, sky: { fair: 1, overcast: 1, rain: 1 }, wind: WINDS };
+  const ok = { time: TIMES, vis: VIS_M, sky: { fair: 1, overcast: 1, rain: 1 }, wind: WINDS, moon: MOON_PHASES };
   const start = { ...DEFAULT_COND, ...saved, ...fromUrl };
   for (const k of Object.keys(ok)) if (!(start[k] in ok[k])) start[k] = DEFAULT_COND[k];
   if (!(start.windFrom >= 0 && start.windFrom < 360)) start.windFrom = DEFAULT_COND.windFrom;
@@ -250,7 +276,7 @@ export function startConditions(params) {
 
 // ── The Weather panel ──
 // A "Weather ▾" button appended to `host`, opening a panel appended to `panelParent`: Forecast now,
-// then Time, Visibility, Sky, Wind and Wind from. `where()` → [lon, lat] for the forecast;
+// then Time, Visibility, Sky, Wind, Moon and Wind from. `where()` → [lon, lat] for the forecast;
 // `pick(C)` applies a change. N toggles night. Returns { sync(C, W) } to show the current choice.
 const PANEL_CSS = `
 .wxbtn.on { background: #c9d4ea !important; color: #0b1626 !important; }
@@ -273,6 +299,7 @@ export function weatherPanel({ host, panelParent, where, pick, btnClass = '' }) 
     ['vis', 'Visibility', [['clear', 'Clear'], ['haze', 'Haze'], ['fog', 'Fog'], ['thick', 'Thick fog']]],
     ['sky', 'Sky', [['fair', 'Fair'], ['overcast', 'Overcast'], ['rain', 'Rain']]],
     ['wind', 'Wind', [['calm', 'Calm'], ['breezy', 'Breezy'], ['fresh', 'Fresh'], ['rough', 'Rough']]],
+    ['moon', 'Moon', [['tonight', 'Tonight'], ['new', '🌑 New'], ['crescent', '🌒 Crescent'], ['quarter', '🌓 Half'], ['gibbous', '🌔 Gibbous'], ['full', '🌕 Full']]],
   ];
   const DIRS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];   // 16 points (v869)
   const stop = e => e.stopPropagation();   // not a drag of the view underneath
@@ -319,9 +346,11 @@ export function weatherPanel({ host, panelParent, where, pick, btnClass = '' }) 
     sync(C, W) {
       cur = C;
       for (const b of panel.querySelectorAll('button[data-k]')) b.classList.toggle('on', C[b.dataset.k] === b.dataset.v);
+      const tn = panel.querySelector('button[data-k="moon"][data-v="tonight"]');
+      if (tn) { const mp = moonPhase('tonight'); tn.textContent = `${moonIcon(mp)} Tonight`; tn.title = `Tonight's real phase: ${Math.round(100 * (1 - Math.cos(mp.phi)) / 2)}% lit, ${mp.side > 0 ? 'waxing' : 'waning'} (${mp.age.toFixed(1)} days old)`; }
       sel.value = String(Math.round(C.windFrom / 22.5) % 16 * 22.5);
       kn.textContent = W.kn;
-      const icon = C.time === 'night' ? '☾' : C.sky === 'rain' ? '🌧' : C.vis === 'fog' || C.vis === 'thick' ? '🌫' : C.sky === 'overcast' ? '☁' : C.time === 'day' ? '☀' : '🌅';
+      const icon = C.time === 'night' ? moonIcon(moonPhase(C.moon)) : C.sky === 'rain' ? '🌧' : C.vis === 'fog' || C.vis === 'thick' ? '🌫' : C.sky === 'overcast' ? '☁' : C.time === 'day' ? '☀' : '🌅';
       btn.textContent = `${icon} Weather ▾`;
       btn.classList.toggle('on', C.time !== 'day' || C.vis !== 'clear' || C.sky !== 'fair' || C.wind !== 'breezy');
     },

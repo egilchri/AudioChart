@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-15 — The moon's phase at night in the 3D views (v912)
+
+Requested: "a setting for the moon phase, so we can see it at night". The Weather panel (helm and
+Bird's-eye views) has a Moon row: Tonight (the real phase for today's date, from the mean synodic month —
+its button shows the phase and, on hover, % lit, waxing/waning and the moon's age), 🌑 New, 🌒 Crescent,
+🌓 Half, 🌔 Gibbous, 🌕 Full. The sky draws the moon as a sphere lit from its phase angle (the lit side
+toward where the sun set for a waxing moon), the dark side faint with earthshine, a hint of the maria,
+and a halo as bright as it is full; the moonlight on the scene and its path on the water scale with the
+phase too, so a new-moon night is darker. The Weather button shows the phase while it's night. Also
+?moon= in the URL. Checked: the 8 Apr 2024 eclipse comes out new, 17 Oct 2024 full.
+
 ## 2026-10-15 — Clear view: one tap to unclutter the screen underway (v911)
 
 Requested with a screenshot: "I need a way to unclutter the screen while underway, in mobile." A
