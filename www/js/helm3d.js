@@ -907,7 +907,7 @@ function runLight(parent, at, color, toward, arc, when = null, size = 0.014, met
   return sp;
 }
 // Your own boat's lights are close, so they get more than a glow (v857, direct request): a lit lamp
-// you can see from any side, a glow a metre and a half across over the lamp's arc, and the pool of
+// (screened outside its arc since v914), a glow a metre and a half across over the lamp's arc, and the pool of
 // coloured light each one throws on the water beside the boat, which is what you notice from the
 // Drone view astern, where the rules hide the sidelights themselves.
 const nightOnly = [];   // shown only at night, each with an optional condition
@@ -917,10 +917,14 @@ const POOL = (() => {
   gr.addColorStop(0, 'rgba(255,255,255,0.9)'); gr.addColorStop(0.5, 'rgba(255,255,255,0.3)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
   c.fillStyle = gr; c.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(cv);
 })();
+// The lamp is screened like a real one (v914, requested: "screen the sidelights"): outside its arc you see
+// only a faint spill from the edge of its board, so from the helm a sidelight doesn't shine back at you.
+const screened = [];
 function ownLight(at, color, toward, arc, pool, when) {
-  runLight(bow, at, color, toward, arc, when, 1.5, true);
+  runLight(bow, at, color, toward, arc, when, 1.5, true); const glow = runLights[runLights.length - 1];
   const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 8), new THREE.MeshBasicMaterial({ color, toneMapped: false }));
   lamp.position.set(...at); lamp.visible = false; bow.add(lamp); nightOnly.push({ o: lamp, when });
+  if (arc < 180) screened.push({ lamp, glow, lit: new THREE.Color(color), dim: new THREE.Color(color).multiplyScalar(0.1) });
   if (pool) {   // [x, z, size]: on the water, in the boat's frame
     const m = new THREE.Mesh(new THREE.PlaneGeometry(pool[2], pool[2]), new THREE.MeshBasicMaterial({ map: POOL, color, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
     m.rotation.x = -Math.PI / 2; m.position.set(pool[0], 0.12, pool[1]); m.visible = false; m.renderOrder = 2; boat.add(m); nightOnly.push({ o: m, when, pool: true });
@@ -973,11 +977,13 @@ function updateLights(pos) {   // after the boat and ferries have moved, before 
   for (const n of nightOnly) n.o.visible = !n.when || n.when();
   for (const r of runLights) {
     const par = r.sp.parent;
-    if (!par || (r.when && !r.when())) { r.sp.visible = false; continue; }
+    if (!par || (r.when && !r.when())) { r.sp.visible = r.inArc = false; continue; }
     r.sp.getWorldPosition(_p); _d.copy(r.dir).transformDirection(par.matrixWorld);
     const tx = _c.x - _p.x, tz = _c.z - _p.z, l = Math.hypot(tx, tz) || 1, dl2 = Math.hypot(_d.x, _d.z) || 1;
-    r.sp.visible = l < carry && (r.cos <= -0.999 || (tx * _d.x + tz * _d.z) / (l * dl2) >= r.cos);
+    r.inArc = r.cos <= -0.999 || (tx * _d.x + tz * _d.z) / (l * dl2) >= r.cos;
+    r.sp.visible = l < carry && r.inArc;
   }
+  for (const k of screened) k.lamp.material.color.copy(k.glow.inArc ? k.lit : k.dim);
 }
 // Route and motion
 const route = routeLL.map(([x, y]) => [wx(x), wz(y)]);

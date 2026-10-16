@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-16 — Sidelights screened (v914)
+
+Requested: "screen the sidelights". Through the binoculars from Angelique's wheel her starboard sidelight
+showed as a big green disc (it looked like a green moon): the little lamp drawn since v857 showed from
+every side. Now each sidelight's lamp (and the stern light's) is screened like a real one: outside its arc
+you see only a faint spill from the edge of its board, so it no longer shines back at the helm. Both boats.
+
 ## 2026-10-16 — The moon moves with its phase (v913)
 
 Requested: "move the moon with its phase". The night moon is no longer fixed at 150°/22°: weather3d.js
