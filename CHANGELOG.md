@@ -1,5 +1,29 @@
 # Changelog
 
+## 2026-10-16 — Sector lights, better binoculars, Bird's-eye on startup (v918)
+
+Requested: "show the white sectors of lights too". The merge kept one LIGHTS record per position, so a
+sector light came through as whichever record won: Browns Head (fixed white, red from 1° to 50° and 61°
+to 91°) was "F R" and showed red from everywhere. New `preprocess/add_light_sectors.py` reads the ENC
+cells again and gives each light its `sectors` (colour, from/to bearing from seaward, range), the
+all-round light as its characteristic, and `sector_only` for lights dark outside their arcs; it also
+applies `light_name_overrides.json`, now naming Browns Head, Owls Head, Goose Rocks and Robinson Point
+lights (checked against the chart's own named places). Six lights in Penobscot Bay have sectors (Two Bush
+Island, Owls Head, Goose Rocks, Deer Island Thorofare, Browns Head, Robinson Point). The helm and
+Bird's-eye views colour each sector light by where you see it from (weather3d.js `sectorColour`), dark
+where it's obscured. build_region.py runs the script after the merge; SPEC.md lists it.
+
+Requested: "if you can make the binocular experience better, go for it":
+- Looking out more than 12° to either side, you step to the rail on that side, so the deckhouse, bulwark
+  and mizzen no longer fill the view (Angelique's rail abreast her wheel; the Cape Dory's coaming).
+- By day the glasses name buoys and daybeacons too ("Spears Rock Buoy 1 · green can · 790 yd"); at night,
+  what's lit.
+- A sector light's label says which sector you're in ("Browns Head Light · F W, red sector · 7.0 nm").
+- The name holds steady instead of flickering with the shake of your hands.
+
+Requested: "make birdeye mode the default map mode on startup". AudioChart opens in Bird's-eye; Map Type
+switches to any other (not in ?demo or under automation).
+
 ## 2026-10-16 — The binoculars name the light; distant lights stay points (v917)
 
 Requested: "have the binoculars name the light". With the glasses up, the charted light (or lit buoy)

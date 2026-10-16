@@ -162,6 +162,9 @@ python3 preprocess/s57_to_geojson.py       # raw extraction from ~/Documents/Cha
 python3 preprocess/backfill_light_names.py # patch in real light names from OSM
 python3 preprocess/merge_charts.py         # dedupe, write hazards/named_places/navaid/channels/
                                             # recommended_tracks/soundings/chart_bounds.geojson + data-version.json
+python3 preprocess/add_light_sectors.py --chart-dir ~/Documents/Charts/ENC/US_ME www/data/navaid.geojson
+                                            # sector lights' arcs (white/red/green by bearing) + names from
+                                            # light_name_overrides.json; re-run after every merge
 python3 preprocess/extract_land.py         # write land.geojson
 python3 preprocess/build_channel_graph.py  # derive channel_graph.geojson from channels + tracks
 ```

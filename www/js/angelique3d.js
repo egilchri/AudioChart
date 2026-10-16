@@ -49,6 +49,7 @@ export const ANGELIQUE = {
     stern: [0, sh(1) + BH + 0.25, L / 2 + 0.25],
     anchor: [0, 9.0, -14.6],
   },
+  rail: [hw(uZ(Z_WHEEL + 1.15)) - 0.55, D_WHEEL + 1.72, Z_WHEEL + 1.15],   // at the rail abreast the wheel, where you'd stand with the binoculars
   droneBack: 90,
 };
 

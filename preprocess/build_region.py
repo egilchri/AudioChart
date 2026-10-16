@@ -24,6 +24,7 @@ Steps (stops on the first failure — no partial-success masking):
   1. s57_to_geojson.py   --region <id> --chart-dir <dir>
   2. backfill_light_names.py --region <id>
   3. merge_charts.py     --region <id>              -> www/data/regions/<id>/{hazards,named_places,navaid,channels,recommended_tracks,soundings,chart_bounds}.geojson
+     add_light_sectors.py --chart-dir <dir> navaid.geojson  (sector lights' white/red/green arcs; the merge keeps one light per position)
   4. extract_land.py     --chart-dir <dir> --bbox <bbox> --region <id> -> www/data/regions/<id>/land.geojson
   5. build_channel_graph.py --region <id>            -> www/data/regions/<id>/channel_graph.geojson
      (runs after extract_land.py, not before — its buoy-chain source land-checks
@@ -105,6 +106,7 @@ def main():
     run([py, 's57_to_geojson.py', '--region', args.region_id, '--chart-dir', chart_dir], cwd=SCRIPT_DIR)
     run([py, 'backfill_light_names.py', '--region', args.region_id, '--bbox', args.bbox], cwd=SCRIPT_DIR)
     run([py, 'merge_charts.py', '--region', args.region_id], cwd=SCRIPT_DIR)
+    run([py, 'add_light_sectors.py', '--chart-dir', chart_dir, f'../www/data/regions/{args.region_id}/navaid.geojson'], cwd=SCRIPT_DIR)
     run([py, 'extract_land.py', '--chart-dir', chart_dir, '--bbox', args.bbox, '--region', args.region_id], cwd=SCRIPT_DIR)
     run([py, 'build_channel_graph.py',
          '--channels', f'../www/data/regions/{args.region_id}/channels.geojson',

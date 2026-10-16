@@ -15362,6 +15362,9 @@ async function init() {
     _initDraggableGroups();
     _recoverAnchorWatch();
     _recoverEditMode();
+    // Bird's-eye is the map type on startup (v918, requested: "make birdeye mode the default map mode
+    // on startup"); Map Type still switches to any other. Not in the scripted demo or under automation.
+    if (!new URLSearchParams(location.search).has('demo') && !navigator.webdriver) _showBay3d();
     // A deliberate extra beat once the map is actually ready — per direct
     // request, so the splash doesn't just flash past on a fast/cached load.
     setTimeout(_hideAppSplash, 1000);

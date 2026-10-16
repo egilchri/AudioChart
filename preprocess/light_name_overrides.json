@@ -3,5 +3,25 @@
     "lat": 44.104041,
     "lon": -69.0775453,
     "name": "Rockland Breakwater Light"
+  },
+  {
+    "lat": 44.1117,
+    "lon": -68.9095,
+    "name": "Browns Head Light"
+  },
+  {
+    "lat": 44.0922,
+    "lon": -69.044,
+    "name": "Owls Head Light"
+  },
+  {
+    "lat": 44.1354,
+    "lon": -68.8307,
+    "name": "Goose Rocks Light"
+  },
+  {
+    "lat": 44.0647,
+    "lon": -68.6513,
+    "name": "Robinson Point Light"
   }
 ]

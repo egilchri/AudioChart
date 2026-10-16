@@ -8,7 +8,7 @@ import { depthAtFrom } from './depth.js';
 import { LON0, LAT0, MX, MY, wx, wz, cachedFetch, readDem, photo, photoAtCells, addCanopy, gridMesh, photoMat, buildTown, spruce, tlog, tmark, TOWN_NIGHT } from './terrain3d.js';
 import { makeWildlife, ledgesFrom } from './wildlife3d.js';
 import { makeAngelique, ANGELIQUE } from './angelique3d.js';
-import { makeSky, makeEnv, glowSprite, flashFor, weatherPanel, startConditions, makeTrimmer, cycleLook } from './weather3d.js';
+import { makeSky, makeEnv, glowSprite, flashFor, sectorColour, weatherPanel, startConditions, makeTrimmer, cycleLook } from './weather3d.js';
 
 const statusEl = document.getElementById('status');
 const loadingNote = document.getElementById('tileload');
@@ -322,7 +322,7 @@ tiles = nearTiles();
 const [FW, FS, FE, FN] = farBbox(), inFar = ([x, y]) => x >= FW && x <= FE && y >= FS && y <= FN;
 const BREAKWATER_IN_VIEW = BREAKWATER.every(inFar);
 const nav = navGJ.features.filter(f => inFar(f.geometry.coordinates) && ['BOYLAT', 'BCNLAT', 'BOYSAW', 'BOYSPP', 'BOYCAR', 'BOYISD', 'LIGHTS'].includes(f.properties.objtype))
-  .map(f => ({ t: f.properties.objtype, n: f.properties.name, c: f.properties.colour, s: f.properties.shape, ch: f.properties.characteristic, x: f.geometry.coordinates[0], y: f.geometry.coordinates[1] }));
+  .map(f => ({ t: f.properties.objtype, n: f.properties.name, c: f.properties.colour, s: f.properties.shape, ch: f.properties.characteristic, sec: f.properties.sectors, only: !!f.properties.sector_only, x: f.geometry.coordinates[0], y: f.geometry.coordinates[1] }));
 const places = placesGJ.features.filter(f => f.geometry.type === 'Point' && inFar(f.geometry.coordinates) && ['LNDARE', 'LNDRGN', 'LIGHTS', 'BUAARE'].includes(f.properties.objtype))
   .map(f => ({ t: f.properties.objtype, n: f.properties.name, x: f.geometry.coordinates[0], y: f.geometry.coordinates[1] }));
 // summits (data/landmarks.json): labelled from farther off, at their real height
@@ -871,7 +871,7 @@ for (const n of nav.filter(n => n.t !== 'LIGHTS')) {
   if (fl) { lamp = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 8), new THREE.MeshBasicMaterial({ color: fl.col })); lamp.position.y = s === 'pillar' ? 4.3 : 2.6; g.add(lamp); }
   g.position.set(wx(n.x), 0, wz(n.y));
   scene.add(g);
-  marks.push({ g, n, fl, lamp, phase: Math.random() * 6, num: (n.n || '').match(/(\S{1,3})$/)?.[1] || '', name: n.n, kind: 'buoy', ch: lt?.ch });
+  marks.push({ g, n, fl, lamp, phase: Math.random() * 6, num: (n.n || '').match(/(\S{1,3})$/)?.[1] || '', name: n.n, kind: 'buoy', ch: lt?.ch, sec: lt?.sec, only: lt?.only });
 }
 // Lights not on a buoy: a short white tower with its light.
 for (const l of lights) {
@@ -883,7 +883,7 @@ for (const l of lights) {
   const fl = flashFor(l.ch), lamp = new THREE.Mesh(new THREE.SphereGeometry(0.5, 12, 8), new THREE.MeshBasicMaterial({ color: fl?.col ?? 0xfff6d8 }));
   lamp.position.y = 9.6; g.add(lamp);
   g.position.set(wx(l.x), base, wz(l.y)); scene.add(g);
-  marks.push({ g, n: l, fl, lamp, phase: 0, fixedMark: true, kind: 'light', name: l.ch, title: l.n, ch: l.ch });
+  marks.push({ g, n: l, fl, lamp, phase: 0, fixedMark: true, kind: 'light', name: l.ch, title: l.n, ch: l.ch, sec: l.sec, only: l.only });
 }
 
 // ── Weather and time of day (v858; shared with the bird's-eye view in weather3d.js since v860) ──
@@ -975,6 +975,10 @@ function updateLights(pos) {   // after the boat and ferries have moved, before 
   for (const m of marks) {
     if (!m.glow) continue;
     const range = Math.min(m.range, carry), d = Math.hypot(m.g.position.x - pos[0], m.g.position.z - pos[1]), k = Math.min(1, 1.25 - d / range) * lk;
+    if (m.sec) {   // a sector light: white, red or green (or dark) by where you see it from (v918)
+      const col = sectorColour(m.sec, m.only, m.fl?.col ?? 0xfff6d8, Math.atan2(m.g.position.x - _c.x, -(m.g.position.z - _c.z)) * 180 / Math.PI);
+      if (col == null) m.lamp.visible = false; else { m.glow.material.color.setHex(col); m.lamp.material.color.setHex(col); }
+    }
     m.glow.visible = m.lamp.visible && k > 0;
     if (m.glow.visible) { m.lamp.getWorldPosition(m.glow.position); m.glow.material.opacity = k; m.glow.scale.setScalar(m.glowSize * zk); }
   }
@@ -1410,7 +1414,7 @@ let eyeTarget = DRONE_M;   // Drone by default (direct request, v832); a choice 
 let eyeH = eyeTarget;
 const eyeBox = document.getElementById('eyepick');
 function syncEyeButtons() { for (const b of eyeBox.querySelectorAll('button[data-m]')) b.classList.toggle('on', Math.abs(Number(b.dataset.m) - eyeTarget) < 0.2); }
-const binoc = { on: false, prevEye: 0, prevZoom: 1, range: null, rangeT: 0 };   // binoculars (v908), below
+const binoc = { on: false, prevEye: 0, prevZoom: 1, range: null, rangeT: 0, sx: 0 };   // binoculars (v908), below
 function setEye(m) { if (binoc.on) setBinoc(false); eyeTarget = m; try { localStorage.setItem('audiochart-helm3d-view', String(m)); } catch (_) {} syncEyeButtons(); }
 // double-click the boat (v896, requested): AudioChart's boat menu (Free sail, Autoroute, …)
 {
@@ -1463,6 +1467,9 @@ syncEyeButtons();
 // hands and the boat. Drag (or the arrow keys) to scan; terrain in the direction you're looking is
 // loaded in full detail out to ~9 km so a distant shore is sharp. B toggles, Esc lowers them.
 const BINO_ZOOM = 7, BINO_M = 9000;
+// Raising the glasses to look out over either side, you step to the rail on that side (v918): from the wheel
+// the deckhouse, the bulwark and the mizzen were most of what 7× showed off the bow.
+const RAIL = ANGEL ? ANGELIQUE.rail : [0.85, EYE, HELM_Z];
 const binBtn = document.createElement('button'); binBtn.type = 'button'; binBtn.className = 'binbtn'; binBtn.textContent = 'Binoculars';
 binBtn.title = '7× binoculars from the helm: drag or use the arrow keys to scan the shore (B; Esc to lower them)';
 binBtn.addEventListener('pointerdown', e => e.stopPropagation());
@@ -1474,7 +1481,7 @@ Object.assign(binCv.style, { position: 'absolute', inset: '0', width: '100%', he
 const binCtx = binCv.getContext('2d');
 function setBinoc(on) {
   if (on === binoc.on) return;
-  binoc.on = on; binBtn.classList.toggle('on', on); binBtn.setAttribute('aria-pressed', String(on));
+  binoc.on = on; binoc.mark = null; binBtn.classList.toggle('on', on); binBtn.setAttribute('aria-pressed', String(on));
   document.body.classList.toggle('binoc', on); binCv.hidden = !on;
   if (on) { binoc.prevEye = eyeTarget; binoc.prevZoom = zoom; eyeTarget = EYE; eyeH = EYE; zoom = BINO_ZOOM; if (pitch < -6) pitch = -0.6; }
   else { eyeTarget = binoc.prevEye; zoom = binoc.prevZoom; }
@@ -1510,21 +1517,22 @@ function binocRange(bearing, pitchDeg, eyeY) {
   return null;
 }
 // The charted light under the cross-hair (v917, requested: "have the binoculars name the light"): of
-// the lit marks in range and not behind land, the one nearest the centre of the glasses, within a
+// the lit marks in range and not behind land (by day, v918, any buoy or daybeacon), the one nearest the centre of the glasses, within a
 // small circle round it. Named with its number or name, its characteristic and its range.
 const _lp = new THREE.Vector3();
 function binocMark() {
   camera.getWorldPosition(_c);
   let best = null;
+  const night = lightsK > 0.3;
   for (const m of marks) {
-    if (!m.lamp) continue;
-    m.lamp.getWorldPosition(_lp);
+    if (!m.lamp && night) continue;   // at night only what's lit; by day buoys and daybeacons too (v918)
+    if (m.lamp) m.lamp.getWorldPosition(_lp); else { m.g.getWorldPosition(_lp); _lp.y += 2 * m.g.scale.y; }
     const d = Math.hypot(_lp.x - _c.x, _lp.z - _c.z);
     if (d < 30 || d > (m.kind === 'light' ? 9 : 3.5) * NM) continue;
     const q = _lp.clone().project(camera);
     if (q.z > 1) continue;
     const off = Math.hypot(q.x * camera.aspect, q.y);   // from the centre, in half-heights of the view
-    if (off > 0.18 || (best && off >= best.off)) continue;
+    if (off > (m === binoc.mark?.m ? 0.26 : 0.18) || (best && off >= best.off)) continue;   // (easier to stay on than to get on)
     // hidden behind land? look along the line for terrain above it
     let hid = false;
     for (let k = 0.05; k < 0.97 && !hid; k += 0.03) {
@@ -1542,7 +1550,14 @@ const markText = ({ m, d }) => {
     for (const p of placeLabels) { const dd = Math.hypot(p.w[0] - x, p.w[1] - z); if (dd < best) { best = dd; near = p.n; } }
     what = near ? `Light by ${near}` : 'Light';
   }
-  return `${what}${m.ch ? ' · ' + m.ch : ''} · ${d < 926 ? Math.round(d / 0.9144 / 10) * 10 + ' yd' : (d / NM).toFixed(d < 9260 ? 2 : 1) + ' nm'}`;
+  let look = m.ch || [m.n.c, m.kind === 'buoy' && m.n.s !== 'stake/pole' ? m.n.s : m.n.t === 'BCNLAT' ? 'daybeacon' : null].filter(Boolean).join(' ');
+  if (m.sec && m.ch) {   // which of its sectors you're in (v918): "F W, red sector"
+    camera.getWorldPosition(_c);
+    const sc = sectorColour(m.sec, m.only, null, Math.atan2(m.g.position.x - _c.x, -(m.g.position.z - _c.z)) * 180 / Math.PI);
+    const nm = { 0xfff6d8: 'white', 0xff4b3a: 'red', 0x5dff8a: 'green', 0xffd75a: 'yellow' }[sc];
+    if (nm) look += `, ${nm} sector`;
+  }
+  return `${what}${look ? ' · ' + look : ''} · ${d < 926 ? Math.round(d / 0.9144 / 10) * 10 + ' yd' : (d / NM).toFixed(d < 9260 ? 2 : 1) + ' nm'}`;
 };
 function drawBinoc(lookTrue, hfov) {
   const dpr = Math.min(2, devicePixelRatio || 1), W = Math.round(sceneEl.clientWidth * dpr), H = Math.round(sceneEl.clientHeight * dpr);
@@ -1585,7 +1600,8 @@ function drawBinoc(lookTrue, hfov) {
   // the light you're on: a ring round it and its name over the cross-hair
   const B = binoc.mark;
   if (B) {
-    B.m.lamp.getWorldPosition(_lp); const q = _lp.project(camera), mx = (q.x + 1) / 2 * W, my = (1 - q.y) / 2 * H;
+    if (B.m.lamp) B.m.lamp.getWorldPosition(_lp); else { B.m.g.getWorldPosition(_lp); _lp.y += 2 * B.m.g.scale.y; }
+    const q = _lp.project(camera), mx = (q.x + 1) / 2 * W, my = (1 - q.y) / 2 * H;
     c.strokeStyle = 'rgba(255,214,120,0.9)'; c.lineWidth = 1.5 * dpr; c.beginPath(); c.arc(mx, my, 16 * dpr, 0, Math.PI * 2); c.stroke();
     const lt = markText(B), lw = c.measureText(lt).width + 20 * dpr, ly = cy - r * 0.62;
     c.fillStyle = 'rgba(5,6,7,0.55)'; c.fillRect(cx - lw / 2, ly - 11 * dpr, lw, 22 * dpr);
@@ -1847,6 +1863,8 @@ function frame() {
   // viewpoint height (Helm / 20 ft / 60 ft), eased so changes glide
   eyeH += (eyeTarget - eyeH) * Math.min(1, dt * 2.5);
   TILLER.set(HELM_X * (eyeH <= EYE + 0.3 ? 1 : 0), eyeH, HELM_Z + eyeBack(eyeH));
+  { const side = binoc.on && Math.abs(yawOff) > 12 ? Math.sign(yawOff) : 0; binoc.sx += (side - binoc.sx) * Math.min(1, dt * 1.6); }
+  if (Math.abs(binoc.sx) > 0.001) { const a = Math.abs(binoc.sx); TILLER.x = TILLER.x * (1 - a) + binoc.sx * RAIL[0]; TILLER.y += (RAIL[1] - EYE) * a; TILLER.z = TILLER.z * (1 - a) + RAIL[2] * a; }
   if (eyeH > EYE + 0.3) TILLER.applyAxisAngle(UP_AXIS, -THREE.MathUtils.degToRad(yawOff * (1 - ease)));   // orbit the boat
   camera.position.lerpVectors(TILLER, AT_MAST, ease);
   camera.rotation.set(THREE.MathUtils.degToRad((pitch - eyeTilt(eyeH)) + (-38 - (pitch - eyeTilt(eyeH))) * ease), -THREE.MathUtils.degToRad(yawOff * (1 - ease)), -roll * 1.6, 'YXZ');
@@ -1870,7 +1888,7 @@ function frame() {
   drawTape(toMag(look), hfov);   // a magnetic compass card
   binocView = binoc.on ? { bearing: look, hfov } : null;
   if (binoc.on) {
-    if (t - binoc.rangeT > 0.25) { binoc.rangeT = t; binoc.range = binocRange(look, pitch, boat.position.y + eyeH); binoc.mark = binocMark(); }
+    if (t - binoc.rangeT > 0.25) { binoc.rangeT = t; binoc.range = binocRange(look, pitch, boat.position.y + eyeH); { const B = binocMark(); if (B) { binoc.mark = B; binoc.markT = t; } else if (t - (binoc.markT || 0) > 1.2) binoc.mark = null; } }   // held a moment, so the name doesn't flicker with the shake of your hands
     drawBinoc(look, hfov);
   }
   drawChart(pos, (smoothCourse + 360) % 360, ((look % 360) + 360) % 360, hfov);
@@ -2019,7 +2037,7 @@ try {
   };
   ch.postMessage({ hello: true });   // ask the app where the journey is (it may already have arrived)
 } catch (_) {}
-window.__helm3d = { env, setNight: on => applyConditions({ time: on ? 'night' : 'day' }), applyConditions, COND: env.C, scene, renderer, camera, tiles, ferries, updateTiles, posAt, TOTAL, wx, wz, frame, setS: v => { S = v; }, setLook: (y, p) => { yawOff = y; pitch = p; }, setZoom: z => { zoom = z; }, binoc };   // console/testing hooks
+window.__helm3d = { env, setNight: on => applyConditions({ time: on ? 'night' : 'day' }), applyConditions, COND: env.C, scene, renderer, camera, tiles, ferries, updateTiles, posAt, TOTAL, wx, wz, frame, setS: v => { S = v; }, setLook: (y, p) => { yawOff = y; pitch = p; }, setZoom: z => { zoom = z; }, binoc, marks };   // console/testing hooks
 }
 
 // No route chosen: list saved routes and the samples.

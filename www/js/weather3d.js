@@ -144,6 +144,17 @@ export function glowSprite(color, size, metres = false) {
   const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, fog: false, toneMapped: false, sizeAttenuation: metres }));
   sp.scale.setScalar(size); sp.visible = false; return sp;
 }
+// A sector light's colour as seen from `bearing` (true, from the boat to the light) (v918, requested:
+// "show the white sectors of lights too"). `sec` is the chart's sectors ({c: 'red', a, b}: from a clockwise
+// to b, bearings from seaward); outside them the light's own colour `col`, or dark (null) for a light that
+// shows only in its sectors (`only`). E.g. Browns Head: white, red from 1° to 50° and 61° to 91°.
+const SECTOR_COL = { white: 0xfff6d8, red: 0xff4b3a, green: 0x5dff8a, yellow: 0xffd75a };
+export function sectorColour(sec, only, col, bearing) {
+  if (!sec) return col;
+  const b = ((bearing % 360) + 360) % 360;
+  for (const s of sec) if ((b - s.a + 360) % 360 <= (s.b - s.a + 360) % 360) return SECTOR_COL[s.c.split('/')[0]] ?? col;
+  return only ? null : col;
+}
 // A charted light's characteristic ("Fl G 4s", "Iso W 6s", …) → its period, colour and rhythm
 export function flashFor(ch) {
   if (!ch) return null;

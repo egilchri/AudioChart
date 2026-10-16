@@ -11,7 +11,7 @@
 import * as THREE from 'three';
 import { Water } from './lib/three/Water.js';
 import { LON0, LAT0, MX, MY, wx, wz, readDem, photo, addCanopy, gridMesh, photoMat, buildTown, disposeGroup, spruce, TOWN_NIGHT } from './terrain3d.js';
-import { SUN, makeSky, makeEnv, glowSprite, flashFor, flashOn, weatherPanel, startConditions, makeTrimmer, cycleLook } from './weather3d.js';
+import { SUN, makeSky, makeEnv, glowSprite, flashFor, flashOn, sectorColour, weatherPanel, startConditions, makeTrimmer, cycleLook } from './weather3d.js';
 import { makeSailboat, fleetType } from './sailboat3d.js';
 import { makeAngelique } from './angelique3d.js';
 import { makeWildlife, ledgesFrom } from './wildlife3d.js';
@@ -432,7 +432,7 @@ const navs = navGJ.features.filter(f => f.geometry?.type === 'Point' && inBay(f.
 const BUOY_T = ['BOYLAT', 'BCNLAT', 'BOYSAW', 'BOYSPP', 'BOYCAR', 'BOYISD'];
 const buoys = navs.filter(f => BUOY_T.includes(f.properties.objtype)).map(f => ({ x: wx(f.geometry.coordinates[0]), z: wz(f.geometry.coordinates[1]), c: (f.properties.colour || '').split('/')[0], num: ((f.properties.name || '').replace(/"/g, '').match(/(\S{1,3})$/)?.[1] || '').replace(/^(?!.*\d).*$/, '') }));
 // every charted light, for the night: a glow that flashes its own characteristic
-const litNavs = navs.filter(f => f.properties.objtype === 'LIGHTS').map(f => ({ x: wx(f.geometry.coordinates[0]), z: wz(f.geometry.coordinates[1]), fl: flashFor(f.properties.characteristic), lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] }));
+const litNavs = navs.filter(f => f.properties.objtype === 'LIGHTS').map(f => ({ x: wx(f.geometry.coordinates[0]), z: wz(f.geometry.coordinates[1]), fl: flashFor(f.properties.characteristic), sec: f.properties.sectors, only: !!f.properties.sector_only, lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] }));
 const lightsAshore = navs.filter(f => f.properties.objtype === 'LIGHTS').filter(f => !buoys.some(b => Math.hypot(b.x - wx(f.geometry.coordinates[0]), b.z - wz(f.geometry.coordinates[1])) < 40))
   .map(f => ({ x: wx(f.geometry.coordinates[0]), z: wz(f.geometry.coordinates[1]), y: Math.max(0, heightAt(...f.geometry.coordinates)) }));
 const BUOY_COL = { red: 0xc23a2e, green: 0x2b8a4a, yellow: 0xe0b531 };
@@ -512,7 +512,7 @@ const glows = litNavs.filter(l => l.fl).map(l => {
   const ashore = lightsAshore.some(a => Math.hypot(a.x - l.x, a.z - l.z) < 5);
   const sp = glowSprite(l.fl.col, ashore ? 0.016 : 0.01);
   sp.position.set(l.x, ashore ? Math.max(0, heightAt(l.lon, l.lat)) + 12 : 3, l.z); scene.add(sp);
-  return { sp, fl: l.fl, phase: Math.random() * 6, range: (ashore ? 9 : 3.5) * 1852 };
+  return { sp, fl: l.fl, sec: l.sec, only: l.only, phase: Math.random() * 6, range: (ashore ? 9 : 3.5) * 1852 };
 });
 let wxPanel = null, aboveFog = null;
 function applyConditions(next = {}) {
@@ -553,7 +553,12 @@ function updateWeather(dt, t) {
   for (const g of glows) {
     if (!lk) { g.sp.visible = false; continue; }
     const d = Math.hypot(g.sp.position.x - camera.position.x, g.sp.position.z - camera.position.z), k = Math.min(1, 1.25 - d / (Math.min(g.range, env.visM * 1.6) + cy)) * lk;
-    g.sp.visible = k > 0 && flashOn(g.fl, t + g.phase) && !(above && g.sp.position.y < top);
+    let col = g.fl.col;
+    if (g.sec) {   // a sector light: its colour from where you're looking from (v918)
+      col = sectorColour(g.sec, g.only, g.fl.col, Math.atan2(g.sp.position.x - camera.position.x, -(g.sp.position.z - camera.position.z)) * 180 / Math.PI);
+      if (col != null) g.sp.material.color.setHex(col);
+    }
+    g.sp.visible = col != null && k > 0 && flashOn(g.fl, t + g.phase) && !(above && g.sp.position.y < top);
     if (g.sp.visible) g.sp.material.opacity = k;
   }
 }
