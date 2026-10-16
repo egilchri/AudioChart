@@ -97,7 +97,7 @@ export function moonSky(name, when = Date.now(), hour = null) {
 }
 const moonIcon = ({ phi, side }) => { const k = (1 - Math.cos(phi)) / 2; return k < 0.06 ? '🌑' : k > 0.94 ? '🌕' : k < 0.4 ? (side > 0 ? '🌒' : '🌘') : k < 0.6 ? (side > 0 ? '🌓' : '🌗') : (side > 0 ? '🌔' : '🌖'); };
 const KEY = 'audiochart-helm3d-conditions';
-const MOON_LAPSE = 60;   // the night clock runs 60× (an hour of the moon's travel a minute), or you'd never see it move
+const MOON_LAPSE = 60;   // with no journey under way the night clock runs 60× (an hour of the moon's travel a minute), or you'd never see it move; on one, at its rate (env.moonRate)
 
 // The sky dome: deep blue overhead fading to the haze colour at the horizon (so distant land and
 // water blend into it), with the sun's glow, or the moon's disc and halo at night.
@@ -231,12 +231,15 @@ export function makeEnv(o) {
   // after the moon has set, is darker.
   const nightHour = () => {
     if (env.blendHour != null) return env.blendHour;   // an overnight stop sets the hour itself
-    const key = env.C.moon + new Date().toDateString(), R = env.moonRun;
-    if (!R || R.key !== key) { const m = moonSky(env.C.moon); env.moonRun = { key, win: m.win, h0: m.best, t0: performance.now() }; return m.best; }
-    if (!R.win) return R.h0;
-    const span = R.win[1] - R.win[0], h = R.h0 - R.win[0] + (performance.now() - R.t0) / 1000 * MOON_LAPSE / 3600;
-    return R.win[0] + (h % span);   // round again from moonrise (or dusk) once it sets (or dawn comes)
+    const key = env.C.moon + new Date().toDateString(), R = env.moonRun, now = performance.now();
+    if (!R || R.key !== key) { const m = moonSky(env.C.moon); env.moonRun = { key, win: m.win, h: m.best, t: now }; return m.best; }
+    const dt = (now - R.t) / 1000; R.t = now;
+    if (!R.win) return R.h;
+    R.h += dt * (env.moonRate ?? MOON_LAPSE) / 3600;   // at the Virtual Journey's rate (v916), paused with it
+    if (R.h > R.win[1]) R.h = R.win[0] + (R.h - R.win[1]) % (R.win[1] - R.win[0]);   // round again from moonrise (or dusk) once it sets (or dawn comes)
+    return R.h;
   };
+  env.setMoonRate = r => { if (env.night && env.blendHour == null && env.moonRun) nightHour(); env.moonRate = r; };   // the time so far at the old rate
   const setLight = () => {
     const { C, T, night, over, foggy } = env, su = sky.material.uniforms, wu = water.material.uniforms;
     const MP = env.moon = moonSky(C.moon, Date.now(), night ? nightHour() : null), moonLit = (1 - Math.cos(MP.phi)) / 2 * MP.up;   // 0 new (or set) … 1 full

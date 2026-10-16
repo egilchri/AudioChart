@@ -7501,6 +7501,7 @@ function _broadcastVj(running) {
   try {
     if (!_vjRoute) return;
     _vjLastMsg = { routeId: _vjRoute.id || _vjRoute.name, running, frac: _vjTotalNm ? _vjTraveledNm / _vjTotalNm : 0,
+      rate: running ? _vjCompress : 0,   // the journey's time rate: the 3D views' night clock (the moon) runs at it (v916)
       // an overnight stop's sunset-to-day cycle, timed by the 3D views themselves from `start`
       cycle: _vjCycleStart && Date.now() - _vjCycleStart < VJ_NIGHT_MS ? { start: _vjCycleStart, dur: VJ_NIGHT_MS } : null };
     _vjChan().postMessage(_vjLastMsg);
@@ -7636,6 +7637,7 @@ function _pauseVirtualJourney() {
   _vjRunning = false;
   if (_vjRafId) { clearInterval(_vjRafId); _vjRafId = null; }
   document.getElementById('vjourney-pause-btn').textContent = '▶ Resume';
+  try { _vjChan().postMessage({ rate: 0 }); } catch (_) {}   // paused: the moon waits too
   document.getElementById('vjourney-status').textContent = `Paused · ${_vjTraveledNm.toFixed(1)}/${_vjTotalNm.toFixed(1)} nm`;
 }
 
@@ -7659,6 +7661,7 @@ function _stopVirtualJourney() {
   if (_vjRafId) { clearInterval(_vjRafId); _vjRafId = null; }
   if (!_vjRoute) return; // nothing was actually running — safe to call as a guard
   _broadcastVj(false);
+  try { _vjChan().postMessage({ rate: null }); } catch (_) {}   // no journey: the night clock's own pace again
   GPS.clearVirtualPosition();
   document.getElementById('vjourney-banner').style.display = 'none';
   _appEl.classList.remove('vjourney-active');
@@ -7986,7 +7989,7 @@ function _fsLookAhead() {
 // the 3D views follow along (v891): the helm view's free mode, from AudioChart's channel
 function _fsBroadcast() {
   try {
-    _vjLastMsg = { free: _fs ? { lat: _fs.lat, lon: _fs.lon, hdg: _fs.hdg, kn: _vjSpeedKnots, running: _fs.running && !_fs.held } : null };
+    _vjLastMsg = { free: _fs ? { lat: _fs.lat, lon: _fs.lon, hdg: _fs.hdg, kn: _vjSpeedKnots, running: _fs.running && !_fs.held } : null, rate: _fs ? _vjCompress : null };
     _vjChan().postMessage(_vjLastMsg);
   } catch (_) {}
 }

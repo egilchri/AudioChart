@@ -1959,6 +1959,7 @@ try {
   const ch = new BroadcastChannel('audiochart-vj');
   ch.onmessage = (e) => {
     const m = e.data || {};
+    if ('rate' in m) env.setMoonRate(m.rate);   // the journey's time rate drives the moon (v916)
     if (m.cycle && m.cycle.start !== nightSeen) { nightSeen = m.cycle.start; night = { ...m.cycle, from: env.C.time }; }   // an overnight stop (v887)
     if (FREE) { if (m.free) freeAim(m.free); return; }
     if (m.routeId !== ROUTE.id) return;

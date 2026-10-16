@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-16 — The moon keeps the journey's time (v916)
+
+Requested: "tie it to the journey rate". On a Virtual Journey (or Free Sailing) the 3D views' night clock
+now runs at the journey's rate — 1×, 5×, 20× or 60× — instead of a fixed 60×; it stops while the journey
+is paused, and goes back to 60× when the journey ends or with none under way. AudioChart's journey
+broadcast carries `rate` (0 when paused); the views call `env.setMoonRate()`, which counts the time so far
+at the old rate before switching.
+
 ## 2026-10-16 — The moon moves across the night sky (v915)
 
 Requested: "make the moon move across the sky during the night". At night a clock runs at 60× (an hour of
