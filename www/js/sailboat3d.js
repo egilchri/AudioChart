@@ -13,6 +13,8 @@
 //   cruiser    34 ft modern sloop: near-plumb bow, wide transom, taller fractional rig
 //   schooner   a Penobscot Bay windjammer, ~100 ft on deck: two gaff masts, bowsprit, two headsails
 //   lobster    a 36 ft Maine lobster boat under power: high bow, wheelhouse forward, low working deck
+//   bowdoin    the Arctic schooner Bowdoin (v919), Maine Maritime Academy's, out of Castine: 88 ft,
+//              bald-headed knockabout (no topmasts, no bowsprit), the ice barrel at the foremast head
 import * as THREE from 'three';
 
 const V3 = THREE.Vector3;
@@ -196,6 +198,16 @@ const TYPES = {
     cabin: { u0: 0.42, u1: 0.62, w: 0.5, h: 1.1, ports: 4 }, cockpit: { u0: 0.84, u1: 0.94, w: 0.35 },
     rig: { masts: [{ u: 0.3, H: 18, boom: 11, gaff: 8, top: 27 }, { u: 0.7, H: 14, boom: 8.5, gaff: 6, top: 21, by: 2.6 }], clewY: 4.8, topsails: true, jibs: [[-7.5, 0.9, 9], [1.0, 0.78, 7]] },
     hulls: [0x1d4a33], stripes: [0xd8c070], bottoms: [0x6e2a22], decks: [0xb89268], cloth: 'burgundy' },
+  // The schooner Bowdoin (v919, requested: "add the schooner Bowdoin, currently owned by Maine Maritime
+  // Academy, to the fleet … give it a Crow's Nest"). Built 1921 by Hodgdon Brothers, East Boothbay, to a
+  // William Hand design for MacMillan's Arctic voyages: 88 ft overall, 72 ft waterline, 21 ft beam, 10 ft
+  // draft (MMA's fact sheet). A gaff schooner, "bald-headed, knockabout": no topmasts and no bowsprit, her
+  // jib and forestaysail tacked down on deck forward; an ice barrel (her crow's nest) at the foremast head.
+  // Colours aren't in the sources: a white hull and cream canvas sails, as a guess to correct.
+  bowdoin: { L: 26.8, B: 6.4, fbF: 2.3, fbM: 1.65, fbA: 1.95, ovB: 2.6, ovS: 2.3, tr: 0.5, cove: false, bulwark: true, rudder: false, kn: 7,
+    cabin: { u0: 0.4, u1: 0.57, w: 0.5, h: 0.9, ports: 3 }, cockpit: { u0: 0.84, u1: 0.93, w: 0.35 },
+    rig: { masts: [{ u: 0.3, H: 15, boom: 8, gaff: 6, top: 18.5 }, { u: 0.56, H: 16.5, boom: 11.5, gaff: 7.5, top: 20 }], clewY: 4.0, jibs: [[0.4, 0.94, 7], [3.4, 0.8, 5.5]], iceBarrel: true },
+    hulls: [0xf2efe6], stripes: [0x2a2a2a], bottoms: [0x6e2a22], decks: [0xc9a77a], cloth: 'canvas' },
   lobster: { L: 11, B: 3.6, fbF: 2.0, fbM: 1.15, fbA: 1.0, ovB: 0.7, ovS: 0.02, tr: 0.88, maxAt: 0.5, cove: false, rudder: false, kn: 9, power: true,
     wheelhouse: { u0: 0.28, u1: 0.48, h: 1.9 },
     hulls: [0xf4f4f0, 0xf4f4f0, 0x9cc3d6, 0x2e5d3a, 0xd9c24a, 0x9b2a24, 0x2b4a7a], stripes: [0x222222], bottoms: [0x6e2a22, 0x222222], decks: [0xd9d6cc], cloth: null },
@@ -247,6 +259,7 @@ export function makeSailboat(type = 'pocket', seed = 0) {
   for (const k in H.geos) body.add(new THREE.Mesh(H.geos[k], C[k]));
   const { sh, zD, L } = H, uZ = u => zD(u);
   const sails = [], booms = [], jibs = [];
+  let nest = null;
   const clothM = T.cloth ? cloth(pick(T.cloth, r)) : null;
   if (T.rig && !T.rig.masts) {   // a sloop
     const R = T.rig, MZ = uZ(R.mast), foot = sh(R.mast) + (T.cabin ? T.cabin.h : 0), top = R.H;
@@ -278,6 +291,18 @@ export function makeSailboat(type = 'pocket', seed = 0) {
       }
     }
     const foreTop = new V3(0, R.masts[0].H + 2, uZ(R.masts[0].u));   // the foremost mast: a schooner's fore, a ketch's main
+    if (R.iceBarrel) {   // Bowdoin's crow's nest: an open barrel at the foremast head, hooped, a lookout's eye in it
+      const m = R.masts[0], MZ = uZ(m.u);
+      put(body, new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.42, 1.2, 12, 1, true), C.teak), 0, m.top + 0.4, MZ);
+      put(body, new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.06, 12), C.teak), 0, m.top - 0.17, MZ);
+      for (const y of [-0.45, 0, 0.45]) put(body, new THREE.Mesh(new THREE.TorusGeometry(0.47 - y * 0.06, 0.025, 4, 16), C.dark), 0, m.top + 0.4 + y, MZ).rotation.x = Math.PI / 2;
+      for (const s of [-1, 1]) {   // ratlines up the fore shrouds to it
+        const a = new V3(s * (H.hw(m.u) - 0.1), sh(m.u) + 0.4, MZ + 0.3), b = new V3(s * 0.25, m.top - 0.3, MZ);
+        body.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.LineCurve3(a, b), 1, 0.02, 3), C.dark));
+        for (let k = 1; k < 14; k++) { const p = a.clone().lerp(b, k / 14); body.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.LineCurve3(p, new V3(0, p.y, p.z + 0.25)), 1, 0.012, 3), C.dark)); }
+      }
+      nest = new THREE.Object3D(); nest.position.set(0, m.top + 1.4, MZ); body.add(nest);   // the lookout's eye, standing in the barrel
+    }
     for (const [off, frac, rad] of R.jibs) {   // off: metres aft of the stem head (negative: out on the bowsprit)
       const tack = new V3(0, sh(0) + 0.6 + (off < 0 ? 0.5 : 0), zD(0) + off), head = tack.clone().lerp(foreTop, frac);
       jibs.push({ m: new THREE.Mesh(jibGeo(tack, head, rad, R.clewY, 20, 1), clothM), tack, head, R: rad, y: R.clewY, key: '' });
@@ -297,7 +322,7 @@ export function makeSailboat(type = 'pocket', seed = 0) {
   };
   wake(0);
   return {
-    group: g, type, L, kn: T.kn, power: !!T.power,
+    group: g, type, L, kn: T.kn, power: !!T.power, nest,
     wake,
     // p: a makeTrimmer() result; heelRad: the wind's full heel; up: false furls everything (calm)
     trim(p, heelRad, up) {

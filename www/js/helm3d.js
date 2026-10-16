@@ -7,7 +7,7 @@ import { Water } from './lib/three/Water.js';
 import { depthAtFrom } from './depth.js';
 import { LON0, LAT0, MX, MY, wx, wz, cachedFetch, readDem, photo, photoAtCells, addCanopy, gridMesh, photoMat, buildTown, spruce, tlog, tmark, TOWN_NIGHT } from './terrain3d.js';
 import { makeWildlife, ledgesFrom } from './wildlife3d.js';
-import { makeAngelique, ANGELIQUE } from './angelique3d.js';
+import { makeAngelique, ANGELIQUE, makeBowdoin, BOWDOIN } from './angelique3d.js';
 import { makeSky, makeEnv, glowSprite, flashFor, sectorColour, weatherPanel, startConditions, makeTrimmer, cycleLook } from './weather3d.js';
 
 const statusEl = document.getElementById('status');
@@ -19,11 +19,12 @@ const setStatus = (msg) => { statusEl.textContent = msg; };
 // Your boat (v905, requested: "an alternative boat choice, like a Camden Windjammer, such as the
 // Angelique"): the Cape Dory 25D, or the 95 ft gaff topsail ketch Angelique (sailboat3d.js), from
 // ?boat= or the choice remembered in this browser (the Bird's-eye view shares it).
-const BOAT_KEY = 'audiochart-boat', BOATS = { cd25: 'Cape Dory 25D', angelique: 'Angelique' };
+const BOAT_KEY = 'audiochart-boat', BOATS = { cd25: 'Sea Nymph, the Cape Dory 25D', angelique: 'Angelique', bowdoin: 'the schooner Bowdoin' };   // (Bowdoin v919)
 const BOAT_TYPE = (() => { let b = new URLSearchParams(location.search).get('boat'); if (!b) { try { b = localStorage.getItem(BOAT_KEY); } catch (_) {} } return BOATS[b] ? b : 'cd25'; })();
-const ANGEL = BOAT_TYPE === 'angelique';
+const ANGEL = BOAT_TYPE !== 'cd25';   // one of the big vessels (Angelique, or Bowdoin since v919), from angelique3d.js
+const SHIP = BOAT_TYPE === 'bowdoin' ? BOWDOIN : ANGELIQUE;
 // the helmsman's eye: seated at the Cape Dory's tiller, or standing at Angelique's wheel on her afterdeck
-const EYE = ANGEL ? ANGELIQUE.helm[1] : 2.0, HELM_X = ANGEL ? ANGELIQUE.helm[0] : 0.35, HELM_Z = ANGEL ? ANGELIQUE.helm[2] : 1.0, NM = 1852;
+const EYE = ANGEL ? SHIP.helm[1] : 2.0, HELM_X = ANGEL ? SHIP.helm[0] : 0.35, HELM_Z = ANGEL ? SHIP.helm[2] : 1.0, NM = 1852;
 // Rockland Breakwater: not in the elevation data (water is flattened there); traced from the photo.
 const BREAKWATER = [[-69.08197, 44.11540], [-69.07751, 44.10410]];
 
@@ -715,14 +716,14 @@ boat.add(camera);
 camera.position.set(HELM_X, EYE, HELM_Z);   // at the tiller, aft end of the cockpit (Angelique: her wheel)
 // Angelique in place of the Cape Dory: the Cape Dory's model is hidden (the lights added to bow
 // below are placed for whichever boat it is); she heels and trims herself (frame())
-const angel = ANGEL ? makeAngelique() : null;   // angelique3d.js (v906: her own detailed model)
+const angel = ANGEL ? (BOAT_TYPE === 'bowdoin' ? makeBowdoin() : makeAngelique()) : null;   // angelique3d.js (v906: her own detailed model)
 if (angel) { for (const o of bow.children) o.visible = false; angel.wake(0); boat.add(angel.group); }
-if (angel) { const sub = document.querySelector('.sub'); if (sub) sub.firstChild.textContent = sub.firstChild.textContent.replace('From the tiller of a Cape Dory 25D', "From the wheel of Angelique, Camden's gaff topsail ketch"); }
+if (angel) { const sub = document.querySelector('.sub'); if (sub) sub.firstChild.textContent = sub.firstChild.textContent.replace('From the tiller of a Cape Dory 25D', BOAT_TYPE === 'bowdoin' ? "From the wheel of Bowdoin, Maine Maritime Academy's Arctic schooner" : "From the wheel of Angelique, Camden's gaff topsail ketch"); }
 // her own wake (v902; the ferries had one, she didn't): a fading fan of foam astern and a curl at
 // the bow, on a level group that follows her position and heading (not her bob, pitch or heel,
 // which tipped the far end of a 50 m fan under the water), showing with her speed through the water
 const wakeG = new THREE.Group(); scene.add(wakeG);
-if (ANGEL) wakeG.scale.setScalar(3.6);   // Angelique's wake: the same foam, sized to her
+if (ANGEL) wakeG.scale.setScalar(3.6 * SHIP.L / 29);   // a big vessel's wake: the same foam, sized to her
 const ownWake = (() => {
   // foam drawn on a canvas, the apex at the top (forward): the two diverging arms of the wake,
   // broken and fading, and (astern only) the churned streak right behind her
@@ -933,7 +934,7 @@ function ownLight(at, color, toward, arc, pool, when) {
 const SIDE = 112.5 / 2;   // each sidelight shows from dead ahead to 22.5° abaft the beam
 const underWay = () => anchor.state === 'up', atAnchor = () => anchor.state !== 'up';
 if (ANGEL) {   // Angelique: sidelight boards in the main shrouds, stern light on the taffrail, anchor light in the forestay
-  const LT = ANGELIQUE.lights;
+  const LT = SHIP.lights;
   ownLight(LT.port, 0xff2a1e, -SIDE, SIDE, [-6, LT.port[2], 12], underWay);
   ownLight(LT.stbd, 0x2bff6a, SIDE, SIDE, [6, LT.stbd[2], 12], underWay);
   ownLight(LT.stern, 0xfff2d6, 180, 67.5, [0, 18, 14], underWay);
@@ -1241,7 +1242,7 @@ function sightClear(from, to, toH) {
   const dx = to[0] - from[0], dz = to[1] - from[1], d = Math.hypot(dx, dz);
   for (let t = 40; t < d - 60; t += Math.max(15, t * 0.02)) {
     const x = from[0] + dx * t / d, z = from[1] + dz * t / d;
-    const hT = heightAt(x / MX + LON0, -z / MY + LAT0), los = eyeH + (toH - eyeH) * t / d;
+    const e0 = nest.on ? _camW.y : eyeH, hT = heightAt(x / MX + LON0, -z / MY + LAT0), los = e0 + (toH - e0) * t / d;
     if (hT > los) return false;
   }
   return true;
@@ -1358,7 +1359,7 @@ function playSplash() {
   }
 }
 const anchorNote = document.getElementById('anchornote');
-const ROLLER = ANGEL ? new THREE.Vector3(...ANGELIQUE.roller) : new THREE.Vector3(0, 1.12, -5.25);   // stem-head roller, boat frame
+const ROLLER = ANGEL ? new THREE.Vector3(...SHIP.roller) : new THREE.Vector3(0, 1.12, -5.25);   // stem-head roller, boat frame
 const anchorObj = new THREE.Group();
 {
   const galv = new THREE.MeshLambertMaterial({ color: 0x6f767b });
@@ -1402,7 +1403,7 @@ const DRONE_M = 100 * 0.3048;
 const EYE_CHOICES = [{ label: 'Helm', m: EYE, title: ANGEL ? 'On deck, at the wheel' : 'Deck level, at the tiller' }, { label: '20 ft', m: 20 * 0.3048 }, { label: '60 ft', m: 60 * 0.3048 }, { label: 'Drone', m: DRONE_M }];
 const FT60 = 60 * 0.3048, _back = m => Math.max(0, (m - EYE) * 2.2), _tilt = m => Math.max(0, (m - EYE) * 2.4) / (1 + Math.max(0, m - EYE) / 18);
 const _toDrone = m => Math.min(1, Math.max(0, (m - FT60) / (DRONE_M - FT60)));   // 60 ft -> drone, so the change glides
-const DRONE_BACK = ANGEL ? ANGELIQUE.droneBack : 50;   // she's 130 ft overall: the Drone stands farther off to see all of her
+const DRONE_BACK = ANGEL ? SHIP.droneBack : 50;   // she's 130 ft overall: the Drone stands farther off to see all of her
 const eyeBack = m => m <= FT60 ? _back(m) : _back(FT60) + (DRONE_BACK - _back(FT60)) * _toDrone(m);
 const eyeTilt = m => m <= FT60 ? _tilt(m) : _tilt(FT60) + (20 - _tilt(FT60)) * _toDrone(m);
 let eyeTarget = DRONE_M;   // Drone by default (direct request, v832); a choice made since is remembered
@@ -1413,9 +1414,13 @@ let eyeTarget = DRONE_M;   // Drone by default (direct request, v832); a choice 
 }
 let eyeH = eyeTarget;
 const eyeBox = document.getElementById('eyepick');
-function syncEyeButtons() { for (const b of eyeBox.querySelectorAll('button[data-m]')) b.classList.toggle('on', Math.abs(Number(b.dataset.m) - eyeTarget) < 0.2); }
+function syncEyeButtons() { for (const b of eyeBox.querySelectorAll('button[data-m]')) b.classList.toggle('on', !nest.on && Math.abs(Number(b.dataset.m) - eyeTarget) < 0.2); }
+// Bowdoin's crow's nest (v919, requested: "give it a Crow's Nest, and a way to trigger an observation from there"):
+// a viewpoint in her ice barrel at the foremast head, 60-odd feet up, riding with her heel and roll; look round as
+// at the helm, raise the binoculars from up there, and 📣 Lookout calls out what's in sight (below).
+const nest = { on: false, k: 0 };
 const binoc = { on: false, prevEye: 0, prevZoom: 1, range: null, rangeT: 0, sx: 0 };   // binoculars (v908), below
-function setEye(m) { if (binoc.on) setBinoc(false); eyeTarget = m; try { localStorage.setItem('audiochart-helm3d-view', String(m)); } catch (_) {} syncEyeButtons(); }
+function setEye(m) { if (binoc.on) setBinoc(false); if (nest.on) setNest(false); eyeTarget = m; try { localStorage.setItem('audiochart-helm3d-view', String(m)); } catch (_) {} syncEyeButtons(); }
 // double-click the boat (v896, requested): AudioChart's boat menu (Free sail, Autoroute, …)
 {
   let hook = null; try { if (window.parent !== window) hook = window.parent.__audioChartViews; } catch (_) {}
@@ -1459,6 +1464,23 @@ for (const c of EYE_CHOICES) {
   b.addEventListener('pointerdown', e => e.stopPropagation());   // not a look-around drag
   b.addEventListener('click', () => setEye(c.m)); eyeBox.appendChild(b);
 }
+const nestBtn = SHIP.crowsNest && ANGEL ? document.createElement('button') : null;
+const lookBtn = document.createElement('button'); lookBtn.type = 'button'; lookBtn.className = 'binbtn'; lookBtn.textContent = '📣 Lookout'; lookBtn.hidden = true;
+lookBtn.title = "The lookout's report: what's in sight from the crow's nest, with bearings off the bow (L)";
+function setNest(on) {
+  if (!nestBtn || on === nest.on) return;
+  nest.on = on; nestBtn.classList.toggle('on', on); lookBtn.hidden = !on;
+  if (on) { if (binoc.on) setBinoc(false); eyeTarget = EYE; pitch = Math.max(pitch, -8); }   // from the deck's height up the rigging (no orbit)
+  else { lookRep.hidden = true; }
+  syncEyeButtons();
+}
+if (nestBtn) {
+  nestBtn.type = 'button'; nestBtn.textContent = "🔭 Crow's nest"; nestBtn.title = 'Up the foremast to the ice barrel at its head: the lookout\'s view, 60 ft up';
+  nestBtn.addEventListener('pointerdown', e => e.stopPropagation());
+  nestBtn.addEventListener('click', () => setNest(!nest.on)); eyeBox.appendChild(nestBtn);
+  lookBtn.addEventListener('pointerdown', e => e.stopPropagation());
+  lookBtn.addEventListener('click', () => lookoutReport()); eyeBox.appendChild(lookBtn);
+}
 syncEyeButtons();
 // Binoculars (v908, requested: "a spyglass, or binoculars … stop the boat, and then point the
 // binoculars towards the shore, and scan, for details"): 7× glasses raised at the helm. Two round
@@ -1469,7 +1491,7 @@ syncEyeButtons();
 const BINO_ZOOM = 7, BINO_M = 9000;
 // Raising the glasses to look out over either side, you step to the rail on that side (v918): from the wheel
 // the deckhouse, the bulwark and the mizzen were most of what 7× showed off the bow.
-const RAIL = ANGEL ? ANGELIQUE.rail : [0.85, EYE, HELM_Z];
+const RAIL = ANGEL ? SHIP.rail : [0.85, EYE, HELM_Z];
 const binBtn = document.createElement('button'); binBtn.type = 'button'; binBtn.className = 'binbtn'; binBtn.textContent = 'Binoculars';
 binBtn.title = '7× binoculars from the helm: drag or use the arrow keys to scan the shore (B; Esc to lower them)';
 binBtn.addEventListener('pointerdown', e => e.stopPropagation());
@@ -1559,6 +1581,44 @@ const markText = ({ m, d }) => {
   }
   return `${what}${look ? ' · ' + look : ''} · ${d < 926 ? Math.round(d / 0.9144 / 10) * 10 + ' yd' : (d / NM).toFixed(d < 9260 ? 2 : 1) + ' nm'}`;
 };
+// 📣 The lookout's report from the crow's nest (v919): lighthouses, towns and harbours, summits and the ferries in
+// sight from up there (not over the horizon, not behind land), each with its bearing off the bow in a lookout's
+// words and its distance, nearest first in each kind ("Owls Head Light, broad on the port bow, 6.2 nm").
+// Shown over the view and spoken in AudioChart's voice. L, or the 📣 Lookout button.
+const lookRep = document.createElement('div'); lookRep.id = 'lookrep'; lookRep.hidden = true;
+lookRep.style.cssText = 'position:absolute;left:50%;transform:translateX(-50%);top:150px;z-index:6;max-width:min(560px,calc(100% - 32px));box-sizing:border-box;background:rgba(18,31,38,0.78);color:#eef2f1;border-radius:6px;padding:8px 12px;font:13px/1.45 system-ui,sans-serif;pointer-events:auto';
+sceneEl.appendChild(lookRep);
+lookRep.addEventListener('pointerdown', e => e.stopPropagation());
+lookRep.addEventListener('click', () => { lookRep.hidden = true; });
+const REL = rel => {
+  const a = Math.abs(rel), side = rel > 0 ? 'starboard' : 'port';
+  return a < 6 ? 'dead ahead' : a < 30 ? `fine on the ${side} bow` : a < 60 ? `on the ${side} bow` : a < 82 ? `broad on the ${side} bow` : a < 98 ? `abeam to ${side}` : a < 150 ? `abaft the ${side} beam` : a < 174 ? `on the ${side} quarter` : 'dead astern';
+};
+function lookoutReport() {
+  const eye = _camW.y, pos = [boat.position.x, boat.position.z], hdg = smoothCourse ?? 0, seen = [];
+  const add = (name, w, h, rank) => {
+    const d = Math.hypot(w[0] - pos[0], w[1] - pos[1]);
+    if (d < 150 || d / NM > 2.08 * (Math.sqrt(Math.max(1, eye)) + Math.sqrt(Math.max(1, h))) || d > visM * 1.1 || !sightClear(pos, w, h)) return;
+    seen.push({ name, d, rank, rel: ((Math.atan2(w[0] - pos[0], -(w[1] - pos[1])) * 180 / Math.PI - hdg + 540) % 360) - 180 });
+  };
+  for (const m of marks) if (m.kind === 'light' && m.title && /Light/.test(m.title)) add(m.title, [m.g.position.x, m.g.position.z], m.g.position.y + 10, 0);
+  for (const p of placeLabels) {   // towns and harbours, summits, islands (not every named ledge and cove)
+    const rank = p.elev ? 2 : p.t === 'BUAARE' ? 1 : /\b(Island|Isle|Islands)\b/.test(p.n) ? 4 : -1;
+    if (rank >= 0) add(p.n, p.w, p.elev ? p.h : p.h + 8, rank);
+  }
+  for (const fy of ferries) { const fp = fy.group.position; add(fy.label.replace(/^Ferry/, 'The ferry'), [fp.x, fp.z], 10, 3); }
+  const pick = (rank, n) => seen.filter(o => o.rank === rank).sort((a, b) => a.d - b.d).slice(0, n);
+  const list = [...pick(3, 2), ...pick(0, 3), ...pick(1, 3), ...pick(4, 2), ...pick(2, 2)];
+  const dist = d => d < 926 ? `${Math.round(d / 0.9144 / 10) * 10} yards` : `${(d / NM).toFixed(1)} nm`;
+  const lines = list.map(o => `${o.name}, ${REL(o.rel)}, ${dist(o.d)}`);
+  const head = visM < 2000 ? 'Fog all round; nothing in sight.' : lines.length ? `From the crow's nest, ${Math.round(eye / 0.3048)} ft up (horizon ${(2.08 * Math.sqrt(eye)).toFixed(1)} nm):` : 'Nothing in sight but water.';
+  lookRep.replaceChildren();
+  const h = document.createElement('div'); h.style.opacity = '0.8'; h.textContent = head; lookRep.appendChild(h);
+  if (visM >= 2000) for (const t of lines) { const li = document.createElement('div'); li.textContent = t; lookRep.appendChild(li); }
+  lookRep.hidden = false;
+  try { window.parent?.__audioChartViews?.say?.(visM < 2000 || !lines.length ? head : 'Lookout reports: ' + lines.join('. ') + '.'); } catch (_) {}
+}
+addEventListener('keydown', e => { if ((e.key === 'l' || e.key === 'L') && nest.on && !e.metaKey && !e.ctrlKey && !/INPUT|SELECT/.test(e.target.tagName)) lookoutReport(); });
 function drawBinoc(lookTrue, hfov) {
   const dpr = Math.min(2, devicePixelRatio || 1), W = Math.round(sceneEl.clientWidth * dpr), H = Math.round(sceneEl.clientHeight * dpr);
   if (binCv.width !== W || binCv.height !== H) { binCv.width = W; binCv.height = H; }
@@ -1628,13 +1688,15 @@ const goView = url => { try { if (window.parent !== window && window.parent.__au
   });
   eyeBox.appendChild(b);
 }
-// Boat (v905): Cape Dory 25D or Angelique; the scene is rebuilt for her, where you are now
+// Boat (v905): Cape Dory 25D or Angelique (or Bowdoin, v919); the scene is rebuilt for her, where you are now
 {
   const b = document.createElement('button'); b.type = 'button'; b.className = 'birdbtn'; b.id = 'boatbtn';
-  b.textContent = ANGEL ? '⛵ Angelique' : '⛵ Cape Dory'; b.title = `Your boat: ${BOATS[BOAT_TYPE]}. Click for ${ANGEL ? 'the Cape Dory 25D' : 'Angelique, the Camden windjammer'}`;
+  // round the three (v919): Sea Nymph, the Cape Dory 25D → Angelique → Bowdoin → Sea Nymph
+  const NEXT = { cd25: 'angelique', angelique: 'bowdoin', bowdoin: 'cd25' }, SHORT = { cd25: 'Sea Nymph', angelique: 'Angelique', bowdoin: 'Bowdoin' };
+  b.textContent = '⛵ ' + SHORT[BOAT_TYPE]; b.title = `Your boat: ${BOATS[BOAT_TYPE]}. Click for ${BOATS[NEXT[BOAT_TYPE]]}`;
   b.addEventListener('pointerdown', e => e.stopPropagation());
   b.addEventListener('click', () => {
-    const next = ANGEL ? 'cd25' : 'angelique', q = new URLSearchParams(location.search);
+    const next = NEXT[BOAT_TYPE], q = new URLSearchParams(location.search);
     try { localStorage.setItem(BOAT_KEY, next); } catch (_) {}
     q.set('boat', next);
     if (FREE) { q.set('lat', (-freeP.z / MY + LAT0).toFixed(5)); q.set('lon', (freeP.x / MX + LON0).toFixed(5)); q.set('hdg', String(Math.round(freeP.h))); }
@@ -1661,7 +1723,8 @@ addEventListener('keydown', e => {
   const i = EYE_CHOICES.findIndex(c => Math.abs(c.m - eyeTarget) < 0.2);
   setEye(EYE_CHOICES[(i + 1) % EYE_CHOICES.length].m);
 });
-const TILLER = new THREE.Vector3(HELM_X, EYE, HELM_Z), AT_MAST = ANGEL ? new THREE.Vector3(...ANGELIQUE.atMast) : new THREE.Vector3(0.3, 2.6, -3.2);   // on the foredeck, just forward of the mast
+const _nestP = new THREE.Vector3();
+const TILLER = new THREE.Vector3(HELM_X, EYE, HELM_Z), AT_MAST = ANGEL ? new THREE.Vector3(...SHIP.atMast) : new THREE.Vector3(0.3, 2.6, -3.2);   // on the foredeck, just forward of the mast
 let camK = 0;
 const UP_AXIS = new THREE.Vector3(0, 1, 0);
 function arrive() {
@@ -1863,8 +1926,14 @@ function frame() {
   // viewpoint height (Helm / 20 ft / 60 ft), eased so changes glide
   eyeH += (eyeTarget - eyeH) * Math.min(1, dt * 2.5);
   TILLER.set(HELM_X * (eyeH <= EYE + 0.3 ? 1 : 0), eyeH, HELM_Z + eyeBack(eyeH));
-  { const side = binoc.on && Math.abs(yawOff) > 12 ? Math.sign(yawOff) : 0; binoc.sx += (side - binoc.sx) * Math.min(1, dt * 1.6); }
-  if (Math.abs(binoc.sx) > 0.001) { const a = Math.abs(binoc.sx); TILLER.x = TILLER.x * (1 - a) + binoc.sx * RAIL[0]; TILLER.y += (RAIL[1] - EYE) * a; TILLER.z = TILLER.z * (1 - a) + RAIL[2] * a; }
+  { const side = binoc.on && !nest.on && Math.abs(yawOff) > 12 ? Math.sign(yawOff) : 0; binoc.sx += (side - binoc.sx) * Math.min(1, dt * 1.6); }
+  nest.k += ((nest.on ? 1 : 0) - nest.k) * Math.min(1, dt * 1.2);   // the climb: a few seconds up or down
+  if (nest.k > 0.001 && angel?.nest) {
+    angel.group.updateMatrixWorld(true); angel.nest.getWorldPosition(_nestP); camera.parent.worldToLocal(_nestP);
+    const sm = x => { x = Math.min(1, Math.max(0, x)); return x * x * (3 - 2 * x); }, ez = sm(nest.k / 0.35), ey = sm((nest.k - 0.25) / 0.75);   // forward along the deck to the foremast, then up the ratlines
+    TILLER.set(TILLER.x + (_nestP.x - TILLER.x) * ez, TILLER.y + (_nestP.y - TILLER.y) * ey, TILLER.z + (_nestP.z - TILLER.z) * ez);
+  }
+  if (!nest.on && Math.abs(binoc.sx) > 0.001) { const a = Math.abs(binoc.sx); TILLER.x = TILLER.x * (1 - a) + binoc.sx * RAIL[0]; TILLER.y += (RAIL[1] - EYE) * a; TILLER.z = TILLER.z * (1 - a) + RAIL[2] * a; }
   if (eyeH > EYE + 0.3) TILLER.applyAxisAngle(UP_AXIS, -THREE.MathUtils.degToRad(yawOff * (1 - ease)));   // orbit the boat
   camera.position.lerpVectors(TILLER, AT_MAST, ease);
   camera.rotation.set(THREE.MathUtils.degToRad((pitch - eyeTilt(eyeH)) + (-38 - (pitch - eyeTilt(eyeH))) * ease), -THREE.MathUtils.degToRad(yawOff * (1 - ease)), -roll * 1.6, 'YXZ');
@@ -1888,7 +1957,7 @@ function frame() {
   drawTape(toMag(look), hfov);   // a magnetic compass card
   binocView = binoc.on ? { bearing: look, hfov } : null;
   if (binoc.on) {
-    if (t - binoc.rangeT > 0.25) { binoc.rangeT = t; binoc.range = binocRange(look, pitch, boat.position.y + eyeH); { const B = binocMark(); if (B) { binoc.mark = B; binoc.markT = t; } else if (t - (binoc.markT || 0) > 1.2) binoc.mark = null; } }   // held a moment, so the name doesn't flicker with the shake of your hands
+    if (t - binoc.rangeT > 0.25) { binoc.rangeT = t; binoc.range = binocRange(look, pitch, _camW.y); { const B = binocMark(); if (B) { binoc.mark = B; binoc.markT = t; } else if (t - (binoc.markT || 0) > 1.2) binoc.mark = null; } }   // held a moment, so the name doesn't flicker with the shake of your hands
     drawBinoc(look, hfov);
   }
   drawChart(pos, (smoothCourse + 360) % 360, ((look % 360) + 360) % 360, hfov);
@@ -2037,7 +2106,7 @@ try {
   };
   ch.postMessage({ hello: true });   // ask the app where the journey is (it may already have arrived)
 } catch (_) {}
-window.__helm3d = { env, setNight: on => applyConditions({ time: on ? 'night' : 'day' }), applyConditions, COND: env.C, scene, renderer, camera, tiles, ferries, updateTiles, posAt, TOTAL, wx, wz, frame, setS: v => { S = v; }, setLook: (y, p) => { yawOff = y; pitch = p; }, setZoom: z => { zoom = z; }, binoc, marks };   // console/testing hooks
+window.__helm3d = { env, setNight: on => applyConditions({ time: on ? 'night' : 'day' }), applyConditions, COND: env.C, scene, renderer, camera, tiles, ferries, updateTiles, posAt, TOTAL, wx, wz, frame, setS: v => { S = v; }, setLook: (y, p) => { yawOff = y; pitch = p; }, setZoom: z => { zoom = z; }, binoc, marks, nest, setNest: on => setNest(on), lookoutReport: () => lookoutReport() };   // console/testing hooks
 }
 
 // No route chosen: list saved routes and the samples.

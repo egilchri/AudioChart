@@ -13,7 +13,7 @@ import { Water } from './lib/three/Water.js';
 import { LON0, LAT0, MX, MY, wx, wz, readDem, photo, addCanopy, gridMesh, photoMat, buildTown, disposeGroup, spruce, TOWN_NIGHT } from './terrain3d.js';
 import { SUN, makeSky, makeEnv, glowSprite, flashFor, flashOn, sectorColour, weatherPanel, startConditions, makeTrimmer, cycleLook } from './weather3d.js';
 import { makeSailboat, fleetType } from './sailboat3d.js';
-import { makeAngelique } from './angelique3d.js';
+import { makeAngelique, makeBowdoin } from './angelique3d.js';
 import { makeWildlife, ledgesFrom } from './wildlife3d.js';
 
 const statusEl = document.getElementById('status');
@@ -81,6 +81,7 @@ function groundAt(clientX, clientY) {   // where a screen point meets sea level,
 
 // ── Flying: target, heading and tilt ease over; the distance rises in between when the hop is long ──
 let anim = null;
+const nest = { on: false, yaw: 0, pitch: -3, zoom: 1, prev: null, drag: null };   // Bowdoin's crow's nest (v919), below
 function flyTo(to, dur = 2600) {
   const from = { ...view };
   let daz = ((to.az ?? from.az) - from.az) % (2 * Math.PI); if (daz > Math.PI) daz -= 2 * Math.PI; if (daz < -Math.PI) daz += 2 * Math.PI;
@@ -104,6 +105,7 @@ const pointers = new Map();
 let drag = null;
 sceneEl.addEventListener('contextmenu', e => e.preventDefault());
 sceneEl.addEventListener('pointerdown', e => {
+  if (nest.on) { sceneEl.setPointerCapture(e.pointerId); pointers.set(e.pointerId, { x: e.clientX, y: e.clientY }); nest.drag = pointers.size === 1 ? { x: e.clientX, y: e.clientY } : { pinch: pinchState(), zoom: nest.zoom }; return; }   // in the crow's nest: look round
   stopFollow();
   anim = null; sceneEl.setPointerCapture(e.pointerId);
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -116,6 +118,14 @@ function pinchState() {
   return { d: Math.hypot(b.x - a.x, b.y - a.y), ang: Math.atan2(b.y - a.y, b.x - a.x), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };
 }
 sceneEl.addEventListener('pointermove', e => {
+  if (nest.on) {
+    if (!pointers.has(e.pointerId) || !nest.drag) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (nest.drag.pinch && pointers.size >= 2) { nest.zoom = clamp(nest.drag.zoom * pinchState().d / Math.max(1, nest.drag.pinch.d), 1, 7); return; }
+    const k = 0.12 / nest.zoom;   // degrees a pixel: finer through the glasses
+    nest.yaw = ((nest.yaw - (e.clientX - nest.drag.x) * k + 540) % 360) - 180; nest.pitch = clamp(nest.pitch + (e.clientY - nest.drag.y) * k, -60, 30);
+    nest.drag.x = e.clientX; nest.drag.y = e.clientY; return;
+  }
   if (!pointers.has(e.pointerId) || !drag) return;
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (drag.mode === 'pan') {
@@ -139,12 +149,15 @@ sceneEl.addEventListener('pointermove', e => {
 });
 const endPointer = e => {
   pointers.delete(e.pointerId);
+  if (nest.on) { nest.drag = pointers.size === 1 ? (() => { const [p] = pointers.values(); return { x: p.x, y: p.y }; })() : null; return; }
   if (!pointers.size) { drag = null; sceneEl.classList.remove('dragging'); }
   else if (pointers.size === 1) { const [p] = pointers.values(); drag = { mode: 'pan', x: p.x, y: p.y, anchor: groundAt(p.x, p.y) }; }
 };
 sceneEl.addEventListener('pointerup', endPointer); sceneEl.addEventListener('pointercancel', endPointer);
 sceneEl.addEventListener('wheel', e => {
-  e.preventDefault(); anim = null;
+  e.preventDefault();
+  if (nest.on) { nest.zoom = clamp(nest.zoom * Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.05 : 0.002)), 1, 7); return; }   // the glasses
+  anim = null;
   const anchor = groundAt(e.clientX, e.clientY);
   view.dist *= Math.exp(e.deltaY * (e.deltaMode === 1 ? 0.05 : 0.0015)); clampView(); placeCamera();
   const hit = anchor && groundAt(e.clientX, e.clientY);
@@ -152,6 +165,16 @@ sceneEl.addEventListener('wheel', e => {
 }, { passive: false });
 addEventListener('keydown', e => {
   if (e.target !== document.body) return;
+  if (nest.on) {
+    const k = { ArrowLeft: [-4, 0], ArrowRight: [4, 0], ArrowUp: [0, 2], ArrowDown: [0, -2] }[e.key];
+    if (k) { nest.yaw = ((nest.yaw + k[0] / nest.zoom + 540) % 360) - 180; nest.pitch = clamp(nest.pitch + k[1] / nest.zoom, -60, 30); }
+    else if (e.key === 'Escape') setNest(false);
+    else if (e.key === 'l' || e.key === 'L') lookoutReport();
+    else if (e.key === '+' || e.key === '=') nest.zoom = Math.min(7, nest.zoom * 1.4);
+    else if (e.key === '-') nest.zoom = Math.max(1, nest.zoom / 1.4);
+    else return;
+    e.preventDefault(); return;
+  }
   const step = view.dist * 0.15, fx = Math.sin(view.az), fz = -Math.cos(view.az);
   const k = { ArrowUp: [fx, fz], ArrowDown: [-fx, -fz], ArrowLeft: [fz, -fx], ArrowRight: [-fz, fx] }[e.key];
   if (k) { view.x += k[0] * step; view.z += k[1] * step; }
@@ -432,7 +455,7 @@ const navs = navGJ.features.filter(f => f.geometry?.type === 'Point' && inBay(f.
 const BUOY_T = ['BOYLAT', 'BCNLAT', 'BOYSAW', 'BOYSPP', 'BOYCAR', 'BOYISD'];
 const buoys = navs.filter(f => BUOY_T.includes(f.properties.objtype)).map(f => ({ x: wx(f.geometry.coordinates[0]), z: wz(f.geometry.coordinates[1]), c: (f.properties.colour || '').split('/')[0], num: ((f.properties.name || '').replace(/"/g, '').match(/(\S{1,3})$/)?.[1] || '').replace(/^(?!.*\d).*$/, '') }));
 // every charted light, for the night: a glow that flashes its own characteristic
-const litNavs = navs.filter(f => f.properties.objtype === 'LIGHTS').map(f => ({ x: wx(f.geometry.coordinates[0]), z: wz(f.geometry.coordinates[1]), fl: flashFor(f.properties.characteristic), sec: f.properties.sectors, only: !!f.properties.sector_only, lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] }));
+const litNavs = navs.filter(f => f.properties.objtype === 'LIGHTS').map(f => ({ x: wx(f.geometry.coordinates[0]), z: wz(f.geometry.coordinates[1]), fl: flashFor(f.properties.characteristic), name: f.properties.name, hgt: f.properties.height_m, sec: f.properties.sectors, only: !!f.properties.sector_only, lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] }));
 const lightsAshore = navs.filter(f => f.properties.objtype === 'LIGHTS').filter(f => !buoys.some(b => Math.hypot(b.x - wx(f.geometry.coordinates[0]), b.z - wz(f.geometry.coordinates[1])) < 40))
   .map(f => ({ x: wx(f.geometry.coordinates[0]), z: wz(f.geometry.coordinates[1]), y: Math.max(0, heightAt(...f.geometry.coordinates)) }));
 const BUOY_COL = { red: 0xc23a2e, green: 0x2b8a4a, yellow: 0xe0b531 };
@@ -590,6 +613,27 @@ const fleet = [];
     fleet.push({ boat, home: { x, z }, x, z, h: rnd() * 360, want: null, left: 0, trim: makeTrimmer(), rnd });
   }
 }
+// The schooner Bowdoin (v919, requested): always in the fleet, sailing her own patch of East Penobscot Bay
+// off Castine, Maine Maritime Academy's home port; the nearest open water to there with room to sail.
+const OWN_TYPE = (() => { let b = params.get('boat'); if (!b) { try { b = localStorage.getItem('audiochart-boat'); } catch (_) {} } return b === 'angelique' || b === 'bowdoin' ? b : 'cd25'; })();
+// (when she's your own boat, chosen in the helm view, she's that one, not a second Bowdoin in the fleet)
+let bowdoin = null;
+if (OWN_TYPE !== 'bowdoin') {
+  const c = { x: wx(-68.84), z: wz(44.33) };
+  const roomy = (x, z) => isWater(x, z) && [0, 1, 2, 3, 4, 5, 6, 7].every(k => isWater(x + Math.sin(k * Math.PI / 4) * 0.45 * NMm, z - Math.cos(k * Math.PI / 4) * 0.45 * NMm));
+  let at = null;
+  for (let r = 0; !at && r <= 4 * NMm; r += 300) for (let k = 0; k < Math.max(1, Math.round(r / 300)) * 6 && !at; k++) {
+    const a = k / (Math.max(1, Math.round(r / 300)) * 6) * 2 * Math.PI, x = c.x + Math.sin(a) * r, z = c.z - Math.cos(a) * r;
+    if (roomy(x, z)) at = { x, z };
+  }
+  if (at) {
+    let sd = 1921; const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+    const boat = makeSailboat('bowdoin', 1921);
+    scene.add(boat.group);
+    bowdoin = { boat, name: 'Bowdoin', home: at, x: at.x, z: at.z, h: 200, want: null, left: 0, trim: makeTrimmer(), rnd };
+    fleet.push(bowdoin);
+  }
+}
 function pickLeg(b) {
   const wf = env.C.windFrom, calm = env.W.heel === 0, away = Math.hypot(b.x - b.home.x, b.z - b.home.z);
   const homeBrg = Math.atan2(b.home.x - b.x, -(b.home.z - b.z)) / DEG;
@@ -619,6 +663,87 @@ function followBoat() {
 document.getElementById('sailboat').addEventListener('click', followBoat);
 function stopFollow() { if (!follow) return; follow = null; document.getElementById('sailboat').classList.remove('on'); }
 
+// ── Bowdoin's crow's nest (v919, requested: "give it a Crow's Nest, and a way to trigger an observation from
+// there") ── 🔭 Crow's nest puts you in her ice barrel at the foremast head, 60-odd feet up, riding with her as
+// she sails: drag (or the arrow keys) to look round, scroll or pinch for the glasses (up to 7×). Lookout's report
+// calls out what's in sight from up there: lighthouses, towns, summits and nearby vessels, each with its bearing
+// off her bow, as a lookout would ("Owls Head Light, broad on the port bow, 6.2 nm"), shown and spoken.
+// Come down (or Esc) flies you back to where you were.
+const nestHud = document.getElementById('nesthud'), nestRep = document.getElementById('nestrep');
+const nestOK = ['nesthud', 'nestrep', 'crowsnest', 'nestdown', 'nestreport', 'bowdoinbtn'].every(id => document.getElementById(id));   // (a stale cached page may lack them)
+function setNest(on) {
+  if (on === nest.on || (on && (!nestOK || !bowdoin?.boat.group.visible))) return;
+  nest.on = on; document.body.classList.toggle('innest', on);
+  nestHud.hidden = !on; document.getElementById('crowsnest').classList.toggle('on', on);
+  if (on) {
+    stopFollow(); anim = null; nest.prev = { ...view }; nest.yaw = 0; nest.pitch = -3; nest.zoom = 1; nestRep.textContent = '';
+    if (aboveFog || env.foggy) applyConditions({ vis: 'clear' });
+    if (env.W.heel === 0) applyConditions({ wind: 'breezy' });   // she's sailing
+    foldPanel(true);
+  } else {
+    camera.fov = 50; camera.near = 1; camera.updateProjectionMatrix();
+    const p = nest.prev; if (p) { Object.assign(view, { x: bowdoin.x, z: bowdoin.z, dist: 400, tilt: 60 * DEG, az: bowdoin.h * DEG }); flyTo(p, 2200); }
+  }
+}
+const _nw = new THREE.Vector3();
+function nestCamera() {   // after the fleet has moved: the eye in the barrel, looking where you've turned it
+  const b = bowdoin; b.boat.group.updateMatrixWorld(true); b.boat.nest.getWorldPosition(_nw);
+  camera.position.copy(_nw);
+  camera.rotation.set(nest.pitch * DEG, -(b.h + nest.yaw) * DEG, 0, 'YXZ');
+  camera.fov = 50 / nest.zoom; camera.near = 0.25; camera.updateProjectionMatrix(); camera.updateMatrixWorld();
+  view.x = b.x; view.z = b.z; view.dist = 6000; view.az = (b.h + nest.yaw) * DEG;   // what loads and what's labelled: round her, out toward the horizon
+}
+const REL = rel => {   // a bearing off the bow in a lookout's words
+  const a = Math.abs(rel), side = rel > 0 ? 'starboard' : 'port';
+  return a < 6 ? 'dead ahead' : a < 30 ? `fine on the ${side} bow` : a < 60 ? `on the ${side} bow` : a < 82 ? `broad on the ${side} bow` : a < 98 ? `abeam to ${side}` : a < 150 ? `abaft the ${side} beam` : a < 174 ? `on the ${side} quarter` : 'dead astern';
+};
+const KIND = { daysailer: 'a daysailer', pocket: 'a sloop', cruiser: 'a sloop', cd25: 'a sloop', schooner: 'a schooner', lobster: 'a lobster boat', angelique: 'a ketch' };
+function lookoutReport() {
+  if (!nest.on) return;
+  const b = bowdoin, eye = camera.position.y, ex = camera.position.x, ez = camera.position.z;
+  const inSight = (x, z, hgt) => {   // over the horizon? behind land?
+    const d = Math.hypot(x - ex, z - ez);
+    if (d / NMm > 2.08 * (Math.sqrt(eye) + Math.sqrt(Math.max(1, hgt)))) return null;
+    for (let k = 0.04; k < 0.97; k += 0.02) {
+      const px = ex + (x - ex) * k, pz = ez + (z - ez) * k, y = eye + (hgt - eye) * k - (d * k) * (d * (1 - k)) / (2 * 6.4e6 / 0.87);
+      if (heightAt(lonOf(px), latOf(pz)) > y + 2) return null;
+    }
+    return d;
+  };
+  const seen = [];
+  const add = (name, x, z, hgt, rank) => { const d = inSight(x, z, hgt); if (d != null && d > 150) seen.push({ name, d, rel: ((Math.atan2(x - ex, -(z - ez)) / DEG - b.h + 540) % 360) - 180, rank }); };
+  for (const l of litNavs) if (l.name && /Light/.test(l.name)) add(l.name, l.x, l.z, l.hgt || 15, 0);
+  for (const t of townList) add(t.short, t.x, t.z, 15, 1);
+  for (const p of places) if (p.elev) add(p.n, p.x, p.z, p.elev, 2);
+  for (const o of fleet) if (o !== b && Math.hypot(o.x - ex, o.z - ez) < 6 * NMm) add(KIND[o.boat.type] || 'a vessel', o.x, o.z, o.boat.L > 20 ? 25 : 8, 3);   // vessels within 6 nm
+  const pickN = (rank, n) => seen.filter(o => o.rank === rank).sort((p, q) => p.d - q.d).slice(0, n);
+  const list = [...pickN(3, 3), ...pickN(0, 3), ...pickN(1, 3), ...pickN(2, 2)];
+  const nm = d => d < 926 ? `${Math.round(d / 0.9144 / 10) * 10} yards` : `${(d / NMm).toFixed(1)} nm`;
+  const lines = list.map(o => `${o.name.charAt(0).toUpperCase() + o.name.slice(1)}, ${REL(o.rel)}, ${nm(o.d)}`);
+  const horizon = 2.08 * Math.sqrt(eye);
+  const head = env.foggy ? 'Fog all round; nothing in sight.' : lines.length ? `From Bowdoin's crow's nest, ${Math.round(eye / 0.3048)} feet up, horizon ${horizon.toFixed(1)} miles:` : 'Nothing in sight but water.';
+  nestRep.innerHTML = '';
+  const h = document.createElement('div'); h.className = 'head'; h.textContent = head; nestRep.appendChild(h);
+  if (!env.foggy) for (const t of lines) { const li = document.createElement('div'); li.textContent = t; nestRep.appendChild(li); }
+  try { window.parent?.__audioChartViews?.say?.((env.foggy ? head : lines.length ? 'Lookout reports: ' + lines.join('. ') : head) + '.'); } catch (_) {}
+}
+if (nestOK) {
+document.getElementById('crowsnest').addEventListener('click', () => setNest(!nest.on));
+document.getElementById('nestdown').addEventListener('click', () => setNest(false));
+document.getElementById('nestreport').addEventListener('click', lookoutReport);
+document.getElementById('bowdoinbtn').addEventListener('click', () => {
+  if (!bowdoin) return;
+  if (nest.on) setNest(false);
+  markCurrent(null); foldPanel(true);
+  if (aboveFog || env.foggy) applyConditions({ vis: 'clear' });
+  follow = bowdoin; document.getElementById('sailboat').classList.add('on');
+  flyTo({ x: bowdoin.x, z: bowdoin.z, dist: 160, tilt: 64 * DEG, az: (bowdoin.h + 35) * DEG }, 3000);
+});
+  // shown while there's a Bowdoin to go to: the fleet's, or yours when she's on the water here
+  const syncNestBtns = () => { const has = !!bowdoin?.boat.group.visible; for (const id of ['crowsnest', 'bowdoinbtn']) document.getElementById(id).hidden = !has && !nest.on; };
+  syncNestBtns(); setInterval(syncNestBtns, 1000);
+}
+
 function updateFleet(dt) {
   const up = env.W.heel > 0, heel = env.W.heel * DEG, cp = camera.position, show = !aboveFog;
   const FLEET_K = clamp(view.dist / 150, 1, 20);
@@ -637,7 +762,7 @@ function updateFleet(dt) {
     const p = b.trim(env.C.windFrom, b.h, env.W.tws ?? 8, up ? kn : 0, dt * FLEET_K / 4);
     b.boat.trim(p, heel, up);
     b.boat.wake(go ? Math.min(1, kn / 8) : 0);
-    b.boat.group.scale.setScalar(boatScale(b.boat, Math.hypot(b.x - cp.x, cp.y, b.z - cp.z)));   // never smaller than 1.6×: the closest you can come is ~120 m
+    b.boat.group.scale.setScalar(nest.on && b === bowdoin ? 1 : boatScale(b.boat, Math.hypot(b.x - cp.x, cp.y, b.z - cp.z)));   // never smaller than 1.6×: the closest you can come is ~120 m (but life-size under you in her crow's nest)
     b.boat.group.position.set(b.x, 0, b.z);
     b.boat.group.rotation.y = -b.h * DEG;
   }
@@ -706,8 +831,8 @@ function updateWaypoints() {
 const OWN_KN = (() => { let v = NaN; try { v = parseFloat(localStorage.getItem('audiochart-last-speed')); } catch (_) {} return v > 0 && v < 40 ? v : 5; })();
 const PACE_KEY = 'audiochart-bay3d-pace';
 // your boat: the Cape Dory 25D, or Angelique if that's your choice in the helm view (v905, same key)
-const OWN_TYPE = (() => { let b = params.get('boat'); if (!b) { try { b = localStorage.getItem('audiochart-boat'); } catch (_) {} } return b === 'angelique' ? 'angelique' : 'cd25'; })();
-const own = { boat: OWN_TYPE === 'angelique' ? makeAngelique() : makeSailboat(OWN_TYPE, 4), trim: makeTrimmer(), r: null, pts: [], cum: [0], nights: [], total: 0, S: 0, playing: false, vj: null, x: 0, z: 0, h: 0 };
+const own = { boat: OWN_TYPE === 'angelique' ? makeAngelique() : OWN_TYPE === 'bowdoin' ? makeBowdoin() : makeSailboat(OWN_TYPE, 4), trim: makeTrimmer(), r: null, pts: [], cum: [0], nights: [], total: 0, S: 0, playing: false, vj: null, x: 0, z: 0, h: 0 };
+if (OWN_TYPE === 'bowdoin') bowdoin = own;   // her crow's nest is yours (v919)
 own.boat.group.visible = false; scene.add(own.boat.group);
 const sailRow = document.getElementById('sailrow'), sailBtn = document.getElementById('sailit'), paceSel = document.getElementById('sailpace'), sailNote = document.getElementById('sailnote');
 for (const k of [1, 5, 20, 60, 200]) { const o = document.createElement('option'); o.value = k; o.textContent = k === 1 ? `${OWN_KN} kn real time` : `${OWN_KN} kn × ${k}`; paceSel.appendChild(o); }
@@ -785,7 +910,7 @@ function updateOwn(dt) {
   own.boat.trim(p, env.W.heel * DEG, up);
   own.boat.wake(up ? Math.min(1, kn / 8) : 0);
   const cp = camera.position;
-  own.boat.group.scale.setScalar(boatScale(own.boat, Math.hypot(own.x - cp.x, cp.y, own.z - cp.z)));
+  own.boat.group.scale.setScalar(nest.on && bowdoin === own ? 1 : boatScale(own.boat, Math.hypot(own.x - cp.x, cp.y, own.z - cp.z)));
   own.boat.group.position.set(own.x, 0, own.z); own.boat.group.rotation.y = -own.h * DEG;
   own.boat.group.visible = !aboveFog;
   followBtn.classList.toggle('on', follow === own);
@@ -973,6 +1098,7 @@ function updateLabels() {
         if (b.num && d < 2200) cand.push({ text: `"${b.num}"`, x: b.x, y: 6, z: b.z, cls: 'buoy', pri: 3 + d / 2200 });
       }
     }
+    if (bowdoin && !nest.on && view.dist < 30000) { const d = Math.hypot(bowdoin.x - view.x, bowdoin.z - view.z); if (d < Math.max(view.dist * 2, 3000)) cand.push({ text: 'Bowdoin', x: bowdoin.x, y: 24 * bowdoin.boat.group.scale.x, z: bowdoin.z, cls: 'wpt', pri: 0.7 }); }
     // (v907: no "⛵ You" label over your boat any more — requested: "get rid of the box that follows the boat")
     if (view.dist < 40000) for (const p of wps) {   // route waypoints
       const d = Math.hypot(p.g.position.x - view.x, p.g.position.z - view.z);
@@ -1032,7 +1158,7 @@ function frame(now) {
   if (++fpsN === 60) { window.__fps = Math.round(60000 / (performance.now() - fpsT)); fpsN = 0; fpsT = performance.now(); }
   const dt = Math.min(0.1, clock.getDelta()); t += dt;
   stepAnim(now ?? performance.now());
-  clampView(); placeCamera();
+  if (!nest.on) { clampView(); placeCamera(); }
   if (t - lastCheck > 0.4) { lastCheck = t; updateTiles(); updateTowns(); updateMarks(); }
   if (!drag && !anim) updateTrees(); else if (t - (TREES.lastMove || 0) > 0.25) { TREES.lastMove = t; updateTrees(); }
   water.position.set(view.x, 0, view.z);
@@ -1040,10 +1166,11 @@ function frame(now) {
   updateNight();
   updateWeather(dt, t);
   updateFleet(dt);
+  if (nest.on) nestCamera();
   updateWaypoints();
   updateOwn(dt);
   wildlife.update(dt, t, view, camera.position, { hidden: !!aboveFog, night: env.C.time === 'night', boat: (own.ext || own.r) ? own : null, scale: d => clamp(d / 35, 3, 8) });
-  if (follow && !anim) { const k = Math.min(1, dt * 4); view.x += (follow.x - view.x) * k; view.z += (follow.z - view.z) * k; }
+  if (follow && !anim && !nest.on) { const k = Math.min(1, dt * 4); view.x += (follow.x - view.x) * k; view.z += (follow.z - view.z) * k; }
   renderer.render(scene, camera);
   updateLabels(); updateReadout();
   requestAnimationFrame(frame);
@@ -1089,7 +1216,7 @@ window.__bay3d = {   // for AudioChart (returning to the chart where you were) a
   northUp: () => flyTo({ x: view.x, z: view.z, dist: view.dist, az: 0, tilt: view.tilt }, 900),
   setView: v => { anim = null; Object.assign(view, { x: wx(v.lon), z: wz(v.lat), dist: v.dist ?? view.dist, az: (v.az ?? view.az / DEG) * DEG, tilt: (v.tilt ?? view.tilt / DEG) * DEG }); clampView(); placeCamera(); },
   goTown: id => { const tw = townList.find(x => x.id === id); if (tw) goTown(tw); return !!tw; },
-  goWhole, towns: townList, tiles, scene, env, applyConditions, fleet, own, isWater: (lat, lon) => isWater(wx(lon), wz(lat)), boatAt: i => ({ lat: latOf(fleet[i].z), lon: lonOf(fleet[i].x), h: fleet[i].h }), renderer, trees: () => ({ near: TREES.near.count, far: TREES.far.count, K: TREES.K }),
+  goWhole, towns: townList, tiles, scene, env, applyConditions, fleet, own, bowdoin, nest, setNest, lookoutReport, isWater: (lat, lon) => isWater(wx(lon), wz(lat)), boatAt: i => ({ lat: latOf(fleet[i].z), lon: lonOf(fleet[i].x), h: fleet[i].h }), renderer, trees: () => ({ near: TREES.near.count, far: TREES.far.count, K: TREES.K }),
 };
 }
 main().catch(err => { console.error(err); fail('Could not start the 3D view: ' + err.message); });

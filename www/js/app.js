@@ -123,14 +123,16 @@ function _disarmBoatCtxDragSelect() {
   _map?.dragging.enable();
 }
 
+// Bird's-eye left for the chart only to plan a route (tap its destination, sketch it): back to it when the route's done (v919)
+let _bay3dReturn = false;
 document.getElementById('boat-ctx-autoroute').addEventListener('click', () => {
   _hideBoatCtx();
-  if (_boatCtxFrom3d) window.__audioChartViews.chart();   // routes are planned on the chart
+  if (_boatCtxFrom3d) { _bay3dReturn = !!(_bay3dWrap && !_bay3dWrap.hidden); window.__audioChartViews.chart(); }   // routes are planned on the chart
   if (_boatCtxLatLng) _routeFromHereFn?.(_boatCtxLatLng.lat, _boatCtxLatLng.lng);
 });
 document.getElementById('boat-ctx-sketch').addEventListener('click', () => {
   _hideBoatCtx();
-  if (_boatCtxFrom3d) window.__audioChartViews.chart();
+  if (_boatCtxFrom3d) { _bay3dReturn = !!(_bay3dWrap && !_bay3dWrap.hidden); window.__audioChartViews.chart(); }
   _enterSketchMode();
 });
 // Same pipeline the Search box uses (nextSearchPinName/saveUserWaypoint with
@@ -5469,7 +5471,13 @@ function _enterEditMode(routeIdx, skipHazardCheck = false) {
 }
 
 function _exitEditMode() {
-  if (_bay3dWrap && !_bay3dWrap.hidden) _hideBay3d();   // OK/Cancel from Bird's-eye lands back on the chart (v879)
+  // Bird's-eye stays Bird's-eye (v919, reported: "After I completed an autoroute, it jumped out of birdseye mode. It
+  // should stay in the mode unless the user directs it to do something else"; until then OK/Cancel landed on the
+  // chart, v879): it reloads after the edit, below, to show the route as saved; and if planning took you from it
+  // to the chart (to tap a destination), you go back to it.
+  const _bay3dAfter = (_bay3dWrap && !_bay3dWrap.hidden) || _bay3dReturn;
+  _bay3dReturn = false;
+  setTimeout(() => { if (_bay3dAfter && !_editMode) { if (_bay3dWrap && !_bay3dWrap.hidden) _hideBay3d(); _showBay3d(); } }, 0);
   window._acEndAppendMode?.(); // ＋ Add bar (defined further down; may not exist yet during startup)
   const _justEditedName = _editRouteName;
   _editMode = false;
@@ -8058,6 +8066,7 @@ document.getElementById('boat-ctx-freesail')?.addEventListener('click', () => {
 // Bird's-eye's own "⛵ Free sail" button (v894) starts it from inside the 3D view
 // the 3D views' "🗺 Chart" button (v895): back to the 2D chart from either 3D frame
 window.__audioChartViews = {
+  say: text => TTS.say(text),   // a 3D view speaking in AudioChart's voice (v919: the lookout's report from Bowdoin's crow's nest)
   chart: () => { if (_vj3dWrap && !_vj3dWrap.hidden) _hideVj3d(); if (_bay3dWrap && !_bay3dWrap.hidden) _hideBay3d(); },
   // double-click the boat in a 3D view (v896, requested): the same boat menu as on the chart
   boatMenu: (win, x, y) => {
@@ -9317,6 +9326,7 @@ function _ensureMap() {
 
   document.getElementById('map-layer-select').addEventListener('change', (e) => {
     const mode = e.target.value;   // read first: closing Bird's-eye below resyncs the pulldown
+    _bay3dReturn = false;   // a map type chosen: that's where you want to be
     // 3D Bird's-eye isn't a chart layer: it opens the 3D bay view over the chart (v844)
     if (mode === 'bay3d') { if (!_bay3dWrap || _bay3dWrap.hidden) _showBay3d(); _syncLayerBtn(); return; }
     // A chart type chosen while a 3D view covers the chart (a Virtual Journey's 3D view, or

@@ -57,6 +57,18 @@ button:focus-visible { outline: 2px solid var(--brass); outline-offset: 1px; }
 #status { position: fixed; inset: 0; z-index: 5; display: grid; place-items: center; font-family: var(--display); font-size: 1.3rem; letter-spacing: 0.04em; background: rgba(20, 34, 42, 0.55); text-align: center; padding-inline: 16px; }
 #scale { position: fixed; right: 12px; top: calc(12px + env(safe-area-inset-top, 0px)); z-index: 2; font-family: var(--mono); font-size: 0.72rem; background: var(--glass); border-radius: 5px; padding: 4px 8px; display: flex; align-items: center; gap: 8px; }
 #views { display: flex; flex-wrap: wrap; gap: 2px; }
+#scale #crowsnest.on, #scale #bowdoinbtn.on { background: rgba(224,168,67,0.9); color: #1b2328; }
+#nesthud { position: fixed; left: 50%; transform: translateX(-50%); top: calc(52px + env(safe-area-inset-top, 0px)); z-index: 3; max-width: min(560px, calc(100vw - 32px)); box-sizing: border-box; background: var(--glass); color: var(--ink); border-radius: 6px; padding: 8px 10px; font-family: var(--body); font-size: 0.8rem; }
+#nesthud[hidden] { display: none; }
+#nesthud .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+#nesthud .row b { margin-right: auto; }
+#nesthud button { font: inherit; color: var(--ink); background: rgba(255,255,255,0.14); border: 0; border-radius: 4px; padding: 3px 9px; cursor: pointer; }
+#nesthud .hint { opacity: 0.7; font-size: 0.72rem; margin-top: 4px; }
+#nestrep:empty { display: none; }
+#nestrep { margin-top: 6px; line-height: 1.45; max-height: 40vh; overflow: auto; }
+#nestrep .head { opacity: 0.8; margin-bottom: 2px; }
+body.innest .panel, body.innest #help { display: none !important; }
+body.embed #nesthud { top: calc(94px + env(safe-area-inset-top, 0px)); }
 #scale #views .wxbtn.on { background: rgba(224,168,67,0.9); color: #1b2328; cursor: default; }
 #scale { flex-wrap: wrap; justify-content: flex-end; max-width: calc(100vw - 24px); box-sizing: border-box; }
 #scale .wxbtn { font: inherit; font-family: var(--body); font-size: 0.76rem; color: var(--ink); background: rgba(255,255,255,0.12); border: 0; border-radius: 4px; padding: 2px 8px; cursor: pointer; }
@@ -118,7 +130,8 @@ body.embed #wxpanel { top: auto; bottom: calc(176px + env(safe-area-inset-bottom
     <a class="back" href="./">Back to AudioChart</a>
   </div>
 </nav>
-<div id="scale"><button type="button" id="tohelm" class="wxbtn" hidden title="Back to the 3D view from the boat">◀ 3D helm</button><svg id="compass" viewBox="-11 -11 22 22" role="button" aria-label="Turn north up"><circle r="10" fill="rgba(0,0,0,0.25)"/><g id="needle"><path d="M0,-8 L3,0 L-3,0 Z" fill="#d9534f"/><path d="M0,8 L3,0 L-3,0 Z" fill="#e9eff1"/></g></svg><span id="alt">—</span></div>
+<div id="scale"><button type="button" id="bowdoinbtn" class="wxbtn" title="Fly to the schooner Bowdoin (Maine Maritime Academy, Castine) and follow her">⚓ Bowdoin</button><button type="button" id="crowsnest" class="wxbtn" title="Up to Bowdoin's crow's nest: look round from her ice barrel at the foremast head">🔭 Crow's nest</button><button type="button" id="tohelm" class="wxbtn" hidden title="Back to the 3D view from the boat">◀ 3D helm</button><svg id="compass" viewBox="-11 -11 22 22" role="button" aria-label="Turn north up"><circle r="10" fill="rgba(0,0,0,0.25)"/><g id="needle"><path d="M0,-8 L3,0 L-3,0 Z" fill="#d9534f"/><path d="M0,8 L3,0 L-3,0 Z" fill="#e9eff1"/></g></svg><span id="alt">—</span></div>
+<div id="nesthud" hidden><div class="row"><b>Bowdoin's crow's nest</b><button type="button" id="nestreport" title="What the lookout can see from up here (L)">📣 Lookout's report</button><button type="button" id="nestdown" title="Back down (Esc)">⬇ Come down</button></div><div class="hint">Drag or arrow keys to look round · scroll or pinch for the glasses</div><div id="nestrep"></div></div>
 <div id="loading" hidden>Loading…</div>
 <div id="help">Drag to move · right-drag or Shift-drag to turn and tilt · scroll or pinch to zoom · click a town or ⛵ Follow a sailboat · Route waypoints shows a route, ▶ Sail it sails it · Weather for fog, rain, wind, dawn, sunset and night (N); the sailboats trim to its wind</div>
 <div id="credit">Elevation USGS 3DEP · Photos USDA NAIP</div>

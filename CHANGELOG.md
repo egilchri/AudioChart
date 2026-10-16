@@ -1,5 +1,32 @@
 # Changelog
 
+## 2026-10-16 — The schooner Bowdoin, her crow's nest; Bird's-eye stays put (v919)
+
+Requested: "add the schooner Bowdoin, currently owned by Maine Maritime Academy, to the fleet, please give it
+a Crow's Nest, and a way to trigger an observation from there", then "I want to be able to swap her in, just
+like Sea Nymph and Angelique".
+- Bowdoin (1921, Hodgdon Brothers, William Hand design; 88 ft overall, 72 ft waterline, 21 ft beam, 10 ft draft,
+  per MMA's fact sheet): a gaff schooner, bald-headed and knockabout — no topmasts, no bowsprit — with her ice
+  barrel at the foremast head. Colours and mast heights aren't in the sources (white hull, cream canvas and
+  masts scaled to her length are guesses to correct).
+- Her own detailed model: angelique3d.js is now a vessel builder driven by a spec (Angelique's spec reproduces
+  her exactly — checked vertex for vertex), with Bowdoin's spec beside it (`makeBowdoin`, `BOWDOIN`).
+- Swap her in: the helm view's boat button goes round Sea Nymph (the Cape Dory 25D) → Angelique → Bowdoin, and
+  Bird's-eye follows the choice.
+- 🔭 Crow's nest (helm view, when you're aboard Bowdoin): you walk forward and climb to the ice barrel, 60-odd ft
+  up, riding with her heel; look round, or raise the binoculars from up there. 📣 Lookout (or L) gives the
+  lookout's report: lighthouses, towns, islands, summits and ferries in sight — over the horizon and behind
+  land left out — each with its bearing off the bow and distance ("Fort Point Light, dead ahead, 8.4 nm"),
+  shown and spoken in AudioChart's voice (`__audioChartViews.say`).
+- Bird's-eye: a fleet Bowdoin always sails off Castine (or yours, if she's your boat); ⚓ Bowdoin flies to her,
+  🔭 Crow's nest puts you in her barrel (drag to look, scroll for 7× glasses, Esc to come down) with the same
+  Lookout's report.
+
+Reported: "After I completed an autoroute, it jumped out of birdseye mode. It should stay in the mode unless the
+user directs it to do something else." Finishing a route edit (OK/Cancel, as after an AutoRoute) closed
+Bird's-eye since v879; now it stays, reloaded to show the route as saved, and planning from the boat menu in a
+3D view (which goes to the chart to tap the destination) comes back to Bird's-eye when the route's done.
+
 ## 2026-10-16 — Sector lights, better binoculars, Bird's-eye on startup (v918)
 
 Requested: "show the white sectors of lights too". The merge kept one LIGHTS record per position, so a
