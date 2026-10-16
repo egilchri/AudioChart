@@ -60,6 +60,32 @@ export function moonPhase(name, when = Date.now()) {
   const SYN = 29.530588853, age = (((when - Date.UTC(2000, 0, 6, 18, 14)) / 86400000) % SYN + SYN) % SYN;
   return { phi: 2 * Math.PI * age / SYN, side: age < SYN / 2 ? 1 : -1, age };
 }
+// Where that moon is in the sky (v913, requested: "move the moon with its phase"): from its elongation
+// from the sun, the date's sun on the ecliptic, and Penobscot Bay's latitude, at the night-time hour that
+// shows it best (nearest 9 pm for a waxing moon, 4 am for a waning one, while the sky is dark and the moon
+// 10–24° up, in sight from the deck). So a crescent hangs low in the west after dusk, a first quarter
+// in the south-west, a full moon rises in the east, and a waning moon is in the east before dawn.
+// Returns the moon's direction, the sun's (below the horizon, to light the right side of the disc),
+// and alt/brg/hour for the record.
+export function moonSky(name, when = Date.now()) {
+  const MP = moonPhase(name, when), e = MP.phi;   // phi runs 0–2π through the month: the elongation east of the sun
+  const EPS = rad(23.44), LAT = rad(44.2);
+  const doy = (when - Date.UTC(new Date(when).getUTCFullYear(), 0, 1)) / 86400000;
+  const ls = 2 * Math.PI * (doy - 79.5) / 365.25, lm = ls + e;
+  const eq = l => ({ dec: Math.asin(Math.sin(EPS) * Math.sin(l)), ra: Math.atan2(Math.cos(EPS) * Math.sin(l), Math.cos(l)) });
+  const S = eq(ls), M = eq(lm);
+  const altAz = (H, dec) => ({ alt: Math.asin(Math.sin(LAT) * Math.sin(dec) + Math.cos(LAT) * Math.cos(dec) * Math.cos(H)),
+    az: Math.atan2(-Math.cos(dec) * Math.sin(H), Math.sin(dec) * Math.cos(LAT) - Math.cos(dec) * Math.cos(H) * Math.sin(LAT)) });
+  const deg = THREE.MathUtils.radToDeg, pref = MP.side > 0 ? 21 : 28;
+  let best = null;
+  for (let t = 17; t <= 31; t += 0.25) {
+    const Hs = rad((t - 12) * 15), s = altAz(Hs, S.dec), m = altAz(Hs - (M.ra - S.ra), M.dec);
+    const a = deg(m.alt), cost = Math.abs(t - pref) / 2 + Math.max(0, 10 - a) + Math.max(0, a - 24) * 1.5 + (deg(s.alt) > -10 ? 100 : 0);
+    if (!best || cost < best.cost) best = { cost, t, s, m };
+  }
+  const alt = Math.max(6, deg(best.m.alt)), brg = (deg(best.m.az) + 360) % 360;
+  return { dir: sunAt(alt, brg), sun: sunAt(deg(best.s.alt), (deg(best.s.az) + 360) % 360), alt, brg, hour: best.t % 24, ...MP };
+}
 const moonIcon = ({ phi, side }) => { const k = (1 - Math.cos(phi)) / 2; return k < 0.06 ? '🌑' : k > 0.94 ? '🌕' : k < 0.4 ? (side > 0 ? '🌒' : '🌘') : k < 0.6 ? (side > 0 ? '🌓' : '🌗') : (side > 0 ? '🌔' : '🌖'); };
 const KEY = 'audiochart-helm3d-conditions';
 
@@ -68,9 +94,9 @@ const KEY = 'audiochart-helm3d-conditions';
 export function makeSky(radius) {
   const m = new THREE.Mesh(new THREE.SphereGeometry(radius, 32, 16), new THREE.ShaderMaterial({
     side: THREE.BackSide, depthWrite: false, depthTest: false, fog: false, toneMapped: false,
-    uniforms: { zenith: { value: new THREE.Color(0x2f62a8) }, horizon: { value: new THREE.Color(0xb2cbe0) }, sunDir: { value: SUN.clone() }, moonK: { value: 0 }, moonPhase: { value: Math.PI }, moonSide: { value: 1 }, sunCol: { value: new THREE.Vector3(1, 0.95, 0.85) } },
+    uniforms: { zenith: { value: new THREE.Color(0x2f62a8) }, horizon: { value: new THREE.Color(0xb2cbe0) }, sunDir: { value: SUN.clone() }, moonK: { value: 0 }, moonPhase: { value: Math.PI }, moonTilt: { value: 0 }, sunCol: { value: new THREE.Vector3(1, 0.95, 0.85) } },
     vertexShader: 'varying vec3 vDir; void main() { vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-    fragmentShader: `uniform vec3 zenith; uniform vec3 horizon; uniform vec3 sunDir; uniform float moonK; uniform float moonPhase; uniform float moonSide; uniform vec3 sunCol; varying vec3 vDir;
+    fragmentShader: `uniform vec3 zenith; uniform vec3 horizon; uniform vec3 sunDir; uniform float moonK; uniform float moonPhase; uniform float moonTilt; uniform vec3 sunCol; varying vec3 vDir;
       void main() {
         vec3 d = normalize(vDir);
         float h = max(d.y, 0.0);
@@ -78,12 +104,13 @@ export function makeSky(radius) {
         float g = max(dot(d, sunDir), 0.0);
         c += sunCol * (pow(g, 300.0) * 1.2 + pow(g, 12.0) * 0.12) * (1.0 - moonK);   // the sun's glow by day
         // the moon at night (sunDir holds its direction): a sphere lit from its phase angle, the dark side
-        // faint with earthshine, a hint of the maria, and a halo as bright as the moon is full (v912)
+        // faint with earthshine, a hint of the maria, and a halo as bright as the moon is full (v912); the lit
+        // side turned toward the sun below the horizon (moonTilt, v913)
         vec3 rt = normalize(cross(sunDir, vec3(0.0, 1.0, 0.0))), up = cross(rt, sunDir);
         vec2 q = vec2(dot(d, rt), dot(d, up)) / 0.0105;
         float r2 = dot(q, q), disc = (1.0 - smoothstep(0.86, 1.0, r2)) * step(0.0, dot(d, sunDir));
         vec3 n = vec3(q, sqrt(max(0.0, 1.0 - r2)));
-        float lit = smoothstep(-0.07, 0.07, dot(n, vec3(sin(moonPhase) * moonSide, 0.0, -cos(moonPhase))));
+        float lit = smoothstep(-0.07, 0.07, dot(n, vec3(abs(sin(moonPhase)) * cos(moonTilt), abs(sin(moonPhase)) * sin(moonTilt), -cos(moonPhase))));
         float mare = 0.84 + 0.16 * sin(q.x * 4.3 + 1.3) * sin(q.y * 3.7 - 0.7);
         float k = 0.5 - 0.5 * cos(moonPhase);
         c = mix(c, mix(vec3(0.045, 0.05, 0.065), vec3(0.93, 0.94, 0.88) * mare, lit), disc * moonK);
@@ -187,7 +214,7 @@ export function makeEnv(o) {
   // none of these show in the water's reflection: ripples break starlight up, and the foam and rain are on or over it
   { const mirror = water.onBeforeRender; water.onBeforeRender = (...a) => { const v = [stars.visible, foam.visible, rain.visible]; stars.visible = foam.visible = rain.visible = false; mirror(...a); [stars.visible, foam.visible, rain.visible] = v; }; }
 
-  const col = h => new THREE.Color(h);
+  const col = h => new THREE.Color(h), _v = new THREE.Vector3(), _u = new THREE.Vector3(), Y = new THREE.Vector3(0, 1, 0);
   const env = { stars, deck, foam, rain, C: { ...DEFAULT_COND }, T: TIMES.day, W: WINDS.breezy, visM: VIS_M.clear, lightsK: 0, foggy: false, over: false, wet: false, night: false, fogC: col(0xb2cbe0) };
   env.apply = (next = {}) => {
     const C = Object.assign(env.C, next);
@@ -205,14 +232,16 @@ export function makeEnv(o) {
     scene.fog.color.copy(fogC); scene.fog.density = 1.98 / env.visM;
     const su = sky.material.uniforms;
     su.horizon.value.copy(fogC); su.zenith.value.copy(zen);
-    su.sunDir.value.copy(T.dir).normalize();
+    const MP = moonSky(C.moon), moonLit = (1 - Math.cos(MP.phi)) / 2;   // 0 new … 1 full
+    const dir = env.dir = night ? MP.dir : T.dir;   // at night the light, the sky's glow and the glint on the water come from the moon
+    su.sunDir.value.copy(dir).normalize();
     su.moonK.value = night && !over && !foggy ? 1 : 0;
-    const MP = moonPhase(C.moon), moonLit = (1 - Math.cos(MP.phi)) / 2;   // 0 new … 1 full
-    su.moonPhase.value = MP.phi; su.moonSide.value = MP.side;
+    su.moonPhase.value = MP.phi;
+    { const rt = _v.crossVectors(dir, Y).normalize(), up = _u.crossVectors(rt, dir); su.moonTilt.value = Math.atan2(MP.sun.dot(up), MP.sun.dot(rt)); }
     su.sunCol.value.fromArray(over || foggy ? [0, 0, 0] : T.glow);
     // light: flat and dim under cloud, softer in fog
     hemi.color.setHex(T.sky); hemi.groundColor.setHex(T.gnd); hemi.intensity = T.hemi * (over ? (wet ? 0.95 : 1.1) : 1);
-    dl.color.setHex(T.dlc); dl.intensity = T.dl * (over ? 0.25 : 1) * (foggy ? 0.5 : 1) * (night ? 0.3 + 0.7 * moonLit : 1); dl.position.copy(T.dir).multiplyScalar(1000);   // a new moon's night is darker
+    dl.color.setHex(T.dlc); dl.intensity = T.dl * (over ? 0.25 : 1) * (foggy ? 0.5 : 1) * (night ? 0.3 + 0.7 * moonLit : 1); dl.position.copy(dir).multiplyScalar(1000);   // a new moon's night is darker
     // clouds: broken fair-weather cloud by day; a grey deck when overcast; none in fog or on a clear night
     env.cloudsOn = !foggy && (over || !night);
     clouds.material.color.set(over ? col(T.deck).multiplyScalar(wet ? 0.7 : 0.85) : col(T.cloud));
@@ -223,7 +252,7 @@ export function makeEnv(o) {
     const wu = water.material.uniforms;
     wu.waterColor.value.set(col(T.water).lerp(col(night ? 0x0c1218 : 0x4b5862), over ? 0.35 : 0).lerp(fogC, foggy ? 0.3 : 0));
     wu.sunColor.value.set(col(T.glint).multiplyScalar((over ? 0.12 : 1) * (foggy ? 0.3 : 1) * (night ? 0.15 + 0.85 * moonLit : 1)));   // the moon's path on the water
-    wu.sunDirection.value.copy(T.dir).normalize();
+    wu.sunDirection.value.copy(dir).normalize();
     wu.distortionScale.value = env.W.dist + (wet ? 0.8 : 0); wu.size.value = env.W.size;
     env.foamOn = env.W.foam > 0; foam.visible = env.foamOn;
     foam.material.color.set(col(0xffffff).multiplyScalar(night ? 0.3 : T.lights ? 0.75 : 1)); foam.material.opacity = env.W.foam * 0.8;

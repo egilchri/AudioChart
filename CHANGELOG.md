@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-16 — The moon moves with its phase (v913)
+
+Requested: "move the moon with its phase". The night moon is no longer fixed at 150°/22°: weather3d.js
+`moonSky()` places it from its elongation from the sun, the date's sun on the ecliptic and the bay's
+latitude, at the night-time hour that shows it best (nearest 9 pm for a waxing moon, 4 am for a waning
+one, while the sky is dark and the moon 10–24° up, so it's in sight from the deck). A crescent now hangs
+low in the south-west/west after dusk, a first quarter in the south-west, a gibbous near the south, a full
+moon rises in the east, and a waning moon is in the east before dawn. Its lit side turns toward the sun
+below the horizon, and the moonlight and its path on the water come from where it is.
+
 ## 2026-10-15 — The moon's phase at night in the 3D views (v912)
 
 Requested: "a setting for the moon phase, so we can see it at night". The Weather panel (helm and
