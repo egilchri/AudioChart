@@ -73,6 +73,17 @@ body.embed .panel, body.embed #help, body.embed #compass { display: none !import
 body.embed #alt { display: none; }
 body.embed #scale { top: auto; bottom: calc(140px + env(safe-area-inset-bottom, 0px)); }
 body.embed #wxpanel { top: auto; bottom: calc(176px + env(safe-area-inset-bottom, 0px)); }
+/* Phone, inside the chart (v909, reported with a screenshot: "how crowded my screen is on mobile"):
+   the view buttons go in one row near the top, just under the chart's Map Type and Objects menus and
+   clear of its compass, instead of two rows at the bottom on top of the command box */
+@media (max-width: 640px) {
+  body.embed #scale { top: calc(94px + env(safe-area-inset-top, 0px)) !important; bottom: auto !important; left: 8px; right: 8px; max-width: none; justify-content: center; flex-wrap: nowrap; padding: 3px 4px; gap: 4px; }
+  body.embed #views { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  body.embed #scale .wxbtn { padding: 3px 5px; font-size: 0.7rem; white-space: nowrap; }
+  body.embed #views { gap: 1px; }
+  body.embed #wxpanel { top: calc(126px + env(safe-area-inset-top, 0px)) !important; bottom: auto !important; }
+  body.embed #credit { top: calc(124px + env(safe-area-inset-top, 0px)); bottom: auto; left: auto; right: 10px; max-width: 75%; text-align: right; font-size: 9px; }   /* clear of the chart's command box */
+}
 /* Phone: the towns list folds away behind its title */
 @media (max-width: 640px) {
   .panel { width: auto; right: 12px; }

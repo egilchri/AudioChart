@@ -720,13 +720,23 @@ const screenMenu    = document.getElementById('screen-menu');
 const importMenuBtn = document.getElementById('import-menu-btn');
 const importMenu    = document.getElementById('import-menu');
 
+// On a phone during a Virtual Journey (v909) the button shows the next waypoint's bearing and distance
+// in place of the route name, standing in for the follow-progress box hidden there (see app.css).
+let _followNextTxt = '';
+const _narrowScreen = window.matchMedia('(max-width: 600px)');
+function _focusLabel(f) {
+  const wp = f?.name && /^(.*) — waypoint (\d+)$/.exec(f.name);
+  if (!f) return '🎯 --';
+  if (!wp) return `🎯 ${f.name || 'Point'}`;
+  if (_followNextTxt && _narrowScreen.matches && document.getElementById('app')?.classList.contains('vjourney-active')) return `🎯 WP ${wp[2]} · ${_followNextTxt}`;
+  return `🎯 WP ${wp[2]} · ${wp[1]}`;
+}
 function _updateFocusButton() {
   if (!focusBtn) return;
   const f = Query.focusedTarget;
   // a followed route's waypoint shows its number first ("WP 13 · Rockland to…"), so the change of
   // focus at each waypoint is visible even when the route name is cut off (v885)
-  const wp = f?.name && /^(.*) — waypoint (\d+)$/.exec(f.name);
-  focusBtn.textContent = f ? (wp ? `🎯 WP ${wp[2]} · ${wp[1]}` : `🎯 ${f.name || 'Point'}`) : '🎯 --';
+  focusBtn.textContent = _focusLabel(f);
   focusBtn.classList.toggle('focus-active', !!f);
   focusBtn.title = f
     ? `Bearing & range to ${f.name || 'focused point'} (Drag to move)`
@@ -6786,6 +6796,8 @@ function _updateFollowProgress(lat, lon) {
 
   _followProgressEl.style.display = '';
   if (_wasHidden) _syncLeftRailStack();
+  _followNextTxt = `${bearingToDisplay(brgToNext)} · ${distToNext.toFixed(1)} nm`;
+  if (focusBtn && Query.focusedTarget) focusBtn.textContent = _focusLabel(Query.focusedTarget);
   _followProgressEl.innerHTML =
     `<div>Next: ${bearingToDisplay(brgToNext)}, ${distToNext.toFixed(1)} nm</div>` +
     `<div>To end: ${distToEnd.toFixed(1)} nm</div>` +
@@ -14544,6 +14556,7 @@ function _startFollowingRoute(route) {
 // `arrived` distinguishes the two ways a followed route's recording ends —
 // only changes the spoken/status message, the save behavior is identical.
 function _stopFollowingRoute(arrived) {
+  _followNextTxt = '';
   const routeName = _followingRouteName;
   const saved = _trackRecPoints.length >= 2;
   const name = `${routeName} — ${new Date().toLocaleDateString()}`;

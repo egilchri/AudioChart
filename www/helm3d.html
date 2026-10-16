@@ -121,6 +121,18 @@ body.embed #town-credit { left: 50% !important; transform: translateX(-50%); whi
   #play { min-width: 0; padding: 6px 12px; }
   #pos { flex-basis: 100%; order: -1; }
 }
+/* Phone, inside the chart (v909, reported with a screenshot: "how crowded my screen is on mobile"):
+   the view buttons in two compact rows along the top, just under the chart's Map Type and Objects menus
+   (not three big rows over them); Record, the corner chart and the Weather panel under those, clear of
+   the chart's command box and target button at the bottom */
+@media (max-width: 700px) {
+  body.inchart #eyepick { top: 94px; left: 8px; right: 8px; transform: none; flex-wrap: wrap; justify-content: center; gap: 2px; padding: 2px; }
+  body.inchart #eyepick button { padding: 3px 6px; font-size: 0.7rem; }
+  body.inchart #eyepick .wxbtn { margin-left: 0; }
+  body.inchart #recbtn { top: 150px !important; bottom: auto !important; }
+  body.inchart #minichart { top: 150px; bottom: auto; width: 92px; }
+  body.inchart #wxpanel { top: 150px; }
+}
 </style>
 </head>
 <body>

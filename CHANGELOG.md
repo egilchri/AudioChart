@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-10-15 — A less crowded phone screen during a Virtual Journey (v909)
+
+Reported with a screenshot: "how crowded my screen is on mobile" (Bird's-eye during a Virtual Journey:
+the command box over the 3D view's two-row View bar, a Next / To end / Traveled box over the compass and
+labels, the Transcript tab, Command reference and command box in three rows, the target button's text
+cut off). On a phone (≤600 px wide) during a journey, with nothing dropped that isn't shown elsewhere:
+- the Next / To end / Traveled box goes: the journey panel already says travelled / total, and the
+  target button shows the next waypoint's bearing and distance in place of the route name (the journey
+  panel's title has it): "🎯 WP 2 · 041° M · 8.5 nm";
+- the command bar takes two rows instead of three and keeps clear of the target button: the Transcript
+  tab and the 📋 icon side by side, the command box under them, level with the heading readout;
+- the heading/speed readout is smaller, and the target button's text a touch smaller (same tall target);
+- in the Bird's-eye view the View buttons are one compact row near the top, under the chart's Map Type
+  and Objects menus, its Weather panel and photo credit under that;
+- in the 3D helm/Drone view the View buttons are two compact rows in the same place (were three big ones
+  over the Objects menu), with Record, the corner chart and Weather under them.
+
 ## 2026-10-15 — Binoculars in the 3D view (v908)
 
 Requested: "a spyglass, or binoculars … you would stop the boat, and then point the binoculars towards

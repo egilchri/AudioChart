@@ -298,6 +298,28 @@ html, body {
    still worth having) — per direct report, one more thing crowding the
    screen during a rehearsal run. */
 #app.vjourney-active #bottom-hud .tide-cycle-ctrl { display: none; }
+/* Phone during a Virtual Journey (v909, reported with a screenshot: "how crowded my screen is on
+   mobile"). Nothing is taken away that isn't shown somewhere else:
+   - the Next / To end / Traveled box goes: the journey panel's status line already gives travelled
+     and total, and #focus-btn now shows the next waypoint's bearing and distance in place of the
+     route name (which the journey panel's title shows) — see _focusLabel in app.js;
+   - the heading/speed readout is smaller (the speed is in the journey panel too);
+   - the command bar loses a row and keeps clear of the target button: the Transcript tab and the
+     📋 Command reference icon side by side, left of #focus-btn, the command box under them, left of
+     the heading readout, both rows level with #bottom-hud's. */
+@media (max-width: 600px) {
+  #app.vjourney-active .follow-progress-ctrl { display: none !important; }
+  #app.vjourney-active .heading-speed-ctrl { font-size: 0.9rem; padding: 3px 8px; }
+  #app.vjourney-active #focus-btn { font-size: 0.94rem; padding-inline: 16px; }   /* "WP 2 · 041° M · 8.6 nm" fits; the same tall reach-without-looking target */
+  #app.underway-mode.vjourney-active #map-overlay-cmd { display: grid; grid-template-columns: auto auto; justify-content: start; align-items: center; column-gap: 5px; row-gap: 6px; bottom: 10px; }   /* inside the map, which already ends at the journey panel */
+  #app.vjourney-active #map-overlay-cmd #response-area { grid-column: 1; grid-row: 1; justify-self: start; }
+  #app.vjourney-active #map-overlay-cmd #response-area:not(.collapsed) { grid-column: 1 / -1; justify-self: stretch; }
+  #app.vjourney-active #map-overlay-cmd #command-picker { grid-column: 2; grid-row: 1; justify-self: start; width: 34px; margin: 0; padding: 4px 5px; text-overflow: clip; }
+  #app.vjourney-active #map-overlay-cmd #text-form { grid-column: 1 / -1; grid-row: 2; margin: 0; }
+  #app.vjourney-active #map-overlay-cmd #text-input { width: 132px; }
+  #app.vjourney-active #map-overlay-cmd #response-area.collapsed { height: 22px; min-height: 22px; padding: 2px 8px; }
+  #app.vjourney-active #response-area.collapsed::after { content: 'Transcript'; font-size: 0.7rem; }
+}
 
 /* Demo mode HUD — fixed bar showing current command */
 #demo-hud {
