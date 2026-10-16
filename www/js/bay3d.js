@@ -528,14 +528,14 @@ function updateWeather(dt, t) {
   // fog: from above its top, the blanket and the sky above it; inside it, the scene fog
   const above = env.foggy && cy > top + 40;
   if (above !== aboveFog) {
-    aboveFog = above;
+    aboveFog = env.aboveFog = above;   // (the moon, as it moves, shows over the fog bank too)
     treeFogCut = above ? top - 4 : -Infinity; treesDirty = true;
     blanket.g.visible = above;
     const su = sky.material.uniforms, T = env.T;
     if (above) {   // the sky over the fog bank: the time of day's own (or the overcast) sky
       _sky.zen.set(env.over ? T.over : T.zen); _sky.hor.set(env.over ? T.fog : T.haze);
       su.zenith.value.copy(_sky.zen); su.horizon.value.copy(_sky.hor); scene.fog.color.copy(_sky.hor);
-      su.sunCol.value.fromArray(env.over ? [0, 0, 0] : T.glow); su.moonK.value = env.night && !env.over ? 1 : 0;
+      su.sunCol.value.fromArray(env.over ? [0, 0, 0] : T.glow); su.moonK.value = env.night && !env.over ? (env.moon?.up ?? 1) : 0;
       env.stars.visible = env.night && !env.over;
     } else env.apply({});   // back to the conditions as they are at sea level
   }
@@ -792,8 +792,8 @@ let night = null, nightSeen = 0;
 function updateNight() {
   if (!night) return;
   const u = (Date.now() - night.start) / night.dur;
-  if (u >= 1) { night = null; applyConditions({ time: 'day' }); return; }
-  const L = cycleLook(night.from, u); env.blendT = L.T; applyConditions({ time: L.time }); env.blendT = null;
+  if (u >= 1) { night = null; env.blendHour = null; applyConditions({ time: 'day' }); return; }
+  const L = cycleLook(night.from, u); env.blendT = L.T; env.blendHour = L.hour; applyConditions({ time: L.time }); env.blendT = null;   // (blendHour stays set: the moon follows the cycle, not the night clock)
 }
 try {   // a Virtual Journey of this route running in AudioChart
   const ch = new BroadcastChannel('audiochart-vj');

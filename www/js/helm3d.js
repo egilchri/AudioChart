@@ -1951,8 +1951,8 @@ let night = null, nightSeen = 0;
 function updateNight() {
   if (!night) return;
   const u = (Date.now() - night.start) / night.dur;
-  if (u >= 1) { night = null; applyConditions({ time: 'day' }); return; }
-  const L = cycleLook(night.from, u); env.blendT = L.T; applyConditions({ time: L.time }); env.blendT = null;
+  if (u >= 1) { night = null; env.blendHour = null; applyConditions({ time: 'day' }); return; }
+  const L = cycleLook(night.from, u); env.blendT = L.T; env.blendHour = L.hour; applyConditions({ time: L.time }); env.blendT = null;   // (blendHour stays set: the moon follows the cycle, not the night clock)
 }
 const vjNote = document.getElementById('vjnote');
 try {

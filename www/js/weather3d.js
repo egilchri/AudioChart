@@ -39,7 +39,7 @@ function blendTimes(A, B, k) {
 }
 export function cycleLook(from, u) {
   const seq = [TIMES[from] ? from : 'day', ...CYCLE], x = Math.min(0.9999, Math.max(0, u)) * (seq.length - 1), i = Math.floor(x), k = x - i;
-  return { time: k < 0.5 ? seq[i] : seq[i + 1], T: blendTimes(TIMES[seq[i]], TIMES[seq[i + 1]], k) };
+  return { time: k < 0.5 ? seq[i] : seq[i + 1], T: blendTimes(TIMES[seq[i]], TIMES[seq[i + 1]], k), hour: x < 2 ? 18.5 + (x - 1) * 5.5 : 24 + (x - 2) * 5.5 };   // hour: for the moon (sunset 6:30 pm, midnight, dawn 5:30 am)
 }
 export const VIS_M = { clear: 26000, haze: 8000, fog: 900, thick: 250 };   // metres to where the fog is ~98% thick
 export const WINDS = {
@@ -67,7 +67,11 @@ export function moonPhase(name, when = Date.now()) {
 // in the south-west, a full moon rises in the east, and a waning moon is in the east before dawn.
 // Returns the moon's direction, the sun's (below the horizon, to light the right side of the disc),
 // and alt/brg/hour for the record.
-export function moonSky(name, when = Date.now()) {
+// It moves across the sky through the night (v915, requested: "make the moon move across the sky during
+// the night"): given `hour` (local, 17–31 = 5 pm to 7 am) it's where it is then. `win` is the stretch of
+// the dark night the moon is up, round that best hour, for the night clock to run over; `up` (0–1) fades
+// it out as it sets. When it isn't up in the dark at all (near new) it stays put, 6° up, as before.
+export function moonSky(name, when = Date.now(), hour = null) {
   const MP = moonPhase(name, when), e = MP.phi;   // phi runs 0–2π through the month: the elongation east of the sun
   const EPS = rad(23.44), LAT = rad(44.2);
   const doy = (when - Date.UTC(new Date(when).getUTCFullYear(), 0, 1)) / 86400000;
@@ -77,17 +81,23 @@ export function moonSky(name, when = Date.now()) {
   const altAz = (H, dec) => ({ alt: Math.asin(Math.sin(LAT) * Math.sin(dec) + Math.cos(LAT) * Math.cos(dec) * Math.cos(H)),
     az: Math.atan2(-Math.cos(dec) * Math.sin(H), Math.sin(dec) * Math.cos(LAT) - Math.cos(dec) * Math.cos(H) * Math.sin(LAT)) });
   const deg = THREE.MathUtils.radToDeg, pref = MP.side > 0 ? 21 : 28;
+  const at = t => { const Hs = rad((t - 12) * 15); return { t, s: altAz(Hs, S.dec), m: altAz(Hs - (M.ra - S.ra), M.dec) }; };
+  const ok = q => deg(q.s.alt) <= -10 && deg(q.m.alt) > 0;   // dark, and the moon up
   let best = null;
   for (let t = 17; t <= 31; t += 0.25) {
-    const Hs = rad((t - 12) * 15), s = altAz(Hs, S.dec), m = altAz(Hs - (M.ra - S.ra), M.dec);
-    const a = deg(m.alt), cost = Math.abs(t - pref) / 2 + Math.max(0, 10 - a) + Math.max(0, a - 24) * 1.5 + (deg(s.alt) > -10 ? 100 : 0);
-    if (!best || cost < best.cost) best = { cost, t, s, m };
+    const q = at(t), a = deg(q.m.alt), cost = Math.abs(t - pref) / 2 + Math.max(0, 10 - a) + Math.max(0, a - 24) * 1.5 + (deg(q.s.alt) > -10 ? 100 : 0);
+    if (!best || cost < best.cost) best = { cost, ...q };
   }
-  const alt = Math.max(6, deg(best.m.alt)), brg = (deg(best.m.az) + 360) % 360;
-  return { dir: sunAt(alt, brg), sun: sunAt(deg(best.s.alt), (deg(best.s.az) + 360) % 360), alt, brg, hour: best.t % 24, ...MP };
+  let win = null;
+  if (ok(best)) { let w0 = best.t, w1 = best.t; while (w0 > 17 && ok(at(w0 - 0.25))) w0 -= 0.25; while (w1 < 31 && ok(at(w1 + 0.25))) w1 += 0.25; if (w1 - w0 >= 0.5) win = [w0, w1]; }
+  const q = win && hour != null ? at(Math.min(win[1] + 0.5, Math.max(win[0] - 0.5, hour))) : best;
+  const raw = deg(q.m.alt), alt = win ? Math.max(-3, raw) : Math.max(6, raw), brg = (deg(q.m.az) + 360) % 360;
+  const up = win ? THREE.MathUtils.smoothstep(raw, -0.5, 2) : 1;
+  return { dir: sunAt(alt, brg), light: sunAt(Math.max(3, alt), brg), sun: sunAt(deg(q.s.alt), (deg(q.s.az) + 360) % 360), alt, brg, up, hour: q.t % 24, best: best.t, win, ...MP };
 }
 const moonIcon = ({ phi, side }) => { const k = (1 - Math.cos(phi)) / 2; return k < 0.06 ? '🌑' : k > 0.94 ? '🌕' : k < 0.4 ? (side > 0 ? '🌒' : '🌘') : k < 0.6 ? (side > 0 ? '🌓' : '🌗') : (side > 0 ? '🌔' : '🌖'); };
 const KEY = 'audiochart-helm3d-conditions';
+const MOON_LAPSE = 60;   // the night clock runs 60× (an hour of the moon's travel a minute), or you'd never see it move
 
 // The sky dome: deep blue overhead fading to the haze colour at the horizon (so distant land and
 // water blend into it), with the sun's glow, or the moon's disc and halo at night.
@@ -216,6 +226,30 @@ export function makeEnv(o) {
 
   const col = h => new THREE.Color(h), _v = new THREE.Vector3(), _u = new THREE.Vector3(), Y = new THREE.Vector3(0, 1, 0);
   const env = { stars, deck, foam, rain, C: { ...DEFAULT_COND }, T: TIMES.day, W: WINDS.breezy, visM: VIS_M.clear, lightsK: 0, foggy: false, over: false, wet: false, night: false, fogC: col(0xb2cbe0) };
+  // The sun's or the moon's light: its direction for the sky's glow, the light on the scene and the glint on
+  // the water. At night the moon's place comes from the night clock (moonHour); a new moon's night, or one
+  // after the moon has set, is darker.
+  const nightHour = () => {
+    if (env.blendHour != null) return env.blendHour;   // an overnight stop sets the hour itself
+    const key = env.C.moon + new Date().toDateString(), R = env.moonRun;
+    if (!R || R.key !== key) { const m = moonSky(env.C.moon); env.moonRun = { key, win: m.win, h0: m.best, t0: performance.now() }; return m.best; }
+    if (!R.win) return R.h0;
+    const span = R.win[1] - R.win[0], h = R.h0 - R.win[0] + (performance.now() - R.t0) / 1000 * MOON_LAPSE / 3600;
+    return R.win[0] + (h % span);   // round again from moonrise (or dusk) once it sets (or dawn comes)
+  };
+  const setLight = () => {
+    const { C, T, night, over, foggy } = env, su = sky.material.uniforms, wu = water.material.uniforms;
+    const MP = env.moon = moonSky(C.moon, Date.now(), night ? nightHour() : null), moonLit = (1 - Math.cos(MP.phi)) / 2 * MP.up;   // 0 new (or set) … 1 full
+    const dir = env.dir = night ? MP.dir : T.dir, ld = night ? MP.light : T.dir;   // at night the light, the sky's glow and the glint on the water come from the moon
+    su.sunDir.value.copy(dir).normalize();
+    su.moonK.value = night && !over && (!foggy || env.aboveFog) ? MP.up : 0;
+    su.moonPhase.value = MP.phi;
+    { const rt = _v.crossVectors(dir, Y).normalize(), up = _u.crossVectors(rt, dir); su.moonTilt.value = Math.atan2(MP.sun.dot(up), MP.sun.dot(rt)); }
+    dl.intensity = T.dl * (over ? 0.25 : 1) * (foggy ? 0.5 : 1) * (night ? 0.3 + 0.7 * moonLit : 1); dl.position.copy(ld).multiplyScalar(1000);
+    wu.sunColor.value.set(col(T.glint).multiplyScalar((over ? 0.12 : 1) * (foggy ? 0.3 : 1) * (night ? 0.15 + 0.85 * moonLit : 1)));   // the moon's path on the water
+    wu.sunDirection.value.copy(ld).normalize();
+  };
+  let moonTick = 0;
   env.apply = (next = {}) => {
     const C = Object.assign(env.C, next);
     const T = env.T = env.blendT || TIMES[C.time] || TIMES.day, over = env.over = C.sky !== 'fair', wet = env.wet = C.sky === 'rain', night = env.night = C.time === 'night';
@@ -232,16 +266,10 @@ export function makeEnv(o) {
     scene.fog.color.copy(fogC); scene.fog.density = 1.98 / env.visM;
     const su = sky.material.uniforms;
     su.horizon.value.copy(fogC); su.zenith.value.copy(zen);
-    const MP = moonSky(C.moon), moonLit = (1 - Math.cos(MP.phi)) / 2;   // 0 new … 1 full
-    const dir = env.dir = night ? MP.dir : T.dir;   // at night the light, the sky's glow and the glint on the water come from the moon
-    su.sunDir.value.copy(dir).normalize();
-    su.moonK.value = night && !over && !foggy ? 1 : 0;
-    su.moonPhase.value = MP.phi;
-    { const rt = _v.crossVectors(dir, Y).normalize(), up = _u.crossVectors(rt, dir); su.moonTilt.value = Math.atan2(MP.sun.dot(up), MP.sun.dot(rt)); }
     su.sunCol.value.fromArray(over || foggy ? [0, 0, 0] : T.glow);
     // light: flat and dim under cloud, softer in fog
     hemi.color.setHex(T.sky); hemi.groundColor.setHex(T.gnd); hemi.intensity = T.hemi * (over ? (wet ? 0.95 : 1.1) : 1);
-    dl.color.setHex(T.dlc); dl.intensity = T.dl * (over ? 0.25 : 1) * (foggy ? 0.5 : 1) * (night ? 0.3 + 0.7 * moonLit : 1); dl.position.copy(dir).multiplyScalar(1000);   // a new moon's night is darker
+    dl.color.setHex(T.dlc);
     // clouds: broken fair-weather cloud by day; a grey deck when overcast; none in fog or on a clear night
     env.cloudsOn = !foggy && (over || !night);
     clouds.material.color.set(over ? col(T.deck).multiplyScalar(wet ? 0.7 : 0.85) : col(T.cloud));
@@ -251,13 +279,13 @@ export function makeEnv(o) {
     // the sea
     const wu = water.material.uniforms;
     wu.waterColor.value.set(col(T.water).lerp(col(night ? 0x0c1218 : 0x4b5862), over ? 0.35 : 0).lerp(fogC, foggy ? 0.3 : 0));
-    wu.sunColor.value.set(col(T.glint).multiplyScalar((over ? 0.12 : 1) * (foggy ? 0.3 : 1) * (night ? 0.15 + 0.85 * moonLit : 1)));   // the moon's path on the water
-    wu.sunDirection.value.copy(dir).normalize();
+    setLight();
     wu.distortionScale.value = env.W.dist + (wet ? 0.8 : 0); wu.size.value = env.W.size;
     env.foamOn = env.W.foam > 0; foam.visible = env.foamOn;
     foam.material.color.set(col(0xffffff).multiplyScalar(night ? 0.3 : T.lights ? 0.75 : 1)); foam.material.opacity = env.W.foam * 0.8;
     env.rainOn = wet; rain.visible = wet; rain.material.color.setHex(night ? 0x5d6672 : 0xc6d0da);
     document.body.classList.toggle('night', night);
+    if (!night) env.moonRun = null;
     if (!env.blendT) try { localStorage.setItem(KEY, JSON.stringify(C)); } catch (_) {}   // not each frame of an overnight cycle
     return env;
   };
@@ -266,6 +294,7 @@ export function makeEnv(o) {
   env.update = (dt, camera, at, foamScale = 1, foamLift = 0.06) => {
     const to = rad(env.C.windFrom + 180), wxv = Math.sin(to), wzv = -Math.cos(to);   // the way the wind blows, in x (east) and z (south)
     water.material.uniforms.time.value += dt * env.W.speed;
+    if (env.night && env.blendHour == null && (moonTick += dt) > 0.5) { moonTick = 0; setLight(); }   // the moon moves on
     clouds.material.map.offset.x += dt * 0.0004 * wxv; clouds.material.map.offset.y += dt * 0.0004 * wzv;
     if (foam.visible) {
       const step = TILE * foamScale;   // seen from high up the flecks are drawn bigger (foamScale), over a wider disc

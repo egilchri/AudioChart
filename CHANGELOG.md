@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-16 — The moon moves across the night sky (v915)
+
+Requested: "make the moon move across the sky during the night". At night a clock runs at 60× (an hour of
+the moon's travel each real minute): the moon starts where it shows best (v913) and moves on along its
+real track for that phase and date, so a full moon climbs out of the east, crosses the south near
+midnight and sets in the west, and tonight's crescent slides down to set in the west-south-west. When it
+sets (or dawn comes) the clock goes round again from moonrise or dusk; as it sets it fades, and the night
+gets darker with it. On a Virtual Journey's overnight stop the moon follows the stop's own sunset-to-dawn
+cycle instead. The moonlight and its path on the water move with it; in the Bird's-eye view it also shows
+over a fog bank. weather3d.js `moonSky(name, when, hour)`, `env.moon`.
+
 ## 2026-10-16 — Sidelights screened (v914)
 
 Requested: "screen the sidelights". Through the binoculars from Angelique's wheel her starboard sidelight
