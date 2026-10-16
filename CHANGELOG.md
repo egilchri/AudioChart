@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-10-16 — The binoculars name the light; distant lights stay points (v917)
+
+Requested: "have the binoculars name the light". With the glasses up, the charted light (or lit buoy)
+nearest the cross-hair, in range and not behind land, gets a ring round it and its name over the
+cross-hair: its name or number (an unnamed light goes by the nearest named place), its characteristic and
+its range, e.g. "Light by Tiptoe Mountain · F R · 7.0 nm".
+
+Reported: red and green lights on the shore that "don't look natural" (thought to be the running lights).
+They were charted lights — one, 7 nm off, the fixed red light on Vinalhaven's west shore — but each
+light's glow was drawn at a fixed angular size, so the 7× binoculars magnified it into a great coloured
+blob over the shore. Glows (charted lights and other vessels' running lights) now stay the same size on
+the screen at any zoom, so through the glasses a distant light is a point, as it is at sea.
+
 ## 2026-10-16 — The moon keeps the journey's time (v916)
 
 Requested: "tie it to the journey rate". On a Virtual Journey (or Free Sailing) the 3D views' night clock

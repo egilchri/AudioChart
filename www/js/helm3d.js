@@ -871,7 +871,7 @@ for (const n of nav.filter(n => n.t !== 'LIGHTS')) {
   if (fl) { lamp = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 8), new THREE.MeshBasicMaterial({ color: fl.col })); lamp.position.y = s === 'pillar' ? 4.3 : 2.6; g.add(lamp); }
   g.position.set(wx(n.x), 0, wz(n.y));
   scene.add(g);
-  marks.push({ g, n, fl, lamp, phase: Math.random() * 6, num: (n.n || '').match(/(\S{1,3})$/)?.[1] || '', name: n.n, kind: 'buoy' });
+  marks.push({ g, n, fl, lamp, phase: Math.random() * 6, num: (n.n || '').match(/(\S{1,3})$/)?.[1] || '', name: n.n, kind: 'buoy', ch: lt?.ch });
 }
 // Lights not on a buoy: a short white tower with its light.
 for (const l of lights) {
@@ -883,7 +883,7 @@ for (const l of lights) {
   const fl = flashFor(l.ch), lamp = new THREE.Mesh(new THREE.SphereGeometry(0.5, 12, 8), new THREE.MeshBasicMaterial({ color: fl?.col ?? 0xfff6d8 }));
   lamp.position.y = 9.6; g.add(lamp);
   g.position.set(wx(l.x), base, wz(l.y)); scene.add(g);
-  marks.push({ g, n: l, fl, lamp, phase: 0, fixedMark: true, kind: 'light', name: l.ch });
+  marks.push({ g, n: l, fl, lamp, phase: 0, fixedMark: true, kind: 'light', name: l.ch, title: l.n, ch: l.ch });
 }
 
 // ── Weather and time of day (v858; shared with the bird's-eye view in weather3d.js since v860) ──
@@ -903,7 +903,7 @@ const runLights = [];
 function runLight(parent, at, color, toward, arc, when = null, size = 0.014, metres = false) {
   const sp = glowSprite(color, size, metres); sp.position.set(...at); parent.add(sp);
   const a = THREE.MathUtils.degToRad(toward);
-  runLights.push({ sp, dir: new THREE.Vector3(Math.sin(a), 0, -Math.cos(a)), cos: Math.cos(THREE.MathUtils.degToRad(arc)), when });
+  runLights.push({ sp, dir: new THREE.Vector3(Math.sin(a), 0, -Math.cos(a)), cos: Math.cos(THREE.MathUtils.degToRad(arc)), when, size: metres ? 0 : size });
   return sp;
 }
 // Your own boat's lights are close, so they get more than a glow (v857, direct request): a lit lamp
@@ -947,7 +947,8 @@ ownLight([0, 10.6, -2.75], 0xfff2d6, 0, 180, [0, -1, 14], atAnchor);            
 const litMats = [];   // materials with an emissive glow that comes on with the lights (ferry windows)
 let wxPanel = null;
 for (const m of marks) if (m.lamp) {   // a glow on every charted light, over its lamp
-  m.glow = glowSprite(m.fl?.col ?? 0xfff6d8, m.kind === 'light' ? 0.03 : 0.02);
+  m.glowSize = m.kind === 'light' ? 0.03 : 0.02;
+  m.glow = glowSprite(m.fl?.col ?? 0xfff6d8, m.glowSize);
   m.range = (m.kind === 'light' ? 9 : 3.5) * NM;
   scene.add(m.glow);
 }
@@ -968,11 +969,14 @@ function updateLights(pos) {   // after the boat and ferries have moved, before 
   if (!lightsK) return;
   camera.getWorldPosition(_c);
   const lk = Math.min(1, lightsK * 1.4), carry = visM * 1.6;   // in fog a light shows a little beyond where land does
+  // a distant light's glow is the same size on the screen however far you zoom: through the binoculars (7×)
+  // it was magnified into a great coloured blob on the shore (v917, reported: "they don't look natural")
+  const zk = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) / Math.tan(THREE.MathUtils.degToRad(27.5));
   for (const m of marks) {
     if (!m.glow) continue;
     const range = Math.min(m.range, carry), d = Math.hypot(m.g.position.x - pos[0], m.g.position.z - pos[1]), k = Math.min(1, 1.25 - d / range) * lk;
     m.glow.visible = m.lamp.visible && k > 0;
-    if (m.glow.visible) { m.lamp.getWorldPosition(m.glow.position); m.glow.material.opacity = k; }
+    if (m.glow.visible) { m.lamp.getWorldPosition(m.glow.position); m.glow.material.opacity = k; m.glow.scale.setScalar(m.glowSize * zk); }
   }
   for (const n of nightOnly) n.o.visible = !n.when || n.when();
   for (const r of runLights) {
@@ -982,6 +986,7 @@ function updateLights(pos) {   // after the boat and ferries have moved, before 
     const tx = _c.x - _p.x, tz = _c.z - _p.z, l = Math.hypot(tx, tz) || 1, dl2 = Math.hypot(_d.x, _d.z) || 1;
     r.inArc = r.cos <= -0.999 || (tx * _d.x + tz * _d.z) / (l * dl2) >= r.cos;
     r.sp.visible = l < carry && r.inArc;
+    if (r.size) r.sp.scale.setScalar(r.size * zk);
   }
   for (const k of screened) k.lamp.material.color.copy(k.glow.inArc ? k.lit : k.dim);
 }
@@ -1504,6 +1509,41 @@ function binocRange(bearing, pitchDeg, eyeY) {
   }
   return null;
 }
+// The charted light under the cross-hair (v917, requested: "have the binoculars name the light"): of
+// the lit marks in range and not behind land, the one nearest the centre of the glasses, within a
+// small circle round it. Named with its number or name, its characteristic and its range.
+const _lp = new THREE.Vector3();
+function binocMark() {
+  camera.getWorldPosition(_c);
+  let best = null;
+  for (const m of marks) {
+    if (!m.lamp) continue;
+    m.lamp.getWorldPosition(_lp);
+    const d = Math.hypot(_lp.x - _c.x, _lp.z - _c.z);
+    if (d < 30 || d > (m.kind === 'light' ? 9 : 3.5) * NM) continue;
+    const q = _lp.clone().project(camera);
+    if (q.z > 1) continue;
+    const off = Math.hypot(q.x * camera.aspect, q.y);   // from the centre, in half-heights of the view
+    if (off > 0.18 || (best && off >= best.off)) continue;
+    // hidden behind land? look along the line for terrain above it
+    let hid = false;
+    for (let k = 0.05; k < 0.97 && !hid; k += 0.03) {
+      const x = _c.x + (_lp.x - _c.x) * k, z = _c.z + (_lp.z - _c.z) * k, y = _c.y + (_lp.y - _c.y) * k;
+      if (heightAt(x / MX + LON0, -z / MY + LAT0) > y + 1) hid = true;
+    }
+    if (!hid) best = { m, off, d };
+  }
+  return best;
+}
+const markText = ({ m, d }) => {
+  let what = m.kind === 'light' ? m.title : m.name;
+  if (!what) {   // an unnamed light: by the nearest named place
+    let best = 2500, near = null; const x = m.g.position.x, z = m.g.position.z;
+    for (const p of placeLabels) { const dd = Math.hypot(p.w[0] - x, p.w[1] - z); if (dd < best) { best = dd; near = p.n; } }
+    what = near ? `Light by ${near}` : 'Light';
+  }
+  return `${what}${m.ch ? ' · ' + m.ch : ''} · ${d < 926 ? Math.round(d / 0.9144 / 10) * 10 + ' yd' : (d / NM).toFixed(d < 9260 ? 2 : 1) + ' nm'}`;
+};
 function drawBinoc(lookTrue, hfov) {
   const dpr = Math.min(2, devicePixelRatio || 1), W = Math.round(sceneEl.clientWidth * dpr), H = Math.round(sceneEl.clientHeight * dpr);
   if (binCv.width !== W || binCv.height !== H) { binCv.width = W; binCv.height = H; }
@@ -1542,6 +1582,15 @@ function drawBinoc(lookTrue, hfov) {
   const tw = c.measureText(txt).width + 20 * dpr;
   c.fillStyle = 'rgba(5,6,7,0.55)'; c.fillRect(cx - tw / 2, cy + r * 0.82 - 11 * dpr, tw, 22 * dpr);
   c.fillStyle = '#f3f1e8'; c.fillText(txt, cx, cy + r * 0.82);
+  // the light you're on: a ring round it and its name over the cross-hair
+  const B = binoc.mark;
+  if (B) {
+    B.m.lamp.getWorldPosition(_lp); const q = _lp.project(camera), mx = (q.x + 1) / 2 * W, my = (1 - q.y) / 2 * H;
+    c.strokeStyle = 'rgba(255,214,120,0.9)'; c.lineWidth = 1.5 * dpr; c.beginPath(); c.arc(mx, my, 16 * dpr, 0, Math.PI * 2); c.stroke();
+    const lt = markText(B), lw = c.measureText(lt).width + 20 * dpr, ly = cy - r * 0.62;
+    c.fillStyle = 'rgba(5,6,7,0.55)'; c.fillRect(cx - lw / 2, ly - 11 * dpr, lw, 22 * dpr);
+    c.fillStyle = '#ffd98a'; c.fillText(lt, cx, ly);
+  }
 }
 // to another 3D view: inside AudioChart the chart loads it behind this one and fades it in (v899)
 const goView = url => { try { if (window.parent !== window && window.parent.__audioChartViews?.go?.(window, url)) return; } catch (_) {} location.href = url; };
@@ -1821,7 +1870,7 @@ function frame() {
   drawTape(toMag(look), hfov);   // a magnetic compass card
   binocView = binoc.on ? { bearing: look, hfov } : null;
   if (binoc.on) {
-    if (t - binoc.rangeT > 0.25) { binoc.rangeT = t; binoc.range = binocRange(look, pitch, boat.position.y + eyeH); }
+    if (t - binoc.rangeT > 0.25) { binoc.rangeT = t; binoc.range = binocRange(look, pitch, boat.position.y + eyeH); binoc.mark = binocMark(); }
     drawBinoc(look, hfov);
   }
   drawChart(pos, (smoothCourse + 360) % 360, ((look % 360) + 360) % 360, hfov);
@@ -1970,7 +2019,7 @@ try {
   };
   ch.postMessage({ hello: true });   // ask the app where the journey is (it may already have arrived)
 } catch (_) {}
-window.__helm3d = { env, setNight: on => applyConditions({ time: on ? 'night' : 'day' }), applyConditions, COND: env.C, scene, renderer, camera, tiles, ferries, updateTiles, posAt, TOTAL, wx, wz, frame, setS: v => { S = v; }, setLook: (y, p) => { yawOff = y; pitch = p; }, setZoom: z => { zoom = z; } };   // console/testing hooks
+window.__helm3d = { env, setNight: on => applyConditions({ time: on ? 'night' : 'day' }), applyConditions, COND: env.C, scene, renderer, camera, tiles, ferries, updateTiles, posAt, TOTAL, wx, wz, frame, setS: v => { S = v; }, setLook: (y, p) => { yawOff = y; pitch = p; }, setZoom: z => { zoom = z; }, binoc };   // console/testing hooks
 }
 
 // No route chosen: list saved routes and the samples.
