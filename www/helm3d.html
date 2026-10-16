@@ -27,6 +27,8 @@ h1 { font-family: var(--display); font-weight: 600; font-size: 1.9rem; letter-sp
 /* binoculars (v908): two round eyepieces, black around them, the reticle and readout drawn in */
 #binoc { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
 #binoc[hidden] { display: none; }
+/* the chart's Clear view (v911): only the view itself, its compass tape and labels */
+body.clear-view :is(#eyepick, #recbtn, #minichart, #wxpanel, #tileload) { display: none !important; }
 body.binoc #minichart { opacity: 0; }
 #eyepick .binbtn.on { background: rgba(224,168,67,0.9); color: #1b2328; }
 .lbl { position: absolute; transform: translate(-50%, -100%); white-space: nowrap; color: #fbfcf8; font-weight: 600; font-size: 13px;

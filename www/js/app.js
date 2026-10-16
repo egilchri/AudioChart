@@ -7727,6 +7727,31 @@ document.getElementById('vjourney-close-btn').addEventListener('click', () => { 
   _makeDraggable(banner, head, () => { banner.dataset.userMoved = '1'; });
 }
 
+// Clear view (v911, requested: "I need a way to unclutter the screen while underway, in mobile"):
+// one button that hides the menus, command bar and the 3D views' buttons (app.css #app.clear-view;
+// the 3D pages watch #app's class) and folds the journey panel, and puts it all back. Remembered.
+{
+  const KEY = 'audiochart-clear-view', btn = document.createElement('button');
+  btn.type = 'button'; btn.id = 'clear-view-btn';
+  let foldedByUs = false;
+  const setClear = (on) => {
+    _appEl.classList.toggle('clear-view', on);
+    btn.textContent = on ? '☰ Show' : '⛶ Clear';
+    btn.title = on ? 'Show the menus, command bar and view buttons again' : 'Clear the screen: hide everything but the view, compass and readouts';
+    btn.setAttribute('aria-pressed', String(on));
+    const banner = document.getElementById('vjourney-banner'), fold = document.getElementById('vjourney-fold-btn');
+    if (banner && fold) {
+      if (on && !banner.classList.contains('vj-folded')) { fold.click(); foldedByUs = true; }
+      else if (!on && foldedByUs && banner.classList.contains('vj-folded')) { fold.click(); foldedByUs = false; }
+    }
+    try { localStorage.setItem(KEY, on ? '1' : ''); } catch (_) {}
+  };
+  btn.addEventListener('click', (e) => { e.stopPropagation(); setClear(!_appEl.classList.contains('clear-view')); });
+  _appEl.appendChild(btn);
+  let on = false; try { on = localStorage.getItem(KEY) === '1'; } catch (_) {}
+  setClear(on);
+}
+
 // Show/hide this route on the map — the one control from its row in the
 // (now auto-closed, see _startVirtualJourney) routes list that's still
 // relevant mid-journey; reuses the same pill styling/semantics as

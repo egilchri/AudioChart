@@ -310,6 +310,10 @@ html, body {
 @media (max-width: 600px) {
   #app.vjourney-active .follow-progress-ctrl { display: none !important; }
   #app.vjourney-active .heading-speed-ctrl { font-size: 0.9rem; padding: 3px 8px; }
+  /* v911: target over heading, right-aligned, so the HUD never shares the command bar's rows (at 412 px
+     the two sat side by side and the target button ran in under the command box) */
+  #app.vjourney-active #bottom-hud { flex-direction: column; align-items: flex-end; gap: 6px; }
+  #app.vjourney-active #focus-btn { max-width: calc(100vw - 150px); }
   #app.vjourney-active #focus-btn { font-size: 0.94rem; padding-inline: 16px; }   /* "WP 2 · 041° M · 8.6 nm" fits; the same tall reach-without-looking target */
   #app.underway-mode.vjourney-active #map-overlay-cmd { display: grid; grid-template-columns: auto auto; justify-content: start; align-items: center; column-gap: 5px; row-gap: 6px; bottom: 10px; }   /* inside the map, which already ends at the journey panel */
   #app.vjourney-active #map-overlay-cmd #response-area { grid-column: 1; grid-row: 1; justify-self: start; }
@@ -4948,3 +4952,17 @@ body.wco-active #underway-btn { top: 10px; }
 }
 #append-go { background: var(--accent) !important; color: var(--navy) !important; font-weight: 700; }
 .append-picking, .append-picking .leaflet-interactive { cursor: crosshair !important; }
+
+/* ── Clear view (v911, requested with a screenshot: "I need a way to unclutter the screen while
+   underway, in mobile"). One button, top right under the Underway switch, while Underway or a journey
+   is on: it hides the chart's menus, the command bar, the zoom rail and the 3D views' own buttons
+   (they watch for this class, see helm3d.js/bay3d.js), and folds the journey panel; what's left is the
+   view, the compass, the status line, the target and heading readouts, and anything running (anchor
+   watch, recording) — plus this button, to bring it all back. Remembered. ── */
+#clear-view-btn { display: none; position: fixed; right: 10px; top: 32px; z-index: 1996; padding: 5px 10px; border-radius: 999px;
+  border: 1px solid var(--brass-dim); background: rgba(18, 13, 8, 0.85); color: var(--brass-hi); font: 600 0.78rem/1.1 var(--font-brass-mono, monospace);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.5); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+#app.underway-mode #clear-view-btn, #app.vjourney-active #clear-view-btn { display: block; }
+#app.clear-view #clear-view-btn { background: var(--brass, #c9a04a); color: #1b1408; }
+#app.clear-view:is(.underway-mode, .vjourney-active) :is(#map-overlay-cmd, #map-overlay-status, #navaid-filter-panel, #left-rail-zoom-pan,
+  #tilt-slider-wrap, #cmd-open-btn, #map-version-label, .follow-progress-ctrl, #card-stack-handle) { display: none !important; }

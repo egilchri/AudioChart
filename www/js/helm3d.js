@@ -1979,3 +1979,9 @@ async function showChooser() {
 }
 
 main().catch(e => fail('Something went wrong: ' + e.message));
+
+// Clear view (v911): the chart's "⛶ Clear" button hides this view's own buttons too; follow its class
+try {
+  const app = window.parent !== window && window.parent.document.getElementById('app');
+  if (app) { const sync = () => document.body.classList.toggle('clear-view', app.classList.contains('clear-view')); sync(); new MutationObserver(sync).observe(app, { attributes: true, attributeFilter: ['class'] }); }
+} catch (_) {}

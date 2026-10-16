@@ -1087,3 +1087,9 @@ window.__bay3d = {   // for AudioChart (returning to the chart where you were) a
 };
 }
 main().catch(err => { console.error(err); fail('Could not start the 3D view: ' + err.message); });
+
+// Clear view (v911): the chart's "⛶ Clear" button hides this view's own buttons too; follow its class
+try {
+  const app = window.parent !== window && window.parent.document.getElementById('app');
+  if (app) { const sync = () => document.body.classList.toggle('clear-view', app.classList.contains('clear-view')); sync(); new MutationObserver(sync).observe(app, { attributes: true, attributeFilter: ['class'] }); }
+} catch (_) {}

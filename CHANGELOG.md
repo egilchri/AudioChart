@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-10-15 — Clear view: one tap to unclutter the screen underway (v911)
+
+Requested with a screenshot: "I need a way to unclutter the screen while underway, in mobile." A
+**⛶ Clear** button, top right under the Underway switch whenever Underway or a journey is on, hides the
+chart's Map Type and Objects menus, the command bar, the zoom rail and tilt slider, and the 3D views' own
+buttons (View bar, Record, corner chart, Weather panel), and folds the journey panel. Left on screen: the
+view, the compass, the status line, the target and heading readouts, anything running (anchor watch,
+recording) and the Free Sailing wheel. **☰ Show** puts it all back (and unfolds the journey panel if Clear
+folded it). Remembered across reloads.
+
+Also fixed from the same screenshot (a v909 regression): on a 412 px phone the target button and the
+heading readout sat side by side and the target ran in under the command box (v909 was checked at a
+500 px layout, where they wrapped). During a journey on a phone they now stack, target over heading,
+right-aligned, never sharing the command bar's rows.
+
 ## 2026-10-15 — Virtual Journeys start at the speed you last set (v910)
 
 Reported: "Mobile seems to insist on starting virtual journeys at 100 knots". A journey starts at the

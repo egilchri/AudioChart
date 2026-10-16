@@ -64,6 +64,8 @@ button:focus-visible { outline: 2px solid var(--brass); outline-offset: 1px; }
 #wxpanel { position: fixed; right: 12px; top: calc(48px + env(safe-area-inset-top, 0px)); z-index: 4; }
 #compass { width: 22px; height: 22px; cursor: pointer; pointer-events: auto; }
 [hidden] { display: none !important; }
+/* the chart's Clear view (v911): only the view itself (and its photo credit) */
+body.clear-view :is(#scale, #wxpanel) { display: none !important; }
 body.embed .panel a.back { display: none; }
 /* Inside the chart (v876): the chart's compass rose, zoom and pan stay over this view, so the
    places panel, the help line and this page's own compass go */
