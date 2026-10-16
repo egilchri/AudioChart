@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-15 — Virtual Journeys start at the speed you last set (v910)
+
+Reported: "Mobile seems to insist on starting virtual journeys at 100 knots". A journey starts at the
+remembered speed (`audiochart-last-speed`), but changing the speed in the journey panel never updated
+it, so a speed saved once elsewhere (100 kn here) came back every time and the panel couldn't fix it.
+The panel's speed box now saves what you type for the next journey (not while Free Sailing, which
+borrows the panel for its own speed).
+
 ## 2026-10-15 — A less crowded phone screen during a Virtual Journey (v909)
 
 Reported with a screenshot: "how crowded my screen is on mobile" (Bird's-eye during a Virtual Journey:

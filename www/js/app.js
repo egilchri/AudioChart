@@ -7756,7 +7756,13 @@ document.getElementById('vjourney-banner').addEventListener('click', (e) => {
 });
 document.getElementById('vjourney-speed-input').addEventListener('change', (e) => {
   const v = parseFloat(e.target.value);
-  if (!isNaN(v) && v > 0) _vjSpeedKnots = v;
+  if (!isNaN(v) && v > 0) {
+    _vjSpeedKnots = v;
+    // remembered for the next journey (v910, reported: "Mobile seems to insist on starting virtual
+    // journeys at 100 knots" — the next one started at whatever speed was saved last, which this box
+    // never updated); Free Sailing borrows this panel and keeps its own speed out of it
+    if (!_fs) localStorage.setItem('audiochart-last-speed', String(v));
+  }
 });
 
 // ── Free Sailing (v890, requested: "I set a course and speed and the boat just goes") ──
