@@ -82,6 +82,7 @@
   .legend { display: grid; grid-template-columns: 18px 1fr; gap: 5px 8px; font-size: 0.8rem; align-items: center; }
   .legend i { width: 18px; height: 12px; border-radius: 3px; display: block; border: 1px solid rgba(27,42,51,0.25); }
   .note { font-size: 0.76rem; color: var(--muted); }
+  body.embed header { display: none; }   /* inside the sailors page's demo frame (?embed=1), which has its own title */
   @media (max-width: 760px) {
     main { flex-direction: column; }
     #mapbox { flex: none; height: 50vh; }
@@ -123,6 +124,7 @@
   </aside>
 </main>
 <script>
+if (new URLSearchParams(location.search).has('embed')) document.body.classList.add('embed');
 (async () => {
 const D = await (await fetch('assets/three-boats.json')).json();
 const NS = 'http://www.w3.org/2000/svg', svg = document.getElementById('map'), box = document.getElementById('mapbox');

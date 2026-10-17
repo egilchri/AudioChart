@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-17 — Three Boats as demo tab 10 (v925)
+
+Requested: "make it a 10th demo tab". The sailors page's demo section gets "10. Three Boats": the interactive
+page plays inside the demo frame (an iframe loaded when the tab is chosen, ?embed=1 hides its own header), with
+"Open full screen ↗" in the note; the one-line link under the video is gone. The tab row now wraps: it ran off
+the side of a phone already with nine tabs (659 px wide at 412 px), and on a phone the interactive tab's frame
+is 85vh tall so its chart and race board both fit.
+
 ## 2026-10-17 — Three Boats, One Chart (v924)
 
 Requested: "Create a demo that shows how the plotted route is different, depending on the boat. Make it

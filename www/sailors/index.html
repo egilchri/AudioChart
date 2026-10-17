@@ -316,10 +316,12 @@
   /* ===== DEMO ===== */
   .demo-tabs {
     display: flex;
-    gap: 10px;
+    flex-wrap: wrap;   /* ten tabs don't fit one row: wrap (they ran off the side of a phone) */
+    gap: 8px 10px;
     justify-content: center;
     margin-bottom: 20px;
   }
+  @media (max-width: 600px) { .demo-tab { padding: 7px 11px !important; font-size: 12px !important; } }
   .demo-tab {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 13px;
@@ -365,6 +367,11 @@
     display: block;
     object-fit: cover;
   }
+  .demo-frame iframe { width: 100%; height: 100%; display: block; border: 0; background: var(--paper); }
+  .demo-frame iframe[hidden], .demo-frame video[hidden] { display: none; }
+  /* the interactive tab on a phone: its chart and its race board stack, so it needs the height */
+  @media (max-width: 760px) { .demo-frame.page { aspect-ratio: auto; width: 100%; height: 85vh; } }
+  .demo-note a { color: var(--brass-bright); }
   .demo-note {
     text-align: center;
     color: rgba(247,241,227,0.5);
@@ -637,12 +644,14 @@
       <button class="demo-tab" data-demo="7">7. Point &amp; Speak</button>
       <button class="demo-tab" data-demo="8">8. Virtual Journey</button>
       <button class="demo-tab" data-demo="9">9. Bird&rsquo;s-eye</button>
+      <button class="demo-tab" data-demo="10">10. Three Boats</button>
     </div>
     <div class="demo-frame">
       <video id="demo-video" src="assets/demo.mp4" poster="assets/demo-poster.jpg" controls playsinline></video>
+      <!-- tab 10 (v925): an interactive page, not a clip; loaded only when its tab is chosen -->
+      <iframe id="demo-page" title="Three Boats, One Chart" hidden></iframe>
     </div>
     <p class="demo-note" id="demo-note">Recorded from the live app, with voice narration — no editing.</p>
-    <p class="demo-note">New: <a href="three-boats.html"><strong>Three Boats, One Chart</strong></a>: watch AutoRoute plot a different route for each boat, then race them to Stonington.</p>
 
     <!-- Sync tab only (see showDemo): detailed first-time setup, per direct
          request 2026-10-04. Facts here match drive_sync.js — keep them in
@@ -733,6 +742,13 @@
       src: 'assets/demo9e.mp4', poster: 'assets/demo9e-poster.jpg',
       w: 1000, h: 510,
     },
+    10: {
+      title: 'Three boats, one chart.',
+      desc: 'AutoRoute plots for the boat you’re sailing. Here it plans Brooklin to Stonington three times, for Sea Nymph (a Cape Dory 25D, 3½ ft draft), the schooner Bowdoin (10 ft) and the windjammer Angelique (11 ft), then races them. Press Plot & race.',
+      note: 'Interactive: the app’s real routes and chart data. Drag to pan, scroll or pinch to zoom.',
+      page: 'three-boats.html?embed=1', full: 'three-boats.html',
+      w: 1000, h: 620,
+    },
   };
 
   const demoFrame = document.querySelector('.demo-frame');
@@ -742,18 +758,26 @@
   const demoNote  = document.getElementById('demo-note');
   const DEFAULT_NOTE = demoNote.textContent;
 
+  const demoPage = document.getElementById('demo-page');
   function showDemo(n) {
     const d = DEMOS[n];
     if (!d) return;
     demoFrame.style.setProperty('--demo-w', d.w);
     demoFrame.style.setProperty('--demo-h', d.h);
     demoVideo.pause();
-    demoVideo.src = d.src;
-    demoVideo.poster = d.poster;
-    demoVideo.load();
+    demoFrame.classList.toggle('page', !!d.page);
+    demoVideo.hidden = !!d.page; demoPage.hidden = !d.page;
+    if (d.page) {
+      if (!demoPage.src.endsWith(d.page)) demoPage.src = d.page;
+    } else {
+      demoVideo.src = d.src;
+      demoVideo.poster = d.poster;
+      demoVideo.load();
+    }
     demoTitle.textContent = d.title;
     demoDesc.textContent = d.desc;
     demoNote.textContent = d.note || DEFAULT_NOTE;
+    if (d.full) demoNote.insertAdjacentHTML('beforeend', ` <a href="${d.full}">Open full screen ↗</a>`);
     const syncSetup = document.getElementById('sync-setup');
     syncSetup.hidden = String(n) !== '4';
     document.querySelectorAll('.demo-tab').forEach(btn => {
