@@ -1707,7 +1707,7 @@ const goView = url => { try { if (window.parent !== window && window.parent.__au
 }
 // Weather (v858): a button at the end of the View buttons opens the conditions panel (weather3d.js)
 wxPanel = weatherPanel({ host: eyeBox, panelParent: sceneEl, where: () => routeLL[Math.floor(routeLL.length / 2)], pick: applyConditions });
-applyConditions(startConditions(params));
+{ const C0 = startConditions(params); if (C0.wind === 'calm' && !params.get('wind')) C0.wind = 'breezy'; applyConditions(C0); }   // aboard and under sail: she can't sail in a calm (v922), as the Bird's-eye view does
 const wpBtn = document.createElement('button'); wpBtn.type = 'button'; wpBtn.className = 'wpbtn'; wpBtn.textContent = '◆ Waypoints';
 wpBtn.title = 'Show the route\'s waypoints and the next one\'s distance (W)';
 const setWp = on => {

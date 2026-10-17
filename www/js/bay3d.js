@@ -933,6 +933,7 @@ try {   // a Virtual Journey of this route running in AudioChart
     if (m.cycle && m.cycle.start !== nightSeen) { nightSeen = m.cycle.start; night = { ...m.cycle, from: env.C.time }; }   // an overnight stop (v887)
     if (own.ext) return;   // inside the chart, the chart's boat already is the journey
     if (!own.r || (m.routeId !== own.r.id && 'sample:' + m.routeId !== own.r.id && m.routeId !== own.r.name)) return;
+    if (m.running && !own.vj && env.W.heel === 0) applyConditions({ wind: 'breezy' });   // a journey's begun: she can't sail in a calm
     own.vj = m.running ? { frac: clamp(m.frac, 0, 1) } : null;
     if (!m.running && m.frac >= 0.999) own.S = own.total;
     sailBtn.disabled = !!own.vj;

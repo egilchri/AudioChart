@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-17 — Plan on a calm day (v922)
+
+Requested: "make the default for planning a route be a calm day". The 3D views now start every session on a
+calm, clear, fair day (DEFAULT_COND wind 'calm', was 'breezy'). Weather-panel choices last for the session only
+(sessionStorage, shared by both views in the tab), so last night's fog or moonlight no longer greets you at the
+next start. A boat under sail still gets a breeze: the Bird's-eye view already raised a calm to breezy when
+following a boat, sailing your route or climbing the crow's nest, and now also when a Virtual Journey begins;
+the helm view, always under sail, opens breezy over a calm unless ?wind= says otherwise.
+
 ## 2026-10-17 — Routes remember their boat (v921)
 
 AutoRoute plans for the boat chosen beforehand (Your boat, or a 3D view's boat button), and now says so: the

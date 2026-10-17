@@ -48,7 +48,9 @@ export const WINDS = {
   fresh:  { dist: 2.2, size: 4, speed: 0.9, heel: 12, move: 1.8, foam: 0.55, tws: 15, kn: '12–19 kn' },
   rough:  { dist: 3.4, size: 2.6, speed: 1.3, heel: 18, move: 3, foam: 1, tws: 24, kn: '20+ kn' },
 };
-export const DEFAULT_COND = { time: 'day', vis: 'clear', sky: 'fair', wind: 'breezy', windFrom: 225, moon: 'tonight' };
+// Each session starts on a calm, clear day (v922, requested: "make the default for planning a route be a calm
+// day"); the views put a breeze in when a boat gets under sail (bay3d's followBoat/sailing).
+export const DEFAULT_COND = { time: 'day', vis: 'clear', sky: 'fair', wind: 'calm', windFrom: 225, moon: 'tonight' };
 // The moon's phase (v912, requested: "a setting for the moon phase, so we can see it at night"):
 // phase angle 0 = new, π = full, and which side is lit (+1 waxing: the right-hand side, toward where the
 // sun set, as seen from Maine). "Tonight" is the real phase for today's date, from the mean synodic month
@@ -97,6 +99,9 @@ export function moonSky(name, when = Date.now(), hour = null) {
 }
 const moonIcon = ({ phi, side }) => { const k = (1 - Math.cos(phi)) / 2; return k < 0.06 ? '🌑' : k > 0.94 ? '🌕' : k < 0.4 ? (side > 0 ? '🌒' : '🌘') : k < 0.6 ? (side > 0 ? '🌓' : '🌗') : (side > 0 ? '🌔' : '🌖'); };
 const KEY = 'audiochart-helm3d-conditions';
+// Conditions chosen in the Weather panel last for this session only (sessionStorage, shared by both views in
+// the tab and copied into a helm window it opens), so a night or a fog picked yesterday doesn't greet you today.
+const store = (() => { try { return sessionStorage; } catch (_) { return null; } })();
 const MOON_LAPSE = 60;   // with no journey under way the night clock runs 60× (an hour of the moon's travel a minute), or you'd never see it move; on one, at its rate (env.moonRate)
 
 // The sky dome: deep blue overhead fading to the haze colour at the horizon (so distant land and
@@ -236,7 +241,7 @@ export function makeEnv(o) {
   { const mirror = water.onBeforeRender; water.onBeforeRender = (...a) => { const v = [stars.visible, foam.visible, rain.visible]; stars.visible = foam.visible = rain.visible = false; mirror(...a); [stars.visible, foam.visible, rain.visible] = v; }; }
 
   const col = h => new THREE.Color(h), _v = new THREE.Vector3(), _u = new THREE.Vector3(), Y = new THREE.Vector3(0, 1, 0);
-  const env = { stars, deck, foam, rain, C: { ...DEFAULT_COND }, T: TIMES.day, W: WINDS.breezy, visM: VIS_M.clear, lightsK: 0, foggy: false, over: false, wet: false, night: false, fogC: col(0xb2cbe0) };
+  const env = { stars, deck, foam, rain, C: { ...DEFAULT_COND }, T: TIMES.day, W: WINDS[DEFAULT_COND.wind], visM: VIS_M.clear, lightsK: 0, foggy: false, over: false, wet: false, night: false, fogC: col(0xb2cbe0) };
   // The sun's or the moon's light: its direction for the sky's glow, the light on the scene and the glint on
   // the water. At night the moon's place comes from the night clock (moonHour); a new moon's night, or one
   // after the moon has set, is darker.
@@ -300,7 +305,7 @@ export function makeEnv(o) {
     env.rainOn = wet; rain.visible = wet; rain.material.color.setHex(night ? 0x5d6672 : 0xc6d0da);
     document.body.classList.toggle('night', night);
     if (!night) env.moonRun = null;
-    if (!env.blendT) try { localStorage.setItem(KEY, JSON.stringify(C)); } catch (_) {}   // not each frame of an overnight cycle
+    if (!env.blendT) try { store?.setItem(KEY, JSON.stringify(C)); } catch (_) {}   // not each frame of an overnight cycle
     return env;
   };
   // every frame: the sea moves, clouds drift, the foam follows `at` (a point on the water) and drifts, rain falls round the eye
@@ -331,10 +336,10 @@ export function makeEnv(o) {
 }
 
 // The conditions to start with: the URL (?time= &vis= &sky= &wind= &windFrom=, and the older
-// ?night=1), else what was chosen last in either 3D view.
+// ?night=1), else what was chosen earlier this session in either 3D view, else DEFAULT_COND.
 export function startConditions(params) {
   let saved = {};
-  try { saved = JSON.parse(localStorage.getItem(KEY) || 'null') || (localStorage.getItem('audiochart-helm3d-night') === '1' ? { time: 'night' } : {}); } catch (_) {}
+  try { saved = JSON.parse(store?.getItem(KEY) || 'null') || {}; } catch (_) {}
   const fromUrl = {};
   for (const k of ['time', 'vis', 'sky', 'wind', 'moon']) if (params.get(k)) fromUrl[k] = params.get(k);
   if (params.get('windFrom')) fromUrl.windFrom = Number(params.get('windFrom'));
@@ -424,7 +429,7 @@ export function weatherPanel({ host, panelParent, where, pick, btnClass = '' }) 
       kn.textContent = W.kn;
       const icon = C.time === 'night' ? moonIcon(moonPhase(C.moon)) : C.sky === 'rain' ? '🌧' : C.vis === 'fog' || C.vis === 'thick' ? '🌫' : C.sky === 'overcast' ? '☁' : C.time === 'day' ? '☀' : '🌅';
       btn.textContent = `${icon} Weather ▾`;
-      btn.classList.toggle('on', C.time !== 'day' || C.vis !== 'clear' || C.sky !== 'fair' || C.wind !== 'breezy');
+      btn.classList.toggle('on', ['time', 'vis', 'sky', 'wind'].some(k => C[k] !== DEFAULT_COND[k]));
     },
   };
 }
