@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-17 — Three Boats demo on the v926 router (v927)
+
+sailors/assets/three-boats.json regenerated with the fixed router: Angelique's route (12.75 nm, was 12.52) now
+keeps out of the Jericho Bay shoal it crossed; Sea Nymph 12.19 and Bowdoin 12.35 nm are unchanged.
+
 ## 2026-10-17 — Deep-draft routes keep out of shoals that buoy chains and stray soundings let through (v926)
 
 Requested: "fix the drying patch crossing". Brooklin → Stonington took Angelique (11 ft) and Bowdoin (10 ft)
