@@ -29,7 +29,7 @@ h1 { font-family: var(--display); font-weight: 600; font-size: 1.9rem; letter-sp
 #binoc[hidden] { display: none; }
 /* the chart's Clear view (v911): only the view itself, its compass tape and labels */
 body.clear-view :is(#eyepick, #recbtn, #minichart, #wxpanel, #tileload) { display: none !important; }
-body.binoc #minichart { opacity: 0; }
+body.binoc #minichart { opacity: 0; pointer-events: none; }
 #eyepick .binbtn.on { background: rgba(224,168,67,0.9); color: #1b2328; }
 .lbl { position: absolute; transform: translate(-50%, -100%); white-space: nowrap; color: #fbfcf8; font-weight: 600; font-size: 13px;
   text-shadow: 0 0 3px rgba(15,30,38,0.9), 0 0 1px rgba(15,30,38,1); padding-bottom: 6px; border-bottom: 0; }
@@ -44,6 +44,11 @@ body.binoc #minichart { opacity: 0; }
 .scene #minichart { height: auto; }
 #minichart { position: absolute; right: 12px; top: 40px; width: clamp(130px, 17%, 210px); aspect-ratio: 1; border-radius: 6px; box-shadow: 0 2px 10px rgba(10,20,26,0.35); pointer-events: none; z-index: 2; }
 #minichart[hidden] { display: none; }
+/* big by default (v923, "make the overview map 4 times as big, but of course, shrinkable"): twice as wide and
+   tall, the same scale, so it shows four times the water; a tap on it shrinks it back (and grows it again) */
+#minichart { pointer-events: auto; cursor: zoom-out; }
+body.smallchart #minichart { cursor: zoom-in; }
+body:not(.smallchart) #minichart { width: clamp(260px, 34%, 420px); }
 #tape { position: absolute; left: 0; right: 0; top: 0; height: 28px; background: rgba(16,28,34,0.5); pointer-events: none; }
 #status[hidden], #labels[hidden], .lbl[hidden] { display: none; }
 #status { position: absolute; inset: 0; display: grid; place-items: center; color: #f3f6f7; font-family: var(--display); font-size: 1.3rem; letter-spacing: 0.04em; background: rgba(20,34,42,0.55); text-align: center; padding-inline: 16px; }
@@ -113,6 +118,7 @@ body.embed #town-credit { left: 50% !important; transform: translateX(-50%); whi
   body.embed #recbtn, body.inchart #recbtn { top: auto !important; bottom: 150px; left: 8px !important; transform: none; }
   #wxpanel { left: 8px; right: 8px; top: 72px; }
   #minichart { top: auto; bottom: 10px; right: 8px; width: 104px; }
+  body:not(.smallchart) #minichart { width: 208px; }
   #tileload { left: 50%; transform: translateX(-50%); bottom: 44px; }
   #town-credit { display: none; }
   .strip { padding-inline: 12px; gap: 4px 14px; }
@@ -133,6 +139,7 @@ body.embed #town-credit { left: 50% !important; transform: translateX(-50%); whi
   body.inchart #eyepick .wxbtn { margin-left: 0; }
   body.inchart #recbtn { top: 150px !important; bottom: auto !important; }
   body.inchart #minichart { top: 150px; bottom: auto; width: 92px; }
+  body.inchart:not(.smallchart) #minichart { width: 184px; }
   body.inchart #wxpanel { top: 150px; }
 }
 </style>

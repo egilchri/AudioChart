@@ -801,7 +801,7 @@ water.material.fragmentShader = water.material.fragmentShader
   .replace('reflectionSample * 0.9 +', 'reflectionSample * 0.78 +');
 water.material.needsUpdate = true;
 // keep the boat's own bow out of the water's reflection pass
-{ const mirror = water.onBeforeRender; water.onBeforeRender = (...a) => { bow.visible = false; if (angel) angel.group.visible = false; mirror(...a); bow.visible = true; if (angel) angel.group.visible = true; }; }
+{ const mirror = water.onBeforeRender; water.onBeforeRender = (...a) => { const was = bow.visible; bow.visible = false; if (angel) angel.group.visible = false; mirror(...a); bow.visible = was; if (angel) angel.group.visible = was; }; }
 water.renderOrder = 2;   // after the hull's sea-excluding cap (v903)
 scene.add(water);
 
@@ -1800,6 +1800,18 @@ function updateAnchor(dt) {
 // north up, centred on the boat, with the route, buoys and the bearing you're looking along.
 const chartEl = document.getElementById('minichart'), cctx = chartEl.getContext('2d'), showChart = document.getElementById('showchart');
 showChart.addEventListener('change', () => { chartEl.hidden = !showChart.checked; });
+// Big unless shrunk (v923): a tap toggles it, remembered. Same scale either way, so big shows more water.
+const CHART_SMALL_KEY = 'audiochart-helm3d-chart-small';
+try { document.body.classList.toggle('smallchart', localStorage.getItem(CHART_SMALL_KEY) === '1'); } catch (_) {}
+const chartTitle = () => { chartEl.title = document.body.classList.contains('smallchart') ? 'Tap to enlarge the chart' : 'Tap to shrink the chart'; };
+chartTitle();
+chartEl.addEventListener('pointerdown', e => e.stopPropagation());   // not a drag of the view underneath
+chartEl.addEventListener('click', e => {
+  e.stopPropagation();
+  const small = document.body.classList.toggle('smallchart');
+  try { localStorage.setItem(CHART_SMALL_KEY, small ? '1' : '0'); } catch (_) {}
+  chartTitle();
+});
 let CH = null;
 buildChart = () => { CH = (() => {
   const lons = routeLL.map(p => p[0]), lats = routeLL.map(p => p[1]);
@@ -1825,7 +1837,7 @@ function drawChart(pos, course, look, hfov) {
   if (chartEl.width !== Math.round(size * dpr)) { chartEl.width = chartEl.height = Math.round(size * dpr); }
   const c = cctx; c.setTransform(dpr, 0, 0, dpr, 0, 0);
   const lon = pos[0] / MX + LON0, lat = -pos[1] / MY + LAT0;
-  const RANGE_NM = 4.8, pxPerNm = size / (2 * RANGE_NM);
+  const RANGE_NM = 4.8 * (document.body.classList.contains('smallchart') ? 1 : 2), pxPerNm = size / (2 * RANGE_NM);
   const sx = pxPerNm * 60 * Math.cos(LAT0 * Math.PI / 180), sy = pxPerNm * 60;      // px per degree
   const X = lo => size / 2 + (lo - lon) * sx, Y = la => size / 2 - (la - lat) * sy;
   c.imageSmoothingEnabled = true;
@@ -1872,6 +1884,15 @@ function drawChart(pos, course, look, hfov) {
   const bar = pxPerNm * 2; c.fillRect(size - 10 - bar, size - 12, bar, 2.5);
   c.textAlign = 'right'; c.textBaseline = 'bottom'; c.font = '500 10px "JetBrains Mono", monospace'; c.fillText('2 nm', size - 10, size - 14);
   c.strokeStyle = 'rgba(20,35,42,0.35)'; c.lineWidth = 1; c.strokeRect(0.5, 0.5, size - 1, size - 1);
+  // top right: arrows in (shrink) or out (enlarge), the tap's hint
+  { const small = document.body.classList.contains('smallchart'), r = size - 14, t = 14, k = small ? 1 : -1;
+    c.strokeStyle = '#1d2a30'; c.lineWidth = 1.5; c.beginPath();
+    for (const [dx, dy] of [[1, -1], [-1, 1]]) {
+      const ox = r + dx * 6 * (small ? 1 : 0.2), oy = t + dy * 6 * (small ? 1 : 0.2);   // arrowhead end
+      c.moveTo(r + dx * 6 * (small ? 0.2 : 1), t + dy * 6 * (small ? 0.2 : 1)); c.lineTo(ox, oy);
+      c.moveTo(ox, oy); c.lineTo(ox - dx * 3 * k, oy); c.moveTo(ox, oy); c.lineTo(ox, oy - dy * 3 * k);
+    }
+    c.stroke(); }
 }
 
 function resize() {
@@ -1951,6 +1972,10 @@ function frame() {
   env.stars.position.copy(sky.position);
   env.update(dt, camera, boat.position);
   wildlife.update(dt, t, boat.position, camera.getWorldPosition(_camW), { night: env.C.time === 'night', boat: boat.position, scale: d => Math.min(2.5, Math.max(1, d / 150)) });
+  // Through the binoculars your own boat isn't there (v923, from a screenshot: Sea Nymph's shrouds, a metre
+  // off, crossed the view as three sharp grey bars): focused on the distance at 7x, rigging that close is
+  // only a faint blur, and you'd lean past it anyway. Her lights go with her, so no sidelight glares in.
+  bow.visible = !binoc.on; if (angel) angel.group.visible = !binoc.on;
   renderer.render(scene, camera);
   updateLabels(pos);
   const hfov = 2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect) * 180 / Math.PI;

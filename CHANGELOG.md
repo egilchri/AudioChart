@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-17 — Bigger corner chart; no rigging in the binoculars (v923)
+
+Requested: "make the overview map 4 times as big, but of course, shrinkable". The helm view's corner chart is
+now twice as wide and tall by default (clamp 260–420 px; 208/184 px on a phone), at the same scale, so it shows
+four times the water (9.6 nm across instead of 4.8). A tap on it shrinks it back and grows it again (arrows in
+its top-right corner; remembered as `audiochart-helm3d-chart-small`).
+
+From a screenshot ("What's wrong with the binoculars?"): looking abeam through the binoculars, Sea Nymph's own
+shrouds, a metre away, crossed the view as three sharp grey bars at 7x. Your own boat (and her lights) is no
+longer drawn while the binoculars are up: focused on the distance, rigging that close is only a faint blur.
+The water's reflection pass now restores the boat's visibility as it found it instead of forcing it on.
+
 ## 2026-10-17 — Plan on a calm day (v922)
 
 Requested: "make the default for planning a route be a calm day". The 3D views now start every session on a
