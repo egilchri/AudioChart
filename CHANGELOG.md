@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-17 — Empty Bay (v928)
+
+The user's idea: "Empty Bay map mode, which would allow a birdseye view, zoomable, of Penobscot Bay, with no water
+in it". New map type 🏜 Empty Bay: the Bird's-eye view (bay3d.html?empty=1) with NOAA NCEI's topobathy (the
+DEM_all mosaic, CUDEM 1/9 arc-second across the bay, metres NAVD 88; terrain3d.js readTopobathy, cached like the
+photos) in place of USGS 3DEP, which stops at the waterline. No water, no fleet, wildlife or own boat; below sea
+level the photo gives way to a depth colour (mud and weed, sand, olive silt, blue-grey mud, the deep holes) with
+10 m contours, in a shader on the terrain materials. A Depth slider (1-10×, remembered) deepens the seabed only,
+so towns, trees and land stay true. Ordinary Bird's-eye is unchanged.
+
 ## 2026-10-17 — Three Boats demo on the v926 router (v927)
 
 sailors/assets/three-boats.json regenerated with the fixed router: Angelique's route (12.75 nm, was 12.52) now

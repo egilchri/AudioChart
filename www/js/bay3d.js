@@ -10,7 +10,7 @@
 // you are looking once you are low enough to see them. Town buildings load near their town.
 import * as THREE from 'three';
 import { Water } from './lib/three/Water.js';
-import { LON0, LAT0, MX, MY, wx, wz, readDem, photo, addCanopy, gridMesh, photoMat, buildTown, disposeGroup, spruce, TOWN_NIGHT } from './terrain3d.js';
+import { LON0, LAT0, MX, MY, wx, wz, readDem, readTopobathy, photo, addCanopy, gridMesh, photoMat, buildTown, disposeGroup, spruce, TOWN_NIGHT } from './terrain3d.js';
 import { SUN, makeSky, makeEnv, glowSprite, flashFor, flashOn, sectorColour, weatherPanel, startConditions, makeTrimmer, cycleLook } from './weather3d.js';
 import { makeSailboat, fleetType } from './sailboat3d.js';
 import { makeAngelique, makeBowdoin } from './angelique3d.js';
@@ -23,6 +23,17 @@ window.addEventListener('error', e => fail('Something went wrong: ' + e.message)
 
 const params = new URLSearchParams(location.search);
 if (params.get('embed')) document.body.classList.add('embed');
+// Empty Bay (v928, the user's idea: "a birdseye view, zoomable, of Penobscot Bay, with no water in it"):
+// NOAA's land-and-seabed surface in place of USGS's land-only one, no water, the seabed coloured by depth
+// with 10 m contours and deepened by EXAG (1-10x; 100 m of depth over 40 km is all but flat at 1x), and
+// nothing afloat. Land, photos, towns and trees as ever.
+const EMPTY = params.has('empty');
+if (EMPTY) document.body.classList.add('empty');
+const EXAG_KEY = 'audiochart-emptybay-exag';
+let EXAG = 4; try { EXAG = clampNum(Number(localStorage.getItem(EXAG_KEY)) || 4, 1, 10); } catch (_) {}
+function clampNum(v, a, b) { return Math.max(a, Math.min(b, v)); }
+const yOf = EMPTY ? (h => h < 0 ? h * EXAG : h) : null;
+const demFor = (w, s, e, n, fine) => EMPTY ? readTopobathy(w, s, e, n, fine ? 0.0001 : 0.0012) : readDem(w, s, e, n, fine ? 0 : 3);
 const lonOf = x => x / MX + LON0, latOf = z => -z / MY + LAT0;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const DEG = Math.PI / 180;
@@ -53,6 +64,35 @@ const sun = SUN;
 const hemi = new THREE.HemisphereLight(0xe4ecf2, 0x4a5644, 1.7); scene.add(hemi);
 const dl = new THREE.DirectionalLight(0xfff3e0, 2.1); dl.position.copy(sun).multiplyScalar(1000); scene.add(dl);
 const PLAIN = new THREE.MeshLambertMaterial({ color: 0x66735c });
+// Empty Bay's seabed: below sea level the photo gives way to a colour for the depth (wet mud and weed at the
+// tide line, sand, grey-green silt, slate, dark in the deep holes), darkened along every 10 m contour.
+const EXAG_U = { value: EXAG };
+function seabed(mat) {
+  if (!EMPTY) return mat;
+  mat.onBeforeCompile = sh => {
+    sh.uniforms.uExag = EXAG_U;
+    sh.vertexShader = 'varying float vElevY;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vElevY = position.y;');
+    sh.fragmentShader = `uniform float uExag;
+varying float vElevY;
+vec3 seabedColour(float d) {
+  vec3 c = mix(vec3(0.36, 0.29, 0.17), vec3(0.82, 0.74, 0.55), smoothstep(0.5, 4.0, d));   // weed and mud to sand
+  c = mix(c, vec3(0.60, 0.63, 0.50), smoothstep(6.0, 18.0, d));                              // olive silt
+  c = mix(c, vec3(0.42, 0.50, 0.58), smoothstep(18.0, 40.0, d));                             // blue-grey mud
+  c = mix(c, vec3(0.20, 0.25, 0.38), smoothstep(40.0, 95.0, d));                             // the deep holes
+  return pow(c, vec3(2.2)) * 1.15;
+}
+` + sh.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
+  if (vElevY < 0.0) {
+    float d = -vElevY / uExag;
+    diffuseColor.rgb = seabedColour(d);
+    float fw = max(fwidth(d / 10.0), 1e-4), line = abs(fract(d / 10.0 + 0.5) - 0.5) / fw;
+    diffuseColor.rgb *= mix(0.62, 1.0, smoothstep(0.6, 1.6, line));
+  }`);
+  };
+  mat.customProgramCacheKey = () => 'seabed';
+  return mat;
+}
+seabed(PLAIN);
 
 // ── Camera: a target point on the water, a distance from it, a heading and a tilt ──
 // az = the direction you are looking (0 = north); tilt = 0 straight down, up to ~80° near the horizon.
@@ -186,13 +226,13 @@ addEventListener('keydown', e => {
 document.getElementById('compass').addEventListener('click', () => flyTo({ x: view.x, z: view.z, dist: view.dist, az: 0, tilt: view.tilt }, 900));
 
 // ── The whole bay, coarse ──
-statusEl.textContent = 'Downloading the bay…';
+statusEl.textContent = EMPTY ? 'Draining Penobscot Bay…' : 'Downloading the bay…';
 const [OW, OS, OE, ON] = OVERVIEW;
 const ovPhotoP = photo(OW, OS, OE, ON, 4000); ovPhotoP.catch(() => {});
-const ov = await readDem(OW, OS, OE, ON, 3);
+const ov = await demFor(OW, OS, OE, ON, false);
 const OV_STRIDE = ov.w * ov.h > 1.2e6 ? 2 : 1;
 const OV_RECT = { west: OW, east: OE, south: OS, north: ON };
-let ovMesh = gridMesh(ov, OV_RECT, OV_STRIDE, PLAIN);
+let ovMesh = gridMesh(ov, OV_RECT, OV_STRIDE, PLAIN, yOf);
 scene.add(ovMesh);
 function heightAt(lon, lat) {
   for (const T of tiles) {
@@ -205,7 +245,7 @@ function heightAt(lon, lat) {
 }
 ovPhotoP.then(ph => {
   addCanopy(ov, ph);
-  const m2 = gridMesh(ov, ph, OV_STRIDE, photoMat(ph, ANISO));
+  const m2 = gridMesh(ov, ph, OV_STRIDE, seabed(photoMat(ph, ANISO)), yOf);
   scene.remove(ovMesh); ovMesh.geometry.dispose(); ovMesh = m2; scene.add(m2);
   for (const T of tiles) if (T.state === 'ready') sinkOverview(T, true);
 }).catch(err => console.warn('[bay3d] overview photo failed', err));
@@ -215,7 +255,7 @@ function sinkOverview(T, down) {
   for (let i = 0; i < gidx.length; i++) {
     const gi = gidx[i], gx = gi % ov.w, gy = (gi - gx) / ov.w;
     const lon = ov.west + (gx + 0.5) * ov.dx, lat = ov.north - (gy + 0.5) * ov.dy;
-    if (lon > T.w + inset && lon < T.e - inset && lat > T.s + inset && lat < T.n - inset) pos.setY(i, down ? -40 : ov.elev[gi]);
+    if (lon > T.w + inset && lon < T.e - inset && lat > T.s + inset && lat < T.n - inset) pos.setY(i, down ? (EMPTY ? -2000 : -40) : yOf ? yOf(ov.elev[gi]) : ov.elev[gi]);
   }
   pos.needsUpdate = true;
 }
@@ -234,22 +274,52 @@ async function loadTile(T) {
   try {
     const M = 0.0002;
     const photoP = photo(T.w, T.s, T.e, T.n); photoP.catch(() => {});
-    const dem = await readDem(T.w - M, T.s - M, T.e + M, T.n + M, 0);
+    const dem = await demFor(T.w - M, T.s - M, T.e + M, T.n + M, true);
     if (T.state !== 'loading' || T.gen !== gen) { photoP.then(ph => ph.img.close?.(), () => {}); return; }
     const rect = { west: T.w, east: T.e, south: T.s, north: T.n };
-    Object.assign(T, { dem, mat: PLAIN, img: null, photo: 'pending', full: gridMesh(dem, rect, 1, PLAIN), coarse: gridMesh(dem, rect, 4, PLAIN) });
+    Object.assign(T, { dem, mat: PLAIN, img: null, photo: 'pending', full: gridMesh(dem, rect, 1, PLAIN, yOf), coarse: gridMesh(dem, rect, 4, PLAIN, yOf) });
     T.full.visible = false; scene.add(T.full, T.coarse); sinkOverview(T, true); T.state = 'ready';
     photoP.then(ph => {
       if (T.state !== 'ready' || T.gen !== gen) { ph.img.close?.(); return; }
       addCanopy(dem, ph, () => 0);   // forest mask only: the 3D trees give the forest its height here
       T.spots = treeSpots(T, dem); treesDirty = true;
-      const mat = photoMat(ph, ANISO), wasNear = T.full.visible;
+      const mat = seabed(photoMat(ph, ANISO)), wasNear = T.full.visible;
       scene.remove(T.full, T.coarse); T.full.geometry.dispose(); T.coarse.geometry.dispose();
-      T.full = gridMesh(dem, ph, 1, mat); T.coarse = gridMesh(dem, ph, 4, mat);
+      T.full = gridMesh(dem, ph, 1, mat, yOf); T.coarse = gridMesh(dem, ph, 4, mat, yOf);
       T.full.visible = wasNear; T.coarse.visible = !wasNear; scene.add(T.full, T.coarse);
       T.mat = mat; T.img = ph.img; T.photo = 'done';
     }).catch(err => { console.warn('[bay3d] photo failed', T, err); T.photo = 'failed'; });
   } catch (err) { console.warn('[bay3d] tile failed', T, err); T.state = 'failed'; }
+}
+// Empty Bay's depth exaggeration changed: every loaded mesh's heights again from its grid, the sunk
+// overview kept sunk under the loaded tiles
+function remeshForExag() {
+  const redo = (mesh, dem) => {
+    if (!mesh) return;
+    const pos = mesh.geometry.attributes.position, gidx = mesh.userData.gidx;
+    for (let i = 0; i < gidx.length; i++) pos.setY(i, yOf(dem.elev[gidx[i]]));
+    pos.needsUpdate = true; mesh.geometry.computeVertexNormals(); mesh.geometry.computeBoundingSphere();
+  };
+  redo(ovMesh, ov);
+  for (const T of tiles) if (T.state === 'ready') { redo(T.full, T.dem); redo(T.coarse, T.dem); sinkOverview(T, true); }
+  ovMesh.geometry.computeVertexNormals();
+}
+if (EMPTY) {
+  const box = document.getElementById('exagbox'), inp = document.getElementById('exag'), out = document.getElementById('exagval');
+  if (box) {
+    box.hidden = false; inp.value = String(EXAG); out.textContent = `${EXAG}×`;
+    inp.addEventListener('input', () => {
+      EXAG = clampNum(Number(inp.value) || 1, 1, 10); EXAG_U.value = EXAG; out.textContent = `${EXAG}×`;
+      try { localStorage.setItem(EXAG_KEY, String(EXAG)); } catch (_) {}
+      remeshForExag();
+    });
+    for (const ev of ['pointerdown', 'wheel', 'touchstart']) box.addEventListener(ev, e => e.stopPropagation(), { passive: true });   // not a drag of the view
+  }
+  const sub = document.querySelector('h1 small'); if (sub) sub.textContent = 'Empty Bay: the water drained away';
+  document.getElementById('sailboat')?.setAttribute('hidden', '');   // nothing afloat to follow
+  document.getElementById('credit').textContent = 'Land and seabed NOAA NCEI CUDEM · Photos USDA NAIP';
+  const help = document.getElementById('help');
+  if (help) help.textContent = 'Empty Bay: Penobscot Bay with the water gone. Drag to move · right-drag or Shift-drag to turn and tilt · scroll or pinch to zoom · Depth sets how much the seabed is deepened, so its channels and holes show';
 }
 function dropTile(T) {
   if (T.state === 'loading') { T.state = 'idle'; return; }
@@ -349,7 +419,7 @@ const townList = (await getJSON('./data/buildings/index.json').catch(() => [])).
 const creditEl = document.getElementById('credit');
 function updateCredit() {
   const shown = townList.filter(t => t.group);
-  creditEl.textContent = 'Elevation USGS 3DEP · Photos USDA NAIP' + (shown.length ? ' · Buildings © OpenStreetMap contributors' + (shown.some(t => /Microsoft/.test(t.credit)) ? ', Microsoft' : '') : '');
+  creditEl.textContent = (EMPTY ? 'Land and seabed NOAA NCEI CUDEM · Photos USDA NAIP' : 'Elevation USGS 3DEP · Photos USDA NAIP') + (shown.length ? ' · Buildings © OpenStreetMap contributors' + (shown.some(t => /Microsoft/.test(t.credit)) ? ', Microsoft' : '') : '');
 }
 async function loadTown(t) {
   t.state = 'loading'; townsLoading++;
@@ -602,7 +672,7 @@ const fleet = [];
 {
   let sd = 20261012; const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
   const [BW, BS, BE, BN] = BAY;
-  for (let tries = 0; fleet.length < FLEET_N && tries < 6000; tries++) {
+  for (let tries = 0; fleet.length < (EMPTY ? 0 : FLEET_N) && tries < 6000; tries++) {   // nothing afloat in an empty bay
     const x = wx(BW + rnd() * (BE - BW)), z = wz(BS + rnd() * (BN - BS));
     if (fleet.some(b => Math.hypot(b.home.x - x, b.home.z - z) < 1.6 * NMm)) continue;
     let ok = isWater(x, z);
@@ -618,7 +688,7 @@ const fleet = [];
 const OWN_TYPE = (() => { let b = params.get('boat'); if (!b) { try { b = localStorage.getItem('audiochart-boat'); } catch (_) {} } return b === 'angelique' || b === 'bowdoin' ? b : 'cd25'; })();
 // (when she's your own boat, chosen in the helm view, she's that one, not a second Bowdoin in the fleet)
 let bowdoin = null;
-if (OWN_TYPE !== 'bowdoin') {
+if (OWN_TYPE !== 'bowdoin' && !EMPTY) {
   const c = { x: wx(-68.84), z: wz(44.33) };
   const roomy = (x, z) => isWater(x, z) && [0, 1, 2, 3, 4, 5, 6, 7].every(k => isWater(x + Math.sin(k * Math.PI / 4) * 0.45 * NMm, z - Math.cos(k * Math.PI / 4) * 0.45 * NMm));
   let at = null;
@@ -841,7 +911,7 @@ if (!paceSel.value) paceSel.value = '60';
 paceSel.addEventListener('change', () => { try { localStorage.setItem(PACE_KEY, paceSel.value); } catch (_) {} });
 function setOwnRoute(r, pts) {
   own.r = r; own.playing = false; own.S = 0; sailBtn.textContent = '▶ Sail it';
-  sailRow.hidden = !r; sailNote.hidden = !r; followBtn.hidden = !r; own.boat.group.visible = !!r;
+  sailRow.hidden = !r || EMPTY; sailNote.hidden = !r || EMPTY; followBtn.hidden = !r || EMPTY; own.boat.group.visible = !!r && !EMPTY;
   if (!r) return;
   own.pts = pts.map(p => [wx(p.lon), wz(p.lat)]);
   own.cum = [0]; for (let i = 1; i < own.pts.length; i++) own.cum.push(own.cum[i - 1] + Math.hypot(own.pts[i][0] - own.pts[i - 1][0], own.pts[i][1] - own.pts[i - 1][1]));
@@ -912,7 +982,7 @@ function updateOwn(dt) {
   const cp = camera.position;
   own.boat.group.scale.setScalar(nest.on && bowdoin === own ? 1 : boatScale(own.boat, Math.hypot(own.x - cp.x, cp.y, own.z - cp.z)));
   own.boat.group.position.set(own.x, 0, own.z); own.boat.group.rotation.y = -own.h * DEG;
-  own.boat.group.visible = !aboveFog;
+  own.boat.group.visible = !aboveFog && !EMPTY;
   followBtn.classList.toggle('on', follow === own);
   const day = own.nights.length ? `Day ${1 + own.nights.filter(c => own.S >= c - 1).length} of ${own.nights.length + 1} · ` : '';
   if (!own.ext && lblTick % 6 === 0) sailNote.textContent = (own.vj ? 'Following your Virtual Journey · ' : '') + day + `${(own.S / NMm).toFixed(1)} / ${(own.total / NMm).toFixed(1)} nm` + (up ? ` · ${p.name}` : env.W.heel === 0 ? ' · calm' : ' · arrived');
@@ -1163,6 +1233,7 @@ function frame(now) {
   if (t - lastCheck > 0.4) { lastCheck = t; updateTiles(); updateTowns(); updateMarks(); }
   if (!drag && !anim) updateTrees(); else if (t - (TREES.lastMove || 0) > 0.25) { TREES.lastMove = t; updateTrees(); }
   water.position.set(view.x, 0, view.z);
+  if (EMPTY) { water.visible = false; env.foam.visible = false; }   // (the weather turns the whitecaps on in a breeze)
   sky.position.copy(camera.position);
   updateNight();
   updateWeather(dt, t);
@@ -1170,7 +1241,7 @@ function frame(now) {
   if (nest.on) nestCamera();
   updateWaypoints();
   updateOwn(dt);
-  wildlife.update(dt, t, view, camera.position, { hidden: !!aboveFog, night: env.C.time === 'night', boat: (own.ext || own.r) ? own : null, scale: d => clamp(d / 35, 3, 8) });
+  wildlife.update(dt, t, view, camera.position, { hidden: !!aboveFog || EMPTY, night: env.C.time === 'night', boat: (own.ext || own.r) ? own : null, scale: d => clamp(d / 35, 3, 8) });
   if (follow && !anim && !nest.on) { const k = Math.min(1, dt * 4); view.x += (follow.x - view.x) * k; view.z += (follow.z - view.z) * k; }
   renderer.render(scene, camera);
   updateLabels(); updateReadout();

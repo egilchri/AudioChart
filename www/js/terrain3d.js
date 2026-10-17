@@ -79,6 +79,26 @@ export async function readDem(w, s, e, n, level) {
 // ── USDA NAIP aerial photos through The National Map's image service ──
 // The service snaps every request to square pixels in degrees, so ask for square pixels and
 // account for that (v1 of the sample, which did not, was misaligned by hundreds of metres).
+// ── NOAA NCEI topobathy (v928, Empty Bay): land and seabed as one surface, metres NAVD 88, from NCEI's
+// DEM_all mosaic (CUDEM 1/9 arc-second, about 3 m, across Penobscot Bay; coarser models beyond). USGS 3DEP
+// above stops at the waterline (water reads -3 m). Same grid shape as readDem's; res in degrees per cell.
+const NCEI = 'https://gis.ngdc.noaa.gov/arcgis/rest/services/DEM_mosaics/DEM_all/ImageServer/exportImage';
+export async function readTopobathy(w, s, e, n, res) {
+  const W = Math.round((e - w) / res), H = Math.round((n - s) / res);
+  const r = Math.max((e - w) / W, (n - s) / H), cx = (w + e) / 2, cy = (s + n) / 2;   // square cells, as the service wants
+  const q = new URLSearchParams({ bbox: `${cx - W * r / 2},${cy - H * r / 2},${cx + W * r / 2},${cy + H * r / 2}`, bboxSR: 4326, imageSR: 4326, size: `${W},${H}`,
+    format: 'tiff', pixelType: 'F32', interpolation: 'RSP_BilinearInterpolation', compression: 'LZW' });
+  tmark('topobathy start');
+  const buf = await (await cachedFetch(`${NCEI}?${q}&f=image`)).arrayBuffer();
+  const img = await (await GeoTIFF.fromArrayBuffer(buf)).getImage();
+  const data = (await img.readRasters({ samples: [0] }))[0];
+  const [ox, oy] = img.getOrigin(), [rx, ry] = img.getResolution();
+  const elev = new Float32Array(data.length);
+  for (let i = 0; i < data.length; i++) { const v = data[i]; elev[i] = v > -11000 && v < 9000 ? v : -3; }   // no-data: sea level
+  tmark('topobathy done');
+  return { w: img.getWidth(), h: img.getHeight(), west: ox, north: oy, dx: rx, dy: -ry, elev };
+}
+
 const NAIP = 'https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage';
 export async function photo(w, s, e, n, maxPx = 4000) {
   const res = Math.max(e - w, n - s) / maxPx, W = Math.round((e - w) / res), H = Math.round((n - s) / res);
@@ -137,8 +157,9 @@ export function addCanopy(dem, t, liftAt = null) {
 }
 
 // One mesh over a DEM grid (optionally only the cells under a photo), at a stride:
-// 1 = every cell, 4 = every 4th, for terrain far from the boat.
-export function gridMesh(dem, t, stride, mat) {
+// 1 = every cell, 4 = every 4th, for terrain far from the boat. yOf, if given, maps an elevation
+// to the mesh's height (Empty Bay deepens the seabed by its exaggeration).
+export function gridMesh(dem, t, stride, mat, yOf = null) {
   const c0 = Math.max(0, Math.floor((t.west - dem.west) / dem.dx - 1)), c1 = Math.min(dem.w - 1, Math.ceil((t.east - dem.west) / dem.dx));
   const r0 = Math.max(0, Math.floor((dem.north - t.north) / dem.dy - 1)), r1 = Math.min(dem.h - 1, Math.ceil((dem.north - t.south) / dem.dy));
   const cols = [], rows = [];
@@ -149,7 +170,7 @@ export function gridMesh(dem, t, stride, mat) {
   rows.forEach((gy, y) => cols.forEach((gx, x) => {
     const gi = gy * dem.w + gx, i = y * w + x;
     const lon = dem.west + (gx + 0.5) * dem.dx, lat = dem.north - (gy + 0.5) * dem.dy;
-    pos[i * 3] = wx(lon); pos[i * 3 + 1] = dem.elev[gi]; pos[i * 3 + 2] = wz(lat); gidx[i] = gi;
+    pos[i * 3] = wx(lon); pos[i * 3 + 1] = yOf ? yOf(dem.elev[gi]) : dem.elev[gi]; pos[i * 3 + 2] = wz(lat); gidx[i] = gi;
     uv[i * 2] = (lon - t.west) / (t.east - t.west); uv[i * 2 + 1] = (t.north - lat) / (t.north - t.south);   // ImageBitmap textures aren't flipped
   }));
   const idx = new Uint32Array((w - 1) * (h - 1) * 6); let k = 0;

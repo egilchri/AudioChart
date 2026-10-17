@@ -7502,8 +7502,12 @@ function _hideVj3d() {
 // like any map type: Map Type, the tile row and the HUD stay on top of it, and picking 3D Bird's-eye
 // again goes back to the very view you left if the chart hasn't moved since, else to where the chart
 // now is, keeping your heading and tilt.
-function _showBay3d() {
+// Empty Bay (v928) is the same view with the water drained away (bay3d.html?empty=1), a map type of its own;
+// _bay3dEmpty says which of the two is (or was last) up, so reopening keeps it.
+let _bay3dEmpty = false;
+function _showBay3d(empty = _bay3dEmpty) {
   _ensureMap();
+  _bay3dEmpty = empty;
   if (!_bay3dWrap) {
     _bay3dWrap = document.createElement('div');
     _bay3dWrap.id = 'bay3d-wrap';
@@ -7529,7 +7533,7 @@ function _showBay3d() {
     try { localStorage.setItem('audiochart-bay3d-editing', JSON.stringify({ name: _editRouteName || 'Route', points: _editPoints })); } catch (_) {}
   }
   if (!rid) { try { rid = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]').filter(r => !_hiddenRouteNames.has(r.name)).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0]?.id || ''; } catch (_) {} }
-  _load3d(_bay3dWrap, `./bay3d.html?embed=1&lat=${lat.toFixed(5)}&lon=${lon.toFixed(5)}&dist=${dist}${turn}${rid ? `&route=${encodeURIComponent(rid)}` : ''}`, "Bird's-eye");
+  _load3d(_bay3dWrap, `./bay3d.html?embed=1&lat=${lat.toFixed(5)}&lon=${lon.toFixed(5)}&dist=${dist}${turn}${rid ? `&route=${encodeURIComponent(rid)}` : ''}${empty ? '&empty=1' : ''}`, empty ? 'Empty Bay' : "Bird's-eye");
   _bay3dWrap.style.top = (document.getElementById('status-title-bar')?.offsetHeight || 26) + 'px';
   _bay3dWrap.hidden = false;
   _appEl.classList.add('bay3d-on');
@@ -9146,7 +9150,7 @@ function _renderStatusCombo() {
 }
 
 function _syncMapModeTitle() {
-  if (_bay3dWrap && !_bay3dWrap.hidden) { _statusModeGlyph = '🦅'; _statusModeLabel = "Bird's-eye"; _renderStatusCombo(); return; }
+  if (_bay3dWrap && !_bay3dWrap.hidden) { _statusModeGlyph = _bay3dEmpty ? '🏜' : '🦅'; _statusModeLabel = _bay3dEmpty ? 'Empty Bay' : "Bird's-eye"; _renderStatusCombo(); return; }
   _statusModeGlyph = MAP_VIEW_ICONS[_mapViewMode] || '🗺';
   _statusModeLabel = _mapViewMode === 'history'
     ? `History — ${HISTORY_ERA_LABELS[_selectedEra]}`
@@ -9178,7 +9182,7 @@ document.querySelectorAll('.history-era-chip').forEach(chip => {
 function _syncLayerBtn() {
   const sel = document.getElementById('map-layer-select');
   if (!sel) return;
-  sel.value = _bay3dWrap && !_bay3dWrap.hidden ? 'bay3d' : '';   // Bird's-eye shows as the current map type (v879)
+  sel.value = _bay3dWrap && !_bay3dWrap.hidden ? (_bay3dEmpty ? 'emptybay' : 'bay3d') : '';   // Bird's-eye (or Empty Bay) shows as the current map type (v879)
 }
 
 function _ensureMap() {
@@ -9454,7 +9458,11 @@ function _ensureMap() {
     const mode = e.target.value;   // read first: closing Bird's-eye below resyncs the pulldown
     _bay3dReturn = false;   // a map type chosen: that's where you want to be
     // 3D Bird's-eye isn't a chart layer: it opens the 3D bay view over the chart (v844)
-    if (mode === 'bay3d') { if (!_bay3dWrap || _bay3dWrap.hidden) _showBay3d(); _syncLayerBtn(); return; }
+    if (mode === 'bay3d' || mode === 'emptybay') {   // Bird's-eye, or Empty Bay: the same view drained (v928)
+      const empty = mode === 'emptybay';
+      if (!_bay3dWrap || _bay3dWrap.hidden || _bay3dEmpty !== empty) _showBay3d(empty);
+      _syncLayerBtn(); return;
+    }
     // A chart type chosen while a 3D view covers the chart (a Virtual Journey's 3D view, or
     // Bird's-eye) changed only the chart hidden underneath it; reported (v877) as "it's not
     // letting me switch to other map types". Close the 3D view so the chosen chart shows (the
