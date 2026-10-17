@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- Google tag (gtag.js): Google Analytics, counting visits (see privacy/) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-W6S54QD148"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-W6S54QD148');
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Three Boats, One Chart</title>
+<meta name="description" content="AudioChart's AutoRoute plots a different route for each boat: a Cape Dory, an Arctic schooner and a windjammer race from Brooklin to Stonington.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* A demo for the sailors page (v924): the same trip AutoRouted for each of the app's three boats, then raced.
+     Routes, depth areas and land are the app's own (assets/three-boats.json, made by the router itself). */
+  :root {
+    --navy: #0F2438; --paper: #EDE6D6; --cream: #F7F1E3; --brass: #C08A3E; --brass-bright: #D9A455;
+    --ink: #1B2A33; --muted: #5b6a72; --line: rgba(27,42,51,0.14);
+    --water: #cfe2ec; --land: #ebe2cc; --shore: #a8977a;
+    --b0: rgba(84,98,110,0.62); --b1: rgba(222,160,70,0.62); --b2: rgba(138,112,196,0.5);
+    --sea: #1f78c8; --bow: #1f7a4d; --ang: #b8402e;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font-family: 'Inter', sans-serif; font-size: 15px; line-height: 1.45; display: flex; flex-direction: column; }
+  header { background: var(--navy); color: var(--cream); padding: 10px 16px; display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  header h1 { font-family: 'Fraunces', serif; font-weight: 600; font-size: 1.45rem; margin: 0; }
+  header p { margin: 0; opacity: 0.85; font-size: 0.92rem; flex: 1 1 22em; }
+  header a { color: var(--brass-bright); font-size: 0.85rem; text-decoration: none; white-space: nowrap; }
+  main { flex: 1; display: flex; min-height: 0; }
+  #mapbox { position: relative; flex: 1; min-width: 0; background: var(--water); overflow: hidden; touch-action: none; cursor: grab; }
+  #mapbox.drag { cursor: grabbing; }
+  svg#map { width: 100%; height: 100%; display: block; }
+  .land { fill-rule: evenodd; fill: var(--land); stroke: var(--land); stroke-width: 0.8; vector-effect: non-scaling-stroke; }   /* stroked in its own colour: the land comes in tiles, and a shore-coloured outline drew their seams */
+  .z0 { fill: var(--b0); } .z1 { fill: var(--b1); } .z2 { fill: var(--b2); }
+  .zone { fill-rule: evenodd; stroke: rgba(27,42,51,0.25); stroke-width: 0.4; vector-effect: non-scaling-stroke; transition: opacity .3s; }
+  .zone.flash { animation: flash 0.9s ease-in-out 3; }
+  @keyframes flash { 50% { fill: #fff3a8; stroke: #b8860b; stroke-width: 2; } }
+  .route { fill: none; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+  .ghost { stroke-dasharray: 7 5; opacity: 0.9; }
+  .lbl { font-family: 'Inter', sans-serif; fill: #4a5a63; paint-order: stroke; stroke: rgba(235,226,204,0.9); stroke-linejoin: round; pointer-events: none; }
+  .lbl.town { font-weight: 700; fill: var(--ink); }
+  .lbl.sea { font-style: italic; fill: #3d6a86; stroke: rgba(207,226,236,0.9); }
+  .pin { fill: var(--ink); stroke: #fff; vector-effect: non-scaling-stroke; stroke-width: 1.5; }
+  .bubble { position: absolute; transform: translate(-50%, calc(-100% - 22px)); background: #fff; color: var(--ink); border-radius: 12px; padding: 6px 10px; font-size: 0.82rem; font-weight: 600; box-shadow: 0 3px 12px rgba(10,24,38,0.28); width: max-content; max-width: 200px; pointer-events: none; border: 2px solid currentColor; animation: pop .25s ease-out; white-space: normal; }
+  .bubble::after { content: ''; position: absolute; left: 50%; bottom: -9px; transform: translateX(-50%); border: 8px solid transparent; border-top-color: currentColor; border-bottom: 0; }
+  .bubble span { color: var(--ink); }
+  @keyframes pop { from { transform: translate(-50%, calc(-100% - 10px)) scale(0.6); opacity: 0; } }
+  #zoomctl { position: absolute; left: 12px; top: 12px; display: flex; flex-direction: column; gap: 4px; }
+  #zoomctl button { width: 34px; height: 34px; border: 0; border-radius: 6px; background: rgba(15,36,56,0.85); color: var(--cream); font-size: 1.1rem; cursor: pointer; }
+  #clock { position: absolute; right: 12px; top: 12px; background: rgba(15,36,56,0.85); color: var(--cream); border-radius: 6px; padding: 5px 10px; font-family: 'IBM Plex Mono', monospace; font-size: 0.85rem; }
+  #results { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(380px, calc(100% - 32px)); background: var(--cream); border-radius: 12px; box-shadow: 0 10px 40px rgba(10,24,38,0.4); padding: 16px 18px; display: none; }
+  #results.show { display: block; animation: pop2 .4s ease-out; }
+  @keyframes pop2 { from { opacity: 0; transform: translate(-50%, -46%); } }
+  #results h2 { font-family: 'Fraunces', serif; margin: 0 0 8px; font-size: 1.3rem; }
+  #results ol { margin: 0 0 10px; padding-left: 1.4em; }
+  #results li { margin: 4px 0; }
+  #results p { margin: 6px 0; font-size: 0.86rem; color: var(--muted); }
+  #results button { margin-top: 6px; }
+  aside { width: 340px; flex: none; background: var(--cream); border-left: 1px solid var(--line); display: flex; flex-direction: column; gap: 12px; padding: 14px 16px; overflow-y: auto; }
+  .tide { font-family: 'IBM Plex Mono', monospace; font-size: 0.8rem; color: var(--muted); }
+  .crew { display: flex; flex-direction: column; gap: 6px; }
+  .boat { display: grid; grid-template-columns: 30px 1fr auto; gap: 2px 10px; align-items: center; padding: 7px 9px; border-radius: 8px; background: #fff; border: 1px solid var(--line); border-left: 5px solid var(--c); }
+  .boat svg { grid-row: span 2; }
+  .boat b { font-family: 'Fraunces', serif; font-size: 1rem; font-weight: 600; }
+  .boat small { color: var(--muted); font-size: 0.76rem; grid-column: 2; }
+  .boat .nm { grid-row: span 2; grid-column: 3; text-align: right; font-family: 'IBM Plex Mono', monospace; font-size: 0.8rem; }
+  .boat.done { background: #fffbea; }
+  #say { min-height: 6.2em; background: var(--navy); color: var(--cream); border-radius: 10px; padding: 11px 13px; font-size: 0.95rem; }
+  #say b { color: var(--brass-bright); }
+  .ctl { display: flex; flex-wrap: wrap; gap: 6px; }
+  button.btn { font: inherit; font-weight: 600; font-size: 0.86rem; border: 0; border-radius: 7px; padding: 8px 12px; cursor: pointer; background: var(--navy); color: var(--cream); }
+  button.btn.go { background: var(--brass); color: var(--navy); }
+  button.btn.alt { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+  button.btn[aria-pressed="true"] { background: var(--brass-bright); color: var(--navy); }
+  .legend { display: grid; grid-template-columns: 18px 1fr; gap: 5px 8px; font-size: 0.8rem; align-items: center; }
+  .legend i { width: 18px; height: 12px; border-radius: 3px; display: block; border: 1px solid rgba(27,42,51,0.25); }
+  .note { font-size: 0.76rem; color: var(--muted); }
+  @media (max-width: 760px) {
+    main { flex-direction: column; }
+    #mapbox { flex: none; height: 50vh; }
+    header p { font-size: 0.82rem; }
+    aside { width: auto; border-left: 0; border-top: 1px solid var(--line); }
+    header h1 { font-size: 1.2rem; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Three Boats, One Chart</h1>
+  <p>Same start, same finish, same tide. AutoRoute plots each boat her own course, because each one needs a different depth of water.</p>
+  <a href="./">← AudioChart for sailors</a>
+</header>
+<main>
+  <div id="mapbox">
+    <svg id="map" aria-label="Chart of Jericho Bay, from Brooklin to Stonington, with three routes"></svg>
+    <div id="zoomctl"><button id="zin" title="Zoom in">+</button><button id="zout" title="Zoom out">−</button><button id="zfit" title="Whole trip" style="font-size:0.8rem">⤢</button></div>
+    <div id="clock">Brooklin · 0:00</div>
+    <div id="results" role="dialog" aria-label="Race results"></div>
+  </div>
+  <aside>
+    <div class="tide">Brooklin → Stonington · tide 1.6 ft above low water · each boat keeps 3 ft under her keel</div>
+    <div class="crew" id="crew"></div>
+    <div id="say" aria-live="polite">Press <b>Plot &amp; race</b>. AutoRoute plots each boat's course, then they race it.</div>
+    <div class="ctl">
+      <button class="btn go" id="play">▶ Plot &amp; race</button>
+      <button class="btn alt" id="speed" title="Race speed">1×</button>
+      <button class="btn alt" id="all" aria-pressed="false" title="Show all three routes now">Show all routes</button>
+      <button class="btn alt" id="replay">↺</button>
+    </div>
+    <div class="legend">
+      <i style="background:var(--b0)"></i><span>Too shallow for all three</span>
+      <i style="background:var(--b1)"></i><span>Charted 6 ft: Sea Nymph only</span>
+      <i style="background:var(--b2)"></i><span>Charted 12 ft: Sea Nymph and Bowdoin, not Angelique</span>
+    </div>
+    <p class="note">These are the app's real routes for the three drafts, from its own router and NOAA chart data, at the tide shown. Depths are charted depths at low water. Drag to pan, scroll or pinch to zoom.</p>
+  </aside>
+</main>
+<script>
+(async () => {
+const D = await (await fetch('assets/three-boats.json')).json();
+const NS = 'http://www.w3.org/2000/svg', svg = document.getElementById('map'), box = document.getElementById('mapbox');
+const [W, S, E, N] = D.bbox, K = Math.cos(44.2 * Math.PI / 180), SC = 1000;   // 1000 units per degree of latitude
+const X = lon => (lon - W) * K * SC, Y = lat => (N - lat) * SC;
+const nmBetween = (a, b) => Math.hypot((a[0] - b[0]) * K, a[1] - b[1]) * 60;
+const el = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); (parent || svg).appendChild(e); return e; };
+const path = rings => rings.map(r => 'M' + r.map(([x, y]) => X(x).toFixed(2) + ',' + Y(y).toFixed(2)).join('L') + 'Z').join('');
+
+const BOATS = [
+  { id: 'sea', name: 'Sea Nymph', what: 'Cape Dory 25D', draft: 3.5, c: getComputedStyle(document.documentElement).getPropertyValue('--sea').trim(), size: 1, masts: 1 },
+  { id: 'bow', name: 'Bowdoin', what: 'Arctic schooner, Castine', draft: 10, c: getComputedStyle(document.documentElement).getPropertyValue('--bow').trim(), size: 1.35, masts: 2 },
+  { id: 'ang', name: 'Angelique', what: 'Windjammer, Camden', draft: 11, c: getComputedStyle(document.documentElement).getPropertyValue('--ang').trim(), size: 1.45, masts: 2 },
+];
+for (const b of BOATS) {
+  b.pts = D.routes[b.id];
+  b.cum = [0]; for (let i = 1; i < b.pts.length; i++) b.cum.push(b.cum[i - 1] + nmBetween(b.pts[i - 1], b.pts[i]));
+  b.len = b.cum[b.cum.length - 1];
+}
+// where along her route (nm) one boat's line leaves another's, and comes back
+const distToLine = (p, L) => { let m = Infinity; for (let i = 1; i < L.length; i++) { const a = L[i - 1], c = L[i], ax = (a[0] - p[0]) * K, ay = a[1] - p[1], dx = (c[0] - a[0]) * K, dy = c[1] - a[1], t = Math.max(0, Math.min(1, -(ax * dx + ay * dy) / (dx * dx + dy * dy || 1e-12))); m = Math.min(m, Math.hypot(ax + dx * t, ay + dy * t) * 60); } return m; };
+function splitFrom(b, o) {
+  let out = null, back = null;
+  for (let s = 0; s <= b.len; s += 0.02) { const d = distToLine(at(b, s).p, o.pts); if (out === null && d > 0.06) out = s; if (out !== null && back === null && s > out + 0.3 && d < 0.03) back = s; }
+  return { out, back };
+}
+function at(b, s) {
+  s = Math.max(0, Math.min(b.len, s)); let i = 1; while (i < b.cum.length - 1 && b.cum[i] < s) i++;
+  const a = b.pts[i - 1], c = b.pts[i], f = (s - b.cum[i - 1]) / ((b.cum[i] - b.cum[i - 1]) || 1);
+  return { p: [a[0] + (c[0] - a[0]) * f, a[1] + (c[1] - a[1]) * f], i, hdg: Math.atan2((c[0] - a[0]) * K, c[1] - a[1]) * 180 / Math.PI };
+}
+const [sea, bow, ang] = BOATS;
+const seaSplit = splitFrom(sea, ang), bowSplit = splitFrom(bow, ang), angSplit = splitFrom(ang, bow);
+const backs = [seaSplit.back, bowSplit.back, angSplit.back].filter(x => x != null), rejoin = backs.length ? Math.max(...backs) : null;   // all on one line again
+
+// ── the chart ──
+const gLand = el('g'), gZones = el('g'), gLbl = el('g'), gRoutes = el('g'), gBoats = el('g');
+for (const rr of D.land) el('path', { d: path(rr), class: 'land' }, gLand);   // outline and its holes (ponds)
+const zoneEls = D.zones.map(z => { const e = el('path', { d: path(z.rr), class: 'zone z' + z.b }, gZones); const xs = z.rr[0].map(p => p[0]), ys = z.rr[0].map(p => p[1]); return { z, e, bb: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] }; });
+const LABELS = { 'Brooklin': 'town', 'Stonington': 'town', 'Deer Isle': '', 'Jericho Bay': 'sea', 'Eggemoggin Reach': 'sea', 'Deer Island Thorofare': 'sea', 'Smuttynose Island': '', 'Eastern Mark Island': '', 'Grog Island': '', 'Russ Island': '', 'Mahoney Island': '', 'Naskeag Point': '', 'Swans Island Head': '', 'Scott Island': '', 'Southeast Harbor': 'sea', 'Shabby Island': '', 'Flye Island': '' };
+const labelEls = [];
+for (const p of D.places) if (p.n in LABELS && !labelEls.some(l => l.n === p.n)) {
+  const t = el('text', { x: X(p.p[0]), y: Y(p.p[1]), class: 'lbl ' + LABELS[p.n], 'text-anchor': 'middle' }, gLbl); t.textContent = p.n; labelEls.push({ n: p.n, t, big: LABELS[p.n] === 'town' });
+}
+for (const b of BOATS) {
+  // widths step down Sea Nymph → Bowdoin → Angelique, drawn in that order, so where they share a line all three show
+  const w = [7, 4.5, 2][BOATS.indexOf(b)];
+  b.ghost = el('path', { d: 'M' + b.pts.map(p => X(p[0]) + ',' + Y(p[1])).join('L'), class: 'route ghost', stroke: b.c, 'stroke-width': w * 0.6 }, gRoutes);
+  b.trail = el('polyline', { class: 'route trail', stroke: b.c, 'stroke-width': w, points: '' }, gRoutes);
+  b.ghost.style.display = 'none';
+}
+const startPin = el('circle', { cx: X(sea.pts[0][0]), cy: Y(sea.pts[0][1]), r: 3, class: 'pin' }, gRoutes);
+const endP = sea.pts[sea.pts.length - 1]; el('circle', { cx: X(endP[0]), cy: Y(endP[1]), r: 3, class: 'pin' }, gRoutes);
+// a little boat: hull and sails from above-and-astern, pointing up (north) before it's turned
+function boatShape(b, g) {
+  el('path', { d: 'M0,-9 C4,-5 4.5,3 3,8 L-3,8 C-4.5,3 -4,-5 0,-9Z', fill: '#fdfaf2', stroke: b.c, 'stroke-width': 1.6 }, g);
+  if (b.masts === 1) el('path', { d: 'M0,-6 L0,6 L7,5Z', fill: b.c, opacity: 0.9 }, g);
+  else { el('path', { d: 'M0,-7 L0,0 L6,-1Z', fill: b.c, opacity: 0.9 }, g); el('path', { d: 'M0,0 L0,7 L7,6Z', fill: b.c, opacity: 0.9 }, g); }
+}
+for (const b of BOATS) { b.g = el('g', {}, gBoats); b.inner = el('g', {}, b.g); boatShape(b, b.inner); b.g.style.display = 'none'; }
+
+// ── crew cards ──
+const crew = document.getElementById('crew');
+for (const b of BOATS) {
+  const d = document.createElement('div'); d.className = 'boat'; d.style.setProperty('--c', b.c);
+  const icon = document.createElementNS(NS, 'svg'); icon.setAttribute('viewBox', '-10 -10 20 20'); icon.setAttribute('width', 28); icon.setAttribute('height', 28);
+  const ig = document.createElementNS(NS, 'g'); ig.setAttribute('transform', 'rotate(45)'); icon.appendChild(ig);
+  const keep = svg; boatShape(b, ig);
+  d.append(icon);
+  d.insertAdjacentHTML('beforeend', `<b>${b.name}</b><span class="nm">${b.len.toFixed(1)} nm</span><small>${b.what} · draws ${b.draft} ft</small>`);
+  crew.appendChild(d); b.card = d; b.nmEl = d.querySelector('.nm');
+}
+
+// ── view: pan and zoom by viewBox ──
+const full = { x: X(W), y: Y(N), w: X(E) - X(W), h: Y(S) - Y(N) };
+let vb = { ...full };
+function fitTo(bb, pad = 0.12) {
+  const r = box.getBoundingClientRect(), aspect = r.width / Math.max(1, r.height);
+  let w = (bb[2] - bb[0]) * (1 + pad * 2), h = (bb[3] - bb[1]) * (1 + pad * 2);
+  if (w / h < aspect) w = h * aspect; else h = w / aspect;
+  vb = { x: (bb[0] + bb[2]) / 2 - w / 2, y: (bb[1] + bb[3]) / 2 - h / 2, w, h }; applyView();
+}
+const tripBB = (() => { const xs = BOATS.flatMap(b => b.pts.map(p => X(p[0]))), ys = BOATS.flatMap(b => b.pts.map(p => Y(p[1]))); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]; })();
+function applyView() {
+  svg.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
+  const r = box.getBoundingClientRect(), u = vb.w / Math.max(1, r.width);   // svg units per screen pixel
+  for (const l of labelEls) { l.t.setAttribute('font-size', (l.big ? 14 : 11) * u); l.t.setAttribute('stroke-width', 3 * u); }
+  for (const b of BOATS) b.scale = u * 1.5 * b.size;
+  startPin.setAttribute('r', 4 * u); svg.querySelectorAll('.pin').forEach(p => p.setAttribute('r', 4 * u));
+  placeBoats(); placeBubbles();
+}
+function zoomAt(f, cx, cy) {   // cx, cy: screen px within the map
+  const r = box.getBoundingClientRect(), px = vb.x + vb.w * cx / r.width, py = vb.y + vb.h * cy / r.height;
+  const w = Math.max(full.w / 40, Math.min(full.w * 1.6, vb.w / f)), k = w / vb.w;
+  vb = { x: px - (px - vb.x) * k, y: py - (py - vb.y) * k, w, h: vb.h * k }; applyView();
+}
+box.addEventListener('wheel', e => { e.preventDefault(); const r = box.getBoundingClientRect(); zoomAt(Math.exp(-e.deltaY * 0.0015), e.clientX - r.left, e.clientY - r.top); }, { passive: false });
+const ptrs = new Map(); let pinch = 0;
+box.addEventListener('pointerdown', e => { if (e.target.closest('button, #results')) return; box.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, [e.clientX, e.clientY]); box.classList.add('drag'); });
+box.addEventListener('pointermove', e => {
+  if (!ptrs.has(e.pointerId)) return;
+  const prev = ptrs.get(e.pointerId); ptrs.set(e.pointerId, [e.clientX, e.clientY]);
+  const r = box.getBoundingClientRect();
+  if (ptrs.size === 2) {
+    const [a, b] = [...ptrs.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]);
+    if (pinch) zoomAt(d / pinch, (a[0] + b[0]) / 2 - r.left, (a[1] + b[1]) / 2 - r.top); pinch = d; return;
+  }
+  vb.x -= (e.clientX - prev[0]) * vb.w / r.width; vb.y -= (e.clientY - prev[1]) * vb.h / r.height; applyView();
+});
+const up = e => { ptrs.delete(e.pointerId); pinch = 0; if (!ptrs.size) box.classList.remove('drag'); };
+box.addEventListener('pointerup', up); box.addEventListener('pointercancel', up);
+document.getElementById('zin').onclick = () => { const r = box.getBoundingClientRect(); zoomAt(1.5, r.width / 2, r.height / 2); };
+document.getElementById('zout').onclick = () => { const r = box.getBoundingClientRect(); zoomAt(1 / 1.5, r.width / 2, r.height / 2); };
+document.getElementById('zfit').onclick = () => fitTo(tripBB);
+addEventListener('resize', () => fitTo([vb.x, vb.y, vb.x + vb.w, vb.y + vb.h], 0));
+
+// ── speech bubbles over the boats ──
+const bubbles = [];
+function bubble(b, html, secs = 4.5) {
+  for (const x of bubbles.filter(x => x.b === b)) x.el.remove();
+  const e = document.createElement('div'); e.className = 'bubble'; e.style.color = b.c; e.innerHTML = `<span>${html}</span>`; box.appendChild(e);
+  const x = { b, el: e, until: performance.now() + secs * 1000 }; bubbles.push(x); placeBubbles();
+}
+function placeBubbles() {
+  const now = performance.now(), r = box.getBoundingClientRect();
+  for (let i = bubbles.length - 1; i >= 0; i--) {
+    const x = bubbles[i]; if (now > x.until) { x.el.remove(); bubbles.splice(i, 1); continue; }
+    const p = at(x.b, x.b.s || 0).p;
+    x.sx = (X(p[0]) - vb.x) / vb.w * r.width; x.sy = (Y(p[1]) - vb.y) / vb.h * r.height;
+  }
+  // boats in the same spot: their bubbles stack upwards instead of covering each other
+  bubbles.forEach((x, i) => {
+    const lift = bubbles.slice(0, i).filter(o => Math.abs(o.sx - x.sx) < 90 && Math.abs(o.sy - x.sy) < 40).length;
+    const half = x.el.offsetWidth / 2 + 6;   // kept inside the map, the tail still roughly over her
+    x.el.style.left = Math.max(half, Math.min(r.width - half, x.sx)) + 'px'; x.el.style.top = Math.max(x.el.offsetHeight + 28, x.sy - lift * 40) + 'px';
+  });
+}
+function placeBoats() {
+  for (const b of BOATS) { const q = at(b, b.s || 0); b.g.setAttribute('transform', `translate(${X(q.p[0])},${Y(q.p[1])}) rotate(${q.hdg}) scale(${b.scale || 1})`); }
+}
+const say = html => { document.getElementById('say').innerHTML = html; };
+
+// ── the show ──
+const KN = 6, BASE_NM_PER_S = 0.25;   // 1×: a mile every 4 s, so the race runs about 50 s
+let speed = 1, playing = false, phase = 'idle', d = 0, last = 0, events = [], plotT = 0, plotIdx = 0, finished = [];
+const fmtT = nm => { const m = Math.round(nm / KN * 60); return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`; };
+function flashZones(b, bands) {   // the depth areas near her, of the given bands
+  const p = at(b, b.s).p, R = 0.012;
+  for (const z of zoneEls) if (bands.includes(z.z.b) && z.bb[0] < p[0] + R && z.bb[2] > p[0] - R && z.bb[1] < p[1] + R && z.bb[3] > p[1] - R) { z.e.classList.remove('flash'); void z.e.getBoundingClientRect(); z.e.classList.add('flash'); }
+}
+const PLOT = [
+  { b: sea, text: `<b>AutoRoute for Sea Nymph</b>, a Cape Dory 25D. 3½ ft of draft plus 3 ft to spare: at this tide she can sail over anything charted 6 ft or deeper.` },
+  { b: bow, text: `<b>AutoRoute for Bowdoin</b>, Maine Maritime Academy's Arctic schooner. She draws 10 ft, so every 6-foot patch (the gold ones) is off limits.` },
+  { b: ang, text: `<b>AutoRoute for Angelique</b>, the Camden windjammer. One more foot of keel, and the 12-foot patches (purple) go on her no-go list too.` },
+];
+function reset() {
+  playing = false; phase = 'idle'; d = 0; plotIdx = 0; plotT = 0; finished = [];
+  for (const b of BOATS) { b.s = 0; b.trail.setAttribute('points', ''); b.ghost.style.display = 'none'; b.ghost.style.strokeDashoffset = ''; b.g.style.display = 'none'; b.card.classList.remove('done'); b.nmEl.textContent = b.len.toFixed(1) + ' nm'; }
+  for (const x of bubbles.splice(0)) x.el.remove();
+  document.getElementById('results').classList.remove('show');
+  document.getElementById('play').textContent = '▶ Plot & race';
+  document.getElementById('all').setAttribute('aria-pressed', 'false');
+  document.getElementById('clock').textContent = 'Brooklin · 0:00';
+  events = [
+    { s: 0.05, who: null, run: () => { say(`<b>And they're off!</b> An even 6 knots for everyone, so the shortest route wins. 12 miles to Stonington.`); for (const b of BOATS) bubble(b, ['Ready!', 'Hands to the halyards!', 'Let her go!'][BOATS.indexOf(b)], 2.5); } },
+    seaSplit.out != null && { s: seaSplit.out + 0.1, who: sea, run: () => { say(`<b>Sea Nymph ducks inside!</b> Past Smuttynose Island and straight over the shallows: a charted 6 ft is 7.6 ft at this tide, and she only needs 6½.`); bubble(sea, 'Shortcut! 🙂'); flashZones(sea, [1, 2]); } },
+    seaSplit.out != null && { s: seaSplit.out + 0.25, who: ang, run: () => bubble(ang, 'Not with 11 ft of keel, thanks.') },
+    seaSplit.out != null && { s: seaSplit.out + 0.4, who: bow, run: () => bubble(bow, 'Too thin for me too!') },
+    bowSplit.out != null && { s: bowSplit.out + 0.1, who: bow, run: () => { say(`<b>The big two part company.</b> Angelique's extra foot of draft puts more 12-foot patches out of bounds, so AutoRoute finds her a different line through Jericho Bay.`); bubble(bow, 'This way!'); bubble(ang, 'I\'ll keep to deeper water.'); } },
+    rejoin != null && { s: rejoin, who: sea, run: () => { say(`<b>All three back on one line</b> for the run down to Stonington. Sea Nymph's shortcut has her ahead.`); bubble(sea, 'Room for one more?'); } },
+  ].filter(Boolean).sort((a, b) => a.s - b.s);
+}
+function setAll(on) {
+  document.getElementById('all').setAttribute('aria-pressed', String(on));
+  for (const b of BOATS) { b.ghost.style.display = on || phase !== 'idle' ? '' : 'none'; b.ghost.style.strokeDasharray = ''; b.ghost.style.strokeDashoffset = ''; }
+  if (on) say(`<b>All three routes</b>, one chart: <span style="color:#8fc2ee">Sea Nymph</span> ${sea.len.toFixed(2)} nm, <span style="color:#7fd1a6">Bowdoin</span> ${bow.len.toFixed(2)} nm, <span style="color:#f19a85">Angelique</span> ${ang.len.toFixed(2)} nm. Same tide, same chart, three different answers.`);
+}
+function showResults() {
+  const order = [...BOATS].sort((a, b) => a.len - b.len), lead = order[0];
+  const res = document.getElementById('results');
+  res.innerHTML = `<h2>Stonington! 🏁</h2><ol>${order.map((b, i) => `<li><b style="color:${b.c}">${b.name}</b>: ${b.len.toFixed(2)} nm, ${fmtT(b.len)}${i ? ` (+${Math.round((b.len - lead.len) / KN * 60)} min)` : ' 🏆'}</li>`).join('')}</ol>
+    <p>At an even 6 knots, the boat that can go where the others can't wins. In real life Angelique is longer and faster, but she still has to take the long way round.</p>
+    <p>AudioChart plots for the boat you choose in <b>Your boat</b>, at the tide when you plan.</p>
+    <button class="btn go" id="again">↺ Race again</button> <button class="btn alt" id="close">See the routes</button>`;
+  res.classList.add('show');
+  res.querySelector('#again').onclick = () => { reset(); start(); };
+  res.querySelector('#close').onclick = () => { res.classList.remove('show'); setAll(true); fitTo(tripBB); };
+}
+function start() {
+  if (phase === 'done') reset();
+  playing = true; if (phase === 'idle') { phase = 'plot'; plotIdx = 0; plotT = 0; fitTo(tripBB); }
+  document.getElementById('play').textContent = '❚❚ Pause'; last = performance.now(); requestAnimationFrame(tick);
+}
+function tick(now) {
+  if (!playing) return;
+  const dt = Math.min(0.1, (now - last) / 1000) * speed; last = now;
+  if (phase === 'plot') {
+    const P = PLOT[plotIdx], g = P.b.ghost, L = g.getTotalLength();
+    if (plotT === 0) { say(P.text); g.style.display = ''; g.style.strokeDasharray = `${L} ${L}`; P.b.g.style.display = ''; P.b.s = 0; }
+    plotT += dt / 3.2;   // each route draws in a bit over 3 s, then a pause to read
+    g.style.strokeDashoffset = String(L * (1 - Math.min(1, plotT)));
+    if (plotT >= 1.9) { g.style.strokeDasharray = ''; g.style.strokeDashoffset = ''; g.style.strokeDasharray = '7 5'; plotIdx++; plotT = 0;
+      if (plotIdx >= PLOT.length) { phase = 'race'; d = 0; say(`<b>Three boats, three routes.</b> Now let's race them.`); } }
+  } else if (phase === 'race') {
+    d += BASE_NM_PER_S * dt;
+    for (const b of BOATS) {
+      b.s = Math.min(b.len, d);
+      const q = at(b, b.s); b.trail.setAttribute('points', [...b.pts.slice(0, q.i), q.p].map(p => X(p[0]) + ',' + Y(p[1])).join(' '));
+      if (b.s >= b.len && !finished.includes(b)) {
+        finished.push(b); b.card.classList.add('done'); const place = finished.length;
+        bubble(b, place === 1 ? 'First in! 🏆' : place === 2 ? 'Second, and dry!' : 'Made it. Long way, deep water.', 3.5);
+      }
+      b.nmEl.textContent = `${b.s.toFixed(1)} / ${b.len.toFixed(1)} nm`;
+    }
+    while (events.length && d >= events[0].s) events.shift().run();
+    document.getElementById('clock').textContent = `${finished.length === BOATS.length ? 'Stonington' : 'Jericho Bay'} · ${fmtT(Math.min(d, Math.max(...BOATS.map(b => b.len))))}`;
+    if (finished.length === BOATS.length) { phase = 'done'; playing = false; const w = [...BOATS].sort((x, y) => x.len - y.len)[0]; say(`<b>${w.name} takes it!</b> The boat that needs the least water gets the shortest route.`); document.getElementById('play').textContent = '▶ Plot & race'; setTimeout(showResults, 1600); }
+  }
+  placeBoats(); placeBubbles();
+  if (playing) requestAnimationFrame(tick);
+}
+document.getElementById('play').onclick = () => { if (playing) { playing = false; document.getElementById('play').textContent = '▶ Resume'; } else start(); };
+document.getElementById('replay').onclick = () => { reset(); start(); };
+document.getElementById('speed').onclick = e => { speed = speed === 1 ? 2 : speed === 2 ? 4 : 1; e.target.textContent = speed + '×'; };
+document.getElementById('all').onclick = e => { const on = e.target.getAttribute('aria-pressed') !== 'true'; setAll(on); if (!on && phase === 'idle') for (const b of BOATS) b.ghost.style.display = 'none'; };
+setInterval(placeBubbles, 250);   // expire bubbles while paused too
+reset(); fitTo(tripBB);
+window.__threeBoats = { BOATS, seaSplit, bowSplit, angSplit, start, reset, setAll, showResults, get d() { return d; }, set speed(v) { speed = v; }, jump(nm) { phase = 'race'; d = nm; events = events.filter(e => e.s > nm - 0.5); for (const b of BOATS) { b.ghost.style.display = ''; b.ghost.style.strokeDasharray = '7 5'; b.g.style.display = ''; } } };   // testing hooks
+})();
+</script>
+</body>
+</html>

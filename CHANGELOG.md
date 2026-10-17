@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-10-17 — Three Boats, One Chart (v924)
+
+Requested: "Create a demo that shows how the plotted route is different, depending on the boat. Make it
+entertaining, and if possible, show all routes on the same screen." New page sailors/three-boats.html, linked
+from the sailors page's demo section. Brooklin → Stonington, AutoRouted by the app's own router for Sea Nymph
+(3.5 ft), Bowdoin (10 ft) and Angelique (11 ft) at a tide of +0.5 m (at low water Bowdoin and Angelique get the
+same route: the charted depth areas step 6 ft → 12 ft). Act one draws each boat's route in turn on one chart, the
+depth areas shaded by who must keep out of them; act two races them at an even 6 kn with commentary and speech
+bubbles where the routes split (Sea Nymph inside past Smuttynose Island, then the big two through Jericho Bay),
+and a results card (12.18 / 12.34 / 12.52 nm). "Show all routes" shows all three at any time; pan, zoom and pinch.
+Data (assets/three-boats.json, 540 KB): the routes from test/_scratch_drafts3.js, the router's own depth areas
+(Query.getDepthZones, with holes) and land.geojson, clipped to the trip.
+
 ## 2026-10-17 — Bigger corner chart; no rigging in the binoculars (v923)
 
 Requested: "make the overview map 4 times as big, but of course, shrinkable". The helm view's corner chart is
