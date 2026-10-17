@@ -294,7 +294,7 @@ getJSON(`${regionDir}/hazards.geojson`).then(fc => {
   depthZones = fc.features.filter(f => f.properties?.label === 'shallow area' && f.geometry?.type !== 'Point');
   wildlifeLedges = ledgesFrom(fc, wx, wz); wildlife?.setLedges(wildlifeLedges);
 }).catch(() => {});
-const DRAFT_FT = (() => { let v = NaN; try { v = parseFloat(localStorage.getItem('audiochart-draft-ft')); } catch (_) {} return v > 0 ? v : 5; })();
+const DRAFT_FT = (() => { let v = NaN; try { v = parseFloat(JSON.parse(localStorage.getItem('audiochart-boat-drafts') || '{}')[BOAT_TYPE]); if (!(v > 0)) v = parseFloat(localStorage.getItem('audiochart-draft-ft')); } catch (_) {} return v > 0 ? v : 5; })();   // this boat's draft (v920: each boat's own, set in AudioChart's Objects panel)
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
 renderer.setPixelRatio(Math.min(1.25, devicePixelRatio));

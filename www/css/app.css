@@ -2237,7 +2237,13 @@ body.wco-active #wco-titlebar { display: flex; }
   border-top: 1px solid var(--mid-blue);
   margin: 6px 0;
 }
-#nf-draft-ft, #nf-route-timeout-s {
+/* Your boat · draft (v920): one row per boat, a radio for the one you're sailing and her draft */
+#nf-boats { display: grid; grid-template-columns: auto 1fr 40px; align-items: center; gap: 4px 6px; font-size: 0.75rem; line-height: 1.15; }
+#nf-boats .nf-sub-heading { grid-column: 1 / -1; }
+#navaid-filter-panel #nf-boats .nf-boat-row { display: contents; }
+#navaid-filter-panel #nf-boats .nf-boat-row input[type=number] { width: 40px; box-sizing: border-box; }
+#nf-boats .nf-boat-row input[type=radio] { margin: 0; accent-color: var(--accent); }
+#nf-draft-ft, #nf-route-timeout-s, #nf-boats input[type=number] {
   width: 52px;
   background: var(--mid-blue);
   border: 1px solid var(--mid-blue);

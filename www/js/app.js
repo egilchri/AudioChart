@@ -10323,9 +10323,40 @@ function _ensureMap() {
   const _timeoutInput   = document.getElementById('nf-route-timeout-s');
   _depthSettings.style.display = _depthCheckbox.checked ? '' : 'none';
 
-  // Restore saved draft
-  const _savedDraft = localStorage.getItem('audiochart-draft-ft');
-  if (_savedDraft) _draftInput.value = _savedDraft;
+  // Your boat · draft (v920, requested: "I need a place to specify for each boat, what its draft is"): a row
+  // per boat (the ones the 3D views can show), each with her draft, and a radio for the one you're sailing.
+  // Hers is the draft everything uses: it goes into #nf-draft-ft (now hidden), which AutoRoute, the shallow
+  // warnings and the depth overlay already read, and into 'audiochart-draft-ft' for the 3D views. The choice
+  // of boat is 'audiochart-boat', shared with the 3D views (their boat button changes it too). Drafts start
+  // from the boats' real ones; Sea Nymph's from the single draft set before, if there was one.
+  const BOATS_DRAFT_KEY = 'audiochart-boat-drafts';
+  const BOAT_LIST = [['cd25', 'Sea Nymph', 'Cape Dory 25D', 3.5], ['angelique', 'Angelique', 'gaff topsail ketch, Camden', 11], ['bowdoin', 'Bowdoin', 'Arctic schooner, Castine', 10]];
+  let _boatDrafts = {};
+  try { _boatDrafts = JSON.parse(localStorage.getItem(BOATS_DRAFT_KEY) || '{}') || {}; } catch (_) {}
+  { const old = parseFloat(localStorage.getItem('audiochart-draft-ft') || ''); for (const [id, , , d] of BOAT_LIST) if (!(_boatDrafts[id] > 0)) _boatDrafts[id] = id === 'cd25' && old > 0 ? old : d; }
+  const _activeBoat = () => { let b = null; try { b = localStorage.getItem('audiochart-boat'); } catch (_) {} return BOAT_LIST.some(x => x[0] === b) ? b : 'cd25'; };
+  const _applyBoatDraft = (refresh = true) => {
+    _draftInput.value = String(_boatDrafts[_activeBoat()]);
+    try { localStorage.setItem(BOATS_DRAFT_KEY, JSON.stringify(_boatDrafts)); localStorage.setItem('audiochart-draft-ft', _draftInput.value); } catch (_) {}
+    if (refresh && _depthCheckbox.checked) _refreshNavaidOverlay();
+  };
+  const box = document.getElementById('nf-boats');
+  if (box) {   // (a stale cached page without the rows keeps its single draft box)
+    for (const [id, name, what] of BOAT_LIST) {
+      const row = document.createElement('label'); row.className = 'nf-boat-row'; row.title = `${name}, ${what}`;
+      row.innerHTML = `<input type="radio" name="nf-boat" value="${id}"><span class="nf-boat-name"></span><input type="number" min="0" max="30" step="0.5" aria-label="${name}'s draft in feet">`;
+      row.querySelector('.nf-boat-name').textContent = name;
+      const radio = row.querySelector('input[type=radio]'), num = row.querySelector('input[type=number]');
+      num.value = String(_boatDrafts[id]);
+      radio.addEventListener('change', () => { if (!radio.checked) return; try { localStorage.setItem('audiochart-boat', id); } catch (_) {} _applyBoatDraft(); });
+      num.addEventListener('input', () => { const v = parseFloat(num.value); if (v > 0) { _boatDrafts[id] = v; _applyBoatDraft(); } });
+      box.appendChild(row);
+    }
+    const syncRadios = () => { for (const r of box.querySelectorAll('input[type=radio]')) r.checked = r.value === _activeBoat(); };
+    syncRadios(); _applyBoatDraft(false);
+    // a 3D view's boat button changed boats (it's in a frame of this page, so this page hears of it)
+    addEventListener('storage', e => { if (e.key === 'audiochart-boat') { syncRadios(); _applyBoatDraft(); } });
+  }
 
   // Restore saved comfortable-clearance margin (v722 default: 3ft — see
   // Query.COMFORTABLE_CLEARANCE_M)
@@ -10359,10 +10390,6 @@ function _ensureMap() {
     _refreshSoundingsLayer();
   });
 
-  _draftInput.addEventListener('input', () => {
-    localStorage.setItem('audiochart-draft-ft', _draftInput.value);
-    if (_depthCheckbox.checked) _refreshNavaidOverlay();
-  });
 
   _comfortInput.addEventListener('input', () => {
     localStorage.setItem('audiochart-comfort-margin-ft', _comfortInput.value);

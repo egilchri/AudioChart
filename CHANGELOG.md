@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-17 — Each boat's draft (v920)
+
+Requested: "I need a place to specify for each boat, what its draft is". The Objects panel's single "Boat
+draft" box is now "Your boat · draft (ft)": a row for each boat — Sea Nymph (the Cape Dory 25D), Angelique,
+Bowdoin — with her draft, and a radio for the one you're sailing. Drafts start at 3.5 ft (or the draft set
+before, for Sea Nymph), 11 ft and 10 ft, and are remembered (`audiochart-boat-drafts`). The chosen boat's
+draft is what AutoRoute/Re-route, the shallow-water warnings and the depth overlay use (it still feeds the
+now-hidden #nf-draft-ft they read), and the choice is the same `audiochart-boat` the 3D views use: pick a
+boat here and the 3D views show her; change boats with a 3D view's boat button and the panel and the routing
+draft follow. The helm view's depth sounder alarms against that boat's own draft.
+
 ## 2026-10-16 — The schooner Bowdoin, her crow's nest; Bird's-eye stays put (v919)
 
 Requested: "add the schooner Bowdoin, currently owned by Maine Maritime Academy, to the fleet, please give it
