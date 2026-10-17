@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-10-17 — Routes remember their boat (v921)
+
+AutoRoute plans for the boat chosen beforehand (Your boat, or a 3D view's boat button), and now says so: the
+"tap the map for the destination" banner and the destination prompts end with e.g. "for Sea Nymph · 3.5 ft".
+Each planned route (AutoRoute, Draw Route, Sketch → AutoRoute) is stamped `plannedFor {boat, draftFt, stops}`.
+Opening it in the editor, starting a Virtual Journey or following it aboard a deeper boat than that (or after
+her draft was raised), and changing to a deeper boat while one of those is open, brings up "planned for Sea
+Nymph (3.5 ft). Angelique draws 11 ft." with Re-route for Angelique / Keep it (once per route per boat). A
+shallower boat needs nothing. Re-route plans the whole route again through its start, via stops, overnight
+stops and end, and saves it only if every leg found a passage; otherwise the route is kept as it was. A
+partial re-plan in the editor (Nudge, overnight stop, next leg) keeps the shallower of the two drafts, since
+the route is only as safe as its shallowest-planned part; Re-route of the whole route restamps it; Undo and
+Revert restore the stamp with the points. Hand-sketched routes carry no stamp. The plan is for the tide at the
+time of planning, as before.
+
 ## 2026-10-17 — Each boat's draft (v920)
 
 Requested: "I need a place to specify for each boat, what its draft is". The Objects panel's single "Boat

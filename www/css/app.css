@@ -1963,7 +1963,7 @@ body.wco-active #wco-titlebar { display: flex; }
    silently buried behind one. Unlike those two, the whole backdrop (not
    just an explicit close control) dismisses it — this is a pure notice,
    nothing to choose, so "tap anywhere to dismiss" is the whole interaction. */
-#coverage-alert-overlay {
+#coverage-alert-overlay, #boat-plan-overlay {
   position: fixed;
   inset: 0;
   z-index: 3000;
@@ -1973,8 +1973,8 @@ body.wco-active #wco-titlebar { display: flex; }
   justify-content: center;
   cursor: pointer;
 }
-#coverage-alert-overlay.open { display: flex; }
-#coverage-alert-panel {
+#coverage-alert-overlay.open, #boat-plan-overlay.open { display: flex; }
+#coverage-alert-panel, #boat-plan-panel {
   background: var(--dark-blue);
   border: 1px solid var(--mid-blue);
   border-radius: 10px;
@@ -1988,12 +1988,12 @@ body.wco-active #wco-titlebar { display: flex; }
   cursor: default;
   text-align: center;
 }
-#coverage-alert-text {
+#coverage-alert-text, #boat-plan-text {
   color: var(--text);
   font-size: 1rem;
   line-height: 1.4;
 }
-#coverage-alert-dismiss {
+#coverage-alert-dismiss, #boat-plan-reroute, #boat-plan-keep {
   background: var(--accent);
   color: var(--navy);
   border: none;
@@ -2003,6 +2003,9 @@ body.wco-active #wco-titlebar { display: flex; }
   font-weight: 700;
   cursor: pointer;
 }
+#boat-plan-overlay { cursor: default; }
+.boat-plan-btns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+#boat-plan-keep { background: transparent; color: var(--text); border: 1px solid var(--mid-blue); }
 
 /* Same modal tier/backdrop-dismiss convention as #coverage-alert-overlay
    just above, but the panel itself stops click propagation (see

@@ -1121,6 +1121,7 @@ let _editMode              = false;
 let _bay3dWrap = null, _bay3dLast = null;
 let _editRouteName         = null;
 let _editRouteIdx          = -1;
+let _editPlan              = null;  // the route's plannedFor as edited (v921); saved with it
 let _editPoints            = [];
 let _editVertexMarkers     = [];
 let _editSegmentLayers     = [];
@@ -1344,6 +1345,117 @@ function setStatus(msg) { statusEl.textContent = msg; }
 // input, shared by every real (non-debug) AutoRoute call site below.
 function _currentDraftFt() {
   return parseFloat(document.getElementById('nf-draft-ft')?.value) || 5.0;
+}
+
+// The boat AutoRoute plans for (v921): the one chosen beforehand in Your boat (or a 3D view's
+// boat button). Each planned route is stamped plannedFor {boat, draftFt, stops}; a route is only
+// as safe as the shallowest draft any part of it was planned for, so a partial re-plan keeps the
+// shallower stamp (_shallowerPlan). Routes made by hand (Sketch) carry no stamp: nothing planned them.
+const BOAT_NAMES = { cd25: 'Sea Nymph', angelique: 'Angelique', bowdoin: 'Bowdoin' };
+function _currentBoat() {
+  let b = null; try { b = localStorage.getItem('audiochart-boat'); } catch (_) {}
+  return BOAT_NAMES[b] ? b : 'cd25';
+}
+const _boatForLabel = () => `for ${BOAT_NAMES[_currentBoat()]} · ${_currentDraftFt()} ft`;
+// stops: the points it was told to go through (start, any via stops, end), kept so a re-plan for
+// another boat goes through them again.
+function _plannedFor(stops = null) {
+  const p = { boat: _currentBoat(), draftFt: _currentDraftFt() };
+  if (stops && stops.length > 2) p.stops = stops.map(s => ({ lat: s.lat, lon: s.lon }));
+  return p;
+}
+function _shallowerPlan(a, b) {
+  if (!a) return null;   // part of it was never planned for any boat
+  return b.draftFt < a.draftFt ? { ...b, stops: a.stops } : a;
+}
+// Opening or following a route aboard a deeper boat than it was planned for: say so, offer to
+// re-plan it for this one. A shallower boat needs nothing: what's deep enough for 11 ft is for 3.5.
+let _boatPlanWarned = '';
+function _checkRouteBoat(route, { force = false } = {}) {
+  const p = route?.plannedFor;
+  const draft = _currentDraftFt();
+  if (!p || !(draft > p.draftFt + 0.01)) return false;
+  const key = `${route.id}|${p.draftFt}|${draft}`;
+  if (!force && _boatPlanWarned === key) return true;   // once per route per boat, not on every open
+  _boatPlanWarned = key;
+  const now = BOAT_NAMES[_currentBoat()], was = BOAT_NAMES[p.boat] || 'another boat';
+  const same = now === was;   // her draft was changed since
+  const msg = same
+    ? `"${route.name}" was planned for ${now} at ${p.draftFt} ft. She's now set to ${draft} ft.`
+    : `"${route.name}" was planned for ${was} (${p.draftFt} ft). ${now} draws ${draft} ft.`;
+  const ov = document.getElementById('boat-plan-overlay');
+  setStatus(`${msg} Re-route?`);
+  TTS.sayImmediate(`${msg} Re-route?`);
+  if (!ov) return true;
+  document.getElementById('boat-plan-text').textContent = msg;
+  const go = document.getElementById('boat-plan-reroute');
+  go.textContent = `Re-route for ${now}`;
+  go.onclick = () => { ov.classList.remove('open'); _replanRouteForBoat(route.id); };
+  document.getElementById('boat-plan-keep').onclick = () => ov.classList.remove('open');
+  ov.classList.add('open');
+  return true;
+}
+// Plans the whole route again for the current boat, through its start, its via stops, its
+// overnight stops and its end, and saves it if every leg came through; otherwise keeps it as it was.
+// After a change of boat or draft: the route open in the editor, on a Virtual Journey or being followed.
+function _checkOpenRouteBoat() {
+  const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+  const id = _editMode ? routes[_editRouteIdx]?.id : (_vjRoute?.id || _followingRouteId);
+  const route = id && routes.find(r => r.id === id);
+  if (route) _checkRouteBoat(route);
+}
+async function _replanRouteForBoat(routeId) {
+  const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+  const idx = routes.findIndex(r => r.id === routeId);
+  const route = routes[idx];
+  if (!route || route.points.length < 2) return;
+  if (_editMode && _editRouteIdx === idx) _exitEditMode();
+  const pts = route.points;
+  const keep = new Set([0, pts.length - 1]);
+  pts.forEach((p, i) => { if (p.overnight) keep.add(i); });
+  for (const s of route.plannedFor?.stops || []) {   // the nearest point to each via stop, if still on the route
+    let best = -1, bd = 0.3;
+    pts.forEach((p, i) => { const d = Query.distanceNm(p.lon, p.lat, s.lon, s.lat); if (d < bd) { bd = d; best = i; } });
+    if (best >= 0) keep.add(best);
+  }
+  const stops = [...keep].sort((a, b) => a - b).map(i => _stripPoint(pts[i]));
+  const boat = BOAT_NAMES[_currentBoat()];
+  const ui = _map ? _showRerouteOverlay(stops) : null;
+  ui?.setText(`Re-routing for ${boat}…`);
+  let r;
+  try {
+    r = await _reRouteSegments(stops, ui?.update.bind(ui), ui?.setText.bind(ui), 'Re-route');
+  } catch (err) {
+    console.error('[replanRouteForBoat]', err);
+    r = { blocked: true };
+  } finally { ui?.remove(); }
+  if (r.blocked) return;
+  if (r.fallbackSegs.some(s => !s.tightClearance)) {
+    const msg = `Couldn't re-route "${route.name}" for ${boat}: part of the way has no passage deep enough. It's kept as it was.`;
+    setStatus(msg); TTS.sayImmediate(msg); _showCoverageAlert(msg);
+    return;
+  }
+  // overnight flags back onto the new points (each stop is a leg end, so it's in the result)
+  const out = r.points.map(_stripPoint);
+  for (const s of stops.filter(s => s.overnight)) {
+    let best = 0, bd = Infinity;
+    out.forEach((p, i) => { const d = Query.distanceNm(p.lon, p.lat, s.lon, s.lat); if (d < bd) { bd = d; best = i; } });
+    out[best].overnight = true;
+  }
+  const fresh = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
+  const at = fresh.findIndex(x => x.id === routeId);
+  if (at < 0) return;
+  fresh[at].points = out;
+  fresh[at].plannedFor = _plannedFor(route.plannedFor?.stops ? stops : null);
+  _touch(fresh[at]);
+  localStorage.setItem(ROUTE_KEY, JSON.stringify(fresh));
+  _refreshSavedRouteLayers?.();
+  _populateRouteSelectFn?.();
+  if (_vjRoute?.id === routeId) _startVirtualJourney(fresh[at], parseFloat(localStorage.getItem('audiochart-last-speed')) || 5);   // sail the new one
+  const nm = out.reduce((s, p, i) => i ? s + Query.distanceNm(out[i - 1].lon, out[i - 1].lat, p.lon, p.lat) : 0, 0);
+  const msg = `"${route.name}" re-routed for ${boat}: ${nm.toFixed(1)} nm.`;
+  setStatus(msg); TTS.sayImmediate(msg.replace(' nm.', ' nautical miles.'));
+  if (r.fallbackSegs.length) _showRouteFallbackWarning(r.fallbackSegs);
 }
 
 // Same pattern as _currentDraftFt — router.js takes the deadline as a
@@ -3223,6 +3335,7 @@ function _nudgeLegOffshore(routeIdx, h) {
       if (blocked) return; // _reRouteSegments already announced why
       _pushEditHistory();
       _editPoints.splice(legIndex, 2, ...sub);
+      _editPlan = _shallowerPlan(_editPlan, _plannedFor());
       _newVertexIdx = -1;
       _selectedEditNodeIdx.clear();
       _renderEditLayers();
@@ -3968,7 +4081,7 @@ async function _onDrawConfirm() {
     );
   });
   const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
-  routes.push(_stampNew({ name, points: pts.map(p => ({ lat: p.lat, lon: p.lon })) }));
+  routes.push(_stampNew({ name, points: pts.map(p => ({ lat: p.lat, lon: p.lon })), plannedFor: _plannedFor() }));
   localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
   _populateRouteSelectFn?.();
   // A fallback here (autoRoute gave up and returned the raw straight line)
@@ -4900,13 +5013,16 @@ async function _finishSketchAutoRoute() {
     let found;
     if (extIdx >= 0 && routes[extIdx]) {
       routes[extIdx].points = points;
+      // extending re-planned only the new part; extending a hand-made route leaves it unplanned
+      const plan = _shallowerPlan(routes[extIdx].plannedFor, _plannedFor());
+      if (plan) routes[extIdx].plannedFor = plan; else delete routes[extIdx].plannedFor;
       _touch(routes[extIdx]);
       localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
       _populateRouteSelectFn?.();
       found = _enterEditMode(extIdx);
     } else {
       const name = _nextRouteName();
-      routes.push(_stampNew({ name, points }));
+      routes.push(_stampNew({ name, points, plannedFor: _plannedFor(routePts) }));
       localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
       _populateRouteSelectFn?.();
       found = _enterEditMode(routes.length - 1);
@@ -4929,7 +5045,9 @@ document.getElementById('sketch-cancel-btn').addEventListener('click', _exitSket
 // ── Route edit mode ────────────────────────────────────────────────────────────
 
 function _pushEditHistory() {
-  _editHistory.push(_editPoints.map(_stripPoint));
+  const snap = _editPoints.map(_stripPoint);
+  snap.plan = _editPlan;   // undoing a re-plan undoes its stamp too
+  _editHistory.push(snap);
   document.getElementById('edit-undo-btn').style.display = '';
 }
 
@@ -5431,6 +5549,8 @@ function _enterEditMode(routeIdx, skipHazardCheck = false) {
   localStorage.setItem(EDITING_ROUTE_KEY, route.name);
   _editPoints = route.points.map(_stripPoint);
   _editOriginalPoints = route.points.map(_stripPoint);
+  _editPlan = route.plannedFor || null;
+  _checkRouteBoat(route);   // planned for a shallower boat? (v921; just planned = same draft, so silent)
   _deleteMode = false;
   _addNodeMode = false;
   _fixNodesMode = false;
@@ -5529,6 +5649,7 @@ function _saveEditedRoute() {
   const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
   if (!routes[_editRouteIdx]) { _exitEditMode(); return; }
   routes[_editRouteIdx].points = _editPoints.map(_stripPoint);
+  if (_editPlan) routes[_editRouteIdx].plannedFor = _editPlan; else delete routes[_editRouteIdx].plannedFor;
   _touch(routes[_editRouteIdx]);
   localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
   const name = _editRouteName || 'Route';
@@ -5550,6 +5671,7 @@ function _revertEditedRoute() {
   if (!_editOriginalPoints.length) return;
   _pushEditHistory();
   _editPoints = _editOriginalPoints.map(_stripPoint);
+  _editPlan = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]')[_editRouteIdx]?.plannedFor || null;
   _selectedEditNodeIdx.clear();
   _renderEditLayers();
   // Also re-write storage immediately — undoes any mid-session "add node"
@@ -5652,6 +5774,7 @@ _wptCopyBtn.addEventListener('click', () => {
 document.getElementById('edit-undo-btn').addEventListener('click', () => {
   if (_editHistory.length === 0) return;
   _editPoints = _editHistory.pop();
+  if ('plan' in _editPoints) _editPlan = _editPoints.plan;
   _newVertexIdx = -1;
   _selectedEditNodeIdx.clear();
   _renderEditLayers();
@@ -5918,6 +6041,7 @@ async function _rerouteAroundOvernight(idx) {
     const from = prev ? idx - 1 : idx;
     const to = next ? idx + 1 : idx;
     _editPoints.splice(from, to - from + 1, ...stretch);
+    _editPlan = _shallowerPlan(_editPlan, _plannedFor());
     _selectedEditNodeIdx.clear();
     _renderEditLayers();
     const found = _liveHazardCheck();
@@ -5968,7 +6092,7 @@ async function _promptNextLegAutoRoute(fromPoint, initialQuery = null) {
   let dest = null;
   let query = initialQuery;
   while (!dest) {
-    if (!query) query = await _showTextPrompt('Destination — place or waypoint name:');
+    if (!query) query = await _showTextPrompt(`Destination — place or waypoint name (${_boatForLabel()}):`);
     if (!query) return;
     // Saved markers by name first (TS003, SP001, AS005…), then places.
     const mk = _markerByName(query);
@@ -6002,6 +6126,7 @@ function _appendLegTo(fromPoint, destPt) {
       if (blocked) return;  // _reRouteSegments already announced why
       _pushEditHistory();  // its own undo step, separate from the overnight toggle
       _editPoints.push(...points.slice(1).map(_stripPoint));  // points[0] duplicates fromPoint
+      _editPlan = _shallowerPlan(_editPlan, _plannedFor());
       _selectedEditNodeIdx.clear();
       _renderEditLayers();
       // Show the whole new leg — a named destination is usually off screen.
@@ -7177,6 +7302,7 @@ function _startVirtualJourney(route, speedKnots) {
   }
   _stopVirtualJourney(); // supersede any journey already running
   _stopFreeSail(true);   // and Free Sailing (v890)
+  _checkRouteBoat(route);   // planned for a shallower boat? (v921)
 
   // Rehearsing "underway" is the whole point of Virtual Journey, so it
   // should look underway — force the switch on for the duration. Stopping
@@ -9866,6 +9992,7 @@ function _ensureMap() {
         btn.classList.remove('working');
         if (blocked) return;  // _reRouteSegments already announced why
         _editPoints = points;
+        _editPlan = _plannedFor();   // the whole route, planned for this boat
         _selectedEditNodeIdx.clear();  // re-routing regenerates the whole point list
         _renderEditLayers();
         const found = _liveHazardCheck();
@@ -10348,14 +10475,15 @@ function _ensureMap() {
       row.querySelector('.nf-boat-name').textContent = name;
       const radio = row.querySelector('input[type=radio]'), num = row.querySelector('input[type=number]');
       num.value = String(_boatDrafts[id]);
-      radio.addEventListener('change', () => { if (!radio.checked) return; try { localStorage.setItem('audiochart-boat', id); } catch (_) {} _applyBoatDraft(); });
+      radio.addEventListener('change', () => { if (!radio.checked) return; try { localStorage.setItem('audiochart-boat', id); } catch (_) {} _applyBoatDraft(); _checkOpenRouteBoat(); });
       num.addEventListener('input', () => { const v = parseFloat(num.value); if (v > 0) { _boatDrafts[id] = v; _applyBoatDraft(); } });
+      num.addEventListener('change', () => { if (id === _activeBoat()) _checkOpenRouteBoat(); });   // when the typing's done
       box.appendChild(row);
     }
     const syncRadios = () => { for (const r of box.querySelectorAll('input[type=radio]')) r.checked = r.value === _activeBoat(); };
     syncRadios(); _applyBoatDraft(false);
     // a 3D view's boat button changed boats (it's in a frame of this page, so this page hears of it)
-    addEventListener('storage', e => { if (e.key === 'audiochart-boat') { syncRadios(); _applyBoatDraft(); } });
+    addEventListener('storage', e => { if (e.key === 'audiochart-boat') { syncRadios(); _applyBoatDraft(); _checkOpenRouteBoat(); } });
   }
 
   // Restore saved comfortable-clearance margin (v722 default: 3ft — see
@@ -10851,7 +10979,7 @@ function _ensureMap() {
       idx === 0 ? 0 : sum + Query.distanceNm(pts[idx - 1].lon, pts[idx - 1].lat, p.lon, p.lat), 0);
 
     const routes = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]');
-    routes.push(_stampNew({ name, points: pts.map(p => ({ lat: p.lat, lon: p.lon })) }));
+    routes.push(_stampNew({ name, points: pts.map(p => ({ lat: p.lat, lon: p.lon })), plannedFor: _plannedFor(stops) }));
     localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
     const newIdx = routes.length - 1;
 
@@ -11006,7 +11134,7 @@ function _ensureMap() {
     // actually DO something (tap the map) rather than just be informed of
     // something. A persistent banner, same convention as Draw Route's own
     // step-by-step prompt, stays on screen until they act or cancel.
-    _routeDestBannerLabel.textContent = `Tap the map to set the destination for "${_autoRouteName}" — or tap Name to type it`;
+    _routeDestBannerLabel.textContent = `Tap the map to set the destination for "${_autoRouteName}" — or tap Name to type it · ${_boatForLabel()}`;
     _routeDestBanner.style.display = 'flex';
     // Tapping the map is the faster path, but it's easy to miss that typing
     // a name works too — flash the Name button a few times to draw the eye
@@ -11028,7 +11156,7 @@ function _ensureMap() {
     // browser/webview's dialog-spam protection on a quick repeat trigger,
     // which this button (re-armable via Cancel + Autoroute again) is just
     // as exposed to. Matches the pattern already fixed there.
-    const query = await _showTextPrompt('Destination — place or waypoint name (several: comma-separated, or a range like TS001-TS004):');
+    const query = await _showTextPrompt(`Destination — place or waypoint name (several: comma-separated, or a range like TS001-TS004) · ${_boatForLabel()}:`);
     if (!query) return;
     const dests = await _resolveDestinationList(query);
     if (!dests) return;
@@ -14595,6 +14723,7 @@ function _startFollowingRoute(route) {
   }
   const last = route.points?.[route.points.length - 1];
   if (!last) return;
+  _checkRouteBoat(route);   // planned for a shallower boat? (v921)
   _trackRecActive = true;
   _autoTrackEverStarted = true;
   _trackRecStartMs = Date.now();
