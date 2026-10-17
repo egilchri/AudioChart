@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-17 — Empty Bay's water level (v929)
+
+Requested: "add the water-level slider". Empty Bay's controls move to a box at the top centre (Depth, and now
+Water). Water runs from empty up through the seabed to sea level and 2 m over (about high water); its surface
+stands at the level, deepened by the Depth factor like the seabed. The slider is finer near the surface (level =
+2 − 112(1 − s/1000)²), where the shoals cover and uncover. ▲ Fill / ▼ Drain run it to sea level or empty over
+about 15 s, moving the slider evenly, so the sea runs up the deep holes fast and slows over the flats. It opens
+empty each time.
+
 ## 2026-10-17 — Empty Bay (v928)
 
 The user's idea: "Empty Bay map mode, which would allow a birdseye view, zoomable, of Penobscot Bay, with no water

@@ -67,6 +67,21 @@ const PLAIN = new THREE.MeshLambertMaterial({ color: 0x66735c });
 // Empty Bay's seabed: below sea level the photo gives way to a colour for the depth (wet mud and weed at the
 // tide line, sand, grey-green silt, slate, dark in the deep holes), darkened along every 10 m contour.
 const EXAG_U = { value: EXAG };
+const WATER_MIN = -110;   // Empty Bay's water level, m: at this it's empty (the bay's deepest is about −104)
+const WATER_MAX = 2;      // a little over sea level: about high water
+// The slider (0-1000) is finer near the surface, where the shoals and ledges cover and uncover: the level is
+// WATER_MAX less (WATER_MAX - WATER_MIN)(1 - s/1000)². Fill and Drain move the slider evenly, so the sea runs
+// up the deep holes fast and slows as it spreads over the flats.
+const levelAt = sv => WATER_MAX - (WATER_MAX - WATER_MIN) * (1 - sv / 1000) ** 2;
+const sliderAt = lvl => 1000 * (1 - Math.sqrt(clampNum((WATER_MAX - lvl) / (WATER_MAX - WATER_MIN), 0, 1)));
+let waterLevel = WATER_MIN, waterFill = 0, waterUI = () => {};   // waterFill: +1 filling, −1 draining
+function stepWater(dt) {
+  if (!waterFill) return;
+  const top = sliderAt(0), sv = clampNum(sliderAt(waterLevel) + waterFill * top / 15 * dt, 0, top);   // empty to sea level in about 15 s
+  waterLevel = levelAt(sv);
+  if (sv <= 0 || sv >= top) { waterLevel = sv <= 0 ? WATER_MIN : 0; waterFill = 0; }
+  waterUI();
+}
 function seabed(mat) {
   if (!EMPTY) return mat;
   mat.onBeforeCompile = sh => {
@@ -306,6 +321,20 @@ function remeshForExag() {
 }
 if (EMPTY) {
   const box = document.getElementById('exagbox'), inp = document.getElementById('exag'), out = document.getElementById('exagval');
+  // Water level (v929, requested): let the sea back in, from empty to a little over sea level (NAVD 88, about
+  // mean sea level; high water at Rockland is about +1.6 m). Its surface stands at the level, deepened by EXAG
+  // like the seabed. ▲ Fill / ▼ Drain run it up or down over about 15 s. Not remembered: it opens empty.
+  const lv = document.getElementById('wlevel'), lvOut = document.getElementById('wlevelval'), fillBtn = document.getElementById('wfill');
+  if (lv) {
+    const show = () => {
+      lvOut.textContent = waterLevel <= WATER_MIN ? 'empty' : Math.abs(waterLevel) < 0.25 ? 'sea level' : `${waterLevel > 0 ? '+' : '−'}${Math.round(Math.abs(waterLevel) / 0.3048)} ft`;
+      fillBtn.textContent = waterFill ? '❚❚' : waterLevel > -0.25 ? '▼ Drain' : '▲ Fill';
+    };
+    lv.addEventListener('input', () => { waterLevel = levelAt(Number(lv.value)); waterFill = 0; show(); });
+    fillBtn.addEventListener('click', () => { waterFill = waterFill ? 0 : waterLevel > -0.25 ? -1 : 1; show(); });
+    waterUI = () => { lv.value = String(Math.round(sliderAt(waterLevel))); show(); };
+    show();
+  }
   if (box) {
     box.hidden = false; inp.value = String(EXAG); out.textContent = `${EXAG}×`;
     inp.addEventListener('input', () => {
@@ -319,7 +348,7 @@ if (EMPTY) {
   document.getElementById('sailboat')?.setAttribute('hidden', '');   // nothing afloat to follow
   document.getElementById('credit').textContent = 'Land and seabed NOAA NCEI CUDEM · Photos USDA NAIP';
   const help = document.getElementById('help');
-  if (help) help.textContent = 'Empty Bay: Penobscot Bay with the water gone. Drag to move · right-drag or Shift-drag to turn and tilt · scroll or pinch to zoom · Depth sets how much the seabed is deepened, so its channels and holes show';
+  if (help) help.textContent = 'Empty Bay: the bay with the water gone. Drag to move · Shift-drag to turn and tilt · scroll or pinch to zoom · Depth deepens the seabed · Water lets the sea back in (▲ Fill)';
 }
 function dropTile(T) {
   if (T.state === 'loading') { T.state = 'idle'; return; }
@@ -1232,8 +1261,9 @@ function frame(now) {
   if (!nest.on) { clampView(); placeCamera(); }
   if (t - lastCheck > 0.4) { lastCheck = t; updateTiles(); updateTowns(); updateMarks(); }
   if (!drag && !anim) updateTrees(); else if (t - (TREES.lastMove || 0) > 0.25) { TREES.lastMove = t; updateTrees(); }
-  water.position.set(view.x, 0, view.z);
-  if (EMPTY) { water.visible = false; env.foam.visible = false; }   // (the weather turns the whitecaps on in a breeze)
+  if (EMPTY) stepWater(dt);
+  water.position.set(view.x, EMPTY ? (waterLevel < 0 ? waterLevel * EXAG : waterLevel) : 0, view.z);
+  if (EMPTY) { water.visible = waterLevel > WATER_MIN; env.foam.visible = false; }   // (the weather turns the whitecaps on in a breeze)
   sky.position.copy(camera.position);
   updateNight();
   updateWeather(dt, t);
