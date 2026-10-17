@@ -2647,7 +2647,7 @@ function _channelNodeKey(lon, lat) { return `${lat.toFixed(4)},${lon.toFixed(4)}
 
 function _buildChannelIndex() {
   const nodes = new Map();       // key -> {lon, lat}
-  const adjacency = new Map();   // key -> [{key, lon, lat}]
+  const adjacency = new Map();   // key -> [{key, lon, lat, spatial}]
   const grid = new Map();        // cell key (reuses _cellOf/_cellKey2D) -> [key]
 
   function ensureNode(lon, lat) {
@@ -2661,13 +2661,19 @@ function _buildChannelIndex() {
     }
     return key;
   }
-  function connect(keyA, keyB) {
+  // spatial (v926): the edge only comes from a spatial_buoy_chain — buoys joined because they're near each
+  // other, not because they mark one channel — so the router still checks the water's depth along it.
+  // An edge any other source also has (a fairway, a recommended track, a named buoy chain) isn't.
+  function connect(keyA, keyB, spatial) {
     if (keyA === keyB) return;
     const a = nodes.get(keyA), b = nodes.get(keyB);
     let arrA = adjacency.get(keyA); if (!arrA) { arrA = []; adjacency.set(keyA, arrA); }
     let arrB = adjacency.get(keyB); if (!arrB) { arrB = []; adjacency.set(keyB, arrB); }
-    if (!arrA.some(n => n.key === keyB)) arrA.push({ key: keyB, lon: b.lon, lat: b.lat });
-    if (!arrB.some(n => n.key === keyA)) arrB.push({ key: keyA, lon: a.lon, lat: a.lat });
+    for (const [arr, key, n] of [[arrA, keyB, b], [arrB, keyA, a]]) {
+      const had = arr.find(x => x.key === key);
+      if (had) had.spatial = had.spatial && spatial;
+      else arr.push({ key, lon: n.lon, lat: n.lat, spatial });
+    }
   }
 
   for (const f of (channelGraph || [])) {
@@ -2676,7 +2682,7 @@ function _buildChannelIndex() {
     for (let i = 0; i < coords.length - 1; i++) {
       const [alon, alat] = coords[i], [blon, blat] = coords[i + 1];
       const keyA = ensureNode(alon, alat), keyB = ensureNode(blon, blat);
-      connect(keyA, keyB);
+      connect(keyA, keyB, f.properties?.source === 'spatial_buoy_chain');
     }
   }
   console.log(`[AC] Channel graph index built — ${nodes.size} nodes, ${channelGraph?.length ?? 0} edges`);

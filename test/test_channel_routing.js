@@ -728,6 +728,41 @@ async function main() {
     })());
   }
 
+  // Case 34 — Brooklin -> Stonington for Angelique's 11 ft draft at low water (found 2026-10-17 building
+  // the Three Boats demo). Two charted depth areas cover a spot in Jericho Bay (−68.533, 44.1853): 0-18 ft
+  // (US4ME30M) and 6-12 ft (US5ME2EI), both too shallow for 11 ft + the 3 ft margin, and the one sounding
+  // inside them reads 11.8 ft. The route went straight through on a spatial buoy-chain edge (channel edges
+  // skipped every check), and soundings OUTSIDE the areas could clear a crossing. It must keep out now.
+  for (const region of ['penobscot-bay', null]) {
+    gate(await (async () => {
+      Query.setActiveRegion(region);
+      await Query.loadData(44.103, -69.088);
+      await waitForRegionDataReady(Query);
+      const label = `[34] Brooklin -> Stonington at 11 ft, clear of the Jericho Bay shoal (${region || 'default'} data)`;
+      const inRing = (x, y, r) => { let c = false; for (let i = 0, j = r.length - 1; i < r.length; j = i++) { const [xi, yi] = r[i], [xj, yj] = r[j]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c; } return c; };
+      const cr = (a, b, c) => (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+      const SPOT = [-68.5330, 44.1853], LIMIT_M = (11 + 3) * 0.3048;
+      const shoal = Query.getDepthZones().filter(f => f.properties.valsou <= LIMIT_M)
+        .flatMap(f => (f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates).map(rr => rr[0]))
+        .filter(r => inRing(SPOT[0], SPOT[1], r));
+      const t0 = Date.now();
+      const p = await Router.autoRouteProg({ lat: 44.272, lon: -68.565 }, { lat: 44.152, lon: -68.665 }, () => {}, () => {}, false, 11, 0, null, null, DEADLINE_MS);
+      const ms = Date.now() - t0;
+      let enters = false;
+      for (let i = 1; i < p.length; i++) {
+        const a = [p[i - 1].lon, p[i - 1].lat], b = [p[i].lon, p[i].lat];
+        for (const r of shoal) {
+          if (inRing(a[0], a[1], r) || inRing(b[0], b[1], r)) enters = true;
+          for (let j = 1; j < r.length; j++) if (cr(r[j - 1], r[j], a) * cr(r[j - 1], r[j], b) < 0 && cr(a, b, r[j - 1]) * cr(a, b, r[j]) < 0) enters = true;
+        }
+      }
+      const crosses = pathCrossesLand(Query, p);
+      const ok = shoal.length >= 1 && p.length > 2 && !crosses && !enters && ms < DEADLINE_MS;
+      console.log(`${label}: ${ok ? 'PASS' : 'FAIL'} (shoal areas=${shoal.length}, entersShoal=${enters}, crossesLand=${crosses}, ${p.length} pts, ${ms}ms)`);
+      return { ok };
+    })());
+  }
+
   console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll cases passed.');
   console.log(
     '\nNOT PORTED (relied on injecting a synthetic obstacle ring the real\n' +

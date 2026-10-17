@@ -6,6 +6,40 @@ found, and what shipped, even when the root cause couldn't be confirmed.
 
 ---
 
+## 2026-10-17 — AutoRoute took deep-draft boats across a charted Jericho Bay shoal
+
+**What happened:** Found while building the Three Boats demo, not reported by a
+user. Brooklin → Stonington for Angelique (11 ft) and Bowdoin (10 ft) ran
+straight through a spot in Jericho Bay (−68.533, 44.1853) that two charted depth
+areas cover: 0-18 ft (US4ME30M) and 6-12 ft (US5ME2EI). Both are too shallow for
+either boat with the 3 ft keel margin, and the one sounding inside reads 11.8 ft.
+There was no warning.
+
+**Cause:** Two separate gaps. (1) The leg was a channel-graph edge from a
+*spatial* buoy chain ("spatial-89": a straight line between two buoys that are
+merely near each other), and the router relaxed every channel edge without any
+check, depth included. The exemption exists because charted channel lines clip
+the land, but it had been applied to depth too. (2) The rule that lets soundings
+clear a depth area (an area's charted depth is its single worst point) used the
+nearest sounding to each sample of the leg, even one outside the area, and
+sampled only every 0.05 nm, so a clipped corner could have no sample inside.
+
+**Fix (v926):** Spatial buoy-chain edges must now pass the depth test (fairways,
+recommended tracks and named buoy chains stay trusted: Fox Islands Thorofare's
+line clips the narrow shallows along its edges, as it clips the land). Only a
+sounding *inside* a depth area can vouch for it, and every stretch of a leg
+inside the area is checked, its middle included. Test case [34], both datasets
+(fails before the fix, passes after); the full suite passes, with every case
+inside its old timing except [15] (2.6 → 5.4 s of 18) and [27] (6 → 10 s of 54).
+
+**Still open:** Routes saved before v926 may still cross such places; re-route
+them. Sea Nymph (3.5 ft) still crosses this spot, correctly: the sounding inside
+clears her draft and margin. Two coarse-chart 0 ft blocks with straight edges
+near Swans Island (4.5 and 1.2 nm²) and a missing land tile at Joyce Point
+(Eggemoggin Reach) were found at the same time and are not fixed.
+
+---
+
 ## 2026-10-09 — AutoRoute sailed straight through the Rockland Harbor Breakwater
 
 **What happened:** Reported by the user from the 3D view ("You crashed right

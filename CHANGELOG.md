@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-17 — Deep-draft routes keep out of shoals that buoy chains and stray soundings let through (v926)
+
+Requested: "fix the drying patch crossing". Brooklin → Stonington took Angelique (11 ft) and Bowdoin (10 ft)
+across a charted Jericho Bay shoal (0-18 ft and 6-12 ft areas at −68.533, 44.185). Two fixes in router.js: a
+spatial buoy-chain edge (query.js's channel index now marks them, `spatial`) must pass the depth test like any
+leg, while fairways, recommended tracks and named buoy chains keep their exemption; and soundings can only clear
+a depth area from inside it, with every stretch of the leg inside the area checked (one point-in-ring test per
+stretch, not per sample). The post-hoc shoal-standoff warning keeps the old along-the-leg soundings test
+(`_soundingsDeepAlong`). New test case [34] (both datasets). See INCIDENTS.md.
+
 ## 2026-10-17 — Three Boats as demo tab 10 (v925)
 
 Requested: "make it a 10th demo tab". The sailors page's demo section gets "10. Three Boats": the interactive

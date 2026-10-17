@@ -703,19 +703,73 @@ async function _autoRouteCore(
     }
     return best;
   }
-  function _soundingsClearCrossing(lon1, lat1, lon2, lat2) {
+  // Only a sounding INSIDE the ring can vouch for it (v926). Real bug (2026-10-17, Brooklin → Stonington):
+  // Bowdoin's and Angelique's routes ran through a charted 0-18 ft area and a 6-12 ft one in Jericho Bay
+  // (−68.533, 44.185) because the soundings nearest the leg were deep ones just OUTSIDE them, which say
+  // nothing about the area itself; the one sounding inside (11.8 ft) was too shallow for either. And the
+  // leg only clipped a corner, between two 0.05 nm samples, so no sample was inside at all: the middle of
+  // each stretch between the leg's crossings of the outline is now always checked too.
+  function _nearestSoundingInRing(lon, lat, entry) {
+    if (!_soundingGrid) _buildSoundingGrid();
+    const cx = _sgCellX(lon), cy = _sgCellY(lat), cand = [];
+    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
+      for (const s of _soundingGrid.get(`${cx + dx},${cy + dy}`) || []) {
+        const d = Query.distanceNm(lon, lat, s.lon, s.lat);
+        if (d < SOUNDING_SEARCH_RADIUS_NM) cand.push([d, s]);
+      }
+    }
+    cand.sort((a, b) => a[0] - b[0]);
+    const memo = entry._soundingIn || (entry._soundingIn = new Map());   // sounding -> inside this ring?
+    for (const [, s] of cand) {
+      let inRing = memo.get(s);
+      if (inRing === undefined) { inRing = s.lon >= entry.rMinX && s.lon <= entry.rMaxX && s.lat >= entry.rMinY && s.lat <= entry.rMaxY && _pointInRing(s.lon, s.lat, entry.ring); memo.set(s, inRing); }
+      if (inRing) return s;
+    }
+    return null;
+  }
+  // The soundings nearest the leg, all along it, are deep enough (the pre-v926 test, now only for the post-hoc
+  // shoal-standoff warning below, whose legs pass NEAR shoal water rather than through it)
+  function _soundingsDeepAlong(lon1, lat1, lon2, lat2) {
     if (!Query.soundings) return false;
-    const distNm = Query.distanceNm(lon1, lat1, lon2, lat2);
-    const steps = Math.max(1, Math.ceil(distNm / SOUNDING_STEP_NM));
+    const steps = Math.max(1, Math.ceil(Query.distanceNm(lon1, lat1, lon2, lat2) / SOUNDING_STEP_NM));
     for (let i = 0; i <= steps; i++) {
-      const t = i / steps;
-      const lat = lat1 + (lat2 - lat1) * t;
-      const lon = lon1 + (lon2 - lon1) * t;
-      const s = _nearestSoundingFast(lon, lat);
-      if (!s) return false; // no real data here — don't override the polygon
-      if (s.valsou + tideM <= draftM + KEEL_CLEARANCE_MARGIN_M) return false; // a real sounding confirms it IS too shallow (or too tight)
+      const t = i / steps, s = _nearestSoundingFast(lon1 + (lon2 - lon1) * t, lat1 + (lat2 - lat1) * t);
+      if (!s || s.valsou + tideM <= draftM + KEEL_CLEARANCE_MARGIN_M) return false;
     }
     return true;
+  }
+  function _soundingsClearCrossing(lon1, lat1, lon2, lat2, entry) {
+    if (!Query.soundings) return false;
+    const steps = Math.max(1, Math.ceil(Query.distanceNm(lon1, lat1, lon2, lat2) / SOUNDING_STEP_NM));
+    // where the leg crosses the outline (as fractions along it): between two crossings it's all inside or
+    // all outside, so one point-in-ring test per stretch, not one per sample (a ring can have thousands of
+    // vertices, and A* asks this of many edges)
+    const r = entry.ring, cuts = [0, 1];
+    const sx = Math.min(lon1, lon2), ex = Math.max(lon1, lon2), sy = Math.min(lat1, lat2), ey = Math.max(lat1, lat2);
+    for (let j = 0; j < r.length - 1; j++) {
+      const [ax, ay] = r[j], [bx, by] = r[j + 1];
+      if ((ax < sx && bx < sx) || (ax > ex && bx > ex) || (ay < sy && by < sy) || (ay > ey && by > ey)) continue;
+      const den = (lon2 - lon1) * (by - ay) - (lat2 - lat1) * (bx - ax);
+      if (!den) continue;
+      const t = ((ax - lon1) * (by - ay) - (ay - lat1) * (bx - ax)) / den, u = ((ax - lon1) * (lat2 - lat1) - (ay - lat1) * (lon2 - lon1)) / den;
+      if (t > 0 && t < 1 && u >= 0 && u <= 1) cuts.push(t);
+    }
+    cuts.sort((a, b) => a - b);
+    let any = false;
+    for (let k = 1; k < cuts.length; k++) {
+      const t0 = cuts[k - 1], t1 = cuts[k], tm = (t0 + t1) / 2;
+      if (t1 - t0 < 1e-9 || !_pointInRing(lon1 + (lon2 - lon1) * tm, lat1 + (lat2 - lat1) * tm, r)) continue;   // this stretch isn't in the area
+      any = true;
+      // its middle (a clipped corner may hold no regular sample) and every regular sample inside it
+      const ts = [tm];
+      for (let i = Math.ceil(t0 * steps); i <= Math.floor(t1 * steps); i++) ts.push(i / steps);
+      for (const t of ts) {
+        const s = _nearestSoundingInRing(lon1 + (lon2 - lon1) * t, lat1 + (lat2 - lat1) * t, entry);
+        if (!s) return false; // no real data inside the area here — don't override the polygon
+        if (s.valsou + tideM <= draftM + KEEL_CLEARANCE_MARGIN_M) return false; // a real sounding confirms it IS too shallow (or too tight)
+      }
+    }
+    return any;
   }
 
   // Query.ringBlocks only catches a segment CROSSING a ring's boundary — a
@@ -842,8 +896,10 @@ async function _autoRouteCore(
     return c >= SHOAL_STANDOFF_NM ? 0 : SHOAL_PENALTY_NM * (1 - c / SHOAL_STANDOFF_NM);
   }
 
-  function segBlocked(lon1, lat1, lon2, lat2) {
-    if (Query.landBlocks(lon1, lat1, lon2, lat2)) return true;
+  // depthOnly (v926): just the depth areas (tidal rings, with their soundings rule) — for spatial buoy-chain
+  // edges, which skip the land test like every channel edge (see the relaxation loop) but not the depth.
+  function segBlocked(lon1, lat1, lon2, lat2, depthOnly = false) {
+    if (!depthOnly && Query.landBlocks(lon1, lat1, lon2, lat2)) return true;
     // Global, bbox-independent backstop for point hazards (underwater
     // rock/obstruction/wreck) — the per-query hazard-circle rings below
     // only cover hazards inside THIS query's own bMinLon/bMaxLon/
@@ -852,7 +908,7 @@ async function _autoRouteCore(
     // case this fixes: a route passed within 1.5m of a charted rock
     // whose circle was never built because it sat just outside the
     // query bbox). Cheap — grid-indexed, same cost class as landBlocks.
-    if (Query.hazardPointBlocks(lon1, lat1, lon2, lat2)) return true;
+    if (!depthOnly && Query.hazardPointBlocks(lon1, lat1, lon2, lat2)) return true;
     const sx = Math.min(lon1, lon2), ex = Math.max(lon1, lon2);
     const sy = Math.min(lat1, lat2), ey = Math.max(lat1, lat2);
     const x0 = _extraCellX(sx), x1 = _extraCellX(ex);
@@ -871,6 +927,7 @@ async function _autoRouteCore(
           if (entry._eq === _extraQueryId) continue;
           entry._eq = _extraQueryId;
           const { ring, rMinX, rMaxX, rMinY, rMaxY, isTidal } = entry;
+          if (depthOnly && !isTidal) continue;
           if (rMaxX < sx || rMinX > ex || rMaxY < sy || rMinY > ey) continue;
           let blocked = Query.ringBlocks(ring, lon1, lat1, lon2, lat2);
           if (!blocked && isTidal) {
@@ -882,7 +939,7 @@ async function _autoRouteCore(
             }
           }
           if (blocked) {
-            if (isTidal && _soundingsClearCrossing(lon1, lat1, lon2, lat2)) continue;
+            if (isTidal && _soundingsClearCrossing(lon1, lat1, lon2, lat2, entry)) continue;
             return true;
           }
         }
@@ -892,6 +949,7 @@ async function _autoRouteCore(
   }
   if (typeof process !== 'undefined' && process.env && process.env.DEBUG_SEGBLOCKED) {
     globalThis.__segBlockedFn = segBlocked;
+    (globalThis.__segBlockedFns || (globalThis.__segBlockedFns = [])).push({ segBlocked, bbox: [bMinLon, bMinLat, bMaxLon, bMaxLat], extra: extraRings.length });   // every call's, in order
   }
 
   const SHALLOW_WARNING_NM = SHOAL_STANDOFF_NM * 0.5; // ~46m
@@ -1580,6 +1638,12 @@ async function _autoRouteCore(
         const j = channelKeyToIdx.get(nb.key);
         if (j === undefined || closed[j]) continue;
         if (_channelEdgeCutsLand(a, nb)) continue;
+        // ...but a spatial buoy chain's edge still has to have the depth (v926). Real bug (2026-10-17): one
+        // ("spatial-89", a straight line between two buoys that are merely near each other) took Bowdoin and
+        // Angelique across a charted 0-18 ft area and a 6-12 ft one in Jericho Bay. Fairways, recommended
+        // tracks and named buoy chains stay trusted: their digitized lines clip the narrow shallow areas
+        // along a real channel's edges (Fox Islands Thorofare, cases [10]/[11]) as they clip the land.
+        if (nb.spatial && segBlocked(a.lon, a.lat, nb.lon, nb.lat, true)) continue;
         // A channel edge that clips simplified land at all (within the
         // tolerance above) stays usable but pays the shoal penalty, so it
         // can't beat a clean direct line just because channel edges skip the
@@ -1677,7 +1741,7 @@ async function _autoRouteCore(
   // routes and said nothing.) Not counted: charted channel legs (buoys mark
   // the safe way between shoals), the part of a leg near the user's own
   // start/destination (ENDPOINT_SHALLOW_EXEMPT_NM, user's choice), and legs
-  // whose real soundings confirm depth (_soundingsClearCrossing).
+  // whose real soundings confirm depth (_soundingsDeepAlong).
   const _isChannelLeg = (a, b) => (Query.channelNeighbors?.(a.lon, a.lat) || [])
     .some(n => Math.abs(n.lon - b.lon) < 1e-9 && Math.abs(n.lat - b.lat) < 1e-9);
   function _flagShallowStandoffWarning(path) {
@@ -1687,7 +1751,7 @@ async function _autoRouteCore(
       if (_isChannelLeg(a, b) || _isChannelLeg(b, a)) continue;
       const c = _shoalClearanceNm(a.lon, a.lat, b.lon, b.lat,
         (vx, vy) => _passesNearRouteEndpoint(vx, vy, a.lon, a.lat, b.lon, b.lat));
-      if (c < SHALLOW_WARNING_NM && !_soundingsClearCrossing(a.lon, a.lat, b.lon, b.lat)) {
+      if (c < SHALLOW_WARNING_NM && !_soundingsDeepAlong(a.lon, a.lat, b.lon, b.lat)) {
         path[i + 1].marginal = true;
         path[i + 1].marginalKind = 'shoal';
         path[i + 1].marginalClearanceNm = c;
