@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-18 — The scene clock runs with your boat (v936)
+
+Requested: "link the two clocks". In Bird's-eye, while your boat sails a route (▶ Sail it, or a Virtual Journey of
+it), the 🕗 clock is her time on passage from the moment she left (the clock's time when you pressed Sail it), at
+your boat's speed, so it runs at her pace (×1–×200), stops when she pauses, and you meet each ferry and cruise ship
+when you would on that trip. After an overnight stop each day starts again at the hour she first left. The clock
+button shows ⛵ and the panel says so; moving the clock yourself (slider, Now, ×1/×10/×60) or picking another route
+lets go of her. While linked, a Coming up entry flies to that vessel where she is now and keeps the time.
+
 ## 2026-10-18 — The mail boat calls at Sutton Island (v935)
 
 Requested: "add the Sutton Island stop to the mail boat". In her summer hours (15 June–10 September) the Beal &

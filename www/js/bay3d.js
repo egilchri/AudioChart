@@ -998,8 +998,13 @@ const FORCE_CRUISE = params.get('cruise') || '';
 // follows it too (the sun's height then: night, dawn, day or sunset).
 const realMin = () => { const d = new Date(); return d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60; };
 const simClock = { base: (() => { const c = params.get('clock'); return c && /^\d\d?:\d\d$/.test(c) ? mins(c) : realMin(); })(), at: performance.now(), rate: 1, light: false };
-const clockMin = () => Math.max(0, Math.min(1439.9, simClock.base + (performance.now() - simClock.at) / 60000 * simClock.rate));
+// Linked to your boat (v936, requested: "link the two clocks"): while she sails a route (▶ Sail it, or a
+// Virtual Journey) the clock is her time on passage from when she left, so you meet each ferry when you
+// would; moving the clock yourself lets go of her.
+let boatClock = null;   // () => minutes; set by your boat's code below
+const clockMin = () => Math.max(0, Math.min(1439.9, boatClock ? boatClock() : simClock.base + (performance.now() - simClock.at) / 60000 * simClock.rate));
 function setClock(min, rate = simClock.rate, byUser = true) {
+  boatClock = null;
   Object.assign(simClock, { base: Math.max(0, Math.min(1439.9, min)), at: performance.now(), rate });
   if (byUser) { simClock.light = true; lightForClock(); }
   syncClock();
@@ -1070,11 +1075,12 @@ const clockBtn = document.getElementById('clockbtn'), clockPanel = document.getE
 function syncClock() {
   if (!clockBtn) return;
   const m = clockMin();
-  clockBtn.textContent = `🕗 ${hhmm(m)}${simClock.rate > 1 ? ` ×${simClock.rate}` : ''}`;
+  clockBtn.textContent = `🕗 ${hhmm(m)}${boatClock ? ' ⛵' : simClock.rate > 1 ? ` ×${simClock.rate}` : ''}`;
   if (clockPanel.hidden) return;
   clockPanel.querySelector('#clocktime').textContent = hhmm(m);
+  clockPanel.querySelector('#clocklink').hidden = !boatClock;
   const sl = clockPanel.querySelector('#clockslider'); if (document.activeElement !== sl) sl.value = String(Math.round(m));
-  for (const b of clockPanel.querySelectorAll('[data-rate]')) b.classList.toggle('on', Number(b.dataset.rate) === simClock.rate);
+  for (const b of clockPanel.querySelectorAll('[data-rate]')) b.classList.toggle('on', !boatClock && Number(b.dataset.rate) === simClock.rate);
 }
 function fillComing() {
   const list = clockPanel.querySelector('#coming'), m = clockMin(), next = trafficEvents().filter(e => e.t >= m - 1).slice(0, 7);
@@ -1084,8 +1090,9 @@ function fillComing() {
     const li = document.createElement('li'), btn = document.createElement('button'); btn.type = 'button';
     btn.innerHTML = `<b>${hhmm(e.t)}</b> ${e.text}`;
     btn.addEventListener('click', () => {   // a couple of minutes before, at the vessel, following her
-      setClock(e.t - 2);
-      const st = e.v.kind === 'ferry' ? ferryState(e.v.F, e.v.T, e.t + 1) : cruiseState(e.v.call, e.v.V, e.v.T, e.t + 1);
+      if (!boatClock) setClock(e.t - 2);   // (with your boat's clock: where the vessel is now, the time kept)
+      const t = boatClock ? clockMin() : e.t + 1;
+      const st = e.v.kind === 'ferry' ? ferryState(e.v.F, e.v.T, t) : cruiseState(e.v.call, e.v.V, e.v.T, t);
       if (st) {
         const p = alongTrack(e.v.T, st.f), hdg = st.dir > 0 ? p.hdg : p.hdg + 180;
         markCurrent(null); foldPanel(true);
@@ -1107,7 +1114,7 @@ if (clockBtn && !EMPTY) {
   clockPanel.querySelector('#clockslider').addEventListener('input', e => { setClock(Number(e.target.value)); fillComing(); });
   clockPanel.querySelector('#clocknow').addEventListener('click', () => { setClock(realMin(), 1); fillComing(); });
   for (const b of clockPanel.querySelectorAll('[data-rate]')) b.addEventListener('click', () => setClock(clockMin(), Number(b.dataset.rate)));
-  setInterval(() => { syncClock(); lightForClock(); if (!clockPanel.hidden && simClock.rate > 1) fillComing(); }, 1000);
+  setInterval(() => { syncClock(); lightForClock(); if (!clockPanel.hidden && (simClock.rate > 1 || boatClock)) fillComing(); }, 1000);
 }
 
 // ── Seagulls and seals (v888, requested; wildlife3d.js), round where you're looking ──
@@ -1181,7 +1188,18 @@ for (const k of [1, 5, 20, 60, 200]) { const o = document.createElement('option'
 try { paceSel.value = localStorage.getItem(PACE_KEY) || '60'; } catch (_) { paceSel.value = '60'; }
 if (!paceSel.value) paceSel.value = '60';
 paceSel.addEventListener('change', () => { try { localStorage.setItem(PACE_KEY, paceSel.value); } catch (_) {} });
+// her time on passage (minutes) at s along the route; each day after an overnight stop starts again at the hour
+// she first left (v936)
+const passageMin = s => (s - (own.nights.filter(c => s >= c - 1).pop() ?? 0)) / (OWN_KN * NMm) * 60;
+function linkClock() {
+  if (boatClock || !clockBtn || EMPTY) return;
+  const depart = clockMin() - passageMin(own.S);
+  simClock.light = true;
+  boatClock = () => depart + passageMin(own.S);
+  syncClock();
+}
 function setOwnRoute(r, pts) {
+  if (boatClock) setClock(clockMin(), 1, false);   // a new route: the clock lets go of her, at the time it was
   own.r = r; own.playing = false; own.S = 0; sailBtn.textContent = '▶ Sail it';
   sailRow.hidden = !r || EMPTY; sailNote.hidden = !r || EMPTY; followBtn.hidden = !r || EMPTY; own.boat.group.visible = !!r && !EMPTY;
   if (!r) return;
@@ -1209,6 +1227,7 @@ sailBtn.addEventListener('click', () => {
   own.playing = !own.playing; sailBtn.textContent = own.playing ? '❚❚ Pause' : '▶ Sail it';
   if (own.playing) {
     if (env.W.heel === 0) applyConditions({ wind: 'breezy' });   // she can't sail in a calm
+    linkClock();
     markCurrent(null); follow = own; document.getElementById('sailboat').classList.remove('on');
     // high enough to see her among the islands and coastline around her (v876; was 450 m)
     if (view.dist < 1500 || view.dist > 20000) flyTo({ x: own.x, z: own.z, dist: 6000, tilt: 50 * DEG, az: 0 }, 2500);
@@ -1277,6 +1296,7 @@ try {   // a Virtual Journey of this route running in AudioChart
     if (!own.r || (m.routeId !== own.r.id && 'sample:' + m.routeId !== own.r.id && m.routeId !== own.r.name)) return;
     if (m.running && !own.vj && env.W.heel === 0) applyConditions({ wind: 'breezy' });   // a journey's begun: she can't sail in a calm
     own.vj = m.running ? { frac: clamp(m.frac, 0, 1) } : null;
+    if (own.vj) { own.S = own.vj.frac * own.total; linkClock(); }
     if (!m.running && m.frac >= 0.999) own.S = own.total;
     sailBtn.disabled = !!own.vj;
     if (own.vj && !follow && !drag) follow = own;
@@ -1294,7 +1314,7 @@ wpSel.addEventListener('change', () => { showRoute(wpSel.value, true); foldPanel
   if (own.r && params.get('at')) {
     own.S = clamp(Number(params.get('at')) || 0, 0, 1) * own.total; placeOwn(0); followOwnAtStart = true;
     if ([...paceSel.options].some(o => o.value === params.get('pace'))) paceSel.value = params.get('pace');
-    if (params.get('play') === '1') { own.playing = true; sailBtn.textContent = '❚❚ Pause'; }
+    if (params.get('play') === '1') { own.playing = true; sailBtn.textContent = '❚❚ Pause'; linkClock(); }
   }
 }
 
