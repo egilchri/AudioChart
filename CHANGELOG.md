@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-17 — Empty Bay's depth under the pointer (v930)
+
+Requested: "add the depth readout under the pointer". In Empty Bay a tag by the pointer gives the depth there,
+in feet and metres ("61 ft deep (19 m)"), "under 34 ft of water now" when the Water slider has let some in, or
+"Land · about 89 ft up". It marches the line of sight against heightAt and narrows the hit by halving (the
+terrain meshes are too big to pick through on every move). On touch screens a tap shows it for a few seconds.
+Checked against NOAA's own values at the same spots: within 0.25 m at sea.
+
 ## 2026-10-17 — Empty Bay's water level (v929)
 
 Requested: "add the water-level slider". Empty Bay's controls move to a box at the top centre (Depth, and now

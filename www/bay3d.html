@@ -115,6 +115,10 @@ body.embed #wxpanel { top: auto; bottom: calc(176px + env(safe-area-inset-bottom
 #exagbox input { width: min(150px, 34vw); accent-color: #c8a35a; }
 #exagbox b { min-width: 4.6em; font-weight: 500; }
 #exagbox button { font: inherit; color: var(--ink); background: rgba(255,255,255,0.12); border: 0; border-radius: 4px; padding: 3px 7px; cursor: pointer; white-space: nowrap; }
+#depthtip { position: fixed; z-index: 4; pointer-events: none; background: var(--glass-hi); color: var(--ink); border-radius: 5px; padding: 4px 8px; font-family: var(--mono); font-size: 0.76rem; line-height: 1.35; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+#depthtip[hidden] { display: none; }
+#depthtip b { font-weight: 600; }
+#depthtip span { opacity: 0.7; }
 body.embed #exagbox { top: calc(94px + env(safe-area-inset-top, 0px)); }
 </style>
 </head>

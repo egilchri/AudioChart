@@ -344,11 +344,68 @@ if (EMPTY) {
     });
     for (const ev of ['pointerdown', 'wheel', 'touchstart']) box.addEventListener(ev, e => e.stopPropagation(), { passive: true });   // not a drag of the view
   }
+  // Depth under the pointer (v930, requested): where the line of sight meets the terrain, marched along the ray
+  // against heightAt (the meshes have ~600k triangles a tile, too many to pick through on every move) and
+  // narrowed by halving; then that spot's true depth, and the water over it when the Water slider has let
+  // some in. Mouse: follows the pointer. Touch: a tap shows it for a few seconds.
+  const tip = document.createElement('div'); tip.id = 'depthtip'; tip.hidden = true; document.body.appendChild(tip);
+  const surfY = (x, z) => yOf(heightAt(lonOf(x), latOf(z)));
+  const terrainHit = (cx, cy) => {
+    const r = renderer.domElement.getBoundingClientRect();
+    ndc.set((cx - r.left) / r.width * 2 - 1, -((cy - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(ndc, camera);
+    const o = ray.ray.origin, d = ray.ray.direction, at = k => [o.x + d.x * k, o.y + d.y * k, o.z + d.z * k];
+    for (let prev = 0, k = 2, i = 0; i < 700 && k < 250000; i++) {
+      const [x, y, z] = at(k);
+      if (y <= surfY(x, z)) {
+        let lo = prev, hi = k;
+        for (let n = 0; n < 16; n++) { const m = (lo + hi) / 2, [mx, my, mz] = at(m); if (my <= surfY(mx, mz)) hi = m; else lo = m; }
+        const [hx, , hz] = at(hi); return { lon: lonOf(hx), lat: latOf(hz) };
+      }
+      if (y < -1500) return null;
+      prev = k; k += Math.max(3, k * 0.015);
+    }
+    return null;
+  };
+  const ftOf = m => Math.round(m / 0.3048).toLocaleString();
+  let tipAt = null, tipQueued = false, tipUntil = 0;
+  const showTip = () => {
+    tipQueued = false;
+    const hit = tipAt && terrainHit(tipAt.x, tipAt.y);
+    if (!hit) { tip.hidden = true; return; }
+    const h = heightAt(hit.lon, hit.lat);
+    let txt;
+    if (h >= 0.5) txt = `Land · about ${ftOf(h)} ft up`;
+    else if (h > -0.5) txt = 'At the tide line';
+    else {
+      txt = `<b>${ftOf(-h)} ft</b> deep <span>(${Math.round(-h)} m)</span>`;
+      if (waterLevel > WATER_MIN && waterLevel > h) txt += `<br>under ${ftOf(waterLevel - h)} ft of water now`;
+    }
+    tip.innerHTML = txt; tip.hidden = false; tip.dataset.at = `${hit.lat.toFixed(5)},${hit.lon.toFixed(5)},${h.toFixed(2)}`;   // (for tests)
+    const w = tip.offsetWidth, hh = tip.offsetHeight;
+    tip.style.left = Math.min(innerWidth - w - 8, tipAt.x + 16) + 'px';
+    tip.style.top = Math.max(8, Math.min(innerHeight - hh - 8, tipAt.y - hh - 10)) + 'px';
+  };
+  const queueTip = () => { if (!tipQueued) { tipQueued = true; requestAnimationFrame(showTip); } };
+  let downAt = null;
+  sceneEl.addEventListener('pointermove', e => {
+    if (e.pointerType !== 'mouse') return;
+    if (drag) { tip.hidden = true; return; }
+    tipAt = { x: e.clientX, y: e.clientY }; queueTip();
+  });
+  sceneEl.addEventListener('pointerleave', () => { if (performance.now() > tipUntil) tip.hidden = true; });
+  sceneEl.addEventListener('pointerdown', e => { downAt = { x: e.clientX, y: e.clientY }; if (e.pointerType !== 'mouse') tip.hidden = true; });
+  sceneEl.addEventListener('pointerup', e => {
+    if (e.pointerType === 'mouse' || !downAt || Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 8) return;
+    tipAt = { x: e.clientX, y: e.clientY }; tipUntil = performance.now() + 3500; queueTip();
+    setTimeout(() => { if (performance.now() >= tipUntil) tip.hidden = true; }, 3600);
+  });
+  addEventListener('wheel', () => { if (tipAt) queueTip(); }, { passive: true });
   const sub = document.querySelector('h1 small'); if (sub) sub.textContent = 'Empty Bay: the water drained away';
   document.getElementById('sailboat')?.setAttribute('hidden', '');   // nothing afloat to follow
   document.getElementById('credit').textContent = 'Land and seabed NOAA NCEI CUDEM · Photos USDA NAIP';
   const help = document.getElementById('help');
-  if (help) help.textContent = 'Empty Bay: the bay with the water gone. Drag to move · Shift-drag to turn and tilt · scroll or pinch to zoom · Depth deepens the seabed · Water lets the sea back in (▲ Fill)';
+  if (help) help.textContent = 'Empty Bay: the bay with the water gone. Drag to move · Shift-drag to turn and tilt · scroll or pinch to zoom · Depth deepens the seabed · Water lets the sea back in (▲ Fill) · point (or tap) for the depth';
 }
 function dropTile(T) {
   if (T.state === 'loading') { T.state = 'idle'; return; }
