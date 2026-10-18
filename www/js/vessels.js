@@ -149,6 +149,7 @@ export function cruiseShipModel(V, windowMats = []) {
   sun.position.set(0, topY + 0.2, superZ + superL * 0.12); g.add(sun);
   const funnel = new THREE.Mesh(new THREE.BoxGeometry(B * 0.28, big ? 12 : 5, big ? 16 : 7), navy);
   funnel.position.set(0, topY + (big ? 6 : 2.5), superZ + superL * 0.3); funnel.rotation.x = -0.12; g.add(funnel);
+  g.userData.helm = [0, topY - DH * 1.3, bridge.position.z - 3.3];   // on the bridge, at its forward windows (v937)
   if (big) for (const sx of [-1, 1]) for (let z = -superL * 0.3; z < superL * 0.3; z += 13) {   // lifeboats along both sides
     const b = new THREE.Mesh(new THREE.BoxGeometry(3.2, 2.6, 10), orange); b.position.set(sx * (B / 2 + 0.6), hullH + 2.2, superZ + z); g.add(b);
   }
@@ -177,6 +178,7 @@ export function ferryModelSimple(F, windowMats = []) {
   const win = new THREE.MeshLambertMaterial({ color: 0xf3f2ee, emissive: 0xffd9a0, emissiveIntensity: 0 }); windowMats.push(win);
   const house = new THREE.Mesh(new THREE.BoxGeometry(B * 0.7, 2.6, L * 0.42), win); house.position.set(0, 5.7, -L * 0.06); g.add(house);
   const ph = new THREE.Mesh(new THREE.BoxGeometry(B * 0.5, 1.6, 5), M(0x22303a)); ph.position.set(0, 7.8, -L * 0.18); g.add(ph);
+  g.userData.helm = [0, 8.1, -L * 0.18 - 2.7];   // in the pilothouse, at its forward windows (v937)
   g.userData.wake = [];
   return g;
 }
@@ -193,6 +195,7 @@ export function launchModel(F, windowMats = []) {
   const cabin = new THREE.Mesh(new THREE.BoxGeometry(B * 0.78, 1.9, L * 0.55), win); cabin.position.set(0, 2.5, L * 0.05); g.add(cabin);
   const band = new THREE.Mesh(new THREE.BoxGeometry(B * 0.8, 0.6, L * 0.56), M(0x26323b)); band.position.set(0, 2.7, L * 0.05); g.add(band);
   const wh = new THREE.Mesh(new THREE.BoxGeometry(B * 0.6, 1.2, 2.2), M(0xf2f1ec)); wh.position.set(0, 4.0, -L * 0.12); g.add(wh);
+  g.userData.helm = [0, 4.1, -L * 0.12 - 1.2];   // at the wheelhouse's forward windows (v937)
   g.userData.wake = [];
   return g;
 }

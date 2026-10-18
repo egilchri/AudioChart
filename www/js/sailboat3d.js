@@ -321,8 +321,12 @@ export function makeSailboat(type = 'pocket', seed = 0) {
     fan.visible = bw.visible = k > 0.02;
   };
   wake(0);
+  // where you'd stand or sit at her helm, in her own frame, for the Bird's-eye view to ride (v937): in a
+  // lobster boat's wheelhouse, abaft the windshield; at a sailboat's tiller or wheel, aft in the cockpit
+  const helm = T.wheelhouse ? [0, sh((T.wheelhouse.u0 + T.wheelhouse.u1) / 2) + 1.65, zD(T.wheelhouse.u0) + 0.8]
+    : T.cockpit ? [0, sh(T.cockpit.u1) + (L > 15 ? 1.7 : 1.1), zD(T.cockpit.u1 - 0.03)] : [0, sh(0.9) + 1.6, zD(0.9)];
   return {
-    group: g, type, L, kn: T.kn, power: !!T.power, nest,
+    group: g, type, L, kn: T.kn, power: !!T.power, nest, helm,
     wake,
     // p: a makeTrimmer() result; heelRad: the wind's full heel; up: false furls everything (calm)
     trim(p, heelRad, up) {

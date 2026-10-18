@@ -531,7 +531,7 @@ function make() {
   setUp(false);
   let upNow = false;
   return {
-    group: g, body, type: P.id, L, kn: P.kn, power: false, nest,
+    group: g, body, type: P.id, L, kn: P.kn, power: false, nest, helm: C.helm,
     wake() {},
     // p: a makeTrimmer() result; heelRad: the wind's full heel; up: false furls everything
     trim(p, heelRad, up) {

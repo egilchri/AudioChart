@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-10-18 — ⛴ Underway: go aboard any boat, at her helm or by drone (v937)
+
+Requested: "I would like to zoom in to the helm of any boat underway. At that point, the boat should become the
+focus, so drone view would refer to that ... in the table of active ferries and craft, there would be a place to
+click to zoom to that boat". Bird's-eye has a ⛴ Underway button: a list of what's on the water now (your boat, the
+ferries and cruise ships by the scene's clock, Bowdoin, and the six sailboats and lobster boats nearest the view),
+each with what she's doing, how far off, and Helm / Drone / Follow. Helm puts you aboard her where you'd stand at the
+wheel (a sailboat's cockpit, a lobster boat's wheelhouse, a ferry's pilothouse, a ship's bridge: `helm` on each
+model, sailboat3d.js, angelique3d.js, vessels.js), riding with her; Drone puts a drone above and astern of her,
+following her (drag to circle her, scroll or pinch to close in or stand off); the bar at the top switches between
+them (H, D; Bowdoin's crow's nest is the third), and the lookout's report works from any of them, now naming the
+ferries, cruise ships and your boat too. Leave (Esc) leaves you over her, following her. Bowdoin's crow's nest is
+the same mode (nest.v, nest.mode), so coming down from it now also leaves you following her rather than flying back.
+
 ## 2026-10-18 — The scene clock runs with your boat (v936)
 
 Requested: "link the two clocks". In Bird's-eye, while your boat sails a route (▶ Sail it, or a Virtual Journey of
