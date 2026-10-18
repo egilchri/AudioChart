@@ -975,7 +975,7 @@ function nestCamera() {   // after every vessel has moved: the eye aboard her, l
 // ferry's line with its landings, a cruise ship's track in from the sea, your route with its stops), her place
 // and heading on it, the run so far, and a line saying where she's bound, how far and when. A sailboat or lobster
 // boat out for the day has no course: a few miles round her, her wake so far and the way she's heading.
-// Land and water from the overview elevation, as the view's own. Tap to shrink or enlarge (remembered).
+// Land and water from the view's own elevation (below). Tap to shrink or enlarge (remembered).
 const rcEl = document.getElementById('ridechart'), rcCtx = rcEl?.getContext('2d');
 const RC_SMALL_KEY = 'audiochart-bay3d-ridechart-small';
 try { document.body.classList.toggle('smallride', localStorage.getItem(RC_SMALL_KEY) === '1'); } catch (_) {}
@@ -985,22 +985,43 @@ rcEl?.addEventListener('click', e => {
   const small = document.body.classList.toggle('smallride');
   try { localStorage.setItem(RC_SMALL_KEY, small ? '1' : '0'); } catch (_) {}
 });
-let rcLand = null;   // the whole overview as a land/water picture, made once
-function rideLand() {
-  if (rcLand) return rcLand;
-  const W = ov.w, H = ov.h, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
-  const c = cv.getContext('2d'), img = c.createImageData(W, H), d = img.data, land = new Uint8Array(W * H);
-  for (let i = 0; i < W * H; i++) land[i] = ov.elev[i] > 0.3 ? 1 : 0;
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    const i = y * W + x, o = i * 4;
-    const edge = land[i] && ((x > 0 && !land[i - 1]) || (x < W - 1 && !land[i + 1]) || (y > 0 && !land[i - W]) || (y < H - 1 && !land[i + W]));
-    const [r, g, b] = edge ? [120, 104, 74] : land[i] ? [236, 223, 190] : [200, 222, 234];
+// The land, drawn for the chart's own frame at its own resolution (v939, requested: "make the coastline on the
+// chart less blocky"): the elevation interpolated between its samples (the detail tiles where they're loaded,
+// else the overview), so the shore is a smooth curve, not the overview's squares; redrawn when the frame moves,
+// or when more detail has loaded.
+function elevSmooth(lon, lat) {
+  const bil = (d, c0, r0) => {
+    const c = Math.max(0, Math.min(d.w - 1.001, c0)), r = Math.max(0, Math.min(d.h - 1.001, r0)), ci = Math.floor(c), ri = Math.floor(r), fc = c - ci, fr = r - ri, i = ri * d.w + ci;
+    return (d.elev[i] * (1 - fc) + d.elev[i + 1] * fc) * (1 - fr) + (d.elev[i + d.w] * (1 - fc) + d.elev[i + d.w + 1] * fc) * fr;
+  };
+  for (const T of tiles) {
+    if (T.state !== 'ready' || lon < T.w || lon >= T.e || lat < T.s || lat >= T.n) continue;
+    const d = T.dem; return bil(d, (lon - d.west) / d.dx - 0.5, (d.north - lat) / d.dy - 0.5);
+  }
+  const c = (lon - ov.west) / ov.dx - 0.5, r = (ov.north - lat) / ov.dy - 0.5;
+  return c >= 0 && r >= 0 && c < ov.w - 1 && r < ov.h - 1 ? bil(ov, c, r) : -3;
+}
+function rideLandFor(B, size, k) {
+  const ready = tiles.filter(T => T.state === 'ready').length, key = `${B.cx},${B.cz},${B.half},${size}`, now = performance.now();
+  if (rc.land && rc.land.key === key && (rc.land.ready === ready || now - rc.land.t < 8000)) return rc.land.cv;
+  const R = Math.min(640, Math.round(size * Math.min(2, devicePixelRatio))), q = size / R;
+  const cv = rc.land?.cv.width === R ? rc.land.cv : Object.assign(document.createElement('canvas'), { width: R, height: R });
+  const c = cv.getContext('2d'), img = c.createImageData(R, R), d = img.data, land = new Uint8Array(R * R);
+  for (let j = 0; j < R; j++) {
+    const lat = latOf(B.cz + ((j + 0.5) * q - (size + 22) / 2) / k);
+    for (let i = 0; i < R; i++) land[j * R + i] = elevSmooth(lonOf(B.cx + ((i + 0.5) * q - size / 2) / k), lat) > 0.3 ? 1 : 0;
+  }
+  for (let j = 0; j < R; j++) for (let i = 0; i < R; i++) {
+    const n = j * R + i, o = n * 4, L = land[n];
+    const edge = L && ((i > 0 && !land[n - 1]) || (i < R - 1 && !land[n + 1]) || (j > 0 && !land[n - R]) || (j < R - 1 && !land[n + R]));
+    const [r, g, b] = edge ? [120, 104, 74] : L ? [236, 223, 190] : [200, 222, 234];
     d[o] = r; d[o + 1] = g; d[o + 2] = b; d[o + 3] = 255;
   }
   c.putImageData(img, 0, 0);
-  return (rcLand = cv);
+  rc.land = { cv, key, ready, t: now };
+  return cv;
 }
-const rc = { v: null, box: null, trail: [], lastT: 0, stops: null };
+const rc = { v: null, box: null, trail: [], lastT: 0, stops: null, land: null };
 function rideCourse(v) {   // her course in world metres, and the places on it ({x, z, name, kind})
   if (v.kind === 'ferry') {
     const T = v.T, at = (lon, lat) => { const x = wx(lon), z = wz(lat); let bi = 0, bd = Infinity; T.P.forEach((p, i) => { const d = Math.hypot(p[0] - x, p[1] - z); if (d < bd) { bd = d; bi = i; } }); return T.c[bi]; };
@@ -1060,9 +1081,7 @@ function drawRideChart() {
   const c = rcCtx; c.setTransform(dpr, 0, 0, dpr, 0, 0);
   const B = rc.box, k = (size - 22) / (2 * B.half), X = x => size / 2 + (x - B.cx) * k, Y = z => (size + 22) / 2 + (z - B.cz) * k;   // (below the line along the top)
   c.fillStyle = 'rgb(200,222,234)'; c.fillRect(0, 0, size, size);
-  // the land: the overview picture's pixels are ov.dx by ov.dy degrees from (ov.west, ov.north)
-  const L = rideLand(), x0 = X(wx(ov.west)), y0 = Y(wz(ov.north)), x1 = X(wx(ov.west + ov.dx * ov.w)), y1 = Y(wz(ov.north - ov.dy * ov.h));
-  c.imageSmoothingEnabled = true; c.drawImage(L, x0, y0, x1 - x0, y1 - y0);
+  c.imageSmoothingEnabled = true; c.drawImage(rideLandFor(B, size, k), 0, 0, size, size);
   if (cs) {   // her course, dashed; for your route, the run so far solid
     c.lineWidth = 2; c.strokeStyle = '#a5741f'; c.setLineDash([5, 4]); c.beginPath();
     cs.pts.forEach(([x, z], i) => i ? c.lineTo(X(x), Y(z)) : c.moveTo(X(x), Y(z))); c.stroke(); c.setLineDash([]);

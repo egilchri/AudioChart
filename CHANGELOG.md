@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-18 — Smoother coastline on the ride's chart (v939)
+
+Requested: "make the coastline on the chart less blocky". The chart's land is now drawn for the chart's own frame,
+at its own resolution, from the elevation interpolated between samples (the detail tiles where they've loaded,
+else the overview), instead of the overview's 120 m squares scaled up; redrawn when the frame moves or more detail
+has loaded (at most every 8 s).
+
 ## 2026-10-18 — A chart of her course while you ride (v938)
 
 Requested: "For each boat that we zoom into, throw up an overview chart so we can put the boat in context with
