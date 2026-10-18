@@ -15,7 +15,7 @@ import { sunPos, SUN, makeSky, makeEnv, glowSprite, flashFor, flashOn, sectorCol
 import { makeSailboat, fleetType } from './sailboat3d.js';
 import { makeAngelique, makeBowdoin } from './angelique3d.js';
 import { makeWildlife, ledgesFrom } from './wildlife3d.js';
-import { callsOn, trackOf, alongTrack, cruiseState, ferryState, cruiseShipModel, ferryModelSimple, mins } from './vessels.js';
+import { callsOn, trackOf, alongTrack, cruiseState, ferryState, ferryDepartures, cruiseShipModel, ferryModelSimple, launchModel, mins } from './vessels.js';
 
 const statusEl = document.getElementById('status');
 const loadingEl = document.getElementById('loading');
@@ -1014,7 +1014,7 @@ function lightForClock() {   // the weather panel's time of day, from where the 
 const hhmm = m => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(Math.floor(m % 60)).padStart(2, '0')}`;
 if (!EMPTY) Promise.all([getJSON('./data/ferries.json').catch(() => null), getJSON('./data/cruise_ships.json').catch(() => null)]).then(([fd, cd]) => {
   for (const F of fd?.ferries || []) {
-    const T = trackOf(F.line, wx, wz), group = ferryModelSimple(F, trafficLit); group.visible = false; scene.add(group);
+    const T = trackOf(F.line, wx, wz), group = (F.kind === 'launch' ? launchModel : ferryModelSimple)(F, trafficLit); group.visible = false; scene.add(group);
     traffic.push({ kind: 'ferry', F, T, group, L: F.length_m || 46, x: T.P[0][0], z: T.P[0][1], on: false, label: '' });
   }
   for (const call of callsOn(cd, new Date(), FORCE_CRUISE)) {
@@ -1037,7 +1037,7 @@ function updateTraffic() {
     for (const w of v.group.userData.wake) w.visible = st.moving;
     // drawn a little bigger from far off, as the sailboats are (less: she's big already)
     v.group.scale.setScalar(Math.max(1, Math.min(v.kind === 'cruise' ? 3 : 8, Math.hypot(p.x - cp.x, cp.y, p.z - cp.z) / 250 * Math.sqrt(8 / v.L) * 0.6)));
-    v.label = v.kind === 'ferry' ? (st.moving ? `Ferry to ${st.dir > 0 ? v.F.to : v.F.from}` : `Ferry at ${st.f > 0 ? v.F.to : v.F.from}`) : `${v.V.name[0].toUpperCase() + v.V.name.slice(1)}, ${st.doing}`;
+    v.label = v.kind === 'ferry' ? `${v.F.says || 'Ferry'} ${st.moving ? 'to ' + st.bound : 'at ' + st.at}` : `${v.V.name[0].toUpperCase() + v.V.name.slice(1)}, ${st.doing}`;
     if (v.kind === 'cruise' && v.on) anyCruise = true;
   }
   const btn = document.getElementById('cruisebtn'); if (btn) btn.hidden = !anyCruise;
@@ -1055,11 +1055,7 @@ function trafficEvents() {
   const ev = [];
   for (const v of traffic) {
     if (v.kind === 'ferry') {
-      const run = v.T.L / (v.F.knots * 1852 / 60), cyc = 2 * (run + 15);
-      for (let t = 360; t <= 360 + 780; t += cyc) {   // (as ferryState: from the island at 06:00, to about 19:00)
-        ev.push({ t, v, text: `Ferry leaves ${v.F.to} for ${v.F.from}` });
-        if (t + run + 15 <= 1140) ev.push({ t: t + run + 15, v, text: `Ferry leaves ${v.F.from} for ${v.F.to}` });
-      }
+      for (const d of ferryDepartures(v.F, v.T)) ev.push({ t: d.t, v, text: `${v.F.says || 'Ferry'} leaves ${d.from} for ${d.to}` });
     } else {
       const c = v.call, nm = cap(v.V.name), run = v.T.L / (v.V.knots * 1852 / 60);
       if (c.arrive) ev.push({ t: mins(c.arrive) - run, v, text: `${nm} comes in from the sea, bound for ${c.port}` },

@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-10-18 — Islesboro, Swan's Island and Cranberry Isles ferries (v934)
+
+Requested: "add the Islesboro and Swans Island ferries too, also Cranberry Islands ferries, (Beal and Bunker, and
+Cranberry Cove)". data/ferries.json is now made by preprocess/build_ferries.py (OpenStreetMap tracks via Overpass,
+sources listed there): Lincolnville–Islesboro (MARGARET CHASE SMITH, 166 ft) and Bass Harbor–Swan's Island (CAPT.
+HENRY LEE, 130 ft) join the Fox Islands ferries; the Beal & Bunker mail boat DOUBLE B, Northeast Harbor–Great
+Cranberry–Islesford, year round (OSM has no Beal & Bunker way: its line is OSM's Northeast Harbor–Great Cranberry
+commuter track and the Great Cranberry–Islesford track; the stop order is assumed); and the Cranberry Cove Ferry,
+Southwest Harbor–Manset–Great Cranberry–Islesford, late May to 15 October. Each has a service day (start, end,
+which end the first boat leaves, a few minutes at each landing, summer hours or a season), from the published trip
+counts and terminal hours, not the timetables (vessels.js ferryDay). The Cranberry boats get a small passenger-
+launch model. In Bird's-eye they run by the clock and appear in its Coming up list; in the helm view they come by
+like the others, on their lines.
+
 ## 2026-10-18 — Cruise ships, and the ferries on their real lines (v933)
 
 Requested: "add the occasional cruise ship traffic to my virtual displays of Penobscot Bay. Also, please ensure that

@@ -26,7 +26,7 @@ export const mins = hhmm => { const [h, m] = hhmm.split(':').map(Number); return
 export function trackOf(lonlat, wx, wz) {
   const P = lonlat.map(([lo, la]) => [wx(lo), wz(la)]), c = [0];
   for (let i = 1; i < P.length; i++) c.push(c[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
-  return { P, c, L: c[c.length - 1] };
+  return { P, c, L: c[c.length - 1], wx, wz };
 }
 export function alongTrack(T, f) {   // the point f metres along, and the heading there (degrees, 0 = north, clockwise)
   f = Math.max(0, Math.min(T.L, f));
@@ -53,17 +53,54 @@ export function cruiseState(call, vessel, T, minute) {
   return { f: T.L, dir: 1, doing: `in ${call.port}`, moving: false };
 }
 
-// The ferries through the day in a view with a clock (Bird's-eye): back and forth on the line from 06:00
-// (leaving the island) to about 19:00, a quarter of an hour alongside at each end. Not the timetable.
-export function ferryState(F, T, minute) {
-  const run = T.L / (F.knots * 1852 / 60), dwell = 15, cycle = 2 * (run + dwell), t = minute - 6 * 60;
-  if (t < 0 || t > 13 * 60) return { f: T.L, dir: -1, moving: false };   // the night at the island
-  const k = t % cycle;
-  if (k < run) return { f: T.L * (1 - k / run), dir: -1, moving: true };       // island → Rockland
-  if (k < run + dwell) return { f: 0, dir: 1, moving: false };
-  if (k < 2 * run + dwell) return { f: T.L * (k - run - dwell) / run, dir: 1, moving: true };   // Rockland → island
-  return { f: T.L, dir: -1, moving: false };
+// A ferry's day in a view with a clock (Bird's-eye; v934): back and forth on her line between its ends
+// through its stops, from service.start to service.end, the first boat leaving the service.first end
+// ('to' is the island end of a mainland ferry), a few minutes at each landing. Summer hours and a season if
+// she has them; out of season she's not shown. From the trip counts and terminal hours, not the timetable.
+const dayCache = new WeakMap();
+export function ferryDay(F, T, date = new Date()) {
+  const key = ymd(date), hit = dayCache.get(F);
+  if (hit && hit.key === key) return hit.day;
+  const sv = F.service || { start: '06:00', end: '19:00', first: 'to' }, md = key.slice(5);
+  let day = null;
+  if (!sv.season || (md >= sv.season[0] && md <= sv.season[1])) {
+    const summer = sv.summer && md >= sv.summer[0] && md <= sv.summer[1];
+    const start = mins(summer ? sv.summer[2] : sv.start), end = mins(summer ? sv.summer[3] : sv.end);
+    // where the stops are along the line (metres), ends included, in the order she meets them going 'to'
+    const near = (lon, lat) => { let best = 0, bd = Infinity; for (let f = 0; f <= T.L; f += 10) { const p = alongTrack(T, f); const d = Math.hypot(p.x - T.wx(lon), p.z - T.wz(lat)); if (d < bd) { bd = d; best = f; } } return best; };
+    const stops = [{ name: F.from, f: 0 }, ...(F.stops || []).map(s => ({ name: s.name, f: near(s.lon, s.lat) })), { name: F.to, f: T.L }].sort((a, b) => a.f - b.f);
+    const out = sv.first === 'to' ? [...stops].reverse() : stops, round = [...out, ...[...out].reverse().slice(1)];
+    const speed = F.knots * 1852 / 60, launch = F.kind === 'launch', segs = [];
+    for (let t = start; t < end;) {   // round trips while the day lasts
+      for (let i = 0; i + 1 < round.length && t < end; i++) {
+        const a = round[i], b = round[i + 1], run = Math.abs(b.f - a.f) / speed;
+        const bound = (b.f > a.f ? stops[stops.length - 1] : stops[0]).name;
+        segs.push({ t0: t, t1: t + run, f0: a.f, f1: b.f, from: a.name, to: b.name, bound });
+        t += run;
+        const terminal = b === round[round.length - 1] || b.f === 0 || b.f === T.L;
+        const dwell = terminal ? (launch ? 10 : 15) : 4;
+        segs.push({ t0: t, t1: t + dwell, f0: b.f, f1: b.f, at: b.name }); t += dwell;
+      }
+    }
+    day = { segs, start, end, firstF: out[0].f, firstName: out[0].name };
+  }
+  dayCache.set(F, { key, day });
+  return day;
 }
+export function ferryState(F, T, minute, date = new Date()) {
+  const day = ferryDay(F, T, date);
+  if (!day) return null;
+  const s = day.segs.find(g => minute >= g.t0 && minute < g.t1);
+  if (!s) {   // before the first boat or after the last: alongside where she lies overnight
+    const last = day.segs[day.segs.length - 1], f = minute < day.start || !last ? day.firstF : last.f1;
+    return { f, dir: f > 0 ? -1 : 1, moving: false, at: minute < day.start ? day.firstName : (last.at || last.to) };
+  }
+  if (s.at) return { f: s.f0, dir: 1, moving: false, at: s.at };
+  const k = (minute - s.t0) / (s.t1 - s.t0);
+  return { f: s.f0 + (s.f1 - s.f0) * k, dir: s.f1 > s.f0 ? 1 : -1, moving: true, bound: s.bound, next: s.to };
+}
+// the day's departures from each landing, for the clock's "Coming up"
+export const ferryDepartures = (F, T, date = new Date()) => (ferryDay(F, T, date)?.segs || []).filter(s => !s.at).map(s => ({ t: s.t0, from: s.from, to: s.bound }));
 
 // ── The ships: bow toward −z, waterline at y = 0 ──
 // windowMats: their lit windows' materials, for the caller to turn up at dusk (emissiveIntensity).
@@ -136,6 +173,22 @@ export function ferryModelSimple(F, windowMats = []) {
   const win = new THREE.MeshLambertMaterial({ color: 0xf3f2ee, emissive: 0xffd9a0, emissiveIntensity: 0 }); windowMats.push(win);
   const house = new THREE.Mesh(new THREE.BoxGeometry(B * 0.7, 2.6, L * 0.42), win); house.position.set(0, 5.7, -L * 0.06); g.add(house);
   const ph = new THREE.Mesh(new THREE.BoxGeometry(B * 0.5, 1.6, 5), M(0x22303a)); ph.position.set(0, 7.8, -L * 0.18); g.add(ph);
+  g.userData.wake = [];
+  return g;
+}
+
+// A small passenger launch (the Cranberry Isles boats): white hull with a blue sheer stripe, a long
+// white cabin with windows, the wheelhouse forward. Bow toward −z, waterline at y = 0.
+export function launchModel(F, windowMats = []) {
+  const L = F.length_m || 14, B = L * 0.3, g = new THREE.Group(), half = L / 2;
+  const M = c => new THREE.MeshLambertMaterial({ color: c });
+  const sh = new THREE.Shape([[-B / 2, half], [B / 2, half], [B / 2, -half * 0.35], [0, -half], [-B / 2, -half * 0.35]].map(([x, z]) => new THREE.Vector2(x, -z)));
+  const slab = (y0, y1, m) => { const k = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: y1 - y0, bevelEnabled: false }), m); k.rotation.x = -Math.PI / 2; k.position.y = y0; g.add(k); };
+  slab(-0.8, 0.2, M(0x7a2a24)); slab(0.2, 1.3, M(0xf2f1ec)); slab(1.3, 1.55, M(0x23466e));
+  const win = new THREE.MeshLambertMaterial({ color: 0xf2f1ec, emissive: 0xffd9a0, emissiveIntensity: 0 }); windowMats.push(win);
+  const cabin = new THREE.Mesh(new THREE.BoxGeometry(B * 0.78, 1.9, L * 0.55), win); cabin.position.set(0, 2.5, L * 0.05); g.add(cabin);
+  const band = new THREE.Mesh(new THREE.BoxGeometry(B * 0.8, 0.6, L * 0.56), M(0x26323b)); band.position.set(0, 2.7, L * 0.05); g.add(band);
+  const wh = new THREE.Mesh(new THREE.BoxGeometry(B * 0.6, 1.2, 2.2), M(0xf2f1ec)); wh.position.set(0, 4.0, -L * 0.12); g.add(wh);
   g.userData.wake = [];
   return g;
 }

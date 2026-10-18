@@ -8,7 +8,7 @@ import { depthAtFrom } from './depth.js';
 import { LON0, LAT0, MX, MY, wx, wz, cachedFetch, readDem, photo, photoAtCells, addCanopy, gridMesh, photoMat, buildTown, spruce, tlog, tmark, TOWN_NIGHT } from './terrain3d.js';
 import { makeWildlife, ledgesFrom } from './wildlife3d.js';
 import { makeAngelique, ANGELIQUE, makeBowdoin, BOWDOIN } from './angelique3d.js';
-import { callsOn, cruiseShipModel } from './vessels.js';
+import { callsOn, cruiseShipModel, launchModel } from './vessels.js';
 import { makeSky, makeEnv, glowSprite, flashFor, sectorColour, weatherPanel, startConditions, makeTrimmer, cycleLook } from './weather3d.js';
 
 const statusEl = document.getElementById('status');
@@ -1190,8 +1190,8 @@ function stageOnLine(F) {
     } else {   // crossing it: she crosses your course ~400 m ahead, on her line
       fy.dir = F.cruise ? 1 : (Math.round(c.s / 50) % 2) ? 1 : -1; fy.sCross = c.s - 400;
     }
-    fy.label = F.cruise ? '' : `Ferry to ${fy.dir > 0 ? F.to : F.from}`;   // (she is F.vessel; the label says where she's bound)
-    fy.group = F.cruise ? cruiseShipModel(F.V, litMats) : ferryModel(F); scene.add(fy.group);
+    fy.label = F.cruise ? '' : `${F.says || 'Ferry'} to ${fy.dir > 0 ? F.to : F.from}`;   // (she is F.vessel; the label says where she's bound)
+    fy.group = F.cruise ? cruiseShipModel(F.V, litMats) : F.kind === 'launch' ? launchModel(F, litMats) : ferryModel(F); scene.add(fy.group);
     for (const m of litMats) m.emissiveIntensity = lightsK;
     ferries.push(fy);
     console.log(`[helm3d] ${F.name}: ${along > 0.8 || along < -0.8 ? 'meets' : 'crosses'} the route ${(c.s / NM).toFixed(1)} nm in, ${(c.d / NM).toFixed(2)} nm from its line`);
