@@ -82,6 +82,11 @@ body.embed #nesthud { top: calc(94px + env(safe-area-inset-top, 0px)); }
 #clockpanel .rates button.on { background: rgba(224,168,67,0.9); color: #1b2328; }
 #nesthud button.on { background: rgba(224,168,67,0.9); color: #1b2328; }
 #nesthud button[hidden] { display: none; }
+#ridechart { position: fixed; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 3; width: clamp(240px, 30vw, 380px); aspect-ratio: 1; border-radius: 6px; box-shadow: 0 2px 10px rgba(10,20,26,0.35); cursor: zoom-out; }
+#ridechart[hidden] { display: none; }
+body.smallride #ridechart { width: clamp(130px, 15vw, 190px); cursor: zoom-in; }
+@media (max-width: 640px) { #ridechart { width: 52vw; } body.smallride #ridechart { width: 30vw; } }
+body.embed #ridechart { bottom: calc(150px + env(safe-area-inset-bottom, 0px)); }
 #underway { position: fixed; right: 12px; top: calc(48px + env(safe-area-inset-top, 0px)); z-index: 4; width: min(360px, calc(100vw - 24px)); max-height: calc(100vh - 120px); overflow-y: auto; box-sizing: border-box; background: var(--glass-hi); color: var(--ink); border-radius: 6px; padding: 8px 10px; font-family: var(--body); font-size: 0.8rem; }
 #underway[hidden] { display: none; }
 #underway .sect { font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0 0 4px; }
@@ -183,6 +188,7 @@ body.embed #exagbox { top: calc(94px + env(safe-area-inset-top, 0px)); }
 <div id="exagbox" hidden><div class="row" title="How much deeper than life the seabed is drawn, so its channels and holes show"><label for="exag">Depth</label><input id="exag" type="range" min="1" max="10" step="1" value="4"><b id="exagval">4×</b></div><div class="row" title="Let the sea back in: from an empty bay up to sea level and a little over, about high tide"><label for="wlevel">Water</label><input id="wlevel" type="range" min="0" max="1000" step="1" value="0"><b id="wlevelval">empty</b><button type="button" id="wfill">▲ Fill</button></div></div>
 <div id="clockpanel" hidden><div class="ct"><b id="clocktime">--:--</b><button type="button" id="clocknow" title="Back to the real time">Now</button><span class="rates"><button type="button" data-rate="1" title="Real time">×1</button><button type="button" data-rate="10">×10</button><button type="button" data-rate="60">×60</button></span></div><div id="clocklink" hidden>⛵ Running with your boat: her time since she left. Move the clock to let go.</div><input id="clockslider" type="range" min="0" max="1439" step="1" aria-label="Time of day"><div class="sect">Coming up</div><ul id="coming"></ul></div>
 <div id="nesthud" hidden><div class="row"><b id="ridename">Bowdoin's crow's nest</b><button type="button" id="ridehelm" title="At her helm (H)">Helm</button><button type="button" id="ridedrone" title="A drone over her, following her (D)">Drone</button><button type="button" id="ridenest" title="Up to her crow's nest">🔭 Nest</button><button type="button" id="nestreport" title="What the lookout can see from here (L)">📣 Lookout's report</button><button type="button" id="nestdown" title="Leave her, and follow her from above (Esc)">⬇ Leave</button></div><div class="hint" id="ridestat"></div><div class="hint" id="ridehint">Drag or arrow keys to look round · scroll or pinch for the glasses</div><div id="nestrep"></div></div>
+<canvas id="ridechart" hidden title="Tap to shrink or enlarge the chart"></canvas>
 <div id="underway" hidden><div class="sect">On the water now</div><ul></ul></div>
 <div id="loading" hidden>Loading…</div>
 <div id="help">Drag to move · right-drag or Shift-drag to turn and tilt · scroll or pinch to zoom · click a town or ⛵ Follow a sailboat · Route waypoints shows a route, ▶ Sail it sails it · Weather for fog, rain, wind, dawn, sunset and night (N); the sailboats trim to its wind</div>

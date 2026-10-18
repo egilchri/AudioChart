@@ -970,6 +970,154 @@ function nestCamera() {   // after every vessel has moved: the eye aboard her, l
   }
   camera.updateProjectionMatrix(); camera.updateMatrixWorld();
 }
+// ── The ride's chart (v937, requested: "for each boat that we zoom into, throw up an overview chart so we can put
+// the boat in context with respect to its course and destination"): north up, fitted to her whole course (a
+// ferry's line with its landings, a cruise ship's track in from the sea, your route with its stops), her place
+// and heading on it, the run so far, and a line saying where she's bound, how far and when. A sailboat or lobster
+// boat out for the day has no course: a few miles round her, her wake so far and the way she's heading.
+// Land and water from the overview elevation, as the view's own. Tap to shrink or enlarge (remembered).
+const rcEl = document.getElementById('ridechart'), rcCtx = rcEl?.getContext('2d');
+const RC_SMALL_KEY = 'audiochart-bay3d-ridechart-small';
+try { document.body.classList.toggle('smallride', localStorage.getItem(RC_SMALL_KEY) === '1'); } catch (_) {}
+rcEl?.addEventListener('pointerdown', e => e.stopPropagation());
+rcEl?.addEventListener('click', e => {
+  e.stopPropagation();
+  const small = document.body.classList.toggle('smallride');
+  try { localStorage.setItem(RC_SMALL_KEY, small ? '1' : '0'); } catch (_) {}
+});
+let rcLand = null;   // the whole overview as a land/water picture, made once
+function rideLand() {
+  if (rcLand) return rcLand;
+  const W = ov.w, H = ov.h, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const c = cv.getContext('2d'), img = c.createImageData(W, H), d = img.data, land = new Uint8Array(W * H);
+  for (let i = 0; i < W * H; i++) land[i] = ov.elev[i] > 0.3 ? 1 : 0;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = y * W + x, o = i * 4;
+    const edge = land[i] && ((x > 0 && !land[i - 1]) || (x < W - 1 && !land[i + 1]) || (y > 0 && !land[i - W]) || (y < H - 1 && !land[i + W]));
+    const [r, g, b] = edge ? [120, 104, 74] : land[i] ? [236, 223, 190] : [200, 222, 234];
+    d[o] = r; d[o + 1] = g; d[o + 2] = b; d[o + 3] = 255;
+  }
+  c.putImageData(img, 0, 0);
+  return (rcLand = cv);
+}
+const rc = { v: null, box: null, trail: [], lastT: 0, stops: null };
+function rideCourse(v) {   // her course in world metres, and the places on it ({x, z, name, kind})
+  if (v.kind === 'ferry') {
+    const T = v.T, at = (lon, lat) => { const x = wx(lon), z = wz(lat); let bi = 0, bd = Infinity; T.P.forEach((p, i) => { const d = Math.hypot(p[0] - x, p[1] - z); if (d < bd) { bd = d; bi = i; } }); return T.c[bi]; };
+    const stops = [{ name: v.F.from, f: 0 }, ...(v.F.stops || []).filter(st => !st.summer || ferryLine(v.F) === v.F.summer_line).map(st => ({ name: st.name, f: at(st.lon, st.lat) })), { name: v.F.to, f: T.L }];
+    return { pts: T.P, places: stops.map(st => { const p = alongTrack(T, st.f); return { x: p.x, z: p.z, name: st.name, f: st.f, kind: 'stop' }; }) };
+  }
+  if (v.kind === 'cruise') {
+    const P = v.T.P, a = P[0], b = P[P.length - 1];
+    return { pts: P, places: [{ x: a[0], z: a[1], name: v.call.arrive ? 'to sea' : v.call.where.replace(/^bound from (\w+).*/, '$1'), kind: 'end' }, { x: b[0], z: b[1], name: v.call.port, kind: 'stop' }] };
+  }
+  if (v === own && own.r) {
+    const P = own.pts, places = [{ x: P[0][0], z: P[0][1], name: 'Start', kind: 'end' }, { x: P[P.length - 1][0], z: P[P.length - 1][1], name: (own.r.name || '').replace(/\s*\([^)]*\)\s*$/, '').split(/\s+(?:to|→|-)\s+/i).pop() || 'End', kind: 'stop' }];
+    for (const c of own.nights) { const [x, z] = ownPosAt(c); places.push({ x, z, name: '', kind: 'night' }); }
+    return { pts: P, places };
+  }
+  return null;
+}
+function rideLine(v) {   // where she's bound, how far, and when
+  const nm = m => `${(m / NMm).toFixed(m < 10 * NMm ? 1 : 0)} nm`, clk = m => hhmm(((m % 1440) + 1440) % 1440), now = clockMin();
+  if (v.kind === 'ferry' && v.st) {
+    const st = v.st, stops = rc.stops || [];
+    if (!st.moving) {
+      const next = ferryDepartures(v.F, v.T).find(d => d.t >= now - 0.01);
+      return `At ${st.at}` + (next ? ` · leaves ${clk(next.t)} for ${next.to}` : ' · done for the day');
+    }
+    const nx = stops.find(p => p.name === st.next), left = nx ? Math.abs(nx.f - st.f) : 0;
+    return `Bound for ${st.next}${st.next !== st.bound ? `, then ${st.bound}` : ''} · ${nm(left)} · ${clk(now + left / (v.F.knots * NMm / 60))}`;
+  }
+  if (v.kind === 'cruise' && v.st) {
+    const st = v.st, left = st.dir > 0 ? v.T.L - st.f : st.f;
+    return st.moving ? `${cap(st.doing)} · ${nm(left)}` + (st.dir > 0 ? ` · ${clk(now + left / (v.V.knots * NMm / 60))}` : '') : cap(st.doing);
+  }
+  if (v === own && own.r) {
+    const left = own.total - own.S;
+    if (left < 1) return 'Arrived';
+    return `${nm(left)} to go` + (boatClock ? ` · arriving about ${clk(now + passageMin(own.total) - passageMin(own.S))}` : ` · ${(left / (OWN_KN * NMm)).toFixed(1)} h at ${OWN_KN} kn`);
+  }
+  return `${vDoing(v)} · heading ${String(Math.round(((v.h % 360) + 360) % 360)).padStart(3, '0')}°`;
+}
+function drawRideChart() {
+  if (!rcEl) return;
+  const show = nest.on && !!nest.v;
+  rcEl.hidden = !show; if (!show) { rc.v = null; return; }
+  const v = nest.v, now = performance.now();
+  if (rc.v !== v) { rc.v = v; rc.trail = []; rc.box = null; const cs = rideCourse(v); rc.course = cs; rc.stops = cs?.places.filter(p => p.f != null) || null; }
+  if (now - rc.lastT > 1500) { rc.lastT = now; rc.trail.push([v.x, v.z]); if (rc.trail.length > 400) rc.trail.shift(); }
+  const cs = rc.course, M = 0.6 * NMm;
+  if (cs && !rc.box) {   // the whole course, with room round it
+    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+    for (const [x, z] of cs.pts) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z); }
+    rc.box = { cx: (x0 + x1) / 2, cz: (z0 + z1) / 2, half: Math.max(1.2 * NMm, (Math.max(x1 - x0, z1 - z0)) / 2 + M) };
+  }
+  if (!cs && (!rc.box || Math.hypot(v.x - rc.box.cx, v.z - rc.box.cz) > rc.box.half * 0.6)) rc.box = { cx: v.x, cz: v.z, half: 2.5 * NMm };   // round her, moving on as she sails out of it
+  const dpr = Math.min(2, devicePixelRatio), size = rcEl.clientWidth;
+  if (!size) return;
+  if (rcEl.width !== Math.round(size * dpr)) rcEl.width = rcEl.height = Math.round(size * dpr);
+  const c = rcCtx; c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const B = rc.box, k = (size - 22) / (2 * B.half), X = x => size / 2 + (x - B.cx) * k, Y = z => (size + 22) / 2 + (z - B.cz) * k;   // (below the line along the top)
+  c.fillStyle = 'rgb(200,222,234)'; c.fillRect(0, 0, size, size);
+  // the land: the overview picture's pixels are ov.dx by ov.dy degrees from (ov.west, ov.north)
+  const L = rideLand(), x0 = X(wx(ov.west)), y0 = Y(wz(ov.north)), x1 = X(wx(ov.west + ov.dx * ov.w)), y1 = Y(wz(ov.north - ov.dy * ov.h));
+  c.imageSmoothingEnabled = true; c.drawImage(L, x0, y0, x1 - x0, y1 - y0);
+  if (cs) {   // her course, dashed; for your route, the run so far solid
+    c.lineWidth = 2; c.strokeStyle = '#a5741f'; c.setLineDash([5, 4]); c.beginPath();
+    cs.pts.forEach(([x, z], i) => i ? c.lineTo(X(x), Y(z)) : c.moveTo(X(x), Y(z))); c.stroke(); c.setLineDash([]);
+    if (v === own) {
+      c.lineWidth = 3; c.strokeStyle = '#7a4f0e'; c.beginPath(); c.moveTo(X(cs.pts[0][0]), Y(cs.pts[0][1]));
+      for (let i = 1; i < own.cum.length && own.cum[i] < own.S; i++) c.lineTo(X(cs.pts[i][0]), Y(cs.pts[i][1]));
+      c.lineTo(X(own.x), Y(own.z)); c.stroke();
+    }
+  }
+  if (rc.trail.length > 1 && v !== own) {   // her wake on the chart, since you came aboard
+    c.lineWidth = 2; c.strokeStyle = 'rgba(122,79,14,0.75)'; c.beginPath();
+    rc.trail.forEach(([x, z], i) => i ? c.lineTo(X(x), Y(z)) : c.moveTo(X(x), Y(z))); c.lineTo(X(v.x), Y(v.z)); c.stroke();
+  }
+  if (!cs) {   // no course: the way she's heading, a mile on
+    const a = v.h * DEG; c.lineWidth = 1.5; c.strokeStyle = '#a5741f'; c.setLineDash([3, 4]); c.beginPath();
+    c.moveTo(X(v.x), Y(v.z)); c.lineTo(X(v.x + Math.sin(a) * NMm), Y(v.z - Math.cos(a) * NMm)); c.stroke(); c.setLineDash([]);
+  }
+  // the places on her course, the next one in red
+  const st = v.st, nextName = v.kind === 'ferry' && st ? (st.moving ? st.next : null) : null;
+  c.font = '600 10.5px "Source Sans 3", system-ui, sans-serif'; c.textBaseline = 'middle';
+  for (const p of cs?.places || []) {
+    const x = X(p.x), y = Y(p.z), hot = p.name && (p.name === nextName || (v.kind !== 'ferry' && p.kind === 'stop'));
+    c.fillStyle = p.kind === 'night' ? '#e0a843' : hot ? '#d0342c' : '#2fa35a'; c.strokeStyle = '#fbfcf8'; c.lineWidth = 1;
+    c.beginPath(); c.moveTo(x, y - 5); c.lineTo(x + 4, y); c.lineTo(x, y + 5); c.lineTo(x - 4, y); c.closePath(); c.fill(); c.stroke();
+    if (!p.name) continue;
+    const left = x > size * 0.62; c.textAlign = left ? 'right' : 'left';
+    c.lineWidth = 3; c.strokeStyle = 'rgba(251,252,248,0.9)'; c.strokeText(p.name, x + (left ? -7 : 7), y);
+    c.fillStyle = '#1d2a30'; c.fillText(p.name, x + (left ? -7 : 7), y);
+  }
+  // the other traffic, small
+  for (const o of traffic) if (o !== v && o.on) { const x = X(o.x), y = Y(o.z); if (x > 0 && y > 0 && x < size && y < size) { c.fillStyle = '#22324a'; c.beginPath(); c.arc(x, y, 2.2, 0, 7); c.fill(); } }
+  // what you're looking at, then her
+  const cx = X(v.x), cy = Y(v.z);
+  if (nest.mode !== 'drone') {
+    const look = v.h + nest.yaw, hf = 2 * Math.atan(Math.tan(camera.fov * DEG / 2) * camera.aspect) / DEG, a0 = (look - hf / 2 - 90) * DEG, a1 = (look + hf / 2 - 90) * DEG;
+    c.fillStyle = 'rgba(214,162,74,0.25)'; c.beginPath(); c.moveTo(cx, cy); c.arc(cx, cy, size * 0.18, a0, a1); c.closePath(); c.fill();
+  }
+  c.save(); c.translate(cx, cy); c.rotate(v.h * DEG);
+  c.fillStyle = '#1d2a30'; c.strokeStyle = '#fbfcf8'; c.lineWidth = 1.5;
+  c.beginPath(); c.moveTo(0, -9); c.quadraticCurveTo(5, -2, 4, 7); c.lineTo(-4, 7); c.quadraticCurveTo(-5, -2, 0, -9); c.closePath(); c.fill(); c.stroke();
+  c.restore();
+  // where she's bound, along the top; north and the scale
+  const line = rideLine(v);
+  c.fillStyle = 'rgba(29,42,48,0.82)'; c.fillRect(0, 0, size, 20);
+  c.fillStyle = '#f3efe4'; c.font = '600 11px "Source Sans 3", system-ui, sans-serif'; c.textAlign = 'left'; c.textBaseline = 'middle';
+  let t = line; while (c.measureText(t).width > size - 12 && t.length > 4) t = t.slice(0, -2); if (t !== line) t = t.trimEnd() + '…';
+  c.fillText(t, 6, 10.5);
+  c.fillStyle = '#1d2a30'; c.textAlign = 'center'; c.textBaseline = 'top'; c.fillText('N', 13, 24);
+  c.beginPath(); c.moveTo(13, 37); c.lineTo(9, 45); c.lineTo(17, 45); c.closePath(); c.fill();
+  const nmBar = [0.25, 0.5, 1, 2, 5, 10].find(n => n * NMm * k > size * 0.18) || 10, bar = nmBar * NMm * k;
+  c.fillRect(size - 10 - bar, size - 12, bar, 2.5);
+  c.textAlign = 'right'; c.textBaseline = 'bottom'; c.font = '500 10px "JetBrains Mono", monospace'; c.fillText(`${nmBar} nm`, size - 10, size - 14);
+  c.strokeStyle = 'rgba(20,35,42,0.35)'; c.lineWidth = 1; c.strokeRect(0.5, 0.5, size - 1, size - 1);
+}
+
 const REL = rel => {   // a bearing off the bow in a lookout's words
   const a = Math.abs(rel), side = rel > 0 ? 'starboard' : 'port';
   return a < 6 ? 'dead ahead' : a < 30 ? `fine on the ${side} bow` : a < 60 ? `on the ${side} bow` : a < 82 ? `broad on the ${side} bow` : a < 98 ? `abeam to ${side}` : a < 150 ? `abaft the ${side} beam` : a < 174 ? `on the ${side} quarter` : 'dead astern';
@@ -1099,7 +1247,7 @@ function updateTraffic() {
   let anyCruise = false;
   for (const v of traffic) {
     const st = v.kind === 'ferry' ? ferryState(v.F, v.T, minute) : cruiseState(v.call, v.V, v.T, minute);
-    v.on = !!st && !aboveFog; v.group.visible = v.on;
+    v.on = !!st && !aboveFog; v.group.visible = v.on; v.st = st;
     if (!st) continue;
     const p = alongTrack(v.T, st.f), hdg = st.dir > 0 ? p.hdg : p.hdg + 180;
     v.x = p.x; v.z = p.z; v.h = hdg;
@@ -1606,7 +1754,7 @@ function updateLabels() {
 const altEl = document.getElementById('alt'), needle = document.getElementById('needle');
 function updateReadout() {
   const ft = camera.position.y / 0.3048;
-  altEl.textContent = ft > 9000 ? `${(camera.position.y / 1852).toFixed(1)} nm up` : `${Math.round(ft / 50) * 50} ft up`;
+  altEl.textContent = ft > 9000 ? `${(camera.position.y / 1852).toFixed(1)} nm up` : `${ft < 200 ? Math.round(ft) : Math.round(ft / 50) * 50} ft up`;   // (aboard: to the foot)
   needle.setAttribute('transform', `rotate(${-view.az / DEG})`);
 }
 
@@ -1652,6 +1800,7 @@ function frame(now) {
   updateWaypoints();
   updateOwn(dt);
   if (nest.on) nestCamera();   // after every vessel has moved, yours too
+  if (nest.on || !rcEl?.hidden) drawRideChart();
   wildlife.update(dt, t, view, camera.position, { hidden: !!aboveFog || EMPTY, night: env.C.time === 'night', boat: (own.ext || own.r) ? own : null, scale: d => clamp(d / 35, 3, 8) });
   if (follow && !anim && !nest.on) { const k = Math.min(1, dt * 4); view.x += (follow.x - view.x) * k; view.z += (follow.z - view.z) * k; }
   renderer.render(scene, camera);

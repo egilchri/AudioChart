@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-10-18 — A chart of her course while you ride (v938)
+
+Requested: "For each boat that we zoom into, throw up an overview chart so we can put the boat in context with
+respect to its course and destination". Aboard any vessel in Bird's-eye (Helm, Drone or Bowdoin's crow's nest) a
+chart in the lower right shows her whole course, north up: a ferry's line with its landings (the next one in red),
+a cruise ship's track from the sea to her anchorage or port, your route with its start, overnight stops and end
+(the run so far solid); her place and heading, and what you're looking at from her helm. Along its top: where
+she's bound, how far and when ("Bound for Northeast Harbor · 2.3 nm · 10:34", "At Islesboro · leaves 10:41 for
+Lincolnville", "8.4 nm to go · arriving about 12:01" with your clock linked). A sailboat or lobster boat out for the
+day has no course: the chart is a few miles round her, with her wake since you came aboard and the way she's
+heading. Land and water from the view's own overview elevation. Tap it to shrink or enlarge (remembered). Also: a
+summer-only stop isn't drawn out of summer, and the height readout is to the foot when you're aboard.
+
 ## 2026-10-18 — ⛴ Underway: go aboard any boat, at her helm or by drone (v937)
 
 Requested: "I would like to zoom in to the helm of any boat underway. At that point, the boat should become the
