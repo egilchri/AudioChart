@@ -890,6 +890,19 @@ function stopFollow() { if (!follow) return; follow = null; document.getElementB
 // calls out what's in sight from up there: lighthouses, towns, summits and nearby vessels, each with its bearing
 // off her bow, as a lookout would ("Owls Head Light, broad on the port bow, 6.2 nm"), shown and spoken.
 // Come down (or Esc) flies you back to where you were.
+// Every window shrinks (v940, the standing request: "all windows should be shrinkable"): the – in its corner folds
+// it to its first line, + opens it again, remembered for each window. (The ride's chart shrinks with a tap.)
+function shrinkable(el) {
+  if (!el || el.querySelector(':scope > .shrinker')) return;
+  const key = `audiochart-bay3d-shrunk-${el.id}`, b = document.createElement('button');
+  b.type = 'button'; b.className = 'shrinker';
+  const sync = () => { const on = el.classList.contains('shrunk'); b.textContent = on ? '+' : '–'; b.title = on ? 'Open this window out' : 'Shrink this window'; };
+  try { el.classList.toggle('shrunk', localStorage.getItem(key) === '1'); } catch (_) {}
+  b.addEventListener('pointerdown', e => e.stopPropagation());
+  b.addEventListener('click', e => { e.stopPropagation(); const on = el.classList.toggle('shrunk'); try { localStorage.setItem(key, on ? '1' : '0'); } catch (_) {} sync(); });
+  sync(); el.appendChild(b);
+}
+for (const id of ['nesthud', 'underway', 'clockpanel']) shrinkable(document.getElementById(id));
 const nestHud = document.getElementById('nesthud'), nestRep = document.getElementById('nestrep');
 const nestOK = ['nesthud', 'nestrep', 'crowsnest', 'nestdown', 'nestreport', 'bowdoinbtn', 'ridename', 'ridehint'].every(id => document.getElementById(id));   // (a stale cached page may lack them)
 // Riding (v937, requested: "zoom in to the helm of any boat underway ... the boat should become the focus, so
@@ -915,7 +928,7 @@ function ride(v, mode = 'helm') {
   if (mode === 'nest' && !v.boat?.nest) mode = 'helm';
   const was = nest.on;
   if (!was) { stopFollow(); anim = null; nest.prev = { ...view }; }
-  nest.on = true; nest.v = v; nest.mode = mode; nest.yaw = 0; nest.pitch = mode === 'drone' ? -16 : mode === 'helm' && helmOf(v)[1] > 6 ? -8 : -3;   // (from a high bridge, a little down: her bow in sight) nest.zoom = 1; nestRep.textContent = '';
+  nest.on = true; nest.v = v; nest.mode = mode; nest.yaw = 0; nest.pitch = mode === 'drone' ? -16 : mode === 'helm' && helmOf(v)[1] > 6 ? -8 : -3; nest.zoom = 1; nestRep.textContent = '';   // (from a high bridge, a little down: her bow in sight)
   document.body.classList.add('innest'); nestHud.hidden = false;
   document.getElementById('crowsnest').classList.toggle('on', mode === 'nest');
   const big = vLen(v) > 30 && !v.boat, name = vTitle(v);
@@ -958,7 +971,7 @@ function nestCamera() {   // after every vessel has moved: the eye aboard her, l
     const L = vLen(v), D = clamp(L * 3.2, 45, 900) / nest.zoom, el = clamp(-nest.pitch, 3, 85) * DEG, az = (v.h + nest.yaw) * DEG;
     _nt.set(v.x, Math.min(L * 0.12, 20) + 1.5, v.z);
     camera.position.set(_nt.x - Math.sin(az) * Math.cos(el) * D, _nt.y + Math.sin(el) * D, _nt.z + Math.cos(az) * Math.cos(el) * D);
-    camera.lookAt(_nt);
+    camera.lookAt(_nt); camera.rotateX(0.1);   // her a little below the middle, clear of the bar along the top
     camera.fov = 50;
     view.x = v.x; view.z = v.z; view.dist = Math.max(D * 1.5, 900); view.az = az;
   } else {
@@ -1170,8 +1183,11 @@ function lookoutReport() {
   const horizon = 2.08 * Math.sqrt(eye);
   const head = env.foggy ? 'Fog all round; nothing in sight.' : lines.length ? `From ${nest.mode === 'nest' ? `${vName(b)}'s crow's nest` : b === own ? 'your helm' : vLen(b) > 30 && !b.boat ? `the bridge of ${vTitle(b)}` : `${b.boat ? 'the ' + vName(b).toLowerCase() : vName(b)}'s helm`}, ${Math.round(eye / 0.3048)} feet up, horizon ${horizon.toFixed(1)} miles:` : 'Nothing in sight but water.';
   nestRep.innerHTML = '';
+  const x = document.createElement('button'); x.type = 'button'; x.className = 'x'; x.textContent = '×'; x.title = 'Close'; x.addEventListener('click', () => { nestRep.textContent = ''; }); nestRep.appendChild(x);
+  clearTimeout(lookoutReport.t); lookoutReport.t = setTimeout(() => { nestRep.textContent = ''; }, 45000);   // (off the view after a while)
   const h = document.createElement('div'); h.className = 'head'; h.textContent = head; nestRep.appendChild(h);
   if (!env.foggy) for (const t of lines) { const li = document.createElement('div'); li.textContent = t; nestRep.appendChild(li); }
+  shrinkable(nestRep);
   try { window.parent?.__audioChartViews?.say?.((env.foggy ? head : lines.length ? 'Lookout reports: ' + lines.join('. ') : head) + '.'); } catch (_) {}
 }
 if (nestOK) {

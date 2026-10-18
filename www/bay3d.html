@@ -58,14 +58,19 @@ button:focus-visible { outline: 2px solid var(--brass); outline-offset: 1px; }
 #scale { position: fixed; right: 12px; top: calc(12px + env(safe-area-inset-top, 0px)); z-index: 2; font-family: var(--mono); font-size: 0.72rem; background: var(--glass); border-radius: 5px; padding: 4px 8px; display: flex; align-items: center; gap: 8px; }
 #views { display: flex; flex-wrap: wrap; gap: 2px; }
 #scale #crowsnest.on, #scale #bowdoinbtn.on { background: rgba(224,168,67,0.9); color: #1b2328; }
-#nesthud { position: fixed; left: 50%; transform: translateX(-50%); top: calc(52px + env(safe-area-inset-top, 0px)); z-index: 3; max-width: min(560px, calc(100vw - 32px)); box-sizing: border-box; background: var(--glass); color: var(--ink); border-radius: 6px; padding: 8px 10px; font-family: var(--body); font-size: 0.8rem; }
+#nesthud { position: fixed; left: 50%; transform: translateX(-50%); top: calc(52px + env(safe-area-inset-top, 0px)); z-index: 3; max-width: min(680px, calc(100vw - 32px)); box-sizing: border-box; background: var(--glass); color: var(--ink); border-radius: 6px; padding: 8px 10px; font-family: var(--body); font-size: 0.8rem; }
 #nesthud[hidden] { display: none; }
-#nesthud .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+#nesthud .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 #nesthud .row b { margin-right: auto; }
-#nesthud button { font: inherit; color: var(--ink); background: rgba(255,255,255,0.14); border: 0; border-radius: 4px; padding: 3px 9px; cursor: pointer; }
+#nesthud button { font: inherit; color: var(--ink); background: rgba(255,255,255,0.14); border: 0; border-radius: 4px; padding: 3px 8px; cursor: pointer; white-space: nowrap; }
 #nesthud .hint { opacity: 0.7; font-size: 0.72rem; margin-top: 4px; }
 #nestrep:empty { display: none; }
-#nestrep { margin-top: 6px; line-height: 1.45; max-height: 40vh; overflow: auto; }
+/* the lookout's report: its own box at the left, off the middle of the view where the vessel is (v940) */
+#nestrep { position: fixed; left: 12px; top: calc(52px + env(safe-area-inset-top, 0px)); z-index: 3; width: min(330px, calc(100vw - 24px)); box-sizing: border-box; background: var(--glass); color: var(--ink); border-radius: 6px; padding: 8px 28px 8px 10px; font-family: var(--body); font-size: 0.78rem; line-height: 1.45; max-height: 45vh; overflow: auto; }
+#nestrep .x { position: absolute; right: 4px; top: 3px; font: inherit; font-size: 1rem; line-height: 1; color: var(--ink); background: none; border: 0; padding: 2px 6px; cursor: pointer; opacity: 0.75; }
+body:not(.innest) #nestrep { display: none; }
+body.embed #nestrep { top: calc(230px + env(safe-area-inset-top, 0px)); }
+@media (max-width: 640px) { #nestrep { top: auto; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); width: calc(100vw - 24px); max-height: 32vh; } body.embed #nestrep { top: auto; bottom: calc(150px + env(safe-area-inset-bottom, 0px)); } }
 #nestrep .head { opacity: 0.8; margin-bottom: 2px; }
 body.innest .panel, body.innest #help { display: none !important; }
 body.embed #nesthud { top: calc(94px + env(safe-area-inset-top, 0px)); }
@@ -80,13 +85,25 @@ body.embed #nesthud { top: calc(94px + env(safe-area-inset-top, 0px)); }
 #clockpanel button { font: inherit; color: var(--ink); background: rgba(255,255,255,0.12); border: 0; border-radius: 4px; padding: 3px 7px; cursor: pointer; }
 #clockpanel .rates { margin-left: auto; display: flex; gap: 3px; }
 #clockpanel .rates button.on { background: rgba(224,168,67,0.9); color: #1b2328; }
+/* every window shrinks to its first line (v940) */
+.shrinker { position: absolute; right: 4px; top: 4px; width: 20px; height: 20px; padding: 0 !important; font: 600 14px/1 system-ui, sans-serif !important; color: var(--ink) !important; background: rgba(255,255,255,0.14) !important; border: 0; border-radius: 4px; cursor: pointer; z-index: 1; }
+#nesthud, #underway, #clockpanel { padding-right: 30px !important; }
+#nestrep { padding-right: 52px !important; }
+#nestrep .shrinker { right: 26px; }
+#nesthud.shrunk .hint, #nesthud.shrunk .row button:not(#nestdown):not(.on) { display: none; }
+#nestrep.shrunk > div:not(.head) { display: none; }
+#underway.shrunk ul { display: none; }
+#underway.shrunk { width: auto; }
+#clockpanel.shrunk > :not(.ct):not(.shrinker) { display: none !important; }
 #nesthud button.on { background: rgba(224,168,67,0.9); color: #1b2328; }
 #nesthud button[hidden] { display: none; }
 #ridechart { position: fixed; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 3; width: clamp(240px, 30vw, 380px); aspect-ratio: 1; border-radius: 6px; box-shadow: 0 2px 10px rgba(10,20,26,0.35); cursor: zoom-out; }
 #ridechart[hidden] { display: none; }
 body.smallride #ridechart { width: clamp(130px, 15vw, 190px); cursor: zoom-in; }
 @media (max-width: 640px) { #ridechart { width: 52vw; } body.smallride #ridechart { width: 30vw; } }
-body.embed #ridechart { bottom: calc(150px + env(safe-area-inset-bottom, 0px)); }
+body.embed #ridechart { bottom: calc(196px + env(safe-area-inset-bottom, 0px)); width: clamp(200px, 24vw, 320px); }   /* above the chart's own view buttons (v940) */
+body.embed.smallride #ridechart { width: clamp(120px, 13vw, 170px); }
+@media (max-width: 640px) { body.embed #ridechart { bottom: calc(150px + env(safe-area-inset-bottom, 0px)); width: 46vw; } }
 #underway { position: fixed; right: 12px; top: calc(48px + env(safe-area-inset-top, 0px)); z-index: 4; width: min(360px, calc(100vw - 24px)); max-height: calc(100vh - 120px); overflow-y: auto; box-sizing: border-box; background: var(--glass-hi); color: var(--ink); border-radius: 6px; padding: 8px 10px; font-family: var(--body); font-size: 0.8rem; }
 #underway[hidden] { display: none; }
 #underway .sect { font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0 0 4px; }
@@ -187,7 +204,8 @@ body.embed #exagbox { top: calc(94px + env(safe-area-inset-top, 0px)); }
 <div id="scale"><button type="button" id="bowdoinbtn" class="wxbtn" title="Fly to the schooner Bowdoin (Maine Maritime Academy, Castine) and follow her">⚓ Bowdoin</button><button type="button" id="crowsnest" class="wxbtn" title="Up to Bowdoin's crow's nest: look round from her ice barrel at the foremast head">🔭 Crow's nest</button><button type="button" id="tohelm" class="wxbtn" hidden title="Back to the 3D view from the boat">◀ 3D helm</button><button type="button" id="underwaybtn" class="wxbtn" hidden title="The boats on the water now: go aboard at the helm, fly a drone over her, or follow her">⛴ Underway</button><button type="button" id="clockbtn" class="wxbtn" hidden title="The time on the water: set it, run it faster, or jump to the next ferry or cruise ship">🕗 --:--</button><svg id="compass" viewBox="-11 -11 22 22" role="button" aria-label="Turn north up"><circle r="10" fill="rgba(0,0,0,0.25)"/><g id="needle"><path d="M0,-8 L3,0 L-3,0 Z" fill="#d9534f"/><path d="M0,8 L3,0 L-3,0 Z" fill="#e9eff1"/></g></svg><span id="alt">—</span></div>
 <div id="exagbox" hidden><div class="row" title="How much deeper than life the seabed is drawn, so its channels and holes show"><label for="exag">Depth</label><input id="exag" type="range" min="1" max="10" step="1" value="4"><b id="exagval">4×</b></div><div class="row" title="Let the sea back in: from an empty bay up to sea level and a little over, about high tide"><label for="wlevel">Water</label><input id="wlevel" type="range" min="0" max="1000" step="1" value="0"><b id="wlevelval">empty</b><button type="button" id="wfill">▲ Fill</button></div></div>
 <div id="clockpanel" hidden><div class="ct"><b id="clocktime">--:--</b><button type="button" id="clocknow" title="Back to the real time">Now</button><span class="rates"><button type="button" data-rate="1" title="Real time">×1</button><button type="button" data-rate="10">×10</button><button type="button" data-rate="60">×60</button></span></div><div id="clocklink" hidden>⛵ Running with your boat: her time since she left. Move the clock to let go.</div><input id="clockslider" type="range" min="0" max="1439" step="1" aria-label="Time of day"><div class="sect">Coming up</div><ul id="coming"></ul></div>
-<div id="nesthud" hidden><div class="row"><b id="ridename">Bowdoin's crow's nest</b><button type="button" id="ridehelm" title="At her helm (H)">Helm</button><button type="button" id="ridedrone" title="A drone over her, following her (D)">Drone</button><button type="button" id="ridenest" title="Up to her crow's nest">🔭 Nest</button><button type="button" id="nestreport" title="What the lookout can see from here (L)">📣 Lookout's report</button><button type="button" id="nestdown" title="Leave her, and follow her from above (Esc)">⬇ Leave</button></div><div class="hint" id="ridestat"></div><div class="hint" id="ridehint">Drag or arrow keys to look round · scroll or pinch for the glasses</div><div id="nestrep"></div></div>
+<div id="nesthud" hidden><div class="row"><b id="ridename">Bowdoin's crow's nest</b><button type="button" id="ridehelm" title="At her helm (H)">Helm</button><button type="button" id="ridedrone" title="A drone over her, following her (D)">Drone</button><button type="button" id="ridenest" title="Up to her crow's nest">🔭 Nest</button><button type="button" id="nestreport" title="What the lookout can see from here (L)">📣 Lookout's report</button><button type="button" id="nestdown" title="Leave her, and follow her from above (Esc)">⬇ Leave</button></div><div class="hint" id="ridestat"></div><div class="hint" id="ridehint">Drag or arrow keys to look round · scroll or pinch for the glasses</div></div>
+<div id="nestrep"></div>
 <canvas id="ridechart" hidden title="Tap to shrink or enlarge the chart"></canvas>
 <div id="underway" hidden><div class="sect">On the water now</div><ul></ul></div>
 <div id="loading" hidden>Loading…</div>

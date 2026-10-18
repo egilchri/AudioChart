@@ -164,22 +164,91 @@ export function cruiseShipModel(V, windowMats = []) {
   return g;
 }
 
-// A Maine State Ferry Service car ferry, simply, for the Bird's-eye view (the helm view has its own,
-// closer-up model): red hull, white sides and house with windows, dark pilothouse glass.
+// A Maine State Ferry Service car ferry for the Bird's-eye view (v940, on request: "the deck of the ferry is ugly
+// and unrealistic"; was three slabs and a box): red hull, black boot-top, a white sheer strake; the car deck open
+// aft between white side casings, lane lines and the day's cars and trucks on it, the stern ramp raised; a closed
+// forecastle at the bow; over the forward car deck the passenger house bridging the casings, its windows in rows
+// (lit at night), a railed upper deck, the pilothouse forward on it with wrap-round glass and bridge wings, a mast
+// with radar, and exhaust stacks in the casings. Her wake when she's under way. Bow toward −z, waterline y = 0.
+function windowRows(len, lit, h = 32) {
+  const cv = document.createElement('canvas'); cv.width = 128; cv.height = h; const c = cv.getContext('2d');
+  c.fillStyle = lit ? '#000' : '#f3f2ee'; c.fillRect(0, 0, 128, h);
+  c.fillStyle = lit ? '#fff' : '#26323b';
+  for (let x = 6; x < 128; x += 21) c.fillRect(x, h * 0.3, 15, h * 0.42);
+  const t = new THREE.CanvasTexture(cv); t.wrapS = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.repeat.set(Math.max(1, Math.round(len / 4)), 1); return t;
+}
+function wakeOf(B, L) {
+  const wc = document.createElement('canvas'); wc.width = 64; wc.height = 256;
+  const c2 = wc.getContext('2d'), grd = c2.createLinearGradient(0, 0, 0, 256);
+  grd.addColorStop(0, 'rgba(245,250,252,0.8)'); grd.addColorStop(1, 'rgba(245,250,252,0)');
+  c2.fillStyle = grd; c2.beginPath(); c2.moveTo(22, 0); c2.lineTo(42, 0); c2.lineTo(64, 256); c2.lineTo(0, 256); c2.closePath(); c2.fill();
+  const wake = new THREE.Mesh(new THREE.PlaneGeometry(B * 3, L * 1.6), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(wc), transparent: true, depthWrite: false }));
+  wake.rotation.x = -Math.PI / 2; wake.position.set(0, 0.08, L / 2 + L * 0.8); return wake;
+}
 export function ferryModelSimple(F, windowMats = []) {
   const L = F.length_m || 46, B = Math.min(12.2, L * 0.26), g = new THREE.Group(), half = L / 2, taper = L * 0.16;
+  let sd = [...(F.name || 'ferry')].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) % 2147483647, 7) || 7;
+  const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
   const M = c => new THREE.MeshLambertMaterial({ color: c });
+  const white = M(0xf3f2ee), red = M(0xc83a2e), black = M(0x1d1f22), deckM = M(0x55585a), glass = M(0x1f2a32), grey = M(0x8d9296), yellow = M(0xe0b23a);
+  const box = (w, h, d, x, y, z, m) => { const k = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); k.position.set(x, y, z); g.add(k); return k; };
   const outline = [[-B / 2, half], [B / 2, half], [B / 2, -half + taper], [B * 0.27, -half], [-B * 0.27, -half], [-B / 2, -half + taper]];
-  const slab = (y0, y1, m) => {
-    const mesh = new THREE.Mesh(new THREE.ExtrudeGeometry(new THREE.Shape(outline.map(([x, z]) => new THREE.Vector2(x, -z))), { depth: y1 - y0, bevelEnabled: false }), m);
-    mesh.rotation.x = -Math.PI / 2; mesh.position.y = y0; g.add(mesh);
+  const slab = (pts, y0, y1, m) => {
+    const mesh = new THREE.Mesh(new THREE.ExtrudeGeometry(new THREE.Shape(pts.map(([x, z]) => new THREE.Vector2(x, -z))), { depth: y1 - y0, bevelEnabled: false }), m);
+    mesh.rotation.x = -Math.PI / 2; mesh.position.y = y0; g.add(mesh); return mesh;
   };
-  slab(-1, 0.25, M(0x1d1f22)); slab(0.25, 2.2, M(0xc83a2e)); slab(2.2, 4.4, M(0xf3f2ee));
-  const win = new THREE.MeshLambertMaterial({ color: 0xf3f2ee, emissive: 0xffd9a0, emissiveIntensity: 0 }); windowMats.push(win);
-  const house = new THREE.Mesh(new THREE.BoxGeometry(B * 0.7, 2.6, L * 0.42), win); house.position.set(0, 5.7, -L * 0.06); g.add(house);
-  const ph = new THREE.Mesh(new THREE.BoxGeometry(B * 0.5, 1.6, 5), M(0x22303a)); ph.position.set(0, 7.8, -L * 0.18); g.add(ph);
-  g.userData.helm = [0, 8.1, -L * 0.18 - 2.7];   // in the pilothouse, at its forward windows (v937)
-  g.userData.wake = [];
+  const DK = 2.3, CAS = 2.7, TOP = DK + CAS, cw = 1.3;   // car deck height; casing height; casing width
+  slab(outline, -1, 0.3, black); slab(outline, 0.3, DK - 0.25, red); slab(outline, DK - 0.25, DK, white);
+  // the car deck: asphalt grey, two yellow lane lines
+  const deckLen = L - taper - 0.6, deckZ = -half + taper + deckLen / 2 + 0.3;
+  box(B - 2 * cw, 0.08, deckLen, 0, DK + 0.04, deckZ, deckM);
+  for (const x of [-(B - 2 * cw) / 6, (B - 2 * cw) / 6]) box(0.14, 0.02, deckLen * 0.92, x, DK + 0.09, deckZ, yellow);
+  // the forecastle: the bow closed in up to the casing tops, a grey deck on it
+  const fwd = [[-B / 2, -half + taper + 0.4], [B / 2, -half + taper + 0.4], [B / 2, -half + taper], [B * 0.27, -half], [-B * 0.27, -half], [-B / 2, -half + taper]];
+  slab(fwd, DK, TOP, white); slab(fwd, TOP, TOP + 0.08, grey);
+  // on the forecastle: the anchor windlass, bollards each side (no jackstaff: it stood dead ahead of the helm's view)
+  const fz = -half + taper * 0.55;
+  box(B * 0.32, 0.7, 1.2, 0, TOP + 0.43, fz, M(0x3c4248));
+  for (const sx of [-1, 1]) for (const dz of [-1.6, 1.4]) { const b = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.25, 0.6, 8), black); b.position.set(sx * B * 0.3, TOP + 0.38, fz + dz); g.add(b); }
+  // the side casings, with a red cap rail
+  for (const sx of [-1, 1]) { box(cw, CAS, deckLen, sx * (B / 2 - cw / 2), DK + CAS / 2, deckZ, white); box(cw + 0.06, 0.12, deckLen, sx * (B / 2 - cw / 2), TOP + 0.06, deckZ, red); }
+  // the stern ramp, raised
+  const ramp = box(B - 2 * cw - 0.4, 3.0, 0.25, 0, DK + 1.5, half - 0.2, grey); ramp.rotation.x = 0.12;
+  // the passenger house over the forward car deck, its windows in rows, and its upper deck rail
+  const hLen = L * 0.34, hZ = -half + taper + 0.4 + hLen / 2, hH = 2.7;
+  const side = new THREE.MeshLambertMaterial({ map: windowRows(hLen, false), emissive: 0xffd9a0, emissiveMap: windowRows(hLen, true), emissiveIntensity: 0 });
+  const endS = new THREE.MeshLambertMaterial({ map: windowRows(B, false), emissive: 0xffd9a0, emissiveMap: windowRows(B, true), emissiveIntensity: 0 });
+  windowMats.push(side, endS);
+  const house = new THREE.Mesh(new THREE.BoxGeometry(B, hH, hLen), [side, side, white, white, endS, endS]); house.position.set(0, TOP + hH / 2, hZ); g.add(house);
+  const UP = TOP + hH;
+  for (const sx of [-1, 1]) box(0.06, 0.9, hLen, sx * (B / 2 - 0.05), UP + 0.45, hZ, white);   // the rail round the upper deck
+  box(B, 0.9, 0.06, 0, UP + 0.45, hZ + hLen / 2 - 0.03, white);
+  // the pilothouse forward on the upper deck: white, wrap-round glass, bridge wings out to the sides
+  const pL = 4.6, pZ = hZ - hLen / 2 + pL / 2 + 0.4, pH = 2.4;
+  box(B * 0.56, pH, pL, 0, UP + pH / 2, pZ, white);
+  box(B * 0.56 + 0.04, 0.95, pL + 0.04, 0, UP + pH * 0.62, pZ, glass);
+  box(B * 0.98, 0.2, 1.8, 0, UP + 1.0, pZ - pL / 2 + 0.9, white);   // the wings
+  box(B * 0.58, 0.18, pL + 0.5, 0, UP + pH + 0.09, pZ, white);       // her roof, a little overhang
+  // the mast and radar, the exhaust stacks in the casings abaft the house
+  box(0.18, 3.2, 0.18, 0, UP + pH + 1.7, pZ + 0.6, white);
+  const radar = box(1.8, 0.14, 0.3, 0, UP + pH + 2.9, pZ + 0.6, black); radar.rotation.y = 0.5;
+  box(0.02, 0.6, 1.0, 0, UP + pH + 2.6, pZ + 1.2, M(0x2a3f7a));   // the flag, on the mast
+  for (const sx of [-1, 1]) { box(0.9, 2.4, 1.4, sx * (B / 2 - cw / 2), TOP + 1.2, hZ + hLen / 2 + 2.2, white); box(0.92, 0.5, 1.42, sx * (B / 2 - cw / 2), TOP + 2.4, hZ + hLen / 2 + 2.2, black); }
+  // the day's cars and trucks on the open deck aft, in their lanes
+  const COLS = [0xb8bcc0, 0x2a2d31, 0x8b1e1e, 0x2c4a6e, 0xe9e9e6, 0x5a6b4e, 0x9a8a6c, 0x6c7378];
+  const lanes = [-(B - 2 * cw) / 3, 0, (B - 2 * cw) / 3], z0 = hZ + hLen / 2 + 1.2, z1 = half - 1.6;
+  for (const x of lanes) for (let z = z0; z < z1 - 4;) {
+    if (rnd() < 0.18) { z += 3; continue; }   // a gap
+    const truck = rnd() < 0.18, len = truck ? 7.5 : 4.5, h = truck ? 2.9 : 1.5, col = COLS[Math.floor(rnd() * COLS.length)];
+    if (z + len > z1) break;
+    const cz = z + len / 2;
+    box(1.9, h * 0.62, len, x, DK + 0.25 + h * 0.31, cz, M(col));
+    if (truck) box(1.95, h * 0.42, len * 0.72, x, DK + 0.25 + h * 0.62 + h * 0.21, cz + len * 0.12, M(rnd() < 0.5 ? 0xe9e9e6 : col));   // the box
+    else box(1.7, h * 0.36, len * 0.5, x, DK + 0.25 + h * 0.62 + h * 0.18, cz + 0.2, glass);   // the cab, its windows
+    z += len + 0.9;
+  }
+  g.userData.helm = [0, UP + 1.65, pZ - pL / 2 + 0.7];   // in the pilothouse, at its forward windows
+  g.userData.wake = [wakeOf(B, L)]; g.add(g.userData.wake[0]);
   return g;
 }
 

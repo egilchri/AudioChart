@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-10-18 — A real car ferry, the view kept clear, every window shrinkable (v940)
+
+Reported with a screenshot: "I'm trying to follow the ferry. Notice how the window is in the way. Plus, the deck of
+the ferry is ugly and unrealistic", then "all windows should be shrinkable".
+- The Maine State ferries in Bird's-eye (vessels.js ferryModelSimple) are rebuilt: red hull, black boot-top, white
+  sheer strake; the car deck open aft between white side casings with lane lines and the day's cars and trucks, the
+  stern ramp raised; a closed forecastle with windlass and bollards; the passenger house over the forward car deck
+  with rows of windows (lit at night), a railed upper deck, the pilothouse with wrap-round glass and bridge wings, a
+  mast with radar and flag, exhaust stacks; and a wake under way. The helm eye is in the new pilothouse.
+- The lookout's report is its own box at the left (or along the bottom on a phone), closes with × and goes after 45 s,
+  instead of growing the bar at the top down over the vessel; the drone frames her a little below the middle.
+- Inside AudioChart the ride's chart sits above the view buttons instead of over them.
+- Every window shrinks: a – in the corner of the riding bar, the lookout's report, ⛴ Underway and the 🕗 clock panel
+  folds it to its first line, + opens it out, remembered (the ride's chart already shrank with a tap).
+- Fixed: since v937 the zoom (binoculars, drone distance) wasn't reset on going aboard another vessel or switching
+  view (a comment had swallowed the line).
+
 ## 2026-10-18 — Smoother coastline on the ride's chart (v939)
 
 Requested: "make the coastline on the chart less blocky". The chart's land is now drawn for the chart's own frame,
