@@ -308,6 +308,63 @@ async function loadTile(T) {
 }
 // Empty Bay's depth exaggeration changed: every loaded mesh's heights again from its grid, the sunk
 // overview kept sunk under the loaded tiles
+// Empty Bay's charted rocks, obstructions and wrecks (v931, requested): hazards.geojson's points, each kind one
+// instanced mesh, standing on the seabed where it is (heightAt, deepened by EXAG like the seabed) and drawn
+// bigger the farther off you are, so they can be found from up high. Water let back in hides them, as it would.
+// Re-placed when tiles load, the Depth slider moves or the view zooms (updateHazards, from the frame's checks).
+const hazards = { list: [], meshes: {}, key: '' };
+let updateHazards = () => {};
+if (EMPTY) getJSON('./data/regions/penobscot-bay/hazards.geojson').then(fc => {
+  const KIND = { 'underwater rock': 'rock', obstruction: 'obstruction', wreck: 'wreck' };
+  const seen = new Set();
+  for (const f of fc.features) {
+    const kind = KIND[f.properties?.label]; if (!kind || f.geometry?.type !== 'Point') continue;
+    const [lon, lat] = f.geometry.coordinates, cell = `${kind}|${Math.round(lon * 6000)},${Math.round(lat * 6000)}`;   // the same one on two charts: once (~15 m)
+    if (seen.has(cell)) continue; seen.add(cell);
+    let sd = Math.round(Math.abs(lon * 1e5 + lat * 7e4)) % 2147483646 + 1; const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+    hazards.list.push({ kind, lon, lat, x: wx(lon), z: wz(lat), valsou: f.properties.valsou, watlev: f.properties.watlev, name: f.properties.name, turn: rnd() * Math.PI * 2, size: 0.8 + rnd() * 0.5 });
+  }
+  const geo = {
+    rock: new THREE.DodecahedronGeometry(1, 0).scale(1, 0.62, 0.9),
+    obstruction: new THREE.BoxGeometry(1.3, 0.9, 1.3),
+    wreck: (() => {   // a small hull, keel down, broken off at the stern
+      const sh = new THREE.Shape(); sh.moveTo(0, 1.6); sh.quadraticCurveTo(0.7, 0.6, 0.6, -1.3); sh.lineTo(-0.6, -1.3); sh.quadraticCurveTo(-0.7, 0.6, 0, 1.6);
+      return new THREE.ExtrudeGeometry(sh, { depth: 0.7, bevelEnabled: false }).rotateX(-Math.PI / 2).translate(0, -0.1, 0);
+    })(),
+  };
+  const col = { rock: 0x625a50, obstruction: 0x6a6488, wreck: 0x9a5426 };
+  for (const kind of Object.keys(geo)) {
+    const items = hazards.list.filter(h => h.kind === kind);
+    const m = new THREE.InstancedMesh(geo[kind], new THREE.MeshLambertMaterial({ color: col[kind] }), Math.max(1, items.length));
+    m.count = items.length; m.frustumCulled = false; scene.add(m); hazards.meshes[kind] = { m, items };
+  }
+  const mat = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), pv = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
+  updateHazards = () => {
+    const size = clamp(view.dist / 260, 1.5, 45);   // metres: small up close, findable from the heights
+    const key = `${tiles.filter(T => T.state === 'ready').length}|${EXAG}|${Math.round(Math.log(size) * 8)}`;
+    if (key === hazards.key) return; hazards.key = key; hazards.size = size;
+    for (const { m, items } of Object.values(hazards.meshes)) {
+      items.forEach((h, i) => {
+        const big = h.kind === 'wreck' ? 1.8 : 1, s = size * h.size * big;
+        h.y = yOf(Math.min(heightAt(h.lon, h.lat), 0));   // a rock charted on dry land sits at the tide line
+        q.setFromAxisAngle(up, h.turn); sc.set(s, s, s); pv.set(h.x, h.y + s * 0.35, h.z);
+        m.setMatrixAt(i, mat.compose(pv, q, sc));
+      });
+      m.instanceMatrix.needsUpdate = true;
+    }
+  };
+  updateHazards();
+}).catch(err => console.warn('[bay3d] hazards failed', err));
+// what the depth readout says of the one under (or nearest within its size of) a point
+function hazardNear(lon, lat) {
+  let best = null, bd = Infinity;
+  const x = wx(lon), z = wz(lat), r = Math.max(12, (hazards.size || 10) * 1.6);
+  for (const h of hazards.list) { const d = Math.hypot(h.x - x, h.z - z); if (d < r && d < bd) { bd = d; best = h; } }
+  if (!best) return '';
+  const WAT = { 1: 'partly submerged at high water', 2: 'always dry', 3: 'always under water', 4: 'covers and uncovers', 5: 'awash' };
+  const v = best.valsou, depth = v == null ? '' : v < 0 ? `dries ${Math.round(-v / 0.3048)} ft at low water` : `${Math.round(v / 0.3048)} ft over it at low water`;
+  return [best.name || best.kind[0].toUpperCase() + best.kind.slice(1), depth, WAT[best.watlev]].filter(Boolean).join(' · ');
+}
 function remeshForExag() {
   const redo = (mesh, dem) => {
     if (!mesh) return;
@@ -381,6 +438,8 @@ if (EMPTY) {
       txt = `<b>${ftOf(-h)} ft</b> deep <span>(${Math.round(-h)} m)</span>`;
       if (waterLevel > WATER_MIN && waterLevel > h) txt += `<br>under ${ftOf(waterLevel - h)} ft of water now`;
     }
+    const hz = hazardNear(hit.lon, hit.lat);
+    if (hz) txt += `<br><b>${hz}</b>`;
     tip.innerHTML = txt; tip.hidden = false; tip.dataset.at = `${hit.lat.toFixed(5)},${hit.lon.toFixed(5)},${h.toFixed(2)}`;   // (for tests)
     const w = tip.offsetWidth, hh = tip.offsetHeight;
     tip.style.left = Math.min(innerWidth - w - 8, tipAt.x + 16) + 'px';
@@ -405,7 +464,7 @@ if (EMPTY) {
   document.getElementById('sailboat')?.setAttribute('hidden', '');   // nothing afloat to follow
   document.getElementById('credit').textContent = 'Land and seabed NOAA NCEI CUDEM · Photos USDA NAIP';
   const help = document.getElementById('help');
-  if (help) help.textContent = 'Empty Bay: the bay with the water gone. Drag to move · Shift-drag to turn and tilt · scroll or pinch to zoom · Depth deepens the seabed · Water lets the sea back in (▲ Fill) · point (or tap) for the depth';
+  if (help) help.textContent = 'Empty Bay: the bay with the water gone. Drag to move · Shift-drag to turn and tilt · scroll or pinch to zoom · Depth deepens the seabed · Water lets the sea back in (▲ Fill) · point (or tap) for the depth, and the charted rocks and wrecks';
 }
 function dropTile(T) {
   if (T.state === 'loading') { T.state = 'idle'; return; }
@@ -1316,7 +1375,7 @@ function frame(now) {
   const dt = Math.min(0.1, clock.getDelta()); t += dt;
   stepAnim(now ?? performance.now());
   if (!nest.on) { clampView(); placeCamera(); }
-  if (t - lastCheck > 0.4) { lastCheck = t; updateTiles(); updateTowns(); updateMarks(); }
+  if (t - lastCheck > 0.4) { lastCheck = t; updateTiles(); updateTowns(); updateMarks(); updateHazards(); }
   if (!drag && !anim) updateTrees(); else if (t - (TREES.lastMove || 0) > 0.25) { TREES.lastMove = t; updateTrees(); }
   if (EMPTY) stepWater(dt);
   water.position.set(view.x, EMPTY ? (waterLevel < 0 ? waterLevel * EXAG : waterLevel) : 0, view.z);

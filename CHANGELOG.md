@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-17 — Rocks and wrecks on Empty Bay's seabed (v931)
+
+Requested: "add the rocks and wrecks on the seabed". Empty Bay shows hazards.geojson's charted underwater rocks
+(4,764), obstructions (112) and wrecks (23), once each where two charts repeat one: stones, slate blocks and
+small rust hulls, one instanced mesh a kind, standing on the seabed (heightAt, deepened with the Depth slider)
+and drawn bigger the farther off you are. Water let back in covers them. The depth readout names the one under
+the pointer, with the chart's depth over it and its water level: "Rock · dries 3 ft at low water · covers and
+uncovers".
+
 ## 2026-10-17 — Empty Bay's depth under the pointer (v930)
 
 Requested: "add the depth readout under the pointer". In Empty Bay a tag by the pointer gives the depth there,
