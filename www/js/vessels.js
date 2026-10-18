@@ -58,17 +58,21 @@ export function cruiseState(call, vessel, T, minute) {
 // ('to' is the island end of a mainland ferry), a few minutes at each landing. Summer hours and a season if
 // she has them; out of season she's not shown. From the trip counts and terminal hours, not the timetable.
 const dayCache = new WeakMap();
+const inSummer = (sv, md) => !!(sv?.summer && md >= sv.summer[0] && md <= sv.summer[1]);
+// her line on that date: in her summer hours a ferry with a summer_line takes it, for her summer stops
+// (the mail boat's Sutton Island; v935)
+export const ferryLine = (F, date = new Date()) => (F.summer_line && inSummer(F.service, ymd(date).slice(5)) ? F.summer_line : F.line);
 export function ferryDay(F, T, date = new Date()) {
   const key = ymd(date), hit = dayCache.get(F);
   if (hit && hit.key === key) return hit.day;
   const sv = F.service || { start: '06:00', end: '19:00', first: 'to' }, md = key.slice(5);
   let day = null;
   if (!sv.season || (md >= sv.season[0] && md <= sv.season[1])) {
-    const summer = sv.summer && md >= sv.summer[0] && md <= sv.summer[1];
+    const summer = inSummer(sv, md);
     const start = mins(summer ? sv.summer[2] : sv.start), end = mins(summer ? sv.summer[3] : sv.end);
     // where the stops are along the line (metres), ends included, in the order she meets them going 'to'
     const near = (lon, lat) => { let best = 0, bd = Infinity; for (let f = 0; f <= T.L; f += 10) { const p = alongTrack(T, f); const d = Math.hypot(p.x - T.wx(lon), p.z - T.wz(lat)); if (d < bd) { bd = d; best = f; } } return best; };
-    const stops = [{ name: F.from, f: 0 }, ...(F.stops || []).map(s => ({ name: s.name, f: near(s.lon, s.lat) })), { name: F.to, f: T.L }].sort((a, b) => a.f - b.f);
+    const stops = [{ name: F.from, f: 0 }, ...(F.stops || []).filter(s => !s.summer || summer).map(s => ({ name: s.name, f: near(s.lon, s.lat) })), { name: F.to, f: T.L }].sort((a, b) => a.f - b.f);
     const out = sv.first === 'to' ? [...stops].reverse() : stops, round = [...out, ...[...out].reverse().slice(1)];
     const speed = F.knots * 1852 / 60, launch = F.kind === 'launch', segs = [];
     for (let t = start; t < end;) {   // round trips while the day lasts

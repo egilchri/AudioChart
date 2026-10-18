@@ -15,7 +15,7 @@ import { sunPos, SUN, makeSky, makeEnv, glowSprite, flashFor, flashOn, sectorCol
 import { makeSailboat, fleetType } from './sailboat3d.js';
 import { makeAngelique, makeBowdoin } from './angelique3d.js';
 import { makeWildlife, ledgesFrom } from './wildlife3d.js';
-import { callsOn, trackOf, alongTrack, cruiseState, ferryState, ferryDepartures, cruiseShipModel, ferryModelSimple, launchModel, mins } from './vessels.js';
+import { callsOn, trackOf, alongTrack, cruiseState, ferryState, ferryDepartures, ferryLine, cruiseShipModel, ferryModelSimple, launchModel, mins } from './vessels.js';
 
 const statusEl = document.getElementById('status');
 const loadingEl = document.getElementById('loading');
@@ -1014,7 +1014,7 @@ function lightForClock() {   // the weather panel's time of day, from where the 
 const hhmm = m => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(Math.floor(m % 60)).padStart(2, '0')}`;
 if (!EMPTY) Promise.all([getJSON('./data/ferries.json').catch(() => null), getJSON('./data/cruise_ships.json').catch(() => null)]).then(([fd, cd]) => {
   for (const F of fd?.ferries || []) {
-    const T = trackOf(F.line, wx, wz), group = (F.kind === 'launch' ? launchModel : ferryModelSimple)(F, trafficLit); group.visible = false; scene.add(group);
+    const T = trackOf(ferryLine(F), wx, wz), group = (F.kind === 'launch' ? launchModel : ferryModelSimple)(F, trafficLit); group.visible = false; scene.add(group);
     traffic.push({ kind: 'ferry', F, T, group, L: F.length_m || 46, x: T.P[0][0], z: T.P[0][1], on: false, label: '' });
   }
   for (const call of callsOn(cd, new Date(), FORCE_CRUISE)) {

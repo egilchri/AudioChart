@@ -17,7 +17,10 @@ Sources (checked 2026-10-18):
   Sutton; six trips a day in summer from 07:30 to 18:45, four in spring and fall 08:15-17:15 (MaineDOT
   2019 locally coordinated plan, Cranberry Isles appendix). OSM has no Beal & Bunker way: its line here is
   OSM's Northeast Harbor-Great Cranberry commuter track and the Great Cranberry-Islesford track, and the
-  order of the stops is assumed.
+  order of the stops is assumed. Sutton Island (summer homes only; served on request, Cruising Club guide)
+  is taken as a summer stop: in the summer hours her `summer_line` turns in to the town float on Sutton's
+  south shore (OSM way 1316039157, at the end of Dock Path, with a ferry shelter), with our own approach
+  around the island's west end.
 - Cranberry Cove Ferry (Downeast Windjammer): Southwest Harbor, Manset, Great Cranberry, Islesford, late May
   to October, five trips a day 07:15-17:15 in summer (downeastwindjammer.com). Season end taken as 15 Oct.
 """
@@ -49,6 +52,17 @@ def join(*parts):
     return line
 
 
+SUTTON = [-68.2644, 44.27095]   # alongside the Sutton Island town float (OSM way 1316039157)
+
+
+def via_sutton(line):
+    """Northeast Harbor-Great Cranberry, turning in to Sutton's float: in round the island's west end, out
+    to the south, back on the track below the island."""
+    i = next(k for k, p in enumerate(line) if p[1] < 44.28)   # the track's first point south of Bear Island
+    j = next(k for k, p in enumerate(line) if p[1] < 44.266)  # and where it rejoins, off Great Cranberry
+    return line[:i] + [[-68.2735, 44.2738], [-68.2702, 44.2713], SUTTON, [-68.2675, 44.2695], [-68.2688, 44.2672]] + line[j:]
+
+
 def main():
     w = overpass(WAYS)
     rev = lambda p: list(reversed(p))
@@ -65,7 +79,9 @@ def main():
         {'name': 'Beal & Bunker mail boat', 'kind': 'launch', 'says': 'Mail boat', 'from': 'Northeast Harbor', 'to': 'Islesford',
          'knots': 10, 'vessel': 'DOUBLE B', 'length_m': 15, 'osm': [11426785, 11432849],
          'line': join(rev(w[11426785]), rev(w[11432849])),
-         'stops': [{'name': 'Great Cranberry', 'lon': w[11432849][-1][0], 'lat': w[11432849][-1][1]}],
+         'summer_line': join(via_sutton(rev(w[11426785])), rev(w[11432849])),
+         'stops': [{'name': 'Sutton Island', 'lon': SUTTON[0], 'lat': SUTTON[1], 'summer': True},
+                   {'name': 'Great Cranberry', 'lon': w[11432849][-1][0], 'lat': w[11432849][-1][1]}],
          'service': {'start': '08:15', 'end': '17:15', 'first': 'from', 'summer': ['06-15', '09-10', '07:30', '18:45']}},
         {'name': 'Cranberry Cove Ferry', 'kind': 'launch', 'says': 'Ferry', 'from': 'Southwest Harbor', 'to': 'Islesford',
          'knots': 10, 'vessel': 'CRANBERRY COVE', 'length_m': 14, 'osm': [11428675, 731120557, 11432849],

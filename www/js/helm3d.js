@@ -8,7 +8,7 @@ import { depthAtFrom } from './depth.js';
 import { LON0, LAT0, MX, MY, wx, wz, cachedFetch, readDem, photo, photoAtCells, addCanopy, gridMesh, photoMat, buildTown, spruce, tlog, tmark, TOWN_NIGHT } from './terrain3d.js';
 import { makeWildlife, ledgesFrom } from './wildlife3d.js';
 import { makeAngelique, ANGELIQUE, makeBowdoin, BOWDOIN } from './angelique3d.js';
-import { callsOn, cruiseShipModel, launchModel } from './vessels.js';
+import { callsOn, ferryLine, cruiseShipModel, launchModel } from './vessels.js';
 import { makeSky, makeEnv, glowSprite, flashFor, sectorColour, weatherPanel, startConditions, makeTrimmer, cycleLook } from './weather3d.js';
 
 const statusEl = document.getElementById('status');
@@ -1160,7 +1160,7 @@ function setupFerries(data) {
 }
 function stageOnLine(F) {
   {
-    const P = F.line.map(([lo, la]) => [wx(lo), wz(la)]), fc = [0];
+    const P = ferryLine(F).map(([lo, la]) => [wx(lo), wz(la)]), fc = [0];
     for (let i = 1; i < P.length; i++) fc.push(fc[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
     const fy = { F, P, fc, L: fc[fc.length - 1] };
     const nearest = (x, z) => {   // distance to the line and how far along it

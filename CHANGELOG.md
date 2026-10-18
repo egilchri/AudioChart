@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-18 — The mail boat calls at Sutton Island (v935)
+
+Requested: "add the Sutton Island stop to the mail boat". In her summer hours (15 June–10 September) the Beal &
+Bunker mail boat now turns in to the Sutton Island town float on the island's south shore (OSM way 1316039157, at
+the end of Dock Path) between Northeast Harbor and Great Cranberry: ferries.json gives her a `summer_line` and the
+stop `summer: true`; vessels.js `ferryLine(F, date)` picks the line, and `ferryDay` drops summer stops out of
+summer. Sutton is served on request and has only summer homes, so out of summer she runs straight past. The approach
+round the island's west end is ours, not a charted track; checked clear of land.
+
 ## 2026-10-18 — Islesboro, Swan's Island and Cranberry Isles ferries (v934)
 
 Requested: "add the Islesboro and Swans Island ferries too, also Cranberry Islands ferries, (Beal and Bunker, and
