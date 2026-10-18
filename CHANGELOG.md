@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-10-18 — Cruise ships, and the ferries on their real lines (v933)
+
+Requested: "add the occasional cruise ship traffic to my virtual displays of Penobscot Bay. Also, please ensure that
+whatever ferries or cruise ships we show are on realistic courses." New data/cruise_ships.json (made by
+preprocess/build_cruise_tracks.js, which lists its sources): three calls with tracks planned by router.js at the
+ship's draft, so they keep to deep water clear of the charted rocks. A large ship (300 m, 28 ft) in from the sea
+past Two Bush Island to anchor off Broad Cove outside Rockland Harbor (where the pilots anchor them), on the 2026
+call dates, 07:00-17:00; one in past Egg Rock to Bar Harbor's General Anchorage A in Frenchman Bay, on about 38% of
+the season's days; and a small coastal ship (95 m, 10 ft) from Camden to Searsport on about 30%, leaving at 08:00.
+New www/js/vessels.js: which calls come on a day (the same days for everyone), where a ship is at a clock time,
+the ships' models (balconies, lifeboats, funnel; windows lit at night).
+Bird's-eye gets traffic for the first time, by the real clock: the two Fox Islands ferries back and forth on their
+charted lines through the day (not the timetable), and the day's cruise ship, labelled with what she's doing; a
+🚢 Cruise ship button flies to her while she's in the bay. Not in Empty Bay. The helm view's ferries now keep to
+their charted line (they were eased up to a mile and a half off it toward you): only their timing is chosen, and
+where your route runs along a ferry line she stands 150 m off to her own starboard to pass port to port. Cruise
+ships come by the same way on a call day when the route passes within 2 nm of a track.
+Then, the user's idea: "put a clock on the screen, and turn it to the time the ferry or cruise ship will pass by".
+Bird's-eye's 🕗 button shows the scene's time (the real time to begin with) and opens a panel: a time-of-day slider,
+Now, ×1/×10/×60, and Coming up, the day's next departures and arrivals; choosing one sets the clock to just before
+it and flies to that vessel, following her. Once you've set the clock the light follows it (the sun's height then:
+night, dawn, day or sunset).
+
 ## 2026-10-17 — Empty Bay's wrecks blink (v932)
 
 Requested: "Could you make the wrecks blink?" The 23 wrecks on Empty Bay's seabed glow bright orange for 0.6 s in

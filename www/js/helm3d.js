@@ -8,6 +8,7 @@ import { depthAtFrom } from './depth.js';
 import { LON0, LAT0, MX, MY, wx, wz, cachedFetch, readDem, photo, photoAtCells, addCanopy, gridMesh, photoMat, buildTown, spruce, tlog, tmark, TOWN_NIGHT } from './terrain3d.js';
 import { makeWildlife, ledgesFrom } from './wildlife3d.js';
 import { makeAngelique, ANGELIQUE, makeBowdoin, BOWDOIN } from './angelique3d.js';
+import { callsOn, cruiseShipModel } from './vessels.js';
 import { makeSky, makeEnv, glowSprite, flashFor, sectorColour, weatherPanel, startConditions, makeTrimmer, cycleLook } from './weather3d.js';
 
 const statusEl = document.getElementById('status');
@@ -1045,10 +1046,13 @@ function updateWaypoints(pos) {
 // across your bow about 400 m ahead if you cross its line, or meeting you port to port if you run
 // along it. Where it is depends only on how far you have sailed (S), at its own speed against the
 // boat's speed (BOAT_KN), so it keeps its place with Play, the slider and a Virtual Journey alike. Before its
-// time it waits at its terminal; after, it lies at the other one. Near the meeting its path is
-// eased off the charted line toward you (so it passes close enough to see from the Drone view),
-// back onto the line within a couple of kilometres either way, so it still leaves and reaches
-// its terminals on the real track.
+// time it waits at its terminal; after, it lies at the other one. It keeps to its charted line the whole
+// way (v933, requested: "ensure that whatever ferries or cruise ships we show are on realistic courses";
+// it used to be eased up to a mile and a half off the line toward you): only the timing is chosen, so it
+// passes where its line comes nearest your route. Where your route runs along the line itself, the ferry
+// stands 150 m off to her own starboard to pass you port to port, as a ferry would.
+// Cruise ships (v933) come the same way, on a call day (vessels.js), on the track the router planned at
+// her draft: unseen until she comes in from the sea, then at anchor (or alongside) once she's there.
 const ferries = [];
 function ferryModel(F) {   // a Maine State Ferry Service car ferry: bow toward -z, waterline at y = 0
   // The fleet's look (MSFS photos): red hull with a black boot-top at the waterline, high white sides
@@ -1152,7 +1156,10 @@ function ferryAt(fy, f) {   // point on the line f metres from Rockland, and the
   return { x, z, tx: (b[0] - a[0]) / l, tz: (b[1] - a[1]) / l };
 }
 function setupFerries(data) {
-  for (const F of data.ferries || []) {
+  for (const F of data.ferries || []) stageOnLine(F);
+}
+function stageOnLine(F) {
+  {
     const P = F.line.map(([lo, la]) => [wx(lo), wz(la)]), fc = [0];
     for (let i = 1; i < P.length; i++) fc.push(fc[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
     const fy = { F, P, fc, L: fc[fc.length - 1] };
@@ -1169,28 +1176,34 @@ function setupFerries(data) {
     const samples = [];
     for (let s = 0; s <= TOTAL; s += 50) { const [x, z] = posAt(s); samples.push({ s, x, z, ...nearest(x, z) }); }
     const dmin = Math.min(...samples.map(o => o.d));
-    if (!(dmin <= 1.5 * NM)) continue;   // never within sight of this ferry's line
+    if (!(dmin <= (F.cruise ? 2 : 1.5) * NM)) return;   // never within sight of this ferry's (or ship's) line
     // where to meet: of the stretch within 1 nm of the line, the place nearest mid-route, clear of both ends
     let cands = samples.filter(o => o.d <= Math.max(NM, dmin + 50) && o.s > 800 && o.s < TOTAL - 800);
     if (!cands.length) cands = samples.filter(o => o.d <= dmin + 1);
     const c = cands.reduce((a, b) => Math.abs(b.s - TOTAL / 2) < Math.abs(a.s - TOTAL / 2) ? b : a);
     const [ax, az] = posAt(c.s - 60), [bx, bz] = posAt(c.s + 60), bl = Math.hypot(bx - ax, bz - az) || 1, ux = (bx - ax) / bl, uz = (bz - az) / bl;
     const T0 = ferryAt(fy, c.f), along = ux * T0.tx + uz * T0.tz;   // +1: the boat heads the way the line runs (out from Rockland)
-    const portX = uz, portZ = -ux;   // the boat's port side there
     fy.k = F.knots / BOAT_KN; fy.f0 = c.f; fy.off = [0, 0];
-    if (Math.abs(along) > 0.8) {   // running along it: meet head-on, passing port to port at least 200 m off
-      fy.dir = along > 0 ? -1 : 1; fy.sCross = c.s;
-      fy.off = [c.x - T0.x + portX * 220, c.z - T0.z + portZ * 220];   // through the spot 220 m off your port side
-    } else {   // crossing it: the ferry crosses your course ~400 m ahead
-      fy.dir = (Math.round(c.s / 50) % 2) ? 1 : -1; fy.sCross = c.s - 400;
-      fy.off = [c.x - T0.x, c.z - T0.z];   // through your track, not up to a mile off it
+    if (Math.abs(along) > 0.8) {   // running along it: meet head-on (a cruise ship comes her own way), port to port
+      fy.dir = F.cruise ? 1 : along > 0 ? -1 : 1; fy.sCross = c.s;
+      if (c.d < 150) { const dx = fy.dir * T0.tx, dz = fy.dir * T0.tz; fy.off = [-dz * 150, dx * 150]; }   // stand off to her own starboard
+    } else {   // crossing it: she crosses your course ~400 m ahead, on her line
+      fy.dir = F.cruise ? 1 : (Math.round(c.s / 50) % 2) ? 1 : -1; fy.sCross = c.s - 400;
     }
-    fy.label = `Ferry to ${fy.dir > 0 ? F.to : F.from}`;   // (she is F.vessel; the label says where she's bound)
-    fy.group = ferryModel(F); scene.add(fy.group);
+    fy.label = F.cruise ? '' : `Ferry to ${fy.dir > 0 ? F.to : F.from}`;   // (she is F.vessel; the label says where she's bound)
+    fy.group = F.cruise ? cruiseShipModel(F.V, litMats) : ferryModel(F); scene.add(fy.group);
+    for (const m of litMats) m.emissiveIntensity = lightsK;
     ferries.push(fy);
-    console.log(`[helm3d] ${F.name} ferry: ${along > 0.8 || along < -0.8 ? 'meets' : 'crosses'} the route ${(c.s / NM).toFixed(1)} nm in, ${(c.d / NM).toFixed(2)} nm from its line`);
+    console.log(`[helm3d] ${F.name}: ${along > 0.8 || along < -0.8 ? 'meets' : 'crosses'} the route ${(c.s / NM).toFixed(1)} nm in, ${(c.d / NM).toFixed(2)} nm from its line`);
   }
 }
+// today's cruise ships (?cruise=<call id>|all for testing), on their tracks, from the sea end
+if (!FREE) getJSON('./data/cruise_ships.json').then(cd => {
+  for (const call of callsOn(cd, new Date(), params.get('cruise') || '')) {
+    const V = cd.vessels[call.vessel];
+    stageOnLine({ name: `cruise ship (${call.id})`, cruise: true, call, V, knots: V.knots, line: call.track, length_m: V.length_m });
+  }
+}).catch(err => console.warn('[helm3d] cruise ships', err));
 if (!FREE) getJSON('./data/ferries.json').then(setupFerries).catch(err => console.warn('[helm3d] ferries', err));
 function ferryPos(fy, f) {   // on the line, eased toward the meeting point near f0
   const p = ferryAt(fy, f), w = Math.exp(-(((f - fy.f0) / 2200) ** 2));
@@ -1199,6 +1212,11 @@ function ferryPos(fy, f) {   // on the line, eased toward the meeting point near
 function updateFerries(t) {
   for (const fy of ferries) {
     const raw = fy.f0 + fy.dir * fy.k * (S - fy.sCross), f = Math.max(0, Math.min(fy.L, raw)), under = raw > 0 && raw < fy.L;
+    if (fy.F.cruise) {   // not yet in from the sea: out of sight; there: at anchor (or alongside)
+      fy.group.visible = raw > 0;
+      const V = fy.F.V, nm = V.name[0].toUpperCase() + V.name.slice(1), c = fy.F.call;
+      fy.label = raw >= fy.L ? `${nm}, ${c.arrive ? c.where : 'in ' + c.port}` : `${nm}, bound for ${c.port}`;
+    }
     const [x, z] = ferryPos(fy, f), a = ferryPos(fy, f - 60 * fy.dir), b = ferryPos(fy, f + 60 * fy.dir);
     fy.group.position.set(x, Math.sin(t * 0.5 + fy.L) * 0.08, z);
     if (Math.hypot(b[0] - a[0], b[1] - a[1]) > 1) fy.group.rotation.y = -Math.atan2(b[0] - a[0], -(b[1] - a[1]));

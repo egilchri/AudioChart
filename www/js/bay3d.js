@@ -11,10 +11,11 @@
 import * as THREE from 'three';
 import { Water } from './lib/three/Water.js';
 import { LON0, LAT0, MX, MY, wx, wz, readDem, readTopobathy, photo, addCanopy, gridMesh, photoMat, buildTown, disposeGroup, spruce, TOWN_NIGHT } from './terrain3d.js';
-import { SUN, makeSky, makeEnv, glowSprite, flashFor, flashOn, sectorColour, weatherPanel, startConditions, makeTrimmer, cycleLook } from './weather3d.js';
+import { sunPos, SUN, makeSky, makeEnv, glowSprite, flashFor, flashOn, sectorColour, weatherPanel, startConditions, makeTrimmer, cycleLook } from './weather3d.js';
 import { makeSailboat, fleetType } from './sailboat3d.js';
 import { makeAngelique, makeBowdoin } from './angelique3d.js';
 import { makeWildlife, ledgesFrom } from './wildlife3d.js';
+import { callsOn, trackOf, alongTrack, cruiseState, ferryState, cruiseShipModel, ferryModelSimple, mins } from './vessels.js';
 
 const statusEl = document.getElementById('status');
 const loadingEl = document.getElementById('loading');
@@ -983,6 +984,136 @@ function updateFleet(dt) {
   }
 }
 
+// ── Ferries and cruise ships (v933, requested: "the occasional cruise ship traffic", and "whatever ferries or
+// cruise ships we show are on realistic courses"). By the real clock: the Fox Islands ferries back and forth on
+// their charted lines (data/ferries.json, from OpenStreetMap) through the day, and on a call day a cruise ship
+// in from the sea to her anchorage for the day and out again in the evening, or a small one between ports,
+// on tracks the router planned at her draft (data/cruise_ships.json). Not in Empty Bay: nothing afloat there.
+// ?cruise=<call id>|all and ?clock=HH:MM are for testing.
+const traffic = [], trafficLit = [];
+const FORCE_CRUISE = params.get('cruise') || '';
+// The scene's clock (v934, the user's idea: "put a clock on the screen, and turn it to the time the ferry or
+// cruise ship will pass by"): the real time to begin with (or ?clock=HH:MM); the 🕗 panel sets it, runs it
+// faster, and lists what's coming, each a jump to that moment and that vessel. Once you've set it, the light
+// follows it too (the sun's height then: night, dawn, day or sunset).
+const realMin = () => { const d = new Date(); return d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60; };
+const simClock = { base: (() => { const c = params.get('clock'); return c && /^\d\d?:\d\d$/.test(c) ? mins(c) : realMin(); })(), at: performance.now(), rate: 1, light: false };
+const clockMin = () => Math.max(0, Math.min(1439.9, simClock.base + (performance.now() - simClock.at) / 60000 * simClock.rate));
+function setClock(min, rate = simClock.rate, byUser = true) {
+  Object.assign(simClock, { base: Math.max(0, Math.min(1439.9, min)), at: performance.now(), rate });
+  if (byUser) { simClock.light = true; lightForClock(); }
+  syncClock();
+}
+function lightForClock() {   // the weather panel's time of day, from where the sun is at the scene's time
+  if (!simClock.light) return;
+  const m = clockMin(), d = new Date(); d.setHours(Math.floor(m / 60), Math.floor(m % 60), 0, 0);
+  const sp = sunPos(latOf(view.z), lonOf(view.x), d);
+  const time = sp.alt < -6 ? 'night' : sp.alt < 6 ? (sp.brg < 180 ? 'dawn' : 'sunset') : 'day';
+  if (time !== env.C.time) applyConditions({ time });
+}
+const hhmm = m => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(Math.floor(m % 60)).padStart(2, '0')}`;
+if (!EMPTY) Promise.all([getJSON('./data/ferries.json').catch(() => null), getJSON('./data/cruise_ships.json').catch(() => null)]).then(([fd, cd]) => {
+  for (const F of fd?.ferries || []) {
+    const T = trackOf(F.line, wx, wz), group = ferryModelSimple(F, trafficLit); group.visible = false; scene.add(group);
+    traffic.push({ kind: 'ferry', F, T, group, L: F.length_m || 46, x: T.P[0][0], z: T.P[0][1], on: false, label: '' });
+  }
+  for (const call of callsOn(cd, new Date(), FORCE_CRUISE)) {
+    const V = cd.vessels[call.vessel], T = trackOf(call.track, wx, wz), group = cruiseShipModel(V, trafficLit); group.visible = false; scene.add(group);
+    traffic.push({ kind: 'cruise', call, V, T, group, L: V.length_m, x: T.P[0][0], z: T.P[0][1], on: false, label: '' });
+    console.log(`[bay3d] cruise ship today: ${call.id}`);
+  }
+}).catch(err => console.warn('[bay3d] traffic', err));
+function updateTraffic() {
+  const minute = clockMin(), cp = camera.position, lk = env.lightsK || 0;
+  for (const m of trafficLit) m.emissiveIntensity = lk;
+  let anyCruise = false;
+  for (const v of traffic) {
+    const st = v.kind === 'ferry' ? ferryState(v.F, v.T, minute) : cruiseState(v.call, v.V, v.T, minute);
+    v.on = !!st && !aboveFog; v.group.visible = v.on;
+    if (!st) continue;
+    const p = alongTrack(v.T, st.f), hdg = st.dir > 0 ? p.hdg : p.hdg + 180;
+    v.x = p.x; v.z = p.z; v.h = hdg;
+    v.group.position.set(p.x, 0, p.z); v.group.rotation.y = -hdg * DEG;
+    for (const w of v.group.userData.wake) w.visible = st.moving;
+    // drawn a little bigger from far off, as the sailboats are (less: she's big already)
+    v.group.scale.setScalar(Math.max(1, Math.min(v.kind === 'cruise' ? 3 : 8, Math.hypot(p.x - cp.x, cp.y, p.z - cp.z) / 250 * Math.sqrt(8 / v.L) * 0.6)));
+    v.label = v.kind === 'ferry' ? (st.moving ? `Ferry to ${st.dir > 0 ? v.F.to : v.F.from}` : `Ferry at ${st.f > 0 ? v.F.to : v.F.from}`) : `${v.V.name[0].toUpperCase() + v.V.name.slice(1)}, ${st.doing}`;
+    if (v.kind === 'cruise' && v.on) anyCruise = true;
+  }
+  const btn = document.getElementById('cruisebtn'); if (btn) btn.hidden = !anyCruise;
+}
+document.getElementById('cruisebtn')?.addEventListener('click', () => {
+  const v = traffic.find(o => o.kind === 'cruise' && o.on); if (!v) return;
+  markCurrent(null); foldPanel(true);
+  flyTo({ x: v.x, z: v.z, dist: Math.max(900, v.L * 4), tilt: 58 * DEG, az: ((v.h || 0) + 40) * DEG }, 3000);
+  follow = v;
+});
+
+// What's coming today: the ferries' departures and the cruise ships' arrivals and departures, by the scene's clock
+const cap = t => t[0].toUpperCase() + t.slice(1);
+function trafficEvents() {
+  const ev = [];
+  for (const v of traffic) {
+    if (v.kind === 'ferry') {
+      const run = v.T.L / (v.F.knots * 1852 / 60), cyc = 2 * (run + 15);
+      for (let t = 360; t <= 360 + 780; t += cyc) {   // (as ferryState: from the island at 06:00, to about 19:00)
+        ev.push({ t, v, text: `Ferry leaves ${v.F.to} for ${v.F.from}` });
+        if (t + run + 15 <= 1140) ev.push({ t: t + run + 15, v, text: `Ferry leaves ${v.F.from} for ${v.F.to}` });
+      }
+    } else {
+      const c = v.call, nm = cap(v.V.name), run = v.T.L / (v.V.knots * 1852 / 60);
+      if (c.arrive) ev.push({ t: mins(c.arrive) - run, v, text: `${nm} comes in from the sea, bound for ${c.port}` },
+        { t: mins(c.arrive), v, text: `${nm} anchors ${c.where.replace(/^at anchor /, '')}` },
+        { t: mins(c.depart), v, text: `${nm} weighs anchor and puts to sea` });
+      else ev.push({ t: mins(c.leave), v, text: `${nm} ${c.where.replace(/^bound/, 'leaves')}`.replace(' to ', ' for ') });
+    }
+  }
+  return ev.sort((a, b) => a.t - b.t);
+}
+const clockBtn = document.getElementById('clockbtn'), clockPanel = document.getElementById('clockpanel');
+function syncClock() {
+  if (!clockBtn) return;
+  const m = clockMin();
+  clockBtn.textContent = `🕗 ${hhmm(m)}${simClock.rate > 1 ? ` ×${simClock.rate}` : ''}`;
+  if (clockPanel.hidden) return;
+  clockPanel.querySelector('#clocktime').textContent = hhmm(m);
+  const sl = clockPanel.querySelector('#clockslider'); if (document.activeElement !== sl) sl.value = String(Math.round(m));
+  for (const b of clockPanel.querySelectorAll('[data-rate]')) b.classList.toggle('on', Number(b.dataset.rate) === simClock.rate);
+}
+function fillComing() {
+  const list = clockPanel.querySelector('#coming'), m = clockMin(), next = trafficEvents().filter(e => e.t >= m - 1).slice(0, 7);
+  list.innerHTML = '';
+  if (!next.length) { list.innerHTML = '<li class="none">Nothing more on the water today</li>'; return; }
+  for (const e of next) {
+    const li = document.createElement('li'), btn = document.createElement('button'); btn.type = 'button';
+    btn.innerHTML = `<b>${hhmm(e.t)}</b> ${e.text}`;
+    btn.addEventListener('click', () => {   // a couple of minutes before, at the vessel, following her
+      setClock(e.t - 2);
+      const st = e.v.kind === 'ferry' ? ferryState(e.v.F, e.v.T, e.t + 1) : cruiseState(e.v.call, e.v.V, e.v.T, e.t + 1);
+      if (st) {
+        const p = alongTrack(e.v.T, st.f), hdg = st.dir > 0 ? p.hdg : p.hdg + 180;
+        markCurrent(null); foldPanel(true);
+        flyTo({ x: p.x, z: p.z, dist: Math.max(700, e.v.L * 4), tilt: 58 * DEG, az: (hdg + 40) * DEG }, 2500);
+        follow = e.v;
+      }
+      fillComing();
+    });
+    li.appendChild(btn); list.appendChild(li);
+  }
+}
+if (clockBtn && !EMPTY) {
+  clockBtn.hidden = false;
+  clockBtn.addEventListener('click', () => {
+    clockPanel.hidden = !clockPanel.hidden;
+    if (!clockPanel.hidden) { const wx = document.getElementById('wxpanel'); if (wx) wx.hidden = true; fillComing(); syncClock(); }
+  });
+  for (const ev of ['pointerdown', 'wheel', 'touchstart']) clockPanel.addEventListener(ev, e => e.stopPropagation(), { passive: true });
+  clockPanel.querySelector('#clockslider').addEventListener('input', e => { setClock(Number(e.target.value)); fillComing(); });
+  clockPanel.querySelector('#clocknow').addEventListener('click', () => { setClock(realMin(), 1); fillComing(); });
+  for (const b of clockPanel.querySelectorAll('[data-rate]')) b.addEventListener('click', () => setClock(clockMin(), Number(b.dataset.rate)));
+  setInterval(() => { syncClock(); lightForClock(); if (!clockPanel.hidden && simClock.rate > 1) fillComing(); }, 1000);
+}
+
 // ── Seagulls and seals (v888, requested; wildlife3d.js), round where you're looking ──
 const wildlife = makeWildlife({ scene });
 getJSON('./data/regions/penobscot-bay/hazards.geojson').then(fc => wildlife.setLedges(ledgesFrom(fc, wx, wz))).catch(() => {});
@@ -1314,6 +1445,11 @@ function updateLabels() {
         if (b.num && d < 2200) cand.push({ text: `"${b.num}"`, x: b.x, y: 6, z: b.z, cls: 'buoy', pri: 3 + d / 2200 });
       }
     }
+    for (const v of traffic) {   // ferries and cruise ships
+      if (!v.on || view.dist > 40000) continue;
+      const d = Math.hypot(v.x - view.x, v.z - view.z);
+      if (d < Math.max(view.dist * 2, 4000)) cand.push({ text: v.label, x: v.x, y: (v.kind === 'cruise' ? 55 : 14) * v.group.scale.x, z: v.z, cls: 'wpt', pri: (v.kind === 'cruise' ? 0.6 : 0.9) + d / 1e6 });
+    }
     if (bowdoin && !nest.on && view.dist < 30000) { const d = Math.hypot(bowdoin.x - view.x, bowdoin.z - view.z); if (d < Math.max(view.dist * 2, 3000)) cand.push({ text: 'Bowdoin', x: bowdoin.x, y: 24 * bowdoin.boat.group.scale.x, z: bowdoin.z, cls: 'wpt', pri: 0.7 }); }
     // (v907: no "⛵ You" label over your boat any more — requested: "get rid of the box that follows the boat")
     if (view.dist < 40000) for (const p of wps) {   // route waypoints
@@ -1386,6 +1522,7 @@ function frame(now) {
   updateNight();
   updateWeather(dt, t);
   updateFleet(dt);
+  updateTraffic();
   if (nest.on) nestCamera();
   updateWaypoints();
   updateOwn(dt);
@@ -1436,7 +1573,7 @@ window.__bay3d = {   // for AudioChart (returning to the chart where you were) a
   northUp: () => flyTo({ x: view.x, z: view.z, dist: view.dist, az: 0, tilt: view.tilt }, 900),
   setView: v => { anim = null; Object.assign(view, { x: wx(v.lon), z: wz(v.lat), dist: v.dist ?? view.dist, az: (v.az ?? view.az / DEG) * DEG, tilt: (v.tilt ?? view.tilt / DEG) * DEG }); clampView(); placeCamera(); },
   goTown: id => { const tw = townList.find(x => x.id === id); if (tw) goTown(tw); return !!tw; },
-  goWhole, towns: townList, tiles, scene, env, applyConditions, fleet, own, bowdoin, nest, setNest, lookoutReport, isWater: (lat, lon) => isWater(wx(lon), wz(lat)), boatAt: i => ({ lat: latOf(fleet[i].z), lon: lonOf(fleet[i].x), h: fleet[i].h }), renderer, trees: () => ({ near: TREES.near.count, far: TREES.far.count, K: TREES.K }),
+  goWhole, towns: townList, tiles, scene, env, traffic, clockMin, setClock, camera, applyConditions, fleet, own, bowdoin, nest, setNest, lookoutReport, isWater: (lat, lon) => isWater(wx(lon), wz(lat)), boatAt: i => ({ lat: latOf(fleet[i].z), lon: lonOf(fleet[i].x), h: fleet[i].h }), renderer, trees: () => ({ near: TREES.near.count, far: TREES.far.count, K: TREES.K }),
 };
 }
 main().catch(err => { console.error(err); fail('Could not start the 3D view: ' + err.message); });
