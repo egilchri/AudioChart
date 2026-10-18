@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-17 — Empty Bay's wrecks blink (v932)
+
+Requested: "Could you make the wrecks blink?" The 23 wrecks on Empty Bay's seabed glow bright orange for 0.6 s in
+every 1.2 s (their material's emissive colour, switched each frame), so they stand out among the rocks.
+
 ## 2026-10-17 — Rocks and wrecks on Empty Bay's seabed (v931)
 
 Requested: "add the rocks and wrecks on the seabed". Empty Bay shows hazards.geojson's charted underwater rocks

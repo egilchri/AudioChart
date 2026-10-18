@@ -1376,6 +1376,8 @@ function frame(now) {
   stepAnim(now ?? performance.now());
   if (!nest.on) { clampView(); placeCamera(); }
   if (t - lastCheck > 0.4) { lastCheck = t; updateTiles(); updateTowns(); updateMarks(); updateHazards(); }
+  // the wrecks blink (v932, requested): a bright orange glow, on for 0.6 s in every 1.2 s
+  if (hazards.meshes.wreck) hazards.meshes.wreck.m.material.emissive.setHex(t % 1.2 < 0.6 ? 0xff6a1a : 0x000000);
   if (!drag && !anim) updateTrees(); else if (t - (TREES.lastMove || 0) > 0.25) { TREES.lastMove = t; updateTrees(); }
   if (EMPTY) stepWater(dt);
   water.position.set(view.x, EMPTY ? (waterLevel < 0 ? waterLevel * EXAG : waterLevel) : 0, view.z);
