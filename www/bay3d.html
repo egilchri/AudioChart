@@ -104,7 +104,7 @@ body.smallride #ridechart { width: clamp(130px, 15vw, 190px); cursor: zoom-in; }
 body.embed #ridechart { bottom: calc(196px + env(safe-area-inset-bottom, 0px)); width: clamp(200px, 24vw, 320px); }   /* above the chart's own view buttons (v940) */
 body.embed.smallride #ridechart { width: clamp(120px, 13vw, 170px); }
 @media (max-width: 640px) { body.embed #ridechart { bottom: calc(150px + env(safe-area-inset-bottom, 0px)); width: 46vw; } }
-#underway { position: fixed; right: 12px; top: calc(48px + env(safe-area-inset-top, 0px)); z-index: 4; width: min(360px, calc(100vw - 24px)); max-height: calc(100vh - 120px); overflow-y: auto; box-sizing: border-box; background: var(--glass-hi); color: var(--ink); border-radius: 6px; padding: 8px 10px; font-family: var(--body); font-size: 0.8rem; }
+#underway { position: fixed; right: 12px; top: calc(48px + env(safe-area-inset-top, 0px)); z-index: 4; width: min(440px, calc(100vw - 24px)); max-height: calc(100vh - 120px); overflow-y: auto; box-sizing: border-box; background: var(--glass-hi); color: var(--ink); border-radius: 6px; padding: 8px 10px; font-family: var(--body); font-size: 0.8rem; }
 #underway[hidden] { display: none; }
 #underway .sect { font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0 0 4px; }
 #underway ul { list-style: none; margin: 0; padding: 0; }
@@ -113,7 +113,12 @@ body.embed.smallride #ridechart { width: clamp(120px, 13vw, 170px); }
 #underway li.none { opacity: 0.7; }
 #underway .n { flex: 1; min-width: 0; }
 #underway .n small { display: block; opacity: 0.75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#underway .d { font-family: var(--mono); font-size: 0.7rem; opacity: 0.75; white-space: nowrap; }
+#underway .d { font-family: var(--mono); font-size: 0.7rem; opacity: 0.75; white-space: nowrap; width: 44px; text-align: right; }
+#underway .eta { width: 62px; text-align: right; white-space: nowrap; }
+#underway .eta b { display: block; font-family: var(--mono); font-size: 0.74rem; font-weight: 500; color: #e0c27a; }
+#underway .eta small { display: block; font-size: 0.64rem; opacity: 0.7; overflow: hidden; text-overflow: ellipsis; }
+#underway li.hdr { font-size: 0.64rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); border-top: 0; padding: 0 0 2px; }
+#underway li.hdr .go { width: 150px; }
 #underway .go { display: flex; gap: 3px; }
 #underway button { font: inherit; font-size: 0.72rem; color: var(--ink); background: rgba(255,255,255,0.12); border: 0; border-radius: 4px; padding: 3px 6px; cursor: pointer; }
 #underway button:hover { background: rgba(224,168,67,0.9); color: #1b2328; }

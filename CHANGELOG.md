@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-10-19 — ETA in ⛴ Underway; the ferries upgraded (v942)
+
+Requested: "For ferries, please add a column for ETA. Please also upgrade the appearance of all ferries."
+- ⛴ Underway has column heads and an ETA column: a ferry under way, when she's due at her next landing (and which);
+  one alongside, when she leaves; a cruise ship bound in, when she arrives; your boat, with the clock linked to
+  her, when she gets in (bay3d.js vEta). The panel is a little wider for it.
+- The Cranberry Isles launches (vessels.js launchModel) are rebuilt: a Downeast hull rounded in plan, white with a
+  navy sheer stripe, black boot-top and red bottom, the bow rising; the wheelhouse forward with a raked windshield;
+  the passenger cabin with rows of windows (lit at night), life rings, a roof running aft as an awning over the
+  after deck, rails and a transom bench; a radar mast; her name on the bow; running lights; a wake.
+- The car ferries get a rounded bow, a black rubbing strake, their names on the casings, liferaft canisters on the
+  upper deck and running lights (masthead, sidelights at the wing ends, stern light), lit at night.
+
 ## 2026-10-19 — Ferries lie alongside the pier at a landing (v941)
 
 Reported with a screenshot ("It doesn't look right"): the mail boat, waiting at Northeast Harbor, sat on top of the

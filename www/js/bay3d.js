@@ -1443,8 +1443,22 @@ if (clockBtn && !EMPTY) {
 // Bowdoin, and the sailboats and lobster boats nearest where you're looking. Each: Helm, aboard at her helm;
 // Drone, by drone over her; Follow, fly over and follow her in this view.
 const uwBtn = document.getElementById('underwaybtn'), uwPanel = document.getElementById('underway');
+// when she's due (v942, requested: "for ferries, please add a column for ETA"): a ferry under way, at her next
+// landing; one alongside, when she leaves; a cruise ship bound in, at her anchorage or port; your boat with the
+// clock linked to her, at the end of her route. {t: 'HH:MM', sub: what it's for}
+function vEta(v) {
+  const now = clockMin(), st = v.st;
+  if (v.kind === 'ferry' && st) {
+    if (!st.moving) { const nx = ferryDepartures(v.F, v.T).find(d => d.t >= now - 0.01); return nx ? { t: hhmm(nx.t), sub: 'leaves' } : null; }
+    const nx = ferryStops(v).find(p => p.name === st.next), left = nx ? Math.abs(nx.f - st.f) : 0;
+    return { t: hhmm(now + left / (v.F.knots * NMm / 60)), sub: st.next };
+  }
+  if (v.kind === 'cruise' && st?.moving && st.dir > 0) return { t: hhmm(now + (v.T.L - st.f) / (v.V.knots * NMm / 60)), sub: v.call.port };
+  if (v === own && own.r && boatClock && own.S < own.total) return { t: hhmm(Math.min(1439, now + passageMin(own.total) - passageMin(own.S))), sub: 'arrives' };
+  return null;
+}
 function fillUnderway() {
-  const list = uwPanel.querySelector('ul'); list.innerHTML = '';
+  const list = uwPanel.querySelector('ul'); list.innerHTML = '<li class="hdr"><span class="n">Vessel</span><span class="eta">ETA</span><span class="d">Off</span><span class="go"></span></li>';
   const away = v => { const d = Math.hypot(v.x - view.x, v.z - view.z) / NMm; return d < 0.15 ? '' : `${d.toFixed(d < 10 ? 1 : 0)} nm`; };
   const rows = [];
   if (own.r && own.boat.group.visible) rows.push({ v: own, what: own.vj ? 'On your Virtual Journey' : own.playing ? 'Under way on your route' : own.S >= own.total ? 'Arrived' : 'Ready on your route' });
@@ -1456,10 +1470,11 @@ function fillUnderway() {
   for (const r of rows) {
     const li = document.createElement('li'), v = r.v;
     if (nest.on && nest.v === v) li.className = 'aboard';
-    li.innerHTML = '<span class="n"><b></b> <small></small></span><span class="d"></span><span class="go"><button type="button" data-m="helm" title="Aboard her, at the helm">Helm</button><button type="button" data-m="drone" title="A drone over her, following her">Drone</button><button type="button" data-m="fly" title="Fly over her and follow her in this view">Follow</button></span>';
+    li.innerHTML = '<span class="n"><b></b> <small></small></span><span class="eta"><b></b><small></small></span><span class="d"></span><span class="go"><button type="button" data-m="helm" title="Aboard her, at the helm">Helm</button><button type="button" data-m="drone" title="A drone over her, following her">Drone</button><button type="button" data-m="fly" title="Fly over her and follow her in this view">Follow</button></span>';
     li.querySelector('b').textContent = v === own ? `${OWN_NAME} (yours)` : vName(v);
     li.querySelector('small').textContent = r.what;
     li.querySelector('.d').textContent = away(v);
+    const eta = vEta(v); if (eta) { li.querySelector('.eta b').textContent = eta.t; li.querySelector('.eta small').textContent = eta.sub; li.querySelector('.eta').title = eta.sub === 'leaves' ? `Leaves at ${eta.t}` : `Due at ${eta.sub} at ${eta.t}`; }
     for (const b of li.querySelectorAll('button')) b.addEventListener('click', () => {
       uwPanel.hidden = true; uwBtn.classList.remove('on');
       if (b.dataset.m !== 'fly') { ride(v, b.dataset.m); return; }
