@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-10-19 — Maine State ferry slips, with their green gantries (v943)
+
+Reported with a screenshot: "The dock for this ferry looks unrealistic ... These large Maine State ferries have
+characteristic tall green gantries." Each end of the car ferries' runs (Rockland's two slips, Vinalhaven, North
+Haven, Lincolnville, Islesboro, Bass Harbor, Swan's Island) now has a slip (vessels.js ferrySlipModel): the transfer
+bridge running up to the shore, steel with green girders and handrails; over its seaward end the green lift
+gantry, two braced lattice towers with counterweights, a crossbeam and the hoist house, cables down to the bridge;
+timber-faced pile wing walls either side of the berth flaring out to the sea, a dolphin at each end; a concrete
+abutment ashore. A ferry waiting at a slip lies in it, stern (her car ramp) at the bridge, bow to the sea.
+- Where the slips are: data/ferries.json `slips` (preprocess/build_ferries.py SLIPS), from OpenStreetMap: Rockland's
+  Ramp 1 and Ramp 2 (which ferry uses which is assumed), the slip walls at Vinalhaven and North Haven, elsewhere the
+  terminal node and the line's approach. Where the drawn ground puts a slip's head ashore it moves out along its
+  bearing to the water's edge once the detailed ground has loaded (bay3d.js fitSlips).
+- A town's own piers that stand where a slip does (within 14 m of its head) give way to it.
+
 ## 2026-10-19 — ETA in ⛴ Underway; the ferries upgraded (v942)
 
 Requested: "For ferries, please add a column for ETA. Please also upgrade the appearance of all ferries."

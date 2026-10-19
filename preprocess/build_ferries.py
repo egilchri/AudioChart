@@ -52,6 +52,13 @@ def join(*parts):
     return line
 
 
+# The Maine State ferries' slips (v943): the head of each slip (where the transfer bridge meets the car deck) and the
+# bearing out of it to sea. From OpenStreetMap: Rockland's "Ramp 1" and "Ramp 2" (man_made=bridge, ways 896563317 and
+# 896563318; which ferry uses which is assumed), the slip walls at Vinalhaven (ways 660609028/9) and North Haven
+# (660608925/6) meeting at the terminal node; elsewhere the terminal node and the line's approach.
+SLIPS = {"Rockland – North Haven": {"from": [-69.107897, 44.107703, 74], "to": [-68.873157, 44.126625, 215]}, "Rockland – Vinalhaven": {"from": [-69.107885, 44.107541, 91], "to": [-68.839459, 44.043099, 147]}, "Lincolnville – Islesboro": {"from": [-69.005659, 44.280496, 76], "to": [-68.94289, 44.280859, 202]}, "Bass Harbor – Swan's Island": {"from": [-68.348445, 44.234856, 277], "to": [-68.423436, 44.181293, 240]}}
+
+
 SUTTON = [-68.2644, 44.27095]   # alongside the Sutton Island town float (OSM way 1316039157)
 
 
@@ -91,6 +98,7 @@ def main():
          'service': {'start': '07:15', 'end': '17:15', 'first': 'from', 'season': ['05-25', '10-15']}},
     ]
     for f in ferries:
+        if f['name'] in SLIPS: f['slips'] = {k: {'lon': v[0], 'lat': v[1], 'brg': v[2]} for k, v in SLIPS[f['name']].items()}
         print(f"{f['name']}: {len(f['line'])} points, {f['line'][0]} -> {f['line'][-1]}")
     out = {
         'source': 'OpenStreetMap contributors (ODbL), ways ' + ', '.join(map(str, WAYS)) + ', fetched ' + time.strftime('%Y-%m-%d') + '; see preprocess/build_ferries.py for the services',

@@ -336,3 +336,66 @@ export function launchModel(F, windowMats = []) {
   g.userData.wake = [wakeOf(B, L)]; g.add(g.userData.wake[0]);
   return g;
 }
+
+// ── A Maine State Ferry Service slip (v943, on request: "The dock for this ferry looks unrealistic ... These large
+// Maine State ferries have characteristic tall green gantries"). The head of the slip (where the transfer bridge
+// meets her car deck) at the origin, the sea toward −z: the transfer bridge running up to the shore, steel with
+// green girders; over its seaward end the green lift gantry, two lattice towers with counterweights, a crossbeam
+// and the hoist house on top, cables down to the bridge; the wing walls either side of her berth, timber-faced pile
+// walls flaring out to the sea, a dolphin at each end; a concrete abutment ashore. One mesh per material.
+function mergeGeos(geos) {
+  const pos = [], nor = [], idx = []; let off = 0;
+  for (const g of geos) {
+    const ng = g.index ? g : g.toNonIndexed();
+    if (!ng.attributes.normal) ng.computeVertexNormals();
+    pos.push(...ng.attributes.position.array); nor.push(...ng.attributes.normal.array);
+    if (ng.index) for (const i of ng.index.array) idx.push(i + off); else for (let i = 0; i < ng.attributes.position.count; i++) idx.push(i + off);
+    off += ng.attributes.position.count;
+  }
+  const m = new THREE.BufferGeometry();
+  m.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); m.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); m.setIndex(idx);
+  return m;
+}
+export function ferrySlipModel(beam = 12.2) {
+  const parts = {}, add = (k, g) => (parts[k] ||= []).push(g);
+  const bx = (w, h, d, x, y, z, ry = 0, rx = 0, rz = 0) => { const g = new THREE.BoxGeometry(w, h, d); if (rz) g.rotateZ(rz); if (rx) g.rotateX(rx); if (ry) g.rotateY(ry); g.translate(x, y, z); return g; };
+  const cy = (r, h, x, y, z) => { const g = new THREE.CylinderGeometry(r, r, h, 7); g.translate(x, y, z); return g; };
+  const W = beam + 1.8, BL = 22, rise = Math.atan(1.1 / BL);
+  // the transfer bridge: deck rising from her car deck to the shore, green girders either side, posts along them
+  add('steel', bx(7.2, 0.5, BL, 0, 2.85 + 0.55, BL / 2, 0, -rise));
+  for (const sx of [-1, 1]) {
+    add('green', bx(0.5, 1.5, BL, sx * 3.7, 3.75, BL / 2, 0, -rise));
+    for (let t = 1; t < BL; t += 3) add('green', bx(0.16, 1.1, 0.16, sx * 3.7, 4.5 + t * 1.1 / BL + 0.4, t));
+    add('green', bx(0.12, 0.12, BL, sx * 3.7, 5.3, BL / 2, 0, -rise));   // the handrail
+  }
+  add('concrete', bx(9.5, 6, 4.5, 0, 1.4, BL + 2));   // the abutment ashore
+  // the lift gantry over the bridge's seaward end
+  const GX = 5.6, GZ = 1.6, GH = 14.5;
+  for (const sx of [-1, 1]) {
+    for (const [dx, dz] of [[-0.65, -0.65], [0.65, -0.65], [-0.65, 0.65], [0.65, 0.65]]) add('green', bx(0.3, GH, 0.3, sx * GX + dx, GH / 2 - 0.5, GZ + dz));
+    for (let y = 1.5; y < GH; y += 2.4) { for (const dz of [-0.65, 0.65]) add('green', bx(1.6, 0.18, 0.18, sx * GX, y, GZ + dz)); for (const dx of [-0.65, 0.65]) add('green', bx(0.18, 0.18, 1.6, sx * GX + dx, y, GZ)); }
+    for (let y = 1.5; y + 2.4 < GH; y += 2.4) for (const dz of [-0.65, 0.65]) add('green', bx(0.12, 2.75, 0.12, sx * GX, y + 1.2, GZ + dz, 0, 0, (y / 2.4) % 2 < 1 ? 0.5 : -0.5));   // cross-bracing on the faces
+    add('concrete', bx(0.9, 2.4, 0.9, sx * GX, 9.8, GZ));   // the counterweight inside the tower
+    add('concrete', bx(2.2, 1, 2.2, sx * GX, -0.2, GZ));    // its footing
+    add('dark', bx(0.07, GH - 3.6, 0.07, sx * 3.5, (GH + 3.6) / 2 - 0.2, 0.4));   // the hoist cable down to the bridge
+  }
+  add('green', bx(2 * GX + 2.2, 1.5, 1.9, 0, GH + 0.25, GZ));   // the crossbeam
+  add('green', bx(3.4, 2, 2.6, 0, GH + 2, GZ)); add('steel', bx(3.8, 0.2, 3, 0, GH + 3.1, GZ));   // the hoist house, its roof
+  // the wing walls: piles every 2.2 m, timber facing on the inside, two wales; flaring out to the sea; dolphins
+  const WL = 34, FL = 3;
+  for (const sx of [-1, 1]) {
+    const x0 = sx * W / 2, x1 = sx * (W / 2 + FL), len = Math.hypot(x1 - x0, WL), ry = Math.atan2(x1 - x0, -WL);
+    for (let t = 0; t <= WL + 0.01; t += 2.2) add('pile', cy(0.3, 7.2, x0 + (x1 - x0) * t / WL, 0.9, -t));
+    const mx = (x0 + x1) / 2 - sx * 0.35, mz = -WL / 2;
+    add('timber', bx(0.25, 3.8, len, mx, 2.1, mz, ry));
+    for (const y of [1.0, 3.9]) add('timber', bx(0.4, 0.4, len, mx + sx * 0.3, y, mz, ry));
+    const dx = x1 + sx * 2.2, dz = -WL - 1.5;   // the dolphin at the wall's seaward end
+    for (let k = 0; k < 7; k++) { const a = k / 7 * Math.PI * 2, r = k ? 1.0 : 0; add('pile', cy(0.32, 6.6, dx + Math.cos(a) * r, 1.0, dz + Math.sin(a) * r)); }
+    add('concrete', cy(1.5, 0.5, dx, 4.4, dz));
+    add('pile', cy(0.3, 7.2, x0, 0.9, 1.2)); add('pile', cy(0.3, 7.2, x0 * 0.62, 0.9, 0.6));   // at the head, either side of the bridge
+  }
+  const MAT = { green: 0x2f6e3c, steel: 0x6f7377, concrete: 0xaaa79f, pile: 0x4b4136, timber: 0x6e5c45, dark: 0x202326 };
+  const g = new THREE.Group();
+  for (const k in parts) g.add(new THREE.Mesh(mergeGeos(parts[k]), new THREE.MeshLambertMaterial({ color: MAT[k] })));
+  return g;
+}

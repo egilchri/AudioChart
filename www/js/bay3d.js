@@ -15,7 +15,7 @@ import { sunPos, SUN, makeSky, makeEnv, glowSprite, flashFor, flashOn, sectorCol
 import { makeSailboat, fleetType } from './sailboat3d.js';
 import { makeAngelique, makeBowdoin } from './angelique3d.js';
 import { makeWildlife, ledgesFrom } from './wildlife3d.js';
-import { callsOn, trackOf, alongTrack, cruiseState, ferryState, ferryDepartures, ferryLine, cruiseShipModel, ferryModelSimple, launchModel, mins } from './vessels.js';
+import { callsOn, trackOf, alongTrack, cruiseState, ferryState, ferryDepartures, ferryLine, ferrySlipModel, cruiseShipModel, ferryModelSimple, launchModel, mins } from './vessels.js';
 
 const statusEl = document.getElementById('status');
 const loadingEl = document.getElementById('loading');
@@ -566,6 +566,10 @@ const townList = (await getJSON('./data/buildings/index.json').catch(() => [])).
   const [w, s, e, n] = t.bbox, lon = (w + e) / 2, lat = (s + n) / 2;
   return { ...t, id: t.file.replace(/\.json$/, ''), short: t.name.split(/, | and /)[0], lon, lat, x: wx(lon), z: wz(lat), group: null, state: 'idle', credit: '' };
 }).sort((a, b) => a.short.localeCompare(b.short));
+// the Maine State ferry slips (v943, below), placed once the ferries are loaded; a town's own piers that stand
+// where a slip does give way to it
+const slips = [];
+let slipsReadyResolve; const slipsReady = new Promise(r => { slipsReadyResolve = r; setTimeout(r, 8000); });
 const creditEl = document.getElementById('credit');
 function updateCredit() {
   const shown = townList.filter(t => t.group);
@@ -576,7 +580,9 @@ async function loadTown(t) {
   try {
     const T = t.data || (t.data = await getJSON(`./data/buildings/${t.file}`));
     if (t.state !== 'loading') return;
-    t.group = buildTown(T); t.credit = T.credit || ''; scene.add(t.group); t.state = 'ready'; updateCredit();
+    await slipsReady; if (t.state !== 'loading') return;
+    const near = pr => slips.some(sl => pr.p.some(([lo, la]) => Math.hypot(wx(lo) - sl.x0, wz(la) - sl.z0) < 14));
+    t.group = buildTown(slips.length ? { ...T, piers: T.piers.filter(pr => !near(pr)) } : T); t.credit = T.credit || ''; scene.add(t.group); t.state = 'ready'; updateCredit();
   } catch (err) { console.warn('[bay3d] town', t.file, err); t.state = 'failed'; }
   finally { townsLoading--; }
 }
@@ -1273,7 +1279,40 @@ if (!EMPTY) Promise.all([getJSON('./data/ferries.json').catch(() => null), getJS
     traffic.push({ kind: 'cruise', call, V, T, group, L: V.length_m, x: T.P[0][0], z: T.P[0][1], on: false, label: '' });
     console.log(`[bay3d] cruise ship today: ${call.id}`);
   }
-}).catch(err => console.warn('[bay3d] traffic', err));
+  for (const v of traffic) if (v.kind === 'ferry' && v.F.slips) for (const end of ['from', 'to']) {
+    const sp = v.F.slips[end]; if (!sp) continue;
+    const group = ferrySlipModel(Math.min(12.2, v.L * 0.26)); scene.add(group);
+    const sl = { v, name: v.F[end], brg: sp.brg, x0: wx(sp.lon), z0: wz(sp.lat), x: wx(sp.lon), z: wz(sp.lat), group, fitN: -1 };
+    slips.push(sl); placeSlip(sl);
+  }
+}).catch(err => console.warn('[bay3d] traffic', err)).finally(() => slipsReadyResolve());
+if (EMPTY) slipsReadyResolve();
+// ── The Maine State ferry slips (v943, on request: "The dock for this ferry looks unrealistic ... These large Maine
+// State ferries have characteristic tall green gantries"): at each end of the car ferries' runs a slip
+// (vessels.js ferrySlipModel: wing walls, the transfer bridge and its green lift gantry), its head and the bearing
+// out of it from data/ferries.json (from OpenStreetMap). Where the drawn ground puts the head ashore, the slip moves
+// out along its bearing to the water's edge, once the detailed ground there has loaded. A ferry waiting at a slip
+// lies in it, her stern (the car ramp) at the bridge and her bow to the sea.
+function placeSlip(sl) {
+  sl.group.position.set(sl.x, 0, sl.z); sl.group.rotation.y = -sl.brg * DEG;
+}
+function fitSlips() {
+  const ready = tiles.filter(T => T.state === 'ready').length;
+  for (const sl of slips) {
+    sl.group.visible = !aboveFog && !EMPTY;
+    if (sl.fitN === ready) continue;
+    const lon = lonOf(sl.x0), lat = latOf(sl.z0);
+    if (!tiles.some(T => T.state === 'ready' && lon >= T.w && lon < T.e && lat >= T.s && lat < T.n)) continue;   // (the detail isn't here yet)
+    sl.fitN = ready;
+    const ux = Math.sin(sl.brg * DEG), uz = -Math.cos(sl.brg * DEG);
+    let lastLand = -Infinity;
+    for (let d = -30; d <= 45; d += 3) if (elevSmooth(lonOf(sl.x0 + ux * d), latOf(sl.z0 + uz * d)) > 0.3) lastLand = d;
+    const d = lastLand >= 0 ? lastLand + 3 : 0;
+    sl.x = sl.x0 + ux * d; sl.z = sl.z0 + uz * d; placeSlip(sl);
+  }
+}
+setInterval(fitSlips, 2000);
+const slipFor = (v, name) => slips.find(sl => sl.v === v && sl.name === name);
 // Alongside at the landings (v941, reported with a screenshot: the mail boat lay on top of the Northeast Harbor
 // pier, where OpenStreetMap's ferry line begins). Where a town's piers are loaded (data/buildings), a ferry waiting
 // at a landing lies alongside the pier or wharf edge nearest it, on whichever side is open water clear of the other
@@ -1330,6 +1369,8 @@ function findBerth(v, stop) {
   return best;
 }
 function berthOf(v, stop) {
+  const sl = slipFor(v, stop.name);
+  if (sl) { const ux = Math.sin(sl.brg * DEG), uz = -Math.cos(sl.brg * DEG), k = vLen(v) / 2 + 0.6; return { x: sl.x + ux * k, z: sl.z + uz * k, h: sl.brg }; }   // in her slip
   v.berths ||= {};
   const b = v.berths[stop.name], now = performance.now();
   if (b && (b.pose || now - b.t < 5000)) return b.pose;
