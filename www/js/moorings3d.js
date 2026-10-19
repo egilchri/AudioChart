@@ -2,8 +2,8 @@
 // moored boats with seasons"). data/moorings.json gives each harbor's place and its high-summer count of yachts and
 // working boats; the date decides how many are in (yachts from late May, all in by late June, hauled through
 // October; working boats most of the year, fewer in midwinter), the rest are mooring balls. Each harbor's
-// moorings are laid out once its detailed ground has loaded: on a staggered grid out from its middle, in open water
-// clear of the shore, the piers, the ferry slips and the ferry lines. The boats lie head to wind, each a little
+// moorings are laid out once its detailed ground has loaded: filling its inner harbor (v945), in open water clear
+// of the shore, the piers, the ferry slips and the ferry lines. The boats lie head to wind, each a little
 // off it. Drawn as instances of a few furled boats from sailboat3d.js, only for the harbors near the view.
 import * as THREE from 'three';
 import { makeSailboat } from './sailboat3d.js';
@@ -46,27 +46,50 @@ export function makeMoorings({ scene, wx, wz, lonOf, latOf, water, detailAt, cle
     for (const h of d.harbors) harbors.push({ ...h, x: wx(h.lon), z: wz(h.lat), spots: null, n: h.yachts + h.working });
   }).catch(err => console.warn('[moorings]', err));
 
-  // lay out a harbor's moorings: a staggered grid out from its middle, open water only, the nearest first
+  // lay out a harbor's moorings (v945, requested: "make the moorings fill the whole inner harbor"): a staggered grid
+  // flooded out from its middle through the sheltered water, the inner harbor, where land stands within 650 m on
+  // most sides, stopping at the open water outside its mouth (and always as far as its summer count would reach);
+  // a mooring wherever there's swinging room, clear of the shore, piers, slips and ferry lines (which so stay open
+  // as fairways). The working boats lie nearest the middle, as they tend to lie near the landing.
   function layOut(h) {
-    const S = 36, need = h.n, spots = [];
+    const S = 32, SZ = S * 0.87, spots = [];
     let sd = [...h.name].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 2147483647, 11) || 11;
     const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
-    const cand = [];
-    const R = Math.max(250, 30 * Math.sqrt(need)) * 2.2;
-    for (let j = -Math.ceil(R / (S * 0.87)); j * S * 0.87 <= R; j++) for (let i = -Math.ceil(R / S); i * S <= R; i++) {
-      const x = h.x + (i + (j & 1 ? 0.5 : 0)) * S + (rnd() - 0.5) * S * 0.45, z = h.z + j * S * 0.87 + (rnd() - 0.5) * S * 0.45, d = Math.hypot(x - h.x, z - h.z);
-      if (d <= R) cand.push({ x, z, d });
+    const at = (i, j) => [h.x + (i + (j & 1 ? 0.5 : 0)) * S, h.z + j * SZ];
+    const enclosed = (x, z) => {   // land within 650 m along at least 9 of 12 rays (an island-ringed bay outside, like the Great Harbor of Mount Desert, isn't one)
+      let hits = 0;
+      for (let k = 0; k < 12; k++) {
+        const a = k * Math.PI / 6, dx = Math.cos(a), dz = Math.sin(a);
+        for (let d = 30; d <= 650; d += 25) if (!water(x + dx * d, z + dz * d)) { hits++; break; }
+        if (hits + (11 - k) < 9) return false;
+      }
+      return hits >= 9;
+    };
+    const r0 = Math.max(150, 30 * Math.sqrt(h.n) * 1.2), RMAX = 2200, CAP = 700;
+    // start at the water cell nearest the middle
+    let start = null;
+    for (let r = 0; r < 8 && !start; r++) for (let j = -r; j <= r && !start; j++) for (let i = -r; i <= r && !start; i++) { const [x, z] = at(i, j); if (water(x, z)) start = [i, j]; }
+    if (!start) { h.spots = []; return; }
+    const seen = new Set([start.join()]), queue = [start];
+    while (queue.length && spots.length < CAP) {
+      const [i, j] = queue.shift(), [x0, z0] = at(i, j), d = Math.hypot(x0 - h.x, z0 - h.z);
+      // a mooring here? (jittered a little off the grid)
+      const x = x0 + (rnd() - 0.5) * S * 0.4, z = z0 + (rnd() - 0.5) * S * 0.4;
+      let room = water(x, z);
+      for (let k = 0; k < 6 && room; k++) { const a = k * Math.PI / 3; room = water(x + Math.cos(a) * 15, z + Math.sin(a) * 15); }
+      if (room && clear(x, z)) spots.push({ x, z, d, r: rnd(), t: rnd(), off: (rnd() - 0.5) * 30 });
+      // on through the sheltered water
+      const nb = j & 1 ? [[1, 0], [-1, 0], [0, -1], [1, -1], [0, 1], [1, 1]] : [[1, 0], [-1, 0], [-1, -1], [0, -1], [-1, 1], [0, 1]];
+      for (const [di, dj] of nb) {
+        const ni = i + di, nj = j + dj, k = ni + ',' + nj;
+        if (seen.has(k)) continue; seen.add(k);
+        const [nx, nz] = at(ni, nj), nd = Math.hypot(nx - h.x, nz - h.z);
+        if (nd > RMAX || !water(nx, nz)) continue;
+        if (nd > r0 && !enclosed(nx, nz)) continue;
+        queue.push([ni, nj]);
+      }
     }
-    cand.sort((a, b) => a.d - b.d);
-    for (const c of cand) {
-      if (spots.length >= need) break;
-      if (!water(c.x, c.z)) continue;
-      let ok = true;
-      for (let k = 0; k < 6 && ok; k++) { const a = k * Math.PI / 3; ok = water(c.x + Math.cos(a) * 16, c.z + Math.sin(a) * 16); }   // swinging room, off the shore
-      if (!ok || !clear(c.x, c.z)) continue;
-      spots.push({ x: c.x, z: c.z, r: rnd(), t: rnd(), off: (rnd() - 0.5) * 30 });
-    }
-    // which are yachts and which working boats: the working boats nearer the landing (the middle), as they tend to lie
+    spots.sort((p, q) => p.d - q.d);
     const nw = Math.round(spots.length * h.working / Math.max(1, h.n));
     spots.forEach((s, i) => { s.work = i < nw ? rnd() < 0.8 : rnd() < 0.08; });
     for (const s of spots) s.tpl = s.work ? YACHTS.length + pick(WORKERS, s.t) : pick(YACHTS, s.t);

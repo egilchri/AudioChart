@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-19 — Moorings fill the whole inner harbor (v945)
+
+Requested: "make the moorings fill the whole inner harbor". moorings3d.js layOut now floods a 32 m staggered grid
+out from each harbor's middle through its sheltered water (land within 650 m along at least 9 of 12 rays), so the
+moorings run from the head of the harbor to its mouth and stop at the open water outside (an island-ringed bay like
+the Great Harbor of Mount Desert doesn't count as inner harbor); always at least as far as its old summer count
+reached; up to 700 moorings a harbor. The ferry lines stay clear as fairways. The summer counts in moorings.json
+now set only the share of working boats; the season still decides how many moorings have a boat on them.
+
 ## 2026-10-19 — Moored boats in the harbors, by the season (v944)
 
 Asked "Northeast Harbor looks very empty. Is it really that empty now?" (it isn't: Bird's-eye drew no moored boats

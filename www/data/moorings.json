@@ -1,5 +1,5 @@
 {
- "note": "Mooring fields for the Bird's-eye view (v944): where each harbor's moored boats lie (the chart's own label for the harbor, US ENC SEAARE, except where noted) and how many in high summer, yachts and working boats (estimates from the cruising guides' descriptions: Northeast Harbor \"fully occupied by moorings\", the lobstering harbors' fleets; not counts). The season decides how many are in: yachts from late May, all in by late June, hauled through October; working boats most of the year. The boats lie in open water clear of the shore, piers, ferry slips and ferry lines, head to wind.",
+ "note": "Mooring fields for the Bird's-eye view (v944): where each harbor's moored boats lie (the chart's own label for the harbor, US ENC SEAARE, except where noted) and the mix in high summer, yachts and working boats (since v945 the moorings fill the whole inner harbor and these set only the share of working boats; estimates from the cruising guides' descriptions: Northeast Harbor \"fully occupied by moorings\", the lobstering harbors' fleets; not counts). The season decides how many are in: yachts from late May, all in by late June, hauled through October; working boats most of the year. The boats lie in open water clear of the shore, piers, ferry slips and ferry lines, head to wind.",
  "harbors": [
   {
    "name": "Northeast Harbor",
