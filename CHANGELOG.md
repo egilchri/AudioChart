@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-19 — ⛴ Underway kept clear of AudioChart's toolbar (v946)
+
+Reported with a screenshot: "the table of ferries is obscured at the top". Inside AudioChart the list grew up from
+the view buttons, over the top of the window, under the chart's own toolbar and Objects menu, hiding its title,
+column heads and –. Now its height is capped there so it stops below them (on a phone, below the view buttons), and
+only the rows scroll: the title, the column heads (sticky) and the – stay in view.
+
 ## 2026-10-19 — Moorings fill the whole inner harbor (v945)
 
 Requested: "make the moorings fill the whole inner harbor". moorings3d.js layOut now floods a 32 m staggered grid
