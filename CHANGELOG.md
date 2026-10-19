@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-19 — A more realistic cruise ship (v947)
+
+Requested: "Can we make the cruise ship more realistic?" vessels.js cruiseShipModel is rebuilt (Bird's-eye and the
+helm view): the hull lofted from stations, a fine flared bow with a raked stem, full sections amidships and a
+transom stern, red below the waterline, a black boot-top, navy above with a white sheer strake (the small coastal
+ship white with a navy strake); the superstructure in decks rounded at their forward ends, rows of balconies with
+their rails along the sides (windows on the lowest and the small ship's), lit at night, the after decks stepping
+down in terraces; orange lifeboats in davits along both sides; the bridge with its wings out past the hull and an
+observation lounge above; a raked, shaped funnel with a black top; a teak sun deck with pools; a mast with radar
+domes; mooring gear on the foredeck; her wake under way.
+
 ## 2026-10-19 — ⛴ Underway kept clear of AudioChart's toolbar (v946)
 
 Reported with a screenshot: "the table of ferries is obscured at the top". Inside AudioChart the list grew up from

@@ -108,59 +108,98 @@ export const ferryDepartures = (F, T, date = new Date()) => (ferryDay(F, T, date
 
 // ── The ships: bow toward −z, waterline at y = 0 ──
 // windowMats: their lit windows' materials, for the caller to turn up at dusk (emissiveIntensity).
+// A cruise ship (v947, on request: "Can we make the cruise ship more realistic?"; was stacked boxes on a slab).
+// The hull lofted from stations: a fine, flared bow with a raked stem, full sections amidships, a transom stern; red
+// below the waterline, a black boot-top, the hull colour above (dark navy for the big ship, white for the small
+// coastal one). The superstructure in decks, each rounded at its forward end, with rows of balconies (or windows)
+// along the sides, lit at night, the after decks stepping down in terraces; the lifeboats in their davits along
+// both sides; the bridge with its wings out past the hull and an observation lounge above it; a raked, shaped
+// funnel; pools and a sun deck on top; a mast with radar domes; her wake under way.
 export function cruiseShipModel(V, windowMats = []) {
-  const L = V.length_m, B = V.beam_m, big = L > 150, g = new THREE.Group();
-  const M = c => new THREE.MeshLambertMaterial({ color: c });
-  const white = M(0xf4f3ef), navy = M(0x1c2a44), red = M(0x8c2a22), glass = M(0x22303a), orange = M(0xe8731f), deck = M(0xb9a27c);
-  const half = L / 2, taper = L * (big ? 0.2 : 0.17), hullH = big ? 14 : 5.5;
-  const outline = [[-B / 2, half], [B / 2, half], [B / 2, -half + taper], [B * 0.18, -half], [-B * 0.18, -half], [-B / 2, -half + taper]];
-  const slab = (y0, y1, m, sc = 1, zs = 1) => {
-    const sh = new THREE.Shape(outline.map(([x, z]) => new THREE.Vector2(x * sc, -z * sc * zs)));
-    const mesh = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: y1 - y0, bevelEnabled: false }), m);
-    mesh.rotation.x = -Math.PI / 2; mesh.position.y = y0; g.add(mesh); return mesh;
+  const L = V.length_m, B = V.beam_m, big = L > 150, g = new THREE.Group(), half = L / 2;
+  const M = (c, o = {}) => new THREE.MeshLambertMaterial({ color: c, side: THREE.DoubleSide, ...o });
+  const white = M(0xf4f3ef), hullC = M(big ? 0x24395f : 0xf2f1ec), red = M(0x8c2a22), black = M(0x16191d), glass = M(0x22303a), teak = M(0xb9a27c),
+    orange = M(0xe8731f), blue = M(0x2f86b8), navy = M(0x24395f), grey = M(0x8d9296);
+  const D = big ? 8.5 : 3.2, HH = big ? 14 : 5.5;   // draft; the hull's height above the water
+  // ── the hull: half-breadth by station u (0 at the bow) and height y; the stem raked, the stern a transom ──
+  const fU = u => u < 0.38 ? Math.pow(Math.sin(u / 0.38 * Math.PI / 2), 0.72) : u > 0.9 ? 1 - (u - 0.9) * 0.8 : 1;
+  const gY = y => y < 0 ? 1 - Math.pow(-y / D, 2) * 0.32 : 1 + Math.min(1, y / HH) * 0.015;   // the bilge below, a little flare above
+  const bowZ = y => -half + (big ? 0.06 : 0.03) * L * (1 - (y + D) / (HH + D)) ** 1.4, sternZ = y => half - 0.025 * L * (1 - (y + D) / (HH + D));
+  const at = (u, y, sd) => { const z = bowZ(y) + u * (sternZ(y) - bowZ(y)); return [sd * B / 2 * fU(u) * gY(y), y, z]; };
+  const band = (y0, y1, m) => {
+    const N = 56, pos = [], idx = [];
+    for (const sd of [-1, 1]) {
+      const o = pos.length / 3;
+      for (let k = 0; k <= N; k++) { const u = k / N; pos.push(...at(u, y0, sd), ...at(u, y1, sd)); }
+      for (let k = 0; k < N; k++) { const a = o + k * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+    }
+    const o = pos.length / 3; pos.push(...at(1, y0, -1), ...at(1, y0, 1), ...at(1, y1, -1), ...at(1, y1, 1)); idx.push(o, o + 1, o + 2, o + 1, o + 3, o + 2);   // the transom
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx); geo.computeVertexNormals();
+    g.add(new THREE.Mesh(geo, m));
   };
-  slab(-2, 0.3, red, 0.995);
-  slab(0.3, 1.6, navy);
-  slab(1.6, hullH, white);
-  // decks of cabins: window rows on a canvas, repeated along each deck's sides; the same rows lit, for night
-  const rows = (lit, balc) => {
-    const cv = document.createElement('canvas'); cv.width = 128; cv.height = 32; const c = cv.getContext('2d');
-    c.fillStyle = lit ? '#000' : '#f4f3ef'; c.fillRect(0, 0, 128, 32);
-    c.fillStyle = lit ? '#fff' : '#2a3a48';
-    for (let x = 4; x < 128; x += 16) c.fillRect(x, balc ? 6 : 10, 11, balc ? 20 : 12);
-    if (balc && !lit) { c.fillStyle = '#cfd6da'; c.fillRect(0, 24, 128, 3); }   // the balcony rail
-    const t = new THREE.CanvasTexture(cv); t.wrapS = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; return t;
+  band(-D, -0.05, red); band(-0.05, big ? 0.9 : 0.4, black); band(big ? 0.9 : 0.4, HH - (big ? 0.8 : 0.4), hullC); band(HH - (big ? 0.8 : 0.4), HH, big ? white : navy);
+  { const pts = []; for (let k = 0; k <= 40; k++) pts.push(at(k / 40, HH, 1)); for (let k = 40; k >= 0; k--) pts.push(at(k / 40, HH, -1));   // the main deck, over the hull
+    const sh = new THREE.Shape(pts.map(([x, , z]) => new THREE.Vector2(x, -z))), dg = new THREE.ShapeGeometry(sh); dg.rotateX(-Math.PI / 2); dg.translate(0, HH, 0); g.add(new THREE.Mesh(dg, grey)); }
+  const box = (w, h, d, x, y, z, m) => { const k = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); k.position.set(x, y, z); g.add(k); return k; };
+  // ── the superstructure: decks rounded forward, balconies along the sides, terraced aft ──
+  const DH = 3, decks = big ? 9 : 4, sFront = -half + (big ? 0.2 : 0.22) * L, sAft = half - (big ? 0.05 : 0.12) * L, wS = B / 2 * (big ? 0.985 : 0.88);
+  const rows = (balc, lit) => {   // one deck's side: a cabin each 4 m (a balcony with its rail, or a window), as a texture repeated along it
+    const cv = document.createElement('canvas'); cv.width = 64; cv.height = 64; const c = cv.getContext('2d');
+    c.fillStyle = lit ? '#000' : '#f4f3ef'; c.fillRect(0, 0, 64, 64);
+    if (balc) { c.fillStyle = lit ? '#ffffff' : '#2a3a48'; c.fillRect(6, 10, 52, 40); if (!lit) { c.fillStyle = '#9fb0ba'; c.fillRect(6, 34, 52, 16); c.fillStyle = '#f4f3ef'; c.fillRect(0, 10, 4, 50); c.fillRect(60, 10, 4, 50); c.fillStyle = '#dfe5e8'; c.fillRect(6, 33, 52, 2); } }
+    else { c.fillStyle = lit ? '#fff' : '#2a3a48'; c.fillRect(10, 20, 44, 20); }
+    const t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.repeat.set(1 / 4, 1 / DH); return t;
   };
-  const tex = rows(false, big), lit = rows(true, big), DH = 3;
-  const decks = big ? 8 : 4, superL = L * (big ? 0.8 : 0.72), superZ = L * 0.06;
+  const balcM = new THREE.MeshLambertMaterial({ map: rows(true, false), emissive: 0xffdcaa, emissiveMap: rows(true, true), emissiveIntensity: 0 });
+  const winM = new THREE.MeshLambertMaterial({ map: rows(false, false), emissive: 0xffdcaa, emissiveMap: rows(false, true), emissiveIntensity: 0 });
+  windowMats.push(balcM, winM);
+  const deckPlan = (zF, zA, w) => {   // rounded forward: a half-ellipse w across, 0.8 w long
+    const pts = [[-w, zA], [w, zA]];
+    for (let k = 0; k <= 16; k++) { const a = k / 16 * Math.PI; pts.push([w * Math.cos(a), zF + w * 0.8 * (1 - Math.sin(a))]); }
+    return new THREE.Shape(pts.map(([x, z]) => new THREE.Vector2(x, -z)));
+  };
+  let topZF = sFront, topZA = sAft;
   for (let i = 0; i < decks; i++) {
-    const len = superL * (1 - i * (big ? 0.035 : 0.05)), w = B * (big ? 0.96 : 0.9);
-    const rep = t => { t = t.clone(); t.needsUpdate = true; t.repeat.set(Math.round(len / 4), 1); return t; };
-    const side = new THREE.MeshLambertMaterial({ map: rep(tex), emissive: 0xffdcaa, emissiveMap: rep(lit), emissiveIntensity: 0 });
-    windowMats.push(side);
-    const m = new THREE.Mesh(new THREE.BoxGeometry(w, DH, len), [side, side, white, white, side, side]);
-    m.position.set(0, hullH + DH * i + DH / 2, superZ + (superL - len) / 2); g.add(m);
+    const terr = Math.max(0, i - (decks - (big ? 4 : 2))), zA = sAft - terr * (big ? 0.045 : 0.07) * L, zF = sFront + i * (big ? 0.6 : 0.3), w = wS - (i === decks - 1 ? 0.6 : 0);
+    const geo = new THREE.ExtrudeGeometry(deckPlan(zF, zA, w), { depth: DH, bevelEnabled: false, curveSegments: 16 });
+    geo.rotateX(-Math.PI / 2); geo.translate(0, HH + i * DH, 0);
+    g.add(new THREE.Mesh(geo, [white, big && i >= 1 && i < decks - 1 ? balcM : winM]));
+    const rim = new THREE.ExtrudeGeometry(deckPlan(zF - 0.25, zA + 0.25, w + 0.25), { depth: 0.25, bevelEnabled: false, curveSegments: 16 });   // the deck edge between decks
+    rim.rotateX(-Math.PI / 2); rim.translate(0, HH + i * DH - 0.12, 0); g.add(new THREE.Mesh(rim, white));
+    topZF = zF; topZA = zA;
   }
-  const topY = hullH + DH * decks;
-  const bridge = new THREE.Mesh(new THREE.BoxGeometry(B * 1.04, DH * 0.9, 6), white);   // bridge, wings out over the sides
-  bridge.position.set(0, topY - DH * 1.45, superZ - superL / 2 + 3); g.add(bridge);
-  const band = new THREE.Mesh(new THREE.BoxGeometry(B * 1.05, 1.1, 6.1), glass); band.position.set(0, topY - DH * 1.3, bridge.position.z); g.add(band);
-  const sun = new THREE.Mesh(new THREE.BoxGeometry(B * 0.8, 0.4, superL * 0.5), deck);   // the open top deck
-  sun.position.set(0, topY + 0.2, superZ + superL * 0.12); g.add(sun);
-  const funnel = new THREE.Mesh(new THREE.BoxGeometry(B * 0.28, big ? 12 : 5, big ? 16 : 7), navy);
-  funnel.position.set(0, topY + (big ? 6 : 2.5), superZ + superL * 0.3); funnel.rotation.x = -0.12; g.add(funnel);
-  g.userData.helm = [0, topY - DH * 1.3, bridge.position.z - 3.3];   // on the bridge, at its forward windows (v937)
-  if (big) for (const sx of [-1, 1]) for (let z = -superL * 0.3; z < superL * 0.3; z += 13) {   // lifeboats along both sides
-    const b = new THREE.Mesh(new THREE.BoxGeometry(3.2, 2.6, 10), orange); b.position.set(sx * (B / 2 + 0.6), hullH + 2.2, superZ + z); g.add(b);
+  const topY = HH + decks * DH;
+  // the lifeboats in their davits along both sides, over the promenade (the deck above the hull)
+  if (big) for (const sd of [-1, 1]) for (let z = sFront + 0.1 * L; z < sFront + 0.62 * L; z += 15) {
+    const bt = box(3.6, 3, 11, sd * (wS + 2.2), HH + DH * 1.4, z, orange); box(3.7, 0.9, 11.1, sd * (wS + 2.2), HH + DH * 1.4 - 1.5, z, white);
+    box(0.4, 3.4, 0.4, sd * (wS + 0.8), HH + DH * 1.6, z - 4, grey); box(0.4, 3.4, 0.4, sd * (wS + 0.8), HH + DH * 1.6, z + 4, grey);   // the davits
   }
-  // a wake, for when she's under way (userData.wake)
-  const wc = document.createElement('canvas'); wc.width = 64; wc.height = 256;
-  const c2 = wc.getContext('2d'), grd = c2.createLinearGradient(0, 0, 0, 256);
-  grd.addColorStop(0, 'rgba(245,250,252,0.8)'); grd.addColorStop(1, 'rgba(245,250,252,0)');
-  c2.fillStyle = grd; c2.beginPath(); c2.moveTo(22, 0); c2.lineTo(42, 0); c2.lineTo(64, 256); c2.lineTo(0, 256); c2.closePath(); c2.fill();
-  const wake = new THREE.Mesh(new THREE.PlaneGeometry(B * 3, L * 1.6), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(wc), transparent: true, depthWrite: false }));
-  wake.rotation.x = -Math.PI / 2; wake.position.set(0, 0.08, half + L * 0.8); g.add(wake);
-  g.userData.wake = [wake];
+  // the bridge: its windows forward on the deck below the top, its wings out past the hull either side
+  const brY = topY - DH * 1.5, brZ = sFront + (decks - 2) * (big ? 0.6 : 0.3);
+  box(B + (big ? 4 : 2), DH * 0.85, 5, 0, brY, brZ + 2.5, white);
+  box(B + (big ? 4 : 2) + 0.1, 1.1, 5.1, 0, brY + 0.4, brZ + 2.5, glass);
+  // the observation lounge on top, forward: a band of glass round its front
+  const lg = new THREE.ExtrudeGeometry(deckPlan(topZF + 1, topZF + (big ? 30 : 12), wS * 0.8), { depth: DH * 0.9, bevelEnabled: false, curveSegments: 16 });
+  lg.rotateX(-Math.PI / 2); lg.translate(0, topY, 0); g.add(new THREE.Mesh(lg, [white, glass]));
+  // the sun deck, pools, the funnel aft of midships, the mast
+  box(B * 0.7, 0.3, (topZA - topZF) * 0.55, 0, topY + 0.15, (topZF + topZA) / 2 + 6, teak);
+  if (big) { box(10, 0.4, 16, 0, topY + 0.35, (topZF + topZA) / 2 - 4, blue); box(8, 0.4, 10, 0, topY + 0.35, (topZF + topZA) / 2 + 22, blue); }
+  else box(4, 0.4, 6, 0, topY + 0.35, (topZF + topZA) / 2 + 4, blue);
+  { const fH = big ? 15 : 6, fL = big ? 22 : 8, fW = B * (big ? 0.32 : 0.3), fz = (topZF + topZA) / 2 + (big ? 30 : 10);
+    const prof = new THREE.Shape([[-fL / 2, 0], [fL / 2, 0], [fL / 2 + fH * 0.32, fH], [-fL / 2 + fH * 0.42, fH]].map(([z, y]) => new THREE.Vector2(z, y)));   // raked aft
+    const fg = new THREE.ExtrudeGeometry(prof, { depth: fW, bevelEnabled: true, bevelSize: fW * 0.2, bevelThickness: fW * 0.2, bevelSegments: 3 });
+    fg.rotateY(-Math.PI / 2); fg.translate(fW / 2, topY, fz);
+    g.add(new THREE.Mesh(fg, big ? navy : white));
+    box(fW * 1.3, fH * 0.12, fL * 0.9, 0, topY + fH * 0.95, fz + fH * 0.38, black);   // the soot-black top
+    if (!big) box(fW * 1.31, fH * 0.12, fL * 0.75, 0, topY + fH * 0.55, fz + fH * 0.2, navy); }   // the small ship's band
+  { const mz = brZ + (big ? 10 : 5), mh = big ? 9 : 4;
+    box(0.5, mh, 0.5, 0, topY + DH + mh / 2, mz, white);
+    for (const dx of [-1.6, 1.6]) { const dome = new THREE.Mesh(new THREE.SphereGeometry(big ? 1.2 : 0.6, 12, 8), white); dome.position.set(dx, topY + DH + mh * 0.75, mz); g.add(dome); }
+    const rd = box(big ? 5 : 2.4, 0.3, 0.6, 0, topY + DH + mh, mz, black); rd.rotation.y = 0.4; }
+  // mooring gear on the foredeck
+  for (const dz of [0.04, 0.09]) for (const sd of [-1, 1]) { const k = big ? 1.6 : 0.7; box(k, k * 0.6, k, sd * B * 0.18, HH + k * 0.3, -half + dz * L + (big ? 8 : 3), black); }
+  g.userData.helm = [0, brY + 1.2, brZ + 0.4];   // on the bridge, at its forward windows
+  g.userData.wake = [wakeOf(B, L)]; g.add(g.userData.wake[0]);
   return g;
 }
 
