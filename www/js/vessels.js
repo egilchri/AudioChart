@@ -101,7 +101,7 @@ export function ferryState(F, T, minute, date = new Date()) {
   }
   if (s.at) return { f: s.f0, dir: 1, moving: false, at: s.at };
   const k = (minute - s.t0) / (s.t1 - s.t0);
-  return { f: s.f0 + (s.f1 - s.f0) * k, dir: s.f1 > s.f0 ? 1 : -1, moving: true, bound: s.bound, next: s.to };
+  return { f: s.f0 + (s.f1 - s.f0) * k, dir: s.f1 > s.f0 ? 1 : -1, moving: true, bound: s.bound, next: s.to, f0: s.f0, f1: s.f1 };
 }
 // the day's departures from each landing, for the clock's "Coming up"
 export const ferryDepartures = (F, T, date = new Date()) => (ferryDay(F, T, date)?.segs || []).filter(s => !s.at).map(s => ({ t: s.t0, from: s.from, to: s.bound }));

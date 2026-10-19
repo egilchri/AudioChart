@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-19 — Ferries lie alongside the pier at a landing (v941)
+
+Reported with a screenshot ("It doesn't look right"): the mail boat, waiting at Northeast Harbor, sat on top of the
+town pier, because OpenStreetMap's ferry line begins on the pier. Now, where a town's piers are in the data
+(data/buildings), a ferry waiting at a landing lies alongside the pier or wharf edge nearest it, on whichever side
+is open water clear of the other piers, bow the way her line runs; leaving and coming in she eases between that
+berth and her line over 150 m. Where there are no piers in the data near a landing she stays on her line as before
+(the Rockland terminal, Lincolnville, Islesboro, Bass Harbor and Swan's Island have none yet). bay3d.js:
+ferryStops, pierSegs, findBerth, berthOf, berthPose; vessels.js ferryState gives f0/f1 for a moving leg.
+
 ## 2026-10-18 — A real car ferry, the view kept clear, every window shrinkable (v940)
 
 Reported with a screenshot: "I'm trying to follow the ferry. Notice how the window is in the way. Plus, the deck of

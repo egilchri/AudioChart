@@ -1037,9 +1037,7 @@ function rideLandFor(B, size, k) {
 const rc = { v: null, box: null, trail: [], lastT: 0, stops: null, land: null };
 function rideCourse(v) {   // her course in world metres, and the places on it ({x, z, name, kind})
   if (v.kind === 'ferry') {
-    const T = v.T, at = (lon, lat) => { const x = wx(lon), z = wz(lat); let bi = 0, bd = Infinity; T.P.forEach((p, i) => { const d = Math.hypot(p[0] - x, p[1] - z); if (d < bd) { bd = d; bi = i; } }); return T.c[bi]; };
-    const stops = [{ name: v.F.from, f: 0 }, ...(v.F.stops || []).filter(st => !st.summer || ferryLine(v.F) === v.F.summer_line).map(st => ({ name: st.name, f: at(st.lon, st.lat) })), { name: v.F.to, f: T.L }];
-    return { pts: T.P, places: stops.map(st => { const p = alongTrack(T, st.f); return { x: p.x, z: p.z, name: st.name, f: st.f, kind: 'stop' }; }) };
+    return { pts: v.T.P, places: ferryStops(v).map(st => ({ x: st.x, z: st.z, name: st.name, f: st.f, kind: 'stop' })) };
   }
   if (v.kind === 'cruise') {
     const P = v.T.P, a = P[0], b = P[P.length - 1];
@@ -1276,6 +1274,80 @@ if (!EMPTY) Promise.all([getJSON('./data/ferries.json').catch(() => null), getJS
     console.log(`[bay3d] cruise ship today: ${call.id}`);
   }
 }).catch(err => console.warn('[bay3d] traffic', err));
+// Alongside at the landings (v941, reported with a screenshot: the mail boat lay on top of the Northeast Harbor
+// pier, where OpenStreetMap's ferry line begins). Where a town's piers are loaded (data/buildings), a ferry waiting
+// at a landing lies alongside the pier or wharf edge nearest it, on whichever side is open water clear of the other
+// piers, bow the way her line runs; leaving and coming in she eases between that berth and her line over 150 m.
+// Where there are no piers in the data (or none near), she stays on her line as before.
+function ferryStops(v) {
+  if (v.stopsF) return v.stopsF;
+  const T = v.T, at = (lon, lat) => { const x = wx(lon), z = wz(lat); let bi = 0, bd = Infinity; T.P.forEach((p, i) => { const d = Math.hypot(p[0] - x, p[1] - z); if (d < bd) { bd = d; bi = i; } }); return T.c[bi]; };
+  const list = [{ name: v.F.from, f: 0 }, ...(v.F.stops || []).filter(st => !st.summer || ferryLine(v.F) === v.F.summer_line).map(st => ({ name: st.name, f: at(st.lon, st.lat) })), { name: v.F.to, f: T.L }];
+  return (v.stopsF = list.map(st => { const p = alongTrack(T, st.f); return { ...st, x: p.x, z: p.z, hdg: p.hdg }; }));
+}
+function pierSegs(x, z, r) {   // the pier and wharf edges within r metres: {ax, az, bx, bz, w, berth}
+  const out = [];
+  for (const t of townList) {
+    if (!t.data?.piers || Math.hypot(t.x - x, t.z - z) > 15000) continue;
+    for (const pr of t.data.piers) {
+      const P = pr.p.map(([lo, la]) => [wx(lo), wz(la)]), w = pr.area ? 0 : (pr.w || 3), berth = pr.kind !== 'breakwater';
+      const n = pr.area ? P.length : P.length - 1;
+      for (let i = 0; i < n; i++) {
+        const [ax, az] = P[i], [bx, bz] = P[(i + 1) % P.length];
+        if (segDist(x, z, ax, az, bx, bz) < r) out.push({ ax, az, bx, bz, w, berth });
+      }
+    }
+  }
+  return out;
+}
+function segDist(x, z, ax, az, bx, bz) {
+  const dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz || 1, t = clamp(((x - ax) * dx + (z - az) * dz) / L2, 0, 1);
+  return Math.hypot(x - (ax + dx * t), z - (az + dz * t));
+}
+function findBerth(v, stop) {
+  const L = vLen(v), B = Math.min(12.2, L * 0.28), obst = pierSegs(stop.x, stop.z, 100 + L), cands = obst.filter(g => g.berth && segDist(stop.x, stop.z, g.ax, g.az, g.bx, g.bz) < 80);
+  if (!townList.some(t => t.data && Math.hypot(t.x - stop.x, t.z - stop.z) < 15000)) return undefined;   // no town data here yet: ask again later
+  let best = null;
+  for (const g of cands) {
+    const len = Math.hypot(g.bx - g.ax, g.bz - g.az); if (len < 5) continue;
+    const ux = (g.bx - g.ax) / len, uz = (g.bz - g.az) / len, tp = clamp(((stop.x - g.ax) * ux + (stop.z - g.az) * uz), 0, len);
+    for (const side of [-1, 1]) for (const dt of [0, -L / 3, L / 3, -L * 0.7, L * 0.7]) {
+      const t = clamp(tp + dt, Math.min(len / 2, L * 0.35), Math.max(len / 2, len - L * 0.35)), off = g.w / 2 + B / 2 + 1;
+      const cx = g.ax + ux * t - uz * side * off, cz = g.az + uz * t + ux * side * off;
+      let ok = true;
+      for (let a = -0.5; a <= 0.5 && ok; a += 0.25) for (const b of [-0.5, 0, 0.5]) {   // her hull: open water, clear of every pier
+        const px = cx + ux * a * L - uz * b * B, pz = cz + uz * a * L + ux * b * B;
+        if (!isWater(px, pz) || obst.some(o => o !== g && segDist(px, pz, o.ax, o.az, o.bx, o.bz) < o.w / 2 + 0.8) || segDist(px, pz, g.ax, g.az, g.bx, g.bz) < g.w / 2 + 0.5) { ok = false; break; }
+      }
+      if (!ok) continue;
+      const score = Math.hypot(cx - stop.x, cz - stop.z) + Math.abs(dt) * 0.2;
+      if (!best || score < best.score) {
+        const h = Math.atan2(ux, -uz) / DEG, d = ((stop.hdg - h + 540) % 360) - 180;   // bow the way her line runs there
+        best = { x: cx, z: cz, h: Math.abs(d) <= 90 ? h : h + 180, score };
+      }
+    }
+  }
+  return best;
+}
+function berthOf(v, stop) {
+  v.berths ||= {};
+  const b = v.berths[stop.name], now = performance.now();
+  if (b && (b.pose || now - b.t < 5000)) return b.pose;
+  const pose = findBerth(v, stop) || null;   // (none yet: look again in a while, as the town and the detailed ground load)
+  v.berths[stop.name] = { pose, t: now };
+  return pose;
+}
+function berthPose(v, st) {
+  const stops = ferryStops(v), near = f => stops.reduce((a, b) => Math.abs(b.f - f) < Math.abs(a.f - f) ? b : a);
+  const ease = (bp, w) => {   // w 0 at the berth, 1 on her line
+    const k = w * w * (3 - 2 * w), dh = ((v.h - bp.h + 540) % 360) - 180;
+    v.x = bp.x + (v.x - bp.x) * k; v.z = bp.z + (v.z - bp.z) * k; v.h = bp.h + dh * k;
+  };
+  if (!st.moving) { const bp = berthOf(v, near(st.f)); if (bp) ease(bp, 0); return; }
+  const R = 150, dFrom = Math.abs(st.f - st.f0), dTo = Math.abs(st.f1 - st.f);
+  if (dFrom < R) { const bp = berthOf(v, near(st.f0)); if (bp) ease(bp, dFrom / R); }
+  else if (dTo < R) { const bp = berthOf(v, near(st.f1)); if (bp) ease(bp, dTo / R); }
+}
 function updateTraffic() {
   const minute = clockMin(), cp = camera.position, lk = env.lightsK || 0;
   for (const m of trafficLit) m.emissiveIntensity = lk;
@@ -1286,7 +1358,8 @@ function updateTraffic() {
     if (!st) continue;
     const p = alongTrack(v.T, st.f), hdg = st.dir > 0 ? p.hdg : p.hdg + 180;
     v.x = p.x; v.z = p.z; v.h = hdg;
-    v.group.position.set(p.x, 0, p.z); v.group.rotation.y = -hdg * DEG;
+    if (v.kind === 'ferry') berthPose(v, st);   // alongside at a landing, not on the pier where her line begins (v941)
+    v.group.position.set(v.x, 0, v.z); v.group.rotation.y = -v.h * DEG;
     for (const w of v.group.userData.wake) w.visible = st.moving;
     // drawn a little bigger from far off, as the sailboats are (less: she's big already)
     v.group.scale.setScalar(nest.on && nest.v === v ? 1 : Math.max(1, Math.min(v.kind === 'cruise' ? 3 : 8, Math.hypot(p.x - cp.x, cp.y, p.z - cp.z) / 250 * Math.sqrt(8 / v.L) * 0.6)));
@@ -1883,7 +1956,7 @@ window.__bay3d = {   // for AudioChart (returning to the chart where you were) a
   northUp: () => flyTo({ x: view.x, z: view.z, dist: view.dist, az: 0, tilt: view.tilt }, 900),
   setView: v => { anim = null; Object.assign(view, { x: wx(v.lon), z: wz(v.lat), dist: v.dist ?? view.dist, az: (v.az ?? view.az / DEG) * DEG, tilt: (v.tilt ?? view.tilt / DEG) * DEG }); clampView(); placeCamera(); },
   goTown: id => { const tw = townList.find(x => x.id === id); if (tw) goTown(tw); return !!tw; },
-  goWhole, towns: townList, tiles, scene, env, traffic, clockMin, setClock, camera, applyConditions, fleet, own, bowdoin, nest, setNest, ride, leaveRide, lookoutReport, isWater: (lat, lon) => isWater(wx(lon), wz(lat)), boatAt: i => ({ lat: latOf(fleet[i].z), lon: lonOf(fleet[i].x), h: fleet[i].h }), renderer, trees: () => ({ near: TREES.near.count, far: TREES.far.count, K: TREES.K }),
+  goWhole, towns: townList, tiles, scene, env, traffic, clockMin, setClock, camera, applyConditions, fleet, own, bowdoin, nest, setNest, ride, leaveRide, lookoutReport, findBerth, pierSegs, ferryStops, isWaterXZ: (x, z) => isWater(x, z), isWater: (lat, lon) => isWater(wx(lon), wz(lat)), boatAt: i => ({ lat: latOf(fleet[i].z), lon: lonOf(fleet[i].x), h: fleet[i].h }), renderer, trees: () => ({ near: TREES.near.count, far: TREES.far.count, K: TREES.K }),
 };
 }
 main().catch(err => { console.error(err); fail('Could not start the 3D view: ' + err.message); });
