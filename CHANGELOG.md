@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-10-19 — Demo 11, "The Ferry Report" (v948)
+
+Requested: "Make a demo called 'Ferry Report'. Just pick whatever ferries are currently underway, as shown in the
+'On the water now' table. Cycle through them one by one, giving colorful description of what we're seeing. Devote
+2 or 3 minutes to the video." www/sailors/assets/ferry-report.mp4 (2 min 24 s) is the sailors page's 11th demo tab:
+the bay with ⛴ Underway open at 17:08 on Monday 19 October, then a drone and the bridge of each ferry under way (the
+Captain E. Frank Thompson bound for Vinalhaven, the Captain Neal Burgess out of North Haven for Rockland, the mail
+boat Double B coming into Great Cranberry) and the two in their slips for the night (the Margaret Chase Smith at
+Islesboro, the Captain Henry Lee at Swan's Island). Recorded from the live Bird's-eye view in headless Chrome at a set
+clock (?clock=17:08) with a CDP screencast; the narration (Piper, en_US-amy-medium) written from the app's own
+etas, distances and lookout's reports.
+Also: the Cranberry launches' helm eye is now just forward of the wheelhouse windshield (behind it, its dark glass
+filled the view, black), and the car ferries' windlass is a lighter grey (it loomed black from the bridge).
+
 ## 2026-10-19 — A more realistic cruise ship (v947)
 
 Requested: "Can we make the cruise ship more realistic?" vessels.js cruiseShipModel is rebuilt (Bird's-eye and the

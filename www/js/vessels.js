@@ -268,7 +268,7 @@ export function ferryModelSimple(F, windowMats = []) {
   slab(fwd, DK, TOP, white); slab(fwd, TOP, TOP + 0.08, grey);
   // on the forecastle: the anchor windlass, bollards each side (no jackstaff: it stood dead ahead of the helm's view)
   const fz = -half + taper * 0.55;
-  box(B * 0.32, 0.7, 1.2, 0, TOP + 0.43, fz, M(0x3c4248));
+  box(B * 0.26, 0.6, 1.0, 0, TOP + 0.38, fz, M(0x7d858c));   // (a lighter grey: from the bridge it loomed black)
   for (const sx of [-1, 1]) for (const dz of [-1.6, 1.4]) { const b = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.25, 0.6, 8), black); b.position.set(sx * B * 0.3, TOP + 0.38, fz + dz); g.add(b); }
   // the side casings, with a red cap rail
   for (const sx of [-1, 1]) { box(cw, CAS, deckLen, sx * (B / 2 - cw / 2), DK + CAS / 2, deckZ, white); box(cw + 0.06, 0.12, deckLen, sx * (B / 2 - cw / 2), TOP + 0.06, deckZ, red); }
@@ -371,7 +371,7 @@ export function launchModel(F, windowMats = []) {
   lamp(g, 0xfff2d6, 0, SH + wH + 1.75, wz0 + wLen * 0.6, windowMats, 0.1);
   lamp(g, 0xff3b2e, -(wW / 2 + 0.06), SH + wH - 0.2, wz0 + 0.3, windowMats, 0.09); lamp(g, 0x3dff7a, wW / 2 + 0.06, SH + wH - 0.2, wz0 + 0.3, windowMats, 0.09);
   lamp(g, 0xfff2d6, 0, SH + 0.9, half - 0.05, windowMats, 0.08);
-  g.userData.helm = [0, SH + 1.6, wz0 + 0.7];   // in the wheelhouse, at the windshield
+  g.userData.helm = [0, SH + 1.7, wz0 - 0.5];   // at the wheelhouse front, just forward of the windshield (behind it, its dark glass filled the view)
   g.userData.wake = [wakeOf(B, L)]; g.add(g.userData.wake[0]);
   return g;
 }
