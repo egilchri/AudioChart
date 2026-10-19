@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-10-19 — Moored boats in the harbors, by the season (v944)
+
+Asked "Northeast Harbor looks very empty. Is it really that empty now?" (it isn't: Bird's-eye drew no moored boats
+anywhere), then "yes, add the moored boats with seasons". New data/moorings.json: 28 harbors and coves (Northeast,
+Southwest and Bass Harbors, Bar Harbor, Camden, Rockport, Rockland, Stonington, Carvers Harbor, the Fox Islands
+Thorofare, Castine, Bucks Harbor, Belfast, Searsport, Gilkey, Blue Hill, Center Harbor, Burnt Coat and others),
+each at the chart's own label for it, with a high-summer count of yachts and working boats (estimates, not counts).
+New moorings3d.js lays each harbor's moorings out once its detailed ground has loaded: a staggered grid out from its
+middle, in open water with swinging room, clear of the shore, piers, ferry slips and ferry lines; working boats
+nearer the landing. The date decides how many are in (yachts from late May, all in by late June, hauled through
+October; working boats most of the year, fewer in midwinter); the empty moorings show their balls. The boats lie
+head to wind, each a little off it, as instances of furled sailboat3d.js boats (sloops of several sizes, the Cape
+Dory, daysailers, a Downeast power cruiser; lobster boats), drawn for the harbors within 9 km of the view.
+
 ## 2026-10-19 — Maine State ferry slips, with their green gantries (v943)
 
 Reported with a screenshot: "The dock for this ferry looks unrealistic ... These large Maine State ferries have

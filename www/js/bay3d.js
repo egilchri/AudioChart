@@ -15,6 +15,7 @@ import { sunPos, SUN, makeSky, makeEnv, glowSprite, flashFor, flashOn, sectorCol
 import { makeSailboat, fleetType } from './sailboat3d.js';
 import { makeAngelique, makeBowdoin } from './angelique3d.js';
 import { makeWildlife, ledgesFrom } from './wildlife3d.js';
+import { makeMoorings } from './moorings3d.js';
 import { callsOn, trackOf, alongTrack, cruiseState, ferryState, ferryDepartures, ferryLine, ferrySlipModel, cruiseShipModel, ferryModelSimple, launchModel, mins } from './vessels.js';
 
 const statusEl = document.getElementById('status');
@@ -582,7 +583,9 @@ async function loadTown(t) {
     if (t.state !== 'loading') return;
     await slipsReady; if (t.state !== 'loading') return;
     const near = pr => slips.some(sl => pr.p.some(([lo, la]) => Math.hypot(wx(lo) - sl.x0, wz(la) - sl.z0) < 14));
-    t.group = buildTown(slips.length ? { ...T, piers: T.piers.filter(pr => !near(pr)) } : T); t.credit = T.credit || ''; scene.add(t.group); t.state = 'ready'; updateCredit();
+    t.group = buildTown(slips.length ? { ...T, piers: T.piers.filter(pr => !near(pr)) } : T);
+    for (const h of moorings?.harbors || []) if (h.spots && Math.hypot(h.x - t.x, h.z - t.z) < 4000) moorings.relayout(h);   // lay them out again clear of its piers
+    t.credit = T.credit || ''; scene.add(t.group); t.state = 'ready'; updateCredit();
   } catch (err) { console.warn('[bay3d] town', t.file, err); t.state = 'failed'; }
   finally { townsLoading--; }
 }
@@ -1539,6 +1542,21 @@ if (uwBtn && uwPanel && !EMPTY) {
   setInterval(() => { if (!uwPanel.hidden && !uwPanel.matches(':hover')) fillUnderway(); }, 2500);   // (not under the pointer: a click mid-rebuild would miss)
 }
 
+// ── Moored boats, by the season (v944, requested: "add the moored boats with seasons"; moorings3d.js) ──
+const moorings = EMPTY ? null : makeMoorings({
+  scene, wx, wz, lonOf, latOf,
+  water: (x, z) => elevSmooth(lonOf(x), latOf(z)) <= 0.3,
+  detailAt: (x, z) => { const lon = lonOf(x), lat = latOf(z); return tiles.some(T => T.state === 'ready' && lon >= T.w && lon < T.e && lat >= T.s && lat < T.n); },
+  clear: (x, z) => {   // clear of the ferry lines and slips, and of the piers
+    for (const v of traffic) if (v.kind === 'ferry') { const P = v.T.P; for (let i = 1; i < P.length; i++) if (segDist(x, z, P[i - 1][0], P[i - 1][1], P[i][0], P[i][1]) < 60) return false; }
+    if (slips.some(sl => Math.hypot(x - sl.x, z - sl.z) < 90)) return false;
+    return !pierSegs(x, z, 14).length;
+  },
+  windFrom: () => env.C.windFrom ?? 200,
+  hidden: () => !!aboveFog,
+});
+setInterval(() => moorings?.update(view), 2000);
+
 // ── Seagulls and seals (v888, requested; wildlife3d.js), round where you're looking ──
 const wildlife = makeWildlife({ scene });
 getJSON('./data/regions/penobscot-bay/hazards.geojson').then(fc => wildlife.setLedges(ledgesFrom(fc, wx, wz))).catch(() => {});
@@ -2012,7 +2030,7 @@ window.__bay3d = {   // for AudioChart (returning to the chart where you were) a
   northUp: () => flyTo({ x: view.x, z: view.z, dist: view.dist, az: 0, tilt: view.tilt }, 900),
   setView: v => { anim = null; Object.assign(view, { x: wx(v.lon), z: wz(v.lat), dist: v.dist ?? view.dist, az: (v.az ?? view.az / DEG) * DEG, tilt: (v.tilt ?? view.tilt / DEG) * DEG }); clampView(); placeCamera(); },
   goTown: id => { const tw = townList.find(x => x.id === id); if (tw) goTown(tw); return !!tw; },
-  goWhole, towns: townList, tiles, scene, env, traffic, clockMin, setClock, camera, applyConditions, fleet, own, bowdoin, nest, setNest, ride, leaveRide, lookoutReport, findBerth, pierSegs, ferryStops, isWaterXZ: (x, z) => isWater(x, z), isWater: (lat, lon) => isWater(wx(lon), wz(lat)), boatAt: i => ({ lat: latOf(fleet[i].z), lon: lonOf(fleet[i].x), h: fleet[i].h }), renderer, trees: () => ({ near: TREES.near.count, far: TREES.far.count, K: TREES.K }),
+  goWhole, towns: townList, tiles, scene, env, traffic, clockMin, setClock, camera, applyConditions, fleet, own, bowdoin, nest, setNest, ride, leaveRide, lookoutReport, findBerth, pierSegs, ferryStops, moorings, isWaterXZ: (x, z) => isWater(x, z), isWater: (lat, lon) => isWater(wx(lon), wz(lat)), boatAt: i => ({ lat: latOf(fleet[i].z), lon: lonOf(fleet[i].x), h: fleet[i].h }), renderer, trees: () => ({ near: TREES.near.count, far: TREES.far.count, K: TREES.K }),
 };
 }
 main().catch(err => { console.error(err); fail('Could not start the 3D view: ' + err.message); });

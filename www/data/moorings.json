@@ -1,0 +1,201 @@
+{
+ "note": "Mooring fields for the Bird's-eye view (v944): where each harbor's moored boats lie (the chart's own label for the harbor, US ENC SEAARE, except where noted) and how many in high summer, yachts and working boats (estimates from the cruising guides' descriptions: Northeast Harbor \"fully occupied by moorings\", the lobstering harbors' fleets; not counts). The season decides how many are in: yachts from late May, all in by late June, hauled through October; working boats most of the year. The boats lie in open water clear of the shore, piers, ferry slips and ferry lines, head to wind.",
+ "harbors": [
+  {
+   "name": "Northeast Harbor",
+   "lon": -68.28144,
+   "lat": 44.29658,
+   "yachts": 110,
+   "working": 12
+  },
+  {
+   "name": "Southwest Harbor",
+   "lon": -68.3165,
+   "lat": 44.2755,
+   "yachts": 120,
+   "working": 40
+  },
+  {
+   "name": "Bass Harbor",
+   "lon": -68.3517,
+   "lat": 44.23041,
+   "yachts": 25,
+   "working": 45
+  },
+  {
+   "name": "Bar Harbor",
+   "lon": -68.20583,
+   "lat": 44.39193,
+   "yachts": 60,
+   "working": 20
+  },
+  {
+   "name": "Spurling Cove",
+   "lon": -68.26797,
+   "lat": 44.25891,
+   "yachts": 10,
+   "working": 10
+  },
+  {
+   "name": "Hadlock Cove",
+   "lon": -68.23995,
+   "lat": 44.25818,
+   "yachts": 15,
+   "working": 15
+  },
+  {
+   "name": "Somes Harbor",
+   "lon": -68.32392,
+   "lat": 44.36634,
+   "yachts": 25,
+   "working": 3
+  },
+  {
+   "name": "Camden Harbor",
+   "lon": -69.05352,
+   "lat": 44.2093,
+   "yachts": 160,
+   "working": 20
+  },
+  {
+   "name": "Rockport Harbor",
+   "lon": -69.06939,
+   "lat": 44.17074,
+   "yachts": 60,
+   "working": 10
+  },
+  {
+   "name": "Rockland Harbor",
+   "lon": -69.1015,
+   "lat": 44.1035,
+   "yachts": 70,
+   "working": 40
+  },
+  {
+   "name": "Owls Head Harbor",
+   "lon": -69.05083,
+   "lat": 44.0854,
+   "yachts": 15,
+   "working": 25
+  },
+  {
+   "name": "Stonington",
+   "lon": -68.668,
+   "lat": 44.1545,
+   "yachts": 20,
+   "working": 120
+  },
+  {
+   "name": "Webb Cove",
+   "lon": -68.64363,
+   "lat": 44.17104,
+   "yachts": 10,
+   "working": 15
+  },
+  {
+   "name": "Carvers Harbor",
+   "lon": -68.83521,
+   "lat": 44.04718,
+   "yachts": 10,
+   "working": 90
+  },
+  {
+   "name": "Fox Islands Thorofare",
+   "lon": -68.865,
+   "lat": 44.1255,
+   "yachts": 70,
+   "working": 20
+  },
+  {
+   "name": "Perry Creek",
+   "lon": -68.87144,
+   "lat": 44.11703,
+   "yachts": 15,
+   "working": 0
+  },
+  {
+   "name": "Pulpit Harbor",
+   "lon": -68.88221,
+   "lat": 44.15983,
+   "yachts": 25,
+   "working": 3
+  },
+  {
+   "name": "Castine Harbor",
+   "lon": -68.79236,
+   "lat": 44.38933,
+   "yachts": 70,
+   "working": 10
+  },
+  {
+   "name": "Smith Cove",
+   "lon": -68.77069,
+   "lat": 44.37104,
+   "yachts": 20,
+   "working": 0
+  },
+  {
+   "name": "Bucks Harbor",
+   "lon": -68.73783,
+   "lat": 44.33437,
+   "yachts": 50,
+   "working": 5
+  },
+  {
+   "name": "Belfast Harbor",
+   "lon": -69.001,
+   "lat": 44.4245,
+   "yachts": 60,
+   "working": 20
+  },
+  {
+   "name": "Searsport Harbor",
+   "lon": -68.91782,
+   "lat": 44.45078,
+   "yachts": 25,
+   "working": 15
+  },
+  {
+   "name": "Gilkey Harbor",
+   "lon": -68.93054,
+   "lat": 44.25946,
+   "yachts": 35,
+   "working": 5
+  },
+  {
+   "name": "Blue Hill Harbor",
+   "lon": -68.55726,
+   "lat": 44.39421,
+   "yachts": 50,
+   "working": 8
+  },
+  {
+   "name": "Center Harbor",
+   "lon": -68.57985,
+   "lat": 44.26121,
+   "yachts": 40,
+   "working": 5
+  },
+  {
+   "name": "Burnt Coat Harbor",
+   "lon": -68.44535,
+   "lat": 44.14749,
+   "yachts": 8,
+   "working": 40
+  },
+  {
+   "name": "Mackerel Cove",
+   "lon": -68.43676,
+   "lat": 44.17576,
+   "yachts": 3,
+   "working": 15
+  },
+  {
+   "name": "Lunt Harbor",
+   "lon": -68.35915,
+   "lat": 44.12638,
+   "yachts": 3,
+   "working": 20
+  }
+ ]
+}
