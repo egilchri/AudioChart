@@ -1407,13 +1407,29 @@ let eyeTarget = DRONE_M;   // Drone by default (direct request, v832); a choice 
 }
 let eyeH = eyeTarget;
 const eyeBox = document.getElementById('eyepick');
-function syncEyeButtons() { for (const b of eyeBox.querySelectorAll('button[data-m]')) b.classList.toggle('on', !nest.on && Math.abs(Number(b.dataset.m) - eyeTarget) < 0.2); }
+function syncEyeButtons() {
+  for (const b of eyeBox.querySelectorAll('button[data-m]')) b.classList.toggle('on', !nest.on && !chase.on && Math.abs(Number(b.dataset.m) - eyeTarget) < 0.2);
+  for (const b of eyeBox.querySelectorAll('button[data-chase]')) b.classList.toggle('on', chase.on === b.dataset.chase);
+}
 // Bowdoin's crow's nest (v919, requested: "give it a Crow's Nest, and a way to trigger an observation from there"):
 // a viewpoint in her ice barrel at the foremast head, 60-odd feet up, riding with her heel and roll; look round as
 // at the helm, raise the binoculars from up there, and 📣 Lookout calls out what's in sight (below).
 const nest = { on: false, k: 0 };
 const binoc = { on: false, prevEye: 0, prevZoom: 1, range: null, rangeT: 0, sx: 0 };   // binoculars (v908), below
-function setEye(m) { if (binoc.on) setBinoc(false); if (nest.on) setNest(false); eyeTarget = m; try { localStorage.setItem('audiochart-helm3d-view', String(m)); } catch (_) {} syncEyeButtons(); }
+// Stern, Side and Bow (v955, requested: "a stern view, a side view, and a bow view to our boats underway"):
+// a camera boat keeping station off her, low on the water, looking at her: astern with her wake
+// running toward you, abeam to starboard, or ahead and a little off the bow as she comes on. Drag
+// (or the arrow keys) to circle her, up/down to rise or sink. Off, chase.k eases back to the eye views.
+const CHASE_L = ANGEL ? SHIP.L : 7.6;   // her length overall, m: the station is set in boat lengths
+const CHASE = { stern: { az: 0, d: 2.4, h: 0.4 }, side: { az: 90, d: 2.6, h: 0.3 }, bow: { az: 165, d: 2.3, h: 0.3 } };   // az: degrees round from dead astern, to starboard
+const chase = { on: null, k: 0 };
+function setChase(name) {
+  if (binoc.on) setBinoc(false); if (nest.on) setNest(false);
+  chase.on = name; yawOff = 0; pitch = -1.2;
+  try { localStorage.setItem('audiochart-helm3d-chase', name || ''); } catch (_) {}
+  syncEyeButtons();
+}
+function setEye(m) { if (binoc.on) setBinoc(false); if (nest.on) setNest(false); if (chase.on) setChase(null); eyeTarget = m; try { localStorage.setItem('audiochart-helm3d-view', String(m)); } catch (_) {} syncEyeButtons(); }
 // double-click the boat (v896, requested): AudioChart's boat menu (Free sail, Autoroute, …)
 {
   let hook = null; try { if (window.parent !== window) hook = window.parent.__audioChartViews; } catch (_) {}
@@ -1457,6 +1473,12 @@ for (const c of EYE_CHOICES) {
   b.addEventListener('pointerdown', e => e.stopPropagation());   // not a look-around drag
   b.addEventListener('click', () => setEye(c.m)); eyeBox.appendChild(b);
 }
+for (const [name, label, title] of [['stern', 'Stern', 'From a boat astern of her, low on the water, her wake running toward you'], ['side', 'Side', 'From a boat abeam of her, to starboard'], ['bow', 'Bow', 'From ahead, as she comes on']]) {
+  const b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.dataset.chase = name; b.title = title;
+  b.addEventListener('pointerdown', e => e.stopPropagation());
+  b.addEventListener('click', () => setChase(name)); eyeBox.appendChild(b);
+}
+try { const c = localStorage.getItem('audiochart-helm3d-chase'); if (CHASE[c] && !params.get('eye')) { chase.on = c; chase.k = 1; } } catch (_) {}
 const nestBtn = SHIP.crowsNest && ANGEL ? document.createElement('button') : null;
 const lookBtn = document.createElement('button'); lookBtn.type = 'button'; lookBtn.className = 'binbtn'; lookBtn.textContent = '📣 Lookout'; lookBtn.hidden = true;
 lookBtn.title = "The lookout's report: what's in sight from the crow's nest, with bearings off the bow (L)";
@@ -1720,6 +1742,7 @@ const _nestP = new THREE.Vector3();
 const TILLER = new THREE.Vector3(HELM_X, EYE, HELM_Z), AT_MAST = ANGEL ? new THREE.Vector3(...SHIP.atMast) : new THREE.Vector3(0.3, 2.6, -3.2);   // on the foredeck, just forward of the mast
 let camK = 0;
 const UP_AXIS = new THREE.Vector3(0, 1, 0);
+const _chP = new THREE.Vector3(), _chT = new THREE.Vector3(), _chQ = new THREE.Quaternion();   // the Stern/Side/Bow camera
 function arrive() {
   anchor.state = 'walking'; anchor.t = 0; anchorNote.hidden = false;
   anchorObj.visible = true;   // sitting on the roller until it's let go
@@ -1955,6 +1978,16 @@ function frame() {
     const k = 0.05 * (0.6 + mv);
     camera.rotation.x += THREE.MathUtils.degToRad(k * (Math.sin(t * 1.3) + 0.5 * Math.sin(t * 3.1 + 1)));
     camera.rotation.y += THREE.MathUtils.degToRad(k * (Math.sin(t * 0.9 + 2) + 0.5 * Math.sin(t * 2.3)));
+  }
+  chase.k += ((chase.on ? 1 : 0) - chase.k) * Math.min(1, dt * 1.8);
+  if (chase.k > 0.001) {   // Stern / Side / Bow: station off her, in her own frame, looking at her
+    const c = CHASE[chase.on] || chase.last; if (chase.on) chase.last = c;
+    const az = THREE.MathUtils.degToRad(c.az + yawOff), d = c.d * CHASE_L, h = Math.max(0.15, c.h + pitch / 60) * CHASE_L * 0.35 + 1.2;
+    _chP.set(Math.sin(az) * d, h, Math.cos(az) * d);   // dead astern is +z, starboard +x
+    boat.updateMatrixWorld(true); _chT.set(0, CHASE_L * 0.12, -CHASE_L * 0.05); boat.localToWorld(_chT);
+    const sm = chase.k * chase.k * (3 - 2 * chase.k) * (1 - ease);
+    _chQ.copy(camera.quaternion); camera.position.lerp(_chP, sm);
+    camera.lookAt(_chT); camera.quaternion.copy(_chQ.slerp(camera.quaternion, sm));
   }
   for (const m of marks) {
     if (!m.fixedMark) { const d = Math.hypot(m.g.position.x - pos[0], m.g.position.z - pos[1]); m.g.scale.setScalar(Math.max(1, Math.min(6, d / 150))); m.g.position.y = Math.sin(t * 1.4 + m.phase) * 0.18; m.g.rotation.z = Math.sin(t * 1.1 + m.phase) * 0.06; m.g.rotation.x = Math.cos(t * 0.9 + m.phase) * 0.05; }

@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-20 — Stern, Side and Bow views (v955)
+
+Requested: "a stern view, a side view, and a bow view to our boats underway". The helm view (helm3d.js) has three
+new View buttons after Drone: a camera boat keeping station off her, low on the water and looking at her, astern
+(her wake running toward you), abeam to starboard, or ahead and a little off the bow. Distances are in her own
+boat lengths, so they suit Sea Nymph, Angelique and Bowdoin alike. Drag or the arrow keys circle her, up/down
+raise or lower the camera; the choice is remembered, and changes glide.
+
 ## 2026-10-20 — A truer wake (v954)
 
 Requested: "make the wake look more realistic". The helm view's wake (helm3d.js) was a fan of soft white puffs
