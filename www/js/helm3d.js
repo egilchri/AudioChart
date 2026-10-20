@@ -726,31 +726,89 @@ if (angel) { const sub = document.querySelector('.sub'); if (sub) sub.firstChild
 const wakeG = new THREE.Group(); scene.add(wakeG);
 if (ANGEL) wakeG.scale.setScalar(3.6 * SHIP.L / 29);   // a big vessel's wake: the same foam, sized to her
 const ownWake = (() => {
-  // foam drawn on a canvas, the apex at the top (forward): the two diverging arms of the wake,
-  // broken and fading, and (astern only) the churned streak right behind her
-  const foam = (w, h, spread, churn) => {
-    const c = document.createElement('canvas'); c.width = w; c.height = h;
-    const x = c.getContext('2d'); let sd = 7; const rr = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
-    for (let i = 0; i < 2600; i++) {
-      const t = rr() ** 0.8, side = rr() < 0.5 ? -1 : 1, a = (1 - t) ** 1.4;
-      const arm = w / 2 + side * (w * 0.04 + spread * w * t) + (rr() - 0.5) * (3 + 14 * t);
-      x.fillStyle = `rgba(246,250,252,${(0.25 + 0.5 * rr()) * a})`;
-      x.beginPath(); x.ellipse(arm, t * h, 1 + 3 * rr() * (0.4 + t), 2 + 6 * rr(), 0, 0, 2 * Math.PI); x.fill();
-      if (churn && rr() < 0.6) {
-        const tc = rr() ** 1.3, ac = (1 - tc) ** 2;
-        x.fillStyle = `rgba(240,247,250,${(0.2 + 0.35 * rr()) * ac})`;
-        x.beginPath(); x.ellipse(w / 2 + (rr() - 0.5) * w * (0.08 + 0.18 * tc), tc * h, 2 + 5 * rr(), 3 + 8 * rr(), 0, 0, 2 * Math.PI); x.fill();
+  // drawn once on canvases, forward at the top (v954, "make the wake look more realistic"): a Kelvin
+  // wake, its arms opening at 19.5° each side of her track, each arm a run of short feathered
+  // crests slanting in and forward (white and lacy near her, dull ridges further back); between
+  // them, the flattened glassy slick she leaves, with a little churned foam just off her transom
+  let sd = 7; const rr = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+  const TAN = Math.tan(19.47 * Math.PI / 180), HB = 1.0;   // the Kelvin half-angle; her half-beam at the transom, m
+  const FW = 40, FL = 60, P = 16;   // the fan, m wide and long, at P canvas px a metre
+  const fanTex = (() => {
+    const c = document.createElement('canvas'); c.width = FW * P; c.height = FL * P;
+    const x = c.getContext('2d'), cx = c.width / 2;
+    // the slick: a smooth darker band, a little wider than she is, slowly spreading and fading
+    for (let y = 0; y < c.height; y += 2) {
+      const d = y / P, half = (HB * 1.1 + 0.07 * d) * P, a = 0.3 * Math.exp(-d / 30) * Math.min(1, 0.3 + d / 2);
+      const g = x.createLinearGradient(cx - half, 0, cx + half, 0);
+      g.addColorStop(0, 'rgba(8,22,36,0)'); g.addColorStop(0.5, `rgba(8,22,36,${a})`); g.addColorStop(1, 'rgba(8,22,36,0)');
+      x.fillStyle = g; x.fillRect(cx - half, y, 2 * half, 2);
+    }
+    x.lineCap = 'round';
+    // churned foam off the transom: short strings along the track, gone in a couple of boat lengths
+    for (let i = 0; i < 2200; i++) {
+      const d = 16 * rr() ** 1.7, w = (HB + 0.12 * d) * (rr() - 0.5) * 2, a = (0.2 + 0.4 * rr()) * Math.exp(-d / 5);
+      const len = (0.15 + 0.5 * rr()) * P, tilt = (rr() - 0.5) * 0.6;
+      x.strokeStyle = `rgba(244,249,251,${a})`; x.lineWidth = 1 + 2.2 * rr();
+      x.beginPath(); x.moveTo(cx + w * P, d * P); x.lineTo(cx + w * P + tilt * len, d * P + len); x.stroke();
+    }
+    // the arms: feathered crests along each cusp line
+    const sa = Math.sin(55 * Math.PI / 180), ca = Math.cos(55 * Math.PI / 180);
+    for (const side of [-1, 1]) {
+      for (let d = 0.6 + rr(); d < FL - 1; d += 1.6 + 2.2 * rr()) {
+        const ax = cx + side * (HB + TAN * d) * P, ay = d * P;
+        const L = Math.min(4.5, 0.9 + 0.07 * d) * (0.7 + 0.5 * rr()) * P;
+        const ix = -side * sa, iy = -ca;   // inward and forward, 55° off her track
+        const x0 = ax - ix * L * 0.25, y0 = ay - iy * L * 0.25, x1 = ax + ix * L, y1 = ay + iy * L;
+        const ridge = Math.exp(-d / 22), white = Math.exp(-d / 12), bow = (0.08 + 0.12 * rr()) * L;
+        // each crest a soft, slightly bowed stroke, strongest at the cusp and dying away inward, broken
+        // in places: drawn as short overlapping pieces, trough (just aft) and then crest
+        const at = t => [x0 + (x1 - x0) * t, y0 + (y1 - y0) * t + bow * Math.sin(Math.PI * t)];
+        const N = 18, gaps = Array.from({ length: N }, () => rr() < 0.18);
+        for (const [dy, col, w, k] of [[0.35 * P, '6,18,30', 0.55 * P, 0.26], [0, '210,226,236', 0.3 * P, 0.38], [0, '236,244,248', 0.12 * P, 0.4]]) {
+          x.strokeStyle = `rgb(${col})`; x.lineWidth = w;
+          for (let j = 0; j < N; j++) {
+            if (gaps[j]) continue;
+            const t0 = j / N, t1 = (j + 1.3) / N, prof = Math.min(1, 4 * (1 - t0) * (t0 + 0.25));
+            x.globalAlpha = k * ridge * prof * (0.55 + 0.45 * rr());
+            const [p0x, p0y] = at(t0), [p1x, p1y] = at(t1);
+            x.beginPath(); x.moveTo(p0x, p0y + dy); x.lineTo(p1x, p1y + dy); x.stroke();
+          }
+        }
+        x.globalAlpha = 1;
+        // breaking foam, heaviest at the cusp end: specks and short strings, not a solid line
+        const n = Math.round(30 * white);
+        for (let j = 0; j < n; j++) {
+          const t = rr() ** 2 * 0.8 - 0.15, [px, py] = at(t), l = (0.1 + 0.4 * rr()) * P;
+          x.strokeStyle = `rgba(246,250,252,${(0.35 + 0.55 * rr()) * white})`; x.lineWidth = 1 + 2.4 * rr();
+          const qx = px + (rr() - 0.5) * 0.4 * P, qy = py + (rr() - 0.3) * 0.5 * P;
+          x.beginPath(); x.moveTo(qx, qy); x.lineTo(qx + ix * l * (rr() - 0.3), qy + l * (0.3 + 0.7 * rr())); x.stroke();
+        }
       }
     }
     return new THREE.CanvasTexture(c);
-  };
-  const mat = new THREE.MeshBasicMaterial({ map: foam(256, 1024, 0.42, true), transparent: true, depthWrite: false, opacity: 0 });
-  const fan = new THREE.Mesh(new THREE.PlaneGeometry(14, 50), mat);
-  fan.rotation.x = -Math.PI / 2; fan.position.set(0, 0.05, 1.7 + 25); fan.renderOrder = 1; wakeG.add(fan);
-  // the bow wave: the same arms from the stem, peeling off along her sides
-  const bmat = new THREE.MeshBasicMaterial({ map: foam(128, 256, 0.46, false), transparent: true, opacity: 0, depthWrite: false });
-  const curl = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 5), bmat);
-  curl.rotation.x = -Math.PI / 2; curl.position.set(0, 0.06, -4.3 + 2.5); curl.renderOrder = 1; wakeG.add(curl);
+  })();
+  // the bow wave: a thin rolled-over line of foam from the stem, hugging her sides then peeling off
+  const BW = 5, BL = 6, BP = 48;
+  const bowTex = (() => {
+    const c = document.createElement('canvas'); c.width = BW * BP; c.height = BL * BP;
+    const x = c.getContext('2d'), cx = c.width / 2; x.lineCap = 'round';
+    for (const side of [-1, 1]) {
+      for (let i = 0; i < 700; i++) {
+        const d = BL * rr() ** 1.3, hull = 1.2 * Math.min(1, Math.sqrt(d / 3.2));   // her half-breadth d m aft of the stem
+        const off = hull + 0.04 + 0.12 * d * rr() ** 2 + Math.max(0, d - 2.5) * 0.12, a = (0.35 + 0.55 * rr()) * Math.exp(-d / 2.6);
+        const px = cx + side * off * BP, py = d * BP, l = (0.05 + 0.18 * rr()) * BP;
+        x.strokeStyle = `rgba(246,250,252,${a})`; x.lineWidth = 0.8 + 1.5 * rr();
+        x.beginPath(); x.moveTo(px, py); x.lineTo(px + side * l * 0.35, py + l); x.stroke();
+      }
+    }
+    return new THREE.CanvasTexture(c);
+  })();
+  const mat = new THREE.MeshBasicMaterial({ map: fanTex, transparent: true, depthWrite: false, opacity: 0 });
+  const fan = new THREE.Mesh(new THREE.PlaneGeometry(FW, FL), mat);
+  fan.rotation.x = -Math.PI / 2; fan.position.set(0, 0.05, 1.7 + FL / 2); fan.renderOrder = 1; wakeG.add(fan);
+  const bmat = new THREE.MeshBasicMaterial({ map: bowTex, transparent: true, opacity: 0, depthWrite: false });
+  const curl = new THREE.Mesh(new THREE.PlaneGeometry(BW, BL), bmat);
+  curl.rotation.x = -Math.PI / 2; curl.position.set(0, 0.06, -4.3 + BL / 2); curl.renderOrder = 1; wakeG.add(curl);
   let spd = 0, last = null;
   return (pos, dt) => {   // pos: [x, z] this frame
     wakeG.position.set(pos[0], 0, pos[1]); wakeG.rotation.y = boat.rotation.y;
@@ -760,8 +818,8 @@ const ownWake = (() => {
     }
     last = [pos[0], pos[1]];
     const k = Math.min(1, spd / 2.6);   // full at ~5 knots
-    mat.opacity = 0.7 * k; bmat.opacity = 0.8 * k;
-    fan.scale.y = 0.4 + 0.6 * k; fan.position.z = 1.7 + 25 * fan.scale.y;
+    mat.opacity = 0.9 * k; bmat.opacity = 0.85 * k;
+    const f = 0.4 + 0.6 * k; fan.scale.set(f, f, 1); fan.position.z = 1.7 + FL / 2 * f;   // a slower boat, a smaller wake (the same angle)
     fan.visible = curl.visible = k > 0.02;
   };
 })();

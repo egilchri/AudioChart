@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-20 — A truer wake (v954)
+
+Requested: "make the wake look more realistic". The helm view's wake (helm3d.js) was a fan of soft white puffs
+whose arms opened at only ~7° each side, so they read as two parallel smoke trails. It's now a Kelvin wake: the
+arms open at 19.5°, each a run of short, bowed, broken crests (white and lacy near her, dull ridges further back)
+with a trough just aft of each; between them a darker glassy slick, and only a little churned foam off the
+transom. The bow wave is a thin rolled line of foam hugging her sides. A slower boat gets a smaller wake at the
+same angle.
+
 ## 2026-10-20 — Clear Screen clears Bird's-eye's route too (v953)
 
 Reported: Clear Screen left a route's waypoints and line showing in Bird's-eye. Bird's-eye (bay3d.html) is its
