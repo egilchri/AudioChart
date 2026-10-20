@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-20 — The wake shows at any time rate (v958)
+
+Reported: "It looks like you took away the wake completely" (Angelique, Drone view, a fast pace). v957's wake took
+its strength from how fast the boat crossed the screen, and treated anything over 40 m/s as a jump to ignore; at
+a pace of 20x or 60x every frame's move was over that, so the wake stayed at zero. (v954's overlay had the same
+filter.) The wake now only uses on-screen motion to tell whether she's moving; its strength and wavelength come
+from her real speed through the water. Also fixed: for Angelique and Bowdoin (whose wake frame is scaled up for
+their size) the wave slopes were being divided by that scale, flattening the pattern to near nothing. v957's
+screenshots were taken with the wake forced on and the boat not moving, which hid both bugs.
+
 ## 2026-10-20 — The wake is in the water now (v957)
 
 Requested: "make the wake more realistic, and less cheap cartoonish". v954's painted foam overlay is gone. The

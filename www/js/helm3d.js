@@ -807,17 +807,21 @@ const WAKE = (() => {
     wakeMap: { value: tex }, wakeM: { value: new THREE.Matrix3() }, wakeBox: { value: new THREE.Vector4(X0, Z0, W, L) },
     wakeStem: { value: STEM }, wakeK: { value: 0 }, wakeScale: { value: 1 }, wakeFlow: { value: 0 }, wakeGain: { value: 0.16 },
   };
-  let spd = 0, last = null; const inv = new THREE.Matrix4();
-  const update = (pos, dt) => {   // pos: [x, z] this frame
+  let mov = 0, last = null; const inv = new THREE.Matrix4();
+  // kn: her real speed through the water. How fast she crosses the screen is that times the time rate
+  // (60x and more), so it only says whether she's moving (v958, reported: at a fast rate the wake vanished
+  // altogether, every frame's move rejected as a jump); the wake's shape goes by her real speed.
+  const update = (pos, dt, kn) => {   // pos: [x, z] this frame
     wakeG.position.set(pos[0], 0, pos[1]); wakeG.rotation.y = boat.rotation.y;
-    if (last && dt > 0) {
-      const v = Math.hypot(pos[0] - last[0], pos[1] - last[1]) / dt;
-      if (v < 40) spd += (v - spd) * Math.min(1, dt * 1.2);   // a jump (reload, slider) isn't speed
-    }
+    let v = 0;
+    if (last && dt > 0) { v = Math.hypot(pos[0] - last[0], pos[1] - last[1]) / dt; if (v > 5000) v = 0; }   // a jump (reload, slider) isn't motion
     last = [pos[0], pos[1]];
-    uniforms.wakeK.value = Math.min(1, spd / 1.5);             // there from about 3 knots
-    uniforms.wakeScale.value = Math.min(1.6, Math.max(0.3, (spd / U0) ** 2));   // the wavelength goes with U^2
-    uniforms.wakeFlow.value += spd * dt / (wakeG.scale.x || 1);
+    mov += ((v > 0.3 ? 1 : 0) - mov) * Math.min(1, dt * 1.2);
+    const U = Math.max(0.5, kn * 0.5144);
+    uniforms.wakeK.value = mov * Math.min(1, U / 1.5);             // there from about 3 knots
+    uniforms.wakeScale.value = Math.min(1.6, Math.max(0.3, (U / U0) ** 2));   // the wavelength goes with U^2
+    uniforms.wakeFlow.value += v * dt / (wakeG.scale.x || 1);       // the foam drifts aft as fast as she seems to go
+    uniforms.wakeGain.value = 0.16 * (wakeG.scale.x || 1);          // her frame is scaled for a big vessel; the slopes mustn't be
     // world x, z -> her frame, metres (x across, z aft)
     wakeG.updateMatrixWorld(); inv.copy(wakeG.matrixWorld).invert(); const e = inv.elements;
     uniforms.wakeM.value.set(e[0], e[8], e[12], e[2], e[10], e[14], 0, 0, 1);
@@ -1986,7 +1990,7 @@ function frame() {
   }
   lastCourse = smoothCourse;
   boat.rotation.set((Math.sin(t * 0.7) * 0.012 + Math.sin(t * 0.45 + 2) * 0.01 * Math.max(0, mv - 1)) * mv, -THREE.MathUtils.degToRad(smoothCourse), roll * 2, 'YXZ');
-  ownWake(pos, dt);
+  ownWake(pos, dt, FREE ? (freeP.kn || BOAT_KN) : BOAT_KN);
   const ease = camK * camK * (3 - 2 * camK);
   // viewpoint height (Helm / 20 ft / 60 ft), eased so changes glide
   eyeH += (eyeTarget - eyeH) * Math.min(1, dt * 2.5);
