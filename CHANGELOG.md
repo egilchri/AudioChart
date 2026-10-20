@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-19 — Piers at the Rockland ferry terminal (v949)
+
+Requested: "add piers for the Rockland ferry terminal". Every Maine State slip's wing walls (34 m, shorter than the
+ferry, so her bow stood out past them) are now fender piers running her length (vessels.js ferrySlipModel(beam,
+len)): pile walls straight along her berth and flaring only toward the sea, timber facing and wales, a plank catwalk
+with a green handrail on top, and the catwalk running out to the dolphin at the end. Where two slips stand side by
+side, as Rockland's two do, a planked pier on piles fills the water between their inner fender piers out to the
+shorter one's end (bay3d.js centralPiers), as at the real terminal. The town's own piers inside a slip's footprint
+(Rockland's concrete dolphins from OpenStreetMap, which stood where the new piers are) give way to it (inSlip).
+
 ## 2026-10-19 — Demo 11, "The Ferry Report" (v948)
 
 Requested: "Make a demo called 'Ferry Report'. Just pick whatever ferries are currently underway, as shown in the

@@ -395,7 +395,7 @@ function mergeGeos(geos) {
   m.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); m.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); m.setIndex(idx);
   return m;
 }
-export function ferrySlipModel(beam = 12.2) {
+export function ferrySlipModel(beam = 12.2, len = 46) {
   const parts = {}, add = (k, g) => (parts[k] ||= []).push(g);
   const bx = (w, h, d, x, y, z, ry = 0, rx = 0, rz = 0) => { const g = new THREE.BoxGeometry(w, h, d); if (rz) g.rotateZ(rz); if (rx) g.rotateX(rx); if (ry) g.rotateY(ry); g.translate(x, y, z); return g; };
   const cy = (r, h, x, y, z) => { const g = new THREE.CylinderGeometry(r, r, h, 7); g.translate(x, y, z); return g; };
@@ -420,21 +420,30 @@ export function ferrySlipModel(beam = 12.2) {
   }
   add('green', bx(2 * GX + 2.2, 1.5, 1.9, 0, GH + 0.25, GZ));   // the crossbeam
   add('green', bx(3.4, 2, 2.6, 0, GH + 2, GZ)); add('steel', bx(3.8, 0.2, 3, 0, GH + 3.1, GZ));   // the hoist house, its roof
-  // the wing walls: piles every 2.2 m, timber facing on the inside, two wales; flaring out to the sea; dolphins
-  const WL = 34, FL = 3;
+  // the fender piers either side of her berth (v949, on request: "add piers for the Rockland ferry terminal"; were
+  // 34 m wing walls, shorter than the ferry): pile walls running her length, straight and flaring out only toward
+  // the sea, timber facing on the inside and two wales; on top a plank catwalk with a handrail; a dolphin at the
+  // seaward end, the catwalk running out to it
+  const WL = Math.max(34, len * 0.98), FL = 3.5, wallX = (sx, t) => sx * (W / 2 + FL * Math.max(0, (t - WL * 0.7) / (WL * 0.3)) ** 2);
   for (const sx of [-1, 1]) {
-    const x0 = sx * W / 2, x1 = sx * (W / 2 + FL), len = Math.hypot(x1 - x0, WL), ry = Math.atan2(x1 - x0, -WL);
-    for (let t = 0; t <= WL + 0.01; t += 2.2) add('pile', cy(0.3, 7.2, x0 + (x1 - x0) * t / WL, 0.9, -t));
-    const mx = (x0 + x1) / 2 - sx * 0.35, mz = -WL / 2;
-    add('timber', bx(0.25, 3.8, len, mx, 2.1, mz, ry));
-    for (const y of [1.0, 3.9]) add('timber', bx(0.4, 0.4, len, mx + sx * 0.3, y, mz, ry));
-    const dx = x1 + sx * 2.2, dz = -WL - 1.5;   // the dolphin at the wall's seaward end
+    for (let t = 0; t <= WL + 0.01; t += 2.2) add('pile', cy(0.3, 7.2, wallX(sx, t), 0.9, -t));
+    for (let t = 0; t < WL - 0.01; t += 4.4) {
+      const t1 = Math.min(WL, t + 4.4), xa = wallX(sx, t), xb = wallX(sx, t1), sl = Math.hypot(xb - xa, t1 - t), ry = Math.atan2(xb - xa, -(t1 - t)), mx = (xa + xb) / 2, mz = -(t + t1) / 2;
+      add('timber', bx(0.25, 3.8, sl + 0.05, mx - sx * 0.35, 2.1, mz, ry));
+      for (const y of [1.0, 3.9]) add('timber', bx(0.4, 0.4, sl + 0.05, mx - sx * 0.05, y, mz, ry));
+      add('plank', bx(1.6, 0.18, sl + 0.05, mx + sx * 0.55, 4.35, mz, ry));   // the catwalk
+      add('green', bx(0.07, 0.07, sl + 0.05, mx + sx * 1.3, 5.4, mz, ry));     // its handrail
+      add('green', bx(0.08, 1.0, 0.08, xa + sx * 1.3, 4.95, -t));
+    }
+    const xe = wallX(sx, WL), dx = xe + sx * 2.6, dz = -WL - 2;   // the dolphin at the seaward end, and the catwalk out to it
     for (let k = 0; k < 7; k++) { const a = k / 7 * Math.PI * 2, r = k ? 1.0 : 0; add('pile', cy(0.32, 6.6, dx + Math.cos(a) * r, 1.0, dz + Math.sin(a) * r)); }
     add('concrete', cy(1.5, 0.5, dx, 4.4, dz));
-    add('pile', cy(0.3, 7.2, x0, 0.9, 1.2)); add('pile', cy(0.3, 7.2, x0 * 0.62, 0.9, 0.6));   // at the head, either side of the bridge
+    add('plank', bx(1.4, 0.18, Math.hypot(dx - xe, 2), (xe + dx) / 2 + sx * 0.3, 4.35, -WL - 1, Math.atan2(dx - xe, -2)));
+    add('pile', cy(0.3, 7.2, sx * W / 2, 0.9, 1.2)); add('pile', cy(0.3, 7.2, sx * W / 2 * 0.62, 0.9, 0.6));   // at the head, either side of the bridge
   }
-  const MAT = { green: 0x2f6e3c, steel: 0x6f7377, concrete: 0xaaa79f, pile: 0x4b4136, timber: 0x6e5c45, dark: 0x202326 };
+  const MAT = { green: 0x2f6e3c, steel: 0x6f7377, concrete: 0xaaa79f, pile: 0x4b4136, timber: 0x6e5c45, dark: 0x202326, plank: 0x8a7a64 };
   const g = new THREE.Group();
   for (const k in parts) g.add(new THREE.Mesh(mergeGeos(parts[k]), new THREE.MeshLambertMaterial({ color: MAT[k] })));
+  g.userData.walls = { W, WL, FL };   // (for a pier between two slips side by side)
   return g;
 }

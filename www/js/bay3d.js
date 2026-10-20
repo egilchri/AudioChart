@@ -582,7 +582,7 @@ async function loadTown(t) {
     const T = t.data || (t.data = await getJSON(`./data/buildings/${t.file}`));
     if (t.state !== 'loading') return;
     await slipsReady; if (t.state !== 'loading') return;
-    const near = pr => slips.some(sl => pr.p.some(([lo, la]) => Math.hypot(wx(lo) - sl.x0, wz(la) - sl.z0) < 14));
+    const near = pr => slips.some(sl => pr.p.some(([lo, la]) => inSlip(sl, wx(lo), wz(la))));   // (within a slip's piers, v949)
     t.group = buildTown(slips.length ? { ...T, piers: T.piers.filter(pr => !near(pr)) } : T);
     for (const h of moorings?.harbors || []) if (h.spots && Math.hypot(h.x - t.x, h.z - t.z) < 4000) moorings.relayout(h);   // lay them out again clear of its piers
     t.credit = T.credit || ''; scene.add(t.group); t.state = 'ready'; updateCredit();
@@ -1284,10 +1284,11 @@ if (!EMPTY) Promise.all([getJSON('./data/ferries.json').catch(() => null), getJS
   }
   for (const v of traffic) if (v.kind === 'ferry' && v.F.slips) for (const end of ['from', 'to']) {
     const sp = v.F.slips[end]; if (!sp) continue;
-    const group = ferrySlipModel(Math.min(12.2, v.L * 0.26)); scene.add(group);
+    const group = ferrySlipModel(Math.min(12.2, v.L * 0.26), v.L); scene.add(group);
     const sl = { v, name: v.F[end], brg: sp.brg, x0: wx(sp.lon), z0: wz(sp.lat), x: wx(sp.lon), z: wz(sp.lat), group, fitN: -1 };
     slips.push(sl); placeSlip(sl);
   }
+  centralPiers();
 }).catch(err => console.warn('[bay3d] traffic', err)).finally(() => slipsReadyResolve());
 if (EMPTY) slipsReadyResolve();
 // ── The Maine State ferry slips (v943, on request: "The dock for this ferry looks unrealistic ... These large Maine
@@ -1300,6 +1301,7 @@ function placeSlip(sl) {
   sl.group.position.set(sl.x, 0, sl.z); sl.group.rotation.y = -sl.brg * DEG;
 }
 function fitSlips() {
+  let moved = false;
   const ready = tiles.filter(T => T.state === 'ready').length;
   for (const sl of slips) {
     sl.group.visible = !aboveFog && !EMPTY;
@@ -1311,7 +1313,35 @@ function fitSlips() {
     let lastLand = -Infinity;
     for (let d = -30; d <= 45; d += 3) if (elevSmooth(lonOf(sl.x0 + ux * d), latOf(sl.z0 + uz * d)) > 0.3) lastLand = d;
     const d = lastLand >= 0 ? lastLand + 3 : 0;
-    sl.x = sl.x0 + ux * d; sl.z = sl.z0 + uz * d; placeSlip(sl);
+    sl.x = sl.x0 + ux * d; sl.z = sl.z0 + uz * d; placeSlip(sl); moved = true;
+  }
+  if (moved) centralPiers();
+}
+// a point in a slip's own frame: lx across it (+ to starboard looking out to sea), t out along it from its head
+function slipLocal(sl, X, Z) { const h = sl.brg * DEG, dx = X - sl.x, dz = Z - sl.z; return { lx: dx * Math.cos(h) + dz * Math.sin(h), t: dx * Math.sin(h) - dz * Math.cos(h) }; }
+function slipWorld(sl, lx, t) { const h = sl.brg * DEG; return [sl.x + lx * Math.cos(h) + t * Math.sin(h), sl.z + lx * Math.sin(h) - t * Math.cos(h)]; }
+function inSlip(sl, X, Z) { const { W, WL } = sl.group.userData.walls, p = slipLocal(sl, X, Z); return Math.abs(p.lx) < W / 2 + 6 && p.t > -26 && p.t < WL + 6; }
+// Two slips side by side (Rockland's; v949, requested: "add piers for the Rockland ferry terminal"): a planked pier
+// on piles fills the water between their inner fender piers, out to the shorter one's end, as at the real terminal.
+let centralGroups = [];
+function centralPiers() {
+  for (const gp of centralGroups) { scene.remove(gp); gp.traverse(o => o.geometry?.dispose()); }
+  centralGroups = [];
+  const plankM = new THREE.MeshLambertMaterial({ color: 0x8a7a64 }), pileM = new THREE.MeshLambertMaterial({ color: 0x4b4136 });
+  for (let i = 0; i < slips.length; i++) for (let j = i + 1; j < slips.length; j++) {
+    const A = slips[i], B = slips[j]; if (Math.hypot(A.x - B.x, A.z - B.z) > 40) continue;
+    const wa = A.group.userData.walls, wb = B.group.userData.walls, sa = slipLocal(A, B.x, B.z).lx > 0 ? 1 : -1, sb = slipLocal(B, A.x, A.z).lx > 0 ? 1 : -1;
+    const wallX = (w, sx, t) => sx * (w.W / 2 + w.FL * Math.max(0, (t - w.WL * 0.7) / (w.WL * 0.3)) ** 2 + 1.4);
+    const L = Math.min(wa.WL, wb.WL) * 0.95, pa = [], pb = [];
+    for (let t = 0; t <= L + 0.01; t += L / 12) { pa.push(slipWorld(A, wallX(wa, sa, t), t)); pb.push(slipWorld(B, wallX(wb, sb, t), t)); }
+    if (Math.hypot(pa[0][0] - pb[0][0], pa[0][1] - pb[0][1]) < 1.5) continue;   // (walls already touching)
+    const poly = [...pa, ...pb.reverse()], sh = new THREE.Shape(poly.map(([x, z]) => new THREE.Vector2(x, -z)));
+    const geo = new THREE.ExtrudeGeometry(sh, { depth: 0.35, bevelEnabled: false }); geo.rotateX(-Math.PI / 2); geo.translate(0, 4.05, 0);
+    const gp = new THREE.Group(); gp.add(new THREE.Mesh(geo, plankM));
+    const xs = poly.map(p => p[0]), zs = poly.map(p => p[1]), inside = (x, z) => { let c = false; for (let a = 0, b = poly.length - 1; a < poly.length; b = a++) { const [xi, zi] = poly[a], [xj, zj] = poly[b]; if ((zi > z) !== (zj > z) && x < (xj - xi) * (z - zi) / (zj - zi) + xi) c = !c; } return c; };
+    const pg = []; for (let x = Math.min(...xs); x <= Math.max(...xs); x += 4) for (let z = Math.min(...zs); z <= Math.max(...zs); z += 4) if (inside(x, z)) { const c = new THREE.CylinderGeometry(0.28, 0.28, 6.5, 6); c.translate(x, 0.8, z); pg.push(c); }
+    for (const c of pg) gp.add(new THREE.Mesh(c, pileM));
+    scene.add(gp); centralGroups.push(gp);
   }
 }
 setInterval(fitSlips, 2000);
