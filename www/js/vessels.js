@@ -327,6 +327,60 @@ function loftHull(o) {
   };
   return { mesh, half: half_at, z: zAt, hs, deck, strake, wall, stemZ };
 }
+// ── A deckhouse (v950, on request: "make the passenger houses less boxy too"): the plan a rounded rectangle, its
+// front a full curve and its after corners tightly rounded (a superellipse each half); the front raked (rakeF > 0
+// leans the top aft, a streamlined face; < 0 leans it forward, as a pilothouse's windows do, against the glare);
+// the sides with tumblehome (the top `tumble` in from the bottom each side); the windows wrapping round it (the
+// texture runs along the perimeter, one repeat per 4 m); a roof overhanging all round. W wide, from zf (its front,
+// toward −z) to za, H high from its base at y = 0.
+function glassBand(lit) {   // a pilothouse's windows: a deep band of glass, thin mullions
+  const cv = document.createElement('canvas'); cv.width = 128; cv.height = 32; const c = cv.getContext('2d');
+  c.fillStyle = lit ? '#000' : '#f3f2ee'; c.fillRect(0, 0, 128, 32);
+  c.fillStyle = lit ? '#7a6a50' : '#1f2a32'; c.fillRect(0, 32 * 0.12, 128, 32 * 0.5);
+  if (!lit) { c.fillStyle = '#f3f2ee'; for (let x = 0; x < 128; x += 32) c.fillRect(x, 0, 3, 32); }
+  const t = new THREE.CanvasTexture(cv); t.wrapS = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+function deckhouse({ W, zf, za, H, rakeF = 0, tumble = 0, nF = 2.4, nA = 9, roof = 0.3, roofT = 0.2, side, top }) {
+  const N = 64, g = new THREE.Group();
+  const ring = (f, grow = 0) => {   // the outline at a fraction f of the height, grown outward by `grow`
+    const w = W / 2 - tumble * f + grow, z0 = zf + rakeF * f - grow, z1 = za + grow, c = (z0 + z1) / 2, hl = (z1 - z0) / 2, out = [];
+    for (let i = 0; i < N; i++) {
+      const t = i / N * Math.PI * 2, ct = Math.cos(t), st = Math.sin(t), n = st < 0 ? nF : nA;   // (sin < 0: the front half)
+      out.push([w * Math.sign(ct) * Math.abs(ct) ** (2 / n), c + hl * Math.sign(st) * Math.abs(st) ** (2 / n)]);
+    }
+    return out;
+  };
+  const band = (r0, y0, r1, y1, mat, uvScale) => {
+    const pos = [], uv = [], idx = []; let s = 0;
+    for (let i = 0; i <= N; i++) {
+      const a = r0[i % N], b = r1[i % N];
+      if (i) { const p = r0[(i - 1) % N]; s += Math.hypot(a[0] - p[0], a[1] - p[1]); }
+      pos.push(a[0], y0, a[1], b[0], y1, b[1]); uv.push(s / uvScale, 0, s / uvScale, 1);
+      if (i) { const k = (i - 1) * 2; idx.push(k, k + 2, k + 1, k + 1, k + 2, k + 3); }
+    }
+    // (wound so its faces look outward: checked against the outline's centre)
+    const A = new THREE.Vector3(pos[0], pos[1], pos[2]), Bv = new THREE.Vector3(pos[6], pos[7], pos[8]), Tv = new THREE.Vector3(pos[3], pos[4], pos[5]);
+    const nrm = Bv.clone().sub(A).cross(Tv.clone().sub(A)), nx = nrm.x, nz = nrm.z, ax = A.x, az = A.z;   // (the first face's normal, as wound: a, b, then the top)
+    const cx = r0.reduce((q, p) => q + p[0], 0) / N, cz = r0.reduce((q, p) => q + p[1], 0) / N;
+    if (nx * (ax - cx) + nz * (az - cz) < 0) for (let k = 0; k < idx.length; k += 3) [idx[k + 1], idx[k + 2]] = [idx[k + 2], idx[k + 1]];
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); geo.setIndex(idx); geo.computeVertexNormals();
+    g.add(new THREE.Mesh(geo, mat));
+  };
+  const cap = (r, y, mat, up = true) => {   // a flat lid on an outline (convex: a fan from its centre)
+    const cx = r.reduce((q, p) => q + p[0], 0) / N, cz = r.reduce((q, p) => q + p[1], 0) / N, pos = [cx, y, cz], idx = [];
+    for (const [x, z] of r) pos.push(x, y, z);
+    for (let i = 0; i < N; i++) idx.push(0, 1 + i, 1 + (i + 1) % N);
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx); geo.computeVertexNormals();
+    if ((geo.attributes.normal.getY(0) > 0) !== up) { for (let k = 0; k < idx.length; k += 3) [idx[k + 1], idx[k + 2]] = [idx[k + 2], idx[k + 1]]; geo.setIndex(idx); geo.computeVertexNormals(); }
+    g.add(new THREE.Mesh(geo, mat));
+  };
+  const rb = ring(0), rt = ring(1);
+  band(rb, 0, rt, H, side, 4);
+  if (roof >= 0) { const ro = ring(1, roof); band(ro, H, ro, H + roofT, top, 4); cap(ro, H + roofT, top, true); cap(ro, H, top, false); }
+  else cap(rt, H, top, true);
+  g.userData.halfTop = W / 2 - tumble;
+  return g;
+}
 // her name on a board, for both sides (v942)
 function nameBoard(text, w, h, bg = '#f3f2ee', fg = '#1d2328') {
   const cv = document.createElement('canvas'); cv.width = 512; cv.height = 64; const c = cv.getContext('2d');
@@ -383,28 +437,30 @@ export function ferryModelSimple(F, windowMats = []) {
   const ramp = box(B - 2 * cw - 0.4, 3.0, 0.25, 0, DK + 1.5, half - 0.2, grey); ramp.rotation.x = 0.12;
   // the passenger house over the forward car deck, its windows in rows, and its upper deck rail
   const hLen = L * 0.34, hZ = fEnd + hLen / 2, hH = 2.7;
-  const side = new THREE.MeshLambertMaterial({ map: windowRows(hLen, false), emissive: 0xffd9a0, emissiveMap: windowRows(hLen, true), emissiveIntensity: 0 });
-  const endS = new THREE.MeshLambertMaterial({ map: windowRows(B, false), emissive: 0xffd9a0, emissiveMap: windowRows(B, true), emissiveIntensity: 0 });
-  windowMats.push(side, endS);
-  const house = new THREE.Mesh(new THREE.BoxGeometry(B, hH, hLen), [side, side, white, white, endS, endS]); house.position.set(0, TOP + hH / 2, hZ); g.add(house);
-  const UP = TOP + hH;
-  for (const sx of [-1, 1]) box(0.06, 0.9, hLen, sx * (B / 2 - 0.05), UP + 0.45, hZ, white);   // the rail round the upper deck
-  box(B, 0.9, 0.06, 0, UP + 0.45, hZ + hLen / 2 - 0.03, white);
-  // the pilothouse forward on the upper deck: white, wrap-round glass, bridge wings out to the sides
-  const pL = 4.6, pZ = hZ - hLen / 2 + pL / 2 + 0.4, pH = 2.4;
-  box(B * 0.56, pH, pL, 0, UP + pH / 2, pZ, white);
-  box(B * 0.56 + 0.04, 0.95, pL + 0.04, 0, UP + pH * 0.62, pZ, glass);
-  box(B * 0.98, 0.2, 1.8, 0, UP + 1.0, pZ - pL / 2 + 0.9, white);   // the wings
-  box(B * 0.58, 0.18, pL + 0.5, 0, UP + pH + 0.09, pZ, white);       // her roof, a little overhang
+  // (v950: a deckhouse, not a box: its front rounded and raked, the sides with tumblehome, the windows wrapping round)
+  const side = new THREE.MeshLambertMaterial({ map: windowRows(4, false), emissive: 0xffd9a0, emissiveMap: windowRows(4, true), emissiveIntensity: 0 });
+  windowMats.push(side);
+  const house = deckhouse({ W: B - 0.3, zf: fEnd, za: fEnd + hLen, H: hH, rakeF: 1.1, tumble: 0.3, nF: 2.2, nA: 10, roof: 0.35, roofT: 0.18, side, top: white });
+  house.position.y = TOP; g.add(house);
+  const UP = TOP + hH + 0.18, hw = house.userData.halfTop;
+  for (const sx of [-1, 1]) box(0.06, 0.9, hLen - 3.5, sx * (hw + 0.2), UP + 0.45, hZ + 1.6, white);   // the rail round the upper deck
+  box(2 * hw + 0.4, 0.9, 0.06, 0, UP + 0.45, hZ + hLen / 2 + 0.3, white);
+  // the pilothouse forward on the upper deck: its glass leaning out at the top, wrapping round; bridge wings out to the sides
+  const pL = 4.6, pZ = hZ - hLen / 2 + pL / 2 + 1.6, pH = 2.4;
+  const gl = new THREE.MeshLambertMaterial({ map: glassBand(false), emissive: 0xffd9a0, emissiveMap: glassBand(true), emissiveIntensity: 0 }); windowMats.push(gl);
+  const ph = deckhouse({ W: B * 0.56, zf: pZ - pL / 2, za: pZ + pL / 2, H: pH, rakeF: -0.45, tumble: -0.08, nF: 2.6, nA: 6, roof: 0.3, roofT: 0.16, side: gl, top: white });
+  ph.position.y = UP; g.add(ph);
+  // the wings, tapering out from the pilothouse to the ship's side
+  for (const sx of [-1, 1]) { const w = box(B * 0.22, 0.18, 1.6, sx * (B * 0.28 + B * 0.11 - 0.1), UP + 1.0, pZ - pL / 2 + 1.0, white); w.rotation.y = sx * 0.08; box(0.1, 1.0, 1.4, sx * (B * 0.49), UP + 1.5, pZ - pL / 2 + 1.0, white); }
   // the mast and radar, the exhaust stacks in the casings abaft the house
   box(0.18, 3.2, 0.18, 0, UP + pH + 1.7, pZ + 0.6, white);
   const radar = box(1.8, 0.14, 0.3, 0, UP + pH + 2.9, pZ + 0.6, black); radar.rotation.y = 0.5;
   box(0.02, 0.6, 1.0, 0, UP + pH + 2.6, pZ + 1.2, M(0x2a3f7a));   // the flag, on the mast
   // running lights: masthead, sidelights at the wing ends, stern light on the ramp; liferaft canisters aft on the upper deck
   lamp(g, 0xfff2d6, 0, UP + pH + 3.25, pZ + 0.6, windowMats);
-  lamp(g, 0xff3b2e, -B * 0.49, UP + 1.3, pZ - pL / 2 + 0.9, windowMats); lamp(g, 0x3dff7a, B * 0.49, UP + 1.3, pZ - pL / 2 + 0.9, windowMats);
+  lamp(g, 0xff3b2e, -B * 0.49, UP + 1.6, pZ - pL / 2 + 0.6, windowMats); lamp(g, 0x3dff7a, B * 0.49, UP + 1.6, pZ - pL / 2 + 0.6, windowMats);
   lamp(g, 0xfff2d6, 0, DK + 3.2, half - 0.1, windowMats);
-  for (const sx of [-1, 1]) for (const dz of [-1.1, 0]) { const c = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 1.4, 10), white); c.rotation.x = Math.PI / 2; c.position.set(sx * (B / 2 - 0.9), UP + 0.5, hZ + hLen / 2 - 1.2 + dz); g.add(c); }
+  for (const sx of [-1, 1]) for (const dz of [-1.1, 0]) { const c = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 1.4, 10), white); c.rotation.x = Math.PI / 2; c.position.set(sx * (hw - 0.6), UP + 0.5, hZ + hLen / 2 - 1.2 + dz); g.add(c); }
   for (const sx of [-1, 1]) { box(0.9, 2.4, 1.4, sx * (B / 2 - cw / 2), TOP + 1.2, hZ + hLen / 2 + 2.2, white); box(0.92, 0.5, 1.42, sx * (B / 2 - cw / 2), TOP + 2.4, hZ + hLen / 2 + 2.2, black); }
   // the day's cars and trucks on the open deck aft, in their lanes
   const COLS = [0xb8bcc0, 0x2a2d31, 0x8b1e1e, 0x2c4a6e, 0xe9e9e6, 0x5a6b4e, 0x9a8a6c, 0x6c7378];
@@ -420,7 +476,7 @@ export function ferryModelSimple(F, windowMats = []) {
     z += len + 0.9;
   }
   g.userData.helm = [0, UP + 1.65, pZ - pL / 2 + 0.7];   // in the pilothouse, at its forward windows
-  g.userData.lights = { mast: [0, UP + pH + 3.25, pZ + 0.6], port: [-B * 0.49, UP + 1.3, pZ - pL / 2 + 0.9], stbd: [B * 0.49, UP + 1.3, pZ - pL / 2 + 0.9], stern: [0, DK + 3.2, half - 0.1] };   // (for the helm view's sector lights)
+  g.userData.lights = { mast: [0, UP + pH + 3.25, pZ + 0.6], port: [-B * 0.49, UP + 1.6, pZ - pL / 2 + 0.6], stbd: [B * 0.49, UP + 1.6, pZ - pL / 2 + 0.6], stern: [0, DK + 3.2, half - 0.1] };   // (for the helm view's sector lights)
   g.userData.wake = [wakeOf(B, L)]; g.add(g.userData.wake[0]);
   return g;
 }
@@ -451,23 +507,21 @@ export function launchModel(F, windowMats = []) {
   g.add(hull.strake(u => sheer(u) + 0.03, 0.06, 0x9b7b55, 0.005, 0.99, -0.03));   // the cap rail
   g.add(hull.deck(0, () => SH - 0.05, 0x9b7b55, 0.66, 0));   // the deck, teak
   g.add(hull.deck(0.6, u => sheer(u) - 0.03, 0xd9d6cc, 0.995, 0.08));   // the foredeck, non-skid grey, following the sheer up
-  // the wheelhouse forward: raked windshield (a slanted glass face), side windows, white roof
-  const wz0 = -half + L * 0.3, wLen = 2.4, wW = B * 0.82, wH = 1.9, wy = SH;
-  box(wW, wH, wLen, 0, wy + wH / 2, wz0 + wLen / 2, white);
-  const ws = box(wW + 0.02, 0.9, 0.08, 0, wy + wH * 0.66, wz0 - 0.12, glass); ws.rotation.x = -0.32;
-  for (const sx of [-1, 1]) box(0.04, 0.8, wLen * 0.8, sx * (wW / 2 + 0.01), wy + wH * 0.68, wz0 + wLen / 2, glass);
-  // the passenger cabin aft of the wheelhouse, a little narrower, windows in rows
-  const cz0 = wz0 + wLen, cLen = L * 0.38, cW = B * 0.8, cH = 1.75;
-  const side = new THREE.MeshLambertMaterial({ map: windowRows(cLen, false), emissive: 0xffd9a0, emissiveMap: windowRows(cLen, true), emissiveIntensity: 0 });
-  const endS = new THREE.MeshLambertMaterial({ map: windowRows(cW, false), emissive: 0xffd9a0, emissiveMap: windowRows(cW, true), emissiveIntensity: 0 });
-  windowMats.push(side, endS);
-  const cabin = new THREE.Mesh(new THREE.BoxGeometry(cW, cH, cLen), [side, side, white, white, endS, endS]); cabin.position.set(0, SH + cH / 2, cz0 + cLen / 2); g.add(cabin);
-  // the roof over both, overhanging aft as an awning; life rings on it; the radar mast
-  const rz0 = wz0 - 0.15, rLen = wLen + cLen + 1.6;
-  box(B * 0.88, 0.12, rLen, 0, SH + wH + 0.06, rz0 + rLen / 2, white);
+  // the deckhouse (v950: one rounded house, not two boxes): the wheelhouse forward, its windshield raked back, the
+  // passenger cabin aft of it, windows all round (lit at night), sides with a little tumblehome
+  const wz0 = -half + L * 0.3, wLen = 2.4, wW = B * 0.82, wH = 1.9;
+  const cz0 = wz0 + wLen, cLen = L * 0.38, cW = B * 0.8;
+  const side = new THREE.MeshLambertMaterial({ map: windowRows(4, false), emissive: 0xffd9a0, emissiveMap: windowRows(4, true), emissiveIntensity: 0 });
+  windowMats.push(side);
+  const dh = deckhouse({ W: wW, zf: wz0, za: cz0 + cLen, H: wH, rakeF: 0.55, tumble: 0.12, nF: 2.0, nA: 8, roof: -1, side, top: white });
+  dh.position.y = SH; g.add(dh);
+  // the roof over it, rounded at the front like the house, overhanging aft as an awning; life rings; the radar mast
+  const rz0 = wz0 + 0.25, rLen = wLen + cLen + 1.6 - 0.4;
+  const roofG = deckhouse({ W: B * 0.86, zf: rz0, za: rz0 + rLen, H: 0.12, nF: 2.0, nA: 6, roof: -1, side: white, top: white });
+  roofG.position.y = SH + wH; g.add(roofG);
   for (const sx of [-1, 1]) box(0.08, wH - 0.05, 0.08, sx * B * 0.4, SH + wH / 2, rz0 + rLen - 0.1, white);   // the awning's posts
   const ringM = M(0xe8731f);
-  for (const sx of [-1, 1]) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.08, 6, 14), ringM); r.position.set(sx * (cW / 2 + 0.03), SH + cH * 0.55, cz0 + cLen * 0.5); r.rotation.y = Math.PI / 2; g.add(r); }
+  for (const sx of [-1, 1]) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.08, 6, 14), ringM); r.position.set(sx * (wW / 2 - 0.12 * 0.55 + 0.05), SH + wH * 0.5, cz0 + cLen * 0.5); r.rotation.y = Math.PI / 2; g.add(r); }
   box(0.1, 1.6, 0.1, 0, SH + wH + 0.9, wz0 + wLen * 0.6, white);
   const radar = box(1.1, 0.1, 0.22, 0, SH + wH + 1.6, wz0 + wLen * 0.6, M(0x1d1f22)); radar.rotation.y = 0.6;
   // the after deck: rails round it, a bench across the transom
@@ -480,7 +534,7 @@ export function launchModel(F, windowMats = []) {
       const pl = new THREE.Mesh(new THREE.PlaneGeometry(Math.min(3.6, L * 0.25), 0.42), nm); pl.position.set(sx * hull.half(u, y) + nx * 0.03, y, hull.z(u, y) + nz * 0.03); pl.rotation.y = Math.atan2(nx, nz); g.add(pl); } }
   // running lights: masthead, sidelights on the wheelhouse, stern light
   lamp(g, 0xfff2d6, 0, SH + wH + 1.75, wz0 + wLen * 0.6, windowMats, 0.1);
-  lamp(g, 0xff3b2e, -(wW / 2 + 0.06), SH + wH - 0.2, wz0 + 0.3, windowMats, 0.09); lamp(g, 0x3dff7a, wW / 2 + 0.06, SH + wH - 0.2, wz0 + 0.3, windowMats, 0.09);
+  lamp(g, 0xff3b2e, -B * 0.41, SH + wH + 0.2, rz0 + 1.0, windowMats, 0.09); lamp(g, 0x3dff7a, B * 0.41, SH + wH + 0.2, rz0 + 1.0, windowMats, 0.09);   // (at the roof's edge)
   lamp(g, 0xfff2d6, 0, SH + 0.9, half - 0.05, windowMats, 0.08);
   g.userData.helm = [0, SH + 1.7, wz0 - 0.5];   // at the wheelhouse front, just forward of the windshield (behind it, its dark glass filled the view)
   g.userData.wake = [wakeOf(B, L)]; g.add(g.userData.wake[0]);

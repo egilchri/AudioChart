@@ -193,6 +193,17 @@ body.embed #town-credit { left: 50% !important; transform: translateX(-50%); whi
   </div>
   <p class="note">Drag the view to look around, scroll to zoom, <kbd>B</kbd> or Binoculars to raise 7× glasses (drag or the arrow keys to scan the shore, with a compass bearing and the range to the land you're looking at; <kbd>Esc</kbd> to lower them), <kbd>Space</kbd> to play or pause, <kbd>H</kbd> or the View buttons to raise your eye from the helm to 20 or 60 ft, Weather for the time of day (dawn, sunset, a moonlit night with the lights of buoys, lighthouses, towns and boats), fog, overcast or rain, and the wind and sea; <kbd>N</kbd> toggles night; ◆ Waypoints (or <kbd>W</kbd>) shows the route's waypoints and the distance to the next. While a Virtual Journey of this route runs in AudioChart, this view follows it. At the end of the route the anchor goes down (click once in this window first so the browser allows the sound). Eye height 2.0 m at the tiller. Land is USGS elevation (10 m near the route, about 37 m beyond) with tree height added where the photo shows forest, since the elevation data is bare earth. Photos are a single survey summer, so moored boats and shadows are frozen in place. Buoys are drawn up to 6× real size at a distance so they stay visible. Desktop browser with WebGL needed; the first run of a route downloads 20–40 MB.</p>
 </div>
+<script>
+// Just after an update a browser can hold an older copy of one module beside a newer one that imports something
+// it lacks: the whole view then stops, its panels empty (v950, reported: "underway is empty and the table of
+// scheduled ferries is empty"). On that error: drop AudioChart's cached copies and reload, once.
+addEventListener('error', e => {
+  if (!/export named|binding name|import not found|indirect export/i.test(String(e.message))) return;
+  try { if (sessionStorage.getItem('ac-module-heal')) return; sessionStorage.setItem('ac-module-heal', '1'); } catch (_) { return; }
+  (self.caches ? caches.keys().then(ks => Promise.all(ks.filter(k => /^audiochart-v/.test(k)).map(k => caches.delete(k)))) : Promise.resolve())
+    .catch(() => {}).finally(() => location.reload());
+}, true);
+</script>
 <script type="importmap">
 { "imports": { "three": "./js/lib/three/three.module.min.js" } }
 </script>

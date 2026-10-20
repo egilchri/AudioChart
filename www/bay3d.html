@@ -217,6 +217,17 @@ body.embed #exagbox { top: calc(94px + env(safe-area-inset-top, 0px)); }
 <div id="help">Drag to move · right-drag or Shift-drag to turn and tilt · scroll or pinch to zoom · click a town or ⛵ Follow a sailboat · Route waypoints shows a route, ▶ Sail it sails it · Weather for fog, rain, wind, dawn, sunset and night (N); the sailboats trim to its wind</div>
 <div id="credit">Elevation USGS 3DEP · Photos USDA NAIP</div>
 <div id="status">Loading Penobscot Bay…</div>
+<script>
+// Just after an update a browser can hold an older copy of one module beside a newer one that imports something
+// it lacks: the whole view then stops, its panels empty (v950, reported: "underway is empty and the table of
+// scheduled ferries is empty"). On that error: drop AudioChart's cached copies and reload, once.
+addEventListener('error', e => {
+  if (!/export named|binding name|import not found|indirect export/i.test(String(e.message))) return;
+  try { if (sessionStorage.getItem('ac-module-heal')) return; sessionStorage.setItem('ac-module-heal', '1'); } catch (_) { return; }
+  (self.caches ? caches.keys().then(ks => Promise.all(ks.filter(k => /^audiochart-v/.test(k)).map(k => caches.delete(k)))) : Promise.resolve())
+    .catch(() => {}).finally(() => location.reload());
+}, true);
+</script>
 <script type="importmap">
 { "imports": { "three": "./js/lib/three/three.module.min.js" } }
 </script>

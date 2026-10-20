@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-10-20 — Streamlined deckhouses; a stale module heals itself (v951)
+
+Requested: "make the passenger houses less boxy too". The ferries' houses are now deckhouses (vessels.js
+deckhouse), not boxes: the plan a rounded rectangle, a full curve forward and tight corners aft; the front raked;
+tumblehome in the sides; the windows wrapping round the front; a roof overhanging all round. The car ferry's
+passenger house leans its front back; her pilothouse's glass leans out at the top, as on the real boats, against the
+glare (glassBand), with tapered bridge wings. The launches' wheelhouse and cabin are one rounded house with a raked
+windshield, under a roof rounded like it, the sidelights moved to its edge.
+
+Reported: "underway is empty and the table of scheduled ferries is empty". Live v950 was whole in a fresh browser;
+the likely cause was a browser holding the older vessels.js beside the newer bay3d.js just after the update, so the
+module failed on an import (terminalLot) and the view stopped with its panels empty. bay3d.html and helm3d.html now
+catch that error ("does not provide an export", in its browsers' wordings), drop AudioChart's cached copies and
+reload, once a session.
+
 ## 2026-10-20 — The other ferry terminals ashore, and lofted ferry hulls (v950)
 
 Requested: "add piers for the other ferry terminals too. Then go to work on the shape of the topsides of all
