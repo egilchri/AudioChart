@@ -13,5 +13,9 @@
   { "file": "bar-harbor.json", "name": "Bar Harbor", "bbox": [-68.225, 44.375, -68.19, 44.40] },
   { "file": "castine.json", "name": "Castine", "bbox": [-68.82, 44.375, -68.78, 44.40] },
   { "file": "belfast.json", "name": "Belfast", "bbox": [-69.03, 44.415, -68.985, 44.44] },
-  { "file": "searsport.json", "name": "Searsport and Mack Point", "bbox": [-68.94, 44.445, -68.895, 44.47] }
+  { "file": "searsport.json", "name": "Searsport and Mack Point", "bbox": [-68.94, 44.445, -68.895, 44.47] },
+  { "file": "lincolnville-beach.json", "name": "Lincolnville Beach", "bbox": [-69.0105, 44.277, -69.001, 44.284], "focus": [-69.0057, 44.2805] },
+  { "file": "grindle-point.json", "name": "Grindle Point, Islesboro", "bbox": [-68.947, 44.278, -68.939, 44.2835], "focus": [-68.9429, 44.2809] },
+  { "file": "bass-harbor.json", "name": "Bass Harbor", "bbox": [-68.354, 44.2325, -68.3445, 44.2375], "focus": [-68.3484, 44.2349] },
+  { "file": "swans-island-ferry.json", "name": "Swan's Island ferry landing", "bbox": [-68.428, 44.1785, -68.419, 44.1845], "focus": [-68.4234, 44.1813] }
 ]

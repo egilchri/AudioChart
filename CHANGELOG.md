@@ -1,5 +1,32 @@
 # Changelog
 
+## 2026-10-20 — The other ferry terminals ashore, and lofted ferry hulls (v950)
+
+Requested: "add piers for the other ferry terminals too. Then go to work on the shape of the topsides of all
+ferries. They need graceful sheer lines, and a much more hollowed out, non-boxy look."
+
+Terminals. The fender piers of v949 already stood at every Maine State slip; what the island and Downeast terminals
+lacked was everything ashore. Four new building sets (data/buildings, built as the other towns were: OpenStreetMap
+footprints, Microsoft footprints where OSM is thin, USGS 3DEP lidar heights, NAIP roof colours): Lincolnville Beach,
+Grindle Point on Islesboro, Bass Harbor, and the Swan's Island ferry landing. Behind each slip with no terminal of
+its own in the town data (bay3d.js terminalFor; Rockland's town has its terminal, Vinalhaven's its office), the
+staging lot with its lanes running down to the boat, the queued cars and light poles (vessels.js terminalLot), the
+ticket office beside it, cedar-shingled with a green hip roof and the service's sign (terminalHouse), both found on
+the drawn ground clear of the town's buildings, and the road from the transfer bridge up to the lot, on a causeway
+of fill with rip-rap sides where it crosses the water or the low shore.
+
+Hulls. No lines plans for these boats are published (MarineLink lists the Margaret Chase Smith at 166 ft by 40 ft,
+9.8 ft draft; the Burgess 130 ft by 36 ft), so their lines are drawn here as a designer would (vessels.js
+loftHull): a smooth lofted surface, station by station, from a sheer sprung like a batten, low aft of amidships and
+sweeping up to the bow; a waterline fine and hollow at the entrance; a full, round deck edge forward, so the
+topsides flare out above the waterline in a concave curve; V sections forward and a flat floor with round bilges
+amidships; a raked stem over a cut-away forefoot; the bottom rising aft to the transom. Painted with the sheer:
+boot-top, topsides, sheer strake. The car ferries' red hull now sweeps up past the white casings to the forecastle
+bulwark, with a guard of its own sheer and a cap rail; the launches (the mail boat, the Cranberry Cove ferry) get a
+Downeast hull with a high flared bow, the navy stripe following the sheer, a teak cap rail and the foredeck rising
+with it. Their names sit on their sides without a board. The helm view's ferries (helm3d.js) now use the same model,
+keeping their sector running lights.
+
 ## 2026-10-19 — Piers at the Rockland ferry terminal (v949)
 
 Requested: "add piers for the Rockland ferry terminal". Every Maine State slip's wing walls (34 m, shorter than the

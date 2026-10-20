@@ -8,7 +8,7 @@ import { depthAtFrom } from './depth.js';
 import { LON0, LAT0, MX, MY, wx, wz, cachedFetch, readDem, photo, photoAtCells, addCanopy, gridMesh, photoMat, buildTown, spruce, tlog, tmark, TOWN_NIGHT } from './terrain3d.js';
 import { makeWildlife, ledgesFrom } from './wildlife3d.js';
 import { makeAngelique, ANGELIQUE, makeBowdoin, BOWDOIN } from './angelique3d.js';
-import { callsOn, ferryLine, cruiseShipModel, launchModel } from './vessels.js';
+import { callsOn, ferryLine, cruiseShipModel, launchModel, ferryModelSimple } from './vessels.js';
 import { makeSky, makeEnv, glowSprite, flashFor, sectorColour, weatherPanel, startConditions, makeTrimmer, cycleLook } from './weather3d.js';
 
 const statusEl = document.getElementById('status');
@@ -1054,95 +1054,12 @@ function updateWaypoints(pos) {
 // Cruise ships (v933) come the same way, on a call day (vessels.js), on the track the router planned at
 // her draft: unseen until she comes in from the sea, then at anchor (or alongside) once she's there.
 const ferries = [];
-function ferryModel(F) {   // a Maine State Ferry Service car ferry: bow toward -z, waterline at y = 0
-  // The fleet's look (MSFS photos): red hull with a black boot-top at the waterline, high white sides
-  // round the car deck, a white passenger house with a row of windows, and a white pilothouse with
-  // dark glass up top under a radar mast. Length from data/ferries.json (Thompson 154 ft, Burgess 130 ft).
-  const L = F.length_m || 46, B = Math.min(12.2, L * 0.26), g = new THREE.Group();
-  const white = mat(0xf3f2ee), red = mat(0xc83a2e), black = mat(0x1d1f22), deckM = mat(0x6f7378), glass = mat(0x1e2a33);
-  const half = L / 2, taper = L * 0.16;
-  const outline = [[-B / 2, half], [B / 2, half], [B / 2, -half + taper], [B * 0.27, -half], [-B * 0.27, -half], [-B / 2, -half + taper]];
-  const slab = (y0, y1, m, sc = 1) => {   // a horizontal slice of the hull outline
-    const sh = new THREE.Shape(outline.map(([x, z]) => new THREE.Vector2(x * sc, -z * sc)));
-    const mesh = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: y1 - y0, bevelEnabled: false }), m);
-    mesh.rotation.x = -Math.PI / 2; mesh.position.y = y0; g.add(mesh); return mesh;
-  };
-  slab(-1.1, 0.25, black, 0.995);   // boot-top
-  slab(0.25, 2.2, red);             // red hull
-  slab(2.2, 2.4, deckM, 0.985);     // car deck
-  // windows: one canvas texture, repeated along the white houses' sides
-  const winTex = (() => {
-    const cv = document.createElement('canvas'); cv.width = 128; cv.height = 32; const c = cv.getContext('2d');
-    c.fillStyle = '#f3f2ee'; c.fillRect(0, 0, 128, 32); c.fillStyle = '#26323b';
-    for (let x = 8; x < 128; x += 32) c.fillRect(x, 9, 20, 13);
-    const t = new THREE.CanvasTexture(cv); t.wrapS = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; return t;
-  })();
-  const winLit = (() => {   // the same windows lit, for the emissive glow at night
-    const cv = document.createElement('canvas'); cv.width = 128; cv.height = 32; const c = cv.getContext('2d');
-    c.fillStyle = '#000'; c.fillRect(0, 0, 128, 32); c.fillStyle = '#fff';
-    for (let x = 8; x < 128; x += 32) c.fillRect(x, 9, 20, 13);
-    const t = new THREE.CanvasTexture(cv); t.wrapS = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; return t;
-  })();
-  const house = (w, h, len, x, y, z, windows) => {
-    const rep = t => { t = t.clone(); t.needsUpdate = true; t.repeat.set(Math.max(1, Math.round(len / 4)), 1); return t; };
-    const sideMat = windows ? new THREE.MeshLambertMaterial({ map: rep(winTex), emissive: 0xffd9a0, emissiveMap: rep(winLit), emissiveIntensity: lightsK }) : white;
-    if (windows) litMats.push(sideMat);
-    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, len), [sideMat, sideMat, white, white, white, white]);
-    m.position.set(x, y + h / 2, z); g.add(m); return m;
-  };
-  // high white sides round the car deck (open at the stern for the ramp), and a white forecastle
-  const sideLen = L - taper - 2;
-  for (const sx of [-1, 1]) house(0.35, 2.2, sideLen, sx * (B / 2 - 0.18), 2.2, half - 1 - sideLen / 2, false);
-  slab(2.2, 4.4, white, 1.0).scale.set(1, 1, 1);   // full-height white skin at the bow…
-  const fore = g.children[g.children.length - 1];
-  fore.geometry.dispose();
-  { const sh = new THREE.Shape([[-B / 2, half - L + taper + 2], [B / 2, half - L + taper + 2], [B / 2, -half + taper], [B * 0.27, -half], [-B * 0.27, -half], [-B / 2, -half + taper]].map(([x, z]) => new THREE.Vector2(x, -z)));
-    fore.geometry = new THREE.ExtrudeGeometry(sh, { depth: 2.2, bevelEnabled: false }); }   // …only over the forecastle
-  // passenger house along the starboard side, with windows; the pilothouse spans the beam above it
-  const hz = -L * 0.06, hLen = L * 0.42;
-  house(4.2, 2.6, hLen, B / 2 - 2.3, 4.4, hz, true);
-  house(B - 0.4, 0.25, L * 0.2, 0, 7.0, -L * 0.18, false);                // bridge deck over the car deck
-  const ph = house(B * 0.5, 2.3, 5.2, B * 0.18, 7.25, -L * 0.18, false);   // pilothouse
-  const band = new THREE.Mesh(new THREE.BoxGeometry(B * 0.5 + 0.06, 0.9, 5.26), glass); band.position.set(ph.position.x, 8.75, ph.position.z); g.add(band);
-  // radar mast, horn, two small exhaust stacks
-  const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.15, 3.2, 8), white); mast.position.set(ph.position.x, 11.2, ph.position.z + 1); g.add(mast);
-  const radar = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.18, 0.3), black); radar.position.set(ph.position.x, 12.6, ph.position.z + 1); g.add(radar);
-  // running lights: masthead, sidelights on the bridge wings, stern light
-  runLight(g, [ph.position.x, 12.9, ph.position.z + 1], 0xfff2d6, 0, 112.5, null, 0.018);
-  runLight(g, [-(B / 2 - 0.3), 7.6, -L * 0.18], 0xff3b2e, -SIDE, SIDE, null, 0.018);
-  runLight(g, [B / 2 - 0.3, 7.6, -L * 0.18], 0x3dff7a, SIDE, SIDE, null, 0.018);
-  runLight(g, [0, 4.8, half], 0xfff2d6, 180, 67.5, null, 0.018);
-  for (const dz of [-0.5, 0.5]) { const st = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 2.6, 10), black); st.position.set(B / 2 - 2.3 + dz * 1.2, 8.1, hz + hLen * 0.35); g.add(st); }
-  // her name on both sides, forward
-  if (F.vessel) {
-    const cv = document.createElement('canvas'); cv.width = 512; cv.height = 64; const c = cv.getContext('2d');
-    c.fillStyle = '#f3f2ee'; c.fillRect(0, 0, 512, 64); c.fillStyle = '#1d2328'; c.font = 'bold 34px Helvetica, Arial, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(F.vessel, 256, 34);
-    const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace;
-    for (const sx of [-1, 1]) {
-      const plate = new THREE.Mesh(new THREE.PlaneGeometry(9, 1.1), new THREE.MeshLambertMaterial({ map: t }));
-      plate.position.set(sx * (B / 2 + 0.02), 3.4, -L * 0.22); plate.rotation.y = sx * Math.PI / 2; g.add(plate);
-    }
-  }
-  // vehicles on the open deck (port side and the stern, where the house doesn't cover them)
-  const carCols = [0xb8bcc0, 0x8c1f1f, 0x23415f, 0xe8e6e0, 0x2f2f2f, 0x5b6b4a, 0xa88f5c];
-  let k = 0;
-  for (let z = -L * 0.3; z < half - 4; z += 5) for (const x of [-B / 2 + 1.6, -B / 2 + 4.0]) {
-    if ((k * 7 + 3) % 5 === 0) { k++; continue; }
-    const car = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.4, 4.4), mat(carCols[k++ % carCols.length])); car.position.set(x, 3.1, z); g.add(car);
-  }
-  const truck = new THREE.Mesh(new THREE.BoxGeometry(2.4, 3.2, 9), mat(0xd9d6cf)); truck.position.set(0.6, 4.0, half - 7); g.add(truck);
-  // stern ramp, raised
-  const ramp = new THREE.Mesh(new THREE.BoxGeometry(B * 0.55, 0.3, 4), deckM); ramp.position.set(0, 3.6, half + 0.4); ramp.rotation.x = -1.1; g.add(ramp);
-  // wake: a fading white fan astern, and a little bow wave
-  const wc = document.createElement('canvas'); wc.width = 64; wc.height = 256;
-  const wx2 = wc.getContext('2d'), grd = wx2.createLinearGradient(0, 0, 0, 256);
-  grd.addColorStop(0, 'rgba(245,250,252,0.85)'); grd.addColorStop(1, 'rgba(245,250,252,0)');
-  wx2.fillStyle = grd; wx2.beginPath(); wx2.moveTo(22, 0); wx2.lineTo(42, 0); wx2.lineTo(64, 256); wx2.lineTo(0, 256); wx2.closePath(); wx2.fill();
-  const wake = new THREE.Mesh(new THREE.PlaneGeometry(B * 2.8, 150), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(wc), transparent: true, depthWrite: false }));
-  wake.rotation.x = -Math.PI / 2; wake.position.set(0, 0.06, half + 75); g.add(wake);
-  const bowWave = new THREE.Mesh(new THREE.RingGeometry(B * 0.5, B * 0.75, 24, 1, Math.PI * 0.15, Math.PI * 0.7), new THREE.MeshBasicMaterial({ color: 0xf2f7f9, transparent: true, opacity: 0.55, depthWrite: false }));
-  bowWave.rotation.x = -Math.PI / 2; bowWave.position.set(0, 0.07, -half + 6); g.add(bowWave);
-  g.userData.wake = [wake, bowWave];
+function ferryModel(F) {   // a Maine State Ferry Service car ferry: vessels.js's (v950: its lofted hull), with the helm view's sector lights
+  const g = ferryModelSimple(F, litMats), Lt = g.userData.lights;
+  runLight(g, Lt.mast, 0xfff2d6, 0, 112.5, null, 0.018);
+  runLight(g, Lt.port, 0xff3b2e, -SIDE, SIDE, null, 0.018);
+  runLight(g, Lt.stbd, 0x3dff7a, SIDE, SIDE, null, 0.018);
+  runLight(g, Lt.stern, 0xfff2d6, 180, 67.5, null, 0.018);
   return g;
 }
 function ferryAt(fy, f) {   // point on the line f metres from Rockland, and the smoothed direction there

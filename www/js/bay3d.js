@@ -16,7 +16,7 @@ import { makeSailboat, fleetType } from './sailboat3d.js';
 import { makeAngelique, makeBowdoin } from './angelique3d.js';
 import { makeWildlife, ledgesFrom } from './wildlife3d.js';
 import { makeMoorings } from './moorings3d.js';
-import { callsOn, trackOf, alongTrack, cruiseState, ferryState, ferryDepartures, ferryLine, ferrySlipModel, cruiseShipModel, ferryModelSimple, launchModel, mins } from './vessels.js';
+import { callsOn, trackOf, alongTrack, cruiseState, ferryState, ferryDepartures, ferryLine, ferrySlipModel, terminalLot, terminalHouse, cruiseShipModel, ferryModelSimple, launchModel, mins } from './vessels.js';
 
 const statusEl = document.getElementById('status');
 const loadingEl = document.getElementById('loading');
@@ -1344,7 +1344,77 @@ function centralPiers() {
     scene.add(gp); centralGroups.push(gp);
   }
 }
+// The shore side of each terminal (v950, requested: "add piers for the other ferry terminals too"): where the town
+// data has no terminal of its own (Rockland's has; Vinalhaven's has its office), the staging lot behind the slip,
+// its lanes running down to her, and beside it the ticket office, both found on the drawn ground clear of the
+// town's buildings, and the road from the transfer bridge up to the lot. Placed once the slip is fitted and the
+// detail and the town there have loaded, and again when either changes.
+function townBuildingsNear(x, z, r) {
+  const out = [];
+  for (const t of townList) if (t.data && Math.hypot(t.x - x, t.z - z) < 6000) for (const b of t.data.buildings) {
+    const P = b.p.map(([lo, la]) => [wx(lo), wz(la)]), cx = P.reduce((a, p) => a + p[0], 0) / P.length, cz = P.reduce((a, p) => a + p[1], 0) / P.length;
+    if (Math.hypot(cx - x, cz - z) < r) out.push({ x: cx, z: cz, r: Math.max(...P.map(p => Math.hypot(p[0] - cx, p[1] - cz))), n: b.n || '' });
+  }
+  return out;
+}
+function terminalFor(sl) {
+  if (sl.term) { scene.remove(sl.term); disposeGroup(sl.term); for (const m of sl.termLit || []) trafficLit.splice(trafficLit.indexOf(m), 1); sl.term = null; }
+  if (slips.some(o => o !== sl && o.term && Math.hypot(o.x - sl.x, o.z - sl.z) < 60)) return;   // (two slips side by side share one)
+  const blds = townBuildingsNear(sl.x, sl.z, 400);
+  if (blds.some(b => /ferry terminal/i.test(b.n) && Math.hypot(b.x - sl.x, b.z - sl.z) < 200)) return;   // the town has the whole terminal
+  const office = !blds.some(b => /ferr/i.test(b.n) && Math.hypot(b.x - sl.x, b.z - sl.z) < 200);
+  const el = (lx, t) => { const [X, Z] = slipWorld(sl, lx, t); return elevSmooth(lonOf(X), latOf(Z)); };
+  // a rectangle w across by l along the slip's line, centred at (lx, t): its ground, or null where it isn't dry and level and clear
+  const site = (lx, t, w, l) => {
+    let lo = Infinity, hi = -Infinity;
+    for (let i = 0; i <= 4; i++) for (let j = 0; j <= 4; j++) { const e = el(lx + (i / 4 - 0.5) * w, t + (j / 4 - 0.5) * l); if (!(e > 2)) return null; lo = Math.min(lo, e); hi = Math.max(hi, e); }
+    if (hi - lo > 3.5) return null;
+    for (const b of blds) { const p = slipLocal(sl, b.x, b.z); if (Math.abs(p.lx - lx) < w / 2 + b.r + 3 && Math.abs(p.t - t) < l / 2 + b.r + 3) return null; }
+    return { lo, hi };
+  };
+  const LW = 24, LL = 40;
+  let best = null;
+  for (let t = -(26 + LL / 2 + 2); t >= -150; t -= 6) for (let lx = -64; lx <= 64; lx += 8) {
+    const score = Math.hypot(lx * 1.5, t + 26); if (best && score >= best.score) continue;
+    const s = site(lx, t, LW, LL); if (s) best = { lx, t, score, ...s };
+  }
+  if (!best) return;
+  const g = new THREE.Group(), lit = [], ry = -sl.brg * DEG;
+  const put = (obj, lx, t, y, rot = 0) => { const [X, Z] = slipWorld(sl, lx, t); obj.position.set(X, y, Z); obj.rotation.y = ry + rot; g.add(obj); };
+  // (the lot's lanes run along the slip's line, its stop line at the end toward her)
+  put(terminalLot(LW, LL, Math.round(Math.abs(sl.x0)) + 7, lit), best.lx, best.t, best.hi + 0.12, 0);
+  if (office) for (const side of [1, -1]) {   // the office beside the lot, at its end toward the slip
+    const lx = best.lx + side * (LW / 2 + 7), t = best.t + LL / 2 - 6, s = site(lx, t, 9, 16);
+    if (s) { put(terminalHouse(lit), lx, t, s.hi, side * Math.PI / 2); break; }
+  }
+  // the road from the bridge's shore end up to the lot, on a causeway of fill with rip-rap sides where it crosses
+  // the water or the low shore
+  const a = [0, -27], b = [best.lx, best.t + LL / 2], dl = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, n = Math.max(2, Math.ceil(dl / 3));
+  const ux = (b[0] - a[0]) / dl, ut = (b[1] - a[1]) / dl, top = [], sides = [];
+  for (let i = 0; i <= n; i++) {
+    const f = i / n, lx = a[0] + (b[0] - a[0]) * f, t = a[1] + (b[1] - a[1]) * f;
+    const y = i === n ? best.hi + 0.13 : Math.max(el(lx, t) + 0.15, 3.6 + (best.hi + 0.13 - 3.6) * f ** 2), foot = Math.min(el(lx, t), y) - 0.5, spread = 3.6 + Math.max(0, y - foot) * 1.3;
+    for (const s of [-1, 1]) {
+      const [X, Z] = slipWorld(sl, lx - s * ut * 3.6, t + s * ux * 3.6); top.push(X, y, Z);
+      const [X2, Z2] = slipWorld(sl, lx - s * ut * spread, t + s * ux * spread); sides.push(X, y, Z, X2, foot, Z2);
+    }
+  }
+  const strip = (pos, stride, quads) => { const idx = []; for (let i = 0; i < n; i++) for (const [p, q] of quads) { const k = i * stride; idx.push(k + p, k + q, k + stride + p, k + q, k + stride + q, k + stride + p); } const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx); geo.computeVertexNormals(); return geo; };
+  g.add(new THREE.Mesh(strip(top, 2, [[0, 1]]), new THREE.MeshLambertMaterial({ color: 0x55585b, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2 })));
+  g.add(new THREE.Mesh(strip(sides, 4, [[0, 1], [2, 3]]), new THREE.MeshLambertMaterial({ color: 0x8e8a82, side: THREE.DoubleSide })));
+  trafficLit.push(...lit); sl.termLit = lit; sl.term = g; scene.add(g);
+}
+function fitTerminals() {
+  if (EMPTY) return;
+  for (const sl of slips) {
+    if (sl.term) sl.term.visible = !aboveFog;
+    if (sl.fitN < 0) continue;
+    const towns = townList.filter(t => t.data && Math.hypot(t.x - sl.x, t.z - sl.z) < 6000).length, key = sl.fitN + ':' + towns + ':' + sl.x.toFixed(1);
+    if (sl.termKey !== key) { sl.termKey = key; terminalFor(sl); }
+  }
+}
 setInterval(fitSlips, 2000);
+setInterval(fitTerminals, 2500);
 const slipFor = (v, name) => slips.find(sl => sl.v === v && sl.name === name);
 // Alongside at the landings (v941, reported with a screenshot: the mail boat lay on top of the Northeast Harbor
 // pier, where OpenStreetMap's ferry line begins). Where a town's piers are loaded (data/buildings), a ferry waiting
