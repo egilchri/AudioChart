@@ -732,109 +732,99 @@ camera.position.set(HELM_X, EYE, HELM_Z);   // at the tiller, aft end of the coc
 const angel = ANGEL ? (BOAT_TYPE === 'bowdoin' ? makeBowdoin() : makeAngelique()) : null;   // angelique3d.js (v906: her own detailed model)
 if (angel) { for (const o of bow.children) o.visible = false; angel.wake(0); boat.add(angel.group); }
 if (angel) { const sub = document.querySelector('.sub'); if (sub) sub.firstChild.textContent = sub.firstChild.textContent.replace('From the tiller of a Cape Dory 25D', BOAT_TYPE === 'bowdoin' ? "From the wheel of Bowdoin, Maine Maritime Academy's Arctic schooner" : "From the wheel of Angelique, Camden's gaff topsail ketch"); }
-// her own wake (v902; the ferries had one, she didn't): a fading fan of foam astern and a curl at
-// the bow, on a level group that follows her position and heading (not her bob, pitch or heel,
-// which tipped the far end of a 50 m fan under the water), showing with her speed through the water
-const wakeG = new THREE.Group(); scene.add(wakeG);
-if (ANGEL) wakeG.scale.setScalar(3.6 * SHIP.L / 29);   // a big vessel's wake: the same foam, sized to her
-const ownWake = (() => {
-  // drawn once on canvases, forward at the top (v954, "make the wake look more realistic"): a Kelvin
-  // wake, its arms opening at 19.5° each side of her track, each arm a run of short feathered
-  // crests slanting in and forward (white and lacy near her, dull ridges further back); between
-  // them, the flattened glassy slick she leaves, with a little churned foam just off her transom
-  let sd = 7; const rr = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
-  const TAN = Math.tan(19.47 * Math.PI / 180), HB = 1.0;   // the Kelvin half-angle; her half-beam at the transom, m
-  const FW = 40, FL = 60, P = 16;   // the fan, m wide and long, at P canvas px a metre
-  const fanTex = (() => {
-    const c = document.createElement('canvas'); c.width = FW * P; c.height = FL * P;
-    const x = c.getContext('2d'), cx = c.width / 2;
-    // the slick: a smooth darker band, a little wider than she is, slowly spreading and fading
-    for (let y = 0; y < c.height; y += 2) {
-      const d = y / P, half = (HB * 1.1 + 0.07 * d) * P, a = 0.3 * Math.exp(-d / 30) * Math.min(1, 0.3 + d / 2);
-      const g = x.createLinearGradient(cx - half, 0, cx + half, 0);
-      g.addColorStop(0, 'rgba(8,22,36,0)'); g.addColorStop(0.5, `rgba(8,22,36,${a})`); g.addColorStop(1, 'rgba(8,22,36,0)');
-      x.fillStyle = g; x.fillRect(cx - half, y, 2 * half, 2);
-    }
-    x.lineCap = 'round';
-    // churned foam off the transom: short strings along the track, gone in a couple of boat lengths
-    for (let i = 0; i < 2200; i++) {
-      const d = 16 * rr() ** 1.7, w = (HB + 0.12 * d) * (rr() - 0.5) * 2, a = (0.2 + 0.4 * rr()) * Math.exp(-d / 5);
-      const len = (0.15 + 0.5 * rr()) * P, tilt = (rr() - 0.5) * 0.6;
-      x.strokeStyle = `rgba(244,249,251,${a})`; x.lineWidth = 1 + 2.2 * rr();
-      x.beginPath(); x.moveTo(cx + w * P, d * P); x.lineTo(cx + w * P + tilt * len, d * P + len); x.stroke();
-    }
-    // the arms: feathered crests along each cusp line
-    const sa = Math.sin(55 * Math.PI / 180), ca = Math.cos(55 * Math.PI / 180);
+// her own wake (v902; v957, "more realistic, and less cheap cartoonish"): not foam painted over the
+// sea but the sea itself disturbed. A Kelvin wave pattern, worked out here as a height field in her
+// own frame (it's stationary relative to her), bends the water shader's normals (below), so the wake
+// shows the way a real one does, in the sky, cloud and sun it reflects. Two wave systems, from her
+// stem and her transom; the crest lines are Kelvin's (x = a cos t (1 + sin^2 t), y = a sin t cos^2 t,
+// a = n wavelengths, the cusps at 19.5 degrees), the wavelength 2 pi U^2 / g, so the pattern stretches
+// with her speed. Plus a calmed slick astern (the ripples damped) and a little foam, lacy, drifting aft
+// at her speed, mostly off the transom and where the bow wave breaks along her sides.
+const wakeG = new THREE.Group(); scene.add(wakeG);   // only her position and heading, level (no bob, pitch or heel)
+if (ANGEL) wakeG.scale.setScalar(3.6 * SHIP.L / 29);   // a big vessel: the same pattern, sized to her
+const WAKE = (() => {
+  const U0 = 2.57, LAM = 2 * Math.PI * U0 * U0 / 9.81;   // built for 5 knots: a 4.2 m wavelength
+  const STEM = -4.3, STERN = 3.0, HB = 1.2;                // her stem and transom (m along, aft +), half-beam
+  const X0 = -20, Z0 = -6, W = 40, L = 60, R = 8;          // the field: m across, m along from Z0; R texels a metre
+  const NX = W * R, NZ = L * R, h = new Float32Array(NX * NZ);
+  const splat = (x, z, amp, sg) => {
+    const r = Math.ceil(2.5 * sg * R), cx = (x - X0) * R, cz = (z - Z0) * R, k = -1 / (2 * sg * sg * R * R);
+    for (let j = Math.max(0, Math.floor(cz - r)); j <= Math.min(NZ - 1, Math.ceil(cz + r)); j++)
+      for (let i = Math.max(0, Math.floor(cx - r)); i <= Math.min(NX - 1, Math.ceil(cx + r)); i++)
+        h[j * NX + i] += amp * Math.exp(((i - cx) ** 2 + (j - cz) ** 2) * k);
+  };
+  // one crest (or, half a wavelength on, trough) line of a system from (0, z0): splats a step apart along it
+  const crestLine = (z0, a, amp, trans) => {
+    const sg = 0.095 * LAM, step = sg * 0.6, norm = step / (Math.sqrt(2 * Math.PI) * sg);
     for (const side of [-1, 1]) {
-      for (let d = 0.6 + rr(); d < FL - 1; d += 1.6 + 2.2 * rr()) {
-        const ax = cx + side * (HB + TAN * d) * P, ay = d * P;
-        const L = Math.min(4.5, 0.9 + 0.07 * d) * (0.7 + 0.5 * rr()) * P;
-        const ix = -side * sa, iy = -ca;   // inward and forward, 55° off her track
-        const x0 = ax - ix * L * 0.25, y0 = ay - iy * L * 0.25, x1 = ax + ix * L, y1 = ay + iy * L;
-        const ridge = Math.exp(-d / 22), white = Math.exp(-d / 12), bow = (0.08 + 0.12 * rr()) * L;
-        // each crest a soft, slightly bowed stroke, strongest at the cusp and dying away inward, broken
-        // in places: drawn as short overlapping pieces, trough (just aft) and then crest
-        const at = t => [x0 + (x1 - x0) * t, y0 + (y1 - y0) * t + bow * Math.sin(Math.PI * t)];
-        const N = 18, gaps = Array.from({ length: N }, () => rr() < 0.18);
-        for (const [dy, col, w, k] of [[0.35 * P, '6,18,30', 0.55 * P, 0.26], [0, '210,226,236', 0.3 * P, 0.38], [0, '236,244,248', 0.12 * P, 0.4]]) {
-          x.strokeStyle = `rgb(${col})`; x.lineWidth = w;
-          for (let j = 0; j < N; j++) {
-            if (gaps[j]) continue;
-            const t0 = j / N, t1 = (j + 1.3) / N, prof = Math.min(1, 4 * (1 - t0) * (t0 + 0.25));
-            x.globalAlpha = k * ridge * prof * (0.55 + 0.45 * rr());
-            const [p0x, p0y] = at(t0), [p1x, p1y] = at(t1);
-            x.beginPath(); x.moveTo(p0x, p0y + dy); x.lineTo(p1x, p1y + dy); x.stroke();
-          }
-        }
-        x.globalAlpha = 1;
-        // breaking foam, heaviest at the cusp end: specks and short strings, not a solid line
-        const n = Math.round(30 * white);
-        for (let j = 0; j < n; j++) {
-          const t = rr() ** 2 * 0.8 - 0.15, [px, py] = at(t), l = (0.1 + 0.4 * rr()) * P;
-          x.strokeStyle = `rgba(246,250,252,${(0.35 + 0.55 * rr()) * white})`; x.lineWidth = 1 + 2.4 * rr();
-          const qx = px + (rr() - 0.5) * 0.4 * P, qy = py + (rr() - 0.3) * 0.5 * P;
-          x.beginPath(); x.moveTo(qx, qy); x.lineTo(qx + ix * l * (rr() - 0.3), qy + l * (0.3 + 0.7 * rr())); x.stroke();
-        }
+      let px = null, pz = null, acc = 0;
+      for (let t = trans ? 0 : 0.6155; t <= (trans ? 0.6155 : 1.45); t += 0.002) {   // 0.6155 rad: the cusp
+        const c = Math.cos(t), sn = Math.sin(t), z = z0 + a * c * (1 + sn * sn), x = side * a * sn * c * c;
+        if (px !== null) acc += Math.hypot(x - px, z - pz);
+        px = x; pz = z;
+        if (acc < step) continue; acc = 0;
+        if (z > Z0 + L - 3) continue;
+        const cusp = Math.exp(-(((t - 0.6155) / 0.35) ** 2));          // the crests are highest at the cusp
+        splat(x, z, amp * norm * (0.45 + 0.55 * cusp) * (trans ? 0.55 : 1), sg);
       }
     }
-    return new THREE.CanvasTexture(c);
-  })();
-  // the bow wave: a thin rolled-over line of foam from the stem, hugging her sides then peeling off
-  const BW = 5, BL = 6, BP = 48;
-  const bowTex = (() => {
-    const c = document.createElement('canvas'); c.width = BW * BP; c.height = BL * BP;
-    const x = c.getContext('2d'), cx = c.width / 2; x.lineCap = 'round';
-    for (const side of [-1, 1]) {
-      for (let i = 0; i < 700; i++) {
-        const d = BL * rr() ** 1.3, hull = 1.2 * Math.min(1, Math.sqrt(d / 3.2));   // her half-breadth d m aft of the stem
-        const off = hull + 0.04 + 0.12 * d * rr() ** 2 + Math.max(0, d - 2.5) * 0.12, a = (0.35 + 0.55 * rr()) * Math.exp(-d / 2.6);
-        const px = cx + side * off * BP, py = d * BP, l = (0.05 + 0.18 * rr()) * BP;
-        x.strokeStyle = `rgba(246,250,252,${a})`; x.lineWidth = 0.8 + 1.5 * rr();
-        x.beginPath(); x.moveTo(px, py); x.lineTo(px + side * l * 0.35, py + l); x.stroke();
-      }
+  };
+  for (const [z0, sys] of [[STEM, 1], [STERN, 0.6]]) {
+    for (let n = 1; n * LAM < L + 10; n++) {
+      const amp = sys / Math.sqrt(n);
+      for (const trans of [false, true]) { crestLine(z0, n * LAM, amp, trans); crestLine(z0, (n - 0.5) * LAM, -0.8 * amp, trans); }
     }
-    return new THREE.CanvasTexture(c);
-  })();
-  const mat = new THREE.MeshBasicMaterial({ map: fanTex, transparent: true, depthWrite: false, opacity: 0 });
-  const fan = new THREE.Mesh(new THREE.PlaneGeometry(FW, FL), mat);
-  fan.rotation.x = -Math.PI / 2; fan.position.set(0, 0.05, 1.7 + FL / 2); fan.renderOrder = 1; wakeG.add(fan);
-  const bmat = new THREE.MeshBasicMaterial({ map: bowTex, transparent: true, opacity: 0, depthWrite: false });
-  const curl = new THREE.Mesh(new THREE.PlaneGeometry(BW, BL), bmat);
-  curl.rotation.x = -Math.PI / 2; curl.position.set(0, 0.06, -4.3 + BL / 2); curl.renderOrder = 1; wakeG.add(curl);
-  let spd = 0, last = null;
-  return (pos, dt) => {   // pos: [x, z] this frame
+  }
+  // slopes (rg), foam (b) and calm (a) into a texture
+  const data = new Uint8Array(NX * NZ * 4); let mx = 1e-6;
+  const gx = new Float32Array(NX * NZ), gz = new Float32Array(NX * NZ);
+  for (let j = 1; j < NZ - 1; j++) for (let i = 1; i < NX - 1; i++) {
+    const o = j * NX + i; gx[o] = (h[o + 1] - h[o - 1]) * R / 2; gz[o] = (h[o + NX] - h[o - NX]) * R / 2;
+    mx = Math.max(mx, Math.abs(gx[o]), Math.abs(gz[o]));
+  }
+  let sd = 9; const rr = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+  for (let j = 0; j < NZ; j++) for (let i = 0; i < NX; i++) {
+    const o = j * NX + i, x = X0 + i / R, z = Z0 + j / R, d = z - STERN;
+    const edge = Math.min(1, (L - (z - Z0)) / 8) * Math.min(1, (W / 2 - Math.abs(x)) / 4);   // fade out before the edges
+    const hull = z < STERN ? HB * Math.min(1, Math.sqrt(Math.max(0, z - STEM) / 3.2)) : 0;   // her half-breadth here
+    let foam = 0, calm = 0;
+    if (d > 0) {
+      const wd = HB * 0.9 + 0.07 * d;
+      calm = Math.exp(-d / 40) * Math.exp(-((x / wd) ** 4));
+      foam = Math.min(1, 1.15 * Math.exp(-d / 7)) * Math.exp(-((x / (HB * 0.75 + 0.1 * d)) ** 2));   // churned water off the rudder and transom, gone in about two waterline lengths
+    } else if (z > STEM) {
+      const off = Math.abs(x) - hull;                                                        // the bow wave breaking along her sides
+      foam = 0.6 * Math.exp(-(((off - 0.12) / 0.14) ** 2)) * Math.exp(-Math.max(0, z - STEM) / 2.2);
+    }
+    foam = Math.max(foam, Math.max(0, h[o] * 1.6 - 0.5) * Math.exp(-Math.max(0, d) / 12));   // the steepest crests near her break a little
+    data[o * 4] = 128 + 127 * edge * gx[o] / mx; data[o * 4 + 1] = 128 + 127 * edge * gz[o] / mx;
+    data[o * 4 + 2] = 255 * Math.min(1, foam * edge); data[o * 4 + 3] = 255 * calm * edge;
+  }
+  const tex = new THREE.DataTexture(data, NX, NZ, THREE.RGBAFormat);
+  tex.magFilter = THREE.LinearFilter; tex.minFilter = THREE.LinearMipmapLinearFilter; tex.generateMipmaps = true; tex.needsUpdate = true;
+  // the water shader's own inputs (patched in where the water's made, below)
+  const uniforms = {
+    wakeMap: { value: tex }, wakeM: { value: new THREE.Matrix3() }, wakeBox: { value: new THREE.Vector4(X0, Z0, W, L) },
+    wakeStem: { value: STEM }, wakeK: { value: 0 }, wakeScale: { value: 1 }, wakeFlow: { value: 0 }, wakeGain: { value: 0.16 },
+  };
+  let spd = 0, last = null; const inv = new THREE.Matrix4();
+  const update = (pos, dt) => {   // pos: [x, z] this frame
     wakeG.position.set(pos[0], 0, pos[1]); wakeG.rotation.y = boat.rotation.y;
     if (last && dt > 0) {
       const v = Math.hypot(pos[0] - last[0], pos[1] - last[1]) / dt;
       if (v < 40) spd += (v - spd) * Math.min(1, dt * 1.2);   // a jump (reload, slider) isn't speed
     }
     last = [pos[0], pos[1]];
-    const k = Math.min(1, spd / 2.6);   // full at ~5 knots
-    mat.opacity = 0.9 * k; bmat.opacity = 0.85 * k;
-    const f = 0.4 + 0.6 * k; fan.scale.set(f, f, 1); fan.position.z = 1.7 + FL / 2 * f;   // a slower boat, a smaller wake (the same angle)
-    fan.visible = curl.visible = k > 0.02;
+    uniforms.wakeK.value = Math.min(1, spd / 1.5);             // there from about 3 knots
+    uniforms.wakeScale.value = Math.min(1.6, Math.max(0.3, (spd / U0) ** 2));   // the wavelength goes with U^2
+    uniforms.wakeFlow.value += spd * dt / (wakeG.scale.x || 1);
+    // world x, z -> her frame, metres (x across, z aft)
+    wakeG.updateMatrixWorld(); inv.copy(wakeG.matrixWorld).invert(); const e = inv.elements;
+    uniforms.wakeM.value.set(e[0], e[8], e[12], e[2], e[10], e[14], 0, 0, 1);
   };
+  return { uniforms, update };
 })();
+const ownWake = WAKE.update;
 
 
 // Water: ripple normals generated here (no image download), sky and shore reflected.
@@ -869,7 +859,33 @@ water.material.uniforms.size.value = 6;
 // from a low eye), and a little less sky overall at grazing angles.
 water.material.fragmentShader = water.material.fragmentShader
   .replace('float rf0 = 0.3;', 'float rf0 = 0.04;')
-  .replace('reflectionSample * 0.9 +', 'reflectionSample * 0.78 +');
+  .replace('reflectionSample * 0.9 +', 'reflectionSample * 0.78 +')
+  // her wake (v957, see WAKE): its slopes bend the surface, the slick calms the ripples, foam drifts aft
+  .replace('varying vec4 worldPosition;', `varying vec4 worldPosition;
+    uniform sampler2D wakeMap; uniform mat3 wakeM; uniform vec4 wakeBox; uniform float wakeStem, wakeK, wakeScale, wakeFlow, wakeGain;`)
+  .replace('vec3 diffuseLight = vec3(0.0);', `float wakeFoam = 0.0;
+    {
+      vec2 wl = (wakeM * vec3(worldPosition.xz, 1.0)).xy;
+      vec2 wq = vec2(wl.x / wakeScale, wakeStem + (wl.y - wakeStem) / wakeScale);
+      vec2 wuv = (wq - wakeBox.xy) / wakeBox.zw;
+      if (wakeK > 0.0 && wuv.x > 0.0 && wuv.x < 1.0 && wuv.y > 0.0 && wuv.y < 1.0) {
+        vec4 wt = texture2D(wakeMap, wuv);
+        vec2 g = (wt.rg * 2.0 - 1.0) * wakeGain * wakeK;
+        vec2 gw = vec2(dot(wakeM[0].xy, g), dot(wakeM[1].xy, g));   // her frame's slope, turned to the world's
+        vec3 n0 = noise.xzy * vec3(1.5, 1.0, 1.5);
+        n0.xz *= 1.0 - 0.45 * wt.a * wakeK;
+        n0.xz -= gw * n0.y * 2.5;
+        surfaceNormal = normalize(n0);
+        vec2 fp = vec2(wl.x, wl.y - wakeFlow);   // the foam stays where it was made: aft, at her speed
+        float lace = texture2D(normalSampler, fp / 6.0).r * 0.55 + texture2D(normalSampler, fp / 2.3 + 0.37).g * 0.45;
+        wakeFoam = wakeK * wt.b * smoothstep(0.55 - 0.3 * wt.b, 0.75 - 0.2 * wt.b, lace);
+      }
+    }
+    vec3 diffuseLight = vec3(0.0);`)
+  .replace('vec3 outgoingLight = albedo;', `vec3 foamLit = vec3(0.86, 0.9, 0.92) * (0.18 + 0.82 * clamp(sunDirection.y * 2.5, 0.0, 1.0)) * mix(vec3(1.0), sunColor, 0.4);
+    albedo = mix(albedo, foamLit, clamp(wakeFoam, 0.0, 0.9));
+    vec3 outgoingLight = albedo;`);
+Object.assign(water.material.uniforms, WAKE.uniforms);
 water.material.needsUpdate = true;
 // keep the boat's own bow out of the water's reflection pass
 { const mirror = water.onBeforeRender; water.onBeforeRender = (...a) => { const was = bow.visible; bow.visible = false; if (angel) angel.group.visible = false; mirror(...a); bow.visible = was; if (angel) angel.group.visible = was; }; }

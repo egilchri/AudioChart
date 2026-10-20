@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-20 — The wake is in the water now (v957)
+
+Requested: "make the wake more realistic, and less cheap cartoonish". v954's painted foam overlay is gone. The
+helm view's wake (helm3d.js WAKE) is now a Kelvin wave height field built at startup in the boat's own frame (two
+systems, from the stem and the transom; Kelvin's crest lines; wavelength 2πU²/g, so the pattern stretches with
+speed), whose slopes bend the water shader's normals, so the wake shows in the reflected sky, cloud and sun the
+way a real one does. A calmed slick astern damps the ripples; foam (a lacy noise drifting aft at her speed)
+churns off the rudder and transom for about two waterline lengths and breaks a little along her sides at the bow.
+
 ## 2026-10-20 — Sea Nymph's rounded transom, and her name on it (v956)
 
 Reported: "the sides on the back of Sea Nymph, ie the transom, is rounded, not straight", and requested her name
