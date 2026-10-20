@@ -910,6 +910,9 @@ function shrinkable(el) {
   b.addEventListener('pointerdown', e => e.stopPropagation());
   b.addEventListener('click', e => { e.stopPropagation(); const on = el.classList.toggle('shrunk'); try { localStorage.setItem(key, on ? '1' : '0'); } catch (_) {} sync(); });
   sync(); el.appendChild(b);
+  // opened from its button, a window always opens out (v952: a remembered fold left the Underway and Coming up
+  // tables showing only their titles and a +, which read as empty)
+  el.openOut = () => { el.classList.remove('shrunk'); try { localStorage.setItem(key, '0'); } catch (_) {} sync(); };
 }
 for (const id of ['nesthud', 'underway', 'clockpanel']) shrinkable(document.getElementById(id));
 const nestHud = document.getElementById('nesthud'), nestRep = document.getElementById('nestrep');
@@ -1573,7 +1576,7 @@ if (clockBtn && !EMPTY) {
   clockBtn.hidden = false;
   clockBtn.addEventListener('click', () => {
     clockPanel.hidden = !clockPanel.hidden;
-    if (!clockPanel.hidden) { const wx = document.getElementById('wxpanel'); if (wx) wx.hidden = true; fillComing(); syncClock(); }
+    if (!clockPanel.hidden) { clockPanel.openOut?.(); const wx = document.getElementById('wxpanel'); if (wx) wx.hidden = true; fillComing(); syncClock(); }
   });
   for (const ev of ['pointerdown', 'wheel', 'touchstart']) clockPanel.addEventListener(ev, e => e.stopPropagation(), { passive: true });
   clockPanel.querySelector('#clockslider').addEventListener('input', e => { setClock(Number(e.target.value)); fillComing(); });
@@ -1635,7 +1638,7 @@ if (uwBtn && uwPanel && !EMPTY) {
   uwBtn.hidden = false;
   uwBtn.addEventListener('click', () => {
     uwPanel.hidden = !uwPanel.hidden; uwBtn.classList.toggle('on', !uwPanel.hidden);
-    if (!uwPanel.hidden) { for (const id of ['wxpanel', 'clockpanel']) { const el = document.getElementById(id); if (el) el.hidden = true; } fillUnderway(); }
+    if (!uwPanel.hidden) { uwPanel.openOut?.(); for (const id of ['wxpanel', 'clockpanel']) { const el = document.getElementById(id); if (el) el.hidden = true; } fillUnderway(); }
   });
   clockBtn?.addEventListener('click', () => { uwPanel.hidden = true; uwBtn.classList.remove('on'); });
   for (const ev of ['pointerdown', 'wheel', 'touchstart']) uwPanel.addEventListener(ev, e => e.stopPropagation(), { passive: true });

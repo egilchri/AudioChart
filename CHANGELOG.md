@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-10-20 — A streamlined cruise ship; folded windows open out (v952)
+
+Requested: "make the cruise ship's superstructure less boxy too". Each deck is now a deckhouse (vessels.js) with a
+bow-shaped nose, its front set back deck by deck along a curve so the forward face sweeps up and aft in one line;
+tumblehome in the sides, the after corners rounded, the after decks stepping down in rounded terraces, balconies
+(or windows) wrapping round. The bridge is a deck of outward-leaning glass with tapered wings and glassed cabs; the
+observation lounge on top has a raked glass front; the lifeboats are rounded orange hulls under white canopies, the
+davits leaning out.
+
+The Underway and Coming up tables (Bird's-eye) opened folded if they had last been shrunk, showing only a title
+and a +, which read as empty: the likely real cause of v951's "underway is empty" report. Opened from their
+buttons, they now always open out.
+
 ## 2026-10-20 — Streamlined deckhouses; a stale module heals itself (v951)
 
 Requested: "make the passenger houses less boxy too". The ferries' houses are now deckhouses (vessels.js

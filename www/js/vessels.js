@@ -141,46 +141,75 @@ export function cruiseShipModel(V, windowMats = []) {
   { const pts = []; for (let k = 0; k <= 40; k++) pts.push(at(k / 40, HH, 1)); for (let k = 40; k >= 0; k--) pts.push(at(k / 40, HH, -1));   // the main deck, over the hull
     const sh = new THREE.Shape(pts.map(([x, , z]) => new THREE.Vector2(x, -z))), dg = new THREE.ShapeGeometry(sh); dg.rotateX(-Math.PI / 2); dg.translate(0, HH, 0); g.add(new THREE.Mesh(dg, grey)); }
   const box = (w, h, d, x, y, z, m) => { const k = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); k.position.set(x, y, z); g.add(k); return k; };
-  // ── the superstructure: decks rounded forward, balconies along the sides, terraced aft ──
+  // ── the superstructure (v952, on request: "make the cruise ship's superstructure less boxy too"): each deck a
+  // house with a bow-shaped nose, its front stepping back deck by deck in a curve, so the forward face sweeps up and
+  // aft in one streamlined line; the sides falling in a little (tumblehome) and the after corners rounded; the after
+  // decks stepping down in rounded terraces; a deck edge overhanging between decks. Balconies (or windows) wrap round.
   const DH = 3, decks = big ? 9 : 4, sFront = -half + (big ? 0.2 : 0.22) * L, sAft = half - (big ? 0.05 : 0.12) * L, wS = B / 2 * (big ? 0.985 : 0.88);
-  const rows = (balc, lit) => {   // one deck's side: a cabin each 4 m (a balcony with its rail, or a window), as a texture repeated along it
+  const rows = (balc, lit) => {   // a cabin each 4 m (a balcony with its rail, or a window), repeated round the deck
     const cv = document.createElement('canvas'); cv.width = 64; cv.height = 64; const c = cv.getContext('2d');
     c.fillStyle = lit ? '#000' : '#f4f3ef'; c.fillRect(0, 0, 64, 64);
     if (balc) { c.fillStyle = lit ? '#ffffff' : '#2a3a48'; c.fillRect(6, 10, 52, 40); if (!lit) { c.fillStyle = '#9fb0ba'; c.fillRect(6, 34, 52, 16); c.fillStyle = '#f4f3ef'; c.fillRect(0, 10, 4, 50); c.fillRect(60, 10, 4, 50); c.fillStyle = '#dfe5e8'; c.fillRect(6, 33, 52, 2); } }
     else { c.fillStyle = lit ? '#fff' : '#2a3a48'; c.fillRect(10, 20, 44, 20); }
-    const t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.repeat.set(1 / 4, 1 / DH); return t;
+    const t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; return t;
   };
   const balcM = new THREE.MeshLambertMaterial({ map: rows(true, false), emissive: 0xffdcaa, emissiveMap: rows(true, true), emissiveIntensity: 0 });
   const winM = new THREE.MeshLambertMaterial({ map: rows(false, false), emissive: 0xffdcaa, emissiveMap: rows(false, true), emissiveIntensity: 0 });
-  windowMats.push(balcM, winM);
-  const deckPlan = (zF, zA, w) => {   // rounded forward: a half-ellipse w across, 0.8 w long
-    const pts = [[-w, zA], [w, zA]];
-    for (let k = 0; k <= 16; k++) { const a = k / 16 * Math.PI; pts.push([w * Math.cos(a), zF + w * 0.8 * (1 - Math.sin(a))]); }
-    return new THREE.Shape(pts.map(([x, z]) => new THREE.Vector2(x, -z)));
+  const glassM = new THREE.MeshLambertMaterial({ map: glassBand(false), emissive: 0xffdcaa, emissiveMap: glassBand(true), emissiveIntensity: 0 });
+  windowMats.push(balcM, winM, glassM);
+  // a deck's plan: straight sides, a nose nl long (a superellipse quarter each side, blunt like the bow under it),
+  // the after corners rounded to r; resampled to 64 points evenly round, starting aft on the centreline
+  const plan = (w, z0, z1, nl, r) => {
+    const P = [[0, z1]];
+    for (let k = 0; k <= 6; k++) { const a = k / 6 * Math.PI / 2; P.push([w - r + r * Math.sin(a), z1 - r + r * Math.cos(a)]); }
+    for (let k = 0; k <= 16; k++) { const s2 = k / 16; P.push([w * Math.pow(1 - s2 ** 1.8, 1 / 1.8), z0 + nl * (1 - s2)]); }
+    for (let k = P.length - 2; k >= 1; k--) P.push([-P[k][0], P[k][1]]);
+    P.push([0, z1]);
+    const cum = [0]; for (let k = 1; k < P.length; k++) cum.push(cum[k - 1] + Math.hypot(P[k][0] - P[k - 1][0], P[k][1] - P[k - 1][1]));
+    const out = []; let j = 0;
+    for (let i = 0; i < 64; i++) { const d = i / 64 * cum[cum.length - 1]; while (cum[j + 1] < d) j++; const t = (d - cum[j]) / ((cum[j + 1] - cum[j]) || 1); out.push([P[j][0] + (P[j + 1][0] - P[j][0]) * t, P[j][1] + (P[j + 1][1] - P[j][1]) * t]); }
+    return out;
+  };
+  const step = i => big ? 0.6 * i + 0.24 * i * i : 0.3 * i + 0.12 * i * i;   // the forward face's setback, deck by deck: a curve
+  const nl = wS * (big ? 1.25 : 1.1), tum = big ? 0.12 : 0.06;
+  const deckGeom = i => {
+    const terr = Math.max(0, i - (decks - (big ? 4 : 2))), zA = sAft - terr * (big ? 0.045 : 0.07) * L, w = wS - tum * i - (i === decks - 1 ? 0.6 : 0);
+    return { w, zF: sFront + step(i), zA, rake: step(i + 1) - step(i), r: terr ? (big ? 7 : 3) : (big ? 4 : 1.5) };
   };
   let topZF = sFront, topZA = sAft;
   for (let i = 0; i < decks; i++) {
-    const terr = Math.max(0, i - (decks - (big ? 4 : 2))), zA = sAft - terr * (big ? 0.045 : 0.07) * L, zF = sFront + i * (big ? 0.6 : 0.3), w = wS - (i === decks - 1 ? 0.6 : 0);
-    const geo = new THREE.ExtrudeGeometry(deckPlan(zF, zA, w), { depth: DH, bevelEnabled: false, curveSegments: 16 });
-    geo.rotateX(-Math.PI / 2); geo.translate(0, HH + i * DH, 0);
-    g.add(new THREE.Mesh(geo, [white, big && i >= 1 && i < decks - 1 ? balcM : winM]));
-    const rim = new THREE.ExtrudeGeometry(deckPlan(zF - 0.25, zA + 0.25, w + 0.25), { depth: 0.25, bevelEnabled: false, curveSegments: 16 });   // the deck edge between decks
-    rim.rotateX(-Math.PI / 2); rim.translate(0, HH + i * DH - 0.12, 0); g.add(new THREE.Mesh(rim, white));
-    topZF = zF; topZA = zA;
+    const { w, zF, zA, rake, r } = deckGeom(i);
+    const d = deckhouse({ H: DH, roof: 0.3, roofT: 0.22, side: big && i >= 1 && i < decks - 1 ? balcM : winM, top: white,
+      outline: (f, grow = 0) => plan(w - tum * f + grow, zF + rake * f - grow, zA + grow, nl, r + grow) });
+    d.position.y = HH + i * DH; g.add(d);
+    topZF = zF + rake; topZA = zA;
   }
-  const topY = HH + decks * DH;
-  // the lifeboats in their davits along both sides, over the promenade (the deck above the hull)
+  const topY = HH + decks * DH + 0.22;
+  // the lifeboats in their davits along both sides, over the promenade: rounded hulls, orange, under white canopies
   if (big) for (const sd of [-1, 1]) for (let z = sFront + 0.1 * L; z < sFront + 0.62 * L; z += 15) {
-    const bt = box(3.6, 3, 11, sd * (wS + 2.2), HH + DH * 1.4, z, orange); box(3.7, 0.9, 11.1, sd * (wS + 2.2), HH + DH * 1.4 - 1.5, z, white);
-    box(0.4, 3.4, 0.4, sd * (wS + 0.8), HH + DH * 1.6, z - 4, grey); box(0.4, 3.4, 0.4, sd * (wS + 0.8), HH + DH * 1.6, z + 4, grey);   // the davits
+    const x = sd * (wS + 2.2), y = HH + DH * 1.4;
+    const hb = new THREE.Mesh(new THREE.CapsuleGeometry(1.6, 7.6, 4, 12), orange); hb.rotation.x = Math.PI / 2; hb.scale.set(1.1, 1, 0.75); hb.position.set(x, y - 0.4, z); g.add(hb);
+    const cn = new THREE.Mesh(new THREE.CapsuleGeometry(1.45, 6.8, 4, 12), white); cn.rotation.x = Math.PI / 2; cn.scale.set(1.05, 1, 0.8); cn.position.set(x, y + 0.5, z); g.add(cn);
+    for (const dz of [-4, 4]) { const dv = box(0.4, 3.6, 0.4, sd * (wS + 1.0), HH + DH * 1.6, z + dz, grey); dv.rotation.z = -sd * 0.25; }   // the davits, leaning out
   }
-  // the bridge: its windows forward on the deck below the top, its wings out past the hull either side
-  const brY = topY - DH * 1.5, brZ = sFront + (decks - 2) * (big ? 0.6 : 0.3);
-  box(B + (big ? 4 : 2), DH * 0.85, 5, 0, brY, brZ + 2.5, white);
-  box(B + (big ? 4 : 2) + 0.1, 1.1, 5.1, 0, brY + 0.4, brZ + 2.5, glass);
-  // the observation lounge on top, forward: a band of glass round its front
-  const lg = new THREE.ExtrudeGeometry(deckPlan(topZF + 1, topZF + (big ? 30 : 12), wS * 0.8), { depth: DH * 0.9, bevelEnabled: false, curveSegments: 16 });
-  lg.rotateX(-Math.PI / 2); lg.translate(0, topY, 0); g.add(new THREE.Mesh(lg, [white, glass]));
+  // the bridge: a deck of glass leaning out at the top, wrapping round the front of the deck below the top; its
+  // wings tapering out past the hull either side, glassed cabs at their ends
+  const bi = decks - 2, bd = deckGeom(bi), brY = HH + bi * DH + DH / 2, brZ = bd.zF, bLen = big ? 16 : 7, bw = bd.w + 0.25;
+  { const bh = deckhouse({ H: DH * 0.9, roof: 0.45, roofT: 0.25, side: glassM, top: white,
+      outline: (f, grow = 0) => plan(bw + 0.25 * f + grow, brZ - 0.25 - 0.5 * f - grow, brZ + bLen + grow, nl, 1 + grow) });
+    bh.position.y = HH + bi * DH + 0.05; g.add(bh);
+    const wx = B / 2 + (big ? 2 : 1), wz0 = brZ + nl * 0.75, wD0 = big ? 7 : 3, wD1 = big ? 3.2 : 1.5;
+    for (const sd of [-1, 1]) {
+      const sh = new THREE.Shape([[sd * bw * 0.9, wz0], [sd * wx, wz0 + 0.3], [sd * wx, wz0 + wD1], [sd * bw * 0.9, wz0 + wD0]].map(([x, z]) => new THREE.Vector2(x, -z)));
+      const wg = new THREE.ExtrudeGeometry(sh, { depth: DH * 0.25, bevelEnabled: false }); wg.rotateX(-Math.PI / 2); wg.translate(0, brY + DH * 0.2, 0); g.add(new THREE.Mesh(wg, white));
+      box(big ? 1.6 : 0.8, DH * 0.6, wD1 - 0.3, sd * (wx - (big ? 0.8 : 0.4)), brY + DH * 0.75, wz0 + wD1 / 2 + 0.15, glass);   // the cab at the wing's end
+    }
+  }
+  // the observation lounge on top, forward: its glass front raked aft, wrapping round
+  { const lw = wS * 0.8, lz = topZF + 1, lL = big ? 30 : 12;
+    const lo = deckhouse({ H: DH * 0.9, roof: 0.35, roofT: 0.2, side: glassM, top: white,
+      outline: (f, grow = 0) => plan(lw - 0.3 * f + grow, lz + (big ? 2.2 : 1) * f - grow, lz + lL + grow, lw * 1.1, 2 + grow) });
+    lo.position.y = topY; g.add(lo); }
   // the sun deck, pools, the funnel aft of midships, the mast
   box(B * 0.7, 0.3, (topZA - topZF) * 0.55, 0, topY + 0.15, (topZF + topZA) / 2 + 6, teak);
   if (big) { box(10, 0.4, 16, 0, topY + 0.35, (topZF + topZA) / 2 - 4, blue); box(8, 0.4, 10, 0, topY + 0.35, (topZF + topZA) / 2 + 22, blue); }
@@ -340,16 +369,17 @@ function glassBand(lit) {   // a pilothouse's windows: a deep band of glass, thi
   if (!lit) { c.fillStyle = '#f3f2ee'; for (let x = 0; x < 128; x += 32) c.fillRect(x, 0, 3, 32); }
   const t = new THREE.CanvasTexture(cv); t.wrapS = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; return t;
 }
-function deckhouse({ W, zf, za, H, rakeF = 0, tumble = 0, nF = 2.4, nA = 9, roof = 0.3, roofT = 0.2, side, top }) {
+// outline(f, grow), if given, draws the plan instead: N = 64 points round it (the cruise ship's decks, v952).
+function deckhouse({ W, zf, za, H, rakeF = 0, tumble = 0, nF = 2.4, nA = 9, roof = 0.3, roofT = 0.2, side, top, outline }) {
   const N = 64, g = new THREE.Group();
-  const ring = (f, grow = 0) => {   // the outline at a fraction f of the height, grown outward by `grow`
+  const ring = outline || ((f, grow = 0) => {   // the outline at a fraction f of the height, grown outward by `grow`
     const w = W / 2 - tumble * f + grow, z0 = zf + rakeF * f - grow, z1 = za + grow, c = (z0 + z1) / 2, hl = (z1 - z0) / 2, out = [];
     for (let i = 0; i < N; i++) {
       const t = i / N * Math.PI * 2, ct = Math.cos(t), st = Math.sin(t), n = st < 0 ? nF : nA;   // (sin < 0: the front half)
       out.push([w * Math.sign(ct) * Math.abs(ct) ** (2 / n), c + hl * Math.sign(st) * Math.abs(st) ** (2 / n)]);
     }
     return out;
-  };
+  });
   const band = (r0, y0, r1, y1, mat, uvScale) => {
     const pos = [], uv = [], idx = []; let s = 0;
     for (let i = 0; i <= N; i++) {
