@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-20 — Clear Screen clears Bird's-eye's route too (v953)
+
+Reported: Clear Screen left a route's waypoints and line showing in Bird's-eye. Bird's-eye (bay3d.html) is its
+own page with its own route picker; Clear Screen only hid the chart's layers and never told it. It now calls the
+new `__bay3d.clearRoute()`, which also forgets the remembered route so reopening Bird's-eye stays clear.
+
 ## 2026-10-20 — A streamlined cruise ship; folded windows open out (v952)
 
 Requested: "make the cruise ship's superstructure less boxy too". Each deck is now a deckhouse (vessels.js) with a

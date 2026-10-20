@@ -2098,6 +2098,8 @@ applyConditions(startConditions(params));
 statusEl.hidden = true;
 requestAnimationFrame(frame);
 window.__bay3d = {   // for AudioChart (returning to the chart where you were) and for testing
+  // Clear Screen on the chart (v953): drop the route's waypoints and line, as the chart drops its routes
+  clearRoute: () => showRoute('', false),
   getView: () => ({ lat: latOf(view.z), lon: lonOf(view.x), dist: view.dist, az: view.az / DEG, tilt: view.tilt / DEG, following: follow === own }),
   // where your boat is on screen, [x, y] in this page's pixels, or null (for testing and the demo video)
   boatOnScreen: () => {

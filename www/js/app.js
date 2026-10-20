@@ -15174,6 +15174,9 @@ function _clearScreen() {
   _saveHiddenRoutes();
   _refreshSavedRouteLayers();
 
+  // Bird's-eye is its own page with its own route picker: it has to be told (v953)
+  _bay3dApi()?.clearRoute?.();
+
   const tracks = JSON.parse(localStorage.getItem(TRACK_KEY) || '[]');
   tracks.forEach(t => _hiddenTrackNames.add(t.name));
   _saveHiddenTracks();
