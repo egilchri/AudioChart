@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-20 — Bird's-eye boats get the same wake (v959)
+
+Requested: "give Bird's-eye boats the same wake". The helm view's in-the-water wake moved into a shared module,
+www/js/wake3d.js (makeWakes(water, n)), which patches a Water shader for up to n wakes at once. Bird's-eye
+(bay3d.js updateWakes) gives one to the nearest dozen boats under way: your boat, the fleet, ferries and cruise
+ships. Each is mapped onto the pattern by her length and the size she's drawn at (Bird's-eye draws boats larger
+from far off), stretched by her real speed (wavelength 2πU²/g against her length), slopes kept as steep whatever
+her size. The old painted foam overlays (sailboat3d.js, vessels.js) are left off. The helm view now uses the same
+module with one wake.
+
 ## 2026-10-20 — The wake shows at any time rate (v958)
 
 Reported: "It looks like you took away the wake completely" (Angelique, Drone view, a fast pace). v957's wake took

@@ -10,6 +10,7 @@
 // you are looking once you are low enough to see them. Town buildings load near their town.
 import * as THREE from 'three';
 import { Water } from './lib/three/Water.js';
+import { makeWakes } from './wake3d.js';
 import { LON0, LAT0, MX, MY, wx, wz, readDem, readTopobathy, photo, addCanopy, gridMesh, photoMat, buildTown, disposeGroup, spruce, TOWN_NIGHT } from './terrain3d.js';
 import { sunPos, SUN, makeSky, makeEnv, glowSprite, flashFor, flashOn, sectorColour, weatherPanel, startConditions, makeTrimmer, cycleLook } from './weather3d.js';
 import { makeSailboat, fleetType } from './sailboat3d.js';
@@ -732,6 +733,18 @@ water.rotation.x = -Math.PI / 2; water.material.uniforms.size.value = 6;
 water.material.fragmentShader = water.material.fragmentShader.replace('float rf0 = 0.3;', 'float rf0 = 0.04;').replace('reflectionSample * 0.9 +', 'reflectionSample * 0.78 +');
 water.material.needsUpdate = true;
 scene.add(water);
+// wakes in the water itself (v959, requested: "give Bird's-eye boats the same wake" as the helm view's,
+// wake3d.js), for the nearest dozen boats under way; the old painted foam overlays stay off
+const wakes = makeWakes(water, 12), WAKE_N = 12;
+function updateWakes(dt) {
+  const cp = camera.position, list = [];
+  const add = (key, g, L, kn, moving) => { if (moving && g.visible) list.push({ key, x: g.position.x, z: g.position.z, rotY: g.rotation.y, L, scale: g.scale.x, kn, moving, d: Math.hypot(g.position.x - cp.x, g.position.z - cp.z) }); };
+  if (own.r || own.ext) add('own', own.boat.group, own.boat.L, own.wakeKn, own.wakeOn);
+  fleet.forEach((b, i) => add('f' + i, b.boat.group, b.boat.L, b.boat.kn || BOAT_KN, !!b.going));
+  traffic.forEach((v, i) => add('t' + i, v.group, v.L, v.kind === 'ferry' ? v.F.knots : v.V.knots, !!(v.on && v.st?.moving)));
+  list.sort((a, b) => a.d - b.d);
+  wakes.update(list.slice(0, WAKE_N), dt);
+}
 const sky = makeSky(150000); scene.add(sky);
 const clouds = (() => {
   const N = 512, img = new ImageData(N, N), rand = (() => { let sd = 5; return () => (sd = (sd * 16807) % 2147483647) / 2147483647; })();
@@ -1235,7 +1248,7 @@ function updateFleet(dt) {
     }
     const p = b.trim(env.C.windFrom, b.h, env.W.tws ?? 8, up ? kn : 0, dt * FLEET_K / 4);
     b.boat.trim(p, heel, up);
-    b.boat.wake(go ? Math.min(1, kn / 8) : 0);
+    b.boat.wake(0); b.going = go;   // (its wake is in the water: updateWakes)
     { const d = Math.hypot(b.x - cp.x, cp.y, b.z - cp.z); b.boat.group.scale.setScalar(nest.on && (b === nest.v || d < 1500) ? 1 : boatScale(b.boat, d)); }   // never smaller than 1.6×: the closest you can come is ~120 m (but life-size round you when you're aboard a vessel)
     b.boat.group.position.set(b.x, 0, b.z);
     b.boat.group.rotation.y = -b.h * DEG;
@@ -1507,7 +1520,7 @@ function updateTraffic() {
     v.x = p.x; v.z = p.z; v.h = hdg;
     if (v.kind === 'ferry') berthPose(v, st);   // alongside at a landing, not on the pier where her line begins (v941)
     v.group.position.set(v.x, 0, v.z); v.group.rotation.y = -v.h * DEG;
-    for (const w of v.group.userData.wake) w.visible = st.moving;
+    for (const w of v.group.userData.wake) w.visible = false;   // (her wake is in the water: updateWakes)
     // drawn a little bigger from far off, as the sailboats are (less: she's big already)
     v.group.scale.setScalar(nest.on && nest.v === v ? 1 : Math.max(1, Math.min(v.kind === 'cruise' ? 3 : 8, Math.hypot(p.x - cp.x, cp.y, p.z - cp.z) / 250 * Math.sqrt(8 / v.L) * 0.6)));
     v.label = v.kind === 'ferry' ? `${v.F.says || 'Ferry'} ${st.moving ? 'to ' + st.bound : 'at ' + st.at}` : `${v.V.name[0].toUpperCase() + v.V.name.slice(1)}, ${st.doing}`;
@@ -1812,7 +1825,8 @@ function updateOwn(dt) {
   }
   const p = own.trim(env.C.windFrom, own.h, env.W.tws ?? 8, up ? kn : 0, dt * Math.min(pace, 8));
   own.boat.trim(p, env.W.heel * DEG, up);
-  own.boat.wake(up ? Math.min(1, kn / 8) : 0);
+  own.boat.wake(0);   // (her wake is in the water: updateWakes)
+  own.wakeOn = own.ext ? !!own.ext.moving : !!(own.playing || own.vj) && own.S < own.total; own.wakeKn = kn;
   const cp = camera.position;
   { const d = Math.hypot(own.x - cp.x, cp.y, own.z - cp.z); own.boat.group.scale.setScalar(nest.on && (nest.v === own || d < 1500) ? 1 : boatScale(own.boat, d)); }
   own.boat.group.position.set(own.x, 0, own.z); own.boat.group.rotation.y = -own.h * DEG;
@@ -2084,6 +2098,7 @@ function frame(now) {
   updateTraffic();
   updateWaypoints();
   updateOwn(dt);
+  updateWakes(dt);
   if (nest.on) nestCamera();   // after every vessel has moved, yours too
   if (nest.on || !rcEl?.hidden) drawRideChart();
   wildlife.update(dt, t, view, camera.position, { hidden: !!aboveFog || EMPTY, night: env.C.time === 'night', boat: (own.ext || own.r) ? own : null, scale: d => clamp(d / 35, 3, 8) });
