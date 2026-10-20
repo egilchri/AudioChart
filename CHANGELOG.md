@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-20 — Sea Nymph's rounded transom, and her name on it (v956)
+
+Reported: "the sides on the back of Sea Nymph, ie the transom, is rounded, not straight", and requested her name
+with "Portsmouth NH" below it. Her aft topsides (helm3d.js) now round out below the sheer and come back in at the
+waterline, so the transom's outline is curved rather than a trapezoid, with more crown across it. "Sea Nymph" in
+navy italic and PORTSMOUTH, NH below are painted across the transom (a canvas texture on a copy of the transom
+surface; the lofted surfaces now carry UVs for it). No published lines for the 25D were found; the shape follows
+the owner's description.
+
 ## 2026-10-20 — Stern, Side and Bow views (v955)
 
 Requested: "a stern view, a side view, and a bow view to our boats underway". The helm view (helm3d.js) has three

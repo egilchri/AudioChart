@@ -394,7 +394,8 @@ const bow = new THREE.Group();
       idx.push(a, c, b, b, c, d);
     }
     const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+    const uv = []; for (let i = 0; i <= nz; i++) for (let j = 0; j <= nx; j++) uv.push(j / nx, 1 - i / nz);   // (for the transom's name)
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
     const m = new THREE.Mesh(g, mat); m.material.side = THREE.DoubleSide; return m;
   }
   const zAt = u => Z0 + u * L;
@@ -511,7 +512,10 @@ const bow = new THREE.Group();
   // aft topsides (v902): a short counter, the raked transom meeting the water OVS forward of its top
   const OVS = 0.55, aftPt = (s, u, v, out = 0) => {
     const zd = Z0 + u * (ZT - Z0), f = v ** 1.3, z = zd + (Z0 + u * (ZT - OVS - Z0) - zd) * f;
-    return [s * halfA(zd) * (1 - 0.16 * f) * (1 + out), sheerA(zd) * (1 - v), z];
+    // aft, the sides round out below the sheer and tuck in toward the water (v956, reported: "the sides on the
+    // back of Sea Nymph, ie the transom, is rounded, not straight"): a curved transom outline, not a trapezoid
+    const w = u * u, round = 1 + w * 0.11 * Math.sin(Math.PI * v ** 0.8);   // back to the old breadth at the waterline, where the bottom meets it
+    return [s * halfA(zd) * (1 - 0.16 * f) * round * (1 + out), sheerA(zd) * (1 - v), z];
   };
   const aftUnder = (s, u, v) => { const z = Z0 + u * (ZT - OVS - Z0) - 0.5 * u ** 3 * v; return [s * halfA(Z0 + u * (ZT - Z0)) * 0.84 * (1 - (0.45 + 0.4 * u) * v ** 1.2), -0.45 * v, z]; };
   for (const sd of [-1, 1]) {
@@ -523,8 +527,16 @@ const bow = new THREE.Group();
   band(aftPt, shA, 0.1, 0.13, STRIPE, 16);
   // transom: the raked plane between the two topsides' after edges, a touch of round to it, the
   // boot-top carried across; under it, the bottom closes in to the rudder
-  const trPt = (a, v, out = 0) => { const p = aftPt(-1, 1, v), q = aftPt(1, 1, v); return [p[0] + (q[0] - p[0]) * a, p[1], p[2] + 0.05 * Math.sin(Math.PI * a) + out]; };
-  bow.add(loft(8, 10, (v, a) => trPt(a, v), WHITE));
+  const trPt = (a, v, out = 0) => { const p = aftPt(-1, 1, v), q = aftPt(1, 1, v); return [p[0] + (q[0] - p[0]) * a, p[1], p[2] + 0.09 * Math.sin(Math.PI * a) + out]; };
+  bow.add(loft(16, 20, (v, a) => trPt(a, v), WHITE));
+  { // her name and hailing port across the transom (v956, requested), in navy like her stripes
+    const c = document.createElement('canvas'); c.width = 1024; c.height = 512;
+    const x = c.getContext('2d'); x.fillStyle = '#1f3352'; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.font = 'italic bold 132px Georgia, "Times New Roman", serif'; x.fillText('Sea Nymph', 512, 150);
+    x.font = 'bold 56px Georgia, "Times New Roman", serif'; x.fillText('P O R T S M O U T H ,  N H', 512, 262);
+    const tex = new THREE.CanvasTexture(c); tex.anisotropy = 4;
+    bow.add(loft(16, 20, (v, a) => trPt(a, v, 0.008), new THREE.MeshLambertMaterial({ map: tex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 })));
+  }
   bow.add(loft(1, 10, (v, a) => trPt(a, 1 - (0.1 * (1 - v)) / sheerA(ZT), 0.006), STRIPE));
   bow.add(loft(4, 8, (v, a) => { const p = aftUnder(-1, 1, v), q = aftUnder(1, 1, v); return [p[0] + (q[0] - p[0]) * a, p[1], p[2]]; }, BOTTOM));
   { // transom-hung "barn door" rudder (as the 25D's): its leading edge follows the transom's rake,
