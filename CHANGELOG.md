@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-10-21 — Sample routes re-routed clear of the restored hazards (v967)
+
+Requested: "re-route the sample routes". With the hazards always under water back (v965), five of the six
+sample routes passed within 60 yd of charted rocks, some 13–20 m from rocks with 0.9–1.8 m over them. Each
+flagged leg re-planned with AutoRoute (5 ft) and checked at 3.5, 5 and 11 ft; overnight stops and the ends kept.
+- Perry Creek, Stonington (overnight at Perry Creek), Hadlock Cove: the flagged legs re-planned; clear.
+- WoodenBoat School: WP13 moved 65 m to clear water, legs re-planned; WP16–17 (in the ledges west of Little
+  Deer Isle) dropped for a re-planned WP15→WP18 leg; clear.
+- Carver's Harbor: WP4 (off Greens Island) dropped for a re-planned WP3→WP5 leg (+0.5 nm); clear except the
+  last leg: the destination lies 20 m from a charted obstruction with 2.6 ft over it (left as is). For 11 ft
+  boats one leg in the inner harbor also passes a hazard too shallow for them.
+- Warren Island was already clear.
+Found on the way, not fixed: AutoRoute trusts "spatial buoy chain" edges (straight lines between buoys merely
+near each other) against point hazards — they get a depth test (v926) but no hazard test; one runs through the
+ledges west of Little Deer Isle within 60 yd of rocks.
+
 ## 2026-10-21 — AutoRoute to a boxed-in destination no longer searches twice (v966)
 
 v965's CI failed case [32] (Home -> Carvers Harbor landing): 18 s on CI's runner, 26 s locally (10 s before).
