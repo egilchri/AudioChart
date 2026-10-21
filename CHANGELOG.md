@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-21 — AutoRoute's shoal check 2–3× faster, same routes (v974)
+
+Requested: speed up the shoal check, after finding why the routing tests fail at random on a busy Mac:
+AutoRoute's search stops at a wall-clock deadline (18 s), and on a loaded machine it ran out of time on
+a different set of cases each run. The shoal-clearance check (`_shoalClearanceNm` in router.js) was the
+biggest single cost (~23% of the search). Now: no per-leg Set of grid cells (along a straight leg a cell
+is new exactly when it's outside the previous 3×3 window), and a flat-earth distance first (with a 1.25
+safety margin) so points that can't be nearest skip the haversine and the endpoint test.
+- Same results: old and new run side by side on 274,274 calls over five real routes, 0 differences.
+- 1.9–3.1× faster per call; ~9% of the search now, from ~23%. Next biggest: the land-crossing check.
+
 ## 2026-10-21 — Sample routes say which boat they were checked for (v973)
 
 Requested: "fix the 11 ft Carvers leg". It can't be re-routed: at low water the charts give Carver's Harbor's
