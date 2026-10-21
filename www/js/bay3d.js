@@ -1295,7 +1295,7 @@ const FORCE_CRUISE = params.get('cruise') || '';
 // The scene's clock (v934, the user's idea: "put a clock on the screen, and turn it to the time the ferry or
 // cruise ship will pass by"): the real time to begin with (or ?clock=HH:MM); the 🕗 panel sets it, runs it
 // faster, and lists what's coming, each a jump to that moment and that vessel. Once you've set it, the light
-// follows it too (the sun's height then: night, dawn, day or sunset).
+// follows it too (the sun's height then: night, dawn, day or sunset), until you pick a Time in the weather panel.
 const realMin = () => { const d = new Date(); return d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60; };
 const simClock = { base: (() => { const c = params.get('clock'); return c && /^\d\d?:\d\d$/.test(c) ? mins(c) : realMin(); })(), at: performance.now(), rate: 1, light: false };
 // Linked to your boat (v936, requested: "link the two clocks"): while she sails a route (▶ Sail it, or a
@@ -2153,7 +2153,9 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 // Weather panel: in the readout box, top right; the forecast is for where you're looking
-wxPanel = weatherPanel({ host: document.getElementById('scale'), panelParent: document.body, where: () => [lonOf(view.x), latOf(view.z)], pick: applyConditions });
+// choosing a time of day yourself (a Time button, N, Forecast now) takes the light back from the clock until you
+// move the clock again (v975: after a clock change, lightForClock undid the choice within a second)
+wxPanel = weatherPanel({ host: document.getElementById('scale'), panelParent: document.body, where: () => [lonOf(view.x), latOf(view.z)], pick: c => { if ('time' in c) simClock.light = false; applyConditions(c); } });
 applyConditions(startConditions(params));
 statusEl.hidden = true;
 requestAnimationFrame(frame);

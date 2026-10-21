@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-21 — Weather Time buttons work after a clock change (v975)
+
+Requested: "fix the weather Time buttons after a clock change" (found while recording v972's Overview). In the
+Bird's-eye view, once you had set the 🕗 clock the light followed the sun at that time (v934), and the
+once-a-second lightForClock() undid any Day/Dawn/Sunset/Night choice within a second. Choosing a time of day
+yourself (a Time button, N, or Forecast now) now takes the light back from the clock; moving the clock again
+hands it back. Verified in headless Chrome: clock 11:00, Sunset stays Sunset; N gives Night; clock to 19:00
+gives Night, to 12:00 gives Day.
+
 ## 2026-10-21 — AutoRoute's shoal check 2–3× faster, same routes (v974)
 
 Requested: speed up the shoal check, after finding why the routing tests fail at random on a busy Mac:
