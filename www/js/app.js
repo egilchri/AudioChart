@@ -8017,12 +8017,12 @@ function _fsSetCourse(magDeg, say = true) {
   _fsSyncCourse(); _fsStatus();
   if (say) _fsSay(`Course ${_fsDeg3(_fsMagOf(_fs.hdg))} magnetic.`);
 }
-function _fsSetSpeed(kn) {
+function _fsSetSpeed(kn, say = true) {
   kn = Math.max(0.5, Math.min(50, Math.round(kn * 10) / 10));
   if (!_fs && !_startFreeSail({ speed: kn })) return;
   _vjSpeedKnots = kn; _fs.held = null;
   document.getElementById('vjourney-speed-input').value = kn;
-  _fsStatus(); _fsSay(`${kn} knots.`);
+  _fsStatus(); if (say) _fsSay(`${kn} knots.`);
 }
 // "buoy number 2", "can 7", "green 3", "the bell": the nearest such navaid, favouring ones ahead
 const _FS_NUMS = { one: '1', two: '2', three: '3', four: '4', five: '5', six: '6', seven: '7', eight: '8', nine: '9', ten: '10', eleven: '11', twelve: '12' };
@@ -8149,6 +8149,7 @@ function _fsStep() {
   const now = Date.now(), dt = Math.min(2, (now - _fs.lastMs) / 1000);
   _fs.lastMs = now;
   if (_fs.running && _fsWheelDeg) _fsWheelTurn(dt);
+  _fsWheelPlace();
   if (!_fs.running || _fs.held) return;
   const t = _fs.target;
   if (t) {
@@ -8171,7 +8172,8 @@ function _fsStep() {
 async function _freeSailCommand(intent, params) {
   switch (intent) {
     case 'FREE_SAIL_START':
-      if (_fs) { if (params.course != null) _fsSetCourse(params.course, false); if (params.speed) _vjSpeedKnots = params.speed; _fsSay(`Course ${_fsDeg3(_fsMagOf(_fs.hdg))} magnetic, ${_vjSpeedKnots} knots.`); }
+      // "sail 120 at 6 knots" while already sailing: the speed through _fsSetSpeed, so the Speed box follows (v977)
+      if (_fs) { if (params.course != null) _fsSetCourse(params.course, false); if (params.speed) _fsSetSpeed(params.speed, false); _fsSay(`Course ${_fsDeg3(_fsMagOf(_fs.hdg))} magnetic, ${_vjSpeedKnots} knots.`); }
       else _startFreeSail(params);
       return '';
     case 'FREE_SAIL_COURSE': _fsSetCourse(params.course); return '';
@@ -8258,6 +8260,31 @@ function _fsWheelShow() {
     _fsWheelEl.style.left = `${Math.max(4, Math.min(window.innerWidth - r.width - 4, r.left))}px`;
     _fsWheelEl.style.top = `${Math.max(4, Math.min(window.innerHeight - r.height - 4, r.top))}px`;
   }
+  _fsWheelPlace();
+}
+// Bird's-eye's view bar sits across the bottom where the wheel goes (v977): an unmoved wheel steps left of it, or
+// above it if there's no room; a wheel you've moved stays put. Checked on show and each Free-sail tick.
+function _fsWheelPlace() {
+  const el = _fsWheelEl;
+  if (!el || el.hidden || el.style.left) return;
+  let bar = null;
+  try {
+    const fr = _bay3dWrap && !_bay3dWrap.hidden ? _bay3dWrap.querySelector('iframe') : null;
+    const sc = fr?.contentDocument?.getElementById('scale');
+    if (sc && sc.offsetWidth) { const f = fr.getBoundingClientRect(), r = sc.getBoundingClientRect(); bar = { left: f.left + r.left, right: f.left + r.right, top: f.top + r.top, bottom: f.top + r.bottom }; }
+  } catch (_) {}
+  // where it would be with no step aside: its box less the current translate (clearing that to measure would
+  // restart the transition every tick)
+  const was = el.style.translate, [tx = 0, ty = 0] = was.split(/\s+/).map(parseFloat).map(v => v || 0);
+  const r0 = el.getBoundingClientRect(), w = { left: r0.left - tx, right: r0.right - tx, top: r0.top - ty, bottom: r0.bottom - ty, width: r0.width };
+  let dx = 0, dy = 0;
+  if (bar && w.left < bar.right && w.right > bar.left && w.top < bar.bottom && w.bottom > bar.top) {
+    const rail = document.getElementById('left-rail-zoom-pan')?.getBoundingClientRect().right || 96;
+    if (bar.left - 12 - w.width >= rail + 8) dx = bar.left - 12 - w.right;
+    else dy = bar.top - 8 - w.bottom;
+  }
+  const next = dx || dy ? `${Math.round(dx)}px ${Math.round(dy)}px` : '';
+  if (next !== was) el.style.translate = next;
 }
 function _fsWheelMidships() { _fsWheelDeg = 0; _fsWheelDraw(); }
 function _fsWheelDraw() {
@@ -8303,6 +8330,13 @@ function _fsWheelBuild() {
     if (pos) { el.style.left = `${pos.left}px`; el.style.top = `${pos.top}px`; el.style.bottom = 'auto'; el.style.transform = 'none'; }
   } catch (_) {}
   const grip = el.querySelector('.fsw-grip');
+  // taking hold of a wheel _fsWheelPlace has stepped aside: fold that step into left/top first, so it doesn't jump
+  const settle = () => {
+    if (!el.style.translate) return;
+    const r = el.getBoundingClientRect();
+    Object.assign(el.style, { translate: '', transform: 'none', left: `${r.left}px`, top: `${r.top}px`, bottom: 'auto' });
+  };
+  grip.addEventListener('mousedown', settle, true); grip.addEventListener('touchstart', settle, { capture: true, passive: true });
   _makeDraggable(el, grip, () => {
     el.style.transform = 'none';
     try { localStorage.setItem(FS_WHEEL_POS_KEY, JSON.stringify({ left: parseFloat(el.style.left), top: parseFloat(el.style.top) })); } catch (_) {}

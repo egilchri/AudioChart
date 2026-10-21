@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-10-21 — Lookout report, Free-sail wheel and Speed box fixes (v977)
+
+Requested: "fix the other three issues too" (found while recording v972's Overview).
+- Lookout's report: inside AudioChart, Bird's-eye's report panel (#nestrep) sat at the left edge, under the
+  chart's compass/zoom/pan/tilt column. On screens wider than 640 px it now starts at 96 px (bay3d.html).
+- Free-sail wheel: centred at the bottom, it sat on Bird's-eye's view bar (Bowdoin … Weather). An unmoved wheel
+  now steps left of the bar, or above it if there's no room (_fsWheelPlace, each Free-sail tick); on the chart
+  it stays centred, and a wheel you've dragged stays where you put it. Taking hold of a stepped-aside wheel
+  doesn't make it jump.
+- Speed box: "sail 120 at 6 knots" while already free sailing set the speed directly, so the banner's Speed box
+  kept the old number; it now goes through _fsSetSpeed like "speed 6 knots".
+Verified in headless Chrome at 1400x800: report at x 96 (rail ends at 84); wheel x 388-538, bar from 550; chart
+view wheel centred; Speed box 6 after "sail 120 at 6 knots", 4 after "speed 4 knots".
+
 ## 2026-10-21 — AutoRoute's land check ~2.5× faster, same routes (v976)
 
 Next after the shoal check (v974): the land-crossing test (`_landBlocksIndexed` in query.js, the biggest

@@ -77,6 +77,8 @@ body.embed #followhud { top: calc(94px + env(safe-area-inset-top, 0px)); }
 #nestrep .x { position: absolute; right: 4px; top: 3px; font: inherit; font-size: 1rem; line-height: 1; color: var(--ink); background: none; border: 0; padding: 2px 6px; cursor: pointer; opacity: 0.75; }
 body:not(.innest) #nestrep { display: none; }
 body.embed #nestrep { top: calc(230px + env(safe-area-inset-top, 0px)); }
+/* inside AudioChart the chart's compass, zoom, pan and tilt column runs down the left edge over this frame (v977) */
+@media (min-width: 641px) { body.embed #nestrep { left: 96px; width: min(330px, calc(100vw - 108px)); } }
 @media (max-width: 640px) { #nestrep { top: auto; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); width: calc(100vw - 24px); max-height: 32vh; } body.embed #nestrep { top: auto; bottom: calc(150px + env(safe-area-inset-bottom, 0px)); } }
 #nestrep .head { opacity: 0.8; margin-bottom: 2px; }
 body.innest .panel, body.innest #help { display: none !important; }
