@@ -763,6 +763,28 @@ async function main() {
     })());
   }
 
+  // Case 35 — through the ledges west of Little Deer Isle (found 2026-10-21 re-routing the WoodenBoat School
+  // sample). A spatial buoy-chain edge ("spatial-27": a straight line between two buoys merely near each other)
+  // skipped the point-hazard check like a charted channel, and ran within 60 yd of rocks with under 2 m over them.
+  // Since v967 such edges must keep the hazard clearance: no leg of the route may come within it of a rock,
+  // obstruction or wreck too shallow for her (5 ft + 3 ft margin).
+  gate(await (async () => {
+    Query.setActiveRegion('penobscot-bay');
+    await Query.loadData(44.103, -69.088);
+    await waitForRegionDataReady(Query);
+    const label = '[35] West of Little Deer Isle, clear of the ledges (spatial buoy-chain edges keep off rocks)';
+    const t0 = Date.now();
+    const p = await Router.autoRouteProg({ lat: 44.150155, lon: -68.667694 }, { lat: 44.154681, lon: -68.646232 }, () => {}, () => {}, false, 5.0, 0, null, null, DEADLINE_MS);
+    const ms = Date.now() - t0;
+    const need = (5 + 3) * 0.3048;
+    const close = [];
+    for (let i = 0; i < p.length - 1; i++) if (Query.hazardPointBlocks(p[i].lon, p[i].lat, p[i + 1].lon, p[i + 1].lat, need)) close.push(i);
+    const crosses = pathCrossesLand(Query, p);
+    const ok = p.length > 2 && !crosses && !close.length && ms < DEADLINE_MS;
+    console.log(`${label}: ${ok ? 'PASS' : 'FAIL'} (legs near a hazard=${JSON.stringify(close)}, crossesLand=${crosses}, ${p.length} pts, ${ms}ms)`);
+    return { ok };
+  })());
+
   console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll cases passed.');
   console.log(
     '\nNOT PORTED (relied on injecting a synthetic obstacle ring the real\n' +

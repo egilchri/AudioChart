@@ -272,7 +272,7 @@ async function _autoRouteCore(
   // concern (avoiding a specific charted danger, not general coastal
   // standoff) and keep the original, unchanged ladder.
   const COASTAL_STANDOFF_LADDER = [0.5, 0.25, 0.15];
-  const HAZARD_OFFSET_LADDER = [SAFETY_NM, SAFETY_NM * 2, SAFETY_NM * 4];
+  const HAZARD_OFFSET_LADDER = [0.015, SAFETY_NM, SAFETY_NM * 2, SAFETY_NM * 4];
   // A charted drying/shallow zone can be much wider than a small point
   // hazard's ~100yd safety circle — confirmed live (Rockland -> Camden):
   // real tidal flats along the Rockport/Glen Cove shoreline needed up to
@@ -897,8 +897,10 @@ async function _autoRouteCore(
     return c >= SHOAL_STANDOFF_NM ? 0 : SHOAL_PENALTY_NM * (1 - c / SHOAL_STANDOFF_NM);
   }
 
-  // depthOnly (v926): just the depth areas (tidal rings, with their soundings rule) — for spatial buoy-chain
-  // edges, which skip the land test like every channel edge (see the relaxation loop) but not the depth.
+  // depthOnly (v926): no land test — for spatial buoy-chain edges, which skip it like every channel edge (see the
+  // relaxation loop) — but the depth areas (tidal rings, with their soundings rule) and, since v967, the charted
+  // point hazards (rocks, obstructions, wrecks) still apply: one such edge ran through the ledges west of Little
+  // Deer Isle within 60 yd of rocks.
   function segBlocked(lon1, lat1, lon2, lat2, depthOnly = false) {
     if (!depthOnly && Query.landBlocks(lon1, lat1, lon2, lat2)) return true;
     // Global, bbox-independent backstop for point hazards (underwater
@@ -909,7 +911,7 @@ async function _autoRouteCore(
     // case this fixes: a route passed within 1.5m of a charted rock
     // whose circle was never built because it sat just outside the
     // query bbox). Cheap — grid-indexed, same cost class as landBlocks.
-    if (!depthOnly && Query.hazardPointBlocks(lon1, lat1, lon2, lat2, draftM + KEEL_CLEARANCE_MARGIN_M)) return true;
+    if (Query.hazardPointBlocks(lon1, lat1, lon2, lat2, draftM + KEEL_CLEARANCE_MARGIN_M)) return true;   // (depthOnly too, v967)
     const sx = Math.min(lon1, lon2), ex = Math.max(lon1, lon2);
     const sy = Math.min(lat1, lat2), ey = Math.max(lat1, lat2);
     const x0 = _extraCellX(sx), x1 = _extraCellX(ex);
@@ -1643,7 +1645,8 @@ async function _autoRouteCore(
         const j = channelKeyToIdx.get(nb.key);
         if (j === undefined || closed[j]) continue;
         if (_channelEdgeCutsLand(a, nb)) continue;
-        // ...but a spatial buoy chain's edge still has to have the depth (v926). Real bug (2026-10-17): one
+        // ...but a spatial buoy chain's edge still has to have the depth (v926), and keep clear of charted rocks,
+        // obstructions and wrecks (v967: one ran within 60 yd of the ledges west of Little Deer Isle). Real bug (2026-10-17): one
         // ("spatial-89", a straight line between two buoys that are merely near each other) took Bowdoin and
         // Angelique across a charted 0-18 ft area and a 6-12 ft one in Jericho Bay. Fairways, recommended
         // tracks and named buoy chains stay trusted: their digitized lines clip the narrow shallow areas

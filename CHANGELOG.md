@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-10-21 — Buoy-chain shortcuts keep off rocks; Carvers sample destination moved (v970)
+
+Requested: "fix the router gap". AutoRoute's spatial buoy-chain edges (straight lines between buoys merely near
+each other) had a depth test (v926) but no point-hazard test; one ran within 60 yd of rocks in the ledges west
+of Little Deer Isle. router.js segBlocked(depthOnly) now applies the point-hazard check too (still no land
+test). That closed the edge AutoRoute had used into Carvers Harbor (case [30] stopped 0.7 nm short), so hazard
+rings now also get candidate nodes 0.015 nm outside them (HAZARD_OFFSET_LADDER, was 0.05 nm at the least) to
+find a way through narrow entrances. New case [35] (west of Little Deer Isle); note it also passes with the
+closer nodes alone, so it doesn't isolate the hazard check. Full suite and hazard-clearance test pass (case
+[32] 15.5 s locally under load, limit 36 s).
+Requested: "move the Carvers destination clear of the obstruction": the Carver's Harbor sample now ends 46 m
+north, 75 m from the nearest hazard; the route is clear at 3.5 and 5 ft (one inner-harbor leg is still too
+close for 11 ft).
+
 ## 2026-10-21 — Stern, Side and Bow while following a boat (v969)
 
 Requested: "add them while following too". Following any boat in the Bird's-eye view (Follow in ⛴ Underway, a
