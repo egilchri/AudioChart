@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-20 — Search works in Bird's-eye (v960)
+
+Reported: "search doesn't seem to work in birdseye mode". Search dropped its pin and moved the chart, which sits
+hidden under the 3D view, so nothing seemed to happen. Now it also flies Bird's-eye there (bay3d.js dropPin, via
+__bay3d), with a blue pin on a pole labelled SP001 etc. Clear Screen removes the pins too.
+
 ## 2026-10-20 — Bird's-eye boats get the same wake (v959)
 
 Requested: "give Bird's-eye boats the same wake". The helm view's in-the-water wake moved into a shared module,

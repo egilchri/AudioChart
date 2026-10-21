@@ -15141,6 +15141,7 @@ async function _runSearch() {
     _map.invalidateSize();
     _map.setView([coord.lat, coord.lon], Math.max(_map.getZoom() || 13, 13));
   }, 300);
+  _bay3dApi()?.dropPin?.(coord.lat, coord.lon, name);   // Bird's-eye up: fly there too (v960)
   setStatus(`${name}: ${note}`);
 }
 

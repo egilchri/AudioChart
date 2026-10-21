@@ -1724,8 +1724,23 @@ function showRoute(id, fly) {
     flyTo({ x: (x0 + x1) / 2, z: (z0 + z1) / 2, dist: clamp(Math.max(x1 - x0, z1 - z0) * 1.5, 2500, 90000), tilt: 45 * DEG, az: 0 }, 2800);
   }
 }
+// Search on the chart (v960, reported: "search doesn't seem to work in birdseye mode"): it moved the
+// chart hidden underneath; now the view flies to the place too, and a blue pin marks it (SP001 …)
+const pinGroup = new THREE.Group(); scene.add(pinGroup);
+const pins = [];
+function dropPin(lat, lon, label) {
+  const g = new THREE.Group(); g.position.set(wx(lon), 0, wz(lat));
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 3.2, 6), new THREE.MeshLambertMaterial({ color: 0xf2f2ee })); pole.position.y = 1.6; g.add(pole);
+  const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.55), new THREE.MeshLambertMaterial({ color: 0x2f7fd0, emissive: 0x2f7fd0, emissiveIntensity: 0.35 })); gem.position.y = 3.6; gem.scale.y = 1.4; g.add(gem);
+  pinGroup.add(g); pins.push({ g, label });
+  stopFollow(); markCurrent(null);
+  flyTo({ x: g.position.x, z: g.position.z, dist: 2500, tilt: Math.max(view.tilt, 35 * DEG), az: view.az }, 2800);
+}
+function clearPins() { for (const p of pins.splice(0)) { pinGroup.remove(p.g); p.g.traverse(m => m.geometry?.dispose()); } }
 function updateWaypoints() {
   const cp = camera.position;
+  for (const p of pins) p.g.scale.setScalar(clamp(Math.hypot(p.g.position.x - cp.x, cp.y, p.g.position.z - cp.z) / 150, 1, 80));
+  pinGroup.visible = !aboveFog;
   for (const p of wps) p.g.scale.setScalar(clamp(Math.hypot(p.g.position.x - cp.x, cp.y, p.g.position.z - cp.z) / 150, 1, 80));
   wpGroup.visible = !aboveFog;
 }
@@ -2025,7 +2040,7 @@ function updateLabels() {
     }
     if (bowdoin && nest.v !== bowdoin && view.dist < 30000) { const d = Math.hypot(bowdoin.x - view.x, bowdoin.z - view.z); if (d < Math.max(view.dist * 2, 3000)) cand.push({ text: 'Bowdoin', x: bowdoin.x, y: 24 * bowdoin.boat.group.scale.x, z: bowdoin.z, cls: 'wpt', pri: 0.7 }); }
     // (v907: no "⛵ You" label over your boat any more — requested: "get rid of the box that follows the boat")
-    if (view.dist < 40000) for (const p of wps) {   // route waypoints
+    if (view.dist < 40000) for (const p of [...wps, ...pins]) {   // route waypoints and search pins
       const d = Math.hypot(p.g.position.x - view.x, p.g.position.z - view.z);
       if (d < Math.max(view.dist * 2, 3000)) cand.push({ text: p.label, x: p.g.position.x, y: 4.6 * p.g.scale.x, z: p.g.position.z, cls: 'wpt', pri: 0.8 + d / Math.max(view.dist * 2, 3000) });
     }
@@ -2114,7 +2129,8 @@ statusEl.hidden = true;
 requestAnimationFrame(frame);
 window.__bay3d = {   // for AudioChart (returning to the chart where you were) and for testing
   // Clear Screen on the chart (v953): drop the route's waypoints and line, as the chart drops its routes
-  clearRoute: () => showRoute('', false),
+  clearRoute: () => { showRoute('', false); clearPins(); },
+  dropPin,
   getView: () => ({ lat: latOf(view.z), lon: lonOf(view.x), dist: view.dist, az: view.az / DEG, tilt: view.tilt / DEG, following: follow === own }),
   // where your boat is on screen, [x, y] in this page's pixels, or null (for testing and the demo video)
   boatOnScreen: () => {
