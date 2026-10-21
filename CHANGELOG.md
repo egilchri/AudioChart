@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-21 — Sample routes say which boat they were checked for (v973)
+
+Requested: "fix the 11 ft Carvers leg". It can't be re-routed: at low water the charts give Carver's Harbor's
+inner harbor less than Angelique's 11 ft + 3 ft margin, and AutoRoute stops an 11 ft boat about 0.7 nm short
+from anywhere. Instead every sample in curated_routes.json now carries plannedFor {Sea Nymph, 5 ft} (the draft
+they were verified at), and _loadSampleRoute copies it, so a deeper boat gets the existing v921 warning ("planned
+for Sea Nymph (5 ft). Angelique draws 11 ft. Re-route?"); for Carver's Harbor the re-route then says no passage
+is deep enough and keeps the route. Samples loaded before keep their old copy (same name: reused).
+
 ## 2026-10-21 — Sailors page: "Overview", a five-minute tour (v972)
 
 Requested: "create a 5 minute demo calculated to give an overview of AudioChart. Be sure to cover both the chart

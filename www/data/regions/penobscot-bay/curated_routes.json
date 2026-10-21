@@ -2,6 +2,7 @@
   {
     "id": "rockland-carvers-harbor",
     "name": "Rockland to Carver's Harbor",
+    "plannedFor": { "boat": "cd25", "draftFt": 5 },
     "note": "Threads the ledges around Old Harbor, The Reach, and Green Island Knob into Carver's Harbor on Vinalhaven. Verified live 2026-09-12 as a hand-built route after direct AutoRoute fell back to a straight line on this corridor — kept here as both a sample route and a regression check for the router.",
     "points": [
       { "lat": 44.102135, "lon": -69.08787 },
@@ -30,6 +31,7 @@
   {
     "id": "rockland-warren-island",
     "name": "Rockland to Warren Island",
+    "plannedFor": { "boat": "cd25", "draftFt": 5 },
     "note": "Runs up West Penobscot Bay past Camden and Lincolnville, then curves around Warren Island's north end into the state park's mooring field. Verified live 2026-09-17 — AutoRoute threads this corridor cleanly; kept here as both a sample route and a regression check for the router.",
     "points": [
       { "lat": 44.0986, "lon": -69.0752 },
@@ -44,6 +46,7 @@
   {
     "id": "rockland-perry-creek",
     "name": "Rockland to Perry Creek",
+    "plannedFor": { "boat": "cd25", "draftFt": 5 },
     "note": "Runs up West Penobscot Bay past Camden and Islesboro to the free moorings off Perry Creek's mouth on Vinalhaven/North Haven's Fox Island Thorofare side. Verified live 2026-09-18 — AutoRoute threads this corridor cleanly; kept here as both a sample route and a regression check for the router.",
     "points": [
       { "lat": 44.0986, "lon": -69.0752 },
@@ -60,6 +63,7 @@
   {
     "id": "rockland-stonington-overnight",
     "name": "Rockland to Stonington (overnight at Perry Creek)",
+    "plannedFor": { "boat": "cd25", "draftFt": 5 },
     "note": "Two-leg passage: Rockland to the Perry Creek moorings (overnight stop, tagged on that waypoint), then on through the Deer Isle Thorofare approach to Stonington. Both legs verified live 2026-09-18 — AutoRoute threads each cleanly; kept here as both a sample route and a regression check for the router.",
     "points": [
       { "lat": 44.0986, "lon": -69.0752 },
@@ -90,6 +94,7 @@
   {
     "id": "rockland-woodenboat-school",
     "name": "Rockland to WoodenBoat School",
+    "plannedFor": { "boat": "cd25", "draftFt": 5 },
     "note": "Long-range passage (~24nm) up through Eggemoggin Reach and the Deer Isle Thorofare archipelago to the WoodenBoat School's moorings in Center Harbor, Brooklin. Verified live 2026-09-18 after fixing a real router bug (a long-range transit bracket's clamped boundary could land on land itself, near the town of Deer Isle, with no nearby-water recovery) — kept here as both a sample route and a regression check for the router.",
     "points": [
       { "lat": 44.0986, "lon": -69.0752 },
@@ -126,6 +131,7 @@
   {
     "id": "rockland-hadlock-cove",
     "name": "Rockland to Hadlock Cove (3 nights)",
+    "plannedFor": { "boat": "cd25", "draftFt": 5 },
     "note": "Four days, three nights: Perry Creek on Vinalhaven, an anchorage off Crotch Island near Stonington, Burnt Coat Harbor on Swans Island, then west of Placentia Island through Western Way into Hadlock Cove. About 49 nm; 9 to 16 nm a day. Every leg checked against the chart for land and charted rocks.",
     "points": [
       { "lat": 44.0986, "lon": -69.0752 },

@@ -11516,7 +11516,9 @@ function _ensureMap() {
     const name = _uniqueRouteName(sample.name, existingNames);
     // Preserve any per-waypoint flags (e.g. `overnight`) — a plain
     // {lat,lon} copy here would silently drop them.
-    const route = _stampNew({ name, points: sample.points.map(p => ({ ...p })) });
+    // and the boat it was checked for (v973: every sample is verified for 5 ft), so a deeper boat is told and
+    // offered a re-route (_checkRouteBoat); Carver's Harbor has no water for Angelique's 11 ft at low tide
+    const route = _stampNew({ name, points: sample.points.map(p => ({ ...p })), ...(sample.plannedFor ? { plannedFor: { ...sample.plannedFor } } : {}) });
     routes.push(route);
     localStorage.setItem(ROUTE_KEY, JSON.stringify(routes));
     return route;
