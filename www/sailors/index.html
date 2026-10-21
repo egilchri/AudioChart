@@ -348,7 +348,7 @@
        the active tab's actual dimensions, not hardcoded, so switching
        demos never crops or letterboxes either one. */
     --demo-w: 1000;
-    --demo-h: 606;
+    --demo-h: 510;
     aspect-ratio: var(--demo-w) / var(--demo-h);
     /* Sized by width up to the .wrap's max-width, but capped by height on
        shorter screens (laptops, browser windows that aren't maximized) —
@@ -627,15 +627,16 @@
   <div class="wrap">
     <div class="section-head">
       <span class="tag">See it in action</span>
-      <h2 id="demo-title">A minute on the water.</h2>
-      <p id="demo-desc">Switch to Anchorages, find a place to go, and let AudioChart plot the route there — right on the chart.</p>
+      <h2 id="demo-title">AudioChart in five minutes.</h2>
+      <p id="demo-desc">The whole app in one tour. First the chart plotter: map types, a spoken AutoRoute through the Fox Islands Thorofare, bearings read aloud, and a Virtual Journey in 3D. Then the armchair: the bay in 3D with its traffic on a clock, a ride on the Vinalhaven ferry, the lookout’s report from Bowdoin’s crow’s nest, Free sailing by voice, dusk, and Penobscot Bay drained to the bottom.</p>
     </div>
     <!-- Two demos, meant to be watched in order (1 first) — a returning
          visitor can jump straight to either one. Content/metadata for each
          lives in DEMOS below; these buttons just carry which one via
          data-demo, no separate markup per tab to keep in sync. -->
     <div class="demo-tabs">
-      <button class="demo-tab active" data-demo="1">1. Discover &amp; Route</button>
+      <button class="demo-tab active" data-demo="overview">Overview</button>
+      <button class="demo-tab" data-demo="1">1. Discover &amp; Route</button>
       <button class="demo-tab" data-demo="2">2. AutoRoute</button>
       <button class="demo-tab" data-demo="3">3. Underway &amp; Bearing</button>
       <button class="demo-tab" data-demo="4">4. Sync</button>
@@ -648,11 +649,11 @@
       <button class="demo-tab" data-demo="11">11. Ferry Report</button>
     </div>
     <div class="demo-frame">
-      <video id="demo-video" src="assets/demo.mp4" poster="assets/demo-poster.jpg" controls playsinline></video>
+      <video id="demo-video" src="assets/overview.mp4" poster="assets/overview-poster.jpg" controls playsinline></video>
       <!-- tab 10 (v925): an interactive page, not a clip; loaded only when its tab is chosen -->
       <iframe id="demo-page" title="Three Boats, One Chart" hidden></iframe>
     </div>
-    <p class="demo-note" id="demo-note">Recorded from the live app, with voice narration — no editing.</p>
+    <p class="demo-note" id="demo-note">Recorded from the live app on a computer. The narrator, the skipper’s commands and the app’s replies are synthesized voices; everything on screen is the app’s real response.</p>
 
     <!-- Sync tab only (see showDemo): detailed first-time setup, per direct
          request 2026-10-04. Facts here match drive_sync.js — keep them in
@@ -685,9 +686,18 @@
   // Content for each demo clip — the tab buttons above only carry which one
   // (data-demo); everything else needed to switch lives here in one place.
   const DEMOS = {
+    // v972: the five-minute tour, first and shown on load; the numbered tabs go deeper
+    overview: {
+      title: 'AudioChart in five minutes.',
+      desc: 'The whole app in one tour. First the chart plotter: map types, a spoken AutoRoute through the Fox Islands Thorofare, bearings read aloud, and a Virtual Journey in 3D. Then the armchair: the bay in 3D with its traffic on a clock, a ride on the Vinalhaven ferry, the lookout’s report from Bowdoin’s crow’s nest, Free sailing by voice, dusk, and Penobscot Bay drained to the bottom.',
+      note: 'Recorded from the live app on a computer. The narrator, the skipper’s commands and the app’s replies are synthesized voices; everything on screen is the app’s real response.',
+      src: 'assets/overview.mp4', poster: 'assets/overview-poster.jpg',
+      w: 1000, h: 510,
+    },
     1: {
       title: 'A minute on the water.',
       desc: 'Switch to Anchorages, find a place to go, and let AudioChart plot the route there — right on the chart.',
+      note: 'Recorded from the live app, with voice narration — no editing.',
       src: 'assets/demo.mp4', poster: 'assets/demo-poster.jpg',
       w: 1000, h: 606,
     },

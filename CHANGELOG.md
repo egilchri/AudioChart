@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-10-21 — Sailors page: "Overview", a five-minute tour (v972)
+
+Requested: "create a 5 minute demo calculated to give an overview of AudioChart. Be sure to cover both the chart
+plotting aspect, and the 'armchair' cruiser 'sim city style' aspect", then "add it as the Overview tab and
+ship". www/sailors/assets/overview.mp4 (4 min 55 s, 1000x510, 12 MB) is now the sailors page's first demo tab,
+shown on load; the numbered tabs keep their numbers. Part 1, the chart plotter: Bird's-eye opening, map types
+(Anchorages, Towns, History, the paintings list), a spoken "autoroute to Stonington" through the Fox Islands
+Thorofare, Show hazards, spoken bearing and nearest-hazard replies, Virtual Journey in 3D. Part 2, the armchair:
+Bird's-eye traffic on a clock at x60, Underway, a ferry from drone/stern/side, Bowdoin's crow's nest and lookout
+report, Free sail steered by voice, fog and dusk, Empty Bay drained and refilled. Recorded from the live site
+(v971) in headless Chrome over CDP with three Piper voices (narrator, skipper, app replies, the app's re-voiced
+from its own transcript). Scripts to re-record: design/pending/overview-demo/ (record.mjs, build.py).
+Found while recording, not fixed: the Weather panel's Time buttons are silently overridden once the Bird's-eye
+clock has been set; the lookout report panel sits under the left zoom/tilt controls; the Free-sail wheel overlaps
+the bottom view bar; the Free-sail Speed box stays at 5 after "6 knots" by voice.
+
 ## 2026-10-21 — Stern, Side and Bow for your own boat too (v971)
 
 Requested: "add Stern, Side and Bow for my own boat too". The following bar (v969) now shows for your own boat as
