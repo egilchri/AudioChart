@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-21 — AutoRoute's land check ~2.5× faster, same routes (v976)
+
+Next after the shoal check (v974): the land-crossing test (`_landBlocksIndexed` in query.js, the biggest
+remaining cost, ~24% of the search) scanned every grid cell in a leg's bounding box; a long diagonal leg's
+box is an area of cells where the leg passes through a line of them. It now walks only the leg's own cells,
+column by column. Same answer: an edge crossing the leg is filed in the cell where it crosses, which is on
+the leg's path; each column's span is widened a hair so rounding can only add a cell.
+- Same results: old and new run side by side on 7.3 million calls over five real routes, 0 differences.
+- 1.9–2.7× faster per route (the hardest: 12.3 s of land checks → 4.5 s).
+
 ## 2026-10-21 — Weather Time buttons work after a clock change (v975)
 
 Requested: "fix the weather Time buttons after a clock change" (found while recording v972's Overview). In the

@@ -2407,11 +2407,23 @@ function _landBlocksIndexed(ax, ay, bx, by) {
   const minX = Math.min(ax, bx), maxX = Math.max(ax, bx);
   const minY = Math.min(ay, by), maxY = Math.max(ay, by);
   const c0 = _cellOf(minX), c1 = _cellOf(maxX);
-  const r0 = _cellOf(minY), r1 = _cellOf(maxY);
   _idxQueryId++;
   const queryId = _idxQueryId;
   const grid2D = _landIndex.grid2D;
+  // Only the cells the segment passes through, column by column, not its whole bounding box (v976: a long
+  // diagonal leg's box is an area of cells where the leg crosses a line of them). Same answer: an edge that
+  // crosses the segment does so at a point on it, and the edge is filed in every cell of its own box, the
+  // crossing point's cell among them. Each column's span is widened a hair, so float rounding at a cell
+  // boundary can only add a cell, never drop one.
+  const dxs = bx - ax, eps = IDX_CELL * 1e-6;
   for (let c = c0; c <= c1; c++) {
+    let ylo = minY, yhi = maxY;
+    if (dxs !== 0) {
+      const xa = Math.max(minX, c * IDX_CELL - eps), xb = Math.min(maxX, (c + 1) * IDX_CELL + eps);
+      const ya = ay + (xa - ax) / dxs * (by - ay), yb = ay + (xb - ax) / dxs * (by - ay);
+      ylo = Math.max(minY, Math.min(ya, yb) - eps); yhi = Math.min(maxY, Math.max(ya, yb) + eps);
+    }
+    const r0 = _cellOf(ylo), r1 = _cellOf(yhi);
     for (let r = r0; r <= r1; r++) {
       const arr = grid2D.get(_cellKey2D(c, r));
       if (!arr) continue;
