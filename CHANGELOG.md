@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-21 — AutoRoute to a boxed-in destination no longer searches twice (v966)
+
+v965's CI failed case [32] (Home -> Carvers Harbor landing): 18 s on CI's runner, 26 s locally (10 s before).
+The landing counts as "locally enclosed" now that the hazards always under water are back, and the escape step
+looked for clear water near it, found the landing itself, and so re-ran the whole search as its "middle" leg
+before the normal search ran it again. router.js: an escape point that is the endpoint itself (under 0.005 nm)
+is skipped. Case [32] 11.7 s; full suite passes.
+
 ## 2026-10-21 — The hazards always under water are back; depth counts; 60-yard clearance (v965)
 
 Follows v964 (INCIDENTS.md 2026-10-21). The chart build had dropped every hazard that is always under water

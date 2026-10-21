@@ -1462,18 +1462,22 @@ async function _autoRouteCore(
       // several times DEADLINE_MS. Gate each subsequent step on the OUTER
       // call's own elapsed time so the whole escape attempt still honors
       // roughly one DEADLINE_MS-sized budget, same as every other path here.
+      // (v965) "clear water" that is the endpoint itself is no escape: the leg to it is trivially fine, and the
+      // "middle" below re-ran the whole search before the normal one ran it again (Carvers Harbor's landing,
+      // once the hazards always under water were restored: 2 x 6 s, past CI's deadline)
+      const _samePt = (p, q) => Query.distanceNm(p.lon, p.lat, q.lon, q.lat) < 0.005;
       let effStart = start, prefix = [];
       let effEnd = end, suffix = [];
       if (startBlocked) {
         const departurePt = Query.findClearOffshorePoint(start.lon, start.lat, end.lon, end.lat, { draftFt, tideHeightM });
-        if (departurePt) {
+        if (departurePt && !_samePt(departurePt, start)) {
           const departLeg = await _autoRouteCore(start, departurePt, onUpdate, onText, true, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs);
           if (_subLegOk(departLeg)) { prefix = departLeg.slice(0, -1); effStart = departurePt; }
         }
       }
       if (endBlocked && Date.now() - _profT0 <= deadlineMs) {
         const arrivalPt = Query.findClearOffshorePoint(end.lon, end.lat, start.lon, start.lat, { draftFt, tideHeightM });
-        if (arrivalPt) {
+        if (arrivalPt && !_samePt(arrivalPt, end)) {
           const arriveLeg = await _autoRouteCore(arrivalPt, end, onUpdate, onText, true, draftFt, tideHeightM, onSearchProgress, onSnap, deadlineMs);
           if (_subLegOk(arriveLeg)) { suffix = arriveLeg.slice(1); effEnd = arrivalPt; }
         }
