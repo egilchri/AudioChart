@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-21 — Stern, Side and Bow views of any boat in the Bird's-eye view (v968)
+
+Requested: "view this boat from the stern, bow, and sides, like we did elsewhere" (the helm view's v955 buttons).
+Riding any vessel in the Bird's-eye view now offers Stern, Side and Bow beside Helm and Drone: a camera boat
+keeping station off her, low on the water: astern with her wake running toward you, abeam to starboard, or
+ahead off her starboard bow. Drag to circle her, scroll or pinch to close in or stand off, as with the drone.
+The ⛴ Underway table has the same three buttons on each row (a second row under Helm, Drone, Follow).
+
 ## 2026-10-21 — Sample routes re-routed clear of the restored hazards (v967)
 
 Requested: "re-route the sample routes". With the hazards always under water back (v965), five of the six

@@ -141,7 +141,7 @@ function groundAt(clientX, clientY) {   // where a screen point meets sea level,
 let anim = null;
 // riding a vessel (v919 Bowdoin's crow's nest; v937 any vessel underway, at her helm or by drone), below
 const nest = { on: false, v: null, mode: 'nest', yaw: 0, pitch: -3, zoom: 1, prev: null, drag: null };
-const zoomRange = () => nest.mode === 'drone' ? [0.2, 5] : [1, 7];   // the drone closes in or stands off; the glasses magnify
+const zoomRange = () => ORBITS(nest.mode) ? [0.2, 5] : [1, 7];   // the drone closes in or stands off; the glasses magnify
 function flyTo(to, dur = 2600) {
   const from = { ...view };
   let daz = ((to.az ?? from.az) - from.az) % (2 * Math.PI); if (daz > Math.PI) daz -= 2 * Math.PI; if (daz < -Math.PI) daz += 2 * Math.PI;
@@ -182,7 +182,7 @@ sceneEl.addEventListener('pointermove', e => {
     if (!pointers.has(e.pointerId) || !nest.drag) return;
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (nest.drag.pinch && pointers.size >= 2) { nest.zoom = clamp(nest.drag.zoom * pinchState().d / Math.max(1, nest.drag.pinch.d), ...zoomRange()); return; }
-    const k = nest.mode === 'drone' ? 0.25 : 0.12 / nest.zoom;   // degrees a pixel: finer through the glasses
+    const k = ORBITS(nest.mode) ? 0.25 : 0.12 / nest.zoom;   // degrees a pixel: finer through the glasses
     nest.yaw = ((nest.yaw - (e.clientX - nest.drag.x) * k + 540) % 360) - 180; nest.pitch = clamp(nest.pitch + (e.clientY - nest.drag.y) * k, -60, 30);
     nest.drag.x = e.clientX; nest.drag.y = e.clientY; return;
   }
@@ -939,6 +939,7 @@ const nestOK = ['nesthud', 'nestrep', 'crowsnest', 'nestdown', 'nestreport', 'bo
 // following her round (drag to circle her, scroll or pinch to close in or stand off), 🔭 Nest Bowdoin's ice
 // barrel. ⬇ Leave (Esc) leaves you over her, following her in the Bird's-eye view.
 const vGroup = v => v.group || v.boat.group;
+const RIDE_BTNS = [['ridehelm', 'helm'], ['ridedrone', 'drone'], ['ridestern', 'stern'], ['rideside', 'side'], ['ridebow', 'bow'], ['ridenest', 'nest']];
 const titleCase = t => t.toLowerCase().replace(/(^|[\s.'-])[a-z]/g, c => c.toUpperCase());
 function vName(v) {
   if (v === own) return OWN_NAME;
@@ -951,19 +952,26 @@ const vDoing = v => v.boat.power ? 'Hauling traps' : env.W.heel > 0 ? 'Under sai
 const vTitle = v => v.kind === 'cruise' ? `the ${v.V.name}` : vName(v);   // in a sentence
 const vLen = v => v.L || v.boat?.L || 8;
 const helmOf = v => vGroup(v).userData.helm || v.boat?.helm || [0, 2, vLen(v) * 0.35];
+// Stern, Side and Bow (v968, requested: "view this boat from the stern, bow, and sides, like we did elsewhere",
+// as the helm view's v955): a camera boat keeping station off her, low on the water, looking at her: astern with
+// her wake running toward you, abeam to starboard, or ahead and a little off her starboard bow as she comes on.
+// They orbit her as the drone does (drag to circle her, scroll or pinch to close in or stand off), only lower and
+// closer. yaw: degrees round from dead astern (−: to starboard); el: degrees up; d: boat lengths off.
+const CHASE = { stern: { yaw: 0, el: 7, d: 2.4, label: 'astern of' }, side: { yaw: -90, el: 6, d: 2.6, label: 'abeam of' }, bow: { yaw: -165, el: 6, d: 2.3, label: 'ahead of' } };
+const ORBITS = m => m === 'drone' || !!CHASE[m];   // the camera off her, looking at her
 function ride(v, mode = 'helm') {
   if (!v || !nestOK || (!vGroup(v).visible && v !== nest.v)) return;
   if (mode === 'nest' && !v.boat?.nest) mode = 'helm';
   const was = nest.on;
   if (!was) { stopFollow(); anim = null; nest.prev = { ...view }; }
-  nest.on = true; nest.v = v; nest.mode = mode; nest.yaw = 0; nest.pitch = mode === 'drone' ? -16 : mode === 'helm' && helmOf(v)[1] > 6 ? -8 : -3; nest.zoom = 1; nestRep.textContent = '';   // (from a high bridge, a little down: her bow in sight)
+  nest.on = true; nest.v = v; nest.mode = mode; nest.yaw = CHASE[mode]?.yaw || 0; nest.pitch = CHASE[mode] ? -CHASE[mode].el : mode === 'drone' ? -16 : mode === 'helm' && helmOf(v)[1] > 6 ? -8 : -3; nest.zoom = 1; nestRep.textContent = '';   // (from a high bridge, a little down: her bow in sight)
   document.body.classList.add('innest'); nestHud.hidden = false;
   document.getElementById('crowsnest').classList.toggle('on', mode === 'nest');
   const big = vLen(v) > 30 && !v.boat, name = vTitle(v);
-  document.getElementById('ridename').textContent = mode === 'nest' ? `${name}'s crow's nest` : mode === 'drone' ? `Drone over ${v === own ? 'your boat' : name}`
+  document.getElementById('ridename').textContent = mode === 'nest' ? `${name}'s crow's nest` : mode === 'drone' ? `Drone over ${v === own ? 'your boat' : name}` : CHASE[mode] ? `From a boat ${CHASE[mode].label} ${v === own ? 'your boat' : name}`
     : v === own ? 'At your helm' : big ? `On the bridge of ${name}` : `At the helm of ${v.boat ? 'a ' + name.toLowerCase() : name}`;
-  for (const [id, m] of [['ridehelm', 'helm'], ['ridedrone', 'drone'], ['ridenest', 'nest']]) { const b = document.getElementById(id); if (b) { b.classList.toggle('on', m === mode); if (m === 'nest') b.hidden = !v.boat?.nest; } }
-  document.getElementById('ridehint').textContent = mode === 'drone' ? 'Drag or arrow keys to circle her · scroll or pinch to close in or stand off'
+  for (const [id, m] of RIDE_BTNS) { const b = document.getElementById(id); if (b) { b.classList.toggle('on', m === mode); if (m === 'nest') b.hidden = !v.boat?.nest; } }
+  document.getElementById('ridehint').textContent = ORBITS(mode) ? 'Drag or arrow keys to circle her · scroll or pinch to close in or stand off'
     : mode === 'nest' ? 'Drag or arrow keys to look round · scroll or pinch for the glasses' : 'Drag or arrow keys to look round · scroll or pinch for the binoculars';
   rideStatus();
   if (!was) {
@@ -971,7 +979,7 @@ function ride(v, mode = 'helm') {
     if (v.boat && !v.boat.power && env.W.heel === 0) applyConditions({ wind: 'breezy' });   // a sailboat's sailing
     foldPanel(true);
   }
-  camera.fov = 50; camera.near = mode === 'drone' ? 0.5 : 0.25; camera.updateProjectionMatrix();
+  camera.fov = 50; camera.near = ORBITS(mode) ? 0.5 : 0.25; camera.updateProjectionMatrix();
 }
 function leaveRide() {
   if (!nest.on) return;
@@ -995,11 +1003,11 @@ function nestCamera() {   // after every vessel has moved: the eye aboard her, l
   if (!g.visible && !(v === own && own.r)) { leaveRide(); return; }   // she's gone (out of service, out of season)
   const h = v.h * DEG, sh = Math.sin(h), ch = Math.cos(h);
   const toWorld = ([lx, ly, lz], out) => out.set(v.x + lx * ch - lz * sh, ly, v.z + lx * sh + lz * ch);   // her frame (bow toward −z) to the world
-  if (nest.mode === 'drone') {
-    const L = vLen(v), D = clamp(L * 3.2, 45, 900) / nest.zoom, el = clamp(-nest.pitch, 3, 85) * DEG, az = (v.h + nest.yaw) * DEG;
+  if (ORBITS(nest.mode)) {
+    const L = vLen(v), C = CHASE[nest.mode], D = (C ? clamp(L * C.d, 18, 700) : clamp(L * 3.2, 45, 900)) / nest.zoom, el = clamp(-nest.pitch, 3, 85) * DEG, az = (v.h + nest.yaw) * DEG;
     _nt.set(v.x, Math.min(L * 0.12, 20) + 1.5, v.z);
     camera.position.set(_nt.x - Math.sin(az) * Math.cos(el) * D, _nt.y + Math.sin(el) * D, _nt.z + Math.cos(az) * Math.cos(el) * D);
-    camera.lookAt(_nt); camera.rotateX(0.1);   // her a little below the middle, clear of the bar along the top
+    camera.lookAt(_nt); if (!C) camera.rotateX(0.1);   // (low on the water, she's best in the middle)   // her a little below the middle, clear of the bar along the top
     camera.fov = 50;
     view.x = v.x; view.z = v.z; view.dist = Math.max(D * 1.5, 900); view.az = az;
   } else {
@@ -1154,7 +1162,7 @@ function drawRideChart() {
   for (const o of traffic) if (o !== v && o.on) { const x = X(o.x), y = Y(o.z); if (x > 0 && y > 0 && x < size && y < size) { c.fillStyle = '#22324a'; c.beginPath(); c.arc(x, y, 2.2, 0, 7); c.fill(); } }
   // what you're looking at, then her
   const cx = X(v.x), cy = Y(v.z);
-  if (nest.mode !== 'drone') {
+  if (!ORBITS(nest.mode)) {
     const look = v.h + nest.yaw, hf = 2 * Math.atan(Math.tan(camera.fov * DEG / 2) * camera.aspect) / DEG, a0 = (look - hf / 2 - 90) * DEG, a1 = (look + hf / 2 - 90) * DEG;
     c.fillStyle = 'rgba(214,162,74,0.25)'; c.beginPath(); c.moveTo(cx, cy); c.arc(cx, cy, size * 0.18, a0, a1); c.closePath(); c.fill();
   }
@@ -1183,7 +1191,7 @@ const REL = rel => {   // a bearing off the bow in a lookout's words
 const KIND = { daysailer: 'a daysailer', pocket: 'a sloop', cruiser: 'a sloop', cd25: 'a sloop', schooner: 'a schooner', lobster: 'a lobster boat', angelique: 'a ketch' };
 function lookoutReport() {
   if (!nest.on) return;
-  const b = nest.v, from = nest.mode === 'drone' ? (() => { const [lx, ly, lz] = helmOf(b), h = b.h * DEG; return { x: b.x + lx * Math.cos(h) - lz * Math.sin(h), y: ly, z: b.z + lx * Math.sin(h) + lz * Math.cos(h) }; })() : camera.position;
+  const b = nest.v, from = ORBITS(nest.mode) ? (() => { const [lx, ly, lz] = helmOf(b), h = b.h * DEG; return { x: b.x + lx * Math.cos(h) - lz * Math.sin(h), y: ly, z: b.z + lx * Math.sin(h) + lz * Math.cos(h) }; })() : camera.position;
   const eye = Math.max(1.5, from.y), ex = from.x, ez = from.z;   // (from the drone: as from her helm)
   const inSight = (x, z, hgt) => {   // over the horizon? behind land?
     const d = Math.hypot(x - ex, z - ez);
@@ -1219,7 +1227,7 @@ function lookoutReport() {
 if (nestOK) {
 document.getElementById('crowsnest').addEventListener('click', () => nest.on && nest.mode === 'nest' && nest.v === bowdoin ? leaveRide() : ride(bowdoin, 'nest'));
 document.getElementById('nestdown').addEventListener('click', leaveRide);
-for (const [id, m] of [['ridehelm', 'helm'], ['ridedrone', 'drone'], ['ridenest', 'nest']]) document.getElementById(id)?.addEventListener('click', () => ride(nest.v, m));
+for (const [id, m] of RIDE_BTNS) document.getElementById(id)?.addEventListener('click', () => ride(nest.v, m));
 document.getElementById('nestreport').addEventListener('click', lookoutReport);
 document.getElementById('bowdoinbtn').addEventListener('click', () => {
   if (!bowdoin) return;
@@ -1633,7 +1641,7 @@ function fillUnderway() {
   for (const r of rows) {
     const li = document.createElement('li'), v = r.v;
     if (nest.on && nest.v === v) li.className = 'aboard';
-    li.innerHTML = '<span class="n"><b></b> <small></small></span><span class="eta"><b></b><small></small></span><span class="d"></span><span class="go"><button type="button" data-m="helm" title="Aboard her, at the helm">Helm</button><button type="button" data-m="drone" title="A drone over her, following her">Drone</button><button type="button" data-m="fly" title="Fly over her and follow her in this view">Follow</button></span>';
+    li.innerHTML = '<span class="n"><b></b> <small></small></span><span class="eta"><b></b><small></small></span><span class="d"></span><span class="go"><button type="button" data-m="helm" title="Aboard her, at the helm">Helm</button><button type="button" data-m="drone" title="A drone over her, following her">Drone</button><button type="button" data-m="fly" title="Fly over her and follow her in this view">Follow</button><button type="button" data-m="stern" title="From a boat astern of her, low on the water">Stern</button><button type="button" data-m="side" title="From a boat abeam of her, to starboard">Side</button><button type="button" data-m="bow" title="From ahead, as she comes on">Bow</button></span>';
     li.querySelector('b').textContent = v === own ? `${OWN_NAME} (yours)` : vName(v);
     li.querySelector('small').textContent = r.what;
     li.querySelector('.d').textContent = away(v);
