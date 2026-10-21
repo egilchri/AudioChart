@@ -2555,16 +2555,35 @@ export function hazardPointBlocks(fromLon, fromLat, toLon, toLat, needM = Infini
   const { grid } = _hazardPointIndex;
   if (!grid.size) return false;
   const cv = Math.cos(((fromLat + toLat) / 2) * Math.PI / 180) || 1e-6;
-  const padLon = _HAZARD_SAFETY_NM / (60 * cv);
-  const padLat = _HAZARD_SAFETY_NM / 60;
-  const x0 = _cellOf(Math.min(fromLon, toLon) - padLon), x1 = _cellOf(Math.max(fromLon, toLon) + padLon);
-  const y0 = _cellOf(Math.min(fromLat, toLat) - padLat), y1 = _cellOf(Math.max(fromLat, toLat) + padLat);
+  // Only the cells along the segment, column by column, padded by the clearance, not its whole padded
+  // bounding box (v978, as _landBlocksIndexed in v976). Same answer: a hazard that counts is within
+  // _HAZARD_SAFETY_NM (haversine) of some point on the segment, so within padLat in latitude and padLon in
+  // longitude of it; the 1.5 margin covers cos(lat) varying from the segment's middle.
+  const padLon = 1.5 * _HAZARD_SAFETY_NM / (60 * cv);
+  const padLat = 1.5 * _HAZARD_SAFETY_NM / 60;
+  const minX = Math.min(fromLon, toLon), maxX = Math.max(fromLon, toLon);
+  const minY = Math.min(fromLat, toLat), maxY = Math.max(fromLat, toLat);
+  const sdx = toLon - fromLon, x0 = _cellOf(minX - padLon), x1 = _cellOf(maxX + padLon);
+  // and a flat distance first (as router.js's shoal check, v974): a hazard flat-farther than 1.25× the
+  // clearance can't be within it, so it skips the haversine
+  const sdy = toLat - fromLat, len2 = sdx * sdx + sdy * sdy, cut2 = (1.25 * _HAZARD_SAFETY_NM / 60.04) ** 2;
   for (let gx = x0; gx <= x1; gx++) {
+    let ylo = minY, yhi = maxY;
+    if (sdx !== 0) {   // the segment's latitudes where its longitude is within padLon of this column
+      const xa = Math.max(minX, gx * IDX_CELL - padLon), xb = Math.min(maxX, (gx + 1) * IDX_CELL + padLon);
+      if (xa > xb) continue;
+      const ya = fromLat + (xa - fromLon) / sdx * (toLat - fromLat), yb = fromLat + (xb - fromLon) / sdx * (toLat - fromLat);
+      ylo = Math.min(ya, yb); yhi = Math.max(ya, yb);
+    }
+    const y0 = _cellOf(ylo - padLat), y1 = _cellOf(yhi + padLat);
     for (let gy = y0; gy <= y1; gy++) {
       const arr = grid.get(_cellKey2D(gx, gy));
       if (!arr) continue;
       for (const [plon, plat, v] of arr) {
         if (v != null && v > needM) continue;   // deep enough (pointHazardInWay)
+        const u = len2 < 1e-12 ? 0 : Math.max(0, Math.min(1, ((plon - fromLon) * sdx + (plat - fromLat) * sdy) / len2));
+        const ex = (plon - fromLon - u * sdx) * cv, ey = plat - fromLat - u * sdy;
+        if (ex * ex + ey * ey > cut2) continue;
         if (_ptSegDistNmLocal(plon, plat, fromLon, fromLat, toLon, toLat) <= _HAZARD_SAFETY_NM) return true;
       }
     }

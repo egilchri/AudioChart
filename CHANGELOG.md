@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-21 — AutoRoute's rock and hazard check ~2× faster, same routes (v978)
+
+Third of the AutoRoute speed-ups (after the shoal check, v974, and the land check, v976): the charted
+point-hazard test (`hazardPointBlocks` in query.js) scanned every grid cell in a leg's padded bounding box.
+It now walks only the cells along the leg, padded by the clearance (with a 1.5 margin), and measures a flat
+distance first (1.25 margin) so hazards that can't be within the clearance skip the haversine.
+- Same results: old and new run side by side on 1.24 million calls over five real routes, 0 differences.
+  The depth-aware rule (pointHazardInWay, v965) and the 0.03 nm clearance are unchanged.
+- 1.2–2.3× faster per route.
+
 ## 2026-10-21 — Lookout report, Free-sail wheel and Speed box fixes (v977)
 
 Requested: "fix the other three issues too" (found while recording v972's Overview).
