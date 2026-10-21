@@ -6,6 +6,28 @@ found, and what shipped, even when the root cause couldn't be confirmed.
 
 ---
 
+## 2026-10-21 — Hazards always under water left out of the chart data (all of them)
+
+**What happened:** Found from a user question in Empty Bay ("Aren't there any known shipwrecks in deeper water in
+Penobscot Bay?"). Empty Bay showed only wrecks that are dry or cover and uncover. Looking into it: every charted
+hazard that is *always under water* is missing from hazards.geojson. In the Penobscot Bay ENC cells that is about
+500 underwater rocks, about 490 obstructions and 21 wrecks (before removing the copies charted on two cells; 13
+distinct wrecks). AutoRoute, the route hazard check and the fallback warnings all read hazards.geojson, so none
+of them has ever seen these. Some shallow ones are covered by depth areas and soundings; the hazards themselves
+were never checked.
+
+**Cause:** preprocess/s57_to_geojson.py skips WATLEV 3, with the comment "permanently dry/above water". In S-57,
+WATLEV 3 is "always under water/submerged"; "always dry" is 2. preprocess/s57_codes.py's comment on
+HAZARDOUS_WATLEV has the codes wrong the same way. So the build kept the dry hulks on the shore and dropped the
+submerged hazards, the opposite of what was meant. (bay3d.js's own WATLEV labels were right.)
+
+**Fix:** v964 (Empty Bay only): the 13 underwater wrecks from the ENC cells, in data/wrecks_submerged.geojson,
+shown and described in Empty Bay. The pipeline fix and AutoRoute's use of the restored hazards follow separately
+(adding ~1,000 hazards may change routes; depth must count, since the router blocks a ~100 yd circle round every
+point hazard whatever its depth).
+
+---
+
 ## 2026-10-17 — AutoRoute took deep-draft boats across a charted Jericho Bay shoal
 
 **What happened:** Found while building the Three Boats demo, not reported by a

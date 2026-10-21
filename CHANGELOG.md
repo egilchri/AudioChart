@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-21 — Underwater wrecks in Empty Bay (v964)
+
+Asked: "Aren't there any known shipwrecks in deeper water in Penobscot Bay?" There are: the NOAA charts have 13
+wrecks always under water here (one with 36 ft over it off Castine, one at 21 ft in Jericho Bay), and Empty Bay
+showed none, because the chart build drops every hazard that is always under water (WATLEV 3 taken for "always
+dry"; INCIDENTS.md 2026-10-21). They're now in data/wrecks_submerged.geojson, extracted from the ENC cells, and
+Empty Bay shows them with the rest (point at one for its depth). The build itself, and AutoRoute's hazards,
+are fixed separately.
+
 ## 2026-10-21 — Each harbor's own number of moorings (v963)
 
 Asked: "are there really that many boats in carvers harbor" — no: since v945 every 32 m of the inner harbor got

@@ -1,0 +1,253 @@
+{
+ "type": "FeatureCollection",
+ "note": "Wrecks always under water (S-57 WRECKS, WATLEV 3) from the NOAA ENC cells covering Penobscot Bay, for Empty Bay (v964). The region's hazards.geojson left these out: its build skipped WATLEV 3, taking it for 'always dry' (it means always under water); see INCIDENTS.md 2026-10-21. catwrk: 1 non-dangerous, 2 dangerous, 5 hull showing. valsou: charted depth over it, m (null: none charted).",
+ "features": [
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -68.79939,
+     44.00006
+    ]
+   },
+   "properties": {
+    "objtype": "WRECKS",
+    "label": "wreck",
+    "valsou": null,
+    "watlev": 3,
+    "catwrk": 2,
+    "name": null,
+    "chart": "US5BGRBF"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -69.099859,
+     44.086763
+    ]
+   },
+   "properties": {
+    "objtype": "WRECKS",
+    "label": "wreck",
+    "valsou": null,
+    "watlev": 3,
+    "catwrk": 2,
+    "name": null,
+    "chart": "US5BGRCB"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -68.986555,
+     44.168714
+    ]
+   },
+   "properties": {
+    "objtype": "WRECKS",
+    "label": "wreck",
+    "valsou": null,
+    "watlev": 3,
+    "catwrk": 1,
+    "name": null,
+    "chart": "US5BGRDD"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -68.91799,
+     44.254989
+    ]
+   },
+   "properties": {
+    "objtype": "WRECKS",
+    "label": "wreck",
+    "valsou": null,
+    "watlev": 3,
+    "catwrk": 1,
+    "name": null,
+    "chart": "US5BGRFE"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -68.97788,
+     44.387482
+    ]
+   },
+   "properties": {
+    "objtype": "WRECKS",
+    "label": "wreck",
+    "valsou": null,
+    "watlev": 3,
+    "catwrk": 2,
+    "name": null,
+    "chart": "US5BGRGD"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -68.907446,
+     44.327236
+    ]
+   },
+   "properties": {
+    "objtype": "WRECKS",
+    "label": "wreck",
+    "valsou": 3.6,
+    "watlev": 3,
+    "catwrk": 2,
+    "name": null,
+    "chart": "US5BGRGE"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -68.856531,
+     44.350325
+    ]
+   },
+   "properties": {
+    "objtype": "WRECKS",
+    "label": "wreck",
+    "valsou": null,
+    "watlev": 3,
+    "catwrk": 2,
+    "name": null,
+    "chart": "US5BGRGE"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -68.90089,
+     44.438329
+    ]
+   },
+   "properties": {
+    "objtype": "WRECKS",
+    "label": "wreck",
+    "valsou": 10.9,
+    "watlev": 3,
+    "catwrk": 2,
+    "name": null,
+    "chart": "US5BGRHE"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -68.528352,
+     44.226368
+    ]
+   },
+   "properties": {
+    "objtype": "WRECKS",
+    "label": "wreck",
+    "valsou": 0.6,
+    "watlev": 3,
+    "catwrk": 2,
+    "name": null,
+    "chart": "US5ME2EI"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -68.442382,
+     44.191302
+    ]
+   },
+   "properties": {
+    "objtype": "WRECKS",
+    "label": "wreck",
+    "valsou": 6.4,
+    "watlev": 3,
+    "catwrk": 2,
+    "name": null,
+    "chart": "US5ME2EJ"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -68.112667,
+     44.349167
+    ]
+   },
+   "properties": {
+    "objtype": "WRECKS",
+    "label": "wreck",
+    "valsou": null,
+    "watlev": 3,
+    "catwrk": 1,
+    "name": null,
+    "chart": "US5ME2GN"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -69.214439,
+     43.903469
+    ]
+   },
+   "properties": {
+    "objtype": "WRECKS",
+    "label": "wreck",
+    "valsou": null,
+    "watlev": 3,
+    "catwrk": 1,
+    "name": null,
+    "chart": "US4ME20M"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -69.203179,
+     43.851512
+    ]
+   },
+   "properties": {
+    "objtype": "WRECKS",
+    "label": "wreck",
+    "valsou": null,
+    "watlev": 3,
+    "catwrk": 2,
+    "name": null,
+    "chart": "US4ME20M"
+   }
+  }
+ ]
+}

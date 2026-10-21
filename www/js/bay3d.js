@@ -321,7 +321,10 @@ async function loadTile(T) {
 // Re-placed when tiles load, the Depth slider moves or the view zooms (updateHazards, from the frame's checks).
 const hazards = { list: [], meshes: {}, key: '' };
 let updateHazards = () => {};
-if (EMPTY) getJSON('./data/regions/penobscot-bay/hazards.geojson').then(fc => {
+// (v964, asked: "Aren't there any known shipwrecks in deeper water in Penobscot Bay?") plus the wrecks always
+// under water, which hazards.geojson's build had left out (data/wrecks_submerged.geojson; INCIDENTS.md 2026-10-21)
+if (EMPTY) Promise.all([getJSON('./data/regions/penobscot-bay/hazards.geojson'), getJSON('./data/wrecks_submerged.geojson').catch(() => ({ features: [] }))]).then(([fc, wr]) => {
+  fc = { features: [...fc.features, ...wr.features] };
   const KIND = { 'underwater rock': 'rock', obstruction: 'obstruction', wreck: 'wreck' };
   const seen = new Set();
   for (const f of fc.features) {
