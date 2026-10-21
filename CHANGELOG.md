@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-21 — Each harbor's own number of moorings (v963)
+
+Asked: "are there really that many boats in carvers harbor" — no: since v945 every 32 m of the inner harbor got
+a mooring, about 4x each harbor's number in data/moorings.json (Carvers Harbor 579 for about 100, Northeast
+Harbor 362 for 122, Southwest Harbor 545 for 160). moorings3d.js layOut now keeps only the harbor's number,
+picked evenly through the same flooded water (each clear of the others by a spacing that shares out the area),
+so the fleet still spreads through the whole inner harbor.
+
 ## 2026-10-20 — Fly the drone (v962)
 
 Requested: "drone view should give more choices. Maybe some simple controls to control the drone's position".

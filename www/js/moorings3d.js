@@ -89,6 +89,20 @@ export function makeMoorings({ scene, wx, wz, lonOf, latOf, water, detailAt, cle
         queue.push([ni, nj]);
       }
     }
+    // only the harbor's own number of moorings (v963, from "are there really that many boats in carvers harbor":
+    // filling every 32 m had drawn about 4x it, 579 moorings there for about 100 boats), spread evenly through all
+    // the water flooded above: picked in a random order, each clear of those already picked by a spacing that
+    // shares out the area, loosened until there are enough
+    if (spots.length > h.n) {
+      const order = spots.map(p => [rnd(), p]).sort((a, b) => a[0] - b[0]).map(a => a[1]), keep = [], used = new Set();
+      for (let D = Math.sqrt(spots.length * S * SZ / h.n) * 1.1; keep.length < h.n && D > S * 0.5; D *= 0.85)
+        for (const p of order) {
+          if (keep.length >= h.n) break;
+          if (used.has(p) || keep.some(q => Math.hypot(q.x - p.x, q.z - p.z) < D)) continue;
+          keep.push(p); used.add(p);
+        }
+      spots.length = 0; spots.push(...keep);
+    }
     spots.sort((p, q) => p.d - q.d);
     const nw = Math.round(spots.length * h.working / Math.max(1, h.n));
     spots.forEach((s, i) => { s.work = i < nw ? rnd() < 0.8 : rnd() < 0.08; });
