@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-20 — Fly the drone (v962)
+
+Requested: "drone view should give more choices. Maybe some simple controls to control the drone's position".
+helm3d.js: in the Drone view a pad at the bottom of the scene: hold ⟲ ⟳ to circle her, ▲ ▼ to rise or sink
+(0.3–6x its usual 100 ft), ＋ － to close in or stand off (0.1–4x its distance astern); Overhead, Ahead (looking
+back as she comes on) and Astern (the usual station) fly there. The drone still looks a little ahead of her,
+drawing in to straight down as it closes overhead. Remembered in this browser (audiochart-helm3d-drone).
+
 ## 2026-10-20 — A bow wave (v961)
 
 Requested: "Bow view should show a bow wave". The in-water wake (v957) only bends the water's normals, so

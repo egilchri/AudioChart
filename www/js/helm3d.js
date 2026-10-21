@@ -1320,6 +1320,15 @@ const _toDrone = m => Math.min(1, Math.max(0, (m - FT60) / (DRONE_M - FT60)));  
 const DRONE_BACK = ANGEL ? SHIP.droneBack : 50;   // she's 130 ft overall: the Drone stands farther off to see all of her
 const eyeBack = m => m <= FT60 ? _back(m) : _back(FT60) + (DRONE_BACK - _back(FT60)) * _toDrone(m);
 const eyeTilt = m => m <= FT60 ? _tilt(m) : _tilt(FT60) + (20 - _tilt(FT60)) * _toDrone(m);
+// Flying the drone (v962, requested: "drone view should give more choices. Maybe some simple controls to control
+// the drone's position"): a pad in the Drone view to circle her, rise or sink, close in or stand off, or go
+// straight overhead; up and far scale its height and its distance astern. It still looks where it did, a little
+// ahead of her (shore beyond), drawing in to look straight down at her as it closes overhead. Remembered.
+const drone = { up: 1, far: 1 };
+try { Object.assign(drone, JSON.parse(localStorage.getItem('audiochart-helm3d-drone') || '{}')); } catch (_) {}
+const DRONE_AIM = DRONE_M / Math.tan(20 * Math.PI / 180) - DRONE_BACK;   // how far ahead of her the drone looks
+const droneH = m => m * (1 + (drone.up - 1) * _toDrone(m)), droneBack = m => eyeBack(m) * (1 + (drone.far - 1) * _toDrone(m));
+const droneTilt = m => { const w = _toDrone(m); if (w <= 0) return eyeTilt(m); const deg = Math.atan2(droneH(m), droneBack(m) + DRONE_AIM * Math.min(1, drone.far)) * 180 / Math.PI; return eyeTilt(m) + (deg - eyeTilt(m)) * w; };
 let eyeTarget = DRONE_M;   // Drone by default (direct request, v832); a choice made since is remembered
 {
   let want = Number(params.get('eye')) * 0.3048;   // feet in the URL; metres stored
@@ -1351,6 +1360,46 @@ function setChase(name) {
   syncEyeButtons();
 }
 function setEye(m) { if (binoc.on) setBinoc(false); if (nest.on) setNest(false); if (chase.on) setChase(null); eyeTarget = m; try { localStorage.setItem('audiochart-helm3d-view', String(m)); } catch (_) {} syncEyeButtons(); }
+// the drone's pad (above): hold a button to keep going
+const dronePad = document.createElement('div'); dronePad.id = 'dronepad'; dronePad.hidden = true;
+const droneHold = { act: null };
+const DRONE_TO = { up: [0.3, 6], far: [0.1, 4] };
+const saveDrone = () => { try { localStorage.setItem('audiochart-helm3d-drone', JSON.stringify(drone)); } catch (_) {} };
+let droneTo = null;   // a preset being flown to
+function droneFly(dt) {
+  const show = eyeTarget === DRONE_M && !chase.on && !binoc.on && !nest.on;
+  if (dronePad.hidden === show) dronePad.hidden = !show;
+  const a = droneHold.act;
+  if (a) {
+    droneTo = null;
+    if (a === 'left') yawOff -= 40 * dt; else if (a === 'right') yawOff += 40 * dt;
+    else { const [k, sg] = { up: ['up', 1], down: ['up', -1], in: ['far', -1], out: ['far', 1] }[a]; drone[k] = Math.min(DRONE_TO[k][1], Math.max(DRONE_TO[k][0], drone[k] * Math.exp(sg * 0.7 * dt))); }
+  }
+  if (droneTo) {
+    const e = Math.min(1, dt * 1.8);
+    drone.up += (droneTo.up - drone.up) * e; drone.far += (droneTo.far - drone.far) * e;
+    yawOff += (droneTo.yaw - yawOff) * e; pitch += (0 - pitch) * e;
+    if (Math.abs(droneTo.up - drone.up) + Math.abs(droneTo.far - drone.far) + Math.abs(droneTo.yaw - yawOff) < 0.01) { droneTo = null; saveDrone(); }
+  }
+}
+for (const [act, label, title] of [['left', '⟲', 'Circle her to port'], ['right', '⟳', 'Circle her to starboard'], ['up', '▲', 'Rise'], ['down', '▼', 'Sink'], ['in', '＋', 'Close in'], ['out', '－', 'Stand off'],
+  ['overhead', 'Overhead', 'Straight over her, looking down'], ['ahead', 'Ahead', 'Out ahead of her, looking back as she comes on'], ['reset', 'Astern', 'Back to the usual station, high astern']]) {
+  const b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.title = title; b.dataset.act = act;
+  if (label.length > 1) b.className = 'preset';
+  b.addEventListener('pointerdown', e => {
+    e.stopPropagation();   // not a look-around drag
+    if (['overhead', 'ahead', 'reset'].includes(act)) {
+      const yaw = Math.round(yawOff / 360) * 360;   // the nearest way round
+      droneTo = act === 'overhead' ? { up: 3, far: 0.1, yaw } : act === 'ahead' ? { up: 0.8, far: 1, yaw: yaw + 180 } : { up: 1, far: 1, yaw };
+      return;
+    }
+    droneHold.act = act; b.setPointerCapture?.(e.pointerId);
+  });
+  const stop = () => { if (droneHold.act === act) { droneHold.act = null; saveDrone(); } };
+  b.addEventListener('pointerup', stop); b.addEventListener('pointercancel', stop); b.addEventListener('lostpointercapture', stop);
+  dronePad.appendChild(b);
+}
+eyeBox.parentElement.appendChild(dronePad);
 // double-click the boat (v896, requested): AudioChart's boat menu (Free sail, Autoroute, …)
 {
   let hook = null; try { if (window.parent !== window) hook = window.parent.__audioChartViews; } catch (_) {}
@@ -1884,7 +1933,8 @@ function frame() {
   const ease = camK * camK * (3 - 2 * camK);
   // viewpoint height (Helm / 20 ft / 60 ft), eased so changes glide
   eyeH += (eyeTarget - eyeH) * Math.min(1, dt * 2.5);
-  TILLER.set(HELM_X * (eyeH <= EYE + 0.3 ? 1 : 0), eyeH, HELM_Z + eyeBack(eyeH));
+  droneFly(dt);
+  TILLER.set(HELM_X * (eyeH <= EYE + 0.3 ? 1 : 0), droneH(eyeH), HELM_Z + droneBack(eyeH));
   { const side = binoc.on && !nest.on && Math.abs(yawOff) > 12 ? Math.sign(yawOff) : 0; binoc.sx += (side - binoc.sx) * Math.min(1, dt * 1.6); }
   nest.k += ((nest.on ? 1 : 0) - nest.k) * Math.min(1, dt * 1.2);   // the climb: a few seconds up or down
   if (nest.k > 0.001 && angel?.nest) {
@@ -1895,7 +1945,7 @@ function frame() {
   if (!nest.on && Math.abs(binoc.sx) > 0.001) { const a = Math.abs(binoc.sx); TILLER.x = TILLER.x * (1 - a) + binoc.sx * RAIL[0]; TILLER.y += (RAIL[1] - EYE) * a; TILLER.z = TILLER.z * (1 - a) + RAIL[2] * a; }
   if (eyeH > EYE + 0.3) TILLER.applyAxisAngle(UP_AXIS, -THREE.MathUtils.degToRad(yawOff * (1 - ease)));   // orbit the boat
   camera.position.lerpVectors(TILLER, AT_MAST, ease);
-  camera.rotation.set(THREE.MathUtils.degToRad((pitch - eyeTilt(eyeH)) + (-38 - (pitch - eyeTilt(eyeH))) * ease), -THREE.MathUtils.degToRad(yawOff * (1 - ease)), -roll * 1.6, 'YXZ');
+  camera.rotation.set(THREE.MathUtils.degToRad((pitch - droneTilt(eyeH)) + (-38 - (pitch - droneTilt(eyeH))) * ease), -THREE.MathUtils.degToRad(yawOff * (1 - ease)), -roll * 1.6, 'YXZ');
   if (binoc.on) {   // hands and the boat: a slow wander, a little more in a seaway
     const k = 0.05 * (0.6 + mv);
     camera.rotation.x += THREE.MathUtils.degToRad(k * (Math.sin(t * 1.3) + 0.5 * Math.sin(t * 3.1 + 1)));
