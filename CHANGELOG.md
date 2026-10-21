@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-21 — Sailors page link previews (v979)
+
+Requested, for sharing the Overview on Substack: the sailors page had no link-preview tags, so a pasted link
+showed a bare card. Added a description, Open Graph tags (title, text, the Overview poster as the picture)
+and a large-image Twitter card.
+
 ## 2026-10-21 — AutoRoute's rock and hazard check ~2× faster, same routes (v978)
 
 Third of the AutoRoute speed-ups (after the shoal check, v974, and the land check, v976): the charted
