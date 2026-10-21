@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-20 — A bow wave (v961)
+
+Requested: "Bow view should show a bow wave". The in-water wake (v957) only bends the water's normals, so
+nothing rose at the stem. wake3d.js makeBowWave(): a ribbon each side from just inside the hull out over the
+water, heaped at the stem (about 0.34 m at 5 kn on the Cape Dory) and curling away along her sides for a third of
+her length, solid white where it breaks against the stem, lacy (a procedural foam texture, running aft at her
+speed) further out. Its height and opacity go with her real speed; it's gone when she stops. helm3d.js: on Sea
+Nymph, Angelique and Bowdoin (scaled to her length), in every view.
+
 ## 2026-10-20 — Search works in Bird's-eye (v960)
 
 Reported: "search doesn't seem to work in birdseye mode". Search dropped its pin and moved the chart, which sits

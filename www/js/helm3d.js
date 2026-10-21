@@ -4,7 +4,7 @@
 // (helm3d.html?route=<id>) or for a sample (?sample=<curated id>). Desktop browser with WebGL.
 import * as THREE from 'three';
 import { Water } from './lib/three/Water.js';
-import { makeWakes } from './wake3d.js';
+import { makeWakes, makeBowWave } from './wake3d.js';
 import { depthAtFrom } from './depth.js';
 import { LON0, LAT0, MX, MY, wx, wz, cachedFetch, readDem, photo, photoAtCells, addCanopy, gridMesh, photoMat, buildTown, spruce, tlog, tmark, TOWN_NIGHT } from './terrain3d.js';
 import { makeWildlife, ledgesFrom } from './wildlife3d.js';
@@ -739,6 +739,10 @@ if (angel) { const sub = document.querySelector('.sub'); if (sub) sub.firstChild
 let wakes = null;
 const WAKE_L = 7.3 * (ANGEL ? 3.6 * SHIP.L / 29 : 1);
 const ownWake = (pos, dt, kn) => wakes?.update([{ key: 'own', x: pos[0], z: pos[1], rotY: boat.rotation.y, L: WAKE_L, zc: -0.65 * WAKE_L / 7.3, kn, moving: true }], dt);
+// and her bow wave (v961), heaped at the stem and curling aft along her sides, while she's moving
+const bowWave = makeBowWave(); bowWave.group.scale.setScalar(WAKE_L / 7.3); boat.add(bowWave.group);
+let bwPrev = null;
+const ownBowWave = (pos, dt, kn) => { const mvd = bwPrev && Math.hypot(pos[0] - bwPrev[0], pos[1] - bwPrev[1]) > 1e-4; bwPrev = [pos[0], pos[1]]; bowWave.update(kn, mvd, dt); };
 
 
 // Water: ripple normals generated here (no image download), sky and shore reflected.
@@ -1876,6 +1880,7 @@ function frame() {
   lastCourse = smoothCourse;
   boat.rotation.set((Math.sin(t * 0.7) * 0.012 + Math.sin(t * 0.45 + 2) * 0.01 * Math.max(0, mv - 1)) * mv, -THREE.MathUtils.degToRad(smoothCourse), roll * 2, 'YXZ');
   ownWake(pos, dt, FREE ? (freeP.kn || BOAT_KN) : BOAT_KN);
+  ownBowWave(pos, dt, FREE ? (freeP.kn || BOAT_KN) : BOAT_KN);
   const ease = camK * camK * (3 - 2 * camK);
   // viewpoint height (Helm / 20 ft / 60 ft), eased so changes glide
   eyeH += (eyeTarget - eyeH) * Math.min(1, dt * 2.5);

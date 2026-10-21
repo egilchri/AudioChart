@@ -153,3 +153,78 @@ export function makeWakes(water, n = 1) {
   }
   return { update };
 }
+
+// The bow wave (v961, requested: "Bow view should show a bow wave"): what the shader can't do, the water
+// heaped up at her stem and curling away along each side, white where it breaks, gone a third of her
+// length aft. A ribbon each side, from just inside the hull out over the water, in the Cape Dory's frame
+// above (scale the group with her: s = her length / 7.3 m); its height and foam go with her speed.
+// update(kn, moving, dt) each frame.
+let lace = null;
+function laceTexture() {
+  if (lace) return lace;
+  const N = 256, cv = document.createElement('canvas'); cv.width = cv.height = N;
+  const g = cv.getContext('2d'), img = g.createImageData(N, N);
+  let sd = 7; const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+  const f = new Float32Array(N * N);
+  for (let k = 0; k < 260; k++) {   // soft blobs, wrapping, for lacy foam
+    const cx = rnd() * N, cy = rnd() * N, r = 4 + rnd() * 18, a = 0.4 + rnd() * 0.6;
+    for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+      const q = (dx * dx + dy * dy) / (r * r); if (q > 1) continue;
+      const x = ((Math.round(cx + dx) % N) + N) % N, y = ((Math.round(cy + dy) % N) + N) % N;
+      f[y * N + x] += a * (1 - q) ** 2;
+    }
+  }
+  for (let i = 0; i < N * N; i++) { const v = Math.min(1, Math.max(0, (f[i] - 0.35) * 2.2)); img.data.set([255, 255, 255, 255 * v], i * 4); }
+  g.putImageData(img, 0, 0);
+  lace = new THREE.CanvasTexture(cv); lace.wrapS = lace.wrapT = THREE.RepeatWrapping;
+  return lace;
+}
+export function makeBowWave() {
+  const group = new THREE.Group(), inner = new THREE.Group(), RUN = 2.6, NU = 40, NV = 10;   // inner: scaled up and down with her speed
+  group.add(inner);
+  const hullAt = z => HB * Math.min(1, Math.sqrt(Math.max(0, z - STEM) / 3.2));
+  const A = u => 0.34 * Math.exp(-(((u - 0.12) / 0.16) ** 2)) + 0.1 * Math.exp(-(((u - 0.45) / 0.25) ** 2));   // heaped at the stem, a second swell aft
+  const tex = laceTexture().clone(); tex.needsUpdate = true; tex.anisotropy = 8;   // (seen edge-on, it would blur into streaks)
+  const mats = [];
+  for (const s of [-1, 1]) {
+    const pos = [], uv = [], col = [], idx = [];
+    for (let i = 0; i <= NU; i++) for (let j = 0; j <= NV; j++) {
+      const u = i / NU, v = j / NV, z = STEM - 0.05 + u * RUN;
+      const out = (0.3 + 0.8 * u) * v;                                    // the wave spreads as it runs aft
+      const x = s * (Math.max(0, hullAt(z) - 0.04) + out);
+      const crest = A(u) * Math.max(0, 1 - v * 1.15) ** 1.4 + A(u) * 0.35 * Math.exp(-(((v - 0.55) / 0.18) ** 2));   // pressed up the hull, a lip curling out
+      pos.push(x, crest, z);
+      uv.push((Math.abs(x) + 1.5 * crest) / 1.6, z / 1.6);   // across it by its surface, so the lace doesn't streak where it climbs the hull
+      const a = Math.min(1, u / 0.04) * Math.min(1, (1 - u) / 0.35) * Math.min(1, (1 - v) / 0.3);   // faded out at its ends and its outer edge
+      col.push(a, Math.exp(-v / 0.45) * Math.exp(-u / 0.5), 0);   // r: the fade; g: solid white where it breaks against the stem
+    }
+    for (let i = 0; i < NU; i++) for (let j = 0; j < NV; j++) {
+      const a = i * (NV + 1) + j, b = a + 1, c = a + NV + 1, d = c + 1;
+      idx.push(a, c, b, b, c, d);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    geo.setIndex(idx); geo.computeVertexNormals();
+    // the foam's alpha: the lace, solid near the stem, times the fade (vertex colours, read in the shader as alpha)
+    const mat = new THREE.MeshLambertMaterial({ color: 0xe8eef0, map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide, vertexColors: true, opacity: 0 });
+    mat.onBeforeCompile = sh => {
+      sh.fragmentShader = sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+        diffuseColor.a = vColor.r * clamp(diffuseColor.a * 0.9 + vColor.g * 1.7, 0.0, 1.0) * opacity; diffuseColor.rgb = vec3(0.91, 0.93, 0.94) * mix(0.82, 1.0, diffuseColor.a);`);
+    };
+    mats.push(mat);
+    const m = new THREE.Mesh(geo, mat); m.renderOrder = 2; inner.add(m);
+  }
+  let k = 0, flow = 0;
+  function update(kn, moving, dt) {
+    const U = Math.max(0, (kn || 0) * 0.5144), want = moving ? Math.min(1.25, U / U0) : 0;
+    k += (want - k) * Math.min(1, dt * 1.2);
+    inner.scale.y = Math.max(0.001, k);
+    inner.visible = k > 0.02;
+    flow += U * dt / 1.6;                     // the foam runs aft along her at her speed
+    tex.offset.y = -flow % 1;
+    for (const m of mats) m.opacity = Math.min(1, k * 1.1);
+  }
+  return { group, update };
+}
