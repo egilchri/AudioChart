@@ -37,9 +37,12 @@ LIGHT_COLOUR_ABBR = {
     1: 'W', 2: 'Bu', 3: 'R', 4: 'G', 5: 'Bu', 6: 'Y', 11: 'Or',
 }
 
-# WATLEV values that indicate a submerged/hazardous feature
-# 1=part of seabed, 2=covers/uncovers, 4=always underwater, 7=submerged at MHWS
-HAZARDOUS_WATLEV = {1, 2, 4, 7}
+# S-57 WATLEV (water level effect): 1 partly submerged at high water, 2 always dry,
+# 3 always under water/submerged, 4 covers and uncovers, 5 awash, 6 subject to
+# inundation or flooding, 7 floating. (Corrected 2026-10-21: this comment had them
+# wrong, and s57_to_geojson.py skipped 3 as "dry"; INCIDENTS.md.)
+# Not used by the extractor, which keeps every level.
+HAZARDOUS_WATLEV = {1, 3, 4, 5, 7}
 
 # Human-readable descriptions for object types
 OBJTYPE_LABEL = {

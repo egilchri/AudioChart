@@ -579,7 +579,7 @@ async function _autoRouteCore(
   // point-blank range. Turn each into a small circular no-go ring and feed it
   // through the exact same avoidance pipeline (segBlocked, node offsetting,
   // corridor search) rather than adding a parallel obstacle system.
-  const HAZARD_SAFETY_NM = 0.05;  // ~100 yards — matches the corridor used by
+  const HAZARD_SAFETY_NM = 0.03;  // ~60 yards (v965: was 0.05 nm, ~100 yd; with the ~1,000 hazards always under water restored, 100 yd circles closed harbor entrances such as Carvers Harbor's) — matches the corridor used by
                                    // _checkRouteHazards/_autoFixSelectedNodes
   const HAZARD_LABELS = new Set(['underwater rock', 'obstruction', 'wreck', 'UWTROC', 'OBSTRN', 'WRECKS']);
   function _hazardCircleRing(lon, lat, radiusNm, sides = 10) {
@@ -598,6 +598,7 @@ async function _autoRouteCore(
     if (f.geometry?.type !== 'Point') continue;
     const label = f.properties?.label || f.properties?.objtype || '';
     if (!HAZARD_LABELS.has(label)) continue;
+    if (!Query.pointHazardInWay(f.properties, draftM + KEEL_CLEARANCE_MARGIN_M)) continue;   // charted deep enough for her (v965)
     const [lon, lat] = f.geometry.coordinates;
     if (lon < bMinLon || lon > bMaxLon || lat < bMinLat || lat > bMaxLat) continue;
     _processExtraRing(_hazardCircleRing(lon, lat, HAZARD_SAFETY_NM), false);
@@ -908,7 +909,7 @@ async function _autoRouteCore(
     // case this fixes: a route passed within 1.5m of a charted rock
     // whose circle was never built because it sat just outside the
     // query bbox). Cheap — grid-indexed, same cost class as landBlocks.
-    if (!depthOnly && Query.hazardPointBlocks(lon1, lat1, lon2, lat2)) return true;
+    if (!depthOnly && Query.hazardPointBlocks(lon1, lat1, lon2, lat2, draftM + KEEL_CLEARANCE_MARGIN_M)) return true;
     const sx = Math.min(lon1, lon2), ex = Math.max(lon1, lon2);
     const sy = Math.min(lat1, lat2), ey = Math.max(lat1, lat2);
     const x0 = _extraCellX(sx), x1 = _extraCellX(ex);
@@ -2089,7 +2090,7 @@ async function _longRangeRoute(start, end, onUpdate, onText, draftFt, tideHeight
 // Classify what a fallback segment actually crosses so the message matches
 // what's really blocking it.
 const _FALLBACK_HAZARD_LABELS = new Set(['underwater rock', 'obstruction', 'wreck', 'UWTROC', 'OBSTRN', 'WRECKS']);
-const _FALLBACK_HAZARD_CORRIDOR_NM = 0.05; // matches HAZARD_SAFETY_NM in _autoRouteProg
+const _FALLBACK_HAZARD_CORRIDOR_NM = 0.03; // matches HAZARD_SAFETY_NM in _autoRouteProg
 
 // Ranks Query.coverageLevelAt's tri-state so the worse of two endpoints wins.
 const _COVERAGE_RANK = { none: 0, land: 1, core: 2 };

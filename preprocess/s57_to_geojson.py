@@ -42,9 +42,9 @@ def extract_hazards(enc_path, chart_id):
                     continue
                 props = feat['properties']
                 watlev = props.get('WATLEV')
-                # Skip features that are permanently dry/above water (WATLEV=3)
-                if watlev == 3:
-                    continue
+                # Every water level is kept. (Until 2026-10-21 this skipped WATLEV 3 as
+                # "permanently dry"; 3 is ALWAYS UNDER WATER, so every submerged rock,
+                # obstruction and wreck was dropped. See INCIDENTS.md 2026-10-21.)
                 features.append({
                     'type': 'Feature',
                     'geometry': {'type': 'Point', 'coordinates': centroid_point(geom)},

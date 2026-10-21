@@ -1346,6 +1346,9 @@ function setStatus(msg) { statusEl.textContent = msg; }
 function _currentDraftFt() {
   return parseFloat(document.getElementById('nf-draft-ft')?.value) || 5.0;
 }
+// a charted point hazard deeper than this (m at low water) isn't in her way: her draft (as AutoRoute plans for)
+// plus the 3 ft keel margin (v965; Query.pointHazardInWay, the router's rule)
+const _hazardNeedM = () => (_currentDraftFt() + 3) * 0.3048;
 
 // The boat AutoRoute plans for (v921): the one chosen beforehand in Your boat (or a 3D view's
 // boat button). Each planned route is stamped plannedFor {boat, draftFt, stops}; a route is only
@@ -2928,7 +2931,7 @@ function _routeCoverageLevel(points) {
 function _findRouteHazards(points) {
   const pts   = points;
   const feats = Query.hazards?.features || [];
-  const CORRIDOR = 0.05;  // nm (~100 yards each side)
+  const CORRIDOR = 0.03;  // nm (~60 yards each side; the router's HAZARD_SAFETY_NM, was 0.05 until v965)
   const DANGER_LABELS = new Set(['underwater rock', 'obstruction', 'wreck', 'UWTROC', 'OBSTRN', 'WRECKS']);
   const seen = new Set();
   const found = [];
@@ -2949,6 +2952,7 @@ function _findRouteHazards(points) {
       if (f.geometry.type !== 'Point') continue;
       const label = f.properties.label || f.properties.objtype || '';
       if (!DANGER_LABELS.has(label)) continue;
+      if (!Query.pointHazardInWay(f.properties, _hazardNeedM())) continue;   // charted deeper than she needs (v965)
       const [pLon, pLat] = f.geometry.coordinates;
       const key = `${pLon.toFixed(5)},${pLat.toFixed(5)}`;
       if (seen.has(key)) continue;
@@ -3225,7 +3229,7 @@ function _checkRouteHazards(routeIdx, silent = false) {
       const mid = pts[Math.floor((pts.length - 1) / 2)];
       L.popup({ maxWidth: 300, autoPan: false })
         .setLatLng([mid.lat, mid.lon])
-        .setContent(`<div style="font-size:13px;line-height:1.5"><b>${escapeHtml(route.name)}</b><br>✓ No rocks, obstructions, or wrecks within 100 yds.</div>`)
+        .setContent(`<div style="font-size:13px;line-height:1.5"><b>${escapeHtml(route.name)}</b><br>✓ No rocks, obstructions, or wrecks within 60 yds.</div>`)
         .openOn(_map);
     }
     return found;
@@ -3397,7 +3401,7 @@ function _nudgeLegOffshore(routeIdx, h) {
 // so that case gets a clearer message pointing at Reroute/Insert instead
 // of silently doing nothing.
 function _fixNodeHazards(idx) {
-  const CORRIDOR    = 0.05;
+  const CORRIDOR    = 0.03;   // the router's HAZARD_SAFETY_NM (v965: was 0.05)
   const SAFETY      = 0.03;
   const DANGER_LABELS = new Set(['underwater rock','obstruction','wreck','UWTROC','OBSTRN','WRECKS']);
 
@@ -3427,6 +3431,7 @@ function _fixNodeHazards(idx) {
       if (f.geometry.type !== 'Point') continue;
       const label = f.properties.label || f.properties.objtype || '';
       if (!DANGER_LABELS.has(label)) continue;
+      if (!Query.pointHazardInWay(f.properties, _hazardNeedM())) continue;   // charted deeper than she needs (v965)
       const [pLon, pLat] = f.geometry.coordinates;
       const ct = Query.segCrossTrack(a.lon, a.lat, b.lon, b.lat, pLon, pLat);
       if (!ct) continue;
@@ -5096,7 +5101,7 @@ function _nearestSegIdx(pts, latlng) {
 function _liveHazardCheck() {
   const pts = _editPoints;
   if (!pts || pts.length < 2) return [];
-  const CORRIDOR = 0.05;
+  const CORRIDOR = 0.03;   // the router's HAZARD_SAFETY_NM (v965: was 0.05)
   const SHALLOW_THRESHOLD = 2.0;
   const DANGER_LABELS = new Set(['underwater rock', 'obstruction', 'wreck', 'UWTROC', 'OBSTRN', 'WRECKS']);
   const feats = Query.hazards?.features || [];
@@ -5113,6 +5118,7 @@ function _liveHazardCheck() {
       if (f.geometry.type !== 'Point') continue;
       const label = f.properties.label || f.properties.objtype || '';
       if (!DANGER_LABELS.has(label)) continue;
+      if (!Query.pointHazardInWay(f.properties, _hazardNeedM())) continue;   // charted deeper than she needs (v965)
       const [pLon, pLat] = f.geometry.coordinates;
       const key = `${pLon.toFixed(5)},${pLat.toFixed(5)}`;
       if (seen.has(key)) continue;
@@ -5159,7 +5165,7 @@ function _liveHazardCheck() {
 }
 
 function _checkEditSegment(segIdx, latlng) {
-  const CORRIDOR = 0.05;
+  const CORRIDOR = 0.03;   // the router's HAZARD_SAFETY_NM (v965: was 0.05)
   const DANGER_LABELS = new Set(['underwater rock','obstruction','wreck','UWTROC','OBSTRN','WRECKS']);
   const a = _editPoints[segIdx], b = _editPoints[segIdx + 1];
   if (!a || !b) return;
@@ -5170,6 +5176,7 @@ function _checkEditSegment(segIdx, latlng) {
     if (f.geometry.type !== 'Point') continue;
     const label = f.properties.label || f.properties.objtype || '';
     if (!DANGER_LABELS.has(label)) continue;
+    if (!Query.pointHazardInWay(f.properties, _hazardNeedM())) continue;   // charted deeper than she needs (v965)
     const [pLon, pLat] = f.geometry.coordinates;
     const ct = Query.segCrossTrack(a.lon, a.lat, b.lon, b.lat, pLon, pLat);
     if (!ct) continue;
@@ -12474,7 +12481,7 @@ function _navaidChartedHazardHtml(lat, lon) {
   const typeLabel = TYPE_LABEL[best.properties.objtype];
   const name = best.properties.name;
   const depth = best.properties.valsou;
-  const depthPhrase = (typeof depth === 'number') ? `, charted depth ${depth}ft` : '';
+  const depthPhrase = (typeof depth === 'number') ? `, charted depth ${Math.round(depth / 0.3048)} ft` : '';   // valsou is metres (it printed the metre figure as ft until v965)
   const dir = Query.compassDir(bestBrg);
   const what = name ? `${name} (${typeLabel}${depthPhrase})` : `${typeLabel}${depthPhrase}`;
   return `<div class="navaid-popup-row">

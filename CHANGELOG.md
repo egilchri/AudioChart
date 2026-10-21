@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-10-21 — The hazards always under water are back; depth counts; 60-yard clearance (v965)
+
+Follows v964 (INCIDENTS.md 2026-10-21). The chart build had dropped every hazard that is always under water
+(WATLEV 3, taken for "always dry"), so AutoRoute and the route hazard check never saw about a thousand charted
+underwater rocks, obstructions and wrecks.
+- preprocess/s57_to_geojson.py keeps every water level now; s57_codes.py's WATLEV comment corrected.
+- preprocess/add_submerged_hazards.py puts them back into a built hazards.geojson from the same ENC cells
+  (no full rebuild: land splices and light fixes untouched): Penobscot Bay +955 (445 rocks, 492 obstructions,
+  18 wrecks), the bundled default +861. data-version fingerprints refreshed.
+- Depth counts (Query.pointHazardInWay): a point hazard charted deeper than the boat's draft + 3 ft (at low
+  water) isn't in her way; one with no depth charted always is. Router, route hazard check, live edit check,
+  auto-fix and nudge all use it.
+- Hazard clearance 0.05 nm (~100 yd) → 0.03 nm (~60 yd), everywhere (chosen by the user): the restored hazards'
+  100 yd circles closed harbor entrances (Carvers Harbor: test cases [30] and [32] stopped 0.3 nm outside).
+  test_route_hazard_clearance.js now pins the August rock with a ~30 m pass (its reported 67 m pass is now
+  outside the corridor).
+- A buoy popup printed a hazard's charted depth in metres labelled "ft"; now feet.
+Still open: the six sample routes predate this, and five pass within 60 yd of restored rocks; Casco Bay and
+Piscataqua data aren't patched yet.
+
 ## 2026-10-21 — Underwater wrecks in Empty Bay (v964)
 
 Asked: "Aren't there any known shipwrecks in deeper water in Penobscot Bay?" There are: the NOAA charts have 13

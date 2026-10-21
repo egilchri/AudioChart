@@ -75,7 +75,7 @@ function segPolyIntersectPoint(aLon, aLat, bLon, bLat, ring) {
 
 // ── Hazard check (mirrors _checkRouteHazards in www/js/app.js) ───────────────
 
-const CORRIDOR_NM         = 0.05; // ~100 yards each side
+const CORRIDOR_NM         = 0.03; // ~60 yards each side (app.js's, v965: was 0.05)
 const SHALLOW_THRESHOLD_NM = 2.0; // flag DEPARE polygons shallower than this
 const DANGER_LABELS = new Set(['underwater rock', 'obstruction', 'wreck', 'UWTROC', 'OBSTRN', 'WRECKS']);
 
@@ -99,6 +99,7 @@ function checkRouteHazards(points, hazardsFC) {
       const { crossTrack, alongTrack } = ct;
       if (Math.abs(crossTrack) <= CORRIDOR_NM && alongTrack >= 0 && alongTrack <= segLen) {
         found.push({
+          lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1],
           label: f.properties.label || label,
           name: f.properties.name || '',
           routeNm: distSoFar + alongTrack,
@@ -196,10 +197,17 @@ const routeWithClearance = loadPoints([
 
 const POINT_LABELS = new Set(['underwater rock', 'obstruction', 'wreck', 'UWTROC', 'OBSTRN', 'WRECKS']);
 
-const badFound = checkRouteHazards(routeCuttingCloseToRock, hazardsFC);
+// v965: the corridor narrowed from ~100 yd to ~60 yd (0.03 nm, 55 m) — with the hazards always under water
+// restored (INCIDENTS.md 2026-10-21), 100 yd circles closed harbor entrances. The reported track passes this
+// rock at 67 m, now outside the corridor; the same track bent to pass it at ~30 m must still be flagged.
+const ROCK = { lon: -68.3004057, lat: 44.2240253 };
+const routeGrazingRock = routeCuttingCloseToRock.slice(0, 5)
+  .concat([{ lat: ROCK.lat + 30 / 111000, lon: ROCK.lon }])   // ~30 m north of the rock
+  .concat(routeCuttingCloseToRock.slice(5));
+const badFound = checkRouteHazards(routeGrazingRock, hazardsFC);
 assert(
-  'checker flags the known close-pass rock on the unsafe track',
-  badFound.some(h => POINT_LABELS.has(h.label)),
+  'checker flags the known rock on a track passing it at ~30 m',
+  badFound.some(h => POINT_LABELS.has(h.label) && Math.abs(h.lon - ROCK.lon) < 1e-4 && Math.abs(h.lat - ROCK.lat) < 1e-4),
   `found: ${JSON.stringify(badFound.map(h => h.label))}`
 );
 

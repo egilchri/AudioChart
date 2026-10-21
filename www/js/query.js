@@ -983,8 +983,18 @@ function _pointInRing(px, py, ring) {
   return inside;
 }
 
-const _HAZARD_SAFETY_NM = 0.05; // matches router.js's HAZARD_SAFETY_NM
+const _HAZARD_SAFETY_NM = 0.03; // ~60 yd, matches router.js's HAZARD_SAFETY_NM (v965: was 0.05)
 const _HAZARD_LABELS = new Set(['underwater rock', 'obstruction', 'wreck', 'UWTROC', 'OBSTRN', 'WRECKS']);
+// Is a charted point hazard in a boat's way? (v965) One with a charted depth (valsou, m at low water) deeper than
+// needM (her draft plus the 3 ft keel margin) isn't; one with no depth charted always is. Low water, not the
+// current tide: a rock is a hard danger, and every check (router, route check, nudge) uses the same rule, so a
+// route the router plans is never flagged by the check. Needed once the hazards always under water (WATLEV 3)
+// were restored to the chart data (INCIDENTS.md 2026-10-21): they include wrecks and rocks with 10 m and more
+// over them. needM Infinity (the default) counts every one, as before.
+export function pointHazardInWay(props, needM = Infinity) {
+  const v = props?.valsou;
+  return v == null || !(v > needM);
+}
 
 // Builds a land+hazard+tide-blocked-depth-zone obstacle check, scoped to a
 // bbox around (centerLon,centerLat) so ray-casting doesn't scan every
@@ -1018,6 +1028,7 @@ function _makeObstacleCheck(centerLon, centerLat, maxNm, draftFt, tideHeightM, m
       if (f.geometry?.type !== 'Point') return false;
       const label = f.properties?.label || f.properties?.objtype || '';
       if (!_HAZARD_LABELS.has(label)) return false;
+      if (!pointHazardInWay(f.properties, draftFt * 0.3048 + marginM)) return false;
       const [flon, flat] = f.geometry.coordinates;
       return flon >= bMinLon && flon <= bMaxLon && flat >= bMinLat && flat <= bMaxLat;
     })
@@ -2522,11 +2533,11 @@ function _buildHazardPointIndex() {
     const key = _cellKey2D(_cellOf(lon), _cellOf(lat));
     let arr = grid.get(key);
     if (!arr) { arr = []; grid.set(key, arr); }
-    arr.push([lon, lat]);
+    arr.push([lon, lat, f.properties?.valsou]);
   }
   return { grid, builtFrom: hazards };
 }
-export function hazardPointBlocks(fromLon, fromLat, toLon, toLat) {
+export function hazardPointBlocks(fromLon, fromLat, toLon, toLat, needM = Infinity) {   // needM: see pointHazardInWay
   if (!hazards) return false;
   if (!_hazardPointIndex || _hazardPointIndex.builtFrom !== hazards) _hazardPointIndex = _buildHazardPointIndex();
   const { grid } = _hazardPointIndex;
@@ -2540,7 +2551,8 @@ export function hazardPointBlocks(fromLon, fromLat, toLon, toLat) {
     for (let gy = y0; gy <= y1; gy++) {
       const arr = grid.get(_cellKey2D(gx, gy));
       if (!arr) continue;
-      for (const [plon, plat] of arr) {
+      for (const [plon, plat, v] of arr) {
+        if (v != null && v > needM) continue;   // deep enough (pointHazardInWay)
         if (_ptSegDistNmLocal(plon, plat, fromLon, fromLat, toLon, toLat) <= _HAZARD_SAFETY_NM) return true;
       }
     }

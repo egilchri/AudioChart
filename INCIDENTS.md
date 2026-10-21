@@ -22,9 +22,15 @@ HAZARDOUS_WATLEV has the codes wrong the same way. So the build kept the dry hul
 submerged hazards, the opposite of what was meant. (bay3d.js's own WATLEV labels were right.)
 
 **Fix:** v964 (Empty Bay only): the 13 underwater wrecks from the ENC cells, in data/wrecks_submerged.geojson,
-shown and described in Empty Bay. The pipeline fix and AutoRoute's use of the restored hazards follow separately
-(adding ~1,000 hazards may change routes; depth must count, since the router blocks a ~100 yd circle round every
-point hazard whatever its depth).
+shown and described in Empty Bay. v965: extractor fixed; Penobscot Bay (+955) and bundled-default (+861)
+hazards.geojson patched from the same cells (preprocess/add_submerged_hazards.py); a hazard charted deeper than
+draft + 3 ft no longer counts (Query.pointHazardInWay); the hazard clearance narrowed from ~100 yd to ~60 yd (the
+user's choice), since the restored hazards' 100 yd circles closed Carvers Harbor's entrance. Full routing suite
+and hazard-clearance test pass.
+
+**Still open:** five of the six sample routes pass within 60 yd of restored rocks (some 13–20 m from rocks with
+0.9–1.8 m over them) and need re-routing; saved user routes may too (re-run the hazard check). Casco Bay and
+Piscataqua hazards are still missing their WATLEV 3 features.
 
 ---
 
