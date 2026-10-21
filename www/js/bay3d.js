@@ -1231,7 +1231,8 @@ document.getElementById('nestdown').addEventListener('click', leaveRide);
 for (const [id, m] of RIDE_BTNS) document.getElementById(id)?.addEventListener('click', () => ride(nest.v, m));
 document.getElementById('nestreport').addEventListener('click', lookoutReport);
 // Following a boat (v969, requested: "add them while following too"): a bar naming her, with Helm, Drone, Stern,
-// Side and Bow to go aboard or round her from here, and ✕ to stop following. Not for your own boat (⌖ Follow).
+// Side and Bow to go aboard or round her from here, and ✕ to stop following. Your own boat too (v970, requested:
+// "add Stern, Side and Bow for my own boat too").
 const followHud = document.getElementById('followhud');
 if (followHud) {
   shrinkable(followHud);
@@ -1241,10 +1242,10 @@ if (followHud) {
 }
 syncFollowHud = function sync() {   // every frame: cheap unless who's followed changes
   if (!followHud) return;
-  const v = follow && follow !== own && !nest.on && vGroup(follow).visible ? follow : null;
+  const v = follow && !nest.on && vGroup(follow).visible ? follow : null;
   if (v === sync.v) return;
   sync.v = v; followHud.hidden = !v;
-  if (v) followHud.querySelector('#followname').textContent = `Following ${vName(v)}${v.kind === 'ferry' ? ' · ' + v.label : ''}`;
+  if (v) followHud.querySelector('#followname').textContent = `Following ${vName(v)}${v === own ? ' (yours)' : v.kind === 'ferry' ? ' · ' + v.label : ''}`;
 };
 document.getElementById('bowdoinbtn').addEventListener('click', () => {
   if (!bowdoin) return;

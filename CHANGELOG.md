@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-21 — Stern, Side and Bow for your own boat too (v971)
+
+Requested: "add Stern, Side and Bow for my own boat too". The following bar (v969) now shows for your own boat as
+well ("Following Sea Nymph (yours)"), when you ⌖ Follow her or the view follows your Virtual Journey.
+
 ## 2026-10-21 — Buoy-chain shortcuts keep off rocks; Carvers sample destination moved (v970)
 
 Requested: "fix the router gap". AutoRoute's spatial buoy-chain edges (straight lines between buoys merely near
