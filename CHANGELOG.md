@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-21 — Stern, Side and Bow while following a boat (v969)
+
+Requested: "add them while following too". Following any boat in the Bird's-eye view (Follow in ⛴ Underway, a
+sailboat, Bowdoin, a coming-up ferry) now shows a one-line bar along the top naming her, with Helm, Drone,
+Stern, Side and Bow to go aboard or round her from there, and ✕ to stop following. It shrinks like the other
+windows, hides while you're riding her, and comes back when you Leave. Not shown for your own boat (⌖ Follow).
+
 ## 2026-10-21 — Stern, Side and Bow views of any boat in the Bird's-eye view (v968)
 
 Requested: "view this boat from the stern, bow, and sides, like we did elsewhere" (the helm view's v955 buttons).

@@ -939,6 +939,7 @@ const nestOK = ['nesthud', 'nestrep', 'crowsnest', 'nestdown', 'nestreport', 'bo
 // following her round (drag to circle her, scroll or pinch to close in or stand off), 🔭 Nest Bowdoin's ice
 // barrel. ⬇ Leave (Esc) leaves you over her, following her in the Bird's-eye view.
 const vGroup = v => v.group || v.boat.group;
+let syncFollowHud = () => {};   // (the follow bar, below)
 const RIDE_BTNS = [['ridehelm', 'helm'], ['ridedrone', 'drone'], ['ridestern', 'stern'], ['rideside', 'side'], ['ridebow', 'bow'], ['ridenest', 'nest']];
 const titleCase = t => t.toLowerCase().replace(/(^|[\s.'-])[a-z]/g, c => c.toUpperCase());
 function vName(v) {
@@ -1229,6 +1230,22 @@ document.getElementById('crowsnest').addEventListener('click', () => nest.on && 
 document.getElementById('nestdown').addEventListener('click', leaveRide);
 for (const [id, m] of RIDE_BTNS) document.getElementById(id)?.addEventListener('click', () => ride(nest.v, m));
 document.getElementById('nestreport').addEventListener('click', lookoutReport);
+// Following a boat (v969, requested: "add them while following too"): a bar naming her, with Helm, Drone, Stern,
+// Side and Bow to go aboard or round her from here, and ✕ to stop following. Not for your own boat (⌖ Follow).
+const followHud = document.getElementById('followhud');
+if (followHud) {
+  shrinkable(followHud);
+  for (const ev of ['pointerdown', 'wheel', 'touchstart']) followHud.addEventListener(ev, e => e.stopPropagation(), { passive: true });
+  for (const b of followHud.querySelectorAll('button[data-m]')) b.addEventListener('click', () => { if (follow) ride(follow, b.dataset.m); });
+  document.getElementById('followstop').addEventListener('click', stopFollow);
+}
+syncFollowHud = function sync() {   // every frame: cheap unless who's followed changes
+  if (!followHud) return;
+  const v = follow && follow !== own && !nest.on && vGroup(follow).visible ? follow : null;
+  if (v === sync.v) return;
+  sync.v = v; followHud.hidden = !v;
+  if (v) followHud.querySelector('#followname').textContent = `Following ${vName(v)}${v.kind === 'ferry' ? ' · ' + v.label : ''}`;
+};
 document.getElementById('bowdoinbtn').addEventListener('click', () => {
   if (!bowdoin) return;
   if (nest.on) leaveRide();
@@ -2128,6 +2145,7 @@ function frame(now) {
   if (nest.on) nestCamera();   // after every vessel has moved, yours too
   if (nest.on || !rcEl?.hidden) drawRideChart();
   wildlife.update(dt, t, view, camera.position, { hidden: !!aboveFog || EMPTY, night: env.C.time === 'night', boat: (own.ext || own.r) ? own : null, scale: d => clamp(d / 35, 3, 8) });
+  syncFollowHud();
   if (follow && !anim && !nest.on) { const k = Math.min(1, dt * 4); view.x += (follow.x - view.x) * k; view.z += (follow.z - view.z) * k; }
   renderer.render(scene, camera);
   updateLabels(); updateReadout();
