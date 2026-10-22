@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-21 — No GPS errors in the header during a Virtual Journey or Free sail (v982)
+
+Seen in the Overview re-recording: while a Virtual Journey or Free sail supplies the position, the real
+GPS's errors ("GPS position unavailable", "GPS timeout") replaced "GPS: VIRTUAL JOURNEY" in the header,
+in red. They're not news then; they're now left out of the header until the journey ends (the GPS keeps
+retrying, so a real error still shows afterwards).
+
 ## 2026-10-21 — No speed spike when a Virtual Journey or Free sail ends (v981)
 
 Found re-recording the Overview after v980: when Free sail stopped, the speed readout showed "284°M · 2013.2kt"

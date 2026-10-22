@@ -15755,6 +15755,10 @@ async function init() {
       }
     },
     (err) => {
+      // A Virtual Journey or Free sail is supplying the position (v982, seen in the Overview demo): the
+      // real GPS's errors aren't news then, and read red in the header over "GPS: VIRTUAL JOURNEY". It
+      // keeps retrying, so an error after the journey ends still shows.
+      if (GPS.isVirtualPosition()) return;
       _statusGpsLabel = `GPS: ${err}`;
       _statusGpsCls   = 'gps-error';
       _renderStatusCombo();
