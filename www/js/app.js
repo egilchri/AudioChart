@@ -7724,14 +7724,17 @@ function _vjSounderReset() {
 function _vjSound(lat, lon) {
   const el = document.getElementById('vjourney-sounder');
   if (!el) return;
-  const d = Query.depthAt(lat, lon);
+  // ashore, no depth: depthAt would give the nearest sounding out in the water (v980: 2.3 ft among
+  // Rockland's buildings in the Overview demo)
+  const ashore = Query.isLandAt(lon, lat);
+  const d = ashore ? null : Query.depthAt(lat, lon);
   const ft = d ? Math.max(0, (d.m + (_tideHeight || 0)) * 3.28084) : null;
   _vjsTrace.push(ft);
   if (_vjsTrace.length > VJS_SAMPLES) _vjsTrace.shift();
   const draft = _currentDraftFt();
   el.querySelector('.vjs-val').textContent = ft == null ? '--' : ft < 10 ? ft.toFixed(1) : Math.round(ft);
   const tideFt = (_tideHeight || 0) * 3.28084;
-  el.querySelector('.vjs-note').textContent = ft == null ? 'no soundings nearby'
+  el.querySelector('.vjs-note').textContent = ashore ? 'ashore' : ft == null ? 'no soundings nearby'
     : (d.nearNm != null && d.nearNm > 0.3 ? 'approx. · ' : '')
       + (Math.abs(tideFt) >= 0.1 ? `tide ${tideFt >= 0 ? '+' : ''}${tideFt.toFixed(1)} ft` : 'charted depth');
   const warn = ft != null && ft < draft + 3, alarm = ft != null && ft < draft + 1;
@@ -7967,13 +7970,23 @@ function _startFreeSail({ course = null, speed = null } = {}) {
   if (_trackRecActive) { _fsSay('Already recording/following a route — stop it first.'); return false; }
   const p = GPS.getPosition();
   if (!p) { _fsSay('No boat position yet — bring the boat somewhere first.'); return false; }
+  // Ashore (v980, found in the Overview demo: from the demo position, 40 m up Rockland's waterfront, she
+  // "sailed" through the town): start from the nearest water she can float in instead. The step's land
+  // check only catches a shoreline crossed, so from inside land nothing stopped her.
+  let start = { lat: p.lat, lon: p.lon }, ashoreNote = '';
+  if (Query.isLandAt(p.lon, p.lat)) {
+    const w = Query.snapToNavigableWater(p.lon, p.lat, _currentDraftFt(), _tideHeight || 0) || Query.findWaterNear(p.lon, p.lat);
+    if (!w || Query.isLandAt(w.lon, w.lat)) { _fsSay('The boat is ashore, with no water near. Bring her to the water first.'); return false; }
+    start = { lat: w.lat, lon: w.lon };
+    ashoreNote = ` The boat was ashore; starting from the nearest water, ${formatDistance(Query.distanceNm(p.lon, p.lat, w.lon, w.lat))} off.`;
+  }
   if (_vjRoute) _stopVirtualJourney();
   if (!_underwayCheckbox.checked) _setUnderwayMode(true);
   const hdg = course != null ? magneticToTrue(course) : (Number.isFinite(p.heading) ? p.heading : magneticToTrue(0));
   if (speed > 0) _vjSpeedKnots = speed;
   else _vjSpeedKnots = parseFloat(document.getElementById('vjourney-speed-input').value) || 5;
   _vjCompress = parseInt(document.querySelector('.vjourney-compress.selected')?.dataset.compress) || 1;
-  _fs = { lat: p.lat, lon: p.lon, hdg, target: null, running: true, held: null, lastMs: Date.now(), known: new Set(), lookAt: 0, landSaid: false };
+  _fs = { lat: start.lat, lon: start.lon, hdg, target: null, running: true, held: null, lastMs: Date.now(), known: new Set(), lookAt: 0, landSaid: false };
   const banner = document.getElementById('vjourney-banner');
   banner.classList.add('fs-mode');
   document.getElementById('vjourney-speed-input').value = _vjSpeedKnots;
@@ -7993,7 +8006,7 @@ function _startFreeSail({ course = null, speed = null } = {}) {
   // the Drone view comes up as a journey's 3D view does, unless you turned that off (or Bird's-eye is up)
   if (_vj3dWanted() && !(_bay3dWrap && !_bay3dWrap.hidden)) _showVj3d(null); else _syncVj3dBtn();
   _fsWheelMidships(); _fsWheelShow();
-  _fsSay(`Free sailing. Course ${_fsDeg3(_fsMagOf(hdg))} magnetic, ${_vjSpeedKnots} knots.`);
+  _fsSay(`Free sailing. Course ${_fsDeg3(_fsMagOf(hdg))} magnetic, ${_vjSpeedKnots} knots.${ashoreNote}`);
   return true;
 }
 function _stopFreeSail(quiet = false) {

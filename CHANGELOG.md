@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-21 — Free sail never starts ashore (v980)
+
+Found in the Overview demo (about 3:50): Free sailing started from the demo position, which the chart's land
+data puts 40 m up Rockland's waterfront, and she "sailed" through the town's buildings, the sounder showing
+2.3 ft. The step's land check only catches a shoreline crossed, so from inside land nothing stopped her.
+- Starting ashore now moves her to the nearest water she can float in (Query.snapToNavigableWater, the
+  draft- and tide-aware snap AutoRoute uses; else findWaterNear) and says so. From the demo position: 0.15 nm
+  east, in 12 ft charted. With no water near, it says so and doesn't start.
+- The depth sounder shows "--" and "ashore" on land, not the nearest sounding out in the harbor.
+The Overview video itself still shows the old behavior until its Free-sail segment is re-recorded.
+
 ## 2026-10-21 — Sailors page link previews (v979)
 
 Requested, for sharing the Overview on Substack: the sailors page had no link-preview tags, so a pasted link
