@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-22 — Overview video re-recorded: Free sail in water (v983)
+
+The sailors page's Overview video showed the boat "sailing" through Rockland's buildings at about 3:50
+(found by the user). Re-recorded on the fixed app: Free sail now starts 0.15 nm east of the demo position,
+in 12 ft charted (v980), with no speed spike when it ends (v981) and no GPS error in the header (v982).
+Same length (4:54) and size (1000x510); new poster from its opening frame.
+
 ## 2026-10-21 — No GPS errors in the header during a Virtual Journey or Free sail (v982)
 
 Seen in the Overview re-recording: while a Virtual Journey or Free sail supplies the position, the real
