@@ -6765,13 +6765,16 @@ function _updateFocusRay(lat, lon) {
 // next to the tide widget.
 const MIN_HEADING_SPEED_KT = 2;
 const HEADING_PREDICTOR_MIN = 6;
-let _lastFixForHeading = null; // {lat, lon, t} — fallback source when coords.heading is unavailable
+let _lastFixForHeading = null; // {lat, lon, t, source} — fallback source when coords.heading is unavailable
 
-function _computeHeadingSpeed(lat, lon, browserHeadingDeg, browserSpeedKt) {
+// Only from a fix of the same source (v981): when a Virtual Journey or Free sail ends, the real GPS
+// takes over wherever it is, and the jump from her last virtual position read as a speed (2013 kt,
+// seen in the Overview demo after Free sail stopped 0.15 nm from the real fix).
+function _computeHeadingSpeed(lat, lon, browserHeadingDeg, browserSpeedKt, source) {
   const now = Date.now();
   let headingDeg = browserHeadingDeg;
   let speedKt = browserSpeedKt;
-  if (_lastFixForHeading) {
+  if (_lastFixForHeading && _lastFixForHeading.source === source) {
     const dtSec = (now - _lastFixForHeading.t) / 1000;
     const distNm = Query.distanceNm(_lastFixForHeading.lon, _lastFixForHeading.lat, lon, lat);
     if (dtSec > 0) {
@@ -6781,7 +6784,7 @@ function _computeHeadingSpeed(lat, lon, browserHeadingDeg, browserSpeedKt) {
       if (speedKt == null) speedKt = (distNm / dtSec) * 3600;
     }
   }
-  _lastFixForHeading = { lat, lon, t: now };
+  _lastFixForHeading = { lat, lon, t: now, source };
   return { headingDeg, speedKt };
 }
 
@@ -15708,7 +15711,7 @@ async function init() {
         _updateHeadingRay(lat, lon, null, null);
         _updateHeadingSpeedReadout(null, null);
       } else {
-        const computed = _computeHeadingSpeed(lat, lon, heading, speedKt);
+        const computed = _computeHeadingSpeed(lat, lon, heading, speedKt, source);
         _updateHeadingRay(lat, lon, computed.headingDeg, computed.speedKt);
         _updateHeadingSpeedReadout(computed.headingDeg, computed.speedKt);
       }

@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-21 — No speed spike when a Virtual Journey or Free sail ends (v981)
+
+Found re-recording the Overview after v980: when Free sail stopped, the speed readout showed "284°M · 2013.2kt"
+(9859.5 kt reproduced on v980). The real GPS takes over wherever it is, and the course-and-speed readout
+worked out a speed from the jump between her last virtual position and that real fix. Any Virtual Journey
+or Free sail ending away from the real position did this. The speed and heading are now only worked out
+between two fixes from the same source; on a change of source the readout waits for the next real fix.
+
 ## 2026-10-21 — Free sail never starts ashore (v980)
 
 Found in the Overview demo (about 3:50): Free sailing started from the demo position, which the chart's land
