@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-23 — A link straight to the Overview video (v985)
+
+https://egilchri.github.io/AudioChart/sailors/overview/ is the link to share: it has its own preview tags
+(title "AudioChart in two minutes", the Overview poster), so a Facebook card points at it, and it sends
+visitors to the sailors page scrolled to the Overview video, just under the top bar (#demo-video, now
+with a scroll margin for the sticky bar). Visitors still tap Play: browsers don't autoplay with sound.
+
 ## 2026-10-23 — Overview video cut to two minutes (v984)
 
 The sailors page's Overview tab now plays a 2:05 tour in place of the 4:54 one. It says up front that

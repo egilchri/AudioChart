@@ -379,6 +379,8 @@
     display: block;
     object-fit: cover;
   }
+  /* /sailors/overview/ (the link to share) lands on #demo-video: clear of the sticky top bar (v985) */
+  #demo-video { scroll-margin-top: 84px; }
   .demo-frame iframe { width: 100%; height: 100%; display: block; border: 0; background: var(--paper); }
   .demo-frame iframe[hidden], .demo-frame video[hidden] { display: none; }
   /* the interactive tab on a phone: its chart and its race board stack, so it needs the height */
