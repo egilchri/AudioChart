@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-23 — Overview video cut to two minutes (v984)
+
+The sailors page's Overview tab now plays a 2:05 tour in place of the 4:54 one. It says up front that
+everything in the app works by hand or by voice, and its AutoRoute is started by double-clicking the boat
+(Autoroute, then the destination typed in), with the spoken "AutoRoute to Stonington" mentioned as the
+other way. Free sail is steered by the wheel and then by voice, seen from astern. Dropped for length:
+the hazards display, the nearest-hazard question, Bowdoin's lookout, weather and dusk. Waits for the
+route and for 3D scenery are trimmed out. New poster; page title and link-preview text updated.
+Recording scripts: design/pending/overview-demo-2min/.
+
 ## 2026-10-22 — Overview video re-recorded: Free sail in water (v983)
 
 The sailors page's Overview video showed the boat "sailing" through Rockland's buildings at about 3:50

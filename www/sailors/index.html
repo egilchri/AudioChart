@@ -14,13 +14,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AudioChart — Voice-driven nautical safety</title>
 <!-- link previews (v979): Substack, email and social posts show this title, text and picture -->
-<meta name="description" content="A five-minute tour of AudioChart, a voice-driven chart plotter for sailing Penobscot Bay: spoken AutoRoute and bearings, a Virtual Journey in 3D, and a Bird's-eye view of the bay's ferries and boats.">
+<meta name="description" content="A two-minute tour of AudioChart, a voice-driven chart plotter for sailing Penobscot Bay: spoken AutoRoute and bearings, a Virtual Journey in 3D, and a Bird's-eye view of the bay's ferries and boats.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="AudioChart">
 <meta property="og:url" content="https://egilchri.github.io/AudioChart/sailors/">
 <meta property="og:title" content="AudioChart — Voice-driven nautical safety">
-<meta property="og:description" content="A five-minute tour of AudioChart, a voice-driven chart plotter for sailing Penobscot Bay: spoken AutoRoute and bearings, a Virtual Journey in 3D, and a Bird's-eye view of the bay's ferries and boats.">
-<meta property="og:image" content="https://egilchri.github.io/AudioChart/sailors/assets/overview-poster.jpg">
+<meta property="og:description" content="A two-minute tour of AudioChart, a voice-driven chart plotter for sailing Penobscot Bay: spoken AutoRoute and bearings, a Virtual Journey in 3D, and a Bird's-eye view of the bay's ferries and boats.">
+<meta property="og:image" content="https://egilchri.github.io/AudioChart/sailors/assets/overview-poster.jpg?v=984">
 <meta property="og:image:width" content="1000">
 <meta property="og:image:height" content="510">
 <meta property="og:image:alt" content="AudioChart's Bird's-eye view of Penobscot Bay, with its towns and harbors labelled">
@@ -639,8 +639,8 @@
   <div class="wrap">
     <div class="section-head">
       <span class="tag">See it in action</span>
-      <h2 id="demo-title">AudioChart in five minutes.</h2>
-      <p id="demo-desc">The whole app in one tour. First the chart plotter: map types, a spoken AutoRoute through the Fox Islands Thorofare, bearings read aloud, and a Virtual Journey in 3D. Then the armchair: the bay in 3D with its traffic on a clock, a ride on the Vinalhaven ferry, the lookout’s report from Bowdoin’s crow’s nest, Free sailing by voice, dusk, and Penobscot Bay drained to the bottom.</p>
+      <h2 id="demo-title">AudioChart in two minutes.</h2>
+      <p id="demo-desc">The whole app in one tour, and everything in it works by hand or by voice. First the chart plotter: map types, an AutoRoute through the Fox Islands Thorofare started by double-clicking the boat, a bearing read aloud, and a Virtual Journey in 3D. Then the armchair: the bay in 3D with its traffic on a clock, a ride on the Vinalhaven ferry, Free sailing by wheel and by voice, and Penobscot Bay drained to the bottom.</p>
     </div>
     <!-- Two demos, meant to be watched in order (1 first) — a returning
          visitor can jump straight to either one. Content/metadata for each
@@ -665,7 +665,7 @@
       <!-- tab 10 (v925): an interactive page, not a clip; loaded only when its tab is chosen -->
       <iframe id="demo-page" title="Three Boats, One Chart" hidden></iframe>
     </div>
-    <p class="demo-note" id="demo-note">Recorded from the live app on a computer. The narrator, the skipper’s commands and the app’s replies are synthesized voices; everything on screen is the app’s real response.</p>
+    <p class="demo-note" id="demo-note">Recorded from the live app on a computer. The narrator, the skipper’s commands and the app’s replies are synthesized voices; everything on screen is the app’s real response, with waits for a route or for 3D scenery trimmed.</p>
 
     <!-- Sync tab only (see showDemo): detailed first-time setup, per direct
          request 2026-10-04. Facts here match drive_sync.js — keep them in
@@ -698,11 +698,11 @@
   // Content for each demo clip — the tab buttons above only carry which one
   // (data-demo); everything else needed to switch lives here in one place.
   const DEMOS = {
-    // v972: the five-minute tour, first and shown on load; the numbered tabs go deeper
+    // the two-minute tour (v984; five minutes from v972), first and shown on load; the numbered tabs go deeper
     overview: {
-      title: 'AudioChart in five minutes.',
-      desc: 'The whole app in one tour. First the chart plotter: map types, a spoken AutoRoute through the Fox Islands Thorofare, bearings read aloud, and a Virtual Journey in 3D. Then the armchair: the bay in 3D with its traffic on a clock, a ride on the Vinalhaven ferry, the lookout’s report from Bowdoin’s crow’s nest, Free sailing by voice, dusk, and Penobscot Bay drained to the bottom.',
-      note: 'Recorded from the live app on a computer. The narrator, the skipper’s commands and the app’s replies are synthesized voices; everything on screen is the app’s real response.',
+      title: 'AudioChart in two minutes.',
+      desc: 'The whole app in one tour, and everything in it works by hand or by voice. First the chart plotter: map types, an AutoRoute through the Fox Islands Thorofare started by double-clicking the boat, a bearing read aloud, and a Virtual Journey in 3D. Then the armchair: the bay in 3D with its traffic on a clock, a ride on the Vinalhaven ferry, Free sailing by wheel and by voice, and Penobscot Bay drained to the bottom.',
+      note: 'Recorded from the live app on a computer. The narrator, the skipper’s commands and the app’s replies are synthesized voices; everything on screen is the app’s real response, with waits for a route or for 3D scenery trimmed.',
       src: 'assets/overview.mp4', poster: 'assets/overview-poster.jpg',
       w: 1000, h: 510,
     },
