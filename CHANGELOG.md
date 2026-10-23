@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-23 — Live ferries drawn as the scheduled ones (v987)
+
+A live AIS vessel that's one of our ferries (matched by name) is now built from her own ferries.json record, so
+she looks exactly like the scheduled ferry, name board on her sides included (v986 built a generic one of her
+length).
+
 ## 2026-10-23 — Live AIS in Bird's-eye (v986)
 
 New 📡 Live button in Bird's-eye: the vessels broadcasting AIS in Penobscot Bay right now, in 3D. Each is drawn

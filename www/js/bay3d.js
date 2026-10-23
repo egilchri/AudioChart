@@ -1704,7 +1704,9 @@ const live = [];   // { kind: 'ais', mmsi, A (her last report), fix: {x, z, t}, 
 let liveOK = false;
 const liveBtn = document.getElementById('livebtn'), LIVE_KEY = 'audiochart-bay3d-live';
 const LIVE_LEN = { sail: 11, power: 11, launch: 18, ferry: 46, cruise: 200, ship: 150 };
-function liveModel(A, cls, seed) {
+function liveModel(A, cls, seed, K) {
+  // one of the ferries we know (K, her ferries.json record): built from it, so she's the scheduled one to the life (v987)
+  if (K) return { group: (K.kind === 'launch' ? launchModel : ferryModelSimple)(K, trafficLit), L: K.length_m || (K.kind === 'launch' ? 14 : 46) };
   const L = A.L || LIVE_LEN[cls.model];
   if (cls.model === 'sail' || cls.model === 'power') {
     const boat = makeSailboat(cls.model === 'power' ? 'lobster' : L > 20 ? 'schooner' : L > 9.5 ? 'cruiser' : L > 7 ? 'pocket' : 'daysailer', seed);
@@ -1725,10 +1727,10 @@ function liveData(snap) {
     const K = knownFor(A.name)?.F;   // one of the ferries: a ferry, her length known, before her static data comes
     if (K && !A.L) A.L = K.length_m || 46;
     const cls = K ? { model: K.kind === 'launch' || A.L < 25 ? 'launch' : 'ferry', what: K.says || 'Ferry' } : aisClass(A.type, A.L);
-    if (v && v.model !== cls.model) { dropLive(v); v = null; }   // her static data came in: what she is changed
+    if (v && (v.model !== cls.model || v.K !== K)) { dropLive(v); v = null; }   // her static data came in: what she is changed
     if (!v) {
-      const m = liveModel(A, cls, Number(A.mmsi) % 9973);
-      v = { kind: 'ais', mmsi: A.mmsi, model: cls.model, ...m, x: wx(A.lon), z: wz(A.lat), h: A.hdg ?? A.cog ?? 0, on: false, label: '' };
+      const m = liveModel(A, cls, Number(A.mmsi) % 9973, K);
+      v = { kind: 'ais', mmsi: A.mmsi, model: cls.model, K, ...m, x: wx(A.lon), z: wz(A.lat), h: A.hdg ?? A.cog ?? 0, on: false, label: '' };
       m.group.visible = false; scene.add(m.group); live.push(v);
     }
     v.A = A; v.what = cls.what;
