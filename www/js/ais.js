@@ -34,10 +34,11 @@ export function aisClass(type, L) {
 const STATUS = { 0: 'under way', 1: 'at anchor', 2: 'not under command', 3: 'restricted in her ability to manoeuvre', 5: 'moored', 7: 'fishing', 8: 'under sail' };
 export const aisStatus = s => STATUS[s] || '';
 const titleCase = t => t.toLowerCase().replace(/(^|[\s.'&-])[a-z]/g, c => c.toUpperCase());
-// Vessels we know by their full names (the ferries): AIS cuts a name at 20 characters ("CAPT.E.FRANK THOMPSO"),
-// so a broadcast name that begins one of these is that vessel. setKnown([{ name, ...anything }]).
+// Vessels we know by their full names (the ferries, and the windjammers, v990): AIS cuts a name at 20 characters
+// ("CAPT.E.FRANK THOMPSO"), so a broadcast name that begins one of these is that vessel; "SCHOONER", "S/V" and the
+// like in front don't count ("SCHOONER MARY DAY" is Mary Day). setKnown([{ name, ...anything }]).
 let known = [];
-const letters = t => (t || '').toUpperCase().replace(/[^A-Z]/g, '');
+const letters = t => (t || '').toUpperCase().replace(/^\s*(SCHOONER|WINDJAMMER|KETCH|S\/?V|S\/?Y)\b\.?\s*/, '').replace(/[^A-Z]/g, '');
 export function setKnown(list) { known = list.filter(k => k.name).map(k => ({ ...k, key: letters(k.name) })); }
 export function knownFor(name) { const k = letters(name); return k.length >= 6 ? known.find(o => o.key.startsWith(k)) || null : null; }
 const tidy = t => titleCase(t.replace(/\.(?=\S)/g, '. ').replace(/\s*&\s*/g, ' & ')).replace(/^Capt\.? /, 'Captain ');

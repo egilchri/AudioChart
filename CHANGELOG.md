@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-23 — Live windjammers known by name (v990)
+
+Bird's-eye's 📡 Live now knows the Maine windjammer fleet (new `www/data/windjammers.json`, from the Maine Windjammer
+Association's fleet pages): American Eagle, Angelique, Grace Bailey, Heritage, J. & E. Riggin, Ladona, Lewis R.
+French, Mary Day, Stephen Taber, plus Bowdoin. One broadcasting under any of those names (with or without "SCHOONER"
+or "S/V" in front, and cut at AIS's 20 characters) is drawn as that windjammer: Angelique and Bowdoin as their own
+models, the others as a schooner at her length on deck. She's listed as "Windjammer, out of Camden" (or Rockland).
+A fishing boat or tug that happens to share a name isn't mistaken for one. While the real Bowdoin is broadcasting,
+the made-up fleet's Bowdoin stands aside. Most windjammers aren't required to carry AIS, so not all of them will
+show. The fake dev relay gains a Lewis R. French.
+
 ## 2026-10-23 — AIS card: no placeholder IMO numbers or call signs (v989)
 
 AIS often carries placeholders (Capt. Neal Burgess sends IMO 999999999). The card now shows an IMO number only when

@@ -1,0 +1,12 @@
+{"source":"Maine Windjammer Association fleet pages (mainewindjammerfleet.com), fetched 2026-10-23: length on deck and overall, home port, year built, guests. Bowdoin from Maine Maritime Academy's fact sheet (as in angelique3d.js).","note":"For live AIS (bay3d.js): a vessel broadcasting one of these names is drawn as that windjammer. Not every windjammer carries AIS; the law doesn't require it of most of them.","windjammers":[
+{"name":"Schooner American Eagle","rig":"schooner","lod_ft":92,"loa_ft":122,"port":"Rockland","built":1930,"guests":26},
+{"name":"Angelique","rig":"ketch","lod_ft":95,"loa_ft":130,"port":"Camden","built":1980,"guests":27,"model":"angelique"},
+{"name":"Schooner Grace Bailey","rig":"schooner","lod_ft":80,"loa_ft":118,"port":"Rockland","built":1882,"guests":25},
+{"name":"Schooner Heritage","rig":"schooner","lod_ft":92,"loa_ft":145,"port":"Rockland","built":1983,"guests":30},
+{"name":"Schooner J. & E. Riggin","rig":"schooner","lod_ft":89,"loa_ft":120,"port":"Rockland","built":1927,"guests":24},
+{"name":"Schooner Ladona","rig":"schooner","lod_ft":82,"loa_ft":105,"port":"Rockland","built":1922,"guests":17},
+{"name":"Schooner Lewis R. French","rig":"schooner","lod_ft":64,"loa_ft":101,"port":"Camden","built":1871,"guests":20},
+{"name":"Schooner Mary Day","rig":"schooner","lod_ft":90,"loa_ft":125,"port":"Camden","built":1962,"guests":28},
+{"name":"Schooner Stephen Taber","rig":"schooner","lod_ft":68,"loa_ft":110,"port":"Rockland","built":1871,"guests":22},
+{"name":"Schooner Bowdoin","rig":"schooner","loa_ft":88,"port":"Castine","built":1921,"model":"bowdoin"}
+]}

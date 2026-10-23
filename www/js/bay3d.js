@@ -1272,8 +1272,9 @@ document.getElementById('bowdoinbtn').addEventListener('click', () => {
 function updateFleet(dt) {
   const up = env.W.heel > 0, heel = env.W.heel * DEG, cp = camera.position, show = !aboveFog;
   const FLEET_K = clamp(view.dist / 150, 1, 20);
+  const realBowdoin = live.some(v => v.W?.model === 'bowdoin');   // (the real one's out there: she stands aside)
   for (const b of fleet) {
-    b.boat.group.visible = show;
+    b.boat.group.visible = show && !(b === bowdoin && realBowdoin);
     const go = up || b.boat.power, kn = b.boat.kn || BOAT_KN;   // a lobster boat works in a calm too
     if (b.want == null || b.left <= 0) pickLeg(b);
     const twa = Math.abs(((env.C.windFrom - b.want + 540) % 360) - 180);
@@ -1326,8 +1327,9 @@ function lightForClock() {   // the weather panel's time of day, from where the 
   if (time !== env.C.time) applyConditions({ time });
 }
 const hhmm = m => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(Math.floor(m % 60)).padStart(2, '0')}`;
-if (!EMPTY) Promise.all([getJSON('./data/ferries.json').catch(() => null), getJSON('./data/cruise_ships.json').catch(() => null)]).then(([fd, cd]) => {
-  setKnown((fd?.ferries || []).map(F => ({ name: F.vessel, F })));   // (live AIS: the ferries' full names, and what they are)
+if (!EMPTY) Promise.all([getJSON('./data/ferries.json').catch(() => null), getJSON('./data/cruise_ships.json').catch(() => null), getJSON('./data/windjammers.json').catch(() => null)]).then(([fd, cd, wd]) => {
+  // (live AIS: the ferries' and the windjammers' full names, and what they are)
+  setKnown([...(fd?.ferries || []).map(F => ({ name: F.vessel, F })), ...(wd?.windjammers || []).map(W => ({ name: W.name, W }))]);
   for (const F of fd?.ferries || []) {
     const T = trackOf(ferryLine(F), wx, wz), group = (F.kind === 'launch' ? launchModel : ferryModelSimple)(F, trafficLit); group.visible = false; scene.add(group);
     traffic.push({ kind: 'ferry', F, T, group, L: F.length_m || 46, x: T.P[0][0], z: T.P[0][1], on: false, label: '' });
@@ -1710,9 +1712,16 @@ const live = [];   // { kind: 'ais', mmsi, A (her last report), fix: {x, z, t}, 
 let liveOK = false;
 const liveBtn = document.getElementById('livebtn'), LIVE_KEY = 'audiochart-bay3d-live';
 const LIVE_LEN = { sail: 11, power: 11, launch: 18, ferry: 46, cruise: 200, ship: 150 };
-function liveModel(A, cls, seed, K) {
+function liveModel(A, cls, seed, K, W) {
   // one of the ferries we know (K, her ferries.json record): built from it, so she's the scheduled one to the life (v987)
   if (K) return { group: (K.kind === 'launch' ? launchModel : ferryModelSimple)(K, trafficLit), L: K.length_m || (K.kind === 'launch' ? 14 : 46) };
+  // one of the windjammers (W, her windjammers.json record, v990): Angelique and Bowdoin as themselves, the
+  // others as the fleet's schooner brought to her length on deck
+  if (W) {
+    const boat = makeSailboat(W.model || 'schooner', seed);
+    if (!W.model && W.lod_ft) { const k = W.lod_ft * 0.3048 / boat.L; for (const c of boat.group.children) c.scale.multiplyScalar(k); boat.L *= k; }
+    return { boat, group: boat.group, L: boat.L, trim: makeTrimmer() };
+  }
   const L = A.L || LIVE_LEN[cls.model];
   if (cls.model === 'sail' || cls.model === 'power') {
     const boat = makeSailboat(cls.model === 'power' ? 'lobster' : L > 20 ? 'schooner' : L > 9.5 ? 'cruiser' : L > 7 ? 'pocket' : 'daysailer', seed);
@@ -1730,13 +1739,16 @@ function liveData(snap) {
     if (A.lon < OVERVIEW[0] || A.lon > OVERVIEW[2] || A.lat < OVERVIEW[1] || A.lat > OVERVIEW[3]) continue;
     seen.add(A.mmsi);
     let v = live.find(o => o.mmsi === A.mmsi);
-    const K = knownFor(A.name)?.F;   // one of the ferries: a ferry, her length known, before her static data comes
+    const kn0 = knownFor(A.name), K = kn0?.F;   // one of the ferries: a ferry, her length known, before her static data comes
+    // one of the windjammers, unless what she says she is rules it out (a lobster boat or tug of the same name)
+    const W = kn0?.W && !(A.type >= 30 && A.type <= 35 || A.type >= 50 && A.type <= 59 || A.type >= 70 && A.type <= 89) ? kn0.W : null;
     if (K && !A.L) A.L = K.length_m || 46;
-    const cls = K ? { model: K.kind === 'launch' || A.L < 25 ? 'launch' : 'ferry', what: K.says || 'Ferry' } : aisClass(A.type, A.L);
-    if (v && (v.model !== cls.model || v.K !== K)) { dropLive(v); v = null; }   // her static data came in: what she is changed
+    const cls = K ? { model: K.kind === 'launch' || A.L < 25 ? 'launch' : 'ferry', what: K.says || 'Ferry' }
+      : W ? { model: 'sail', what: `${W.model === 'bowdoin' ? 'Schooner' : 'Windjammer'}, out of ${W.port}` } : aisClass(A.type, A.L);
+    if (v && (v.model !== cls.model || v.K !== K || v.W !== W)) { dropLive(v); v = null; }   // her static data came in: what she is changed
     if (!v) {
-      const m = liveModel(A, cls, Number(A.mmsi) % 9973, K);
-      v = { kind: 'ais', mmsi: A.mmsi, model: cls.model, K, ...m, x: wx(A.lon), z: wz(A.lat), h: A.hdg ?? A.cog ?? 0, on: false, label: '' };
+      const m = liveModel(A, cls, Number(A.mmsi) % 9973, K, W);
+      v = { kind: 'ais', mmsi: A.mmsi, model: cls.model, K, W, ...m, x: wx(A.lon), z: wz(A.lat), h: A.hdg ?? A.cog ?? 0, on: false, label: '' };
       m.group.visible = false; scene.add(m.group); live.push(v);
     }
     v.A = A; v.what = cls.what;
