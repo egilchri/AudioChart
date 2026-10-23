@@ -18,7 +18,7 @@ import { makeAngelique, makeBowdoin } from './angelique3d.js';
 import { makeWildlife, ledgesFrom } from './wildlife3d.js';
 import { makeMoorings } from './moorings3d.js';
 import { callsOn, trackOf, alongTrack, cruiseState, ferryState, ferryDepartures, ferryLine, ferrySlipModel, terminalLot, terminalHouse, cruiseShipModel, ferryModelSimple, launchModel, merchantModel, mins } from './vessels.js';
-import { makeAisFeed, aisClass, aisStatus, aisName, aisDest, setKnown, knownFor, aisFlag, aisRot, aisPos, aisAgo, aisLookup } from './ais.js';
+import { makeAisFeed, aisClass, aisStatus, aisName, aisDest, setKnown, knownFor, aisFlag, aisRot, aisPos, aisAgo, aisLookup, aisImo, aisCallsign } from './ais.js';
 
 const statusEl = document.getElementById('status');
 const loadingEl = document.getElementById('loading');
@@ -1848,7 +1848,7 @@ function fillCard() {
   const v = cardV, A = v.A, gone = !live.includes(v);
   document.getElementById('aisname').textContent = `📡 ${aisName(A)}${gone ? ' (no longer heard)' : ''}`;
   const rows = [], row = (k, val, html = false) => { if (val !== '' && val != null) rows.push([k, val, html]); };
-  row('MMSI', A.mmsi); row('Flag', aisFlag(A.mmsi)); row('Call sign', A.callsign); row('IMO', A.imo ? String(A.imo) : '');
+  row('MMSI', A.mmsi); row('Flag', aisFlag(A.mmsi)); row('Call sign', aisCallsign(A.callsign)); row('IMO', aisImo(A.imo));
   row('Type', `${v.what}${A.type ? ` (AIS ${A.type})` : ''}`);
   row('Size', A.L ? `${ftm(A.L)}${A.B ? ` × ${ftm(A.B)}` : ''}` : '');
   row('Draft', A.draught ? ftm(A.draught) : '');

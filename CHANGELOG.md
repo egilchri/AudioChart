@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-23 — AIS card: no placeholder IMO numbers or call signs (v989)
+
+AIS often carries placeholders (Capt. Neal Burgess sends IMO 999999999). The card now shows an IMO number only when
+it's 7 digits with a valid check digit, and a call sign only when it looks like one (not 0, NONE or one repeated
+character).
+
 ## 2026-10-23 — A live vessel's AIS card (v988)
 
 Tap a live vessel in Bird's-eye (or ⓘ by her name in ⛴ Underway) for everything her AIS says: MMSI, flag (from the

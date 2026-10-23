@@ -103,3 +103,13 @@ const dm = (v, pos, neg, w) => { const a = Math.abs(v), d = Math.floor(a); retur
 export const aisPos = (lat, lon) => `${dm(lat, 'N', 'S', 2)} ${dm(lon, 'E', 'W', 3)}`;
 export const aisAgo = s => s < 60 ? `${Math.max(1, Math.round(s))} s ago` : s < 3600 ? `${Math.round(s / 60)} min ago` : `${(s / 3600).toFixed(1)} h ago`;
 export const aisLookup = mmsi => `https://www.marinetraffic.com/en/ais/details/ships/mmsi:${mmsi}`;
+// her IMO number, only if it's a real one (v989): 7 digits, the last a check digit on the first six; AIS often
+// carries placeholders (0, 999999999, the MMSI)
+export function aisImo(n) {
+  const s = String(n ?? '');
+  if (!/^\d{7}$/.test(s)) return '';
+  const d = [...s].map(Number);
+  return (d[0] * 7 + d[1] * 6 + d[2] * 5 + d[3] * 4 + d[4] * 3 + d[5] * 2) % 10 === d[6] ? s : '';
+}
+// a call sign that's a call sign (not "0", "NONE" or a run of one character)
+export const aisCallsign = c => /^[A-Z0-9]{3,7}$/i.test(c || '') && !/^(.)\1+$/.test(c) && !/^NONE$/i.test(c) ? c.toUpperCase() : '';
