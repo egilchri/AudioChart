@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-23 — Casco Bay chart data rebuilt (v991)
+
+Casco Bay's region data dated from August and covered only Portland to Chebeague, with very coarse land (45 shapes;
+Cliff, Jewell, Hope and much of Chebeague missing, so AutoRoute could route through them) and none of the later
+fixes (always-submerged hazards, M_COVR land clipping). Rebuilt with `build_region.py` from the 26 harbor and
+approach ENC cells for the whole bay, Cape Elizabeth to the Kennebec (bbox 43.50–43.92 N, 70.40–69.76 W; the
+ocean-scale US2/US3 cells left out, as for Penobscot Bay): 258 land shapes, 5,840 hazards including 447
+always-submerged ones (was 868), 416 navaids, 263 channel-graph edges. Checked with 15 AutoRoutes across the bay
+(Portland to the Diamonds, Chebeague, Falmouth, Long Island, Potts Harbor, Bailey Island, Harpswell, Freeport, Cundy
+Harbor; Harpswell to Cape Small; and others): every one clear of land and hazards at 5 ft, each in under 6 s.
+Casco Bay is still a dev-only region (`?dev=1`).
+
 ## 2026-10-23 — Live windjammers known by name (v990)
 
 Bird's-eye's 📡 Live now knows the Maine windjammer fleet (new `www/data/windjammers.json`, from the Maine Windjammer
