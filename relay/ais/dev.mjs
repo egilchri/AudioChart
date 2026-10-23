@@ -42,9 +42,9 @@ function fakeTick() {
     const lat = a[0] + (b[0] - a[0]) * u, lon = a[1] + (b[1] - a[1]) * u;
     let cog = (Math.atan2((b[1] - a[1]) * Math.cos(a[0] * Math.PI / 180), b[0] - a[0]) * 180 / Math.PI + 360) % 360; if (back) cog = (cog + 180) % 360;
     table.ingest({ MessageType: 'PositionReport', MetaData: { MMSI: +f.mmsi, ShipName: f.name, latitude: lat, longitude: lon },
-      Message: { PositionReport: { UserID: +f.mmsi, Latitude: lat, Longitude: lon, Sog: f.kn, Cog: cog, TrueHeading: Math.round(cog), NavigationalStatus: f.kn ? 0 : 1 } } }, now);
+      Message: { PositionReport: { UserID: +f.mmsi, Latitude: lat, Longitude: lon, Sog: f.kn, Cog: cog, TrueHeading: Math.round(cog), NavigationalStatus: f.kn ? 0 : 1, RateOfTurn: f.kn ? 3 : 0, PositionAccuracy: true } } }, now);
     table.ingest({ MessageType: 'ShipStaticData', MetaData: { MMSI: +f.mmsi },
-      Message: { ShipStaticData: { UserID: +f.mmsi, Name: f.name.padEnd(20, '@'), Type: f.type, Destination: f.dest, Dimension: { A: Math.round(f.L * 0.6), B: Math.round(f.L * 0.4), C: Math.round(f.B / 2), D: Math.round(f.B / 2) } } } }, now);
+      Message: { ShipStaticData: { UserID: +f.mmsi, Name: f.name.padEnd(20, '@'), Type: f.type, Destination: f.dest, CallSign: 'WDC' + f.mmsi.slice(-4), ImoNumber: f.L > 40 ? 9100000 + Number(f.mmsi.slice(-3)) : 0, MaximumStaticDraught: f.L > 100 ? 10.4 : f.L > 40 ? 3.2 : 0, Eta: f.dest ? { Month: 10, Day: 24, Hour: 6, Minute: 30 } : { Month: 0, Day: 0, Hour: 24, Minute: 60 }, Dimension: { A: Math.round(f.L * 0.6), B: Math.round(f.L * 0.4), C: Math.round(f.B / 2), D: Math.round(f.B / 2) } } } }, now);
   }
 }
 

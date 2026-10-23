@@ -73,3 +73,33 @@ export function makeAisFeed({ onData, onState, every = 10000 }) {
     get on() { return on; },
   };
 }
+
+// ── For the vessel's AIS card (v988, requested: "if I click on a vessel ... a table that shows you all the data
+// AIS has on it") ──
+// Her flag, from the first three digits of her MMSI (the Maritime Identification Digits); the flags seen on this
+// coast, not the whole ITU list.
+const MID = [[[338, 366, 367, 368, 369], 'United States'], [[303], 'United States (Alaska)'], [[316], 'Canada'], [[232, 233, 234, 235], 'United Kingdom'],
+  [[308, 309, 311], 'Bahamas'], [[310], 'Bermuda'], [[304, 305], 'Antigua and Barbuda'], [[351, 352, 353, 354, 355, 356, 357, 370, 371, 372, 373, 374], 'Panama'],
+  [[636, 637], 'Liberia'], [[538], 'Marshall Islands'], [[215, 229, 248, 249, 256], 'Malta'], [[209, 210, 212], 'Cyprus'], [[257, 258, 259], 'Norway'],
+  [[219, 220], 'Denmark'], [[211, 218], 'Germany'], [[244, 245, 246], 'Netherlands'], [[226, 227, 228], 'France'], [[237, 239, 240, 241], 'Greece'],
+  [[224, 225], 'Spain'], [[247], 'Italy'], [[255, 263], 'Portugal'], [[265, 266], 'Sweden'], [[230], 'Finland'], [[205], 'Belgium'], [[250], 'Ireland'],
+  [[251], 'Iceland'], [[563, 564, 565, 566], 'Singapore'], [[477], 'Hong Kong'], [[412, 413, 414], 'China'], [[431, 432], 'Japan'], [[440, 441], 'South Korea'],
+  [[341], 'Saint Kitts and Nevis'], [[375, 376, 377], 'Saint Vincent and the Grenadines'], [[378], 'British Virgin Islands'], [[319], 'Cayman Islands']];
+export function aisFlag(mmsi) {
+  const m = String(mmsi || '');
+  if (!/^[2-7]\d{8}$/.test(m)) return '';   // (a coast station, a craft's AIS-SART, an aid to navigation: no flag)
+  const mid = Number(m.slice(0, 3));
+  return MID.find(([ids]) => ids.includes(mid))?.[1] || `MID ${mid}`;
+}
+// rate of turn: AIS sends it as 4.733 × √(degrees a minute), signed (+ to starboard); ±127, turning but unmeasured
+export function aisRot(r) {
+  if (r == null) return '';
+  if (r === 0) return 'Steady';
+  if (Math.abs(r) >= 127) return `Turning to ${r > 0 ? 'starboard' : 'port'}`;
+  const dpm = (r / 4.733) ** 2;
+  return `${dpm < 10 ? dpm.toFixed(1) : Math.round(dpm)}° a minute to ${r > 0 ? 'starboard' : 'port'}`;
+}
+const dm = (v, pos, neg, w) => { const a = Math.abs(v), d = Math.floor(a); return `${String(d).padStart(w, '0')}°${((a - d) * 60).toFixed(2).padStart(5, '0')}′${v >= 0 ? pos : neg}`; };
+export const aisPos = (lat, lon) => `${dm(lat, 'N', 'S', 2)} ${dm(lon, 'E', 'W', 3)}`;
+export const aisAgo = s => s < 60 ? `${Math.max(1, Math.round(s))} s ago` : s < 3600 ? `${Math.round(s / 60)} min ago` : `${(s / 3600).toFixed(1)} h ago`;
+export const aisLookup = mmsi => `https://www.marinetraffic.com/en/ais/details/ships/mmsi:${mmsi}`;

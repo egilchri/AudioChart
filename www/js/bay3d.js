@@ -18,7 +18,7 @@ import { makeAngelique, makeBowdoin } from './angelique3d.js';
 import { makeWildlife, ledgesFrom } from './wildlife3d.js';
 import { makeMoorings } from './moorings3d.js';
 import { callsOn, trackOf, alongTrack, cruiseState, ferryState, ferryDepartures, ferryLine, ferrySlipModel, terminalLot, terminalHouse, cruiseShipModel, ferryModelSimple, launchModel, merchantModel, mins } from './vessels.js';
-import { makeAisFeed, aisClass, aisStatus, aisName, aisDest, setKnown, knownFor } from './ais.js';
+import { makeAisFeed, aisClass, aisStatus, aisName, aisDest, setKnown, knownFor, aisFlag, aisRot, aisPos, aisAgo, aisLookup } from './ais.js';
 
 const statusEl = document.getElementById('status');
 const loadingEl = document.getElementById('loading');
@@ -165,10 +165,11 @@ function stepAnim(now) {
 const pointers = new Map();
 let drag = null;
 sceneEl.addEventListener('contextmenu', e => e.preventDefault());
+let tap0 = null;   // a tap (down and up, hardly moved) picks a live vessel: her AIS card (v988)
 sceneEl.addEventListener('pointerdown', e => {
+  tap0 = pointers.size ? null : { x: e.clientX, y: e.clientY, t: performance.now() };
   if (nest.on) { sceneEl.setPointerCapture(e.pointerId); pointers.set(e.pointerId, { x: e.clientX, y: e.clientY }); nest.drag = pointers.size === 1 ? { x: e.clientX, y: e.clientY } : { pinch: pinchState(), zoom: nest.zoom }; return; }   // in the crow's nest: look round
-  stopFollow();
-  anim = null; sceneEl.setPointerCapture(e.pointerId);
+  anim = null; sceneEl.setPointerCapture(e.pointerId);   // (following stops when you drag, not on a tap: v988)
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   sceneEl.classList.add('dragging');
   if (pointers.size === 1) drag = { mode: (e.button === 2 || e.shiftKey || e.ctrlKey) ? 'turn' : 'pan', x: e.clientX, y: e.clientY, anchor: groundAt(e.clientX, e.clientY) };
@@ -188,6 +189,7 @@ sceneEl.addEventListener('pointermove', e => {
     nest.drag.x = e.clientX; nest.drag.y = e.clientY; return;
   }
   if (!pointers.has(e.pointerId) || !drag) return;
+  if (follow && (!tap0 || Math.hypot(e.clientX - tap0.x, e.clientY - tap0.y) >= 7)) stopFollow();
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (drag.mode === 'pan') {
     if (!drag.anchor) { drag.anchor = groundAt(e.clientX, e.clientY); return; }
@@ -210,6 +212,8 @@ sceneEl.addEventListener('pointermove', e => {
 });
 const endPointer = e => {
   pointers.delete(e.pointerId);
+  if (tap0 && e.type === 'pointerup' && !pointers.size && Math.hypot(e.clientX - tap0.x, e.clientY - tap0.y) < 7 && performance.now() - tap0.t < 600) tapAt(e.clientX, e.clientY);
+  tap0 = null;
   if (nest.on) { nest.drag = pointers.size === 1 ? (() => { const [p] = pointers.values(); return { x: p.x, y: p.y }; })() : null; return; }
   if (!pointers.size) { drag = null; sceneEl.classList.remove('dragging'); }
   else if (pointers.size === 1) { const [p] = pointers.values(); drag = { mode: 'pan', x: p.x, y: p.y, anchor: groundAt(p.x, p.y) }; }
@@ -1667,11 +1671,13 @@ function fillUnderway() {
     if (nest.on && nest.v === v) li.className = 'aboard';
     li.innerHTML = '<span class="n"><b></b> <small></small></span><span class="eta"><b></b><small></small></span><span class="d"></span><span class="go"><button type="button" data-m="helm" title="Aboard her, at the helm">Helm</button><button type="button" data-m="drone" title="A drone over her, following her">Drone</button><button type="button" data-m="fly" title="Fly over her and follow her in this view">Follow</button><button type="button" data-m="stern" title="From a boat astern of her, low on the water">Stern</button><button type="button" data-m="side" title="From a boat abeam of her, to starboard">Side</button><button type="button" data-m="bow" title="From ahead, as she comes on">Bow</button></span>';
     li.querySelector('b').textContent = v === own ? `${OWN_NAME} (yours)` : vName(v);
+    if (v.kind === 'ais') { const ib = document.createElement('button'); ib.type = 'button'; ib.className = 'info'; ib.dataset.m = 'info'; ib.textContent = 'ⓘ'; ib.title = 'Everything her AIS says'; li.querySelector('b').after(ib); }
     li.querySelector('small').textContent = r.what;
     li.querySelector('.d').textContent = away(v);
     const eta = vEta(v); if (eta) { li.querySelector('.eta b').textContent = eta.t; li.querySelector('.eta small').textContent = eta.sub; li.querySelector('.eta').title = eta.sub === 'leaves' ? `Leaves at ${eta.t}` : `Due at ${eta.sub} at ${eta.t}`; }
     for (const b of li.querySelectorAll('button')) b.addEventListener('click', () => {
       uwPanel.hidden = true; uwBtn.classList.remove('on');
+      if (b.dataset.m === 'info') { showCard(v); return; }
       if (b.dataset.m !== 'fly') { ride(v, b.dataset.m); return; }
       if (nest.on) leaveRide();
       markCurrent(null); foldPanel(true);
@@ -1797,6 +1803,86 @@ if (liveBtn && !EMPTY) {
   if (was || params.has('ais')) liveFeed.start();
   setInterval(() => { if (liveFeed.on && liveBtn.dataset.state === 'live') syncLiveBtn('live'); }, 5000);
   syncLiveBtn();
+}
+
+// ── A live vessel's AIS card (v988, requested: "if I click on a vessel you can bring up a table that shows you
+// all the data AIS has on it") ── Tap her in the view (or ⓘ by her name in ⛴ Underway): her name, MMSI, flag,
+// call sign and IMO number, what she is and her size and draft, her status, speed, course, heading and rate of
+// turn, where she's bound and when, where she is, how long since she was heard, and how far off she is; with a
+// link to look her up online, and the buttons to follow or ride with her. Only what she sends: a small Class B
+// boat has a few lines. Kept up to date while it's open.
+const aisCard = document.getElementById('aisinfo');
+let cardV = null;
+if (aisCard) {
+  shrinkable(aisCard);
+  for (const ev of ['pointerdown', 'wheel', 'touchstart']) aisCard.addEventListener(ev, e => e.stopPropagation(), { passive: true });
+  document.getElementById('aisclose').addEventListener('click', () => { aisCard.hidden = true; cardV = null; });
+  addEventListener('keydown', e => { if (e.key === 'Escape' && !aisCard.hidden && !nest.on) { aisCard.hidden = true; cardV = null; } });
+  const go = aisCard.querySelector('.go');
+  for (const [m, label, title] of [['fly', 'Follow', 'Fly over her and follow her'], ['helm', 'Helm', 'Aboard her, at the helm'], ['drone', 'Drone', 'A drone over her'], ['stern', 'Stern', 'From a boat astern of her'], ['side', 'Side', 'From a boat abeam of her'], ['bow', 'Bow', 'From ahead, as she comes on']]) {
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.title = title;
+    b.addEventListener('click', () => {
+      const v = cardV; if (!v || !live.includes(v)) return;
+      if (m !== 'fly') { ride(v, m); return; }
+      if (nest.on) leaveRide();
+      markCurrent(null); foldPanel(true);
+      flyTo({ x: v.x, z: v.z, dist: clamp(vLen(v) * 8, 250, 2500), tilt: 60 * DEG, az: ((v.h || 0) + 35) * DEG }, 2800);
+      follow = v;
+    });
+    go.appendChild(b);
+  }
+  setInterval(fillCard, 2000);
+}
+function showCard(v) {
+  if (!aisCard) return;
+  cardV = v; aisCard.hidden = false; aisCard.openOut?.();
+  uwPanel.hidden = true; uwBtn.classList.remove('on');
+  for (const id of ['wxpanel', 'clockpanel']) { const el = document.getElementById(id); if (el) el.hidden = true; }
+  fillCard();
+}
+const ftm = m => `${Math.round(m * 3.281)} ft (${m < 20 ? m.toFixed(1).replace(/\.0$/, '') : Math.round(m)} m)`;
+const deg3 = d => String(Math.round(((d % 360) + 360) % 360) % 360).padStart(3, '0');
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+function fillCard() {
+  if (!aisCard || aisCard.hidden || !cardV) return;
+  const v = cardV, A = v.A, gone = !live.includes(v);
+  document.getElementById('aisname').textContent = `📡 ${aisName(A)}${gone ? ' (no longer heard)' : ''}`;
+  const rows = [], row = (k, val, html = false) => { if (val !== '' && val != null) rows.push([k, val, html]); };
+  row('MMSI', A.mmsi); row('Flag', aisFlag(A.mmsi)); row('Call sign', A.callsign); row('IMO', A.imo ? String(A.imo) : '');
+  row('Type', `${v.what}${A.type ? ` (AIS ${A.type})` : ''}`);
+  row('Size', A.L ? `${ftm(A.L)}${A.B ? ` × ${ftm(A.B)}` : ''}` : '');
+  row('Draft', A.draught ? ftm(A.draught) : '');
+  row('Status', aisStatus(A.status) ? cap(aisStatus(A.status)) : '');
+  row('Speed', A.sog != null ? `${A.sog.toFixed(1)} kn` : '');
+  row('Course', A.cog != null ? `${deg3(A.cog)}° true` : '');
+  row('Heading', A.hdg != null ? `${deg3(A.hdg)}° true` : '');
+  row('Turning', aisRot(A.rot));
+  row('Bound for', aisDest(A.dest) || A.dest);
+  if (A.eta) { const [md, hm] = A.eta.split(' '), [mo, dd] = md.split('-').map(Number); row('ETA', `${MON[mo - 1]} ${dd}${hm ? `, ${hm} UTC` : ''}`); }
+  row('Position', `${aisPos(A.lat, A.lon)}${A.acc === true ? ' (±10 m)' : ''}`);
+  row('Last heard', aisAgo((Date.now() - v.fix.t) / 1000));
+  const mine = own.r && own.boat.group.visible, fx = mine ? own.x : view.x, fz = mine ? own.z : view.z, d = Math.hypot(v.x - fx, v.z - fz);
+  if (d > 30) row(mine ? 'From your boat' : 'From the view', `${(d / NMm).toFixed(d < 10 * NMm ? 1 : 0)} nm, ${deg3(Math.atan2(v.x - fx, -(v.z - fz)) / DEG)}° true`);
+  if (navigator.onLine !== false) row('More', `<a href="${aisLookup(A.mmsi)}" target="_blank" rel="noopener">Look her up on MarineTraffic ↗</a>`, true);
+  const tb = aisCard.querySelector('table'); tb.innerHTML = '';
+  for (const [k, val, html] of rows) { const tr = tb.insertRow(), th = document.createElement('th'), td = tr.insertCell(); th.textContent = k; tr.prepend(th); if (html) td.innerHTML = val; else td.textContent = val; }
+  for (const b of aisCard.querySelectorAll('.go button')) b.disabled = gone;
+}
+// the tap: the live vessel nearest it on the screen, within a finger's width of her or her name
+const _tp = new THREE.Vector3();
+function tapAt(cx, cy) {
+  if (!aisCard || !live.length) return;
+  const r = renderer.domElement.getBoundingClientRect(), scr = (x, y, z) => { _tp.set(x, y, z).project(camera); return _tp.z < 1 ? [r.left + (_tp.x + 1) / 2 * r.width, r.top + (1 - _tp.y) / 2 * r.height] : null; };
+  let best = null, bd = 26;
+  for (const v of live) {
+    if (!v.on || (nest.on && nest.v === v)) continue;
+    const top = (v.L > 100 ? 45 : v.L > 25 ? 14 : 8) * v.group.scale.x, a = scr(v.x, 0, v.z), b = scr(v.x, top, v.z); if (!a || !b) continue;
+    b[1] -= 22;   // (her name, just above her)
+    const dx = b[0] - a[0], dy = b[1] - a[1], k = clamp(((cx - a[0]) * dx + (cy - a[1]) * dy) / ((dx * dx + dy * dy) || 1), 0, 1);
+    const d = Math.hypot(cx - a[0] - dx * k, cy - a[1] - dy * k);
+    if (d < bd) { bd = d; best = v; }
+  }
+  if (best) showCard(best);
 }
 
 // ── Moored boats, by the season (v944, requested: "add the moored boats with seasons"; moorings3d.js) ──

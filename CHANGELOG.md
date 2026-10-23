@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-23 — A live vessel's AIS card (v988)
+
+Tap a live vessel in Bird's-eye (or ⓘ by her name in ⛴ Underway) for everything her AIS says: MMSI, flag (from the
+MMSI), call sign, IMO, type, size, draft, status, speed, course, heading, rate of turn, destination and ETA, position
+and its accuracy, when she was last heard, and her distance and bearing from your boat or the view; a link to look
+her up on MarineTraffic (when online); and Follow, Helm, Drone, Stern, Side and Bow. Blank fields are left out (a
+Class B boat shows a few lines). Kept up to date while open. The relay now keeps call sign, IMO, draft, ETA, rate
+of turn and position accuracy (redeployed). A tap no longer stops following a vessel; a drag still does.
+
 ## 2026-10-23 — Live ferries drawn as the scheduled ones (v987)
 
 A live AIS vessel that's one of our ferries (matched by name) is now built from her own ferries.json record, so
