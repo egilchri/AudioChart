@@ -590,6 +590,48 @@ function mergeGeos(geos) {
   m.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); m.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); m.setIndex(idx);
   return m;
 }
+// A cargo ship or tanker (v986, for live AIS: the tankers bound up the bay for Searsport, a freighter, a dredger):
+// a long hull with a raked bow and flat sides, red below the boot-top; the deckhouse aft with its bridge wings and
+// funnel; a tanker's deck with its pipe run and manifold, a cargo ship's with hatch covers and a few containers.
+// V: { length_m, beam_m, tanker }. Bow toward −z, waterline y = 0.
+export function merchantModel(V, windowMats = []) {
+  const L = V.length_m || 120, B = V.beam_m || L * 0.16, half = L / 2, g = new THREE.Group();
+  const M = c => new THREE.MeshLambertMaterial({ color: c });
+  let sd = Math.round(L * 7 + B * 13) || 7; const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+  const hullC = V.tanker ? [0x7a2a24, 0x1f2a3a, 0x24395f][Math.floor(rnd() * 3)] : [0x1f2a3a, 0x2f4f3a, 0x3a3f46, 0x7a2a24][Math.floor(rnd() * 4)];
+  const hull = M(hullC), red = M(0x8c2a22), deck = M(V.tanker ? 0x6b5a4a : 0x5a5d60), white = M(0xf1efe9), glass = M(0x1f2a32), black = M(0x16191d);
+  const FB = Math.max(2, L * 0.045), bowL = Math.min(B * 1.6, L * 0.14);
+  // the hull's plan, extruded from the boot-top to the deck; the bow at +y in the shape, −z once stood up
+  const plan = (w, x0) => { const s = new THREE.Shape(); s.moveTo(-w / 2, -half); s.lineTo(w / 2, -half); s.lineTo(w / 2, half - bowL); s.quadraticCurveTo(w / 2, half - bowL * 0.25, 0, half); s.quadraticCurveTo(-w / 2, half - bowL * 0.25, -w / 2, half - bowL); s.closePath(); return s; };
+  const slab = (w, y0, h, m) => { const k = new THREE.Mesh(new THREE.ExtrudeGeometry(plan(w), { depth: h, bevelEnabled: false, curveSegments: 8 }), m); k.rotation.x = -Math.PI / 2; k.position.y = y0; g.add(k); return k; };
+  slab(B, -0.6, 1.2, red); slab(B, 0.6, FB - 0.6, hull); slab(B * 0.98, FB, 0.12, deck);
+  const box = (w, h, d, x, y, z, m) => { const k = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); k.position.set(x, y, z); g.add(k); return k; };
+  // the deckhouse aft, its decks and bridge, with lit windows
+  const hz = half - L * 0.1, hd = L * 0.09, decks = Math.max(3, Math.round(L / 35)), dh = 2.7;
+  box(B * 0.86, decks * dh, hd, 0, FB + decks * dh / 2, hz, white);
+  const win = new THREE.MeshLambertMaterial({ color: 0x2a3640, emissive: 0xffd9a0, emissiveIntensity: 0 }); windowMats.push(win);
+  for (let i = 0; i < decks; i++) box(B * 0.87, 0.8, hd * 0.9, 0, FB + i * dh + 1.6, hz, win);
+  const brY = FB + decks * dh;
+  box(B * 1.02, 2.4, hd * 0.55, 0, brY + 1.2, hz - hd * 0.2, white); box(B * 1.03, 0.9, hd * 0.5, 0, brY + 1.5, hz - hd * 0.21, glass);
+  box(B * 0.2, B * 0.35, B * 0.22, 0, brY + B * 0.17, hz + hd * 0.32, black);   // the funnel
+  box(0.4, 7, 0.4, 0, brY + 5.9, hz - hd * 0.1, white);   // the radar mast
+  if (V.tanker) {   // the pipe run along the centreline, the manifold amidships, a catwalk
+    const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, L * 0.7, 8), M(0xb9b4a8)); pipe.rotation.x = Math.PI / 2; pipe.position.set(0, FB + 1.1, -L * 0.04); g.add(pipe);
+    box(B * 0.7, 1.6, 2.5, 0, FB + 0.9, -L * 0.03, M(0x9a958a)); box(1.2, 0.4, L * 0.7, B * 0.12, FB + 2.2, -L * 0.04, M(0xd0cbbf));
+  } else {   // hatch covers, and a few containers on them
+    const n = Math.max(3, Math.round(L / 25)), span = L * 0.66, cols = [0x2f86b8, 0xc23a2e, 0xe0b531, 0x2b8a4a, 0x8d9296, 0xe8731f];
+    for (let i = 0; i < n; i++) {
+      const z = -half + bowL + 4 + (i + 0.5) * span / n;
+      box(B * 0.8, 1.2, span / n * 0.82, 0, FB + 0.6, z, M(0x4a5a46));
+      if (rnd() < 0.7) for (let r = 0; r < 1 + Math.floor(rnd() * 3); r++) box(B * 0.78, 2.5, span / n * 0.7, 0, FB + 2.45 + r * 2.6, z, M(cols[Math.floor(rnd() * cols.length)]));
+    }
+  }
+  box(0.4, 9, 0.4, 0, FB + 4.5, -half + bowL * 0.6, white);   // the foremast
+  g.userData.helm = [0, brY + 1.7, hz - hd * 0.45];   // on the bridge, at its forward windows
+  g.userData.wake = [wakeOf(B, L)]; g.add(g.userData.wake[0]);
+  return g;
+}
+
 export function ferrySlipModel(beam = 12.2, len = 46) {
   const parts = {}, add = (k, g) => (parts[k] ||= []).push(g);
   const bx = (w, h, d, x, y, z, ry = 0, rx = 0, rz = 0) => { const g = new THREE.BoxGeometry(w, h, d); if (rz) g.rotateZ(rz); if (rx) g.rotateX(rx); if (ry) g.rotateY(ry); g.translate(x, y, z); return g; };

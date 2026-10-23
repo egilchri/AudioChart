@@ -1,0 +1,13 @@
+name = "audiochart-ais"
+main = "worker.mjs"
+compatibility_date = "2025-06-01"
+
+[[durable_objects.bindings]]
+name = "AIS_HUB"
+class_name = "AisHub"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["AisHub"]
+
+# The AISStream key is a secret, never in this file:  npx wrangler secret put AISSTREAM_KEY

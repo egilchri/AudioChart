@@ -17,7 +17,8 @@ import { makeSailboat, fleetType } from './sailboat3d.js';
 import { makeAngelique, makeBowdoin } from './angelique3d.js';
 import { makeWildlife, ledgesFrom } from './wildlife3d.js';
 import { makeMoorings } from './moorings3d.js';
-import { callsOn, trackOf, alongTrack, cruiseState, ferryState, ferryDepartures, ferryLine, ferrySlipModel, terminalLot, terminalHouse, cruiseShipModel, ferryModelSimple, launchModel, mins } from './vessels.js';
+import { callsOn, trackOf, alongTrack, cruiseState, ferryState, ferryDepartures, ferryLine, ferrySlipModel, terminalLot, terminalHouse, cruiseShipModel, ferryModelSimple, launchModel, merchantModel, mins } from './vessels.js';
+import { makeAisFeed, aisClass, aisStatus, aisName, aisDest, setKnown, knownFor } from './ais.js';
 
 const statusEl = document.getElementById('status');
 const loadingEl = document.getElementById('loading');
@@ -745,6 +746,7 @@ function updateWakes(dt) {
   if (own.r || own.ext) add('own', own.boat.group, own.boat.L, own.wakeKn, own.wakeOn);
   fleet.forEach((b, i) => add('f' + i, b.boat.group, b.boat.L, b.boat.kn || BOAT_KN, !!b.going));
   traffic.forEach((v, i) => add('t' + i, v.group, v.L, v.kind === 'ferry' ? v.F.knots : v.V.knots, !!(v.on && v.st?.moving)));
+  for (const v of live) add('a' + v.mmsi, v.group, v.L, v.A.sog || 0, v.on && (v.A.sog || 0) >= 0.8);
   list.sort((a, b) => a.d - b.d);
   wakes.update(list.slice(0, WAKE_N), dt);
 }
@@ -947,6 +949,7 @@ function vName(v) {
   if (v === bowdoin) return 'Bowdoin';
   if (v.kind === 'ferry') return titleCase(v.F.vessel || v.F.name).replace(/^Capt\./, 'Captain');
   if (v.kind === 'cruise') return cap(v.V.name);
+  if (v.kind === 'ais') return aisName(v.A);
   return cap((KIND[v.boat.type] || 'a sailboat').replace(/^an? /, ''));
 }
 const vDoing = v => v.boat.power ? 'Hauling traps' : env.W.heel > 0 ? 'Under sail' : 'Becalmed';
@@ -970,7 +973,7 @@ function ride(v, mode = 'helm') {
   document.getElementById('crowsnest').classList.toggle('on', mode === 'nest');
   const big = vLen(v) > 30 && !v.boat, name = vTitle(v);
   document.getElementById('ridename').textContent = mode === 'nest' ? `${name}'s crow's nest` : mode === 'drone' ? `Drone over ${v === own ? 'your boat' : name}` : CHASE[mode] ? `From a boat ${CHASE[mode].label} ${v === own ? 'your boat' : name}`
-    : v === own ? 'At your helm' : big ? `On the bridge of ${name}` : `At the helm of ${v.boat ? 'a ' + name.toLowerCase() : name}`;
+    : v === own ? 'At your helm' : big ? `On the bridge of ${name}` : `At the helm of ${v.boat && !v.kind ? 'a ' + name.toLowerCase() : name}`;
   for (const [id, m] of RIDE_BTNS) { const b = document.getElementById(id); if (b) { b.classList.toggle('on', m === mode); if (m === 'nest') b.hidden = !v.boat?.nest; } }
   document.getElementById('ridehint').textContent = ORBITS(mode) ? 'Drag or arrow keys to circle her · scroll or pinch to close in or stand off'
     : mode === 'nest' ? 'Drag or arrow keys to look round · scroll or pinch for the glasses' : 'Drag or arrow keys to look round · scroll or pinch for the binoculars';
@@ -1107,6 +1110,7 @@ function rideLine(v) {   // where she's bound, how far, and when
     if (left < 1) return 'Arrived';
     return `${nm(left)} to go` + (boatClock ? ` · arriving about ${clk(now + passageMin(own.total) - passageMin(own.S))}` : ` · ${(left / (OWN_KN * NMm)).toFixed(1)} h at ${OWN_KN} kn`);
   }
+  if (v.kind === 'ais') return `${v.label} · heading ${String(Math.round(((v.h % 360) + 360) % 360)).padStart(3, '0')}°${aisDest(v.A.dest) ? ' · bound for ' + aisDest(v.A.dest) : ''}`;
   return `${vDoing(v)} · heading ${String(Math.round(((v.h % 360) + 360) % 360)).padStart(3, '0')}°`;
 }
 function drawRideChart() {
@@ -1160,7 +1164,7 @@ function drawRideChart() {
     c.fillStyle = '#1d2a30'; c.fillText(p.name, x + (left ? -7 : 7), y);
   }
   // the other traffic, small
-  for (const o of traffic) if (o !== v && o.on) { const x = X(o.x), y = Y(o.z); if (x > 0 && y > 0 && x < size && y < size) { c.fillStyle = '#22324a'; c.beginPath(); c.arc(x, y, 2.2, 0, 7); c.fill(); } }
+  for (const o of [...traffic, ...live]) if (o !== v && o.on) { const x = X(o.x), y = Y(o.z); if (x > 0 && y > 0 && x < size && y < size) { c.fillStyle = '#22324a'; c.beginPath(); c.arc(x, y, 2.2, 0, 7); c.fill(); } }
   // what you're looking at, then her
   const cx = X(v.x), cy = Y(v.z);
   if (!ORBITS(nest.mode)) {
@@ -1210,6 +1214,7 @@ function lookoutReport() {
   for (const p of places) if (p.elev) add(p.n, p.x, p.z, p.elev, 2);
   for (const o of fleet) if (o !== b && Math.hypot(o.x - ex, o.z - ez) < 6 * NMm) add(o === bowdoin ? 'the schooner Bowdoin' : KIND[o.boat.type] || 'a vessel', o.x, o.z, o.boat.L > 20 ? 25 : 8, 3);   // vessels within 6 nm
   for (const o of traffic) if (o !== b && o.on && Math.hypot(o.x - ex, o.z - ez) < 8 * NMm) add(o.kind === 'ferry' ? `the ${(o.F.says || 'ferry').toLowerCase()} ${titleCase(o.F.vessel || '')}`.trim() : `a ${o.V.name}`, o.x, o.z, o.kind === 'cruise' ? 50 : 12, 3);
+  for (const o of live) if (o !== b && o.on && Math.hypot(o.x - ex, o.z - ez) < 8 * NMm) add(`the ${o.what.toLowerCase()} ${aisName(o.A)}`, o.x, o.z, o.L > 100 ? 40 : o.L > 25 ? 14 : 6, 3);
   if (b !== own && own.r && own.boat.group.visible) add('your boat', own.x, own.z, 8, 3);
   const pickN = (rank, n) => seen.filter(o => o.rank === rank).sort((p, q) => p.d - q.d).slice(0, n);
   const list = [...pickN(3, 3), ...pickN(0, 3), ...pickN(1, 3), ...pickN(2, 2)];
@@ -1245,7 +1250,7 @@ syncFollowHud = function sync() {   // every frame: cheap unless who's followed 
   const v = follow && !nest.on && vGroup(follow).visible ? follow : null;
   if (v === sync.v) return;
   sync.v = v; followHud.hidden = !v;
-  if (v) followHud.querySelector('#followname').textContent = `Following ${vName(v)}${v === own ? ' (yours)' : v.kind === 'ferry' ? ' · ' + v.label : ''}`;
+  if (v) followHud.querySelector('#followname').textContent = `Following ${vName(v)}${v === own ? ' (yours)' : v.kind === 'ferry' || v.kind === 'ais' ? ' · ' + v.label : ''}`;
 };
 document.getElementById('bowdoinbtn').addEventListener('click', () => {
   if (!bowdoin) return;
@@ -1318,6 +1323,7 @@ function lightForClock() {   // the weather panel's time of day, from where the 
 }
 const hhmm = m => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(Math.floor(m % 60)).padStart(2, '0')}`;
 if (!EMPTY) Promise.all([getJSON('./data/ferries.json').catch(() => null), getJSON('./data/cruise_ships.json').catch(() => null)]).then(([fd, cd]) => {
+  setKnown((fd?.ferries || []).map(F => ({ name: F.vessel, F })));   // (live AIS: the ferries' full names, and what they are)
   for (const F of fd?.ferries || []) {
     const T = trackOf(ferryLine(F), wx, wz), group = (F.kind === 'launch' ? launchModel : ferryModelSimple)(F, trafficLit); group.visible = false; scene.add(group);
     traffic.push({ kind: 'ferry', F, T, group, L: F.length_m || 46, x: T.P[0][0], z: T.P[0][1], on: false, label: '' });
@@ -1542,7 +1548,7 @@ function updateTraffic() {
   for (const m of trafficLit) m.emissiveIntensity = lk;
   let anyCruise = false;
   for (const v of traffic) {
-    const st = v.kind === 'ferry' ? ferryState(v.F, v.T, minute) : cruiseState(v.call, v.V, v.T, minute);
+    const st = liveOK ? null : v.kind === 'ferry' ? ferryState(v.F, v.T, minute) : cruiseState(v.call, v.V, v.T, minute);   // (live AIS: the real ones instead)
     v.on = !!st && !aboveFog; v.group.visible = v.on; v.st = st;
     if (!st) continue;
     const p = alongTrack(v.T, st.f), hdg = st.dir > 0 ? p.hdg : p.hdg + 180;
@@ -1649,11 +1655,11 @@ function vEta(v) {
 function fillUnderway() {
   const list = uwPanel.querySelector('ul'); list.innerHTML = '<li class="hdr"><span class="n">Vessel</span><span class="eta">ETA</span><span class="d">Off</span><span class="go"></span></li>';
   const away = v => { const d = Math.hypot(v.x - view.x, v.z - view.z) / NMm; return d < 0.15 ? '' : `${d.toFixed(d < 10 ? 1 : 0)} nm`; };
-  const rows = [];
+  const rows = [], d2 = b => Math.hypot(b.x - view.x, b.z - view.z);
   if (own.r && own.boat.group.visible) rows.push({ v: own, what: own.vj ? 'On your Virtual Journey' : own.playing ? 'Under way on your route' : own.S >= own.total ? 'Arrived' : 'Ready on your route' });
   for (const v of traffic) if (v.on) rows.push({ v, what: v.kind === 'cruise' ? v.label.replace(/^[^,]*, /, '') : v.label });
+  for (const v of live.filter(o => o.on).sort((a, b) => d2(a) - d2(b)).slice(0, 12)) rows.push({ v, what: `📡 ${v.label}` });
   if (bowdoin && bowdoin !== own && bowdoin.boat.group.visible) rows.push({ v: bowdoin, what: 'Schooner, out of Castine' });
-  const d2 = b => Math.hypot(b.x - view.x, b.z - view.z);
   for (const v of fleet.filter(b => b !== bowdoin && b.boat.group.visible).sort((a, b) => d2(a) - d2(b)).slice(0, 6)) rows.push({ v, what: vDoing(v) });
   if (!rows.length) { list.innerHTML = '<li class="none">Nothing on the water in sight</li>'; return; }
   for (const r of rows) {
@@ -1685,6 +1691,110 @@ if (uwBtn && uwPanel && !EMPTY) {
   clockBtn?.addEventListener('click', () => { uwPanel.hidden = true; uwBtn.classList.remove('on'); });
   for (const ev of ['pointerdown', 'wheel', 'touchstart']) uwPanel.addEventListener(ev, e => e.stopPropagation(), { passive: true });
   setInterval(() => { if (!uwPanel.hidden && !uwPanel.matches(':hover')) fillUnderway(); }, 2500);   // (not under the pointer: a click mid-rebuild would miss)
+}
+
+// ── 📡 Live AIS (v986, requested: "add AIS data, in real time, for boats and ships broadcasting a signal ...
+// gracefully not work unless we are connected", for the armchair features first; ais.js, relay/ais/) ── With Live
+// on, the vessels really in the bay now, from their AIS: each drawn as what she is (a tanker, a ferry, a schooner,
+// a lobster boat), moved on between reports by her speed and course, named, in ⛴ Underway to ride or follow like
+// any other, in the lookout's report and on the ride's chart. While they're coming in, the made-up ferries and
+// cruise ships stand aside for the real ones. With no internet, or no relay, the button says so and nothing else
+// changes. The choice is remembered.
+const live = [];   // { kind: 'ais', mmsi, A (her last report), fix: {x, z, t}, group, boat?, trim?, L, x, z, h, on, what, label }
+let liveOK = false;
+const liveBtn = document.getElementById('livebtn'), LIVE_KEY = 'audiochart-bay3d-live';
+const LIVE_LEN = { sail: 11, power: 11, launch: 18, ferry: 46, cruise: 200, ship: 150 };
+function liveModel(A, cls, seed) {
+  const L = A.L || LIVE_LEN[cls.model];
+  if (cls.model === 'sail' || cls.model === 'power') {
+    const boat = makeSailboat(cls.model === 'power' ? 'lobster' : L > 20 ? 'schooner' : L > 9.5 ? 'cruiser' : L > 7 ? 'pocket' : 'daysailer', seed);
+    return { boat, group: boat.group, L: boat.L, trim: cls.model === 'sail' ? makeTrimmer() : null };
+  }
+  const group = cls.model === 'launch' ? launchModel({ length_m: clamp(L, 9, 40), name: A.name }, trafficLit)
+    : cls.model === 'ferry' ? ferryModelSimple({ length_m: L, name: A.name }, trafficLit)
+    : cls.model === 'cruise' ? cruiseShipModel({ length_m: L, beam_m: A.B || L * 0.13 }, trafficLit)
+    : merchantModel({ length_m: L, beam_m: A.B, tanker: A.type >= 80 && A.type <= 89 }, trafficLit);
+  return { group, L: cls.model === 'launch' ? clamp(L, 9, 40) : L };
+}
+function liveData(snap) {
+  const now = Date.now(), seen = new Set();
+  for (const A of snap.vessels || []) {
+    if (A.lon < OVERVIEW[0] || A.lon > OVERVIEW[2] || A.lat < OVERVIEW[1] || A.lat > OVERVIEW[3]) continue;
+    seen.add(A.mmsi);
+    let v = live.find(o => o.mmsi === A.mmsi);
+    const K = knownFor(A.name)?.F;   // one of the ferries: a ferry, her length known, before her static data comes
+    if (K && !A.L) A.L = K.length_m || 46;
+    const cls = K ? { model: K.kind === 'launch' || A.L < 25 ? 'launch' : 'ferry', what: K.says || 'Ferry' } : aisClass(A.type, A.L);
+    if (v && v.model !== cls.model) { dropLive(v); v = null; }   // her static data came in: what she is changed
+    if (!v) {
+      const m = liveModel(A, cls, Number(A.mmsi) % 9973);
+      v = { kind: 'ais', mmsi: A.mmsi, model: cls.model, ...m, x: wx(A.lon), z: wz(A.lat), h: A.hdg ?? A.cog ?? 0, on: false, label: '' };
+      m.group.visible = false; scene.add(m.group); live.push(v);
+    }
+    v.A = A; v.what = cls.what;
+    v.fix = { x: wx(A.lon), z: wz(A.lat), t: now - (A.age || 0) * 1000 };
+    const st = aisStatus(A.status), kn = A.sog || 0;
+    v.label = `${cls.what}${st && st !== 'under way' ? ', ' + st : ''}${kn >= 0.5 ? `, ${kn.toFixed(kn < 10 ? 1 : 0)} kn` : ''}`;
+  }
+  for (const v of [...live]) if (!seen.has(v.mmsi)) dropLive(v);
+  liveOK = live.length > 0;
+}
+function dropLive(v) {
+  if (nest.on && nest.v === v) leaveRide();
+  if (follow === v) stopFollow();
+  scene.remove(v.group); disposeGroup?.(v.group);
+  live.splice(live.indexOf(v), 1);
+}
+function updateLive(dt) {
+  if (!live.length) return;
+  const now = Date.now(), cp = camera.position, up = env.W.heel > 0, heel = env.W.heel * DEG;
+  for (const v of live) {
+    const A = v.A, kn = A.sog || 0, cog = A.cog ?? A.hdg ?? v.h;
+    // where she is now: her last report, moved on at her speed and course (for up to five minutes)
+    const s = kn * NMm / 3600 * clamp((now - v.fix.t) / 1000, 0, 300), tx = v.fix.x + Math.sin(cog * DEG) * s, tz = v.fix.z - Math.cos(cog * DEG) * s;
+    const k = v.placed ? Math.min(1, dt * 1.5) : 1; v.placed = true;   // a new report eases her across, no jump
+    v.x += (tx - v.x) * k; v.z += (tz - v.z) * k;
+    const want = A.hdg ?? (kn >= 0.5 ? A.cog : null);
+    if (want != null) { const turn = ((want - v.h + 540) % 360) - 180; v.h = (v.h + clamp(turn, -20 * dt, 20 * dt) + 360) % 360; }
+    v.on = liveFeed.on && !aboveFog; v.group.visible = v.on;
+    v.group.position.set(v.x, 0, v.z); v.group.rotation.y = -v.h * DEG;
+    const d = Math.hypot(v.x - cp.x, cp.y, v.z - cp.z), aboard = nest.on && nest.v === v;
+    if (v.boat) {
+      if (v.trim) v.boat.trim(v.trim(env.C.windFrom, v.h, env.W.tws ?? 8, up ? kn : 0, dt), heel, up);
+      v.boat.wake(0);
+      v.group.scale.setScalar(aboard || (nest.on && d < 1500) ? 1 : boatScale(v.boat, d));
+    } else {
+      for (const w of v.group.userData.wake || []) w.visible = false;   // (her wake is in the water: updateWakes)
+      v.group.scale.setScalar(aboard ? 1 : Math.max(1, Math.min(v.L > 100 ? 3 : 8, d / 250 * Math.sqrt(8 / v.L) * 0.6)));
+    }
+  }
+}
+const liveFeed = makeAisFeed({
+  onData: liveData,
+  onState: ({ state, note }) => {
+    if (state === 'offline' || state === 'off') { for (const v of [...live]) dropLive(v); liveOK = false; }
+    syncLiveBtn(state, note);
+  },
+});
+function syncLiveBtn(state = liveBtn?.dataset.state || 'off', note = '') {
+  if (!liveBtn) return;
+  liveBtn.dataset.state = state;
+  liveBtn.classList.toggle('on', liveFeed.on);
+  liveBtn.textContent = !liveFeed.on ? '📡 Live' : state === 'live' ? `📡 Live · ${live.length}` : state === 'offline' ? '📡 Live · offline' : '📡 Live · …';
+  liveBtn.title = !liveFeed.on ? 'Show the vessels in the bay right now, from their AIS (needs an internet connection)'
+    : state === 'offline' ? `${note || 'Live AIS is unavailable'}. Tap to turn Live off.` : state === 'live' ? `${live.length} vessels broadcasting AIS in the bay now. Tap to turn Live off.` : `${note || 'Listening for ships…'} Tap to turn Live off.`;
+}
+if (liveBtn && !EMPTY) {
+  liveBtn.hidden = false;
+  liveBtn.addEventListener('click', () => {
+    if (liveFeed.on) liveFeed.stop(); else { liveFeed.start(); if (!boatClock) setClock(realMin(), 1, false); }   // live is now: the clock to now
+    try { localStorage.setItem(LIVE_KEY, liveFeed.on ? '1' : '0'); } catch (_) {}
+    syncLiveBtn();
+  });
+  let was = false; try { was = localStorage.getItem(LIVE_KEY) === '1'; } catch (_) {}
+  if (was || params.has('ais')) liveFeed.start();
+  setInterval(() => { if (liveFeed.on && liveBtn.dataset.state === 'live') syncLiveBtn('live'); }, 5000);
+  syncLiveBtn();
 }
 
 // ── Moored boats, by the season (v944, requested: "add the moored boats with seasons"; moorings3d.js) ──
@@ -2067,6 +2177,11 @@ function updateLabels() {
       const d = Math.hypot(v.x - view.x, v.z - view.z);
       if (d < Math.max(view.dist * 2, 4000)) cand.push({ text: v.label, x: v.x, y: (v.kind === 'cruise' ? 55 : 14) * v.group.scale.x, z: v.z, cls: 'wpt', pri: (v.kind === 'cruise' ? 0.6 : 0.9) + d / 1e6 });
     }
+    for (const v of live) {   // live AIS vessels (v986)
+      if (!v.on || view.dist > 40000 || (nest.on && nest.v === v)) continue;
+      const d = Math.hypot(v.x - view.x, v.z - view.z);
+      if (d < Math.max(view.dist * 2, 4000)) cand.push({ text: `📡 ${aisName(v.A)}`, x: v.x, y: (v.L > 100 ? 45 : v.L > 25 ? 14 : 8) * v.group.scale.x, z: v.z, cls: 'wpt', pri: 0.85 + d / 1e6 });
+    }
     if (bowdoin && nest.v !== bowdoin && view.dist < 30000) { const d = Math.hypot(bowdoin.x - view.x, bowdoin.z - view.z); if (d < Math.max(view.dist * 2, 3000)) cand.push({ text: 'Bowdoin', x: bowdoin.x, y: 24 * bowdoin.boat.group.scale.x, z: bowdoin.z, cls: 'wpt', pri: 0.7 }); }
     // (v907: no "⛵ You" label over your boat any more — requested: "get rid of the box that follows the boat")
     if (view.dist < 40000) for (const p of [...wps, ...pins]) {   // route waypoints and search pins
@@ -2140,6 +2255,7 @@ function frame(now) {
   updateWeather(dt, t);
   updateFleet(dt);
   updateTraffic();
+  updateLive(dt);
   updateWaypoints();
   updateOwn(dt);
   updateWakes(dt);

@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-10-23 — Live AIS in Bird's-eye (v986)
+
+New 📡 Live button in Bird's-eye: the vessels broadcasting AIS in Penobscot Bay right now, in 3D. Each is drawn
+as what her AIS type says she is (tanker or cargo ship, a new model in vessels.js; ferry; cruise ship; schooner or
+sloop; tug or launch; lobster boat), moved on between reports at her speed and course, named (the ferries by their
+full names: AIS cuts names at 20 characters), and listed in ⛴ Underway to ride (Helm, Drone, Stern, Side, Bow) or
+follow; the ride's chart and the lookout's report include her. While live vessels are coming in, the made-up ferries
+and cruise ships stand aside. With no internet or no relay the button reads "Live · offline" and nothing else changes.
+- The feed is AISStream (aisstream.io), which doesn't accept browser connections, so a small relay holds the key:
+  relay/ais/ (a Cloudflare Worker with one Durable Object holding the upstream connection, opened on demand and
+  closed after 5 idle minutes; dev.mjs runs it locally, --fake with made-up vessels). Deployed at
+  https://audiochart-ais.egilchri.workers.dev; the key is a Cloudflare secret, never in the repo.
+- www/js/ais.js: polls the relay every 10 s while Live is on; AIS type to model; name and destination tidying.
+- Tested against the fake feed and the real one (5 vessels, the Vinalhaven ferry ridden at 12 kn); offline case tested.
+
 ## 2026-10-23 — A link straight to the Overview video (v985)
 
 https://egilchri.github.io/AudioChart/sailors/overview/ is the link to share: it has its own preview tags
