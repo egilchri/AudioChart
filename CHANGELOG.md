@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-24 — A live AIS boat reported ashore is marked ashore, not drawn among the trees (v997)
+
+Reported: "The Chebeague water taxi is showing up on land." She was where her AIS put her: 260 m inland on
+Chebeague, stopped, her set still on, so most likely hauled out for the winter. Bird's-eye now checks each live
+position against the elevation: high ground under her and all round her (so not a boat alongside a pier or at the
+water's edge) means she's ashore. Her name stays on the spot, "· ashore", with no hull; the Underway list says
+"ashore (hauled out?)", and her AIS card's position says she's ashore. Checked against today's feed: only the water
+taxi is flagged, not the boats at the Rockland docks or Wabanaki at Long Island.
+
 ## 2026-10-24 — Portland and the Casco islands in 3D; the Casco Bay Lines boats drawn as themselves (v996)
 
 Bird's-eye and the helm view now have buildings for Portland (4,256: the Old Port, the piers and the ferry terminal,

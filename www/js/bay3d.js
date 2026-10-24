@@ -1768,6 +1768,11 @@ function liveModel(A, cls, seed, K, W) {
     : merchantModel({ length_m: L, beam_m: A.B, tanker: A.type >= 80 && A.type <= 89 }, trafficLit);
   return { group, L: cls.model === 'launch' ? clamp(L, 9, 40) : L };
 }
+// a boat whose AIS puts her ashore (v997, reported: "The Chebeague water taxi is showing up on land" — she was, by her
+// own AIS, hauled out up on Chebeague with her set still on): high ground under her and all round her, so not a boat
+// alongside a pier or at the water's edge, where the elevation data or her GPS can be a little out. Her name stays
+// on the spot, marked ashore, but no hull among the trees.
+const ashoreAt = (lon, lat) => heightAt(lon, lat) > 2 && [[1, 0], [-1, 0], [0, 1], [0, -1]].every(([dx, dy]) => heightAt(lon + dx * 0.0005, lat + dy * 0.00036) > 1);
 function liveData(snap) {
   const now = Date.now(), seen = new Set();
   for (const A of snap.vessels || []) {
@@ -1789,7 +1794,8 @@ function liveData(snap) {
     v.A = A; v.what = cls.what;
     v.fix = { x: wx(A.lon), z: wz(A.lat), t: now - (A.age || 0) * 1000 };
     const st = aisStatus(A.status), kn = A.sog || 0;
-    v.label = `${cls.what}${st && st !== 'under way' ? ', ' + st : ''}${kn >= 0.5 ? `, ${kn.toFixed(kn < 10 ? 1 : 0)} kn` : ''}`;
+    v.ashore = ashoreAt(A.lon, A.lat);
+    v.label = `${cls.what}${v.ashore ? ', ashore (hauled out?)' : st && st !== 'under way' ? ', ' + st : ''}${kn >= 0.5 ? `, ${kn.toFixed(kn < 10 ? 1 : 0)} kn` : ''}`;
   }
   for (const v of [...live]) if (!seen.has(v.mmsi)) dropLive(v);
   liveOK = live.length > 0;
@@ -1811,7 +1817,7 @@ function updateLive(dt) {
     v.x += (tx - v.x) * k; v.z += (tz - v.z) * k;
     const want = A.hdg ?? (kn >= 0.5 ? A.cog : null);
     if (want != null) { const turn = ((want - v.h + 540) % 360) - 180; v.h = (v.h + clamp(turn, -20 * dt, 20 * dt) + 360) % 360; }
-    v.on = liveFeed.on && !aboveFog; v.group.visible = v.on;
+    v.on = liveFeed.on && !aboveFog; v.group.visible = v.on && !v.ashore;
     v.group.position.set(v.x, 0, v.z); v.group.rotation.y = -v.h * DEG;
     const d = Math.hypot(v.x - cp.x, cp.y, v.z - cp.z), aboard = nest.on && nest.v === v;
     if (v.boat) {
@@ -1906,7 +1912,7 @@ function fillCard() {
   row('Turning', aisRot(A.rot));
   row('Bound for', aisDest(A.dest) || A.dest);
   if (A.eta) { const [md, hm] = A.eta.split(' '), [mo, dd] = md.split('-').map(Number); row('ETA', `${MON[mo - 1]} ${dd}${hm ? `, ${hm} UTC` : ''}`); }
-  row('Position', `${aisPos(A.lat, A.lon)}${A.acc === true ? ' (±10 m)' : ''}`);
+  row('Position', `${aisPos(A.lat, A.lon)}${A.acc === true ? ' (±10 m)' : ''}${v.ashore ? ' — ashore: hauled out, or her AIS is wrong' : ''}`);
   row('Last heard', aisAgo((Date.now() - v.fix.t) / 1000));
   const mine = own.r && own.boat.group.visible, fx = mine ? own.x : view.x, fz = mine ? own.z : view.z, d = Math.hypot(v.x - fx, v.z - fz);
   if (d > 30) row(mine ? 'From your boat' : 'From the view', `${(d / NMm).toFixed(d < 10 * NMm ? 1 : 0)} nm, ${deg3(Math.atan2(v.x - fx, -(v.z - fz)) / DEG)}° true`);
@@ -2315,7 +2321,7 @@ function updateLabels() {
     for (const v of live) {   // live AIS vessels (v986)
       if (!v.on || view.dist > 40000 || (nest.on && nest.v === v)) continue;
       const d = Math.hypot(v.x - view.x, v.z - view.z);
-      if (d < Math.max(view.dist * 2, 4000)) cand.push({ text: `📡 ${aisName(v.A)}`, x: v.x, y: (v.L > 100 ? 45 : v.L > 25 ? 14 : 8) * v.group.scale.x, z: v.z, cls: 'wpt', pri: 0.85 + d / 1e6 });
+      if (d < Math.max(view.dist * 2, 4000)) cand.push({ text: `📡 ${aisName(v.A)}${v.ashore ? ' · ashore' : ''}`, x: v.x, y: v.ashore ? Math.max(0, heightAt(v.A.lon, v.A.lat)) + 8 : (v.L > 100 ? 45 : v.L > 25 ? 14 : 8) * v.group.scale.x, z: v.z, cls: 'wpt', pri: 0.85 + d / 1e6 });
     }
     if (bowdoin && nest.v !== bowdoin && view.dist < 30000) { const d = Math.hypot(bowdoin.x - view.x, bowdoin.z - view.z); if (d < Math.max(view.dist * 2, 3000)) cand.push({ text: 'Bowdoin', x: bowdoin.x, y: 24 * bowdoin.boat.group.scale.x, z: bowdoin.z, cls: 'wpt', pri: 0.7 }); }
     // (v907: no "⛵ You" label over your boat any more — requested: "get rid of the box that follows the boat")
