@@ -237,6 +237,101 @@ export function bulkModel(V, liv, windowMats = []) {
   return g;
 }
 
+// ── A car carrier (a PCTC: the ro-ro ships that bring cars and machinery) ── The hull with her topsides carried up
+// in one sheer wall nearly her whole length to a flat top ~30 m above the water, its front bluff and rounded; the
+// bridge across the top of the front, with wings, the accommodation's windows in rows below it at the forward
+// end; the funnel and a mast aft on the top; the quarter ramp folded up on her starboard quarter and the side ramp
+// door. Colours: generic car-carrier liveries by her name (no operator's yet: none confirmed calling here).
+const PCC_LOOKS = [
+  { hull: '#24395f', boot: '#8c2a22', upper: '#f2f1ec', stripe: '#24395f', funnel: '#24395f', funnelTop: '#1d1f22' },
+  { hull: '#1d1f22', boot: '#8c2a22', upper: '#e9ecef', stripe: '#c8302a', funnel: '#e9ecef', funnelTop: '#1d1f22' },
+  { hull: '#2b4a3a', boot: '#8c2a22', upper: '#f2f1ec', stripe: '#2b4a3a', funnel: '#2b4a3a', funnelTop: '#1d1f22' },
+  { hull: '#f2f1ec', boot: '#8c2a22', upper: '#f2f1ec', stripe: '#2f6f9a', funnel: '#2f6f9a', funnelTop: '#1d1f22' },
+  { hull: '#5a6066', boot: '#8c2a22', upper: '#d7dadb', stripe: '#e8731f', funnel: '#d7dadb', funnelTop: '#1d1f22' },
+];
+export function carCarrierModel(V, liv, windowMats = []) {
+  const look = { ...pick(PCC_LOOKS, V.name), ...(liv || {}) };
+  const L = V.L || 200, B = V.B || L * 0.16, half = L / 2, g = new THREE.Group();
+  const M = c => new THREE.MeshLambertMaterial({ color: hex(c) });
+  const upper = M(look.upper), dark = M(0x1d1f22);
+  const box = (w, h, d, x, y, z, m) => { const k = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); k.position.set(x, y, z); g.add(k); return k; };
+  const T = Math.max(6, Math.min(10, V.T || 8.5)), FB = 7, TOP = Math.min(34, L * 0.15);
+  const sheer = () => FB;
+  const hull = loftHull({
+    L, B, T, sheer, runU: 0.18, rake: 0.01, forefoot: 0.0, transomRake: 0.0,
+    uw: 0.78, wlTip: 0.08, wlAft: 0.85, ud: 0.8, dkTip: 0.3, dkPow: 2.2, dkAft: 0.98,
+    flareP: u => 1 + 1.2 * sm((u - 0.8) / 0.15), bilgeN: () => 3.5,
+    bands: [[() => 0.5, hex(look.boot), 2], [() => FB, hex(look.hull), 4]], NU: 64, stemFace: true,
+  });
+  g.add(hull.mesh);
+  // the superstructure: her sides carried up, nearly the whole length, the front rounded and a little raked
+  const zf = -half + L * 0.018, za = half - L * 0.008, H = TOP - FB;
+  const sideM = new THREE.MeshLambertMaterial({ color: hex(look.upper) });
+  const sup = deckhouse({ W: B * 0.99, zf, za, H, rakeF: 2.0, nF: 2.2, nA: 16, roof: 0.2, roofT: 0.3, side: sideM, top: M(0x8d9296) });
+  sup.position.y = FB; g.add(sup);
+  // a stripe along her side, her name forward
+  for (const sx of [-1, 1]) {
+    const st = box(0.06, 1.6, L * 0.7, sx * (B * 0.495 + 0.05), TOP - 6, 0.05 * L, M(look.stripe)); st.visible = !!look.stripe;
+    if (V.name) { const nm = nameBoard(V.name, 0, 0, null, look.name || (look.upper === look.hull ? '#1d1f22' : '#f4f3ef')); const p = new THREE.Mesh(new THREE.PlaneGeometry(Math.min(30, L * 0.15), 2.2), nm); p.position.set(sx * (B * 0.495 + 0.08), FB - 2.2, -half + L * 0.16); p.rotation.y = sx * Math.PI / 2; g.add(p); }
+  }
+  if (look.word) { const wm = wordMat(look.word, look.wordColor || '#24395f'); for (const sx of [-1, 1]) { const p = new THREE.Mesh(new THREE.PlaneGeometry(L * 0.45, L * 0.45 / 4), wm); p.position.set(sx * (B * 0.495 + 0.1), FB + H * 0.55, L * 0.08); p.rotation.y = sx * Math.PI / 2; g.add(p); } }
+  // the accommodation's windows at the forward end, rows of them; the bridge across the top front, its wings
+  const win = new THREE.MeshLambertMaterial({ map: windowRows(5, false, 32, look.upper), emissive: 0xffd9a0, emissiveMap: windowRows(5, true, 32), emissiveIntensity: 0, transparent: false });
+  for (const t of [win.map, win.emissiveMap]) { t.wrapT = THREE.RepeatWrapping; t.repeat.y = 4; } windowMats.push(win);
+  for (const sx of [-1, 1]) { const p = new THREE.Mesh(new THREE.PlaneGeometry(L * 0.09, 10), win); p.position.set(sx * (B * 0.495 + 0.06), TOP - 7.5, zf + L * 0.075); p.rotation.y = sx * Math.PI / 2; g.add(p); }
+  const gl = new THREE.MeshLambertMaterial({ map: glassBand(false), emissive: 0xffd9a0, emissiveMap: glassBand(true), emissiveIntensity: 0 }); windowMats.push(gl);
+  const br = deckhouse({ W: B * 0.7, zf: zf + 3, za: zf + 14, H: 3, rakeF: -0.3, nF: 3, nA: 10, roof: 0.4, roofT: 0.3, side: gl, top: upper });
+  br.position.y = TOP + 0.3; g.add(br);
+  box(B * 1.04, 0.5, 4, 0, TOP + 3, zf + 5, upper);
+  box(0.5, 6, 0.5, 0, TOP + 6.3, zf + 9, upper);   // the radar mast
+  for (const sx of [-1, 1]) { const r = box(3, 0.2, 0.5, sx * 1.8, TOP + 8, zf + 9, dark); r.rotation.y = sx * 0.4; }
+  // the funnel and a mast aft
+  const fz = half - L * 0.1, f = new THREE.Mesh(new THREE.CylinderGeometry(B * 0.08, B * 0.1, 6, 14), M(look.funnel)); f.scale.z = 1.6; f.position.set(0, TOP + 3, fz); g.add(f);
+  const ft = new THREE.Mesh(new THREE.CylinderGeometry(B * 0.082, B * 0.082, 1.2, 14), M(look.funnelTop)); ft.scale.z = 1.6; ft.position.set(0, TOP + 5.6, fz); g.add(ft);
+  box(0.5, 9, 0.5, 0, TOP + 4.5, half - L * 0.04, upper);
+  // the quarter ramp, folded up across her starboard quarter; the side ramp door amidships
+  const qr = box(B * 0.42, H * 0.55, 0.8, B * 0.26, FB + H * 0.3, za + 0.2, M(0x8d9296)); qr.rotation.y = -0.35;
+  box(0.12, 6, 12, B * 0.495 + 0.06, FB + 3, -L * 0.05, M(0x8d9296));
+  lamp(g, 0xfff2d6, 0, TOP + 9.4, zf + 9, windowMats, 0.5); lamp(g, 0xfff2d6, 0, TOP + 9.2, half - L * 0.04, windowMats, 0.5);
+  lamp(g, 0xff3b2e, -B * 0.52, TOP + 3.4, zf + 4, windowMats, 0.45); lamp(g, 0x3dff7a, B * 0.52, TOP + 3.4, zf + 4, windowMats, 0.45);
+  lamp(g, 0xfff2d6, 0, FB + 3, half, windowMats, 0.45);
+  g.userData.helm = [0, TOP + 2.2, zf + 2.6];
+  g.userData.top = TOP + 9;
+  g.userData.wake = [wakeOf(B, L)]; g.add(g.userData.wake[0]);
+  return g;
+}
+
+// ── An LPG carrier (the gas tankers that bring propane to the terminals) ── On merchantShip's hull and house: a small
+// one (under 130 m) carries her gas pressurised in big white cylinders lying fore and aft on deck; a larger one,
+// refrigerated, in tanks under a raised trunk deck with a row of tank domes. Either way the piping, the vent masts
+// and the catwalk, the manifold amidships with its crane.
+export function lpgModel(V, liv, windowMats = []) {
+  const look = { hull: '#7a2a24', boot: '#3a1a18', deck: '#5e6b4e', house: '#f2f1ec', funnel: '#f2f1ec', funnelTop: '#1d1f22', tank: '#f2f1ec', ...pick(TANKER_LOOKS, (V.name || '') + 'g'), ...(liv || {}) };
+  const L = V.L || 120, B = V.B || L * 0.16;
+  const S = merchantShip({ ...V, L, B, D: V.D || L * 0.085 }, look, windowMats, { decks: L > 150 ? 6 : 5 });
+  const { g, M, box, FB, steel, dz0, dz1, zf } = S, dL = dz1 - dz0, tankM = M(look.tank || '#f2f1ec');
+  if (L < 130) {   // pressurised: cylinders on deck, their ends domed
+    const n = L < 90 ? 2 : 3, len = dL / n - 3, r = Math.min(B * 0.22, 6);
+    for (let i = 0; i < n; i++) for (const sx of (B > 17 ? [-1, 1] : [0])) {
+      const z = dz0 + (i + 0.5) * dL / n, x = sx * B * 0.22;
+      const c = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len - 2 * r, 20), tankM); c.rotation.x = Math.PI / 2; c.position.set(x, FB + r * 0.7, z); g.add(c);
+      for (const e of [-1, 1]) { const d = new THREE.Mesh(new THREE.SphereGeometry(r, 20, 10), tankM); d.scale.z = 0.5; d.position.set(x, FB + r * 0.7, z + e * (len / 2 - r)); g.add(d); }
+    }
+  } else {         // refrigerated: the trunk deck, the domes on it
+    const tw = B * 0.62;
+    box(tw, 2.6, dL, 0, FB + 1.3, (dz0 + dz1) / 2, M(look.deck));
+    const n = Math.round(dL / 32);
+    for (let i = 0; i < n; i++) { const d = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.8, 2.2, 16), tankM); d.position.set(0, FB + 3.7, dz0 + (i + 0.5) * dL / n); g.add(d); }
+  }
+  // the pipe rack and catwalk to starboard, the vent masts, the manifold and its crane amidships
+  for (const x of [B * 0.34, B * 0.37]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, dL, 8), steel); p.rotation.x = Math.PI / 2; p.position.set(x, FB + 2.4, (dz0 + dz1) / 2); g.add(p); }
+  box(1.2, 0.2, dL, B * 0.36, FB + 3.4, (dz0 + dz1) / 2, steel);
+  for (let i = 0; i < 3; i++) box(0.5, 12, 0.5, -B * 0.32, FB + 6, dz0 + (i + 0.5) * dL / 3, steel);
+  box(B * 0.8, 1.6, 3, 0, FB + 0.8, -S.L * 0.02, steel);
+  box(0.9, 8, 0.9, -B * 0.25, FB + 4, -S.L * 0.02 + 4, M(look.crane || look.house));
+  return g;
+}
+
 // ── A harbour tug, ship-assist (McAllister's at Portland: the Andrew, Rowan, Vicki M. and Rosemary McAllister,
 // Fournier Girls; Commons photos of Capt. Brian A. McAllister for the look) ── A short, beamy hull, her sheer
 // sweeping high to a full bow, the heavy bow fender ("pudding") round the stem and tyres along her sides; the

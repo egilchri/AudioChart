@@ -19,7 +19,7 @@ import { makeWildlife, ledgesFrom } from './wildlife3d.js';
 import { makeMoorings } from './moorings3d.js';
 import { callsOn, trackOf, alongTrack, cruiseState, ferryState, ferryDepartures, ferryLine, ferrySlipModel, terminalLot, terminalHouse, cruiseShipModel, ferryModelSimple, launchModel, cblModel, merchantModel, mins } from './vessels.js';
 import { REGIONS3D, REGION3D_KEY, regions3dOffered } from './regions3d.js';
-import { tankerModel, tugModel, pilotModel, containerModel, bulkModel, setShips, shipFor } from './ships3d.js';
+import { tankerModel, tugModel, pilotModel, containerModel, bulkModel, carCarrierModel, lpgModel, setShips, shipFor } from './ships3d.js';
 import { makeAisFeed, aisClass, aisStatus, aisName, aisDest, setKnown, knownFor, aisFlag, aisRot, aisPos, aisAgo, aisLookup, aisImo, aisCallsign } from './ais.js';
 
 const statusEl = document.getElementById('status');
@@ -1813,11 +1813,19 @@ const LIVE_LEN = { sail: 11, power: 11, launch: 18, ferry: 46, cruise: 200, ship
 // kind, else her operator's (Eimskip's are container ships), else where she's bound (Searsport and Bucksport take
 // bulk), else her shape (a bulker is the beamier, for her length), else a container ship, Portland's usual caller
 function cargoKind(A, S, liv) {
-  if (S?.kind === 'container' || S?.kind === 'bulk') return S.kind;
-  if (liv?.kinds?.length) return liv.kinds[0] === 'bulk' ? 'bulk' : 'container';
+  if (S?.kind === 'container' || S?.kind === 'bulk' || S?.kind === 'pcc') return S.kind;
+  if (liv?.kinds?.length) return ['bulk', 'pcc'].includes(liv.kinds[0]) ? liv.kinds[0] : 'container';
+  // a car carrier, by the names the big lines give theirs (K Line's "… Highway", MOL's "… Ace", NYK's "… Leader",
+  // Eukor's "Morning …", Höegh's, Glovis's), v1003
+  if (/HIGHWAY|\bACE$|\bLEADER$|^MORNING |^HOEGH |GLOVIS|AUTO(LINER|STAR|BANNER|SKY|PRIDE)/i.test(A.name || '')) return 'pcc';
   if (/SEARS|BUCKSP|MACK ?P/i.test(A.dest || '')) return 'bulk';
   if (A.L && A.B && A.B / A.L > 0.158) return 'bulk';
   return 'container';
+}
+// a tanker (AIS 80–89) carrying gas is an LPG carrier: her record or operator says so, or her name does (v1003)
+function tankerKind(A, S, liv) {
+  if (S?.kind === 'lpg' || liv?.kinds?.[0] === 'lpg') return 'lpg';
+  return /\b(GAS|LPG|LNG|PROPANE|BUTANE|ETHYLENE)\b|GAS$/i.test(A.name || '') ? 'lpg' : 'tanker';
 }
 function liveModel(A, cls, seed, K, W) {
   // one of the ferries we know (K, her ferries.json record): built from it, so she's the scheduled one to the life (v987)
@@ -1837,8 +1845,8 @@ function liveModel(A, cls, seed, K, W) {
   // a tanker, tug or pilot boat as her kind, in her owner's colours, her particulars where we have them (v1001)
   if (cls.model === 'tanker' || cls.model === 'tug' || cls.model === 'pilot' || cls.model === 'cargo') {
     const { S, liv } = shipFor(A.mmsi, A.name), V = { L, B: A.B || S?.B, D: S?.D, T: A.draught, name: S?.name || A.name, boat: S?.boat };
-    const kind = cls.model === 'cargo' ? cargoKind(A, S, liv) : cls.model;
-    return { group: { tanker: tankerModel, tug: tugModel, pilot: pilotModel, container: containerModel, bulk: bulkModel }[kind](V, liv, trafficLit), L };
+    const kind = cls.model === 'cargo' ? cargoKind(A, S, liv) : cls.model === 'tanker' ? tankerKind(A, S, liv) : cls.model;
+    return { group: { tanker: tankerModel, lpg: lpgModel, tug: tugModel, pilot: pilotModel, container: containerModel, bulk: bulkModel, pcc: carCarrierModel }[kind](V, liv, trafficLit), L };
   }
   const group = cls.model === 'launch' ? launchModel({ length_m: clamp(L, 9, 40), name: A.name }, trafficLit)
     : cls.model === 'ferry' ? ferryModelSimple({ length_m: L, name: A.name }, trafficLit)

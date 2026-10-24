@@ -10,9 +10,10 @@ emphasizing efficiency but also verisimilitude".
    kind, and each kind is built once from photos of typical examples. Done: product tanker, harbour tug, pilot boat
    (v1001); container ship and bulk carrier (v1002, sharing the hull and aft house in `merchantShip`). AIS doesn't
    say which of the two a cargo ship is: her record, her operator, where she's bound, then her beam-to-length
-   ratio decide (`cargoKind`, bay3d.js). Next, in order of how often they're seen here:
-   - car carrier
-   - LPG carrier
+   ratio decide (`cargoKind`, bay3d.js). Car carrier and LPG carrier (v1003): a car carrier is told by the names
+   the big lines use ("… Ace", "… Highway", "… Leader", "Morning …", Höegh, Glovis); an LPG carrier by "GAS",
+   "LPG" and the like in her name (`tankerKind`). Neither has an operator's livery yet, since none is confirmed
+   calling here. Next:
    - fishing trawler
    - research or survey vessel
 

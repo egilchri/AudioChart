@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-24 — Car carriers and LPG carriers (v1003)
+
+- **Car carrier (PCTC):** her topsides carried up nearly her whole length to a flat top about 30 m up, the front
+  bluff and rounded, the bridge across the top of it with wings, rows of accommodation windows below, the funnel
+  aft on top, the quarter ramp folded up and the side ramp door; a stripe and her name along her side. Told from
+  other cargo ships by the names the big lines give theirs ("… Ace", "… Highway", "… Leader", "Morning …",
+  Höegh, Glovis).
+- **LPG carrier:** on the shared hull and house. A small one carries her gas in big white pressure cylinders on
+  deck; one over 130 m has a trunk deck with a row of tank domes. Both have the pipe rack, catwalk, vent masts,
+  manifold and crane. Told from other tankers by GAS, LPG, LNG and the like in her name.
+- Both use generic liveries picked by name until an operator is confirmed calling here.
+
 ## 2026-10-24 — Container ships and bulk carriers; ride cameras stay off the land (v1002)
 
 - **Container ship:** bays of 40-foot boxes stacked two to four high across her beam, in the colours of the lines
