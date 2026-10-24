@@ -339,6 +339,10 @@ function loftHull(o) {
   { const base = pos.length / 3;
     for (let r = 0; r < R; r++) { C.set(rows[r].col); const y = rows[r].y(0), x = half_at(0, y), z = zAt(0, y); pos.push(-x, y, z, x, y, z); col.push(C.r, C.g, C.b, C.r, C.g, C.b); }
     for (let r = 0; r < R - 1; r++) { const a = base + r * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } }
+  // a full bow (dkTip, wlTip well above 0: the Casco Bay Lines boats, v996) closed across the stem the same way
+  if (o.stemFace) { const base = pos.length / 3;
+    for (let r = 0; r < R; r++) { C.set(rows[r].col); const y = rows[r].y(1), x = half_at(1, y), z = zAt(1, y); pos.push(-x, y, z, x, y, z); col.push(C.r, C.g, C.b, C.r, C.g, C.b); }
+    for (let r = 0; r < R - 1; r++) { const a = base + r * 2; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); } }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); geo.setIndex(idx);
   geo.computeVertexNormals();
@@ -588,59 +592,172 @@ export function launchModel(F, windowMats = []) {
   return g;
 }
 
-// A Casco Bay Lines ferry (v993, for Casco Bay in Bird's-eye): the company's livery from photos of Machigonne II,
-// Maquoit II and Aucocisco III, a black bottom, a broad yellow band up to the main deck with a red rubbing strake,
-// white houses above; a long main-deck cabin with a row of windows (lit at night), a shorter upper-deck cabin, red
-// rails round the decks, the pilothouse forward on top with a red roof, and a red funnel aft. Bow toward −z,
-// waterline y = 0. F: { vessel, length_m }.
+// Casco Bay Lines boats (v993; v996, on request: "more attractive ship renderings for the Casco ferries, at least as
+// attractive as the ones we have for Penobscot"). Each of the fleet drawn as herself, from the company's photos and
+// specs (cascobaylines.com/about-us/vessels): the livery a black hull, a broad yellow band up to the main deck with a
+// red line along its top, white houses above, red railings (on the promenades with white panels), the pilothouses
+// with red roofs. Workboat hulls, full in plan, nearly plumb-stemmed, 32 ft (9.75 m) of beam even on the 85-footer.
+//  · Aucocisco III and Wabanaki (110 ft, near sisters): three tiers, the main cabin, a second deck with an open
+//    promenade fore and aft round its cabin, a sun deck over it carried aft as an awning; the pilothouse forward on
+//    top, the tall red funnel with its black top amidships.
+//  · Machigonne II (122 ft, 37 ft beam), the Peaks Island car ferry: a blunt bow with its ramp, the open car deck
+//    forward, the houses aft of it, two tiers and a railed sun deck, the pilothouse forward, a red funnel aft.
+//  · Maquoit II (98 ft), the down-the-bay mail and freight boat: a high white bow, the cabins forward, an open
+//    freight deck aft, the red crane on her upper house behind the pilothouse.
+//  · Bay Mist (85 ft): two tiers, the upper cabin's big windows, the pilothouse forward on top, a thin red stack aft.
+// Windows and doors lit at night (their materials join windowMats). Bow toward −z, waterline y = 0.
+// F: { vessel, length_m }.
+const CBL_FLEET = {
+  'AUCOCISCO III': { B: 9.75, plan: 'tiered' }, 'WABANAKI': { B: 9.75, plan: 'tiered' },
+  'MACHIGONNE II': { B: 11.3, plan: 'car' }, 'MAQUOIT II': { B: 9.75, plan: 'freight' }, 'BAY MIST': { B: 9.75, plan: 'small' },
+};
+// a cabin's side: one repeat per 4 m (as deckhouse() lays it), a window every `step` m `w` m wide between heights
+// wy0..wy1 m up its H m side; below `yel` m the hull's yellow band carried up it, with the red line along its top
+function cblCabinTex(lit, { H, wy0, wy1, step = 2, w = 1.1, yel = 0 }) {
+  const px = 32, cv = document.createElement('canvas'); cv.width = 128; cv.height = Math.round(H * px); const c = cv.getContext('2d');
+  const Y = m => cv.height - m * px;   // (the canvas's top is the cabin's top)
+  c.fillStyle = lit ? '#000' : '#f3f2ee'; c.fillRect(0, 0, 128, cv.height);
+  if (yel && !lit) { c.fillStyle = '#e9c21f'; c.fillRect(0, Y(yel), 128, yel * px); c.fillStyle = '#c23a2e'; c.fillRect(0, Y(yel), 128, 3); }
+  c.fillStyle = lit ? '#fff' : '#26323b';
+  for (let x = (step - w) / 2; x < 4; x += step) c.fillRect(Math.round(x * px), Y(wy1), Math.round(w * px), (wy1 - wy0) * px);
+  const t = new THREE.CanvasTexture(cv); t.wrapS = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; return t;
+}
 export function cblModel(F, windowMats = []) {
-  const L = F.length_m || 33, B = L * 0.29, g = new THREE.Group(), half = L / 2;
-  const M = c => new THREE.MeshLambertMaterial({ color: c });
-  const white = M(0xf3f2ee), red = M(0xc23a2e), black = M(0x1d1f22);
+  const spec = CBL_FLEET[(F.vessel || '').toUpperCase()] || { B: 9.75, plan: 'tiered' };
+  const L = F.length_m || 33.5, B = spec.B, g = new THREE.Group(), half = L / 2, plan = spec.plan;
+  const mats = {}, M = c => mats[c] || (mats[c] = new THREE.MeshLambertMaterial({ color: c }));
+  const WHITE = 0xf3f2ee, RED = 0xc23a2e, BLACK = 0x1d1f22, YELLOW = 0xe9c21f, DECK = 0x9aa19d, GREY = 0x8d9296;
+  const white = M(WHITE), red = M(RED), black = M(BLACK);
   const box = (w, h, d, x, y, z, m) => { const k = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); k.position.set(x, y, z); g.add(k); return k; };
   const sm = x => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
-  const DK = 2.0;   // the main deck, at the top of the yellow
-  const sheer = u => DK + 0.55 * Math.max(0, (u - 0.55) / 0.45) ** 2.2;
+  const Z = t => -half + t * L;   // t: 0 at the stem, 1 at the stern
+  // ── the hull: flat-sheered, rising at the bow (high and white on Maquoit); full in plan, the bow round (blunt on
+  // the car ferry, for her ramp); flat-floored, hard-bilged
+  const DK = 2.3, bowRise = plan === 'freight' ? 1.3 : plan === 'car' ? 0.25 : 0.7;
+  const sheer = u => DK + bowRise * sm((u - 0.8) / 0.2);
+  const car = plan === 'car';
   const hull = loftHull({
-    L, B, T: L * 0.055, sheer, runU: 0.2, rake: 0.05, forefoot: 0.18, transomRake: 0.01,
-    uw: 0.5, wlTip: 0.03, wlAft: 0.94, ud: 0.6, dkTip: 0.08, dkPow: 2.2, dkAft: 0.98,
-    flareP: u => 1 + 0.8 * sm((u - 0.5) / 0.4), bilgeN: u => 1.6 + 2.4 * (1 - sm((u - 0.5) / 0.4)),
-    bands: [[() => 0.35, 0x1d1f22, 6], [u => sheer(u) - 0.18, 0xe9c21f, 5], [u => sheer(u), 0xc23a2e, 1]],
+    L, B, T: 1.9, sheer, stemFace: true, runU: 0.14, rake: car ? 0.01 : 0.03, forefoot: car ? 0.06 : 0.12, transomRake: 0.004,
+    uw: car ? 0.86 : 0.72, wlTip: car ? 0.55 : 0.18, wlAft: 0.96, ud: car ? 0.9 : 0.8, dkTip: car ? 0.72 : 0.4, dkPow: 2.0, dkAft: 0.98,
+    flareP: () => 1.2, bilgeN: u => 3.2 + 1.2 * (1 - sm((u - 0.55) / 0.35)),
+    bands: [[() => 0.9, BLACK, 4], [u => Math.min(sheer(u), DK) - 0.1, YELLOW, 3], [u => Math.min(sheer(u), DK), RED, 1], [u => sheer(u), WHITE, 2]],
   });
   g.add(hull.mesh);
-  g.add(hull.deck(0, () => DK - 0.02, 0x8d9296, 0.995, 0));
-  // the main-deck cabin: most of her length, rounded forward; then the upper-deck cabin, shorter, set aft of the bow
-  const rows = lit => windowRows(L * 0.7, lit);
-  const side1 = new THREE.MeshLambertMaterial({ map: rows(false), emissive: 0xffd9a0, emissiveMap: rows(true), emissiveIntensity: 0 });
-  const side2 = new THREE.MeshLambertMaterial({ map: windowRows(L * 0.45, false), emissive: 0xffd9a0, emissiveMap: windowRows(L * 0.45, true), emissiveIntensity: 0 });
-  windowMats.push(side1, side2);
-  const H1 = 2.5, H2 = 2.3, z1f = -half + L * 0.17, z1a = half - L * 0.06, z2f = -half + L * 0.3, z2a = half - L * 0.2;
-  const c1 = deckhouse({ W: B - 0.5, zf: z1f, za: z1a, H: H1, rakeF: 0.3, tumble: 0.08, nF: 2.2, nA: 8, roof: -1, side: side1, top: white });
-  c1.position.y = DK; g.add(c1);
-  const c2 = deckhouse({ W: B - 1.6, zf: z2f, za: z2a, H: H2, rakeF: 0.3, tumble: 0.08, nF: 2.2, nA: 8, roof: -1, side: side2, top: white });
-  c2.position.y = DK + H1; g.add(c2);
-  // red rails round the open deck on the main cabin's roof and round the top deck
-  const rail = (y, w, z0, z1) => { for (const sx of [-1, 1]) box(0.07, 0.9, z1 - z0, sx * w / 2, y + 0.45, (z0 + z1) / 2, red); box(w, 0.9, 0.07, 0, y + 0.45, z1, red); };
-  rail(DK + H1, B - 0.6, z1f + 1.2, z1a);
-  rail(DK + H1 + H2, B - 1.7, z2f + 2.6, z2a);
-  // the pilothouse forward on top: wrap-round glass, a red roof; the mast behind it
-  const pL = 3.4, pZ = z2f + pL / 2 + 0.6, pH = 2.1, UP = DK + H1 + H2;
-  const gl = new THREE.MeshLambertMaterial({ map: glassBand(false), emissive: 0xffd9a0, emissiveMap: glassBand(true), emissiveIntensity: 0 }); windowMats.push(gl);
-  const ph = deckhouse({ W: B * 0.5, zf: pZ - pL / 2, za: pZ + pL / 2, H: pH, rakeF: -0.35, tumble: -0.06, nF: 2.4, nA: 6, roof: 0.3, roofT: 0.18, side: gl, top: red });
-  ph.position.y = UP; g.add(ph);
-  box(0.16, 3.0, 0.16, 0, UP + pH + 1.5, pZ + 1.0, white);
-  const radar = box(1.5, 0.12, 0.26, 0, UP + pH + 2.7, pZ + 1.0, black); radar.rotation.y = 0.5;
-  // the funnel, red with a black top, aft on the upper cabin
-  const fn = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.7, 2.8, 14), red); fn.position.set(0, UP + 1.4, z2a - 2.2); g.add(fn);
-  const ft = new THREE.Mesh(new THREE.CylinderGeometry(0.64, 0.64, 0.35, 14), black); ft.position.set(0, UP + 2.9, z2a - 2.2); g.add(ft);
-  // her name on the yellow forward, both sides, in black
-  if (F.vessel) { const nm = nameBoard(F.vessel, 0, 0, null); for (const sx of [-1, 1]) { const pl = new THREE.Mesh(new THREE.PlaneGeometry(Math.min(7, L * 0.2), 0.7), nm); pl.position.set(sx * (B / 2 + 0.03), DK - 0.75, -half + L * 0.24); pl.rotation.y = sx * Math.PI / 2; g.add(pl); } }
+  g.add(hull.strake(() => 0.9, 0.11, BLACK, 0.005, 0.995, 0.02));   // the rubbing strake, at the top of the black
+  g.add(hull.strake(u => sheer(u) + 0.03, 0.06, RED, 0.004, 0.996, -0.03));   // the cap rail
+  const DM = DK - 1.0;   // the main deck, inside the bulwarks
+  g.add(hull.deck(0, () => DM, DECK, 0.995, 0.05));
+  // ── the kit
+  const rrect = (W, zf, za, nF = 2.6, nA = 6, N = 48) => {   // a rounded plan, as deckhouse() draws it
+    const c = (zf + za) / 2, hl = (za - zf) / 2, out = [];
+    for (let i = 0; i < N; i++) { const a = i / N * Math.PI * 2, ct = Math.cos(a), st = Math.sin(a), n = st < 0 ? nF : nA; out.push([W / 2 * Math.sign(ct) * Math.abs(ct) ** (2 / n), c + hl * Math.sign(st) * Math.abs(st) ** (2 / n)]); }
+    return out;
+  };
+  const cabinMat = o => { const m = new THREE.MeshLambertMaterial({ map: cblCabinTex(false, o), emissive: 0xffd9a0, emissiveMap: cblCabinTex(true, o), emissiveIntensity: 0 }); windowMats.push(m); return m; };
+  const house = (W, t0, t1, y, H, side, o = {}) => { const h = deckhouse({ W, zf: Z(t0), za: Z(t1), H, nF: o.nF ?? 2.6, nA: o.nA ?? 6, rakeF: o.rakeF || 0, tumble: o.tumble || 0, roof: o.roof ?? -1, roofT: o.roofT ?? 0.18, side, top: o.top || white }); h.position.y = y; g.add(h); return h; };
+  const slab = (W, t0, t1, y, o = {}) => { const s = deckhouse({ W, zf: Z(t0), za: Z(t1), H: 0.3, nF: o.nF ?? 2.6, nA: o.nA ?? 6, roof: -1, side: white, top: M(DECK) }); s.position.y = y; g.add(s); return y + 0.3; };
+  // railings round an outline (a closed ring of [x, z]), its top rail, mid rail and stanchions red, on the
+  // promenades white panels between; `keep(x, z)` leaves out the stretches where there's a house instead
+  const railR = [], railW = [];
+  const railing = (pts, y, { h = 1.05, panels = false, keep = () => true } = {}) => {
+    for (let i = 0; i < pts.length; i++) {
+      const [x0, z0] = pts[i], [x1, z1] = pts[(i + 1) % pts.length], dx = x1 - x0, dz = z1 - z0, len = Math.hypot(dx, dz);
+      if (len < 0.01 || !keep((x0 + x1) / 2, (z0 + z1) / 2)) continue;
+      const ang = Math.atan2(-dz, dx), mx = (x0 + x1) / 2, mz = (z0 + z1) / 2;
+      const bar = (yy, th) => railR.push(new THREE.BoxGeometry(len + 0.04, th, th).rotateY(ang).translate(mx, yy, mz));
+      bar(y + h, 0.07); if (!panels) bar(y + h * 0.5, 0.04);
+      for (let s = 0; s < len; s += 1.5) railR.push(new THREE.BoxGeometry(0.05, h, 0.05).translate(x0 + dx * s / len, y + h / 2, z0 + dz * s / len));
+      if (panels) railW.push(new THREE.PlaneGeometry(len, h * 0.62).rotateY(ang).translate(mx, y + 0.12 + h * 0.31, mz));
+    }
+  };
+  const inset = (pts, d) => pts.map(([x, z]) => { const cz = pts.reduce((q, p) => q + p[1], 0) / pts.length, k = Math.hypot(x, z - cz) || 1; return [x - d * x / k, z - d * (z - cz) / k]; });
+  const post = (x, y0, y1, z, r = 0.08) => box(r * 2, y1 - y0, r * 2, x, (y0 + y1) / 2, z, white);
+  const glass = () => { const m = new THREE.MeshLambertMaterial({ map: glassBand(false), emissive: 0xffd9a0, emissiveMap: glassBand(true), emissiveIntensity: 0 }); windowMats.push(m); return m; };
+  const pilothouse = (W, t0, t1, y, H = 2.2) => house(W, t0, t1, y, H, glass(), { rakeF: -0.35, tumble: -0.06, nF: 2.4, nA: 6, roof: 0.35, roofT: 0.22, top: red });
+  const funnel = (t, y, h, r, x = 0) => {
+    const f = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.94, r, h, 18), red); f.position.set(x, y + h / 2, Z(t)); g.add(f);
+    const c = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.95, r * 0.95, h * 0.18, 18), black); c.position.set(x, y + h * 0.91, Z(t)); g.add(c);
+  };
+  const mast = (t, y, h) => {   // the mast, its radar and a yard for the lights, on the pilothouse roof
+    box(0.16, h, 0.16, 0, y + h / 2, Z(t), white);
+    box(1.4, 0.08, 0.08, 0, y + h * 0.7, Z(t), white);
+    const r = box(1.6, 0.12, 0.26, 0, y + h * 0.5, Z(t) - 0.4, black); r.rotation.y = 0.5;
+    box(0.4, 0.4, 0.4, 0, y + h * 0.5 - 0.3, Z(t) - 0.4, white);
+    return [0, y + h + 0.1, Z(t)];
+  };
+  const flag = (t, y, x = 0) => { box(0.06, 3.0, 0.06, x, y + 1.5, Z(t), white); const f = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.8), new THREE.MeshLambertMaterial({ color: 0x2a3f7a, side: THREE.DoubleSide })); f.rotation.y = Math.PI / 2; f.position.set(x, y + 2.5, Z(t) + 0.75); g.add(f); };
+  const vehicle = (x, t, truck, col) => { const z = Z(t), h = truck ? 1.9 : 1.45, len = truck ? 5.6 : 4.6; box(1.9, h * 0.55, len, x, DM + 0.25 + h * 0.27, z, M(col)); box(1.75, h * 0.4, truck ? 2.4 : len * 0.5, x, DM + 0.25 + h * 0.75, z - (truck ? len * 0.2 : 0), M(truck ? col : 0x1f2a32)); };
+  let helm, mastTop, side = [0, 0, 0], stern;
+  // ── the boats
+  const Y1 = DM, U = 2.5;   // the main cabin's base; a tier's height above the yellow
+  if (plan === 'tiered') {   // Aucocisco III, Wabanaki
+    house(B - 0.35, 0.08, 0.95, Y1, 1.0 + U + 0.05, cabinMat({ H: 1.05 + U, wy0: 1.75, wy1: 2.85, step: 2.1, w: 1.15, yel: 1.0 }), { nF: 2.2 });
+    const y2 = slab(B + 0.2, 0.035, 0.985, Y1 + 1.05 + U, { nF: 2.0, nA: 5 });
+    const c2 = [0.2, 0.68];
+    house(B - 2.2, c2[0], c2[1], y2, U, cabinMat({ H: U, wy0: 0.85, wy1: 1.9, step: 2.1, w: 1.15 }));
+    railing(inset(rrect(B + 0.2, Z(0.035), Z(0.985), 2.0, 5), 0.12), y2, { panels: true });
+    const y3 = slab(B - 0.9, 0.18, 0.93, y2 + U);   // the sun deck, its after part an awning over the promenade
+    for (const sx of [-1, 1]) for (const t of [0.78, 0.9]) post(sx * (B / 2 - 0.7), y2, y3 - 0.3, Z(t));
+    railing(inset(rrect(B - 0.9, Z(0.18), Z(0.93)), 0.1), y3, { keep: (x, z) => z > Z(0.33) || Math.abs(x) > B * 0.3 });
+    pilothouse(B * 0.5, 0.2, 0.33, y3);
+    house(B * 0.52, 0.33, 0.43, y3, 2.0, white, { nF: 4, nA: 6 });
+    funnel(0.56, y3, 4.2, 0.62);
+    flag(0.91, y3);
+    mastTop = mast(0.29, y3 + 2.45, 2.6); helm = [0, y3 + 1.5, Z(0.2) + 0.6]; side = [B * 0.27, y3 + 1.4, Z(0.21)]; stern = [0, y2 + 0.8, Z(0.985)];
+  } else if (plan === 'car') {   // Machigonne II
+    // the open car deck forward, her bow ramp raised, the day's cars on it
+    const ramp = box(B * 0.5, 2.6, 0.25, 0, DK + 1.2, Z(0.012), M(GREY)); ramp.rotation.x = -0.1;
+    for (const sx of [-1, 1]) box(0.3, 3.4, 0.3, sx * B * 0.27, DK + 1.6, Z(0.02), M(GREY));   // the ramp's hoist posts
+    vehicle(-2.4, 0.1, false, 0xb8bcc0); vehicle(0.2, 0.13, true, 0x8b1e1e); vehicle(2.6, 0.09, false, 0x2c4a6e);
+    house(B - 0.35, 0.22, 0.985, Y1, 1.0 + 2.8, cabinMat({ H: 3.8, wy0: 1.9, wy1: 2.7, step: 2.4, w: 0.95, yel: 1.0 }), { nF: 6, nA: 6 });
+    const y2 = slab(B, 0.2, 0.99, Y1 + 3.8, { nF: 6 });
+    house(B - 1.0, 0.24, 0.97, y2, U, cabinMat({ H: U, wy0: 0.85, wy1: 1.9, step: 2.2, w: 1.2 }), { nF: 3, rakeF: 0.4 });
+    railing(inset(rrect(B, Z(0.2), Z(0.99), 6, 6), 0.1), y2, { panels: true, keep: (x, z) => z < Z(0.26) });
+    const y3 = slab(B - 0.8, 0.235, 0.975, y2 + U, { nF: 3 });
+    railing(inset(rrect(B - 0.8, Z(0.235), Z(0.975), 3), 0.1), y3, { panels: true, keep: (x, z) => z > Z(0.38) || Math.abs(x) > B * 0.25 });
+    pilothouse(B * 0.42, 0.26, 0.38, y3);
+    funnel(0.8, y3, 2.6, 0.6);
+    flag(0.95, y3);
+    mastTop = mast(0.33, y3 + 2.45, 3.4); helm = [0, y3 + 1.5, Z(0.26) + 0.6]; side = [B * 0.23, y3 + 1.4, Z(0.27)]; stern = [0, y2 + 0.8, Z(0.99)];
+  } else if (plan === 'freight') {   // Maquoit II
+    house(B - 0.35, 0.14, 0.6, Y1, 1.0 + U, cabinMat({ H: 1.0 + U, wy0: 1.75, wy1: 2.75, step: 2.4, w: 1.4, yel: 1.0 }), { nF: 4 });
+    const y2 = slab(B + 0.1, 0.04, 0.74, Y1 + 1.0 + U, { nF: 2.0 });
+    for (const sx of [-1, 1]) post(sx * (B / 2 - 0.3), Y1, y2 - 0.3, Z(0.72));
+    house(B - 2.0, 0.19, 0.56, y2, U, cabinMat({ H: U, wy0: 0.85, wy1: 1.85, step: 2.2, w: 1.0 }));
+    railing(inset(rrect(B + 0.1, Z(0.04), Z(0.74), 2.0), 0.12), y2, { panels: true });
+    const y3 = y2 + U;
+    railing(inset(rrect(B - 2.0, Z(0.19), Z(0.56)), 0.1), y3, { keep: (x, z) => z > Z(0.33) || Math.abs(x) > B * 0.27 });
+    pilothouse(B * 0.5, 0.19, 0.32, y3);
+    box(1.6, 1.8, 2.2, 0, y3 + 0.9, Z(0.47), red);   // the crane: its house, the boom laid forward
+    const boom = box(0.4, 0.4, 6.5, 1.1, y3 + 1.6, Z(0.47) - 2.6, red); boom.rotation.x = -0.05;
+    box(1.8, 1.4, 2.0, 0, y3 + 0.7, Z(0.53), white);
+    // freight aft: a pickup, a pallet of lumber, a pile of bins
+    vehicle(-2.0, 0.84, true, 0xe9e9e6); box(1.6, 0.9, 2.4, 2.2, DM + 0.45, Z(0.82), M(0xb08d5a)); box(1.2, 1.0, 1.2, 2.4, DM + 0.5, Z(0.93), M(0x2c4a6e));
+    flag(0.69, y2);
+    mastTop = mast(0.27, y3 + 2.45, 3.2); helm = [0, y3 + 1.5, Z(0.19) + 0.6]; side = [B * 0.27, y3 + 1.4, Z(0.2)]; stern = [0, DK + 0.6, Z(0.995)];
+  } else {   // Bay Mist
+    house(B - 0.35, 0.05, 0.975, Y1, 1.0 + U, cabinMat({ H: 1.0 + U, wy0: 1.7, wy1: 2.8, step: 1.7, w: 1.25, yel: 1.0 }), { nF: 3 });
+    const y2 = slab(B, 0.025, 0.985, Y1 + 1.0 + U, { nF: 3 });
+    house(B - 0.7, 0.3, 0.975, y2, 2.4, cabinMat({ H: 2.4, wy0: 0.75, wy1: 1.95, step: 2.0, w: 1.7 }), { nF: 6 });
+    house(B - 0.4, 0.295, 0.98, y2 + 2.4, 0.22, red, { nF: 6 });   // its roof white, with a red edge
+    railing(inset(rrect(B, Z(0.025), Z(0.985), 3), 0.1), y2, { keep: (x, z) => z < Z(0.3) });
+    pilothouse(B * 0.56, 0.06, 0.22, y2, 2.3);
+    const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 1.8, 10), red); pipe.position.set(-B * 0.3, y2 + 2.6 + 0.9, Z(0.86)); g.add(pipe);
+    mastTop = mast(0.15, y2 + 2.55, 4.2); helm = [0, y2 + 1.55, Z(0.06) + 0.6]; side = [B * 0.29, y2 + 1.5, Z(0.07)]; stern = [0, y2 + 0.8, Z(0.985)];
+  }
+  if (railR.length) g.add(new THREE.Mesh(mergeGeos(railR), red));
+  if (railW.length) g.add(new THREE.Mesh(mergeGeos(railW), new THREE.MeshLambertMaterial({ color: WHITE, side: THREE.DoubleSide })));
+  // her name on the bow, both sides, in black on the yellow (on Maquoit's high white bow, above it)
+  if (F.vessel) {
+    const nm = nameBoard(F.vessel, 0, 0, null), t = plan === 'small' ? 0.08 : 0.07, y = plan === 'freight' ? DK + 0.55 : DK - 0.5;
+    for (const sx of [-1, 1]) { const u = 1 - t, dx = hull.half(u + 0.02, y) - hull.half(u - 0.02, y), dz = hull.z(u + 0.02, y) - hull.z(u - 0.02, y), k = Math.hypot(dx, dz), nx = sx * -dz / k, nz = dx / k;
+      const pl = new THREE.Mesh(new THREE.PlaneGeometry(Math.min(6, L * 0.17), 0.62), nm); pl.position.set(sx * hull.half(u, y) + nx * 0.04, y, hull.z(u, y) + nz * 0.04); pl.rotation.y = Math.atan2(nx, nz); g.add(pl); }
+  }
   // running lights: masthead, sidelights at the pilothouse, stern light
-  lamp(g, 0xfff2d6, 0, UP + pH + 3.05, pZ + 1.0, windowMats);
-  lamp(g, 0xff3b2e, -B * 0.27, UP + pH * 0.6, pZ - pL / 2 + 0.4, windowMats); lamp(g, 0x3dff7a, B * 0.27, UP + pH * 0.6, pZ - pL / 2 + 0.4, windowMats);
-  lamp(g, 0xfff2d6, 0, DK + H1 + 0.6, half - L * 0.06, windowMats);
-  g.userData.helm = [0, UP + 1.5, pZ - pL / 2 + 0.6];
-  g.userData.lights = { mast: [0, UP + pH + 3.05, pZ + 1.0], port: [-B * 0.27, UP + pH * 0.6, pZ - pL / 2 + 0.4], stbd: [B * 0.27, UP + pH * 0.6, pZ - pL / 2 + 0.4], stern: [0, DK + H1 + 0.6, half - L * 0.06] };
+  const port = [-side[0], side[1], side[2]], stbd = side;
+  lamp(g, 0xfff2d6, ...mastTop, windowMats); lamp(g, 0xff3b2e, ...port, windowMats); lamp(g, 0x3dff7a, ...stbd, windowMats); lamp(g, 0xfff2d6, ...stern, windowMats);
+  g.userData.helm = helm;
+  g.userData.lights = { mast: mastTop, port, stbd, stern };
   g.userData.wake = [wakeOf(B, L)]; g.add(g.userData.wake[0]);
   return g;
 }

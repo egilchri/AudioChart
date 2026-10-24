@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-10-24 — Portland and the Casco islands in 3D; the Casco Bay Lines boats drawn as themselves (v996)
+
+Bird's-eye and the helm view now have buildings for Portland (4,256: the Old Port, the piers and the ferry terminal,
+Munjoy Hill), South Portland's shore from Bug Light to Spring Point (1,643), Peaks (1,072), Little Diamond (79), Great
+Diamond and Diamond Cove (173), Long Island (485), Cliff (185) and Chebeague (799), built with
+`design/buildings/` from OpenStreetMap plus Microsoft's footprints (OSM had few on the islands: 86 on Peaks) and
+heights from the USGS ME_SouthCoastal_1_2020 lidar. `build_buildings.py` takes `MAXH=` (Portland's towers are taller
+than the 30 m cap meant for the Penobscot towns), and its credit now names whichever survey `EPT=` was.
+
+The Casco Bay Lines boats were one generic model, with windows smeared into stripes (the texture tiled ~8× too
+densely) and rails drawn as solid red walls. Each is now drawn from the company's photos and specs (`vessels.js
+cblModel`, `CBL_FLEET`): Aucocisco III and Wabanaki in three tiers with railed promenades and the tall red funnel,
+Machigonne II the car ferry with her bow ramp and cars forward, Maquoit II with her high bow, freight deck and crane,
+and Bay Mist with her big upper-cabin windows. Railings are real rails, stanchions and white panels. `loftHull` takes
+`stemFace` to close a full, round bow.
+
 ## 2026-10-24 — AIS "look her up" goes to VesselFinder (v995)
 
 A live vessel's card linked to MarineTraffic by MMSI, which didn't land on her page (reported: MMSI 338210671's

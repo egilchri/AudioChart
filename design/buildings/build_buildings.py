@@ -42,6 +42,7 @@ def obb(xy):  # min-area rectangle in local metres: (area, ux, uy, len, wid)
         A = (a.max()-a.min())*(c.max()-c.min())
         if best is None or A < best[0]: best = (A, u, a.max()-a.min(), c.max()-c.min())
     return best
+MAXH = float(os.environ.get('MAXH', '30'))   # tallest roof believed, m (Portland's towers: MAXH=70)
 lat0 = (S_ + N) / 2; mx_lon = 111320*math.cos(math.radians(lat0)); my_lat = 110540
 def local(ll): return np.array([[(lo-W)*mx_lon, (la-S_)*my_lat] for lo,la in ll])
 PALETTE = [((236,234,226),45),((150,146,138),22),((228,214,160),8),((196,204,208),8),((140,52,40),7),((150,166,140),5),((206,190,160),5)]
@@ -101,7 +102,7 @@ for e in els:
         wid = min(ob[2], ob[3]) if ob else 8
         base = ground if ground is not None else 2.5
         rel = roof - base if len(roof) else np.zeros(0)
-        rel = rel[(rel > 1.5) & (rel < 30)]
+        rel = rel[(rel > 1.5) & (rel < MAXH)]
         if len(rel) >= 4:
             ridge = float(np.percentile(rel, 92)); eave = float(np.percentile(rel, 12))
             ridge = min(ridge, eave + math.tan(math.radians(50))*wid/2)   # trees over the roof
@@ -140,7 +141,7 @@ for e in els:
                       'w': w or (6 if tags['man_made']=='breakwater' else 3), 'd': round(deck if deck is not None else (1.5 if tags['man_made']=='breakwater' else 3.0), 2),
                       **({'n': tags['name']} if tags.get('name') else {})})
 json.dump({'name': os.environ.get('TOWN', 'Carvers Harbor, Vinalhaven'), 'bbox': [W,S_,E,N],
-  'credit': 'Buildings © OpenStreetMap contributors' + (' and Microsoft (ODbL)' if os.environ.get('MS') else ' (ODbL)') + '; heights from USGS 3DEP lidar (ME MidCoast 2021); roof colours from USDA NAIP',
+  'credit': 'Buildings © OpenStreetMap contributors' + (' and Microsoft (ODbL)' if os.environ.get('MS') else ' (ODbL)') + '; heights from USGS 3DEP lidar (' + os.environ.get('EPT', 'ME_MidCoast_2_2021').replace('_', ' ') + '); roof colours from USDA NAIP',
   'datum': 'metres; g (ground) and d (deck) are NAVD88 elevations from the lidar; e/r (eave/ridge) are above g',
   'buildings': B, 'piers': PIERS}, open(out_p, 'w'), separators=(',', ':'))
 print(len(B), 'buildings', stats, len(PIERS), 'piers; water z', round(WATER_Z,2))

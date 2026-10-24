@@ -17,5 +17,13 @@
   { "file": "lincolnville-beach.json", "name": "Lincolnville Beach", "bbox": [-69.0105, 44.277, -69.001, 44.284], "focus": [-69.0057, 44.2805] },
   { "file": "grindle-point.json", "name": "Grindle Point, Islesboro", "bbox": [-68.947, 44.278, -68.939, 44.2835], "focus": [-68.9429, 44.2809] },
   { "file": "bass-harbor.json", "name": "Bass Harbor", "bbox": [-68.354, 44.2325, -68.3445, 44.2375], "focus": [-68.3484, 44.2349] },
-  { "file": "swans-island-ferry.json", "name": "Swan's Island ferry landing", "bbox": [-68.428, 44.1785, -68.419, 44.1845], "focus": [-68.4234, 44.1813] }
+  { "file": "swans-island-ferry.json", "name": "Swan's Island ferry landing", "bbox": [-68.428, 44.1785, -68.419, 44.1845], "focus": [-68.4234, 44.1813] },
+  { "file": "portland.json", "name": "Portland", "bbox": [-70.275, 43.6455, -70.235, 43.672], "focus": [-70.2475, 43.6560] },
+  { "file": "south-portland.json", "name": "South Portland, Bug Light and Spring Point", "bbox": [-70.2349, 43.630, -70.212, 43.658] },
+  { "file": "peaks-island.json", "name": "Peaks Island", "bbox": [-70.2007, 43.648, -70.174, 43.6741], "focus": [-70.1965, 43.6556] },
+  { "file": "little-diamond.json", "name": "Little Diamond Island", "bbox": [-70.218, 43.656, -70.2008, 43.674] },
+  { "file": "great-diamond.json", "name": "Great Diamond Island and Diamond Cove", "bbox": [-70.2075, 43.6742, -70.186, 43.691] },
+  { "file": "long-island.json", "name": "Long Island", "bbox": [-70.1729, 43.6759, -70.1342, 43.7071] },
+  { "file": "cliff-island.json", "name": "Cliff Island", "bbox": [-70.117, 43.6838, -70.0878, 43.7102] },
+  { "file": "chebeague.json", "name": "Chebeague Island", "bbox": [-70.141, 43.7082, -70.0952, 43.7592] }
 ]
