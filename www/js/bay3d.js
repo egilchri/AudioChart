@@ -1249,7 +1249,7 @@ function lookoutReport() {
   for (const t of townList) add(t.short, t.x, t.z, 15, 1);
   for (const p of places) if (p.elev) add(p.n, p.x, p.z, p.elev, 2);
   for (const o of fleet) if (o !== b && Math.hypot(o.x - ex, o.z - ez) < 6 * NMm) add(o === bowdoin ? 'the schooner Bowdoin' : KIND[o.boat.type] || 'a vessel', o.x, o.z, o.boat.L > 20 ? 25 : 8, 3);   // vessels within 6 nm
-  for (const o of traffic) if (o !== b && o.on && Math.hypot(o.x - ex, o.z - ez) < 8 * NMm) add(o.kind === 'ferry' ? `the ${o.F.kind === 'cbl' ? 'Casco Bay Lines ferry' : (o.F.says || 'ferry').toLowerCase()} ${titleCase(o.F.vessel || '')}`.trim() : `a ${o.V.name}`, o.x, o.z, o.kind === 'cruise' ? 50 : 12, 3);
+  for (const o of traffic) if (o !== b && o.on && Math.hypot(o.x - ex, o.z - ez) < 8 * NMm) add(o.kind === 'ferry' ? `the ${o.F.called || (o.F.kind === 'cbl' ? 'Casco Bay Lines ferry' : (o.F.says || 'ferry').toLowerCase())} ${titleCase(o.F.vessel || '')}`.trim() : `a ${o.V.name}`, o.x, o.z, o.kind === 'cruise' ? 50 : 12, 3);
   for (const o of live) if (o !== b && o.on && Math.hypot(o.x - ex, o.z - ez) < 8 * NMm) add(`the ${o.what.toLowerCase()} ${aisName(o.A)}`, o.x, o.z, o.L > 100 ? 40 : o.L > 25 ? 14 : 6, 3);
   if (b !== own && own.r && own.boat.group.visible) add('your boat', own.x, own.z, 8, 3);
   const pickN = (rank, n) => seen.filter(o => o.rank === rank).sort((p, q) => p.d - q.d).slice(0, n);
@@ -1363,10 +1363,12 @@ if (!EMPTY) Promise.all([getJSON('./data/ferries.json').catch(() => null), getJS
   // (live AIS: the ferries' and the windjammers' full names, and what they are)
   // (a ferry run to a timetable has several boats, each her own name and length: F.boats, v993)
   const boatsOf = F => F.boats ? F.boats.map((b, bi) => ({ ...F, ...b, bi })) : [F];
-  setKnown([...(fd?.ferries || []).flatMap(boatsOf).map(F => ({ name: F.vessel, F })), ...(wd?.windjammers || []).map(W => ({ name: W.name, W }))]);
+  // (Independence is only the Chebeague ferry heard near her run: the name is a common one)
+  const nearLine = F => { const xs = F.line.map(p => p[0]), ys = F.line.map(p => p[1]); return [Math.min(...xs) - 0.03, Math.min(...ys) - 0.02, Math.max(...xs) + 0.03, Math.max(...ys) + 0.02]; };
+  setKnown([...(fd?.ferries || []).flatMap(boatsOf).map(F => ({ name: F.vessel, F, box: F.kind === 'ctc' ? nearLine(F) : null })), ...(wd?.windjammers || []).map(W => ({ name: W.name, W }))]);
   const here = P => P.some(([lo, la]) => inBay([lo, la]));   // (this bay's: v992)
   for (const F of (fd?.ferries || []).filter(F => here(ferryLine(F))).flatMap(boatsOf)) {
-    const T = trackOf(ferryLine(F), wx, wz), group = (F.kind === 'launch' ? launchModel : F.kind === 'cbl' ? cblModel : ferryModelSimple)(F, trafficLit); group.visible = false; scene.add(group);
+    const T = trackOf(ferryLine(F), wx, wz), group = (F.kind === 'launch' ? launchModel : (F.kind === 'cbl' || F.kind === 'ctc') ? cblModel : ferryModelSimple)(F, trafficLit); group.visible = false; scene.add(group);
     traffic.push({ kind: 'ferry', F, T, group, L: F.length_m || 46, x: T.P[0][0], z: T.P[0][1], on: false, label: '' });
   }
   for (const call of callsOn(cd, new Date(), FORCE_CRUISE).filter(c => here(c.track))) {
@@ -1749,7 +1751,7 @@ const liveBtn = document.getElementById('livebtn'), LIVE_KEY = 'audiochart-bay3d
 const LIVE_LEN = { sail: 11, power: 11, launch: 18, ferry: 46, cruise: 200, ship: 150 };
 function liveModel(A, cls, seed, K, W) {
   // one of the ferries we know (K, her ferries.json record): built from it, so she's the scheduled one to the life (v987)
-  if (K) return { group: (K.kind === 'launch' ? launchModel : K.kind === 'cbl' ? cblModel : ferryModelSimple)(K, trafficLit), L: K.length_m || (K.kind === 'launch' ? 14 : 46) };
+  if (K) return { group: (K.kind === 'launch' ? launchModel : (K.kind === 'cbl' || K.kind === 'ctc') ? cblModel : ferryModelSimple)(K, trafficLit), L: K.length_m || (K.kind === 'launch' ? 14 : 46) };
   // one of the windjammers (W, her windjammers.json record, v990): Angelique and Bowdoin as themselves, the
   // others as the fleet's schooner brought to her length on deck
   if (W) {
@@ -1779,7 +1781,7 @@ function liveData(snap) {
     if (A.lon < OVERVIEW[0] || A.lon > OVERVIEW[2] || A.lat < OVERVIEW[1] || A.lat > OVERVIEW[3]) continue;
     seen.add(A.mmsi);
     let v = live.find(o => o.mmsi === A.mmsi);
-    const kn0 = knownFor(A.name), K = kn0?.F;   // one of the ferries: a ferry, her length known, before her static data comes
+    const kn0 = knownFor(A.name, A.lon, A.lat), K = kn0?.F;   // one of the ferries: a ferry, her length known, before her static data comes
     // one of the windjammers, unless what she says she is rules it out (a lobster boat or tug of the same name)
     const W = kn0?.W && !(A.type >= 30 && A.type <= 35 || A.type >= 50 && A.type <= 59 || A.type >= 70 && A.type <= 89) ? kn0.W : null;
     if (K && !A.L) A.L = K.length_m || 46;

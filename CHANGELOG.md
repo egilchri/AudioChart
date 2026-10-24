@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-10-24 — The Chebeague and Bustins Island ferries (v998)
+
+Bird's-eye (and the helm view) now run two more Casco Bay ferries to their published timetables
+(`preprocess/build_island_ferries.py`):
+- The Chebeague Transportation Company's **Independence**, Cousins Island to Chebeague's Stone Wharf (OSM way
+  1547409708), from CTC's off-season table (13 Oct 2026) and season table (from 16 May; read from its images): on the
+  hour from Chebeague, a quarter past from Cousins, 06:30 to 21:15 (22:30 Fridays, and Saturdays in season), fewer on
+  Sundays; she lies at Chebeague overnight. Drawn from Commons photos: navy steel hull with a red boot line and two
+  guard rails, the white main cabin, an open after deck under the upper deck's overhang, the pilothouse forward up top
+  (white, a red band, red roof), red railings with white panels round the benches aft.
+- Bustins Island's **Lilly B**, South Freeport to Bustins' Steamer Dock (OSM way 329759736), from the island
+  corporation's 2026 schedule: the regular season 19 Jun-7 Sep, the shoulder seasons, Memorial and Columbus Days, 20
+  minutes each way; not shown out of season. Drawn as a lobster-boat ferry: white topsides, blue boot stripe, black
+  rub rail, a cream house, her radome. Her length isn't published (42 ft is our estimate).
+
+Live AIS: the name "Independence" counts as the Chebeague ferry only when she's heard near her run (`setKnown` takes
+a box), since plenty of other boats share it. `build_ferries.py` now keeps every timetabled ferry when it rebuilds.
+
 ## 2026-10-24 — A live AIS boat reported ashore is marked ashore, not drawn among the trees (v997)
 
 Reported: "The Chebeague water taxi is showing up on land." She was where her AIS put her: 260 m inland on

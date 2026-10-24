@@ -540,7 +540,10 @@ export function ferryModelSimple(F, windowMats = []) {
 export function launchModel(F, windowMats = []) {
   const L = F.length_m || 14, B = L * 0.3, g = new THREE.Group(), half = L / 2;
   const M = c => new THREE.MeshLambertMaterial({ color: c });
-  const white = M(0xf2f1ec), navy = M(0x23466e), redB = M(0x7a2a24), glass = M(0x1f2a32), teak = M(0x9b7b55), grey = M(0x8d9296);
+  // (v998) the Bustins Island ferry Lilly B (look 'lillyb', from Commons photos): a lobster-boat ferry, white topsides
+  // over a blue boot stripe and red bottom, a black rub rail at the sheer, a cream house with big windows
+  const lilly = F.look === 'lillyb';
+  const white = M(lilly ? 0xefe8d4 : 0xf2f1ec), navy = M(0x23466e), redB = M(0x7a2a24), glass = M(0x1f2a32), teak = M(0x9b7b55), grey = M(0x8d9296);
   const box = (w, h, d, x, y, z, m) => { const k = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); k.position.set(x, y, z); g.add(k); return k; };
   const SH = 1.45;   // sheer height at its lowest, a little aft of amidships
   // the hull, lofted (v950): a Downeast hull, her sheer sweeping up to a high, flared bow and a little at the
@@ -552,17 +555,18 @@ export function launchModel(F, windowMats = []) {
     L, B, T: L * 0.075, sheer, runU: 0.3, rake: 0.1, forefoot: 0.34, transomRake: 0.02,
     uw: 0.42, wlTip: 0.02, wlAft: 0.88, ud: 0.5, dkTip: 0.03, dkPow: 2.0, dkAft: 0.92,
     flareP: u => 1 + 1.1 * sm((u - 0.4) / 0.4), bilgeN: u => 1.4 + 1.1 * (1 - sm((u - 0.45) / 0.45)),
-    bands: [[() => 0.05, 0x7a2a24, 6], [() => 0.18, 0x1d1f22, 1], [u => sheer(u) - 0.24, 0xf2f1ec, 5], [u => sheer(u), 0x23466e, 1]],
+    bands: lilly ? [[() => 0.05, 0x9b2b25, 6], [() => 0.2, 0x2a4c8c, 1], [u => sheer(u) - 0.1, 0xf4f3ef, 5], [u => sheer(u), 0x1d1f22, 1]]
+      : [[() => 0.05, 0x7a2a24, 6], [() => 0.18, 0x1d1f22, 1], [u => sheer(u) - 0.24, 0xf2f1ec, 5], [u => sheer(u), 0x23466e, 1]],
   });
   g.add(hull.mesh);
-  g.add(hull.strake(u => sheer(u) + 0.03, 0.06, 0x9b7b55, 0.005, 0.99, -0.03));   // the cap rail
+  g.add(hull.strake(u => sheer(u) + 0.03, 0.06, lilly ? 0xf4f3ef : 0x9b7b55, 0.005, 0.99, -0.03));   // the cap rail
   g.add(hull.deck(0, () => SH - 0.05, 0x9b7b55, 0.66, 0));   // the deck, teak
   g.add(hull.deck(0.6, u => sheer(u) - 0.03, 0xd9d6cc, 0.995, 0.08));   // the foredeck, non-skid grey, following the sheer up
   // the deckhouse (v950: one rounded house, not two boxes): the wheelhouse forward, its windshield raked back, the
   // passenger cabin aft of it, windows all round (lit at night), sides with a little tumblehome
   const wz0 = -half + L * 0.3, wLen = 2.4, wW = B * 0.82, wH = 1.9;
   const cz0 = wz0 + wLen, cLen = L * 0.38, cW = B * 0.8;
-  const side = new THREE.MeshLambertMaterial({ map: windowRows(4, false), emissive: 0xffd9a0, emissiveMap: windowRows(4, true), emissiveIntensity: 0 });
+  const side = new THREE.MeshLambertMaterial({ map: windowRows(4, false, lilly ? 40 : 32, lilly ? '#efe8d4' : undefined), emissive: 0xffd9a0, emissiveMap: windowRows(4, true, lilly ? 40 : 32), emissiveIntensity: 0 });
   windowMats.push(side);
   const dh = deckhouse({ W: wW, zf: wz0, za: cz0 + cLen, H: wH, rakeF: 0.55, tumble: 0.12, nF: 2.0, nA: 8, roof: -1, side, top: white });
   dh.position.y = SH; g.add(dh);
@@ -574,14 +578,15 @@ export function launchModel(F, windowMats = []) {
   const ringM = M(0xe8731f);
   for (const sx of [-1, 1]) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.08, 6, 14), ringM); r.position.set(sx * (wW / 2 - 0.12 * 0.55 + 0.05), SH + wH * 0.5, cz0 + cLen * 0.5); r.rotation.y = Math.PI / 2; g.add(r); }
   box(0.1, 1.6, 0.1, 0, SH + wH + 0.9, wz0 + wLen * 0.6, white);
-  const radar = box(1.1, 0.1, 0.22, 0, SH + wH + 1.6, wz0 + wLen * 0.6, M(0x1d1f22)); radar.rotation.y = 0.6;
+  if (lilly) { const dome = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.36, 0.3, 16), M(0xf4f3ef)); dome.position.set(0, SH + wH + 1.35, wz0 + wLen * 0.6); g.add(dome); }   // her radome
+  else { const radar = box(1.1, 0.1, 0.22, 0, SH + wH + 1.6, wz0 + wLen * 0.6, M(0x1d1f22)); radar.rotation.y = 0.6; }
   // the after deck: rails round it, a bench across the transom
   const az0 = cz0 + cLen, aLen = half - az0;
   for (const sx of [-1, 1]) box(0.05, 0.8, aLen, sx * (B / 2 * 0.93 - 0.1), SH + 0.4, az0 + aLen / 2, grey);
   box(B - 0.1, 0.05, 0.05, 0, SH + 0.8, half - 0.05, grey);
   box(B * 0.7, 0.45, 0.45, 0, SH + 0.22, half - 0.5, teak);
   // her name on the bow, both sides
-  if (F.vessel) { const nm = nameBoard(F.vessel, 3, 0.5, null, '#23466e'); for (const sx of [-1, 1]) { const u = 0.72, y = SH - 0.5, dx = hull.half(u + 0.02, y) - hull.half(u - 0.02, y), dz = hull.z(u + 0.02, y) - hull.z(u - 0.02, y), k = Math.hypot(dx, dz), nx = sx * -dz / k, nz = dx / k;   // on her flared side, square to it
+  if (F.vessel) { const nm = nameBoard(F.vessel, 3, 0.5, null, lilly ? '#1d1f22' : '#23466e'); for (const sx of [-1, 1]) { const u = 0.72, y = SH - 0.5, dx = hull.half(u + 0.02, y) - hull.half(u - 0.02, y), dz = hull.z(u + 0.02, y) - hull.z(u - 0.02, y), k = Math.hypot(dx, dz), nx = sx * -dz / k, nz = dx / k;   // on her flared side, square to it
       const pl = new THREE.Mesh(new THREE.PlaneGeometry(Math.min(3.6, L * 0.25), 0.42), nm); pl.position.set(sx * hull.half(u, y) + nx * 0.03, y, hull.z(u, y) + nz * 0.03); pl.rotation.y = Math.atan2(nx, nz); g.add(pl); } }
   // running lights: masthead, sidelights on the wheelhouse, stern light
   lamp(g, 0xfff2d6, 0, SH + wH + 1.75, wz0 + wLen * 0.6, windowMats, 0.1);
@@ -605,11 +610,17 @@ export function launchModel(F, windowMats = []) {
 //  · Maquoit II (98 ft), the down-the-bay mail and freight boat: a high white bow, the cabins forward, an open
 //    freight deck aft, the red crane on her upper house behind the pilothouse.
 //  · Bay Mist (85 ft): two tiers, the upper cabin's big windows, the pilothouse forward on top, a thin red stack aft.
+// And (v998) the Chebeague Transportation Company's Independence (54 ft, Washburn & Doughty 2019; from Commons photos):
+// a steel hull, navy to the sheer with a red boot line and two guard rails; the white main cabin from just abaft the
+// foredeck, an open after deck under the upper deck's overhang; on the upper deck the pilothouse forward, nearly the
+// full width, white with a red band under its windows and a red roof, a radar mast; benches aft inside red railings
+// with white panels; the flag at the stern.
 // Windows and doors lit at night (their materials join windowMats). Bow toward −z, waterline y = 0.
 // F: { vessel, length_m }.
 const CBL_FLEET = {
   'AUCOCISCO III': { B: 9.75, plan: 'tiered' }, 'WABANAKI': { B: 9.75, plan: 'tiered' },
   'MACHIGONNE II': { B: 11.3, plan: 'car' }, 'MAQUOIT II': { B: 9.75, plan: 'freight' }, 'BAY MIST': { B: 9.75, plan: 'small' },
+  'INDEPENDENCE': { B: 6.2, plan: 'ctc' },
 };
 // a cabin's side: one repeat per 4 m (as deckhouse() lays it), a window every `step` m `w` m wide between heights
 // wy0..wy1 m up its H m side; below `yel` m the hull's yellow band carried up it, with the red line along its top
@@ -626,25 +637,28 @@ export function cblModel(F, windowMats = []) {
   const spec = CBL_FLEET[(F.vessel || '').toUpperCase()] || { B: 9.75, plan: 'tiered' };
   const L = F.length_m || 33.5, B = spec.B, g = new THREE.Group(), half = L / 2, plan = spec.plan;
   const mats = {}, M = c => mats[c] || (mats[c] = new THREE.MeshLambertMaterial({ color: c }));
-  const WHITE = 0xf3f2ee, RED = 0xc23a2e, BLACK = 0x1d1f22, YELLOW = 0xe9c21f, DECK = 0x9aa19d, GREY = 0x8d9296;
+  const WHITE = 0xf3f2ee, RED = 0xc23a2e, BLACK = 0x1d1f22, YELLOW = 0xe9c21f, DECK = 0x9aa19d, GREY = 0x8d9296, NAVY = 0x1f2f5c;
   const white = M(WHITE), red = M(RED), black = M(BLACK);
   const box = (w, h, d, x, y, z, m) => { const k = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); k.position.set(x, y, z); g.add(k); return k; };
   const sm = x => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
   const Z = t => -half + t * L;   // t: 0 at the stem, 1 at the stern
   // ── the hull: flat-sheered, rising at the bow (high and white on Maquoit); full in plan, the bow round (blunt on
   // the car ferry, for her ramp); flat-floored, hard-bilged
-  const DK = 2.3, bowRise = plan === 'freight' ? 1.3 : plan === 'car' ? 0.25 : 0.7;
+  const ctc = plan === 'ctc';   // (the Chebeague boat: smaller, her own livery)
+  const DK = ctc ? 1.9 : 2.3, bowRise = plan === 'freight' ? 1.3 : plan === 'car' ? 0.25 : 0.7;
   const sheer = u => DK + bowRise * sm((u - 0.8) / 0.2);
   const car = plan === 'car';
   const hull = loftHull({
-    L, B, T: 1.9, sheer, stemFace: true, runU: 0.14, rake: car ? 0.01 : 0.03, forefoot: car ? 0.06 : 0.12, transomRake: 0.004,
-    uw: car ? 0.86 : 0.72, wlTip: car ? 0.55 : 0.18, wlAft: 0.96, ud: car ? 0.9 : 0.8, dkTip: car ? 0.72 : 0.4, dkPow: 2.0, dkAft: 0.98,
+    L, B, T: ctc ? 1.2 : 1.9, sheer, stemFace: true, runU: 0.14, rake: car ? 0.01 : ctc ? 0.06 : 0.03, forefoot: car ? 0.06 : ctc ? 0.2 : 0.12, transomRake: 0.004,
+    uw: car ? 0.86 : 0.72, wlTip: car ? 0.55 : ctc ? 0.1 : 0.18, wlAft: 0.96, ud: car ? 0.9 : 0.8, dkTip: car ? 0.72 : ctc ? 0.28 : 0.4, dkPow: 2.0, dkAft: 0.98,
     flareP: () => 1.2, bilgeN: u => 3.2 + 1.2 * (1 - sm((u - 0.55) / 0.35)),
-    bands: [[() => 0.9, BLACK, 4], [u => Math.min(sheer(u), DK) - 0.1, YELLOW, 3], [u => Math.min(sheer(u), DK), RED, 1], [u => sheer(u), WHITE, 2]],
+    bands: ctc ? [[() => 0.1, RED, 1], [u => sheer(u), NAVY, 6]]
+      : [[() => 0.9, BLACK, 4], [u => Math.min(sheer(u), DK) - 0.1, YELLOW, 3], [u => Math.min(sheer(u), DK), RED, 1], [u => sheer(u), WHITE, 2]],
   });
   g.add(hull.mesh);
-  g.add(hull.strake(() => 0.9, 0.11, BLACK, 0.005, 0.995, 0.02));   // the rubbing strake, at the top of the black
-  g.add(hull.strake(u => sheer(u) + 0.03, 0.06, RED, 0.004, 0.996, -0.03));   // the cap rail
+  if (ctc) for (const y of [0.55, 1.0]) g.add(hull.strake(() => y, 0.08, NAVY, 0.02, 0.99, 0.02));   // her two guard rails
+  else g.add(hull.strake(() => 0.9, 0.11, BLACK, 0.005, 0.995, 0.02));   // the rubbing strake, at the top of the black
+  g.add(hull.strake(u => sheer(u) + 0.03, 0.06, ctc ? WHITE : RED, 0.004, 0.996, -0.03));   // the cap rail
   const DM = DK - 1.0;   // the main deck, inside the bulwarks
   g.add(hull.deck(0, () => DM, DECK, 0.995, 0.05));
   // ── the kit
@@ -735,6 +749,19 @@ export function cblModel(F, windowMats = []) {
     vehicle(-2.0, 0.84, true, 0xe9e9e6); box(1.6, 0.9, 2.4, 2.2, DM + 0.45, Z(0.82), M(0xb08d5a)); box(1.2, 1.0, 1.2, 2.4, DM + 0.5, Z(0.93), M(0x2c4a6e));
     flag(0.69, y2);
     mastTop = mast(0.27, y3 + 2.45, 3.2); helm = [0, y3 + 1.5, Z(0.19) + 0.6]; side = [B * 0.27, y3 + 1.4, Z(0.2)]; stern = [0, DK + 0.6, Z(0.995)];
+  } else if (ctc) {   // Independence
+    const H1 = 2.6;
+    house(B - 0.4, 0.2, 0.68, Y1, H1, cabinMat({ H: H1, wy0: 1.3, wy1: 2.1, step: 1.6, w: 0.85 }), { nF: 3.5, nA: 8 });
+    const y2 = slab(B - 0.05, 0.18, 0.975, Y1 + H1, { nF: 3, nA: 8 });
+    for (const sx of [-1, 1]) for (const t of [0.8, 0.96]) post(sx * (B / 2 - 0.35), DK, y2 - 0.3, Z(t), 0.05);   // the overhang's posts
+    const Wp = B * 0.8, p0 = 0.19, p1 = 0.37;   // the pilothouse: white, a red band, the glass, a red roof
+    house(Wp, p0, p1, y2, 0.55, white, { nF: 4, nA: 8 });
+    house(Wp, p0, p1, y2 + 0.55, 0.28, red, { nF: 4, nA: 8 });
+    house(Wp, p0, p1, y2 + 0.83, 1.2, glass(), { nF: 4, nA: 8, roof: 0.25, roofT: 0.18, top: red });
+    railing(inset(rrect(B - 0.05, Z(0.18), Z(0.975), 3, 8), 0.08), y2, { panels: true, keep: (x, z) => z > Z(p1) + 0.2 });
+    for (const sx of [-1, 1]) box(0.5, 0.45, Z(0.9) - Z(0.45), sx * 0.55, y2 + 0.22, (Z(0.45) + Z(0.9)) / 2, white);   // the benches, back to back
+    flag(0.97, y2);
+    mastTop = mast(0.3, y2 + 2.25, 1.8); helm = [0, y2 + 1.55, Z(p0) + 0.5]; side = [Wp / 2, y2 + 1.0, Z(p0 + 0.03)]; stern = [0, y2 + 0.8, Z(0.975)];
   } else {   // Bay Mist
     house(B - 0.35, 0.05, 0.975, Y1, 1.0 + U, cabinMat({ H: 1.0 + U, wy0: 1.7, wy1: 2.8, step: 1.7, w: 1.25, yel: 1.0 }), { nF: 3 });
     const y2 = slab(B, 0.025, 0.985, Y1 + 1.0 + U, { nF: 3 });
@@ -749,9 +776,9 @@ export function cblModel(F, windowMats = []) {
   if (railW.length) g.add(new THREE.Mesh(mergeGeos(railW), new THREE.MeshLambertMaterial({ color: WHITE, side: THREE.DoubleSide })));
   // her name on the bow, both sides, in black on the yellow (on Maquoit's high white bow, above it)
   if (F.vessel) {
-    const nm = nameBoard(F.vessel, 0, 0, null), t = plan === 'small' ? 0.08 : 0.07, y = plan === 'freight' ? DK + 0.55 : DK - 0.5;
+    const nm = nameBoard(F.vessel, 0, 0, null, ctc ? '#e6cf8a' : undefined), t = plan === 'small' ? 0.08 : ctc ? 0.17 : 0.07, y = plan === 'freight' ? DK + 0.55 : ctc ? DK - 0.35 : DK - 0.5;
     for (const sx of [-1, 1]) { const u = 1 - t, dx = hull.half(u + 0.02, y) - hull.half(u - 0.02, y), dz = hull.z(u + 0.02, y) - hull.z(u - 0.02, y), k = Math.hypot(dx, dz), nx = sx * -dz / k, nz = dx / k;
-      const pl = new THREE.Mesh(new THREE.PlaneGeometry(Math.min(6, L * 0.17), 0.62), nm); pl.position.set(sx * hull.half(u, y) + nx * 0.04, y, hull.z(u, y) + nz * 0.04); pl.rotation.y = Math.atan2(nx, nz); g.add(pl); }
+      const pl = new THREE.Mesh(new THREE.PlaneGeometry(Math.min(6, L * (ctc ? 0.3 : 0.17)), ctc ? 0.5 : 0.62), nm); pl.position.set(sx * hull.half(u, y) + nx * 0.04, y, hull.z(u, y) + nz * 0.04); pl.rotation.y = Math.atan2(nx, nz); g.add(pl); }
   }
   // running lights: masthead, sidelights at the pilothouse, stern light
   const port = [-side[0], side[1], side[2]], stbd = side;

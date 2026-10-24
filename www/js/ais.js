@@ -36,13 +36,18 @@ export const aisStatus = s => STATUS[s] || '';
 const titleCase = t => t.toLowerCase().replace(/(^|[\s.'&-])[a-z]/g, c => c.toUpperCase()).replace(/\b(Ii|Iii|Iv)\b/g, r => r.toUpperCase());   // (Maquoit II, Aucocisco III: v993)
 // Vessels we know by their full names (the ferries, and the windjammers, v990): AIS cuts a name at 20 characters
 // ("CAPT.E.FRANK THOMPSO"), so a broadcast name that begins one of these is that vessel; "SCHOONER", "S/V" and the
-// like in front don't count ("SCHOONER MARY DAY" is Mary Day). setKnown([{ name, ...anything }]).
+// like in front don't count ("SCHOONER MARY DAY" is Mary Day). setKnown([{ name, box?, ...anything }]): one with a box
+// ([west, south, east, north]) is only her when she's heard inside it (v998: the Chebeague ferry Independence, a name
+// plenty of other boats have).
 let known = [];
 const letters = t => (t || '').toUpperCase().replace(/^\s*(SCHOONER|WINDJAMMER|KETCH|S\/?V|S\/?Y)\b\.?\s*/, '').replace(/[^A-Z]/g, '');
 export function setKnown(list) { known = list.filter(k => k.name).map(k => ({ ...k, key: letters(k.name) })); }
-export function knownFor(name) { const k = letters(name); return k.length >= 6 ? known.find(o => o.key.startsWith(k)) || null : null; }
+export function knownFor(name, lon, lat) {
+  const k = letters(name), out = o => o.box && lon != null && (lon < o.box[0] || lon > o.box[2] || lat < o.box[1] || lat > o.box[3]);
+  return k.length >= 6 ? known.find(o => o.key.startsWith(k) && !out(o)) || null : null;
+}
 const tidy = t => titleCase(t.replace(/\.(?=\S)/g, '. ').replace(/\s*&\s*/g, ' & ')).replace(/^Capt\.? /, 'Captain ');
-export const aisName = v => { const k = knownFor(v.name); return k ? tidy(k.name) : v.name ? tidy(v.name) : `Vessel ${v.mmsi}`; };
+export const aisName = v => { const k = knownFor(v.name, v.lon, v.lat); return k ? tidy(k.name) : v.name ? tidy(v.name) : `Vessel ${v.mmsi}`; };
 // where she says she's bound, if it reads as a place (a destination field often holds codes or garbage)
 export const aisDest = d => /^[A-Z][A-Z .,&'\/-]{2,}$/i.test(d || '') && /[A-Z]{4}/i.test(d) ? tidy(d) : '';
 
