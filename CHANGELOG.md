@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-24 — 📡 Live says when it's only just tuned in (v1010)
+
+- The relay drops its connection to the AIS feed when nobody's asking it, and once back it hears each vessel only
+  as she next reports, over a few minutes. Reported: "in Casco I don't see green circles" — Live said "· 0" while
+  it filled. Now, in Bird's-eye and the helm view, with no vessels yet in this bay and the relay listening under
+  five minutes, the button says "📡 Live · tuning in…", its tooltip why.
+
 ## 2026-10-24 — Live AIS in the helm view (v1009)
 
 - **📡 Live in the 3D helm view** (helm3d.html, by Look ahead; remembered): the vessels really out there now,

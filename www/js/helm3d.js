@@ -1133,7 +1133,7 @@ function updateFerries(t) {
 // while real ones are coming in. With no internet, or no relay, the button says so and nothing else changes.
 // The choice is remembered. Her place is where she is now; yours is where the route puts you.
 const live = [], LIVE_R = 10 * NM, VEC_R = 3 * NM, DEG = Math.PI / 180;
-let liveOK = false, livePos = [0, 0];
+let liveOK = false, livePos = [0, 0], liveListen = 1e9;
 const liveBtn = document.getElementById('livebtn'), LIVE_KEY = 'audiochart-helm3d-live';
 Promise.all([getJSON('./data/ferries.json').catch(() => null), getJSON('./data/windjammers.json').catch(() => null), getJSON('./data/ships.json').catch(() => null)])
   .then(([fd, wd, sd]) => { setKnown(knownList(fd, wd)); setShips(sd); });
@@ -1161,14 +1161,16 @@ function liveData(snap) {
   liveOK = live.length > 0;
 }
 const liveFeed = makeAisFeed({
-  onData: liveData,
+  onData: snap => { liveListen = snap.listening ?? 1e9; liveData(snap); },   // (how long the relay has been tuned in: v1010)
   onState: ({ state, note }) => { if (state === 'offline' || state === 'off') { for (const v of [...live]) dropLive(v); liveOK = false; } syncLiveBtn(state, note); },
 });
 function syncLiveBtn(state = liveBtn?.dataset.state || 'off', note = '') {
   if (!liveBtn) return;
   liveBtn.dataset.state = state; liveBtn.classList.toggle('on', liveFeed.on);
-  liveBtn.textContent = !liveFeed.on ? '📡 Live' : state === 'live' ? `📡 Live · ${live.length}` : state === 'offline' ? '📡 Live · offline' : '📡 Live · …';
+  const tuning = liveFeed.on && state !== 'offline' && !live.length && liveListen < 300;   // (the relay only just reconnected to the feed, v1010)
+  liveBtn.textContent = !liveFeed.on ? '📡 Live' : tuning ? '📡 Live · tuning in…' : state === 'live' ? `📡 Live · ${live.length}` : state === 'offline' ? '📡 Live · offline' : '📡 Live · …';
   liveBtn.title = !liveFeed.on ? 'Show the vessels really out there now, from their AIS (needs an internet connection)'
+    : tuning ? 'The live feed has only just started listening: vessels come in over the next few minutes, as each one reports. Click to turn Live off.'
     : state === 'offline' ? `${note || 'Live AIS is unavailable'}. Click to turn Live off.` : `${live.length} vessels broadcasting AIS within 10 nm. Click to turn Live off.`;
 }
 if (liveBtn) {

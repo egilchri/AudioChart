@@ -1807,7 +1807,7 @@ if (uwBtn && uwPanel && !EMPTY) {
 // cruise ships stand aside for the real ones. With no internet, or no relay, the button says so and nothing else
 // changes. The choice is remembered.
 const live = [];   // { kind: 'ais', mmsi, A (her last report), fix: {x, z, t}, group, boat?, trim?, L, x, z, h, on, what, label }
-let liveOK = false;
+let liveOK = false, liveListen = 1e9;
 const liveBtn = document.getElementById('livebtn'), LIVE_KEY = 'audiochart-bay3d-live';
 // a boat whose AIS puts her ashore (v997, reported: "The Chebeague water taxi is showing up on land" — she was, by her
 // own AIS, hauled out up on Chebeague with her set still on): high ground under her and all round her, so not a boat
@@ -1876,7 +1876,7 @@ function updateLive(dt) {
 }
 if (!EMPTY) setShips(await getJSON('./data/ships.json').catch(() => null));   // (before the feed: her colours from the first sight of her)
 const liveFeed = makeAisFeed({
-  onData: liveData,
+  onData: snap => { liveListen = snap.listening ?? 1e9; liveData(snap); },   // (how long the relay has been tuned in: v1010)
   onState: ({ state, note }) => {
     if (state === 'offline' || state === 'off') { for (const v of [...live]) dropLive(v); liveOK = false; }
     syncLiveBtn(state, note);
@@ -1886,8 +1886,10 @@ function syncLiveBtn(state = liveBtn?.dataset.state || 'off', note = '') {
   if (!liveBtn) return;
   liveBtn.dataset.state = state;
   liveBtn.classList.toggle('on', liveFeed.on);
-  liveBtn.textContent = !liveFeed.on ? '📡 Live' : state === 'live' ? `📡 Live · ${live.length}` : state === 'offline' ? '📡 Live · offline' : '📡 Live · …';
+  const tuning = liveFeed.on && state !== 'offline' && !live.length && liveListen < 300;   // (the relay only just reconnected to the feed: vessels come in over a few minutes, v1010)
+  liveBtn.textContent = !liveFeed.on ? '📡 Live' : tuning ? '📡 Live · tuning in…' : state === 'live' ? `📡 Live · ${live.length}` : state === 'offline' ? '📡 Live · offline' : '📡 Live · …';
   liveBtn.title = !liveFeed.on ? 'Show the vessels in the bay right now, from their AIS (needs an internet connection)'
+    : tuning ? 'The live feed has only just started listening: vessels come in over the next few minutes, as each one reports. Tap to turn Live off.'
     : state === 'offline' ? `${note || 'Live AIS is unavailable'}. Tap to turn Live off.` : state === 'live' ? `${live.length} vessels broadcasting AIS in the bay now. Tap to turn Live off.` : `${note || 'Listening for ships…'} Tap to turn Live off.`;
 }
 if (liveBtn && !EMPTY) {   // (the relay listens to both bays: relay/ais/core.mjs BOXES; each bay shows its own, by OVERVIEW)
