@@ -961,3 +961,6 @@ export function terminalHouse(windowMats = []) {
   const sign2 = sign.clone(); sign2.position.set(W / 2 + 0.02, H - 1.3, 0); sign2.rotation.y = Math.PI / 2; g.add(sign2);
   return g;
 }
+
+// (for ships3d.js, v1001)
+export { loftHull, deckhouse, nameBoard, lamp, wakeOf, windowRows, glassBand };

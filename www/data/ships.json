@@ -1,0 +1,84 @@
+{
+ "source": "Liveries from operators' photos (Iver Ships: vroon.nl photo of Iver Beauty; McAllister: Wikimedia Commons, Capt. Brian A. McAllister; Portland pilots: 2009 photo of Spring Point). Particulars from owners' spec sheets (Iver Prosperity: Vroon vessel particulars, 17 Sep 2022) and builders' descriptions (Spring Point: Gladding-Hearn, 2004). Colours approximate. Fetched 2026-10-24.",
+ "liveries": [
+  {
+   "id": "iver",
+   "match": "^IVER ",
+   "operator": "Iver Ships (Vroon)",
+   "kinds": [
+    "tanker"
+   ],
+   "hull": "#b3262b",
+   "boot": "#7d1d1f",
+   "deck": "#a8312c",
+   "house": "#f2f1ec",
+   "funnel": "#f2f1ec",
+   "funnelTop": "#1d1f22",
+   "name": "#f4f3ef",
+   "mark": "vroon-v",
+   "crane": "#f2f1ec",
+   "catwalk": "#b3262b"
+  },
+  {
+   "id": "mcallister",
+   "match": "MC ?ALLISTER|FOURNIER GIRLS",
+   "operator": "McAllister Towing (Portland Tugboat)",
+   "kinds": [
+    "tug"
+   ],
+   "hull": "#1d1f22",
+   "stripe": "#d9a52b",
+   "house": "#7a1f22",
+   "band": "#f2f1ec",
+   "funnel": "#a3262b",
+   "funnelTop": "#1d1f22",
+   "name": "#d9a52b"
+  },
+  {
+   "id": "portland-pilots",
+   "match": "SPRING ?P(OIN)?T|PORTLAND PILOT",
+   "operator": "Portland Pilots",
+   "kinds": [
+    "pilot"
+   ],
+   "hull": "#1d1f22",
+   "boot": "#6fa8d6",
+   "house": "#d7dadb",
+   "word": "#c8302a"
+  }
+ ],
+ "ships": [
+  {
+   "name": "IVER PROSPERITY",
+   "imo": 9351921,
+   "mmsi": "538002784",
+   "kind": "tanker",
+   "what": "Product/chemical tanker",
+   "L": 184.32,
+   "B": 27.4,
+   "D": 17.2,
+   "Tmax": 11.32,
+   "built": 2007,
+   "builder": "Hyundai Mipo Dockyard",
+   "livery": "iver",
+   "src": "Vroon vessel particulars, 17 Sep 2022"
+  },
+  {
+   "name": "SPRING POINT",
+   "aka": [
+    "PILOT BOAT SPRING PT",
+    "PILOT BOAT SPRING POINT"
+   ],
+   "kind": "pilot",
+   "what": "Pilot boat, Portland Pilots",
+   "L": 16.0,
+   "B": 5.18,
+   "Tmax": 1.46,
+   "built": 2004,
+   "builder": "Gladding-Hearn",
+   "boat": "Spring Point",
+   "livery": "portland-pilots",
+   "src": "Gladding-Hearn description, via a 2009 photo caption"
+  }
+ ]
+}

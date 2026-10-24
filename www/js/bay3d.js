@@ -19,6 +19,7 @@ import { makeWildlife, ledgesFrom } from './wildlife3d.js';
 import { makeMoorings } from './moorings3d.js';
 import { callsOn, trackOf, alongTrack, cruiseState, ferryState, ferryDepartures, ferryLine, ferrySlipModel, terminalLot, terminalHouse, cruiseShipModel, ferryModelSimple, launchModel, cblModel, merchantModel, mins } from './vessels.js';
 import { REGIONS3D, REGION3D_KEY, regions3dOffered } from './regions3d.js';
+import { tankerModel, tugModel, pilotModel, setShips, shipFor } from './ships3d.js';
 import { makeAisFeed, aisClass, aisStatus, aisName, aisDest, setKnown, knownFor, aisFlag, aisRot, aisPos, aisAgo, aisLookup, aisImo, aisCallsign } from './ais.js';
 
 const statusEl = document.getElementById('status');
@@ -1794,7 +1795,7 @@ if (uwBtn && uwPanel && !EMPTY) {
 const live = [];   // { kind: 'ais', mmsi, A (her last report), fix: {x, z, t}, group, boat?, trim?, L, x, z, h, on, what, label }
 let liveOK = false;
 const liveBtn = document.getElementById('livebtn'), LIVE_KEY = 'audiochart-bay3d-live';
-const LIVE_LEN = { sail: 11, power: 11, launch: 18, ferry: 46, cruise: 200, ship: 150 };
+const LIVE_LEN = { sail: 11, power: 11, launch: 18, ferry: 46, cruise: 200, ship: 150, tanker: 150, tug: 28, pilot: 16 };
 function liveModel(A, cls, seed, K, W) {
   // one of the ferries we know (K, her ferries.json record): built from it, so she's the scheduled one to the life (v987)
   if (K) return { group: (K.kind === 'launch' ? launchModel : (K.kind === 'cbl' || K.kind === 'ctc') ? cblModel : ferryModelSimple)(K, trafficLit), L: K.length_m || (K.kind === 'launch' ? 14 : 46) };
@@ -1809,6 +1810,11 @@ function liveModel(A, cls, seed, K, W) {
   if (cls.model === 'sail' || cls.model === 'power') {
     const boat = makeSailboat(cls.model === 'power' ? 'lobster' : L > 20 ? 'schooner' : L > 9.5 ? 'cruiser' : L > 7 ? 'pocket' : 'daysailer', seed);
     return { boat, group: boat.group, L: boat.L, trim: cls.model === 'sail' ? makeTrimmer() : null };
+  }
+  // a tanker, tug or pilot boat as her kind, in her owner's colours, her particulars where we have them (v1001)
+  if (cls.model === 'tanker' || cls.model === 'tug' || cls.model === 'pilot') {
+    const { S, liv } = shipFor(A.mmsi, A.name), V = { L, B: A.B || S?.B, D: S?.D, T: A.draught, name: S?.name || A.name, boat: S?.boat };
+    return { group: (cls.model === 'tanker' ? tankerModel : cls.model === 'tug' ? tugModel : pilotModel)(V, liv, trafficLit), L };
   }
   const group = cls.model === 'launch' ? launchModel({ length_m: clamp(L, 9, 40), name: A.name }, trafficLit)
     : cls.model === 'ferry' ? ferryModelSimple({ length_m: L, name: A.name }, trafficLit)
@@ -1831,8 +1837,10 @@ function liveData(snap) {
     // one of the windjammers, unless what she says she is rules it out (a lobster boat or tug of the same name)
     const W = kn0?.W && !(A.type >= 30 && A.type <= 35 || A.type >= 50 && A.type <= 59 || A.type >= 70 && A.type <= 89) ? kn0.W : null;
     if (K && !A.L) A.L = K.length_m || 46;
+    const S = !K && !W ? shipFor(A.mmsi, A.name).S : null;   // one of the ships we have particulars for (data/ships.json, v1001)
+    if (S) { if (!A.L) A.L = S.L; if (!A.B) A.B = S.B; }
     const cls = K ? { model: K.kind === 'launch' || A.L < 25 ? 'launch' : 'ferry', what: K.says || 'Ferry' }
-      : W ? { model: 'sail', what: `${W.model === 'bowdoin' ? 'Schooner' : 'Windjammer'}, out of ${W.port}` } : aisClass(A.type, A.L);
+      : W ? { model: 'sail', what: `${W.model === 'bowdoin' ? 'Schooner' : 'Windjammer'}, out of ${W.port}` } : S && !A.type ? { model: S.kind, what: S.what } : aisClass(A.type, A.L);
     let was = null;   // (her card and following go over to her new self: v1000)
     if (v && (v.model !== cls.model || v.K !== K || v.W !== W)) { was = { card: cardV === v, follow: follow === v }; dropLive(v); v = null; }   // her static data came in: what she is changed
     if (!v) {
@@ -1847,7 +1855,10 @@ function liveData(snap) {
     v.ashore = ashoreAt(A.lon, A.lat);
     v.label = `${cls.what}${v.ashore ? ', ashore (hauled out?)' : st && st !== 'under way' ? ', ' + st : ''}${kn >= 0.5 ? `, ${kn.toFixed(kn < 10 ? 1 : 0)} kn` : ''}`;
     // back from 🗺 Chart (v1000, ?vessel=<mmsi>): her card again, and following her
-    if (params.get('vessel') === String(A.mmsi)) { params.delete('vessel'); setTimeout(() => { showCard(v); follow = v; }, 0); }
+    if (params.get('vessel') === String(A.mmsi)) {   // (the page may still be starting up: again shortly, until it takes)
+      params.delete('vessel');
+      const back = () => { try { follow = v; showCard(v); } catch (_) { setTimeout(back, 300); } }; setTimeout(back, 0);
+    }
   }
   for (const v of [...live]) if (!seen.has(v.mmsi)) dropLive(v);
   liveOK = live.length > 0;
@@ -1882,6 +1893,7 @@ function updateLive(dt) {
     }
   }
 }
+if (!EMPTY) setShips(await getJSON('./data/ships.json').catch(() => null));   // (before the feed: her colours from the first sight of her)
 const liveFeed = makeAisFeed({
   onData: liveData,
   onState: ({ state, note }) => {

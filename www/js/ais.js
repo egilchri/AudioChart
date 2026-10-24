@@ -19,8 +19,8 @@ export function aisClass(type, L) {
   if (t === 36) return { model: 'sail', what: 'Sailing vessel' };
   if (t === 37) return { model: len > 14 ? 'launch' : 'power', what: 'Pleasure craft' };
   if (t === 30) return { model: 'power', what: 'Fishing vessel' };
-  if (t === 31 || t === 32 || t === 52) return { model: len > 45 ? 'ship' : 'launch', what: 'Tug' };
-  if (t === 50) return { model: 'launch', what: 'Pilot boat' };
+  if (t === 31 || t === 32 || t === 52) return { model: 'tug', what: 'Tug' };   // (v1001: a tug, pilot boat or tanker drawn as one: ships3d.js)
+  if (t === 50) return { model: 'pilot', what: 'Pilot boat' };
   if (t === 51) return { model: 'launch', what: 'Search and rescue' };
   if (t === 55) return { model: 'launch', what: 'Law enforcement' };
   if (t === 35) return { model: len > 60 ? 'ship' : 'launch', what: 'Military vessel' };
@@ -28,7 +28,7 @@ export function aisClass(type, L) {
   if (t >= 40 && t <= 49) return { model: 'launch', what: 'High-speed craft' };
   if (t >= 60 && t <= 69) return { model: len > 110 ? 'cruise' : len >= 25 ? 'ferry' : 'launch', what: len > 110 ? 'Cruise ship' : 'Passenger vessel' };
   if (t >= 70 && t <= 79) return { model: 'ship', what: 'Cargo ship' };
-  if (t >= 80 && t <= 89) return { model: 'ship', what: 'Tanker' };
+  if (t >= 80 && t <= 89) return { model: len && len < 60 ? 'ship' : 'tanker', what: 'Tanker' };
   return { model: len > 60 ? 'ship' : len > 14 ? 'launch' : 'power', what: 'Vessel' };
 }
 const STATUS = { 0: 'under way', 1: 'at anchor', 2: 'not under command', 3: 'restricted in her ability to manoeuvre', 5: 'moored', 7: 'fishing', 8: 'under sail' };

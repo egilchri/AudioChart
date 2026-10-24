@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-10-24 — Tankers, tugs and pilot boats drawn as themselves (v1001)
+
+Requested: "depict ships in a way approximating how they look … emphasizing efficiency but also verisimilitude".
+The strategy is in `design/ships/README.md`: a model per kind of ship, a livery per operator, particulars per ship.
+- New `www/js/ships3d.js`, with three models on the lofted hull:
+  - **Product tanker:** her freeboard from her AIS draught; pipe runs, catwalk, manifold and hose crane; the
+    forecastle and foremast; six decks of accommodation with the bridge across her beam; the funnel; the free-fall
+    lifeboat over the stern.
+  - **Harbour tug:** high bow with the pudding fender, tyres along her sides, the tall wheelhouse, twin stacks,
+    towing winch and H-bitt.
+  - **Pilot boat:** deep-V hull, cabin with PILOT on its sides, rails, the rescue U-frame aft.
+- New `www/data/ships.json`:
+  - Liveries for Iver Ships (red, the white Vroon V), McAllister (black, gold stripe, maroon house, red stacks)
+    and the Portland pilots.
+  - Particulars for Iver Prosperity (Vroon spec sheet: 184.32 × 27.40 m, 17.20 m deep) and Spring Point
+    (Gladding-Hearn).
+- Live AIS: tankers, tugs and pilot boats use these models. A ship we have particulars for is drawn at her real
+  size and kind before her AIS static data arrives.
+- Fix: back from 🗺 Chart on a slow load, her card opened but following her silently failed (the page was still
+  starting). It now retries until it takes.
+
 ## 2026-10-24 — Where a vessel is: bearings to marks, and 🗺 Chart (v1000)
 
 Requested: "when I look at a tracked vessel in birdseye view, it is difficult to really see where she is … flip over
