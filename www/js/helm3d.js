@@ -10,6 +10,9 @@ import { LON0, LAT0, MX, MY, wx, wz, cachedFetch, readDem, photo, photoAtCells, 
 import { makeWildlife, ledgesFrom } from './wildlife3d.js';
 import { makeAngelique, ANGELIQUE, makeBowdoin, BOWDOIN } from './angelique3d.js';
 import { callsOn, ferryLine, cruiseShipModel, launchModel, ferryModelSimple, cblModel } from './vessels.js';
+import { identify, liveModel, knownList } from './livefleet.js';
+import { makeAisFeed, aisName, setKnown } from './ais.js';
+import { setShips } from './ships3d.js';
 import { makeSky, makeEnv, glowSprite, flashFor, sectorColour, weatherPanel, startConditions, makeTrimmer, cycleLook } from './weather3d.js';
 
 const statusEl = document.getElementById('status');
@@ -1113,12 +1116,97 @@ function updateFerries(t) {
       const V = fy.F.V, nm = V.name[0].toUpperCase() + V.name.slice(1), c = fy.F.call;
       fy.label = raw >= fy.L ? `${nm}, ${c.arrive ? c.where : 'in ' + c.port}` : `${nm}, bound for ${c.port}`;
     }
+    if (liveOK) { fy.group.visible = false; continue; }   // the real ones are out there (📡 Live): the staged ones stand aside
+    if (!fy.F.cruise) fy.group.visible = true;
     const [x, z] = ferryPos(fy, f), a = ferryPos(fy, f - 60 * fy.dir), b = ferryPos(fy, f + 60 * fy.dir);
     fy.group.position.set(x, Math.sin(t * 0.5 + fy.L) * 0.08, z);
     if (Math.hypot(b[0] - a[0], b[1] - a[1]) > 1) fy.group.rotation.y = -Math.atan2(b[0] - a[0], -(b[1] - a[1]));
     for (const w of fy.group.userData.wake) w.visible = under;
   }
 }
+
+// ── 📡 Live AIS (v1009, requested: "add live AIS to the helm view") ── With Live on, the vessels really out there
+// now, from their AIS (ais.js, the relay), within 10 nm of you: each drawn as what she is (livefleet.js, as in
+// Bird's-eye), at her real size, moved on between reports at her speed and course, named with her speed and
+// course, on the chart in green. A moving one within 3 nm has her vector on the water: a line along her course to
+// where she'll be in 6 minutes, a tick each minute, an arrowhead. The staged ferries and cruise ships stand aside
+// while real ones are coming in. With no internet, or no relay, the button says so and nothing else changes.
+// The choice is remembered. Her place is where she is now; yours is where the route puts you.
+const live = [], LIVE_R = 10 * NM, VEC_R = 3 * NM, DEG = Math.PI / 180;
+let liveOK = false, livePos = [0, 0];
+const liveBtn = document.getElementById('livebtn'), LIVE_KEY = 'audiochart-helm3d-live';
+Promise.all([getJSON('./data/ferries.json').catch(() => null), getJSON('./data/windjammers.json').catch(() => null), getJSON('./data/ships.json').catch(() => null)])
+  .then(([fd, wd, sd]) => { setKnown(knownList(fd, wd)); setShips(sd); });
+// (a boat whose AIS puts her ashore, hauled out with her set on: not drawn among the trees; as Bird's-eye, v997)
+const ashoreAt = (lon, lat) => heightAt(lon, lat) > 2 && [[1, 0], [-1, 0], [0, 1], [0, -1]].every(([dx, dy]) => heightAt(lon + dx * 0.0005, lat + dy * 0.00036) > 1);
+function dropLive(v) { scene.remove(v.group); live.splice(live.indexOf(v), 1); }
+function liveData(snap) {
+  const now = Date.now(), seen = new Set();
+  for (const A of snap.vessels || []) {
+    const x = wx(A.lon), z = wz(A.lat);
+    if (Math.hypot(x - livePos[0], z - livePos[1]) > LIVE_R) continue;
+    seen.add(A.mmsi);
+    let v = live.find(o => o.mmsi === A.mmsi);
+    const { K, W, cls } = identify(A);
+    if (v && (v.model !== cls.model || v.K !== K || v.W !== W)) { dropLive(v); v = null; }   // her static data came in: what she is changed
+    if (!v) {
+      const m = liveModel(A, cls, Number(A.mmsi) % 9973, K, W, litMats);
+      v = { mmsi: A.mmsi, model: cls.model, K, W, ...m, x, z, h: A.hdg ?? A.cog ?? 0, placed: false };
+      scene.add(m.group); live.push(v);
+      for (const mt of litMats) mt.emissiveIntensity = lightsK;
+    }
+    v.A = A; v.what = cls.what; v.fix = { x, z, t: now - (A.age || 0) * 1000 }; v.ashore = ashoreAt(A.lon, A.lat);
+  }
+  for (const v of [...live]) if (!seen.has(v.mmsi)) dropLive(v);
+  liveOK = live.length > 0;
+}
+const liveFeed = makeAisFeed({
+  onData: liveData,
+  onState: ({ state, note }) => { if (state === 'offline' || state === 'off') { for (const v of [...live]) dropLive(v); liveOK = false; } syncLiveBtn(state, note); },
+});
+function syncLiveBtn(state = liveBtn?.dataset.state || 'off', note = '') {
+  if (!liveBtn) return;
+  liveBtn.dataset.state = state; liveBtn.classList.toggle('on', liveFeed.on);
+  liveBtn.textContent = !liveFeed.on ? '📡 Live' : state === 'live' ? `📡 Live · ${live.length}` : state === 'offline' ? '📡 Live · offline' : '📡 Live · …';
+  liveBtn.title = !liveFeed.on ? 'Show the vessels really out there now, from their AIS (needs an internet connection)'
+    : state === 'offline' ? `${note || 'Live AIS is unavailable'}. Click to turn Live off.` : `${live.length} vessels broadcasting AIS within 10 nm. Click to turn Live off.`;
+}
+if (liveBtn) {
+  liveBtn.addEventListener('click', () => { if (liveFeed.on) liveFeed.stop(); else liveFeed.start(); try { localStorage.setItem(LIVE_KEY, liveFeed.on ? '1' : '0'); } catch (_) {} syncLiveBtn(); });
+  let was = false; try { was = localStorage.getItem(LIVE_KEY) === '1'; } catch (_) {}
+  if (was || params.has('ais')) liveFeed.start();
+  setInterval(() => { if (liveFeed.on && liveBtn.dataset.state === 'live') syncLiveBtn('live'); }, 5000);
+  syncLiveBtn();
+}
+const vecLines = new THREE.LineSegments(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(3 * 2 * 400), 3)),
+  new THREE.LineBasicMaterial({ color: 0x7fe0a6, transparent: true, opacity: 0.95 }));
+vecLines.frustumCulled = false; scene.add(vecLines);
+function updateLive(dt, t, pos) {
+  livePos = pos;
+  const now = Date.now(), up = WND.heel > 0, heel = WND.heel * DEG, P = vecLines.geometry.attributes.position;
+  let i = 0; const seg = (x0, z0, x1, z1) => { if (i < P.count - 1) { P.setXYZ(i++, x0, 0.8, z0); P.setXYZ(i++, x1, 0.8, z1); } };
+  for (const v of live) {
+    const A = v.A, kn = A.sog || 0, cog = A.cog ?? A.hdg ?? v.h;
+    // where she is now: her last report, moved on at her speed and course (for up to five minutes)
+    const s = kn * NM / 3600 * Math.max(0, Math.min(300, (now - v.fix.t) / 1000)), tx = v.fix.x + Math.sin(cog * DEG) * s, tz = v.fix.z - Math.cos(cog * DEG) * s;
+    const k = v.placed ? Math.min(1, dt * 1.5) : 1; v.placed = true;   // a new report eases her across, no jump
+    v.x += (tx - v.x) * k; v.z += (tz - v.z) * k;
+    const want = A.hdg ?? (kn >= 0.5 ? A.cog : null);
+    if (want != null) { const turn = ((want - v.h + 540) % 360) - 180; v.h = (v.h + Math.max(-20 * dt, Math.min(20 * dt, turn)) + 360) % 360; }
+    v.group.visible = !v.ashore;
+    v.group.position.set(v.x, v.boat ? 0 : Math.sin(t * 0.5 + v.L) * 0.08, v.z); v.group.rotation.y = -v.h * DEG;
+    if (v.boat) { if (v.trim) v.boat.trim(v.trim(env.C.windFrom, v.h, WND.tws ?? 8, up ? kn : 0, dt), heel, up); v.boat.wake(kn >= 0.5 ? 1 : 0); }
+    else for (const w of v.group.userData.wake || []) w.visible = kn >= 1;
+    // her vector: 6 minutes along her course, ticked each minute, an arrowhead
+    if (v.ashore || kn < 0.5 || A.cog == null || Math.hypot(v.x - pos[0], v.z - pos[1]) > VEC_R) continue;
+    const ux = Math.sin(A.cog * DEG), uz = -Math.cos(A.cog * DEG), mps = kn * NM / 3600, len = mps * 360, ex = v.x + ux * len, ez = v.z + uz * len, tk = Math.max(6, len * 0.03);
+    seg(v.x, v.z, ex, ez);
+    for (let m = 1; m < 6; m++) { const px = v.x + ux * mps * 60 * m, pz = v.z + uz * mps * 60 * m; seg(px - uz * tk, pz + ux * tk, px + uz * tk, pz - ux * tk); }
+    for (const sx of [-1, 1]) seg(ex, ez, ex - ux * tk * 2.5 - sx * uz * tk * 1.5, ez - uz * tk * 2.5 + sx * ux * tk * 1.5);
+  }
+  P.needsUpdate = true; vecLines.geometry.setDrawRange(0, i); vecLines.visible = i > 0;
+}
+const liveLabel = v => { const A = v.A, kn = A.sog || 0; return `📡 ${aisName(A)}${v.ashore ? ' · ashore' : kn >= 0.5 ? ` · ${kn.toFixed(kn < 10 ? 1 : 0)} kn on ${String(Math.round(toMag(A.cog ?? v.h)) % 360).padStart(3, '0')}°M` : ''}`; };
 
 let lastCourse = null;
 let S = (Number(params.get('start')) || 0.05) * NM, playing = false, yawOff = 0, pitch = -1.2, zoom = 1, smoothCourse = null;
@@ -1184,7 +1272,13 @@ function updateLabels(pos) {
         cand.push({ text, v: new THREE.Vector3(p.w[0], 4.6 * k, p.w[1]), d: p === nx ? 0 : d * 0.6, cls: 'wpt' + (p === nx ? ' next' : ''), w: p.w, h: 4 * k });
       }
     }
+    for (const v of live) {   // live AIS vessels (v1009)
+      const d = Math.hypot(v.x - pos[0], v.z - pos[1]); if (d > Math.min(4 * NM, visM * 1.2)) continue;
+      const h = v.L > 100 ? 40 : v.L > 25 ? 12 : 7;
+      cand.push({ text: liveLabel(v), v: new THREE.Vector3(v.x, v.ashore ? Math.max(0, heightAt(v.A.lon, v.A.lat)) + 8 : h, v.z), d: d * 0.5, cls: 'wpt', w: [v.x, v.z], h: h * 0.7 });
+    }
     for (const fy of ferries) {
+      if (!fy.group.visible) continue;
       const fp = fy.group.position, d = Math.hypot(fp.x - pos[0], fp.z - pos[1]); if (d > Math.min(3 * NM, visM * 1.2)) continue;
       cand.push({ text: fy.label, v: new THREE.Vector3(fp.x, 12, fp.z), d: d * 0.5, cls: '', w: [fp.x, fp.z], h: 8 });
     }
@@ -1853,7 +1947,16 @@ function drawChart(pos, course, look, hfov) {
     c.fillStyle = (m.n.c || '').startsWith('red') ? '#c23a2e' : (m.n.c || '').startsWith('green') ? '#2b8a4a' : '#555';
     c.beginPath(); c.arc(x, y, 2, 0, 7); c.fill();
   }
+  for (const v of live) {   // live AIS vessels (v1009): a green hull, her vector ahead of her
+    if (v.ashore) continue;
+    const x = X(v.x / MX + LON0), y = Y(-v.z / MY + LAT0); if (x < -5 || y < -5 || x > size + 5 || y > size + 5) continue;
+    const kn = v.A.sog || 0, L6 = kn * 0.1 * pxPerNm;   // (6 minutes' run)
+    c.save(); c.translate(x, y);
+    if (kn >= 0.5 && v.A.cog != null) { c.save(); c.rotate(v.A.cog * Math.PI / 180); c.strokeStyle = '#2e9e62'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(0, 0); c.lineTo(0, -L6); c.stroke(); c.restore(); }
+    c.rotate(v.h * Math.PI / 180); c.fillStyle = '#2e9e62'; c.strokeStyle = '#fbfcf8'; c.lineWidth = 1; c.beginPath(); c.moveTo(0, -6); c.lineTo(3, 5); c.lineTo(-3, 5); c.closePath(); c.fill(); c.stroke(); c.restore();
+  }
   for (const fy of ferries) {   // ferries: a small dark hull
+    if (!fy.group.visible) continue;
     const fp = fy.group.position, x = X(fp.x / MX + LON0), y = Y(-fp.z / MY + LAT0); if (x < -5 || y < -5 || x > size + 5 || y > size + 5) continue;
     c.save(); c.translate(x, y); c.rotate(-fy.group.rotation.y); c.fillStyle = '#22324a'; c.strokeStyle = '#fbfcf8'; c.lineWidth = 1; c.fillRect(-2.5, -6, 5, 12); c.strokeRect(-2.5, -6, 5, 12); c.restore();
   }
@@ -1913,7 +2016,7 @@ function frame() {
   const look = smoothCourse + yawOff;
   const mv = WND.move, bob = (Math.sin(t * 1.1) * 0.12 + Math.sin(t * 0.63 + 1) * 0.08) * mv;
   boat.position.set(pos[0], bob, pos[1]);
-  updateFerries(t);
+  updateFerries(t); updateLive(dt, t, pos);
   camera.fov = 55 / zoom; camera.updateProjectionMatrix();
   const roll = Math.sin(t * 0.9) * 0.012 * Math.pow(mv, 0.8);
   const wantSails = anchor.state === 'up' && WND.heel > 0;   // set in every view while under way with wind (v870; was Drone only)

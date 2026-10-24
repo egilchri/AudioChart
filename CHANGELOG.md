@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-24 — Live AIS in the helm view (v1009)
+
+- **📡 Live in the 3D helm view** (helm3d.html, by Look ahead; remembered): the vessels really out there now,
+  within 10 nm of you, each drawn as what she is (as in Bird's-eye), at her real size, moved on between reports
+  at her speed and course; named with her speed and magnetic course ("📡 CS Decisive · 6.0 kn on 215°M"); a green
+  hull with a 6-minute course line on the chart. A moving vessel within 3 nm has her vector on the water: 6
+  minutes along her course, a tick each minute, an arrowhead. The staged ferries and cruise ships stand aside
+  while real ones are in view. Her place is where she is now; yours is where the route puts you.
+- What a live vessel is, and her model, moved from bay3d.js into livefleet.js, shared by both views.
+
 ## 2026-10-24 — A live vessel's course and speed, drawn (v1008)
 
 - **Bird's-eye, and every ride view (Helm, Drone, Stern, Side, Bow):** the vessel whose card is open, or the one

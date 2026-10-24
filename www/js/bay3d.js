@@ -17,10 +17,11 @@ import { makeSailboat, fleetType } from './sailboat3d.js';
 import { makeAngelique, makeBowdoin } from './angelique3d.js';
 import { makeWildlife, ledgesFrom } from './wildlife3d.js';
 import { makeMoorings } from './moorings3d.js';
-import { callsOn, trackOf, alongTrack, cruiseState, ferryState, ferryDepartures, ferryLine, ferrySlipModel, terminalLot, terminalHouse, cruiseShipModel, ferryModelSimple, launchModel, cblModel, merchantModel, mins } from './vessels.js';
+import { callsOn, trackOf, alongTrack, cruiseState, ferryState, ferryDepartures, ferryLine, ferrySlipModel, terminalLot, terminalHouse, cruiseShipModel, ferryModelSimple, launchModel, cblModel, mins } from './vessels.js';
 import { REGIONS3D, REGION3D_KEY, regions3dOffered } from './regions3d.js';
-import { tankerModel, tugModel, pilotModel, containerModel, bulkModel, carCarrierModel, lpgModel, trawlerModel, researchModel, dredgerModel, cutterModel, scallopModel, cableModel, osvModel, setShips, shipFor } from './ships3d.js';
-import { makeAisFeed, aisClass, aisStatus, aisName, aisDest, setKnown, knownFor, aisFlag, aisRot, aisPos, aisAgo, aisLookup, aisImo, aisCallsign } from './ais.js';
+import { setShips } from './ships3d.js';
+import { identify, liveModel, knownList } from './livefleet.js';
+import { makeAisFeed, aisStatus, aisName, aisDest, setKnown, knownFor, aisFlag, aisRot, aisPos, aisAgo, aisLookup, aisImo, aisCallsign } from './ais.js';
 
 const statusEl = document.getElementById('status');
 const loadingEl = document.getElementById('loading');
@@ -1425,9 +1426,7 @@ if (!EMPTY) Promise.all([getJSON('./data/ferries.json').catch(() => null), getJS
   // (live AIS: the ferries' and the windjammers' full names, and what they are)
   // (a ferry run to a timetable has several boats, each her own name and length: F.boats, v993)
   const boatsOf = F => F.boats ? F.boats.map((b, bi) => ({ ...F, ...b, bi })) : [F];
-  // (Independence is only the Chebeague ferry heard near her run: the name is a common one)
-  const nearLine = F => { const xs = F.line.map(p => p[0]), ys = F.line.map(p => p[1]); return [Math.min(...xs) - 0.03, Math.min(...ys) - 0.02, Math.max(...xs) + 0.03, Math.max(...ys) + 0.02]; };
-  setKnown([...(fd?.ferries || []).flatMap(boatsOf).map(F => ({ name: F.vessel, F, box: F.kind === 'ctc' ? nearLine(F) : null })), ...(wd?.windjammers || []).map(W => ({ name: W.name, W }))]);
+  setKnown(knownList(fd, wd));
   const here = P => P.some(([lo, la]) => inBay([lo, la]));   // (this bay's: v992)
   for (const F of (fd?.ferries || []).filter(F => here(ferryLine(F))).flatMap(boatsOf)) {
     const T = trackOf(ferryLine(F), wx, wz), group = (F.kind === 'launch' ? launchModel : (F.kind === 'cbl' || F.kind === 'ctc') ? cblModel : ferryModelSimple)(F, trafficLit); group.visible = false; scene.add(group);
@@ -1810,65 +1809,6 @@ if (uwBtn && uwPanel && !EMPTY) {
 const live = [];   // { kind: 'ais', mmsi, A (her last report), fix: {x, z, t}, group, boat?, trim?, L, x, z, h, on, what, label }
 let liveOK = false;
 const liveBtn = document.getElementById('livebtn'), LIVE_KEY = 'audiochart-bay3d-live';
-const LIVE_LEN = { sail: 11, power: 11, launch: 18, ferry: 46, cruise: 200, ship: 150, tanker: 150, tug: 28, pilot: 16, cargo: 140, trawler: 26, research: 45, dredger: 50, cutter: 30, scalloper: 26, cable: 120, osv: 80 };
-// a cargo ship (AIS type 70–79) is a container ship or a bulk carrier, which AIS doesn't say (v1002): her record's
-// kind, else her operator's (Eimskip's are container ships), else where she's bound (Searsport and Bucksport take
-// bulk), else her shape (a bulker is the beamier, for her length), else a container ship, Portland's usual caller
-function cargoKind(A, S, liv) {
-  if (S?.kind === 'container' || S?.kind === 'bulk' || S?.kind === 'pcc') return S.kind;
-  if (liv?.kinds?.length) return ['bulk', 'pcc'].includes(liv.kinds[0]) ? liv.kinds[0] : 'container';
-  // a car carrier, by the names the big lines give theirs (K Line's "… Highway", MOL's "… Ace", NYK's "… Leader",
-  // Eukor's "Morning …", Höegh's, Glovis's), v1003
-  if (/HIGHWAY|\bACE$|\bLEADER$|^MORNING |^HOEGH |GLOVIS|AUTO(LINER|STAR|BANNER|SKY|PRIDE)/i.test(A.name || '')) return 'pcc';
-  if (/SEARS|BUCKSP|MACK ?P/i.test(A.dest || '')) return 'bulk';
-  if (A.L && A.B && A.B / A.L > 0.158) return 'bulk';
-  return 'container';
-}
-// a tanker (AIS 80–89) carrying gas is an LPG carrier: her record or operator says so, or her name does (v1003)
-function tankerKind(A, S, liv) {
-  if (S?.kind === 'lpg' || liv?.kinds?.[0] === 'lpg') return 'lpg';
-  return /\b(GAS|LPG|LNG|PROPANE|BUTANE|ETHYLENE)\b|GAS$/i.test(A.name || '') ? 'lpg' : 'tanker';
-}
-// a research vessel, which AIS has no type for (v1004): her record says so, or her name (R/V …, NOAA ships)
-const RESEARCH = /^(R\/?V|RV|NOAAS?)\b|\bRESEARCH\b|^HENRY B\.? ?BIGELOW|^GORDON GUNTER|^PISCES$|^ENDEAVOR$/i;
-// a sea scalloper (v1006), which AIS calls a fishing vessel like any other: her record says so, or she's bound for
-// a scallop port, or she's as beamy as a scalloper is for her length and short of a big trawler's (a guess)
-const scalloper = (A, S) => S?.kind === 'scalloper' || /NEW ?BEDFORD|FAIRHAVEN|CAPE ?MAY/i.test(A.dest || '') || !!(A.L && A.B && A.L < 35 && A.B / A.L >= 0.32);
-// a cable ship by her name (v1006): CS …, "CABLE", and the fleets' own names (SubCom's, Global Marine's, Orange Marine's)
-const CABLE = /^C\.?S\.? |\bCABLE\b|^(GLOBAL (SENTINEL|SYMPHONY|MARINER|CITIZEN|ODYSSEY|SURVEYOR)|ILE DE (BREHAT|SEIN|BATZ|RE)|LEON THEVENIN|RAYMOND CROZE|PIERRE DE FERMAT|SOPHIE GERMAIN|DECISIVE|RELIANCE|RESOLUTE|DEPENDABLE|DURABLE|RESPONDER)$/i;
-// an offshore supply vessel by her name (v1007), whatever type her AIS gives (most send 90, "other", or a tug's):
-// the fleets' prefixes (Hornbeck's HOS, Harvey Gulf's, Seacor's, Bourbon's, Siem's, Solstad's Normand, Havila's,
-// DOF's Skandi), or SUPPLY, SUPPLIER, OFFSHORE, ANCHOR HANDLER in her name
-const OSV = /^(HOS|HARVEY|SEACOR|BOURBON|SIEM|NORMAND|HAVILA|SKANDI)\b|\b(SUPPL(Y|IER)|OFFSHORE|ANCHOR HANDLER|AHTS|PSV)\b/i;
-// a Coast Guard cutter by her name (v1005), whatever type her AIS gives
-const CUTTER = /^(USCGC|USCG|CGC)\b|\bCOAST ?GUARD\b|^(ABBIE BURGESS|MARCUS HANNA|IDA LEWIS|KATHERINE WALKER|JAMES RANKIN|JOSHUA APPLEBY|(THUNDER|MORRO|STURGEON|KATMAI|BRISTOL|MOBILE|BISCAYNE|NEAH|PENOBSCOT) BAY)$/i;   // (and the cutters by their own names: the keeper-class buoy tenders, the icebreaking tugs)
-function liveModel(A, cls, seed, K, W) {
-  // one of the ferries we know (K, her ferries.json record): built from it, so she's the scheduled one to the life (v987)
-  if (K) return { group: (K.kind === 'launch' ? launchModel : (K.kind === 'cbl' || K.kind === 'ctc') ? cblModel : ferryModelSimple)(K, trafficLit), L: K.length_m || (K.kind === 'launch' ? 14 : 46) };
-  // one of the windjammers (W, her windjammers.json record, v990): Angelique and Bowdoin as themselves, the
-  // others as the fleet's schooner brought to her length on deck
-  if (W) {
-    const boat = makeSailboat(W.model || 'schooner', seed);
-    if (!W.model && W.lod_ft) { const k = W.lod_ft * 0.3048 / boat.L; for (const c of boat.group.children) c.scale.multiplyScalar(k); boat.L *= k; }
-    return { boat, group: boat.group, L: boat.L, trim: makeTrimmer() };
-  }
-  const L = A.L || LIVE_LEN[cls.model];
-  if (cls.model === 'sail' || cls.model === 'power') {
-    const boat = makeSailboat(cls.model === 'power' ? 'lobster' : L > 20 ? 'schooner' : L > 9.5 ? 'cruiser' : L > 7 ? 'pocket' : 'daysailer', seed);
-    return { boat, group: boat.group, L: boat.L, trim: cls.model === 'sail' ? makeTrimmer() : null };
-  }
-  // a tanker, tug or pilot boat as her kind, in her owner's colours, her particulars where we have them (v1001)
-  if (['tanker', 'tug', 'pilot', 'cargo', 'trawler', 'research', 'dredger', 'cutter', 'scalloper', 'cable', 'osv'].includes(cls.model)) {
-    const { S, liv } = shipFor(A.mmsi, A.name), V = { L, B: A.B || S?.B, D: S?.D, T: A.draught, name: S?.name || A.name, boat: S?.boat };
-    const kind = cls.model === 'cargo' ? cargoKind(A, S, liv) : cls.model === 'tanker' ? tankerKind(A, S, liv) : cls.model;
-    return { group: { tanker: tankerModel, lpg: lpgModel, tug: tugModel, pilot: pilotModel, container: containerModel, bulk: bulkModel, pcc: carCarrierModel, trawler: trawlerModel, research: researchModel, dredger: dredgerModel, cutter: cutterModel, scalloper: scallopModel, cable: cableModel, osv: osvModel }[kind](V, liv, trafficLit), L };
-  }
-  const group = cls.model === 'launch' ? launchModel({ length_m: clamp(L, 9, 40), name: A.name }, trafficLit)
-    : cls.model === 'ferry' ? ferryModelSimple({ length_m: L, name: A.name }, trafficLit)
-    : cls.model === 'cruise' ? cruiseShipModel({ length_m: L, beam_m: A.B || L * 0.13 }, trafficLit)
-    : merchantModel({ length_m: L, beam_m: A.B, tanker: A.type >= 80 && A.type <= 89 }, trafficLit);
-  return { group, L: cls.model === 'launch' ? clamp(L, 9, 40) : L };
-}
 // a boat whose AIS puts her ashore (v997, reported: "The Chebeague water taxi is showing up on land" — she was, by her
 // own AIS, hauled out up on Chebeague with her set still on): high ground under her and all round her, so not a boat
 // alongside a pier or at the water's edge, where the elevation data or her GPS can be a little out. Her name stays
@@ -1880,19 +1820,11 @@ function liveData(snap) {
     if (A.lon < OVERVIEW[0] || A.lon > OVERVIEW[2] || A.lat < OVERVIEW[1] || A.lat > OVERVIEW[3]) continue;
     seen.add(A.mmsi);
     let v = live.find(o => o.mmsi === A.mmsi);
-    const kn0 = knownFor(A.name, A.lon, A.lat), K = kn0?.F;   // one of the ferries: a ferry, her length known, before her static data comes
-    // one of the windjammers, unless what she says she is rules it out (a lobster boat or tug of the same name)
-    const W = kn0?.W && !(A.type >= 30 && A.type <= 35 || A.type >= 50 && A.type <= 59 || A.type >= 70 && A.type <= 89) ? kn0.W : null;
-    if (K && !A.L) A.L = K.length_m || 46;
-    const S = !K && !W ? shipFor(A.mmsi, A.name).S : null;   // one of the ships we have particulars for (data/ships.json, v1001)
-    if (S) { if (!A.L) A.L = S.L; if (!A.B) A.B = S.B; }
-    let cls = K ? { model: K.kind === 'launch' || A.L < 25 ? 'launch' : 'ferry', what: K.says || 'Ferry' }
-      : W ? { model: 'sail', what: `${W.model === 'bowdoin' ? 'Schooner' : 'Windjammer'}, out of ${W.port}` } : S && !A.type ? { model: S.kind, what: S.what } : RESEARCH.test(A.name || '') || S?.kind === 'research' ? { model: 'research', what: S?.what || 'Research vessel' } : CUTTER.test(A.name || '') ? { model: 'cutter', what: 'Coast Guard cutter' } : CABLE.test(A.name || '') || S?.kind === 'cable' ? { model: 'cable', what: S?.what || 'Cable ship' } : (OSV.test(A.name || '') && !(A.L && A.L < 40)) || S?.kind === 'osv' ? { model: 'osv', what: S?.what || 'Offshore supply vessel' } : aisClass(A.type, A.L);
-    if (cls.model === 'trawler' && scalloper(A, S)) cls = { model: 'scalloper', what: 'Scalloper' };
+    const { K, W, S, cls } = identify(A);
     let was = null;   // (her card and following go over to her new self: v1000)
     if (v && (v.model !== cls.model || v.K !== K || v.W !== W)) { was = { card: cardV === v, follow: follow === v }; dropLive(v); v = null; }   // her static data came in: what she is changed
     if (!v) {
-      const m = liveModel(A, cls, Number(A.mmsi) % 9973, K, W);
+      const m = liveModel(A, cls, Number(A.mmsi) % 9973, K, W, trafficLit);
       v = { kind: 'ais', mmsi: A.mmsi, model: cls.model, K, W, ...m, x: wx(A.lon), z: wz(A.lat), h: A.hdg ?? A.cog ?? 0, on: false, label: '' };
       m.group.visible = false; scene.add(m.group); live.push(v);
       if (was?.card) { cardV = v; if (aisCard) aisCard.hidden = false; } if (was?.follow) follow = v;
@@ -1911,6 +1843,7 @@ function liveData(snap) {
   for (const v of [...live]) if (!seen.has(v.mmsi)) dropLive(v);
   liveOK = live.length > 0;
 }
+window.__live = () => live.map(v => ({ mmsi: v.mmsi, name: v.A.name, lat: latOf(v.z), lon: lonOf(v.x), sog: v.A.sog, age: v.A.age }));   // (for checking from a script that they move)
 function dropLive(v) {
   if (nest.on && nest.v === v) leaveRide();
   if (follow === v) stopFollow();
