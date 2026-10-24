@@ -7515,8 +7515,9 @@ function _hideVj3d() {
 // Empty Bay (v928) is the same view with the water drained away (bay3d.html?empty=1), a map type of its own;
 // _bay3dEmpty says which of the two is (or was last) up, so reopening keeps it.
 let _bay3dEmpty = false;
-function _showBay3d(empty = _bay3dEmpty) {
+function _showBay3d(empty = _bay3dEmpty, extra = '') {
   _ensureMap();
+  _clearVesselPin();
   _bay3dEmpty = empty;
   if (!_bay3dWrap) {
     _bay3dWrap = document.createElement('div');
@@ -7543,7 +7544,7 @@ function _showBay3d(empty = _bay3dEmpty) {
     try { localStorage.setItem('audiochart-bay3d-editing', JSON.stringify({ name: _editRouteName || 'Route', points: _editPoints })); } catch (_) {}
   }
   if (!rid) { try { rid = JSON.parse(localStorage.getItem(ROUTE_KEY) || '[]').filter(r => !_hiddenRouteNames.has(r.name)).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0]?.id || ''; } catch (_) {} }
-  _load3d(_bay3dWrap, `./bay3d.html?embed=1&lat=${lat.toFixed(5)}&lon=${lon.toFixed(5)}&dist=${dist}${turn}${rid ? `&route=${encodeURIComponent(rid)}` : ''}${empty ? '&empty=1' : ''}`, empty ? 'Empty Bay' : "Bird's-eye");
+  _load3d(_bay3dWrap, `./bay3d.html?embed=1&lat=${lat.toFixed(5)}&lon=${lon.toFixed(5)}&dist=${dist}${turn}${rid ? `&route=${encodeURIComponent(rid)}` : ''}${empty ? '&empty=1' : ''}${extra}`, empty ? 'Empty Bay' : "Bird's-eye");
   _bay3dWrap.style.top = (document.getElementById('status-title-bar')?.offsetHeight || 26) + 'px';
   _bay3dWrap.hidden = false;
   _appEl.classList.add('bay3d-on');
@@ -7633,6 +7634,36 @@ function _hideBay3d() {
   _syncLayerBtn(); _syncMapModeTitle();
   const z0 = _map.getZoom(); document.getElementById('zoom-slider').value = z0; document.getElementById('zoom-slider-label').textContent = z0;
   frame.src = 'about:blank';   // frees the GPU memory the 3D view holds
+}
+
+// A vessel from Bird's-eye on the chart (v1000, requested: "when I look at a tracked vessel in birdseye view, it is
+// difficult to really see where she is … be able to flip over to chart view"): her 🗺 Chart button brings her here,
+// a ringed pin with her name where she was, dashed lines out to the marks her card named with their bearings and
+// ranges, and ↩ Bird's-eye back to the very view you left, her card open again and following her (a live vessel).
+let _vesselPin = null, _vesselBar = null;
+function _clearVesselPin() { if (_vesselPin) { _vesselPin.remove(); _vesselPin = null; } _vesselBar?.remove(); _vesselBar = null; }
+function _showVesselPin(o, back) {
+  _clearVesselPin();
+  const esc = t => String(t).replace(/[&<>"]/g, c => `&#${c.charCodeAt(0)};`);
+  const g = L.layerGroup().addTo(_map), at = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  for (const m of o.marks || []) {
+    L.polyline([[o.lat, o.lon], [m.lat, m.lon]], { color: '#d9a52b', weight: 2, dashArray: '6 5', interactive: false }).addTo(g);
+    L.circleMarker([m.lat, m.lon], { radius: 4, color: '#d9a52b', weight: 2, fillOpacity: 0.9, interactive: false }).addTo(g)
+      .bindTooltip(`${esc(m.n)} · ${esc(m.text)}`, { permanent: true, direction: 'right', className: 'vessel-mark-tip' });
+  }
+  const pin = L.marker([o.lat, o.lon], { icon: L.divIcon({ className: 'vessel-pin', html: '<span></span>', iconSize: [26, 26], iconAnchor: [13, 13] }), zIndexOffset: 1000 }).addTo(g);
+  pin.bindTooltip(`📡 ${esc(o.name)}`, { permanent: true, direction: 'top', offset: [0, -12], className: 'vessel-pin-tip' });
+  pin.bindPopup(`<b>${esc(o.name)}</b><br><small>here at ${at}</small>${(o.marks || []).map(m => `<br>${esc(m.n)} bears ${esc(m.text)}`).join('')}`);
+  _vesselPin = g;
+  // a bar over the chart: who she is, and the way back
+  _vesselBar = document.createElement('div');
+  _vesselBar.id = 'vessel-bar';
+  _vesselBar.innerHTML = `<b>📡 ${esc(o.name)}</b> <small>here at ${at}</small><button type="button" data-a="back">↩ Bird's-eye</button><button type="button" data-a="clear" title="Take her off the chart">✕</button>`;
+  _vesselBar.querySelector('[data-a=back]').addEventListener('click', back);
+  _vesselBar.querySelector('[data-a=clear]').addEventListener('click', _clearVesselPin);
+  document.body.appendChild(_vesselBar);
+  const B = L.latLngBounds([[o.lat, o.lon], ...(o.marks || []).map(m => [m.lat, m.lon])]);
+  _map.fitBounds(B, { paddingTopLeft: [60, 110], paddingBottomRight: [200, 60], maxZoom: 16, animate: false });
 }
 
 // Tells an open 3D helm view (helm3d.html) where the Virtual Journey is, as a fraction of
@@ -8239,6 +8270,16 @@ window.__audioChartViews = {
     if (!fr) return false;
     _load3d(fr.parentElement, new URL(url, win.location.href).href, /bay3d/.test(url) ? "Bird's-eye" : /eye=100\b/.test(url) ? 'the Drone view' : 'the view from your boat', fr);
     setTimeout(_syncVjBay, 0);
+    return true;
+  },
+  // 🗺 Chart from a vessel in Bird's-eye (v1000): her pin on the chart, and back to Bird's-eye as you left it
+  showVessel: (win, o) => {
+    const fromBay = !!(_bay3dWrap && !_bay3dWrap.hidden && _bay3dWrap.querySelector('iframe').contentWindow === win);
+    window.__audioChartViews.chart();
+    _showVesselPin(o, () => {
+      if (fromBay && _bay3dLast) { const c = _map.getCenter(); Object.assign(_bay3dLast, { chartLat: c.lat, chartLon: c.lng, chartZoom: _map.getZoom() }); }
+      _showBay3d(_bay3dEmpty, o.mmsi ? `&vessel=${encodeURIComponent(o.mmsi)}` : '');
+    });
     return true;
   },
   hideBoatMenu: () => { if (_boatCtxMenu.style.display !== 'none') _hideBoatCtx(); },

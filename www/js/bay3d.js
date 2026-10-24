@@ -728,6 +728,46 @@ const buoys = navs.filter(f => BUOY_T.includes(f.properties.objtype)).map(f => (
 const litNavs = navs.filter(f => f.properties.objtype === 'LIGHTS').map(f => ({ x: wx(f.geometry.coordinates[0]), z: wz(f.geometry.coordinates[1]), fl: flashFor(f.properties.characteristic), name: f.properties.name, hgt: f.properties.height_m, sec: f.properties.sectors, only: !!f.properties.sector_only, lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] }));
 const lightsAshore = navs.filter(f => f.properties.objtype === 'LIGHTS').filter(f => !buoys.some(b => Math.hypot(b.x - wx(f.geometry.coordinates[0]), b.z - wz(f.geometry.coordinates[1])) < 40))
   .map(f => ({ x: wx(f.geometry.coordinates[0]), z: wz(f.geometry.coordinates[1]), y: Math.max(0, heightAt(...f.geometry.coordinates)) }));
+// ── Where she is (v1000, requested: "when I look at a tracked vessel in birdseye view, it is difficult to really
+// see where she is … put some bearings and range to known items"): the charted marks round a vessel, the nearest
+// first and the others spread round her as for a fix by hand-bearing compass, each with its magnetic bearing from
+// her and its range. Her card and the follow bar list them, and lines run out to them in the view.
+let MAGVAR = PENOBSCOT ? -15.3 : -15.0;
+getJSON(`./data/regions/${RID}.json`).then(r => { if (typeof r.magvar === 'number') MAGVAR = r.magvar; }).catch(() => {});
+const toMag = t => ((t - MAGVAR) % 360 + 360) % 360;
+const fixMarks = [];
+for (const f of navs) {   // named marks (a light, buoy or daybeacon), not one known only by its number
+  const n = f.properties.name;
+  if (n && /[a-z]{3}/.test(n) && !fixMarks.some(m => m.n === n)) fixMarks.push({ n, lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1], k: f.properties.objtype === 'LIGHTS' ? 0.7 : 1 });
+}
+for (const f of placesGJ.features) {   // headlands and islands
+  const o = f.properties.objtype, c = f.geometry?.coordinates;
+  if (f.geometry?.type === 'Point' && f.properties.name && (o === 'LNDRGN' || o === 'LNDARE') && inBay(c)) fixMarks.push({ n: f.properties.name, lon: c[0], lat: c[1], k: o === 'LNDRGN' ? 0.9 : 1.2 });
+}
+for (const m of fixMarks) { m.x = wx(m.lon); m.z = wz(m.lat); }
+function marksNear(x, z, n = 3) {
+  const out = [];
+  const c = fixMarks.map(m => ({ m, d: Math.hypot(m.x - x, m.z - z) })).filter(o => o.d > 40 && o.d < 6 * 1852).sort((a, b) => a.d * a.m.k - b.d * b.m.k);
+  for (const o of c) {
+    o.brg = (Math.atan2(o.m.x - x, -(o.m.z - z)) / DEG + 360) % 360;
+    if (out.some(p => Math.abs(((p.brg - o.brg + 540) % 360) - 180) < 35)) continue;   // a fix wants marks well apart
+    out.push(o); if (out.length === n) break;
+  }
+  return out;
+}
+const fixRange = d => d < 0.25 * 1852 ? `${Math.round(d / 0.9144 / 10) * 10} yd` : `${(d / 1852).toFixed(1)} nm`;
+const fixBrg = o => `${String(Math.round(toMag(o.brg)) % 360).padStart(3, '0')}°M`;
+const fixText = o => `${o.m.n} bears ${fixBrg(o)}, ${fixRange(o.d)}`;
+// 🗺 Chart (v1000, requested: "be able to flip over to chart view"): AudioChart's chart, centred on her with her
+// marks drawn, and a way back to this view. Only inside AudioChart, which has the chart.
+const chartHook = () => { try { return window.parent !== window && window.parent.__audioChartViews?.showVessel ? window.parent.__audioChartViews : null; } catch (_) { return null; } };
+function showOnChart(v) {
+  const hook = chartHook(); if (!hook) return;
+  hook.showVessel(window, {
+    lat: latOf(v.z), lon: lonOf(v.x), name: vName(v), mmsi: v.kind === 'ais' ? v.A.mmsi : null,
+    marks: marksNear(v.x, v.z).map(o => ({ n: o.m.n, lat: o.m.lat, lon: o.m.lon, text: `${fixBrg(o)}, ${fixRange(o.d)}` })),
+  });
+}
 const BUOY_COL = { red: 0xc23a2e, green: 0x2b8a4a, yellow: 0xe0b531 };
 const buoySets = Object.entries({ red: 0, green: 0, yellow: 0, other: 0 }).map(([k]) => {
   const list = buoys.filter(b => (BUOY_COL[b.c] ? b.c : 'other') === k);
@@ -1280,6 +1320,12 @@ if (followHud) {
   for (const ev of ['pointerdown', 'wheel', 'touchstart']) followHud.addEventListener(ev, e => e.stopPropagation(), { passive: true });
   for (const b of followHud.querySelectorAll('button[data-m]')) b.addEventListener('click', () => { if (follow) ride(follow, b.dataset.m); });
   document.getElementById('followstop').addEventListener('click', stopFollow);
+  const fc = document.getElementById('followchart');
+  fc.hidden = !chartHook(); fc.addEventListener('click', () => follow && showOnChart(follow));
+  setInterval(() => {   // her nearest mark, its bearing from her and range (v1000)
+    const el = document.getElementById('followfix'), v = !followHud.hidden && follow;
+    el.textContent = v ? (o => o ? `${o.m.n} bears ${fixBrg(o)}, ${fixRange(o.d)}` : '')(marksNear(v.x, v.z, 1)[0]) : '';
+  }, 1000);
 }
 syncFollowHud = function sync() {   // every frame: cheap unless who's followed changes
   if (!followHud) return;
@@ -1787,17 +1833,21 @@ function liveData(snap) {
     if (K && !A.L) A.L = K.length_m || 46;
     const cls = K ? { model: K.kind === 'launch' || A.L < 25 ? 'launch' : 'ferry', what: K.says || 'Ferry' }
       : W ? { model: 'sail', what: `${W.model === 'bowdoin' ? 'Schooner' : 'Windjammer'}, out of ${W.port}` } : aisClass(A.type, A.L);
-    if (v && (v.model !== cls.model || v.K !== K || v.W !== W)) { dropLive(v); v = null; }   // her static data came in: what she is changed
+    let was = null;   // (her card and following go over to her new self: v1000)
+    if (v && (v.model !== cls.model || v.K !== K || v.W !== W)) { was = { card: cardV === v, follow: follow === v }; dropLive(v); v = null; }   // her static data came in: what she is changed
     if (!v) {
       const m = liveModel(A, cls, Number(A.mmsi) % 9973, K, W);
       v = { kind: 'ais', mmsi: A.mmsi, model: cls.model, K, W, ...m, x: wx(A.lon), z: wz(A.lat), h: A.hdg ?? A.cog ?? 0, on: false, label: '' };
       m.group.visible = false; scene.add(m.group); live.push(v);
+      if (was?.card) { cardV = v; if (aisCard) aisCard.hidden = false; } if (was?.follow) follow = v;
     }
     v.A = A; v.what = cls.what;
     v.fix = { x: wx(A.lon), z: wz(A.lat), t: now - (A.age || 0) * 1000 };
     const st = aisStatus(A.status), kn = A.sog || 0;
     v.ashore = ashoreAt(A.lon, A.lat);
     v.label = `${cls.what}${v.ashore ? ', ashore (hauled out?)' : st && st !== 'under way' ? ', ' + st : ''}${kn >= 0.5 ? `, ${kn.toFixed(kn < 10 ? 1 : 0)} kn` : ''}`;
+    // back from 🗺 Chart (v1000, ?vessel=<mmsi>): her card again, and following her
+    if (params.get('vessel') === String(A.mmsi)) { params.delete('vessel'); setTimeout(() => { showCard(v); follow = v; }, 0); }
   }
   for (const v of [...live]) if (!seen.has(v.mmsi)) dropLive(v);
   liveOK = live.length > 0;
@@ -1855,9 +1905,24 @@ if (liveBtn && !EMPTY) {   // (the relay listens to both bays: relay/ais/core.mj
     syncLiveBtn();
   });
   let was = false; try { was = localStorage.getItem(LIVE_KEY) === '1'; } catch (_) {}
-  if (was || params.has('ais')) liveFeed.start();
+  if (was || params.has('ais') || params.has('vessel')) liveFeed.start();
   setInterval(() => { if (liveFeed.on && liveBtn.dataset.state === 'live') syncLiveBtn('live'); }, 5000);
   syncLiveBtn();
+}
+
+// Lines out to her marks (v1000): from the vessel whose card is open, else the one you're following, to the
+// marks her card or the follow bar names, each labelled with its bearing from her and range.
+const fixLines = new THREE.LineSegments(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(18), 3)),
+  new THREE.LineBasicMaterial({ color: 0xffd27a, transparent: true, opacity: 0.9, depthTest: false }));
+fixLines.renderOrder = 10; fixLines.frustumCulled = false; fixLines.visible = false; scene.add(fixLines);
+let fixFor = null, fixList = [], fixAt = 0;
+function updateFixLines() {
+  const v = aisCard && !aisCard.hidden && cardV && live.includes(cardV) ? cardV : follow && !nest.on && follow !== own && vGroup(follow).visible ? follow : null;
+  if (!v) { fixLines.visible = false; fixFor = null; fixList = []; return; }
+  if (v !== fixFor || t - fixAt > 2) { fixFor = v; fixAt = t; fixList = marksNear(v.x, v.z, v === cardV ? 3 : 1); }
+  const P = fixLines.geometry.attributes.position, y = 3;
+  fixList.forEach((o, i) => { P.setXYZ(i * 2, v.x, y, v.z); P.setXYZ(i * 2 + 1, o.m.x, y, o.m.z); });
+  P.needsUpdate = true; fixLines.geometry.setDrawRange(0, fixList.length * 2); fixLines.visible = fixList.length > 0;
 }
 
 // ── A live vessel's AIS card (v988, requested: "if I click on a vessel you can bring up a table that shows you
@@ -1884,6 +1949,11 @@ if (aisCard) {
       flyTo({ x: v.x, z: v.z, dist: clamp(vLen(v) * 8, 250, 2500), tilt: 60 * DEG, az: ((v.h || 0) + 35) * DEG }, 2800);
       follow = v;
     });
+    go.appendChild(b);
+  }
+  if (chartHook()) {
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = '🗺 Chart'; b.title = 'Show her on the chart';
+    b.addEventListener('click', () => cardV && live.includes(cardV) && showOnChart(cardV));
     go.appendChild(b);
   }
   setInterval(fillCard, 2000);
@@ -1915,6 +1985,7 @@ function fillCard() {
   row('Bound for', aisDest(A.dest) || A.dest);
   if (A.eta) { const [md, hm] = A.eta.split(' '), [mo, dd] = md.split('-').map(Number); row('ETA', `${MON[mo - 1]} ${dd}${hm ? `, ${hm} UTC` : ''}`); }
   row('Position', `${aisPos(A.lat, A.lon)}${A.acc === true ? ' (±10 m)' : ''}${v.ashore ? ' — ashore: hauled out, or her AIS is wrong' : ''}`);
+  { const fx = marksNear(v.x, v.z); if (fx.length) row('Bearings', fx.map(o => fixText(o).replace(/[&<>]/g, c => `&#${c.charCodeAt(0)};`)).join('<br>'), true); }
   row('Last heard', aisAgo((Date.now() - v.fix.t) / 1000));
   const mine = own.r && own.boat.group.visible, fx = mine ? own.x : view.x, fz = mine ? own.z : view.z, d = Math.hypot(v.x - fx, v.z - fz);
   if (d > 30) row(mine ? 'From your boat' : 'From the view', `${(d / NMm).toFixed(d < 10 * NMm ? 1 : 0)} nm, ${deg3(Math.atan2(v.x - fx, -(v.z - fz)) / DEG)}° true`);
@@ -2331,6 +2402,7 @@ function updateLabels() {
       const d = Math.hypot(p.g.position.x - view.x, p.g.position.z - view.z);
       if (d < Math.max(view.dist * 2, 3000)) cand.push({ text: p.label, x: p.g.position.x, y: 4.6 * p.g.scale.x, z: p.g.position.z, cls: 'wpt', pri: 0.8 + d / Math.max(view.dist * 2, 3000) });
     }
+    for (const o of fixList) cand.push({ text: `${o.m.n} · ${fixBrg(o)}, ${fixRange(o.d)}`, x: o.m.x, y: Math.max(6, heightAt(o.m.lon, o.m.lat) + 6), z: o.m.z, cls: 'wpt', pri: 0.5 });   // her marks (v1000)
     if (aboveFog) { const top = FOG_TOP[env.C.vis]; cand = cand.filter(c => c.cls === 'town' || c.y - 6 > top); }   // names under the fog bank don't show
     cand.sort((a, b) => a.pri - b.pri);
   }
@@ -2405,7 +2477,7 @@ function frame(now) {
   if (nest.on) nestCamera();   // after every vessel has moved, yours too
   if (nest.on || !rcEl?.hidden) drawRideChart();
   wildlife.update(dt, t, view, camera.position, { hidden: !!aboveFog || EMPTY, night: env.C.time === 'night', boat: (own.ext || own.r) ? own : null, scale: d => clamp(d / 35, 3, 8) });
-  syncFollowHud();
+  syncFollowHud(); updateFixLines();
   if (follow && !anim && !nest.on) { const k = Math.min(1, dt * 4); view.x += (follow.x - view.x) * k; view.z += (follow.z - view.z) * k; }
   renderer.render(scene, camera);
   updateLabels(); updateReadout();

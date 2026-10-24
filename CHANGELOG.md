@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-10-24 — Where a vessel is: bearings to marks, and 🗺 Chart (v1000)
+
+Requested: "when I look at a tracked vessel in birdseye view, it is difficult to really see where she is … flip over
+to chart view, or perhaps put some bearings and range to known items".
+- A live vessel's AIS card lists **Bearings**: three charted marks round her (named lights, buoys and daybeacons,
+  headlands, islands), the nearest first and the others at least 35° apart as for a fix, each with its magnetic
+  bearing from her (the region's variation) and range. Gold lines run out to them in the view, each mark labelled.
+  The follow bar shows her nearest mark the same way, for any vessel you follow.
+- **🗺 Chart** on her card and on the follow bar (inside AudioChart): the chart, fitted to her and her marks, a
+  ringed pin where she was with dashed lines to the marks, and a bar with **↩ Bird's-eye** back to the view you
+  left, her card open again and following her. ✕ takes her off the chart.
+- A live vessel whose static data arrives (and so is rebuilt as what she is) keeps her open card and being followed.
+
 ## 2026-10-24 — South Freeport and Bustins Island in 3D (v999)
 
 Buildings for the Lilly B's two ends: South Freeport village and its town wharf (292), and Bustins Island (203), from

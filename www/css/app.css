@@ -4975,3 +4975,12 @@ body.wco-active #underway-btn { top: 10px; }
 #app.clear-view #clear-view-btn { background: var(--brass, #c9a04a); color: #1b1408; }
 #app.clear-view:is(.underway-mode, .vjourney-active) :is(#map-overlay-cmd, #map-overlay-status, #navaid-filter-panel, #left-rail-zoom-pan,
   #tilt-slider-wrap, #cmd-open-btn, #map-version-label, .follow-progress-ctrl, #card-stack-handle) { display: none !important; }
+
+/* a vessel brought over from Bird's-eye (v1000): a ringed pin, her name, her marks */
+.vessel-pin span { display: block; width: 26px; height: 26px; box-sizing: border-box; border-radius: 50%; border: 3px solid #e8482f; background: rgba(232, 72, 47, 0.25); box-shadow: 0 0 0 2px #fff; animation: vessel-pin-pulse 1.6s ease-out infinite; }
+@keyframes vessel-pin-pulse { 0% { box-shadow: 0 0 0 2px #fff, 0 0 0 2px rgba(232, 72, 47, 0.6); } 100% { box-shadow: 0 0 0 2px #fff, 0 0 0 16px rgba(232, 72, 47, 0); } }
+.vessel-pin-tip { font-weight: 600; }
+.vessel-mark-tip { font-size: 11px; padding: 1px 5px; }
+#vessel-bar { position: fixed; top: calc(70px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); z-index: 1500; max-width: calc(100vw - 32px); box-sizing: border-box; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: rgba(18, 13, 8, 0.94); color: #f1e6cf; border: 1px solid var(--brass-dim); border-radius: 8px; padding: 6px 10px; font-size: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.6); }
+#vessel-bar small { opacity: 0.75; }
+#vessel-bar button { font: inherit; color: inherit; background: rgba(255,255,255,0.12); border: 0; border-radius: 4px; padding: 4px 10px; cursor: pointer; }
