@@ -29,6 +29,7 @@ const fakes = [
   { mmsi: '366000003', name: 'MARY DAY', type: 36, L: 32, B: 7, dest: 'CAMDEN', path: [[44.2, -69.04], [44.17, -68.97], [44.21, -68.93], [44.2, -69.04]], kn: 6 },
   { mmsi: '366000004', name: 'PATRIOT', type: 30, L: 12, B: 4, dest: '', path: [[44.08, -69.04], [44.07, -69.02], [44.075, -69.0], [44.08, -69.04]], kn: 4 },
   { mmsi: '366000006', name: 'SCHOONER LEWIS R FRENCH', type: 36, L: 31, B: 6, dest: 'CAMDEN', path: [[44.19, -69.0], [44.16, -68.95]], kn: 5 },
+  { mmsi: '366000007', name: 'MAQUOIT II', type: 60, L: 30, B: 9, dest: 'CLIFF ISLAND', path: [[43.6566, -70.2468], [43.6705, -70.1995], [43.6897, -70.1686]], kn: 11 },   // (Casco Bay, v994)
   { mmsi: '366000005', name: 'GRACE MCALLISTER', type: 52, L: 30, B: 10, dest: 'ROCKLAND', path: [[44.095, -69.07], [44.095, -69.07]], kn: 0 },
 ];
 const t0 = Date.now();

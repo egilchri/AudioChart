@@ -1,4 +1,4 @@
-/** @version v993 */
+/** @version v994 */
 /* Bump this comment on every release, even when nothing else in this file
    changes — a service worker only gets reinstalled when its own script
    bytes differ from what's currently active (see the v505 fix), so a

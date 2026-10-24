@@ -1839,7 +1839,7 @@ function syncLiveBtn(state = liveBtn?.dataset.state || 'off', note = '') {
   liveBtn.title = !liveFeed.on ? 'Show the vessels in the bay right now, from their AIS (needs an internet connection)'
     : state === 'offline' ? `${note || 'Live AIS is unavailable'}. Tap to turn Live off.` : state === 'live' ? `${live.length} vessels broadcasting AIS in the bay now. Tap to turn Live off.` : `${note || 'Listening for ships…'} Tap to turn Live off.`;
 }
-if (liveBtn && !EMPTY && PENOBSCOT) {   // (the relay listens to Penobscot Bay only so far: relay/ais/core.mjs BOX)
+if (liveBtn && !EMPTY) {   // (the relay listens to both bays: relay/ais/core.mjs BOXES; each bay shows its own, by OVERVIEW)
   liveBtn.hidden = false;
   liveBtn.addEventListener('click', () => {
     if (liveFeed.on) liveFeed.stop(); else { liveFeed.start(); if (!boatClock) setClock(realMin(), 1, false); }   // live is now: the clock to now

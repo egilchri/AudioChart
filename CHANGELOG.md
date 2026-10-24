@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-23 — Live AIS in Casco Bay (v994)
+
+The AIS relay now listens to Casco Bay as well as Penobscot Bay (`relay/ais/core.mjs` BOXES, one upstream
+connection; Worker redeployed), and Bird's-eye's 📡 Live shows in Casco, each bay listing only its own vessels. Casco
+Bay Lines boats broadcasting their names are drawn as themselves. `relay/ais/dev.mjs --fake` has a Casco vessel.
+
 ## 2026-10-23 — Casco Bay Lines ferries in Bird's-eye (v993)
 
 Casco Bay in Bird's-eye now has the Casco Bay Lines ferries, run to the company's published timetables (all four

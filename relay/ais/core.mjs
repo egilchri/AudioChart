@@ -3,10 +3,13 @@
 // connect (the account key would be in the page), so the relay holds the key, keeps one upstream connection for
 // the bay, and serves the vessels it has heard as JSON.
 
-// Penobscot Bay and its approaches, a little wider than Bird's-eye's overview ([lat, lon] corners)
+// Penobscot Bay and its approaches, and Casco Bay (v994), each a little wider than Bird's-eye's overview of it
+// ([lat, lon] corners; www/js/regions3d.js). One upstream connection listens to both.
 export const BOX = [[43.6, -69.6], [44.9, -67.8]];
+export const CASCO_BOX = [[43.4, -70.6], [44.05, -69.6]];
+export const BOXES = [BOX, CASCO_BOX];
 export const TYPES = ['PositionReport', 'StandardClassBPositionReport', 'ExtendedClassBPositionReport', 'ShipStaticData', 'StaticDataReport'];
-export const subscription = key => JSON.stringify({ APIKey: key, BoundingBoxes: [BOX], FilterMessageTypes: TYPES });
+export const subscription = key => JSON.stringify({ APIKey: key, BoundingBoxes: BOXES, FilterMessageTypes: TYPES });
 
 const MOVING_KEEP = 15 * 60e3, STILL_KEEP = 40 * 60e3;   // a vessel not heard from in this long is dropped
 const clean = s => typeof s === 'string' ? s.replace(/@+$/, '').replace(/\s+/g, ' ').trim() : '';
