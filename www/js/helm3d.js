@@ -9,7 +9,7 @@ import { depthAtFrom } from './depth.js';
 import { LON0, LAT0, MX, MY, wx, wz, cachedFetch, readDem, photo, photoAtCells, addCanopy, gridMesh, photoMat, buildTown, spruce, tlog, tmark, TOWN_NIGHT } from './terrain3d.js';
 import { makeWildlife, ledgesFrom } from './wildlife3d.js';
 import { makeAngelique, ANGELIQUE, makeBowdoin, BOWDOIN } from './angelique3d.js';
-import { callsOn, ferryLine, cruiseShipModel, launchModel, ferryModelSimple } from './vessels.js';
+import { callsOn, ferryLine, cruiseShipModel, launchModel, ferryModelSimple, cblModel } from './vessels.js';
 import { makeSky, makeEnv, glowSprite, flashFor, sectorColour, weatherPanel, startConditions, makeTrimmer, cycleLook } from './weather3d.js';
 
 const statusEl = document.getElementById('status');
@@ -1033,8 +1033,8 @@ function updateWaypoints(pos) {
 // Cruise ships (v933) come the same way, on a call day (vessels.js), on the track the router planned at
 // her draft: unseen until she comes in from the sea, then at anchor (or alongside) once she's there.
 const ferries = [];
-function ferryModel(F) {   // a Maine State Ferry Service car ferry: vessels.js's (v950: its lofted hull), with the helm view's sector lights
-  const g = ferryModelSimple(F, litMats), Lt = g.userData.lights;
+function ferryModel(F, model = ferryModelSimple) {   // a Maine State Ferry Service car ferry: vessels.js's (v950: its lofted hull), with the helm view's sector lights (or a Casco Bay Lines boat, v993)
+  const g = model(F, litMats), Lt = g.userData.lights;
   runLight(g, Lt.mast, 0xfff2d6, 0, 112.5, null, 0.018);
   runLight(g, Lt.port, 0xff3b2e, -SIDE, SIDE, null, 0.018);
   runLight(g, Lt.stbd, 0x3dff7a, SIDE, SIDE, null, 0.018);
@@ -1087,7 +1087,7 @@ function stageOnLine(F) {
       fy.dir = F.cruise ? 1 : (Math.round(c.s / 50) % 2) ? 1 : -1; fy.sCross = c.s - 400;
     }
     fy.label = F.cruise ? '' : `${F.says || 'Ferry'} to ${fy.dir > 0 ? F.to : F.from}`;   // (she is F.vessel; the label says where she's bound)
-    fy.group = F.cruise ? cruiseShipModel(F.V, litMats) : F.kind === 'launch' ? launchModel(F, litMats) : ferryModel(F); scene.add(fy.group);
+    fy.group = F.cruise ? cruiseShipModel(F.V, litMats) : F.kind === 'launch' ? launchModel(F, litMats) : ferryModel(F, F.kind === 'cbl' ? cblModel : ferryModelSimple); scene.add(fy.group);
     for (const m of litMats) m.emissiveIntensity = lightsK;
     ferries.push(fy);
     console.log(`[helm3d] ${F.name}: ${along > 0.8 || along < -0.8 ? 'meets' : 'crosses'} the route ${(c.s / NM).toFixed(1)} nm in, ${(c.d / NM).toFixed(2)} nm from its line`);

@@ -17,7 +17,7 @@ import { makeSailboat, fleetType } from './sailboat3d.js';
 import { makeAngelique, makeBowdoin } from './angelique3d.js';
 import { makeWildlife, ledgesFrom } from './wildlife3d.js';
 import { makeMoorings } from './moorings3d.js';
-import { callsOn, trackOf, alongTrack, cruiseState, ferryState, ferryDepartures, ferryLine, ferrySlipModel, terminalLot, terminalHouse, cruiseShipModel, ferryModelSimple, launchModel, merchantModel, mins } from './vessels.js';
+import { callsOn, trackOf, alongTrack, cruiseState, ferryState, ferryDepartures, ferryLine, ferrySlipModel, terminalLot, terminalHouse, cruiseShipModel, ferryModelSimple, launchModel, cblModel, merchantModel, mins } from './vessels.js';
 import { REGIONS3D, REGION3D_KEY, regions3dOffered } from './regions3d.js';
 import { makeAisFeed, aisClass, aisStatus, aisName, aisDest, setKnown, knownFor, aisFlag, aisRot, aisPos, aisAgo, aisLookup, aisImo, aisCallsign } from './ais.js';
 
@@ -979,7 +979,7 @@ const nestOK = ['nesthud', 'nestrep', 'crowsnest', 'nestdown', 'nestreport', 'bo
 const vGroup = v => v.group || v.boat.group;
 let syncFollowHud = () => {};   // (the follow bar, below)
 const RIDE_BTNS = [['ridehelm', 'helm'], ['ridedrone', 'drone'], ['ridestern', 'stern'], ['rideside', 'side'], ['ridebow', 'bow'], ['ridenest', 'nest']];
-const titleCase = t => t.toLowerCase().replace(/(^|[\s.'-])[a-z]/g, c => c.toUpperCase());
+const titleCase = t => t.toLowerCase().replace(/(^|[\s.'-])[a-z]/g, c => c.toUpperCase()).replace(/\b(Ii|Iii|Iv)\b/g, r => r.toUpperCase());   // (Maquoit II, Aucocisco III: v993)
 function vName(v) {
   if (v === own) return OWN_NAME;
   if (v === bowdoin) return 'Bowdoin';
@@ -1249,7 +1249,7 @@ function lookoutReport() {
   for (const t of townList) add(t.short, t.x, t.z, 15, 1);
   for (const p of places) if (p.elev) add(p.n, p.x, p.z, p.elev, 2);
   for (const o of fleet) if (o !== b && Math.hypot(o.x - ex, o.z - ez) < 6 * NMm) add(o === bowdoin ? 'the schooner Bowdoin' : KIND[o.boat.type] || 'a vessel', o.x, o.z, o.boat.L > 20 ? 25 : 8, 3);   // vessels within 6 nm
-  for (const o of traffic) if (o !== b && o.on && Math.hypot(o.x - ex, o.z - ez) < 8 * NMm) add(o.kind === 'ferry' ? `the ${(o.F.says || 'ferry').toLowerCase()} ${titleCase(o.F.vessel || '')}`.trim() : `a ${o.V.name}`, o.x, o.z, o.kind === 'cruise' ? 50 : 12, 3);
+  for (const o of traffic) if (o !== b && o.on && Math.hypot(o.x - ex, o.z - ez) < 8 * NMm) add(o.kind === 'ferry' ? `the ${o.F.kind === 'cbl' ? 'Casco Bay Lines ferry' : (o.F.says || 'ferry').toLowerCase()} ${titleCase(o.F.vessel || '')}`.trim() : `a ${o.V.name}`, o.x, o.z, o.kind === 'cruise' ? 50 : 12, 3);
   for (const o of live) if (o !== b && o.on && Math.hypot(o.x - ex, o.z - ez) < 8 * NMm) add(`the ${o.what.toLowerCase()} ${aisName(o.A)}`, o.x, o.z, o.L > 100 ? 40 : o.L > 25 ? 14 : 6, 3);
   if (b !== own && own.r && own.boat.group.visible) add('your boat', own.x, own.z, 8, 3);
   const pickN = (rank, n) => seen.filter(o => o.rank === rank).sort((p, q) => p.d - q.d).slice(0, n);
@@ -1361,10 +1361,12 @@ function lightForClock() {   // the weather panel's time of day, from where the 
 const hhmm = m => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(Math.floor(m % 60)).padStart(2, '0')}`;
 if (!EMPTY) Promise.all([getJSON('./data/ferries.json').catch(() => null), getJSON('./data/cruise_ships.json').catch(() => null), getJSON('./data/windjammers.json').catch(() => null)]).then(([fd, cd, wd]) => {
   // (live AIS: the ferries' and the windjammers' full names, and what they are)
-  setKnown([...(fd?.ferries || []).map(F => ({ name: F.vessel, F })), ...(wd?.windjammers || []).map(W => ({ name: W.name, W }))]);
+  // (a ferry run to a timetable has several boats, each her own name and length: F.boats, v993)
+  const boatsOf = F => F.boats ? F.boats.map((b, bi) => ({ ...F, ...b, bi })) : [F];
+  setKnown([...(fd?.ferries || []).flatMap(boatsOf).map(F => ({ name: F.vessel, F })), ...(wd?.windjammers || []).map(W => ({ name: W.name, W }))]);
   const here = P => P.some(([lo, la]) => inBay([lo, la]));   // (this bay's: v992)
-  for (const F of (fd?.ferries || []).filter(F => here(ferryLine(F)))) {
-    const T = trackOf(ferryLine(F), wx, wz), group = (F.kind === 'launch' ? launchModel : ferryModelSimple)(F, trafficLit); group.visible = false; scene.add(group);
+  for (const F of (fd?.ferries || []).filter(F => here(ferryLine(F))).flatMap(boatsOf)) {
+    const T = trackOf(ferryLine(F), wx, wz), group = (F.kind === 'launch' ? launchModel : F.kind === 'cbl' ? cblModel : ferryModelSimple)(F, trafficLit); group.visible = false; scene.add(group);
     traffic.push({ kind: 'ferry', F, T, group, L: F.length_m || 46, x: T.P[0][0], z: T.P[0][1], on: false, label: '' });
   }
   for (const call of callsOn(cd, new Date(), FORCE_CRUISE).filter(c => here(c.track))) {
@@ -1747,7 +1749,7 @@ const liveBtn = document.getElementById('livebtn'), LIVE_KEY = 'audiochart-bay3d
 const LIVE_LEN = { sail: 11, power: 11, launch: 18, ferry: 46, cruise: 200, ship: 150 };
 function liveModel(A, cls, seed, K, W) {
   // one of the ferries we know (K, her ferries.json record): built from it, so she's the scheduled one to the life (v987)
-  if (K) return { group: (K.kind === 'launch' ? launchModel : ferryModelSimple)(K, trafficLit), L: K.length_m || (K.kind === 'launch' ? 14 : 46) };
+  if (K) return { group: (K.kind === 'launch' ? launchModel : K.kind === 'cbl' ? cblModel : ferryModelSimple)(K, trafficLit), L: K.length_m || (K.kind === 'launch' ? 14 : 46) };
   // one of the windjammers (W, her windjammers.json record, v990): Angelique and Bowdoin as themselves, the
   // others as the fleet's schooner brought to her length on deck
   if (W) {

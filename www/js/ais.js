@@ -33,7 +33,7 @@ export function aisClass(type, L) {
 }
 const STATUS = { 0: 'under way', 1: 'at anchor', 2: 'not under command', 3: 'restricted in her ability to manoeuvre', 5: 'moored', 7: 'fishing', 8: 'under sail' };
 export const aisStatus = s => STATUS[s] || '';
-const titleCase = t => t.toLowerCase().replace(/(^|[\s.'&-])[a-z]/g, c => c.toUpperCase());
+const titleCase = t => t.toLowerCase().replace(/(^|[\s.'&-])[a-z]/g, c => c.toUpperCase()).replace(/\b(Ii|Iii|Iv)\b/g, r => r.toUpperCase());   // (Maquoit II, Aucocisco III: v993)
 // Vessels we know by their full names (the ferries, and the windjammers, v990): AIS cuts a name at 20 characters
 // ("CAPT.E.FRANK THOMPSO"), so a broadcast name that begins one of these is that vessel; "SCHOONER", "S/V" and the
 // like in front don't count ("SCHOONER MARY DAY" is Mary Day). setKnown([{ name, ...anything }]).

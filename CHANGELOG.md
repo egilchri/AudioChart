@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-10-23 — Casco Bay Lines ferries in Bird's-eye (v993)
+
+Casco Bay in Bird's-eye now has the Casco Bay Lines ferries, run to the company's published timetables (all four
+seasons, each group of days, with the "except Friday", "Friday only" and "ends 10/31" notes): Machigonne II and a
+passenger boat on the Peaks Island run, and up to three boats (Maquoit II, Aucocisco III, Wabanaki) down the bay to
+Little Diamond, Great Diamond, Diamond Cove, Long Island, Chebeague and Cliff, on OpenStreetMap's lines between the
+landings. The island pages give each island's own departures, not the boats' runs, so `preprocess/build_cbl.py`
+puts the runs back together (the boats leaving Portland together are one boat calling at each island in turn; she
+comes home calling where an island lists a departure as she passes) and shares them out among the boats; which boat
+runs which route is assumed. A new model in their livery (`vessels.js cblModel`: black bottom, yellow hull, white
+cabins, red rails and funnel). `vessels.js` runs a ferry from a timetable (`F.timetable`) as well as from service
+hours; the clock's Coming up, ⛴ Underway and the lookout list them. Live AIS knows their names. Battery Steele, the new
+Peaks ferry, isn't in service yet. Roman numerals in vessel names now read "Maquoit II", not "Maquoit Ii".
+
 ## 2026-10-23 — Bird's-eye switches between Penobscot and Casco (v992)
 
 Bird's-eye can now show Casco Bay as well as Penobscot Bay, for armchair cruising in either. A Penobscot | Casco switch

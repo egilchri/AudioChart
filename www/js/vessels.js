@@ -65,6 +65,7 @@ export const ferryLine = (F, date = new Date()) => (F.summer_line && inSummer(F.
 export function ferryDay(F, T, date = new Date()) {
   const key = ymd(date), hit = dayCache.get(F);
   if (hit && hit.key === key) return hit.day;
+  if (F.timetable) { const day = timetableDay(F, T, date); dayCache.set(F, { key, day }); return day; }
   const sv = F.service || { start: '06:00', end: '19:00', first: 'to' }, md = key.slice(5);
   let day = null;
   if (!sv.season || (md >= sv.season[0] && md <= sv.season[1])) {
@@ -90,6 +91,22 @@ export function ferryDay(F, T, date = new Date()) {
   }
   dayCache.set(F, { key, day });
   return day;
+}
+// A ferry run to her published timetable (v993, Casco Bay Lines; preprocess/build_cbl.py): F.timetable lists, for
+// each period of the year (month-day ranges) and day of the week, a variant of the day; a variant is each boat's
+// day, segments [t0, t1, a, b, bound] under way from landing a to landing b (indices into her landings: F.from,
+// F.stops, F.to, in order along her line) bound for landing `bound`, or [t0, t1, a] alongside at a. F.bi says
+// which of her boats this is.
+function timetableDay(F, T, date) {
+  const md = ymd(date).slice(5), tt = F.timetable;
+  const per = tt.periods.find(p => p.md[0] <= p.md[1] ? md >= p.md[0] && md <= p.md[1] : md >= p.md[0] || md <= p.md[1]);
+  const vi = per?.days[date.getDay()], segsIn = vi == null ? null : tt.variants[vi]?.[F.bi || 0];
+  if (!segsIn?.length) return null;
+  const near = (lon, lat) => { let best = 0, bd = Infinity; for (let f = 0; f <= T.L; f += 10) { const p = alongTrack(T, f); const d = Math.hypot(p.x - T.wx(lon), p.z - T.wz(lat)); if (d < bd) { bd = d; best = f; } } return best; };
+  const land = [{ name: F.from, f: 0 }, ...(F.stops || []).map(st => ({ name: st.name, f: near(st.lon, st.lat) })), { name: F.to, f: T.L }];
+  const segs = segsIn.map(([t0, t1, a, b, bound]) => b == null ? { t0, t1, f0: land[a].f, f1: land[a].f, at: land[a].name }
+    : { t0, t1, f0: land[a].f, f1: land[b].f, from: land[a].name, to: land[b].name, bound: land[bound ?? b].name });
+  return { segs, start: segs[0].t0, end: segs[segs.length - 1].t1, firstF: segs[0].f0, firstName: segs[0].at || segs[0].from };
 }
 export function ferryState(F, T, minute, date = new Date()) {
   const day = ferryDay(F, T, date);
@@ -567,6 +584,63 @@ export function launchModel(F, windowMats = []) {
   lamp(g, 0xff3b2e, -B * 0.41, SH + wH + 0.2, rz0 + 1.0, windowMats, 0.09); lamp(g, 0x3dff7a, B * 0.41, SH + wH + 0.2, rz0 + 1.0, windowMats, 0.09);   // (at the roof's edge)
   lamp(g, 0xfff2d6, 0, SH + 0.9, half - 0.05, windowMats, 0.08);
   g.userData.helm = [0, SH + 1.7, wz0 - 0.5];   // at the wheelhouse front, just forward of the windshield (behind it, its dark glass filled the view)
+  g.userData.wake = [wakeOf(B, L)]; g.add(g.userData.wake[0]);
+  return g;
+}
+
+// A Casco Bay Lines ferry (v993, for Casco Bay in Bird's-eye): the company's livery from photos of Machigonne II,
+// Maquoit II and Aucocisco III, a black bottom, a broad yellow band up to the main deck with a red rubbing strake,
+// white houses above; a long main-deck cabin with a row of windows (lit at night), a shorter upper-deck cabin, red
+// rails round the decks, the pilothouse forward on top with a red roof, and a red funnel aft. Bow toward −z,
+// waterline y = 0. F: { vessel, length_m }.
+export function cblModel(F, windowMats = []) {
+  const L = F.length_m || 33, B = L * 0.29, g = new THREE.Group(), half = L / 2;
+  const M = c => new THREE.MeshLambertMaterial({ color: c });
+  const white = M(0xf3f2ee), red = M(0xc23a2e), black = M(0x1d1f22);
+  const box = (w, h, d, x, y, z, m) => { const k = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); k.position.set(x, y, z); g.add(k); return k; };
+  const sm = x => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
+  const DK = 2.0;   // the main deck, at the top of the yellow
+  const sheer = u => DK + 0.55 * Math.max(0, (u - 0.55) / 0.45) ** 2.2;
+  const hull = loftHull({
+    L, B, T: L * 0.055, sheer, runU: 0.2, rake: 0.05, forefoot: 0.18, transomRake: 0.01,
+    uw: 0.5, wlTip: 0.03, wlAft: 0.94, ud: 0.6, dkTip: 0.08, dkPow: 2.2, dkAft: 0.98,
+    flareP: u => 1 + 0.8 * sm((u - 0.5) / 0.4), bilgeN: u => 1.6 + 2.4 * (1 - sm((u - 0.5) / 0.4)),
+    bands: [[() => 0.35, 0x1d1f22, 6], [u => sheer(u) - 0.18, 0xe9c21f, 5], [u => sheer(u), 0xc23a2e, 1]],
+  });
+  g.add(hull.mesh);
+  g.add(hull.deck(0, () => DK - 0.02, 0x8d9296, 0.995, 0));
+  // the main-deck cabin: most of her length, rounded forward; then the upper-deck cabin, shorter, set aft of the bow
+  const rows = lit => windowRows(L * 0.7, lit);
+  const side1 = new THREE.MeshLambertMaterial({ map: rows(false), emissive: 0xffd9a0, emissiveMap: rows(true), emissiveIntensity: 0 });
+  const side2 = new THREE.MeshLambertMaterial({ map: windowRows(L * 0.45, false), emissive: 0xffd9a0, emissiveMap: windowRows(L * 0.45, true), emissiveIntensity: 0 });
+  windowMats.push(side1, side2);
+  const H1 = 2.5, H2 = 2.3, z1f = -half + L * 0.17, z1a = half - L * 0.06, z2f = -half + L * 0.3, z2a = half - L * 0.2;
+  const c1 = deckhouse({ W: B - 0.5, zf: z1f, za: z1a, H: H1, rakeF: 0.3, tumble: 0.08, nF: 2.2, nA: 8, roof: -1, side: side1, top: white });
+  c1.position.y = DK; g.add(c1);
+  const c2 = deckhouse({ W: B - 1.6, zf: z2f, za: z2a, H: H2, rakeF: 0.3, tumble: 0.08, nF: 2.2, nA: 8, roof: -1, side: side2, top: white });
+  c2.position.y = DK + H1; g.add(c2);
+  // red rails round the open deck on the main cabin's roof and round the top deck
+  const rail = (y, w, z0, z1) => { for (const sx of [-1, 1]) box(0.07, 0.9, z1 - z0, sx * w / 2, y + 0.45, (z0 + z1) / 2, red); box(w, 0.9, 0.07, 0, y + 0.45, z1, red); };
+  rail(DK + H1, B - 0.6, z1f + 1.2, z1a);
+  rail(DK + H1 + H2, B - 1.7, z2f + 2.6, z2a);
+  // the pilothouse forward on top: wrap-round glass, a red roof; the mast behind it
+  const pL = 3.4, pZ = z2f + pL / 2 + 0.6, pH = 2.1, UP = DK + H1 + H2;
+  const gl = new THREE.MeshLambertMaterial({ map: glassBand(false), emissive: 0xffd9a0, emissiveMap: glassBand(true), emissiveIntensity: 0 }); windowMats.push(gl);
+  const ph = deckhouse({ W: B * 0.5, zf: pZ - pL / 2, za: pZ + pL / 2, H: pH, rakeF: -0.35, tumble: -0.06, nF: 2.4, nA: 6, roof: 0.3, roofT: 0.18, side: gl, top: red });
+  ph.position.y = UP; g.add(ph);
+  box(0.16, 3.0, 0.16, 0, UP + pH + 1.5, pZ + 1.0, white);
+  const radar = box(1.5, 0.12, 0.26, 0, UP + pH + 2.7, pZ + 1.0, black); radar.rotation.y = 0.5;
+  // the funnel, red with a black top, aft on the upper cabin
+  const fn = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.7, 2.8, 14), red); fn.position.set(0, UP + 1.4, z2a - 2.2); g.add(fn);
+  const ft = new THREE.Mesh(new THREE.CylinderGeometry(0.64, 0.64, 0.35, 14), black); ft.position.set(0, UP + 2.9, z2a - 2.2); g.add(ft);
+  // her name on the yellow forward, both sides, in black
+  if (F.vessel) { const nm = nameBoard(F.vessel, 0, 0, null); for (const sx of [-1, 1]) { const pl = new THREE.Mesh(new THREE.PlaneGeometry(Math.min(7, L * 0.2), 0.7), nm); pl.position.set(sx * (B / 2 + 0.03), DK - 0.75, -half + L * 0.24); pl.rotation.y = sx * Math.PI / 2; g.add(pl); } }
+  // running lights: masthead, sidelights at the pilothouse, stern light
+  lamp(g, 0xfff2d6, 0, UP + pH + 3.05, pZ + 1.0, windowMats);
+  lamp(g, 0xff3b2e, -B * 0.27, UP + pH * 0.6, pZ - pL / 2 + 0.4, windowMats); lamp(g, 0x3dff7a, B * 0.27, UP + pH * 0.6, pZ - pL / 2 + 0.4, windowMats);
+  lamp(g, 0xfff2d6, 0, DK + H1 + 0.6, half - L * 0.06, windowMats);
+  g.userData.helm = [0, UP + 1.5, pZ - pL / 2 + 0.6];
+  g.userData.lights = { mast: [0, UP + pH + 3.05, pZ + 1.0], port: [-B * 0.27, UP + pH * 0.6, pZ - pL / 2 + 0.4], stbd: [B * 0.27, UP + pH * 0.6, pZ - pL / 2 + 0.4], stern: [0, DK + H1 + 0.6, half - L * 0.06] };
   g.userData.wake = [wakeOf(B, L)]; g.add(g.userData.wake[0]);
   return g;
 }

@@ -97,6 +97,7 @@ def main():
                    {'name': 'Great Cranberry', 'lon': w[731120557][-1][0], 'lat': w[731120557][-1][1]}],
          'service': {'start': '07:15', 'end': '17:15', 'first': 'from', 'season': ['05-25', '10-15']}},
     ]
+    ferries += [f for f in json.load(open(OUT))['ferries'] if f.get('kind') == 'cbl']   # (Casco Bay Lines': build_cbl.py's)
     for f in ferries:
         if f['name'] in SLIPS: f['slips'] = {k: {'lon': v[0], 'lat': v[1], 'brg': v[2]} for k, v in SLIPS[f['name']].items()}
         print(f"{f['name']}: {len(f['line'])} points, {f['line'][0]} -> {f['line'][-1]}")
@@ -105,6 +106,7 @@ def main():
         'vessels_note': 'Maine State Ferry Service vessels and lengths from its 2024 listing (Thompson 154 ft, Burgess 130 ft, Margaret Chase Smith 166 ft, Captain Henry Lee 130 ft). Look (red hull, black boot-top, white sides and houses) from Commons photos of the MSFS fleet. The Cranberry boats are small passenger launches; their lengths are estimates.',
         'ferries': ferries,
     }
+    if 'cbl_source' in json.load(open(OUT)): out['cbl_source'] = json.load(open(OUT))['cbl_source']
     json.dump(out, open(OUT, 'w'), ensure_ascii=False, separators=(',', ':'))
     open(OUT, 'a').write('\n')
 
