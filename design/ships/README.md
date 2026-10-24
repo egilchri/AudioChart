@@ -19,7 +19,11 @@ emphasizing efficiency but also verisimilitude".
    under 70 m is a bucket dredge on its crane barge, over 70 m a hopper dredge; a cutter (AIS 55 over 20 m, or by
    her name: USCGC …, the keeper-class buoy tenders, the "… Bay" icebreaking tugs) is a patrol boat, a buoy tender
    (black hull, buoy deck and crane forward) or an icebreaking tug, with the racing stripe and COAST GUARD.
-   Next candidates: scalloper, cable layer.
+   Sea scalloper and cable ship (v1006): a fishing vessel is a scalloper when she's bound for a scallop port or
+   as beamy as one for her length (a guess; her record can say so); a cable ship by her name (CS …, the fleets'
+   own names). The scalloper is on `workBoat` with the house well forward, its booms and dredges; the cable ship
+   on `workBoat` with a big ship's flatter sheer (`o.SH`, `o.sheerUp`), bow sheaves, tank hatches, stern sheave.
+   Next candidates: offshore supply vessel, fishing-vessel liveries for the Portland fleet.
 
    The generic `merchantModel` (vessels.js) stays as the fallback.
 2. **Liveries by operator** (`www/data/ships.json` `liveries`). One entry, matched by a name pattern, dresses a whole

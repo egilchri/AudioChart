@@ -340,14 +340,14 @@ export function lpgModel(V, liv, windowMats = []) {
 // share this. The lofted hull with a high bow and a forecastle, the house forward of amidships (decks of it, the
 // wheelhouse on top with windows all round), the open working deck aft, the A-frame over the stern, the mast on
 // the wheelhouse. o.decks: decks below the wheelhouse; o.house: [front, back] of the house as fractions of her
-// length from the bow.
+// length from the bow; o.SH, o.sheerUp: her freeboard aft and how far her sheer rises to the bow, of it.
 function workBoat(V, look, windowMats, o) {
   const L = V.L, B = V.B || L * 0.27, half = L / 2, g = new THREE.Group();
   const M = c => new THREE.MeshLambertMaterial({ color: hex(c) });
   const houseM = M(look.house), dark = M(0x1d1f22), steel = M(look.gear || '#8d9296');
   const box = (w, h, d, x, y, z, m) => { const k = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); k.position.set(x, y, z); g.add(k); return k; };
-  const SH = Math.max(1.6, L * 0.06), T = Math.max(1.8, L * 0.08);
-  const sheer = u => SH + 0.15 * SH * Math.max(0, (0.3 - u) / 0.3) ** 2 + 0.9 * SH * Math.max(0, (u - 0.45) / 0.55) ** 2;
+  const SH = o.SH ?? Math.max(1.6, L * 0.06), T = Math.max(1.8, L * 0.08), up = o.sheerUp ?? 0.9;   // (o.SH, o.sheerUp: a big ship's freeboard and flatter sheer)
+  const sheer = u => SH + 0.15 * SH * Math.max(0, (0.3 - u) / 0.3) ** 2 + up * SH * Math.max(0, (u - 0.45) / 0.55) ** 2;
   const hull = loftHull({
     L, B, T, sheer, runU: 0.25, rake: 0.05, forefoot: 0.25, transomRake: 0.0,
     uw: 0.5, wlTip: 0.04, wlAft: 0.85, ud: 0.6, dkTip: 0.12, dkPow: 1.8, dkAft: 0.95,
@@ -375,9 +375,9 @@ function workBoat(V, look, windowMats, o) {
   if (look.mark) { const mm = markMat(look.mark, '#f4f3ef'); for (const sx of [-1, 1]) onSide(g, hull, mm, 0.72, sheer(0.72) * 0.52, sheer(0.72) * 2.4, sheer(0.72) * 1.0, sx); }
   if (look.word) { const wm = wordMat(look.word, look.wordColor || '#1d1f22'); for (const sx of [-1, 1]) onSide(g, hull, wm, 0.5, sheer(0.5) * 0.55, Math.min(L * 0.3, 12), Math.min(L * 0.3, 12) / 4, sx); }
   // the A-frame over the transom (o.aframe 0: none)
-  const aH = o.aframe ?? L * 0.2, az = half - 0.6;
-  if (aH > 0) for (const sx of [-1, 1]) { const leg = box(0.45, aH, 0.45, sx * B * 0.36, sheer(0) + aH / 2, az, M(look.aframe || look.gear || '#8d9296')); leg.rotation.x = -0.18; }
-  if (aH > 0) box(B * 0.72 + 0.45, 0.45, 0.45, 0, sheer(0) + aH * 0.98, az + aH * 0.09, M(look.aframe || look.gear || '#8d9296'));
+  const aH = o.aframe ?? L * 0.2, az = half - 0.6, aT = Math.max(0.45, L * 0.009);
+  if (aH > 0) for (const sx of [-1, 1]) { const leg = box(aT, aH, aT, sx * B * 0.36, sheer(0) + aH / 2, az, M(look.aframe || look.gear || '#8d9296')); leg.rotation.x = -0.18; }
+  if (aH > 0) box(B * 0.72 + aT, aT, aT, 0, sheer(0) + aH * 0.98, az + aH * 0.09, M(look.aframe || look.gear || '#8d9296'));
   // her name on the bow
   if (V.name) { const nm = nameBoard(V.name, 0, 0, null, look.name || '#f4f3ef'); for (const sx of [-1, 1]) onSide(g, hull, nm, 0.86, sheer(0.86) - 0.6, Math.min(8, L * 0.2), 0.7, sx); }
   lamp(g, 0xfff2d6, 0, mT + 5.1, mz, windowMats, 0.15);
@@ -413,6 +413,36 @@ export function trawlerModel(V, liv, windowMats = []) {
   // the trawl doors at the A-frame's feet, the hatch to the fish hold
   for (const sx of [-1, 1]) { const d = box(0.25, 1.6, 2.4, sx * (B * 0.47), sheer(0) + 0.2, half - 1.2, M(0x2a2d31)); d.rotation.y = sx * 0.1; }
   box(B * 0.3, 0.5, B * 0.3, 0, sheer(0.5) + 0.25, za + 1.6, steel);
+  return g;
+}
+
+// ── A sea scalloper (the New Bedford and Maine boats on Georges Bank and the Gulf of Maine, 20–30 m) ── workBoat's
+// hull with the house well forward and no A-frame; the tall mast just abaft the house with a boom out to each side,
+// its wire down to the dredge on that rail — the steel frame and its chain bag — under the gallows frame there;
+// the shucking house on the after deck, where the catch is shucked at sea. Colours: the fleets' working colours.
+export function scallopModel(V, liv, windowMats = []) {
+  const look = { ...pick(TRAWLER_LOOKS, (V.name || '') + 's'), ...(liv || {}) };
+  const L = V.L || 26;
+  const W = workBoat({ ...V, L, B: V.B || L * 0.31 }, look, windowMats, { decks: 1, house: [0.12, 0.36], aframe: 0 });
+  const { g, M, box, B, half, sheer, za } = W, gear = M(look.gear), dark = M(0x2a2d31), steel = W.steel;
+  const y = sheer(0.4), mz = za + 1.2, mH = Math.max(9, L * 0.5);
+  box(0.5, mH, 0.5, 0, y + mH / 2, mz, gear);   // the mast
+  const dz = za + (half - za) * 0.42;
+  for (const sx of [-1, 1]) {
+    // the boom, up and out over the rail
+    const p0 = new THREE.Vector3(0, y + mH * 0.62, mz), p1 = new THREE.Vector3(sx * B * 0.5, y + mH * 0.45, dz);
+    const boom = box(0.3, 0.3, p0.distanceTo(p1), (p0.x + p1.x) / 2, (p0.y + p1.y) / 2, (p0.z + p1.z) / 2, gear); boom.lookAt(p1);   // (g is still at the origin)
+    // the gallows frame on the rail, the dredge hung in it, its wire up to the boom's end
+    for (const dzz of [-1.6, 1.6]) box(0.3, 3.4, 0.3, sx * B * 0.47, y + 1.7, dz + dzz, steel);
+    box(0.3, 0.3, 3.5, sx * B * 0.47, y + 3.4, dz, steel);
+    box(0.06, mH * 0.45 - 2.2, 0.06, sx * B * 0.5, y + 2.2 + (mH * 0.45 - 2.2) / 2, dz, dark);
+    box(0.5, 1.3, 4.4, sx * (B * 0.5 + 0.35), y + 1.1, dz, M(0x3a3d42));            // the dredge's frame
+    box(0.9, 0.9, 3.6, sx * (B * 0.5 + 0.35), y + 0.2, dz + 0.2, M(0x6b6e70));      // its chain bag
+  }
+  // the shucking house aft, and the stern bitts
+  box(B * 0.5, 2.2, Math.max(3, L * 0.13), 0, sheer(0.15) + 1.1, half - Math.max(3, L * 0.13) / 2 - 1.5, M(look.house));
+  for (const sx of [-1, 1]) box(0.4, 0.8, 0.4, sx * B * 0.3, sheer(0) + 0.4, half - 0.6, steel);
+  g.userData.top = y + mH;
   return g;
 }
 
@@ -481,6 +511,41 @@ export function dredgerModel(V, liv, windowMats = []) {
   lamp(g, 0xfff2d6, 0, tipY + 0.5, tipZ, windowMats, 0.25); lamp(g, 0xfff2d6, 0, FB + 4.2, half - 7, windowMats, 0.2);
   g.userData.helm = [0, FB + 3.2, cz + 0.5];
   g.userData.top = tipY;
+  return g;
+}
+
+// ── A cable ship (the cable repair and laying ships called out to the transatlantic cables landing in New England:
+// SubCom's Decisive and Reliance, Global Marine's, Orange Marine's Ile de …) ── workBoat's hull, long and fine,
+// with the house forward of amidships, several decks high; the bow sheaves overhanging the stem (the old cable
+// ship's mark); the cable tanks' round hatches down the after deck, the cable led aft over the deck to the big
+// sheave on the stern chute; the A-frame and a crane for the plough and the ROV, the ROV hangar beside the house.
+const CABLE_LOOKS = [
+  { hull: '#24395f', boot: '#7a2a24', sheer: '#24395f', house: '#f2f1ec', deck: '#8d9296', gear: '#e8731f', name: '#f4f3ef' },
+  { hull: '#1d1f22', boot: '#7a2a24', sheer: '#1d1f22', house: '#f2f1ec', deck: '#7a2a24', gear: '#e0b531', name: '#f4f3ef' },
+  { hull: '#f2f1ec', boot: '#7a2a24', sheer: '#f2f1ec', house: '#f2f1ec', deck: '#8d9296', gear: '#2f6f9a', name: '#24395f' },
+];
+export function cableModel(V, liv, windowMats = []) {
+  const look = { ...pick(CABLE_LOOKS, V.name), ...(liv || {}) };
+  const L = V.L || 120;
+  const W = workBoat({ ...V, L, B: V.B || L * 0.17 }, look, windowMats, { decks: L > 90 ? 4 : 3, house: [0.2, 0.46], aframe: Math.max(8, L * 0.1), SH: Math.min(Math.max(1.6, L * 0.06), 6.5), sheerUp: 0.4 });
+  const { g, M, box, B, half, sheer, za, zf, steel } = W, gear = M(look.gear), dark = M(0x2a2d31);
+  // the bow sheaves, three abreast on a frame over the stem
+  const by = sheer(1) + 1, bz = -half - 1.2, r = Math.max(1.2, B * 0.08);
+  box(B * 0.42, 0.6, 3.4, 0, by - 0.2, bz + 1.4, steel);
+  for (const x of [-B * 0.14, 0, B * 0.14]) { const w = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.5, 16), dark); w.rotation.z = Math.PI / 2; w.position.set(x, by + r * 0.6, bz); g.add(w); }
+  // the cable tanks' hatches down the after deck, and the cable from them to the stern
+  const n = L > 90 ? 3 : 2, y = sheer(0.3), t0 = za + 4, t1 = half - L * 0.12;
+  for (let i = 0; i < n; i++) { const z = t0 + (t1 - t0) * (n > 1 ? i / (n - 1) : 0.5), tr = Math.min(B * 0.3, (t1 - t0) / n * 0.4); const h = new THREE.Mesh(new THREE.CylinderGeometry(tr, tr, 1.6, 24), M(look.hatch || '#5e6b4e')); h.position.set(0, y + 0.8, z); g.add(h); }
+  box(0.35, 0.35, half - t0 - 1, 0, y + 1.8, (t0 + half) / 2, dark);
+  // the stern chute and its sheave, under the A-frame
+  const sw = new THREE.Mesh(new THREE.CylinderGeometry(r * 1.4, r * 1.4, B * 0.18, 20), dark); sw.rotation.z = Math.PI / 2; sw.position.set(0, sheer(0) + 0.4, half + 0.3); g.add(sw);
+  // her funnel on the house top, aft
+  const st = new THREE.Mesh(new THREE.CylinderGeometry(B * 0.09, B * 0.1, 5, 14), M(look.funnel || look.house)); st.scale.z = 1.6; st.position.set(0, W.WY + 2.5, za - B * 0.3); g.add(st);
+  const sT = new THREE.Mesh(new THREE.CylinderGeometry(B * 0.092, B * 0.092, 1.2, 14), M(look.funnelTop || '#1d1f22')); sT.scale.z = 1.6; sT.position.set(0, W.WY + 5.4, za - B * 0.3); g.add(sT);
+  // the ROV hangar beside the house's after end, a crane on the other side
+  box(B * 0.32, 3.2, L * 0.07, -B * 0.28, y + 1.6, za + L * 0.04, M(look.house));
+  const cz = za + L * 0.06; box(1.6, 4, 1.6, B * 0.32, y + 2, cz, gear);
+  const jib = box(0.8, 0.8, L * 0.16, B * 0.32, y + 4.8, cz + L * 0.07, gear); jib.rotation.x = -0.25;
   return g;
 }
 

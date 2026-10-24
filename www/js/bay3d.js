@@ -19,7 +19,7 @@ import { makeWildlife, ledgesFrom } from './wildlife3d.js';
 import { makeMoorings } from './moorings3d.js';
 import { callsOn, trackOf, alongTrack, cruiseState, ferryState, ferryDepartures, ferryLine, ferrySlipModel, terminalLot, terminalHouse, cruiseShipModel, ferryModelSimple, launchModel, cblModel, merchantModel, mins } from './vessels.js';
 import { REGIONS3D, REGION3D_KEY, regions3dOffered } from './regions3d.js';
-import { tankerModel, tugModel, pilotModel, containerModel, bulkModel, carCarrierModel, lpgModel, trawlerModel, researchModel, dredgerModel, cutterModel, setShips, shipFor } from './ships3d.js';
+import { tankerModel, tugModel, pilotModel, containerModel, bulkModel, carCarrierModel, lpgModel, trawlerModel, researchModel, dredgerModel, cutterModel, scallopModel, cableModel, setShips, shipFor } from './ships3d.js';
 import { makeAisFeed, aisClass, aisStatus, aisName, aisDest, setKnown, knownFor, aisFlag, aisRot, aisPos, aisAgo, aisLookup, aisImo, aisCallsign } from './ais.js';
 
 const statusEl = document.getElementById('status');
@@ -1808,7 +1808,7 @@ if (uwBtn && uwPanel && !EMPTY) {
 const live = [];   // { kind: 'ais', mmsi, A (her last report), fix: {x, z, t}, group, boat?, trim?, L, x, z, h, on, what, label }
 let liveOK = false;
 const liveBtn = document.getElementById('livebtn'), LIVE_KEY = 'audiochart-bay3d-live';
-const LIVE_LEN = { sail: 11, power: 11, launch: 18, ferry: 46, cruise: 200, ship: 150, tanker: 150, tug: 28, pilot: 16, cargo: 140, trawler: 26, research: 45, dredger: 50, cutter: 30 };
+const LIVE_LEN = { sail: 11, power: 11, launch: 18, ferry: 46, cruise: 200, ship: 150, tanker: 150, tug: 28, pilot: 16, cargo: 140, trawler: 26, research: 45, dredger: 50, cutter: 30, scalloper: 26, cable: 120 };
 // a cargo ship (AIS type 70–79) is a container ship or a bulk carrier, which AIS doesn't say (v1002): her record's
 // kind, else her operator's (Eimskip's are container ships), else where she's bound (Searsport and Bucksport take
 // bulk), else her shape (a bulker is the beamier, for her length), else a container ship, Portland's usual caller
@@ -1829,6 +1829,11 @@ function tankerKind(A, S, liv) {
 }
 // a research vessel, which AIS has no type for (v1004): her record says so, or her name (R/V …, NOAA ships)
 const RESEARCH = /^(R\/?V|RV|NOAAS?)\b|\bRESEARCH\b|^HENRY B\.? ?BIGELOW|^GORDON GUNTER|^PISCES$|^ENDEAVOR$/i;
+// a sea scalloper (v1006), which AIS calls a fishing vessel like any other: her record says so, or she's bound for
+// a scallop port, or she's as beamy as a scalloper is for her length and short of a big trawler's (a guess)
+const scalloper = (A, S) => S?.kind === 'scalloper' || /NEW ?BEDFORD|FAIRHAVEN|CAPE ?MAY/i.test(A.dest || '') || !!(A.L && A.B && A.L < 35 && A.B / A.L >= 0.32);
+// a cable ship by her name (v1006): CS …, "CABLE", and the fleets' own names (SubCom's, Global Marine's, Orange Marine's)
+const CABLE = /^C\.?S\.? |\bCABLE\b|^(GLOBAL (SENTINEL|SYMPHONY|MARINER|CITIZEN|ODYSSEY|SURVEYOR)|ILE DE (BREHAT|SEIN|BATZ|RE)|LEON THEVENIN|RAYMOND CROZE|PIERRE DE FERMAT|SOPHIE GERMAIN|DECISIVE|RELIANCE|RESOLUTE|DEPENDABLE|DURABLE|RESPONDER)$/i;
 // a Coast Guard cutter by her name (v1005), whatever type her AIS gives
 const CUTTER = /^(USCGC|USCG|CGC)\b|\bCOAST ?GUARD\b|^(ABBIE BURGESS|MARCUS HANNA|IDA LEWIS|KATHERINE WALKER|JAMES RANKIN|JOSHUA APPLEBY|(THUNDER|MORRO|STURGEON|KATMAI|BRISTOL|MOBILE|BISCAYNE|NEAH|PENOBSCOT) BAY)$/i;   // (and the cutters by their own names: the keeper-class buoy tenders, the icebreaking tugs)
 function liveModel(A, cls, seed, K, W) {
@@ -1847,10 +1852,10 @@ function liveModel(A, cls, seed, K, W) {
     return { boat, group: boat.group, L: boat.L, trim: cls.model === 'sail' ? makeTrimmer() : null };
   }
   // a tanker, tug or pilot boat as her kind, in her owner's colours, her particulars where we have them (v1001)
-  if (['tanker', 'tug', 'pilot', 'cargo', 'trawler', 'research', 'dredger', 'cutter'].includes(cls.model)) {
+  if (['tanker', 'tug', 'pilot', 'cargo', 'trawler', 'research', 'dredger', 'cutter', 'scalloper', 'cable'].includes(cls.model)) {
     const { S, liv } = shipFor(A.mmsi, A.name), V = { L, B: A.B || S?.B, D: S?.D, T: A.draught, name: S?.name || A.name, boat: S?.boat };
     const kind = cls.model === 'cargo' ? cargoKind(A, S, liv) : cls.model === 'tanker' ? tankerKind(A, S, liv) : cls.model;
-    return { group: { tanker: tankerModel, lpg: lpgModel, tug: tugModel, pilot: pilotModel, container: containerModel, bulk: bulkModel, pcc: carCarrierModel, trawler: trawlerModel, research: researchModel, dredger: dredgerModel, cutter: cutterModel }[kind](V, liv, trafficLit), L };
+    return { group: { tanker: tankerModel, lpg: lpgModel, tug: tugModel, pilot: pilotModel, container: containerModel, bulk: bulkModel, pcc: carCarrierModel, trawler: trawlerModel, research: researchModel, dredger: dredgerModel, cutter: cutterModel, scalloper: scallopModel, cable: cableModel }[kind](V, liv, trafficLit), L };
   }
   const group = cls.model === 'launch' ? launchModel({ length_m: clamp(L, 9, 40), name: A.name }, trafficLit)
     : cls.model === 'ferry' ? ferryModelSimple({ length_m: L, name: A.name }, trafficLit)
@@ -1875,8 +1880,9 @@ function liveData(snap) {
     if (K && !A.L) A.L = K.length_m || 46;
     const S = !K && !W ? shipFor(A.mmsi, A.name).S : null;   // one of the ships we have particulars for (data/ships.json, v1001)
     if (S) { if (!A.L) A.L = S.L; if (!A.B) A.B = S.B; }
-    const cls = K ? { model: K.kind === 'launch' || A.L < 25 ? 'launch' : 'ferry', what: K.says || 'Ferry' }
-      : W ? { model: 'sail', what: `${W.model === 'bowdoin' ? 'Schooner' : 'Windjammer'}, out of ${W.port}` } : S && !A.type ? { model: S.kind, what: S.what } : RESEARCH.test(A.name || '') || S?.kind === 'research' ? { model: 'research', what: S?.what || 'Research vessel' } : CUTTER.test(A.name || '') ? { model: 'cutter', what: 'Coast Guard cutter' } : aisClass(A.type, A.L);
+    let cls = K ? { model: K.kind === 'launch' || A.L < 25 ? 'launch' : 'ferry', what: K.says || 'Ferry' }
+      : W ? { model: 'sail', what: `${W.model === 'bowdoin' ? 'Schooner' : 'Windjammer'}, out of ${W.port}` } : S && !A.type ? { model: S.kind, what: S.what } : RESEARCH.test(A.name || '') || S?.kind === 'research' ? { model: 'research', what: S?.what || 'Research vessel' } : CUTTER.test(A.name || '') ? { model: 'cutter', what: 'Coast Guard cutter' } : CABLE.test(A.name || '') || S?.kind === 'cable' ? { model: 'cable', what: S?.what || 'Cable ship' } : aisClass(A.type, A.L);
+    if (cls.model === 'trawler' && scalloper(A, S)) cls = { model: 'scalloper', what: 'Scalloper' };
     let was = null;   // (her card and following go over to her new self: v1000)
     if (v && (v.model !== cls.model || v.K !== K || v.W !== W)) { was = { card: cardV === v, follow: follow === v }; dropLive(v); v = null; }   // her static data came in: what she is changed
     if (!v) {
@@ -2471,6 +2477,36 @@ function updateLabels() {
   for (let i = n; i < pool.length; i++) pool[i].hidden = true;
 }
 
+// ── Where the live vessels are (v1006, requested: "it's hard to tell from birdseye view when zoomed out which
+// vessels are being tracked. Maybe we should flash them, or flash them on command?") ── Zoomed out, where a ship is
+// a speck and her name may be crowded off, each live vessel has a small green ring (brass for the one followed),
+// tap it for her card. ✨ Find, or F, flashes them all for a few seconds, from any height, and so does the first
+// sight of the feed's vessels.
+const marksEl = document.getElementById('livemarks'), markPool = [], findBtn = document.getElementById('findbtn');
+let flashUntil = 0, flashedOnce = false;
+function flashLive(ms = 6000) { flashUntil = performance.now() + ms; }
+function updateLiveMarks() {
+  const flash = performance.now() < flashUntil, far = !nest.on && view.dist > 4000;
+  marksEl.classList.toggle('flash', flash);
+  if (findBtn) findBtn.hidden = !liveFeed.on || !live.length;
+  if (live.length && !flashedOnce) { flashedOnce = true; flashLive(); } else if (!liveFeed.on) flashedOnce = false;   // (again each time Live comes on)
+  const W = sceneEl.clientWidth, H = sceneEl.clientHeight;
+  let n = 0;
+  if (far || flash) for (const v of live) {
+    if (!v.on || (nest.on && nest.v === v)) continue;
+    const p = v3.set(v.x, v.ashore ? Math.max(0, heightAt(v.A.lon, v.A.lat)) : 2, v.z).project(camera);
+    if (p.z > 1 || Math.abs(p.x) > 1 || Math.abs(p.y) > 1) continue;
+    let el = markPool[n];
+    if (!el) { el = document.createElement('i'); marksEl.appendChild(el); markPool[n] = el; el.addEventListener('click', () => el._v && live.includes(el._v) && showCard(el._v)); }
+    el._v = v; el.title = aisName(v.A); el.className = follow === v ? 'fol' : '';
+    el.style.left = (p.x + 1) / 2 * W + 'px'; el.style.top = (1 - p.y) / 2 * H + 'px'; el.hidden = false;
+    n++;
+  }
+  for (let i = n; i < markPool.length; i++) markPool[i].hidden = true;
+}
+findBtn?.addEventListener('click', () => flashLive());
+addEventListener('keydown', e => { if (e.target === document.body && (e.key === 'f' || e.key === 'F') && !e.metaKey && !e.ctrlKey && live.length) { flashLive(); e.preventDefault(); } });
+
 // ── Readout: height and heading ──
 const altEl = document.getElementById('alt'), needle = document.getElementById('needle');
 function updateReadout() {
@@ -2528,7 +2564,7 @@ function frame(now) {
   syncFollowHud(); updateFixLines();
   if (follow && !anim && !nest.on) { const k = Math.min(1, dt * 4); view.x += (follow.x - view.x) * k; view.z += (follow.z - view.z) * k; }
   renderer.render(scene, camera);
-  updateLabels(); updateReadout();
+  updateLabels(); updateLiveMarks(); updateReadout();
   requestAnimationFrame(frame);
 }
 // Weather panel: in the readout box, top right; the forecast is for where you're looking

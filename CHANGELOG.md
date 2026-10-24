@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-10-24 — Find the live vessels; scallopers and cable ships (v1006)
+
+- **✨ Find** (beside 📡 Live, or the F key): flashes every live AIS vessel for a few seconds, a pulsing green ring
+  on each, from any height. Zoomed out (over 4 km), each live vessel keeps a small steady ring (brass for the one
+  you're following); tap a ring for her card. They also flash once when the feed's vessels first come in.
+- **Sea scalloper** (a fishing vessel bound for New Bedford, Fairhaven or Cape May, or as beamy as a scalloper for
+  her length, under 35 m — a guess, as AIS doesn't say): the house well forward, the tall mast with a boom out to
+  each side, the gallows frames on each rail with the dredges (steel frame and chain bag) hung in them, the
+  shucking house aft.
+- **Cable ship** (by her name: CS …, "CABLE", SubCom's, Global Marine's and Orange Marine's ships): long and fine,
+  the house forward of amidships with her funnel, the bow sheaves over the stem, the cable tanks' hatches down the
+  after deck, the cable led aft to the stern sheave under the A-frame, a crane and the ROV hangar. Colours are
+  generic, by her name.
+- Names read CS in capitals.
+
 ## 2026-10-24 — Dredgers and Coast Guard cutters (v1005)
 
 - **Dredger** (AIS 33):
