@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-24 — South Freeport and Bustins Island in 3D (v999)
+
+Buildings for the Lilly B's two ends: South Freeport village and its town wharf (292), and Bustins Island (203), from
+OSM + Microsoft footprints and ME_SouthCoastal_1_2020 lidar heights, the same way as the v996 Casco towns. Chebeague
+(v996) already reaches across to the Cousins Island ferry landing.
+
 ## 2026-10-24 — The Chebeague and Bustins Island ferries (v998)
 
 Bird's-eye (and the helm view) now run two more Casco Bay ferries to their published timetables

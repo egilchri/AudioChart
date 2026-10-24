@@ -25,5 +25,7 @@
   { "file": "great-diamond.json", "name": "Great Diamond Island and Diamond Cove", "bbox": [-70.2075, 43.6742, -70.186, 43.691] },
   { "file": "long-island.json", "name": "Long Island", "bbox": [-70.1729, 43.6759, -70.1342, 43.7071] },
   { "file": "cliff-island.json", "name": "Cliff Island", "bbox": [-70.117, 43.6838, -70.0878, 43.7102] },
-  { "file": "chebeague.json", "name": "Chebeague Island", "bbox": [-70.141, 43.7082, -70.0952, 43.7592] }
+  { "file": "chebeague.json", "name": "Chebeague Island", "bbox": [-70.141, 43.7082, -70.0952, 43.7592] },
+  { "file": "south-freeport.json", "name": "South Freeport", "bbox": [-70.118, 43.81, -70.096, 43.83], "focus": [-70.1052, 43.8205] },
+  { "file": "bustins-island.json", "name": "Bustins Island", "bbox": [-70.0895, 43.785, -70.056, 43.81], "focus": [-70.0786, 43.7966] }
 ]

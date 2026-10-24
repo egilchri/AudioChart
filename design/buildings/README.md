@@ -2,7 +2,7 @@
 
 `www/data/buildings/<town>.json` is built offline per town and listed in
 `www/data/buildings/index.json` (file + bbox); `helm3d.js` loads every town
-whose bbox is near the route. Built so far (Casco Bay, v996: Portland, South Portland, Peaks, Little and Great Diamond, Long, Cliff and Chebeague, from the ME_SouthCoastal_1_2020 survey and Microsoft quadkey 030233120, Portland with `MAXH=70`): Carvers Harbor (v833), North Haven village
+whose bbox is near the route. Built so far (Casco Bay, v996: Portland, South Portland, Peaks, Little and Great Diamond, Long, Cliff and Chebeague; v999: South Freeport and Bustins Island; from the ME_SouthCoastal_1_2020 survey and Microsoft quadkey 030233120, Portland with `MAXH=70`): Carvers Harbor (v833), North Haven village
 and the Fox Islands Thorofare (v835), Camden (v836), Rockland and Rockport (v839),
 Stonington, Islesford, Great Cranberry and Northeast Harbor (v840), Southwest Harbor and the
 WoodenBoat School in Brooklin (v841), Bar Harbor and Castine (v842), Belfast and Searsport (v843), and the ferry terminals at Lincolnville Beach, Grindle Point (Islesboro), Bass Harbor and Swan's Island (v950, with Microsoft footprints; Bass Harbor and Swan's from ME_MidCoast_1_2021; the MDI towns use
