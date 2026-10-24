@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-24 — A live vessel's course and speed, drawn (v1008)
+
+- **Bird's-eye, and every ride view (Helm, Drone, Stern, Side, Bow):** the vessel whose card is open, or the one
+  you're following or riding with, has a green line on the water along her course over the ground, to where
+  she'll be in so many minutes at her speed (a chart plotter's vector). It has a tick each minute (each five,
+  past a dozen), an arrowhead, and at its tip her speed, magnetic course and the minutes (e.g. "6.0 kn · 215°M ·
+  6 min"). The minutes, 1 to 60, suit how far off you are. Only for a vessel making 0.5 kn or more that sends
+  a course.
+- **Her label** (follow bar, ride bar, Underway) gives her course with her speed: "Cable ship, 6.0 kn on 215°M".
+- **🗺 Chart:** her pin has the same vector, 6 minutes long (30 if she's under 3 kn), with its ticks, arrowhead
+  and label, and the bar over the chart gives her speed and course.
+
 ## 2026-10-24 — Offshore supply vessels (v1007)
 
 - **Offshore supply vessel** (by her name, whatever type her AIS gives: Hornbeck's HOS …, Harvey Gulf's, Seacor's,

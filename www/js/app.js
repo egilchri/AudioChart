@@ -7651,6 +7651,20 @@ function _showVesselPin(o, back) {
     L.circleMarker([m.lat, m.lon], { radius: 4, color: '#d9a52b', weight: 2, fillOpacity: 0.9, interactive: false }).addTo(g)
       .bindTooltip(`${esc(m.n)} · ${esc(m.text)}`, { permanent: true, direction: 'right', className: 'vessel-mark-tip' });
   }
+  // her course and speed (v1008): a line along her course to where she'll be in 6 minutes (or 30, slow), ticked
+  // each minute (each five), an arrowhead, and her speed and course at its end
+  let tip = null;
+  if (o.sog >= 0.5 && o.cog != null) {
+    const min = o.sog < 3 ? 30 : 6, nm = o.sog * min / 60, k = Math.PI / 180, cl = Math.cos(o.lat * k);
+    const at2 = d => [o.lat + Math.cos(o.cog * k) * d / 60, o.lon + Math.sin(o.cog * k) * d / 60 / cl];
+    tip = at2(nm);
+    L.polyline([[o.lat, o.lon], tip], { color: '#2e9e62', weight: 3, interactive: false }).addTo(g);
+    const tick = nm * 0.04, ev = min > 12 ? 5 : 1, side = (p, d, a) => [p[0] + Math.cos((o.cog + a) * k) * d / 60, p[1] + Math.sin((o.cog + a) * k) * d / 60 / cl];
+    for (let m = ev; m < min; m += ev) { const p = at2(o.sog * m / 60); L.polyline([side(p, tick, -90), side(p, tick, 90)], { color: '#2e9e62', weight: 2, interactive: false }).addTo(g); }
+    L.polyline([side(tip, nm * 0.1, 160), tip, side(tip, nm * 0.1, -160)], { color: '#2e9e62', weight: 3, interactive: false }).addTo(g);
+    L.circleMarker(tip, { radius: 1, opacity: 0, fillOpacity: 0, interactive: false }).addTo(g)
+      .bindTooltip(`${o.sog.toFixed(o.sog < 10 ? 1 : 0)} kn · ${esc(o.cogText || Math.round(o.cog) + '°T')} · ${min} min`, { permanent: true, direction: 'right', className: 'vessel-mark-tip' });
+  }
   const pin = L.marker([o.lat, o.lon], { icon: L.divIcon({ className: 'vessel-pin', html: '<span></span>', iconSize: [26, 26], iconAnchor: [13, 13] }), zIndexOffset: 1000 }).addTo(g);
   pin.bindTooltip(`📡 ${esc(o.name)}`, { permanent: true, direction: 'top', offset: [0, -12], className: 'vessel-pin-tip' });
   pin.bindPopup(`<b>${esc(o.name)}</b><br><small>here at ${at}</small>${(o.marks || []).map(m => `<br>${esc(m.n)} bears ${esc(m.text)}`).join('')}`);
@@ -7658,11 +7672,11 @@ function _showVesselPin(o, back) {
   // a bar over the chart: who she is, and the way back
   _vesselBar = document.createElement('div');
   _vesselBar.id = 'vessel-bar';
-  _vesselBar.innerHTML = `<b>📡 ${esc(o.name)}</b> <small>here at ${at}</small><button type="button" data-a="back">↩ Bird's-eye</button><button type="button" data-a="clear" title="Take her off the chart">✕</button>`;
+  _vesselBar.innerHTML = `<b>📡 ${esc(o.name)}</b> <small>${tip ? `${o.sog.toFixed(o.sog < 10 ? 1 : 0)} kn on ${esc(o.cogText || '')}, ` : ''}here at ${at}</small><button type="button" data-a="back">↩ Bird's-eye</button><button type="button" data-a="clear" title="Take her off the chart">✕</button>`;
   _vesselBar.querySelector('[data-a=back]').addEventListener('click', back);
   _vesselBar.querySelector('[data-a=clear]').addEventListener('click', _clearVesselPin);
   document.body.appendChild(_vesselBar);
-  const B = L.latLngBounds([[o.lat, o.lon], ...(o.marks || []).map(m => [m.lat, m.lon])]);
+  const B = L.latLngBounds([[o.lat, o.lon], ...(o.marks || []).map(m => [m.lat, m.lon]), ...(tip ? [tip] : [])]);
   _map.fitBounds(B, { paddingTopLeft: [60, 110], paddingBottomRight: [200, 60], maxZoom: 16, animate: false });
 }
 

@@ -736,6 +736,7 @@ const lightsAshore = navs.filter(f => f.properties.objtype === 'LIGHTS').filter(
 let MAGVAR = PENOBSCOT ? -15.3 : -15.0;
 getJSON(`./data/regions/${RID}.json`).then(r => { if (typeof r.magvar === 'number') MAGVAR = r.magvar; }).catch(() => {});
 const toMag = t => ((t - MAGVAR) % 360 + 360) % 360;
+const magTxt = t => `${String(Math.round(toMag(t)) % 360).padStart(3, '0')}°M`;
 const fixMarks = [];
 for (const f of navs) {   // named marks (a light, buoy or daybeacon), not one known only by its number
   const n = f.properties.name;
@@ -766,6 +767,7 @@ function showOnChart(v) {
   const hook = chartHook(); if (!hook) return;
   hook.showVessel(window, {
     lat: latOf(v.z), lon: lonOf(v.x), name: vName(v), mmsi: v.kind === 'ais' ? v.A.mmsi : null,
+    sog: v.kind === 'ais' ? v.A.sog : null, cog: v.kind === 'ais' ? v.A.cog : null, cogText: v.kind === 'ais' && v.A.cog != null ? magTxt(v.A.cog) : null,   // (her vector on the chart: v1008)
     marks: marksNear(v.x, v.z).map(o => ({ n: o.m.n, lat: o.m.lat, lon: o.m.lon, text: `${fixBrg(o)}, ${fixRange(o.d)}` })),
   });
 }
@@ -1899,7 +1901,7 @@ function liveData(snap) {
     v.fix = { x: wx(A.lon), z: wz(A.lat), t: now - (A.age || 0) * 1000 };
     const st = aisStatus(A.status), kn = A.sog || 0;
     v.ashore = ashoreAt(A.lon, A.lat);
-    v.label = `${cls.what}${v.ashore ? ', ashore (hauled out?)' : st && st !== 'under way' ? ', ' + st : ''}${kn >= 0.5 ? `, ${kn.toFixed(kn < 10 ? 1 : 0)} kn` : ''}`;
+    v.label = `${cls.what}${v.ashore ? ', ashore (hauled out?)' : st && st !== 'under way' ? ', ' + st : ''}${kn >= 0.5 ? `, ${kn.toFixed(kn < 10 ? 1 : 0)} kn${A.cog != null ? ' on ' + magTxt(A.cog) : ''}` : ''}`;   // (her course too: v1008)
     // back from 🗺 Chart (v1000, ?vessel=<mmsi>): her card again, and following her
     if (params.get('vessel') === String(A.mmsi)) {   // (the page may still be starting up: again shortly, until it takes)
       params.delete('vessel');
@@ -1981,6 +1983,34 @@ function updateFixLines() {
   const P = fixLines.geometry.attributes.position, y = 3;
   fixList.forEach((o, i) => { P.setXYZ(i * 2, v.x, y, v.z); P.setXYZ(i * 2 + 1, o.m.x, y, o.m.z); });
   P.needsUpdate = true; fixLines.geometry.setDrawRange(0, fixList.length * 2); fixLines.visible = fixList.length > 0;
+}
+
+// Her course and speed (v1008, requested: "for a given vessel, if they are reporting a speed and direction, can we
+// show that on the various views when we are looking at the boat?"): from the vessel whose card is open, or the one
+// you're following or riding with, a line on the water along her course over the ground to where she'll be in so
+// many minutes at her speed (as a chart plotter's vector), a tick at each minute (each five, past a dozen), an
+// arrowhead, and at its tip her speed, course and the minutes it runs. The minutes suit how far off you are: 1, 3,
+// 6, 12, 30 or 60, the line long enough to see. Only for a vessel that's moving (0.5 kn and over) and sends a course.
+const vecLines = new THREE.LineSegments(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(3 * 2 * 40), 3)),
+  new THREE.LineBasicMaterial({ color: 0x7fe0a6, transparent: true, opacity: 0.95, depthTest: false }));
+vecLines.renderOrder = 10; vecLines.frustumCulled = false; vecLines.visible = false; scene.add(vecLines);
+let vecTip = null;   // { text, x, z } for her label at the line's end
+function updateVector() {
+  const v = aisCard && !aisCard.hidden && cardV && live.includes(cardV) ? cardV : nest.on && nest.v?.kind === 'ais' ? nest.v : follow?.kind === 'ais' && live.includes(follow) ? follow : null;
+  const A = v?.A, kn = A?.sog || 0, cog = A?.cog ?? null;
+  if (!v || !v.on || v.ashore || kn < 0.5 || cog == null) { vecLines.visible = false; vecTip = null; return; }
+  const cp = camera.position, far = Math.hypot(v.x - cp.x, cp.y, v.z - cp.z), mps = kn * NMm / 3600;
+  const min = [1, 3, 6, 12, 30, 60].find(m => mps * 60 * m >= far * 0.3) || 60, len = mps * 60 * min;
+  const ux = Math.sin(cog * DEG), uz = -Math.cos(cog * DEG), y = 1.5, P = vecLines.geometry.attributes.position;
+  let i = 0; const seg = (x0, z0, x1, z1) => { P.setXYZ(i++, x0, y, z0); P.setXYZ(i++, x1, y, z1); };
+  const ex = v.x + ux * len, ez = v.z + uz * len, tk = Math.max(len * 0.02, far * 0.006);
+  seg(v.x, v.z, ex, ez);
+  const every = min > 12 ? 5 : 1;
+  for (let m = every; m < min; m += every) { const px = v.x + ux * mps * 60 * m, pz = v.z + uz * mps * 60 * m; seg(px - uz * tk, pz + ux * tk, px + uz * tk, pz - ux * tk); }
+  const ah = tk * 2.5;   // the arrowhead
+  for (const sx of [-1, 1]) seg(ex, ez, ex - ux * ah + sx * -uz * ah * 0.6, ez - uz * ah + sx * ux * ah * 0.6);
+  P.needsUpdate = true; vecLines.geometry.setDrawRange(0, i); vecLines.visible = true;
+  vecTip = { text: `${kn.toFixed(kn < 10 ? 1 : 0)} kn · ${magTxt(cog)} · ${min} min`, x: ex, z: ez };
 }
 
 // ── A live vessel's AIS card (v988, requested: "if I click on a vessel you can bring up a table that shows you
@@ -2460,6 +2490,7 @@ function updateLabels() {
       const d = Math.hypot(p.g.position.x - view.x, p.g.position.z - view.z);
       if (d < Math.max(view.dist * 2, 3000)) cand.push({ text: p.label, x: p.g.position.x, y: 4.6 * p.g.scale.x, z: p.g.position.z, cls: 'wpt', pri: 0.8 + d / Math.max(view.dist * 2, 3000) });
     }
+    if (vecTip) cand.push({ text: vecTip.text, x: vecTip.x, y: 4, z: vecTip.z, cls: 'wpt', pri: 0.4 });   // her vector's tip (v1008)
     for (const o of fixList) cand.push({ text: `${o.m.n} · ${fixBrg(o)}, ${fixRange(o.d)}`, x: o.m.x, y: Math.max(6, heightAt(o.m.lon, o.m.lat) + 6), z: o.m.z, cls: 'wpt', pri: 0.5 });   // her marks (v1000)
     if (aboveFog) { const top = FOG_TOP[env.C.vis]; cand = cand.filter(c => c.cls === 'town' || c.y - 6 > top); }   // names under the fog bank don't show
     cand.sort((a, b) => a.pri - b.pri);
@@ -2565,7 +2596,7 @@ function frame(now) {
   if (nest.on) nestCamera();   // after every vessel has moved, yours too
   if (nest.on || !rcEl?.hidden) drawRideChart();
   wildlife.update(dt, t, view, camera.position, { hidden: !!aboveFog || EMPTY, night: env.C.time === 'night', boat: (own.ext || own.r) ? own : null, scale: d => clamp(d / 35, 3, 8) });
-  syncFollowHud(); updateFixLines();
+  syncFollowHud(); updateFixLines(); updateVector();
   if (follow && !anim && !nest.on) { const k = Math.min(1, dt * 4); view.x += (follow.x - view.x) * k; view.z += (follow.z - view.z) * k; }
   renderer.render(scene, camera);
   updateLabels(); updateLiveMarks(); updateReadout();
