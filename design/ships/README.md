@@ -13,9 +13,10 @@ emphasizing efficiency but also verisimilitude".
    ratio decide (`cargoKind`, bay3d.js). Car carrier and LPG carrier (v1003): a car carrier is told by the names
    the big lines use ("… Ace", "… Highway", "… Leader", "Morning …", Höegh, Glovis); an LPG carrier by "GAS",
    "LPG" and the like in her name (`tankerKind`). Neither has an operator's livery yet, since none is confirmed
-   calling here. Next:
-   - fishing trawler
-   - research or survey vessel
+   calling here. Stern trawler and research vessel (v1004, sharing `workBoat`: house forward, working deck aft,
+   A-frame): a fishing vessel over 18 m is a trawler (smaller ones stay lobster boats); a research vessel by her
+   name (R/V …, NOAA ships), as AIS has no type for one. Next candidates: dredger, scalloper, cable layer, Coast
+   Guard cutter.
 
    The generic `merchantModel` (vessels.js) stays as the fallback.
 2. **Liveries by operator** (`www/data/ships.json` `liveries`). One entry, matched by a name pattern, dresses a whole

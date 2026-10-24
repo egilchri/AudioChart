@@ -332,6 +332,103 @@ export function lpgModel(V, liv, windowMats = []) {
   return g;
 }
 
+// ── The working boats with the house forward and the deck aft (v1004): the stern trawler and the research vessel
+// share this. The lofted hull with a high bow and a forecastle, the house forward of amidships (decks of it, the
+// wheelhouse on top with windows all round), the open working deck aft, the A-frame over the stern, the mast on
+// the wheelhouse. o.decks: decks below the wheelhouse; o.house: [front, back] of the house as fractions of her
+// length from the bow.
+function workBoat(V, look, windowMats, o) {
+  const L = V.L, B = V.B || L * 0.27, half = L / 2, g = new THREE.Group();
+  const M = c => new THREE.MeshLambertMaterial({ color: hex(c) });
+  const houseM = M(look.house), dark = M(0x1d1f22), steel = M(look.gear || '#8d9296');
+  const box = (w, h, d, x, y, z, m) => { const k = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); k.position.set(x, y, z); g.add(k); return k; };
+  const SH = Math.max(1.6, L * 0.06), T = Math.max(1.8, L * 0.08);
+  const sheer = u => SH + 0.15 * SH * Math.max(0, (0.3 - u) / 0.3) ** 2 + 0.9 * SH * Math.max(0, (u - 0.45) / 0.55) ** 2;
+  const hull = loftHull({
+    L, B, T, sheer, runU: 0.25, rake: 0.05, forefoot: 0.25, transomRake: 0.0,
+    uw: 0.5, wlTip: 0.04, wlAft: 0.85, ud: 0.6, dkTip: 0.12, dkPow: 1.8, dkAft: 0.95,
+    flareP: u => 1 + 0.9 * sm((u - 0.5) / 0.4), bilgeN: u => 1.6 + 1.2 * (1 - sm((u - 0.5) / 0.4)),
+    bands: [[() => 0.25, hex(look.boot), 2], [u => sheer(u) - 0.3, hex(look.hull), 5], [u => sheer(u), hex(look.sheer || look.hull), 1]],
+    stemFace: true,
+  });
+  g.add(hull.mesh);
+  g.add(hull.wall(u => sheer(u) + 1.0, hex(look.bulwark || look.hull)));   // the bulwarks, waist-high all round
+  g.add(hull.deck(0, sheer, hex(look.deck || '#8d9296'), 0.99, 0.08));
+  // the house: o.decks of it forward of amidships, the wheelhouse on top
+  const zf = -half + L * o.house[0], za = -half + L * o.house[1], y0 = sheer((half - (zf + za) / 2) / L) - 0.1, dh = 2.5, nD = o.decks;
+  const side = new THREE.MeshLambertMaterial({ map: windowRows(4, false, 32, look.house), emissive: 0xffd9a0, emissiveMap: windowRows(4, true, 32), emissiveIntensity: 0 });
+  for (const t of [side.map, side.emissiveMap]) { t.wrapT = THREE.RepeatWrapping; t.repeat.set(L > 40 ? 0.45 : 0.8, nD); } windowMats.push(side);   // (the house's texture runs a repeat to 4 m: windows ~1.5 m apart, more on a ship)
+  const hs = deckhouse({ W: B * 0.84, zf, za, H: nD * dh, rakeF: 0.4, tumble: 0.1, nF: 2.6, nA: 10, roof: 0.3, roofT: 0.25, side, top: houseM });
+  hs.position.y = y0; g.add(hs);
+  const WY = y0 + nD * dh + 0.25, wL = Math.min(za - zf - 1, Math.max(4, L * 0.13));
+  const gl = new THREE.MeshLambertMaterial({ map: glassBand(false), emissive: 0xffd9a0, emissiveMap: glassBand(true), emissiveIntensity: 0 }); windowMats.push(gl);
+  const wh = deckhouse({ W: B * 0.72, zf: zf + 0.4, za: zf + 0.4 + wL, H: 2.4, rakeF: -0.35, nF: 2.6, nA: 6, roof: 0.4, roofT: 0.25, side: gl, top: houseM });
+  wh.position.y = WY; g.add(wh);
+  const mT = WY + 2.7, mz = zf + 0.4 + wL * 0.6;
+  box(0.25, 5, 0.25, 0, mT + 2.5, mz, M(look.mast || look.house)); box(2.6, 0.15, 0.15, 0, mT + 3.6, mz, M(look.mast || look.house));
+  const rad = box(2.2, 0.12, 0.3, 0, mT + 0.6, mz - 1.2, dark); rad.rotation.y = 0.5;
+  // the A-frame over the transom
+  const aH = o.aframe ?? L * 0.2, az = half - 0.6;
+  for (const sx of [-1, 1]) { const leg = box(0.45, aH, 0.45, sx * B * 0.36, sheer(0) + aH / 2, az, M(look.aframe || look.gear || '#8d9296')); leg.rotation.x = -0.18; }
+  box(B * 0.72 + 0.45, 0.45, 0.45, 0, sheer(0) + aH * 0.98, az + aH * 0.09, M(look.aframe || look.gear || '#8d9296'));
+  // her name on the bow
+  if (V.name) { const nm = nameBoard(V.name, 0, 0, null, look.name || '#f4f3ef'); for (const sx of [-1, 1]) onSide(g, hull, nm, 0.86, sheer(0.86) - 0.6, Math.min(8, L * 0.2), 0.7, sx); }
+  lamp(g, 0xfff2d6, 0, mT + 5.1, mz, windowMats, 0.15);
+  lamp(g, 0xff3b2e, -B * 0.37, WY + 1.6, zf + 0.9, windowMats, 0.13); lamp(g, 0x3dff7a, B * 0.37, WY + 1.6, zf + 0.9, windowMats, 0.13);
+  lamp(g, 0xfff2d6, 0, sheer(0) + 1.4, half - 0.2, windowMats, 0.13);
+  g.userData.helm = [0, WY + 1.6, zf + 0.9];
+  g.userData.top = mT + 5;
+  g.userData.wake = [wakeOf(B, L)]; g.add(g.userData.wake[0]);
+  return { g, M, box, L, B, half, sheer, za, zf, WY, mT, mz, steel, look };
+}
+
+// ── A stern trawler (the Gulf of Maine groundfish and herring boats out of Portland and Rockland, 18–45 m) ──
+// workBoat's hull and house; the net drum on the after deck, the stern ramp down to the water, the gallows, the
+// trawl doors hanging at the stern, the fish hold hatch. Colours: the fleets' working colours, by her name.
+const TRAWLER_LOOKS = [
+  { hull: '#7a2a24', boot: '#1d1f22', sheer: '#f2f1ec', house: '#f2f1ec', deck: '#5e6b4e', gear: '#e0b531' },
+  { hull: '#24395f', boot: '#7a2a24', sheer: '#f2f1ec', house: '#f2f1ec', deck: '#5e6b4e', gear: '#e8731f' },
+  { hull: '#2b5a3a', boot: '#7a2a24', sheer: '#f2f1ec', house: '#f2f1ec', deck: '#8d9296', gear: '#e0b531' },
+  { hull: '#1d1f22', boot: '#7a2a24', sheer: '#e0b531', house: '#f2f1ec', deck: '#5e6b4e', gear: '#e0b531' },
+  { hull: '#f2f1ec', boot: '#7a2a24', sheer: '#24395f', house: '#f2f1ec', deck: '#8d9296', gear: '#2f6f9a', name: '#24395f' },
+];
+export function trawlerModel(V, liv, windowMats = []) {
+  const look = { ...pick(TRAWLER_LOOKS, V.name), ...(liv || {}) };
+  const L = V.L || 26;
+  const W = workBoat({ ...V, L, B: V.B || L * 0.3 }, look, windowMats, { decks: L > 35 ? 2 : 1, house: [0.14, L > 35 ? 0.42 : 0.38], aframe: Math.max(4, L * 0.17) });
+  const { g, M, box, B, half, sheer, za, steel } = W, gear = M(look.gear);
+  // the net drum on the after deck, wound with green net
+  const dz = za + (half - za) * 0.3, dy = sheer(0.4) + 1.2;
+  const drum = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, B * 0.6, 16), M(0x3f6b4a)); drum.rotation.z = Math.PI / 2; drum.position.set(0, dy, dz); g.add(drum);
+  for (const sx of [-1, 1]) box(0.3, 2.6, 2.4, sx * B * 0.32, dy - 0.1, dz, gear);
+  // the stern ramp, sloping down through the transom
+  const ramp = box(B * 0.36, 0.15, Math.max(3, L * 0.14), 0, sheer(0) - 0.6, half - L * 0.06, M(0x5e6b4e)); ramp.rotation.x = -0.32;
+  // the trawl doors at the A-frame's feet, the hatch to the fish hold
+  for (const sx of [-1, 1]) { const d = box(0.25, 1.6, 2.4, sx * (B * 0.47), sheer(0) + 0.2, half - 1.2, M(0x2a2d31)); d.rotation.y = sx * 0.1; }
+  box(B * 0.3, 0.5, B * 0.3, 0, sheer(0.5) + 0.25, za + 1.6, steel);
+  return g;
+}
+
+// ── A research vessel (NOAA's Henry B. Bigelow, the universities' and Bigelow Laboratory's boats on the Gulf of
+// Maine) ── workBoat's hull, a taller house (two or three decks, the wheelhouse with windows all round), the big
+// open working deck aft with a crane, the tall A-frame, the radomes and antennas on the mast. White, by her
+// operator's livery where known.
+export function researchModel(V, liv, windowMats = []) {
+  const look = { hull: '#f2f1ec', boot: '#7a2a24', sheer: '#f2f1ec', house: '#f2f1ec', deck: '#8d9296', gear: '#e0b531', name: '#1d1f22', ...(liv || {}) };
+  const L = V.L || 40;
+  const W = workBoat({ ...V, L, B: V.B || L * 0.24 }, look, windowMats, { decks: L > 50 ? 3 : 2, house: [0.12, L > 50 ? 0.5 : 0.48], aframe: Math.max(5, L * 0.14) });
+  const { g, M, box, B, half, sheer, za, mT, mz } = W;
+  // the crane on the working deck, its jib stowed forward along the house side
+  const cz = za + 2.5, cy = sheer(0.4);
+  box(1.2, 2.6, 1.2, B * 0.3, cy + 1.3, cz, M(look.gear)); const jib = box(0.6, 0.6, Math.min(12, L * 0.25), B * 0.3, cy + 2.8, cz + Math.min(12, L * 0.25) / 2 - 0.5, M(look.gear)); jib.rotation.x = 0.12;
+  // a winch, the stack aft of the house, radomes and a dome on the mast
+  box(B * 0.3, 1.2, 1.6, -B * 0.15, cy + 0.6, cz + 4, M(0x2f6f9a));
+  const st = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.7, 2.6, 12), M(look.funnel || look.house)); st.scale.z = 1.6; st.position.set(0, W.WY + 1.3, za - 1.4); g.add(st);
+  for (const [x, dy, r] of [[-1.0, 1.8, 0.55], [1.0, 1.8, 0.45], [0, 4.3, 0.35]]) { const d = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 8), M('#f4f3ef')); d.position.set(x, mT + dy, mz); g.add(d); }
+  if (look.word) { const wm = wordMat(look.word, look.wordColor || '#24395f'); for (const sx of [-1, 1]) { const p = new THREE.Mesh(new THREE.PlaneGeometry(L * 0.18, L * 0.045), wm); p.position.set(sx * (B * 0.43), W.WY - 1.5, (W.zf + za) / 2); p.rotation.y = sx * Math.PI / 2; g.add(p); } }
+  return g;
+}
+
 // ── A harbour tug, ship-assist (McAllister's at Portland: the Andrew, Rowan, Vicki M. and Rosemary McAllister,
 // Fournier Girls; Commons photos of Capt. Brian A. McAllister for the look) ── A short, beamy hull, her sheer
 // sweeping high to a full bow, the heavy bow fender ("pudding") round the stem and tyres along her sides; the

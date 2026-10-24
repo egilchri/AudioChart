@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-24 — Stern trawlers and research vessels (v1004)
+
+- **Stern trawler** (a fishing vessel over 18 m; smaller ones stay lobster boats): high bow, the house and
+  wheelhouse forward, bulwarks, the net drum wound with green net, the stern ramp, the A-frame and the trawl doors
+  at the stern; the fleets' working colours by her name.
+- **Research vessel** (by her name: R/V …, NOAA ships, since AIS has no type for one): white, a taller house with
+  the wheelhouse windows all round, a stack, radomes on the mast, the open working deck with a crane and winch,
+  the tall A-frame.
+- The two share one builder (`workBoat`).
+- "R/V" in a vessel's name reads as R/V, not R/v.
+
 ## 2026-10-24 — Car carriers and LPG carriers (v1003)
 
 - **Car carrier (PCTC):** her topsides carried up nearly her whole length to a flat top about 30 m up, the front

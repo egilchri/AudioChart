@@ -19,7 +19,7 @@ import { makeWildlife, ledgesFrom } from './wildlife3d.js';
 import { makeMoorings } from './moorings3d.js';
 import { callsOn, trackOf, alongTrack, cruiseState, ferryState, ferryDepartures, ferryLine, ferrySlipModel, terminalLot, terminalHouse, cruiseShipModel, ferryModelSimple, launchModel, cblModel, merchantModel, mins } from './vessels.js';
 import { REGIONS3D, REGION3D_KEY, regions3dOffered } from './regions3d.js';
-import { tankerModel, tugModel, pilotModel, containerModel, bulkModel, carCarrierModel, lpgModel, setShips, shipFor } from './ships3d.js';
+import { tankerModel, tugModel, pilotModel, containerModel, bulkModel, carCarrierModel, lpgModel, trawlerModel, researchModel, setShips, shipFor } from './ships3d.js';
 import { makeAisFeed, aisClass, aisStatus, aisName, aisDest, setKnown, knownFor, aisFlag, aisRot, aisPos, aisAgo, aisLookup, aisImo, aisCallsign } from './ais.js';
 
 const statusEl = document.getElementById('status');
@@ -1808,7 +1808,7 @@ if (uwBtn && uwPanel && !EMPTY) {
 const live = [];   // { kind: 'ais', mmsi, A (her last report), fix: {x, z, t}, group, boat?, trim?, L, x, z, h, on, what, label }
 let liveOK = false;
 const liveBtn = document.getElementById('livebtn'), LIVE_KEY = 'audiochart-bay3d-live';
-const LIVE_LEN = { sail: 11, power: 11, launch: 18, ferry: 46, cruise: 200, ship: 150, tanker: 150, tug: 28, pilot: 16, cargo: 140 };
+const LIVE_LEN = { sail: 11, power: 11, launch: 18, ferry: 46, cruise: 200, ship: 150, tanker: 150, tug: 28, pilot: 16, cargo: 140, trawler: 26, research: 45 };
 // a cargo ship (AIS type 70–79) is a container ship or a bulk carrier, which AIS doesn't say (v1002): her record's
 // kind, else her operator's (Eimskip's are container ships), else where she's bound (Searsport and Bucksport take
 // bulk), else her shape (a bulker is the beamier, for her length), else a container ship, Portland's usual caller
@@ -1827,6 +1827,8 @@ function tankerKind(A, S, liv) {
   if (S?.kind === 'lpg' || liv?.kinds?.[0] === 'lpg') return 'lpg';
   return /\b(GAS|LPG|LNG|PROPANE|BUTANE|ETHYLENE)\b|GAS$/i.test(A.name || '') ? 'lpg' : 'tanker';
 }
+// a research vessel, which AIS has no type for (v1004): her record says so, or her name (R/V …, NOAA ships)
+const RESEARCH = /^(R\/?V|RV|NOAAS?)\b|\bRESEARCH\b|^HENRY B\.? ?BIGELOW|^GORDON GUNTER|^PISCES$|^ENDEAVOR$/i;
 function liveModel(A, cls, seed, K, W) {
   // one of the ferries we know (K, her ferries.json record): built from it, so she's the scheduled one to the life (v987)
   if (K) return { group: (K.kind === 'launch' ? launchModel : (K.kind === 'cbl' || K.kind === 'ctc') ? cblModel : ferryModelSimple)(K, trafficLit), L: K.length_m || (K.kind === 'launch' ? 14 : 46) };
@@ -1843,10 +1845,10 @@ function liveModel(A, cls, seed, K, W) {
     return { boat, group: boat.group, L: boat.L, trim: cls.model === 'sail' ? makeTrimmer() : null };
   }
   // a tanker, tug or pilot boat as her kind, in her owner's colours, her particulars where we have them (v1001)
-  if (cls.model === 'tanker' || cls.model === 'tug' || cls.model === 'pilot' || cls.model === 'cargo') {
+  if (['tanker', 'tug', 'pilot', 'cargo', 'trawler', 'research'].includes(cls.model)) {
     const { S, liv } = shipFor(A.mmsi, A.name), V = { L, B: A.B || S?.B, D: S?.D, T: A.draught, name: S?.name || A.name, boat: S?.boat };
     const kind = cls.model === 'cargo' ? cargoKind(A, S, liv) : cls.model === 'tanker' ? tankerKind(A, S, liv) : cls.model;
-    return { group: { tanker: tankerModel, lpg: lpgModel, tug: tugModel, pilot: pilotModel, container: containerModel, bulk: bulkModel, pcc: carCarrierModel }[kind](V, liv, trafficLit), L };
+    return { group: { tanker: tankerModel, lpg: lpgModel, tug: tugModel, pilot: pilotModel, container: containerModel, bulk: bulkModel, pcc: carCarrierModel, trawler: trawlerModel, research: researchModel }[kind](V, liv, trafficLit), L };
   }
   const group = cls.model === 'launch' ? launchModel({ length_m: clamp(L, 9, 40), name: A.name }, trafficLit)
     : cls.model === 'ferry' ? ferryModelSimple({ length_m: L, name: A.name }, trafficLit)
@@ -1872,7 +1874,7 @@ function liveData(snap) {
     const S = !K && !W ? shipFor(A.mmsi, A.name).S : null;   // one of the ships we have particulars for (data/ships.json, v1001)
     if (S) { if (!A.L) A.L = S.L; if (!A.B) A.B = S.B; }
     const cls = K ? { model: K.kind === 'launch' || A.L < 25 ? 'launch' : 'ferry', what: K.says || 'Ferry' }
-      : W ? { model: 'sail', what: `${W.model === 'bowdoin' ? 'Schooner' : 'Windjammer'}, out of ${W.port}` } : S && !A.type ? { model: S.kind, what: S.what } : aisClass(A.type, A.L);
+      : W ? { model: 'sail', what: `${W.model === 'bowdoin' ? 'Schooner' : 'Windjammer'}, out of ${W.port}` } : S && !A.type ? { model: S.kind, what: S.what } : RESEARCH.test(A.name || '') || S?.kind === 'research' ? { model: 'research', what: S?.what || 'Research vessel' } : aisClass(A.type, A.L);
     let was = null;   // (her card and following go over to her new self: v1000)
     if (v && (v.model !== cls.model || v.K !== K || v.W !== W)) { was = { card: cardV === v, follow: follow === v }; dropLive(v); v = null; }   // her static data came in: what she is changed
     if (!v) {
