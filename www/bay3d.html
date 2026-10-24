@@ -38,6 +38,16 @@ body { background: var(--sky); color: var(--ink); font-family: var(--body); font
 #towns button:hover, .panel .whole:hover { background: rgba(255, 255, 255, 0.1); }
 #towns button.on, .panel .whole.on { background: var(--brass); color: var(--brass-ink); }
 .panel .whole { font-weight: 600; }
+/* Penobscot | Casco (v992): which bay, always showing, folded panel or not */
+#bayswitch { display: flex; gap: 2px; background: rgba(0, 0, 0, 0.22); border-radius: 6px; padding: 2px; }
+#bayswitch[hidden] { display: none; }
+/* inside the chart the panel's hidden, so the switch floats on its own: top centre, under the chart's toolbar */
+body.embed #bayswitch { position: fixed; z-index: 3; top: calc(72px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); background: var(--glass); box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+body.embed #bayswitch button { padding: 5px 14px; }
+@media (max-width: 640px) { body.embed #bayswitch { top: calc(128px + env(safe-area-inset-top, 0px)); left: 8px; transform: none; } }
+#bayswitch button { flex: 1; font: inherit; font-size: 0.82rem; font-weight: 600; color: var(--ink); background: transparent; border: 0; border-radius: 4px; padding: 5px 6px; cursor: pointer; }
+#bayswitch button:hover { background: rgba(255, 255, 255, 0.1); }
+#bayswitch button.on { background: var(--brass); color: var(--brass-ink); cursor: default; }
 .sect { font-size: 0.66rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); padding-left: 8px; }
 #wproute { font: inherit; font-size: 0.82rem; color: var(--ink); background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.18); border-radius: 5px; padding: 4px 6px; width: 100%; }
 #sailrow { display: flex; gap: 6px; }
@@ -216,6 +226,7 @@ body.embed #exagbox { top: calc(94px + env(safe-area-inset-top, 0px)); }
     <h1>Penobscot Bay<small>Bird's-eye view</small></h1>
     <button id="towns-toggle" type="button" aria-expanded="false">Towns ▾</button>
   </div>
+  <div id="bayswitch" role="group" aria-label="Which bay" hidden></div>
   <div class="body">
     <button class="whole" id="whole" type="button">⤢ Whole bay</button>
     <button class="whole" id="cruisebtn" type="button" hidden title="Fly to the cruise ship in the bay today and follow her">🚢 Cruise ship</button>
@@ -225,7 +236,7 @@ body.embed #exagbox { top: calc(94px + env(safe-area-inset-top, 0px)); }
     <div id="sailrow" hidden><button type="button" id="sailit">▶ Sail it</button><select id="sailpace" aria-label="Pace"></select></div>
     <div id="sailnote" hidden></div>
     <button class="whole" id="followown" type="button" hidden title="Keep your boat in the middle of the view">⌖ Follow</button>
-    <div class="sect">Towns and harbors</div>
+    <div class="sect" id="townsect">Towns and harbors</div>
     <ul id="towns"></ul>
     <a class="back" href="./">Back to AudioChart</a>
   </div>

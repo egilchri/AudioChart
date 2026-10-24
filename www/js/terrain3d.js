@@ -2,9 +2,13 @@
 // coordinates, cached downloads, USGS 3DEP elevation, USDA NAIP photos, terrain meshes, and the
 // prebuilt town buildings. Moved out of helm3d.js unchanged (v844) so both views use one copy.
 import * as THREE from 'three';
+import { REGIONS3D, region3dId } from './regions3d.js';
 
-// World frame: metres east (x) and south (z) of a fixed origin in mid Penobscot Bay; y up.
-export const LON0 = -68.87, LAT0 = 44.12, MX = 111320 * Math.cos(LAT0 * Math.PI / 180), MY = 111120;
+// World frame: metres east (x) and south (z) of a fixed origin in the middle of the bay shown (mid Penobscot Bay,
+// or Casco Bay since v992: regions3d.js); y up.
+export const REGION3D = region3dId();
+export const [LON0, LAT0] = REGIONS3D[REGION3D].origin;
+export const MX = 111320 * Math.cos(LAT0 * Math.PI / 180), MY = 111120;
 export const wx = lon => (lon - LON0) * MX, wz = lat => -(lat - LAT0) * MY;
 
 // ── Cached fetches (Cache Storage, so a second run, or one offline, needs no network) ──

@@ -11,13 +11,14 @@
 import * as THREE from 'three';
 import { Water } from './lib/three/Water.js';
 import { makeWakes } from './wake3d.js';
-import { LON0, LAT0, MX, MY, wx, wz, readDem, readTopobathy, photo, addCanopy, gridMesh, photoMat, buildTown, disposeGroup, spruce, TOWN_NIGHT } from './terrain3d.js';
+import { REGION3D, LON0, LAT0, MX, MY, wx, wz, readDem, readTopobathy, photo, addCanopy, gridMesh, photoMat, buildTown, disposeGroup, spruce, TOWN_NIGHT } from './terrain3d.js';
 import { sunPos, SUN, makeSky, makeEnv, glowSprite, flashFor, flashOn, sectorColour, weatherPanel, startConditions, makeTrimmer, cycleLook } from './weather3d.js';
 import { makeSailboat, fleetType } from './sailboat3d.js';
 import { makeAngelique, makeBowdoin } from './angelique3d.js';
 import { makeWildlife, ledgesFrom } from './wildlife3d.js';
 import { makeMoorings } from './moorings3d.js';
 import { callsOn, trackOf, alongTrack, cruiseState, ferryState, ferryDepartures, ferryLine, ferrySlipModel, terminalLot, terminalHouse, cruiseShipModel, ferryModelSimple, launchModel, merchantModel, mins } from './vessels.js';
+import { REGIONS3D, REGION3D_KEY, regions3dOffered } from './regions3d.js';
 import { makeAisFeed, aisClass, aisStatus, aisName, aisDest, setKnown, knownFor, aisFlag, aisRot, aisPos, aisAgo, aisLookup, aisImo, aisCallsign } from './ais.js';
 
 const statusEl = document.getElementById('status');
@@ -43,11 +44,41 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const DEG = Math.PI / 180;
 
 // The overview reaches past the bay so its horizon is land, not open sea; the camera's target
-// stays inside the bay itself.
-const OVERVIEW = [-69.45, 43.75, -67.95, 44.75];
-const BAY = [-69.25, 43.85, -68.1, 44.55];
-const WHOLE = { lon: -68.7, lat: 44.17, dist: 60000, tilt: 40 * DEG, az: 0 };
+// stays inside the bay itself. Which bay: Penobscot, or Casco (v992; regions3d.js, its chart region RID).
+const REG = REGIONS3D[REGION3D], RID = REGION3D, PENOBSCOT = RID === 'penobscot-bay';
+const OVERVIEW = REG.overview;
+const BAY = REG.bay;
+const WHOLE = { ...REG.whole, tilt: 40 * DEG, az: 0 };
 const MIN_DIST = 120, MAX_DIST = 140000;
+
+// The bay's name on the page, and the switch between the bays (v992): another bay is a fresh page (its own world
+// frame, terrain and traffic), so the switch reloads with ?region=, keeping the embed, Empty Bay and route, and
+// remembers the choice for next time.
+document.title = `${REG.name} 3D · AudioChart`;
+{ const h1 = document.querySelector('.panel h1'); if (h1?.firstChild) h1.firstChild.textContent = REG.name; }
+statusEl.textContent = `Loading ${REG.name}…`;
+try { if (/bay3d\.html$/.test(location.pathname)) localStorage.setItem(REGION3D_KEY, RID); } catch (_) {}
+{
+  const sw = document.getElementById('bayswitch'), offered = regions3dOffered(RID);
+  if (sw && offered.length > 1) {
+    for (const id of offered) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.textContent = REGIONS3D[id].short; b.title = id === RID ? `Showing ${REGIONS3D[id].name}` : `Go to ${REGIONS3D[id].name}`;
+      b.classList.toggle('on', id === RID); b.setAttribute('aria-pressed', String(id === RID));
+      b.addEventListener('click', () => {
+        if (id === RID) return;
+        try { localStorage.setItem(REGION3D_KEY, id); } catch (_) {}
+        const q = new URLSearchParams();
+        for (const k of ['embed', 'empty', 'route', 'boat', 'ais']) if (params.has(k)) q.set(k, params.get(k));
+        q.set('region', id);
+        location.replace(`${location.pathname}?${q}`);
+      });
+      sw.appendChild(b);
+    }
+    if (params.get('embed')) document.body.appendChild(sw);   // (out of the panel, which the chart hides)
+    sw.hidden = false;
+  }
+}
 
 async function getJSON(url) { const r = await fetch(url); if (!r.ok) throw new Error(`Could not load ${url}`); return r.json(); }
 
@@ -253,7 +284,7 @@ addEventListener('keydown', e => {
 document.getElementById('compass').addEventListener('click', () => flyTo({ x: view.x, z: view.z, dist: view.dist, az: 0, tilt: view.tilt }, 900));
 
 // ── The whole bay, coarse ──
-statusEl.textContent = EMPTY ? 'Draining Penobscot Bay…' : 'Downloading the bay…';
+statusEl.textContent = EMPTY ? `Draining ${REG.name}…` : 'Downloading the bay…';
 const [OW, OS, OE, ON] = OVERVIEW;
 const ovPhotoP = photo(OW, OS, OE, ON, 4000); ovPhotoP.catch(() => {});
 const ov = await demFor(OW, OS, OE, ON, false);
@@ -328,7 +359,7 @@ const hazards = { list: [], meshes: {}, key: '' };
 let updateHazards = () => {};
 // (v964, asked: "Aren't there any known shipwrecks in deeper water in Penobscot Bay?") plus the wrecks always
 // under water, which hazards.geojson's build had left out (data/wrecks_submerged.geojson; INCIDENTS.md 2026-10-21)
-if (EMPTY) Promise.all([getJSON('./data/regions/penobscot-bay/hazards.geojson'), getJSON('./data/wrecks_submerged.geojson').catch(() => ({ features: [] }))]).then(([fc, wr]) => {
+if (EMPTY) Promise.all([getJSON(`./data/regions/${RID}/hazards.geojson`), getJSON('./data/wrecks_submerged.geojson').catch(() => ({ features: [] }))]).then(([fc, wr]) => {
   fc = { features: [...fc.features, ...wr.features] };
   const KIND = { 'underwater rock': 'rock', obstruction: 'obstruction', wreck: 'wreck' };
   const seen = new Set();
@@ -572,7 +603,7 @@ function updateTiles() {
 
 // ── Towns: listed from index.json, buildings built when you come near ──
 let townsLoading = 0;
-const townList = (await getJSON('./data/buildings/index.json').catch(() => [])).map(t => {
+const townList = (await getJSON('./data/buildings/index.json').catch(() => [])).filter(t => { const [w, s, e, n] = t.bbox; return e > OVERVIEW[0] && w < OVERVIEW[2] && n > OVERVIEW[1] && s < OVERVIEW[3]; }).map(t => {
   const [w, s, e, n] = t.bbox, lon = (w + e) / 2, lat = (s + n) / 2;
   return { ...t, id: t.file.replace(/\.json$/, ''), short: t.name.split(/, | and /)[0], lon, lat, x: wx(lon), z: wz(lat), group: null, state: 'idle', credit: '' };
 }).sort((a, b) => a.short.localeCompare(b.short));
@@ -669,13 +700,14 @@ for (const t of townList) {
   li.appendChild(b); townsUl.appendChild(li);
 }
 wholeBtn.addEventListener('click', goWhole);
+{ const ts = document.getElementById('townsect'); if (ts) ts.hidden = !townList.length; }
 const panel = document.getElementById('panel'), toggle = document.getElementById('towns-toggle');
 function foldPanel(fold) { if (!matchMedia('(max-width: 640px)').matches) return; panel.classList.toggle('folded', fold); toggle.setAttribute('aria-expanded', String(!fold)); }
 toggle.addEventListener('click', () => foldPanel(!panel.classList.contains('folded')));
 foldPanel(true);
 
 // ── Rockland Breakwater (the town file leaves it out; the helm view models it the same way) ──
-{
+if (PENOBSCOT) {
   const [[lo0, la0], [lo1, la1]] = [[-69.08197, 44.11540], [-69.07751, 44.10410]];
   const ax = wx(lo0), az = wz(la0), bx = wx(lo1), bz = wz(la1), len = Math.hypot(bx - ax, bz - az);
   const bw = new THREE.Mesh(new THREE.BoxGeometry(7, 9, len), new THREE.MeshLambertMaterial({ color: 0x8d877f }));
@@ -684,8 +716,8 @@ foldPanel(true);
 
 // ── Buoys and lighthouses from the chart: instanced, drawn larger the farther off they are ──
 const [navGJ, placesGJ, landGJ] = await Promise.all([
-  getJSON('./data/regions/penobscot-bay/navaid.geojson').catch(() => ({ features: [] })),
-  getJSON('./data/regions/penobscot-bay/named_places.geojson').catch(() => ({ features: [] })),
+  getJSON(`./data/regions/${RID}/navaid.geojson`).catch(() => ({ features: [] })),
+  getJSON(`./data/regions/${RID}/named_places.geojson`).catch(() => ({ features: [] })),
   getJSON('./data/landmarks.json').catch(() => ({ landmarks: [] })),
 ]);
 const inBay = ([x, y]) => x >= OW && x <= OE && y >= OS && y <= ON;
@@ -870,7 +902,7 @@ const OWN_TYPE = (() => { let b = params.get('boat'); if (!b) { try { b = localS
 const OWN_NAME = { cd25: 'Sea Nymph', angelique: 'Angelique', bowdoin: 'Bowdoin' }[OWN_TYPE];
 // (when she's your own boat, chosen in the helm view, she's that one, not a second Bowdoin in the fleet)
 let bowdoin = null;
-if (OWN_TYPE !== 'bowdoin' && !EMPTY) {
+if (OWN_TYPE !== 'bowdoin' && !EMPTY && PENOBSCOT) {   // (she sails from Castine: Penobscot Bay's)
   const c = { x: wx(-68.84), z: wz(44.33) };
   const roomy = (x, z) => isWater(x, z) && [0, 1, 2, 3, 4, 5, 6, 7].every(k => isWater(x + Math.sin(k * Math.PI / 4) * 0.45 * NMm, z - Math.cos(k * Math.PI / 4) * 0.45 * NMm));
   let at = null;
@@ -1330,11 +1362,12 @@ const hhmm = m => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(Math.
 if (!EMPTY) Promise.all([getJSON('./data/ferries.json').catch(() => null), getJSON('./data/cruise_ships.json').catch(() => null), getJSON('./data/windjammers.json').catch(() => null)]).then(([fd, cd, wd]) => {
   // (live AIS: the ferries' and the windjammers' full names, and what they are)
   setKnown([...(fd?.ferries || []).map(F => ({ name: F.vessel, F })), ...(wd?.windjammers || []).map(W => ({ name: W.name, W }))]);
-  for (const F of fd?.ferries || []) {
+  const here = P => P.some(([lo, la]) => inBay([lo, la]));   // (this bay's: v992)
+  for (const F of (fd?.ferries || []).filter(F => here(ferryLine(F)))) {
     const T = trackOf(ferryLine(F), wx, wz), group = (F.kind === 'launch' ? launchModel : ferryModelSimple)(F, trafficLit); group.visible = false; scene.add(group);
     traffic.push({ kind: 'ferry', F, T, group, L: F.length_m || 46, x: T.P[0][0], z: T.P[0][1], on: false, label: '' });
   }
-  for (const call of callsOn(cd, new Date(), FORCE_CRUISE)) {
+  for (const call of callsOn(cd, new Date(), FORCE_CRUISE).filter(c => here(c.track))) {
     const V = cd.vessels[call.vessel], T = trackOf(call.track, wx, wz), group = cruiseShipModel(V, trafficLit); group.visible = false; scene.add(group);
     traffic.push({ kind: 'cruise', call, V, T, group, L: V.length_m, x: T.P[0][0], z: T.P[0][1], on: false, label: '' });
     console.log(`[bay3d] cruise ship today: ${call.id}`);
@@ -1804,7 +1837,7 @@ function syncLiveBtn(state = liveBtn?.dataset.state || 'off', note = '') {
   liveBtn.title = !liveFeed.on ? 'Show the vessels in the bay right now, from their AIS (needs an internet connection)'
     : state === 'offline' ? `${note || 'Live AIS is unavailable'}. Tap to turn Live off.` : state === 'live' ? `${live.length} vessels broadcasting AIS in the bay now. Tap to turn Live off.` : `${note || 'Listening for ships…'} Tap to turn Live off.`;
 }
-if (liveBtn && !EMPTY) {
+if (liveBtn && !EMPTY && PENOBSCOT) {   // (the relay listens to Penobscot Bay only so far: relay/ais/core.mjs BOX)
   liveBtn.hidden = false;
   liveBtn.addEventListener('click', () => {
     if (liveFeed.on) liveFeed.stop(); else { liveFeed.start(); if (!boatClock) setClock(realMin(), 1, false); }   // live is now: the clock to now
@@ -1914,7 +1947,7 @@ setInterval(() => moorings?.update(view), 2000);
 
 // ── Seagulls and seals (v888, requested; wildlife3d.js), round where you're looking ──
 const wildlife = makeWildlife({ scene });
-getJSON('./data/regions/penobscot-bay/hazards.geojson').then(fc => wildlife.setLedges(ledgesFrom(fc, wx, wz))).catch(() => {});
+getJSON(`./data/regions/${RID}/hazards.geojson`).then(fc => wildlife.setLedges(ledgesFrom(fc, wx, wz))).catch(() => {});
 
 // ── Route waypoints (v873, requested: as in the helm view) ──
 // Pick a saved route or a sample under "Route waypoints" (opened from the chart, the route the
@@ -1931,7 +1964,7 @@ const routeChoices = [];
     try { const e = JSON.parse(localStorage.getItem('audiochart-bay3d-editing') || 'null'); if (e?.points?.length) routeChoices.push({ id: 'editing', name: `${e.name} (editing)`, points: e.points }); } catch (_) {}
   }
   saved.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).forEach(r => routeChoices.push({ id: r.id || r.name, name: r.name, points: r.points }));
-  const samples = await getJSON('./data/regions/penobscot-bay/curated_routes.json').catch(() => []);
+  const samples = await getJSON(`./data/regions/${RID}/curated_routes.json`).catch(() => []);
   for (const r of samples) if (!routeChoices.some(c => c.name === r.name)) routeChoices.push({ id: 'sample:' + r.id, name: r.name + ' (sample)', points: r.points });
   for (const c of routeChoices) { const o = document.createElement('option'); o.value = c.id; o.textContent = c.name; wpSel.appendChild(o); }
 }
@@ -2244,7 +2277,7 @@ const labelsEl = document.getElementById('labels'), pool = [];
 const places = placesGJ.features.filter(f => f.geometry?.type === 'Point' && inBay(f.geometry.coordinates) && ['LNDARE', 'LNDRGN', 'BUAARE'].includes(f.properties.objtype))
   .map(f => ({ n: f.properties.name, x: wx(f.geometry.coordinates[0]), z: wz(f.geometry.coordinates[1]), lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] }))
   .filter(p => p.n);
-for (const l of landGJ.landmarks || []) places.push({ n: l.name, x: wx(l.lon), z: wz(l.lat), lon: l.lon, lat: l.lat, elev: l.elev_m });   // summits
+for (const l of (landGJ.landmarks || []).filter(l => inBay([l.lon, l.lat]))) places.push({ n: l.name, x: wx(l.lon), z: wz(l.lat), lon: l.lon, lat: l.lat, elev: l.elev_m });   // summits
 for (const p of places) p.y = Math.max(4, p.elev ?? heightAt(p.lon, p.lat));
 for (const t of townList) t.y = Math.max(10, heightAt(t.lon, t.lat)) + 20;
 let lblTick = 0, cand = [];
@@ -2379,6 +2412,7 @@ window.__bay3d = {   // for AudioChart (returning to the chart where you were) a
   // Clear Screen on the chart (v953): drop the route's waypoints and line, as the chart drops its routes
   clearRoute: () => { showRoute('', false); clearPins(); },
   dropPin,
+  region: RID,
   getView: () => ({ lat: latOf(view.z), lon: lonOf(view.x), dist: view.dist, az: view.az / DEG, tilt: view.tilt / DEG, following: follow === own }),
   // where your boat is on screen, [x, y] in this page's pixels, or null (for testing and the demo video)
   boatOnScreen: () => {

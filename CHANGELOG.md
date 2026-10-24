@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-23 — Bird's-eye switches between Penobscot and Casco (v992)
+
+Bird's-eye can now show Casco Bay as well as Penobscot Bay, for armchair cruising in either. A Penobscot | Casco switch
+sits at the top of the view (inside the chart, under the toolbar; standalone, in the places panel) and remembers your
+choice. Each bay has its own world frame, overview, whole-bay view and camera box (new `www/js/regions3d.js`, which
+`terrain3d.js` reads for its origin); terrain and photos are the same national USGS 3DEP and NAIP sources. Buoys,
+lights, place names, Empty Bay's hazards, wildlife ledges and sample routes come from the bay's own region data; towns,
+summits, ferries and cruise ships are limited to the bay shown, and Bowdoin and the Rockland breakwater stay in
+Penobscot. Opening Bird's-eye with the chart over Casco opens Casco; closing it after switching brings the chart, and
+its chart data, to the bay you were looking at. Casco has no town buildings or ferries yet, and 📡 Live is hidden there
+until the AIS relay covers it. Casco is offered only where the region is unlocked (`?dev=1`).
+
 ## 2026-10-23 — Casco Bay chart data rebuilt (v991)
 
 Casco Bay's region data dated from August and covered only Portland to Chebeague, with very coarse land (45 shapes;

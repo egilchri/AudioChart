@@ -7522,7 +7522,7 @@ function _showBay3d(empty = _bay3dEmpty) {
     _bay3dWrap = document.createElement('div');
     _bay3dWrap.id = 'bay3d-wrap';
     // no Back to chart button (v879): Bird's-eye is a map type, and Map Type (still on top) switches back
-    _bay3dWrap.innerHTML = '<iframe title="Penobscot Bay in 3D"></iframe>';
+    _bay3dWrap.innerHTML = '<iframe title="The bay in 3D"></iframe>';
     const leaflet = document.getElementById('leaflet-map');
     leaflet.parentElement.insertBefore(_bay3dWrap, leaflet.nextSibling);
   }
@@ -7623,6 +7623,8 @@ function _hideBay3d() {
       _map.setView([v.lat, v.lon], Math.max(8, Math.min(16, Math.round(z))), { animate: false });
       const c = _map.getCenter();
       _bay3dLast = { ...v, chartLat: c.lat, chartLon: c.lng, chartZoom: _map.getZoom() };
+      // switched bays in there (v992, Penobscot | Casco): the chart's data follows to where you've come back to
+      if (frame.contentWindow.__bay3d.region) _autoSelectRegionForPosition(v.lat, v.lon);
     }
   } catch (_) {}
   _cancel3dLoad(_bay3dWrap);
