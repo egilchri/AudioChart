@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-10-24 — Dredgers and Coast Guard cutters (v1005)
+
+- **Dredger** (AIS 33):
+  - Under 70 m, a bucket dredge: the square crane barge, the crawler crane with its boom up and the clamshell
+    bucket hanging on its wire, two spuds standing at the stern, and a small deckhouse.
+  - Over 70 m, a hopper dredge on the shared hull and house: the open hopper with its spoil, and the drag arm
+    along her starboard side in three gantries.
+- **Coast Guard cutter** (AIS 55 over 20 m, or by her name: USCGC …, the keeper-class buoy tenders such as
+  Rockland's *Abbie Burgess*, the "… Bay" icebreaking tugs such as *Thunder Bay*): the racing stripe on the bow
+  (the broad red-orange band and the narrow blue), COAST GUARD on her side, buff mast and stack.
+  - A patrol boat: white, with the house forward and her small boat on the stern ramp.
+  - A buoy tender: black hull, the house aft, the buoy deck forward with its crane and a buoy.
+  - An icebreaking tug: the tug, black and white.
+- Names read USCGC, CGC and NOAAS in capitals.
+
 ## 2026-10-24 — Stern trawlers and research vessels (v1004)
 
 - **Stern trawler** (a fishing vessel over 18 m; smaller ones stay lobster boats): high bow, the house and

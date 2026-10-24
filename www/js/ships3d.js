@@ -56,6 +56,10 @@ function rail(g, mat, x, y, z0, z1, h = 0.9, every = 1.6, r = 0.03) {
 function markMat(kind, color) {
   const cv = document.createElement('canvas'); cv.width = 256; cv.height = 128; const c = cv.getContext('2d');
   c.fillStyle = color;
+  if (kind === 'uscg') {   // the Coast Guard's racing stripe: a broad red-orange band, a narrow blue one ahead of it, both leaning aft
+    c.fillStyle = '#d24a2a'; c.beginPath(); c.moveTo(150, 0); c.lineTo(214, 0); c.lineTo(150, 128); c.lineTo(86, 128); c.closePath(); c.fill();
+    c.fillStyle = '#1f3c88'; c.beginPath(); c.moveTo(118, 0); c.lineTo(136, 0); c.lineTo(72, 128); c.lineTo(54, 128); c.closePath(); c.fill();
+  }
   if (kind === 'vroon-v') {   // a broad V, its left arm longer: as painted, leaning aft
     c.beginPath(); c.moveTo(0, 0); c.lineTo(78, 0); c.lineTo(128, 96); c.lineTo(178, 0); c.lineTo(256, 0); c.lineTo(150, 128); c.lineTo(106, 128); c.closePath(); c.fill();
   }
@@ -367,10 +371,13 @@ function workBoat(V, look, windowMats, o) {
   const mT = WY + 2.7, mz = zf + 0.4 + wL * 0.6;
   box(0.25, 5, 0.25, 0, mT + 2.5, mz, M(look.mast || look.house)); box(2.6, 0.15, 0.15, 0, mT + 3.6, mz, M(look.mast || look.house));
   const rad = box(2.2, 0.12, 0.3, 0, mT + 0.6, mz - 1.2, dark); rad.rotation.y = 0.5;
-  // the A-frame over the transom
+  // her owner's mark on the bow, a word on her side (the Coast Guard's stripe and COAST GUARD)
+  if (look.mark) { const mm = markMat(look.mark, '#f4f3ef'); for (const sx of [-1, 1]) onSide(g, hull, mm, 0.72, sheer(0.72) * 0.52, sheer(0.72) * 2.4, sheer(0.72) * 1.0, sx); }
+  if (look.word) { const wm = wordMat(look.word, look.wordColor || '#1d1f22'); for (const sx of [-1, 1]) onSide(g, hull, wm, 0.5, sheer(0.5) * 0.55, Math.min(L * 0.3, 12), Math.min(L * 0.3, 12) / 4, sx); }
+  // the A-frame over the transom (o.aframe 0: none)
   const aH = o.aframe ?? L * 0.2, az = half - 0.6;
-  for (const sx of [-1, 1]) { const leg = box(0.45, aH, 0.45, sx * B * 0.36, sheer(0) + aH / 2, az, M(look.aframe || look.gear || '#8d9296')); leg.rotation.x = -0.18; }
-  box(B * 0.72 + 0.45, 0.45, 0.45, 0, sheer(0) + aH * 0.98, az + aH * 0.09, M(look.aframe || look.gear || '#8d9296'));
+  if (aH > 0) for (const sx of [-1, 1]) { const leg = box(0.45, aH, 0.45, sx * B * 0.36, sheer(0) + aH / 2, az, M(look.aframe || look.gear || '#8d9296')); leg.rotation.x = -0.18; }
+  if (aH > 0) box(B * 0.72 + 0.45, 0.45, 0.45, 0, sheer(0) + aH * 0.98, az + aH * 0.09, M(look.aframe || look.gear || '#8d9296'));
   // her name on the bow
   if (V.name) { const nm = nameBoard(V.name, 0, 0, null, look.name || '#f4f3ef'); for (const sx of [-1, 1]) onSide(g, hull, nm, 0.86, sheer(0.86) - 0.6, Math.min(8, L * 0.2), 0.7, sx); }
   lamp(g, 0xfff2d6, 0, mT + 5.1, mz, windowMats, 0.15);
@@ -429,6 +436,78 @@ export function researchModel(V, liv, windowMats = []) {
   return g;
 }
 
+// ── A dredger (AIS 33: the Corps of Engineers' contractors keeping Maine's channels open) ── Under 70 m, a bucket
+// dredge: the crane barge, square-ended, its crawler crane with the lattice boom up and the clamshell bucket on
+// its wire, the two spuds standing at the stern, a small deckhouse; over 70 m, a hopper dredge on merchantShip's
+// hull and house: the open hopper amidships, the drag arm (suction pipe) lying along her starboard side in its
+// gantries. Colours by her name.
+const DREDGE_LOOKS = [
+  { hull: '#7a2a24', boot: '#1d1f22', deck: '#5e6b4e', house: '#f2f1ec', funnel: '#f2f1ec', funnelTop: '#1d1f22', crane: '#e0b531' },
+  { hull: '#1d1f22', boot: '#7a2a24', deck: '#7a2a24', house: '#f2f1ec', funnel: '#e8731f', funnelTop: '#1d1f22', crane: '#e8731f' },
+  { hull: '#24395f', boot: '#7a2a24', deck: '#5e6b4e', house: '#f2f1ec', funnel: '#24395f', funnelTop: '#1d1f22', crane: '#e0b531' },
+];
+export function dredgerModel(V, liv, windowMats = []) {
+  const look = { ...pick(DREDGE_LOOKS, V.name), ...(liv || {}) };
+  const L = V.L || 50;
+  if (L >= 70) {   // a hopper dredge
+    const B = V.B || L * 0.2, S = merchantShip({ ...V, L, B, D: V.D || L * 0.085 }, look, windowMats, { houseAft: 0.04, houseLen: 0.12, decks: L > 100 ? 4 : 3 });
+    const { g, M, box, FB, dz0, dz1, steel } = S, dL = dz1 - dz0;
+    box(B * 0.7 + 1.2, 1.4, dL * 0.75 + 1.2, 0, FB + 0.7, (dz0 + dz1) / 2, M(look.hull));   // the hopper's coaming
+    box(B * 0.7, 0.2, dL * 0.75, 0, FB + 1.35, (dz0 + dz1) / 2, M(0x4a3f30));                // its spoil, level with the top
+    const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, dL * 0.85, 10), steel); pipe.rotation.x = Math.PI / 2; pipe.position.set(B * 0.47, FB + 1.2, (dz0 + dz1) / 2); g.add(pipe);
+    for (const k of [0.1, 0.5, 0.9]) { const z = dz0 + dL * k; box(0.4, 4.5, 0.4, B * 0.44, FB + 2.25, z - 1, M(look.crane)); box(0.4, 4.5, 0.4, B * 0.44, FB + 2.25, z + 1, M(look.crane)); box(2.4, 0.4, 2.4, B * 0.44 + 0.6, FB + 4.5, z, M(look.crane)); }
+    return g;
+  }
+  // a bucket dredge on its barge
+  const B = V.B || Math.max(10, L * 0.32), half = L / 2, g = new THREE.Group();
+  const M = c => new THREE.MeshLambertMaterial({ color: hex(c) });
+  const box = (w, h, d, x, y, z, m) => { const k = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); k.position.set(x, y, z); g.add(k); return k; };
+  const FB = 1.4, crane = M(look.crane), dark = M(0x2a2d31);
+  box(B, FB + 1.6, L, 0, (FB - 1.6) / 2, 0, M(look.hull));             // the barge, a box
+  box(B - 0.4, 0.1, L - 0.4, 0, FB + 0.05, 0, M(look.deck));
+  // the crane forward: its tracks, the house, the boom up over the bow with the bucket on its wire
+  const cz = -half + L * 0.32;
+  box(B * 0.5, 1.2, 7, 0, FB + 0.6, cz, dark);
+  box(5, 3.6, 6, 0, FB + 3.0, cz + 0.5, crane);
+  const bl = Math.min(36, L * 0.7), ba = 0.95, boom = box(1.4, 1.4, bl, 0, FB + 4 + Math.sin(ba) * bl / 2, cz - 2 - Math.cos(ba) * bl / 2, crane); boom.rotation.x = ba;
+  const tipY = FB + 4 + Math.sin(ba) * bl, tipZ = cz - 2 - Math.cos(ba) * bl;
+  box(0.06, tipY - FB - 4, 0.06, 0, (tipY + FB + 4) / 2, tipZ, dark);   // the wire
+  box(2.6, 2.4, 2.6, 0, FB + 3, tipZ, dark);                            // the clamshell bucket, hanging
+  // the spuds at the stern corners, the deckhouse aft
+  for (const sx of [-1, 1]) { const sp = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 18, 10), dark); sp.position.set(sx * (B / 2 - 1.2), FB + 6, half - 1.5); g.add(sp); }
+  const side = new THREE.MeshLambertMaterial({ map: windowRows(4, false, 32, look.house), emissive: 0xffd9a0, emissiveMap: windowRows(4, true, 32), emissiveIntensity: 0 }); windowMats.push(side);
+  box(B * 0.5, 2.6, 6, 0, FB + 1.3, half - 7, side);
+  if (V.name) { const nm = nameBoard(V.name, 0, 0, null, '#f4f3ef'); for (const sx of [-1, 1]) { const p = new THREE.Mesh(new THREE.PlaneGeometry(Math.min(14, L * 0.3), 1.0), nm); p.position.set(sx * (B / 2 + 0.03), FB - 0.6, 0); p.rotation.y = sx * Math.PI / 2; g.add(p); } }
+  lamp(g, 0xfff2d6, 0, tipY + 0.5, tipZ, windowMats, 0.25); lamp(g, 0xfff2d6, 0, FB + 4.2, half - 7, windowMats, 0.2);
+  g.userData.helm = [0, FB + 3.2, cz + 0.5];
+  g.userData.top = tipY;
+  return g;
+}
+
+// ── A Coast Guard cutter (Rockland's buoy tender Abbie Burgess and icebreaking tug Thunder Bay; the patrol boats
+// out of South Portland) ── White hull, or black for a buoy tender or icebreaking tug; the racing stripe — the
+// broad red-orange band, the narrow blue — on her bow, COAST GUARD on her side; white house, buff mast and stack.
+// A patrol boat: the house forward, an open after deck with her small boat on the stern ramp. A buoy tender: the
+// house aft, the buoy deck forward with its crane. An icebreaking tug ("… Bay"): the tug.
+const USCG = { hull: '#f2f1ec', boot: '#7a2a24', sheer: '#f2f1ec', house: '#f2f1ec', deck: '#8d9296', mast: '#d9c79a', funnel: '#d9c79a', funnelTop: '#1d1f22', gear: '#d9c79a', mark: 'uscg', word: 'COAST GUARD', name: '#1d1f22' };
+const USCG_TENDER = /\b(ABBIE BURGESS|MARCUS HANNA|IDA LEWIS|KATHERINE WALKER|JAMES RANKIN|JOSHUA APPLEBY|FRANK DREW|ANTHONY PETIT|BARBARA MABRITY|WILLIAM TATE|HARRY CLAIBORNE|MARIA BRAY|HENRY BLAKE|GEORGE COBB|JUNIPER|WILLOW|KUKUI|ELM|WALNUT|SPAR|MAPLE|ASPEN|SYCAMORE|CYPRESS|OAK|HICKORY|FIR|HOLLYHOCK|SEQUOIA|ALDER|SASSAFRAS|CYPRESS|IRONWOOD|BUTTONWOOD|POPLAR|SPAR)\b/;
+export function cutterModel(V, liv, windowMats = []) {
+  const name = (V.name || '').toUpperCase().replace(/^USCGC\s+/, '');
+  if (/BAY$/.test(name)) return tugModel({ ...V, L: V.L || 43, B: V.B || 11.4 }, { hull: '#1d1f22', stripe: '#1d1f22', house: '#f2f1ec', band: '#f2f1ec', funnel: '#d9c79a', funnelTop: '#1d1f22', name: '#f4f3ef', mark: 'uscg', ...(liv || {}) }, windowMats);
+  if (USCG_TENDER.test(name)) {
+    const L = V.L || 53, W = workBoat({ ...V, L, B: V.B || L * 0.22 }, { ...USCG, hull: '#1d1f22', sheer: '#1d1f22', word: null, name: '#f4f3ef', ...(liv || {}) }, windowMats, { decks: 2, house: [0.42, 0.78], aframe: 0 });
+    const { g, M, box, B, half, sheer } = W, z = -half + L * 0.3, y = sheer(0.7);
+    box(1.4, 4, 1.4, B * 0.25, y + 2, z, M('#d9c79a'));   // the buoy crane, its jib out over the deck
+    const jib = box(0.7, 0.7, L * 0.22, B * 0.25, y + 4.6, z - L * 0.08, M('#d9c79a')); jib.rotation.x = 0.35;
+    const buoy = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.2, 3.2, 12), M(0x2b8a4a)); buoy.position.set(-B * 0.15, y + 1.6, z + 2); g.add(buoy);   // a buoy on deck
+    return g;
+  }
+  const L = V.L || 27, W = workBoat({ ...V, L, B: V.B || L * 0.22 }, { ...USCG, ...(liv || {}) }, windowMats, { decks: L > 40 ? 2 : 1, house: [0.2, 0.55], aframe: 0 });
+  const { g, M, box, B, half, sheer } = W;
+  const rb = box(B * 0.4, 1.0, Math.min(7, L * 0.22), 0, sheer(0) - 0.2, half - Math.min(7, L * 0.22) / 2 - 0.3, M('#e8731f')); rb.rotation.x = -0.12;   // her small boat on the stern ramp
+  return g;
+}
+
 // ── A harbour tug, ship-assist (McAllister's at Portland: the Andrew, Rowan, Vicki M. and Rosemary McAllister,
 // Fournier Girls; Commons photos of Capt. Brian A. McAllister for the look) ── A short, beamy hull, her sheer
 // sweeping high to a full bow, the heavy bow fender ("pudding") round the stem and tyres along her sides; the
@@ -482,6 +561,7 @@ export function tugModel(V, liv, windowMats = []) {
   // the towing winch, the H-bitt aft
   box(B * 0.4, 1.2, 1.6, 0, SH + 0.6, hz1 + 1.6, M(0x2f6f3a));
   box(B * 0.5, 0.35, 0.4, 0, SH + 1.2, half - 2, white); for (const sx of [-1, 1]) box(0.35, 1.2, 0.35, sx * B * 0.22, SH + 0.6, half - 2, white);
+  if (look.mark) { const mm = markMat(look.mark, '#f4f3ef'); for (const sx of [-1, 1]) onSide(g, hull, mm, 0.8, sheer(0.8) * 0.55, sheer(0.8) * 1.4, sheer(0.8) * 0.9, sx); }
   if (V.name) { const nm = nameBoard(V.name, 0, 0, null, look.name); for (const sx of [-1, 1]) onSide(g, hull, nm, 0.66, sheer(0.66) - 0.85, Math.min(10, L * 0.33), 0.75, sx); }
   lamp(g, 0xfff2d6, 0, mT + 3.6, wz0 + wL * 0.6, windowMats, 0.14); lamp(g, 0xfff2d6, 0, mT + 2.6, wz0 + wL * 0.6, windowMats, 0.14);   // (two masthead lights: towing)
   lamp(g, 0xff3b2e, -hW * 0.48, WH + 1.2, wz0 + 0.6, windowMats, 0.12); lamp(g, 0x3dff7a, hW * 0.48, WH + 1.2, wz0 + 0.6, windowMats, 0.12);

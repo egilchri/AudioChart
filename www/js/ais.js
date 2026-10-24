@@ -22,9 +22,9 @@ export function aisClass(type, L) {
   if (t === 31 || t === 32 || t === 52) return { model: 'tug', what: 'Tug' };   // (v1001: a tug, pilot boat or tanker drawn as one: ships3d.js)
   if (t === 50) return { model: 'pilot', what: 'Pilot boat' };
   if (t === 51) return { model: 'launch', what: 'Search and rescue' };
-  if (t === 55) return { model: 'launch', what: 'Law enforcement' };
+  if (t === 55) return { model: len >= 20 ? 'cutter' : 'launch', what: 'Law enforcement' };   // (v1005: a Coast Guard cutter, ships3d.js)
   if (t === 35) return { model: len > 60 ? 'ship' : 'launch', what: 'Military vessel' };
-  if (t === 33) return { model: 'ship', what: 'Dredger' };
+  if (t === 33) return { model: 'dredger', what: 'Dredger' };
   if (t >= 40 && t <= 49) return { model: 'launch', what: 'High-speed craft' };
   if (t >= 60 && t <= 69) return { model: len > 110 ? 'cruise' : len >= 25 ? 'ferry' : 'launch', what: len > 110 ? 'Cruise ship' : 'Passenger vessel' };
   if (t >= 70 && t <= 79) return { model: len && len < 60 ? 'ship' : 'cargo', what: 'Cargo ship' };   // (container ship or bulk carrier: bay3d.js decides)
@@ -33,7 +33,7 @@ export function aisClass(type, L) {
 }
 const STATUS = { 0: 'under way', 1: 'at anchor', 2: 'not under command', 3: 'restricted in her ability to manoeuvre', 5: 'moored', 7: 'fishing', 8: 'under sail' };
 export const aisStatus = s => STATUS[s] || '';
-const titleCase = t => t.toLowerCase().replace(/(^|[\s.'&-])[a-z]/g, c => c.toUpperCase()).replace(/\b(Ii|Iii|Iv)\b/g, r => r.toUpperCase()).replace(/\bR\/v\b/g, 'R/V');   // (Maquoit II, Aucocisco III: v993; R/V, v1004)
+const titleCase = t => t.toLowerCase().replace(/(^|[\s.'&-])[a-z]/g, c => c.toUpperCase()).replace(/\b(Ii|Iii|Iv)\b/g, r => r.toUpperCase()).replace(/\bR\/v\b/g, 'R/V').replace(/\b(Uscgc|Uscg|Cgc|Noaas)\b/g, r => r.toUpperCase());   // (Maquoit II, Aucocisco III: v993; R/V, v1004)
 // Vessels we know by their full names (the ferries, and the windjammers, v990): AIS cuts a name at 20 characters
 // ("CAPT.E.FRANK THOMPSO"), so a broadcast name that begins one of these is that vessel; "SCHOONER", "S/V" and the
 // like in front don't count ("SCHOONER MARY DAY" is Mary Day). setKnown([{ name, box?, ...anything }]): one with a box

@@ -15,8 +15,11 @@ emphasizing efficiency but also verisimilitude".
    "LPG" and the like in her name (`tankerKind`). Neither has an operator's livery yet, since none is confirmed
    calling here. Stern trawler and research vessel (v1004, sharing `workBoat`: house forward, working deck aft,
    A-frame): a fishing vessel over 18 m is a trawler (smaller ones stay lobster boats); a research vessel by her
-   name (R/V …, NOAA ships), as AIS has no type for one. Next candidates: dredger, scalloper, cable layer, Coast
-   Guard cutter.
+   name (R/V …, NOAA ships), as AIS has no type for one. Dredger and Coast Guard cutter (v1005): a dredger (AIS 33)
+   under 70 m is a bucket dredge on its crane barge, over 70 m a hopper dredge; a cutter (AIS 55 over 20 m, or by
+   her name: USCGC …, the keeper-class buoy tenders, the "… Bay" icebreaking tugs) is a patrol boat, a buoy tender
+   (black hull, buoy deck and crane forward) or an icebreaking tug, with the racing stripe and COAST GUARD.
+   Next candidates: scalloper, cable layer.
 
    The generic `merchantModel` (vessels.js) stays as the fallback.
 2. **Liveries by operator** (`www/data/ships.json` `liveries`). One entry, matched by a name pattern, dresses a whole
