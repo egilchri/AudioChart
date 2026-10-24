@@ -1,5 +1,5 @@
 {
- "source": "Liveries from operators' photos (Iver Ships: vroon.nl photo of Iver Beauty; McAllister: Wikimedia Commons, Capt. Brian A. McAllister; Portland pilots: 2009 photo of Spring Point). Particulars from owners' spec sheets (Iver Prosperity: Vroon vessel particulars, 17 Sep 2022) and builders' descriptions (Spring Point: Gladding-Hearn, 2004). Colours approximate. Fetched 2026-10-24.",
+ "source": "Liveries from operators' photos (Iver Ships: vroon.nl photo of Iver Beauty; McAllister: Wikimedia Commons, Capt. Brian A. McAllister; Portland pilots: 2009 photo of Spring Point). Particulars from owners' spec sheets (Iver Prosperity: Vroon vessel particulars, 17 Sep 2022) and builders' descriptions (Spring Point: Gladding-Hearn, 2004). Eimskip: Wikimedia Commons photo of Lagarfoss. Colours approximate. Fetched 2026-10-24.",
  "liveries": [
   {
    "id": "iver",
@@ -45,6 +45,29 @@
    "boot": "#6fa8d6",
    "house": "#d7dadb",
    "word": "#c8302a"
+  },
+  {
+   "id": "eimskip",
+   "match": "FOSS$",
+   "operator": "Eimskip",
+   "kinds": [
+    "container"
+   ],
+   "hull": "#1d1f22",
+   "boot": "#8c2a22",
+   "deck": "#5e6b4e",
+   "hatch": "#3d4a3e",
+   "bulwark": "#f2f1ec",
+   "house": "#f2f1ec",
+   "funnel": "#f2f1ec",
+   "funnelTop": "#1d1f22",
+   "crane": "#f2f1ec",
+   "cranePedestal": "#a3262b",
+   "name": "#f2f1ec",
+   "word": "EIMSKIP",
+   "wordU": 0.22,
+   "geared": true,
+   "note": "From Commons photo of Lagarfoss (2014). Eimskip-named ships (…foss); its chartered ships keep their owners' colours. Funnel colours assumed."
   }
  ],
  "ships": [

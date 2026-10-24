@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-10-24 — Container ships and bulk carriers; ride cameras stay off the land (v1002)
+
+- **Container ship:** bays of 40-foot boxes stacked two to four high across her beam, in the colours of the lines
+  that own them (one instanced mesh), hatch covers and lashing bridges, a high forecastle, and her own cranes if
+  she's geared. Eimskip's livery ("…foss"), from a photo of *Lagarfoss*: black hull, white forecastle band,
+  EIMSKIP on her side, white cranes on red pedestals.
+- **Bulk carrier:** hatch coamings with peaked side-rolling covers, four deck cranes between them with the jibs on
+  their rests, a fuller bow.
+- The tanker, container ship and bulk carrier now share one hull and aft house (`merchantShip`).
+- A live cargo ship is a container ship or a bulk carrier according to her record, her operator, where she's
+  bound (Searsport and Bucksport take bulk) or her proportions.
+- Fix (reported, with a screenshot of Bow on *Pilot Dirigo* at her pier): Stern, Side and Bow put the camera boat
+  ashore among the houses when the vessel was alongside. The camera boat now goes round her to the nearest
+  bearing afloat, clear of piers if it can, and if every bearing is ashore it rises over the roofs. It is never
+  below the ground.
+
 ## 2026-10-24 — Tankers, tugs and pilot boats drawn as themselves (v1001)
 
 Requested: "depict ships in a way approximating how they look … emphasizing efficiency but also verisimilitude".

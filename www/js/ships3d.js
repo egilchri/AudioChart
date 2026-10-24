@@ -36,6 +36,14 @@ const TANKER_LOOKS = [
   { hull: '#1d1f22', boot: '#7a2a24', deck: '#7a3a2e', house: '#e9e4d6', funnel: '#b3262b', funnelTop: '#1d1f22' },
   { hull: '#3d4a3e', boot: '#7a2a24', deck: '#5e6b4e', house: '#f2f1ec', funnel: '#2f6f9a', funnelTop: '#1d1f22' },
 ];
+// and dry cargo ships': hull, boot-top, deck (and hatch covers), house, funnel, cranes
+const CARGO_LOOKS = [
+  { hull: '#1d1f22', boot: '#8c2a22', deck: '#8c2a22', hatch: '#8c2a22', house: '#f2f1ec', funnel: '#1d1f22', funnelTop: '#1d1f22', funnelBand: '#c8302a', crane: '#e0b531' },
+  { hull: '#24395f', boot: '#8c2a22', deck: '#5e6b4e', hatch: '#5e6b4e', house: '#f2f1ec', funnel: '#24395f', funnelTop: '#1d1f22', crane: '#f2f1ec' },
+  { hull: '#7a2a24', boot: '#3a1a18', deck: '#5e6b4e', hatch: '#7a2a24', house: '#f2f1ec', funnel: '#f2f1ec', funnelTop: '#1d1f22', funnelBand: '#2f6f9a', crane: '#e0b531' },
+  { hull: '#3d4a3e', boot: '#8c2a22', deck: '#8c2a22', hatch: '#3d4a3e', house: '#efe8d4', funnel: '#3d4a3e', funnelTop: '#1d1f22', crane: '#efe8d4' },
+  { hull: '#5a6066', boot: '#8c2a22', deck: '#8c2a22', hatch: '#8c2a22', house: '#f2f1ec', funnel: '#e8731f', funnelTop: '#1d1f22', crane: '#e8731f' },
+];
 const pick = (arr, name) => arr[seedOf(name) % arr.length];
 // a rail: a top bar on stanchions, along z from z0 to z1 at x, its foot at y
 function rail(g, mat, x, y, z0, z1, h = 0.9, every = 1.6, r = 0.03) {
@@ -68,18 +76,18 @@ function onSide(g, hull, mat, u, y, w, h, sx) {
   pl.position.set(sx * hull.half(u, y) + nx * 0.05, y, hull.z(u, y) + nz * 0.05); pl.rotation.y = Math.atan2(nx, nz) + (sx < 0 ? 0 : 0); g.add(pl); return pl;
 }
 
-// ── A product/chemical tanker (Iver Prosperity: 184 m, 27.4 m beam, 17.2 m deep, the Hyundai Mipo 37,000-tonne type;
-// the photo of Iver Beauty, her fleet-mate, for the look) ── The hull lofted: a long parallel body, a bulbous bow
-// with a near-plumb stem, a broad transom; her freeboard her depth less her draught (AIS sends it), so she lies deep
-// loaded and high in ballast. Her main deck carries the cargo-pipe runs down the middle, the manifold across
-// amidships with the hose crane, the raised catwalk from the house to the forecastle, rows of tank hatches; the
-// forecastle at the bow with the foremast; aft, the accommodation five decks high with the bridge across her full
-// beam, the funnel abaft it, the free-fall lifeboat on its ramp over the stern.
-export function tankerModel(V, liv, windowMats = []) {
+// ── What every merchant ship here has (v1002, shared by the tanker, the container ship and the bulk carrier): the
+// lofted hull, its freeboard her depth less her draught now (AIS sends it, so she lies deep loaded and high in
+// ballast), her colours in bands, the main deck; the forecastle at the bow with its bulwark, the foremast and the
+// windlasses; her owner's mark and her name on the bow and across the stern; aft, the accommodation (a row of
+// windows to each deck, lit at night) with the bridge on top and its wings out to her sides, the radar mast, the
+// funnel abaft it, the free-fall lifeboat over the stern; her running lights. o: the hull's lines (o.hull, over
+// the defaults), the house's decks (o.decks), how far forward it stands (o.houseAft, of her length, from the
+// stern) and how long it is (o.houseLen). Returns what the cargo deck between them is built with.
+function merchantShip(V, look, windowMats, o = {}) {
   const L = V.L || 150, B = V.B || L * 0.15, D = V.D || L * 0.093, half = L / 2, g = new THREE.Group();
-  const look = { ...pick(TANKER_LOOKS, V.name), ...(liv || {}) };
   const M = c => new THREE.MeshLambertMaterial({ color: hex(c) });
-  const house = M(look.house), dark = M(0x1d1f22), steel = M(0xb9b4a8), deckM = M(look.deck), funnelM = M(look.funnel);
+  const house = M(look.house), dark = M(0x1d1f22), steel = M(0xb9b4a8);
   const box = (w, h, d, x, y, z, m) => { const k = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); k.position.set(x, y, z); g.add(k); return k; };
   const T = Math.max(D * 0.32, Math.min(D * 0.72, V.T || D * 0.6));   // her draught now (AIS), within reason
   const FB = D - T;                                                    // her freeboard
@@ -89,23 +97,26 @@ export function tankerModel(V, liv, windowMats = []) {
     uw: 0.8, wlTip: 0.06, wlAft: 0.78, ud: 0.84, dkTip: 0.1, dkPow: 2.2, dkAft: 0.9,
     flareP: u => 1 + 0.6 * sm((u - 0.85) / 0.12), bilgeN: u => 2.2 + 2.6 * (1 - sm((u - 0.7) / 0.25)),
     bands: [[() => Math.min(0.6, T * 0.06), hex(look.boot), 3], [u => sheer(u), hex(look.hull), 6]],
-    NU: 64,
+    NU: 64, ...(o.hull || {}),
   });
   g.add(hull.mesh);
   g.add(hull.deck(0, sheer, hex(look.deck), 0.995, 0.25));
-  // the forecastle: raised 2.6 m over the last tenth, its sides the hull's carried up, a grey deck
-  const FC = 2.6, uFC = 0.9;
-  g.add(hull.wall(u => u < uFC ? sheer(u) + 1.1 : sheer(u) + FC + 1.1 * sm((u - uFC) / 0.02), hex(look.hull)));   // the bulwark / forecastle sides
+  // the forecastle: raised over the last tenth, its sides the hull's carried up (a band of her bulwark colour at
+  // the top, as Eimskip's white), a grey deck
+  const FC = o.fc ?? 2.6, uFC = 0.9;
+  const fcTop = u => u < uFC ? sheer(u) + 1.1 : sheer(u) + FC + 1.1 * sm((u - uFC) / 0.02);
+  const hw = hull.wall(look.bulwark ? u => u < uFC + 0.02 ? fcTop(u) : fcTop(u) - 1.5 : fcTop, hex(look.hull)); g.add(hw);
+  if (look.bulwark) { hw.material.polygonOffset = true; hw.material.polygonOffsetFactor = -1; g.add(hull.wall(u => u < uFC + 0.02 ? 0 : fcTop(u), hex(look.bulwark))); }   // (the band: drawn behind, showing above)
   g.add(hull.deck(uFC, u => sheer(u) + FC, hex(look.deck), 0.995, 0.1));
-  // the white V forward (or her owner's mark), and her name at the bow and across the stern
   if (look.mark) { const mm = markMat(look.mark, look.markColor || '#f4f3ef'); for (const sx of [-1, 1]) onSide(g, hull, mm, 0.76, FB * 0.42, FB * 1.6, FB * 0.84, sx); }
+  if (look.word) { const wm = wordMat(look.word, look.wordColor || '#f4f3ef'); for (const sx of [-1, 1]) onSide(g, hull, wm, look.wordU ?? 0.5, FB * 0.55, Math.min(L * 0.3, FB * 9), FB * 0.5, sx); }
   if (V.name) {
     const nm = nameBoard(V.name, 0, 0, null, look.name || '#f4f3ef');
     for (const sx of [-1, 1]) onSide(g, hull, nm, 0.86, sheer(0.86) - 1.6, Math.min(26, L * 0.13), 2.4, sx);
     const st = new THREE.Mesh(new THREE.PlaneGeometry(B * 0.6, 1.6), nm); st.position.set(0, FB - 1.6, hull.z(0, FB - 1.6) + 0.08); g.add(st);
   }
-  // the accommodation aft: five decks, windows in rows (lit at night), the bridge across her beam on top
-  const za = half - L * 0.045, zf = za - L * 0.085, hL = za - zf, nD = L > 150 ? 6 : 5, dh = 2.8, hW = B * 0.82;
+  // the accommodation aft, the bridge on top across her beam
+  const za = half - L * (o.houseAft ?? 0.045), zf = za - L * (o.houseLen ?? 0.085), hL = za - zf, nD = o.decks ?? (L > 150 ? 6 : 5), dh = 2.8, hW = B * 0.82;
   const side = new THREE.MeshLambertMaterial({ map: windowRows(hL / 3, false, 32, look.house), emissive: 0xffd9a0, emissiveMap: windowRows(hL / 3, true, 32), emissiveIntensity: 0 });
   for (const t of [side.map, side.emissiveMap]) { t.wrapT = THREE.RepeatWrapping; t.repeat.y = nD; } windowMats.push(side);   // (a row of windows to each deck)
   const acc = deckhouse({ W: hW, zf, za, H: nD * dh, nF: 14, nA: 14, roof: 0.4, roofT: 0.3, side, top: house });
@@ -116,33 +127,18 @@ export function tankerModel(V, liv, windowMats = []) {
   bridge.position.y = BR; g.add(bridge);
   box(B * 1.0, 0.45, 4.2, 0, BR + 2.6, zf + 2.4, house);   // the bridge wings, out to her sides
   for (const sx of [-1, 1]) box(1.6, 2.6, 3.6, sx * (B * 0.5 - 0.8), BR + 1.3, zf + 2.4, house);   // (their cabs, closed)
-  // the radar mast on the wheelhouse top, its two scanners
-  const MT = BR + 3.3;
+  const MT = BR + 3.3;   // the radar mast on the wheelhouse top, its two scanners
   box(0.5, 7, 0.5, 0, MT + 3.5, bZ + bL * 0.2, house); box(5, 0.4, 0.5, 0, MT + 4.6, bZ + bL * 0.2, house);
   for (const sx of [-1, 1]) { const r = box(3.2, 0.2, 0.5, sx * 2.0, MT + 5.0, bZ + bL * 0.2, dark); r.rotation.y = sx * 0.4; }
-  // the funnel abaft the bridge: tapered, its top black
-  const fH = 9, fz = zf + hL * 0.72;
-  const fun = new THREE.Mesh(new THREE.CylinderGeometry(B * 0.11, B * 0.13, fH, 16), funnelM); fun.scale.z = 1.5; fun.position.set(0, BR + fH / 2 - 1, fz); g.add(fun);
-  const top = new THREE.Mesh(new THREE.CylinderGeometry(B * 0.112, B * 0.112, 1.8, 16), M(look.funnelTop || '#1d1f22')); top.scale.z = 1.5; top.position.set(0, BR + fH - 1.9, fz); g.add(top);
-  if (look.funnelBand) { const b = new THREE.Mesh(new THREE.CylinderGeometry(B * 0.116, B * 0.118, 1.4, 16), M(look.funnelBand)); b.scale.z = 1.5; b.position.set(0, BR + fH * 0.55, fz); g.add(b); }
+  // the funnel abaft the bridge: tapered, its top black, a band if her owner's has one
+  const fH = 9, fz = zf + hL * 0.72, fun = (r0, r1, h, y, m) => { const k = new THREE.Mesh(new THREE.CylinderGeometry(r0, r1, h, 16), m); k.scale.z = 1.5; k.position.set(0, y, fz); g.add(k); };
+  fun(B * 0.11, B * 0.13, fH, BR + fH / 2 - 1, M(look.funnel));
+  fun(B * 0.112, B * 0.112, 1.8, BR + fH - 1.9, M(look.funnelTop || '#1d1f22'));
+  if (look.funnelBand) fun(B * 0.116, B * 0.118, 1.4, BR + fH * 0.55, M(look.funnelBand));
   // the free-fall lifeboat on its ramp over the stern, orange
   const lb = box(3.2, 3.0, 9.5, 0, FB + nD * dh * 0.45, za + 3.5, M(0xe8731f)); lb.rotation.x = -0.6;
   box(4.2, 0.4, 10, 0, FB + nD * dh * 0.45 - 1.8, za + 3.4, house).rotation.x = -0.6;
-  // the cargo deck: the pipe runs down the middle, the catwalk over them, the manifold across amidships with its
-  // hose crane, rows of tank hatches each side, the deck foam monitors at the house front
-  const dz0 = -half + L * 0.1 + 2, dz1 = zf - 2, dL = dz1 - dz0, dZ = (dz0 + dz1) / 2;
-  for (const [x, r] of [[-1.6, 0.35], [-0.8, 0.45], [0, 0.45], [0.8, 0.35], [1.6, 0.3]]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(r, r, dL, 8), steel); p.rotation.x = Math.PI / 2; p.position.set(x, FB + 1.0, dZ); g.add(p); }
-  const cw = box(1.4, 0.2, dL + 4, B * 0.12, FB + 2.9, dZ - 2, M(look.catwalk || look.house));
-  for (let z = dz0; z < dz1; z += 9) box(0.25, 2.8, 0.25, B * 0.12, FB + 1.5, z, steel);
-  for (const sx of [-1, 1]) box(0.06, 0.9, dL + 4, B * 0.12 + sx * 0.7, FB + 3.4, dZ - 2, steel);   // its rails
-  const mz = -L * 0.02;
-  box(B * 0.92, 1.8, 3.4, 0, FB + 0.9, mz, steel);   // the manifold
-  box(B * 0.95, 0.9, 6, 0, FB + 0.45, mz, M(look.drip || look.deck));   // its drip trays
-  const cr = M(look.crane || look.house);
-  box(1.0, 9, 1.0, 0, FB + 4.5, mz + 4.5, cr); const jib = box(0.7, 0.7, 15, 0, FB + 10.5, mz - 1.5, cr); jib.rotation.x = -0.35;   // the hose crane
-  for (const sx of [-1, 1]) for (let i = 0; i < 6; i++) { const h = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.7, 10), steel); h.position.set(sx * B * 0.3, FB + 0.35, dz0 + (i + 0.5) * dL / 6); g.add(h); }
-  for (const sx of [-1, 1]) box(0.6, 1.4, 0.6, sx * 2.2, FB + 0.7 + 0.5, zf - 3, M(0xc8302a));   // foam monitors
-  // the foremast on the forecastle, the windlasses, the bow-thruster mark
+  // the foremast on the forecastle, the windlasses
   box(0.7, 12, 0.7, 0, FB + FC + 6, -half + L * 0.05, house);
   for (const sx of [-1, 1]) box(1.6, 1.0, 2.2, sx * B * 0.18, FB + FC + 0.5, -half + L * 0.075, M(0x5e6b4e));
   // running lights: forward and after masthead lights, sidelights at the wings, the stern light
@@ -153,6 +149,91 @@ export function tankerModel(V, liv, windowMats = []) {
   g.userData.helm = [0, BR + 1.8, zf - 0.6];
   g.userData.top = MT + 7;   // (her height, for her label)
   g.userData.wake = [wakeOf(B, L)]; g.add(g.userData.wake[0]);
+  // the cargo deck: from abaft the forecastle (dz0) to the house front (dz1)
+  const dz0 = -half + L * 0.1 + 2, dz1 = zf - 2;
+  return { g, M, box, L, B, D, half, FB, FC, hull, house, steel, dark, dz0, dz1, zf, BR, look };
+}
+
+// ── A product/chemical tanker (Iver Prosperity: 184 m, 27.4 m beam, 17.2 m deep, the Hyundai Mipo 37,000-tonne type;
+// the photo of Iver Beauty, her fleet-mate, for the look) ── On merchantShip's hull and house: the cargo-pipe runs
+// down the middle, the raised catwalk from the house to the forecastle, the manifold across amidships with the hose
+// crane and drip trays, rows of tank hatches each side, the foam monitors at the house front.
+export function tankerModel(V, liv, windowMats = []) {
+  const S = merchantShip(V, { ...pick(TANKER_LOOKS, V.name), ...(liv || {}) }, windowMats);
+  const { g, M, box, L, B, FB, steel, dz0, dz1, zf, look } = S, dL = dz1 - dz0, dZ = (dz0 + dz1) / 2;
+  for (const [x, r] of [[-1.6, 0.35], [-0.8, 0.45], [0, 0.45], [0.8, 0.35], [1.6, 0.3]]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(r, r, dL, 8), steel); p.rotation.x = Math.PI / 2; p.position.set(x, FB + 1.0, dZ); g.add(p); }
+  box(1.4, 0.2, dL + 4, B * 0.12, FB + 2.9, dZ - 2, M(look.catwalk || look.house));   // the catwalk, on posts, railed
+  for (let z = dz0; z < dz1; z += 9) box(0.25, 2.8, 0.25, B * 0.12, FB + 1.5, z, steel);
+  for (const sx of [-1, 1]) box(0.06, 0.9, dL + 4, B * 0.12 + sx * 0.7, FB + 3.4, dZ - 2, steel);
+  const mz = -L * 0.02;
+  box(B * 0.92, 1.8, 3.4, 0, FB + 0.9, mz, steel);   // the manifold
+  box(B * 0.95, 0.9, 6, 0, FB + 0.45, mz, M(look.drip || look.deck));   // its drip trays
+  const cr = M(look.crane || look.house);
+  box(1.0, 9, 1.0, 0, FB + 4.5, mz + 4.5, cr); const jib = box(0.7, 0.7, 15, 0, FB + 10.5, mz - 1.5, cr); jib.rotation.x = -0.35;   // the hose crane
+  for (const sx of [-1, 1]) for (let i = 0; i < 6; i++) { const h = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.7, 10), steel); h.position.set(sx * B * 0.3, FB + 0.35, dz0 + (i + 0.5) * dL / 6); g.add(h); }
+  for (const sx of [-1, 1]) box(0.6, 1.4, 0.6, sx * 2.2, FB + 1.2, zf - 3, M(0xc8302a));   // foam monitors
+  return g;
+}
+
+// a ship's deck crane (a container feeder's, a bulk carrier's): the pedestal, the crane house on it, the jib
+// lowered forward onto its rest, or (aloft) raised at work. At x, z on a deck at y.
+function deckCrane(S, x, z, y, h, jibL, colour, pedestal, aloft = false) {
+  const { box, M } = S, cm = M(colour), pm = M(pedestal || colour);
+  box(2.4, h, 2.4, x, y + h / 2, z, pm);
+  box(3.6, 3.2, 4.2, x, y + h + 1.6, z, cm);
+  const a = aloft ? 0.75 : 0.12, jib = box(1.0, 1.0, jibL, x, y + h + 2.4 + Math.sin(a) * jibL / 2, z - Math.cos(a) * jibL / 2, cm); jib.rotation.x = a;
+  if (!aloft) box(0.6, h * 0.55, 0.6, x, y + h * 0.27, z - Math.cos(a) * jibL * 0.95, pm);   // the jib rest
+}
+
+// ── A container ship (the feeders that call at Portland: Eimskip's, 130–180 m; the photo of Lagarfoss for the
+// livery) ── On merchantShip's hull, the house aft: the holds' hatch covers and the boxes on deck, bay by bay of
+// 40-footers, stacked two to four high across her beam in the colours of the lines that own them, lit by none;
+// a high bow; her own cranes along the port side, if she's geared (a feeder usually is; V.geared false for none).
+// The boxes are one instanced mesh: a few hundred cost about what one does.
+const BOX_COLS = [0x2f86b8, 0x9ac4de, 0xd9cfa8, 0xc23a2e, 0xe8731f, 0x2b8a4a, 0x8d9296, 0xf0eee6, 0x24395f, 0x7a2a24, 0x5e6b4e, 0xe0b531];
+export function containerModel(V, liv, windowMats = []) {
+  const look = { hull: '#24395f', boot: '#8c2a22', deck: '#5e6b4e', house: '#f2f1ec', funnel: '#f2f1ec', funnelTop: '#1d1f22', ...pick(CARGO_LOOKS, V.name), ...(liv || {}) };
+  const L = V.L || 140, B = V.B || L * 0.165;
+  const S = merchantShip({ ...V, L, B, D: V.D || L * 0.078 }, look, windowMats, { fc: 3.4, houseAft: 0.04, houseLen: 0.075, decks: L > 160 ? 6 : 5, hull: { wlTip: 0.08, dkTip: 0.16, ud: 0.82 } });
+  const { g, M, FB, dz0, dz1, steel } = S;
+  let sd = seedOf(V.name); const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+  const BAY = 12.2 + 0.6, bays = Math.max(3, Math.floor((dz1 - dz0) / BAY)), rows = Math.max(3, Math.floor((B - 2) / 2.44)), x0 = -(rows - 1) * 2.44 / 2;
+  const geared = V.geared ?? look.geared ?? L < 170, gearBays = geared ? [Math.floor(bays * 0.3), Math.floor(bays * 0.66)] : [];
+  // the hatch covers, one to a bay, under the boxes
+  for (let b = 0; b < bays; b++) if (!gearBays.includes(b)) S.box(B - 3, 0.9, BAY - 0.8, 0, FB + 0.45, dz0 + (b + 0.5) * BAY, M(look.hatch || look.deck));
+  const cells = [];
+  for (let b = 0; b < bays; b++) {
+    if (gearBays.includes(b)) continue;
+    const z = dz0 + (b + 0.5) * BAY, fwd = b === 0;   // (the first bay forward lower, under the bow's sweep)
+    for (let r = 0; r < rows; r++) { const tiers = Math.max(0, Math.round((fwd ? 1.5 : 2.6) + rnd() * 1.6 - (rnd() < 0.12 ? 2 : 0))); for (let t = 0; t < tiers; t++) cells.push([x0 + r * 2.44, FB + 0.9 + 1.3 + t * 2.6, z]); }
+  }
+  if (cells.length) {
+    const im = new THREE.InstancedMesh(new THREE.BoxGeometry(2.38, 2.55, 12.0), new THREE.MeshLambertMaterial({ color: 0xffffff }), cells.length), m4 = new THREE.Matrix4(), c = new THREE.Color();
+    cells.forEach(([x, y, z], i) => { im.setMatrixAt(i, m4.makeTranslation(x, y, z)); im.setColorAt(i, c.setHex(BOX_COLS[Math.floor(rnd() * BOX_COLS.length)])); });
+    g.add(im);
+  }
+  // the lashing bridges between the bays, the cranes in their gaps (on the port side, jibs forward on their rests)
+  for (let b = 1; b < bays; b++) S.box(B - 2, 2.2, 0.5, 0, FB + 1.1, dz0 + b * BAY, steel);
+  for (const b of gearBays) deckCrane(S, -B * 0.28, dz0 + (b + 0.5) * BAY, FB, 10, Math.min(28, B * 1.1), look.crane || '#f2f1ec', look.cranePedestal || look.crane || '#f2f1ec');
+  return g;
+}
+
+// ── A bulk carrier (the handysize and supramax ships that bring salt, coal and cement to Searsport's Mack Point and
+// Portland) ── On merchantShip's hull, the house aft: five to seven holds, each with its raised coaming and side-
+// rolling hatch covers, in her deck colour or her own; four deck cranes on their pedestals between the hatches,
+// jibs down on their rests forward; a fuller, blunter bow.
+export function bulkModel(V, liv, windowMats = []) {
+  const look = { ...pick(CARGO_LOOKS, (V.name || '') + 'b'), ...(liv || {}) };
+  const L = V.L || 180, B = V.B || L * 0.165;
+  const S = merchantShip({ ...V, L, B, D: V.D || L * 0.088 }, look, windowMats, { fc: 2.8, houseAft: 0.04, houseLen: 0.08, hull: { wlTip: 0.14, dkTip: 0.2, uw: 0.84, ud: 0.86 } });
+  const { g, M, FB, dz0, dz1, steel } = S;
+  const n = L > 175 ? 5 : L > 140 ? 5 : 4, hatch = M(look.hatch || look.deck), coam = M(look.coaming || look.hull), span = (dz1 - dz0) / n;
+  for (let i = 0; i < n; i++) {
+    const z = dz0 + (i + 0.5) * span, len = span * 0.7, w = B * 0.62;
+    S.box(w + 0.6, 1.6, len + 0.6, 0, FB + 0.8, z, coam);   // the coaming
+    for (const sx of [-1, 1]) { const c = S.box(w / 2, 0.9, len, sx * w / 4, FB + 2.0, z, hatch); c.rotation.z = -sx * 0.06; }   // the two covers, peaked
+  }
+  if (V.geared ?? look.geared ?? L < 200) for (let i = 1; i < n; i++) deckCrane(S, 0, dz0 + i * span, FB, 11, Math.min(26, span * 1.0), look.crane || '#f2f1ec', look.cranePedestal || look.crane || '#f2f1ec');
   return g;
 }
 

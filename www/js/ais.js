@@ -27,7 +27,7 @@ export function aisClass(type, L) {
   if (t === 33) return { model: 'ship', what: 'Dredger' };
   if (t >= 40 && t <= 49) return { model: 'launch', what: 'High-speed craft' };
   if (t >= 60 && t <= 69) return { model: len > 110 ? 'cruise' : len >= 25 ? 'ferry' : 'launch', what: len > 110 ? 'Cruise ship' : 'Passenger vessel' };
-  if (t >= 70 && t <= 79) return { model: 'ship', what: 'Cargo ship' };
+  if (t >= 70 && t <= 79) return { model: len && len < 60 ? 'ship' : 'cargo', what: 'Cargo ship' };   // (container ship or bulk carrier: bay3d.js decides)
   if (t >= 80 && t <= 89) return { model: len && len < 60 ? 'ship' : 'tanker', what: 'Tanker' };
   return { model: len > 60 ? 'ship' : len > 14 ? 'launch' : 'power', what: 'Vessel' };
 }

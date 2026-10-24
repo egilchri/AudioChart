@@ -8,9 +8,9 @@ emphasizing efficiency but also verisimilitude".
 1. **A model per kind of ship** (`www/js/ships3d.js`), shaped from her AIS data: length, beam, and draught. Draught
    sets her freeboard, so a tanker lies deep when loaded and high in ballast. One model covers every ship of that
    kind, and each kind is built once from photos of typical examples. Done: product tanker, harbour tug, pilot boat
-   (v1001). Next, in order of how often they're seen here:
-   - container ship
-   - bulk carrier (with deck cranes)
+   (v1001); container ship and bulk carrier (v1002, sharing the hull and aft house in `merchantShip`). AIS doesn't
+   say which of the two a cargo ship is: her record, her operator, where she's bound, then her beam-to-length
+   ratio decide (`cargoKind`, bay3d.js). Next, in order of how often they're seen here:
    - car carrier
    - LPG carrier
    - fishing trawler
@@ -55,6 +55,9 @@ operator's livery the first time one of its ships turns up. Expected regulars:
 
 ## Sources used so far
 
+- **Eimskip:** Wikimedia Commons photo of *Lagarfoss* (2014; the company's 2024 fleet list: 141 m, 875 TEU): black
+  hull, white band along the forecastle bulwark, red bottom, white house, white cranes on red pedestals. Applied to
+  "…foss" names. Its chartered ships keep their owners' colours. Funnel colours are assumed.
 - **Iver Prosperity:** Vroon vessel particulars (17 Sep 2022): 184.32 m long, 27.40 m beam, 17.20 m deep, 11.32 m
   summer draught, built 2007 by Hyundai Mipo. Livery from vroon.nl's photo of her fleet-mate Iver Beauty: red hull
   and deck, white V forward, white house.

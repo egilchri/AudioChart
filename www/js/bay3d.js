@@ -19,7 +19,7 @@ import { makeWildlife, ledgesFrom } from './wildlife3d.js';
 import { makeMoorings } from './moorings3d.js';
 import { callsOn, trackOf, alongTrack, cruiseState, ferryState, ferryDepartures, ferryLine, ferrySlipModel, terminalLot, terminalHouse, cruiseShipModel, ferryModelSimple, launchModel, cblModel, merchantModel, mins } from './vessels.js';
 import { REGIONS3D, REGION3D_KEY, regions3dOffered } from './regions3d.js';
-import { tankerModel, tugModel, pilotModel, setShips, shipFor } from './ships3d.js';
+import { tankerModel, tugModel, pilotModel, containerModel, bulkModel, setShips, shipFor } from './ships3d.js';
 import { makeAisFeed, aisClass, aisStatus, aisName, aisDest, setKnown, knownFor, aisFlag, aisRot, aisPos, aisAgo, aisLookup, aisImo, aisCallsign } from './ais.js';
 
 const statusEl = document.getElementById('status');
@@ -1085,9 +1085,22 @@ function nestCamera() {   // after every vessel has moved: the eye aboard her, l
   const h = v.h * DEG, sh = Math.sin(h), ch = Math.cos(h);
   const toWorld = ([lx, ly, lz], out) => out.set(v.x + lx * ch - lz * sh, ly, v.z + lx * sh + lz * ch);   // her frame (bow toward −z) to the world
   if (ORBITS(nest.mode)) {
-    const L = vLen(v), C = CHASE[nest.mode], D = (C ? clamp(L * C.d, 18, 700) : clamp(L * 3.2, 45, 900)) / nest.zoom, el = clamp(-nest.pitch, 3, 85) * DEG, az = (v.h + nest.yaw) * DEG;
+    const L = vLen(v), C = CHASE[nest.mode], D = (C ? clamp(L * C.d, 18, 700) : clamp(L * 3.2, 45, 900)) / nest.zoom, el = clamp(-nest.pitch, 3, 85) * DEG;
+    // a camera boat stays on the water (v1002, reported: Bow on the pilot boat at her pier put it among the houses):
+    // where her Stern, Side or Bow spot is ashore, it goes round her to the nearest bearing afloat (clear of the
+    // piers if it can be); ashore all round (a boat in a slip), it rises over the roofs and looks down on her
+    const spot = yaw => { const a = (v.h + yaw) * DEG, r = Math.cos(el) * D; return [v.x - Math.sin(a) * r, v.z + Math.cos(a) * r]; };
+    const wet = yaw => heightAt(lonOf(spot(yaw)[0]), latOf(spot(yaw)[1])) <= 0.3, open = yaw => wet(yaw) && !pierSegs(...spot(yaw), 12).length;
+    let high = false;
+    if (C && !wet(nest.yaw)) {
+      let k = 0;
+      for (const ok of [open, wet]) { for (k = 15; k <= 180; k += 15) { if (ok(nest.yaw + k)) { nest.yaw += k; break; } if (ok(nest.yaw - k)) { nest.yaw -= k; break; } } if (k <= 180) break; }
+      high = k > 180;
+    }
+    const az = (v.h + nest.yaw) * DEG;
     _nt.set(v.x, Math.min(L * 0.12, 20) + 1.5, v.z);
     camera.position.set(_nt.x - Math.sin(az) * Math.cos(el) * D, _nt.y + Math.sin(el) * D, _nt.z + Math.cos(az) * Math.cos(el) * D);
+    { const gy = heightAt(lonOf(camera.position.x), latOf(camera.position.z)), up = high || gy > 0.3 ? 28 : 4; if (camera.position.y < gy + up) camera.position.y = gy + up; }   // (never in the ground, nor among the houses)
     camera.lookAt(_nt); if (!C) camera.rotateX(0.1);   // (low on the water, she's best in the middle)   // her a little below the middle, clear of the bar along the top
     camera.fov = 50;
     view.x = v.x; view.z = v.z; view.dist = Math.max(D * 1.5, 900); view.az = az;
@@ -1795,7 +1808,17 @@ if (uwBtn && uwPanel && !EMPTY) {
 const live = [];   // { kind: 'ais', mmsi, A (her last report), fix: {x, z, t}, group, boat?, trim?, L, x, z, h, on, what, label }
 let liveOK = false;
 const liveBtn = document.getElementById('livebtn'), LIVE_KEY = 'audiochart-bay3d-live';
-const LIVE_LEN = { sail: 11, power: 11, launch: 18, ferry: 46, cruise: 200, ship: 150, tanker: 150, tug: 28, pilot: 16 };
+const LIVE_LEN = { sail: 11, power: 11, launch: 18, ferry: 46, cruise: 200, ship: 150, tanker: 150, tug: 28, pilot: 16, cargo: 140 };
+// a cargo ship (AIS type 70–79) is a container ship or a bulk carrier, which AIS doesn't say (v1002): her record's
+// kind, else her operator's (Eimskip's are container ships), else where she's bound (Searsport and Bucksport take
+// bulk), else her shape (a bulker is the beamier, for her length), else a container ship, Portland's usual caller
+function cargoKind(A, S, liv) {
+  if (S?.kind === 'container' || S?.kind === 'bulk') return S.kind;
+  if (liv?.kinds?.length) return liv.kinds[0] === 'bulk' ? 'bulk' : 'container';
+  if (/SEARS|BUCKSP|MACK ?P/i.test(A.dest || '')) return 'bulk';
+  if (A.L && A.B && A.B / A.L > 0.158) return 'bulk';
+  return 'container';
+}
 function liveModel(A, cls, seed, K, W) {
   // one of the ferries we know (K, her ferries.json record): built from it, so she's the scheduled one to the life (v987)
   if (K) return { group: (K.kind === 'launch' ? launchModel : (K.kind === 'cbl' || K.kind === 'ctc') ? cblModel : ferryModelSimple)(K, trafficLit), L: K.length_m || (K.kind === 'launch' ? 14 : 46) };
@@ -1812,9 +1835,10 @@ function liveModel(A, cls, seed, K, W) {
     return { boat, group: boat.group, L: boat.L, trim: cls.model === 'sail' ? makeTrimmer() : null };
   }
   // a tanker, tug or pilot boat as her kind, in her owner's colours, her particulars where we have them (v1001)
-  if (cls.model === 'tanker' || cls.model === 'tug' || cls.model === 'pilot') {
+  if (cls.model === 'tanker' || cls.model === 'tug' || cls.model === 'pilot' || cls.model === 'cargo') {
     const { S, liv } = shipFor(A.mmsi, A.name), V = { L, B: A.B || S?.B, D: S?.D, T: A.draught, name: S?.name || A.name, boat: S?.boat };
-    return { group: (cls.model === 'tanker' ? tankerModel : cls.model === 'tug' ? tugModel : pilotModel)(V, liv, trafficLit), L };
+    const kind = cls.model === 'cargo' ? cargoKind(A, S, liv) : cls.model;
+    return { group: { tanker: tankerModel, tug: tugModel, pilot: pilotModel, container: containerModel, bulk: bulkModel }[kind](V, liv, trafficLit), L };
   }
   const group = cls.model === 'launch' ? launchModel({ length_m: clamp(L, 9, 40), name: A.name }, trafficLit)
     : cls.model === 'ferry' ? ferryModelSimple({ length_m: L, name: A.name }, trafficLit)
