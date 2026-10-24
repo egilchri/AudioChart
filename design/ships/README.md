@@ -23,7 +23,9 @@ emphasizing efficiency but also verisimilitude".
    as beamy as one for her length (a guess; her record can say so); a cable ship by her name (CS …, the fleets'
    own names). The scalloper is on `workBoat` with the house well forward, its booms and dredges; the cable ship
    on `workBoat` with a big ship's flatter sheer (`o.SH`, `o.sheerUp`), bow sheaves, tank hatches, stern sheave.
-   Next candidates: offshore supply vessel, fishing-vessel liveries for the Portland fleet.
+   Offshore supply vessel (v1007), by her name (the fleets' prefixes, SUPPLY, OFFSHORE, AHTS …), as AIS gives no
+   type for one: house at the bow, long cargo deck aft in crash rails; an anchor handler adds the stern roller.
+   Next candidates: fishing-vessel liveries for the Portland fleet, offshore-wind service ships.
 
    The generic `merchantModel` (vessels.js) stays as the fallback.
 2. **Liveries by operator** (`www/data/ships.json` `liveries`). One entry, matched by a name pattern, dresses a whole

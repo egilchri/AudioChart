@@ -549,6 +549,49 @@ export function cableModel(V, liv, windowMats = []) {
   return g;
 }
 
+// ── An offshore supply vessel (the platform supply vessels and anchor handlers that work the offshore wind sites
+// and the oil fields, passing or laid up: Hornbeck's HOS …, Harvey Gulf's, Seacor's, Edison Chouest's) ── The
+// house right up at the bow, high and blunt, the wheelhouse on top with windows aft as well as forward (she's
+// worked from its after console), her two stacks at the house's after corners; then the long, low, open cargo
+// deck to the stern, walled by the crash rails down each side, with deck cargo on it — containers, a pipe stack;
+// the stern rollers and towing pins of an anchor handler at the transom. Colours: the fleets', by her name.
+const OSV_LOOKS = [
+  { hull: '#24395f', boot: '#7a2a24', sheer: '#24395f', house: '#f2f1ec', deck: '#5e6b4e', gear: '#e0b531', funnel: '#24395f', funnelTop: '#1d1f22', name: '#f4f3ef' },
+  { hull: '#c23a2e', boot: '#1d1f22', sheer: '#c23a2e', house: '#f2f1ec', deck: '#5e6b4e', gear: '#e0b531', funnel: '#f2f1ec', funnelTop: '#1d1f22', name: '#f4f3ef' },
+  { hull: '#1d1f22', boot: '#7a2a24', sheer: '#1d1f22', house: '#f2f1ec', deck: '#7a2a24', gear: '#e8731f', funnel: '#1d1f22', funnelTop: '#1d1f22', name: '#f4f3ef' },
+  { hull: '#e8731f', boot: '#1d1f22', sheer: '#e8731f', house: '#f2f1ec', deck: '#5e6b4e', gear: '#2f6f9a', funnel: '#e8731f', funnelTop: '#1d1f22', name: '#1d1f22' },
+];
+export function osvModel(V, liv, windowMats = []) {
+  const look = { ...pick(OSV_LOOKS, V.name), ...(liv || {}) };
+  const L = V.L || 80, ah = /ANCHOR|AHTS|TOWING/i.test(V.name || '') || look.ahts;
+  const W = workBoat({ ...V, L, B: V.B || L * 0.22 }, look, windowMats, { decks: L > 70 ? 3 : 2, house: [0.09, 0.32], aframe: 0, SH: Math.min(Math.max(1.6, L * 0.05), 5), sheerUp: 0.8 });
+  const { g, M, box, B, half, sheer, za, steel } = W, gear = M(look.gear);
+  // her stacks, at the house's after corners
+  for (const sx of [-1, 1]) {
+    const st = box(1.6, 5, 2.4, sx * B * 0.32, W.WY + 1.2, za - 1.4, M(look.funnel || look.house));
+    box(1.7, 0.8, 2.5, sx * B * 0.32, W.WY + 3.4, za - 1.4, M(look.funnelTop || '#1d1f22'));
+  }
+  // the crash rails down each side of the cargo deck, posts and three rails
+  const y = sheer(0.3), z0 = za + 1, z1 = half - (ah ? 5 : 1.5), rH = 3;
+  for (const sx of [-1, 1]) {
+    const x = sx * (B * 0.45);
+    for (let z = z0; z <= z1; z += 3) box(0.35, rH, 0.35, x, y + rH / 2, z, gear);
+    for (const h of [rH * 0.35, rH * 0.7, rH]) box(0.25, 0.25, z1 - z0, x, y + h, (z0 + z1) / 2, gear);
+  }
+  // deck cargo: a few containers, a stack of pipe
+  const seed = [...(V.name || 'osv')].reduce((a, c) => a + c.charCodeAt(0), 0), cols = [0x2f86b8, 0xc23a2e, 0xe8731f, 0x2b8a4a, 0x8d9296];
+  const dl = z1 - z0;
+  for (let i = 0; i < 3; i++) box(2.4, 2.6, 6, (i % 2 ? 1 : -1) * B * 0.18, y + 1.3, z0 + dl * (0.15 + i * 0.22), M(cols[(seed + i) % cols.length]));
+  for (let r = 0; r < 3; r++) for (let k = 0; k < 4 - r; k++) { const pp = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, Math.min(12, dl * 0.3), 10), M(0x6b6e70)); pp.rotation.x = Math.PI / 2; pp.position.set(B * 0.08 + (k + r / 2) * 0.95, y + 0.45 + r * 0.8, z0 + dl * 0.8); g.add(pp); }
+  // an anchor handler's stern rollers and towing pins; a PSV's plain transom with its bitts
+  if (ah) {
+    const sr = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.4, B * 0.4, 18), M(0x2a2d31)); sr.rotation.z = Math.PI / 2; sr.position.set(0, sheer(0) - 0.6, half - 0.8); g.add(sr);
+    for (const sx of [-1, 1]) box(0.6, 1.8, 0.6, sx * B * 0.12, sheer(0) + 0.9, half - 2.8, M(look.gear));
+    box(B * 0.5, 2.6, 3.5, 0, y + 1.3, za + 2.2, M(0x2a2d31));   // the towing winch, at the house's foot
+  } else for (const sx of [-1, 1]) box(0.5, 0.8, 0.5, sx * B * 0.3, sheer(0) + 0.4, half - 0.8, steel);
+  return g;
+}
+
 // ── A Coast Guard cutter (Rockland's buoy tender Abbie Burgess and icebreaking tug Thunder Bay; the patrol boats
 // out of South Portland) ── White hull, or black for a buoy tender or icebreaking tug; the racing stripe — the
 // broad red-orange band, the narrow blue — on her bow, COAST GUARD on her side; white house, buff mast and stack.

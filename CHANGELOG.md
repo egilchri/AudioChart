@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-24 — Offshore supply vessels (v1007)
+
+- **Offshore supply vessel** (by her name, whatever type her AIS gives: Hornbeck's HOS …, Harvey Gulf's, Seacor's,
+  Bourbon's, Siem's, Normand …, Havila …, Skandi …, or SUPPLY, SUPPLIER, OFFSHORE, ANCHOR HANDLER, AHTS, PSV; 40 m
+  and over): the high, blunt house right up at the bow, the wheelhouse on top, twin stacks at its after corners;
+  the long, low cargo deck aft between the crash rails, with containers and a pipe stack on it. An anchor handler
+  (ANCHOR, AHTS or TOWING in her name) has the stern roller, towing pins and the towing winch. Colours are
+  generic, by her name.
+- Names read HOS, PSV and AHTS in capitals.
+
 ## 2026-10-24 — Find the live vessels; scallopers and cable ships (v1006)
 
 - **✨ Find** (beside 📡 Live, or the F key): flashes every live AIS vessel for a few seconds, a pulsing green ring
