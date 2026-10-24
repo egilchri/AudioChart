@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-24 — AIS "look her up" goes to VesselFinder (v995)
+
+A live vessel's card linked to MarineTraffic by MMSI, which didn't land on her page (reported: MMSI 338210671's
+page is MarineTraffic's shipid:4158507; its pages go by its own ship id, which AIS doesn't carry). The link now goes
+to VesselFinder, whose pages are keyed by MMSI (`ais.js aisLookup`).
+
 ## 2026-10-23 — Live AIS in Casco Bay (v994)
 
 The AIS relay now listens to Casco Bay as well as Penobscot Bay (`relay/ais/core.mjs` BOXES, one upstream

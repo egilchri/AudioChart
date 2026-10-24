@@ -1910,7 +1910,7 @@ function fillCard() {
   row('Last heard', aisAgo((Date.now() - v.fix.t) / 1000));
   const mine = own.r && own.boat.group.visible, fx = mine ? own.x : view.x, fz = mine ? own.z : view.z, d = Math.hypot(v.x - fx, v.z - fz);
   if (d > 30) row(mine ? 'From your boat' : 'From the view', `${(d / NMm).toFixed(d < 10 * NMm ? 1 : 0)} nm, ${deg3(Math.atan2(v.x - fx, -(v.z - fz)) / DEG)}° true`);
-  if (navigator.onLine !== false) row('More', `<a href="${aisLookup(A.mmsi)}" target="_blank" rel="noopener">Look her up on MarineTraffic ↗</a>`, true);
+  if (navigator.onLine !== false) row('More', `<a href="${aisLookup(A.mmsi)}" target="_blank" rel="noopener">Look her up on VesselFinder ↗</a>`, true);
   const tb = aisCard.querySelector('table'); tb.innerHTML = '';
   for (const [k, val, html] of rows) { const tr = tb.insertRow(), th = document.createElement('th'), td = tr.insertCell(); th.textContent = k; tr.prepend(th); if (html) td.innerHTML = val; else td.textContent = val; }
   for (const b of aisCard.querySelectorAll('.go button')) b.disabled = gone;

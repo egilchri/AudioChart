@@ -103,7 +103,9 @@ export function aisRot(r) {
 const dm = (v, pos, neg, w) => { const a = Math.abs(v), d = Math.floor(a); return `${String(d).padStart(w, '0')}°${((a - d) * 60).toFixed(2).padStart(5, '0')}′${v >= 0 ? pos : neg}`; };
 export const aisPos = (lat, lon) => `${dm(lat, 'N', 'S', 2)} ${dm(lon, 'E', 'W', 3)}`;
 export const aisAgo = s => s < 60 ? `${Math.max(1, Math.round(s))} s ago` : s < 3600 ? `${Math.round(s / 60)} min ago` : `${(s / 3600).toFixed(1)} h ago`;
-export const aisLookup = mmsi => `https://www.marinetraffic.com/en/ais/details/ships/mmsi:${mmsi}`;
+// VesselFinder (v995): its pages are keyed by MMSI; MarineTraffic's mmsi: URLs didn't land on the vessel (its
+// pages go by its own ship id, which AIS doesn't carry)
+export const aisLookup = mmsi => `https://www.vesselfinder.com/vessels/details/${mmsi}`;
 // her IMO number, only if it's a real one (v989): 7 digits, the last a check digit on the first six; AIS often
 // carries placeholders (0, 999999999, the MMSI)
 export function aisImo(n) {
