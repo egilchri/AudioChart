@@ -22,6 +22,7 @@ import { REGIONS3D, REGION3D_KEY, regions3dOffered } from './regions3d.js';
 import { setShips } from './ships3d.js';
 import { identify, liveModel, knownList } from './livefleet.js';
 import { BUOY_F, makeBuoyF, buoyTime, topCurrent, strongest, tideWord, compass16 } from './buoyf.js';
+import { makeCurrents, currentsAt } from './currents.js';
 import { GAUGES, gaugePage, makeTideGauge, predAt, trendAt, nextTurns, tideChart } from './tidegauge.js';
 import { makeAisFeed, aisStatus, aisName, aisDest, setKnown, knownFor, aisFlag, aisRot, aisPos, aisAgo, aisLookup, aisImo, aisCallsign, AIS_CREDIT } from './ais.js';
 
@@ -2190,6 +2191,66 @@ function fillGaugeCard() {
   for (const [k, val, html] of rows) { const tr = tb.insertRow(), th = document.createElement('th'), td = tr.insertCell(); th.textContent = k; tr.prepend(th); if (html) td.innerHTML = val; else td.textContent = val; }
 }
 
+// ── The forecast currents (v1015, requested: "now do the NECOFS current arrows"; currents.js): NECOFS's surface
+// current over the bay, an arrow for each point (about 1.2 nm apart; every 2nd or 4th from further up), its length
+// and colour by its speed, at the scene's clock, so they turn with the tide as the clock runs. 🌀 Currents turns
+// them off and on (remembered). Offline they go on from the kept forecast until it runs out. ──
+const CUR_KEY = 'audiochart-bay3d-currents', curBtn = document.getElementById('curbtn');
+let curOn = true; try { curOn = localStorage.getItem(CUR_KEY) !== '0'; } catch (_) {}
+const curLine = EMPTY ? null : (() => {
+  const l = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ vertexColors: true }));
+  l.frustumCulled = false; l.visible = false; l.renderOrder = 4; scene.add(l); return l;
+})();
+let curF = null, curUV = null, curAt = -1, curKey = '';
+const curFeed = curLine ? makeCurrents(RID, { onData: F => {
+  curF = F; curAt = -1;
+  const n = F.n * 6; curLine.geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3)); curLine.geometry.setAttribute('color', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+  F.x = new Float32Array(F.n); F.z = new Float32Array(F.n);
+  for (let k = 0; k < F.n; k++) { F.x[k] = wx(F.pts[k * 4 + 2]); F.z[k] = wz(F.pts[k * 4 + 3]); }
+  if (curBtn) curBtn.hidden = false; syncCurBtn();
+} }) : null;
+const sceneMs = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime() + clockMin() * 60e3; };
+const dayTime = t => new Date(t).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+function syncCurBtn() {
+  if (!curBtn || !curF) return;
+  curBtn.classList.toggle('on', curOn); curBtn.setAttribute('aria-pressed', String(curOn));
+  const t = sceneMs();
+  curBtn.title = `The forecast surface currents, as arrows that follow the clock: ${t > curF.t1 ? `none for this time — the forecast ran to ${dayTime(curF.t1)}` : `forecast to ${dayTime(curF.t1)}`}. Pale under ½ kn, cyan to 1½, yellow to 2½, orange beyond. NECOFS (UMass Dartmouth FVCOM), made ${dayTime(Date.parse(curF.made))}.`;
+}
+curBtn?.addEventListener('click', () => { curOn = !curOn; try { localStorage.setItem(CUR_KEY, curOn ? '1' : '0'); } catch (_) {} curKey = ''; syncCurBtn(); });
+// pale blue, cyan, yellow, orange by knots
+const curCol = kn => kn < 0.5 ? [0.62, 0.74, 0.95] : kn < 1.5 ? [0.37, 0.83, 1] : kn < 2.5 ? [1, 0.88, 0.4] : [1, 0.6, 0.24];
+function updateCurrents() {
+  if (!curLine) return;
+  const t = sceneMs();
+  if (!curOn || !curF || t < curF.t0 || t > curF.t1) { curLine.visible = false; curUV = null; return; }
+  if (Math.abs(t - curAt) > 30e3) { curUV = currentsAt(curF, t); curAt = t; curKey = ''; }
+  const K = 2 ** clamp(Math.ceil(Math.log2(view.dist / 25 / (curF.step * 111e3))), 0, 3), L = K * curF.step * 111e3, y = Math.max(1.5, view.dist * 0.0012);
+  const key = `${curAt}|${K}|${Math.round(y)}`; if (key === curKey) return; curKey = key;
+  const P = curLine.geometry.attributes.position, C = curLine.geometry.attributes.color; let i = 0;
+  const put = (x, z, c) => { P.setXYZ(i, x, y, z); C.setXYZ(i++, c[0], c[1], c[2]); };
+  for (let k = 0; k < curF.n; k++) {
+    if (curF.pts[k * 4] % K || curF.pts[k * 4 + 1] % K) continue;
+    const u = curUV[k * 2], v = curUV[k * 2 + 1], kn = Math.hypot(u, v); if (kn < 0.1) continue;
+    const len = L * 0.45 * Math.min(kn, 2.5), ux = u / kn, uz = -v / kn, x = curF.x[k] - ux * len / 2, z = curF.z[k] - uz * len / 2, ex = x + ux * len, ez = z + uz * len, ah = Math.min(len * 0.3, L * 0.15), c = curCol(kn);
+    put(x, z, c); put(ex, ez, c);
+    for (const sx of [-1, 1]) { put(ex, ez, c); put(ex - ux * ah - sx * uz * ah * 0.5, ez - uz * ah + sx * ux * ah * 0.5, c); }
+  }
+  P.needsUpdate = true; C.needsUpdate = true; curLine.geometry.setDrawRange(0, i); curLine.visible = true;
+}
+// close in, the arrow nearest the middle of the view, in words (flood and ebb in Penobscot only: tideWord's axis is its)
+function curNear() {
+  if (!curLine?.visible || !curUV || view.dist > 15000) return null;
+  let best = -1, bd = Math.max(view.dist * 0.6, 2500);
+  for (let k = 0; k < curF.n; k++) { const d = Math.hypot(curF.x[k] - view.x, curF.z[k] - view.z); if (d < bd) { bd = d; best = k; } }
+  if (best < 0) return null;
+  const u = curUV[best * 2], v = curUV[best * 2 + 1], kn = Math.hypot(u, v), to = (Math.atan2(u, v) / DEG + 360) % 360;
+  return { x: curF.x[best], z: curF.z[best], text: `Forecast current · ${kn < 0.1 ? 'slack' : `${PENOBSCOT && tideWord(kn, to) ? tideWord(kn, to) + ' ' : ''}${knTxt(kn)} ${magTxt(to)}`} · ${clockTxt()}` };
+}
+const clockTxt = () => { const m = clockMin(); return `${Math.floor(m / 60)}:${String(Math.floor(m % 60)).padStart(2, '0')}`; };
+setInterval(syncCurBtn, 60e3);
+curFeed?.start();   // (after the above: a kept forecast comes back at once)
+
 // ── Moored boats, by the season (v944, requested: "add the moored boats with seasons"; moorings3d.js) ──
 const moorings = EMPTY ? null : makeMoorings({
   scene, wx, wz, lonOf, latOf,
@@ -2583,6 +2644,7 @@ function updateLabels() {
     }
     if (buoyF && view.dist < 90000) { const d = Math.hypot(buoyF.x - view.x, buoyF.z - view.z); if (d < Math.max(view.dist * 2, 4000)) cand.push({ text: buoyLabel(), x: buoyF.x, y: 6 * buoyF.g.scale.x, z: buoyF.z, cls: 'wpt tap', pri: 0.75 + d / 1e6, click: () => showCard(buoyF) }); }   // Buoy F (v1013)
     if (gauge && view.dist < 90000) { const d = Math.hypot(gauge.x - view.x, gauge.z - view.z); if (d < Math.max(view.dist * 2, 4000)) cand.push({ text: gaugeLabel(), x: gauge.x, y: gauge.g.position.y + 7 * gauge.g.scale.x, z: gauge.z, cls: 'wpt tap', pri: 0.75 + d / 1e6, click: () => showCard(gauge) }); }   // the tide gauge (v1014)
+    { const c = curNear(); if (c) cand.push({ text: c.text, x: c.x, y: Math.max(2, view.dist * 0.0012) + 2, z: c.z, cls: 'wpt', pri: 0.85 }); }   // the forecast current here (v1015)
     if (vecTip) cand.push({ text: vecTip.text, x: vecTip.x, y: 4, z: vecTip.z, cls: 'wpt', pri: 0.4 });   // her vector's tip (v1008)
     for (const o of fixList) cand.push({ text: `${o.m.n} · ${fixBrg(o)}, ${fixRange(o.d)}`, x: o.m.x, y: Math.max(6, heightAt(o.m.lon, o.m.lat) + 6), z: o.m.z, cls: 'wpt', pri: 0.5 });   // her marks (v1000)
     if (aboveFog) { const top = FOG_TOP[env.C.vis]; cand = cand.filter(c => c.cls === 'town' || c.y - 6 > top); }   // names under the fog bank don't show
@@ -2692,7 +2754,7 @@ function frame(now) {
   if (nest.on) nestCamera();   // after every vessel has moved, yours too
   if (nest.on || !rcEl?.hidden) drawRideChart();
   wildlife.update(dt, t, view, camera.position, { hidden: !!aboveFog || EMPTY, night: env.C.time === 'night', boat: (own.ext || own.r) ? own : null, scale: d => clamp(d / 35, 3, 8) });
-  syncFollowHud(); updateFixLines(); updateVector(); updateBuoyF(); updateGauge();
+  syncFollowHud(); updateFixLines(); updateVector(); updateBuoyF(); updateGauge(); updateCurrents();
   if (follow && !anim && !nest.on) { const k = Math.min(1, dt * 4); view.x += (follow.x - view.x) * k; view.z += (follow.z - view.z) * k; }
   renderer.render(scene, camera);
   updateLabels(); updateLiveMarks(); updateReadout();

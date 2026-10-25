@@ -14,3 +14,6 @@ __pycache__/
 # Personal working notes / stray files — not part of the project
 my_todo.md
 spawnie
+
+# Built at deploy (v1015, preprocess/necofs_currents.mjs)
+www/data/currents/

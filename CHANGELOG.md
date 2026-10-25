@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-10-25 — Forecast current arrows in Bird's-eye, from NECOFS (v1015)
+
+- **Currents** (requested: "now do the NECOFS current arrows"): the surface current forecast by NECOFS, UMass
+  Dartmouth's FVCOM model of the Gulf of Maine (its GOM7 grid), as arrows on the water over each bay.
+  - An arrow every 0.02° of latitude (about 1.2 nm): 1,405 in Penobscot and 599 in Casco. From high up, every 2nd
+    or 4th.
+  - Each arrow's length and colour show its speed: pale under ½ kn, cyan to 1½, yellow to 2½, orange beyond.
+  - They follow Bird's-eye's clock, interpolated between the model's hours, so they turn with the tide as the clock
+    runs. They cover today and about four days ahead.
+  - Close in, a label for the arrow nearest the middle of the view, e.g. "Forecast current · ebb 0.8 kn 182°M ·
+    15:00" (flood and ebb in Penobscot only).
+  - 🌀 Currents turns them off and on (remembered); its tooltip says how far ahead the forecast runs.
+  - Checked against Buoy F: at 15:00 UTC on 2026-10-25 the model gave 0.44 kn setting 157°, and the buoy measured
+    0.43 kn at 162°.
+- **Where it comes from:** NECOFS's server (OPeNDAP, plain http, no CORS) can't be read by the app.
+  `preprocess/necofs_currents.mjs` reads it at deploy and writes `data/currents/<bay>.json` (420 KB and 180 KB):
+  about 430 small requests, in about 10 s. `deploy.yml` now runs it on every push and every 6 hours. If the server
+  is down the site deploys without new currents. The files are built, not committed (`.gitignore`).
+- **Offline:** the forecast is kept in localStorage, so the arrows go on until it runs out; then there are none.
+  Never an error.
+
 ## 2026-10-25 — The tide gauge, measured against predicted, in Bird's-eye (v1014)
 
 - **Tide gauge** (requested: "now do the measured vs predicted tide"; `tidegauge.js`): NOAA's live water-level gauge

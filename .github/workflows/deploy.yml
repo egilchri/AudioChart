@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  # The NECOFS currents (v1015): the forecast is made once a day; deploying every 6 hours keeps Bird's-eye's
+  # arrows on the newest one (preprocess/necofs_currents.mjs, below).
+  schedule:
+    - cron: '17 */6 * * *'
 
 permissions:
   contents: read
@@ -22,6 +26,12 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      # Bird's-eye's forecast currents (v1015), served beside the app as data/currents/<bay>.json. If the model's
+      # server can't be reached the script says so and the site deploys without them (the app keeps its last).
+      - name: NECOFS forecast currents
+        run: node preprocess/necofs_currents.mjs www/data/currents
+        timeout-minutes: 10
+        continue-on-error: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: ./www
