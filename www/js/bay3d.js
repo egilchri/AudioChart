@@ -22,7 +22,7 @@ import { REGIONS3D, REGION3D_KEY, regions3dOffered } from './regions3d.js';
 import { setShips } from './ships3d.js';
 import { identify, liveModel, knownList } from './livefleet.js';
 import { BUOY_F, makeBuoyF, buoyTime, topCurrent, strongest, tideWord, compass16 } from './buoyf.js';
-import { makeCurrents, currentsAt } from './currents.js';
+import { makeCurrents, layerAt } from './currents.js';
 import { OBS, makeObs, windWords, wavesWords } from './obs.js';
 import { GAUGES, gaugePage, makeTideGauge, predAt, trendAt, nextTurns, tideChart } from './tidegauge.js';
 import { makeAisFeed, aisStatus, aisName, aisDest, setKnown, knownFor, aisFlag, aisRot, aisPos, aisAgo, aisLookup, aisImo, aisCallsign, AIS_CREDIT } from './ais.js';
@@ -2202,12 +2202,14 @@ const curLine = EMPTY ? null : (() => {
   const l = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ vertexColors: true }));
   l.frustumCulled = false; l.visible = false; l.renderOrder = 4; scene.add(l); return l;
 })();
-let curF = null, curUV = null, curAt = -1, curKey = '';
+let curF = null, curUV = null, curL = null, curAt = -1, curKey = '';
 const curFeed = curLine ? makeCurrents(RID, { onData: F => {
   curF = F; curAt = -1;
-  const n = F.n * 6; curLine.geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3)); curLine.geometry.setAttribute('color', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
-  F.x = new Float32Array(F.n); F.z = new Float32Array(F.n);
-  for (let k = 0; k < F.n; k++) { F.x[k] = wx(F.pts[k * 4 + 2]); F.z[k] = wz(F.pts[k * 4 + 3]); }
+  const n = Math.max(F.n, F.fine?.n ?? 0) * 6; curLine.geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3)); curLine.geometry.setAttribute('color', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+  for (const L of [F, F.fine]) if (L) {   // each layer's points in the world (the Gulf of Maine model's, and Casco's finer one)
+    L.x = new Float32Array(L.n); L.z = new Float32Array(L.n);
+    for (let k = 0; k < L.n; k++) { L.x[k] = wx(L.pts[k * 4 + 2]); L.z[k] = wz(L.pts[k * 4 + 3]); }
+  }
   if (curBtn) curBtn.hidden = false; syncCurBtn();
 } }) : null;
 const sceneMs = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime() + clockMin() * 60e3; };
@@ -2216,7 +2218,7 @@ function syncCurBtn() {
   if (!curBtn || !curF) return;
   curBtn.classList.toggle('on', curOn); curBtn.setAttribute('aria-pressed', String(curOn));
   const t = sceneMs();
-  curBtn.title = `The forecast surface currents, as arrows that follow the clock: ${t > curF.t1 ? `none for this time — the forecast ran to ${dayTime(curF.t1)}` : `forecast to ${dayTime(curF.t1)}`}. Pale under ½ kn, cyan to 1½, yellow to 2½, orange beyond. NECOFS (UMass Dartmouth FVCOM), made ${dayTime(Date.parse(curF.made))}.`;
+  curBtn.title = `The forecast surface currents, as arrows that follow the clock: ${t > curF.t1 ? `none for this time — the forecast ran to ${dayTime(curF.t1)}` : `forecast to ${dayTime(curF.t1)}`}. Pale under ½ kn, cyan to 1½, yellow to 2½, orange beyond. NECOFS (UMass Dartmouth FVCOM), made ${dayTime(Date.parse(curF.made))}${curF.fine ? `; its finer Casco Bay model ${dayTime(curF.fine.t0)} to ${dayTime(curF.fine.t1)}, the Gulf of Maine model's otherwise` : ''}.`;
 }
 curBtn?.addEventListener('click', () => { curOn = !curOn; try { localStorage.setItem(CUR_KEY, curOn ? '1' : '0'); } catch (_) {} curKey = ''; syncCurBtn(); });
 // pale blue, cyan, yellow, orange by knots
@@ -2224,16 +2226,17 @@ const curCol = kn => kn < 0.5 ? [0.62, 0.74, 0.95] : kn < 1.5 ? [0.37, 0.83, 1] 
 function updateCurrents() {
   if (!curLine) return;
   const t = sceneMs();
-  if (!curOn || !curF || t < curF.t0 || t > curF.t1) { curLine.visible = false; curUV = null; return; }
-  if (Math.abs(t - curAt) > 30e3) { curUV = currentsAt(curF, t); curAt = t; curKey = ''; }
-  const K = 2 ** clamp(Math.ceil(Math.log2(view.dist / 25 / (curF.step * 111e3))), 0, 3), L = K * curF.step * 111e3, y = Math.max(1.5, view.dist * 0.0012);
+  if (!curOn || !curF) { curLine.visible = false; curUV = null; return; }
+  if (Math.abs(t - curAt) > 30e3) { const A = layerAt(curF, t); curUV = A?.uv ?? null; curL = A?.L ?? null; curAt = t; curKey = ''; }
+  if (!curUV) { curLine.visible = false; return; }
+  const F = curL, K = 2 ** clamp(Math.ceil(Math.log2(view.dist / 25 / (F.step * 111e3))), 0, 3), L = K * F.step * 111e3, y = Math.max(1.5, view.dist * 0.0012);
   const key = `${curAt}|${K}|${Math.round(y)}`; if (key === curKey) return; curKey = key;
   const P = curLine.geometry.attributes.position, C = curLine.geometry.attributes.color; let i = 0;
   const put = (x, z, c) => { P.setXYZ(i, x, y, z); C.setXYZ(i++, c[0], c[1], c[2]); };
-  for (let k = 0; k < curF.n; k++) {
-    if (curF.pts[k * 4] % K || curF.pts[k * 4 + 1] % K) continue;
+  for (let k = 0; k < F.n; k++) {
+    if (!F.wet[k] || F.pts[k * 4] % K || F.pts[k * 4 + 1] % K) continue;
     const u = curUV[k * 2], v = curUV[k * 2 + 1], kn = Math.hypot(u, v); if (kn < 0.1) continue;
-    const len = L * 0.45 * Math.min(kn, 2.5), ux = u / kn, uz = -v / kn, x = curF.x[k] - ux * len / 2, z = curF.z[k] - uz * len / 2, ex = x + ux * len, ez = z + uz * len, ah = Math.min(len * 0.3, L * 0.15), c = curCol(kn);
+    const len = L * 0.45 * Math.min(kn, 2.5), ux = u / kn, uz = -v / kn, x = F.x[k] - ux * len / 2, z = F.z[k] - uz * len / 2, ex = x + ux * len, ez = z + uz * len, ah = Math.min(len * 0.3, L * 0.15), c = curCol(kn);
     put(x, z, c); put(ex, ez, c);
     for (const sx of [-1, 1]) { put(ex, ez, c); put(ex - ux * ah - sx * uz * ah * 0.5, ez - uz * ah + sx * ux * ah * 0.5, c); }
   }
@@ -2243,10 +2246,13 @@ function updateCurrents() {
 function curNear() {
   if (!curLine?.visible || !curUV || view.dist > 15000) return null;
   let best = -1, bd = Math.max(view.dist * 0.6, 2500);
-  for (let k = 0; k < curF.n; k++) { const d = Math.hypot(curF.x[k] - view.x, curF.z[k] - view.z); if (d < bd) { bd = d; best = k; } }
+  const F = curL;
+  for (let k = 0; k < F.n; k++) {   // (a point on the water, by its model and by ours)
+    if (!F.wet[k]) continue;
+    const d = Math.hypot(F.x[k] - view.x, F.z[k] - view.z); if (d < bd && isWater(F.x[k], F.z[k])) { bd = d; best = k; } }
   if (best < 0) return null;
   const u = curUV[best * 2], v = curUV[best * 2 + 1], kn = Math.hypot(u, v), to = (Math.atan2(u, v) / DEG + 360) % 360;
-  return { x: curF.x[best], z: curF.z[best], text: `Forecast current · ${kn < 0.1 ? 'slack' : `${PENOBSCOT && tideWord(kn, to) ? tideWord(kn, to) + ' ' : ''}${knTxt(kn)} ${magTxt(to)}`} · ${clockTxt()}` };
+  return { x: F.x[best], z: F.z[best], text: `Forecast current · ${kn < 0.1 ? 'slack' : `${PENOBSCOT && tideWord(kn, to) ? tideWord(kn, to) + ' ' : ''}${knTxt(kn)} ${magTxt(to)}`} · ${clockTxt()}` };
 }
 const clockTxt = () => { const m = clockMin(); return `${Math.floor(m / 60)}:${String(Math.floor(m % 60)).padStart(2, '0')}`; };
 setInterval(syncCurBtn, 60e3);

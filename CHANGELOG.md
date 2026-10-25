@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-10-25 — Casco's current arrows from NECOFS's finer Casco Bay model (v1017)
+
+- **Casco arrows** (requested: "use the finer NECOFS Casco model for the arrows"): NECOFS's own Casco Bay model
+  (FVCOM, its finer grid), sampled every 0.01° (about 0.6 nm). That's twice as fine as the Gulf of Maine model's
+  0.02°: 2,633 points to its 599, with the narrows between the islands resolved. For example, on 2026-10-26 at
+  12:00 UTC Hussey Sound ran 0.63 kn in the Casco model and 0.37 kn in the Gulf of Maine model. From high up,
+  every 2nd or 4th arrow shows, as before.
+- **Its hours:** UMass's file for this model holds only one day, the one after next when it's made (each
+  evening). Each build (`preprocess/necofs_currents.mjs`) therefore carries forward the live site's fine hours that
+  aren't over yet and adds the new file's (checked: 24 carried plus 24 new made 48 continuous hours). From the
+  second day of deploys on, they cover today. Any hour the fine model doesn't have uses the Gulf of Maine model's
+  arrows, as before; 🌀 Currents' tooltip says which hours are fine.
+- The Casco model covers the land too, for flooding: a point that never runs 0.1 kn is taken as ashore and gets
+  no arrow. The label's arrow must be on water by Bird's-eye's own elevation as well, so it never says "slack" over
+  an island.
+- `data/currents/casco-bay.json` gains `fine`: about 125 KB a day of fine hours.
+
 ## 2026-10-25 — Observed wind and waves: Matinicus Rock and Buoy E (v1016)
 
 - **Observed** (requested: "now do the Matinicus Rock wind and waves"; `obs.js`): a new section in the Weather
