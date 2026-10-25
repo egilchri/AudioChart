@@ -61,6 +61,6 @@ export default {
     if (req.method === 'OPTIONS') return new Response(null, { headers: { ...corsHeaders(origin), 'Access-Control-Allow-Methods': 'GET' } });
     if (url.pathname !== '/vessels') return new Response('AudioChart live AIS relay: GET /vessels', { status: 404 });
     if (!FEEDS.some(f => env[f.key])) return new Response(JSON.stringify({ error: 'no key' }), { status: 503, headers: corsHeaders(origin) });
-    return env.AIS_HUB.get(env.AIS_HUB.idFromName('penobscot')).fetch(req);
+    return env.AIS_HUB.get(env.AIS_HUB.idFromName('bays')).fetch(req);   // ('penobscot' until v1011: renamed so the two-feed code started at once)
   },
 };
