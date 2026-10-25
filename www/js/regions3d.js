@@ -26,6 +26,7 @@ export const REGIONS3D = {
     overview: [-122.65, 37.4, -122.0, 38.2],
     bay: [-122.55, 37.45, -122.05, 38.12],
     whole: { lon: -122.33, lat: 37.78, dist: 55000 },
+    chartWater: [-122.62, 37.42, -122.0, 38.17],   // (v1020: the chart's land tells water from land here; bay3d.js)
   },
 };
 export const REGION3D_KEY = 'audiochart-bay3d-region';

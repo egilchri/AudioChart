@@ -19,6 +19,7 @@ import { makeWildlife, ledgesFrom } from './wildlife3d.js';
 import { makeMoorings } from './moorings3d.js';
 import { callsOn, trackOf, alongTrack, cruiseState, ferryState, ferryDepartures, ferryLine, ferrySlipModel, terminalLot, terminalHouse, cruiseShipModel, ferryModelSimple, launchModel, cblModel, mins } from './vessels.js';
 import { REGIONS3D, REGION3D_KEY, regions3dOffered } from './regions3d.js';
+import { makeBridges } from './bridges3d.js';
 import { setShips } from './ships3d.js';
 import { identify, liveModel, knownList } from './livefleet.js';
 import { BUOY_F, makeBuoyF, buoyTime, topCurrent, strongest, tideWord, compass16 } from './buoyf.js';
@@ -44,7 +45,7 @@ const EXAG_KEY = 'audiochart-emptybay-exag';
 let EXAG = 4; try { EXAG = clampNum(Number(localStorage.getItem(EXAG_KEY)) || 4, 1, 10); } catch (_) {}
 function clampNum(v, a, b) { return Math.max(a, Math.min(b, v)); }
 const yOf = EMPTY ? (h => h < 0 ? h * EXAG : h) : null;
-const demFor = (w, s, e, n, fine) => EMPTY ? readTopobathy(w, s, e, n, fine ? 0.0001 : 0.0012) : readDem(w, s, e, n, fine ? 0 : 3);
+const demFor = (w, s, e, n, fine) => EMPTY ? readTopobathy(w, s, e, n, fine ? 0.0001 : 0.0012) : readDem(w, s, e, n, fine ? 0 : 3).then(chartWater);
 const lonOf = x => x / MX + LON0, latOf = z => -z / MY + LAT0;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const DEG = Math.PI / 180;
@@ -56,6 +57,30 @@ const OVERVIEW = REG.overview;
 const BAY = REG.bay;
 const WHOLE = { ...REG.whole, tilt: 40 * DEG, az: 0 };
 const MIN_DIST = 120, MAX_DIST = 140000;
+// The chart's water (v1020, SF Bay): USGS's elevation sets the Bay's inland water (the Oakland Estuary, the
+// Carquinez Strait) flat at about 0.6 m, the same as Foster City's land, so no height can tell them apart. Where a
+// region asks (regions3d.js chartWater, the box its chart covers), low ground off the chart's land (the region
+// build's land.geojson) is water.
+const chartLandP = REG.chartWater && !EMPTY ? getJSON(`./data/regions/${RID}/land.geojson`).catch(() => null) : null;
+async function chartWater(g) {
+  const fc = await chartLandP; if (!fc?.features?.length || typeof OffscreenCanvas === 'undefined') return g;
+  const [bw, bs, be, bn] = REG.chartWater, cv = new OffscreenCanvas(g.w, g.h), cx = cv.getContext('2d');
+  cx.fillStyle = '#fff';
+  for (const f of fc.features) for (const poly of f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates) {
+    cx.beginPath();
+    for (const ring of poly) ring.forEach(([lo, la], i) => { const x = (lo - g.west) / g.dx, y = (g.north - la) / g.dy; if (i) cx.lineTo(x, y); else cx.moveTo(x, y); });
+    cx.fill('evenodd');
+  }
+  const px = cx.getImageData(0, 0, g.w, g.h).data;
+  for (let r = 0; r < g.h; r++) {
+    const lat = g.north - (r + 0.5) * g.dy; if (lat < bs || lat > bn) continue;
+    for (let c = 0; c < g.w; c++) {
+      const i = r * g.w + c, lon = g.west + (c + 0.5) * g.dx;
+      if (lon >= bw && lon <= be && g.elev[i] > -3 && g.elev[i] < 1.5 && px[i * 4 + 3] < 128) g.elev[i] = -3;
+    }
+  }
+  return g;
+}
 
 // The bay's name on the page, and the switch between the bays (v992): another bay is a fresh page (its own world
 // frame, terrain and traffic), so the switch reloads with ?region=, keeping the embed, Empty Bay and route, and
@@ -618,9 +643,10 @@ const townList = (await getJSON('./data/buildings/index.json').catch(() => [])).
 const slips = [];
 let slipsReadyResolve; const slipsReady = new Promise(r => { slipsReadyResolve = r; setTimeout(r, 8000); });
 const creditEl = document.getElementById('credit');
+let bridges = null;   // (v1020, below)
 function updateCredit() {
   const shown = townList.filter(t => t.group);
-  creditEl.textContent = (EMPTY ? 'Land and seabed NOAA NCEI CUDEM · Photos USDA NAIP' : 'Elevation USGS 3DEP · Photos USDA NAIP') + (shown.length ? ' · Buildings © OpenStreetMap contributors' + (shown.some(t => /Microsoft/.test(t.credit)) ? ', Microsoft' : '') : '');
+  creditEl.textContent = (EMPTY ? 'Land and seabed NOAA NCEI CUDEM · Photos USDA NAIP' : 'Elevation USGS 3DEP · Photos USDA NAIP') + (bridges ? ' · ' + bridges.credit : '') + (shown.length ? ' · Buildings © OpenStreetMap contributors' + (shown.some(t => /Microsoft/.test(t.credit)) ? ', Microsoft' : '') : '');
 }
 async function loadTown(t) {
   t.state = 'loading'; townsLoading++;
@@ -727,6 +753,8 @@ const [navGJ, placesGJ, landGJ] = await Promise.all([
   getJSON('./data/landmarks.json').catch(() => ({ landmarks: [] })),
 ]);
 const inBay = ([x, y]) => x >= OW && x <= OE && y >= OS && y <= ON;
+// ── Bridges (v1020; bridges3d.js): the region's, if it has any ──
+makeBridges(RID, heightAt).then(B => { if (!B) return; bridges = B; scene.add(B.group); try { B.night(env.lightsK); } catch (_) {} updateCredit(); })   // (env: once it's made).catch(err => console.warn('[bay3d] bridges', err));
 const navs = navGJ.features.filter(f => f.geometry?.type === 'Point' && inBay(f.geometry.coordinates));
 const BUOY_T = ['BOYLAT', 'BCNLAT', 'BOYSAW', 'BOYSPP', 'BOYCAR', 'BOYISD'];
 const buoys = navs.filter(f => BUOY_T.includes(f.properties.objtype)).map(f => ({ x: wx(f.geometry.coordinates[0]), z: wz(f.geometry.coordinates[1]), c: (f.properties.colour || '').split('/')[0], num: ((f.properties.name || '').replace(/"/g, '').match(/(\S{1,3})$/)?.[1] || '').replace(/^(?!.*\d).*$/, '') }));
@@ -871,7 +899,7 @@ const glows = litNavs.filter(l => l.fl).map(l => {
 let wxPanel = null, aboveFog = null;
 function applyConditions(next = {}) {
   env.apply(next);
-  TOWN_NIGHT.value = env.lightsK;
+  TOWN_NIGHT.value = env.lightsK; bridges?.night(env.lightsK);
   blanket.flat.material.color.copy(env.fogC); blanket.skin.material.color.copy(env.fogC).lerp(new THREE.Color(0xffffff), env.night ? 0.05 : 0.35);
   aboveFog = null;   // re-decide the sky in the next frame
   wxPanel?.sync(env.C, env.W);
@@ -2621,7 +2649,7 @@ const goView = url => { try { if (window.parent !== window && window.parent.__au
 const labelsEl = document.getElementById('labels'), pool = [];
 const places = placesGJ.features.filter(f => f.geometry?.type === 'Point' && inBay(f.geometry.coordinates) && ['LNDARE', 'LNDRGN', 'BUAARE'].includes(f.properties.objtype))
   .map(f => ({ n: f.properties.name, x: wx(f.geometry.coordinates[0]), z: wz(f.geometry.coordinates[1]), lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] }))
-  .filter(p => p.n);
+  .filter(p => p.n && !/^(Pier [A-Z]|Pylon\b)/.test(p.n));   // (not a bridge's piers, charted as land: v1020)
 for (const l of (landGJ.landmarks || []).filter(l => inBay([l.lon, l.lat]))) places.push({ n: l.name, x: wx(l.lon), z: wz(l.lat), lon: l.lon, lat: l.lat, elev: l.elev_m });   // summits
 for (const p of places) p.y = Math.max(4, p.elev ?? heightAt(p.lon, p.lat));
 for (const t of townList) t.y = Math.max(10, heightAt(t.lon, t.lat)) + 20;
@@ -2633,6 +2661,10 @@ function updateLabels() {
     for (const t of townList) {
       const d = Math.hypot(t.x - view.x, t.z - view.z);
       if ((view.dist > 2500 || d > 3500) && d < Math.max(view.dist * 2.5, 4000)) cand.push({ text: t.short, x: t.x, y: t.y, z: t.z, cls: 'town', pri: 0, town: t });
+    }
+    for (const l of bridges?.labels || []) {   // bridge names (v1020)
+      const d = Math.hypot(l.x - view.x, l.z - view.z);
+      if (d < Math.max(view.dist * 2, 5000)) cand.push({ text: l.text, x: l.x, y: l.y, z: l.z, cls: '', pri: 0.45 + d / 1e6 });
     }
     if (view.dist < 30000) {
       const R = view.dist * 1.3;
@@ -2797,6 +2829,7 @@ window.__bay3d = {   // for AudioChart (returning to the chart where you were) a
   clearRoute: () => { showRoute('', false); clearPins(); },
   dropPin,
   region: RID,
+  waterAt: (lon, lat) => isWater(wx(lon), wz(lat)),   // (for testing the chart's water, v1020)
   getView: () => ({ lat: latOf(view.z), lon: lonOf(view.x), dist: view.dist, az: view.az / DEG, tilt: view.tilt / DEG, following: follow === own }),
   // where your boat is on screen, [x, y] in this page's pixels, or null (for testing and the demo video)
   boatOnScreen: () => {

@@ -30,7 +30,7 @@ SCRIPT_DIR  = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR    = os.path.normpath(os.path.join(SCRIPT_DIR, '../www/data'))
 OVERRIDES   = os.path.join(SCRIPT_DIR, 'light_name_overrides.json')
 
-OVERPASS_URL   = 'https://lz4.overpass-api.de/api/interpreter'
+OVERPASS_URL   = os.environ.get('OVERPASS_URL', 'https://lz4.overpass-api.de/api/interpreter')   # (another mirror when it's down)
 MATCH_RADIUS_M = 150   # metres — tight enough to avoid false positives
 
 
@@ -80,7 +80,7 @@ def fetch_osm(minlat, minlon, maxlat, maxlon):
         method='POST',
     )
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with urllib.request.urlopen(req, timeout=180) as resp:
             result = json.loads(resp.read())
     except Exception as e:
         print(f'ERROR fetching OSM data: {e}')

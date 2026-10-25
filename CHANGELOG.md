@@ -1,5 +1,40 @@
 # Changelog
 
+## 2026-10-25 — San Francisco Bay's chart data and bridges (v1020)
+
+- **Region build for SF Bay** (requested: "run the region build for SF Bay"): the 55 NOAA harbor and approach
+  cells for the Bay (11 US4, 44 US5; Half Moon Bay's left out), saved in `~/Documents/Charts/ENC/sf_bay_only`, run
+  through `build_region.py` for 37.42–38.17 N, 122.62–122.00 W. The result is in `www/data/regions/sf-bay/`:
+  108 land shapes, 4,646 hazards, 566 marks, 567 place names, and magnetic variation 12.5° E. Bird's-eye now shows
+  the Bay's place names and buoys. Overpass was overloaded, so `backfill_light_names.py` now takes an `OVERPASS_URL`
+  mirror and waits 180 s.
+- **Water from the chart:** where a region sets `chartWater` (SF Bay only), Bird's-eye treats ground under 1.5 m
+  that lies off the chart's land as water (`bay3d.js chartWater`, drawn onto a canvas per elevation grid). The
+  Oakland Estuary and the Carquinez Strait are now water, and the Estuary's tile seam is gone. Live vessels whose
+  positions read as land fell from 92 of 280 to 43 of 321, and every one of those 43 is stopped at a berth, its
+  AIS position at the wharf's edge. Bridge piers charted as land ("Pier I", "Pylon\Tower G") aren't place labels.
+- **Bridges** (requested: "don't forget to put in the Golden Gate bridge and the other bridges"):
+  - **New code:** `bridges3d.js` draws `data/bridges/<region>.json`, which is built by
+    `design/bridges/build_bridges.py`. The lines come from OpenStreetMap, so they sit on the bridges in the aerial
+    photo. Heights come from the chart (each span's VERCLR, and the PYLONS for towers and piers) and from each
+    bridge's published figures.
+  - **Drawn by hand:**
+    - Golden Gate: International Orange, 227 m towers at the chart's south pier and Lime Point, cables and
+      suspenders.
+    - Bay Bridge west spans: two suspension bridges sharing the central anchorage, towers at chart piers A, B, D
+      and E.
+    - Bay Bridge east span: the single tower (chart Tower G) and the Skyway down to Oakland.
+    - Richmond–San Rafael: its two cantilever humps.
+    - San Mateo–Hayward and Dumbarton: high-rise spans and low trestles.
+    - Carquinez: the Al Zampa suspension bridge, with the 1958 cantilever truss beside it.
+    - Benicia–Martinez: the concrete span, the 1962 truss, and the rail bridge with its lift towers.
+    - Highway 37 over the Napa River.
+  - **The rest:** 55 smaller bridges over charted water get a plain deck on piers at their charted clearance, a
+    lift bridge also getting its towers. These include Park Street, High Street, Fruitvale, Bay Farm, Lefty O'Doul,
+    Mare Island and Black Point.
+  - **Other details:** each bridge has a name label, the bridges are lit a little at night, and the scene credit
+    names OSM and NOAA. Penobscot and Casco have no bridge file, so nothing changes there.
+
 ## 2026-10-25 — San Francisco Bay, a trial run in Bird's-eye (v1019)
 
 - **SF Bay** (requested: "do the quick test run for San Francisco Bay"): a third bay in `regions3d.js`, reached by
