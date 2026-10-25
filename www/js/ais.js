@@ -5,6 +5,8 @@
 // ?ais=<relay url> or localStorage 'audiochart-ais-relay' points it at another relay (relay/ais/dev.mjs).
 
 export const RELAY_DEFAULT = 'https://audiochart-ais.egilchri.workers.dev';
+// The feeds the relay listens to (relay/ais/core.mjs FEEDS), credited as they ask (v1011)
+export const AIS_CREDIT = 'AIS from AISStream (aisstream.io), and Open Waters AIS (openwaters.io/ais) with AISHub (aishub.net).';
 const RELAY_KEY = 'audiochart-ais-relay';
 export function relayUrl() {
   try { const q = new URLSearchParams(location.search).get('ais'); if (q) return q.replace(/\/$/, ''); } catch (_) {}

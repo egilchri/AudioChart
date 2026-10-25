@@ -11,7 +11,7 @@ import { makeWildlife, ledgesFrom } from './wildlife3d.js';
 import { makeAngelique, ANGELIQUE, makeBowdoin, BOWDOIN } from './angelique3d.js';
 import { callsOn, ferryLine, cruiseShipModel, launchModel, ferryModelSimple, cblModel } from './vessels.js';
 import { identify, liveModel, knownList } from './livefleet.js';
-import { makeAisFeed, aisName, setKnown } from './ais.js';
+import { makeAisFeed, aisName, setKnown, AIS_CREDIT } from './ais.js';
 import { setShips } from './ships3d.js';
 import { makeSky, makeEnv, glowSprite, flashFor, sectorColour, weatherPanel, startConditions, makeTrimmer, cycleLook } from './weather3d.js';
 
@@ -1171,7 +1171,7 @@ function syncLiveBtn(state = liveBtn?.dataset.state || 'off', note = '') {
   liveBtn.textContent = !liveFeed.on ? '📡 Live' : tuning ? '📡 Live · tuning in…' : state === 'live' ? `📡 Live · ${live.length}` : state === 'offline' ? '📡 Live · offline' : '📡 Live · …';
   liveBtn.title = !liveFeed.on ? 'Show the vessels really out there now, from their AIS (needs an internet connection)'
     : tuning ? 'The live feed has only just started listening: vessels come in over the next few minutes, as each one reports. Click to turn Live off.'
-    : state === 'offline' ? `${note || 'Live AIS is unavailable'}. Click to turn Live off.` : `${live.length} vessels broadcasting AIS within 10 nm. Click to turn Live off.`;
+    : state === 'offline' ? `${note || 'Live AIS is unavailable'}. Click to turn Live off.` : `${live.length} vessels broadcasting AIS within 10 nm. Click to turn Live off.\n${AIS_CREDIT}`;
 }
 if (liveBtn) {
   liveBtn.addEventListener('click', () => { if (liveFeed.on) liveFeed.stop(); else liveFeed.start(); try { localStorage.setItem(LIVE_KEY, liveFeed.on ? '1' : '0'); } catch (_) {} syncLiveBtn(); });

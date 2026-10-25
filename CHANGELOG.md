@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-25 — 📡 Live hears more: Open Waters as a second feed (v1011)
+
+- The relay (relay/ais/) now listens to [Open Waters AIS](https://openwaters.io/ais) as well as AISStream. Open
+  Waters adds AISHub's volunteer receivers. Compared on 2026-10-25 over the same 20 minutes, Open Waters heard every
+  vessel AISStream did, plus two more in Penobscot Bay (one off Isle au Haut) and three more in Casco Bay. It still
+  hears nothing in the Thorofares, Swans Island or the Cranberries.
+- When both feeds hear a vessel, the newest report wins, by each report's own time: AISHub's reports arrive a
+  minute or so late, and must not move a boat back. A feed that fails to connect is retried after a minute.
+- Open Waters is free on a personal token (a Worker secret, `OPENWATERS_KEY`). The Live button's tooltip credits
+  the feeds (`AIS_CREDIT`, ais.js), as Open Waters asks for AISHub's data.
+
 ## 2026-10-24 — 📡 Live says when it's only just tuned in (v1010)
 
 - The relay drops its connection to the AIS feed when nobody's asking it, and once back it hears each vessel only

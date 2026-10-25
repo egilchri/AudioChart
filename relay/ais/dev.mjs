@@ -1,24 +1,28 @@
 // The live-AIS relay on this computer, for developing (see README.md):
-//   AISSTREAM_KEY=... node relay/ais/dev.mjs       the real feed, at http://localhost:8790/vessels
+//   AISSTREAM_KEY=... OPENWATERS_KEY=... node relay/ais/dev.mjs   the real feeds (either or both), at http://localhost:8790/vessels
 //   node relay/ais/dev.mjs --fake                   made-up vessels in AIS's own message format, no key needed
 // Then open Bird's-eye with ?ais=http://localhost:8790 (or set it once: localStorage 'audiochart-ais-relay').
 import http from 'node:http';
-import { makeTable, subscription, corsHeaders } from './core.mjs';
+import { makeTable, subscription, corsHeaders, FEEDS } from './core.mjs';
 
 const PORT = Number(process.env.PORT) || 8790, FAKE = process.argv.includes('--fake');
 const table = makeTable();
-let opened = Date.now(), upstream = null, lastErr = null;
+let opened = Date.now(), lastErr = null;
+const open = new Set();
 
-function connect() {
-  const key = process.env.AISSTREAM_KEY;
-  if (!key) { lastErr = 'no AISSTREAM_KEY'; console.log('no AISSTREAM_KEY: use --fake, or set the key'); return; }
-  const ws = new WebSocket('wss://stream.aisstream.io/v0/stream'); ws.binaryType = 'arraybuffer';
+function connect(f) {   // one connection per feed whose key is set (core.mjs FEEDS)
+  const key = process.env[f.key];
+  const ws = new WebSocket(f.url); ws.binaryType = 'arraybuffer';
   const dec = new TextDecoder();
-  ws.onopen = () => { ws.send(subscription(key)); opened = Date.now(); lastErr = null; console.log('upstream open'); };
+  ws.onopen = () => { ws.send(subscription(key)); if (!open.size) opened = Date.now(); open.add(f.name); lastErr = null; console.log(f.name, 'open'); };
   ws.onmessage = e => { try { table.ingest(JSON.parse(typeof e.data === 'string' ? e.data : dec.decode(e.data))); } catch (_) {} };
-  ws.onerror = e => { lastErr = String(e.message || 'upstream error'); };
-  ws.onclose = e => { console.log('upstream closed', e.code, e.reason); upstream = null; setTimeout(connect, 10000); };
-  upstream = ws;
+  ws.onerror = e => { lastErr = `${f.name}: ${e.message || 'upstream error'}`; };
+  ws.onclose = e => { console.log(f.name, 'closed', e.code, e.reason); open.delete(f.name); setTimeout(() => connect(f), 10000); };
+}
+function connectAll() {
+  const feeds = FEEDS.filter(f => process.env[f.key]);
+  if (!feeds.length) { lastErr = 'no key'; console.log('no AISSTREAM_KEY or OPENWATERS_KEY: use --fake, or set a key'); return; }
+  feeds.forEach(connect);
 }
 
 // Made-up traffic, as AIS messages: a tanker up West Penobscot Bay for Searsport, the Vinalhaven ferry, a
@@ -50,12 +54,12 @@ function fakeTick() {
   }
 }
 
-if (FAKE) { fakeTick(); setInterval(fakeTick, 5000); } else connect();
+if (FAKE) { fakeTick(); setInterval(fakeTick, 5000); } else connectAll();
 
 http.createServer((req, res) => {
   const h = corsHeaders(req.headers.origin);
   if (req.method === 'OPTIONS') { res.writeHead(204, { ...h, 'Access-Control-Allow-Methods': 'GET' }); return res.end(); }
   if (!req.url.startsWith('/vessels')) { res.writeHead(404); return res.end('GET /vessels'); }
-  const snap = table.snapshot(); snap.listening = Math.round((Date.now() - opened) / 1000); if (lastErr && !FAKE) snap.error = lastErr;
+  const snap = table.snapshot(); snap.listening = Math.round((Date.now() - opened) / 1000); snap.feeds = [...open]; if (lastErr && !FAKE) snap.error = lastErr;
   res.writeHead(200, h); res.end(JSON.stringify(snap));
 }).listen(PORT, () => console.log(`AIS relay${FAKE ? ' (fake vessels)' : ''}: http://localhost:${PORT}/vessels`));
