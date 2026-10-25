@@ -22,6 +22,7 @@ import { REGIONS3D, REGION3D_KEY, regions3dOffered } from './regions3d.js';
 import { setShips } from './ships3d.js';
 import { identify, liveModel, knownList } from './livefleet.js';
 import { BUOY_F, makeBuoyF, buoyTime, topCurrent, strongest, tideWord, compass16 } from './buoyf.js';
+import { GAUGES, gaugePage, makeTideGauge, predAt, trendAt, nextTurns, tideChart } from './tidegauge.js';
 import { makeAisFeed, aisStatus, aisName, aisDest, setKnown, knownFor, aisFlag, aisRot, aisPos, aisAgo, aisLookup, aisImo, aisCallsign, AIS_CREDIT } from './ais.js';
 
 const statusEl = document.getElementById('status');
@@ -1995,6 +1996,7 @@ const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct
 function fillCard() {
   if (!aisCard || aisCard.hidden || !cardV) return;
   if (cardV === buoyF) { fillBuoyCard(); return; }
+  if (cardV === gauge) { fillGaugeCard(); return; }
   aisCard.querySelector('.go').hidden = false;
   const v = cardV, A = v.A, gone = !live.includes(v);
   document.getElementById('aisname').textContent = `📡 ${aisName(A)}${gone ? ' (no longer heard)' : ''}`;
@@ -2026,6 +2028,7 @@ function tapAt(cx, cy) {
   if (!aisCard) return;
   const r = renderer.domElement.getBoundingClientRect(), scr = (x, y, z) => { _tp.set(x, y, z).project(camera); return _tp.z < 1 ? [r.left + (_tp.x + 1) / 2 * r.width, r.top + (1 - _tp.y) / 2 * r.height] : null; };
   if (buoyF) { const a = scr(buoyF.x, 0, buoyF.z), b = scr(buoyF.x, 6 * buoyF.g.scale.x, buoyF.z); if (a && b && Math.hypot(cx - a[0], cy - (a[1] + b[1]) / 2) < 26 + Math.abs(a[1] - b[1]) / 2) { showCard(buoyF); return; } }
+  if (gauge) { const a = scr(gauge.x, gauge.g.position.y, gauge.z), b = scr(gauge.x, gauge.g.position.y + 7 * gauge.g.scale.x, gauge.z); if (a && b && Math.hypot(cx - a[0], cy - (a[1] + b[1]) / 2) < 26 + Math.abs(a[1] - b[1]) / 2) { showCard(gauge); return; } }
   if (!live.length) return;
   let best = null, bd = 26;
   for (const v of live) {
@@ -2128,6 +2131,62 @@ function fillBuoyCard() {
   row('Source', `${BUOY_F.credit}, buoy F01 (NDBC ${BUOY_F.ndbc})`);
   if (!buoyFeed.failed) row('More', `<a href="${BUOY_F.page}" target="_blank" rel="noopener">All her readings, on NERACOOS ↗</a>`, true);
   const tb = aisCard.querySelector('table'); tb.innerHTML = '';
+  for (const [k, val, html] of rows) { const tr = tb.insertRow(), th = document.createElement('th'), td = tr.insertCell(); th.textContent = k; tr.prepend(th); if (html) td.innerHTML = val; else td.textContent = val; }
+}
+
+// ── The tide gauge (v1014, requested: "now do the measured vs predicted tide"; tidegauge.js): NOAA's live gauge for
+// the bay (Bar Harbor, or Portland), a striped tide staff on its pier, its label the height now and how far the water
+// runs above or below the tables (the surge), and the last day and the next half on the card. Offline the kept
+// predictions still give the tide; the last measurement shows with its age, up to 12 hours. ──
+const GAUGE = GAUGES[RID];
+const gauge = GAUGE && !EMPTY ? (() => {
+  const g = new THREE.Group(), x = wx(GAUGE.lon), z = wz(GAUGE.lat);
+  const red = new THREE.MeshStandardMaterial({ color: 0xc8322a, roughness: 0.6 }), white = new THREE.MeshStandardMaterial({ color: 0xf2f0e8, roughness: 0.6 });
+  for (let i = 0; i < 7; i++) { const o = new THREE.Mesh(new THREE.BoxGeometry(0.35, 1, 0.12), i % 2 ? white : red); o.position.y = i + 0.5; g.add(o); }   // the staff, a foot of it to a band
+  const hut = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1, 1.2), white); hut.position.set(0.9, 0.5, 0); g.add(hut);   // the gauge's housing
+  g.position.set(x, 0, z); scene.add(g);
+  return { kind: 'gauge', x, z, g };
+})() : null;
+const tide = gauge ? makeTideGauge(GAUGE, { onData: () => {} }) : null;
+tide?.start();
+const ft1 = v => `${v < 0 ? '−' : ''}${Math.abs(v).toFixed(1)} ft`;
+function updateGauge() {
+  if (!gauge) return;
+  gauge.g.scale.setScalar(clamp(view.dist / 400, 1, 80));
+  gauge.g.position.y = Math.max(heightAt(GAUGE.lon, GAUGE.lat), 0);
+}
+// "above"/"below predicted", or "as predicted" within a couple of inches
+const surgeTxt = s => Math.abs(s) < 0.2 ? 'as predicted' : `${Math.abs(s).toFixed(1)} ft ${s > 0 ? 'above' : 'below'} predicted`;
+function gaugeLabel() {
+  const S = tide.state, now = Date.now(), m = tide.surge, p = predAt(S, now), tr = trendAt(S, now);
+  let t = `${GAUGE.name} tide`;
+  const h = m && now - m.t < 30 * 60e3 ? m.ft : p != null ? p + (m?.surge ?? 0) : null;   // (the measured height, else predicted plus the last surge)
+  if (h != null) t += ` · ${ft1(h)}${tr == null ? '' : Math.abs(tr) < 0.3 ? ', turning' : tr > 0 ? ' rising' : ' falling'}`;
+  if (m) t += ` · ${surgeTxt(m.surge)}${now - m.t > 90 * 60e3 ? ` (${Math.round((now - m.t) / 3600e3)} h ago)` : ''}`;
+  return t;
+}
+function fillGaugeCard() {
+  const S = tide.state, now = Date.now(), m = tide.surge, p = predAt(S, now), tr = trendAt(S, now);
+  document.getElementById('aisname').textContent = `🌊 ${GAUGE.name} tide gauge`;
+  aisCard.querySelector('.go').hidden = true;
+  const rows = [], row = (k, val, html = false) => { if (val !== '' && val != null) rows.push([k, val, html]); };
+  const at = t => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  if (m) row('Measured', `${ft1(m.ft)} at ${at(m.t)}${now - m.t > 30 * 60e3 ? ` (${aisAgo((now - m.t) / 1000)})${tide.failed ? ' — the last one kept: can\'t reach NOAA' : ''}` : ''}`);
+  else row('Measured', tide.failed ? 'None: can\'t reach NOAA (out of range?), and none kept from the last 12 hours' : 'Asking the gauge…');
+  if (m && predAt(S, m.t) != null) row('Predicted then', ft1(predAt(S, m.t)));
+  if (m) row('Surge', `${m.surge >= 0 ? '+' : '−'}${Math.abs(m.surge).toFixed(1)} ft: the water's ${surgeTxt(m.surge)}${Math.abs(m.surge) >= 1 ? ` — wind or a storm is ${m.surge > 0 ? 'piling it up' : 'holding it off'}` : ''}`);
+  if (p != null) row('Now', `${ft1(p + (m?.surge ?? 0))}${m ? Math.abs(m.surge) >= 0.2 ? ` (predicted ${ft1(p)}, ${m.surge > 0 ? '+' : '−'}${Math.abs(m.surge).toFixed(1)} surge)` : '' : ' predicted'}${tr == null ? '' : Math.abs(tr) < 0.3 ? ', turning' : `, ${tr > 0 ? 'rising' : 'falling'} ${Math.abs(tr).toFixed(1)} ft an hour`}`);
+  for (const n of nextTurns(S, now)) row(n.high ? 'High' : 'Low', `${ft1(n.ft)} at ${at(n.t)}${m && Math.abs(m.surge) >= 0.3 ? `; with the surge, about ${ft1(n.ft + m.surge)}` : ''}`);
+  if (p != null) row('Charted depths', `add about ${ft1(p + (m?.surge ?? 0))} near ${GAUGE.name} now (they're from mean lower low water)`);
+  if (!S.pred.length) row('Predictions', tide.failed ? 'None kept yet: they come with the first visit online' : 'Asking NOAA…');
+  row('Position', aisPos(GAUGE.lat, GAUGE.lon));
+  { const mine = own.r && own.boat.group.visible, fx = mine ? own.x : view.x, fz = mine ? own.z : view.z, d = Math.hypot(gauge.x - fx, gauge.z - fz);
+    if (d > 30) row(mine ? 'From your boat' : 'From the view', `${(d / NMm).toFixed(d < 10 * NMm ? 1 : 0)} nm, ${deg3(Math.atan2(gauge.x - fx, -(gauge.z - fz)) / DEG)}° true`); }
+  row('Source', `NOAA tide gauge ${GAUGE.id}, every 6 minutes; heights above mean lower low water`);
+  if (!tide.failed) row('More', `<a href="${gaugePage(GAUGE)}" target="_blank" rel="noopener">The gauge on NOAA Tides &amp; Currents ↗</a>`, true);
+  const tb = aisCard.querySelector('table'); tb.innerHTML = '';
+  const svg = tideChart(S, now);
+  if (svg) { const td = tb.insertRow().insertCell(); td.colSpan = 2; td.className = 'chart'; td.innerHTML = svg + '<div class="key"><b class="p"></b>predicted <b class="m"></b>measured</div>'; }
   for (const [k, val, html] of rows) { const tr = tb.insertRow(), th = document.createElement('th'), td = tr.insertCell(); th.textContent = k; tr.prepend(th); if (html) td.innerHTML = val; else td.textContent = val; }
 }
 
@@ -2523,6 +2582,7 @@ function updateLabels() {
       if (d < Math.max(view.dist * 2, 3000)) cand.push({ text: p.label, x: p.g.position.x, y: 4.6 * p.g.scale.x, z: p.g.position.z, cls: 'wpt', pri: 0.8 + d / Math.max(view.dist * 2, 3000) });
     }
     if (buoyF && view.dist < 90000) { const d = Math.hypot(buoyF.x - view.x, buoyF.z - view.z); if (d < Math.max(view.dist * 2, 4000)) cand.push({ text: buoyLabel(), x: buoyF.x, y: 6 * buoyF.g.scale.x, z: buoyF.z, cls: 'wpt tap', pri: 0.75 + d / 1e6, click: () => showCard(buoyF) }); }   // Buoy F (v1013)
+    if (gauge && view.dist < 90000) { const d = Math.hypot(gauge.x - view.x, gauge.z - view.z); if (d < Math.max(view.dist * 2, 4000)) cand.push({ text: gaugeLabel(), x: gauge.x, y: gauge.g.position.y + 7 * gauge.g.scale.x, z: gauge.z, cls: 'wpt tap', pri: 0.75 + d / 1e6, click: () => showCard(gauge) }); }   // the tide gauge (v1014)
     if (vecTip) cand.push({ text: vecTip.text, x: vecTip.x, y: 4, z: vecTip.z, cls: 'wpt', pri: 0.4 });   // her vector's tip (v1008)
     for (const o of fixList) cand.push({ text: `${o.m.n} · ${fixBrg(o)}, ${fixRange(o.d)}`, x: o.m.x, y: Math.max(6, heightAt(o.m.lon, o.m.lat) + 6), z: o.m.z, cls: 'wpt', pri: 0.5 });   // her marks (v1000)
     if (aboveFog) { const top = FOG_TOP[env.C.vis]; cand = cand.filter(c => c.cls === 'town' || c.y - 6 > top); }   // names under the fog bank don't show
@@ -2632,7 +2692,7 @@ function frame(now) {
   if (nest.on) nestCamera();   // after every vessel has moved, yours too
   if (nest.on || !rcEl?.hidden) drawRideChart();
   wildlife.update(dt, t, view, camera.position, { hidden: !!aboveFog || EMPTY, night: env.C.time === 'night', boat: (own.ext || own.r) ? own : null, scale: d => clamp(d / 35, 3, 8) });
-  syncFollowHud(); updateFixLines(); updateVector(); updateBuoyF();
+  syncFollowHud(); updateFixLines(); updateVector(); updateBuoyF(); updateGauge();
   if (follow && !anim && !nest.on) { const k = Math.min(1, dt * 4); view.x += (follow.x - view.x) * k; view.z += (follow.z - view.z) * k; }
   renderer.render(scene, camera);
   updateLabels(); updateLiveMarks(); updateReadout();

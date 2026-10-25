@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-10-25 — The tide gauge, measured against predicted, in Bird's-eye (v1014)
+
+- **Tide gauge** (requested: "now do the measured vs predicted tide"; `tidegauge.js`): NOAA's live water-level gauge
+  for each bay, Bar Harbor (8413320) for Penobscot (Rockland has no live gauge) and Portland (8418150) for Casco,
+  every 6 minutes, against NOAA's prediction for the same gauge. The difference is the surge: wind, pressure or a
+  storm that the tide tables leave out.
+  - A red-and-white tide staff on the gauge's pier. Its label reads e.g. "Bar Harbor tide · 11.2 ft falling · as
+    predicted" (or "1.2 ft above predicted").
+  - Tap it for the card: a chart of the last 24 h and the next 12 h (predicted dashed, measured solid); measured,
+    predicted then, and the surge; the height now with the rate of rise or fall; the next high and low, with the
+    surge added when it's 0.3 ft or more; what to add to charted depths near the gauge now.
+  - Heights are feet above mean lower low water, the chart's datum.
+- **Offline:** four days of predictions are kept (localStorage), so the predicted tide stays right. The last
+  measurement is kept with its time and shown with its age for up to 12 hours; its surge is added to the
+  prediction for the height now. With nothing kept the card says so; never an error.
+- `sw.js` lets the gauge's measurements (`product=water_level`) go straight to NOAA, never served from the cache.
+
 ## 2026-10-25 — Buoy F in Bird's-eye; underway boats ring brighter (v1013)
 
 - **Buoy F** (requested: "start with Buoy F, but … fail gracefully if we are out of wifi range"): the University of

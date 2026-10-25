@@ -149,6 +149,16 @@ body.embed.smallride #ridechart { width: clamp(120px, 13vw, 170px); }
 /* a live vessel's AIS card (v988): tap her, or ⓘ in Underway */
 #aisinfo { position: fixed; right: 12px; top: calc(48px + env(safe-area-inset-top, 0px)); z-index: 4; width: min(340px, calc(100vw - 24px)); max-height: calc(100vh - 120px); overflow-y: auto; box-sizing: border-box; background: var(--glass-hi); color: var(--ink); border-radius: 6px; padding: 8px 30px 8px 10px; font-family: var(--body); font-size: 0.8rem; }
 #aisinfo[hidden] { display: none; }
+#aisinfo td.chart { padding: 2px 0 6px; font-family: var(--body); }   /* the tide gauge's day (v1014) */
+.tidechart { width: 100%; height: auto; display: block; }
+.tidechart text { font-size: 9px; fill: var(--muted); font-family: var(--body); }
+.tidechart .g { stroke: rgba(255,255,255,0.12); stroke-width: 0.6; }
+.tidechart .now { stroke: #e0c27a; stroke-width: 1; }
+.tidechart .p { fill: none; stroke: #a9b8ff; stroke-width: 1.3; stroke-dasharray: 3 2.5; }
+.tidechart .m { fill: none; stroke: #5fd3ff; stroke-width: 1.8; }
+#aisinfo .key { font-size: 0.7rem; color: var(--muted); }
+#aisinfo .key b { display: inline-block; width: 14px; height: 0; vertical-align: middle; margin: 0 4px 0 8px; border-top: 2px solid #5fd3ff; }
+#aisinfo .key b.p { border-top: 1.5px dashed #a9b8ff; margin-left: 0; }
 #aisinfo .sect { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 0.86rem; margin: 0 0 6px; text-transform: none; letter-spacing: normal; color: var(--ink); }
 #aisinfo .sect span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #aisinfo table { width: 100%; border-collapse: collapse; }
