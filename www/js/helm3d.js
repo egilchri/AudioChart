@@ -1161,6 +1161,7 @@ function liveData(snap) {
   liveOK = live.length > 0;
 }
 const liveFeed = makeAisFeed({
+  bbox: (() => { const la = routeLL.map(p => p[1]), lo = routeLL.map(p => p[0]); return [Math.min(...lo) - 0.25, Math.min(...la) - 0.18, Math.max(...lo) + 0.25, Math.max(...la) + 0.18]; })(),   // (the route and 10 nm round it: v1019)
   onData: snap => { liveListen = snap.listening ?? 1e9; liveData(snap); },   // (how long the relay has been tuned in: v1010)
   onState: ({ state, note }) => { if (state === 'offline' || state === 'off') { for (const v of [...live]) dropLive(v); liveOK = false; } syncLiveBtn(state, note); },
 });

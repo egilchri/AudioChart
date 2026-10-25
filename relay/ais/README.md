@@ -35,6 +35,9 @@ The app finds the relay at `RELAY_DEFAULT` in `www/js/ais.js`. You can point it 
    npx wrangler secret put OPENWATERS_KEY     # an Open Waters personal token (below)
    npx wrangler deploy
    ```
+   When a release changes the relay's code, bump `RELAY_V` in `worker.mjs` before deploying. A running Durable
+   Object keeps its old code while its feed connections are open, so the new version gets a fresh object.
+   `/vessels?bbox=w,s,e,n` answers with only the vessels in that box (v1019).
    An Open Waters personal token is free and never expires. It is minted with an Ed25519 key, `openwaters-key.pem`
    in this folder, which is git-ignored (the recipe is in the `POST /v1/keys` entry of
    https://ais.openwaters.io/openapi.json). Its terms: free for personal use, with each source credited.

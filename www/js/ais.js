@@ -55,7 +55,7 @@ export const aisDest = d => /^[A-Z][A-Z .,&'\/-]{2,}$/i.test(d || '') && /[A-Z]{
 
 // The feed: polls the relay while on. onData({ vessels, t }) with each answer; onState({ state, note }) with
 // 'listening' (connected, nothing heard yet), 'live', or 'offline' (no internet, or the relay's not there).
-export function makeAisFeed({ onData, onState, every = 10000 }) {
+export function makeAisFeed({ onData, onState, every = 10000, bbox = null }) {   // bbox [w, s, e, n]: only those (v1019)
   let on = false, timer = null, inflight = null, state = '';
   const say = (s, note = '') => { if (s !== state || note) { state = s; onState?.({ state: s, note }); } };
   async function poll() {
@@ -64,7 +64,7 @@ export function makeAisFeed({ onData, onState, every = 10000 }) {
     const ctl = new AbortController(); inflight = ctl;
     const kill = setTimeout(() => ctl.abort(), 8000);
     try {
-      const r = await fetch(relayUrl() + '/vessels', { signal: ctl.signal, cache: 'no-store' });
+      const r = await fetch(relayUrl() + '/vessels' + (bbox ? `?bbox=${bbox.map(v => v.toFixed(3)).join(',')}` : ''), { signal: ctl.signal, cache: 'no-store' });
       const j = await r.json();
       if (!on) return;
       if (!r.ok || j.error && !j.vessels?.length) { say('offline', j.error || `Relay answered ${r.status}`); }

@@ -3,7 +3,7 @@
 //   node relay/ais/dev.mjs --fake                   made-up vessels in AIS's own message format, no key needed
 // Then open Bird's-eye with ?ais=http://localhost:8790 (or set it once: localStorage 'audiochart-ais-relay').
 import http from 'node:http';
-import { makeTable, subscription, corsHeaders, FEEDS } from './core.mjs';
+import { makeTable, subscription, corsHeaders, FEEDS, bboxOf } from './core.mjs';
 
 const PORT = Number(process.env.PORT) || 8790, FAKE = process.argv.includes('--fake');
 const table = makeTable();
@@ -60,6 +60,6 @@ http.createServer((req, res) => {
   const h = corsHeaders(req.headers.origin);
   if (req.method === 'OPTIONS') { res.writeHead(204, { ...h, 'Access-Control-Allow-Methods': 'GET' }); return res.end(); }
   if (!req.url.startsWith('/vessels')) { res.writeHead(404); return res.end('GET /vessels'); }
-  const snap = table.snapshot(); snap.listening = Math.round((Date.now() - opened) / 1000); snap.feeds = [...open]; if (lastErr && !FAKE) snap.error = lastErr;
+  const snap = table.snapshot(Date.now(), bboxOf(req.url)); snap.listening = Math.round((Date.now() - opened) / 1000); snap.feeds = [...open]; if (lastErr && !FAKE) snap.error = lastErr;
   res.writeHead(200, h); res.end(JSON.stringify(snap));
 }).listen(PORT, () => console.log(`AIS relay${FAKE ? ' (fake vessels)' : ''}: http://localhost:${PORT}/vessels`));

@@ -17,6 +17,16 @@ export const REGIONS3D = {
     bay: [-70.32, 43.55, -69.78, 43.93],
     whole: { lon: -70.06, lat: 43.71, dist: 40000 },
   },
+  // A trial run (v1019, requested: "do the quick test run for San Francisco Bay"): terrain, aerial photos and Live
+  // AIS only, so far; no chart data (place names, marks) or buildings yet. Offered like Casco: ?region=sf-bay, or
+  // the switch on an unlocked device.
+  'sf-bay': {
+    name: 'San Francisco Bay', short: 'SF Bay',
+    origin: [-122.35, 37.8],
+    overview: [-122.65, 37.4, -122.0, 38.2],
+    bay: [-122.55, 37.45, -122.05, 38.12],
+    whole: { lon: -122.33, lat: 37.78, dist: 55000 },
+  },
 };
 export const REGION3D_KEY = 'audiochart-bay3d-region';
 const inBox = (b, lon, lat) => lon >= b[0] && lon <= b[2] && lat >= b[1] && lat <= b[3];

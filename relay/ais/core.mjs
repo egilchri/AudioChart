@@ -4,11 +4,18 @@
 // so the relay holds the keys, keeps one upstream connection to each for both bays, and serves the vessels it has
 // heard as JSON.
 
-// Penobscot Bay and its approaches, and Casco Bay (v994), each a little wider than Bird's-eye's overview of it
-// ([lat, lon] corners; www/js/regions3d.js). One upstream connection listens to both.
+// Penobscot Bay and its approaches, Casco Bay (v994) and San Francisco Bay (v1019, a trial run), each a little wider
+// than Bird's-eye's overview of it ([lat, lon] corners; www/js/regions3d.js). One upstream connection listens to all.
 export const BOX = [[43.6, -69.6], [44.9, -67.8]];
 export const CASCO_BOX = [[43.4, -70.6], [44.05, -69.6]];
-export const BOXES = [BOX, CASCO_BOX];
+export const SF_BOX = [[37.35, -122.75], [38.25, -121.95]];
+export const BOXES = [BOX, CASCO_BOX, SF_BOX];
+// ?bbox=w,s,e,n on /vessels (v1019): only the vessels in it (the app asks for its own bay's; San Francisco's
+// hundreds needn't go to a viewer in Maine). Without it, all of them, as before.
+export function bboxOf(url) {
+  const b = new URL(url, 'http://x').searchParams.get('bbox')?.split(',').map(Number);
+  return b?.length === 4 && b.every(Number.isFinite) ? b : null;
+}
 export const TYPES = ['PositionReport', 'StandardClassBPositionReport', 'ExtendedClassBPositionReport', 'ShipStaticData', 'StaticDataReport'];
 export const subscription = key => JSON.stringify({ APIKey: key, BoundingBoxes: BOXES, FilterMessageTypes: TYPES });
 // The upstream feeds, each in AISStream's wire format (Open Waters' /v0/stream is a drop-in for it). A feed whose
@@ -64,12 +71,13 @@ export function makeTable({ onStatic } = {}) {
       if (body.ReportB?.Valid) setStatic(mmsi, { type: num(body.ReportB.ShipType), callsign: clean(body.ReportB.CallSign), ...dims(body.ReportB.Dimension) });
     }
   }
-  function snapshot(now = Date.now()) {
+  function snapshot(now = Date.now(), bbox = null) {
     const vessels = [];
     for (const [mmsi, s] of ships) {
       if (s.at == null) continue;
       const still = (s.sog ?? 0) < 0.5 || s.status === 1 || s.status === 5;
       if (now - s.at > (still ? STILL_KEEP : MOVING_KEEP)) { delete s.lat; delete s.lon; delete s.at; continue; }
+      if (bbox && !(s.lon >= bbox[0] && s.lat >= bbox[1] && s.lon <= bbox[2] && s.lat <= bbox[3])) continue;
       vessels.push({ mmsi, name: s.name || '', lat: +s.lat.toFixed(5), lon: +s.lon.toFixed(5), sog: s.sog, cog: s.cog == null ? null : +s.cog.toFixed(1), hdg: s.hdg, status: s.status ?? null, type: s.type ?? null, L: s.L ?? null, B: s.B ?? null, dest: s.dest || '', callsign: s.callsign || '', imo: s.imo ?? null, draught: s.draught ?? null, eta: s.eta ?? null, rot: s.rot ?? null, acc: s.acc ?? null, age: Math.round((now - s.at) / 1000) });
     }
     return { t: now, vessels };

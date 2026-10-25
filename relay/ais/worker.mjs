@@ -3,9 +3,15 @@
 // since v1011), opened by the first request and closed after a few minutes with nobody asking (AISStream allows 3
 // connections per key, Open Waters 2 per personal token). Names, types and sizes are kept in the object's
 // storage, since AIS sends them only every six minutes.
-import { makeTable, subscription, corsHeaders, FEEDS } from './core.mjs';
+import { makeTable, subscription, corsHeaders, FEEDS, bboxOf } from './core.mjs';
 
 const IDLE_MS = 5 * 60e3;
+// The Durable Object's name carries the relay's version. A deploy doesn't restart a running object while its feed
+// connections are open: it carries on with the old code (found at v1011 and again at v1019), so each release that
+// changes the relay bumps this, and the new code starts at once in a fresh object. (Its kept names, types and
+// sizes start again too; they come back within minutes, as AIS sends them every six.) 'penobscot' until v1011,
+// 'bays' until v1019.
+const RELAY_V = 1019;
 
 export class AisHub {
   constructor(state, env) {
@@ -47,7 +53,7 @@ export class AisHub {
     this.lastAsk = Date.now();
     let err = null;
     try { await this.open(); } catch (e) { err = String(e.message || e); }
-    const snap = this.table.snapshot();
+    const snap = this.table.snapshot(Date.now(), bboxOf(req.url));
     snap.listening = Math.round((Date.now() - this.opened) / 1000);
     snap.feeds = Object.keys(this.ws);
     if (err) snap.error = err;
@@ -61,6 +67,6 @@ export default {
     if (req.method === 'OPTIONS') return new Response(null, { headers: { ...corsHeaders(origin), 'Access-Control-Allow-Methods': 'GET' } });
     if (url.pathname !== '/vessels') return new Response('AudioChart live AIS relay: GET /vessels', { status: 404 });
     if (!FEEDS.some(f => env[f.key])) return new Response(JSON.stringify({ error: 'no key' }), { status: 503, headers: corsHeaders(origin) });
-    return env.AIS_HUB.get(env.AIS_HUB.idFromName('bays')).fetch(req);   // ('penobscot' until v1011: renamed so the two-feed code started at once)
+    return env.AIS_HUB.get(env.AIS_HUB.idFromName(`bays-${RELAY_V}`)).fetch(req);
   },
 };

@@ -1883,6 +1883,7 @@ function updateLive(dt) {
 }
 if (!EMPTY) setShips(await getJSON('./data/ships.json').catch(() => null));   // (before the feed: her colours from the first sight of her)
 const liveFeed = makeAisFeed({
+  bbox: OVERVIEW,   // (this bay's vessels only: v1019)
   onData: snap => { liveListen = snap.listening ?? 1e9; liveData(snap); },   // (how long the relay has been tuned in: v1010)
   onState: ({ state, note }) => {
     if (state === 'offline' || state === 'off') { for (const v of [...live]) dropLive(v); liveOK = false; }

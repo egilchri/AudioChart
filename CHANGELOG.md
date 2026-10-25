@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-10-25 — San Francisco Bay, a trial run in Bird's-eye (v1019)
+
+- **SF Bay** (requested: "do the quick test run for San Francisco Bay"): a third bay in `regions3d.js`, reached by
+  `bay3d.html?region=sf-bay` (or the bay switch on an unlocked device). It has USGS terrain, NAIP aerial photos
+  and Live AIS only: no chart data (place names, marks), buildings or currents yet.
+- **Relay:** listens to the Bay too (core.mjs `SF_BOX`). The Bay is busy: 247 vessels within 4 minutes of
+  starting, against Maine's 20 or so. `/vessels?bbox=w,s,e,n` now answers with just those vessels; Bird's-eye asks
+  for its bay's and the helm view for its route's, so a Maine viewer doesn't download San Francisco's.
+- **Relay deploys:** the Durable Object's name now carries `RELAY_V`. A deploy left the running object on its old
+  code (the subscription without the SF box), as at v1011, so each relay release bumps it.
+- **What the trial found:**
+  - Bird's-eye works there unchanged: about 280 live vessels, drawn by type at the right places, from the whole-bay
+    view down to the Oakland Estuary.
+  - USGS elevation can't tell inland water from low land there. The Estuary reads 0.61 m and the Carquinez Strait
+    0.5 m, while Foster City's land reads 0.60 m. Bird's-eye's water test (≤ 0.3 m) calls 92 of 280 vessels'
+    positions land, a moving tanker in the Carquinez Strait among them. Boats aren't hidden by it (the ashore test
+    wants high ground over 2 m all round), but a few berthed vessels are drawn on wharf aprons and yards. The fix is
+    the chart's own land outline: the region build, not yet run for SF.
+  - A visible seam in the Estuary, where one terrain tile's water is above the water surface and the next's below.
+
 ## 2026-10-25 — No more made-up sailboats wandering the bay (v1018)
 
 - **The fleet is off** (requested: "wipe all 'fake boats' off the screen. They add confusion", meaning "the boat
