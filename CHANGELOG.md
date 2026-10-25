@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-25 — No more made-up sailboats wandering the bay (v1018)
+
+- **The fleet is off** (requested: "wipe all 'fake boats' off the screen. They add confusion", meaning "the boat
+  aimlessly driving around in circles"). Bird's-eye's 40 made-up sailboats and powerboats sailed short legs round
+  their own patches of the bay; they no longer appear. ⛵ Follow a sailboat is hidden, and its mention left the help
+  line. `?fleet=1` brings them back (the demo videos were made with them).
+- Still shown: 📡 Live AIS vessels, the timetable ferries and cruise ships, the schooner Bowdoin (⚓ / 🔭), the moored
+  boats, and your own boat on a route.
+
 ## 2026-10-25 — Casco's current arrows from NECOFS's finer Casco Bay model (v1017)
 
 - **Casco arrows** (requested: "use the finer NECOFS Casco model for the arrows"): NECOFS's own Casco Bay model

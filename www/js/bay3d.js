@@ -923,7 +923,9 @@ function updateWeather(dt, t) {
 // wind, tack and gybe as they turn, heel to leeward, and stop with sails furled in a calm. Close up
 // they sail at a real 5 kn; from higher up time runs faster (up to 20×) so you can see them move.
 // Like the buoys, they're drawn bigger the farther off you are.
-const FLEET_N = 40, BOAT_KN = 5, NMm = 1852;
+// Off since v1018 (requested: "wipe all 'fake boats' off the screen. They add confusion", i.e. "the boat aimlessly
+// driving around in circles"): ?fleet=1 brings them back (the demo videos were made with them).
+const FLEET_N = params.get('fleet') === '1' ? 40 : 0, BOAT_KN = 5, NMm = 1852;
 // drawn bigger the farther off, as the buoys are; a big boat needs less of it, so a windjammer stays
 // bigger than a daysailer at any range without becoming an island from the heights (v905)
 const boatScale = (boat, d) => Math.max(1.6, clamp(d / 250, 1.6, 90) * Math.sqrt(8 / boat.L));
@@ -993,6 +995,7 @@ function followBoat() {
   flyTo({ x: b.x, z: b.z, dist: 150, tilt: 62 * DEG, az: (b.h + 35) * DEG }, 3000);
 }
 document.getElementById('sailboat').addEventListener('click', followBoat);
+document.getElementById('sailboat').hidden = !fleet.some(b => b !== bowdoin);   // (no fleet: nothing to follow but Bowdoin, who has her own button)
 function stopFollow() { if (!follow) return; follow = null; document.getElementById('sailboat').classList.remove('on'); }
 
 // ── Bowdoin's crow's nest (v919, requested: "give it a Crow's Nest, and a way to trigger an observation from
