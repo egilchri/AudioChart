@@ -11,6 +11,7 @@
 // The Weather panel (weatherPanel) and the NWS forecast are here too. The choice is shared by
 // both views and remembered.
 import * as THREE from 'three';
+import { obsFor, makeObs, obsLines, obsConditions } from './obs.js';
 
 const rad = THREE.MathUtils.degToRad;
 export const sunAt = (alt, brg) => new THREE.Vector3().setFromSphericalCoords(1, rad(90 - alt), rad(180 - brg));   // theta runs from south
@@ -392,6 +393,23 @@ export function weatherPanel({ host, panelParent, where, pick, btnClass = '' }) 
   fcBtn.title = 'Set the weather from the National Weather Service forecast for here, this hour (needs internet)';
   const fcNote = document.createElement('small'); fcNote.textContent = 'or pick conditions below';
   fcRow.append(fcBtn, fcNote); panel.appendChild(fcRow);
+  // Observed (v1016, obs.js): the wind and waves measured out at the bay's mouth (Matinicus Rock and Buoy E, or
+  // the Portland buoy), asked for when the panel opens; ⟳ Use these sets the wind from them
+  const obRow = document.createElement('div'); obRow.className = 'wxrow wxfc';
+  const obBtn = document.createElement('button'); obBtn.type = 'button'; obBtn.textContent = '⟳ Use observed'; obBtn.disabled = true;
+  const obNote = document.createElement('small'); obNote.textContent = 'Observed wind and waves…';
+  obRow.append(obBtn, obNote); panel.appendChild(obRow);
+  let ob = null;
+  const showObs = () => {
+    const O = ob.reading, L = obsLines(ob.set, O);
+    obNote.innerHTML = '';
+    if (!L.length) obNote.textContent = ob.failed ? `Observed: none (can't reach ${ob.set.wind.name}'s readings, and none kept from the last 12 hours)` : `Asking ${ob.set.wind.name}…`;
+    for (const l of L) { const d = document.createElement('div'); d.textContent = l; obNote.appendChild(d); }
+    if (L.length && ob.failed) { const d = document.createElement('div'); d.textContent = '(the last kept: no internet)'; obNote.appendChild(d); }
+    obBtn.disabled = !obsConditions(O);
+    obBtn.title = `Set the wind from what ${ob.set.wind.name} measured${ob.set.waves !== ob.set.wind ? ` (and the seas at ${ob.set.waves.name})` : ''}`;
+  };
+  obBtn.addEventListener('click', () => { const C = ob && obsConditions(ob.reading); if (C) pick(C); });
   fcBtn.addEventListener('click', async () => {
     const [lon, lat] = where();
     fcBtn.disabled = true; fcNote.textContent = 'Asking the National Weather Service…';
@@ -414,7 +432,10 @@ export function weatherPanel({ host, panelParent, where, pick, btnClass = '' }) 
   sel.addEventListener('change', () => pick({ windFrom: Number(sel.value) }));
   const kn = document.createElement('em'); dirRow.append(sel, kn); panel.appendChild(dirRow);
   panelParent.appendChild(panel);
-  btn.addEventListener('click', () => { panel.hidden = !panel.hidden; btn.setAttribute('aria-expanded', String(!panel.hidden)); });
+  btn.addEventListener('click', () => {
+    panel.hidden = !panel.hidden; btn.setAttribute('aria-expanded', String(!panel.hidden));
+    if (!panel.hidden) { const set = obsFor(where()[0]); if (ob?.set !== set) { ob?.stop(); ob = makeObs(set, { onData: showObs }); ob.start(); } else ob.refresh(); showObs(); }
+  });
   let cur = DEFAULT_COND;
   addEventListener('keydown', e => {
     if ((e.key === 'n' || e.key === 'N') && !e.metaKey && !e.ctrlKey && !/INPUT|SELECT/.test(e.target.tagName)) pick({ time: cur.time === 'night' ? 'day' : 'night' });

@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-10-25 — Observed wind and waves: Matinicus Rock and Buoy E (v1016)
+
+- **Observed** (requested: "now do the Matinicus Rock wind and waves"; `obs.js`): a new section in the Weather
+  panel, in both Bird's-eye and the helm view, under ⟳ Forecast now. It shows what was measured at the mouth of the
+  bay. Each line gives the time, the age and the reading, e.g. "Matinicus Rock, 11:30 AM (46 min ago): W 5 kn · air
+  52°F · 1034 mb, steady" and "Buoy E, 11:00 AM: seas 2 ft, 12 s from SE".
+  - Penobscot: NOAA's station on Matinicus Rock (MISM1) gives wind, gusts, air temperature and pressure, with the
+    pressure's 3-hour trend. The Rock has no wave sensor, so the seas come from the University of Maine's Buoy E
+    (E01, NDBC 44032), 9 nm WSW of the Rock in the open Gulf.
+  - Casco: NOAA's Portland buoy (44007), which has both.
+  - Read from NERACOOS's ERDDAP server (CORS open; NDBC's own site allows no browser requests). The readings run
+    about an hour behind.
+  - **⟳ Use observed** sets the scene's wind, strength and direction, from the measurement. Gusts count, and seas
+    of 4 ft or more make it at least Fresh.
+- In Bird's-eye, a label on Matinicus Rock: "Matinicus Rock · W 5 kn · seas offshore 2 ft, 12 s from SE".
+- **Offline:** the last reading is kept with its time and shown with its age for up to 12 hours, marked "the last
+  kept". With none kept the panel says so, and Use observed is greyed out.
+
 ## 2026-10-25 — Forecast current arrows in Bird's-eye, from NECOFS (v1015)
 
 - **Currents** (requested: "now do the NECOFS current arrows"): the surface current forecast by NECOFS, UMass

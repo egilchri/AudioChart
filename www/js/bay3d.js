@@ -23,6 +23,7 @@ import { setShips } from './ships3d.js';
 import { identify, liveModel, knownList } from './livefleet.js';
 import { BUOY_F, makeBuoyF, buoyTime, topCurrent, strongest, tideWord, compass16 } from './buoyf.js';
 import { makeCurrents, currentsAt } from './currents.js';
+import { OBS, makeObs, windWords, wavesWords } from './obs.js';
 import { GAUGES, gaugePage, makeTideGauge, predAt, trendAt, nextTurns, tideChart } from './tidegauge.js';
 import { makeAisFeed, aisStatus, aisName, aisDest, setKnown, knownFor, aisFlag, aisRot, aisPos, aisAgo, aisLookup, aisImo, aisCallsign, AIS_CREDIT } from './ais.js';
 
@@ -2251,6 +2252,19 @@ const clockTxt = () => { const m = clockMin(); return `${Math.floor(m / 60)}:${S
 setInterval(syncCurBtn, 60e3);
 curFeed?.start();   // (after the above: a kept forecast comes back at once)
 
+// ── Matinicus Rock (v1016, requested: "now do the Matinicus Rock wind and waves"; obs.js): the wind measured on
+// the Rock, and the seas at Buoy E offshore, as a label on the Rock; the same readings are in the Weather panel. ──
+const ROCK = PENOBSCOT && !EMPTY ? OBS['penobscot-bay'] : null, rockObs = ROCK ? makeObs(ROCK, {}) : null;
+rockObs?.start();
+const rockXZ = ROCK ? { x: wx(ROCK.wind.lon), z: wz(ROCK.wind.lat) } : null;
+function rockLabel() {
+  const O = rockObs.reading; let t = ROCK.wind.name;
+  if (O?.wind) t += ` · ${windWords(O.wind)}`;
+  if (O?.waves) t += ` · ${wavesWords(O.waves).replace('seas', 'seas offshore')}`;
+  const age = O ? (Date.now() - Math.max(Date.parse(O.wind?.t || 0), Date.parse(O.waves?.t || 0))) / 3600e3 : 0;
+  return age > 2 ? `${t} (${Math.round(age)} h ago)` : t;
+}
+
 // ── Moored boats, by the season (v944, requested: "add the moored boats with seasons"; moorings3d.js) ──
 const moorings = EMPTY ? null : makeMoorings({
   scene, wx, wz, lonOf, latOf,
@@ -2644,6 +2658,7 @@ function updateLabels() {
     }
     if (buoyF && view.dist < 90000) { const d = Math.hypot(buoyF.x - view.x, buoyF.z - view.z); if (d < Math.max(view.dist * 2, 4000)) cand.push({ text: buoyLabel(), x: buoyF.x, y: 6 * buoyF.g.scale.x, z: buoyF.z, cls: 'wpt tap', pri: 0.75 + d / 1e6, click: () => showCard(buoyF) }); }   // Buoy F (v1013)
     if (gauge && view.dist < 90000) { const d = Math.hypot(gauge.x - view.x, gauge.z - view.z); if (d < Math.max(view.dist * 2, 4000)) cand.push({ text: gaugeLabel(), x: gauge.x, y: gauge.g.position.y + 7 * gauge.g.scale.x, z: gauge.z, cls: 'wpt tap', pri: 0.75 + d / 1e6, click: () => showCard(gauge) }); }   // the tide gauge (v1014)
+    if (rockXZ && view.dist < 90000) { const d = Math.hypot(rockXZ.x - view.x, rockXZ.z - view.z); if (d < Math.max(view.dist * 2, 4000)) cand.push({ text: rockLabel(), x: rockXZ.x, y: Math.max(heightAt(ROCK.wind.lon, ROCK.wind.lat), 0) + Math.max(15, view.dist * 0.01), z: rockXZ.z, cls: 'wpt', pri: 0.76 + d / 1e6 }); }   // Matinicus Rock (v1016)
     { const c = curNear(); if (c) cand.push({ text: c.text, x: c.x, y: Math.max(2, view.dist * 0.0012) + 2, z: c.z, cls: 'wpt', pri: 0.85 }); }   // the forecast current here (v1015)
     if (vecTip) cand.push({ text: vecTip.text, x: vecTip.x, y: 4, z: vecTip.z, cls: 'wpt', pri: 0.4 });   // her vector's tip (v1008)
     for (const o of fixList) cand.push({ text: `${o.m.n} · ${fixBrg(o)}, ${fixRange(o.d)}`, x: o.m.x, y: Math.max(6, heightAt(o.m.lon, o.m.lat) + 6), z: o.m.z, cls: 'wpt', pri: 0.5 });   // her marks (v1000)
