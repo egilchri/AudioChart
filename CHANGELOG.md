@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-10-25 — Buoy F in Bird's-eye; underway boats ring brighter (v1013)
+
+- **Buoy F** (requested: "start with Buoy F, but … fail gracefully if we are out of wifi range"): the University of
+  Maine's NERACOOS data buoy F01 in West Penobscot Bay (NDBC 44033), read straight from NERACOOS's ERDDAP server
+  (`buoyf.js`). In Bird's-eye, a yellow buoy at her position.
+  - Her current as a cyan arrow on the water: at 7 ft, or the profile's shallowest. When the current below is
+    stronger or sets another way, a second, paler arrow shows it. On 2026-10-25 it was slack at the surface with
+    the flood running 0.8 kn at 200 ft.
+  - Her label: flood, ebb or slack, speed and °M.
+  - Tap her or her label for the card: the current at depth (about every 30 ft, and the strongest), water
+    temperature and salinity at depth, wind and gusts, air, pressure, visibility, waves, and when it was measured.
+  - **Out of range:** the last reading is kept in localStorage and shown with its age ("· 3 h ago"), up to 12 hours.
+    After that only the buoy shows, and the card says it can't reach the buoy's server. Never an error on screen.
+    The service worker leaves data.neracoos.org alone, so a stale reading never passes as a fresh one.
+- **Underway rings** (requested: "flash a different shade of green if they are actually underway"): a live vessel
+  making 0.5 kn or more, and not at anchor or moored, gets a brighter green ring (#36f06e), flashing or not, with
+  "· underway" in its tooltip. The one you follow stays brass.
+
 ## 2026-10-25 — The version shows over Bird's-eye (v1012)
 
 - Reported: "I can't see the version. The tilt widget is in front of it." In Bird's-eye the version label sat under

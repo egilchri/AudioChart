@@ -21,6 +21,7 @@ import { callsOn, trackOf, alongTrack, cruiseState, ferryState, ferryDepartures,
 import { REGIONS3D, REGION3D_KEY, regions3dOffered } from './regions3d.js';
 import { setShips } from './ships3d.js';
 import { identify, liveModel, knownList } from './livefleet.js';
+import { BUOY_F, makeBuoyF, buoyTime, topCurrent, strongest, tideWord, compass16 } from './buoyf.js';
 import { makeAisFeed, aisStatus, aisName, aisDest, setKnown, knownFor, aisFlag, aisRot, aisPos, aisAgo, aisLookup, aisImo, aisCallsign, AIS_CREDIT } from './ais.js';
 
 const statusEl = document.getElementById('status');
@@ -1993,6 +1994,8 @@ const deg3 = d => String(Math.round(((d % 360) + 360) % 360) % 360).padStart(3, 
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 function fillCard() {
   if (!aisCard || aisCard.hidden || !cardV) return;
+  if (cardV === buoyF) { fillBuoyCard(); return; }
+  aisCard.querySelector('.go').hidden = false;
   const v = cardV, A = v.A, gone = !live.includes(v);
   document.getElementById('aisname').textContent = `📡 ${aisName(A)}${gone ? ' (no longer heard)' : ''}`;
   const rows = [], row = (k, val, html = false) => { if (val !== '' && val != null) rows.push([k, val, html]); };
@@ -2020,8 +2023,10 @@ function fillCard() {
 // the tap: the live vessel nearest it on the screen, within a finger's width of her or her name
 const _tp = new THREE.Vector3();
 function tapAt(cx, cy) {
-  if (!aisCard || !live.length) return;
+  if (!aisCard) return;
   const r = renderer.domElement.getBoundingClientRect(), scr = (x, y, z) => { _tp.set(x, y, z).project(camera); return _tp.z < 1 ? [r.left + (_tp.x + 1) / 2 * r.width, r.top + (1 - _tp.y) / 2 * r.height] : null; };
+  if (buoyF) { const a = scr(buoyF.x, 0, buoyF.z), b = scr(buoyF.x, 6 * buoyF.g.scale.x, buoyF.z); if (a && b && Math.hypot(cx - a[0], cy - (a[1] + b[1]) / 2) < 26 + Math.abs(a[1] - b[1]) / 2) { showCard(buoyF); return; } }
+  if (!live.length) return;
   let best = null, bd = 26;
   for (const v of live) {
     if (!v.on || (nest.on && nest.v === v)) continue;
@@ -2032,6 +2037,98 @@ function tapAt(cx, cy) {
     if (d < bd) { bd = d; best = v; }
   }
   if (best) showCard(best);
+}
+
+// ── Buoy F (v1013, requested; buoyf.js): the University of Maine's data buoy in West Penobscot Bay, its current
+// as arrows on the water (at the surface, and the strongest below, when it differs), a label, and its readings on
+// the card when tapped. Offline it shows the last reading, with its age, up to 12 hours; then only the buoy. ──
+const buoyF = PENOBSCOT && !EMPTY ? (() => {
+  const g = new THREE.Group(), x = wx(BUOY_F.lon), z = wz(BUOY_F.lat), yel = new THREE.MeshStandardMaterial({ color: 0xf0c020, roughness: 0.55 });
+  const part = (geo, y, m = yel) => { const o = new THREE.Mesh(geo, m); o.position.y = y; g.add(o); return o; };
+  part(new THREE.CylinderGeometry(1.5, 1.3, 0.9, 20), 0.25);   // the discus hull
+  part(new THREE.CylinderGeometry(0.55, 0.7, 0.5, 12), 0.95);
+  for (const a of [0, 2.1, 4.2]) { const leg = part(new THREE.CylinderGeometry(0.06, 0.06, 3.2, 5), 2.6); leg.position.set(Math.cos(a) * 0.5, 2.6, Math.sin(a) * 0.5); leg.rotation.set(Math.sin(a) * 0.15, 0, -Math.cos(a) * 0.15); }
+  const panel = part(new THREE.BoxGeometry(0.9, 0.6, 0.06), 2.2, new THREE.MeshStandardMaterial({ color: 0x1b2a44, roughness: 0.3, metalness: 0.4 })); panel.rotation.x = -0.5;
+  part(new THREE.CylinderGeometry(0.04, 0.04, 0.9, 5), 4.6);   // the anemometer mast and its light
+  part(new THREE.SphereGeometry(0.13, 8, 6), 5.1, new THREE.MeshBasicMaterial({ color: 0xfff2a0 }));
+  g.position.set(x, 0, z); scene.add(g);
+  const arrows = [0x5fd3ff, 0xa9b8ff].map(c => { const l = new THREE.LineSegments(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(24 * 3), 3)), new THREE.LineBasicMaterial({ color: c, depthTest: false, transparent: true })); l.renderOrder = 5; l.frustumCulled = false; l.visible = false; scene.add(l); return l; });
+  return { kind: 'buoy', x, z, g, arrows, R: null, tips: [] };
+})() : null;
+const buoyFeed = buoyF ? makeBuoyF({ onData: R => { buoyF.R = R; } }) : null;
+buoyFeed?.start();
+const knTxt = kn => `${kn.toFixed(kn < 10 ? 1 : 0)} kn`;
+const agoMin = t => Math.round((Date.now() - t) / 60e3);
+function updateBuoyF() {
+  if (!buoyF) return;
+  buoyF.g.scale.setScalar(clamp(view.dist / 400, 1, 80));
+  const R = buoyFeed.reading, top = topCurrent(R), deep = strongest(R), L = view.dist * 0.15;
+  buoyF.tips = [];
+  const draw = (line, c, y) => {
+    if (!c || c.kn < 0.15) { line.visible = false; return; }
+    const len = L * Math.min(c.kn, 3), ux = Math.sin(c.to * DEG), uz = -Math.cos(c.to * DEG), P = line.geometry.attributes.position, ah = len * 0.18;
+    let i = 0; const seg = (x0, z0, x1, z1) => { P.setXYZ(i++, buoyF.x + x0, y, buoyF.z + z0); P.setXYZ(i++, buoyF.x + x1, y, buoyF.z + z1); };
+    seg(0, 0, ux * len, uz * len);
+    for (const sx of [-1, 1]) seg(ux * len, uz * len, ux * (len - ah) - sx * uz * ah * 0.6, uz * (len - ah) + sx * ux * ah * 0.6);
+    P.needsUpdate = true; line.geometry.setDrawRange(0, i); line.visible = true;
+    buoyF.tips.push({ x: buoyF.x + ux * len, z: buoyF.z + uz * len });
+  };
+  draw(buoyF.arrows[0], top, 1.2);
+  // the strongest below, when it's a different current: half again as strong, or setting another way
+  const differs = deep && top && deep.depth > 5 && (deep.kn > top.kn * 1.5 + 0.1 || Math.abs(((deep.to - top.to + 540) % 360) - 180) > 45);
+  draw(buoyF.arrows[1], differs ? deep : null, 0.8);
+  buoyF.differs = differs;
+}
+// her label: the current she feels, and the stronger one below if it differs; how old, if it's not the latest
+function buoyLabel() {
+  const R = buoyFeed?.reading; if (!R) return BUOY_F.name;
+  const top = topCurrent(R), deep = strongest(R), age = agoMin(buoyTime(R)), w = c => tideWord(c.kn, c.to);
+  let t = `${BUOY_F.name}`;
+  if (top) t += top.kn < 0.15 ? ' · slack' : ` · ${w(top) ? w(top) + ' ' : ''}${knTxt(top.kn)} ${magTxt(top.to)}`;
+  if (buoyF.differs) t += ` · ${w(deep) ? w(deep) + ' ' : ''}${knTxt(deep.kn)} ${magTxt(deep.to)} at ${Math.round(deep.depth * 3.281)} ft`;
+  if (age > 90) t += ` · ${age < 120 ? age + ' min' : Math.round(age / 60) + ' h'} ago`;
+  return t;
+}
+const cF = c => `${(c * 9 / 5 + 32).toFixed(1)} °F (${c.toFixed(1)} °C)`;
+function fillBuoyCard() {
+  const R = buoyFeed.reading;
+  document.getElementById('aisname').textContent = `🟡 ${BUOY_F.name}, West Penobscot Bay`;
+  aisCard.querySelector('.go').hidden = true;
+  const rows = [], row = (k, val, html = false) => { if (val !== '' && val != null) rows.push([k, val, html]); };
+  const at = t => { const d = new Date(t); return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); };
+  if (!R) row('Readings', buoyFeed.failed ? 'None: can\'t reach the buoy\'s server (out of range?), and none kept from the last 12 hours' : 'Asking the buoy…');
+  else {
+    const top = topCurrent(R), w = c => tideWord(c.kn, c.to), cur = c => `${c.kn < 0.15 ? 'Slack, ' : w(c) ? cap(w(c)) + ', ' : ''}${knTxt(c.kn)} setting ${deg3(c.to)}° true (${magTxt(c.to)})`;
+    if (top) row('Current', `${cur(top)} at ${Math.round(top.depth * 3.281)} ft`);
+    if (R.profile) {   // the profile, about every 30 ft, and its strongest
+      const P = R.profile.P, pick = P.filter((p, i) => i === 0 || i === P.length - 1 || Math.round(p.depth) % 20 === 10), deep = strongest(R);
+      if (!pick.includes(deep)) { pick.push(deep); pick.sort((a, b) => a.depth - b.depth); }
+      row('Below', pick.map(p => `${String(Math.round(p.depth * 3.281)).padStart(3)} ft  ${knTxt(p.kn).padStart(6)}  ${deg3(p.to)}°T${p === deep ? '  max' : ''}`).join('<br>').replace(/ /g, '&nbsp;'), true);
+      row('Measured', `${at(R.profile.t)}, by the buoy's current profiler, ${Math.round(P[0].depth * 3.281)}–${Math.round(P[P.length - 1].depth * 3.281)} ft down`);
+    }
+    if (R.water) {
+      const W = R.water, a = W[0], b = W[W.length - 1];
+      row('Water', `${cF(a.c)} at ${Math.round(a.depth * 3.281)} ft${b !== a ? `; ${cF(b.c)} at ${Math.round(b.depth * 3.281)} ft` : ''}`);
+      const S = W.filter(x => x.psu != null); if (S.length) row('Salinity', `${S[0].psu.toFixed(1)} at ${Math.round(S[0].depth * 3.281)} ft${S.length > 1 ? `; ${S[S.length - 1].psu.toFixed(1)} at ${Math.round(S[S.length - 1].depth * 3.281)} ft` : ''} (PSU)`);
+    }
+    if (R.met) {
+      const m = R.met;
+      row('Wind', `${compass16(m.from)} ${knTxt(m.kn)}${m.gust != null ? `, gusts ${knTxt(m.gust)}` : ''}`);
+      if (m.air != null) row('Air', cF(m.air));
+      if (m.mb != null) row('Pressure', `${m.mb.toFixed(1)} mb`);
+      if (m.vis != null) row('Visibility', m.vis >= 2900 ? 'over 1.5 nm' : `${(m.vis / 1852).toFixed(1)} nm`);
+    }
+    if (R.waves) row('Waves', `${(R.waves.hs * 3.281).toFixed(1)} ft${R.waves.per ? `, ${Math.round(R.waves.per)} s` : ''}${R.waves.from != null ? `, from ${compass16(R.waves.from)}` : ''}`);
+    const age = (Date.now() - buoyTime(R)) / 1000;
+    row('Latest', `${at(buoyTime(R))} (${aisAgo(age)})${buoyFeed.failed ? ' — the last one kept: can\'t reach the buoy\'s server' : age > 5400 ? ' — no newer one yet' : ''}`);
+  }
+  row('Position', aisPos(BUOY_F.lat, BUOY_F.lon));
+  { const mine = own.r && own.boat.group.visible, fx = mine ? own.x : view.x, fz = mine ? own.z : view.z, d = Math.hypot(buoyF.x - fx, buoyF.z - fz);
+    if (d > 30) row(mine ? 'From your boat' : 'From the view', `${(d / NMm).toFixed(d < 10 * NMm ? 1 : 0)} nm, ${deg3(Math.atan2(buoyF.x - fx, -(buoyF.z - fz)) / DEG)}° true`); }
+  row('Source', `${BUOY_F.credit}, buoy F01 (NDBC ${BUOY_F.ndbc})`);
+  if (!buoyFeed.failed) row('More', `<a href="${BUOY_F.page}" target="_blank" rel="noopener">All her readings, on NERACOOS ↗</a>`, true);
+  const tb = aisCard.querySelector('table'); tb.innerHTML = '';
+  for (const [k, val, html] of rows) { const tr = tb.insertRow(), th = document.createElement('th'), td = tr.insertCell(); th.textContent = k; tr.prepend(th); if (html) td.innerHTML = val; else td.textContent = val; }
 }
 
 // ── Moored boats, by the season (v944, requested: "add the moored boats with seasons"; moorings3d.js) ──
@@ -2425,6 +2522,7 @@ function updateLabels() {
       const d = Math.hypot(p.g.position.x - view.x, p.g.position.z - view.z);
       if (d < Math.max(view.dist * 2, 3000)) cand.push({ text: p.label, x: p.g.position.x, y: 4.6 * p.g.scale.x, z: p.g.position.z, cls: 'wpt', pri: 0.8 + d / Math.max(view.dist * 2, 3000) });
     }
+    if (buoyF && view.dist < 90000) { const d = Math.hypot(buoyF.x - view.x, buoyF.z - view.z); if (d < Math.max(view.dist * 2, 4000)) cand.push({ text: buoyLabel(), x: buoyF.x, y: 6 * buoyF.g.scale.x, z: buoyF.z, cls: 'wpt tap', pri: 0.75 + d / 1e6, click: () => showCard(buoyF) }); }   // Buoy F (v1013)
     if (vecTip) cand.push({ text: vecTip.text, x: vecTip.x, y: 4, z: vecTip.z, cls: 'wpt', pri: 0.4 });   // her vector's tip (v1008)
     for (const o of fixList) cand.push({ text: `${o.m.n} · ${fixBrg(o)}, ${fixRange(o.d)}`, x: o.m.x, y: Math.max(6, heightAt(o.m.lon, o.m.lat) + 6), z: o.m.z, cls: 'wpt', pri: 0.5 });   // her marks (v1000)
     if (aboveFog) { const top = FOG_TOP[env.C.vis]; cand = cand.filter(c => c.cls === 'town' || c.y - 6 > top); }   // names under the fog bank don't show
@@ -2440,8 +2538,8 @@ function updateLabels() {
     if (placed.some(r => Math.abs(r[0] - x) < (r[2] + w) / 2 && Math.abs(r[1] - y) < 17)) continue;
     placed.push([x, y, w]);
     let el = pool[n];
-    if (!el) { el = document.createElement('div'); labelsEl.appendChild(el); pool[n] = el; el.addEventListener('click', () => el._town && goTown(el._town)); }
-    el.className = 'lbl ' + c.cls; el.textContent = c.text; el.style.left = x + 'px'; el.style.top = y + 'px'; el.hidden = false; el._town = c.town || null;
+    if (!el) { el = document.createElement('div'); labelsEl.appendChild(el); pool[n] = el; el.addEventListener('click', () => el._town ? goTown(el._town) : el._click?.()); }
+    el.className = 'lbl ' + c.cls; el.textContent = c.text; el.style.left = x + 'px'; el.style.top = y + 'px'; el.hidden = false; el._town = c.town || null; el._click = c.click || null;
     n++;
   }
   for (let i = n; i < pool.length; i++) pool[i].hidden = true;
@@ -2468,7 +2566,10 @@ function updateLiveMarks() {
     if (p.z > 1 || Math.abs(p.x) > 1 || Math.abs(p.y) > 1) continue;
     let el = markPool[n];
     if (!el) { el = document.createElement('i'); marksEl.appendChild(el); markPool[n] = el; el.addEventListener('click', () => el._v && live.includes(el._v) && showCard(el._v)); }
-    el._v = v; el.title = aisName(v.A); el.className = follow === v ? 'fol' : '';
+    // underway, in a brighter green (v1013, requested: "flash a different shade of green if they are actually
+    // underway"): making 0.5 kn or more, and not reporting herself at anchor or moored
+    const uw = !v.ashore && (v.A.sog ?? 0) >= 0.5 && v.A.status !== 1 && v.A.status !== 5;
+    el._v = v; el.title = `${aisName(v.A)}${uw ? ' · underway' : ''}`; el.className = (follow === v ? 'fol' : '') + (uw ? ' uw' : '');
     el.style.left = (p.x + 1) / 2 * W + 'px'; el.style.top = (1 - p.y) / 2 * H + 'px'; el.hidden = false;
     n++;
   }
@@ -2531,7 +2632,7 @@ function frame(now) {
   if (nest.on) nestCamera();   // after every vessel has moved, yours too
   if (nest.on || !rcEl?.hidden) drawRideChart();
   wildlife.update(dt, t, view, camera.position, { hidden: !!aboveFog || EMPTY, night: env.C.time === 'night', boat: (own.ext || own.r) ? own : null, scale: d => clamp(d / 35, 3, 8) });
-  syncFollowHud(); updateFixLines(); updateVector();
+  syncFollowHud(); updateFixLines(); updateVector(); updateBuoyF();
   if (follow && !anim && !nest.on) { const k = Math.min(1, dt * 4); view.x += (follow.x - view.x) * k; view.z += (follow.z - view.z) * k; }
   renderer.render(scene, camera);
   updateLabels(); updateLiveMarks(); updateReadout();
