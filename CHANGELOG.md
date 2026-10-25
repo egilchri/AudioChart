@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-25 — The version shows over Bird's-eye (v1012)
+
+- Reported: "I can't see the version. The tilt widget is in front of it." In Bird's-eye the version label sat under
+  the 3D view, and on a short screen the left rail's tilt column comes down over its corner too. Over Bird's-eye it
+  is now above the 3D view, low in the bottom-left corner: below the mic button, above the 3D view's credit line.
+
 ## 2026-10-25 — 📡 Live hears more: Open Waters as a second feed (v1011)
 
 - The relay (relay/ais/) now listens to [Open Waters AIS](https://openwaters.io/ais) as well as AISStream. Open

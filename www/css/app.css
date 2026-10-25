@@ -852,6 +852,9 @@ html, body {
 #app.bay3d-on #tilt-slider-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; background: rgba(18, 13, 8, 0.94); border: 1px solid var(--brass-dim); border-radius: 8px; padding: 8px 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.6); user-select: none; }
 #tilt-slider-label { font-size: 0.62rem; font-weight: 700; letter-spacing: 0.08em; color: var(--brass); font-family: var(--font-brass-mono); }
 #tilt-slider { writing-mode: vertical-lr; direction: rtl; height: 90px; width: 24px; cursor: pointer; accent-color: var(--brass); background: transparent; }   /* up = toward the horizon */
+/* the version over Bird's-eye too (v1011): it sat under the 3D view, where the left rail's tilt column would
+   cover it anyway on a short screen; here low in the corner, below the mic button, above the 3D view's credit */
+#app.bay3d-on #map-version-label { z-index: 1990; bottom: 30px; }
 #app.bay3d-on .compass-rose-ctrl svg { pointer-events: auto; cursor: grab; touch-action: none; transition: transform 0.12s linear; }   /* drag round to turn, tap for north up */
 #bay3d-wrap iframe { width: 100%; height: 100%; border: 0; display: block; }
 /* smooth 3D switches (v899): a view loads unseen and fades in; over the chart the wrap stays clear */
