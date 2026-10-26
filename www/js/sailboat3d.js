@@ -11,6 +11,9 @@
 //   cd25       Cape Dory 25D, your own boat: transom-hung rudder, navy stripes
 //   pocket     25-28 ft classic cruisers in assorted colours (the Cape Dory's cousins)
 //   cruiser    34 ft modern sloop: near-plumb bow, wide transom, taller fractional rig
+//   yacht      a 57 ft modern cruising sloop (v1025), built to a live boat's own length: plumb bow, sugar-scoop
+//              transom and swim platform, teak deck, long low coachroof with a window band, hull ports, dodger,
+//              twin wheels, winches, lifelines and pulpits, triple spreaders, boom vang and stack pack
 //   schooner   a Penobscot Bay windjammer, ~100 ft on deck: two gaff masts, bowsprit, two headsails
 //   lobster    a 36 ft Maine lobster boat under power: high bow, wheelhouse forward, low working deck
 //   bowdoin    the Arctic schooner Bowdoin (v919), Maine Maritime Academy's, out of Castine: 88 ft,
@@ -103,7 +106,7 @@ function buildHull(T) {
   const D = Math.min(0.9, 0.09 * L);
   const under = (s, u, v) => [s * hw(u) * 0.92 * (1 - (0.55 + 0.3 * u) * v ** 1.3), -D * v, zW(u) + (u < 0.1 ? 0.6 * D * v * (1 - u / 0.1) : 0)];
   const deckY = (u, x) => sh(u) + 0.03 * B * (1 - Math.min(1, (x / (hw(u) || 1e-3)) ** 2));
-  const P = { hull: [], stripe: [], boot: [], bottom: [], deck: [], cabin: [], teak: [], dark: [], spar: [] };
+  const P = { hull: [], stripe: [], boot: [], bottom: [], deck: [], cabin: [], teak: [], dark: [], spar: [], canvas: [] };
   const band = (d0, d1, slot) => { for (const s of [-1, 1]) P[slot].push(loftGeo(40, 1, (u, a) => side(s, u, (d0(u) + (d1(u) - d0(u)) * a) / sh(u), 0.008))); };
   for (const s of [-1, 1]) { P.hull.push(loftGeo(40, 5, (u, v) => side(s, u, v))); P.bottom.push(loftGeo(24, 3, (u, v) => under(s, u, v))); }
   P.deck.push(loftGeo(40, 10, (u, j) => { const x = (j * 2 - 1) * hw(u); return [x, deckY(u, x), zD(u)]; }));
@@ -128,7 +131,8 @@ function buildHull(T) {
     P.cabin.push(loftGeo(16, 8, (a, j) => { const z = tz(a), x = (j * 2 - 1) * (cw(z) - 0.03); return [x, top(z, x), z]; }));
     for (const s of [-1, 1]) {
       P.hull.push(loftGeo(16, 1, (a, v) => { const z = tz(a), c = cw(z); return [s * (c - 0.03 * v), base(z) + v * (top(z, s * (c - 0.03)) - base(z)), z]; }));
-      for (let k = 0; k < (T.cabin.ports ?? 2); k++) {   // portlights
+      if (T.cabin.band) P.dark.push(loftGeo(16, 1, (a, v) => { const z = tz(0.1 + 0.78 * a), c = cw(z); return [s * (c + 0.006), base(z) + h * (0.3 + 0.42 * v), z]; }));   // a long window band
+      else for (let k = 0; k < (T.cabin.ports ?? 2); k++) {   // portlights
         const z = z1 + (z0 - z1) * (0.3 + 0.4 * k / Math.max(1, (T.cabin.ports ?? 2) - 1)), c = cw(z);
         P.dark.push(box(0.02, h * 0.3, Math.min(0.45, 0.04 * L), s * (c + 0.004), base(z) + h * 0.55, z));
       }
@@ -140,6 +144,73 @@ function buildHull(T) {
     const { u0, u1, w } = T.cockpit, z0 = zD(u0), z1 = zD(u1), cw = w * hw((u0 + u1) / 2), y = sh((u0 + u1) / 2);
     P.dark.push(box(cw * 2, 0.02, z1 - z0, 0, y + 0.02, (z0 + z1) / 2));
     for (const s of [-1, 1]) P.teak.push(box(0.04, 0.18, z1 - z0, s * cw, y + 0.1, (z0 + z1) / 2));
+  }
+  // a big yacht's fittings (v1025, requested: "I think we can make a 59 foot sailboat look more attractive, with
+  // more detail"), all in the shared slots so a fleet or a mooring field of them stays cheap
+  if (T.hullPorts) for (const s of [-1, 1]) for (let k = 0; k < T.hullPorts; k++) {   // long ports in the topsides
+    const u0 = 0.24 + k * 0.085;
+    P.dark.push(loftGeo(3, 1, (a, v) => side(s, u0 + a * 0.055, 0.24 + v * 0.11, 0.014)));
+  }
+  if (T.scoop) {   // the swim platform off the sugar-scoop transom, and steps up to the cockpit
+    P.teak.push(box(2 * hw(1) * 0.84, 0.1, 0.9, 0, 0.42, L / 2 + 0.3));
+    P.teak.push(box(2 * hw(1) * 0.5, 0.08, 0.35, 0, 0.42 + (sh(1) - 0.42) * 0.5, L / 2 - 0.12));
+  }
+  if (T.cockpit && T.winches) {   // primaries at the cockpit's after corners, halyard winches by the companionway
+    const { u0, u1, w } = T.cockpit, cw = w * hw((u0 + u1) / 2), y = sh((u0 + u1) / 2), r = 0.011 * L;
+    for (const s of [-1, 1]) for (const [x, z, yy] of [[s * (cw + 0.12), zD(u1) - 1.6, y + 0.2], [s * (cw + 0.12), zD(u0) + 0.5, y + 0.2], [s * 0.55, zD(u0) - 0.25, y + (T.cabin?.h ?? 0) + 0.05]])
+      P.dark.push(cyl(r, r * 1.1, r * 1.7, x, yy + r * 0.85, z));
+  }
+  if (T.wheels) {   // twin wheels on pedestals, aft in the cockpit
+    const R = 0.034 * L, u = T.cockpit.u1 - 0.035, z = zD(u), y = sh(u) + 0.1;
+    for (const s of [-1, 1]) {
+      const x = s * hw(u) * 0.42, hub = y + R + 0.12;
+      const t = new THREE.TorusGeometry(R, 0.022, 4, 20); t.translate(x, hub, z); P.spar.push(t);
+      for (let k = 0; k < 3; k++) { const sp = box(0.02, 2 * R, 0.02, x, hub, z); sp.translate(-x, -hub, -z); sp.rotateZ(k * Math.PI / 3); sp.translate(x, hub, z); P.spar.push(sp); }
+      P.dark.push(cyl(0.06, 0.09, R + 0.12, x, y + (R + 0.12) / 2, z + 0.15));
+    }
+  }
+  if (T.dodger && T.cabin) {   // a dodger over the companionway, in navy canvas, with its windows
+    const zf = zD(T.cabin.u1 - 0.035), za = zD(T.cabin.u1 + 0.06), y0 = sh(T.cabin.u1) + T.cabin.h + 0.02, w = hw(T.cabin.u1) * 0.5, ht = 0.85;
+    const prof = j => ht * Math.sin(Math.min(1, j * 1.7) * Math.PI / 2);
+    P.canvas.push(loftGeo(8, 8, (j, i) => { const xn = i * 2 - 1; return [xn * w, y0 + prof(j) * (1 - 0.2 * xn ** 4), zf + j * (za - zf)]; }));
+    for (const s of [-1, 1]) P.canvas.push(loftGeo(8, 1, (j, v) => [s * w, y0 + v * prof(j) * 0.8, zf + j * (za - zf)]));
+    P.dark.push(loftGeo(1, 4, (v, i) => { const xn = (i * 2 - 1) * 0.8, j = 0.12 + 0.26 * v; return [xn * w, y0 + prof(j) * (1 - 0.2 * xn ** 4) + 0.01, zf + j * (za - zf) - 0.01]; }));
+  }
+  if (T.rails) {   // stanchions, double lifelines, bow pulpit and stern pushpit, in stainless
+    const n = Math.round(L / 2.1), hR = 0.68, r = 0.016, us = [];
+    for (let k = 0; k <= n; k++) us.push(0.09 + 0.8 * k / n);
+    const at = (s, u, y) => new V3(s * (hw(u) - 0.07), sh(u) + y, zD(u));
+    for (const s of [-1, 1]) {
+      for (const u of us) P.spar.push(new THREE.TubeGeometry(new THREE.LineCurve3(at(s, u, 0.03), at(s, u, hR)), 1, r, 4));
+      for (const y of [hR, hR * 0.55]) P.spar.push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(us.map(u => at(s, u, y))), 3 * n, r * 0.6, 3));
+    }
+    const pul = [at(-1, 0.09, hR), at(-1, 0.035, hR + 0.04), new V3(0, sh(0) + hR + 0.05, zD(0) + 0.12), at(1, 0.035, hR + 0.04), at(1, 0.09, hR)];
+    P.spar.push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pul), 16, r * 1.4, 4));
+    P.spar.push(new THREE.TubeGeometry(new THREE.LineCurve3(new V3(0, sh(0) + 0.05, zD(0) + 0.12), new V3(0, sh(0) + hR + 0.05, zD(0) + 0.12)), 1, r, 4));
+    for (const s of [-1, 1]) {   // a pushpit round each after quarter, open on the centreline for the swim platform
+      const pp = [at(s, 0.89, hR), at(s, 0.96, hR + 0.03), new V3(s * hw(1) * 0.42, sh(1) + hR, zD(1) - 0.08)];
+      P.spar.push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pp), 8, r * 1.4, 4));
+      P.spar.push(new THREE.TubeGeometry(new THREE.LineCurve3(new V3(s * hw(1) * 0.42, sh(1), zD(1) - 0.08), pp[2]), 1, r, 4));
+    }
+  }
+  // standing rigging for a sloop (v1025): spreaders and shrouds (cap shrouds over the spreader tips, lowers to the
+  // lowest), sized to her; one set of spreaders, two over 9 m, or her own number
+  if (T.rig && !T.rig.masts) {
+    const R = T.rig, mu = R.mast, MZ = zD(mu), foot = sh(mu) + (T.cabin ? T.cabin.h : 0), top = R.H * (R.frac ?? 1), ns = R.spreaders ?? (L > 9 ? 2 : 1);
+    const wr = 0.006 + 0.0006 * L, half = hw(mu) - 0.08, chain = s => new V3(s * half, sh(mu) + 0.05, MZ + 0.15);
+    const tips = [];
+    for (let k = 1; k <= ns; k++) {
+      const y = foot + (top - foot) * k / (ns + 1) * (ns > 1 ? 1.05 : 1), sw = half * (1 - 0.32 * (k - 1) / Math.max(1, ns));
+      P.spar.push(box(2 * sw, 0.05 + 0.003 * L, 0.08 + 0.004 * L, 0, y, MZ));
+      tips.push(y, sw);
+    }
+    for (const s of [-1, 1]) {
+      const pts = [chain(s)];
+      for (let k = 0; k < ns; k++) pts.push(new V3(s * tips[2 * k + 1], tips[2 * k], MZ));
+      pts.push(new V3(0, top - 0.15, MZ));
+      for (let k = 0; k < pts.length - 1; k++) P.spar.push(new THREE.TubeGeometry(new THREE.LineCurve3(pts[k], pts[k + 1]), 1, wr, 3));
+      for (const dz of [-0.35, 0.45]) P.spar.push(new THREE.TubeGeometry(new THREE.LineCurve3(new V3(s * half * 0.92, sh(mu) + 0.05, MZ + dz), new V3(s * 0.06, tips[0] - 0.1, MZ)), 1, wr, 3));
+    }
   }
   // lobster boat: wheelhouse with a raked windshield, roof overhanging aft, radar mast
   if (T.wheelhouse) {
@@ -186,6 +257,12 @@ const TYPES = {
     cabin: { u0: 0.2, u1: 0.6, w: 0.68, h: 0.45, ports: 3 }, cockpit: { u0: 0.64, u1: 0.95, w: 0.7 },
     rig: { mast: 0.4, H: 15, boom: 4.2, by: 2.6, clewY: 1.9, jibR: 3.0, frac: 0.82 },
     hulls: [0xf6f6f4, 0xf6f6f4, 0xf6f6f4, 0x9aa3a8, 0x223a5e], stripes: [0x30353a, 0x1f3352, 0x8a8f94], bottoms: [0x222222, 0x2a3a5a], decks: [0xeceee9], cloth: 'dacron' },
+  // a big modern cruising sloop (v1025), ~57 ft; a live one is drawn at her own length (makeSailboat's len)
+  yacht: { L: 17.4, B: 4.95, fbF: 1.8, fbM: 1.52, fbA: 1.38, ovB: 0.2, ovS: 0.32, tr: 0.95, maxAt: 0.62, cove: true, rudder: false, kn: 8,
+    cabin: { u0: 0.22, u1: 0.6, w: 0.66, h: 0.55, band: true }, cockpit: { u0: 0.63, u1: 0.93, w: 0.74 },
+    rig: { mast: 0.36, H: 25.5, boom: 6.8, by: 3.0, clewY: 2.3, jibR: 6.6, frac: 0.93, spreaders: 3, pack: true },
+    hullPorts: 3, scoop: true, rails: true, dodger: true, wheels: true, winches: true,
+    hulls: [0xf6f6f4, 0xf6f6f4, 0x1d2f4d, 0x23282c, 0x9aa3a8, 0x6f7c84], stripes: [0x30353a, 0x1f3352, 0xc9a24a], bottoms: [0x222222, 0x2a3a5a], decks: [0xb89268, 0xc9a77a], cloth: 'dacron' },
   schooner: { L: 30, B: 7.2, fbF: 2.6, fbM: 1.9, fbA: 2.3, ovB: 3.2, ovS: 2.6, tr: 0.55, cove: true, bulwark: true, rudder: false, kn: 7, sprit: 8,
     cabin: { u0: 0.35, u1: 0.55, w: 0.55, h: 1.0, ports: 4 }, cockpit: { u0: 0.82, u1: 0.93, w: 0.35 },
     rig: { masts: [{ u: 0.3, H: 15, boom: 9, gaff: 6.5, top: 22 }, { u: 0.56, H: 17, boom: 12.5, gaff: 8, top: 25 }], clewY: 4.5, jibs: [[-6.5, 0.92, 8.5], [1.5, 0.8, 6.5]] },
@@ -245,7 +322,7 @@ export function fleetType(r) {
   return 'pocket';
 }
 
-export function makeSailboat(type = 'pocket', seed = 0) {
+export function makeSailboat(type = 'pocket', seed = 0, len = 0) {   // len: her length in metres, to draw her to it (default her type's own)
   if (typeof type === 'number') { seed = type; type = 'pocket'; }   // the old makeSailboat(seed)
   const T = TYPES[type] || TYPES.pocket;
   let sd = 9973 + seed * 7919; const r = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
@@ -254,8 +331,9 @@ export function makeSailboat(type = 'pocket', seed = 0) {
   const hullC = pick(T.hulls, r), dark = hullC !== 0xf3f0e8 && hullC !== 0xf4f1ea && hullC !== 0xf6f6f4 && hullC !== 0xf4f4f0 && hullC !== 0xf2efe6 && hullC !== 0xe9dfc3 && hullC !== 0xe8dcc0;
   let stripeC = pick(T.stripes, r); if (stripeC === hullC) stripeC = 0xf2efe6;
   const C = { hull: mat(hullC), stripe: mat(dark && !T.bulwark ? 0xd8c070 : stripeC), boot: mat(T.power ? 0x222222 : stripeC), bottom: mat(pick(T.bottoms, r)),
-    deck: mat(pick(T.decks, r)), cabin: mat(T.power ? 0xf4f4f0 : 0xeeeae0), teak: mat(T.power ? 0x6d6a62 : 0x93613a), dark: mat(0x23282c), spar: mat(0xc9ccd0) };
+    deck: mat(pick(T.decks, r)), cabin: mat(T.power ? 0xf4f4f0 : 0xeeeae0), teak: mat(T.power ? 0x6d6a62 : 0x93613a), dark: mat(0x23282c), spar: mat(0xc9ccd0), canvas: mat(0x24344e) };
   const g = new THREE.Group(), body = new THREE.Group(); g.add(body);   // body heels; g turns to the heading
+  const k = len > 0 ? len / T.L : 1; body.scale.setScalar(k);   // (hull and rig to her length; the wake is sized below)
   for (const k in H.geos) body.add(new THREE.Mesh(H.geos[k], C[k]));
   const { sh, zD, L } = H, uZ = u => zD(u);
   const sails = [], booms = [], jibs = [];
@@ -268,6 +346,11 @@ export function makeSailboat(type = 'pocket', seed = 0) {
     put(bg, new THREE.Mesh(new THREE.CylinderGeometry(0.035 + 0.003 * L, 0.035 + 0.003 * L, R.boom, 5), C.spar), 0, 0, R.boom / 2).rotation.x = Math.PI / 2;
     const main = new THREE.Mesh(built[type + ':main'] || (built[type + ':main'] = mainGeo(top - 0.35 - R.by, R.boom)), clothM); bg.add(main);
     booms.push(bg); sails.push(main);
+    if (R.pack) {   // a stack pack along the boom (the main furls into it) and a rigid vang down to the mast foot
+      put(bg, new THREE.Mesh(built[type + ':pack'] || (built[type + ':pack'] = box(0.42, 0.4, R.boom * 0.92, 0, 0.24, R.boom * 0.48)), C.canvas), 0, 0, 0);
+      put(bg, new THREE.Mesh(built[type + ':vang'] || (built[type + ':vang'] = new THREE.TubeGeometry(new THREE.LineCurve3(new V3(0, foot + 0.35 - R.by, 0.1), new V3(0, -0.05, R.boom * 0.3)), 1, 0.045, 5)), C.spar), 0, 0, 0);
+      put(body, new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.22, 10), C.dark), 0, sh(0) + 0.2, zD(0) + 0.15);   // the genoa's furling drum
+    }
     const tack = new V3(0, sh(0) + 0.15, zD(0) + 0.1), head = tack.clone().lerp(new V3(0, top, MZ), (R.frac ?? 1) * 0.86);
     jibs.push({ m: new THREE.Mesh(jibGeo(tack, head, R.jibR, R.clewY, 20, 1), clothM), tack, head, R: R.jibR, y: R.clewY, key: '' });
     // forestay and backstay
@@ -311,13 +394,14 @@ export function makeSailboat(type = 'pocket', seed = 0) {
   for (const j of jibs) body.add(j.m);
   // wake on g (level: heel doesn't tip it under), scaled to her length; a powerboat's churns more
   const fanM = new THREE.MeshBasicMaterial({ map: foam('fan'), transparent: true, depthWrite: false, opacity: 0 });
-  const fan = new THREE.Mesh(new THREE.PlaneGeometry(1.9 * L, 6.7 * L), fanM); fan.rotation.x = -Math.PI / 2; fan.renderOrder = 1; g.add(fan);
+  const LL = L * k;
+  const fan = new THREE.Mesh(new THREE.PlaneGeometry(1.9 * LL, 6.7 * LL), fanM); fan.rotation.x = -Math.PI / 2; fan.renderOrder = 1; g.add(fan);
   const bowM = new THREE.MeshBasicMaterial({ map: foam('bow'), transparent: true, depthWrite: false, opacity: 0 });
-  const bw = new THREE.Mesh(new THREE.PlaneGeometry(0.45 * L, 0.67 * L), bowM); bw.rotation.x = -Math.PI / 2; bw.position.set(0, 0.06, H.zW(0) - 0.05 * L + 0.33 * L); bw.renderOrder = 1; g.add(bw);
-  const sternZ = H.zW(1) - 0.03 * L;
+  const bw = new THREE.Mesh(new THREE.PlaneGeometry(0.45 * LL, 0.67 * LL), bowM); bw.rotation.x = -Math.PI / 2; bw.position.set(0, 0.06, H.zW(0) * k - 0.05 * LL + 0.33 * LL); bw.renderOrder = 1; g.add(bw);
+  const sternZ = H.zW(1) * k - 0.03 * LL;
   const wake = k => {
     fanM.opacity = (T.power ? 0.85 : 0.7) * k; bowM.opacity = 0.8 * k;
-    fan.scale.y = 0.4 + 0.6 * k; fan.position.set(0, 0.05, sternZ + 3.35 * L * fan.scale.y);
+    fan.scale.y = 0.4 + 0.6 * k; fan.position.set(0, 0.05, sternZ + 3.35 * LL * fan.scale.y);
     fan.visible = bw.visible = k > 0.02;
   };
   wake(0);
@@ -325,8 +409,9 @@ export function makeSailboat(type = 'pocket', seed = 0) {
   // lobster boat's wheelhouse, abaft the windshield; at a sailboat's tiller or wheel, aft in the cockpit
   const helm = T.wheelhouse ? [0, sh((T.wheelhouse.u0 + T.wheelhouse.u1) / 2) + 1.65, zD(T.wheelhouse.u0) + 0.8]
     : T.cockpit ? [0, sh(T.cockpit.u1) + (L > 15 ? 1.7 : 1.1), zD(T.cockpit.u1 - 0.03)] : [0, sh(0.9) + 1.6, zD(0.9)];
+  if (k !== 1) for (let i = 0; i < 3; i++) helm[i] *= k;
   return {
-    group: g, type, L, kn: T.kn, power: !!T.power, nest, helm,
+    group: g, type, L: LL, kn: T.kn, power: !!T.power, nest, helm,
     wake,
     // p: a makeTrimmer() result; heelRad: the wind's full heel; up: false furls everything (calm)
     trim(p, heelRad, up) {

@@ -1321,7 +1321,7 @@ const REL = rel => {   // a bearing off the bow in a lookout's words
   const a = Math.abs(rel), side = rel > 0 ? 'starboard' : 'port';
   return a < 6 ? 'dead ahead' : a < 30 ? `fine on the ${side} bow` : a < 60 ? `on the ${side} bow` : a < 82 ? `broad on the ${side} bow` : a < 98 ? `abeam to ${side}` : a < 150 ? `abaft the ${side} beam` : a < 174 ? `on the ${side} quarter` : 'dead astern';
 };
-const KIND = { daysailer: 'a daysailer', pocket: 'a sloop', cruiser: 'a sloop', cd25: 'a sloop', schooner: 'a schooner', lobster: 'a lobster boat', angelique: 'a ketch' };
+const KIND = { daysailer: 'a daysailer', pocket: 'a sloop', cruiser: 'a sloop', yacht: 'a yacht', cd25: 'a sloop', schooner: 'a schooner', lobster: 'a lobster boat', angelique: 'a ketch' };
 function lookoutReport() {
   if (!nest.on) return;
   const b = nest.v, from = ORBITS(nest.mode) ? (() => { const [lx, ly, lz] = helmOf(b), h = b.h * DEG; return { x: b.x + lx * Math.cos(h) - lz * Math.sin(h), y: ly, z: b.z + lx * Math.sin(h) + lz * Math.cos(h) }; })() : camera.position;

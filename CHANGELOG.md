@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-26 — A big sailing yacht that looks like one (v1025)
+
+- Requested with a screenshot of Novara, a live 59 ft sloop in SF Bay: "I think we can make a 59 foot sailboat look
+  more attractive, with more detail". She had been drawn as the fleet's 34 ft cruiser, at 34 ft. A live sailing vessel
+  of 45 to 72 ft (13.5–22 m) is now `sailboat3d.js`'s new `yacht`, drawn at her own AIS length (`makeSailboat`'s new
+  `len`). The yacht has a plumb bow, a sugar-scoop transom with a swim platform, a teak deck, and a long, low coachroof
+  with a window band. She also has hull ports, a navy dodger, twin wheels on pedestals, winches, stanchions with
+  double lifelines, a bow pulpit and quarter pushpits, a triple-spreader fractional rig with cap shrouds and lowers,
+  a rigid vang, a stack pack and a furling drum.
+- Every sloop in the fleet and in the mooring fields (daysailer, Cape Dory, pocket cruiser, cruiser) now has
+  spreaders and shrouds too. They are in the shared hull geometry, so they cost no extra draw calls.
+
 ## 2026-10-26 — Close in, just the boat (v1024)
 
 - Requested: "When we zoom in past a certain level we should just see the boat, and not the blue circle". A live

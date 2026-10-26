@@ -60,7 +60,9 @@ export function liveModel(A, cls, seed, K, W, lit) {
   }
   const L = A.L || LIVE_LEN[cls.model];
   if (cls.model === 'sail' || cls.model === 'power') {
-    const boat = makeSailboat(cls.model === 'power' ? 'lobster' : L > 20 ? 'schooner' : L > 9.5 ? 'cruiser' : L > 7 ? 'pocket' : 'daysailer', seed);
+    // a big sailing yacht, 45 to 72 ft, as one, drawn to her own length (v1025)
+    const yacht = cls.model === 'sail' && L >= 13.5 && L <= 22;
+    const boat = yacht ? makeSailboat('yacht', seed, L) : makeSailboat(cls.model === 'power' ? 'lobster' : L > 20 ? 'schooner' : L > 9.5 ? 'cruiser' : L > 7 ? 'pocket' : 'daysailer', seed);
     return { boat, group: boat.group, L: boat.L, trim: cls.model === 'sail' ? makeTrimmer() : null };
   }
   // a tanker, tug or pilot boat as her kind, in her owner's colours, her particulars where we have them (v1001)
