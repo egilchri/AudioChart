@@ -2154,6 +2154,12 @@ body.wco-active #wco-titlebar { display: flex; }
   gap: 6px;
 }
 #navaid-filter-panel.collapsed #nf-body { display: none !important; }
+/* Shrunk, it's a small tab up in the toolbar's row at the right edge, out of the way (v1026, requested: "Let's get
+   the shrunk objects menu more out of the way"); a panel dragged elsewhere keeps its own place (inline top/left) */
+#navaid-filter-panel.collapsed { top: 34px; width: auto; padding: 3px 9px; border-radius: 6px; gap: 0; box-shadow: 0 1px 5px rgba(0,0,0,0.5); opacity: 0.85; }
+#navaid-filter-panel.collapsed:hover { opacity: 1; }
+@media (max-width: 640px) { #navaid-filter-panel.collapsed { top: 70px; right: 8px; } }   /* (a phone's toolbar fills its row: just under it) */
+#navaid-filter-panel.collapsed .nf-title { font-size: 0.62rem; margin: 0; padding: 0; border: 0; }
 .nf-title-collapsible::after { content: '  \25B4'; } /* up chevron — tap to collapse */
 .nf-title-collapsible.collapsed::after { content: '  \25BE'; } /* down chevron — tap to expand */
 

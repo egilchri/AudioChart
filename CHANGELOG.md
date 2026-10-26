@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-26 — The shrunk Objects menu, out of the way (v1026)
+
+- Requested: "Let's get the shrunk objects menu more out of the way". Shrunk, Objects is now a small, slightly
+  translucent tab. It sits up in the toolbar's row at the right edge on a wide screen, and just under the toolbar on
+  a phone, where the toolbar fills its row. It no longer covers Bird's-eye's vessel cards. Opened, it's the panel it
+  always was.
+
 ## 2026-10-26 — A big sailing yacht that looks like one (v1025)
 
 - Requested with a screenshot of Novara, a live 59 ft sloop in SF Bay: "I think we can make a 59 foot sailboat look
