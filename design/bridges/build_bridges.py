@@ -32,6 +32,11 @@ ogr.UseExceptions()
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '../..'))
 REGIONS = {
     'sf-bay': {'bbox': (37.42, -122.62, 38.17, -122.0), 'charts': '~/Documents/Charts/ENC/sf_bay_only'},
+    # (v1028: the Portsmouth Harbor and Piscataqua River cells, linked from US_ME and US_NH)
+    # (the region's land.geojson draws the river above Memorial Bridge as land, so its two big bridges there are
+    # named as over water)
+    'piscataqua': {'bbox': (42.88, -70.97, 43.22, -70.39), 'charts': '~/Documents/Charts/ENC/piscataqua_only',
+                   'wet': {'Sarah Mildred Long Bridge', 'Piscataqua River Bridge'}},
 }
 OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter']
 
@@ -357,6 +362,8 @@ def main():
     used = set()
     bridges = []
     for sp in SPECS:
+        if sp.get('region', 'sf-bay') != rid:
+            continue   # (the big bridges described so far are all San Francisco's)
         used |= {i for ids in sp['ways'] for i in ids}
         bridges.append(build_spec(sp, ways))
         print(f"{sp['name']}: {len(bridges[-1]['pts'])} points, {len(bridges[-1]['piers'])} piers, {len(bridges[-1]['towers'])} towers")
@@ -376,6 +383,8 @@ def main():
             continue
         D = densify(g, 10)
         wet = sum(not on_land(*p) for p in D[1:-1]) / max(1, len(D) - 2)
+        if {x['tags'].get('name'), x['tags'].get('bridge:name')} & R.get('wet', set()):
+            wet = 1.0
         if wet < 0.3:
             continue
         mid = D[len(D) // 2]

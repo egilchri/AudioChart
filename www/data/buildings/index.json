@@ -27,5 +27,13 @@
   { "file": "cliff-island.json", "name": "Cliff Island", "bbox": [-70.117, 43.6838, -70.0878, 43.7102] },
   { "file": "chebeague.json", "name": "Chebeague Island", "bbox": [-70.141, 43.7082, -70.0952, 43.7592] },
   { "file": "south-freeport.json", "name": "South Freeport", "bbox": [-70.118, 43.81, -70.096, 43.83], "focus": [-70.1052, 43.8205] },
-  { "file": "bustins-island.json", "name": "Bustins Island", "bbox": [-70.0895, 43.785, -70.056, 43.81], "focus": [-70.0786, 43.7966] }
+  { "file": "bustins-island.json", "name": "Bustins Island", "bbox": [-70.0895, 43.785, -70.056, 43.81], "focus": [-70.0786, 43.7966] },
+  {"file": "sf-downtown.json", "name": "San Francisco, the Financial District and Embarcadero", "bbox": [-122.409, 37.784, -122.386, 37.797]},
+  {"file": "sf-north-beach.json", "name": "Fisherman's Wharf and North Beach", "bbox": [-122.425, 37.797, -122.402, 37.812]},
+  {"file": "sf-marina.json", "name": "Marina District", "bbox": [-122.448, 37.798, -122.425, 37.81]},
+  {"file": "treasure-island.json", "name": "Treasure Island and Yerba Buena", "bbox": [-122.38, 37.805, -122.36, 37.832]},
+  {"file": "alcatraz.json", "name": "Alcatraz", "bbox": [-122.4275, 37.824, -122.419, 37.83]},
+  {"file": "sausalito.json", "name": "Sausalito", "bbox": [-122.492, 37.852, -122.474, 37.873]},
+  {"file": "tiburon.json", "name": "Tiburon and Belvedere", "bbox": [-122.466, 37.865, -122.448, 37.88]},
+  {"file": "oakland.json", "name": "Oakland, Jack London Square", "bbox": [-122.285, 37.788, -122.265, 37.8]}
 ]

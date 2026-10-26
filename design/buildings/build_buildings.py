@@ -31,7 +31,7 @@ def inside(px, py, poly):
             xi = (x2-x1)*(py-y1)/(y2-y1)+x1
         c ^= m & (px < xi)
     return c
-water = P[P[:,3]==9][:,2]; WATER_Z = float(np.median(water))
+water = P[P[:,3]==9][:,2]; WATER_Z = float(np.median(water)) if len(water) else float('nan')
 img = np.asarray(Image.open(naip_p).convert('RGB')); IH, IW = img.shape[:2]
 def obb(xy):  # min-area rectangle in local metres: (area, ux, uy, len, wid)
     best = None
@@ -45,7 +45,14 @@ def obb(xy):  # min-area rectangle in local metres: (area, ux, uy, len, wid)
 MAXH = float(os.environ.get('MAXH', '30'))   # tallest roof believed, m (Portland's towers: MAXH=70)
 lat0 = (S_ + N) / 2; mx_lon = 111320*math.cos(math.radians(lat0)); my_lat = 110540
 def local(ll): return np.array([[(lo-W)*mx_lon, (la-S_)*my_lat] for lo,la in ll])
-PALETTE = [((236,234,226),45),((150,146,138),22),((228,214,160),8),((196,204,208),8),((140,52,40),7),((150,166,140),5),((206,190,160),5)]
+PALETTES = {   # wall colours, weighted (v1028: PALETTE= picks one)
+  'maine': [((236,234,226),45),((150,146,138),22),((228,214,160),8),((196,204,208),8),((140,52,40),7),((150,166,140),5),((206,190,160),5)],
+  # San Francisco: white and cream stucco, pale pastels (the Victorians), concrete
+  'sf': [((238,236,230),30),((228,220,200),18),((196,196,192),14),((232,222,170),8),((190,206,216),8),((222,190,180),6),((176,196,170),5),((168,164,156),11)],
+  # New York: brick reds and browns, brownstone, limestone and grey
+  'nyc': [((150,78,60),24),((120,84,66),14),((176,120,92),10),((214,206,190),16),((186,182,174),14),((96,80,70),8),((230,226,216),8),((132,136,140),6)],
+}
+PALETTE = PALETTES[os.environ.get('PALETTE', 'maine')]
 def wall_colour(seed):
     t = int(hashlib.md5(str(seed).encode()).hexdigest()[:8],16) % 100
     for c,wgt in PALETTE:
@@ -103,7 +110,11 @@ for e in els:
         base = ground if ground is not None else 2.5
         rel = roof - base if len(roof) else np.zeros(0)
         rel = rel[(rel > 1.5) & (rel < MAXH)]
-        if len(rel) >= 4:
+        if len(rel) >= 4 and np.percentile(rel, 50) > 15:
+            # a tall block (v1028, SF's towers came out at a third of their height): its roof is the top of the
+            # points, setbacks and all, and no pitch cap (that's for trees over a house)
+            eave = float(np.percentile(rel, 85)); ridge = float(np.percentile(rel, 98)); stats['measured'] += 1
+        elif len(rel) >= 4:
             ridge = float(np.percentile(rel, 92)); eave = float(np.percentile(rel, 12))
             ridge = min(ridge, eave + math.tan(math.radians(50))*wid/2)   # trees over the roof
             eave = max(2.4, min(eave, ridge)); stats['measured'] += 1

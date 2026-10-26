@@ -28,6 +28,17 @@ export const REGIONS3D = {
     whole: { lon: -122.33, lat: 37.78, dist: 55000 },
     chartWater: [-122.62, 37.42, -122.0, 38.17],   // (v1020: the chart's land tells water from land here; bay3d.js)
   },
+  // Portsmouth Harbor and the Piscataqua River (v1028, requested: "Let's bring piscataqua online, similar to how we
+  // brought up San Francisco Bay"): Portsmouth, Kittery and New Castle, up the river to Great Bay, the Isles of
+  // Shoals offshore. Its chart data is the region build of v399.
+  'piscataqua': {
+    name: 'Portsmouth Harbor and the Piscataqua', short: 'Piscataqua',
+    origin: [-70.74, 43.07],
+    overview: [-71.0, 42.85, -70.45, 43.25],
+    bay: [-70.92, 42.94, -70.55, 43.18],
+    whole: { lon: -70.73, lat: 43.06, dist: 30000 },
+    chartWater: [-70.97, 42.88, -70.39, 43.22],   // (Great Bay's flats and the back channels, as SF's)
+  },
 };
 export const REGION3D_KEY = 'audiochart-bay3d-region';
 const inBox = (b, lon, lat) => lon >= b[0] && lon <= b[2] && lat >= b[1] && lat <= b[3];

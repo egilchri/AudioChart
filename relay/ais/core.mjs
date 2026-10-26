@@ -4,12 +4,13 @@
 // so the relay holds the keys, keeps one upstream connection to each for both bays, and serves the vessels it has
 // heard as JSON.
 
-// Penobscot Bay and its approaches, Casco Bay (v994) and San Francisco Bay (v1019, a trial run), each a little wider
+// Penobscot Bay and its approaches, Casco Bay (v994), San Francisco Bay (v1019) and the Piscataqua (v1028), each a little wider
 // than Bird's-eye's overview of it ([lat, lon] corners; www/js/regions3d.js). One upstream connection listens to all.
 export const BOX = [[43.6, -69.6], [44.9, -67.8]];
 export const CASCO_BOX = [[43.4, -70.6], [44.05, -69.6]];
 export const SF_BOX = [[37.35, -122.75], [38.25, -121.95]];
-export const BOXES = [BOX, CASCO_BOX, SF_BOX];
+export const PISCATAQUA_BOX = [[42.8, -71.05], [43.3, -70.4]];   // (v1028)
+export const BOXES = [BOX, CASCO_BOX, SF_BOX, PISCATAQUA_BOX];
 // ?bbox=w,s,e,n on /vessels (v1019): only the vessels in it (the app asks for its own bay's; San Francisco's
 // hundreds needn't go to a viewer in Maine). Without it, all of them, as before.
 export function bboxOf(url) {

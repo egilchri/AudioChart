@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-10-26 — Piscataqua in Bird's-eye; SF Bay's buildings (v1028)
+
+- **Piscataqua** (requested: "Let's bring piscataqua online, similar to how we brought up San Francisco Bay"): a
+  fourth bay in `regions3d.js`, Portsmouth Harbor up the river to Great Bay and out to the Isles of Shoals, offered
+  like Casco and SF Bay (?region=piscataqua, or the switch on an unlocked device). The relay listens to it
+  (`PISCATAQUA_BOX`, `RELAY_V` 1027), so Live works there. Its bridges come from `build_bridges.py piscataqua`:
+  Memorial Bridge and the Sarah Mildred Long Bridge with their lift towers, the I-95 high bridge, and 33 smaller ones.
+- **Found:** the region's `land.geojson` (v399) draws the river above Memorial Bridge and Great Bay as land (427 of
+  5,563 charted soundings inside it). Six of its US5 cells were never on disk. They're downloaded now, and a land
+  re-extraction with them drops that to 5. The full region rebuild that will ship it was stopped by an Overpass
+  timeout and is still to do. Until then, AutoRoute treats those waters as land. Bird's-eye isn't affected.
+- **SF Bay buildings** (requested: "more land building detail on SF Bay, commensurate with what we have in the other
+  regions"): the Financial District and Embarcadero, Fisherman's Wharf and North Beach, the Marina, Treasure Island,
+  Alcatraz, Sausalito, Tiburon and Belvedere, and Jack London Square. They use the same OSM footprints, 3DEP lidar
+  heights and NAIP roofs as Maine, with a San Francisco wall palette. `design/buildings/build_town.py` now runs a
+  town end to end. `build_buildings.py` now takes a tall, flat-roofed block's height from the top of its points
+  instead of capping its pitch (Salesforce Tower had come out at 80 m; it's 324 m now). The Overpass query also takes
+  multipolygon buildings. Only the downtown file has both fixes so far; the others will be rebuilt.
+
 ## 2026-10-26 — Dots, not rings, close in (v1027)
 
 - Requested: "when we zoom in to level 14 or so, let's make the green and blue circles be just dots, so they don't
