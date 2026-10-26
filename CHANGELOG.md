@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-26 — Underway vessels in flashing blue (v1021)
+
+- **Underway rings** (requested: "try using different indicators, rather than green circles, when the boats are
+  underway… blue circles, perhaps flashing"): in Bird's-eye, a live vessel making 0.5 kn or more and not at anchor
+  or moored now gets a blue ring (#5cc8ff) that pulses all the time, instead of v1013's brighter green. Boats lying
+  still keep the steady green ring; the one you follow stays brass. Reduced-motion turns the pulse off.
+
 ## 2026-10-25 — San Francisco Bay's chart data and bridges (v1020)
 
 - **Region build for SF Bay** (requested: "run the region build for SF Bay"): the 55 NOAA harbor and approach

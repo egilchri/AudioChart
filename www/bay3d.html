@@ -32,17 +32,18 @@ body { background: var(--sky); color: var(--ink); font-family: var(--body); font
 #livemarks { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
 #livemarks i { position: absolute; width: 10px; height: 10px; margin: -7px 0 0 -7px; border: 2px solid #7fe0a6; border-radius: 50%; box-shadow: 0 0 0 1px rgba(12,24,30,0.7); pointer-events: auto; cursor: pointer; }
 #livemarks i.fol { border-color: var(--brass); }
-#livemarks i.uw { border-color: #36f06e; }   /* underway (v1013): a brighter, yellower green than the boats lying still */
-#livemarks.flash i.uw { background: rgba(54,240,110,0.4); }
-#livemarks.flash i.uw::after { border-color: #36f06e; }
+#livemarks i.uw { border-color: #5cc8ff; background: rgba(92,200,255,0.3); animation: uwpulse 1.1s ease-in-out infinite alternate; }   /* underway (v1021, was a brighter green v1013): blue, always gently flashing */
+#livemarks.flash i.uw { background: rgba(92,200,255,0.45); }
+#livemarks.flash i.uw::after { border-color: #5cc8ff; }
 #livemarks i[hidden] { display: none; }
 #livemarks.flash i { animation: livepip 0.6s ease-in-out infinite alternate; background: rgba(127,224,166,0.35); }
 #livemarks.flash i::after { content: ""; position: absolute; inset: -3px; border: 2px solid #7fe0a6; border-radius: 50%; animation: livering 1.2s ease-out infinite; }
 #livemarks.flash i.fol::after { border-color: var(--brass); }
-#livemarks i.fol.uw { border-color: var(--brass); } #livemarks.flash i.fol.uw { background: rgba(127,224,166,0.35); }   /* (the one followed stays brass) */
+#livemarks i.fol.uw { border-color: var(--brass); background: rgba(224,194,122,0.3); } #livemarks.flash i.fol.uw { background: rgba(224,194,122,0.35); }   /* (the one followed stays brass) */
 @keyframes livepip { to { transform: scale(1.5); } }
+@keyframes uwpulse { from { opacity: 0.6; transform: scale(0.9); } to { opacity: 1; transform: scale(1.25); } }
 @keyframes livering { from { transform: scale(1); opacity: 1; } to { transform: scale(4.5); opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { #livemarks.flash i, #livemarks.flash i::after { animation: none; } #livemarks.flash i { transform: scale(1.5); } }
+@media (prefers-reduced-motion: reduce) { #livemarks.flash i, #livemarks.flash i::after, #livemarks i.uw { animation: none; } #livemarks.flash i { transform: scale(1.5); } }
 .panel { position: fixed; left: max(12px, env(safe-area-inset-left)); top: calc(12px + env(safe-area-inset-top, 0px)); z-index: 3; background: var(--glass);
   border-radius: 8px; padding: 10px; display: grid; gap: 8px; max-height: calc(100% - 80px); overflow: auto; width: 13.5rem; box-sizing: border-box; }
 .panel h1 { margin: 0; font-family: var(--display); font-weight: 600; font-size: 1.12rem; letter-spacing: 0.02em; }

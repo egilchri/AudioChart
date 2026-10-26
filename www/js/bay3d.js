@@ -2745,8 +2745,8 @@ function updateLiveMarks() {
     if (p.z > 1 || Math.abs(p.x) > 1 || Math.abs(p.y) > 1) continue;
     let el = markPool[n];
     if (!el) { el = document.createElement('i'); marksEl.appendChild(el); markPool[n] = el; el.addEventListener('click', () => el._v && live.includes(el._v) && showCard(el._v)); }
-    // underway, in a brighter green (v1013, requested: "flash a different shade of green if they are actually
-    // underway"): making 0.5 kn or more, and not reporting herself at anchor or moored
+    // underway, a flashing blue ring (v1021; a brighter green from v1013): making 0.5 kn or more, and not
+    // reporting herself at anchor or moored
     const uw = !v.ashore && (v.A.sog ?? 0) >= 0.5 && v.A.status !== 1 && v.A.status !== 5;
     el._v = v; el.title = `${aisName(v.A)}${uw ? ' · underway' : ''}`; el.className = (follow === v ? 'fol' : '') + (uw ? ' uw' : '');
     el.style.left = (p.x + 1) / 2 * W + 'px'; el.style.top = (1 - p.y) / 2 * H + 'px'; el.hidden = false;
