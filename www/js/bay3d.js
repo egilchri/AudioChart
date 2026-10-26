@@ -2733,6 +2733,7 @@ function updateLabels() {
 // sight of the feed's vessels.
 const marksEl = document.getElementById('livemarks'), markPool = [], findBtn = document.getElementById('findbtn');
 let flashUntil = 0, flashedOnce = false;
+const RING_NEAR = 2500;   // metres from the eye
 function flashLive(ms = 6000) { flashUntil = performance.now() + ms; }
 function updateLiveMarks() {
   const flash = performance.now() < flashUntil, far = !nest.on && view.dist > 4000;
@@ -2743,7 +2744,11 @@ function updateLiveMarks() {
   let n = 0;
   if (far || flash) for (const v of live) {
     if (!v.on || (nest.on && nest.v === v)) continue;
-    const p = v3.set(v.x, v.ashore ? Math.max(0, heightAt(v.A.lon, v.A.lat)) : 2, v.z).project(camera);
+    v3.set(v.x, v.ashore ? Math.max(0, heightAt(v.A.lon, v.A.lat)) : 2, v.z);
+    // close enough to see her plainly: just the boat, no ring, even on ✨ Find (v1024, requested: "When we zoom in
+    // past a certain level we should just see the boat, and not the blue circle")
+    if (v3.distanceTo(camera.position) < RING_NEAR) continue;
+    const p = v3.project(camera);
     if (p.z > 1 || Math.abs(p.x) > 1 || Math.abs(p.y) > 1) continue;
     let el = markPool[n];
     if (!el) { el = document.createElement('i'); marksEl.appendChild(el); markPool[n] = el; el.addEventListener('click', () => el._v && live.includes(el._v) && showCard(el._v)); }

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-26 — Close in, just the boat (v1024)
+
+- Requested: "When we zoom in past a certain level we should just see the boat, and not the blue circle". A live
+  vessel within 2,500 m of the eye (`RING_NEAR` in bay3d.js) gets no ring, blue or green, even on ✨ Find. That
+  covers the one you follow, since Follow flies in to 2,500 m or closer. Farther boats keep their rings.
+
 ## 2026-10-26 — ◀ All boats and the Following bar out from under the chart's controls (v1023)
 
 - Reported with a screenshot ("Maybe the All boats button is obscured by another window?"): inside AudioChart,
