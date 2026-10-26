@@ -40,6 +40,11 @@ body { background: var(--sky); color: var(--ink); font-family: var(--body); font
 #livemarks.flash i::after { content: ""; position: absolute; inset: -3px; border: 2px solid #7fe0a6; border-radius: 50%; animation: livering 1.2s ease-out infinite; }
 #livemarks.flash i.fol::after { border-color: var(--brass); }
 #livemarks i.fol.uw { border-color: var(--brass); background: rgba(224,194,122,0.3); } #livemarks.flash i.fol.uw { background: rgba(224,194,122,0.35); }   /* (the one followed stays brass) */
+/* zoomed in to the chart's level 14 or closer (v1027, requested: "let's make the green and blue circles be just dots,
+   so they don't obscure the view"): a small dot each, in the ring's colour */
+#livemarks.dots i { width: 6px; height: 6px; margin: -3px 0 0 -3px; border: 0; background: #7fe0a6; box-shadow: 0 0 0 1px rgba(12,24,30,0.6); }
+#livemarks.dots i.uw { background: #5cc8ff; }
+#livemarks.dots i.fol, #livemarks.dots i.fol.uw { background: var(--brass); }
 @keyframes livepip { to { transform: scale(1.5); } }
 @keyframes uwpulse { from { opacity: 0.6; transform: scale(0.9); } to { opacity: 1; transform: scale(1.25); } }
 @keyframes livering { from { transform: scale(1); opacity: 1; } to { transform: scale(4.5); opacity: 0; } }

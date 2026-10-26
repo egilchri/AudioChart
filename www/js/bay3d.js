@@ -2738,6 +2738,8 @@ function flashLive(ms = 6000) { flashUntil = performance.now() + ms; }
 function updateLiveMarks() {
   const flash = performance.now() < flashUntil, far = !nest.on && view.dist > 4000;
   marksEl.classList.toggle('flash', flash);
+  // the chart's zoom level for this view (app.js _bay3dZoomOf): 14 or closer, dots instead of rings (v1027)
+  marksEl.classList.toggle('dots', Math.log2(40075016 * Math.cos(latOf(view.z) * DEG) * sceneEl.clientWidth / 256 / (view.dist / 0.8)) >= 13.5);
   if (findBtn) findBtn.hidden = !liveFeed.on || !live.length;
   if (live.length && !flashedOnce) { flashedOnce = true; flashLive(); } else if (!liveFeed.on) flashedOnce = false;   // (again each time Live comes on)
   const W = sceneEl.clientWidth, H = sceneEl.clientHeight;

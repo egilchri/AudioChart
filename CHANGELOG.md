@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-26 — Dots, not rings, close in (v1027)
+
+- Requested: "when we zoom in to level 14 or so, let's make the green and blue circles be just dots, so they don't
+  obscure the view". In Bird's-eye, at the chart's zoom level 14 or closer (worked out from the view's height and
+  width, as app.js does for the zoom slider), each live vessel's ring becomes a small dot in the ring's colour:
+  green lying still, blue underway, brass for the one you follow. Farther out, the rings are as before. ✨ Find
+  still flashes them, and a boat within 2,500 m still has none (v1024).
+
 ## 2026-10-26 — The shrunk Objects menu, out of the way (v1026)
 
 - Requested: "Let's get the shrunk objects menu more out of the way". Shrunk, Objects is now a small, slightly
