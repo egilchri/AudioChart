@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-10-26 — AutoRoute keeps off the shore (v1030)
+
+- Requested: "add the shore clearance check to the router". The router's land check only stopped a leg *crossing*
+  the shore, so a straight leg between two good waypoints could cut a point of land by a few metres (the
+  Piscataqua's bends: 0–5 m; Rockland to Eggemoggin Reach: 5 m). Now a leg within ~56 m (`SHORE_STANDOFF_NM`) of
+  the charted shoreline costs up to 0.5 nm more in the search (`_shorePenaltyNm`). It works like v784's shoal
+  standoff: a cost, never a block, so a narrow passage that's the only way through is still taken. A hard standoff
+  broke 6 of 8 regression cases in v710. The straight-run simplifier won't bring a leg closer to shore either. A leg
+  still within ~20 m after the search, away from the route's own start and destination and off a charted channel,
+  gets the ⚠ "close to shore" warning.
+- Results, checked independently in shapely: the closest mid-route pass went from 5 m to 62 m on Rockland to
+  Eggemoggin (+0.04 nm), from 41 m to 52 m on Rockland to Carvers, and from 2 m to 51 m and from 0 m to 52 m on the
+  Piscataqua's harbor-entrance-to-Dover-Point and Great Bay routes. Close passes within 0.2 nm of a route's own ends
+  (a dock, a harbor) are exempt by design, as for shoals. The full routing suite passes and fails as before; searches
+  take about 5–10% longer (case [32]: 10.3 s against its 36 s limit). The shoal grid is now `_outlineGrid`, shared
+  with the shore; its results are unchanged.
+
 ## 2026-10-26 — The Piscataqua, rebuilt: AutoRoute up the river to Great Bay (v1029)
 
 - **Region rebuild** (requested: "fix the Piscataqua land data too"): the six US5 cells missing since v399

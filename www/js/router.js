@@ -851,34 +851,9 @@ async function _autoRouteCore(
     return _routeEndpointsForWarnings.some(e => Query.distanceNm(cx, cy, e.lon, e.lat) < ENDPOINT_SHALLOW_EXEMPT_NM);
   };
 
-  // Grid of shoal outline points (ring vertices plus points interpolated
-  // along each ring edge, so a long straight shoal edge isn't invisible
-  // between its corners). Cell ≈ the standoff distance; a leg checks only
-  // the cells it passes through and their neighbors.
-  const _shoalCellDeg = SHOAL_STANDOFF_NM / 60;
-  const shoalGrid = new Map();
-  const _shoalKey = (gx, gy) => gx * 1000003 + gy;
-  const _shoalGx = (lon) => Math.floor(lon * cosLat / _shoalCellDeg);
-  const _shoalGy = (lat) => Math.floor(lat / _shoalCellDeg);
-  function _addShoalPt(x, y) {
-    const k = _shoalKey(_shoalGx(x), _shoalGy(y));
-    const arr = shoalGrid.get(k);
-    if (arr) arr.push(x, y); else shoalGrid.set(k, [x, y]);
-  }
-  for (const entry of extraRings) {
-    if (!entry.isTidal) continue;
-    const r = entry.ring;
-    for (let i = 0; i < r.length; i++) {
-      const [x1, y1] = r[i];
-      _addShoalPt(x1, y1);
-      const [x2, y2] = r[(i + 1) % r.length];
-      const segDeg = Math.hypot((x2 - x1) * cosLat, y2 - y1);
-      const steps = Math.floor(segDeg / (_shoalCellDeg * 0.5));
-      for (let s = 1; s < steps; s++) _addShoalPt(x1 + (x2 - x1) * s / steps, y1 + (y2 - y1) * s / steps);
-    }
-  }
-  // Clearance (nm, capped at SHOAL_STANDOFF_NM) between a leg and the
-  // nearest shoal outline point.
+  // Grid of outline points (ring vertices plus points interpolated along each ring edge, so a long straight edge
+  // isn't invisible between its corners). Cell ≈ the standoff distance; a leg checks only the cells it passes
+  // through and their neighbors. One for shoal water, and (v1030) one for the shore.
   // Speed (v974; it was ~23% of A*'s time, and the router stops at a wall-clock deadline): no Set of cells
   // seen. Along a straight leg the cell steps by at most one each way per sample, so a cell in an earlier
   // 3×3 window is also in the one just before: a cell is new exactly when it's outside the previous window.
@@ -886,37 +861,90 @@ async function _autoRouteCore(
   // the endpoint test. Over a search's few miles the flat distance is within ~2% of the haversine; the
   // 1.25 margin keeps the skip safe, so every result is unchanged.
   const _NM_PER_DEG = 60.04;   // (Query.distanceNm's R = 3440.065 nm)
-  function _shoalClearanceNm(lon1, lat1, lon2, lat2, skipPt = null) {
-    if (!shoalGrid.size) return SHOAL_STANDOFF_NM;
-    let best = SHOAL_STANDOFF_NM;
-    let cut2 = (best * 1.25 / _NM_PER_DEG) ** 2;   // a point flat-farther than this (deg², lon scaled) can't win
-    const sx = lon2 - lon1, sy = lat2 - lat1, len2 = sx * sx + sy * sy;
-    const lenDeg = Math.hypot(sx * cosLat, sy);
-    const steps = Math.max(1, Math.ceil(lenDeg / (_shoalCellDeg * 0.5)));
-    let px0 = NaN, py0 = NaN;   // the previous window's centre cell
-    for (let s = 0; s <= steps; s++) {
-      const t = s / steps;
-      const gx = _shoalGx(lon1 + sx * t), gy = _shoalGy(lat1 + sy * t);
-      if (gx === px0 && gy === py0) continue;
-      for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
-        const cx = gx + dx, cy = gy + dy;
-        if (Math.abs(cx - px0) <= 1 && Math.abs(cy - py0) <= 1) continue;   // (NaN: never)
-        const arr = shoalGrid.get(_shoalKey(cx, cy));
-        if (!arr) continue;
-        for (let i = 0; i < arr.length; i += 2) {
-          const px = arr[i], py = arr[i + 1];
-          // the same closest point on the leg as _ptSegDistNm (in raw degrees), measured flat
-          const u = len2 < 1e-12 ? 0 : Math.max(0, Math.min(1, ((px - lon1) * sx + (py - lat1) * sy) / len2));
-          const ex = (px - lon1 - u * sx) * cosLat, ey = py - lat1 - u * sy;
-          if (ex * ex + ey * ey > cut2) continue;
-          if (skipPt && skipPt(px, py)) continue;
-          const d = _ptSegDistNm(px, py, lon1, lat1, lon2, lat2);
-          if (d < best) { best = d; if (best === 0) return 0; cut2 = (best * 1.25 / _NM_PER_DEG) ** 2; }
-        }
-      }
-      px0 = gx; py0 = gy;
+  function _outlineGrid(standoffNm) {
+    const cellDeg = standoffNm / 60;
+    const grid = new Map();
+    const key = (gx, gy) => gx * 1000003 + gy;
+    const gxOf = (lon) => Math.floor(lon * cosLat / cellDeg);
+    const gyOf = (lat) => Math.floor(lat / cellDeg);
+    function add(x, y) {
+      const k = key(gxOf(x), gyOf(y));
+      const arr = grid.get(k);
+      if (arr) arr.push(x, y); else grid.set(k, [x, y]);
     }
-    return best;
+    // keep (optional): only the edges with an end in it get points (the shore's huge mainland rings)
+    function addRing(r, keep = null) {
+      for (let i = 0; i < r.length; i++) {
+        const [x1, y1] = r[i];
+        const [x2, y2] = r[(i + 1) % r.length];
+        if (keep && !keep(x1, y1) && !keep(x2, y2)) continue;
+        add(x1, y1);
+        const segDeg = Math.hypot((x2 - x1) * cosLat, y2 - y1);
+        const steps = Math.floor(segDeg / (cellDeg * 0.5));
+        for (let s = 1; s < steps; s++) add(x1 + (x2 - x1) * s / steps, y1 + (y2 - y1) * s / steps);
+      }
+    }
+    // Clearance (nm, capped at standoffNm) between a leg and the nearest outline point.
+    function clearance(lon1, lat1, lon2, lat2, skipPt = null) {
+      if (!grid.size) return standoffNm;
+      let best = standoffNm;
+      let cut2 = (best * 1.25 / _NM_PER_DEG) ** 2;   // a point flat-farther than this (deg², lon scaled) can't win
+      const sx = lon2 - lon1, sy = lat2 - lat1, len2 = sx * sx + sy * sy;
+      const lenDeg = Math.hypot(sx * cosLat, sy);
+      const steps = Math.max(1, Math.ceil(lenDeg / (cellDeg * 0.5)));
+      let px0 = NaN, py0 = NaN;   // the previous window's centre cell
+      for (let s = 0; s <= steps; s++) {
+        const t = s / steps;
+        const gx = gxOf(lon1 + sx * t), gy = gyOf(lat1 + sy * t);
+        if (gx === px0 && gy === py0) continue;
+        for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
+          const cx = gx + dx, cy = gy + dy;
+          if (Math.abs(cx - px0) <= 1 && Math.abs(cy - py0) <= 1) continue;   // (NaN: never)
+          const arr = grid.get(key(cx, cy));
+          if (!arr) continue;
+          for (let i = 0; i < arr.length; i += 2) {
+            const px = arr[i], py = arr[i + 1];
+            // the same closest point on the leg as _ptSegDistNm (in raw degrees), measured flat
+            const u = len2 < 1e-12 ? 0 : Math.max(0, Math.min(1, ((px - lon1) * sx + (py - lat1) * sy) / len2));
+            const ex = (px - lon1 - u * sx) * cosLat, ey = py - lat1 - u * sy;
+            if (ex * ex + ey * ey > cut2) continue;
+            if (skipPt && skipPt(px, py)) continue;
+            const d = _ptSegDistNm(px, py, lon1, lat1, lon2, lat2);
+            if (d < best) { best = d; if (best === 0) return 0; cut2 = (best * 1.25 / _NM_PER_DEG) ** 2; }
+          }
+        }
+        px0 = gx; py0 = gy;
+      }
+      return best;
+    }
+    return { addRing, clearance, get size() { return grid.size; } };
+  }
+  const shoalOutline = _outlineGrid(SHOAL_STANDOFF_NM);
+  for (const entry of extraRings) if (entry.isTidal) shoalOutline.addRing(entry.ring);
+  const _shoalClearanceNm = (lon1, lat1, lon2, lat2, skipPt = null) => shoalOutline.clearance(lon1, lat1, lon2, lat2, skipPt);
+
+  // ── Shore standoff: soft cost (v1030, requested: "add the shore clearance check to the router") ──
+  // segBlocked only stops a leg CROSSING the shore, so a straight leg between two good waypoints could cut a
+  // point of land by a few metres (the Piscataqua's bends: 0-5 m). The same kind of cost as the shoals': a leg
+  // within SHORE_STANDOFF_NM of the charted shoreline costs up to SHORE_PENALTY_NM more, so the search takes the
+  // roomier way where there is one and still threads a narrow passage where there isn't. Never a block (see
+  // the shoals' note above, and v710: a hard standoff cut off real passages). Near the route's own start and
+  // destination it's exempt, as for shoals: a dock or a cove is next to land by choice.
+  const SHORE_STANDOFF_NM = 0.03;   // ~56 m
+  const SHORE_PENALTY_NM = 0.5;
+  const SHORE_WARNING_NM = 0.011;   // ~20 m: still this close after the search, it's worth a ⚠
+  const shoreOutline = _outlineGrid(SHORE_STANDOFF_NM);
+  {
+    const pad = SHORE_STANDOFF_NM / 60 * 2;
+    const inBox = (x, y) => x >= bMinLon - pad && x <= bMaxLon + pad && y >= bMinLat - pad && y <= bMaxLat + pad;
+    for (const r of landRingsInBox) shoreOutline.addRing(r.ring, inBox);
+  }
+  function _shoreClearanceNm(lon1, lat1, lon2, lat2) {
+    return shoreOutline.clearance(lon1, lat1, lon2, lat2, (vx, vy) => _passesNearRouteEndpoint(vx, vy, lon1, lat1, lon2, lat2));
+  }
+  function _shorePenaltyNm(lon1, lat1, lon2, lat2) {
+    const c = _shoreClearanceNm(lon1, lat1, lon2, lat2);
+    return c >= SHORE_STANDOFF_NM ? 0 : SHORE_PENALTY_NM * (1 - c / SHORE_STANDOFF_NM);
   }
   function _shoalPenaltyNm(lon1, lat1, lon2, lat2) {
     const c = _shoalClearanceNm(lon1, lat1, lon2, lat2,
@@ -1026,8 +1054,10 @@ async function _autoRouteCore(
       }
       if (best < 0) break;
       const a = pts[best - 1], p = pts[best], b = pts[best + 1];
+      const shore = (u, v) => _shoreClearanceNm(u.lon, u.lat, v.lon, v.lat);
       const ok = !segBlocked(a.lon, a.lat, b.lon, b.lat)
-        && clearance(a, b) >= Math.min(SHALLOW_WARNING_NM, clearance(a, p), clearance(p, b));
+        && clearance(a, b) >= Math.min(SHALLOW_WARNING_NM, clearance(a, p), clearance(p, b))
+        && shore(a, b) >= Math.min(SHORE_STANDOFF_NM, shore(a, p), shore(p, b));   // (nor closer to the shore: v1030)
       if (ok) pts.splice(best, 1);
       else rejected.add(`${a.lon},${a.lat}|${p.lon},${p.lat}|${b.lon},${b.lat}`);
     }
@@ -1649,7 +1679,9 @@ async function _autoRouteCore(
       const baseNg = gScore[curr] + Query.distanceNm(a.lon, a.lat, b.lon, b.lat);
       if (baseNg >= gScore[j]) continue; // can't improve even before any shoal penalty
       if (segBlocked(a.lon, a.lat, b.lon, b.lat)) continue;
-      const ng = baseNg + _shoalPenaltyNm(a.lon, a.lat, b.lon, b.lat);
+      let ng = baseNg + _shoalPenaltyNm(a.lon, a.lat, b.lon, b.lat);
+      if (ng >= gScore[j]) continue;   // (the shore's cost can only add: skip it when it can't matter)
+      ng += _shorePenaltyNm(a.lon, a.lat, b.lon, b.lat);
       if (ng < gScore[j]) {
         gScore[j] = ng;
         prev[j]   = curr;
@@ -1780,6 +1812,19 @@ async function _autoRouteCore(
   const _isChannelLeg = (a, b) => (Query.channelNeighbors?.(a.lon, a.lat) || [])
     .some(n => Math.abs(n.lon - b.lon) < 1e-9 && Math.abs(n.lat - b.lat) < 1e-9);
   function _flagShallowStandoffWarning(path) {
+    // a leg still passing within SHORE_WARNING_NM of the shore, away from the route's own ends and off a charted
+    // channel (v1030): the same ⚠ as a waypoint the standoff ladder couldn't place clear
+    if (!path.some(p => p.marginal)) for (let i = 0; i < path.length - 1; i++) {
+      const a = path[i], b = path[i + 1];
+      if (_isChannelLeg(a, b) || _isChannelLeg(b, a)) continue;
+      const c = _shoreClearanceNm(a.lon, a.lat, b.lon, b.lat);
+      if (c < SHORE_WARNING_NM) {
+        path[i + 1].marginal = true;
+        path[i + 1].marginalKind = 'shore';
+        path[i + 1].marginalClearanceNm = c;
+        return;
+      }
+    }
     for (let i = 0; i < path.length - 1; i++) {
       if (path[i].marginal || path[i + 1].marginal) continue; // already flagged by the land-standoff ladder
       const a = path[i], b = path[i + 1];
