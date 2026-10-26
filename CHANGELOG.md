@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-10-26 — The Piscataqua, rebuilt: AutoRoute up the river to Great Bay (v1029)
+
+- **Region rebuild** (requested: "fix the Piscataqua land data too"): the six US5 cells missing since v399
+  (US5NH1AD, 1AE, 1BB, 1BC, 1CC, 1DC: the upper river and Great Bay) are downloaded, and the region is built again
+  with all 22 cells. Charted soundings inside its land: 427 of 5,563 before, 5 now. The hazards, buoys, channels and
+  place names in those waters are new too. `backfill_light_names.py` now tries each Overpass mirror in turn, three
+  rounds, instead of failing the whole build on one busy server.
+- **Water mesh for the river** (`build_water_mesh.py`, as Deer Isle's): the router's own candidate points don't
+  chain up the narrow, winding river, so the mesh gives it mid-channel waypoints from the harbor to Great Bay.
+- **Partial mesh path** (`Query.waterMeshPath`'s `partial`): the river's mesh comes in pieces (the harbor's and the
+  river's). As a last retry only (router.js Retry C), the router is given the part of the mesh path that exists and
+  bridges the rest itself. Seeded into every search, it had sent Bay Ledge -> Eggemoggin Reach (case [23]) the long
+  way round, 23 nm instead of 14.7 nm.
+- **Land-check fix** (`Query._segIntersect`, see INCIDENTS.md): a leg crossing the coast exactly at a shoreline vertex
+  passed as clear. Found when a "route" to Great Bay crossed Portsmouth.
+- AutoRoute check, 8 Piscataqua routes (harbor entrance to Portsmouth, Dover Point and Great Bay; Pepperrell Cove to
+  the Isles of Shoals; Little Harbor to York; Portsmouth to Rye and to Great Bay; the Shoals to Portsmouth): all pass,
+  and no leg touches land when checked independently in shapely. Before: the three up-river routes failed. Some legs
+  still pass within a few metres of a point of land at the river's bends, because the router checks a leg for
+  crossing the shore, not for clearance from it. The full routing suite gives the same results as before.
+
 ## 2026-10-26 — Piscataqua in Bird's-eye; SF Bay's buildings (v1028)
 
 - **Piscataqua** (requested: "Let's bring piscataqua online, similar to how we brought up San Francisco Bay"): a

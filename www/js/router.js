@@ -60,6 +60,9 @@ function _timedOutFallback(a, b) {
 // budget (total capped at 2x deadlineMs) — this project's standing call is
 // "wait longer" over "falsely claim impossible".
 const WIDE_PAD_NM = 6.0;
+// Retry C (v1029): the water mesh's partial path where its pieces don't join (Query.waterMeshPath's partial), set only
+// for the duration of the router's last retry
+let _meshPartial = false;
 // Distance from shore under which a router-placed waypoint counts as "tight"
 // and gets a ⚠ (see the coastal standoff ladder's bestFallback).
 const SHORE_TIGHT_WARNING_NM = 100 / 1852;
@@ -230,6 +233,15 @@ async function _autoRouteWithRetries(start, end, onUpdate, onText, _escapeAttemp
   if (!longRange && remaining() > 1000) {
     console.log(`[autoRoute] no path in the ${2.0}nm-padded area — retrying with ${WIDE_PAD_NM}nm`);
     path = await run(start, end, WIDE_PAD_NM, Math.min(deadlineMs, remaining()));
+    // Retry C (v1029): where the water mesh comes in pieces (the Piscataqua's harbor and river), seed the part of it
+    // that's there, and let the search bridge the rest. Last, as it can pull a search that would succeed anyway
+    // onto a longer way round.
+    if (_isNoPath(path) && remaining() > 1000) {
+      console.log('[autoRoute] still no path — retrying with the water mesh\'s partial path');
+      _meshPartial = true;
+      try { const p = await run(start, end, WIDE_PAD_NM, Math.min(deadlineMs, remaining())); if (!_isNoPath(p)) return p; }
+      finally { _meshPartial = false; }
+    }
     return stopShort(path); // this run reported its own moves through onSnap
   }
   reportFirstSnaps();
@@ -486,7 +498,7 @@ async function _autoRouteCore(
   // thousand nodes, single-digit ms) and hands the router a small,
   // correctly-targeted set of waypoints instead.
   if (Query.waterMeshPath) {
-    for (const wp of Query.waterMeshPath(start.lon, start.lat, end.lon, end.lat)) {
+    for (const wp of Query.waterMeshPath(start.lon, start.lat, end.lon, end.lat, 3, _meshPartial)) {
       nodes.push({ lon: wp.lon, lat: wp.lat });
     }
   }

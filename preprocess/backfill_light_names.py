@@ -20,6 +20,7 @@ Run after s57_to_geojson.py and before merge_charts.py:
 
 import argparse
 import json
+import time
 import math
 import os
 import sys
@@ -72,18 +73,27 @@ def fetch_osm(minlat, minlon, maxlat, maxlon):
     query = OSM_QUERY.format(s=minlat, w=minlon, n=maxlat, e=maxlon)
     print(f'Fetching OSM data from Overpass ({minlat:.2f},{minlon:.2f} → {maxlat:.2f},{maxlon:.2f})...')
     data = query.encode('utf-8')
-    req = urllib.request.Request(
-        OVERPASS_URL,
-        data=data,
-        headers={'Content-Type': 'application/x-www-form-urlencoded',
-                 'User-Agent': 'AudioChart-backfill/1.0'},
-        method='POST',
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=180) as resp:
-            result = json.loads(resp.read())
-    except Exception as e:
-        print(f'ERROR fetching OSM data: {e}')
+    # (v1029: the mirrors are often at capacity, so each is tried in turn, three rounds with a growing wait, before
+    # giving up; the Piscataqua rebuild failed twice on one busy mirror)
+    mirrors = [OVERPASS_URL] + [u for u in ('https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter',
+                                            'https://overpass.kumi.systems/api/interpreter') if u != OVERPASS_URL]
+    result, err = None, None
+    for rnd in range(3):
+        for url in mirrors:
+            req = urllib.request.Request(url, data=data, headers={'Content-Type': 'application/x-www-form-urlencoded',
+                                                                  'User-Agent': 'AudioChart-backfill/1.0'}, method='POST')
+            try:
+                with urllib.request.urlopen(req, timeout=180) as resp:
+                    result = json.loads(resp.read())
+                break
+            except Exception as e:
+                err = e
+                print(f'  {url}: {e}')
+        if result is not None:
+            break
+        time.sleep(60 * (rnd + 1))
+    if result is None:
+        print(f'ERROR fetching OSM data: {err}')
         sys.exit(1)
 
     elements = result.get('elements', [])

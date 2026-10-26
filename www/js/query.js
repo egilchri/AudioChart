@@ -2218,7 +2218,11 @@ function _segIntersect(ax, ay, bx, by, cx, cy, dx, dy) {
   if (Math.abs(denom) < 1e-10) return false;
   const t = ((cx - ax) * d2y - (cy - ay) * d2x) / denom;
   const u = ((cx - ax) * d1y - (cy - ay) * d1x) / denom;
-  return t > 0.001 && t < 0.999 && u > 0.001 && u < 0.999;
+  // u (along the coastline edge) takes its ends too (v1029): a leg crossing the coast exactly at a vertex hits
+  // u = 0 on one edge and u = 1 on the next, and with u strictly inside both missed it. Found in the Piscataqua,
+  // where AutoRoute's "route" to Great Bay ran 4 nm straight across Portsmouth through a vertex and passed
+  // landBlocks. (A leg that only grazes a vertex now counts as blocked: the safe side.)
+  return t > 0.001 && t < 0.999 && u >= -1e-9 && u <= 1 + 1e-9;
 }
 
 function _ringBlocks(ring, ax, ay, bx, by) {
@@ -2842,7 +2846,7 @@ function _nearestMeshNode(lon, lat) {
  * query.js consumption contract on this file for why the caller must
  * still segBlocked-check every leg of the result itself.
  */
-export function waterMeshPath(fromLon, fromLat, toLon, toLat, maxSnapNm = 3) {
+export function waterMeshPath(fromLon, fromLat, toLon, toLat, maxSnapNm = 3, partial = false) {
   if (!_waterMeshIndex || _waterMeshIndex.nodes.size === 0) return [];
   const startKey = _nearestMeshNode(fromLon, fromLat);
   const endKey = _nearestMeshNode(toLon, toLat);
@@ -2852,58 +2856,78 @@ export function waterMeshPath(fromLon, fromLat, toLon, toLat, maxSnapNm = 3) {
   if (distanceNm(fromLon, fromLat, startNode.lon, startNode.lat) > maxSnapNm) return [];
   if (distanceNm(toLon, toLat, endNode.lon, endNode.lat) > maxSnapNm) return [];
 
-  const dist = new Map([[startKey, 0]]);
-  const prev = new Map();
-  const visited = new Set();
-  // Simple binary min-heap, same style as router.js's own A* heap.
-  const heap = [[0, startKey]];
-  const hpush = (d, k) => {
-    heap.push([d, k]);
-    let i = heap.length - 1;
-    while (i > 0) {
-      const p = (i - 1) >> 1;
-      if (heap[p][0] <= heap[i][0]) break;
-      [heap[p], heap[i]] = [heap[i], heap[p]]; i = p;
-    }
-  };
-  const hpop = () => {
-    const top = heap[0], last = heap.pop();
-    if (heap.length) {
-      heap[0] = last;
-      let i = 0;
-      for (;;) {
-        const l = i * 2 + 1, r = l + 1; let m = i;
-        if (l < heap.length && heap[l][0] < heap[m][0]) m = l;
-        if (r < heap.length && heap[r][0] < heap[m][0]) m = r;
-        if (m === i) break;
-        [heap[m], heap[i]] = [heap[i], heap[m]]; i = m;
+  // Dijkstra over the mesh's own graph from one node: { dist, prev, visited }
+  function dijkstra(fromKey, stopKey) {
+    const dist = new Map([[fromKey, 0]]);
+    const prev = new Map();
+    const visited = new Set();
+    // Simple binary min-heap, same style as router.js's own A* heap.
+    const heap = [[0, fromKey]];
+    const hpush = (d, k) => {
+      heap.push([d, k]);
+      let i = heap.length - 1;
+      while (i > 0) {
+        const p = (i - 1) >> 1;
+        if (heap[p][0] <= heap[i][0]) break;
+        [heap[p], heap[i]] = [heap[i], heap[p]]; i = p;
+      }
+    };
+    const hpop = () => {
+      const top = heap[0], last = heap.pop();
+      if (heap.length) {
+        heap[0] = last;
+        let i = 0;
+        for (;;) {
+          const l = i * 2 + 1, r = l + 1; let m = i;
+          if (l < heap.length && heap[l][0] < heap[m][0]) m = l;
+          if (r < heap.length && heap[r][0] < heap[m][0]) m = r;
+          if (m === i) break;
+          [heap[m], heap[i]] = [heap[i], heap[m]]; i = m;
+        }
+      }
+      return top;
+    };
+    while (heap.length) {
+      const [d, key] = hpop();
+      if (visited.has(key)) continue;
+      visited.add(key);
+      if (key === stopKey) break;
+      for (const nb of (_waterMeshIndex.adjacency.get(key) || [])) {
+        if (visited.has(nb.key)) continue;
+        const a = _waterMeshIndex.nodes.get(key);
+        const nd = d + distanceNm(a.lon, a.lat, nb.lon, nb.lat);
+        if (nd < (dist.get(nb.key) ?? Infinity)) {
+          dist.set(nb.key, nd);
+          prev.set(nb.key, key);
+          hpush(nd, nb.key);
+        }
       }
     }
-    return top;
-  };
-
-  while (heap.length) {
-    const [d, key] = hpop();
-    if (visited.has(key)) continue;
-    visited.add(key);
-    if (key === endKey) break;
-    for (const nb of (_waterMeshIndex.adjacency.get(key) || [])) {
-      if (visited.has(nb.key)) continue;
-      const a = _waterMeshIndex.nodes.get(key);
-      const nd = d + distanceNm(a.lon, a.lat, nb.lon, nb.lat);
-      if (nd < (dist.get(nb.key) ?? Infinity)) {
-        dist.set(nb.key, nd);
-        prev.set(nb.key, key);
-        hpush(nd, nb.key);
-      }
-    }
+    return { prev, visited };
   }
-  if (!visited.has(endKey)) return [];  // mesh isn't connected between these two points
+  const walk = (prev, k) => { const keys = []; for (; k !== undefined; k = prev.get(k)) keys.push(k); return keys; };
+  const asPts = keys => keys.map(k => { const n = _waterMeshIndex.nodes.get(k); return { lon: n.lon, lat: n.lat }; });
 
-  const pathKeys = [];
-  for (let k = endKey; k !== undefined; k = prev.get(k)) pathKeys.push(k);
-  pathKeys.reverse();
-  return pathKeys.map(k => { const n = _waterMeshIndex.nodes.get(k); return { lon: n.lon, lat: n.lat }; });
+  const fwd = dijkstra(startKey, endKey);
+  if (fwd.visited.has(endKey)) return asPts(walk(fwd.prev, endKey).reverse());
+  if (!partial) return [];   // mesh isn't connected between these two points
+  // The mesh is in pieces between them (v1029: the Piscataqua's harbor and its river, split where the bbox-minus-land
+  // polygon pinches off). Rather than nothing, the part of the trip the mesh does cover: the end's piece from its
+  // node nearest the start, or the start's piece up to its node nearest the end, whichever leaves the shorter gap.
+  // The router bridges the gap with its own checked legs, as it does at either end of any mesh path. Only on the
+  // router's last retry (partial): seeded into every search it pulled Bay Ledge -> Eggemoggin Reach (case [23])
+  // onto a 23 nm detour instead of its 14.7 nm route.
+  const nearestIn = (visited, lon, lat) => {
+    let best = null, bd = Infinity;
+    for (const k of visited) { const n = _waterMeshIndex.nodes.get(k); const d = distanceNm(lon, lat, n.lon, n.lat); if (d < bd) { bd = d; best = k; } }
+    return [best, bd];
+  };
+  const back = dijkstra(endKey, null);
+  const [k1, gap1] = nearestIn(back.visited, fromLon, fromLat);   // into the end's piece
+  const [k2, gap2] = nearestIn(fwd.visited, toLon, toLat);        // the start's piece, toward the end
+  if (Math.min(gap1, gap2) > maxSnapNm) return [];
+  if (gap1 <= gap2) return asPts(walk(back.prev, k1));   // (back.prev leads from k1 to endKey)
+  return asPts(walk(fwd.prev, k2).reverse());
 }
 
 function _landBlocks(fromLon, fromLat, toLon, toLat) {

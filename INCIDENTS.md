@@ -6,6 +6,27 @@ found, and what shipped, even when the root cause couldn't be confirmed.
 
 ---
 
+## 2026-10-26 — A route over land passed the land check (a leg through a coastline vertex)
+
+**What happened:** Found while checking AutoRoute after the Piscataqua rebuild. AutoRoute's "route" from Portsmouth
+Harbor's entrance to Great Bay ended with a leg that ran 4 nm straight west across Portsmouth and Newington, and
+it reported no land crossed. Shapely put 7.5 km of that leg on land.
+
+**Cause:** Query's `_segIntersect` counted a crossing only strictly inside a coastline edge (0.001 < u < 0.999).
+That leg left the water exactly at one of its own nodes, which is excluded on purpose, and came back to the water
+exactly through a vertex of the shoreline, where u is 0 on one edge and 1 on the next. Both edges missed it, so
+`landBlocks` said clear. Every land check uses this function: AutoRoute's legs, the hazard check's land test, and
+line-of-sight. A leg has to pass exactly through a vertex to slip through. The router makes legs between its own
+candidate nodes, and those were placed so that this one did.
+
+**Fix:** v1029: a crossing at a coastline vertex counts (u from 0 to 1 inclusive). A leg that only grazes a vertex
+is now refused, which is the safe side. The full routing suite and hazard-clearance test give the same results as
+before. The Piscataqua route check (8 routes, harbor to Great Bay) passes with no leg on land, checked
+independently in shapely. Before the region rebuild, the river above Memorial Bridge was land in the chart data,
+so no route there could exist and this never showed.
+
+---
+
 ## 2026-10-21 — Hazards always under water left out of the chart data (all of them)
 
 **What happened:** Found from a user question in Empty Bay ("Aren't there any known shipwrecks in deeper water in
