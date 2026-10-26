@@ -1814,6 +1814,7 @@ function fillUnderway() {
       uwPanel.hidden = true; uwBtn.classList.remove('on');
       if (b.dataset.m === 'info') { showCard(v); return; }
       if (b.dataset.m !== 'fly') { ride(v, b.dataset.m); return; }
+      keepOverview();
       if (nest.on) leaveRide();
       markCurrent(null); foldPanel(true);
       if (aboveFog || env.foggy) applyConditions({ vis: 'clear' });
@@ -2003,6 +2004,7 @@ if (aisCard) {
     b.addEventListener('click', () => {
       const v = cardV; if (!v || !live.includes(v)) return;
       if (m !== 'fly') { ride(v, m); return; }
+      keepOverview();
       if (nest.on) leaveRide();
       markCurrent(null); foldPanel(true);
       flyTo({ x: v.x, z: v.z, dist: clamp(vLen(v) * 8, 250, 2500), tilt: 60 * DEG, az: ((v.h || 0) + 35) * DEG }, 2800);
@@ -2755,6 +2757,23 @@ function updateLiveMarks() {
   for (let i = n; i < markPool.length; i++) markPool[i].hidden = true;
 }
 findBtn?.addEventListener('click', () => flashLive());
+
+// ◀ All boats (v1022, requested: "after I click on a blue ring, and then do follow, I would like a way of snapping
+// back to the original birdseye view, so I can quickly pick the next boat I want to follow") ── Follow (from her
+// card or from Underway) remembers the view you chose her from; ◀ All boats, or B, flies back to it and flashes the
+// live rings. Following one boat after another keeps the first view, so it's always back to where you started.
+let overview = null;
+const backBtn = document.getElementById('overviewbtn');
+function keepOverview() { if (!overview) overview = { ...(nest.on && nest.prev ? nest.prev : view) }; if (backBtn) backBtn.hidden = false; }
+function backToOverview() {
+  if (!overview) return;
+  if (nest.on) leaveRide();
+  stopFollow(); flyTo(overview, 2200); overview = null; if (backBtn) backBtn.hidden = true;
+  if (aisCard) { aisCard.hidden = true; cardV = null; }   // (her card would cover the boats you're choosing from)
+  if (live.length) flashLive();
+}
+backBtn?.addEventListener('click', backToOverview);
+addEventListener('keydown', e => { if (e.target === document.body && (e.key === 'b' || e.key === 'B') && !e.metaKey && !e.ctrlKey && overview) { backToOverview(); e.preventDefault(); } });
 addEventListener('keydown', e => { if (e.target === document.body && (e.key === 'f' || e.key === 'F') && !e.metaKey && !e.ctrlKey && live.length) { flashLive(); e.preventDefault(); } });
 
 // ── Readout: height and heading ──

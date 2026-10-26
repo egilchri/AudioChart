@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-26 — ◀ All boats: back to the view you picked her from (v1022)
+
+- **◀ All boats** (requested: "after I click on a blue ring, and then do follow, I would like a way of snapping back
+  to the original birdseye view, so I can quickly pick the next boat I want to follow"): Follow, from a live vessel's
+  card or from Underway, remembers the Bird's-eye view you were in. ◀ All boats (first in the top bar) or the B key
+  flies back to it, closes her card and flashes the live rings. Following one boat after another keeps the first
+  view.
+
 ## 2026-10-26 — Underway vessels in flashing blue (v1021)
 
 - **Underway rings** (requested: "try using different indicators, rather than green circles, when the boats are
