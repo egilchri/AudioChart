@@ -62,7 +62,7 @@ body { background: var(--sky); color: var(--ink); font-family: var(--body); font
 body.embed #bayswitch { position: fixed; z-index: 3; top: calc(72px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); background: var(--glass); box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
 body.embed #bayswitch button { padding: 5px 14px; }
 @media (max-width: 640px) { body.embed #bayswitch { top: calc(128px + env(safe-area-inset-top, 0px)); left: 8px; transform: none; } }
-#bayswitch button { flex: 1; font: inherit; font-size: 0.82rem; font-weight: 600; color: var(--ink); background: transparent; border: 0; border-radius: 4px; padding: 5px 6px; cursor: pointer; }
+#bayswitch button { flex: 1; white-space: nowrap; font: inherit; font-size: 0.82rem; font-weight: 600; color: var(--ink); background: transparent; border: 0; border-radius: 4px; padding: 5px 6px; cursor: pointer; }
 #bayswitch button:hover { background: rgba(255, 255, 255, 0.1); }
 #bayswitch button.on { background: var(--brass); color: var(--brass-ink); cursor: default; }
 .sect { font-size: 0.66rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); padding-left: 8px; }
@@ -96,7 +96,8 @@ button:focus-visible { outline: 2px solid var(--brass); outline-offset: 1px; }
 #followfix { flex-basis: 100%; font-size: 0.72rem; color: var(--muted); }
 #followfix:empty, #followhud.shrunk #followfix { display: none; }
 #followhud button[hidden] { display: none; }
-body.embed #followhud { top: calc(94px + env(safe-area-inset-top, 0px)); }
+body.embed #followhud { top: calc(120px + env(safe-area-inset-top, 0px)); }   /* under the Penobscot | Casco | SF Bay switch, not behind it (v1023) */
+@media (max-width: 640px) { body.embed #followhud { top: calc(166px + env(safe-area-inset-top, 0px)); } }
 #nesthud .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 #nesthud .row b { margin-right: auto; }
 #nesthud button { font: inherit; color: var(--ink); background: rgba(255,255,255,0.14); border: 0; border-radius: 4px; padding: 3px 8px; cursor: pointer; white-space: nowrap; }
@@ -212,7 +213,7 @@ body.embed .panel, body.embed #help, body.embed #compass { display: none !import
 /* As a map type (v879/v880) the chart's tile row, Objects panel and tide/heading readout sit over this
    view and drive it; all it keeps of its own is Weather, above the chart's tide readout */
 body.embed #alt { display: none; }
-body.embed #scale { top: auto; bottom: calc(140px + env(safe-area-inset-bottom, 0px)); }
+body.embed #scale { top: auto; bottom: calc(140px + env(safe-area-inset-bottom, 0px)); max-width: calc(100vw - 150px); }   /* clear of the chart's tilt slider and pan pad down the left (v1023: they hid ◀ All boats) */
 body.embed #wxpanel { top: auto; bottom: calc(176px + env(safe-area-inset-bottom, 0px)); }
 /* Phone, inside the chart (v909, reported with a screenshot: "how crowded my screen is on mobile"):
    the view buttons go in one row near the top, just under the chart's Map Type and Objects menus and

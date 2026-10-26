@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-26 — ◀ All boats and the Following bar out from under the chart's controls (v1023)
+
+- Reported with a screenshot ("Maybe the All boats button is obscured by another window?"): inside AudioChart,
+  the chart's tilt slider covered the left end of Bird's-eye's button bar, where ◀ All boats is. The bar now stops
+  150 px short of the left edge. The Penobscot | Casco | SF Bay switch also covered the "Following …" bar; that bar
+  now sits under it, and "SF Bay" no longer wraps onto two lines.
+
 ## 2026-10-26 — ◀ All boats: back to the view you picked her from (v1022)
 
 - **◀ All boats** (requested: "after I click on a blue ring, and then do follow, I would like a way of snapping back
