@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-26 — Red Hook and Governors Island (v1033)
+
+- New York's last two building tiles, after Overpass let them through: Red Hook (3,336 buildings) and Governors
+  Island (245; the 2017 lidar measures two thirds of them, and the rest get default heights).
+
 ## 2026-10-26 — New York Harbor in Bird's-eye (v1032)
 
 - **New York Harbor** (requested: "Manhattan and Brooklyn, etc"): a fifth bay in Bird's-eye, `regions3d.js`

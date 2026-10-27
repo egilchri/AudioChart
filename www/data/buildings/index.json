@@ -51,5 +51,7 @@
   {"file": "bk-williamsburg.json", "name": "Williamsburg and Greenpoint", "bbox": [-73.975, 40.705, -73.94, 40.74]},
   {"file": "liberty-ellis.json", "name": "Liberty and Ellis Islands", "bbox": [-74.05, 40.686, -74.035, 40.702]},
   {"file": "jersey-city.json", "name": "Jersey City waterfront", "bbox": [-74.045, 40.705, -74.025, 40.735]},
-  {"file": "hoboken.json", "name": "Hoboken", "bbox": [-74.04, 40.735, -74.015, 40.76]}
+  {"file": "hoboken.json", "name": "Hoboken", "bbox": [-74.04, 40.735, -74.015, 40.76]},
+  {"file": "bk-red-hook.json", "name": "Red Hook", "bbox": [-74.02, 40.665, -73.995, 40.685]},
+  {"file": "governors-island.json", "name": "Governors Island", "bbox": [-74.026, 40.683, -74.01, 40.695]}
 ]
