@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-27 — Sailors page: New York by helicopter (v1038)
+
+- Tab 12 on the sailors page: a one-minute tour of New York Harbor in Bird's-eye with live AIS (Port Newark, a ship's
+  card opened and closed, Liberty, the Hudson). Recorded frame by frame on a stopped clock by
+  design/pending/nyc-tour/record.mjs (`--dots` keeps the vessel dots, off by default) and built by build.py.
+
 ## 2026-10-27 — ⛵14: jump to where the boats show (v1037)
 
 - Requested: "I want to be able to jump to level where I can see the boats and ships". A ⛵14 button under the zoom
