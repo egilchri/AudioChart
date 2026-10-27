@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-27 — Sailors page: Penobscot Bay by helicopter (v1039)
+
+- Tab 13 on the sailors page: a one-minute helicopter tour of Penobscot Bay in Bird's-eye (Rockland breakwater, the
+  Vinalhaven ferry on her timetable, Buoy F's live card opened and closed, the Fox Islands Thorofare, Camden). Live AIS
+  off (only two Penobscot vessels were heard that evening, and live hides the timetable ferries). Recorded by
+  design/pending/penobscot-tour/record.mjs at ?clock=13:39, built by build.py, same method as the New York tour.
+
 ## 2026-10-27 — Sailors page: New York by helicopter (v1038)
 
 - Tab 12 on the sailors page: a one-minute tour of New York Harbor in Bird's-eye with live AIS (Port Newark, a ship's
