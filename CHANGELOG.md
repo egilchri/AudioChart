@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-27 — Live vessels' names on hover (v1035)
+
+- Requested: "not having their names show at first but only when you hover. And leaving out the little satellite
+  dish icons". In Bird's-eye, a live AIS vessel's name no longer shows all the time. It appears while the pointer is
+  over her, her 3D boat or her dot, and the names it would cover give way. It has no 📡 in front. The pointer leaving
+  her for a panel or a button takes the name away. On a touch screen, which has no hover, a tap opens her card as
+  before. The picking that a tap uses is now `liveAt`, shared by both. The dots' browser tooltip is gone too, since
+  the label replaces it.
+
 ## 2026-10-27 — Dots, not rings, at every height (v1034)
 
 - Requested: "try it without the green and blue circles, but still seeing the boats at all zoom levels. When we zoom

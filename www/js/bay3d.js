@@ -2072,18 +2072,37 @@ function tapAt(cx, cy) {
   const r = renderer.domElement.getBoundingClientRect(), scr = (x, y, z) => { _tp.set(x, y, z).project(camera); return _tp.z < 1 ? [r.left + (_tp.x + 1) / 2 * r.width, r.top + (1 - _tp.y) / 2 * r.height] : null; };
   if (buoyF) { const a = scr(buoyF.x, 0, buoyF.z), b = scr(buoyF.x, 6 * buoyF.g.scale.x, buoyF.z); if (a && b && Math.hypot(cx - a[0], cy - (a[1] + b[1]) / 2) < 26 + Math.abs(a[1] - b[1]) / 2) { showCard(buoyF); return; } }
   if (gauge) { const a = scr(gauge.x, gauge.g.position.y, gauge.z), b = scr(gauge.x, gauge.g.position.y + 7 * gauge.g.scale.x, gauge.z); if (a && b && Math.hypot(cx - a[0], cy - (a[1] + b[1]) / 2) < 26 + Math.abs(a[1] - b[1]) / 2) { showCard(gauge); return; } }
-  if (!live.length) return;
-  let best = null, bd = 26;
+  const best = liveAt(cx, cy);
+  if (best) showCard(best);
+}
+// the live vessel under a point on the screen (client px), within a finger's width of her: for a tap, and (v1035)
+// for the pointer hovering, which shows her name
+function liveAt(cx, cy, reach = 26) {
+  if (!live.length) return null;
+  const r = renderer.domElement.getBoundingClientRect(), scr = (x, y, z) => { _tp.set(x, y, z).project(camera); return _tp.z < 1 ? [r.left + (_tp.x + 1) / 2 * r.width, r.top + (1 - _tp.y) / 2 * r.height] : null; };
+  let best = null, bd = reach;
   for (const v of live) {
     if (!v.on || (nest.on && nest.v === v)) continue;
     const top = (v.L > 100 ? 45 : v.L > 25 ? 14 : 8) * v.group.scale.x, a = scr(v.x, 0, v.z), b = scr(v.x, top, v.z); if (!a || !b) continue;
-    b[1] -= 22;   // (her name, just above her)
+    b[1] -= v === hoverV ? 22 : 0;   // (her name, just above her, while it shows)
     const dx = b[0] - a[0], dy = b[1] - a[1], k = clamp(((cx - a[0]) * dx + (cy - a[1]) * dy) / ((dx * dx + dy * dy) || 1), 0, 1);
     const d = Math.hypot(cx - a[0] - dx * k, cy - a[1] - dy * k);
     if (d < bd) { bd = d; best = v; }
   }
-  if (best) showCard(best);
+  return best;
 }
+// Names on hover (v1035, requested: "not having their names show at first but only when you hover. And leaving out
+// the little satellite dish icons"): a live vessel's name shows only while the pointer is over her or her dot. A
+// touch screen has no hover: a tap opens her card, as before.
+let hoverV = null;
+window.__hover = () => hoverV?.A?.name ?? null;   // (for checking from a script)
+// (one listener for the whole page: over a dot, her; over the 3D view, whoever's under the pointer; over a panel or
+// a button, nobody, so her name goes when the pointer leaves her for one)
+document.addEventListener('pointermove', e => {
+  if (e.pointerType !== 'mouse' || e.buttons) return;
+  hoverV = e.target._v && live.includes(e.target._v) ? e.target._v : sceneEl.contains(e.target) ? liveAt(e.clientX, e.clientY, 18) : null;
+});
+document.addEventListener('pointerleave', () => { hoverV = null; });
 
 // ── Buoy F (v1013, requested; buoyf.js): the University of Maine's data buoy in West Penobscot Bay, its current
 // as arrows on the water (at the surface, and the strongest below, when it differs), a label, and its readings on
@@ -2696,10 +2715,10 @@ function updateLabels() {
       const d = Math.hypot(v.x - view.x, v.z - view.z);
       if (d < Math.max(view.dist * 2, 4000)) cand.push({ text: v.label, x: v.x, y: (v.kind === 'cruise' ? 55 : 14) * v.group.scale.x, z: v.z, cls: 'wpt', pri: (v.kind === 'cruise' ? 0.6 : 0.9) + d / 1e6 });
     }
-    for (const v of live) {   // live AIS vessels (v986)
-      if (!v.on || view.dist > 40000 || (nest.on && nest.v === v)) continue;
+    for (const v of live) {   // live AIS vessels (v986): only the one the pointer is over (v1035)
+      if (v !== hoverV || !v.on || (nest.on && nest.v === v)) continue;
       const d = Math.hypot(v.x - view.x, v.z - view.z);
-      if (d < Math.max(view.dist * 2, 4000)) cand.push({ text: `📡 ${aisName(v.A)}${v.ashore ? ' · ashore' : ''}`, x: v.x, y: v.ashore ? Math.max(0, heightAt(v.A.lon, v.A.lat)) + 8 : (v.L > 100 ? 45 : v.L > 25 ? 14 : 8) * v.group.scale.x, z: v.z, cls: 'wpt', pri: 0.85 + d / 1e6 });
+      cand.push({ text: `${aisName(v.A)}${v.ashore ? ' · ashore' : ''}`, x: v.x, y: v.ashore ? Math.max(0, heightAt(v.A.lon, v.A.lat)) + 8 : (v.L > 100 ? 45 : v.L > 25 ? 14 : 8) * v.group.scale.x, z: v.z, cls: 'wpt', pri: -1 });   // (first: the names it overlaps give way)
     }
     if (bowdoin && nest.v !== bowdoin && view.dist < 30000) { const d = Math.hypot(bowdoin.x - view.x, bowdoin.z - view.z); if (d < Math.max(view.dist * 2, 3000)) cand.push({ text: 'Bowdoin', x: bowdoin.x, y: 24 * bowdoin.boat.group.scale.x, z: bowdoin.z, cls: 'wpt', pri: 0.7 }); }
     // (v907: no "⛵ You" label over your boat any more — requested: "get rid of the box that follows the boat")
@@ -2768,7 +2787,7 @@ function updateLiveMarks() {
     // underway, a flashing blue ring (v1021; a brighter green from v1013): making 0.5 kn or more, and not
     // reporting herself at anchor or moored
     const uw = !v.ashore && (v.A.sog ?? 0) >= 0.5 && v.A.status !== 1 && v.A.status !== 5;
-    el._v = v; el.title = `${aisName(v.A)}${uw ? ' · underway' : ''}`; el.className = (follow === v ? 'fol' : '') + (uw ? ' uw' : '');
+    el._v = v; el.className = (follow === v ? 'fol' : '') + (uw ? ' uw' : '');
     el.style.left = (p.x + 1) / 2 * W + 'px'; el.style.top = (1 - p.y) / 2 * H + 'px'; el.hidden = false;
     n++;
   }
