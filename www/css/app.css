@@ -4461,6 +4461,18 @@ body.wco-active #underway-btn { top: 10px; }
   background: transparent;
 }
 
+#zoom-boats-btn {
+  font: 700 0.68rem var(--font-brass-mono);
+  color: var(--brass);
+  background: transparent;
+  border: 1px solid var(--brass-dim);
+  border-radius: 5px;
+  padding: 2px 3px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+#zoom-boats-btn:hover { background: rgba(224, 168, 67, 0.18); }
+
 /* ── Pan controls ─────────────────────────────────────────────────────────── */
 #pan-controls-wrap {
   display: flex;

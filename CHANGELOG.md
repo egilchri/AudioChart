@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-27 — ⛵14: jump to where the boats show (v1037)
+
+- Requested: "I want to be able to jump to level where I can see the boats and ships". A ⛵14 button under the zoom
+  slider (desktop, where the slider is) takes the chart, or Bird's-eye open over it, straight to level 14.
+
 ## 2026-10-27 — A second click puts a boat's card away (v1036)
 
 - Requested: "the first click should bring up the card for a boat. The second click should dismiss it." In

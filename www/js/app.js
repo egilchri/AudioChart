@@ -9335,6 +9335,11 @@ function _ensureMap() {
   });
   _map.on('zoomend', _syncZoomSlider);
   _syncZoomSlider();
+  // ⛵14 (v1037): straight to level 14, where the boats and ships show
+  document.getElementById('zoom-boats-btn').addEventListener('click', () => {
+    _zoomSlider.value = 14;
+    _zoomSlider.dispatchEvent(new Event('input'));
+  });
 
   // Pan buttons (desktop only — hidden by CSS on mobile)
   const PAN_PX = 200;
