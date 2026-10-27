@@ -37,6 +37,7 @@ REGIONS = {
     # named as over water)
     'piscataqua': {'bbox': (42.88, -70.97, 43.22, -70.39), 'charts': '~/Documents/Charts/ENC/piscataqua_only',
                    'wet': {'Sarah Mildred Long Bridge', 'Piscataqua River Bridge'}},
+    'new-york-harbor': {'bbox': (40.45, -74.30, 40.95, -73.65), 'charts': '~/Documents/Charts/ENC/nyc_only'},
 }
 OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter']
 
@@ -46,6 +47,30 @@ OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private
 # carriageway; two lists are averaged into one centre line (a bridge carrying both directions side by side).
 GG_ORANGE, STEEL, WHITE, CONCRETE, OLD_STEEL = 0xc0362c, 0x9aa3a8, 0xd9dde0, 0xbdbab2, 0x7f8a84
 SPECS = [
+    # New York Harbor (v1032, requested: "add proper towers for Brooklyn and Verrazzano bridges").
+    # Brooklyn Bridge (1883): granite towers 84 m above the water, each with two pointed arches the roadway passes
+    # through; main span 486 m between them (the chart's tower piers, 40.70759/-73.99873 and 40.70441/-73.99474, are
+    # 487 m apart), side spans 283 m to the anchorages; 38.7 m clearance at mid-span (chart). The two one-way
+    # carriageways are averaged into one line.
+    {'name': 'Brooklyn Bridge', 'region': 'new-york-harbor', 'kind': 'suspension', 'color': 0xa99f8c, 'axis': 'lon', 'w': 26, 'depth': 5,
+     'ways': [[432550257, 808611020, 46177152, 432550256, 808611043, 808611038, 298734351, 808611037, 808611027, 46116280, 46177116],
+              [808611034, 122660450, 808611042, 808611041, 298734352, 808611046, 432550255, 808611021, 432550259]],
+     'deck': [[-74.0030, None], [-74.00105, 27], [-73.99873, 37], [-73.99673, 44], [-73.99474, 37], [-73.99242, 27], [-73.9900, None]],
+     'towers': [[-73.99873, 84, 'gothic'], [-73.99474, 84, 'gothic']],
+     'cables': [[[-74.00105, 'deck'], [-73.99873, 'top'], [-73.99474, 'top'], [-73.99242, 'deck']]], 'sag_over': 2,
+     'free': [[-74.00105, -73.99242]], 'span': 50,
+     'blocks': [[-74.00105, 27, 40], [-73.99242, 27, 40]]},
+    # Verrazzano-Narrows Bridge (1964): steel towers 211 m, main span 1,298 m (the chart's PYLONS, -74.05251 and
+    # -74.03837, are 1,297 m apart), side spans 370 m to the anchorages, double decked on a 7.3 m truss; 65.5 m
+    # clearance at mid-span (chart). The upper deck's two directions are averaged into one line.
+    {'name': 'Verrazzano-Narrows Bridge', 'short': 'Verrazzano Bridge', 'region': 'new-york-harbor', 'kind': 'suspension', 'color': 0x9ea7a6,
+     'axis': 'lon', 'w': 31, 'depth': 7.3,
+     'ways': [[10670862, 46858872], [865473231]],
+     'deck': [[-74.0590, None], [-74.05654, 60], [-74.05251, 68], [-74.04544, 73], [-74.03837, 68], [-74.03434, 60], [-74.0334, None]],
+     'towers': [[-74.05251, 211, 'portal'], [-74.03837, 211, 'portal']],
+     'cables': [[[-74.05654, 'deck'], [-74.05251, 'top'], [-74.03837, 'top'], [-74.03434, 'deck']]], 'sag_over': 2,
+     'free': [[-74.05654, -74.03434]], 'span': 70,
+     'blocks': [[-74.05654, 40, 50], [-74.03434, 40, 50]]},
     # Golden Gate (1937): towers 227 m above the water (chart PYLONS HEIGHT 225.6), main span 1,280 m between them
     # (37.8140 and 37.8255, the chart's south pier and the OSM way's break at Lime Point), side spans to the
     # anchorages (37.8110, 37.8286); road 67 m above high water at mid-span (chart VERCLR 70.5) on a 7.6 m truss.

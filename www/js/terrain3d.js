@@ -136,12 +136,15 @@ export function photoAtCells(dem, t) {
 // Tree height: the elevation is bare earth, so lift cells the photo shows as forest
 // (dark, green-leaning) by a typical Maine spruce height, smoothed at the edges.
 // liftAt(x, y) → 0..1 lets the 3D-tree corridor near the route use real trees instead.
-export function addCanopy(dem, t, liftAt = null) {
+// strict (v1032, a city's: SF Bay, New York): only plainly green cells are trees. The loose test (dark, not red
+// or blue) took Brooklyn's building shadows and dark roofs for forest and planted spruce on them.
+export function addCanopy(dem, t, liftAt = null, strict = false) {
   const { w, h } = dem, px = photoAtCells(dem, t);
   let m = new Float32Array(w * h);
   for (let i = 0; i < w * h; i++) {
     const r = px[i * 4], g = px[i * 4 + 1], b = px[i * 4 + 2], lum = 0.3 * r + 0.59 * g + 0.11 * b;
-    m[i] = (dem.elev[i] > 0.8 && px[i * 4 + 3] > 0 && lum < 105 && g >= r - 4 && g >= b - 12) ? 1 : 0;
+    const green = strict ? g >= r + 8 && g >= b + 6 && lum > 30 && lum < 130 : lum < 105 && g >= r - 4 && g >= b - 12;
+    m[i] = (dem.elev[i] > 0.8 && px[i * 4 + 3] > 0 && green) ? 1 : 0;
   }
   for (let pass = 0; pass < 3; pass++) {
     const o = new Float32Array(w * h);
@@ -199,6 +202,16 @@ export function photoMat(t, aniso = 8) {
 
 // Spruce for 3D trees: a tiered lathe up close, a plain cone farther off. Unit height; instances
 // scale them. White material so per-instance colours show as they are. Made once, shared.
+// A street or park tree (v1032, for SF Bay and New York): a trunk and a round crown, unit height
+let BROADLEAF = null;
+export function broadleaf() {
+  if (BROADLEAF) return BROADLEAF;
+  const prof = [[0.07, 0], [0.07, 0.32], [0.55, 0.38], [0.92, 0.55], [0.95, 0.7], [0.75, 0.88], [0.4, 0.98], [0.02, 1]];
+  const detailed = new THREE.LatheGeometry(prof.map(([r, h]) => new THREE.Vector2(r, h)), 7);
+  const simple = new THREE.IcosahedronGeometry(0.75, 0); simple.translate(0, 0.62, 0);
+  const mat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+  return (BROADLEAF = { detailed, simple, mat });
+}
 let SPRUCE = null;
 export function spruce() {
   if (SPRUCE) return SPRUCE;

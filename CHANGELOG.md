@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-10-26 — New York Harbor in Bird's-eye (v1032)
+
+- **New York Harbor** (requested: "Manhattan and Brooklyn, etc"): a fifth bay in Bird's-eye, `regions3d.js`
+  'new-york-harbor', covering the Lower and Upper Bay, the Hudson to the George Washington Bridge, the East and Harlem
+  Rivers, the Kills and Jamaica Bay. It's Bird's-eye only, like SF Bay (the user's choice: not a chart-app cruising
+  region). Its chart data is a region build of the 59 NOAA US4/US5 cells (`~/Documents/Charts/ENC/nyc_only`); a water
+  mesh covers Rockaway Inlet and Jamaica Bay. The relay listens to it (`NYC_BOX`, `RELAY_V` 1032; needs a `wrangler
+  deploy`).
+- **Bridges:** 309, from `build_bridges.py new-york-harbor`. The Brooklyn Bridge and the Verrazzano-Narrows Bridge
+  are built as specs (requested: "add proper towers for Brooklyn and Verrazzano bridges"), placed by the chart's
+  tower piers. Brooklyn has its granite towers, 84 m high, with two pointed arches the roadway passes through and a
+  cornice (`bridges3d.js` 'gothic'), and its anchorages. Verrazzano has steel towers 211 m high, a 1,298 m main span,
+  and cables to its anchorages. The rest are decks at their charted clearance.
+- **Buildings** (OSM, lidar, NAIP, a brick-and-brownstone palette): Lower Manhattan, SoHo/Tribeca/LES, Chelsea and the
+  Village, Midtown, Brooklyn Heights and DUMBO, Williamsburg and Greenpoint, Liberty and Ellis Islands, Jersey City's
+  waterfront and Hoboken: about 55,000. New York's lidar is from 2017, so `build_buildings.py` now takes OSM's height
+  where it's well above the lidar's. That covers towers built since the survey (Central Park Tower 472 m, One
+  Vanderbilt, Hudson Yards) and ones too slender for its points (432 Park, 426 m). Red Hook and Governors Island
+  failed on Overpass and are still to do. Also the Isles of Shoals (Piscataqua, 72 buildings).
+- **Trees** (requested: "fix the spruce trees in Brooklyn"): SF Bay and New York (`trees: 'broadleaf'`) get round
+  street and park trees, and only plainly green cells of the photo count as trees (`addCanopy`'s strict). The old
+  test took building shadows and dark roofs for spruce forest.
+
 ## 2026-10-26 — SF Bay and Piscataqua buildings, finished (v1031)
 
 - **SF Bay**, all rebuilt with v1028's tall-building heights and multipolygon outlines: Fisherman's Wharf and North

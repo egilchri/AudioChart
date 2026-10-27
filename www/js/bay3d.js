@@ -11,7 +11,7 @@
 import * as THREE from 'three';
 import { Water } from './lib/three/Water.js';
 import { makeWakes } from './wake3d.js';
-import { REGION3D, LON0, LAT0, MX, MY, wx, wz, readDem, readTopobathy, photo, addCanopy, gridMesh, photoMat, buildTown, disposeGroup, spruce, TOWN_NIGHT } from './terrain3d.js';
+import { REGION3D, LON0, LAT0, MX, MY, wx, wz, readDem, readTopobathy, photo, addCanopy, gridMesh, photoMat, buildTown, disposeGroup, spruce, broadleaf, TOWN_NIGHT } from './terrain3d.js';
 import { sunPos, SUN, makeSky, makeEnv, glowSprite, flashFor, flashOn, sectorColour, weatherPanel, startConditions, makeTrimmer, cycleLook } from './weather3d.js';
 import { makeSailboat, fleetType } from './sailboat3d.js';
 import { makeAngelique, makeBowdoin } from './angelique3d.js';
@@ -54,6 +54,7 @@ const DEG = Math.PI / 180;
 // stays inside the bay itself. Which bay: Penobscot, or Casco (v992; regions3d.js, its chart region RID).
 const REG = REGIONS3D[REGION3D], RID = REGION3D, PENOBSCOT = RID === 'penobscot-bay';
 const OVERVIEW = REG.overview;
+const BROADLEAF = REG.trees === 'broadleaf';   // (v1032: a city's trees, and only plainly green cells; terrain3d.js addCanopy)
 const BAY = REG.bay;
 const WHOLE = { ...REG.whole, tilt: 40 * DEG, az: 0 };
 const MIN_DIST = 120, MAX_DIST = 140000;
@@ -333,7 +334,7 @@ function heightAt(lon, lat) {
   return (c >= 0 && r >= 0 && c < ov.w && r < ov.h) ? ov.elev[r * ov.w + c] : -3;
 }
 ovPhotoP.then(ph => {
-  addCanopy(ov, ph);
+  addCanopy(ov, ph, null, BROADLEAF);
   const m2 = gridMesh(ov, ph, OV_STRIDE, seabed(photoMat(ph, ANISO)), yOf);
   scene.remove(ovMesh); ovMesh.geometry.dispose(); ovMesh = m2; scene.add(m2);
   for (const T of tiles) if (T.state === 'ready') sinkOverview(T, true);
@@ -370,7 +371,7 @@ async function loadTile(T) {
     T.full.visible = false; scene.add(T.full, T.coarse); sinkOverview(T, true); T.state = 'ready';
     photoP.then(ph => {
       if (T.state !== 'ready' || T.gen !== gen) { ph.img.close?.(); return; }
-      addCanopy(dem, ph, () => 0);   // forest mask only: the 3D trees give the forest its height here
+      addCanopy(dem, ph, () => 0, BROADLEAF);   // forest mask only: the 3D trees give the forest its height here
       T.spots = treeSpots(T, dem); treesDirty = true;
       const mat = seabed(photoMat(ph, ANISO)), wasNear = T.full.visible;
       scene.remove(T.full, T.coarse); T.full.geometry.dispose(); T.coarse.geometry.dispose();
@@ -565,6 +566,12 @@ function treeSpots(T, dem) {
     if (dem.elev[i] <= 0.6 || dem.canopy[i] < 0.45) continue;
     const lon = dem.west + (x + rnd()) * dem.dx, lat = dem.north - (y + rnd()) * dem.dy;
     if (lon < T.w || lon >= T.e || lat < T.s || lat >= T.n) continue;   // the overlap belongs to the neighbour
+    if (BROADLEAF) {   // a city's trees (v1032): shorter, round crowns, a lighter green
+      const hgt = 7 + rnd() * 8;
+      out.push(wx(lon), dem.elev[i] - 0.5, wz(lat), hgt, hgt * (0.36 + rnd() * 0.12), rnd() * 6.28,
+        0.07 + rnd() * 0.05, 0.13 + rnd() * 0.07, 0.05 + rnd() * 0.03, rnd());
+      continue;
+    }
     const hgt = 9 + rnd() * 10;
     out.push(wx(lon), dem.elev[i] - 0.5, wz(lat), hgt, hgt * (0.19 + rnd() * 0.08), rnd() * 6.28,
       0.055 + rnd() * 0.035, 0.09 + rnd() * 0.05, 0.07 + rnd() * 0.03, rnd());
@@ -573,7 +580,7 @@ function treeSpots(T, dem) {
 }
 const TREE_CAP = 60000, NEAR_TREE = 600;
 const TREES = (() => {
-  const { detailed, simple, mat } = spruce();
+  const { detailed, simple, mat } = BROADLEAF ? broadleaf() : spruce();
   const mk = geo => { const m = new THREE.InstancedMesh(geo, mat, TREE_CAP); m.count = 0; m.frustumCulled = false; m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); scene.add(m); return m; };
   return { near: mk(detailed), far: mk(simple), K: 900, at: null };
 })();

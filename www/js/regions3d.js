@@ -27,6 +27,7 @@ export const REGIONS3D = {
     bay: [-122.55, 37.45, -122.05, 38.12],
     whole: { lon: -122.33, lat: 37.78, dist: 55000 },
     chartWater: [-122.62, 37.42, -122.0, 38.17],   // (v1020: the chart's land tells water from land here; bay3d.js)
+    trees: 'broadleaf',   // (v1032: a city's street and park trees, not Maine's spruce; bay3d.js)
   },
   // Portsmouth Harbor and the Piscataqua River (v1028, requested: "Let's bring piscataqua online, similar to how we
   // brought up San Francisco Bay"): Portsmouth, Kittery and New Castle, up the river to Great Bay, the Isles of
@@ -38,6 +39,17 @@ export const REGIONS3D = {
     bay: [-70.92, 42.94, -70.55, 43.18],
     whole: { lon: -70.73, lat: 43.06, dist: 30000 },
     chartWater: [-70.97, 42.88, -70.39, 43.22],   // (Great Bay's flats and the back channels, as SF's)
+  },
+  // New York Harbor (v1032, requested: "Manhattan and Brooklyn, etc"): the Lower and Upper Bay, the Hudson to the
+  // George Washington Bridge, the East and Harlem Rivers, the Kills, Jamaica Bay. Chart data from the region build.
+  'new-york-harbor': {
+    name: 'New York Harbor', short: 'New York',
+    origin: [-74.0, 40.69],
+    overview: [-74.35, 40.4, -73.6, 41.0],
+    bay: [-74.28, 40.47, -73.68, 40.93],
+    whole: { lon: -74.02, lat: 40.66, dist: 40000 },
+    chartWater: [-74.3, 40.45, -73.65, 40.95],   // (the Meadowlands and Jamaica Bay's marshes, as SF's flats)
+    trees: 'broadleaf',
   },
 };
 export const REGION3D_KEY = 'audiochart-bay3d-region';

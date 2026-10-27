@@ -57,6 +57,22 @@ export async function makeBridges(rid, heightAt) {
     for (const T of B.towers) {
       const x = wx(T.lon), z = wz(T.lat), a = T.az * Math.PI / 180, ca = Math.cos(a), sa = Math.sin(a);
       if (T.kind === 'single') { put(x, z, BOTTOM, T.top, 12, 12, a, B.color); continue; }
+      if (T.kind === 'gothic') {   // the Brooklyn Bridge's (v1032): granite, the roadway through two pointed arches
+        const stone = 0xb7aa8f, along = 13, across = T.w + 16, archW = T.w * 0.36, pierW = (across - 2 * archW) / 3;
+        const archTop = T.deck + (T.top - T.deck) * 0.62, at = off => [x + ca * off, z + sa * off];
+        put(x, z, BOTTOM, T.deck - B.depth, along + 4, across + 4, a, stone);   // the base, below the deck
+        for (const k of [-1, 0, 1]) { const [px, pz] = at(k * (archW + pierW)); put(px, pz, T.deck - B.depth, T.top, along, pierW, a, stone); }
+        for (const k of [-1, 1]) {
+          const c = k * (archW + pierW) / 2, [ox, oz] = at(c);
+          put(ox, oz, archTop, T.top, along, archW, a, stone);   // over the arch
+          for (let i = 0; i < 4; i++) {   // its pointed head: the opening narrowing in four steps
+            const h = (archTop - T.deck) * 0.07, y1 = archTop - i * h, fill = archW * (0.5 - 0.5 * Math.sqrt(1 - ((4 - i) / 4.6) ** 2));
+            for (const sd of [-1, 1]) { const [fx, fz] = at(c + sd * (archW - fill) / 2); put(fx, fz, y1 - h, y1, along, fill, a, stone); }
+          }
+        }
+        put(x, z, T.top - 2.5, T.top + 1, along + 2, across + 2, a, stone);   // the cornice
+        continue;
+      }
       const leg = T.kind === 'lift' ? 3 : Math.max(4, T.top * 0.045), half = T.w / 2 + leg / 2;
       for (const side of [-1, 1]) put(x + ca * side * half, z + sa * side * half, BOTTOM, T.top, leg * (T.kind === "lift" ? 1.5 : 2.2), leg, a, B.color);
       const struts = T.kind === 'lift' ? [T.top - 2] : [T.deck - B.depth - 2, ...[0.45, 0.7, 0.9].map(f => T.deck + (T.top - T.deck) * f), T.top - leg * 0.4];

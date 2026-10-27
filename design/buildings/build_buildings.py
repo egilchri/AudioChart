@@ -120,6 +120,14 @@ for e in els:
             eave = max(2.4, min(eave, ridge)); stats['measured'] += 1
         else:
             eave = 4.6 if A > 60 else 2.6; ridge = eave + (2.6 if A > 60 else 1.3); stats['default'] += 1
+        # OSM's own height, where it's well above the lidar's (v1032): a tower built since the survey (New York's lidar
+        # is from 2017: Central Park Tower, Hudson Yards, One Vanderbilt came out as building sites) or too slender
+        # for its points (432 Park Avenue: 286 m measured, 426 m tall)
+        osm_h = None
+        try: osm_h = float(str(tags.get('height', '')).replace('m', '').strip())
+        except ValueError: pass
+        if osm_h and osm_h > 20 and osm_h > ridge * 1.2 + 5:
+            ridge = min(osm_h, MAXH); eave = ridge * 0.97; stats['osm_height'] = stats.get('osm_height', 0) + 1
         shape = 'gable' if rect > 0.85 and ridge - eave > 0.8 and len(ll) <= 8 else 'flat'
         if shape == 'flat': eave = max(eave, min(ridge, eave + 1.0))
         # roof colour: NAIP pixels inside the footprint

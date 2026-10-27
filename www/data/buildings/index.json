@@ -41,5 +41,15 @@
   {"file": "portsmouth.json", "name": "Portsmouth", "bbox": [-70.78, 43.06, -70.752, 43.087]},
   {"file": "kittery.json", "name": "Kittery and the Navy Yard", "bbox": [-70.752, 43.074, -70.725, 43.098]},
   {"file": "new-castle.json", "name": "New Castle", "bbox": [-70.735, 43.055, -70.705, 43.078]},
-  {"file": "kittery-point.json", "name": "Kittery Point", "bbox": [-70.715, 43.076, -70.69, 43.092]}
+  {"file": "kittery-point.json", "name": "Kittery Point", "bbox": [-70.715, 43.076, -70.69, 43.092]},
+  {"file": "isles-of-shoals.json", "name": "Isles of Shoals", "bbox": [-70.625, 42.965, -70.6, 42.995]},
+  {"file": "nyc-lower-manhattan.json", "name": "Lower Manhattan", "bbox": [-74.025, 40.698, -73.97, 40.718]},
+  {"file": "nyc-soho-les.json", "name": "SoHo, Tribeca and the Lower East Side", "bbox": [-74.02, 40.718, -73.97, 40.735]},
+  {"file": "nyc-chelsea-village.json", "name": "Chelsea and the Village", "bbox": [-74.015, 40.735, -73.965, 40.752]},
+  {"file": "nyc-midtown.json", "name": "Midtown", "bbox": [-74.01, 40.752, -73.955, 40.77]},
+  {"file": "bk-heights-dumbo.json", "name": "Brooklyn Heights and DUMBO", "bbox": [-74.005, 40.685, -73.975, 40.705]},
+  {"file": "bk-williamsburg.json", "name": "Williamsburg and Greenpoint", "bbox": [-73.975, 40.705, -73.94, 40.74]},
+  {"file": "liberty-ellis.json", "name": "Liberty and Ellis Islands", "bbox": [-74.05, 40.686, -74.035, 40.702]},
+  {"file": "jersey-city.json", "name": "Jersey City waterfront", "bbox": [-74.045, 40.705, -74.025, 40.735]},
+  {"file": "hoboken.json", "name": "Hoboken", "bbox": [-74.04, 40.735, -74.015, 40.76]}
 ]

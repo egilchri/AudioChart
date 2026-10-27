@@ -11,7 +11,7 @@ const IDLE_MS = 5 * 60e3;
 // changes the relay bumps this, and the new code starts at once in a fresh object. (Its kept names, types and
 // sizes start again too; they come back within minutes, as AIS sends them every six.) 'penobscot' until v1011,
 // 'bays' until v1019.
-const RELAY_V = 1027;
+const RELAY_V = 1032;
 
 export class AisHub {
   constructor(state, env) {
