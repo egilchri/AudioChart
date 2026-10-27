@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-26 — SF Bay and Piscataqua buildings, finished (v1031)
+
+- **SF Bay**, all rebuilt with v1028's tall-building heights and multipolygon outlines: Fisherman's Wharf and North
+  Beach (4,147), the Embarcadero's piers and Telegraph Hill (new), the Marina (3,250), South Beach and Mission Bay
+  (new), Treasure Island, Alcatraz, Sausalito, Tiburon and Belvedere, and Jack London Square. Downtown's towers are
+  at their real heights (Salesforce Tower 324 m).
+- **Piscataqua** (new): Portsmouth (1,647 buildings), Kittery and the Navy Yard (2,120), New Castle (657) and Kittery
+  Point (522), with heights from New Hampshire's 2019 coastal lidar. Maine's 2020 survey had none for Kittery, and
+  New Hampshire's misses a fifth of it, so those buildings get default heights. The Isles of Shoals failed on
+  Overpass and are still to do.
+
 ## 2026-10-26 — AutoRoute keeps off the shore (v1030)
 
 - Requested: "add the shore clearance check to the router". The router's land check only stopped a leg *crossing*
