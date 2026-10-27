@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-27 — Dots, not rings, at every height (v1034)
+
+- Requested: "try it without the green and blue circles, but still seeing the boats at all zoom levels. When we zoom
+  way out, I suppose they will be just dots". In Bird's-eye, each live vessel is now a small dot at every height:
+  green lying still, blue underway, brass for the one you follow. Close in (within 2,500 m), there's just the boat, as
+  before. ✨ Find still flashes them. `LIVE_RINGS` in bay3d.js set to true brings v1027's rings back for zoomed-out
+  views.
+
 ## 2026-10-26 — Red Hook and Governors Island (v1033)
 
 - New York's last two building tiles, after Overpass let them through: Red Hook (3,336 buildings) and Governors

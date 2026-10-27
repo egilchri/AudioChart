@@ -2741,12 +2741,16 @@ function updateLabels() {
 const marksEl = document.getElementById('livemarks'), markPool = [], findBtn = document.getElementById('findbtn');
 let flashUntil = 0, flashedOnce = false;
 const RING_NEAR = 2500;   // metres from the eye
+// (v1034, requested: "try it without the green and blue circles, but still seeing the boats at all zoom levels"):
+// each live vessel a dot at every height, no rings; true brings the rings back for zoomed-out views
+const LIVE_RINGS = false;
 function flashLive(ms = 6000) { flashUntil = performance.now() + ms; }
 function updateLiveMarks() {
   const flash = performance.now() < flashUntil, far = !nest.on && view.dist > 4000;
   marksEl.classList.toggle('flash', flash);
-  // the chart's zoom level for this view (app.js _bay3dZoomOf): 14 or closer, dots instead of rings (v1027)
-  marksEl.classList.toggle('dots', Math.log2(40075016 * Math.cos(latOf(view.z) * DEG) * sceneEl.clientWidth / 256 / (view.dist / 0.8)) >= 13.5);
+  // the chart's zoom level for this view (app.js _bay3dZoomOf): 14 or closer, dots instead of rings (v1027); with
+  // LIVE_RINGS off (v1034), dots at every height
+  marksEl.classList.toggle('dots', !LIVE_RINGS || Math.log2(40075016 * Math.cos(latOf(view.z) * DEG) * sceneEl.clientWidth / 256 / (view.dist / 0.8)) >= 13.5);
   if (findBtn) findBtn.hidden = !liveFeed.on || !live.length;
   if (live.length && !flashedOnce) { flashedOnce = true; flashLive(); } else if (!liveFeed.on) flashedOnce = false;   // (again each time Live comes on)
   const W = sceneEl.clientWidth, H = sceneEl.clientHeight;
