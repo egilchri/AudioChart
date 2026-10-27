@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-27 — A second click puts a boat's card away (v1036)
+
+- Requested: "the first click should bring up the card for a boat. The second click should dismiss it." In
+  Bird's-eye, clicking a live vessel (her dot or her 3D boat), Buoy F or the tide gauge opens her card; clicking
+  the same one again closes it (`toggleCard`). Clicking a different boat switches the card to her, and a click on
+  open water closes it (except in the crow's nest).
+
 ## 2026-10-27 — Live vessels' names on hover (v1035)
 
 - Requested: "not having their names show at first but only when you hover. And leaving out the little satellite

@@ -2070,11 +2070,13 @@ const _tp = new THREE.Vector3();
 function tapAt(cx, cy) {
   if (!aisCard) return;
   const r = renderer.domElement.getBoundingClientRect(), scr = (x, y, z) => { _tp.set(x, y, z).project(camera); return _tp.z < 1 ? [r.left + (_tp.x + 1) / 2 * r.width, r.top + (1 - _tp.y) / 2 * r.height] : null; };
-  if (buoyF) { const a = scr(buoyF.x, 0, buoyF.z), b = scr(buoyF.x, 6 * buoyF.g.scale.x, buoyF.z); if (a && b && Math.hypot(cx - a[0], cy - (a[1] + b[1]) / 2) < 26 + Math.abs(a[1] - b[1]) / 2) { showCard(buoyF); return; } }
-  if (gauge) { const a = scr(gauge.x, gauge.g.position.y, gauge.z), b = scr(gauge.x, gauge.g.position.y + 7 * gauge.g.scale.x, gauge.z); if (a && b && Math.hypot(cx - a[0], cy - (a[1] + b[1]) / 2) < 26 + Math.abs(a[1] - b[1]) / 2) { showCard(gauge); return; } }
+  if (buoyF) { const a = scr(buoyF.x, 0, buoyF.z), b = scr(buoyF.x, 6 * buoyF.g.scale.x, buoyF.z); if (a && b && Math.hypot(cx - a[0], cy - (a[1] + b[1]) / 2) < 26 + Math.abs(a[1] - b[1]) / 2) { toggleCard(buoyF); return; } }
+  if (gauge) { const a = scr(gauge.x, gauge.g.position.y, gauge.z), b = scr(gauge.x, gauge.g.position.y + 7 * gauge.g.scale.x, gauge.z); if (a && b && Math.hypot(cx - a[0], cy - (a[1] + b[1]) / 2) < 26 + Math.abs(a[1] - b[1]) / 2) { toggleCard(gauge); return; } }
   const best = liveAt(cx, cy);
-  if (best) showCard(best);
+  if (best) toggleCard(best); else if (!aisCard.hidden && !nest.on) { aisCard.hidden = true; cardV = null; }   // (a tap on open water puts her card away)
 }
+// a click on a boat opens her card; a second click on her puts it away (requested 2026-10-27)
+function toggleCard(v) { if (!aisCard.hidden && cardV === v) { aisCard.hidden = true; cardV = null; } else showCard(v); }
 // the live vessel under a point on the screen (client px), within a finger's width of her: for a tap, and (v1035)
 // for the pointer hovering, which shows her name
 function liveAt(cx, cy, reach = 26) {
@@ -2783,7 +2785,7 @@ function updateLiveMarks() {
     const p = v3.project(camera);
     if (p.z > 1 || Math.abs(p.x) > 1 || Math.abs(p.y) > 1) continue;
     let el = markPool[n];
-    if (!el) { el = document.createElement('i'); marksEl.appendChild(el); markPool[n] = el; el.addEventListener('click', () => el._v && live.includes(el._v) && showCard(el._v)); }
+    if (!el) { el = document.createElement('i'); marksEl.appendChild(el); markPool[n] = el; el.addEventListener('click', () => el._v && live.includes(el._v) && toggleCard(el._v)); }
     // underway, a flashing blue ring (v1021; a brighter green from v1013): making 0.5 kn or more, and not
     // reporting herself at anchor or moored
     const uw = !v.ashore && (v.A.sog ?? 0) >= 0.5 && v.A.status !== 1 && v.A.status !== 5;
