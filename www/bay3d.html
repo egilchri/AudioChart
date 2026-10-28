@@ -55,12 +55,12 @@ body { background: var(--sky); color: var(--ink); font-family: var(--body); font
 .panel h1 small { display: block; font-family: var(--body); font-weight: 400; font-size: 0.74rem; color: var(--muted); letter-spacing: 0; margin-top: 2px; }
 .panel .head { display: flex; align-items: start; justify-content: space-between; gap: 8px; }
 #towns-toggle { display: none; }
-#towns { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
-#towns button, .panel .whole { width: 100%; text-align: left; font: inherit; color: var(--ink); background: transparent; border: 0; border-radius: 5px; padding: 5px 8px; cursor: pointer; }
-#towns button:hover, .panel .whole:hover { background: rgba(255, 255, 255, 0.1); }
+#towns, #bridges { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+#towns button, #bridges button, .panel .whole { width: 100%; text-align: left; font: inherit; color: var(--ink); background: transparent; border: 0; border-radius: 5px; padding: 5px 8px; cursor: pointer; }
+#towns button:hover, #bridges button:hover, .panel .whole:hover { background: rgba(255, 255, 255, 0.1); }
 /* Flyover (v1046): a tick box by each place, ▶ Fly under them, and the tour's bar along the top */
-#towns li { display: flex; align-items: center; }
-#towns li input { flex: none; margin: 0 2px 0 6px; width: 15px; height: 15px; accent-color: var(--brass); cursor: pointer; }
+#towns li, #bridges li { display: flex; align-items: center; }
+#towns li input, #bridges li input { flex: none; margin: 0 2px 0 6px; width: 15px; height: 15px; accent-color: var(--brass); cursor: pointer; }
 #flyrow { display: grid; gap: 4px; }
 #flyrow .whole:disabled { opacity: 0.55; cursor: default; background: transparent; }
 #flyrow label { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--muted); padding: 0 8px; cursor: pointer; }
@@ -71,7 +71,7 @@ body { background: var(--sky); color: var(--ink); font-family: var(--body); font
 #flybar .fly-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #flybar button { flex: none; font: inherit; color: var(--ink); background: rgba(255,255,255,0.14); border: 0; border-radius: 5px; padding: 3px 9px; cursor: pointer; }
 #flybar button[hidden] { display: none; }
-#towns button.on, .panel .whole.on { background: var(--brass); color: var(--brass-ink); }
+#towns button.on, #bridges button.on, .panel .whole.on { background: var(--brass); color: var(--brass-ink); }
 .panel .whole { font-weight: 600; }
 /* Penobscot | Casco (v992): which bay, always showing, folded panel or not */
 #bayswitch { display: flex; gap: 2px; background: rgba(0, 0, 0, 0.22); border-radius: 6px; padding: 2px; }
@@ -289,6 +289,8 @@ body.embed #exagbox { top: calc(94px + env(safe-area-inset-top, 0px)); }
     <button class="whole" id="followown" type="button" hidden title="Keep your boat in the middle of the view">⌖ Follow</button>
     <div class="sect" id="townsect">Towns and harbors</div>
     <ul id="towns"></ul>
+    <div class="sect" id="bridgesect" hidden>Bridges</div>
+    <ul id="bridges"></ul>
     <div id="flyrow" hidden><button class="whole" id="flygo" type="button" disabled title="Tick places above, then fly over them in turn">✈ Tick places to fly over</button><label title="On the way, swoop down to the ships and ferries near the route"><input type="checkbox" id="flyships" checked> Stop for ships</label><label title="Say each place's name as you get there"><input type="checkbox" id="flytalk" checked> Say the names</label></div>
     <a class="back" href="./">Back to AudioChart</a>
   </div>

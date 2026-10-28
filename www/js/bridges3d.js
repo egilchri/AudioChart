@@ -14,7 +14,7 @@ const BOTTOM = -8;   // (piers and towers go on down out of sight under the wate
 // carries both ways.
 const CAR_COLOURS = [0xf2f2f0, 0xf2f2f0, 0x1c1c1e, 0x1c1c1e, 0x9a9da3, 0x9a9da3, 0x5d6168, 0xb3262b, 0x24427a, 0x6f8fae, 0x2e5a3c, 0xd8c9a8];
 
-// → { group, labels: [{ text, x, y, z }], credit, night(k), update(dt) } or null
+// → { group, labels: [{ text, x, y, z }], places: [{ name, x, z, az, L }], credit, night(k), update(dt) } or null
 export async function makeBridges(rid, heightAt) {
   let J;
   try { const r = await fetch(`./data/bridges/${rid}.json`); if (!r.ok) return null; J = await r.json(); } catch (_) { return null; }
@@ -26,6 +26,7 @@ export async function makeBridges(rid, heightAt) {
   const put = (x, z, y0, y1, along, across, az, c) => { if (y1 - y0 > 0.1) parts.push([x, (y0 + y1) / 2, z, across, y1 - y0, along, Math.PI - az, c]); };   // (az: the deck's bearing)
 
   const roads = [];   // [deck points, bridge] for the traffic
+  const places = new Map();   // the big ones, as places to fly to (v1047): by name, the longest part of each
   for (const B of J.bridges) {
     const P = B.pts.map(([lon, lat, h]) => ({ x: wx(lon), z: wz(lat), h, lon, lat }));
     // the heights: the ends on the ground, any unknown run between them ramped from the ground to the first height
@@ -53,6 +54,14 @@ export async function makeBridges(rid, heightAt) {
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
     const deck = new THREE.Mesh(g, mat(B.color)); deck.material.side = THREE.DoubleSide; group.add(deck);
     if (!B.minor && !/rail/i.test(B.name)) roads.push([P, B]);
+    {   // a place: a main bridge, or any named road bridge 700 m long (New York's are drawn plain, so "minor")
+      let L = 0; for (let i = 1; i < P.length; i++) L += Math.hypot(P[i].x - P[i - 1].x, P[i].z - P[i - 1].z);
+      const name = B.short.replace(/\s*\([^)]*\)$/, '');
+      if ((!B.minor || L >= 700) && /Bridge|Skyway|Crossing/.test(name) && name !== 'Bridge' && !/rail/i.test(B.name) && !(places.get(name)?.L >= L)) {
+        const i = P.length >> 1, a = P[Math.max(0, i - 1)], b = P[Math.min(P.length - 1, i + 1)];
+        places.set(name, { name, x: P[i].x, z: P[i].z, az: Math.atan2(b.x - a.x, -(b.z - a.z)), L });
+      }
+    }
     // piers: two columns under a wide deck, a wall under a narrow one, where the deck is over the water or low ground
     for (const [lon, lat, top, az] of B.piers) {
       const gy = heightAt(lon, lat), x = wx(lon), z = wz(lat), a = az * Math.PI / 180;
@@ -131,7 +140,7 @@ export async function makeBridges(rid, heightAt) {
   const cars = makeTraffic(roads);
   if (cars) group.add(cars.mesh);
   const night = k => { for (const m of mats.values()) m.emissive.copy(m.color).multiplyScalar(0.3 * k); cars?.night(k); };
-  return { group, labels: [...labels.values()], credit: J.credit, night, update: dt => cars?.update(dt) };
+  return { group, labels: [...labels.values()], places: [...places.values()].sort((a, b) => a.name.localeCompare(b.name)), credit: J.credit, night, update: dt => cars?.update(dt) };
 }
 
 // the traffic: one instanced mesh of boxes, each car a distance along its deck and a lane, moved on every frame

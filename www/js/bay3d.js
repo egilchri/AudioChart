@@ -667,7 +667,7 @@ const creditEl = document.getElementById('credit');
 // the help line sits above the credits, however many lines they take (v1045: they overlapped on a laptop)
 try { new ResizeObserver(() => document.documentElement.style.setProperty('--credit-h', creditEl.offsetHeight + 'px')).observe(creditEl); } catch (_) {}
 try { const sc = document.getElementById('scale'); new ResizeObserver(() => document.documentElement.style.setProperty('--scale-h', sc.offsetHeight + 'px')).observe(sc); } catch (_) {}   // (the flyover's bar sits above it on a phone: v1046)
-let bridges = null;   // (v1020, below)
+let bridges = null, onBridges = null;   // (v1020, below; onBridges: the Bridges list, v1047)
 function updateCredit() {
   const shown = townList.filter(t => t.group);
   creditEl.textContent = (EMPTY ? 'Land and seabed NOAA NCEI CUDEM · Photos USDA NAIP' : 'Elevation USGS 3DEP · Photos USDA NAIP') + (bridges ? ' · ' + bridges.credit : '') + (shown.length ? ' · Buildings © OpenStreetMap contributors' + (shown.some(t => /Microsoft/.test(t.credit)) ? ', Microsoft' : '') : '');
@@ -716,11 +716,23 @@ function townView(t) {   // t: {x, z}, a point on the town's waterfront
   }
   return { x, z, dist, tilt, az: best.az };
 }
+// Where to look at a bridge from (v1047): across it at an angle, from whichever side has the most water under the
+// camera, far enough back to take in most of it
+function bridgeView(b) {   // b: { x, z, az (the deck's bearing), L }
+  const dist = clamp(b.L * 0.45, 700, 2600), tilt = 62 * DEG, back = dist * Math.sin(tilt);
+  let best = null;
+  for (const off of [55, -55, 125, -125]) {
+    const az = b.az + off * DEG, fx = Math.sin(az), fz = -Math.cos(az);
+    let wet = 0; for (let r = 100; r <= back; r += 80) if (heightAt(lonOf(b.x - fx * r), latOf(b.z - fz * r)) <= 0.5) wet++;
+    if (!best || wet > best.wet) best = { wet, az };
+  }
+  return { x: b.x, z: b.z, dist, tilt, az: best.az };
+}
 const townsUl = document.getElementById('towns'), wholeBtn = document.getElementById('whole');
 let current = null;
 function markCurrent(id) {
   current = id; stopFollow(); fly?.end();
-  for (const b of townsUl.querySelectorAll('button')) b.classList.toggle('on', b.dataset.id === id);
+  for (const b of document.querySelectorAll('#towns button, #bridges button')) b.classList.toggle('on', b.dataset.id === id);
   wholeBtn.classList.toggle('on', id === 'whole');
 }
 // The village and its waterfront: the densest cluster of the town's buildings (or the index's
@@ -779,7 +791,7 @@ const [navGJ, placesGJ, landGJ] = await Promise.all([
 ]);
 const inBay = ([x, y]) => x >= OW && x <= OE && y >= OS && y <= ON;
 // ── Bridges (v1020; bridges3d.js): the region's, if it has any ──
-makeBridges(RID, heightAt).then(B => { if (!B) return; bridges = B; scene.add(B.group); try { B.night(env.lightsK); } catch (_) {} updateCredit(); })   // (env: once it's made)
+makeBridges(RID, heightAt).then(B => { if (!B) return; bridges = B; scene.add(B.group); try { B.night(env.lightsK); } catch (_) {} updateCredit(); onBridges?.(B); })   // (env: once it's made)
   .catch(err => console.warn('[bay3d] bridges', err));
 const navs = navGJ.features.filter(f => f.geometry?.type === 'Point' && inBay(f.geometry.coordinates));
 const BUOY_T = ['BOYLAT', 'BCNLAT', 'BOYSAW', 'BOYSPP', 'BOYCAR', 'BOYISD'];
@@ -2871,16 +2883,36 @@ const clock = new THREE.Clock();
   let saved = {}; try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (_) {}
   const boxes = [...townsUl.querySelectorAll('input[type=checkbox]')];
   for (const c of boxes) c.checked = !!saved.ticked?.includes(c.dataset.id);
+  // the stops: a town's view needs its buildings (waterfront); a bridge's is worked out from its line
+  const placeView = new Map(townList.map(t => [t.id, { name: t.name, view: async () => townView(await waterfront(t)) }]));
   if (saved.ships === false) shipsCk.checked = false;
   if (saved.talk === false) talkCk.checked = false;
   const ticked = () => boxes.filter(c => c.checked).map(c => c.dataset.id);
   const sync = () => {
     const n = ticked().length;
     go.disabled = !n; go.textContent = n ? `▶ Fly over ${n === 1 ? 'it' : `these ${n}`}` : '✈ Tick places to fly over';
-    try { localStorage.setItem(KEY, JSON.stringify({ ticked: ticked(), ships: shipsCk.checked, talk: talkCk.checked })); } catch (_) {}
+    const have = new Set(boxes.map(c => c.dataset.id)), later = (saved.ticked || []).filter(id => !have.has(id));   // (the bridges' ticks, before they've loaded)
+    try { localStorage.setItem(KEY, JSON.stringify({ ticked: [...later, ...ticked()], ships: shipsCk.checked, talk: talkCk.checked })); } catch (_) {}
   };
   for (const c of [...boxes, shipsCk, talkCk]) c.addEventListener('change', sync);
-  row.hidden = !boxes.length || EMPTY || !document.getElementById('flybar'); sync();
+  const showRow = () => { row.hidden = !boxes.length || EMPTY || !document.getElementById('flybar'); };
+  showRow(); sync();
+  // the Bridges list (v1047), once they're loaded: a click flies there, a tick makes it a stop
+  const bridgeUl = document.getElementById('bridges');
+  onBridges = B => {
+    if (!bridgeUl || bridgeUl.childElementCount || !B.places?.length) return;
+    for (const p of B.places) {
+      const id = 'bridge:' + p.name, li = document.createElement('li'), b = document.createElement('button'), ck = document.createElement('input');
+      b.type = 'button'; b.textContent = p.name.replace(/ Bridge$/, ''); b.title = p.name; b.dataset.id = id;
+      b.addEventListener('click', () => { markCurrent(id); foldPanel(true); flyTo(bridgeView(p), 3200); });
+      ck.type = 'checkbox'; ck.dataset.id = id; ck.setAttribute('aria-label', `Fly over ${p.name}`); ck.title = 'Fly over it (▶ Fly, below)';
+      ck.checked = !!saved.ticked?.includes(id); ck.addEventListener('change', sync);
+      li.append(ck, b); bridgeUl.appendChild(li); boxes.push(ck);
+      placeView.set(id, { name: p.name, view: async () => bridgeView(p) });
+    }
+    document.getElementById('bridgesect').hidden = false; showRow(); sync();
+  };
+  if (bridges) onBridges(bridges);
   fly = makeFlyover({ view, bar: document.getElementById('flybar') });
   const azTo = (a, b) => Math.atan2(b.x - a.x, -(b.z - a.z));
   // a vessel as a stop: the camera keeps up with her, and a live one's card opens while we're there
@@ -2911,10 +2943,10 @@ const clock = new THREE.Clock();
     return out;
   };
   go.addEventListener('click', async () => {
-    const picked = townList.filter(t => ticked().includes(t.id)); if (!picked.length) return;
+    const picked = ticked().map(id => placeView.get(id)).filter(Boolean); if (!picked.length) return;
     go.disabled = true; go.textContent = 'Getting ready…';
     const stops = [];
-    for (const t of picked) { const tv = townView(await waterfront(t)); stops.push({ name: t.name, x: tv.x, z: tv.z, hold: 5, target: () => tv }); }
+    for (const P of picked) { const tv = await P.view(); stops.push({ name: P.name, x: tv.x, z: tv.z, hold: 5, target: () => tv }); }
     const from = { x: view.x, z: view.z };
     let order = orderStops(stops, from);
     if (shipsCk.checked) order = withShips(order, from);

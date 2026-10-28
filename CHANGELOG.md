@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-28 — Bird's-eye: bridges as places and flyover stops (v1047)
+
+- Requested: "add the bridges as stops". Under Towns and harbors, a Bridges list: San Francisco's eight (Bay,
+  Benicia–Martinez, Carquinez, Dumbarton, Golden Gate, Napa River, Richmond–San Rafael, San Mateo–Hayward) and
+  New York's sixteen (any named road bridge 700 m or longer, so the George Washington, Manhattan, Williamsburg,
+  Queensboro and Throgs Neck too, not only the Brooklyn and Verrazzano). A click flies there; a tick makes it a
+  Flyover stop. Each is seen across its middle at an angle, from the side with the most water under the camera, far
+  enough back to take in most of it (bridgeView in bay3d.js; bridges3d.js returns the places).
+- Ticked bridges are remembered with the towns (they load a moment later, so their ticks are kept until they do).
+
 ## 2026-10-28 — Bird's-eye: Flyover (v1046)
 
 - Requested: "a flyover feature in the app ... a table of places, and they would check which ones they wanted to fly
