@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-10-28 — Flyover: take-off and landing, the AudioChart helicopter; no more bare green ground (v1049)
+
+- Requested: "We should always take off from the same place ... a way to specify takeoff and landing spot". Each
+  bay has a heliport in regions3d.js (Knox County Regional Airport, the Portland Jetport, Pease, SFO, the Downtown
+  Manhattan Heliport). The helicopter waits on a helipad there; a tour starts with her rotors winding up, lifting
+  off and climbing away (the view swinging from her side to astern of her), and ends with her coming in over the
+  landing pad, settling onto it and winding down. Under ▶ Fly: 🛫 From … Change, and 🛬 Lands … Change; Change, then
+  a tap on land, picks a spot (named after the nearest charted place or town); the take-off can go back to the
+  heliport, and the landing back to the start or "Stay up" (no landing). Remembered for each bay.
+- Requested: "It would be nice if the AudioChart logo was on the helicopter". The app's icon in a white ring on both
+  sides of her cabin, and "AudioChart" in white along her tail boom (heli3d.js).
+- Requested: "bar harbor is looking a little sparse". A detail tile's aerial photo can take the USDA service 20-30 s
+  the first time; until it came, the ground was plain green and treeless. Now the whole bay's photo (and trees from
+  it) is draped on the tile meanwhile: coarser, but the right colours (gridMesh takes a separate photo for its
+  texture coordinates).
+
 ## 2026-10-28 — Flyover by helicopter; ✈ Places inside the app (v1048)
 
 - Requested: "I want the helicopter to fly around, giving the tour". The red helicopter from the sailors-page videos

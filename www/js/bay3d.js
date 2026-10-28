@@ -195,7 +195,7 @@ seabed(PLAIN);
 const view = { x: wx(WHOLE.lon), z: wz(WHOLE.lat), dist: WHOLE.dist, az: WHOLE.az, tilt: WHOLE.tilt };
 const maxTilt = d => DEG * (d > 40000 ? 55 : d < 2000 ? 80 : 80 - 25 * Math.log(d / 2000) / Math.log(20));
 function clampView() {
-  view.dist = clamp(view.dist, MIN_DIST, MAX_DIST);
+  view.dist = clamp(view.dist, fly?.on() ? 40 : MIN_DIST, MAX_DIST);   // (closer in on the helipad, for the take-off: v1049)
   view.tilt = clamp(view.tilt, 0.05, maxTilt(view.dist));   // never quite straight down, so 'up' stays defined
   view.x = clamp(view.x, wx(BAY[0]), wx(BAY[2])); view.z = clamp(view.z, wz(BAY[3]), wz(BAY[1]));
 }
@@ -216,7 +216,7 @@ function groundAt(clientX, clientY) {   // where a screen point meets sea level,
 }
 
 // ── Flying: target, heading and tilt ease over; the distance rises in between when the hop is long ──
-let anim = null, fly = null;   // (fly: a flyover under way, flyover.js; below)
+let anim = null, fly = null, picking = null, pickAt = null;   // (picking: a Flyover take-off or landing spot, by a tap: v1049)   // (fly: a flyover under way, flyover.js; below)
 // riding a vessel (v919 Bowdoin's crow's nest; v937 any vessel underway, at her helm or by drone), below
 const nest = { on: false, v: null, mode: 'nest', yaw: 0, pitch: -3, zoom: 1, prev: null, drag: null };
 const zoomRange = () => ORBITS(nest.mode) ? [0.2, 5] : [1, 7];   // the drone closes in or stands off; the glasses magnify
@@ -347,9 +347,11 @@ function heightAt(lon, lat) {
   const c = Math.floor((lon - ov.west) / ov.dx), r = Math.floor((ov.north - lat) / ov.dy);
   return (c >= 0 && r >= 0 && c < ov.w && r < ov.h) ? ov.elev[r * ov.w + c] : -3;
 }
+let ovPh = null, ovMat = null;   // (the whole bay's photo, for a detail tile until its own comes: v1049)
 ovPhotoP.then(ph => {
   addCanopy(ov, ph, null, BROADLEAF);
   const m2 = gridMesh(ov, ph, OV_STRIDE, seabed(photoMat(ph, ANISO)), yOf);
+  ovPh = ph; ovMat = m2.material;
   scene.remove(ovMesh); ovMesh.geometry.dispose(); ovMesh = m2; scene.add(m2);
   for (const T of tiles) if (T.state === 'ready') sinkOverview(T, true);
 }).catch(err => console.warn('[bay3d] overview photo failed', err));
@@ -381,7 +383,12 @@ async function loadTile(T) {
     const dem = await demFor(T.w - M, T.s - M, T.e + M, T.n + M, true);
     if (T.state !== 'loading' || T.gen !== gen) { photoP.then(ph => ph.img.close?.(), () => {}); return; }
     const rect = { west: T.w, east: T.e, south: T.s, north: T.n };
-    Object.assign(T, { dem, mat: PLAIN, img: null, photo: 'pending', full: gridMesh(dem, rect, 1, PLAIN, yOf), coarse: gridMesh(dem, rect, 4, PLAIN, yOf) });
+    // until its own photo comes (the USDA service can take half a minute for a new one), the whole bay's photo and the
+    // trees from it, coarser but the right colours, not bare green ground (v1049, requested: "bar harbor is looking a
+    // little sparse")
+    const interim = ovPh && !EMPTY, mat0 = interim ? ovMat : PLAIN, uvT = interim ? ovPh : rect;
+    if (interim) { addCanopy(dem, ovPh, () => 0, BROADLEAF); T.spots = treeSpots(T, dem); treesDirty = true; }
+    Object.assign(T, { dem, mat: mat0, img: null, photo: 'pending', full: gridMesh(dem, rect, 1, mat0, yOf, uvT), coarse: gridMesh(dem, rect, 4, mat0, yOf, uvT) });
     T.full.visible = false; scene.add(T.full, T.coarse); sinkOverview(T, true); T.state = 'ready';
     photoP.then(ph => {
       if (T.state !== 'ready' || T.gen !== gen) { ph.img.close?.(); return; }
@@ -562,7 +569,7 @@ function dropTile(T) {
   if (T.state === 'loading') { T.state = 'idle'; return; }
   if (T.state !== 'ready') return;
   scene.remove(T.full, T.coarse); T.full.geometry.dispose(); T.coarse.geometry.dispose();
-  if (T.mat !== PLAIN) { T.mat.map.dispose(); T.mat.dispose(); }
+  if (T.mat !== PLAIN && T.mat !== ovMat) { T.mat.map.dispose(); T.mat.dispose(); }   // (the whole bay's is shared)
   T.img?.close?.(); sinkOverview(T, false);
   if (T.spots) { T.spots = null; treesDirty = true; }
   Object.assign(T, { state: 'idle', full: null, coarse: null, dem: null, mat: null, img: null, photo: null });
@@ -2111,6 +2118,7 @@ function fillCard() {
 // the tap: the live vessel nearest it on the screen, within a finger's width of her or her name
 const _tp = new THREE.Vector3();
 function tapAt(cx, cy) {
+  if (picking && pickAt) { pickAt(cx, cy); return; }
   if (!aisCard) return;
   const r = renderer.domElement.getBoundingClientRect(), scr = (x, y, z) => { _tp.set(x, y, z).project(camera); return _tp.z < 1 ? [r.left + (_tp.x + 1) / 2 * r.width, r.top + (1 - _tp.y) / 2 * r.height] : null; };
   if (buoyF) { const a = scr(buoyF.x, 0, buoyF.z), b = scr(buoyF.x, 6 * buoyF.g.scale.x, buoyF.z); if (a && b && Math.hypot(cx - a[0], cy - (a[1] + b[1]) / 2) < 26 + Math.abs(a[1] - b[1]) / 2) { toggleCard(buoyF); return; } }
@@ -2892,6 +2900,14 @@ const clock = new THREE.Clock();
   const row = document.getElementById('flyrow'), go = document.getElementById('flygo'), shipsCk = document.getElementById('flyships'), talkCk = document.getElementById('flytalk');
   const KEY = `audiochart-bay3d-fly-${RID}`;
   let saved = {}; try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (_) {}
+  // where she takes off and lands (v1049): the bay's heliport (regions3d.js) unless you've picked a spot; she lands
+  // back where she started unless you've picked another, or "stay up"
+  const spotOf = (name, lon, lat) => ({ name, lon, lat, x: wx(lon), z: wz(lat), y: () => Math.max(0, heightAt(lon, lat)) });   // (y: the detailed ground may load while she's on it)
+  const HP = REG.heliport, home = HP && spotOf(HP.name, HP.lon, HP.lat);
+  const fromSaved = o => o?.lon != null ? spotOf(o.name, o.lon, o.lat) : null;
+  let fromSpot = fromSaved(saved.from) || home, toSpot = saved.to === 'none' ? 'none' : fromSaved(saved.to) || 'start';
+  const landAt = () => toSpot === 'start' ? fromSpot : toSpot === 'none' ? null : toSpot;
+  const keep = p => p && { name: p.name, lon: p.lon, lat: p.lat };
   const boxes = [...townsUl.querySelectorAll('input[type=checkbox]')];
   for (const c of boxes) c.checked = !!saved.ticked?.includes(c.dataset.id);
   // the stops: a town's view needs its buildings (waterfront); a bridge's is worked out from its line
@@ -2903,7 +2919,7 @@ const clock = new THREE.Clock();
     const n = ticked().length;
     go.disabled = !n; go.textContent = n ? `▶ Fly over ${n === 1 ? 'it' : `these ${n}`}` : '✈ Tick places to fly over';
     const have = new Set(boxes.map(c => c.dataset.id)), later = (saved.ticked || []).filter(id => !have.has(id));   // (the bridges' ticks, before they've loaded)
-    try { localStorage.setItem(KEY, JSON.stringify({ ticked: [...later, ...ticked()], ships: shipsCk.checked, talk: talkCk.checked })); } catch (_) {}
+    try { localStorage.setItem(KEY, JSON.stringify({ ticked: [...later, ...ticked()], ships: shipsCk.checked, talk: talkCk.checked, from: fromSpot === home ? null : keep(fromSpot), to: typeof toSpot === 'string' ? toSpot : keep(toSpot) })); } catch (_) {}
   };
   for (const c of [...boxes, shipsCk, talkCk]) c.addEventListener('change', sync);
   const showRow = () => { row.hidden = !boxes.length || EMPTY || !document.getElementById('flybar'); };
@@ -2925,6 +2941,47 @@ const clock = new THREE.Clock();
   };
   if (bridges) onBridges(bridges);
   fly = makeFlyover({ view, bar: document.getElementById('flybar'), camera, scene });
+  // the take-off and landing rows, and picking a spot: Change, then a tap on the map (on land)
+  const fromEl = document.getElementById('flyfrom'), toEl = document.getElementById('flyto'), pickBar = document.getElementById('flypick');
+  const showSpots = () => {
+    fromEl.textContent = fromSpot ? `From ${fromSpot.name}` : 'No take-off spot'; fromEl.title = fromEl.textContent;
+    toEl.textContent = toSpot === 'none' ? 'Stays up at the end' : toSpot === 'start' ? 'Lands back where she started' : `Lands at ${toSpot.name}`; toEl.title = toEl.textContent;
+    fly.setSpots(fromSpot, landAt()); sync();
+  };
+  const pickBtn = (b, label, fn) => { b.hidden = !label; b.textContent = label || ''; b.onclick = () => { fn(); stopPick(); }; };
+  function stopPick() { picking = null; pickBar.hidden = true; }
+  function startPick(which) {
+    picking = which; foldPanel(true);
+    pickBar.querySelector('.fly-text').textContent = which === 'from' ? 'Tap the map where she should take off' : 'Tap the map where she should land';
+    const [a, b] = [pickBar.querySelector('.pick-a'), pickBar.querySelector('.pick-b')];
+    if (which === 'from') { pickBtn(a, home && fromSpot !== home ? `Use ${home.name.replace(/^the /, '')}` : '', () => { fromSpot = home; showSpots(); }); pickBtn(b, '', null); }
+    else { pickBtn(a, toSpot !== 'start' ? 'Back to the start' : '', () => { toSpot = 'start'; showSpots(); }); pickBtn(b, toSpot !== 'none' ? 'Stay up' : '', () => { toSpot = 'none'; showSpots(); }); }
+    pickBar.hidden = false;
+  }
+  pickBar.querySelector('.pick-x').addEventListener('click', stopPick);
+  addEventListener('keydown', e => { if (e.key === 'Escape' && picking) stopPick(); });
+  document.getElementById('flyfrompick').addEventListener('click', () => startPick('from'));
+  document.getElementById('flytopick').addEventListener('click', () => startPick('to'));
+  // a tap while picking: the ground there (the ray walked down to the land's height), on land, named for the
+  // nearest town (or the heliport, if it's there)
+  pickAt = (cx, cy) => {
+    let p = groundAt(cx, cy); if (!p) return;
+    for (let i = 0; i < 3; i++) { const v = ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -Math.max(0, heightAt(lonOf(p[0]), latOf(p[1])))), new THREE.Vector3()); if (!v) break; p = [v.x, v.z]; }
+    const lon = lonOf(p[0]), lat = latOf(p[1]);
+    if (heightAt(lon, lat) <= 0.5) { pickBar.querySelector('.fly-text').textContent = 'That’s water: tap a spot on land'; return; }
+    let name;
+    if (home && Math.hypot(p[0] - home.x, p[1] - home.z) < 400) name = home.name;
+    else {   // the nearest charted place name within 3 km, else the nearest town within 10
+      const pl = places.map(q => ({ n: q.n, d: Math.hypot(p[0] - q.x, p[1] - q.z) })).sort((a, b) => a.d - b.d)[0];
+      const tn = townList.map(t => ({ n: t.short, d: Math.hypot(p[0] - wx((t.bbox[0] + t.bbox[2]) / 2), p[1] - wz((t.bbox[1] + t.bbox[3]) / 2)) })).sort((a, b) => a.d - b.d)[0];
+      const near = pl && pl.d < 3000 ? pl : tn && tn.d < 10000 ? tn : null;
+      name = near ? `a spot near ${near.n}` : 'a spot you picked';
+    }
+    const spot = name === home?.name ? home : spotOf(name, lon, lat);
+    if (picking === 'from') fromSpot = spot; else toSpot = spot;
+    stopPick(); showSpots();
+  };
+  showSpots();
   const azTo = (a, b) => Math.atan2(b.x - a.x, -(b.z - a.z));
   // a vessel as a stop: the camera keeps up with her, and a live one's card opens while we're there
   const shipStop = (v, prev) => {

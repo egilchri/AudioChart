@@ -22,5 +22,18 @@ export function makeHeli() {
   disc.rotation.x = -Math.PI / 2; rotor.add(disc);
   const tail = new THREE.Group(); tail.position.set(0.18, 1.0, 7.0); g.add(tail);
   for (let k = 0; k < 2; k++) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.04, 1.8, 0.16), dark); b.rotation.x = k * Math.PI / 2; tail.add(b); }
+  // the AudioChart livery (v1049, requested: "It would be nice if the AudioChart logo was on the helicopter"): the app's
+  // icon in a white ring on both sides of the cabin, and its name in white along the tail boom
+  const icon = new THREE.TextureLoader().load('./icons/icon-512.png'); icon.colorSpace = THREE.SRGBColorSpace;
+  const name = (() => {
+    const c = document.createElement('canvas'); c.width = 512; c.height = 96; const x = c.getContext('2d');
+    x.fillStyle = '#ffffff'; x.font = '600 70px Georgia, "Times New Roman", serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('AudioChart', 256, 52);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+  })();
+  for (const s of [-1, 1]) {
+    const ring = add(new THREE.CircleGeometry(0.86, 32), white, s * 1.3, 0.2, 0.3); ring.rotation.y = s * Math.PI / 2;
+    const logo = add(new THREE.CircleGeometry(0.76, 32), new THREE.MeshLambertMaterial({ map: icon }), s * 1.31, 0.2, 0.3); logo.rotation.y = s * Math.PI / 2;
+    const word = add(new THREE.PlaneGeometry(3.2, 0.6), new THREE.MeshLambertMaterial({ map: name, transparent: true, depthWrite: false }), s * 0.47, 0.32, 3.9); word.rotation.y = s * Math.PI / 2;
+  }
   return { group: g, rotor, tail };
 }

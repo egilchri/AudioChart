@@ -165,8 +165,9 @@ export function addCanopy(dem, t, liftAt = null, strict = false) {
 
 // One mesh over a DEM grid (optionally only the cells under a photo), at a stride:
 // 1 = every cell, 4 = every 4th, for terrain far from the boat. yOf, if given, maps an elevation
-// to the mesh's height (Empty Bay deepens the seabed by its exaggeration).
-export function gridMesh(dem, t, stride, mat, yOf = null) {
+// to the mesh's height (Empty Bay deepens the seabed by its exaggeration). uvT, if given, is a different photo to
+// take the texture coordinates from (bay3d.js: the whole bay's, under a tile still waiting for its own; v1049).
+export function gridMesh(dem, t, stride, mat, yOf = null, uvT = t) {
   const c0 = Math.max(0, Math.floor((t.west - dem.west) / dem.dx - 1)), c1 = Math.min(dem.w - 1, Math.ceil((t.east - dem.west) / dem.dx));
   const r0 = Math.max(0, Math.floor((dem.north - t.north) / dem.dy - 1)), r1 = Math.min(dem.h - 1, Math.ceil((dem.north - t.south) / dem.dy));
   const cols = [], rows = [];
@@ -178,7 +179,7 @@ export function gridMesh(dem, t, stride, mat, yOf = null) {
     const gi = gy * dem.w + gx, i = y * w + x;
     const lon = dem.west + (gx + 0.5) * dem.dx, lat = dem.north - (gy + 0.5) * dem.dy;
     pos[i * 3] = wx(lon); pos[i * 3 + 1] = yOf ? yOf(dem.elev[gi]) : dem.elev[gi]; pos[i * 3 + 2] = wz(lat); gidx[i] = gi;
-    uv[i * 2] = (lon - t.west) / (t.east - t.west); uv[i * 2 + 1] = (t.north - lat) / (t.north - t.south);   // ImageBitmap textures aren't flipped
+    uv[i * 2] = (lon - uvT.west) / (uvT.east - uvT.west); uv[i * 2 + 1] = (uvT.north - lat) / (uvT.north - uvT.south);   // ImageBitmap textures aren't flipped
   }));
   const idx = new Uint32Array((w - 1) * (h - 1) * 6); let k = 0;
   for (let y = 0; y < h - 1; y++) for (let x = 0; x < w - 1; x++) {

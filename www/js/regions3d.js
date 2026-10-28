@@ -6,6 +6,7 @@ export const REGIONS3D = {
   'penobscot-bay': {
     name: 'Penobscot Bay', short: 'Penobscot',
     origin: [-68.87, 44.12],
+    heliport: { name: 'Knox County Regional Airport', lon: -69.0992, lat: 44.0603 },   // (where the Flyover's helicopter takes off: v1049)
     overview: [-69.45, 43.75, -67.95, 44.75],
     bay: [-69.25, 43.85, -68.1, 44.55],
     whole: { lon: -68.7, lat: 44.17, dist: 60000 },
@@ -14,6 +15,7 @@ export const REGIONS3D = {
   'casco-bay': {
     name: 'Casco Bay', short: 'Casco',
     origin: [-70.05, 43.72],
+    heliport: { name: 'the Portland Jetport', lon: -70.3093, lat: 43.6462 },   // (where the Flyover's helicopter takes off: v1049)
     overview: [-70.55, 43.42, -69.6, 44.02],
     bay: [-70.32, 43.55, -69.78, 43.93],
     whole: { lon: -70.06, lat: 43.71, dist: 40000 },
@@ -25,6 +27,7 @@ export const REGIONS3D = {
   'sf-bay': {
     name: 'San Francisco Bay', short: 'SF Bay',
     origin: [-122.35, 37.8],
+    heliport: { name: 'San Francisco International', lon: -122.375, lat: 37.6189 },   // (where the Flyover's helicopter takes off: v1049)
     overview: [-122.65, 37.4, -122.0, 38.2],
     bay: [-122.55, 37.45, -122.05, 38.12],
     whole: { lon: -122.33, lat: 37.78, dist: 55000 },
@@ -39,6 +42,7 @@ export const REGIONS3D = {
   'piscataqua': {
     name: 'Portsmouth Harbor and the Piscataqua', short: 'Piscataqua',
     origin: [-70.74, 43.07],
+    heliport: { name: 'Portsmouth International at Pease', lon: -70.8233, lat: 43.0779 },   // (where the Flyover's helicopter takes off: v1049)
     overview: [-71.0, 42.85, -70.45, 43.25],
     bay: [-70.92, 42.94, -70.55, 43.18],
     whole: { lon: -70.73, lat: 43.06, dist: 30000 },
@@ -50,6 +54,7 @@ export const REGIONS3D = {
   'new-york-harbor': {
     name: 'New York Harbor', short: 'New York',
     origin: [-74.0, 40.69],
+    heliport: { name: 'the Downtown Manhattan Heliport', lon: -74.0089, lat: 40.7011 },   // (where the Flyover's helicopter takes off: v1049)
     overview: [-74.35, 40.4, -73.6, 41.0],
     bay: [-74.28, 40.47, -73.68, 40.93],
     whole: { lon: -74.02, lat: 40.66, dist: 40000 },
