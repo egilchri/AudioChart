@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-28 — Bird's-eye goes easy when idle (v1051)
+
+- Requested: "make it go easy when idle". Bird's-eye drew the scene 60 times a second even with nothing changing.
+  Now, after 4 s with no touch, mouse or key, and nothing flying, following or riding, it draws 12 a second (ships
+  and cars still move, in smaller steps); any input brings back the full rate at once. Headless Chrome: about a
+  quarter of the CPU while idle (11% against 40–47%).
+
 ## 2026-10-28 — Flyover: SFO's helipad off the runway (v1050)
 
 - Requested: "move the SFO pad off the runway". The pad sat on the airport's reference point, where the runways

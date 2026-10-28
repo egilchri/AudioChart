@@ -3025,6 +3025,15 @@ const clock = new THREE.Clock();
   });
 }
 let t = 0, lastCheck = -1, fpsN = 0, fpsT = performance.now(); window.__fps = 0;
+// Going easy when idle (v1050, requested: "make it go easy when idle"): with no touch, mouse or key for 4 s, and
+// nothing flying, following or riding, the scene is drawn 12 times a second instead of 60; the ships and cars
+// still move, just in smaller steps. Any input brings back the full rate at once.
+let lastInput = performance.now();
+const woke = () => { lastInput = performance.now(); };
+for (const ev of ['pointerdown', 'pointermove', 'wheel', 'keydown', 'touchstart']) addEventListener(ev, woke, { passive: true, capture: true });
+const IDLE_MS = 4000, IDLE_STEP = 1000 / 12;
+const busy = () => !!(drag || anim || follow || nest.on || fly?.on() || picking) || performance.now() - lastInput < IDLE_MS;
+const nextFrame = () => busy() ? requestAnimationFrame(frame) : setTimeout(() => requestAnimationFrame(frame), IDLE_STEP - 16);
 function frame(now) {
   if (++fpsN === 60) { window.__fps = Math.round(60000 / (performance.now() - fpsT)); fpsN = 0; fpsT = performance.now(); }
   const dt = Math.min(0.1, clock.getDelta()); t += dt;
@@ -3056,7 +3065,7 @@ function frame(now) {
   if (follow && !anim && !nest.on) { const k = Math.min(1, dt * 4); view.x += (follow.x - view.x) * k; view.z += (follow.z - view.z) * k; }
   renderer.render(scene, camera);
   updateLabels(); updateLiveMarks(); updateReadout();
-  requestAnimationFrame(frame);
+  nextFrame();
 }
 // Weather panel: in the readout box, top right; the forecast is for where you're looking
 // choosing a time of day yourself (a Time button, N, Forecast now) takes the light back from the clock until you
