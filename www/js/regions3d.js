@@ -27,7 +27,7 @@ export const REGIONS3D = {
   'sf-bay': {
     name: 'San Francisco Bay', short: 'SF Bay',
     origin: [-122.35, 37.8],
-    heliport: { name: 'San Francisco International', lon: -122.375, lat: 37.6189 },   // (where the Flyover's helicopter takes off: v1049)
+    heliport: { name: 'San Francisco International', lon: -122.3752, lat: 37.6261 },   // (where the Flyover's helicopter takes off: v1049; v1050: on the north ramp, by the big hangar, not the runways)
     overview: [-122.65, 37.4, -122.0, 38.2],
     bay: [-122.55, 37.45, -122.05, 38.12],
     whole: { lon: -122.33, lat: 37.78, dist: 55000 },

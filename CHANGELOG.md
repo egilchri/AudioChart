@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-28 — Flyover: SFO's helipad off the runway (v1050)
+
+- Requested: "move the SFO pad off the runway". The pad sat on the airport's reference point, where the runways
+  cross; it's now on the north ramp beside the big hangar (37.6261, -122.3752), checked on the NAIP photo.
+
 ## 2026-10-28 — Flyover: take-off and landing, the AudioChart helicopter; no more bare green ground (v1049)
 
 - Requested: "We should always take off from the same place ... a way to specify takeoff and landing spot". Each
