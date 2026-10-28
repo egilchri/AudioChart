@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-28 — Flyover by helicopter; ✈ Places inside the app (v1048)
+
+- Requested: "I want the helicopter to fly around, giving the tour". The red helicopter from the sailors-page videos
+  (new js/heli3d.js) now flies the Flyover, the camera riding just behind her as in the videos: banked into the
+  turns, rotors turning, circling each place. Paused (any drag, zoom or tap), she hovers where she was; ▶ and she
+  eases back in front of you and flies on. On a phone held upright she flies a little further off.
+- Requested: inside AudioChart, Bird's-eye's side panel is hidden, so the places, bridges and ▶ Fly weren't there. A
+  ✈ Places button in its toolbar now opens them (above the buttons on the right; under the bay switch on a phone),
+  and the list closes once you pick a place or start a flyover. The flyover's bar sits under the bay switch there.
+
 ## 2026-10-28 — Bird's-eye: bridges as places and flyover stops (v1047)
 
 - Requested: "add the bridges as stops". Under Towns and harbors, a Bridges list: San Francisco's eight (Bay,

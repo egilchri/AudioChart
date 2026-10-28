@@ -771,8 +771,19 @@ for (const t of townList) {
 wholeBtn.addEventListener('click', goWhole);
 { const ts = document.getElementById('townsect'); if (ts) ts.hidden = !townList.length; }
 const panel = document.getElementById('panel'), toggle = document.getElementById('towns-toggle');
-function foldPanel(fold) { if (!matchMedia('(max-width: 640px)').matches) return; panel.classList.toggle('folded', fold); toggle.setAttribute('aria-expanded', String(!fold)); }
+function foldPanel(fold) {
+  if (fold && document.body.classList.contains('places')) setPlaces(false);   // (inside AudioChart, the places list closes once you've picked)
+  if (!matchMedia('(max-width: 640px)').matches) return; panel.classList.toggle('folded', fold); toggle.setAttribute('aria-expanded', String(!fold)); }
 toggle.addEventListener('click', () => foldPanel(!panel.classList.contains('folded')));
+// ✈ Places (v1048): inside AudioChart the panel is hidden (the chart has its own); this opens it, to fly to a place
+// or tick some for a Flyover
+const placesBtn = document.getElementById('placesbtn');
+function setPlaces(on) { document.body.classList.toggle('places', on); placesBtn?.classList.toggle('on', on); if (on) panel.classList.remove('folded'); }
+if (placesBtn && document.body.classList.contains('embed')) {
+  placesBtn.hidden = false;
+  placesBtn.addEventListener('click', () => setPlaces(!document.body.classList.contains('places')));
+  addEventListener('keydown', e => { if (e.key === 'Escape' && document.body.classList.contains('places')) setPlaces(false); });
+}
 foldPanel(true);
 
 // ── Rockland Breakwater (the town file leaves it out; the helm view models it the same way) ──
@@ -2913,7 +2924,7 @@ const clock = new THREE.Clock();
     document.getElementById('bridgesect').hidden = false; showRow(); sync();
   };
   if (bridges) onBridges(bridges);
-  fly = makeFlyover({ view, bar: document.getElementById('flybar') });
+  fly = makeFlyover({ view, bar: document.getElementById('flybar'), camera, scene });
   const azTo = (a, b) => Math.atan2(b.x - a.x, -(b.z - a.z));
   // a vessel as a stop: the camera keeps up with her, and a live one's card opens while we're there
   const shipStop = (v, prev) => {
@@ -2963,6 +2974,7 @@ function frame(now) {
   stepAnim(now ?? performance.now());
   fly?.step(performance.now(), dt);
   if (!nest.on) { clampView(); placeCamera(); }
+  fly?.place(dt);   // the tour's helicopter, in front of the camera (v1048)
   if (t - lastCheck > 0.4) { lastCheck = t; updateTiles(); updateTowns(); updateMarks(); updateHazards(); }
   // the wrecks blink (v932, requested): a bright orange glow, on for 0.6 s in every 1.2 s
   if (hazards.meshes.wreck) hazards.meshes.wreck.m.material.emissive.setHex(t % 1.2 < 0.6 ? 0xff6a1a : 0x000000);
