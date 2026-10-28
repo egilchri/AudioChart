@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-10-28 — Bird's-eye: Flyover (v1046)
+
+- Requested: "a flyover feature in the app ... a table of places, and they would check which ones they wanted to fly
+  over". Each place in Bird's-eye's Towns and harbors list has a tick box; ▶ Fly over flies the camera over them in
+  turn, nearest first and with no crossing legs. It climbs for the long hops, comes down low at each place, says its
+  name (tts.js, the device's voice; "Say the names") and turns slowly round it for a few seconds.
+- Stop for ships (on by default): on the way, the tour swoops down to the biggest ship or ferry near the route,
+  preferring one under way, keeps up with her, and opens a live vessel's card. One for every two places, four at
+  most.
+- A bar shows "2 of 5 · Sausalito" with ⏸ and ✕. Any drag, zoom or tap pauses it where you are; ▶ flies on to the
+  same stop, and ✕ or Esc ends it. Picking a place, the whole bay or a ride ends it too. The ticks and the two choices
+  are remembered for each bay. On a phone the bar sits above the bottom buttons.
+- New js/flyover.js (the flying, the voice and the bar; bay3d.js chooses the stops). The device's voice gets the
+  names it says wrong respelled (Vinalhaven, Carquinez, Rafael, Tiburon, buoy).
+
 ## 2026-10-28 — Bird's-eye: the help line clear of the credits (v1045)
 
 - Requested: the help line along the bottom overlapped the photo and data credits on a laptop-sized screen, in every

@@ -27,6 +27,7 @@ import { BUOY_F, makeBuoyF, buoyTime, topCurrent, strongest, tideWord, compass16
 import { makeCurrents, layerAt } from './currents.js';
 import { OBS, makeObs, windWords, wavesWords } from './obs.js';
 import { GAUGES, gaugePage, makeTideGauge, predAt, trendAt, nextTurns, tideChart } from './tidegauge.js';
+import { makeFlyover, orderStops, offLeg } from './flyover.js';
 import { makeAisFeed, aisStatus, aisName, aisDest, setKnown, knownFor, aisFlag, aisRot, aisPos, aisAgo, aisLookup, aisImo, aisCallsign, AIS_CREDIT } from './ais.js';
 
 const statusEl = document.getElementById('status');
@@ -215,7 +216,7 @@ function groundAt(clientX, clientY) {   // where a screen point meets sea level,
 }
 
 // ── Flying: target, heading and tilt ease over; the distance rises in between when the hop is long ──
-let anim = null;
+let anim = null, fly = null;   // (fly: a flyover under way, flyover.js; below)
 // riding a vessel (v919 Bowdoin's crow's nest; v937 any vessel underway, at her helm or by drone), below
 const nest = { on: false, v: null, mode: 'nest', yaw: 0, pitch: -3, zoom: 1, prev: null, drag: null };
 const zoomRange = () => ORBITS(nest.mode) ? [0.2, 5] : [1, 7];   // the drone closes in or stands off; the glasses magnify
@@ -245,7 +246,7 @@ let tap0 = null;   // a tap (down and up, hardly moved) picks a live vessel: her
 sceneEl.addEventListener('pointerdown', e => {
   tap0 = pointers.size ? null : { x: e.clientX, y: e.clientY, t: performance.now() };
   if (nest.on) { sceneEl.setPointerCapture(e.pointerId); pointers.set(e.pointerId, { x: e.clientX, y: e.clientY }); nest.drag = pointers.size === 1 ? { x: e.clientX, y: e.clientY } : { pinch: pinchState(), zoom: nest.zoom }; return; }   // in the crow's nest: look round
-  anim = null; sceneEl.setPointerCapture(e.pointerId);   // (following stops when you drag, not on a tap: v988)
+  anim = null; fly?.pause(); sceneEl.setPointerCapture(e.pointerId);   // (following stops when you drag, not on a tap: v988; a flyover pauses)
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   sceneEl.classList.add('dragging');
   if (pointers.size === 1) drag = { mode: (e.button === 2 || e.shiftKey || e.ctrlKey) ? 'turn' : 'pan', x: e.clientX, y: e.clientY, anchor: groundAt(e.clientX, e.clientY) };
@@ -296,7 +297,7 @@ const endPointer = e => {
 };
 sceneEl.addEventListener('pointerup', endPointer); sceneEl.addEventListener('pointercancel', endPointer);
 sceneEl.addEventListener('wheel', e => {
-  e.preventDefault();
+  e.preventDefault(); fly?.pause();
   if (nest.on) { nest.zoom = clamp(nest.zoom * Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.05 : 0.002)), ...zoomRange()); return; }   // the glasses, or the drone in or out
   anim = null;
   const anchor = groundAt(e.clientX, e.clientY);
@@ -665,6 +666,7 @@ let slipsReadyResolve; const slipsReady = new Promise(r => { slipsReadyResolve =
 const creditEl = document.getElementById('credit');
 // the help line sits above the credits, however many lines they take (v1045: they overlapped on a laptop)
 try { new ResizeObserver(() => document.documentElement.style.setProperty('--credit-h', creditEl.offsetHeight + 'px')).observe(creditEl); } catch (_) {}
+try { const sc = document.getElementById('scale'); new ResizeObserver(() => document.documentElement.style.setProperty('--scale-h', sc.offsetHeight + 'px')).observe(sc); } catch (_) {}   // (the flyover's bar sits above it on a phone: v1046)
 let bridges = null;   // (v1020, below)
 function updateCredit() {
   const shown = townList.filter(t => t.group);
@@ -717,7 +719,7 @@ function townView(t) {   // t: {x, z}, a point on the town's waterfront
 const townsUl = document.getElementById('towns'), wholeBtn = document.getElementById('whole');
 let current = null;
 function markCurrent(id) {
-  current = id; stopFollow();
+  current = id; stopFollow(); fly?.end();
   for (const b of townsUl.querySelectorAll('button')) b.classList.toggle('on', b.dataset.id === id);
   wholeBtn.classList.toggle('on', id === 'whole');
 }
@@ -751,7 +753,8 @@ for (const t of townList) {
   const li = document.createElement('li'), b = document.createElement('button');
   b.type = 'button'; b.textContent = t.short; b.title = t.name; b.dataset.id = t.id;
   b.addEventListener('click', () => goTown(t));
-  li.appendChild(b); townsUl.appendChild(li);
+  const ck = document.createElement('input'); ck.type = 'checkbox'; ck.dataset.id = t.id; ck.setAttribute('aria-label', `Fly over ${t.name}`); ck.title = 'Fly over it (▶ Fly, below)';
+  li.append(ck, b); townsUl.appendChild(li);
 }
 wholeBtn.addEventListener('click', goWhole);
 { const ts = document.getElementById('townsect'); if (ts) ts.hidden = !townList.length; }
@@ -1103,6 +1106,7 @@ const CHASE = { stern: { yaw: 0, el: 7, d: 2.4, label: 'astern of' }, side: { ya
 const ORBITS = m => m === 'drone' || !!CHASE[m];   // the camera off her, looking at her
 function ride(v, mode = 'helm') {
   if (!v || !nestOK || (!vGroup(v).visible && v !== nest.v)) return;
+  fly?.end();
   if (mode === 'nest' && !v.boat?.nest) mode = 'helm';
   const was = nest.on;
   if (!was) { stopFollow(); anim = null; nest.prev = { ...view }; }
@@ -2859,11 +2863,73 @@ if (followOwnAtStart) follow = own;   // after the start view, which clears any 
 clampView(); placeCamera();
 
 const clock = new THREE.Clock();
+// ── Flyover (v1046; flyover.js): tick places in the list, ▶ Fly, and the camera flies over them in turn, the
+// nearest first, swooping down on the way to the ships and ferries near the route (Stop for ships) ──
+{
+  const row = document.getElementById('flyrow'), go = document.getElementById('flygo'), shipsCk = document.getElementById('flyships'), talkCk = document.getElementById('flytalk');
+  const KEY = `audiochart-bay3d-fly-${RID}`;
+  let saved = {}; try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (_) {}
+  const boxes = [...townsUl.querySelectorAll('input[type=checkbox]')];
+  for (const c of boxes) c.checked = !!saved.ticked?.includes(c.dataset.id);
+  if (saved.ships === false) shipsCk.checked = false;
+  if (saved.talk === false) talkCk.checked = false;
+  const ticked = () => boxes.filter(c => c.checked).map(c => c.dataset.id);
+  const sync = () => {
+    const n = ticked().length;
+    go.disabled = !n; go.textContent = n ? `▶ Fly over ${n === 1 ? 'it' : `these ${n}`}` : '✈ Tick places to fly over';
+    try { localStorage.setItem(KEY, JSON.stringify({ ticked: ticked(), ships: shipsCk.checked, talk: talkCk.checked })); } catch (_) {}
+  };
+  for (const c of [...boxes, shipsCk, talkCk]) c.addEventListener('change', sync);
+  row.hidden = !boxes.length || EMPTY || !document.getElementById('flybar'); sync();
+  fly = makeFlyover({ view, bar: document.getElementById('flybar') });
+  const azTo = (a, b) => Math.atan2(b.x - a.x, -(b.z - a.z));
+  // a vessel as a stop: the camera keeps up with her, and a live one's card opens while we're there
+  const shipStop = (v, prev) => {
+    const az = azTo(prev, v), dist = clamp(vLen(v) * 7, 260, 900);
+    const kind = v.kind === 'ais' ? (v.what || 'vessel').toLowerCase() : v.kind === 'ferry' ? 'ferry' : 'cruise ship';
+    return {
+      name: `${vName(v)} (${kind})`, x: v.x, z: v.z, hold: 6,
+      say: v.kind === 'ais' ? `${vName(v)}${v.what ? `, ${v.what.toLowerCase()}` : ''}` : v.kind === 'ferry' ? `${vName(v)}, ${v.label.toLowerCase()}` : v.label,
+      target: () => (v.on && (live.includes(v) || traffic.includes(v))) ? { x: v.x, z: v.z, dist, tilt: 64 * DEG, az } : null,
+      onArrive: () => { if (v.kind === 'ais') showCard(v); },
+      onLeave: () => { if (cardV === v && aisCard) { aisCard.hidden = true; cardV = null; } },
+    };
+  };
+  // the biggest ship within reach of a leg (a mile, or more on a long one), one a leg, and one for every two places
+  // (the places are the tour; four ships at most)
+  const withShips = (stops, from) => {
+    const cands = [...live.filter(v => v.on && !v.ashore), ...traffic.filter(v => v.on)].filter(v => vLen(v) >= 15), used = new Set(), out = [];
+    const most = Math.min(4, Math.max(1, Math.ceil(stops.length / 2)));
+    const score = v => vLen(v) * ((v.kind === 'ais' ? v.A.sog > 0.5 : v.st?.moving ?? true) ? 2 : 1);   // (one under way before one tied up)
+    let prev = from;
+    for (const S of stops) {
+      const reach = Math.max(1800, Math.hypot(S.x - prev.x, S.z - prev.z) * 0.12);
+      const v = used.size < most && cands.filter(v => !used.has(v)).map(v => ({ v, ...offLeg(v, prev, S) })).filter(o => o.d < reach && o.u > 0.1 && o.u < 0.9).sort((a, b) => score(b.v) - score(a.v))[0]?.v;
+      if (v) { used.add(v); out.push(shipStop(v, prev)); }
+      out.push(S); prev = S;
+    }
+    return out;
+  };
+  go.addEventListener('click', async () => {
+    const picked = townList.filter(t => ticked().includes(t.id)); if (!picked.length) return;
+    go.disabled = true; go.textContent = 'Getting ready…';
+    const stops = [];
+    for (const t of picked) { const tv = townView(await waterfront(t)); stops.push({ name: t.name, x: tv.x, z: tv.z, hold: 5, target: () => tv }); }
+    const from = { x: view.x, z: view.z };
+    let order = orderStops(stops, from);
+    if (shipsCk.checked) order = withShips(order, from);
+    if (nest.on) leaveRide();
+    markCurrent(null); anim = null; foldPanel(true);
+    fly.start(order, { talk: talkCk.checked });
+    sync();
+  });
+}
 let t = 0, lastCheck = -1, fpsN = 0, fpsT = performance.now(); window.__fps = 0;
 function frame(now) {
   if (++fpsN === 60) { window.__fps = Math.round(60000 / (performance.now() - fpsT)); fpsN = 0; fpsT = performance.now(); }
   const dt = Math.min(0.1, clock.getDelta()); t += dt;
   stepAnim(now ?? performance.now());
+  fly?.step(performance.now(), dt);
   if (!nest.on) { clampView(); placeCamera(); }
   if (t - lastCheck > 0.4) { lastCheck = t; updateTiles(); updateTowns(); updateMarks(); updateHazards(); }
   // the wrecks blink (v932, requested): a bright orange glow, on for 0.6 s in every 1.2 s

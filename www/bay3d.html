@@ -58,6 +58,19 @@ body { background: var(--sky); color: var(--ink); font-family: var(--body); font
 #towns { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
 #towns button, .panel .whole { width: 100%; text-align: left; font: inherit; color: var(--ink); background: transparent; border: 0; border-radius: 5px; padding: 5px 8px; cursor: pointer; }
 #towns button:hover, .panel .whole:hover { background: rgba(255, 255, 255, 0.1); }
+/* Flyover (v1046): a tick box by each place, ▶ Fly under them, and the tour's bar along the top */
+#towns li { display: flex; align-items: center; }
+#towns li input { flex: none; margin: 0 2px 0 6px; width: 15px; height: 15px; accent-color: var(--brass); cursor: pointer; }
+#flyrow { display: grid; gap: 4px; }
+#flyrow .whole:disabled { opacity: 0.55; cursor: default; background: transparent; }
+#flyrow label { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--muted); padding: 0 8px; cursor: pointer; }
+#flyrow label input { margin: 0; accent-color: var(--brass); }
+#flybar { position: fixed; left: 50%; transform: translateX(-50%); top: calc(56px + env(safe-area-inset-top, 0px)); z-index: 4; display: flex; align-items: center; gap: 8px; max-width: calc(100% - 24px); box-sizing: border-box;
+  background: var(--glass-hi); color: var(--ink); border-radius: 8px; padding: 6px 8px 6px 12px; font-size: 0.86rem; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }
+#flybar[hidden] { display: none; }
+#flybar .fly-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#flybar button { flex: none; font: inherit; color: var(--ink); background: rgba(255,255,255,0.14); border: 0; border-radius: 5px; padding: 3px 9px; cursor: pointer; }
+#flybar button[hidden] { display: none; }
 #towns button.on, .panel .whole.on { background: var(--brass); color: var(--brass-ink); }
 .panel .whole { font-weight: 600; }
 /* Penobscot | Casco (v992): which bay, always showing, folded panel or not */
@@ -237,6 +250,7 @@ body.embed #wxpanel { top: auto; bottom: calc(176px + env(safe-area-inset-bottom
   #towns-toggle { display: inline-block; font: inherit; color: var(--ink); background: rgba(255, 255, 255, 0.12); border: 0; border-radius: 5px; padding: 4px 9px; cursor: pointer; }
   .panel.folded .body { display: none; }
   #help { display: none; }
+  #flybar { top: auto; bottom: calc(18px + var(--scale-h, 40px) + env(safe-area-inset-bottom, 0px)); }   /* (above the buttons, however many rows: bay3d.js; clear of the folded panel) */
   #scale { top: auto; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
   #wxpanel { top: auto; bottom: calc(48px + env(safe-area-inset-bottom, 0px)); }
 }
@@ -275,6 +289,7 @@ body.embed #exagbox { top: calc(94px + env(safe-area-inset-top, 0px)); }
     <button class="whole" id="followown" type="button" hidden title="Keep your boat in the middle of the view">⌖ Follow</button>
     <div class="sect" id="townsect">Towns and harbors</div>
     <ul id="towns"></ul>
+    <div id="flyrow" hidden><button class="whole" id="flygo" type="button" disabled title="Tick places above, then fly over them in turn">✈ Tick places to fly over</button><label title="On the way, swoop down to the ships and ferries near the route"><input type="checkbox" id="flyships" checked> Stop for ships</label><label title="Say each place's name as you get there"><input type="checkbox" id="flytalk" checked> Say the names</label></div>
     <a class="back" href="./">Back to AudioChart</a>
   </div>
 </nav>
@@ -287,6 +302,7 @@ body.embed #exagbox { top: calc(94px + env(safe-area-inset-top, 0px)); }
 <div id="underway" hidden><div class="sect">On the water now</div><ul></ul></div>
 <div id="aisinfo" hidden><div class="sect"><span id="aisname"></span><button type="button" id="aisclose" title="Close">✕</button></div><table></table><div class="go"></div></div>
 <div id="loading" hidden>Loading…</div>
+<div id="flybar" hidden role="status"><span class="fly-text"></span><button type="button" class="fly-play" title="Pause the flyover">⏸</button><button type="button" class="fly-end" title="End the flyover (Esc)">✕</button></div>
 <div id="help">Drag to move · right-drag or Shift-drag to turn and tilt · scroll or pinch to zoom · click a town · Route waypoints shows a route, ▶ Sail it sails it · Weather for fog, rain, wind, dawn, sunset and night (N)</div>
 <div id="credit">Elevation USGS 3DEP · Photos USDA NAIP</div>
 <div id="status">Loading Penobscot Bay…</div>
