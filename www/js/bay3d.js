@@ -763,7 +763,8 @@ const [navGJ, placesGJ, landGJ] = await Promise.all([
 ]);
 const inBay = ([x, y]) => x >= OW && x <= OE && y >= OS && y <= ON;
 // ── Bridges (v1020; bridges3d.js): the region's, if it has any ──
-makeBridges(RID, heightAt).then(B => { if (!B) return; bridges = B; scene.add(B.group); try { B.night(env.lightsK); } catch (_) {} updateCredit(); })   // (env: once it's made).catch(err => console.warn('[bay3d] bridges', err));
+makeBridges(RID, heightAt).then(B => { if (!B) return; bridges = B; scene.add(B.group); try { B.night(env.lightsK); } catch (_) {} updateCredit(); })   // (env: once it's made)
+  .catch(err => console.warn('[bay3d] bridges', err));
 const navs = navGJ.features.filter(f => f.geometry?.type === 'Point' && inBay(f.geometry.coordinates));
 const BUOY_T = ['BOYLAT', 'BCNLAT', 'BOYSAW', 'BOYSPP', 'BOYCAR', 'BOYISD'];
 const buoys = navs.filter(f => BUOY_T.includes(f.properties.objtype)).map(f => ({ x: wx(f.geometry.coordinates[0]), z: wz(f.geometry.coordinates[1]), c: (f.properties.colour || '').split('/')[0], num: ((f.properties.name || '').replace(/"/g, '').match(/(\S{1,3})$/)?.[1] || '').replace(/^(?!.*\d).*$/, '') }));
@@ -2863,6 +2864,7 @@ function frame(now) {
   updateWeather(dt, t);
   updateFleet(dt);
   updateTraffic();
+  bridges?.update(dt);   // the cars on them (v1043)
   updateLive(dt);
   updateWaypoints();
   updateOwn(dt);

@@ -8,7 +8,13 @@ import { wx, wz } from './terrain3d.js';
 const box = new THREE.BoxGeometry(1, 1, 1);
 const BOTTOM = -8;   // (piers and towers go on down out of sight under the water)
 
-// → { group, labels: [{ text, x, y, z }], credit, night(k) } or null
+// Traffic (v1043, requested: "it would be nice to have cars on all bridges"): cars and a few trucks on every named
+// road bridge, driving on the right at about 50 mph. A pair of decks with the same name and ends together (the Bay
+// Bridge's east span, the Carquinez, the Benicia) is one-way each, the way OpenStreetMap draws them; a lone deck
+// carries both ways.
+const CAR_COLOURS = [0xf2f2f0, 0xf2f2f0, 0x1c1c1e, 0x1c1c1e, 0x9a9da3, 0x9a9da3, 0x5d6168, 0xb3262b, 0x24427a, 0x6f8fae, 0x2e5a3c, 0xd8c9a8];
+
+// → { group, labels: [{ text, x, y, z }], credit, night(k), update(dt) } or null
 export async function makeBridges(rid, heightAt) {
   let J;
   try { const r = await fetch(`./data/bridges/${rid}.json`); if (!r.ok) return null; J = await r.json(); } catch (_) { return null; }
@@ -19,6 +25,7 @@ export async function makeBridges(rid, heightAt) {
   const ground = (lon, lat) => Math.max(0, heightAt(lon, lat)) + 0.4;
   const put = (x, z, y0, y1, along, across, az, c) => { if (y1 - y0 > 0.1) parts.push([x, (y0 + y1) / 2, z, across, y1 - y0, along, Math.PI - az, c]); };   // (az: the deck's bearing)
 
+  const roads = [];   // [deck points, bridge] for the traffic
   for (const B of J.bridges) {
     const P = B.pts.map(([lon, lat, h]) => ({ x: wx(lon), z: wz(lat), h, lon, lat }));
     // the heights: the ends on the ground, any unknown run between them ramped from the ground to the first height
@@ -45,6 +52,7 @@ export async function makeBridges(rid, heightAt) {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
     const deck = new THREE.Mesh(g, mat(B.color)); deck.material.side = THREE.DoubleSide; group.add(deck);
+    if (!B.minor && !/rail/i.test(B.name)) roads.push([P, B]);
     // piers: two columns under a wide deck, a wall under a narrow one, where the deck is over the water or low ground
     for (const [lon, lat, top, az] of B.piers) {
       const gy = heightAt(lon, lat), x = wx(lon), z = wz(lat), a = az * Math.PI / 180;
@@ -120,6 +128,53 @@ export async function makeBridges(rid, heightAt) {
     });
     mats.set('parts', im.material); group.add(im);
   }
-  const night = k => { for (const m of mats.values()) m.emissive.copy(m.color).multiplyScalar(0.3 * k); };
-  return { group, labels: [...labels.values()], credit: J.credit, night };
+  const cars = makeTraffic(roads);
+  if (cars) group.add(cars.mesh);
+  const night = k => { for (const m of mats.values()) m.emissive.copy(m.color).multiplyScalar(0.3 * k); cars?.night(k); };
+  return { group, labels: [...labels.values()], credit: J.credit, night, update: dt => cars?.update(dt) };
+}
+
+// the traffic: one instanced mesh of boxes, each car a distance along its deck and a lane, moved on every frame
+function makeTraffic(roads) {
+  const LANE = 3.6, list = [];
+  for (const [P, B] of roads) {
+    const len = [0];
+    for (let i = 1; i < P.length; i++) len.push(len[i - 1] + Math.hypot(P[i].x - P[i - 1].x, P[i].z - P[i - 1].z, P[i].h - P[i - 1].h));
+    const L = len.at(-1); if (L < 200) continue;
+    const near = (a, b) => Math.hypot(a.x - b.x, a.z - b.z) < 800;
+    const oneWay = roads.some(([Q, C]) => C !== B && C.short === B.short && ((near(P[0], Q.at(-1)) && near(P.at(-1), Q[0])) || (near(P[0], Q[0]) && near(P.at(-1), Q.at(-1)))));
+    const lanes = Math.max(oneWay ? 1 : 2, Math.min(oneWay ? 5 : 6, Math.floor((B.w - 2) / LANE)));
+    const road = { P, len, L };
+    for (let ln = 0; ln < lanes; ln++) {
+      // forward lanes on the right of the line (its +normal side), the others back the other way on the left
+      const fwd = oneWay || ln < lanes / 2, k = oneWay ? ln - (lanes - 1) / 2 : fwd ? ln + 0.5 : -(ln - lanes / 2 + 0.5);
+      const off = k * Math.min(LANE, (B.w - 1.5) / lanes), v = (21 + Math.random() * 6) * (fwd ? 1 : -1);
+      for (let s = Math.random() * 30; s < L; s += 22 + Math.random() * 45) {
+        const truck = Math.random() < 0.08;
+        list.push({ road, off, v, s, len: truck ? 13 : 4.7, w: truck ? 2.5 : 1.85, h: truck ? 3.6 : 1.5, c: truck ? 0xe8e6e0 : CAR_COLOURS[Math.random() * CAR_COLOURS.length | 0] });
+      }
+    }
+  }
+  if (!list.length) return null;
+  const mat = new THREE.MeshStandardMaterial({ roughness: 0.4, metalness: 0.4 });
+  const mesh = new THREE.InstancedMesh(box, mat, list.length), c = new THREE.Color();
+  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); mesh.frustumCulled = false;
+  list.forEach((a, i) => mesh.setColorAt(i, c.set(a.c)));
+  const M = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), p = new THREE.Vector3(), sc = new THREE.Vector3();
+  const update = dt => {
+    list.forEach((a, i) => {
+      const { P, len, L } = a.road;
+      a.s = (a.s + a.v * dt + L) % L;
+      let lo = 0, hi = len.length - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (len[m] <= a.s) lo = m; else hi = m; }
+      const A = P[lo], Bp = P[hi], u = (a.s - len[lo]) / ((len[hi] - len[lo]) || 1);
+      const tx = Bp.x - A.x, tz = Bp.z - A.z, tl = Math.hypot(tx, tz) || 1, nx = -tz / tl, nz = tx / tl;
+      p.set(A.x + tx * u + nx * a.off, A.h + (Bp.h - A.h) * u + a.h / 2, A.z + tz * u + nz * a.off);
+      mesh.setMatrixAt(i, M.compose(p, q.setFromAxisAngle(up, Math.atan2(tx, tz)), sc.set(a.w, a.h, a.len)));
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+  };
+  update(0);
+  // at night their lamps: a glow on every car (white ahead and red astern are too small to tell apart from up here)
+  const night = k => mat.emissive.setRGB(0.55 * k, 0.45 * k, 0.3 * k);
+  return { mesh, update, night };
 }

@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-10-28 — Bridge traffic; SF bridge-to-bridge flyover; New York tour narration fix (v1043)
+
+- Requested: "it would be nice to have cars on all bridges". Bird's-eye now draws cars and a few trucks moving at about
+  50 mph on every named road bridge in bridges3d.js (the Golden Gate, Bay Bridge, Richmond–San Rafael, Carquinez,
+  Benicia, San Mateo, Dumbarton, New York's and the Piscataqua's). They drive on the right; a same-named pair of decks
+  with ends together is one-way each, in OpenStreetMap's drawing direction. They glow a little at night. Also fixed:
+  the bridges' load error handler had ended up inside a comment.
+- Tab 15 on the sailors page: San Francisco Bay, bridge to bridge. One minute by helicopter from outside the Golden
+  Gate past Sausalito and Tiburon, to the Richmond–San Rafael and Carquinez bridges, then back over the Bay Bridge to
+  the Ferry Building. Recorded by design/pending/sf-flyover/record.mjs. Narration checked with tts.py; Rafael,
+  Carquinez and Tiburon were respelled for Piper (ruh-FELL, car-KEE-nez, TIB-er-on).
+- New York helicopter tour (tab 12): "Hanseatic" re-voiced as han-see-AT-ic (Piper said han-SEE-tic); only line n8
+  changed.
+
 ## 2026-10-28 — Penobscot helicopter tour: narration fixes (v1042)
 
 - Requested after a phoneme check of the Piper narration: Vinalhaven now VY-nul-hay-vun (respelled "Vynalhaven" for
