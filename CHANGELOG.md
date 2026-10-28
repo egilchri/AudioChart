@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-28 — Bass Harbor said right (v1052)
+
+- Reported: "Bass Harbor ... pronounced wrong". Voices read Bass as the low note ("base"); the spoken text now says
+  "Bas Harbor" (tts.js, speech only; the printed text keeps Bass), for the Flyover and everything else the app says.
+
 ## 2026-10-28 — Bird's-eye goes easy when idle (v1051)
 
 - Requested: "make it go easy when idle". Bird's-eye drew the scene 60 times a second even with nothing changing.
