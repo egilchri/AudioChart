@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-28 — Penobscot helicopter tour: narration fixes (v1042)
+
+- Requested after a phoneme check of the Piper narration: Vinalhaven now VY-nul-hay-vun (respelled "Vynalhaven" for
+  Piper; it said VIN-), Buoy F now BOO-ee ("Booey"), no sentence-break pause after "Captain E", and "behind its nearly a
+  mile of" corrected to "behind nearly a mile of". Same frames; only lines n2–n4 re-voiced and the video rebuilt.
+
 ## 2026-10-27 — Bird's-eye: the clock is the bay's time (v1041)
 
 - Requested: "fix the clock to use the region's time zone". San Francisco at 5 pm read 20:11 on a computer in Maine.
