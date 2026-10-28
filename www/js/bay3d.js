@@ -19,6 +19,7 @@ import { makeWildlife, ledgesFrom } from './wildlife3d.js';
 import { makeMoorings } from './moorings3d.js';
 import { callsOn, trackOf, alongTrack, cruiseState, ferryState, ferryDepartures, ferryLine, ferrySlipModel, terminalLot, terminalHouse, cruiseShipModel, ferryModelSimple, launchModel, cblModel, mins } from './vessels.js';
 import { REGIONS3D, REGION3D_KEY, regions3dOffered } from './regions3d.js';
+import { setRegionTZ, minOfDay, bayMs, bayDay, bayTime, bayDayTime } from './regiontime.js';
 import { makeBridges } from './bridges3d.js';
 import { setShips } from './ships3d.js';
 import { identify, liveModel, knownList } from './livefleet.js';
@@ -53,6 +54,7 @@ const DEG = Math.PI / 180;
 // The overview reaches past the bay so its horizon is land, not open sea; the camera's target
 // stays inside the bay itself. Which bay: Penobscot, or Casco (v992; regions3d.js, its chart region RID).
 const REG = REGIONS3D[REGION3D], RID = REGION3D, PENOBSCOT = RID === 'penobscot-bay';
+setRegionTZ(REG.tz);   // (the scene's clock is the bay's: v1041)
 const OVERVIEW = REG.overview;
 const BROADLEAF = REG.trees === 'broadleaf';   // (v1032: a city's trees, and only plainly green cells; terrain3d.js addCanopy)
 const BAY = REG.bay;
@@ -1443,13 +1445,14 @@ const FORCE_CRUISE = params.get('cruise') || '';
 // cruise ship will pass by"): the real time to begin with (or ?clock=HH:MM); the 🕗 panel sets it, runs it
 // faster, and lists what's coming, each a jump to that moment and that vessel. Once you've set it, the light
 // follows it too (the sun's height then: night, dawn, day or sunset), until you pick a Time in the weather panel.
-const realMin = () => { const d = new Date(); return d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60; };
+const realMin = () => minOfDay();   // (the bay's time, not this device's: v1041)
 const simClock = { base: (() => { const c = params.get('clock'); return c && /^\d\d?:\d\d$/.test(c) ? mins(c) : realMin(); })(), at: performance.now(), rate: 1, light: false };
 // Linked to your boat (v936, requested: "link the two clocks"): while she sails a route (▶ Sail it, or a
 // Virtual Journey) the clock is her time on passage from when she left, so you meet each ferry when you
 // would; moving the clock yourself lets go of her.
 let boatClock = null;   // () => minutes; set by your boat's code below
 const clockMin = () => Math.max(0, Math.min(1439.9, boatClock ? boatClock() : simClock.base + (performance.now() - simClock.at) / 60000 * simClock.rate));
+const sceneMs = () => bayMs(clockMin());   // the scene's moment, as an instant (the bay's day)
 function setClock(min, rate = simClock.rate, byUser = true) {
   boatClock = null;
   Object.assign(simClock, { base: Math.max(0, Math.min(1439.9, min)), at: performance.now(), rate });
@@ -1458,8 +1461,7 @@ function setClock(min, rate = simClock.rate, byUser = true) {
 }
 function lightForClock() {   // the weather panel's time of day, from where the sun is at the scene's time
   if (!simClock.light) return;
-  const m = clockMin(), d = new Date(); d.setHours(Math.floor(m / 60), Math.floor(m % 60), 0, 0);
-  const sp = sunPos(latOf(view.z), lonOf(view.x), d);
+  const sp = sunPos(latOf(view.z), lonOf(view.x), new Date(sceneMs()));
   const time = sp.alt < -6 ? 'night' : sp.alt < 6 ? (sp.brg < 180 ? 'dawn' : 'sunset') : 'day';
   if (time !== env.C.time) applyConditions({ time });
 }
@@ -1474,7 +1476,7 @@ if (!EMPTY) Promise.all([getJSON('./data/ferries.json').catch(() => null), getJS
     const T = trackOf(ferryLine(F), wx, wz), group = (F.kind === 'launch' ? launchModel : (F.kind === 'cbl' || F.kind === 'ctc') ? cblModel : ferryModelSimple)(F, trafficLit); group.visible = false; scene.add(group);
     traffic.push({ kind: 'ferry', F, T, group, L: F.length_m || 46, x: T.P[0][0], z: T.P[0][1], on: false, label: '' });
   }
-  for (const call of callsOn(cd, new Date(), FORCE_CRUISE).filter(c => here(c.track))) {
+  for (const call of callsOn(cd, bayDay(), FORCE_CRUISE).filter(c => here(c.track))) {
     const V = cd.vessels[call.vessel], T = trackOf(call.track, wx, wz), group = cruiseShipModel(V, trafficLit); group.visible = false; scene.add(group);
     traffic.push({ kind: 'cruise', call, V, T, group, L: V.length_m, x: T.P[0][0], z: T.P[0][1], on: false, label: '' });
     console.log(`[bay3d] cruise ship today: ${call.id}`);
@@ -2162,7 +2164,7 @@ function fillBuoyCard() {
   document.getElementById('aisname').textContent = `🟡 ${BUOY_F.name}, West Penobscot Bay`;
   aisCard.querySelector('.go').hidden = true;
   const rows = [], row = (k, val, html = false) => { if (val !== '' && val != null) rows.push([k, val, html]); };
-  const at = t => { const d = new Date(t); return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); };
+  const at = bayTime;
   if (!R) row('Readings', buoyFeed.failed ? 'None: can\'t reach the buoy\'s server (out of range?), and none kept from the last 12 hours' : 'Asking the buoy…');
   else {
     const top = topCurrent(R), w = c => tideWord(c.kn, c.to), cur = c => `${c.kn < 0.15 ? 'Slack, ' : w(c) ? cap(w(c)) + ', ' : ''}${knTxt(c.kn)} setting ${deg3(c.to)}° true (${magTxt(c.to)})`;
@@ -2234,7 +2236,7 @@ function fillGaugeCard() {
   document.getElementById('aisname').textContent = `🌊 ${GAUGE.name} tide gauge`;
   aisCard.querySelector('.go').hidden = true;
   const rows = [], row = (k, val, html = false) => { if (val !== '' && val != null) rows.push([k, val, html]); };
-  const at = t => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const at = bayTime;
   if (m) row('Measured', `${ft1(m.ft)} at ${at(m.t)}${now - m.t > 30 * 60e3 ? ` (${aisAgo((now - m.t) / 1000)})${tide.failed ? ' — the last one kept: can\'t reach NOAA' : ''}` : ''}`);
   else row('Measured', tide.failed ? 'None: can\'t reach NOAA (out of range?), and none kept from the last 12 hours' : 'Asking the gauge…');
   if (m && predAt(S, m.t) != null) row('Predicted then', ft1(predAt(S, m.t)));
@@ -2274,8 +2276,7 @@ const curFeed = curLine ? makeCurrents(RID, { onData: F => {
   }
   if (curBtn) curBtn.hidden = false; syncCurBtn();
 } }) : null;
-const sceneMs = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime() + clockMin() * 60e3; };
-const dayTime = t => new Date(t).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+const dayTime = bayDayTime;
 function syncCurBtn() {
   if (!curBtn || !curF) return;
   curBtn.classList.toggle('on', curOn); curBtn.setAttribute('aria-pressed', String(curOn));

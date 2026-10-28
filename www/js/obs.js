@@ -4,6 +4,7 @@
 // University of Maine's Buoy E (E01, NDBC 44032), 9 nm WSW of the Rock in the open Gulf. Casco: NOAA's Portland
 // buoy (44007), which has both. All read from NERACOOS's ERDDAP server (CORS open, no key). Offline: the last
 // reading, kept with its time and shown with its age, up to 12 hours; never an error on the screen.
+import { bayTime } from './regiontime.js';
 const ERDDAP = 'https://data.neracoos.org/erddap/tabledap/', KEEP = 12 * 3600e3;
 export const OBS = {
   'penobscot-bay': {
@@ -79,7 +80,7 @@ const DIRS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW'
 export const pt16 = d => DIRS[Math.round((((d % 360) + 360) % 360) / 22.5) % 16];
 const fF = c => `${Math.round(c * 9 / 5 + 32)}°F`;
 const ago = t => { const m = Math.round((Date.now() - Date.parse(t)) / 60e3); return m < 90 ? `${m} min ago` : `${Math.round(m / 60)} h ago`; };
-export const at = t => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+export const at = bayTime;   // (the bay's time in Bird's-eye: regiontime.js, v1041)
 export function windWords(w) {
   return `${w.kn < 1 ? 'calm' : `${w.from != null ? pt16(w.from) + ' ' : ''}${Math.round(w.kn)} kn`}${w.gust != null && w.gust >= w.kn + 3 ? `, gusts ${Math.round(w.gust)}` : ''}`;
 }

@@ -12,6 +12,7 @@
 // both views and remembered.
 import * as THREE from 'three';
 import { obsFor, makeObs, obsLines, obsConditions } from './obs.js';
+import { bayTime } from './regiontime.js';
 
 const rad = THREE.MathUtils.degToRad;
 export const sunAt = (alt, brg) => new THREE.Vector3().setFromSphericalCoords(1, rad(90 - alt), rad(180 - brg));   // theta runs from south
@@ -492,7 +493,7 @@ export async function forecastConditions(lat, lon, now) {
   C.vis = visNm < 0.5 ? 'thick' : visNm < 1 || fog ? 'fog' : visNm < 4 ? 'haze' : 'clear';
   const sp = sunPos(lat, lon, now);
   C.time = sp.alt < -6 ? 'night' : sp.alt < 8 ? (sp.brg < 180 ? 'dawn' : 'sunset') : 'day';
-  const hr = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const hr = bayTime(now);
   const DIRS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
   const skyTxt = wet ? `rain likely (${pop}%)` : fog ? 'fog' : cover >= 80 ? 'overcast' : cover >= 40 ? 'partly cloudy' : 'clear skies';
   const note = `NWS forecast, ${hr}: ${DIRS[Math.round(from / 22.5) % 16]} ${Math.round(kn)} kn, ${skyTxt}, visibility ${visNm >= 10 ? '10+' : visNm.toFixed(visNm < 2 ? 1 : 0)} nm` + (waveFt ? `, seas ${Math.max(1, Math.round(waveFt))} ft` : '') + '.';

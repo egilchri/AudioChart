@@ -9,6 +9,7 @@ export const REGIONS3D = {
     overview: [-69.45, 43.75, -67.95, 44.75],
     bay: [-69.25, 43.85, -68.1, 44.55],
     whole: { lon: -68.7, lat: 44.17, dist: 60000 },
+    tz: 'America/New_York',   // (v1041: the scene's clock and the times shown are the bay's; regiontime.js)
   },
   'casco-bay': {
     name: 'Casco Bay', short: 'Casco',
@@ -16,6 +17,7 @@ export const REGIONS3D = {
     overview: [-70.55, 43.42, -69.6, 44.02],
     bay: [-70.32, 43.55, -69.78, 43.93],
     whole: { lon: -70.06, lat: 43.71, dist: 40000 },
+    tz: 'America/New_York',
   },
   // A trial run (v1019, requested: "do the quick test run for San Francisco Bay"): terrain, aerial photos and Live
   // AIS only, so far; no chart data (place names, marks) or buildings yet. Offered like Casco: ?region=sf-bay, or
@@ -28,6 +30,7 @@ export const REGIONS3D = {
     whole: { lon: -122.33, lat: 37.78, dist: 55000 },
     chartWater: [-122.62, 37.42, -122.0, 38.17],   // (v1020: the chart's land tells water from land here; bay3d.js)
     trees: 'broadleaf',   // (v1032: a city's street and park trees, not Maine's spruce; bay3d.js)
+    tz: 'America/Los_Angeles',
   },
   // Portsmouth Harbor and the Piscataqua River (v1028, requested: "Let's bring piscataqua online, similar to how we
   // brought up San Francisco Bay"): Portsmouth, Kittery and New Castle, up the river to Great Bay, the Isles of
@@ -39,6 +42,7 @@ export const REGIONS3D = {
     bay: [-70.92, 42.94, -70.55, 43.18],
     whole: { lon: -70.73, lat: 43.06, dist: 30000 },
     chartWater: [-70.97, 42.88, -70.39, 43.22],   // (Great Bay's flats and the back channels, as SF's)
+    tz: 'America/New_York',
   },
   // New York Harbor (v1032, requested: "Manhattan and Brooklyn, etc"): the Lower and Upper Bay, the Hudson to the
   // George Washington Bridge, the East and Harlem Rivers, the Kills, Jamaica Bay. Chart data from the region build.
@@ -50,6 +54,7 @@ export const REGIONS3D = {
     whole: { lon: -74.02, lat: 40.66, dist: 40000 },
     chartWater: [-74.3, 40.45, -73.65, 40.95],   // (the Meadowlands and Jamaica Bay's marshes, as SF's flats)
     trees: 'broadleaf',
+    tz: 'America/New_York',
   },
 };
 export const REGION3D_KEY = 'audiochart-bay3d-region';

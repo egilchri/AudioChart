@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-27 — Bird's-eye: the clock is the bay's time (v1041)
+
+- Requested: "fix the clock to use the region's time zone". San Francisco at 5 pm read 20:11 on a computer in Maine.
+  Each bay in regions3d.js has a `tz`; the new js/regiontime.js gives the bay's time of day, today's date and h:mm.
+  Bird's-eye's 🕗 clock, the sun and night light it sets, the ferry and cruise-ship timetables, the cruise-call day,
+  the current forecast's time, and the times on the Buoy F, tide-gauge, observation and NWS lines all use it. The
+  chart and the helm view keep the device's own zone (they don't set one).
+
 ## 2026-10-27 — Sailors page: San Francisco by helicopter (v1040)
 
 - Tab 14 on the sailors page: a one-minute helicopter tour of San Francisco Bay in Bird's-eye with live AIS (the Golden
