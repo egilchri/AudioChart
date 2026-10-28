@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-27 — Sailors page: San Francisco by helicopter (v1040)
+
+- Tab 14 on the sailors page: a one-minute helicopter tour of San Francisco Bay in Bird's-eye with live AIS (the Golden
+  Gate, Alcatraz, the car carrier Themis Leader at Richmond with her card opened and closed, the Bay Bridge, the Ferry
+  Building, downtown). Recorded by design/pending/sf-tour/record.mjs (the New York method; the scene clock hidden, as
+  it reads this computer's Eastern time), built by build.py.
+
 ## 2026-10-27 — Sailors page: Penobscot Bay by helicopter (v1039)
 
 - Tab 13 on the sailors page: a one-minute helicopter tour of Penobscot Bay in Bird's-eye (Rockland breakwater, the
