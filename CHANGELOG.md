@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-28 — Bird's-eye: the help line clear of the credits (v1045)
+
+- Requested: the help line along the bottom overlapped the photo and data credits on a laptop-sized screen, in every
+  bay. It now sits just above them; bay3d.js tells the page how tall the credits are, so it stays clear when they wrap.
+  The places panel stops a little higher, so the help can wrap to two lines on a narrow window without covering it.
+
 ## 2026-10-28 — Bird's-eye: armchair bays (v1044)
 
 - Requested: San Francisco and New York are for armchair touring and have no chart in AudioChart, so their Bird's-eye

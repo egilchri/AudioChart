@@ -50,7 +50,7 @@ body { background: var(--sky); color: var(--ink); font-family: var(--body); font
 @keyframes livering { from { transform: scale(1); opacity: 1; } to { transform: scale(4.5); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { #livemarks.flash i, #livemarks.flash i::after, #livemarks i.uw { animation: none; } #livemarks.flash i { transform: scale(1.5); } }
 .panel { position: fixed; left: max(12px, env(safe-area-inset-left)); top: calc(12px + env(safe-area-inset-top, 0px)); z-index: 3; background: var(--glass);
-  border-radius: 8px; padding: 10px; display: grid; gap: 8px; max-height: calc(100% - 80px); overflow: auto; width: 13.5rem; box-sizing: border-box; }
+  border-radius: 8px; padding: 10px; display: grid; gap: 8px; max-height: calc(100% - 104px); overflow: auto; width: 13.5rem; box-sizing: border-box; }
 .panel h1 { margin: 0; font-family: var(--display); font-weight: 600; font-size: 1.12rem; letter-spacing: 0.02em; }
 .panel h1 small { display: block; font-family: var(--body); font-weight: 400; font-size: 0.74rem; color: var(--muted); letter-spacing: 0; margin-top: 2px; }
 .panel .head { display: flex; align-items: start; justify-content: space-between; gap: 8px; }
@@ -83,7 +83,7 @@ body.embed #bayswitch button { padding: 5px 14px; }
 .lbl.wpt { color: #c9f2d6; }
 .panel a { color: var(--brass); font-size: 0.8rem; padding-left: 8px; }
 button:focus-visible { outline: 2px solid var(--brass); outline-offset: 1px; }
-#help { position: fixed; right: 12px; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); z-index: 2; font-size: 0.74rem; color: var(--muted); background: var(--glass); border-radius: 5px; padding: 4px 9px; max-width: calc(100% - 24px); box-sizing: border-box; }
+#help { position: fixed; right: 12px; bottom: calc(12px + var(--credit-h, 13px) + env(safe-area-inset-bottom, 0px));   /* above the credit line (v1045; bay3d.js sets its height) */ z-index: 2; font-size: 0.74rem; color: var(--muted); background: var(--glass); border-radius: 5px; padding: 4px 9px; max-width: calc(100% - 24px); box-sizing: border-box; }
 #loading { position: fixed; left: 50%; top: calc(14px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); z-index: 2; font-size: 0.8rem; background: var(--glass-hi); border-radius: 5px; padding: 4px 10px; }
 #credit { position: fixed; left: 12px; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); z-index: 2; font-size: 10px; color: rgba(255, 255, 255, 0.8); text-shadow: 0 0 3px rgba(0, 0, 0, 0.6); pointer-events: none; max-width: 55%; }
 #status { position: fixed; inset: 0; z-index: 5; display: grid; place-items: center; font-family: var(--display); font-size: 1.3rem; letter-spacing: 0.04em; background: rgba(20, 34, 42, 0.55); text-align: center; padding-inline: 16px; }

@@ -663,6 +663,8 @@ const townList = (await getJSON('./data/buildings/index.json').catch(() => [])).
 const slips = [];
 let slipsReadyResolve; const slipsReady = new Promise(r => { slipsReadyResolve = r; setTimeout(r, 8000); });
 const creditEl = document.getElementById('credit');
+// the help line sits above the credits, however many lines they take (v1045: they overlapped on a laptop)
+try { new ResizeObserver(() => document.documentElement.style.setProperty('--credit-h', creditEl.offsetHeight + 'px')).observe(creditEl); } catch (_) {}
 let bridges = null;   // (v1020, below)
 function updateCredit() {
   const shown = townList.filter(t => t.group);
