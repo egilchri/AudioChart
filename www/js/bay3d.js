@@ -91,6 +91,17 @@ async function chartWater(g) {
 document.title = `${REG.name} 3D · AudioChart`;
 { const h1 = document.querySelector('.panel h1'); if (h1?.firstChild) h1.firstChild.textContent = REG.name; }
 statusEl.textContent = `Loading ${REG.name}…`;
+// Armchair bays (v1044, requested): San Francisco and New York have no chart in AudioChart, so Bird's-eye there leaves
+// out what leads to one: the route waypoints (your routes are Maine's), 🗺 Chart, and the link into the app (an
+// "About AudioChart" link to the sailors page instead).
+const ARMCHAIR = !!REG.armchair;
+if (ARMCHAIR) {
+  const wp = document.getElementById('wproute');
+  for (const el of [wp?.previousElementSibling, wp, document.getElementById('sailrow'), document.getElementById('sailnote')]) if (el) { el.hidden = true; el.style.display = 'none'; }
+  const back = document.querySelector('.panel a.back'); if (back) { back.href = './sailors/'; back.textContent = 'About AudioChart'; }
+  const help = document.getElementById('help');
+  if (help) help.textContent = 'Drag to move · right-drag or Shift-drag to turn and tilt · scroll or pinch to zoom · click a place · 📡 Live for the ships there now; click one for her card · Weather (N)';
+}
 try { if (/bay3d\.html$/.test(location.pathname)) localStorage.setItem(REGION3D_KEY, RID); } catch (_) {}
 {
   const sw = document.getElementById('bayswitch'), offered = regions3dOffered(RID);
@@ -805,7 +816,7 @@ const fixBrg = o => `${String(Math.round(toMag(o.brg)) % 360).padStart(3, '0')}�
 const fixText = o => `${o.m.n} bears ${fixBrg(o)}, ${fixRange(o.d)}`;
 // 🗺 Chart (v1000, requested: "be able to flip over to chart view"): AudioChart's chart, centred on her with her
 // marks drawn, and a way back to this view. Only inside AudioChart, which has the chart.
-const chartHook = () => { try { return window.parent !== window && window.parent.__audioChartViews?.showVessel ? window.parent.__audioChartViews : null; } catch (_) { return null; } };
+const chartHook = () => { if (ARMCHAIR) return null; try { return window.parent !== window && window.parent.__audioChartViews?.showVessel ? window.parent.__audioChartViews : null; } catch (_) { return null; } };
 function showOnChart(v) {
   const hook = chartHook(); if (!hook) return;
   hook.showVessel(window, {
@@ -2362,7 +2373,7 @@ getJSON(`./data/regions/${RID}/hazards.geojson`).then(fc => wildlife.setLedges(l
 const WPR_KEY = 'audiochart-bay3d-route';
 const wpSel = document.getElementById('wproute');
 const routeChoices = [];
-{
+if (!ARMCHAIR) {
   let saved = []; try { saved = JSON.parse(localStorage.getItem('audiochart-user-routes') || '[]'); } catch (_) {}
   // opened mid-edit (v879): the route being edited, with its unsaved changes, comes first
   if (params.get('route') === 'editing') {
@@ -2631,7 +2642,7 @@ const goView = url => { try { if (window.parent !== window && window.parent.__au
   b.before(views);
   let hook = null; try { if (window.parent !== window) hook = window.parent.__audioChartViews; } catch (_) {}
   const mk = (label, title, fn) => { const x = document.createElement('button'); x.type = 'button'; x.className = 'wxbtn'; x.textContent = label; x.title = title; x.addEventListener('click', fn); views.appendChild(x); return x; };
-  if (hook) mk('🗺 Chart', 'Back to the chart', () => hook.chart());
+  if (hook && !ARMCHAIR) mk('🗺 Chart', 'Back to the chart', () => hook.chart());
   let goEye = 100;
   const helmBtns = [['Helm', 'Deck level, at the tiller', 6.5], ['20 ft', 'From 20 ft up', 20], ['60 ft', 'From 60 ft up', 60], ['🚁 Drone', 'From just above and astern of your boat', 100]]
     .map(([l, t, ft]) => { const x = mk(l, t, () => { goEye = ft; b.click(); }); x.dataset.eye = ft; return x; });

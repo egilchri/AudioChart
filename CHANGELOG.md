@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-28 — Bird's-eye: armchair bays (v1044)
+
+- Requested: San Francisco and New York are for armchair touring and have no chart in AudioChart, so their Bird's-eye
+  leaves out what leads to one. regions3d.js marks them `armchair: true`, and bay3d.js then hides the Route waypoints
+  picker (your saved routes are Maine's; a remembered one no longer loads there) and ▶ Sail it, and drops 🗺 Chart on
+  ship cards, the follow bar and the view row. "Back to AudioChart" becomes "About AudioChart" (the sailors page), and
+  the help line talks about 📡 Live and ship cards, not routes. The Maine regions are unchanged. Direct link:
+  bay3d.html?region=sf-bay (or new-york-harbor).
+
 ## 2026-10-28 — Bridge traffic; SF bridge-to-bridge flyover; New York tour narration fix (v1043)
 
 - Requested: "it would be nice to have cars on all bridges". Bird's-eye now draws cars and a few trucks moving at about
