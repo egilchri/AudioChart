@@ -7,6 +7,12 @@ export const REGIONS3D = {
     name: 'Penobscot Bay', short: 'Penobscot',
     origin: [-68.87, 44.12],
     heliport: { name: 'Knox County Regional Airport', lon: -69.0992, lat: 44.0603 },   // (where the Flyover's helicopter takes off: v1049)
+    // places the Flyover's helicopter can land on the way (v1056, requested: "Crow Island in the Cranberry Isles, or
+    // the open soccer field on Islesford"; spots checked on the NAIP photo): tick them in Landing spots
+    landings: [
+      { name: 'Crow Island', say: 'Landing on Crow Island', lon: -68.2384, lat: 44.2441 },   // (its grassy top; OSM's islet, off Little Cranberry's south shore)
+      { name: 'Islesford soccer field', say: 'Landing on the Islesford soccer field', lon: -68.2380, lat: 44.2608 },   // (the mown field beside the town dock)
+    ],
     overview: [-69.45, 43.75, -67.95, 44.75],
     bay: [-69.25, 43.85, -68.1, 44.55],
     whole: { lon: -68.7, lat: 44.17, dist: 60000 },

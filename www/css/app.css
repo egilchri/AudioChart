@@ -846,6 +846,9 @@ html, body {
 #app.vj3d-on #map-overlay-cmd #text-submit { padding: 4px 8px; font-size: 0.8rem; }
 #bay3d-wrap { position: absolute; inset: 26px 0 0 0; z-index: 1980; background: var(--navy); }   /* above the chart's own controls and panels (up to 1960), below dialogs (3000+); top set in _showBay3d */
 #bay3d-wrap[hidden] { display: none; }
+/* a Flyover under way in Bird's-eye (v1056, requested: as clear a screen as possible, everything back after): the
+   3D view covers the whole window, over the chart's bars, rail and buttons (below dialogs, 3000+); bay3d.js sets it */
+#app.flyover-on #bay3d-wrap { top: 0 !important; z-index: 2999; }
 /* v876: Bird's-eye keeps the chart's compass rose and zoom/pan rail over it (they drive the 3D view) */
 #app.bay3d-on .leaflet-top.leaflet-left, #app.bay3d-on #left-rail-zoom-pan { z-index: 1990; }
 #tilt-slider-wrap { display: none; }
@@ -855,6 +858,16 @@ html, body {
 /* the version over Bird's-eye too (v1011): it sat under the 3D view, where the left rail's tilt column would
    cover it anyway on a short screen; here low in the corner, below the mic button, above the 3D view's credit */
 #app.bay3d-on #map-version-label { z-index: 1990; bottom: 30px; left: 96px; }   /* (v1055: beside the rail's column, not under it; on a short window its tilt slider reached the corner and covered it) */
+/* the left rail's column fits a short window over Bird's-eye (v1056, requested: "make the column fit"): from the
+   compass down to the mic button it needs ~775 px; shorter, the zoom and tilt sliders shorten, and shorter still the
+   pan pad goes (dragging the 3D view pans it) */
+@media (max-height: 800px) {
+  #app.bay3d-on #left-rail-zoom-pan { gap: 6px; }
+  #app.bay3d-on #zoom-slider { height: 90px; }
+  #app.bay3d-on #tilt-slider { height: 60px; }
+}
+@media (max-height: 660px) { #app.bay3d-on #pan-controls-wrap { display: none; } }
+@media (max-height: 590px) { #app.bay3d-on #zoom-slider { height: 60px; } #app.bay3d-on #tilt-slider { height: 44px; } }
 #app.bay3d-on .compass-rose-ctrl svg { pointer-events: auto; cursor: grab; touch-action: none; transition: transform 0.12s linear; }   /* drag round to turn, tap for north up */
 #bay3d-wrap iframe { width: 100%; height: 100%; border: 0; display: block; }
 /* smooth 3D switches (v899): a view loads unseen and fades in; over the chart the wrap stays clear */

@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-10-29 — Flyover: landings on the way, a clear screen while flying; the left rail fits a short window (v1056)
+
+- Requested: "designate some landing spots during the flyover. For example, Crow Island in the Cranberry Isles, or the
+  open soccer field on Islesford". Bird's-eye's panel has Landing spots: the bay's own (regions3d.js `landings`;
+  Penobscot: Crow Island's grassy top and the Islesford field by the town dock, both placed on the NAIP photo) and
+  any you add (＋ Add a landing spot, then a tap on land; ✕ forgets one). A ticked one is a stop where she comes in,
+  settles, sits 6 s with the rotors idling, and lifts off for the next. Stops are now ordered nearest first from
+  where she takes off, not from where the camera happened to be.
+- Requested: "while we are doing a helicopter flyover, please hide all not strictly necessary ui controls ... Bring
+  them back when the flyover terminates". While she flies, Bird's-eye shows only the flyover bar, a ship's card and
+  the credits (body.flying), and inside AudioChart the 3D view covers the whole window over the chart's bars, rail
+  and buttons (#app.flyover-on). Both go when the tour ends, is ended, or Bird's-eye is closed.
+- Requested: "make the column fit". Over Bird's-eye on a window under 800 px tall the zoom and tilt sliders shorten;
+  under 660 the pan pad goes (dragging pans the 3D view); under 590 the sliders shorten again. Checked at 760, 640
+  and 560 px: the column ends above the mic button.
+- Headless Chrome: a tour from Northeast Harbor landing on the Islesford field and Crow Island and back, and the
+  app's controls hidden during the flight and back after ✕.
+
 ## 2026-10-28 — Bird's-eye: the version label clear of the tilt slider (v1055)
 
 - Reported: "the tilt slider is in front of the version number". Over Bird's-eye the version sat in the bottom-left

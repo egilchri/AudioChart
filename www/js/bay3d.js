@@ -739,7 +739,7 @@ const townsUl = document.getElementById('towns'), wholeBtn = document.getElement
 let current = null;
 function markCurrent(id) {
   current = id; stopFollow(); fly?.end();
-  for (const b of document.querySelectorAll('#towns button, #bridges button')) b.classList.toggle('on', b.dataset.id === id);
+  for (const b of document.querySelectorAll('#towns button, #bridges button, #landings button')) b.classList.toggle('on', b.dataset.id === id);
   wholeBtn.classList.toggle('on', id === 'whole');
 }
 // The village and its waterfront: the densest cluster of the town's buildings (or the index's
@@ -2908,6 +2908,7 @@ const clock = new THREE.Clock();
   let fromSpot = fromSaved(saved.from) || home, toSpot = saved.to === 'none' ? 'none' : fromSaved(saved.to) || 'start';
   const landAt = () => toSpot === 'start' ? fromSpot : toSpot === 'none' ? null : toSpot;
   const keep = p => p && { name: p.name, lon: p.lon, lat: p.lat };
+  let myLandings = Array.isArray(saved.landings) ? saved.landings.filter(l => l?.lon != null) : [];   // (the landing spots you've added: v1056)
   const boxes = [...townsUl.querySelectorAll('input[type=checkbox]')];
   for (const c of boxes) c.checked = !!saved.ticked?.includes(c.dataset.id);
   // the stops: a town's view needs its buildings (waterfront); a bridge's is worked out from its line
@@ -2919,7 +2920,7 @@ const clock = new THREE.Clock();
     const n = ticked().length;
     go.disabled = !n; go.textContent = n ? `▶ Fly over ${n === 1 ? 'it' : `these ${n}`}` : '✈ Tick places to fly over';
     const have = new Set(boxes.map(c => c.dataset.id)), later = (saved.ticked || []).filter(id => !have.has(id));   // (the bridges' ticks, before they've loaded)
-    try { localStorage.setItem(KEY, JSON.stringify({ ticked: [...later, ...ticked()], ships: shipsCk.checked, talk: talkCk.checked, from: fromSpot === home ? null : keep(fromSpot), to: typeof toSpot === 'string' ? toSpot : keep(toSpot) })); } catch (_) {}
+    try { localStorage.setItem(KEY, JSON.stringify({ ticked: [...later, ...ticked()], ships: shipsCk.checked, talk: talkCk.checked, from: fromSpot === home ? null : keep(fromSpot), to: typeof toSpot === 'string' ? toSpot : keep(toSpot), landings: myLandings })); } catch (_) {}
   };
   for (const c of [...boxes, shipsCk, talkCk]) c.addEventListener('change', sync);
   const showRow = () => { row.hidden = !boxes.length || EMPTY || !document.getElementById('flybar'); };
@@ -2940,7 +2941,41 @@ const clock = new THREE.Clock();
     document.getElementById('bridgesect').hidden = false; showRow(); sync();
   };
   if (bridges) onBridges(bridges);
-  fly = makeFlyover({ view, bar: document.getElementById('flybar'), camera, scene });
+  // Landing spots (v1056): the bay's own (regions3d.js) and the ones you add (＋, then a tap on land); a tick makes
+  // her come down there on the way, sit a few seconds and lift off again; a click flies you to look at it
+  const landUl = document.getElementById('landings'), landAdd = document.getElementById('landadd');
+  const landId = l => `land:${l.lon.toFixed(5)},${l.lat.toFixed(5)}`;
+  let landDrawn = false;
+  const drawLandings = () => {
+    const was = new Set(landDrawn ? ticked() : saved.ticked || []); landDrawn = true;
+    for (const c of landUl.querySelectorAll('input')) boxes.splice(boxes.indexOf(c), 1);
+    landUl.textContent = '';
+    for (const l of [...(REG.landings || []), ...myLandings]) {
+      const id = landId(l), spot = spotOf(l.name, l.lon, l.lat), mine = myLandings.includes(l);
+      const li = document.createElement('li'), b = document.createElement('button'), ck = document.createElement('input');
+      b.type = 'button'; b.textContent = l.name; b.title = `Fly to ${l.name}`; b.dataset.id = id;
+      b.addEventListener('click', () => { markCurrent(id); foldPanel(true); flyTo({ x: spot.x, z: spot.z, dist: 450, tilt: 55 * DEG, az: view.az }, 3200); });
+      ck.type = 'checkbox'; ck.dataset.id = id; ck.setAttribute('aria-label', `Land at ${l.name} on the way`); ck.title = 'Land here on the way (▶ Fly, below)';
+      ck.checked = was.has(id) || !!l.justAdded; delete l.justAdded; ck.addEventListener('change', sync);
+      li.append(ck, b);
+      if (mine) {
+        const rm = document.createElement('button'); rm.type = 'button'; rm.className = 'rm'; rm.textContent = '✕'; rm.title = `Forget ${l.name}`;
+        rm.addEventListener('click', () => { myLandings = myLandings.filter(m => m !== l); drawLandings(); sync(); });
+        li.append(rm);
+      }
+      landUl.appendChild(li); boxes.push(ck);
+      placeView.set(id, { name: l.name, spot, say: l.say });
+    }
+  };
+  if (!EMPTY) { document.getElementById('landsect').hidden = false; landAdd.hidden = false; drawLandings(); showRow(); sync(); }
+  landAdd.addEventListener('click', () => startPick('touch'));
+  // while she flies, the screen is cleared of everything but the bar (and the app's own controls round Bird's-eye)
+  const setFlying = on => {
+    document.body.classList.toggle('flying', on);
+    if (params.get('embed')) try { parent.document.getElementById('app')?.classList.toggle('flyover-on', on); } catch (_) {}
+  };
+  fly = makeFlyover({ view, bar: document.getElementById('flybar'), camera, scene, onEnd: () => setFlying(false) });
+  addEventListener('pagehide', () => setFlying(false));   // (this view swapped for another mid-flight)
   // the take-off and landing rows, and picking a spot: Change, then a tap on the map (on land)
   const fromEl = document.getElementById('flyfrom'), toEl = document.getElementById('flyto'), pickBar = document.getElementById('flypick');
   const showSpots = () => {
@@ -2952,9 +2987,10 @@ const clock = new THREE.Clock();
   function stopPick() { picking = null; pickBar.hidden = true; }
   function startPick(which) {
     picking = which; foldPanel(true);
-    pickBar.querySelector('.fly-text').textContent = which === 'from' ? 'Tap the map where she should take off' : 'Tap the map where she should land';
+    pickBar.querySelector('.fly-text').textContent = which === 'from' ? 'Tap the map where she should take off' : which === 'touch' ? 'Tap the map where she should land on the way' : 'Tap the map where she should land';
     const [a, b] = [pickBar.querySelector('.pick-a'), pickBar.querySelector('.pick-b')];
     if (which === 'from') { pickBtn(a, home && fromSpot !== home ? `Use ${home.name.replace(/^the /, '')}` : '', () => { fromSpot = home; showSpots(); }); pickBtn(b, '', null); }
+    else if (which === 'touch') { pickBtn(a, '', null); pickBtn(b, '', null); }
     else { pickBtn(a, toSpot !== 'start' ? 'Back to the start' : '', () => { toSpot = 'start'; showSpots(); }); pickBtn(b, toSpot !== 'none' ? 'Stay up' : '', () => { toSpot = 'none'; showSpots(); }); }
     pickBar.hidden = false;
   }
@@ -2976,6 +3012,10 @@ const clock = new THREE.Clock();
       const tn = townList.map(t => ({ n: t.short, d: Math.hypot(p[0] - wx((t.bbox[0] + t.bbox[2]) / 2), p[1] - wz((t.bbox[1] + t.bbox[3]) / 2)) })).sort((a, b) => a.d - b.d)[0];
       const near = pl && pl.d < 3000 ? pl : tn && tn.d < 10000 ? tn : null;
       name = near ? `a spot near ${near.n}` : 'a spot you picked';
+    }
+    if (picking === 'touch') {   // a new landing spot, ticked
+      let n = name, k = 2; while ([...(REG.landings || []), ...myLandings].some(l => l.name === n)) n = `${name} (${k++})`;
+      myLandings.push({ name: n, lon, lat, justAdded: true }); drawLandings(); stopPick(); sync(); return;
     }
     const spot = name === home?.name ? home : spotOf(name, lon, lat);
     if (picking === 'from') fromSpot = spot; else toSpot = spot;
@@ -3014,13 +3054,16 @@ const clock = new THREE.Clock();
     const picked = ticked().map(id => placeView.get(id)).filter(Boolean); if (!picked.length) return;
     go.disabled = true; go.textContent = 'Getting ready…';
     const stops = [];
-    for (const P of picked) { const tv = await P.view(); stops.push({ name: P.name, x: tv.x, z: tv.z, hold: 5, target: () => tv }); }
-    const from = { x: view.x, z: view.z };
+    for (const P of picked) {
+      if (P.spot) { stops.push({ name: P.say || `Landing at ${P.name}`, say: P.say || `Landing at ${P.name}`, touch: true, spot: P.spot, x: P.spot.x, z: P.spot.z }); continue; }
+      const tv = await P.view(); stops.push({ name: P.name, x: tv.x, z: tv.z, hold: 5, target: () => tv });
+    }
+    const from = fromSpot ? { x: fromSpot.x, z: fromSpot.z } : { x: view.x, z: view.z };   // (nearest first from where she takes off: v1056)
     let order = orderStops(stops, from);
     if (shipsCk.checked) order = withShips(order, from);
     if (nest.on) leaveRide();
     markCurrent(null); anim = null; foldPanel(true);
-    fly.start(order, { talk: talkCk.checked });
+    setFlying(true); fly.start(order, { talk: talkCk.checked });
     sync();
   });
 }

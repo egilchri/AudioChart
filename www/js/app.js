@@ -7630,6 +7630,7 @@ function _hideBay3d() {
   } catch (_) {}
   _cancel3dLoad(_bay3dWrap);
   _bay3dWrap.hidden = true;
+  document.getElementById('app')?.classList.remove('flyover-on');   // (left mid-Flyover: the chart's controls come back; v1056)
   _stopBay3dSync();
   _syncLayerBtn(); _syncMapModeTitle();
   const z0 = _map.getZoom(); document.getElementById('zoom-slider').value = z0; document.getElementById('zoom-slider-label').textContent = z0;
