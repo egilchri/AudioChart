@@ -848,7 +848,13 @@ html, body {
 #bay3d-wrap[hidden] { display: none; }
 /* a Flyover under way in Bird's-eye (v1056, requested: as clear a screen as possible, everything back after): the
    3D view covers the whole window, over the chart's bars, rail and buttons (below dialogs, 3000+); bay3d.js sets it */
-#app.flyover-on #bay3d-wrap { top: 0 !important; z-index: 2999; }
+#app.flyover-on #bay3d-wrap { top: 0 !important; z-index: 2998; }
+/* ...but the chart's compass rose stays over it, turning with the view (v1057, requested: "add back the compass, and
+   on the laptop, make it about twice as big"); just the rose, not its zoom-to-me button; no dragging it round mid-tour */
+#app.bay3d-on.flyover-on .leaflet-top.leaflet-left { z-index: 2999; }
+#app.flyover-on .leaflet-top.leaflet-left > :not(.compass-rose-ctrl), #app.flyover-on #zoom-to-me-btn { display: none !important; }
+#app.bay3d-on.flyover-on .compass-rose-ctrl svg { pointer-events: none; }
+@media (min-width: 900px) and (hover: hover) and (pointer: fine) { #app.flyover-on .compass-rose-ctrl svg { width: 140px; height: 140px; } }
 /* v876: Bird's-eye keeps the chart's compass rose and zoom/pan rail over it (they drive the 3D view) */
 #app.bay3d-on .leaflet-top.leaflet-left, #app.bay3d-on #left-rail-zoom-pan { z-index: 1990; }
 #tilt-slider-wrap { display: none; }

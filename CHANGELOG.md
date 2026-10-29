@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-29 — Flyover: the compass rose stays up, twice the size on a laptop (v1057)
+
+- Requested: "add back the compass, and on the laptop, make it about twice as big". While flying, the chart's compass
+  rose shows over the full-window 3D view (still turning with it; not draggable mid-tour, no zoom-to-me button);
+  140 px on a wide screen with a mouse, its usual 70 px on a phone or tablet (app.css, `#app.flyover-on`).
+
 ## 2026-10-29 — Flyover: landings on the way, a clear screen while flying; the left rail fits a short window (v1056)
 
 - Requested: "designate some landing spots during the flyover. For example, Crow Island in the Cranberry Isles, or the
