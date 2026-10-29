@@ -15,6 +15,9 @@ export const REGIONS3D = {
     landings: [
       { name: 'Crow Island', say: 'Landing on Crow Island', lon: -68.2384, lat: 44.2441 },   // (its grassy top; OSM's islet, off Little Cranberry's south shore)
       { name: 'Islesford soccer field', say: 'Landing on the Islesford soccer field', lon: -68.2380, lat: 44.2608 },   // (the mown field beside the town dock)
+      // (v1058, requested: "Add the Coast Guard Station in Southwest Harbor as a place to land"): the open apron on its
+      // wharf, Clark Point (OSM: Southwest Harbor Coast Guard Station Wharf)
+      { name: 'Southwest Harbor Coast Guard Station', say: 'Landing at the Coast Guard station in Southwest Harbor', lon: -68.3126, lat: 44.2750 },
     ],
     overview: [-69.45, 43.75, -67.95, 44.75],
     bay: [-69.25, 43.85, -68.1, 44.55],

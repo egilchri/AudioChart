@@ -29,7 +29,7 @@ import('./tts.js').then(m => { TTS = m; }).catch(() => {});   // (no speech on t
 // stop: { name, say?, target() → { x, z, dist, az, tilt } (radians), hold (s), onArrive?(), onLeave?() }
 // spot (take-off and landing): { name, x, z, y() → the ground's height there }
 // a landing on the way: { name, say?, touch: true, spot, hold? } (its target is worked out here)
-export function makeFlyover({ view, bar, camera, scene, onEnd, brgTxt = t => `${Math.round(t)}°` }) {
+export function makeFlyover({ view, bar, camera, scene, onEnd, brgTxt = t => `${Math.round(t)}°`, groundY = () => 0 }) {
   let tour = null, spots = { from: null, to: null }, parked = null;
   // the helicopter: ahead of the camera and a little below, her nose the way we look, banked into the turns (as the
   // videos' recorder put her); paused, she hovers where she was; between tours she waits on her pad
@@ -124,16 +124,32 @@ export function makeFlyover({ view, bar, camera, scene, onEnd, brgTxt = t => `${
     tour.pin = { x: at.x, y: at.y, z: at.z, nose: tour.landNose, pitch: -0.12 * e };
     tour.spin = 1 - 0.85 * clamp((L - SETTLE - DOWN) / WIND, 0, 1);
     if (L < SETTLE + DOWN + WIND) return;
-    if (p.final) { end('landed'); return; }
-    // down on a landing on the way: she sits there, then takes off on the heading she came in on
-    Object.assign(tour, { phase: 'sit', t0: now, pad: p, noseAz: tour.landNose, liftNext: true });
-    caption(`On the ground at ${p.spotName}`);
+    // down: she sits there (on a landing on the way, then takes off on the heading she came in on) while the view
+    // looks round where she's come down
+    Object.assign(tour, { phase: 'sit', t0: now, pad: p, noseAz: tour.landNose, liftNext: !p.final, close: { ...view } });
+    caption(p.final ? `Landed at ${p.spotName}` : `On the ground at ${p.spotName}`);
+  }
+  // the look round (v1058, requested: "more focus to the surrounding landscape, when we land"): the view rises off
+  // her and back, low, to see the place round her and the hills beyond, turning slowly round her; on a landing on the
+  // way it comes back in to her for the take-off
+  const OUT = 3500, BACK = 3000, WIDE = 600, WIDE_TILT = 76 * Math.PI / 180;
+  function lookRound(L, T, back) {
+    const c = tour.close, p = tour.pad, w = smooth(clamp(L / OUT, 0, 1)) * (back ? 1 - smooth(clamp((L - (T - BACK)) / BACK, 0, 1)) : 1);
+    Object.assign(view, { x: c.x + (p.x - c.x) * w, z: c.z + (p.z - c.z) * w, tilt: c.tilt + (WIDE_TILT - c.tilt) * w,
+      dist: Math.exp(Math.log(c.dist) + (Math.log(WIDE) - Math.log(c.dist)) * w), az: c.az + L * 0.00006 * w });
+    // looking higher down on her where a hill behind would hide her (or the camera be in it)
+    for (let k = 0; k < 25; k++) { const g = camAt(view); if (view.dist * Math.cos(view.tilt) > groundY(g.x, g.z) + 40) break; view.tilt -= 2 * Math.PI / 180; }
   }
   function step(now, dt) {
     if (!tour || tour.paused) return;
     if (tour.ground) { takeoff(now); return; }
     if (tour.phase === 'land') { landing(now); return; }
-    if (tour.phase === 'sit') { if (now - tour.t0 > tour.stops[tour.i].hold * 1000) { tour.ground = true; tour.t0 = now; caption(`Taking off from ${tour.pad.spotName}`); } return; }
+    if (tour.phase === 'sit') {
+      const S = tour.stops[tour.i], L = now - tour.t0, T = S.hold * 1000;
+      lookRound(L, T, !S.final);
+      if (L > T) { if (S.final) end('landed'); else { tour.ground = true; tour.t0 = now; caption(`Taking off from ${tour.pad.spotName}`); } }
+      return;
+    }
     const S = tour.stops[tour.i], to = S.target?.();
     if (!to) { next(now); return; }   // (a vessel that's gone)
     if (tour.phase === 'fly') {
@@ -198,8 +214,8 @@ export function makeFlyover({ view, bar, camera, scene, onEnd, brgTxt = t => `${
     end();
     const to = spots.to, from = spots.from;
     const pad = (s, spot) => ({ ...s, land: true, x: spot.x, z: spot.z, y: spot.y, spotName: spot.name, target: () => padView(spot, 1, tour.landNose, spot.y() + SKID + HIGH) });
-    stops = stops.map(s => s.touch ? pad({ hold: 6, ...s }, s.spot) : s);
-    if (to) stops = [...stops, pad({ name: `Landing at ${to.name}`, say: `Landing at ${to.name}`, final: true, hold: 0 }, to)];
+    stops = stops.map(s => s.touch ? pad({ hold: 14, ...s }, s.spot) : s);   // (v1058: 14 s, for the look round)
+    if (to) stops = [...stops, pad({ name: `Landing at ${to.name}`, say: `Landing at ${to.name}`, final: true, hold: 9 }, to)];
     tour = { stops, i: 0, talk, paused: false, spin: 1, pin: null };
     parked = null; heli.group.visible = true; H.prevAz = null; H.roll = 0; H.back = 1;
     bar.hidden = false; playBtn.textContent = '⏸'; playBtn.title = 'Pause the flyover';
@@ -219,6 +235,7 @@ export function makeFlyover({ view, bar, camera, scene, onEnd, brgTxt = t => `${
     if (!tour || !tour.paused) return;
     tour.paused = false; playBtn.textContent = '⏸'; playBtn.title = 'Pause the flyover'; H.back = 0; H.prevAz = null;
     tour.ground = false; tour.spin = 1;   // (paused on the pad or climbing: she goes straight on to the first stop; landing: she comes round again)
+    if (tour.phase === 'sit' && tour.stops[tour.i].final) { end('landed'); return; }   // (paused looking round where she ended)
     if (tour.liftNext) { tour.liftNext = false; next(performance.now()); }   // (paused on, or lifting off, a landing on the way: on to the next)
     else leg(performance.now());   // (back to the stop it was at, from wherever you've moved to)
   }

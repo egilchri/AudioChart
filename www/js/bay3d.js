@@ -1689,6 +1689,23 @@ function pierSegs(x, z, r) {   // the pier and wharf edges within r metres: {ax,
   }
   return out;
 }
+// the top of the wharf or pier deck at a point, if there's one there (v1058: a helicopter landing on a wharf sets down
+// on its planks, not under them; terrain3d.js draws them at deckY)
+function deckAt(x, z) {
+  let top = 0;
+  for (const t of townList) {
+    if (!t.data?.piers || Math.hypot(t.x - x, t.z - z) > 15000) continue;
+    for (const pr of t.data.piers) {
+      if (pr.kind === 'breakwater') continue;
+      const P = pr.p.map(([lo, la]) => [wx(lo), wz(la)]), deckY = Math.max(0.6, pr.d);
+      let on = false;
+      if (pr.area) for (let i = 0, j = P.length - 1; i < P.length; j = i++) { if ((P[i][1] > z) !== (P[j][1] > z) && x < (P[j][0] - P[i][0]) * (z - P[i][1]) / (P[j][1] - P[i][1]) + P[i][0]) on = !on; }
+      else for (let i = 0; i < P.length - 1 && !on; i++) on = segDist(x, z, ...P[i], ...P[i + 1]) < (pr.w || 3) / 2;
+      if (on) top = Math.max(top, deckY);
+    }
+  }
+  return top;
+}
 function segDist(x, z, ax, az, bx, bz) {
   const dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz || 1, t = clamp(((x - ax) * dx + (z - az) * dz) / L2, 0, 1);
   return Math.hypot(x - (ax + dx * t), z - (az + dz * t));
@@ -2902,7 +2919,7 @@ const clock = new THREE.Clock();
   let saved = {}; try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (_) {}
   // where she takes off and lands (v1049): the bay's heliport (regions3d.js) unless you've picked a spot; she lands
   // back where she started unless you've picked another, or "stay up"
-  const spotOf = (name, lon, lat) => ({ name, lon, lat, x: wx(lon), z: wz(lat), y: () => Math.max(0, heightAt(lon, lat)) });   // (y: the detailed ground may load while she's on it)
+  const spotOf = (name, lon, lat) => ({ name, lon, lat, x: wx(lon), z: wz(lat), y: () => Math.max(0, heightAt(lon, lat), deckAt(wx(lon), wz(lat))) });   // (y: the detailed ground, or a wharf's deck, may load while she's on it)
   const HP = REG.heliport, home = HP && spotOf(HP.name, HP.lon, HP.lat);
   const bases = [home, ...(REG.bases || []).map(b => spotOf(b.name, b.lon, b.lat))].filter(Boolean);   // (v1057: Bar Harbor's airport too)
   const fromSaved = o => o?.lon != null ? bases.find(b => b.name === o.name) || spotOf(o.name, o.lon, o.lat) : null;
@@ -2975,7 +2992,7 @@ const clock = new THREE.Clock();
     document.body.classList.toggle('flying', on);
     if (params.get('embed')) try { parent.document.getElementById('app')?.classList.toggle('flyover-on', on); } catch (_) {}
   };
-  fly = makeFlyover({ view, bar: document.getElementById('flybar'), camera, scene, brgTxt: magTxt, onEnd: () => setFlying(false) });
+  fly = makeFlyover({ view, bar: document.getElementById('flybar'), camera, scene, brgTxt: magTxt, groundY: (x, z) => Math.max(0, heightAt(lonOf(x), latOf(z))), onEnd: () => setFlying(false) });
   addEventListener('pagehide', () => setFlying(false));   // (this view swapped for another mid-flight)
   // the take-off and landing rows, and picking a spot: Change, then a tap on the map (on land)
   const fromEl = document.getElementById('flyfrom'), toEl = document.getElementById('flyto'), pickBar = document.getElementById('flypick');
@@ -3008,7 +3025,7 @@ const clock = new THREE.Clock();
     let p = groundAt(cx, cy); if (!p) return;
     for (let i = 0; i < 3; i++) { const v = ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -Math.max(0, heightAt(lonOf(p[0]), latOf(p[1])))), new THREE.Vector3()); if (!v) break; p = [v.x, v.z]; }
     const lon = lonOf(p[0]), lat = latOf(p[1]);
-    if (heightAt(lon, lat) <= 0.5) { pickBar.querySelector('.fly-text').textContent = 'That’s water: tap a spot on land'; return; }
+    if (heightAt(lon, lat) <= 0.5 && !deckAt(p[0], p[1])) { pickBar.querySelector('.fly-text').textContent = 'That’s water: tap a spot on land'; return; }
     let name;
     const base = bases.find(b => Math.hypot(p[0] - b.x, p[1] - b.z) < 400);
     if (base) name = base.name;

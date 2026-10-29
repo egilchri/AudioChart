@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-29 — Flyover: a look round where she lands; the Southwest Harbor Coast Guard Station as a landing spot (v1059)
+
+- Requested: "more focus to the surrounding landscape, when we land". Once she's down, the view rises off her and
+  back (600 m out, low, near the horizon) and turns slowly round her, so you see the place and the hills beyond;
+  on a landing on the way it comes back in for the take-off (she sits 14 s now, was 6); at the end of the tour she
+  sits 9 s with it before the tour ends. A hill behind lifts the view higher (flyover.js lookRound; bay3d.js passes
+  the ground's height).
+- Requested: "Add the Coast Guard Station in Southwest Harbor as a place to land": its wharf's apron, Clark Point
+  (regions3d.js landings).
+- Found testing it: a spot on a wharf put her under its planks. Take-off and landing spots now sit on a pier or
+  wharf deck where there is one (bay3d.js deckAt), and a tap on a pier counts as land when picking a spot.
+
 ## 2026-10-29 — Flyover: range and bearing on long legs; Bar Harbor's airport as a take-off spot (v1058)
 
 - Requested: "For longer legs, please put the range and bearing to the place". On a leg too long to fly in real time
