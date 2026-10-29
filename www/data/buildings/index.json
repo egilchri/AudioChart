@@ -57,5 +57,9 @@
   {"file": "jersey-city.json", "name": "Jersey City waterfront", "bbox": [-74.045, 40.705, -74.025, 40.735]},
   {"file": "hoboken.json", "name": "Hoboken", "bbox": [-74.04, 40.735, -74.015, 40.76]},
   {"file": "bk-red-hook.json", "name": "Red Hook", "bbox": [-74.02, 40.665, -73.995, 40.685]},
-  {"file": "governors-island.json", "name": "Governors Island", "bbox": [-74.026, 40.683, -74.01, 40.695]}
+  {"file": "governors-island.json", "name": "Governors Island", "bbox": [-74.026, 40.683, -74.01, 40.695]},
+  {"file": "bk-downtown.json", "name": "Downtown Brooklyn, Fort Greene and Park Slope", "bbox": [-73.995, 40.66, -73.955, 40.695]},
+  {"file": "bk-sunset-park.json", "name": "Sunset Park and Bay Ridge", "bbox": [-74.04, 40.62, -73.995, 40.665]},
+  {"file": "bk-bed-stuy.json", "name": "Bedford-Stuyvesant and Bushwick", "bbox": [-73.955, 40.675, -73.9, 40.705]},
+  {"file": "qn-long-island-city.json", "name": "Long Island City and Astoria", "bbox": [-73.965, 40.74, -73.9, 40.78]}
 ]

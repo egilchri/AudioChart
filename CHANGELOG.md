@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-29 — Bird's-eye: Brooklyn and Queens buildings inland; bridge towers without boxes (v1066)
+
+- Brooklyn and Queens had buildings only along the waterfront. Four new tiles from NYC Open Data's footprints:
+  Downtown Brooklyn, Fort Greene and Park Slope; Sunset Park and Bay Ridge; Bedford-Stuyvesant and Bushwick; Long
+  Island City and Astoria. Rowhouse tiles ran 10 MB, so design/buildings/round_coords.py rounds them to 6 decimals and
+  drops corners within 0.4 m of a straight line (about 7 MB); clip_to_older.py drops a new tile's buildings whose middle
+  is in an older tile's box (Long Island City's box takes in Midtown's east edge), so none is drawn twice.
+- OSM maps the towers of the Manhattan, Brooklyn, Williamsburg and Queensboro bridges as 80-105 m buildings, drawn as
+  brown boxes over the modelled towers: design/buildings/strip_bridge_towers.py drops any footprint within 60 m of a
+  modelled tower, on its bridge's line.
+
 ## 2026-10-29 — Bird's-eye: Manhattan's buildings to Washington Heights, flat roofs; a bridges tour (v1065)
 
 - Reported: "what's with all the unrealistic looking buildings in the snapshot?" (the Upper West Side): there were no
