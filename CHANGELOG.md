@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-28 — Manset said right (v1054)
+
+- Reported: "You are pronouncing it like it's MANsayt". The spoken text now says "Mansett" (MAN-set; tts.js,
+  speech only, the printed name unchanged). Piper already said it right, so it's on the lexicon's ok list.
+
 ## 2026-10-28 — Flyover: a helicopter's speed, sped up on long legs and saying so (v1053)
 
 - Asked: "how fast is the helicopter going? Is it at all realistic?" It wasn't: every leg took 4–18 s, so a 20 km

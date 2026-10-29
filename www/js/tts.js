@@ -121,8 +121,9 @@ function speakNext() {
   _retriedCurrent = false;
   // a ship's bow rhymes with "how"; voices read it as the ribbon kind, so spell it the
   // way it sounds (speech only — the printed text keeps "bow")
-  // (v1052: Bass Harbor's Bass is the fish, not "base"; voices read it as the low note)
-  const utt = new SpeechSynthesisUtterance(text.replace(/\b(port|starboard|the|off|over|from|at)\s+bow\b/gi, '$1 bough').replace(/\bBass(?= Harbou?r)/g, 'Bas'));
+  // (v1052: Bass Harbor's Bass is the fish, not "base"; voices read it as the low note. v1054: Manset is MAN-set;
+  // voices made it MAN-sayt)
+  const utt = new SpeechSynthesisUtterance(text.replace(/\b(port|starboard|the|off|over|from|at)\s+bow\b/gi, '$1 bough').replace(/\bBass(?= Harbou?r)/g, 'Bas').replace(/\bManset\b/g, 'Mansett'));
   utt.rate = 0.85;
   utt.pitch = 1.0;
   utt.volume = 1.0;
