@@ -29,7 +29,7 @@ import('./tts.js').then(m => { TTS = m; }).catch(() => {});   // (no speech on t
 // stop: { name, say?, target() → { x, z, dist, az, tilt } (radians), hold (s), onArrive?(), onLeave?() }
 // spot (take-off and landing): { name, x, z, y() → the ground's height there }
 // a landing on the way: { name, say?, touch: true, spot, hold? } (its target is worked out here)
-export function makeFlyover({ view, bar, camera, scene, onEnd }) {
+export function makeFlyover({ view, bar, camera, scene, onEnd, brgTxt = t => `${Math.round(t)}°` }) {
   let tour = null, spots = { from: null, to: null }, parked = null;
   // the helicopter: ahead of the camera and a little below, her nose the way we look, banked into the turns (as the
   // videos' recorder put her); paused, she hovers where she was; between tours she waits on her pad
@@ -82,8 +82,9 @@ export function makeFlyover({ view, bar, camera, scene, onEnd }) {
     const sec = Math.max(4, squeezed * 1.15), a = Math.min(5, sec / 3) / sec;   // (the 15%: the time speeding up and slowing down takes)
     const fast = hop / (1 - a) / sec / CRUISE;   // (how much faster than real she cruises)
     Object.assign(tour, { phase: 'fly', t0: now, from, cf, track, dur: sec * 1000, a, pin: null,
-      bump: Math.max(0, Math.log(peak) - Math.max(Math.log(from.dist), Math.log(to.dist))), spoke: false });
-    stopCaption(fast >= 1.5 ? ` · ⏩ ×${Math.round(fast)} speed` : '');
+      bump: Math.max(0, Math.log(peak) - Math.max(Math.log(from.dist), Math.log(to.dist))), spoke: false,
+      fastTxt: fast >= 1.5 ? ` · ⏩ ×${Math.round(fast)} speed` : '', rb: real > REAL_S ? 0 : null });
+    stopCaption(tour.fastTxt);
   }
   function stopCaption(extra = '') {
     const S = tour.stops[tour.i], n = tour.stops.filter(s => !s.final).length;
@@ -145,6 +146,14 @@ export function makeFlyover({ view, bar, camera, scene, onEnd }) {
       const h = view.dist * Math.sin(view.tilt), cx = cf.x + (ct.x - cf.x) * e, cz = cf.z + (ct.z - cf.z) * e;
       view.x = cx + Math.sin(view.az) * h; view.z = cz - Math.cos(view.az) * h;
       if (!tour.spoke && u > Math.max(0.7, 1 - 4000 / tour.dur)) arrive();   // (its name, a few seconds out)
+      // on a long leg (v1057, requested: "For longer legs, please put the range and bearing to the place"): from her
+      // to it, a few times a second, till she's there
+      if (tour.rb != null && now - tour.rb > 250 && u < 1) {
+        tour.rb = now;
+        const P = S.land ? S : to, hp = heli.group.position, d = Math.hypot(P.x - hp.x, P.z - hp.z) / 1852;
+        const deg = (Math.atan2(P.x - hp.x, -(P.z - hp.z)) * 180 / Math.PI + 360) % 360;
+        stopCaption(` · ${d < 10 ? d.toFixed(1) : Math.round(d)} nm ${brgTxt(deg)}${tour.fastTxt}`);
+      }
       if (u >= 1) {
         if (S.land) { tour.phase = 'land'; tour.t0 = now; H.hover.copy(heli.group.position); stopCaption(); }
         else { tour.phase = 'hold'; tour.t0 = now; tour.az = view.az; stopCaption(); }

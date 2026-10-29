@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-29 — Flyover: range and bearing on long legs; Bar Harbor's airport as a take-off spot (v1058)
+
+- Requested: "For longer legs, please put the range and bearing to the place". On a leg too long to fly in real time
+  (the ones marked ⏩), the bar shows her range and magnetic bearing to the stop, updated as she goes:
+  "2 of 4 · Castine · 18 nm 275°M · ⏩ ×5 speed" (flyover.js; bay3d.js passes its magTxt).
+- Requested: "Add the Bar Harbor airport as a place to start a Penobscot journey". regions3d.js `bases`: Bar Harbor
+  Airport (its apron, placed on the NAIP photo). 🛫 Change offers "Use Bar Harbor Airport" beside the Knox County
+  one; the choice is remembered.
+
 ## 2026-10-29 — Flyover: the compass rose stays up, twice the size on a laptop (v1057)
 
 - Requested: "add back the compass, and on the laptop, make it about twice as big". While flying, the chart's compass

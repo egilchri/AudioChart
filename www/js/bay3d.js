@@ -2904,7 +2904,8 @@ const clock = new THREE.Clock();
   // back where she started unless you've picked another, or "stay up"
   const spotOf = (name, lon, lat) => ({ name, lon, lat, x: wx(lon), z: wz(lat), y: () => Math.max(0, heightAt(lon, lat)) });   // (y: the detailed ground may load while she's on it)
   const HP = REG.heliport, home = HP && spotOf(HP.name, HP.lon, HP.lat);
-  const fromSaved = o => o?.lon != null ? spotOf(o.name, o.lon, o.lat) : null;
+  const bases = [home, ...(REG.bases || []).map(b => spotOf(b.name, b.lon, b.lat))].filter(Boolean);   // (v1057: Bar Harbor's airport too)
+  const fromSaved = o => o?.lon != null ? bases.find(b => b.name === o.name) || spotOf(o.name, o.lon, o.lat) : null;
   let fromSpot = fromSaved(saved.from) || home, toSpot = saved.to === 'none' ? 'none' : fromSaved(saved.to) || 'start';
   const landAt = () => toSpot === 'start' ? fromSpot : toSpot === 'none' ? null : toSpot;
   const keep = p => p && { name: p.name, lon: p.lon, lat: p.lat };
@@ -2974,7 +2975,7 @@ const clock = new THREE.Clock();
     document.body.classList.toggle('flying', on);
     if (params.get('embed')) try { parent.document.getElementById('app')?.classList.toggle('flyover-on', on); } catch (_) {}
   };
-  fly = makeFlyover({ view, bar: document.getElementById('flybar'), camera, scene, onEnd: () => setFlying(false) });
+  fly = makeFlyover({ view, bar: document.getElementById('flybar'), camera, scene, brgTxt: magTxt, onEnd: () => setFlying(false) });
   addEventListener('pagehide', () => setFlying(false));   // (this view swapped for another mid-flight)
   // the take-off and landing rows, and picking a spot: Change, then a tap on the map (on land)
   const fromEl = document.getElementById('flyfrom'), toEl = document.getElementById('flyto'), pickBar = document.getElementById('flypick');
@@ -2989,7 +2990,10 @@ const clock = new THREE.Clock();
     picking = which; foldPanel(true);
     pickBar.querySelector('.fly-text').textContent = which === 'from' ? 'Tap the map where she should take off' : which === 'touch' ? 'Tap the map where she should land on the way' : 'Tap the map where she should land';
     const [a, b] = [pickBar.querySelector('.pick-a'), pickBar.querySelector('.pick-b')];
-    if (which === 'from') { pickBtn(a, home && fromSpot !== home ? `Use ${home.name.replace(/^the /, '')}` : '', () => { fromSpot = home; showSpots(); }); pickBtn(b, '', null); }
+    if (which === 'from') {   // (the bay's airports, but the one she's at now)
+      const other = bases.filter(s => s !== fromSpot);
+      [a, b].forEach((btn, i) => pickBtn(btn, other[i] ? `Use ${other[i].name.replace(/^the /, '')}` : '', () => { fromSpot = other[i]; showSpots(); }));
+    }
     else if (which === 'touch') { pickBtn(a, '', null); pickBtn(b, '', null); }
     else { pickBtn(a, toSpot !== 'start' ? 'Back to the start' : '', () => { toSpot = 'start'; showSpots(); }); pickBtn(b, toSpot !== 'none' ? 'Stay up' : '', () => { toSpot = 'none'; showSpots(); }); }
     pickBar.hidden = false;
@@ -3006,7 +3010,8 @@ const clock = new THREE.Clock();
     const lon = lonOf(p[0]), lat = latOf(p[1]);
     if (heightAt(lon, lat) <= 0.5) { pickBar.querySelector('.fly-text').textContent = 'That’s water: tap a spot on land'; return; }
     let name;
-    if (home && Math.hypot(p[0] - home.x, p[1] - home.z) < 400) name = home.name;
+    const base = bases.find(b => Math.hypot(p[0] - b.x, p[1] - b.z) < 400);
+    if (base) name = base.name;
     else {   // the nearest charted place name within 3 km, else the nearest town within 10
       const pl = places.map(q => ({ n: q.n, d: Math.hypot(p[0] - q.x, p[1] - q.z) })).sort((a, b) => a.d - b.d)[0];
       const tn = townList.map(t => ({ n: t.short, d: Math.hypot(p[0] - wx((t.bbox[0] + t.bbox[2]) / 2), p[1] - wz((t.bbox[1] + t.bbox[3]) / 2)) })).sort((a, b) => a.d - b.d)[0];
@@ -3017,7 +3022,7 @@ const clock = new THREE.Clock();
       let n = name, k = 2; while ([...(REG.landings || []), ...myLandings].some(l => l.name === n)) n = `${name} (${k++})`;
       myLandings.push({ name: n, lon, lat, justAdded: true }); drawLandings(); stopPick(); sync(); return;
     }
-    const spot = name === home?.name ? home : spotOf(name, lon, lat);
+    const spot = bases.find(b => b.name === name) || spotOf(name, lon, lat);
     if (picking === 'from') fromSpot = spot; else toSpot = spot;
     stopPick(); showSpots();
   };
