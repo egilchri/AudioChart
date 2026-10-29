@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-10-29 — Bird's-eye: Manhattan's buildings to Washington Heights, flat roofs; a bridges tour (v1065)
+
+- Reported: "what's with all the unrealistic looking buildings in the snapshot?" (the Upper West Side): there were no
+  buildings north of Midtown, only the aerial photo's rooftops and shadows draped on the ground. Four new tiles: the
+  Upper West Side, the Upper East Side, Harlem and Washington Heights (to the George Washington Bridge). Overpass
+  was down, so build_town.py can take New York City's own footprints and roof heights (FOOTPRINTS=nyc, NYC Open
+  Data's Building Footprints, credited in the scene); the Upper West Side's had come from OSM.
+- Half of New York's buildings had gable roofs (the lidar's rise on top was a water tank or a bulkhead): in all 15
+  New York tiles a gable on anything 11 m or taller is now flat (about 24,000), and build_buildings.py does the same
+  for the nyc palette from now on.
+- Requested: "I think we should offer a bridges tour". Under Bridges, "✈ Bridges tour" ticks the bay's big bridges
+  (those drawn as themselves; else all) alone and flies them, nearest first: 11 in New York, about 9 minutes.
+
 ## 2026-10-29 — Bird's-eye: New York's big bridges as themselves (v1064)
 
 - Requested: "Please make an effort to make the main New York bridges look more realistic". Eight more get specs of

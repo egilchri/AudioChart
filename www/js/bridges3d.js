@@ -59,7 +59,7 @@ export async function makeBridges(rid, heightAt) {
       const name = B.short.replace(/\s*\([^)]*\)$/, '');
       if ((!B.minor || L >= 700) && /Bridge|Skyway|Crossing/.test(name) && name !== 'Bridge' && !/rail/i.test(B.name) && !(places.get(name)?.L >= L)) {
         const i = P.length >> 1, a = P[Math.max(0, i - 1)], b = P[Math.min(P.length - 1, i + 1)];
-        places.set(name, { name, x: P[i].x, z: P[i].z, az: Math.atan2(b.x - a.x, -(b.z - a.z)), L });
+        places.set(name, { name, x: P[i].x, z: P[i].z, az: Math.atan2(b.x - a.x, -(b.z - a.z)), L, big: !B.minor || !!places.get(name)?.big });   // (big: one of the bridges with a spec of its own, for the bridges tour: v1065)
       }
     }
     // piers: two columns under a wide deck, a wall under a narrow one, where the deck is over the water or low ground

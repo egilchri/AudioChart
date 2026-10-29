@@ -3,6 +3,7 @@
 #
 #   python build_town.py <id> "<display name>" west,south,east,north <EPT project> [MAXH] [PALETTE] [DEPTH]
 #
+# FOOTPRINTS=nyc takes New York City's own footprints and roof heights instead of OSM's (v1063).
 # writes ../../www/data/buildings/<id>.json; scratch files go in $WORK (default ./work/<id>). Add the town to
 # index.json yourself. Run it with the venv's python (laspy[lazrs] numpy pillow).
 import json, os, subprocess, sys, time, urllib.parse, urllib.request
@@ -24,6 +25,29 @@ def fetch(url, data=None, tries=4):
     raise SystemExit('failed: ' + url)
 
 osm = os.path.join(work, 'osm.json')
+# New York City's own footprints (v1063, FOOTPRINTS=nyc): NYC Open Data's Building Footprints (5zhs-2jue), each with
+# its measured roof height (height_roof, ft above the ground) — complete and surveyed where OSM's height tags are
+# patchy (Overpass was down, too). As OSM-style ways, the roof height as `height` (m), so build_buildings.py uses it
+# where it's well above the 2017 lidar's.
+if not os.path.exists(osm) and os.environ.get('FOOTPRINTS') == 'nyc':
+    els, off = [], 0
+    while True:
+        u = 'https://data.cityofnewyork.us/resource/5zhs-2jue.json?' + urllib.parse.urlencode({
+            '$select': 'bin,height_roof,the_geom', '$where': f'within_box(the_geom, {N}, {W}, {S}, {E})', '$limit': 20000, '$offset': off, '$order': 'bin'})
+        rows = json.loads(fetch(u))
+        for r in rows:
+            g = r.get('the_geom') or {}
+            polys = g.get('coordinates', []) if g.get('type') == 'MultiPolygon' else [g.get('coordinates', [])] if g.get('type') == 'Polygon' else []
+            for k, poly in enumerate(polys):
+                ring = poly[0] if poly else []
+                if len(ring) < 4: continue
+                tags = {'building': 'yes'}
+                try: tags['height'] = str(round(float(r['height_roof']) * 0.3048, 1))
+                except (KeyError, TypeError, ValueError): pass
+                els.append({'type': 'way', 'id': f"nyc{r.get('bin', off)}_{k}", 'tags': tags, 'geometry': [{'lon': x, 'lat': y} for x, y in ring]})
+        off += len(rows)
+        if len(rows) < 20000: break
+    json.dump({'elements': els}, open(osm, 'w'))
 if not os.path.exists(osm):
     q = (f'[out:json][timeout:180];(way["building"]({S},{W},{N},{E});relation["building"]["type"="multipolygon"]({S},{W},{N},{E});'
          f'way["man_made"~"pier|breakwater"]({S},{W},{N},{E}););out geom tags;')

@@ -129,6 +129,9 @@ for e in els:
         if osm_h and osm_h > 20 and osm_h > ridge * 1.2 + 5:
             ridge = min(osm_h, MAXH); eave = ridge * 0.97; stats['osm_height'] = stats.get('osm_height', 0) + 1
         shape = 'gable' if rect > 0.85 and ridge - eave > 0.8 and len(ll) <= 8 else 'flat'
+        # (v1065: in New York the brownstones and apartment houses are flat-roofed: the rise the lidar sees on top is a
+        # water tank or a bulkhead, not a ridge; a gable only on a house under 11 m)
+        if PALETTE is PALETTES['nyc'] and shape == 'gable' and ridge > 11: shape = 'flat'; eave = max(eave, ridge - 1.5)
         if shape == 'flat': eave = max(eave, min(ridge, eave + 1.0))
         # roof colour: NAIP pixels inside the footprint
         cols = ((np.array([p[0] for p in ll]) - W)/(E-W)*IW).astype(int).clip(0, IW-1)
@@ -160,7 +163,7 @@ for e in els:
                       'w': w or (6 if tags['man_made']=='breakwater' else 3), 'd': round(deck if deck is not None else (1.5 if tags['man_made']=='breakwater' else 3.0), 2),
                       **({'n': tags['name']} if tags.get('name') else {})})
 json.dump({'name': os.environ.get('TOWN', 'Carvers Harbor, Vinalhaven'), 'bbox': [W,S_,E,N],
-  'credit': 'Buildings © OpenStreetMap contributors' + (' and Microsoft (ODbL)' if os.environ.get('MS') else ' (ODbL)') + '; heights from USGS 3DEP lidar (' + os.environ.get('EPT', 'ME_MidCoast_2_2021').replace('_', ' ') + '); roof colours from USDA NAIP',
+  'credit': ('Buildings: NYC Open Data (Building Footprints, roof heights)' if os.environ.get('FOOTPRINTS') == 'nyc' else 'Buildings © OpenStreetMap contributors' + (' and Microsoft (ODbL)' if os.environ.get('MS') else ' (ODbL)')) + '; heights from USGS 3DEP lidar (' + os.environ.get('EPT', 'ME_MidCoast_2_2021').replace('_', ' ') + '); roof colours from USDA NAIP',
   'datum': 'metres; g (ground) and d (deck) are NAVD88 elevations from the lidar; e/r (eave/ridge) are above g',
   'buildings': B, 'piers': PIERS}, open(out_p, 'w'), separators=(',', ':'))
 print(len(B), 'buildings', stats, len(PIERS), 'piers; water z', round(WATER_Z,2))

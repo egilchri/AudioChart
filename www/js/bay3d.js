@@ -678,7 +678,7 @@ try { const sc = document.getElementById('scale'); new ResizeObserver(() => docu
 let bridges = null, onBridges = null;   // (v1020, below; onBridges: the Bridges list, v1047)
 function updateCredit() {
   const shown = townList.filter(t => t.group);
-  creditEl.textContent = (EMPTY ? 'Land and seabed NOAA NCEI CUDEM · Photos USDA NAIP' : 'Elevation USGS 3DEP · Photos USDA NAIP') + (bridges ? ' · ' + bridges.credit : '') + (shown.length ? ' · Buildings © OpenStreetMap contributors' + (shown.some(t => /Microsoft/.test(t.credit)) ? ', Microsoft' : '') : '');
+  creditEl.textContent = (EMPTY ? 'Land and seabed NOAA NCEI CUDEM · Photos USDA NAIP' : 'Elevation USGS 3DEP · Photos USDA NAIP') + (bridges ? ' · ' + bridges.credit : '') + (shown.length ? ' · Buildings © OpenStreetMap contributors' + (shown.some(t => /Microsoft/.test(t.credit)) ? ', Microsoft' : '') + (shown.some(t => /NYC Open Data/.test(t.credit)) ? ', NYC Open Data' : '') : '');
 }
 async function loadTown(t) {
   t.state = 'loading'; townsLoading++;
@@ -2958,6 +2958,17 @@ const clock = new THREE.Clock();
       placeView.set(id, { name: p.name, view: async () => bridgeView(p) });
     }
     document.getElementById('bridgesect').hidden = false; showRow(); sync();
+    // the bridges tour (v1065, requested: "I think we should offer a bridges tour"): the big ones (those drawn as
+    // themselves, with their towers, cables, arches or trusses), else all of them, ticked alone and flown
+    const tourBtn = document.getElementById('bridgetour'), big = B.places.filter(p => p.big), list = big.length >= 2 ? big : B.places;
+    if (tourBtn && list.length >= 2 && !EMPTY) {
+      tourBtn.textContent = `✈ Bridges tour (${list.length})`; tourBtn.hidden = false;
+      tourBtn.addEventListener('click', () => {
+        const ids = new Set(list.map(p => 'bridge:' + p.name));
+        for (const c of boxes) c.checked = ids.has(c.dataset.id);
+        sync(); go.click();
+      });
+    }
   };
   if (bridges) onBridges(bridges);
   // Landing spots (v1056): the bay's own (regions3d.js) and the ones you add (＋, then a tap on land); a tick makes
