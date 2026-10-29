@@ -56,6 +56,10 @@ body { background: var(--sky); color: var(--ink); font-family: var(--body); font
 .panel .head { display: flex; align-items: start; justify-content: space-between; gap: 8px; }
 #towns-toggle { display: none; }
 #towns, #bridges, #landings { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+/* (v1061: the panel's column is its width, a long name wraps; Southwest Harbor Coast Guard Station had widened it
+   past the window's edge, taking the take-off spot's Change button with it) */
+.panel, #flyrow, #towns, #bridges, #landings { grid-template-columns: minmax(0, 1fr); }
+#towns button, #bridges button, #landings button:not(.rm) { min-width: 0; overflow-wrap: anywhere; }
 #towns button, #bridges button, #landings button:not(.rm), .panel .whole { width: 100%; text-align: left; font: inherit; color: var(--ink); background: transparent; border: 0; border-radius: 5px; padding: 5px 8px; cursor: pointer; }
 #towns button:hover, #bridges button:hover, #landings button:not(.rm):hover, .panel .whole:hover { background: rgba(255, 255, 255, 0.1); }
 /* Flyover (v1046): a tick box by each place, ▶ Fly under them, and the tour's bar along the top */
@@ -237,7 +241,7 @@ body.embed .panel a.back { display: none; }
    places panel, the help line and this page's own compass go */
 body.embed .panel, body.embed #help, body.embed #compass { display: none !important; }
 /* inside AudioChart, ✈ Places opens the places list over the chart's view (v1048): above the buttons on the right */
-body.embed.places .panel { display: grid !important; top: auto; bottom: calc(176px + env(safe-area-inset-bottom, 0px)); left: auto; right: 12px; max-height: calc(100vh - 176px - 130px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); box-shadow: 0 2px 10px rgba(0,0,0,0.35); }
+body.embed.places .panel { display: grid !important; top: auto; bottom: calc(146px + var(--scale-h, 30px) + env(safe-area-inset-bottom, 0px)); left: auto; right: 12px; max-height: calc(100vh - 146px - var(--scale-h, 30px) - 130px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); box-shadow: 0 2px 10px rgba(0,0,0,0.35); }   /* (v1061: above the buttons however many rows they wrap to; it sat on their second row) */
 body.embed #flybar, body.embed #flypick { top: calc(120px + env(safe-area-inset-top, 0px)); }   /* (under the bay switch) */
 @media (max-width: 640px) {
   body.embed.places .panel { top: calc(172px + env(safe-area-inset-top, 0px)); bottom: auto; left: 8px; right: 8px; max-height: calc(100vh - 172px - 150px - env(safe-area-inset-top, 0px)); }   /* (under the bay switch) */

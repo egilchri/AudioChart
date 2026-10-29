@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-29 — Bird's-eye: the Places panel keeps to its width, above the buttons (v1061)
+
+- Reported: "I don't see 'Use Bar Harbor airport'". v1059's long "Southwest Harbor Coast Guard Station" had widened
+  the panel's grid column past the window's edge, and the take-off spot's Change button (which offers it) with it.
+  The panel's column is now its width and long names wrap (bay3d.html). Inside the app the panel also sat on the
+  buttons' second row when they wrap; it now sits above them however many rows they take (--scale-h).
+
 ## 2026-10-29 — Bird's-eye: the George Washington Bridge stands up (v1060)
 
 - Reported: "The George Washington Bridge looks like it fell down". OSM has it in halves meeting mid-river, and with
