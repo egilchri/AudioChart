@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-29 — Bird's-eye: the George Washington Bridge stands up (v1060)
+
+- Reported: "The George Washington Bridge looks like it fell down". OSM has it in halves meeting mid-river, and with
+  no spec of its own each half was drawn as a plain deck ramped down to the water at both ends: a V into the Hudson,
+  and no towers. It has a spec now (design/bridges/build_bridges.py SPECS): 184 m towers at the chart's tower piers,
+  cables from the anchorages over them, sagging to just over the deck mid-span, the deck 66-69 m (58.8 m charted
+  clearance under the lower level, the upper on a 9 m truss), 36 m wide. Only its entry in
+  www/data/bridges/new-york-harbor.json was rebuilt and swapped in (the 8 broken pieces out); the other bridges are as
+  they were.
+
 ## 2026-10-29 — Flyover: a look round where she lands; the Southwest Harbor Coast Guard Station as a landing spot (v1059)
 
 - Requested: "more focus to the surrounding landscape, when we land". Once she's down, the view rises off her and

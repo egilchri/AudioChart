@@ -71,6 +71,19 @@ SPECS = [
      'cables': [[[-74.05654, 'deck'], [-74.05251, 'top'], [-74.03837, 'top'], [-74.03434, 'deck']]], 'sag_over': 2,
      'free': [[-74.05654, -74.03434]], 'span': 70,
      'blocks': [[-74.05654, 40, 50], [-74.03434, 40, 50]]},
+    # George Washington Bridge (1931; v1059, reported: "The George Washington Bridge looks like it fell down": OSM has
+    # it in halves, meeting mid-river, and each half was drawn as a plain deck ramped to the water at both its ends).
+    # Steel towers 184 m (604 ft) above the water at the chart's PYLONS (-73.95877, the New Jersey one, and -73.9465,
+    # 1,065 m apart; main span 1,067 m); side spans 186 m (NJ, to the anchorage in the Palisades: OSM's line stops at the cliff edge, 165 m) and 198 m (NY);
+    # 58.8 m clearance at mid-span (chart) under the lower deck, the upper deck on a 9 m truss above it; 36 m wide.
+    # The upper level's two directions are averaged into one line; the lower level, under it, is then left out.
+    {'name': 'George Washington Bridge', 'region': 'new-york-harbor', 'kind': 'suspension', 'color': 0x9aa3a8, 'axis': 'lon', 'w': 36, 'depth': 9,
+     'ways': [[8028082, 49032026, 1339765260], [49036344, 9702602]],
+     'deck': [[-73.96066, None], [-73.9605, 66], [-73.95877, 67.5], [-73.95265, 69], [-73.9465, 67.5], [-73.94455, 66], [-73.9443, None]],
+     'towers': [[-73.95877, 184, 'portal'], [-73.9465, 184, 'portal']],
+     'cables': [[[-73.9604, 'deck'], [-73.95877, 'top'], [-73.9465, 'top'], [-73.94455, 'deck']]], 'sag_over': 2,
+     'free': [[-73.9604, -73.94455]], 'span': 60,
+     'blocks': [[-73.9604, 30, 50], [-73.94455, 30, 50]]},
     # Golden Gate (1937): towers 227 m above the water (chart PYLONS HEIGHT 225.6), main span 1,280 m between them
     # (37.8140 and 37.8255, the chart's south pier and the OSM way's break at Lime Point), side spans to the
     # anchorages (37.8110, 37.8286); road 67 m above high water at mid-span (chart VERCLR 70.5) on a 7.6 m truss.
