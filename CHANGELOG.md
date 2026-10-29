@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-28 — Bird's-eye: the version label clear of the tilt slider (v1055)
+
+- Reported: "the tilt slider is in front of the version number". Over Bird's-eye the version sat in the bottom-left
+  corner, under the left rail's column (zoom, pan, tilt), which reaches the corner on a window under ~700 px tall.
+  It now sits just right of the column (app.css). Headless Chrome 1440×640: label at x 96–152, rail ends at x 84.
+
 ## 2026-10-28 — Manset said right (v1054)
 
 - Reported: "You are pronouncing it like it's MANsayt". The spoken text now says "Mansett" (MAN-set; tts.js,
