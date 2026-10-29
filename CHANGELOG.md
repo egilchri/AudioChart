@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-29 — Bird's-eye: New York's ferries as themselves (v1063)
+
+- Requested: "I think you are making the new york ferries look like the Maine ferries. Please make an effort to make
+  them look more realistic". Every passenger boat the live AIS showed in New York was drawn as a Maine State Ferry
+  car ferry. harborferries3d.js now draws, by name, where she's bound and her size (livefleet.js identify):
+  the Staten Island Ferry (double-ended, all orange, three passenger decks, a pilothouse each end, the stack
+  amidships; the John A. Noble and Alice Austen with two), the fast catamarans in NYC Ferry's blue and white,
+  NY Waterway's navy, red and white and Seastreak's, and the sightseeing boats (Circle Line's, Statue City
+  Cruises', the rest). Their cards say which they are ("Staten Island Ferry", "NYC Ferry", ...).
+
 ## 2026-10-29 — Bird's-eye: an overview map; the Flyover's clock; Coast Guard take-off; Bass said right (v1062)
 
 - Requested: "an overview map in the lower right hand corner of the screen". overview2d.js: the bay's land (its

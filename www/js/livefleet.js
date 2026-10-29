@@ -3,6 +3,7 @@
 import { makeSailboat } from './sailboat3d.js';
 import { makeTrimmer } from './weather3d.js';
 import { cruiseShipModel, ferryModelSimple, launchModel, cblModel, merchantModel } from './vessels.js';
+import { harborKind } from './harborferries3d.js';
 import { tankerModel, tugModel, pilotModel, containerModel, bulkModel, carCarrierModel, lpgModel, trawlerModel, researchModel, dredgerModel, cutterModel, scallopModel, cableModel, osvModel, shipFor } from './ships3d.js';
 import { aisClass, knownFor } from './ais.js';
 
@@ -58,6 +59,8 @@ export function liveModel(A, cls, seed, K, W, lit) {
     if (!W.model && W.lod_ft) { const k = W.lod_ft * 0.3048 / boat.L; for (const c of boat.group.children) c.scale.multiplyScalar(k); boat.L *= k; }
     return { boat, group: boat.group, L: boat.L, trim: makeTrimmer() };
   }
+  // one of New York Harbor's passenger boats as herself, not a Maine car ferry (v1063; harborferries3d.js)
+  if (cls.harbor) return { group: cls.harbor.build(lit), L: cls.harbor.L };
   const L = A.L || LIVE_LEN[cls.model];
   if (cls.model === 'sail' || cls.model === 'power') {
     // a big sailing yacht, 45 to 72 ft, as one, drawn to her own length (v1025)
@@ -90,5 +93,6 @@ export function identify(A) {
   let cls = K ? { model: K.kind === 'launch' || A.L < 25 ? 'launch' : 'ferry', what: K.says || 'Ferry' }
     : W ? { model: 'sail', what: `${W.model === 'bowdoin' ? 'Schooner' : 'Windjammer'}, out of ${W.port}` } : S && !A.type ? { model: S.kind, what: S.what } : RESEARCH.test(A.name || '') || S?.kind === 'research' ? { model: 'research', what: S?.what || 'Research vessel' } : CUTTER.test(A.name || '') ? { model: 'cutter', what: 'Coast Guard cutter' } : CABLE.test(A.name || '') || S?.kind === 'cable' ? { model: 'cable', what: S?.what || 'Cable ship' } : (OSV.test(A.name || '') && !(A.L && A.L < 40)) || S?.kind === 'osv' ? { model: 'osv', what: S?.what || 'Offshore supply vessel' } : aisClass(A.type, A.L);
   if (cls.model === 'trawler' && scalloper(A, S)) cls = { model: 'scalloper', what: 'Scalloper' };
+  if (!K && !W && (A.type >= 60 && A.type <= 69 || A.type >= 40 && A.type <= 49)) { const h = harborKind(A); if (h) cls = { ...cls, model: 'ferry', what: h.what, harbor: h }; }
   return { K, W, S, cls };
 }
