@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-28 — Flyover: a helicopter's speed, sped up on long legs and saying so (v1053)
+
+- Asked: "how fast is the helicopter going? Is it at all realistic?" It wasn't: every leg took 4–18 s, so a 20 km
+  hop was flown at ~2,000 knots. Now she cruises at a touring helicopter's 130 knots, in real time for legs of up to
+  15 s; longer legs are squeezed (5 km in 38 s rather than 75; 20 km in 77 s rather than 5 min), and the bar shows
+  how much faster than real ("⏩ ×4 speed"). She speeds up and slows down at each end and holds a steady speed between.
+- She now flies a straight line at that steady speed, nose along her track, turning to each stop's view as she comes
+  in. (Before, the camera's target moved evenly and the camera swung round it, so her own speed went up and down,
+  to twice the average.) Long legs climb no higher than a helicopter would (camera ~2 km off at most, not 12 km).
+- Each stop's name is said about 4 s before arriving (it was at 70% of the leg, too early on a long one).
+- Headless Chrome, SFO → Bay Bridge → Golden Gate → landing: steady 562 kn (×4) and 433 kn (×3) legs, landing on the pad.
+
 ## 2026-10-28 — Bass Harbor said right (v1052)
 
 - Reported: "Bass Harbor ... pronounced wrong". Voices read Bass as the low note ("base"); the spoken text now says

@@ -47,7 +47,17 @@ export function makeFlyover({ view, bar, camera, scene, onEnd }) {
   const speak = s => { if (tour?.talk && s) try { TTS?.sayImmediate(spoken(s)); } catch (_) {} };
   const hush = () => { try { TTS?.stop(); } catch (_) {} };
   const smooth = u => u * u * (3 - 2 * u);
+  // a leg's way along (0 to 1) at time u (0 to 1): speeding up for the first a of it, at speed, slowing down for
+  // the last a (so the speed shown is the speed she cruises at, not an average under a peak half as fast again)
+  const trap = (u, a) => { const v = 1 / (1 - a); return u < a ? v * u * u / (2 * a) : u > 1 - a ? 1 - v * (1 - u) * (1 - u) / (2 * a) : v * (u - a / 2); };
+  // her speed (v1053, requested: realistic, sped up on long legs): a touring helicopter's 130 knots, in real time
+  // for a leg of up to 15 s; past that, the time is squeezed (a 5 km leg takes 38 s, not 75; 20 km 77 s, not 5 min),
+  // and the bar says how much faster than real it is
+  const CRUISE = 130 * 1852 / 3600, REAL_S = 15;
   const bearing = (a, b) => Math.atan2(b.x - a.x, -(b.z - a.z));
+  const turn = (a, b) => { let d = (b - a) % (2 * Math.PI); if (d > Math.PI) d -= 2 * Math.PI; if (d < -Math.PI) d += 2 * Math.PI; return d; };
+  // where the camera is over the ground for a view (as bay3d.js's placeCamera puts it), and the view back from it
+  const camAt = v => { const h = v.dist * Math.sin(v.tilt); return { x: v.x - Math.sin(v.az) * h, z: v.z + Math.cos(v.az) * h }; };
 
   // the view of her over a pad: e = 0 on it (from her side, close), 1 up at HIGH (astern of her, further back). The
   // target is where the line through her meets sea level, so she's in the middle however high the ground is.
@@ -57,16 +67,23 @@ export function makeFlyover({ view, bar, camera, scene, onEnd }) {
   }
   function leg(now) {   // from wherever the camera is now to stop i
     const S = tour.stops[tour.i];
-    if (S.land) tour.landNose = bearing(view, S);   // (she comes in over the pad on the line she's flying)
+    if (S.land) tour.landNose = bearing(camAt(view), S);   // (she comes in over the pad on the line she's flying)
     const to = S.target(), from = { ...view };
-    const hop = Math.hypot(to.x - from.x, to.z - from.z);
-    // long hops fly higher, as flyTo does, and take longer, but never so fast the ground can't keep up
-    const peak = Math.max(from.dist, to.dist, hop * 0.6);
-    let daz = (to.az - from.az) % (2 * Math.PI); if (daz > Math.PI) daz -= 2 * Math.PI; if (daz < -Math.PI) daz += 2 * Math.PI;
-    Object.assign(tour, { phase: 'fly', t0: now, from, daz, dur: clamp(3.5 + hop / 1300, 4, 18) * 1000, pin: null,
+    // she flies the straight line between where the camera is now and where it'll be over the stop (the camera, and
+    // she just ahead of it, going at an even speed; not the point it looks at, which swings round as it turns)
+    const cf = camAt(from), ct = camAt(to), hop = Math.hypot(ct.x - cf.x, ct.z - cf.z), track = bearing(cf, ct);
+    // long hops fly higher, as flyTo does, but no higher than a helicopter would (the ground has to keep up)
+    const peak = Math.max(from.dist, to.dist, Math.min(hop * 0.6, 1800));
+    const real = hop / CRUISE, squeezed = real <= REAL_S ? real : REAL_S + (real - REAL_S) ** 0.7;
+    const sec = Math.max(4, squeezed * 1.15), a = Math.min(5, sec / 3) / sec;   // (the 15%: the time speeding up and slowing down takes)
+    const fast = hop / (1 - a) / sec / CRUISE;   // (how much faster than real she cruises)
+    Object.assign(tour, { phase: 'fly', t0: now, from, cf, track, dur: sec * 1000, a, pin: null,
       bump: Math.max(0, Math.log(peak) - Math.max(Math.log(from.dist), Math.log(to.dist))), spoke: false });
-    const n = tour.stops.filter(s => !s.land).length;
-    caption(S.land ? S.name : `${tour.i + 1} of ${n} · ${S.name}`);
+    stopCaption(fast >= 1.5 ? ` · ⏩ ×${Math.round(fast)} speed` : '');
+  }
+  function stopCaption(extra = '') {
+    const S = tour.stops[tour.i], n = tour.stops.filter(s => !s.land).length;
+    caption((S.land ? S.name : `${tour.i + 1} of ${n} · ${S.name}`) + extra);
   }
   function arrive() {
     const S = tour.stops[tour.i];
@@ -107,14 +124,18 @@ export function makeFlyover({ view, bar, camera, scene, onEnd }) {
     const S = tour.stops[tour.i], to = S.target?.();
     if (!to) { next(now); return; }   // (a vessel that's gone)
     if (tour.phase === 'fly') {
-      const u = clamp((now - tour.t0) / tour.dur, 0, 1), e = smooth(u), f = tour.from;
-      view.x = f.x + (to.x - f.x) * e; view.z = f.z + (to.z - f.z) * e;
-      view.az = f.az + tour.daz * e; view.tilt = f.tilt + (to.tilt - f.tilt) * e;
+      const u = clamp((now - tour.t0) / tour.dur, 0, 1), e = trap(u, tour.a), f = tour.from, cf = tour.cf, ct = camAt(to);
+      // she turns onto her track as she sets off, flies it looking ahead, and turns to the stop's view as she comes in
+      const r = Math.min(0.5, 6000 / tour.dur), w1 = smooth(clamp(u / r, 0, 1)), w2 = smooth(clamp((u - (1 - r)) / r, 0, 1));
+      const az1 = f.az + turn(f.az, tour.track) * w1;
+      view.az = az1 + turn(az1, to.az) * w2; view.tilt = f.tilt + (to.tilt - f.tilt) * e;
       view.dist = Math.exp(Math.log(f.dist) + (Math.log(to.dist) - Math.log(f.dist)) * e + tour.bump * Math.sin(Math.PI * u));
-      if (!tour.spoke && u > 0.7) arrive();
+      const h = view.dist * Math.sin(view.tilt), cx = cf.x + (ct.x - cf.x) * e, cz = cf.z + (ct.z - cf.z) * e;
+      view.x = cx + Math.sin(view.az) * h; view.z = cz - Math.cos(view.az) * h;
+      if (!tour.spoke && u > Math.max(0.7, 1 - 4000 / tour.dur)) arrive();   // (its name, a few seconds out)
       if (u >= 1) {
-        if (S.land) { tour.phase = 'land'; tour.t0 = now; H.hover.copy(heli.group.position); }
-        else { tour.phase = 'hold'; tour.t0 = now; tour.az = view.az; }
+        if (S.land) { tour.phase = 'land'; tour.t0 = now; H.hover.copy(heli.group.position); stopCaption(); }
+        else { tour.phase = 'hold'; tour.t0 = now; tour.az = view.az; stopCaption(); }
       }
     } else {   // round her slowly, keeping up if she's under way
       tour.az += dt * 0.07;
