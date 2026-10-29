@@ -100,8 +100,20 @@ export async function makeBridges(rid, heightAt) {
     const seg = [];
     for (const C of B.cables) {
       const pts = C.map(([lon, lat, h]) => new THREE.Vector3(wx(lon), h, wz(lat)));
-      group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), lineMat(B.color)));
+      // the main cable: a tube as thick as she has them (v1064, cable_r), else a line
+      if (B.cable_r) group.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), pts.length * 2, B.cable_r, 6), mat(B.color)));
+      else group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), lineMat(B.color)));
       C.forEach(([lon, lat, h, dh], i) => { if (h - dh > 1.5) seg.push(pts[i].x, h, pts[i].z, pts[i].x, dh, pts[i].z); });
+    }
+    // arches (v1064, the Bayonne's and Hell Gate's): each rib a tube, with hangers down to the deck where it's above
+    // it and posts up to the deck where it's below
+    for (const R of B.arches || []) {
+      const pts = R.pts.map(([lon, lat, h]) => new THREE.Vector3(wx(lon), h, wz(lat)));
+      group.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), pts.length * 2, R.r, 8), mat(B.color)));
+      R.pts.forEach(([, , h, dh], i) => {
+        if (h > dh + 1.5) seg.push(pts[i].x, h, pts[i].z, pts[i].x, dh, pts[i].z);
+        else if (h < dh - B.depth - 1.5) seg.push(pts[i].x, h, pts[i].z, pts[i].x, dh - B.depth, pts[i].z);
+      });
     }
     // trusses: chords, posts and diagonals on both sides, through (above the deck) or under it
     for (const T of B.truss) for (const side of [-1, 1]) {

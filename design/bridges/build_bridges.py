@@ -84,6 +84,80 @@ SPECS = [
      'cables': [[[-73.9604, 'deck'], [-73.95877, 'top'], [-73.9465, 'top'], [-73.94455, 'deck']]], 'sag_over': 2,
      'free': [[-73.9604, -73.94455]], 'span': 60,
      'blocks': [[-73.9604, 30, 50], [-73.94455, 30, 50]]},
+    # ── New York's other big bridges (v1064, requested: "Please make an effort to make the main New York bridges look
+    # more realistic"; they had been plain decks). Overpass was down, so each centre line is given as points (`line`)
+    # from the OSM ways already in new-york-harbor.json; towers at the chart's PYLONS, clearances the chart's VERCLR,
+    # the rest published figures. `cable_r`: the main cables drawn as tubes (m), not hairlines.
+    # Manhattan Bridge (1909): towers 102 m above the water at the chart's piers (40.70511 and 40.70882, 447 m apart;
+    # main span 448 m), side spans 221 m, double decked on a deep truss, 40.8 m clearance (chart); light blue-grey.
+    {'name': 'Manhattan Bridge', 'region': 'new-york-harbor', 'kind': 'suspension', 'color': 0x8196a8, 'axis': 'lat', 'w': 37, 'depth': 8, 'cable_r': 0.6,
+     'line': [[-73.98727, 40.7010], [-73.994933, 40.71473]],
+     'deck': [[40.7012, None], [40.70327, 46], [40.70511, 48], [40.70697, 49.5], [40.70882, 48], [40.71066, 46], [40.7146, None]],
+     'towers': [[40.70511, 102, 'portal'], [40.70882, 102, 'portal']],
+     'cables': [[[40.70327, 'deck'], [40.70511, 'top'], [40.70882, 'top'], [40.71066, 'deck']]], 'sag_over': 2,
+     'free': [[40.70511, 40.70882]], 'span': 60,
+     'blocks': [[40.70327, 40, 50], [40.71066, 40, 50]]},
+    # Williamsburg Bridge (1903): steel lattice towers 102 m at the chart's piers (-73.96944 and -73.9748, 487 m
+    # apart; main span 488 m); the side spans on steel trestles, not hung, the cables carried on over them to the
+    # anchorages; a 12 m stiffening truss; 40.5 m clearance (chart).
+    {'name': 'Williamsburg Bridge', 'region': 'new-york-harbor', 'kind': 'suspension', 'color': 0x8e8f8c, 'axis': 'lon', 'w': 36, 'depth': 10, 'cable_r': 0.6,
+     'line': [[-73.964613, 40.711414], [-73.978795, 40.71572]],
+     'deck': [[-73.96475, None], [-73.96729, 47], [-73.96944, 50], [-73.97212, 51.5], [-73.9748, 50], [-73.97695, 47], [-73.97865, None]],
+     'towers': [[-73.96944, 102, 'portal'], [-73.9748, 102, 'portal']],
+     'cables': [[[-73.96729, 'deck'], [-73.96944, 'top'], [-73.9748, 'top'], [-73.97695, 'deck']]], 'sag_over': 3,
+     'free': [[-73.96944, -73.9748]], 'span': 45,
+     'truss': [[-73.96944, -73.9748, 4, 0]],
+     'blocks': [[-73.96729, 40, 50], [-73.97695, 40, 50]]},
+    # Queensboro Bridge (1909): a cantilever, through trusses over the deck, deep over the four piers (Manhattan's
+    # shore, two on Roosevelt Island, Queens's shore) and shallow mid-channel, their finials ~107 m up; the channel
+    # spans 360 m (west, 39.9 m clearance) and 300 m (east, 40.5 m), the island span 192 m (piers from the chart's
+    # channel spans); grey.
+    {'name': 'Queensboro Bridge', 'region': 'new-york-harbor', 'kind': 'truss', 'color': 0x8d8b83, 'axis': 'lon', 'w': 30, 'depth': 6,
+     'line': [[-73.948878, 40.754505], [-73.960551, 40.759574]],
+     'deck': [[-73.94905, None], [-73.94985, 44], [-73.95004, 45], [-73.95159, 46], [-73.95313, 45], [-73.95511, 45], [-73.95697, 46], [-73.95883, 45], [-73.9603, 44], [-73.9604, None]],
+     'towers': [[-73.95004, 92, 'portal'], [-73.95313, 92, 'portal'], [-73.95511, 92, 'portal'], [-73.95883, 92, 'portal']],
+     'truss': [[-73.9493, -73.95985, [[-73.9493, 6], [-73.95004, 32], [-73.95159, 7], [-73.95313, 32], [-73.95412, 22], [-73.95511, 32], [-73.95697, 7], [-73.95883, 32], [-73.95985, 6]], 0]],
+     'span': 55},
+    # Robert F. Kennedy (Triborough) Bridge, its suspension span over Hell Gate between Astoria and Wards Island
+    # (1936): towers 96 m, main span 421 m (centred on the chart's span, 42 m clearance), side spans 213 m.
+    {'name': 'Robert F. Kennedy Bridge (suspension span)', 'short': 'Robert F. Kennedy Bridge', 'region': 'new-york-harbor', 'kind': 'suspension', 'color': 0x8a958d, 'axis': 'lat', 'w': 30, 'depth': 5, 'cable_r': 0.5,
+     'line': [[-73.92285, 40.7745], [-73.93047, 40.7845]],
+     'deck': [[40.7746, None], [40.77655, 44], [40.77805, 46], [40.77969, 47.5], [40.78133, 46], [40.7827, 44], [40.7844, None]],
+     'towers': [[40.77805, 96, 'portal'], [40.78133, 96, 'portal']],
+     'cables': [[[40.77655, 'deck'], [40.77805, 'top'], [40.78133, 'top'], [40.7827, 'deck']]], 'sag_over': 2,
+     'free': [[40.77655, 40.7827]], 'span': 50,
+     'blocks': [[40.77655, 30, 40], [40.7827, 30, 40]]},
+    # Hell Gate Bridge (1917): a steel through arch, 298 m, its crown 93 m above the water, between granite towers
+    # 76 m high; the railway 40.8 m clear (chart); painted Hell Gate red.
+    {'name': 'Hell Gate Bridge', 'region': 'new-york-harbor', 'kind': 'arch', 'color': 0x8c3a31, 'axis': 'lon', 'w': 20, 'depth': 3,
+     'line': [[-73.92075, 40.78153], [-73.92330, 40.78344]],
+     'deck': [[-73.92075, 44], [-73.92330, 44]],
+     'towers': [[-73.92087, 76, 'gothic'], [-73.92316, 76, 'gothic']],
+     'arch': [[-73.92095, -73.92308, 30, 93, 2.2], [-73.92095, -73.92308, 10, 72, 1.6]], 'free': [[-73.92075, -73.9233]], 'span': 60},
+    # Bayonne Bridge (1931): a steel through arch, 504 m between its abutments, the crown 81 m above them; the roadway
+    # raised inside it in 2017 to 65.5 m clear (chart); grey.
+    {'name': 'Bayonne Bridge', 'region': 'new-york-harbor', 'kind': 'arch', 'color': 0x8f989c, 'axis': 'lat', 'w': 26, 'depth': 3,
+     'line': [[-74.14448, 40.6365], [-74.13999, 40.6475]],
+     'deck': [[40.6366, None], [40.6385, 60], [40.6400, 64], [40.64199, 69.5], [40.6440, 64], [40.6458, 60], [40.6474, None]],
+     'arch': [[40.63985, 40.64413, 8, 84, 2.6], [40.63985, 40.64413, 2, 70, 2.0]], 'free': [[40.63985, 40.64413]], 'span': 50},
+    # Bronx-Whitestone Bridge (1939): towers 115 m at the chart's piers (40.79918 and 40.80484, 699 m apart; main
+    # span 701 m), side spans 224 m, a shallow stiffened deck, 39.6 m clearance (chart).
+    {'name': 'Bronx-Whitestone Bridge', 'region': 'new-york-harbor', 'kind': 'suspension', 'color': 0x8f979c, 'axis': 'lat', 'w': 23, 'depth': 4, 'cable_r': 0.55,
+     'line': [[-73.824987, 40.794804], [-73.835938, 40.811874]],
+     'deck': [[40.7949, None], [40.79735, 42], [40.79918, 44], [40.80201, 45.5], [40.80484, 44], [40.80667, 42], [40.8117, None]],
+     'towers': [[40.79918, 115, 'portal'], [40.80484, 115, 'portal']],
+     'cables': [[[40.79735, 'deck'], [40.79918, 'top'], [40.80484, 'top'], [40.80667, 'deck']]], 'sag_over': 2,
+     'free': [[40.79735, 40.80667]], 'span': 55,
+     'blocks': [[40.79735, 35, 40], [40.80667, 35, 40]]},
+    # Throgs Neck Bridge (1961): towers 109 m at the chart's piers (40.79781 and 40.80277, 551 m apart; main span
+    # 549 m), side spans 169 m, a 6.7 m stiffening truss, 42 m clearance (chart); the Bronx viaduct curving away.
+    {'name': 'Throgs Neck Bridge', 'region': 'new-york-harbor', 'kind': 'suspension', 'color': 0x8a979f, 'axis': 'lat', 'w': 31, 'depth': 7, 'cable_r': 0.55,
+     'line': [[-73.792923, 40.791249], [-73.793539, 40.799869], [-73.793557, 40.802117], [-73.793575, 40.804366], [-73.793593, 40.806492], [-73.793619, 40.808739], [-73.793728, 40.810713], [-73.794312, 40.812484], [-73.795398, 40.814117], [-73.7969, 40.815511], [-73.798312, 40.816403]],
+     'deck': [[40.7914, None], [40.79629, 45], [40.79781, 47], [40.80029, 48.5], [40.80277, 47], [40.80429, 45], [40.8163, None]],
+     'towers': [[40.79781, 109, 'portal'], [40.80277, 109, 'portal']],
+     'cables': [[[40.79629, 'deck'], [40.79781, 'top'], [40.80277, 'top'], [40.80429, 'deck']]], 'sag_over': 2,
+     'free': [[40.79629, 40.80429]], 'span': 50,
+     'blocks': [[40.79629, 30, 40], [40.80429, 30, 40]]},
     # Golden Gate (1937): towers 227 m above the water (chart PYLONS HEIGHT 225.6), main span 1,280 m between them
     # (37.8140 and 37.8255, the chart's south pier and the OSM way's break at Lime Point), side spans to the
     # anchorages (37.8110, 37.8286); road 67 m above high water at mid-span (chart VERCLR 70.5) on a 7.6 m truss.
@@ -291,7 +365,8 @@ def r5(x):
 
 def build_spec(sp, ways):
     axis = sp['axis']
-    lines = [chain(ways, ids) for ids in sp['ways']]
+    # (v1064: or `line`, the centre line itself as [lon, lat] points, for a straight bridge, when Overpass can't be had)
+    lines = [chain(ways, ids) for ids in sp['ways']] if 'ways' in sp else [[tuple(p) for p in sp['line']]]
     pts = centre(lines[0], lines[1] if len(lines) > 1 else None, 15)
     S = stations(pts)
     dk = sorted(((at_coord(pts, S, axis, c)[0], h) for c, h in sp["deck"]), key=lambda k: k[0])
@@ -368,6 +443,22 @@ def build_spec(sp, ways):
         i = min(range(len(S)), key=lambda j: abs(S[j] - st))
         blocks.append({'lon': r5(p[0]), 'lat': r5(p[1]), 'az': round(az_at(pts, i)), 'len': ln, 'w': w, 'top': round((deck_at(st) or 0) + 2, 1)})
     B['blocks'] = blocks
+    # arches (v1064): ribs each side, a parabola between their springings c0..c1 (on the axis) from `spring` to
+    # `crown` m above the water, `r` m thick; bridges3d.js draws them as tubes, the hangers down to the deck above
+    # it and the posts up to it below
+    arches = []
+    for c0, c1, spring, crown, r in sp.get('arch', []):
+        a0, a1 = sorted(at_coord(pts, S, axis, c)[0] for c in (c0, c1))
+        for side in (-1, 1):
+            rib = []
+            for k in range(41):
+                t = k / 40; st = a0 + (a1 - a0) * t
+                i = min(range(len(S)), key=lambda j: abs(S[j] - st))
+                p = offset(pts[i], az_at(pts, i), side * sp['w'] / 2)
+                rib.append([r5(p[0]), r5(p[1]), round(spring + (crown - spring) * (1 - (2 * t - 1) ** 2), 1), round(deck_at(st) or 0, 1)])
+            arches.append({'r': r, 'pts': rib})
+    if arches: B['arches'] = arches
+    if sp.get('cable_r'): B['cable_r'] = sp['cable_r']
     return B
 
 
@@ -402,7 +493,7 @@ def main():
     for sp in SPECS:
         if sp.get('region', 'sf-bay') != rid:
             continue   # (the big bridges described so far are all San Francisco's)
-        used |= {i for ids in sp['ways'] for i in ids}
+        used |= {i for ids in sp.get('ways', []) for i in ids}
         bridges.append(build_spec(sp, ways))
         print(f"{sp['name']}: {len(bridges[-1]['pts'])} points, {len(bridges[-1]['piers'])} piers, {len(bridges[-1]['towers'])} towers")
     # the rest: a plain deck on piers, where OSM's bridge is over the chart's water

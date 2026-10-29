@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-10-29 — Bird's-eye: New York's big bridges as themselves (v1064)
+
+- Requested: "Please make an effort to make the main New York bridges look more realistic". Eight more get specs of
+  their own (design/bridges/build_bridges.py; towers at the chart's piers, clearances the chart's): the Manhattan,
+  Williamsburg, Bronx-Whitestone and Throgs Neck suspension bridges and the Robert F. Kennedy's suspension span over
+  Hell Gate (towers, cables, anchorages), the Queensboro's cantilever trusses deep over its four piers, and the
+  Hell Gate (red, between its granite towers) and Bayonne steel arches. bridges3d.js draws arch ribs, their hangers
+  and posts, and main cables as tubes of their thickness. Overpass was down, so a spec can now give its centre line
+  as points (`line`, from the OSM ways already in the file); only these bridges were rebuilt and spliced in, the
+  plain pieces they replace taken out.
+- Building tiles from NYC Open Data (FOOTPRINTS=nyc in design/buildings/build_town.py) are in progress, not in this
+  release.
+
 ## 2026-10-29 — Bird's-eye: New York's ferries as themselves (v1063)
 
 - Requested: "I think you are making the new york ferries look like the Maine ferries. Please make an effort to make
