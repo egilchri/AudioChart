@@ -69,6 +69,21 @@ export function makeFlyover({ view, bar, camera, scene, onEnd, brgTxt = t => `${
     const az = nose + (1 - e) * 1.25, tilt = (64 - 6 * e) * Math.PI / 180, fwd = hy * Math.tan(tilt);
     return { x: p.x + Math.sin(az) * fwd, z: p.z - Math.cos(az) * fwd, dist: 48 + 140 * e, tilt, az };
   }
+  // a leg's time (the 15%: the time speeding up and slowing down takes)
+  const legSec = hop => { const real = hop / CRUISE; return Math.max(4, (real <= REAL_S ? real : REAL_S + (real - REAL_S) ** 0.7) * 1.15); };
+  // the clock (v1062, requested: "a clock or some way of showing elapsed time and how much time to go"): time flown
+  // (not counting pauses), and the tour's time to go, worked out again at the start of each leg from the stops left
+  const timeEl = bar.querySelector('.fly-time');
+  const flown = now => (tour.paused ? tour.pausedAt : now) - tour.started - tour.pausedMs;
+  const atStop = S => S.land ? (SETTLE + DOWN + WIND) / 1000 + (S.hold || 0) + (S.final ? 0 : (UP + CLIMB) / 1000) : S.hold || 0;
+  const toGo = (i, p) => { let t = 0; for (; i < tour.stops.length; i++) { const S = tour.stops[i]; t += legSec(Math.hypot(S.x - p.x, S.z - p.z)) + atStop(S); p = S; } return t; };
+  const mmss = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
+  let shownAt = 0;
+  function showTime(now) {
+    if (!timeEl || now - shownAt < 250) return;
+    shownAt = now; const f = flown(now) / 1000;
+    timeEl.textContent = `⏱ ${mmss(f)} · ${mmss(Math.max(0, tour.eta - f))} to go`; timeEl.hidden = false;
+  }
   function leg(now) {   // from wherever the camera is now to stop i
     const S = tour.stops[tour.i];
     if (S.land) tour.landNose = bearing(camAt(view), S);   // (she comes in over the pad on the line she's flying)
@@ -78,12 +93,12 @@ export function makeFlyover({ view, bar, camera, scene, onEnd, brgTxt = t => `${
     const cf = camAt(from), ct = camAt(to), hop = Math.hypot(ct.x - cf.x, ct.z - cf.z), track = bearing(cf, ct);
     // long hops fly higher, as flyTo does, but no higher than a helicopter would (the ground has to keep up)
     const peak = Math.max(from.dist, to.dist, Math.min(hop * 0.6, 1800));
-    const real = hop / CRUISE, squeezed = real <= REAL_S ? real : REAL_S + (real - REAL_S) ** 0.7;
-    const sec = Math.max(4, squeezed * 1.15), a = Math.min(5, sec / 3) / sec;   // (the 15%: the time speeding up and slowing down takes)
+    const real = hop / CRUISE, sec = legSec(hop), a = Math.min(5, sec / 3) / sec;
     const fast = hop / (1 - a) / sec / CRUISE;   // (how much faster than real she cruises)
     Object.assign(tour, { phase: 'fly', t0: now, from, cf, track, dur: sec * 1000, a, pin: null,
       bump: Math.max(0, Math.log(peak) - Math.max(Math.log(from.dist), Math.log(to.dist))), spoke: false,
       fastTxt: fast >= 1.5 ? ` · ⏩ ×${Math.round(fast)} speed` : '', rb: real > REAL_S ? 0 : null });
+    tour.eta = flown(now) / 1000 + sec + atStop(S) + toGo(tour.i + 1, S);
     stopCaption(tour.fastTxt);
   }
   function stopCaption(extra = '') {
@@ -142,6 +157,7 @@ export function makeFlyover({ view, bar, camera, scene, onEnd, brgTxt = t => `${
   }
   function step(now, dt) {
     if (!tour || tour.paused) return;
+    showTime(now);
     if (tour.ground) { takeoff(now); return; }
     if (tour.phase === 'land') { landing(now); return; }
     if (tour.phase === 'sit') {
@@ -216,7 +232,9 @@ export function makeFlyover({ view, bar, camera, scene, onEnd, brgTxt = t => `${
     const pad = (s, spot) => ({ ...s, land: true, x: spot.x, z: spot.z, y: spot.y, spotName: spot.name, target: () => padView(spot, 1, tour.landNose, spot.y() + SKID + HIGH) });
     stops = stops.map(s => s.touch ? pad({ hold: 14, ...s }, s.spot) : s);   // (v1058: 14 s, for the look round)
     if (to) stops = [...stops, pad({ name: `Landing at ${to.name}`, say: `Landing at ${to.name}`, final: true, hold: 9 }, to)];
-    tour = { stops, i: 0, talk, paused: false, spin: 1, pin: null };
+    const t0 = performance.now();
+    tour = { stops, i: 0, talk, paused: false, spin: 1, pin: null, started: t0, pausedMs: 0, pausedAt: 0 };
+    tour.eta = from ? (UP + CLIMB) / 1000 + toGo(0, from) : 0;   // (none: leg() works it out)
     parked = null; heli.group.visible = true; H.prevAz = null; H.roll = 0; H.back = 1;
     bar.hidden = false; playBtn.textContent = '⏸'; playBtn.title = 'Pause the flyover';
     if (from) {   // on the pad, her nose toward the first stop
@@ -227,12 +245,13 @@ export function makeFlyover({ view, bar, camera, scene, onEnd, brgTxt = t => `${
   }
   function pause() {
     if (!tour || tour.paused) return;
-    tour.paused = true; hush(); H.hover.copy(heli.group.position);
+    tour.paused = true; tour.pausedAt = performance.now(); hush(); H.hover.copy(heli.group.position);
     playBtn.textContent = '▶'; playBtn.title = 'Go on with the flyover';
     caption(`Paused · next: ${tour.stops[tour.i].name}`);
   }
   function resume() {
     if (!tour || !tour.paused) return;
+    tour.pausedMs += performance.now() - tour.pausedAt;
     tour.paused = false; playBtn.textContent = '⏸'; playBtn.title = 'Pause the flyover'; H.back = 0; H.prevAz = null;
     tour.ground = false; tour.spin = 1;   // (paused on the pad or climbing: she goes straight on to the first stop; landing: she comes round again)
     if (tour.phase === 'sit' && tour.stops[tour.i].final) { end('landed'); return; }   // (paused looking round where she ended)
@@ -241,7 +260,7 @@ export function makeFlyover({ view, bar, camera, scene, onEnd, brgTxt = t => `${
   }
   function end(why) {
     if (!tour) return;
-    const t = tour; tour = null;
+    const t = tour; tour = null; if (timeEl) timeEl.hidden = true;
     t.stops[t.i]?.onLeave?.(); hush();
     const later = (s, then) => { caption(s); playBtn.hidden = true; setTimeout(() => { if (!tour) { bar.hidden = true; playBtn.hidden = false; then?.(); } }, 2500); };
     if (why === 'landed') { const p = t.stops[t.i]; park(p, t.landNose); later(`Landed at ${p.spotName}`); }
@@ -252,7 +271,7 @@ export function makeFlyover({ view, bar, camera, scene, onEnd, brgTxt = t => `${
   playBtn.addEventListener('click', () => tour?.paused ? resume() : pause());
   endBtn.addEventListener('click', () => end());
   addEventListener('keydown', e => { if (e.key === 'Escape' && tour) end(); });
-  return { start, step, place, pause, end, setSpots, active: () => !!tour && !tour.paused, on: () => !!tour };
+  return { start, step, place, pause, end, setSpots, heliAt: () => heli.group.visible ? heli.group.position : null, active: () => !!tour && !tour.paused, on: () => !!tour };
 }
 
 // the order to fly them in: nearest first from where you are, then any two crossing legs uncrossed (2-opt)

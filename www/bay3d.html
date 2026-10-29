@@ -80,6 +80,21 @@ body.flying #flybar { top: calc(14px + env(safe-area-inset-top, 0px)) !important
 #flybar .fly-text, #flypick .fly-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #flybar button, #flypick button { flex: none; font: inherit; color: var(--ink); background: rgba(255,255,255,0.14); border: 0; border-radius: 5px; padding: 3px 9px; cursor: pointer; }
 #flybar button[hidden], #flypick button[hidden] { display: none; }
+#flypick { flex-wrap: wrap; justify-content: center; }   /* (v1062: three take-off spots to offer) */
+#flybar .fly-time { flex: none; font-family: var(--mono); font-size: 0.78em; color: var(--muted); white-space: nowrap; }   /* (v1062: flown, and to go) */
+#flybar .fly-time[hidden] { display: none; }
+/* the overview map (v1062; overview2d.js): lower right, above the help line; in the app beside its tide box, and in
+   the corner while she flies (the app's controls are hidden then) */
+#ovmap { position: fixed; right: 12px; bottom: calc(46px + var(--credit-h, 13px) + env(safe-area-inset-bottom, 0px)); z-index: 3; line-height: 0; border-radius: 6px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.25); }
+#ovmap[hidden] { display: none; }
+#ovmap canvas { display: block; cursor: crosshair; }
+#ovmap button { position: absolute; top: 3px; right: 3px; font: inherit; font-size: 0.8rem; line-height: 1; color: var(--ink); background: rgba(0,0,0,0.45); border: 0; border-radius: 4px; padding: 2px 6px; cursor: pointer; }
+#ovmap .ov-open, #ovmap.folded canvas, #ovmap.folded .ov-fold { display: none; }
+#ovmap.folded { overflow: visible; border: 0; box-shadow: none; }
+#ovmap.folded .ov-open { display: block; position: static; font-size: 1.1rem; padding: 5px 8px; background: var(--glass); }
+body.embed #ovmap { right: 172px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+body.flying #ovmap { right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+body.innest #ovmap { display: none; }
 .flyspot { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; padding: 0 4px 0 8px; }
 .flyspot span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .flyspot button { flex: none; font: inherit; font-size: 0.74rem; color: var(--ink); background: rgba(255,255,255,0.12); border: 0; border-radius: 4px; padding: 2px 7px; cursor: pointer; }
@@ -327,7 +342,8 @@ body.embed #exagbox { top: calc(94px + env(safe-area-inset-top, 0px)); }
 <div id="aisinfo" hidden><div class="sect"><span id="aisname"></span><button type="button" id="aisclose" title="Close">✕</button></div><table></table><div class="go"></div></div>
 <div id="loading" hidden>Loading…</div>
 <div id="flypick" hidden role="status"><span class="fly-text"></span><button type="button" class="pick-a" hidden></button><button type="button" class="pick-b" hidden></button><button type="button" class="pick-x" title="Cancel (Esc)">✕</button></div>
-<div id="flybar" hidden role="status"><span class="fly-text"></span><button type="button" class="fly-play" title="Pause the flyover">⏸</button><button type="button" class="fly-end" title="End the flyover (Esc)">✕</button></div>
+<div id="ovmap" hidden><canvas aria-label="Overview map: tap to go there"></canvas><button type="button" class="ov-fold" title="Fold the map away">–</button><button type="button" class="ov-open" title="Show the overview map">🗺</button></div>
+<div id="flybar" hidden role="status"><span class="fly-text"></span><span class="fly-time" hidden title="Time flown, and about how long to go"></span><button type="button" class="fly-play" title="Pause the flyover">⏸</button><button type="button" class="fly-end" title="End the flyover (Esc)">✕</button></div>
 <div id="help">Drag to move · right-drag or Shift-drag to turn and tilt · scroll or pinch to zoom · click a town · Route waypoints shows a route, ▶ Sail it sails it · Weather for fog, rain, wind, dawn, sunset and night (N)</div>
 <div id="credit">Elevation USGS 3DEP · Photos USDA NAIP</div>
 <div id="status">Loading Penobscot Bay…</div>

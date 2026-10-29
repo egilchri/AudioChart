@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-10-29 — Bird's-eye: an overview map; the Flyover's clock; Coast Guard take-off; Bass said right (v1062)
+
+- Requested: "an overview map in the lower right hand corner of the screen". overview2d.js: the bay's land (its
+  chart's land.geojson), what you're looking at (a wedge from the camera to the point it looks at) and the
+  helicopter (red); a tap flies you there (pausing a flyover). In the app it sits beside the tide box, in the corner
+  while she flies; "–" folds it to a 🗺 button (remembered; folded to start with on a phone).
+- Requested: "a clock or some way of showing elapsed time and how much time to go". The flyover bar shows
+  "⏱ 0:18 · 2:00 to go": time flown (not counting pauses) and the tour's time to go, worked out from the legs, stops,
+  landings and take-offs left, again at the start of each leg (flyover.js).
+- Requested: "add the Coast Guard station as a takeoff possibility". regions3d.js `bases`: Southwest Harbor Coast
+  Guard Station (its wharf apron); 🛫 Change offers the other two spots by short names, and the bar wraps if need be.
+- Reported: "it's Bass Harbor, Bass rhymes with sass". v1052's speech respelling "Bas" came out "bahs": measured
+  with macOS's Samantha (plain and Enhanced), "Bass" is said exactly as "base", "Bas" with bah's vowel, "Basse" with
+  sass's (vowel F2 ~1,800 Hz). tts.js now says "Basse Harbor"; Piper's lexicon likewise (espeak: /bæs/).
+
 ## 2026-10-29 — Bird's-eye: the Places panel keeps to its width, above the buttons (v1061)
 
 - Reported: "I don't see 'Use Bar Harbor airport'". v1059's long "Southwest Harbor Coast Guard Station" had widened

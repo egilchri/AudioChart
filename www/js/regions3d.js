@@ -6,10 +6,12 @@ export const REGIONS3D = {
   'penobscot-bay': {
     name: 'Penobscot Bay', short: 'Penobscot',
     origin: [-68.87, 44.12],
-    heliport: { name: 'Knox County Regional Airport', lon: -69.0992, lat: 44.0603 },   // (where the Flyover's helicopter takes off: v1049)
+    heliport: { name: 'Knox County Regional Airport', short: 'Knox County airport', lon: -69.0992, lat: 44.0603 },   // (where the Flyover's helicopter takes off: v1049)
     // other places she can start from, offered when you change the take-off spot (v1057, requested: "Add the Bar Harbor
     // airport as a place to start a Penobscot journey"): its apron, south of the runways' crossing, on the NAIP photo
-    bases: [{ name: 'Bar Harbor Airport', lon: -68.3624, lat: 44.4464 }],
+    // (v1062, requested: "add the Coast Guard station as a takeoff possibility": the same wharf apron as its landing spot)
+    bases: [{ name: 'Bar Harbor Airport', lon: -68.3624, lat: 44.4464 },
+      { name: 'Southwest Harbor Coast Guard Station', short: 'SW Harbor Coast Guard', lon: -68.3126, lat: 44.2750 }],
     // places the Flyover's helicopter can land on the way (v1056, requested: "Crow Island in the Cranberry Isles, or
     // the open soccer field on Islesford"; spots checked on the NAIP photo): tick them in Landing spots
     landings: [

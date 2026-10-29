@@ -28,6 +28,7 @@ import { makeCurrents, layerAt } from './currents.js';
 import { OBS, makeObs, windWords, wavesWords } from './obs.js';
 import { GAUGES, gaugePage, makeTideGauge, predAt, trendAt, nextTurns, tideChart } from './tidegauge.js';
 import { makeFlyover, orderStops, offLeg } from './flyover.js';
+import { makeOverview } from './overview2d.js';
 import { makeAisFeed, aisStatus, aisName, aisDest, setKnown, knownFor, aisFlag, aisRot, aisPos, aisAgo, aisLookup, aisImo, aisCallsign, AIS_CREDIT } from './ais.js';
 
 const statusEl = document.getElementById('status');
@@ -2920,8 +2921,8 @@ const clock = new THREE.Clock();
   // where she takes off and lands (v1049): the bay's heliport (regions3d.js) unless you've picked a spot; she lands
   // back where she started unless you've picked another, or "stay up"
   const spotOf = (name, lon, lat) => ({ name, lon, lat, x: wx(lon), z: wz(lat), y: () => Math.max(0, heightAt(lon, lat), deckAt(wx(lon), wz(lat))) });   // (y: the detailed ground, or a wharf's deck, may load while she's on it)
-  const HP = REG.heliport, home = HP && spotOf(HP.name, HP.lon, HP.lat);
-  const bases = [home, ...(REG.bases || []).map(b => spotOf(b.name, b.lon, b.lat))].filter(Boolean);   // (v1057: Bar Harbor's airport too)
+  const HP = REG.heliport, home = HP && { ...spotOf(HP.name, HP.lon, HP.lat), short: HP.short };
+  const bases = [home, ...(REG.bases || []).map(b => ({ ...spotOf(b.name, b.lon, b.lat), short: b.short }))].filter(Boolean);   // (v1058: Bar Harbor's airport too; v1062: Southwest Harbor's Coast Guard station)
   const fromSaved = o => o?.lon != null ? bases.find(b => b.name === o.name) || spotOf(o.name, o.lon, o.lat) : null;
   let fromSpot = fromSaved(saved.from) || home, toSpot = saved.to === 'none' ? 'none' : fromSaved(saved.to) || 'start';
   const landAt = () => toSpot === 'start' ? fromSpot : toSpot === 'none' ? null : toSpot;
@@ -3009,7 +3010,7 @@ const clock = new THREE.Clock();
     const [a, b] = [pickBar.querySelector('.pick-a'), pickBar.querySelector('.pick-b')];
     if (which === 'from') {   // (the bay's airports, but the one she's at now)
       const other = bases.filter(s => s !== fromSpot);
-      [a, b].forEach((btn, i) => pickBtn(btn, other[i] ? `Use ${other[i].name.replace(/^the /, '')}` : '', () => { fromSpot = other[i]; showSpots(); }));
+      [a, b].forEach((btn, i) => pickBtn(btn, other[i] ? `Use ${other[i].short || other[i].name.replace(/^the /, '')}` : '', () => { fromSpot = other[i]; showSpots(); }));
     }
     else if (which === 'touch') { pickBtn(a, '', null); pickBtn(b, '', null); }
     else { pickBtn(a, toSpot !== 'start' ? 'Back to the start' : '', () => { toSpot = 'start'; showSpots(); }); pickBtn(b, toSpot !== 'none' ? 'Stay up' : '', () => { toSpot = 'none'; showSpots(); }); }
@@ -3089,6 +3090,11 @@ const clock = new THREE.Clock();
     sync();
   });
 }
+// ── The overview map (v1062; overview2d.js), lower right: a tap there flies you to it (pausing a flyover) ──
+try {
+  makeOverview({ el: document.getElementById('ovmap'), rid: RID, box: REG.bay, view, wx, wz, lonOf, latOf, heliAt: () => fly?.heliAt(),
+    onPick: (x, z) => { fly?.pause(); anim = null; flyTo({ x, z, dist: view.dist, tilt: view.tilt, az: view.az }, 1800); } });
+} catch (err) { console.warn('[bay3d] overview map', err); }
 let t = 0, lastCheck = -1, fpsN = 0, fpsT = performance.now(); window.__fps = 0;
 // Going easy when idle (v1050, requested: "make it go easy when idle"): with no touch, mouse or key for 4 s, and
 // nothing flying, following or riding, the scene is drawn 12 times a second instead of 60; the ships and cars
