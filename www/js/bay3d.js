@@ -100,7 +100,7 @@ async function chartWater(g) {
 document.title = TED ? `${REG.name} · Ted's Birdseye · AudioChart` : `${REG.name} 3D · AudioChart`;
 {
   const h1 = document.querySelector('.panel h1'); if (h1?.firstChild) h1.firstChild.textContent = REG.name;
-  if (h1?.lastChild) h1.lastChild.textContent = (TED ? "Ted's Birdseye, from AudioChart" : h1.lastChild.textContent) + (self.APP_VERSION ? ` · ${self.APP_VERSION}` : '');   // (the version, v1073: "I don't see the version number on the page")
+  if (TED && h1?.lastChild) h1.lastChild.textContent = "Ted's Birdseye, from AudioChart";
 }
 statusEl.textContent = `Loading ${REG.name}…`;
 // Armchair bays (v1044, requested): San Francisco and New York have no chart in AudioChart, so Bird's-eye there leaves
@@ -686,9 +686,13 @@ const creditEl = document.getElementById('credit');
 try { new ResizeObserver(() => document.documentElement.style.setProperty('--credit-h', creditEl.offsetHeight + 'px')).observe(creditEl); } catch (_) {}
 try { const sc = document.getElementById('scale'); new ResizeObserver(() => document.documentElement.style.setProperty('--scale-h', sc.offsetHeight + 'px')).observe(sc); } catch (_) {}   // (the flyover's bar sits above it on a phone: v1046)
 let bridges = null, onBridges = null;   // (v1020, below; onBridges: the Bridges list, v1047)
+// the version, first on the credits line, bottom left (v1073: "I don't see the version number on the page"; v1074: "put
+// it in the bottom left corner")
+const VER = self.APP_VERSION ? `${self.APP_VERSION} · ` : '';
+creditEl.textContent = VER + creditEl.textContent;
 function updateCredit() {
   const shown = townList.filter(t => t.group);
-  creditEl.textContent = (EMPTY ? 'Land and seabed NOAA NCEI CUDEM · Photos USDA NAIP' : 'Elevation USGS 3DEP · Photos USDA NAIP') + (bridges ? ' · ' + bridges.credit : '') + (shown.length ? ' · Buildings © OpenStreetMap contributors' + (shown.some(t => /Microsoft/.test(t.credit)) ? ', Microsoft' : '') + (shown.some(t => /NYC Open Data/.test(t.credit)) ? ', NYC Open Data' : '') : '');
+  creditEl.textContent = VER + (EMPTY ? 'Land and seabed NOAA NCEI CUDEM · Photos USDA NAIP' : 'Elevation USGS 3DEP · Photos USDA NAIP') + (bridges ? ' · ' + bridges.credit : '') + (shown.length ? ' · Buildings © OpenStreetMap contributors' + (shown.some(t => /Microsoft/.test(t.credit)) ? ', Microsoft' : '') + (shown.some(t => /NYC Open Data/.test(t.credit)) ? ', NYC Open Data' : '') : '');
 }
 async function loadTown(t) {
   t.state = 'loading'; townsLoading++;

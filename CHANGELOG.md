@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-30 — Bird's-eye: the version in the bottom left corner (v1074)
+
+- Requested: "put it in the bottom left corner". The version now leads the credits line there ("v1074 · Elevation
+  USGS 3DEP · …"), kept as the credits change; the subtitle under the bay's name is back to just its name.
+
 ## 2026-10-30 — Bird's-eye shows its version (v1073)
 
 - Reported: "I don't see the version number on the page" (Ted's Birdseye). Under the bay's name: "Ted's Birdseye,
