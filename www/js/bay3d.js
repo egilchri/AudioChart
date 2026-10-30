@@ -3076,6 +3076,15 @@ const clock = new THREE.Clock();
     inp.addEventListener('blur', () => finish(true));
     btn.replaceWith(inp); inp.focus(); inp.select(); inp.scrollIntoView({ block: 'nearest' });
   };
+  // a place of yours as spoken, with the town it's in or by (v1077, requested: "instead of just saying a named location,
+  // like Ned and Mary's place, say Ned and Mary's place in Bass Harbor"): the nearest town within 5 km, unless the name
+  // already has it
+  const withTown = (name, at) => {
+    const t = townList.map(t => ({ t, d: Math.hypot(t.x - at.x, t.z - at.z) })).sort((a, b) => a.d - b.d)[0];
+    if (!t || t.d > 5000) return name;
+    const tn = t.t.short.replace(/ (village|waterfront)$/i, '');
+    return name.toLowerCase().includes(tn.toLowerCase()) ? name : `${name} in ${tn}`;
+  };
   const landUl = document.getElementById('landings'), landAdd = document.getElementById('landadd');
   const landId = l => `land:${l.lon.toFixed(5)},${l.lat.toFixed(5)}`;
   let landDrawn = false;
@@ -3102,7 +3111,7 @@ const clock = new THREE.Clock();
         li.append(ed, rm);
       }
       landUl.appendChild(li); boxes.push(ck);
-      placeView.set(id, { name: l.name, at: { x: spot.x, z: spot.z }, spot, say: l.say });
+      placeView.set(id, { name: l.name, at: { x: spot.x, z: spot.z }, spot, say: l.say, mine });
     }
   };
   if (!EMPTY) { document.getElementById('landsect').hidden = false; landAdd.hidden = false; drawLandings(); showRow(); sync(); }
@@ -3142,7 +3151,7 @@ const clock = new THREE.Clock();
       const rm = document.createElement('button'); rm.type = 'button'; rm.className = 'rm'; rm.textContent = '✕'; rm.title = `Forget ${p.name}`;
       rm.addEventListener('click', () => { myPlaces = myPlaces.filter(m => m !== p); delete planMode[id]; saveMine(); drawMine(); sync(); });
       li.append(ck, b, ed, rm); mineUl.appendChild(li); boxes.push(ck);
-      placeView.set(id, { name: p.name, at: { x: wx(p.lon), z: wz(p.lat) }, spot: onLand(p.lon, p.lat) ? spotOf(p.name, p.lon, p.lat) : null });
+      placeView.set(id, { name: p.name, at: { x: wx(p.lon), z: wz(p.lat) }, spot: onLand(p.lon, p.lat) ? spotOf(p.name, p.lon, p.lat) : null, mine: true });
     }
     refreshMarks();
   };
@@ -3160,7 +3169,7 @@ const clock = new THREE.Clock();
       ...townList.map(t => ({ name: t.name, x: t.x, z: t.z, r: 3500 })),
       ...(bridges?.places || []).filter(p => p.big).map(p => ({ name: p.name, x: p.x, z: p.z, r: 2500 })),
       ...places.filter(p => p.elev > 150).map(p => ({ name: p.n, x: p.x, z: p.z, r: 6000 })),
-      ...myMarks.filter(m => m.click).map(m => ({ name: m.text.replace(/^📍 /, ''), x: m.x, z: m.z, r: 2000 })),
+      ...myMarks.filter(m => m.click).map(m => ({ name: withTown(m.text.replace(/^📍 /, ''), m), x: m.x, z: m.z, r: 2000 })),
     ] });
   addEventListener('pagehide', () => setFlying(false));   // (this view swapped for another mid-flight)
   // the take-off and landing rows, and picking a spot: Change, then a tap on the map (on land)
@@ -3266,9 +3275,10 @@ const clock = new THREE.Clock();
     const stops = []; let prev = from;
     for (const id of ids) {
       const P = placeView.get(id);
-      if (modeOf(id) === 'land') { stops.push({ name: P.say || `Landing at ${P.name}`, say: P.say || `Landing at ${P.name}`, touch: true, spot: P.spot, x: P.spot.x, z: P.spot.z }); prev = P.spot; continue; }
+      const sayName = P.mine ? withTown(P.name, P.at) : undefined;   // (yours: "Ned and Mary's place in Bass Harbor", v1077)
+      if (modeOf(id) === 'land') { stops.push({ name: P.say || `Landing at ${P.name}`, say: P.say || `Landing at ${sayName || P.name}`, sayName, touch: true, spot: P.spot, x: P.spot.x, z: P.spot.z }); prev = P.spot; continue; }
       const tv = P.view ? await P.view() : { x: P.at.x, z: P.at.z, dist: 700, tilt: 60 * DEG, az: azTo(prev, P.at) };   // (a spot flown over: looked at the way she comes in)
-      stops.push({ name: P.name, x: tv.x, z: tv.z, hold: 5, target: () => tv }); prev = tv;
+      stops.push({ name: P.name, sayName, x: tv.x, z: tv.z, hold: 5, target: () => tv }); prev = tv;
     }
     let order = stops;
     if (shipsCk.checked) order = withShips(order, from);

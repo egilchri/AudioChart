@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-30 — Bird's-eye: your places are spoken with their town (v1077)
+
+- Requested: "instead of just saying a named location, like Ned and Mary's place, say Ned and Mary's place in Bass
+  Harbor". My places and the landing spots you add are spoken with the nearest town within 5 km ("Ned and Mary's
+  place in Bass Harbor"): in the plan at take-off, "First / Next, …", on arrival, "Landing at …", and as a landmark
+  passed; not when the name already has it. The bar's caption keeps the short name.
+
 ## 2026-10-30 — Bird's-eye: the flyover names the landmarks it passes; rename your landing spots and labels (v1076)
 
 - Requested: "mention the main landmarks we fly over, like southwest harbor, and bass harbor". On each leg she names

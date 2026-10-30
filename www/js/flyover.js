@@ -54,7 +54,7 @@ export function makeFlyover({ view, bar, camera, scene, onEnd, brgTxt = t => `${
   // take-off, each leg as she sets off on it (where to, how far, which way), the name on arrival, and the end
   const POINTS = ['north', 'northeast', 'east', 'southeast', 'south', 'southwest', 'west', 'northwest'];
   const way = az => POINTS[Math.round(((az * 180 / Math.PI) % 360 + 360) % 360 / 45) % 8];
-  const what = S => S.land ? `a landing at ${S.spotName}` : S.name;
+  const what = S => S.land ? `a landing at ${S.sayName || S.spotName}` : S.sayName || S.name;   // (sayName: as spoken, e.g. with its town: v1077)
   const list = a => a.length < 2 ? a.join('') : `${a.slice(0, -1).join(', ')}, then ${a[a.length - 1]}`;
   function itinerary(stops, from) {
     const places = stops.filter(S => !S.ship && !S.final), fin = stops.find(S => S.final);
@@ -153,7 +153,7 @@ export function makeFlyover({ view, bar, camera, scene, onEnd, brgTxt = t => `${
   }
   function arrive() {
     const S = tour.stops[tour.i];
-    tour.spoke = true; speak(S.say ?? S.name); S.onArrive?.();
+    tour.spoke = true; speak(S.say ?? S.sayName ?? S.name); S.onArrive?.();
   }
   function next(now) {
     tour.stops[tour.i].onLeave?.();
