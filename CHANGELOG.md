@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-30 — Ted's Birdseye's app claims only the Bird's-eye page (v1069)
+
+- Its manifest's scope was "./", the same as AudioChart's, so Chrome treated it as part of an installed AudioChart
+  ("Open in app" opened AudioChart). Now "./bay3d.html": the narrower scope, which Chrome prefers for that page.
+
 ## 2026-10-30 — Ted's Birdseye gets its own home-screen icon (v1068)
 
 - Requested: "give it its own home screen icon". With ?app=birdseye, bay3d.html adds birdseye.webmanifest ("Ted's

@@ -4,7 +4,7 @@
   "description": "The bays from the air in 3D: Penobscot, Casco, San Francisco, Portsmouth and New York, with live ships and helicopter flyovers",
   "id": "./bay3d.html?app=birdseye",
   "start_url": "./bay3d.html?app=birdseye",
-  "scope": "./",
+  "scope": "./bay3d.html",
   "display": "standalone",
   "background_color": "#1e3a50",
   "theme_color": "#122a3a",
