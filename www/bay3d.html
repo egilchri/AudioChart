@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Penobscot Bay 3D · AudioChart</title>
+<script src="./js/version.js"></script>   <!-- (APP_VERSION, shown under the bay's name: v1073) -->
 <script>
 // Ted's Birdseye (v1068, v1070): it lives at an address of its own, /birdseye/ (design/birdseye/site/), so it installs
 // as an app of its own: under /AudioChart/ an installed AudioChart claimed it. That page shows this one full-window;
@@ -15,9 +16,7 @@ if (new URLSearchParams(location.search).get('app') === 'birdseye') {
     location.replace('/birdseye/' + (q.toString() ? '?' + q : ''));
   }
   if ('serviceWorker' in navigator) addEventListener('load', () => {   // (the same script address as app.js registers, or each would replace the other)
-    const v = document.createElement('script'); v.src = './js/version.js';
-    v.onload = () => navigator.serviceWorker.register(`./sw.js?v=${self.APP_VERSION}`).catch(() => {});
-    document.head.appendChild(v);
+    navigator.serviceWorker.register(`./sw.js?v=${self.APP_VERSION}`).catch(() => {});
   });
 }
 </script>

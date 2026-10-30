@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-30 — Bird's-eye shows its version (v1073)
+
+- Reported: "I don't see the version number on the page" (Ted's Birdseye). Under the bay's name: "Ted's Birdseye,
+  from AudioChart · v1073" (or "Bird's-eye view · v1073"); bay3d.html loads js/version.js up front.
+
 ## 2026-10-30 — Bird's-eye: My places' labels can be dragged (v1072)
 
 - Requested: "make the places I label draggable". A 📍 label on the map follows the pointer once moved 5 px (finger

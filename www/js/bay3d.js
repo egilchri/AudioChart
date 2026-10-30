@@ -98,7 +98,10 @@ async function chartWater(g) {
 // frame, terrain and traffic), so the switch reloads with ?region=, keeping the embed, Empty Bay and route, and
 // remembers the choice for next time.
 document.title = TED ? `${REG.name} · Ted's Birdseye · AudioChart` : `${REG.name} 3D · AudioChart`;
-{ const h1 = document.querySelector('.panel h1'); if (h1?.firstChild) h1.firstChild.textContent = REG.name; if (TED && h1?.lastChild) h1.lastChild.textContent = "Ted's Birdseye, from AudioChart"; }
+{
+  const h1 = document.querySelector('.panel h1'); if (h1?.firstChild) h1.firstChild.textContent = REG.name;
+  if (h1?.lastChild) h1.lastChild.textContent = (TED ? "Ted's Birdseye, from AudioChart" : h1.lastChild.textContent) + (self.APP_VERSION ? ` · ${self.APP_VERSION}` : '');   // (the version, v1073: "I don't see the version number on the page")
+}
 statusEl.textContent = `Loading ${REG.name}…`;
 // Armchair bays (v1044, requested): San Francisco and New York have no chart in AudioChart, so Bird's-eye there leaves
 // out what leads to one: the route waypoints (your routes are Maine's), 🗺 Chart, and the link into the app (an
