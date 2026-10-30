@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-30 — Ted's Birdseye: an opening screen (birdseye site; AudioChart unchanged at v1071)
+
+- Requested: "an opening screen, with a special logo". On Ted's Birdseye's own page (design/birdseye/site/, pushed to
+  github.com/egilchri/birdseye): its icon large, "Ted's Birdseye", AudioChart's logo and "from AudioChart" under it,
+  "The bays from the air", and the bay's own loading line; it fades once the bay is up (2.5 s at least), or at a tap.
+
 ## 2026-10-30 — Bird's-eye: My places (label a spot) and the Flight plan (your order, land or fly over) (v1071)
 
 - Requested: "the ability to label points on the map, and have them added to the menu". My places: ＋ Label a spot,
