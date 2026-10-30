@@ -3097,13 +3097,21 @@ const clock = new THREE.Clock();
     for (let i = 0; i < 9; i++) for (let j = 0; j < 9; j++) { const P = landmassAt(w + (e - w) * (i + 0.5) / 9, s + (n - s) * (j + 0.5) / 9); if (P) count.set(P, (count.get(P) || 0) + 1); }
     return t.land = [...count].sort((a, b) => b[1] - a[1])[0]?.[0] || null;
   };
+  // the villages too (v1078, requested: "ted and julias' place is in Bernard … Lucy's place is also in Bernard"): the
+  // chart's built-up areas (BUAARE: Bernard, Manset, West Tremont…) beside the towns in the list; the nearest on the
+  // same land wins (a village within 3 km, a town within 5)
+  let villages = null;
+  const villageList = () => villages || (villages = placesGJ.features.filter(f => f.properties?.objtype === 'BUAARE' && f.properties.name && f.geometry?.type === 'Point' && inBay(f.geometry.coordinates))
+    .map(f => { const [lon, lat] = f.geometry.coordinates; return { name: f.properties.name, x: wx(lon), z: wz(lat), lon, lat }; }));
   const withTown = (name, at) => {
-    const t = townList.map(t => ({ t, d: Math.hypot(t.x - at.x, t.z - at.z) })).sort((a, b) => a.d - b.d)[0];
-    if (!t || t.d > 5000 || !landPolys) return name;
+    if (!landPolys) return name;
     const mine = landmassAt(lonOf(at.x), latOf(at.z));
-    if (mine ? mine !== townLand(t.t) : t.d > 2000) return name;   // (an island of its own, or out on the water)
-    const tn = t.t.short.replace(/ (village|waterfront)$/i, '');
-    return name.toLowerCase().includes(tn.toLowerCase()) ? name : `${name} in ${tn}`;
+    const cands = [
+      ...townList.map(t => ({ name: t.short.replace(/ (village|waterfront)$/i, ''), d: Math.hypot(t.x - at.x, t.z - at.z), max: 5000, land: () => townLand(t) })),
+      ...villageList().map(v => ({ name: v.name, d: Math.hypot(v.x - at.x, v.z - at.z), max: 3000, land: () => v.land !== undefined ? v.land : (v.land = landmassAt(v.lon, v.lat)) })),
+    ].filter(c => c.d <= c.max && (mine ? c.land() === mine : c.d <= 2000)).sort((a, b) => a.d - b.d);   // (an island of its own, or out on the water)
+    const tn = cands[0]?.name;
+    return !tn || name.toLowerCase().includes(tn.toLowerCase()) ? name : `${name} in ${tn}`;
   };
   const landUl = document.getElementById('landings'), landAdd = document.getElementById('landadd');
   const landId = l => `land:${l.lon.toFixed(5)},${l.lat.toFixed(5)}`;

@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-30 — Bird's-eye: your places named with their village too (Bernard, Manset, …) (v1079)
+
+- Reported: "ted and julias' place is in Bernard … Lucy's place is also in Bernard" (they were "in Bass Harbor":
+  Bernard isn't one of Bird's-eye's towns). The chart's built-up areas (BUAARE: Bernard, Manset, West Tremont, …)
+  are candidates beside the towns; the nearest on the same land wins (a village within 3 km, a town within 5):
+  "Lucy's place in Bernard", "Ned and Mary's place in Bass Harbor", "Crow Island".
+
 ## 2026-10-30 — Bird's-eye: an island is a place unto itself (v1078)
 
 - Reported: "Crow island, and every island, is a place unto itself. It's not 'in Islesford'". A place of yours gets
