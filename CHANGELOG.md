@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-30 — Ted's Birdseye at an address of its own, egilchri.github.io/birdseye/ (v1070)
+
+- On a Mac with AudioChart installed, Chrome folded Ted's Birdseye into AudioChart (its scope, ./, covers every page
+  under /AudioChart/): no Install, and Create shortcut made another AudioChart. Ted's Birdseye now lives at
+  /birdseye/ (github.com/egilchri/birdseye, source design/birdseye/site/): a page of its own with its manifest, icons
+  and service worker, showing AudioChart's Bird's-eye (bay3d.html?app=birdseye) full-window, so the code and data
+  stay AudioChart's, one copy. On the live site bay3d.html?app=birdseye opened directly, and the old
+  /AudioChart/birdseye/, go there. AudioChart's birdseye.webmanifest and icons are gone (the icons are the site's);
+  About AudioChart opens in a new tab from inside it.
+
 ## 2026-10-30 — Ted's Birdseye's app claims only the Bird's-eye page (v1069)
 
 - Its manifest's scope was "./", the same as AudioChart's, so Chrome treated it as part of an installed AudioChart

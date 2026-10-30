@@ -1,10 +1,10 @@
 # Ted's Birdseye's home-screen icon (v1068): the bay from above, an island and its shoals in a dark sea, the red
 # Flyover helicopter over it, and AudioChart's own icon as a badge (AudioChart stays the parent brand). Drawn 4x and
 # scaled down. Everything that matters sits in the middle 80% (the safe zone of a maskable icon).
-#   python make_icon.py   (needs pillow) → www/icons/birdseye-{512,192,180}.png
+#   python make_icon.py   (needs pillow) → design/birdseye/site/icons/birdseye-{512,192,180}.png
 import math, os
 from PIL import Image, ImageDraw, ImageFilter
-HERE = os.path.dirname(os.path.abspath(__file__)); OUT = os.path.join(HERE, '../../www/icons')
+HERE = os.path.dirname(os.path.abspath(__file__)); OUT = os.path.join(HERE, 'site/icons')
 Z = 2048; img = Image.new('RGB', (Z, Z))
 d = ImageDraw.Draw(img)
 for y in range(Z):   # sea, lighter toward the top (the light from the horizon)
@@ -39,7 +39,7 @@ img.paste((20, 30, 26), mask=sh.filter(ImageFilter.GaussianBlur(14)).point(lambd
 heli(d, 1060, 860, (200, 32, 42), (40, 44, 50), (200, 32, 42))
 d.ellipse([1060 - 70, 860 - 140, 1060 + 70, 860 - 30], fill=(143, 184, 216))   # canopy
 # AudioChart's icon as a badge, lower right, in a white ring
-ac = Image.open(os.path.join(OUT, 'icon-512.png')).convert('RGB').resize((470, 470), Image.LANCZOS)
+ac = Image.open(os.path.join(HERE, '../../www/icons/icon-512.png')).convert('RGB').resize((470, 470), Image.LANCZOS)
 m = Image.new('L', (470, 470)); ImageDraw.Draw(m).ellipse([0, 0, 469, 469], fill=255)
 bx, by = 1300, 1300
 d.ellipse([bx - 20, by - 20, bx + 490, by + 490], fill=(244, 242, 236))

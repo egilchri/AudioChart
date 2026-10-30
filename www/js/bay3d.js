@@ -107,7 +107,7 @@ const ARMCHAIR = !!REG.armchair || TED;
 if (ARMCHAIR) {
   const wp = document.getElementById('wproute');
   for (const el of [wp?.previousElementSibling, wp, document.getElementById('sailrow'), document.getElementById('sailnote')]) if (el) { el.hidden = true; el.style.display = 'none'; }
-  const back = document.querySelector('.panel a.back'); if (back) { back.href = './sailors/'; back.textContent = 'About AudioChart'; }
+  const back = document.querySelector('.panel a.back'); if (back) { back.href = './sailors/'; back.textContent = 'About AudioChart'; if (TED) back.target = '_blank'; }   // (in Ted's Birdseye's frame: not over the view)
   const help = document.getElementById('help');
   if (help) help.textContent = 'Drag to move · right-drag or Shift-drag to turn and tilt · scroll or pinch to zoom · click a place · 📡 Live for the ships there now; click one for her card · Weather (N)';
 }

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ted's Birdseye · AudioChart</title>
+<!-- Ted's Birdseye, from AudioChart (v1070): an address of its own, so it installs as an app of its own (under
+     /AudioChart/ an installed AudioChart claimed it). The view itself is AudioChart's Bird's-eye, the same page,
+     code and data, shown full-window: /AudioChart/bay3d.html?app=birdseye, with this page's ?region= etc passed on.
+     Source: AudioChart's design/birdseye/site/ (published to github.com/egilchri/birdseye). -->
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icons/birdseye-192.png" sizes="192x192">
+<link rel="apple-touch-icon" href="./icons/birdseye-180.png" sizes="180x180">
+<meta name="apple-mobile-web-app-title" content="Ted's Birdseye">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#122a3a">
+<style>
+  html, body { margin: 0; height: 100%; background: #1e3a50; overflow: hidden; }
+  iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
+</style>
+</head>
+<body>
+<iframe id="view" title="Ted's Birdseye" allow="fullscreen; geolocation; autoplay"></iframe>
+<script>
+  // the AudioChart site beside this one (…/birdseye/ → …/AudioChart/; ?ac= for a test server)
+  const q = new URLSearchParams(location.search);
+  const ac = q.get('ac') || new URL('../AudioChart/', location.href).href;
+  q.delete('ac'); q.set('app', 'birdseye');
+  const view = document.getElementById('view');
+  view.src = new URL('bay3d.html?' + q, ac).href;
+  // its title (the bay's name) as this window's, and the keys (N, B, …) go to it
+  view.addEventListener('load', () => {
+    try { const sync = () => { document.title = view.contentDocument.title || document.title; }; sync(); new MutationObserver(sync).observe(view.contentDocument.querySelector('title'), { childList: true }); } catch (_) {}
+    view.focus();
+  });
+  if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
+</script>
+</body>
+</html>
