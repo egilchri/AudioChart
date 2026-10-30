@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-30 — Bird's-eye: My places (label a spot) and the Flight plan (your order, land or fly over) (v1071)
+
+- Requested: "the ability to label points on the map, and have them added to the menu". My places: ＋ Label a spot,
+  a tap anywhere (land or water; another tap moves it) and a name. Labelled 📍 on the map (a tap flies there), listed
+  with a tick (a stop), ✎ rename in place, ✕ forget; kept for each bay (audiochart-bay3d-myplaces-<bay>).
+- Requested: "the ability to specify the order of stops and pass overs that the helicopter does". The Flight plan,
+  above ▶ Fly: the ticked stops numbered in the order she'll fly them, the shortest round until you move one with
+  ▲▼ (↻ Shortest route puts it back); at a spot on land (the landing spots, My places ashore) 🛬 Land or ✈ Over.
+  The flight follows it; Stop for ships still adds ships between. The Bridges tour flies the shortest round.
+- In Bird's-eye inside AudioChart too, and in Ted's Birdseye.
+
 ## 2026-10-30 — Ted's Birdseye at an address of its own, egilchri.github.io/birdseye/ (v1070)
 
 - On a Mac with AudioChart installed, Chrome folded Ted's Birdseye into AudioChart (its scope, ./, covers every page

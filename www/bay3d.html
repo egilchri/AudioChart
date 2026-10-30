@@ -72,16 +72,16 @@ body { background: var(--sky); color: var(--ink); font-family: var(--body); font
 .panel h1 small { display: block; font-family: var(--body); font-weight: 400; font-size: 0.74rem; color: var(--muted); letter-spacing: 0; margin-top: 2px; }
 .panel .head { display: flex; align-items: start; justify-content: space-between; gap: 8px; }
 #towns-toggle { display: none; }
-#towns, #bridges, #landings { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+#towns, #bridges, #landings, #mine { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
 /* (v1061: the panel's column is its width, a long name wraps; Southwest Harbor Coast Guard Station had widened it
    past the window's edge, taking the take-off spot's Change button with it) */
-.panel, #flyrow, #towns, #bridges, #landings { grid-template-columns: minmax(0, 1fr); }
-#towns button, #bridges button, #landings button:not(.rm) { min-width: 0; overflow-wrap: anywhere; }
-#towns button, #bridges button, #landings button:not(.rm), .panel .whole { width: 100%; text-align: left; font: inherit; color: var(--ink); background: transparent; border: 0; border-radius: 5px; padding: 5px 8px; cursor: pointer; }
-#towns button:hover, #bridges button:hover, #landings button:not(.rm):hover, .panel .whole:hover { background: rgba(255, 255, 255, 0.1); }
+.panel, #flyrow, #towns, #bridges, #landings, #mine { grid-template-columns: minmax(0, 1fr); }
+#towns button, #bridges button, #landings button:not(.rm), #mine button:not(.rm) { min-width: 0; overflow-wrap: anywhere; }
+#towns button, #bridges button, #landings button:not(.rm), #mine button:not(.rm), .panel .whole { width: 100%; text-align: left; font: inherit; color: var(--ink); background: transparent; border: 0; border-radius: 5px; padding: 5px 8px; cursor: pointer; }
+#towns button:hover, #bridges button:hover, #landings button:not(.rm):hover, #mine button:not(.rm):hover, .panel .whole:hover { background: rgba(255, 255, 255, 0.1); }
 /* Flyover (v1046): a tick box by each place, ▶ Fly under them, and the tour's bar along the top */
-#towns li, #bridges li, #landings li { display: flex; align-items: center; }
-#towns li input, #bridges li input, #landings li input { flex: none; margin: 0 2px 0 6px; width: 15px; height: 15px; accent-color: var(--brass); cursor: pointer; }
+#towns li, #bridges li, #landings li, #mine li { display: flex; align-items: center; }
+#towns li input[type=checkbox], #bridges li input, #landings li input, #mine li input[type=checkbox] { flex: none; margin: 0 2px 0 6px; width: 15px; height: 15px; accent-color: var(--brass); cursor: pointer; }
 #flyrow { display: grid; gap: 4px; }
 #flyrow .whole:disabled { opacity: 0.55; cursor: default; background: transparent; }
 #flyrow label { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--muted); padding: 0 8px; cursor: pointer; }
@@ -89,11 +89,25 @@ body { background: var(--sky); color: var(--ink); font-family: var(--body); font
 #flybar, #flypick { position: fixed; left: 50%; transform: translateX(-50%); top: calc(56px + env(safe-area-inset-top, 0px)); z-index: 4; display: flex; align-items: center; gap: 8px; max-width: calc(100% - 24px); box-sizing: border-box;
   background: var(--glass-hi); color: var(--ink); border-radius: 8px; padding: 6px 8px 6px 12px; font-size: 0.86rem; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }
 #flybar[hidden], #flypick[hidden] { display: none; }
+/* My places (v1071): a name being typed in, in the list or the pick bar */
+#mine li input[type=text], #flypick .pick-name { min-width: 0; flex: 1; font: inherit; color: var(--ink); background: rgba(255,255,255,0.12); border: 1px solid var(--brass); border-radius: 5px; padding: 3px 7px; }
+#flypick .pick-name { flex: 0 1 220px; }
+#flypick .pick-name[hidden] { display: none; }
+/* the Flight plan (v1071): the ticked stops in the order she'll fly them; ▲▼ to change it, Land / Over where she can land */
+#flyplan[hidden] { display: none; }
+#flyplan ol { margin: 0; padding: 0 0 0 26px; display: grid; gap: 1px; font-size: 0.85rem; }
+#flyplan li { padding: 1px 0; }
+#flyplan li .row { display: flex; align-items: center; gap: 3px; }
+#flyplan li .pn { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+#flyplan li button { flex: none; font: inherit; font-size: 0.78rem; color: var(--ink); background: rgba(255,255,255,0.1); border: 0; border-radius: 4px; padding: 1px 6px; cursor: pointer; }
+#flyplan li button:disabled { opacity: 0.3; cursor: default; }
+#flyplan li button.mode { min-width: 4.6em; }
+#flyplan li button.mode.land { background: rgba(224,168,67,0.3); }
 /* a Flyover under way (v1056, requested: "hide all not strictly necessary ui controls ... so that the screen is as
    clear as possible. Bring them back when the flyover terminates"): only the bar, a ship's card and the credits */
 body.flying :is(#panel, #scale, #help, #loading, #bayswitch, #exagbox, #clockpanel, #followhud, #underway, #nestrep, #ridechart, #wxpanel, #flypick) { display: none !important; }
 body.flying #flybar { top: calc(14px + env(safe-area-inset-top, 0px)) !important; bottom: auto !important; }
-#landings .rm { flex: none; font: inherit; color: var(--muted); background: none; border: 0; padding: 0 6px; cursor: pointer; }
+#landings .rm, #mine .rm { flex: none; font: inherit; color: var(--muted); background: none; border: 0; padding: 0 6px; cursor: pointer; }
 #flybar .fly-text, #flypick .fly-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #flybar button, #flypick button { flex: none; font: inherit; color: var(--ink); background: rgba(255,255,255,0.14); border: 0; border-radius: 5px; padding: 3px 9px; cursor: pointer; }
 #flybar button[hidden], #flypick button[hidden] { display: none; }
@@ -346,7 +360,10 @@ body.embed #exagbox { top: calc(94px + env(safe-area-inset-top, 0px)); }
     <div class="sect" id="landsect" hidden>Landing spots</div>
     <ul id="landings"></ul>
     <button class="whole" id="landadd" type="button" hidden title="Tap a spot on land where she should come down on the way">＋ Add a landing spot</button>
-    <div id="flyrow" hidden><button class="whole" id="flygo" type="button" disabled title="Tick places above, then fly over them in turn">✈ Tick places to fly over</button><div class="flyspot">🛫 <span id="flyfrom">—</span><button type="button" id="flyfrompick" title="Pick where she takes off: tap a spot on land">Change</button></div><div class="flyspot">🛬 <span id="flyto">—</span><button type="button" id="flytopick" title="Pick where she lands: tap a spot on land, or come back to the start, or stay up">Change</button></div><label title="On the way, swoop down to the ships and ferries near the route"><input type="checkbox" id="flyships" checked> Stop for ships</label><label title="Say each place's name as you get there"><input type="checkbox" id="flytalk" checked> Say the names</label></div>
+    <div class="sect" id="minesect" hidden>My places</div>
+    <ul id="mine"></ul>
+    <button class="whole" id="mineadd" type="button" hidden title="Tap anywhere on the map, land or water, and give it a name: it's labelled there and listed here">＋ Label a spot</button>
+    <div id="flyrow" hidden><div id="flyplan" hidden><div class="sect">Flight plan</div><ol></ol><button type="button" class="whole" id="planshort" hidden title="Put the stops back in the shortest order">↻ Shortest route</button></div><button class="whole" id="flygo" type="button" disabled title="Tick places above, then fly over them in turn">✈ Tick places to fly over</button><div class="flyspot">🛫 <span id="flyfrom">—</span><button type="button" id="flyfrompick" title="Pick where she takes off: tap a spot on land">Change</button></div><div class="flyspot">🛬 <span id="flyto">—</span><button type="button" id="flytopick" title="Pick where she lands: tap a spot on land, or come back to the start, or stay up">Change</button></div><label title="On the way, swoop down to the ships and ferries near the route"><input type="checkbox" id="flyships" checked> Stop for ships</label><label title="Say each place's name as you get there"><input type="checkbox" id="flytalk" checked> Say the names</label></div>
     <a class="back" href="./">Back to AudioChart</a>
   </div>
 </nav>
@@ -359,7 +376,7 @@ body.embed #exagbox { top: calc(94px + env(safe-area-inset-top, 0px)); }
 <div id="underway" hidden><div class="sect">On the water now</div><ul></ul></div>
 <div id="aisinfo" hidden><div class="sect"><span id="aisname"></span><button type="button" id="aisclose" title="Close">✕</button></div><table></table><div class="go"></div></div>
 <div id="loading" hidden>Loading…</div>
-<div id="flypick" hidden role="status"><span class="fly-text"></span><button type="button" class="pick-a" hidden></button><button type="button" class="pick-b" hidden></button><button type="button" class="pick-x" title="Cancel (Esc)">✕</button></div>
+<div id="flypick" hidden role="status"><span class="fly-text"></span><input class="pick-name" type="text" hidden maxlength="60" placeholder="Its name" aria-label="Its name"><button type="button" class="pick-a" hidden></button><button type="button" class="pick-b" hidden></button><button type="button" class="pick-x" title="Cancel (Esc)">✕</button></div>
 <div id="ovmap" hidden><canvas aria-label="Overview map: tap to go there"></canvas><button type="button" class="ov-fold" title="Fold the map away">–</button><button type="button" class="ov-open" title="Show the overview map">🗺</button></div>
 <div id="flybar" hidden role="status"><span class="fly-text"></span><span class="fly-time" hidden title="Time flown, and about how long to go"></span><button type="button" class="fly-play" title="Pause the flyover">⏸</button><button type="button" class="fly-end" title="End the flyover (Esc)">✕</button></div>
 <div id="help">Drag to move · right-drag or Shift-drag to turn and tilt · scroll or pinch to zoom · click a town · Route waypoints shows a route, ▶ Sail it sails it · Weather for fog, rain, wind, dawn, sunset and night (N)</div>
