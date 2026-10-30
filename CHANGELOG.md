@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-30 — Bird's-eye: an island is a place unto itself (v1078)
+
+- Reported: "Crow island, and every island, is a place unto itself. It's not 'in Islesford'". A place of yours gets
+  its town only when it's on the same land as the town (the chart's land polygons; the town's is the one most of
+  its box is on): "the ball field in Islesford", "Ned and Mary's place in Bass Harbor", but "Crow Island". A place on
+  the water, only with a town within 2 km.
+
 ## 2026-10-30 — Bird's-eye: your places are spoken with their town (v1077)
 
 - Requested: "instead of just saying a named location, like Ned and Mary's place, say Ned and Mary's place in Bass

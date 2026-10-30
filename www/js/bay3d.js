@@ -3078,10 +3078,30 @@ const clock = new THREE.Clock();
   };
   // a place of yours as spoken, with the town it's in or by (v1077, requested: "instead of just saying a named location,
   // like Ned and Mary's place, say Ned and Mary's place in Bass Harbor"): the nearest town within 5 km, unless the name
-  // already has it
+  // already has it. Only on the same land as the town (v1078: "Crow island, and every island, is a place unto itself.
+  // It's not 'in Islesford'"): the chart's land polygons (land.geojson), the town's being the one most of its box is
+  // on; a place on the water, only with a town within 2 km
+  let landPolys = null;
+  getJSON(`./data/regions/${RID}/land.geojson`).then(fc => {
+    landPolys = (fc.features || []).filter(f => f.geometry?.type === 'Polygon').map(f => {
+      const R = f.geometry.coordinates; let w = 180, s = 90, e = -180, n = -90;
+      for (const [x, y] of R[0]) { if (x < w) w = x; if (x > e) e = x; if (y < s) s = y; if (y > n) n = y; }
+      return { R, b: [w, s, e, n] };
+    });
+  }).catch(() => { landPolys = []; });
+  const inRing = (x, y, ring) => { let c = false; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) { const [xi, yi] = ring[i], [xj, yj] = ring[j]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c; } return c; };
+  const landmassAt = (lon, lat) => landPolys?.find(P => lon >= P.b[0] && lon <= P.b[2] && lat >= P.b[1] && lat <= P.b[3] && inRing(lon, lat, P.R[0]) && !P.R.slice(1).some(h => inRing(lon, lat, h))) || null;
+  const townLand = t => {   // (worked out once a town)
+    if (t.land !== undefined || !landPolys) return t.land;
+    const [w, s, e, n] = t.bbox, count = new Map();
+    for (let i = 0; i < 9; i++) for (let j = 0; j < 9; j++) { const P = landmassAt(w + (e - w) * (i + 0.5) / 9, s + (n - s) * (j + 0.5) / 9); if (P) count.set(P, (count.get(P) || 0) + 1); }
+    return t.land = [...count].sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+  };
   const withTown = (name, at) => {
     const t = townList.map(t => ({ t, d: Math.hypot(t.x - at.x, t.z - at.z) })).sort((a, b) => a.d - b.d)[0];
-    if (!t || t.d > 5000) return name;
+    if (!t || t.d > 5000 || !landPolys) return name;
+    const mine = landmassAt(lonOf(at.x), latOf(at.z));
+    if (mine ? mine !== townLand(t.t) : t.d > 2000) return name;   // (an island of its own, or out on the water)
     const tn = t.t.short.replace(/ (village|waterfront)$/i, '');
     return name.toLowerCase().includes(tn.toLowerCase()) ? name : `${name} in ${tn}`;
   };
