@@ -3215,7 +3215,7 @@ const clock = new THREE.Clock();
     const az = azTo(prev, v), dist = clamp(vLen(v) * 7, 260, 900);
     const kind = v.kind === 'ais' ? (v.what || 'vessel').toLowerCase() : v.kind === 'ferry' ? 'ferry' : 'cruise ship';
     return {
-      name: `${vName(v)} (${kind})`, x: v.x, z: v.z, hold: 6,
+      name: `${vName(v)} (${kind})`, x: v.x, z: v.z, hold: 6, ship: true,
       say: v.kind === 'ais' ? `${vName(v)}${v.what ? `, ${v.what.toLowerCase()}` : ''}` : v.kind === 'ferry' ? `${vName(v)}, ${v.label.toLowerCase()}` : v.label,
       target: () => (v.on && (live.includes(v) || traffic.includes(v))) ? { x: v.x, z: v.z, dist, tilt: 64 * DEG, az } : null,
       onArrive: () => { if (v.kind === 'ais') showCard(v); },

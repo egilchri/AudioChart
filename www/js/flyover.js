@@ -49,6 +49,26 @@ export function makeFlyover({ view, bar, camera, scene, onEnd, brgTxt = t => `${
   const text = bar.querySelector('.fly-text'), playBtn = bar.querySelector('.fly-play'), endBtn = bar.querySelector('.fly-end');
   const caption = s => { text.textContent = s; };
   const speak = s => { if (tour?.talk && s) try { TTS?.sayImmediate(spoken(s)); } catch (_) {} };
+  const sayNext = s => { if (tour?.talk && s) try { TTS?.say(spoken(s)); } catch (_) {} };   // (after whatever's being said)
+  // the narration (v1075, requested: "voice narration, at least calling out each spot on the itinerary"): the plan at
+  // take-off, each leg as she sets off on it (where to, how far, which way), the name on arrival, and the end
+  const POINTS = ['north', 'northeast', 'east', 'southeast', 'south', 'southwest', 'west', 'northwest'];
+  const way = az => POINTS[Math.round(((az * 180 / Math.PI) % 360 + 360) % 360 / 45) % 8];
+  const what = S => S.land ? `a landing at ${S.spotName}` : S.name;
+  const list = a => a.length < 2 ? a.join('') : `${a.slice(0, -1).join(', ')}, then ${a[a.length - 1]}`;
+  function itinerary(stops, from) {
+    const places = stops.filter(S => !S.ship && !S.final), fin = stops.find(S => S.final);
+    if (!places.length) return '';
+    let t = `${places.length === 1 ? 'One stop' : `${places.length} stops`}: ${list(places.map(what))}.`;
+    if (fin) t += fin.spotName === from?.name ? ' Then back here.' : ` Then on to land at ${fin.spotName}.`;
+    return t;
+  }
+  function callLeg(S) {   // as she sets off for stop S
+    if (S.ship) return;   // (a ship on the way: named when she's there)
+    const hp = heli.group.position, d = Math.hypot(S.x - hp.x, S.z - hp.z) / 1852;
+    const n = Math.round(d), far = d < 0.4 ? 'just ahead' : `${n === 1 ? 'a mile' : `${n} miles`} to the ${way(bearing(hp, S))}`;   // (nautical miles, as the bar's nm)
+    sayNext(S.final ? `Heading in to land at ${S.spotName}, ${far}.` : `${tour.i === 0 || tour.stops.slice(0, tour.i).every(P => P.ship) ? 'First' : 'Next'}, ${what(S)}, ${far}.`);
+  }
   const hush = () => { try { TTS?.stop(); } catch (_) {} };
   const smooth = u => u * u * (3 - 2 * u);
   // a leg's way along (0 to 1) at time u (0 to 1): speeding up for the first a of it, at speed, slowing down for
@@ -98,6 +118,7 @@ export function makeFlyover({ view, bar, camera, scene, onEnd, brgTxt = t => `${
     Object.assign(tour, { phase: 'fly', t0: now, from, cf, track, dur: sec * 1000, a, pin: null,
       bump: Math.max(0, Math.log(peak) - Math.max(Math.log(from.dist), Math.log(to.dist))), spoke: false,
       fastTxt: fast >= 1.5 ? ` · ⏩ ×${Math.round(fast)} speed` : '', rb: real > REAL_S ? 0 : null });
+    if (tour.called !== tour.i) { tour.called = tour.i; callLeg(S); }   // (once a leg: not again on a resume)
     tour.eta = flown(now) / 1000 + sec + atStop(S) + toGo(tour.i + 1, S);
     stopCaption(tour.fastTxt);
   }
@@ -239,9 +260,9 @@ export function makeFlyover({ view, bar, camera, scene, onEnd, brgTxt = t => `${
     bar.hidden = false; playBtn.textContent = '⏸'; playBtn.title = 'Pause the flyover';
     if (from) {   // on the pad, her nose toward the first stop
       Object.assign(tour, { ground: true, pad: from, t0: performance.now(), noseAz: bearing(from, stops[0]), spin: 0.15 });
-      caption(`Taking off from ${from.name}`); speak(`Taking off from ${from.name}`);
+      caption(`Taking off from ${from.name}`); speak(`Taking off from ${from.name}. ${itinerary(stops, from)}`);
       takeoff(tour.t0);
-    } else leg(performance.now());
+    } else { speak(itinerary(stops, null)); leg(performance.now()); }
   }
   function pause() {
     if (!tour || tour.paused) return;
@@ -263,8 +284,9 @@ export function makeFlyover({ view, bar, camera, scene, onEnd, brgTxt = t => `${
     const t = tour; tour = null; if (timeEl) timeEl.hidden = true;
     t.stops[t.i]?.onLeave?.(); hush();
     const later = (s, then) => { caption(s); playBtn.hidden = true; setTimeout(() => { if (!tour) { bar.hidden = true; playBtn.hidden = false; then?.(); } }, 2500); };
-    if (why === 'landed') { const p = t.stops[t.i]; park(p, t.landNose); later(`Landed at ${p.spotName}`); }
-    else if (why === 'done') later('Flyover done', () => park(spots.from));
+    const sayEnd = s => { if (t.talk) try { TTS?.sayImmediate(spoken(s)); } catch (_) {} };
+    if (why === 'landed') { const p = t.stops[t.i]; park(p, t.landNose); later(`Landed at ${p.spotName}`); sayEnd(`Landed at ${p.spotName}. That's the end of the flight.`); }
+    else if (why === 'done') { later('Flyover done', () => park(spots.from)); sayEnd("That's the end of the flight."); }
     else { bar.hidden = true; park(spots.from); }
     onEnd?.(why);
   }

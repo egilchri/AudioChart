@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-30 — Bird's-eye: the flyover narrates its itinerary (v1075)
+
+- Requested: "voice narration, at least calling out each spot on the itinerary". At take-off, the plan ("Taking off
+  from Knox County Regional Airport. 3 stops: Stonington, Castine, then a landing at Islesford field. Then back
+  here."); as each leg starts, "First, Stonington, 19 miles to the east" / "Next, …" / "Heading in to land at …"
+  (queued after what's being said, once a leg, ships left to their arrival); each name on arrival, as before; and
+  "Landed at … That's the end of the flight." The checkbox "Say the names" is now "Narrate".
+
 ## 2026-10-30 — Bird's-eye: the version in the bottom left corner (v1074)
 
 - Requested: "put it in the bottom left corner". The version now leads the credits line there ("v1074 · Elevation
