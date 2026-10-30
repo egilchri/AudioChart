@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-30 — Ted's Birdseye gets its own home-screen icon (v1068)
+
+- Requested: "give it its own home screen icon". With ?app=birdseye, bay3d.html adds birdseye.webmanifest ("Ted's
+  Birdseye", starting at bay3d.html?app=birdseye) and its icons, so adding it to a home screen makes an app of its
+  own beside AudioChart. The icon (design/birdseye/make_icon.py → icons/birdseye-{512,192,180}.png): an island from
+  above, the red Flyover helicopter over it, and AudioChart's icon as a badge, AudioChart staying the parent brand.
+  It registers the service worker at the same address app.js does, so it works offline too.
+
 ## 2026-10-30 — Ted's Birdseye: Bird's-eye on its own (v1067)
 
 - Requested: "a strictly birdseye display and UI with everything 'not birdseye' removed ... distinguish the two UI's,

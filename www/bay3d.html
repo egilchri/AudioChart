@@ -4,6 +4,24 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Penobscot Bay 3D · AudioChart</title>
+<script>
+// Ted's Birdseye (v1068, requested: "give it its own home screen icon"): with ?app=birdseye, adding the page to a home
+// screen makes an app of its own (birdseye.webmanifest, icons/birdseye-*.png from design/birdseye/make_icon.py), and
+// the service worker keeps it working offline as it does AudioChart
+if (new URLSearchParams(location.search).get('app') === 'birdseye') {
+  for (const [rel, href, sizes] of [['manifest', './birdseye.webmanifest'], ['icon', './icons/birdseye-192.png', '192x192'], ['apple-touch-icon', './icons/birdseye-180.png', '180x180']]) {
+    const l = document.createElement('link'); l.rel = rel; l.href = href; if (sizes) l.sizes = sizes; document.head.appendChild(l);
+  }
+  for (const [name, content] of [['apple-mobile-web-app-title', "Ted's Birdseye"], ['apple-mobile-web-app-capable', 'yes'], ['mobile-web-app-capable', 'yes'], ['theme-color', '#122a3a']]) {
+    const m = document.createElement('meta'); m.name = name; m.content = content; document.head.appendChild(m);
+  }
+  if ('serviceWorker' in navigator) addEventListener('load', () => {   // (the same script address as app.js registers, or each would replace the other)
+    const v = document.createElement('script'); v.src = './js/version.js';
+    v.onload = () => navigator.serviceWorker.register(`./sw.js?v=${self.APP_VERSION}`).catch(() => {});
+    document.head.appendChild(v);
+  });
+}
+</script>
 <style>
 /* One full-window view of the bay; a towns list and small overlays on top. */
 :root {

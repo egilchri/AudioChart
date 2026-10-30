@@ -1,0 +1,15 @@
+{
+  "name": "Ted's Birdseye, from AudioChart",
+  "short_name": "Ted's Birdseye",
+  "description": "The bays from the air in 3D: Penobscot, Casco, San Francisco, Portsmouth and New York, with live ships and helicopter flyovers",
+  "id": "./bay3d.html?app=birdseye",
+  "start_url": "./bay3d.html?app=birdseye",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#1e3a50",
+  "theme_color": "#122a3a",
+  "icons": [
+    { "src": "icons/birdseye-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/birdseye-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
