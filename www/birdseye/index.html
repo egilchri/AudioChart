@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ted's Birdseye · AudioChart</title>
+<!-- Ted's Birdseye (v1067): Bird's-eye on its own, without AudioChart's chart around it (AudioChart stays the parent brand). The same page as AudioChart's
+     Bird's-eye, with ?app=birdseye; anything else on this address (?region=new-york-harbor …) is passed along. -->
+<script>
+  const q = new URLSearchParams(location.search); q.set('app', 'birdseye');
+  location.replace('../bay3d.html?' + q);
+</script>
+</head>
+<body style="background:#1e3a50;color:#eee;font-family:system-ui,sans-serif">
+<p><a href="../bay3d.html?app=birdseye" style="color:#e0a843">Ted's Birdseye, from AudioChart</a></p>
+</body>
+</html>

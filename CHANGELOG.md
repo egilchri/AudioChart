@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-30 — Ted's Birdseye: Bird's-eye on its own (v1067)
+
+- Requested: "a strictly birdseye display and UI with everything 'not birdseye' removed ... distinguish the two UI's,
+  in terms of branding and emphasis". birdseye/ opens bay3d.html?app=birdseye: "Ted's Birdseye, from AudioChart"
+  (AudioChart stays the parent brand: the About AudioChart link, the logo on the helicopter), every bay on
+  the switch (Penobscot, Casco, SF Bay, Piscataqua, New York; no unlock needed), and in every bay what an armchair bay
+  leaves out: route waypoints and ▶ Sail it, 🗺 Chart, and Back to AudioChart. The flag rides along when you
+  switch bays. AudioChart's own Bird's-eye is unchanged. The bay switch wraps when its buttons don't fit.
+
 ## 2026-10-29 — Bird's-eye: Brooklyn and Queens buildings inland; bridge towers without boxes (v1066)
 
 - Brooklyn and Queens had buildings only along the waterfront. Four new tiles from NYC Open Data's footprints:

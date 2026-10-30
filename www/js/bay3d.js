@@ -38,6 +38,13 @@ window.addEventListener('error', e => fail('Something went wrong: ' + e.message)
 
 const params = new URLSearchParams(location.search);
 if (params.get('embed')) document.body.classList.add('embed');
+// Ted's Birdseye (v1067, requested: "a strictly birdseye display and UI with everything 'not birdseye' removed ...
+// distinguish the two UI's, in terms of branding and emphasis"): ?app=birdseye (birdseye/ comes here with it) is
+// Bird's-eye on its own: its own name, every bay offered, and nothing that leads into AudioChart's chart (as an
+// armchair bay). AudioChart stays the parent brand ("I still want AudioChart to be the 'parent branding'"): the
+// name reads "Ted's Birdseye, from AudioChart", the About AudioChart link stays, the helicopter keeps its logo.
+const TED = params.get('app') === 'birdseye';
+if (TED) document.body.classList.add('ted');
 // Empty Bay (v928, the user's idea: "a birdseye view, zoomable, of Penobscot Bay, with no water in it"):
 // NOAA's land-and-seabed surface in place of USGS's land-only one, no water, the seabed coloured by depth
 // with 10 m contours and deepened by EXAG (1-10x; 100 m of depth over 40 km is all but flat at 1x), and
@@ -90,13 +97,13 @@ async function chartWater(g) {
 // The bay's name on the page, and the switch between the bays (v992): another bay is a fresh page (its own world
 // frame, terrain and traffic), so the switch reloads with ?region=, keeping the embed, Empty Bay and route, and
 // remembers the choice for next time.
-document.title = `${REG.name} 3D · AudioChart`;
-{ const h1 = document.querySelector('.panel h1'); if (h1?.firstChild) h1.firstChild.textContent = REG.name; }
+document.title = TED ? `${REG.name} · Ted's Birdseye · AudioChart` : `${REG.name} 3D · AudioChart`;
+{ const h1 = document.querySelector('.panel h1'); if (h1?.firstChild) h1.firstChild.textContent = REG.name; if (TED && h1?.lastChild) h1.lastChild.textContent = "Ted's Birdseye, from AudioChart"; }
 statusEl.textContent = `Loading ${REG.name}…`;
 // Armchair bays (v1044, requested): San Francisco and New York have no chart in AudioChart, so Bird's-eye there leaves
 // out what leads to one: the route waypoints (your routes are Maine's), 🗺 Chart, and the link into the app (an
 // "About AudioChart" link to the sailors page instead).
-const ARMCHAIR = !!REG.armchair;
+const ARMCHAIR = !!REG.armchair || TED;
 if (ARMCHAIR) {
   const wp = document.getElementById('wproute');
   for (const el of [wp?.previousElementSibling, wp, document.getElementById('sailrow'), document.getElementById('sailnote')]) if (el) { el.hidden = true; el.style.display = 'none'; }
@@ -106,7 +113,7 @@ if (ARMCHAIR) {
 }
 try { if (/bay3d\.html$/.test(location.pathname)) localStorage.setItem(REGION3D_KEY, RID); } catch (_) {}
 {
-  const sw = document.getElementById('bayswitch'), offered = regions3dOffered(RID);
+  const sw = document.getElementById('bayswitch'), offered = TED ? Object.keys(REGIONS3D) : regions3dOffered(RID);
   if (sw && offered.length > 1) {
     for (const id of offered) {
       const b = document.createElement('button');
@@ -116,7 +123,7 @@ try { if (/bay3d\.html$/.test(location.pathname)) localStorage.setItem(REGION3D_
         if (id === RID) return;
         try { localStorage.setItem(REGION3D_KEY, id); } catch (_) {}
         const q = new URLSearchParams();
-        for (const k of ['embed', 'empty', 'route', 'boat', 'ais']) if (params.has(k)) q.set(k, params.get(k));
+        for (const k of ['embed', 'empty', 'route', 'boat', 'ais', 'app']) if (params.has(k)) q.set(k, params.get(k));
         q.set('region', id);
         location.replace(`${location.pathname}?${q}`);
       });

@@ -101,7 +101,7 @@ body.innest #ovmap { display: none; }
 #towns button.on, #bridges button.on, .panel .whole.on { background: var(--brass); color: var(--brass-ink); }
 .panel .whole { font-weight: 600; }
 /* Penobscot | Casco (v992): which bay, always showing, folded panel or not */
-#bayswitch { display: flex; gap: 2px; background: rgba(0, 0, 0, 0.22); border-radius: 6px; padding: 2px; }
+#bayswitch { display: flex; flex-wrap: wrap; gap: 2px; background: rgba(0, 0, 0, 0.22); border-radius: 6px; padding: 2px; }
 #bayswitch[hidden] { display: none; }
 /* inside the chart the panel's hidden, so the switch floats on its own: top centre, under the chart's toolbar */
 body.embed #bayswitch { position: fixed; z-index: 3; top: calc(72px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); background: var(--glass); box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
