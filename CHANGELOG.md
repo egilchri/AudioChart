@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-30 — Bird's-eye: the flyover names the landmarks it passes; rename your landing spots and labels (v1076)
+
+- Requested: "mention the main landmarks we fly over, like southwest harbor, and bass harbor". On each leg she names
+  what she passes: "Over Southwest Harbor." / "Beech Mountain, on the left." The towns and harbors (within about 2
+  miles), the big bridges, the summits over 150 m (Cadillac, Sargent, Blue Hill, Megunticook…, within 3), and My
+  places; each once a flight, not the stops nor where she's just been, and only when nothing else is being said.
+- Requested: "We need to be able to edit place names we've added". The landing spots you add (named "a spot near …")
+  now have ✎ too, as My places do; and a double-click on a 📍 label on the map opens its name for editing in the
+  panel (its single click, fly there, waits a moment in case).
+
 ## 2026-10-30 — Bird's-eye: the flyover narrates its itinerary (v1075)
 
 - Requested: "voice narration, at least calling out each spot on the itinerary". At take-off, the plan ("Taking off

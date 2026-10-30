@@ -2801,7 +2801,7 @@ function updateLabels() {
     }
     for (const m of myMarks) {   // My places (v1071): from farther off than the chart's names, and a tap flies there
       const d = Math.hypot(m.x - view.x, m.z - view.z);
-      if (d < Math.max(view.dist * 3, 6000) || m.el) cand.push({ text: m.text, x: m.x, y: m.y, z: m.z, cls: 'wpt tap', pri: 0.2 + d / 1e6, click: m.click, drag: m.drag, el: m.el });
+      if (d < Math.max(view.dist * 3, 6000) || m.el) cand.push({ text: m.text, x: m.x, y: m.y, z: m.z, cls: 'wpt tap', pri: 0.2 + d / 1e6, click: m.click, drag: m.drag, el: m.el, rename: m.rename });
     }
     for (const l of bridges?.labels || []) {   // bridge names (v1020)
       const d = Math.hypot(l.x - view.x, l.z - view.z);
@@ -2861,10 +2861,15 @@ function updateLabels() {
     let el = pool[n];
     if (!el) {
       el = document.createElement('div'); labelsEl.appendChild(el); pool[n] = el;
-      el.addEventListener('click', () => { if (el._noClick) return; el._town ? goTown(el._town) : el._click?.(); });
+      el.addEventListener('click', () => {
+        if (el._noClick) return;
+        if (el._rename) { const go = el._click; clearTimeout(el._clickT); el._clickT = setTimeout(() => go?.(), 280); return; }   // (a moment, in case it's a double-click)
+        el._town ? goTown(el._town) : el._click?.();
+      });
+      el.addEventListener('dblclick', e => { if (!el._rename) return; clearTimeout(el._clickT); e.preventDefault(); el._rename(); });   // (My places: rename it, v1076)
       el.addEventListener('pointerdown', e => dragLabel(el, e));
     }
-    el.className = 'lbl ' + c.cls + (c.drag ? ' drag' : ''); el.textContent = c.text; el.style.left = x + 'px'; el.style.top = y + 'px'; el.hidden = false; el._town = c.town || null; el._click = c.click || null; el._drag = c.drag || null;
+    el.className = 'lbl ' + c.cls + (c.drag ? ' drag' : ''); el.textContent = c.text; el.style.left = x + 'px'; el.style.top = y + 'px'; el.hidden = false; el._town = c.town || null; el._click = c.click || null; el._drag = c.drag || null; el._rename = c.rename || null;
     n++;
   }
   for (let i = n; i < pool.length; i++) pool[i].hidden = true;
@@ -3061,6 +3066,16 @@ const clock = new THREE.Clock();
   if (bridges) onBridges(bridges);
   // Landing spots (v1056): the bay's own (regions3d.js) and the ones you add (＋, then a tap on land); a tick makes
   // her come down there on the way, sit a few seconds and lift off again; a click flies you to look at it
+  // a name edited in place (v1071; v1076 for the landing spots you've added too, requested: "We need to be able to edit
+  // place names we've added"): the button becomes a text box; Enter (or away) keeps it, Esc doesn't
+  const editInPlace = (btn, value, save) => {
+    const inp = document.createElement('input'); inp.type = 'text'; inp.value = value; inp.maxLength = 60; inp.setAttribute('aria-label', 'Its name');
+    let done = false;
+    const finish = keepIt => { if (done) return; done = true; const v = inp.value.trim(); save(keepIt && v ? v : null); };
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') finish(true); else if (e.key === 'Escape') { e.stopPropagation(); finish(false); } });
+    inp.addEventListener('blur', () => finish(true));
+    btn.replaceWith(inp); inp.focus(); inp.select(); inp.scrollIntoView({ block: 'nearest' });
+  };
   const landUl = document.getElementById('landings'), landAdd = document.getElementById('landadd');
   const landId = l => `land:${l.lon.toFixed(5)},${l.lat.toFixed(5)}`;
   let landDrawn = false;
@@ -3077,9 +3092,14 @@ const clock = new THREE.Clock();
       ck.checked = was.has(id) || !!l.justAdded; delete l.justAdded; ck.addEventListener('change', sync);
       li.append(ck, b);
       if (mine) {
+        const ed = document.createElement('button'); ed.type = 'button'; ed.className = 'rm'; ed.textContent = '✎'; ed.title = `Rename ${l.name}`;
+        ed.addEventListener('click', () => editInPlace(b, l.name, v => {
+          if (v) { const was = ck.checked; l.name = v; l.justAdded = was; }   // (keeps its tick: same spot, same id)
+          drawLandings(); sync();
+        }));
         const rm = document.createElement('button'); rm.type = 'button'; rm.className = 'rm'; rm.textContent = '✕'; rm.title = `Forget ${l.name}`;
         rm.addEventListener('click', () => { myLandings = myLandings.filter(m => m !== l); drawLandings(); sync(); });
-        li.append(rm);
+        li.append(ed, rm);
       }
       landUl.appendChild(li); boxes.push(ck);
       placeView.set(id, { name: l.name, at: { x: spot.x, z: spot.z }, spot, say: l.say });
@@ -3102,7 +3122,8 @@ const clock = new THREE.Clock();
     return p;
   };
   // its label on the map: a tap flies there, a drag moves it (kept, and its stop with it, when let go)
-  const markOf = (p, click) => ({ text: '📍 ' + p.name, x: wx(p.lon), z: wz(p.lat), y: Math.max(0, heightAt(p.lon, p.lat)) + 6, click, el: p._el || null,
+  const renameMine = p => { foldPanel(false); mineUl.querySelector(`button.ed[data-id="${CSS.escape(mineId(p))}"]`)?.click(); };   // (a double-click on its label)
+  const markOf = (p, click) => ({ text: '📍 ' + p.name, x: wx(p.lon), z: wz(p.lat), y: Math.max(0, heightAt(p.lon, p.lat)) + 6, click, el: p._el || null, rename: click && (() => renameMine(p)),
     drag: click && { start: el => { p._el = el; }, move: (cx, cy) => { const g = groundUnder(cx, cy); if (g) { p.lon = lonOf(g[0]); p.lat = latOf(g[1]); refreshMarks(); } }, end: () => { p._el = null; saveMine(); drawMine(); sync(); } } });
   const refreshMarks = () => { myMarks = [...myPlaces.map(p => markOf(p, () => flyToMine(p))), ...(pending ? [markOf({ ...pending, name: pending.name || 'here' })] : [])]; lblTick = 0; };
   let mineDrawn = false;
@@ -3116,15 +3137,8 @@ const clock = new THREE.Clock();
       b.addEventListener('click', () => flyToMine(p));
       ck.type = 'checkbox'; ck.dataset.id = id; ck.setAttribute('aria-label', `Fly to ${p.name} on the way`); ck.title = 'A stop on the way (▶ Fly, below)';
       ck.checked = was.has(id) || !!p.justAdded; delete p.justAdded; ck.addEventListener('change', sync);
-      const ed = document.createElement('button'); ed.type = 'button'; ed.className = 'rm'; ed.textContent = '✎'; ed.title = `Rename ${p.name}`;
-      ed.addEventListener('click', () => {   // the name, edited in place: Enter (or away) keeps it, Esc doesn't
-        const inp = document.createElement('input'); inp.type = 'text'; inp.value = p.name; inp.maxLength = 60; inp.setAttribute('aria-label', 'Its name');
-        let done = false;
-        const finish = keepIt => { if (done) return; done = true; const v = inp.value.trim(); if (keepIt && v) { p.name = v; saveMine(); } drawMine(); sync(); };
-        inp.addEventListener('keydown', e => { if (e.key === 'Enter') finish(true); else if (e.key === 'Escape') { e.stopPropagation(); finish(false); } });
-        inp.addEventListener('blur', () => finish(true));
-        b.replaceWith(inp); inp.focus(); inp.select();
-      });
+      const ed = document.createElement('button'); ed.type = 'button'; ed.className = 'rm ed'; ed.dataset.id = id; ed.textContent = '✎'; ed.title = `Rename ${p.name}`;
+      ed.addEventListener('click', () => editInPlace(b, p.name, v => { if (v) { p.name = v; saveMine(); } drawMine(); sync(); }));
       const rm = document.createElement('button'); rm.type = 'button'; rm.className = 'rm'; rm.textContent = '✕'; rm.title = `Forget ${p.name}`;
       rm.addEventListener('click', () => { myPlaces = myPlaces.filter(m => m !== p); delete planMode[id]; saveMine(); drawMine(); sync(); });
       li.append(ck, b, ed, rm); mineUl.appendChild(li); boxes.push(ck);
@@ -3139,7 +3153,15 @@ const clock = new THREE.Clock();
     document.body.classList.toggle('flying', on);
     if (params.get('embed')) try { parent.document.getElementById('app')?.classList.toggle('flyover-on', on); } catch (_) {}
   };
-  fly = makeFlyover({ view, bar: document.getElementById('flybar'), camera, scene, brgTxt: magTxt, groundY: (x, z) => Math.max(0, heightAt(lonOf(x), latOf(z))), onEnd: () => setFlying(false) });
+  fly = makeFlyover({ view, bar: document.getElementById('flybar'), camera, scene, brgTxt: magTxt, groundY: (x, z) => Math.max(0, heightAt(lonOf(x), latOf(z))), onEnd: () => setFlying(false),
+    // what she passes, named on the way (v1076): the towns and harbors, the big bridges, the high summits (seen from
+    // farther off), and My places
+    landmarks: () => [
+      ...townList.map(t => ({ name: t.name, x: t.x, z: t.z, r: 3500 })),
+      ...(bridges?.places || []).filter(p => p.big).map(p => ({ name: p.name, x: p.x, z: p.z, r: 2500 })),
+      ...places.filter(p => p.elev > 150).map(p => ({ name: p.n, x: p.x, z: p.z, r: 6000 })),
+      ...myMarks.filter(m => m.click).map(m => ({ name: m.text.replace(/^📍 /, ''), x: m.x, z: m.z, r: 2000 })),
+    ] });
   addEventListener('pagehide', () => setFlying(false));   // (this view swapped for another mid-flight)
   // the take-off and landing rows, and picking a spot: Change, then a tap on the map (on land)
   const fromEl = document.getElementById('flyfrom'), toEl = document.getElementById('flyto'), pickBar = document.getElementById('flypick');

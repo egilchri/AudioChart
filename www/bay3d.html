@@ -82,7 +82,7 @@ body { background: var(--sky); color: var(--ink); font-family: var(--body); font
 #towns button:hover, #bridges button:hover, #landings button:not(.rm):hover, #mine button:not(.rm):hover, .panel .whole:hover { background: rgba(255, 255, 255, 0.1); }
 /* Flyover (v1046): a tick box by each place, ▶ Fly under them, and the tour's bar along the top */
 #towns li, #bridges li, #landings li, #mine li { display: flex; align-items: center; }
-#towns li input[type=checkbox], #bridges li input, #landings li input, #mine li input[type=checkbox] { flex: none; margin: 0 2px 0 6px; width: 15px; height: 15px; accent-color: var(--brass); cursor: pointer; }
+#towns li input[type=checkbox], #bridges li input, #landings li input[type=checkbox], #mine li input[type=checkbox] { flex: none; margin: 0 2px 0 6px; width: 15px; height: 15px; accent-color: var(--brass); cursor: pointer; }
 #flyrow { display: grid; gap: 4px; }
 #flyrow .whole:disabled { opacity: 0.55; cursor: default; background: transparent; }
 #flyrow label { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--muted); padding: 0 8px; cursor: pointer; }
@@ -91,7 +91,7 @@ body { background: var(--sky); color: var(--ink); font-family: var(--body); font
   background: var(--glass-hi); color: var(--ink); border-radius: 8px; padding: 6px 8px 6px 12px; font-size: 0.86rem; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }
 #flybar[hidden], #flypick[hidden] { display: none; }
 /* My places (v1071): a name being typed in, in the list or the pick bar */
-#mine li input[type=text], #flypick .pick-name { min-width: 0; flex: 1; font: inherit; color: var(--ink); background: rgba(255,255,255,0.12); border: 1px solid var(--brass); border-radius: 5px; padding: 3px 7px; }
+#mine li input[type=text], #landings li input[type=text], #flypick .pick-name { min-width: 0; flex: 1; font: inherit; color: var(--ink); background: rgba(255,255,255,0.12); border: 1px solid var(--brass); border-radius: 5px; padding: 3px 7px; }
 #flypick .pick-name { flex: 0 1 220px; }
 #flypick .pick-name[hidden] { display: none; }
 /* the Flight plan (v1071): the ticked stops in the order she'll fly them; ▲▼ to change it, Land / Over where she can land */

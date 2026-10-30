@@ -29,7 +29,7 @@ import('./tts.js').then(m => { TTS = m; }).catch(() => {});   // (no speech on t
 // stop: { name, say?, target() → { x, z, dist, az, tilt } (radians), hold (s), onArrive?(), onLeave?() }
 // spot (take-off and landing): { name, x, z, y() → the ground's height there }
 // a landing on the way: { name, say?, touch: true, spot, hold? } (its target is worked out here)
-export function makeFlyover({ view, bar, camera, scene, onEnd, brgTxt = t => `${Math.round(t)}°`, groundY = () => 0 }) {
+export function makeFlyover({ view, bar, camera, scene, onEnd, brgTxt = t => `${Math.round(t)}°`, groundY = () => 0, landmarks = () => [] }) {
   let tour = null, spots = { from: null, to: null }, parked = null;
   // the helicopter: ahead of the camera and a little below, her nose the way we look, banked into the turns (as the
   // videos' recorder put her); paused, she hovers where she was; between tours she waits on her pad
@@ -62,6 +62,31 @@ export function makeFlyover({ view, bar, camera, scene, onEnd, brgTxt = t => `${
     let t = `${places.length === 1 ? 'One stop' : `${places.length} stops`}: ${list(places.map(what))}.`;
     if (fin) t += fin.spotName === from?.name ? ' Then back here.' : ` Then on to land at ${fin.spotName}.`;
     return t;
+  }
+  // what she passes on a leg (v1076, requested: "mention the main landmarks we fly over, like southwest harbor, and bass
+  // harbor"): landmarks() → [{ name, x, z, r }] (r: how far off it's worth a word); each once a flight, not a stop
+  // nor where she's just been, and only when nothing else is being said: "Over Bass Harbor", "Bass Harbor, on the left"
+  let lmAt = 0;
+  function callLandmarks(now) {
+    if (!tour.talk || now - lmAt < 500) return;
+    lmAt = now;
+    try { if (TTS?.isSpeaking()) return; } catch (_) {}
+    const hp = heli.group.position, S = tour.stops[tour.i], prev = tour.i ? tour.stops[tour.i - 1] : spots.from;
+    const near = (L, P, r) => P && Math.hypot(L.x - P.x, L.z - P.z) < r;
+    tour.said = tour.said || new Set();
+    let best = null;
+    for (const L of landmarks()) {
+      if (tour.said.has(L.name)) continue;
+      const d = Math.hypot(L.x - hp.x, L.z - hp.z), r = L.r || 2500;
+      if (d > r) continue;
+      if (tour.stops.some(P => !P.ship && (P.name === L.name || P.spotName === L.name || near(L, P, 1500))) || near(L, prev, 2000)) { tour.said.add(L.name); continue; }
+      if (!best || d / r < best.d / best.r) best = { L, d, r };
+    }
+    if (!best) return;
+    const { L, d } = best, rel = turn(tour.track ?? 0, bearing(hp, L)) * 180 / Math.PI;
+    if (d > 700 && Math.abs(rel) < 30) return;   // (still ahead: said as she gets there)
+    tour.said.add(L.name);
+    sayNext(d <= 700 ? `Over ${L.name}.` : `${L.name}, on the ${rel > 0 ? 'right' : 'left'}.`);
   }
   function callLeg(S) {   // as she sets off for stop S
     if (S.ship) return;   // (a ship on the way: named when she's there)
@@ -190,6 +215,7 @@ export function makeFlyover({ view, bar, camera, scene, onEnd, brgTxt = t => `${
     const S = tour.stops[tour.i], to = S.target?.();
     if (!to) { next(now); return; }   // (a vessel that's gone)
     if (tour.phase === 'fly') {
+      if (!S.ship) callLandmarks(now);
       const u = clamp((now - tour.t0) / tour.dur, 0, 1), e = trap(u, tour.a), f = tour.from, cf = tour.cf, ct = camAt(to);
       // she turns onto her track as she sets off, flies it looking ahead, and turns to the stop's view as she comes in
       const r = Math.min(0.5, 6000 / tour.dur), w1 = smooth(clamp(u / r, 0, 1)), w2 = smooth(clamp((u - (1 - r)) / r, 0, 1));
