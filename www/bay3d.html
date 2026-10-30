@@ -42,6 +42,8 @@ body { background: var(--sky); color: var(--ink); font-family: var(--body); font
 .lbl::after { content: ""; position: absolute; left: 50%; bottom: 0; width: 1px; height: 6px; background: rgba(255, 255, 255, 0.6); }
 .lbl.buoy { font-family: var(--mono); font-weight: 500; font-size: 11px; }
 .lbl.tap { pointer-events: auto; cursor: pointer; }   /* Buoy F's label opens her card (v1013) */
+.lbl.drag { cursor: grab; touch-action: none; user-select: none; }   /* My places: drag to move (v1072) */
+.lbl.dragging { cursor: grabbing; color: var(--brass); }
 .lbl.town { pointer-events: auto; cursor: pointer; font-family: var(--display); font-size: 15px; letter-spacing: 0.02em; color: #fff7e6; }
 .lbl.town:hover { color: var(--brass); }
 .lbl[hidden] { display: none; }

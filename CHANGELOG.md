@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-30 — Bird's-eye: My places' labels can be dragged (v1072)
+
+- Requested: "make the places I label draggable". A 📍 label on the map follows the pointer once moved 5 px (finger
+  or mouse) and stays where it's let go, saved; a press that doesn't move still flies there. Each place now keeps
+  the id it was first given, so a moved one keeps its tick and its Land / Over in the Flight plan. The map doesn't
+  pan under the drag.
+
 ## 2026-10-30 — Ted's Birdseye: an opening screen (birdseye site; AudioChart unchanged at v1071)
 
 - Requested: "an opening screen, with a special logo". On Ted's Birdseye's own page (design/birdseye/site/, pushed to

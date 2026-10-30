@@ -2760,6 +2760,30 @@ for (const l of (landGJ.landmarks || []).filter(l => inBay([l.lon, l.lat]))) pla
 for (const p of places) p.y = Math.max(4, p.elev ?? heightAt(p.lon, p.lat));
 for (const t of townList) t.y = Math.max(10, heightAt(t.lon, t.lat)) + 20;
 let lblTick = 0, cand = [];
+// dragging a label (v1072, requested: "make the places I label draggable"): a label with a drag (My places) follows
+// the pointer once it's moved 5 px, its element out of the pool meanwhile (so no other name takes it over); a press
+// that doesn't move is still a click
+function dragLabel(el, e) {
+  const d = el._drag; if (!d || e.button > 0) return;
+  e.stopPropagation();
+  const x0 = e.clientX, y0 = e.clientY; let on = false;
+  try { el.setPointerCapture(e.pointerId); } catch (_) {}
+  const mv = ev => {
+    if (!on) {
+      if (Math.hypot(ev.clientX - x0, ev.clientY - y0) < 5) return;
+      on = true; const i = pool.indexOf(el); if (i >= 0) pool.splice(i, 1);
+      el.classList.add('dragging'); d.start(el);
+    }
+    d.move(ev.clientX, ev.clientY);
+  };
+  const up = () => {
+    el.removeEventListener('pointermove', mv); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up);
+    if (!on) return;
+    el.classList.remove('dragging'); pool.push(el); el._noClick = true; setTimeout(() => { el._noClick = false; }, 0);   // (no fly-there for the click that ends a drag)
+    d.end();
+  };
+  el.addEventListener('pointermove', mv); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+}
 const v3 = new THREE.Vector3();
 function updateLabels() {
   if (lblTick++ % 6 === 0) {
@@ -2770,7 +2794,7 @@ function updateLabels() {
     }
     for (const m of myMarks) {   // My places (v1071): from farther off than the chart's names, and a tap flies there
       const d = Math.hypot(m.x - view.x, m.z - view.z);
-      if (d < Math.max(view.dist * 3, 6000)) cand.push({ text: m.text, x: m.x, y: m.y, z: m.z, cls: 'wpt tap', pri: 0.2 + d / 1e6, click: m.click });
+      if (d < Math.max(view.dist * 3, 6000) || m.el) cand.push({ text: m.text, x: m.x, y: m.y, z: m.z, cls: 'wpt tap', pri: 0.2 + d / 1e6, click: m.click, drag: m.drag, el: m.el });
     }
     for (const l of bridges?.labels || []) {   // bridge names (v1020)
       const d = Math.hypot(l.x - view.x, l.z - view.z);
@@ -2820,15 +2844,20 @@ function updateLabels() {
   const W = sceneEl.clientWidth, H = sceneEl.clientHeight, placed = [];
   let n = 0;
   for (const c of cand) {
-    if (n >= 34) break;
+    if (n >= 34 && !c.el) continue;
     const p = v3.set(c.x, c.y, c.z).project(camera);
     if (p.z > 1 || Math.abs(p.x) > 1.02 || p.y > 0.98 || p.y < -1) continue;
     const x = (p.x + 1) / 2 * W, y = (1 - p.y) / 2 * H, w = c.text.length * (c.cls === 'town' ? 8.5 : 7) + 8;
+    if (c.el) { c.el.textContent = c.text; c.el.style.left = x + 'px'; c.el.style.top = y + 'px'; c.el.hidden = false; placed.push([x, y, w]); continue; }   // (the one being dragged: its own element)
     if (placed.some(r => Math.abs(r[0] - x) < (r[2] + w) / 2 && Math.abs(r[1] - y) < 17)) continue;
     placed.push([x, y, w]);
     let el = pool[n];
-    if (!el) { el = document.createElement('div'); labelsEl.appendChild(el); pool[n] = el; el.addEventListener('click', () => el._town ? goTown(el._town) : el._click?.()); }
-    el.className = 'lbl ' + c.cls; el.textContent = c.text; el.style.left = x + 'px'; el.style.top = y + 'px'; el.hidden = false; el._town = c.town || null; el._click = c.click || null;
+    if (!el) {
+      el = document.createElement('div'); labelsEl.appendChild(el); pool[n] = el;
+      el.addEventListener('click', () => { if (el._noClick) return; el._town ? goTown(el._town) : el._click?.(); });
+      el.addEventListener('pointerdown', e => dragLabel(el, e));
+    }
+    el.className = 'lbl ' + c.cls + (c.drag ? ' drag' : ''); el.textContent = c.text; el.style.left = x + 'px'; el.style.top = y + 'px'; el.hidden = false; el._town = c.town || null; el._click = c.click || null; el._drag = c.drag || null;
     n++;
   }
   for (let i = n; i < pool.length; i++) pool[i].hidden = true;
@@ -3055,11 +3084,19 @@ const clock = new THREE.Clock();
   const mineUl = document.getElementById('mine'), mineAdd = document.getElementById('mineadd'), MINE_KEY = `audiochart-bay3d-myplaces-${RID}`;
   let myPlaces = []; try { myPlaces = JSON.parse(localStorage.getItem(MINE_KEY) || '[]').filter(p => p?.name && p.lon != null); } catch (_) {}
   let pending = null;   // (one being placed: tapped, its name not yet given)
-  const mineId = p => `mine:${p.lon.toFixed(5)},${p.lat.toFixed(5)}`;
+  const mineId = p => p.id || (p.id = `mine:${p.lon.toFixed(5)},${p.lat.toFixed(5)}`);   // (where it was first put: it keeps its tick and Land/Over when dragged, v1072)
   const onLand = (lon, lat) => heightAt(lon, lat) > 0.5 || !!deckAt(wx(lon), wz(lat));
-  const saveMine = () => { try { localStorage.setItem(MINE_KEY, JSON.stringify(myPlaces.map(({ name, lon, lat }) => ({ name, lon, lat })))); } catch (_) {} };
+  const saveMine = () => { try { localStorage.setItem(MINE_KEY, JSON.stringify(myPlaces.map(p => ({ id: mineId(p), name: p.name, lon: p.lon, lat: p.lat })))); } catch (_) {} };
   const flyToMine = p => { markCurrent(mineId(p)); foldPanel(true); flyTo({ x: wx(p.lon), z: wz(p.lat), dist: 700, tilt: 60 * DEG, az: view.az }, 3200); };
-  const markOf = (p, click) => ({ text: '📍 ' + p.name, x: wx(p.lon), z: wz(p.lat), y: Math.max(0, heightAt(p.lon, p.lat)) + 6, click });
+  // the ground under a screen point (the ray walked down to the land's height there)
+  const groundUnder = (cx, cy) => {
+    let p = groundAt(cx, cy); if (!p) return null;
+    for (let i = 0; i < 3; i++) { const v = ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -Math.max(0, heightAt(lonOf(p[0]), latOf(p[1])))), new THREE.Vector3()); if (!v) break; p = [v.x, v.z]; }
+    return p;
+  };
+  // its label on the map: a tap flies there, a drag moves it (kept, and its stop with it, when let go)
+  const markOf = (p, click) => ({ text: '📍 ' + p.name, x: wx(p.lon), z: wz(p.lat), y: Math.max(0, heightAt(p.lon, p.lat)) + 6, click, el: p._el || null,
+    drag: click && { start: el => { p._el = el; }, move: (cx, cy) => { const g = groundUnder(cx, cy); if (g) { p.lon = lonOf(g[0]); p.lat = latOf(g[1]); refreshMarks(); } }, end: () => { p._el = null; saveMine(); drawMine(); sync(); } } });
   const refreshMarks = () => { myMarks = [...myPlaces.map(p => markOf(p, () => flyToMine(p))), ...(pending ? [markOf({ ...pending, name: pending.name || 'here' })] : [])]; lblTick = 0; };
   let mineDrawn = false;
   const drawMine = () => {
@@ -3136,8 +3173,7 @@ const clock = new THREE.Clock();
   // a tap while picking: the ground there (the ray walked down to the land's height), on land, named for the
   // nearest town (or the heliport, if it's there)
   pickAt = (cx, cy) => {
-    let p = groundAt(cx, cy); if (!p) return;
-    for (let i = 0; i < 3; i++) { const v = ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -Math.max(0, heightAt(lonOf(p[0]), latOf(p[1])))), new THREE.Vector3()); if (!v) break; p = [v.x, v.z]; }
+    const p = groundUnder(cx, cy); if (!p) return;
     const lon = lonOf(p[0]), lat = latOf(p[1]);
     if (picking === 'label') {   // My places: here, land or water; now its name
       pending = { lon, lat, name: nameIn.value.trim() }; refreshMarks();
