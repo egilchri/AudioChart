@@ -3190,7 +3190,7 @@ const clock = new THREE.Clock();
     document.body.classList.toggle('flying', on);
     if (params.get('embed')) try { parent.document.getElementById('app')?.classList.toggle('flyover-on', on); } catch (_) {}
   };
-  fly = makeFlyover({ view, bar: document.getElementById('flybar'), camera, scene, brgTxt: magTxt, groundY: (x, z) => Math.max(0, heightAt(lonOf(x), latOf(z))), onEnd: () => setFlying(false),
+  fly = makeFlyover({ view, bar: document.getElementById('flybar'), camera, scene, brgTxt: magTxt, groundY: (x, z) => Math.max(0, heightAt(lonOf(x), latOf(z))), onEnd: () => { setFlying(false); if (rec) setTimeout(() => { if (!fly?.on()) stopRec(); }, 3000); },   // (a few seconds of her on the pad)
     // what she passes, named on the way (v1076): the towns and harbors, the big bridges, the high summits (seen from
     // farther off), and My places
     landmarks: () => [
@@ -3200,6 +3200,46 @@ const clock = new THREE.Clock();
       ...myMarks.filter(m => m.click).map(m => ({ name: withTown(m.text.replace(/^📍 /, ''), m), x: m.x, z: m.z, r: 2000 })),
     ] });
   addEventListener('pagehide', () => setFlying(false));   // (this view swapped for another mid-flight)
+  // ── Recording a flight (v1080, requested: "there should be a button for saving a recording of a helicopter tour"):
+  // ⏺ in the flight's bar (or Record it, ticked before ▶ Fly) records this tab, the labels and captions with the view,
+  // after the browser's ask to share it; where a tab can't be recorded (a phone), the 3D view alone. It stops a few
+  // seconds after she lands (or at ● again) and the video goes to Downloads. ──
+  const recBtn = document.querySelector('#flybar .fly-rec'), recCk = document.getElementById('flyrec');
+  let rec = null;
+  const mmss = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
+  const recType = () => ['video/mp4;codecs=avc1.640028,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm'].find(t => window.MediaRecorder?.isTypeSupported?.(t)) || '';
+  const showRec = () => {
+    if (!recBtn) return;
+    recBtn.classList.toggle('on', !!rec); recBtn.textContent = rec ? `● ${mmss((performance.now() - rec.t0) / 1000)}` : '⏺';
+    recBtn.title = rec ? 'Stop recording and save the video' : 'Record this flight as a video (saved to Downloads when it ends)';
+  };
+  const saveRec = (chunks, type) => {
+    if (!chunks.length) return;
+    const blob = new Blob(chunks, { type }), ext = /mp4/.test(type) ? 'mp4' : 'webm', d = new Date(), two = n => String(n).padStart(2, '0');
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = `${TED ? "Ted's Birdseye" : "Bird's-eye"} flight, ${REG.short}, ${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())} ${two(d.getHours())}.${two(d.getMinutes())}.${ext}`;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+  };
+  async function startRec() {
+    if (rec) return true;
+    let stream = null;
+    try {
+      if (navigator.mediaDevices?.getDisplayMedia) stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30 }, audio: true, preferCurrentTab: true, selfBrowserSurface: 'include', surfaceSwitching: 'exclude', systemAudio: 'include' });
+    } catch (err) { if (err?.name === 'NotAllowedError' || err?.name === 'AbortError') return false; }   // (you said no: she flies unrecorded)
+    if (!stream) { try { stream = renderer.domElement.captureStream(30); } catch (_) { return false; } }
+    const type = recType(); let mr;
+    try { mr = new MediaRecorder(stream, type ? { mimeType: type, videoBitsPerSecond: 5e6 } : undefined); } catch (_) { stream.getTracks().forEach(t => t.stop()); return false; }
+    const chunks = [];
+    mr.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+    mr.onstop = () => { stream.getTracks().forEach(t => t.stop()); saveRec(chunks, mr.mimeType || type); };
+    stream.getVideoTracks()[0]?.addEventListener('ended', () => stopRec());   // (sharing stopped from the browser's own bar)
+    mr.start(1000);
+    rec = { mr, t0: performance.now(), timer: setInterval(showRec, 500) }; showRec();
+    return true;
+  }
+  function stopRec() { if (!rec) return; clearInterval(rec.timer); const r = rec; rec = null; try { if (r.mr.state !== 'inactive') r.mr.stop(); } catch (_) {} showRec(); }
+  recBtn?.addEventListener('click', () => rec ? stopRec() : startRec());
+  window.__bay3dRec = { start: startRec, stop: stopRec, on: () => !!rec };   // (for testing)
   // the take-off and landing rows, and picking a spot: Change, then a tap on the map (on land)
   const fromEl = document.getElementById('flyfrom'), toEl = document.getElementById('flyto'), pickBar = document.getElementById('flypick');
   const showSpots = () => {
@@ -3298,6 +3338,7 @@ const clock = new THREE.Clock();
   };
   go.addEventListener('click', async () => {
     const ids = planIds(); if (!ids.length) return;   // (in the Flight plan's order: v1071)
+    if (recCk?.checked) await startRec();   // (first, while the click still counts: the browser asks to share the tab)
     go.disabled = true; go.textContent = 'Getting ready…';
     const from = fromSpot ? { x: fromSpot.x, z: fromSpot.z } : { x: view.x, z: view.z };
     const stops = []; let prev = from;

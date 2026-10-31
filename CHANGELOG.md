@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-31 — Bird's-eye: record a helicopter tour as a video (v1080)
+
+- Requested: "there should be a button for saving a recording of a helicopter tour". ⏺ in the flight's bar (● m:ss
+  while recording; press again to stop), or Record it ticked before ▶ Fly for the whole flight. It records this tab
+  (the browser asks first to share it), labels and captions with the view; where a tab can't be recorded, the 3D view
+  alone. It stops 3 s after she lands and saves "Ted's Birdseye flight, <bay>, <date time>.mp4" (or .webm) to
+  Downloads. Tested: a 1:47 flight, 1280×656 H.264 ~27 fps. The narration isn't in it (the browser's speech doesn't
+  go through the tab's sound). Ted's Birdseye's page lets its frame record (display-capture).
+
 ## 2026-10-30 — Bird's-eye: your places named with their village too (Bernard, Manset, …) (v1079)
 
 - Reported: "ted and julias' place is in Bernard … Lucy's place is also in Bernard" (they were "in Bass Harbor":
