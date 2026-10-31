@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-31 — Bird's-eye follows your boat from one bay into the next (v1089)
+
+- Reported: "I've lost SeaNymph" on a Virtual Journey from Rockland to Portland. West of Port Clyde the chart had switched to Casco Bay & Midcoast, but Bird's-eye was still on Penobscot. That scene ends at 69.25° W, so the camera stopped at its edge while she sailed on.
+- Fix: while the chart's boat is moving, the Bird's-eye sync (app.js `_startBay3dSync`) asks the page which bay she's in (`__bay3d.bayFor`, bay3d.js). That's the current bay while she's in it, else another offered bay whose box holds her. If it's a different bay, Bird's-eye reloads there with `?region=`, centred on her, and picks her up again.
+- Tested headless: a boat sailing west from 69.20° W switched the view to Casco at 69.26° W, and it kept following her past 69.62° W.
+
 ## 2026-10-31 — Casco Bay & Midcoast: the charts reach Port Clyde, for Rockland to Portland (v1088)
 
 - Requested: "I am considering a boat trip from Rockland to Portland, Maine, so I need to fill in that area of coast between them". The user chose to grow Casco Bay east rather than add a region.

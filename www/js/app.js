@@ -7561,7 +7561,7 @@ function _showBay3d(empty = _bay3dEmpty, extra = '') {
 // zoom/pan rail sit above the 3D view (app.css). The pan buttons and zoom slider drive the 3D view
 // (bay3d.js's __bay3d.pan / setDist); a 10 Hz poll turns the rose with the view's heading and keeps
 // the slider at the view's height. Tapping the rose turns the view north up.
-let _bay3dSyncTimer = null, _bay3dSliderAt = 0, _bay3dTiltAt = 0;
+let _bay3dSyncTimer = null, _bay3dSliderAt = 0, _bay3dTiltAt = 0, _bay3dHopAt = 0;
 // the tilt slider (v884, requested: tilt to see more of the land on the horizon), shown only in Bird's-eye
 document.getElementById('tilt-slider')?.addEventListener('input', (e) => { _bay3dTiltAt = Date.now(); _bay3dApi()?.setTilt?.(+e.target.value); });
 const _bay3dApi = () => {
@@ -7604,6 +7604,18 @@ function _startBay3dSync() {
     if (b && !Number.isFinite(b.h) && prev) b.h = prev.h;
     prev = b;
     api.setBoat?.(b);
+    // she's sailed out of this bay into another (v1089, reported: "I've lost SeaNymph" on Rockland to Portland,
+    // west of Port Clyde with Bird's-eye still on Penobscot): Bird's-eye moves to that bay, where she is
+    if (b?.moving && _bay3dWrap && !_bay3dWrap.hidden && !_bay3dEmpty && Date.now() > _bay3dHopAt) {
+      const to = api.bayFor?.(b.lon, b.lat);
+      if (to && to !== api.region) {
+        _bay3dHopAt = Date.now() + 20000;   // (once; the new bay's page takes a few seconds to come up)
+        _map.setView([b.lat, b.lon], Math.max(8, Math.min(16, Math.round(_bay3dZoomOf(v.dist, v.lat)))), { animate: false });
+        _bay3dLast = null;
+        _showBay3d(false, `&region=${encodeURIComponent(to)}`);
+        return;
+      }
+    }
     if (rose) rose.style.transform = `rotate(${-v.az}deg)`;
     const ts = document.getElementById('tilt-slider');
     if (ts && Date.now() - _bay3dTiltAt > 600) ts.value = Math.round(v.tilt);

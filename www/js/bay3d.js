@@ -3507,6 +3507,13 @@ window.__bay3d = {   // for AudioChart (returning to the chart where you were) a
   clearRoute: () => { showRoute('', false); clearPins(); },
   dropPin,
   region: RID,
+  // the bay a boat at (lon, lat) is in (v1089): this one while she's in it, else another the switch offers whose bay
+  // holds her (a Virtual Journey sailing out of Penobscot into Casco Bay & Midcoast), else this one
+  bayFor: (lon, lat) => {
+    const inB = (b, lo, la) => lo >= b[0] && lo <= b[2] && la >= b[1] && la <= b[3];
+    if (inB(BAY, lon, lat)) return RID;
+    return regions3dOffered(RID).find(id => id !== RID && REGIONS3D[id].bay && inB(REGIONS3D[id].bay, lon, lat)) || RID;
+  },
   waterAt: (lon, lat) => isWater(wx(lon), wz(lat)),   // (for testing the chart's water, v1020)
   getView: () => ({ lat: latOf(view.z), lon: lonOf(view.x), dist: view.dist, az: view.az / DEG, tilt: view.tilt / DEG, following: follow === own }),
   // where your boat is on screen, [x, y] in this page's pixels, or null (for testing and the demo video)
