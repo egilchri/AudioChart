@@ -21,7 +21,23 @@ import { makeHeli } from './heli3d.js';
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 // what the device's voice gets instead (the names it says wrong; design/pending/voice/lexicon.json has Piper's)
 const RESPELL = { Vinalhaven: 'Vynalhaven', Carquinez: 'Carkeenez', Rafael: 'Ruffelle', Tiburon: 'Tibberon', buoy: 'booey' };
-const spoken = s => s.replace(/\b[A-Za-z]+\b/g, w => RESPELL[w] || RESPELL[w.toLowerCase()] || w);
+// years said as years (v1084, requested: "A year like 1854 should be pronounced 'eighteen fifty-four' not 'one thousand
+// eight hundred and fifty four'"): 1854 eighteen fifty-four, 1900 nineteen hundred, 1905 nineteen oh-five, 2005 two
+// thousand five, 2019 twenty nineteen, the 1870s the eighteen seventies; not a number with a unit after it (1500 feet)
+const ONES = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+const TENS = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+const upTo99 = n => n < 20 ? ONES[n] : TENS[Math.floor(n / 10)] + (n % 10 ? '-' + ONES[n % 10] : '');
+function yearWords(y, decades) {
+  const hi = Math.floor(y / 100), lo = y % 100;
+  let w = y >= 2000 && y < 2010 ? (lo ? `two thousand ${ONES[lo]}` : 'two thousand') : lo === 0 ? `${upTo99(hi)} hundred` : lo < 10 ? `${upTo99(hi)} oh-${ONES[lo]}` : `${upTo99(hi)} ${upTo99(lo)}`;
+  if (decades) w = w.replace(/(\w+)$/, m => m.endsWith('y') ? m.slice(0, -1) + 'ies' : m + 's');
+  return w;
+}
+const UNITS = /^\s*(feet|foot|ft|meters?|metres?|m|km|kilometers?|miles?|nm|yards?|tons?|pounds?|lbs?|acres?|gallons?|horsepower|hp)\b/i;
+const sayYears = s => s.replace(/(^|[^\d$,.])(1[1-9]\d\d|20\d\d)(s?)\b(?!,\d)/g, (m, pre, y, plural, at, all) =>
+  UNITS.test(all.slice(at + m.length)) ? m : pre + yearWords(+y, !!plural));
+// (Bass Harbor: "Bass" rhymes with sass; the voice's own reading is "base": v1084)
+const spoken = s => sayYears(s).replace(/\bBass(?= Harbou?r)/g, 'Basse').replace(/\b[A-Za-z]+\b/g, w => RESPELL[w] || RESPELL[w.toLowerCase()] || w);
 
 let TTS = null;
 import('./tts.js').then(m => { TTS = m; }).catch(() => {});   // (no speech on this device: the tour flies silent)

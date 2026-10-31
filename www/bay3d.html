@@ -109,6 +109,7 @@ body { background: var(--sky); color: var(--ink); font-family: var(--body); font
 body.flying :is(#panel, #scale, #help, #loading, #bayswitch, #exagbox, #clockpanel, #followhud, #underway, #nestrep, #ridechart, #wxpanel, #flypick) { display: none !important; }
 body.flying #flybar { top: calc(14px + env(safe-area-inset-top, 0px)) !important; bottom: auto !important; }
 #landings .rm, #mine .rm { flex: none; font: inherit; color: var(--muted); background: none; border: 0; padding: 0 6px; cursor: pointer; }
+#mine .rm.note { opacity: 0.45; } #mine .rm.note.has { opacity: 1; }   /* a note to be said on the way (v1084) */
 #mine .rm.town { font-size: 0.72rem; white-space: nowrap; max-width: 9em; overflow: hidden; text-overflow: ellipsis; }   /* its town as spoken (v1081) */
 #mine li input[type=text] + .rm.town, #mine li .town + input { max-width: 8em; }
 #flybar .fly-text, #flypick .fly-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

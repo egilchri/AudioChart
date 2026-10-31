@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-10-31 — Bird's-eye: years said as years, Bass as in sass, the Coast Guard station's history, notes for your places (v1084)
+
+- Requested: "A year like 1854 should be pronounced 'eighteen fifty-four'". flyover.js's spoken() says years as years:
+  eighteen fifty-four, nineteen hundred, nineteen oh-five, two thousand five, twenty nineteen, the eighteen seventies;
+  not a number with a unit after it (1500 feet).
+- Reported: "Bass rhymes with sass in Bass Harbor". The narrator's voice (v1083) never went through tts.js, where the
+  respelling was; spoken() now does it ("Basse", /bæs/ in the voice's own espeak phonemes; "Bass" is /beɪs/).
+- Requested: "On the flight to the coast guard station, say when it was set up there". Its landing spot has its own
+  words, said first on the way: Clark Point's buoy depot (1937), the Little Cranberry Life-Saving Station (1878) moved
+  there in the mid-1940s, the Sector Field Office since 2005 (history.uscg.mil, the Southwest Harbor library's archive,
+  the Mount Desert Islander).
+- Requested: "Mention how Julia Child used to summer at Lucy's place". Each of My places has a 📝 note of your own,
+  said first on the way there.
+- The voice no longer breaks a sentence after "U.S." or "Mt."; a History/Geology entry is introduced by its title.
+
 ## 2026-10-31 — Bird's-eye: the narrator's own voice, recorded with the flight (v1083)
 
 - Requested: "Can the recording include the narration?" … "go ahead with the built-in voice". The flyover now speaks

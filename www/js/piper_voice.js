@@ -51,7 +51,7 @@ function audio() {
 export function unlock() { try { audio(); } catch (_) {} }   // (from a click: a page's audio starts only after one)
 export function stream() { audio(); return recDest.stream; }   // (what she says, for the recording)
 
-const sentences = t => t.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(Boolean);
+const sentences = t => t.split(/(?<!\b(?:[A-Z]|Mr|Mrs|Ms|Dr|St|Mt|Capt|Gen|Lt|Col|Rev|Jr|Sr|No|vs)\.)(?<=[.!?])\s+/).map(s => s.trim()).filter(Boolean);   // (not after U.S., Mt., St.…: v1084)
 // made one at a time (one model session), in order; a stop() drops what's no longer wanted
 function synth(item, g) {
   return chain = chain.then(async () => {

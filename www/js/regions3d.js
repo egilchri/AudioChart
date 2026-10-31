@@ -19,7 +19,10 @@ export const REGIONS3D = {
       { name: 'Islesford soccer field', say: 'Landing on the Islesford soccer field', lon: -68.2380, lat: 44.2608 },   // (the mown field beside the town dock)
       // (v1058, requested: "Add the Coast Guard Station in Southwest Harbor as a place to land"): the open apron on its
       // wharf, Clark Point (OSM: Southwest Harbor Coast Guard Station Wharf)
-      { name: 'Southwest Harbor Coast Guard Station', say: 'Landing at the Coast Guard station in Southwest Harbor', lon: -68.3126, lat: 44.2750 },
+      { name: 'Southwest Harbor Coast Guard Station', say: 'Landing at the Coast Guard station in Southwest Harbor', lon: -68.3126, lat: 44.2750,
+        // said on the way there (v1084, requested: "On the flight to the coast guard station, say when it was set up there"):
+        // history.uscg.mil (Southwest Harbor, Maine), the Southwest Harbor Public Library's archive, the Mount Desert Islander
+        about: 'Clark Point has been a federal waterfront since 1937, when the U.S. Lighthouse Service set up its buoy depot here; two years later the Lighthouse Service was folded into the Coast Guard. The station itself goes back to a Life-Saving Station on Little Cranberry Island, set up by an Act of Congress in 1878. In the mid-1940s that station was moved here and joined to the Southwest Harbor station. Since 2005 the base has been a Sector Field Office of Coast Guard Sector Northern New England, home to its search and rescue crews and the patrol boat Bridle, some sixty to eighty people in all.' },
     ],
     overview: [-69.45, 43.75, -67.95, 44.75],
     bay: [-69.25, 43.85, -68.1, 44.55],

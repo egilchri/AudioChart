@@ -3158,7 +3158,7 @@ const clock = new THREE.Clock();
         li.append(ed, rm);
       }
       landUl.appendChild(li); boxes.push(ck);
-      placeView.set(id, { name: l.name, at: { x: spot.x, z: spot.z }, spot, say: l.say, mine });
+      placeView.set(id, { name: l.name, at: { x: spot.x, z: spot.z }, spot, say: l.say, about: l.about, mine });
     }
   };
   if (!EMPTY) { document.getElementById('landsect').hidden = false; landAdd.hidden = false; drawLandings(); showRow(); sync(); }
@@ -3169,7 +3169,7 @@ const clock = new THREE.Clock();
   let pending = null;   // (one being placed: tapped, its name not yet given)
   const mineId = p => p.id || (p.id = `mine:${p.lon.toFixed(5)},${p.lat.toFixed(5)}`);   // (where it was first put: it keeps its tick and Land/Over when dragged, v1072)
   const onLand = (lon, lat) => heightAt(lon, lat) > 0.5 || !!deckAt(wx(lon), wz(lat));
-  const saveMine = () => { try { localStorage.setItem(MINE_KEY, JSON.stringify(myPlaces.map(p => ({ id: mineId(p), name: p.name, lon: p.lon, lat: p.lat, ...(p.town !== undefined ? { town: p.town } : {}) })))); } catch (_) {} };
+  const saveMine = () => { try { localStorage.setItem(MINE_KEY, JSON.stringify(myPlaces.map(p => ({ id: mineId(p), name: p.name, lon: p.lon, lat: p.lat, ...(p.town !== undefined ? { town: p.town } : {}), ...(p.note ? { note: p.note } : {}) })))); } catch (_) {} };
   const flyToMine = p => { markCurrent(mineId(p)); foldPanel(true); flyTo({ x: wx(p.lon), z: wz(p.lat), dist: 700, tilt: 60 * DEG, az: view.az }, 3200); };
   // the ground under a screen point (the ray walked down to the land's height there)
   const groundUnder = (cx, cy) => {
@@ -3203,8 +3203,13 @@ const clock = new THREE.Clock();
       tw.textContent = p.town !== undefined ? (p.town ? `in ${p.town}` : 'no town') : auto ? `in ${auto}` : '+ town';
       tw.title = `Said as "${withTown(p.name, at, p.town)}": click to set its town (clear it for none)`;
       tw.addEventListener('click', () => editInPlace(tw, p.town ?? auto ?? '', v => { if (v !== null) { p.town = v; saveMine(); } else if (p.town === undefined) { /* (Esc: as it was) */ } drawMine(); sync(); }, true));
-      li.append(ck, b, tw, ed, rm); mineUl.appendChild(li); boxes.push(ck);
-      placeView.set(id, { name: p.name, at: { x: wx(p.lon), z: wz(p.lat) }, spot: onLand(p.lon, p.lat) ? spotOf(p.name, p.lon, p.lat) : null, mine: true, town: p.town });
+      // a note of yours about it, said first on the way there (v1084, requested: "Mention how Julia Child used to summer at
+      // Lucy's place"): 📝, typed in place; empty for none
+      const nt = document.createElement('button'); nt.type = 'button'; nt.className = 'rm note' + (p.note ? ' has' : ''); nt.textContent = '📝';
+      nt.title = p.note ? `Said on the way: "${p.note}" (click to change)` : 'Write a note, said on the way there';
+      nt.addEventListener('click', () => editInPlace(nt, p.note || '', v => { if (v !== null) { p.note = v || undefined; saveMine(); } drawMine(); sync(); }, true));
+      li.append(ck, b, tw, nt, ed, rm); mineUl.appendChild(li); boxes.push(ck);
+      placeView.set(id, { name: p.name, at: { x: wx(p.lon), z: wz(p.lat) }, spot: onLand(p.lon, p.lat) ? spotOf(p.name, p.lon, p.lat) : null, mine: true, town: p.town, about: p.note });
     }
     refreshMarks();
   };
@@ -3344,14 +3349,16 @@ const clock = new THREE.Clock();
   // Island Info, Geology and Paintings entries (data/documents.geojson) within 3 km of it, the nearer and the more
   // historical first, whole sentences, as many as fit the time; none said twice in a flight
   let docs = null;
-  const sentencesOf = b => b.replace(/https?:\/\/\S+/g, '').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/[#*_]/g, '').replace(/\s+/g, ' ').trim().split(/(?<=[.!?])\s+(?=["“‘(A-Z0-9])/);
+  const sentencesOf = b => b.replace(/https?:\/\/\S+/g, '').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/[#*_]/g, '').replace(/\s+/g, ' ').trim().split(/(?<!\b(?:[A-Z]|Mr|Mrs|Ms|Dr|St|Mt|Capt|Gen|Lt|Col|Rev|Jr|Sr|No|vs)\.)(?<=[.!?])\s+(?=["“‘(A-Z0-9])/);   // (not after U.S., Mt.…: v1084)
   const loadDocs = () => docs || (docs = getJSON('./data/documents.geojson').then(fc => (fc.features || [])
     .filter(f => ['history', 'island-info', 'geology', 'paintings'].includes(f.properties?.category) && f.geometry?.type === 'Point' && f.properties.body && inBay(f.geometry.coordinates))
-    .map(f => { const [lon, lat] = f.geometry.coordinates; return { x: wx(lon), z: wz(lat), cat: f.properties.category, sentences: sentencesOf(f.properties.body) }; })).catch(() => []));
+    .map(f => { const [lon, lat] = f.geometry.coordinates, title = (f.properties.title || '').trim(); return { x: wx(lon), z: wz(lat), cat: f.properties.category, sentences: [...(title ? [/[.!?]$/.test(title) ? title : title + '.'] : []), ...sentencesOf(f.properties.body)] }; })).catch(() => []));   // (its title first, so you know what it's about: v1084)
   const CAT_M = { history: 0, 'island-info': 400, geology: 800, paintings: 1000 };   // (how much nearer the others must be to come first)
-  const aboutPlace = (D, at, used) => sec => {
+  // (lead: the place's own words first, v1084: a landing spot's about, or the note you've written for a place of yours)
+  const aboutPlace = (D, at, used, lead) => sec => {
     const near = D.map(d => ({ d, dist: Math.hypot(d.x - at.x, d.z - at.z) })).filter(o => o.dist < 3000 && !used.has(o.d)).sort((a, b) => a.dist + CAT_M[a.d.cat] - b.dist - CAT_M[b.d.cat]);
     let words = Math.floor(sec * 2.6); const out = [];
+    if (lead) for (const t of sentencesOf(lead)) { const w = t.split(' ').length; if (w > words && out.length) break; out.push(t); words -= w; }   // (its first sentence whatever the time)
     for (const { d } of near) {
       const take = [];
       for (const t of d.sentences) { const w = t.split(' ').length; if (w > words) break; take.push(t); words -= w; }
@@ -3407,7 +3414,7 @@ const clock = new THREE.Clock();
     for (const id of ids) {
       const P = placeView.get(id);
       const sayName = P.mine ? withTown(P.name, P.at, P.town) : undefined;   // (yours: "Ned and Mary's place in Bass Harbor", v1077)
-      const about = D.length ? aboutPlace(D, P.at, used) : null;
+      const about = D.length || P.about ? aboutPlace(D, P.at, used, P.about) : null;
       if (modeOf(id) === 'land') { stops.push({ name: P.say || `Landing at ${P.name}`, say: P.say || `Landing at ${sayName || P.name}`, sayName, about, touch: true, spot: P.spot, x: P.spot.x, z: P.spot.z }); prev = P.spot; continue; }
       const tv = P.view ? await P.view() : { x: P.at.x, z: P.at.z, dist: 700, tilt: 60 * DEG, az: azTo(prev, P.at) };   // (a spot flown over: looked at the way she comes in)
       stops.push({ name: P.name, sayName, about, x: tv.x, z: tv.z, hold: 5, target: () => tv }); prev = tv;
