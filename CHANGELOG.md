@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-10-31 — Bird's-eye: the top buttons keep clear of the places list (v1086)
+
+- In a narrower or zoomed window, the buttons along the top (Bowdoin, Crow's nest, Underway…) ran on over the places list. They now stay to the right of the list and wrap to a second row if need be. Underway, the clock, Weather, the follow bar and the flight bar open below however many rows the buttons make (--scale-h).
+
 ## 2026-10-31 — Bird's-eye: My places' names on a line of their own (v1085)
 
 - Bird's-eye, My places: each name has its own line, with its town, 📝, ✎ and ✕ on the line under it. Side by side, the panel's narrow column had left the names one letter wide.

@@ -201,6 +201,14 @@ body.innest .panel, body.innest #help { display: none !important; }
 body.embed #nesthud { top: calc(94px + env(safe-area-inset-top, 0px)); }
 #scale #views .wxbtn.on { background: rgba(224,168,67,0.9); color: #1b2328; cursor: default; }
 #scale { flex-wrap: wrap; justify-content: flex-end; max-width: calc(100vw - 24px); box-sizing: border-box; }
+/* (v1086, reported with a snapshot: the buttons ran on over the places list in a narrower window) they keep to the right
+   of the list, a second row if need be, and what opens under them goes under however many rows they make (--scale-h) */
+@media (min-width: 641px) {
+  body:not(.embed) #scale { max-width: calc(100vw - 13.5rem - 36px); }
+  body:not(.embed) :is(#clockpanel, #underway, #wxpanel) { top: calc(18px + var(--scale-h, 30px) + env(safe-area-inset-top, 0px)); }
+  body:not(.embed) #followhud { top: calc(22px + var(--scale-h, 30px) + env(safe-area-inset-top, 0px)); }
+  body:not(.embed) :is(#flybar, #flypick) { top: calc(26px + var(--scale-h, 30px) + env(safe-area-inset-top, 0px)); }
+}
 #scale .wxbtn { font: inherit; font-family: var(--body); font-size: 0.76rem; color: var(--ink); background: rgba(255,255,255,0.12); border: 0; border-radius: 4px; padding: 2px 8px; cursor: pointer; }
 #scale #livebtn.on { background: rgba(60,160,110,0.6); }   /* 📡 Live (v986): green while on, amber when it can't reach the feed */
 #scale #livebtn.on[data-state=offline] { background: rgba(224,168,67,0.55); }
