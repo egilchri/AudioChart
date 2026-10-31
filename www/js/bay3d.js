@@ -28,6 +28,7 @@ import { makeCurrents, layerAt } from './currents.js';
 import { OBS, makeObs, windWords, wavesWords } from './obs.js';
 import { GAUGES, gaugePage, makeTideGauge, predAt, trendAt, nextTurns, tideChart } from './tidegauge.js';
 import { makeFlyover, orderStops, offLeg } from './flyover.js';
+import * as Voice from './piper_voice.js';
 import { makeOverview } from './overview2d.js';
 import { makeAisFeed, aisStatus, aisName, aisDest, setKnown, knownFor, aisFlag, aisRot, aisPos, aisAgo, aisLookup, aisImo, aisCallsign, AIS_CREDIT } from './ais.js';
 
@@ -3215,6 +3216,7 @@ const clock = new THREE.Clock();
     if (params.get('embed')) try { parent.document.getElementById('app')?.classList.toggle('flyover-on', on); } catch (_) {}
   };
   fly = makeFlyover({ view, bar: document.getElementById('flybar'), camera, scene, brgTxt: magTxt, groundY: (x, z) => Math.max(0, heightAt(lonOf(x), latOf(z))), onEnd: () => { setFlying(false); if (rec) setTimeout(() => { if (!fly?.on()) stopRec(); }, 3000); },   // (a few seconds of her on the pad)
+    voice: Voice,
     // what she passes, named on the way (v1076): the towns and harbors, the big bridges, the high summits (seen from
     // farther off), and My places
     landmarks: () => [
@@ -3248,14 +3250,18 @@ const clock = new THREE.Clock();
     if (rec) return true;
     let stream = null;
     try {
-      if (navigator.mediaDevices?.getDisplayMedia) stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30 }, audio: true, preferCurrentTab: true, selfBrowserSurface: 'include', surfaceSwitching: 'exclude', systemAudio: 'include' });
+      if (navigator.mediaDevices?.getDisplayMedia) stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30 }, audio: false, preferCurrentTab: true, selfBrowserSurface: 'include', surfaceSwitching: 'exclude' });
     } catch (err) { if (err?.name === 'NotAllowedError' || err?.name === 'AbortError') return false; }   // (you said no: she flies unrecorded)
     if (!stream) { try { stream = renderer.domElement.captureStream(30); } catch (_) { return false; } }
+    // the sound: the narrator's own voice (v1083), straight from the page's audio; the system voice can't be recorded
+    let voiceTrack = null; try { voiceTrack = Voice.stream().getAudioTracks()[0]; } catch (_) {}   // (silent until she speaks: the voice may still be on its way)
+    const both = new MediaStream([...stream.getVideoTracks(), ...(voiceTrack ? [voiceTrack] : [])]);
     const type = recType(); let mr;
-    try { mr = new MediaRecorder(stream, type ? { mimeType: type, videoBitsPerSecond: 5e6 } : undefined); } catch (_) { stream.getTracks().forEach(t => t.stop()); return false; }
+    const stopVideo = () => stream.getTracks().forEach(t => t.stop());   // (not the voice's track: it's kept for next time)
+    try { mr = new MediaRecorder(both, type ? { mimeType: type, videoBitsPerSecond: 5e6 } : undefined); } catch (_) { stopVideo(); return false; }
     const chunks = [];
     mr.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
-    mr.onstop = () => { stream.getTracks().forEach(t => t.stop()); saveRec(chunks, mr.mimeType || type); };
+    mr.onstop = () => { stopVideo(); saveRec(chunks, mr.mimeType || type); };
     stream.getVideoTracks()[0]?.addEventListener('ended', () => stopRec());   // (sharing stopped from the browser's own bar)
     mr.start(1000);
     rec = { mr, t0: performance.now(), timer: setInterval(showRec, 500) }; showRec();
@@ -3383,7 +3389,17 @@ const clock = new THREE.Clock();
   };
   go.addEventListener('click', async () => {
     const ids = planIds(); if (!ids.length) return;   // (in the Flight plan's order: v1071)
+    if (talkCk.checked) Voice.unlock();   // (the click lets the page's sound start)
     if (recCk?.checked) await startRec();   // (first, while the click still counts: the browser asks to share the tab)
+    // the narrator's voice (v1083): ready, or got ready (the first time, ~90 MB, the bar counting); recording waits for
+    // it (its sound is what's recorded), else she sets off in a couple of seconds with the system voice meanwhile
+    if (talkCk.checked && !Voice.state().failed && !Voice.ready()) {
+      const was = go.textContent, shown = p => { go.textContent = `Getting the narrator's voice ready… ${Math.round(p * 100)}%`; };
+      go.disabled = true; shown(0);
+      const got = Voice.load(shown);
+      await (recCk?.checked ? got : Promise.race([got, new Promise(r => setTimeout(r, 2500))]));
+      go.textContent = was;
+    }
     go.disabled = true; go.textContent = 'Getting ready…';
     const from = fromSpot ? { x: fromSpot.x, z: fromSpot.z } : { x: view.x, z: view.z };
     const D = talkCk.checked ? await loadDocs() : [], used = new Set();

@@ -29,7 +29,9 @@ import('./tts.js').then(m => { TTS = m; }).catch(() => {});   // (no speech on t
 // stop: { name, say?, target() → { x, z, dist, az, tilt } (radians), hold (s), onArrive?(), onLeave?() }
 // spot (take-off and landing): { name, x, z, y() → the ground's height there }
 // a landing on the way: { name, say?, touch: true, spot, hold? } (its target is worked out here)
-export function makeFlyover({ view, bar, camera, scene, onEnd, brgTxt = t => `${Math.round(t)}°`, groundY = () => 0, landmarks = () => [] }) {
+export function makeFlyover({ view, bar, camera, scene, onEnd, brgTxt = t => `${Math.round(t)}°`, groundY = () => 0, landmarks = () => [], voice = null }) {
+  // who speaks: the narrator's own voice once it's ready (piper_voice.js, v1083: it can be recorded), else the system's
+  const V = () => (voice?.ready() ? voice : TTS);
   let tour = null, spots = { from: null, to: null }, parked = null;
   // the helicopter: ahead of the camera and a little below, her nose the way we look, banked into the turns (as the
   // videos' recorder put her); paused, she hovers where she was; between tours she waits on her pad
@@ -48,8 +50,8 @@ export function makeFlyover({ view, bar, camera, scene, onEnd, brgTxt = t => `${
   const putPads = () => [spots.from, spots.to].forEach((p, i) => { pads[i].visible = !!p; if (p) pads[i].position.set(p.x, p.y() + 0.25, p.z); });
   const text = bar.querySelector('.fly-text'), playBtn = bar.querySelector('.fly-play'), endBtn = bar.querySelector('.fly-end');
   const caption = s => { text.textContent = s; };
-  const speak = s => { if (tour?.talk && s) try { TTS?.sayImmediate(spoken(s)); } catch (_) {} };
-  const sayNext = s => { if (tour?.talk && s) try { TTS?.say(spoken(s)); } catch (_) {} };   // (after whatever's being said)
+  const speak = s => { if (tour?.talk && s) try { V()?.sayImmediate(spoken(s)); } catch (_) {} };
+  const sayNext = s => { if (tour?.talk && s) try { V()?.say(spoken(s)); } catch (_) {} };   // (after whatever's being said)
   // the narration (v1075, requested: "voice narration, at least calling out each spot on the itinerary"): the plan at
   // take-off, each leg as she sets off on it (where to, how far, which way), the name on arrival, and the end
   const POINTS = ['north', 'northeast', 'east', 'southeast', 'south', 'southwest', 'west', 'northwest'];
@@ -70,7 +72,7 @@ export function makeFlyover({ view, bar, camera, scene, onEnd, brgTxt = t => `${
   function callLandmarks(now) {
     if (!tour.talk || now - lmAt < 500) return;
     lmAt = now;
-    try { if (TTS?.isSpeaking()) return; } catch (_) {}
+    try { if (V()?.isSpeaking()) return; } catch (_) {}
     const hp = heli.group.position, S = tour.stops[tour.i], prev = tour.i ? tour.stops[tour.i - 1] : spots.from;
     const near = (L, P, r) => P && Math.hypot(L.x - P.x, L.z - P.z) < r;
     tour.said = tour.said || new Set();
@@ -102,7 +104,7 @@ export function makeFlyover({ view, bar, camera, scene, onEnd, brgTxt = t => `${
       if (t) sayNext(t);
     }
   }
-  const hush = () => { try { TTS?.stop(); } catch (_) {} };
+  const hush = () => { try { TTS?.stop(); voice?.stop(); } catch (_) {} };
   const smooth = u => u * u * (3 - 2 * u);
   // a leg's way along (0 to 1) at time u (0 to 1): speeding up for the first a of it, at speed, slowing down for
   // the last a (so the speed shown is the speed she cruises at, not an average under a peak half as fast again)
@@ -318,7 +320,7 @@ export function makeFlyover({ view, bar, camera, scene, onEnd, brgTxt = t => `${
     const t = tour; tour = null; if (timeEl) timeEl.hidden = true;
     t.stops[t.i]?.onLeave?.(); hush();
     const later = (s, then) => { caption(s); playBtn.hidden = true; setTimeout(() => { if (!tour) { bar.hidden = true; playBtn.hidden = false; then?.(); } }, 2500); };
-    const sayEnd = s => { if (t.talk) try { TTS?.sayImmediate(spoken(s)); } catch (_) {} };
+    const sayEnd = s => { if (t.talk) try { V()?.sayImmediate(spoken(s)); } catch (_) {} };
     if (why === 'landed') { const p = t.stops[t.i]; park(p, t.landNose); later(`Landed at ${p.spotName}`); sayEnd(`Landed at ${p.spotName}. That's the end of the flight.`); }
     else if (why === 'done') { later('Flyover done', () => park(spots.from)); sayEnd("That's the end of the flight."); }
     else { bar.hidden = true; park(spots.from); }

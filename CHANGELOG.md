@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-10-31 — Bird's-eye: the narrator's own voice, recorded with the flight (v1083)
+
+- Requested: "Can the recording include the narration?" … "go ahead with the built-in voice". The flyover now speaks
+  with Piper (neural, en_US lessac medium) run in the page (js/piper_voice.js; @mintplex-labs/piper-tts-web 1.0.5,
+  onnxruntime-web 1.18.0 via the import map), through Web Audio, so a recording takes its sound straight from the
+  page: the system voice (speechSynthesis) can't be recorded. A sentence at a time, the next made while one plays
+  (5× faster than it speaks, one thread). The first time ~90 MB comes down (Fly shows "Getting the narrator's voice
+  ready… n%"; recording waits for it, else the system voice fills in meanwhile); the voice is kept in OPFS, the runtime
+  and phonemizer in sw.js's audiochart-voice-v1 (cache-first, pinned), Hugging Face left alone. A constant inaudible
+  signal keeps the recording's sound in step with the picture (Chrome otherwise sends no sound in the silences and the
+  recorder runs the sentences together). Tested: a 1:48 flight, audio and video 108.3 s each, speech where she speaks.
+  This voice says "Bass Harbor" as "base": the "Basse" respelling (formants checked) puts it right.
+
 ## 2026-10-31 — Bird's-eye: on the way to a place, she tells you about it (v1082)
 
 - Requested: "On the way to a place, say as much as you have time to say about that place. Keep it interesting,

@@ -1,4 +1,4 @@
-/** @version v1082 */
+/** @version v1083 */
 /* Bump this comment on every release, even when nothing else in this file
    changes — a service worker only gets reinstalled when its own script
    bytes differ from what's currently active (see the v505 fix), so a
@@ -23,6 +23,7 @@ const CHART_CACHE     = 'audiochart-chart-v1';     // OSM + OpenSeaMap chart til
 // Deliberately unversioned/stable — must survive an activate() that races the share flow.
 const SHARE_CACHE = 'audiochart-share-target';
 const HELM3D_CACHE = 'audiochart-helm3d-v1';   // 3D helm view's USGS downloads (helm3d.js manages it)
+const VOICE_CACHE = 'audiochart-voice-v1';     // the narrator's voice's runtime and phonemizer (pinned versions; v1083)
 const SHARE_PAYLOAD_KEY = './shared-gpx-payload';
 const TILES_MAX = 800;
 
@@ -46,7 +47,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) =>
       Promise.all(
         keys
-          .filter((k) => k !== CACHE && k !== TILES_CACHE && k !== SATELLITE_CACHE && k !== CHART_CACHE && k !== SHARE_CACHE && k !== HELM3D_CACHE)
+          .filter((k) => k !== CACHE && k !== TILES_CACHE && k !== SATELLITE_CACHE && k !== CHART_CACHE && k !== SHARE_CACHE && k !== HELM3D_CACHE && k !== VOICE_CACHE)
           .map((k) => caches.delete(k))
       )
     ).then(() => self.clients.claim())
@@ -136,6 +137,21 @@ self.addEventListener('fetch', (event) => {
   // fallback) — never a wrong-but-successful stale answer.
   if (url.pathname.endsWith('/data-version.json')) {
     event.respondWith(fetch(event.request, { cache: 'no-store' }));
+    return;
+  }
+
+  // The narrator's voice (v1083, piper_voice.js): the voice model itself comes from Hugging Face and the library keeps
+  // it in the browser's own storage (OPFS), so leave those fetches alone (63 MB, not to be copied into every version's
+  // cache); its runtime and phonemizer are pinned versions on jsDelivr, kept here once (cache-first) for offline use.
+  if (url.hostname === 'huggingface.co' || url.hostname.endsWith('.hf.co') || url.hostname.endsWith('.huggingface.co')) return;
+  if (url.hostname === 'cdn.jsdelivr.net' && /^\/npm\/(@mintplex-labs\/piper-tts-web@1\.0\.5|onnxruntime-web@1\.18\.0|@diffusionstudio\/piper-wasm@1\.0\.0)\//.test(url.pathname)) {
+    event.respondWith(caches.open(VOICE_CACHE).then(async (c) => {
+      const hit = await c.match(event.request);
+      if (hit) return hit;
+      const r = await fetch(event.request);
+      if (r.ok) c.put(event.request, r.clone());
+      return r;
+    }));
     return;
   }
 
