@@ -73,16 +73,16 @@ body { background: var(--sky); color: var(--ink); font-family: var(--body); font
 .panel h1 small { display: block; font-family: var(--body); font-weight: 400; font-size: 0.74rem; color: var(--muted); letter-spacing: 0; margin-top: 2px; }
 .panel .head { display: flex; align-items: start; justify-content: space-between; gap: 8px; }
 #towns-toggle { display: none; }
-#towns, #bridges, #landings, #mine { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+#towns, #bridges, #landings, #mine, #lakes { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
 /* (v1061: the panel's column is its width, a long name wraps; Southwest Harbor Coast Guard Station had widened it
    past the window's edge, taking the take-off spot's Change button with it) */
-.panel, #flyrow, #towns, #bridges, #landings, #mine { grid-template-columns: minmax(0, 1fr); }
-#towns button, #bridges button, #landings button:not(.rm), #mine button:not(.rm) { min-width: 0; overflow-wrap: anywhere; }
-#towns button, #bridges button, #landings button:not(.rm), #mine button:not(.rm), .panel .whole { width: 100%; text-align: left; font: inherit; color: var(--ink); background: transparent; border: 0; border-radius: 5px; padding: 5px 8px; cursor: pointer; }
+.panel, #flyrow, #towns, #bridges, #landings, #mine, #lakes { grid-template-columns: minmax(0, 1fr); }
+#towns button, #bridges button, #lakes button, #landings button:not(.rm), #mine button:not(.rm) { min-width: 0; overflow-wrap: anywhere; }
+#towns button, #bridges button, #lakes button, #landings button:not(.rm), #mine button:not(.rm), .panel .whole { width: 100%; text-align: left; font: inherit; color: var(--ink); background: transparent; border: 0; border-radius: 5px; padding: 5px 8px; cursor: pointer; }
 #towns button:hover, #bridges button:hover, #landings button:not(.rm):hover, #mine button:not(.rm):hover, .panel .whole:hover { background: rgba(255, 255, 255, 0.1); }
 /* Flyover (v1046): a tick box by each place, ▶ Fly under them, and the tour's bar along the top */
-#towns li, #bridges li, #landings li, #mine li { display: flex; align-items: center; }
-#towns li input[type=checkbox], #bridges li input, #landings li input[type=checkbox], #mine li input[type=checkbox] { flex: none; margin: 0 2px 0 6px; width: 15px; height: 15px; accent-color: var(--brass); cursor: pointer; }
+#towns li, #bridges li, #lakes li, #landings li, #mine li { display: flex; align-items: center; }
+#towns li input[type=checkbox], #bridges li input, #lakes li input, #landings li input[type=checkbox], #mine li input[type=checkbox] { flex: none; margin: 0 2px 0 6px; width: 15px; height: 15px; accent-color: var(--brass); cursor: pointer; }
 #flyrow { display: grid; gap: 4px; }
 #flyrow .whole:disabled { opacity: 0.55; cursor: default; background: transparent; }
 #flyrow label { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--muted); padding: 0 8px; cursor: pointer; }
@@ -161,6 +161,7 @@ body.embed #bayswitch button { padding: 5px 14px; }
 #sailnote[hidden], #sailrow[hidden], #tohelm[hidden], #tofree[hidden] { display: none; }
 #wproute option { color: #1b2328; background: #f3f1ea; }
 .lbl.wpt { color: #c9f2d6; }
+.lbl.lake { font-style: italic; color: #bfe3ff; }   /* lakes and ponds (v1087) */
 .panel a { color: var(--brass); font-size: 0.8rem; padding-left: 8px; }
 button:focus-visible { outline: 2px solid var(--brass); outline-offset: 1px; }
 #help { position: fixed; right: 12px; bottom: calc(12px + var(--credit-h, 13px) + env(safe-area-inset-bottom, 0px));   /* above the credit line (v1045; bay3d.js sets its height) */ z-index: 2; font-size: 0.74rem; color: var(--muted); background: var(--glass); border-radius: 5px; padding: 4px 9px; max-width: calc(100% - 24px); box-sizing: border-box; }
@@ -374,6 +375,8 @@ body.embed #exagbox { top: calc(94px + env(safe-area-inset-top, 0px)); }
     <div class="sect" id="bridgesect" hidden>Bridges</div>
     <ul id="bridges"></ul>
     <button class="whole" id="bridgetour" type="button" hidden title="Fly over the bay's big bridges by helicopter, the nearest first">✈ Bridges tour</button>
+    <div class="sect" id="lakesect" hidden>Lakes and ponds</div>
+    <ul id="lakes"></ul>
     <div class="sect" id="landsect" hidden>Landing spots</div>
     <ul id="landings"></ul>
     <button class="whole" id="landadd" type="button" hidden title="Tap a spot on land where she should come down on the way">＋ Add a landing spot</button>

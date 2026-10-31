@@ -2760,6 +2760,7 @@ const goView = url => { try { if (window.parent !== window && window.parent.__au
 
 // ── Labels: towns (click to fly there) from up high; place names and buoy numbers lower down ──
 const labelsEl = document.getElementById('labels'), pool = [];
+const lakes = (REG.lakes || []).map(l => ({ ...l, x: wx(l.lon), z: wz(l.lat), y: Math.max(0, heightAt(l.lon, l.lat)) + 6, click: null }));   // (v1087: named on the map, a tap flies there; its click set with the panel's list)
 let myMarks = [];   // (My places' labels, 📍 and the name you gave it, and one being placed: v1071, below)
 const places = placesGJ.features.filter(f => f.geometry?.type === 'Point' && inBay(f.geometry.coordinates) && ['LNDARE', 'LNDRGN', 'BUAARE'].includes(f.properties.objtype))
   .map(f => ({ n: f.properties.name, x: wx(f.geometry.coordinates[0]), z: wz(f.geometry.coordinates[1]), lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] }))
@@ -2803,6 +2804,10 @@ function updateLabels() {
     for (const m of myMarks) {   // My places (v1071): from farther off than the chart's names, and a tap flies there
       const d = Math.hypot(m.x - view.x, m.z - view.z);
       if (d < Math.max(view.dist * 3, 6000) || m.el) cand.push({ text: m.text, x: m.x, y: m.y, z: m.z, cls: 'wpt tap', pri: 0.2 + d / 1e6, click: m.click, drag: m.drag, el: m.el, rename: m.rename });
+    }
+    for (const l of lakes) {   // lakes and ponds (v1087)
+      const d = Math.hypot(l.x - view.x, l.z - view.z);
+      if (d < Math.max(view.dist * 2.5, 6000)) cand.push({ text: l.name, x: l.x, y: l.y, z: l.z, cls: 'lake tap', pri: 0.3 + d / 1e6, click: l.click });
     }
     for (const l of bridges?.labels || []) {   // bridge names (v1020)
       const d = Math.hypot(l.x - view.x, l.z - view.z);
@@ -3118,7 +3123,7 @@ const clock = new THREE.Clock();
   // (v1081: "Ned and Mary's place is in Bass Harbor. Cartwright's place is in Southwest Harbor"; "Crow Island is its
   // own place"): a name that's a place itself (an island, a ledge, a point…) has no town; a village wins over a town in
   // the list only when it's less than half as far; and the town you set for a place (My places: its "in …") is the one)
-  const SELF_PLACE = /\b(island|isle|islet|islands|ledges?|rocks?|point|head|neck|cove|harbou?r|mountain|hill|bar|reach|thorofare)\b/i;
+  const SELF_PLACE = /\b(island|isle|islet|islands|ledges?|rocks?|point|head|neck|cove|harbou?r|mountain|hill|bar|reach|thorofare|lake|pond)\b/i;
   const townFor = at => {
     if (!landPolys) return null;
     const mine = landmassAt(lonOf(at.x), latOf(at.z)), ok = c => c.d <= c.max && (mine ? c.land() === mine : c.d <= 1200);   // (an island of its own, or out on the water)
@@ -3162,6 +3167,20 @@ const clock = new THREE.Clock();
     }
   };
   if (!EMPTY) { document.getElementById('landsect').hidden = false; landAdd.hidden = false; drawLandings(); showRow(); sync(); }
+  // lakes and ponds (v1087): fly to one, or tick it to fly over it on the way
+  if (lakes.length && !EMPTY) {
+    const lakeUl = document.getElementById('lakes'), was = new Set(saved.ticked || []);
+    for (const l of lakes) {
+      const id = `lake:${l.name}`, li = document.createElement('li'), b = document.createElement('button'), ck = document.createElement('input');
+      l.click = () => { markCurrent(id); foldPanel(true); flyTo({ x: l.x, z: l.z, dist: 1600, tilt: 55 * DEG, az: view.az }, 3200); };
+      b.type = 'button'; b.textContent = l.name; b.title = `Fly to ${l.name}`; b.dataset.id = id; b.addEventListener('click', l.click);
+      ck.type = 'checkbox'; ck.dataset.id = id; ck.setAttribute('aria-label', `Fly over ${l.name} on the way`); ck.title = 'Fly over it on the way (▶ Fly, below)';
+      ck.checked = was.has(id); ck.addEventListener('change', sync);
+      li.append(ck, b); lakeUl.appendChild(li); boxes.push(ck);
+      placeView.set(id, { name: l.name, at: { x: l.x, z: l.z }, spot: null });
+    }
+    document.getElementById('lakesect').hidden = false; lblTick = 0; showRow(); sync();
+  }
   landAdd.addEventListener('click', () => startPick('touch'));
   // My places (v1071): kept for each bay; a tick makes it a stop (on land, she can land there: the Flight plan)
   const mineUl = document.getElementById('mine'), mineAdd = document.getElementById('mineadd'), MINE_KEY = `audiochart-bay3d-myplaces-${RID}`;
@@ -3228,6 +3247,7 @@ const clock = new THREE.Clock();
       ...townList.map(t => ({ name: t.name, x: t.x, z: t.z, r: 3500 })),
       ...(bridges?.places || []).filter(p => p.big).map(p => ({ name: p.name, x: p.x, z: p.z, r: 2500 })),
       ...places.filter(p => p.elev > 150).map(p => ({ name: p.n, x: p.x, z: p.z, r: 6000 })),
+      ...lakes.map(l => ({ name: l.name, x: l.x, z: l.z, r: 2500 })),
       ...myMarks.filter(m => m.click).map(m => ({ name: withTown(m.text.replace(/^📍 /, ''), m, m.town), x: m.x, z: m.z, r: 2000 })),
     ] });
   addEventListener('pagehide', () => setFlying(false));   // (this view swapped for another mid-flight)

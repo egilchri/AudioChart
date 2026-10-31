@@ -24,6 +24,12 @@ export const REGIONS3D = {
         // history.uscg.mil (Southwest Harbor, Maine), the Southwest Harbor Public Library's archive, the Mount Desert Islander
         about: 'Clark Point has been a federal waterfront since 1937, when the U.S. Lighthouse Service set up its buoy depot here; two years later the Lighthouse Service was folded into the Coast Guard. The station itself goes back to a Life-Saving Station on Little Cranberry Island, set up by an Act of Congress in 1878. In the mid-1940s that station was moved here and joined to the Southwest Harbor station. Since 2005 the base has been a Sector Field Office of Coast Guard Sector Northern New England, home to its search and rescue crews and the patrol boat Bridle, some sixty to eighty people in all.' },
     ],
+    // lakes and ponds (v1087, requested: "add Echo Lake and Long Pond to the map, so that I can add them to places"):
+    // named on the map and listed under Lakes and ponds, to fly to or tick to fly over (OpenStreetMap's, Mount Desert)
+    lakes: [
+      { name: 'Echo Lake', lon: -68.3368, lat: 44.3270 },
+      { name: 'Long Pond', lon: -68.3615, lat: 44.3276 },
+    ],
     overview: [-69.45, 43.75, -67.95, 44.75],
     bay: [-69.25, 43.85, -68.1, 44.55],
     whole: { lon: -68.7, lat: 44.17, dist: 60000 },

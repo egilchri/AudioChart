@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-10-31 — Bird's-eye: Echo Lake and Long Pond (v1087)
+
+- Requested: "add Echo Lake and Long Pond to the map, so that I can add them to places". Penobscot Bay has a new `lakes` list in regions3d.js (positions from OpenStreetMap). Each lake is named on the map in italic blue, and a tap on its name flies there. The places panel has a new Lakes and ponds section: fly to a lake, or tick it to fly over it on the way. On a flight she names each lake as she passes it, with no town (lake and pond were added to SELF_PLACE).
+
 ## 2026-10-31 — Bird's-eye: the top buttons keep clear of the places list (v1086)
 
 - In a narrower or zoomed window, the buttons along the top (Bowdoin, Crow's nest, Underway…) ran on over the places list. They now stay to the right of the list and wrap to a second row if need be. Underway, the clock, Weather, the follow bar and the flight bar open below however many rows the buttons make (--scale-h).
