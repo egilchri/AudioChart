@@ -36,11 +36,12 @@ export const REGIONS3D = {
     tz: 'America/New_York',   // (v1041: the scene's clock and the times shown are the bay's; regiontime.js)
   },
   'casco-bay': {
-    name: 'Casco Bay', short: 'Casco',
+    name: 'Casco Bay & Midcoast', short: 'Casco',
     origin: [-70.05, 43.72],
     heliport: { name: 'the Portland Jetport', lon: -70.3093, lat: 43.6462 },   // (where the Flyover's helicopter takes off: v1049)
-    overview: [-70.55, 43.42, -69.6, 44.02],
-    bay: [-70.32, 43.55, -69.78, 43.93],
+    // (v1088: east to Port Clyde with the chart region, for Rockland to Portland: Boothbay, Pemaquid, Muscongus Bay)
+    overview: [-70.55, 43.42, -69.1, 44.12],
+    bay: [-70.32, 43.55, -69.25, 44.05],
     whole: { lon: -70.06, lat: 43.71, dist: 40000 },
     tz: 'America/New_York',
   },

@@ -829,12 +829,17 @@ const CRUISE_PROFILES = {
   // _visibleCruiseProfiles) so a user can't wander into an unfinished area
   // and get confused, but still fully reachable for continued development
   // via the ?dev=1 URL unlock (see the DEV_UNLOCK_KEY handling in init()).
-  'Casco Bay': {
+  // (v1088: east to Port Clyde, overlapping Penobscot Bay there, for Rockland to Portland; same region id, casco-bay)
+  'Casco Bay & Midcoast': {
     dataUrl: './data/regions/casco-bay.json',
     dev: true,
     stops: [
-      { name: 'Portland',  lat: 43.6573, lon: -70.2564 },
-      { name: 'Harpswell', lat: 43.7931, lon: -70.0760 },
+      { name: 'Portland',        lat: 43.6573, lon: -70.2564 },
+      { name: 'Harpswell',       lat: 43.7931, lon: -70.0760 },
+      { name: 'Boothbay Harbor', lat: 43.8461, lon: -69.6353 },
+      { name: 'New Harbor',      lat: 43.8743, lon: -69.4909 },
+      { name: 'Friendship',      lat: 43.9704, lon: -69.3358 },
+      { name: 'Port Clyde',      lat: 43.9262, lon: -69.2560 },
     ],
   },
   'Piscataqua': {
@@ -13287,7 +13292,11 @@ async function _regionContaining(lat, lon) {
     const ids = ['', ...Object.keys(_visibleCruiseProfiles()).map(_regionIdFor).filter(Boolean)];
     await Promise.all(ids.map(async (id) => { _regionBoundsCache[id] = await _fetchChartBounds(id); }));
   }
-  const orderedIds = Object.keys(_regionBoundsCache).filter(id => id !== '').concat(['']);
+  // the active region first: where two regions overlap (Port Clyde, in both Penobscot Bay and Casco Bay & Midcoast
+  // since v1088), you stay in the one you're in rather than being offered the other
+  const activeId = Query.getActiveRegion() || '';
+  const orderedIds = [activeId, ...Object.keys(_regionBoundsCache).filter(id => id !== '' && id !== activeId), ...(activeId ? [''] : [])]
+    .filter(id => id in _regionBoundsCache);
   for (const id of orderedIds) {
     const b = _regionBoundsCache[id];
     if (b && lon >= b.minLon && lon <= b.maxLon && lat >= b.minLat && lat <= b.maxLat) return id;

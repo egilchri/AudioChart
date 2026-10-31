@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-10-31 — Casco Bay & Midcoast: the charts reach Port Clyde, for Rockland to Portland (v1088)
+
+- Requested: "I am considering a boat trip from Rockland to Portland, Maine, so I need to fill in that area of coast between them". The user chose to grow Casco Bay east rather than add a region.
+- Casco Bay's region (id still `casco-bay`) is rebuilt east to -69.2: Sheepscot, Boothbay, Damariscotta, Johns Bay, Pemaquid, Muscongus Bay, Friendship and Port Clyde.
+  - Charts: 19 more NOAA ENC cells (US4ME1BF/1CF/20M, US5ME1HP–1MO, US5ME14M, US5ME19M, US5ME2BA/2CA).
+  - Bbox 43.50,44.10,-70.40,-69.20; validate_output passed.
+  - Before → after: hazards 5,840 → 13,051; named places 855 → 1,445; navaids 416 → 670; land 258 → 528.
+- It overlaps Penobscot Bay at Port Clyde/Tenants Harbor, where the trip switches regions. `_regionContaining` (app.js) now puts the active region first, so in the overlap you're not offered the other region.
+- CRUISE_PROFILES: renamed "Casco Bay & Midcoast", with stops at Boothbay Harbor, New Harbor, Friendship and Port Clyde. It's still `dev: true`.
+- Bird's-eye (regions3d.js): Casco's overview and bay boxes reach -69.1/-69.25.
+- AutoRoute checks (test/_scratch_midcoast.js, test/_scratch_casco.js):
+  - All 15 existing Casco routes pass.
+  - New stretch: Port Clyde to Portland, Friendship, New Harbor and Pemaquid route clean, as does New Harbor to Boothbay. Every shorter leg passes.
+  - Still failing, with a straight-line fallback: Boothbay → Cape Small, Tenants Harbor → Boothbay and Pemaquid → Damariscotta. These are long trips that must go round a peninsula into a narrow harbor; the region has no water mesh (build_water_mesh.py) yet. Damariscotta town ends 1.4 nm short, down the river.
+
 ## 2026-10-31 — Bird's-eye: Echo Lake and Long Pond (v1087)
 
 - Requested: "add Echo Lake and Long Pond to the map, so that I can add them to places". Penobscot Bay has a new `lakes` list in regions3d.js (positions from OpenStreetMap). Each lake is named on the map in italic blue, and a tap on its name flies there. The places panel has a new Lakes and ponds section: fly to a lake, or tick it to fly over it on the way. On a flight she names each lake as she passes it, with no town (lake and pond were added to SELF_PLACE).
