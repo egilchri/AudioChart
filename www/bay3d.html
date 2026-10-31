@@ -110,8 +110,12 @@ body.flying :is(#panel, #scale, #help, #loading, #bayswitch, #exagbox, #clockpan
 body.flying #flybar { top: calc(14px + env(safe-area-inset-top, 0px)) !important; bottom: auto !important; }
 #landings .rm, #mine .rm { flex: none; font: inherit; color: var(--muted); background: none; border: 0; padding: 0 6px; cursor: pointer; }
 #mine .rm.note { opacity: 0.45; } #mine .rm.note.has { opacity: 1; }   /* a note to be said on the way (v1084) */
+/* (v1085: the name has the row to itself, its town, note, rename and forget under it; side by side, the panel's narrow
+   column left the name a letter wide) */
+#mine li { flex-wrap: wrap; row-gap: 0; }
+#mine li > button:not(.rm), #mine li > input[type=text]:not(.rm) { flex: 1 1 calc(100% - 23px); }
+#mine li > .rm.town { margin-left: 23px; }
 #mine .rm.town { font-size: 0.72rem; white-space: nowrap; max-width: 9em; overflow: hidden; text-overflow: ellipsis; }   /* its town as spoken (v1081) */
-#mine li input[type=text] + .rm.town, #mine li .town + input { max-width: 8em; }
 #flybar .fly-text, #flypick .fly-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #flybar button, #flypick button { flex: none; font: inherit; color: var(--ink); background: rgba(255,255,255,0.14); border: 0; border-radius: 5px; padding: 3px 9px; cursor: pointer; }
 #flybar button[hidden], #flypick button[hidden] { display: none; }

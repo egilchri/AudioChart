@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-10-31 — Bird's-eye: My places' names on a line of their own (v1085)
+
+- Bird's-eye, My places: each name has its own line, with its town, 📝, ✎ and ✕ on the line under it. Side by side, the panel's narrow column had left the names one letter wide.
+
 ## 2026-10-31 — Bird's-eye: years said as years, Bass as in sass, the Coast Guard station's history, notes for your places (v1084)
 
 - Requested: "A year like 1854 should be pronounced 'eighteen fifty-four'". flyover.js's spoken() says years as years:
