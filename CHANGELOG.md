@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-31 — Bird's-eye: your places' towns, right (and yours to set) (v1081)
+
+- Reported: "Ned and Mary's place is in Bass Harbor. Cartwright's place is in Southwest Harbor"; "Crow Island is its
+  own place. It is not 'In Islesford'". Fixed three ways:
+  - The chart cuts big islands into pieces at its cells' edges (Mount Desert is several), so "the same land" missed;
+    pieces that share a corner are now one landmass.
+  - A name that's a place itself (an island, a ledge, a point, a cove…) gets no town; a place on the water only one
+    within 1.2 km; a village inside a town's box is that town's (Manset is Southwest Harbor's); a village wins over a
+    town only when less than half as far.
+  - Each of My places shows its town as spoken ("in Bass Harbor") — click it to set the town yourself, or clear it
+    for none; kept with the place.
+
 ## 2026-10-31 — Bird's-eye: record a helicopter tour as a video (v1080)
 
 - Requested: "there should be a button for saving a recording of a helicopter tour". ⏺ in the flight's bar (● m:ss

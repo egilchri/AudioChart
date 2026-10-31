@@ -3068,10 +3068,10 @@ const clock = new THREE.Clock();
   // her come down there on the way, sit a few seconds and lift off again; a click flies you to look at it
   // a name edited in place (v1071; v1076 for the landing spots you've added too, requested: "We need to be able to edit
   // place names we've added"): the button becomes a text box; Enter (or away) keeps it, Esc doesn't
-  const editInPlace = (btn, value, save) => {
+  const editInPlace = (btn, value, save, emptyOk = false) => {
     const inp = document.createElement('input'); inp.type = 'text'; inp.value = value; inp.maxLength = 60; inp.setAttribute('aria-label', 'Its name');
     let done = false;
-    const finish = keepIt => { if (done) return; done = true; const v = inp.value.trim(); save(keepIt && v ? v : null); };
+    const finish = keepIt => { if (done) return; done = true; const v = inp.value.trim(); save(keepIt && (v || emptyOk) ? v : null); };
     inp.addEventListener('keydown', e => { if (e.key === 'Enter') finish(true); else if (e.key === 'Escape') { e.stopPropagation(); finish(false); } });
     inp.addEventListener('blur', () => finish(true));
     btn.replaceWith(inp); inp.focus(); inp.select(); inp.scrollIntoView({ block: 'nearest' });
@@ -3088,9 +3088,19 @@ const clock = new THREE.Clock();
       for (const [x, y] of R[0]) { if (x < w) w = x; if (x > e) e = x; if (y < s) s = y; if (y > n) n = y; }
       return { R, b: [w, s, e, n] };
     });
+    // the chart cuts big islands into pieces at its cells' edges (Mount Desert is several): pieces that share a corner
+    // are one landmass (v1081)
+    const root = P => { while (P.up !== P) P = P.up = P.up.up; return P; }, corner = new Map();
+    for (const P of landPolys) P.up = P;
+    for (const P of landPolys) for (const ring of P.R) for (const [x, y] of ring) {
+      const k = `${Math.round(x * 5000)},${Math.round(y * 5000)}`, Q = corner.get(k);
+      if (!Q) corner.set(k, P); else { const a = root(P), b = root(Q); if (a !== b) a.up = b; }
+    }
+    for (const P of landPolys) P.mass = root(P);
+    try { drawMine(); } catch (_) {}   // (My places' towns, now they can be worked out)
   }).catch(() => { landPolys = []; });
   const inRing = (x, y, ring) => { let c = false; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) { const [xi, yi] = ring[i], [xj, yj] = ring[j]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c; } return c; };
-  const landmassAt = (lon, lat) => landPolys?.find(P => lon >= P.b[0] && lon <= P.b[2] && lat >= P.b[1] && lat <= P.b[3] && inRing(lon, lat, P.R[0]) && !P.R.slice(1).some(h => inRing(lon, lat, h))) || null;
+  const landmassAt = (lon, lat) => landPolys?.find(P => lon >= P.b[0] && lon <= P.b[2] && lat >= P.b[1] && lat <= P.b[3] && inRing(lon, lat, P.R[0]) && !P.R.slice(1).some(h => inRing(lon, lat, h)))?.mass || null;
   const townLand = t => {   // (worked out once a town)
     if (t.land !== undefined || !landPolys) return t.land;
     const [w, s, e, n] = t.bbox, count = new Map();
@@ -3101,16 +3111,24 @@ const clock = new THREE.Clock();
   // chart's built-up areas (BUAARE: Bernard, Manset, West Tremont…) beside the towns in the list; the nearest on the
   // same land wins (a village within 3 km, a town within 5)
   let villages = null;
-  const villageList = () => villages || (villages = placesGJ.features.filter(f => f.properties?.objtype === 'BUAARE' && f.properties.name && f.geometry?.type === 'Point' && inBay(f.geometry.coordinates))
+  const inTown = ([lon, lat]) => townList.some(t => lon >= t.bbox[0] && lon <= t.bbox[2] && lat >= t.bbox[1] && lat <= t.bbox[3]);   // (Manset is Southwest Harbor's: v1081)
+  const villageList = () => villages || (villages = placesGJ.features.filter(f => f.properties?.objtype === 'BUAARE' && f.properties.name && f.geometry?.type === 'Point' && inBay(f.geometry.coordinates) && !inTown(f.geometry.coordinates))
     .map(f => { const [lon, lat] = f.geometry.coordinates; return { name: f.properties.name, x: wx(lon), z: wz(lat), lon, lat }; }));
-  const withTown = (name, at) => {
-    if (!landPolys) return name;
-    const mine = landmassAt(lonOf(at.x), latOf(at.z));
-    const cands = [
-      ...townList.map(t => ({ name: t.short.replace(/ (village|waterfront)$/i, ''), d: Math.hypot(t.x - at.x, t.z - at.z), max: 5000, land: () => townLand(t) })),
-      ...villageList().map(v => ({ name: v.name, d: Math.hypot(v.x - at.x, v.z - at.z), max: 3000, land: () => v.land !== undefined ? v.land : (v.land = landmassAt(v.lon, v.lat)) })),
-    ].filter(c => c.d <= c.max && (mine ? c.land() === mine : c.d <= 2000)).sort((a, b) => a.d - b.d);   // (an island of its own, or out on the water)
-    const tn = cands[0]?.name;
+  // (v1081: "Ned and Mary's place is in Bass Harbor. Cartwright's place is in Southwest Harbor"; "Crow Island is its
+  // own place"): a name that's a place itself (an island, a ledge, a point…) has no town; a village wins over a town in
+  // the list only when it's less than half as far; and the town you set for a place (My places: its "in …") is the one)
+  const SELF_PLACE = /\b(island|isle|islet|islands|ledges?|rocks?|point|head|neck|cove|harbou?r|mountain|hill|bar|reach|thorofare)\b/i;
+  const townFor = at => {
+    if (!landPolys) return null;
+    const mine = landmassAt(lonOf(at.x), latOf(at.z)), ok = c => c.d <= c.max && (mine ? c.land() === mine : c.d <= 1200);   // (an island of its own, or out on the water)
+    const town = townList.map(t => ({ name: t.short.replace(/ (village|waterfront)$/i, ''), d: Math.hypot(t.x - at.x, t.z - at.z), max: 5000, land: () => townLand(t) })).filter(ok).sort((a, b) => a.d - b.d)[0];
+    const vill = villageList().map(v => ({ name: v.name, d: Math.hypot(v.x - at.x, v.z - at.z), max: 3000, land: () => v.land !== undefined ? v.land : (v.land = landmassAt(v.lon, v.lat)) })).filter(ok).sort((a, b) => a.d - b.d)[0];
+    return (vill && (!town || vill.d < town.d * 0.5) ? vill : town)?.name || null;
+  };
+  const withTown = (name, at, set) => {
+    if (set !== undefined) return set ? `${name} in ${set}` : name;   // (yours: as you set it; '' for none)
+    if (SELF_PLACE.test(name)) return name;
+    const tn = townFor(at);
     return !tn || name.toLowerCase().includes(tn.toLowerCase()) ? name : `${name} in ${tn}`;
   };
   const landUl = document.getElementById('landings'), landAdd = document.getElementById('landadd');
@@ -3150,7 +3168,7 @@ const clock = new THREE.Clock();
   let pending = null;   // (one being placed: tapped, its name not yet given)
   const mineId = p => p.id || (p.id = `mine:${p.lon.toFixed(5)},${p.lat.toFixed(5)}`);   // (where it was first put: it keeps its tick and Land/Over when dragged, v1072)
   const onLand = (lon, lat) => heightAt(lon, lat) > 0.5 || !!deckAt(wx(lon), wz(lat));
-  const saveMine = () => { try { localStorage.setItem(MINE_KEY, JSON.stringify(myPlaces.map(p => ({ id: mineId(p), name: p.name, lon: p.lon, lat: p.lat })))); } catch (_) {} };
+  const saveMine = () => { try { localStorage.setItem(MINE_KEY, JSON.stringify(myPlaces.map(p => ({ id: mineId(p), name: p.name, lon: p.lon, lat: p.lat, ...(p.town !== undefined ? { town: p.town } : {}) })))); } catch (_) {} };
   const flyToMine = p => { markCurrent(mineId(p)); foldPanel(true); flyTo({ x: wx(p.lon), z: wz(p.lat), dist: 700, tilt: 60 * DEG, az: view.az }, 3200); };
   // the ground under a screen point (the ray walked down to the land's height there)
   const groundUnder = (cx, cy) => {
@@ -3160,7 +3178,7 @@ const clock = new THREE.Clock();
   };
   // its label on the map: a tap flies there, a drag moves it (kept, and its stop with it, when let go)
   const renameMine = p => { foldPanel(false); mineUl.querySelector(`button.ed[data-id="${CSS.escape(mineId(p))}"]`)?.click(); };   // (a double-click on its label)
-  const markOf = (p, click) => ({ text: '📍 ' + p.name, x: wx(p.lon), z: wz(p.lat), y: Math.max(0, heightAt(p.lon, p.lat)) + 6, click, el: p._el || null, rename: click && (() => renameMine(p)),
+  const markOf = (p, click) => ({ text: '📍 ' + p.name, town: p.town, x: wx(p.lon), z: wz(p.lat), y: Math.max(0, heightAt(p.lon, p.lat)) + 6, click, el: p._el || null, rename: click && (() => renameMine(p)),
     drag: click && { start: el => { p._el = el; }, move: (cx, cy) => { const g = groundUnder(cx, cy); if (g) { p.lon = lonOf(g[0]); p.lat = latOf(g[1]); refreshMarks(); } }, end: () => { p._el = null; saveMine(); drawMine(); sync(); } } });
   const refreshMarks = () => { myMarks = [...myPlaces.map(p => markOf(p, () => flyToMine(p))), ...(pending ? [markOf({ ...pending, name: pending.name || 'here' })] : [])]; lblTick = 0; };
   let mineDrawn = false;
@@ -3178,8 +3196,14 @@ const clock = new THREE.Clock();
       ed.addEventListener('click', () => editInPlace(b, p.name, v => { if (v) { p.name = v; saveMine(); } drawMine(); sync(); }));
       const rm = document.createElement('button'); rm.type = 'button'; rm.className = 'rm'; rm.textContent = '✕'; rm.title = `Forget ${p.name}`;
       rm.addEventListener('click', () => { myPlaces = myPlaces.filter(m => m !== p); delete planMode[id]; saveMine(); drawMine(); sync(); });
-      li.append(ck, b, ed, rm); mineUl.appendChild(li); boxes.push(ck);
-      placeView.set(id, { name: p.name, at: { x: wx(p.lon), z: wz(p.lat) }, spot: onLand(p.lon, p.lat) ? spotOf(p.name, p.lon, p.lat) : null, mine: true });
+      // its town as spoken ("in Bass Harbor"): a click to set it yourself, or clear it for none (v1081)
+      const at = { x: wx(p.lon), z: wz(p.lat) }, auto = SELF_PLACE.test(p.name) ? null : townFor(at);
+      const tw = document.createElement('button'); tw.type = 'button'; tw.className = 'rm town';
+      tw.textContent = p.town !== undefined ? (p.town ? `in ${p.town}` : 'no town') : auto ? `in ${auto}` : '+ town';
+      tw.title = `Said as "${withTown(p.name, at, p.town)}": click to set its town (clear it for none)`;
+      tw.addEventListener('click', () => editInPlace(tw, p.town ?? auto ?? '', v => { if (v !== null) { p.town = v; saveMine(); } else if (p.town === undefined) { /* (Esc: as it was) */ } drawMine(); sync(); }, true));
+      li.append(ck, b, tw, ed, rm); mineUl.appendChild(li); boxes.push(ck);
+      placeView.set(id, { name: p.name, at: { x: wx(p.lon), z: wz(p.lat) }, spot: onLand(p.lon, p.lat) ? spotOf(p.name, p.lon, p.lat) : null, mine: true, town: p.town });
     }
     refreshMarks();
   };
@@ -3197,7 +3221,7 @@ const clock = new THREE.Clock();
       ...townList.map(t => ({ name: t.name, x: t.x, z: t.z, r: 3500 })),
       ...(bridges?.places || []).filter(p => p.big).map(p => ({ name: p.name, x: p.x, z: p.z, r: 2500 })),
       ...places.filter(p => p.elev > 150).map(p => ({ name: p.n, x: p.x, z: p.z, r: 6000 })),
-      ...myMarks.filter(m => m.click).map(m => ({ name: withTown(m.text.replace(/^📍 /, ''), m), x: m.x, z: m.z, r: 2000 })),
+      ...myMarks.filter(m => m.click).map(m => ({ name: withTown(m.text.replace(/^📍 /, ''), m, m.town), x: m.x, z: m.z, r: 2000 })),
     ] });
   addEventListener('pagehide', () => setFlying(false));   // (this view swapped for another mid-flight)
   // ── Recording a flight (v1080, requested: "there should be a button for saving a recording of a helicopter tour"):
@@ -3344,7 +3368,7 @@ const clock = new THREE.Clock();
     const stops = []; let prev = from;
     for (const id of ids) {
       const P = placeView.get(id);
-      const sayName = P.mine ? withTown(P.name, P.at) : undefined;   // (yours: "Ned and Mary's place in Bass Harbor", v1077)
+      const sayName = P.mine ? withTown(P.name, P.at, P.town) : undefined;   // (yours: "Ned and Mary's place in Bass Harbor", v1077)
       if (modeOf(id) === 'land') { stops.push({ name: P.say || `Landing at ${P.name}`, say: P.say || `Landing at ${sayName || P.name}`, sayName, touch: true, spot: P.spot, x: P.spot.x, z: P.spot.z }); prev = P.spot; continue; }
       const tv = P.view ? await P.view() : { x: P.at.x, z: P.at.z, dist: 700, tilt: 60 * DEG, az: azTo(prev, P.at) };   // (a spot flown over: looked at the way she comes in)
       stops.push({ name: P.name, sayName, x: tv.x, z: tv.z, hold: 5, target: () => tv }); prev = tv;
