@@ -92,7 +92,15 @@ export function makeFlyover({ view, bar, camera, scene, onEnd, brgTxt = t => `${
     if (S.ship) return;   // (a ship on the way: named when she's there)
     const hp = heli.group.position, d = Math.hypot(S.x - hp.x, S.z - hp.z) / 1852;
     const n = Math.round(d), far = d < 0.4 ? 'just ahead' : `${n === 1 ? 'a mile' : `${n} miles`} to the ${way(bearing(hp, S))}`;   // (nautical miles, as the bar's nm)
-    sayNext(S.final ? `Heading in to land at ${S.spotName}, ${far}.` : `${tour.i === 0 || tour.stops.slice(0, tour.i).every(P => P.ship) ? 'First' : 'Next'}, ${what(S)}, ${far}.`);
+    const call = S.final ? `Heading in to land at ${S.spotName}, ${far}.` : `${tour.i === 0 || tour.stops.slice(0, tour.i).every(P => P.ship) ? 'First' : 'Next'}, ${what(S)}, ${far}.`;
+    sayNext(call);
+    // then about the place, as much as there's time for before she's there (v1082, requested: "On the way to a place,
+    // say as much as you have time to say about that place … history, geographical features"): S.about(seconds) → text
+    if (S.about) {
+      const sec = tour.dur / 1000 - call.split(' ').length / 2.6 - 6;   // (the call, and a few seconds clear at the end)
+      const t = sec > 6 ? S.about(sec) : '';
+      if (t) sayNext(t);
+    }
   }
   const hush = () => { try { TTS?.stop(); } catch (_) {} };
   const smooth = u => u * u * (3 - 2 * u);

@@ -3333,6 +3333,27 @@ const clock = new THREE.Clock();
   };
   showSpots();
   const azTo = (a, b) => Math.atan2(b.x - a.x, -(b.z - a.z));
+  // what's said about a place on the way there (v1082, requested: "On the way to a place, say as much as you have time
+  // to say about that place. Keep it interesting, talking about history, geographical features"): the app's History,
+  // Island Info, Geology and Paintings entries (data/documents.geojson) within 3 km of it, the nearer and the more
+  // historical first, whole sentences, as many as fit the time; none said twice in a flight
+  let docs = null;
+  const sentencesOf = b => b.replace(/https?:\/\/\S+/g, '').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/[#*_]/g, '').replace(/\s+/g, ' ').trim().split(/(?<=[.!?])\s+(?=["“‘(A-Z0-9])/);
+  const loadDocs = () => docs || (docs = getJSON('./data/documents.geojson').then(fc => (fc.features || [])
+    .filter(f => ['history', 'island-info', 'geology', 'paintings'].includes(f.properties?.category) && f.geometry?.type === 'Point' && f.properties.body && inBay(f.geometry.coordinates))
+    .map(f => { const [lon, lat] = f.geometry.coordinates; return { x: wx(lon), z: wz(lat), cat: f.properties.category, sentences: sentencesOf(f.properties.body) }; })).catch(() => []));
+  const CAT_M = { history: 0, 'island-info': 400, geology: 800, paintings: 1000 };   // (how much nearer the others must be to come first)
+  const aboutPlace = (D, at, used) => sec => {
+    const near = D.map(d => ({ d, dist: Math.hypot(d.x - at.x, d.z - at.z) })).filter(o => o.dist < 3000 && !used.has(o.d)).sort((a, b) => a.dist + CAT_M[a.d.cat] - b.dist - CAT_M[b.d.cat]);
+    let words = Math.floor(sec * 2.6); const out = [];
+    for (const { d } of near) {
+      const take = [];
+      for (const t of d.sentences) { const w = t.split(' ').length; if (w > words) break; take.push(t); words -= w; }
+      if (take.length) { used.add(d); out.push(...take); }
+      if (words < 12) break;
+    }
+    return out.join(' ');
+  };
   // a vessel as a stop: the camera keeps up with her, and a live one's card opens while we're there
   const shipStop = (v, prev) => {
     const az = azTo(prev, v), dist = clamp(vLen(v) * 7, 260, 900);
@@ -3365,13 +3386,15 @@ const clock = new THREE.Clock();
     if (recCk?.checked) await startRec();   // (first, while the click still counts: the browser asks to share the tab)
     go.disabled = true; go.textContent = 'Getting ready…';
     const from = fromSpot ? { x: fromSpot.x, z: fromSpot.z } : { x: view.x, z: view.z };
+    const D = talkCk.checked ? await loadDocs() : [], used = new Set();
     const stops = []; let prev = from;
     for (const id of ids) {
       const P = placeView.get(id);
       const sayName = P.mine ? withTown(P.name, P.at, P.town) : undefined;   // (yours: "Ned and Mary's place in Bass Harbor", v1077)
-      if (modeOf(id) === 'land') { stops.push({ name: P.say || `Landing at ${P.name}`, say: P.say || `Landing at ${sayName || P.name}`, sayName, touch: true, spot: P.spot, x: P.spot.x, z: P.spot.z }); prev = P.spot; continue; }
+      const about = D.length ? aboutPlace(D, P.at, used) : null;
+      if (modeOf(id) === 'land') { stops.push({ name: P.say || `Landing at ${P.name}`, say: P.say || `Landing at ${sayName || P.name}`, sayName, about, touch: true, spot: P.spot, x: P.spot.x, z: P.spot.z }); prev = P.spot; continue; }
       const tv = P.view ? await P.view() : { x: P.at.x, z: P.at.z, dist: 700, tilt: 60 * DEG, az: azTo(prev, P.at) };   // (a spot flown over: looked at the way she comes in)
-      stops.push({ name: P.name, sayName, x: tv.x, z: tv.z, hold: 5, target: () => tv }); prev = tv;
+      stops.push({ name: P.name, sayName, about, x: tv.x, z: tv.z, hold: 5, target: () => tv }); prev = tv;
     }
     let order = stops;
     if (shipsCk.checked) order = withShips(order, from);

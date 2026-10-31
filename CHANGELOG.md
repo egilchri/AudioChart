@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-31 — Bird's-eye: on the way to a place, she tells you about it (v1082)
+
+- Requested: "On the way to a place, say as much as you have time to say about that place. Keep it interesting,
+  talking about history, geographical features". After "Next, Castine, 16 miles to the north", the app's own History,
+  Island Info, Geology and Paintings entries (data/documents.geojson) within 3 km of the place, the nearer and the more
+  historical first, read in whole sentences, as many as fit before she's there (2.6 words a second, a few seconds
+  clear); none twice in a flight. Tested: Stonington's granite boom (254 words) ended 12 s before arrival, Castine's
+  Fort George (210 words) likewise; nothing cut off. Places without entries (New York, San Francisco) just get the call.
+
 ## 2026-10-31 — Bird's-eye: your places' towns, right (and yours to set) (v1081)
 
 - Reported: "Ned and Mary's place is in Bass Harbor. Cartwright's place is in Southwest Harbor"; "Crow Island is its
