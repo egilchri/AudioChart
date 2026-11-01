@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-11-01 — Casco Bay & Midcoast is public (v1091)
+
+- Requested: "go ahead and make Casco public". The region's `dev: true` flag is gone from CRUISE_PROFILES (app.js), so Casco Bay & Midcoast is in the cruise choices, the first-run region list, Download Region and region auto-detect on every device, without `?dev=1`. Bird's-eye offers Casco in its bay switch on every device too (regions3d.js `regions3dOffered`); SF Bay, New York and the Piscataqua still need the unlock.
+- Checked in a fresh browser profile, never unlocked: Casco is in the app's cruise choices and first-run list, and Bird's-eye's switch shows Penobscot | Casco.
+
 ## 2026-11-01 — Casco Bay & Midcoast: AutoRoute round the peninsulas (v1090)
 
 - Requested: a water mesh for Casco (offered after v1088, when long Midcoast routes fell back to a straight line over land).

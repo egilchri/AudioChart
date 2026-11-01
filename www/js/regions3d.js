@@ -103,9 +103,10 @@ export function region3dId() {
   if (/bay3d\.html$/.test(location.pathname)) { try { const s = localStorage.getItem(REGION3D_KEY); if (REGIONS3D[s]) return s; } catch (_) {} }
   return 'penobscot-bay';
 }
-// which bays the switch offers: Casco only once the app's region is unlocked for this device (?dev=1; it's still
-// in progress, app.js CRUISE_PROFILES), or while you're in it
+// which bays the switch offers: Penobscot and Casco (public since v1091, with the app's region); the others only once
+// the app is unlocked for this device (?dev=1, app.js CRUISE_PROFILES), or while you're in one
+const PUBLIC3D = ['penobscot-bay', 'casco-bay'];
 export function regions3dOffered(current) {
   let dev = false; try { dev = localStorage.getItem('audiochart-dev-unlocked') === '1'; } catch (_) {}
-  return Object.keys(REGIONS3D).filter(id => id === 'penobscot-bay' || dev || id === current);
+  return Object.keys(REGIONS3D).filter(id => PUBLIC3D.includes(id) || dev || id === current);
 }

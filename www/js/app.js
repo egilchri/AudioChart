@@ -829,10 +829,10 @@ const CRUISE_PROFILES = {
   // _visibleCruiseProfiles) so a user can't wander into an unfinished area
   // and get confused, but still fully reachable for continued development
   // via the ?dev=1 URL unlock (see the DEV_UNLOCK_KEY handling in init()).
-  // (v1088: east to Port Clyde, overlapping Penobscot Bay there, for Rockland to Portland; same region id, casco-bay)
+  // (v1088: east to Port Clyde, overlapping Penobscot Bay there, for Rockland to Portland; same region id, casco-bay;
+  // public since v1091)
   'Casco Bay & Midcoast': {
     dataUrl: './data/regions/casco-bay.json',
-    dev: true,
     stops: [
       { name: 'Portland',        lat: 43.6573, lon: -70.2564 },
       { name: 'Harpswell',       lat: 43.7931, lon: -70.0760 },
