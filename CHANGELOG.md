@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-11-01 — The journey panel says what she's doing (v1093)
+
+- Requested: "There should be an easier way to do this. The panel to control the speed of a given journey should be very accessible. The journey should be able to transparently show its state. I don't want the user to get lost in the UI." The user couldn't tell whether the boat was moving: at the default 1× she covers about 1/12 nm a minute, and the panel's state was one small grey line.
+- **At a glance** (index.html `.vj-transport`, app.js `_vjSyncState`): a big Pause/Resume at the top, a coloured state (Sailing in green with a beating dot, Paused in amber, Overnight in blue), the day ("Day 2 of 4 · 5 kn · 20×"), a progress bar with each overnight stop marked, and the next stop with its distance and how long it is in real time at this speed and rate ("Port Clyde: 17.8 nm · 3 h 34 min"), so 1× reads as slow, not stuck. Stops without a name of their own take the nearest region stop or named place (`_vjStopName`); the spoken overnight message names it too.
+- **Always in reach:** speed has − / + buttons, and folding the panel (and so ⛶ Clear) no longer hides speed, rate or Pause; only the depth sounder, 3D and On map. The desktop card is 270 px wide (was 220), so all four rate chips show: 60× was scrolled out of it.
+- **The rate is remembered** for the next journey (`audiochart-vj-rate`).
+- **Fix:** changing the speed or the rate mid-journey moved her. Distance run was the run's start plus elapsed time × the new rate, so going from 1× to 60× after ten minutes jumped her about 10 nm on (and back, going down). A change now starts a new run from where she is (`_vjRebase`).
+- Tested headless, laptop and phone sizes, on Rockland to Portland: 1× → 60× with no jump, − / + a knot, pause, folded, the overnight at Port Clyde ("Night at Port Clyde"), then Day 2 for Boothbay Harbor; the rate came back from storage.
+
+## 2026-11-01 — Southwest Harbor's Coast Guard station rebuilt from the lidar (v1092)
+
+- Reported: "the roof of the southwest harbor coast guard station looks very fake". It was one flat slab 5.1 m high, pale grey with shingle courses. The OSM outline (25 points) sits about 4 m north-west of the building the lidar sees, so the eave percentile picked up the ground round it and the roof colour averaged two different roofs.
+- The station is now three flat-roofed blocks fitted to the ME_MidCoast_1_2021 lidar: the west wing's landward half at 7.0 m with a dark roof, its harbour half at 8.2 m with a white one, and the east wing at 10.5 m with a white roof, plus a one-storey annex on the harbour side (the NAIP photo shows the dark and white membranes).
+- New `design/buildings/overrides.json`: hand-fitted blocks that build_buildings.py emits in place of the named OSM building, so rebuilding the town keeps the fix.
+- Checked in Bird's-eye from the same camera before and after.
+
 ## 2026-11-01 — Casco Bay & Midcoast is public (v1091)
 
 - Requested: "go ahead and make Casco public". The region's `dev: true` flag is gone from CRUISE_PROFILES (app.js), so Casco Bay & Midcoast is in the cruise choices, the first-run region list, Download Region and region auto-detect on every device, without `?dev=1`. Bird's-eye offers Casco in its bay switch on every device too (regions3d.js `regions3dOffered`); SF Bay, New York and the Piscataqua still need the unlock.

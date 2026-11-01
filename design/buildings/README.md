@@ -30,6 +30,7 @@ Sources:
 
 Buildings whose centre is outside the town's bbox are skipped, since they belong to the neighbouring town's file.
 Rockland's breakwater and its light are skipped by name (SKIP), because helm3d.js models them by hand.
+A named building whose OSM outline or roof the lidar contradicts can be replaced by hand-fitted blocks in `overrides.json` (keyed by its OSM name); build_buildings.py emits those instead. So far: Southwest Harbor's Coast Guard station (v1092).
 An area spanning two quadkeys gets its Microsoft files concatenated (`cat a.gz b.gz > ms.csv.gz`).
 
 Steps (Python venv with `laspy[lazrs] numpy pillow`). Each script reads the town from the environment:

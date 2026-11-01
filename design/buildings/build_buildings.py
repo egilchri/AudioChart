@@ -83,12 +83,16 @@ if os.environ.get('MS'):
         els.append({'type': 'way', 'id': f'ms{i}', 'tags': {'building': 'yes'}, 'geometry': [{'lon': p[0], 'lat': p[1]} for p in ring]}); added += 1
     print('Microsoft footprints added:', added)
 SKIP = {'Rockland Breakwater', 'Rockland Breakwater Lighthouse'}
+# hand-fitted stand-ins (overrides.json) for named buildings whose OSM outline or roof the lidar contradicts
+OVERRIDES = {k: v for k, v in json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'overrides.json'))).items() if not k.startswith('_')}
 B, PIERS, stats = [], [], {'measured':0,'default':0}
 for e in els:
     tags = e.get('tags', {}); g = e.get('geometry')
     if not g: continue
     ll = [(p['lon'], p['lat']) for p in g]
     if tags.get('name') in SKIP: continue   # modelled by hand in helm3d.js (Rockland's breakwater and light)
+    if 'building' in tags and tags.get('name') in OVERRIDES:
+        B.extend(OVERRIDES[tags['name']]['buildings']); continue
     if 'building' in tags:
         if ll[0] == ll[-1]: ll = ll[:-1]
         if len(ll) < 3: continue
