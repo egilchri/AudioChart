@@ -3440,7 +3440,7 @@ body.wco-active #wco-titlebar { display: flex; }
   #vjourney-banner {
     position: fixed;
     left: 10px;
-    width: 220px;
+    width: 270px;   /* (v1093: 220 → 270, so the rate chips, 60× too, and the day line fit) */
     z-index: 1000;
     border: 1px solid #f5c842;
     border-radius: 8px;
@@ -3469,6 +3469,35 @@ body.wco-active #wco-titlebar { display: flex; }
   cursor: pointer;
 }
 #vjourney-pause-btn:active, #vjourney-stop-btn:active { background: #f5c842; color: var(--navy); }
+/* The journey at a glance (v1092): a big Pause/Resume, a coloured state (Sailing with a beating dot, Paused,
+   Overnight), the day, a progress bar with the overnight stops marked, and the next stop with how long it is
+   at this rate */
+.vj-transport { display: flex; align-items: center; gap: 8px; }
+#vjourney-pause-btn { flex: 0 0 auto; min-width: 6.4em; min-height: 40px; font-size: 0.95rem; padding: 6px 10px; }
+#vjourney-banner[data-state="paused"] #vjourney-pause-btn { background: #f5c842; color: var(--navy); }
+.vj-state { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.vj-pill { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; padding: 2px 9px 2px 8px;
+  border-radius: 999px; font-size: 0.85rem; font-weight: 700; letter-spacing: 0.02em; color: #06131f; background: #9aa7b4; }
+.vj-pill::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: currentColor; opacity: 0.8; }
+.vj-pill.sailing { background: #4fd18b; }
+.vj-pill.sailing::before { animation: vj-beat 1.2s ease-in-out infinite; }
+.vj-pill.paused { background: #f5c842; }
+.vj-pill.paused::before { border-radius: 1px; width: 7px; height: 8px; background: linear-gradient(90deg, currentColor 0 35%, transparent 35% 65%, currentColor 65%); opacity: 1; }
+.vj-pill.overnight { background: #8ab4ff; }
+.vj-pill.stopped { background: #ff8a7a; }
+@keyframes vj-beat { 0%, 100% { transform: scale(0.6); opacity: 0.5; } 50% { transform: scale(1.15); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .vj-pill.sailing::before { animation: none; } }
+#vj-state-sub { font-size: 0.75rem; font-weight: 500; color: #cfd8e3; white-space: nowrap; font-variant-numeric: tabular-nums; }
+#vj-progress { position: relative; height: 6px; border-radius: 3px; background: rgba(245, 200, 66, 0.18); overflow: visible; margin: 2px 0; }
+#vj-progress[hidden] { display: none; }
+#vj-progress .vj-fill { height: 100%; width: 0; border-radius: 3px; background: #f5c842; transition: width 0.2s linear; }
+#vj-progress .vj-tick { position: absolute; top: -3px; width: 2px; height: 12px; margin-left: -1px; background: #8ab4ff; border-radius: 1px; }
+#vj-next { font-size: 0.78rem; font-weight: 500; color: #e6edf3; font-variant-numeric: tabular-nums; }
+#vj-next:empty { display: none; }
+.vj-speed-step { min-width: 28px; padding: 2px 6px; font-size: 1rem; line-height: 1; }
+/* every rate chip in view (60× was scrolled out of the card), not a sideways scroller */
+#vjourney-banner .track-chips-scroll { overflow: visible; flex-wrap: wrap; }
+#vj-state-sub { white-space: normal; }
 /* Speed+Rate share a row, and Status+Pause/Stop/On-map share a row — was
    5 stacked full-width rows (reported as taking up too much of the
    screen during a journey); down to 3 including the title. flex-wrap
@@ -3494,7 +3523,7 @@ body.wco-active #wco-titlebar { display: flex; }
 /* v886: fold (▴/▾) beside ✕; folded keeps the title and the status line with Pause/Stop */
 #vjourney-banner .vj-head-btns { display: flex; align-items: center; flex-shrink: 0; }
 #vjourney-fold-btn { min-width: 28px; min-height: 24px; font-size: 0.85rem; margin-right: 4px; color: #f5c842; border-color: #f5c842; background: rgba(245, 200, 66, 0.12); }
-#vjourney-banner.vj-folded > .vjourney-row-wrap:has(#vjourney-speed-input),
+/* (v1092: folded, and so under ⛶ Clear, keeps Pause, the state, speed and rate: only the sounder, 3D and On map go) */
 #vjourney-banner.vj-folded #vjourney-sounder,
 #vjourney-banner.vj-folded #vjourney-3d-btn, #vjourney-banner.vj-folded #vjourney-activate-btn { display: none !important; }
 /* Free Sailing (v890) borrows this panel: its own title and a course row; no route, so no On map (⛰ 3D opens Drone, v891) */

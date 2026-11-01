@@ -515,13 +515,24 @@
         <span><span class="vj-title-vj">&#127941; Virtual Journey &mdash; <span id="vjourney-route-name"></span></span><span class="vj-title-fs">&#9973; Free Sailing</span></span>
         <button id="vjourney-close-btn" title="Stop and close">&#10005;</button>
       </div>
+      <!-- what she's doing, at a glance (v1092, requested: "The journey should be able to transparently show its
+           state. I don't want the user to get lost in the UI"): Pause/Resume, Sailing/Paused/Overnight, the day,
+           how far along, and how long to the next stop at this rate. Stays up when the panel is folded. -->
+      <div class="vj-transport">
+        <button id="vjourney-pause-btn" title="Pause/resume the journey">&#9208; Pause</button>
+        <div class="vj-state"><span id="vj-state-pill" class="vj-pill">Sailing</span><span id="vj-state-sub"></span></div>
+      </div>
+      <div id="vj-progress" aria-hidden="true"><div class="vj-fill"></div></div>
+      <div id="vj-next" aria-live="polite"></div>
       <div class="track-speed-row vjourney-row-wrap">
         <span>Speed:</span>
+        <button type="button" class="track-chip vj-speed-step" data-step="-1" title="1 knot slower" aria-label="1 knot slower">&minus;</button>
         <input id="vjourney-speed-input" type="number" min="0.1" max="50" step="0.1" placeholder="5" value="5">
+        <button type="button" class="track-chip vj-speed-step" data-step="1" title="1 knot faster" aria-label="1 knot faster">+</button>
         <span>knots</span>
         <span class="vjourney-rate-label">Rate:</span>
         <div class="track-chips-scroll">
-          <button class="track-chip vjourney-compress selected" data-compress="1" title="Play at real-world speed">1&times;</button>
+          <button class="track-chip vjourney-compress selected" data-compress="1" title="Real time: she moves as fast as the real boat would">1&times;</button>
           <button class="track-chip vjourney-compress" data-compress="5" title="Play 5x faster than real-world speed">5&times;</button>
           <button class="track-chip vjourney-compress" data-compress="20" title="Play 20x faster than real-world speed">20&times;</button>
           <button class="track-chip vjourney-compress" data-compress="60" title="Play 60x faster than real-world speed">60&times;</button>
@@ -542,7 +553,6 @@
       <div class="track-speed-row vjourney-row-wrap" style="justify-content:space-between">
         <span id="vjourney-status">Ready.</span>
         <div class="vjourney-controls">
-          <button id="vjourney-pause-btn" title="Pause/resume the journey">&#9208; Pause</button>
           <button id="vjourney-stop-btn" title="Stop the journey and return to real GPS">&#9632; Stop</button>
           <button id="vjourney-3d-btn" title="Switch between the 3D view from the tiller and the chart">&#9968; 3D</button>
           <button id="vjourney-activate-btn" class="rp-activate-btn" title="Tap to hide this route from the map">&#10003; On map</button>

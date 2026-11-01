@@ -7332,6 +7332,7 @@ function _startVirtualJourney(route, speedKnots) {
   _vjRoute = route;
   _refreshSavedRouteLayers(); // draws this route in VJ-green with waypoints
   _vjSpeedKnots = speedKnots;
+  _vjSelectRate(_vjSavedRate());
   _vjCompress = parseInt(document.querySelector('.vjourney-compress.selected')?.dataset.compress) || 1;
   _vjTraveledNm = 0;
   _vjBaselineNm = 0;
@@ -7351,6 +7352,7 @@ function _startVirtualJourney(route, speedKnots) {
   _vjNights = route.points.map((p, i) => (p.overnight && i > 0 && i < route.points.length - 1)
     ? { nm: segs[i - 1].cumDist + segs[i - 1].dist, i, name: p.name } : null).filter(Boolean);
   _vjNightIdx = 0; _vjHoldUntil = 0; _vjCycleStart = 0; _vjDay = 1;
+  _vjDrawTicks();
 
   // Reuse _startFollowingRoute's next-waypoint/focus state (same fields
   // _updateFollowProgress already watches) so "next waypoint", the
@@ -7722,6 +7724,9 @@ function _broadcastVj(running) {
 }
 
 function _vjStep() {
+  try { _vjStepInner(); } finally { _vjSyncState(); }
+}
+function _vjStepInner() {
   if (!_vjRunning) return;
   // holding at an overnight stop: the boat stays put until the night has passed, then sails on
   if (_vjHoldUntil) {
@@ -7742,7 +7747,8 @@ function _vjStep() {
     const p = _vjRoute.points[night.i], seg = _vjSegs[night.i - 1];
     GPS.setVirtualPosition(p.lat, p.lon, seg?.brg ?? 0, 0);
     document.getElementById('vjourney-status').textContent = `Overnight · day ${_vjDay} ends · ${_vjTraveledNm.toFixed(1)}/${_vjTotalNm.toFixed(1)} nm`;
-    const msg = `Overnight stop${night.name ? ' at ' + night.name : ''}.`;
+    const stopName = _vjStopName(night.i);
+    const msg = `Overnight stop${stopName ? ' at ' + stopName : ''}.`;
     setStatus(msg); TTS.sayImmediate(msg);
     _broadcastVj(true);
     return;
@@ -7848,6 +7854,92 @@ function _vjsDraw() {
   g.beginPath(); g.moveTo(0, y(draft)); g.lineTo(W, y(draft)); g.stroke(); g.setLineDash([]);
 }
 
+// ── The journey at a glance (v1092) ──
+// Speed and rate changes start a new run segment from where she is: traveled = baseline + elapsed x rate, so
+// changing the rate without this moved her (1x to 60x after ten minutes jumped her ~10 nm on; back down, back).
+const VJ_RATE_KEY = 'audiochart-vj-rate';
+function _vjRebase() {
+  if (!_vjRoute || !_vjRunning || _vjHoldUntil) return;
+  _vjBaselineNm = _vjTraveledNm;
+  _vjRunStartMs = Date.now();
+}
+function _vjSavedRate() { try { return parseInt(localStorage.getItem(VJ_RATE_KEY)) || 1; } catch (_) { return 1; } }
+function _vjSelectRate(rate) {
+  const chips = [...document.querySelectorAll('.vjourney-compress')];
+  const chip = chips.find(b => parseInt(b.dataset.compress) === rate) || chips[0];
+  chips.forEach(b => b.classList.toggle('selected', b === chip));
+}
+// marks on the progress bar at each overnight stop
+function _vjDrawTicks() {
+  const bar = document.getElementById('vj-progress');
+  if (!bar) return;
+  bar.querySelectorAll('.vj-tick').forEach(t => t.remove());
+  for (const n of _vjNights) {
+    const t = document.createElement('i'); t.className = 'vj-tick';
+    t.style.left = `${(100 * n.nm / (_vjTotalNm || 1)).toFixed(2)}%`;
+    bar.appendChild(t);
+  }
+}
+// a stop's name: its own, else the nearest region stop (CRUISE_PROFILES) within a mile, else the nearest named
+// place within 0.7 nm in the loaded region; found once (an unfound one is looked for again, as regions load)
+const _vjStopNames = new Map();
+function _vjStopName(i) {
+  const p = _vjRoute?.points[i];
+  if (!p) return null;
+  if (p.name) return p.name;
+  const key = `${_vjRoute.id}:${i}`;
+  if (_vjStopNames.has(key)) return _vjStopNames.get(key);
+  let best = null, bd = 1.0;
+  for (const prof of Object.values(CRUISE_PROFILES)) for (const st of (prof.stops || [])) {
+    const d = Query.distanceNm(p.lon, p.lat, st.lon, st.lat); if (d < bd) { bd = d; best = st.name; }
+  }
+  if (!best) {
+    bd = 0.7;
+    for (const f of (Query.namedPlaces?.features || [])) {
+      const [lon, lat] = f.geometry?.coordinates || [], nm = f.properties?.name;
+      if (!nm || typeof lon !== 'number') continue;
+      const d = Query.distanceNm(p.lon, p.lat, lon, lat); if (d < bd) { bd = d; best = nm; }
+    }
+  }
+  if (best) _vjStopNames.set(key, best);
+  return best;
+}
+const _vjFmtDur = (h) => {
+  const m = Math.round(h * 60);
+  if (h * 3600 < 90) return `${Math.max(1, Math.round(h * 3600))} s`;
+  return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')} min`;
+};
+// Sailing (green, a beating dot) / Paused (amber) / Overnight (blue) / Stopped, the day, and the next stop:
+// its distance and how long it is in real time at this speed and rate, so 1x reads as slow, not stuck
+function _vjSyncState() {
+  const pill = document.getElementById('vj-state-pill'), sub = document.getElementById('vj-state-sub');
+  const next = document.getElementById('vj-next'), bar = document.getElementById('vj-progress');
+  if (!pill) return;
+  let state, label;
+  if (_fs) {
+    state = _fs.held ? 'stopped' : _fs.running ? 'sailing' : 'paused';
+    label = { stopped: 'Stopped', sailing: 'Sailing', paused: 'Paused' }[state];
+    sub.textContent = `${_vjSpeedKnots} kn · ${_vjCompress}×`;
+    next.textContent = ''; bar.hidden = true;
+  } else if (_vjRoute) {
+    const night = _vjHoldUntil && Date.now() < _vjHoldUntil;
+    state = night ? 'overnight' : _vjRunning ? 'sailing' : 'paused';
+    label = night ? 'Overnight' : _vjRunning ? 'Sailing' : 'Paused';
+    const days = _vjNights.length + 1;
+    sub.textContent = `${days > 1 ? `Day ${_vjDay} of ${days} · ` : ''}${_vjSpeedKnots} kn · ${_vjCompress}×`;
+    bar.hidden = false;
+    bar.querySelector('.vj-fill').style.width = `${Math.min(100, 100 * _vjTraveledNm / (_vjTotalNm || 1)).toFixed(2)}%`;
+    const stop = _vjNights.find(n => n.nm > _vjTraveledNm + 1e-6);
+    const name = stop ? (_vjStopName(stop.i) || `Day ${_vjDay}'s stop`) : (_vjStopName(_vjRoute.points.length - 1) || 'the end');
+    const nm = Math.max(0, (stop ? stop.nm : _vjTotalNm) - _vjTraveledNm);
+    if (night) next.textContent = `☾ Night at ${_vjStopName(_vjNights[_vjNightIdx - 1]?.i) || 'the overnight stop'} · under way again shortly`;
+    else next.textContent = `${stop ? '☾ ' : '⚓ '}${name}: ${nm.toFixed(1)} nm · ${_vjFmtDur(nm / ((_vjSpeedKnots || 1) * _vjCompress))}${_vjRunning ? '' : ' when resumed'}`;
+  } else return;
+  pill.className = `vj-pill ${state}`;
+  pill.textContent = label;
+  document.getElementById('vjourney-banner').dataset.state = state;
+}
+
 function _pauseVirtualJourney() {
   if (!_vjRunning) return;
   _vjRunning = false;
@@ -7855,6 +7947,7 @@ function _pauseVirtualJourney() {
   document.getElementById('vjourney-pause-btn').textContent = '▶ Resume';
   try { _vjChan().postMessage({ rate: 0 }); } catch (_) {}   // paused: the moon waits too
   document.getElementById('vjourney-status').textContent = `Paused · ${_vjTraveledNm.toFixed(1)}/${_vjTotalNm.toFixed(1)} nm`;
+  _vjSyncState();
 }
 
 function _resumeVirtualJourney() {
@@ -7864,6 +7957,7 @@ function _resumeVirtualJourney() {
   _vjRunning = true;
   document.getElementById('vjourney-pause-btn').textContent = '⏸ Pause';
   _vjRafId = setInterval(_vjStep, VJ_TICK_MS);
+  _vjSyncState();
 }
 
 let _vjCompleted = false;
@@ -7996,18 +8090,31 @@ document.getElementById('vjourney-banner').addEventListener('click', (e) => {
   if (!chip) return;
   document.querySelectorAll('.vjourney-compress').forEach(b => b.classList.remove('selected'));
   chip.classList.add('selected');
+  _vjRebase();
   _vjCompress = parseInt(chip.dataset.compress) || 1;
+  try { localStorage.setItem(VJ_RATE_KEY, String(_vjCompress)); } catch (_) {}
+  _vjSyncState();
 });
 document.getElementById('vjourney-speed-input').addEventListener('change', (e) => {
   const v = parseFloat(e.target.value);
   if (!isNaN(v) && v > 0) {
+    _vjRebase();
     _vjSpeedKnots = v;
     // remembered for the next journey (v910, reported: "Mobile seems to insist on starting virtual
     // journeys at 100 knots" — the next one started at whatever speed was saved last, which this box
     // never updated); Free Sailing borrows this panel and keeps its own speed out of it
     if (!_fs) localStorage.setItem('audiochart-last-speed', String(v));
+    _vjSyncState();
   }
 });
+// − / + a knot (v1092): the same as typing in the box
+document.querySelectorAll('.vj-speed-step').forEach(b => b.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const inp = document.getElementById('vjourney-speed-input');
+  const v = Math.max(1, Math.min(50, Math.round((parseFloat(inp.value) || _vjSpeedKnots || 5) + Number(b.dataset.step))));
+  if (_fs) { _fsSetSpeed(v); inp.value = v; return; }
+  inp.value = v; inp.dispatchEvent(new Event('change'));
+}));
 
 // ── Free Sailing (v890, requested: "I set a course and speed and the boat just goes") ──
 // No route: the virtual boat (GPS.setVirtualPosition, like a Virtual Journey) sails a course at a
@@ -8033,6 +8140,7 @@ function _fsStatus() {
   document.getElementById('vjourney-status').textContent = _fs.held ? `Stopped · ${_fs.held}`
     : !_fs.running ? `Paused · ${_fsDeg3(_fsMagOf(_fs.hdg))}° M`
     : `${_fsDeg3(_fsMagOf(_fs.hdg))}° M · ${_vjSpeedKnots} kts${tail}`;
+  _vjSyncState();
 }
 function _startFreeSail({ course = null, speed = null } = {}) {
   if (_trackRecActive) { _fsSay('Already recording/following a route — stop it first.'); return false; }

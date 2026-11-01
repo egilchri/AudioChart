@@ -1,8 +1,9 @@
 # Changelog
 
-## 2026-11-01 — The journey panel says what she's doing (v1093)
+## 2026-11-01 — The journey panel says what she's doing (v1094)
 
 - Requested: "There should be an easier way to do this. The panel to control the speed of a given journey should be very accessible. The journey should be able to transparently show its state. I don't want the user to get lost in the UI." The user couldn't tell whether the boat was moving: at the default 1× she covers about 1/12 nm a minute, and the panel's state was one small grey line.
+- (The v1093 entry and version bump went out with v1092's commit, made in a parallel session, before this code did; this is the release.)
 - **At a glance** (index.html `.vj-transport`, app.js `_vjSyncState`): a big Pause/Resume at the top, a coloured state (Sailing in green with a beating dot, Paused in amber, Overnight in blue), the day ("Day 2 of 4 · 5 kn · 20×"), a progress bar with each overnight stop marked, and the next stop with its distance and how long it is in real time at this speed and rate ("Port Clyde: 17.8 nm · 3 h 34 min"), so 1× reads as slow, not stuck. Stops without a name of their own take the nearest region stop or named place (`_vjStopName`); the spoken overnight message names it too.
 - **Always in reach:** speed has − / + buttons, and folding the panel (and so ⛶ Clear) no longer hides speed, rate or Pause; only the depth sounder, 3D and On map. The desktop card is 270 px wide (was 220), so all four rate chips show: 60× was scrolled out of it.
 - **The rate is remembered** for the next journey (`audiochart-vj-rate`).
