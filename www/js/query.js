@@ -2785,7 +2785,7 @@ export function channelNeighbors(lon, lat) {
 // keeps the live-verified search small and correctly targeted instead.
 function _buildWaterMeshIndex() {
   const nodes = new Map();      // key -> {lon, lat}
-  const adjacency = new Map();  // key -> [{key, lon, lat}]
+  const adjacency = new Map();  // key -> [{key, lon, lat, w}] (w: the water's half-width there, metres, if the mesh has it)
   const grid = new Map();       // cell key (reuses _cellOf/_cellKey2D) -> [key]
 
   function ensureNode(lon, lat) {
@@ -2799,13 +2799,13 @@ function _buildWaterMeshIndex() {
     }
     return key;
   }
-  function connect(keyA, keyB) {
+  function connect(keyA, keyB, w) {
     if (keyA === keyB) return;
     const a = nodes.get(keyA), b = nodes.get(keyB);
     let arrA = adjacency.get(keyA); if (!arrA) { arrA = []; adjacency.set(keyA, arrA); }
     let arrB = adjacency.get(keyB); if (!arrB) { arrB = []; adjacency.set(keyB, arrB); }
-    if (!arrA.some(n => n.key === keyB)) arrA.push({ key: keyB, lon: b.lon, lat: b.lat });
-    if (!arrB.some(n => n.key === keyA)) arrB.push({ key: keyA, lon: a.lon, lat: a.lat });
+    if (!arrA.some(n => n.key === keyB)) arrA.push({ key: keyB, lon: b.lon, lat: b.lat, w });
+    if (!arrB.some(n => n.key === keyA)) arrB.push({ key: keyA, lon: a.lon, lat: a.lat, w });
   }
 
   for (const f of (waterMesh || [])) {
@@ -2814,7 +2814,7 @@ function _buildWaterMeshIndex() {
     for (let i = 0; i < coords.length - 1; i++) {
       const [alon, alat] = coords[i], [blon, blat] = coords[i + 1];
       const keyA = ensureNode(alon, alat), keyB = ensureNode(blon, blat);
-      connect(keyA, keyB);
+      connect(keyA, keyB, f.properties?.w);
     }
   }
   console.log(`[AC] Water mesh index built — ${nodes.size} nodes, ${waterMesh?.length ?? 0} edges`);
@@ -2824,6 +2824,7 @@ function _buildWaterMeshIndex() {
 // Linear nearest-node scan — the mesh is a few thousand nodes at most
 // (this is a one-time, twice-per-query cost: snapping the query's own
 // start/end onto the mesh), cheap next to the actual pathfinding below.
+const MESH_NARROW_M = 150, MESH_NARROW_X = 4;   // (waterMeshPath's open)
 function _nearestMeshNode(lon, lat) {
   if (!_waterMeshIndex || _waterMeshIndex.nodes.size === 0) return null;
   let bestKey = null, bestD = Infinity;
@@ -2846,11 +2847,17 @@ function _nearestMeshNode(lon, lat) {
  * query.js consumption contract on this file for why the caller must
  * still segBlocked-check every leg of the result itself.
  */
-export function waterMeshPath(fromLon, fromLat, toLon, toLat, maxSnapNm = 3, partial = false) {
+//
+// open (v1090): the path that keeps to open water, an edge where the water is under MESH_NARROW_M wide on each side
+// costing MESH_NARROW_X its length, the way the router's own shoal cost does: from Boothbay to Cundy Harbor the
+// shortest is up Townsend Gut and down the Sheepscot, which the router won't take, and without this it had no points
+// off the Cuckolds and went the long way round. [] where the mesh has no widths (built before v1090).
+export function waterMeshPath(fromLon, fromLat, toLon, toLat, maxSnapNm = 3, partial = false, open = false) {
   if (!_waterMeshIndex || _waterMeshIndex.nodes.size === 0) return [];
   const startKey = _nearestMeshNode(fromLon, fromLat);
   const endKey = _nearestMeshNode(toLon, toLat);
   if (!startKey || !endKey || startKey === endKey) return [];
+  if (open && _waterMeshIndex.adjacency.get(startKey)?.[0]?.w == null) return [];
   const startNode = _waterMeshIndex.nodes.get(startKey);
   const endNode = _waterMeshIndex.nodes.get(endKey);
   if (distanceNm(fromLon, fromLat, startNode.lon, startNode.lat) > maxSnapNm) return [];
@@ -2895,7 +2902,7 @@ export function waterMeshPath(fromLon, fromLat, toLon, toLat, maxSnapNm = 3, par
       for (const nb of (_waterMeshIndex.adjacency.get(key) || [])) {
         if (visited.has(nb.key)) continue;
         const a = _waterMeshIndex.nodes.get(key);
-        const nd = d + distanceNm(a.lon, a.lat, nb.lon, nb.lat);
+        const nd = d + distanceNm(a.lon, a.lat, nb.lon, nb.lat) * (open && nb.w < MESH_NARROW_M ? MESH_NARROW_X : 1);
         if (nd < (dist.get(nb.key) ?? Infinity)) {
           dist.set(nb.key, nd);
           prev.set(nb.key, key);

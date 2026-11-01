@@ -501,6 +501,12 @@ async function _autoRouteCore(
     for (const wp of Query.waterMeshPath(start.lon, start.lat, end.lon, end.lat, 3, _meshPartial)) {
       nodes.push({ lon: wp.lon, lat: wp.lat });
     }
+    // and its path through open water, where that's another way (v1090): the shortest can be a narrow inside passage
+    // the shoal cost keeps the router out of, leaving it no points for the way it would go
+    const seen = new Set(nodes.map(n => `${n.lon},${n.lat}`));
+    for (const wp of Query.waterMeshPath(start.lon, start.lat, end.lon, end.lat, 3, _meshPartial, true)) {
+      if (!seen.has(`${wp.lon},${wp.lat}`)) nodes.push({ lon: wp.lon, lat: wp.lat });
+    }
   }
 
   // ── Point-to-segment distance (nm) ────────────────────────────────────────
@@ -1064,9 +1070,46 @@ async function _autoRouteCore(
     return pts;
   }
 
+  // Out-and-back pokes a long passage's joins leave (v1090): Portland ->
+  // Boothbay went into Small Point Harbor and up the Kennebec's mouth and
+  // straight out again, 48 nm for a 34 nm trip, where its bracket ends on
+  // the straight transit line fell inside harbors. A run of points goes when
+  // one leg past them saves DETOUR_MIN_SAVING_NM and passes the same checks
+  // as _simplifyStraightRuns' (segBlocked, no nearer shoal water or shore
+  // than the legs it replaces); marginal and overnight points stay.
+  const DETOUR_MIN_SAVING_NM = 0.5, DETOUR_MAX_SKIP = 16;
+  function _cutDetours(path) {
+    const pts = path.slice();
+    // a loop back to a point already passed (in and out by the same points) goes whole: no new leg, nothing to check
+    for (let i = 0; i < pts.length; i++) {
+      for (let j = pts.length - 1; j > i; j--) {
+        if (pts[j].lon !== pts[i].lon || pts[j].lat !== pts[i].lat) continue;
+        if (!pts.slice(i + 1, j + 1).some(p => p.overnight)) pts.splice(i + 1, j - i);
+        break;
+      }
+    }
+    const nm = (u, v) => Query.distanceNm(u.lon, u.lat, v.lon, v.lat);
+    const clearance = (u, v) => _shoalClearanceNm(u.lon, u.lat, v.lon, v.lat,
+      (vx, vy) => _passesNearRouteEndpoint(vx, vy, u.lon, u.lat, v.lon, v.lat));
+    const shore = (u, v) => _shoreClearanceNm(u.lon, u.lat, v.lon, v.lat);
+    for (let i = 0; i < pts.length - 2; i++) {
+      for (let j = Math.min(pts.length - 1, i + DETOUR_MAX_SKIP); j > i + 1; j--) {
+        let via = 0, kept = false;
+        for (let k = i; k < j; k++) { via += nm(pts[k], pts[k + 1]); if (k > i && (pts[k].marginal || pts[k].overnight)) kept = true; }
+        if (kept || via - nm(pts[i], pts[j]) < DETOUR_MIN_SAVING_NM) continue;
+        const a = pts[i], b = pts[j];
+        if (segBlocked(a.lon, a.lat, b.lon, b.lat)) continue;
+        let minC = SHALLOW_WARNING_NM, minS = SHORE_STANDOFF_NM;
+        for (let k = i; k < j; k++) { minC = Math.min(minC, clearance(pts[k], pts[k + 1])); minS = Math.min(minS, shore(pts[k], pts[k + 1])); }
+        if (clearance(a, b) >= minC && shore(a, b) >= minS) { pts.splice(i + 1, j - i - 1); break; }
+      }
+    }
+    return pts;
+  }
+
   // Check-only mode (see autoRouteProg's long-range branch): obstacles are
   // set up for the finished route's own area — no search, just the cleanup.
-  if (simplifyOnly) return _simplifyStraightRuns(simplifyOnly);
+  if (simplifyOnly) return _simplifyStraightRuns(_cutDetours(simplifyOnly));
 
 
   // Validates a candidate offset point actually landed in open water — a

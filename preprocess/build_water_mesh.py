@@ -48,7 +48,7 @@ needs no format changes — see Query.waterMeshNodesNear.
 Usage:
   python3 build_water_mesh.py --land PATH --hazards PATH --soundings PATH \
       --bbox minlon,minlat,maxlon,maxlat --out PATH \
-      [--label NAME] [--min-piece-area-m2 N] [--ref-draft-ft N]
+      [--label NAME] [--min-piece-area-m2 N] [--ref-draft-ft N] [--keep-loops]
 
 Insights worth reusing for the next pilot area/region (see the plan this
 was built from, and the project's own memory notes, for more):
@@ -71,7 +71,8 @@ import json
 import math
 import os
 
-from shapely.geometry import shape, box
+import shapely
+from shapely.geometry import shape, box, LineString
 from shapely.ops import transform as shp_transform, unary_union
 from shapely.strtree import STRtree
 
@@ -198,7 +199,7 @@ def water_polygon(bbox_lonlat, land_features, shallow_features, soundings_featur
     return bbox_geom.difference(unary_union(nearby))
 
 
-def water_piece_to_edges(poly, min_piece_area_m2):
+def water_piece_to_edges(poly, min_piece_area_m2, bbox_geom=None, keep_loops=False):
     """One connected water polygon -> medial-axis mesh edges. Reuses
     build_channel_graph.py's medial_axis_edges/snap_nodes/prune_spurs/
     break_artifact_cycles pipeline UNMODIFIED (none of them have any
@@ -220,12 +221,42 @@ def water_piece_to_edges(poly, min_piece_area_m2):
     edges_m = medial_axis_edges(poly_m, DENSIFY_SPACING_M)
     edges_m = snap_nodes(edges_m, SNAP_GRID_M)
     edges_m = prune_spurs(edges_m, PRUNE_SPUR_M)
-    edges_m = break_artifact_cycles(edges_m)
+    if not keep_loops:
+        # (a channel's one stray loop, as build_channel_graph has it; across a whole region it also cuts the ring of
+        # water round every island, so a path must go the long way about: --keep-loops, v1090)
+        edges_m = break_artifact_cycles(edges_m)
+    widths = edge_half_widths(poly_m, edges_m, bbox_geom and shp_transform(lambda x, y: fwd.transform(x, y), bbox_geom))
     out = []
-    for (ax, ay), (bx, by) in edges_m:
+    for ((ax, ay), (bx, by)), w in zip(edges_m, widths):
         alon, alat = inv.transform(ax, ay)
         blon, blat = inv.transform(bx, by)
-        out.append(((alon, alat), (blon, blat)))
+        out.append(((alon, alat), (blon, blat), w))
+    return out
+
+
+def edge_half_widths(poly_m, edges_m, bbox_m):
+    """How far each edge's midpoint is from the shore (land or a subtracted shallow area), in metres: the water's
+    half-width there, as the edges run down the middle (v1090). The bbox's own sides aren't shore: open water cut off by
+    the box isn't narrow. The router's open-water mesh path (Query.waterMeshPath's open) keeps to wide water with it,
+    as the router itself does with its shoal cost, so it isn't handed only a narrow inside passage it won't take."""
+    rings = [poly_m.exterior, *poly_m.interiors]
+    segs = []
+    edge_of_box = bbox_m.exterior.buffer(2.0) if bbox_m is not None else None
+    for r in rings:
+        c = list(r.coords)
+        for i in range(len(c) - 1):
+            seg = LineString([c[i], c[i + 1]])
+            if edge_of_box is not None and edge_of_box.contains(seg):
+                continue
+            segs.append(seg)
+    if not segs or not edges_m:
+        return [None] * len(edges_m)
+    tree = STRtree(segs)
+    mids = shapely.points([((ax + bx) / 2, (ay + by) / 2) for (ax, ay), (bx, by) in edges_m])
+    idx, dist = tree.query_nearest(mids, return_distance=True, all_matches=False)
+    out = [None] * len(edges_m)
+    for i, d in zip(idx[0], dist):
+        out[int(i)] = round(float(d))
     return out
 
 
@@ -242,6 +273,8 @@ def main():
     ap.add_argument('--out', required=True, help='output water_mesh_*.geojson path')
     ap.add_argument('--label', default='water mesh',
                      help='piece-name prefix stored in properties.channelName')
+    ap.add_argument('--keep-loops', action='store_true',
+                     help="keep the water's loops round islands (v1090, Casco); the older meshes were built without")
     ap.add_argument('--min-piece-area-m2', type=float, default=DEFAULT_MIN_PIECE_AREA_M2)
     ap.add_argument('--ref-draft-ft', type=float, default=6.0,
                      help='conservative reference draft (deeper than most cruising boats) used to '
@@ -271,15 +304,16 @@ def main():
     out_features = []
     for i, poly in enumerate(pieces):
         label = f'{args.label} {i + 1}'
-        edges = water_piece_to_edges(poly, args.min_piece_area_m2)
-        print(f'  piece {i + 1} (area {poly.area:.6f} deg^2): {len(edges)} edge(s)')
-        for (alon, alat), (blon, blat) in edges:
+        edges = water_piece_to_edges(poly, args.min_piece_area_m2, box(*bbox), args.keep_loops)
+        if edges:
+            print(f'  piece {i + 1} (area {poly.area:.6f} deg^2): {len(edges)} edge(s)')
+        for (alon, alat), (blon, blat), w in edges:
             out_features.append({
                 'type': 'Feature',
                 'geometry': {'type': 'LineString',
                              'coordinates': [[round(alon, 6), round(alat, 6)],
                                               [round(blon, 6), round(blat, 6)]]},
-                'properties': {'source': 'water_mesh', 'channelName': label},
+                'properties': {'source': 'water_mesh', 'channelName': label, 'w': w},
             })
 
     out_dir = os.path.dirname(args.out) or '.'

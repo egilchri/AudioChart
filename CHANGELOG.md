@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-11-01 — Casco Bay & Midcoast: AutoRoute round the peninsulas (v1090)
+
+- Requested: a water mesh for Casco (offered after v1088, when long Midcoast routes fell back to a straight line over land).
+- **Water mesh** (`build_water_mesh.py`, as Deer Isle's and the Piscataqua's): `water_mesh_deer_isle.geojson` for Casco, from Cape Small to Tenants Harbor (-69.95 to -69.20 W, 43.68 to 44.06 N), 13,388 edges.
+- **Loops kept** (`--keep-loops`): the builder had broken every loop in the mesh, as a channel's one stray loop is broken in build_channel_graph. Across a region that cut the ring of water round every island and peninsula, so the mesh could only reach places the long way round: Boothbay to Cundy Harbor was 37 nm in it. With its loops kept it is 24.7 nm. The older meshes (Penobscot, Piscataqua, New York) are left as they were built.
+- **Open-water mesh path** (`Query.waterMeshPath`'s `open`): each Casco edge carries `w`, the water's half-width there. The router is given a second mesh path besides the shortest, one where water under 150 m wide each side costs 4 times its length, much as its own shoal cost does. Meshes built without widths give no second path, so Penobscot's routing is unchanged.
+- **Long passages lose their pokes** (router.js `_cutDetours`, in the long-passage cleanup): where a transit bracket ended inside a harbor, a route went in and came straight out again by the same points. Portland to Boothbay went into Small Point Harbor and up the Kennebec's mouth, 48.4 nm. Loops back to a point already passed now go, and so do runs of points that one leg past them shortens by 0.5 nm or more, if that leg passes the router's own checks and comes no nearer shoal water or shore than the legs it replaces. Portland to Boothbay is now 32.8 nm.
+- AutoRoute check, now passing: Boothbay to Cundy Harbor (20.7 nm), Tenants Harbor to Boothbay (26.8 nm), Portland to Boothbay, Cundy to Pemaquid and Cundy to New Harbor. All have no land or hazard legs. The 15 original Casco routes are unchanged. Pemaquid to Damariscotta still stops 1.4 nm below the town: charted depths there are 0.3 to 1.2 m outside a thin channel, too shallow for a 5 ft draft at chart datum.
+- The full routing suite passes as before.
+
 ## 2026-10-31 — Bird's-eye follows your boat from one bay into the next (v1089)
 
 - Reported: "I've lost SeaNymph" on a Virtual Journey from Rockland to Portland. West of Port Clyde the chart had switched to Casco Bay & Midcoast, but Bird's-eye was still on Penobscot. That scene ends at 69.25° W, so the camera stopped at its edge while she sailed on.
