@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-01 — Bird's-eye flyover: "Look to the right toward…", Manset House in Manset, lower over lakes (v1096)
+
+- Reported: "when you say 'Sea Wall picnic area' you should say 'Look to right towards the Sea Wall Picnic area'". A History/Geology/Island Info entry can now carry `look` (documents.geojson): the flyover says its title's topic, then "Look to the right (left, ahead) toward <look>", the side seen from her course to the stop as she sets off (flyover.js gives `about` a side function). Set for "Volcanic tuff, Seawall picnic area". Checked in a flyover: "Look ahead…" with the stop beside Seawall, "Look to the left…" heading south to Bass Harbor.
+- Reported: "manset house is in manset". A place whose name has a village's name in it (the chart's built-up areas, Manset included though it's inside Southwest Harbor's box), the village within 3 km, is said without a town: "Manset House", not "Manset House in Southwest Harbor". A town you set for the place still wins.
+- Reported: "It was really hard to see Echo Lake. You'll have to fly lower down". A lake flown over is seen from ~650 ft (450 m view, 64° tilt) instead of ~1,150 ft; a tap on a lake flies to 1,000 m instead of 1,600. Still to fix: the elevation data dips into the lake, so its surface is a dark, stretched pit rather than a flat water surface.
+- A leg under half a mile but over 0.4 nm was "0 miles to the south"; now "half a mile".
+
 ## 2026-11-01 — Sea Nymph: a finer bow, pulpit, pushpit and two solar panels (v1095)
 
 - Requested: "I want Sea Nymph to have a finer bow, a bow pulpit, a stern pushpit, a 50 watt solar panel on each side of the stern pushpit." The Cape Dory 25D (Carl Alberg; 25 ft LOA, 19 ft LWL, 8 ft beam) has "a spooned, raked stem" (Wikipedia); both models had it in profile, but their waterlines stayed full almost to the stem.

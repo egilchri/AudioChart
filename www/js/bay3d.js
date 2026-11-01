@@ -3131,9 +3131,14 @@ const clock = new THREE.Clock();
     const vill = villageList().map(v => ({ name: v.name, d: Math.hypot(v.x - at.x, v.z - at.z), max: 3000, land: () => v.land !== undefined ? v.land : (v.land = landmassAt(v.lon, v.lat)) })).filter(ok).sort((a, b) => a.d - b.d)[0];
     return (vill && (!town || vill.d < town.d * 0.5) ? vill : town)?.name || null;
   };
+  // a name with a village's own in it, the village within 3 km (Manset too, though it's in Southwest Harbor's box), is in
+  // that village (v1096, reported: "manset house is in manset")
+  const namesVillage = (name, at) => placesGJ.features.some(f => f.properties?.objtype === 'BUAARE' && f.properties.name && f.geometry?.type === 'Point'
+    && new RegExp(`\\b${f.properties.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(name) && Math.hypot(wx(f.geometry.coordinates[0]) - at.x, wz(f.geometry.coordinates[1]) - at.z) < 3000);
   const withTown = (name, at, set) => {
     if (set !== undefined) return set ? `${name} in ${set}` : name;   // (yours: as you set it; '' for none)
     if (SELF_PLACE.test(name)) return name;
+    if (namesVillage(name, at)) return name;   // ("Manset House" is in Manset, not Southwest Harbor: v1096)
     const tn = townFor(at);
     return !tn || name.toLowerCase().includes(tn.toLowerCase()) ? name : `${name} in ${tn}`;
   };
@@ -3172,12 +3177,12 @@ const clock = new THREE.Clock();
     const lakeUl = document.getElementById('lakes'), was = new Set(saved.ticked || []);
     for (const l of lakes) {
       const id = `lake:${l.name}`, li = document.createElement('li'), b = document.createElement('button'), ck = document.createElement('input');
-      l.click = () => { markCurrent(id); foldPanel(true); flyTo({ x: l.x, z: l.z, dist: 1600, tilt: 55 * DEG, az: view.az }, 3200); };
+      l.click = () => { markCurrent(id); foldPanel(true); flyTo({ x: l.x, z: l.z, dist: 1000, tilt: 60 * DEG, az: view.az }, 3200); };
       b.type = 'button'; b.textContent = l.name; b.title = `Fly to ${l.name}`; b.dataset.id = id; b.addEventListener('click', l.click);
       ck.type = 'checkbox'; ck.dataset.id = id; ck.setAttribute('aria-label', `Fly over ${l.name} on the way`); ck.title = 'Fly over it on the way (▶ Fly, below)';
       ck.checked = was.has(id); ck.addEventListener('change', sync);
       li.append(ck, b); lakeUl.appendChild(li); boxes.push(ck);
-      placeView.set(id, { name: l.name, at: { x: l.x, z: l.z }, spot: null });
+      placeView.set(id, { name: l.name, at: { x: l.x, z: l.z }, spot: null, low: true });
     }
     document.getElementById('lakesect').hidden = false; lblTick = 0; showRow(); sync();
   }
@@ -3372,16 +3377,19 @@ const clock = new THREE.Clock();
   const sentencesOf = b => b.replace(/https?:\/\/\S+/g, '').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/[#*_]/g, '').replace(/\s+/g, ' ').trim().split(/(?<!\b(?:[A-Z]|Mr|Mrs|Ms|Dr|St|Mt|Capt|Gen|Lt|Col|Rev|Jr|Sr|No|vs)\.)(?<=[.!?])\s+(?=["“‘(A-Z0-9])/);   // (not after U.S., Mt.…: v1084)
   const loadDocs = () => docs || (docs = getJSON('./data/documents.geojson').then(fc => (fc.features || [])
     .filter(f => ['history', 'island-info', 'geology', 'paintings'].includes(f.properties?.category) && f.geometry?.type === 'Point' && f.properties.body && inBay(f.geometry.coordinates))
-    .map(f => { const [lon, lat] = f.geometry.coordinates, title = (f.properties.title || '').trim(); return { x: wx(lon), z: wz(lat), cat: f.properties.category, sentences: [...(title ? [/[.!?]$/.test(title) ? title : title + '.'] : []), ...sentencesOf(f.properties.body)] }; })).catch(() => []));   // (its title first, so you know what it's about: v1084)
+    .map(f => { const [lon, lat] = f.geometry.coordinates, title = (f.properties.title || '').trim(), look = f.properties.look; return { x: wx(lon), z: wz(lat), cat: f.properties.category, look, topic: look && title.replace(/,[^,]*$/, ''), sentences: [...(title ? [/[.!?]$/.test(title) ? title : title + '.'] : []), ...sentencesOf(f.properties.body)] }; })).catch(() => []));   // (its title first, so you know what it's about: v1084)
   const CAT_M = { history: 0, 'island-info': 400, geology: 800, paintings: 1000 };   // (how much nearer the others must be to come first)
   // (lead: the place's own words first, v1084: a landing spot's about, or the note you've written for a place of yours)
-  const aboutPlace = (D, at, used, lead) => sec => {
+  // (an entry with a "look" names the spot to look at: its title's topic, then "Look to the right toward the Seawall
+  // picnic area", the side from side(x, z), v1096, requested: "you should say 'Look to right towards the Sea Wall Picnic area'")
+  const aboutPlace = (D, at, used, lead) => (sec, side) => {
     const near = D.map(d => ({ d, dist: Math.hypot(d.x - at.x, d.z - at.z) })).filter(o => o.dist < 3000 && !used.has(o.d)).sort((a, b) => a.dist + CAT_M[a.d.cat] - b.dist - CAT_M[b.d.cat]);
     let words = Math.floor(sec * 2.6); const out = [];
     if (lead) for (const t of sentencesOf(lead)) { const w = t.split(' ').length; if (w > words && out.length) break; out.push(t); words -= w; }   // (its first sentence whatever the time)
     for (const { d } of near) {
       const take = [];
-      for (const t of d.sentences) { const w = t.split(' ').length; if (w > words) break; take.push(t); words -= w; }
+      const sd = d.look && side?.(d.x, d.z);
+      for (const t of sd ? [`${d.topic}.`, `Look ${sd === 'ahead' ? 'ahead' : `to the ${sd}`} toward ${d.look}.`, ...d.sentences.slice(1)] : d.sentences) { const w = t.split(' ').length; if (w > words) break; take.push(t); words -= w; }
       if (take.length) { used.add(d); out.push(...take); }
       if (words < 12) break;
     }
@@ -3436,7 +3444,9 @@ const clock = new THREE.Clock();
       const sayName = P.mine ? withTown(P.name, P.at, P.town) : undefined;   // (yours: "Ned and Mary's place in Bass Harbor", v1077)
       const about = D.length || P.about ? aboutPlace(D, P.at, used, P.about) : null;
       if (modeOf(id) === 'land') { stops.push({ name: P.say || `Landing at ${P.name}`, say: P.say || `Landing at ${sayName || P.name}`, sayName, about, touch: true, spot: P.spot, x: P.spot.x, z: P.spot.z }); prev = P.spot; continue; }
-      const tv = P.view ? await P.view() : { x: P.at.x, z: P.at.z, dist: 700, tilt: 60 * DEG, az: azTo(prev, P.at) };   // (a spot flown over: looked at the way she comes in)
+      // (a spot flown over: looked at the way she comes in; a lake lower, ~650 ft up, v1096, reported: "It was really hard
+      // to see Echo Lake. You'll have to fly lower down")
+      const tv = P.view ? await P.view() : { x: P.at.x, z: P.at.z, dist: P.low ? 450 : 700, tilt: (P.low ? 64 : 60) * DEG, az: azTo(prev, P.at) };
       stops.push({ name: P.name, sayName, about, x: tv.x, z: tv.z, hold: 5, target: () => tv }); prev = tv;
     }
     let order = stops;

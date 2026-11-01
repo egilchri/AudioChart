@@ -42,6 +42,7 @@
       "geometry": { "type": "Point", "coordinates": [-68.2963998, 44.251223] },
       "properties": {
         "title": "Volcanic tuff, Seawall picnic area",
+        "look": "the Seawall picnic area",
         "category": "geology",
         "place": "Seawall, Mount Desert Island",
         "body": "A well-known, easy-to-reach exposure of volcanic tuff — part of the same Cranberry Island Series found across the strait on the Cranberry Isles themselves. Look closely at the rock in front of the picnic-ground parking area and you'll see a variety of angular fragments, from a fraction of an inch up to a few inches across, all cemented together after an explosive volcanic eruption roughly 380-400 million years ago.",
