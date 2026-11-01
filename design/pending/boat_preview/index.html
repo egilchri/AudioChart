@@ -1,0 +1,25 @@
+<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;background:#9cc3dc}canvas{display:block}</style></head><body>
+<!-- Bird's-eye's sailboats on their own, four views (v1095, for Sea Nymph's pulpits and solar panels).
+     Serve the repo root; ?t=cd25 (any sailboat3d type). Views: bow quarter, side, stern quarter, from above. -->
+<script type="importmap">{ "imports": { "three": "../../../www/js/lib/three/three.module.min.js" } }</script>
+<script type="module">
+import * as THREE from 'three';
+const q = new URLSearchParams(location.search), type = q.get('t') || 'cd25';
+// ?old=<path from www/js> draws that copy of the builder instead (before/after); ?nosails hides the sails
+const { makeSailboat } = await import(q.get('old') ? '../../../www/js/' + q.get('old') : '../../../www/js/sailboat3d.js');
+const W = 1600, H = 900, r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); r.setSize(W, H); r.outputColorSpace = THREE.SRGBColorSpace; document.body.appendChild(r.domElement);
+r.setScissorTest(true);
+['q', 's', 'a', 't'].forEach((view, i) => {
+  const scene = new THREE.Scene(); scene.background = new THREE.Color(0xa9cbe2);
+  scene.add(new THREE.HemisphereLight(0xdfefff, 0x445566, 1.4)); const sun = new THREE.DirectionalLight(0xffffff, 2.2); sun.position.set(-40, 60, -30); scene.add(sun);
+  const sea = new THREE.Mesh(new THREE.PlaneGeometry(800, 800), new THREE.MeshLambertMaterial({ color: 0x2f5d78 })); sea.rotation.x = -Math.PI / 2; scene.add(sea);
+  const b = makeSailboat(type, 4); scene.add(b.group || b);
+  if (q.has('nosails')) (b.group || b).traverse(o => { if (o.isMesh && o.material?.map) o.visible = false; });
+  const L = 7.5, d = L * (view === 't' ? 1.3 : 1.25), cw = W / 2, ch = H / 2;
+  const P = { q: [-0.75 * d, 0.32 * d, -0.75 * d], s: [-d * 1.05, 0.12 * d, 0], a: [-0.7 * d, 0.35 * d, 0.75 * d], t: [-0.02 * d, 1.25 * d, 0.01] }[view];
+  const cam = new THREE.PerspectiveCamera(32, cw / ch, 0.1, 2000); cam.position.set(...P); cam.lookAt(0, view === 't' ? 0 : 1.2, 0);
+  const x = (i % 2) * cw, y = H - (Math.floor(i / 2) + 1) * ch;
+  r.setViewport(x, y, cw, ch); r.setScissor(x, y, cw, ch); r.render(scene, cam);
+});
+document.title = 'done';
+</script></body></html>

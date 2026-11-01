@@ -99,14 +99,17 @@ const cyl = (r0, r1, h, x, y, z, rx = 0, rz = 0) => { const g = new THREE.Cylind
 
 function buildHull(T) {
   const { L, B, fbF, fbM, fbA, ovB, ovS, tr, maxAt = 0.55 } = T;
-  const hw = u => B / 2 * (u < maxAt ? Math.sqrt(Math.max(0, 1 - Math.pow((maxAt - u) / maxAt, 2.2))) : 1 - (1 - tr) * Math.pow((u - maxAt) / (1 - maxAt), 1.8));
+  // fine: how much finer the bow is drawn than the plain round entry (v1095, Sea Nymph: an Alberg hull fines away to
+  // a sharp entry under her spoon bow), eased in from just forward of the widest point to the stem
+  const fineK = u => { if (!T.fine || u >= maxAt) return 1; const t = Math.min(1, Math.max(0, ((1 - u / maxAt) - 0.2) / 0.8)); return 1 - T.fine * t * t * (3 - 2 * t); };
+  const hw = u => B / 2 * (u < maxAt ? Math.sqrt(Math.max(0, 1 - Math.pow((maxAt - u) / maxAt, 2.2))) * fineK(u) : 1 - (1 - tr) * Math.pow((u - maxAt) / (1 - maxAt), 1.8));
   const sh = u => fbM + (fbF - fbM) * Math.pow(Math.max(0, 0.6 - u) / 0.6, 1.7) + (fbA - fbM) * Math.pow(Math.max(0, u - 0.6) / 0.4, 2);
   const zD = u => -L / 2 + u * L, zW = u => -L / 2 + ovB + u * (L - ovB - ovS);
   const side = (s, u, v, out = 0) => { const f = v ** 1.6, z = zD(u) + (zW(u) - zD(u)) * f; return [s * hw(u) * (1 - 0.08 * f) * (1 + out), sh(u) * (1 - v), z]; };
   const D = Math.min(0.9, 0.09 * L);
   const under = (s, u, v) => [s * hw(u) * 0.92 * (1 - (0.55 + 0.3 * u) * v ** 1.3), -D * v, zW(u) + (u < 0.1 ? 0.6 * D * v * (1 - u / 0.1) : 0)];
   const deckY = (u, x) => sh(u) + 0.03 * B * (1 - Math.min(1, (x / (hw(u) || 1e-3)) ** 2));
-  const P = { hull: [], stripe: [], boot: [], bottom: [], deck: [], cabin: [], teak: [], dark: [], spar: [], canvas: [] };
+  const P = { hull: [], stripe: [], boot: [], bottom: [], deck: [], cabin: [], teak: [], dark: [], spar: [], canvas: [], solar: [] };
   const band = (d0, d1, slot) => { for (const s of [-1, 1]) P[slot].push(loftGeo(40, 1, (u, a) => side(s, u, (d0(u) + (d1(u) - d0(u)) * a) / sh(u), 0.008))); };
   for (const s of [-1, 1]) { P.hull.push(loftGeo(40, 5, (u, v) => side(s, u, v))); P.bottom.push(loftGeo(24, 3, (u, v) => under(s, u, v))); }
   P.deck.push(loftGeo(40, 10, (u, j) => { const x = (j * 2 - 1) * hw(u); return [x, deckY(u, x), zD(u)]; }));
@@ -187,10 +190,27 @@ function buildHull(T) {
     const pul = [at(-1, 0.09, hR), at(-1, 0.035, hR + 0.04), new V3(0, sh(0) + hR + 0.05, zD(0) + 0.12), at(1, 0.035, hR + 0.04), at(1, 0.09, hR)];
     P.spar.push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pul), 16, r * 1.4, 4));
     P.spar.push(new THREE.TubeGeometry(new THREE.LineCurve3(new V3(0, sh(0) + 0.05, zD(0) + 0.12), new V3(0, sh(0) + hR + 0.05, zD(0) + 0.12)), 1, r, 4));
-    for (const s of [-1, 1]) {   // a pushpit round each after quarter, open on the centreline for the swim platform
+    if (T.rails === 'closed') {   // a pushpit right round the stern (Sea Nymph, v1095), on two legs at the transom
+      const pp = [at(-1, 0.89, hR), at(-1, 0.965, hR + 0.02), new V3(-hw(1) * 0.55, sh(1) + hR, zD(1) - 0.06),
+        new V3(hw(1) * 0.55, sh(1) + hR, zD(1) - 0.06), at(1, 0.965, hR + 0.02), at(1, 0.89, hR)];
+      P.spar.push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pp), 24, r * 1.4, 4));
+      for (const s of [-1, 1]) {
+        P.spar.push(new THREE.TubeGeometry(new THREE.LineCurve3(new V3(s * hw(1) * 0.55, sh(1), zD(1) - 0.06), new V3(s * hw(1) * 0.55, sh(1) + hR, zD(1) - 0.06)), 1, r, 4));
+        P.spar.push(new THREE.TubeGeometry(new THREE.LineCurve3(at(s, 0.95, 0.02), at(s, 0.95, hR + 0.01)), 1, r, 4));
+      }
+    } else for (const s of [-1, 1]) {   // a pushpit round each after quarter, open on the centreline for the swim platform
       const pp = [at(s, 0.89, hR), at(s, 0.96, hR + 0.03), new V3(s * hw(1) * 0.42, sh(1) + hR, zD(1) - 0.08)];
       P.spar.push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pp), 8, r * 1.4, 4));
       P.spar.push(new THREE.TubeGeometry(new THREE.LineCurve3(new V3(s * hw(1) * 0.42, sh(1), zD(1) - 0.08), pp[2]), 1, r, 4));
+    }
+    // a solar panel on each side of the pushpit (Sea Nymph's two 50 W panels, v1095): about 0.54 x 0.64 m, flat on
+    // the rail over each quarter, half outboard of it, in an aluminium frame, on two short legs
+    if (T.solar) for (const s of [-1, 1]) {
+      const u = 0.93, x = s * (hw(u) - 0.02), y = sh(u) + hR + 0.06, z = zD(u), W = 0.54, D = 0.64;
+      P.solar.push(box(W - 0.03, 0.02, D - 0.03, x, y + 0.012, z));
+      for (const [w, d, dx, dz] of [[W, 0.025, 0, -D / 2], [W, 0.025, 0, D / 2], [0.025, D, -W / 2, 0], [0.025, D, W / 2, 0]]) P.spar.push(box(w, 0.035, d, x + dx, y + 0.01, z + dz));
+      for (const k of [-1, 0, 1]) P.spar.push(box(W - 0.04, 0.005, 0.008, x, y + 0.024, z + k * D / 4));   // the cells' bus lines
+      for (const dz of [-0.2, 0.2]) P.spar.push(box(0.025, 0.07, 0.025, s * (hw(u) - 0.07), y - 0.035, z + dz));
     }
   }
   // standing rigging for a sloop (v1025): spreaders and shrouds (cap shrouds over the spreader tips, lowers to the
@@ -245,7 +265,9 @@ const TYPES = {
     cabin: { u0: 0.18, u1: 0.4, w: 0.7, h: 0.28, ports: 1 }, cockpit: { u0: 0.42, u1: 0.88, w: 0.75 },
     rig: { mast: 0.3, H: 7.2, boom: 2.6, by: 1.3, clewY: 1.0, jibR: 1.8 },
     hulls: [0xf4f1ea, 0x1d2f4d, 0x2e4d3a, 0xe8dcc0, 0xf4f1ea], stripes: [0x1d2f4d, 0x7a1f1f], bottoms: [0x6e2a22, 0x2a3a5a], decks: [0xe4d9bf, 0xc9a77a], cloth: 'dacron' },
-  cd25: { L: 7.5, B: 2.44, fbF: 1.07, fbM: 0.82, fbA: 0.93, ovB: 0.85, ovS: 0.55, tr: 0.6, cove: true, rudder: true, kn: 5,
+  // (v1095, requested: "a finer bow, a bow pulpit, a stern pushpit, a 50 watt solar panel on each side of the stern
+  // pushpit": her lifelines and pulpits, the pushpit right round the stern, the two panels on it)
+  cd25: { L: 7.5, B: 2.44, fbF: 1.07, fbM: 0.82, fbA: 0.93, ovB: 0.85, ovS: 0.55, tr: 0.6, cove: true, rudder: true, kn: 5, fine: 0.3, rails: 'closed', solar: true,
     cabin: { u0: 0.12, u1: 0.5, w: 0.72, h: 0.46, ports: 2 }, cockpit: { u0: 0.56, u1: 0.9, w: 0.62 },
     rig: { mast: 0.3, H: 10.5, boom: 3.2, by: 2.4, clewY: 1.75, jibR: 2.6 },
     hulls: [0xf3f0e8], stripes: [0x1f3352], bottoms: [0x6e2a22], decks: [0xe4d9bf], cloth: 'dacron' },
@@ -331,7 +353,7 @@ export function makeSailboat(type = 'pocket', seed = 0, len = 0) {   // len: her
   const hullC = pick(T.hulls, r), dark = hullC !== 0xf3f0e8 && hullC !== 0xf4f1ea && hullC !== 0xf6f6f4 && hullC !== 0xf4f4f0 && hullC !== 0xf2efe6 && hullC !== 0xe9dfc3 && hullC !== 0xe8dcc0;
   let stripeC = pick(T.stripes, r); if (stripeC === hullC) stripeC = 0xf2efe6;
   const C = { hull: mat(hullC), stripe: mat(dark && !T.bulwark ? 0xd8c070 : stripeC), boot: mat(T.power ? 0x222222 : stripeC), bottom: mat(pick(T.bottoms, r)),
-    deck: mat(pick(T.decks, r)), cabin: mat(T.power ? 0xf4f4f0 : 0xeeeae0), teak: mat(T.power ? 0x6d6a62 : 0x93613a), dark: mat(0x23282c), spar: mat(0xc9ccd0), canvas: mat(0x24344e) };
+    deck: mat(pick(T.decks, r)), cabin: mat(T.power ? 0xf4f4f0 : 0xeeeae0), teak: mat(T.power ? 0x6d6a62 : 0x93613a), dark: mat(0x23282c), spar: mat(0xc9ccd0), canvas: mat(0x24344e), solar: mat(0x1b2f5e, { emissive: 0x060c1c }) };
   const g = new THREE.Group(), body = new THREE.Group(); g.add(body);   // body heels; g turns to the heading
   const k = len > 0 ? len / T.L : 1; body.scale.setScalar(k);   // (hull and rig to her length; the wake is sized below)
   for (const k in H.geos) body.add(new THREE.Mesh(H.geos[k], C[k]));

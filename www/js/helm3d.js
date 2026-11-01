@@ -386,7 +386,10 @@ const bow = new THREE.Group();
   const STRIPE = M(0x1f3352), BOTTOM = M(0x6e2a22);   // navy boot-top and cove stripes, red antifouling
   const Z0 = -0.9, ZS = -5.0, L = ZS - Z0;                  // cockpit bulkhead → stem
   const tOf = z => (z - Z0) / L;                             // 0 at cockpit, 1 at stem
-  const half = z => 1.2 * Math.sqrt(Math.max(0, 1 - Math.pow(Math.min(1, tOf(z)), 2.4)));
+  // a finer bow (v1095, requested): the waterlines fine away from about halfway to the stem, sharper under the spoon
+  // bow (the Alberg 25D's), rather than staying full almost to it
+  const fineB = t => { const k = Math.min(1, Math.max(0, (t - 0.45) / 0.55)); return 1 - 0.28 * k * k * (3 - 2 * k); };
+  const half = z => 1.2 * Math.sqrt(Math.max(0, 1 - Math.pow(Math.min(1, tOf(z)), 2.4))) * fineB(tOf(z));
   const sheer = z => 0.85 + 0.22 * Math.pow(Math.max(0, tOf(z)), 1.6);
   const deckY = (z, x) => { const b = half(z) || 1e-3; return sheer(z) + 0.06 * (1 - Math.min(1, (x / b) ** 2)); };
   // lofted surface helper: rows along z, columns across x
@@ -407,7 +410,7 @@ const bow = new THREE.Group();
   // Alberg spoon bow: the stem rakes well forward of where it meets the water (LOA 24'7", LWL 19'),
   // its profile curving aft ever faster toward the waterline; under it, red antifouling down to the
   // turn of the bilge (seen when she heels). v: 0 at the sheer, 1 at the waterline.
-  const OVB = 0.85, huF = u => 1.2 * Math.sqrt(Math.max(0, 1 - Math.pow(Math.min(1, u), 2.4)));
+  const OVB = 0.85, huF = u => 1.2 * Math.sqrt(Math.max(0, 1 - Math.pow(Math.min(1, u), 2.4))) * fineB(u);
   const fwdPt = (s, u, v, out = 0) => {
     const zd = zAt(u), f = v ** 1.8, z = zd + (Z0 + u * (L + OVB) - zd) * f;
     return [s * huF(u) * (1 - 0.1 * f) * (1 + out), sheer(zd) * (1 - v), z];
@@ -491,14 +494,16 @@ const bow = new THREE.Group();
   }
   // bow pulpit, stanchions and lifelines
   const PH = 0.62;
-  const pul = new THREE.CatmullRomCurve3([[-0.62, -4.25], [-0.42, -4.75], [0, -5.12], [0.42, -4.75], [0.62, -4.25]].map(([x, z]) => new THREE.Vector3(x, sheer(z) + PH, z)));
+  // (v1095: its legs on the finer bow's deck edge, wherever that now is)
+  const PX = half(-4.25) - 0.08, PX2 = half(-4.75) - 0.04, PX3 = half(-4.85) - 0.05;
+  const pul = new THREE.CatmullRomCurve3([[-PX, -4.25], [-PX2, -4.75], [0, -5.12], [PX2, -4.75], [PX, -4.25]].map(([x, z]) => new THREE.Vector3(x, sheer(z) + PH, z)));
   bow.add(new THREE.Mesh(new THREE.TubeGeometry(pul, 40, 0.022, 6), STEEL));
-  for (const [x, z] of [[-0.62, -4.25], [0.62, -4.25], [-0.3, -4.95], [0.3, -4.95]]) {
+  for (const [x, z] of [[-PX, -4.25], [PX, -4.25], [-PX3, -4.85], [PX3, -4.85]]) {
     const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, PH, 6), STEEL); leg.position.set(x, sheer(z) + PH / 2, z); bow.add(leg);
   }
   const stz = [-3.3, -1.9, 0.4, 1.7];   // the last two on the side decks beside the cockpit
   for (const s of [-1, 1]) {
-    const tops = [[s * 0.62, sheer(-4.25) + PH, -4.25]];
+    const tops = [[s * PX, sheer(-4.25) + PH, -4.25]];
     for (const z of stz) {
       const x = s * ((z > Z0 ? 1.2 - 0.27 * Math.pow((z - Z0) / 3.5, 1.5) : half(z)) - 0.08), h = z > Z0 ? 0.85 + 0.08 * ((z - Z0) / 3.5) ** 2 : sheer(z);
       const st = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, PH, 6), STEEL); st.position.set(x, h + PH / 2, z); bow.add(st);
@@ -655,6 +660,23 @@ const bow = new THREE.Group();
   const spul = new THREE.CatmullRomCurve3([[-halfA(1.7) + 0.06, 1.7], [-0.7, ZT - 0.05], [0.7, ZT - 0.05], [halfA(1.7) - 0.06, 1.7]].map(([x, z]) => new THREE.Vector3(x, sheerA(z) + PH, z)));
   bow.add(new THREE.Mesh(new THREE.TubeGeometry(spul, 30, 0.02, 6), STEEL));
   for (const [x, z] of [[-0.7, ZT - 0.05], [0.7, ZT - 0.05]]) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, PH, 6), STEEL); leg.position.set(x, sheerA(z) + PH / 2, z); bow.add(leg); }
+  { // a 50 W solar panel on each side of the stern pulpit (v1095, requested): about 21 x 25 in, flat over each quarter
+    // on two short legs from the rail, monocrystalline cells (dark blue, a fine silver grid) in an aluminium frame
+    const c = document.createElement('canvas'); c.width = 128; c.height = 152; const g = c.getContext('2d');
+    g.fillStyle = '#c9ccd0'; g.fillRect(0, 0, 128, 152);
+    for (let i = 0; i < 4; i++) for (let j = 0; j < 9; j++) {   // 36 cells, 4 x 9
+      const x = 5 + i * 29.5, y = 5 + j * 15.7; g.fillStyle = '#1b2f5e'; g.fillRect(x, y, 28, 14.5);
+      g.fillStyle = 'rgba(200,210,230,0.55)'; for (const k of [0.33, 0.67]) g.fillRect(x + 28 * k, y, 0.8, 14.5);
+    }
+    const tex = new THREE.CanvasTexture(c); tex.anisotropy = 4;
+    const PANEL = new THREE.MeshLambertMaterial({ map: tex, emissive: 0x070d1d }), W = 0.54, D = 0.64, PZ = 2.12;
+    for (const s of [-1, 1]) {
+      const xr = s * (halfA(PZ) - 0.12), y = sheerA(PZ) + PH + 0.07;   // over the pulpit's side rail, half outboard of it
+      const top = new THREE.Mesh(new THREE.BoxGeometry(W, 0.03, D), [STEEL, STEEL, PANEL, STEEL, STEEL, STEEL]);
+      top.position.set(xr + s * 0.12, y, PZ); bow.add(top);
+      for (const dz of [-0.2, 0.2]) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.07, 6), STEEL); leg.position.set(xr, y - 0.05, PZ + dz); bow.add(leg); }
+    }
+  }
   // Sails (Drone view, v837): mainsail and jib, built out to port and trimmed to the wind by
   // trimSails (v869: boom angle, jib sheet, tack and heel follow the wind direction). Each is a lofted
   // surface with a belly (deepest ~40% back from the luff) and twist toward the head.

@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-01 — Sea Nymph: a finer bow, pulpit, pushpit and two solar panels (v1095)
+
+- Requested: "I want Sea Nymph to have a finer bow, a bow pulpit, a stern pushpit, a 50 watt solar panel on each side of the stern pushpit." The Cape Dory 25D (Carl Alberg; 25 ft LOA, 19 ft LWL, 8 ft beam) has "a spooned, raked stem" (Wikipedia); both models had it in profile, but their waterlines stayed full almost to the stem.
+- **Finer bow**, in both models: the half-breadths ease in from about halfway forward to the stem (helm3d.js `fineB`, 28% at most; sailboat3d.js's type option `fine`, 0.3 for `cd25`), so she draws to a sharp entry under the spoon bow. The helm view's bow pulpit and its lifelines' forward ends sit on the new deck edge.
+- **Bird's-eye** (sailboat3d.js `cd25`, which had no rails): stanchions, double lifelines, a bow pulpit, and a pushpit right round the stern on two legs at the transom (`rails: 'closed'`; the big yacht's split pushpit is unchanged).
+- **Two 50 W solar panels** (about 21 x 25 in) flat on the stern pushpit, one over each quarter, half outboard of the rail, on short legs: dark blue cells with silver grid lines in an aluminium frame (a 4 x 9 cell texture in the helm view, which sees her close).
+- `design/pending/boat_preview/index.html`: any sailboat3d type on its own from four angles (`?t=cd25`, `?nosails`, `?old=<copy in www/js>` for a before and after). Checked there, and in the helm view's Side, Bow, Stern and 30 ft views.
+
 ## 2026-11-01 — The journey panel says what she's doing (v1094)
 
 - Requested: "There should be an easier way to do this. The panel to control the speed of a given journey should be very accessible. The journey should be able to transparently show its state. I don't want the user to get lost in the UI." The user couldn't tell whether the boat was moving: at the default 1× she covers about 1/12 nm a minute, and the panel's state was one small grey line.
