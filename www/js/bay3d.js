@@ -1165,6 +1165,7 @@ let syncFollowHud = () => {};   // (the follow bar, below)
 const RIDE_BTNS = [['ridehelm', 'helm'], ['ridedrone', 'drone'], ['ridestern', 'stern'], ['rideside', 'side'], ['ridebow', 'bow'], ['ridenest', 'nest']];
 const titleCase = t => t.toLowerCase().replace(/(^|[\s.'-])[a-z]/g, c => c.toUpperCase()).replace(/\b(Ii|Iii|Iv)\b/g, r => r.toUpperCase());   // (Maquoit II, Aucocisco III: v993)
 function vName(v) {
+  if (isMover(v)) return v.title;
   if (v === own) return OWN_NAME;
   if (v === bowdoin) return 'Bowdoin';
   if (v.kind === 'ferry') return titleCase(v.F.vessel || v.F.name).replace(/^Capt\./, 'Captain');
@@ -1196,6 +1197,9 @@ function ride(v, mode = 'helm') {
   document.getElementById('ridename').textContent = mode === 'nest' ? `${name}'s crow's nest` : mode === 'drone' ? `Drone over ${v === own ? 'your boat' : name}` : CHASE[mode] ? `From a boat ${CHASE[mode].label} ${v === own ? 'your boat' : name}`
     : v === own ? 'At your helm' : big ? `On the bridge of ${name}` : `At the helm of ${v.boat && !v.kind ? 'a ' + name.toLowerCase() : name}`;
   for (const [id, m] of RIDE_BTNS) { const b = document.getElementById(id); if (b) { b.classList.toggle('on', m === mode); if (m === 'nest') b.hidden = !v.boat?.nest; } }
+  relabel(rideBtns(), isMover(v) ? v.kind : null);
+  if (isMover(v)) document.getElementById('ridename').textContent = mode === 'helm' ? `In the ${v.kind === 'air' ? 'cockpit' : 'cab'} of ${name}`
+    : mode === 'drone' ? `Drone over ${name}` : `From ${v.kind === 'air' ? 'a plane' : 'a drone'} ${{ stern: 'behind', side: 'beside', bow: 'ahead of' }[mode]} ${name}`;
   document.getElementById('ridehint').textContent = ORBITS(mode) ? 'Drag or arrow keys to circle her · scroll or pinch to close in or stand off'
     : mode === 'nest' ? 'Drag or arrow keys to look round · scroll or pinch for the glasses' : 'Drag or arrow keys to look round · scroll or pinch for the binoculars';
   rideStatus();
@@ -1212,7 +1216,7 @@ function leaveRide() {
   document.body.classList.remove('innest'); nestHud.hidden = true; document.getElementById('crowsnest').classList.remove('on');
   camera.fov = 50; camera.near = 1; camera.updateProjectionMatrix();
   // over her, following her (from her quarter, high enough to see where she's bound)
-  Object.assign(view, { x: v.x, z: v.z, dist: clamp(vLen(v) * 8, 250, 2500), tilt: 60 * DEG, az: (v.h + 35) * DEG });
+  Object.assign(view, { x: v.x, z: v.z, dist: followDist(v), tilt: 60 * DEG, az: (v.h + 35) * DEG });
   markCurrent(null); follow = v;
 }
 function setNest(on) { if (on) ride(bowdoin, 'nest'); else leaveRide(); }   // (the crow's nest, as before)
@@ -1229,20 +1233,20 @@ function nestCamera() {   // after every vessel has moved: the eye aboard her, l
   const h = v.h * DEG, sh = Math.sin(h), ch = Math.cos(h);
   const toWorld = ([lx, ly, lz], out) => out.set(v.x + lx * ch - lz * sh, ly, v.z + lx * sh + lz * ch);   // her frame (bow toward −z) to the world
   if (ORBITS(nest.mode)) {
-    const L = vLen(v), C = CHASE[nest.mode], D = (C ? clamp(L * C.d, 18, 700) : clamp(L * 3.2, 45, 900)) / nest.zoom, el = clamp(-nest.pitch, 3, 85) * DEG;
+    const L = vLen(v), C = CHASE[nest.mode], D = ((C ? clamp(L * C.d, 18, 700) : clamp(L * 3.2, 45, 900)) + (v.len && nest.mode !== 'side' && nest.mode !== 'drone' ? v.len / 2 : 0)) / nest.zoom, el = clamp(-nest.pitch, 3, 85) * DEG;   // (a train: off her end, not her middle)
     // a camera boat stays on the water (v1002, reported: Bow on the pilot boat at her pier put it among the houses):
     // where her Stern, Side or Bow spot is ashore, it goes round her to the nearest bearing afloat (clear of the
     // piers if it can be); ashore all round (a boat in a slip), it rises over the roofs and looks down on her
     const spot = yaw => { const a = (v.h + yaw) * DEG, r = Math.cos(el) * D; return [v.x - Math.sin(a) * r, v.z + Math.cos(a) * r]; };
     const wet = yaw => heightAt(lonOf(spot(yaw)[0]), latOf(spot(yaw)[1])) <= 0.3, open = yaw => wet(yaw) && !pierSegs(...spot(yaw), 12).length;
     let high = false;
-    if (C && !wet(nest.yaw)) {
+    if (C && !isMover(v) && !wet(nest.yaw)) {   // (a plane's or a train's camera is a drone: anywhere)
       let k = 0;
       for (const ok of [open, wet]) { for (k = 15; k <= 180; k += 15) { if (ok(nest.yaw + k)) { nest.yaw += k; break; } if (ok(nest.yaw - k)) { nest.yaw -= k; break; } } if (k <= 180) break; }
       high = k > 180;
     }
     const az = (v.h + nest.yaw) * DEG;
-    _nt.set(v.x, Math.min(L * 0.12, 20) + 1.5, v.z);
+    _nt.set(v.x, isMover(v) ? v.y + (v.kind === 'rail' ? 3 : 0) : Math.min(L * 0.12, 20) + 1.5, v.z);   // (a plane at her height)
     camera.position.set(_nt.x - Math.sin(az) * Math.cos(el) * D, _nt.y + Math.sin(el) * D, _nt.z + Math.cos(az) * Math.cos(el) * D);
     { const gy = heightAt(lonOf(camera.position.x), latOf(camera.position.z)), up = high || gy > 0.3 ? 28 : 4; if (camera.position.y < gy + up) camera.position.y = gy + up; }   // (never in the ground, nor among the houses)
     camera.lookAt(_nt); if (!C) camera.rotateX(0.1);   // (low on the water, she's best in the middle)   // her a little below the middle, clear of the bar along the top
@@ -1250,7 +1254,7 @@ function nestCamera() {   // after every vessel has moved: the eye aboard her, l
     view.x = v.x; view.z = v.z; view.dist = Math.max(D * 1.5, 900); view.az = az;
   } else {
     if (nest.mode === 'nest') { g.updateMatrixWorld(true); v.boat.nest.getWorldPosition(_nw); camera.position.copy(_nw); }
-    else camera.position.copy(toWorld(helmOf(v), _nw));
+    else { camera.position.copy(toWorld(helmOf(v), _nw)); if (isMover(v)) camera.position.y += v.y; }
     camera.rotation.set(nest.pitch * DEG, -(v.h + nest.yaw) * DEG, 0, 'YXZ');
     camera.fov = 50 / nest.zoom;
     view.x = v.x; view.z = v.z; view.dist = 6000; view.az = (v.h + nest.yaw) * DEG;   // what loads and what's labelled: round her, out toward the horizon
@@ -1344,6 +1348,7 @@ function rideLine(v) {   // where she's bound, how far, and when
     if (left < 1) return 'Arrived';
     return `${nm(left)} to go` + (boatClock ? ` · arriving about ${clk(now + passageMin(own.total) - passageMin(own.S))}` : ` · ${(left / (OWN_KN * NMm)).toFixed(1)} h at ${OWN_KN} kn`);
   }
+  if (isMover(v)) return `${v.label} · heading ${String(Math.round(((v.h % 360) + 360) % 360)).padStart(3, '0')}°`;
   if (v.kind === 'ais') return `${v.label} · heading ${String(Math.round(((v.h % 360) + 360) % 360)).padStart(3, '0')}°${aisDest(v.A.dest) ? ' · bound for ' + aisDest(v.A.dest) : ''}`;
   return `${vDoing(v)} · heading ${String(Math.round(((v.h % 360) + 360) % 360)).padStart(3, '0')}°`;
 }
@@ -1490,7 +1495,9 @@ syncFollowHud = function sync() {   // every frame: cheap unless who's followed 
   const v = follow && !nest.on && vGroup(follow).visible ? follow : null;
   if (v === sync.v) return;
   sync.v = v; followHud.hidden = !v;
-  if (v) followHud.querySelector('#followname').textContent = `Following ${vName(v)}${v === own ? ' (yours)' : v.kind === 'ferry' || v.kind === 'ais' ? ' · ' + v.label : ''}`;
+  if (v) followHud.querySelector('#followname').textContent = `Following ${vName(v)}${v === own ? ' (yours)' : v.kind === 'ferry' || v.kind === 'ais' || isMover(v) ? ' · ' + v.label : ''}`;
+  if (v) relabel(followHud.querySelectorAll('button[data-m], #followchart'), isMover(v) ? v.kind : null);
+  if (v && !isMover(v)) document.getElementById('followchart').hidden = !chartHook();
 };
 document.getElementById('bowdoinbtn').addEventListener('click', () => {
   if (!bowdoin) return;
@@ -1941,7 +1948,7 @@ function fillUnderway() {
       if (nest.on) leaveRide();
       markCurrent(null); foldPanel(true);
       if (aboveFog || env.foggy) applyConditions({ vis: 'clear' });
-      flyTo({ x: v.x, z: v.z, dist: clamp(vLen(v) * 8, 250, 2500), tilt: 60 * DEG, az: ((v.h || 0) + 35) * DEG }, 2800);
+      flyTo({ x: v.x, z: v.z, dist: followDist(v), tilt: 60 * DEG, az: ((v.h || 0) + 35) * DEG }, 2800);
       follow = v;
     });
     list.appendChild(li);
@@ -2043,10 +2050,34 @@ const liveFeed = makeAisFeed({
   },
 });
 // the aircraft overhead too (v1098, asked: "plot trains and airplanes on the scene"), from their ADS-B; on with Live
-const air = makeAircraft({ scene, bbox: OVERVIEW, wx, wz, onCount: () => syncLiveBtn() });
+// Planes and trains are vessels too (v1104, requested: "look at planes and trains from different vantage points and
+// angles, analogously to how it works for boats and ships"): a tap opens her card, with Follow and the ride views
+// (Cockpit or Cab, Drone, Chase or Behind, Side, Ahead); her label shows while her card is open or she's followed.
+const isMover = v => v?.kind === 'air' || v?.kind === 'rail';
+const isLive = v => v?.kind === 'air' ? air.has(v) : v?.kind === 'rail' ? rail.has(v) : live.includes(v);
+function moverFocus(p) { return !(nest.on && nest.v === p) && ((cardV === p && !!aisCard && !aisCard.hidden) || (follow === p && !nest.on)); }   // (riding with her, no label on her)
+function moverGone(p) { if (nest.on && nest.v === p) leaveRide(); if (follow === p) stopFollow(); if (cardV === p) fillCard(); }
+// where Follow puts you: over her quarter, high enough to see where she's bound (a plane: above her, not under her)
+const followDist = v => v.kind === 'air' ? clamp((v.y + 700) / Math.cos(60 * DEG), 1500, 30000) : v.kind === 'rail' ? 1000 : clamp(vLen(v) * 8, 250, 2500);
+// the ride and follow buttons, named for what she is
+const MOVER_BTN = {
+  air: { helm: ['Cockpit', 'In her cockpit, looking ahead (H)'], drone: ['Drone', 'A drone flying with her'], stern: ['Chase', 'From a plane just behind her'], side: ['Side', 'From a plane off her right wing'], bow: ['Ahead', 'From ahead of her, as she comes on'] },
+  rail: { helm: ['Cab', "In her driver's cab, looking down the line (H)"], drone: ['Drone', 'A drone over her'], stern: ['Behind', 'From a drone just behind her'], side: ['Side', 'From a drone alongside her'], bow: ['Ahead', 'From ahead of her, as she comes on'] },
+};
+function relabel(btns, kind) {
+  for (const b of btns) {
+    const m = b.dataset.m;
+    if (!m) { b.hidden = !!kind; continue; }   // (🗺 Chart: a ship's only)
+    if (b.dataset.l0 == null) { b.dataset.l0 = b.textContent; b.dataset.t0 = b.title; }
+    const L = MOVER_BTN[kind]?.[m];
+    b.textContent = L ? L[0] : b.dataset.l0; b.title = L ? L[1] : b.dataset.t0;
+  }
+}
+const rideBtns = () => RIDE_BTNS.map(([id, m]) => { const b = document.getElementById(id); if (b) b.dataset.m = m; return b; }).filter(Boolean);
+const air = makeAircraft({ scene, bbox: OVERVIEW, wx, wz, onCount: () => syncLiveBtn(), focus: moverFocus, onDrop: moverGone });
 window.__aircraft = () => air.list(camera, renderer.domElement.getBoundingClientRect());
 // and the trains (v1099): Caltrain, SMART and ACE from 511.org
-const rail = makeTrains({ scene, bbox: OVERVIEW, wx, wz, heightAt, onCount: () => syncLiveBtn() });
+const rail = makeTrains({ scene, bbox: OVERVIEW, wx, wz, heightAt, onCount: () => syncLiveBtn(), focus: moverFocus, onDrop: moverGone });
 window.__trains = () => rail.list(camera, renderer.domElement.getBoundingClientRect());
 function syncLiveBtn(state = liveBtn?.dataset.state || 'off', note = '') {
   if (!liveBtn) return;
@@ -2078,7 +2109,7 @@ const fixLines = new THREE.LineSegments(new THREE.BufferGeometry().setAttribute(
 fixLines.renderOrder = 10; fixLines.frustumCulled = false; fixLines.visible = false; scene.add(fixLines);
 let fixFor = null, fixList = [], fixAt = 0;
 function updateFixLines() {
-  const v = aisCard && !aisCard.hidden && cardV && live.includes(cardV) ? cardV : follow && !nest.on && follow !== own && vGroup(follow).visible ? follow : null;
+  const v = aisCard && !aisCard.hidden && cardV && live.includes(cardV) ? cardV : follow && !nest.on && follow !== own && !isMover(follow) && vGroup(follow).visible ? follow : null;
   if (!v) { fixLines.visible = false; fixFor = null; fixList = []; return; }
   if (v !== fixFor || t - fixAt > 2) { fixFor = v; fixAt = t; fixList = marksNear(v.x, v.z, v === cardV ? 3 : 1); }
   const P = fixLines.geometry.attributes.position, y = 3;
@@ -2129,14 +2160,14 @@ if (aisCard) {
   addEventListener('keydown', e => { if (e.key === 'Escape' && !aisCard.hidden && !nest.on) { aisCard.hidden = true; cardV = null; } });
   const go = aisCard.querySelector('.go');
   for (const [m, label, title] of [['fly', 'Follow', 'Fly over her and follow her'], ['helm', 'Helm', 'Aboard her, at the helm'], ['drone', 'Drone', 'A drone over her'], ['stern', 'Stern', 'From a boat astern of her'], ['side', 'Side', 'From a boat abeam of her'], ['bow', 'Bow', 'From ahead, as she comes on']]) {
-    const b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.title = title;
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.title = title; b.dataset.m = m === 'fly' ? '' : m;
     b.addEventListener('click', () => {
-      const v = cardV; if (!v || !live.includes(v)) return;
+      const v = cardV; if (!v || !isLive(v)) return;
       if (m !== 'fly') { ride(v, m); return; }
       keepOverview();
       if (nest.on) leaveRide();
       markCurrent(null); foldPanel(true);
-      flyTo({ x: v.x, z: v.z, dist: clamp(vLen(v) * 8, 250, 2500), tilt: 60 * DEG, az: ((v.h || 0) + 35) * DEG }, 2800);
+      flyTo({ x: v.x, z: v.z, dist: followDist(v), tilt: 60 * DEG, az: ((v.h || 0) + 35) * DEG }, 2800);
       follow = v;
     });
     go.appendChild(b);
@@ -2162,6 +2193,8 @@ function fillCard() {
   if (!aisCard || aisCard.hidden || !cardV) return;
   if (cardV === buoyF) { fillBuoyCard(); return; }
   if (cardV === gauge) { fillGaugeCard(); return; }
+  if (isMover(cardV)) { fillMoverCard(); return; }
+  relabel(aisCard.querySelectorAll('.go button'), null);
   aisCard.querySelector('.go').hidden = false;
   const v = cardV, A = v.A, gone = !live.includes(v);
   document.getElementById('aisname').textContent = `📡 ${aisName(A)}${gone ? ' (no longer heard)' : ''}`;
@@ -2187,12 +2220,41 @@ function fillCard() {
   for (const [k, val, html] of rows) { const tr = tb.insertRow(), th = document.createElement('th'), td = tr.insertCell(); th.textContent = k; tr.prepend(th); if (html) td.innerHTML = val; else td.textContent = val; }
   for (const b of aisCard.querySelectorAll('.go button')) b.disabled = gone;
 }
+// a plane's or a train's card (v1104): what's known of her, and the same ways to go and see her as a ship's
+function fillMoverCard() {
+  const v = cardV, a = v.a, gone = !isLive(v), air_ = v.kind === 'air';
+  relabel(aisCard.querySelectorAll('.go button'), v.kind);
+  aisCard.querySelector('.go').hidden = false;
+  document.getElementById('aisname').textContent = `${air_ ? '✈' : '🚆'} ${v.title}${gone ? ' (no longer heard)' : ''}`;
+  const rows = [], row = (k, val, html = false) => { if (val !== '' && val != null) rows.push([k, val, html]); };
+  if (air_) {
+    row('Flight', a.flight); row('Registration', a.reg); row('Aircraft', a.type);
+    row('Altitude', a.ground ? 'On the ground' : `${(Math.round(v.y * 3.281 / 50) * 50).toLocaleString('en-US')} ft`);
+    row('Speed', a.gs != null ? `${Math.round(a.gs)} kn (${Math.round(a.gs * 1.151)} mph)` : '');
+    row('Track', a.trk != null ? `${deg3(a.trk)}° true` : '');
+    if (!a.ground && a.vr != null && Math.abs(a.vr) >= 100) row(a.vr < 0 ? 'Descending' : 'Climbing', `${Math.abs(Math.round(a.vr / 50) * 50).toLocaleString('en-US')} ft a minute`);
+    row('Squawk', a.squawk);
+  } else {
+    row('Railroad', a.rail); row('Train', /^\d{1,4}$/.test(a.trip) ? a.trip : ''); row('Bound for', v.dest);
+    row('Speed', v.v >= 1 ? `About ${Math.round(v.v * 2.237)} mph (from her last two reports)` : 'Stopped, or not yet known');
+    row('Heading', `${deg3(v.h)}° true`);
+  }
+  row('Position', aisPos(latOf(v.z), lonOf(v.x)));
+  row(air_ ? 'Last heard' : 'Last report', aisAgo((Date.now() - v.fix.t) / 1000));
+  const d = Math.hypot(v.x - view.x, v.z - view.z);
+  if (d > 30) row('From the view', `${(d / NMm).toFixed(d < 10 * NMm ? 1 : 0)} nm, ${deg3(Math.atan2(v.x - view.x, -(v.z - view.z)) / DEG)}° true`);
+  if (air_ && navigator.onLine !== false) row('More', `<a href="https://globe.adsb.lol/?icao=${encodeURIComponent(a.hex)}" target="_blank" rel="noopener">See her on adsb.lol ↗</a>`, true);
+  row('Source', air_ ? 'Her own ADS-B, through adsb.lol' : 'The railroad, through 511.org (every 90 s or more)');
+  const tb = aisCard.querySelector('table'); tb.innerHTML = '';
+  for (const [k, val, html] of rows) { const tr = tb.insertRow(), th = document.createElement('th'), td = tr.insertCell(); th.textContent = k; tr.prepend(th); if (html) td.innerHTML = val; else td.textContent = val; }
+  for (const b of aisCard.querySelectorAll('.go button')) b.disabled = gone;
+}
 // the tap: the live vessel nearest it on the screen, within a finger's width of her or her name
 const _tp = new THREE.Vector3();
 function tapAt(cx, cy) {
   if (picking && pickAt) { pickAt(cx, cy); return; }
-  { const rc = renderer.domElement.getBoundingClientRect(), p = air.at(cx, cy, camera, rc, 26); if (p) { air.toggle(p); return; }   // (a tap on an aircraft shows her label until the next: v1101)
-    const tr = rail.at(cx, cy, camera, rc, 26); if (tr) { rail.toggle(tr); return; } }   // (and on a train: v1102)
+  { const rc = renderer.domElement.getBoundingClientRect(), p = air.at(cx, cy, camera, rc, 26); if (p) { toggleCard(p); return; }   // (a tap on an aircraft: her card, v1104; her label until the next, v1101)
+    const tr = rail.at(cx, cy, camera, rc, 26); if (tr) { toggleCard(tr); return; } }   // (and on a train)
   if (!aisCard) return;
   const r = renderer.domElement.getBoundingClientRect(), scr = (x, y, z) => { _tp.set(x, y, z).project(camera); return _tp.z < 1 ? [r.left + (_tp.x + 1) / 2 * r.width, r.top + (1 - _tp.y) / 2 * r.height] : null; };
   if (buoyF) { const a = scr(buoyF.x, 0, buoyF.z), b = scr(buoyF.x, 6 * buoyF.g.scale.x, buoyF.z); if (a && b && Math.hypot(cx - a[0], cy - (a[1] + b[1]) / 2) < 26 + Math.abs(a[1] - b[1]) / 2) { toggleCard(buoyF); return; } }
@@ -2982,7 +3044,7 @@ function updateLiveMarks() {
   // the chart's zoom level for this view (app.js _bay3dZoomOf): 14 or closer, dots instead of rings (v1027); with
   // LIVE_RINGS off (v1034), dots at every height
   marksEl.classList.toggle('dots', !LIVE_RINGS || Math.log2(40075016 * Math.cos(latOf(view.z) * DEG) * sceneEl.clientWidth / 256 / (view.dist / 0.8)) >= 13.5);
-  if (findBtn) findBtn.hidden = !liveFeed.on || !live.length;
+  if (findBtn) findBtn.hidden = !liveFeed.on || !(live.length || air.count || rail.count);
   if (live.length && !flashedOnce) { flashedOnce = true; flashLive(); } else if (!liveFeed.on) flashedOnce = false;   // (again each time Live comes on)
   const W = sceneEl.clientWidth, H = sceneEl.clientHeight;
   let n = 0;
@@ -2995,11 +3057,25 @@ function updateLiveMarks() {
     const p = v3.project(camera);
     if (p.z > 1 || Math.abs(p.x) > 1 || Math.abs(p.y) > 1) continue;
     let el = markPool[n];
-    if (!el) { el = document.createElement('i'); marksEl.appendChild(el); markPool[n] = el; el.addEventListener('click', () => el._v && live.includes(el._v) && toggleCard(el._v)); }
+    if (!el) { el = document.createElement('i'); marksEl.appendChild(el); markPool[n] = el; el.addEventListener('click', () => el._v && isLive(el._v) && toggleCard(el._v)); }
     // underway, a flashing blue ring (v1021; a brighter green from v1013): making 0.5 kn or more, and not
     // reporting herself at anchor or moored
     const uw = !v.ashore && (v.A.sog ?? 0) >= 0.5 && v.A.status !== 1 && v.A.status !== 5;
     el._v = v; el.className = (follow === v ? 'fol' : '') + (uw ? ' uw' : '');
+    el.style.left = (p.x + 1) / 2 * W + 'px'; el.style.top = (1 - p.y) / 2 * H + 'px'; el.hidden = false;
+    n++;
+  }
+  // ✨ Find flashes the planes and trains too (v1104, requested: "highlight and draw the user's attention to planes
+  // and trains"): white for an aircraft, red for a train, each where she is, at her height
+  if (flash) for (const m of [...air.items(), ...rail.items()]) {
+    if (nest.on && nest.v === m) continue;
+    v3.set(m.x, m.y + (m.kind === 'rail' ? 3 : 0), m.z);
+    if (v3.distanceTo(camera.position) < RING_NEAR) continue;
+    const p = v3.project(camera);
+    if (p.z > 1 || Math.abs(p.x) > 1 || Math.abs(p.y) > 1) continue;
+    let el = markPool[n];
+    if (!el) { el = document.createElement('i'); marksEl.appendChild(el); markPool[n] = el; el.addEventListener('click', () => el._v && isLive(el._v) && toggleCard(el._v)); }
+    el._v = m; el.className = m.kind + (follow === m ? ' fol' : '');
     el.style.left = (p.x + 1) / 2 * W + 'px'; el.style.top = (1 - p.y) / 2 * H + 'px'; el.hidden = false;
     n++;
   }

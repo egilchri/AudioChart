@@ -30,20 +30,26 @@ const place = d => (d || '').replace(/\s+(Caltrain\s+)?Station\b.*$/i, '').repla
 const lonOf = p => p.fix.lon + (p.x - p.fix.x) / (111320 * Math.cos(p.fix.lat * DEG)), latOf = p => p.fix.lat - (p.z - p.fix.z) / 111120;   // (where she's drawn now)
 const metres = (a, b) => Math.hypot((b.lon - a.lon) * 111320 * Math.cos(a.lat * DEG), (b.lat - a.lat) * 111120);
 
-export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCount }) {
+// Each train is also a 'vessel' to Bird's-eye's card, Follow and ride views (v1104): kind 'rail', as the aircraft's
+// (aircraft3d.js), her cab at the front of her first car.
+export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCount, focus = () => false, onDrop = () => {} }) {
   const trains = new Map();   // id -> { a, g, model, label, fix, prev, v (m/s), h, x, z }
   let on = false, timer = null, inflight = null, hover = null;
   const pinned = new Set(), _v = new THREE.Vector3();
-  function drop(p) { pinned.delete(p); if (hover === p) hover = null; scene.remove(p.g); p.g.traverse(o => { o.geometry?.dispose(); o.material?.map?.dispose(); o.material?.dispose(); }); trains.delete(p.id); }
+  function drop(p) { pinned.delete(p); if (hover === p) hover = null; trains.delete(p.id); onDrop(p); scene.remove(p.g); p.g.traverse(o => { o.geometry?.dispose(); o.material?.map?.dispose(); o.material?.dispose(); }); trains.delete(p.id); }
   function data(j) {
     const now = Date.now(), seen = new Set();
     for (const a of j.trains || []) {
       seen.add(a.id);
       let p = trains.get(a.id);
       if (!p) {
-        const g = new THREE.Group(), model = trainModel(LOOK[a.rail] || LOOK.Caltrain), label = labelSprite();
+        const look = LOOK[a.rail] || LOOK.Caltrain, g = new THREE.Group(), model = trainModel(look), label = labelSprite();
         g.add(model, label); scene.add(g);
-        p = { id: a.id, g, model, label, x: wx(a.lon), z: wz(a.lat), h: a.dir === 'S' ? 135 : a.dir === 'N' ? 315 : 0, v: 0, placed: false };
+        const L = look.cars * look.len + (look.cars - 1) * 1.2;
+        g.userData.helm = [0, 3.6, -L / 2 + 1.6];   // (her cab: the front of her first car)
+        // (L sizes the ride views' distances: her whole 160 m put the drone 380 m back, end-on she was a post; as a
+        // 45 m vessel it stands ~100 m off. len is her real length)
+        p = { kind: 'rail', id: a.id, g, group: g, L: 45, len: L, y: 0, model, tag: label, x: wx(a.lon), z: wz(a.lat), h: a.dir === 'S' ? 135 : a.dir === 'N' ? 315 : 0, v: 0, placed: false };
         trains.set(a.id, p);
       }
       const at = now - (a.age || 0) * 1000;
@@ -56,18 +62,21 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
         p.fix = { lon: a.lon, lat: a.lat, x: wx(a.lon), z: wz(a.lat), t: at };
       }
       p.a = a;
-      p.label.userData.draw(`${a.rail} ${/^\d{1,4}$/.test(a.trip) ? a.trip : ''} → ${place(a.dest) || '?'}`.replace(/\s+/g, ' '));   // (Caltrain's train number; SMART's trip ids are long)
+      p.tag.userData.draw(`${a.rail} ${/^\d{1,4}$/.test(a.trip) ? a.trip : ''} → ${place(a.dest) || '?'}`.replace(/\s+/g, ' '));
+      p.title = `${a.rail} ${/^\d{1,4}$/.test(a.trip) ? a.trip : ''}`.trim(); p.dest = place(a.dest);
+      p.label = `${p.v >= 1 ? `About ${Math.round(p.v * 2.237)} mph` : 'Stopped'}${p.dest ? `, bound for ${p.dest}` : ''}`;   // (Caltrain's train number; SMART's trip ids are long)
     }
     for (const p of [...trains.values()]) if (!seen.has(p.id)) drop(p);
     onCount?.(trains.size);
   }
   async function poll() {
     if (!on) return;
-    const ctl = new AbortController(); inflight = ctl; const kill = setTimeout(() => ctl.abort(), 8000);
+    const ctl = new AbortController(); inflight = ctl; const kill = setTimeout(() => ctl.abort(), 8000); let got = null;
     try {
       const r = await fetch(`${relayUrl()}/trains?bbox=${bbox.map(v => v.toFixed(3)).join(',')}`, { signal: ctl.signal, cache: 'no-store' });
-      const j = await r.json(); if (on && r.ok) data(j);
-    } catch (_) {} finally { clearTimeout(kill); if (inflight === ctl) inflight = null; }
+      const j = await r.json(); if (on && r.ok) got = j;
+    } catch (_) {} finally { clearTimeout(kill); if (inflight === ctl) inflight = null; }   // (the network's failures, quietly)
+    try { if (got) data(got); } catch (e) { console.error('[live] couldn\'t take in the answer', e); }   // (ours, loudly: v1104 lost all but one plane a poll to a quiet one)
     if (on) timer = setTimeout(poll, every);
   }
   function update(dt, camera) {
@@ -79,11 +88,11 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
       const k = p.placed ? Math.min(1, dt * 0.8) : 1; p.placed = true;
       p.x += (tx - p.x) * k; p.z += (tz - p.z) * k;
       const lon = p.fix.lon + (p.x - p.fix.x) / (111320 * Math.cos(p.fix.lat * DEG)), lat = p.fix.lat - (p.z - p.fix.z) / 111120;
-      p.g.position.set(p.x, Math.max(0, heightAt(lon, lat) || 0), p.z); p.model.rotation.y = -p.h * DEG;
+      p.y = Math.max(0, heightAt(lon, lat) || 0); p.g.position.set(p.x, p.y, p.z); p.model.rotation.y = -p.h * DEG;
       // her real size near; farther off, long enough to see (about 2% of the distance away)
       const d = Math.hypot(p.x - cp.x, cp.y - p.g.position.y, p.z - cp.z);
       p.model.scale.setScalar(Math.max(1, d * 0.02 / 160));
-      p.label.visible = p === hover || pinned.has(p);
+      p.tag.visible = p === hover || pinned.has(p) || focus(p);
     }
   }
   return {
@@ -101,12 +110,14 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
       return best;
     },
     set hover(p) { hover = p; },
+    has: p => trains.get(p?.id) === p,
+    items: () => [...trains.values()],
     toggle(p) { if (pinned.has(p)) pinned.delete(p); else pinned.add(p); },
     pin(id, show = true) { const p = trains.get(id); if (p) { if (show) pinned.add(p); else pinned.delete(p); } return !!p; },   // (for a recording)
     get on() { return on; },
     get count() { return trains.size; },
     list: (camera, rect) => [...trains.values()].map(p => {   // (for checking from a script)
-      const o = { id: p.id, rail: p.a.rail, trip: p.a.trip, dest: place(p.a.dest), v: +p.v.toFixed(1), h: Math.round(p.h), shown: p.label.visible, lat: latOf(p), lon: lonOf(p) };
+      const o = { id: p.id, rail: p.a.rail, trip: p.a.trip, dest: place(p.a.dest), v: +p.v.toFixed(1), h: Math.round(p.h), shown: p.tag.visible, lat: latOf(p), lon: lonOf(p) };
       if (camera && rect) { _v.copy(p.g.position).project(camera); if (_v.z < 1) { o.sx = Math.round(rect.left + (_v.x + 1) / 2 * rect.width); o.sy = Math.round(rect.top + (1 - _v.y) / 2 * rect.height); } }
       return o;
     }),

@@ -37,12 +37,15 @@ export function labelSprite() {
   return s;
 }
 
-export function makeAircraft({ scene, bbox, wx, wz, every = 5000, onCount }) {
+// Each aircraft is also a 'vessel' to Bird's-eye's card, Follow and ride views (v1104): kind 'air', group, x/y/z, h,
+// L (her length, m), label (what she's doing), title, and a cockpit (group.userData.helm, her frame, nose to −z).
+// focus(p): true while her card is open or she's followed, so her label shows; onDrop(p) when she's gone.
+export function makeAircraft({ scene, bbox, wx, wz, every = 5000, onCount, focus = () => false, onDrop = () => {} }) {
   const planes = new Map();   // hex -> { a, g, model, line, label, fix, x, y, z, h }
   let on = false, timer = null, inflight = null, hover = null;
   const pinned = new Set(), _v = new THREE.Vector3();
   const lineMat = new THREE.LineBasicMaterial({ color: 0xbfe8ff, transparent: true, opacity: 0.35 });
-  function drop(p) { pinned.delete(p); if (hover === p) hover = null; scene.remove(p.g); p.g.traverse(o => { o.geometry?.dispose(); if (o.material && o.material !== lineMat) { o.material.map?.dispose(); o.material.dispose(); } }); planes.delete(p.a.hex); }
+  function drop(p) { pinned.delete(p); if (hover === p) hover = null; planes.delete(p.a.hex); onDrop(p); scene.remove(p.g); p.g.traverse(o => { o.geometry?.dispose(); if (o.material && o.material !== lineMat) { o.material.map?.dispose(); o.material.dispose(); } }); planes.delete(p.a.hex); }
   function data(j) {
     const now = Date.now(), seen = new Set();
     for (const a of j.aircraft || []) {
@@ -52,23 +55,28 @@ export function makeAircraft({ scene, bbox, wx, wz, every = 5000, onCount }) {
         const g = new THREE.Group(), model = planeModel(colourOf(a)), label = labelSprite();
         const line = new THREE.Line(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3)), lineMat);
         line.frustumCulled = false; g.add(model, label); scene.add(g, line);
-        p = { g, model, line, label, x: wx(a.lon), z: wz(a.lat), y: (a.alt || 0) * FT, h: a.trk || 0, placed: false };
+        p = { kind: 'air', g, group: g, model, line, tag: label, x: wx(a.lon), z: wz(a.lat), y: (a.alt || 0) * FT, h: a.trk || 0, placed: false };
         g.userData.lineObj = line; planes.set(a.hex, p);
       }
       p.a = a; p.fix = { x: wx(a.lon), z: wz(a.lat), y: (a.alt || 0) * FT, t: now - (a.age || 0) * 1000, lon: a.lon, lat: a.lat };
       const alt = a.ground ? 'on the ground' : a.alt >= 18000 ? `FL${Math.round(a.alt / 100)}` : `${Math.round(a.alt / 100) * 100} ft`;
-      p.label.userData.draw(`${a.flight || a.reg || a.hex} · ${alt}`);
+      p.tag.userData.draw(`${a.flight || a.reg || a.hex} · ${alt}`);
+      p.L = lengthOf(a); p.title = a.flight || a.reg || a.hex.toUpperCase();
+      p.g.userData.helm = [0, p.L * 0.03, -p.L * 0.43];   // (the cockpit: up in her nose)
+      const climb = a.ground ? '' : (a.vr ?? 0) < -300 ? ', descending' : (a.vr ?? 0) > 300 ? ', climbing' : '';
+      p.label = a.ground ? `On the ground${a.gs >= 3 ? `, taxiing at ${Math.round(a.gs)} kn` : ''}` : `${alt}, ${Math.round(a.gs || 0)} kn${climb}`;
     }
     for (const p of [...planes.values()]) if (!seen.has(p.a.hex)) { scene.remove(p.line); p.line.geometry.dispose(); drop(p); }
     onCount?.(planes.size);
   }
   async function poll() {
     if (!on) return;
-    const ctl = new AbortController(); inflight = ctl; const kill = setTimeout(() => ctl.abort(), 8000);
+    const ctl = new AbortController(); inflight = ctl; const kill = setTimeout(() => ctl.abort(), 8000); let got = null;
     try {
       const r = await fetch(`${relayUrl()}/aircraft?bbox=${bbox.map(v => v.toFixed(3)).join(',')}`, { signal: ctl.signal, cache: 'no-store' });
-      const j = await r.json(); if (on && r.ok) data(j);
-    } catch (_) {} finally { clearTimeout(kill); if (inflight === ctl) inflight = null; }
+      const j = await r.json(); if (on && r.ok) got = j;
+    } catch (_) {} finally { clearTimeout(kill); if (inflight === ctl) inflight = null; }   // (the network's failures, quietly)
+    try { if (got) data(got); } catch (e) { console.error('[live] couldn\'t take in the answer', e); }   // (ours, loudly: v1104 lost all but one plane a poll to a quiet one)
     if (on) timer = setTimeout(poll, every);
   }
   function clear() { for (const p of [...planes.values()]) { scene.remove(p.line); p.line.geometry.dispose(); drop(p); } onCount?.(0); }
@@ -87,7 +95,7 @@ export function makeAircraft({ scene, bbox, wx, wz, every = 5000, onCount }) {
       const d = Math.hypot(p.x - cp.x, p.y - cp.y, p.z - cp.z), L = lengthOf(a);
       p.model.scale.setScalar(Math.max(L, d * 0.014));
       const P = p.line.geometry.attributes.position; P.setXYZ(0, p.x, p.y, p.z); P.setXYZ(1, p.x, 0, p.z); P.needsUpdate = true;
-      p.line.visible = p.y > 30; p.label.visible = p === hover || pinned.has(p);
+      p.line.visible = p.y > 30; p.tag.visible = p === hover || pinned.has(p) || focus(p);
     }
   }
   return {
@@ -105,13 +113,15 @@ export function makeAircraft({ scene, bbox, wx, wz, every = 5000, onCount }) {
       return best;
     },
     set hover(p) { hover = p; },
+    has: p => planes.get(p?.a?.hex) === p,
+    items: () => [...planes.values()],
     toggle(p) { if (pinned.has(p)) pinned.delete(p); else pinned.add(p); },
     pin(hex, show = true) { const p = planes.get(hex); if (p) { if (show) pinned.add(p); else pinned.delete(p); } return !!p; },   // (for a recording)
     unpinAll() { const any = pinned.size > 0; pinned.clear(); return any; },
     get on() { return on; },
     get count() { return planes.size; },
     list: (camera, rect) => [...planes.values()].map(p => {   // (for checking from a script: where she is on the screen, and whether her label shows)
-      const o = { ...p.a, y: Math.round(p.y), shown: p.label.visible, at: { lon: p.fix.lon + (p.x - p.fix.x) / (111320 * Math.cos(p.fix.lat * DEG)), lat: p.fix.lat - (p.z - p.fix.z) / 111120 } };
+      const o = { ...p.a, y: Math.round(p.y), shown: p.tag.visible, at: { lon: p.fix.lon + (p.x - p.fix.x) / (111320 * Math.cos(p.fix.lat * DEG)), lat: p.fix.lat - (p.z - p.fix.z) / 111120 } };
       if (camera && rect) { _v.copy(p.g.position).project(camera); if (_v.z < 1) { o.sx = Math.round(rect.left + (_v.x + 1) / 2 * rect.width); o.sy = Math.round(rect.top + (1 - _v.y) / 2 * rect.height); } }
       return o;
     }),
