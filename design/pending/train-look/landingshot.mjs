@@ -1,6 +1,6 @@
 // An airliner coming in to land, ships and the Bay Bridge behind her: node landingshot.mjs [out.png]
 import { connect, sleep } from '../live-tour/cdp.mjs';
-const OUT = process.argv[2] || 'landing.png', c = await connect(9567); const errs = [];
+const OUT = process.argv[2] || 'landing.png', c = await connect(Number(process.env.CDP_PORT) || 9567); const errs = [];
 c.ws.addEventListener('message', m => { const d = JSON.parse(m.data); if (d.method === 'Runtime.exceptionThrown') errs.push(d.params.exceptionDetails.exception?.description?.slice(0, 300)); if (d.method === 'Runtime.consoleAPICalled' && d.params.type === 'error') errs.push(JSON.stringify(d.params.args.map(a => a.description || a.value)).slice(0, 300)); });
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
 await c.cmd('Network.enable'); await c.cmd('Network.setCacheDisabled', { cacheDisabled: true }); await c.cmd('Network.setBypassServiceWorker', { bypass: true });
@@ -11,12 +11,12 @@ const J = async x => JSON.parse(await c.ev(`JSON.stringify(${x})`)); const R = `
 const km = (a, b) => Math.hypot((a.lon - b.lon) * 88.0, (a.lat - b.lat) * 111.1);
 let pick = null;
 const BRIDGE = { lat: 37.80, lon: -122.36 };   // (the Bay Bridge, between Yerba Buena and Oakland)
-for (let tries = 0; tries < 100 && !pick; tries++) {   // (an airliner on her way in, gear down, over the water)
-  await sleep(tries ? 8000 : 20000);
+for (let tries = 0; tries < Number(process.env.TRIES || 100) && !pick; tries++) {   // (an airliner on her way in, gear down, over the water)
+  await sleep(tries ? Number(process.env.EVERY_MS || 8000) : 20000);
   const air = await J(`__bay3d.air.list()`);
   const cands = air.filter(a => /^[A-Z]{3}\d/.test(a.flight || '') && /^(A3|B7|E1|E7|BC)/.test(a.type || '') && !a.ground && a.alt > 500 && a.alt < 2400 && (a.vr ?? 0) < -250 && a.at.lon > -122.42 && a.at.lon < -122.12 && a.at.lat > 37.5 && a.at.lat < 37.79);   // (SFO's arrivals over the south bay, and Oakland's, nearer the bridge)
   for (const k of cands) k.water = await c.ev(`__bay3d.waterAt(${k.at.lon}, ${k.at.lat})`);
-  const ok = cands.filter(k => k.water === true && km(k.at, BRIDGE) < 16).sort((x, y) => km(x.at, BRIDGE) - km(y.at, BRIDGE));   // (the nearer the bridge, the more of it behind her)
+  const ok = cands.filter(k => k.water === true && km(k.at, BRIDGE) < Number(process.env.NEAR_KM || 26)).sort((x, y) => km(x.at, BRIDGE) - km(y.at, BRIDGE));   // (the nearer the bridge, the more of it behind her)
   if (tries % 3 === 0 || ok.length) log('arrivals', cands.map(k => `${k.flight} ${k.type} ${k.alt}ft vr${k.vr} water=${k.water}`).join(' | ') || 'none yet');
   if (ok.length) pick = ok[0];
 }

@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-02 — Bird's-eye: the heavies as they are, and the world's airlines' tails (v1110)
+
+- Requested: double-deck A380 and 747, and the international carriers' colours (after an Emirates A380 on final came out a plain white single-decker). Round 6 against photos of an Emirates A380, a British Airways 747-400 on approach to SFO and a Lufthansa 747-8 (Wikimedia Commons; www/js/airliner3d.js):
+  - **The A380's two full decks** (8.4 m tall, 7.1 wide; measured 8.38) and two rows of windows; **the 747's hump** over her first third (her upper deck, ~8.1 m tall; longer on the 747-8), with its own row of windows.
+  - **Tails crisp:** the fin is now a fine grid on each face, so a tail's bands, rings and emblems come out sharp (on the extrusion's few big triangles every second colour was a smear).
+  - **23 more liveries**, the carriers seen over the bay: Emirates (the flag along her leading edge), British Airways (the Chatham flag), Lufthansa (navy, the crane's ring), Air Canada (the red leaf on black), Air France, KLM, Cathay Pacific, Singapore, JAL, ANA, Korean, Qantas, EVA, China Airlines, Turkish, Aer Lingus, Virgin Atlantic, Air New Zealand, Qatar, Etihad, Aeroméxico, WestJet, and Horizon (as Alaska). United's globe and Delta's widget are crisp now too.
+- Checked: 144 builds (12 types × 6 airlines × gear up and down) with no bad vertices or colours; rendered in the harness against the photos.
+
 ## 2026-11-02 — Bird's-eye: airliners closer to the real thing: on final, glossy, smooth (v1109)
 
 - Requested, of the landing snapshot: "Please recursively improve". Two more rounds against a United Express E175 on final at LAX (Wikimedia Commons) and the 737-800 three-view (www/js/airliner3d.js):

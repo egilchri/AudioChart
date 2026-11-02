@@ -20,7 +20,7 @@ const T = {
   B772: [63.7, 60.9, 6.2, 2], B77L: [63.7, 64.8, 6.2, 2], B77W: [73.9, 64.8, 6.2, 2], B779: [76.7, 71.8, 6.2, 2],
   B788: [56.7, 60.1, 5.77, 2], B789: [62.8, 60.1, 5.77, 2], B78X: [68.3, 60.1, 5.77, 2],
   A332: [58.8, 60.3, 5.64, 2], A333: [63.7, 60.3, 5.64, 2], A339: [63.7, 64.0, 5.64, 2], A359: [66.8, 64.75, 5.96, 2], A35K: [73.8, 64.75, 5.96, 2],
-  A388: [72.7, 79.8, 7.1, 4], B744: [70.7, 64.4, 6.5, 4], B748: [76.3, 68.4, 6.5, 4],
+  A388: [72.7, 79.8, 7.1, 4, 'dd'], B744: [70.7, 64.4, 6.5, 4, 'hump'], B748: [76.3, 68.4, 6.5, 4, 'hump'],   // (round 6: the A380's double deck, the 747's hump)
 };
 // airline (the flight's prefix) → body, belly (below the line), tail, engines, and an accent along her lower aft side
 const LIVERY = {
@@ -37,6 +37,35 @@ const LIVERY = {
   NKS: { body: 0xffe100, belly: 0xffe100, tail: 0xffe100, tail2: 0x111111, eng: 0x222222 },
   FFT: { body: 0xf3f3f1, belly: 0xf3f3f1, tail: 0x00754a, tail2: 0x8fc54a, eng: 0x00754a },
 };
+// a tail's own pattern: fin(f along her chord from the leading edge 0…1, h up her 0…1) → colour (or undefined: her tail colour)
+const ring = (f, h, cf, ch) => Math.hypot((f - cf) * 1.6, h - ch);
+Object.assign(LIVERY, {
+  UAE: { body: 0xf3f3f1, belly: 0xf3f3f1, tail: 0xf3f3f1, eng: 0xf3f3f1, fin: f => f < 0.2 ? 0x00843d : f < 0.27 ? 0xf3f3f1 : f < 0.37 ? 0x151515 : f < 0.47 ? 0xd71a21 : undefined },   // Emirates: the flag along her leading edge
+  BAW: { body: 0xf3f3f1, belly: 0x1c2a5a, line: -0.3, tail: 0xf3f3f1, eng: 0x9aa3ab, fin: (f, h) => f > 0.42 ? (h < 0.5 ? 0xd8203a : 0x1c2a5a) : undefined },   // British Airways: the Chatham flag
+  DLH: { body: 0xf3f3f1, belly: 0xf3f3f1, tail: 0x0a1d4d, eng: 0x0a1d4d, fin: (f, h) => { const r = ring(f, h, 0.55, 0.5); return r > 0.17 && r < 0.22 ? 0xf3f3f1 : undefined; } },   // Lufthansa: the crane's ring
+  ACA: { body: 0xf3f3f1, belly: 0x1a1a1a, line: -0.25, tail: 0x151515, eng: 0x151515, fin: (f, h) => ring(f, h, 0.55, 0.45) < 0.16 ? 0xd22630 : undefined },   // Air Canada: the maple leaf
+  AFR: { body: 0xf3f3f1, belly: 0xf3f3f1, tail: 0xf3f3f1, eng: 0xc9ced3, fin: f => f > 0.55 && f < 0.68 ? 0x002157 : f >= 0.68 && f < 0.76 ? 0xed2939 : undefined },
+  KLM: { body: 0x00a1de, belly: 0xf3f3f1, line: -0.35, tail: 0x00a1de, eng: 0x00a1de },
+  CPA: { body: 0xf3f3f1, belly: 0xc9ced3, line: -0.3, tail: 0x006564, eng: 0xc9ced3, fin: (f, h) => f > 0.4 && f < 0.8 && Math.abs(h - 0.45 - (f - 0.6) * 0.5) < 0.07 ? 0xf3f3f1 : undefined },   // Cathay: the brushwing
+  SIA: { body: 0xf3f3f1, belly: 0xf3f3f1, tail: 0x1d2a5b, eng: 0xc9ced3, fin: (f, h) => ring(f, h, 0.55, 0.45) < 0.16 ? 0xf2b411 : undefined },   // Singapore: the bird
+  JAL: { body: 0xf3f3f1, belly: 0xf3f3f1, tail: 0xf3f3f1, eng: 0xc9ced3, fin: (f, h) => ring(f, h, 0.55, 0.5) < 0.24 ? 0xcc0000 : undefined },   // JAL: the crane circle
+  ANA: { body: 0xf3f3f1, belly: 0x13448f, line: -0.3, tail: 0xf3f3f1, eng: 0x13448f, fin: (f, h) => h < 0.22 ? 0x13448f : undefined },
+  KAL: { body: 0x8ccbe8, belly: 0xc9ced3, line: -0.1, tail: 0xf3f3f1, eng: 0x8ccbe8, fin: (f, h) => ring(f, h, 0.55, 0.5) < 0.2 ? (h > 0.5 ? 0xcd2e3a : 0x0047a0) : undefined },   // Korean: the taegeuk
+  QFA: { body: 0xf3f3f1, belly: 0xf3f3f1, tail: 0xe0001b, eng: 0xc9ced3, fin: (f, h) => ring(f, h, 0.58, 0.45) < 0.14 ? 0xf3f3f1 : undefined },   // Qantas: the kangaroo
+  EVA: { body: 0xf3f3f1, belly: 0x00684d, line: -0.3, tail: 0x00684d, eng: 0x00684d, fin: (f, h) => f > 0.5 && h > 0.55 ? 0xf2a900 : undefined },
+  CAL: { body: 0xf3f3f1, belly: 0xd7d9dc, line: -0.35, tail: 0xf3f3f1, eng: 0xc9ced3, fin: (f, h) => ring(f, h, 0.55, 0.5) < 0.24 ? 0xe2477a : undefined },   // China Airlines: the plum blossom
+  THY: { body: 0xf3f3f1, belly: 0xf3f3f1, tail: 0xc70a0c, eng: 0xc9ced3, fin: (f, h) => ring(f, h, 0.55, 0.5) < 0.18 ? 0xf3f3f1 : undefined },
+  EIN: { body: 0xf3f3f1, belly: 0xf3f3f1, tail: 0x006272, eng: 0x006272, fin: (f, h) => ring(f, h, 0.55, 0.5) < 0.13 ? 0x8bc63f : undefined },   // Aer Lingus: the shamrock
+  VIR: { body: 0xd9dde1, belly: 0xd9dde1, tail: 0xda0530, eng: 0xda0530 },
+  ANZ: { body: 0xf3f3f1, belly: 0xf3f3f1, tail: 0x151515, eng: 0x151515, fin: (f, h) => ring(f, h, 0.55, 0.5) < 0.17 ? 0xf3f3f1 : undefined },   // Air New Zealand: the koru
+  QTR: { body: 0xd8dbe0, belly: 0xd8dbe0, tail: 0x5c0632, eng: 0x5c0632 },
+  ETD: { body: 0xe8e2d8, belly: 0xe8e2d8, tail: 0xb9975b, eng: 0xb9975b },
+  AMX: { body: 0xf3f3f1, belly: 0x0b2343, line: -0.3, tail: 0x0b2343, eng: 0x0b2343 },
+  WJA: { body: 0xf3f3f1, belly: 0xf3f3f1, tail: 0x00a7b5, eng: 0x00a7b5 },
+  QXE: { body: 0xf3f3f1, belly: 0xf3f3f1, tail: 0x0b2e59, tail2: 0x00a9ce, eng: 0x0b2e59 },   // (Horizon: flying as Alaska)
+});
+LIVERY.UAL.fin = LIVERY.SKW.fin = (f, h) => ring(f, h, 0.42, 0.32) < 0.3 ? 0xa9c3ea : undefined;   // United's globe, low on her tail
+LIVERY.DAL.fin = (f, h) => f < 0.5 && h < 0.45 ? 0x0b2d5e : undefined;   // Delta's widget, red over blue
 const PLAIN = { body: 0xf1f2f3, belly: 0xd4d8dc, line: -0.35, tail: 0x8d9aa7, tail2: 0xb9c3cc, eng: 0xc4c9ce };
 const DARK = 0x1b2026, WING = 0xc9ced3, GEAR = 0x3b4046, TYRE = 0x16181a;
 
@@ -50,7 +79,7 @@ const BRIGHT = 1.45;   // (the colours a little over 1, so under the app's tone 
 
 export function makeAirliner(type, flight = '', { gear = false } = {}) {
   const spec = T[type]; if (!spec) return null;
-  const [L, span, D, eng] = spec, R = D / 2, wide = D > 4.5, liv = LIVERY[(flight || '').slice(0, 3)] || PLAIN;
+  const [L, span, D, eng, deck] = spec, R = D / 2, wide = D > 4.5, liv = LIVERY[(flight || '').slice(0, 3)] || PLAIN;
   const parts = [], col = new THREE.Color(), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), one = new THREE.Vector3(1, 1, 1);
   // a geometry in one colour (or coloured per vertex by fn(x, y, z)), moved into place
   // (round 4: each part keeps its own smooth normals; merged and recomputed, every face was flat, the round fuselage
@@ -75,6 +104,10 @@ export function makeAirliner(type, flight = '', { gear = false } = {}) {
   { const p = fus.attributes.position;   // the tail cone's axis rises as it narrows (top nearly level, belly sweeping up); the nose droops a little
     for (let i = 0; i < p.count; i++) { const f = (p.getZ(i) - z0) / L, r = rAt(f); p.setY(i, p.getY(i) + (f > CONE ? (R - r) * 0.78 : f < NOSE ? -(R - r) * 0.32 : 0)); }
     if (/^(E1|E2|E7)/.test(type)) for (let i = 0; i < p.count; i++) p.setY(i, p.getY(i) * 1.1);   // (an E-jet's 'double bubble': 3.35 m tall, 3.0 wide)
+    if (deck === 'dd') for (let i = 0; i < p.count; i++) p.setY(i, p.getY(i) * 1.18);   // (the A380: two full decks, 8.4 m tall, 7.1 wide)
+    if (deck === 'hump') for (let i = 0; i < p.count; i++) {   // (the 747: her upper deck, a hump over her first third)
+      const f = (p.getZ(i) - z0) / L, y = p.getY(i), up = Math.min(1, Math.max(0, (f - 0.03) / 0.1)) * (1 - Math.min(1, Math.max(0, (f - (type === 'B748' ? 0.33 : 0.29)) / 0.08)));
+      if (y > 0) p.setY(i, y + R * 0.5 * up * (y / R)); }   // (~8.1 m tall at her upper deck, as hers)
     fus.computeVertexNormals(); }
   const line = (liv.line ?? -0.3) * R, tailF = CONE + 0.05;
   add(fus, 0, null, (x, y, z) => {
@@ -91,7 +124,8 @@ export function makeAirliner(type, flight = '', { gear = false } = {}) {
   // the cabin windows along each side, door to door: a 737's or an A320's every 0.51 m; an E-jet's, a CRJ's or an
   // A220's big and 0.8 m apart (round 4: the E175's were tiny 737 dashes)
   const big = /^(E1|E2|E7|CRJ|BCS)/.test(type), wp = big ? 0.8 : wide ? 0.53 : 0.51, wh = big ? 0.42 : wide ? 0.36 : 0.32, ww = big ? 0.32 : wide ? 0.26 : 0.23;
-  for (let z = z0 + L * 0.14; z < z0 + L * (wide ? 0.82 : 0.84); z += wp) for (const sx of [-1, 1]) add(new THREE.CylinderGeometry(ww / 2, ww / 2, 0.04, 10).scale(wh / ww, 1, 1).rotateZ(Math.PI / 2), DARK, place(sx * R * 0.975, R * 0.3, z));
+  const rows = deck === 'dd' ? [[0, 0.975, 0.14, 0.82], [0.73, 0.765, 0.13, 0.8]] : deck === 'hump' ? [[0.3, 0.975, 0.14, 0.82], [1.12, 0.66, 0.14, type === 'B748' ? 0.31 : 0.27]] : [[0.3, 0.975, 0.14, wide ? 0.82 : 0.84]];   // [height, out, from, to] × R, L
+  for (const [hy, out, fa, fb] of rows) for (let z = z0 + L * fa; z < z0 + L * fb; z += wp) for (const sx of [-1, 1]) add(new THREE.CylinderGeometry(ww / 2, ww / 2, 0.04, 10).scale(wh / ww, 1, 1).rotateZ(Math.PI / 2), DARK, place(sx * R * out, R * hy, z));
   // ── the wings: a swept trapezoid with thickness, low on her, rising to the tips (dihedral), with winglets
   const semi = span / 2, rootZ = z0 + L * (eng === 'rear' ? 0.43 : 0.37), rootC = span * (eng === 'rear' ? 0.17 : 0.22), tipC = rootC * 0.18, sweep = (wide ? 31 : 26) * Math.PI / 180, dih = (eng === 'rear' ? 3 : 6) * Math.PI / 180;
   const wingY = -R * 0.55, foil = (s, c0, c1, zLE, len, t, kink = 0) => {   // a surface's planform [span x, along z] at y = 0, t thick
@@ -144,11 +178,19 @@ export function makeAirliner(type, flight = '', { gear = false } = {}) {
   // ── the tail: the fin (her airline's colours, a second colour up its trailing half), the tailplane
   const finH = R * (wide ? 3.2 : 3.6), finRoot = L * 0.165, finTip = finRoot * 0.3, finSweep = 41 * Math.PI / 180, finZ = z0 + L * 0.745, topY = R * 0.78;   // (round 2: swept 41°, her tip at ~95% of her length)
   const finLE = Math.tan(finSweep) * finH, fin = new THREE.Shape([[0, 0], [finRoot, 0], [finLE + finTip, finH], [finLE, finH]].map(([a, b]) => new THREE.Vector2(a, b)));
-  const fg = new THREE.ExtrudeGeometry(fin, { depth: Math.max(0.25, finRoot * 0.05), bevelEnabled: false });
-  fg.rotateY(-Math.PI / 2); fg.translate(Math.max(0.25, finRoot * 0.05) / 2, topY + R * 0.1, finZ);   // (shape x → +z along her, y up; extruded across)
-  add(fg, 0, null, (x, y, z) => { const h = (y - topY) / finH, zz = (z - finZ) / finRoot;
-    if (liv.tail3 && h > 0.15 && h < 0.3) return liv.tail3;
-    return liv.tail2 && (zz - h * (finLE / finRoot) > 0.45 || (liv === LIVERY.SWA && h < 0.2)) ? liv.tail2 : liv.tail; });
+  // (round 6: a fine grid on each face, not an extrusion's few big triangles, so a tail's bands and circles come out
+  // crisp: on the extrusion every second colour was a smear)
+  const fy0 = topY + R * 0.1, ft = Math.max(0.25, finRoot * 0.05), NI = 18, NJ = 22, chordAt = u => finRoot + (finTip - finRoot) * u;
+  for (const sx of [-1, 1]) {
+    const pos = [], idx = [];
+    for (let i = 0; i <= NI; i++) for (let j = 0; j <= NJ; j++) { const u = i / NI, v = j / NJ; pos.push(sx * ft / 2, fy0 + u * finH, finZ + u * finLE + v * chordAt(u)); }
+    for (let i = 0; i < NI; i++) for (let j = 0; j < NJ; j++) { const a = i * (NJ + 1) + j, b = a + NJ + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+    add(g, 0, null, (x, y, z) => { const h = (y - fy0) / finH, f = (z - finZ - h * finLE) / chordAt(h);
+      if (liv.fin) return liv.fin(f, h) ?? liv.tail;
+      if (liv.tail3 && h > 0.15 && h < 0.3) return liv.tail3;
+      return liv.tail2 && (f * chordAt(h) / finRoot > 0.45 || (liv === LIVERY.SWA && h < 0.2)) ? liv.tail2 : liv.tail; });
+  }
   // red beacons on her back and belly, a white light at her tail
   add(new THREE.SphereGeometry(0.15, 8, 6), 0xff3020, place(0, R * 1.0, z0 + L * 0.5), null, 3.2);
   add(new THREE.SphereGeometry(0.15, 8, 6), 0xff3020, place(0, -R * 1.0, z0 + L * 0.45), null, 3.2);
