@@ -32,6 +32,7 @@ import * as Voice from './piper_voice.js';
 import { makeOverview } from './overview2d.js';
 import { makeAircraft, ADSB_CREDIT } from './aircraft3d.js';
 import { makeTrains, TRAIN_CREDIT } from './trains3d.js';
+import { makeAirport } from './airport3d.js';
 import { makeAisFeed, aisStatus, aisName, aisDest, setKnown, knownFor, aisFlag, aisRot, aisPos, aisAgo, aisLookup, aisImo, aisCallsign, AIS_CREDIT } from './ais.js';
 
 const statusEl = document.getElementById('status');
@@ -360,6 +361,7 @@ statusEl.textContent = EMPTY ? `Draining ${REG.name}…` : 'Downloading the bay�
 const [OW, OS, OE, ON] = OVERVIEW;
 const ovPhotoP = photo(OW, OS, OE, ON, 4000); ovPhotoP.catch(() => {});
 const ov = await demFor(OW, OS, OE, ON, false);
+const airports = [];   // (the region's airports' ground, v1111: below, once the towns are listed)
 const OV_STRIDE = ov.w * ov.h > 1.2e6 ? 2 : 1;
 const OV_RECT = { west: OW, east: OE, south: OS, north: ON };
 let ovMesh = gridMesh(ov, OV_RECT, OV_STRIDE, PLAIN, yOf);
@@ -719,8 +721,22 @@ const VER = self.APP_VERSION ? `${self.APP_VERSION} · ` : '';
 creditEl.textContent = VER + creditEl.textContent;
 function updateCredit() {
   const shown = townList.filter(t => t.group);
-  creditEl.textContent = VER + (EMPTY ? 'Land and seabed NOAA NCEI CUDEM · Photos USDA NAIP' : 'Elevation USGS 3DEP · Photos USDA NAIP') + (bridges ? ' · ' + bridges.credit : '') + (shown.length ? ' · Buildings © OpenStreetMap contributors' + (shown.some(t => /Microsoft/.test(t.credit)) ? ', Microsoft' : '') + (shown.some(t => /NYC Open Data/.test(t.credit)) ? ', NYC Open Data' : '') : '');
+  creditEl.textContent = VER + (EMPTY ? 'Land and seabed NOAA NCEI CUDEM · Photos USDA NAIP' : 'Elevation USGS 3DEP · Photos USDA NAIP') + (bridges ? ' · ' + bridges.credit : '') + (airports.length ? ' · ' + airports[0].credit : '') + (shown.length ? ' · Buildings © OpenStreetMap contributors' + (shown.some(t => /Microsoft/.test(t.credit)) ? ', Microsoft' : '') + (shown.some(t => /NYC Open Data/.test(t.credit)) ? ', NYC Open Data' : '') : '');
 }
+// An airport's ground (v1111, requested: "let's add lots of detail to San Francisco Airport"; airport3d.js): her
+// runways and their markings, taxiways, aprons, lights, jet bridges, tower, AirTrain, set on the 10 m elevation the
+// detail tiles use (the overview's is too coarse: her runways would sink into it in places)
+if (!EMPTY) for (const id of REG.airports || []) (async () => {
+  try {
+    const d = await getJSON(`./data/airports/${id}.json`), all = [...d.runways.flatMap(r => r.ends), ...d.aprons.flat(), ...d.lightPiers.flatMap(p => p.pts)];
+    const w = Math.min(...all.map(p => p[0])) - 0.004, e = Math.max(...all.map(p => p[0])) + 0.004, s = Math.min(...all.map(p => p[1])) - 0.004, n = Math.max(...all.map(p => p[1])) + 0.004;
+    const dem = await demFor(w, s, e, n, true);
+    const hAt = (lon, lat) => { const c = (lon - dem.west) / dem.dx - 0.5, r = (dem.north - lat) / dem.dy - 0.5; if (c < 0 || r < 0 || c >= dem.w - 1 || r >= dem.h - 1) return heightAt(lon, lat);
+      const ci = Math.floor(c), ri = Math.floor(r), fc = c - ci, fr = r - ri, i = ri * dem.w + ci, E = dem.elev;
+      return (E[i] * (1 - fc) + E[i + 1] * fc) * (1 - fr) + (E[i + dem.w] * (1 - fc) + E[i + dem.w + 1] * fc) * fr; };
+    const ap = makeAirport({ data: d, wx, wz, heightAt: hAt }); ap.credit = d.credit; scene.add(ap.group); airports.push(ap); updateCredit();
+  } catch (err) { console.warn('[bay3d] airport', id, err); }
+})();
 async function loadTown(t) {
   t.state = 'loading'; townsLoading++;
   try {
@@ -2087,7 +2103,7 @@ function relabel(btns, kind) {
   }
 }
 const rideBtns = () => RIDE_BTNS.map(([id, m]) => { const b = document.getElementById(id); if (b) b.dataset.m = m; return b; }).filter(Boolean);
-const air = makeAircraft({ scene, bbox: OVERVIEW, wx, wz, onCount: () => syncLiveBtn(), focus: moverFocus, onDrop: moverGone, riding: p => nest.on && nest.v === p });
+const air = makeAircraft({ scene, bbox: OVERVIEW, wx, wz, onCount: () => syncLiveBtn(), focus: moverFocus, onDrop: moverGone, riding: p => nest.on && nest.v === p, groundAt: (lon, lat) => Math.max(0, heightAt(lon, lat) || 0) });
 window.__aircraft = () => air.list(camera, renderer.domElement.getBoundingClientRect());
 // and the trains (v1099): Caltrain, SMART and ACE from 511.org
 const rail = makeTrains({ scene, bbox: OVERVIEW, wx, wz, heightAt, onCount: () => syncLiveBtn(), focus: moverFocus, onDrop: moverGone });
@@ -3665,7 +3681,7 @@ function frame(now) {
   updateFleet(dt);
   updateTraffic();
   bridges?.update(dt);   // the cars on them (v1043)
-  updateLive(dt); air.update(dt, camera); rail.update(dt, camera);
+  updateLive(dt); air.update(dt, camera); rail.update(dt, camera); for (const ap of airports) ap.update(t);
   updateWaypoints();
   updateOwn(dt);
   updateWakes(dt);

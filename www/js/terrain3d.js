@@ -276,9 +276,9 @@ export function buildTown(T) {   // → a Group of the town's buildings and whar
     for (const [p, u] of [[a, ua], [b, ub], [c, uc], [a, ua], [c, uc], [d, ud]]) { G.pos.push(...p); G.uv.push(...u); G.col.push(...col); }
   }
   function tri(G, a, b, c, ua, ub, uc, col) { for (const [p, u] of [[a, ua], [b, ub], [c, uc]]) { G.pos.push(...p); G.uv.push(...u); G.col.push(...col); } }
-  let bay = BAY_M;   // window spacing; wider on big commercial and wharf buildings
+  let bay = BAY_M, storey = STOREY_M;   // window spacing; wider on big commercial and wharf buildings
   function wallStrip(ax, az, bx, bz, y0, y1, g, col) {   // outward = right of a→b when the ring is clockwise in x/z
-    const L = Math.hypot(bx - ax, bz - az), u1 = L / bay, v0 = (y0 - g) / STOREY_M, v1 = (y1 - g) / STOREY_M;
+    const L = Math.hypot(bx - ax, bz - az), u1 = L / bay, v0 = (y0 - g) / storey, v1 = (y1 - g) / storey;
     quad(wall, [ax, y0, az], [bx, y0, bz], [bx, y1, bz], [ax, y1, az], [0, v0], [u1, v0], [u1, v1], [0, v1], col);
   }
   for (const b of T.buildings) {
@@ -287,7 +287,8 @@ export function buildTown(T) {   // → a Group of the town's buildings and whar
     let P = b.p.map(([lo, la]) => [wx(lo), wz(la)]);
     // make the ring wind so the outside is on the right of each edge (signed area in x/z)
     let A = 0; for (let i = 0; i < P.length; i++) { const [x1, z1] = P[i], [x2, z2] = P[(i + 1) % P.length]; A += x1 * z2 - x2 * z1; }
-    bay = Math.abs(A) / 2 > 350 ? BAY_M * 2 : BAY_M;
+    bay = b.cw ? BAY_M * 3.2 : Math.abs(A) / 2 > 350 ? BAY_M * 2 : BAY_M;   // (cw: a curtain wall, big panes on tall floors: an airport's terminals, v1111)
+    storey = b.cw ? STOREY_M * 1.7 : STOREY_M;
     if (A < 0) P = P.reverse();
     if (b.s === 'gable') {
       // the footprint's minimum-area rectangle; ridge along its long side

@@ -30,6 +30,7 @@ Sources:
 
 Buildings whose centre is outside the town's bbox are skipped, since they belong to the neighbouring town's file.
 Rockland's breakwater and its light are skipped by name (SKIP), because helm3d.js models them by hand.
+An airport (v1111, SFO, survey `CA_CaliforniaGaps_3_B23`): `FLAT_OVER=900 PALETTE_BIG=airport` keeps footprints over 900 m² flat-roofed, in the airport palette (white, light grey, blue-grey glass), with curtain walls (`cw`: big panes on tall floors, terrain3d.js). The airport's ground (runways, taxiways, lights, jet bridges, tower) is a separate layer: `design/airports/build_airport.py` → `www/data/airports/<id>.json`, drawn by `www/js/airport3d.js`.
 A named building whose OSM outline or roof the lidar contradicts can be replaced by hand-fitted blocks in `overrides.json` (keyed by its OSM name); build_buildings.py emits those instead. So far: Southwest Harbor's Coast Guard station (v1092).
 An area spanning two quadkeys gets its Microsoft files concatenated (`cat a.gz b.gz > ms.csv.gz`).
 

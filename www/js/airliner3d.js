@@ -214,5 +214,6 @@ export function makeAirliner(type, flight = '', { gear = false } = {}) {
   for (const g of parts) { pos.set(g.attributes.position.array, o * 3); nor.set(g.attributes.normal.array, o * 3); cols.set(g.attributes.color.array, o * 3); o += g.attributes.position.count; g.dispose(); }
   const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); geo.setAttribute('color', new THREE.BufferAttribute(cols, 3));
   const group = new THREE.Group(); group.add(new THREE.Mesh(geo, mat()));
-  return { group, L, cockpit: [0, R * 0.35, z0 + L * 0.04 - 0.6] };
+  // (drop: her centre over the bottom of her wheels, with the gear down: to sit her on the ground, v1111)
+  return { group, L, cockpit: [0, R * 0.35, z0 + L * 0.04 - 0.6], drop: gear ? R + R * 0.75 + (wide ? 1.0 : 0.45) + (wide ? 0.62 : 0.55) : R };
 }

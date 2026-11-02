@@ -51,11 +51,13 @@ PALETTES = {   # wall colours, weighted (v1028: PALETTE= picks one)
   'sf': [((238,236,230),30),((228,220,200),18),((196,196,192),14),((232,222,170),8),((190,206,216),8),((222,190,180),6),((176,196,170),5),((168,164,156),11)],
   # New York: brick reds and browns, brownstone, limestone and grey
   'nyc': [((150,78,60),24),((120,84,66),14),((176,120,92),10),((214,206,190),16),((186,182,174),14),((96,80,70),8),((230,226,216),8),((132,136,140),6)],
+  # an airport's terminals and hangars (v1111, SFO): white and light grey panels, blue-grey glass
+  'airport': [((232,234,236),34),((206,211,216),26),((168,184,198),20),((240,238,232),12),((150,158,166),8)],
 }
 PALETTE = PALETTES[os.environ.get('PALETTE', 'maine')]
-def wall_colour(seed):
-    t = int(hashlib.md5(str(seed).encode()).hexdigest()[:8],16) % 100
-    for c,wgt in PALETTE:
+def wall_colour(seed, pal=None):
+    pal = pal or PALETTE; t = int(hashlib.md5(str(seed).encode()).hexdigest()[:8],16) % 100
+    for c,wgt in pal:
         if t < wgt: return c
         t -= wgt
     return PALETTE[0][0]
@@ -133,6 +135,9 @@ for e in els:
         if osm_h and osm_h > 20 and osm_h > ridge * 1.2 + 5:
             ridge = min(osm_h, MAXH); eave = ridge * 0.97; stats['osm_height'] = stats.get('osm_height', 0) + 1
         shape = 'gable' if rect > 0.85 and ridge - eave > 0.8 and len(ll) <= 8 else 'flat'
+        # (v1111, SFO: FLAT_OVER=<m²> keeps a big footprint flat-roofed: a terminal or a hangar is rectangular but not a
+        # house, and its rooftop plant isn't a ridge)
+        if os.environ.get('FLAT_OVER') and A > float(os.environ['FLAT_OVER']) and shape == 'gable': shape = 'flat'; eave = max(eave, ridge - 1.5)
         # (v1065: in New York the brownstones and apartment houses are flat-roofed: the rise the lidar sees on top is a
         # water tank or a bulkhead, not a ridge; a gable only on a house under 11 m)
         if PALETTE is PALETTES['nyc'] and shape == 'gable' and ridge > 11: shape = 'flat'; eave = max(eave, ridge - 1.5)
@@ -143,7 +148,8 @@ for e in els:
         sub = img[rows.min():rows.max()+1, cols.min():cols.max()+1].reshape(-1,3)
         rc = [int(v) for v in np.median(sub, 0)] if len(sub) else [110,110,110]
         b = {'p': [[round(lo,7), round(la,7)] for lo,la in ll], 'e': round(eave,1), 'r': round(ridge,1), 's': shape,
-             'rc': rc, 'wc': list(wall_colour(e['id']))}
+             'rc': rc, 'wc': list(wall_colour(e['id'], PALETTES.get(os.environ.get('PALETTE_BIG', '')) if os.environ.get('FLAT_OVER') and A > float(os.environ['FLAT_OVER']) else None))}   # (PALETTE_BIG: the big ones' own, v1111)
+        if os.environ.get('PALETTE_BIG') and os.environ.get('FLAT_OVER') and A > float(os.environ['FLAT_OVER']): b['cw'] = 1   # (their walls a curtain wall: terrain3d.js)
         if ground is not None: b['g'] = round(ground, 2)
         if tags.get('name'): b['n'] = tags['name']
         if ob and shape == 'gable': b['ax'] = [round(float(ob[1][0]),4), round(float(ob[1][1]),4)] if ob[2] >= ob[3] else [round(float(-ob[1][1]),4), round(float(ob[1][0]),4)]

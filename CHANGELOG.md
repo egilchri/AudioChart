@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-11-02 — Bird's-eye: San Francisco International in detail (v1111)
+
+- Requested: "let's add lots of detail to San Francisco Airport". SFO's ground is now its own layer (www/js/airport3d.js, from OpenStreetMap's aeroways via design/airports/build_airport.py → www/data/airports/sfo.json), and its buildings are built:
+  - **The runways** (lengths from OSM within 13 m of the published 3,618, 3,469, 2,637 and 2,332 m), each with the FAA precision markings painted along it: the threshold's sixteen piano keys, her numbers and L/R read from the approach, the dashed centreline, the touchdown-zone bars, the aiming-point blocks, edge stripes, and rubber where they touch down; the blast pads beyond the ends.
+  - **258 taxiways** with yellow centrelines, 84 hold-short bars, 18 aprons in concrete, the helipads.
+  - **The lights**: runway edge lights every 60 m, green thresholds and red ends, the approach lights on their piers out into the bay with the sequenced strobes running in to the runway twice a second.
+  - **133 jet bridges** on their legs, **the control tower** (2016, 67 m: her shaft flaring to the glass cab, the mast), **the AirTrain** on its columns, the windsock.
+  - The flat layers lie on the 10 m elevation the detail tiles use, drawn in order without writing depth, so they never flicker against each other or the ground.
+  - **1,985 buildings** (OSM footprints, lidar heights from USGS CA_CaliforniaGaps_3_B23, NAIP roofs): the terminals, hangars and garages flat-roofed in an airport palette with curtain walls (design/buildings/build_buildings.py `FLAT_OVER`, `PALETTE_BIG`; terrain3d.js `cw`); the houses round about as San Francisco's.
+- Aircraft on the ground sit on it (their ADS-B says 0 ft; SFO is 3 m up): their wheels on the runway's surface, not half under it at sea level.
+- Checked in the app over SFO in three rounds (design/pending/sfo-look/look.mjs): round 2 lightened the taxiways (black under the tone mapping) and the aprons (tan); round 3 the terminals' walls (they read as apartment blocks). No errors. Known: some narrow blocks at the concourse ends stand taller than they should; the International Terminal's wave roof is a flat one.
+
 ## 2026-11-02 — Bird's-eye: the heavies as they are, and the world's airlines' tails (v1110)
 
 - Requested: double-deck A380 and 747, and the international carriers' colours (after an Emirates A380 on final came out a plain white single-decker). Round 6 against photos of an Emirates A380, a British Airways 747-400 on approach to SFO and a Lufthansa 747-8 (Wikimedia Commons; www/js/airliner3d.js):

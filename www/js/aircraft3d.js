@@ -42,7 +42,8 @@ export function labelSprite() {
 // L (her length, m), label (what she's doing), title, and a cockpit (group.userData.helm, her frame, nose to −z).
 // focus(p): true while her card is open or she's followed, so her label shows; onDrop(p) when she's gone.
 // riding(p): true while you ride with her (no line down from her then: clutter beside her)
-export function makeAircraft({ scene, bbox, wx, wz, every = 5000, onCount, focus = () => false, onDrop = () => {}, riding = () => false }) {
+// groundAt(lon, lat): the ground's height there, to sit an aircraft on the ground on it (her ADS-B says 0 ft)
+export function makeAircraft({ scene, bbox, wx, wz, every = 5000, onCount, focus = () => false, onDrop = () => {}, riding = () => false, groundAt = () => 0 }) {
   const planes = new Map();   // hex -> { a, g, model, line, label, fix, x, y, z, h }
   let on = false, timer = null, inflight = null, hover = null;
   const pinned = new Set(), _v = new THREE.Vector3();
@@ -57,7 +58,7 @@ export function makeAircraft({ scene, bbox, wx, wz, every = 5000, onCount, focus
     if (p.modelKey === key) return; p.modelKey = key;
     const al = makeAirliner(a.type, a.flight, { gear }), m = al ? al.group : planeModel(colourOf(a));
     if (p.model) { p.g.remove(p.model); p.model.traverse(free); }
-    p.model = m; p.g.add(m); p.real = !!al; p.L = al ? al.L : lengthOf(a);
+    p.model = m; p.g.add(m); p.real = !!al; p.L = al ? al.L : lengthOf(a); p.drop = al ? al.drop : 1;
     p.g.userData.helm = al ? al.cockpit : [0, p.L * 0.03, -p.L * 0.43];   // (the cockpit: up in her nose)
   }
   function data(j) {
@@ -99,7 +100,8 @@ export function makeAircraft({ scene, bbox, wx, wz, every = 5000, onCount, focus
     for (const p of planes.values()) {
       const a = p.a, sec = Math.min(Math.max((now - p.fix.t) / 1000, 0), 60), s = (a.gs || 0) * KT * sec, trk = a.trk ?? p.h;
       const tx = p.fix.x + Math.sin(trk * DEG) * s, tz = p.fix.z - Math.cos(trk * DEG) * s;
-      const ty = Math.max(0, p.fix.y + (a.ground ? 0 : (a.vr || 0) * FT / 60 * sec));
+      // (on the ground: on it, her wheels on the runway's surface, not at sea level: SFO is 3 m up, v1111)
+      const ty = a.ground ? groundAt(a.lon, a.lat) + p.drop + 0.65 : Math.max(0, p.fix.y + (a.vr || 0) * FT / 60 * sec);
       const k = p.placed ? Math.min(1, dt * 1.5) : 1; p.placed = true;   // a new report eases her across, no jump
       p.x += (tx - p.x) * k; p.z += (tz - p.z) * k; p.y += (ty - p.y) * k;
       const turn = ((trk - p.h + 540) % 360) - 180; p.h = (p.h + Math.max(-30 * dt, Math.min(30 * dt, turn)) + 360) % 360;

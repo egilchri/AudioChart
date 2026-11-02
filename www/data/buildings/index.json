@@ -38,6 +38,7 @@
   {"file": "oakland.json", "name": "Oakland, Jack London Square", "bbox": [-122.285, 37.788, -122.265, 37.8]},
   {"file": "sf-piers.json", "name": "The Embarcadero's piers and Telegraph Hill", "bbox": [-122.402, 37.797, -122.386, 37.81]},
   {"file": "sf-mission-bay.json", "name": "South Beach and Mission Bay", "bbox": [-122.4, 37.765, -122.383, 37.784]},
+  {"file": "sfo.json", "name": "San Francisco International Airport", "bbox": [-122.402, 37.598, -122.355, 37.641], "focus": [-122.384, 37.6159]},
   {"file": "portsmouth.json", "name": "Portsmouth", "bbox": [-70.78, 43.06, -70.752, 43.087]},
   {"file": "kittery.json", "name": "Kittery and the Navy Yard", "bbox": [-70.752, 43.074, -70.725, 43.098]},
   {"file": "new-castle.json", "name": "New Castle", "bbox": [-70.735, 43.055, -70.705, 43.078]},
