@@ -176,6 +176,18 @@ function stepWater(dt) {
   waterUI();
 }
 function seabed(mat) {
+// A detail tile's mesh runs a cell or two past its photo, into the next tile; there the photo's edge row was smeared
+// across, level with the next tile's own and flickering against it: streaks across a lake (v1097, Echo Lake). So a
+// tile draws only where its photo is, and the next tile (or the overview, till it comes) shows the rest.
+function ownPhoto(mat) {
+  const was = mat.onBeforeCompile, key = mat.customProgramCacheKey;
+  mat.onBeforeCompile = (sh, r) => {
+    was.call(mat, sh, r);
+    sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', 'if (vMapUv.x < 0.0 || vMapUv.x > 1.0 || vMapUv.y < 0.0 || vMapUv.y > 1.0) discard;\n#include <map_fragment>');
+  };
+  mat.customProgramCacheKey = () => key.call(mat) + '+own';
+  return mat;
+}
   if (!EMPTY) return mat;
   mat.onBeforeCompile = sh => {
     sh.uniforms.uExag = EXAG_U;
@@ -367,26 +379,38 @@ ovPhotoP.then(ph => {
   scene.remove(ovMesh); ovMesh.geometry.dispose(); ovMesh = m2; scene.add(m2);
   for (const T of tiles) if (T.state === 'ready') sinkOverview(T, true);
 }).catch(err => console.warn('[bay3d] overview photo failed', err));
-// Lower the overview under a loaded detail tile (and restore it when the tile goes).
+// Lower the overview under a loaded detail tile (and restore it when the tile goes). Within `inset` of a tile's edge it
+// stays up to cover the seam, unless the tile on the other side is loaded too: then it goes 3 m under, as it was level
+// with the detail and flickered against it on flat ground (v1097, Echo Lake's grey band: a tile edge crosses the lake)
 function sinkOverview(T, down) {
   const pos = ovMesh.geometry.attributes.position, gidx = ovMesh.userData.gidx, inset = 0.0006;
   for (let i = 0; i < gidx.length; i++) {
+  const up = t => !!t && (t === T ? down : t.state === 'ready'), at = (lon, lat) => up(tileAt(lon, lat));
     const gi = gidx[i], gx = gi % ov.w, gy = (gi - gx) / ov.w;
     const lon = ov.west + (gx + 0.5) * ov.dx, lat = ov.north - (gy + 0.5) * ov.dy;
-    if (lon > T.w + inset && lon < T.e - inset && lat > T.s + inset && lat < T.n - inset) pos.setY(i, down ? (EMPTY ? -2000 : -40) : yOf ? yOf(ov.elev[gi]) : ov.elev[gi]);
+    if (lon <= T.w - inset || lon >= T.e + inset || lat <= T.s - inset || lat >= T.n + inset) continue;
+    const t = tileAt(lon, lat), y = yOf ? yOf(ov.elev[gi]) : ov.elev[gi];
+    if (up(t) && lon > t.w + inset && lon < t.e - inset && lat > t.s + inset && lat < t.n - inset) pos.setY(i, EMPTY ? -2000 : -40);
+    else pos.setY(i, at(lon - inset, lat - inset) && at(lon + inset, lat - inset) && at(lon - inset, lat + inset) && at(lon + inset, lat + inset) ? y - 3 : y);
   }
   pos.needsUpdate = true;
 }
 
 // ── Detail tiles: the helm view's grid (same edges, so the same cached downloads) ──
 const TW = 0.07, TH = 0.045;
-const tiles = [];
-for (let x = Math.floor(BAY[0] / TW) * TW; x < BAY[2]; x += TW)
-  for (let y = Math.floor(BAY[1] / TH) * TH; y < BAY[3]; y += TH) {
+const tiles = [], tileIx = new Map(), TX0 = Math.floor(BAY[0] / TW) * TW, TY0 = Math.floor(BAY[1] / TH) * TH;
+for (let x = TX0; x < BAY[2]; x += TW)
+  for (let y = TY0; y < BAY[3]; y += TH) {
     const w = +x.toFixed(4), s = +y.toFixed(4), e = +(x + TW).toFixed(4), n = +(y + TH).toFixed(4);
-    tiles.push({ w, s, e, n, x0: wx(w), x1: wx(e), z0: wz(n), z1: wz(s), state: 'idle' });
+    const T = { w, s, e, n, x0: wx(w), x1: wx(e), z0: wz(n), z1: wz(s), state: 'idle' };
+    tiles.push(T); tileIx.set(`${Math.round((x - TX0) / TW)},${Math.round((y - TY0) / TH)}`, T);
   }
 const rectDist = (T, px, pz) => Math.hypot(Math.max(T.x0 - px, 0, px - T.x1), Math.max(T.z0 - pz, 0, pz - T.z1));
+const tileAt = (lon, lat) => {   // (the tile whose box holds it; its rounded edges can put it in the next one over)
+  const ix = Math.floor((lon - TX0) / TW), iy = Math.floor((lat - TY0) / TH);
+  for (const [dx, dy] of [[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1]]) { const T = tileIx.get(`${ix + dx},${iy + dy}`); if (T && lon >= T.w && lon < T.e && lat >= T.s && lat < T.n) return T; }
+  return null;
+};
 async function loadTile(T) {
   T.state = 'loading'; const gen = (T.gen = (T.gen || 0) + 1);
   try {
@@ -406,7 +430,7 @@ async function loadTile(T) {
       if (T.state !== 'ready' || T.gen !== gen) { ph.img.close?.(); return; }
       addCanopy(dem, ph, () => 0, BROADLEAF);   // forest mask only: the 3D trees give the forest its height here
       T.spots = treeSpots(T, dem); treesDirty = true;
-      const mat = seabed(photoMat(ph, ANISO)), wasNear = T.full.visible;
+      const mat = ownPhoto(seabed(photoMat(ph, ANISO))), wasNear = T.full.visible;
       scene.remove(T.full, T.coarse); T.full.geometry.dispose(); T.coarse.geometry.dispose();
       T.full = gridMesh(dem, ph, 1, mat, yOf); T.coarse = gridMesh(dem, ph, 4, mat, yOf);
       T.full.visible = wasNear; T.coarse.visible = !wasNear; scene.add(T.full, T.coarse);
@@ -2765,6 +2789,45 @@ let myMarks = [];   // (My places' labels, 📍 and the name you gave it, and on
 const places = placesGJ.features.filter(f => f.geometry?.type === 'Point' && inBay(f.geometry.coordinates) && ['LNDARE', 'LNDRGN', 'BUAARE'].includes(f.properties.objtype))
   .map(f => ({ n: f.properties.name, x: wx(f.geometry.coordinates[0]), z: wz(f.geometry.coordinates[1]), lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] }))
   .filter(p => p.n && !/^(Pier [A-Z]|Pylon\b)/.test(p.n));   // (not a bridge's piers, charted as land: v1020)
+// The lakes as water (v1097, reported: "It was really hard to see Echo Lake"): the photo's dark water read as forest
+// from the air. USGS's elevation has each lake flat at one height (Echo Lake 25.35 m), so the cells at that height,
+// filled out from the lake's point, are its shape; a surface 0.3 m over them in the sea's own water material (the
+// sea's reflection, ripples and sun; no second reflection pass), hidden while the sea draws its reflection.
+const lakeWater = [];
+if (!EMPTY) {
+  const mirror = water.onBeforeRender;
+  water.onBeforeRender = (...a) => { for (const m of lakeWater) m.visible = false; mirror(...a); for (const m of lakeWater) m.visible = true; };
+  for (const l of lakes) readDem(l.lon - 0.04, l.lat - 0.06, l.lon + 0.04, l.lat + 0.06, 0).then(g => {
+    const i0 = Math.floor((g.north - l.lat) / g.dy) * g.w + Math.floor((l.lon - g.west) / g.dx), e0 = g.elev[i0];
+    if (!(e0 > 0.4)) return;
+    const in_ = new Uint8Array(g.w * g.h), st = [i0]; in_[i0] = 1;
+    while (st.length) {
+      const i = st.pop(), c = i % g.w, r = (i - c) / g.w;
+      for (const k of [c > 0 ? i - 1 : -1, c < g.w - 1 ? i + 1 : -1, r > 0 ? i - g.w : -1, r < g.h - 1 ? i + g.w : -1])
+        if (k >= 0 && !in_[k] && Math.abs(g.elev[k] - e0) < 0.02) { in_[k] = 1; st.push(k); }
+    }
+    // two cells on under the rising shore, so the ground cuts the water's edge (smooth) rather than the cells (steps)
+    for (let pass = 0; pass < 2; pass++) {
+      const add = [];
+      for (let i = 0; i < in_.length; i++) {
+        if (in_[i] || !(g.elev[i] >= e0 - 0.5)) continue;
+        const c = i % g.w;
+        if ((c > 0 && in_[i - 1]) || (c < g.w - 1 && in_[i + 1]) || in_[i - g.w] || in_[i + g.w]) add.push(i);
+      }
+      for (const i of add) in_[i] = 1;
+    }
+    const pos = [], y = e0 + 0.3;
+    for (let r = 0; r < g.h; r++) for (let c = 0; c < g.w; c++) {
+      if (!in_[r * g.w + c]) continue;
+      let c2 = c; while (c2 + 1 < g.w && in_[r * g.w + c2 + 1]) c2++;   // (a row's run of lake, one strip)
+      const x0 = wx(g.west + c * g.dx), x1 = wx(g.west + (c2 + 1) * g.dx), z0 = wz(g.north - r * g.dy), z1 = wz(g.north - (r + 1) * g.dy);
+      pos.push(x0, y, z0, x0, y, z1, x1, y, z0, x1, y, z0, x0, y, z1, x1, y, z1);
+      c = c2;
+    }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    const m = new THREE.Mesh(geo, water.material); m.name = l.name; lakeWater.push(m); scene.add(m);
+  }).catch(err => console.warn('[bay3d] lake', l.name, err));
+}
 for (const l of (landGJ.landmarks || []).filter(l => inBay([l.lon, l.lat]))) places.push({ n: l.name, x: wx(l.lon), z: wz(l.lat), lon: l.lon, lat: l.lat, elev: l.elev_m });   // summits
 for (const p of places) p.y = Math.max(4, p.elev ?? heightAt(p.lon, p.lat));
 for (const t of townList) t.y = Math.max(10, heightAt(t.lon, t.lat)) + 20;

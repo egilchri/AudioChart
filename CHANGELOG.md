@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-02 — Bird's-eye: Echo Lake and Long Pond as water; the tile-edge streaks gone (v1097)
+
+- Asked to "flatten the lakes" after v1096. The elevation was already flat (USGS hydro-flattens lakes: Echo Lake is 25.35 m across), so v1096's "pit" diagnosis was wrong. The real faults:
+  - **Streaks across the lake:** a detail tile's mesh runs a cell or two into the next tile, past its own photo, where the photo's edge row was smeared across, level with the next tile and flickering against it. A tile's photo material now draws only inside its photo (`ownPhoto`). The overview's strip along a tile edge also goes 3 m under once the tiles on both sides are loaded (it was level with them). A tile edge (44.325 N) crosses Echo Lake.
+  - **The water read as forest:** the photo of dark lake water with glints. Each lake in the region's list (Echo Lake, Long Pond) now has a surface 0.3 m over its flat cells, in the sea's own water material (its reflection, ripples and sun, with no second reflection pass), hidden while the sea draws its reflection. The surface reaches two cells under the rising shore so the ground, not the 10 m cells, makes the edge.
+- Checked in Bird's-eye at 650 ft over Echo Lake and from 8,000 ft over both lakes. From high up, some cell steps still show where the far terrain is coarse. Ponds not in the list keep the photo.
+
 ## 2026-11-01 — Bird's-eye flyover: "Look to the right toward…", Manset House in Manset, lower over lakes (v1096)
 
 - Reported: "when you say 'Sea Wall picnic area' you should say 'Look to right towards the Sea Wall Picnic area'". A History/Geology/Island Info entry can now carry `look` (documents.geojson): the flyover says its title's topic, then "Look to the right (left, ahead) toward <look>", the side seen from her course to the stop as she sets off (flyover.js gives `about` a side function). Set for "Volcanic tuff, Seawall picnic area". Checked in a flyover: "Look ahead…" with the stop beside Seawall, "Look to the left…" heading south to Bass Harbor.
