@@ -1,7 +1,8 @@
 // Live trains in Bird's-eye (v1099): Caltrain, SMART and ACE, from 511.org through the relay's GET /trains
 // (relay/ais/core.mjs RAIL). 511 is asked at most every 90 s per railroad, so between reports each train runs on
 // at the speed and heading of her last two positions (511's own bearing is always 0), for up to a minute, then
-// waits for the next. On with 📡 Live; needs an internet connection.
+// waits for the next. On with 📡 Live; needs an internet connection. Her label shows only while the pointer is
+// over her, or after a tap on her until the next (v1102, as the aircraft's since v1101).
 import * as THREE from 'three';
 import { relayUrl } from './ais.js';
 import { labelSprite } from './aircraft3d.js';
@@ -30,8 +31,9 @@ const metres = (a, b) => Math.hypot((b.lon - a.lon) * 111320 * Math.cos(a.lat * 
 
 export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCount }) {
   const trains = new Map();   // id -> { a, g, model, label, fix, prev, v (m/s), h, x, z }
-  let on = false, timer = null, inflight = null;
-  function drop(p) { scene.remove(p.g); p.g.traverse(o => { o.geometry?.dispose(); o.material?.map?.dispose(); o.material?.dispose(); }); trains.delete(p.id); }
+  let on = false, timer = null, inflight = null, hover = null;
+  const pinned = new Set(), _v = new THREE.Vector3();
+  function drop(p) { pinned.delete(p); if (hover === p) hover = null; scene.remove(p.g); p.g.traverse(o => { o.geometry?.dispose(); o.material?.map?.dispose(); o.material?.dispose(); }); trains.delete(p.id); }
   function data(j) {
     const now = Date.now(), seen = new Set();
     for (const a of j.trains || []) {
@@ -80,14 +82,31 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
       // her real size near; farther off, long enough to see (about 2% of the distance away)
       const d = Math.hypot(p.x - cp.x, cp.y - p.g.position.y, p.z - cp.z);
       p.model.scale.setScalar(Math.max(1, d * 0.02 / 160));
+      p.label.visible = p === hover || pinned.has(p);
     }
   }
   return {
     start() { if (on) return; on = true; poll(); },
     stop() { on = false; clearTimeout(timer); inflight?.abort(); for (const p of [...trains.values()]) drop(p); onCount?.(0); },
     update,
+    // the train under a point on the screen (client px), within reach px of her middle: for hover and tap
+    at(cx, cy, camera, rect, reach = 22) {
+      let best = null, bd = reach;
+      for (const p of trains.values()) {
+        _v.copy(p.g.position).project(camera); if (_v.z >= 1) continue;
+        const d = Math.hypot(rect.left + (_v.x + 1) / 2 * rect.width - cx, rect.top + (1 - _v.y) / 2 * rect.height - cy);
+        if (d < bd) { bd = d; best = p; }
+      }
+      return best;
+    },
+    set hover(p) { hover = p; },
+    toggle(p) { if (pinned.has(p)) pinned.delete(p); else pinned.add(p); },
     get on() { return on; },
     get count() { return trains.size; },
-    list: () => [...trains.values()].map(p => ({ id: p.id, rail: p.a.rail, dest: place(p.a.dest), v: +p.v.toFixed(1), h: Math.round(p.h) })),
+    list: (camera, rect) => [...trains.values()].map(p => {   // (for checking from a script)
+      const o = { id: p.id, rail: p.a.rail, dest: place(p.a.dest), v: +p.v.toFixed(1), h: Math.round(p.h), shown: p.label.visible };
+      if (camera && rect) { _v.copy(p.g.position).project(camera); if (_v.z < 1) { o.sx = Math.round(rect.left + (_v.x + 1) / 2 * rect.width); o.sy = Math.round(rect.top + (1 - _v.y) / 2 * rect.height); } }
+      return o;
+    }),
   };
 }

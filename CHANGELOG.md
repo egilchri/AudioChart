@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-02 — Bird's-eye: a train's label only on hover or tap too (v1102)
+
+- Requested: "make train labels hover-only too". A train's label (`Caltrain 117 → San Francisco`) now behaves as an aircraft's since v1101: it shows while the pointer is over her, or after a tap on her until the next (trains3d.js `at`/`toggle`). Checked in headless Chrome: 8 trains, no labels; hover on Caltrain 117 showed only hers; a click kept it, a second put it away.
+
 ## 2026-11-02 — Bird's-eye: an aircraft's label only on hover or tap (v1101)
 
 - Reported: "Too much writing on the plane label. Try hiding it until I click on plane, or maybe just hover over it". An aircraft's label (flight · height) now shows only while the pointer is over her (within 18 px, as the live vessels' names since v1035), or after a tap or click on her, until the next tap on her (aircraft3d.js `at`/`toggle`; bay3d.js `tapAt` and the page's hover listener). Checked in headless Chrome over SF Bay: 63 aircraft, no labels; hover on ASA303 showed only hers, gone when the pointer left; a click kept it, a second click put it away. Train labels are unchanged.
