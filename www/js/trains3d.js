@@ -27,6 +27,7 @@ function trainModel(look) {   // the cars in a line along -z (her front), 1 unit
 }
 // "San Francisco Caltrain Station Northbound" -> "San Francisco"; "Stockton - Robert J Cabral Sta" -> "Stockton"
 const place = d => (d || '').replace(/\s+(Caltrain\s+)?Station\b.*$/i, '').replace(/\s+-\s+.*$/, '').replace(/^SMART\s+/i, '').trim();
+const lonOf = p => p.fix.lon + (p.x - p.fix.x) / (111320 * Math.cos(p.fix.lat * DEG)), latOf = p => p.fix.lat - (p.z - p.fix.z) / 111120;   // (where she's drawn now)
 const metres = (a, b) => Math.hypot((b.lon - a.lon) * 111320 * Math.cos(a.lat * DEG), (b.lat - a.lat) * 111120);
 
 export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCount }) {
@@ -101,10 +102,11 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
     },
     set hover(p) { hover = p; },
     toggle(p) { if (pinned.has(p)) pinned.delete(p); else pinned.add(p); },
+    pin(id, show = true) { const p = trains.get(id); if (p) { if (show) pinned.add(p); else pinned.delete(p); } return !!p; },   // (for a recording)
     get on() { return on; },
     get count() { return trains.size; },
     list: (camera, rect) => [...trains.values()].map(p => {   // (for checking from a script)
-      const o = { id: p.id, rail: p.a.rail, dest: place(p.a.dest), v: +p.v.toFixed(1), h: Math.round(p.h), shown: p.label.visible };
+      const o = { id: p.id, rail: p.a.rail, trip: p.a.trip, dest: place(p.a.dest), v: +p.v.toFixed(1), h: Math.round(p.h), shown: p.label.visible, lat: latOf(p), lon: lonOf(p) };
       if (camera && rect) { _v.copy(p.g.position).project(camera); if (_v.z < 1) { o.sx = Math.round(rect.left + (_v.x + 1) / 2 * rect.width); o.sy = Math.round(rect.top + (1 - _v.y) / 2 * rect.height); } }
       return o;
     }),

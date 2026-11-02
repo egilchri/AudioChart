@@ -55,7 +55,7 @@ export function makeAircraft({ scene, bbox, wx, wz, every = 5000, onCount }) {
         p = { g, model, line, label, x: wx(a.lon), z: wz(a.lat), y: (a.alt || 0) * FT, h: a.trk || 0, placed: false };
         g.userData.lineObj = line; planes.set(a.hex, p);
       }
-      p.a = a; p.fix = { x: wx(a.lon), z: wz(a.lat), y: (a.alt || 0) * FT, t: now - (a.age || 0) * 1000 };
+      p.a = a; p.fix = { x: wx(a.lon), z: wz(a.lat), y: (a.alt || 0) * FT, t: now - (a.age || 0) * 1000, lon: a.lon, lat: a.lat };
       const alt = a.ground ? 'on the ground' : a.alt >= 18000 ? `FL${Math.round(a.alt / 100)}` : `${Math.round(a.alt / 100) * 100} ft`;
       p.label.userData.draw(`${a.flight || a.reg || a.hex} · ${alt}`);
     }
@@ -106,11 +106,12 @@ export function makeAircraft({ scene, bbox, wx, wz, every = 5000, onCount }) {
     },
     set hover(p) { hover = p; },
     toggle(p) { if (pinned.has(p)) pinned.delete(p); else pinned.add(p); },
+    pin(hex, show = true) { const p = planes.get(hex); if (p) { if (show) pinned.add(p); else pinned.delete(p); } return !!p; },   // (for a recording)
     unpinAll() { const any = pinned.size > 0; pinned.clear(); return any; },
     get on() { return on; },
     get count() { return planes.size; },
     list: (camera, rect) => [...planes.values()].map(p => {   // (for checking from a script: where she is on the screen, and whether her label shows)
-      const o = { ...p.a, y: Math.round(p.y), shown: p.label.visible };
+      const o = { ...p.a, y: Math.round(p.y), shown: p.label.visible, at: { lon: p.fix.lon + (p.x - p.fix.x) / (111320 * Math.cos(p.fix.lat * DEG)), lat: p.fix.lat - (p.z - p.fix.z) / 111120 } };
       if (camera && rect) { _v.copy(p.g.position).project(camera); if (_v.z < 1) { o.sx = Math.round(rect.left + (_v.x + 1) / 2 * rect.width); o.sy = Math.round(rect.top + (1 - _v.y) / 2 * rect.height); } }
       return o;
     }),

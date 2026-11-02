@@ -177,7 +177,6 @@ function stepWater(dt) {
   if (sv <= 0 || sv >= top) { waterLevel = sv <= 0 ? WATER_MIN : 0; waterFill = 0; }
   waterUI();
 }
-function seabed(mat) {
 // A detail tile's mesh runs a cell or two past its photo, into the next tile; there the photo's edge row was smeared
 // across, level with the next tile's own and flickering against it: streaks across a lake (v1097, Echo Lake). So a
 // tile draws only where its photo is, and the next tile (or the overview, till it comes) shows the rest.
@@ -190,6 +189,7 @@ function ownPhoto(mat) {
   mat.customProgramCacheKey = () => key.call(mat) + '+own';
   return mat;
 }
+function seabed(mat) {
   if (!EMPTY) return mat;
   mat.onBeforeCompile = sh => {
     sh.uniforms.uExag = EXAG_U;
@@ -2002,7 +2002,7 @@ function liveData(snap) {
   for (const v of [...live]) if (!seen.has(v.mmsi)) dropLive(v);
   liveOK = live.length > 0;
 }
-window.__live = () => live.map(v => ({ mmsi: v.mmsi, name: v.A.name, lat: latOf(v.z), lon: lonOf(v.x), sog: v.A.sog, age: v.A.age }));   // (for checking from a script that they move)
+window.__live = () => live.map(v => ({ mmsi: v.mmsi, name: v.A.name, lat: latOf(v.z), lon: lonOf(v.x), sog: v.A.sog, cog: v.A.cog, what: v.what, age: v.A.age }));   // (for checking from a script that they move)
 function dropLive(v) {
   if (nest.on && nest.v === v) leaveRide();
   if (follow === v) stopFollow();
@@ -3643,6 +3643,7 @@ window.__bay3d = {   // for AudioChart (returning to the chart where you were) a
   northUp: () => flyTo({ x: view.x, z: view.z, dist: view.dist, az: 0, tilt: view.tilt }, 900),
   setView: v => { anim = null; Object.assign(view, { x: wx(v.lon), z: wz(v.lat), dist: v.dist ?? view.dist, az: (v.az ?? view.az / DEG) * DEG, tilt: (v.tilt ?? view.tilt / DEG) * DEG }); clampView(); placeCamera(); },
   goTown: id => { const tw = townList.find(x => x.id === id); if (tw) goTown(tw); return !!tw; },
+  air, rail,   // (the live aircraft and trains: for the live-tour recording, v1103)
   goWhole, towns: townList, tiles, scene, env, traffic, clockMin, setClock, camera, applyConditions, fleet, own, bowdoin, nest, setNest, ride, leaveRide, lookoutReport, findBerth, pierSegs, ferryStops, moorings, isWaterXZ: (x, z) => isWater(x, z), isWater: (lat, lon) => isWater(wx(lon), wz(lat)), boatAt: i => ({ lat: latOf(fleet[i].z), lon: lonOf(fleet[i].x), h: fleet[i].h }), renderer, trees: () => ({ near: TREES.near.count, far: TREES.far.count, K: TREES.K }),
 };
 }

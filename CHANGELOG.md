@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-11-02 — Bird's-eye: close-up aerial photos load again (v1103)
+
+- Reported: "the terrain along the Peninsula train looked blurry". Every detail tile's aerial photo had been failing since v1097, in every bay: v1097's `ownPhoto` (draw a tile only inside its own photo) was pasted inside `seabed()`, so the tile loader's call to it threw `ReferenceError: ownPhoto is not defined`, the photo was marked failed, and the tile kept the whole bay's coarse photo (about 15 m a pixel instead of NAIP's 1.5 m). `ownPhoto` is now a function of its own. Checked in headless Chrome near Hillsdale, San Mateo, at 1,150 ft: the four nearby tiles' photos all load (they had all failed), and streets, roofs and street trees are sharp; no gaps at the tile corner in view. v1097's own tile-edge fix only takes effect from now.
+- For recording the live tour (design/pending/live-tour): `__bay3d.air`/`rail` with `pin()`, trains' and aircraft's drawn positions in their debug lists, and each live vessel's type and course in `__live()`. Nothing on screen changes.
+
 ## 2026-11-02 — Bird's-eye: a train's label only on hover or tap too (v1102)
 
 - Requested: "make train labels hover-only too". A train's label (`Caltrain 117 → San Francisco`) now behaves as an aircraft's since v1101: it shows while the pointer is over her, or after a tap on her until the next (trains3d.js `at`/`toggle`). Checked in headless Chrome: 8 trains, no labels; hover on Caltrain 117 showed only hers; a click kept it, a second put it away.
