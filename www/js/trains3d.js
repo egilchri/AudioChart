@@ -17,11 +17,13 @@ const LOOK = {
 };
 function trainModel(look) {   // the cars in a line along -z (her front), 1 unit = 1 m
   const g = new THREE.Group(), body = new THREE.MeshLambertMaterial({ color: look.body }), band = new THREE.MeshLambertMaterial({ color: look.band });
+  const roof = new THREE.MeshLambertMaterial({ color: look.band, emissive: look.band, emissiveIntensity: 0.45 });
   const L = look.len, gap = 1.2;
   for (let i = 0; i < look.cars; i++) {
     const z = i * (L + gap) - (look.cars - 1) * (L + gap) / 2;
     const car = new THREE.Mesh(new THREE.BoxGeometry(3.1, 4.6, L), body); car.position.set(0, 2.3 + 0.6, z); g.add(car);
     const b = new THREE.Mesh(new THREE.BoxGeometry(3.16, 0.7, L * 0.98), band); b.position.set(0, 1.6, z); g.add(b);
+    const r = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.12, L * 0.96), roof); r.position.set(0, 5.26, z); g.add(r);   // (her roof in her colour: from above, silver on a grey city didn't show, v1105)
   }
   return g;
 }
@@ -89,9 +91,10 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
       p.x += (tx - p.x) * k; p.z += (tz - p.z) * k;
       const lon = p.fix.lon + (p.x - p.fix.x) / (111320 * Math.cos(p.fix.lat * DEG)), lat = p.fix.lat - (p.z - p.fix.z) / 111120;
       p.y = Math.max(0, heightAt(lon, lat) || 0); p.g.position.set(p.x, p.y, p.z); p.model.rotation.y = -p.h * DEG;
-      // her real size near; farther off, long enough to see (about 2% of the distance away)
-      const d = Math.hypot(p.x - cp.x, cp.y - p.g.position.y, p.z - cp.z);
-      p.model.scale.setScalar(Math.max(1, d * 0.02 / 160));
+      // her real size near; farther off, big enough to see (v1105, reported: "It's hard to see trains"): about 4 px
+      // wide whatever the distance (a 3 m train is a fraction of a pixel from 20 km), and long in proportion
+      const d = Math.hypot(p.x - cp.x, cp.y - p.g.position.y, p.z - cp.z), w = Math.max(1, d * 0.0058 / 3.1), l = Math.max(1, d * 0.02 / 160, w * 0.35);
+      p.model.scale.set(w, Math.max(1, w * 0.5), l);
       p.tag.visible = p === hover || pinned.has(p) || focus(p);
     }
   }

@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-02 — Bird's-eye: trains easy to see (v1105)
+
+- Reported: "It's hard to see trains". From the whole bay a train, 3 m wide, was a fraction of a pixel, and from above Caltrain's silver roof was lost on a grey city. Now:
+  - **A red dot on each train** whenever you're zoomed out (over 4 km), as the ships have theirs; tap it for her card. ✨ Find still flashes them all.
+  - **Big enough to see from afar:** a train widens with distance to stay about 4 px across, and lengthens with it (trains3d.js); near, her real size.
+  - **Her roof in her colours,** a little lit: red for Caltrain, green for SMART, purple for ACE.
+- Checked in headless Chrome over SF Bay: 6 red dots from the whole bay (SMART in Marin, Caltrain at Mission Bay and down the Peninsula); two Caltrains at Burlingame plain from 3 nm; the red roof plain from 1,700 ft; no errors.
+
 ## 2026-11-02 — Bird's-eye: planes and trains have cards, Follow and ride views; ✨ Find flashes them (v1104)
 
 - Requested: "I want to be able to look at planes and trains from different vantage points and angles, analogously to how it works for boats and ships", and a way to "highlight and draw the user's attention to planes and trains". Each aircraft and train is now a vessel to the card, Follow and ride machinery (aircraft3d.js / trains3d.js: `kind` 'air' or 'rail', `group`, `L`, `label`, `title`, a cockpit or cab in `group.userData.helm`):

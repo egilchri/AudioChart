@@ -3066,8 +3066,9 @@ function updateLiveMarks() {
     n++;
   }
   // ✨ Find flashes the planes and trains too (v1104, requested: "highlight and draw the user's attention to planes
-  // and trains"): white for an aircraft, red for a train, each where she is, at her height
-  if (flash) for (const m of [...air.items(), ...rail.items()]) {
+  // and trains"): white for an aircraft, red for a train, each where she is, at her height. Zoomed out, each train
+  // has her red dot all the time, as the ships have theirs (v1105, reported: "It's hard to see trains")
+  if (flash || far) for (const m of [...(flash ? air.items() : []), ...rail.items()]) {
     if (nest.on && nest.v === m) continue;
     v3.set(m.x, m.y + (m.kind === 'rail' ? 3 : 0), m.z);
     if (v3.distanceTo(camera.position) < RING_NEAR) continue;
