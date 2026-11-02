@@ -1921,22 +1921,34 @@ function vEta(v) {
   if (v === own && own.r && boatClock && own.S < own.total) return { t: hhmm(Math.min(1439, now + passageMin(own.total) - passageMin(own.S))), sub: 'arrives' };
   return null;
 }
+// Its tabs (v1106, requested: "Maybe trains should be in the follow table, or they should have their own follow
+// table"): ⛴ Water as before, 🚆 Trains and ✈ Air (with Live on, when there are any), nearest first, each row with
+// her ways to go and see her (Cab or Cockpit, Drone, Follow, Behind or Chase, Side, Ahead). The tab's remembered.
+const UW_TAB_KEY = 'audiochart-bay3d-underway-tab';
+let uwTab = 'water'; try { uwTab = localStorage.getItem(UW_TAB_KEY) || 'water'; } catch (_) {}
 function fillUnderway() {
-  const list = uwPanel.querySelector('ul'); list.innerHTML = '<li class="hdr"><span class="n">Vessel</span><span class="eta">ETA</span><span class="d">Off</span><span class="go"></span></li>';
+  const hasAir = air.count > 0, hasRail = rail.count > 0, tab = uwTab === 'air' && hasAir ? 'air' : uwTab === 'rail' && hasRail ? 'rail' : 'water';
+  const tabs = uwPanel.querySelector('.uwtabs');
+  if (tabs) { tabs.hidden = !hasAir && !hasRail; for (const b of tabs.querySelectorAll('button')) { b.hidden = b.dataset.tab === 'air' ? !hasAir : b.dataset.tab === 'rail' ? !hasRail : false; b.classList.toggle('on', b.dataset.tab === tab); } }
+  uwPanel.querySelector('.sect').textContent = tab === 'air' ? 'In the air now' : tab === 'rail' ? 'Trains running now' : 'On the water now';
+  const list = uwPanel.querySelector('ul'); list.innerHTML = `<li class="hdr"><span class="n">${tab === 'air' ? 'Aircraft' : tab === 'rail' ? 'Train' : 'Vessel'}</span><span class="eta">${tab === 'water' ? 'ETA' : ''}</span><span class="d">Off</span><span class="go"></span></li>`;
   const away = v => { const d = Math.hypot(v.x - view.x, v.z - view.z) / NMm; return d < 0.15 ? '' : `${d.toFixed(d < 10 ? 1 : 0)} nm`; };
   const rows = [], d2 = b => Math.hypot(b.x - view.x, b.z - view.z);
-  if (own.r && own.boat.group.visible) rows.push({ v: own, what: own.vj ? 'On your Virtual Journey' : own.playing ? 'Under way on your route' : own.S >= own.total ? 'Arrived' : 'Ready on your route' });
-  for (const v of traffic) if (v.on) rows.push({ v, what: v.kind === 'cruise' ? v.label.replace(/^[^,]*, /, '') : v.label });
-  for (const v of live.filter(o => o.on).sort((a, b) => d2(a) - d2(b)).slice(0, 12)) rows.push({ v, what: `📡 ${v.label}` });
-  if (bowdoin && bowdoin !== own && bowdoin.boat.group.visible) rows.push({ v: bowdoin, what: 'Schooner, out of Castine' });
-  for (const v of fleet.filter(b => b !== bowdoin && b.boat.group.visible).sort((a, b) => d2(a) - d2(b)).slice(0, 6)) rows.push({ v, what: vDoing(v) });
-  if (!rows.length) { list.innerHTML = '<li class="none">Nothing on the water in sight</li>'; return; }
+  if (tab === 'rail') for (const v of rail.items().sort((a, b) => d2(a) - d2(b))) rows.push({ v, what: v.label });
+  if (tab === 'air') for (const v of air.items().sort((a, b) => (a.a.ground - b.a.ground) || d2(a) - d2(b)).slice(0, 25)) rows.push({ v, what: v.label });   // (in the air first, then on the ground)
+  if (tab === 'water' && own.r && own.boat.group.visible) rows.push({ v: own, what: own.vj ? 'On your Virtual Journey' : own.playing ? 'Under way on your route' : own.S >= own.total ? 'Arrived' : 'Ready on your route' });
+  if (tab === 'water') for (const v of traffic) if (v.on) rows.push({ v, what: v.kind === 'cruise' ? v.label.replace(/^[^,]*, /, '') : v.label });
+  if (tab === 'water') for (const v of live.filter(o => o.on).sort((a, b) => d2(a) - d2(b)).slice(0, 12)) rows.push({ v, what: `📡 ${v.label}` });
+  if (tab === 'water' && bowdoin && bowdoin !== own && bowdoin.boat.group.visible) rows.push({ v: bowdoin, what: 'Schooner, out of Castine' });
+  if (tab === 'water') for (const v of fleet.filter(b => b !== bowdoin && b.boat.group.visible).sort((a, b) => d2(a) - d2(b)).slice(0, 6)) rows.push({ v, what: vDoing(v) });
+  if (!rows.length) { list.innerHTML = `<li class="none">${tab === 'air' ? 'No aircraft heard' : tab === 'rail' ? 'No trains running' : 'Nothing on the water in sight'}</li>`; return; }
   for (const r of rows) {
     const li = document.createElement('li'), v = r.v;
     if (nest.on && nest.v === v) li.className = 'aboard';
     li.innerHTML = '<span class="n"><b></b> <small></small></span><span class="eta"><b></b><small></small></span><span class="d"></span><span class="go"><button type="button" data-m="helm" title="Aboard her, at the helm">Helm</button><button type="button" data-m="drone" title="A drone over her, following her">Drone</button><button type="button" data-m="fly" title="Fly over her and follow her in this view">Follow</button><button type="button" data-m="stern" title="From a boat astern of her, low on the water">Stern</button><button type="button" data-m="side" title="From a boat abeam of her, to starboard">Side</button><button type="button" data-m="bow" title="From ahead, as she comes on">Bow</button></span>';
     li.querySelector('b').textContent = v === own ? `${OWN_NAME} (yours)` : vName(v);
-    if (v.kind === 'ais') { const ib = document.createElement('button'); ib.type = 'button'; ib.className = 'info'; ib.dataset.m = 'info'; ib.textContent = 'ⓘ'; ib.title = 'Everything her AIS says'; li.querySelector('b').after(ib); }
+    if (isMover(v)) relabel(li.querySelectorAll('.go button'), v.kind);
+    if (v.kind === 'ais' || isMover(v)) { const ib = document.createElement('button'); ib.type = 'button'; ib.className = 'info'; ib.dataset.m = 'info'; ib.textContent = 'ⓘ'; ib.title = isMover(v) ? 'Her card: everything known of her' : 'Everything her AIS says'; li.querySelector('b').after(ib); }
     li.querySelector('small').textContent = r.what;
     li.querySelector('.d').textContent = away(v);
     const eta = vEta(v); if (eta) { li.querySelector('.eta b').textContent = eta.t; li.querySelector('.eta small').textContent = eta.sub; li.querySelector('.eta').title = eta.sub === 'leaves' ? `Leaves at ${eta.t}` : `Due at ${eta.sub} at ${eta.t}`; }
@@ -1961,6 +1973,7 @@ if (uwBtn && uwPanel && !EMPTY) {
     if (!uwPanel.hidden) { uwPanel.openOut?.(); for (const id of ['wxpanel', 'clockpanel']) { const el = document.getElementById(id); if (el) el.hidden = true; } fillUnderway(); }
   });
   clockBtn?.addEventListener('click', () => { uwPanel.hidden = true; uwBtn.classList.remove('on'); });
+  for (const b of uwPanel.querySelectorAll('.uwtabs button')) b.addEventListener('click', () => { uwTab = b.dataset.tab; try { localStorage.setItem(UW_TAB_KEY, uwTab); } catch (_) {} fillUnderway(); });
   for (const ev of ['pointerdown', 'wheel', 'touchstart']) uwPanel.addEventListener(ev, e => e.stopPropagation(), { passive: true });
   setInterval(() => { if (!uwPanel.hidden && !uwPanel.matches(':hover')) fillUnderway(); }, 2500);   // (not under the pointer: a click mid-rebuild would miss)
 }
@@ -2236,7 +2249,7 @@ function fillMoverCard() {
     row('Squawk', a.squawk);
   } else {
     row('Railroad', a.rail); row('Train', /^\d{1,4}$/.test(a.trip) ? a.trip : ''); row('Bound for', v.dest);
-    row('Speed', v.v >= 1 ? `About ${Math.round(v.v * 2.237)} mph (from her last two reports)` : 'Stopped, or not yet known');
+    row('Speed', !v.vKnown ? 'Not yet known: it takes two reports, a minute and a half apart' : v.v >= 1 ? `About ${Math.round(v.v * 2.237)} mph (from her last two reports)` : 'Stopped');
     row('Heading', `${deg3(v.h)}° true`);
   }
   row('Position', aisPos(latOf(v.z), lonOf(v.x)));

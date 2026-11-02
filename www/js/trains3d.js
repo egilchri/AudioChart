@@ -55,10 +55,14 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
         trains.set(a.id, p);
       }
       const at = now - (a.age || 0) * 1000;
-      if (!p.fix || at > p.fix.t) {   // a new report: her speed and heading from the last one
+      // a new report: her speed and heading from the last one. (The relay asks 511 every 90 s, we ask it every 30: the
+      // same report again comes back a second later by its rounded age, and was taken for a new one that hadn't moved,
+      // so every train stopped between reports. v1106: only a report 5 s newer is new)
+      if (!p.fix || at > p.fix.t + 5000) {
         if (p.fix) {
           const d = metres(p.fix, a), s = (at - p.fix.t) / 1000;
           p.v = s > 5 && d / s < 50 ? d / s : 0;   // (a stand at a station is 0; a jump of over 50 m/s is no speed)
+          if (s > 5) p.vKnown = true;   // (her speed needs two reports, 90 s apart: till then it isn't known, v1106)
           if (d > 30) p.h = (Math.atan2((a.lon - p.fix.lon) * Math.cos(a.lat * DEG), a.lat - p.fix.lat) / DEG + 360) % 360;
         }
         p.fix = { lon: a.lon, lat: a.lat, x: wx(a.lon), z: wz(a.lat), t: at };
@@ -66,7 +70,7 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
       p.a = a;
       p.tag.userData.draw(`${a.rail} ${/^\d{1,4}$/.test(a.trip) ? a.trip : ''} → ${place(a.dest) || '?'}`.replace(/\s+/g, ' '));
       p.title = `${a.rail} ${/^\d{1,4}$/.test(a.trip) ? a.trip : ''}`.trim(); p.dest = place(a.dest);
-      p.label = `${p.v >= 1 ? `About ${Math.round(p.v * 2.237)} mph` : 'Stopped'}${p.dest ? `, bound for ${p.dest}` : ''}`;   // (Caltrain's train number; SMART's trip ids are long)
+      p.label = `${!p.vKnown ? 'Speed due in a minute or so' : p.v >= 1 ? `About ${Math.round(p.v * 2.237)} mph` : 'Stopped'}${p.dest ? `, bound for ${p.dest}` : ''}`;   // (Caltrain's train number; SMART's trip ids are long)
     }
     for (const p of [...trains.values()]) if (!seen.has(p.id)) drop(p);
     onCount?.(trains.size);

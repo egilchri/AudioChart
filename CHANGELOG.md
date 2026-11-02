@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-02 — Bird's-eye: ⛴ Underway has Trains and Air tabs; trains keep moving between reports (v1106)
+
+- Requested: "Maybe trains should be in the follow table, or they should have their own follow table." ⛴ Underway now has tabs: **⛴ Water** (as before), **🚆 Trains** and **✈ Air**, the last two with Live on and only when there are any. Each is its own table, nearest first (aircraft in the air before those on the ground, 25 at most), each row with ⓘ for her card and her ways to go and see her: Cab or Cockpit, Drone, Follow, Behind or Chase, Side, Ahead. The tab is remembered.
+- **Fixed (since v1099): trains stopped between reports.** The relay asks 511 every 90 s and the page asks the relay every 30 s; the same report again came back a second later by its rounded age, was taken for a new one in which she hadn't moved, and set her speed to 0. Now only a report 5 s newer is new. Checked over 200 s: speeds hold between reports and change with each new one (Caltrain 127 at 62 mph, 128 at 51 mph; 132 really stopped).
+- A train's speed is "due in a minute or so" until it's known (two reports, 90 s apart), not "Stopped".
+- Checked in headless Chrome: the three tabs (12 vessels, 8 trains, 25 aircraft), and Side from the Trains tab put the view beside Caltrain 130; no errors.
+
 ## 2026-11-02 — Bird's-eye: trains easy to see (v1105)
 
 - Reported: "It's hard to see trains". From the whole bay a train, 3 m wide, was a fraction of a pixel, and from above Caltrain's silver roof was lost on a grey city. Now:
