@@ -820,10 +820,16 @@ for (const t of townList) {
 wholeBtn.addEventListener('click', goWhole);
 { const ts = document.getElementById('townsect'); if (ts) ts.hidden = !townList.length; }
 const panel = document.getElementById('panel'), toggle = document.getElementById('towns-toggle');
-function foldPanel(fold) {
+// On a phone the list folds by itself once you've picked; on a larger screen only with Towns ▴, remembered (v1100)
+const FOLD_KEY = 'audiochart-bay3d-panel-folded';
+function foldPanel(fold, byHand = false) {
   if (fold && document.body.classList.contains('places')) setPlaces(false);   // (inside AudioChart, the places list closes once you've picked)
-  if (!matchMedia('(max-width: 640px)').matches) return; panel.classList.toggle('folded', fold); toggle.setAttribute('aria-expanded', String(!fold)); }
-toggle.addEventListener('click', () => foldPanel(!panel.classList.contains('folded')));
+  if (!byHand && !matchMedia('(max-width: 640px)').matches) return;
+  panel.classList.toggle('folded', fold); toggle.setAttribute('aria-expanded', String(!fold));
+  toggle.textContent = fold ? 'Towns ▾' : 'Towns ▴'; toggle.title = fold ? 'Show the towns, harbors and bridges' : 'Fold the list away';
+  if (byHand) try { localStorage.setItem(FOLD_KEY, fold ? '1' : '0'); } catch (_) {}
+}
+toggle.addEventListener('click', () => foldPanel(!panel.classList.contains('folded'), true));
 // ✈ Places (v1048): inside AudioChart the panel is hidden (the chart has its own); this opens it, to fly to a place
 // or tick some for a Flyover
 const placesBtn = document.getElementById('placesbtn');
@@ -834,6 +840,7 @@ if (placesBtn && document.body.classList.contains('embed')) {
   addEventListener('keydown', e => { if (e.key === 'Escape' && document.body.classList.contains('places')) setPlaces(false); });
 }
 foldPanel(true);
+{ let f = null; try { f = localStorage.getItem(FOLD_KEY); } catch (_) {} if (f === '1' && !matchMedia('(max-width: 640px)').matches) panel.classList.add('folded'); const fd = panel.classList.contains('folded'); toggle.textContent = fd ? 'Towns ▾' : 'Towns ▴'; toggle.title = fd ? 'Show the towns, harbors and bridges' : 'Fold the list away'; toggle.setAttribute('aria-expanded', String(!fd)); }
 
 // ── Rockland Breakwater (the town file leaves it out; the helm view models it the same way) ──
 if (PENOBSCOT) {

@@ -72,7 +72,9 @@ body { background: var(--sky); color: var(--ink); font-family: var(--body); font
 .panel h1 { margin: 0; font-family: var(--display); font-weight: 600; font-size: 1.12rem; letter-spacing: 0.02em; }
 .panel h1 small { display: block; font-family: var(--body); font-weight: 400; font-size: 0.74rem; color: var(--muted); letter-spacing: 0; margin-top: 2px; }
 .panel .head { display: flex; align-items: start; justify-content: space-between; gap: 8px; }
-#towns-toggle { display: none; }
+/* the towns list folds away behind its title, on a phone by itself, anywhere with Towns ▴ (v1100: "the menu is in the way") */
+#towns-toggle { display: inline-block; font: inherit; color: var(--ink); background: rgba(255, 255, 255, 0.12); border: 0; border-radius: 5px; padding: 4px 9px; cursor: pointer; white-space: nowrap; }
+.panel.folded .body { display: none; }
 #towns, #bridges, #landings, #mine, #lakes { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
 /* (v1061: the panel's column is its width, a long name wraps; Southwest Harbor Coast Guard Station had widened it
    past the window's edge, taking the take-off spot's Change button with it) */
@@ -330,8 +332,6 @@ body.embed #wxpanel { top: auto; bottom: calc(176px + env(safe-area-inset-bottom
 /* Phone: the towns list folds away behind its title */
 @media (max-width: 640px) {
   .panel { width: auto; right: 12px; }
-  #towns-toggle { display: inline-block; font: inherit; color: var(--ink); background: rgba(255, 255, 255, 0.12); border: 0; border-radius: 5px; padding: 4px 9px; cursor: pointer; }
-  .panel.folded .body { display: none; }
   #help { display: none; }
   #flybar, #flypick { top: auto; bottom: calc(18px + var(--scale-h, 40px) + env(safe-area-inset-bottom, 0px)); }   /* (above the buttons, however many rows: bay3d.js; clear of the folded panel) */
   #scale { top: auto; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-02 — Bird's-eye: the places panel folds away on a computer too (v1100)
+
+- Reported: "I think the menu is in the way, along the left column. How can we shrink it?" The left panel's Towns ▾ button, which folds the list away behind its title, was phone-only. It now shows at every width (Towns ▴ when open, Towns ▾ when folded); folded, the panel is just its title and the Penobscot | Casco | SF Bay switch (609 → 133 px tall at 1400×800). On a computer it folds only by hand and stays as you left it (localStorage `audiochart-bay3d-panel-folded`); a phone still folds it by itself once you pick a place.
+
 ## 2026-11-02 — Bird's-eye: live trains, Caltrain, SMART and ACE (v1099)
 
 - Asked: "would we be able to see regular trains in birdseye?" 📡 Live now shows the commuter trains too (`www/js/trains3d.js`): Caltrain (6 grey cars, red band), SMART (2 cars, green) and ACE (purple), each labelled with her train number and where she's bound (`Caltrain 117 → San Francisco`). The Live button counts them (`🚆 12`); the tooltip credits 511.org.
