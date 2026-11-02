@@ -6,6 +6,7 @@
 import * as THREE from 'three';
 import { relayUrl } from './ais.js';
 import { labelSprite } from './aircraft3d.js';
+import { makeCaltrain } from './caltrain3d.js';
 
 export const TRAIN_CREDIT = 'Trains from 511.org';
 const DEG = Math.PI / 180;
@@ -45,10 +46,12 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
       seen.add(a.id);
       let p = trains.get(a.id);
       if (!p) {
-        const look = LOOK[a.rail] || LOOK.Caltrain, g = new THREE.Group(), model = trainModel(look), label = labelSprite();
+        // Caltrain: her Stadler KISS, modelled from photos (caltrain3d.js, v1107); SMART and ACE, simple cars for now
+        const look = LOOK[a.rail] || LOOK.Caltrain, kiss = a.rail === 'Caltrain' ? makeCaltrain() : null;
+        const g = new THREE.Group(), model = kiss ? kiss.group : trainModel(look), label = labelSprite();
         g.add(model, label); scene.add(g);
-        const L = look.cars * look.len + (look.cars - 1) * 1.2;
-        g.userData.helm = [0, 3.6, -L / 2 + 1.6];   // (her cab: the front of her first car)
+        const L = kiss ? kiss.length : look.cars * look.len + (look.cars - 1) * 1.2;
+        g.userData.helm = kiss ? kiss.cab : [0, 3.6, -L / 2 + 1.6];   // (her cab: the front of her first car)
         // (L sizes the ride views' distances: her whole 160 m put the drone 380 m back, end-on she was a post; as a
         // 45 m vessel it stands ~100 m off. len is her real length)
         p = { kind: 'rail', id: a.id, g, group: g, L: 45, len: L, y: 0, model, tag: label, x: wx(a.lon), z: wz(a.lat), h: a.dir === 'S' ? 135 : a.dir === 'N' ? 315 : 0, v: 0, placed: false };
@@ -94,7 +97,14 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
       const k = p.placed ? Math.min(1, dt * 0.8) : 1; p.placed = true;
       p.x += (tx - p.x) * k; p.z += (tz - p.z) * k;
       const lon = p.fix.lon + (p.x - p.fix.x) / (111320 * Math.cos(p.fix.lat * DEG)), lat = p.fix.lat - (p.z - p.fix.z) / 111120;
-      p.y = Math.max(0, heightAt(lon, lat) || 0); p.g.position.set(p.x, p.y, p.z); p.model.rotation.y = -p.h * DEG;
+      // on the ground under her whole length, not just her middle (v1107: a 190 m Caltrain set at her middle's height
+      // sank into the rise ahead of her, and showed in two pieces): the ground under her front and back too, she sits
+      // at the higher of her middle and her ends' mean, tilted to their slope (no more than a railway's 2°)
+      const hl = (p.len || 160) / 2 * (p.model.scale.z || 1), fx = Math.sin(p.h * DEG) * hl, fz = -Math.cos(p.h * DEG) * hl;
+      const gAt = (x, z) => Math.max(0, heightAt(p.fix.lon + (x - p.fix.x) / (111320 * Math.cos(p.fix.lat * DEG)), p.fix.lat - (z - p.fix.z) / 111120) || 0);
+      const hF = gAt(p.x + fx, p.z + fz), hB = gAt(p.x - fx, p.z - fz), hC = Math.max(0, heightAt(lon, lat) || 0);
+      p.y = Math.max(hC, (hF + hB) / 2); p.g.position.set(p.x, p.y, p.z);
+      p.model.rotation.order = 'YXZ'; p.model.rotation.set(Math.max(-0.035, Math.min(0.035, Math.atan2(hF - hB, 2 * hl))), -p.h * DEG, 0);
       // her real size near; farther off, big enough to see (v1105, reported: "It's hard to see trains"): about 4 px
       // wide whatever the distance (a 3 m train is a fraction of a pixel from 20 km), and long in proportion
       const d = Math.hypot(p.x - cp.x, cp.y - p.g.position.y, p.z - cp.z), w = Math.max(1, d * 0.0058 / 3.1), l = Math.max(1, d * 0.02 / 160, w * 0.35);

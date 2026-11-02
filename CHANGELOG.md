@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-11-02 — Bird's-eye: Caltrain as she really is, the Stadler KISS (v1107)
+
+- Requested: "recursively improve the appearance of trains ... compare them with real images", "start with Caltrain". Since September 2024 Caltrain's San Francisco–San Jose trains are seven-car double-deck Stadler KISS electric sets in red and white; the old model was six grey boxes with a red band. The new one (www/js/caltrain3d.js) was built in four rounds against Wikimedia Commons photos (a line-scan side view of set 321–322, the cab head-on at Hayward Park), each round rendered alone from the same angles in a harness with the app's own lights and tone mapping (design/pending/train-look/: view.html, shoot.mjs):
+  - seven cars, white with the red band along the top, the black upper-deck window band and the lower deck's windows, two pairs of doors a car and the small windows over the bogies, a thin red stripe over a grey skirt, bogies, roof equipment, two pantographs, grey bellows between the cars;
+  - at each end a sloped nose: white below, the black windscreen with red at its edges, a dark grey cap, the red sweep down her side from the roof, headlights in black housings, the Caltrain disc;
+  - a little of its own light in the white and red, so under the app's tone mapping they stay white and red, not grey and maroon. Her roof stays red (the real roof is grey) so she's found from above; it glows less than v1105's.
+  - each material's parts merged: a whole train is 10 draw calls.
+- Trains sit on the ground under their whole length: the ground under her front and back too, at the higher of her middle and her ends' mean, tilted to the slope (2° at most). A 190 m train set at her middle's height sank into the rise ahead.
+- The cab view looks out from just ahead of the windscreen; inside the nose it saw the nose's own back wall (solid grey).
+- Checked in the app over SF Bay with the live feed: Caltrain 127 on the Peninsula line from Side, Ahead, Drone, Behind and the cab, and from 1.7 nm; no errors. Known: from a drone ahead, a bump in the elevation data (an overpass, it seems) can still hide her middle cars; the aerial photo is smeared from the cab's height. SMART and ACE are still the simple cars.
+
 ## 2026-11-02 — Bird's-eye: ⛴ Underway has Trains and Air tabs; trains keep moving between reports (v1106)
 
 - Requested: "Maybe trains should be in the follow table, or they should have their own follow table." ⛴ Underway now has tabs: **⛴ Water** (as before), **🚆 Trains** and **✈ Air**, the last two with Live on and only when there are any. Each is its own table, nearest first (aircraft in the air before those on the ground, 25 at most), each row with ⓘ for her card and her ways to go and see her: Cab or Cockpit, Drone, Follow, Behind or Chase, Side, Ahead. The tab is remembered.
