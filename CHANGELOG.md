@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-11-02 — Bird's-eye: airliners closer to the real thing: on final, glossy, smooth (v1109)
+
+- Requested, of the landing snapshot: "Please recursively improve". Two more rounds against a United Express E175 on final at LAX (Wikimedia Commons) and the 737-800 three-view (www/js/airliner3d.js):
+  - **Smooth and glossy:** each part keeps its own normals (merged and recomputed, every face was flat: the fuselage and nacelles faceted); Phong paint with a sun highlight.
+  - **On the way in:** nose up 3° coming in, 8° climbing, 2° level (aircraft3d.js); flaps down with the gear; landing lights in the wing roots.
+  - **Lights:** red at her left wingtip, green at her right, red beacons on her back and belly, white at her tail.
+  - **Windows by type:** an E-jet's, a CRJ's or an A220's big and 0.8 m apart; a 737's or an A320's every 0.51 m.
+  - **Her shape:** the wing-to-body fairing under her; an E-jet's taller "double bubble"; the cockpit windows a band high on her nose (they read as a mask); her tailplane ending about level with her tail.
+- Riding with an aircraft, the line from her down to the ground is hidden (clutter beside her).
+- Checked: rendered against the photo in the harness (E175, 737 in Southwest's colours, 777); in the app over SF Bay, 75 aircraft, 34 drawn as airliners, no errors.
+
 ## 2026-11-02 — Bird's-eye: airliners as they are, by type and airline (v1108)
 
 - Requested: "How about airlines? If we can get up close, it would be worth recursively improving them." The grey tube with box wings is now a parametric airliner (www/js/airliner3d.js), sized from the type her ADS-B reports and painted in her airline's colours from her flight's prefix:

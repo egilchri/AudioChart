@@ -2087,7 +2087,7 @@ function relabel(btns, kind) {
   }
 }
 const rideBtns = () => RIDE_BTNS.map(([id, m]) => { const b = document.getElementById(id); if (b) b.dataset.m = m; return b; }).filter(Boolean);
-const air = makeAircraft({ scene, bbox: OVERVIEW, wx, wz, onCount: () => syncLiveBtn(), focus: moverFocus, onDrop: moverGone });
+const air = makeAircraft({ scene, bbox: OVERVIEW, wx, wz, onCount: () => syncLiveBtn(), focus: moverFocus, onDrop: moverGone, riding: p => nest.on && nest.v === p });
 window.__aircraft = () => air.list(camera, renderer.domElement.getBoundingClientRect());
 // and the trains (v1099): Caltrain, SMART and ACE from 511.org
 const rail = makeTrains({ scene, bbox: OVERVIEW, wx, wz, heightAt, onCount: () => syncLiveBtn(), focus: moverFocus, onDrop: moverGone });

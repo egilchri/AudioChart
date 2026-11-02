@@ -28,6 +28,7 @@ if (model === 'plane') {   // ?model=plane&type=B738&flight=UAL1&view=side|top|f
   if (view === 'top') { cam = ortho(span); cam.position.set(0, h + 150, 0); cam.up.set(1, 0, 0); cam.lookAt(0, h, 0); }   // from above, nose to the left
   if (view === 'front') { cam = ortho(span); cam.position.set(0, h, -150); cam.lookAt(0, h, 0); }
   if (view === 'three') { cam = new THREE.PerspectiveCamera(40, W / H, 0.5, 3000); cam.position.set(-L * 0.9, h + L * 0.25, -L * 0.75); cam.lookAt(0, h, 0); }
+  if (view === 'photo') { cam = new THREE.PerspectiveCamera(22, W / H, 0.5, 3000); cam.position.set(-L * 2.6, h - L * 0.12, -L * 0.25); cam.lookAt(0, h, 0); a.group.rotation.x = 3 * Math.PI / 180; a.group.rotation.order = 'YXZ'; }
   if (view === 'below') { cam = new THREE.PerspectiveCamera(40, W / H, 0.5, 3000); cam.position.set(-L * 0.6, h - L * 0.45, -L * 0.6); cam.lookAt(0, h, 0); }
   r.render(scene, cam); window.__done = true;
 } else {

@@ -43,7 +43,9 @@ const DARK = 0x1b2026, WING = 0xc9ced3, GEAR = 0x3b4046, TYRE = 0x16181a;
 export const airlinerKnown = type => !!T[type];
 let shared = null;   // one material for all of them: the colours are in the geometry
 // (double-sided: the left wing and tailplane are the right's mirror images, inside out)
-const mat = () => { if (!shared) { shared = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, emissive: 0x262626 }); shared.userData.shared = true; } return shared; };   // (round 3: a little light in her shadows: a wing's underside was black)
+// (round 4, against a United Express E175 on final at LAX: glossy paint, a sun highlight along her; round 3: a little
+// light in her shadows, a wing's underside was black)
+const mat = () => { if (!shared) { shared = new THREE.MeshPhongMaterial({ vertexColors: true, side: THREE.DoubleSide, emissive: 0x262626, specular: 0x4a4a4a, shininess: 48 }); shared.userData.shared = true; } return shared; };
 const BRIGHT = 1.45;   // (the colours a little over 1, so under the app's tone mapping (ACES at 0.55) white stays white: as Caltrain's, v1107)
 
 export function makeAirliner(type, flight = '', { gear = false } = {}) {
@@ -51,10 +53,13 @@ export function makeAirliner(type, flight = '', { gear = false } = {}) {
   const [L, span, D, eng] = spec, R = D / 2, wide = D > 4.5, liv = LIVERY[(flight || '').slice(0, 3)] || PLAIN;
   const parts = [], col = new THREE.Color(), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), one = new THREE.Vector3(1, 1, 1);
   // a geometry in one colour (or coloured per vertex by fn(x, y, z)), moved into place
-  const add = (g, c, at = null, fn = null) => {
+  // (round 4: each part keeps its own smooth normals; merged and recomputed, every face was flat, the round fuselage
+  // and nacelles faceted. k: a light's brightness, far over 1)
+  const add = (g, c, at = null, fn = null, k = BRIGHT) => {
+    if (!g.attributes.normal) g.computeVertexNormals();
     if (at) g.applyMatrix4(at);
     const gg = g.index ? g.toNonIndexed() : g, p = gg.attributes.position, n = p.count, cs = new Float32Array(n * 3);
-    for (let i = 0; i < n; i++) { col.setHex(fn ? fn(p.getX(i), p.getY(i), p.getZ(i)) : c); cs[i * 3] = col.r * BRIGHT; cs[i * 3 + 1] = col.g * BRIGHT; cs[i * 3 + 2] = col.b * BRIGHT; }
+    for (let i = 0; i < n; i++) { col.setHex(fn ? fn(p.getX(i), p.getY(i), p.getZ(i)) : c); cs[i * 3] = col.r * k; cs[i * 3 + 1] = col.g * k; cs[i * 3 + 2] = col.b * k; }
     gg.setAttribute('color', new THREE.BufferAttribute(cs, 3)); parts.push(gg); if (gg !== g) g.dispose();
   };
   const place = (x, y, z, rx = 0, ry = 0, rz = 0) => m4.clone().compose(new THREE.Vector3(x, y, z), q.setFromEuler(e.set(rx, ry, rz, 'YXZ')), one);
@@ -68,17 +73,25 @@ export function makeAirliner(type, flight = '', { gear = false } = {}) {
   const fus = new THREE.LatheGeometry(prof, 28);   // round the y axis: y is along her, nose at y = 0
   fus.rotateX(Math.PI / 2); fus.translate(0, 0, z0);   // (y → +z: nose at −L/2)
   { const p = fus.attributes.position;   // the tail cone's axis rises as it narrows (top nearly level, belly sweeping up); the nose droops a little
-    for (let i = 0; i < p.count; i++) { const f = (p.getZ(i) - z0) / L, r = rAt(f); p.setY(i, p.getY(i) + (f > CONE ? (R - r) * 0.78 : f < NOSE ? -(R - r) * 0.32 : 0)); } }
+    for (let i = 0; i < p.count; i++) { const f = (p.getZ(i) - z0) / L, r = rAt(f); p.setY(i, p.getY(i) + (f > CONE ? (R - r) * 0.78 : f < NOSE ? -(R - r) * 0.32 : 0)); }
+    if (/^(E1|E2|E7)/.test(type)) for (let i = 0; i < p.count; i++) p.setY(i, p.getY(i) * 1.1);   // (an E-jet's 'double bubble': 3.35 m tall, 3.0 wide)
+    fus.computeVertexNormals(); }
   const line = (liv.line ?? -0.3) * R, tailF = CONE + 0.05;
   add(fus, 0, null, (x, y, z) => {
     const f = (z - z0) / L;
-    if (f < 0.06 && y > R * 0.12 && Math.abs(x) < R * 0.75 && y < R * 0.62 && f > 0.025) return DARK;   // the cockpit windows
+    if (f < 0.058 && f > 0.033 && y > R * 0.3 && y < R * 0.6 && Math.abs(x) < R * 0.7) return DARK;   // the cockpit windows: a band high on her nose (round 5: they read as a mask)
     if (liv.top && y > R * 0.55 && f < 0.7) return liv.top;
     if (liv.accent && y < -R * 0.35 && f > 0.45) return f > 0.62 ? liv.accent[1] : liv.accent[0];   // (Southwest's belly stripes; Alaska's swoosh)
     return y < line ? liv.belly : liv.body;
   });
-  // the cabin windows: a dark dash every 0.5 m along each side, door to door
-  for (let z = z0 + L * 0.13; z < z0 + L * (wide ? 0.82 : 0.84); z += wide ? 0.53 : 0.51) for (const sx of [-1, 1]) add(new THREE.BoxGeometry(0.03, 0.3, 0.24), DARK, place(sx * R * 0.965, R * 0.3, z));
+  // the wing-to-body fairing (round 5, against the E175 and the 737 three-view): a long, flattened bulge under her
+  // where her wings join, in her belly's colour
+  { const fz = z0 + L * (eng === 'rear' ? 0.43 : 0.37) + span * 0.11, fair = new THREE.SphereGeometry(1, 20, 12); fair.scale(R * 0.95, R * 0.45, span * (eng === 'rear' ? 0.14 : 0.17));
+    add(fair, liv.belly ?? liv.body, place(0, -R * 0.72, fz)); }
+  // the cabin windows along each side, door to door: a 737's or an A320's every 0.51 m; an E-jet's, a CRJ's or an
+  // A220's big and 0.8 m apart (round 4: the E175's were tiny 737 dashes)
+  const big = /^(E1|E2|E7|CRJ|BCS)/.test(type), wp = big ? 0.8 : wide ? 0.53 : 0.51, wh = big ? 0.42 : wide ? 0.36 : 0.32, ww = big ? 0.32 : wide ? 0.26 : 0.23;
+  for (let z = z0 + L * 0.14; z < z0 + L * (wide ? 0.82 : 0.84); z += wp) for (const sx of [-1, 1]) add(new THREE.CylinderGeometry(ww / 2, ww / 2, 0.04, 10).scale(wh / ww, 1, 1).rotateZ(Math.PI / 2), DARK, place(sx * R * 0.975, R * 0.3, z));
   // ── the wings: a swept trapezoid with thickness, low on her, rising to the tips (dihedral), with winglets
   const semi = span / 2, rootZ = z0 + L * (eng === 'rear' ? 0.43 : 0.37), rootC = span * (eng === 'rear' ? 0.17 : 0.22), tipC = rootC * 0.18, sweep = (wide ? 31 : 26) * Math.PI / 180, dih = (eng === 'rear' ? 3 : 6) * Math.PI / 180;
   const wingY = -R * 0.55, foil = (s, c0, c1, zLE, len, t, kink = 0) => {   // a surface's planform [span x, along z] at y = 0, t thick
@@ -91,10 +104,25 @@ export function makeAirliner(type, flight = '', { gear = false } = {}) {
   for (const sx of [-1, 1]) {
     const w = foil(sweep, rootC, tipC, rootZ, semi - R * 0.8, Math.max(0.25, rootC * 0.07), eng === 'rear' ? 0 : 0.33);
     if (sx < 0) w.scale(-1, 1, 1);
-    add(w, WING, place(sx * R * 0.8, wingY, 0, 0, 0, sx * dih));
+    const wingAt = place(sx * R * 0.8, wingY, 0, 0, 0, sx * dih), len = semi - R * 0.8;
+    add(w, WING, wingAt.clone());
+    // the flaps, down for landing: behind the trailing edge, inboard to the kink and outboard to three quarters of
+    // the way (round 4: the E175 on final)
+    if (gear) {
+      const kx = eng === 'rear' ? 0 : len * 0.33, teZ = x => x <= kx ? rootZ + rootC : rootZ + rootC + (x - kx) / (len - kx) * (Math.tan(sweep) * len + tipC - rootC);
+      for (const [xa, xb] of [[0.15, kx || len * 0.33], [kx || len * 0.33, len * 0.74]]) {
+        const za = teZ(xa), zb = teZ(xb), segL = Math.hypot(xb - xa, zb - za), cf = (zb > za ? rootC * 0.2 : rootC * 0.22), fl = new THREE.BoxGeometry(segL, 0.1, cf);
+        fl.translate(0, 0, cf / 2); fl.rotateX(0.42); fl.rotateY(-Math.atan2(zb - za, xb - xa)); fl.translate((xa + xb) / 2, -0.05, (za + zb) / 2);
+        if (sx < 0) fl.scale(-1, 1, 1);
+        add(fl, WING, wingAt.clone());
+      }
+    }
     // the winglet, up and canted out at her tip
     const tipX = sx * (R * 0.8 + (semi - R * 0.8) * Math.cos(dih)), tipY = wingY + (semi - R * 0.8) * Math.sin(dih), tipZ = rootZ + Math.tan(sweep) * (semi - R * 0.8);
     add(new THREE.BoxGeometry(0.07, span * 0.065, tipC * 0.75), liv.tail, place(tipX + sx * 0.12, tipY + span * 0.032, tipZ + tipC * 0.7, 0, 0, -sx * 0.22));
+    // her lights: red at her left wingtip, green at her right; landing lights in the wing roots with the gear down
+    add(new THREE.SphereGeometry(0.16, 8, 6), sx < 0 ? 0xff2a2a : 0x2aff5a, place(tipX, tipY + 0.05, tipZ + 0.2), null, 3.2);
+    if (gear) add(new THREE.SphereGeometry(0.22, 8, 6), 0xfffbe8, place(sx * R * 1.35, wingY - 0.1, rootZ + 0.35), null, 4.5);
   }
   // ── the engines: nacelles under and ahead of the wing (two, or four), or on the tail for the regional jets
   const engR = D * (wide ? 0.31 : eng === 'rear' ? 0.23 : 0.27), engL = engR * 3.3;   // (round 2: a 737's nacelle is ~2 m across, half her fuselage; round 1 had it half that)
@@ -121,9 +149,13 @@ export function makeAirliner(type, flight = '', { gear = false } = {}) {
   add(fg, 0, null, (x, y, z) => { const h = (y - topY) / finH, zz = (z - finZ) / finRoot;
     if (liv.tail3 && h > 0.15 && h < 0.3) return liv.tail3;
     return liv.tail2 && (zz - h * (finLE / finRoot) > 0.45 || (liv === LIVERY.SWA && h < 0.2)) ? liv.tail2 : liv.tail; });
-  const tailT = eng === 'rear', hsY = tailT ? topY + R * 0.1 + finH * 0.97 : topY - R * 0.15, hsZ = tailT ? finZ + finLE * 0.95 : z0 + L * 0.86;
+  // red beacons on her back and belly, a white light at her tail
+  add(new THREE.SphereGeometry(0.15, 8, 6), 0xff3020, place(0, R * 1.0, z0 + L * 0.5), null, 3.2);
+  add(new THREE.SphereGeometry(0.15, 8, 6), 0xff3020, place(0, -R * 1.0, z0 + L * 0.45), null, 3.2);
+  add(new THREE.SphereGeometry(0.12, 8, 6), 0xffffff, place(0, R * 0.55, -z0 - 0.05), null, 3.0);
+  const tailT = eng === 'rear', hsY = tailT ? topY + R * 0.1 + finH * 0.97 : topY - R * 0.15, hsZ = tailT ? finZ + finLE * 0.95 : z0 + L * 0.825;   // (round 5: her tailplane's tip ends about level with her tail, not past it)
   for (const sx of [-1, 1]) {
-    const h = foil(30 * Math.PI / 180, L * 0.085, L * 0.035, hsZ, span * 0.2, 0.18);
+    const h = foil(30 * Math.PI / 180, L * 0.085, L * 0.035, hsZ, span * 0.18, 0.18);
     if (sx < 0) h.scale(-1, 1, 1);
     add(h, tailT ? liv.tail : WING, place(sx * (tailT ? 0.15 : R * 0.35), hsY, 0, 0, 0, sx * (tailT ? 0 : 7 * Math.PI / 180)));
   }
@@ -136,9 +168,9 @@ export function makeAirliner(type, flight = '', { gear = false } = {}) {
   }
   // all of her as one mesh
   let n = 0; for (const g of parts) n += g.attributes.position.count;
-  const pos = new Float32Array(n * 3), cols = new Float32Array(n * 3); let o = 0;
-  for (const g of parts) { pos.set(g.attributes.position.array, o * 3); cols.set(g.attributes.color.array, o * 3); o += g.attributes.position.count; g.dispose(); }
-  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(cols, 3)); geo.computeVertexNormals();
+  const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), cols = new Float32Array(n * 3); let o = 0;
+  for (const g of parts) { pos.set(g.attributes.position.array, o * 3); nor.set(g.attributes.normal.array, o * 3); cols.set(g.attributes.color.array, o * 3); o += g.attributes.position.count; g.dispose(); }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); geo.setAttribute('color', new THREE.BufferAttribute(cols, 3));
   const group = new THREE.Group(); group.add(new THREE.Mesh(geo, mat()));
   return { group, L, cockpit: [0, R * 0.35, z0 + L * 0.04 - 0.6] };
 }

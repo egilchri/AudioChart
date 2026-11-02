@@ -41,7 +41,8 @@ export function labelSprite() {
 // Each aircraft is also a 'vessel' to Bird's-eye's card, Follow and ride views (v1104): kind 'air', group, x/y/z, h,
 // L (her length, m), label (what she's doing), title, and a cockpit (group.userData.helm, her frame, nose to −z).
 // focus(p): true while her card is open or she's followed, so her label shows; onDrop(p) when she's gone.
-export function makeAircraft({ scene, bbox, wx, wz, every = 5000, onCount, focus = () => false, onDrop = () => {} }) {
+// riding(p): true while you ride with her (no line down from her then: clutter beside her)
+export function makeAircraft({ scene, bbox, wx, wz, every = 5000, onCount, focus = () => false, onDrop = () => {}, riding = () => false }) {
   const planes = new Map();   // hex -> { a, g, model, line, label, fix, x, y, z, h }
   let on = false, timer = null, inflight = null, hover = null;
   const pinned = new Set(), _v = new THREE.Vector3();
@@ -102,12 +103,16 @@ export function makeAircraft({ scene, bbox, wx, wz, every = 5000, onCount, focus
       const k = p.placed ? Math.min(1, dt * 1.5) : 1; p.placed = true;   // a new report eases her across, no jump
       p.x += (tx - p.x) * k; p.z += (tz - p.z) * k; p.y += (ty - p.y) * k;
       const turn = ((trk - p.h + 540) % 360) - 180; p.h = (p.h + Math.max(-30 * dt, Math.min(30 * dt, turn)) + 360) % 360;
-      p.g.position.set(p.x, p.y, p.z); p.model.rotation.y = -p.h * DEG;
+      p.g.position.set(p.x, p.y, p.z);
+      // her attitude (v1109, against a United Express E175 on final): nose up 3° coming in, 8° climbing, 2° level
+      const want = !p.real || a.ground ? 0 : (a.vr ?? 0) < -300 ? 3 : (a.vr ?? 0) > 500 ? 8 : 2;
+      p.pitch = (p.pitch ?? want) + (want - (p.pitch ?? want)) * Math.min(1, dt * 0.5);
+      p.model.rotation.order = 'YXZ'; p.model.rotation.set(p.pitch * DEG, -p.h * DEG, 0);
       // big enough to see from afar: her real size near, about 0.9% of the distance away from her farther off
       const d = Math.hypot(p.x - cp.x, p.y - cp.y, p.z - cp.z), L = lengthOf(a);
       p.model.scale.setScalar(p.real ? Math.max(1, d * 0.014 / p.L) : Math.max(L, d * 0.014));   // (an airliner is built in metres; the small plane is 1 m long)
       const P = p.line.geometry.attributes.position; P.setXYZ(0, p.x, p.y, p.z); P.setXYZ(1, p.x, 0, p.z); P.needsUpdate = true;
-      p.line.visible = p.y > 30; p.tag.visible = p === hover || pinned.has(p) || focus(p);
+      p.line.visible = p.y > 30 && !riding(p); p.tag.visible = p === hover || pinned.has(p) || focus(p);
     }
   }
   return {
