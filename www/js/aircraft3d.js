@@ -1,7 +1,8 @@
 // Live aircraft in Bird's-eye (v1098): ADS-B, the air's AIS, through the relay's GET /aircraft (relay/ais/core.mjs,
 // from adsb.lol). Each aircraft flies at her reported altitude, moved on between reports at her ground speed and
 // track, with a faint line down to the water so you can tell how high she is, and her flight and height beside her.
-// On with 📡 Live; like Live AIS it needs an internet connection.
+// On with 📡 Live; like Live AIS it needs an internet connection. Her label shows only while the pointer is over
+// her, or after a tap on her until the next (v1101, reported: "Too much writing on the plane label").
 import * as THREE from 'three';
 import { relayUrl } from './ais.js';
 
@@ -38,9 +39,10 @@ export function labelSprite() {
 
 export function makeAircraft({ scene, bbox, wx, wz, every = 5000, onCount }) {
   const planes = new Map();   // hex -> { a, g, model, line, label, fix, x, y, z, h }
-  let on = false, timer = null, inflight = null;
+  let on = false, timer = null, inflight = null, hover = null;
+  const pinned = new Set(), _v = new THREE.Vector3();
   const lineMat = new THREE.LineBasicMaterial({ color: 0xbfe8ff, transparent: true, opacity: 0.35 });
-  function drop(p) { scene.remove(p.g); p.g.traverse(o => { o.geometry?.dispose(); if (o.material && o.material !== lineMat) { o.material.map?.dispose(); o.material.dispose(); } }); planes.delete(p.a.hex); }
+  function drop(p) { pinned.delete(p); if (hover === p) hover = null; scene.remove(p.g); p.g.traverse(o => { o.geometry?.dispose(); if (o.material && o.material !== lineMat) { o.material.map?.dispose(); o.material.dispose(); } }); planes.delete(p.a.hex); }
   function data(j) {
     const now = Date.now(), seen = new Set();
     for (const a of j.aircraft || []) {
@@ -85,15 +87,32 @@ export function makeAircraft({ scene, bbox, wx, wz, every = 5000, onCount }) {
       const d = Math.hypot(p.x - cp.x, p.y - cp.y, p.z - cp.z), L = lengthOf(a);
       p.model.scale.setScalar(Math.max(L, d * 0.014));
       const P = p.line.geometry.attributes.position; P.setXYZ(0, p.x, p.y, p.z); P.setXYZ(1, p.x, 0, p.z); P.needsUpdate = true;
-      p.line.visible = p.y > 30; p.label.visible = !a.ground;
+      p.line.visible = p.y > 30; p.label.visible = p === hover || pinned.has(p);
     }
   }
   return {
     start() { if (on) return; on = true; poll(); },
     stop() { on = false; clearTimeout(timer); inflight?.abort(); clear(); },
     update,
+    // the aircraft under a point on the screen (client px), within reach px of her: for hover and tap
+    at(cx, cy, camera, rect, reach = 22) {
+      let best = null, bd = reach;
+      for (const p of planes.values()) {
+        _v.copy(p.g.position).project(camera); if (_v.z >= 1) continue;
+        const d = Math.hypot(rect.left + (_v.x + 1) / 2 * rect.width - cx, rect.top + (1 - _v.y) / 2 * rect.height - cy);
+        if (d < bd) { bd = d; best = p; }
+      }
+      return best;
+    },
+    set hover(p) { hover = p; },
+    toggle(p) { if (pinned.has(p)) pinned.delete(p); else pinned.add(p); },
+    unpinAll() { const any = pinned.size > 0; pinned.clear(); return any; },
     get on() { return on; },
     get count() { return planes.size; },
-    list: () => [...planes.values()].map(p => ({ ...p.a, y: Math.round(p.y) })),
+    list: (camera, rect) => [...planes.values()].map(p => {   // (for checking from a script: where she is on the screen, and whether her label shows)
+      const o = { ...p.a, y: Math.round(p.y), shown: p.label.visible };
+      if (camera && rect) { _v.copy(p.g.position).project(camera); if (_v.z < 1) { o.sx = Math.round(rect.left + (_v.x + 1) / 2 * rect.width); o.sy = Math.round(rect.top + (1 - _v.y) / 2 * rect.height); } }
+      return o;
+    }),
   };
 }

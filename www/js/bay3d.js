@@ -2044,7 +2044,7 @@ const liveFeed = makeAisFeed({
 });
 // the aircraft overhead too (v1098, asked: "plot trains and airplanes on the scene"), from their ADS-B; on with Live
 const air = makeAircraft({ scene, bbox: OVERVIEW, wx, wz, onCount: () => syncLiveBtn() });
-window.__aircraft = () => air.list();
+window.__aircraft = () => air.list(camera, renderer.domElement.getBoundingClientRect());
 // and the trains (v1099): Caltrain, SMART and ACE from 511.org
 const rail = makeTrains({ scene, bbox: OVERVIEW, wx, wz, heightAt, onCount: () => syncLiveBtn() });
 window.__trains = () => rail.list();
@@ -2191,6 +2191,7 @@ function fillCard() {
 const _tp = new THREE.Vector3();
 function tapAt(cx, cy) {
   if (picking && pickAt) { pickAt(cx, cy); return; }
+  { const p = air.at(cx, cy, camera, renderer.domElement.getBoundingClientRect(), 26); if (p) { air.toggle(p); return; } }   // (a tap on an aircraft shows her label until the next: v1101)
   if (!aisCard) return;
   const r = renderer.domElement.getBoundingClientRect(), scr = (x, y, z) => { _tp.set(x, y, z).project(camera); return _tp.z < 1 ? [r.left + (_tp.x + 1) / 2 * r.width, r.top + (1 - _tp.y) / 2 * r.height] : null; };
   if (buoyF) { const a = scr(buoyF.x, 0, buoyF.z), b = scr(buoyF.x, 6 * buoyF.g.scale.x, buoyF.z); if (a && b && Math.hypot(cx - a[0], cy - (a[1] + b[1]) / 2) < 26 + Math.abs(a[1] - b[1]) / 2) { toggleCard(buoyF); return; } }
@@ -2226,8 +2227,9 @@ window.__hover = () => hoverV?.A?.name ?? null;   // (for checking from a script
 document.addEventListener('pointermove', e => {
   if (e.pointerType !== 'mouse' || e.buttons) return;
   hoverV = e.target._v && live.includes(e.target._v) ? e.target._v : sceneEl.contains(e.target) ? liveAt(e.clientX, e.clientY, 18) : null;
+  air.hover = sceneEl.contains(e.target) ? air.at(e.clientX, e.clientY, camera, renderer.domElement.getBoundingClientRect(), 18) : null;   // (an aircraft's label too: v1101)
 });
-document.addEventListener('pointerleave', () => { hoverV = null; });
+document.addEventListener('pointerleave', () => { hoverV = null; air.hover = null; });
 
 // ── Buoy F (v1013, requested; buoyf.js): the University of Maine's data buoy in West Penobscot Bay, its current
 // as arrows on the water (at the surface, and the strongest below, when it differs), a label, and its readings on

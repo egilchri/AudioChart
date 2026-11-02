@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-02 — Bird's-eye: an aircraft's label only on hover or tap (v1101)
+
+- Reported: "Too much writing on the plane label. Try hiding it until I click on plane, or maybe just hover over it". An aircraft's label (flight · height) now shows only while the pointer is over her (within 18 px, as the live vessels' names since v1035), or after a tap or click on her, until the next tap on her (aircraft3d.js `at`/`toggle`; bay3d.js `tapAt` and the page's hover listener). Checked in headless Chrome over SF Bay: 63 aircraft, no labels; hover on ASA303 showed only hers, gone when the pointer left; a click kept it, a second click put it away. Train labels are unchanged.
+
 ## 2026-11-02 — Bird's-eye: the places panel folds away on a computer too (v1100)
 
 - Reported: "I think the menu is in the way, along the left column. How can we shrink it?" The left panel's Towns ▾ button, which folds the list away behind its title, was phone-only. It now shows at every width (Towns ▴ when open, Towns ▾ when folded); folded, the panel is just its title and the Penobscot | Casco | SF Bay switch (609 → 133 px tall at 1400×800). On a computer it folds only by hand and stays as you left it (localStorage `audiochart-bay3d-panel-folded`); a phone still folds it by itself once you pick a place.
