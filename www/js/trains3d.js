@@ -1,0 +1,93 @@
+// Live trains in Bird's-eye (v1099): Caltrain, SMART and ACE, from 511.org through the relay's GET /trains
+// (relay/ais/core.mjs RAIL). 511 is asked at most every 90 s per railroad, so between reports each train runs on
+// at the speed and heading of her last two positions (511's own bearing is always 0), for up to a minute, then
+// waits for the next. On with 📡 Live; needs an internet connection.
+import * as THREE from 'three';
+import { relayUrl } from './ais.js';
+import { labelSprite } from './aircraft3d.js';
+
+export const TRAIN_CREDIT = 'Trains from 511.org';
+const DEG = Math.PI / 180;
+// each railroad's train: cars, car length (m), and livery (body, band)
+const LOOK = {
+  Caltrain: { cars: 6, len: 26, body: 0xd8dadc, band: 0xc8102e },
+  SMART: { cars: 2, len: 25, body: 0xf1f1ee, band: 0x2e8b57 },
+  ACE: { cars: 6, len: 26, body: 0xe6e3ee, band: 0x5b2a86 },
+};
+function trainModel(look) {   // the cars in a line along -z (her front), 1 unit = 1 m
+  const g = new THREE.Group(), body = new THREE.MeshLambertMaterial({ color: look.body }), band = new THREE.MeshLambertMaterial({ color: look.band });
+  const L = look.len, gap = 1.2;
+  for (let i = 0; i < look.cars; i++) {
+    const z = i * (L + gap) - (look.cars - 1) * (L + gap) / 2;
+    const car = new THREE.Mesh(new THREE.BoxGeometry(3.1, 4.6, L), body); car.position.set(0, 2.3 + 0.6, z); g.add(car);
+    const b = new THREE.Mesh(new THREE.BoxGeometry(3.16, 0.7, L * 0.98), band); b.position.set(0, 1.6, z); g.add(b);
+  }
+  return g;
+}
+// "San Francisco Caltrain Station Northbound" -> "San Francisco"; "Stockton - Robert J Cabral Sta" -> "Stockton"
+const place = d => (d || '').replace(/\s+(Caltrain\s+)?Station\b.*$/i, '').replace(/\s+-\s+.*$/, '').replace(/^SMART\s+/i, '').trim();
+const metres = (a, b) => Math.hypot((b.lon - a.lon) * 111320 * Math.cos(a.lat * DEG), (b.lat - a.lat) * 111120);
+
+export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCount }) {
+  const trains = new Map();   // id -> { a, g, model, label, fix, prev, v (m/s), h, x, z }
+  let on = false, timer = null, inflight = null;
+  function drop(p) { scene.remove(p.g); p.g.traverse(o => { o.geometry?.dispose(); o.material?.map?.dispose(); o.material?.dispose(); }); trains.delete(p.id); }
+  function data(j) {
+    const now = Date.now(), seen = new Set();
+    for (const a of j.trains || []) {
+      seen.add(a.id);
+      let p = trains.get(a.id);
+      if (!p) {
+        const g = new THREE.Group(), model = trainModel(LOOK[a.rail] || LOOK.Caltrain), label = labelSprite();
+        g.add(model, label); scene.add(g);
+        p = { id: a.id, g, model, label, x: wx(a.lon), z: wz(a.lat), h: a.dir === 'S' ? 135 : a.dir === 'N' ? 315 : 0, v: 0, placed: false };
+        trains.set(a.id, p);
+      }
+      const at = now - (a.age || 0) * 1000;
+      if (!p.fix || at > p.fix.t) {   // a new report: her speed and heading from the last one
+        if (p.fix) {
+          const d = metres(p.fix, a), s = (at - p.fix.t) / 1000;
+          p.v = s > 5 && d / s < 50 ? d / s : 0;   // (a stand at a station is 0; a jump of over 50 m/s is no speed)
+          if (d > 30) p.h = (Math.atan2((a.lon - p.fix.lon) * Math.cos(a.lat * DEG), a.lat - p.fix.lat) / DEG + 360) % 360;
+        }
+        p.fix = { lon: a.lon, lat: a.lat, x: wx(a.lon), z: wz(a.lat), t: at };
+      }
+      p.a = a;
+      p.label.userData.draw(`${a.rail} ${/^\d{1,4}$/.test(a.trip) ? a.trip : ''} → ${place(a.dest) || '?'}`.replace(/\s+/g, ' '));   // (Caltrain's train number; SMART's trip ids are long)
+    }
+    for (const p of [...trains.values()]) if (!seen.has(p.id)) drop(p);
+    onCount?.(trains.size);
+  }
+  async function poll() {
+    if (!on) return;
+    const ctl = new AbortController(); inflight = ctl; const kill = setTimeout(() => ctl.abort(), 8000);
+    try {
+      const r = await fetch(`${relayUrl()}/trains?bbox=${bbox.map(v => v.toFixed(3)).join(',')}`, { signal: ctl.signal, cache: 'no-store' });
+      const j = await r.json(); if (on && r.ok) data(j);
+    } catch (_) {} finally { clearTimeout(kill); if (inflight === ctl) inflight = null; }
+    if (on) timer = setTimeout(poll, every);
+  }
+  function update(dt, camera) {
+    if (!trains.size) return;
+    const now = Date.now(), cp = camera.position;
+    for (const p of trains.values()) {
+      const s = p.v * Math.min(Math.max((now - p.fix.t) / 1000, 0), 60);
+      const tx = p.fix.x + Math.sin(p.h * DEG) * s, tz = p.fix.z - Math.cos(p.h * DEG) * s;
+      const k = p.placed ? Math.min(1, dt * 0.8) : 1; p.placed = true;
+      p.x += (tx - p.x) * k; p.z += (tz - p.z) * k;
+      const lon = p.fix.lon + (p.x - p.fix.x) / (111320 * Math.cos(p.fix.lat * DEG)), lat = p.fix.lat - (p.z - p.fix.z) / 111120;
+      p.g.position.set(p.x, Math.max(0, heightAt(lon, lat) || 0), p.z); p.model.rotation.y = -p.h * DEG;
+      // her real size near; farther off, long enough to see (about 2% of the distance away)
+      const d = Math.hypot(p.x - cp.x, cp.y - p.g.position.y, p.z - cp.z);
+      p.model.scale.setScalar(Math.max(1, d * 0.02 / 160));
+    }
+  }
+  return {
+    start() { if (on) return; on = true; poll(); },
+    stop() { on = false; clearTimeout(timer); inflight?.abort(); for (const p of [...trains.values()]) drop(p); onCount?.(0); },
+    update,
+    get on() { return on; },
+    get count() { return trains.size; },
+    list: () => [...trains.values()].map(p => ({ id: p.id, rail: p.a.rail, dest: place(p.a.dest), v: +p.v.toFixed(1), h: Math.round(p.h) })),
+  };
+}

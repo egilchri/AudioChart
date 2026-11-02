@@ -118,3 +118,34 @@ export function trimAircraft(j, bbox, now = Date.now()) {
   }
   return { t: now, aircraft: out };
 }
+
+// ── Trains: GET /trains?bbox=w,s,e,n (v1099) ──
+// Commuter rail's live positions from 511.org's SIRI VehicleMonitoring (a 511 Open Data key, FIVE11_KEY, held by
+// the relay). 511 allows 60 requests an hour per key, so each railroad is asked only every `ttl` seconds, whoever
+// is watching: Caltrain every 90 s (40/h), SMART and ACE every 5 and 10 min (12/h and 6/h): 58 an hour at most.
+// 511's Bearing is always 0 (2026-11-02): the app takes her heading from her last two positions.
+export const RAIL = [
+  { id: 'CT', name: 'Caltrain', ttl: 90 },
+  { id: 'SA', name: 'SMART', ttl: 300 },
+  { id: 'CE', name: 'ACE', ttl: 600 },
+];
+export const TRAIN_CREDIT = 'Trains from 511.org';
+export const railUpstream = (id, key) => `https://api.511.org/transit/VehicleMonitoring?api_key=${encodeURIComponent(key)}&agency=${id}&format=json`;
+// SIRI's answer (with a byte-order mark first) to the trains in it
+export function trimTrains(text, rail, now = Date.now()) {
+  let j; try { j = JSON.parse(String(text).replace(/^﻿/, '')); } catch (_) { return []; }
+  const del = j?.Siri?.ServiceDelivery?.VehicleMonitoringDelivery, acts = (Array.isArray(del) ? del : [del]).flatMap(d => d?.VehicleActivity || []);
+  const out = [];
+  for (const va of acts) {
+    const m = va?.MonitoredVehicleJourney, loc = m?.VehicleLocation, lat = Number(loc?.Latitude), lon = Number(loc?.Longitude);
+    if (!m || !Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) continue;
+    // (SMART reports every railcar, parked ones too: only those on a run, with a line or a destination)
+    if (!(Array.isArray(m.PublishedLineName) ? m.PublishedLineName[0] : m.PublishedLineName) && !m.LineRef && !(Array.isArray(m.DestinationName) ? m.DestinationName[0] : m.DestinationName)) continue;
+    const at = Date.parse(va.RecordedAtTime || ''), one = v => Array.isArray(v) ? v[0] : v;
+    out.push({ id: `${rail.id}:${m.VehicleRef || m.FramedVehicleJourneyRef?.DatedVehicleJourneyRef || out.length}`, rail: rail.name,
+      line: clean(one(m.PublishedLineName) || m.LineRef || ''), trip: clean(m.FramedVehicleJourneyRef?.DatedVehicleJourneyRef || ''),
+      dest: clean(one(m.DestinationName) || ''), dir: clean(m.DirectionRef || ''), lat: +lat.toFixed(5), lon: +lon.toFixed(5),
+      brg: num(Number(m.Bearing)), at: Number.isFinite(at) ? Math.min(at, now) : now });
+  }
+  return out;
+}

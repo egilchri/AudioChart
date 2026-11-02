@@ -52,6 +52,13 @@ The app finds the relay at `RELAY_DEFAULT` in `www/js/ais.js`. You can point it 
 (no key; ODbL, credited in the app as `ADSB_CREDIT`). It's stateless: the Worker asks adsb.lol for a circle round
 the box and caches the answer for 5 s. `dev.mjs` serves it too, with real aircraft even under `--fake`.
 
+## Trains (v1099)
+
+`GET /trains?bbox=w,s,e,n` answers with Caltrain, SMART and ACE trains from 511.org (core.mjs `RAIL`), on a 511
+Open Data key (free, https://511.org/open-data/token). Set it in a real terminal, since wrangler prompts for it:
+`npx wrangler secret put FIVE11_KEY` (run from a non-interactive shell it silently stores an empty key). 511 allows
+60 requests an hour, so one Durable Object (`trains`) keeps each railroad's answer for its `ttl`.
+
 ## Developing
 
 ```

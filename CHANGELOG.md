@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-02 — Bird's-eye: live trains, Caltrain, SMART and ACE (v1099)
+
+- Asked: "would we be able to see regular trains in birdseye?" 📡 Live now shows the commuter trains too (`www/js/trains3d.js`): Caltrain (6 grey cars, red band), SMART (2 cars, green) and ACE (purple), each labelled with her train number and where she's bound (`Caltrain 117 → San Francisco`). The Live button counts them (`🚆 12`); the tooltip credits 511.org.
+- The positions come from 511.org's SIRI VehicleMonitoring through the relay's new `GET /trains?bbox=` (relay/ais core.mjs `RAIL`/`trimTrains`). 511 allows 60 requests an hour per key, so the relay asks each railroad at most every 90 s (Caltrain), 5 min (SMART) and 10 min (ACE), 58 an hour, kept in one Durable Object (`trains`; the Cache API does nothing on workers.dev). The key (`FIVE11_KEY`) is a relay secret.
+- Found in the real feed: 511's `Bearing` is always 0, so a train's heading and speed come from her last two positions, and she runs on at them for up to a minute between reports. SMART reports every railcar, parked ones in the Santa Rosa yard too: only those with a line or destination are shown (20 cars → 4 trains).
+- Checked over SF Bay in headless Chrome with the live relay: 12 trains; over 100 s Caltrain 117 ran north at 13.7 m/s and 116 south at 9.7 m/s, headings 319° and 129°, along the Peninsula line. Still to come: a BART next-trains card for a tapped station, and Capitol Corridor/Amtrak.
+
 ## 2026-11-02 — Bird's-eye: live aircraft over the bay, from ADS-B (v1098)
 
 - Asked: "Is there something like AIS for airplanes ... I would like to plot trains and airplanes on the scene of somewhere like my San Francisco Bay region." Aircraft broadcast ADS-B, as ships do AIS. 📡 Live now shows the aircraft over the bay too (`www/js/aircraft3d.js`): each at her reported altitude, moved on between reports at her ground speed, track and climb rate, with a faint line down to the ground and her flight and height beside her (`UAL1954 · 12400 ft`; FL above 18,000 ft). Aircraft on the ground (SFO's apron) are drawn without labels. The Live button counts them (`📡 Live · 12 · ✈ 37`); the tooltip credits adsb.lol.

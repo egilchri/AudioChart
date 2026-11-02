@@ -31,6 +31,7 @@ import { makeFlyover, orderStops, offLeg } from './flyover.js';
 import * as Voice from './piper_voice.js';
 import { makeOverview } from './overview2d.js';
 import { makeAircraft, ADSB_CREDIT } from './aircraft3d.js';
+import { makeTrains, TRAIN_CREDIT } from './trains3d.js';
 import { makeAisFeed, aisStatus, aisName, aisDest, setKnown, knownFor, aisFlag, aisRot, aisPos, aisAgo, aisLookup, aisImo, aisCallsign, AIS_CREDIT } from './ais.js';
 
 const statusEl = document.getElementById('status');
@@ -2037,25 +2038,28 @@ const liveFeed = makeAisFeed({
 // the aircraft overhead too (v1098, asked: "plot trains and airplanes on the scene"), from their ADS-B; on with Live
 const air = makeAircraft({ scene, bbox: OVERVIEW, wx, wz, onCount: () => syncLiveBtn() });
 window.__aircraft = () => air.list();
+// and the trains (v1099): Caltrain, SMART and ACE from 511.org
+const rail = makeTrains({ scene, bbox: OVERVIEW, wx, wz, heightAt, onCount: () => syncLiveBtn() });
+window.__trains = () => rail.list();
 function syncLiveBtn(state = liveBtn?.dataset.state || 'off', note = '') {
   if (!liveBtn) return;
   liveBtn.dataset.state = state;
   liveBtn.classList.toggle('on', liveFeed.on);
   const tuning = liveFeed.on && state !== 'offline' && !live.length && liveListen < 300;   // (the relay only just reconnected to the feed: vessels come in over a few minutes, v1010)
-  liveBtn.textContent = !liveFeed.on ? '📡 Live' : tuning ? '📡 Live · tuning in…' : state === 'live' ? `📡 Live · ${live.length}${air.count ? ` · ✈ ${air.count}` : ''}` : state === 'offline' ? '📡 Live · offline' : '📡 Live · …';
+  liveBtn.textContent = !liveFeed.on ? '📡 Live' : tuning ? '📡 Live · tuning in…' : state === 'live' ? `📡 Live · ${live.length}${air.count ? ` · ✈ ${air.count}` : ''}${rail.count ? ` · 🚆 ${rail.count}` : ''}` : state === 'offline' ? '📡 Live · offline' : '📡 Live · …';
   liveBtn.title = !liveFeed.on ? 'Show the vessels in the bay right now, from their AIS (needs an internet connection)'
     : tuning ? 'The live feed has only just started listening: vessels come in over the next few minutes, as each one reports. Tap to turn Live off.'
-    : state === 'offline' ? `${note || 'Live AIS is unavailable'}. Tap to turn Live off.` : state === 'live' ? `${live.length} vessels broadcasting AIS${air.count ? ` and ${air.count} aircraft ADS-B` : ''} in the bay now. Tap to turn Live off.\n${AIS_CREDIT} ${ADSB_CREDIT}.` : `${note || 'Listening for ships…'} Tap to turn Live off.`;
+    : state === 'offline' ? `${note || 'Live AIS is unavailable'}. Tap to turn Live off.` : state === 'live' ? `${live.length} vessels broadcasting AIS${air.count ? `, ${air.count} aircraft ADS-B` : ''}${rail.count ? `, ${rail.count} trains` : ''} in the bay now. Tap to turn Live off.\n${AIS_CREDIT} ${ADSB_CREDIT}. ${TRAIN_CREDIT}.` : `${note || 'Listening for ships…'} Tap to turn Live off.`;
 }
 if (liveBtn && !EMPTY) {   // (the relay listens to both bays: relay/ais/core.mjs BOXES; each bay shows its own, by OVERVIEW)
   liveBtn.hidden = false;
   liveBtn.addEventListener('click', () => {
-    if (liveFeed.on) { liveFeed.stop(); air.stop(); } else { liveFeed.start(); air.start(); if (!boatClock) setClock(realMin(), 1, false); }   // live is now: the clock to now
+    if (liveFeed.on) { liveFeed.stop(); air.stop(); rail.stop(); } else { liveFeed.start(); air.start(); rail.start(); if (!boatClock) setClock(realMin(), 1, false); }   // live is now: the clock to now
     try { localStorage.setItem(LIVE_KEY, liveFeed.on ? '1' : '0'); } catch (_) {}
     syncLiveBtn();
   });
   let was = false; try { was = localStorage.getItem(LIVE_KEY) === '1'; } catch (_) {}
-  if (was || params.has('ais') || params.has('vessel')) { liveFeed.start(); air.start(); }
+  if (was || params.has('ais') || params.has('vessel')) { liveFeed.start(); air.start(); rail.start(); }
   setInterval(() => { if (liveFeed.on && liveBtn.dataset.state === 'live') syncLiveBtn('live'); }, 5000);
   syncLiveBtn();
 }
@@ -3559,7 +3563,7 @@ function frame(now) {
   updateFleet(dt);
   updateTraffic();
   bridges?.update(dt);   // the cars on them (v1043)
-  updateLive(dt); air.update(dt, camera);
+  updateLive(dt); air.update(dt, camera); rail.update(dt, camera);
   updateWaypoints();
   updateOwn(dt);
   updateWakes(dt);

@@ -22,7 +22,7 @@ const LEN = { A1: 9, A2: 15, A3: 38, A4: 47, A5: 65, A6: 20, A7: 15 };
 const lengthOf = a => LEN[a.cat] || (a.cat?.[0] === 'B' ? 8 : 35);
 const colourOf = a => a.cat === 'A7' ? 0xffb347 : a.cat === 'A1' || a.cat === 'A2' ? 0xbfe8ff : 0xf2f4f7;
 
-function labelSprite() {
+export function labelSprite() {
   const c = document.createElement('canvas'); c.width = 384; c.height = 64;
   const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, sizeAttenuation: false }));

@@ -3,7 +3,7 @@
 // since v1011), opened by the first request and closed after a few minutes with nobody asking (AISStream allows 3
 // connections per key, Open Waters 2 per personal token). Names, types and sizes are kept in the object's
 // storage, since AIS sends them only every six minutes.
-import { makeTable, subscription, corsHeaders, FEEDS, bboxOf, aircraftUpstream, trimAircraft } from './core.mjs';
+import { makeTable, subscription, corsHeaders, FEEDS, bboxOf, aircraftUpstream, trimAircraft, RAIL, railUpstream, trimTrains } from './core.mjs';
 
 const IDLE_MS = 5 * 60e3;
 // The Durable Object's name carries the relay's version. A deploy doesn't restart a running object while its feed
@@ -48,7 +48,39 @@ export class AisHub {
     if (Date.now() - this.lastAsk > IDLE_MS) this.close();
     else await this.state.storage.setAlarm(Date.now() + IDLE_MS);
   }
+  // GET /trains (v1099): commuter trains from 511.org (core.mjs RAIL). Its own object (named 'trains'), which never
+  // opens the AIS feeds; each railroad's answer is kept, in memory and storage, for its ttl, so however many ask,
+  // the key stays inside 511's 60 requests an hour (the Cache API does nothing on workers.dev). The key stays here.
+  async trains(req) {
+    const now = Date.now(), errors = [], bbox = bboxOf(req.url);
+    this.rail ??= Object.fromEntries(await Promise.all(RAIL.map(async r => [r.id, (await this.state.storage.get('rail:' + r.id)) || null])));
+    const lists = await Promise.all(RAIL.map(async rail => {
+      const kept = this.rail[rail.id];
+      if (kept && now - kept.at < rail.ttl * 1000) return kept.trains;
+      if (this.asking?.[rail.id]) return (await this.asking[rail.id]);
+      (this.asking ??= {})[rail.id] = (async () => {
+        try {
+          const up = await fetch(railUpstream(rail.id, this.env.FIVE11_KEY));
+          if (!up.ok) throw new Error(String(up.status));
+          const got = { at: now, trains: trimTrains(await up.text(), rail, now) };
+          this.rail[rail.id] = got; await this.state.storage.put('rail:' + rail.id, got);
+          return got.trains;
+        } catch (e) {
+          errors.push(`${rail.name}: ${e.message || e}`);
+          if (kept) kept.at = now - rail.ttl * 1000 + 60e3;   // (a failure waits a minute, then asks again)
+          return kept?.trains || [];
+        } finally { delete this.asking[rail.id]; }
+      })();
+      return this.asking[rail.id];
+    }));
+    let out = lists.flat().filter(t => t.line || t.dest);   // (on a run: core.mjs trimTrains; again here for answers kept from before v1099's filter)
+    if (bbox) out = out.filter(t => t.lon >= bbox[0] && t.lat >= bbox[1] && t.lon <= bbox[2] && t.lat <= bbox[3]);
+    const body = { t: now, trains: out.map(t => ({ ...t, age: Math.max(0, Math.round((now - t.at) / 1000)) })) };
+    if (errors.length) body.error = errors.join('; ');
+    return new Response(JSON.stringify(body), { headers: corsHeaders(req.headers.get('Origin')) });
+  }
   async fetch(req) {
+    if (new URL(req.url).pathname === '/trains') return this.trains(req);
     await this.ready;
     this.lastAsk = Date.now();
     let err = null;
@@ -82,6 +114,10 @@ export default {
     const url = new URL(req.url), origin = req.headers.get('Origin');
     if (req.method === 'OPTIONS') return new Response(null, { headers: { ...corsHeaders(origin), 'Access-Control-Allow-Methods': 'GET' } });
     if (url.pathname === '/aircraft') return aircraft(req, url, ctx);
+    if (url.pathname === '/trains') {
+      if (!env.FIVE11_KEY) return new Response(JSON.stringify({ error: 'no 511 key', trains: [] }), { status: 503, headers: corsHeaders(origin) });
+      return env.AIS_HUB.get(env.AIS_HUB.idFromName('trains')).fetch(req);   // (one object, so one cache: 511's 60 an hour)
+    }
     if (url.pathname !== '/vessels') return new Response('AudioChart live AIS relay: GET /vessels', { status: 404 });
     if (!FEEDS.some(f => env[f.key])) return new Response(JSON.stringify({ error: 'no key' }), { status: 503, headers: corsHeaders(origin) });
     return env.AIS_HUB.get(env.AIS_HUB.idFromName(`bays-${RELAY_V}`)).fetch(req);
