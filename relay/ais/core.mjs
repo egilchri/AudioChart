@@ -93,3 +93,28 @@ export function corsHeaders(origin) {
   const ok = origin && ORIGINS.some(r => r.test(origin));
   return { 'Access-Control-Allow-Origin': ok ? origin : 'https://egilchri.github.io', 'Vary': 'Origin', 'Cache-Control': 'no-store', 'Content-Type': 'application/json' };
 }
+
+// ── Aircraft (ADS-B), the air's AIS: GET /aircraft?bbox=w,s,e,n ──
+// From adsb.lol's open API (api.adsb.lol, ODbL: credit it), which needs no key but sends no CORS header, so the
+// page asks through the relay. One circle round the box's middle that takes in its corners (adsb.lol caps the
+// radius at 250 nm), then only the aircraft in the box, trimmed to what Bird's-eye draws.
+export const ADSB_CREDIT = 'Aircraft from adsb.lol (ODbL)';
+export function aircraftUpstream(bbox) {
+  const [w, s, e, n] = bbox, lat = (s + n) / 2, lon = (w + e) / 2;
+  const nm = Math.hypot((n - s) / 2 * 60, (e - w) / 2 * 60 * Math.cos(lat * Math.PI / 180));
+  return `https://api.adsb.lol/v2/point/${lat.toFixed(4)}/${lon.toFixed(4)}/${Math.min(250, Math.ceil(nm))}`;
+}
+export function trimAircraft(j, bbox, now = Date.now()) {
+  const out = [];
+  for (const a of j?.ac || []) {
+    const lat = num(a.lat), lon = num(a.lon);
+    if (lat == null || lon == null || (a.seen_pos ?? 0) > 60) continue;
+    if (bbox && !(lon >= bbox[0] && lat >= bbox[1] && lon <= bbox[2] && lat <= bbox[3])) continue;
+    const ground = a.alt_baro === 'ground';
+    out.push({ hex: a.hex, flight: clean(a.flight), reg: clean(a.r), type: clean(a.t), cat: a.category || '',
+      lat: +lat.toFixed(5), lon: +lon.toFixed(5), alt: ground ? 0 : num(a.alt_geom) ?? num(a.alt_baro), ground,
+      gs: num(a.gs), trk: num(a.track) ?? num(a.true_heading), vr: num(a.geom_rate) ?? num(a.baro_rate), squawk: a.squawk || '',
+      age: Math.round(a.seen_pos ?? a.seen ?? 0) });
+  }
+  return { t: now, aircraft: out };
+}

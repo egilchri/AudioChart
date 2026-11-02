@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-02 — Bird's-eye: live aircraft over the bay, from ADS-B (v1098)
+
+- Asked: "Is there something like AIS for airplanes ... I would like to plot trains and airplanes on the scene of somewhere like my San Francisco Bay region." Aircraft broadcast ADS-B, as ships do AIS. 📡 Live now shows the aircraft over the bay too (`www/js/aircraft3d.js`): each at her reported altitude, moved on between reports at her ground speed, track and climb rate, with a faint line down to the ground and her flight and height beside her (`UAL1954 · 12400 ft`; FL above 18,000 ft). Aircraft on the ground (SFO's apron) are drawn without labels. The Live button counts them (`📡 Live · 12 · ✈ 37`); the tooltip credits adsb.lol.
+- The relay has `GET /aircraft?bbox=w,s,e,n` (relay/ais/core.mjs `aircraftUpstream`/`trimAircraft`): adsb.lol's open API needs no key but sends no CORS header, so the page asks through the relay. The Worker caches each box's answer for 5 s; no Durable Object. Deployed.
+- Checked over SF Bay in headless Chrome with the real feed: 37–41 aircraft, approaches over the bay, jets taxiing at SFO and OAK. Trains (Caltrain, SMART, Muni cable cars via 511.org GTFS-RT) are next; they need a 511 key.
+
 ## 2026-11-02 — Bird's-eye: Echo Lake and Long Pond as water; the tile-edge streaks gone (v1097)
 
 - Asked to "flatten the lakes" after v1096. The elevation was already flat (USGS hydro-flattens lakes: Echo Lake is 25.35 m across), so v1096's "pit" diagnosis was wrong. The real faults:

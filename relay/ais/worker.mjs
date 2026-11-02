@@ -3,7 +3,7 @@
 // since v1011), opened by the first request and closed after a few minutes with nobody asking (AISStream allows 3
 // connections per key, Open Waters 2 per personal token). Names, types and sizes are kept in the object's
 // storage, since AIS sends them only every six minutes.
-import { makeTable, subscription, corsHeaders, FEEDS, bboxOf } from './core.mjs';
+import { makeTable, subscription, corsHeaders, FEEDS, bboxOf, aircraftUpstream, trimAircraft } from './core.mjs';
 
 const IDLE_MS = 5 * 60e3;
 // The Durable Object's name carries the relay's version. A deploy doesn't restart a running object while its feed
@@ -61,10 +61,27 @@ export class AisHub {
   }
 }
 
+// GET /aircraft?bbox=w,s,e,n: adsb.lol's aircraft in the box (core.mjs). No key and no Durable Object: each box's
+// answer is cached for 5 s at the edge, so many viewers make one upstream request.
+async function aircraft(req, url, ctx) {
+  const h = corsHeaders(req.headers.get('Origin')), bbox = bboxOf(req.url);
+  if (!bbox) return new Response(JSON.stringify({ error: 'bbox=w,s,e,n needed' }), { status: 400, headers: h });
+  const up = aircraftUpstream(bbox), cache = caches.default, key = new Request(up);
+  let r = await cache.match(key);
+  if (!r) {
+    r = await fetch(up, { headers: { 'User-Agent': 'AudioChart Birdseye (egilchri.github.io)' } });
+    if (!r.ok) return new Response(JSON.stringify({ error: `adsb.lol answered ${r.status}`, aircraft: [] }), { status: 502, headers: h });
+    r = new Response(r.body, r); r.headers.set('Cache-Control', 'max-age=5');
+    ctx.waitUntil(cache.put(key, r.clone()));
+  }
+  return new Response(JSON.stringify(trimAircraft(await r.json(), bbox)), { headers: h });
+}
+
 export default {
-  async fetch(req, env) {
+  async fetch(req, env, ctx) {
     const url = new URL(req.url), origin = req.headers.get('Origin');
     if (req.method === 'OPTIONS') return new Response(null, { headers: { ...corsHeaders(origin), 'Access-Control-Allow-Methods': 'GET' } });
+    if (url.pathname === '/aircraft') return aircraft(req, url, ctx);
     if (url.pathname !== '/vessels') return new Response('AudioChart live AIS relay: GET /vessels', { status: 404 });
     if (!FEEDS.some(f => env[f.key])) return new Response(JSON.stringify({ error: 'no key' }), { status: 503, headers: corsHeaders(origin) });
     return env.AIS_HUB.get(env.AIS_HUB.idFromName(`bays-${RELAY_V}`)).fetch(req);

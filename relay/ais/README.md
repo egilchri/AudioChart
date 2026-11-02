@@ -46,6 +46,12 @@ The app finds the relay at `RELAY_DEFAULT` in `www/js/ais.js`. You can point it 
 3. Check it at `https://audiochart-ais.<your-subdomain>.workers.dev/vessels`. The first request opens the feed;
    ask again a minute later. If the subdomain isn't `egilchri`, set `RELAY_DEFAULT` in `www/js/ais.js`.
 
+## Aircraft (v1098)
+
+`GET /aircraft?bbox=w,s,e,n` answers with the aircraft in the box, from [adsb.lol](https://adsb.lol)'s open ADS-B API
+(no key; ODbL, credited in the app as `ADSB_CREDIT`). It's stateless: the Worker asks adsb.lol for a circle round
+the box and caches the answer for 5 s. `dev.mjs` serves it too, with real aircraft even under `--fake`.
+
 ## Developing
 
 ```

@@ -3,7 +3,7 @@
 //   node relay/ais/dev.mjs --fake                   made-up vessels in AIS's own message format, no key needed
 // Then open Bird's-eye with ?ais=http://localhost:8790 (or set it once: localStorage 'audiochart-ais-relay').
 import http from 'node:http';
-import { makeTable, subscription, corsHeaders, FEEDS, bboxOf } from './core.mjs';
+import { makeTable, subscription, corsHeaders, FEEDS, bboxOf, aircraftUpstream, trimAircraft } from './core.mjs';
 
 const PORT = Number(process.env.PORT) || 8790, FAKE = process.argv.includes('--fake');
 const table = makeTable();
@@ -56,9 +56,16 @@ function fakeTick() {
 
 if (FAKE) { fakeTick(); setInterval(fakeTick, 5000); } else connectAll();
 
-http.createServer((req, res) => {
+http.createServer(async (req, res) => {
   const h = corsHeaders(req.headers.origin);
   if (req.method === 'OPTIONS') { res.writeHead(204, { ...h, 'Access-Control-Allow-Methods': 'GET' }); return res.end(); }
+  if (req.url.startsWith('/aircraft')) {   // adsb.lol's aircraft in ?bbox= (core.mjs), the real ones even with --fake
+    const bbox = bboxOf(req.url);
+    if (!bbox) { res.writeHead(400, h); return res.end(JSON.stringify({ error: 'bbox=w,s,e,n needed', aircraft: [] })); }
+    try { const r = await fetch(aircraftUpstream(bbox)), body = JSON.stringify(trimAircraft(await r.json(), bbox)); res.writeHead(200, h); res.end(body); }
+    catch (e) { res.writeHead(502, h); res.end(JSON.stringify({ error: String(e.message || e), aircraft: [] })); }
+    return;
+  }
   if (!req.url.startsWith('/vessels')) { res.writeHead(404); return res.end('GET /vessels'); }
   const snap = table.snapshot(Date.now(), bboxOf(req.url)); snap.listening = Math.round((Date.now() - opened) / 1000); snap.feeds = [...open]; if (lastErr && !FAKE) snap.error = lastErr;
   res.writeHead(200, h); res.end(JSON.stringify(snap));
