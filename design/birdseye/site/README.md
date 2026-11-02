@@ -7,3 +7,6 @@ Bird's-eye (https://egilchri.github.io/AudioChart/bay3d.html?app=birdseye), show
 the page around it, its manifest, icons and service worker.
 
 Source: `design/birdseye/site/` in https://github.com/egilchri/AudioChart (edit there, then copy here).
+
+`tour.html` (2026-11-02): "San Francisco Bay, live", the narrated tour video (`tour/sf-live.mp4`), recorded from
+Bird's-eye with the live feeds by AudioChart's `design/pending/live-tour/` (`record.mjs`, then `build.py`).

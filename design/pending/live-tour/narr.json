@@ -1,0 +1,11 @@
+{
+ "a": "This is Ted's Birdseye, over San Francisco Bay, and everything moving down there is real, right now.",
+ "b": "The Live button brings in three feeds at once: ships from their AIS, aircraft from ADS-B, and trains from five one one. Up here it counts them: 257 ships, 104 aircraft and 7 trains.",
+ "c": "Here's Delta 9 77, coming down through 3,800 feet for San Francisco International. Every airliner broadcasts its position, height and speed about once a second. That's ADS-B, the air's version of a ship's AIS.",
+ "d": "Hover over a plane and its label appears: the flight, and its height. The thin line drops to the ground, so you can judge how high it is. Click it for its card, and ways to ride along.",
+ "e": "At the airport, the jets taxiing and parked show up too, without labels, so the field doesn't turn into a wall of writing.",
+ "f": "Now the trains. This is Caltrain 1 22, heading south for San Jose, at about 45 miles an hour. Trains don't broadcast like planes, so their positions come from the railroads, through five one one dot org.",
+ "g": "Five one one only lets us ask every minute and a half, so between reports the app keeps each train rolling at its last speed and heading. When a fresh report comes in, it eases into place.",
+ "h1": "Up in Marin, a SMART train is heading for Windsor.",
+ "j": "Ships, planes and trains, all on one map, all live. A living map of the bay."
+}

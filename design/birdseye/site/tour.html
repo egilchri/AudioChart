@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ted's Birdseye Tour</title>
+<meta name="description" content="A narrated tour of Ted's Birdseye over San Francisco Bay: the ships, planes and trains, live.">
+<!-- The tour (requested 2026-11-02: "put the tour on a Birdseye tour page"): the narrated video of San Francisco Bay
+     live, recorded from Bird's-eye with the real feeds (AudioChart's design/pending/live-tour: record.mjs, build.py).
+     Source: AudioChart's design/birdseye/site/ (published to github.com/egilchri/birdseye). -->
+<link rel="icon" href="./icons/birdseye-192.png" sizes="192x192">
+<link rel="apple-touch-icon" href="./icons/birdseye-180.png" sizes="180x180">
+<meta name="theme-color" content="#122a3a">
+<style>
+  :root { --ink: #e9eff1; --muted: #b9c7cc; --brass: #e0a843; --deep: #0d1f2c; }
+  html { background: var(--deep); }
+  body { margin: 0; min-height: 100vh; color: var(--ink); font-family: system-ui, -apple-system, sans-serif;
+    background: radial-gradient(ellipse at 50% 0%, #2c5878 0%, #173247 45%, var(--deep) 100%) no-repeat, var(--deep); }
+  main { max-width: 960px; margin: 0 auto; padding: calc(28px + env(safe-area-inset-top, 0px)) 16px 48px; box-sizing: border-box; }
+  header { display: flex; align-items: center; gap: 14px; }
+  header img { width: 52px; height: 52px; border-radius: 22%; box-shadow: 0 6px 18px rgba(0,0,0,0.45); }
+  h1 { margin: 0; font-family: Georgia, "Iowan Old Style", "Palatino Linotype", serif; font-weight: 600; font-size: clamp(1.5rem, 5vw, 2.2rem); letter-spacing: 0.01em; }
+  .tag { margin: 2px 0 0; font-family: Georgia, serif; font-style: italic; color: var(--brass); }
+  video { display: block; width: 100%; aspect-ratio: 16 / 9; margin: 22px 0 0; border-radius: 10px; background: #000; box-shadow: 0 14px 40px rgba(0,0,0,0.5); }
+  .cap { margin: 10px 2px 0; font-size: 0.86rem; color: var(--muted); }
+  h2 { margin: 30px 0 8px; font-family: Georgia, serif; font-weight: 600; font-size: 1.2rem; }
+  p, li { line-height: 1.55; color: var(--ink); }
+  ul { padding-left: 1.2em; margin: 0; }
+  li { margin: 4px 0; }
+  .go { display: inline-block; margin-top: 26px; padding: 11px 20px; border-radius: 8px; background: var(--brass); color: #14202a; font-weight: 600; text-decoration: none; }
+  .go:hover { filter: brightness(1.08); }
+  footer { margin-top: 34px; font-size: 0.78rem; color: #8ea2ad; }
+  footer a, .cap a { color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <img src="./icons/birdseye-192.png" alt="">
+    <div>
+      <h1>San Francisco Bay, live</h1>
+      <p class="tag">A tour of Ted's Birdseye: ships, planes and trains, right now</p>
+    </div>
+  </header>
+
+  <video controls playsinline preload="metadata" poster="./tour/sf-live-poster.jpg">
+    <source src="./tour/sf-live.mp4" type="video/mp4">
+  </video>
+  <p class="cap">1 min 44 s, narrated. Recorded on November 2, 2026, from the live feeds as they were that afternoon.</p>
+
+  <h2>What you're seeing</h2>
+  <ul>
+    <li><b>Ships</b> from their own AIS broadcasts, as every vessel of any size sends them.</li>
+    <li><b>Aircraft</b> from ADS-B, the air's version of AIS: each airliner's position, height and speed, about once a second. Each flies at its real height, with a thin line down to the ground.</li>
+    <li><b>Trains</b> (Caltrain, SMART and ACE) from the railroads, through 511.org. They report every minute and a half or so, and between reports each train runs on at its last speed.</li>
+  </ul>
+
+  <h2>Try it yourself</h2>
+  <p>Open Ted's Birdseye, choose <b>SF Bay</b>, and tap <b>📡 Live</b>. Tap any plane or train for its card, then ride along: the cockpit or the cab, a drone, behind, beside or ahead. <b>⛴ Underway</b> lists them all, and <b>✨ Find</b> makes them flash.</p>
+  <a class="go" href="./">Open Ted's Birdseye</a>
+
+  <footer>Aircraft from <a href="https://adsb.lol">adsb.lol</a> (ODbL) · trains from <a href="https://511.org/open-data">511.org</a> · ships from AISStream and Open Waters AIS · elevation USGS 3DEP · photos USDA NAIP · from <a href="https://egilchri.github.io/AudioChart/">AudioChart</a></footer>
+</main>
+</body>
+</html>
