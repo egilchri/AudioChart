@@ -5,6 +5,7 @@
 // her, or after a tap on her until the next (v1101, reported: "Too much writing on the plane label").
 import * as THREE from 'three';
 import { relayUrl } from './ais.js';
+import { makeAirliner } from './airliner3d.js';
 
 export const ADSB_CREDIT = 'Aircraft from adsb.lol (ODbL)';
 const FT = 0.3048, KT = 1852 / 3600, DEG = Math.PI / 180;
@@ -45,24 +46,35 @@ export function makeAircraft({ scene, bbox, wx, wz, every = 5000, onCount, focus
   let on = false, timer = null, inflight = null, hover = null;
   const pinned = new Set(), _v = new THREE.Vector3();
   const lineMat = new THREE.LineBasicMaterial({ color: 0xbfe8ff, transparent: true, opacity: 0.35 });
-  function drop(p) { pinned.delete(p); if (hover === p) hover = null; planes.delete(p.a.hex); onDrop(p); scene.remove(p.g); p.g.traverse(o => { o.geometry?.dispose(); if (o.material && o.material !== lineMat) { o.material.map?.dispose(); o.material.dispose(); } }); planes.delete(p.a.hex); }
+  const free = o => { o.geometry?.dispose(); if (o.material && o.material !== lineMat && !o.material.userData?.shared) { o.material.map?.dispose(); o.material.dispose(); } };
+  function drop(p) { pinned.delete(p); if (hover === p) hover = null; planes.delete(p.a.hex); onDrop(p); scene.remove(p.g); p.g.traverse(free); planes.delete(p.a.hex); }
+  // her shape (v1108): an airliner of her type in her airline's colours (airliner3d.js), with her gear down on the
+  // ground and on the way in; or, a type it doesn't know, the small plane. Built again only when that changes.
+  function setModel(p, a) {
+    const gear = !!a.ground || (a.alt ?? 0) < 1000 || ((a.alt ?? 0) < 2500 && (a.vr ?? 0) < -100);
+    const key = `${a.type}|${(a.flight || '').slice(0, 3)}|${gear}`;
+    if (p.modelKey === key) return; p.modelKey = key;
+    const al = makeAirliner(a.type, a.flight, { gear }), m = al ? al.group : planeModel(colourOf(a));
+    if (p.model) { p.g.remove(p.model); p.model.traverse(free); }
+    p.model = m; p.g.add(m); p.real = !!al; p.L = al ? al.L : lengthOf(a);
+    p.g.userData.helm = al ? al.cockpit : [0, p.L * 0.03, -p.L * 0.43];   // (the cockpit: up in her nose)
+  }
   function data(j) {
     const now = Date.now(), seen = new Set();
     for (const a of j.aircraft || []) {
       seen.add(a.hex);
       let p = planes.get(a.hex);
       if (!p) {
-        const g = new THREE.Group(), model = planeModel(colourOf(a)), label = labelSprite();
+        const g = new THREE.Group(), label = labelSprite();
         const line = new THREE.Line(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3)), lineMat);
-        line.frustumCulled = false; g.add(model, label); scene.add(g, line);
-        p = { kind: 'air', g, group: g, model, line, tag: label, x: wx(a.lon), z: wz(a.lat), y: (a.alt || 0) * FT, h: a.trk || 0, placed: false };
+        line.frustumCulled = false; g.add(label); scene.add(g, line);
+        p = { kind: 'air', g, group: g, model: null, line, tag: label, x: wx(a.lon), z: wz(a.lat), y: (a.alt || 0) * FT, h: a.trk || 0, placed: false };
         g.userData.lineObj = line; planes.set(a.hex, p);
       }
       p.a = a; p.fix = { x: wx(a.lon), z: wz(a.lat), y: (a.alt || 0) * FT, t: now - (a.age || 0) * 1000, lon: a.lon, lat: a.lat };
       const alt = a.ground ? 'on the ground' : a.alt >= 18000 ? `FL${Math.round(a.alt / 100)}` : `${Math.round(a.alt / 100) * 100} ft`;
       p.tag.userData.draw(`${a.flight || a.reg || a.hex} · ${alt}`);
-      p.L = lengthOf(a); p.title = a.flight || a.reg || a.hex.toUpperCase();
-      p.g.userData.helm = [0, p.L * 0.03, -p.L * 0.43];   // (the cockpit: up in her nose)
+      setModel(p, a); p.title = a.flight || a.reg || a.hex.toUpperCase();
       const climb = a.ground ? '' : (a.vr ?? 0) < -300 ? ', descending' : (a.vr ?? 0) > 300 ? ', climbing' : '';
       p.label = a.ground ? `On the ground${a.gs >= 3 ? `, taxiing at ${Math.round(a.gs)} kn` : ''}` : `${alt}, ${Math.round(a.gs || 0)} kn${climb}`;
     }
@@ -93,7 +105,7 @@ export function makeAircraft({ scene, bbox, wx, wz, every = 5000, onCount, focus
       p.g.position.set(p.x, p.y, p.z); p.model.rotation.y = -p.h * DEG;
       // big enough to see from afar: her real size near, about 0.9% of the distance away from her farther off
       const d = Math.hypot(p.x - cp.x, p.y - cp.y, p.z - cp.z), L = lengthOf(a);
-      p.model.scale.setScalar(Math.max(L, d * 0.014));
+      p.model.scale.setScalar(p.real ? Math.max(1, d * 0.014 / p.L) : Math.max(L, d * 0.014));   // (an airliner is built in metres; the small plane is 1 m long)
       const P = p.line.geometry.attributes.position; P.setXYZ(0, p.x, p.y, p.z); P.setXYZ(1, p.x, 0, p.z); P.needsUpdate = true;
       p.line.visible = p.y > 30; p.tag.visible = p === hover || pinned.has(p) || focus(p);
     }

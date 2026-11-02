@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-11-02 — Bird's-eye: airliners as they are, by type and airline (v1108)
+
+- Requested: "How about airlines? If we can get up close, it would be worth recursively improving them." The grey tube with box wings is now a parametric airliner (www/js/airliner3d.js), sized from the type her ADS-B reports and painted in her airline's colours from her flight's prefix:
+  - **44 types**: the 737s, the A320 family, A220, E-jets, CRJs and 717 (engines on the tail under a T-tail), 757, 767, 777, 787, A330, A350, 747 and A380 (four engines). A type it doesn't know keeps the small plane.
+  - **Liveries**: United (and SkyWest, flying as United Express here), Southwest, Alaska, Delta, American, JetBlue, Hawaiian, FedEx, UPS, Spirit, Frontier; a plain white and grey for the rest. Body, belly, tail with a second colour, engines; Southwest's and Alaska's lower aft stripes. No lettering or tail art.
+  - **Gear down** on the ground and on the way in (under 1,000 ft, or under 2,500 ft descending).
+  - Shaped in three rounds against a Boeing 737-800 three-view (39.5 m long, 35.8 m span, 3.76 m fuselage; Wikimedia Commons) and photos of United, Southwest and Alaska 737s (design/pending/train-look: view.html ?model=plane, shootplane.mjs, cmpplane.py): round 2 doubled the engines (they were sized by radius for diameter), swept the fin to 41° with her tip at ~95% of her length, gave her a pointed drooping nose; round 3 the wing's straight inboard trailing edge to a kink a third of the way out, light in her shadows, a brighter United blue.
+  - One mesh a plane, one shared material (the colours are in the geometry).
+- Fixed in testing: a third of the types had NaN vertices at the nose tip (a fractional power of −1e-16); every type now builds clean, with and without gear.
+- Checked in the app over SF Bay with the live feeds: UAL755 (757-300) and UAL1953 (737-800) climbing out over the bay, from the Side view, ships at the anchorage behind; no errors.
+
 ## 2026-11-02 — Bird's-eye: Caltrain as she really is, the Stadler KISS (v1107)
 
 - Requested: "recursively improve the appearance of trains ... compare them with real images", "start with Caltrain". Since September 2024 Caltrain's San Francisco–San Jose trains are seven-car double-deck Stadler KISS electric sets in red and white; the old model was six grey boxes with a red band. The new one (www/js/caltrain3d.js) was built in four rounds against Wikimedia Commons photos (a line-scan side view of set 321–322, the cab head-on at Hayward Park), each round rendered alone from the same angles in a harness with the app's own lights and tone mapping (design/pending/train-look/: view.html, shoot.mjs):
