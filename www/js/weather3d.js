@@ -2,7 +2,7 @@
 // One set of conditions, four independent choices that combine:
 //   time  day | dawn | sunset | night    the light: sun or moon, sky colours, lights coming on
 //   vis   clear | haze | fog | thick     how far you can see, and how far lights and labels carry
-//   sky   fair | overcast | rain         a cloud deck, flat light, rain streaks
+//   sky   clear | fair | overcast | rain   no cloud at all (v1112); broken cloud; a cloud deck, flat light; rain streaks
 //   wind  calm | breezy | fresh | rough  sea state, whitecaps (windFrom: degrees)
 //   moon  tonight | new | crescent | quarter | gibbous | full   the moon's phase at night (v912)
 // Each view builds its sky, water and clouds, hands them to makeEnv(), and calls env.apply(C)
@@ -273,7 +273,7 @@ export function makeEnv(o) {
   let moonTick = 0;
   env.apply = (next = {}) => {
     const C = Object.assign(env.C, next);
-    const T = env.T = env.blendT || TIMES[C.time] || TIMES.day, over = env.over = C.sky !== 'fair', wet = env.wet = C.sky === 'rain', night = env.night = C.time === 'night';
+    const T = env.T = env.blendT || TIMES[C.time] || TIMES.day, over = env.over = C.sky === 'overcast' || C.sky === 'rain', wet = env.wet = C.sky === 'rain', night = env.night = C.time === 'night';
     env.W = WINDS[C.wind] || WINDS.breezy;
     env.visM = Math.min(VIS_M[C.vis] || VIS_M.clear, wet ? 6000 : Infinity);
     const foggy = env.foggy = env.visM < 2000;
@@ -291,8 +291,9 @@ export function makeEnv(o) {
     // light: flat and dim under cloud, softer in fog
     hemi.color.setHex(T.sky); hemi.groundColor.setHex(T.gnd); hemi.intensity = T.hemi * (over ? (wet ? 0.95 : 1.1) : 1);
     dl.color.setHex(T.dlc);
-    // clouds: broken fair-weather cloud by day; a grey deck when overcast; none in fog or on a clear night
-    env.cloudsOn = !foggy && (over || !night);
+    // clouds: broken fair-weather cloud by day; a grey deck when overcast; none in fog, on a clear night, or under a
+    // Clear sky (v1112, requested: "add the Clear option to the Weather menu", after a landing shot's busy sky)
+    env.cloudsOn = !foggy && (over || (!night && C.sky !== 'clear'));
     clouds.material.color.set(over ? col(T.deck).multiplyScalar(wet ? 0.7 : 0.85) : col(T.cloud));
     env.deckOn = over && !foggy; deck.material.color.set(col(T.deck).multiplyScalar(wet ? 0.8 : 1));
     clouds.visible = env.cloudsOn; deck.visible = env.deckOn;
@@ -346,7 +347,7 @@ export function startConditions(params) {
   for (const k of ['time', 'vis', 'sky', 'wind', 'moon']) if (params.get(k)) fromUrl[k] = params.get(k);
   if (params.get('windFrom')) fromUrl.windFrom = Number(params.get('windFrom'));
   if (params.get('night') != null) fromUrl.time = params.get('night') === '1' ? 'night' : 'day';
-  const ok = { time: TIMES, vis: VIS_M, sky: { fair: 1, overcast: 1, rain: 1 }, wind: WINDS, moon: MOON_PHASES };
+  const ok = { time: TIMES, vis: VIS_M, sky: { clear: 1, fair: 1, overcast: 1, rain: 1 }, wind: WINDS, moon: MOON_PHASES };
   const start = { ...DEFAULT_COND, ...saved, ...fromUrl };
   for (const k of Object.keys(ok)) if (!(start[k] in ok[k])) start[k] = DEFAULT_COND[k];
   if (!(start.windFrom >= 0 && start.windFrom < 360)) start.windFrom = DEFAULT_COND.windFrom;
@@ -376,7 +377,7 @@ export function weatherPanel({ host, panelParent, where, pick, btnClass = '' }) 
   const ROWS = [
     ['time', 'Time', [['day', 'Day'], ['dawn', 'Dawn'], ['sunset', 'Sunset'], ['night', 'Night']]],
     ['vis', 'Visibility', [['clear', 'Clear'], ['haze', 'Haze'], ['fog', 'Fog'], ['thick', 'Thick fog']]],
-    ['sky', 'Sky', [['fair', 'Fair'], ['overcast', 'Overcast'], ['rain', 'Rain']]],
+    ['sky', 'Sky', [['clear', 'Clear'], ['fair', 'Fair'], ['overcast', 'Overcast'], ['rain', 'Rain']]],
     ['wind', 'Wind', [['calm', 'Calm'], ['breezy', 'Breezy'], ['fresh', 'Fresh'], ['rough', 'Rough']]],
     ['moon', 'Moon', [['tonight', 'Tonight'], ['new', '🌑 New'], ['crescent', '🌒 Crescent'], ['quarter', '🌓 Half'], ['gibbous', '🌔 Gibbous'], ['full', '🌕 Full']]],
   ];
@@ -488,7 +489,7 @@ export async function forecastConditions(lat, lon, now) {
   C.wind = kn < 5 ? 'calm' : kn < 12 ? 'breezy' : kn < 20 ? 'fresh' : 'rough';
   if (waveFt >= 4 && C.wind !== 'rough') C.wind = waveFt >= 6 ? 'rough' : 'fresh';
   const fog = has(/fog/), wet = pop >= 50 || has(/rain|drizzle|showers|thunder/);
-  C.sky = wet ? 'rain' : cover >= 80 ? 'overcast' : 'fair';
+  C.sky = wet ? 'rain' : cover >= 80 ? 'overcast' : cover < 15 ? 'clear' : 'fair';   // (clear: the forecast's own clear skies, v1112)
   const visNm = visKm / 1.852;
   C.vis = visNm < 0.5 ? 'thick' : visNm < 1 || fog ? 'fog' : visNm < 4 ? 'haze' : 'clear';
   const sp = sunPos(lat, lon, now);

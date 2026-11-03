@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-11-02 — Bird's-eye and the helm view: a Clear sky in the Weather menu (v1112)
+
+- Requested: "add the Clear option to the Weather menu", after a landing shot over SFO whose sky was busy with the fair-weather cloud. Weather's Sky row is now Clear · Fair · Overcast · Rain (weather3d.js, shared with the helm view): Clear is a blue sky with no cloud layer and no cloud shadows on the water. "Overcast" is now overcast or rain only (it was anything but fair). The NWS forecast picks Clear when its sky cover is under 15%.
+- Checked in Bird's-eye over SF Bay: Fair, broken cloud and its shadows on the water; Clear, none; no errors.
+
 ## 2026-11-02 — Bird's-eye: San Francisco International in detail (v1111)
 
 - Requested: "let's add lots of detail to San Francisco Airport". SFO's ground is now its own layer (www/js/airport3d.js, from OpenStreetMap's aeroways via design/airports/build_airport.py → www/data/airports/sfo.json), and its buildings are built:
