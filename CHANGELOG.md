@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-04 — Bird's-eye: helicopters closer to the real thing (v1115)
+
+- Requested: "recursively improve the helicopters too". Four rounds in the harness (design/pending/light-look) against the Bell 206B three-view and photos of the R44, MD 500, AStar and H135, then a live JetRanger over SF from Side and Chase (www/js/lightplane3d.js):
+  - **Her bubble**: the windscreen over her nose with a frame down its middle, its foot rising to her doors, chin windows below it (round 1: hard black blocks); door windows with rounded corners.
+  - **Her cowling** lofted into her roof over the transmission and engine, the exhaust raked back (round 1: a lozenge sat on top); **her mast and rotor head** with its pitch links.
+  - **Her proportions** to the 206's: her floor ~0.5 m over the ground on her skids, 2.9 m to her rotor head (round 1 stood her a metre high); the skids' **cross tubes arched** out and down.
+  - **The fenestron** on the H130 and H135: a faired shroud from her boom up into her fin with the duct through it, the fan turning inside (round 2: a ring hung beside her, then a bare disc).
+  - Her tail rotor on her left (on her right on an AStar), a JetRanger's little fins on her stabiliser's tips, her N-number larger on her boom, dark on a white or yellow helicopter.
+
 ## 2026-11-04 — Bird's-eye: aircraft at their true height; none under the runway (v1114)
 
 - Reported, with a snapshot of United Express SKW5899 (E175) just landed at SFO: "after this plane landed, it flew under the surface of the runway". Her card said −100 ft.

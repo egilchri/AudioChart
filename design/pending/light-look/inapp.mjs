@@ -9,7 +9,7 @@ for (let i = 0; i < 60; i++) { await sleep(1000); if (await c.ev(`!!window.__bay
 for (let i = 0; i < 60; i++) { await sleep(1000); if (await c.ev(`__bay3d.air.count > 20`) === true) break; }
 await sleep(2000);
 const J = async x => JSON.parse(await c.ev(`JSON.stringify(${x})`));
-const want = (process.argv[2] || 'CH7A,C172,SR20,P28A,B06,R44,C152,BE36,C25B,CL35').split(',');
+const want = (process.argv[2] || process.argv[3] || 'CH7A,C172,SR20,P28A,B06,R44,C152,BE36,C25B,CL35').split(',');
 const all = await J(`__bay3d.air.items().map(p => ({ hex: p.a.hex, type: p.a.type, reg: p.a.reg, alt: p.a.alt, ground: p.a.ground, real: p.real, L: p.L }))`);
 console.log(all.filter(a => !a.real).map(a => a.type || '?').join(' '));
 const settle = async () => { await sleep(2500); for (let w = 0; w < 30 && await c.ev(`__bay3d.tiles.some(T=>T.state==='loading'||(T.state==='ready'&&T.photo==='pending'))`); w++) await sleep(1000); await sleep(800); };

@@ -14,7 +14,7 @@
 import * as THREE from 'three';
 
 const BRIGHT = 1.45;   // (as airliner3d.js: colours a little over 1 under the app's tone mapping)
-const GLASS = 0x26313c, DARK = 0x1c2127, TYRE = 0x16181a, STRUT = 0xd4d8dc, PROP = 0x26292c;
+const GLASS = 0x26313c, HGLASS = 0x2c3a48, DARK = 0x1c2127, TYRE = 0x16181a, STRUT = 0xd4d8dc, PROP = 0x26292c;
 let shared = null; const discMats = {};
 const mat = () => { if (!shared) { shared = new THREE.MeshPhongMaterial({ vertexColors: true, side: THREE.DoubleSide, emissive: 0x262626, specular: 0x4a4a4a, shininess: 48 }); shared.userData.shared = true; } return shared; };
 const disc = (op = 0.14) => { if (!discMats[op]) { const m = discMats[op] = new THREE.MeshBasicMaterial({ color: 0x3a3d40, transparent: true, opacity: op, side: THREE.DoubleSide, depthWrite: false }); m.userData.shared = true; } return discMats[op]; };
@@ -47,12 +47,18 @@ const TYPES = {
   P180: ['tw', 'be58', 14.4, 14.0, { retract: 1, blades: 5, long: 1, ttail: 1 }],
   B06: ['heli', 'b06', 9.5, 10.16, { blades: 2 }], B06T: ['heli', 'b06', 9.5, 10.16, { blades: 2 }], B407: ['heli', 'b06', 10.6, 10.67, { blades: 4 }], B505: ['heli', 'b06', 9.6, 11.3, { blades: 3 }],
   H500: ['heli', 'h500', 7.0, 8.05, { blades: 5 }], R22: ['heli', 'r44', 6.3, 7.67, { blades: 2 }], R44: ['heli', 'r44', 8.96, 10.06, { blades: 2 }], R66: ['heli', 'r44', 9.4, 10.06, { blades: 2 }],
-  AS50: ['heli', 'b06', 10.93, 10.69, { blades: 3 }], AS55: ['heli', 'b06', 10.93, 10.69, { blades: 3 }], EC30: ['heli', 'b06', 10.7, 10.69, { blades: 3, fen: 1 }],
+  AS50: ['heli', 'b06', 10.93, 10.69, { blades: 3, trR: 1 }], AS55: ['heli', 'b06', 10.93, 10.69, { blades: 3, trR: 1 }], EC30: ['heli', 'b06', 10.7, 10.69, { blades: 3, fen: 1 }],
   EC35: ['heli', 'b06', 10.2, 10.2, { blades: 4, fen: 1 }], EC45: ['heli', 'b06', 13.0, 11.0, { blades: 4 }], A109: ['heli', 'b06', 11.4, 11.0, { blades: 4 }], S76: ['heli', 'b06', 13.2, 13.4, { blades: 4 }],
   B429: ['heli', 'b06', 12.7, 10.98, { blades: 4 }], A119: ['heli', 'b06', 11.1, 10.83, { blades: 4 }],
 };
 export const lightKnown = type => !!TYPES[type];
 
+// a window with rounded corners, [z, y] round it
+function rr(z0, y0, z1, y1, r, n = 4) {
+  const p = [], c = [[z1 - r, y1 - r, 0], [z0 + r, y1 - r, 1], [z0 + r, y0 + r, 2], [z1 - r, y0 + r, 3]];
+  for (const [cz, cy, q] of c) for (let k = 0; k <= n; k++) { const a = (q + k / n) * Math.PI / 2; p.push([cz + r * Math.cos(a), cy + r * Math.sin(a)]); }
+  return p;
+}
 // ── the references: side-view stations [z from her nose, top, bottom, half-width, squareness] in metres, and where
 // her wing, tail, gear, windows and stripes go. (Shaped against the Cessna 172, Aeronca 7AC Champ, Piper PA-28,
 // Cirrus SR22, Beech 58 Baron and Bell 206 three-views and photos.)
@@ -112,26 +118,32 @@ const REF = {
     win: [[[2.3, 0.08], [2.55, 0.74], [3.25, 0.77], [3.25, 0.08]], [[3.35, 0.08], [3.35, 0.77], [3.95, 0.77], [3.95, 0.08]], [[4.05, 0.1], [4.05, 0.74], [4.6, 0.62], [4.6, 0.1]]],
     stripe: [[0.3, -0.12], [8.7, 0.14]], reg: [5.5, 7.2, 0.24], cockpit: [-0.28, 0.48, 2.9],
   },
+  // (helicopters, round 2 against the Bell 206B's three-view: 2.91 m to her rotor head, her floor ~0.5 m over the
+  // ground on her skids, her cowling over her roof to the exhaust)
   b06: {
-    L: 9.5, st: [[0.0, 0.25, -0.15, 0.05, 2], [0.22, 0.68, -0.45, 0.42, 2], [0.8, 1.05, -0.62, 0.62, 2.2], [1.8, 1.12, -0.62, 0.66, 2.5], [2.7, 1.04, -0.55, 0.62, 2.5],
-      [3.25, 0.88, -0.3, 0.45, 2.3], [3.85, 0.6, 0.12, 0.2, 2.1], [8.8, 0.42, 0.24, 0.09, 2], [9.0, 0.4, 0.27, 0.05, 2]],
-    shield: [0.0, 1.0, -0.42], top: { z: 2.5, y: 1.02, l: 1.3, w: 0.42, h: 0.3 }, mast: [1.95, 1.65], rotorR: 5.08, chord: 0.33,
-    fin: { z: 8.35, y: 0.35, h: 1.0, root: 0.75, tip: 0.45, sweep: 0.45, under: 0.55 }, hs: { z: 6.4, y: 0.42, semi: 0.95, root: 0.45, tip: 0.4, sweep: 0 },
-    trotor: { z: 8.7, y: 1.05, r: 0.82 }, skid: { y: -1.45, x: 1.0, z0: -0.1, z1: 3.3, cross: [0.9, 2.7] },
-    win: [[[0.95, -0.2], [0.95, 0.85], [1.75, 0.95], [1.75, -0.2]], [[1.88, -0.15], [1.88, 0.92], [2.6, 0.88], [2.6, -0.15]]],
-    stripe: [[0.1, -0.25], [8.9, 0.32]], reg: [4.6, 6.6, 0.18], cockpit: [0.3, 0.45, 0.85],
+    L: 9.5, st: [[0.0, 0.25, -0.15, 0.05, 2], [0.22, 0.66, -0.45, 0.42, 2], [0.8, 0.98, -0.62, 0.62, 2.2], [1.8, 1.04, -0.62, 0.66, 2.5], [2.7, 0.98, -0.55, 0.62, 2.5],
+      [3.25, 0.86, -0.3, 0.47, 2.3], [3.6, 0.72, -0.02, 0.3, 2.2], [4.1, 0.58, 0.14, 0.2, 2.1], [8.8, 0.42, 0.24, 0.09, 2], [9.0, 0.4, 0.27, 0.05, 2]],
+    shield: [0.0, 1.0, -0.42], glass: { z0: 0.03, z1: 0.98, lo0: -0.12, lo1: 0.12, c0: 0.12, c1: 0.78, cb: 0.2 },
+    cowl: [[1.2, 0.98, 0.18], [1.55, 1.24, 0.4], [2.0, 1.32, 0.45], [2.9, 1.3, 0.42], [3.4, 1.12, 0.3], [3.8, 0.82, 0.14]], exhaust: [3.3, 1.2],
+    mast: [1.95, 1.72], rotorR: 5.08, chord: 0.33,
+    fin: { z: 8.35, y: 0.35, h: 1.0, root: 0.75, tip: 0.45, sweep: 0.45, under: 0.55 }, hs: { z: 6.4, y: 0.42, semi: 0.95, root: 0.45, tip: 0.4, sweep: 0, plates: 1 },
+    trotor: { z: 8.7, y: 1.05, r: 0.82 }, skid: { y: -1.1, x: 1.0, z0: -0.1, z1: 3.3, cross: [0.9, 2.7] },
+    win: [rr(0.98, -0.12, 1.72, 0.86, 0.12), rr(1.86, -0.08, 2.56, 0.84, 0.12)],
+    stripe: [[0.1, -0.25], [8.9, 0.32]], reg: [4.3, 6.1, 0.36], cockpit: [-0.3, 0.45, 0.85],
   },
 };
 REF.h500 = { ...REF.b06, L: 7.0, st: [[0.0, 0.3, -0.1, 0.05, 2], [0.25, 0.85, -0.5, 0.5, 2], [0.9, 1.15, -0.62, 0.7, 2.1], [1.8, 1.15, -0.6, 0.7, 2.2], [2.5, 0.95, -0.35, 0.55, 2.1],
-  [3.0, 0.62, 0.1, 0.22, 2], [6.3, 0.48, 0.3, 0.08, 2], [6.5, 0.46, 0.33, 0.05, 2]], shield: [0.0, 1.1, -0.45], top: { z: 1.9, y: 1.1, l: 0.7, w: 0.45, h: 0.25 },
-  mast: [1.6, 1.5], rotorR: 4.02, chord: 0.17, fin: { z: 6.0, y: 0.4, h: 0.85, root: 0.6, tip: 0.35, sweep: 0.4, under: 0.5 }, hs: { z: 6.0, y: 0.95, semi: 0.6, root: 0.35, tip: 0.3, sweep: 0 },
-  trotor: { z: 6.4, y: 0.6, r: 0.66 }, skid: { y: -1.35, x: 0.95, z0: 0.0, z1: 2.9, cross: [0.8, 2.3] },
-  win: [[[1.0, -0.3], [1.0, 0.95], [1.75, 1.0], [1.75, -0.3]]], stripe: [[0.2, -0.25], [6.4, 0.38]], reg: [3.3, 4.9, 0.15], cockpit: [0.3, 0.45, 0.8] };
+  [3.0, 0.62, 0.1, 0.22, 2], [6.3, 0.48, 0.3, 0.08, 2], [6.5, 0.46, 0.33, 0.05, 2]], shield: [0.0, 1.1, -0.45], glass: { z0: 0.03, z1: 1.0, lo0: -0.18, lo1: 0.08, c0: 0.1, c1: 0.85, cb: 0.18 },
+  cowl: [[1.15, 1.1, 0.18], [1.45, 1.26, 0.32], [2.05, 1.28, 0.34], [2.55, 1.08, 0.24], [2.9, 0.78, 0.1]], exhaust: [2.6, 1.0],
+  mast: [1.6, 1.58], rotorR: 4.02, chord: 0.17, fin: { z: 6.0, y: 0.4, h: 0.85, root: 0.6, tip: 0.35, sweep: 0.4, under: 0.5 }, hs: { z: 6.0, y: 0.95, semi: 0.6, root: 0.35, tip: 0.3, sweep: 0 },
+  trotor: { z: 6.4, y: 0.6, r: 0.66 }, skid: { y: -1.05, x: 0.95, z0: 0.0, z1: 2.9, cross: [0.8, 2.3] },
+  win: [rr(1.06, -0.3, 1.78, 0.98, 0.14)], stripe: [[0.2, -0.25], [6.4, 0.38]], reg: [3.1, 4.6, 0.45], cockpit: [-0.3, 0.45, 0.8] };
 REF.r44 = { ...REF.b06, L: 8.96, st: [[0.0, 0.3, -0.15, 0.05, 2], [0.25, 0.75, -0.48, 0.45, 2], [0.85, 1.08, -0.6, 0.62, 2.1], [1.75, 1.08, -0.55, 0.62, 2.3], [2.4, 0.95, -0.4, 0.5, 2.2],
-  [2.9, 0.8, 0.0, 0.3, 2], [3.3, 0.7, 0.45, 0.1, 2], [8.5, 0.6, 0.48, 0.05, 2], [8.7, 0.6, 0.5, 0.03, 2]], shield: [0.0, 1.25, -0.45], top: { z: 2.55, y: 0.98, l: 0.65, w: 0.3, h: 0.3 },
-  mast: [1.85, 1.75], rotorR: 5.03, chord: 0.25, fin: { z: 8.1, y: 0.55, h: 0.75, root: 0.55, tip: 0.35, sweep: 0.35, under: 0.6 }, hs: { z: 8.1, y: 0.55, semi: 0.0, root: 0.3, tip: 0.3, sweep: 0 },
-  trotor: { z: 8.6, y: 0.7, r: 0.74 }, skid: { y: -1.35, x: 1.05, z0: 0.05, z1: 3.0, cross: [0.7, 2.4] },
-  win: [[[1.0, -0.25], [1.05, 0.95], [1.7, 0.98], [1.7, -0.25]]], stripe: [[0.3, -0.3], [3.0, 0.25]], reg: [3.6, 5.6, 0.14], cockpit: [0.3, 0.45, 0.75] };
+  [2.9, 0.8, 0.0, 0.3, 2], [3.3, 0.7, 0.45, 0.1, 2], [8.5, 0.6, 0.48, 0.05, 2], [8.7, 0.6, 0.5, 0.03, 2]], shield: [0.0, 1.25, -0.45], glass: { z0: 0.03, z1: 1.02, lo0: -0.22, lo1: 0.02, c0: 0.08, c1: 0.85, cb: 0.16 },
+  cowl: [[1.55, 1.02, 0.14], [1.8, 1.32, 0.18], [2.15, 1.38, 0.2], [2.7, 1.12, 0.2], [3.1, 0.82, 0.08]], exhaust: null,
+  mast: [1.95, 2.02], rotorR: 5.03, chord: 0.25, fin: { z: 8.1, y: 0.55, h: 0.75, root: 0.55, tip: 0.35, sweep: 0.35, under: 0.6 }, hs: { z: 8.1, y: 0.55, semi: 0.0, root: 0.3, tip: 0.3, sweep: 0 },
+  trotor: { z: 8.6, y: 0.7, r: 0.74 }, skid: { y: -1.15, x: 1.05, z0: 0.05, z1: 3.0, cross: [0.7, 2.4] },
+  win: [rr(1.08, -0.25, 1.72, 0.94, 0.14)], stripe: [[0.3, -0.3], [3.0, 0.25]], reg: [3.0, 4.4, 0.62], cockpit: [-0.3, 0.45, 0.75] };
 
 // her paint, from her registration: white with two stripes, mostly; a Champ yellow, red or white; a helicopter's darker
 const PAIRS = [[0x1f3f8f, 0x6f9ad8], [0x9b1c1c, 0xd9a33a], [0x6b1f2a, 0xc0a062], [0x2f6b3a, 0xc8b04a], [0x222222, 0xb32020], [0x1f6f9f, 0x1f3f5f], [0xc85a1a, 0x7a2a10], [0x8a8f96, 0x2a4f8a]];
@@ -139,7 +151,7 @@ const hash = s => { let h = 2166136261; for (const c of String(s)) h = Math.imul
 function livery(ref, reg) {
   const h = hash(reg), [a, b] = PAIRS[h % PAIRS.length], WHITE = 0xf3f3f1;
   if (ref === 'champ') return [{ body: 0xf0bf2a, s1: 0xb3201e, s2: 0x1a1a1a, text: 0x1a1a1a }, { body: 0xb8201e, s1: WHITE, s2: 0x1a1a1a, text: WHITE }, { body: WHITE, s1: 0xb3201e, s2: 0xb3201e, text: 0xb3201e }, { body: 0xf0bf2a, s1: 0x1a1a1a, s2: 0x1a1a1a, text: 0x1a1a1a }][(h >>> 4) % 4];
-  if (ref === 'b06' || ref === 'h500' || ref === 'r44') { const bodies = [WHITE, WHITE, 0x1b2a4a, 0x9b1c1c, 0x1a1a1a, 0xf0bf2a, 0x2f6b3a]; const body = bodies[(h >>> 4) % bodies.length]; return { body, s1: body === WHITE ? a : WHITE, s2: body === WHITE ? b : 0xc0a062, text: body === WHITE ? 0x1a1a1a : WHITE }; }
+  if (ref === 'b06' || ref === 'h500' || ref === 'r44') { const bodies = [WHITE, WHITE, 0x1b2a4a, 0x9b1c1c, 0x1a1a1a, 0xf0bf2a, 0x2f6b3a]; const body = bodies[(h >>> 4) % bodies.length]; return { body, s1: body === WHITE ? a : WHITE, s2: body === WHITE ? b : 0xc0a062, text: body === WHITE || body === 0xf0bf2a ? 0x1a1a1a : WHITE }; }   // (dark lettering on white or yellow)
   return { body: WHITE, s1: a, s2: b, text: a };
 }
 
@@ -246,17 +258,25 @@ export function makeLightPlane(type, reg = '', { gear = false, cat = '' } = {}) 
   add(F.g, liv.body);
   // her windscreen: a panel laid over her, from her cowl up over her roof (a helicopter's, round her nose below her
   // roof): its own grid, so its edges are clean (round 4's, painted on her own rings, had teeth)
-  { const NZ = 24, NA = 30, pos = [], idx = [], heliTop = z => F.T(z) - 0.14;
-    const pieces = heli ? [[1, 0], [-1, 0]] : [[1, 1]];
-    for (const [side, over] of pieces) {
+  // (a panel from her side at height lo(z) up to hi(z), or with no hi up over her top, to a gap either side of her middle)
+  const panel = (z0, z1, lo, hi, gap = 0) => {
+    const NZ = 24, NA = 30, pos = [], idx = [];
+    for (const side of [1, -1]) {
       const base = pos.length / 3;
       for (let i = 0; i <= NZ; i++) {
-        const z = w0 + (w1 - w0) * i / NZ, a0 = F.angAt(z, wy + (heli ? 0 : -(z - w0) * 0.05)), a1 = over ? Math.PI - a0 : F.angAt(z, Math.max(wy + 0.02, heliTop(z)));
+        const z = z0 + (z1 - z0) * i / NZ, a0 = F.angAt(z, lo(z)), a1 = hi ? F.angAt(z, Math.max(lo(z) + 0.02, hi(z))) : Math.PI / 2 - gap;
         for (let j = 0; j <= NA; j++) { let a = a0 + (a1 - a0) * j / NA; if (side < 0) a = Math.PI - a; const [x, y] = F.at(z, a, 0.012); pos.push(x, y, z); }
       }
-      for (let i = 0; i < NZ; i++) for (let j = 0; j < NA; j++) { const a = base + i * (NA + 1) + j, b = a + NA + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
+      for (let i = 0; i < NZ; i++) for (let j = 0; j < NA; j++) { const a = base + i * (NA + 1) + j, b = a + NA + 1; side < 0 ? idx.push(a, b, a + 1, a + 1, b, b + 1) : idx.push(a, a + 1, b, a + 1, b + 1, b); }   // (wound to face out on both sides)
     }
-    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals(); add(g, GLASS); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals(); add(g, heli ? HGLASS : GLASS);
+  };
+  if (!heli) panel(w0, w1, z => wy - (z - w0) * 0.05, null);
+  else {   // a helicopter's bubble: over her nose with a frame down its middle, its foot rising to her doors; her chin windows below it
+    const G = R.glass, lo = z => G.lo0 + (G.lo1 - G.lo0) * (z - G.z0) / (G.z1 - G.z0);
+    panel(G.z0, G.z1, lo, null, 0.035);
+    panel(G.c0, G.c1, z => F.B(z) + G.cb, z => lo(z) - 0.07);
+  }
   // her side windows and stripes, laid on her sides
   const decal = (poly, c, off = 0.008, sides = [-1, 1]) => {
     const pts = []; for (let i = 0; i < poly.length; i++) {   // (each edge cut into short lengths, so she bends with her)
@@ -308,7 +328,10 @@ export function makeLightPlane(type, reg = '', { gear = false, cat = '' } = {}) 
     }
   }
   // ── her tail: a fin (rounded on the Champ), a tailplane (a T-tail or a V-tail on some)
-  const fin = R.fin, hs = R.hs;
+  // (a fenestron, on the Airbus types: her tail rotor in a duct at the end of her boom, her fin over it; round 1's
+  // was a ring hung beside her)
+  const fen = heli && o.fen ? (() => { const rf = R.trotor.r * 0.62, zc = R.fin.z + 0.25, yc = (F.T(zc) + F.B(zc)) / 2 + rf * 0.5; return { rf, zc, yc }; })() : null;
+  const fin = fen ? { ...R.fin, z: fen.zc - fen.rf * 0.9, y: fen.yc + fen.rf * 1.05, h: R.fin.h * 0.7, root: fen.rf * 1.5, under: 0 } : R.fin, hs = fen ? { ...R.hs, z: fen.zc - 1.6 } : R.hs;
   if (fin) {
     const finH = o.vtail ? 0 : fin.h, chF = u => { const c = fin.root + (fin.tip - fin.root) * u; return fin.round ? Math.max(0.02, fin.root * Math.sqrt(Math.max(0, 1 - u ** 2.2))) : c; };
     const leF = u => fin.round ? fin.z + (fin.root - chF(u)) : fin.z + fin.sweep * u;
@@ -325,20 +348,40 @@ export function makeLightPlane(type, reg = '', { gear = false, cat = '' } = {}) 
       const leH = u => (tt ? fin.z + fin.sweep * 0.95 : hs.z) + hs.sweep * u + (hs.round ? (hs.root - chH(u)) * 0.5 : 0);
       const g = surface(semiH, leH, chH, () => 0, 0.09, { m: 0 }); if (sx < 0) mirror(g);
       add(g, v ? liv.body : liv.body, place(0, tt ? fin.y + fin.h * 0.97 : hs.y, 0, 0, 0, sx * (v ? 33 : tt ? 0 : 2) * Math.PI / 180));
+      if (hs.plates) { const pl = surface(0.32, u => hs.z + hs.sweep + 0.05 + 0.12 * u, u => hs.tip * (1 - 0.35 * u), () => 0, 0.08, { m: 0 }); pl.rotateZ(Math.PI / 2); add(pl, liv.body, place(sx * (semiH + 0.02), hs.y - 0.14, 0)); }   // (a JetRanger's little fins at her stabiliser's tips)
     }
   }
   // ── her helicopter's parts: the engine fairing on her back, the mast, the skids
-  const spin = [];
+  const spin = []; let cowlTop = null;
   if (heli) {
-    const t = R.top; ball(0, t.y, t.z, t.w, t.h, t.l, liv.body);
-    const [mz, my] = R.mast; add(new THREE.CylinderGeometry(0.08, 0.1, my - t.y, 8), DARK, place(0, (my + t.y) / 2, mz));
+    // her cowling over her roof (transmission and engine), lofted into her, round 1's was a lozenge sat on top; the exhaust
+    const cw = R.cowl, C = loft(cw.map(([z, t, w], i) => [z, t, F.T(z) - 0.14, w, i === 0 || i === cw.length - 1 ? 2 : 2.4]), 40, 28); add(C.g, liv.body); cowlTop = C.T;
+    if (R.exhaust) { const [ez, ey] = R.exhaust; add(new THREE.CylinderGeometry(0.1, 0.12, 0.26, 12), DARK, place(0, ey + 0.06, ez, 0.7)); }   // (her exhaust, raked back)
+    // her mast and rotor head (round 1: a bare stick)
+    const [mz, my] = R.mast, mBase = C.T(mz) - 0.05;
+    add(new THREE.CylinderGeometry(0.07, 0.11, my - mBase, 10), DARK, place(0, (my + mBase) / 2, mz));
+    add(new THREE.CylinderGeometry(0.2, 0.2, 0.12, 14), 0x30353a, place(0, my - 0.02, mz));
+    add(new THREE.CylinderGeometry(0.06, 0.06, 0.22, 8), 0x30353a, place(0, my + 0.13, mz));
+    for (const sx of [-1, 1]) add(new THREE.CylinderGeometry(0.018, 0.018, 0.3, 6), STRUT, place(sx * 0.13, my - 0.12, mz + 0.05));   // (pitch links)
+    // her skids, the cross tubes arched out and down to them
     const k = R.skid;
     for (const sx of [-1, 1]) {
       const skid = new THREE.CatmullRomCurve3([V(sx * k.x, k.y + 0.32, k.z0 - 0.25), V(sx * k.x, k.y + 0.05, k.z0), V(sx * k.x, k.y, k.z0 + 0.5), V(sx * k.x, k.y, k.z1)]);
       add(new THREE.TubeGeometry(skid, 16, 0.045, 6), STRUT);
-      for (const cz of k.cross) rod(V(sx * F.xAt(cz, F.B(cz) + 0.05) * 0.8, F.B(cz) + 0.05, cz), V(sx * k.x, k.y + 0.02, cz), 0.04, STRUT);
+      for (const cz of k.cross) { const yb = F.B(cz) + 0.06, xb = F.xAt(cz, yb) * 0.6;
+        add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([V(sx * xb, yb, cz), V(sx * (xb + (k.x - xb) * 0.55), yb - 0.06, cz), V(sx * k.x * 0.97, (yb + k.y) / 2, cz), V(sx * k.x, k.y + 0.03, cz)]), 10, 0.04, 6), STRUT); }
     }
-    if (o.fen) { const f = R.fin, ring = new THREE.TorusGeometry(R.trotor.r * 0.55, 0.12, 8, 20).rotateY(Math.PI / 2); add(ring, liv.body, place(0, R.trotor.y - 0.2, f.z + 0.2)); }
+    if (fen) {   // the duct (round 2: a bare disc, her fin floating over it): a faired shroud from her boom up into her fin, the hole through it
+      const { rf, zc, yc } = fen, Ro = rf * 1.32, sh = new THREE.Shape(), zb = zc - rf * 2.6, yb = (F.T(zb) + F.B(zb)) / 2;
+      sh.moveTo(zb, yb - 0.12);   // (from her boom, under the duct, round its back and up its front into her fin, back to her boom)
+      for (let k = 0; k <= 24; k++) { const a = -Math.PI * 0.62 + k / 24 * Math.PI * 1.25; sh.lineTo(zc + Ro * Math.cos(a), yc + Ro * Math.sin(a)); }
+      sh.lineTo(zc - Ro * 0.55, yc + Ro * 1.02); sh.lineTo(zb, yb + 0.12); sh.closePath();
+      const hole = new THREE.Path(); hole.absarc(zc, yc, rf, 0, Math.PI * 2, true); sh.holes.push(hole);
+      const g = new THREE.ExtrudeGeometry(sh, { depth: 0.24, bevelEnabled: true, bevelThickness: 0.05, bevelSize: 0.05, bevelSegments: 2, curveSegments: 28 });
+      g.rotateY(-Math.PI / 2); g.translate(0.12, 0, 0); add(g, liv.body);
+      add(new THREE.CylinderGeometry(rf, rf, 0.32, 28, 1, true).rotateZ(Math.PI / 2), 0x1a1c1e, place(0, yc, zc));   // (the duct's wall, dark)
+      add(new THREE.CylinderGeometry(0.1, 0.1, 0.1, 10).rotateZ(Math.PI / 2), 0x3a3f44, place(0, yc, zc));   // (the fan's hub)
+    }
   }
   // ── her gear: fixed (with fairings on many), a tailwheel on the Champ, or retracted in the air
   let bottom = 0, pitch = 0;
@@ -364,7 +407,7 @@ export function makeLightPlane(type, reg = '', { gear = false, cat = '' } = {}) 
   if (heli) bottom = R.skid.y - 0.045;
   // ── her lights: a red beacon on her fin or her back, white at her tail
   const finTop = fin && !o.vtail ? (fin.round ? [0, fin.y + fin.h * 0.97, fin.z + fin.root * 0.82] : [0, fin.y + fin.h + 0.03, fin.z + fin.sweep + Math.max(0.1, fin.tip * 0.4)]) : [0, F.T(R.L * 0.5) + 0.05, R.L * 0.5];
-  add(new THREE.SphereGeometry(0.06, 8, 6), 0xff3020, place(...(heli ? [0, R.top.y + R.top.h + 0.02, R.top.z + 0.3] : finTop)), null, 3.2);
+  add(new THREE.SphereGeometry(0.06, 8, 6), 0xff3020, place(...(heli ? [0, cowlTop(R.cowl[2][0] + 0.4) + 0.03, R.cowl[2][0] + 0.4] : finTop)), null, 3.2);
   add(new THREE.SphereGeometry(0.05, 8, 6), 0xffffff, place(0, F.T(F.z1) - 0.02, F.z1 + 0.02), null, 3.0);
 
   // all of her body as one mesh (indexed, merged)
@@ -384,7 +427,7 @@ export function makeLightPlane(type, reg = '', { gear = false, cat = '' } = {}) 
   const rotor = (at, axis, r, blades, w, c, hub) => {
     const g = new THREE.Group(); g.position.copy(at);
     const spinG = new THREE.Group(); g.add(spinG);
-    for (let i = 0; i < blades; i++) { const b = new THREE.Mesh(tipped(r, w, c, heli && axis === 'y' ? 0xd8d8d8 : 0xf2c230), BM); b.rotation.z = i / blades * Math.PI * 2; spinG.add(b); }
+    for (let i = 0; i < blades; i++) { const b = new THREE.Mesh(tipped(r, w, c, heli && axis === 'y' ? 0xd8d8d8 : blades > 6 ? c : 0xf2c230), BM);   /* (a fenestron's fan unpainted) */ b.rotation.z = i / blades * Math.PI * 2; spinG.add(b); }
     if (hub) { const sp = new THREE.Mesh(hub, BM); g.add(sp); }
     const d = new THREE.Mesh(new THREE.CircleGeometry(r, 40), disc(heli ? (axis === 'y' ? 0.06 : 0.08) : 0.14)); g.add(d);
     if (axis === 'y') { g.rotation.x = -Math.PI / 2; } else if (axis === 'x') { g.rotation.y = Math.PI / 2; }
@@ -393,7 +436,8 @@ export function makeLightPlane(type, reg = '', { gear = false, cat = '' } = {}) 
   const spinner = (r, l, c) => { const pr = []; for (let k = 0; k <= 12; k++) { const t = k / 12; pr.push(new THREE.Vector2(r * Math.sqrt(1 - (1 - t) ** 2), -l * (1 - t))); } const g = new THREE.LatheGeometry(pr, 20); g.rotateX(-Math.PI / 2); g.rotateX(Math.PI); const n = g.attributes.position.count, cs = new Float32Array(n * 3); col.setHex(c); for (let i = 0; i < n; i++) { cs[i * 3] = col.r * BRIGHT; cs[i * 3 + 1] = col.g * BRIGHT; cs[i * 3 + 2] = col.b * BRIGHT; } g.setAttribute('color', new THREE.BufferAttribute(cs, 3)); g.deleteAttribute('uv'); return g; };
   if (heli) {
     rotor(V(0, R.mast[1], R.mast[0]), 'y', span / 2 / s, o.blades || 2, R.chord, PROP, null);
-    rotor(V(0.32, R.trotor.y, R.trotor.z), 'x', R.trotor.r * (o.fen ? 0.5 : 1), o.fen ? 9 : 2, 0.14, PROP, null);
+    if (fen) rotor(V(0, fen.yc, fen.zc), 'x', fen.rf * 0.95, 9, 0.1, PROP, null);
+    else rotor(V((o.trR ? 1 : -1) * 0.32, R.trotor.y, R.trotor.z), 'x', R.trotor.r, 2, 0.14, PROP, null);   // (on her left; an AStar's on her right)
   } else if (R.prop) {
     const P = R.prop, xs = P.x ? [-P.x, P.x] : [0];
     const yP = R.nacelle ? R.wing.y + 0.03 + R.nacelle.x * Math.sin(R.wing.dih * Math.PI / 180) - 0.05 : P.y;
@@ -408,7 +452,7 @@ export function makeLightPlane(type, reg = '', { gear = false, cat = '' } = {}) 
     const tw = Math.min(500, x.measureText(reg2).width); x.save(); x.translate(256, 50); x.scale(Math.min(1, 500 / x.measureText(reg2).width), 1); x.fillText(reg2, 0, 0); x.restore();
     const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
     const m = new THREE.MeshPhongMaterial({ map: tex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, side: THREE.FrontSide, emissive: 0x111111, shininess: 30 });
-    const [ra, rb] = R.reg, mid = (ra + rb) / 2, wTxt = (rb - ra), h = Math.min(wTxt * 96 / 512, (F.T(rb) - F.B(rb)) * 0.5);   // (no taller than half her depth at its aft end: round 3's curled over her back)
+    const [ra, rb] = R.reg, mid = (ra + rb) / 2, wTxt = (rb - ra), h = Math.min(wTxt * 96 / 512, (F.T(rb) - F.B(rb)) * (heli ? 0.7 : 0.5));   // (no taller than half her depth at its aft end: round 3's curled over her back)
     // (on her, even where she narrows, and clear above her stripe: round 6's was maroon on maroon)
     const [[sa, ya], [sb, yb]] = R.stripe, clear = ya + (yb - ya) * (rb - sa) / (sb - sa) + 0.11 + 0.03 + h * 0.5;
     const ry = Math.max(F.B(rb) + h * 0.5 + 0.02, Math.min(F.T(rb) - h * 0.5 - 0.02, heli ? R.reg[2] : Math.max(R.reg[2], clear)));
