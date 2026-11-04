@@ -20,6 +20,14 @@ const T = {
   B772: [63.7, 60.9, 6.2, 2], B77L: [63.7, 64.8, 6.2, 2], B77W: [73.9, 64.8, 6.2, 2], B779: [76.7, 71.8, 6.2, 2],
   B788: [56.7, 60.1, 5.77, 2], B789: [62.8, 60.1, 5.77, 2], B78X: [68.3, 60.1, 5.77, 2],
   A332: [58.8, 60.3, 5.64, 2], A333: [63.7, 60.3, 5.64, 2], A339: [63.7, 64.0, 5.64, 2], A359: [66.8, 64.75, 5.96, 2], A35K: [73.8, 64.75, 5.96, 2],
+  // (v1113: business jets, their engines on the tail under a T-tail, as the regional jets')
+  C510: [12.4, 13.2, 1.5, 'rear'], C525: [13.0, 14.3, 1.5, 'rear'], C25A: [14.5, 15.5, 1.6, 'rear'], C25B: [15.6, 16.3, 1.6, 'rear'], C25C: [16.3, 16.3, 1.6, 'rear'],
+  C56X: [15.8, 17.2, 1.7, 'rear'], C68A: [19.4, 22.0, 2.0, 'rear'], C700: [22.3, 20.6, 2.0, 'rear'], C750: [22.0, 19.4, 1.9, 'rear'], E50P: [12.8, 12.3, 1.6, 'rear'], E55P: [15.6, 15.9, 1.75, 'rear'],
+  E545: [19.7, 20.0, 2.1, 'rear'], E550: [20.7, 20.0, 2.1, 'rear'], LJ35: [14.8, 12.0, 1.6, 'rear'], LJ45: [17.7, 14.6, 1.6, 'rear'], LJ60: [17.9, 13.3, 1.7, 'rear'], LJ75: [17.7, 15.5, 1.6, 'rear'],
+  CL30: [20.9, 19.5, 2.2, 'rear'], CL35: [20.9, 21.0, 2.2, 'rear'], CL60: [20.9, 19.6, 2.7, 'rear'], GL5T: [29.5, 28.7, 2.7, 'rear'], GLEX: [30.3, 28.6, 2.7, 'rear'], GL7T: [33.8, 31.7, 2.7, 'rear'],
+  G280: [20.3, 19.2, 2.2, 'rear'], GALX: [18.9, 17.7, 2.2, 'rear'], GLF4: [26.9, 23.7, 2.4, 'rear'], GLF5: [29.4, 28.5, 2.5, 'rear'], GLF6: [30.4, 30.4, 2.6, 'rear'], GA6C: [30.4, 30.4, 2.6, 'rear'],
+  F2TH: [20.2, 19.3, 2.5, 'rear'], F900: [20.2, 19.3, 2.5, 'rear'], FA50: [18.5, 18.9, 2.5, 'rear'], FA7X: [23.2, 26.2, 2.5, 'rear'], FA8X: [24.5, 26.3, 2.5, 'rear'],
+  PC24: [16.8, 17.0, 1.9, 'rear'], HDJT: [13.0, 12.1, 1.5, 'rear'], H25B: [15.6, 15.7, 1.9, 'rear'], ASTR: [16.9, 16.0, 1.9, 'rear'],
   A388: [72.7, 79.8, 7.1, 4, 'dd'], B744: [70.7, 64.4, 6.5, 4, 'hump'], B748: [76.3, 68.4, 6.5, 4, 'hump'],   // (round 6: the A380's double deck, the 747's hump)
 };
 // airline (the flight's prefix) → body, belly (below the line), tail, engines, and an accent along her lower aft side
@@ -123,8 +131,10 @@ export function makeAirliner(type, flight = '', { gear = false } = {}) {
     add(fair, liv.belly ?? liv.body, place(0, -R * 0.72, fz)); }
   // the cabin windows along each side, door to door: a 737's or an A320's every 0.51 m; an E-jet's, a CRJ's or an
   // A220's big and 0.8 m apart (round 4: the E175's were tiny 737 dashes)
-  const big = /^(E1|E2|E7|CRJ|BCS)/.test(type), wp = big ? 0.8 : wide ? 0.53 : 0.51, wh = big ? 0.42 : wide ? 0.36 : 0.32, ww = big ? 0.32 : wide ? 0.26 : 0.23;
-  const rows = deck === 'dd' ? [[0, 0.975, 0.14, 0.82], [0.73, 0.765, 0.13, 0.8]] : deck === 'hump' ? [[0.3, 0.975, 0.14, 0.82], [1.12, 0.66, 0.14, type === 'B748' ? 0.31 : 0.27]] : [[0.3, 0.975, 0.14, wide ? 0.82 : 0.84]];   // [height, out, from, to] × R, L
+  // (v1113: a business jet's, bigger still, a metre apart, along her cabin only)
+  const biz = eng === 'rear' && !/^(CRJ|B712)/.test(type), big = biz || /^(E1|E2|E7|CRJ|BCS)/.test(type);
+  const wp = biz ? 0.95 : big ? 0.8 : wide ? 0.53 : 0.51, wh = biz ? 0.4 : big ? 0.42 : wide ? 0.36 : 0.32, ww = biz ? 0.34 : big ? 0.32 : wide ? 0.26 : 0.23;
+  const rows = biz ? [[0.3, 0.975, 0.2, 0.6]] : deck === 'dd' ? [[0, 0.975, 0.14, 0.82], [0.73, 0.765, 0.13, 0.8]] : deck === 'hump' ? [[0.3, 0.975, 0.14, 0.82], [1.12, 0.66, 0.14, type === 'B748' ? 0.31 : 0.27]] : [[0.3, 0.975, 0.14, wide ? 0.82 : 0.84]];   // [height, out, from, to] × R, L
   for (const [hy, out, fa, fb] of rows) for (let z = z0 + L * fa; z < z0 + L * fb; z += wp) for (const sx of [-1, 1]) add(new THREE.CylinderGeometry(ww / 2, ww / 2, 0.04, 10).scale(wh / ww, 1, 1).rotateZ(Math.PI / 2), DARK, place(sx * R * out, R * hy, z));
   // ── the wings: a swept trapezoid with thickness, low on her, rising to the tips (dihedral), with winglets
   const semi = span / 2, rootZ = z0 + L * (eng === 'rear' ? 0.43 : 0.37), rootC = span * (eng === 'rear' ? 0.17 : 0.22), tipC = rootC * 0.18, sweep = (wide ? 31 : 26) * Math.PI / 180, dih = (eng === 'rear' ? 3 : 6) * Math.PI / 180;

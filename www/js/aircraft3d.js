@@ -6,6 +6,7 @@
 import * as THREE from 'three';
 import { relayUrl } from './ais.js';
 import { makeAirliner } from './airliner3d.js';
+import { makeLightPlane } from './lightplane3d.js';
 
 export const ADSB_CREDIT = 'Aircraft from adsb.lol (ODbL)';
 const FT = 0.3048, KT = 1852 / 3600, DEG = Math.PI / 180;
@@ -51,14 +52,17 @@ export function makeAircraft({ scene, bbox, wx, wz, every = 5000, onCount, focus
   const free = o => { o.geometry?.dispose(); if (o.material && o.material !== lineMat && !o.material.userData?.shared) { o.material.map?.dispose(); o.material.dispose(); } };
   function drop(p) { pinned.delete(p); if (hover === p) hover = null; planes.delete(p.a.hex); onDrop(p); scene.remove(p.g); p.g.traverse(free); planes.delete(p.a.hex); }
   // her shape (v1108): an airliner of her type in her airline's colours (airliner3d.js), with her gear down on the
-  // ground and on the way in; or, a type it doesn't know, the small plane. Built again only when that changes.
+  // ground and on the way in; a small plane, a light twin or a helicopter of her type, her registration on her side
+  // (lightplane3d.js, v1113); a business jet unknown by type; or, nothing known of her, the plain shape. Built again
+  // only when that changes.
   function setModel(p, a) {
     const gear = !!a.ground || (a.alt ?? 0) < 1000 || ((a.alt ?? 0) < 2500 && (a.vr ?? 0) < -100);
     const key = `${a.type}|${(a.flight || '').slice(0, 3)}|${gear}`;
     if (p.modelKey === key) return; p.modelKey = key;
-    const al = makeAirliner(a.type, a.flight, { gear }), m = al ? al.group : planeModel(colourOf(a));
+    const al = makeAirliner(a.type, a.flight, { gear }) || makeLightPlane(a.type, a.reg || (/^N\d/.test(a.flight || '') ? a.flight : ''), { gear, cat: a.cat })
+      || (a.cat === 'A2' ? makeAirliner('C56X', '', { gear }) : null), m = al ? al.group : planeModel(colourOf(a));
     if (p.model) { p.g.remove(p.model); p.model.traverse(free); }
-    p.model = m; p.g.add(m); p.real = !!al; p.L = al ? al.L : lengthOf(a); p.drop = al ? al.drop : 1;
+    p.model = m; p.g.add(m); p.real = !!al; p.L = al ? al.L : lengthOf(a); p.drop = al ? al.drop : 1; p.sitPitch = al?.pitch || 0; p.heli = al?.family === 'heli';
     p.g.userData.helm = al ? al.cockpit : [0, p.L * 0.03, -p.L * 0.43];   // (the cockpit: up in her nose)
   }
   function data(j) {
@@ -107,9 +111,11 @@ export function makeAircraft({ scene, bbox, wx, wz, every = 5000, onCount, focus
       const turn = ((trk - p.h + 540) % 360) - 180; p.h = (p.h + Math.max(-30 * dt, Math.min(30 * dt, turn)) + 360) % 360;
       p.g.position.set(p.x, p.y, p.z);
       // her attitude (v1109, against a United Express E175 on final): nose up 3° coming in, 8° climbing, 2° level
-      const want = !p.real || a.ground ? 0 : (a.vr ?? 0) < -300 ? 3 : (a.vr ?? 0) > 500 ? 8 : 2;
+      // (a tailwheel plane sits on the ground tail down, v1113; a helicopter flies a little nose down)
+      const want = !p.real ? 0 : a.ground ? p.sitPitch : p.heli ? ((a.gs || 0) > 40 ? -4 : 0) : (a.vr ?? 0) < -300 ? 3 : (a.vr ?? 0) > 500 ? 8 : 2;
       p.pitch = (p.pitch ?? want) + (want - (p.pitch ?? want)) * Math.min(1, dt * 0.5);
       p.model.rotation.order = 'YXZ'; p.model.rotation.set(p.pitch * DEG, -p.h * DEG, 0);
+      for (const sp of p.model.userData.spin || []) sp.o.rotation.z += sp.w * dt;   // (her propeller, her rotors)
       // big enough to see from afar: her real size near, about 0.9% of the distance away from her farther off
       const d = Math.hypot(p.x - cp.x, p.y - cp.y, p.z - cp.z), L = lengthOf(a);
       p.model.scale.setScalar(p.real ? Math.max(1, d * 0.014 / p.L) : Math.max(L, d * 0.014));   // (an airliner is built in metres; the small plane is 1 m long)

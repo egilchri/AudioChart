@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-11-04 — Bird's-eye: small planes, light twins and helicopters as they are (v1113)
+
+- Requested, from a Side view of N383AC (an Aeronca Champ drawn as a tube and three boxes): "recursively improve the side view of this airplane, others like it". Over SF on a weekday a quarter of the aircraft are Cessna 172s; every type without an airliner shape got the same tube.
+- **www/js/lightplane3d.js**: four families drawn in metres against a reference type's side view and scaled to the type ADS-B reports (~100 ICAO types):
+  - **High wing** (Cessna 150/152/172/182/206/208, 170/180/185 on a tailwheel; Champ, Citabria, Cub): the strut-braced wing on the cabin roof, a Cessna's spring-steel mains and wheel fairings, the Champ's vee struts and gear legs and her rounded fin and rudder.
+  - **Low wing** (Cherokee/Warrior/Arrow, Cirrus, Bonanza with its V-tail, Mooney, Diamond's T-tail, Malibu, RVs, TBM, PC-12): dihedral, oleo legs from the wing, retractable gear up in the air.
+  - **Light twins** (Twin Comanche, Seneca, Baron, Duchess, 310–421, DA42, King Air): nacelles and a propeller on each wing.
+  - **Helicopters** (JetRanger, 407, MD 500, R22/R44/R66, AStar, H130/H135, A109, S-76): the cabin bubble, the boom, the skids, a turning main and tail rotor (a fenestron on the Airbus types).
+  - Each is a lofted fuselage with its windscreen, side windows and two stripes laid on her sides, paint chosen from her registration (a Champ yellow, red or white), and **her N-number painted on her aft fuselage**, reading left to right on both sides. Her propeller or rotors turn; a tailwheel plane sits on the ground tail down (the Champ at 12°).
+- **Business jets** (Citations, Challengers, Globals, Gulfstreams, Falcons, Learjets, Phenoms, PC-24 …) go through the airliner builder with their engines on the tail and big oval windows along the cabin; an unknown A1 is drawn as a 172, an unknown A2 as a Citation, an unknown A7 as a JetRanger.
+- Checked in seven rounds in a harness (design/pending/light-look/view.html, shoot.mjs): round 1 the mirrored wings lit from inside (black); round 2 the windows and stripes cut into her curved sides (each triangle now cut small and laid on her); round 3 the N-number curled over the Champ's narrowing tail; round 5 the low wings' undersides near-black and green from the ground light; round 6 the windscreens' teeth (now their own panel); round 7 the N-number maroon on maroon. Then in the app over SF with live traffic (inapp.mjs): a Champ, 172, SR20, Cherokee, 152, JetRanger and CJ3 from Side and Chase, no errors.
+
 ## 2026-11-02 — Bird's-eye and the helm view: a Clear sky in the Weather menu (v1112)
 
 - Requested: "add the Clear option to the Weather menu", after a landing shot over SFO whose sky was busy with the fair-weather cloud. Weather's Sky row is now Clear · Fair · Overcast · Rain (weather3d.js, shared with the helm view): Clear is a blue sky with no cloud layer and no cloud shadows on the water. "Overcast" is now overcast or rain only (it was anything but fair). The NWS forecast picks Clear when its sky cover is under 15%.

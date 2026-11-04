@@ -1,0 +1,36 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Light plane look</title>
+<style>html,body{margin:0;background:#9dc4e8}canvas{display:block}</style>
+<script type="importmap">{ "imports": { "three": "/www/js/lib/three/three.module.min.js" } }</script>
+</head><body>
+<script type="module">
+// A small plane alone (?type=CH7A&reg=N383AC&view=side|three|front|top|below|ground&gear=1&bg=white), as the app's lights
+import * as THREE from 'three';
+const { makeLightPlane } = await import('/www/js/lightplane3d.js?' + Date.now());
+const { makeAirliner } = await import('/www/js/airliner3d.js?' + Date.now());
+const P = new URLSearchParams(location.search), view = P.get('view') || 'side';
+const W = +(P.get('w') || 1200), H = +(P.get('h') || 600);
+const r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); r.setSize(W, H); r.setClearColor(0x9dc4e8); r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 0.55;
+document.body.appendChild(r.domElement);
+const scene = new THREE.Scene();
+scene.add(new THREE.HemisphereLight(0xe4ecf2, 0x4a5644, 1.7));
+const sun = new THREE.DirectionalLight(0xfff3e0, 2.1); sun.position.set(-40, 80, -30); scene.add(sun);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(2000, 2000), new THREE.MeshLambertMaterial({ color: 0x8a8378 })); ground.rotation.x = -Math.PI / 2; scene.add(ground);
+const a = P.get('jet') ? Object.assign(makeAirliner(P.get('type'), '', { gear: P.get('gear') === '1' }), { pitch: 0 }) : makeLightPlane(P.get('type') || 'C172', P.get('reg') || 'N12345', { gear: P.get('gear') === '1', cat: P.get('cat') || '' });
+a.group.userData.spin ||= [];
+const L = a.L, h = view === 'ground' ? a.drop : 6; a.group.position.y = h; scene.add(a.group);
+a.group.rotation.order = 'YXZ'; if (view === 'ground') a.group.rotation.x = a.pitch * Math.PI / 180;
+for (const s of a.group.userData.spin) s.o.rotation.z = +(P.get('spin') || 0.4);
+if (P.get('bg') === 'white') { r.setClearColor(0xffffff); ground.visible = false; }
+const span = L * 1.25, ortho = w => { const hh = w * H / W; return new THREE.OrthographicCamera(-w / 2, w / 2, hh / 2, -hh / 2, 0.5, 500); };
+let cam;
+if (view === 'side' || view === 'ground') { cam = ortho(span); cam.position.set(-150, h + (view === 'ground' ? L * 0.15 : 0), 0); cam.lookAt(0, h + (view === 'ground' ? L * 0.15 : 0), 0); }
+if (view === 'top') { cam = ortho(Math.max(span, +(P.get('span') || 0) * 1.1)); cam.position.set(0, h + 150, 0); cam.up.set(1, 0, 0); cam.lookAt(0, h, 0); }
+if (view === 'front') { cam = ortho(Math.max(span, +(P.get('span') || 12) * 1.1)); cam.position.set(0, h, -150); cam.lookAt(0, h, 0); }
+if (view === 'three') { cam = new THREE.PerspectiveCamera(40, W / H, 0.3, 3000); cam.position.set(-L * 1.0, h + L * 0.35, -L * 0.9); cam.lookAt(0, h, 0); }
+if (view === 'rear') { cam = new THREE.PerspectiveCamera(40, W / H, 0.3, 3000); cam.position.set(-L * 1.0, h + L * 0.3, L * 1.0); cam.lookAt(0, h, 0); }
+if (view === 'below') { cam = new THREE.PerspectiveCamera(40, W / H, 0.3, 3000); cam.position.set(-L * 0.8, h - L * 0.5, -L * 0.7); cam.lookAt(0, h, 0); }
+const zm = +(P.get('zoom') || 1); if (zm !== 1 && cam.isOrthographicCamera) { cam.left /= zm; cam.right /= zm; cam.top /= zm; cam.bottom /= zm; cam.position.z += +(P.get('cz') || 0); cam.position.y += +(P.get('cy') || 0); cam.updateProjectionMatrix(); }
+window.__nan = []; a.group.traverse(o => { if (o.geometry) { const p = o.geometry.attributes.position.array; for (let i = 0; i < p.length; i++) if (!isFinite(p[i])) { window.__nan.push([o.geometry.attributes.position.count, i]); break; } } });
+r.render(scene, cam); window.__done = true;
+</script></body></html>
