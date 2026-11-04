@@ -10,6 +10,10 @@ import { makeLightPlane } from './lightplane3d.js';
 
 export const ADSB_CREDIT = 'Aircraft from adsb.lol (ODbL)';
 const FT = 0.3048, KT = 1852 / 3600, DEG = Math.PI / 180;
+// her height above the sea (v1113): a relay before 1033 sent ADS-B's geometric height, above the WGS84 ellipsoid,
+// 26–33 m over the sea round the bays (the geoid, EGM96 m, weighted by nearness: as relay/ais/core.mjs geoidN)
+const GEOID = [[37.62, -122.38, -32.3], [38.1, -122.5, -31.6], [37.3, -121.9, -32.6], [40.7, -74.0, -32.8], [43.07, -70.76, -28.5], [43.66, -70.26, -27.4], [44.1, -69.1, -26.1], [44.4, -68.2, -25.0]];
+function geoidN(lat, lon) { let w = 0, v = 0; for (const [la, lo, n] of GEOID) { const d = Math.hypot(la - lat, (lo - lon) * Math.cos(lat * DEG)), k = 1 / (d * d + 1e-4); w += k; v += k * n; } return v / w; }
 
 // A plain airliner shape, nose to -z (as the vessels), about 1 m long: scaled by her category
 function planeModel(colour) {
@@ -69,6 +73,7 @@ export function makeAircraft({ scene, bbox, wx, wz, every = 5000, onCount, focus
     const now = Date.now(), seen = new Set();
     for (const a of j.aircraft || []) {
       seen.add(a.hex);
+      if (!a.msl && !a.ground && a.alt != null) { a.alt = Math.round(a.alt - geoidN(a.lat, a.lon) / FT); a.msl = 1; }
       let p = planes.get(a.hex);
       if (!p) {
         const g = new THREE.Group(), label = labelSprite();
@@ -105,7 +110,11 @@ export function makeAircraft({ scene, bbox, wx, wz, every = 5000, onCount, focus
       const a = p.a, sec = Math.min(Math.max((now - p.fix.t) / 1000, 0), 60), s = (a.gs || 0) * KT * sec, trk = a.trk ?? p.h;
       const tx = p.fix.x + Math.sin(trk * DEG) * s, tz = p.fix.z - Math.cos(trk * DEG) * s;
       // (on the ground: on it, her wheels on the runway's surface, not at sea level: SFO is 3 m up, v1111)
-      const ty = a.ground ? groundAt(a.lon, a.lat) + p.drop + 0.65 : Math.max(0, p.fix.y + (a.vr || 0) * FT / 60 * sec);
+      // (and in the air never below it: low, her wheels at least on the ground under her. v1113, reported: a jet
+      // landing at SFO "flew under the surface of the runway", her height then 100 ft under the sea, as ADS-B's
+      // ellipsoid heights are; the relay now sends heights above the sea, and this keeps the last few feet right)
+      let ty = a.ground ? groundAt(a.lon, a.lat) + p.drop + 0.65 : Math.max(0, p.fix.y + (a.vr || 0) * FT / 60 * sec);
+      if (!a.ground && ty < 600) { const c = Math.cos(p.fix.lat * DEG); ty = Math.max(ty, groundAt(p.fix.lon + (tx - p.fix.x) / (111320 * c), p.fix.lat - (tz - p.fix.z) / 111120) + p.drop + 0.65); }
       const k = p.placed ? Math.min(1, dt * 1.5) : 1; p.placed = true;   // a new report eases her across, no jump
       p.x += (tx - p.x) * k; p.z += (tz - p.z) * k; p.y += (ty - p.y) * k;
       const turn = ((trk - p.h + 540) % 360) - 180; p.h = (p.h + Math.max(-30 * dt, Math.min(30 * dt, turn)) + 360) % 360;

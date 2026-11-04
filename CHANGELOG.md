@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-04 — Bird's-eye: aircraft at their true height; none under the runway (v1114)
+
+- Reported, with a snapshot of United Express SKW5899 (E175) just landed at SFO: "after this plane landed, it flew under the surface of the runway". Her card said −100 ft.
+- The cause: the relay passed on ADS-B's geometric altitude, which is height above the WGS84 ellipsoid, not the sea. Round the bays the geoid is 26–33 m under the ellipsoid, so every aircraft has flown ~100 ft low since v1098, and a jet on the runway read −100 ft, drawn at sea level, under SFO's surface.
+- The relay (relay/ais/core.mjs, RELAY_V 1033) now sends height above the sea: geometric altitude less the geoid (EGM96, at the bays served), or pressure altitude set right for the day's pressure (nav_qnh). It marks them `msl`; until that relay is deployed the app makes the same correction itself (www/js/aircraft3d.js).
+- And an aircraft in the air below 600 m is never drawn below the ground under her: her wheels on it at worst.
+- Checked over SFO with live traffic: a Gulfstream rolling out at "31 ft" and a 172 on her take-off roll at "6 ft", both on the runway; no aircraft below the ground in three samples.
+
 ## 2026-11-04 — Bird's-eye: small planes, light twins and helicopters as they are (v1113)
 
 - Requested, from a Side view of N383AC (an Aeronca Champ drawn as a tube and three boxes): "recursively improve the side view of this airplane, others like it". Over SF on a weekday a quarter of the aircraft are Cessna 172s; every type without an airliner shape got the same tube.

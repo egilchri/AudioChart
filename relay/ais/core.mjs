@@ -104,6 +104,23 @@ export function aircraftUpstream(bbox) {
   const nm = Math.hypot((n - s) / 2 * 60, (e - w) / 2 * 60 * Math.cos(lat * Math.PI / 180));
   return `https://api.adsb.lol/v2/point/${lat.toFixed(4)}/${lon.toFixed(4)}/${Math.min(250, Math.ceil(nm))}`;
 }
+// Her height above the sea (v1113). ADS-B's geometric altitude is above the WGS84 ellipsoid, not the sea: round the
+// bays the geoid is 26–33 m under it, so every aircraft flew ~100 ft low and one landing at SFO went under the
+// runway (reported: "after this plane landed, it flew under the surface of the runway", at −100 ft). The geoid's
+// height (EGM96, m) at the bays we serve, weighted by nearness; her pressure altitude, set right for the day's
+// pressure (nav_qnh, ~27 ft a hectopascal), when she sends no geometric one.
+const GEOID = [[37.62, -122.38, -32.3], [38.1, -122.5, -31.6], [37.3, -121.9, -32.6], [40.7, -74.0, -32.8], [43.07, -70.76, -28.5], [43.66, -70.26, -27.4], [44.1, -69.1, -26.1], [44.4, -68.2, -25.0]];
+export function geoidN(lat, lon) {
+  let w = 0, v = 0;
+  for (const [la, lo, n] of GEOID) { const d = Math.hypot(la - lat, (lo - lon) * Math.cos(lat * Math.PI / 180)), k = 1 / (d * d + 1e-4); w += k; v += k * n; }
+  return v / w;
+}
+export function seaAlt(a, lat, lon) {
+  const geom = num(a.alt_geom), baro = num(a.alt_baro), qnh = num(a.nav_qnh);
+  if (geom != null) return Math.round(geom - geoidN(lat, lon) / 0.3048);
+  if (baro != null) return Math.round(baro + (qnh && qnh > 950 && qnh < 1060 ? (qnh - 1013.25) * 27.3 : 0));
+  return null;
+}
 export function trimAircraft(j, bbox, now = Date.now()) {
   const out = [];
   for (const a of j?.ac || []) {
@@ -112,7 +129,7 @@ export function trimAircraft(j, bbox, now = Date.now()) {
     if (bbox && !(lon >= bbox[0] && lat >= bbox[1] && lon <= bbox[2] && lat <= bbox[3])) continue;
     const ground = a.alt_baro === 'ground';
     out.push({ hex: a.hex, flight: clean(a.flight), reg: clean(a.r), type: clean(a.t), cat: a.category || '',
-      lat: +lat.toFixed(5), lon: +lon.toFixed(5), alt: ground ? 0 : num(a.alt_geom) ?? num(a.alt_baro), ground,
+      lat: +lat.toFixed(5), lon: +lon.toFixed(5), alt: ground ? 0 : seaAlt(a, lat, lon), msl: 1, ground,
       gs: num(a.gs), trk: num(a.track) ?? num(a.true_heading), vr: num(a.geom_rate) ?? num(a.baro_rate), squawk: a.squawk || '',
       age: Math.round(a.seen_pos ?? a.seen ?? 0) });
   }
