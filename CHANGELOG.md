@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-05 — Bird's-eye: trains on their tracks, pointing down them (v1116)
+
+- Reported: the Caltrains at the San Francisco station "weren't pointing down the tracks". A train took her heading from two 511 reports 30 m apart; until she'd moved, standing at a platform, she had only a guess from her direction (south-east southbound, north-west northbound), and 4th & King's twelve platform tracks run south-west (223–228°).
+- **The railway's tracks** (www/data/rail/sf-bay.json, 126 KB, from OpenStreetMap by design/rail/build_rail.py): the main lines, branches and their sidings, crossovers and yards; industrial, military and tourist lines and spurs left out; simplified to ~2 m.
+- **Each train is laid on the nearest track** within 40 m and points along it (www/js/trains3d.js): the way she's going once she's been seen to move, or else her direction's end of it; she turns with the curves as she runs, and her card's and map's heading agree.
+- Checked over SF with live trains: Caltrain 168 at 4th & King at 225°, between the platform canopies; 163 at Bayshore 13°, 166 200°, 164/165 at San Carlos 138°/318°.
+
 ## 2026-11-04 — Bird's-eye: helicopters closer to the real thing (v1115)
 
 - Requested: "recursively improve the helicopters too". Four rounds in the harness (design/pending/light-look) against the Bell 206B three-view and photos of the R44, MD 500, AStar and H135, then a live JetRanger over SF from Side and Chase (www/js/lightplane3d.js):

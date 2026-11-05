@@ -2107,6 +2107,7 @@ const air = makeAircraft({ scene, bbox: OVERVIEW, wx, wz, onCount: () => syncLiv
 window.__aircraft = () => air.list(camera, renderer.domElement.getBoundingClientRect());
 // and the trains (v1099): Caltrain, SMART and ACE from 511.org
 const rail = makeTrains({ scene, bbox: OVERVIEW, wx, wz, heightAt, onCount: () => syncLiveBtn(), focus: moverFocus, onDrop: moverGone });
+if (REG.rail) getJSON(`./data/rail/${REG.rail}.json`).then(d => rail.setTracks(d.lines)).catch(err => console.warn('[bay3d] rail tracks', err));   // (v1116: each train on her track)
 window.__trains = () => rail.list(camera, renderer.domElement.getBoundingClientRect());
 function syncLiveBtn(state = liveBtn?.dataset.state || 'off', note = '') {
   if (!liveBtn) return;
