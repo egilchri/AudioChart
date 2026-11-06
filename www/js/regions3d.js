@@ -57,8 +57,9 @@ export const REGIONS3D = {
     // (v1118: north up the SMART line to Windsor, for her trains and the towns along her; the overview's photo in pieces,
     // bay3d.js. Sacramento was asked for, then dropped: a corridor up the river saved little, the rectangle's two eastern
     // photo pieces being needed for it anyway)
-    overview: [-122.95, 37.35, -121.95, 38.7],
-    bay: [-122.9, 37.42, -122.0, 38.62],
+    // (v1120: and south down Caltrain's line to San Jose Diridon and Tamien, reported over a train in Palo Alto)
+    overview: [-122.95, 37.22, -121.8, 38.7],
+    bay: [-122.9, 37.28, -121.85, 38.62],
     belowSea: true,   // (Suisun Marsh's and the reclaimed baylands' ground below sea level: terrain3d.js readDem)
     whole: { lon: -122.33, lat: 37.78, dist: 55000 },
     chartWater: [-122.62, 37.42, -122.0, 38.17],   // (v1020: the chart's land tells water from land here; bay3d.js)

@@ -10,6 +10,8 @@ the ME_MidCoast_1_2021 lidar survey, via `EPT=`).
 
 Along SMART's line (v1118, `40 sf 9`): Larkspur, San Rafael, Terra Linda, Hamilton and Novato from `USGS_LPC_CA_NoCal_Wildfires_B5b_QL1_2018`; Petaluma, Cotati and Rohnert Park, Santa Rosa, the Sonoma County Airport station and Windsor from `CA_NorthernCA_1_B22`. Their NAIP photos fell back to The National Map's USGS imagery (build_town.py); EPT and its hierarchy are fetched with retries (S3 resets and 502s were common).
 
+Along Caltrain's line (v1120, `40 sf 9`): Burlingame, San Mateo, San Carlos and Belmont, Redwood City from `CA_CaliforniaGaps_3_B23`; Palo Alto and Menlo Park, California Avenue, Mountain View, Sunnyvale and San Jose from `CA_SantaClaraCounty_2020`.
+
 Sources:
 
 - **Footprints:** OpenStreetMap (ODbL). Credit is shown in the scene.

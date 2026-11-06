@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-06 — Bird's-eye: down Caltrain's line to San Jose, with her towns (v1120)
+
+- Reported over Caltrain 102 at California Avenue, Palo Alto (plain ground, no buildings): "Can we get some more detail of the landscape?" **The SF region runs south to San Jose Diridon and Tamien** (www/js/regions3d.js: overview to 37.22°N and -121.8°, detail tiles to 37.28°N); the whole-bay photo is now six pieces.
+- **Nine towns' buildings along Caltrain** (www/data/buildings/): Burlingame, San Mateo, San Carlos and Belmont, Redwood City (survey `CA_CaliforniaGaps_3_B23`); Palo Alto and Menlo Park, California Avenue, Mountain View, Sunnyvale, San Jose (`CA_SantaClaraCounty_2020`).
+- **The tracks rebuilt for the whole region** (www/data/rail/sf-bay.json, 186 KB): they had stopped at 37.38°N and at Petaluma, so trains in Santa Rosa, Windsor and south of Mountain View weren't laid on a track.
+- Checked with Caltrain 121 at Menlo Park (side and drone views), and San Jose and Mountain View from the town list.
+
 ## 2026-11-06 — Bird's-eye: trains' times from 511 itself; gulls keep to the water (v1119)
 
 - With the relay deployed, 511's own times are used for **each train's destination ETA and departure time**, not the timetable's (www/js/trains3d.js). The timetable file (Trillium's GTFS) still has Caltrain's January schedule, 5–43 min off her current one: that, not the trains, was why every Caltrain read 35–70 min late on 2026-11-05. It is now only the fallback when 511 gives no times.
