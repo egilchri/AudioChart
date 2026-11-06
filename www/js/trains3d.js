@@ -54,8 +54,12 @@ function runOf(a, run, nowMs) {
   // (waiting to start: on time; early, or over half an hour off: not to be trusted, the timetable may be out of date
   // (Caltrain on 2026-11-05 seemed 35 to 70 min behind the GTFS one), so the timetable's times are shown as they are)
   if (late != null && !(a.nextAim && a.nextExp) && (late < -2 || late > 30)) { late = late < -2 && now < S[0][3] ? 0 : null; }
+  const wrap = m => m < S[0][3] - 720 ? m + 1440 : m;   // (on the timetable's count, past 24:00 after midnight)
   const lt = Math.max(0, late || 0), ni = best ? (best.f > 0.98 ? Math.min(best.i + 1, S.length - 1) : best.i) : 1;
-  return { num: run.n, from: S[0][0], fromT: S[0][3], dest: S[S.length - 1][0], destT: S[S.length - 1][3] + lt, sched: S[S.length - 1][3],
+  return { num: run.n, from: S[0][0], fromT: a.fromAim ? wrap(minOfDay(a.fromAim)) : a.nextAim && a.next && place(a.next) === S[0][0] ? wrap(minOfDay(a.nextAim)) : S[0][3], dest: S[S.length - 1][0],
+    // (v1119: 511's own times first, now the relay passes them: the GTFS timetable here was Caltrain's of January, 5 to 43
+    // min off her current one)
+    destT: a.destExp ? wrap(minOfDay(a.destExp)) : S[S.length - 1][3] + lt, sched: a.destAim ? wrap(minOfDay(a.destAim)) : S[S.length - 1][3],
     next: a.next ? place(a.next) : S[ni][0], nextT: a.nextExp ? minOfDay(a.nextExp) : S[ni][3] + lt, late, live: !!(a.nextAim && a.nextExp), started: now >= S[0][3] - 0.5, hhmm };
 }
 const metres = (a, b) => Math.hypot((b.lon - a.lon) * 111320 * Math.cos(a.lat * DEG), (b.lat - a.lat) * 111120);

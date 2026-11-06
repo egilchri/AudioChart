@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-11-06 — Bird's-eye: trains' times from 511 itself; gulls keep to the water (v1119)
+
+- With the relay deployed, 511's own times are used for **each train's destination ETA and departure time**, not the timetable's (www/js/trains3d.js). The timetable file (Trillium's GTFS) still has Caltrain's January schedule, 5–43 min off her current one: that, not the trains, was why every Caltrain read 35–70 min late on 2026-11-05. It is now only the fallback when 511 gives no times.
+- Reported over Caltrain 102 at California Avenue, Palo Alto: "sea gulls seem out of place". **A gull flock shows only over water or within ~400 m of it** (www/js/wildlife3d.js, bay3d.js).
+
 ## 2026-11-06 — Bird's-eye: SMART's own trains, the towns along her line, Sonoma County (v1118)
 
 - Requested (a SMART train in Marin): "lots more detail in the landscape, and showing buildings if they are there", and "recursively improve the look of the train". **SMART's Nippon Sharyo DMU** (www/js/smart3d.js), two cars, modelled over two rounds against photos (Petaluma, Sonoma Airport, Larkspur, the Windsor yard): stainless sides with the dark window band and its gold pinstripe, green sill stripe and rounded green roof, plug doors, framed windows, bogies and underfloor boxes; the cab's green face around a black windscreen surround, three-pane windscreen, headlights, tail lamps, SMART badge, bumper and coupler.

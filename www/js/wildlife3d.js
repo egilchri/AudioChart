@@ -124,11 +124,20 @@ export function makeWildlife({ scene, ledges = [] }) {
       if (!A || (f === 0 && opts.boat) || Math.hypot(T.x - A.x, T.z - A.z) > 900) anchors[f] = { x: T.x, z: T.z };   // the boat's flock keeps up with her, at any pace
       else { const k = Math.min(1, dt * 0.25); A.x += (T.x - A.x) * k; A.z += (T.z - A.z) * k; }   // a flock drifts after its target
     }
+    // (v1119, reported over a Caltrain in Palo Alto: "sea gulls seem out of place") a flock only over water or its shore:
+    // opts.nearWater(x, z), asked again once the flock has moved 150 m
+    const wet = [];
+    for (let f = 0; f < 2; f++) {
+      const A = anchors[f]; if (!A) continue;
+      if (!opts.nearWater) { wet[f] = true; continue; }
+      if (!A.wetAt || Math.hypot(A.x - A.wetAt.x, A.z - A.wetAt.z) > 150) A.wetAt = { x: A.x, z: A.z, v: opts.nearWater(A.x, A.z) };
+      wet[f] = A.wetAt.v;
+    }
     for (const b of gulls) {
       const A = anchors[b.flock], cx = A.x + b.dx, cz = A.z + b.dz;
       b.a += b.w * dt;
       const x = cx + Math.cos(b.a) * b.r, z = cz + Math.sin(b.a) * b.r, d = Math.hypot(x - cam.x, b.h - cam.y, z - cam.z);
-      b.group.visible = !hidden && !opts.night && d < 2500;
+      b.group.visible = !hidden && !opts.night && wet[b.flock] && d < 2500;
       if (!b.group.visible) continue;
       const k = scale(d);
       b.group.position.set(x, b.h + Math.sin(t * 0.4 + b.ph) * 2, z);

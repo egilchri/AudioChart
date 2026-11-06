@@ -1098,6 +1098,8 @@ const FLEET_N = params.get('fleet') === '1' ? 40 : 0, BOAT_KN = 5, NMm = 1852;
 // bigger than a daysailer at any range without becoming an island from the heights (v905)
 const boatScale = (boat, d) => Math.max(1.6, clamp(d / 250, 1.6, 90) * Math.sqrt(8 / boat.L));
 const isWater = (x, z) => heightAt(lonOf(x), latOf(z)) <= 0.3;
+// water there or within ~400 m (the gulls keep to it: v1119)
+const nearWater = (x, z) => isWater(x, z) || [0, 1, 2, 3, 4, 5, 6, 7].some(k => isWater(x + 400 * Math.cos(k * 0.785), z + 400 * Math.sin(k * 0.785)));
 const clearLeg = (x, z, h, len) => { const a = h * DEG; for (let d = 120; d <= len + 200; d += 120) if (!isWater(x + Math.sin(a) * d, z - Math.cos(a) * d)) return false; return true; };
 const fleet = [];
 {
@@ -3720,7 +3722,7 @@ function frame(now) {
   updateWakes(dt);
   if (nest.on) nestCamera();   // after every vessel has moved, yours too
   if (nest.on || !rcEl?.hidden) drawRideChart();
-  wildlife.update(dt, t, view, camera.position, { hidden: !!aboveFog || EMPTY, night: env.C.time === 'night', boat: (own.ext || own.r) ? own : null, scale: d => clamp(d / 35, 3, 8) });
+  wildlife.update(dt, t, view, camera.position, { hidden: !!aboveFog || EMPTY, night: env.C.time === 'night', boat: (own.ext || own.r) ? own : null, scale: d => clamp(d / 35, 3, 8), nearWater });
   syncFollowHud(); updateFixLines(); updateVector(); updateBuoyF(); updateGauge(); updateCurrents();
   if (follow && !anim && !nest.on) { const k = Math.min(1, dt * 4); view.x += (follow.x - view.x) * k; view.z += (follow.z - view.z) * k; }
   renderer.render(scene, camera);
