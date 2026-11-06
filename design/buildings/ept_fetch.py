@@ -8,7 +8,11 @@ W,S_,E,N = map(float, os.environ.get('BBOX', '-68.85,44.035,-68.82,44.06').split
 x0,y0=merc(W,S_); x1,y1=merc(E,N)
 nodes=[k for k,n in json.load(open(sys.argv[1])) if int(k.split('-')[0])<=int(sys.argv[3])]
 def one(k):
-    data=urllib.request.urlopen(BASE+f'ept-data/{k}.laz', timeout=120).read()
+    for t in range(5):   # (v1118: S3 resets a connection now and then; a lost tile killed the whole town)
+        try: data=urllib.request.urlopen(BASE+f'ept-data/{k}.laz', timeout=120).read(); break
+        except Exception:
+            if t == 4: raise
+            __import__('time').sleep(3 * (t + 1))
     las=laspy.read(__import__('io').BytesIO(data))
     x,y,z=np.asarray(las.x),np.asarray(las.y),np.asarray(las.z)
     m=(x>=x0)&(x<=x1)&(y>=y0)&(y<=y1)

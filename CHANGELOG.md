@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-06 — Bird's-eye: SMART's own trains, the towns along her line, Sonoma County (v1118)
+
+- Requested (a SMART train in Marin): "lots more detail in the landscape, and showing buildings if they are there", and "recursively improve the look of the train". **SMART's Nippon Sharyo DMU** (www/js/smart3d.js), two cars, modelled over two rounds against photos (Petaluma, Sonoma Airport, Larkspur, the Windsor yard): stainless sides with the dark window band and its gold pinstripe, green sill stripe and rounded green roof, plug doors, framed windows, bogies and underfloor boxes; the cab's green face around a black windscreen surround, three-pane windscreen, headlights, tail lamps, SMART badge, bumper and coupler.
+- **The region runs north to Windsor** (www/js/regions3d.js: overview to 38.7°N, detail tiles to 38.62°N), so SMART's whole line and Petaluma, Santa Rosa and Windsor are in it. The whole-bay photo is now in pieces (~0.7° each, 2600 px; bay3d.js) so it stays sharp over the larger area; ground below sea level (Suisun Marsh, the reclaimed baylands) is kept, not flattened to water (terrain3d.js readDem).
+- **Ten towns' buildings along her line** (www/data/buildings/, design/buildings/README.md): Larkspur, San Rafael, Terra Linda, Hamilton, Novato, Petaluma, Cotati and Rohnert Park, Santa Rosa, the Sonoma County Airport station, Windsor; OSM footprints, heights from USGS lidar, roof colours from aerial photos.
+- **Trees are cleared off the tracks** (none within 9 m of a rail line).
+- Sacramento was asked for, then dropped: a corridor up the river saved little over the whole rectangle.
+- Found while checking: a detail tile dropped while its elevation download hung kept its loading slot, and once two had, no more detail loaded (Windsor's ground stayed blurred). Only tiles still loading count now, and one stuck 90 s is retried (bay3d.js).
+
 ## 2026-11-05 — Bird's-eye: each train's origin, destination and ETA; photos when NAIP is down (v1117)
 
 - Requested: "For the trains I need to know their destination, their origin, and the ETA". **Each train's run** from the railroads' timetables (www/data/rail/sf-bay-trips.json, 290 KB, from SMART's and Caltrain's GTFS by design/rail/build_trips.py), found by her trip (Caltrain's train number; SMART's GTFS trip id, so SMART trains now show their number too). The Trains list has an ETA column (time, and where); her row reads "Larkspur → Windsor, due 21:13"; her card adds From, Bound for, Next stop, ETA and Running (on time / N min late).

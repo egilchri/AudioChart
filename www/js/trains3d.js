@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { relayUrl } from './ais.js';
 import { labelSprite } from './aircraft3d.js';
 import { makeCaltrain } from './caltrain3d.js';
+import { makeSmart } from './smart3d.js';
 import { minOfDay } from './regiontime.js';
 
 export const TRAIN_CREDIT = 'Trains from 511.org';
@@ -98,8 +99,9 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
       seen.add(a.id);
       let p = trains.get(a.id);
       if (!p) {
-        // Caltrain: her Stadler KISS, modelled from photos (caltrain3d.js, v1107); SMART and ACE, simple cars for now
-        const look = LOOK[a.rail] || LOOK.Caltrain, kiss = a.rail === 'Caltrain' ? makeCaltrain() : null;
+        // Caltrain: her Stadler KISS, modelled from photos (caltrain3d.js, v1107); SMART her Nippon Sharyo DMU (smart3d.js,
+        // v1118: two cars, as most of her runs; 511 doesn't say); ACE, simple cars for now
+        const look = LOOK[a.rail] || LOOK.Caltrain, kiss = a.rail === 'Caltrain' ? makeCaltrain() : a.rail === 'SMART' ? makeSmart() : null;
         const g = new THREE.Group(), model = kiss ? kiss.group : trainModel(look), label = labelSprite();
         g.add(model, label); scene.add(g);
         const L = kiss ? kiss.length : look.cars * look.len + (look.cars - 1) * 1.2;
@@ -182,7 +184,7 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
   return {
     start() { if (on) return; on = true; poll(); },
     stop() { on = false; clearTimeout(timer); inflight?.abort(); for (const p of [...trains.values()]) drop(p); onCount?.(0); },
-    update, setTracks, setTrips: d => { trips = d; },
+    update, setTracks, nearTrack: (x, z, r) => !!onTrack(x, z, r), setTrips: d => { trips = d; },
     // the train under a point on the screen (client px), within reach px of her middle: for hover and tap
     at(cx, cy, camera, rect, reach = 22) {
       let best = null, bd = reach;

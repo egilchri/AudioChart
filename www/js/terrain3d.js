@@ -35,8 +35,11 @@ const cellsFor = (w, s, e, n) => {
   return out;
 };
 // level 0 = 10 m, 2 = ~37 m (the files' own overviews). Water and no-data come back as -3 m.
-export async function readDem(w, s, e, n, level) {
-  const key = `${SYNTH}dem/${level}/${w.toFixed(5)},${s.toFixed(5)},${e.toFixed(5)},${n.toFixed(5)}`;
+// below (v1118, the Sacramento-San Joaquin Delta): land below sea level (its islands lie 2 to 6 m under, behind levees)
+// read as just above it, not as water. USGS's water is flattened at its surface (about 0 m in the tidal Bay and Delta), so
+// below -0.3 m is ground, not water.
+export async function readDem(w, s, e, n, level, below = false) {
+  const key = `${SYNTH}dem/${level}${below ? 'b' : ''}/${w.toFixed(5)},${s.toFixed(5)},${e.toFixed(5)},${n.toFixed(5)}`;
   const c = await cacheP;
   if (c) {
     const hit = await c.match(key);
@@ -63,7 +66,7 @@ export async function readDem(w, s, e, n, level) {
       const data = (await img.readRasters({ window: win, samples: [0] }))[0], ww = win[2] - win[0];
       for (let y = win[1]; y < win[3]; y++) for (let x = win[0]; x < win[2]; x++) {
         const v = data[(y - win[1]) * ww + (x - win[0])];
-        grid.elev[(y - y0) * grid.w + (x - x0)] = (v > 0.4 && v < 9000) ? v : -3;
+        grid.elev[(y - y0) * grid.w + (x - x0)] = (v > 0.4 && v < 9000) ? v : below && v < -0.3 && v > -60 ? 0.8 : -3;
       }
     }));
     tmark(`dem L${level} read`);

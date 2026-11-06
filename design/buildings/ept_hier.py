@@ -7,7 +7,12 @@ W,S_,E,N = map(float, os.environ.get('BBOX', '-68.85,44.035,-68.82,44.06').split
 x0,y0=merc(W,S_); x1,y1=merc(E,N)
 ept=json.load(open(sys.argv[1]))
 b=ept['bounds']
-def get(u): return json.load(urllib.request.urlopen(BASE+u, timeout=60))
+def get(u):
+    for i in range(5):
+        try: return json.load(urllib.request.urlopen(BASE+u, timeout=60))
+        except Exception as e:
+            if i==4: raise
+            print('  retry', i+1, e, file=sys.stderr); __import__('time').sleep(3*(i+1))
 hier={}
 def load(key):
     h=get(f'ept-hierarchy/{key}.json'); hier.update(h)

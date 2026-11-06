@@ -59,7 +59,7 @@ const EXAG_KEY = 'audiochart-emptybay-exag';
 let EXAG = 4; try { EXAG = clampNum(Number(localStorage.getItem(EXAG_KEY)) || 4, 1, 10); } catch (_) {}
 function clampNum(v, a, b) { return Math.max(a, Math.min(b, v)); }
 const yOf = EMPTY ? (h => h < 0 ? h * EXAG : h) : null;
-const demFor = (w, s, e, n, fine) => EMPTY ? readTopobathy(w, s, e, n, fine ? 0.0001 : 0.0012) : readDem(w, s, e, n, fine ? 0 : 3).then(chartWater);
+const demFor = (w, s, e, n, fine) => EMPTY ? readTopobathy(w, s, e, n, fine ? 0.0001 : 0.0012) : readDem(w, s, e, n, fine ? 0 : 3, !!REGIONS3D[REGION3D].belowSea).then(chartWater);
 const lonOf = x => x / MX + LON0, latOf = z => -z / MY + LAT0;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const DEG = Math.PI / 180;
@@ -359,13 +359,22 @@ document.getElementById('compass').addEventListener('click', () => flyTo({ x: vi
 // ── The whole bay, coarse ──
 statusEl.textContent = EMPTY ? `Draining ${REG.name}…` : 'Downloading the bay…';
 const [OW, OS, OE, ON] = OVERVIEW;
-const ovPhotoP = photo(OW, OS, OE, ON, 4000); ovPhotoP.catch(() => {});
+// The overview's photo in pieces (v1118, requested: the SF region out to Sacramento): one 4000 px photo over 140 km
+// would be 35 m a pixel, so a wide overview is cut into pieces of at most 0.7°, each its own photo and mesh (each
+// drawing only where its photo is, as a detail tile). A bay that size or smaller is one piece, as before.
+const OV_COLS = Math.ceil((OE - OW) / 0.7 - 1e-9), OV_ROWS = Math.ceil((ON - OS) / 0.7 - 1e-9);
+const ovPieces = [];
+for (let i = 0; i < OV_COLS; i++) for (let j = 0; j < OV_ROWS; j++) {
+  const w = OW + (OE - OW) * i / OV_COLS, e = OW + (OE - OW) * (i + 1) / OV_COLS, s = OS + (ON - OS) * j / OV_ROWS, n = OS + (ON - OS) * (j + 1) / OV_ROWS;
+  const P = { rect: { west: w, east: e, south: s, north: n }, mesh: null, ph: null, mat: null, photoP: photo(w, s, e, n, OV_COLS * OV_ROWS > 1 ? 2600 : 4000) };   // (pieces a little smaller: six at 4000 px would want ~470 MB of GPU memory) P.photoP.catch(() => {});
+  ovPieces.push(P);
+}
+const ovPieceAt = (lon, lat) => ovPieces.find(P => lon >= P.rect.west && lon <= P.rect.east && lat >= P.rect.south && lat <= P.rect.north) || ovPieces[0];
 const ov = await demFor(OW, OS, OE, ON, false);
 const airports = [];   // (the region's airports' ground, v1111: below, once the towns are listed)
 const OV_STRIDE = ov.w * ov.h > 1.2e6 ? 2 : 1;
-const OV_RECT = { west: OW, east: OE, south: OS, north: ON };
-let ovMesh = gridMesh(ov, OV_RECT, OV_STRIDE, PLAIN, yOf);
-scene.add(ovMesh);
+const ovMats = new Set();
+for (const P of ovPieces) { P.mesh = gridMesh(ov, P.rect, OV_STRIDE, PLAIN, yOf); scene.add(P.mesh); }
 function heightAt(lon, lat) {
   for (const T of tiles) {
     if (T.state !== 'ready' || lon < T.w || lon >= T.e || lat < T.s || lat >= T.n) continue;
@@ -375,19 +384,21 @@ function heightAt(lon, lat) {
   const c = Math.floor((lon - ov.west) / ov.dx), r = Math.floor((ov.north - lat) / ov.dy);
   return (c >= 0 && r >= 0 && c < ov.w && r < ov.h) ? ov.elev[r * ov.w + c] : -3;
 }
-let ovPh = null, ovMat = null;   // (the whole bay's photo, for a detail tile until its own comes: v1049)
-ovPhotoP.then(ph => {
+// (each piece's photo, for a detail tile in it until the tile's own comes: v1049)
+for (const P of ovPieces) P.photoP.then(ph => {
   addCanopy(ov, ph, null, BROADLEAF);
-  const m2 = gridMesh(ov, ph, OV_STRIDE, seabed(photoMat(ph, ANISO)), yOf);
-  ovPh = ph; ovMat = m2.material;
-  scene.remove(ovMesh); ovMesh.geometry.dispose(); ovMesh = m2; scene.add(m2);
-  for (const T of tiles) if (T.state === 'ready') sinkOverview(T, true);
+  const mat = seabed(photoMat(ph, ANISO)), m2 = gridMesh(ov, ph, OV_STRIDE, ovPieces.length > 1 ? ownPhoto(mat) : mat, yOf);
+  P.ph = ph; P.mat = m2.material; ovMats.add(P.mat);
+  scene.remove(P.mesh); P.mesh.geometry.dispose(); P.mesh = m2; scene.add(m2);
+  for (const T of tiles) if (T.state === 'ready') sinkOverview(T, true, P);
 }).catch(err => console.warn('[bay3d] overview photo failed', err));
 // Lower the overview under a loaded detail tile (and restore it when the tile goes). Within `inset` of a tile's edge it
 // stays up to cover the seam, unless the tile on the other side is loaded too: then it goes 3 m under, as it was level
 // with the detail and flickered against it on flat ground (v1097, Echo Lake's grey band: a tile edge crosses the lake)
-function sinkOverview(T, down) {
-  const pos = ovMesh.geometry.attributes.position, gidx = ovMesh.userData.gidx, inset = 0.0006;
+function sinkOverview(T, down, only = null) {
+  for (const P of only ? [only] : ovPieces) {
+  if (T.e < P.rect.west - 0.01 || T.w > P.rect.east + 0.01 || T.n < P.rect.south - 0.01 || T.s > P.rect.north + 0.01) continue;
+  const pos = P.mesh.geometry.attributes.position, gidx = P.mesh.userData.gidx, inset = 0.0006;
   for (let i = 0; i < gidx.length; i++) {
   const up = t => !!t && (t === T ? down : t.state === 'ready'), at = (lon, lat) => up(tileAt(lon, lat));
     const gi = gidx[i], gx = gi % ov.w, gy = (gi - gx) / ov.w;
@@ -398,6 +409,7 @@ function sinkOverview(T, down) {
     else pos.setY(i, at(lon - inset, lat - inset) && at(lon + inset, lat - inset) && at(lon - inset, lat + inset) && at(lon + inset, lat + inset) ? y - 3 : y);
   }
   pos.needsUpdate = true;
+  }
 }
 
 // ── Detail tiles: the helm view's grid (same edges, so the same cached downloads) ──
@@ -416,7 +428,7 @@ const tileAt = (lon, lat) => {   // (the tile whose box holds it; its rounded ed
   return null;
 };
 async function loadTile(T) {
-  T.state = 'loading'; const gen = (T.gen = (T.gen || 0) + 1);
+  T.state = 'loading'; T.t0 = performance.now(); const gen = (T.gen = (T.gen || 0) + 1);
   try {
     const M = 0.0002;
     const photoP = photo(T.w, T.s, T.e, T.n); photoP.catch(() => {});
@@ -426,7 +438,8 @@ async function loadTile(T) {
     // until its own photo comes (the USDA service can take half a minute for a new one), the whole bay's photo and the
     // trees from it, coarser but the right colours, not bare green ground (v1049, requested: "bar harbor is looking a
     // little sparse")
-    const interim = ovPh && !EMPTY, mat0 = interim ? ovMat : PLAIN, uvT = interim ? ovPh : rect;
+    const OP = ovPieceAt((T.w + T.e) / 2, (T.s + T.n) / 2), ovPh = OP.ph;
+    const interim = ovPh && !EMPTY, mat0 = interim ? OP.mat : PLAIN, uvT = interim ? ovPh : rect;
     if (interim) { addCanopy(dem, ovPh, () => 0, BROADLEAF); T.spots = treeSpots(T, dem); treesDirty = true; }
     Object.assign(T, { dem, mat: mat0, img: null, photo: 'pending', full: gridMesh(dem, rect, 1, mat0, yOf, uvT), coarse: gridMesh(dem, rect, 4, mat0, yOf, uvT) });
     T.full.visible = false; scene.add(T.full, T.coarse); sinkOverview(T, true); T.state = 'ready';
@@ -440,7 +453,7 @@ async function loadTile(T) {
       T.full.visible = wasNear; T.coarse.visible = !wasNear; scene.add(T.full, T.coarse);
       T.mat = mat; T.img = ph.img; T.photo = 'done'; try { updateCredit(); } catch (_) {}   // (the photos' source, v1117)
     }).catch(err => { console.warn('[bay3d] photo failed', T, err); T.photo = 'failed'; });
-  } catch (err) { console.warn('[bay3d] tile failed', T, err); T.state = 'failed'; }
+  } catch (err) { if (T.gen !== gen) return; console.warn('[bay3d] tile failed', T, err); T.state = 'failed'; }
 }
 // Empty Bay's depth exaggeration changed: every loaded mesh's heights again from its grid, the sunk
 // overview kept sunk under the loaded tiles
@@ -511,9 +524,9 @@ function remeshForExag() {
     for (let i = 0; i < gidx.length; i++) pos.setY(i, yOf(dem.elev[gidx[i]]));
     pos.needsUpdate = true; mesh.geometry.computeVertexNormals(); mesh.geometry.computeBoundingSphere();
   };
-  redo(ovMesh, ov);
+  for (const P of ovPieces) redo(P.mesh, ov);
   for (const T of tiles) if (T.state === 'ready') { redo(T.full, T.dem); redo(T.coarse, T.dem); sinkOverview(T, true); }
-  ovMesh.geometry.computeVertexNormals();
+  for (const P of ovPieces) P.mesh.geometry.computeVertexNormals();
 }
 if (EMPTY) {
   const box = document.getElementById('exagbox'), inp = document.getElementById('exag'), out = document.getElementById('exagval');
@@ -609,7 +622,7 @@ function dropTile(T) {
   if (T.state === 'loading') { T.state = 'idle'; return; }
   if (T.state !== 'ready') return;
   scene.remove(T.full, T.coarse); T.full.geometry.dispose(); T.coarse.geometry.dispose();
-  if (T.mat !== PLAIN && T.mat !== ovMat) { T.mat.map.dispose(); T.mat.dispose(); }   // (the whole bay's is shared)
+  if (T.mat !== PLAIN && !ovMats.has(T.mat)) { T.mat.map.dispose(); T.mat.dispose(); }   // (the whole bay's is shared)
   T.img?.close?.(); sinkOverview(T, false);
   if (T.spots) { T.spots = null; treesDirty = true; }
   Object.assign(T, { state: 'idle', full: null, coarse: null, dem: null, mat: null, img: null, photo: null });
@@ -619,6 +632,8 @@ function dropTile(T) {
 // thinning with distance (kept with chance (K/d)², the kept ones drawn wider to fill in), a
 // tiered spruce up close and a plain cone beyond. ~60k trees at most.
 const SP = 10;   // floats per tree: x, y, z, height, radius, turn, r, g, b, chance
+// (v1118, a SMART train hidden in trees standing on her line: none within 9 m of a railway track, once the tracks are in)
+let trackNear = null;
 function treeSpots(T, dem) {
   let seed = Math.round((T.w + 200) * 1e4 + T.s * 1e3); const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   const out = [];
@@ -627,6 +642,7 @@ function treeSpots(T, dem) {
     if (dem.elev[i] <= 0.6 || dem.canopy[i] < 0.45) continue;
     const lon = dem.west + (x + rnd()) * dem.dx, lat = dem.north - (y + rnd()) * dem.dy;
     if (lon < T.w || lon >= T.e || lat < T.s || lat >= T.n) continue;   // the overlap belongs to the neighbour
+    if (trackNear?.(wx(lon), wz(lat), 9)) { rnd(); rnd(); rnd(); rnd(); rnd(); rnd(); continue; }
     if (BROADLEAF) {   // a city's trees (v1032): shorter, round crowns, a lighter green
       const hgt = 7 + rnd() * 8;
       out.push(wx(lon), dem.elev[i] - 0.5, wz(lat), hgt, hgt * (0.36 + rnd() * 0.12), rnd() * 6.28,
@@ -681,7 +697,6 @@ function updateTrees() {
   }
 }
 
-let loadingCount = 0;
 const DETAIL_BELOW = 7000;   // camera distance under which 10 m tiles load
 function updateTiles() {
   const R = clamp(view.dist * 1.1, 2500, 6500), low = view.dist < DETAIL_BELOW;
@@ -692,7 +707,11 @@ function updateTiles() {
   }
   if (low) {
     const want = tiles.filter(T => T.state === 'idle' && rectDist(T, view.x, view.z) < R).sort((a, b) => rectDist(a, view.x, view.z) - rectDist(b, view.x, view.z));
-    while (loadingCount < 2 && want.length) { const T = want.shift(); loadingCount++; loadTile(T).finally(() => { loadingCount--; }); }
+    // two at a time, counting only tiles still loading (v1118: a tile dropped while its elevation download hung kept
+    // its slot, and once two had, no detail loaded again: Windsor stayed blurred); one stuck 90 s is tried again
+    const now = performance.now(); let n = 0;
+    for (const T of tiles) if (T.state === 'loading') { if (now - T.t0 > 90000) T.state = 'idle'; else n++; }
+    while (n < 2 && want.length) { loadTile(want.shift()); n++; }
   }
   const near = tiles.filter(T => rectDist(T, view.x, view.z) < 2500);
   const busy = low && near.some(T => T.state === 'loading' || (T.state === 'ready' && T.photo === 'pending'));
@@ -2108,7 +2127,10 @@ const air = makeAircraft({ scene, bbox: OVERVIEW, wx, wz, onCount: () => syncLiv
 window.__aircraft = () => air.list(camera, renderer.domElement.getBoundingClientRect());
 // and the trains (v1099): Caltrain, SMART and ACE from 511.org
 const rail = makeTrains({ scene, bbox: OVERVIEW, wx, wz, heightAt, onCount: () => syncLiveBtn(), focus: moverFocus, onDrop: moverGone });
-if (REG.rail) getJSON(`./data/rail/${REG.rail}.json`).then(d => rail.setTracks(d.lines)).catch(err => console.warn('[bay3d] rail tracks', err));
+if (REG.rail) getJSON(`./data/rail/${REG.rail}.json`).then(d => {
+  rail.setTracks(d.lines); trackNear = rail.nearTrack;
+  for (const T of tiles) if (T.state === 'ready' && T.dem?.canopy) { T.spots = treeSpots(T, T.dem); treesDirty = true; }   // (tiles in before the tracks)
+}).catch(err => console.warn('[bay3d] rail tracks', err));
 if (REG.rail) getJSON(`./data/rail/${REG.rail}-trips.json`).then(d => rail.setTrips(d)).catch(err => console.warn('[bay3d] rail timetables', err));   // (v1117: each train's origin, destination and ETA)   // (v1116: each train on her track)
 window.__trains = () => rail.list(camera, renderer.domElement.getBoundingClientRect());
 function syncLiveBtn(state = liveBtn?.dataset.state || 'off', note = '') {

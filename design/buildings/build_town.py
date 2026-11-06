@@ -68,9 +68,12 @@ if not os.path.exists(naip):
     import math
     asp = (E - W) * math.cos(math.radians((S + N) / 2)) / (N - S)
     w, h = (4000, max(200, round(4000 / asp))) if asp >= 1 else (max(200, round(4000 * asp)), 4000)
-    u = ('https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?' +
-         urllib.parse.urlencode({'bbox': bbox, 'bboxSR': 4326, 'imageSR': 4326, 'size': f'{w},{h}', 'format': 'jpg', 'compressionQuality': 85, 'f': 'image'}))
-    open(naip, 'wb').write(fetch(u))
+    qs = urllib.parse.urlencode({'bbox': bbox, 'bboxSR': 4326, 'imageSR': 4326, 'size': f'{w},{h}', 'format': 'jpg', 'compressionQuality': 85, 'f': 'image'})
+    # (v1118: NAIP's export service was hanging; then The National Map's cached imagery basemap, the same photos)
+    try: img = urllib.request.urlopen(urllib.request.Request('https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?' + qs, headers=UA), timeout=60).read()
+    except Exception as e:
+        print('  NAIP failed (', e, '): USGS imagery instead'); img = fetch('https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/export?' + qs)
+    open(naip, 'wb').write(img)
 
 eptj = os.path.join(work, 'ept.json')
 if not os.path.exists(eptj): open(eptj, 'wb').write(fetch(f'https://s3-us-west-2.amazonaws.com/usgs-lidar-public/{ept}/ept.json'))

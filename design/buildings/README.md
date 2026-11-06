@@ -8,6 +8,8 @@ Stonington, Islesford, Great Cranberry and Northeast Harbor (v840), Southwest Ha
 WoodenBoat School in Brooklin (v841), Bar Harbor and Castine (v842), Belfast and Searsport (v843), and the ferry terminals at Lincolnville Beach, Grindle Point (Islesboro), Bass Harbor and Swan's Island (v950, with Microsoft footprints; Bass Harbor and Swan's from ME_MidCoast_1_2021; the MDI towns use
 the ME_MidCoast_1_2021 lidar survey, via `EPT=`).
 
+Along SMART's line (v1118, `40 sf 9`): Larkspur, San Rafael, Terra Linda, Hamilton and Novato from `USGS_LPC_CA_NoCal_Wildfires_B5b_QL1_2018`; Petaluma, Cotati and Rohnert Park, Santa Rosa, the Sonoma County Airport station and Windsor from `CA_NorthernCA_1_B22`. Their NAIP photos fell back to The National Map's USGS imagery (build_town.py); EPT and its hierarchy are fetched with retries (S3 resets and 502s were common).
+
 Sources:
 
 - **Footprints:** OpenStreetMap (ODbL). Credit is shown in the scene.
