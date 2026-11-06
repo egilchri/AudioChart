@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { relayUrl } from './ais.js';
 import { labelSprite } from './aircraft3d.js';
 import { makeCaltrain } from './caltrain3d.js';
+import { minOfDay } from './regiontime.js';
 
 export const TRAIN_CREDIT = 'Trains from 511.org';
 const DEG = Math.PI / 180;
@@ -31,6 +32,31 @@ function trainModel(look) {   // the cars in a line along -z (her front), 1 unit
 // "San Francisco Caltrain Station Northbound" -> "San Francisco"; "Stockton - Robert J Cabral Sta" -> "Stockton"
 const place = d => (d || '').replace(/\s+(Caltrain\s+)?Station\b.*$/i, '').replace(/\s+-\s+.*$/, '').replace(/^SMART\s+/i, '').trim();
 const lonOf = p => p.fix.lon + (p.x - p.fix.x) / (111320 * Math.cos(p.fix.lat * DEG)), latOf = p => p.fix.lat - (p.z - p.fix.z) / 111120;   // (where she's drawn now)
+const hhmm = m => { m = ((m % 1440) + 1440) % 1440; return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(Math.floor(m % 60)).padStart(2, '0')}`; };
+// Her run (v1117, requested: "For the trains I need to know their destination, their origin, and the ETA"): the
+// railroads' timetables (www/data/rail/<id>-trips.json, design/rail/build_trips.py), found by her trip (Caltrain's train
+// number, SMART's GTFS trip id). How late she's running: 511's expected time at her next stop where it gives one, else
+// where she is against where the timetable has her (between its stations, by distance); ETAs are the timetable's plus that.
+function runOf(a, run, nowMs) {
+  const S = run.s, at = nowMs - (a.age || 0) * 1000;
+  let now = minOfDay(at); if (now < S[0][3] - 720) now += 1440;   // (a run past midnight: GTFS counts on past 24:00)
+  const kx = 111320 * Math.cos(a.lat * DEG), ky = 111120;
+  let best = null;
+  for (let i = 1; i < S.length; i++) {   // the stretch between two stations she's nearest, and how far along it
+    const [, x1, y1, t1] = S[i - 1], [, x2, y2, t2] = S[i], dx = (x2 - x1) * kx, dy = (y2 - y1) * ky, L2 = dx * dx + dy * dy || 1;
+    const f = Math.max(0, Math.min(1, ((a.lon - x1) * kx * dx + (a.lat - y1) * ky * dy) / L2)), d = Math.hypot((a.lon - x1) * kx - dx * f, (a.lat - y1) * ky - dy * f);
+    if (!best || d < best.d) best = { d, i, f, t: t1 + (t2 - t1) * f };
+  }
+  let late = null;
+  if (a.nextAim && a.nextExp) late = (a.nextExp - a.nextAim) / 60000;
+  else if (best && best.d < 3000) late = now - best.t;
+  // (waiting to start: on time; early, or over half an hour off: not to be trusted, the timetable may be out of date
+  // (Caltrain on 2026-11-05 seemed 35 to 70 min behind the GTFS one), so the timetable's times are shown as they are)
+  if (late != null && !(a.nextAim && a.nextExp) && (late < -2 || late > 30)) { late = late < -2 && now < S[0][3] ? 0 : null; }
+  const lt = Math.max(0, late || 0), ni = best ? (best.f > 0.98 ? Math.min(best.i + 1, S.length - 1) : best.i) : 1;
+  return { num: run.n, from: S[0][0], fromT: S[0][3], dest: S[S.length - 1][0], destT: S[S.length - 1][3] + lt, sched: S[S.length - 1][3],
+    next: a.next ? place(a.next) : S[ni][0], nextT: a.nextExp ? minOfDay(a.nextExp) : S[ni][3] + lt, late, live: !!(a.nextAim && a.nextExp), started: now >= S[0][3] - 0.5, hhmm };
+}
 const metres = (a, b) => Math.hypot((b.lon - a.lon) * 111320 * Math.cos(a.lat * DEG), (b.lat - a.lat) * 111120);
 
 // Each train is also a 'vessel' to Bird's-eye's card, Follow and ride views (v1104): kind 'rail', as the aircraft's
@@ -43,7 +69,7 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
   // standing at a platform had only a guess at her heading, south-east or north-west, and 4th & King's platforms run
   // south-west): OSM's main lines and their sidings (www/data/rail/, design/rail/build_rail.py), cut into segments in
   // a 250 m grid. Each train is laid on the nearest one within 40 m, pointing along it.
-  const CELL = 250, grid = new Map(); let segs = null;
+  const CELL = 250, grid = new Map(); let segs = null, trips = null;
   function setTracks(lines) {
     const S = []; grid.clear();
     for (const l of lines) for (let i = 1; i < l.length; i++) {
@@ -97,9 +123,14 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
         p.fix = { lon: a.lon, lat: a.lat, x: wx(a.lon), z: wz(a.lat), t: at };
       }
       p.a = a;
-      p.tag.userData.draw(`${a.rail} ${/^\d{1,4}$/.test(a.trip) ? a.trip : ''} → ${place(a.dest) || '?'}`.replace(/\s+/g, ' '));
-      p.title = `${a.rail} ${/^\d{1,4}$/.test(a.trip) ? a.trip : ''}`.trim(); p.dest = place(a.dest);
-      p.label = `${!p.vKnown ? 'Speed due in a minute or so' : p.v >= 1 ? `About ${Math.round(p.v * 2.237)} mph` : 'Stopped'}${p.dest ? `, bound for ${p.dest}` : ''}`;   // (Caltrain's train number; SMART's trip ids are long)
+      const tr = trips?.[a.rail]?.[a.trip]; p.run = tr ? runOf(a, tr, now) : null;
+      const num = p.run?.num || (/^\d{1,4}$/.test(a.trip) ? a.trip : '');   // (Caltrain's train number; SMART's, from her timetable: her trip ids are long)
+      p.dest = p.run?.dest || place(a.dest); p.from = p.run?.from || place(a.from) || '';
+      p.tag.userData.draw(`${a.rail} ${num} → ${p.dest || '?'}`.replace(/\s+/g, ' '));
+      p.title = `${a.rail} ${num}`.trim();
+      const speed = !p.vKnown ? '' : p.v >= 1 ? `about ${Math.round(p.v * 2.237)} mph` : 'stopped';
+      p.label = p.run ? `${p.from} → ${p.dest}, ${p.run.late == null ? 'timetabled' : 'due'} ${hhmm(p.run.destT)}${p.run.late >= 2 ? ` (${Math.round(p.run.late)} min late)` : ''}${speed ? ` · ${speed}` : ''}`
+        : `${speed ? speed[0].toUpperCase() + speed.slice(1) : 'Speed due in a minute or so'}${p.dest ? `, bound for ${p.dest}` : ''}`;
     }
     for (const p of [...trains.values()]) if (!seen.has(p.id)) drop(p);
     onCount?.(trains.size);
@@ -151,7 +182,7 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
   return {
     start() { if (on) return; on = true; poll(); },
     stop() { on = false; clearTimeout(timer); inflight?.abort(); for (const p of [...trains.values()]) drop(p); onCount?.(0); },
-    update, setTracks,
+    update, setTracks, setTrips: d => { trips = d; },
     // the train under a point on the screen (client px), within reach px of her middle: for hover and tap
     at(cx, cy, camera, rect, reach = 22) {
       let best = null, bd = reach;

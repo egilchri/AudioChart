@@ -11,7 +11,7 @@
 import * as THREE from 'three';
 import { Water } from './lib/three/Water.js';
 import { makeWakes } from './wake3d.js';
-import { REGION3D, LON0, LAT0, MX, MY, wx, wz, readDem, readTopobathy, photo, addCanopy, gridMesh, photoMat, buildTown, disposeGroup, spruce, broadleaf, TOWN_NIGHT } from './terrain3d.js';
+import { PHOTO_SOURCES, REGION3D, LON0, LAT0, MX, MY, wx, wz, readDem, readTopobathy, photo, addCanopy, gridMesh, photoMat, buildTown, disposeGroup, spruce, broadleaf, TOWN_NIGHT } from './terrain3d.js';
 import { sunPos, SUN, makeSky, makeEnv, glowSprite, flashFor, flashOn, sectorColour, weatherPanel, startConditions, makeTrimmer, cycleLook } from './weather3d.js';
 import { makeSailboat, fleetType } from './sailboat3d.js';
 import { makeAngelique, makeBowdoin } from './angelique3d.js';
@@ -438,7 +438,7 @@ async function loadTile(T) {
       scene.remove(T.full, T.coarse); T.full.geometry.dispose(); T.coarse.geometry.dispose();
       T.full = gridMesh(dem, ph, 1, mat, yOf); T.coarse = gridMesh(dem, ph, 4, mat, yOf);
       T.full.visible = wasNear; T.coarse.visible = !wasNear; scene.add(T.full, T.coarse);
-      T.mat = mat; T.img = ph.img; T.photo = 'done';
+      T.mat = mat; T.img = ph.img; T.photo = 'done'; try { updateCredit(); } catch (_) {}   // (the photos' source, v1117)
     }).catch(err => { console.warn('[bay3d] photo failed', T, err); T.photo = 'failed'; });
   } catch (err) { console.warn('[bay3d] tile failed', T, err); T.state = 'failed'; }
 }
@@ -721,7 +721,7 @@ const VER = self.APP_VERSION ? `${self.APP_VERSION} · ` : '';
 creditEl.textContent = VER + creditEl.textContent;
 function updateCredit() {
   const shown = townList.filter(t => t.group);
-  creditEl.textContent = VER + (EMPTY ? 'Land and seabed NOAA NCEI CUDEM · Photos USDA NAIP' : 'Elevation USGS 3DEP · Photos USDA NAIP') + (bridges ? ' · ' + bridges.credit : '') + (airports.length ? ' · ' + airports[0].credit : '') + (shown.length ? ' · Buildings © OpenStreetMap contributors' + (shown.some(t => /Microsoft/.test(t.credit)) ? ', Microsoft' : '') + (shown.some(t => /NYC Open Data/.test(t.credit)) ? ', NYC Open Data' : '') : '');
+  creditEl.textContent = VER + (EMPTY ? 'Land and seabed NOAA NCEI CUDEM · Photos USDA NAIP' : `Elevation USGS 3DEP · Photos ${PHOTO_SOURCES.has('usgs') && !PHOTO_SOURCES.has('naip') ? 'USGS The National Map' : PHOTO_SOURCES.has('usgs') ? 'USDA NAIP, USGS The National Map' : 'USDA NAIP'}`) + (bridges ? ' · ' + bridges.credit : '') + (airports.length ? ' · ' + airports[0].credit : '') + (shown.length ? ' · Buildings © OpenStreetMap contributors' + (shown.some(t => /Microsoft/.test(t.credit)) ? ', Microsoft' : '') + (shown.some(t => /NYC Open Data/.test(t.credit)) ? ', NYC Open Data' : '') : '');
 }
 // An airport's ground (v1111, requested: "let's add lots of detail to San Francisco Airport"; airport3d.js): her
 // runways and their markings, taxiways, aprons, lights, jet bridges, tower, AirTrain, set on the 10 m elevation the
@@ -1934,6 +1934,7 @@ function vEta(v) {
     return { t: hhmm(now + left / (v.F.knots * NMm / 60)), sub: st.next };
   }
   if (v.kind === 'cruise' && st?.moving && st.dir > 0) return { t: hhmm(now + (v.T.L - st.f) / (v.V.knots * NMm / 60)), sub: v.call.port };
+  if (v.kind === 'rail' && v.run) return { t: v.run.hhmm(v.run.destT), sub: v.run.late == null ? `${v.run.dest}?` : v.run.dest };   // (? : the timetable's time, her lateness unknown)   // (v1117: due at the end of her run)
   if (v === own && own.r && boatClock && own.S < own.total) return { t: hhmm(Math.min(1439, now + passageMin(own.total) - passageMin(own.S))), sub: 'arrives' };
   return null;
 }
@@ -1947,7 +1948,7 @@ function fillUnderway() {
   const tabs = uwPanel.querySelector('.uwtabs');
   if (tabs) { tabs.hidden = !hasAir && !hasRail; for (const b of tabs.querySelectorAll('button')) { b.hidden = b.dataset.tab === 'air' ? !hasAir : b.dataset.tab === 'rail' ? !hasRail : false; b.classList.toggle('on', b.dataset.tab === tab); } }
   uwPanel.querySelector('.sect').textContent = tab === 'air' ? 'In the air now' : tab === 'rail' ? 'Trains running now' : 'On the water now';
-  const list = uwPanel.querySelector('ul'); list.innerHTML = `<li class="hdr"><span class="n">${tab === 'air' ? 'Aircraft' : tab === 'rail' ? 'Train' : 'Vessel'}</span><span class="eta">${tab === 'water' ? 'ETA' : ''}</span><span class="d">Off</span><span class="go"></span></li>`;
+  const list = uwPanel.querySelector('ul'); list.innerHTML = `<li class="hdr"><span class="n">${tab === 'air' ? 'Aircraft' : tab === 'rail' ? 'Train' : 'Vessel'}</span><span class="eta">${tab !== 'air' ? 'ETA' : ''}</span><span class="d">Off</span><span class="go"></span></li>`;
   const away = v => { const d = Math.hypot(v.x - view.x, v.z - view.z) / NMm; return d < 0.15 ? '' : `${d.toFixed(d < 10 ? 1 : 0)} nm`; };
   const rows = [], d2 = b => Math.hypot(b.x - view.x, b.z - view.z);
   if (tab === 'rail') for (const v of rail.items().sort((a, b) => d2(a) - d2(b))) rows.push({ v, what: v.label });
@@ -2107,7 +2108,8 @@ const air = makeAircraft({ scene, bbox: OVERVIEW, wx, wz, onCount: () => syncLiv
 window.__aircraft = () => air.list(camera, renderer.domElement.getBoundingClientRect());
 // and the trains (v1099): Caltrain, SMART and ACE from 511.org
 const rail = makeTrains({ scene, bbox: OVERVIEW, wx, wz, heightAt, onCount: () => syncLiveBtn(), focus: moverFocus, onDrop: moverGone });
-if (REG.rail) getJSON(`./data/rail/${REG.rail}.json`).then(d => rail.setTracks(d.lines)).catch(err => console.warn('[bay3d] rail tracks', err));   // (v1116: each train on her track)
+if (REG.rail) getJSON(`./data/rail/${REG.rail}.json`).then(d => rail.setTracks(d.lines)).catch(err => console.warn('[bay3d] rail tracks', err));
+if (REG.rail) getJSON(`./data/rail/${REG.rail}-trips.json`).then(d => rail.setTrips(d)).catch(err => console.warn('[bay3d] rail timetables', err));   // (v1117: each train's origin, destination and ETA)   // (v1116: each train on her track)
 window.__trains = () => rail.list(camera, renderer.domElement.getBoundingClientRect());
 function syncLiveBtn(state = liveBtn?.dataset.state || 'off', note = '') {
   if (!liveBtn) return;
@@ -2265,7 +2267,15 @@ function fillMoverCard() {
     if (!a.ground && a.vr != null && Math.abs(a.vr) >= 100) row(a.vr < 0 ? 'Descending' : 'Climbing', `${Math.abs(Math.round(a.vr / 50) * 50).toLocaleString('en-US')} ft a minute`);
     row('Squawk', a.squawk);
   } else {
-    row('Railroad', a.rail); row('Train', /^\d{1,4}$/.test(a.trip) ? a.trip : ''); row('Bound for', v.dest);
+    const R = v.run;
+    row('Railroad', a.rail); row('Train', R?.num || (/^\d{1,4}$/.test(a.trip) ? a.trip : ''));
+    if (R) {   // (v1117: her run, from the timetable; ETAs with how late she's running)
+      row('From', `${R.from} (timetabled ${R.hhmm(R.fromT)})`);
+      row('Bound for', R.dest);
+      if (R.next !== R.dest) row('Next stop', `${R.next}, due ${R.hhmm(R.nextT)}`);
+      row('ETA', `${R.hhmm(R.destT)} at ${R.dest}${R.destT - R.sched >= 1 ? ` (timetable ${R.hhmm(R.sched)})` : ''}`);
+      row('Running', R.late == null ? 'Can\'t tell: she\'s far off the timetable, which may be out of date' : R.late >= 2 ? `About ${Math.round(R.late)} min late${R.live ? '' : ' (from where she is)'}` : 'On time');
+    } else { row('From', v.from); row('Bound for', v.dest); }
     row('Speed', !v.vKnown ? 'Not yet known: it takes two reports, a minute and a half apart' : v.v >= 1 ? `About ${Math.round(v.v * 2.237)} mph (from her last two reports)` : 'Stopped');
     row('Heading', `${deg3(v.h)}° true`);
   }

@@ -14,10 +14,10 @@ export const wx = lon => (lon - LON0) * MX, wz = lat => -(lat - LAT0) * MY;
 // ── Cached fetches (Cache Storage, so a second run, or one offline, needs no network) ──
 const CACHE_NAME = 'audiochart-helm3d-v1';
 export const cacheP = ('caches' in window) ? caches.open(CACHE_NAME).catch(() => null) : Promise.resolve(null);
-export async function cachedFetch(url, key = url) {
+export async function cachedFetch(url, key = url, init) {
   const c = await cacheP;
   if (c) { const hit = await c.match(key); if (hit) return hit; }
-  const res = await fetch(url);
+  const res = await fetch(url, init);
   if (!res.ok) throw new Error(`Download failed (${res.status})`);
   if (c) c.put(key, res.clone()).catch(() => {});
   return res;
@@ -104,11 +104,26 @@ export async function readTopobathy(w, s, e, n, res) {
 }
 
 const NAIP = 'https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage';
+// When NAIP's service hangs (v1117: on 2026-11-05 every export timed out and Marin came up bare grey), the photos come
+// from The National Map's cached imagery basemap instead (USGS Imagery Only: NAIP and other public-domain photos, served
+// from a different system). NAIP gets 25 s; after two of its failures in a row it's skipped for this visit.
+const USGS_IMG = 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/export';
+let naipFails = 0;
+export const PHOTO_SOURCES = new Set();   // (which have been used, for the credits)
 export async function photo(w, s, e, n, maxPx = 4000) {
   const res = Math.max(e - w, n - s) / maxPx, W = Math.round((e - w) / res), H = Math.round((n - s) / res);
   const q = new URLSearchParams({ bbox: `${w},${s},${e},${n}`, bboxSR: 4326, imageSR: 4326, size: `${W},${H}`, format: 'jpg', compressionQuality: 82 });
+  const naipUrl = `${NAIP}?${q}&f=image`, usgsUrl = `${USGS_IMG}?${q}&f=image`;
   tmark('photo start');
-  const blob = await (await cachedFetch(`${NAIP}?${q}&f=image`)).blob();
+  let blob = null; const c = await cacheP;
+  for (const [u, src] of [[naipUrl, 'naip'], [usgsUrl, 'usgs']]) { const hit = c && await c.match(u); if (hit) { blob = await hit.blob(); PHOTO_SOURCES.add(src); break; } }
+  if (!blob && naipFails < 2) {
+    const ctl = new AbortController(), kill = setTimeout(() => ctl.abort(), 25000);
+    try { blob = await (await cachedFetch(naipUrl, naipUrl, { signal: ctl.signal })).blob(); naipFails = 0; PHOTO_SOURCES.add('naip'); }
+    catch (err) { naipFails++; console.warn('[terrain3d] NAIP photo failed, trying USGS imagery', err?.name || err); }
+    finally { clearTimeout(kill); }
+  }
+  if (!blob) { blob = await (await cachedFetch(usgsUrl)).blob(); PHOTO_SOURCES.add('usgs'); }
   tmark('photo done');
   // The service grows the box about its centre until the pixels are square; the same rule here
   // reproduces the extent it reports (checked against its f=json answers to ~1e-12°), saving a

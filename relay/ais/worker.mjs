@@ -62,7 +62,8 @@ export class AisHub {
         try {
           const up = await fetch(railUpstream(rail.id, this.env.FIVE11_KEY));
           if (!up.ok) throw new Error(String(up.status));
-          const got = { at: now, trains: trimTrains(await up.text(), rail, now) };
+          const text = await up.text(), got = { at: now, trains: trimTrains(text, rail, now) };
+          try { const j = JSON.parse(text.replace(/^\uFEFF/, '')), d = j?.Siri?.ServiceDelivery?.VehicleMonitoringDelivery; (this.sample ??= {})[rail.id] = (Array.isArray(d) ? d[0] : d)?.VehicleActivity?.slice(0, 2); } catch (_) {}   // (?sample=1: what 511 sends, for checking)
           this.rail[rail.id] = got; await this.state.storage.put('rail:' + rail.id, got);
           return got.trains;
         } catch (e) {
@@ -77,6 +78,7 @@ export class AisHub {
     if (bbox) out = out.filter(t => t.lon >= bbox[0] && t.lat >= bbox[1] && t.lon <= bbox[2] && t.lat <= bbox[3]);
     const body = { t: now, trains: out.map(t => ({ ...t, age: Math.max(0, Math.round((now - t.at) / 1000)) })) };
     if (errors.length) body.error = errors.join('; ');
+    if (new URL(req.url).searchParams.get('sample')) body.sample = this.sample || null;
     return new Response(JSON.stringify(body), { headers: corsHeaders(req.headers.get('Origin')) });
   }
   async fetch(req) {

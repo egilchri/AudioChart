@@ -148,6 +148,12 @@ export const RAIL = [
 ];
 export const TRAIN_CREDIT = 'Trains from 511.org';
 export const railUpstream = (id, key) => `https://api.511.org/transit/VehicleMonitoring?api_key=${encodeURIComponent(key)}&agency=${id}&format=json`;
+const ms = v => { const t = Date.parse(v || ''); return Number.isFinite(t) ? t : null; };
+function callsOf(m) {   // her next stop (MonitoredCall) and her last (OnwardCalls' last, or DestinationAimedArrivalTime)
+  const one = v => Array.isArray(v) ? v[0] : v, mc = m.MonitoredCall || {}, oc = m.OnwardCalls?.OnwardCall, onward = Array.isArray(oc) ? oc : oc ? [oc] : [], last = onward[onward.length - 1] || {};
+  return { next: clean(one(mc.StopPointName) || ''), nextAim: ms(mc.AimedArrivalTime || mc.AimedDepartureTime), nextExp: ms(mc.ExpectedArrivalTime || mc.ExpectedDepartureTime), atStop: mc.VehicleAtStop === true || mc.VehicleAtStop === 'true',
+    destAim: ms(last.AimedArrivalTime || m.DestinationAimedArrivalTime), destExp: ms(last.ExpectedArrivalTime), fromAim: ms(m.OriginAimedDepartureTime) };
+}
 // SIRI's answer (with a byte-order mark first) to the trains in it
 export function trimTrains(text, rail, now = Date.now()) {
   let j; try { j = JSON.parse(String(text).replace(/^﻿/, '')); } catch (_) { return []; }
@@ -162,7 +168,10 @@ export function trimTrains(text, rail, now = Date.now()) {
     out.push({ id: `${rail.id}:${m.VehicleRef || m.FramedVehicleJourneyRef?.DatedVehicleJourneyRef || out.length}`, rail: rail.name,
       line: clean(one(m.PublishedLineName) || m.LineRef || ''), trip: clean(m.FramedVehicleJourneyRef?.DatedVehicleJourneyRef || ''),
       dest: clean(one(m.DestinationName) || ''), dir: clean(m.DirectionRef || ''), lat: +lat.toFixed(5), lon: +lon.toFixed(5),
-      brg: num(Number(m.Bearing)), at: Number.isFinite(at) ? Math.min(at, now) : now });
+      brg: num(Number(m.Bearing)), at: Number.isFinite(at) ? Math.min(at, now) : now,
+      // (v1117, requested: "their destination, their origin, and the ETA"): where she set out from, her next stop and
+      // when she's due there, and when she's due at the end of her run (aimed, and expected where 511 says)
+      from: clean(one(m.OriginName) || ''), ...callsOf(m) });
   }
   return out;
 }

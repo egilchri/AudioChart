@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-05 — Bird's-eye: each train's origin, destination and ETA; photos when NAIP is down (v1117)
+
+- Requested: "For the trains I need to know their destination, their origin, and the ETA". **Each train's run** from the railroads' timetables (www/data/rail/sf-bay-trips.json, 290 KB, from SMART's and Caltrain's GTFS by design/rail/build_trips.py), found by her trip (Caltrain's train number; SMART's GTFS trip id, so SMART trains now show their number too). The Trains list has an ETA column (time, and where); her row reads "Larkspur → Windsor, due 21:13"; her card adds From, Bound for, Next stop, ETA and Running (on time / N min late).
+- **How late**: where she is against where the timetable has her. Over 30 min off, it isn't trusted (on 2026-11-05 every Caltrain read 35–70 min behind the published GTFS: the timetable may be out of date): the card says it can't tell and the times are marked timetabled. The relay (relay/ais) now also passes 511's origin and next-stop expected times, used first where present (needs a relay deploy).
+- Reported (a SMART train in Marin on bare grey hills): USDA's NAIP photo service was timing out on every export. **Photos fall back** to The National Map's cached USGS imagery after 25 s (and straight away after two NAIP failures); the credits say which (www/js/terrain3d.js). Helm view too.
+
 ## 2026-11-05 — Bird's-eye: trains on their tracks, pointing down them (v1116)
 
 - Reported: the Caltrains at the San Francisco station "weren't pointing down the tracks". A train took her heading from two 511 reports 30 m apart; until she'd moved, standing at a platform, she had only a guess from her direction (south-east southbound, north-west northbound), and 4th & King's twelve platform tracks run south-west (223–228°).
