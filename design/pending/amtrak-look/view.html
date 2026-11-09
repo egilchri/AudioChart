@@ -6,7 +6,7 @@
 <script type="module">
 // The train alone, from a fixed angle (?view=side|front|three|aerial|full), for comparing with photos of the real one.
 import * as THREE from 'three';
-const { makeCapitol } = await import('/www/js/amtrak3d.js?' + Date.now());
+const { makeAmtrak } = await import('/www/js/amtrak3d.js?' + Date.now());
 const P = new URLSearchParams(location.search), model = P.get('model') || 'train';
 const view = new URLSearchParams(location.search).get('view') || 'three';
 const W = 1600, H = view === 'side' || view === 'full' ? 560 : 1000;
@@ -31,7 +31,7 @@ if (model === 'plane') {   // ?model=plane&type=B738&flight=UAL1&view=side|top|f
   if (view === 'below') { cam = new THREE.PerspectiveCamera(40, W / H, 0.5, 3000); cam.position.set(-L * 0.6, h - L * 0.45, -L * 0.6); cam.lookAt(0, h, 0); }
   r.render(scene, cam); window.__done = true;
 } else {
-const t = makeCapitol({ cars: +(P.get('cars') || 4), locoFront: P.get('lead') !== 'cab' }); scene.add(t.group);
+const t = makeAmtrak({ kind: P.get('kind') || 'capitol', cars: +(P.get('cars') || 4), locoFront: P.get('lead') !== 'cab' }); scene.add(t.group);
 const L = t.length, f = -L / 2;
 if (view === 'side' || view === 'full') {   // a true side view, as the line-scan photo: her left side, nose to the left
   const span = view === 'side' ? 56 : L + 6, h = span * H / W, x0 = view === 'side' ? f - 1 + span / 2 : 0;
@@ -39,7 +39,7 @@ if (view === 'side' || view === 'full') {   // a true side view, as the line-sca
 } else {
   cam = new THREE.PerspectiveCamera(view === 'front' ? 38 : 40, W / H, 0.5, 3000);
   if (view === 'front') { cam.position.set(-0.9, 1.9, f - 15); cam.lookAt(0, 2.4, f + 4); }
-  if (view === 'three') { cam.position.set(-14, 4, f - 18); cam.lookAt(0, 2.4, f + 12); }
+  if (view === 'three') { const at = +(P.get('at') || 0); cam.position.set(-14, 4, f + at - 18); cam.lookAt(0, 2.4, f + at + 12); }
   if (view === 'cab') { const [cx, cy, cz] = t.cab; cam.position.set(cx, cy, cz); cam.lookAt(cx, cy - 0.3, cz - 50); }
   if (view === 'aerial') { cam.position.set(-70, 110, f - 40); cam.lookAt(0, 0, f + 60); }
   if (view === 'photo') { cam.position.set(-16, 2.2, f - 9); cam.lookAt(0, 2.3, f + 14); }   // (as 108 in the Windsor yard)

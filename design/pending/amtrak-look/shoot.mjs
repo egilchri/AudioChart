@@ -5,7 +5,7 @@ c.ws.addEventListener('message', m => { const d = JSON.parse(m.data); if (d.meth
 await c.cmd('Network.enable'); await c.cmd('Network.setCacheDisabled', { cacheDisabled: true });
 for (const v of (process.env.VIEWS || 'side,full,head,photo,aerial').split(',')) {
   await c.cmd('Emulation.setDeviceMetricsOverride', { width: 1600, height: v === 'side' || v === 'full' ? 560 : 1000, deviceScaleFactor: 1, mobile: false });
-  await c.cmd('Page.navigate', { url: `http://127.0.0.1:8795/design/pending/amtrak-look/view.html?view=${v}&lead=${process.env.LEAD || 'loco'}` });
+  await c.cmd('Page.navigate', { url: `http://127.0.0.1:8795/design/pending/amtrak-look/view.html?view=${v}&lead=${process.env.LEAD || 'loco'}&kind=${process.env.KIND || 'capitol'}&at=${process.env.AT || 0}` });
   for (let i = 0; i < 20 && await c.ev('!!window.__done') !== true; i++) await sleep(300);
   await c.shot(`${tag}_${v}.png`);
 }

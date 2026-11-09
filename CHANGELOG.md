@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-09 — Bird's-eye: the Coast Starlight and the Zephyr on their Superliners (v1124)
+
+- Requested: "now do the Superliners for the Coast Starlight, if they are in the region". She is (Martinez, Richmond, Emeryville, Oakland, San Jose), and the California Zephyr leaves from Emeryville. **The long-distance trains** (www/js/amtrak3d.js `makeAmtrak({ kind: 'long' })`), from Commons photos (ALC-42 316 at Klamath Falls; 322 with the northbound Coast Starlight at Oakland, May 2023; baggage car 61009 and transition sleeper 31000 at Oakland, October 2021):
+  - **Two ALC-42 Chargers** in Amtrak's livery: navy, the red cap over the cab with its white edge, a white line sweeping down the side (further back at the top: round 1 had it the other way), lighter blue behind it, white over red along the foot, AMTRAK and the travel mark; two headlights at the windscreen's foot, the white line under it, the red band on the pilot.
+  - **A Viewliner baggage car** (single level; red, white and blue stripes; two pairs of doors), then **Superliners**: a transition sleeper, two sleepers (two rows of roomette windows), the diner (big windows upstairs only), the Sightseer lounge (its glass up into the roof), three coaches; Phase IV's red, white and red pinstripes over a navy band, "Superliner" on it, a red pinstripe low down over the flutes.
+  - They don't run push-pull: their Chargers always lead. Chosen by route name (Coast Starlight, Zephyr and the other long-distance names); the Capitol Corridor and San Joaquins keep the California set.
+- Fixed in both: the Charger's roof grille stood one grille's length behind her, a black slab over the gap.
+- Checked with the live California Zephyr 6 along the shore by Lone Tree Point (side and drone).
+
 ## 2026-11-09 — Bird's-eye: the Capitol Corridor's Charger at her Oakland end (v1123)
 
 - Asked: "Isn't that a little odd, having the cab car in front when I ride from Sacramento to Oakland?" Push-pull is how she runs, but v1122 had her the wrong way round: the photo of eastbound train 528 at Berkeley (January 2026) has her cab car leading, headlights lit. **Her Charger is at her Oakland and San Jose end**: pulling westbound and southbound, the cab car leading toward Sacramento (www/js/trains3d.js).

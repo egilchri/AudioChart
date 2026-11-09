@@ -8,11 +8,12 @@ import { relayUrl } from './ais.js';
 import { labelSprite } from './aircraft3d.js';
 import { makeCaltrain } from './caltrain3d.js';
 import { makeSmart } from './smart3d.js';
-import { makeCapitol } from './amtrak3d.js';
+import { makeAmtrak } from './amtrak3d.js';
 import { minOfDay, bayDay } from './regiontime.js';
 
 export const TRAIN_CREDIT = 'Trains from 511.org and Amtrak (via Amtraker)';
 const DEG = Math.PI / 180;
+const LONG = /starlight|zephyr|chief|sunset|eagle|builder|cardinal|crescent|limited/i;   // (Amtrak's long-distance trains: Superliners or their like)
 // each railroad's train: cars, car length (m), and livery (body, band)
 const LOOK = {
   Caltrain: { cars: 6, len: 26, body: 0xd8dadc, band: 0xc8102e },
@@ -152,9 +153,9 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
         // v1118: two cars, as most of her runs; 511 doesn't say); ACE, simple cars for now
         // Amtrak (v1122): the Charger and California Cars (amtrak3d.js). Her Charger at her Oakland and San Jose end
         // (v1123: v1122 had it at Sacramento's; a photo of eastbound 528 at Berkeley, January 2026, has her cab car
-        // leading, headlights lit): pulling away from Sacramento, the cab car leading toward it. (The long-distance
-        // trains get this set too, for now)
-        const look = LOOK[a.rail] || LOOK.Caltrain, kiss = a.rail === 'Caltrain' ? makeCaltrain() : a.rail === 'SMART' ? makeSmart() : a.rail === 'Amtrak' ? makeCapitol({ cars: 4, locoFront: !/sacramento|auburn/i.test(a.dest || '') }) : null;
+        // leading, headlights lit): pulling away from Sacramento, the cab car leading toward it. The long-distance trains
+        // (the Coast Starlight, the Zephyr: v1124) their Superliners behind two ALC-42s
+        const look = LOOK[a.rail] || LOOK.Caltrain, kiss = a.rail === 'Caltrain' ? makeCaltrain() : a.rail === 'SMART' ? makeSmart() : a.rail === 'Amtrak' ? makeAmtrak(LONG.test(a.line || '') ? { kind: 'long' } : { cars: 4, locoFront: !/sacramento|auburn/i.test(a.dest || '') }) : null;
         const g = new THREE.Group(), model = kiss ? kiss.group : trainModel(look), label = labelSprite();
         g.add(model, label); scene.add(g);
         const L = kiss ? kiss.length : look.cars * look.len + (look.cars - 1) * 1.2;
