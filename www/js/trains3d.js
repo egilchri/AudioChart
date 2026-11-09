@@ -8,15 +8,16 @@ import { relayUrl } from './ais.js';
 import { labelSprite } from './aircraft3d.js';
 import { makeCaltrain } from './caltrain3d.js';
 import { makeSmart } from './smart3d.js';
-import { minOfDay } from './regiontime.js';
+import { minOfDay, bayDay } from './regiontime.js';
 
-export const TRAIN_CREDIT = 'Trains from 511.org';
+export const TRAIN_CREDIT = 'Trains from 511.org and Amtrak (via Amtraker)';
 const DEG = Math.PI / 180;
 // each railroad's train: cars, car length (m), and livery (body, band)
 const LOOK = {
   Caltrain: { cars: 6, len: 26, body: 0xd8dadc, band: 0xc8102e },
   SMART: { cars: 2, len: 25, body: 0xf1f1ee, band: 0x2e8b57 },
   ACE: { cars: 6, len: 26, body: 0xe6e3ee, band: 0x5b2a86 },
+  Amtrak: { cars: 5, len: 26, body: 0xc9cdd2, band: 0x1f3f7a },
 };
 function trainModel(look) {   // the cars in a line along -z (her front), 1 unit = 1 m
   const g = new THREE.Group(), body = new THREE.MeshLambertMaterial({ color: look.body }), band = new THREE.MeshLambertMaterial({ color: look.band });
@@ -38,6 +39,15 @@ const hhmm = m => { m = ((m % 1440) + 1440) % 1440; return `${String(Math.floor(
 // railroads' timetables (www/data/rail/<id>-trips.json, design/rail/build_trips.py), found by her trip (Caltrain's train
 // number, SMART's GTFS trip id). How late she's running: 511's expected time at her next stop where it gives one, else
 // where she is against where the timetable has her (between its stations, by distance); ETAs are the timetable's plus that.
+// (v1121) a run from the relay's own times, for a railroad whose timetable we don't hold (Amtrak: Amtraker gives her
+// origin, next stop and end with their scheduled and expected times)
+function liveRun(a, nowMs) {
+  const m = v => v ? minOfDay(v) : null, late = a.nextAim && a.nextExp ? (a.nextExp - a.nextAim) / 60000 : null;
+  return { num: a.trip, from: place(a.from), fromT: m(a.fromAim), dest: place(a.dest), destT: m(a.destExp || a.destAim), sched: m(a.destAim),
+    next: place(a.next), nextT: m(a.nextExp || a.nextAim), late, live: late != null, started: !(a.atStop && a.fromAim && nowMs < a.fromAim + 60e3), hhmm,
+    // (a long-distance train ends days from now, the Zephyr in Chicago: her day, then)
+    destDay: (() => { const t = a.destExp || a.destAim; return t && bayDay(t).getTime() !== bayDay(nowMs).getTime() ? bayDay(t).toLocaleDateString([], { weekday: 'short' }) + ' ' : ''; })() };
+}
 function runOf(a, run, nowMs) {
   const S = run.s, at = nowMs - (a.age || 0) * 1000;
   let now = minOfDay(at); if (now < S[0][3] - 720) now += 1440;   // (a run past midnight: GTFS counts on past 24:00)
@@ -83,15 +93,49 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
       for (let j = 0; j <= n; j++) { const key = `${Math.floor((x1 + (x2 - x1) * j / n) / CELL)},${Math.floor((z1 + (z2 - z1) * j / n) / CELL)}`; const c = grid.get(key); if (!c) grid.set(key, [k]); else if (c[c.length - 1] !== k) c.push(k); }
     }
     segs = new Float64Array(S);
+    for (const p of trains.values()) p.ft = undefined;   // (laid on them afresh)
+    // (v1121) where the pieces meet: each end (to 0.5 m) and the pieces that end there, so a train can be walked along
+    // her track between reports, through its joins and junctions
+    ends.clear();
+    for (let k = 0; k < segs.length / 4; k++) for (const e of [0, 1]) { const key = endKey(segs[k * 4 + e * 2], segs[k * 4 + e * 2 + 1]); const c = ends.get(key); if (c) c.push(k * 2 + e); else ends.set(key, [k * 2 + e]); }
+  }
+  const ends = new Map(), endKey = (x, z) => `${Math.round(x * 2)},${Math.round(z * 2)}`;
+  const segH = (k, dir) => { const dx = segs[k * 4 + 2] - segs[k * 4], dz = segs[k * 4 + 3] - segs[k * 4 + 1]; return (Math.atan2(dir * dx, -dir * dz) / DEG + 360) % 360; };
+  // from piece k at t (0..1), going dir (+1 toward its second end), d metres along the track: where, and heading. At a
+  // join it takes the piece going on straightest (the main line through a crossover); it stops at a track's end or a
+  // turn of over 50° (a yard's ladder)
+  function walk(k, t, dir, d) {
+    for (let n = 0; n < 400; n++) {
+      const x1 = segs[k * 4], z1 = segs[k * 4 + 1], dx = segs[k * 4 + 2] - x1, dz = segs[k * 4 + 3] - z1, L = Math.hypot(dx, dz) || 1e-9;
+      const left = (dir > 0 ? 1 - t : t) * L;
+      if (d <= left) { t += dir * d / L; return { x: x1 + dx * t, z: z1 + dz * t, h: segH(k, dir) }; }
+      d -= left; t = dir > 0 ? 1 : 0;
+      const h = segH(k, dir), ex = x1 + dx * t, ez = z1 + dz * t;
+      let best = null, bt = 50;
+      for (const ke of ends.get(endKey(ex, ez)) || []) {
+        const k2 = ke >> 1, e = ke & 1; if (k2 === k) continue;
+        const dir2 = e === 0 ? 1 : -1, turn = near(segH(k2, dir2), h);
+        if (turn < bt) { bt = turn; best = [k2, e === 0 ? 0 : 1, dir2]; }
+      }
+      if (!best) {   // (no piece ends here: most such ends meet a track mid-piece, where a junction's node isn't one of its ends; 517 in the SF tracks)
+        const m = onTrack(ex, ez, 3, k);
+        if (m) for (const dir2 of [1, -1]) { const turn = near(segH(m.k, dir2), h); if (turn < bt) { bt = turn; best = [m.k, m.t, dir2]; } }
+        if (best && best[0] === k) best = null;
+      }
+      if (!best) return { x: ex, z: ez, h };
+      [k, t, dir] = best;
+    }
+    return null;
   }
   // the nearest track to (x, z): the point on it, and its two headings' first (°, as p.h: 0 north, 90 east)
-  function onTrack(x, z, reach = 40) {
+  function onTrack(x, z, reach = 40, skip = -1) {
     if (!segs) return null;
     let best = null, bd = reach * reach; const cx = Math.floor(x / CELL), cz = Math.floor(z / CELL);
     for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) for (const k of grid.get(`${cx + i},${cz + j}`) || []) {
+      if (k === skip) continue;
       const x1 = segs[k * 4], z1 = segs[k * 4 + 1], dx = segs[k * 4 + 2] - x1, dz = segs[k * 4 + 3] - z1, L2 = dx * dx + dz * dz || 1e-9;
       const t = Math.max(0, Math.min(1, ((x - x1) * dx + (z - z1) * dz) / L2)), px = x1 + dx * t, pz = z1 + dz * t, d = (px - x) ** 2 + (pz - z) ** 2;
-      if (d < bd) { bd = d; best = { x: px, z: pz, h: (Math.atan2(dx, -dz) / DEG + 360) % 360 }; }
+      if (d < bd) { bd = d; best = { x: px, z: pz, h: (Math.atan2(dx, -dz) / DEG + 360) % 360, k, t }; }
     }
     return best;
   }
@@ -122,20 +166,23 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
       if (!p.fix || at > p.fix.t + 5000) {
         if (p.fix) {
           const d = metres(p.fix, a), s = (at - p.fix.t) / 1000;
-          p.v = s > 5 && d / s < 50 ? d / s : 0;   // (a stand at a station is 0; a jump of over 50 m/s is no speed)
+          if (a.mph == null) p.v = s > 5 && d / s < 50 ? d / s : 0;   // (a stand at a station is 0; a jump of over 50 m/s is no speed)
           if (s > 5) p.vKnown = true;   // (her speed needs two reports, 90 s apart: till then it isn't known, v1106)
-          if (d > 30) { p.h = (Math.atan2((a.lon - p.fix.lon) * Math.cos(a.lat * DEG), a.lat - p.fix.lat) / DEG + 360) % 360; p.moved = true; }
+          if (d > 30) { p.h = (Math.atan2((a.lon - p.fix.lon) * Math.cos(a.lat * DEG), a.lat - p.fix.lat) / DEG + 360) % 360; p.moved = true; p.seenMove = true; }
         }
-        p.fix = { lon: a.lon, lat: a.lat, x: wx(a.lon), z: wz(a.lat), t: at };
+        if (p.fix && at - p.fix.t < 15 * 60e3) p.gap = at - p.fix.t;   // (her reports' gap: how far ahead to run her on)
+        p.fix = { lon: a.lon, lat: a.lat, x: wx(a.lon), z: wz(a.lat), t: at }; p.ft = undefined;
       }
+      // Amtrak gives her speed and heading (to 45°) herself: known from her first report (v1121)
+      if (a.mph != null) { p.v = a.mph / 2.237; p.vKnown = true; if (a.brg != null && a.mph > 2 && !p.seenMove) { p.h = a.brg; p.moved = true; } }
       p.a = a;
-      const tr = trips?.[a.rail]?.[a.trip]; p.run = tr ? runOf(a, tr, now) : null;
+      const tr = trips?.[a.rail]?.[a.trip]; p.run = tr ? runOf(a, tr, now) : a.destAim || a.destExp ? liveRun(a, now) : null;
       const num = p.run?.num || (/^\d{1,4}$/.test(a.trip) ? a.trip : '');   // (Caltrain's train number; SMART's, from her timetable: her trip ids are long)
       p.dest = p.run?.dest || place(a.dest); p.from = p.run?.from || place(a.from) || '';
-      p.tag.userData.draw(`${a.rail} ${num} → ${p.dest || '?'}`.replace(/\s+/g, ' '));
-      p.title = `${a.rail} ${num}`.trim();
+      p.tag.userData.draw(`${a.rail === 'Amtrak' && a.line ? a.line : a.rail} ${num} → ${p.dest || '?'}`.replace(/\s+/g, ' '));
+      p.title = `${a.rail === 'Amtrak' && a.line ? a.line : a.rail} ${num}`.trim();   // (Amtrak's by her route: "Capitol Corridor 723")
       const speed = !p.vKnown ? '' : p.v >= 1 ? `about ${Math.round(p.v * 2.237)} mph` : 'stopped';
-      p.label = p.run ? `${p.from} → ${p.dest}, ${p.run.late == null ? 'timetabled' : 'due'} ${hhmm(p.run.destT)}${p.run.late >= 2 ? ` (${Math.round(p.run.late)} min late)` : ''}${speed ? ` · ${speed}` : ''}`
+      p.label = p.run ? `${p.from} → ${p.dest}, ${p.run.late == null ? 'timetabled' : 'due'} ${p.run.destDay || ''}${hhmm(p.run.destT)}${p.run.late >= 2 ? ` (${Math.round(p.run.late)} min late)` : ''}${speed ? ` · ${speed}` : ''}`
         : `${speed ? speed[0].toUpperCase() + speed.slice(1) : 'Speed due in a minute or so'}${p.dest ? `, bound for ${p.dest}` : ''}`;
     }
     for (const p of [...trains.values()]) if (!seen.has(p.id)) drop(p);
@@ -151,12 +198,25 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
     try { if (got) data(got); } catch (e) { console.error('[live] couldn\'t take in the answer', e); }   // (ours, loudly: v1104 lost all but one plane a poll to a quiet one)
     if (on) timer = setTimeout(poll, every);
   }
+  // her last report on her track: the piece, where along it, and which way she's going on it
+  function fixOnTrack(p) {
+    const tr = onTrack(p.fix.x, p.fix.z); if (!tr) return null;
+    const ref = p.moved ? p.h : p.a.dir === 'S' ? 180 : p.a.dir === 'N' ? 0 : p.h;
+    return { k: tr.k, t: tr.t, dir: near(segH(tr.k, 1), ref) <= near(segH(tr.k, -1), ref) ? 1 : -1 };
+  }
   function update(dt, camera) {
     if (!trains.size) return;
     const now = Date.now(), cp = camera.position;
     for (const p of trains.values()) {
-      const s = p.v * Math.min(Math.max((now - p.fix.t) / 1000, 0), 60);
-      const tx = p.fix.x + Math.sin(p.h * DEG) * s, tz = p.fix.z - Math.cos(p.h * DEG) * s;
+      // (v1121, asked: "you can achieve some optimizations by knowing that trains run on tracks") between reports she runs
+      // on along her own track at her speed, round its curves, for up to 1.5 of her reports' gap (Amtrak's are ~5 min
+      // apart: she'd sat still four of them, then jumped); no further than her next stop's expected time takes her
+      const el = Math.max((now - p.fix.t) / 1000, 0), lim = Math.max(60, Math.min(480, 1.5 * (p.gap || (p.a.rail === 'Amtrak' ? 300e3 : 90e3)) / 1000));
+      let s = p.v * Math.min(el, lim), tx = null, tz = null; p.wh = null;
+      if (p.a.nextExp && !p.a.atStop && p.a.nextExp > p.fix.t) s = Math.min(s, p.v * (p.a.nextExp - p.fix.t) / 1000);
+      if (p.ft === undefined) p.ft = fixOnTrack(p);
+      if (p.ft && s > 0.5) { const w = walk(p.ft.k, p.ft.t, p.ft.dir, s); if (w) { tx = w.x; tz = w.z; p.wh = w.h; } }
+      if (tx == null) { const s1 = Math.min(s, p.v * 60); tx = p.fix.x + Math.sin(p.h * DEG) * s1; tz = p.fix.z - Math.cos(p.h * DEG) * s1; }
       const k = p.placed ? Math.min(1, dt * 0.8) : 1; p.placed = true;
       p.x += (tx - p.x) * k; p.z += (tz - p.z) * k;
       // on her track, along it: the way she's going if she's been seen to move, or else her direction's way (a
@@ -164,7 +224,7 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
       const tr = onTrack(p.x, p.z);
       let dh = p.h;
       if (tr) {
-        const ref = p.moved ? p.h : p.a.dir === 'S' ? 180 : p.a.dir === 'N' ? 0 : p.h, alt = (tr.h + 180) % 360;
+        const ref = p.wh ?? (p.moved ? p.h : p.a.dir === 'S' ? 180 : p.a.dir === 'N' ? 0 : p.h), alt = (tr.h + 180) % 360;
         dh = near(tr.h, ref) <= near(alt, ref) ? tr.h : alt; p.x = tr.x; p.z = tr.z;
         if (!p.moved) p.h = dh;   // (and her heading's this till she's seen to move: her card's and her map's too)
       }

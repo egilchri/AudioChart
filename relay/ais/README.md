@@ -58,6 +58,8 @@ the box and caches the answer for 5 s. `dev.mjs` serves it too, with real aircra
 Open Data key (free, https://511.org/open-data/token). Set it in a real terminal, since wrangler prompts for it:
 `npx wrangler secret put FIVE11_KEY` (run from a non-interactive shell it silently stores an empty key). 511 allows
 60 requests an hour, so one Durable Object (`trains`) keeps each railroad's answer for its `ttl`.
+Amtrak's trains (v1121) come with them, from Amtraker (`https://api-v3.amtraker.com/v3/trains`, no key, asked every
+2 min; core.mjs `trimAmtrak`), in the same shape plus `mph`.
 
 ## Developing
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-09 — Bird's-eye: Amtrak's trains, and every train runs on along her track between reports (v1121)
+
+- Asked from a seat on one: "Can we capture amtrak within our region?" **Amtrak's trains** (the Capitol Corridor, San Joaquins, Coast Starlight and California Zephyr here; the Downeaster in Maine) from Amtraker (amtraker.com, Amtrak's Track Your Train made readable; no key), through the relay (relay/ais core.mjs trimAmtrak; needs a relay deploy). Each with her route and number ("Capitol Corridor 723"), origin, next stop, destination, and Amtrak's own scheduled and expected times; a long run's ETA shows its day ("Mon 11:51"). Her speed and heading come with her first report. Plain cars for now; her own model is next.
+- Asked: "can you achieve some optimizations by knowing that trains run on tracks?" **Between reports a train runs on along her own track** at her speed, round its curves and through its junctions (the straightest way on), for up to 1.5× her reports' gap, and no further than her next stop's expected time takes her (www/js/trains3d.js). Before, she ran straight ahead for 60 s and then waited: Amtrak's reports are ~5 min apart. 517 of the SF tracks' loose ends meet another track mid-piece (a junction's node isn't one of its ends): the walk steps onto the nearest track within 3 m there.
+- Checked through a local stand-in relay: San Joaquins 710 ran ~340 m every 10 s at 78 mph, Capitol Corridor 727 ~180 m at 41 mph, all on their tracks.
+
 ## 2026-11-06 — Bird's-eye: down Caltrain's line to San Jose, with her towns (v1120)
 
 - Reported over Caltrain 102 at California Avenue, Palo Alto (plain ground, no buildings): "Can we get some more detail of the landscape?" **The SF region runs south to San Jose Diridon and Tamien** (www/js/regions3d.js: overview to 37.22°N and -121.8°, detail tiles to 37.28°N); the whole-bay photo is now six pieces.

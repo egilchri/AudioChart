@@ -145,6 +145,10 @@ export const RAIL = [
   { id: 'CT', name: 'Caltrain', ttl: 90 },
   { id: 'SA', name: 'SMART', ttl: 300 },
   { id: 'CE', name: 'ACE', ttl: 600 },
+  // (v1121, asked from a seat on one: Amtrak, every train in the country (the Capitol Corridor, San Joaquins, Coast
+  // Starlight and Zephyr here; the Downeaster in Maine), from Amtraker (amtraker.com, Amtrak's own Track Your Train
+  // made readable; no key, and not 511's quota). Amtrak updates a train about every 5 min; asked every 2)
+  { id: 'AM', name: 'Amtrak', ttl: 120, url: () => 'https://api-v3.amtraker.com/v3/trains', trim: (text, rail, now) => trimAmtrak(text, rail, now) },
 ];
 export const TRAIN_CREDIT = 'Trains from 511.org';
 export const railUpstream = (id, key) => `https://api.511.org/transit/VehicleMonitoring?api_key=${encodeURIComponent(key)}&agency=${id}&format=json`;
@@ -153,6 +157,24 @@ function callsOf(m) {   // her next stop (MonitoredCall) and her last (OnwardCal
   const one = v => Array.isArray(v) ? v[0] : v, mc = m.MonitoredCall || {}, oc = m.OnwardCalls?.OnwardCall, onward = Array.isArray(oc) ? oc : oc ? [oc] : [], last = onward[onward.length - 1] || {};
   return { next: clean(one(mc.StopPointName) || ''), nextAim: ms(mc.AimedArrivalTime || mc.AimedDepartureTime), nextExp: ms(mc.ExpectedArrivalTime || mc.ExpectedDepartureTime), atStop: mc.VehicleAtStop === true || mc.VehicleAtStop === 'true',
     destAim: ms(last.AimedArrivalTime || m.DestinationAimedArrivalTime), destExp: ms(last.ExpectedArrivalTime), fromAim: ms(m.OriginAimedDepartureTime) };
+}
+// Amtraker's answer to the trains in it, in the shape 511's are (trimTrains), with her speed (mph) as Amtrak gives it
+const HEADING = { N: 0, NE: 45, E: 90, SE: 135, S: 180, SW: 225, W: 270, NW: 315 };
+export function trimAmtrak(text, rail, now = Date.now()) {
+  let j; try { j = JSON.parse(text); } catch (_) { return []; }
+  const out = [];
+  for (const t of Object.values(j || {}).flat()) {
+    const lat = Number(t?.lat), lon = Number(t?.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || t.trainState === 'Completed') continue;
+    const S = t.stations || [], nx = S.find(s => s.status !== 'Departed') || S[S.length - 1] || {}, last = S[S.length - 1] || {}, first = S[0] || {};
+    const at = Date.parse(t.lastValTS || t.updatedAt || ''), mph = Number(t.velocity);
+    out.push({ id: `${rail.id}:${t.trainID || t.trainNum}`, rail: rail.name, line: clean(t.routeName || ''), trip: String(t.trainNum || ''),
+      dest: clean(t.destName || ''), dir: t.heading || '', lat: +lat.toFixed(5), lon: +lon.toFixed(5), brg: HEADING[t.heading] ?? null,
+      at: Number.isFinite(at) ? Math.min(at, now) : now, mph: Number.isFinite(mph) ? +mph.toFixed(1) : null,
+      from: clean(t.origName || ''), next: clean(nx.name || ''), nextAim: ms(nx.schArr || nx.schDep), nextExp: ms(nx.arr || nx.dep),
+      atStop: nx.status === 'Station' || t.trainState === 'Predeparture', destAim: ms(last.schArr), destExp: ms(last.arr), fromAim: ms(first.schDep) });
+  }
+  return out;
 }
 // SIRI's answer (with a byte-order mark first) to the trains in it
 export function trimTrains(text, rail, now = Date.now()) {

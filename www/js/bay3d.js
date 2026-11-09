@@ -1955,7 +1955,7 @@ function vEta(v) {
     return { t: hhmm(now + left / (v.F.knots * NMm / 60)), sub: st.next };
   }
   if (v.kind === 'cruise' && st?.moving && st.dir > 0) return { t: hhmm(now + (v.T.L - st.f) / (v.V.knots * NMm / 60)), sub: v.call.port };
-  if (v.kind === 'rail' && v.run) return { t: v.run.hhmm(v.run.destT), sub: v.run.late == null ? `${v.run.dest}?` : v.run.dest };   // (? : the timetable's time, her lateness unknown)   // (v1117: due at the end of her run)
+  if (v.kind === 'rail' && v.run) return { t: (v.run.destDay || '') + v.run.hhmm(v.run.destT), sub: v.run.late == null ? `${v.run.dest}?` : v.run.dest };   // (? : the timetable's time, her lateness unknown)   // (v1117: due at the end of her run)
   if (v === own && own.r && boatClock && own.S < own.total) return { t: hhmm(Math.min(1439, now + passageMin(own.total) - passageMin(own.S))), sub: 'arrives' };
   return null;
 }
@@ -2292,12 +2292,12 @@ function fillMoverCard() {
     row('Squawk', a.squawk);
   } else {
     const R = v.run;
-    row('Railroad', a.rail); row('Train', R?.num || (/^\d{1,4}$/.test(a.trip) ? a.trip : ''));
+    row('Railroad', a.rail === 'Amtrak' && a.line ? `Amtrak, ${a.line}` : a.rail); row('Train', R?.num || (/^\d{1,4}$/.test(a.trip) ? a.trip : ''));
     if (R) {   // (v1117: her run, from the timetable; ETAs with how late she's running)
-      row('From', `${R.from} (timetabled ${R.hhmm(R.fromT)})`);
+      row('From', R.fromT == null ? R.from : `${R.from} (timetabled ${R.hhmm(R.fromT)})`);
       row('Bound for', R.dest);
       if (R.next !== R.dest) row('Next stop', `${R.next}, due ${R.hhmm(R.nextT)}`);
-      row('ETA', `${R.hhmm(R.destT)} at ${R.dest}${R.destT - R.sched >= 1 ? ` (timetable ${R.hhmm(R.sched)})` : ''}`);
+      row('ETA', `${R.destDay || ''}${R.hhmm(R.destT)} at ${R.dest}${R.destT - R.sched >= 1 ? ` (timetable ${R.hhmm(R.sched)})` : ''}`);
       row('Running', R.late == null ? 'Can\'t tell: she\'s far off the timetable, which may be out of date' : R.late >= 2 ? `About ${Math.round(R.late)} min late${R.live ? '' : ' (from where she is)'}` : 'On time');
     } else { row('From', v.from); row('Bound for', v.dest); }
     row('Speed', !v.vKnown ? 'Not yet known: it takes two reports, a minute and a half apart' : v.v >= 1 ? `About ${Math.round(v.v * 2.237)} mph (from her last two reports)` : 'Stopped');
