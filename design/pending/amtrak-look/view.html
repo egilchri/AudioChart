@@ -1,0 +1,50 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Amtrak look</title>
+<style>html,body{margin:0;background:#9dc4e8}canvas{display:block}</style>
+<script type="importmap">{ "imports": { "three": "/www/js/lib/three/three.module.min.js" } }</script>
+</head><body>
+<script type="module">
+// The train alone, from a fixed angle (?view=side|front|three|aerial|full), for comparing with photos of the real one.
+import * as THREE from 'three';
+const { makeCapitol } = await import('/www/js/amtrak3d.js?' + Date.now());
+const P = new URLSearchParams(location.search), model = P.get('model') || 'train';
+const view = new URLSearchParams(location.search).get('view') || 'three';
+const W = 1600, H = view === 'side' || view === 'full' ? 560 : 1000;
+const r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); r.setSize(W, H); r.setClearColor(0x9dc4e8); r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 0.55;   // (as the app: bay3d.js)
+document.body.appendChild(r.domElement);
+const scene = new THREE.Scene();
+scene.add(new THREE.HemisphereLight(0xe4ecf2, 0x4a5644, 1.7));   // (the app's own lights: bay3d.js)
+const sun = new THREE.DirectionalLight(0xfff3e0, 2.1); sun.position.set(-40, 80, -30); scene.add(sun);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(2000, 2000), new THREE.MeshLambertMaterial({ color: 0x8a8378 })); ground.rotation.x = -Math.PI / 2; scene.add(ground);
+for (const x of [-0.72, 0.72]) { const rail = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.15, 400), new THREE.MeshLambertMaterial({ color: 0x5a5550 })); rail.position.set(x, 0.07, 0); scene.add(rail); }
+let cam;
+if (model === 'plane') {   // ?model=plane&type=B738&flight=UAL1&view=side|top|front|three|below&gear=1&bg=white
+  const a = makeAirliner(P.get('type') || 'B738', P.get('flight') || '', { gear: P.get('gear') === '1' });
+  const L = a.L, h = 12; a.group.position.y = h; scene.add(a.group);
+  if (P.get('bg') === 'white') { r.setClearColor(0xffffff); ground.visible = false; }
+  const span = L * 1.2, ortho = (w) => { const hh = w * H / W; return new THREE.OrthographicCamera(-w / 2, w / 2, hh / 2, -hh / 2, 1, 500); };
+  if (view === 'side') { cam = ortho(span); cam.position.set(-150, h, 0); cam.lookAt(0, h, 0); }   // her left side, nose to the left
+  if (view === 'top') { cam = ortho(span); cam.position.set(0, h + 150, 0); cam.up.set(1, 0, 0); cam.lookAt(0, h, 0); }   // from above, nose to the left
+  if (view === 'front') { cam = ortho(span); cam.position.set(0, h, -150); cam.lookAt(0, h, 0); }
+  if (view === 'three') { cam = new THREE.PerspectiveCamera(40, W / H, 0.5, 3000); cam.position.set(-L * 0.9, h + L * 0.25, -L * 0.75); cam.lookAt(0, h, 0); }
+  if (view === 'photo') { cam = new THREE.PerspectiveCamera(22, W / H, 0.5, 3000); cam.position.set(-L * 2.6, h - L * 0.12, -L * 0.25); cam.lookAt(0, h, 0); a.group.rotation.x = 3 * Math.PI / 180; a.group.rotation.order = 'YXZ'; }
+  if (view === 'below') { cam = new THREE.PerspectiveCamera(40, W / H, 0.5, 3000); cam.position.set(-L * 0.6, h - L * 0.45, -L * 0.6); cam.lookAt(0, h, 0); }
+  r.render(scene, cam); window.__done = true;
+} else {
+const t = makeCapitol({ cars: +(P.get('cars') || 4), locoFront: P.get('lead') !== 'cab' }); scene.add(t.group);
+const L = t.length, f = -L / 2;
+if (view === 'side' || view === 'full') {   // a true side view, as the line-scan photo: her left side, nose to the left
+  const span = view === 'side' ? 56 : L + 6, h = span * H / W, x0 = view === 'side' ? f - 1 + span / 2 : 0;
+  cam = new THREE.OrthographicCamera(-span / 2, span / 2, h / 2, -h / 2, 1, 200); cam.position.set(-60, 2.6, x0); cam.lookAt(0, 2.6, x0);
+} else {
+  cam = new THREE.PerspectiveCamera(view === 'front' ? 38 : 40, W / H, 0.5, 3000);
+  if (view === 'front') { cam.position.set(-0.9, 1.9, f - 15); cam.lookAt(0, 2.4, f + 4); }
+  if (view === 'three') { cam.position.set(-14, 4, f - 18); cam.lookAt(0, 2.4, f + 12); }
+  if (view === 'cab') { const [cx, cy, cz] = t.cab; cam.position.set(cx, cy, cz); cam.lookAt(cx, cy - 0.3, cz - 50); }
+  if (view === 'aerial') { cam.position.set(-70, 110, f - 40); cam.lookAt(0, 0, f + 60); }
+  if (view === 'photo') { cam.position.set(-16, 2.2, f - 9); cam.lookAt(0, 2.3, f + 14); }   // (as 108 in the Windsor yard)
+  if (view === 'head') { cam.position.set(-2.2, 2.0, f - 9); cam.lookAt(0, 2.4, f); }       // (as 114 at Petaluma)
+}
+r.render(scene, cam); window.__done = true;
+}
+</script></body></html>

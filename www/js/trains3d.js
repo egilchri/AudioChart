@@ -8,6 +8,7 @@ import { relayUrl } from './ais.js';
 import { labelSprite } from './aircraft3d.js';
 import { makeCaltrain } from './caltrain3d.js';
 import { makeSmart } from './smart3d.js';
+import { makeCapitol } from './amtrak3d.js';
 import { minOfDay, bayDay } from './regiontime.js';
 
 export const TRAIN_CREDIT = 'Trains from 511.org and Amtrak (via Amtraker)';
@@ -149,7 +150,9 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
       if (!p) {
         // Caltrain: her Stadler KISS, modelled from photos (caltrain3d.js, v1107); SMART her Nippon Sharyo DMU (smart3d.js,
         // v1118: two cars, as most of her runs; 511 doesn't say); ACE, simple cars for now
-        const look = LOOK[a.rail] || LOOK.Caltrain, kiss = a.rail === 'Caltrain' ? makeCaltrain() : a.rail === 'SMART' ? makeSmart() : null;
+        // Amtrak (v1122): the Charger and California Cars (amtrak3d.js); her Charger at her Sacramento end, as the Capitol
+        // Corridor's run, leading toward it and pushing away (the long-distance trains this too, for now)
+        const look = LOOK[a.rail] || LOOK.Caltrain, kiss = a.rail === 'Caltrain' ? makeCaltrain() : a.rail === 'SMART' ? makeSmart() : a.rail === 'Amtrak' ? makeCapitol({ cars: 4, locoFront: /sacramento|auburn/i.test(a.dest || '') }) : null;
         const g = new THREE.Group(), model = kiss ? kiss.group : trainModel(look), label = labelSprite();
         g.add(model, label); scene.add(g);
         const L = kiss ? kiss.length : look.cars * look.len + (look.cars - 1) * 1.2;

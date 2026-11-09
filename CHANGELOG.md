@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-09 — Bird's-eye: Amtrak's Capitol Corridor trains as they are (v1122)
+
+- Requested: "recursively improve the look of an Amtrak train". **A Siemens Charger SC-44 and four California Car bilevels** (www/js/amtrak3d.js), from Commons photos (Charger 2123 with a Capitol Corridor train; CDTX 2108 at San Jose Diridon; train 528 and cab car 8301 at Berkeley, January 2026). Two rounds in design/pending/amtrak-look (view.html, shoot.mjs; LEAD=cab for the cab car leading):
+  - **The Charger**: Caltrans' royal blue cab end with its gold crescent sweeping back into the silver body, a blue swoosh at her back, the white line over the dark skirt; her raked windscreen nearly her width under the white visor, which comes down its pillars (round 1: a narrow screen, the visor only on top); a slim destination sign, headlights and marker lamps, the C+T badge; louvres, the X-braced panel and "Caltrans" on her side.
+  - **The cars**: fluted stainless, the upper windows in a black band, the lower in a navy band under an orange stripe, orange diagonals either side of the middle doors; the cab car's flat end with its door in a black frame, chevrons, lamps and horns.
+  - The liveries' curves are painted on canvas and laid on plain bodies: a few textures, each material's boxes merged.
+- **Her Charger at her Sacramento end**: leading toward Sacramento (or Auburn), pushing away from it, the cab car leading. The long-distance trains (Coast Starlight, Zephyr) get this set too for now; their Superliners are next.
+
 ## 2026-11-09 — Bird's-eye: Amtrak's trains, and every train runs on along her track between reports (v1121)
 
 - Asked from a seat on one: "Can we capture amtrak within our region?" **Amtrak's trains** (the Capitol Corridor, San Joaquins, Coast Starlight and California Zephyr here; the Downeaster in Maine) from Amtraker (amtraker.com, Amtrak's Track Your Train made readable; no key), through the relay (relay/ais core.mjs trimAmtrak; needs a relay deploy). Each with her route and number ("Capitol Corridor 723"), origin, next stop, destination, and Amtrak's own scheduled and expected times; a long run's ETA shows its day ("Mon 11:51"). Her speed and heading come with her first report. Plain cars for now; her own model is next.
