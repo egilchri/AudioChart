@@ -8,7 +8,7 @@ await c.cmd('Page.navigate', { url: 'http://127.0.0.1:8793/bay3d.html?region=sf-
 for (let i = 0; i < 120; i++) { await sleep(1000); if (await c.ev(`!!window.__bay3d?.camera`) === true) break; }
 await sleep(60000);
 await c.ev(`__bay3d.goWhole()`); await sleep(8000); await c.shot(`${tag}_whole.png`);
-for (const [n, v] of [['sj', { lat: 37.33, lon: -121.9, dist: 9000, az: 0, tilt: 50 }]]) {
+for (const [n, v] of JSON.parse(process.env.VIEWS || '[]')) {
   await c.ev(`__bay3d.setView(${JSON.stringify(v)})`); await sleep(5000);
   for (let w = 0; w < 120 && await c.ev(`__bay3d.tiles.some(T=>T.state==='loading'||(T.state==='ready'&&T.photo==='pending'))`); w++) await sleep(1000);
   await sleep(2000); await c.shot(`${tag}_${n}.png`);

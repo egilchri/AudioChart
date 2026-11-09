@@ -32,6 +32,7 @@ import * as Voice from './piper_voice.js';
 import { makeOverview } from './overview2d.js';
 import { makeAircraft, ADSB_CREDIT } from './aircraft3d.js';
 import { makeTrains, TRAIN_CREDIT } from './trains3d.js';
+import { makeTracks } from './track3d.js';
 import { makeAirport } from './airport3d.js';
 import { makeAisFeed, aisStatus, aisName, aisDest, setKnown, knownFor, aisFlag, aisRot, aisPos, aisAgo, aisLookup, aisImo, aisCallsign, AIS_CREDIT } from './ais.js';
 
@@ -443,6 +444,7 @@ async function loadTile(T) {
     if (interim) { addCanopy(dem, ovPh, () => 0, BROADLEAF); T.spots = treeSpots(T, dem); treesDirty = true; }
     Object.assign(T, { dem, mat: mat0, img: null, photo: 'pending', full: gridMesh(dem, rect, 1, mat0, yOf, uvT), coarse: gridMesh(dem, rect, 4, mat0, yOf, uvT) });
     T.full.visible = false; scene.add(T.full, T.coarse); sinkOverview(T, true); T.state = 'ready';
+    tracks?.reheight(T.w, T.s, T.e, T.n);   // (the tracks' heights, on the detail ground: v1125)
     photoP.then(ph => {
       if (T.state !== 'ready' || T.gen !== gen) { ph.img.close?.(); return; }
       addCanopy(dem, ph, () => 0, BROADLEAF);   // forest mask only: the 3D trees give the forest its height here
@@ -626,6 +628,7 @@ function dropTile(T) {
   T.img?.close?.(); sinkOverview(T, false);
   if (T.spots) { T.spots = null; treesDirty = true; }
   Object.assign(T, { state: 'idle', full: null, coarse: null, dem: null, mat: null, img: null, photo: null });
+  tracks?.reheight(T.w, T.s, T.e, T.n);   // (back on the whole bay's ground)
 }
 // ── 3D trees: one spruce per forested 10 m cell of a detail tile (from the photo, as in the
 // helm view), on the bare-earth ground. Rebuilt as the view moves: every tree near the camera,
@@ -633,7 +636,7 @@ function dropTile(T) {
 // tiered spruce up close and a plain cone beyond. ~60k trees at most.
 const SP = 10;   // floats per tree: x, y, z, height, radius, turn, r, g, b, chance
 // (v1118, a SMART train hidden in trees standing on her line: none within 9 m of a railway track, once the tracks are in)
-let trackNear = null;
+let trackNear = null, tracks = null;   // (tracks: the railway drawn, v1125, track3d.js)
 function treeSpots(T, dem) {
   let seed = Math.round((T.w + 200) * 1e4 + T.s * 1e3); const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   const out = [];
@@ -2131,6 +2134,8 @@ window.__aircraft = () => air.list(camera, renderer.domElement.getBoundingClient
 const rail = makeTrains({ scene, bbox: OVERVIEW, wx, wz, heightAt, onCount: () => syncLiveBtn(), focus: moverFocus, onDrop: moverGone });
 if (REG.rail) getJSON(`./data/rail/${REG.rail}.json`).then(d => {
   rail.setTracks(d.lines); trackNear = rail.nearTrack;
+  // (v1125, requested: "I'd like to show the tracks"): drawn, bridges and all; the trains ride on their heights
+  if (!EMPTY) { tracks = makeTracks({ scene, lines: d.lines, bridge: d.bridge, tunnel: d.tunnel, wx, wz, heightAt }); rail.setTrackY(tracks.yAt); }
   for (const T of tiles) if (T.state === 'ready' && T.dem?.canopy) { T.spots = treeSpots(T, T.dem); treesDirty = true; }   // (tiles in before the tracks)
 }).catch(err => console.warn('[bay3d] rail tracks', err));
 if (REG.rail) getJSON(`./data/rail/${REG.rail}-trips.json`).then(d => rail.setTrips(d)).catch(err => console.warn('[bay3d] rail timetables', err));   // (v1117: each train's origin, destination and ETA)   // (v1116: each train on her track)
@@ -3703,7 +3708,7 @@ function frame(now) {
   fly?.step(performance.now(), dt);
   if (!nest.on) { clampView(); placeCamera(); }
   fly?.place(dt);   // the tour's helicopter, in front of the camera (v1048)
-  if (t - lastCheck > 0.4) { lastCheck = t; updateTiles(); updateTowns(); updateMarks(); updateHazards(); }
+  if (t - lastCheck > 0.4) { lastCheck = t; updateTiles(); updateTowns(); updateMarks(); updateHazards(); tracks?.update(view.x, view.z, view.dist); }
   // the wrecks blink (v932, requested): a bright orange glow, on for 0.6 s in every 1.2 s
   if (hazards.meshes.wreck) hazards.meshes.wreck.m.material.emissive.setHex(t % 1.2 < 0.6 ? 0xff6a1a : 0x000000);
   if (!drag && !anim) updateTrees(); else if (t - (TREES.lastMove || 0) > 0.25) { TREES.lastMove = t; updateTrees(); }
@@ -3785,6 +3790,7 @@ window.__bay3d = {   // for AudioChart (returning to the chart where you were) a
   setView: v => { anim = null; Object.assign(view, { x: wx(v.lon), z: wz(v.lat), dist: v.dist ?? view.dist, az: (v.az ?? view.az / DEG) * DEG, tilt: (v.tilt ?? view.tilt / DEG) * DEG }); clampView(); placeCamera(); },
   goTown: id => { const tw = townList.find(x => x.id === id); if (tw) goTown(tw); return !!tw; },
   air, rail,   // (the live aircraft and trains: for the live-tour recording, v1103)
+  tracks: () => tracks,   // (for testing, v1125)
   trainCard: id => { const v = rail.items().find(p => p.id === id); if (v) showCard(v); return !!v; },   // (for testing, v1120)
   goWhole, towns: townList, tiles, scene, env, traffic, clockMin, setClock, camera, applyConditions, fleet, own, bowdoin, nest, setNest, ride, leaveRide, lookoutReport, findBerth, pierSegs, ferryStops, moorings, isWaterXZ: (x, z) => isWater(x, z), isWater: (lat, lon) => isWater(wx(lon), wz(lat)), boatAt: i => ({ lat: latOf(fleet[i].z), lon: lonOf(fleet[i].x), h: fleet[i].h }), renderer, trees: () => ({ near: TREES.near.count, far: TREES.far.count, K: TREES.K }),
 };

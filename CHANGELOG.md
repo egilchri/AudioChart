@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-11-09 — Bird's-eye: the tracks drawn, and trains ride them smoothly (v1125)
+
+- Requested: "I'd like to show the tracks. And since they are permanent, maybe the train path will appear smoother". **The tracks** (new www/js/track3d.js `makeTracks`), from the OSM lines in www/data/rail/:
+  - A ballast bed with ties painted on it and two rails, close up (under 1.5 km); a thin line from further out; beds out to a few km around the view, built per detail tile.
+  - The heights come from the ground under the track, smoothed along it: the upper envelope, then a moving average, so a cutting or a cell of bad terrain doesn't put a dip in the line. Where lines meet, the ends agree.
+  - **Bridges and tunnels** (design/rail/build_rail.py now keeps OSM's bridge and tunnel tags): a bridge's deck runs straight across between its ends, at least 3 m up, on piers wherever it stands over the ground or water; a tunnel isn't drawn and its train runs between the portals.
+  - Heights are rebuilt as each detail tile arrives or drops.
+- **Smoother trains** (www/js/trains3d.js): a train's height and pitch come from the track (`yAt`), not the terrain under her, so she no longer bobs over rough cells or sinks into embankments. When a new report lands ahead of or behind where she's been shown, the difference is eased out along the track over ~8 s, not covered in a straight-line sprint.
+- Checked with smoothness runs (design/pending/smart-look/smooth.mjs) and views of the Benicia–Martinez bridge and the Carquinez shore.
+
 ## 2026-11-09 — Bird's-eye: the Coast Starlight and the Zephyr on their Superliners (v1124)
 
 - Requested: "now do the Superliners for the Coast Starlight, if they are in the region". She is (Martinez, Richmond, Emeryville, Oakland, San Jose), and the California Zephyr leaves from Emeryville. **The long-distance trains** (www/js/amtrak3d.js `makeAmtrak({ kind: 'long' })`), from Commons photos (ALC-42 316 at Klamath Falls; 322 with the northbound Coast Starlight at Oakland, May 2023; baggage car 61009 and transition sleeper 31000 at Oakland, October 2021):

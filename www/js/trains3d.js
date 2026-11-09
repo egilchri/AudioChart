@@ -79,6 +79,7 @@ const metres = (a, b) => Math.hypot((b.lon - a.lon) * 111320 * Math.cos(a.lat * 
 // Each train is also a 'vessel' to Bird's-eye's card, Follow and ride views (v1104): kind 'rail', as the aircraft's
 // (aircraft3d.js), her cab at the front of her first car.
 export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCount, focus = () => false, onDrop = () => {} }) {
+  let trackY = null;   // (the drawn tracks' heights: track3d.js, v1125)
   const trains = new Map();   // id -> { a, g, model, label, fix, prev, v (m/s), h, x, z }
   let on = false, timer = null, inflight = null, hover = null;
   const pinned = new Set(), _v = new THREE.Vector3();
@@ -220,10 +221,25 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
       const el = Math.max((now - p.fix.t) / 1000, 0), lim = Math.max(60, Math.min(480, 1.5 * (p.gap || (p.a.rail === 'Amtrak' ? 300e3 : 90e3)) / 1000));
       let s = p.v * Math.min(el, lim), tx = null, tz = null; p.wh = null;
       if (p.a.nextExp && !p.a.atStop && p.a.nextExp > p.fix.t) s = Math.min(s, p.v * (p.a.nextExp - p.fix.t) / 1000);
-      if (p.ft === undefined) p.ft = fixOnTrack(p);
-      if (p.ft && s > 0.5) { const w = walk(p.ft.k, p.ft.t, p.ft.dir, s); if (w) { tx = w.x; tz = w.z; p.wh = w.h; } }
+      if (p.ft === undefined) {
+        p.ft = fixOnTrack(p);
+        // (v1125) a new report, and she's shown some way behind or ahead of where it puts her: how far, along her track,
+        // closed over some seconds as she runs (before, she sprinted to it in a straight line, off her rails: an
+        // Amtrak's report comes ~5 min late, her place then 300 m off)
+        if (p.ft && p.placed) {
+          const h = segH(p.ft.k, p.ft.dir) * DEG, along = (p.x - p.fix.x) * Math.sin(h) - (p.z - p.fix.z) * Math.cos(h);
+          p.off = Math.abs(along - s) < 3000 && Math.hypot(p.x - p.fix.x, p.z - p.fix.z) < 3500 ? along - s : 0;
+        } else p.off = 0;
+      }
+      let walked = false;
+      if (p.ft) {
+        p.off = (p.off || 0) * Math.exp(-dt / 8);   // (the gap closing: half of it in ~5.5 s)
+        const sd = s + p.off, w = Math.abs(sd) < 0.5 ? { x: segs[p.ft.k * 4] + (segs[p.ft.k * 4 + 2] - segs[p.ft.k * 4]) * p.ft.t, z: segs[p.ft.k * 4 + 1] + (segs[p.ft.k * 4 + 3] - segs[p.ft.k * 4 + 1]) * p.ft.t, h: segH(p.ft.k, p.ft.dir) }
+          : sd > 0 ? walk(p.ft.k, p.ft.t, p.ft.dir, sd) : walk(p.ft.k, p.ft.t, -p.ft.dir, -sd);
+        if (w) { tx = w.x; tz = w.z; p.wh = sd >= 0 ? w.h : (w.h + 180) % 360; walked = true; }
+      }
       if (tx == null) { const s1 = Math.min(s, p.v * 60); tx = p.fix.x + Math.sin(p.h * DEG) * s1; tz = p.fix.z - Math.cos(p.h * DEG) * s1; }
-      const k = p.placed ? Math.min(1, dt * 0.8) : 1; p.placed = true;
+      const k = p.placed && !walked ? Math.min(1, dt * 0.8) : 1; p.placed = true;   // (on her track, she's where her walk puts her)
       p.x += (tx - p.x) * k; p.z += (tz - p.z) * k;
       // on her track, along it: the way she's going if she's been seen to move, or else her direction's way (a
       // southbound train the end of it nearer south). Off any track (none within 40 m), as before
@@ -240,8 +256,13 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
       // sank into the rise ahead of her, and showed in two pieces): the ground under her front and back too, she sits
       // at the higher of her middle and her ends' mean, tilted to their slope (no more than a railway's 2°)
       const hl = (p.len || 160) / 2 * (p.model.scale.z || 1), fx = Math.sin(p.dh * DEG) * hl, fz = -Math.cos(p.dh * DEG) * hl;
-      const gAt = (x, z) => Math.max(0, heightAt(p.fix.lon + (x - p.fix.x) / (111320 * Math.cos(p.fix.lat * DEG)), p.fix.lat - (z - p.fix.z) / 111120) || 0);
-      const hF = gAt(p.x + fx, p.z + fz), hB = gAt(p.x - fx, p.z - fz), hC = Math.max(0, heightAt(lon, lat) || 0);
+      // (v1125: on her track's own heights, smoothed as a railway's grades, bridges' decks and all, not the ground's
+      // bumps; the ground where there's no track)
+      // (her ends, straight out from her middle, stand off the curve of a long train's track: looked for further, and
+      // where none, her middle's height, not the ground's bumps: a 126 m Amtrak jumped 3.6 m at a time)
+      const tC = trackY?.(p.x, p.z), hC = tC ?? Math.max(0, heightAt(lon, lat) || 0);
+      const gAt = (x, z) => tC != null ? (trackY(x, z, 35) ?? tC) : Math.max(0, heightAt(p.fix.lon + (x - p.fix.x) / (111320 * Math.cos(p.fix.lat * DEG)), p.fix.lat - (z - p.fix.z) / 111120) || 0);
+      const hF = gAt(p.x + fx, p.z + fz), hB = gAt(p.x - fx, p.z - fz);
       p.y = Math.max(hC, (hF + hB) / 2); p.g.position.set(p.x, p.y, p.z);
       p.model.rotation.order = 'YXZ'; p.model.rotation.set(Math.max(-0.035, Math.min(0.035, Math.atan2(hF - hB, 2 * hl))), -p.dh * DEG, 0);
       // her real size near; farther off, big enough to see (v1105, reported: "It's hard to see trains"): about 4 px
@@ -254,7 +275,7 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
   return {
     start() { if (on) return; on = true; poll(); },
     stop() { on = false; clearTimeout(timer); inflight?.abort(); for (const p of [...trains.values()]) drop(p); onCount?.(0); },
-    update, setTracks, nearTrack: (x, z, r) => !!onTrack(x, z, r), setTrips: d => { trips = d; },
+    update, setTracks, setTrackY: f => { trackY = f; }, nearTrack: (x, z, r) => !!onTrack(x, z, r), setTrips: d => { trips = d; },
     // the train under a point on the screen (client px), within reach px of her middle: for hover and tap
     at(cx, cy, camera, rect, reach = 22) {
       let best = null, bd = reach;

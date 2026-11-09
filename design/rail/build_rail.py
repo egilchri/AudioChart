@@ -2,7 +2,8 @@
 #   python3 build_rail.py osm.json <id>
 # osm.json: Overpass `way["railway"="rail"](s,w,n,e); out geom tags;` (send a User-Agent). Kept: the main lines,
 # branches, and their sidings, crossovers and yards (the platform tracks at 4th & King are main); left out:
-# industrial, military and tourist lines and spurs. Simplified to ~2 m, coordinates to ~0.1 m.
+# industrial, military and tourist lines and spurs. Simplified to ~2 m, coordinates to ~0.1 m. bridge, tunnel: the
+# lines' indexes that are (v1125).
 # OSM data © OpenStreetMap contributors (ODbL).
 import json, math, sys
 src, rid = sys.argv[1:3]
@@ -22,10 +23,16 @@ def rdp(P, eps, lat0):
         if d > dm: i, dm = k, d
     if dm <= eps: return [P[0], P[-1]]
     return rdp(P[:i + 1], eps, lat0)[:-1] + rdp(P[i:], eps, lat0)
-lines = []
+lines, bridge, tunnel = [], [], []
 for e in els:
-    if not keep(e.get('tags', {})): continue
+    t = e.get('tags', {})
+    if not keep(t): continue
     P = [[round(g['lon'], 6), round(g['lat'], 6)] for g in e.get('geometry', [])]
-    if len(P) >= 2: lines.append(rdp(P, 2.0, P[0][1]))
-json.dump({'id': rid, 'credit': 'Rail © OpenStreetMap contributors', 'lines': lines}, open(f'../../www/data/rail/{rid}.json', 'w'), separators=(',', ':'))
+    if len(P) < 2: continue
+    # (v1125) which are bridges (their decks drawn across between their ends, not on the water under them) and which
+    # tunnels (not drawn; a train in one runs between its portals, under the ground)
+    if t.get('bridge') and t.get('bridge') != 'no': bridge.append(len(lines))
+    if t.get('tunnel') in ('yes', 'covered'): tunnel.append(len(lines))
+    lines.append(rdp(P, 2.0, P[0][1]))
+json.dump({'id': rid, 'credit': 'Rail © OpenStreetMap contributors', 'lines': lines, 'bridge': bridge, 'tunnel': tunnel}, open(f'../../www/data/rail/{rid}.json', 'w'), separators=(',', ':'))
 print(len(lines), 'lines', sum(len(l) for l in lines), 'points')
