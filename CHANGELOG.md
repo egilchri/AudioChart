@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-09 — Bird's-eye: the Capitol Corridor's Charger at her Oakland end (v1123)
+
+- Asked: "Isn't that a little odd, having the cab car in front when I ride from Sacramento to Oakland?" Push-pull is how she runs, but v1122 had her the wrong way round: the photo of eastbound train 528 at Berkeley (January 2026) has her cab car leading, headlights lit. **Her Charger is at her Oakland and San Jose end**: pulling westbound and southbound, the cab car leading toward Sacramento (www/js/trains3d.js).
+
 ## 2026-11-09 — Bird's-eye: Amtrak's Capitol Corridor trains as they are (v1122)
 
 - Requested: "recursively improve the look of an Amtrak train". **A Siemens Charger SC-44 and four California Car bilevels** (www/js/amtrak3d.js), from Commons photos (Charger 2123 with a Capitol Corridor train; CDTX 2108 at San Jose Diridon; train 528 and cab car 8301 at Berkeley, January 2026). Two rounds in design/pending/amtrak-look (view.html, shoot.mjs; LEAD=cab for the cab car leading):
