@@ -33,6 +33,31 @@ function trainModel(look) {   // the cars in a line along -z (her front), 1 unit
   }
   return g;
 }
+// (v1126, reported: "trains aren't always straight lines ... It follows the curve of the track") her cars, each on
+// her own: the model's meshes (each material merged over her whole length) cut into one group per car, by each
+// triangle's middle; a lone part (a decal, a simple car's box) by its place. spans: each car's [front, back] in z
+function splitCars(model, spans) {
+  const cars = spans.map(([a, b]) => { const c = new THREE.Group(); c.userData.zc = (a + b) / 2; c.userData.half = (b - a) / 2; c.position.z = c.userData.zc; return c; });
+  const which = z => { let best = 0, bd = Infinity; spans.forEach(([a, b], i) => { const d = z < a ? a - z : z > b ? z - b : 0; if (d < bd) { bd = d; best = i; } }); return best; };
+  for (const m of [...model.children]) {
+    if (!m.isMesh) continue;
+    const g = m.geometry;
+    if (g.index || m.position.lengthSq() > 0 || spans.length < 2) { const c = cars[which(m.position.z)]; model.remove(m); m.position.z -= c.userData.zc; c.add(m); continue; }
+    const P = g.attributes.position, n = P.count / 3, names = Object.keys(g.attributes), out = cars.map(() => Object.fromEntries(names.map(k => [k, []])));
+    for (let t = 0; t < n; t++) {
+      const i = which((P.getZ(t * 3) + P.getZ(t * 3 + 1) + P.getZ(t * 3 + 2)) / 3), o = out[i], zc = cars[i].userData.zc;
+      for (const k of names) { const A = g.attributes[k], sz = A.itemSize; for (let v = t * 3; v < t * 3 + 3; v++) for (let q = 0; q < sz; q++) o[k].push(k === 'position' && q === 2 ? A.array[v * sz + q] - zc : A.array[v * sz + q]); }
+    }
+    model.remove(m); g.dispose();
+    out.forEach((o, i) => {
+      if (!o.position.length) return;
+      const ng = new THREE.BufferGeometry(); for (const k of names) ng.setAttribute(k, new THREE.Float32BufferAttribute(o[k], g.attributes[k].itemSize));
+      const nm = new THREE.Mesh(ng, m.material); nm.castShadow = m.castShadow; nm.receiveShadow = m.receiveShadow; cars[i].add(nm);
+    });
+  }
+  model.add(...cars);
+  return cars;
+}
 // "San Francisco Caltrain Station Northbound" -> "San Francisco"; "Stockton - Robert J Cabral Sta" -> "Stockton"
 const place = d => (d || '').replace(/\s+(Caltrain\s+)?Station\b.*$/i, '').replace(/\s+-\s+.*$/, '').replace(/^SMART\s+/i, '').trim();
 const lonOf = p => p.fix.lon + (p.x - p.fix.x) / (111320 * Math.cos(p.fix.lat * DEG)), latOf = p => p.fix.lat - (p.z - p.fix.z) / 111120;   // (where she's drawn now)
@@ -82,7 +107,7 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
   let trackY = null;   // (the drawn tracks' heights: track3d.js, v1125)
   const trains = new Map();   // id -> { a, g, model, label, fix, prev, v (m/s), h, x, z }
   let on = false, timer = null, inflight = null, hover = null;
-  const pinned = new Set(), _v = new THREE.Vector3();
+  const pinned = new Set(), _v = new THREE.Vector3(), _cab = new THREE.Vector3();
   // the railway's tracks (v1116, reported: the Caltrains at 4th & King "weren't pointing down the tracks"; a train
   // standing at a platform had only a guess at her heading, south-east or north-west, and 4th & King's platforms run
   // south-west): OSM's main lines and their sidings (www/data/rail/, design/rail/build_rail.py), cut into segments in
@@ -161,9 +186,10 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
         g.add(model, label); scene.add(g);
         const L = kiss ? kiss.length : look.cars * look.len + (look.cars - 1) * 1.2;
         g.userData.helm = kiss ? kiss.cab : [0, 3.6, -L / 2 + 1.6];   // (her cab: the front of her first car)
+        const cars = splitCars(model, kiss?.spans || Array.from({ length: look.cars }, (_, i) => { const z = i * (look.len + 1.2) - (look.cars - 1) * (look.len + 1.2) / 2; return [z - look.len / 2, z + look.len / 2]; }));
         // (L sizes the ride views' distances: her whole 160 m put the drone 380 m back, end-on she was a post; as a
         // 45 m vessel it stands ~100 m off. len is her real length)
-        p = { kind: 'rail', id: a.id, g, group: g, L: 45, len: L, y: 0, model, tag: label, x: wx(a.lon), z: wz(a.lat), h: a.dir === 'S' ? 135 : a.dir === 'N' ? 315 : 0, v: 0, placed: false };
+        p = { kind: 'rail', id: a.id, g, group: g, L: 45, len: L, y: 0, model, tag: label, x: wx(a.lon), z: wz(a.lat), h: a.dir === 'S' ? 135 : a.dir === 'N' ? 315 : 0, v: 0, placed: false, cars, helm0: g.userData.helm };
         trains.set(a.id, p);
       }
       const at = now - (a.age || 0) * 1000;
@@ -234,7 +260,7 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
       let walked = false;
       if (p.ft) {
         p.off = (p.off || 0) * Math.exp(-dt / 8);   // (the gap closing: half of it in ~5.5 s)
-        const sd = s + p.off, w = Math.abs(sd) < 0.5 ? { x: segs[p.ft.k * 4] + (segs[p.ft.k * 4 + 2] - segs[p.ft.k * 4]) * p.ft.t, z: segs[p.ft.k * 4 + 1] + (segs[p.ft.k * 4 + 3] - segs[p.ft.k * 4 + 1]) * p.ft.t, h: segH(p.ft.k, p.ft.dir) }
+        const sd = s + p.off; p.sd = sd; const w = Math.abs(sd) < 0.5 ? { x: segs[p.ft.k * 4] + (segs[p.ft.k * 4 + 2] - segs[p.ft.k * 4]) * p.ft.t, z: segs[p.ft.k * 4 + 1] + (segs[p.ft.k * 4 + 3] - segs[p.ft.k * 4 + 1]) * p.ft.t, h: segH(p.ft.k, p.ft.dir) }
           : sd > 0 ? walk(p.ft.k, p.ft.t, p.ft.dir, sd) : walk(p.ft.k, p.ft.t, -p.ft.dir, -sd);
         if (w) { tx = w.x; tz = w.z; p.wh = sd >= 0 ? w.h : (w.h + 180) % 360; walked = true; }
       }
@@ -269,6 +295,29 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
       // wide whatever the distance (a 3 m train is a fraction of a pixel from 20 km), and long in proportion
       const d = Math.hypot(p.x - cp.x, cp.y - p.g.position.y, p.z - cp.z), w = Math.max(1, d * 0.0058 / 3.1), l = Math.max(1, d * 0.02 / 160, w * 0.35);
       p.model.scale.set(w, Math.max(1, w * 0.5), l);
+      // (v1126) near, at her real size, on her track: each car where her track is under her two trucks (70% of the way
+      // from her middle to each end), turned and tilted to their line, on the track's heights. Her cab's camera with her
+      // first car. Farther off, or off her track, the cars in a straight line as before
+      let art = walked && w === 1 && l === 1 && !!p.cars;
+      if (art) {
+        const { k: fk, t: ft, dir: fd } = p.ft, at = f => { const d = p.sd + f; return Math.abs(d) < 0.01 ? walk(fk, ft, fd, 0.01) : d > 0 ? walk(fk, ft, fd, d) : walk(fk, ft, -fd, -d); };
+        const P = p.cars.map(c => { const b = c.userData.half * 0.7, cf = -c.userData.zc; return [at(cf + b), at(cf - b), b]; });
+        if (P.some(([F, B]) => !F || !B)) art = false;
+        else {
+          p.model.rotation.set(0, 0, 0);
+          p.cars.forEach((c, i) => {
+            const [F, B, b] = P[i], yF = trackY?.(F.x, F.z, 35) ?? p.y, yB = trackY?.(B.x, B.z, 35) ?? p.y;
+            c.position.set((F.x + B.x) / 2 - p.x, (yF + yB) / 2 - p.y, (F.z + B.z) / 2 - p.z);
+            c.rotation.set(Math.max(-0.05, Math.min(0.05, Math.atan2(yF - yB, 2 * b))), -Math.atan2(F.x - B.x, -(F.z - B.z)), 0, 'YXZ');
+          });
+          const c0 = p.cars[0], [hx, hy, hz] = p.helm0; c0.updateWorldMatrix(true, false);
+          _cab.set(hx, hy, hz - c0.userData.zc).applyMatrix4(c0.matrixWorld);
+          const h = p.h * DEG, ch = Math.cos(h), sh = Math.sin(h), dx = _cab.x - p.x, dz = _cab.z - p.z;
+          p.g.userData.helm = [dx * ch + dz * sh, _cab.y - p.y, -dx * sh + dz * ch];
+        }
+      }
+      if (!art && p.cars && p.artd !== false) { for (const c of p.cars) { c.position.set(0, 0, c.userData.zc); c.rotation.set(0, 0, 0); } p.g.userData.helm = p.helm0; }
+      p.artd = art;
       p.tag.visible = p === hover || pinned.has(p) || focus(p);
     }
   }

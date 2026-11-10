@@ -896,7 +896,7 @@ const [navGJ, placesGJ, landGJ] = await Promise.all([
 ]);
 const inBay = ([x, y]) => x >= OW && x <= OE && y >= OS && y <= ON;
 // ── Bridges (v1020; bridges3d.js): the region's, if it has any ──
-makeBridges(RID, heightAt).then(B => { if (!B) return; bridges = B; scene.add(B.group); try { B.night(env.lightsK); } catch (_) {} updateCredit(); onBridges?.(B); })   // (env: once it's made)
+makeBridges(RID, heightAt).then(B => { if (!B) return; bridges = B; if (tracks && B.railDecks) tracks.setDecks(B.railDecks); scene.add(B.group); try { B.night(env.lightsK); } catch (_) {} updateCredit(); onBridges?.(B); })   // (env: once it's made)
   .catch(err => console.warn('[bay3d] bridges', err));
 const navs = navGJ.features.filter(f => f.geometry?.type === 'Point' && inBay(f.geometry.coordinates));
 const BUOY_T = ['BOYLAT', 'BCNLAT', 'BOYSAW', 'BOYSPP', 'BOYCAR', 'BOYISD'];
@@ -2135,7 +2135,7 @@ const rail = makeTrains({ scene, bbox: OVERVIEW, wx, wz, heightAt, onCount: () =
 if (REG.rail) getJSON(`./data/rail/${REG.rail}.json`).then(d => {
   rail.setTracks(d.lines); trackNear = rail.nearTrack;
   // (v1125, requested: "I'd like to show the tracks"): drawn, bridges and all; the trains ride on their heights
-  if (!EMPTY) { tracks = makeTracks({ scene, lines: d.lines, bridge: d.bridge, tunnel: d.tunnel, wx, wz, heightAt }); rail.setTrackY(tracks.yAt); }
+  if (!EMPTY) { tracks = makeTracks({ scene, lines: d.lines, bridge: d.bridge, tunnel: d.tunnel, wx, wz, heightAt }); rail.setTrackY(tracks.yAt); if (bridges?.railDecks) tracks.setDecks(bridges.railDecks); }
   for (const T of tiles) if (T.state === 'ready' && T.dem?.canopy) { T.spots = treeSpots(T, T.dem); treesDirty = true; }   // (tiles in before the tracks)
 }).catch(err => console.warn('[bay3d] rail tracks', err));
 if (REG.rail) getJSON(`./data/rail/${REG.rail}-trips.json`).then(d => rail.setTrips(d)).catch(err => console.warn('[bay3d] rail timetables', err));   // (v1117: each train's origin, destination and ETA)   // (v1116: each train on her track)

@@ -206,6 +206,7 @@ export function makeAmtrak({ kind = 'capitol', cars = 4, locoFront = true, glow 
   const units = kind === 'long' ? ['loco', 'loco', 'bag', 'trans', 'sleeper', 'sleeper', 'diner', 'lounge', 'coach', 'coach', 'coach']
     : locoFront ? ['loco', ...Array.from({ length: cars }, (_, i) => i === cars - 1 ? 'cab' : 'car')] : ['cab', ...Array.from({ length: cars - 1 }, () => 'car'), 'loco'];
   const AM = kind === 'long', length = units.reduce((a, u) => a + (u === 'loco' ? LL : CL), 0) + GAP * (units.length - 1);
+  const spans = [];   // (v1126) each unit's front and back
   let z = -length / 2;
   for (const [i, u] of units.entries()) {
     if (u === 'loco') {
@@ -253,7 +254,7 @@ export function makeAmtrak({ kind = 'capitol', cars = 4, locoFront = true, glow 
       box('under', 2.4, 0.75, 6.5, 0, 0.75, (zn + zr) / 2 + nf * 0.5);
       box('dark', 2.2, 0.08, 3.0, 0, 4.3, zr + nf * 2.2);   // (v1124: on her, not over the gap behind)
       box('skirt', WL, 3.0, 0.04, 0, 2.4, zr + nf * 0.02);   // (her back's end, behind the gangway)
-      z += LL + GAP;
+      spans.push([z, z + LL]); z += LL + GAP;
     } else {
       const z0 = z, zc = z + CL / 2, cab = u === 'cab', end = locoFront ? z0 + CL : z0, ed = locoFront ? 1 : -1;   // (the cab car's cab end, outward)
       // her body: the California Car's (to 4.85 m), a Superliner's (4.93 m) or the baggage car's (single level, 4.15 m)
@@ -273,7 +274,7 @@ export function makeAmtrak({ kind = 'capitol', cars = 4, locoFront = true, glow 
         box('skirt', 2.4, 0.5, 0.5, 0, 0.65, end + ed * 0.2);
       }
       if (i < units.length - 1 && units[i + 1] !== 'loco') box('dark', 2.2, 3.0, GAP + 0.2, 0, 2.4, z0 + CL + GAP / 2);   // the gangway between cars
-      z += CL + GAP;
+      spans.push([z, z + CL]); z += CL + GAP;
     }
   }
   const group = new THREE.Group();
@@ -288,5 +289,5 @@ export function makeAmtrak({ kind = 'capitol', cars = 4, locoFront = true, glow 
   }
   // her driver's eye: in the Charger's cab, or upstairs in the cab car
   const cabEye = locoFront ? [0, 3.1, -length / 2 + 1.4] : [0, 3.9, -length / 2 + 0.6];
-  return { group, length, cab: cabEye };
+  return { group, length, spans, cab: cabEye };
 }

@@ -46,6 +46,7 @@ export function makeSmart({ cars = 2, glow = 0.45 } = {}) {
 
   const LC = 25.9, GAP = 0.6, NOSE = 2.0;   // a car (85 ft over couplers), the gangway between, the cab's sloped nose
   const length = cars * LC + GAP * (cars - 1);
+  const spans = [];   // (v1126) each car's front and back
   let z = -length / 2;
   for (let i = 0; i < cars; i++) {
     const front = i === 0, back = i === cars - 1, z0 = z + (front ? NOSE : 0), z1 = z + LC - (back ? NOSE : 0), zc = (z0 + z1) / 2, BL = z1 - z0;
@@ -76,7 +77,7 @@ export function makeSmart({ cars = 2, glow = 0.45 } = {}) {
     // on the roof: grilles (her radiators and air-conditioning), dark green-black, along the middle
     for (const f of [0.2, 0.5, 0.78]) box('grille', 1.9, 0.08, 2.4, 0, TOP + 0.03, z + f * LC);
     if (i < cars - 1) box('band', 2.4, 3.0, GAP + 0.2, 0, BOT + 1.6, z + LC + GAP / 2);   // the gangway's bellows
-    z += LC + GAP;
+    spans.push([z, z + LC]); z += LC + GAP;
   }
   // the cabs, at each end: a nose from the bumper up the face and the raked windscreen to the roof
   // profile, (x back from the tip, y up): bumper, green face, windscreen, black cap, roof
@@ -148,5 +149,5 @@ export function makeSmart({ cars = 2, glow = 0.45 } = {}) {
     const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.computeVertexNormals();
     group.add(new THREE.Mesh(geo, mats[k]));
   }
-  return { group, length, cab: [0, 2.9, -length / 2 - 0.3] };
+  return { group, length, spans, cab: [0, 2.9, -length / 2 - 0.3] };
 }

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-09 — Bird's-eye: trains on the Benicia bridge's deck, and each car round the curves (v1126)
+
+- Reported (a look at Capitol Corridor 536 crossing the Carquinez Strait): v1125's track over the Benicia–Martinez rail bridge ran on a low deck of its own, 3 m over the water, under the drawn truss bridge 24 m up. **On the bridge's deck now**: www/js/bridges3d.js gives its rail bridges' deck tops (`railDecks`), and www/js/track3d.js `setDecks` lays any track within 6 m of one on it (0.1 m over it), straight from her ends to the deck, without her own piers there.
+- Reported: "trains aren't always straight lines right? It follows the curve of the track". **Each car on the track**: the models (caltrain3d.js, smart3d.js, amtrak3d.js) give each car's span; www/js/trains3d.js `splitCars` cuts the merged meshes into one group per car, and near (at real size, on her track) each car sits where her track is under her two trucks, turned and tilted to their line. The cab view rides in her first car. Far off, or off her track, the cars stay in a line as before.
+- Checked: the track's height along the bridge (24.2 m across, easing to the ground at Benicia); each live train's car headings (Caltrain 147 at Diridon −13° to −3° front to back, SMART 107 −64° and −70°), and views.
+
 ## 2026-11-09 — Bird's-eye: the tracks drawn, and trains ride them smoothly (v1125)
 
 - Requested: "I'd like to show the tracks. And since they are permanent, maybe the train path will appear smoother". **The tracks** (new www/js/track3d.js `makeTracks`), from the OSM lines in www/data/rail/:

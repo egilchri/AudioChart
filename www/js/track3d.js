@@ -4,7 +4,9 @@
 // with its ties, the two rails on it; seen from afar, a thin dark line. A bridge's deck runs straight between its ends
 // (not down on the water: the Capitol Corridor's crossing of the Carquinez Strait), on piers; a tunnel isn't drawn.
 // The trains ride on these heights (yAt), not the ground's: they no longer bob over each bump of it.
-// The heights are taken again where the ground under them changes (a detail tile come or gone: reheight).
+// The heights are taken again where the ground under them changes (a detail tile come or gone: reheight). Where a
+// drawn bridge model carries the line (bridges3d.js's rail bridges: the Benicia–Martinez truss, 24 m up), the track
+// lies on its deck (setDecks, v1126), not on a low deck of its own under it.
 import * as THREE from 'three';
 
 const STEP = 20, BED = 1.7, SHOULDER = 2.6, DROP = 0.55, RAIL = 0.7175, RAIL_H = 0.18, FAR = 2500;
@@ -36,11 +38,29 @@ export function makeTracks({ scene, lines, bridge = [], tunnel = [], wx, wz, hei
   const ends = new Map(), endKey = p => `${Math.round(p.x * 2)},${Math.round(p.z * 2)}`;
   for (const ln of L) for (const e of [0, 1]) { const k = endKey(ln.S[e ? ln.S.length - 1 : 0]); (ends.get(k) || ends.set(k, []).get(k)).push([ln, e]); }
 
+  // (v1126) the rail bridge models' deck tops, by 40 m cell: a sample within 6 m of one's centre line lies on it
+  let decks = new Map();
+  function deckAt(x, z) {
+    let best = null, bd = 36; const cx = Math.floor(x / 40), cz = Math.floor(z / 40);
+    for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) for (const [a, b] of decks.get(`${cx + i},${cz + j}`) || []) {
+      const dx = b.x - a.x, dz = b.z - a.z, L2 = dx * dx + dz * dz, f = L2 ? Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / L2)) : 0;
+      const d = (a.x + dx * f - x) ** 2 + (a.z + dz * f - z) ** 2; if (d < bd) { bd = d; best = a.h + (b.h - a.h) * f + 0.1; }
+    }
+    return best;
+  }
   function profile(ln) {   // her heights: the ground's upper envelope, smoothed; a bridge's or tunnel's straight between its ends
     const S = ln.S, n = S.length, raw = S.map(p => ground(p.lon, p.lat));
-    if (ln.bridge || ln.tunnel) {
-      const y0 = raw[0], y1 = raw[n - 1];
-      for (let k = 0; k < n; k++) { const f = n > 1 ? k / (n - 1) : 0; S[k].y = y0 + (y1 - y0) * f; if (ln.bridge) S[k].y = Math.max(S[k].y, raw[k] + 1.5, 3); }
+    for (const p of S) p.deck = deckAt(p.x, p.z);
+    if (ln.bridge || ln.tunnel || S.some(p => p.deck != null)) {
+      // the known heights: her ends (on the ground) and wherever a bridge model's deck carries her; straight between
+      const known = []; for (let k = 0; k < n; k++) if (S[k].deck != null) known.push([k, S[k].deck]);
+      if (!known.length || known[0][0] > 0) known.unshift([0, S[0].deck ?? raw[0]]);
+      if (known.at(-1)[0] < n - 1) known.push([n - 1, S[n - 1].deck ?? raw[n - 1]]);
+      for (let q = 1; q < known.length; q++) {
+        const [k0, y0] = known[q - 1], [k1, y1] = known[q];
+        for (let k = k0; k <= k1; k++) { S[k].y = y0 + (y1 - y0) * (k1 > k0 ? (k - k0) / (k1 - k0) : 0); if (ln.bridge && S[k].deck == null) S[k].y = Math.max(S[k].y, raw[k] + 1.5, 3); }
+      }
+      if (!ln.bridge && !ln.tunnel) for (let k = 0; k < n; k++) if (S[k].deck == null) S[k].y = Math.max(S[k].y, raw[k]);
       return;
     }
     const env = raw.map((_, k) => Math.max(...raw.slice(Math.max(0, k - 2), k + 3)));   // (over the bumps within 40 m)
@@ -102,7 +122,7 @@ export function makeTracks({ scene, lines, bridge = [], tunnel = [], wx, wz, hei
     if (far) { group.remove(far); far.geometry.dispose(); }
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3)); far = new THREE.LineSegments(g, farMat); group.add(far);
     const at = [];
-    for (const ln of L) if (ln.bridge) for (let k = 2; k < ln.S.length - 2; k += 2) { const q = ln.S[k], gnd = ground(q.lon, q.lat), h = q.y - 1.3 - gnd; if (h > 1.5) at.push(q.x, gnd, q.z, h); }
+    for (const ln of L) if (ln.bridge) for (let k = 2; k < ln.S.length - 2; k += 2) { if (ln.S[k].deck != null) continue; const q = ln.S[k], gnd = ground(q.lon, q.lat), h = q.y - 1.3 - gnd; if (h > 1.5) at.push(q.x, gnd, q.z, h); }
     if (piers) { group.remove(piers); piers.geometry.dispose(); }
     piers = new THREE.InstancedMesh(new THREE.BoxGeometry(3.2, 1, 1.4), pierMat, Math.max(1, at.length / 4)); piers.count = at.length / 4;
     const m4 = new THREE.Matrix4();
@@ -133,6 +153,16 @@ export function makeTracks({ scene, lines, bridge = [], tunnel = [], wx, wz, hei
   return {
     group, yAt,
     // the ground under w..e, s..n has changed: her heights there taken again
+    // (v1126) the rail bridge models' decks ([[{x, z, h}]]): the lines on them given their heights again
+    setDecks(D) {
+      decks = new Map();
+      for (const P of D) for (let i = 1; i < P.length; i++) {
+        const a = P[i - 1], b = P[i], seg = [a, b];
+        const x0 = Math.floor(Math.min(a.x, b.x) / 40) - 1, x1 = Math.floor(Math.max(a.x, b.x) / 40) + 1, z0 = Math.floor(Math.min(a.z, b.z) / 40) - 1, z1 = Math.floor(Math.max(a.z, b.z) / 40) + 1;
+        for (let cx = x0; cx <= x1; cx++) for (let cz = z0; cz <= z1; cz++) { const k = `${cx},${cz}`; (decks.get(k) || decks.set(k, []).get(k)).push(seg); }
+      }
+      all();
+    },
     reheight(w, s, e, n) {
       const hit = L.filter(ln => ln.e >= w && ln.w <= e && ln.n >= s && ln.s <= n); if (!hit.length) return;
       for (const ln of hit) profile(ln); joinEnds(hit);

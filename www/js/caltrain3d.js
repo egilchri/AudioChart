@@ -37,6 +37,7 @@ export function makeCaltrain({ cars = 7, roofGlow = 0.12 } = {}) {
   const LE = 27.4, LM = 26.2, GAP = 0.5;   // end (cab) cars and middle cars, and the gangway between
   const lens = Array.from({ length: cars }, (_, i) => i === 0 || i === cars - 1 ? LE : LM);
   const length = lens.reduce((a, b) => a + b, 0) + GAP * (cars - 1);
+  const spans = [];   // (v1126) each car's front and back, for her cars to take her track's curves each on her own
   let z = -length / 2;   // the front of the first car (her nose is at −z)
   const NOSE = 2.6;      // the cab's sloped nose, in front of the body box
   lens.forEach((L, i) => {
@@ -67,7 +68,7 @@ export function makeCaltrain({ cars = 7, roofGlow = 0.12 } = {}) {
       box('bogie', 0.06, 0.06, 1.25, 0, TOP + 0.85, pz + 0.35, 0.95);
     }
     if (i < cars - 1) box('skirt', 2.3, 3.2, GAP + 0.2, 0, BOT + 1.7, z + L + GAP / 2);   // the gangway's bellows
-    z += L + GAP;
+    spans.push([z, z + L]); z += L + GAP;
   });
   // the cabs: a nose sloping down from the roof, at each end
   for (const [dir, zf] of [[-1, -length / 2], [1, length / 2]]) {
@@ -122,5 +123,5 @@ export function makeCaltrain({ cars = 7, roofGlow = 0.12 } = {}) {
   }
   // (the cab's eye: just ahead of her windscreen, as a camera there would see; inside the nose it looked at the nose's
   // own back wall, and through the glass from inside it would be black)
-  return { group, length, cab: [0, 3.25, -length / 2 - 0.25] };
+  return { group, length, spans, cab: [0, 3.25, -length / 2 - 0.25] };
 }
