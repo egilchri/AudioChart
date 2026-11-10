@@ -121,7 +121,7 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
       for (let j = 0; j <= n; j++) { const key = `${Math.floor((x1 + (x2 - x1) * j / n) / CELL)},${Math.floor((z1 + (z2 - z1) * j / n) / CELL)}`; const c = grid.get(key); if (!c) grid.set(key, [k]); else if (c[c.length - 1] !== k) c.push(k); }
     }
     segs = new Float64Array(S);
-    for (const p of trains.values()) p.ft = undefined;   // (laid on them afresh)
+    for (const p of trains.values()) { p.ft = undefined; p.cur = null; }   // (laid on them afresh)
     // (v1121) where the pieces meet: each end (to 0.5 m) and the pieces that end there, so a train can be walked along
     // her track between reports, through its joins and junctions
     ends.clear();
@@ -136,7 +136,7 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
     for (let n = 0; n < 400; n++) {
       const x1 = segs[k * 4], z1 = segs[k * 4 + 1], dx = segs[k * 4 + 2] - x1, dz = segs[k * 4 + 3] - z1, L = Math.hypot(dx, dz) || 1e-9;
       const left = (dir > 0 ? 1 - t : t) * L;
-      if (d <= left) { t += dir * d / L; return { x: x1 + dx * t, z: z1 + dz * t, h: segH(k, dir) }; }
+      if (d <= left) { t += dir * d / L; return { x: x1 + dx * t, z: z1 + dz * t, h: segH(k, dir), k, t, dir }; }
       d -= left; t = dir > 0 ? 1 : 0;
       const h = segH(k, dir), ex = x1 + dx * t, ez = z1 + dz * t;
       let best = null, bt = 50;
@@ -150,10 +150,23 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
         if (m) for (const dir2 of [1, -1]) { const turn = near(segH(m.k, dir2), h); if (turn < bt) { bt = turn; best = [m.k, m.t, dir2]; } }
         if (best && best[0] === k) best = null;
       }
-      if (!best) return { x: ex, z: ez, h };
+      if (!best) return { x: ex, z: ez, h, k, t, dir };
       [k, t, dir] = best;
     }
     return null;
+  }
+  // (v1127) a place on the track ({k, t, dir, x, z, h}: h her heading, dir her way along piece k) moved d metres on
+  // (back, if d < 0, still facing her way); and how far on or back along her track (x, z) is from it, to 20 m
+  const placeOf = ({ k, t, dir }) => ({ k, t, dir, x: segs[k * 4] + (segs[k * 4 + 2] - segs[k * 4]) * t, z: segs[k * 4 + 1] + (segs[k * 4 + 3] - segs[k * 4 + 1]) * t, h: segH(k, dir) });
+  function step(c, d) {
+    if (Math.abs(d) < 1e-6) return c;
+    const w = d > 0 ? walk(c.k, c.t, c.dir, d) : walk(c.k, c.t, -c.dir, -d);
+    return !w ? null : d > 0 ? w : { ...w, dir: -w.dir, h: (w.h + 180) % 360 };
+  }
+  function alongTo(c, x, z, max = 3000) {
+    let best = null, bd = 60 * 60;
+    for (const sg of [1, -1]) { let q = c; for (let d = 0; d <= max; d += 20) { if (d) { const n = step(q, sg * 20); if (!n) break; q = n; } const e = (q.x - x) ** 2 + (q.z - z) ** 2; if (e < bd) { bd = e; best = sg * d; } } }
+    return best;
   }
   // the nearest track to (x, z): the point on it, and its two headings' first (°, as p.h: 0 north, 90 east)
   function onTrack(x, z, reach = 40, skip = -1) {
@@ -247,22 +260,35 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
       const el = Math.max((now - p.fix.t) / 1000, 0), lim = Math.max(60, Math.min(480, 1.5 * (p.gap || (p.a.rail === 'Amtrak' ? 300e3 : 90e3)) / 1000));
       let s = p.v * Math.min(el, lim), tx = null, tz = null; p.wh = null;
       if (p.a.nextExp && !p.a.atStop && p.a.nextExp > p.fix.t) s = Math.min(s, p.v * (p.a.nextExp - p.fix.t) / 1000);
+      // (v1121) between reports she runs on along her own track; (v1127, reported: the cars "jump around a little too
+      // vigorously") her place on it (cur) moved on each frame by her pace, not walked afresh from her last report's
+      // (up to 10 km back: through junctions each time, and past the walk's 400 pieces): her target (her report's
+      // place and s on) kept as how far ahead of her it is (gapT), closed over ~6 s at no more than a third of her
+      // speed (3 m/s at least; a far gap faster, to her speed again over 1/30 of it); she doesn't back up for it, and only a report 6 km behind her or off her track (8 km looked along) puts her there at once
       if (p.ft === undefined) {
-        p.ft = fixOnTrack(p);
-        // (v1125) a new report, and she's shown some way behind or ahead of where it puts her: how far, along her track,
-        // closed over some seconds as she runs (before, she sprinted to it in a straight line, off her rails: an
-        // Amtrak's report comes ~5 min late, her place then 300 m off)
-        if (p.ft && p.placed) {
-          const h = segH(p.ft.k, p.ft.dir) * DEG, along = (p.x - p.fix.x) * Math.sin(h) - (p.z - p.fix.z) * Math.cos(h);
-          p.off = Math.abs(along - s) < 3000 && Math.hypot(p.x - p.fix.x, p.z - p.fix.z) < 3500 ? along - s : 0;
-        } else p.off = 0;
+        p.ft = fixOnTrack(p); p.st = s; p.lastT = now;
+        if (p.ft) {
+          const A = placeOf(p.ft); let a = p.cur && p.placed ? alongTo(p.cur, A.x, A.z, 8000) : null;
+          // (her way along her track, as shown, against her report's: if they're opposed where her report puts her, she
+          // was set going the wrong way (before she'd been seen to move), and is turned about: she'd run off from her
+          // reports, then stood, never backing up)
+          if (a != null) { const q = step(p.cur, a); if (q && near(q.h, A.h) > 90) { p.cur = { ...p.cur, dir: -p.cur.dir, h: (p.cur.h + 180) % 360 }; a = -a; p.vs = null; } }
+          if (a != null && a + s > -6000) p.gapT = a + s; else { p.cur = step(A, s) || A; p.gapT = 0; p.vs = null; }
+        } else p.cur = null;
       }
       let walked = false;
-      if (p.ft) {
-        p.off = (p.off || 0) * Math.exp(-dt / 8);   // (the gap closing: half of it in ~5.5 s)
-        const sd = s + p.off; p.sd = sd; const w = Math.abs(sd) < 0.5 ? { x: segs[p.ft.k * 4] + (segs[p.ft.k * 4 + 2] - segs[p.ft.k * 4]) * p.ft.t, z: segs[p.ft.k * 4 + 1] + (segs[p.ft.k * 4 + 3] - segs[p.ft.k * 4 + 1]) * p.ft.t, h: segH(p.ft.k, p.ft.dir) }
-          : sd > 0 ? walk(p.ft.k, p.ft.t, p.ft.dir, sd) : walk(p.ft.k, p.ft.t, -p.ft.dir, -sd);
-        if (w) { tx = w.x; tz = w.z; p.wh = sd >= 0 ? w.h : (w.h + 180) % 360; walked = true; }
+      if (p.cur) {
+        // (on the clock's time, not the frame's: a frame's dt is capped, and on a slow screen she fell behind)
+        const rt = Math.min(2, Math.max(0, (now - (p.lastT || now)) / 1000));
+        const ds = s - p.st, vt = Math.max(0, Math.min(ds / Math.max(rt, 1e-3), p.v * 1.3 + 0.5)); p.st = s;
+        // her pace as a train's: toward her target's and the gap's correction, but no harder than 0.7 m/s² up and 1.2
+        // m/s² down, and braking in time to stop at her target when it stops (her next stop's expected time)
+        const cap = Math.max(3, p.v / 3, Math.min(p.v, Math.abs(p.gapT) / 30)), want = Math.max(0, Math.min(vt + Math.max(-cap, Math.min(cap, p.gapT / 6)), vt + Math.sqrt(2 * 1.0 * Math.max(0, p.gapT))));
+        p.vs = p.vs == null ? (p.a.atStop ? want : Math.max(want, p.v)) : p.vs + Math.max(-(1.2 + Math.min(1.8, Math.abs(p.gapT) / 300)) * rt, Math.min((0.7 + Math.min(2.3, Math.abs(p.gapT) / 200)) * rt, want - p.vs));   // (harder, when she's far from her target: a 2 km gap closed at a crawl)
+        const m = p.vs * rt;
+        p.gapT += ds - m;
+        const n = step(p.cur, m); if (n) p.cur = n; p.lastT = now;
+        tx = p.cur.x; tz = p.cur.z; p.wh = p.cur.h; walked = true;
       }
       if (tx == null) { const s1 = Math.min(s, p.v * 60); tx = p.fix.x + Math.sin(p.h * DEG) * s1; tz = p.fix.z - Math.cos(p.h * DEG) * s1; }
       const k = p.placed && !walked ? Math.min(1, dt * 0.8) : 1; p.placed = true;   // (on her track, she's where her walk puts her)
@@ -298,17 +324,25 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
       // (v1126) near, at her real size, on her track: each car where her track is under her two trucks (70% of the way
       // from her middle to each end), turned and tilted to their line, on the track's heights. Her cab's camera with her
       // first car. Farther off, or off her track, the cars in a straight line as before
-      let art = walked && w === 1 && l === 1 && !!p.cars;
+      // (v1127: at any distance, her cars each made bigger in place when she's far: v1126 straightened her at 530 m, a snap)
+      let art = walked && !!p.cars && !!p.cur;
       if (art) {
-        const { k: fk, t: ft, dir: fd } = p.ft, at = f => { const d = p.sd + f; return Math.abs(d) < 0.01 ? walk(fk, ft, fd, 0.01) : d > 0 ? walk(fk, ft, fd, d) : walk(fk, ft, -fd, -d); };
+        const at = f => step(p.cur, f);
         const P = p.cars.map(c => { const b = c.userData.half * 0.7, cf = -c.userData.zc; return [at(cf + b), at(cf - b), b]; });
         if (P.some(([F, B]) => !F || !B)) art = false;
         else {
-          p.model.rotation.set(0, 0, 0);
+          p.model.rotation.set(0, 0, 0); p.model.scale.set(1, 1, 1);
+          const ky = p.artd ? 1 - Math.exp(-dt / 0.35) : 1;   // (her height and tilt eased: no step where the track's do)
           p.cars.forEach((c, i) => {
-            const [F, B, b] = P[i], yF = trackY?.(F.x, F.z, 35) ?? p.y, yB = trackY?.(B.x, B.z, 35) ?? p.y;
-            c.position.set((F.x + B.x) / 2 - p.x, (yF + yB) / 2 - p.y, (F.z + B.z) / 2 - p.z);
-            c.rotation.set(Math.max(-0.05, Math.min(0.05, Math.atan2(yF - yB, 2 * b))), -Math.atan2(F.x - B.x, -(F.z - B.z)), 0, 'YXZ');
+            const [F, B, b] = P[i], yF = trackY?.(F.x, F.z, 6) ?? p.y, yB = trackY?.(B.x, B.z, 6) ?? p.y, u = c.userData;
+            u.y = u.y == null || !p.artd ? (yF + yB) / 2 : u.y + ((yF + yB) / 2 - u.y) * ky;
+            u.pitch = u.pitch == null || !p.artd ? Math.atan2(yF - yB, 2 * b) : u.pitch + (Math.atan2(yF - yB, 2 * b) - u.pitch) * ky;
+            c.position.set((F.x + B.x) / 2 - p.x, u.y - p.y, (F.z + B.z) / 2 - p.z);
+            // her heading eased over ~0.15 s: the track's line is straight pieces, and at each corner she turned at once
+            const hd = Math.atan2(F.x - B.x, -(F.z - B.z)), dd = ((hd - (u.hd ?? hd)) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI;
+            u.hd = u.hd == null || !p.artd || Math.abs(dd) > 0.5 ? hd : u.hd + dd * (1 - Math.exp(-dt / 0.15));
+            c.rotation.set(Math.max(-0.05, Math.min(0.05, u.pitch)), -u.hd, 0, 'YXZ');
+            c.scale.set(w, Math.max(1, w * 0.5), l);
           });
           const c0 = p.cars[0], [hx, hy, hz] = p.helm0; c0.updateWorldMatrix(true, false);
           _cab.set(hx, hy, hz - c0.userData.zc).applyMatrix4(c0.matrixWorld);
@@ -316,7 +350,7 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
           p.g.userData.helm = [dx * ch + dz * sh, _cab.y - p.y, -dx * sh + dz * ch];
         }
       }
-      if (!art && p.cars && p.artd !== false) { for (const c of p.cars) { c.position.set(0, 0, c.userData.zc); c.rotation.set(0, 0, 0); } p.g.userData.helm = p.helm0; }
+      if (!art && p.cars && p.artd !== false) { for (const c of p.cars) { c.position.set(0, 0, c.userData.zc); c.rotation.set(0, 0, 0); c.scale.set(1, 1, 1); } p.g.userData.helm = p.helm0; }
       p.artd = art;
       p.tag.visible = p === hover || pinned.has(p) || focus(p);
     }

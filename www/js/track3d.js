@@ -138,13 +138,20 @@ export function makeTracks({ scene, lines, bridge = [], tunnel = [], wx, wz, hei
   }
   // the rails' top under (x, z): the nearest sample within reach (12 m), eased toward its neighbour along her
   function yAt(x, z, reach = 12) {
-    let best = null, bd = reach * reach; const cx = Math.floor(x / CELL), cz = Math.floor(z / CELL);
-    const r = Math.ceil(reach / CELL);
+    let best = null, bd = (reach + 10) ** 2; const cx = Math.floor(x / CELL), cz = Math.floor(z / CELL);
+    const r = Math.ceil((reach + 10) / CELL);
     for (let i = -r; i <= r; i++) for (let j = -r; j <= r; j++) { const c = grid.get(`${cx + i},${cz + j}`); if (!c) continue; for (let q = 0; q < c.length; q += 2) { const p = c[q].S[c[q + 1]], d = (p.x - x) ** 2 + (p.z - z) ** 2; if (d < bd) { bd = d; best = [c[q], c[q + 1]]; } } }
     if (!best) return null;
-    const [ln, k] = best, S = ln.S, p = S[k], nb = S[k + 1] && (!S[k - 1] || (S[k + 1].x - x) ** 2 + (S[k + 1].z - z) ** 2 < (S[k - 1].x - x) ** 2 + (S[k - 1].z - z) ** 2) ? S[k + 1] : S[k - 1] || p;
-    const dx = nb.x - p.x, dz = nb.z - p.z, L2 = dx * dx + dz * dz, f = L2 ? Math.max(0, Math.min(1, ((x - p.x) * dx + (z - p.z) * dz) / L2)) : 0;
-    return p.y + (nb.y - p.y) * f + RAIL_H;
+    // (v1127) on the nearest piece between two samples (not the nearest sample: samples are 20 m apart, and the
+    // parallel track's 4.5 m off was often nearer, its height a step from hers)
+    let by = null, bq = Infinity;
+    for (let i = -r; i <= r; i++) for (let j = -r; j <= r; j++) { const c = grid.get(`${cx + i},${cz + j}`); if (!c) continue; for (let q = 0; q < c.length; q += 2) {
+      const S = c[q].S, k = c[q + 1];
+      for (const k2 of [k - 1, k + 1]) { const a = S[k], b = S[k2]; if (!b) continue;
+        const dx = b.x - a.x, dz = b.z - a.z, L2 = dx * dx + dz * dz, f = L2 ? Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / L2)) : 0, d = (a.x + dx * f - x) ** 2 + (a.z + dz * f - z) ** 2;
+        if (d < bq) { bq = d; by = a.y + (b.y - a.y) * f; } }
+    } }
+    return by + RAIL_H;
   }
 
   function all() { for (const ln of L) profile(ln); joinEnds(L); for (const ch of chunks.values()) build(ch); buildFar(); index(); }

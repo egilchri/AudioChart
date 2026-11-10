@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-11-10 — Bird's-eye: trains move like trains (v1127)
+
+- Reported: the articulated cars "jump around a little too vigorously, in a way that doesn't look real". Measured each car's place, heading and height every frame while following live trains (design/pending/smart-look/jitter.mjs, stuck.mjs), and found, in www/js/trains3d.js:
+  - **Lurches along the track**: her place was her speed times the minutes since her last report, so each revised speed moved her at once (63 m in a frame). Now her place on the track (`cur`) moves on each frame at her own pace toward that target (`gapT`, how far ahead it is), with a train's acceleration (0.7 m/s² up, 1.2 down, harder only when she's far off), braking in time to stop where her target stops, never backing up.
+  - **Walked afresh from her last report each frame**, up to 10 km back, through every junction, and past the walk's 400-piece limit; now each car is a short walk from her own place.
+  - **Fell behind on a slow screen**: moved by the frame's capped time; now by the clock's.
+  - **Snapped to a new report** more than 3 km along; now caught up smoothly (looked for 8 km along, put there only if 6 km behind or off her track).
+  - **Ran the wrong way** (set before she'd been seen to move), then stood still against her reports; now turned about when her report's way along the track opposes hers.
+  - **Height steps**: track heights came from the nearest 20 m sample, often the parallel track's (www/js/track3d.js `yAt` now projects onto the nearest piece); each car's height and tilt eased over 0.35 s, her heading over 0.15 s (the track's line has corners).
+  - **Snapped straight at 530 m**, when she's drawn bigger to be seen: her cars now stay on the curve at any distance, each made bigger in place.
+- Measured after: steady speeds (28 m/s, easing to 21 when her report changed; braking from 26 m/s to a stop over ~15 s), sideways under 1.4 m/s.
+
 ## 2026-11-09 — Bird's-eye: trains on the Benicia bridge's deck, and each car round the curves (v1126)
 
 - Reported (a look at Capitol Corridor 536 crossing the Carquinez Strait): v1125's track over the Benicia–Martinez rail bridge ran on a low deck of its own, 3 m over the water, under the drawn truss bridge 24 m up. **On the bridge's deck now**: www/js/bridges3d.js gives its rail bridges' deck tops (`railDecks`), and www/js/track3d.js `setDecks` lays any track within 6 m of one on it (0.1 m over it), straight from her ends to the deck, without her own piers there.
