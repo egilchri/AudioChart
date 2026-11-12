@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-12 — Bird's-eye: ⤒ Level, to see the aircraft from the side (v1129)
+
+- Requested: "a tip feature, so I can view horizontally … see aircraft that we are tracking, more from the side". A **⤒ Level** button by the compass (or **T**) tips the view down to the horizon (87°) at any distance; again (**⤓ Overhead**) back to 50°. While level, the tilt limit is 88° at every distance (it was 80° close in, down to 55° far out), the camera is kept 25 m over the ground beneath it, and it aims a little above the target so the sky, and the planes in it, fill the top of the frame (www/js/bay3d.js `tipped`, `toggleTip`, `placeCamera`). Shift-drag still fine-tunes the tilt.
+- Checked over SF Bay with 140 live aircraft (headless Chrome): planes in silhouette above the horizon, ships on the water line; no errors.
+- (v1128 is left for the unfinished freeway-traffic work still uncommitted in the tree: www/js/traffic3d.js, www/data/roads/.)
+
 ## 2026-11-10 — Bird's-eye: trains move like trains (v1127)
 
 - Reported: the articulated cars "jump around a little too vigorously, in a way that doesn't look real". Measured each car's place, heading and height every frame while following live trains (design/pending/smart-look/jitter.mjs, stuck.mjs), and found, in www/js/trains3d.js:

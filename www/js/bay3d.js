@@ -117,7 +117,7 @@ if (ARMCHAIR) {
   for (const el of [wp?.previousElementSibling, wp, document.getElementById('sailrow'), document.getElementById('sailnote')]) if (el) { el.hidden = true; el.style.display = 'none'; }
   const back = document.querySelector('.panel a.back'); if (back) { back.href = './sailors/'; back.textContent = 'About AudioChart'; if (TED) back.target = '_blank'; }   // (in Ted's Birdseye's frame: not over the view)
   const help = document.getElementById('help');
-  if (help) help.textContent = 'Drag to move · right-drag or Shift-drag to turn and tilt · scroll or pinch to zoom · click a place · 📡 Live for the ships there now; click one for her card · Weather (N)';
+  if (help) help.textContent = 'Drag to move · right-drag or Shift-drag to turn and tilt · ⤒ Level (T) for the horizon · scroll or pinch to zoom · click a place · 📡 Live for the ships there now; click one for her card · Weather (N)';
 }
 try { if (/bay3d\.html$/.test(location.pathname)) localStorage.setItem(REGION3D_KEY, RID); } catch (_) {}
 {
@@ -221,7 +221,12 @@ seabed(PLAIN);
 // ── Camera: a target point on the water, a distance from it, a heading and a tilt ──
 // az = the direction you are looking (0 = north); tilt = 0 straight down, up to ~80° near the horizon.
 const view = { x: wx(WHOLE.lon), z: wz(WHOLE.lat), dist: WHOLE.dist, az: WHOLE.az, tilt: WHOLE.tilt };
-const maxTilt = d => DEG * (d > 40000 ? 55 : d < 2000 ? 80 : 80 - 25 * Math.log(d / 2000) / Math.log(20));
+// Level (v1129, requested: "a tip feature, so I can view horizontally … see aircraft … more from the side"): tipped,
+// the view may go down to the horizon at any distance, the eye kept clear of the hills and aimed a little up, so the
+// sky (and the planes in it) fills the upper part of the frame
+let tipped = false;
+const TIP = 87 * DEG;
+const maxTilt = d => tipped ? 88 * DEG : DEG * (d > 40000 ? 55 : d < 2000 ? 80 : 80 - 25 * Math.log(d / 2000) / Math.log(20));
 function clampView() {
   view.dist = clamp(view.dist, fly?.on() ? 40 : MIN_DIST, MAX_DIST);   // (closer in on the helipad, for the take-off: v1049)
   view.tilt = clamp(view.tilt, 0.05, maxTilt(view.dist));   // never quite straight down, so 'up' stays defined
@@ -230,7 +235,9 @@ function clampView() {
 function placeCamera() {
   const h = view.dist * Math.sin(view.tilt), fx = Math.sin(view.az), fz = -Math.cos(view.az);
   camera.position.set(view.x - fx * h, view.dist * Math.cos(view.tilt), view.z - fz * h);
-  camera.lookAt(view.x, 0, view.z);
+  const lift = tipped ? Math.max(0, view.tilt - 75 * DEG) / (13 * DEG) * view.dist * 0.12 : 0;   // (level: aim up, more sky)
+  if (tipped) { const gy = heightAt(lonOf(camera.position.x), latOf(camera.position.z)); if (camera.position.y < gy + 25) camera.position.y = gy + 25; }
+  camera.lookAt(view.x, lift, view.z);
   camera.near = clamp(view.dist * 0.002, 0.5, 50); camera.updateProjectionMatrix();
   camera.updateMatrixWorld();
 }
@@ -356,6 +363,19 @@ addEventListener('keydown', e => {
   e.preventDefault(); anim = null; clampView(); placeCamera();
 });
 document.getElementById('compass').addEventListener('click', () => flyTo({ x: view.x, z: view.z, dist: view.dist, az: 0, tilt: view.tilt }, 900));
+const tipBtn = document.getElementById('tipbtn');
+const isLevel = () => tipped && view.tilt > 80 * DEG;
+function syncTip() { if (tipBtn) { tipBtn.classList.toggle('on', isLevel()); tipBtn.textContent = isLevel() ? '⤓ Overhead' : '⤒ Level'; } }
+let untip = 0;
+function toggleTip() {
+  if (nest.on) return;
+  clearTimeout(untip);
+  if (isLevel()) { flyTo({ x: view.x, z: view.z, dist: view.dist, az: view.az, tilt: 50 * DEG }, 1400); untip = setTimeout(() => { tipped = false; syncTip(); }, 1450); }
+  else { tipped = true; flyTo({ x: view.x, z: view.z, dist: view.dist, az: view.az, tilt: TIP }, 1400); }
+  syncTip(); setTimeout(syncTip, 1450);
+}
+tipBtn?.addEventListener('click', toggleTip);
+addEventListener('keydown', e => { if (e.target === document.body && (e.key === 't' || e.key === 'T') && !e.metaKey && !e.ctrlKey && !nest.on) { toggleTip(); e.preventDefault(); } });
 
 // ── The whole bay, coarse ──
 statusEl.textContent = EMPTY ? `Draining ${REG.name}…` : 'Downloading the bay…';
@@ -3708,7 +3728,7 @@ function frame(now) {
   fly?.step(performance.now(), dt);
   if (!nest.on) { clampView(); placeCamera(); }
   fly?.place(dt);   // the tour's helicopter, in front of the camera (v1048)
-  if (t - lastCheck > 0.4) { lastCheck = t; updateTiles(); updateTowns(); updateMarks(); updateHazards(); tracks?.update(view.x, view.z, view.dist); }
+  if (t - lastCheck > 0.4) { lastCheck = t; syncTip(); updateTiles(); updateTowns(); updateMarks(); updateHazards(); tracks?.update(view.x, view.z, view.dist); }
   // the wrecks blink (v932, requested): a bright orange glow, on for 0.6 s in every 1.2 s
   if (hazards.meshes.wreck) hazards.meshes.wreck.m.material.emissive.setHex(t % 1.2 < 0.6 ? 0xff6a1a : 0x000000);
   if (!drag && !anim) updateTrees(); else if (t - (TREES.lastMove || 0) > 0.25) { TREES.lastMove = t; updateTrees(); }
