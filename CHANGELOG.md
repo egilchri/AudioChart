@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-13 — Bird's-eye: planes filtered by where they're leaving (v1132)
+
+- Requested: "a filter where I can monitor planes departing from SFO". Under v1131's **Bound for** row in the ⛴ Underway panel's ✈ Air tab, a **Leaving** row: the airports the planes heard are leaving, busiest first. Picking one lists only her planes, the latest off first (each with where she's bound, if listed, and how far out she is; the column reads "To"), then any on the ground there listed to leave it, and hides the other planes in the view. Picking in one row clears the other; All clears both.
+- Where she's from (www/js/flightroute.js `originOf`): her listing's origin when she fits it; otherwise climbing (300+ ft/min) away from a known airport within 60 nm, low enough to have just left it. On the ground, only a listing from that very airport counts: planes parked at SFO were found broadcasting their last flight's callsign (DEN→LGA, IAH→LAX, ATL→MEX … at SFO's gates), so a parked plane can't be read as leaving anywhere else.
+- Tightened while testing on live planes: `judgeRoute` now flags a plane pointed away from her listed destination once 15 nm from her listed origin (was 40: SWA3221, listed SJC→DEN, flying southwest 29 nm from SJC); `destOf`'s landing guess needs her flying (over 50 kn) and low enough to be landing there (JBU315 at FL314 was guessed as landing at Napa).
+- Checked in headless Chrome over SF during a wind ground-delay program at SFO (so no departures climbing out then): Leaving SFO → 1 of 70 planes (SkyWest 509F at the gate for Redding), All → every plane again; and on recorded climb-outs (SWA3221 at 7,400 ft 5 nm out → leaving SFO), a landing (AIC183 → bound for SFO, not leaving), and the Napa case (no guess). No errors.
+
 ## 2026-11-13 — Bird's-eye: planes filtered by where they're bound (v1131)
 
 - Requested: "a filter so I can track planes with a San Francisco destination". The ⛴ Underway panel's ✈ Air tab has a **Bound for** row: All, and the airports the planes heard are bound for, busiest first with how many (SFO 12 · OAK 5 · SJC 2 … at the time). Picking one lists only her planes, soonest in first, each with ≈ her arrival time by the real clock (straight there at her speed, so the earliest) or "landed", and **hides the other planes in the view** (any you follow or have the card of stay). All brings them back. Not remembered between visits, so the planes never go missing unexplained. The Air tab's list column is now "Bound".

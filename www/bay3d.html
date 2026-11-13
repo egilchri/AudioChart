@@ -284,7 +284,9 @@ body.embed.smallride #ridechart { width: clamp(120px, 13vw, 170px); }
 #underway .uwtabs button { font: inherit; font-size: 0.74rem; color: var(--ink); background: rgba(255,255,255,0.12); border: 0; border-radius: 4px; padding: 3px 9px; cursor: pointer; }
 #underway .uwtabs button.on { background: var(--brass); color: #14202a; }
 /* the ✈ Air tab's Bound-for filter (v1131) */
-#underway .uwfilter { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; margin: 0 0 6px; font-size: 0.7rem; }
+#underway .uwfilter { margin: 0 0 6px; font-size: 0.7rem; }
+#underway .uwfilter > div { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; margin: 0 0 3px; }   /* Bound for, then Leaving (v1132) */
+#underway .uwfilter span { min-width: 54px; }
 #underway .uwfilter[hidden], #underway.shrunk .uwfilter { display: none; }
 #underway .uwfilter span { color: var(--muted); margin-right: 3px; }
 #underway .uwfilter button { font: inherit; font-family: var(--mono); color: var(--ink); background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.18); border-radius: 10px; padding: 1px 8px; cursor: pointer; }

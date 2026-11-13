@@ -31,7 +31,7 @@ import { makeFlyover, orderStops, offLeg } from './flyover.js';
 import * as Voice from './piper_voice.js';
 import { makeOverview } from './overview2d.js';
 import { makeAircraft, ADSB_CREDIT } from './aircraft3d.js';
-import { routeLookup, judgeRoute, destOf } from './flightroute.js';
+import { routeLookup, judgeRoute, destOf, originOf } from './flightroute.js';
 import { makeTrains, TRAIN_CREDIT } from './trains3d.js';
 import { makeTracks } from './track3d.js';
 import { makeAirport } from './airport3d.js';
@@ -1980,6 +1980,10 @@ function vEta(v) {
   }
   if (v.kind === 'cruise' && st?.moving && st.dir > 0) return { t: hhmm(now + (v.T.L - st.f) / (v.V.knots * NMm / 60)), sub: v.call.port };
   if (v.kind === 'rail' && v.run) return { t: (v.run.destDay || '') + v.run.hhmm(v.run.destT), sub: v.run.late == null ? `${v.run.dest}?` : v.run.dest };   // (? : the timetable's time, her lateness unknown)   // (v1117: due at the end of her run)
+  if (v.kind === 'air' && airFrom) {   // (v1132, Leaving: where she's bound, if listed, and how far out she is)
+    const o = originOf(v.a); if (!o) return null;
+    return { t: o.to ? `→${o.to}` : '', sub: v.a.ground ? 'on the ground' : `${o.nm.toFixed(o.nm < 10 ? 1 : 0)} nm out`, how: o.how, from: o.code };
+  }
   if (v.kind === 'air') {   // (v1131: where she's bound, and roughly when, by the real clock: straight there at her speed)
     const d = destOf(v.a); if (!d) return null;
     if (v.a.ground && d.nm != null && d.nm < 5) return { t: 'landed', sub: d.code, how: d.how };   // (on the ground there)
@@ -1999,32 +2003,45 @@ let uwTab = 'water'; try { uwTab = localStorage.getItem(UW_TAB_KEY) || 'water'; 
 // or one airport the planes heard are bound for (the busiest few, flightroute.js destOf); while one's picked only
 // her planes are listed (soonest in first) and drawn, besides any you follow or have the card of. For this visit only.
 let airDest = '';
+// and Leaving (v1132, requested: "a filter where I can monitor planes departing from SFO"): the planes from one airport,
+// the latest off it first, then those on the ground there; picking one row's airport clears the other's
+let airFrom = '';
 function fillUnderway() {
   const hasAir = air.count > 0, hasRail = rail.count > 0, tab = uwTab === 'air' && hasAir ? 'air' : uwTab === 'rail' && hasRail ? 'rail' : 'water';
   const tabs = uwPanel.querySelector('.uwtabs');
   if (tabs) { tabs.hidden = !hasAir && !hasRail; for (const b of tabs.querySelectorAll('button')) { b.hidden = b.dataset.tab === 'air' ? !hasAir : b.dataset.tab === 'rail' ? !hasRail : false; b.classList.toggle('on', b.dataset.tab === tab); } }
   uwPanel.querySelector('.sect').textContent = tab === 'air' ? 'In the air now' : tab === 'rail' ? 'Trains running now' : 'On the water now';
-  const list = uwPanel.querySelector('ul'); list.innerHTML = `<li class="hdr"><span class="n">${tab === 'air' ? 'Aircraft' : tab === 'rail' ? 'Train' : 'Vessel'}</span><span class="eta">${tab === 'air' ? 'Bound' : 'ETA'}</span><span class="d">Off</span><span class="go"></span></li>`;
+  const list = uwPanel.querySelector('ul'); list.innerHTML = `<li class="hdr"><span class="n">${tab === 'air' ? 'Aircraft' : tab === 'rail' ? 'Train' : 'Vessel'}</span><span class="eta">${tab === 'air' ? (airFrom ? 'To' : 'Bound') : 'ETA'}</span><span class="d">Off</span><span class="go"></span></li>`;
   const away = v => { const d = Math.hypot(v.x - view.x, v.z - view.z) / NMm; return d < 0.15 ? '' : `${d.toFixed(d < 10 ? 1 : 0)} nm`; };
   const rows = [], d2 = b => Math.hypot(b.x - view.x, b.z - view.z);
   if (tab === 'rail') for (const v of rail.items().sort((a, b) => d2(a) - d2(b))) rows.push({ v, what: v.label });
   const fl = uwPanel.querySelector('.uwfilter'); if (fl) fl.hidden = tab !== 'air';
   if (tab === 'air') {
-    const items = air.items(), n = new Map();
-    for (const p of items) { routeLookup(p.a.flight); const d = destOf(p.a); if (d) n.set(d.code, (n.get(d.code) || 0) + 1); }   // (each looked up once, then from the cache)
-    const codes = [...n].sort((a, b) => b[1] - a[1]).slice(0, 5).map(c => c[0]);
-    if (airDest && !codes.includes(airDest)) codes.push(airDest);
+    const items = air.items(), n = new Map(), m = new Map();
+    for (const p of items) {   // (each looked up once, then from the cache)
+      routeLookup(p.a.flight); const d = destOf(p.a), o = originOf(p.a);
+      if (d) n.set(d.code, (n.get(d.code) || 0) + 1); if (o) m.set(o.code, (m.get(o.code) || 0) + 1);
+    }
+    const top = (map, keep) => { const c = [...map].sort((a, b) => b[1] - a[1]).slice(0, 5).map(c => c[0]); if (keep && !c.includes(keep)) c.push(keep); return c; };
     if (fl) {
-      fl.innerHTML = '<span>Bound for</span>';
-      for (const c of ['', ...codes]) {
-        const b = document.createElement('button'); b.type = 'button'; b.textContent = c ? `${c} ${n.get(c) || 0}` : 'All';
-        b.title = c ? `Only the planes bound for ${c}, here and in the view` : 'Every plane heard';
-        b.classList.toggle('on', c === airDest);
-        b.addEventListener('click', () => { airDest = c; fillUnderway(); }); fl.appendChild(b);
-      }
+      fl.innerHTML = '';
+      const chips = (label, codes, map, cur, set, what) => {
+        const line = document.createElement('div'); line.innerHTML = `<span>${label}</span>`;
+        for (const c of codes) {
+          const b = document.createElement('button'); b.type = 'button'; b.textContent = c ? `${c} ${map.get(c) || 0}` : 'All';
+          b.title = c ? `Only the planes ${what} ${c}, here and in the view` : 'Every plane heard';
+          b.classList.toggle('on', c ? c === cur : !airDest && !airFrom);
+          b.addEventListener('click', () => { airDest = ''; airFrom = ''; set(c); fillUnderway(); }); line.appendChild(b);
+        }
+        fl.appendChild(line);
+      };
+      chips('Bound for', ['', ...top(n, airDest)], n, airDest, c => { airDest = c; }, 'bound for');
+      chips('Leaving', top(m, airFrom), m, airFrom, c => { airFrom = c; }, 'leaving');
     }
     const left = p => { const d = destOf(p.a); return d?.nm == null ? 1e9 : d.nm / Math.max(p.a.gs || 0, 60); };   // (hours to go: soonest in first)
+    const out = p => originOf(p.a)?.nm ?? 1e9;   // (nm out: the latest off first)
     const pick = airDest ? items.filter(p => destOf(p.a)?.code === airDest).sort((a, b) => (a.a.ground - b.a.ground) || left(a) - left(b))
+      : airFrom ? items.filter(p => originOf(p.a)?.code === airFrom).sort((a, b) => (a.a.ground - b.a.ground) || out(a) - out(b))
       : items.sort((a, b) => (a.a.ground - b.a.ground) || d2(a) - d2(b)).slice(0, 25);   // (in the air first, then on the ground)
     for (const v of pick) rows.push({ v, what: v.label });
   }
@@ -2033,7 +2050,7 @@ function fillUnderway() {
   if (tab === 'water') for (const v of live.filter(o => o.on).sort((a, b) => d2(a) - d2(b)).slice(0, 12)) rows.push({ v, what: `📡 ${v.label}` });
   if (tab === 'water' && bowdoin && bowdoin !== own && bowdoin.boat.group.visible) rows.push({ v: bowdoin, what: 'Schooner, out of Castine' });
   if (tab === 'water') for (const v of fleet.filter(b => b !== bowdoin && b.boat.group.visible).sort((a, b) => d2(a) - d2(b)).slice(0, 6)) rows.push({ v, what: vDoing(v) });
-  if (!rows.length) { list.innerHTML = `<li class="none">${tab === 'air' ? (airDest ? `No plane bound for ${airDest} heard just now` : 'No aircraft heard') : tab === 'rail' ? 'No trains running' : 'Nothing on the water in sight'}</li>`; return; }
+  if (!rows.length) { list.innerHTML = `<li class="none">${tab === 'air' ? (airDest ? `No plane bound for ${airDest} heard just now` : airFrom ? `No plane leaving ${airFrom} heard just now` : 'No aircraft heard') : tab === 'rail' ? 'No trains running' : 'Nothing on the water in sight'}</li>`; return; }
   for (const r of rows) {
     const li = document.createElement('li'), v = r.v;
     if (nest.on && nest.v === v) li.className = 'aboard';
@@ -2043,7 +2060,7 @@ function fillUnderway() {
     if (v.kind === 'ais' || isMover(v)) { const ib = document.createElement('button'); ib.type = 'button'; ib.className = 'info'; ib.dataset.m = 'info'; ib.textContent = 'ⓘ'; ib.title = isMover(v) ? 'Her card: everything known of her' : 'Everything her AIS says'; li.querySelector('b').after(ib); }
     li.querySelector('small').textContent = r.what;
     li.querySelector('.d').textContent = away(v);
-    const eta = vEta(v); if (eta) { li.querySelector('.eta b').textContent = eta.t; li.querySelector('.eta small').textContent = eta.sub; li.querySelector('.eta').title = eta.sub === 'leaves' ? `Leaves at ${eta.t}` : v.kind === 'air' ? eta.t === 'landed' ? `On the ground at ${eta.sub}` : `Bound for ${eta.sub}${eta.t ? `, ${eta.t.slice(1)} at the earliest` : ''} (${eta.how === 'listed' ? 'her listed route' : 'by her approach: her listing is out of date'})` : `Due at ${eta.sub} at ${eta.t}`; }
+    const eta = vEta(v); if (eta) { li.querySelector('.eta b').textContent = eta.t; li.querySelector('.eta small').textContent = eta.sub; li.querySelector('.eta').title = eta.sub === 'leaves' ? `Leaves at ${eta.t}` : eta.from ? `Leaving ${eta.from}${eta.t ? `, bound for ${eta.t.slice(1)}` : ''} (${eta.how === 'listed' ? 'her listed route' : 'by her climb-out: her listing is out of date or missing'})` : v.kind === 'air' ? eta.t === 'landed' ? `On the ground at ${eta.sub}` : `Bound for ${eta.sub}${eta.t ? `, ${eta.t.slice(1)} at the earliest` : ''} (${eta.how === 'listed' ? 'her listed route' : 'by her approach: her listing is out of date'})` : `Due at ${eta.sub} at ${eta.t}`; }
     for (const b of li.querySelectorAll('button')) b.addEventListener('click', () => {
       uwPanel.hidden = true; uwBtn.classList.remove('on');
       if (b.dataset.m === 'info') { showCard(v); return; }
@@ -2179,7 +2196,7 @@ function relabel(btns, kind) {
   }
 }
 const rideBtns = () => RIDE_BTNS.map(([id, m]) => { const b = document.getElementById(id); if (b) b.dataset.m = m; return b; }).filter(Boolean);
-const air = makeAircraft({ scene, bbox: OVERVIEW, wx, wz, onCount: () => syncLiveBtn(), focus: moverFocus, onDrop: moverGone, riding: p => nest.on && nest.v === p, shown: p => !airDest || p === follow || p === cardV || destOf(p.a)?.code === airDest, groundAt: (lon, lat) => Math.max(0, heightAt(lon, lat) || 0) });
+const air = makeAircraft({ scene, bbox: OVERVIEW, wx, wz, onCount: () => syncLiveBtn(), focus: moverFocus, onDrop: moverGone, riding: p => nest.on && nest.v === p, shown: p => (!airDest && !airFrom) || p === follow || p === cardV || (airDest ? destOf(p.a)?.code === airDest : originOf(p.a)?.code === airFrom), groundAt: (lon, lat) => Math.max(0, heightAt(lon, lat) || 0) });
 window.__aircraft = () => air.list(camera, renderer.domElement.getBoundingClientRect());
 // and the trains (v1099): Caltrain, SMART and ACE from 511.org
 const rail = makeTrains({ scene, bbox: OVERVIEW, wx, wz, heightAt, onCount: () => syncLiveBtn(), focus: moverFocus, onDrop: moverGone });

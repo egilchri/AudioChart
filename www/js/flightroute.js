@@ -50,7 +50,7 @@ export function judgeRoute(route, a) {
   // leaving where she's listed as bound: heading away from it, near it, climbing
   if (dD < 200 && dD > 5 && toD > 120 && (climbing || dD > 25)) return { ok: false, why: `she's heading away from ${d.code}` };
   // well clear of her origin and pointed away from her destination
-  if (dO > 40 && toD > 110) return { ok: false, why: `she isn't heading toward ${d.code}` };
+  if (dO > 15 && toD > 110) return { ok: false, why: `she isn't heading toward ${d.code}` };   // (v1132: was 40 nm; SWA3221, listed SJC→DEN, flying SW 29 nm from SJC)
   if (descending && dD > 250 && dO < 200 && toO < 60) return { ok: false, why: `she's descending toward ${o.code}` };
   return { ok: true };
 }
@@ -63,13 +63,33 @@ export function destOf(a) {
   if (!a) return null;
   const r = routeLookup(a.flight)?.route;
   if (r && judgeRoute(r, a).ok) return { code: r.to.code, city: r.to.city, nm: a.lat != null ? distNM(a.lat, a.lon, r.to.lat, r.to.lon) : null, how: 'listed' };
-  if (a.ground || a.lat == null || a.trk == null || (a.vr != null && a.vr > 300)) return null;
+  if (a.ground || a.lat == null || a.trk == null || !(a.gs > 50) || (a.vr != null && a.vr > 300)) return null;
   if (!(a.vr != null && a.vr < -300) && !(a.alt != null && a.alt < 12000)) return null;
   let best = null;
   for (const q of airports.values()) {
     const nm = distNM(a.lat, a.lon, q.lat, q.lon);
     if (nm > 60 || nm < 0.5 || off(a.trk, bearing(a.lat, a.lon, q.lat, q.lon)) > 20) continue;
+    if (a.alt != null && a.alt > nm * 600 + 3000) continue;   // (too high to be landing there: JBU315 at FL314, 40 nm from Napa)
     if (!best || nm < best.nm) best = { code: q.code, city: q.city, nm, how: 'landing' };
+  }
+  return best;
+}
+
+// Where she's from (v1132, requested: "a filter where I can monitor planes departing from SFO"): her listing's origin
+// when she fits it (on the ground there, waiting to go, or on her way); otherwise, climbing (300+ ft/min) and flying
+// away from a known airport within 60 nm (her track within 30° of the line out from it), that one.
+// → { code, city, nm (from it), to (her listed destination's code, if she fits it), how } or null
+export function originOf(a) {
+  if (!a) return null;
+  const r = routeLookup(a.flight)?.route;
+  if (r && judgeRoute(r, a).ok && !(a.ground && distNM(r.from.lat, r.from.lon, a.lat, a.lon) > 5)) return { code: r.from.code, city: r.from.city, nm: a.lat != null ? distNM(r.from.lat, r.from.lon, a.lat, a.lon) : null, to: r.to.code, how: 'listed' };
+  if (a.ground || a.lat == null || a.trk == null || !(a.gs > 50) || !(a.vr != null && a.vr > 300)) return null;
+  let best = null;
+  for (const q of airports.values()) {
+    const nm = distNM(q.lat, q.lon, a.lat, a.lon);
+    if (a.alt != null && a.alt > nm * 1200 + 3000) continue;   // (too high to have just left there)
+    if (nm > 60 || (nm > 3 && off(a.trk, bearing(q.lat, q.lon, a.lat, a.lon)) > 30)) continue;
+    if (!best || nm < best.nm) best = { code: q.code, city: q.city, nm, to: null, how: 'climb-out' };
   }
   return best;
 }
