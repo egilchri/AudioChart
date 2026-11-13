@@ -31,7 +31,7 @@ import { makeFlyover, orderStops, offLeg } from './flyover.js';
 import * as Voice from './piper_voice.js';
 import { makeOverview } from './overview2d.js';
 import { makeAircraft, ADSB_CREDIT } from './aircraft3d.js';
-import { routeLookup, judgeRoute, destOf, originOf } from './flightroute.js';
+import { routeLookup, judgeRoute, destOf, originOf, airportInfo } from './flightroute.js';
 import { makeTrains, TRAIN_CREDIT } from './trains3d.js';
 import { makeTracks } from './track3d.js';
 import { makeAirport } from './airport3d.js';
@@ -1982,14 +1982,14 @@ function vEta(v) {
   if (v.kind === 'rail' && v.run) return { t: (v.run.destDay || '') + v.run.hhmm(v.run.destT), sub: v.run.late == null ? `${v.run.dest}?` : v.run.dest };   // (? : the timetable's time, her lateness unknown)   // (v1117: due at the end of her run)
   if (v.kind === 'air' && airFrom) {   // (v1132, Leaving: where she's bound, if listed, and how far out she is)
     const o = originOf(v.a); if (!o) return null;
-    return { t: o.to ? `→${o.to}` : '', sub: v.a.ground ? 'on the ground' : `${o.nm.toFixed(o.nm < 10 ? 1 : 0)} nm out`, how: o.how, from: o.code };
+    return { t: o.to ? `→${o.to}` : '', sub: v.a.ground ? 'on the ground' : `${o.nm.toFixed(o.nm < 10 ? 1 : 0)} nm out`, how: o.how, from: o.code, ap: o.to };
   }
   if (v.kind === 'air') {   // (v1131: where she's bound, and roughly when, by the real clock: straight there at her speed)
     const d = destOf(v.a); if (!d) return null;
-    if (v.a.ground && d.nm != null && d.nm < 5) return { t: 'landed', sub: d.code, how: d.how };   // (on the ground there)
-    if (v.a.ground || d.nm == null || !(v.a.gs > 60)) return { t: '', sub: d.code, how: d.how };
+    if (v.a.ground && d.nm != null && d.nm < 5) return { t: 'landed', sub: d.code, how: d.how, ap: d.code };   // (on the ground there)
+    if (v.a.ground || d.nm == null || !(v.a.gs > 60)) return { t: '', sub: d.code, how: d.how, ap: d.code };
     const at = new Date(Date.now() + d.nm / v.a.gs * 3600e3);
-    return { t: `≈${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`, sub: d.code, how: d.how };
+    return { t: `≈${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`, sub: d.code, how: d.how, ap: d.code };
   }
   if (v === own && own.r && boatClock && own.S < own.total) return { t: hhmm(Math.min(1439, now + passageMin(own.total) - passageMin(own.S))), sub: 'arrives' };
   return null;
@@ -2006,6 +2006,10 @@ let airDest = '';
 // and Leaving (v1132, requested: "a filter where I can monitor planes departing from SFO"): the planes from one airport,
 // the latest off it first, then those on the ground there; picking one row's airport clears the other's
 let airFrom = '';
+// what an airport code stands for (v1133, requested: "an info link for the airport codes in the flight table"): a tap on
+// a code in a row, or picking a chip, shows its name and town under the chips, with a link to read about it
+let apInfo = '';
+const apName = c => { const q = airportInfo(c); return q ? `${q.name}${q.city && !q.name.includes(q.city) ? `, ${q.city}` : ''}` : ''; };
 function fillUnderway() {
   const hasAir = air.count > 0, hasRail = rail.count > 0, tab = uwTab === 'air' && hasAir ? 'air' : uwTab === 'rail' && hasRail ? 'rail' : 'water';
   const tabs = uwPanel.querySelector('.uwtabs');
@@ -2029,14 +2033,22 @@ function fillUnderway() {
         const line = document.createElement('div'); line.innerHTML = `<span>${label}</span>`;
         for (const c of codes) {
           const b = document.createElement('button'); b.type = 'button'; b.textContent = c ? `${c} ${map.get(c) || 0}` : 'All';
-          b.title = c ? `Only the planes ${what} ${c}, here and in the view` : 'Every plane heard';
+          b.title = c ? `Only the planes ${what} ${c}${apName(c) ? ` (${apName(c)})` : ''}, here and in the view` : 'Every plane heard';
           b.classList.toggle('on', c ? c === cur : !airDest && !airFrom);
-          b.addEventListener('click', () => { airDest = ''; airFrom = ''; set(c); fillUnderway(); }); line.appendChild(b);
+          b.addEventListener('click', () => { airDest = ''; airFrom = ''; apInfo = ''; set(c); fillUnderway(); }); line.appendChild(b);
         }
         fl.appendChild(line);
       };
       chips('Bound for', ['', ...top(n, airDest)], n, airDest, c => { airDest = c; }, 'bound for');
       chips('Leaving', top(m, airFrom), m, airFrom, c => { airFrom = c; }, 'leaving');
+      const ic = apInfo || airDest || airFrom, q = ic && airportInfo(ic);
+      if (q) {   // (the airport's line: what the code stands for, and a link to read about it)
+        const line = document.createElement('div'); line.className = 'apinfo';
+        const t = document.createElement('span'); t.innerHTML = '<b></b> <i></i>'; t.querySelector('b').textContent = ic; t.querySelector('i').textContent = apName(ic); line.appendChild(t);
+        if (navigator.onLine !== false) { const a = document.createElement('a'); a.href = `https://en.wikipedia.org/w/index.php?search=${encodeURIComponent(q.name)}`; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'About ↗'; a.title = `${q.name} on Wikipedia`; line.appendChild(a); }
+        if (apInfo) { const x = document.createElement('button'); x.type = 'button'; x.className = 'x'; x.textContent = '×'; x.title = 'Put this away'; x.addEventListener('click', () => { apInfo = ''; fillUnderway(); }); line.appendChild(x); }
+        fl.appendChild(line);
+      }
     }
     const left = p => { const d = destOf(p.a); return d?.nm == null ? 1e9 : d.nm / Math.max(p.a.gs || 0, 60); };   // (hours to go: soonest in first)
     const out = p => originOf(p.a)?.nm ?? 1e9;   // (nm out: the latest off first)
@@ -2060,7 +2072,13 @@ function fillUnderway() {
     if (v.kind === 'ais' || isMover(v)) { const ib = document.createElement('button'); ib.type = 'button'; ib.className = 'info'; ib.dataset.m = 'info'; ib.textContent = 'ⓘ'; ib.title = isMover(v) ? 'Her card: everything known of her' : 'Everything her AIS says'; li.querySelector('b').after(ib); }
     li.querySelector('small').textContent = r.what;
     li.querySelector('.d').textContent = away(v);
-    const eta = vEta(v); if (eta) { li.querySelector('.eta b').textContent = eta.t; li.querySelector('.eta small').textContent = eta.sub; li.querySelector('.eta').title = eta.sub === 'leaves' ? `Leaves at ${eta.t}` : eta.from ? `Leaving ${eta.from}${eta.t ? `, bound for ${eta.t.slice(1)}` : ''} (${eta.how === 'listed' ? 'her listed route' : 'by her climb-out: her listing is out of date or missing'})` : v.kind === 'air' ? eta.t === 'landed' ? `On the ground at ${eta.sub}` : `Bound for ${eta.sub}${eta.t ? `, ${eta.t.slice(1)} at the earliest` : ''} (${eta.how === 'listed' ? 'her listed route' : 'by her approach: her listing is out of date'})` : `Due at ${eta.sub} at ${eta.t}`; }
+    const eta = vEta(v);
+    if (eta?.ap && airportInfo(eta.ap)) {   // (v1133: tap the code for what it stands for)
+      const el = li.querySelector('.eta'); el.classList.add('ap'); el.setAttribute('role', 'button'); el.tabIndex = 0;
+      const show = e => { e.stopPropagation(); apInfo = eta.ap; fillUnderway(); uwPanel.querySelector('.uwfilter')?.scrollIntoView?.({ block: 'nearest' }); };
+      el.addEventListener('click', show); el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); show(e); } });
+    }
+    if (eta) { li.querySelector('.eta b').textContent = eta.t; li.querySelector('.eta small').textContent = eta.sub; li.querySelector('.eta').title = eta.sub === 'leaves' ? `Leaves at ${eta.t}` : eta.from ? `Leaving ${eta.from}${eta.t ? `, bound for ${eta.t.slice(1)}` : ''} (${eta.how === 'listed' ? 'her listed route' : 'by her climb-out: her listing is out of date or missing'})${eta.ap && apName(eta.ap) ? `. ${eta.ap}: ${apName(eta.ap)}, tap for more` : ''}` : v.kind === 'air' ? eta.t === 'landed' ? `On the ground at ${eta.sub}` : `Bound for ${eta.sub}${eta.t ? `, ${eta.t.slice(1)} at the earliest` : ''}${eta.ap && apName(eta.ap) ? ` — ${apName(eta.ap)}` : ''} (${eta.how === 'listed' ? 'her listed route' : 'by her approach: her listing is out of date'})` : `Due at ${eta.sub} at ${eta.t}`; }
     for (const b of li.querySelectorAll('button')) b.addEventListener('click', () => {
       uwPanel.hidden = true; uwBtn.classList.remove('on');
       if (b.dataset.m === 'info') { showCard(v); return; }

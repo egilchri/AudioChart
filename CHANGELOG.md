@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-11-13 — Bird's-eye: what the airport codes stand for (v1133)
+
+- Requested: "we need an info link for the airport codes in the flight table, so the user can see what the abbreviation refers to". In the ⛴ Underway panel's ✈ Air tab, a row's airport code (the Bound or To column, underlined dotted) is tappable: a line under the chips gives the airport's name and town, with **About ↗** (its Wikipedia article; left off when offline) and × to put it away. Picking a Bound for or Leaving chip shows its airport's line too, and each chip's and row's tip carries the full name. Names come from the routes already looked up (www/js/flightroute.js `airportInfo`), so it works for any code the table shows.
+- Checked in headless Chrome over SF: SFO → San Francisco International Airport, SQL → San Carlos Airport, NRT → Narita International Airport, Tokyo, IAD → Washington Dulles, OAK → Metropolitan Oakland; a tap on a code doesn't start a ride; no errors.
+
 ## 2026-11-13 — Bird's-eye: planes filtered by where they're leaving (v1132)
 
 - Requested: "a filter where I can monitor planes departing from SFO". Under v1131's **Bound for** row in the ⛴ Underway panel's ✈ Air tab, a **Leaving** row: the airports the planes heard are leaving, busiest first. Picking one lists only her planes, the latest off first (each with where she's bound, if listed, and how far out she is; the column reads "To"), then any on the ground there listed to leave it, and hides the other planes in the view. Picking in one row clears the other; All clears both.

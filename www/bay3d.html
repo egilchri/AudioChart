@@ -287,6 +287,15 @@ body.embed.smallride #ridechart { width: clamp(120px, 13vw, 170px); }
 #underway .uwfilter { margin: 0 0 6px; font-size: 0.7rem; }
 #underway .uwfilter > div { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; margin: 0 0 3px; }   /* Bound for, then Leaving (v1132) */
 #underway .uwfilter span { min-width: 54px; }
+/* an airport code's line (v1133): its name and town, a link to read about it; a row's code tapped for it */
+#underway .uwfilter .apinfo { display: flex; align-items: baseline; gap: 8px; padding: 4px 6px; margin-top: 2px; background: rgba(224,194,122,0.12); border-radius: 4px; font-size: 0.74rem; }
+#underway .uwfilter .apinfo span { flex: 1; min-width: 0; color: var(--ink); }
+#underway .uwfilter .apinfo b { font-family: var(--mono); color: #e0c27a; margin-right: 4px; }
+#underway .uwfilter .apinfo i { font-style: normal; }
+#underway .uwfilter .apinfo a { color: #e0c27a; white-space: nowrap; }
+#underway .uwfilter .apinfo .x { background: none; border: 0; color: var(--muted); font-size: 0.9rem; padding: 0 2px; cursor: pointer; }
+#underway .eta.ap { cursor: pointer; }
+#underway .eta.ap small, #underway .eta.ap b { text-decoration: underline dotted rgba(224,194,122,0.7); text-underline-offset: 2px; }
 #underway .uwfilter[hidden], #underway.shrunk .uwfilter { display: none; }
 #underway .uwfilter span { color: var(--muted); margin-right: 3px; }
 #underway .uwfilter button { font: inherit; font-family: var(--mono); color: var(--ink); background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.18); border-radius: 10px; padding: 1px 8px; cursor: pointer; }

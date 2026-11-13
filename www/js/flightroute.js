@@ -23,6 +23,9 @@ export function routeLookup(callsign) {
   return e;
 }
 const place = a => ({ code: a.iata_code || a.icao_code, city: a.municipality || a.name, name: a.name, lat: a.latitude, lon: a.longitude });
+// an airport code's place (v1133, requested: "an info link for the airport codes in the flight table"): from the listings
+// seen so far, { code, city, name, lat, lon }, or null
+export const airportInfo = code => airports.get(code) || null;
 
 function distNM(lat1, lon1, lat2, lon2) {
   const a = Math.sin((lat2 - lat1) * DEG / 2) ** 2 + Math.cos(lat1 * DEG) * Math.cos(lat2 * DEG) * Math.sin((lon2 - lon1) * DEG / 2) ** 2;
