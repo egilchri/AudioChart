@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-13 — Bird's-eye: a plane's From and To, checked against her flight (v1130)
+
+- Requested: "In the info window we see for airplanes, can we see origin and destination?" ADS-B doesn't carry it, so the card looks her callsign up in adsbdb (api.adsbdb.com: free, open to the browser; adsb.lol's own routeset answered empty and isn't open to it). New www/js/flightroute.js: `routeLookup` (airline callsigns only, cached 6 h, retried after a failure, skipped offline) and `judgeRoute`.
+- adsbdb is crowd-kept and airlines move flight numbers about: it had UA1372 as SFO→LAS while she flew Seattle→SFO, and 31 of 59 airliners over the bay on 2026-11-13 contradicted their listing (ORD→IND over San Francisco, "SFO→ORD" landing at SFO, JFK→LAS parked at SFO). So `judgeRoute` checks the listing against what she's doing — off the line between the two airports, heading in to her listed origin, away from her listed destination, on the ground away from both — and the card shows a contradicted route greyed, with "Listed route, likely out of date: <why>", never as fact. Checked on the real UA1372 sighting (flagged: heading in to SFO) and on the live planes, in headless Chrome (ANA7 SFO→NRT climbing out: plain; UAL1973 at 100 ft onto SFO: greyed).
+- www/sw.js leaves api.adsbdb.com alone (not cached per callsign).
+
 ## 2026-11-12 — Bird's-eye: ⤒ Level, to see the aircraft from the side (v1129)
 
 - Requested: "a tip feature, so I can view horizontally … see aircraft that we are tracking, more from the side". A **⤒ Level** button by the compass (or **T**) tips the view down to the horizon (87°) at any distance; again (**⤓ Overhead**) back to 50°. While level, the tilt limit is 88° at every distance (it was 80° close in, down to 55° far out), the camera is kept 25 m over the ground beneath it, and it aims a little above the target so the sky, and the planes in it, fill the top of the frame (www/js/bay3d.js `tipped`, `toggleTip`, `placeCamera`). Shift-drag still fine-tunes the tilt.

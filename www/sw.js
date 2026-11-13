@@ -1,4 +1,4 @@
-/** @version v1129 */
+/** @version v1130 */
 /* Bump this comment on every release, even when nothing else in this file
    changes — a service worker only gets reinstalled when its own script
    bytes differ from what's currently active (see the v505 fix), so a
@@ -96,6 +96,9 @@ self.addEventListener('fetch', (event) => {
 
   // National Weather Service forecast for the 3D view's Weather panel (v859): always live, never cached.
   if (url.hostname === 'api.weather.gov') return;
+
+  // A plane's listed route for Bird's-eye's card (v1130, flightroute.js): live, and kept in the page itself, not here.
+  if (url.hostname === 'api.adsbdb.com') return;
 
   // Buoy F's readings for Bird's-eye (v1013, buoyf.js): always live; the module keeps the last one itself, with
   // its time, so offline it shows that reading as hours old rather than as a fresh one.

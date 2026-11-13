@@ -31,6 +31,7 @@ import { makeFlyover, orderStops, offLeg } from './flyover.js';
 import * as Voice from './piper_voice.js';
 import { makeOverview } from './overview2d.js';
 import { makeAircraft, ADSB_CREDIT } from './aircraft3d.js';
+import { routeLookup, judgeRoute } from './flightroute.js';
 import { makeTrains, TRAIN_CREDIT } from './trains3d.js';
 import { makeTracks } from './track3d.js';
 import { makeAirport } from './airport3d.js';
@@ -2308,8 +2309,19 @@ function fillMoverCard() {
   aisCard.querySelector('.go').hidden = false;
   document.getElementById('aisname').textContent = `${air_ ? '✈' : '🚆'} ${v.title}${gone ? ' (no longer heard)' : ''}`;
   const rows = [], row = (k, val, html = false) => { if (val !== '' && val != null) rows.push([k, val, html]); };
+  let rl = null;   // (her route's lookup, for the From/To rows and the Source)
   if (air_) {
-    row('Flight', a.flight); row('Registration', a.reg); row('Aircraft', a.type);
+    row('Flight', a.flight);
+    // From and To (v1130): adsbdb's listing for her callsign, greyed where what she's doing contradicts it (flightroute.js)
+    rl = navigator.onLine !== false ? routeLookup(a.flight) : null;
+    if (rl && rl.route === undefined) { row('Route', 'Looking it up…'); if (!rl.waiting) { rl.waiting = true; rl.p.then(() => { if (cardV === v && !aisCard.hidden) fillMoverCard(); }); } }
+    else if (rl?.route) {
+      const j = judgeRoute(rl.route, a), esc = t => String(t ?? '').replace(/[&<>"]/g, c => `&#${c.charCodeAt(0)};`);
+      const pl = q => `<span${j.ok ? '' : ' class="stale"'} title="${esc(q.name)}">${esc(q.city)} (${esc(q.code)})</span>`;
+      row('From', pl(rl.route.from), true); row('To', pl(rl.route.to), true);
+      if (!j.ok) row('', `<span class="stale">Listed route, likely out of date: ${esc(j.why)}</span>`, true);
+    }
+    row('Registration', a.reg); row('Aircraft', a.type);
     row('Altitude', a.ground ? 'On the ground' : `${(Math.round(v.y * 3.281 / 50) * 50).toLocaleString('en-US')} ft`);
     row('Speed', a.gs != null ? `${Math.round(a.gs)} kn (${Math.round(a.gs * 1.151)} mph)` : '');
     row('Track', a.trk != null ? `${deg3(a.trk)}° true` : '');
@@ -2333,7 +2345,7 @@ function fillMoverCard() {
   const d = Math.hypot(v.x - view.x, v.z - view.z);
   if (d > 30) row('From the view', `${(d / NMm).toFixed(d < 10 * NMm ? 1 : 0)} nm, ${deg3(Math.atan2(v.x - view.x, -(v.z - view.z)) / DEG)}° true`);
   if (air_ && navigator.onLine !== false) row('More', `<a href="https://globe.adsb.lol/?icao=${encodeURIComponent(a.hex)}" target="_blank" rel="noopener">See her on adsb.lol ↗</a>`, true);
-  row('Source', air_ ? 'Her own ADS-B, through adsb.lol' : 'The railroad, through 511.org (every 90 s or more)');
+  row('Source', air_ ? `Her own ADS-B, through adsb.lol${rl?.route ? '; route listed by adsbdb.com' : ''}` : 'The railroad, through 511.org (every 90 s or more)');
   const tb = aisCard.querySelector('table'); tb.innerHTML = '';
   for (const [k, val, html] of rows) { const tr = tb.insertRow(), th = document.createElement('th'), td = tr.insertCell(); th.textContent = k; tr.prepend(th); if (html) td.innerHTML = val; else td.textContent = val; }
   for (const b of aisCard.querySelectorAll('.go button')) b.disabled = gone;

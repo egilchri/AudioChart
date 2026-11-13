@@ -252,6 +252,7 @@ body.embed.smallride #ridechart { width: clamp(120px, 13vw, 170px); }
 /* a live vessel's AIS card (v988): tap her, or ⓘ in Underway */
 #aisinfo { position: fixed; right: 12px; top: calc(48px + env(safe-area-inset-top, 0px)); z-index: 4; width: min(340px, calc(100vw - 24px)); max-height: calc(100vh - 120px); overflow-y: auto; box-sizing: border-box; background: var(--glass-hi); color: var(--ink); border-radius: 6px; padding: 8px 30px 8px 10px; font-family: var(--body); font-size: 0.8rem; }
 #aisinfo[hidden] { display: none; }
+#aisinfo .stale { color: var(--muted); font-style: italic; }   /* a listed route the plane contradicts (v1130) */
 #aisinfo td.chart { padding: 2px 0 6px; font-family: var(--body); }   /* the tide gauge's day (v1014) */
 .tidechart { width: 100%; height: auto; display: block; }
 .tidechart text { font-size: 9px; fill: var(--muted); font-family: var(--body); }
