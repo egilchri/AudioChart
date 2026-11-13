@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-13 — Bird's-eye: planes filtered by where they're bound (v1131)
+
+- Requested: "a filter so I can track planes with a San Francisco destination". The ⛴ Underway panel's ✈ Air tab has a **Bound for** row: All, and the airports the planes heard are bound for, busiest first with how many (SFO 12 · OAK 5 · SJC 2 … at the time). Picking one lists only her planes, soonest in first, each with ≈ her arrival time by the real clock (straight there at her speed, so the earliest) or "landed", and **hides the other planes in the view** (any you follow or have the card of stay). All brings them back. Not remembered between visits, so the planes never go missing unexplained. The Air tab's list column is now "Bound".
+- Where she's bound (www/js/flightroute.js `destOf`): her adsbdb listing's destination when she fits it (v1130's `judgeRoute`); otherwise, when she's coming down (descending, or under 12,000 ft and not climbing) pointed within 20° of a known airport within 60 nm, that one, so planes on stale listings still count (as UA1372, Seattle→SFO listed SFO→LAS, would have). A row's tip says which ("her listed route" or "by her approach"). www/js/aircraft3d.js takes a `shown(p)` filter (hidden planes can't be tapped either).
+- Checked in headless Chrome over SF: SFO picked → 12 of 91 planes drawn and listed (six on approach from 400 ft to 16,300 ft, six on the ground), All → 91 again; no errors.
+
 ## 2026-11-13 — Bird's-eye: a plane's From and To, checked against her flight (v1130)
 
 - Requested: "In the info window we see for airplanes, can we see origin and destination?" ADS-B doesn't carry it, so the card looks her callsign up in adsbdb (api.adsbdb.com: free, open to the browser; adsb.lol's own routeset answered empty and isn't open to it). New www/js/flightroute.js: `routeLookup` (airline callsigns only, cached 6 h, retried after a failure, skipped offline) and `judgeRoute`.

@@ -46,9 +46,10 @@ export function labelSprite() {
 // Each aircraft is also a 'vessel' to Bird's-eye's card, Follow and ride views (v1104): kind 'air', group, x/y/z, h,
 // L (her length, m), label (what she's doing), title, and a cockpit (group.userData.helm, her frame, nose to −z).
 // focus(p): true while her card is open or she's followed, so her label shows; onDrop(p) when she's gone.
+// shown(p): false to hide her (a filter, v1131)
 // riding(p): true while you ride with her (no line down from her then: clutter beside her)
 // groundAt(lon, lat): the ground's height there, to sit an aircraft on the ground on it (her ADS-B says 0 ft)
-export function makeAircraft({ scene, bbox, wx, wz, every = 5000, onCount, focus = () => false, onDrop = () => {}, riding = () => false, groundAt = () => 0 }) {
+export function makeAircraft({ scene, bbox, wx, wz, every = 5000, onCount, focus = () => false, onDrop = () => {}, riding = () => false, shown = () => true, groundAt = () => 0 }) {
   const planes = new Map();   // hex -> { a, g, model, line, label, fix, x, y, z, h }
   let on = false, timer = null, inflight = null, hover = null;
   const pinned = new Set(), _v = new THREE.Vector3();
@@ -129,7 +130,8 @@ export function makeAircraft({ scene, bbox, wx, wz, every = 5000, onCount, focus
       const d = Math.hypot(p.x - cp.x, p.y - cp.y, p.z - cp.z), L = lengthOf(a);
       p.model.scale.setScalar(p.real ? Math.max(1, d * 0.014 / p.L) : Math.max(L, d * 0.014));   // (an airliner is built in metres; the small plane is 1 m long)
       const P = p.line.geometry.attributes.position; P.setXYZ(0, p.x, p.y, p.z); P.setXYZ(1, p.x, 0, p.z); P.needsUpdate = true;
-      p.line.visible = p.y > 30 && !riding(p); p.tag.visible = p === hover || pinned.has(p) || focus(p);
+      p.g.visible = riding(p) || shown(p);   // (v1131: a filter, such as bound for SFO, hides the others)
+      p.line.visible = p.g.visible && p.y > 30 && !riding(p); p.tag.visible = p === hover || pinned.has(p) || focus(p);
     }
   }
   return {
@@ -140,6 +142,7 @@ export function makeAircraft({ scene, bbox, wx, wz, every = 5000, onCount, focus
     at(cx, cy, camera, rect, reach = 22) {
       let best = null, bd = reach;
       for (const p of planes.values()) {
+        if (!p.g.visible) continue;
         _v.copy(p.g.position).project(camera); if (_v.z >= 1) continue;
         const d = Math.hypot(rect.left + (_v.x + 1) / 2 * rect.width - cx, rect.top + (1 - _v.y) / 2 * rect.height - cy);
         if (d < bd) { bd = d; best = p; }

@@ -31,7 +31,7 @@ import { makeFlyover, orderStops, offLeg } from './flyover.js';
 import * as Voice from './piper_voice.js';
 import { makeOverview } from './overview2d.js';
 import { makeAircraft, ADSB_CREDIT } from './aircraft3d.js';
-import { routeLookup, judgeRoute } from './flightroute.js';
+import { routeLookup, judgeRoute, destOf } from './flightroute.js';
 import { makeTrains, TRAIN_CREDIT } from './trains3d.js';
 import { makeTracks } from './track3d.js';
 import { makeAirport } from './airport3d.js';
@@ -1980,6 +1980,13 @@ function vEta(v) {
   }
   if (v.kind === 'cruise' && st?.moving && st.dir > 0) return { t: hhmm(now + (v.T.L - st.f) / (v.V.knots * NMm / 60)), sub: v.call.port };
   if (v.kind === 'rail' && v.run) return { t: (v.run.destDay || '') + v.run.hhmm(v.run.destT), sub: v.run.late == null ? `${v.run.dest}?` : v.run.dest };   // (? : the timetable's time, her lateness unknown)   // (v1117: due at the end of her run)
+  if (v.kind === 'air') {   // (v1131: where she's bound, and roughly when, by the real clock: straight there at her speed)
+    const d = destOf(v.a); if (!d) return null;
+    if (v.a.ground && d.nm != null && d.nm < 5) return { t: 'landed', sub: d.code, how: d.how };   // (on the ground there)
+    if (v.a.ground || d.nm == null || !(v.a.gs > 60)) return { t: '', sub: d.code, how: d.how };
+    const at = new Date(Date.now() + d.nm / v.a.gs * 3600e3);
+    return { t: `≈${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`, sub: d.code, how: d.how };
+  }
   if (v === own && own.r && boatClock && own.S < own.total) return { t: hhmm(Math.min(1439, now + passageMin(own.total) - passageMin(own.S))), sub: 'arrives' };
   return null;
 }
@@ -1988,22 +1995,45 @@ function vEta(v) {
 // her ways to go and see her (Cab or Cockpit, Drone, Follow, Behind or Chase, Side, Ahead). The tab's remembered.
 const UW_TAB_KEY = 'audiochart-bay3d-underway-tab';
 let uwTab = 'water'; try { uwTab = localStorage.getItem(UW_TAB_KEY) || 'water'; } catch (_) {}
+// The ✈ Air tab's filter (v1131, requested: "a filter so I can track planes with a San Francisco destination"): All,
+// or one airport the planes heard are bound for (the busiest few, flightroute.js destOf); while one's picked only
+// her planes are listed (soonest in first) and drawn, besides any you follow or have the card of. For this visit only.
+let airDest = '';
 function fillUnderway() {
   const hasAir = air.count > 0, hasRail = rail.count > 0, tab = uwTab === 'air' && hasAir ? 'air' : uwTab === 'rail' && hasRail ? 'rail' : 'water';
   const tabs = uwPanel.querySelector('.uwtabs');
   if (tabs) { tabs.hidden = !hasAir && !hasRail; for (const b of tabs.querySelectorAll('button')) { b.hidden = b.dataset.tab === 'air' ? !hasAir : b.dataset.tab === 'rail' ? !hasRail : false; b.classList.toggle('on', b.dataset.tab === tab); } }
   uwPanel.querySelector('.sect').textContent = tab === 'air' ? 'In the air now' : tab === 'rail' ? 'Trains running now' : 'On the water now';
-  const list = uwPanel.querySelector('ul'); list.innerHTML = `<li class="hdr"><span class="n">${tab === 'air' ? 'Aircraft' : tab === 'rail' ? 'Train' : 'Vessel'}</span><span class="eta">${tab !== 'air' ? 'ETA' : ''}</span><span class="d">Off</span><span class="go"></span></li>`;
+  const list = uwPanel.querySelector('ul'); list.innerHTML = `<li class="hdr"><span class="n">${tab === 'air' ? 'Aircraft' : tab === 'rail' ? 'Train' : 'Vessel'}</span><span class="eta">${tab === 'air' ? 'Bound' : 'ETA'}</span><span class="d">Off</span><span class="go"></span></li>`;
   const away = v => { const d = Math.hypot(v.x - view.x, v.z - view.z) / NMm; return d < 0.15 ? '' : `${d.toFixed(d < 10 ? 1 : 0)} nm`; };
   const rows = [], d2 = b => Math.hypot(b.x - view.x, b.z - view.z);
   if (tab === 'rail') for (const v of rail.items().sort((a, b) => d2(a) - d2(b))) rows.push({ v, what: v.label });
-  if (tab === 'air') for (const v of air.items().sort((a, b) => (a.a.ground - b.a.ground) || d2(a) - d2(b)).slice(0, 25)) rows.push({ v, what: v.label });   // (in the air first, then on the ground)
+  const fl = uwPanel.querySelector('.uwfilter'); if (fl) fl.hidden = tab !== 'air';
+  if (tab === 'air') {
+    const items = air.items(), n = new Map();
+    for (const p of items) { routeLookup(p.a.flight); const d = destOf(p.a); if (d) n.set(d.code, (n.get(d.code) || 0) + 1); }   // (each looked up once, then from the cache)
+    const codes = [...n].sort((a, b) => b[1] - a[1]).slice(0, 5).map(c => c[0]);
+    if (airDest && !codes.includes(airDest)) codes.push(airDest);
+    if (fl) {
+      fl.innerHTML = '<span>Bound for</span>';
+      for (const c of ['', ...codes]) {
+        const b = document.createElement('button'); b.type = 'button'; b.textContent = c ? `${c} ${n.get(c) || 0}` : 'All';
+        b.title = c ? `Only the planes bound for ${c}, here and in the view` : 'Every plane heard';
+        b.classList.toggle('on', c === airDest);
+        b.addEventListener('click', () => { airDest = c; fillUnderway(); }); fl.appendChild(b);
+      }
+    }
+    const left = p => { const d = destOf(p.a); return d?.nm == null ? 1e9 : d.nm / Math.max(p.a.gs || 0, 60); };   // (hours to go: soonest in first)
+    const pick = airDest ? items.filter(p => destOf(p.a)?.code === airDest).sort((a, b) => (a.a.ground - b.a.ground) || left(a) - left(b))
+      : items.sort((a, b) => (a.a.ground - b.a.ground) || d2(a) - d2(b)).slice(0, 25);   // (in the air first, then on the ground)
+    for (const v of pick) rows.push({ v, what: v.label });
+  }
   if (tab === 'water' && own.r && own.boat.group.visible) rows.push({ v: own, what: own.vj ? 'On your Virtual Journey' : own.playing ? 'Under way on your route' : own.S >= own.total ? 'Arrived' : 'Ready on your route' });
   if (tab === 'water') for (const v of traffic) if (v.on) rows.push({ v, what: v.kind === 'cruise' ? v.label.replace(/^[^,]*, /, '') : v.label });
   if (tab === 'water') for (const v of live.filter(o => o.on).sort((a, b) => d2(a) - d2(b)).slice(0, 12)) rows.push({ v, what: `📡 ${v.label}` });
   if (tab === 'water' && bowdoin && bowdoin !== own && bowdoin.boat.group.visible) rows.push({ v: bowdoin, what: 'Schooner, out of Castine' });
   if (tab === 'water') for (const v of fleet.filter(b => b !== bowdoin && b.boat.group.visible).sort((a, b) => d2(a) - d2(b)).slice(0, 6)) rows.push({ v, what: vDoing(v) });
-  if (!rows.length) { list.innerHTML = `<li class="none">${tab === 'air' ? 'No aircraft heard' : tab === 'rail' ? 'No trains running' : 'Nothing on the water in sight'}</li>`; return; }
+  if (!rows.length) { list.innerHTML = `<li class="none">${tab === 'air' ? (airDest ? `No plane bound for ${airDest} heard just now` : 'No aircraft heard') : tab === 'rail' ? 'No trains running' : 'Nothing on the water in sight'}</li>`; return; }
   for (const r of rows) {
     const li = document.createElement('li'), v = r.v;
     if (nest.on && nest.v === v) li.className = 'aboard';
@@ -2013,7 +2043,7 @@ function fillUnderway() {
     if (v.kind === 'ais' || isMover(v)) { const ib = document.createElement('button'); ib.type = 'button'; ib.className = 'info'; ib.dataset.m = 'info'; ib.textContent = 'ⓘ'; ib.title = isMover(v) ? 'Her card: everything known of her' : 'Everything her AIS says'; li.querySelector('b').after(ib); }
     li.querySelector('small').textContent = r.what;
     li.querySelector('.d').textContent = away(v);
-    const eta = vEta(v); if (eta) { li.querySelector('.eta b').textContent = eta.t; li.querySelector('.eta small').textContent = eta.sub; li.querySelector('.eta').title = eta.sub === 'leaves' ? `Leaves at ${eta.t}` : `Due at ${eta.sub} at ${eta.t}`; }
+    const eta = vEta(v); if (eta) { li.querySelector('.eta b').textContent = eta.t; li.querySelector('.eta small').textContent = eta.sub; li.querySelector('.eta').title = eta.sub === 'leaves' ? `Leaves at ${eta.t}` : v.kind === 'air' ? eta.t === 'landed' ? `On the ground at ${eta.sub}` : `Bound for ${eta.sub}${eta.t ? `, ${eta.t.slice(1)} at the earliest` : ''} (${eta.how === 'listed' ? 'her listed route' : 'by her approach: her listing is out of date'})` : `Due at ${eta.sub} at ${eta.t}`; }
     for (const b of li.querySelectorAll('button')) b.addEventListener('click', () => {
       uwPanel.hidden = true; uwBtn.classList.remove('on');
       if (b.dataset.m === 'info') { showCard(v); return; }
@@ -2149,7 +2179,7 @@ function relabel(btns, kind) {
   }
 }
 const rideBtns = () => RIDE_BTNS.map(([id, m]) => { const b = document.getElementById(id); if (b) b.dataset.m = m; return b; }).filter(Boolean);
-const air = makeAircraft({ scene, bbox: OVERVIEW, wx, wz, onCount: () => syncLiveBtn(), focus: moverFocus, onDrop: moverGone, riding: p => nest.on && nest.v === p, groundAt: (lon, lat) => Math.max(0, heightAt(lon, lat) || 0) });
+const air = makeAircraft({ scene, bbox: OVERVIEW, wx, wz, onCount: () => syncLiveBtn(), focus: moverFocus, onDrop: moverGone, riding: p => nest.on && nest.v === p, shown: p => !airDest || p === follow || p === cardV || destOf(p.a)?.code === airDest, groundAt: (lon, lat) => Math.max(0, heightAt(lon, lat) || 0) });
 window.__aircraft = () => air.list(camera, renderer.domElement.getBoundingClientRect());
 // and the trains (v1099): Caltrain, SMART and ACE from 511.org
 const rail = makeTrains({ scene, bbox: OVERVIEW, wx, wz, heightAt, onCount: () => syncLiveBtn(), focus: moverFocus, onDrop: moverGone });

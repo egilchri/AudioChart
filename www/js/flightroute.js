@@ -7,6 +7,7 @@ export const ROUTE_CREDIT = 'Routes from adsbdb.com';
 const NM = 1852, R = 6371000, DEG = Math.PI / 180;
 const cache = new Map();   // callsign → { t, p (a promise of the route or null) }
 const FRESH = 6 * 3600e3;
+const airports = new Map();   // every airport seen at either end of a listing: code → place, for destOf's landing check
 
 export function routeLookup(callsign) {
   const cs = (callsign || '').trim().toUpperCase();
@@ -16,7 +17,7 @@ export function routeLookup(callsign) {
   const e = { t: Date.now(), route: undefined };
   e.p = fetch(`https://api.adsbdb.com/v0/callsign/${cs}`, { cache: 'no-store' })
     .then(r => r.ok ? r.json() : null)
-    .then(j => { const f = j?.response?.flightroute; e.route = f?.origin && f?.destination ? { from: place(f.origin), to: place(f.destination) } : null; return e.route; })
+    .then(j => { const f = j?.response?.flightroute; e.route = f?.origin && f?.destination ? { from: place(f.origin), to: place(f.destination) } : null; if (e.route) for (const q of [e.route.from, e.route.to]) if (q.code && q.lat != null) airports.set(q.code, q); return e.route; })
     .catch(() => { e.route = null; cache.delete(cs); return null; });   // (offline: try again later)
   cache.set(cs, e);
   return e;
@@ -52,4 +53,23 @@ export function judgeRoute(route, a) {
   if (dO > 40 && toD > 110) return { ok: false, why: `she isn't heading toward ${d.code}` };
   if (descending && dD > 250 && dO < 200 && toO < 60) return { ok: false, why: `she's descending toward ${o.code}` };
   return { ok: true };
+}
+
+// Where she's bound (v1131, requested: "a filter so I can track planes with a San Francisco destination"):
+// her listing's destination when she fits it; otherwise, when she's coming down (descending, or under 12,000 ft and
+// not climbing) and pointed within 20° of a known airport within 60 nm, that one: so a plane flying a number whose
+// listing is stale (UA1372, Seattle to SFO, listed SFO→LAS) still counts as bound in. → { code, city, nm, how } or null
+export function destOf(a) {
+  if (!a) return null;
+  const r = routeLookup(a.flight)?.route;
+  if (r && judgeRoute(r, a).ok) return { code: r.to.code, city: r.to.city, nm: a.lat != null ? distNM(a.lat, a.lon, r.to.lat, r.to.lon) : null, how: 'listed' };
+  if (a.ground || a.lat == null || a.trk == null || (a.vr != null && a.vr > 300)) return null;
+  if (!(a.vr != null && a.vr < -300) && !(a.alt != null && a.alt < 12000)) return null;
+  let best = null;
+  for (const q of airports.values()) {
+    const nm = distNM(a.lat, a.lon, q.lat, q.lon);
+    if (nm > 60 || nm < 0.5 || off(a.trk, bearing(a.lat, a.lon, q.lat, q.lon)) > 20) continue;
+    if (!best || nm < best.nm) best = { code: q.code, city: q.city, nm, how: 'landing' };
+  }
+  return best;
 }
