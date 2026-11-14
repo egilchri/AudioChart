@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-11-13 — Bird's-eye: the land named under a plane you ride with (v1134)
+
+- Reported: "when I do a side view on a plane, you need to label the land below so I am oriented". What's labelled is chosen round the view's point within its distance, and riding with her (Cockpit, Drone, Chase, Side, Ahead) set that as for a boat: about 900 m round her (6 km from the cockpit), so a plane thousands of feet up had no names under her at all. Now a plane's reach is about 6 times her height (capped at 28 km), so the towns, places and points she can see are named (www/js/bay3d.js `airReach`, in `nestCamera`); the tiles load to match.
+- Checked in headless Chrome, Side on live planes: UAL300 climbing out over Pacifica at 4,300 ft → Pacifica, Mori Point, Pacific Manor, Devils Slide, San Bruno, SFO, Burlingame and more (none before); QFA73 at 8,400 ft over the coast range → El Granada, San Mateo, Burlingame in view. No errors.
+
 ## 2026-11-13 — Bird's-eye: what the airport codes stand for (v1133)
 
 - Requested: "we need an info link for the airport codes in the flight table, so the user can see what the abbreviation refers to". In the ⛴ Underway panel's ✈ Air tab, a row's airport code (the Bound or To column, underlined dotted) is tappable: a line under the chips gives the airport's name and town, with **About ↗** (its Wikipedia article; left off when offline) and × to put it away. Picking a Bound for or Leaving chip shows its airport's line too, and each chip's and row's tip carries the full name. Names come from the routes already looked up (www/js/flightroute.js `airportInfo`), so it works for any code the table shows.

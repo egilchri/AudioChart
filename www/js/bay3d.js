@@ -1288,6 +1288,10 @@ function rideStatus() {   // what she's doing, under the title
 }
 setInterval(rideStatus, 1000);
 const _nw = new THREE.Vector3(), _nt = new THREE.Vector3();
+// a plane's reach (v1134, reported: "when I do a side view on a plane, you need to label the land below so I am oriented"):
+// what's labelled (and loaded) is set by view.dist round her, so from up high it's the land she can see, not a boat's
+// kilometre round her (about 6 times her height: at 5,000 ft, the towns and places for some 12 km round, up to 36 km at cruise)
+const airReach = v => v.kind === 'air' ? Math.min(28000, Math.max(0, v.y) * 6) : 0;
 function nestCamera() {   // after every vessel has moved: the eye aboard her, looking where you've turned it
   const v = nest.v, g = vGroup(v);
   if (!g.visible && !(v === own && own.r)) { leaveRide(); return; }   // she's gone (out of service, out of season)
@@ -1312,13 +1316,13 @@ function nestCamera() {   // after every vessel has moved: the eye aboard her, l
     { const gy = heightAt(lonOf(camera.position.x), latOf(camera.position.z)), up = high || gy > 0.3 ? 28 : 4; if (camera.position.y < gy + up) camera.position.y = gy + up; }   // (never in the ground, nor among the houses)
     camera.lookAt(_nt); if (!C) camera.rotateX(0.1);   // (low on the water, she's best in the middle)   // her a little below the middle, clear of the bar along the top
     camera.fov = 50;
-    view.x = v.x; view.z = v.z; view.dist = Math.max(D * 1.5, 900); view.az = az;
+    view.x = v.x; view.z = v.z; view.dist = Math.max(D * 1.5, 900, airReach(v)); view.az = az;
   } else {
     if (nest.mode === 'nest') { g.updateMatrixWorld(true); v.boat.nest.getWorldPosition(_nw); camera.position.copy(_nw); }
     else { camera.position.copy(toWorld(helmOf(v), _nw)); if (isMover(v)) camera.position.y += v.y; }
     camera.rotation.set(nest.pitch * DEG, -(v.h + nest.yaw) * DEG, 0, 'YXZ');
     camera.fov = 50 / nest.zoom;
-    view.x = v.x; view.z = v.z; view.dist = 6000; view.az = (v.h + nest.yaw) * DEG;   // what loads and what's labelled: round her, out toward the horizon
+    view.x = v.x; view.z = v.z; view.dist = Math.max(6000, airReach(v)); view.az = (v.h + nest.yaw) * DEG;   // what loads and what's labelled: round her, out toward the horizon
   }
   camera.updateProjectionMatrix(); camera.updateMatrixWorld();
 }
