@@ -31,6 +31,7 @@ import { makeFlyover, orderStops, offLeg } from './flyover.js';
 import * as Voice from './piper_voice.js';
 import { makeOverview } from './overview2d.js';
 import { makeAircraft, ADSB_CREDIT } from './aircraft3d.js';
+import { makeCockpit } from './cockpit.js';
 import { routeLookup, judgeRoute, destOf, originOf, airportInfo } from './flightroute.js';
 import { makeTrains, TRAIN_CREDIT } from './trains3d.js';
 import { makeTracks } from './track3d.js';
@@ -1250,8 +1251,9 @@ function ride(v, mode = 'helm') {
   fly?.end();
   if (mode === 'nest' && !v.boat?.nest) mode = 'helm';
   const was = nest.on;
+  if (was && nest.v !== v) insidePlane(nest.v, false);   // (her model back, leaving her for another)
   if (!was) { stopFollow(); anim = null; nest.prev = { ...view }; }
-  nest.on = true; nest.v = v; nest.mode = mode; nest.yaw = CHASE[mode]?.yaw || 0; nest.pitch = CHASE[mode] ? -CHASE[mode].el : mode === 'drone' ? -16 : mode === 'helm' && helmOf(v)[1] > 6 ? -8 : -3; nest.zoom = 1; nestRep.textContent = '';   // (from a high bridge, a little down: her bow in sight)
+  nest.on = true; nest.v = v; nest.mode = mode; nest.yaw = CHASE[mode]?.yaw || 0; nest.pitch = CHASE[mode] ? -CHASE[mode].el : mode === 'drone' ? -16 : mode === 'helm' && v.kind === 'air' ? -6 : mode === 'helm' && helmOf(v)[1] > 6 ? -8 : -3; nest.zoom = 1; nestRep.textContent = '';   // (from a high bridge, a little down: her bow in sight)
   document.body.classList.add('innest'); nestHud.hidden = false;
   document.getElementById('crowsnest').classList.toggle('on', mode === 'nest');
   const big = vLen(v) > 30 && !v.boat, name = vTitle(v);
@@ -1273,7 +1275,7 @@ function ride(v, mode = 'helm') {
 }
 function leaveRide() {
   if (!nest.on) return;
-  const v = nest.v; nest.on = false; nest.v = null;
+  const v = nest.v; nest.on = false; nest.v = null; insidePlane(v, false);
   document.body.classList.remove('innest'); nestHud.hidden = true; document.getElementById('crowsnest').classList.remove('on');
   camera.fov = 50; camera.near = 1; camera.updateProjectionMatrix();
   // over her, following her (from her quarter, high enough to see where she's bound)
@@ -1291,7 +1293,17 @@ const _nw = new THREE.Vector3(), _nt = new THREE.Vector3();
 // a plane's reach (v1134, reported: "when I do a side view on a plane, you need to label the land below so I am oriented"):
 // what's labelled (and loaded) is set by view.dist round her, so from up high it's the land she can see, not a boat's
 // kilometre round her (about 6 times her height: at 5,000 ft, the towns and places for some 12 km round, up to 36 km at cruise)
-const airReach = v => v.kind === 'air' ? Math.min(28000, Math.max(0, v.y) * 6) : 0;
+const airReach = v => v.kind === 'air' ? clamp(v.y * 6, 5000, 28000) : 0;   // (v1135: 5 km at the least: a light plane at 700 ft had no names round her)
+// her cockpit (v1135, cockpit.js): from inside, her own model is hidden (the eye was in her shell) and the cockpit's drawn round the view
+const cockpit = document.getElementById('cockpit') ? makeCockpit(document.getElementById('cockpit')) : null;
+const cockpitKind = v => v.heli ? 'heli' : v.L > 14 ? 'jet' : 'light';
+function insidePlane(v, inside) {
+  if (v?.kind !== 'air') { cockpit?.hide(); return; }
+  if (v.model) v.model.visible = !inside;
+  if (!inside) { cockpit?.hide(); return; }
+  cockpit?.show(cockpitKind(v));
+  cockpit?.update({ gs: v.a.gs || 0, alt: Math.max(0, v.y) * 3.281, hdg: v.h || 0, vr: v.a.vr || 0, ground: !!v.a.ground });
+}
 function nestCamera() {   // after every vessel has moved: the eye aboard her, looking where you've turned it
   const v = nest.v, g = vGroup(v);
   if (!g.visible && !(v === own && own.r)) { leaveRide(); return; }   // she's gone (out of service, out of season)
@@ -1317,12 +1329,14 @@ function nestCamera() {   // after every vessel has moved: the eye aboard her, l
     camera.lookAt(_nt); if (!C) camera.rotateX(0.1);   // (low on the water, she's best in the middle)   // her a little below the middle, clear of the bar along the top
     camera.fov = 50;
     view.x = v.x; view.z = v.z; view.dist = Math.max(D * 1.5, 900, airReach(v)); view.az = az;
+    insidePlane(v, false);
   } else {
     if (nest.mode === 'nest') { g.updateMatrixWorld(true); v.boat.nest.getWorldPosition(_nw); camera.position.copy(_nw); }
     else { camera.position.copy(toWorld(helmOf(v), _nw)); if (isMover(v)) camera.position.y += v.y; }
     camera.rotation.set(nest.pitch * DEG, -(v.h + nest.yaw) * DEG, 0, 'YXZ');
     camera.fov = 50 / nest.zoom;
-    view.x = v.x; view.z = v.z; view.dist = Math.max(6000, airReach(v)); view.az = (v.h + nest.yaw) * DEG;   // what loads and what's labelled: round her, out toward the horizon
+    view.x = v.x; view.z = v.z; view.dist = Math.max(6000, airReach(v)); view.az = (v.h + nest.yaw) * DEG;
+    insidePlane(v, true);   // what loads and what's labelled: round her, out toward the horizon
   }
   camera.updateProjectionMatrix(); camera.updateMatrixWorld();
 }

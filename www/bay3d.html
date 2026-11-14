@@ -242,6 +242,69 @@ body.embed #nesthud { top: calc(94px + env(safe-area-inset-top, 0px)); }
 #nesthud button[hidden] { display: none; }
 #ridechart { position: fixed; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 3; width: clamp(240px, 30vw, 380px); aspect-ratio: 1; border-radius: 6px; box-shadow: 0 2px 10px rgba(10,20,26,0.35); cursor: zoom-out; }
 #ridechart[hidden] { display: none; }
+/* the cockpit you look out of (v1135, cockpit.js): a glareshield and panel along the bottom, the window pillars; the
+   view still drags (pointer-events off), and the chart in the corner stays over it */
+#cockpit { position: fixed; inset: 0; z-index: 1; pointer-events: none; --ckh: clamp(130px, 31vh, 300px); }   /* (under the bar along the top, the HUD and the chart: z 2-3) */
+#cockpit[hidden] { display: none; }
+#cockpit .ckpanel { position: absolute; left: -2%; right: -2%; bottom: 0; height: var(--ckh); background: linear-gradient(#34383d 0, #23262a 14%, #191b1e 100%);
+  border-top-left-radius: 50% 26%; border-top-right-radius: 50% 26%; box-shadow: 0 -6px 18px rgba(0,0,0,0.45), inset 0 3px 0 rgba(255,255,255,0.07); display: flex; align-items: center; justify-content: center; padding-top: 2.5%; padding-bottom: calc(var(--credit-h, 13px) + 16px); box-sizing: border-box; }   /* (above the credit line) */
+#cockpit .gauges { display: flex; align-items: center; gap: clamp(6px, 1.2vw, 16px); height: 84%; max-width: 92vw; }
+/* clear of the chart in the corner when it's up */
+body:has(#ridechart:not([hidden])) #cockpit .ckpanel { padding-right: calc(clamp(240px, 30vw, 380px) + 20px); }
+@media (max-width: 640px) { body:has(#ridechart:not([hidden])) #cockpit .ckpanel { padding-right: 0; } }
+#cockpit .dial { height: 100%; aspect-ratio: 1; }
+#cockpit .dial .rim { fill: #0d0e10; stroke: #4a4f55; stroke-width: 1.5; }
+#cockpit .dial .face { fill: #121417; }
+#cockpit .dial .tk { stroke: #e9eef2; stroke-width: 0.9; }
+#cockpit .dial .tk.L { stroke-width: 1.8; }
+#cockpit .dial .fig { fill: #e9eef2; font: 600 8.5px var(--mono, monospace); text-anchor: middle; }
+#cockpit .dial .fig.card { fill: #ffcf6e; font-size: 9.5px; }
+#cockpit .dial .lab { fill: #9aa3ab; font: 600 5.6px var(--body, sans-serif); text-anchor: middle; letter-spacing: 0.06em; }
+#cockpit .dial .ndl { fill: #f4f6f8; stroke: #0d0e10; stroke-width: 0.5; }
+#cockpit .dial .n-alt10 .ndl { fill: #c9d1d8; }
+#cockpit .dial .hub { fill: #2b2f34; stroke: #9aa3ab; stroke-width: 0.6; }
+#cockpit .dial .win { fill: #050607; stroke: #4a4f55; stroke-width: 0.6; }
+#cockpit .dial .dig { fill: #ffcf6e; font: 600 7px var(--mono, monospace); text-anchor: middle; }
+#cockpit .dial .lubber, #cockpit .screen .lubber { fill: #ffcf6e; stroke: #ffcf6e; stroke-width: 1.5; }
+#cockpit .dial .mini { stroke: #ffcf6e; stroke-width: 2.4; fill: none; stroke-linecap: round; }
+#cockpit .pillar { position: absolute; top: 0; bottom: 0; width: 7vw; background: linear-gradient(90deg, #15171a, #2a2e33); }
+#cockpit .pillar.l { left: 0; clip-path: polygon(0 0, 60% 0, 100% 100%, 0 100%); }
+#cockpit .pillar.r { right: 0; clip-path: polygon(40% 0, 100% 0, 100% 100%, 0 100%); background: linear-gradient(270deg, #15171a, #2a2e33); }
+#cockpit .pillar.c { left: 50%; width: max(8px, 0.9vw); transform: translateX(-50%); clip-path: none; bottom: calc(var(--ckh) - 8px); background: linear-gradient(90deg, #1b1e22, #3a3f45 50%, #1b1e22); }
+#cockpit.ck-heli .pillar { width: 3vw; }
+#cockpit.ck-heli { --ckh: clamp(100px, 22vh, 220px); }
+#cockpit.ck-heli .ckpanel { border-top-left-radius: 30% 40%; border-top-right-radius: 30% 40%; }
+/* a phone: the chart takes the right of the bottom and the bar the foot, so the dials go two by two on the left,
+   above the bar; a jet shows her flight display only */
+@media (max-width: 640px) {
+  #cockpit { --ckh: calc(19vw * 2 + 6vw + var(--scale-h, 64px) + var(--credit-h, 13px) + 62px); }
+  #cockpit .ckpanel { justify-content: flex-start; padding: 14px 0 calc(var(--scale-h, 64px) + var(--credit-h, 13px) + 48px) 3vw; border-top-left-radius: 50% 14%; border-top-right-radius: 50% 14%; }
+  body:has(#ridechart:not([hidden])) #cockpit .ckpanel { padding-right: 0; }
+  #cockpit .gauges { display: grid; grid-template-columns: repeat(2, 19vw); gap: 2vw; height: auto; max-width: none; }
+  #cockpit .dial { height: auto; width: 19vw; }
+  #cockpit .gauges.jet { grid-template-columns: 1fr; }
+  #cockpit .gauges.jet .screen { height: auto; width: 40vw; }
+  #cockpit .gauges.jet .screen + .screen { display: none; }
+  #cockpit .pillar { width: 4vw; }
+}
+/* a jet's glass: the primary flight display and the map */
+#cockpit .gauges.jet .screen { height: 100%; aspect-ratio: 200 / 140; background: #050608; border: 2px solid #3b4046; border-radius: 4px; }
+#cockpit .screen .sky { fill: #2f7fd0; } #cockpit .screen .gnd { fill: #8a5a2b; } #cockpit .screen .hz { stroke: #fff; stroke-width: 1; }
+#cockpit .screen .pl { stroke: #fff; stroke-width: 0.8; }
+#cockpit .screen .wing { fill: none; stroke: #ffcf3e; stroke-width: 2.4; }
+#cockpit .screen .tape { fill: rgba(80,88,96,0.55); }
+#cockpit .screen .box { fill: #000; stroke: #e9eef2; stroke-width: 0.8; }
+#cockpit .screen .big { fill: #5dff6a; font: 700 12px var(--mono, monospace); text-anchor: middle; }
+#cockpit .screen .big.alt { font-size: 10px; }
+#cockpit .screen .tp { fill: #e9eef2; font: 600 6.5px var(--mono, monospace); }
+#cockpit .screen .sm.l { text-anchor: start; } #cockpit .screen .sm.r { text-anchor: end; }
+#cockpit .screen .mid { fill: #5dff6a; font: 700 10px var(--mono, monospace); text-anchor: middle; }
+#cockpit .screen .sm { fill: #e9eef2; font: 600 7px var(--mono, monospace); text-anchor: middle; }
+#cockpit .screen .tk { stroke: #e9eef2; stroke-width: 0.9; }
+#cockpit .screen .fig { fill: #e9eef2; font: 600 7.5px var(--mono, monospace); text-anchor: middle; }
+#cockpit .screen .me { fill: #ffcf3e; }
+#cockpit .screen .n-gs, #cockpit .screen .n-trk { fill: #5dff6a; }
+@media (max-width: 640px) { #cockpit .gauges.jet .screen { height: auto; width: 40vw; } #cockpit .gauges.jet .screen + .screen { display: none; } }
 body.smallride #ridechart { width: clamp(130px, 15vw, 190px); cursor: zoom-in; }
 @media (max-width: 640px) { #ridechart { width: 52vw; } body.smallride #ridechart { width: 30vw; } }
 body.embed #ridechart { bottom: calc(196px + env(safe-area-inset-bottom, 0px)); width: clamp(200px, 24vw, 320px); }   /* above the chart's own view buttons (v940) */
@@ -419,7 +482,7 @@ body.embed #exagbox { top: calc(94px + env(safe-area-inset-top, 0px)); }
 <div id="clockpanel" hidden><div class="ct"><b id="clocktime">--:--</b><button type="button" id="clocknow" title="Back to the real time">Now</button><span class="rates"><button type="button" data-rate="1" title="Real time">×1</button><button type="button" data-rate="10">×10</button><button type="button" data-rate="60">×60</button></span></div><div id="clocklink" hidden>⛵ Running with your boat: her time since she left. Move the clock to let go.</div><input id="clockslider" type="range" min="0" max="1439" step="1" aria-label="Time of day"><div class="sect">Coming up</div><ul id="coming"></ul></div>
 <div id="followhud" hidden><b id="followname">Following</b><button type="button" data-m="helm" title="Aboard her, at the helm">Helm</button><button type="button" data-m="drone" title="A drone over her, following her">Drone</button><button type="button" data-m="stern" title="From a boat astern of her, low on the water, her wake running toward you">Stern</button><button type="button" data-m="side" title="From a boat abeam of her, to starboard">Side</button><button type="button" data-m="bow" title="From ahead, as she comes on">Bow</button><button type="button" id="followchart" title="Show her on the chart" hidden>🗺 Chart</button><button type="button" id="followstop" title="Stop following her">✕</button><div id="followfix"></div></div><div id="nesthud" hidden><div class="row"><b id="ridename">Bowdoin's crow's nest</b><button type="button" id="ridehelm" title="At her helm (H)">Helm</button><button type="button" id="ridedrone" title="A drone over her, following her (D)">Drone</button><button type="button" id="ridestern" title="From a boat astern of her, low on the water, her wake running toward you">Stern</button><button type="button" id="rideside" title="From a boat abeam of her, to starboard">Side</button><button type="button" id="ridebow" title="From ahead, as she comes on">Bow</button><button type="button" id="ridenest" title="Up to her crow's nest">🔭 Nest</button><button type="button" id="nestreport" title="What the lookout can see from here (L)">📣 Lookout's report</button><button type="button" id="nestdown" title="Leave her, and follow her from above (Esc)">⬇ Leave</button></div><div class="hint" id="ridestat"></div><div class="hint" id="ridehint">Drag or arrow keys to look round · scroll or pinch for the glasses</div></div>
 <div id="nestrep"></div>
-<canvas id="ridechart" hidden title="Tap to shrink or enlarge the chart"></canvas>
+<div id="cockpit" hidden></div><canvas id="ridechart" hidden title="Tap to shrink or enlarge the chart"></canvas>
 <div id="underway" hidden><div class="sect">On the water now</div><div class="uwtabs" role="tablist" hidden><button type="button" data-tab="water">⛴ Water</button><button type="button" data-tab="rail">🚆 Trains</button><button type="button" data-tab="air">✈ Air</button></div><div class="uwfilter" hidden></div><ul></ul></div>
 <div id="aisinfo" hidden><div class="sect"><span id="aisname"></span><button type="button" id="aisclose" title="Close">✕</button></div><table></table><div class="go"></div></div>
 <div id="loading" hidden>Loading…</div>
