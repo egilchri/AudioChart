@@ -426,6 +426,9 @@ body.embed #wxpanel { top: auto; bottom: calc(176px + env(safe-area-inset-bottom
   #flybar, #flypick { top: auto; bottom: calc(18px + var(--scale-h, 40px) + env(safe-area-inset-bottom, 0px)); }   /* (above the buttons, however many rows: bay3d.js; clear of the folded panel) */
   #scale { top: auto; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
   #wxpanel { top: auto; bottom: calc(48px + env(safe-area-inset-bottom, 0px)); }
+  /* (v1136, reported: "on the phone the menu to select the active trains and ships is obscured at the bottom") the list
+     stops above the buttons, however many rows they wrap to, and inside the visible screen (dvh: not under Safari's toolbar) */
+  body:not(.embed) :is(#underway, #aisinfo) { max-height: calc(100vh - 48px - 20px - var(--scale-h, 40px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); max-height: calc(100dvh - 48px - 20px - var(--scale-h, 40px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); }
 }
 /* Empty Bay's Depth and Water controls (v928, v929): top centre, clear of the panel and the readout */
 #exagbox { position: fixed; left: 50%; transform: translateX(-50%); top: calc(52px + env(safe-area-inset-top, 0px)); z-index: 3; background: var(--glass); color: var(--ink); border-radius: 6px; padding: 6px 10px; font-family: var(--mono); font-size: 0.74rem; display: flex; flex-direction: column; gap: 4px; max-width: calc(100vw - 32px); box-sizing: border-box; }

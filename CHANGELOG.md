@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-14 — Bird's-eye: the Underway list clear of the buttons on a phone (v1136)
+
+- Reported: "for TedsBirdsEye on the phone the menu to select the active trains and ships is obscured at the bottom of the screen". On a phone the view buttons sit at the bottom in two or three rows, but the ⛴ Underway list (and a vessel's info card) was only held to `100vh - 120px` from the top, so a long Live list ran on under the buttons and, in Safari, under its toolbar (`vh` counts the screen behind it). It now stops above the buttons however many rows they wrap to (`--scale-h`), measured on the visible screen (`dvh`), and its rows scroll (www/bay3d.html). Checked in headless Chrome at 390×664 with a long list: the panel ends 10 px above the buttons.
+
 ## 2026-11-14 — Bird's-eye: a cockpit to look out of, and names under low planes (v1135)
 
 - Requested: "label the land in the Ahead and Chase views too" and "recursively improve the cockpit views". Chase and Ahead had v1134's reach already (Dumbarton Bridge, Cooley Landing behind UAL878; Pacifica, Colma, SFO ahead of KLM282), but a plane low down still had about 1 km round her, so a light plane at 700 ft had no names: a plane's reach is now 5 km at the least (www/js/bay3d.js `airReach`).
