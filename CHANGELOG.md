@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-14 — Bird's-eye: the credit line off the buttons on a phone (v1137)
+
+- Reported with a photo after v1136 ("Nope you didn't fix it"): what was hidden was the button bar itself (⛴ Underway, 📡 Live, the clock, ⤒ Level). The credit line sat at the bottom left on top of the bar, and SF Bay's credit (elevation, photos, bridges, NOAA charts, airport) runs to four lines, so it covered the buttons. v1136 had fixed only the Underway list's height. On a phone the credit now sits above the bar, however many rows the bar takes, at 9 px (www/bay3d.html). Checked in headless Chrome at 412×830 on SF Bay with Live on: the credit ends 6 px above the bar.
+
 ## 2026-11-14 — Bird's-eye: the Underway list clear of the buttons on a phone (v1136)
 
 - Reported: "for TedsBirdsEye on the phone the menu to select the active trains and ships is obscured at the bottom of the screen". On a phone the view buttons sit at the bottom in two or three rows, but the ⛴ Underway list (and a vessel's info card) was only held to `100vh - 120px` from the top, so a long Live list ran on under the buttons and, in Safari, under its toolbar (`vh` counts the screen behind it). It now stops above the buttons however many rows they wrap to (`--scale-h`), measured on the visible screen (`dvh`), and its rows scroll (www/bay3d.html). Checked in headless Chrome at 390×664 with a long list: the panel ends 10 px above the buttons.

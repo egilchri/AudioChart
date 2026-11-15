@@ -428,6 +428,8 @@ body.embed #wxpanel { top: auto; bottom: calc(176px + env(safe-area-inset-bottom
   #wxpanel { top: auto; bottom: calc(48px + env(safe-area-inset-bottom, 0px)); }
   /* (v1136, reported: "on the phone the menu to select the active trains and ships is obscured at the bottom") the list
      stops above the buttons, however many rows they wrap to, and inside the visible screen (dvh: not under Safari's toolbar) */
+  /* (v1137, reported with a photo: SF Bay's four-line credit was printed over the buttons) the credit goes above them */
+  body:not(.embed) #credit { bottom: calc(16px + var(--scale-h, 40px) + env(safe-area-inset-bottom, 0px)); font-size: 9px; }
   body:not(.embed) :is(#underway, #aisinfo) { max-height: calc(100vh - 48px - 20px - var(--scale-h, 40px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); max-height: calc(100dvh - 48px - 20px - var(--scale-h, 40px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); }
 }
 /* Empty Bay's Depth and Water controls (v928, v929): top centre, clear of the panel and the readout */
