@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-16 — Bird's-eye: Boston's towers in glass and grey (v1142)
+
+- Requested: "make the downtown towers glass and grey". Boston's buildings had New York's brick palette throughout, the towers too. design/buildings/tower_palette.py gives every building 35 m or more (roof above ground) in Downtown, Back Bay, the Seaport and Kendall a tower's colour by its id: glass (blue-grey, dark, pale) as a curtain wall (`cw`: big panes on tall floors, as SFO's terminals), or stone (light grey, grey, warm granite), with grey roofs; 417, 112, 131 and 87 of them. The low brick blocks keep theirs. Edits the files in place, compact.
+
 ## 2026-11-16 — Bird's-eye: Boston's ferries as themselves, and the Tobin Bridge's truss (v1141)
 
 - Asked with a snapshot of the MBTA's Hingham boat Glory: "Is that really what Boston ferries look like?" She was drawn as a Maine State Ferry: the harbor boats' models (www/js/harborferries3d.js, v1063) were only for New York's. Now Boston's passenger boats (inside 42.1-42.6°N, 71.3-70.6°W) are catamarans in their own colours, from Commons photos (design/pending/bos-ferry/ref: Glory, October 2024; Lightning at Long Wharf, August 2016; Ava Pearl and Champion, July 2026): the MBTA's newer boats (Glory, Champion, Harbor Gem, Abigail Adams) white over a blue hull with a green line; Lightning and Flying Cloud white over navy; City Cruises' own (Aurora, Asteria, the whale watchers, the Provincetown and Salem fast ferries, the Charlestown boats) white; any other passenger boat by size, a catamaran up to 45 m, else a sightseeing boat. Sources for the fleet: Professional Mariner, Mass Transit (Champion), Baird Maritime (the operating contract).
