@@ -1,6 +1,7 @@
 # A bay's railway tracks for Bird's-eye's live trains (v1116): OpenStreetMap → www/data/rail/<id>.json
 #   python3 build_rail.py osm.json <id>
-# osm.json: Overpass `way["railway"="rail"](s,w,n,e); out geom tags;` (send a User-Agent). Kept: the main lines,
+# osm.json: Overpass `way["railway"="rail"](s,w,n,e); out geom tags;` (send a User-Agent); Boston's (v1138) with
+# `~"^(rail|subway|light_rail)$"` for the T. Kept: the main lines,
 # branches, and their sidings, crossovers and yards (the platform tracks at 4th & King are main); left out:
 # industrial, military and tourist lines and spurs. Simplified to ~2 m, coordinates to ~0.1 m. bridge, tunnel: the
 # lines' indexes that are (v1125).

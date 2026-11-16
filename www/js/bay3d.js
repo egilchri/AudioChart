@@ -98,7 +98,26 @@ async function chartWater(g) {
       if (lon >= bw && lon <= be && g.elev[i] > -3 && g.elev[i] < 1.5 && px[i * 4 + 3] < 128) g.elev[i] = -3;
     }
   }
+  if (REG.dryPits) dryPits(g, REG.dryPits);
   return g;
+}
+// (v1138, Boston) "water" that's a hollow in the land: the Pike's trench and the city's filled ground read at sea level
+// in 3DEP, as water does, and came out as blue blotches across the South End. Each patch of water closed in by land
+// (not touching the grid's edge) smaller than maxM2 square metres is land again; a real pond that small shows in the
+// photo as itself.
+function dryPits(g, maxM2) {
+  const { w, h, elev } = g, cellM2 = g.dx * 111320 * Math.cos((g.north - g.dy * h / 2) * Math.PI / 180) * g.dy * 111120, maxN = maxM2 / cellM2;
+  const seen = new Uint8Array(w * h), stack = [], comp = [];
+  for (let s = 0; s < w * h; s++) {
+    if (seen[s] || elev[s] !== -3) continue;
+    let edge = false; comp.length = 0; stack.push(s); seen[s] = 1;
+    while (stack.length) {
+      const i = stack.pop(); comp.push(i); const x = i % w, y = (i - x) / w;
+      if (x === 0 || y === 0 || x === w - 1 || y === h - 1) edge = true;
+      for (const j of [x > 0 ? i - 1 : -1, x < w - 1 ? i + 1 : -1, y > 0 ? i - w : -1, y < h - 1 ? i + w : -1]) if (j >= 0 && !seen[j] && elev[j] === -3) { seen[j] = 1; stack.push(j); }
+    }
+    if (!edge && comp.length < maxN) for (const i of comp) elev[i] = 0.8;
+  }
 }
 
 // The bay's name on the page, and the switch between the bays (v992): another bay is a fresh page (its own world
@@ -2237,11 +2256,15 @@ window.__aircraft = () => air.list(camera, renderer.domElement.getBoundingClient
 // and the trains (v1099): Caltrain, SMART and ACE from 511.org
 const rail = makeTrains({ scene, bbox: OVERVIEW, wx, wz, heightAt, onCount: () => syncLiveBtn(), focus: moverFocus, onDrop: moverGone });
 if (REG.rail) getJSON(`./data/rail/${REG.rail}.json`).then(d => {
-  rail.setTracks(d.lines); trackNear = rail.nearTrack;
+  rail.setTracks(d.lines, d.tunnel); trackNear = rail.nearTrack;   // (v1138: and which are tunnels: the T underground)
   // (v1125, requested: "I'd like to show the tracks"): drawn, bridges and all; the trains ride on their heights
   if (!EMPTY) { tracks = makeTracks({ scene, lines: d.lines, bridge: d.bridge, tunnel: d.tunnel, wx, wz, heightAt }); rail.setTrackY(tracks.yAt); if (bridges?.railDecks) tracks.setDecks(bridges.railDecks); }
   for (const T of tiles) if (T.state === 'ready' && T.dem?.canopy) { T.spots = treeSpots(T, T.dem); treesDirty = true; }   // (tiles in before the tracks)
 }).catch(err => console.warn('[bay3d] rail tracks', err));
+// the freeways' traffic (v1128, requested: "put car traffic in each direction on the freeway"), at Caltrans's signs' speeds
+if (REG.roads && !EMPTY) makeTraffic({ scene, rid: REG.roads, wx, wz, heightAt, clockMin: () => clockMin() }).then(T => {
+  if (!T) return; traffic = T; updateCredit(); if (bridges?.roadDecks) T.setDecks(bridges.roadDecks); try { T.night(env.lightsK); } catch (_) {}
+}).catch(err => console.warn('[bay3d] traffic', err));
 if (REG.rail) getJSON(`./data/rail/${REG.rail}-trips.json`).then(d => rail.setTrips(d)).catch(err => console.warn('[bay3d] rail timetables', err));   // (v1117: each train's origin, destination and ETA)   // (v1116: each train on her track)
 window.__trains = () => rail.list(camera, renderer.domElement.getBoundingClientRect());
 function syncLiveBtn(state = liveBtn?.dataset.state || 'off', note = '') {

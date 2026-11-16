@@ -11,7 +11,7 @@ const IDLE_MS = 5 * 60e3;
 // changes the relay bumps this, and the new code starts at once in a fresh object. (Its kept names, types and
 // sizes start again too; they come back within minutes, as AIS sends them every six.) 'penobscot' until v1011,
 // 'bays' until v1019.
-const RELAY_V = 1033;
+const RELAY_V = 1138;
 
 export class AisHub {
   constructor(state, env) {
@@ -60,7 +60,7 @@ export class AisHub {
       if (this.asking?.[rail.id]) return (await this.asking[rail.id]);
       (this.asking ??= {})[rail.id] = (async () => {
         try {
-          const up = await fetch(rail.url ? rail.url() : railUpstream(rail.id, this.env.FIVE11_KEY), rail.url ? { headers: { 'User-Agent': 'AudioChart-relay' } } : undefined);
+          const up = await fetch(rail.url ? rail.url() : railUpstream(rail.id, this.env.FIVE11_KEY), rail.url ? { headers: { 'User-Agent': 'AudioChart-relay', ...(rail.headers?.(this.env) || {}) } } : undefined);
           if (!up.ok) throw new Error(String(up.status));
           const text = await up.text(), got = { at: now, trains: (rail.trim || trimTrains)(text, rail, now) };
           try { const j = JSON.parse(text.replace(/^\uFEFF/, '')), d = j?.Siri?.ServiceDelivery?.VehicleMonitoringDelivery; (this.sample ??= {})[rail.id] = (Array.isArray(d) ? d[0] : d)?.VehicleActivity?.slice(0, 2); } catch (_) {}   // (?sample=1: what 511 sends, for checking)

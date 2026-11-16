@@ -58,9 +58,12 @@ export function makeAirport({ data, wx, wz, heightAt }) {
     const [A, B] = r.ends, ax = X(A), az = Z(A), bx = X(B), bz = Z(B), Lm = Math.hypot(bx - ax, bz - az), W = r.width;
     const ux = (bx - ax) / Lm, uz = (bz - az) / Lm, nx = -uz, nz = ux;
     const tex = runwayTexture(r, Lm);
-    const SEG = Math.max(8, Math.round(Lm / 60)), pos = [], uv = [], idx = [];
+    // (v1138, Logan: her ground in 3DEP rises and falls a metre or two across her width, and sampled every 60 m along
+    // her middle the photo's ground came up through her in dashes: every 20 m, on the highest of her middle and edges)
+    const SEG = Math.max(8, Math.round(Lm / 20)), pos = [], uv = [], idx = [];
     for (let i = 0; i <= SEG; i++) {
-      const t = i / SEG, cx = ax + (bx - ax) * t, cz = az + (bz - az) * t, y = yAt(cx, cz, P0) + 0.05;
+      const t = i / SEG, cx = ax + (bx - ax) * t, cz = az + (bz - az) * t;
+      const y = Math.max(yAt(cx, cz, P0), yAt(cx + nx * W / 2, cz + nz * W / 2, P0), yAt(cx - nx * W / 2, cz - nz * W / 2, P0)) + 0.05;
       for (const s of [0, 1]) { pos.push(cx + nx * W * (s - 0.5), y, cz + nz * W * (s - 0.5)); uv.push(s, t); }
       if (i) { const k = (i - 1) * 2; idx.push(k, k + 2, k + 1, k + 1, k + 2, k + 3); }
     }

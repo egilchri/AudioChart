@@ -11,7 +11,7 @@ import { makeSmart } from './smart3d.js';
 import { makeAmtrak } from './amtrak3d.js';
 import { minOfDay, bayDay } from './regiontime.js';
 
-export const TRAIN_CREDIT = 'Trains from 511.org and Amtrak (via Amtraker)';
+export const TRAIN_CREDIT = 'Trains from 511.org, Amtrak (via Amtraker) and the MBTA';
 const DEG = Math.PI / 180;
 const LONG = /starlight|zephyr|chief|sunset|eagle|builder|cardinal|crescent|limited/i;   // (Amtrak's long-distance trains: Superliners or their like)
 // each railroad's train: cars, car length (m), and livery (body, band)
@@ -20,7 +20,18 @@ const LOOK = {
   SMART: { cars: 2, len: 25, body: 0xf1f1ee, band: 0x2e8b57 },
   ACE: { cars: 6, len: 26, body: 0xe6e3ee, band: 0x5b2a86 },
   Amtrak: { cars: 5, len: 26, body: 0xc9cdd2, band: 0x1f3f7a },
+  // (v1138) Boston's: the MBTA's commuter rail in its purple, the T's lines in theirs, at their cars' lengths
+  'Commuter Rail': { cars: 6, len: 26, body: 0xb8bcc2, band: 0x80276c },
+  'Red Line': { cars: 6, len: 21, body: 0xc9cdd2, band: 0xda291c },
+  'Orange Line': { cars: 6, len: 20, body: 0xc9cdd2, band: 0xed8b00 },
+  'Blue Line': { cars: 6, len: 15, body: 0xc9cdd2, band: 0x003da5 },
+  'Green Line': { cars: 2, len: 22, body: 0xd8dadc, band: 0x00843d },
+  'Mattapan Trolley': { cars: 1, len: 14, body: 0xe9dcb0, band: 0xd0631e },
 };
+// a train's name on her label and card: Amtrak's by her route ("Capitol Corridor"), the MBTA's commuter rail by her
+// line ("Worcester Line"), the Green Line by her branch ("Green Line E"), the rest by the railroad's or line's own
+const trainName = a => a.rail === 'Amtrak' && a.line ? a.line : a.rail === 'Commuter Rail' && a.line ? a.line.split('/').pop().replace(/ Line$/, '') + ' Line'
+  : a.rail === 'Green Line' && a.line ? `Green Line ${a.line[0]}` : a.rail;
 function trainModel(look) {   // the cars in a line along -z (her front), 1 unit = 1 m
   const g = new THREE.Group(), body = new THREE.MeshLambertMaterial({ color: look.body }), band = new THREE.MeshLambertMaterial({ color: look.band });
   const roof = new THREE.MeshLambertMaterial({ color: look.band, emissive: look.band, emissiveIntensity: 0.45 });
@@ -113,14 +124,18 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
   // south-west): OSM's main lines and their sidings (www/data/rail/, design/rail/build_rail.py), cut into segments in
   // a 250 m grid. Each train is laid on the nearest one within 40 m, pointing along it.
   const CELL = 250, grid = new Map(); let segs = null, trips = null;
-  function setTracks(lines) {
-    const S = []; grid.clear();
-    for (const l of lines) for (let i = 1; i < l.length; i++) {
+  // (v1138, Boston) tunnel: the lines' indexes that are in one: a train on one is underground (the T downtown, the Blue
+  // Line under the harbor), her cars not drawn, her label and ring where she is
+  let segTun = null;
+  function setTracks(lines, tunnel = []) {
+    const S = [], T = []; grid.clear(); const isT = new Set(tunnel);
+    for (const [li, l] of lines.entries()) for (let i = 1; i < l.length; i++) {
+      T.push(isT.has(li) ? 1 : 0);
       const x1 = wx(l[i - 1][0]), z1 = wz(l[i - 1][1]), x2 = wx(l[i][0]), z2 = wz(l[i][1]), k = S.length / 4; S.push(x1, z1, x2, z2);
       const n = Math.ceil(Math.hypot(x2 - x1, z2 - z1) / (CELL / 2)) + 1;
       for (let j = 0; j <= n; j++) { const key = `${Math.floor((x1 + (x2 - x1) * j / n) / CELL)},${Math.floor((z1 + (z2 - z1) * j / n) / CELL)}`; const c = grid.get(key); if (!c) grid.set(key, [k]); else if (c[c.length - 1] !== k) c.push(k); }
     }
-    segs = new Float64Array(S);
+    segs = new Float64Array(S); segTun = Uint8Array.from(T);
     for (const p of trains.values()) { p.ft = undefined; p.cur = null; }   // (laid on them afresh)
     // (v1121) where the pieces meet: each end (to 0.5 m) and the pieces that end there, so a train can be walked along
     // her track between reports, through its joins and junctions
@@ -225,8 +240,8 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
       const tr = trips?.[a.rail]?.[a.trip]; p.run = tr ? runOf(a, tr, now) : a.destAim || a.destExp ? liveRun(a, now) : null;
       const num = p.run?.num || (/^\d{1,4}$/.test(a.trip) ? a.trip : '');   // (Caltrain's train number; SMART's, from her timetable: her trip ids are long)
       p.dest = p.run?.dest || place(a.dest); p.from = p.run?.from || place(a.from) || '';
-      p.tag.userData.draw(`${a.rail === 'Amtrak' && a.line ? a.line : a.rail} ${num} → ${p.dest || '?'}`.replace(/\s+/g, ' '));
-      p.title = `${a.rail === 'Amtrak' && a.line ? a.line : a.rail} ${num}`.trim();   // (Amtrak's by her route: "Capitol Corridor 723")
+      p.tag.userData.draw(`${trainName(a)} ${num} → ${p.dest || '?'}`.replace(/\s+/g, ' '));
+      p.title = `${trainName(a)} ${num}`.trim();   // (Amtrak's by her route: "Capitol Corridor 723")
       const speed = !p.vKnown ? '' : p.v >= 1 ? `about ${Math.round(p.v * 2.237)} mph` : 'stopped';
       p.label = p.run ? `${p.from} → ${p.dest}, ${p.run.late == null ? 'timetabled' : 'due'} ${p.run.destDay || ''}${hhmm(p.run.destT)}${p.run.late >= 2 ? ` (${Math.round(p.run.late)} min late)` : ''}${speed ? ` · ${speed}` : ''}`
         : `${speed ? speed[0].toUpperCase() + speed.slice(1) : 'Speed due in a minute or so'}${p.dest ? `, bound for ${p.dest}` : ''}`;
@@ -296,6 +311,7 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
       // on her track, along it: the way she's going if she's been seen to move, or else her direction's way (a
       // southbound train the end of it nearer south). Off any track (none within 40 m), as before
       const tr = onTrack(p.x, p.z);
+      const under = !!(tr && segTun?.[tr.k]); if (under !== !!p.under) { p.under = under; p.model.visible = !under; }
       let dh = p.h;
       if (tr) {
         const ref = p.wh ?? (p.moved ? p.h : p.a.dir === 'S' ? 180 : p.a.dir === 'N' ? 0 : p.h), alt = (tr.h + 180) % 360;

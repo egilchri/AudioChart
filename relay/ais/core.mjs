@@ -4,14 +4,15 @@
 // so the relay holds the keys, keeps one upstream connection to each for both bays, and serves the vessels it has
 // heard as JSON.
 
-// Penobscot Bay and its approaches, Casco Bay (v994), San Francisco Bay (v1019), the Piscataqua (v1028) and New York Harbor (v1032), each a little wider
+// Penobscot Bay and its approaches, Casco Bay (v994), San Francisco Bay (v1019), the Piscataqua (v1028), New York Harbor (v1032) and Boston Harbor (v1138), each a little wider
 // than Bird's-eye's overview of it ([lat, lon] corners; www/js/regions3d.js). One upstream connection listens to all.
 export const BOX = [[43.6, -69.6], [44.9, -67.8]];
 export const CASCO_BOX = [[43.4, -70.6], [44.05, -69.6]];
 export const SF_BOX = [[37.35, -122.75], [38.25, -121.95]];
 export const PISCATAQUA_BOX = [[42.8, -71.05], [43.3, -70.4]];   // (v1028)
 export const NYC_BOX = [[40.35, -74.4], [41.05, -73.55]];   // (v1032)
-export const BOXES = [BOX, CASCO_BOX, SF_BOX, PISCATAQUA_BOX, NYC_BOX];
+export const BOSTON_BOX = [[42.1, -71.3], [42.6, -70.65]];   // (v1138)
+export const BOXES = [BOX, CASCO_BOX, SF_BOX, PISCATAQUA_BOX, NYC_BOX, BOSTON_BOX];
 // ?bbox=w,s,e,n on /vessels (v1019): only the vessels in it (the app asks for its own bay's; San Francisco's
 // hundreds needn't go to a viewer in Maine). Without it, all of them, as before.
 export function bboxOf(url) {
@@ -149,7 +150,35 @@ export const RAIL = [
   // Starlight and Zephyr here; the Downeaster in Maine), from Amtraker (amtraker.com, Amtrak's own Track Your Train
   // made readable; no key, and not 511's quota). Amtrak updates a train about every 5 min; asked every 2)
   { id: 'AM', name: 'Amtrak', ttl: 120, url: () => 'https://api-v3.amtraker.com/v3/trains', trim: (text, rail, now) => trimAmtrak(text, rail, now) },
+  // (v1138, Boston: "airport, trains, maybe the 'T'"): the MBTA's commuter rail, subway and Green Line trolleys, from its
+  // own V3 API (no key needed at 20 asks a minute; with MBTA_KEY set as a secret, 1000). Every vehicle in one ask.
+  { id: 'MB', name: 'MBTA', ttl: 20, url: () => 'https://api-v3.mbta.com/vehicles?filter%5Broute_type%5D=0,1,2&include=trip,stop,route'
+      + '&fields%5Bvehicle%5D=latitude,longitude,bearing,current_status,label,speed,updated_at,direction_id&fields%5Btrip%5D=headsign,name'
+      + '&fields%5Bstop%5D=name&fields%5Broute%5D=long_name,short_name,type,direction_destinations',
+    headers: env => env?.MBTA_KEY ? { 'x-api-key': env.MBTA_KEY } : {}, trim: (text, rail, now) => trimMbta(text, rail, now) },
 ];
+// The MBTA's answer (JSON:API) to its trains, in the shape the others are: the T's lines by their own names (the
+// Red Line, the Green Line's B to E, Mattapan), the commuter rail as "Commuter Rail" with her line (Worcester Line)
+const MBTA_T = { Red: 'Red Line', Orange: 'Orange Line', Blue: 'Blue Line', Mattapan: 'Mattapan Trolley' };
+export function trimMbta(text, rail, now = Date.now()) {
+  let j; try { j = JSON.parse(text); } catch (_) { return []; }
+  const inc = {}; for (const x of j?.included || []) inc[`${x.type}:${x.id}`] = x.attributes || {};
+  const out = [];
+  for (const v of j?.data || []) {
+    const a = v.attributes || {}, lat = Number(a.latitude), lon = Number(a.longitude), R = v.relationships || {};
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+    const rid = R.route?.data?.id || '', route = inc[`route:${rid}`] || {}, trip = inc[`trip:${R.trip?.data?.id}`] || {}, stop = inc[`stop:${R.stop?.data?.id}`] || {};
+    const cr = rid.startsWith('CR-'), green = rid.startsWith('Green-');
+    const name = cr ? 'Commuter Rail' : green ? 'Green Line' : MBTA_T[rid] || route.long_name || rid;
+    const line = cr ? clean(route.long_name || rid.slice(3)) : green ? `${rid.slice(6)} branch` : '';
+    const at = Date.parse(a.updated_at || ''), mps = Number(a.speed);
+    out.push({ id: `${rail.id}:${v.id}`, rail: name, line, trip: clean(trip.name || ''), dest: clean(trip.headsign || route.direction_destinations?.[a.direction_id] || ''),
+      dir: '', lat: +lat.toFixed(5), lon: +lon.toFixed(5), brg: num(Number(a.bearing)), at: Number.isFinite(at) ? Math.min(at, now) : now,
+      mph: Number.isFinite(mps) && a.speed != null ? +(mps * 2.23694).toFixed(1) : null, car: clean(a.label || ''),
+      from: '', next: clean(stop.name || ''), atStop: a.current_status === 'STOPPED_AT' });
+  }
+  return out;
+}
 export const TRAIN_CREDIT = 'Trains from 511.org';
 export const railUpstream = (id, key) => `https://api.511.org/transit/VehicleMonitoring?api_key=${encodeURIComponent(key)}&agency=${id}&format=json`;
 const ms = v => { const t = Date.parse(v || ''); return Number.isFinite(t) ? t : null; };

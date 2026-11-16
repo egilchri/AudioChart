@@ -3,7 +3,7 @@
 //   node relay/ais/dev.mjs --fake                   made-up vessels in AIS's own message format, no key needed
 // Then open Bird's-eye with ?ais=http://localhost:8790 (or set it once: localStorage 'audiochart-ais-relay').
 import http from 'node:http';
-import { makeTable, subscription, corsHeaders, FEEDS, bboxOf, aircraftUpstream, trimAircraft } from './core.mjs';
+import { makeTable, subscription, corsHeaders, FEEDS, bboxOf, aircraftUpstream, trimAircraft, RAIL } from './core.mjs';
 
 const PORT = Number(process.env.PORT) || 8790, FAKE = process.argv.includes('--fake');
 const table = makeTable();
@@ -59,6 +59,12 @@ if (FAKE) { fakeTick(); setInterval(fakeTick, 5000); } else connectAll();
 http.createServer(async (req, res) => {
   const h = corsHeaders(req.headers.origin);
   if (req.method === 'OPTIONS') { res.writeHead(204, { ...h, 'Access-Control-Allow-Methods': 'GET' }); return res.end(); }
+  if (req.url.startsWith('/trains')) {   // (v1138) the railroads that need no key (Amtrak, the MBTA), asked each time
+    const bbox = bboxOf(new URL(req.url, 'http://x')), now = Date.now();
+    const lists = await Promise.all(RAIL.filter(r => r.url).map(async r => { try { const up = await fetch(r.url(), { headers: { 'User-Agent': 'AudioChart-relay', ...(r.headers?.(process.env) || {}) } }); return r.trim(await up.text(), r, now); } catch (_) { return []; } }));
+    let out = lists.flat(); if (bbox) out = out.filter(t => t.lon >= bbox[0] && t.lat >= bbox[1] && t.lon <= bbox[2] && t.lat <= bbox[3]);
+    res.writeHead(200, h); return res.end(JSON.stringify({ t: now, trains: out.map(t => ({ ...t, age: Math.max(0, Math.round((now - t.at) / 1000)) })) }));
+  }
   if (req.url.startsWith('/aircraft')) {   // adsb.lol's aircraft in ?bbox= (core.mjs), the real ones even with --fake
     const bbox = bboxOf(req.url);
     if (!bbox) { res.writeHead(400, h); return res.end(JSON.stringify({ error: 'bbox=w,s,e,n needed', aircraft: [] })); }

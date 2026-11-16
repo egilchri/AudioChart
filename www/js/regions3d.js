@@ -94,6 +94,23 @@ export const REGIONS3D = {
     tz: 'America/New_York',
     armchair: true,   // (v1044: no chart in AudioChart; Bird's-eye leaves out what leads to one: bay3d.js)
   },
+  // Boston Harbor (v1138, requested: "a new region for Boston ... airport, trains, maybe the 'T', and of course ships"):
+  // the Inner Harbor, the Charles and Mystic mouths, the Harbor Islands, Quincy and Hingham Bays to Hull, Winthrop,
+  // Nahant and Lynn; Logan in the middle of it. Chart data from the region build (23 ENC cells, boston_only).
+  'boston-harbor': {
+    name: 'Boston Harbor', short: 'Boston',
+    origin: [-71.0, 42.34],
+    heliport: { name: 'Boston Logan International', lon: -71.0181, lat: 42.3730 },   // (the north cargo ramp)
+    airports: ['bos'], rail: 'boston-harbor',   // (the railways and the T's lines, tunnels marked: www/data/rail/; her runways, taxiways, jet bridges and tower: www/data/airports/bos.json, design/airports)
+    overview: [-71.25, 42.17, -70.72, 42.52],
+    bay: [-71.2, 42.2, -70.76, 42.49],
+    whole: { lon: -71.0, lat: 42.34, dist: 32000 },
+    belowSea: true, dryPits: 40000,   // (the Pike's trench and the filled Back Bay and South End read at or under sea level: land, not water; bay3d.js)
+    chartWater: [-71.12, 42.2, -70.75, 42.48],   // (the chart's land tells the flats from the land: bay3d.js)
+    trees: 'broadleaf',
+    tz: 'America/New_York',
+    armchair: true,
+  },
 };
 export const REGION3D_KEY = 'audiochart-bay3d-region';
 const inBox = (b, lon, lat) => lon >= b[0] && lon <= b[2] && lat >= b[1] && lat <= b[3];

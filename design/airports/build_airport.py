@@ -19,6 +19,7 @@ out = {'id': aid, 'name': name, 'credit': 'Airport © OpenStreetMap contributors
 rw = {}
 for e in els:
     t = e.get('tags', {})
+    if t.get('aeroway') == 'runway' and not t.get('ref'): print('skipped a runway piece with no number: way', e['id']); continue   # (v1138: one at Logan)
     if t.get('aeroway') == 'runway': rw.setdefault(t.get('ref', '?'), {'w': float(t.get('width', 45)), 'p': []})['p'] += pts(e)
 for ref, r in rw.items():
     P = r['p']; a, b = max(((p, q) for p in P for q in P), key=lambda pq: m(*pq))

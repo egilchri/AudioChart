@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-11-16 — Bird's-eye: Boston Harbor, with Logan, the commuter rail and the T (v1138)
+
+- Requested: "a new region for Boston, for Birdseye view", then "I would like to encompass airport, trains, maybe the 'T', and of course ships". Bird's-eye-only, like SF Bay and New York (`armchair`), on the bay switch for unlocked devices.
+- **The region** (www/js/regions3d.js `boston-harbor`): the Inner Harbor, the Charles and Mystic mouths, the Harbor Islands, Quincy and Hingham Bays to Hull, Winthrop, Nahant and Lynn. Chart data from the region build (preprocess/build_region.py, 23 NOAA ENC cells in ~/Documents/Charts/ENC/boston_only; www/data/regions/boston-harbor/), 519 place names.
+- **Water**: 3DEP has the Pike's trench and the filled South End and Back Bay at sea level, where water is too, and they came out as blue blotches. `belowSea`, and a new `dryPits` (www/js/bay3d.js): an enclosed patch of water under 4 ha is land again. The Charles, the Fort Point Channel and the harbor stay water.
+- **Logan** (www/data/airports/bos.json from OpenStreetMap via design/airports/build_airport.py, which now skips a runway piece with no number): six runways, 255 taxiways, 111 jet bridges, the 87 m tower. Her runways came out in dashes, the ground under them in 3DEP rising and falling a metre or two: www/js/airport3d.js now lays a runway every 20 m (was 60) on the highest of her middle and edges. SFO checked unchanged.
+- **Trains and the T**: the relay asks the MBTA's V3 API (relay/ais/core.mjs `trimMbta`, every 20 s; no key needed, an `MBTA_KEY` secret lifts its 20-a-minute limit) for the commuter rail, the Red, Orange, Blue and Green Lines and the Mattapan trolley, each in its own colours (www/js/trains3d.js), named by line ("Worcester Line 5021", "Green Line E"). Amtrak's come as before. Their tracks from OpenStreetMap with the subway and light rail (www/data/rail/boston-harbor.json, 320 of 2,635 pieces in tunnels): a train in a tunnel (the T downtown, the Blue Line under the harbor) isn't drawn, her label and ring still where she is. relay/ais/dev.mjs now serves /trains for the keyless railroads.
+- **Ships**: the relay's AIS subscription takes in Boston (`BOSTON_BOX`, `RELAY_V` 1138). Needs a relay deploy; aircraft need nothing new.
+- Checked in headless Chrome against the live MBTA feed (117 trains in the box: 20 commuter rail, 51 Green Line, 20 Red, 13 Orange, 8 Blue, 3 Mattapan, 2 Amtrak). Not yet: buildings, bridges (the Zakim, the Tobin), ferries by name.
+
 ## 2026-11-14 — Bird's-eye: the credit line off the buttons on a phone (v1137)
 
 - Reported with a photo after v1136 ("Nope you didn't fix it"): what was hidden was the button bar itself (⛴ Underway, 📡 Live, the clock, ⤒ Level). The credit line sat at the bottom left on top of the bar, and SF Bay's credit (elevation, photos, bridges, NOAA charts, airport) runs to four lines, so it covered the buttons. v1136 had fixed only the Underway list's height. On a phone the credit now sits above the bar, however many rows the bar takes, at 9 px (www/bay3d.html). Checked in headless Chrome at 412×830 on SF Bay with Live on: the credit ends 6 px above the bar.
