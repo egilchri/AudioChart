@@ -80,6 +80,14 @@ export const CAT_LIVERY = {
   nywaterway: { hull: [[-2, 1.15, 0x1b2f5e], [1.15, 1.42, 0xd2232e]], top: 0xf4f4f1, cabin: 0xf4f4f1, glass: '#1c2a38', roof: 0xf4f4f1 },
   seastreak: { hull: [[-2, 0.9, 0x162a4e], [0.9, 1.05, 0xb9c0c6]], top: 0xf4f4f1, cabin: 0xf4f4f1, glass: '#141c26', roof: 0xf4f4f1 },
   generic: { hull: [[-2, 0.4, 0x2b3a4a]], top: 0xf2f1ec, cabin: 0xf2f1ec, glass: '#1f2a32', roof: 0xf2f1ec },
+  // Boston (v1141, asked of the Hingham boat Glory drawn as a Maine car ferry: "Is that really what Boston ferries look
+  // like?"; Commons: Glory, October 2024; Lightning at Long Wharf, August 2016; Ava Pearl and Champion, July 2026):
+  // the MBTA's newer cats (Glory, Champion) blue low on the hulls with a green sweep over it; Lightning and Flying
+  // Cloud navy hulls; City Cruises' own white, a dark boot-top
+  mbta: { hull: [[-2, 1.0, 0x1f5fbf], [1.0, 1.12, 0xf4f4f1], [1.12, 1.3, 0x55b947], [1.3, 1.31, 0xf4f4f1]],   // (the last band's colour is the bridging deck's: white)
+    top: 0xf4f4f1, cabin: 0xf4f4f1, glass: '#141c26', roof: 0xf4f4f1 },
+  bhcnavy: { hull: [[-2, 1.5, 0x1a2a4c]], top: 0xf4f4f1, cabin: 0xf4f4f1, glass: '#141c26', roof: 0xf4f4f1 },
+  cityboston: { hull: [[-2, 0.35, 0x1d2430]], top: 0xf4f4f1, cabin: 0xf4f4f1, glass: '#141c26', roof: 0xf4f4f1 },
 };
 export function catModel(F, liv = CAT_LIVERY.generic, windowMats = []) {
   const L = F.length_m || 26, B = Math.max(7.5, Math.min(13, F.beam_m || L * 0.31)), half = L / 2, g = new THREE.Group();
@@ -177,7 +185,21 @@ const NYW = /^(FRANK SINATRA|YOGI BERRA|ADM\.? RICHARD E\.? BENNIS|GOV\.? THOMAS
 const NYW_DEST = /NJ ?<> ?NYC|HOBOKEN|WEEHAWKEN|PORT IMPERIAL|PAULUS HOOK|WORLD FI|BELFORD|EDGEWATER/i;
 const CIRCLE = /^CIRCLE LINE|^(BEAST|SHARK)$/i, STATUE = /^MISS (LIBERTY|FREEDOM|ELLIS ISLAND|NEW YORK|GATEWAY)/i, SEASTREAK = /SEASTREAK|^COMMODORE$/i;
 // → { build(windowMats) → group, L, what } or null
+// Boston's (v1141): the MBTA's boats by name, City Cruises' fast cats and whale watchers by name, the rest by size
+const MBTA_NEW = /^(GLORY|CHAMPION|HARBOR GEM|ABIGAIL ADAMS)$/i, MBTA_OLD = /^(LIGHTNING|FLYING CLOUD)$/i;
+const CITY_BOS = /^(AURORA|ASTERIA|CETACEA|SALACIA|AVA PEARL|NANTASCOPE|MASSACHUSETTS|COMMONWEALTH|PROVINCETOWN (III|IV|V)|NATHANIEL BOWDITCH|ENDEAVOR|ISLAND ROVER|FREEDOM|INDEPENDENCE|LIBERTY|ANNA[- ]CLAIRE|RITA|ROOKIE|CLAIRE|CLARE)$/i;
+function bostonKind(A) {
+  const name = (A.name || '').trim(), L = A.L, F = { vessel: name, length_m: L, beam_m: A.B };
+  const one = (fn, liv, len, what) => ({ build: wm => fn({ ...F, length_m: len }, liv, wm), L: len, what });
+  if (MBTA_NEW.test(name)) return one(catModel, CAT_LIVERY.mbta, L || 32, 'MBTA ferry');
+  if (MBTA_OLD.test(name)) return one(catModel, CAT_LIVERY.bhcnavy, L || 27, 'MBTA ferry');
+  if (CITY_BOS.test(name)) return one(catModel, CAT_LIVERY.cityboston, L || 30, 'City Cruises boat');
+  if (!L || (L >= 18 && L <= 45 && (!A.B || A.B / L >= 0.27))) return one(catModel, CAT_LIVERY.cityboston, L || 28, 'Harbor ferry');
+  if (L > 18 && L < 80) return one(excursionModel, EXC_LIVERY.generic, L, 'Harbor sightseeing boat');
+  return null;
+}
 export function harborKind(A) {
+  if (A.lat > 42.1 && A.lat < 42.6 && A.lon > -71.3 && A.lon < -70.6) return bostonKind(A);
   if (!(A.lat > 40.4 && A.lat < 41.1 && A.lon > -74.4 && A.lon < -73.6)) return null;
   const name = (A.name || '').trim(), L = A.L, F = { vessel: name, length_m: L, beam_m: A.B };
   const one = (fn, liv, len, what) => ({ build: wm => fn({ ...F, length_m: len }, ...(liv ? [liv] : []), wm), L: len, what });

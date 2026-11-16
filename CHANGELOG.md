@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-11-16 — Bird's-eye: Boston's ferries as themselves, and the Tobin Bridge's truss (v1141)
+
+- Asked with a snapshot of the MBTA's Hingham boat Glory: "Is that really what Boston ferries look like?" She was drawn as a Maine State Ferry: the harbor boats' models (www/js/harborferries3d.js, v1063) were only for New York's. Now Boston's passenger boats (inside 42.1-42.6°N, 71.3-70.6°W) are catamarans in their own colours, from Commons photos (design/pending/bos-ferry/ref: Glory, October 2024; Lightning at Long Wharf, August 2016; Ava Pearl and Champion, July 2026): the MBTA's newer boats (Glory, Champion, Harbor Gem, Abigail Adams) white over a blue hull with a green line; Lightning and Flying Cloud white over navy; City Cruises' own (Aurora, Asteria, the whale watchers, the Provincetown and Salem fast ferries, the Charlestown boats) white; any other passenger boat by size, a catamaran up to 45 m, else a sightseeing boat. Sources for the fleet: Professional Mariner, Mass Transit (Champion), Baird Maritime (the operating contract).
+- Requested: "also do the Tobin as a truss bridge". The Maurice J. Tobin Memorial Bridge (design/bridges/build_bridges.py SPECS) is now a green cantilever through truss over the Mystic, highest over the two channel piers (the chart's PYLONS, 244 m apart: the 800 ft main span), dipping to mid-span and the anchor spans, 41.1 m clearance (chart), its approach viaducts over Charlestown and Chelsea on piers; was a plain deck.
+
 ## 2026-11-16 — Bird's-eye: the MBTA's trains as themselves, and Boston's detail ground everywhere they run (v1140)
 
 - Requested with a snapshot (a Haverhill Line train drawn as grey boxes over blurred ground): "recursively improve the look of the commuter rail", then "Also all of the T trains. Also the terrain around them. I don't see any buildings".

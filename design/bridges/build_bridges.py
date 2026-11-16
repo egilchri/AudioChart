@@ -69,6 +69,16 @@ SPECS = [
      # each fan: its tower, the far end of its deck run, how many stays, their planes (m off the middle)
      'stays': [[42.36797, 42.36741, 8, [0]], [42.36797, 42.36868, 11, [-19, 19]], [42.36954, 42.36883, 11, [-19, 19]], [42.36954, 42.37042, 12, [0]]],
      'free': [[42.36741, 42.37042]], 'span': 40},
+    # Maurice J. Tobin Memorial Bridge (1950): US 1 over the Mystic, double-decked, a green cantilever through truss
+    # over the river: the main span 244 m (800 ft) between the chart's two PYLONS (42.38397/-71.04838,
+    # 42.38581/-71.04676), anchor spans either side, 41.1 m (135 ft) clearance (chart); the truss highest over the
+    # channel piers, dipping toward mid-span and the ends; long approach viaducts over Charlestown and Chelsea.
+    # Its two decks (OSM's upper, northbound-lower) averaged into one line.
+    {'name': 'Maurice J. Tobin Memorial Bridge', 'short': 'Tobin Bridge', 'region': 'boston-harbor', 'kind': 'truss', 'color': 0x4d6f57,
+     'axis': 'lat', 'w': 22, 'depth': 7, 'ways': [[8648413], [591493140]],
+     'deck': [[42.37393, None], [42.3775, 22], [42.3815, 40], [42.3840, 48], [42.3849, 49], [42.3858, 48], [42.3867, 44]],
+     'truss': [[42.3824, 42.3867, [[42.3824, 6], [42.38397, 30], [42.3849, 11], [42.38581, 30], [42.3867, 6]], 0]],
+     'free': [[42.38397, 42.38581]], 'span': 45},
     # New York Harbor (v1032, requested: "add proper towers for Brooklyn and Verrazzano bridges").
     # Brooklyn Bridge (1883): granite towers 84 m above the water, each with two pointed arches the roadway passes
     # through; main span 486 m between them (the chart's tower piers, 40.70759/-73.99873 and 40.70441/-73.99474, are
