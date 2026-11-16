@@ -9,6 +9,7 @@ import { labelSprite } from './aircraft3d.js';
 import { makeCaltrain } from './caltrain3d.js';
 import { makeSmart } from './smart3d.js';
 import { makeAmtrak } from './amtrak3d.js';
+import { makeMbtaCR, makeTTrain, T_RAILS } from './mbta3d.js';
 import { minOfDay, bayDay } from './regiontime.js';
 
 export const TRAIN_CREDIT = 'Trains from 511.org, Amtrak (via Amtraker) and the MBTA';
@@ -209,7 +210,10 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
         // (v1123: v1122 had it at Sacramento's; a photo of eastbound 528 at Berkeley, January 2026, has her cab car
         // leading, headlights lit): pulling away from Sacramento, the cab car leading toward it. The long-distance trains
         // (the Coast Starlight, the Zephyr: v1124) their Superliners behind two ALC-42s
-        const look = LOOK[a.rail] || LOOK.Caltrain, kiss = a.rail === 'Caltrain' ? makeCaltrain() : a.rail === 'SMART' ? makeSmart() : a.rail === 'Amtrak' ? makeAmtrak(LONG.test(a.line || '') ? { kind: 'long' } : { cars: 4, locoFront: !/sacramento|auburn/i.test(a.dest || '') }) : null;
+        // (v1140, Boston) the MBTA's commuter rail: an HSP46 and six bilevels, her locomotive at the outbound end (leading
+        // away from Boston, pushing toward it); the T's trains each in her line's cars (mbta3d.js)
+        const look = LOOK[a.rail] || LOOK.Caltrain, kiss = a.rail === 'Caltrain' ? makeCaltrain() : a.rail === 'SMART' ? makeSmart() : a.rail === 'Amtrak' ? makeAmtrak(LONG.test(a.line || '') ? { kind: 'long' } : { cars: 4, locoFront: !/sacramento|auburn/i.test(a.dest || '') })
+          : a.rail === 'Commuter Rail' ? makeMbtaCR({ cars: 6, locoFront: !/south station|north station|back bay|boston/i.test(a.dest || '') }) : T_RAILS.includes(a.rail) ? makeTTrain(a.rail) : null;
         const g = new THREE.Group(), model = kiss ? kiss.group : trainModel(look), label = labelSprite();
         g.add(model, label); scene.add(g);
         const L = kiss ? kiss.length : look.cars * look.len + (look.cars - 1) * 1.2;

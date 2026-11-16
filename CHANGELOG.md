@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-11-16 — Bird's-eye: the MBTA's trains as themselves, and Boston's detail ground everywhere they run (v1140)
+
+- Requested with a snapshot (a Haverhill Line train drawn as grey boxes over blurred ground): "recursively improve the look of the commuter rail", then "Also all of the T trains. Also the terrain around them. I don't see any buildings".
+- **The commuter rail** (new www/js/mbta3d.js, modelled from Wikimedia Commons photos in design/pending/mbta-look/ref: HSP46 2034 leaving North Station, bilevels 749 and 854 at Walpole): an MPI HSP46 in the MBTA's magenta (her cab all magenta, a yellow line under the windscreens and along her side, silver behind with the white T roundel, the radiators at her back, horns, lamps) and six Kawasaki bilevels, stainless, the gold-edged magenta band stepping up round the upper deck's windows between the trucks and down at the ends, the lower deck's windows under it, end doors, a cab car at the far end. The locomotive at the outbound end: leading away from Boston, pushing toward it.
+- **The T**: the Red, Orange and Blue Lines' six-car trains (stainless or white, a black window band, the line's colour along them, their doors), the Green Line's two articulated cars with pantographs, Mattapan's PCC car with its pole.
+- **Draw calls**: each train is one vertex-coloured mesh for its plain parts (a shared material glowing a little in each part's colour) and one merged mesh per painted texture, the materials shared by every train: a first version with a mesh per part per car ran the page at 3 fps headless with ~135 trains live; now 6, v1139's simple boxes 5.
+- **The card**: an MBTA train's "Source" was "The railroad, through 511.org"; now "The MBTA's live data (every 20 s)" (Amtrak's: Amtraker); "Railroad" reads "MBTA Commuter Rail, Haverhill Line" or "MBTA, Green Line (E branch)".
+- **The ride cameras among buildings** (www/js/bay3d.js `roofGrid`, `clearOfRoofs`): beside a train at South Station the side camera was inside the next building. The loaded areas' roofs by 25 m cell; a train's camera goes round her to the nearest bearing with no roof in the way, else up over the roofs.
+- **The ground**: Boston's 10 m detail tiles covered only round the harbor (to 42.49°N), so trains out on the lines (the snapshot's, at Wakefield) ran over the overview's blurred ground. Now the whole area trains are shown in (`bay` = the overview).
+- Buildings: the snapshot was v1138; v1139's buildings are in eight areas round the harbor (downtown to Kendall, East Boston, Logan), not out along the lines.
+- Checked in headless Chrome: the models against the photos (design/pending/mbta-look: view.html, shoot.mjs), and riding live trains (a Rockport Line train to Newburyport, a Green Line D car to Riverside); a train in a tunnel (the Southwest Corridor's cover) correctly not drawn.
+
 ## 2026-11-16 — Bird's-eye: Boston's buildings, Logan's terminals and the Zakim Bridge (v1139)
 
 - Requested: "add the Boston buildings and the Zakim bridge. And how about Logan airport?" (Logan's runways, taxiways, jet bridges and tower came in v1138; its buildings now.)

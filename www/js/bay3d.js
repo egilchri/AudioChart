@@ -809,6 +809,7 @@ async function loadTown(t) {
     const near = pr => slips.some(sl => pr.p.some(([lo, la]) => inSlip(sl, wx(lo), wz(la))));   // (within a slip's piers, v949)
     t.group = buildTown(slips.length ? { ...T, piers: T.piers.filter(pr => !near(pr)) } : T);
     for (const h of moorings?.harbors || []) if (h.spots && Math.hypot(h.x - t.x, h.z - t.z) < 4000) moorings.relayout(h);   // lay them out again clear of its piers
+    t.roofs = roofGrid(T);   // (for the ride cameras, v1140)
     t.credit = T.credit || ''; scene.add(t.group); t.state = 'ready'; updateCredit();
   } catch (err) { console.warn('[bay3d] town', t.file, err); t.state = 'failed'; }
   finally { townsLoading--; }
@@ -1323,6 +1324,29 @@ function insidePlane(v, inside) {
   cockpit?.show(cockpitKind(v));
   cockpit?.update({ gs: v.a.gs || 0, alt: Math.max(0, v.y) * 3.281, hdg: v.h || 0, vr: v.a.vr || 0, ground: !!v.a.ground });
 }
+// (v1140, reported riding Boston's trains: beside one at South Station the camera was inside the next building) the
+// loaded towns' roofs, the highest in each 25 m cell, and a ride camera kept where it can see her: round her to the
+// nearest bearing with no roof between, else up over the roofs looking down
+const ROOF_CELL = 25, roofKey = (x, z) => `${Math.floor(x / ROOF_CELL)},${Math.floor(z / ROOF_CELL)}`;
+function roofGrid(T) {
+  const G = new Map();
+  for (const b of T.buildings || []) {
+    const top = (b.g ?? 0) + (b.r ?? 0); let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+    for (const [lo, la] of b.p) { const x = wx(lo), z = wz(la); x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z); }
+    for (let cx = Math.floor(x0 / ROOF_CELL); cx <= Math.floor(x1 / ROOF_CELL); cx++) for (let cz = Math.floor(z0 / ROOF_CELL); cz <= Math.floor(z1 / ROOF_CELL); cz++) {
+      const k = `${cx},${cz}`; if (!(G.get(k) >= top)) G.set(k, top);
+    }
+  }
+  return G;
+}
+const roofAt = (x, z) => { let m = -Infinity; const k = roofKey(x, z); for (const t of townList) if (t.state === 'ready' && t.roofs) { const r = t.roofs.get(k); if (r > m) m = r; } return m; };
+function clearOfRoofs(at, D, el, az0) {
+  const pos = az => [at.x - Math.sin(az) * Math.cos(el) * D, Math.max(camera.position.y, at.y + Math.sin(el) * D), at.z + Math.cos(az) * Math.cos(el) * D];
+  const blockedBy = ([x, y, z]) => { let worst = -Infinity; for (let f = 0.08; f <= 1.001; f += 0.06) { const px = at.x + (x - at.x) * f, pz = at.z + (z - at.z) * f, py = at.y + (y - at.y) * f, r = roofAt(px, pz); if (r > py - 1.5) worst = Math.max(worst, r); } return worst; };
+  if (blockedBy([camera.position.x, camera.position.y, camera.position.z]) === -Infinity) return;
+  for (let k = 20; k <= 180; k += 20) for (const sg of [1, -1]) { const p = pos(az0 + sg * k * DEG); if (blockedBy(p) === -Infinity) { camera.position.set(...p); return; } }
+  camera.position.y = Math.max(camera.position.y, blockedBy([camera.position.x, camera.position.y, camera.position.z]) + 12);   // (round her all blocked: over the roofs)
+}
 function nestCamera() {   // after every vessel has moved: the eye aboard her, looking where you've turned it
   const v = nest.v, g = vGroup(v);
   if (!g.visible && !(v === own && own.r)) { leaveRide(); return; }   // she's gone (out of service, out of season)
@@ -1345,6 +1369,7 @@ function nestCamera() {   // after every vessel has moved: the eye aboard her, l
     _nt.set(v.x, isMover(v) ? v.y + (v.kind === 'rail' ? 3 : 0) : Math.min(L * 0.12, 20) + 1.5, v.z);   // (a plane at her height)
     camera.position.set(_nt.x - Math.sin(az) * Math.cos(el) * D, _nt.y + Math.sin(el) * D, _nt.z + Math.cos(az) * Math.cos(el) * D);
     { const gy = heightAt(lonOf(camera.position.x), latOf(camera.position.z)), up = high || gy > 0.3 ? 28 : 4; if (camera.position.y < gy + up) camera.position.y = gy + up; }   // (never in the ground, nor among the houses)
+    if (v.kind === 'rail') clearOfRoofs(_nt, D, el, az);
     camera.lookAt(_nt); if (!C) camera.rotateX(0.1);   // (low on the water, she's best in the middle)   // her a little below the middle, clear of the bar along the top
     camera.fov = 50;
     view.x = v.x; view.z = v.z; view.dist = Math.max(D * 1.5, 900, airReach(v)); view.az = az;
@@ -2435,7 +2460,7 @@ function fillMoverCard() {
     row('Squawk', a.squawk);
   } else {
     const R = v.run;
-    row('Railroad', a.rail === 'Amtrak' && a.line ? `Amtrak, ${a.line}` : a.rail); row('Train', R?.num || (/^\d{1,4}$/.test(a.trip) ? a.trip : ''));
+    row('Railroad', a.rail === 'Amtrak' && a.line ? `Amtrak, ${a.line}` : a.rail === 'Commuter Rail' ? `MBTA Commuter Rail${a.line ? ', ' + a.line : ''}` : /Line$|Trolley$/.test(a.rail) ? `MBTA, ${a.rail}${a.line ? ' (' + a.line + ')' : ''}` : a.rail); row('Train', R?.num || (/^\d{1,4}$/.test(a.trip) ? a.trip : ''));
     if (R) {   // (v1117: her run, from the timetable; ETAs with how late she's running)
       row('From', R.fromT == null ? R.from : `${R.from} (timetabled ${R.hhmm(R.fromT)})`);
       row('Bound for', R.dest);
@@ -2451,7 +2476,9 @@ function fillMoverCard() {
   const d = Math.hypot(v.x - view.x, v.z - view.z);
   if (d > 30) row('From the view', `${(d / NMm).toFixed(d < 10 * NMm ? 1 : 0)} nm, ${deg3(Math.atan2(v.x - view.x, -(v.z - view.z)) / DEG)}° true`);
   if (air_ && navigator.onLine !== false) row('More', `<a href="https://globe.adsb.lol/?icao=${encodeURIComponent(a.hex)}" target="_blank" rel="noopener">See her on adsb.lol ↗</a>`, true);
-  row('Source', air_ ? `Her own ADS-B, through adsb.lol${rl?.route ? '; route listed by adsbdb.com' : ''}` : 'The railroad, through 511.org (every 90 s or more)');
+  // (v1140: the MBTA's and Amtrak's come from their own feeds, not 511's)
+  const rr = v.a?.rail || '', mbta = /^(Commuter Rail|Red Line|Orange Line|Blue Line|Green Line|Mattapan)/.test(rr);
+  row('Source', air_ ? `Her own ADS-B, through adsb.lol${rl?.route ? '; route listed by adsbdb.com' : ''}` : mbta ? "The MBTA's live data (every 20 s)" : rr === 'Amtrak' ? 'Amtrak, through Amtraker (every 2 min or so)' : 'The railroad, through 511.org (every 90 s or more)');
   const tb = aisCard.querySelector('table'); tb.innerHTML = '';
   for (const [k, val, html] of rows) { const tr = tb.insertRow(), th = document.createElement('th'), td = tr.insertCell(); th.textContent = k; tr.prepend(th); if (html) td.innerHTML = val; else td.textContent = val; }
   for (const b of aisCard.querySelectorAll('.go button')) b.disabled = gone;

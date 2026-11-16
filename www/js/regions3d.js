@@ -103,7 +103,7 @@ export const REGIONS3D = {
     heliport: { name: 'Boston Logan International', lon: -71.0181, lat: 42.3730 },   // (the north cargo ramp)
     airports: ['bos'], rail: 'boston-harbor',   // (the railways and the T's lines, tunnels marked: www/data/rail/; her runways, taxiways, jet bridges and tower: www/data/airports/bos.json, design/airports)
     overview: [-71.25, 42.17, -70.72, 42.52],
-    bay: [-71.2, 42.2, -70.76, 42.49],
+    bay: [-71.25, 42.17, -70.72, 42.52],   // (v1140, reported over a Haverhill Line train at Wakefield: the detail ground everywhere the trains are shown, not just round the harbor)
     whole: { lon: -71.0, lat: 42.34, dist: 32000 },
     belowSea: true, dryPits: 40000,   // (the Pike's trench and the filled Back Bay and South End read at or under sea level: land, not water; bay3d.js)
     chartWater: [-71.12, 42.2, -70.75, 42.48],   // (the chart's land tells the flats from the land: bay3d.js)
