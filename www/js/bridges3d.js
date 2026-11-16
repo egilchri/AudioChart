@@ -76,6 +76,21 @@ export async function makeBridges(rid, heightAt) {
     for (const T of B.towers) {
       const x = wx(T.lon), z = wz(T.lat), a = T.az * Math.PI / 180, ca = Math.cos(a), sa = Math.sin(a);
       if (T.kind === 'single') { put(x, z, BOTTOM, T.top, 12, 12, a, B.color); continue; }
+      if (T.kind === 'invy') {   // the Zakim's (v1139): an inverted Y astride the deck, its legs meeting high over it, then
+        // one shaft up to an obelisk's point (the Bunker Hill Monument's). The legs, leaning in, as boxes stepping inward
+        const at = off => [x + ca * off, z + sa * off], foot = T.w / 2 + 2.5, meet = T.deck + (T.top - T.deck) * 0.55, leg = 4.2;
+        for (const side of [-1, 1]) {
+          const [fx, fz] = at(side * foot); put(fx, fz, BOTTOM, T.deck - B.depth, 6, 6, a, B.color);   // below the deck: straight down
+          const N = 12;
+          for (let i = 0; i < N; i++) {
+            const y0 = T.deck - B.depth + (meet - T.deck + B.depth) * i / N, y1 = T.deck - B.depth + (meet - T.deck + B.depth) * (i + 1) / N;
+            const [lx, lz] = at(side * (foot - (foot - leg / 2) * (i + 0.5) / N)); put(lx, lz, y0, y1 + 0.3, 5, leg, a, B.color);
+          }
+        }
+        put(x, z, meet - 1, T.top - 9, 5.5, 5.5, a, B.color);   // the shaft, where the stays are anchored
+        for (let i = 0; i < 4; i++) put(x, z, T.top - 9 + i * 2.25, T.top - 9 + (i + 1) * 2.25, 4.4 - i, 4.4 - i, a, B.color);   // the obelisk's point
+        continue;
+      }
       if (T.kind === 'gothic') {   // the Brooklyn Bridge's (v1032): granite, the roadway through two pointed arches
         const stone = 0xb7aa8f, along = 13, across = T.w + 16, archW = T.w * 0.36, pierW = (across - 2 * archW) / 3;
         const archTop = T.deck + (T.top - T.deck) * 0.62, at = off => [x + ca * off, z + sa * off];
@@ -136,6 +151,8 @@ export async function makeBridges(rid, heightAt) {
         }
       }
     }
+    // stays (v1139, a cable-stayed bridge's): straight from the tower's shaft to the deck
+    for (const [lo0, la0, h0, lo1, la1, h1] of B.stays || []) seg.push(wx(lo0), h0, wz(la0), wx(lo1), h1, wz(la1));
     if (seg.length) group.add(new THREE.LineSegments(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(seg, 3)), lineMat(B.color)));
     // one name for each bridge (its longest part), over its middle
     if (!B.minor && !(labels.get(B.short)?.len >= P.length)) {

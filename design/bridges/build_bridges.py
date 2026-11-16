@@ -38,6 +38,14 @@ REGIONS = {
     'piscataqua': {'bbox': (42.88, -70.97, 43.22, -70.39), 'charts': '~/Documents/Charts/ENC/piscataqua_only',
                    'wet': {'Sarah Mildred Long Bridge', 'Piscataqua River Bridge'}},
     'new-york-harbor': {'bbox': (40.45, -74.30, 40.95, -73.65), 'charts': '~/Documents/Charts/ENC/nyc_only'},
+    # (v1139) Boston Harbor: the region's land.geojson has the Charles basin and the Mystic as land, so the bridges
+    # over them are named as over water
+    'boston-harbor': {'bbox': (42.2, -71.12, 42.48, -70.75), 'charts': '~/Documents/Charts/ENC/boston_only', 'chart_water': True,
+                      'rename': {'Mystic River - Tobin Memorial Bridge': 'Tobin Bridge', 'Mystic River - Tobin Memorial': 'Tobin Bridge'},
+                      'wet': {'Longfellow Bridge', 'Harvard Bridge', 'Boston University Bridge', 'Charlestown Bridge',
+                              'Tobin Bridge', 'Maurice J. Tobin Memorial Bridge', 'Andrew P. McArdle Bridge', 'Chelsea Street Bridge',
+                              'Alford Street Bridge', 'Craigie Bridge', 'Charles River Dam Bridge', 'Northern Avenue Bridge',
+                              'Summer Street Bridge', 'Congress Street Bridge', 'Moakley Bridge', 'Evelyn Moakley Bridge'}},
 }
 OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter']
 
@@ -47,6 +55,20 @@ OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private
 # carriageway; two lists are averaged into one centre line (a bridge carrying both directions side by side).
 GG_ORANGE, STEEL, WHITE, CONCRETE, OLD_STEEL = 0xc0362c, 0x9aa3a8, 0xd9dde0, 0xbdbab2, 0x7f8a84
 SPECS = [
+    # Boston Harbor (v1139, requested: "add the Boston buildings and the Zakim bridge").
+    # Leonard P. Zakim Bunker Hill Memorial Bridge (2003): cable-stayed, I-93 over the Charles. Two inverted-Y towers
+    # 82 m (270 ft) with obelisk tops after the Bunker Hill Monument, on the chart's two PYLONS (42.36797/-71.06228,
+    # 42.36954/-71.06407: 228 m apart, the 745 ft main span); back spans 81 m (267 ft) toward downtown and 128 m
+    # (420 ft) toward Charlestown; 12 m (40 ft) clearance. The main span's stays in two planes to the deck's edges,
+    # the back spans' in one down its middle. Drawn straight along the towers' line.
+    {'name': 'Leonard P. Zakim Bunker Hill Memorial Bridge', 'short': 'Zakim Bridge', 'region': 'boston-harbor', 'kind': 'stayed',
+     'color': 0xe2e5e7, 'axis': 'lat', 'w': 40, 'depth': 3,
+     'line': [[-71.06115, 42.36698], [-71.06555, 42.37084]],
+     'deck': [[42.36698, None], [42.36741, 14], [42.36797, 17], [42.36875, 19], [42.36954, 17], [42.37042, 14], [42.37084, None]],
+     'towers': [[42.36797, 82, 'invy'], [42.36954, 82, 'invy']],
+     # each fan: its tower, the far end of its deck run, how many stays, their planes (m off the middle)
+     'stays': [[42.36797, 42.36741, 8, [0]], [42.36797, 42.36868, 11, [-19, 19]], [42.36954, 42.36883, 11, [-19, 19]], [42.36954, 42.37042, 12, [0]]],
+     'free': [[42.36741, 42.37042]], 'span': 40},
     # New York Harbor (v1032, requested: "add proper towers for Brooklyn and Verrazzano bridges").
     # Brooklyn Bridge (1883): granite towers 84 m above the water, each with two pointed arches the roadway passes
     # through; main span 486 m between them (the chart's tower piers, 40.70759/-73.99873 and 40.70441/-73.99474, are
@@ -458,6 +480,20 @@ def build_spec(sp, ways):
                 rib.append([r5(p[0]), r5(p[1]), round(spring + (crown - spring) * (1 - (2 * t - 1) ** 2), 1), round(deck_at(st) or 0, 1)])
             arches.append({'r': r, 'pts': rib})
     if arches: B['arches'] = arches
+    # stays (v1139, the Zakim's): straight cables in fans, from the tower's shaft (the highest to the farthest) down
+    # to the deck, every so far from near the tower to the run's end; as [lon, lat, h, lon, lat, h]
+    stays = []
+    for tc, ec, n, planes in sp.get('stays', []):
+        t0, tp = at_coord(pts, S, axis, tc); e0 = at_coord(pts, S, axis, ec)[0]
+        top = next(t['top'] for t in towers if dist((t['lon'], t['lat']), tp) < 5)
+        lo_h, hi_h = top * 0.62, top * 0.93
+        for k in range(n):
+            f = (k + 1) / n; st = t0 + (e0 - t0) * (0.12 + 0.88 * f)
+            i = min(range(len(S)), key=lambda j: abs(S[j] - st))
+            for off in planes:
+                q = offset(pts[i], az_at(pts, i), off)
+                stays.append([r5(tp[0]), r5(tp[1]), round(lo_h + (hi_h - lo_h) * f, 1), r5(q[0]), r5(q[1]), round(deck_at(S[i]) or 0, 1)])
+    if stays: B['stays'] = stays
     if sp.get('cable_r'): B['cable_r'] = sp['cable_r']
     return B
 
@@ -500,6 +536,19 @@ def main():
     land = [shape(f['geometry']) for f in json.load(open(os.path.join(ROOT, f'www/data/regions/{rid}/land.geojson')))['features']]
     tree = STRtree(land)
     on_land = lambda lon, lat: any(land[i].contains(Point(lon, lat)) for i in tree.query(Point(lon, lat)))
+    if R.get('chart_water'):   # (v1139, Boston: land.geojson has the Charles and the Mystic as land, and stops at the
+        # charts' edge, so the city past it was "water": over water is what the charts draw as water instead)
+        wet_polys = []
+        for f in sorted(glob.glob(os.path.join(os.path.expanduser(R['charts']), 'US*', '*.000'))):
+            ds = ogr.Open(f)
+            for ln in ('DEPARE', 'DRGARE', 'RIVERS', 'LAKARE', 'CANALS'):
+                L = ds.GetLayerByName(ln)
+                if not L: continue
+                for ft in L:
+                    g = ft.GetGeometryRef()
+                    if g and g.GetGeometryName() in ('POLYGON', 'MULTIPOLYGON'): wet_polys.append(shape(json.loads(g.ExportToJson())))
+        wtree = STRtree(wet_polys)
+        on_land = lambda lon, lat: not any(wet_polys[i].contains(Point(lon, lat)) for i in wtree.query(Point(lon, lat)))
     charted = chart_bridges(os.path.expanduser(R['charts']))
     ctree = STRtree([c['g'] for c in charted])
     big = [b for b in bridges]
@@ -525,6 +574,7 @@ def main():
         top = (clr + 1.5) if clr else 4.5
         rail = 'railway' in x['tags']
         name = x['tags'].get('bridge:name') or next((c['name'] for c in hits if c['name']), None) or x['tags'].get('name') or ('Rail bridge' if rail else 'Bridge')
+        name = R.get('rename', {}).get(name, name)   # (v1139: the chart's "Mystic River - Tobin Memorial" is the Tobin Bridge)
         S = stations(D)
         ramp = min(25, L / 4)
         H = [None if s < 0.5 or s > S[-1] - 0.5 else round(min(top, 1.5 + (top - 1.5) * min(s, S[-1] - s) / ramp), 1) for s in S]

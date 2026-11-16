@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-16 — Bird's-eye: Boston's buildings, Logan's terminals and the Zakim Bridge (v1139)
+
+- Requested: "add the Boston buildings and the Zakim bridge. And how about Logan airport?" (Logan's runways, taxiways, jet bridges and tower came in v1138; its buildings now.)
+- **Buildings** (design/buildings/build_town.py; OSM footprints, heights from the `MA_CentralEastern_1_2021` lidar, roofs from the aerial photo), eight areas in www/data/buildings/index.json: Downtown and the North End, Back Bay and Beacon Hill, the South End, the Seaport and South Boston, Charlestown, Kendall Square and MIT, East Boston, and Logan (`FLAT_OVER=900 PALETTE_BIG=airport`, as SFO's). 24,252 buildings. Checked against published heights: 200 Clarendon (the Hancock) about 244 m, the Prudential 236 m, Winthrop Center and South Station Tower about 205 m.
+- **The Zakim** (design/bridges/build_bridges.py SPECS; www/js/bridges3d.js): a new cable-stayed form. Two inverted-Y towers 82 m (270 ft) with obelisk points, on the chart's two PYLONS (228 m apart, the 745 ft main span), back spans 81 m and 128 m, 12 m clearance; the main span's stays in two planes to the deck's edges, the back spans' in one down the middle (`stays`, `invy` towers). Sources: Wikipedia, Mass.gov (the Big Dig's bridges).
+- **Boston's other bridges**: 81 more as plain decks at their charted clearances (the Longfellow, Harvard, BU, Charlestown, Tobin, McArdle, the Chelsea Street lift bridge, ...). `land.geojson` has the Charles basin and the Mystic as land and stops at the charts' edge, so "over water" for Boston (`chart_water`) is what the charts draw as water (DEPARE, DRGARE, RIVERS, LAKARE, CANALS); the chart's "Mystic River - Tobin Memorial" is renamed the Tobin Bridge (`rename`).
+- Checked in headless Chrome (downtown, Back Bay, Logan, the Zakim close up): every area loads within 20 s, Live showing 74 vessels, 30 aircraft, 125 trains.
+
 ## 2026-11-16 — Bird's-eye: Boston Harbor, with Logan, the commuter rail and the T (v1138)
 
 - Requested: "a new region for Boston, for Birdseye view", then "I would like to encompass airport, trains, maybe the 'T', and of course ships". Bird's-eye-only, like SF Bay and New York (`armchair`), on the bay switch for unlocked devices.

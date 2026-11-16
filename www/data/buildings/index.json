@@ -81,5 +81,13 @@
   {"file": "bk-downtown.json", "name": "Downtown Brooklyn, Fort Greene and Park Slope", "bbox": [-73.995, 40.66, -73.955, 40.695]},
   {"file": "bk-sunset-park.json", "name": "Sunset Park and Bay Ridge", "bbox": [-74.04, 40.62, -73.995, 40.665]},
   {"file": "bk-bed-stuy.json", "name": "Bedford-Stuyvesant and Bushwick", "bbox": [-73.955, 40.675, -73.9, 40.705]},
-  {"file": "qn-long-island-city.json", "name": "Long Island City and Astoria", "bbox": [-73.965, 40.74, -73.9, 40.78]}
+  {"file": "qn-long-island-city.json", "name": "Long Island City and Astoria", "bbox": [-73.965, 40.74, -73.9, 40.78]},
+  {"file": "bos-downtown.json", "name": "Downtown Boston and the North End", "bbox": [-71.07, 42.348, -71.045, 42.368]},
+  {"file": "bos-back-bay.json", "name": "Back Bay and Beacon Hill", "bbox": [-71.095, 42.345, -71.07, 42.362]},
+  {"file": "bos-south-end.json", "name": "The South End", "bbox": [-71.085, 42.33, -71.06, 42.345]},
+  {"file": "bos-seaport.json", "name": "The Seaport and South Boston", "bbox": [-71.06, 42.33, -71.025, 42.355]},
+  {"file": "bos-charlestown.json", "name": "Charlestown", "bbox": [-71.075, 42.368, -71.05, 42.385]},
+  {"file": "bos-kendall.json", "name": "Kendall Square and MIT", "bbox": [-71.105, 42.355, -71.075, 42.372]},
+  {"file": "bos-east-boston.json", "name": "East Boston", "bbox": [-71.045, 42.362, -71.03, 42.39]},
+  {"file": "bos-logan.json", "name": "Logan Airport", "bbox": [-71.03, 42.355, -70.99, 42.378]}
 ]
