@@ -63,6 +63,7 @@ export class AisHub {
     const lists = await Promise.all(RAIL.map(async rail => {
       const kept = this.rail[rail.id];
       if (kept && now - kept.at < rail.ttl * 1000) return kept.trains;
+      if (!rail.url && !this.env.FIVE11_KEY) { errors.push(`${rail.name}: no 511 key`); return []; }   // (v1153: only 511's railroads need it)
       if (this.asking?.[rail.id]) return (await this.asking[rail.id]);
       (this.asking ??= {})[rail.id] = (async () => {
         try {
@@ -124,7 +125,6 @@ export default {
     if (req.method === 'OPTIONS') return new Response(null, { headers: { ...corsHeaders(origin), 'Access-Control-Allow-Methods': 'GET' } });
     if (url.pathname === '/aircraft') return aircraft(req, url, ctx);
     if (url.pathname === '/trains') {
-      if (!env.FIVE11_KEY) return new Response(JSON.stringify({ error: 'no 511 key', trains: [] }), { status: 503, headers: corsHeaders(origin) });
       return env.AIS_HUB.get(env.AIS_HUB.idFromName('trains')).fetch(req);   // (one object, so one cache: 511's 60 an hour)
     }
     if (url.pathname !== '/vessels') return new Response('AudioChart live AIS relay: GET /vessels', { status: 404 });
