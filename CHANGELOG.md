@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-16 — Bird's-eye: no gulls round trains and planes, and no tunnel ghosts (v1148)
+
+- Asked: "We don't need seagulls over non-boat things". The gulls (and seals) gather round where you're looking, near water; now none while you ride with or follow a train or a plane (www/js/bay3d.js, wildlife's `hidden`). Boats keep them.
+- Asked: "I don't want the ghosts". v1147's see-through box for a train in a tunnel is gone (www/js/trains3d.js); she's not drawn there, as before, her label and the ride bar still saying "In the tunnel". v1147's cap on speeds worked out from her reports stays.
+- Checked in headless Chrome on the live feed: riding a Blue Line train at Beachmont by the water (no gulls), a Red Line train under Cambridge (no ghost, "In the tunnel").
+
 ## 2026-11-16 — Bird's-eye: the T in its tunnels, as a ghost, at believable speeds (v1147)
 
 - Reported with a snapshot: "supposedly the red line from the side, but I don't see a train" (riding a Red Line train by South Station, "About 91 mph, bound for Alewife"). She was in the tunnel, where v1138 hid her cars, leaving the ride looking at nothing.

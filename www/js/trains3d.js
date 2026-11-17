@@ -31,9 +31,6 @@ const LOOK = {
 };
 // each line's top speed, m/s: a speed worked out from two of her reports faster than this is a jump, not a speed (v1147)
 const TOP = { 'Red Line': 25, 'Orange Line': 25, 'Blue Line': 22, 'Green Line': 20, 'Mattapan Trolley': 16, 'Commuter Rail': 36 };
-// a train in a tunnel: a see-through box in her line's colour, drawn over whatever's above her (one material a colour)
-const GHOSTS = new Map();
-const ghostMat = col => { if (!GHOSTS.has(col)) GHOSTS.set(col, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.45, depthTest: false, depthWrite: false })); return GHOSTS.get(col); };
 // a train's name on her label and card: Amtrak's by her route ("Capitol Corridor"), the MBTA's commuter rail by her
 // line ("Worcester Line"), the Green Line by her branch ("Green Line E"), the rest by the railroad's or line's own
 const trainName = a => a.rail === 'Amtrak' && a.line ? a.line : a.rail === 'Commuter Rail' && a.line ? a.line.split('/').pop().replace(/ Line$/, '') + ' Line'
@@ -324,14 +321,12 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
       // on her track, along it: the way she's going if she's been seen to move, or else her direction's way (a
       // southbound train the end of it nearer south). Off any track (none within 40 m), as before
       const tr = onTrack(p.x, p.z);
-      // (v1147, reported: "supposedly the red line from the side, but I don't see a train") underground, her cars hidden
-      // and in their place a ghost in her line's colour, seen through the ground and the buildings over her
+      // underground: her cars not drawn; her label and the ride bar say she's in the tunnel (v1147, reported: "supposedly the
+      // red line from the side, but I don't see a train"; v1147's see-through ghost of her taken out in v1148: "I don't
+      // want the ghosts")
       const under = !!(tr && segTun?.[tr.k]);
       if (under !== !!p.under) {
-        p.under = under;
-        if (under && !p.ghost) { p.ghost = new THREE.Mesh(new THREE.BoxGeometry(3.2, 3.8, p.len || 120), ghostMat(LOOK[p.a.rail]?.band ?? 0xffffff)); p.ghost.position.y = 2.6; p.ghost.renderOrder = 10; p.model.add(p.ghost); }
-        for (const c of p.cars || []) c.visible = !under;
-        if (p.ghost) p.ghost.visible = under;
+        p.under = under; p.model.visible = !under;
         if (p.labelBase) p.label = (under ? 'In the tunnel · ' : '') + p.labelBase;
       }
       let dh = p.h;

@@ -3896,7 +3896,8 @@ function frame(now) {
   updateWakes(dt);
   if (nest.on) nestCamera();   // after every vessel has moved, yours too
   if (nest.on || !rcEl?.hidden) drawRideChart();
-  wildlife.update(dt, t, view, camera.position, { hidden: !!aboveFog || EMPTY, night: env.C.time === 'night', boat: (own.ext || own.r) ? own : null, scale: d => clamp(d / 35, 3, 8), nearWater });
+  wildlife.update(dt, t, view, camera.position, { hidden: !!aboveFog || EMPTY || (nest.on && isMover(nest.v)) || (!!follow && isMover(follow)),   // (v1148, asked: "We don't need seagulls over non-boat things": none round a train or plane you're riding or following)
+    night: env.C.time === 'night', boat: (own.ext || own.r) ? own : null, scale: d => clamp(d / 35, 3, 8), nearWater });
   syncFollowHud(); updateFixLines(); updateVector(); updateBuoyF(); updateGauge(); updateCurrents();
   if (follow && !anim && !nest.on) { const k = Math.min(1, dt * 4); view.x += (follow.x - view.x) * k; view.z += (follow.z - view.z) * k; }
   renderer.render(scene, camera);
