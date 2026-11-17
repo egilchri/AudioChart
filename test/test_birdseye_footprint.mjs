@@ -4,8 +4,9 @@
 // Needs the repo served (python3 -m http.server 8838 from the repo root) and a Chrome with remote debugging:
 //   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --remote-debugging-port=9633 \
 //     --user-data-dir=/tmp/footprint-prof about:blank
-//   node test/test_birdseye_footprint.mjs [base=http://127.0.0.1:8838] [port=9633]
-const base = process.argv[2] || 'http://127.0.0.1:8838', port = +(process.argv[3] || 9633);
+//   node test/test_birdseye_footprint.mjs [base=http://127.0.0.1:8838/www] [port=9633]
+//   (or the live site: base=https://egilchri.github.io/AudioChart)
+const base = process.argv[2] || 'http://127.0.0.1:8838/www', port = +(process.argv[3] || 9633);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const ARMCHAIR = /\/js\/(aircraft3d|cockpit|flightroute|trains3d|track3d|subway3d|platform3d|traffic3d|airport3d|mbta3d|caltrain3d|smart3d|amtrak3d|airliner3d|lightplane3d)\.js|\/data\/(rail|roads|airports)\//;
 
@@ -26,7 +27,7 @@ await cmd('Network.setCacheDisabled', { cacheDisabled: true });
 
 async function visit(region, wait = 12000) {
   urls.length = 0; errs.length = 0;
-  await cmd('Page.navigate', { url: `${base}/www/bay3d.html?region=${region}` });
+  await cmd('Page.navigate', { url: `${base}/bay3d.html?region=${region}` });
   await sleep(wait);
   return { armchair: urls.filter(u => ARMCHAIR.test(u)).map(u => u.replace(/^.*\/www\//, '')), errs: [...errs], ready: await ev('!!window.__bay3d') };
 }
@@ -34,7 +35,7 @@ async function visit(region, wait = 12000) {
 let fail = 0;
 const check = (ok, msg) => { console.log(`${ok ? 'PASS' : 'FAIL'} ${msg}`); if (!ok) fail++; };
 // a fresh boater: no planes-and-trains choice remembered, Live off
-await cmd('Page.navigate', { url: `${base}/www/bay3d.html?region=penobscot-bay` }); await sleep(1500);
+await cmd('Page.navigate', { url: `${base}/bay3d.html?region=penobscot-bay` }); await sleep(1500);
 await ev(`(() => { try { localStorage.removeItem('audiochart-bay3d-planes-trains'); localStorage.removeItem('audiochart-bay3d-live'); } catch (_) {} return 1; })()`);
 for (const r of ['penobscot-bay', 'casco-bay']) {
   const v = await visit(r);
