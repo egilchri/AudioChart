@@ -8,7 +8,7 @@
 // traffic does; fewer at night (by the scene's clock). Only near the view: each carriageway's cars made when she's
 // within reach, dropped when she's out of it. Not on the big bridges' decks: bridges3d.js has their traffic.
 import * as THREE from 'three';
-import { makeFleet, pickVehicle, LEN } from './vehicles3d.js';
+import { makeFleet, pickVehicle, LEN, TRUCKS } from './vehicles3d.js';
 
 const CMS = 'https://cwwp2.dot.ca.gov/data/d4/cms/cmsStatusD04.json';
 const STEP = 20, BIN = 200, LANE = 3.7, MAX = 9000;
@@ -56,7 +56,9 @@ export async function makeTraffic({ scene, rid, wx, wz, heightAt, clockMin, eye 
     for (let ln = 0; ln < n; ln++) {
       const off = ch.c.two ? (ln + 0.5) * LANE : (ln - (n - 1) / 2) * LANE;
       for (let s = Math.random() * 40; s < ch.L;) {
-        const v = vAt(ch, s), truck = Math.random() < (ln === n - 1 ? 0.18 : 0.04), car = { s, off, f: 0.93 + Math.random() * 0.12 - (truck ? 0.06 : 0), truck, ...pickVehicle(truck) };
+        // (v1150) FHWA's 12.3% trucks, most in the slow lane: three times as many there as in each other lane
+        const heavy = Math.min(0.4, TRUCKS * 3 * n / (n + 2)) / (ln === n - 1 ? 1 : 3), pick = pickVehicle(heavy), truck = pick.kind === 'semi' || pick.kind === 'box' || pick.kind === 'bus';
+        const v = vAt(ch, s), car = { s, off, f: 0.93 + Math.random() * 0.12 - (truck ? 0.06 : 0), truck, ...pick };
         cars.push(car);
         s += Math.max(LEN[car.kind] + 4, v / q * (0.5 + Math.random()));
       }

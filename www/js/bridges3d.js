@@ -191,7 +191,7 @@ function makeTraffic(roads, eye) {
       const fwd = oneWay || ln < lanes / 2, k = oneWay ? ln - (lanes - 1) / 2 : fwd ? ln + 0.5 : -(ln - lanes / 2 + 0.5);
       const off = k * Math.min(LANE, (B.w - 1.5) / lanes), v = (21 + Math.random() * 6) * (fwd ? 1 : -1);
       for (let s = Math.random() * 30; s < L; s += 22 + Math.random() * 45) {
-        list.push({ road, off, v, s, ...pickVehicle(Math.random() < 0.08) });   // (v1149: modelled, vehicles3d.js)
+        list.push({ road, off, v, s, ...pickVehicle() });   // (v1149: modelled, vehicles3d.js; v1150: in FHWA's shares)
       }
     }
   }

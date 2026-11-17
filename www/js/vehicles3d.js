@@ -9,10 +9,15 @@ import * as THREE from 'three';
 const NEAR = 700;
 const GLASS = 0x1e252c, TYRE = 0x1a1a1a, DARK = 0x2a2b2d, CHROME = 0xb8bcc0;
 const HEAD = [1.0, 0.92, 0.75], TAIL = [1.0, 0.08, 0.04];
-export const CAR_COLS = [0xf2f2f0, 0xf2f2f0, 0x1c1c1e, 0x1c1c1e, 0x9a9da3, 0x9a9da3, 0x5d6168, 0xb3262b, 0x24427a, 0x6f8fae, 0x2e5a3c, 0xd8c9a8];
-export const CAB_COLS = [0xb3262b, 0xf2f2f0, 0xf2f2f0, 0x24427a, 0x1c1c1e, 0x2e5a3c, 0xc9ccd0, 0xd89a1c, 0x5b6f86, 0x7a1e22];
-export const TRAILER_COLS = [0xf0f0ec, 0xf0f0ec, 0xf0f0ec, 0xe6e7e8, 0xc4c8cc, 0xc4c8cc, 0x8d969e, 0x3d5a8a];
-export const BOX_COLS = [0xf2f2f0, 0xf2f2f0, 0xf2f2f0, 0xe8d24a, 0xd8d8d4];
+// colours by their shares (v1150): cars as North America's (white a quarter, black a fifth, grey, silver, blue, red, then
+// the few greens, browns and golds: the paint makers' yearly counts, roughly); tractors mostly fleet white
+const W = list => { const t = list.reduce((a, [, w]) => a + w, 0); return () => { let r = Math.random() * t; for (const [v, w] of list) if ((r -= w) < 0) return v; return list[0][0]; }; };
+export const carCol = W([[0xf2f2f0, 25], [0x1c1c1e, 20], [0x6a6e74, 10], [0x8e9298, 8], [0xb9bcc0, 11], [0x24427a, 6], [0x6f8fae, 4], [0xb3262b, 8], [0x7a1e22, 1], [0x2e5a3c, 2], [0x8a7a62, 2], [0xc9a24a, 2], [0xd86a1c, 1]]);
+export const cabCol = W([[0xf2f2f0, 45], [0xb3262b, 11], [0x24427a, 9], [0x1c1c1e, 10], [0xc9ccd0, 9], [0x2e5a3c, 5], [0x7a1e22, 5], [0xd89a1c, 3], [0x5b6f86, 3]]);
+export const trailerCol = W([[0xf0f0ec, 62], [0xe6e7e8, 10], [0xc4c8cc, 16], [0x8d969e, 6], [0x3d5a8a, 3], [0xb3262b, 3]]);
+const boxCol = W([[0xf2f2f0, 70], [0xd8d8d4, 15], [0xe8d24a, 8], [0xd86a1c, 7]]);
+const busCol = W([[0xf0f0ec, 50], [0xc9ccd0, 25], [0x2e6a4a, 10], [0xb3262b, 10], [0xe8c43a, 5]]);
+const jacketCol = W([[0x1c1c1e, 70], [0x3b3d42, 15], [0xb3262b, 8], [0x24427a, 7]]);
 
 // a model's parts merged: each part's colour (white takes the instance's colour; the rest are fixed, darkened by it
 // only a little as they're dark already) and its lamp's glow
@@ -58,6 +63,41 @@ const MODELS = {
     for (const x of [-0.86, 0.86]) for (const z of [-1.5, 1.5]) wheel(0.38, 0.27, x, 0.38, z);
     lamps(box, 0.66, 1.05, 2.43); lamps(box, 0.72, 1.12, -2.43, true);
   }),
+  pickup: () => model(({ box, wheel }) => {   // a crew-cab pickup, 5.9 m: her cab, her open bed
+    box(2.0, 0.9, 5.9, 0, 0.95, 0, 0xffffff, null, 0.98, 0.99);
+    box(1.86, 0.66, 2.5, 0, 1.73, 0.55, GLASS, null, 0.9, 0.82);
+    box(1.6, 0.06, 2.0, 0, 2.07, 0.5);
+    box(1.72, 0.04, 2.0, 0, 1.41, -1.85, DARK);   // the bed's floor, seen from above
+    box(2.02, 0.2, 5.92, 0, 0.58, 0, DARK);
+    box(1.2, 0.5, 0.05, 0, 1.05, 2.96, DARK);   // the grille
+    for (const x of [-0.88, 0.88]) for (const z of [-1.85, 1.85]) wheel(0.4, 0.28, x, 0.4, z);
+    lamps(box, 0.72, 1.15, 2.96); lamps(box, 0.9, 1.2, -2.96, true);
+  }),
+  van: () => model(({ box, wheel }) => {   // a minivan, 5.15 m
+    box(1.99, 0.78, 5.15, 0, 0.78, 0);
+    box(1.88, 0.68, 3.9, 0, 1.5, -0.3, GLASS, null, 0.93, 0.9);
+    box(1.66, 0.06, 3.4, 0, 1.86, -0.35);
+    box(2.01, 0.16, 5.17, 0, 0.45, 0, DARK);
+    for (const x of [-0.86, 0.86]) for (const z of [-1.55, 1.55]) wheel(0.36, 0.25, x, 0.36, z);
+    lamps(box, 0.68, 0.95, 2.58); lamps(box, 0.8, 1.2, -2.58, true);
+  }),
+  bus: () => model(({ box, wheel }) => {   // a 40 ft bus, 12.2 m: her windows along her, her sign lit
+    box(2.55, 2.75, 12.2, 0, 1.75, 0);
+    box(2.57, 1.05, 10.6, 0, 2.3, -0.5, GLASS);
+    box(2.3, 1.45, 0.05, 0, 2.1, 6.11, GLASS);
+    box(1.9, 0.28, 0.06, 0, 3.0, 6.12, 0xd8a020, [1.0, 0.6, 0.1]);   // her sign
+    box(2.4, 0.3, 0.3, 0, 3.25, -1.5, 0xd0d2d4);   // the roof's air-conditioning
+    for (const x of [-1.05, 1.05]) { wheel(0.5, 0.3, x, 0.5, 4.3); wheel(0.5, 0.55, x, 0.5, -2.6); }
+    lamps(box, 1.0, 0.75, 6.11); lamps(box, 1.0, 0.95, -6.11, true);
+  }),
+  moto: () => model(({ box, wheel }) => {   // a motorcycle and her rider (his jacket the instance's colour)
+    box(0.32, 0.45, 1.5, 0, 0.62, 0, DARK);
+    box(0.3, 0.12, 0.7, 0, 0.92, -0.15, 0x111111);   // the seat
+    wheel(0.32, 0.12, 0, 0.32, 0.72); wheel(0.32, 0.16, 0, 0.32, -0.72);
+    box(0.44, 0.62, 0.32, 0, 1.3, -0.2);   // the rider
+    box(0.26, 0.28, 0.3, 0, 1.76, -0.12, 0x202022);   // his helmet
+    box(0.12, 0.1, 0.05, 0, 0.95, 0.78, 0xeeeee6, HEAD); box(0.12, 0.06, 0.05, 0, 0.82, -0.78, 0x8a1410, TAIL);
+  }),
   box: () => model(({ box, wheel }) => {   // a box truck: her cab, her box (white, with the instance's tint), 8 m
     box(2.25, 1.55, 1.9, 0, 1.45, 3.0);
     box(2.1, 0.75, 0.06, 0, 2.05, 3.96, GLASS); for (const s of [-1, 1]) box(0.06, 0.6, 0.9, s * 1.13, 2.05, 3.3, GLASS);
@@ -93,8 +133,8 @@ const MODELS = {
   }),
 };
 // the far boxes' sizes, and where a tractor-trailer's two are along her
-const SIZE = { sedan: [1.85, 1.45, 4.7], suv: [1.95, 1.9, 4.9], box: [2.45, 3.6, 8], tractor: [2.45, 3.9, 6.6], trailer: [2.6, 4.0, 16.1] };
-export const LEN = { sedan: 4.7, suv: 4.9, box: 8, semi: 22 };
+const SIZE = { sedan: [1.85, 1.45, 4.7], suv: [1.95, 1.9, 4.9], pickup: [2.0, 1.95, 5.9], van: [1.99, 1.8, 5.15], bus: [2.55, 3.3, 12.2], moto: [0.6, 1.5, 2.2], box: [2.45, 3.6, 8], tractor: [2.45, 3.9, 6.6], trailer: [2.6, 4.0, 16.1] };
+export const LEN = { sedan: 4.7, suv: 4.9, pickup: 5.9, van: 5.15, bus: 12.2, moto: 2.2, box: 8, semi: 22 };
 const TRACTOR_AT = 7.3, TRAILER_AT = -3.45;   // (her middle to theirs: the tractor's nose 10.6 m ahead, the trailer's front a metre behind her sleeper)
 
 export function makeFleet({ max = 9000, eye }) {
@@ -146,9 +186,18 @@ export function makeFleet({ max = 9000, eye }) {
     night(k) { night.value = k; farMat.emissive.setRGB(0.55 * k, 0.45 * k, 0.3 * k); },
   };
 }
-// what a vehicle is, picked by chance: a truck (in a freeway's slow lane, mostly) a tractor-trailer or a box truck; a car a sedan or an SUV
-export function pickVehicle(truck) {
-  const r = Math.random(), pick = a => a[Math.random() * a.length | 0];
-  if (truck) return r < 0.72 ? { kind: 'semi', col: pick(CAB_COLS), col2: pick(TRAILER_COLS) } : { kind: 'box', col: pick(BOX_COLS) };
-  return r < 0.55 ? { kind: 'sedan', col: pick(CAR_COLS) } : { kind: 'suv', col: pick(CAR_COLS) };
+// what a vehicle is, picked by its share of the traffic (v1150, asked: "could you get a statistically accurate sample of
+// types?"): FHWA's Highway Statistics table VM-1 (2024), the miles driven on urban Interstates by kind: light vehicles
+// 86.9% (short wheelbase 68.0, long 18.9), combination trucks 8.6, single-unit trucks 3.7, buses 0.4, motorcycles 0.4.
+// The light vehicles split as those on the road now: cars 38%, SUVs and crossovers 42, pickups 15, vans 5. heavy: the
+// share of trucks in this lane (traffic3d.js: most in the slow lane), else FHWA's 12.3%.
+const LIGHT = W([['sedan', 38], ['suv', 42], ['pickup', 15], ['van', 5]]);
+export const TRUCKS = 0.123;
+export function pickVehicle(heavy = TRUCKS) {
+  const r = Math.random();
+  if (r < heavy) return Math.random() < 8.6 / 12.3 ? { kind: 'semi', col: cabCol(), col2: trailerCol() } : { kind: 'box', col: boxCol() };
+  const q = Math.random();
+  if (q < 0.004) return { kind: 'bus', col: busCol() };
+  if (q < 0.009) return { kind: 'moto', col: jacketCol() };
+  return { kind: LIGHT(), col: carCol() };
 }

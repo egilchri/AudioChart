@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-11-17 — Bird's-eye: a ghost of the train underground from the Drone, and traffic in its real shares (v1150)
+
+- Asked: "yes, do the ghost for drone view". **Ghost** (www/js/subway3d.js `ghost`, www/js/bay3d.js frame): riding a train in a tunnel from the Drone, or following her, she's drawn see-through in her line's colour over the street and the buildings above her. The ghost is her own cars along her own track, not a box, drawn in a second pass of her alone. Ahead, Side, Behind and Cab stay in the tunnel (v1149).
+- Asked: "any close-up should show realistic cars and trucks. could you get a statistically accurate sample of types?" **Traffic mix** (www/js/vehicles3d.js `pickVehicle`):
+  - Shares by kind from FHWA Highway Statistics table VM-1 (2024), urban Interstate miles: light vehicles 86.9%, combination trucks 8.6%, single-unit trucks 3.7%, buses 0.4%, motorcycles 0.4%.
+  - Light vehicles split as on the road now: cars 38%, SUVs and crossovers 42%, pickups 15%, vans 5%.
+  - Trucks favour the slow lane, three to one (www/js/traffic3d.js).
+  - Colours by the paint makers' North American shares: white a quarter, black a fifth, then greys, silver, blue and red. Tractors mostly fleet white.
+  - New models: crew-cab pickup with its bed, minivan, 40 ft bus with its lit sign, motorcycle with rider.
+- Footprint: none of Bird's-eye's code or data is loaded or cached by the navigation app unless you open the 3D Bird's-eye view. The service worker precaches only index.html, app.css and the manifest; everything else is cached when it's first fetched.
+
 ## 2026-11-17 — Bird's-eye: inside the T's tunnels, and real trucks on the freeways (v1149)
 
 - Asked: "maybe we could develop some underground POV's ... As a priority, let's develop an underground POV, for say front view and side view". **Underground** (new www/js/subway3d.js): riding a train while she's in a tunnel, Ahead, Side, Behind and Cab now look round her in the tunnel she's in, not at the street over her. It's built along her own track, 350 m behind her and 450 m ahead:

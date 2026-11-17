@@ -10,7 +10,7 @@
 // its own lights and a black fog where the tunnel runs out of sight.
 import * as THREE from 'three';
 
-export const UNDER = 1;   // the layer
+export const UNDER = 1, GHOST = 2;   // the layers: the tunnel's, and a ghost's
 const DEG = Math.PI / 180;
 const LINE_COL = { 'Red Line': '#da291c', 'Orange Line': '#ed8b00', 'Blue Line': '#003da5', 'Green Line': '#00843d', 'Mattapan Trolley': '#da291c' };
 const LIGHT_RAIL = r => /Green|Mattapan/.test(r || '');
@@ -203,5 +203,19 @@ export function makeSubway({ scene, rail }) {
       scene.fog = f; scene.background = bg; camera.layers.set(0);
     },
     off,
+    // (v1150, asked: "do the ghost for drone view") from the Drone, or following her, a train in a tunnel is her own
+    // shape (her cars, along her track) in her line's colour, see-through and drawn over the street and the buildings
+    // above her: a second pass after the scene's, of her alone (layer 2), every part in the ghost's material
+    ghost(renderer, camera, p) {
+      if (!p?.model) return;
+      if (!p._gh) { p.g.traverse(o => o.layers.enable(GHOST)); p._gh = true; }
+      const col = LINE_COL[p.a.rail] || (p.a.rail === 'Commuter Rail' ? '#c4428e' : '#ffffff');
+      if (!GHOSTS.has(col)) GHOSTS.set(col, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.5, depthTest: false, depthWrite: false, fog: false }));
+      const vis = p.model.visible, auto = renderer.autoClear, f = scene.fog;
+      p.model.visible = true; scene.overrideMaterial = GHOSTS.get(col); scene.fog = null; renderer.autoClear = false; camera.layers.set(GHOST);
+      renderer.render(scene, camera);
+      camera.layers.set(0); renderer.autoClear = auto; scene.overrideMaterial = null; scene.fog = f; p.model.visible = vis;
+    },
   };
 }
+const GHOSTS = new Map();

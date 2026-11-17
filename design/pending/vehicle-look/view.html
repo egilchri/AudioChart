@@ -17,10 +17,10 @@ const eye = new THREE.Vector3(0, 0, 0), F = makeFleet({ max: 100, eye }); scene.
 F.begin();
 F.put('sedan', -16, 0, 0, Math.PI / 2, 0xb3262b); F.put('suv', -8, 0, 0, Math.PI / 2, 0x24427a); F.put('box', 4, 0, 0, Math.PI / 2, 0xf2f2f0);
 F.put('semi', 26, 0, 0, Math.PI / 2, 0x1c1c1e, 0xf0f0ec);
-F.put('sedan', -10, 0, -5, -Math.PI / 2, 0xf2f2f0); F.put('semi', 14, 0, -5, -Math.PI / 2, 0xb3262b, 0xc4c8cc);
+F.put('pickup', -22, 0, -5, -Math.PI / 2, 0x6a6e74); F.put('van', -14, 0, -5, -Math.PI / 2, 0xf2f2f0); F.put('moto', -8, 0, -5, -Math.PI / 2, 0x1c1c1e); F.put('bus', 2, 0, -5, -Math.PI / 2, 0xf0f0ec); F.put('semi', 24, 0, -5, -Math.PI / 2, 0xb3262b, 0xc4c8cc);
 F.end();
 const cam = new THREE.PerspectiveCamera(30, W / H, 0.5, 3000);
-if (view === 'side') cam.position.set(6, 3, 60); else if (view === 'top') cam.position.set(6, 90, 30); else cam.position.set(40, 14, 45);
+if (view === 'side') cam.position.set(6, 3, 60); else if (view === 'top') cam.position.set(6, 90, 30); else cam.position.set(30, 16, 50);
 cam.lookAt(6, 1.5, -2);
 r.render(scene, cam); window.__done = true;
 </script></body></html>

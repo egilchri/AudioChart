@@ -3915,6 +3915,8 @@ function frame(now) {
   syncFollowHud(); updateFixLines(); updateVector(); updateBuoyF(); updateGauge(); updateCurrents();
   if (follow && !anim && !nest.on) { const k = Math.min(1, dt * 4); view.x += (follow.x - view.x) * k; view.z += (follow.z - view.z) * k; }
   if (subway.active) subway.render(renderer, camera); else renderer.render(scene, camera);
+  { const gv = nest.on ? (nest.mode === 'drone' ? nest.v : null) : follow;   // (v1150) her ghost, from the Drone or following her, while she's underground
+    if (gv?.kind === 'rail' && gv.under && !subway.active) subway.ghost(renderer, camera, gv); }
   updateLabels(); updateLiveMarks(); updateReadout();
   nextFrame();
 }
