@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-11-17 — Bird's-eye: real platforms where the T and the trains stop (v1151)
+
+- Asked: "when we stop at a platform it should look like a realistic rendition of the platform. I'm talking about the T, and trains". **Stations** (new www/js/platform3d.js), built beside her where the MBTA (or 511) says she's stopped, at the place her report puts her:
+  - **The platform:** concrete pavers, a granite edge, the yellow tactile warning strip, and its face and lip down to the trackbed. It's high for the T's subway lines, low for trolleys, and low for the commuter rail except at its rebuilt high-level stations.
+  - **Underground:** white subway tile on both walls with a band in the line's colour, and the station's name (white on black, the line's stripe) between posters and a system map. Rows of hanging lamps, the platform's steel columns (green at the Green Line's central stations), and a stair rising into the roof. Hanging name and countdown signs show her destination and "BRD".
+  - **In the open:** a canopy (all along a subway line's platform, over the middle of a commuter rail one, a shelter at a trolley stop) on posts with lamps under it, a railing along the back, and name signs on posts. A subway line's surface station also has its countdown sign.
+  - **Everywhere:** benches, bins, and people waiting in everyday clothes, some with backpacks.
+  - **Camera:** while she's at the platform, Side stands on it. Above ground, Ahead and Behind stand at its ends looking down her length. Underground they stay in the tunnel.
+- The tunnel's camera now follows the tunnel's own eased heights. At a portal's slope the track's raw height had put it through the roof.
+- Checked in headless Chrome on the live feed (about 50–60 fps once loaded):
+  - the Red Line at Shawmut and Porter
+  - the Orange Line at Forest Hills
+  - the Greenbush Line at Greenbush
+
 ## 2026-11-17 — Bird's-eye: a ghost of the train underground from the Drone, and traffic in its real shares (v1150)
 
 - Asked: "yes, do the ghost for drone view". **Ghost** (www/js/subway3d.js `ghost`, www/js/bay3d.js frame): riding a train in a tunnel from the Drone, or following her, she's drawn see-through in her line's colour over the street and the buildings above her. The ghost is her own cars along her own track, not a box, drawn in a second pass of her alone. Ahead, Side, Behind and Cab stay in the tunnel (v1149).

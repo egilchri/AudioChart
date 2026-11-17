@@ -1357,9 +1357,9 @@ function nestCamera() {   // after every vessel has moved: the eye aboard her, l
   const v = nest.v, g = vGroup(v);
   if (!g.visible && !(v === own && own.r)) { leaveRide(); return; }   // she's gone (out of service, out of season)
   // underground (v1149): in her tunnel, not the street over her (her Drone still over the street); the ride bar says so
-  const ug = subway.update(v, nest.mode, nest, camera), ugKey = ug ? `${nest.mode}|${subway.station || ''}` : '';
+  const ug = subway.update(v, nest.mode, nest, camera), ugKey = ug ? `${ug}|${nest.mode}|${subway.station || ''}` : '';
   if (ugKey !== (nest.ugKey || '')) {
-    nest.ugKey = ugKey; document.body.classList.toggle('underground', ug);
+    nest.ugKey = ugKey; document.body.classList.toggle('underground', ug === 'tunnel');
     const nm = document.getElementById('ridename');
     if (ug) nm.textContent = `${subway.station ? `At ${subway.station}` : 'In the tunnel'}: ${{ helm: 'in the cab of', side: 'beside', bow: 'ahead of', stern: 'behind' }[nest.mode] || 'with'} ${vTitle(v)}`;
     else ride(v, nest.mode);   // (her own title back)
