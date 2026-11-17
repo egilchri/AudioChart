@@ -89,5 +89,13 @@
   {"file": "bos-charlestown.json", "name": "Charlestown", "bbox": [-71.075, 42.368, -71.05, 42.385]},
   {"file": "bos-kendall.json", "name": "Kendall Square and MIT", "bbox": [-71.105, 42.355, -71.075, 42.372]},
   {"file": "bos-east-boston.json", "name": "East Boston", "bbox": [-71.045, 42.362, -71.03, 42.39]},
-  {"file": "bos-logan.json", "name": "Logan Airport", "bbox": [-71.03, 42.355, -70.99, 42.378]}
+  {"file": "bos-logan.json", "name": "Logan Airport", "bbox": [-71.03, 42.355, -70.99, 42.378]},
+  {"file": "bos-harvard.json", "name": "Harvard Square and Cambridgeport", "bbox": [-71.135, 42.355, -71.105, 42.38]},
+  {"file": "bos-inman.json", "name": "Inman Square and East Cambridge", "bbox": [-71.105, 42.372, -71.075, 42.385]},
+  {"file": "bos-west-cambridge.json", "name": "West Cambridge and Fresh Pond", "bbox": [-71.16, 42.365, -71.135, 42.38]},
+  {"file": "bos-porter-davis.json", "name": "Porter, Davis and North Cambridge", "bbox": [-71.16, 42.38, -71.105, 42.404]},
+  {"file": "bos-somerville.json", "name": "Somerville: Union Square to Assembly", "bbox": [-71.105, 42.385, -71.07, 42.42]},
+  {"file": "bos-teele.json", "name": "Teele Square and West Somerville", "bbox": [-71.135, 42.404, -71.105, 42.42]},
+  {"file": "bos-brookline.json", "name": "Brookline: Coolidge Corner and the Village", "bbox": [-71.15, 42.325, -71.105, 42.352]},
+  {"file": "bos-north-quincy.json", "name": "North Quincy and Wollaston", "bbox": [-71.05, 42.265, -70.99, 42.29]}
 ]

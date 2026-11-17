@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-11-16 — Bird's-eye: Cambridge, Somerville, Brookline and North Quincy's buildings (v1143)
+
+- Requested: "add Cambridge, Somerville, Brookline and Quincy". Eight more areas (design/buildings/build_town.py, the `MA_CentralEastern_1_2021` lidar), their boxes clear of v1139's: Harvard Square and Cambridgeport, Inman Square and East Cambridge (its six towers in glass and grey: tower_palette.py), West Cambridge and Fresh Pond, Porter, Davis and North Cambridge, Somerville (Union Square to Assembly), Teele Square and West Somerville, Brookline (Coolidge Corner and the Village), North Quincy and Wollaston; 57,000 buildings. Brick colours for Cambridge's squares and Brookline, clapboard (the Maine palette) for the triple-deckers of Somerville, North Cambridge and Quincy.
+- Not yet: Quincy Center and Quincy Point, its build held up by a network outage; it comes in a release of its own.
+
 ## 2026-11-16 — Bird's-eye: Boston's towers in glass and grey (v1142)
 
 - Requested: "make the downtown towers glass and grey". Boston's buildings had New York's brick palette throughout, the towers too. design/buildings/tower_palette.py gives every building 35 m or more (roof above ground) in Downtown, Back Bay, the Seaport and Kendall a tower's colour by its id: glass (blue-grey, dark, pale) as a curtain wall (`cw`: big panes on tall floors, as SFO's terminals), or stone (light grey, grey, warm granite), with grey roofs; 417, 112, 131 and 87 of them. The low brick blocks keep theirs. Edits the files in place, compact.
