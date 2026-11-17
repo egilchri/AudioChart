@@ -2308,7 +2308,7 @@ if (REG.roads && !EMPTY) makeTraffic({ scene, rid: REG.roads, wx, wz, heightAt, 
 if (REG.rail) getJSON(`./data/rail/${REG.rail}-trips.json`).then(d => rail.setTrips(d)).catch(err => console.warn('[bay3d] rail timetables', err));   // (v1117: each train's origin, destination and ETA)   // (v1116: each train on her track)
 window.__trains = () => rail.list(camera, renderer.domElement.getBoundingClientRect());
 // the tunnel she's in, when riding a train underground (v1149): Cab, Ahead, Side and Behind look round her in it
-const subway = makeSubway({ scene, rail });
+const subway = makeSubway({ scene, rail, platforms: REG.rail ? () => getJSON(`./data/rail/${REG.rail}-platforms.json`) : null });   // (v1152: the real platforms, fetched at the first station)
 function syncLiveBtn(state = liveBtn?.dataset.state || 'off', note = '') {
   if (!liveBtn) return;
   liveBtn.dataset.state = state;
@@ -3931,6 +3931,7 @@ window.__bay3d = {   // for AudioChart (returning to the chart where you were) a
   // Clear Screen on the chart (v953): drop the route's waypoints and line, as the chart drops its routes
   clearRoute: () => { showRoute('', false); clearPins(); },
   dropPin,
+  subway,   // (v1152, for testing: the station's layout)
   region: RID,
   // the bay a boat at (lon, lat) is in (v1089): this one while she's in it, else another the switch offers whose bay
   // holds her (a Virtual Journey sailing out of Penobscot into Casco Bay & Midcoast), else this one

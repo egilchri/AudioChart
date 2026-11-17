@@ -1,0 +1,36 @@
+<!doctype html><meta charset="utf-8"><title>Station look</title>
+<style>html,body{margin:0;background:#000;overflow:hidden}</style>
+<script type="importmap">{ "imports": { "three": "../../../www/js/lib/three/three.module.min.js" } }</script>
+<script type="module">
+// The real stations (v1152), empty, for a look: ?st=parkRed|parkGreen|south|kendall|porter|govBlue&cam=d,u,y&look=d,u,y
+// The layouts are fitStation's for each (design: www/js/platform3d.js), on a straight track.
+import * as THREE from 'three';
+import { buildStation, stationStyle } from '../../../www/js/platform3d.js';
+const q = new URLSearchParams(location.search), G = 1.65;
+const L = {
+  parkRed: { name: 'Park Street', rail: 'Red Line', tracks: [-8.6, 0], plats: [{ u0: -18.4, u1: -8.6 - G, eH: 1 }, { u0: -8.6 + G, u1: -G, eL: 1, eH: 1 }, { u0: G, u1: 8.8, eL: 1 }], d0: -97, d1: 38 },
+  parkGreen: { name: 'Park Street', rail: 'Green Line', tracks: [-3.6, 0, 13.2], plats: [{ u0: G, u1: 13.2 - G, eL: 1, eH: 1 }], d0: -100, d1: 60 },
+  south: { name: 'South Station', rail: 'Red Line', tracks: [-4.8, 0], plats: [{ u0: -10.8, u1: -4.8 - G, eH: 1 }, { u0: G, u1: 4.8, eL: 1 }], d0: -130, d1: 3 },
+  kendall: { name: 'Kendall/MIT', rail: 'Red Line', tracks: [-3.6, 0], plats: [{ u0: -11, u1: -3.6 - G, eH: 1 }, { u0: G, u1: 8.4, eL: 1 }], d0: -105, d1: 27 },
+  porter: { name: 'Porter', rail: 'Red Line', tracks: [0], plats: [{ u0: -5.3, u1: -G, eH: 1 }], d0: -111, d1: 23 },
+  govBlue: { name: 'Government Center', rail: 'Blue Line', tracks: [-3.8, 0], plats: [{ u0: G, u1: 9, eL: 1 }], d0: -80, d1: 40 },
+}[q.get('st') || 'parkRed'];
+for (const o of L.plats) { o.eL = !!o.eL; o.eH = !!o.eH; o.d0 = L.d0; o.d1 = L.d1; }
+const R = { ...L, lo: Math.min(...L.plats.map(o => o.u0), ...L.tracks.map(t => t - 2.3)), hi: Math.max(...L.plats.map(o => o.u1), ...L.tracks.map(t => t + 2.3)) };
+const P = []; for (let d = -200; d <= 200; d += 2) P.push({ x: 0, z: -d, h: 0, y: 0, d });
+const sd = (L.d0 + L.d1) / 2, platY = /Green/.test(L.rail) ? 0.3 : 1.05, H = /Green/.test(L.rail) ? 6 : 5, style = stationStyle(L.name, L.rail);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x030304);
+const st = buildStation({ P, sd, R, platY, rail: L.rail, name: L.name, dest: 'Braintree', under: true, ceil: H + 1.2, style });
+scene.add(st.group);
+// the tunnel's part: floor, roof, rails (subway3d.js draws these in the app)
+const box = (w, h, l, x, y, z, c) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, l), new THREE.MeshBasicMaterial({ color: c })); m.position.set(x, y, z); scene.add(m); };
+box(R.hi - R.lo, 0.1, 400, (R.hi + R.lo) / 2, -0.35, 0, 0x2a2724);
+box(R.hi - R.lo, 0.1, 400, (R.hi + R.lo) / 2, H + 1.2 + style.rise + 0.35 * !!style.vault + 0.05, 0, 0x4e4b45);
+for (const t of L.tracks) for (const s of [-1, 1]) box(0.08, 0.15, 400, t + s * 0.72, -0.05, 0, 0xb8b4ae);
+const r = new THREE.WebGLRenderer({ antialias: true }); r.setSize(innerWidth, innerHeight); r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 0.55; document.body.appendChild(r.domElement);
+const cam = new THREE.PerspectiveCamera(66, innerWidth / innerHeight, 0.1, 600);
+const [cd, cu, cy] = (q.get('cam') || `${sd - 30},${G + 2.4},${platY + 1.65}`).split(',').map(Number), [ld, lu, ly] = (q.get('look') || `${sd + 10},0,2`).split(',').map(Number);
+cam.position.set(cu, cy, -cd); cam.lookAt(lu, ly, -ld);
+scene.fog = new THREE.Fog(0x030304, 25, 300);
+r.render(scene, cam); window.done = true;
+</script>

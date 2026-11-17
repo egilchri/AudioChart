@@ -8,8 +8,11 @@
 // colour, its name on the wall. Her train, and any other in the tunnel near, is drawn in it. All of it is on layer 1:
 // the camera sees only layer 1 while underground (the town, the water and the sky are layer 0, out of sight), with
 // its own lights and a black fog where the tunnel runs out of sight.
+// (v1152, asked: "model the real stations, like Park Street and South Station") the station's layout is the real one,
+// OpenStreetMap's platforms fitted to her track (platform3d.js fitStation), the tunnel widening to it; its look is
+// each station's own (stationStyle)
 import * as THREE from 'three';
-import { buildStation, platformFor } from './platform3d.js';
+import { buildStation, platformFor, fitStation, oneSide, stationStyle } from './platform3d.js';
 
 export const UNDER = 1, GHOST = 2;   // the layers: the tunnel's, and a ghost's
 const DEG = Math.PI / 180;
@@ -17,7 +20,10 @@ const LINE_COL = { 'Red Line': '#da291c', 'Orange Line': '#ed8b00', 'Blue Line':
 const LIGHT_RAIL = r => /Green|Mattapan/.test(r || '');
 const BACK = 350, AHEAD = 450, STEP = 2, LAMP = 10, TRACKS = 3.9;   // m: the tunnel's reach, its rings, the lamps' spacing, between the two tracks' middles
 
-export function makeSubway({ scene, rail }) {
+export function makeSubway({ scene, rail, platforms }) {
+  // (v1152) the region's real platforms (OpenStreetMap's), fetched the first time she stops at a station
+  let plats = null, platsAsked = false;
+  const wantPlats = () => { if (platsAsked || !platforms) return; platsAsked = true; platforms().then(d => { plats = d; if (built?.sd != null) built.stale = true; if (surf) surf.stale = true; }).catch(e => console.warn('[subway] platforms', e)); };
   const root = new THREE.Group(); scene.add(root);
   const mat = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide });
   const hemi = new THREE.HemisphereLight(0xc8c2b4, 0x2a2620, 0.9), eye = new THREE.PointLight(0xfff0d8, 60, 0, 2), head = new THREE.PointLight(0xfff6e8, 160, 0, 2);
@@ -46,10 +52,14 @@ export function makeSubway({ scene, rail }) {
     return P;
   }
   // the other track: beside hers, to the right (1) or the left (−1), about TRACKS m off; 0 if none
+  // (v1152: looked for at her and 60, 120 and 200 m each way, so a station's tracks spread apart don't hide it)
   function otherSide(P) {
-    const mid = P[P.findIndex(r => r.d >= 0)] || P[0];
-    const side = s => [0.8, 1, 1.2].some(f => rail.nearTrack(mid.x + Math.cos(mid.h) * TRACKS * f * s, mid.z + Math.sin(mid.h) * TRACKS * f * s, 1.5));
-    return side(1) ? 1 : side(-1) ? -1 : 0;
+    const v = { 1: 0, [-1]: 0 }; let n = 0;
+    for (const dd of [0, -60, 60, -120, 120, -200, 200]) {
+      const r = P.find(q => q.d >= dd); if (!r || r.d - dd > STEP * 2) continue; n++;
+      for (const s of [1, -1]) if ([0.8, 1, 1.2].some(f => rail.nearTrack(r.x + Math.cos(r.h) * TRACKS * f * s, r.z + Math.sin(r.h) * TRACKS * f * s, 1.5))) v[s]++;
+    }
+    return v[1] >= Math.max(1, n / 3) && v[1] >= v[-1] ? 1 : v[-1] >= Math.max(1, n / 3) ? -1 : 0;
   }
   const ringAt = (P, x, z) => { let b = P[0], bd = Infinity; for (const r of P) { const e = (r.x - x) ** 2 + (r.z - z) ** 2; if (e < bd) { bd = e; b = r; } } return b; };
   const dAtOf = P => (x, z) => ringAt(P, x, z).d;
@@ -64,12 +74,25 @@ export function makeSubway({ scene, rail }) {
     let sd = null;
     if (station) { let bd = 40 * 40; for (const r of P) { const e = (r.x - station.x) ** 2 + (r.z - station.z) ** 2; if (e < bd) { bd = e; sd = r.d; } } if (sd == null) station = null; }
     const F = platformFor(p.a.rail, station?.name, p.len || 60);   // (v1151: the platform's height and length as the line's)
-    const sLen = F.len, sSide = other ? -other : 1, inSta = d => sd != null && Math.abs(d - sd) <= sLen / 2;
-    const platEdge = 1.65, platW = 5.5, platY = F.platY;
-    // the walls' offsets (− left, + right of her track), the station's side set back past its platform
-    const uL = d => inSta(d) && sSide < 0 ? -(platEdge + platW) : other < 0 ? -(TRACKS + 2.4) : -2.5;
-    const uR = d => inSta(d) && sSide > 0 ? platEdge + platW : other > 0 ? TRACKS + 2.4 : 4.4;   // (one track: a walkway along her right)
-    const hOf = d => inSta(d) ? H + 1.2 : H;
+    const sSide = other ? -other : 1, platY = F.platY;
+    // (v1152) the station's layout: OpenStreetMap's platforms and the tracks between them, fitted to hers; or one
+    // made up, beside her on the side away from the other track
+    if (sd != null) wantPlats();
+    const R = sd == null ? null : fitStation(plats, P, sd, p.fix, rail.nearTrack, true) || oneSide(sd, F.len, sSide, other, TRACKS, P);
+    const sty = sd == null ? null : stationStyle(station.name, p.a.rail);
+    // how far into the station: 1 in it, easing to 0 over the 30 m the tunnel widens to it at each end
+    const FL = 30, sm = k => k * k * (3 - 2 * k);
+    const kSta = d => !R ? 0 : d >= R.d0 && d <= R.d1 ? 1 : sm(Math.max(0, 1 - (d < R.d0 ? R.d0 - d : d - R.d1) / FL));
+    const inSta = d => kSta(d) === 1;
+    const mix = (a, b, k) => a + (b - a) * k;
+    // the walls' offsets (− left, + right of her track): the tunnel's, out to the station's
+    const tL = other < 0 ? -(TRACKS + 2.4) : -2.5, tR = other > 0 ? TRACKS + 2.4 : 4.4;   // (one track: a walkway along her right)
+    const uL = d => mix(tL, R ? R.lo : tL, kSta(d)), uR = d => mix(tR, R ? R.hi : tR, kSta(d));   // (in it, the station's own walls: on its platforms' backs)
+    const hOf = d => H + (1.2 + (sty?.rise || 0) + 0.3 * !!sty?.vault) * kSta(d);
+    // the tracks: the tunnel's, and the station's (each eased to the tunnel's nearest as the tunnel narrows)
+    const tunT = other ? [0, other * TRACKS] : [0];
+    const staT = R ? R.tracks.map(t => [t, t === 0 ? 0 : tunT.reduce((a, b) => Math.abs(b - t) < Math.abs(a - t) ? b : a)]) : [];
+    const hasEdge = (t, s) => R && R.plats.some(o => s > 0 ? o.eL && Math.abs(o.u0 - t - 1.65) < 0.1 : o.eH && Math.abs(o.u1 - t + 1.65) < 0.1);
     // the lamps: along both walls, under the roof; brighter and closer in the station
     const lit = (d, u, y) => {
       if (inSta(d)) return 1.25;
@@ -92,7 +115,7 @@ export function makeSubway({ scene, rail }) {
     };
     const N = P.length - 1;
     // the box: floor, walls (sooty below, concrete above), roof
-    const wallCol = d => inSta(d) ? '#d9cfb4' : '#7c786f', lowCol = d => inSta(d) ? '#b9ae94' : '#47423b';
+    const wallCol = d => kSta(d) > 0.5 ? '#d9cfb4' : '#7c786f', lowCol = d => kSta(d) > 0.5 ? '#b9ae94' : '#47423b';
     strip(0, N, r => [uL(r.d), -0.3, uR(r.d), -0.3], '#2a2724');   // the floor
     strip(0, N, r => [uL(r.d), hOf(r.d), uR(r.d), hOf(r.d)], '#4e4b45');   // the roof
     // (the walls' colours change at the station: each ring its own)
@@ -100,11 +123,16 @@ export function makeSubway({ scene, rail }) {
     for (const u of [uL, uR]) { wall(u, -0.3, 1.4, lowCol); wall(u, 1.4, 2.3, wallCol); wall(u, 2.7, 9, wallCol); wall(u, 2.3, 2.7, d => inSta(d) ? (LINE_COL[p.a.rail] || '#888888') : '#6c685f'); }
     // her rails and the other track's: steel tops, a darker trough between; the third rail (a heavy-rail tunnel's,
     // on the wall's side) or the overhead wire
-    for (const tu of other ? [0, other * TRACKS] : [0]) {
-      strip(0, N, () => [tu - 1.0, -0.12, tu + 1.0, -0.12], '#3a352f');
-      for (const s of [-1, 1]) strip(0, N, () => [tu + s * 0.72 - 0.04, 0, tu + s * 0.72 + 0.04, 0], '#b8b4ae');
-      if (light) strip(0, N, () => [tu - 0.03, 5.4, tu + 0.03, 5.4], '#222222', 0.6);
-      else { const ou = tu + (tu === 0 && other ? other : tu ? Math.sign(tu) : -1) * 1.25; strip(0, N, () => [ou - 0.18, 0.32, ou + 0.18, 0.32], '#4a3f2c'); }
+    // (v1152: in the station its own tracks, eased in from the tunnel's; the third rail on the side with no platform)
+    const outT = r => kSta(r.d) === 0 || kSta(r.d - STEP) === 0 || kSta(r.d + STEP) === 0;
+    const tr = [...tunT.map(t => [r => outT(r) ? t : null, t === 0 && other ? other : t ? Math.sign(t) : -1]),
+      ...staT.map(([t, t0]) => [r => kSta(r.d) > 0 ? mix(t0, t, kSta(r.d)) : null, !hasEdge(t, -1) ? -1 : !hasEdge(t, 1) ? 1 : -1])];
+    for (const [uf, side] of tr) {
+      const on = f => r => { const u = uf(r); return u == null ? false : f(u); };
+      strip(0, N, on(tu => [tu - 1.0, -0.12, tu + 1.0, -0.12]), '#3a352f');
+      for (const s of [-1, 1]) strip(0, N, on(tu => [tu + s * 0.72 - 0.04, 0, tu + s * 0.72 + 0.04, 0]), '#b8b4ae');
+      if (light) strip(0, N, on(tu => [tu - 0.03, 5.4, tu + 0.03, 5.4]), '#222222', 0.6);
+      else strip(0, N, on(tu => [tu + side * 1.25 - 0.18, 0.32, tu + side * 1.25 + 0.18, 0.32]), '#4a3f2c');
     }
     // the lamps themselves (bright strips on the walls), the signals (green on ahead of her, red behind), the station's platform and columns
     const box = (r, u, y, w, h, l, hex, k) => {   // a small box at ring r, l metres long along the track
@@ -114,21 +142,21 @@ export function makeSubway({ scene, rail }) {
       idx.push(A[0], A[1], A[2], A[0], A[2], A[3], B[0], B[2], B[1], B[0], B[3], B[2]);
     };
     for (const r of P) {
-      if (Math.abs(r.d % LAMP) < STEP / 2 && !inSta(r.d)) for (const [u, s] of [[uL(r.d) + 0.08, 1], [uR(r.d) - 0.08, -1]]) box(r, u, H - 0.75, 0.12, 0.18, 1.4, '#fff3d6', 2.4);
+      if (Math.abs(r.d % LAMP) < STEP / 2 && kSta(r.d) === 0) for (const [u, s] of [[uL(r.d) + 0.08, 1], [uR(r.d) - 0.08, -1]]) box(r, u, H - 0.75, 0.12, 0.18, 1.4, '#fff3d6', 2.4);
       if (Math.abs(r.d % 140) < STEP / 2 && Math.abs(r.d) > 30) box(r, (other > 0 ? uL(r.d) : uR(r.d)) + (other > 0 ? 0.25 : -0.25), 2.6, 0.22, 0.22, 0.3, r.d > 0 ? '#2cff6a' : '#ff2a1a', 3);
-      if (other && !inSta(r.d) && Math.abs(r.d % 6) < STEP / 2) box(r, other * TRACKS / 2 - 0.15, -0.3, 0.3, H + 0.3, 0.3, '#3c4a52');   // the steel columns between the tracks
+      if (other && kSta(r.d) === 0 && Math.abs(r.d % 6) < STEP / 2) box(r, other * TRACKS / 2 - 0.15, -0.3, 0.3, H + 0.3, 0.3, '#3c4a52');   // the steel columns between the tracks
     }
     if (!other) {   // one track: the walkway, its top and its face
-      strip(0, N, r => !inSta(r.d) && [2.2, 0.9, 4.4, 0.9], '#6d6961');
-      strip(0, N, r => !inSta(r.d) && [2.2, -0.3, 2.2, 0.9], '#3a3631');
+      strip(0, N, r => kSta(r.d) === 0 && [2.2, 0.9, 4.4, 0.9], '#6d6961');
+      strip(0, N, r => kSta(r.d) === 0 && [2.2, -0.3, 2.2, 0.9], '#3a3631');
     }
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setIndex(idx);
     const m = new THREE.Mesh(g, mat); m.layers.set(UNDER); m.frustumCulled = false; root.add(m);
     // (v1151) the station: its platform, walls, signs, lamps, stairs and people (platform3d.js)
-    if (sd != null) { stationObj = buildStation({ P, sd, sSide, len: sLen, platY, edge: platEdge, width: platW, rail: p.a.rail, name: station.name, dest: p.a.dest, under: true, wallFar: sSide > 0 ? uL(sd) : uR(sd), ceil: hOf(sd), layer: UNDER }); root.add(stationObj.group); }
+    if (R) { stationObj = buildStation({ P, sd, R, platY, rail: p.a.rail, name: station.name, dest: p.a.dest, under: true, ceil: H + 1.2, layer: UNDER, style: sty }); root.add(stationObj.group); }
     const dAt = dAtOf(P);
-    built = { dAt, p, x: p.x, z: p.z, P, other, uL, uR, H, sd, sSide, platY, platEdge, platW, inSta };
+    built = { dAt, p, x: p.x, z: p.z, P, other, uL, uR, H, sd, platY, s0: R?.d0, s1: R?.d1, cam: R?.cam, real: R?.real, inSta: d => !!R && d >= R.d0 && d <= R.d1 };
   }
   function clear() {
     stationObj?.dispose(); stationObj = null;
@@ -142,9 +170,11 @@ export function makeSubway({ scene, rail }) {
     const P = rings(p, 260, 260); if (!P) return;
     const other = otherSide(P), F = platformFor(p.a.rail, p.a.next, p.len || 60), sSide = other ? -other : 1;
     const sd = dAtOf(P)(p.fix?.x ?? p.x, p.fix?.z ?? p.z);   // (where her report puts her, stopped)
-    const st = buildStation({ P, sd, sSide, len: F.len, platY: F.platY, rail: p.a.rail, name: p.a.next, dest: p.a.dest, under: false, canopy: F.canopy, layer: 0 });
+    wantPlats();
+    const R = fitStation(plats, P, sd, p.fix, rail.nearTrack, false) || oneSide(sd, F.len, sSide, other, TRACKS, P);
+    const st = buildStation({ P, sd, R, platY: F.platY, rail: p.a.rail, name: p.a.next, dest: p.a.dest, under: false, canopy: F.canopy, layer: 0 });
     scene.add(st.group);
-    surf = { st, p, name: p.a.next, x: p.x, z: p.z, P, other, sd, sSide, platY: F.platY, platEdge: 1.65, platW: 5.5, inSta: d => d >= st.s0 && d <= st.s1, dAt: dAtOf(P), uR: () => 4.4 };
+    surf = { st, p, name: p.a.next, s0: st.s0, s1: st.s1, x: p.x, z: p.z, P, other, sd, platY: F.platY, cam: R.cam, real: R.real, inSta: d => d >= st.s0 && d <= st.s1, dAt: dAtOf(P) };
   }
   function clearSurf() { surf?.st.dispose(); surf = null; }
   // the trains in it: hers and any other underground near her, drawn on layer 1 too
@@ -170,12 +200,14 @@ export function makeSubway({ scene, rail }) {
     let cam, look;
     if (mode === 'side') {   // across from her: on the platform at a station, else by the far wall (between the tracks' columns where there's another), looking at her a little ahead
       const q = at(p, -half * 0.25) || p.cur, lq = at(p, half * 0.35) || p.cur;
-      const u = sta ? B.sSide * (B.platEdge + 2.4) : B.other ? B.other * (TRACKS + 1.6) : 3.7;   // (on the platform, across the other track, or on the walkway)
+      const c = B.cam, u = sta && c ? c.edge + c.side * Math.min(2.4, c.w - 0.5) : B.other ? B.other * (TRACKS + 1.6) : 3.7;   // (on the platform, across the other track, or on the walkway)
       cam = place(q, u, sta ? B.platY + 1.65 : B.other ? 1.9 : 2.5, _e); look = place(lq, 0, 1.7, _t);
       camera.fov = 66 / z;
     } else if (sta && cur === 'surface') {   // (in the open) on the platform at its end, looking down her length as she stands
-      const sg = mode === 'stern' ? -1 : 1, q = at(p, sg * (half + 12 / z)) || at(p, sg * half) || p.cur, lq = at(p, -sg * half * 0.2) || p.cur;
-      cam = place(q, B.sSide * (B.platEdge + 1.6), B.platY + 1.65, _e); look = place(lq, 0, 1.8, _t);
+      // (v1152: at most to the platform's end, a short one's too)
+      const sg = mode === 'stern' ? -1 : 1, herD = B.dAt(p.x, p.z), want = Math.max(B.s0 + 1.5, Math.min(B.s1 - 1.5, herD + sg * (half + 12 / z))) - herD;
+      const q = at(p, want) || at(p, sg * half) || p.cur, lq = at(p, -sg * half * 0.2) || p.cur;
+      const c = B.cam; cam = place(q, c ? c.edge + c.side * Math.min(1.6, c.w - 0.5) : 3.25, B.platY + 1.65, _e); look = place(lq, 0, 1.8, _t);
       camera.fov = 60;
     } else {   // ahead of her, as she comes on (or behind her), a little to the side
       const sg = mode === 'stern' ? -1 : 1, q = at(p, sg * (half + 26 / z)) || at(p, sg * half) || p.cur, lq = at(p, sg * half * 0.6) || p.cur;
@@ -190,6 +222,7 @@ export function makeSubway({ scene, rail }) {
   }
   return {
     get active() { return active; },
+    get layout() { const B = cur === 'surface' ? surf : built; return B ? { real: B.real, cam: B.cam, name: cur === 'surface' ? B.name : station?.name, sd: B.sd, s0: B.s0, s1: B.s1, her: B.dAt(B.p.x, B.p.z), fix: B.p.fix && B.dAt(B.p.fix.x, B.p.fix.z) } : null; },   // (for testing)
     get station() { const B = cur === 'tunnel' ? built : cur === 'surface' ? surf : null; return B?.sd != null && B.inSta(B.dAt(B.p.x, B.p.z)) ? (cur === 'tunnel' ? station?.name : B.name) : null; },
     // each frame, riding p in mode: whether the tunnel's the view, and if so the camera placed in it
     update(p, mode, nest, camera) {
@@ -198,14 +231,14 @@ export function makeSubway({ scene, rail }) {
       if (!(p.under && mode !== 'drone')) {
         off();
         // (v1151) above ground: a platform where she's stopped, and Side, Ahead and Behind standing on it while she's at it
-        if (!p.under && p.a.atStop && p.a.next && (!surf || surf.p !== p || surf.name !== p.a.next)) buildSurface(p);
+        if (!p.under && p.a.atStop && p.a.next && (!surf || surf.p !== p || surf.name !== p.a.next || surf.stale)) buildSurface(p);
         if (surf && (surf.p !== p || Math.hypot(p.x - surf.x, p.z - surf.z) > 600)) clearSurf();
         if (!surf || p.under || !['side', 'bow', 'stern'].includes(mode) || !surf.inSta(surf.dAt(p.x, p.z))) return false;
         cur = 'surface'; placeCam(surf, p, mode, nest, camera, true); return cur;
       }
       clearSurf();
       if (active !== p) { off(); active = p; }
-      if (!built || built.p !== p || Math.hypot(p.x - built.x, p.z - built.z) > 150 || (p.a.atStop && p.a.next && station?.name !== p.a.next)) build(p);
+      if (!built || built.p !== p || Math.hypot(p.x - built.x, p.z - built.z) > 150 || (p.a.atStop && p.a.next && station?.name !== p.a.next) || built.stale) build(p);
       if (!built) { off(); return false; }
       showTrains(p);
       for (const l of [hemi, eye, head]) l.visible = true;

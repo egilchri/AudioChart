@@ -82,14 +82,182 @@ function ledTex(dest) {   // the countdown sign: her destination, and BRD (she's
   });
 }
 
+// (v1152) a tile mosaic's name, as the T's old stations have them ("SOUTH STATION UNDER", "SCOLLAY UNDER"): blue
+// letters on white tile in a blue border
+function mosaicTex(text) {
+  return canvasTex('mosaic:' + text, 1024, 192, (x, w, h) => {
+    const t = 16;
+    for (let r = 0; r < h / t; r++) for (let c = 0; c < w / t; c++) { const v = 228 + (Math.random() * 20 | 0); x.fillStyle = `rgb(${v},${v - 1},${v - 6})`; x.fillRect(c * t, r * t, t - 1, t - 1); }
+    x.fillStyle = '#1d4f9a'; for (const [a, b, cw, ch] of [[0, 0, w, 2 * t], [0, h - 2 * t, w, 2 * t], [0, 0, 2 * t, h], [w - 2 * t, 0, 2 * t, h]]) x.fillRect(a, b, cw, ch);
+    x.fillStyle = '#2a64b8'; for (let c = 0; c < w / t; c += 2) { x.fillRect(c * t, t * 0.5, t - 1, t - 1); x.fillRect(c * t, h - t * 1.5, t - 1, t - 1); }
+    x.fillStyle = '#163f80'; x.textAlign = 'center'; x.textBaseline = 'middle'; let s = 96; x.font = `bold ${s}px Georgia, serif`;
+    while (x.measureText(text).width > w - 120 && s > 40) { s -= 4; x.font = `bold ${s}px Georgia, serif`; }
+    x.fillText(text, w / 2, h / 2 + 4);
+    x.strokeStyle = 'rgba(60,60,60,0.35)'; x.lineWidth = 1; for (let c = 0; c <= w / t; c++) { x.beginPath(); x.moveTo(c * t - 0.5, 0); x.lineTo(c * t - 0.5, h); x.stroke(); } for (let r = 0; r <= h / t; r++) { x.beginPath(); x.moveTo(0, r * t - 0.5); x.lineTo(w, r * t - 0.5); x.stroke(); }
+  });
+}
+// (v1152) Park Street's Green Line wall, after Lilli Ann K. Rosenberg's "Celebration of the Underground" (1978): a long
+// mosaic of handmade tiles, figures and found things in bright colour along the outbound tracks' wall (a likeness of
+// its manner, made up here, not a copy of it); a repeat 8 m long
+const muralTex = () => canvasTex('mural', 2048, 512, (x, w, h) => {
+  const C = ['#e8b23a', '#d2462f', '#2f7fbf', '#3a9a5b', '#7d3f98', '#f0e0c0', '#e07a2e', '#1f4f7a', '#c23a6b', '#6cb3c9', '#8a6a3a', '#f4d35e'];
+  x.fillStyle = '#efe6d2'; x.fillRect(0, 0, w, h);
+  for (let i = 0; i < 1700; i++) { x.fillStyle = C[Math.random() * C.length | 0]; x.globalAlpha = 0.35 + Math.random() * 0.5; const s = 8 + Math.random() * 22; x.save(); x.translate(Math.random() * w, Math.random() * h); x.rotate(Math.random() * 3); x.fillRect(-s / 2, -s / 2, s, s * (0.6 + Math.random() * 0.8)); x.restore(); }
+  x.globalAlpha = 1;
+  for (let i = 0; i < 26; i++) {   // the figures: people of the city, arms up
+    const cx = 40 + i * (w - 80) / 25 + (Math.random() - 0.5) * 30, base = h * (0.82 + Math.random() * 0.1), s = 0.75 + Math.random() * 0.5, c = C[Math.random() * C.length | 0];
+    x.fillStyle = c; x.strokeStyle = c; x.lineCap = 'round';
+    x.beginPath(); x.arc(cx, base - 250 * s, 26 * s, 0, 7); x.fill();
+    x.lineWidth = 34 * s; x.beginPath(); x.moveTo(cx, base - 215 * s); x.lineTo(cx, base - 110 * s); x.stroke();
+    x.lineWidth = 16 * s; const up = Math.random() < 0.6;
+    for (const sg of [-1, 1]) { x.beginPath(); x.moveTo(cx, base - 200 * s); x.lineTo(cx + sg * 55 * s, base - (up ? 280 : 130) * s); x.stroke(); x.beginPath(); x.moveTo(cx, base - 110 * s); x.lineTo(cx + sg * 30 * s, base); x.stroke(); }
+    x.fillStyle = '#1a1a1a'; x.beginPath(); x.arc(cx - 8 * s, base - 254 * s, 3.5 * s, 0, 7); x.arc(cx + 8 * s, base - 254 * s, 3.5 * s, 0, 7); x.fill();
+  }
+  for (let i = 0; i < 60; i++) { x.fillStyle = C[Math.random() * C.length | 0]; x.beginPath(); x.arc(Math.random() * w, Math.random() * h * 0.4, 6 + Math.random() * 18, 0, 7); x.fill(); }   // (the found things set in it)
+  x.strokeStyle = 'rgba(80,70,60,0.25)'; x.lineWidth = 2; for (let c = 0; c < w; c += 24) { x.beginPath(); x.moveTo(c, 0); x.lineTo(c, h); x.stroke(); } for (let r = 0; r < h; r += 24) { x.beginPath(); x.moveTo(0, r); x.lineTo(w, r); x.stroke(); }
+  x.strokeStyle = '#6a5a3a'; x.lineWidth = 14; x.strokeRect(7, 7, w - 14, h - 14);
+}, true);
+// (v1152) terrazzo, the floor in the line's colour (Government Center's): chips in a ground of the colour
+function terrazzoTex(hex) {
+  return canvasTex('terrazzo:' + hex, 256, 256, (x, w, h) => {
+    x.fillStyle = '#c9c5bc'; x.fillRect(0, 0, w, h); x.fillStyle = hex; x.globalAlpha = 0.55; x.fillRect(0, 0, w, h); x.globalAlpha = 1;
+    for (let i = 0; i < 900; i++) { const v = Math.random() < 0.5 ? 240 : 60 + (Math.random() * 80 | 0); x.fillStyle = `rgb(${v},${v},${v})`; x.globalAlpha = 0.5 + Math.random() * 0.5; x.fillRect(Math.random() * w, Math.random() * h, 1 + Math.random() * 4, 1 + Math.random() * 3); }
+  }, true);
+}
+
+// ── (v1152, asked: "model the real stations, like Park Street and South Station") which station looks how ──
+// From the record (Wikipedia's articles on the stations, the MBTA's): what's known of each one's platforms. The
+// layout itself (where the platforms are, how wide and long, the tracks between) is OpenStreetMap's, fitted in
+// fitStation; this is what's on the walls and over the tracks.
+//  - Park Street, Green Line level (1897, the oldest subway station in North America): green steel columns; along
+//    the outbound tracks' wall, Lilli Ann K. Rosenberg's mosaic "Celebration of the Underground" (1978)
+//  - Park Street, Red Line level ("Park Street Under", 1912): its double-vaulted ceiling; Ralph Helmick's
+//    "Benedictions", a giant bronze hand over each track
+//  - South Station, Red Line: the blue-and-white tile "SOUTH STATION UNDER", found in 2005 and restored
+//  - Kendall/MIT: Paul Matisse's "Kendall Band" between the tracks (chimes, a great ring, a sheet of metal), played
+//    by levers on the platforms
+//  - Porter: a single cylindrical concrete shell (the deepest station, its inbound platform over the outbound)
+//  - Government Center (rebuilt 2016): terrazzo floors in the line's colour; the restored "SCOLLAY UNDER" tile on the
+//    Blue Line
+//  - Boylston, Arlington, Copley, Hynes, Kenmore: the Green Line's old stations' green columns
+export function stationStyle(name = '', rail = '') {
+  const s = { cols: 0x5a646c, vault: null, rise: 0, art: [], floor: null, wall: 'tile' };
+  const green = /Green/.test(rail), red = /Red/.test(rail);
+  if (green && /Park Street|Boylston|Arlington|Copley|Hynes|Kenmore/.test(name)) s.cols = 0x2f5a46;
+  if (green && /Park Street/.test(name)) s.art.push('celebration');
+  if (red && /Park Street/.test(name)) { s.vault = 'double'; s.rise = 2.4; s.art.push('hands'); }
+  if (red && /South Station/.test(name)) s.art.push('under:SOUTH STATION UNDER');
+  if (red && /Kendall/.test(name)) s.art.push('band');
+  if (red && /Porter/.test(name)) { s.vault = 'single'; s.rise = 4; s.wall = 'concrete'; }
+  if (/Government Center/.test(name)) { s.floor = LINE_COL[rail] || null; if (/Blue/.test(rail)) s.art.push('under:SCOLLAY UNDER'); }
+  return s;
+}
+
+// ── (v1152) the real layout: OpenStreetMap's platforms beside her track at a station, fitted to it ──
+// plats: the region's platforms (data/rail/<id>-platforms.json); P: her track's rings; sd: where along them the
+// station is; fix: her report's {lon, lat, x, z} (the scene's place for a lon/lat); nearTrack(x, z, r): a track
+// within r m. Returns { plats: [{ u0, u1, d0, d1, eL, eH }], tracks: [u], lo, hi, d0, d1, cam } (u across her track,
+// right +; eL/eH: a track at its low/high edge) or null (none fits: a made-up one is used).
+const GAP = 1.65;   // m: a track's middle to its platform's edge
+export function fitStation(data, P, sd, fix, nearTrack, under) {
+  if (!data?.plats || !fix) return null;
+  const DEG = Math.PI / 180, kx = 111320 * Math.cos(fix.lat * DEG);
+  const X = lon => fix.x + (lon - fix.lon) * kx, Z = lat => fix.z - (lat - fix.lat) * 111120;
+  const N = P.length - 1, d0r = P[0].d, STEP = (P[N].d - d0r) / N, ring = d => P[Math.max(0, Math.min(N, Math.round((d - d0r) / STEP)))];
+  const r0 = ring(sd);
+  const proj = (x, z) => { let b = P[0], bd = Infinity; for (const r of P) { const e = (r.x - x) ** 2 + (r.z - z) ** 2; if (e < bd) { bd = e; b = r; } } const dx = x - b.x, dz = z - b.z; return [b.d + dx * Math.sin(b.h) - dz * Math.cos(b.h), dx * Math.cos(b.h) + dz * Math.sin(b.h), b]; };
+  // the tracks across hers at the station: hits at three places along it, kept where two agree
+  const hits = new Map();
+  for (const dd of [-15, 0, 15]) { const r = ring(sd + dd); for (let u = -26; u <= 26.01; u += 0.5) if (nearTrack(r.x + Math.cos(r.h) * u, r.z + Math.sin(r.h) * u, 0.7)) hits.set(u.toFixed(1), (hits.get(u.toFixed(1)) || 0) + 1); }
+  const us = [...hits].filter(([, n]) => n >= 2).map(([u]) => +u).sort((a, b) => a - b);
+  let tracks = []; for (let i = 0; i < us.length;) { let j = i; while (j + 1 < us.length && us[j + 1] - us[j] <= 1.01) j++; tracks.push((us[i] + us[j]) / 2); i = j + 1; }
+  // (two tracks' middles are 3.6 m apart at the least: one nearer hers is a crossover's, or OSM's drawing off; pushed out)
+  tracks = tracks.filter(t => Math.abs(t) > 2); tracks.push(0); tracks.sort((a, b) => a - b);
+  for (let i = tracks.indexOf(0) + 1; i < tracks.length; i++) tracks[i] = Math.max(tracks[i], tracks[i - 1] + 3.6);
+  for (let i = tracks.indexOf(0) - 1; i >= 0; i--) tracks[i] = Math.min(tracks[i], tracks[i + 1] - 3.6);
+  // the platforms near: as d (along) and u (across) ranges, each edge snapped to the track beside it
+  const out = [];
+  for (const pl of data.plats) {
+    if (pl.lv != null && (under ? pl.lv > 0 : pl.lv < 0)) continue;
+    const xs = pl.g.map(([lo, la]) => [X(lo), Z(la)]);
+    if (!xs.some(([x, z]) => (x - r0.x) ** 2 + (z - r0.z) ** 2 < 260 * 260)) continue;
+    const pr = xs.map(([x, z]) => proj(x, z));
+    if (pr.every(([, , r]) => r === P[0] || r === P[N])) continue;
+    let u0 = Math.min(...pr.map(q => q[1])), u1 = Math.max(...pr.map(q => q[1]));
+    let d0 = Math.max(P[0].d, Math.min(...pr.map(q => q[0]))), d1 = Math.min(P[N].d, Math.max(...pr.map(q => q[0])));
+    if (!pl.c) { const m = (u0 + u1) / 2; u0 = m - 1.8; u1 = m + 1.8; }   // (a line: the platform's middle, 3.6 m wide)
+    else {   // (an outline: its width straight across her track near the station, not its corners' spread, on a curve)
+      const U0 = [], U1 = [];
+      for (let k = -2; k <= 2; k++) {
+        const dd = sd + k * 18; if (dd < d0 + 2 || dd > d1 - 2) continue;
+        const r = ring(dd), cx = Math.cos(r.h), cz = Math.sin(r.h), us = [];
+        for (let i = 0; i + 1 < xs.length; i++) {
+          const [ax, az] = xs[i], ex = xs[i + 1][0] - ax, ez = xs[i + 1][1] - az, den = cx * ez - cz * ex; if (Math.abs(den) < 1e-9) continue;
+          const ox = ax - r.x, oz = az - r.z, u = (ox * ez - oz * ex) / den, t = (ox * cz - oz * cx) / den;
+          if (t >= 0 && t <= 1 && Math.abs(u) < 45) us.push(u);
+        }
+        if (us.length >= 2) { U0.push(Math.min(...us)); U1.push(Math.max(...us)); }
+      }
+      const med = A => A.sort((a, b) => a - b)[A.length >> 1];
+      if (U0.length) { u0 = med(U0); u1 = med(U1); }
+    }
+    if (d0 < sd - (under ? 110 : 220)) d0 = sd - (under ? 110 : 220); if (d1 > sd + (under ? 110 : 220)) d1 = sd + (under ? 110 : 220);   // (one that curves away round a loop: its part along hers)
+    if (d1 - d0 < 15 || u1 - u0 > 14 || d1 - d0 < (u1 - u0) * 2 || d0 > sd + 80 || d1 < sd - 80) continue;   // (along the track, near the station)
+    // the tracks at its edges (OSM's platforms overlap their tracks by a metre or two, or stop short by as much)
+    const lowT = tracks.filter(t => t <= u0 + 2.2 && t > u0 - 4.5).at(-1), highT = tracks.filter(t => t >= u1 - 2.2 && t < u1 + 4.5)[0];
+    let best = null;
+    for (const [L, H] of [[lowT, highT], [lowT, undefined], [undefined, highT]]) {
+      if (L === undefined && H === undefined) continue;
+      let a = L !== undefined ? L + GAP : u0, b = H !== undefined ? H - GAP : u1;
+      if (b - a < 3 && (L === undefined) !== (H === undefined)) { if (L === undefined) a = b - 3.5; else b = a + 3.5; }   // (drawn too thin: 3.5 m, back from its track)
+      if (b - a < 2.5) continue;
+      if (tracks.some(t => t > a - 0.5 && t < b + 0.5 && t !== L && t !== H && t !== 0)) continue;
+      const cost = Math.abs(a - u0) + Math.abs(b - u1) - (L !== undefined && H !== undefined ? 1.5 : 0);
+      if (!best || cost < best.cost) best = { u0: a, u1: b, eL: L !== undefined, eH: H !== undefined, cost };
+    }
+    if (!best || (best.u0 < 0 && best.u1 > 0)) continue;
+    out.push({ u0: best.u0, u1: best.u1, d0, d1, eL: best.eL, eH: best.eH, lv: pl.lv });
+  }
+  // hers: one with an edge at her track; others on another level (where OSM says) left out, and any that overlap hers
+  const atHers = o => (o.eL && Math.abs(o.u0 - GAP) < 0.05) || (o.eH && Math.abs(o.u1 + GAP) < 0.05);
+  const mine = out.filter(o => atHers(o) && o.d0 <= sd + 30 && o.d1 >= sd - 30).sort((a, b) => (a.d1 - a.d0) * 0 + Math.abs((a.d0 + a.d1) / 2 - sd) - Math.abs((b.d0 + b.d1) / 2 - sd));
+  if (!mine.length) return null;
+  const lv = mine[0].lv, keep = [];
+  for (const o of [...mine, ...out.filter(o => !atHers(o))]) {
+    if (lv != null && o.lv != null && o.lv !== lv) continue;
+    if (keep.some(k => k.u0 < o.u1 - 0.5 && k.u1 > o.u0 + 0.5)) continue;
+    keep.push(o);
+  }
+  const plats = keep.sort((a, b) => a.u0 - b.u0);
+  // the tracks: hers, any beside a platform, and any within 5 m of hers; none through a platform (another level's)
+  tracks = tracks.filter(t => t === 0 || (!plats.some(o => t > o.u0 && t < o.u1) && (Math.abs(t) < 5 || plats.some(o => Math.abs(o.u0 - GAP - t) < 0.05 || Math.abs(o.u1 + GAP - t) < 0.05))));
+  const lo = Math.min(...plats.map(o => o.u0), ...tracks.map(t => t - 2.3)), hi = Math.max(...plats.map(o => o.u1), ...tracks.map(t => t + 2.3));
+  const sd0 = Math.min(...mine.map(o => o.d0)), sd1 = Math.max(...mine.map(o => o.d1));
+  return finish({ plats, tracks, lo, hi, d0: Math.min(sd0, ...plats.map(o => o.d0)), d1: Math.max(sd1, ...plats.map(o => o.d1)), real: true });
+}
+// a made-up one (no platform in OSM fits): hers on the side away from the other track, len m long
+export function oneSide(sd, len, sSide, other, TRACKS, P) {
+  const W = 5.5, pl = sSide > 0 ? { u0: GAP, u1: GAP + W, eL: true, eH: false } : { u0: -GAP - W, u1: -GAP, eL: false, eH: true };
+  pl.d0 = Math.max(P[0].d, sd - len / 2); pl.d1 = Math.min(P[P.length - 1].d, sd + len / 2);
+  const tracks = other ? [0, other * TRACKS].sort((a, b) => a - b) : [0];
+  const lo = Math.min(pl.u0, other < 0 ? -(TRACKS + 2.4) : -2.5), hi = Math.max(pl.u1, other > 0 ? TRACKS + 2.4 : 4.4);
+  return finish({ plats: [pl], tracks, lo, hi, d0: pl.d0, d1: pl.d1, real: false });
+}
+// where the camera stands on hers: her edge's u, the side of her it's on, and the platform's width
+function finish(R) {
+  let best = null;
+  for (const o of R.plats) for (const [e, side] of [[o.eL && Math.abs(o.u0 - GAP) < 0.05 ? o.u0 : null, 1], [o.eH && Math.abs(o.u1 + GAP) < 0.05 ? o.u1 : null, -1]]) if (e != null && (!best || o.u1 - o.u0 > best.w)) best = { edge: e, side, w: o.u1 - o.u0 };
+  R.cam = best; return R;
+}
+
 // built: { group, dispose }
-export function buildStation({ P, sd, sSide, len, platY, edge = 1.65, width = 5.5, rail, name, dest, under, wallFar, ceil, layer = 0, canopy = 'all', bright = 2.3 }) {
+// R: the layout (fitStation's, or oneSide's); ceil: the roof's height over her track (a vault springs from it)
+export function buildStation({ P, sd, R, platY, rail, name, dest, under, ceil, layer = 0, canopy = 'all', bright = 2.3, style = stationStyle(name, rail) }) {
   const group = new THREE.Group(), mats = [], geos = [];
   const band = LINE_COL[rail] || '#5a6a7a';
   const N = P.length - 1, d0 = P[0].d, STEP = (P[N].d - d0) / N;
   const ring = d => P[Math.max(0, Math.min(N, Math.round((d - d0) / STEP)))];
-  const s0 = Math.max(P[0].d, sd - len / 2), s1 = Math.min(P[N].d, sd + len / 2);
-  const inPl = d => d >= s0 && d <= s1;
+  const s0 = R.d0, s1 = R.d1;
   const W = (r, u, y, out = new THREE.Vector3()) => out.set(r.x + Math.cos(r.h) * u, r.y + y, r.z + Math.sin(r.h) * u);
   const yawOf = (fx, fz) => Math.atan2(fx, fz);
   const along = r => yawOf(Math.sin(r.h), -Math.cos(r.h)), facing = (r, s) => yawOf(-s * Math.cos(r.h), -s * Math.sin(r.h));   // (along her track; facing the track from side s)
@@ -127,87 +295,153 @@ export function buildStation({ P, sd, sSide, len, platY, edge = 1.65, width = 5.
   }
   // a box in the frame of a thing at (d, u, y) turned yaw: its own offsets (along its facing: lx across, lz ahead)
   const boxAt = (w, h, l, d, u, y, yaw, hex, lx = 0, ly = 0, lz = 0, k) => { const g = new THREE.BoxGeometry(w, h, l); g.translate(lx, ly + h / 2, lz); put(g, d, u, y, yaw, hex, k); };
-  const cylAt = (r, h, d, u, y, yaw, hex, lx = 0, ly = 0, lz = 0, seg = 10) => { const g = new THREE.CylinderGeometry(r, r, h, seg); g.translate(lx, ly + h / 2, lz); put(g, d, u, y, yaw, hex); };
-  const S = sSide, U = t => S * (edge + t);   // across the platform: t m in from her edge
+  const cylAt = (r, h, d, u, y, yaw, hex, lx = 0, ly = 0, lz = 0, seg = 10, k) => { const g = new THREE.CylinderGeometry(r, r, h, seg); g.translate(lx, ly + h / 2, lz); put(g, d, u, y, yaw, hex, k); };
 
-  // ── the platform ──
-  strip(s0, s1, () => [U(0.9), platY, U(width), platY], mat({ map: paverTex() }), 0.6, 0.6);
-  strip(s0, s1, () => [U(0.3), platY + 0.004, U(0.9), platY + 0.004], mat({ map: tactileTex() }), 0.3, 0.3);
-  strip(s0, s1, () => [U(0), platY + 0.002, U(0.3), platY + 0.002], mat({ color: 0xb4b2ac }));   // the granite edge
-  strip(s0, s1, () => [U(0), -0.3, U(0), platY - 0.08], mat({ color: 0x3a3733, glow: under ? 0.9 : undefined }));
-  strip(s0, s1, () => [U(0.12), platY - 0.08, U(0), platY - 0.08], mat({ color: 0x2a2724, glow: under ? 0.8 : undefined }));   // its lip, overhanging
-  strip(s0, s1, () => [U(0), platY - 0.08, U(0), platY], mat({ color: 0x8e8a82 }));
-  if (!under) strip(s0, s1, () => [U(width), -0.3, U(width), platY], mat({ color: 0x5b5852 }));   // its back
+  const camU = R.cam ? R.cam.edge + R.cam.side * Math.min(2.4, R.cam.w - 0.5) : null;
+  const pls = R.plats.map(o => ({ ...o, w: o.u1 - o.u0, m: (o.u0 + o.u1) / 2, len: o.d1 - o.d0 }));
+  // where each platform's edges are: [edge u, inward sign]
+  const edges = o => [o.eL && [o.u0, 1], o.eH && [o.u1, -1]].filter(Boolean);
+  // a person's or a bench's facing: toward the platform's nearer edge
+  const toEdge = (o, u) => { const E = edges(o); if (!E.length) return 1; const [e] = E.reduce((a, b) => Math.abs(b[0] - u) < Math.abs(a[0] - u) ? b : a); return e < u ? -1 : 1; };
+
+  // ── the platforms ──
+  const floorM = style.floor ? mat({ map: terrazzoTex(style.floor) }) : mat({ map: paverTex() });
+  const tactM = mat({ map: tactileTex() }), granM = mat({ color: 0xb4b2ac }), faceM = mat({ color: 0x3a3733, glow: under ? 0.9 : undefined }), lipM = mat({ color: 0x2a2724, glow: under ? 0.8 : undefined }), noseM = mat({ color: 0x8e8a82 });
+  for (const o of pls) {
+    const a = o.eL ? o.u0 + 0.9 : o.u0, b = o.eH ? o.u1 - 0.9 : o.u1;
+    strip(o.d0, o.d1, () => [a, platY, b, platY], floorM, 0.6, 0.6);
+    for (const [e, s] of edges(o)) {
+      strip(o.d0, o.d1, () => [e + s * 0.3, platY + 0.004, e + s * 0.9, platY + 0.004], tactM, 0.3, 0.3);
+      strip(o.d0, o.d1, () => [e, platY + 0.002, e + s * 0.3, platY + 0.002], granM);   // the granite edge
+      strip(o.d0, o.d1, () => [e, -0.3, e, platY - 0.08], faceM);
+      strip(o.d0, o.d1, () => [e + s * 0.12, platY - 0.08, e, platY - 0.08], lipM);   // its lip, overhanging
+      strip(o.d0, o.d1, () => [e, platY - 0.08, e, platY], noseM);
+    }
+    if (!under) for (const e of [!o.eL && o.u0, !o.eH && o.u1]) if (e !== false) strip(o.d0, o.d1, () => [e, -0.3, e, platY], mat({ color: 0x5b5852 }));   // its back
+    for (const e of [o.d0, o.d1]) { const r = ring(e); boxAt(o.w, platY + 0.3, 0.05, e, o.m, -0.3, along(r), 0x5b5852, 0, 0, 0, under ? 1.2 : 1); }   // its ends
+  }
+  // which walls have a platform against them (its back), which a track beside them
+  const backed = u => pls.some(o => (Math.abs(o.u0 - u) < 0.4 && !o.eL) || (Math.abs(o.u1 - u) < 0.4 && !o.eH));
 
   if (under) {
-    // ── the walls: tile, the line's band, names, posters and maps; on her platform's side and across the tracks ──
-    const nearU = U(width) - S * 0.03, farU = wallFar + S * 0.03;
-    strip(s0, s1, () => [nearU, platY, nearU, ceil], mat({ map: tileTex() }), 0.6, 0.3);
-    strip(s0, s1, () => [farU, -0.3, farU, ceil], mat({ map: tileTex() }), 0.6, 0.3);
-    strip(s0, s1, () => [nearU - S * 0.01, platY + 2.45, nearU - S * 0.01, platY + 2.75], mat({ color: band, glow: 1.6 }));
-    strip(s0, s1, () => [farU + S * 0.01, platY + 2.45, farU + S * 0.01, platY + 2.75], mat({ color: band, glow: 1.6 }));
+    const top = ceil;
+    // ── the walls: tile (Porter's concrete), the line's band, names, posters and maps; on both sides ──
+    const wallM = style.wall === 'concrete' ? mat({ color: 0x8f8a80 }) : mat({ map: tileTex() });
+    const walls = [[R.lo + 0.03, -1], [R.hi - 0.03, 1]];   // [u, its side]
+    for (const [u, s] of walls) {
+      strip(s0, s1, () => [u, -0.3, u, top + (style.vault ? 0.4 : 0)], wallM, 0.6, 0.3);
+      if (style.wall !== 'concrete') strip(s0, s1, () => [u - s * 0.01, platY + 2.45, u - s * 0.01, platY + 2.75], mat({ color: band, glow: 1.6 }));
+    }
     const nameM = mat({ map: nameTex(name, band), glow: 1.5 });
+    const under_ = style.art.find(a => a.startsWith('under:'));
+    // (Park Street) the mosaic on the wall with a track beside it
+    // (on a wall seen across a track from a platform: one with a track beside it but not hers, else a platform's back
+    // not hers, else the wall beside her track)
+    const camPl = R.cam && pls.find(o => (R.cam.side > 0 ? o.u0 : o.u1) === R.cam.edge);
+    const muralWall = !style.art.includes('celebration') ? null : walls.find(([u]) => !backed(u) && Math.abs(u) > 3) || walls.find(([u]) => backed(u) && !(camPl && (Math.abs(camPl.u0 - u) < 0.4 || Math.abs(camPl.u1 - u) < 0.4))) || walls.find(([u]) => !backed(u));
+    if (muralWall) {
+      const [u, s] = muralWall, a = Math.max(s0 + 4, sd - 30), b = Math.min(s1 - 4, sd + 30);
+      strip(a, b, () => [u - s * 0.02, platY - 0.1, u - s * 0.02, platY + 2.3], mat({ map: muralTex(), glow: 1.45 }), 8, 2.4);
+    }
     let k = 0;
     for (let d = s0 + 8; d <= s1 - 6; d += 6, k++) {
-      const what = k % 4 === 0 ? 'name' : k % 4 === 2 && k % 8 === 2 ? 'map' : 'poster';
-      for (const [u, y0, s] of [[nearU - S * 0.02, platY, S], [farU + S * 0.02, platY - 0.2, -S]]) {
+      const what = k % 4 === 0 ? 'name' : under_ && k % 4 === 2 ? 'mosaic' : k % 8 === 2 ? 'map' : 'poster';
+      for (const [u0, s] of walls) {
+        const u = u0 - s * 0.02, y0 = backed(u0) ? platY : platY - 0.2;
         if (what === 'name') panel(d, u, y0 + 3.15, 3.6, 0.56, nameM, s);
+        else if (muralWall && muralWall[0] === u0 && Math.abs(d - sd) < 31) continue;
+        else if (what === 'mosaic') panel(d, u, y0 + 1.7, 3.2, 0.6, mat({ map: mosaicTex(under_.slice(6)), glow: 1.5 }), s);
         else if (what === 'map') panel(d, u, y0 + 1.65, 1.5, 1.5, mat({ map: mapTex(), glow: 1.7 }), s);
-        else { panel(d, u, y0 + 1.65, 1.2, 1.8, mat({ map: posterTex((k * 3 + (s > 0 ? 1 : 0)) % 8), glow: 1.6 }), s); boxAt(1.36, 1.96, 0.04, d, u - s * 0.0, y0 + 0.67, facing(ring(d), s), 0x2a2a2a, 0, 0, -0.03, 1.4); }
+        else { panel(d, u, y0 + 1.65, 1.2, 1.8, mat({ map: posterTex((k * 3 + (s > 0 ? 1 : 0)) % 8), glow: 1.6 }), s); boxAt(1.36, 1.96, 0.04, d, u, y0 + 0.67, facing(ring(d), s), 0x2a2a2a, 0, 0, -0.03, 1.4); }
       }
     }
-    // the lamps hung from the roof: two rows over the platform, one over the tracks
-    for (let d = s0 + 2; d <= s1 - 2; d += 4.5) {
-      for (const t of [width * 0.3, width * 0.75]) { boxAt(0.16, 0.07, 2.4, d, U(t), ceil - 0.3, along(ring(d)), 0xfff6e0, 0, 0, 0, 2.6); boxAt(0.02, 0.23, 0.02, d, U(t), ceil - 0.23, 0, 0x333333, 0, 0, 0, 1.2); }
+    // the ceiling: flat, or vaulted (Park Street Under's two vaults, one over each track and its platform; Porter's one shell)
+    if (style.vault) {
+      const spans = style.vault === 'double' && R.tracks.length >= 2 ? (() => { const mid = pls.find(o => o.eL && o.eH)?.m ?? (R.tracks[0] + R.tracks.at(-1)) / 2; return [[R.lo, mid], [mid, R.hi]]; })() : [[R.lo, R.hi]];
+      const vM = mat({ color: style.wall === 'concrete' ? 0x8a857b : 0xd8d2c2, glow: 1.2 });
+      for (const [a, b] of spans) {
+        const n = 12, c = (a + b) / 2, hw = (b - a) / 2;
+        for (let i = 0; i < n; i++) { const t0 = Math.PI * i / n, t1 = Math.PI * (i + 1) / n; strip(s0, s1, () => [c - Math.cos(t0) * hw, top + Math.sin(t0) * style.rise, c - Math.cos(t1) * hw, top + Math.sin(t1) * style.rise], vM); }
+        for (let d = s0 + 3; d <= s1 - 3; d += 12) for (let i = 0; i < n; i++) { const t0 = Math.PI * i / n, t1 = Math.PI * (i + 1) / n, r = ring(d), u0 = c - Math.cos(t0) * hw, u1 = c - Math.cos(t1) * hw, y0 = top + Math.sin(t0) * style.rise - 0.15, y1 = top + Math.sin(t1) * style.rise - 0.15; const g = new THREE.BoxGeometry(Math.hypot(u1 - u0, y1 - y0) + 0.05, 0.22, 0.4); g.rotateZ(Math.atan2(y1 - y0, u1 - u0)); g.translate((u0 + u1) / 2, (y0 + y1) / 2, 0); put(g, d, 0, 0, -r.h, 0x9a9284, 1.1); }
+      }
     }
-    // her platform's columns, steel, down its middle
-    const stairD = sd + len * 0.22, inStair = (d, u) => d > stairD - 1.5 && d < stairD + 10 && Math.abs(u - U(width * 0.55)) < 1.8;
-    const colHex = /Park Street|Boylston|Arlington|Copley|Hynes|Kenmore/.test(name) ? 0x2f5a46 : 0x5a646c;
-    for (let d = s0 + 5; d <= s1 - 4; d += 9) if (!inStair(d, U(width * 0.55))) boxAt(0.36, ceil - platY, 0.36, d, U(width * 0.55), platY, along(ring(d)), colHex, 0, 0, 0, 1.1);
-    // the stairs up, a third of the way along: steps rising along the track into the roof, a wall each side
-    { const sd0 = stairD, uS = U(width * 0.55), r = ring(sd0), yaw = along(r), n = Math.ceil((ceil - platY + 0.2) / 0.18);
-      for (let i = 0; i < n; i++) boxAt(2.4, 0.18, 0.3, sd0, uS, platY + i * 0.18, yaw, 0x8a8780, 0, 0, i * 0.28, 1.05);
-      for (const sx of [-1.25, 1.25]) { const g = new THREE.BoxGeometry(0.12, 1.0, n * 0.28 + 0.6); g.translate(sx, 0.5, n * 0.14); const sh = new THREE.Matrix4().makeShear(0, 0, 0, 0, 0, 0.64); g.applyMatrix4(sh); put(g, sd0, uS, platY + 0.2, yaw, 0xcfc9b8, 1.1); }
-      boxAt(2.8, 0.06, 0.06, sd0, uS, platY + 1.05, yaw, 0x9a9a98, 0, 0, -0.2, 1.2); }
-    // hanging signs over the platform: the name, and the countdown
-    for (let d = s0 + 18; d <= s1 - 10; d += 32) {
-      const r = ring(d), y = ceil - 0.8;
-      const nm = panel(d, U(width * 0.4), y, 2.4, 0.38, nameM, null); nm.rotation.y = facing(r, -S) + Math.PI / 2;
-      const nm2 = panel(d, U(width * 0.4), y, 2.4, 0.38, nameM, null); nm2.rotation.y = facing(r, -S) - Math.PI / 2;
-      const led = mat({ map: ledTex(dest || name), glow: 1.6 });
-      const l1 = panel(d + 9, U(width * 0.4), y, 1.9, 0.48, led, null); l1.rotation.y = along(r);
-      const l2 = panel(d + 9, U(width * 0.4), y, 1.9, 0.48, led, null); l2.rotation.y = along(r) + Math.PI;
-      for (const dd of [d, d + 9]) boxAt(0.03, ceil - y - 0.2, 0.03, dd, U(width * 0.4), y + 0.2, 0, 0x333333, 0, 0, 0, 1.2);
+    // the lamps hung from the roof: two rows over each platform
+    for (const o of pls) for (let d = o.d0 + 2; d <= o.d1 - 2; d += 4.5) {
+      for (const t of o.w > 4 ? [0.3, 0.75] : [0.5]) { const u = o.u0 + o.w * t; boxAt(0.16, 0.07, 2.4, d, u, top - 0.3, along(ring(d)), 0xfff6e0, 0, 0, 0, 2.6); boxAt(0.02, 0.23, 0.02, d, u, top - 0.23, 0, 0x333333, 0, 0, 0, 1.2); }
+    }
+    // the stairs up, on the widest platform, a fifth of the way along: steps rising along the track into the roof
+    const sp = pls.reduce((a, b) => b.w > a.w ? b : a);
+    const stair = sp.w >= 4.6 ? { d: Math.max(sp.d0 + 4, Math.min(sp.d1 - 14, sd + sp.len * 0.2)), u: sp.m } : null;
+    const inStair = (d, u) => stair && d > stair.d - 1.5 && d < stair.d + 10 && Math.abs(u - stair.u) < 1.8;
+    if (stair) { const r = ring(stair.d), yaw = along(r), n = Math.ceil((top - platY + 0.2) / 0.18);
+      for (let i = 0; i < n; i++) boxAt(2.4, 0.18, 0.3, stair.d, stair.u, platY + i * 0.18, yaw, 0x8a8780, 0, 0, i * 0.28, 1.05);
+      for (const sx of [-1.25, 1.25]) { const g = new THREE.BoxGeometry(0.12, 1.0, n * 0.28 + 0.6); g.translate(sx, 0.5, n * 0.14); g.applyMatrix4(new THREE.Matrix4().makeShear(0, 0, 0, 0, 0, 0.64)); put(g, stair.d, stair.u, platY + 0.2, yaw, 0xcfc9b8, 1.1); }
+      boxAt(2.8, 0.06, 0.06, stair.d, stair.u, platY + 1.05, yaw, 0x9a9a98, 0, 0, -0.2, 1.2); }
+    // the columns: down the middle of each wide platform, and between tracks with no platform between them
+    for (const o of pls) if (o.w >= 4.5) for (let d = o.d0 + 5; d <= o.d1 - 4; d += 9) if (!inStair(d, o.m)) boxAt(0.36, top - platY, 0.36, d, o.m, platY, along(ring(d)), style.cols, 0, 0, 0, 1.1);
+    for (let i = 0; i + 1 < R.tracks.length; i++) { const a = R.tracks[i], b = R.tracks[i + 1]; if (b - a > 2.8 && !pls.some(o => o.u0 > a && o.u1 < b)) for (let d = s0 + 3; d <= s1 - 3; d += 6) boxAt(0.3, top + 0.3, 0.3, d, (a + b) / 2, -0.3, along(ring(d)), style.cols, 0, 0, 0, 1.0); }
+    // hanging signs over each platform: the name, and the countdown
+    const led = mat({ map: ledTex(dest || name), glow: 1.6 });
+    for (const o of pls) for (let d = o.d0 + 18; d <= o.d1 - 10; d += 32) {
+      const r = ring(d), y = top - 0.8, u = o.u0 + o.w * (o.w > 4 ? 0.4 : 0.5);
+      for (const t of [1, -1]) { const nm = panel(d, u, y, 2.4, 0.38, nameM, null); nm.rotation.y = facing(r, -1) + t * Math.PI / 2; }
+      for (const t of [0, Math.PI]) { const l = panel(d + 9, u, y, 1.9, 0.48, led, null); l.rotation.y = along(r) + t; }
+      for (const dd of [d, d + 9]) boxAt(0.03, top - y - 0.2, 0.03, dd, u, y + 0.2, 0, 0x333333, 0, 0, 0, 1.2);
+    }
+    // (Park Street Under) "Benedictions": a giant bronze hand over each track, raised in blessing
+    if (style.art.includes('hands')) R.tracks.forEach((t, i) => { const d = sd + (i ? 14 : -14), yaw = along(ring(d)) + (i ? Math.PI : 0); hand(d, t, top + style.rise * 0.35, yaw); });
+    // (Kendall/MIT) the Kendall Band, between the tracks: chimes, a great ring, a sheet of metal; levers on the platforms
+    if (style.art.includes('band') && R.tracks.length >= 2) {
+      const u = (R.tracks[0] + R.tracks[1]) / 2, yaw = along(ring(sd));
+      for (let i = 0; i < 8; i++) { const l = 1.8 + i * 0.3; cylAt(0.11, l, sd - 13 + i * 0.6, u, top - 0.8 - l, yaw, 0xd4d8dc, 0, 0, 0, 12, 1.4); boxAt(0.02, 0.8, 0.02, sd - 13 + i * 0.6, u, top - 0.8, 0, 0x333333, 0, 0, 0, 1.2); }   // the chimes
+      { const g = new THREE.TorusGeometry(1.3, 0.12, 10, 36); g.translate(0, 1.3, 0); put(g, sd + 2, u, top - 3.4, facing(ring(sd + 2), 1), 0x9c8a58, 1.4); }   // the ring
+      { const g = new THREE.BoxGeometry(0.03, 1.6, 2.4); g.translate(0, 0.8, 0); put(g, sd + 12, u, top - 2.6, yaw, 0xaeb4ba, 1.3); }   // the sheet
+      for (const o of pls) for (const dd of [-12, 2, 12]) { const s = toEdge(o, o.m); boxAt(0.14, 1.0, 0.14, sd + dd, o.m - s * o.w * 0.25, platY, 0, 0x4a4a48, 0, 0, 0, 1.1); boxAt(0.06, 0.06, 0.6, sd + dd, o.m - s * o.w * 0.25, platY + 1.0, facing(ring(sd + dd), -s), 0x8a6a2a, 0, 0, 0.25, 1.3); }
     }
   } else {
-    // ── in the open: the canopy, its posts and lamps, a railing at the back, name signs on posts ──
-    const [c0, c1] = canopy === 'all' ? [s0 + 3, s1 - 3] : canopy === 'shelter' ? [sd - 4, sd + 4] : [sd - Math.min(35, len * 0.25), sd + Math.min(35, len * 0.25)];
+    // ── in the open: a canopy over each platform, its posts and lamps, a railing at a back, name signs ──
     const cy = platY + 3.3;
-    strip(c0, c1, () => [U(0.6), cy, U(width + 0.1), cy + 0.35], mat({ color: 0x55606a }));
-    strip(c0, c1, () => [U(0.6), cy - 0.02, U(width + 0.1), cy + 0.33], mat({ color: 0x8a9298, glow: true }));   // (its underside, lit by the lamps and the light off the platform)
-    for (let d = c0 + 1; d <= c1 - 1; d += 9) { const yaw = along(ring(d)); boxAt(0.2, cy - platY, 0.2, d, U(width * 0.62), platY, yaw, 0x4a565e); boxAt(0.25, 0.08, 2.2, d, U(width * 0.4), cy - 0.1, yaw, 0xfff6e0, 0, 0, 0, 1.6); }
-    for (let d = s0 + 1; d <= s1 - 1; d += 2.5) { const yaw = along(ring(d)); boxAt(0.05, 1.1, 0.05, d, U(width - 0.12), platY, yaw, 0x3d454a); }
-    strip(s0, s1, () => [U(width - 0.12), platY + 1.08, U(width - 0.12), platY + 1.14], mat({ color: 0x3d454a }));
-    const nameM = mat({ map: nameTex(name, band) });
-    for (let d = s0 + 10; d <= s1 - 8; d += 28) { panel(d, U(width - 0.6), platY + 2.3, 2.6, 0.42, nameM, S); for (const lz of [-1.1, 1.1]) boxAt(0.07, 2.5, 0.07, d, U(width - 0.6), platY, along(ring(d)), 0x3d454a, 0, 0, lz); }
-    if (canopy !== 'shelter' && /Line|Mattapan/.test(rail || '')) { const r = ring(sd + 6), led = mat({ map: ledTex(dest || name), glow: 1 }); const l1 = panel(sd + 6, U(width * 0.4), cy - 0.75, 1.9, 0.48, led, null); l1.rotation.y = along(r); const l2 = panel(sd + 6, U(width * 0.4), cy - 0.75, 1.9, 0.48, led, null); l2.rotation.y = along(r) + Math.PI; }
+    for (const o of pls) {
+      const [c0, c1] = canopy === 'all' ? [o.d0 + 3, o.d1 - 3] : canopy === 'shelter' ? [sd - 4, sd + 4] : [Math.max(o.d0, sd - Math.min(35, o.len * 0.25)), Math.min(o.d1, sd + Math.min(35, o.len * 0.25))];
+      const a = o.eL ? o.u0 + 0.6 : o.u0 - 0.1, b = o.eH ? o.u1 - 0.6 : o.u1 + 0.1;
+      strip(c0, c1, () => [a, cy, b, cy + 0.35], mat({ color: 0x55606a }));
+      strip(c0, c1, () => [a, cy - 0.02, b, cy + 0.33], mat({ color: 0x8a9298, glow: true }));   // (its underside, lit by the lamps and the light off the platform)
+      const pu = o.eL && o.eH ? o.m : o.eL ? o.u0 + o.w * 0.62 : o.u1 - o.w * 0.62;
+      for (let d = c0 + 1; d <= c1 - 1; d += 9) { const yaw = along(ring(d)); boxAt(0.2, cy - platY, 0.2, d, pu, platY, yaw, 0x4a565e); for (const e of edges(o)) boxAt(0.25, 0.08, 2.2, d, e[0] + e[1] * Math.min(2, o.w * 0.3), cy - 0.1, yaw, 0xfff6e0, 0, 0, 0, 1.6); }
+      for (const [e, sb] of [[!o.eL && o.u0, 1], [!o.eH && o.u1, -1]]) if (e !== false) {   // the railing along a back
+        for (let d = o.d0 + 1; d <= o.d1 - 1; d += 2.5) boxAt(0.05, 1.1, 0.05, d, e + sb * 0.12, platY, along(ring(d)), 0x3d454a);
+        strip(o.d0, o.d1, () => [e + sb * 0.12, platY + 1.08, e + sb * 0.12, platY + 1.14], mat({ color: 0x3d454a }));
+      }
+      const nameM = mat({ map: nameTex(name, band) });
+      for (let d = o.d0 + 10; d <= o.d1 - 8; d += 28) {
+        const nu = o.eL && o.eH ? o.m : o.eL ? o.u1 - 0.6 : o.u0 + 0.6;
+        for (const s of o.eL && o.eH ? [-1, 1] : [o.eL ? 1 : -1]) panel(d, nu + s * 0.03, platY + 2.3, 2.6, 0.42, nameM, s);
+        for (const lz of [-1.1, 1.1]) boxAt(0.07, 2.5, 0.07, d, nu, platY, along(ring(d)), 0x3d454a, 0, 0, lz);
+      }
+      if (canopy !== 'shelter' && /Line|Mattapan/.test(rail || '')) { const r = ring(sd + 6), led = mat({ map: ledTex(dest || name), glow: 1 }); for (const t of [0, Math.PI]) { const l = panel(sd + 6, o.m, cy - 0.75, 1.9, 0.48, led, null); l.rotation.y = along(r) + t; } }
+    }
   }
-  // ── benches and bins along the back, facing the track ──
-  for (let d = s0 + 7; d <= s1 - 5; d += 13) {
-    const r = ring(d), yaw = facing(r, S), u = U(width - 0.75);
+  // ── benches and bins: along a side platform's back, down an island's middle; facing the track ──
+  for (const o of pls) for (let d = o.d0 + 7; d <= o.d1 - 5; d += 13) {
+    const r = ring(d), u = o.eL && o.eH ? o.m : o.eL ? o.u1 - 0.75 : o.u0 + 0.75, s = toEdge(o, u), yaw = facing(r, -s);
+    if (o.w < 3.2) continue;
     boxAt(1.9, 0.06, 0.42, d, u, platY + 0.44, yaw, 0x6b4a2a, 0, 0, 0, 1.1); boxAt(1.9, 0.45, 0.05, d, u, platY + 0.5, yaw, 0x6b4a2a, 0, 0, -0.22, 1.1);
     for (const lx of [-0.8, 0.8]) boxAt(0.06, 0.44, 0.4, d, u, platY, yaw, 0x3a3a3a, lx);
-    cylAt(0.28, 0.95, d + 4, U(width - 0.6), platY, 0, 0x1f3a2c);
-    cylAt(0.3, 0.05, d + 4, U(width - 0.6), platY + 0.95, 0, 0x3a3a3a);
+    cylAt(0.28, 0.95, d + 4, u, platY, 0, 0x1f3a2c);
+    cylAt(0.3, 0.05, d + 4, u, platY + 0.95, 0, 0x3a3a3a);
   }
   // ── people waiting ──
-  const n = Math.round((s1 - s0) / (under ? 4.5 : 9) * (0.6 + Math.random() * 0.6));
-  for (let i = 0; i < n; i++) {
-    const d = s0 + 3 + Math.random() * (s1 - s0 - 6), t = 1.2 + Math.random() * (width - 2.2), r = ring(d);
-    if (under && d > sd + len * 0.22 - 1.5 && d < sd + len * 0.22 + 10 && Math.abs(t - width * 0.55) < 1.8) continue;   // (not on the stairs)
-    const yaw = Math.random() < 0.75 ? facing(r, S) + (Math.random() - 0.5) * 1.2 : along(r) + (Math.random() < 0.5 ? 0 : Math.PI);
-    person(d, U(t), platY, yaw);
+  for (const o of pls) {
+    const n = Math.round(o.len / (under ? 4.5 : 9) * (o.w / 5.5) * (0.6 + Math.random() * 0.6));
+    for (let i = 0; i < n; i++) {
+      const d = o.d0 + 3 + Math.random() * (o.len - 6), u = o.u0 + 1.0 + Math.random() * Math.max(0.2, o.w - 2.0), r = ring(d);
+      if (under && stairAt(d, u)) continue;   // (not on the stairs)
+      if (camU != null && Math.abs(u - camU) < 0.8) continue;   // (nor where the camera stands)
+      const yaw = Math.random() < 0.75 ? facing(r, -toEdge(o, u)) + (Math.random() - 0.5) * 1.2 : along(r) + (Math.random() < 0.5 ? 0 : Math.PI);
+      person(d, u, platY, yaw);
+    }
   }
+  function stairAt(d, u) { const sp = pls.reduce((a, b) => b.w > a.w ? b : a); if (sp.w < 4.6) return false; const sdd = Math.max(sp.d0 + 4, Math.min(sp.d1 - 14, sd + sp.len * 0.2)); return d > sdd - 1.5 && d < sdd + 10 && Math.abs(u - sp.m) < 1.8; }
   function person(d, u, y, yaw) {
     const h = 1.58 + Math.random() * 0.3, k = h / 1.75, top = pick(CLOTH), legs = pick(TROUSERS), skin = pick(SKIN), hair = pick([0x1a1410, 0x2a1d14, 0x4a3420, 0x6b4a2a, 0x8a8478, 0x1a1410]);
     for (const lx of [-0.1, 0.1]) boxAt(0.15, 0.82 * k, 0.17, d, u, y, yaw, legs, lx);
@@ -217,6 +451,14 @@ export function buildStation({ P, sd, sSide, len, platY, edge = 1.65, width = 5.
     boxAt(0.2, 0.24 * k, 0.22, d, u, y, yaw, skin, 0, 1.47 * k);
     boxAt(0.21, 0.08, 0.23, d, u, y, yaw, hair, 0, 1.69 * k);
     if (Math.random() < 0.35) boxAt(0.32, 0.4 * k, 0.16, d, u, y, yaw, pick([0x1c1c1e, 0x24324a, 0x7a2a2a, 0x3b3d42]), 0, 0.95 * k, -0.2);   // a backpack
+  }
+  // a bronze hand, 3 m tall, fingers up, its palm toward yaw
+  function hand(d, u, y, yaw) {
+    const B = 0x7a5a2e, k = 1.5;
+    boxAt(1.0, 1.2, 0.3, d, u, y, yaw, B, 0, 0, 0, k);   // the palm
+    boxAt(0.55, 0.7, 0.32, d, u, y - 0.65, yaw, B, 0, 0, 0, k);   // the wrist
+    [[-0.36, 0.95], [-0.12, 1.1], [0.12, 1.05], [0.36, 0.85]].forEach(([lx, L]) => cylAt(0.11, L, d, u, y + 1.2, yaw, B, lx, 0, 0, 8, k));
+    { const g = new THREE.CylinderGeometry(0.12, 0.12, 0.8, 8); g.translate(0, 0.4, 0); g.rotateZ(-0.9); g.translate(0.5, 0.35, 0); put(g, d, u, y, yaw, B, k); }   // the thumb
   }
   if (M.pos.length) {
     const g = new THREE.BufferGeometry();

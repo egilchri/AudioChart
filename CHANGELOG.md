@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-11-17 — Bird's-eye: the real stations, Park Street and South Station among them (v1152)
+
+- Asked: "model the real stations, like Park Street and South Station". **Real layouts** (www/js/platform3d.js `fitStation`): where a train stops, the station is built from OpenStreetMap's own platforms beside her track (new www/data/rail/boston-harbor-platforms.json and sf-bay-platforms.json, built by design/rail/build_platforms.py). That gives which side each platform is on, its width (measured straight across her track, true on curves) and length, and the other tracks between. Island platforms, side platforms and Park Street Under's side-center-side layout come out as they really are. Another level's platform (Porter's and Harvard's stacked ones) is left out. If no OSM platform fits, the made-up one from v1151 is used. Fitted offline at 33 of 37 downtown stop positions. The data loads only when a train first stops at a station.
+- **The tunnel widens to the station** over 30 m at each end (www/js/subway3d.js), and the station's tracks ease into the tunnel's. The other track beside hers is looked for at several places along the tunnel, not just at her.
+- **What each one looks like** (`stationStyle`, from the stations' Wikipedia articles):
+  - **Park Street, Green Line:** green columns, and along the outbound tracks' wall a long mosaic in the manner of Lilli Ann K. Rosenberg's "Celebration of the Underground" (1978). It's a likeness of its style, not a copy of it.
+  - **Park Street, Red Line:** the double-vaulted ceiling of "Park Street Under" (1912), with ribs, and Ralph Helmick's "Benedictions", a giant bronze hand over each track.
+  - **South Station, Red Line:** the blue-and-white "SOUTH STATION UNDER" tile, found in 2005 and restored.
+  - **Kendall/MIT:** Paul Matisse's Kendall Band between the tracks (chimes, a great ring, a sheet of metal), with its levers on the platforms.
+  - **Porter:** a single cylindrical concrete shell, not tile.
+  - **Government Center:** terrazzo floor in the line's colour, and "SCOLLAY UNDER" tile on the Blue Line.
+  - **Boylston, Arlington, Copley, Hynes, Kenmore:** the old Green Line stations' green columns.
+- Ahead and Behind at a station in the open stay on the platform, even a short one. Earlier they could stand past its end, in the air. No one stands where the Side camera stands.
+- Preview page with empty stations: design/pending/station-look/view.html.
+- Checked live in headless Chrome:
+  - Park Street (Green Line C)
+  - South Station and Kendall/MIT (Red Line)
+  - Davis
+  - Reservoir (Green Line D, above ground)
+  - Readville (commuter rail)
+
 ## 2026-11-17 — Bird's-eye: real platforms where the T and the trains stop (v1151)
 
 - Asked: "when we stop at a platform it should look like a realistic rendition of the platform. I'm talking about the T, and trains". **Stations** (new www/js/platform3d.js), built beside her where the MBTA (or 511) says she's stopped, at the place her report puts her:
