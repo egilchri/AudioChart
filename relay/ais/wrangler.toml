@@ -11,3 +11,19 @@ tag = "v1"
 new_sqlite_classes = ["AisHub"]
 
 # The AISStream key is a secret, never in this file:  npx wrangler secret put AISSTREAM_KEY
+
+[vars]
+ROLE = "boats"   # AudioChart's boaters' relay: Maine's bays (worker.mjs)
+
+# Ted's Birdseye's relay (v1153): the armchair bays' AIS, /trains and /aircraft, deployed on its own so its
+# releases never restart the boaters' relay.  npx wrangler deploy --env birdseye
+# Its secrets are its own:  npx wrangler secret put AISSTREAM_KEY --env birdseye  (and FIVE11_KEY, MBTA_KEY)
+[env.birdseye]
+name = "birdseye-relay"
+
+[env.birdseye.vars]
+ROLE = "birdseye"
+
+[[env.birdseye.durable_objects.bindings]]
+name = "AIS_HUB"
+class_name = "AisHub"

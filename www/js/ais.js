@@ -4,14 +4,17 @@
 // seconds while Live is on. With no internet, or no relay, it says so and there are simply no live vessels.
 // ?ais=<relay url> or localStorage 'audiochart-ais-relay' points it at another relay (relay/ais/dev.mjs).
 
-export const RELAY_DEFAULT = 'https://audiochart-ais.egilchri.workers.dev';
+export const RELAY_DEFAULT = 'https://audiochart-ais.egilchri.workers.dev';   // (AudioChart's boaters': Maine's bays)
+// Ted's Birdseye's own relay (v1153, relay/ais wrangler.toml [env.birdseye]): the armchair bays' AIS (SF, New York,
+// Boston), the trains and the aircraft, so its releases never restart the boaters' relay.
+export const RELAY_BIRDSEYE = 'https://birdseye-relay.egilchri.workers.dev';
 // The feeds the relay listens to (relay/ais/core.mjs FEEDS), credited as they ask (v1011)
 export const AIS_CREDIT = 'AIS from AISStream (aisstream.io), and Open Waters AIS (openwaters.io/ais) with AISHub (aishub.net).';
 const RELAY_KEY = 'audiochart-ais-relay';
-export function relayUrl() {
+export function relayUrl(which = 'boats') {   // 'boats', or 'birdseye' for the armchair bays, trains and aircraft (v1153)
   try { const q = new URLSearchParams(location.search).get('ais'); if (q) return q.replace(/\/$/, ''); } catch (_) {}
   try { const s = localStorage.getItem(RELAY_KEY); if (s) return s.replace(/\/$/, ''); } catch (_) {}
-  return RELAY_DEFAULT;
+  return which === 'birdseye' ? RELAY_BIRDSEYE : RELAY_DEFAULT;
 }
 
 // What she is, from the AIS ship type (and her length when the type's missing): the model to draw her with,
@@ -55,7 +58,7 @@ export const aisDest = d => /^[A-Z][A-Z .,&'\/-]{2,}$/i.test(d || '') && /[A-Z]{
 
 // The feed: polls the relay while on. onData({ vessels, t }) with each answer; onState({ state, note }) with
 // 'listening' (connected, nothing heard yet), 'live', or 'offline' (no internet, or the relay's not there).
-export function makeAisFeed({ onData, onState, every = 10000, bbox = null }) {   // bbox [w, s, e, n]: only those (v1019)
+export function makeAisFeed({ onData, onState, every = 10000, bbox = null, relay = 'boats' }) {   // relay: relayUrl's (v1153)   // bbox [w, s, e, n]: only those (v1019)
   let on = false, timer = null, inflight = null, state = '';
   const say = (s, note = '') => { if (s !== state || note) { state = s; onState?.({ state: s, note }); } };
   async function poll() {
@@ -64,7 +67,7 @@ export function makeAisFeed({ onData, onState, every = 10000, bbox = null }) {  
     const ctl = new AbortController(); inflight = ctl;
     const kill = setTimeout(() => ctl.abort(), 8000);
     try {
-      const r = await fetch(relayUrl() + '/vessels' + (bbox ? `?bbox=${bbox.map(v => v.toFixed(3)).join(',')}` : ''), { signal: ctl.signal, cache: 'no-store' });
+      const r = await fetch(relayUrl(relay) + '/vessels' + (bbox ? `?bbox=${bbox.map(v => v.toFixed(3)).join(',')}` : ''), { signal: ctl.signal, cache: 'no-store' });
       const j = await r.json();
       if (!on) return;
       if (!r.ok || j.error && !j.vessels?.length) { say('offline', j.error || `Relay answered ${r.status}`); }

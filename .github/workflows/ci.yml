@@ -31,6 +31,7 @@ jobs:
         run: |
           node test/test_parser.js
           node test/test_query.js
+          node test/test_birdseye_static.js
 
       # Integration/regression suites against real chart data — since the
       # 2026-09 router extraction (see the reliability-overhaul plan), these

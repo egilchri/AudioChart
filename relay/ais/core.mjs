@@ -12,7 +12,12 @@ export const SF_BOX = [[37.35, -122.75], [38.25, -121.95]];
 export const PISCATAQUA_BOX = [[42.8, -71.05], [43.3, -70.4]];   // (v1028)
 export const NYC_BOX = [[40.35, -74.4], [41.05, -73.55]];   // (v1032)
 export const BOSTON_BOX = [[42.1, -71.3], [42.6, -70.65]];   // (v1138)
-export const BOXES = [BOX, CASCO_BOX, SF_BOX, PISCATAQUA_BOX, NYC_BOX, BOSTON_BOX];
+// Two relays from this code (v1153): AudioChart's boaters' (Maine's bays, both feeds) and Ted's Birdseye's
+// (worker.mjs ROLE 'birdseye': the armchair bays, AISStream only, with /trains and /aircraft), so Bird's-eye's
+// releases never restart the relay a boater's Live AIS comes from. dev.mjs (local) listens to them all.
+export const MAINE_BOXES = [BOX, CASCO_BOX, PISCATAQUA_BOX];
+export const ARMCHAIR_BOXES = [SF_BOX, NYC_BOX, BOSTON_BOX];
+export const BOXES = [...MAINE_BOXES, ...ARMCHAIR_BOXES];
 // ?bbox=w,s,e,n on /vessels (v1019): only the vessels in it (the app asks for its own bay's; San Francisco's
 // hundreds needn't go to a viewer in Maine). Without it, all of them, as before.
 export function bboxOf(url) {
@@ -20,7 +25,7 @@ export function bboxOf(url) {
   return b?.length === 4 && b.every(Number.isFinite) ? b : null;
 }
 export const TYPES = ['PositionReport', 'StandardClassBPositionReport', 'ExtendedClassBPositionReport', 'ShipStaticData', 'StaticDataReport'];
-export const subscription = key => JSON.stringify({ APIKey: key, BoundingBoxes: BOXES, FilterMessageTypes: TYPES });
+export const subscription = (key, boxes = BOXES) => JSON.stringify({ APIKey: key, BoundingBoxes: boxes, FilterMessageTypes: TYPES });
 // The upstream feeds, each in AISStream's wire format (Open Waters' /v0/stream is a drop-in for it). A feed whose
 // key isn't set is skipped. Open Waters is free on a personal token; its AISHub reports must be credited (CREDIT).
 export const FEEDS = [

@@ -38,6 +38,17 @@ The app finds the relay at `RELAY_DEFAULT` in `www/js/ais.js`. You can point it 
    When a release changes the relay's code, bump `RELAY_V` in `worker.mjs` before deploying. A running Durable
    Object keeps its old code while its feed connections are open, so the new version gets a fresh object.
    `/vessels?bbox=w,s,e,n` answers with only the vessels in that box (v1019).
+3. Ted's Birdseye has a relay of its own (v1153), from the same code: `wrangler.toml`'s `[env.birdseye]`
+   (`ROLE = "birdseye"`). It serves the armchair bays' AIS (SF, New York, Boston; AISStream only, since Open
+   Waters allows two connections a token) and `/trains` and `/aircraft`. The boaters' relay keeps Maine's bays
+   with both feeds. Bird's-eye releases deploy only this one, so boaters' Live AIS is never restarted by them.
+   ```
+   npx wrangler secret put AISSTREAM_KEY --env birdseye
+   npx wrangler secret put FIVE11_KEY --env birdseye     # 511.org, for the SF trains (see below)
+   npx wrangler secret put MBTA_KEY --env birdseye       # optional: lifts the MBTA's 20-a-minute limit
+   npx wrangler deploy --env birdseye
+   ```
+   Bump `ARMCHAIR_V` (worker.mjs) when its AIS code or bays change; `RELAY_V` is the boaters' relay's only.
    An Open Waters personal token is free and never expires. It is minted with an Ed25519 key, `openwaters-key.pem`
    in this folder, which is git-ignored (the recipe is in the `POST /v1/keys` entry of
    https://ais.openwaters.io/openapi.json). Its terms: free for personal use, with each source credited.

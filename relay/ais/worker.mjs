@@ -3,7 +3,7 @@
 // since v1011), opened by the first request and closed after a few minutes with nobody asking (AISStream allows 3
 // connections per key, Open Waters 2 per personal token). Names, types and sizes are kept in the object's
 // storage, since AIS sends them only every six minutes.
-import { makeTable, subscription, corsHeaders, FEEDS, bboxOf, aircraftUpstream, trimAircraft, RAIL, railUpstream, trimTrains } from './core.mjs';
+import { makeTable, subscription, corsHeaders, FEEDS, MAINE_BOXES, ARMCHAIR_BOXES, bboxOf, aircraftUpstream, trimAircraft, RAIL, railUpstream, trimTrains } from './core.mjs';
 
 const IDLE_MS = 5 * 60e3;
 // The Durable Object's name carries the relay's version. A deploy doesn't restart a running object while its feed
@@ -11,7 +11,11 @@ const IDLE_MS = 5 * 60e3;
 // changes the relay bumps this, and the new code starts at once in a fresh object. (Its kept names, types and
 // sizes start again too; they come back within minutes, as AIS sends them every six.) 'penobscot' until v1011,
 // 'bays' until v1019.
-const RELAY_V = 1138;
+const RELAY_V = 1153;   // (v1153: Maine's bays only; the armchair bays moved to Ted's Birdseye's relay)
+// Ted's Birdseye's relay (v1153: wrangler.toml [env.birdseye], ROLE 'birdseye', at birdseye-relay.<you>.workers.dev):
+// its own hub for the armchair bays, named by its own version, bumped when its AIS code or bays change. Its
+// trains and aircraft need no bump (their object keeps no connection). Boaters' relay: RELAY_V, above.
+const ARMCHAIR_V = 1153;
 
 export class AisHub {
   constructor(state, env) {
@@ -21,13 +25,15 @@ export class AisHub {
       for (const [k, st] of await this.state.storage.list({ prefix: 's:' })) this.table.setStatic(k.slice(2), st);
     });
   }
-  feeds() { return FEEDS.filter(f => this.env[f.key]); }
+  // which hub this is (v1153), told by the worker with the first request: Maine's (both feeds) or the armchair bays'
+  // (AISStream only: Open Waters allows two connections a token, and Maine's hub and dev.mjs have them)
+  feeds() { return FEEDS.filter(f => this.env[f.key] && (this.kind !== 'armchair' || f.name === 'aisstream')); }
   async openFeed(f) {
     if (this.ws[f.name] || Date.now() - (this.errAt[f.name] || 0) < 60e3) return;   // (a failed feed waits a minute)
     const r = await fetch(f.url.replace(/^wss:/, 'https:'), { headers: { Upgrade: 'websocket' } });
     const ws = r.webSocket; if (!ws) throw new Error(`${f.name}: ${r.status}`);
     ws.accept(); this.ws[f.name] = ws; delete this.errs[f.name];
-    ws.send(subscription(this.env[f.key]));
+    ws.send(subscription(this.env[f.key], this.kind === 'armchair' ? ARMCHAIR_BOXES : MAINE_BOXES));
     const dec = new TextDecoder();
     ws.addEventListener('message', e => {
       try { this.table.ingest(JSON.parse(typeof e.data === 'string' ? e.data : dec.decode(e.data))); } catch (_) {}
@@ -83,6 +89,7 @@ export class AisHub {
   }
   async fetch(req) {
     if (new URL(req.url).pathname === '/trains') return this.trains(req);
+    this.kind ??= req.headers.get('X-Hub') || 'maine';
     await this.ready;
     this.lastAsk = Date.now();
     let err = null;
@@ -122,6 +129,7 @@ export default {
     }
     if (url.pathname !== '/vessels') return new Response('AudioChart live AIS relay: GET /vessels', { status: 404 });
     if (!FEEDS.some(f => env[f.key])) return new Response(JSON.stringify({ error: 'no key' }), { status: 503, headers: corsHeaders(origin) });
-    return env.AIS_HUB.get(env.AIS_HUB.idFromName(`bays-${RELAY_V}`)).fetch(req);
+    const armchair = env.ROLE === 'birdseye', fwd = new Request(req); fwd.headers.set('X-Hub', armchair ? 'armchair' : 'maine');
+    return env.AIS_HUB.get(env.AIS_HUB.idFromName(armchair ? `armchair-${ARMCHAIR_V}` : `bays-${RELAY_V}`)).fetch(fwd);
   },
 };

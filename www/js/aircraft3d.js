@@ -97,7 +97,7 @@ export function makeAircraft({ scene, bbox, wx, wz, every = 5000, onCount, focus
     if (!on) return;
     const ctl = new AbortController(); inflight = ctl; const kill = setTimeout(() => ctl.abort(), 8000); let got = null;
     try {
-      const r = await fetch(`${relayUrl()}/aircraft?bbox=${bbox.map(v => v.toFixed(3)).join(',')}`, { signal: ctl.signal, cache: 'no-store' });
+      const r = await fetch(`${relayUrl('birdseye')}/aircraft?bbox=${bbox.map(v => v.toFixed(3)).join(',')}`, { signal: ctl.signal, cache: 'no-store' });
       const j = await r.json(); if (on && r.ok) got = j;
     } catch (_) {} finally { clearTimeout(kill); if (inflight === ctl) inflight = null; }   // (the network's failures, quietly)
     try { if (got) data(got); } catch (e) { console.error('[live] couldn\'t take in the answer', e); }   // (ours, loudly: v1104 lost all but one plane a poll to a quiet one)

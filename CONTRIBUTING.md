@@ -36,3 +36,21 @@ anyway and call out any change in their results in your PR.
   `(vNNN)` version tag; the maintainer bumps `www/js/version.js` on merge.
 - CI (`.github/workflows/ci.yml`) runs automatically on your PR and must
   pass before merging.
+
+## AudioChart and Ted's Birdseye
+
+The navigation app and Ted's Birdseye share one engine (Bird's-eye, `www/bay3d.html`), but boaters
+should never pay for the armchair layer: the trains, the T's tunnels and stations, aircraft, freeway
+traffic, airports, and the SF, New York and Boston bays.
+
+- **Code.** `www/js/bay3d.js` loads the armchair layer with `import()` only where it's wanted
+  (`loadArmchair`). Never import those modules statically from anything `bay3d.js` or `helm3d.js`
+  imports. `test/test_birdseye_static.js` (in CI) fails if you do. Before a release that touches
+  Bird's-eye, also run `test/test_birdseye_footprint.mjs` in headless Chrome (instructions at its top).
+- **Versions.** Releases share one counter. A release that changes only the armchair layer or its
+  data bumps `www/js/birdseye_version.js` alone, so AudioChart's `www/js/version.js` and `www/sw.js`
+  stay put and boaters get no update. A release that changes anything boaters load bumps all three.
+  Tag Bird's-eye-only CHANGELOG entries "(Bird's-eye only)".
+- **Relays.** Boaters' live AIS comes from `audiochart-ais` (Maine's bays). Ted's Birdseye's armchair
+  bays, trains and aircraft come from `birdseye-relay` (`relay/ais`, `wrangler deploy --env birdseye`).
+  Bird's-eye work deploys only that one, and bumps its `ARMCHAIR_V`, never `RELAY_V`.

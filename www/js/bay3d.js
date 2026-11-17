@@ -30,14 +30,8 @@ import { GAUGES, gaugePage, makeTideGauge, predAt, trendAt, nextTurns, tideChart
 import { makeFlyover, orderStops, offLeg } from './flyover.js';
 import * as Voice from './piper_voice.js';
 import { makeOverview } from './overview2d.js';
-import { makeAircraft, ADSB_CREDIT } from './aircraft3d.js';
-import { makeCockpit } from './cockpit.js';
-import { routeLookup, judgeRoute, destOf, originOf, airportInfo } from './flightroute.js';
-import { makeTrains, TRAIN_CREDIT } from './trains3d.js';
-import { makeTracks } from './track3d.js';
-import { makeSubway } from './subway3d.js';
-import { makeTraffic } from './traffic3d.js';
-import { makeAirport } from './airport3d.js';
+// (v1153) The armchair layer (aircraft, trains, the T's tunnels and stations, freeway traffic, airports) is loaded
+// only where it's wanted (`WANT_AC`, below), so a boater's Bird's-eye in Maine doesn't download it: loadArmchair().
 import { makeAisFeed, aisStatus, aisName, aisDest, setKnown, knownFor, aisFlag, aisRot, aisPos, aisAgo, aisLookup, aisImo, aisCallsign, AIS_CREDIT } from './ais.js';
 
 const statusEl = document.getElementById('status');
@@ -73,6 +67,19 @@ const DEG = Math.PI / 180;
 // stays inside the bay itself. Which bay: Penobscot, or Casco (v992; regions3d.js, its chart region RID).
 const REG = REGIONS3D[REGION3D], RID = REGION3D, PENOBSCOT = RID === 'penobscot-bay';
 setRegionTZ(REG.tz);   // (the scene's clock is the bay's: v1041)
+// The armchair layer (v1153): in Ted's Birdseye, an armchair bay (SF, New York, Boston), or a bay with tracks,
+// freeways or an airport drawn, it's loaded before the scene's built, as the static imports were. In AudioChart's
+// Maine bays it isn't: a boater's Live shows the ships, and ✈🚆 (by 📡 Live) fetches it on first use.
+const WANT_AC = TED || !!REG.armchair || !!REG.rail || !!REG.roads || !!(REG.airports || []).length;
+let AC = null, acLoading = null;
+function loadArmchair() {
+  return acLoading ||= Promise.all([import('./aircraft3d.js'), import('./cockpit.js'), import('./flightroute.js'), import('./trains3d.js'),
+    import('./track3d.js'), import('./subway3d.js'), import('./traffic3d.js'), import('./airport3d.js')])
+    .then(([aircraft, cockpit, flight, trains, track, subway, traffic, airport]) => (AC = { ...aircraft, ...cockpit, ...flight, ...trains, ...track, ...subway, ...traffic, ...airport }));
+}
+if (WANT_AC) await loadArmchair();
+// (until it's loaded, or where it never is: the flight lookups answer nothing)
+const destOf = a => AC ? AC.destOf(a) : null, originOf = a => AC ? AC.originOf(a) : null, airportInfo = c => AC ? AC.airportInfo(c) : null;
 const OVERVIEW = REG.overview;
 const BROADLEAF = REG.trees === 'broadleaf';   // (v1032: a city's trees, and only plainly green cells; terrain3d.js addCanopy)
 const BAY = REG.bay;
@@ -784,7 +791,7 @@ try { const sc = document.getElementById('scale'); new ResizeObserver(() => docu
 let bridges = null, onBridges = null;   // (v1020, below; onBridges: the Bridges list, v1047)
 // the version, first on the credits line, bottom left (v1073: "I don't see the version number on the page"; v1074: "put
 // it in the bottom left corner")
-const VER = self.APP_VERSION ? `${self.APP_VERSION} · ` : '';
+const VER = (self.BIRDSEYE_VERSION || self.APP_VERSION) ? `${self.BIRDSEYE_VERSION || self.APP_VERSION} · ` : '';   // (v1153: Bird's-eye's own: birdseye_version.js)
 creditEl.textContent = VER + creditEl.textContent;
 function updateCredit() {
   const shown = townList.filter(t => t.group);
@@ -801,7 +808,7 @@ if (!EMPTY) for (const id of REG.airports || []) (async () => {
     const hAt = (lon, lat) => { const c = (lon - dem.west) / dem.dx - 0.5, r = (dem.north - lat) / dem.dy - 0.5; if (c < 0 || r < 0 || c >= dem.w - 1 || r >= dem.h - 1) return heightAt(lon, lat);
       const ci = Math.floor(c), ri = Math.floor(r), fc = c - ci, fr = r - ri, i = ri * dem.w + ci, E = dem.elev;
       return (E[i] * (1 - fc) + E[i + 1] * fc) * (1 - fr) + (E[i + dem.w] * (1 - fc) + E[i + dem.w + 1] * fc) * fr; };
-    const ap = makeAirport({ data: d, wx, wz, heightAt: hAt }); ap.credit = d.credit; scene.add(ap.group); airports.push(ap); updateCredit();
+    const ap = AC.makeAirport({ data: d, wx, wz, heightAt: hAt }); ap.credit = d.credit; scene.add(ap.group); airports.push(ap); updateCredit();
   } catch (err) { console.warn('[bay3d] airport', id, err); }
 })();
 async function loadTown(t) {
@@ -1321,7 +1328,7 @@ const _nw = new THREE.Vector3(), _nt = new THREE.Vector3();
 // kilometre round her (about 6 times her height: at 5,000 ft, the towns and places for some 12 km round, up to 36 km at cruise)
 const airReach = v => v.kind === 'air' ? clamp(v.y * 6, 5000, 28000) : 0;   // (v1135: 5 km at the least: a light plane at 700 ft had no names round her)
 // her cockpit (v1135, cockpit.js): from inside, her own model is hidden (the eye was in her shell) and the cockpit's drawn round the view
-const cockpit = document.getElementById('cockpit') ? makeCockpit(document.getElementById('cockpit')) : null;
+let cockpit = null;   // (v1153: made with the armchair layer: buildArmchair)
 const cockpitKind = v => v.heli ? 'heli' : v.L > 14 ? 'jet' : 'light';
 function insidePlane(v, inside) {
   if (v?.kind !== 'air') { cockpit?.hide(); return; }
@@ -2100,7 +2107,7 @@ function fillUnderway() {
   if (tab === 'air') {
     const items = air.items(), n = new Map(), m = new Map();
     for (const p of items) {   // (each looked up once, then from the cache)
-      routeLookup(p.a.flight); const d = destOf(p.a), o = originOf(p.a);
+      AC.routeLookup(p.a.flight); const d = destOf(p.a), o = originOf(p.a);
       if (d) n.set(d.code, (n.get(d.code) || 0) + 1); if (o) m.set(o.code, (m.get(o.code) || 0) + 1);
     }
     const top = (map, keep) => { const c = [...map].sort((a, b) => b[1] - a[1]).slice(0, 5).map(c => c[0]); if (keep && !c.includes(keep)) c.push(keep); return c; };
@@ -2260,6 +2267,7 @@ function updateLive(dt) {
 if (!EMPTY) setShips(await getJSON('./data/ships.json').catch(() => null));   // (before the feed: her colours from the first sight of her)
 const liveFeed = makeAisFeed({
   bbox: OVERVIEW,   // (this bay's vessels only: v1019)
+  relay: REG.armchair ? 'birdseye' : 'boats',   // (v1153: the armchair bays' ships from Ted's Birdseye's relay)
   onData: snap => { liveListen = snap.listening ?? 1e9; liveData(snap); },   // (how long the relay has been tuned in: v1010)
   onState: ({ state, note }) => {
     if (state === 'offline' || state === 'off') { for (const v of [...live]) dropLive(v); liveOK = false; }
@@ -2291,25 +2299,48 @@ function relabel(btns, kind) {
   }
 }
 const rideBtns = () => RIDE_BTNS.map(([id, m]) => { const b = document.getElementById(id); if (b) b.dataset.m = m; return b; }).filter(Boolean);
-const air = makeAircraft({ scene, bbox: OVERVIEW, wx, wz, onCount: () => syncLiveBtn(), focus: moverFocus, onDrop: moverGone, riding: p => nest.on && nest.v === p, shown: p => (!airDest && !airFrom) || p === follow || p === cardV || (airDest ? destOf(p.a)?.code === airDest : originOf(p.a)?.code === airFrom), groundAt: (lon, lat) => Math.max(0, heightAt(lon, lat) || 0) });
+// The aircraft (v1098), the trains (v1099), the tunnel she's in (v1149): the armchair layer's (v1153). Until it's
+// loaded (a boater's Maine bay, before ✈🚆), stand-ins that have nothing to show.
+const noMovers = () => ({ count: 0, hover: null, has: () => false, items: () => [], list: () => [], at: () => null,
+  start() {}, stop() {}, update() {}, nearTrack: () => null, setTrackY() {}, setTracks() {}, setTrips() {} });
+let air = noMovers(), rail = noMovers();
+let subway = { active: false, station: '', off() {}, update: () => null, render() {}, ghost() {} };
 window.__aircraft = () => air.list(camera, renderer.domElement.getBoundingClientRect());
-// and the trains (v1099): Caltrain, SMART and ACE from 511.org
-const rail = makeTrains({ scene, bbox: OVERVIEW, wx, wz, heightAt, onCount: () => syncLiveBtn(), focus: moverFocus, onDrop: moverGone });
-if (REG.rail) getJSON(`./data/rail/${REG.rail}.json`).then(d => {
-  rail.setTracks(d.lines, d.tunnel); trackNear = rail.nearTrack;   // (v1138: and which are tunnels: the T underground)
-  // (v1125, requested: "I'd like to show the tracks"): drawn, bridges and all; the trains ride on their heights
-  if (!EMPTY) { tracks = makeTracks({ scene, lines: d.lines, bridge: d.bridge, tunnel: d.tunnel, wx, wz, heightAt }); rail.setTrackY(tracks.yAt); if (bridges?.railDecks) tracks.setDecks(bridges.railDecks); }
-  for (const T of tiles) if (T.state === 'ready' && T.dem?.canopy) { T.spots = treeSpots(T, T.dem); treesDirty = true; }   // (tiles in before the tracks)
-}).catch(err => console.warn('[bay3d] rail tracks', err));
-// the freeways' traffic (v1128, requested: "put car traffic in each direction on the freeway"), at Caltrans's signs' speeds
-if (REG.roads && !EMPTY) makeTraffic({ scene, rid: REG.roads, wx, wz, heightAt, clockMin: () => clockMin(), eye: camera.position }).then(T => {
-  if (!T) return; freeway = T; updateCredit(); if (bridges?.roadDecks) T.setDecks(bridges.roadDecks); try { T.night(env.lightsK); } catch (_) {}
-}).catch(err => console.warn('[bay3d] traffic', err));
-if (REG.rail) getJSON(`./data/rail/${REG.rail}-trips.json`).then(d => rail.setTrips(d)).catch(err => console.warn('[bay3d] rail timetables', err));   // (v1117: each train's origin, destination and ETA)   // (v1116: each train on her track)
 window.__trains = () => rail.list(camera, renderer.domElement.getBoundingClientRect());
-// the tunnel she's in, when riding a train underground (v1149): Cab, Ahead, Side and Behind look round her in it
-const subway = makeSubway({ scene, rail, platforms: REG.rail ? () => getJSON(`./data/rail/${REG.rail}-platforms.json`) : null });   // (v1152: the real platforms, fetched at the first station)
+let acBuilt = false;
+function buildArmchair() {
+  if (!AC || acBuilt) return; acBuilt = true;
+  const ck = document.getElementById('cockpit'); if (ck) cockpit = AC.makeCockpit(ck);
+  air = AC.makeAircraft({ scene, bbox: OVERVIEW, wx, wz, onCount: () => syncLiveBtn(), focus: moverFocus, onDrop: moverGone, riding: p => nest.on && nest.v === p, shown: p => (!airDest && !airFrom) || p === follow || p === cardV || (airDest ? destOf(p.a)?.code === airDest : originOf(p.a)?.code === airFrom), groundAt: (lon, lat) => Math.max(0, heightAt(lon, lat) || 0) });
+  // and the trains (v1099): Caltrain, SMART and ACE from 511.org; the MBTA's (v1138); Amtrak's (v1121)
+  rail = AC.makeTrains({ scene, bbox: OVERVIEW, wx, wz, heightAt, onCount: () => syncLiveBtn(), focus: moverFocus, onDrop: moverGone });
+  if (REG.rail) getJSON(`./data/rail/${REG.rail}.json`).then(d => {
+    rail.setTracks(d.lines, d.tunnel); trackNear = rail.nearTrack;   // (v1138: and which are tunnels: the T underground)
+    // (v1125, requested: "I'd like to show the tracks"): drawn, bridges and all; the trains ride on their heights
+    if (!EMPTY) { tracks = AC.makeTracks({ scene, lines: d.lines, bridge: d.bridge, tunnel: d.tunnel, wx, wz, heightAt }); rail.setTrackY(tracks.yAt); if (bridges?.railDecks) tracks.setDecks(bridges.railDecks); }
+    for (const T of tiles) if (T.state === 'ready' && T.dem?.canopy) { T.spots = treeSpots(T, T.dem); treesDirty = true; }   // (tiles in before the tracks)
+  }).catch(err => console.warn('[bay3d] rail tracks', err));
+  // the freeways' traffic (v1128, requested: "put car traffic in each direction on the freeway"), at Caltrans's signs' speeds
+  if (REG.roads && !EMPTY) AC.makeTraffic({ scene, rid: REG.roads, wx, wz, heightAt, clockMin: () => clockMin(), eye: camera.position }).then(T => {
+    if (!T) return; freeway = T; updateCredit(); if (bridges?.roadDecks) T.setDecks(bridges.roadDecks); try { T.night(env.lightsK); } catch (_) {}
+  }).catch(err => console.warn('[bay3d] traffic', err));
+  if (REG.rail) getJSON(`./data/rail/${REG.rail}-trips.json`).then(d => rail.setTrips(d)).catch(err => console.warn('[bay3d] rail timetables', err));   // (v1117: each train's origin, destination and ETA)   // (v1116: each train on her track)
+  // the tunnel she's in, when riding a train underground (v1149): Cab, Ahead, Side and Behind look round her in it
+  subway = AC.makeSubway({ scene, rail, platforms: REG.rail ? () => getJSON(`./data/rail/${REG.rail}-platforms.json`) : null });   // (v1152: the real platforms, fetched at the first station)
+}
+buildArmchair();
+// ✈🚆 (v1153): in AudioChart's Maine bays the planes and trains are off until asked for, and their code isn't
+// fetched till then; the choice is remembered. Where the armchair layer's loaded anyway they're always on with Live.
+const ptBtn = WANT_AC ? null : document.getElementById('ptbtn'), PT_KEY = 'audiochart-bay3d-planes-trains';
+let ptOn = WANT_AC; if (!WANT_AC) try { ptOn = localStorage.getItem(PT_KEY) === '1'; } catch (_) {}
+function moversStart() {
+  if (!ptOn) return;
+  if (AC) { buildArmchair(); air.start(); rail.start(); return; }
+  loadArmchair().then(() => { buildArmchair(); if (liveFeed.on && ptOn) { air.start(); rail.start(); } syncLiveBtn(); })
+    .catch(err => { acLoading = null; console.warn('[bay3d] planes and trains', err); });
+}
 function syncLiveBtn(state = liveBtn?.dataset.state || 'off', note = '') {
+  if (ptBtn) { ptBtn.hidden = !liveFeed.on; ptBtn.classList.toggle('on', ptOn); ptBtn.title = ptOn ? 'Planes and trains are shown with the ships. Tap to hide them.' : 'Show the aircraft and trains near the bay too, from their live feeds'; }
   if (!liveBtn) return;
   liveBtn.dataset.state = state;
   liveBtn.classList.toggle('on', liveFeed.on);
@@ -2317,19 +2348,24 @@ function syncLiveBtn(state = liveBtn?.dataset.state || 'off', note = '') {
   liveBtn.textContent = !liveFeed.on ? '📡 Live' : tuning ? '📡 Live · tuning in…' : state === 'live' ? `📡 Live · ${live.length}${air.count ? ` · ✈ ${air.count}` : ''}${rail.count ? ` · 🚆 ${rail.count}` : ''}` : state === 'offline' ? '📡 Live · offline' : '📡 Live · …';
   liveBtn.title = !liveFeed.on ? 'Show the vessels in the bay right now, from their AIS (needs an internet connection)'
     : tuning ? 'The live feed has only just started listening: vessels come in over the next few minutes, as each one reports. Tap to turn Live off.'
-    : state === 'offline' ? `${note || 'Live AIS is unavailable'}. Tap to turn Live off.` : state === 'live' ? `${live.length} vessels broadcasting AIS${air.count ? `, ${air.count} aircraft ADS-B` : ''}${rail.count ? `, ${rail.count} trains` : ''} in the bay now. Tap to turn Live off.\n${AIS_CREDIT} ${ADSB_CREDIT}. ${TRAIN_CREDIT}.` : `${note || 'Listening for ships…'} Tap to turn Live off.`;
+    : state === 'offline' ? `${note || 'Live AIS is unavailable'}. Tap to turn Live off.` : state === 'live' ? `${live.length} vessels broadcasting AIS${air.count ? `, ${air.count} aircraft ADS-B` : ''}${rail.count ? `, ${rail.count} trains` : ''} in the bay now. Tap to turn Live off.\n${REG.armchair ? 'AIS from AISStream (aisstream.io).' : AIS_CREDIT}${AC ? ` ${AC.ADSB_CREDIT}. ${AC.TRAIN_CREDIT}.` : ''}` : `${note || 'Listening for ships…'} Tap to turn Live off.`;
 }
 if (liveBtn && !EMPTY) {   // (the relay listens to both bays: relay/ais/core.mjs BOXES; each bay shows its own, by OVERVIEW)
   liveBtn.hidden = false;
   liveBtn.addEventListener('click', () => {
-    if (liveFeed.on) { liveFeed.stop(); air.stop(); rail.stop(); } else { liveFeed.start(); air.start(); rail.start(); if (!boatClock) setClock(realMin(), 1, false); }   // live is now: the clock to now
+    if (liveFeed.on) { liveFeed.stop(); air.stop(); rail.stop(); } else { liveFeed.start(); moversStart(); if (!boatClock) setClock(realMin(), 1, false); }   // live is now: the clock to now
     try { localStorage.setItem(LIVE_KEY, liveFeed.on ? '1' : '0'); } catch (_) {}
     syncLiveBtn();
   });
   let was = false; try { was = localStorage.getItem(LIVE_KEY) === '1'; } catch (_) {}
-  if (was || params.has('ais') || params.has('vessel')) { liveFeed.start(); air.start(); rail.start(); }
+  if (was || params.has('ais') || params.has('vessel')) { liveFeed.start(); moversStart(); }
   setInterval(() => { if (liveFeed.on && liveBtn.dataset.state === 'live') syncLiveBtn('live'); }, 5000);
   syncLiveBtn();
+  ptBtn?.addEventListener('click', () => {
+    ptOn = !ptOn; try { localStorage.setItem(PT_KEY, ptOn ? '1' : '0'); } catch (_) {}
+    if (ptOn) moversStart(); else { air.stop(); rail.stop(); }
+    syncLiveBtn();
+  });
 }
 
 // Lines out to her marks (v1000): from the vessel whose card is open, else the one you're following, to the
@@ -2461,10 +2497,10 @@ function fillMoverCard() {
   if (air_) {
     row('Flight', a.flight);
     // From and To (v1130): adsbdb's listing for her callsign, greyed where what she's doing contradicts it (flightroute.js)
-    rl = navigator.onLine !== false ? routeLookup(a.flight) : null;
+    rl = navigator.onLine !== false && AC ? AC.routeLookup(a.flight) : null;
     if (rl && rl.route === undefined) { row('Route', 'Looking it up…'); if (!rl.waiting) { rl.waiting = true; rl.p.then(() => { if (cardV === v && !aisCard.hidden) fillMoverCard(); }); } }
     else if (rl?.route) {
-      const j = judgeRoute(rl.route, a), esc = t => String(t ?? '').replace(/[&<>"]/g, c => `&#${c.charCodeAt(0)};`);
+      const j = AC.judgeRoute(rl.route, a), esc = t => String(t ?? '').replace(/[&<>"]/g, c => `&#${c.charCodeAt(0)};`);
       const pl = q => `<span${j.ok ? '' : ' class="stale"'} title="${esc(q.name)}">${esc(q.city)} (${esc(q.code)})</span>`;
       row('From', pl(rl.route.from), true); row('To', pl(rl.route.to), true);
       if (!j.ok) row('', `<span class="stale">Listed route, likely out of date: ${esc(j.why)}</span>`, true);
