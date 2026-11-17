@@ -29,6 +29,11 @@ const LOOK = {
   'Green Line': { cars: 2, len: 22, body: 0xd8dadc, band: 0x00843d },
   'Mattapan Trolley': { cars: 1, len: 14, body: 0xe9dcb0, band: 0xd0631e },
 };
+// each line's top speed, m/s: a speed worked out from two of her reports faster than this is a jump, not a speed (v1147)
+const TOP = { 'Red Line': 25, 'Orange Line': 25, 'Blue Line': 22, 'Green Line': 20, 'Mattapan Trolley': 16, 'Commuter Rail': 36 };
+// a train in a tunnel: a see-through box in her line's colour, drawn over whatever's above her (one material a colour)
+const GHOSTS = new Map();
+const ghostMat = col => { if (!GHOSTS.has(col)) GHOSTS.set(col, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.45, depthTest: false, depthWrite: false })); return GHOSTS.get(col); };
 // a train's name on her label and card: Amtrak's by her route ("Capitol Corridor"), the MBTA's commuter rail by her
 // line ("Worcester Line"), the Green Line by her branch ("Green Line E"), the rest by the railroad's or line's own
 const trainName = a => a.rail === 'Amtrak' && a.line ? a.line : a.rail === 'Commuter Rail' && a.line ? a.line.split('/').pop().replace(/ Line$/, '') + ' Line'
@@ -231,7 +236,10 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
       if (!p.fix || at > p.fix.t + 5000) {
         if (p.fix) {
           const d = metres(p.fix, a), s = (at - p.fix.t) / 1000;
-          if (a.mph == null) p.v = s > 5 && d / s < 50 ? d / s : 0;   // (a stand at a station is 0; a jump of over 50 m/s is no speed)
+          // (a stand at a station is 0; a jump faster than her line can go is no speed: v1147, a Red Line train in the
+          // tunnel "about 91 mph", the MBTA's subway positions jumping station to station; the line's top speed, else 50 m/s)
+          if (a.mph == null && s > 5) { const top = TOP[a.rail] || 50; if (d / s <= top) p.v = d / s; else if (!p.vKnown) p.v = 0; }
+          else if (a.mph == null) p.v = 0;
           if (s > 5) p.vKnown = true;   // (her speed needs two reports, 90 s apart: till then it isn't known, v1106)
           if (d > 30) { p.h = (Math.atan2((a.lon - p.fix.lon) * Math.cos(a.lat * DEG), a.lat - p.fix.lat) / DEG + 360) % 360; p.moved = true; p.seenMove = true; }
         }
@@ -247,8 +255,9 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
       p.tag.userData.draw(`${trainName(a)} ${num} → ${p.dest || '?'}`.replace(/\s+/g, ' '));
       p.title = `${trainName(a)} ${num}`.trim();   // (Amtrak's by her route: "Capitol Corridor 723")
       const speed = !p.vKnown ? '' : p.v >= 1 ? `about ${Math.round(p.v * 2.237)} mph` : 'stopped';
-      p.label = p.run ? `${p.from} → ${p.dest}, ${p.run.late == null ? 'timetabled' : 'due'} ${p.run.destDay || ''}${hhmm(p.run.destT)}${p.run.late >= 2 ? ` (${Math.round(p.run.late)} min late)` : ''}${speed ? ` · ${speed}` : ''}`
+      p.labelBase = p.run ? `${p.from} → ${p.dest}, ${p.run.late == null ? 'timetabled' : 'due'} ${p.run.destDay || ''}${hhmm(p.run.destT)}${p.run.late >= 2 ? ` (${Math.round(p.run.late)} min late)` : ''}${speed ? ` · ${speed}` : ''}`
         : `${speed ? speed[0].toUpperCase() + speed.slice(1) : 'Speed due in a minute or so'}${p.dest ? `, bound for ${p.dest}` : ''}`;
+      p.label = (p.under ? 'In the tunnel · ' : '') + p.labelBase;
     }
     for (const p of [...trains.values()]) if (!seen.has(p.id)) drop(p);
     onCount?.(trains.size);
@@ -315,7 +324,16 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
       // on her track, along it: the way she's going if she's been seen to move, or else her direction's way (a
       // southbound train the end of it nearer south). Off any track (none within 40 m), as before
       const tr = onTrack(p.x, p.z);
-      const under = !!(tr && segTun?.[tr.k]); if (under !== !!p.under) { p.under = under; p.model.visible = !under; }
+      // (v1147, reported: "supposedly the red line from the side, but I don't see a train") underground, her cars hidden
+      // and in their place a ghost in her line's colour, seen through the ground and the buildings over her
+      const under = !!(tr && segTun?.[tr.k]);
+      if (under !== !!p.under) {
+        p.under = under;
+        if (under && !p.ghost) { p.ghost = new THREE.Mesh(new THREE.BoxGeometry(3.2, 3.8, p.len || 120), ghostMat(LOOK[p.a.rail]?.band ?? 0xffffff)); p.ghost.position.y = 2.6; p.ghost.renderOrder = 10; p.model.add(p.ghost); }
+        for (const c of p.cars || []) c.visible = !under;
+        if (p.ghost) p.ghost.visible = under;
+        if (p.labelBase) p.label = (under ? 'In the tunnel · ' : '') + p.labelBase;
+      }
       let dh = p.h;
       if (tr) {
         const ref = p.wh ?? (p.moved ? p.h : p.a.dir === 'S' ? 180 : p.a.dir === 'N' ? 0 : p.h), alt = (tr.h + 180) % 360;

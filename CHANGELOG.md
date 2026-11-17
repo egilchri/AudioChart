@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-16 — Bird's-eye: the T in its tunnels, as a ghost, at believable speeds (v1147)
+
+- Reported with a snapshot: "supposedly the red line from the side, but I don't see a train" (riding a Red Line train by South Station, "About 91 mph, bound for Alewife"). She was in the tunnel, where v1138 hid her cars, leaving the ride looking at nothing.
+- **Underground** (www/js/trains3d.js): a train in a tunnel now shows as a see-through box in her line's colour, drawn over the ground and the buildings above her, so you can see where she runs; her label and the ride bar say "In the tunnel".
+- **Speeds**: the MBTA gives no speed for the subway, so it's worked out from two reports; underground its positions jump station to station, and a jump made 91 mph. Now a speed faster than her line can go (Red and Orange 25 m/s, Blue 22, Green 20, Mattapan 16, the commuter rail 36) is taken for a jump, not a speed.
+- Checked in headless Chrome on the live feed: 11 of 19 Red Line trains underground, a ride beside one under Cambridge showing her ghost and "In the tunnel · About 21 mph, bound for Ashmont".
+
 ## 2026-11-16 — Bird's-eye: cars on Boston's freeways, none in its tunnels (v1146)
 
 - Requested: "yes, do the Boston freeways too". www/data/roads/boston-harbor.json (design/roads/build_roads.py, with `-` for no Caltrans signs): OpenStreetMap's motorways and trunk roads round the harbor, 738 carriageways: I-93 (the Southeast Expressway, the Central Artery, north to Medford), I-90 (the Pike, the Ted Williams to Logan), Routes 1, 1A, 2, 3 (Memorial Drive), 28, 203 and the rest. `roads: 'boston-harbor'` (www/js/regions3d.js).
