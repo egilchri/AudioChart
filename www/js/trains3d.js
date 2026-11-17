@@ -391,7 +391,9 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
   return {
     start() { if (on) return; on = true; poll(); },
     stop() { on = false; clearTimeout(timer); inflight?.abort(); for (const p of [...trains.values()]) drop(p); onCount?.(0); },
-    update, setTracks, setTrackY: f => { trackY = f; }, nearTrack: (x, z, r) => !!onTrack(x, z, r), setTrips: d => { trips = d; },
+    update, setTracks, setTrackY: f => { trackY = f; },
+    // (v1149, the tunnel underground: subway3d.js) a place on her track moved d metres, and the track's height
+    step: (c, d) => step(c, d), trackY: (x, z) => trackY?.(x, z, 6), nearTrack: (x, z, r) => !!onTrack(x, z, r), setTrips: d => { trips = d; },
     // the train under a point on the screen (client px), within reach px of her middle: for hover and tap
     at(cx, cy, camera, rect, reach = 22) {
       let best = null, bd = reach;

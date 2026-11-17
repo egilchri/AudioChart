@@ -4,6 +4,7 @@
 // towers, cables and suspenders, and trusses drawn as lines. Lit up a little at night. No file: no bridges.
 import * as THREE from 'three';
 import { wx, wz } from './terrain3d.js';
+import { makeFleet, pickVehicle } from './vehicles3d.js';
 
 const box = new THREE.BoxGeometry(1, 1, 1);
 const BOTTOM = -8;   // (piers and towers go on down out of sight under the water)
@@ -12,10 +13,9 @@ const BOTTOM = -8;   // (piers and towers go on down out of sight under the wate
 // road bridge, driving on the right at about 50 mph. A pair of decks with the same name and ends together (the Bay
 // Bridge's east span, the Carquinez, the Benicia) is one-way each, the way OpenStreetMap draws them; a lone deck
 // carries both ways.
-const CAR_COLOURS = [0xf2f2f0, 0xf2f2f0, 0x1c1c1e, 0x1c1c1e, 0x9a9da3, 0x9a9da3, 0x5d6168, 0xb3262b, 0x24427a, 0x6f8fae, 0x2e5a3c, 0xd8c9a8];
 
 // → { group, labels: [{ text, x, y, z }], places: [{ name, x, z, az, L }], credit, night(k), update(dt) } or null
-export async function makeBridges(rid, heightAt) {
+export async function makeBridges(rid, heightAt, eye) {
   let J;
   try { const r = await fetch(`./data/bridges/${rid}.json`); if (!r.ok) return null; J = await r.json(); } catch (_) { return null; }
   const group = new THREE.Group(), mats = new Map(), labels = new Map();
@@ -169,14 +169,14 @@ export async function makeBridges(rid, heightAt) {
     });
     mats.set('parts', im.material); group.add(im);
   }
-  const cars = makeTraffic(roads);
+  const cars = makeTraffic(roads, eye);
   if (cars) group.add(cars.mesh);
   const night = k => { for (const m of mats.values()) m.emissive.copy(m.color).multiplyScalar(0.3 * k); cars?.night(k); };
   return { group, labels: [...labels.values()], places: [...places.values()].sort((a, b) => a.name.localeCompare(b.name)), credit: J.credit, railDecks, roadDecks, night, update: dt => cars?.update(dt) };
 }
 
 // the traffic: one instanced mesh of boxes, each car a distance along its deck and a lane, moved on every frame
-function makeTraffic(roads) {
+function makeTraffic(roads, eye) {
   const LANE = 3.6, list = [];
   for (const [P, B] of roads) {
     const len = [0];
@@ -191,31 +191,25 @@ function makeTraffic(roads) {
       const fwd = oneWay || ln < lanes / 2, k = oneWay ? ln - (lanes - 1) / 2 : fwd ? ln + 0.5 : -(ln - lanes / 2 + 0.5);
       const off = k * Math.min(LANE, (B.w - 1.5) / lanes), v = (21 + Math.random() * 6) * (fwd ? 1 : -1);
       for (let s = Math.random() * 30; s < L; s += 22 + Math.random() * 45) {
-        const truck = Math.random() < 0.08;
-        list.push({ road, off, v, s, len: truck ? 13 : 4.7, w: truck ? 2.5 : 1.85, h: truck ? 3.6 : 1.5, c: truck ? 0xe8e6e0 : CAR_COLOURS[Math.random() * CAR_COLOURS.length | 0] });
+        list.push({ road, off, v, s, ...pickVehicle(Math.random() < 0.08) });   // (v1149: modelled, vehicles3d.js)
       }
     }
   }
   if (!list.length) return null;
-  const mat = new THREE.MeshStandardMaterial({ roughness: 0.4, metalness: 0.4 });
-  const mesh = new THREE.InstancedMesh(box, mat, list.length), c = new THREE.Color();
-  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); mesh.frustumCulled = false;
-  list.forEach((a, i) => mesh.setColorAt(i, c.set(a.c)));
-  const M = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), p = new THREE.Vector3(), sc = new THREE.Vector3();
+  const fleet = makeFleet({ max: list.length * 2, eye }), mesh = fleet.group;
   const update = dt => {
-    list.forEach((a, i) => {
+    fleet.begin();
+    list.forEach(a => {
       const { P, len, L } = a.road;
       a.s = (a.s + a.v * dt + L) % L;
       let lo = 0, hi = len.length - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (len[m] <= a.s) lo = m; else hi = m; }
       const A = P[lo], Bp = P[hi], u = (a.s - len[lo]) / ((len[hi] - len[lo]) || 1);
       const tx = Bp.x - A.x, tz = Bp.z - A.z, tl = Math.hypot(tx, tz) || 1, nx = -tz / tl, nz = tx / tl;
-      p.set(A.x + tx * u + nx * a.off, A.h + (Bp.h - A.h) * u + a.h / 2, A.z + tz * u + nz * a.off);
-      mesh.setMatrixAt(i, M.compose(p, q.setFromAxisAngle(up, Math.atan2(tx, tz)), sc.set(a.w, a.h, a.len)));
+      fleet.put(a.kind, A.x + tx * u + nx * a.off, A.h + (Bp.h - A.h) * u, A.z + tz * u + nz * a.off, Math.atan2(tx, tz) + (a.v < 0 ? Math.PI : 0), a.col, a.col2);
     });
-    mesh.instanceMatrix.needsUpdate = true;
+    fleet.end();
   };
   update(0);
   // at night their lamps: a glow on every car (white ahead and red astern are too small to tell apart from up here)
-  const night = k => mat.emissive.setRGB(0.55 * k, 0.45 * k, 0.3 * k);
-  return { mesh, update, night };
+  return { mesh, update, night: k => fleet.night(k) };
 }

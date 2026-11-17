@@ -8,14 +8,14 @@
 // traffic does; fewer at night (by the scene's clock). Only near the view: each carriageway's cars made when she's
 // within reach, dropped when she's out of it. Not on the big bridges' decks: bridges3d.js has their traffic.
 import * as THREE from 'three';
+import { makeFleet, pickVehicle, LEN } from './vehicles3d.js';
 
 const CMS = 'https://cwwp2.dot.ca.gov/data/d4/cms/cmsStatusD04.json';
 const STEP = 20, BIN = 200, LANE = 3.7, MAX = 9000;
-const COLOURS = [0xf2f2f0, 0xf2f2f0, 0x1c1c1e, 0x1c1c1e, 0x9a9da3, 0x9a9da3, 0x5d6168, 0xb3262b, 0x24427a, 0x6f8fae, 0x2e5a3c, 0xd8c9a8];
 // the traffic through the day, a share of a lane's 1,900 cars an hour (the bay's weekday, roughly), by hour
 const DAY = [0.12, 0.08, 0.06, 0.06, 0.1, 0.3, 0.65, 0.95, 1, 0.85, 0.75, 0.75, 0.78, 0.78, 0.8, 0.9, 1, 1, 0.9, 0.7, 0.55, 0.45, 0.35, 0.2];
 
-export async function makeTraffic({ scene, rid, wx, wz, heightAt, clockMin }) {
+export async function makeTraffic({ scene, rid, wx, wz, heightAt, clockMin, eye }) {
   let J;
   try { const r = await fetch(`./data/roads/${rid}.json`); if (!r.ok) return null; J = await r.json(); } catch (_) { return null; }
   const ground = (lon, lat) => Math.max(0, heightAt(lon, lat) || 0);
@@ -46,12 +46,8 @@ export async function makeTraffic({ scene, rid, wx, wz, heightAt, clockMin }) {
   }
   for (const ch of C) profile(ch);
 
-  // ── the cars: one instanced mesh of boxes ──
-  const geo = new THREE.BoxGeometry(1, 1, 1);
-  const mat = new THREE.MeshStandardMaterial({ roughness: 0.45, metalness: 0.35 });
-  const mesh = new THREE.InstancedMesh(geo, mat, MAX); mesh.count = 0; mesh.frustumCulled = false;
-  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-  { const c = new THREE.Color(); for (let i = 0; i < MAX; i++) mesh.setColorAt(i, c.set(COLOURS[i % COLOURS.length])); }
+  // ── the cars and trucks: modelled near, boxes far (v1149, vehicles3d.js) ──
+  const fleet = makeFleet({ max: MAX, eye }), mesh = fleet.group;
   scene.add(mesh);
   const flow = () => { const h = ((clockMin?.() ?? new Date().getHours() * 60) / 60) % 24, a = DAY[Math.floor(h)], b = DAY[(Math.floor(h) + 1) % 24]; return 0.53 * (a + (b - a) * (h % 1)); };   // (cars a second a lane)
   const vAt = (ch, s) => { const f = s / BIN, i = Math.min(ch.v.length - 2, Math.max(0, Math.floor(f))), u = Math.min(1, Math.max(0, f - i)); return ch.v[i] + (ch.v[i + 1] - ch.v[i]) * u; };
@@ -60,9 +56,9 @@ export async function makeTraffic({ scene, rid, wx, wz, heightAt, clockMin }) {
     for (let ln = 0; ln < n; ln++) {
       const off = ch.c.two ? (ln + 0.5) * LANE : (ln - (n - 1) / 2) * LANE;
       for (let s = Math.random() * 40; s < ch.L;) {
-        const v = vAt(ch, s), truck = Math.random() < (ln === n - 1 ? 0.18 : 0.04), car = { s, off, f: 0.93 + Math.random() * 0.12 - (truck ? 0.06 : 0), truck, col: truck ? 0xe9e7e2 : COLOURS[Math.random() * COLOURS.length | 0] };
+        const v = vAt(ch, s), truck = Math.random() < (ln === n - 1 ? 0.18 : 0.04), car = { s, off, f: 0.93 + Math.random() * 0.12 - (truck ? 0.06 : 0), truck, ...pickVehicle(truck) };
         cars.push(car);
-        s += Math.max(truck ? 17 : 8, v / q * (0.5 + Math.random()));
+        s += Math.max(LEN[car.kind] + 4, v / q * (0.5 + Math.random()));
       }
     }
     ch.cars = cars;
@@ -76,9 +72,8 @@ export async function makeTraffic({ scene, rid, wx, wz, heightAt, clockMin }) {
       if (inR && !ch.cars) populate(ch); else if (!inR && ch.cars) ch.cars = null;
     }
   }
-  const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), UP = new THREE.Vector3(0, 1, 0), P = new THREE.Vector3(), SC = new THREE.Vector3();
   function update(dt) {
-    let n = 0;
+    let n = 0; fleet.begin();
     if (on && R) for (const ch of C) {
       if (!ch.cars) continue;
       const S = ch.S, L = ch.L;
@@ -91,16 +86,12 @@ export async function makeTraffic({ scene, rid, wx, wz, heightAt, clockMin }) {
         const tx = B.x - A.x, tz = B.z - A.z, tl = Math.hypot(tx, tz) || 1, nx = -tz / tl, nz = tx / tl;
         const px = A.x + tx * u + nx * a.off, pz = A.z + tz * u + nz * a.off;
         if (Math.abs(px - vx) > R + 400 || Math.abs(pz - vz) > R + 400) continue;
-        const L3 = a.truck ? 15 : 4.7, W3 = a.truck ? 2.6 : 1.85, H3 = a.truck ? 3.8 : 1.5;
-        P.set(px, A.y + (B.y - A.y) * u + H3 / 2 + 0.05, pz);
-        mesh.setMatrixAt(n, M.compose(P, Q.setFromAxisAngle(UP, Math.atan2(tx, tz)), SC.set(W3, H3, L3)));
-        if (slot[n] !== a.col) { slot[n] = a.col; mesh.setColorAt(n, _c.set(a.col)); mesh.instanceColor.needsUpdate = true; }
-        n++;
+        fleet.put(a.kind, px, A.y + (B.y - A.y) * u + 0.05, pz, Math.atan2(tx, tz), a.col, a.col2);
+        n += a.kind === 'semi' ? 2 : 1;
       }
     }
-    mesh.count = n; mesh.instanceMatrix.needsUpdate = true;
+    fleet.end();
   }
-  const _c = new THREE.Color(), slot = new Int32Array(MAX).fill(-1);
 
   // ── the signs' travel times: each the speed on the road from the sign to her place ──
   let report = { t: 0, signs: 0, est: 0 };
@@ -145,7 +136,7 @@ export async function makeTraffic({ scene, rid, wx, wz, heightAt, clockMin }) {
       for (const ch of C) for (const p of ch.S) p.deck = near(p.x, p.z);
     },
     reheight(w, s, e, n) { for (const ch of C) { const S = ch.S; if (S.some(p => p.lon >= w && p.lon <= e && p.lat >= s && p.lat <= n)) profile(ch); } },
-    night: k => mat.emissive.setRGB(0.55 * k, 0.45 * k, 0.3 * k),
+    night: k => fleet.night(k),
     // the speed on the road nearest (x, z), m/s, and her route (for checking)
     speedAt(x, z) { let b = null, bd = 1e12; for (const ch of C) for (const p of ch.S) { const d = (p.x - x) ** 2 + (p.z - z) ** 2; if (d < bd) { bd = d; b = [ch, p]; } } return b && { ref: b[0].c.ref, v: vAt(b[0], b[1].s), free: b[0].free, d: Math.sqrt(bd) }; },
     stop() { clearInterval(timer); },

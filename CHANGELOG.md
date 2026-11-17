@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-11-17 — Bird's-eye: inside the T's tunnels, and real trucks on the freeways (v1149)
+
+- Asked: "maybe we could develop some underground POV's ... As a priority, let's develop an underground POV, for say front view and side view". **Underground** (new www/js/subway3d.js): riding a train while she's in a tunnel, Ahead, Side, Behind and Cab now look round her in the tunnel she's in, not at the street over her. It's built along her own track, 350 m behind her and 450 m ahead:
+  - a box tunnel of grimy concrete, with the other track beside hers where there is one, and steel columns between
+  - lamps along the walls, her rails, the third rail (the Green Line's overhead wire) and signals
+  - a walkway along a single-track tube
+  - when she's stopped at a station (the MBTA says which), its platform: tiled walls with a band in her line's colour, green columns, a yellow edge, and its name on the walls
+  
+  Her train and any other underground train near her are drawn in it. It's on its own render layer with its own lights and a black fog where the tunnel runs out of sight; the street names are hidden meanwhile. The ride bar says "At Park Street: beside Red Line" or "In the tunnel: ahead of …". Drone still looks down on the street (her ghost there, also asked about, is for later). The T's cars now show their lit insides through the windows (www/js/mbta3d.js).
+- Reported: "the trucks on the highway just look like rectangular boxes", and asked whether SF's were the same: they were (one shared box for every vehicle, freeways and bridges, both regions). **Vehicles** (new www/js/vehicles3d.js): sedans, SUVs, box trucks, and tractor-trailers (a tractor in her owner's colour with hood, sleeper, fairing, stacks and tanks; a 53 ft trailer, white or silver), each with wheels, glass, and head and tail lamps that light at night. One instanced mesh per kind; within 700 m of the eye the models, farther the old boxes. Used by the freeways' traffic (www/js/traffic3d.js) and the bridges' (www/js/bridges3d.js), in SF and Boston. Preview harness: design/pending/vehicle-look/view.html.
+- Checked in headless Chrome on the live feed:
+  - Green Line at Arlington, all four views
+  - Red Line at Park Street, South Station and Porter
+  - Orange Line at Back Bay
+  - an SF freeway by day
+
 ## 2026-11-16 — Bird's-eye: no gulls round trains and planes, and no tunnel ghosts (v1148)
 
 - Asked: "We don't need seagulls over non-boat things". The gulls (and seals) gather round where you're looking, near water; now none while you ride with or follow a train or a plane (www/js/bay3d.js, wildlife's `hidden`). Boats keep them.

@@ -109,6 +109,11 @@ function tSide(rail) {
     if (T.pcc) { c.fillStyle = T.band; c.fillRect(0, Y(1.75), w, Y(H0) - Y(1.75)); c.fillStyle = '#5a2a14'; c.fillRect(0, Y(1.8), w, 0.05 * PX); }
     // the window band: black glass the length of her between the doors, the line's colour under it
     c.fillStyle = css(C.dark); c.fillRect(X(0.4), Y(T.h - 0.45), X(T.len - 0.8), Y(1.95) - Y(T.h - 0.45));
+    // (v1149, seen close in the tunnels) her lit inside through it: the ceiling's lamps along the top, the far side's windows dimmer below, grab poles
+    { const y0 = Y(T.h - 0.45), y1 = Y(1.95), g = c.createLinearGradient(0, y0, 0, y1);
+      g.addColorStop(0, 'rgba(240,236,218,0.95)'); g.addColorStop(0.2, 'rgba(210,206,190,0.55)'); g.addColorStop(0.55, 'rgba(130,128,118,0.3)'); g.addColorStop(1, 'rgba(40,40,40,0)');
+      c.fillStyle = g; c.fillRect(X(0.4), y0, X(T.len - 0.8), y1 - y0);
+      c.fillStyle = 'rgba(30,30,30,0.5)'; for (let m = 1.2; m < T.len - 0.8; m += 1.6) c.fillRect(X(m), y0, Math.max(2, 0.04 * PX), y1 - y0); }
     c.fillStyle = T.band; c.fillRect(0, Y(1.9), w, 0.32 * PX); if (!T.pcc) c.fillRect(0, Y(T.h - 0.15), w, 0.12 * PX);
     // the doors: pairs of leaves, evenly along her, each leaf with its window
     for (let k = 0; k < T.doors; k++) {

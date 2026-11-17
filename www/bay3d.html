@@ -445,6 +445,8 @@ body.embed #wxpanel { top: auto; bottom: calc(176px + env(safe-area-inset-bottom
 #depthtip b { font-weight: 600; }
 #depthtip span { opacity: 0.7; }
 body.embed #exagbox { top: calc(94px + env(safe-area-inset-top, 0px)); }
+/* underground (v1149): no street names or place marks over the tunnel */
+body.underground #labels, body.underground #livemarks { display: none; }
 </style>
 </head>
 <body>

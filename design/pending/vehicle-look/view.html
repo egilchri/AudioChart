@@ -1,0 +1,26 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Road vehicles</title>
+<style>html,body{margin:0;background:#9dc4e8}canvas{display:block}</style>
+<script type="importmap">{ "imports": { "three": "/www/js/lib/three/three.module.min.js" } }</script>
+</head><body>
+<script type="module">
+// The road's vehicles alone (v1149): a sedan, an SUV, a box truck and a tractor-trailer side by side on a road (?night=1 at night; ?view=side|quarter|top)
+import * as THREE from 'three';
+const { makeFleet } = await import('/www/js/vehicles3d.js?' + Date.now());
+const P = new URLSearchParams(location.search), night = P.get('night') === '1', view = P.get('view') || 'quarter';
+const W = 1600, H = 900, r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); r.setSize(W, H); r.setClearColor(night ? 0x0a0e18 : 0x9dc4e8); r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 0.55;
+document.body.appendChild(r.domElement);
+const scene = new THREE.Scene(); scene.add(new THREE.HemisphereLight(0xe4ecf2, 0x4a5644, night ? 0.15 : 1.7));
+const sun = new THREE.DirectionalLight(0xfff3e0, night ? 0.05 : 2.1); sun.position.set(-40, 80, 30); scene.add(sun);
+const road = new THREE.Mesh(new THREE.PlaneGeometry(400, 60), new THREE.MeshLambertMaterial({ color: 0x55575a })); road.rotation.x = -Math.PI / 2; scene.add(road);
+const eye = new THREE.Vector3(0, 0, 0), F = makeFleet({ max: 100, eye }); scene.add(F.group); F.night(night ? 1 : 0);
+F.begin();
+F.put('sedan', -16, 0, 0, Math.PI / 2, 0xb3262b); F.put('suv', -8, 0, 0, Math.PI / 2, 0x24427a); F.put('box', 4, 0, 0, Math.PI / 2, 0xf2f2f0);
+F.put('semi', 26, 0, 0, Math.PI / 2, 0x1c1c1e, 0xf0f0ec);
+F.put('sedan', -10, 0, -5, -Math.PI / 2, 0xf2f2f0); F.put('semi', 14, 0, -5, -Math.PI / 2, 0xb3262b, 0xc4c8cc);
+F.end();
+const cam = new THREE.PerspectiveCamera(30, W / H, 0.5, 3000);
+if (view === 'side') cam.position.set(6, 3, 60); else if (view === 'top') cam.position.set(6, 90, 30); else cam.position.set(40, 14, 45);
+cam.lookAt(6, 1.5, -2);
+r.render(scene, cam); window.__done = true;
+</script></body></html>

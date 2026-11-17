@@ -35,6 +35,7 @@ import { makeCockpit } from './cockpit.js';
 import { routeLookup, judgeRoute, destOf, originOf, airportInfo } from './flightroute.js';
 import { makeTrains, TRAIN_CREDIT } from './trains3d.js';
 import { makeTracks } from './track3d.js';
+import { makeSubway } from './subway3d.js';
 import { makeTraffic } from './traffic3d.js';
 import { makeAirport } from './airport3d.js';
 import { makeAisFeed, aisStatus, aisName, aisDest, setKnown, knownFor, aisFlag, aisRot, aisPos, aisAgo, aisLookup, aisImo, aisCallsign, AIS_CREDIT } from './ais.js';
@@ -941,7 +942,7 @@ const [navGJ, placesGJ, landGJ] = await Promise.all([
 ]);
 const inBay = ([x, y]) => x >= OW && x <= OE && y >= OS && y <= ON;
 // ── Bridges (v1020; bridges3d.js): the region's, if it has any ──
-makeBridges(RID, heightAt).then(B => { if (!B) return; bridges = B; if (freeway && B.roadDecks) freeway.setDecks(B.roadDecks); if (tracks && B.railDecks) tracks.setDecks(B.railDecks); scene.add(B.group); try { B.night(env.lightsK); } catch (_) {} updateCredit(); onBridges?.(B); })   // (env: once it's made)
+makeBridges(RID, heightAt, camera.position).then(B => { if (!B) return; bridges = B; if (freeway && B.roadDecks) freeway.setDecks(B.roadDecks); if (tracks && B.railDecks) tracks.setDecks(B.railDecks); scene.add(B.group); try { B.night(env.lightsK); } catch (_) {} updateCredit(); onBridges?.(B); })   // (env: once it's made)
   .catch(err => console.warn('[bay3d] bridges', err));
 const navs = navGJ.features.filter(f => f.geometry?.type === 'Point' && inBay(f.geometry.coordinates));
 const BUOY_T = ['BOYLAT', 'BCNLAT', 'BOYSAW', 'BOYSPP', 'BOYCAR', 'BOYISD'];
@@ -1276,6 +1277,7 @@ function ride(v, mode = 'helm') {
   const was = nest.on;
   if (was && nest.v !== v) insidePlane(nest.v, false);   // (her model back, leaving her for another)
   if (!was) { stopFollow(); anim = null; nest.prev = { ...view }; }
+  nest.ugKey = '';   // (the tunnel's title, if she's underground, set again)
   nest.on = true; nest.v = v; nest.mode = mode; nest.yaw = CHASE[mode]?.yaw || 0; nest.pitch = CHASE[mode] ? -CHASE[mode].el : mode === 'drone' ? -16 : mode === 'helm' && v.kind === 'air' ? -6 : mode === 'helm' && helmOf(v)[1] > 6 ? -8 : -3; nest.zoom = 1; nestRep.textContent = '';   // (from a high bridge, a little down: her bow in sight)
   document.body.classList.add('innest'); nestHud.hidden = false;
   document.getElementById('crowsnest').classList.toggle('on', mode === 'nest');
@@ -1299,6 +1301,7 @@ function ride(v, mode = 'helm') {
 function leaveRide() {
   if (!nest.on) return;
   const v = nest.v; nest.on = false; nest.v = null; insidePlane(v, false);
+  subway.off(); nest.ugKey = ''; document.body.classList.remove('underground');
   document.body.classList.remove('innest'); nestHud.hidden = true; document.getElementById('crowsnest').classList.remove('on');
   camera.fov = 50; camera.near = 1; camera.updateProjectionMatrix();
   // over her, following her (from her quarter, high enough to see where she's bound)
@@ -1353,6 +1356,15 @@ function clearOfRoofs(at, D, el, az0) {
 function nestCamera() {   // after every vessel has moved: the eye aboard her, looking where you've turned it
   const v = nest.v, g = vGroup(v);
   if (!g.visible && !(v === own && own.r)) { leaveRide(); return; }   // she's gone (out of service, out of season)
+  // underground (v1149): in her tunnel, not the street over her (her Drone still over the street); the ride bar says so
+  const ug = subway.update(v, nest.mode, nest, camera), ugKey = ug ? `${nest.mode}|${subway.station || ''}` : '';
+  if (ugKey !== (nest.ugKey || '')) {
+    nest.ugKey = ugKey; document.body.classList.toggle('underground', ug);
+    const nm = document.getElementById('ridename');
+    if (ug) nm.textContent = `${subway.station ? `At ${subway.station}` : 'In the tunnel'}: ${{ helm: 'in the cab of', side: 'beside', bow: 'ahead of', stern: 'behind' }[nest.mode] || 'with'} ${vTitle(v)}`;
+    else ride(v, nest.mode);   // (her own title back)
+  }
+  if (ug && nest.mode !== 'helm') { view.x = v.x; view.z = v.z; view.dist = 900; view.az = (v.h + nest.yaw) * DEG; camera.updateMatrixWorld(); return; }
   const h = v.h * DEG, sh = Math.sin(h), ch = Math.cos(h);
   const toWorld = ([lx, ly, lz], out) => out.set(v.x + lx * ch - lz * sh, ly, v.z + lx * sh + lz * ch);   // her frame (bow toward −z) to the world
   if (ORBITS(nest.mode)) {
@@ -2290,11 +2302,13 @@ if (REG.rail) getJSON(`./data/rail/${REG.rail}.json`).then(d => {
   for (const T of tiles) if (T.state === 'ready' && T.dem?.canopy) { T.spots = treeSpots(T, T.dem); treesDirty = true; }   // (tiles in before the tracks)
 }).catch(err => console.warn('[bay3d] rail tracks', err));
 // the freeways' traffic (v1128, requested: "put car traffic in each direction on the freeway"), at Caltrans's signs' speeds
-if (REG.roads && !EMPTY) makeTraffic({ scene, rid: REG.roads, wx, wz, heightAt, clockMin: () => clockMin() }).then(T => {
+if (REG.roads && !EMPTY) makeTraffic({ scene, rid: REG.roads, wx, wz, heightAt, clockMin: () => clockMin(), eye: camera.position }).then(T => {
   if (!T) return; freeway = T; updateCredit(); if (bridges?.roadDecks) T.setDecks(bridges.roadDecks); try { T.night(env.lightsK); } catch (_) {}
 }).catch(err => console.warn('[bay3d] traffic', err));
 if (REG.rail) getJSON(`./data/rail/${REG.rail}-trips.json`).then(d => rail.setTrips(d)).catch(err => console.warn('[bay3d] rail timetables', err));   // (v1117: each train's origin, destination and ETA)   // (v1116: each train on her track)
 window.__trains = () => rail.list(camera, renderer.domElement.getBoundingClientRect());
+// the tunnel she's in, when riding a train underground (v1149): Cab, Ahead, Side and Behind look round her in it
+const subway = makeSubway({ scene, rail });
 function syncLiveBtn(state = liveBtn?.dataset.state || 'off', note = '') {
   if (!liveBtn) return;
   liveBtn.dataset.state = state;
@@ -3900,7 +3914,7 @@ function frame(now) {
     night: env.C.time === 'night', boat: (own.ext || own.r) ? own : null, scale: d => clamp(d / 35, 3, 8), nearWater });
   syncFollowHud(); updateFixLines(); updateVector(); updateBuoyF(); updateGauge(); updateCurrents();
   if (follow && !anim && !nest.on) { const k = Math.min(1, dt * 4); view.x += (follow.x - view.x) * k; view.z += (follow.z - view.z) * k; }
-  renderer.render(scene, camera);
+  if (subway.active) subway.render(renderer, camera); else renderer.render(scene, camera);
   updateLabels(); updateLiveMarks(); updateReadout();
   nextFrame();
 }
