@@ -97,5 +97,6 @@
   {"file": "bos-somerville.json", "name": "Somerville: Union Square to Assembly", "bbox": [-71.105, 42.385, -71.07, 42.42]},
   {"file": "bos-teele.json", "name": "Teele Square and West Somerville", "bbox": [-71.135, 42.404, -71.105, 42.42]},
   {"file": "bos-brookline.json", "name": "Brookline: Coolidge Corner and the Village", "bbox": [-71.15, 42.325, -71.105, 42.352]},
-  {"file": "bos-north-quincy.json", "name": "North Quincy and Wollaston", "bbox": [-71.05, 42.265, -70.99, 42.29]}
+  {"file": "bos-north-quincy.json", "name": "North Quincy and Wollaston", "bbox": [-71.05, 42.265, -70.99, 42.29]},
+  {"file": "bos-quincy.json", "name": "Quincy Center and Quincy Point", "bbox": [-71.05, 42.24, -70.99, 42.265]}
 ]

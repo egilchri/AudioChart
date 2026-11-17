@@ -1,9 +1,13 @@
 # Changelog
 
+## 2026-11-16 — Bird's-eye: Quincy Center's buildings (v1144)
+
+- The last of "add Cambridge, Somerville, Brookline and Quincy", held back from v1143 by a network outage during its lidar download: Quincy Center and Quincy Point, 12,301 buildings, its seven towers in glass and grey (tower_palette.py).
+
 ## 2026-11-16 — Bird's-eye: Cambridge, Somerville, Brookline and North Quincy's buildings (v1143)
 
 - Requested: "add Cambridge, Somerville, Brookline and Quincy". Eight more areas (design/buildings/build_town.py, the `MA_CentralEastern_1_2021` lidar), their boxes clear of v1139's: Harvard Square and Cambridgeport, Inman Square and East Cambridge (its six towers in glass and grey: tower_palette.py), West Cambridge and Fresh Pond, Porter, Davis and North Cambridge, Somerville (Union Square to Assembly), Teele Square and West Somerville, Brookline (Coolidge Corner and the Village), North Quincy and Wollaston; 57,000 buildings. Brick colours for Cambridge's squares and Brookline, clapboard (the Maine palette) for the triple-deckers of Somerville, North Cambridge and Quincy.
-- Not yet: Quincy Center and Quincy Point, its build held up by a network outage; it comes in a release of its own.
+- Quincy Center and Quincy Point, held up by a network outage, came in v1144.
 
 ## 2026-11-16 — Bird's-eye: Boston's towers in glass and grey (v1142)
 
