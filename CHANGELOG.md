@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-16 — Bird's-eye: cars on San Francisco's freeways, at Caltrans's speeds (v1145)
+
+- Requested on 2026-11-10: "put car traffic in each direction on the freeway (101?) If it can be correlated with the traffic report, all the better". Begun then (v1128 kept for it) and left unfinished when that session lost its network; finished now ("yes, finish the freeway traffic for SF").
+- **The roads** (design/roads/build_roads.py → www/data/roads/sf-bay.json): OpenStreetMap's motorways and trunk roads in the SF region joined into 794 carriageways, each way, with their lanes and bridges; and Caltrans District 4's 146 changeable message signs, each with the road from it to each place its travel times name ("SFO ARPT 6 MIN").
+- **The traffic** (new www/js/traffic3d.js): cars and trucks in every lane near the view (trucks mostly in the right lane), spaced by the hour's flow (fewer at night, the scene's clock), running at each stretch's speed: the signs' minutes over the road to their place, read every 2 minutes from cwwp2.dot.ca.gov (CORS open), nearer places weighted more; free-flowing (65 mph freeways, 50 trunk roads) where no sign says. They bunch where it's slow. On the ground's upper envelope, straight across their bridges; the big bridges' decks are left to bridges3d.js's own traffic (`roadDecks`). Lit a little at night. Credit: "Freeways © OpenStreetMap contributors, traffic from Caltrans signs". SF only (`roads: 'sf-bay'`, www/js/regions3d.js).
+- **Finishing it**: the page didn't load: www/js/bay3d.js's new `let traffic` collided with the boats' `const traffic = []`; the freeways' is now `freeway` throughout (and `__bay3d.freeway()`), the credit line's test too (it would have shown the freeways' credit everywhere). The Bay Bridge's lower deck lay a lane or two off the model's line, so its cars weren't handed to the bridge and were drawn in the air beside her: the deck match now takes the neighbouring 25 m cells. `debugNear(lon, lat, r)` for checking.
+- Checked in headless Chrome: US 101 by SFO in the evening rush (~870 cars near the view, 38 signs giving speeds), the Bay Bridge's west span, Boston (no freeways, no errors).
+
 ## 2026-11-16 — Bird's-eye: Quincy Center's buildings (v1144)
 
 - The last of "add Cambridge, Somerville, Brookline and Quincy", held back from v1143 by a network outage during its lidar download: Quincy Center and Quincy Point, 12,301 buildings, its seven towers in glass and grey (tower_palette.py).

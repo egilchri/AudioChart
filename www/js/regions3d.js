@@ -52,7 +52,8 @@ export const REGIONS3D = {
     name: 'San Francisco Bay', short: 'SF Bay',
     origin: [-122.35, 37.8],
     heliport: { name: 'San Francisco International', lon: -122.3752, lat: 37.6261 },
-    airports: ['sfo'], rail: 'sf-bay',   // (v1116: her railway tracks, for the live trains: www/data/rail/)
+    airports: ['sfo'], rail: 'sf-bay', roads: 'sf-bay',   // (v1128: her freeways, for their traffic: www/data/roads/)
+      // (v1116: her railway tracks, for the live trains: www/data/rail/)
    // (v1111: her runways, taxiways, lights, jet bridges, tower: www/data/airports/, airport3d.js)   // (where the Flyover's helicopter takes off: v1049; v1050: on the north ramp, by the big hangar, not the runways)
     // (v1118: north up the SMART line to Windsor, for her trains and the towns along her; the overview's photo in pieces,
     // bay3d.js. Sacramento was asked for, then dropped: a corridor up the river saved little, the rectangle's two eastern

@@ -35,6 +35,7 @@ import { makeCockpit } from './cockpit.js';
 import { routeLookup, judgeRoute, destOf, originOf, airportInfo } from './flightroute.js';
 import { makeTrains, TRAIN_CREDIT } from './trains3d.js';
 import { makeTracks } from './track3d.js';
+import { makeTraffic } from './traffic3d.js';
 import { makeAirport } from './airport3d.js';
 import { makeAisFeed, aisStatus, aisName, aisDest, setKnown, knownFor, aisFlag, aisRot, aisPos, aisAgo, aisLookup, aisImo, aisCallsign, AIS_CREDIT } from './ais.js';
 
@@ -486,6 +487,7 @@ async function loadTile(T) {
     Object.assign(T, { dem, mat: mat0, img: null, photo: 'pending', full: gridMesh(dem, rect, 1, mat0, yOf, uvT), coarse: gridMesh(dem, rect, 4, mat0, yOf, uvT) });
     T.full.visible = false; scene.add(T.full, T.coarse); sinkOverview(T, true); T.state = 'ready';
     tracks?.reheight(T.w, T.s, T.e, T.n);   // (the tracks' heights, on the detail ground: v1125)
+    freeway?.reheight(T.w, T.s, T.e, T.n);
     photoP.then(ph => {
       if (T.state !== 'ready' || T.gen !== gen) { ph.img.close?.(); return; }
       addCanopy(dem, ph, () => 0, BROADLEAF);   // forest mask only: the 3D trees give the forest its height here
@@ -670,6 +672,7 @@ function dropTile(T) {
   if (T.spots) { T.spots = null; treesDirty = true; }
   Object.assign(T, { state: 'idle', full: null, coarse: null, dem: null, mat: null, img: null, photo: null });
   tracks?.reheight(T.w, T.s, T.e, T.n);   // (back on the whole bay's ground)
+  freeway?.reheight(T.w, T.s, T.e, T.n);
 }
 // ── 3D trees: one spruce per forested 10 m cell of a detail tile (from the photo, as in the
 // helm view), on the bare-earth ground. Rebuilt as the view moves: every tree near the camera,
@@ -677,7 +680,7 @@ function dropTile(T) {
 // tiered spruce up close and a plain cone beyond. ~60k trees at most.
 const SP = 10;   // floats per tree: x, y, z, height, radius, turn, r, g, b, chance
 // (v1118, a SMART train hidden in trees standing on her line: none within 9 m of a railway track, once the tracks are in)
-let trackNear = null, tracks = null;   // (tracks: the railway drawn, v1125, track3d.js)
+let trackNear = null, tracks = null, freeway = null;   // (tracks: the railway drawn, v1125, track3d.js; freeway: the freeways' traffic, v1145, traffic3d.js; not `traffic`, the boats')
 function treeSpots(T, dem) {
   let seed = Math.round((T.w + 200) * 1e4 + T.s * 1e3); const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   const out = [];
@@ -784,7 +787,7 @@ const VER = self.APP_VERSION ? `${self.APP_VERSION} · ` : '';
 creditEl.textContent = VER + creditEl.textContent;
 function updateCredit() {
   const shown = townList.filter(t => t.group);
-  creditEl.textContent = VER + (EMPTY ? 'Land and seabed NOAA NCEI CUDEM · Photos USDA NAIP' : `Elevation USGS 3DEP · Photos ${PHOTO_SOURCES.has('usgs') && !PHOTO_SOURCES.has('naip') ? 'USGS The National Map' : PHOTO_SOURCES.has('usgs') ? 'USDA NAIP, USGS The National Map' : 'USDA NAIP'}`) + (bridges ? ' · ' + bridges.credit : '') + (airports.length ? ' · ' + airports[0].credit : '') + (shown.length ? ' · Buildings © OpenStreetMap contributors' + (shown.some(t => /Microsoft/.test(t.credit)) ? ', Microsoft' : '') + (shown.some(t => /NYC Open Data/.test(t.credit)) ? ', NYC Open Data' : '') : '');
+  creditEl.textContent = VER + (EMPTY ? 'Land and seabed NOAA NCEI CUDEM · Photos USDA NAIP' : `Elevation USGS 3DEP · Photos ${PHOTO_SOURCES.has('usgs') && !PHOTO_SOURCES.has('naip') ? 'USGS The National Map' : PHOTO_SOURCES.has('usgs') ? 'USDA NAIP, USGS The National Map' : 'USDA NAIP'}`) + (bridges ? ' · ' + bridges.credit : '') + (freeway ? ' · Freeways © OpenStreetMap contributors, traffic from Caltrans signs' : '') + (airports.length ? ' · ' + airports[0].credit : '') + (shown.length ? ' · Buildings © OpenStreetMap contributors' + (shown.some(t => /Microsoft/.test(t.credit)) ? ', Microsoft' : '') + (shown.some(t => /NYC Open Data/.test(t.credit)) ? ', NYC Open Data' : '') : '');
 }
 // An airport's ground (v1111, requested: "let's add lots of detail to San Francisco Airport"; airport3d.js): her
 // runways and their markings, taxiways, aprons, lights, jet bridges, tower, AirTrain, set on the 10 m elevation the
@@ -938,7 +941,7 @@ const [navGJ, placesGJ, landGJ] = await Promise.all([
 ]);
 const inBay = ([x, y]) => x >= OW && x <= OE && y >= OS && y <= ON;
 // ── Bridges (v1020; bridges3d.js): the region's, if it has any ──
-makeBridges(RID, heightAt).then(B => { if (!B) return; bridges = B; if (tracks && B.railDecks) tracks.setDecks(B.railDecks); scene.add(B.group); try { B.night(env.lightsK); } catch (_) {} updateCredit(); onBridges?.(B); })   // (env: once it's made)
+makeBridges(RID, heightAt).then(B => { if (!B) return; bridges = B; if (freeway && B.roadDecks) freeway.setDecks(B.roadDecks); if (tracks && B.railDecks) tracks.setDecks(B.railDecks); scene.add(B.group); try { B.night(env.lightsK); } catch (_) {} updateCredit(); onBridges?.(B); })   // (env: once it's made)
   .catch(err => console.warn('[bay3d] bridges', err));
 const navs = navGJ.features.filter(f => f.geometry?.type === 'Point' && inBay(f.geometry.coordinates));
 const BUOY_T = ['BOYLAT', 'BCNLAT', 'BOYSAW', 'BOYSPP', 'BOYCAR', 'BOYISD'];
@@ -1084,7 +1087,7 @@ const glows = litNavs.filter(l => l.fl).map(l => {
 let wxPanel = null, aboveFog = null;
 function applyConditions(next = {}) {
   env.apply(next);
-  TOWN_NIGHT.value = env.lightsK; bridges?.night(env.lightsK);
+  TOWN_NIGHT.value = env.lightsK; bridges?.night(env.lightsK); freeway?.night(env.lightsK);
   blanket.flat.material.color.copy(env.fogC); blanket.skin.material.color.copy(env.fogC).lerp(new THREE.Color(0xffffff), env.night ? 0.05 : 0.35);
   aboveFog = null;   // re-decide the sky in the next frame
   wxPanel?.sync(env.C, env.W);
@@ -2288,7 +2291,7 @@ if (REG.rail) getJSON(`./data/rail/${REG.rail}.json`).then(d => {
 }).catch(err => console.warn('[bay3d] rail tracks', err));
 // the freeways' traffic (v1128, requested: "put car traffic in each direction on the freeway"), at Caltrans's signs' speeds
 if (REG.roads && !EMPTY) makeTraffic({ scene, rid: REG.roads, wx, wz, heightAt, clockMin: () => clockMin() }).then(T => {
-  if (!T) return; traffic = T; updateCredit(); if (bridges?.roadDecks) T.setDecks(bridges.roadDecks); try { T.night(env.lightsK); } catch (_) {}
+  if (!T) return; freeway = T; updateCredit(); if (bridges?.roadDecks) T.setDecks(bridges.roadDecks); try { T.night(env.lightsK); } catch (_) {}
 }).catch(err => console.warn('[bay3d] traffic', err));
 if (REG.rail) getJSON(`./data/rail/${REG.rail}-trips.json`).then(d => rail.setTrips(d)).catch(err => console.warn('[bay3d] rail timetables', err));   // (v1117: each train's origin, destination and ETA)   // (v1116: each train on her track)
 window.__trains = () => rail.list(camera, renderer.domElement.getBoundingClientRect());
@@ -3873,7 +3876,7 @@ function frame(now) {
   fly?.step(performance.now(), dt);
   if (!nest.on) { clampView(); placeCamera(); }
   fly?.place(dt);   // the tour's helicopter, in front of the camera (v1048)
-  if (t - lastCheck > 0.4) { lastCheck = t; syncTip(); updateTiles(); updateTowns(); updateMarks(); updateHazards(); tracks?.update(view.x, view.z, view.dist); }
+  if (t - lastCheck > 0.4) { lastCheck = t; syncTip(); updateTiles(); updateTowns(); updateMarks(); updateHazards(); tracks?.update(view.x, view.z, view.dist); freeway?.near(view.x, view.z, view.dist); }
   // the wrecks blink (v932, requested): a bright orange glow, on for 0.6 s in every 1.2 s
   if (hazards.meshes.wreck) hazards.meshes.wreck.m.material.emissive.setHex(t % 1.2 < 0.6 ? 0xff6a1a : 0x000000);
   if (!drag && !anim) updateTrees(); else if (t - (TREES.lastMove || 0) > 0.25) { TREES.lastMove = t; updateTrees(); }
@@ -3886,6 +3889,7 @@ function frame(now) {
   updateFleet(dt);
   updateTraffic();
   bridges?.update(dt);   // the cars on them (v1043)
+  freeway?.update(dt);   // and on the freeways (v1145)
   updateLive(dt); air.update(dt, camera); rail.update(dt, camera); for (const ap of airports) ap.update(t);
   updateWaypoints();
   updateOwn(dt);
@@ -3956,6 +3960,7 @@ window.__bay3d = {   // for AudioChart (returning to the chart where you were) a
   goTown: id => { const tw = townList.find(x => x.id === id); if (tw) goTown(tw); return !!tw; },
   air, rail,   // (the live aircraft and trains: for the live-tour recording, v1103)
   tracks: () => tracks,   // (for testing, v1125)
+  freeway: () => freeway,   // (v1145)
   trainCard: id => { const v = rail.items().find(p => p.id === id); if (v) showCard(v); return !!v; },   // (for testing, v1120)
   goWhole, towns: townList, tiles, scene, env, traffic, clockMin, setClock, camera, applyConditions, fleet, own, bowdoin, nest, setNest, ride, leaveRide, lookoutReport, findBerth, pierSegs, ferryStops, moorings, isWaterXZ: (x, z) => isWater(x, z), isWater: (lat, lon) => isWater(wx(lon), wz(lat)), boatAt: i => ({ lat: latOf(fleet[i].z), lon: lonOf(fleet[i].x), h: fleet[i].h }), renderer, trees: () => ({ near: TREES.near.count, far: TREES.far.count, K: TREES.K }),
 };
