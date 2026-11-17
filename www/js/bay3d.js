@@ -787,7 +787,7 @@ const VER = self.APP_VERSION ? `${self.APP_VERSION} · ` : '';
 creditEl.textContent = VER + creditEl.textContent;
 function updateCredit() {
   const shown = townList.filter(t => t.group);
-  creditEl.textContent = VER + (EMPTY ? 'Land and seabed NOAA NCEI CUDEM · Photos USDA NAIP' : `Elevation USGS 3DEP · Photos ${PHOTO_SOURCES.has('usgs') && !PHOTO_SOURCES.has('naip') ? 'USGS The National Map' : PHOTO_SOURCES.has('usgs') ? 'USDA NAIP, USGS The National Map' : 'USDA NAIP'}`) + (bridges ? ' · ' + bridges.credit : '') + (freeway ? ' · Freeways © OpenStreetMap contributors, traffic from Caltrans signs' : '') + (airports.length ? ' · ' + airports[0].credit : '') + (shown.length ? ' · Buildings © OpenStreetMap contributors' + (shown.some(t => /Microsoft/.test(t.credit)) ? ', Microsoft' : '') + (shown.some(t => /NYC Open Data/.test(t.credit)) ? ', NYC Open Data' : '') : '');
+  creditEl.textContent = VER + (EMPTY ? 'Land and seabed NOAA NCEI CUDEM · Photos USDA NAIP' : `Elevation USGS 3DEP · Photos ${PHOTO_SOURCES.has('usgs') && !PHOTO_SOURCES.has('naip') ? 'USGS The National Map' : PHOTO_SOURCES.has('usgs') ? 'USDA NAIP, USGS The National Map' : 'USDA NAIP'}`) + (bridges ? ' · ' + bridges.credit : '') + (freeway ? ' · ' + freeway.credit : '') + (airports.length ? ' · ' + airports[0].credit : '') + (shown.length ? ' · Buildings © OpenStreetMap contributors' + (shown.some(t => /Microsoft/.test(t.credit)) ? ', Microsoft' : '') + (shown.some(t => /NYC Open Data/.test(t.credit)) ? ', NYC Open Data' : '') : '');
 }
 // An airport's ground (v1111, requested: "let's add lots of detail to San Francisco Airport"; airport3d.js): her
 // runways and their markings, taxiways, aprons, lights, jet bridges, tower, AirTrain, set on the 10 m elevation the

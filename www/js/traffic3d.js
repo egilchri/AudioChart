@@ -27,6 +27,9 @@ export async function makeTraffic({ scene, rid, wx, wz, heightAt, clockMin }) {
       for (let j = k === 1 ? 0 : 1; j <= n; j++) { const f = j / n; S.push({ lon: a0 + (a1 - a0) * f, lat: b0 + (b1 - b0) * f, x: x0 + (x1 - x0) * f, z: z0 + (z1 - z0) * f, s: s + L * f, y: 0, deck: false }); }
       s += L;
     }
+    // (v1146, Boston: the Big Dig's I-93, the Ted Williams under the harbor) her tunnels' stretches: no cars drawn there
+    const sc = c.len > 0 ? s / c.len : 1;
+    for (const [t0, t1] of c.tunnels || []) for (const p of S) if (p.s >= t0 * sc - 5 && p.s <= t1 * sc + 5) p.tun = true;
     const xs = S.map(p => p.x), zs = S.map(p => p.z);
     // her free speed, m/s; her speed by 200 m bin (from the signs), and her cars when she's near
     const free = (/^I |^US /.test(c.ref) || c.lanes >= 3) && !c.two ? 29 : 22;
@@ -84,7 +87,7 @@ export async function makeTraffic({ scene, rid, wx, wz, heightAt, clockMin }) {
         if (n >= MAX) continue;
         let k = Math.min(S.length - 2, Math.floor(a.s / STEP)); while (k > 0 && S[k].s > a.s) k--; while (k < S.length - 2 && S[k + 1].s <= a.s) k++;
         const A = S[k], B = S[k + 1], u = Math.min(1, Math.max(0, (a.s - A.s) / ((B.s - A.s) || 1)));
-        if (A.deck) continue;   // (a big bridge's: its own traffic)
+        if (A.deck || A.tun) continue;   // (a big bridge's: its own traffic; a tunnel's: out of sight)
         const tx = B.x - A.x, tz = B.z - A.z, tl = Math.hypot(tx, tz) || 1, nx = -tz / tl, nz = tx / tl;
         const px = A.x + tx * u + nx * a.off, pz = A.z + tz * u + nz * a.off;
         if (Math.abs(px - vx) > R + 400 || Math.abs(pz - vz) > R + 400) continue;
@@ -126,10 +129,11 @@ export async function makeTraffic({ scene, rid, wx, wz, heightAt, clockMin }) {
     C.forEach((ch, i) => { for (let b = 0; b < ch.v.length; b++) ch.v[b] = wt[i][b] ? Math.min(ch.free * 1.1, sum[i][b] / wt[i][b]) : ch.free; });
     report = { t: Date.now(), signs: nsigns, est };
   }
-  poll(); const timer = setInterval(poll, 120e3);
+  // (v1146) only where there are signs to read: Boston's speeds are free-flowing (MassDOT's travel times need a key)
+  const timer = J.signs?.length ? (poll(), setInterval(poll, 120e3)) : null;
 
   return {
-    mesh, near, update, report: () => report,
+    mesh, near, update, report: () => report, credit: J.credit || 'Freeways © OpenStreetMap contributors',
     set on(v) { on = v; mesh.visible = v; },
     // (v1126's rail decks' kin) the big bridges' road decks: those stretches left to bridges3d.js's traffic
     setDecks(D) {

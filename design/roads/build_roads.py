@@ -1,6 +1,6 @@
 # The freeways, for Bird's-eye's traffic (v1128, requested: "put car traffic in each direction on the freeway (101?) If
 # it can be correlated with the traffic report, all the better"):
-#   python3 build_roads.py osm.json cms.json <id>
+#   python3 build_roads.py osm.json cms.json <id>     (cms.json '-' for a region without Caltrans's signs: Boston, v1146)
 # osm.json: Overpass `way["highway"~"^(motorway|motorway_link|trunk|trunk_link)$"](s,w,n,e); out geom tags;` (send a
 # User-Agent). cms.json: Caltrans's changeable message signs (https://cwwp2.dot.ca.gov/data/d4/cms/cmsStatusD04.json),
 # for where they stand.
@@ -75,19 +75,21 @@ for i in range(len(W)):   # (loops: none of them a start)
         chains.append(seq)
 out_chains = []
 for ci, seq in enumerate(chains):
-    pts, s, bridges, lanes = [], 0.0, [], []
+    pts, s, bridges, tunnels, lanes = [], 0.0, [], [], []
     for j in seq:
         P, t = W[j][0], W[j][1]
         cum = [s]
         for k in range(1, len(P)): cum.append(cum[-1] + dist(P[k - 1], P[k]))
         where[j] = (ci, cum)
         if t.get('bridge') and t.get('bridge') != 'no': bridges.append([round(cum[0], 1), round(cum[-1], 1)])
+        # (v1146, Boston: the Big Dig's I-93 and the Ted Williams under the harbor) her tunnels: no cars drawn in them
+        if t.get('tunnel') in ('yes', 'building_passage', 'covered') or t.get('layer', '0').lstrip('-').isdigit() and int(t.get('layer', '0')) <= -1: tunnels.append([round(cum[0], 1), round(cum[-1], 1)])
         lanes.append((cum[-1] - cum[0], lanes_of(t, W[j][3], True)))
         pts += P if not pts else P[1:]
         s = cum[-1]
     ln = max(set(l for _, l in lanes), key=lambda l: sum(d for d, x in lanes if x == l))
     out_chains.append({'ref': r0(seq[0]), 'lanes': ln, 'two': W[seq[0]][3], 'len': round(s, 1),
-                       'pts': [[round(a, 6), round(b, 6)] for a, b in rdp(pts, 2.0)], 'bridges': bridges})
+                       'pts': [[round(a, 6), round(b, 6)] for a, b in rdp(pts, 2.0)], 'bridges': bridges, 'tunnels': tunnels})
 
 # the graph: each point to the next along every directed way
 G = {}
@@ -128,7 +130,7 @@ for name, (la, lo, r) in PLACES.items():
     for k, p in pos.items():
         if k in noderefs and abs(p[1] - la) < 0.05 and abs(p[0] - lo) < 0.06 and dist(p, [lo, la]) <= r: at_place.setdefault(k, []).append(name)
 
-cms = json.load(open(cmsf))['data']
+cms = json.load(open(cmsf))['data'] if cmsf != '-' else []   # ('-': a region with no Caltrans signs: Boston, v1146)
 DIRS = {'North': 0, 'East': 90, 'South': 180, 'West': 270}
 mains = [(i, P) for i, (P, t, m, two) in enumerate(W) if m]
 def bearing(a, b): return (math.degrees(math.atan2((b[0] - a[0]) * math.cos(math.radians(a[1])), b[1] - a[1])) + 360) % 360
@@ -178,7 +180,7 @@ for x in cms:
         dd[n] = [round(d), [[ci, round(a), round(b)] for ci, a, b in ranges[::-1]]]
     signs.append({'id': L['locationName'].split('-')[0], 'dir': L['direction'], 'lon': lo, 'lat': la, 'd': dd})
 
-json.dump({'id': rid, 'credit': 'Roads © OpenStreetMap contributors; travel times Caltrans', 'chains': out_chains, 'signs': signs},
+json.dump({'id': rid, 'credit': 'Freeways © OpenStreetMap contributors' + (', traffic from Caltrans signs' if cms else ''), 'chains': out_chains, 'signs': signs},
           open(f'../../www/data/roads/{rid}.json', 'w'), separators=(',', ':'))
 print(len(out_chains), 'chains', sum(len(c['pts']) for c in out_chains), 'points;', len(signs), 'signs placed of', len(cms),
       ';', sum(len(s['d']) for s in signs), 'sign-place roads')

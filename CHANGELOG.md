@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-16 — Bird's-eye: cars on Boston's freeways, none in its tunnels (v1146)
+
+- Requested: "yes, do the Boston freeways too". www/data/roads/boston-harbor.json (design/roads/build_roads.py, with `-` for no Caltrans signs): OpenStreetMap's motorways and trunk roads round the harbor, 738 carriageways: I-93 (the Southeast Expressway, the Central Artery, north to Medford), I-90 (the Pike, the Ted Williams to Logan), Routes 1, 1A, 2, 3 (Memorial Drive), 28, 203 and the rest. `roads: 'boston-harbor'` (www/js/regions3d.js).
+- **Tunnels**: the builder now records each carriageway's tunnel stretches (`tunnel` tag, or a negative layer) as it does her bridges, and www/js/traffic3d.js draws no cars in them: the Big Dig's I-93 under the Greenway, the Ted Williams under the harbor, the Pike's covered stretches.
+- **Speeds**: free-flowing (65 mph on the interstates, 50 elsewhere), fewer cars at night. MassDOT's real-time travel times (its GoTime API) need a developer key, so there's no live speed in Boston yet; the traffic module only polls signs where a region has them.
+- The credit line now comes from the road data (SF's kept as it read: "Freeways © OpenStreetMap contributors, traffic from Caltrans signs"; Boston's without Caltrans).
+- Checked in headless Chrome: the Southeast Expressway at Savin Hill and Morrissey Boulevard, no cars on the harbor over the Ted Williams, none on the Greenway over I-93; SF unchanged (US 101 by SFO, 38 signs reporting).
+
 ## 2026-11-16 — Bird's-eye: cars on San Francisco's freeways, at Caltrans's speeds (v1145)
 
 - Requested on 2026-11-10: "put car traffic in each direction on the freeway (101?) If it can be correlated with the traffic report, all the better". Begun then (v1128 kept for it) and left unfinished when that session lost its network; finished now ("yes, finish the freeway traffic for SF").
