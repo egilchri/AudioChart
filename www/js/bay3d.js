@@ -1337,6 +1337,8 @@ const airReach = v => v.kind === 'air' ? clamp(v.y * 6, 5000, 28000) : 0;   // (
 let cockpit = null;   // (v1153: made with the armchair layer: buildArmchair)
 const cockpitKind = v => v.heli ? 'heli' : v.L > 14 ? 'jet' : 'light';
 function insidePlane(v, inside) {
+  // (v1161) a train's cab: her front window's frame, her speed and the next stop
+  if (v?.kind === 'rail') { if (!inside || nest.mode !== 'helm') { cockpit?.hide(); return; } cockpit?.show('train'); cockpit?.update({ gs: (v.vs ?? v.v ?? 0) * 2.237, next: v.a?.next || '', dest: v.a?.dest || '' }); return; }
   if (v?.kind !== 'air') { cockpit?.hide(); return; }
   if (v.model) v.model.visible = !inside;
   if (!inside) { cockpit?.hide(); return; }
@@ -4077,7 +4079,8 @@ window.__bay3d = {   // for AudioChart (returning to the chart where you were) a
   air, rail,   // (the live aircraft and trains: for the live-tour recording, v1103)
   tracks: () => tracks,   // (for testing, v1125)
   freeway: () => freeway,   // (v1145)
-  trackY: (lon, lat) => tracks ? tracks.yAt(wx(lon), wz(lat), 30) : null,   // (the drawn track's rail top near there, m: for testing, v1155)
+  trackY: (lon, lat) => tracks ? tracks.yAt(wx(lon), wz(lat), 30) : null,
+  subwayLayout: () => { const L = subway.layout; return L && { name: L.name, s0: Math.round(L.s0), s1: Math.round(L.s1), her: Math.round(L.her), real: L.real }; },   // (the tunnel's station, ahead or at her: for testing, v1161)   // (the drawn track's rail top near there, m: for testing, v1155)
   trainCard: id => { const v = rail.items().find(p => p.id === id); if (v) showCard(v); return !!v; },   // (for testing, v1120)
   goWhole, towns: townList, tiles, scene, env, traffic, clockMin, setClock, camera, applyConditions, fleet, own, bowdoin, nest, setNest, ride, leaveRide, lookoutReport, findBerth, pierSegs, ferryStops, moorings, isWaterXZ: (x, z) => isWater(x, z), isWater: (lat, lon) => isWater(wx(lon), wz(lat)), boatAt: i => ({ lat: latOf(fleet[i].z), lon: lonOf(fleet[i].x), h: fleet[i].h }), renderer, trees: () => ({ near: TREES.near.count, far: TREES.far.count, K: TREES.K }),
 };

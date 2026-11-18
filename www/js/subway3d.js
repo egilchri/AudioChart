@@ -17,7 +17,7 @@ import { buildStation, platformFor, fitStation, oneSide, stationStyle, lineColou
 export const UNDER = 1, GHOST = 2;   // the layers: the tunnel's, and a ghost's
 const DEG = Math.PI / 180;
 const LIGHT_RAIL = r => /Green|Mattapan/.test(r || '');
-const BACK = 350, AHEAD = 450, STEP = 2, LAMP = 10, TRACKS = 3.9;   // m: the tunnel's reach, its rings, the lamps' spacing, between the two tracks' middles
+const BACK = 350, AHEAD = 450, STEP = 2, LAMP = 15, TRACKS = 3.9;   // (v1161: lamps 15 m apart, in pools: the tunnel dark between, each lamp a flash as she passes)   // m: the tunnel's reach, its rings, the lamps' spacing, between the two tracks' middles
 
 export function makeSubway({ scene, rail, platforms }) {
   // (v1152) the region's real platforms (OpenStreetMap's), fetched the first time she stops at a station
@@ -28,6 +28,16 @@ export function makeSubway({ scene, rail, platforms }) {
   const hemi = new THREE.HemisphereLight(0xc8c2b4, 0x2a2620, 0.9), eye = new THREE.PointLight(0xfff0d8, 60, 0, 2), head = new THREE.PointLight(0xfff6e8, 160, 0, 2);
   for (const l of [hemi, eye, head]) { l.layers.set(UNDER); l.visible = false; scene.add(l); }
   const fog = new THREE.Fog(0x030304, 25, 300), black = new THREE.Color(0x030304);
+  // (v1161) her headlights: two soft beams thrown down the tunnel ahead of her, and the bright patch they make on the track
+  const beams = new THREE.Group(); beams.visible = false; scene.add(beams);
+  { const cone = new THREE.ConeGeometry(2.4, 42, 20, 1, true); cone.translate(0, -25, 0); cone.rotateX(-Math.PI / 2);   // (its tip 4 m out ahead of her lamp, so the cab's eye isn't inside it, opening ahead along -z)
+    const bm = new THREE.MeshBasicMaterial({ color: 0xfff1cf, transparent: true, opacity: 0.06, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.FrontSide, fog: false });
+    for (const sx of [-0.75, 0.75]) { const b = new THREE.Mesh(cone, bm); b.position.set(sx, 1.0, 0); b.rotation.x = 0.04; beams.add(b); }
+    const cv = document.createElement('canvas'); cv.width = cv.height = 128; const x = cv.getContext('2d'), gr = x.createRadialGradient(64, 64, 0, 64, 64, 64);
+    gr.addColorStop(0, 'rgba(255,240,205,0.8)'); gr.addColorStop(0.5, 'rgba(255,230,190,0.25)'); gr.addColorStop(1, 'rgba(255,230,190,0)'); x.fillStyle = gr; x.fillRect(0, 0, 128, 128);
+    const pool = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 26), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+    pool.rotation.x = -Math.PI / 2; pool.position.set(0, 0.04, -17); beams.add(pool);
+    beams.traverse(o => { o.layers.set(UNDER); o.frustumCulled = false; }); }
   let built = null, active = null, station = null;
   const shown = new Set(), _c = new THREE.Color(), _t = new THREE.Vector3(), _e = new THREE.Vector3();
 
@@ -63,6 +73,18 @@ export function makeSubway({ scene, rail, platforms }) {
   const ringAt = (P, x, z) => { let b = P[0], bd = Infinity; for (const r of P) { const e = (r.x - x) ** 2 + (r.z - z) ** 2; if (e < bd) { bd = e; b = r; } } return b; };
   const dAtOf = P => (x, z) => ringAt(P, x, z).d;
   let stationObj = null, surf = null, cur = null;
+  function stationAhead(P, p) {
+    if (!plats?.plats || !p.fix) return null;
+    const kx = 111320 * Math.cos(p.fix.lat * DEG), X = lon => p.fix.x + (lon - p.fix.lon) * kx, Z = lat => p.fix.z - (lat - p.fix.lat) * 111120;
+    let best = null;
+    for (const pl of plats.plats) {
+      const g = pl.g; let x = 0, z = 0; for (const q of g) { x += X(q[0]); z += Z(q[1]); } x /= g.length; z /= g.length;
+      if (Math.abs(x - p.x) > AHEAD + 50 || Math.abs(z - p.z) > AHEAD + 50) continue;
+      const r = ringAt(P, x, z); if (r.d < 40 || r.d > AHEAD - 70 || (r.x - x) ** 2 + (r.z - z) ** 2 > 14 * 14) continue;
+      if (!best || r.d < best.d) best = { d: r.d, x: r.x, z: r.z, n: pl.n };
+    }
+    return best && { name: p.a.next || best.n || 'Station', x: best.x, z: best.z, rail: p.a.rail, d: best.d };
+  }
   function build(p) {
     clear();
     const P = rings(p, BACK, AHEAD); if (!P) return;
@@ -72,6 +94,11 @@ export function makeSubway({ scene, rail, platforms }) {
     if (p.a.atStop && p.a.next && station?.name !== p.a.next) station = { name: p.a.next, x: p.fix?.x ?? p.x, z: p.fix?.z ?? p.z, rail: p.a.rail };   // (the station where the MBTA puts her, stopped: her walk along the track may lag it)
     let sd = null;
     if (station) { let bd = 40 * 40; for (const r of P) { const e = (r.x - station.x) ** 2 + (r.z - station.z) ** 2; if (e < bd) { bd = e; sd = r.d; } } if (sd == null) station = null; }
+    // (v1161, asked: "when we pull into a station and see the people on the platforms") the next station along her track,
+    // built before she gets there: the first of OpenStreetMap's platforms beside it within reach ahead, its name the
+    // next stop the feed gives her (else the platform's own)
+    wantPlats();
+    if (sd == null || sd < -60) { const ah = stationAhead(P, p); if (ah) { station = ah; sd = ah.d; } }
     const F = platformFor(p.a.rail, station?.name, p.len || 60);   // (v1151: the platform's height and length as the line's)
     const sSide = other ? -other : 1, platY = F.platY;
     // (v1152) the station's layout: OpenStreetMap's platforms and the tracks between them, fitted to hers; or one
@@ -95,9 +122,9 @@ export function makeSubway({ scene, rail, platforms }) {
     // the lamps: along both walls, under the roof; brighter and closer in the station
     const lit = (d, u, y) => {
       if (inSta(d)) return 1.25;
-      let s = 0.1; const n0 = Math.round(d / LAMP);
-      for (let n = n0 - 3; n <= n0 + 3; n++) for (const lu of [uL(d) + 0.3, uR(d) - 0.3]) { const r2 = (d - n * LAMP) ** 2 + (u - lu) ** 2 + (y - (H - 0.5)) ** 2; s += 2.2 / (1 + r2 / 5); }
-      return Math.min(1.6, s);
+      let s = 0.05 + 0.25 * kSta(d); const n0 = Math.round(d / LAMP);
+      for (let n = n0 - 2; n <= n0 + 2; n++) for (const lu of [uL(d) + 0.3, uR(d) - 0.3]) { const r2 = (d - n * LAMP) ** 2 + (u - lu) ** 2 + (y - (H - 0.5)) ** 2; s += 2.0 / (1 + r2 / 2.2); }
+      return Math.min(1.5, s);
     };
     const pos = [], col = [], idx = [];
     const W = (r, u, y) => [r.x + Math.cos(r.h) * u, r.y + y, r.z + Math.sin(r.h) * u];
@@ -152,6 +179,16 @@ export function makeSubway({ scene, rail, platforms }) {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setIndex(idx);
     const m = new THREE.Mesh(g, mat); m.layers.set(UNDER); m.frustumCulled = false; root.add(m);
+    // (v1161) the ties under her rails and the other track's, every 0.75 m: from the cab they stream under her
+    { const T = [], tracksU = [...tunT];
+      for (let i = 0; i < N; i++) { const a = P[i], b = P[i + 1]; for (let f = 0; f < 1; f += 0.75 / STEP) {
+        const d = a.d + (b.d - a.d) * f; if (Math.abs(d % 0.75) > 0.4 && f) continue;
+        for (const t of tracksU) { const u = kSta(d) > 0 && staT.length ? null : t; if (u == null) continue; T.push(a.x + (b.x - a.x) * f + Math.cos(a.h) * u, a.y + (b.y - a.y) * f - 0.06, a.z + (b.z - a.z) * f + Math.sin(a.h) * u, a.h); }
+      } }
+      const k = lit(0, 0, 0) > 0 ? 1 : 1, im = new THREE.InstancedMesh(TIE_G, TIE_M, Math.max(1, T.length / 4)); im.count = T.length / 4;
+      const mm = new THREE.Matrix4(), qq = new THREE.Quaternion(), one = new THREE.Vector3(1, 1, 1), vv = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
+      for (let i = 0; i < im.count; i++) im.setMatrixAt(i, mm.compose(vv.set(T[i * 4], T[i * 4 + 1], T[i * 4 + 2]), qq.setFromAxisAngle(up, -T[i * 4 + 3]), one));
+      im.layers.set(UNDER); im.frustumCulled = false; root.add(im); }
     // (v1151) the station: its platform, walls, signs, lamps, stairs and people (platform3d.js)
     if (R) { stationObj = buildStation({ P, sd, R, platY, rail: p.a.rail, name: station.name, dest: p.a.dest, under: true, ceil: H + 1.2, layer: UNDER, style: sty }); root.add(stationObj.group); }
     const dAt = dAtOf(P);
@@ -189,6 +226,7 @@ export function makeSubway({ scene, rail, platforms }) {
     for (const q of shown) if (rail.has(q)) q.model.visible = !q.under;
     shown.clear(); clear(); station = null; active = null;
     for (const l of [hemi, eye, head]) l.visible = false;
+    beams.visible = false;
   }
   // the track's place q moved u m across, y up (the track's height there)
   const place0 = (q, u, y, out, p) => out.set(q.x + Math.cos(q.h * DEG) * u, (rail.trackY(q.x, q.z) ?? p.y) + y, q.z + Math.sin(q.h * DEG) * u);
@@ -243,7 +281,9 @@ export function makeSubway({ scene, rail, platforms }) {
       for (const l of [hemi, eye, head]) l.visible = true;
       const sta = built.sd != null && built.inSta(built.dAt(p.x, p.z));
       hemi.intensity = sta ? 2.4 : 0.9; cur = 'tunnel';
-      const half0 = (p.len || 60) / 2; place0(at(p, half0) || p.cur, 0, 1.6, head.position, p);
+      const half0 = (p.len || 60) / 2, fr = at(p, half0) || p.cur; place0(fr, 0, 1.6, head.position, p);
+      // (v1161) her headlights at her front, along her track (dimmer in a lit station)
+      place0(fr, 0, 0, beams.position, p); beams.rotation.set(0, -fr.h * DEG, 0); beams.visible = true; beams.children[0].material.opacity = sta ? 0.025 : 0.06;
       if (mode === 'helm') { eye.position.copy(camera.position); camera.fov = 58 / (nest.zoom || 1); camera.updateProjectionMatrix(); return cur; }
       placeCam(built, p, mode, nest, camera, sta); eye.position.copy(camera.position);
       return cur;
@@ -272,3 +312,5 @@ export function makeSubway({ scene, rail, platforms }) {
   };
 }
 const GHOSTS = new Map();
+// (v1161) a tie: 2.6 m across her track, 0.25 m along, dark creosoted wood (unlit, as the tunnel is)
+const TIE_G = new THREE.BoxGeometry(2.6, 0.12, 0.24), TIE_M = new THREE.MeshBasicMaterial({ color: 0x5a4c3c });

@@ -4,6 +4,9 @@
 // instrument panel along the bottom, window pillars at the sides, and her instruments reading her own ADS-B: round
 // dials (airspeed, altimeter, heading, climb) in a light plane or a helicopter, glass screens in a jet.
 // makeCockpit(el) → { show(kind), hide(), update({ gs, alt, hdg, vr, ground }) }; kind: 'light' | 'heli' | 'jet'
+// (v1161, asked: "work on the cab views of the subways ... when we pull into a station and see the people on the
+// platforms") 'train': a subway or railroad cab's front, its window's frame and the storm door's post, and a low
+// desk with her speed and the next stop in amber; update({ gs: mph, next, dest })
 const NS = 'http://www.w3.org/2000/svg';
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const fmt = n => Math.round(n).toLocaleString('en-US');
@@ -26,6 +29,10 @@ const figs = (vals, from, span, r = 28) => vals.map((v, i) => {
 }).join('');
 const needle = (cls, len, w = 2.6) => `<g class="${cls}"><path d="M${-w / 2},6 L0,${-len} L${w / 2},6 Z" class="ndl"/></g>`;
 
+function trainPanel() {   // her speed (0-60 mph), the amber line of the next stop and where she's bound, the controller's handle
+  const spd = dial('MPH', tickRing(12, -135, 270, 2) + figs(['0', '10', '20', '30', '40', '50', '60'], -135, 270) + needle('n-asi', 36) + '<circle r="3.5" class="hub"/>');
+  return `<div class="gauges">${spd}<div class="tled"><div class="n-next"></div><div class="n-dest"></div></div><svg viewBox="0 0 60 100" class="tlever"><rect x="22" y="8" width="16" height="84" rx="6" class="slot"/><g class="n-lever"><rect x="14" y="44" width="32" height="12" rx="4" class="knob"/></g></svg></div>`;
+}
 function lightPanel() {
   const asi = dial('KNOTS', tickRing(20, -150, 300, 2) + figs(['0', '40', '80', '120', '160', '200'], -150, 300) + needle('n-asi', 38) + '<circle r="3.5" class="hub"/>');
   const alt = dial('FEET', tickRing(50, 0, 360, 5) + figs(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'].concat(['']), 0, 360) + '<rect x="-14" y="8" width="28" height="10" rx="1.5" class="win"/><text y="16" class="dig n-altd">0</text>' + needle('n-alt10', 22, 4) + needle('n-alt', 38) + '<circle r="3.5" class="hub"/>');
@@ -80,13 +87,17 @@ export function makeCockpit(el) {
     show(k) {
       if (k !== kind) {
         kind = k; lastS = lastA = null; el.className = `ck-${k}`;
-        el.innerHTML = `<div class="pillar l"></div><div class="pillar r"></div>${k === 'jet' ? '<div class="pillar c"></div>' : ''}<div class="ckpanel">${k === 'jet' ? jetPanel() : lightPanel()}</div>`;
+        el.innerHTML = `<div class="pillar l"></div><div class="pillar r"></div>${k === 'jet' || k === 'train' ? '<div class="pillar c"></div>' : ''}${k === 'train' ? '<div class="theader"></div>' : ''}<div class="ckpanel">${k === 'jet' ? jetPanel() : k === 'train' ? trainPanel() : lightPanel()}</div>`;
       }
       el.hidden = false; document.body.classList.add('incockpit');
     },
     hide() { el.hidden = true; document.body.classList.remove('incockpit'); },
-    update({ gs = 0, alt = 0, hdg = 0, vr = 0, ground = false } = {}) {
+    update({ gs = 0, alt = 0, hdg = 0, vr = 0, ground = false, next = '', dest = '' } = {}) {
       if (el.hidden) return;
+      if (kind === 'train') {   // (v1161) her speed, the next stop, the controller back as she slows
+        rot('.n-asi', -135 + 270 * clamp(gs, 0, 60) / 60); txt('.n-next', next ? `Next: ${next}` : ''); txt('.n-dest', dest ? `To ${dest}` : '');
+        set('.n-lever', n => n.setAttribute('transform', `translate(0 ${(-28 * clamp(gs / 45, 0, 1)).toFixed(1)})`)); return;
+      }
       q = { gs, alt, hdg, vr };
       const h = ((hdg % 360) + 360) % 360, h3 = String(Math.round(h) % 360).padStart(3, '0');
       if (kind === 'jet') {

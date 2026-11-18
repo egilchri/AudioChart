@@ -273,6 +273,18 @@ body:has(#ridechart:not([hidden])) #cockpit .ckpanel { padding-right: calc(clamp
 #cockpit .pillar.r { right: 0; clip-path: polygon(40% 0, 100% 0, 100% 100%, 0 100%); background: linear-gradient(270deg, #15171a, #2a2e33); }
 #cockpit .pillar.c { left: 50%; width: max(8px, 0.9vw); transform: translateX(-50%); clip-path: none; bottom: calc(var(--ckh) - 8px); background: linear-gradient(90deg, #1b1e22, #3a3f45 50%, #1b1e22); }
 #cockpit.ck-heli .pillar { width: 3vw; }
+/* (v1161) a train's cab: a heavy frame round her front window, the storm door's post left of the middle, a low desk */
+#cockpit.ck-train { --ckh: clamp(84px, 17vh, 170px); }
+#cockpit.ck-train .pillar { width: 9vw; clip-path: none; background: linear-gradient(90deg, #0d0e10, #23262a); }
+#cockpit.ck-train .pillar.r { background: linear-gradient(270deg, #0d0e10, #23262a); }
+#cockpit.ck-train .pillar.c { left: 38%; width: max(14px, 1.8vw); background: linear-gradient(90deg, #0d0e10, #2c3035 50%, #0d0e10); }
+#cockpit .theader { position: absolute; left: 0; right: 0; top: 0; height: 9vh; background: linear-gradient(#0b0c0e, #1d2024); box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+#cockpit.ck-train .ckpanel { border-radius: 0; background: linear-gradient(#2a2d31 0, #17191c 30%, #0f1012 100%); }
+#cockpit .tled { font: 700 clamp(13px, 2.1vh, 22px) var(--mono, monospace); color: #ffb21e; background: #050505; padding: 0.5em 1em; border-radius: 4px; min-width: 16em; text-shadow: 0 0 6px rgba(255,160,20,0.6); }
+#cockpit .tled .n-dest { opacity: 0.7; font-size: 0.8em; margin-top: 0.2em; }
+#cockpit .tlever { height: 90%; }
+#cockpit .tlever .slot { fill: #0b0c0d; stroke: #3a3f45; }
+#cockpit .tlever .knob { fill: #9a2a22; stroke: #1a0a08; }
 #cockpit.ck-heli { --ckh: clamp(100px, 22vh, 220px); }
 #cockpit.ck-heli .ckpanel { border-top-left-radius: 30% 40%; border-top-right-radius: 30% 40%; }
 /* a phone: the chart takes the right of the bottom and the bar the foot, so the dials go two by two on the left,

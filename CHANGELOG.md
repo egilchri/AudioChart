@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-18 — Bird's-eye: the subway's cab, pulling into the station (v1161, Bird's-eye only)
+
+- Asked: "work on the cab views of the subways. They could be really dramatic if we do them right, like when we pull into a station and see the people on the platforms".
+- **The next station, there before she is** (www/js/subway3d.js `stationAhead`): the station was built only once the feed said she'd stopped at it, so from the cab it appeared round her as she arrived. Now the first of OpenStreetMap's platforms beside her track within reach ahead is fitted and built there, named as the next stop the feed gives her: from the cab its lit platform, its people, its signs and columns come up the tunnel toward her, and she runs in among them. Checked on a live 1 train: 50 St built 230 m ahead, run into and left; Times Sq–42 St next.
+- **The tunnel at speed**: its lamps 15 m apart in pools, dark between, each a flash as she passes; the ties under every track, 0.75 m apart, streaming under her (one instanced mesh); her **headlights**, two soft beams thrown down the tunnel and their bright patch on the track ahead (fainter in a lit station).
+- **Her cab** (www/js/cockpit.js 'train', bay3d.html): a heavy frame round her front window, the storm door's post, and a low desk with her speedometer (0 to 60 mph), the controller's handle (forward as she runs, back as she slows) and an amber "Next: Times Sq-42 St / To South Ferry". On every railroad's Cab view, above ground too.
+- `__bay3d.subwayLayout()` for checking. Full CI suite passes.
+
 ## 2026-11-18 — Bird's-eye: PATH and the LIRR, live (v1160, Bird's-eye only)
 
 - Asked: "do PATH and the LIRR next".
