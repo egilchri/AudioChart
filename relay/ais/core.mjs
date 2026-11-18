@@ -167,6 +167,12 @@ export const RAIL = [
   // someone's looking at New York (`box`).
   ...['', '-ace', '-bdfm', '-g', '-jz', '-nqrw', '-l', '-si'].map(f => ({ id: 'NY' + (f.slice(1) || '1234567'), name: 'NYC Subway', ttl: 30, binary: true, box: NYC_BBOX,
     url: () => `https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/nyct%2Fgtfs${f}`, trim: async (buf, rail, now) => trimNyct(buf, rail, now, await nycData()) })),
+  // (v1160, "do PATH and the LIRR next") the LIRR: the MTA's feed, each train's own place (GPS); her branch from her trip
+  { id: 'LI', name: 'LIRR', ttl: 30, binary: true, box: NYC_BBOX, url: () => 'https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/lirr%2Fgtfs-lirr',
+    trim: async (buf, rail, now) => trimLirr(buf, rail, now, await lirrData()) },
+  // PATH: the Port Authority's next trains at each station; her place worked out from them (trimPath)
+  { id: 'PA', name: 'PATH', ttl: 30, box: NYC_BBOX, url: () => 'https://www.panynj.gov/bin/portauthority/ridepath.json',
+    trim: async (text, rail, now) => trimPath(text, rail, now, await pathData()) },
 ];
 // The MBTA's answer (JSON:API) to its trains, in the shape the others are: the T's lines by their own names (the
 // Red Line, the Green Line's B to E, Mattapan), the commuter rail as "Commuter Rail" with her line (Worcester Line)
@@ -285,7 +291,7 @@ export function pbRead(buf, s = 0, e = buf.length) {
   const varint = () => { let r = 0, m = 1, b; do { b = buf[p++]; r += (b & 127) * m; m *= 128; } while (b & 128 && p < e); return r; };
   while (p < e) {
     const key = varint(), f = Math.floor(key / 8), t = key & 7; let v;
-    if (t === 0) v = varint(); else if (t === 2) { const n = varint(); v = [p, p + n]; p += n; } else if (t === 1) { v = null; p += 8; } else if (t === 5) { v = null; p += 4; } else break;
+    if (t === 0) v = varint(); else if (t === 2) { const n = varint(); v = [p, p + n]; p += n; } else if (t === 1) { v = null; p += 8; } else if (t === 5) { v = { f32: p }; p += 4; } else break;   // (a float's place: f32, v1160)
     (out[f] ||= []).push(v);
   }
   return out;
@@ -323,6 +329,68 @@ export function trimNyct(buf, rail, now = Date.now(), nyc) {
     out.push({ id: `${rail.id}:${v.trip}`, rail: line === 'SIR' ? 'Staten Island Railway' : `${line} train`, line, trip: v.trip.split('_')[0], dest: nyc.stops[last.slice(0, -1)]?.[2] || '',
       dir: stop.slice(-1) === 'N' ? 'N' : 'S', lat: +pt.lat.toFixed(5), lon: +pt.lon.toFixed(5), brg: Math.round(pt.brg), at: Math.min(v.at || now, now),
       mph: null, from: '', next: nyc.stops[st]?.[2] || '', nextExp: ahead.find(s => s.stop === stop)?.arr || null, atStop: v.status === 'stopped' });
+  }
+  return out;
+}
+
+// ---- PATH and the LIRR (v1160) ----
+const SITE = 'https://egilchri.github.io/AudioChart/data/rail/';
+const once = (name, prep) => { let pr = null; return (load = () => fetch(SITE + name).then(r => { if (!r.ok) throw new Error(`${name} ${r.status}`); return r.json(); })) => pr ||= load().then(prep).catch(e => { pr = null; throw e; }); };
+export const lirrData = once('lirr.json', j => j);
+export const pathData = once('path.json', j => {
+  for (const L of Object.values(j.lines)) { L.cum = [0]; for (let i = 1; i < L.p.length; i++) L.cum.push(L.cum[i - 1] + metres(L.p[i - 1], L.p[i])); }
+  return j;
+});
+const f32 = (buf, v) => v?.f32 != null ? new DataView(buf.buffer, buf.byteOffset + v.f32, 4).getFloat32(0, true) : null;
+// the LIRR's: VehiclePosition 1 trip, 2 position (1 latitude, 2 longitude, 3 bearing, 5 speed m/s), 4 status, 5 time, 7 stop
+export function trimLirr(buf, rail, now = Date.now(), L) {
+  if (!(buf instanceof Uint8Array) || !L) return [];
+  const dec = new TextDecoder(), str = r => r ? dec.decode(buf.subarray(r[0], r[1])) : '', out = [];
+  for (const r of pbRead(buf)[2] || []) {
+    const en = pbRead(buf, ...r); if (!en[4]) continue;
+    const v = pbRead(buf, ...en[4][0]), tr = v[1] && pbRead(buf, ...v[1][0]), ps = v[2] && pbRead(buf, ...v[2][0]); if (!ps) continue;
+    const lat = f32(buf, ps[1]?.[0]), lon = f32(buf, ps[2]?.[0]), brg = f32(buf, ps[3]?.[0]), sp = f32(buf, ps[5]?.[0]); if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+    const trip = str(tr?.[1]?.[0]), [rid, head] = L.trips[trip] || [], route = L.routes[rid], at = (v[5]?.[0] || 0) * 1000;
+    if (at && now - at > 15 * 60e3) continue;   // (gone, not stopped)
+    out.push({ id: `${rail.id}:${trip}`, rail: rail.name, line: route?.[0] || '', trip: trip.split('_').pop(), dest: head || '', dir: '',
+      lat: +lat.toFixed(5), lon: +lon.toFixed(5), brg: Number.isFinite(brg) ? Math.round(brg) : null, at: Math.min(at || now, now),
+      mph: Number.isFinite(sp) ? +(sp * 2.23694).toFixed(1) : null, from: '', next: L.stops[str(v[7]?.[0])] || '', atStop: v[4]?.[0] === 1 });
+  }
+  return out;
+}
+// PATH's: each station's next trains by line colour and where they're bound, in seconds. On each line toward each end,
+// a train due at a station in less than the run to it from the one before is between the two (a train due within
+// 20 s, at it); the same train seen again (its time at the end of the line within 2 minutes of one kept) keeps her id.
+const pathKept = new Map(); let pathSeq = 0;
+export function trimPath(text, rail, now = Date.now(), P) {
+  let j; try { j = JSON.parse(text); } catch (_) { return []; }
+  if (!P) return [];
+  const due = new Map();   // 'colour:end:station' -> seconds to the first
+  for (const st of j?.results || []) for (const de of st.destinations || []) for (const m of de.messages || []) {
+    const sec = Number(m.secondsToArrival); if (!Number.isFinite(sec)) continue;
+    for (const col of String(m.lineColor || '').toUpperCase().split(',')) { const k = `${col}:${m.target}:${st.consideredStation}`; if (!(due.get(k) <= sec)) due.set(k, sec); }
+  }
+  const out = [], seen = new Set();
+  for (const [key, L] of Object.entries(P.lines)) {
+    const [col, end] = key.split(':'), S = L.s, cands = [];
+    for (let i = 1; i < S.length; i++) {
+      const t = due.get(`${col}:${end}:${S[i][0]}`); if (t == null) continue;
+      const run = S[i][2] || 120; if (t > run) continue;
+      const f = t <= 20 ? 1 : 1 - t / run, d = S[i - 1][1] + (S[i][1] - S[i - 1][1]) * f;
+      let rest = t; for (let k = i + 1; k < S.length; k++) rest += S[k][2] + 25;   // (her time to the end of the line, stops and all)
+      cands.push({ d, i, t, eta: now + rest * 1000 });
+    }
+    cands.sort((a, b) => a.d - b.d);
+    const kept = pathKept.get(key) || [], next = [];
+    for (const c of cands) {
+      if (next.length && c.d - next.at(-1).d < 150) continue;   // (one train, seen at two stations)
+      const prev = kept.filter(k => !seen.has(k.id) && Math.abs(k.eta - c.eta) < 120e3).sort((a, b) => Math.abs(a.eta - c.eta) - Math.abs(b.eta - c.eta))[0];
+      const id = prev?.id || `${rail.id}:${col}-${end}-${++pathSeq}`; seen.add(id); next.push({ ...c, id });
+      const pt = along(L, c.d), nx = S[c.i][0];
+      out.push({ id, rail: rail.name, line: L.name, trip: '', dest: P.stops[end]?.[2] || end, dir: '', lat: +pt.lat.toFixed(5), lon: +pt.lon.toFixed(5), brg: Math.round(pt.brg),
+        at: now, mph: null, from: '', next: P.stops[nx]?.[2] || nx, nextExp: now + c.t * 1000, atStop: c.t <= 20, col: '#' + col });
+    }
+    pathKept.set(key, next);
   }
   return out;
 }

@@ -12,7 +12,7 @@ import { makeAmtrak } from './amtrak3d.js';
 import { makeMbtaCR, makeTTrain, T_RAILS, NYC_RAIL, NYC_LINES, nycLine } from './mbta3d.js';
 import { minOfDay, bayDay } from './regiontime.js';
 
-export const TRAIN_CREDIT = 'Trains from 511.org, Amtrak (via Amtraker), the MBTA and the MTA';
+export const TRAIN_CREDIT = 'Trains from 511.org, Amtrak (via Amtraker), the MBTA, the MTA and the Port Authority (PATH)';
 const DEG = Math.PI / 180;
 const LONG = /starlight|zephyr|chief|sunset|eagle|builder|cardinal|crescent|limited/i;   // (Amtrak's long-distance trains: Superliners or their like)
 // each railroad's train: cars, car length (m), and livery (body, band)
@@ -28,9 +28,12 @@ const LOOK = {
   'Blue Line': { cars: 6, len: 15, body: 0xc9cdd2, band: 0x003da5 },
   'Green Line': { cars: 2, len: 22, body: 0xd8dadc, band: 0x00843d },
   'Mattapan Trolley': { cars: 1, len: 14, body: 0xe9dcb0, band: 0xd0631e },
+  // (v1160) New York's commuter railroads: the LIRR's, PATH's (her line's colour from her report: a.col)
+  LIRR: { cars: 10, len: 26, body: 0xc9cdd2, band: 0x1d4f91 },
+  PATH: { cars: 7, len: 16, body: 0xc6cace, band: 0x0d3b70 },
 };
 // each line's top speed, m/s: a speed worked out from two of her reports faster than this is a jump, not a speed (v1147)
-const TOP = { 'Red Line': 25, 'Orange Line': 25, 'Blue Line': 22, 'Green Line': 20, 'Mattapan Trolley': 16, 'Commuter Rail': 36 };
+const TOP = { 'Red Line': 25, 'Orange Line': 25, 'Blue Line': 22, 'Green Line': 20, 'Mattapan Trolley': 16, 'Commuter Rail': 36, LIRR: 36, PATH: 25 };
 // (v1154) New York's subway: each line's look from afar in her colour (her cars close in: mbta3d.js makeTTrain), at
 // ~25 m/s at most (55 mph, the expresses' best); Staten Island's a little faster
 const lookOf = a => LOOK[a.rail] || (NYC_RAIL.test(a.rail) ? (LOOK[a.rail] = { cars: 10, len: 17, body: 0xc6cace, band: parseInt((NYC_LINES[nycLine(a.rail)] || '#808183').slice(1), 16) }) : LOOK.Caltrain);
@@ -38,7 +41,7 @@ const topOf = rail => TOP[rail] || (rail === 'Staten Island Railway' ? 30 : NYC_
 // a train's name on her label and card: Amtrak's by her route ("Capitol Corridor"), the MBTA's commuter rail by her
 // line ("Worcester Line"), the Green Line by her branch ("Green Line E"), the rest by the railroad's or line's own
 const trainName = a => a.rail === 'Amtrak' && a.line ? a.line : a.rail === 'Commuter Rail' && a.line ? a.line.split('/').pop().replace(/ Line$/, '') + ' Line'
-  : a.rail === 'Green Line' && a.line ? `Green Line ${a.line[0]}` : a.rail;
+  : a.rail === 'Green Line' && a.line ? `Green Line ${a.line[0]}` : a.rail === 'LIRR' && a.line ? `LIRR ${a.line.replace(/ Branch$/, '')}` : a.rail;
 function trainModel(look) {   // the cars in a line along -z (her front), 1 unit = 1 m
   const g = new THREE.Group(), body = new THREE.MeshLambertMaterial({ color: look.body }), band = new THREE.MeshLambertMaterial({ color: look.band });
   const roof = new THREE.MeshLambertMaterial({ color: look.band, emissive: look.band, emissiveIntensity: 0.45 });
@@ -382,7 +385,7 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
       if (far) {
         p.model.visible = false;
         if (!p.under && farN < FAR_MAX) {
-          p.farCol ??= lookOf(p.a).band;
+          p.farCol ??= p.a.col ? parseInt(p.a.col.slice(1), 16) : lookOf(p.a).band;   // (PATH's: her line's colour)
           farMesh.setMatrixAt(farN, _m4.compose(_p3.set(p.x, p.y, p.z), _q4.setFromAxisAngle(_y, -p.dh * DEG), _s3.set(3.0 * w, 3.8 * Math.max(1, w * 0.5), (p.len || 160) * l)));
           farMesh.setColorAt(farN, _c3.set(p.farCol)); farN++;
         }

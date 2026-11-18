@@ -3,10 +3,11 @@
 //   node relay/ais/dev.mjs --fake                   made-up vessels in AIS's own message format, no key needed
 // Then open Bird's-eye with ?ais=http://localhost:8790 (or set it once: localStorage 'audiochart-ais-relay').
 import http from 'node:http';
-import { makeTable, subscription, corsHeaders, FEEDS, bboxOf, aircraftUpstream, trimAircraft, RAIL, nycData } from './core.mjs';
+import { makeTable, subscription, corsHeaders, FEEDS, bboxOf, aircraftUpstream, trimAircraft, RAIL, nycData, lirrData, pathData } from './core.mjs';
 import { readFileSync } from 'fs';
 // (v1154) New York's subway paths from this checkout, not the published site
 nycData(async () => JSON.parse(readFileSync(new URL('../../www/data/rail/nyc-subway.json', import.meta.url), 'utf8'))).catch(e => console.log('nyc-subway.json:', e.message));
+for (const [f, load] of [['lirr.json', lirrData], ['path.json', pathData]]) load(async () => JSON.parse(readFileSync(new URL('../../www/data/rail/' + f, import.meta.url), 'utf8'))).catch(e => console.log(f + ':', e.message));   // (v1160)
 
 const PORT = Number(process.env.PORT) || 8790, FAKE = process.argv.includes('--fake');
 const table = makeTable();

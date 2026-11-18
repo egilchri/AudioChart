@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-18 — Bird's-eye: PATH and the LIRR, live (v1160, Bird's-eye only)
+
+- Asked: "do PATH and the LIRR next".
+- **The LIRR** (relay/ais/core.mjs `trimLirr`, Ted's Birdseye's relay): the MTA's GTFS-realtime feed for it (no key) gives each train's own place by GPS; her branch and where she's bound come from her trip in the LIRR's timetable (www/data/rail/lirr.json, 67 KB, by design/rail/build_path_lirr.py). About 60 trains on its 11 branches and the City Terminal Zone, named "LIRR Babylon 262" and the like. Her cars (www/js/mbta3d.js): ten 85 ft stainless M7s with the LIRR's blue stripe, two doors a side; her stations' high platforms, 260 m long.
+- **PATH** (`trimPath`): the Port Authority's feed (ridepath.json) gives only each station's next trains, in seconds, by line colour and where they're bound. Each line's way to each end, its stations along it and the scheduled run to each (www/data/rail/path.json, 13 KB, from PATH's GTFS) put her there: a train due at a station in less than the run to it from the one before is between the two, one due within 20 s at it; one seen at two stations counted once. With no train numbers in the feed, she keeps her id from one read to the next by her time at the end of the line. Her cars: seven 51 ft stainless PA5s, PATH's sign on her; from afar, her line's colour (red Newark–WTC, green Hoboken–WTC, yellow Journal Square–33rd, blue Hoboken–33rd).
+- Both are asked for only while someone's looking at New York.
+- Checked: offline against the live feeds (59 LIRR trains, 13 PATH trains, every PATH id kept on a second read), and in headless Chrome through the local relay: an LIRR Long Beach train at Jamaica, a PATH train on the bridge over the Passaic by Newark, another in the tunnel under Greenwich Village. Full CI suite passes.
+
 ## 2026-11-18 — Bird's-eye: New York's stations as themselves (v1159, Bird's-eye only)
 
 - Asked: "do the New York station looks next". Riding a New York train into a station, it's now New York's, not Boston's (www/js/platform3d.js `stationStyle`, `buildStation`), by her line's era:
