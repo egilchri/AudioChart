@@ -70,7 +70,9 @@ export class AisHub {
         try {
           const up = await fetch(rail.url ? rail.url() : railUpstream(rail.id, this.env.FIVE11_KEY), rail.url ? { headers: { 'User-Agent': 'AudioChart-relay', ...(rail.headers?.(this.env) || {}) } } : undefined);
           if (!up.ok) throw new Error(String(up.status));
-          const text = rail.binary ? new Uint8Array(await up.arrayBuffer()) : await up.text(), got = { at: now, trains: await (rail.trim || trimTrains)(text, rail, now) };   // (v1154: the MTA's protobuf)
+          const text = rail.binary ? new Uint8Array(await up.arrayBuffer()) : await up.text();
+          if (rail.binary) (this.diag ??= {})[rail.id] = { bytes: text.length, type: up.headers.get('content-type'), enc: up.headers.get('content-encoding') };
+          const got = { at: now, trains: await (rail.trim || trimTrains)(text, rail, now) };   // (v1154: the MTA's protobuf)
           if (!rail.binary) try { const j = JSON.parse(text.replace(/^\uFEFF/, '')), d = j?.Siri?.ServiceDelivery?.VehicleMonitoringDelivery; (this.sample ??= {})[rail.id] = (Array.isArray(d) ? d[0] : d)?.VehicleActivity?.slice(0, 2); } catch (_) {}   // (?sample=1: what 511 sends, for checking)
           this.rail[rail.id] = got; try { await this.state.storage.put('rail:' + rail.id, got); } catch (_) {}   // (storage holds 128 KB a value: kept in memory regardless)
           return got.trains;
@@ -86,7 +88,7 @@ export class AisHub {
     if (bbox) out = out.filter(t => t.lon >= bbox[0] && t.lat >= bbox[1] && t.lon <= bbox[2] && t.lat <= bbox[3]);
     const body = { t: now, trains: out.map(t => ({ ...t, age: Math.max(0, Math.round((now - t.at) / 1000)) })) };
     if (errors.length) body.error = errors.join('; ');
-    if (new URL(req.url).searchParams.get('sample')) body.sample = this.sample || null;
+    if (new URL(req.url).searchParams.get('sample')) { body.sample = this.sample || null; body.counts = Object.fromEntries(RAIL.map((r, i) => [r.id, lists[i].length])); body.diag = this.diag || null; }
     return new Response(JSON.stringify(body), { headers: corsHeaders(req.headers.get('Origin')) });
   }
   async fetch(req) {
