@@ -2238,6 +2238,7 @@ function liveData(snap) {
     }
     v.A = A; v.what = cls.what;
     v.fix = { x: wx(A.lon), z: wz(A.lat), t: now - (A.age || 0) * 1000 };
+    v.reach = reachOf(v.fix, A);   // (v1157: how far on her course she may be carried before land or a pier)
     const st = aisStatus(A.status), kn = A.sog || 0;
     v.ashore = ashoreAt(A.lon, A.lat);
     v.label = `${cls.what}${v.ashore ? ', ashore (hauled out?)' : st && st !== 'under way' ? ', ' + st : ''}${kn >= 0.5 ? `, ${kn.toFixed(kn < 10 ? 1 : 0)} kn${A.cog != null ? ' on ' + magTxt(A.cog) : ''}` : ''}`;   // (her course too: v1008)
@@ -2250,12 +2251,30 @@ function liveData(snap) {
   for (const v of [...live]) if (!seen.has(v.mmsi)) dropLive(v);
   liveOK = live.length > 0;
 }
-window.__live = () => live.map(v => ({ mmsi: v.mmsi, name: v.A.name, lat: latOf(v.z), lon: lonOf(v.x), sog: v.A.sog, cog: v.A.cog, what: v.what, age: v.A.age }));   // (for checking from a script that they move)
+window.__live = () => live.map(v => ({ mmsi: v.mmsi, name: v.A.name, lat: latOf(v.z), lon: lonOf(v.x), sog: v.A.sog, cog: v.A.cog, what: v.what, age: v.A.age, reach: v.reach, wet: heightAt(lonOf(v.x), latOf(v.z)) <= 0.3 }));   // (for checking from a script that they move)
 function dropLive(v) {
   if (nest.on && nest.v === v) leaveRide();
   if (follow === v) stopFollow();
   scene.remove(v.group); disposeGroup?.(v.group);
   live.splice(live.indexOf(v), 1);
+}
+// (v1157, reported: "this is not the first time I've seen a boat come in towards the dock and just plough right on
+// through") between reports a vessel's carried on at her last speed and course, for up to five minutes; a ferry heard
+// at 20 kn as she came in to her slip went on through it and into the town till her next report. Now no further than
+// 15 m short of where her course first meets land or a pier (looked along it in 10 m steps, from where it's first
+// clear of what's round her start: one leaving her slip between its piers still goes)
+function reachOf(fix, A) {
+  const kn = A.sog || 0; if (kn < 0.5) return Infinity;
+  const cog = (A.cog ?? A.hdg ?? 0) * DEG, sx = Math.sin(cog), sz = -Math.cos(cog), far = kn * NMm / 3600 * 300;
+  const segs = pierSegs(fix.x + sx * far / 2, fix.z + sz * far / 2, far / 2 + 10);   // (the piers along her course, once)
+  const blocked = (x, z) => heightAt(lonOf(x), latOf(z)) > 0.3 || segs.some(q => segDist(x, z, q.ax, q.az, q.bx, q.bz) < 6);
+  let clear = !blocked(fix.x, fix.z);
+  for (let s = 10; s <= far; s += 10) {
+    const b = blocked(fix.x + sx * s, fix.z + sz * s);
+    if (!clear) { if (!b) clear = true; continue; }
+    if (b) return Math.max(0, s - 15);
+  }
+  return Infinity;
 }
 function updateLive(dt) {
   if (!live.length) return;
@@ -2263,7 +2282,7 @@ function updateLive(dt) {
   for (const v of live) {
     const A = v.A, kn = A.sog || 0, cog = A.cog ?? A.hdg ?? v.h;
     // where she is now: her last report, moved on at her speed and course (for up to five minutes)
-    const s = kn * NMm / 3600 * clamp((now - v.fix.t) / 1000, 0, 300), tx = v.fix.x + Math.sin(cog * DEG) * s, tz = v.fix.z - Math.cos(cog * DEG) * s;
+    const s = Math.min(v.reach ?? Infinity, kn * NMm / 3600 * clamp((now - v.fix.t) / 1000, 0, 300)), tx = v.fix.x + Math.sin(cog * DEG) * s, tz = v.fix.z - Math.cos(cog * DEG) * s;
     const k = v.placed ? Math.min(1, dt * 1.5) : 1; v.placed = true;   // a new report eases her across, no jump
     v.x += (tx - v.x) * k; v.z += (tz - v.z) * k;
     const want = A.hdg ?? (kn >= 0.5 ? A.cog : null);

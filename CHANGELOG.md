@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-18 — Bird's-eye: live boats stop at the dock, not through it (v1158)
+
+- Reported: "this is not the first time I've seen a boat come in towards the dock and just plough right on through". Between AIS reports each vessel was carried on at her last speed and course for up to five minutes (www/js/bay3d.js `updateLive`), so a ferry last heard at 20 kn as she came in to her slip went on through it, and into the town, until her next report brought her back.
+- Now (`reachOf`), with each report, her course is looked along in 10 m steps for the first land (the ground over 0.3 m) or pier edge, and she's carried no further than 15 m short of it. The looking starts where her course is first clear of what's round her start, so a boat leaving her slip between its piers still goes. The piers along her course are gathered once a report.
+- Checked in headless Chrome on New York's live AIS (194 vessels, 80 under way): at any time 19 to 24 of those under way are held short of land or a pier; none carried ashore (one ship reported from ashore at 1 kn stays where she's reported). Its cost: under 1% of the frame time. In every bay, Maine's included. Full CI suite passes.
+
 ## 2026-11-18 — Bird's-eye: the camera never inside a building, and following a boat it sees over the towers (v1157)
 
 - Reported, following an NYC Ferry up the East River by Roosevelt Island: "This ferry is driving right through Manhattan" (the screen a brick wall, her bearing lines through it). She was in the river; the camera, behind her to the south-east at 400 ft, was among the Long Island City towers, one of them filling the view. The view's camera (www/js/bay3d.js `placeCamera`) had no check for buildings; the rides' had one (v1140) for trains only.
