@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-11-19 — Bird's-eye: the platforms' people, round 2, and the ties under the cab (v1162, Bird's-eye only)
+
+- Asked: "work on the people and the sleepers" (sleepers: the railway's ties).
+- **The ties** (www/js/subway3d.js): v1161's came every 2 m or so, unevenly, level with the rails (which flickered through them), and too pale. Now one every 0.75 m exactly, just under the rails, a dull grey-brown: from the cab, in her headlights' pool, they stream under her as a real track's do.
+- **The people, rounds 2 and 3** (www/js/platform3d.js `personParts`), looked at in a new lineup (design/pending/people-look/view.html?seed=1, &under=1 shaded as underground): round 1's arms hung away from their bodies, gaps at the shoulders and the elbows; their shoulders stuck out; their bodies were tubes; a band of their trousers showed through their shirts; their hair sat on like a bowl.
+  - Every limb now runs between real joints (shoulder, elbow, wrist; hip, knee, ankle), so arms meet the shoulders and elbows join, and each pose is where the joints are: arms down, hands in pockets, a phone in one hand or both, some with their weight on one leg.
+  - Their bodies turned (a lathe): waist, chest, shoulders, to the neck; the shirt's hem over a rounded pelvis; a collar; on some a jacket worn open over a shirt; long coats.
+  - Faces: eyes, ears and a small nose on an egg of a head, tipped down at a phone; hair swept back from the brow, long on some; beanies and caps.
+  - Backpacks with their straps over the shoulders and down under the arms; shoulder bags with the strap across; a roller case now and then.
+- Checked in the lineup (front, close, side, underground's shading) and on a live 1 train's cab into 50 St. Full CI suite passes.
+
 ## 2026-11-18 — Bird's-eye: the subway's cab, pulling into the station (v1161, Bird's-eye only)
 
 - Asked: "work on the cab views of the subways. They could be really dramatic if we do them right, like when we pull into a station and see the people on the platforms".

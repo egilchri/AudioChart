@@ -180,11 +180,13 @@ export function makeSubway({ scene, rail, platforms }) {
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setIndex(idx);
     const m = new THREE.Mesh(g, mat); m.layers.set(UNDER); m.frustumCulled = false; root.add(m);
     // (v1161) the ties under her rails and the other track's, every 0.75 m: from the cab they stream under her
-    { const T = [], tracksU = [...tunT];
-      for (let i = 0; i < N; i++) { const a = P[i], b = P[i + 1]; for (let f = 0; f < 1; f += 0.75 / STEP) {
-        const d = a.d + (b.d - a.d) * f; if (Math.abs(d % 0.75) > 0.4 && f) continue;
-        for (const t of tracksU) { const u = kSta(d) > 0 && staT.length ? null : t; if (u == null) continue; T.push(a.x + (b.x - a.x) * f + Math.cos(a.h) * u, a.y + (b.y - a.y) * f - 0.06, a.z + (b.z - a.z) * f + Math.sin(a.h) * u, a.h); }
-      } }
+    { const T = [], tracksU = [...tunT];   // (v1162: at every 0.75 m exactly, just under her rails, not level with them)
+      for (let n = Math.ceil(P[0].d / 0.75), i = 0; n * 0.75 <= P[N].d; n++) {
+        const d = n * 0.75; while (i < N - 1 && P[i + 1].d < d) i++;
+        const a = P[i], b = P[i + 1], f = (d - a.d) / ((b.d - a.d) || 1);
+        if (kSta(d) > 0 && staT.length) continue;
+        for (const u of tracksU) T.push(a.x + (b.x - a.x) * f + Math.cos(a.h) * u, a.y + (b.y - a.y) * f - 0.1, a.z + (b.z - a.z) * f + Math.sin(a.h) * u, a.h);
+      }
       const k = lit(0, 0, 0) > 0 ? 1 : 1, im = new THREE.InstancedMesh(TIE_G, TIE_M, Math.max(1, T.length / 4)); im.count = T.length / 4;
       const mm = new THREE.Matrix4(), qq = new THREE.Quaternion(), one = new THREE.Vector3(1, 1, 1), vv = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
       for (let i = 0; i < im.count; i++) im.setMatrixAt(i, mm.compose(vv.set(T[i * 4], T[i * 4 + 1], T[i * 4 + 2]), qq.setFromAxisAngle(up, -T[i * 4 + 3]), one));
@@ -313,4 +315,4 @@ export function makeSubway({ scene, rail, platforms }) {
 }
 const GHOSTS = new Map();
 // (v1161) a tie: 2.6 m across her track, 0.25 m along, dark creosoted wood (unlit, as the tunnel is)
-const TIE_G = new THREE.BoxGeometry(2.6, 0.12, 0.24), TIE_M = new THREE.MeshBasicMaterial({ color: 0x5a4c3c });
+const TIE_G = new THREE.BoxGeometry(2.5, 0.1, 0.22), TIE_M = new THREE.MeshBasicMaterial({ color: 0x433a31 });

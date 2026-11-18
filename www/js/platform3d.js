@@ -33,58 +33,67 @@ const pick = a => a[Math.random() * a.length | 0];
 const HAIR = [0x1a1410, 0x1a1410, 0x2a1d14, 0x3a2818, 0x4a3420, 0x6b4a2a, 0x8a6a40, 0x8a8478, 0xb9b2a4];
 const BAGS = [0x1c1c1e, 0x24324a, 0x7a2a2a, 0x3b3d42, 0x5a4632, 0x2e4a36];
 export function personParts(rnd = Math.random) {
+  // (v1162, round 2: limbs between real joints, so arms meet the shoulders and the elbows join; a turned torso, waist
+  // to chest; a rounded pelvis under the shirt's hem; hair swept back from the brow; eyes, ears, a smaller nose; a
+  // collar, and a jacket worn open over a shirt on some)
   const pk = a => a[rnd() * a.length | 0], out = [], add = (g, hex) => out.push([g, hex]);
-  const fem = rnd() < 0.5, h = (fem ? 1.58 : 1.68) + rnd() * 0.2, k = h / 1.75;
+  const fem = rnd() < 0.5, h = (fem ? 1.6 : 1.7) + rnd() * 0.18, k = h / 1.75;
   const top = pk(CLOTH), legsC = pk(TROUSERS), skin = pk(SKIN), hairC = pk(HAIR), shoe = pk([0x1a1a1a, 0x1a1a1a, 0x3a2a1c, 0xd8d8d4, 0x5a5a5e]);
-  const coat = rnd() < 0.38, pose = pk(['down', 'down', 'pockets', 'phone', 'phone']), sw = (fem ? 0.19 : 0.215) * (0.95 + rnd() * 0.12);
-  const cap = (r, len, x, y, z, rx = 0, rz = 0, hex, sx = 1, sz = 1) => { const g = new THREE.CapsuleGeometry(r, len, 3, 8); g.scale(sx, 1, sz); g.rotateX(rx); g.rotateZ(rz); g.translate(x, y, z); add(g, hex); };
-  const cyl = (r0, r1, len, x, y, z, hex, sz = 1, seg = 10) => { const g = new THREE.CylinderGeometry(r0, r1, len, seg); g.scale(1, 1, sz); g.translate(x, y + len / 2, z); add(g, hex); };
-  const ball = (r, x, y, z, hex, sx = 1, sy = 1, sz = 1, th = Math.PI) => { const g = new THREE.SphereGeometry(r, 12, 8, 0, Math.PI * 2, 0, th); g.scale(sx, sy, sz); g.translate(x, y, z); add(g, hex); };
-  const hip = 0.9 * k, knee = 0.5 * k, sh = 1.43 * k, lx = 0.095 * (sw / 0.2);
-  // her shoes and legs: thigh to knee, shin to ankle, a little apart
-  for (const s of [-1, 1]) {
-    const g = new THREE.CapsuleGeometry(0.048, 0.16, 2, 8); g.rotateX(Math.PI / 2); g.scale(1.1, 0.8, 1); g.translate(s * lx, 0.045, 0.05); add(g, shoe);
-    cyl(0.05, 0.062, knee - 0.07, s * lx, 0.07, 0, legsC, 0.9);
-    cyl(0.064, 0.082, hip - knee + 0.04, s * lx, knee - 0.02, 0, legsC, 0.9);
-  }
-  cyl(sw * 0.82, sw * 0.86, 0.16 * k, 0, hip - 0.05, 0, legsC, 0.62);   // her hips
-  // her body: waist to shoulders, wider at the top; a coat's skirt to her knees
-  cyl(sw * 0.8, sw, sh - hip + 0.02 - 0.06, 0, hip + 0.06, 0, top, 0.6, 12);
-  cap(0.075, sw * 2 - 0.15, 0, sh - 0.03, 0, 0, Math.PI / 2, top, 1, 0.85);   // (her shoulders, rounded)
-  if (coat) cyl(sw * 0.95, sw * 0.82, hip - knee + 0.1, 0, knee - 0.02, 0, top, 0.66, 12);
-  // her arms, by her pose
-  const arm = (s, kind) => {
-    const x = s * (sw + 0.035), y = sh - 0.04;
-    if (kind === 'phone' && s > 0) {   // upper arm down, forearm up and forward to the phone before her chest
-      cap(0.048, 0.22, x - s * 0.01, y - 0.15, 0.02, 0, -s * 0.12, top);
-      cap(0.042, 0.2, x - s * 0.07, y - 0.32, 0.14, -1.15, s * 0.35, top);
-      ball(0.044, s * 0.07, y - 0.24, 0.25, skin);
-      const ph = new THREE.BoxGeometry(0.075, 0.14, 0.012); ph.rotateX(-0.9); ph.translate(s * 0.05, y - 0.2, 0.27); add(ph, 0x9fc8ff);   // (her phone, its screen lit)
-      return;
-    }
-    if (kind === 'pockets') { cap(0.048, 0.22, x, y - 0.15, -0.01, 0, -s * 0.05, top); cap(0.043, 0.2, x - s * 0.02, y - 0.4, 0.04, 0.35, s * 0.1, top); return; }
-    cap(0.048, 0.22, x + s * 0.01, y - 0.15, 0, 0.05, s * 0.06, top);
-    cap(0.042, 0.21, x + s * 0.03, y - 0.43, 0.02, -0.08, s * 0.04, top);
-    ball(0.045, x + s * 0.035, y - 0.6, 0.035, skin, 0.85, 1.25, 0.7);
+  const coat = rnd() < 0.35, open = !coat && rnd() < 0.3, shirt = pk([0xe8e6e0, 0xd9d4c8, 0x2a2d33, 0x8aa0b8]);
+  const pose = pk(['down', 'down', 'pockets', 'phone', 'phone', 'both']), sw = (fem ? 0.175 : 0.2) * (0.95 + rnd() * 0.1);
+  const V = (x, y, z) => new THREE.Vector3(x, y, z), _q = new THREE.Quaternion(), Y = V(0, 1, 0);
+  const limb = (a, b, r, hex, r2 = r) => {   // a capsule from joint a to joint b (tapering to r2 at b)
+    const d = b.clone().sub(a), L = d.length(); if (L < 1e-4) return;
+    const g = r2 === r ? new THREE.CapsuleGeometry(r, L, 3, 8) : new THREE.CylinderGeometry(r2, r, L, 9);
+    g.applyQuaternion(_q.setFromUnitVectors(Y, d.normalize())); g.translate((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2); add(g, hex);
+    if (r2 !== r) { const j = new THREE.SphereGeometry(r2, 9, 7); j.translate(b.x, b.y, b.z); add(j, hex); }
   };
-  arm(-1, pose === 'phone' ? 'down' : pose); arm(1, pose);
-  // her neck and head (an egg, tipped down a little when she's at her phone), her hair or hat
-  cyl(0.048, 0.052, 0.1, 0, sh - 0.02, 0.005, skin);
-  const hy = sh + 0.17, hz = pose === 'phone' ? 0.025 : 0.01;
-  ball(0.1, 0, hy, hz, skin, 0.86, 1.13, 1.0);
-  ball(0.022, 0, hy - 0.01, hz + 0.1, skin, 0.8, 1, 0.9);   // (her nose: the way she faces, from afar)
+  const ball = (r, x, y, z, hex, sx = 1, sy = 1, sz = 1, th = Math.PI, tilt = 0) => { const g = new THREE.SphereGeometry(r, 14, 10, 0, Math.PI * 2, 0, th); g.scale(sx, sy, sz); g.rotateX(tilt); g.translate(x, y, z); add(g, hex); };
+  const lathe = (pts, hex, sz = 0.62, y0 = 0) => { const g = new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), 14); g.scale(1, 1, sz); g.translate(0, y0, 0); add(g, hex); };
+  const hip = 0.9 * k, knee = 0.49 * k, ank = 0.075, sh = 1.44 * k, lx = sw * 0.47, bend = rnd() < 0.4 ? (rnd() < 0.5 ? -1 : 1) : 0;   // (bend: her weight on one leg, the other knee a little forward)
+  // her shoes, legs (hip to knee to ankle) and a rounded pelvis
+  for (const s of [-1, 1]) {
+    const kn = V(s * lx * 0.95, knee, bend === s ? 0.05 : 0), an = V(s * lx * 0.9, ank, bend === s ? 0.02 : 0);
+    limb(V(s * lx, hip, 0), kn, 0.072 * k, legsC, 0.058 * k); limb(kn, an, 0.056 * k, legsC, 0.045 * k);
+    const g = new THREE.CapsuleGeometry(0.047, 0.15, 2, 8); g.rotateX(Math.PI / 2); g.scale(1.1, 0.8, 1); g.translate(an.x, 0.045, an.z + 0.05); add(g, shoe);
+  }
+  ball(sw * 0.78, 0, hip - 0.03, 0, legsC, 1, 0.5, 0.6);   // (under the shirt's hem, not through it)
+  // her body: a turned profile, the shirt's hem over her hips, waist, chest, shoulders, to her neck's root
+  const T = [[sw * 0.88, -0.1], [sw * 0.88, 0.0], [sw * 0.8, 0.16], [sw * 0.9, 0.3], [sw * 0.98, sh - hip - 0.16], [sw * 0.96, sh - hip - 0.06], [sw * 0.72, sh - hip + 0.01], [sw * 0.3, sh - hip + 0.035]];
+  lathe(T, open ? shirt : top, 0.6, hip);
+  if (open) { lathe(T.map(([r, y]) => [r * 1.04, y]), top, 0.62, hip); const g = new THREE.BoxGeometry(sw * 0.5, sh - hip - 0.06, 0.02); g.translate(0, (hip + sh) / 2 - 0.02, sw * 0.62 + 0.005); add(g, shirt); }   // (her jacket, open over her shirt)
+  if (coat) lathe([[sw * 0.9, 0], [sw * 0.98, -(hip - knee) * 0.5], [sw * 1.05, -(hip - knee) - 0.06]], top, 0.66, hip + 0.02);
+  { const g = new THREE.TorusGeometry(0.06, 0.016, 6, 14); g.rotateX(Math.PI / 2); g.translate(0, sh + 0.02, 0.005); add(g, open || rnd() < 0.3 ? shirt : top); }   // her collar
+  for (const s of [-1, 1]) ball(0.05, s * (sw - 0.02), sh - 0.05, 0, top, 1, 1, 0.9);   // her shoulders, rounded
+  // her arms, shoulder to elbow to wrist, by her pose
+  const arm = (s, kind) => {
+    const S = V(s * (sw - 0.01), sh - 0.06, 0); let E, W;
+    if (kind === 'pockets') { E = V(s * (sw + 0.035), sh - 0.32 * k, -0.03); W = V(s * sw * 0.72, hip + 0.03, 0.07); limb(S, E, 0.05, top, 0.046); limb(E, W, 0.045, top, 0.04); return; }
+    if (kind === 'phone') { E = V(s * (sw + 0.015), sh - 0.3 * k, 0.03); W = V(s * 0.05, sh - 0.33, 0.25); }
+    else { E = V(s * (sw + 0.03), sh - 0.3 * k, -0.015); W = V(s * (sw + 0.035), sh - 0.56 * k, 0.025); }
+    limb(S, E, 0.05, top, 0.046); limb(E, W, 0.045, top, 0.038);
+    ball(0.042, W.x, W.y - 0.045, W.z + 0.01, skin, 0.8, 1.35, 0.6);   // her hand
+    if (kind === 'phone' && s > 0) { const ph = new THREE.BoxGeometry(0.07, 0.14, 0.01); ph.rotateX(-0.85); ph.translate(0, W.y + 0.03, W.z + 0.02); add(ph, 0x9fc8ff); }   // (her phone, its screen lit)
+  };
+  arm(-1, pose === 'both' ? 'phone' : pose === 'phone' ? 'down' : pose); arm(1, pose === 'both' ? 'phone' : pose);
+  // her neck and head: an egg, tipped down a little at her phone; eyes, ears, a nose; her hair swept back from her brow
+  limb(V(0, sh, 0.005), V(0, sh + 0.075, 0.01), 0.05, skin);
+  const look = pose === 'phone' || pose === 'both', hy = sh + 0.17, hz = look ? 0.03 : 0.012, tip = look ? 0.3 : 0;
+  ball(0.098, 0, hy, hz, skin, 0.84, 1.12, 1.0);
+  ball(0.016, 0, hy - 0.012 - tip * 0.02, hz + 0.098, skin, 0.75, 1.2, 0.9);   // her nose
+  for (const s of [-1, 1]) { ball(0.011, s * 0.033, hy + 0.018 - tip * 0.03, hz + 0.088, 0x1d1712); ball(0.022, s * 0.083, hy, hz - 0.005, skin, 0.5, 1, 0.8); }   // eyes, ears
   const hat = rnd();
-  if (hat < 0.12) ball(0.104, 0, hy + 0.01, hz - 0.005, pk([0x1c1c1e, 0x7a2a2a, 0x3a4a6a, 0xb9b2a4, 0x2e4a36]), 0.9, 1.15, 1.03, Math.PI * 0.55);   // a beanie
-  else if (hat < 0.2) { ball(0.103, 0, hy + 0.02, hz - 0.005, 0x23262c, 0.9, 1.05, 1.03, Math.PI * 0.5); const b = new THREE.BoxGeometry(0.15, 0.012, 0.09); b.translate(0, hy + 0.035, hz + 0.12); add(b, 0x23262c); }   // a cap
+  if (hat < 0.12) ball(0.103, 0, hy + 0.012, hz - 0.006, pk([0x1c1c1e, 0x7a2a2a, 0x3a4a6a, 0xb9b2a4, 0x2e4a36]), 0.88, 1.15, 1.03, Math.PI * 0.55);   // a beanie
+  else if (hat < 0.2) { ball(0.102, 0, hy + 0.02, hz - 0.005, 0x23262c, 0.88, 1.05, 1.03, Math.PI * 0.5); const b = new THREE.BoxGeometry(0.14, 0.012, 0.09); b.translate(0, hy + 0.035, hz + 0.12); add(b, 0x23262c); }   // a cap
   else {
-    ball(0.104, 0, hy + 0.012, hz - 0.012, hairC, 0.9, 1.12, 1.04, Math.PI * (fem ? 0.6 : 0.5));
-    if (fem && rnd() < 0.7) cap(0.075, 0.16 + rnd() * 0.14, 0, hy - 0.1, hz - 0.06, 0, 0, hairC, 1.2, 0.6);   // long hair, down her back
+    ball(0.104, 0, hy + 0.006, hz - 0.018, hairC, 0.89, 1.12, 1.05, Math.PI * (fem ? 0.62 : 0.56), -0.42);   // (swept back: the hairline high at her brow, low at her nape)
+    if (fem && rnd() < 0.7) limb(V(0, hy - 0.02, hz - 0.07), V(0, hy - 0.2 - rnd() * 0.12, hz - 0.08), 0.072, hairC, 0.06);   // long hair, down her back
   }
   // what she carries
   const bag = rnd();
-  if (bag < 0.3) { const g = new THREE.CapsuleGeometry(0.11, 0.2, 3, 8); g.scale(1.25, 1, 0.62); g.translate(0, sh - 0.27, -sw * 0.6 - 0.08); add(g, pk(BAGS)); }   // a backpack
-  else if (bag < 0.48) { const s = rnd() < 0.5 ? -1 : 1, g = new THREE.BoxGeometry(0.07, 0.24, 0.3); g.translate(s * (sw + 0.1), hip - 0.02, 0); add(g, pk(BAGS)); const st = new THREE.BoxGeometry(0.02, 0.62, 0.035); st.rotateZ(s * 0.62); st.translate(s * 0.02, sh - 0.21, sw * 0.58); add(st, 0x1a1a1a); }   // a shoulder bag, its strap across her
-  else if (bag < 0.52) { const g = new THREE.BoxGeometry(0.38, 0.55, 0.22); g.translate(0.42, 0.33, 0.05); add(g, pk([0x1c1c1e, 0x24324a, 0x6b6e72, 0x7a2a2a])); cyl(0.012, 0.012, 0.36, 0.42, 0.6, 0.05, 0x8b8f94); }   // a roller case at her side
+  if (bag < 0.3) { const g = new THREE.CapsuleGeometry(0.11, 0.2, 3, 8); g.scale(1.2, 1, 0.6); g.translate(0, sh - 0.28, -sw * 0.62 - 0.07); add(g, pk(BAGS)); for (const s of [-1, 1]) { limb(V(s * sw * 0.5, sh + 0.005, -0.06), V(s * sw * 0.55, sh - 0.08, sw * 0.6), 0.012, 0x1a1a1a); limb(V(s * sw * 0.55, sh - 0.08, sw * 0.6), V(s * sw * 0.9, sh - 0.3, sw * 0.5), 0.012, 0x1a1a1a); } }   // (its straps over her shoulders and down under her arms)   // a backpack, its straps over her shoulders
+  else if (bag < 0.48) { const s = rnd() < 0.5 ? -1 : 1, g = new THREE.BoxGeometry(0.07, 0.24, 0.3); g.translate(s * (sw + 0.1), hip - 0.02, 0); add(g, pk(BAGS)); limb(V(-s * sw * 0.6, sh - 0.01, 0.02), V(s * (sw + 0.08), hip + 0.12, 0.02), 0.012, 0x1a1a1a); }   // a shoulder bag, its strap across her
+  else if (bag < 0.52) { const g = new THREE.BoxGeometry(0.38, 0.55, 0.22); g.translate(0.42, 0.33, 0.05); add(g, pk([0x1c1c1e, 0x24324a, 0x6b6e72, 0x7a2a2a])); limb(V(0.42, 0.6, 0.05), V(0.42, 0.95, 0.05), 0.012, 0x8b8f94); }   // a roller case at her side
   return out;
 }
 
