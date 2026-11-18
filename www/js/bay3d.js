@@ -2368,6 +2368,32 @@ if (liveBtn && !EMPTY) {   // (the relay listens to both bays: relay/ais/core.mj
   });
 }
 
+// 🔍 Search (v1155, asked in New York: "we need a search button to be able to jump to different areas"; search3d.js,
+// loaded on its first use): the bay's towns, bridges, charted places and stations, and OpenStreetMap's search. Where the
+// armchair layer is (Ted's Birdseye, SF, New York, Boston): a boater's Maine bays have their places list.
+{
+  const sb = document.getElementById('searchbtn');
+  if (sb && WANT_AC && !EMPTY) {
+    sb.hidden = false;
+    const places = () => [
+      ...townList.map(t => ({ name: t.name, kind: 'Neighbourhood', go: () => goTown(t) })),
+      ...(bridges?.places || []).map(b => ({ name: b.name, kind: 'Bridge', go: () => { markCurrent(null); flyTo(bridgeView(b), 3200); } })),
+      ...placesGJ.features.filter(f => f.geometry?.type === 'Point' && f.properties?.name && inBay(f.geometry.coordinates)).map(f => ({ name: f.properties.name, kind: 'Place', lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] })),
+    ];
+    const go = r => {
+      leaveRide(); stopFollow();
+      if (r.go) { r.go(); return; }
+      let dist = r.kind === 'Station' ? 500 : 1200;
+      if (r.bb) { const [s0, n0, w0, e0] = r.bb.map(Number); dist = clamp(Math.hypot((e0 - w0) * 111320 * Math.cos(r.lat * DEG), (n0 - s0) * 111120) * 1.2, 350, 9000); }
+      flyTo({ x: wx(r.lon), z: wz(r.lat), dist, tilt: 62 * DEG, az: view.az }, 3200);
+    };
+    const open = () => import('./search3d.js').then(m => m.openSearch({ button: sb, box: OVERVIEW, places, go, platformsUrl: REG.rail ? `./data/rail/${REG.rail}-platforms.json` : null }))
+      .catch(err => console.warn('[bay3d] search', err));
+    sb.addEventListener('click', open);
+    addEventListener('keydown', e => { if (e.key === '/' && e.target === document.body && !e.metaKey && !e.ctrlKey) { e.preventDefault(); open(); } });
+  }
+}
+
 // Lines out to her marks (v1000): from the vessel whose card is open, else the one you're following, to the
 // marks her card or the follow bar names, each labelled with its bearing from her and range.
 const fixLines = new THREE.LineSegments(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(18), 3)),

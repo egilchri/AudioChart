@@ -8,7 +8,7 @@
 //   (or the live site: base=https://egilchri.github.io/AudioChart)
 const base = process.argv[2] || 'http://127.0.0.1:8838/www', port = +(process.argv[3] || 9633);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-const ARMCHAIR = /\/js\/(aircraft3d|cockpit|flightroute|trains3d|track3d|subway3d|platform3d|traffic3d|airport3d|mbta3d|caltrain3d|smart3d|amtrak3d|airliner3d|lightplane3d)\.js|\/data\/(rail|roads|airports)\//;
+const ARMCHAIR = /\/js\/(aircraft3d|cockpit|flightroute|trains3d|track3d|subway3d|platform3d|traffic3d|airport3d|search3d|mbta3d|caltrain3d|smart3d|amtrak3d|airliner3d|lightplane3d)\.js|\/data\/(rail|roads|airports)\//;
 
 const tabs = await (await fetch(`http://127.0.0.1:${port}/json`)).json();
 const ws = new WebSocket(tabs.find(t => t.type === 'page').webSocketDebuggerUrl);

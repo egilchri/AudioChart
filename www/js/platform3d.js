@@ -25,6 +25,69 @@ const CLOTH = [0x1c1c1e, 0x1c1c1e, 0x2b2f38, 0x3b3d42, 0x24324a, 0x4a5a6e, 0x6b6
 const TROUSERS = [0x1c1c1e, 0x23262c, 0x2e3a52, 0x3a4660, 0x4a4a4a, 0x6b5a44, 0x8a8a86];
 const pick = a => a[Math.random() * a.length | 0];
 
+// ── a person waiting (v1155, asked of the platforms' people: "can we recursively self improve them?") ──
+// Her parts in her own frame: feet at y 0, facing +z, metres; each [geometry, colour]. Rounded (capsules, tapered
+// cylinders, an egg of a head), in a few poses (arms down, hands in pockets, looking at her phone, its screen lit),
+// a long coat on some, hair long or short, a beanie or a cap, a backpack, a shoulder bag or a roller case. The
+// station merges them into its one mesh (put), as it did the boxes they were.
+const HAIR = [0x1a1410, 0x1a1410, 0x2a1d14, 0x3a2818, 0x4a3420, 0x6b4a2a, 0x8a6a40, 0x8a8478, 0xb9b2a4];
+const BAGS = [0x1c1c1e, 0x24324a, 0x7a2a2a, 0x3b3d42, 0x5a4632, 0x2e4a36];
+export function personParts(rnd = Math.random) {
+  const pk = a => a[rnd() * a.length | 0], out = [], add = (g, hex) => out.push([g, hex]);
+  const fem = rnd() < 0.5, h = (fem ? 1.58 : 1.68) + rnd() * 0.2, k = h / 1.75;
+  const top = pk(CLOTH), legsC = pk(TROUSERS), skin = pk(SKIN), hairC = pk(HAIR), shoe = pk([0x1a1a1a, 0x1a1a1a, 0x3a2a1c, 0xd8d8d4, 0x5a5a5e]);
+  const coat = rnd() < 0.38, pose = pk(['down', 'down', 'pockets', 'phone', 'phone']), sw = (fem ? 0.19 : 0.215) * (0.95 + rnd() * 0.12);
+  const cap = (r, len, x, y, z, rx = 0, rz = 0, hex, sx = 1, sz = 1) => { const g = new THREE.CapsuleGeometry(r, len, 3, 8); g.scale(sx, 1, sz); g.rotateX(rx); g.rotateZ(rz); g.translate(x, y, z); add(g, hex); };
+  const cyl = (r0, r1, len, x, y, z, hex, sz = 1, seg = 10) => { const g = new THREE.CylinderGeometry(r0, r1, len, seg); g.scale(1, 1, sz); g.translate(x, y + len / 2, z); add(g, hex); };
+  const ball = (r, x, y, z, hex, sx = 1, sy = 1, sz = 1, th = Math.PI) => { const g = new THREE.SphereGeometry(r, 12, 8, 0, Math.PI * 2, 0, th); g.scale(sx, sy, sz); g.translate(x, y, z); add(g, hex); };
+  const hip = 0.9 * k, knee = 0.5 * k, sh = 1.43 * k, lx = 0.095 * (sw / 0.2);
+  // her shoes and legs: thigh to knee, shin to ankle, a little apart
+  for (const s of [-1, 1]) {
+    const g = new THREE.CapsuleGeometry(0.048, 0.16, 2, 8); g.rotateX(Math.PI / 2); g.scale(1.1, 0.8, 1); g.translate(s * lx, 0.045, 0.05); add(g, shoe);
+    cyl(0.05, 0.062, knee - 0.07, s * lx, 0.07, 0, legsC, 0.9);
+    cyl(0.064, 0.082, hip - knee + 0.04, s * lx, knee - 0.02, 0, legsC, 0.9);
+  }
+  cyl(sw * 0.82, sw * 0.86, 0.16 * k, 0, hip - 0.05, 0, legsC, 0.62);   // her hips
+  // her body: waist to shoulders, wider at the top; a coat's skirt to her knees
+  cyl(sw * 0.8, sw, sh - hip + 0.02 - 0.06, 0, hip + 0.06, 0, top, 0.6, 12);
+  cap(0.075, sw * 2 - 0.15, 0, sh - 0.03, 0, 0, Math.PI / 2, top, 1, 0.85);   // (her shoulders, rounded)
+  if (coat) cyl(sw * 0.95, sw * 0.82, hip - knee + 0.1, 0, knee - 0.02, 0, top, 0.66, 12);
+  // her arms, by her pose
+  const arm = (s, kind) => {
+    const x = s * (sw + 0.035), y = sh - 0.04;
+    if (kind === 'phone' && s > 0) {   // upper arm down, forearm up and forward to the phone before her chest
+      cap(0.048, 0.22, x - s * 0.01, y - 0.15, 0.02, 0, -s * 0.12, top);
+      cap(0.042, 0.2, x - s * 0.07, y - 0.32, 0.14, -1.15, s * 0.35, top);
+      ball(0.044, s * 0.07, y - 0.24, 0.25, skin);
+      const ph = new THREE.BoxGeometry(0.075, 0.14, 0.012); ph.rotateX(-0.9); ph.translate(s * 0.05, y - 0.2, 0.27); add(ph, 0x9fc8ff);   // (her phone, its screen lit)
+      return;
+    }
+    if (kind === 'pockets') { cap(0.048, 0.22, x, y - 0.15, -0.01, 0, -s * 0.05, top); cap(0.043, 0.2, x - s * 0.02, y - 0.4, 0.04, 0.35, s * 0.1, top); return; }
+    cap(0.048, 0.22, x + s * 0.01, y - 0.15, 0, 0.05, s * 0.06, top);
+    cap(0.042, 0.21, x + s * 0.03, y - 0.43, 0.02, -0.08, s * 0.04, top);
+    ball(0.045, x + s * 0.035, y - 0.6, 0.035, skin, 0.85, 1.25, 0.7);
+  };
+  arm(-1, pose === 'phone' ? 'down' : pose); arm(1, pose);
+  // her neck and head (an egg, tipped down a little when she's at her phone), her hair or hat
+  cyl(0.048, 0.052, 0.1, 0, sh - 0.02, 0.005, skin);
+  const hy = sh + 0.17, hz = pose === 'phone' ? 0.025 : 0.01;
+  ball(0.1, 0, hy, hz, skin, 0.86, 1.13, 1.0);
+  ball(0.022, 0, hy - 0.01, hz + 0.1, skin, 0.8, 1, 0.9);   // (her nose: the way she faces, from afar)
+  const hat = rnd();
+  if (hat < 0.12) ball(0.104, 0, hy + 0.01, hz - 0.005, pk([0x1c1c1e, 0x7a2a2a, 0x3a4a6a, 0xb9b2a4, 0x2e4a36]), 0.9, 1.15, 1.03, Math.PI * 0.55);   // a beanie
+  else if (hat < 0.2) { ball(0.103, 0, hy + 0.02, hz - 0.005, 0x23262c, 0.9, 1.05, 1.03, Math.PI * 0.5); const b = new THREE.BoxGeometry(0.15, 0.012, 0.09); b.translate(0, hy + 0.035, hz + 0.12); add(b, 0x23262c); }   // a cap
+  else {
+    ball(0.104, 0, hy + 0.012, hz - 0.012, hairC, 0.9, 1.12, 1.04, Math.PI * (fem ? 0.6 : 0.5));
+    if (fem && rnd() < 0.7) cap(0.075, 0.16 + rnd() * 0.14, 0, hy - 0.1, hz - 0.06, 0, 0, hairC, 1.2, 0.6);   // long hair, down her back
+  }
+  // what she carries
+  const bag = rnd();
+  if (bag < 0.3) { const g = new THREE.CapsuleGeometry(0.11, 0.2, 3, 8); g.scale(1.25, 1, 0.62); g.translate(0, sh - 0.27, -sw * 0.6 - 0.08); add(g, pk(BAGS)); }   // a backpack
+  else if (bag < 0.48) { const s = rnd() < 0.5 ? -1 : 1, g = new THREE.BoxGeometry(0.07, 0.24, 0.3); g.translate(s * (sw + 0.1), hip - 0.02, 0); add(g, pk(BAGS)); const st = new THREE.BoxGeometry(0.02, 0.62, 0.035); st.rotateZ(s * 0.62); st.translate(s * 0.02, sh - 0.21, sw * 0.58); add(st, 0x1a1a1a); }   // a shoulder bag, its strap across her
+  else if (bag < 0.52) { const g = new THREE.BoxGeometry(0.38, 0.55, 0.22); g.translate(0.42, 0.33, 0.05); add(g, pk([0x1c1c1e, 0x24324a, 0x6b6e72, 0x7a2a2a])); cyl(0.012, 0.012, 0.36, 0.42, 0.6, 0.05, 0x8b8f94); }   // a roller case at her side
+  return out;
+}
+
 // ── textures, made once ──
 const TEX = {};
 function canvasTex(key, w, h, draw, rep) {
@@ -290,10 +353,12 @@ export function buildStation({ P, sd, R, platY, rail, name, dest, under, ceil, l
   function panel(d, u, y, w, h, m, s) { const r = ring(d), o = mesh(new THREE.PlaneGeometry(w, h), m); W(r, u, y, o.position); o.rotation.y = s ? facing(r, s) : along(r); return o; }
   // boxes and the like, merged: each part placed at d along, u across, y up, turned yaw (radians, round from along the track)
   const M = { pos: [], nor: [], col: [], idx: [] }, _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _v = new THREE.Vector3(), _s = new THREE.Vector3(1, 1, 1), _c = new THREE.Color(), UP = new THREE.Vector3(0, 1, 0);
-  function put(g, d, u, y, yaw, hex, k = 1) {
+  function put(g, d, u, y, yaw, hex, k = 1, shade = false) {   // (shade: light from above and a side baked in, for the unlit stations underground: v1155)
     const r = ring(d); W(r, u, y, _v); _m.compose(_v, _q.setFromAxisAngle(UP, yaw), _s); g.applyMatrix4(_m);
     const p = g.attributes.position, n = g.attributes.normal, o = M.pos.length / 3; _c.set(hex).multiplyScalar(k);
-    for (let i = 0; i < p.count; i++) { M.pos.push(p.getX(i), p.getY(i), p.getZ(i)); M.nor.push(n.getX(i), n.getY(i), n.getZ(i)); M.col.push(_c.r, _c.g, _c.b); }
+    for (let i = 0; i < p.count; i++) { M.pos.push(p.getX(i), p.getY(i), p.getZ(i)); M.nor.push(n.getX(i), n.getY(i), n.getZ(i));
+      const f = shade ? 0.62 + 0.3 * Math.max(0, n.getY(i)) + 0.16 * Math.max(0, 0.5 * n.getX(i) + 0.7 * n.getZ(i)) - 0.12 * Math.max(0, -n.getY(i)) : 1;
+      M.col.push(_c.r * f, _c.g * f, _c.b * f); }
     const I = g.index; if (I) for (let i = 0; i < I.count; i++) M.idx.push(o + I.getX(i)); else for (let i = 0; i < p.count; i++) M.idx.push(o + i);
     g.dispose();
   }
@@ -446,15 +511,8 @@ export function buildStation({ P, sd, R, platY, rail, name, dest, under, ceil, l
     }
   }
   function stairAt(d, u) { const sp = pls.reduce((a, b) => b.w > a.w ? b : a); if (sp.w < 4.6) return false; const sdd = Math.max(sp.d0 + 4, Math.min(sp.d1 - 14, sd + sp.len * 0.2)); return d > sdd - 1.5 && d < sdd + 10 && Math.abs(u - sp.m) < 1.8; }
-  function person(d, u, y, yaw) {
-    const h = 1.58 + Math.random() * 0.3, k = h / 1.75, top = pick(CLOTH), legs = pick(TROUSERS), skin = pick(SKIN), hair = pick([0x1a1410, 0x2a1d14, 0x4a3420, 0x6b4a2a, 0x8a8478, 0x1a1410]);
-    for (const lx of [-0.1, 0.1]) boxAt(0.15, 0.82 * k, 0.17, d, u, y, yaw, legs, lx);
-    boxAt(0.17, 0.08, 0.27, d, u, y, yaw, 0x222222, -0.1, 0, 0.04); boxAt(0.17, 0.08, 0.27, d, u, y, yaw, 0x222222, 0.1, 0, 0.04);
-    boxAt(0.44, 0.62 * k, 0.24, d, u, y, yaw, top, 0, 0.8 * k);
-    for (const lx of [-0.27, 0.27]) boxAt(0.1, 0.58 * k, 0.12, d, u, y, yaw, top, lx, 0.82 * k);
-    boxAt(0.2, 0.24 * k, 0.22, d, u, y, yaw, skin, 0, 1.47 * k);
-    boxAt(0.21, 0.08, 0.23, d, u, y, yaw, hair, 0, 1.69 * k);
-    if (Math.random() < 0.35) boxAt(0.32, 0.4 * k, 0.16, d, u, y, yaw, pick([0x1c1c1e, 0x24324a, 0x7a2a2a, 0x3b3d42]), 0, 0.95 * k, -0.2);   // a backpack
+  function person(d, u, y, yaw) {   // (v1155: personParts, above; underground, their light and shade baked into their colours)
+    for (const [g, hex] of personParts()) put(g, d, u, y, yaw, hex, 1, under);
   }
   // a bronze hand, 3 m tall, fingers up, its palm toward yaw
   function hand(d, u, y, yaw) {

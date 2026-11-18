@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-11-18 — Bird's-eye: New York quick again, a 🔍 Search, and people who look like people (v1156, Bird's-eye only)
+
+- Reported: "New York City is really big, and the app is very slow ... a lot of lag time as I move the mouse around". Measured in headless Chrome over Midtown with Live on (631 trains): 13 frames a second idle, 7.6 with the mouse moving.
+  - **Each train was her cars, each car three or four meshes**: some 19,000 draw calls a frame. Past 1.2 km from the eye a train is a mark a few pixels wide, so there she's now a box in her line's colour, all of them one instanced mesh (www/js/trains3d.js); her cars only near, or when she's the one followed, ridden or under the pointer. Her hidden cars' matrices aren't worked out each frame either.
+  - **The track's heights under each train**, three lookups a train a frame and two a car, a quarter of the time: kept, and taken again only when she's moved a few metres (more the farther she is) or turned.
+  - After: 58 frames a second idle, 34 with the mouse moving. Boston and SF gain the same way.
+- Asked: "we need a search button to be able to jump to different areas". **🔍** in the top bar (or **/**), in Ted's Birdseye and the armchair bays (www/js/search3d.js, loaded on its first use): type and pick, or Enter for the first. It looks through the bay's neighbourhoods, bridges, charted places and stations (the platforms' names: "times sq" finds Times Square–42nd Street), then OpenStreetMap's own search (Nominatim, kept to the bay's box, at most one a second) for anything else: a street, an address, Yankee Stadium. Only the words typed go to OpenStreetMap. It leaves a ride or a follow and flies there.
+- Asked of the platforms' people: "can we recursively self improve them?" **Round 1** (www/js/platform3d.js `personParts`): rounded, not boxes: shoes, tapered legs, a body wider at the shoulders, an egg of a head with hair, a nose to show the way she faces; arms down, hands in pockets, or at a lit phone with her head tipped; long coats, beanies and caps, long hair, backpacks, shoulder bags with their straps, now and then a roller case. Underground, where the station is unlit, their light and shade are baked into their colours. Still merged into the station's one mesh. More rounds to come.
+- Checked in headless Chrome: the frame rates above; the far trains' boxes in their colours from Midtown and Woodside; search for "times sq", "harlem" and "yankee stadium", Enter flying to 161 St–Yankee Stadium; the people at Park Street and South Station, near and far. Full CI suite passes.
+
 ## 2026-11-18 — Bird's-eye: New York's elevated lines up on their steel (v1155, Bird's-eye only)
 
 - Asked: "do the elevated lines next". v1154 had New York's els on the ground: a raised piece of track ran straight between its two ends at the ground's height, and OpenStreetMap draws an el as a chain of short raised pieces (`bridge=yes`, `layer` 1 to 3), so the whole chain lay on the street.

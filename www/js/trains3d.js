@@ -126,6 +126,15 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
   const trains = new Map();   // id -> { a, g, model, label, fix, prev, v (m/s), h, x, z }
   let on = false, timer = null, inflight = null, hover = null;
   const pinned = new Set(), _v = new THREE.Vector3(), _cab = new THREE.Vector3();
+  // (v1155, reported in New York: "the app is very slow ... a lot of lag time as I move the mouse around") each train
+  // was her cars, each car three or four meshes: some 19,000 draw calls with New York's 630 trains, the frame waiting
+  // on them. Past FAR_AT from the eye a train is a mark a few pixels wide, so there she's a box in her line's colour,
+  // all of them one instanced mesh, one draw call; her cars only near (or when she's the one followed or ridden).
+  const FAR_AT = 1200, FAR_MAX = 3000;
+  const farMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0), new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x303030 }), FAR_MAX);
+  farMesh.count = 0; farMesh.frustumCulled = false; scene.add(farMesh);
+  const _m4 = new THREE.Matrix4(), _q4 = new THREE.Quaternion(), _s3 = new THREE.Vector3(), _p3 = new THREE.Vector3(), _c3 = new THREE.Color(), _e3 = new THREE.Euler(), _y = new THREE.Vector3(0, 1, 0);
+  let farN = 0;
   // the railway's tracks (v1116, reported: the Caltrains at 4th & King "weren't pointing down the tracks"; a train
   // standing at a platform had only a guess at her heading, south-east or north-west, and 4th & King's platforms run
   // south-west): OSM's main lines and their sidings (www/data/rail/, design/rail/build_rail.py), cut into segments in
@@ -280,7 +289,8 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
     return { k: tr.k, t: tr.t, dir: near(segH(tr.k, 1), ref) <= near(segH(tr.k, -1), ref) ? 1 : -1 };
   }
   function update(dt, camera) {
-    if (!trains.size) return;
+    farN = 0;
+    if (!trains.size) { farMesh.count = 0; return; }
     const now = Date.now(), cp = camera.position;
     for (const p of trains.values()) {
       // (v1121, asked: "you can achieve some optimizations by knowing that trains run on tracks") between reports she runs
@@ -349,20 +359,39 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
       // bumps; the ground where there's no track)
       // (her ends, straight out from her middle, stand off the curve of a long train's track: looked for further, and
       // where none, her middle's height, not the ground's bumps: a 126 m Amtrak jumped 3.6 m at a time)
-      const tC = trackY?.(p.x, p.z), hC = tC ?? Math.max(0, heightAt(lon, lat) || 0);
-      const gAt = (x, z) => tC != null ? (trackY(x, z, 35) ?? tC) : Math.max(0, heightAt(p.fix.lon + (x - p.fix.x) / (111320 * Math.cos(p.fix.lat * DEG)), p.fix.lat - (z - p.fix.z) / 111120) || 0);
-      const hF = gAt(p.x + fx, p.z + fz), hB = gAt(p.x - fx, p.z - fz);
+      // (v1155, reported in New York: "a lot of lag time as I move the mouse around": these lookups, three a train a
+      // frame, were a quarter of the time with 630 trains) kept, and taken again only when she's moved a few metres
+      // (more the farther she is from the eye) or turned
+      const hk = p.hk, mv = hk ? Math.hypot(p.x - hk.x, p.z - hk.z) : Infinity, dEye = Math.hypot(p.x - cp.x, p.z - cp.z);
+      let tC, hC, hF, hB, fresh = false;
+      if (hk && Math.abs(hk.hl - hl) < hl * 0.05 && mv < Math.max(2, dEye * 0.004) && Math.abs(((p.dh - hk.dh + 540) % 360) - 180) < 2) ({ tC, hC, hF, hB } = hk);
+      else {
+        tC = trackY?.(p.x, p.z); hC = tC ?? Math.max(0, heightAt(lon, lat) || 0);
+        const gAt = (x, z) => tC != null ? (trackY(x, z, 35) ?? tC) : Math.max(0, heightAt(p.fix.lon + (x - p.fix.x) / (111320 * Math.cos(p.fix.lat * DEG)), p.fix.lat - (z - p.fix.z) / 111120) || 0);
+        hF = gAt(p.x + fx, p.z + fz); hB = gAt(p.x - fx, p.z - fz);
+        p.hk = { x: p.x, z: p.z, dh: p.dh, hl, tC, hC, hF, hB }; fresh = true;
+      }
       p.y = Math.max(hC, (hF + hB) / 2); p.g.position.set(p.x, p.y, p.z);
       p.model.rotation.order = 'YXZ'; p.model.rotation.set(Math.max(-0.035, Math.min(0.035, Math.atan2(hF - hB, 2 * hl))), -p.dh * DEG, 0);
       // her real size near; farther off, big enough to see (v1105, reported: "It's hard to see trains"): about 4 px
       // wide whatever the distance (a 3 m train is a fraction of a pixel from 20 km), and long in proportion
       const d = Math.hypot(p.x - cp.x, cp.y - p.g.position.y, p.z - cp.z), w = Math.max(1, d * 0.0058 / 3.1), l = Math.max(1, d * 0.02 / 160, w * 0.35);
       p.model.scale.set(w, Math.max(1, w * 0.5), l);
+      const far = d > FAR_AT && !focus(p) && p !== hover;
+      p.model.matrixWorldAutoUpdate = !far;   // (her hidden cars' matrices not worked out each frame: a third of the time with them)
+      if (far) {
+        p.model.visible = false;
+        if (!p.under && farN < FAR_MAX) {
+          p.farCol ??= lookOf(p.a).band;
+          farMesh.setMatrixAt(farN, _m4.compose(_p3.set(p.x, p.y, p.z), _q4.setFromAxisAngle(_y, -p.dh * DEG), _s3.set(3.0 * w, 3.8 * Math.max(1, w * 0.5), (p.len || 160) * l)));
+          farMesh.setColorAt(farN, _c3.set(p.farCol)); farN++;
+        }
+      } else p.model.visible = !p.under;
       // (v1126) near, at her real size, on her track: each car where her track is under her two trucks (70% of the way
       // from her middle to each end), turned and tilted to their line, on the track's heights. Her cab's camera with her
       // first car. Farther off, or off her track, the cars in a straight line as before
       // (v1127: at any distance, her cars each made bigger in place when she's far: v1126 straightened her at 530 m, a snap)
-      let art = walked && !!p.cars && !!p.cur;
+      let art = walked && !!p.cars && !!p.cur && !far;   // (v1155: not far off, where she's a box)
       if (art) {
         const at = f => step(p.cur, f);
         const P = p.cars.map(c => { const b = c.userData.half * 0.7, cf = -c.userData.zc; return [at(cf + b), at(cf - b), b]; });
@@ -371,7 +400,9 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
           p.model.rotation.set(0, 0, 0); p.model.scale.set(1, 1, 1);
           const ky = p.artd ? 1 - Math.exp(-dt / 0.35) : 1;   // (her height and tilt eased: no step where the track's do)
           p.cars.forEach((c, i) => {
-            const [F, B, b] = P[i], yF = trackY?.(F.x, F.z, 6) ?? p.y, yB = trackY?.(B.x, B.z, 6) ?? p.y, u = c.userData;
+            const [F, B, b] = P[i], u = c.userData;
+            if (fresh || u.yF == null) { u.yF = trackY?.(F.x, F.z, 6) ?? p.y; u.yB = trackY?.(B.x, B.z, 6) ?? p.y; }   // (v1155: with her own heights, not each frame)
+            const yF = u.yF, yB = u.yB;
             u.y = u.y == null || !p.artd ? (yF + yB) / 2 : u.y + ((yF + yB) / 2 - u.y) * ky;
             u.pitch = u.pitch == null || !p.artd ? Math.atan2(yF - yB, 2 * b) : u.pitch + (Math.atan2(yF - yB, 2 * b) - u.pitch) * ky;
             c.position.set((F.x + B.x) / 2 - p.x, u.y - p.y, (F.z + B.z) / 2 - p.z);
@@ -391,6 +422,7 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
       p.artd = art;
       p.tag.visible = p === hover || pinned.has(p) || focus(p);
     }
+    farMesh.count = farN; farMesh.instanceMatrix.needsUpdate = true; if (farMesh.instanceColor) farMesh.instanceColor.needsUpdate = true;
   }
   return {
     start() { if (on) return; on = true; poll(); },
