@@ -14,18 +14,25 @@ const L = {
   kendall: { name: 'Kendall/MIT', rail: 'Red Line', tracks: [-3.6, 0], plats: [{ u0: -11, u1: -3.6 - G, eH: 1 }, { u0: G, u1: 8.4, eL: 1 }], d0: -105, d1: 27 },
   porter: { name: 'Porter', rail: 'Red Line', tracks: [0], plats: [{ u0: -5.3, u1: -G, eH: 1 }], d0: -111, d1: 23 },
   govBlue: { name: 'Government Center', rail: 'Blue Line', tracks: [-3.8, 0], plats: [{ u0: G, u1: 9, eL: 1 }], d0: -80, d1: 40 },
+  // (v1159) New York's
+  timesSq: { name: 'Times Sq-42 St', rail: '1 train', tracks: [-4.8, 0], plats: [{ u0: -10.4, u1: -4.8 - G, eH: 1 }, { u0: G, u1: 5.6, eL: 1 }], d0: -90, d1: 60 },
+  w4: { name: 'W 4 St-Wash Sq', rail: 'A train', tracks: [-9.5, 0], plats: [{ u0: -9.5 + G, u1: -G, eL: 1, eH: 1 }], d0: -100, d1: 60 },
+  canal: { name: 'Canal St', rail: 'N train', tracks: [-4.2, 0], plats: [{ u0: -9.6, u1: -4.2 - G, eH: 1 }, { u0: G, u1: 5.4, eL: 1 }], d0: -90, d1: 60 },
+  s81: { name: '81 St-Museum of Natural History', rail: 'C train', tracks: [-4.4, 0], plats: [{ u0: -9.8, u1: -4.4 - G, eH: 1 }, { u0: G, u1: 5.4, eL: 1 }], d0: -90, d1: 60 },
+  s14: { name: '14 St', rail: 'A train', tracks: [-9.5, 0], plats: [{ u0: -9.5 + G, u1: -G, eL: 1, eH: 1 }], d0: -100, d1: 60 },
+  s96: { name: '96 St', rail: 'Q train', tracks: [-9.5, 0], plats: [{ u0: -9.5 + G, u1: -G, eL: 1, eH: 1 }], d0: -100, d1: 60 },
 }[q.get('st') || 'parkRed'];
 for (const o of L.plats) { o.eL = !!o.eL; o.eH = !!o.eH; o.d0 = L.d0; o.d1 = L.d1; }
 const R = { ...L, lo: Math.min(...L.plats.map(o => o.u0), ...L.tracks.map(t => t - 2.3)), hi: Math.max(...L.plats.map(o => o.u1), ...L.tracks.map(t => t + 2.3)) };
 const P = []; for (let d = -200; d <= 200; d += 2) P.push({ x: 0, z: -d, h: 0, y: 0, d });
-const sd = (L.d0 + L.d1) / 2, platY = /Green/.test(L.rail) ? 0.3 : 1.05, H = /Green/.test(L.rail) ? 6 : 5, style = stationStyle(L.name, L.rail);
+const sd = (L.d0 + L.d1) / 2, platY = /Green/.test(L.rail) ? 0.3 : / train$/.test(L.rail) ? 1.1 : 1.05, H = /Green/.test(L.rail) ? 6 : 5, style = stationStyle(L.name, L.rail);
 const scene = new THREE.Scene(); scene.background = new THREE.Color(0x030304);
 const st = buildStation({ P, sd, R, platY, rail: L.rail, name: L.name, dest: 'Braintree', under: true, ceil: H + 1.2, style });
 scene.add(st.group);
 // the tunnel's part: floor, roof, rails (subway3d.js draws these in the app)
 const box = (w, h, l, x, y, z, c) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, l), new THREE.MeshBasicMaterial({ color: c })); m.position.set(x, y, z); scene.add(m); };
 box(R.hi - R.lo, 0.1, 400, (R.hi + R.lo) / 2, -0.35, 0, 0x2a2724);
-box(R.hi - R.lo, 0.1, 400, (R.hi + R.lo) / 2, H + 1.2 + style.rise + 0.35 * !!style.vault + 0.05, 0, 0x4e4b45);
+box(R.hi - R.lo, 0.1, 400, (R.hi + R.lo) / 2, H + 1.2 + style.rise + 0.35 * !!style.vault + 0.05, 0, style.nyc && style.nyc !== 'cavern' ? 0x8c8a84 : 0x4e4b45);
 for (const t of L.tracks) for (const s of [-1, 1]) box(0.08, 0.15, 400, t + s * 0.72, -0.05, 0, 0xb8b4ae);
 const r = new THREE.WebGLRenderer({ antialias: true }); r.setSize(innerWidth, innerHeight); r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 0.55; document.body.appendChild(r.domElement);
 const cam = new THREE.PerspectiveCamera(66, innerWidth / innerHeight, 0.1, 600);

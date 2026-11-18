@@ -140,6 +140,104 @@ function nameTex(name, band) {
     x.fillText(name, w / 2, (h - 22) / 2 + 4);
   });
 }
+// ── (v1159, "do the New York station looks next") New York's stations ──
+// From the record (the MTA's and the stations' own histories): the IRT's 1904 stations, cream tile with a mosaic frieze
+// and mosaic name tablets in a terracotta frame; the BMT's, white tile, a coloured trim, mosaic tablets in its colour;
+// the IND's (1932 on), white tile with its colour-coded trim line and the name in plain black letters. Low flat
+// ceilings on steel cross girders, rows of steel I-beam columns (black and white name plates on some), black hanging
+// signs with white letters and the line's bullet. The art at a few, as likenesses of its style, not copies: the pop
+// mural at Times Square (after Roy Lichtenstein's, 2002), the fossil mosaics at 81 St–Museum of Natural History, the
+// small bronze figures at 14 St–8 Av (after Tom Otterness's "Life Underground", 2001), the Second Avenue line's high
+// caverns (2017) with 96 St's blue-on-white tile (after Sarah Sze's "Blueprint for a Landscape").
+const NYC_IND = ['#b5302a', '#2a6a4a', '#6a3d8a', '#c99a1a', '#2a5a9a', '#7a7d80', '#a0522d', '#3a7a7a'];
+const hashOf = t => [...(t || '')].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7);
+const nycTileTex = cream => canvasTex('nyctile' + cream, 256, 128, (x, w, h) => {   // 3 by 6 in subway tile, glazed
+  x.fillStyle = '#9a968c'; x.fillRect(0, 0, w, h);
+  for (let r = 0; r < 4; r++) for (let c = -1; c < 5; c++) { const ox = r % 2 ? 32 : 0, v = (cream ? 228 : 238) + (Math.random() * 12 | 0); x.fillStyle = cream ? `rgb(${v},${v - 8},${v - 26})` : `rgb(${v},${v},${v - 3})`; x.fillRect(c * 64 + ox + 1, r * 32 + 1, 62, 30); x.fillStyle = 'rgba(255,255,255,0.35)'; x.fillRect(c * 64 + ox + 4, r * 32 + 3, 40, 3); }
+}, true);
+const friezeTex = () => canvasTex('frieze', 512, 96, (x, w, h) => {   // the IRT's mosaic frieze: a running border of tesserae
+  x.fillStyle = '#e9dfc4'; x.fillRect(0, 0, w, h);
+  const tess = (cx, cy, col) => { x.fillStyle = col; x.fillRect(cx, cy, 7, 7); };
+  for (let i = 0; i < w; i += 8) { tess(i, 2, '#8a3e24'); tess(i, h - 9, '#8a3e24'); tess(i, 12, (i / 8) % 2 ? '#2f6a5a' : '#c9a24a'); tess(i, h - 19, (i / 8) % 2 ? '#2f6a5a' : '#c9a24a'); }
+  for (let c = 0; c < w; c += 64) {   // a diamond and rosette each 64 px
+    for (let k = -3; k <= 3; k++) for (let j = -(3 - Math.abs(k)); j <= 3 - Math.abs(k); j++) tess(c + 32 + j * 8, h / 2 - 3 + k * 8, Math.abs(k) + Math.abs(j) === 3 - 0 ? '#8a3e24' : (k + j) % 2 ? '#2f6a5a' : '#d8b860');
+    tess(c + 4, h / 2 - 3, '#3a5a8a'); tess(c + 12, h / 2 - 3, '#3a5a8a');
+  }
+}, true);
+function tabletTex(name, era, trim) {   // a station's name tablet in her line's era
+  const nm = name.toUpperCase();
+  return canvasTex('tab:' + era + nm + trim, 1024, 256, (x, w, h) => {
+    if (era === 'irt') {
+      x.fillStyle = '#8a3e24'; x.fillRect(0, 0, w, h);
+      for (let i = 0; i < w; i += 16) for (const y of [6, h - 18]) { x.fillStyle = (i / 16) % 2 ? '#d8b860' : '#2f6a5a'; x.fillRect(i + 2, y, 12, 12); }
+      for (let j = 22; j < h - 22; j += 16) for (const xx of [6, w - 18]) { x.fillStyle = (j / 16) % 2 ? '#d8b860' : '#2f6a5a'; x.fillRect(xx, j, 12, 12); }
+      x.fillStyle = '#efe4c8'; x.fillRect(30, 30, w - 60, h - 60);
+      x.fillStyle = '#1f4a5a'; x.textAlign = 'center'; x.textBaseline = 'middle'; let s = 120; x.font = `bold ${s}px Georgia, "Times New Roman", serif`;
+      while (x.measureText(nm).width > w - 120 && s > 40) { s -= 4; x.font = `bold ${s}px Georgia, "Times New Roman", serif`; }
+      x.fillText(nm, w / 2, h / 2 + 6);
+    } else if (era === 'bmt') {
+      x.fillStyle = trim; x.fillRect(0, 0, w, h);
+      for (let i = 0; i < 600; i++) { x.fillStyle = Math.random() < 0.5 ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.18)'; x.fillRect(Math.random() * w, Math.random() * h, 8, 8); }
+      x.fillStyle = '#f2efe6'; x.fillRect(26, 26, w - 52, h - 52);
+      x.fillStyle = '#222'; x.textAlign = 'center'; x.textBaseline = 'middle'; let s = 112; x.font = `bold ${s}px "Gill Sans", Helvetica, sans-serif`;
+      while (x.measureText(nm).width > w - 110 && s > 40) { s -= 4; x.font = `bold ${s}px "Gill Sans", Helvetica, sans-serif`; }
+      x.fillText(nm, w / 2, h / 2 + 4);
+    } else {   // the IND's: plain black letters on white tile, the trim's colour above and below
+      x.fillStyle = '#f2f1ec'; x.fillRect(0, 0, w, h); x.fillStyle = trim; x.fillRect(0, 0, w, 34); x.fillRect(0, h - 34, w, 34); x.fillStyle = 'rgba(0,0,0,0.25)'; x.fillRect(0, 34, w, 4); x.fillRect(0, h - 38, w, 4);
+      x.fillStyle = '#111'; x.textAlign = 'center'; x.textBaseline = 'middle'; let s = 120; x.font = `bold ${s}px Futura, "Trebuchet MS", Helvetica, sans-serif`;
+      while (x.measureText(nm).width > w - 90 && s > 40) { s -= 4; x.font = `bold ${s}px Futura, "Trebuchet MS", Helvetica, sans-serif`; }
+      x.fillText(nm, w / 2, h / 2 + 4);
+    }
+  });
+}
+const trimTex = col => canvasTex('trim' + col, 256, 64, (x, w, h) => {   // a tile trim line: its colour, darker edges, its tiles
+  x.fillStyle = col; x.fillRect(0, 0, w, h); x.fillStyle = 'rgba(0,0,0,0.3)'; x.fillRect(0, 0, w, 8); x.fillRect(0, h - 8, w, 8);
+  x.strokeStyle = 'rgba(0,0,0,0.18)'; x.lineWidth = 2; for (let i = 0; i < w; i += 32) { x.beginPath(); x.moveTo(i, 8); x.lineTo(i, h - 8); x.stroke(); }
+}, true);
+function nycSignTex(name, line, col) {   // the MTA's hanging sign: black, the name in white Helvetica, her bullet
+  return canvasTex('nycsign:' + name + line, 1024, 160, (x, w, h) => {
+    x.fillStyle = '#111'; x.fillRect(0, 0, w, h); x.fillStyle = '#fff'; x.fillRect(0, 10, w, 4);
+    x.textBaseline = 'middle'; x.textAlign = 'left'; let s = 84; x.font = `bold ${s}px Helvetica, Arial, sans-serif`;
+    while (x.measureText(name).width > w - 200 && s > 34) { s -= 4; x.font = `bold ${s}px Helvetica, Arial, sans-serif`; }
+    x.fillText(name, 34, h / 2 + 8);
+    if (line) { const r = 52, cx = w - 80, cy = h / 2 + 8; x.fillStyle = col; x.beginPath(); x.arc(cx, cy, r, 0, Math.PI * 2); x.fill();
+      x.fillStyle = col === '#fccc0a' ? '#111' : '#fff'; x.textAlign = 'center'; x.font = `bold ${line.length > 1 ? 44 : 70}px Helvetica, Arial, sans-serif`; x.fillText(line, cx, cy + 4); }
+  });
+}
+const plateTex = name => canvasTex('plate:' + name, 512, 128, (x, w, h) => {   // a column's name plate
+  x.fillStyle = '#121212'; x.fillRect(0, 0, w, h); x.fillStyle = '#fff'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  let s = 64; x.font = `bold ${s}px Helvetica, Arial, sans-serif`; while (x.measureText(name).width > w - 30 && s > 22) { s -= 3; x.font = `bold ${s}px Helvetica, Arial, sans-serif`; } x.fillText(name, w / 2, h / 2 + 3);
+});
+const popTex = () => canvasTex('pop', 2048, 512, (x, w, h) => {   // Times Square: a pop-art mural, black outlines, primary colours, dots
+  x.fillStyle = '#f6f1e2'; x.fillRect(0, 0, w, h);
+  x.fillStyle = '#3a7ad0'; for (let yy = 8; yy < h * 0.55; yy += 18) for (let xx = (yy / 18 % 2) * 9; xx < w; xx += 18) { x.beginPath(); x.arc(xx, yy, 5, 0, Math.PI * 2); x.fill(); }   // Ben-Day dots: the sky
+  const out = (f) => { x.lineWidth = 10; x.strokeStyle = '#111'; f(); x.stroke(); };
+  // a streamlined train of the future, racing left to right, in yellow and red
+  x.fillStyle = '#f2c40f'; x.beginPath(); x.moveTo(140, 330); x.lineTo(1500, 300); x.quadraticCurveTo(1820, 300, 1900, 380); x.lineTo(140, 420); x.closePath(); x.fill(); out(() => { x.beginPath(); x.moveTo(140, 330); x.lineTo(1500, 300); x.quadraticCurveTo(1820, 300, 1900, 380); x.lineTo(140, 420); x.closePath(); });
+  x.fillStyle = '#d42a1e'; x.fillRect(140, 380, 1700, 26); out(() => { x.beginPath(); x.rect(140, 380, 1700, 26); });
+  for (let i = 0; i < 9; i++) { x.fillStyle = '#9ad0f2'; x.fillRect(240 + i * 140, 322, 90, 40); out(() => { x.beginPath(); x.rect(240 + i * 140, 322, 90, 40); }); }
+  for (let i = 0; i < 5; i++) { x.fillStyle = '#111'; x.fillRect(60 - i * 10, 340 + i * 14, 70 + i * 20, 6); }   // speed lines
+  // the city behind: blocks in red, blue and black, outlined
+  for (let i = 0; i < 12; i++) { const bx = 40 + i * 170, bw = 120, bh = 120 + (i * 53 % 140); x.fillStyle = ['#d42a1e', '#2a5aa8', '#f6f1e2', '#111'][i % 4]; x.fillRect(bx, 290 - bh, bw, bh); out(() => { x.beginPath(); x.rect(bx, 290 - bh, bw, bh); }); }
+  x.fillStyle = '#111'; x.fillRect(0, 430, w, 82); x.fillStyle = '#f2c40f'; for (let i = 0; i < w; i += 120) x.fillRect(i, 466, 70, 10);
+}, true);
+const fossilTex = () => canvasTex('fossil', 1024, 512, (x, w, h) => {   // 81 St: fossils and animals in mosaic, on sand
+  x.fillStyle = '#d9c9a4'; x.fillRect(0, 0, w, h);
+  for (let i = 0; i < 1400; i++) { const v = 190 + (Math.random() * 40 | 0); x.fillStyle = `rgb(${v},${v - 14},${v - 46})`; x.fillRect(Math.random() * w, Math.random() * h, 9, 9); }
+  x.lineWidth = 9; x.strokeStyle = '#6a4a2a';
+  for (const [cx, cy, r] of [[180, 160, 110], [760, 360, 90]]) { x.beginPath(); for (let t = 0; t < 22; t += 0.1) { const rr = r * Math.exp(-t * 0.09); x.lineTo(cx + Math.cos(t) * rr, cy + Math.sin(t) * rr); } x.stroke(); }   // ammonites
+  x.strokeStyle = '#4a3a2a'; x.beginPath(); x.moveTo(380, 330); x.quadraticCurveTo(520, 200, 690, 250); x.stroke();   // a dinosaur's spine and ribs
+  for (let i = 0; i < 9; i++) { const px = 400 + i * 32, py = 300 - i * 9; x.beginPath(); x.moveTo(px, py); x.lineTo(px + 6, py + 70); x.stroke(); }
+  x.beginPath(); x.arc(700, 245, 26, 0, Math.PI * 2); x.stroke();
+  x.fillStyle = '#5a6a3a'; for (const [cx, cy] of [[300, 430], [900, 120]]) { x.beginPath(); x.ellipse(cx, cy, 60, 26, 0.3, 0, Math.PI * 2); x.fill(); }   // trilobites
+}, true);
+const szeTex = () => canvasTex('sze', 1024, 512, (x, w, h) => {   // 96 St: blue line drawing on white porcelain tile
+  x.fillStyle = '#f4f6f8'; x.fillRect(0, 0, w, h); x.strokeStyle = 'rgba(160,170,180,0.5)'; x.lineWidth = 2; for (let i = 0; i <= w; i += 64) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i, h); x.stroke(); } for (let j = 0; j <= h; j += 64) { x.beginPath(); x.moveTo(0, j); x.lineTo(w, j); x.stroke(); }
+  x.strokeStyle = '#2a5ab0'; x.lineWidth = 3;
+  for (let i = 0; i < 70; i++) { const a = Math.random() * Math.PI * 2, L = 40 + Math.random() * 260, sx = Math.random() * w, sy = Math.random() * h; x.beginPath(); x.moveTo(sx, sy); x.lineTo(sx + Math.cos(a) * L, sy + Math.sin(a) * L); x.stroke(); }   // the scaffolding's lines
+  for (let i = 0; i < 26; i++) { const cx = Math.random() * w, cy = Math.random() * h; x.beginPath(); x.moveTo(cx - 14, cy); x.quadraticCurveTo(cx - 6, cy - 9, cx, cy); x.quadraticCurveTo(cx + 6, cy - 9, cx + 14, cy); x.stroke(); }   // birds
+  x.fillStyle = 'rgba(42,90,176,0.5)'; for (let i = 0; i < 14; i++) { x.beginPath(); x.ellipse(Math.random() * w, Math.random() * h, 22, 8, Math.random() * 3, 0, Math.PI * 2); x.fill(); }   // leaves blowing
+}, true);
 function ledTex(dest) {   // the countdown sign: her destination, and BRD (she's boarding)
   return canvasTex('led:' + dest, 512, 128, (x, w, h) => {
     x.fillStyle = '#050505'; x.fillRect(0, 0, w, h); x.fillStyle = '#ffb21e'; x.textBaseline = 'middle';
@@ -217,6 +315,20 @@ export function stationStyle(name = '', rail = '') {
   if (red && /Kendall/.test(name)) s.art.push('band');
   if (red && /Porter/.test(name)) { s.vault = 'single'; s.rise = 4; s.wall = 'concrete'; }
   if (/Government Center/.test(name)) { s.floor = lineColour(rail) || null; if (/Blue/.test(rail)) s.art.push('under:SCOLLAY UNDER'); }
+  // (v1159) New York's, by her line's era (above, at tabletTex); the special ones by name
+  const ny = (rail || '').match(/^([1-7A-Z]) train$/);
+  if (ny) {
+    const line = ny[1];
+    s.nyc = /^[1-7S]$/.test(line) ? 'irt' : /^[JZLNQRW]$/.test(line) ? 'bmt' : 'ind';
+    s.cols = { irt: 0x2c4a3a, bmt: 0x34383c, ind: 0x2c3c52 }[s.nyc];
+    s.rise = -1.4;   // (her low flat ceiling: about 3.7 m over the platform)
+    s.trim = s.nyc === 'irt' ? '#8a3e24' : s.nyc === 'bmt' ? ['#6b3a2a', '#2e5e4e', '#5a4a8a', '#8a6a2a'][hashOf(name) % 4] : NYC_IND[hashOf(name) % NYC_IND.length];
+    s.line = line; s.lineCol = lineColour(rail) || '#808183';
+    if (/Times Sq/.test(name)) s.art.push('pop');
+    if (/^81 St/.test(name)) s.art.push('fossils');
+    if (/^14 St/.test(name) && /^[ACEL]$/.test(line)) s.art.push('bronzes');
+    if ((line === 'Q' && /^(72|86|96) St$/.test(name)) || /Hudson Yards/.test(name)) { s.nyc = 'cavern'; s.vault = 'single'; s.rise = 4.5; s.wall = 'clean'; if (/^96 St$/.test(name)) s.art.push('sze'); }
+  }
   return s;
 }
 
@@ -393,31 +505,38 @@ export function buildStation({ P, sd, R, platY, rail, name, dest, under, ceil, l
   const backed = u => pls.some(o => (Math.abs(o.u0 - u) < 0.4 && !o.eL) || (Math.abs(o.u1 - u) < 0.4 && !o.eH));
 
   if (under) {
-    const top = ceil;
+    const NY = style.nyc, nyOld = NY && NY !== 'cavern';   // (v1159: New York's; the old stations, not the Second Avenue line's caverns)
+    const top = ceil + (NY && style.rise < 0 ? style.rise : 0);
     // ── the walls: tile (Porter's concrete), the line's band, names, posters and maps; on both sides ──
-    const wallM = style.wall === 'concrete' ? mat({ color: 0x8f8a80 }) : mat({ map: tileTex() });
+    const wallM = style.wall === 'concrete' ? mat({ color: 0x8f8a80 }) : style.wall === 'clean' ? mat({ color: 0xe6e8ea, glow: 1.25 }) : NY ? mat({ map: nycTileTex(NY === 'irt') }) : mat({ map: tileTex() });
     const walls = [[R.lo + 0.03, -1], [R.hi - 0.03, 1]];   // [u, its side]
     for (const [u, s] of walls) {
       strip(s0, s1, () => [u, -0.3, u, top + (style.vault ? 0.4 : 0)], wallM, 0.6, 0.3);
-      if (style.wall !== 'concrete') strip(s0, s1, () => [u - s * 0.01, platY + 2.45, u - s * 0.01, platY + 2.75], mat({ color: band, glow: 1.6 }));
+      if (NY === 'irt') strip(s0, s1, () => [u - s * 0.01, top - 0.55, u - s * 0.01, top - 0.2], mat({ map: friezeTex(), glow: 1.5 }), 3.2, 0.35);   // (the IRT's mosaic frieze)
+      else if (nyOld) strip(s0, s1, () => [u - s * 0.01, platY + 2.6, u - s * 0.01, platY + 2.9], mat({ map: trimTex(style.trim), glow: 1.5 }), 2, 0.3);   // (the BMT's and IND's trim line)
+      else if (!NY && style.wall !== 'concrete') strip(s0, s1, () => [u - s * 0.01, platY + 2.45, u - s * 0.01, platY + 2.75], mat({ color: band, glow: 1.6 }));
     }
     const nameM = mat({ map: nameTex(name, band), glow: 1.5 });
+    const tabletM = nyOld ? mat({ map: tabletTex(name, NY, style.trim), glow: 1.5 }) : null, nySignM = NY ? mat({ map: nycSignTex(name, style.line, style.lineCol), glow: 1.6 }) : null;
     const under_ = style.art.find(a => a.startsWith('under:'));
     // (Park Street) the mosaic on the wall with a track beside it
     // (on a wall seen across a track from a platform: one with a track beside it but not hers, else a platform's back
     // not hers, else the wall beside her track)
     const camPl = R.cam && pls.find(o => (R.cam.side > 0 ? o.u0 : o.u1) === R.cam.edge);
-    const muralWall = !style.art.includes('celebration') ? null : walls.find(([u]) => !backed(u) && Math.abs(u) > 3) || walls.find(([u]) => backed(u) && !(camPl && (Math.abs(camPl.u0 - u) < 0.4 || Math.abs(camPl.u1 - u) < 0.4))) || walls.find(([u]) => !backed(u));
+    const muralWall = !style.art.includes('celebration') && !style.art.includes('pop') ? null : walls.find(([u]) => !backed(u) && Math.abs(u) > 3) || walls.find(([u]) => backed(u) && !(camPl && (Math.abs(camPl.u0 - u) < 0.4 || Math.abs(camPl.u1 - u) < 0.4))) || walls.find(([u]) => !backed(u));
     if (muralWall) {
       const [u, s] = muralWall, a = Math.max(s0 + 4, sd - 30), b = Math.min(s1 - 4, sd + 30);
-      strip(a, b, () => [u - s * 0.02, platY - 0.1, u - s * 0.02, platY + 2.3], mat({ map: muralTex(), glow: 1.45 }), 8, 2.4);
+      if (style.art.includes('pop')) { const c = sd; strip(c - 9, c + 9, () => [u - s * 0.02, platY + 0.7, u - s * 0.02, platY + 2.5], mat({ map: popTex(), glow: 1.45 }), 18, 1.8); }   // (Times Square's pop mural: 18 m of it)
+      else strip(a, b, () => [u - s * 0.02, platY - 0.1, u - s * 0.02, platY + 2.3], mat({ map: muralTex(), glow: 1.45 }), 8, 2.4);
     }
     let k = 0;
     for (let d = s0 + 8; d <= s1 - 6; d += 6, k++) {
       const what = k % 4 === 0 ? 'name' : under_ && k % 4 === 2 ? 'mosaic' : k % 8 === 2 ? 'map' : 'poster';
       for (const [u0, s] of walls) {
         const u = u0 - s * 0.02, y0 = backed(u0) ? platY : platY - 0.2;
-        if (what === 'name') panel(d, u, y0 + 3.15, 3.6, 0.56, nameM, s);
+        if (what === 'name') { if (tabletM) panel(d, u, y0 + 1.95, 2.6, 0.65, tabletM, s); else if (NY) panel(d, u, y0 + 2.7, 3.2, 0.5, nySignM, s); else panel(d, u, y0 + 3.15, 3.6, 0.56, nameM, s); }
+        else if (style.art.includes('fossils') && k % 2) panel(d, u, y0 + 1.5, 2.4, 1.2, mat({ map: fossilTex(), glow: 1.5 }), s);
+        else if (style.art.includes('sze')) panel(d, u, y0 + 2.2, 4.8, 2.4, mat({ map: szeTex(), glow: 1.4 }), s);
         else if (muralWall && muralWall[0] === u0 && Math.abs(d - sd) < 31) continue;
         else if (what === 'mosaic') panel(d, u, y0 + 1.7, 3.2, 0.6, mat({ map: mosaicTex(under_.slice(6)), glow: 1.5 }), s);
         else if (what === 'map') panel(d, u, y0 + 1.65, 1.5, 1.5, mat({ map: mapTex(), glow: 1.7 }), s);
@@ -447,15 +566,38 @@ export function buildStation({ P, sd, R, platY, rail, name, dest, under, ceil, l
       for (const sx of [-1.25, 1.25]) { const g = new THREE.BoxGeometry(0.12, 1.0, n * 0.28 + 0.6); g.translate(sx, 0.5, n * 0.14); g.applyMatrix4(new THREE.Matrix4().makeShear(0, 0, 0, 0, 0, 0.64)); put(g, stair.d, stair.u, platY + 0.2, yaw, 0xcfc9b8, 1.1); }
       boxAt(2.8, 0.06, 0.06, stair.d, stair.u, platY + 1.05, yaw, 0x9a9a98, 0, 0, -0.2, 1.2); }
     // the columns: down the middle of each wide platform, and between tracks with no platform between them
+    if (nyOld) {
+      // (v1159) New York's: steel I-beams every 4.6 m, 1.3 m in from each platform edge with a track, and between tracks
+      // with no platform between; a black name plate on every third; steel girders across the ceiling over them
+      const ibeam = (d, u, y, h) => { const yaw = along(ring(d)); boxAt(0.3, h, 0.035, d, u, y, yaw, style.cols, 0, 0, -0.13, 1.1); boxAt(0.3, h, 0.035, d, u, y, yaw, style.cols, 0, 0, 0.13, 1.1); boxAt(0.035, h, 0.26, d, u, y, yaw, style.cols, 0, 0, 0, 1.0); };
+      const plateM = mat({ map: plateTex(name), glow: 1.6 }); let n = 0;
+      for (const o of pls) if (o.w >= 3.2) for (const [has, u] of [[o.eL, o.u0 + 1.3], [o.eH, o.u1 - 1.3]]) if (has) for (let d = o.d0 + 3; d <= o.d1 - 3; d += 4.6) {
+        if (inStair(d, u)) continue; ibeam(d, u, platY, top - platY);
+        if (n++ % 3 === 0) for (const t of [0, Math.PI]) { const pl = panel(d, u, platY + 1.9, 0.9, 0.22, plateM, null); pl.rotation.y = along(ring(d)) + t; pl.position.y += 0; pl.translateZ(0.15); }
+      }
+      for (let i = 0; i + 1 < R.tracks.length; i++) { const a = R.tracks[i], b = R.tracks[i + 1]; if (b - a > 2.8 && !pls.some(o => o.u0 > a && o.u1 < b)) for (let d = s0 + 3; d <= s1 - 3; d += 4.6) ibeam(d, (a + b) / 2, -0.3, top + 0.3); }
+      for (let d = s0 + 3; d <= s1 - 3; d += 4.6) boxAt(R.hi - R.lo, 0.32, 0.22, d, (R.lo + R.hi) / 2, top - 0.32, along(ring(d)), style.cols, 0, 0, 0, 0.9);
+    } else if (!NY) {
     for (const o of pls) if (o.w >= 4.5) for (let d = o.d0 + 5; d <= o.d1 - 4; d += 9) if (!inStair(d, o.m)) boxAt(0.36, top - platY, 0.36, d, o.m, platY, along(ring(d)), style.cols, 0, 0, 0, 1.1);
     for (let i = 0; i + 1 < R.tracks.length; i++) { const a = R.tracks[i], b = R.tracks[i + 1]; if (b - a > 2.8 && !pls.some(o => o.u0 > a && o.u1 < b)) for (let d = s0 + 3; d <= s1 - 3; d += 6) boxAt(0.3, top + 0.3, 0.3, d, (a + b) / 2, -0.3, along(ring(d)), style.cols, 0, 0, 0, 1.0); }
+    }
     // hanging signs over each platform: the name, and the countdown
     const led = mat({ map: ledTex(dest || name), glow: 1.6 });
     for (const o of pls) for (let d = o.d0 + 18; d <= o.d1 - 10; d += 32) {
       const r = ring(d), y = top - 0.8, u = o.u0 + o.w * (o.w > 4 ? 0.4 : 0.5);
-      for (const t of [1, -1]) { const nm = panel(d, u, y, 2.4, 0.38, nameM, null); nm.rotation.y = facing(r, -1) + t * Math.PI / 2; }
+      for (const t of [1, -1]) { const nm = panel(d, u, y, NY ? 2.8 : 2.4, NY ? 0.44 : 0.38, nySignM || nameM, null); nm.rotation.y = facing(r, -1) + t * Math.PI / 2; }
       for (const t of [0, Math.PI]) { const l = panel(d + 9, u, y, 1.9, 0.48, led, null); l.rotation.y = along(r) + t; }
       for (const dd of [d, d + 9]) boxAt(0.03, top - y - 0.2, 0.03, dd, u, y + 0.2, 0, 0x333333, 0, 0, 0, 1.2);
+    }
+    // (14 St–8 Av) little bronze people, after "Life Underground": on the girders, at the columns' feet, by the benches
+    if (style.art.includes('bronzes')) for (let i = 0; i < 14; i++) {
+      const o = pls[i % pls.length], d = sd - 28 + i * 4.3 + (i % 3), u = o.u0 + 0.6 + ((i * 0.37) % 1) * Math.max(0.2, o.w - 1.2), up = i % 4 === 0;
+      const y = up ? top - 0.16 : platY, B = 0x6a4a24, k = 1.1, yaw = along(ring(d)) + i;
+      { const g = new THREE.CylinderGeometry(0.11, 0.14, 0.32, 10); g.translate(0, 0.28, 0); put(g, d, u, y, yaw, B, k); }   // her round body
+      { const g = new THREE.SphereGeometry(0.1, 12, 10); g.translate(0, 0.53, 0); put(g, d, u, y, yaw, B, k); }   // her round head
+      { const g = new THREE.CylinderGeometry(0.075, 0.075, 0.08, 10); g.translate(0, 0.66, 0); put(g, d, u, y, yaw, B, k); const b = new THREE.CylinderGeometry(0.13, 0.13, 0.012, 12); b.translate(0, 0.62, 0); put(b, d, u, y, yaw, B, k); }   // her bowler hat
+      for (const sx of [-0.06, 0.06]) { const g = new THREE.CylinderGeometry(0.035, 0.04, 0.14, 6); g.translate(sx, 0.07, 0); put(g, d, u, y, yaw, B, k); }
+      if (i % 3 === 1) { const g = new THREE.BoxGeometry(0.16, 0.16, 0.08); g.translate(0.15, 0.25, 0); put(g, d, u, y, yaw, 0xb08a3a, k); }   // a moneybag
     }
     // (Park Street Under) "Benedictions": a giant bronze hand over each track, raised in blessing
     if (style.art.includes('hands')) R.tracks.forEach((t, i) => { const d = sd + (i ? 14 : -14), yaw = along(ring(d)) + (i ? Math.PI : 0); hand(d, t, top + style.rise * 0.35, yaw); });

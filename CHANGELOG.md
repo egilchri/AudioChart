@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-11-18 — Bird's-eye: New York's stations as themselves (v1159, Bird's-eye only)
+
+- Asked: "do the New York station looks next". Riding a New York train into a station, it's now New York's, not Boston's (www/js/platform3d.js `stationStyle`, `buildStation`), by her line's era:
+  - **IRT** (the 1 to 7, the 42 St shuttle; 1904 on): cream subway tile, a mosaic frieze of diamonds and rosettes along the top, mosaic name tablets in a terracotta frame with serif letters; dark green columns.
+  - **BMT** (J, Z, L, N, Q, R, W): white tile, a tile trim line in the station's colour, mosaic tablets bordered in it; black-grey columns.
+  - **IND** (A, C, E, B, D, F, M, G; 1932 on): white tile, its colour-coded trim line, the name in plain black letters between bands of the trim's colour; blue-grey columns.
+  - All of them: the low flat ceiling (about 3.7 m over the platform, the tunnel's roof brought down to it) on steel girders across; steel I-beam columns every 4.6 m, 1.3 m in from each platform edge with a track and between tracks with no platform, a black name plate on every third; the black hanging signs, the name in white Helvetica beside her line's bullet.
+- **A few as themselves** (likenesses of the art's style, not copies of it): Times Sq–42 St, an 18 m pop mural across the tracks after Roy Lichtenstein's (a streamlined train, the city in outlined blocks, a Ben-Day sky); 81 St–Museum of Natural History, fossil and animal mosaics (ammonites, a dinosaur's spine, trilobites); 14 St–8 Av, small bronze figures in bowler hats on the girders and the platform, after Tom Otterness's "Life Underground"; the Second Avenue line's 72, 86 and 96 St and 34 St–Hudson Yards, their high bright vaults with no columns, 96 St's walls in blue line drawing on white tile after Sarah Sze's.
+- Preview of each: design/pending/station-look/view.html?st=timesSq|w4|canal|s81|s14|s96.
+- Checked in headless Chrome, in the preview and on the live feed: an A train at 59 St–Columbus Circle, a C at 42 St–Port Authority, an E at Spring St, from Side. Full CI suite passes.
+
 ## 2026-11-18 — Bird's-eye: live boats stop at the dock, not through it (v1158)
 
 - Reported: "this is not the first time I've seen a boat come in towards the dock and just plough right on through". Between AIS reports each vessel was carried on at her last speed and course for up to five minutes (www/js/bay3d.js `updateLive`), so a ferry last heard at 20 kn as she came in to her slip went on through it, and into the town, until her next report brought her back.
