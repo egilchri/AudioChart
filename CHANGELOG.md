@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-18 — Bird's-eye: New York's elevated lines up on their steel (v1155, Bird's-eye only)
+
+- Asked: "do the elevated lines next". v1154 had New York's els on the ground: a raised piece of track ran straight between its two ends at the ground's height, and OpenStreetMap draws an el as a chain of short raised pieces (`bridge=yes`, `layer` 1 to 3), so the whole chain lay on the street.
+- **Their height** (www/js/track3d.js `elevProfile`; design/rail/build_rail.py `--elev` keeps each raised piece's layer, for New York only): a raised piece joined to another stands over the street at an el's height, 8 m on layer 1 and 3 m more a layer up, along the ground's lie; where it meets track on the ground it ramps down at 4%. A short bridge between two embankment ends stays as it was. Joins with an el ease a big step over more of their length. The trains ride on these heights.
+- **Their steel**: under each track an open deck of ties on two girders, and every 20 m a pair of columns from the street with a crossbeam on them, in the MTA's grey-green.
+- **The river bridges**: the subway's tracks on the Manhattan and Williamsburg Bridges lie along the modelled bridges' decks (www/js/bridges3d.js roadDecks), 45 to 48 m over the East River, not low over the water.
+- Boston's and SF's tracks are as they were: their files have no layers.
+- Checked in headless Chrome: the 7 on its el along Roosevelt Avenue (columns, girders, the train on top), the J and M over Broadway in Brooklyn, a 7 stopped at 74 St–Broadway on her raised platform; the Manhattan Bridge's tracks at 46–48 m mid-span. `__bay3d.trackY(lon, lat)` for checking. Full CI suite passes.
+
 ## 2026-11-18 — Bird's-eye: New York's subway, live (v1154, Bird's-eye only)
 
 - Asked: "Let's start on the New York Subway". Stage 1 of it: every train on every line, live, on its own track, in its own cars, and the rides in its tunnels. AudioChart's own version stays v1153: none of this is loaded by the navigation app.

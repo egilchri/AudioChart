@@ -949,7 +949,7 @@ const [navGJ, placesGJ, landGJ] = await Promise.all([
 ]);
 const inBay = ([x, y]) => x >= OW && x <= OE && y >= OS && y <= ON;
 // ── Bridges (v1020; bridges3d.js): the region's, if it has any ──
-makeBridges(RID, heightAt, camera.position).then(B => { if (!B) return; bridges = B; if (freeway && B.roadDecks) freeway.setDecks(B.roadDecks); if (tracks && B.railDecks) tracks.setDecks(B.railDecks); scene.add(B.group); try { B.night(env.lightsK); } catch (_) {} updateCredit(); onBridges?.(B); })   // (env: once it's made)
+makeBridges(RID, heightAt, camera.position).then(B => { if (!B) return; bridges = B; if (freeway && B.roadDecks) freeway.setDecks(B.roadDecks); if (tracks && B.railDecks) tracks.setDecks(B.railDecks, B.roadDecks); scene.add(B.group); try { B.night(env.lightsK); } catch (_) {} updateCredit(); onBridges?.(B); })   // (env: once it's made)
   .catch(err => console.warn('[bay3d] bridges', err));
 const navs = navGJ.features.filter(f => f.geometry?.type === 'Point' && inBay(f.geometry.coordinates));
 const BUOY_T = ['BOYLAT', 'BCNLAT', 'BOYSAW', 'BOYSPP', 'BOYCAR', 'BOYISD'];
@@ -2317,7 +2317,7 @@ function buildArmchair() {
   if (REG.rail) getJSON(`./data/rail/${REG.rail}.json`).then(d => {
     rail.setTracks(d.lines, d.tunnel); trackNear = rail.nearTrack;   // (v1138: and which are tunnels: the T underground)
     // (v1125, requested: "I'd like to show the tracks"): drawn, bridges and all; the trains ride on their heights
-    if (!EMPTY) { tracks = AC.makeTracks({ scene, lines: d.lines, bridge: d.bridge, tunnel: d.tunnel, wx, wz, heightAt }); rail.setTrackY(tracks.yAt); if (bridges?.railDecks) tracks.setDecks(bridges.railDecks); }
+    if (!EMPTY) { tracks = AC.makeTracks({ scene, lines: d.lines, bridge: d.bridge, tunnel: d.tunnel, elev: d.elev, wx, wz, heightAt }); rail.setTrackY(tracks.yAt); if (bridges?.railDecks) tracks.setDecks(bridges.railDecks, bridges.roadDecks); }   // (v1155: New York's els, d.elev)
     for (const T of tiles) if (T.state === 'ready' && T.dem?.canopy) { T.spots = treeSpots(T, T.dem); treesDirty = true; }   // (tiles in before the tracks)
   }).catch(err => console.warn('[bay3d] rail tracks', err));
   // the freeways' traffic (v1128, requested: "put car traffic in each direction on the freeway"), at Caltrans's signs' speeds
@@ -4015,6 +4015,7 @@ window.__bay3d = {   // for AudioChart (returning to the chart where you were) a
   air, rail,   // (the live aircraft and trains: for the live-tour recording, v1103)
   tracks: () => tracks,   // (for testing, v1125)
   freeway: () => freeway,   // (v1145)
+  trackY: (lon, lat) => tracks ? tracks.yAt(wx(lon), wz(lat), 30) : null,   // (the drawn track's rail top near there, m: for testing, v1155)
   trainCard: id => { const v = rail.items().find(p => p.id === id); if (v) showCard(v); return !!v; },   // (for testing, v1120)
   goWhole, towns: townList, tiles, scene, env, traffic, clockMin, setClock, camera, applyConditions, fleet, own, bowdoin, nest, setNest, ride, leaveRide, lookoutReport, findBerth, pierSegs, ferryStops, moorings, isWaterXZ: (x, z) => isWater(x, z), isWater: (lat, lon) => isWater(wx(lon), wz(lat)), boatAt: i => ({ lat: latOf(fleet[i].z), lon: lonOf(fleet[i].x), h: fleet[i].h }), renderer, trees: () => ({ near: TREES.near.count, far: TREES.far.count, K: TREES.K }),
 };
