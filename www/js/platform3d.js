@@ -16,6 +16,10 @@
 import * as THREE from 'three';
 
 const LINE_COL = { 'Red Line': '#da291c', 'Orange Line': '#ed8b00', 'Blue Line': '#003da5', 'Green Line': '#00843d', 'Mattapan Trolley': '#da291c', 'Commuter Rail': '#80276c' };
+// (v1154) New York's subway lines, by the MTA's colours ('A train', '1 train', the Staten Island Railway's)
+const NYC_COL = { 1: '#ee352e', 2: '#ee352e', 3: '#ee352e', 4: '#00933c', 5: '#00933c', 6: '#00933c', 7: '#b933ad', A: '#0039a6', C: '#0039a6', E: '#0039a6',
+  B: '#ff6319', D: '#ff6319', F: '#ff6319', M: '#ff6319', G: '#6cbe45', J: '#996633', Z: '#996633', L: '#a7a9ac', N: '#fccc0a', Q: '#fccc0a', R: '#fccc0a', W: '#fccc0a', S: '#808183' };
+export const lineColour = rail => LINE_COL[rail] || NYC_COL[(rail || '').replace(/ train$/, '')] || (rail === 'Staten Island Railway' ? '#0039a6' : null);
 const SKIN = [0xf1c8a8, 0xe0ac86, 0xc68a62, 0x9b6744, 0x6e4a32, 0x4a3224];
 const CLOTH = [0x1c1c1e, 0x1c1c1e, 0x2b2f38, 0x3b3d42, 0x24324a, 0x4a5a6e, 0x6b6e72, 0x8b8f94, 0xc9c6bf, 0x7a2a2a, 0x2e4a36, 0xb8945a, 0x5a3a2a, 0xd8d4cc, 0x8a2432, 0x2a4a7a];
 const TROUSERS = [0x1c1c1e, 0x23262c, 0x2e3a52, 0x3a4660, 0x4a4a4a, 0x6b5a44, 0x8a8a86];
@@ -149,7 +153,7 @@ export function stationStyle(name = '', rail = '') {
   if (red && /South Station/.test(name)) s.art.push('under:SOUTH STATION UNDER');
   if (red && /Kendall/.test(name)) s.art.push('band');
   if (red && /Porter/.test(name)) { s.vault = 'single'; s.rise = 4; s.wall = 'concrete'; }
-  if (/Government Center/.test(name)) { s.floor = LINE_COL[rail] || null; if (/Blue/.test(rail)) s.art.push('under:SCOLLAY UNDER'); }
+  if (/Government Center/.test(name)) { s.floor = lineColour(rail) || null; if (/Blue/.test(rail)) s.art.push('under:SCOLLAY UNDER'); }
   return s;
 }
 
@@ -254,7 +258,7 @@ function finish(R) {
 // R: the layout (fitStation's, or oneSide's); ceil: the roof's height over her track (a vault springs from it)
 export function buildStation({ P, sd, R, platY, rail, name, dest, under, ceil, layer = 0, canopy = 'all', bright = 2.3, style = stationStyle(name, rail) }) {
   const group = new THREE.Group(), mats = [], geos = [];
-  const band = LINE_COL[rail] || '#5a6a7a';
+  const band = lineColour(rail) || '#5a6a7a';
   const N = P.length - 1, d0 = P[0].d, STEP = (P[N].d - d0) / N;
   const ring = d => P[Math.max(0, Math.min(N, Math.round((d - d0) / STEP)))];
   const s0 = R.d0, s1 = R.d1;
@@ -418,7 +422,7 @@ export function buildStation({ P, sd, R, platY, rail, name, dest, under, ceil, l
         for (const s of o.eL && o.eH ? [-1, 1] : [o.eL ? 1 : -1]) panel(d, nu + s * 0.03, platY + 2.3, 2.6, 0.42, nameM, s);
         for (const lz of [-1.1, 1.1]) boxAt(0.07, 2.5, 0.07, d, nu, platY, along(ring(d)), 0x3d454a, 0, 0, lz);
       }
-      if (canopy !== 'shelter' && /Line|Mattapan/.test(rail || '')) { const r = ring(sd + 6), led = mat({ map: ledTex(dest || name), glow: 1 }); for (const t of [0, Math.PI]) { const l = panel(sd + 6, o.m, cy - 0.75, 1.9, 0.48, led, null); l.rotation.y = along(r) + t; } }
+      if (canopy !== 'shelter' && /Line|Mattapan| train$|Railway/.test(rail || '')) { const r = ring(sd + 6), led = mat({ map: ledTex(dest || name), glow: 1 }); for (const t of [0, Math.PI]) { const l = panel(sd + 6, o.m, cy - 0.75, 1.9, 0.48, led, null); l.rotation.y = along(r) + t; } }
     }
   }
   // ── benches and bins: along a side platform's back, down an island's middle; facing the track ──
@@ -472,6 +476,7 @@ export function buildStation({ P, sd, R, platY, rail, name, dest, under, ceil, l
 const CR_HIGH = /Back Bay|Ruggles|Forest Hills|JFK|Quincy Center|Braintree|Porter|Lansdowne|Boston Landing|Route 128|Anderson|Salem|Lynn|Malden|Oak Grove|Newmarket|Four Corners|Talbot|Blue Hill|Fairmount|Readville|Uphams|Morton|River Works|Worcester|Framingham|Lowell|Haverhill|Providence|South Station|North Station/;
 export function platformFor(rail, name, trainLen) {
   if (/Green|Mattapan/.test(rail || '')) return { platY: 0.3, len: Math.max(60, trainLen + 15), canopy: 'shelter' };
+  if (/ train$|^Staten Island Railway$/.test(rail || '')) return { platY: 1.1, len: Math.max(160, trainLen + 15), canopy: 'all' };   // (v1154: New York's subway)
   if (/Line/.test(rail || '')) return { platY: 1.05, len: Math.max(125, trainLen + 15), canopy: 'all' };
   return { platY: CR_HIGH.test(name || '') ? 1.1 : 0.25, len: Math.max(170, trainLen + 40), canopy: 'middle' };
 }

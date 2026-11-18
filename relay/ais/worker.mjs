@@ -63,14 +63,15 @@ export class AisHub {
     const lists = await Promise.all(RAIL.map(async rail => {
       const kept = this.rail[rail.id];
       if (kept && now - kept.at < rail.ttl * 1000) return kept.trains;
+      if (rail.box && bbox && (bbox[2] < rail.box[0] || bbox[0] > rail.box[2] || bbox[3] < rail.box[1] || bbox[1] > rail.box[3])) return [];   // (v1154: only where she's looked for)
       if (!rail.url && !this.env.FIVE11_KEY) { errors.push(`${rail.name}: no 511 key`); return []; }   // (v1153: only 511's railroads need it)
       if (this.asking?.[rail.id]) return (await this.asking[rail.id]);
       (this.asking ??= {})[rail.id] = (async () => {
         try {
           const up = await fetch(rail.url ? rail.url() : railUpstream(rail.id, this.env.FIVE11_KEY), rail.url ? { headers: { 'User-Agent': 'AudioChart-relay', ...(rail.headers?.(this.env) || {}) } } : undefined);
           if (!up.ok) throw new Error(String(up.status));
-          const text = await up.text(), got = { at: now, trains: (rail.trim || trimTrains)(text, rail, now) };
-          try { const j = JSON.parse(text.replace(/^\uFEFF/, '')), d = j?.Siri?.ServiceDelivery?.VehicleMonitoringDelivery; (this.sample ??= {})[rail.id] = (Array.isArray(d) ? d[0] : d)?.VehicleActivity?.slice(0, 2); } catch (_) {}   // (?sample=1: what 511 sends, for checking)
+          const text = rail.binary ? new Uint8Array(await up.arrayBuffer()) : await up.text(), got = { at: now, trains: await (rail.trim || trimTrains)(text, rail, now) };   // (v1154: the MTA's protobuf)
+          if (!rail.binary) try { const j = JSON.parse(text.replace(/^\uFEFF/, '')), d = j?.Siri?.ServiceDelivery?.VehicleMonitoringDelivery; (this.sample ??= {})[rail.id] = (Array.isArray(d) ? d[0] : d)?.VehicleActivity?.slice(0, 2); } catch (_) {}   // (?sample=1: what 511 sends, for checking)
           this.rail[rail.id] = got; try { await this.state.storage.put('rail:' + rail.id, got); } catch (_) {}   // (storage holds 128 KB a value: kept in memory regardless)
           return got.trains;
         } catch (e) {

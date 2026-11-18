@@ -9,10 +9,10 @@ import { labelSprite } from './aircraft3d.js';
 import { makeCaltrain } from './caltrain3d.js';
 import { makeSmart } from './smart3d.js';
 import { makeAmtrak } from './amtrak3d.js';
-import { makeMbtaCR, makeTTrain, T_RAILS } from './mbta3d.js';
+import { makeMbtaCR, makeTTrain, T_RAILS, NYC_RAIL, NYC_LINES, nycLine } from './mbta3d.js';
 import { minOfDay, bayDay } from './regiontime.js';
 
-export const TRAIN_CREDIT = 'Trains from 511.org, Amtrak (via Amtraker) and the MBTA';
+export const TRAIN_CREDIT = 'Trains from 511.org, Amtrak (via Amtraker), the MBTA and the MTA';
 const DEG = Math.PI / 180;
 const LONG = /starlight|zephyr|chief|sunset|eagle|builder|cardinal|crescent|limited/i;   // (Amtrak's long-distance trains: Superliners or their like)
 // each railroad's train: cars, car length (m), and livery (body, band)
@@ -31,6 +31,10 @@ const LOOK = {
 };
 // each line's top speed, m/s: a speed worked out from two of her reports faster than this is a jump, not a speed (v1147)
 const TOP = { 'Red Line': 25, 'Orange Line': 25, 'Blue Line': 22, 'Green Line': 20, 'Mattapan Trolley': 16, 'Commuter Rail': 36 };
+// (v1154) New York's subway: each line's look from afar in her colour (her cars close in: mbta3d.js makeTTrain), at
+// ~25 m/s at most (55 mph, the expresses' best); Staten Island's a little faster
+const lookOf = a => LOOK[a.rail] || (NYC_RAIL.test(a.rail) ? (LOOK[a.rail] = { cars: 10, len: 17, body: 0xc6cace, band: parseInt((NYC_LINES[nycLine(a.rail)] || '#808183').slice(1), 16) }) : LOOK.Caltrain);
+const topOf = rail => TOP[rail] || (rail === 'Staten Island Railway' ? 30 : NYC_RAIL.test(rail) ? 25 : 50);
 // a train's name on her label and card: Amtrak's by her route ("Capitol Corridor"), the MBTA's commuter rail by her
 // line ("Worcester Line"), the Green Line by her branch ("Green Line E"), the rest by the railroad's or line's own
 const trainName = a => a.rail === 'Amtrak' && a.line ? a.line : a.rail === 'Commuter Rail' && a.line ? a.line.split('/').pop().replace(/ Line$/, '') + ' Line'
@@ -214,8 +218,8 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
         // (the Coast Starlight, the Zephyr: v1124) their Superliners behind two ALC-42s
         // (v1140, Boston) the MBTA's commuter rail: an HSP46 and six bilevels, her locomotive at the outbound end (leading
         // away from Boston, pushing toward it); the T's trains each in her line's cars (mbta3d.js)
-        const look = LOOK[a.rail] || LOOK.Caltrain, kiss = a.rail === 'Caltrain' ? makeCaltrain() : a.rail === 'SMART' ? makeSmart() : a.rail === 'Amtrak' ? makeAmtrak(LONG.test(a.line || '') ? { kind: 'long' } : { cars: 4, locoFront: !/sacramento|auburn/i.test(a.dest || '') })
-          : a.rail === 'Commuter Rail' ? makeMbtaCR({ cars: 6, locoFront: !/south station|north station|back bay|boston/i.test(a.dest || '') }) : T_RAILS.includes(a.rail) ? makeTTrain(a.rail) : null;
+        const look = lookOf(a), kiss = a.rail === 'Caltrain' ? makeCaltrain() : a.rail === 'SMART' ? makeSmart() : a.rail === 'Amtrak' ? makeAmtrak(LONG.test(a.line || '') ? { kind: 'long' } : { cars: 4, locoFront: !/sacramento|auburn/i.test(a.dest || '') })
+          : a.rail === 'Commuter Rail' ? makeMbtaCR({ cars: 6, locoFront: !/south station|north station|back bay|boston/i.test(a.dest || '') }) : T_RAILS.includes(a.rail) || NYC_RAIL.test(a.rail) ? makeTTrain(a.rail) : null;
         const g = new THREE.Group(), model = kiss ? kiss.group : trainModel(look), label = labelSprite();
         g.add(model, label); scene.add(g);
         const L = kiss ? kiss.length : look.cars * look.len + (look.cars - 1) * 1.2;
@@ -235,7 +239,7 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
           const d = metres(p.fix, a), s = (at - p.fix.t) / 1000;
           // (a stand at a station is 0; a jump faster than her line can go is no speed: v1147, a Red Line train in the
           // tunnel "about 91 mph", the MBTA's subway positions jumping station to station; the line's top speed, else 50 m/s)
-          if (a.mph == null && s > 5) { const top = TOP[a.rail] || 50; if (d / s <= top) p.v = d / s; else if (!p.vKnown) p.v = 0; }
+          if (a.mph == null && s > 5) { const top = topOf(a.rail); if (d / s <= top) p.v = d / s; else if (!p.vKnown) p.v = 0; }
           else if (a.mph == null) p.v = 0;
           if (s > 5) p.vKnown = true;   // (her speed needs two reports, 90 s apart: till then it isn't known, v1106)
           if (d > 30) { p.h = (Math.atan2((a.lon - p.fix.lon) * Math.cos(a.lat * DEG), a.lat - p.fix.lat) / DEG + 360) % 360; p.moved = true; p.seenMove = true; }

@@ -93,6 +93,7 @@ export const REGIONS3D = {
     chartWater: [-74.3, 40.45, -73.65, 40.95],   // (the Meadowlands and Jamaica Bay's marshes, as SF's flats)
     trees: 'broadleaf',
     tz: 'America/New_York',
+    rail: 'new-york-harbor',   // (v1154: the subway, PATH, the LIRR, Metro-North and NJ Transit's tracks, tunnels marked; the MTA's live trains)
     armchair: true,   // (v1044: no chart in AudioChart; Bird's-eye leaves out what leads to one: bay3d.js)
   },
   // Boston Harbor (v1138, requested: "a new region for Boston ... airport, trains, maybe the 'T', and of course ships"):

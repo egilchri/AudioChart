@@ -3,7 +3,10 @@
 //   node relay/ais/dev.mjs --fake                   made-up vessels in AIS's own message format, no key needed
 // Then open Bird's-eye with ?ais=http://localhost:8790 (or set it once: localStorage 'audiochart-ais-relay').
 import http from 'node:http';
-import { makeTable, subscription, corsHeaders, FEEDS, bboxOf, aircraftUpstream, trimAircraft, RAIL } from './core.mjs';
+import { makeTable, subscription, corsHeaders, FEEDS, bboxOf, aircraftUpstream, trimAircraft, RAIL, nycData } from './core.mjs';
+import { readFileSync } from 'fs';
+// (v1154) New York's subway paths from this checkout, not the published site
+nycData(async () => JSON.parse(readFileSync(new URL('../../www/data/rail/nyc-subway.json', import.meta.url), 'utf8'))).catch(e => console.log('nyc-subway.json:', e.message));
 
 const PORT = Number(process.env.PORT) || 8790, FAKE = process.argv.includes('--fake');
 const table = makeTable();
@@ -61,7 +64,7 @@ http.createServer(async (req, res) => {
   if (req.method === 'OPTIONS') { res.writeHead(204, { ...h, 'Access-Control-Allow-Methods': 'GET' }); return res.end(); }
   if (req.url.startsWith('/trains')) {   // (v1138) the railroads that need no key (Amtrak, the MBTA), asked each time
     const bbox = bboxOf(new URL(req.url, 'http://x')), now = Date.now();
-    const lists = await Promise.all(RAIL.filter(r => r.url).map(async r => { try { const up = await fetch(r.url(), { headers: { 'User-Agent': 'AudioChart-relay', ...(r.headers?.(process.env) || {}) } }); return r.trim(await up.text(), r, now); } catch (_) { return []; } }));
+    const lists = await Promise.all(RAIL.filter(r => r.url && !(r.box && bbox && (bbox[2] < r.box[0] || bbox[0] > r.box[2] || bbox[3] < r.box[1] || bbox[1] > r.box[3]))).map(async r => { try { const up = await fetch(r.url(), { headers: { 'User-Agent': 'AudioChart-relay', ...(r.headers?.(process.env) || {}) } }); return await r.trim(r.binary ? new Uint8Array(await up.arrayBuffer()) : await up.text(), r, now); } catch (_) { return []; } }));
     let out = lists.flat(); if (bbox) out = out.filter(t => t.lon >= bbox[0] && t.lat >= bbox[1] && t.lon <= bbox[2] && t.lat <= bbox[3]);
     res.writeHead(200, h); return res.end(JSON.stringify({ t: now, trains: out.map(t => ({ ...t, age: Math.max(0, Math.round((now - t.at) / 1000)) })) }));
   }

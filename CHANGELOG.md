@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-11-18 — Bird's-eye: New York's subway, live (v1154, Bird's-eye only)
+
+- Asked: "Let's start on the New York Subway". Stage 1 of it: every train on every line, live, on its own track, in its own cars, and the rides in its tunnels. AudioChart's own version stays v1153: none of this is loaded by the navigation app.
+- **The trains** (relay/ais/core.mjs `trimNyct`, Ted's Birdseye's relay): the MTA's eight GTFS-realtime feeds (no key; protobuf, read by a small reader of its own), asked every 30 s and only while someone's looking at New York. They give no positions, only the station a train is stopped at or bound for and when she's due at each stop ahead, so each route pattern's path and stops (www/data/rail/nyc-subway.json, 619 KB, built from the MTA's static GTFS by design/rail/build_nyc_subway.py) put her there: at her station, or between her last and her next by how soon she's due. Trips the feed still lists hours after their last report are dropped. About 630 trains at midday, on all 24 lines and the Staten Island Railway, named as riders say them ("A train", "1 train", "S train" for the shuttles).
+- **Her cars** (www/js/mbta3d.js): stainless R142/R160-style cars, separate windows between the doors, her line's bullet on her side signs and her ends, in the MTA's colours; the IRT's 51 ft cars (three doors) on the 1 to 7, the B Division's 60 ft (four) on the lettered lines; 10 cars on most lines, 11 on the 7, 8 on the J, Z, L and M, 5 on the G, 4 on the shuttles and Staten Island's.
+- **The tracks** (www/data/rail/new-york-harbor.json, 1 MB, OpenStreetMap through build_rail.py): the subway, PATH, the LIRR, Metro-North and NJ Transit, 13,880 pieces, 2,872 of them tunnels. Platforms from OpenStreetMap too (new-york-harbor-platforms.json, 1,477). `rail: 'new-york-harbor'` (www/js/regions3d.js).
+- Underground, the rides look round her in her tunnel, as in Boston (v1149). Her card: "The MTA's live data (every 30 s): her place between stations worked out from when she's due".
+- Not yet: the elevated lines stand on the ground, not on their steel structures; New York's stations look like Boston's (white tile, blue columns), not their own; no PATH, LIRR, Metro-North or NJ Transit trains.
+- Fixed on the way: a train colour lookup that called itself (it would have stopped the page at the first New York ride).
+- Checked in headless Chrome through the local relay: 631 trains on the whole-bay view; Side beside a 1 train under Broadway (her bullet on her side sign), an A train under the East River, an M train in Middle Village, a 7 train by the Flushing River. Full CI suite passes.
+
 ## 2026-11-17 — AudioChart's boaters and Ted's Birdseye kept apart (v1153)
 
 - Asked: "customers that use the navigation app won't be interested in Birdseye", and how to keep them apart when boaters still want live AIS and Bird's-eye and Drone views of their own boat. One engine, two layers: the shared one (terrain, water, your boat, AIS ships, helm, Drone and Bird's-eye views, Maine's bays) and an **armchair layer** (aircraft, trains, the T's tunnels and stations, freeway traffic, airports; SF, New York and Boston) that boaters never load.

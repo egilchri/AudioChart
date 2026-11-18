@@ -101,10 +101,55 @@ const T_LOOK = {
   'Mattapan Trolley': { len: 14.2, h: 3.2, w: 2.6, doors: 2, body: '#efe3bd', band: '#c4572a', fluted: false, lrv: true, pcc: true },
 };
 const T_CARS = { 'Red Line': 6, 'Orange Line': 6, 'Blue Line': 6, 'Green Line': 2, 'Mattapan Trolley': 1 };
+// (v1154) New York's subway: stainless cars (the R142s and R160s that run most lines now), her line's bullet on her
+// side signs and her ends. The IRT's (1 to 7, the 42 St shuttle) 51 ft cars, three doors a side; the B Division's
+// (the lettered lines, Staten Island's) 60 ft, four. Her line's colour from the MTA's own (NYC_LINES).
+export const NYC_LINES = { 1: '#ee352e', 2: '#ee352e', 3: '#ee352e', 4: '#00933c', 5: '#00933c', 6: '#00933c', 7: '#b933ad',
+  A: '#0039a6', C: '#0039a6', E: '#0039a6', B: '#ff6319', D: '#ff6319', F: '#ff6319', M: '#ff6319', G: '#6cbe45',
+  J: '#996633', Z: '#996633', L: '#a7a9ac', N: '#fccc0a', Q: '#fccc0a', R: '#fccc0a', W: '#fccc0a', S: '#808183', SIR: '#0039a6' };
+export const NYC_RAIL = /^([1-7A-Z]|SIR) train$|^Staten Island Railway$/;
+export const nycLine = rail => rail === 'Staten Island Railway' ? 'SIR' : (rail || '').replace(/ train$/, '');
+const NYC_CARS = { L: 8, J: 8, Z: 8, M: 8, G: 5, S: 4, SIR: 4, 7: 11 };
+function nycLook(rail) {
+  if (T_LOOK[rail]) return T_LOOK[rail];
+  const line = nycLine(rail), irt = /^[1-7]$/.test(line) || line === 'S';
+  T_CARS[rail] = NYC_CARS[line] || 10;
+  return (T_LOOK[rail] = irt ? { len: 15.6, h: 3.65, w: 2.68, doors: 3, body: '#c6cace', band: NYC_LINES[line] || '#808183', fluted: false, nyc: line }
+    : { len: 18.35, h: 3.7, w: 3.05, doors: 4, body: '#c6cace', band: NYC_LINES[line] || '#808183', fluted: false, nyc: line });
+}
+// a line's bullet: her colour's circle, her letter or number in it (black on the N, Q, R and W's yellow)
+function bullet(c, x, y, r, line, col) {
+  c.fillStyle = col; c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill();
+  c.fillStyle = col === '#fccc0a' ? '#111' : '#fff'; c.font = `bold ${Math.round(r * (line.length > 1 ? 0.95 : 1.35))}px Helvetica`; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.fillText(line === 'SIR' ? 'SIR' : line, x, y + r * 0.06);
+}
 function tSide(rail) {
   const T = T_LOOK[rail], PX = 60, H0 = 0.85;
   return canvasTex('t' + rail, Math.round(T.len * PX), Math.round((T.h - H0) * PX), (c, w, h) => {
     const X = m => m * PX, Y = m => h - (m - H0) * PX;
+    if (T.nyc) {   // (v1154) New York's: plain stainless, her windows between the doors, her bullet on the side signs
+      c.fillStyle = T.body; c.fillRect(0, 0, w, h);
+      c.fillStyle = 'rgba(0,0,0,0.12)'; for (let m = 0.3; m < T.len; m += 0.9) c.fillRect(X(m), Y(1.6), 1, Y(H0) - Y(1.6));   // (her lower panels' seams)
+      const dw = 1.27, doorAt = k => T.len * (k + 0.5) / T.doors - dw / 2, y0 = Y(T.h - 0.55), y1 = Y(2.0);
+      for (let k = 0; k <= T.doors; k++) {   // the windows between the doors (and past the end doors), lit inside
+        const a = k === 0 ? 0.35 : doorAt(k - 1) + dw + 0.25, b = k === T.doors ? T.len - 0.35 : doorAt(k) - 0.25;
+        for (let m = a; m < b - 0.3; m += Math.min(1.5, b - a)) {
+          const ww = Math.min(1.3, b - m - 0.1); if (ww < 0.4) continue;
+          const g = c.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, 'rgba(236,232,214,0.95)'); g.addColorStop(0.3, 'rgba(150,148,138,0.6)'); g.addColorStop(1, 'rgba(30,32,34,0.9)');
+          c.fillStyle = '#1d2024'; rrect(c, X(m) - 2, y0 - 2, ww * PX + 4, y1 - y0 + 4, 6); c.fill(); c.fillStyle = g; rrect(c, X(m), y0, ww * PX, y1 - y0, 5); c.fill();
+        }
+      }
+      for (let k = 0; k < T.doors; k++) {   // her doors: two leaves, a window in each, black edges
+        const m = doorAt(k); c.fillStyle = '#b8bcc0'; c.fillRect(X(m), Y(T.h - 0.3), dw * PX, Y(H0 + 0.05) - Y(T.h - 0.3));
+        c.strokeStyle = '#2a2d31'; c.lineWidth = 3; c.strokeRect(X(m), Y(T.h - 0.3), dw * PX, Y(H0 + 0.05) - Y(T.h - 0.3)); c.beginPath(); c.moveTo(X(m + dw / 2), Y(T.h - 0.3)); c.lineTo(X(m + dw / 2), Y(H0 + 0.05)); c.stroke();
+        for (const d of [0.12, 0.72]) { c.fillStyle = css(C.glass); rrect(c, X(m + d), Y(T.h - 0.55), 0.43 * PX, 1.05 * PX, 4); c.fill(); }
+      }
+      for (const m of [T.len * 0.12, T.len * 0.88]) {   // the side signs: a black panel, her bullet and an amber line of text
+        c.fillStyle = '#111'; c.fillRect(X(m - 0.55), Y(T.h - 0.12), 1.1 * PX, 0.36 * PX);
+        bullet(c, X(m - 0.36), Y(T.h - 0.3), 0.15 * PX, T.nyc, T.band); c.fillStyle = '#ff9e1b'; c.fillRect(X(m - 0.15), Y(T.h - 0.32), 0.6 * PX, 0.05 * PX);
+      }
+      return;
+    }
     if (T.fluted) flutes(c, 0, w, 0, h, 9, T.body); else { c.fillStyle = T.body; c.fillRect(0, 0, w, h); }
     if (T.pcc) { c.fillStyle = T.band; c.fillRect(0, Y(1.75), w, Y(H0) - Y(1.75)); c.fillStyle = '#5a2a14'; c.fillRect(0, Y(1.8), w, 0.05 * PX); }
     // the window band: black glass the length of her between the doors, the line's colour under it
@@ -130,6 +175,14 @@ function tEnd(rail) {
   const T = T_LOOK[rail], PX = 96, H0 = 0.85;
   return canvasTex('te' + rail, Math.round(T.w * PX), Math.round((T.h - H0) * PX), (c, w, h) => {
     const X = m => (m + T.w / 2) * PX, Y = m => h - (m - H0) * PX;
+    if (T.nyc) {   // (v1154) New York's: a black cab end, the storm door's window in the middle, her bullet lit beside it
+      c.fillStyle = '#1a1c1f'; c.fillRect(0, 0, w, h); c.fillStyle = T.body; c.fillRect(0, Y(1.5), w, Y(H0) - Y(1.5));
+      c.fillStyle = css(C.glass); rrect(c, X(-0.35), Y(T.h - 0.4), 0.7 * PX, 1.4 * PX, 8); c.fill();
+      c.fillStyle = 'rgba(20,24,30,0.9)'; rrect(c, X(-T.w / 2 + 0.15), Y(T.h - 0.5), 0.9 * PX, 0.9 * PX, 8); c.fill(); rrect(c, X(T.w / 2 - 1.05), Y(T.h - 0.5), 0.9 * PX, 0.9 * PX, 8); c.fill();
+      bullet(c, X(T.w / 2 - 0.6), Y(T.h - 0.95), 0.3 * PX, T.nyc, T.band);
+      c.fillStyle = '#ff9e1b'; c.fillRect(X(-T.w / 2 + 0.3), Y(T.h - 0.62), 0.6 * PX, 0.07 * PX);
+      return;
+    }
     c.fillStyle = T.pcc ? T.body : T.fluted ? '#c3c7cc' : T.body; c.fillRect(0, 0, w, h);
     c.fillStyle = T.band; c.fillRect(0, Y(1.95), w, 0.4 * PX);
     if (T.pcc) { c.fillStyle = T.band; c.fillRect(0, Y(1.75), w, Y(H0) - Y(1.75)); }
@@ -243,7 +296,9 @@ export function makeMbtaCR({ cars = 6, locoFront = true, glow = 0.42 } = {}) {
 }
 
 // a T train: `cars` of her line's cars, cabs at both ends (a Green Line or Mattapan car is one, articulated)
-export function makeTTrain(rail, { cars = T_CARS[rail] || 2, glow = 0.42 } = {}) {
+export function makeTTrain(rail, { cars, glow = 0.42 } = {}) {
+  if (NYC_RAIL.test(rail)) nycLook(rail);   // (v1154: New York's lines' looks, made as they're first seen)
+  cars ??= T_CARS[rail] || 2;
   const T = T_LOOK[rail] || T_LOOK['Red Line'], B = builder(glow), { put, box, decal } = B, GAP = 0.6, H0 = 0.85;
   const length = cars * T.len + (cars - 1) * GAP, spans = [];
   const sideTex = tSide(rail), endTex = tEnd(rail);

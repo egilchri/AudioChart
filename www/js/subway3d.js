@@ -12,11 +12,10 @@
 // OpenStreetMap's platforms fitted to her track (platform3d.js fitStation), the tunnel widening to it; its look is
 // each station's own (stationStyle)
 import * as THREE from 'three';
-import { buildStation, platformFor, fitStation, oneSide, stationStyle } from './platform3d.js';
+import { buildStation, platformFor, fitStation, oneSide, stationStyle, lineColour } from './platform3d.js';
 
 export const UNDER = 1, GHOST = 2;   // the layers: the tunnel's, and a ghost's
 const DEG = Math.PI / 180;
-const LINE_COL = { 'Red Line': '#da291c', 'Orange Line': '#ed8b00', 'Blue Line': '#003da5', 'Green Line': '#00843d', 'Mattapan Trolley': '#da291c' };
 const LIGHT_RAIL = r => /Green|Mattapan/.test(r || '');
 const BACK = 350, AHEAD = 450, STEP = 2, LAMP = 10, TRACKS = 3.9;   // m: the tunnel's reach, its rings, the lamps' spacing, between the two tracks' middles
 
@@ -120,7 +119,7 @@ export function makeSubway({ scene, rail, platforms }) {
     strip(0, N, r => [uL(r.d), hOf(r.d), uR(r.d), hOf(r.d)], '#4e4b45');   // the roof
     // (the walls' colours change at the station: each ring its own)
     const wall = (u, y0, y1, cf) => { let prev = null; for (let i = 0; i <= N; i++) { const r = P[i], uu = u(r.d), c = cf(r.d), a = vert(r, uu, y0, c), b = vert(r, uu, Math.min(y1, hOf(r.d)), c); if (prev) idx.push(prev[0], prev[1], a, prev[1], b, a); prev = [a, b]; } };
-    for (const u of [uL, uR]) { wall(u, -0.3, 1.4, lowCol); wall(u, 1.4, 2.3, wallCol); wall(u, 2.7, 9, wallCol); wall(u, 2.3, 2.7, d => inSta(d) ? (LINE_COL[p.a.rail] || '#888888') : '#6c685f'); }
+    for (const u of [uL, uR]) { wall(u, -0.3, 1.4, lowCol); wall(u, 1.4, 2.3, wallCol); wall(u, 2.7, 9, wallCol); wall(u, 2.3, 2.7, d => inSta(d) ? (lineColour(p.a.rail) || '#888888') : '#6c685f'); }
     // her rails and the other track's: steel tops, a darker trough between; the third rail (a heavy-rail tunnel's,
     // on the wall's side) or the overhead wire
     // (v1152: in the station its own tracks, eased in from the tunnel's; the third rail on the side with no platform)
@@ -263,7 +262,7 @@ export function makeSubway({ scene, rail, platforms }) {
     ghost(renderer, camera, p) {
       if (!p?.model) return;
       if (!p._gh) { p.g.traverse(o => o.layers.enable(GHOST)); p._gh = true; }
-      const col = LINE_COL[p.a.rail] || (p.a.rail === 'Commuter Rail' ? '#c4428e' : '#ffffff');
+      const col = lineColour(p.a.rail) || (p.a.rail === 'Commuter Rail' ? '#c4428e' : '#ffffff');
       if (!GHOSTS.has(col)) GHOSTS.set(col, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.5, depthTest: false, depthWrite: false, fog: false }));
       const vis = p.model.visible, auto = renderer.autoClear, f = scene.fog;
       p.model.visible = true; scene.overrideMaterial = GHOSTS.get(col); scene.fog = null; renderer.autoClear = false; camera.layers.set(GHOST);

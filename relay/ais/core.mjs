@@ -147,6 +147,7 @@ export function trimAircraft(j, bbox, now = Date.now()) {
 // the relay). 511 allows 60 requests an hour per key, so each railroad is asked only every `ttl` seconds, whoever
 // is watching: Caltrain every 90 s (40/h), SMART and ACE every 5 and 10 min (12/h and 6/h): 58 an hour at most.
 // 511's Bearing is always 0 (2026-11-02): the app takes her heading from her last two positions.
+export const NYC_BBOX = [-74.35, 40.4, -73.6, 41.0];   // ([w, s, e, n]: www/js/regions3d.js new-york-harbor's overview)
 export const RAIL = [
   { id: 'CT', name: 'Caltrain', ttl: 90 },
   { id: 'SA', name: 'SMART', ttl: 300 },
@@ -161,6 +162,11 @@ export const RAIL = [
       + '&fields%5Bvehicle%5D=latitude,longitude,bearing,current_status,label,speed,updated_at,direction_id&fields%5Btrip%5D=headsign,name'
       + '&fields%5Bstop%5D=name&fields%5Broute%5D=long_name,short_name,type,direction_destinations',
     headers: env => env?.MBTA_KEY ? { 'x-api-key': env.MBTA_KEY } : {}, trim: (text, rail, now) => trimMbta(text, rail, now) },
+  // (v1154, New York: "I don't think we've done New York Subways, have we?") the subway and the Staten Island Railway,
+  // from the MTA's own GTFS-realtime feeds (no key), one per group of lines; protobuf, so `binary`. Asked only when
+  // someone's looking at New York (`box`).
+  ...['', '-ace', '-bdfm', '-g', '-jz', '-nqrw', '-l', '-si'].map(f => ({ id: 'NY' + (f.slice(1) || '1234567'), name: 'NYC Subway', ttl: 30, binary: true, box: NYC_BBOX,
+    url: () => `https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/nyct%2Fgtfs${f}`, trim: async (buf, rail, now) => trimNyct(buf, rail, now, await nycData()) })),
 ];
 // The MBTA's answer (JSON:API) to its trains, in the shape the others are: the T's lines by their own names (the
 // Red Line, the Green Line's B to E, Mattapan), the commuter rail as "Commuter Rail" with her line (Worcester Line)
@@ -228,6 +234,95 @@ export function trimTrains(text, rail, now = Date.now()) {
       // (v1117, requested: "their destination, their origin, and the ETA"): where she set out from, her next stop and
       // when she's due there, and when she's due at the end of her run (aimed, and expected where 511 says)
       from: clean(one(m.OriginName) || ''), ...callsOf(m) });
+  }
+  return out;
+}
+
+// ---- New York's subway (v1154) ----
+// The MTA's feeds give no positions: a train is STOPPED_AT a station, or INCOMING_AT / IN_TRANSIT_TO the next, with
+// the times she's due at each stop ahead. Her route pattern's path and stops (www/data/rail/nyc-subway.json, built
+// by design/rail/build_nyc_subway.py from the MTA's static GTFS) put her on it: at her station, or between her last
+// and her next by how soon she's due. The page then lays her on OpenStreetMap's track, as every train.
+export const NYC_DATA_URL = 'https://egilchri.github.io/AudioChart/data/rail/nyc-subway.json';
+let nycPromise = null;
+export function nycData(load = () => fetch(NYC_DATA_URL).then(r => { if (!r.ok) throw new Error(`nyc-subway.json ${r.status}`); return r.json(); })) {
+  return nycPromise ||= load().then(prepNyc).catch(e => { nycPromise = null; throw e; });
+}
+const metres = (a, b) => { const k = Math.cos((a[1] + b[1]) / 2 * Math.PI / 180); return Math.hypot((b[0] - a[0]) * 111320 * k, (b[1] - a[1]) * 110540); };
+export function prepNyc(j) {
+  const byKey = new Map();   // 'A..S' → its paths
+  for (const [sid, sh] of Object.entries(j.shapes)) {
+    sh.id = sid; sh.cum = [0]; for (let i = 1; i < sh.p.length; i++) sh.cum.push(sh.cum[i - 1] + metres(sh.p[i - 1], sh.p[i]));
+    sh.at = new Map(sh.s.map(([st, d], i) => [st, i]));
+    const m = sid.match(/^(.+?)\.\.([NS])/), k = m ? `${m[1]}..${m[2]}` : sid;
+    (byKey.get(k) || byKey.set(k, []).get(k)).push(sh);
+  }
+  return { stops: j.stops, shapes: j.shapes, byKey };
+}
+// a point and heading `d` metres along a path
+function along(sh, d) {
+  const c = sh.cum, n = c.length; d = Math.max(0, Math.min(c[n - 1], d));
+  let lo = 0, hi = n - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (c[m] <= d) lo = m; else hi = m; }
+  const a = sh.p[lo], b = sh.p[hi], t = c[hi] > c[lo] ? (d - c[lo]) / (c[hi] - c[lo]) : 0, k = Math.cos(a[1] * Math.PI / 180);
+  const brg = (Math.atan2((b[0] - a[0]) * k, b[1] - a[1]) * 180 / Math.PI + 360) % 360;
+  return { lon: a[0] + (b[0] - a[0]) * t, lat: a[1] + (b[1] - a[1]) * t, brg };
+}
+// the path she's on: her trip's own pattern ('A..S58R'), else the one of her line and direction that has her next
+// stops (a trip id gives only 'A..S' at times)
+function pathFor(nyc, tripId, route, stops) {
+  const key = tripId.slice(tripId.indexOf('_') + 1);
+  if (nyc.shapes[key]) return nyc.shapes[key];
+  const dir = (key.match(/\.\.([NS])/) || [])[1] || (stops[0] || '').slice(-1), cands = nyc.byKey.get(`${route}..${dir}`) || [];
+  let best = null, score = 0;
+  for (const sh of cands) { const n = stops.filter(st => sh.at.has(st.slice(0, -1))).length; if (n > score) { best = sh; score = n; } }
+  return best;
+}
+// the MTA's protobuf, read by field number (GTFS-realtime: FeedMessage 2 entity; FeedEntity 3 trip_update, 4 vehicle;
+// TripDescriptor 1 trip_id, 5 route_id; VehiclePosition 1 trip, 3 stop sequence, 4 status, 5 timestamp, 7 stop_id;
+// TripUpdate 1 trip, 2 stop_time_update; StopTimeUpdate 2 arrival, 3 departure, 4 stop_id; StopTimeEvent 2 time)
+export function pbRead(buf, s = 0, e = buf.length) {
+  const out = {}; let p = s;
+  const varint = () => { let r = 0, m = 1, b; do { b = buf[p++]; r += (b & 127) * m; m *= 128; } while (b & 128 && p < e); return r; };
+  while (p < e) {
+    const key = varint(), f = Math.floor(key / 8), t = key & 7; let v;
+    if (t === 0) v = varint(); else if (t === 2) { const n = varint(); v = [p, p + n]; p += n; } else if (t === 1) { v = null; p += 8; } else if (t === 5) { v = null; p += 4; } else break;
+    (out[f] ||= []).push(v);
+  }
+  return out;
+}
+const NYC_STATUS = ['incoming', 'stopped', 'transit'];
+export function trimNyct(buf, rail, now = Date.now(), nyc) {
+  if (!(buf instanceof Uint8Array) || !nyc) return [];
+  const dec = new TextDecoder(), str = r => r ? dec.decode(buf.subarray(r[0], r[1])) : '', ups = new Map(), vehs = [];
+  for (const r of pbRead(buf)[2] || []) {
+    const en = pbRead(buf, ...r);
+    if (en[3]) {
+      const u = pbRead(buf, ...en[3][0]), tr = pbRead(buf, ...u[1][0]);
+      ups.set(str(tr[1]?.[0]), (u[2] || []).map(x => { const q = pbRead(buf, ...x), a = q[2] && pbRead(buf, ...q[2][0]), d = q[3] && pbRead(buf, ...q[3][0]);
+        return { stop: str(q[4]?.[0]), arr: (a?.[2]?.[0] || d?.[2]?.[0] || 0) * 1000 }; }));
+    }
+    if (en[4]) {
+      const v = pbRead(buf, ...en[4][0]), tr = v[1] && pbRead(buf, ...v[1][0]);
+      if (tr) vehs.push({ trip: str(tr[1]?.[0]), route: str(tr[5]?.[0]), stop: str(v[7]?.[0]), status: NYC_STATUS[v[4]?.[0] ?? 2], at: (v[5]?.[0] || 0) * 1000 });
+    }
+  }
+  const out = [];
+  for (const v of vehs) {
+    if (v.at && now - v.at > 15 * 60e3) continue;   // (a trip the feed still lists hours after her last report: gone, not stopped)
+    const ahead = ups.get(v.trip) || [], stops = ahead.map(s => s.stop), stop = v.stop || stops[0] || '', st = stop.slice(0, -1);
+    const sh = stop && pathFor(nyc, v.trip, v.route, [stop, ...stops]); if (!sh) continue;
+    const i = sh.at.get(st); if (i == null) continue;
+    let d = sh.s[i][1];
+    if (v.status !== 'stopped' && i > 0) {   // between her last stop and this one, by how soon she's due here
+      const prev = sh.s[i - 1][1], due = ahead.find(s => s.stop === stop)?.arr || 0, gap = Math.max(60e3, (d - prev) / 9 * 1000);   // (~20 mph between stops)
+      const f = due ? Math.max(0, Math.min(1, 1 - (due - now) / gap)) : 0.5;
+      d = prev + (d - prev) * f;
+    }
+    // her line as riders say it: 'A train', '1 train' (the 6X and 7X expresses too), 'S train' for the shuttles (GS, FS, H)
+    const pt = along(sh, d), last = stops[stops.length - 1] || stop, r = v.route.replace(/X$/, ''), line = r === 'SI' ? 'SIR' : /^(GS|FS|H)$/.test(r) ? 'S' : r;
+    out.push({ id: `${rail.id}:${v.trip}`, rail: line === 'SIR' ? 'Staten Island Railway' : `${line} train`, line, trip: v.trip.split('_')[0], dest: nyc.stops[last.slice(0, -1)]?.[2] || '',
+      dir: stop.slice(-1) === 'N' ? 'N' : 'S', lat: +pt.lat.toFixed(5), lon: +pt.lon.toFixed(5), brg: Math.round(pt.brg), at: Math.min(v.at || now, now),
+      mph: null, from: '', next: nyc.stops[st]?.[2] || '', nextExp: ahead.find(s => s.stop === stop)?.arr || null, atStop: v.status === 'stopped' });
   }
   return out;
 }
