@@ -262,11 +262,17 @@ function clampView() {
   view.tilt = clamp(view.tilt, 0.05, maxTilt(view.dist));   // never quite straight down, so 'up' stays defined
   view.x = clamp(view.x, wx(BAY[0]), wx(BAY[2])); view.z = clamp(view.z, wz(BAY[3]), wz(BAY[1]));
 }
+// (v1156, reported following an NYC Ferry up the East River: "This ferry is driving right through Manhattan": the follow
+// camera, behind her, stood inside a tower ashore, its wall filling the view) a camera inside a building rises over its
+// roof (roofCheck: roofAt, below, once the towns' roofs are known)
+let roofCheck = null, sightCheck = null;
 function placeCamera() {
   const h = view.dist * Math.sin(view.tilt), fx = Math.sin(view.az), fz = -Math.cos(view.az);
   camera.position.set(view.x - fx * h, view.dist * Math.cos(view.tilt), view.z - fz * h);
   const lift = tipped ? Math.max(0, view.tilt - 75 * DEG) / (13 * DEG) * view.dist * 0.12 : 0;   // (level: aim up, more sky)
   if (tipped) { const gy = heightAt(lonOf(camera.position.x), latOf(camera.position.z)); if (camera.position.y < gy + 25) camera.position.y = gy + 25; }
+  { const rf = roofCheck?.(camera.position.x, camera.position.z) ?? -Infinity; if (rf > camera.position.y - 4) camera.position.y = rf + 8; }
+  sightCheck?.();   // (and, following a vessel, high enough to see her over the towers between)
   camera.lookAt(view.x, lift, view.z);
   camera.near = clamp(view.dist * 0.002, 0.5, 50); camera.updateProjectionMatrix();
   camera.updateMatrixWorld();
@@ -1353,6 +1359,17 @@ function roofGrid(T) {
   return G;
 }
 const roofAt = (x, z) => { let m = -Infinity; const k = roofKey(x, z); for (const t of townList) if (t.state === 'ready' && t.roofs) { const r = t.roofs.get(k); if (r > m) m = r; } return m; };
+roofCheck = roofAt;   // (placeCamera's, above: v1156)
+// following a vessel (v1156): the line from the eye down to her clear of the roofs between, the eye raised just enough
+sightCheck = () => {
+  if (!follow) return;
+  const c = camera.position, ty = 4; let need = c.y;
+  for (let f = 0.12; f < 0.97; f += 0.07) {
+    const r = roofAt(c.x + (view.x - c.x) * f, c.z + (view.z - c.z) * f); if (r === -Infinity) continue;
+    const at = 1 - f; need = Math.max(need, ty + (r + 3 - ty) / Math.max(0.05, at));   // (y on the line there = ty + (c.y − ty)·(1 − f))
+  }
+  if (need > c.y) c.y = Math.min(need, c.y + 600);
+};
 function clearOfRoofs(at, D, el, az0) {
   const pos = az => [at.x - Math.sin(az) * Math.cos(el) * D, Math.max(camera.position.y, at.y + Math.sin(el) * D), at.z + Math.cos(az) * Math.cos(el) * D];
   const blockedBy = ([x, y, z]) => { let worst = -Infinity; for (let f = 0.08; f <= 1.001; f += 0.06) { const px = at.x + (x - at.x) * f, pz = at.z + (z - at.z) * f, py = at.y + (y - at.y) * f, r = roofAt(px, pz); if (r > py - 1.5) worst = Math.max(worst, r); } return worst; };
@@ -1391,7 +1408,7 @@ function nestCamera() {   // after every vessel has moved: the eye aboard her, l
     _nt.set(v.x, isMover(v) ? v.y + (v.kind === 'rail' ? 3 : 0) : Math.min(L * 0.12, 20) + 1.5, v.z);   // (a plane at her height)
     camera.position.set(_nt.x - Math.sin(az) * Math.cos(el) * D, _nt.y + Math.sin(el) * D, _nt.z + Math.cos(az) * Math.cos(el) * D);
     { const gy = heightAt(lonOf(camera.position.x), latOf(camera.position.z)), up = high || gy > 0.3 ? 28 : 4; if (camera.position.y < gy + up) camera.position.y = gy + up; }   // (never in the ground, nor among the houses)
-    if (v.kind === 'rail') clearOfRoofs(_nt, D, el, az);
+    if (v.kind !== 'air') clearOfRoofs(_nt, D, el, az);   // (v1156: a boat's camera too, not only a train's: round her clear of the towers on the shore)
     camera.lookAt(_nt); if (!C) camera.rotateX(0.1);   // (low on the water, she's best in the middle)   // her a little below the middle, clear of the bar along the top
     camera.fov = 50;
     view.x = v.x; view.z = v.z; view.dist = Math.max(D * 1.5, 900, airReach(v)); view.az = az;

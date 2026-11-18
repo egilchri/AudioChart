@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-18 — Bird's-eye: the camera never inside a building, and following a boat it sees over the towers (v1157)
+
+- Reported, following an NYC Ferry up the East River by Roosevelt Island: "This ferry is driving right through Manhattan" (the screen a brick wall, her bearing lines through it). She was in the river; the camera, behind her to the south-east at 400 ft, was among the Long Island City towers, one of them filling the view. The view's camera (www/js/bay3d.js `placeCamera`) had no check for buildings; the rides' had one (v1140) for trains only.
+  - A camera inside a building now rises over its roof, anywhere (Maine's towns too: so this is AudioChart's release as well).
+  - Following a vessel, the line from the eye down to her is kept clear of the roofs between: the eye rises just enough to see her over them.
+  - Riding a boat (Stern, Side, Bow, Drone) the camera goes round her to the nearest bearing clear of the buildings, as a train's has since v1140.
+- Checked in headless Chrome: following a boat at that spot with the eye pulled back over Hunters Point, she's in plain view over the towers (the eye at 700 ft); open-water views unchanged. Full CI suite passes.
+
 ## 2026-11-18 — Bird's-eye: New York quick again, a 🔍 Search, and people who look like people (v1156, Bird's-eye only)
 
 - Reported: "New York City is really big, and the app is very slow ... a lot of lag time as I move the mouse around". Measured in headless Chrome over Midtown with Live on (631 trains): 13 frames a second idle, 7.6 with the mouse moving.
