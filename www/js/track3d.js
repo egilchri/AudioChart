@@ -81,6 +81,8 @@ export function makeTracks({ scene, lines, bridge = [], tunnel = [], elev = [], 
         for (let k = k0; k <= k1; k++) { S[k].y = y0 + (y1 - y0) * (k1 > k0 ? (k - k0) / (k1 - k0) : 0); if (ln.bridge && S[k].deck == null) S[k].y = Math.max(S[k].y, raw[k] + 1.5, 3); }
       }
       if (!ln.bridge && !ln.tunnel) for (let k = 0; k < n; k++) if (S[k].deck == null) S[k].y = Math.max(S[k].y, raw[k]);
+      // (v1166) an el's piece off the end of a bridge's deck comes down from it at 3.5%, not straight to the ground at its end
+      if (ln.elev) gradeLimit(S);   // (the road deck's own ramps at a bridge's ends fall at 13%: a subway's at no more than 3.5%)
       return;
     }
     const env = raw.map((_, k) => Math.max(...raw.slice(Math.max(0, k - 2), k + 3)));   // (over the bumps within 40 m)
@@ -88,6 +90,12 @@ export function makeTracks({ scene, lines, bridge = [], tunnel = [], elev = [], 
   }
   // (v1155) an el: over the street at her layer's height where she joins another el, down to the ground at 4% where
   // she meets track on it (her approach, or a short bridge's embankment ends: straight between them, as before)
+  // (v1166) an el's track falls no faster than 3.5% either way along it: where it would, it stays up (passes both ways)
+  function gradeLimit(S) {
+    const n = S.length, G = 0.035;
+    for (let k = 1; k < n; k++) S[k].y = Math.max(S[k].y, S[k - 1].y - G * Math.hypot(S[k].x - S[k - 1].x, S[k].z - S[k - 1].z));
+    for (let k = n - 2; k >= 0; k--) S[k].y = Math.max(S[k].y, S[k + 1].y - G * Math.hypot(S[k].x - S[k + 1].x, S[k].z - S[k + 1].z));
+  }
   function elevProfile(ln, raw) {
     const S = ln.S, n = S.length, H = 5 + 3 * ln.elev, GRADE = 0.04;
     const air = e => (ends.get(endKey(S[e ? n - 1 : 0])) || []).some(([o]) => o !== ln && o.elev);
@@ -98,6 +106,25 @@ export function makeTracks({ scene, lines, bridge = [], tunnel = [], elev = [], 
       let e = 0, c = 0; for (let j = Math.max(0, k - 3); j <= Math.min(n - 1, k + 3); j++) { e += env[j]; c++; }
       const h = Math.min(H, a0 ? H : GRADE * cum[k], a1 ? H : GRADE * (len - cum[k]));
       S[k].y = Math.max(e / c + h, y0 + (y1 - y0) * cum[k] / len, raw[k] + (h > 2 ? 0 : 0.3));
+    }
+  }
+  // (v1166, reported with a snapshot of a train on the Manhattan Bridge, her rear cars stepping down toward the water)
+  // an el's piece joined to a higher one (a bridge's deck, 45 m up; an el higher than hers) comes down from it at a
+  // railway's grade (3.5%), not in one step at the join; through a chain of them, so an approach descends as it does
+  function rampDown(lns) {
+    for (let it = 0; it < 8; it++) {
+      let changed = false;
+      for (const ln of lns) {
+        if (!ln.elev) continue;
+        const S = ln.S, n = S.length, cum = [0]; for (let k = 1; k < n; k++) cum.push(cum[k - 1] + Math.hypot(S[k].x - S[k - 1].x, S[k].z - S[k - 1].z));
+        for (const e of [0, 1]) {
+          let top = -Infinity;
+          for (const [o, oe] of ends.get(endKey(S[e ? n - 1 : 0])) || []) if (o !== ln && (o.elev || o.S.some(q => q.deck != null))) top = Math.max(top, o.S[oe ? o.S.length - 1 : 0].y);
+          if (!(top > S[e ? n - 1 : 0].y + 1)) continue;
+          for (let k = 0; k < n; k++) { const y = top - 0.035 * (e ? cum[n - 1] - cum[k] : cum[k]); if (y > S[k].y + 0.05) { S[k].y = y; changed = true; } }
+        }
+      }
+      if (!changed) break;
     }
   }
   function joinEnds(lns) {   // at each join, the lines' mean height there, eased into the last 4 samples of each
@@ -209,7 +236,7 @@ export function makeTracks({ scene, lines, bridge = [], tunnel = [], elev = [], 
     return by + RAIL_H;
   }
 
-  function all() { for (const ln of L) profile(ln); joinEnds(L); for (const ch of chunks.values()) build(ch); buildFar(); index(); }
+  function all() { for (const ln of L) profile(ln); rampDown(L); joinEnds(L); for (const ch of chunks.values()) build(ch); buildFar(); index(); }
   all();
   let farDirty = false;
   return {
@@ -227,7 +254,7 @@ export function makeTracks({ scene, lines, bridge = [], tunnel = [], elev = [], 
     },
     reheight(w, s, e, n) {
       const hit = L.filter(ln => ln.e >= w && ln.w <= e && ln.n >= s && ln.s <= n); if (!hit.length) return;
-      for (const ln of hit) profile(ln); joinEnds(hit);
+      for (const ln of hit) profile(ln); rampDown(L); joinEnds(hit);
       for (const ch of new Set(hit.map(ln => ln.chunk))) build(ch);
       farDirty = true;
     },

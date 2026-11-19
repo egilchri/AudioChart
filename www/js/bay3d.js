@@ -147,7 +147,7 @@ if (ARMCHAIR) {
   for (const el of [wp?.previousElementSibling, wp, document.getElementById('sailrow'), document.getElementById('sailnote')]) if (el) { el.hidden = true; el.style.display = 'none'; }
   const back = document.querySelector('.panel a.back'); if (back) { back.href = './sailors/'; back.textContent = 'About AudioChart'; if (TED) back.target = '_blank'; }   // (in Ted's Birdseye's frame: not over the view)
   const help = document.getElementById('help');
-  if (help) help.textContent = 'Drag to move · right-drag or Shift-drag to turn and tilt · ⤒ Level (T) for the horizon · scroll or pinch to zoom · click a place · 📡 Live for the ships there now; click one for her card · Weather (N)';
+  if (help) help.textContent = 'Drag to move · right-drag or Shift-drag to turn and tilt · ⤒ Level (or the T key) to look out at the horizon · scroll or pinch to zoom · click a place · 📡 Live for the ships there now; click one for her card · Weather (N)';
 }
 try { if (/bay3d\.html$/.test(location.pathname)) localStorage.setItem(REGION3D_KEY, RID); } catch (_) {}
 {
@@ -3353,12 +3353,13 @@ function updateLabels() {
   const W = sceneEl.clientWidth, H = sceneEl.clientHeight, placed = [];
   let n = 0;
   for (const c of cand) {
-    if (n >= 34 && !c.el) continue;
+    if (n >= (view.dist > 15000 ? 16 : 34) && !c.el) continue;   // (v1166: fewer names from far off)
+    if (view.dist > 12000 && c.cls === '' && c.pri >= 1 && !c.el) continue;   // (and from far off, the bay's own small names left out: its towns, bridges and waters stay)
     const p = v3.set(c.x, c.y, c.z).project(camera);
     if (p.z > 1 || Math.abs(p.x) > 1.02 || p.y > 0.98 || p.y < -1) continue;
     const x = (p.x + 1) / 2 * W, y = (1 - p.y) / 2 * H, w = c.text.length * (c.cls === 'town' ? 8.5 : 7) + 8;
     if (c.el) { c.el.textContent = c.text; c.el.style.left = x + 'px'; c.el.style.top = y + 'px'; c.el.hidden = false; placed.push([x, y, w]); continue; }   // (the one being dragged: its own element)
-    if (placed.some(r => Math.abs(r[0] - x) < (r[2] + w) / 2 && Math.abs(r[1] - y) < 17)) continue;
+    if (placed.some(r => Math.abs(r[0] - x) < (r[2] + w) / 2 + 6 && Math.abs(r[1] - y) < (c.cls === 'town' ? 24 : 18))) continue;   // (v1166: a little more room round each, a town's backdrop taller)
     placed.push([x, y, w]);
     let el = pool[n];
     if (!el) {
@@ -3388,7 +3389,10 @@ const RING_NEAR = 2500;   // metres from the eye
 // (v1034, requested: "try it without the green and blue circles, but still seeing the boats at all zoom levels"):
 // each live vessel a dot at every height, no rings; true brings the rings back for zoomed-out views
 const LIVE_RINGS = false;
-function flashLive(ms = 6000) { flashUntil = performance.now() + ms; }
+// (v1166) the flash Live gives of itself when it first comes on marks the ships only (it's to show where they are);
+// ✨ Find, F, rings the planes and trains too: 600 red rings were over New York's opening shot
+let flashMovers = false;
+function flashLive(ms = 6000, movers = true) { flashUntil = performance.now() + ms; flashMovers = movers; }
 function updateLiveMarks() {
   const flash = performance.now() < flashUntil, far = !nest.on && view.dist > 4000;
   marksEl.classList.toggle('flash', flash);
@@ -3396,7 +3400,7 @@ function updateLiveMarks() {
   // LIVE_RINGS off (v1034), dots at every height
   marksEl.classList.toggle('dots', !LIVE_RINGS || Math.log2(40075016 * Math.cos(latOf(view.z) * DEG) * sceneEl.clientWidth / 256 / (view.dist / 0.8)) >= 13.5);
   if (findBtn) findBtn.hidden = !liveFeed.on || !(live.length || air.count || rail.count);
-  if (live.length && !flashedOnce) { flashedOnce = true; flashLive(); } else if (!liveFeed.on) flashedOnce = false;   // (again each time Live comes on)
+  if (live.length && !flashedOnce) { flashedOnce = true; flashLive(6000, false); } else if (!liveFeed.on) flashedOnce = false;   // (again each time Live comes on)
   const W = sceneEl.clientWidth, H = sceneEl.clientHeight;
   let n = 0;
   if (far || flash) for (const v of live) {
@@ -3422,9 +3426,10 @@ function updateLiveMarks() {
   // (v1165, of the opening screen: 655 red dots over New York, its names under them) zoomed out, a train above
   // ground is her bar in her line's colour (trains3d.js), no dot; one underground, out of sight, a small dot in her
   // line's colour; ✨ Find still marks every one in red, and the one followed keeps hers
-  if (flash || far) for (const m of [...(flash ? air.items() : []), ...rail.items()]) {
+  const flashM = flash && flashMovers;
+  if (flashM || far) for (const m of [...(flashM ? air.items() : []), ...rail.items()]) {
     if (nest.on && nest.v === m) continue;
-    const quiet = !flash && m.kind === 'rail' && follow !== m;
+    const quiet = !flashM && m.kind === 'rail' && follow !== m;
     if (quiet && !m.under) continue;
     v3.set(m.x, m.y + (m.kind === 'rail' ? 3 : 0), m.z);
     if (v3.distanceTo(camera.position) < RING_NEAR) continue;
@@ -3485,7 +3490,10 @@ new ResizeObserver(resize).observe(sceneEl); resize();
     // (v1165, asked of the opening screen: "What can we do to make it more attractive?") an armchair bay opens on its
     // best view (regions3d.js hero), low and oblique, turning slowly round it till you first drag, scroll or press a key
     const H = REG.hero; Object.assign(view, { x: wx(H.lon), z: wz(H.lat), dist: H.dist, tilt: H.tilt * DEG, az: H.az * DEG }); markCurrent(null);
-    heroDrift = true; const stop = () => { heroDrift = false; };
+    heroDrift = true; const help = document.getElementById('help'), stop = () => { heroDrift = false; help?.classList.add('faded'); };
+    setTimeout(() => help?.classList.add('faded'), 8000);   // (the help line, there to start with, gone after 8 s or once you begin)
+    let pref = null; try { pref = localStorage.getItem(FOLD_KEY); } catch (_) {}
+    if (pref !== '0') { panel.classList.add('folded'); toggle.setAttribute('aria-expanded', 'false'); toggle.textContent = 'Towns ▾'; toggle.title = 'Show the towns, harbors and bridges'; }   // (the towns' list folded away, unless you've opened it before)
     sceneEl.addEventListener('pointerdown', stop, { once: true }); sceneEl.addEventListener('wheel', stop, { once: true, passive: true }); addEventListener('keydown', stop, { once: true });
   }
   else if (!routeFlew) markCurrent('whole');

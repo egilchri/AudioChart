@@ -38,13 +38,14 @@ body { background: var(--sky); color: var(--ink); font-family: var(--body); font
 #scene canvas { display: block; width: 100%; height: 100%; }
 #labels { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
 .lbl { position: absolute; transform: translate(-50%, -100%); white-space: nowrap; font-weight: 600; font-size: 12px; padding-bottom: 6px;
-  text-shadow: 0 0 3px rgba(12, 24, 30, 0.95), 0 0 1px rgba(12, 24, 30, 1); }
+  text-shadow: 0 0 1px rgba(10, 18, 24, 1), 0 0 3px rgba(10, 18, 24, 0.95), 0 0 7px rgba(10, 18, 24, 0.75), 0 1px 12px rgba(10, 18, 24, 0.5); }   /* (v1166: a wider, softer halo: readable over a busy city) */
 .lbl::after { content: ""; position: absolute; left: 50%; bottom: 0; width: 1px; height: 6px; background: rgba(255, 255, 255, 0.6); }
 .lbl.buoy { font-family: var(--mono); font-weight: 500; font-size: 11px; }
 .lbl.tap { pointer-events: auto; cursor: pointer; }   /* Buoy F's label opens her card (v1013) */
 .lbl.drag { cursor: grab; touch-action: none; user-select: none; }   /* My places: drag to move (v1072) */
 .lbl.dragging { cursor: grabbing; color: var(--brass); }
-.lbl.town { pointer-events: auto; cursor: pointer; font-family: var(--display); font-size: 15px; letter-spacing: 0.02em; color: #fff7e6; }
+.lbl.town { pointer-events: auto; cursor: pointer; font-family: var(--display); font-size: 15px; letter-spacing: 0.02em; color: #fff7e6;
+  padding: 1px 8px 8px; border-radius: 10px; background: linear-gradient(rgba(12, 20, 28, 0.5), rgba(12, 20, 28, 0.5)) top / 100% calc(100% - 6px) no-repeat; }   /* (v1166: a soft dark backdrop behind a town's name, not under its stalk) */
 .lbl.town:hover { color: var(--brass); }
 .lbl[hidden] { display: none; }
 /* where the live vessels are (v1006): a ring on each when zoomed out, all flashing on ✨ Find (F) */
@@ -172,7 +173,8 @@ body.embed #bayswitch button { padding: 5px 14px; }
 .lbl.lake { font-style: italic; color: #bfe3ff; }   /* lakes and ponds (v1087) */
 .panel a { color: var(--brass); font-size: 0.8rem; padding-left: 8px; }
 button:focus-visible { outline: 2px solid var(--brass); outline-offset: 1px; }
-#help { position: fixed; right: 12px; bottom: calc(12px + var(--credit-h, 13px) + env(safe-area-inset-bottom, 0px));   /* above the credit line (v1045; bay3d.js sets its height) */ z-index: 2; font-size: 0.74rem; color: var(--muted); background: var(--glass); border-radius: 5px; padding: 4px 9px; max-width: calc(100% - 24px); box-sizing: border-box; }
+#help.faded { opacity: 0; pointer-events: none; }   /* (v1166: faded once you've begun) */
+#help { transition: opacity 1.2s; position: fixed; right: 12px; bottom: calc(12px + var(--credit-h, 13px) + env(safe-area-inset-bottom, 0px));   /* above the credit line (v1045; bay3d.js sets its height) */ z-index: 2; font-size: 0.74rem; color: var(--muted); background: var(--glass); border-radius: 5px; padding: 4px 9px; max-width: calc(100% - 24px); box-sizing: border-box; }
 #loading { position: fixed; left: 50%; top: calc(14px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); z-index: 2; font-size: 0.8rem; background: var(--glass-hi); border-radius: 5px; padding: 4px 10px; }
 #credit { position: fixed; left: 12px; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); z-index: 2; font-size: 10px; color: rgba(255, 255, 255, 0.8); text-shadow: 0 0 3px rgba(0, 0, 0, 0.6); pointer-events: none; max-width: 55%; }
 #status { position: fixed; inset: 0; z-index: 5; display: grid; place-items: center; font-family: var(--display); font-size: 1.3rem; letter-spacing: 0.04em; background: rgba(20, 34, 42, 0.55); text-align: center; padding-inline: 16px; }
@@ -465,7 +467,7 @@ body.underground #labels, body.underground #livemarks { display: none; }
 </head>
 <body>
 <div id="scene"></div>
-<div id="labels"></div><div id="livemarks"></div>
+<div id="livemarks"></div><div id="labels"></div>
 <nav class="panel" id="panel" aria-label="Places">
   <div class="head">
     <h1>Penobscot Bay<small>Bird's-eye view</small></h1>

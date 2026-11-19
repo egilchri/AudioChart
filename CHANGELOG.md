@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-19 — Bird's-eye: names you can read, a quieter arrival, and the Manhattan Bridge's approaches (v1166)
+
+- Asked: "do 3 and 4 next" (of the opening screen's list).
+- **Names you can read** (www/bay3d.html, www/js/bay3d.js): a wider, softer dark halo round every name; a town's or neighbourhood's on a soft dark backdrop; a little more room kept between names; from far off (12 km and more) fewer names (16 at most) and the bay's small place names left out (its towns, bridges and waters stay); the names now over the live marks, not under them. In every bay, Maine's too: so this is AudioChart's release as well.
+- **A quieter arrival** (the armchair bays' opening shot, v1165): the towns' list folded to its title and the bay switch, unless you've opened it before; the help line gone after 8 s or once you begin. Live's own flash when it first comes on marks the ships only; ✨ Find (or F) still rings the planes and trains too (600 red rings had been over New York's opening shot). The help line's "Level (T) for the horizon" now reads "⤒ Level (or the T key) to look out at the horizon".
+- **Fixed**, reported with a snapshot of a B/D train on the Manhattan Bridge, her rear cars stepping down toward the water: the track on the bridge followed its road deck, and at the bridge's ends the deck's own ramps fall at 13%, and the approach viaducts' pieces stood at an ordinary el's height, 30 m lower. Now an el's track falls at 3.5% at most along it (www/js/track3d.js `gradeLimit`), and an el's piece joined to a higher one comes down from it at that grade, through a chain of them (`rampDown`): the Brooklyn approach descends 44, 43, 41 … 30 m and on to DeKalb Avenue as one viaduct.
+- Checked in headless Chrome: New York's opening shot and whole bay; the Manhattan Bridge's Brooklyn approach measured and seen. Full CI suite passes.
+
 ## 2026-11-19 — Bird's-eye: an opening shot worth the look, and the trains quiet from afar (v1165, Bird's-eye only)
 
 - Asked of the opening screen (New York's, a snapshot): "What can we do to make it more attractive?", then "do 1 and 2".
