@@ -29,6 +29,15 @@ const figs = (vals, from, span, r = 28) => vals.map((v, i) => {
 }).join('');
 const needle = (cls, len, w = 2.6) => `<g class="${cls}"><path d="M${-w / 2},6 L0,${-len} L${w / 2},6 Z" class="ndl"/></g>`;
 
+// (v1167, asked: "The helm of a tug or ship should look like you are peering out from the pilot house") 'wheelhouse':
+// the deckhead over you, the front windows' posts, and the console under them: the radar sweeping, her heading and
+// speed, two throttles, her wheel; update({ hdg, gs: knots })
+function wheelPanel() {
+  const radar = `<svg viewBox="-50 -50 100 100" class="radar"><circle r="47" class="rim"/><circle r="43" class="scope"/><circle r="29" class="ring"/><circle r="15" class="ring"/><line x1="-43" y1="0" x2="43" y2="0" class="ring"/><line x1="0" y1="-43" x2="0" y2="43" class="ring"/><g class="sweep"><path d="M0,0 L0,-43 A43,43 0 0,1 26,-34 Z" class="beam"/></g>${[[12, -20], [-18, 8], [25, 14], [-8, -30], [30, -8]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.8" class="blip"/>`).join('')}</svg>`;
+  const wheel = `<svg viewBox="-50 -50 100 100" class="wheel"><circle r="38" class="rimw"/><circle r="8" class="hubw"/>${[0, 45, 90, 135, 180, 225, 270, 315].map(a => `<g transform="rotate(${a})"><line x1="0" y1="-8" x2="0" y2="-46" class="spoke"/><circle cy="-47" r="3.4" class="knob"/></g>`).join('')}</svg>`;
+  const levers = `<svg viewBox="0 0 70 100" class="tlever"><rect x="8" y="8" width="16" height="84" rx="6" class="slot"/><rect x="44" y="8" width="16" height="84" rx="6" class="slot"/><g class="n-thr"><rect x="2" y="40" width="28" height="11" rx="4" class="knob"/><rect x="38" y="40" width="28" height="11" rx="4" class="knob"/></g></svg>`;
+  return `<div class="gauges">${radar}<div class="tled wled"><div class="n-hdg"></div><div class="n-spd"></div></div>${wheel}${levers}</div>`;
+}
 function trainPanel(rr) {   // her speed (0-60 mph a subway's, 0-100 a railroad's), the amber line of the next stop and where she's bound, the controller's handle
   const spd = dial('MPH', tickRing(rr ? 10 : 12, -135, 270, 2) + figs(rr ? ['0', '20', '40', '60', '80', '100'] : ['0', '10', '20', '30', '40', '50', '60'], -135, 270) + needle('n-asi', 36) + '<circle r="3.5" class="hub"/>');
   return `<div class="gauges">${spd}<div class="tled"><div class="n-next"></div><div class="n-dest"></div></div><svg viewBox="0 0 60 100" class="tlever"><rect x="22" y="8" width="16" height="84" rx="6" class="slot"/><g class="n-lever"><rect x="14" y="44" width="32" height="12" rx="4" class="knob"/></g></svg></div>`;
@@ -87,13 +96,17 @@ export function makeCockpit(el) {
     show(k) {
       if (k !== kind) {
         kind = k; lastS = lastA = null; el.className = `ck-${k === 'railroad' ? 'train' : k}`;
-        el.innerHTML = `<div class="pillar l"></div><div class="pillar r"></div>${k === 'jet' || k === 'train' || k === 'railroad' ? '<div class="pillar c"></div>' : ''}${k === 'train' || k === 'railroad' ? '<div class="theader"></div>' : ''}<div class="ckpanel">${k === 'jet' ? jetPanel() : k === 'train' || k === 'railroad' ? trainPanel(k === 'railroad') : lightPanel()}</div>`;
+        el.innerHTML = `<div class="pillar l"></div><div class="pillar r"></div>${k === 'jet' || k === 'train' || k === 'railroad' ? '<div class="pillar c"></div>' : ''}${k === 'train' || k === 'railroad' || k === 'wheelhouse' ? '<div class="theader"></div>' : ''}${k === 'wheelhouse' ? [16, 33, 50, 67, 84].map(x => `<div class="mull" style="left:${x}%"></div>`).join('') : ''}<div class="ckpanel">${k === 'jet' ? jetPanel() : k === 'train' || k === 'railroad' ? trainPanel(k === 'railroad') : k === 'wheelhouse' ? wheelPanel() : lightPanel()}</div>`;
       }
       el.hidden = false; document.body.classList.add('incockpit');
     },
     hide() { el.hidden = true; document.body.classList.remove('incockpit'); },
     update({ gs = 0, alt = 0, hdg = 0, vr = 0, ground = false, next = '', dest = '' } = {}) {
       if (el.hidden) return;
+      if (kind === 'wheelhouse') {   // (v1167) her heading and speed; the throttles forward as she makes way
+        txt('.n-hdg', `HDG ${String(Math.round(((hdg % 360) + 360) % 360)).padStart(3, '0')}°`); txt('.n-spd', `${gs.toFixed(1)} kn`);
+        set('.n-thr', n => n.setAttribute('transform', `translate(0 ${(-26 * clamp(gs / 18, 0, 1)).toFixed(1)})`)); return;
+      }
       if (kind === 'train' || kind === 'railroad') {   // (v1161) her speed, the next stop, the controller back as she slows
         const top = kind === 'railroad' ? 100 : 60; rot('.n-asi', -135 + 270 * clamp(gs, 0, top) / top); txt('.n-next', next ? `Next: ${next}` : ''); txt('.n-dest', dest ? `To ${dest}` : '');
         set('.n-lever', n => n.setAttribute('transform', `translate(0 ${(-28 * clamp(gs / 45, 0, 1)).toFixed(1)})`)); return;

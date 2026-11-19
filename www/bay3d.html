@@ -286,6 +286,22 @@ body:has(#ridechart:not([hidden])) #cockpit .ckpanel { padding-right: calc(clamp
 #cockpit .tled { font: 700 clamp(13px, 2.1vh, 22px) var(--mono, monospace); color: #ffb21e; background: #050505; padding: 0.5em 1em; border-radius: 4px; min-width: 16em; text-shadow: 0 0 6px rgba(255,160,20,0.6); }
 #cockpit .tled .n-dest { opacity: 0.7; font-size: 0.8em; margin-top: 0.2em; }
 #cockpit .tlever { height: 90%; }
+/* (v1167) a wheelhouse: the deckhead, its windows' posts, a console with the radar, her heading and speed, her wheel */
+#cockpit.ck-wheelhouse { --ckh: clamp(110px, 25vh, 230px); }
+#cockpit.ck-wheelhouse .pillar { width: 5vw; clip-path: none; background: linear-gradient(90deg, #121518, #2a3036); }
+#cockpit.ck-wheelhouse .pillar.r { background: linear-gradient(270deg, #121518, #2a3036); }
+#cockpit.ck-wheelhouse .theader { height: 11vh; background: linear-gradient(#e2e0da, #c7c4bc 80%, #8e8b84); box-shadow: 0 5px 10px rgba(0,0,0,0.45); }   /* (the deckhead: painted white) */
+#cockpit .mull { position: absolute; top: 0; bottom: calc(var(--ckh) - 8px); width: max(9px, 1.1vw); transform: translateX(-50%); background: linear-gradient(90deg, #15181b, #3a4046 50%, #15181b); }
+#cockpit.ck-wheelhouse .ckpanel { border-radius: 0; background: linear-gradient(#3a3f44 0, #262a2e 18%, #1a1d20 100%); }
+#cockpit .radar { height: 92%; aspect-ratio: 1; }
+#cockpit .radar .rim { fill: #0b0d0e; stroke: #4a5056; stroke-width: 1.5; } #cockpit .radar .scope { fill: #04140b; }
+#cockpit .radar .ring { fill: none; stroke: rgba(60,220,120,0.25); stroke-width: 0.6; } #cockpit .radar .blip { fill: #6dff9e; }
+#cockpit .radar .beam { fill: rgba(80,255,140,0.28); } #cockpit .radar .sweep { animation: ckSweep 4s linear infinite; transform-origin: 0 0; }
+@keyframes ckSweep { to { transform: rotate(360deg); } }
+#cockpit .wheel { height: 112%; aspect-ratio: 1; margin-top: 4%; }
+#cockpit .wheel .rimw { fill: none; stroke: #6a4424; stroke-width: 6; } #cockpit .wheel .hubw { fill: #8a8d90; stroke: #3a3d40; }
+#cockpit .wheel .spoke { stroke: #7a5230; stroke-width: 3.2; } #cockpit .wheel .knob { fill: #6a4424; }
+#cockpit .wled { color: #7dffb0; text-shadow: 0 0 6px rgba(80,255,150,0.5); min-width: 9em; }
 #cockpit .tlever .slot { fill: #0b0c0d; stroke: #3a3f45; }
 #cockpit .tlever .knob { fill: #9a2a22; stroke: #1a0a08; }
 #cockpit.ck-heli { --ckh: clamp(100px, 22vh, 220px); }

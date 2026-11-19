@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-19 — Bird's-eye: a ship's or a tug's helm in her wheelhouse (v1167)
+
+- Asked: "The helm of a tug or ship should look like you are peering out from the pilot house".
+- **The wheelhouse** (www/js/cockpit.js 'wheelhouse', www/bay3d.html): riding a working vessel's or a ship's Helm, you look out through her wheelhouse's front windows, between their posts, under her white deckhead; below them her console: the radar sweeping (contacts on it), her heading and speed in green, her wheel, two throttles (forward as she makes way).
+- Which (www/js/bay3d.js `inWheelhouse`): tugs, pilot boats, ferries (the Maine State ferries and Casco Bay's too), cruise ships, cargo ships, tankers, cutters, trawlers, scallopers, dredgers, research, supply and cable ships. An open boat, a sailboat, the schooners and your own boat keep their open helm.
+- The cockpit's drawing is fetched the first time a wheelhouse is wanted, so a boater's Maine bay has it too (it had come only with the armchair layer): this is AudioChart's release as well.
+- Checked in headless Chrome on New York's live AIS: the tug Jonathan C Moran in the Kill Van Kull, from her helm. Full CI suite passes.
+
 ## 2026-11-19 — Bird's-eye: names you can read, a quieter arrival, and the Manhattan Bridge's approaches (v1166)
 
 - Asked: "do 3 and 4 next" (of the opening screen's list).

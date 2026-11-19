@@ -1336,7 +1336,14 @@ const airReach = v => v.kind === 'air' ? clamp(v.y * 6, 5000, 28000) : 0;   // (
 // her cockpit (v1135, cockpit.js): from inside, her own model is hidden (the eye was in her shell) and the cockpit's drawn round the view
 let cockpit = null;   // (v1153: made with the armchair layer: buildArmchair)
 const cockpitKind = v => v.heli ? 'heli' : v.L > 14 ? 'jet' : 'light';
+// (v1167) a working vessel's or a ship's helm is in a wheelhouse: tugs, pilot boats, ferries, cruise ships, cargo ships,
+// tankers, cutters, trawlers, dredgers and the like (an open boat, a sailboat, the schooners, your own boat: not)
+const WHEELHOUSE = new Set(['tug', 'pilot', 'dredger', 'ferry', 'cruise', 'cargo', 'tanker', 'ship', 'cutter', 'trawler', 'scalloper', 'research', 'osv', 'cable']);
+let ckLoading = null;   // (the cockpit's drawing, armchair layer or no: fetched the first time a wheelhouse is wanted, so a boater's Maine bay has it too)
+function wantCockpit() { const ck = document.getElementById('cockpit'); if (cockpit || ckLoading || !ck) return; ckLoading = import('./cockpit.js').then(m => { cockpit ??= m.makeCockpit(ck); }).catch(e => { ckLoading = null; console.warn('[bay3d] cockpit', e); }); }
+const inWheelhouse = v => !!v && v !== own && !v.boat && (v.kind === 'ferry' || v.kind === 'cruise' || (v.kind === 'ais' && WHEELHOUSE.has(v.model)));
 function insidePlane(v, inside) {
+  if (inWheelhouse(v)) { if (!inside || nest.mode !== 'helm') { cockpit?.hide(); return; } if (!cockpit) { wantCockpit(); return; } cockpit.show('wheelhouse'); cockpit?.update({ hdg: v.h || 0, gs: v.A?.sog ?? v.kn ?? 0 }); return; }
   // (v1161) a train's cab: her front window's frame, her speed and the next stop
   if (v?.kind === 'rail') { if (!inside || nest.mode !== 'helm') { cockpit?.hide(); return; } cockpit?.show(/ train$|^PATH$|^Staten Island Railway$|Line$|Trolley$/.test(v.a?.rail || '') ? 'train' : 'railroad'); cockpit?.update({ gs: (v.vs ?? v.v ?? 0) * 2.237, next: v.a?.next || '', dest: v.a?.dest || '' }); return; }
   if (v?.kind !== 'air') { cockpit?.hide(); return; }
