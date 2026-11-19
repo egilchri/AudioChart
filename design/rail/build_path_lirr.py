@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""PATH and the LIRR, for placing their live trains (v1160): their static GTFS to two small files the Birdseye relay
+"""PATH, the LIRR and Metro-North, for placing their live trains (v1160; Metro-North v1163): their static GTFS to two small files the Birdseye relay
 (relay/ais/core.mjs trimPath, trimLirr) fetches once and keeps.
 
-  python3 design/rail/build_path_lirr.py <path gtfs dir> <lirr gtfs dir> www/data/rail
+  python3 design/rail/build_path_lirr.py <path gtfs dir> <lirr gtfs dir> www/data/rail [<metro-north gtfs dir>]
 
 www/data/rail/path.json: PATH's feed (ridepath.json) gives only each station's next trains, in seconds, by line colour
 and the station they're bound for. So each line's way to each end (its shape, its stations along it and the scheduled
@@ -16,7 +16,7 @@ she's bound, and the stations' names:
 import csv, json, math, os, sys
 from collections import Counter
 
-pdir, ldir, out = sys.argv[1:4]
+pdir, ldir, out = sys.argv[1:4]; mdir = sys.argv[4] if len(sys.argv) > 4 else None
 rd = lambda d, n: csv.DictReader(open(os.path.join(d, n), newline='', encoding='utf-8-sig'))
 
 def metres(a, b):
@@ -92,3 +92,12 @@ lt = {r['trip_id']: [r['route_id'], r['trip_headsign']] for r in rd(ldir, 'trips
 ls = {r['stop_id']: r['stop_name'] for r in rd(ldir, 'stops.txt')}
 json.dump({'routes': lr, 'trips': lt, 'stops': ls}, open(os.path.join(out, 'lirr.json'), 'w'), separators=(',', ':'))
 print('LIRR:', len(lr), 'branches,', len(lt), 'trips,', len(ls), 'stations;', os.path.getsize(os.path.join(out, 'lirr.json')) // 1024, 'KB')
+
+# ── Metro-North (v1163): its feed's trips are her train numbers (the timetable's trip_short_name): her line and where she's bound
+if mdir:
+    mr = {r['route_id']: [r['route_long_name'], r['route_color'].upper()] for r in rd(mdir, 'routes.txt')}
+    mt = {}
+    for r in rd(mdir, 'trips.txt'): mt.setdefault(r['trip_short_name'], [r['route_id'], r['trip_headsign']])
+    ms = {r['stop_id']: r['stop_name'] for r in rd(mdir, 'stops.txt')}
+    json.dump({'routes': mr, 'trains': mt, 'stops': ms}, open(os.path.join(out, 'mnr.json'), 'w'), separators=(',', ':'))
+    print('Metro-North:', len(mr), 'lines,', len(mt), 'train numbers,', len(ms), 'stations;', os.path.getsize(os.path.join(out, 'mnr.json')) // 1024, 'KB')

@@ -703,7 +703,7 @@ function treeSpots(T, dem) {
     if (dem.elev[i] <= 0.6 || dem.canopy[i] < 0.45) continue;
     const lon = dem.west + (x + rnd()) * dem.dx, lat = dem.north - (y + rnd()) * dem.dy;
     if (lon < T.w || lon >= T.e || lat < T.s || lat >= T.n) continue;   // the overlap belongs to the neighbour
-    if (trackNear?.(wx(lon), wz(lat), 9)) { rnd(); rnd(); rnd(); rnd(); rnd(); rnd(); continue; }
+    if (trackNear?.(wx(lon), wz(lat), BROADLEAF ? 13 : 9)) { rnd(); rnd(); rnd(); rnd(); rnd(); rnd(); continue; }   // (v1163: a city's round crowns, up to 7 m across, kept off the track too: a cab looked into them)
     if (BROADLEAF) {   // a city's trees (v1032): shorter, round crowns, a lighter green
       const hgt = 7 + rnd() * 8;
       out.push(wx(lon), dem.elev[i] - 0.5, wz(lat), hgt, hgt * (0.36 + rnd() * 0.12), rnd() * 6.28,
@@ -1338,7 +1338,7 @@ let cockpit = null;   // (v1153: made with the armchair layer: buildArmchair)
 const cockpitKind = v => v.heli ? 'heli' : v.L > 14 ? 'jet' : 'light';
 function insidePlane(v, inside) {
   // (v1161) a train's cab: her front window's frame, her speed and the next stop
-  if (v?.kind === 'rail') { if (!inside || nest.mode !== 'helm') { cockpit?.hide(); return; } cockpit?.show('train'); cockpit?.update({ gs: (v.vs ?? v.v ?? 0) * 2.237, next: v.a?.next || '', dest: v.a?.dest || '' }); return; }
+  if (v?.kind === 'rail') { if (!inside || nest.mode !== 'helm') { cockpit?.hide(); return; } cockpit?.show(/ train$|^PATH$|^Staten Island Railway$|Line$|Trolley$/.test(v.a?.rail || '') ? 'train' : 'railroad'); cockpit?.update({ gs: (v.vs ?? v.v ?? 0) * 2.237, next: v.a?.next || '', dest: v.a?.dest || '' }); return; }
   if (v?.kind !== 'air') { cockpit?.hide(); return; }
   if (v.model) v.model.visible = !inside;
   if (!inside) { cockpit?.hide(); return; }
@@ -2595,7 +2595,7 @@ function fillMoverCard() {
   if (air_ && navigator.onLine !== false) row('More', `<a href="https://globe.adsb.lol/?icao=${encodeURIComponent(a.hex)}" target="_blank" rel="noopener">See her on adsb.lol ↗</a>`, true);
   // (v1140: the MBTA's and Amtrak's come from their own feeds, not 511's)
   const rr = v.a?.rail || '', mbta = /^(Commuter Rail|Red Line|Orange Line|Blue Line|Green Line|Mattapan)/.test(rr);
-  row('Source', air_ ? `Her own ADS-B, through adsb.lol${rl?.route ? '; route listed by adsbdb.com' : ''}` : mbta ? "The MBTA's live data (every 20 s)" : / train$|^Staten Island Railway$/.test(rr) ? "The MTA's live data (every 30 s): her place between stations worked out from when she's due" : rr === 'LIRR' ? "The MTA's live data for the LIRR (every 30 s)" : rr === 'PATH' ? "The Port Authority's next trains (every 30 s): her place worked out from when she's due" : rr === 'Amtrak' ? 'Amtrak, through Amtraker (every 2 min or so)' : 'The railroad, through 511.org (every 90 s or more)');
+  row('Source', air_ ? `Her own ADS-B, through adsb.lol${rl?.route ? '; route listed by adsbdb.com' : ''}` : mbta ? "The MBTA's live data (every 20 s)" : / train$|^Staten Island Railway$/.test(rr) ? "The MTA's live data (every 30 s): her place between stations worked out from when she's due" : rr === 'LIRR' ? "The MTA's live data for the LIRR (every 30 s)" : rr === 'Metro-North' ? "The MTA's live data for Metro-North (every 30 s)" : rr === 'PATH' ? "The Port Authority's next trains (every 30 s): her place worked out from when she's due" : rr === 'Amtrak' ? 'Amtrak, through Amtraker (every 2 min or so)' : 'The railroad, through 511.org (every 90 s or more)');
   const tb = aisCard.querySelector('table'); tb.innerHTML = '';
   for (const [k, val, html] of rows) { const tr = tb.insertRow(), th = document.createElement('th'), td = tr.insertCell(); th.textContent = k; tr.prepend(th); if (html) td.innerHTML = val; else td.textContent = val; }
   for (const b of aisCard.querySelectorAll('.go button')) b.disabled = gone;

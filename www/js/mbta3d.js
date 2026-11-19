@@ -102,9 +102,10 @@ const T_LOOK = {
   // (v1160) the LIRR's M7s and M9s: 85 ft stainless cars, two doors a side, her blue stripe; PATH's PA5s: 51 ft, three doors,
   // PATH's sign on her ends and sides
   LIRR: { len: 25.9, h: 3.95, w: 3.15, doors: 2, body: '#c9cdd1', band: '#1d4f91', fluted: true },
+  'Metro-North': { len: 25.9, h: 3.95, w: 3.15, doors: 2, body: '#c9cdd1', band: '#ee0034', fluted: true },   // (v1163: its M8s and M7As, its red)
   PATH: { len: 15.6, h: 3.65, w: 2.8, doors: 3, body: '#c6cace', band: '#0d3b70', fluted: false, nyc: 'PATH' },
 };
-const T_CARS = { 'Red Line': 6, 'Orange Line': 6, 'Blue Line': 6, 'Green Line': 2, 'Mattapan Trolley': 1, LIRR: 10, PATH: 7 };
+const T_CARS = { 'Red Line': 6, 'Orange Line': 6, 'Blue Line': 6, 'Green Line': 2, 'Mattapan Trolley': 1, LIRR: 10, PATH: 7, 'Metro-North': 8 };
 // (v1154) New York's subway: stainless cars (the R142s and R160s that run most lines now), her line's bullet on her
 // side signs and her ends. The IRT's (1 to 7, the 42 St shuttle) 51 ft cars, three doors a side; the B Division's
 // (the lettered lines, Staten Island's) 60 ft, four. Her line's colour from the MTA's own (NYC_LINES).

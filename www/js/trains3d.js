@@ -12,7 +12,7 @@ import { makeAmtrak } from './amtrak3d.js';
 import { makeMbtaCR, makeTTrain, T_RAILS, NYC_RAIL, NYC_LINES, nycLine } from './mbta3d.js';
 import { minOfDay, bayDay } from './regiontime.js';
 
-export const TRAIN_CREDIT = 'Trains from 511.org, Amtrak (via Amtraker), the MBTA, the MTA and the Port Authority (PATH)';
+export const TRAIN_CREDIT = 'Trains from 511.org, Amtrak (via Amtraker), the MBTA, the MTA (the subway, the LIRR, Metro-North) and the Port Authority (PATH)';
 const DEG = Math.PI / 180;
 const LONG = /starlight|zephyr|chief|sunset|eagle|builder|cardinal|crescent|limited/i;   // (Amtrak's long-distance trains: Superliners or their like)
 // each railroad's train: cars, car length (m), and livery (body, band)
@@ -30,10 +30,11 @@ const LOOK = {
   'Mattapan Trolley': { cars: 1, len: 14, body: 0xe9dcb0, band: 0xd0631e },
   // (v1160) New York's commuter railroads: the LIRR's, PATH's (her line's colour from her report: a.col)
   LIRR: { cars: 10, len: 26, body: 0xc9cdd2, band: 0x1d4f91 },
+  'Metro-North': { cars: 8, len: 26, body: 0xc9cdd2, band: 0xee0034 },   // (v1163)
   PATH: { cars: 7, len: 16, body: 0xc6cace, band: 0x0d3b70 },
 };
 // each line's top speed, m/s: a speed worked out from two of her reports faster than this is a jump, not a speed (v1147)
-const TOP = { 'Red Line': 25, 'Orange Line': 25, 'Blue Line': 22, 'Green Line': 20, 'Mattapan Trolley': 16, 'Commuter Rail': 36, LIRR: 36, PATH: 25 };
+const TOP = { 'Red Line': 25, 'Orange Line': 25, 'Blue Line': 22, 'Green Line': 20, 'Mattapan Trolley': 16, 'Commuter Rail': 36, LIRR: 36, PATH: 25, 'Metro-North': 40 };
 // (v1154) New York's subway: each line's look from afar in her colour (her cars close in: mbta3d.js makeTTrain), at
 // ~25 m/s at most (55 mph, the expresses' best); Staten Island's a little faster
 const lookOf = a => LOOK[a.rail] || (NYC_RAIL.test(a.rail) ? (LOOK[a.rail] = { cars: 10, len: 17, body: 0xc6cace, band: parseInt((NYC_LINES[nycLine(a.rail)] || '#808183').slice(1), 16) }) : LOOK.Caltrain);
@@ -41,7 +42,7 @@ const topOf = rail => TOP[rail] || (rail === 'Staten Island Railway' ? 30 : NYC_
 // a train's name on her label and card: Amtrak's by her route ("Capitol Corridor"), the MBTA's commuter rail by her
 // line ("Worcester Line"), the Green Line by her branch ("Green Line E"), the rest by the railroad's or line's own
 const trainName = a => a.rail === 'Amtrak' && a.line ? a.line : a.rail === 'Commuter Rail' && a.line ? a.line.split('/').pop().replace(/ Line$/, '') + ' Line'
-  : a.rail === 'Green Line' && a.line ? `Green Line ${a.line[0]}` : a.rail === 'LIRR' && a.line ? `LIRR ${a.line.replace(/ Branch$/, '')}` : a.rail;
+  : a.rail === 'Green Line' && a.line ? `Green Line ${a.line[0]}` : a.rail === 'LIRR' && a.line ? `LIRR ${a.line.replace(/ Branch$/, '')}` : a.rail === 'Metro-North' && a.line ? `Metro-North ${a.line}` : a.rail;
 function trainModel(look) {   // the cars in a line along -z (her front), 1 unit = 1 m
   const g = new THREE.Group(), body = new THREE.MeshLambertMaterial({ color: look.body }), band = new THREE.MeshLambertMaterial({ color: look.band });
   const roof = new THREE.MeshLambertMaterial({ color: look.band, emissive: look.band, emissiveIntensity: 0.45 });

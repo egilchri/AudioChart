@@ -29,8 +29,8 @@ const figs = (vals, from, span, r = 28) => vals.map((v, i) => {
 }).join('');
 const needle = (cls, len, w = 2.6) => `<g class="${cls}"><path d="M${-w / 2},6 L0,${-len} L${w / 2},6 Z" class="ndl"/></g>`;
 
-function trainPanel() {   // her speed (0-60 mph), the amber line of the next stop and where she's bound, the controller's handle
-  const spd = dial('MPH', tickRing(12, -135, 270, 2) + figs(['0', '10', '20', '30', '40', '50', '60'], -135, 270) + needle('n-asi', 36) + '<circle r="3.5" class="hub"/>');
+function trainPanel(rr) {   // her speed (0-60 mph a subway's, 0-100 a railroad's), the amber line of the next stop and where she's bound, the controller's handle
+  const spd = dial('MPH', tickRing(rr ? 10 : 12, -135, 270, 2) + figs(rr ? ['0', '20', '40', '60', '80', '100'] : ['0', '10', '20', '30', '40', '50', '60'], -135, 270) + needle('n-asi', 36) + '<circle r="3.5" class="hub"/>');
   return `<div class="gauges">${spd}<div class="tled"><div class="n-next"></div><div class="n-dest"></div></div><svg viewBox="0 0 60 100" class="tlever"><rect x="22" y="8" width="16" height="84" rx="6" class="slot"/><g class="n-lever"><rect x="14" y="44" width="32" height="12" rx="4" class="knob"/></g></svg></div>`;
 }
 function lightPanel() {
@@ -86,16 +86,16 @@ export function makeCockpit(el) {
   return {
     show(k) {
       if (k !== kind) {
-        kind = k; lastS = lastA = null; el.className = `ck-${k}`;
-        el.innerHTML = `<div class="pillar l"></div><div class="pillar r"></div>${k === 'jet' || k === 'train' ? '<div class="pillar c"></div>' : ''}${k === 'train' ? '<div class="theader"></div>' : ''}<div class="ckpanel">${k === 'jet' ? jetPanel() : k === 'train' ? trainPanel() : lightPanel()}</div>`;
+        kind = k; lastS = lastA = null; el.className = `ck-${k === 'railroad' ? 'train' : k}`;
+        el.innerHTML = `<div class="pillar l"></div><div class="pillar r"></div>${k === 'jet' || k === 'train' || k === 'railroad' ? '<div class="pillar c"></div>' : ''}${k === 'train' || k === 'railroad' ? '<div class="theader"></div>' : ''}<div class="ckpanel">${k === 'jet' ? jetPanel() : k === 'train' || k === 'railroad' ? trainPanel(k === 'railroad') : lightPanel()}</div>`;
       }
       el.hidden = false; document.body.classList.add('incockpit');
     },
     hide() { el.hidden = true; document.body.classList.remove('incockpit'); },
     update({ gs = 0, alt = 0, hdg = 0, vr = 0, ground = false, next = '', dest = '' } = {}) {
       if (el.hidden) return;
-      if (kind === 'train') {   // (v1161) her speed, the next stop, the controller back as she slows
-        rot('.n-asi', -135 + 270 * clamp(gs, 0, 60) / 60); txt('.n-next', next ? `Next: ${next}` : ''); txt('.n-dest', dest ? `To ${dest}` : '');
+      if (kind === 'train' || kind === 'railroad') {   // (v1161) her speed, the next stop, the controller back as she slows
+        const top = kind === 'railroad' ? 100 : 60; rot('.n-asi', -135 + 270 * clamp(gs, 0, top) / top); txt('.n-next', next ? `Next: ${next}` : ''); txt('.n-dest', dest ? `To ${dest}` : '');
         set('.n-lever', n => n.setAttribute('transform', `translate(0 ${(-28 * clamp(gs / 45, 0, 1)).toFixed(1)})`)); return;
       }
       q = { gs, alt, hdg, vr };

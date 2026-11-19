@@ -170,6 +170,9 @@ export const RAIL = [
   // (v1160, "do PATH and the LIRR next") the LIRR: the MTA's feed, each train's own place (GPS); her branch from her trip
   { id: 'LI', name: 'LIRR', ttl: 30, binary: true, box: NYC_BBOX, url: () => 'https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/lirr%2Fgtfs-lirr',
     trim: async (buf, rail, now) => trimLirr(buf, rail, now, await lirrData()) },
+  // (v1163) Metro-North: the MTA's feed for it, her own place by GPS (those running; the rest are only timetabled)
+  { id: 'MN', name: 'Metro-North', ttl: 30, binary: true, box: NYC_BBOX, url: () => 'https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/mnr%2Fgtfs-mnr',
+    trim: async (buf, rail, now) => trimMnr(buf, rail, now, await mnrData()) },
   // PATH: the Port Authority's next trains at each station; her place worked out from them (trimPath)
   { id: 'PA', name: 'PATH', ttl: 30, box: NYC_BBOX, url: () => 'https://www.panynj.gov/bin/portauthority/ridepath.json',
     trim: async (text, rail, now) => trimPath(text, rail, now, await pathData()) },
@@ -336,23 +339,26 @@ export function trimNyct(buf, rail, now = Date.now(), nyc) {
 // ---- PATH and the LIRR (v1160) ----
 const SITE = 'https://egilchri.github.io/AudioChart/data/rail/';
 const once = (name, prep) => { let pr = null; return (load = () => fetch(SITE + name).then(r => { if (!r.ok) throw new Error(`${name} ${r.status}`); return r.json(); })) => pr ||= load().then(prep).catch(e => { pr = null; throw e; }); };
-export const lirrData = once('lirr.json', j => j);
+export const lirrData = once('lirr.json', j => j), mnrData = once('mnr.json', j => j);
 export const pathData = once('path.json', j => {
   for (const L of Object.values(j.lines)) { L.cum = [0]; for (let i = 1; i < L.p.length; i++) L.cum.push(L.cum[i - 1] + metres(L.p[i - 1], L.p[i])); }
   return j;
 });
 const f32 = (buf, v) => v?.f32 != null ? new DataView(buf.buffer, buf.byteOffset + v.f32, 4).getFloat32(0, true) : null;
 // the LIRR's: VehiclePosition 1 trip, 2 position (1 latitude, 2 longitude, 3 bearing, 5 speed m/s), 4 status, 5 time, 7 stop
-export function trimLirr(buf, rail, now = Date.now(), L) {
+export const trimLirr = (buf, rail, now, L) => trimMtaRail(buf, rail, now, L, t => L?.trips[t], t => t.split('_').pop());
+// (v1163) Metro-North's: the same feed's shape; her trip is her train number, her line and end from it
+export const trimMnr = (buf, rail, now, M) => trimMtaRail(buf, rail, now, M, t => M?.trains[t], t => t);
+function trimMtaRail(buf, rail, now = Date.now(), L, find, num) {
   if (!(buf instanceof Uint8Array) || !L) return [];
   const dec = new TextDecoder(), str = r => r ? dec.decode(buf.subarray(r[0], r[1])) : '', out = [];
   for (const r of pbRead(buf)[2] || []) {
     const en = pbRead(buf, ...r); if (!en[4]) continue;
     const v = pbRead(buf, ...en[4][0]), tr = v[1] && pbRead(buf, ...v[1][0]), ps = v[2] && pbRead(buf, ...v[2][0]); if (!ps) continue;
     const lat = f32(buf, ps[1]?.[0]), lon = f32(buf, ps[2]?.[0]), brg = f32(buf, ps[3]?.[0]), sp = f32(buf, ps[5]?.[0]); if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
-    const trip = str(tr?.[1]?.[0]), [rid, head] = L.trips[trip] || [], route = L.routes[rid], at = (v[5]?.[0] || 0) * 1000;
+    const trip = str(tr?.[1]?.[0]), [rid, head] = find(trip) || [], route = L.routes[rid], at = (v[5]?.[0] || 0) * 1000;
     if (at && now - at > 15 * 60e3) continue;   // (gone, not stopped)
-    out.push({ id: `${rail.id}:${trip}`, rail: rail.name, line: route?.[0] || '', trip: trip.split('_').pop(), dest: head || '', dir: '',
+    out.push({ id: `${rail.id}:${trip}`, rail: rail.name, line: route?.[0] || '', trip: num(trip), dest: head || '', dir: '',
       lat: +lat.toFixed(5), lon: +lon.toFixed(5), brg: Number.isFinite(brg) ? Math.round(brg) : null, at: Math.min(at || now, now),
       mph: Number.isFinite(sp) ? +(sp * 2.23694).toFixed(1) : null, from: '', next: L.stops[str(v[7]?.[0])] || '', atStop: v[4]?.[0] === 1 });
   }

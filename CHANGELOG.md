@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-19 — Bird's-eye: Metro-North, live; railroad cabs clear of the trees (v1163, Bird's-eye only)
+
+- Asked: "do Metro-North and NJ Transit next".
+- **Metro-North** (relay/ais/core.mjs `trimMnr`, Ted's Birdseye's relay): the MTA's GTFS-realtime feed for it (no key), each running train's place by GPS (the feed lists about 200; the 50 or so running have places). Her trip is her train number, so her line and where she's bound come from the timetable by it (www/data/rail/mnr.json, 44 KB, by design/rail/build_path_lirr.py from Metro-North's GTFS). Named "Metro-North New Haven 1274" and the like; eight 85 ft stainless cars in Metro-North's red (www/js/mbta3d.js); her high platforms. The LIRR's reader and hers are now one (`trimMtaRail`).
+- **NJ Transit: not yet.** Its live trains come only through its developer API, which needs a registered (free) account's login for a token. With one, it goes into Ted's Birdseye's relay as a secret, as the 511 key did, and NJ Transit can follow.
+- **A railroad's cab** (www/js/cockpit.js): its speedometer reads to 100 mph (a subway's to 60): a New Haven Line train at 72 mph had pinned it.
+- **Trees off the track** (www/js/bay3d.js): a city's round-crowned trees were kept 9 m from a track's middle, but their crowns reach 7 m: from a cab they stood across the line ahead. Now 13 m in the cities (Maine's spruce, narrow, still 9).
+- Checked: offline against the live feed (53 Metro-North trains on the New Haven, New Canaan, Danbury, Harlem and Hudson lines; the LIRR's still 75), and in headless Chrome through the local relay: a New Haven Line train by Pelham from the Side and the Cab, the four tracks clear ahead to New Rochelle. Full CI suite passes.
+
 ## 2026-11-19 — Bird's-eye: the platforms' people, round 2, and the ties under the cab (v1162, Bird's-eye only)
 
 - Asked: "work on the people and the sleepers" (sleepers: the railway's ties).
