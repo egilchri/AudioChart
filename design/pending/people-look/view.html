@@ -2,7 +2,7 @@
 <style>html,body{margin:0;background:#d8d6d0;overflow:hidden}</style>
 <script type="importmap">{ "imports": { "three": "../../../www/js/lib/three/three.module.min.js" } }</script>
 <script type="module">
-// The platforms' people (www/js/platform3d.js personParts), lined up for a look: ?seed=1&n=12&cam=x,y,z&look=x,y,z
+// The platforms' people (www/js/platform3d.js personParts), lined up for a look: ?seed=1&n=12&kind=sit|walk|kid|old&cam=x,y,z&look=x,y,z
 // Lit as in a station in the open (Lambert); &under=1 shades them as the stations underground do (baked, unlit).
 import * as THREE from 'three';
 import { personParts } from '../../../www/js/platform3d.js';
@@ -14,7 +14,8 @@ const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 20), new THREE.MeshLamb
 const _c = new THREE.Color();
 for (let i = 0; i < n; i++) {
   const x = (i - (n - 1) / 2) * 0.85, z = (i % 2) * 0.25;
-  for (const [g, hex] of personParts(rnd)) {
+  const kind = q.get('kind'), o = kind ? { [kind]: true } : {};   // (v1164: &kind=sit|walk|kid|old)
+  for (const [g, hex] of personParts(rnd, o)) {
     g.translate(x, 0, z);
     let m;
     if (under) {   // as platform3d's put(): light from above and a side, baked

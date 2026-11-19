@@ -39,5 +39,6 @@ const cam = new THREE.PerspectiveCamera(66, innerWidth / innerHeight, 0.1, 600);
 const [cd, cu, cy] = (q.get('cam') || `${sd - 30},${G + 2.4},${platY + 1.65}`).split(',').map(Number), [ld, lu, ly] = (q.get('look') || `${sd + 10},0,2`).split(',').map(Number);
 cam.position.set(cu, cy, -cd); cam.lookAt(lu, ly, -ld);
 scene.fog = new THREE.Fog(0x030304, 25, 300);
-r.render(scene, cam); window.done = true;
+r.render(scene, cam); window.done = true; window.st = st; window.R = () => r.render(scene, cam); window.CAM = cam;
+if (q.has('anim')) { const loop = () => { st.tick?.(); r.render(scene, cam); requestAnimationFrame(loop); }; loop(); }   // (v1164: the people walking)
 </script>

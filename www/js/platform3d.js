@@ -32,15 +32,21 @@ const pick = a => a[Math.random() * a.length | 0];
 // station merges them into its one mesh (put), as it did the boxes they were.
 const HAIR = [0x1a1410, 0x1a1410, 0x2a1d14, 0x3a2818, 0x4a3420, 0x6b4a2a, 0x8a6a40, 0x8a8478, 0xb9b2a4];
 const BAGS = [0x1c1c1e, 0x24324a, 0x7a2a2a, 0x3b3d42, 0x5a4632, 0x2e4a36];
-export function personParts(rnd = Math.random) {
+// (v1164, round 4) o: { sit: on a bench, her hips at its seat; walk: her legs and arms tagged ('L-leg', 'R-leg',
+// 'L-arm', 'R-arm') to swing about her hips and shoulders (the returned list's .j: where those joints are); kid; old }
+export function personParts(rnd = Math.random, o = {}) {
   // (v1162, round 2: limbs between real joints, so arms meet the shoulders and the elbows join; a turned torso, waist
   // to chest; a rounded pelvis under the shirt's hem; hair swept back from the brow; eyes, ears, a smaller nose; a
   // collar, and a jacket worn open over a shirt on some)
-  const pk = a => a[rnd() * a.length | 0], out = [], add = (g, hex) => out.push([g, hex]);
-  const fem = rnd() < 0.5, h = (fem ? 1.6 : 1.7) + rnd() * 0.18, k = h / 1.75;
-  const top = pk(CLOTH), legsC = pk(TROUSERS), skin = pk(SKIN), hairC = pk(HAIR), shoe = pk([0x1a1a1a, 0x1a1a1a, 0x3a2a1c, 0xd8d8d4, 0x5a5a5e]);
-  const coat = rnd() < 0.35, open = !coat && rnd() < 0.3, shirt = pk([0xe8e6e0, 0xd9d4c8, 0x2a2d33, 0x8aa0b8]);
-  const pose = pk(['down', 'down', 'pockets', 'phone', 'phone', 'both']), sw = (fem ? 0.175 : 0.2) * (0.95 + rnd() * 0.1);
+  let tag = null; const pk = a => a[rnd() * a.length | 0], out = [], add = (g, hex) => out.push([g, hex, tag]);
+  const fem = rnd() < 0.5, h = o.kid ? 1.05 + rnd() * 0.3 : (fem ? 1.6 : 1.7) + rnd() * 0.18 - (o.old ? 0.04 : 0), k = h / 1.75;
+  const top = pk(o.kid ? [0xd04a3a, 0x3a7ad0, 0xf2c40f, 0x2e8b57, 0x8a4ab0, 0xe8e6e0] : CLOTH), skin = pk(SKIN), shoe = pk([0x1a1a1a, 0x1a1a1a, 0x3a2a1c, 0xd8d8d4, 0x5a5a5e]);
+  const hairC = o.old ? pk([0xb9b2a4, 0xd8d4cc, 0x9a958a, 0xe6e2da]) : pk(HAIR);
+  const coat = !o.sit && !o.kid && rnd() < (o.old ? 0.6 : 0.35), open = !coat && !o.kid && rnd() < 0.3, shirt = pk([0xe8e6e0, 0xd9d4c8, 0x2a2d33, 0x8aa0b8]);
+  const skirt = fem && !coat && !o.walk && rnd() < 0.35, hood = !coat && !open && rnd() < 0.18, scarf = !o.kid && rnd() < (coat ? 0.35 : 0.1);
+  const legsC = skirt ? pk([0x2a2626, 0x1c1c1e, skin]) : pk(TROUSERS);   // (under a skirt: her tights, or bare legs)
+  const pose = o.walk ? 'down' : o.sit ? pk(['lap', 'lap', 'phone']) : o.old ? pk(['down', 'cane', 'cane']) : o.kid ? pk(['down', 'down', 'pockets']) : pk(['down', 'down', 'pockets', 'phone', 'phone', 'both']);
+  const sw = (fem ? 0.175 : 0.2) * (0.95 + rnd() * 0.1) * (o.kid ? 0.82 : 1);
   const V = (x, y, z) => new THREE.Vector3(x, y, z), _q = new THREE.Quaternion(), Y = V(0, 1, 0);
   const limb = (a, b, r, hex, r2 = r) => {   // a capsule from joint a to joint b (tapering to r2 at b)
     const d = b.clone().sub(a), L = d.length(); if (L < 1e-4) return;
@@ -50,24 +56,33 @@ export function personParts(rnd = Math.random) {
   };
   const ball = (r, x, y, z, hex, sx = 1, sy = 1, sz = 1, th = Math.PI, tilt = 0) => { const g = new THREE.SphereGeometry(r, 14, 10, 0, Math.PI * 2, 0, th); g.scale(sx, sy, sz); g.rotateX(tilt); g.translate(x, y, z); add(g, hex); };
   const lathe = (pts, hex, sz = 0.62, y0 = 0) => { const g = new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), 14); g.scale(1, 1, sz); g.translate(0, y0, 0); add(g, hex); };
-  const hip = 0.9 * k, knee = 0.49 * k, ank = 0.075, sh = 1.44 * k, lx = sw * 0.47, bend = rnd() < 0.4 ? (rnd() < 0.5 ? -1 : 1) : 0;   // (bend: her weight on one leg, the other knee a little forward)
-  // her shoes, legs (hip to knee to ankle) and a rounded pelvis
+  const hip = o.sit ? 0.48 : 0.9 * k, knee = 0.49 * k, ank = 0.075, sh = hip + 0.54 * k, lx = sw * 0.47, bend = !o.walk && !o.sit && rnd() < 0.4 ? (rnd() < 0.5 ? -1 : 1) : 0;   // (bend: her weight on one leg, the other knee a little forward)
+  // her shoes, legs (hip to knee to ankle; sitting, her thighs along the seat) and a rounded pelvis
   for (const s of [-1, 1]) {
-    const kn = V(s * lx * 0.95, knee, bend === s ? 0.05 : 0), an = V(s * lx * 0.9, ank, bend === s ? 0.02 : 0);
+    tag = o.walk ? (s < 0 ? 'L-leg' : 'R-leg') : null;
+    const kn = o.sit ? V(s * lx * 1.05, hip + 0.02, 0.44 * k) : V(s * lx * 0.95, knee, bend === s ? 0.05 : 0), an = o.sit ? V(s * lx, ank, 0.5 * k) : V(s * lx * 0.9, ank, bend === s ? 0.02 : 0);
     limb(V(s * lx, hip, 0), kn, 0.072 * k, legsC, 0.058 * k); limb(kn, an, 0.056 * k, legsC, 0.045 * k);
-    const g = new THREE.CapsuleGeometry(0.047, 0.15, 2, 8); g.rotateX(Math.PI / 2); g.scale(1.1, 0.8, 1); g.translate(an.x, 0.045, an.z + 0.05); add(g, shoe);
+    const g = new THREE.CapsuleGeometry(0.047 * Math.max(0.8, k), 0.15 * Math.max(0.75, k), 2, 8); g.rotateX(Math.PI / 2); g.scale(1.1, 0.8, 1); g.translate(an.x, 0.045, an.z + 0.05); add(g, shoe);
   }
+  tag = null;
+  if (skirt) { const sk = pk([0x2a2d38, 0x6b2a2a, 0x3a4a3a, 0x8a7a5a, 0x1c1c1e]); if (o.sit) { const g = new THREE.CylinderGeometry(sw * 0.95, sw * 0.98, 0.42 * k, 12, 1, true); g.rotateX(Math.PI / 2); g.scale(1, 0.4, 1); g.translate(0, hip + 0.03, 0.2 * k); add(g, sk); } else lathe([[sw * 0.92, 0], [sw * 1.08, -(hip - knee) * 0.6], [sw * 1.16, -(hip - knee) - 0.04]], sk, 0.7, hip + 0.02); }   // her skirt
   ball(sw * 0.78, 0, hip - 0.03, 0, legsC, 1, 0.5, 0.6);   // (under the shirt's hem, not through it)
   // her body: a turned profile, the shirt's hem over her hips, waist, chest, shoulders, to her neck's root
   const T = [[sw * 0.88, -0.1], [sw * 0.88, 0.0], [sw * 0.8, 0.16], [sw * 0.9, 0.3], [sw * 0.98, sh - hip - 0.16], [sw * 0.96, sh - hip - 0.06], [sw * 0.72, sh - hip + 0.01], [sw * 0.3, sh - hip + 0.035]];
   lathe(T, open ? shirt : top, 0.6, hip);
   if (open) { lathe(T.map(([r, y]) => [r * 1.04, y]), top, 0.62, hip); const g = new THREE.BoxGeometry(sw * 0.5, sh - hip - 0.06, 0.02); g.translate(0, (hip + sh) / 2 - 0.02, sw * 0.62 + 0.005); add(g, shirt); }   // (her jacket, open over her shirt)
   if (coat) lathe([[sw * 0.9, 0], [sw * 0.98, -(hip - knee) * 0.5], [sw * 1.05, -(hip - knee) - 0.06]], top, 0.66, hip + 0.02);
+  if (hood) ball(0.085, 0, sh + 0.02, -0.075, top, 1.1, 0.75, 0.7);   // her hoodie's hood, down on her back
+  if (scarf) { const sc = pk([0xb02a2a, 0x2a5a9a, 0xd8b860, 0x3a6a4a, 0xe0d8c8, 0x5a2a5a]), g = new THREE.TorusGeometry(0.075, 0.03, 6, 14); g.rotateX(Math.PI / 2); g.translate(0, sh + 0.03, 0.01); add(g, sc); limb(V(0.04, sh + 0.02, sw * 0.6), V(0.06, sh - 0.25, sw * 0.62), 0.028, sc); }   // a scarf, an end hanging
   { const g = new THREE.TorusGeometry(0.06, 0.016, 6, 14); g.rotateX(Math.PI / 2); g.translate(0, sh + 0.02, 0.005); add(g, open || rnd() < 0.3 ? shirt : top); }   // her collar
   for (const s of [-1, 1]) ball(0.05, s * (sw - 0.02), sh - 0.05, 0, top, 1, 1, 0.9);   // her shoulders, rounded
   // her arms, shoulder to elbow to wrist, by her pose
   const arm = (s, kind) => {
+    tag = o.walk ? (s < 0 ? 'L-arm' : 'R-arm') : null;
     const S = V(s * (sw - 0.01), sh - 0.06, 0); let E, W;
+    if (kind === 'lap') { E = V(s * (sw + 0.02), sh - 0.28 * k, 0.04); W = V(s * sw * 0.55, hip + 0.07, 0.3 * k); limb(S, E, 0.05, top, 0.046); limb(E, W, 0.045, top, 0.038); ball(0.042, W.x, W.y - 0.01, W.z + 0.04, skin, 0.8, 0.6, 1.3); tag = null; return; }   // (her hands in her lap)
+    if (kind === 'cane' && s > 0) { E = V(s * (sw + 0.04), sh - 0.3 * k, 0.03); W = V(s * (sw + 0.08), sh - 0.55 * k, 0.12); limb(S, E, 0.05, top, 0.046); limb(E, W, 0.045, top, 0.038); ball(0.042, W.x, W.y - 0.03, W.z, skin, 0.9, 1, 0.9); limb(V(W.x, W.y - 0.02, W.z), V(W.x + 0.04, 0.0, W.z + 0.08), 0.012, 0x3a2a1c); tag = null; return; }   // (her cane)
+    if (kind === 'cane') kind = 'down';
     if (kind === 'pockets') { E = V(s * (sw + 0.035), sh - 0.32 * k, -0.03); W = V(s * sw * 0.72, hip + 0.03, 0.07); limb(S, E, 0.05, top, 0.046); limb(E, W, 0.045, top, 0.04); return; }
     if (kind === 'phone') { E = V(s * (sw + 0.015), sh - 0.3 * k, 0.03); W = V(s * 0.05, sh - 0.33, 0.25); }
     else { E = V(s * (sw + 0.03), sh - 0.3 * k, -0.015); W = V(s * (sw + 0.035), sh - 0.56 * k, 0.025); }
@@ -75,10 +90,10 @@ export function personParts(rnd = Math.random) {
     ball(0.042, W.x, W.y - 0.045, W.z + 0.01, skin, 0.8, 1.35, 0.6);   // her hand
     if (kind === 'phone' && s > 0) { const ph = new THREE.BoxGeometry(0.07, 0.14, 0.01); ph.rotateX(-0.85); ph.translate(0, W.y + 0.03, W.z + 0.02); add(ph, 0x9fc8ff); }   // (her phone, its screen lit)
   };
-  arm(-1, pose === 'both' ? 'phone' : pose === 'phone' ? 'down' : pose); arm(1, pose === 'both' ? 'phone' : pose);
+  arm(-1, pose === 'both' ? 'phone' : pose === 'phone' ? (o.sit ? 'lap' : 'down') : pose); arm(1, pose === 'both' ? 'phone' : pose); tag = null;
   // her neck and head: an egg, tipped down a little at her phone; eyes, ears, a nose; her hair swept back from her brow
   limb(V(0, sh, 0.005), V(0, sh + 0.075, 0.01), 0.05, skin);
-  const look = pose === 'phone' || pose === 'both', hy = sh + 0.17, hz = look ? 0.03 : 0.012, tip = look ? 0.3 : 0;
+  const look = pose === 'phone' || pose === 'both', hy = sh + 0.17, hz = (look ? 0.03 : 0.012) + (o.old ? 0.03 : 0), tip = look ? 0.3 : 0;
   ball(0.098, 0, hy, hz, skin, 0.84, 1.12, 1.0);
   ball(0.016, 0, hy - 0.012 - tip * 0.02, hz + 0.098, skin, 0.75, 1.2, 0.9);   // her nose
   for (const s of [-1, 1]) { ball(0.011, s * 0.033, hy + 0.018 - tip * 0.03, hz + 0.088, 0x1d1712); ball(0.022, s * 0.083, hy, hz - 0.005, skin, 0.5, 1, 0.8); }   // eyes, ears
@@ -90,10 +105,11 @@ export function personParts(rnd = Math.random) {
     if (fem && rnd() < 0.7) limb(V(0, hy - 0.02, hz - 0.07), V(0, hy - 0.2 - rnd() * 0.12, hz - 0.08), 0.072, hairC, 0.06);   // long hair, down her back
   }
   // what she carries
-  const bag = rnd();
+  const bag = o.walk || o.sit ? rnd() * 0.48 : o.kid ? 0.2 + rnd() : rnd();   // (walking or sitting: a backpack or a shoulder bag at most; a child seldom anything)
   if (bag < 0.3) { const g = new THREE.CapsuleGeometry(0.11, 0.2, 3, 8); g.scale(1.2, 1, 0.6); g.translate(0, sh - 0.28, -sw * 0.62 - 0.07); add(g, pk(BAGS)); for (const s of [-1, 1]) { limb(V(s * sw * 0.5, sh + 0.005, -0.06), V(s * sw * 0.55, sh - 0.08, sw * 0.6), 0.012, 0x1a1a1a); limb(V(s * sw * 0.55, sh - 0.08, sw * 0.6), V(s * sw * 0.9, sh - 0.3, sw * 0.5), 0.012, 0x1a1a1a); } }   // (its straps over her shoulders and down under her arms)   // a backpack, its straps over her shoulders
   else if (bag < 0.48) { const s = rnd() < 0.5 ? -1 : 1, g = new THREE.BoxGeometry(0.07, 0.24, 0.3); g.translate(s * (sw + 0.1), hip - 0.02, 0); add(g, pk(BAGS)); limb(V(-s * sw * 0.6, sh - 0.01, 0.02), V(s * (sw + 0.08), hip + 0.12, 0.02), 0.012, 0x1a1a1a); }   // a shoulder bag, its strap across her
   else if (bag < 0.52) { const g = new THREE.BoxGeometry(0.38, 0.55, 0.22); g.translate(0.42, 0.33, 0.05); add(g, pk([0x1c1c1e, 0x24324a, 0x6b6e72, 0x7a2a2a])); limb(V(0.42, 0.6, 0.05), V(0.42, 0.95, 0.05), 0.012, 0x8b8f94); }   // a roller case at her side
+  out.j = { hip, sh, sw, lx };
   return out;
 }
 
@@ -647,6 +663,7 @@ export function buildStation({ P, sd, R, platY, rail, name, dest, under, ceil, l
     if (o.w < 3.2) continue;
     boxAt(1.9, 0.06, 0.42, d, u, platY + 0.44, yaw, 0x6b4a2a, 0, 0, 0, 1.1); boxAt(1.9, 0.45, 0.05, d, u, platY + 0.5, yaw, 0x6b4a2a, 0, 0, -0.22, 1.1);
     for (const lx of [-0.8, 0.8]) boxAt(0.06, 0.44, 0.4, d, u, platY, yaw, 0x3a3a3a, lx);
+    if (Math.random() < 0.6) for (const lx of [-0.5, 0.45]) if (Math.random() < 0.6) person(d, u, platY, yaw, { sit: true, old: Math.random() < 0.15 }, lx, 0.04);   // (v1164: someone sitting on it, or two)
     cylAt(0.28, 0.95, d + 4, u, platY, 0, 0x1f3a2c);
     cylAt(0.3, 0.05, d + 4, u, platY + 0.95, 0, 0x3a3a3a);
   }
@@ -658,12 +675,58 @@ export function buildStation({ P, sd, R, platY, rail, name, dest, under, ceil, l
       if (under && stairAt(d, u)) continue;   // (not on the stairs)
       if (camU != null && Math.abs(u - camU) < 0.8) continue;   // (nor where the camera stands)
       const yaw = Math.random() < 0.75 ? facing(r, -toEdge(o, u)) + (Math.random() - 0.5) * 1.2 : along(r) + (Math.random() < 0.5 ? 0 : Math.PI);
-      person(d, u, platY, yaw);
+      const q = Math.random();
+      if (q < 0.18) {   // (v1164) two or three together, turned to one another, talking
+        const m = Math.random() < 0.6 ? 2 : 3, a0 = Math.random() * Math.PI * 2;
+        for (let j = 0; j < m; j++) { const a = a0 + j * Math.PI * 2 / m, dd = d + Math.cos(a) * 0.42, uu = Math.max(o.u0 + 0.9, Math.min(o.u1 - 0.9, u + Math.sin(a) * 0.42)); person(dd, uu, platY, along(ring(dd)) + Math.atan2(-Math.sin(a), -Math.cos(a)) + (Math.random() - 0.5) * 0.4); }
+      } else if (q < 0.26) { person(d, u, platY, yaw); person(d + 0.45, u, platY, yaw + (Math.random() - 0.5) * 0.6, { kid: true }); }   // (a child beside her)
+      else person(d, u, platY, yaw, q < 0.33 ? { old: true } : {});
     }
   }
+  // (v1164) people walking along the platform, to and fro, their legs and arms swinging (their own meshes: tick)
+  const walkers = [], wMat = mats[mats.push(under ? new THREE.MeshBasicMaterial({ vertexColors: true, color: new THREE.Color(1, 1, 1).multiplyScalar(bright * 0.8) }) : new THREE.MeshLambertMaterial({ vertexColors: true })) - 1];
+  for (const o of pls) {
+    if (o.len < 40 || o.w < 2.8) continue;
+    for (let i = 0, n = Math.max(1, Math.round(o.len / (under ? 35 : 60))); i < n; i++) walkers.push(walker(o));
+  }
+  let lastT = performance.now();
+  function walker(o) {
+    const parts = personParts(Math.random, { walk: true }), J = parts.j, byTag = {};
+    for (const [g, hex, t] of parts) (byTag[t || 'body'] ||= []).push([g, hex]);
+    const g0 = new THREE.Group(); group.add(g0);
+    const piece = (t, px, py) => {   // a part's mesh, about its joint (px, py) for a limb
+      const list = byTag[t] || [], pos = [], nor = [], col = [], idx = [];
+      for (const [g, hex] of list) {
+        g.translate(-px, -py, 0); const P = g.attributes.position, N = g.attributes.normal, o0 = pos.length / 3; _c.set(hex);
+        for (let i = 0; i < P.count; i++) { pos.push(P.getX(i), P.getY(i), P.getZ(i)); nor.push(N.getX(i), N.getY(i), N.getZ(i));
+          const f = under ? 0.62 + 0.3 * Math.max(0, N.getY(i)) + 0.16 * Math.max(0, 0.5 * N.getX(i) + 0.7 * N.getZ(i)) - 0.12 * Math.max(0, -N.getY(i)) : 1; col.push(_c.r * f, _c.g * f, _c.b * f); }
+        const I = g.index; for (let i = 0; i < (I ? I.count : P.count); i++) idx.push(o0 + (I ? I.getX(i) : i)); g.dispose();
+      }
+      const bg = new THREE.BufferGeometry(); bg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); bg.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); bg.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); bg.setIndex(idx); geos.push(bg);
+      const m = new THREE.Mesh(bg, wMat); m.layers.set(layer); m.frustumCulled = false; const pv = new THREE.Group(); pv.position.set(px, py, 0); pv.add(m); g0.add(pv); return pv;
+    };
+    piece('body', 0, 0);
+    const legL = piece('L-leg', -J.lx, J.hip), legR = piece('R-leg', J.lx, J.hip), armL = piece('L-arm', -(J.sw - 0.01), J.sh - 0.06), armR = piece('R-arm', J.sw - 0.01, J.sh - 0.06);
+    g0.traverse(q => q.layers.set(layer));
+    const lo = o.u0 + Math.min(1.3, o.w * 0.3), hi = o.u1 - Math.min(1.3, o.w * 0.3);
+    let u = lo + Math.random() * Math.max(0, hi - lo); for (let t = 0; t < 6 && camU != null && Math.abs(u - camU) < 1.3; t++) u = lo + Math.random() * Math.max(0, hi - lo);   // (not through where the camera stands)
+    return { g0, legL, legR, armL, armR, o, d: o.d0 + 4 + Math.random() * (o.len - 8), u, dir: Math.random() < 0.5 ? -1 : 1, v: 1.1 + Math.random() * 0.45, ph: Math.random() * 6 };
+  }
+  function tick() {
+    const now = performance.now(), dt = Math.min(0.1, (now - lastT) / 1000); lastT = now;
+    for (const w of walkers) {
+      w.d += w.dir * w.v * dt;
+      if (w.d > w.o.d1 - 3) { w.d = w.o.d1 - 3; w.dir = -1; } else if (w.d < w.o.d0 + 3) { w.d = w.o.d0 + 3; w.dir = 1; }
+      const r = ring(w.d); W(r, w.u, platY, w.g0.position); w.ph += w.v * dt * 2.7;
+      const a = Math.sin(w.ph) * 0.42; w.g0.position.y += Math.abs(Math.cos(w.ph)) * 0.025;
+      w.g0.rotation.y = along(r) + (w.dir < 0 ? Math.PI : 0);
+      w.legL.rotation.x = a; w.legR.rotation.x = -a; w.armL.rotation.x = -a * 0.8; w.armR.rotation.x = a * 0.8;
+    }
+  }
+  tick();
   function stairAt(d, u) { const sp = pls.reduce((a, b) => b.w > a.w ? b : a); if (sp.w < 4.6) return false; const sdd = Math.max(sp.d0 + 4, Math.min(sp.d1 - 14, sd + sp.len * 0.2)); return d > sdd - 1.5 && d < sdd + 10 && Math.abs(u - sp.m) < 1.8; }
-  function person(d, u, y, yaw) {   // (v1155: personParts, above; underground, their light and shade baked into their colours)
-    for (const [g, hex] of personParts()) put(g, d, u, y, yaw, hex, 1, under);
+  function person(d, u, y, yaw, o = {}, lx = 0, lz = 0) {   // (v1155: personParts, above; underground, their light and shade baked into their colours; v1164: o, and an offset in her own frame)
+    for (const [g, hex] of personParts(Math.random, o)) { if (lx || lz) g.translate(lx, 0, lz); put(g, d, u, y, yaw, hex, 1, under); }
   }
   // a bronze hand, 3 m tall, fingers up, its palm toward yaw
   function hand(d, u, y, yaw) {
@@ -678,7 +741,7 @@ export function buildStation({ P, sd, R, platY, rail, name, dest, under, ceil, l
     g.setAttribute('position', new THREE.Float32BufferAttribute(M.pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(M.nor, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(M.col, 3)); g.setIndex(M.idx);
     mesh(g, under ? (mats.push(new THREE.MeshBasicMaterial({ vertexColors: true, color: new THREE.Color(1, 1, 1).multiplyScalar(bright * 0.8) })), mats.at(-1)) : (mats.push(new THREE.MeshLambertMaterial({ vertexColors: true })), mats.at(-1)));
   }
-  return { group, s0, s1, dispose() { group.removeFromParent(); for (const g of geos) g.dispose(); for (const m of mats) m.dispose(); } };
+  return { group, s0, s1, tick, dispose() { group.removeFromParent(); for (const g of geos) g.dispose(); for (const m of mats) m.dispose(); } };
 }
 // the platform's height and length for a train at a station: the T's subway lines' high platforms, a trolley's low
 // ones; the commuter rail's mostly low (a few rebuilt stations high)

@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-11-19 — Bird's-eye: the platforms' people, round 4: walking, sitting, talking (v1164, Bird's-eye only)
+
+- Asked: "let's do more people improvements next".
+- **Walking** (www/js/platform3d.js `walker`, `tick`): on each platform a few people walk to and fro (one every 35 m underground, 60 m in the open), 1.1 to 1.55 m/s, turning at its ends, their legs and arms swinging about their hips and shoulders, a little bob in their step; each their own few meshes (a body, two legs, two arms), moved each frame while you ride (www/js/subway3d.js calls the station's `tick`); kept out of the lane where the Side camera stands.
+- **Sitting**: on more than half the benches, one or two people, thighs along the seat, hands in their laps or at a phone.
+- **Talking**: about one in six of those waiting stand in twos and threes, turned to one another.
+- **New kinds**: children beside a grown-up (smaller, their heads larger for their size, brighter clothes); older people (grey or white hair, a stoop, a cane, long coats); skirts (tights or bare legs under), hoodies with the hood down, scarves with an end hanging.
+- `personParts(rnd, { sit, walk, kid, old })`; the lineup takes &kind= (design/pending/people-look), the station preview &anim=1 (design/pending/station-look).
+- Checked: the lineups of each kind; a walker followed between ticks at W 4 St (in stride, then legs together, facing her way); a live 1 train at 18 St (a group of four talking by a bench). Full CI suite passes.
+
 ## 2026-11-19 — Bird's-eye: Metro-North, live; railroad cabs clear of the trees (v1163, Bird's-eye only)
 
 - Asked: "do Metro-North and NJ Transit next".

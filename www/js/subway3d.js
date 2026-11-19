@@ -266,6 +266,7 @@ export function makeSubway({ scene, rail, platforms }) {
     // each frame, riding p in mode: whether the tunnel's the view, and if so the camera placed in it
     update(p, mode, nest, camera) {
       cur = null;
+      stationObj?.tick?.(); surf?.st?.tick?.();   // (v1164: the people walking its platforms)
       if (p?.kind !== 'rail' || !p.cur) { off(); clearSurf(); return false; }
       if (!(p.under && mode !== 'drone')) {
         off();
