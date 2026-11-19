@@ -66,6 +66,7 @@ body { background: var(--sky); color: var(--ink); font-family: var(--body); font
 #livemarks.dots i.fol, #livemarks.dots i.fol.uw { background: var(--brass); }
 /* ✨ Find on planes and trains (v1104): white rings for aircraft, red for trains */
 #livemarks i.air, #livemarks.dots i.air { border: 2px solid #ffffff; background: rgba(255,255,255,0.35); width: 10px; height: 10px; margin: -7px 0 0 -7px; }
+#livemarks i.rail.ug, #livemarks.dots i.rail.ug { width: 5px; height: 5px; margin: -3.5px 0 0 -3.5px; border: 1px solid rgba(10,14,18,0.55); box-shadow: none; opacity: 0.9; }   /* (v1165: a train underground, zoomed out: a small dot in her line's colour) */
 #livemarks i.rail, #livemarks.dots i.rail { border: 2px solid #fff; background: #e8322a; width: 8px; height: 8px; margin: -6px 0 0 -6px; box-shadow: 0 0 0 1px rgba(12,24,30,0.7); }   /* (a train's dot, zoomed out: v1105) */
 #livemarks.flash i.air::after { border-color: #ffffff; } #livemarks.flash i.rail::after { border-color: #ff5a4f; }
 @keyframes livepip { to { transform: scale(1.5); } }

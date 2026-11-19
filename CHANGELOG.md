@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-19 — Bird's-eye: an opening shot worth the look, and the trains quiet from afar (v1165, Bird's-eye only)
+
+- Asked of the opening screen (New York's, a snapshot): "What can we do to make it more attractive?", then "do 1 and 2".
+- **The opening shot** (www/js/regions3d.js `hero`, www/js/bay3d.js): an armchair bay opens not on its whole-bay map from 16 nm up but on its best view, low and oblique, swaying slowly 18° each way (about two minutes a sway) until you first drag, scroll or press a key, or fly, follow or ride somewhere: New York, Lower Manhattan's towers from over the Upper Bay with Liberty Island before them and Governors Island beside; SF, downtown and the Bay Bridge from over the bay, the Golden Gate beyond; Boston, downtown and the Seaport from over the harbor. "Whole bay" is where it was. Maine's bays (AudioChart's boaters') open as before.
+- **The trains, zoomed out**: every train had a red dot ringed in white (655 over New York, the neighbourhoods' names under them) and a bar in her line's colour drawn to 5 km long for a 10-car train. Now one in the open is only her mark in her line's colour, about 2.5 px wide and in proportion to her length (www/js/trains3d.js), and one underground (no mark to see) a small dot in her line's colour; ✨ Find still rings every one in red, and the one followed keeps hers.
+- Checked in headless Chrome on the live feeds: the three openings (and their sway), and New York's whole bay after: the lines' colours along their routes, the names clear. Full CI suite passes.
+
 ## 2026-11-19 — Bird's-eye: the platforms' people, round 4: walking, sitting, talking (v1164, Bird's-eye only)
 
 - Asked: "let's do more people improvements next".

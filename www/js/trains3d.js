@@ -382,12 +382,14 @@ export function makeTrains({ scene, bbox, wx, wz, heightAt, every = 30000, onCou
       const d = Math.hypot(p.x - cp.x, cp.y - p.g.position.y, p.z - cp.z), w = Math.max(1, d * 0.0058 / 3.1), l = Math.max(1, d * 0.02 / 160, w * 0.35);
       p.model.scale.set(w, Math.max(1, w * 0.5), l);
       const far = d > FAR_AT && !focus(p) && p !== hover;
+      p.markCol ??= '#' + (p.a.col ? p.a.col.slice(1) : lookOf(p.a).band.toString(16).padStart(6, '0'));   // (v1165: her mark's colour, zoomed out: her line's)
       p.model.matrixWorldAutoUpdate = !far;   // (her hidden cars' matrices not worked out each frame: a third of the time with them)
       if (far) {
         p.model.visible = false;
         if (!p.under && farN < FAR_MAX) {
           p.farCol ??= p.a.col ? parseInt(p.a.col.slice(1), 16) : lookOf(p.a).band;   // (PATH's: her line's colour)
-          farMesh.setMatrixAt(farN, _m4.compose(_p3.set(p.x, p.y, p.z), _q4.setFromAxisAngle(_y, -p.dh * DEG), _s3.set(3.0 * w, 3.8 * Math.max(1, w * 0.5), (p.len || 160) * l)));
+          const fw = Math.max(1, d * 0.0042 / 3.1), fl = Math.max(1, d * 0.011 / 160);   // (v1165: from afar a thin mark, about 2.5 px wide and in proportion to her length: v1156's ran to 5 km for a 10-car train, the whole bay a heap of sticks)
+          farMesh.setMatrixAt(farN, _m4.compose(_p3.set(p.x, p.y, p.z), _q4.setFromAxisAngle(_y, -p.dh * DEG), _s3.set(3.0 * fw, 3.8 * Math.max(1, fw * 0.5), (p.len || 160) * fl)));
           farMesh.setColorAt(farN, _c3.set(p.farCol)); farN++;
         }
       } else p.model.visible = !p.under;

@@ -265,7 +265,7 @@ function clampView() {
 // (v1156, reported following an NYC Ferry up the East River: "This ferry is driving right through Manhattan": the follow
 // camera, behind her, stood inside a tower ashore, its wall filling the view) a camera inside a building rises over its
 // roof (roofCheck: roofAt, below, once the towns' roofs are known)
-let roofCheck = null, sightCheck = null;
+let roofCheck = null, sightCheck = null, heroDrift = false, heroT = 0;
 function placeCamera() {
   const h = view.dist * Math.sin(view.tilt), fx = Math.sin(view.az), fz = -Math.cos(view.az);
   camera.position.set(view.x - fx * h, view.dist * Math.cos(view.tilt), view.z - fz * h);
@@ -3419,15 +3419,20 @@ function updateLiveMarks() {
   // ✨ Find flashes the planes and trains too (v1104, requested: "highlight and draw the user's attention to planes
   // and trains"): white for an aircraft, red for a train, each where she is, at her height. Zoomed out, each train
   // has her red dot all the time, as the ships have theirs (v1105, reported: "It's hard to see trains")
+  // (v1165, of the opening screen: 655 red dots over New York, its names under them) zoomed out, a train above
+  // ground is her bar in her line's colour (trains3d.js), no dot; one underground, out of sight, a small dot in her
+  // line's colour; ✨ Find still marks every one in red, and the one followed keeps hers
   if (flash || far) for (const m of [...(flash ? air.items() : []), ...rail.items()]) {
     if (nest.on && nest.v === m) continue;
+    const quiet = !flash && m.kind === 'rail' && follow !== m;
+    if (quiet && !m.under) continue;
     v3.set(m.x, m.y + (m.kind === 'rail' ? 3 : 0), m.z);
     if (v3.distanceTo(camera.position) < RING_NEAR) continue;
     const p = v3.project(camera);
     if (p.z > 1 || Math.abs(p.x) > 1 || Math.abs(p.y) > 1) continue;
     let el = markPool[n];
     if (!el) { el = document.createElement('i'); marksEl.appendChild(el); markPool[n] = el; el.addEventListener('click', () => el._v && isLive(el._v) && toggleCard(el._v)); }
-    el._v = m; el.className = m.kind + (follow === m ? ' fol' : '');
+    el._v = m; el.className = m.kind + (follow === m ? ' fol' : '') + (quiet ? ' ug' : ''); el.style.background = quiet ? (m.markCol || '') : '';
     el.style.left = (p.x + 1) / 2 * W + 'px'; el.style.top = (1 - p.y) / 2 * H + 'px'; el.hidden = false;
     n++;
   }
@@ -3475,6 +3480,13 @@ new ResizeObserver(resize).observe(sceneEl); resize();
   else if (lat && lon) {   // az/tilt: coming back to a view left earlier (AudioChart's Back to 3D)
     const az = Number(params.get('az')) || 0, tilt = Number(params.get('tilt')) || 45;
     Object.assign(view, { x: wx(lon), z: wz(lat), dist: dist || 20000, tilt: tilt * DEG, az: az * DEG }); markCurrent(null);
+  }
+  else if (!routeFlew && REG.hero && WANT_AC && !params.has('vessel') && !params.has('ais')) {
+    // (v1165, asked of the opening screen: "What can we do to make it more attractive?") an armchair bay opens on its
+    // best view (regions3d.js hero), low and oblique, turning slowly round it till you first drag, scroll or press a key
+    const H = REG.hero; Object.assign(view, { x: wx(H.lon), z: wz(H.lat), dist: H.dist, tilt: H.tilt * DEG, az: H.az * DEG }); markCurrent(null);
+    heroDrift = true; const stop = () => { heroDrift = false; };
+    sceneEl.addEventListener('pointerdown', stop, { once: true }); sceneEl.addEventListener('wheel', stop, { once: true, passive: true }); addEventListener('keydown', stop, { once: true });
   }
   else if (!routeFlew) markCurrent('whole');
 }
@@ -3988,6 +4000,8 @@ function frame(now) {
   const dt = Math.min(0.1, clock.getDelta()); t += dt;
   stepAnim(now ?? performance.now());
   fly?.step(performance.now(), dt);
+  if (heroDrift && (anim || follow || nest.on || document.body.classList.contains('flying'))) heroDrift = false;   // (a flight, a follow, a ride: the shot's over)
+  if (heroDrift) { heroT += dt; view.az = REG.hero.az * DEG + 18 * DEG * Math.sin(heroT * 0.055); }   // (v1165: the opening shot swaying slowly, 18° each way, about two minutes a sway: it keeps its picture)
   if (!nest.on) { clampView(); placeCamera(); }
   fly?.place(dt);   // the tour's helicopter, in front of the camera (v1048)
   if (t - lastCheck > 0.4) { lastCheck = t; syncTip(); updateTiles(); updateTowns(); updateMarks(); updateHazards(); tracks?.update(view.x, view.z, view.dist); freeway?.near(view.x, view.z, view.dist); }

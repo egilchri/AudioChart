@@ -63,6 +63,7 @@ export const REGIONS3D = {
     bay: [-122.9, 37.28, -121.85, 38.62],
     belowSea: true,   // (Suisun Marsh's and the reclaimed baylands' ground below sea level: terrain3d.js readDem)
     whole: { lon: -122.33, lat: 37.78, dist: 55000 },
+    hero: { lon: -122.393, lat: 37.791, dist: 4300, az: 248, tilt: 74 },   // (v1165: the opening shot: downtown's towers and the Bay Bridge from over the bay)
     chartWater: [-122.62, 37.42, -122.0, 38.17],   // (v1020: the chart's land tells water from land here; bay3d.js)
     trees: 'broadleaf',   // (v1032: a city's street and park trees, not Maine's spruce; bay3d.js)
     tz: 'America/Los_Angeles',
@@ -93,6 +94,7 @@ export const REGIONS3D = {
     chartWater: [-74.3, 40.45, -73.65, 40.95],   // (the Meadowlands and Jamaica Bay's marshes, as SF's flats)
     trees: 'broadleaf',
     tz: 'America/New_York',
+    hero: { lon: -74.017, lat: 40.706, dist: 4200, az: 42, tilt: 75 },   // (v1165: the opening shot: Lower Manhattan's towers from over the Upper Bay, Liberty before them)
     rail: 'new-york-harbor',   // (v1154: the subway, PATH, the LIRR, Metro-North and NJ Transit's tracks, tunnels marked; the MTA's live trains)
     armchair: true,   // (v1044: no chart in AudioChart; Bird's-eye leaves out what leads to one: bay3d.js)
   },
@@ -108,6 +110,7 @@ export const REGIONS3D = {
     overview: [-71.25, 42.17, -70.72, 42.52],
     bay: [-71.25, 42.17, -70.72, 42.52],   // (v1140, reported over a Haverhill Line train at Wakefield: the detail ground everywhere the trains are shown, not just round the harbor)
     whole: { lon: -71.0, lat: 42.34, dist: 32000 },
+    hero: { lon: -71.054, lat: 42.356, dist: 3600, az: 300, tilt: 74 },   // (v1165: the opening shot: downtown from over the harbor)
     belowSea: true, dryPits: 40000,   // (the Pike's trench and the filled Back Bay and South End read at or under sea level: land, not water; bay3d.js)
     chartWater: [-71.12, 42.2, -70.75, 42.48],   // (the chart's land tells the flats from the land: bay3d.js)
     trees: 'broadleaf',
