@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-11-19 — Bird's-eye: a loading list, and the wheelhouse made over (v1169)
+
+- **The loading list** (asked: "some visual way to trace the loading process ... track progress"; www/js/bay3d.js `LOAD`, www/bay3d.html #loadlist): opening a bay, a card lists each stage in order (elevation, the aerial photo's pieces, the chart's names and buoys, bridges, planes and trains, railway tracks, freeways, the airport, buildings, close-up ground, Live) as waiting, under way (spinning) or done (ticked), or failed, with its count (990 names, 13,880 track pieces, 10 building areas, 185 ships · 837 trains); a bar and a percentage for the whole. It goes 2.5 s after the last is in (45 s at most); later loads, a close-up's, keep the small pill. L shows it again. In Maine's bays its Live row is "Live: ships".
+- **The wheelhouse made over** (asked: "Please recursively improve helm views such as the one in snapshot", the Hornblower Freedom's: six thin full-height bars like a cell's, labels cut in half behind them, nothing of her own boat, half a console):
+  - Four panes with rounded corners between heavy posts, under a deckhead, wipers parked along their feet, a little light on the glass (www/js/cockpit.js `wheelFrame`).
+  - Her own bow ahead, for a vessel whose model has no wheelhouse of its own: a tug's red deck and black bow fender, a ferry's grey and white, a workboat's yellow rail; it slides off to the side as you look round, gone past 70°, and rises and falls as you look up and down (`bowSvg`). A ship whose model has a wheelhouse (cargo ships, tankers, cruise ships, the harbor ferries) shows her real foredeck instead: from the Zim Atlantic's bridge, her containers.
+  - Overhead repeaters: a rudder indicator and her heading.
+  - The console filled: VHF on channel 16, the radar (her heading line on it), heading, course and speed, the wheel (turning with her rate of turn), two throttles marked ahead and astern, a chart plotter.
+  - Names over the glass rather than behind its posts (they stop at the console).
+- **Her heading, if it can be believed** (`aisHead`): a vessel making 2 kn or more on a course over 70° from her reported heading is drawn, and looked out of, along her course. The Hornblower Freedom reported 319° making 5.6 kn on 167°; her helm view had looked astern.
+- AudioChart's release too (both show in boaters' Bird's-eye). Checked in headless Chrome: New York's load step by step, and the tug Red Hook, the Seastreak ferry Commodore and the Zim Atlantic from their helms; Penobscot's load, clean, with its live ships. Full CI suite passes.
+
 ## 2026-11-19 — Bird's-eye: a warmer picture (v1168)
 
 - Asked: "do 5 next, the warmer picture" (the last of the opening screen's list).

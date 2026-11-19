@@ -33,10 +33,43 @@ const needle = (cls, len, w = 2.6) => `<g class="${cls}"><path d="M${-w / 2},6 L
 // the deckhead over you, the front windows' posts, and the console under them: the radar sweeping, her heading and
 // speed, two throttles, her wheel; update({ hdg, gs: knots })
 function wheelPanel() {
-  const radar = `<svg viewBox="-50 -50 100 100" class="radar"><circle r="47" class="rim"/><circle r="43" class="scope"/><circle r="29" class="ring"/><circle r="15" class="ring"/><line x1="-43" y1="0" x2="43" y2="0" class="ring"/><line x1="0" y1="-43" x2="0" y2="43" class="ring"/><g class="sweep"><path d="M0,0 L0,-43 A43,43 0 0,1 26,-34 Z" class="beam"/></g>${[[12, -20], [-18, 8], [25, 14], [-8, -30], [30, -8]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.8" class="blip"/>`).join('')}</svg>`;
-  const wheel = `<svg viewBox="-50 -50 100 100" class="wheel"><circle r="38" class="rimw"/><circle r="8" class="hubw"/>${[0, 45, 90, 135, 180, 225, 270, 315].map(a => `<g transform="rotate(${a})"><line x1="0" y1="-8" x2="0" y2="-46" class="spoke"/><circle cy="-47" r="3.4" class="knob"/></g>`).join('')}</svg>`;
-  const levers = `<svg viewBox="0 0 70 100" class="tlever"><rect x="8" y="8" width="16" height="84" rx="6" class="slot"/><rect x="44" y="8" width="16" height="84" rx="6" class="slot"/><g class="n-thr"><rect x="2" y="40" width="28" height="11" rx="4" class="knob"/><rect x="38" y="40" width="28" height="11" rx="4" class="knob"/></g></svg>`;
-  return `<div class="gauges">${radar}<div class="tled wled"><div class="n-hdg"></div><div class="n-spd"></div></div>${wheel}${levers}</div>`;
+  const radar = `<svg viewBox="-50 -50 100 100" class="radar"><circle r="47" class="rim"/><circle r="43" class="scope"/><circle r="29" class="ring"/><circle r="15" class="ring"/><line x1="-43" y1="0" x2="43" y2="0" class="ring"/><line x1="0" y1="-43" x2="0" y2="43" class="ring"/><g class="sweep"><path d="M0,0 L0,-43 A43,43 0 0,1 26,-34 Z" class="beam"/></g>${[[12, -20], [-18, 8], [25, 14], [-8, -30], [30, -8]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.8" class="blip"/>`).join('')}<line x1="0" y1="0" x2="0" y2="-43" class="head"/></svg>`;
+  const wheel = `<svg viewBox="-50 -50 100 100" class="wheel"><g class="n-helm"><circle r="38" class="rimw"/><circle r="8" class="hubw"/>${[0, 45, 90, 135, 180, 225, 270, 315].map(a => `<g transform="rotate(${a})"><line x1="0" y1="-8" x2="0" y2="-46" class="spoke"/><circle cy="-47" r="3.4" class="knob"/></g>`).join('')}</g></svg>`;
+  const levers = `<svg viewBox="0 0 70 100" class="tlever"><rect x="0" y="0" width="70" height="100" rx="8" class="tbase"/><rect x="12" y="10" width="12" height="80" rx="5" class="slot"/><rect x="46" y="10" width="12" height="80" rx="5" class="slot"/><text x="35" y="14" class="tlab">AHD</text><text x="35" y="93" class="tlab">AST</text><g class="n-thr"><rect x="4" y="44" width="28" height="11" rx="4" class="knob"/><rect x="38" y="44" width="28" height="11" rx="4" class="knob"/></g></svg>`;
+  const vhf = `<div class="vhf"><div class="vlcd">CH <b>16</b></div><div class="vknobs"><i></i><i></i><i></i></div></div>`;
+  const plot = `<svg viewBox="-50 -40 100 80" class="plotter"><rect x="-50" y="-40" width="100" height="80" rx="4" class="pbez"/><rect x="-45" y="-35" width="90" height="70" class="psea"/><g class="n-chart"><path d="M-45,-35 L-10,-35 C-18,-20 -30,-10 -45,-6 Z M45,10 C30,8 22,20 18,35 L45,35 Z" class="pland"/><path d="M-20,25 L-8,-30 M10,30 L22,-28" class="ptrk"/></g><path d="M0,-6 L4,5 L0,3 L-4,5 Z" class="pown"/><line x1="0" y1="-6" x2="0" y2="-30" class="phead"/></svg>`;
+  const led = `<div class="tled wled"><div class="n-hdg"></div><div class="n-cog"></div><div class="n-spd"></div></div>`;
+  return `<div class="gauges">${vhf}${radar}${led}${wheel}${levers}${plot}</div>`;
+}
+// (v1169) the wheelhouse's frame: the deckhead, the windows (four panes, between posts, rounded), their wipers, the glass;
+// and ahead of them her own bow, its deck by her kind: a tug's red deck and black fender, a ship's rust, a ferry's grey and white
+const BOWS = {
+  tug: { deck: '#6e3426', rail: '#1d1e20', cap: '#e9e6df', stem: 0.52, fender: true },
+  work: { deck: '#59626a', rail: '#e2c33a', cap: '#2a2b2d', stem: 0.48 },
+  ferry: { deck: '#8d9398', rail: '#eceae4', cap: '#c7c4bc', stem: 0.62 },
+  ship: { deck: '#6a3428', rail: '#c9c6bf', cap: '#8f8c86', stem: 0.78, mast: true },
+};
+function wheelFrame() {
+  const panes = [[30, 238], [262, 488], [512, 738], [762, 970]], R = 26, T = 175;
+  const hole = ([a, b]) => `M${a + R},${T} H${b - R} Q${b},${T} ${b},${T + R} V${975 - R} Q${b},975 ${b - R},975 H${a + R} Q${a},975 ${a},${975 - R} V${T + R} Q${a},${T} ${a + R},${T} Z`;
+  const wiper = ([a, b]) => { const c = (a + b) / 2; return `<g class="wiper"><line x1="${c + 70}" y1="985" x2="${c - 40}" y2="958"/><line x1="${c - 95}" y1="963" x2="${c + 45}" y2="952" class="blade"/></g>`; };   // (parked, along the foot of the pane) };
+  return `<svg class="whframe" viewBox="0 0 1000 1000" preserveAspectRatio="none"><defs><linearGradient id="whg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.07"/><stop offset="0.45" stop-color="#fff" stop-opacity="0"/><stop offset="0.6" stop-color="#bfe0ff" stop-opacity="0.05"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>
+${panes.map(p => `<path d="${hole(p)}" fill="url(#whg)"/>`).join('')}${wiper(panes[1])}${wiper(panes[2])}
+<path fill-rule="evenodd" class="frame" d="M0,0 H1000 V1000 H0 Z ${panes.map(hole).join(' ')}"/>
+<rect x="0" y="0" width="1000" height="150" class="deckhead"/><rect x="0" y="150" width="1000" height="12" class="beam"/>
+<rect x="0" y="985" width="1000" height="15" class="sill"/></svg>`;
+}
+function bowSvg(b) {
+  const sy = 300 - 230 * b.stem;   // (the stem's height on it: a ship's farther, nearer the horizon)
+  const W = 260 * (1.15 - b.stem * 0.6);   // (how wide she looks at the sill)
+  return `<svg class="whbow" viewBox="-500 0 1000 300" preserveAspectRatio="none"><defs><linearGradient id="bowsh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.12"/><stop offset="1" stop-color="#000" stop-opacity="0.38"/></linearGradient></defs>
+<path d="M${-W - 260},300 L${-W * 0.42},${sy + 40} Q0,${sy - 8} ${W * 0.42},${sy + 40} L${W + 260},300 Z" fill="${b.deck}"/><path d="M${-W - 260},300 L${-W * 0.42},${sy + 40} Q0,${sy - 8} ${W * 0.42},${sy + 40} L${W + 260},300 Z" fill="url(#bowsh)"/>
+<path d="M${-W - 260},300 L${-W * 0.42},${sy + 40} Q0,${sy - 8} ${W * 0.42},${sy + 40} L${W + 260},300" fill="none" stroke="${b.rail}" stroke-width="22"/>
+<path d="M${-W - 260},290 L${-W * 0.42},${sy + 32} Q0,${sy - 16} ${W * 0.42},${sy + 32} L${W + 260},290" fill="none" stroke="${b.cap}" stroke-width="5"/>
+${b.fender ? `<path d="M${-W * 0.5},${sy + 46} Q0,${sy - 20} ${W * 0.5},${sy + 46}" fill="none" stroke="#111" stroke-width="26" stroke-linecap="round"/>` : ''}
+<g fill="#202224"><rect x="-70" y="${sy + 95}" width="16" height="22" rx="3"/><rect x="54" y="${sy + 95}" width="16" height="22" rx="3"/><ellipse cx="0" cy="${sy + 150}" rx="34" ry="12"/></g>
+${b.mast ? `<rect x="-5" y="${sy - 70}" width="10" height="110" fill="#d8d4cc"/><rect x="-30" y="${sy - 52}" width="60" height="6" fill="#d8d4cc"/>` : ''}
+<line x1="0" y1="${sy + 10}" x2="0" y2="${sy - 40}" stroke="#ddd" stroke-width="3"/></svg>`;
 }
 function trainPanel(rr) {   // her speed (0-60 mph a subway's, 0-100 a railroad's), the amber line of the next stop and where she's bound, the controller's handle
   const spd = dial('MPH', tickRing(rr ? 10 : 12, -135, 270, 2) + figs(rr ? ['0', '20', '40', '60', '80', '100'] : ['0', '10', '20', '30', '40', '50', '60'], -135, 270) + needle('n-asi', 36) + '<circle r="3.5" class="hub"/>');
@@ -88,24 +121,31 @@ function tapeSvg(val, step, every, px, x0, x1, xt, anchor) {
   return s;
 }
 export function makeCockpit(el) {
-  let kind = null, q = {}, lastS = null, lastA = null;
+  let kind = null, q = {}, lastS = null, lastA = null, bowK = 'work';
   const set = (sel, fn) => { for (const n of el.querySelectorAll(sel)) fn(n); };
   const rot = (sel, deg) => set(sel, n => n.setAttribute('transform', `rotate(${deg.toFixed(1)})`));
   const txt = (sel, t) => set(sel, n => { if (n.textContent !== t) n.textContent = t; });
   return {
-    show(k) {
+    show(k, opt = {}) {
+      if (k === 'wheelhouse' && opt.bow && opt.bow !== bowK) { kind = null; bowK = opt.bow; }
       if (k !== kind) {
         kind = k; lastS = lastA = null; el.className = `ck-${k === 'railroad' ? 'train' : k}`;
-        el.innerHTML = `<div class="pillar l"></div><div class="pillar r"></div>${k === 'jet' || k === 'train' || k === 'railroad' ? '<div class="pillar c"></div>' : ''}${k === 'train' || k === 'railroad' || k === 'wheelhouse' ? '<div class="theader"></div>' : ''}${k === 'wheelhouse' ? [16, 33, 50, 67, 84].map(x => `<div class="mull" style="left:${x}%"></div>`).join('') : ''}<div class="ckpanel">${k === 'jet' ? jetPanel() : k === 'train' || k === 'railroad' ? trainPanel(k === 'railroad') : k === 'wheelhouse' ? wheelPanel() : lightPanel()}</div>`;
+        el.innerHTML = `<div class="pillar l"></div><div class="pillar r"></div>${k === 'jet' || k === 'train' || k === 'railroad' ? '<div class="pillar c"></div>' : ''}${k === 'train' || k === 'railroad' ? '<div class="theader"></div>' : ''}${k === 'wheelhouse' ? `<div class="whwin">${bowK === 'none' ? '' : bowSvg(BOWS[bowK] || BOWS.work)}${wheelFrame()}<div class="whover"><div class="rep"><span>RUDDER</span><div class="rbar"><i class="n-rud"></i></div></div><div class="rep"><span>HEADING</span><b class="n-ohdg"></b></div></div></div>` : ''}<div class="ckpanel">${k === 'jet' ? jetPanel() : k === 'train' || k === 'railroad' ? trainPanel(k === 'railroad') : k === 'wheelhouse' ? wheelPanel() : lightPanel()}</div>`;
       }
       el.hidden = false; document.body.classList.add('incockpit');
     },
     hide() { el.hidden = true; document.body.classList.remove('incockpit'); },
-    update({ gs = 0, alt = 0, hdg = 0, vr = 0, ground = false, next = '', dest = '' } = {}) {
+    update({ gs = 0, alt = 0, hdg = 0, vr = 0, ground = false, next = '', dest = '', cog = null, turn = 0, yaw = 0, pitch = -3, fov = 50 } = {}) {
       if (el.hidden) return;
       if (kind === 'wheelhouse') {   // (v1167) her heading and speed; the throttles forward as she makes way
-        txt('.n-hdg', `HDG ${String(Math.round(((hdg % 360) + 360) % 360)).padStart(3, '0')}°`); txt('.n-spd', `${gs.toFixed(1)} kn`);
-        set('.n-thr', n => n.setAttribute('transform', `translate(0 ${(-26 * clamp(gs / 18, 0, 1)).toFixed(1)})`)); return;
+        const d3 = a => String(Math.round(((a % 360) + 360) % 360) % 360).padStart(3, '0');
+        txt('.n-hdg', `HDG ${d3(hdg)}°`); txt('.n-cog', cog != null ? `COG ${d3(cog)}°` : ''); txt('.n-spd', `SOG ${gs.toFixed(1)} kn`); txt('.n-ohdg', `${d3(hdg)}°`);
+        set('.n-thr', n => n.setAttribute('transform', `translate(0 ${(-26 * clamp(gs / 18, 0, 1)).toFixed(1)})`));
+        const rud = clamp(turn / 20, -1, 1); rot('.n-helm', rud * 120); set('.n-rud', n => { n.style.left = `${50 + rud * 45}%`; });
+        // (v1169) her bow, ahead whichever way you look: off to the side as you turn your head, gone past 70°; up and down with it
+        set('.whbow', n => { const W = innerWidth, H = innerHeight, vf = fov || 50, hf = 2 * Math.atan(Math.tan(vf * Math.PI / 360) * W / H) * 180 / Math.PI;
+          n.style.display = Math.abs(yaw) > 70 ? 'none' : ''; n.style.transform = `translate(${(-yaw / hf * W).toFixed(0)}px, ${((pitch + 3) / vf * H).toFixed(0)}px)`; });
+        return;
       }
       if (kind === 'train' || kind === 'railroad') {   // (v1161) her speed, the next stop, the controller back as she slows
         const top = kind === 'railroad' ? 100 : 60; rot('.n-asi', -135 + 270 * clamp(gs, 0, top) / top); txt('.n-next', next ? `Next: ${next}` : ''); txt('.n-dest', dest ? `To ${dest}` : '');

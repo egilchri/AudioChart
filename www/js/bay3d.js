@@ -70,6 +70,24 @@ setRegionTZ(REG.tz);   // (the scene's clock is the bay's: v1041)
 // The armchair layer (v1153): in Ted's Birdseye, an armchair bay (SF, New York, Boston), or a bay with tracks,
 // freeways or an airport drawn, it's loaded before the scene's built, as the static imports were. In AudioChart's
 // Maine bays it isn't: a boater's Live shows the ships, and ✈🚆 (by 📡 Live) fetches it on first use.
+// ── (v1169, asked: "some visual way to trace the loading process ... track progress") the loading list: each stage a row,
+// waiting, under way (spinning), done (ticked) or failed, with its count; the share of them done along a bar; gone
+// 2.5 s after the last is in, until one starts again (a new close-up's tiles); L shows it again
+const LOAD = (() => {
+  const el = document.getElementById('loadlist'), rows = new Map(); let hideT = null, held = false;   // (once gone it stays gone: later loads, a close-up's, show in the small pill)
+  setTimeout(() => { if (!held) el?.classList.add('gone'); }, 45000);   // (whatever's still out at 45 s: no list over the bay for good)
+  function draw() {
+    if (!el) return;
+    const all = [...rows.values()], fin = all.filter(r => r.state === 'done' || r.state === 'fail' || r.state === 'skip').length, f = all.length ? fin / all.length : 0;
+    el.innerHTML = `<div class="lh">Loading ${REG.name}<span>${Math.round(f * 100)}%</span></div><div class="lbar"><i style="width:${(f * 100).toFixed(0)}%"></i></div>`
+      + all.map(r => `<div class="lr ${r.state}"><b></b>${r.label}<em>${r.note}</em></div>`).join('');
+    if (fin === all.length) { if (!hideT && !held) hideT = setTimeout(() => el.classList.add('gone'), 2500); }
+    else if (hideT) { clearTimeout(hideT); hideT = null; }
+  }
+  const set = (key, label, state, note = '') => { const r = rows.get(key); if (r && r.state === state && r.note === note) return; rows.set(key, { label: label ?? r?.label ?? key, state, note }); draw(); };
+  addEventListener('keydown', e => { if ((e.key === 'l' || e.key === 'L') && e.target === document.body && !e.metaKey && !e.ctrlKey) { held = el.classList.contains('gone'); el.classList.toggle('gone', !held); } });
+  return { get showing() { return !!el && !el.classList.contains('gone'); }, wait: (k, l, n) => set(k, l, 'wait', n), start: (k, l, n) => set(k, l, 'run', n), done: (k, l, n) => set(k, l, 'done', n), fail: (k, l, n) => set(k, l, 'fail', n), skip: (k, l, n) => set(k, l, 'skip', n), has: k => rows.has(k) };
+})();
 const WANT_AC = TED || !!REG.armchair || !!REG.rail || !!REG.roads || !!(REG.airports || []).length;
 let AC = null, acLoading = null;
 function loadArmchair() {
@@ -77,7 +95,11 @@ function loadArmchair() {
     import('./track3d.js'), import('./subway3d.js'), import('./traffic3d.js'), import('./airport3d.js')])
     .then(([aircraft, cockpit, flight, trains, track, subway, traffic, airport]) => (AC = { ...aircraft, ...cockpit, ...flight, ...trains, ...track, ...subway, ...traffic, ...airport }));
 }
-if (WANT_AC) await loadArmchair();
+// the rows to come, in their order
+LOAD.wait('terrain', 'Elevation'); LOAD.wait('photo', 'Aerial photo'); if (!EMPTY) { LOAD.wait('chart', 'Chart: names and buoys'); LOAD.wait('bridges', 'Bridges'); }
+if (WANT_AC) { LOAD.wait('ac', 'Planes and trains'); if (REG.rail) LOAD.wait('tracks', 'Railway tracks'); if (REG.roads) LOAD.wait('roads', 'Freeways'); if ((REG.airports || []).length) LOAD.wait('airport', 'Airport'); }
+if (!EMPTY) { LOAD.wait('towns', 'Buildings'); LOAD.wait('detail', 'Close-up ground'); LOAD.wait('live', WANT_AC ? 'Live: ships, planes, trains' : 'Live: ships'); }
+if (WANT_AC) { LOAD.start('ac'); await loadArmchair().then(() => LOAD.done('ac'), e => { LOAD.fail('ac', null, 'failed'); throw e; }); }
 // (until it's loaded, or where it never is: the flight lookups answer nothing)
 const destOf = a => AC ? AC.destOf(a) : null, originOf = a => AC ? AC.originOf(a) : null, airportInfo = c => AC ? AC.airportInfo(c) : null;
 const OVERVIEW = REG.overview;
@@ -442,7 +464,9 @@ for (let i = 0; i < OV_COLS; i++) for (let j = 0; j < OV_ROWS; j++) {
   ovPieces.push(P);
 }
 const ovPieceAt = (lon, lat) => ovPieces.find(P => lon >= P.rect.west && lon <= P.rect.east && lat >= P.rect.south && lat <= P.rect.north) || ovPieces[0];
+LOAD.start('terrain');
 const ov = await demFor(OW, OS, OE, ON, false);
+LOAD.done('terrain', null, `${ov.w}×${ov.h}`);
 const airports = [];   // (the region's airports' ground, v1111: below, once the towns are listed)
 const OV_STRIDE = ov.w * ov.h > 1.2e6 ? 2 : 1;
 const ovMats = new Set();
@@ -457,6 +481,9 @@ function heightAt(lon, lat) {
   return (c >= 0 && r >= 0 && c < ov.w && r < ov.h) ? ov.elev[r * ov.w + c] : -3;
 }
 // (each piece's photo, for a detail tile in it until the tile's own comes: v1049)
+LOAD.start('photo', null, `0 of ${ovPieces.length}`);
+{ let k = 0, bad = 0; const step = ok => { ok ? k++ : bad++; (k + bad === ovPieces.length ? (bad ? LOAD.fail : LOAD.done) : LOAD.start)('photo', null, ovPieces.length > 1 ? `${k} of ${ovPieces.length}` : bad ? 'failed' : ''); };
+  for (const P of ovPieces) P.photoP.then(() => step(true), () => step(false)); }
 for (const P of ovPieces) P.photoP.then(ph => {
   addCanopy(ov, ph, null, BROADLEAF);
   const mat = seabed(photoMat(ph, ANISO)), m2 = gridMesh(ov, ph, OV_STRIDE, ovPieces.length > 1 ? ownPhoto(mat) : mat, yOf);
@@ -792,7 +819,12 @@ function updateTiles() {
   const near = tiles.filter(T => rectDist(T, view.x, view.z) < 2500);
   const busy = low && near.some(T => T.state === 'loading' || (T.state === 'ready' && T.photo === 'pending'));
   loadingEl.textContent = near.some(T => T.state === 'loading') ? 'Loading detail…' : 'Loading aerial photos…';
-  loadingEl.hidden = !busy && !townsLoading;
+  loadingEl.hidden = (!busy && !townsLoading) || LOAD.showing;
+  // (v1169) the loading list's close-up ground and buildings: the tiles round the view, and the towns coming in
+  if (low) { const want = near.length, ready = near.filter(T => T.state === 'ready').length; (busy ? LOAD.start : LOAD.done)('detail', null, want ? `${ready} of ${want}` : ''); }
+  else LOAD.done('detail', null, 'from closer in');
+  const tReady = townList.filter(t => t.state === 'ready').length;
+  if (townsLoading) LOAD.start('towns', null, `${tReady} areas, ${townsLoading} coming`); else if (performance.now() > 9000 || tReady) LOAD.done('towns', null, tReady ? `${tReady} area${tReady > 1 ? 's' : ''}` : 'none near');
 }
 
 // ── Towns: listed from index.json, buildings built when you come near ──
@@ -822,6 +854,7 @@ function updateCredit() {
 // runways and their markings, taxiways, aprons, lights, jet bridges, tower, AirTrain, set on the 10 m elevation the
 // detail tiles use (the overview's is too coarse: her runways would sink into it in places)
 if (!EMPTY) for (const id of REG.airports || []) (async () => {
+  LOAD.start('airport');
   try {
     const d = await getJSON(`./data/airports/${id}.json`), all = [...d.runways.flatMap(r => r.ends), ...d.aprons.flat(), ...d.lightPiers.flatMap(p => p.pts)];
     const w = Math.min(...all.map(p => p[0])) - 0.004, e = Math.max(...all.map(p => p[0])) + 0.004, s = Math.min(...all.map(p => p[1])) - 0.004, n = Math.max(...all.map(p => p[1])) + 0.004;
@@ -829,8 +862,8 @@ if (!EMPTY) for (const id of REG.airports || []) (async () => {
     const hAt = (lon, lat) => { const c = (lon - dem.west) / dem.dx - 0.5, r = (dem.north - lat) / dem.dy - 0.5; if (c < 0 || r < 0 || c >= dem.w - 1 || r >= dem.h - 1) return heightAt(lon, lat);
       const ci = Math.floor(c), ri = Math.floor(r), fc = c - ci, fr = r - ri, i = ri * dem.w + ci, E = dem.elev;
       return (E[i] * (1 - fc) + E[i + 1] * fc) * (1 - fr) + (E[i + dem.w] * (1 - fc) + E[i + dem.w + 1] * fc) * fr; };
-    const ap = AC.makeAirport({ data: d, wx, wz, heightAt: hAt }); ap.credit = d.credit; scene.add(ap.group); airports.push(ap); updateCredit();
-  } catch (err) { console.warn('[bay3d] airport', id, err); }
+    const ap = AC.makeAirport({ data: d, wx, wz, heightAt: hAt }); ap.credit = d.credit; scene.add(ap.group); airports.push(ap); updateCredit(); LOAD.done('airport', null, id.toUpperCase());
+  } catch (err) { LOAD.fail('airport', null, 'failed'); console.warn('[bay3d] airport', id, err); }
 })();
 async function loadTown(t) {
   t.state = 'loading'; townsLoading++;
@@ -963,14 +996,17 @@ if (PENOBSCOT) {
 }
 
 // ── Buoys and lighthouses from the chart: instanced, drawn larger the farther off they are ──
+LOAD.start('chart');
 const [navGJ, placesGJ, landGJ] = await Promise.all([
   getJSON(`./data/regions/${RID}/navaid.geojson`).catch(() => ({ features: [] })),
   getJSON(`./data/regions/${RID}/named_places.geojson`).catch(() => ({ features: [] })),
   getJSON('./data/landmarks.json').catch(() => ({ landmarks: [] })),
 ]);
+LOAD.done('chart', null, `${placesGJ.features.length} names`);
 const inBay = ([x, y]) => x >= OW && x <= OE && y >= OS && y <= ON;
 // ── Bridges (v1020; bridges3d.js): the region's, if it has any ──
-makeBridges(RID, heightAt, camera.position).then(B => { if (!B) return; bridges = B; if (freeway && B.roadDecks) freeway.setDecks(B.roadDecks); if (tracks && B.railDecks) tracks.setDecks(B.railDecks, B.roadDecks); scene.add(B.group); try { B.night(env.lightsK); } catch (_) {} updateCredit(); onBridges?.(B); })   // (env: once it's made)
+LOAD.start('bridges');
+makeBridges(RID, heightAt, camera.position).then(B => { LOAD.done('bridges', null, B ? `${B.labels?.length ?? ''}` : 'none'); if (!B) return; bridges = B; if (freeway && B.roadDecks) freeway.setDecks(B.roadDecks); if (tracks && B.railDecks) tracks.setDecks(B.railDecks, B.roadDecks); scene.add(B.group); try { B.night(env.lightsK); } catch (_) {} updateCredit(); onBridges?.(B); })   // (env: once it's made)
   .catch(err => console.warn('[bay3d] bridges', err));
 const navs = navGJ.features.filter(f => f.geometry?.type === 'Point' && inBay(f.geometry.coordinates));
 const BUOY_T = ['BOYLAT', 'BCNLAT', 'BOYSAW', 'BOYSPP', 'BOYCAR', 'BOYISD'];
@@ -1357,8 +1393,21 @@ const WHEELHOUSE = new Set(['tug', 'pilot', 'dredger', 'ferry', 'cruise', 'cargo
 let ckLoading = null;   // (the cockpit's drawing, armchair layer or no: fetched the first time a wheelhouse is wanted, so a boater's Maine bay has it too)
 function wantCockpit() { const ck = document.getElementById('cockpit'); if (cockpit || ckLoading || !ck) return; ckLoading = import('./cockpit.js').then(m => { cockpit ??= m.makeCockpit(ck); }).catch(e => { ckLoading = null; console.warn('[bay3d] cockpit', e); }); }
 const inWheelhouse = v => !!v && v !== own && !v.boat && (v.kind === 'ferry' || v.kind === 'cruise' || (v.kind === 'ais' && WHEELHOUSE.has(v.model)));
+// (v1169) her heading, unless it can't be: making way at 2 kn or more on a course more than 70° off it (a boat's heading
+// sensor set up wrong: the Hornblower Freedom "heading" 319° making 5.6 kn on 167°; her helm view looked astern)
+function aisHead(A) {
+  const kn = A.sog || 0;
+  if (A.hdg != null && A.cog != null && kn >= 2 && Math.abs(((A.hdg - A.cog + 540) % 360) - 180) > 70) return A.cog;
+  return A.hdg ?? (kn >= 0.5 ? A.cog : null);
+}
 function insidePlane(v, inside) {
-  if (inWheelhouse(v)) { if (!inside || nest.mode !== 'helm') { cockpit?.hide(); return; } if (!cockpit) { wantCockpit(); return; } cockpit.show('wheelhouse'); cockpit?.update({ hdg: v.h || 0, gs: v.A?.sog ?? v.kn ?? 0 }); return; }
+  if (inWheelhouse(v)) {
+    if (!inside || nest.mode !== 'helm') { cockpit?.hide(); document.body.classList.remove('inwheel'); return; } if (!cockpit) { wantCockpit(); return; }
+    // (her bow painted on only where her model has no wheelhouse of its own: one that has shows her real foredeck, her containers)
+    cockpit.show('wheelhouse', { bow: vGroup(v).userData.helm ? 'none' : v.kind === 'ferry' ? 'ferry' : v.kind === 'cruise' ? 'ferry' : v.model === 'tug' ? 'tug' : ['ferry', 'cruise'].includes(v.model) ? 'ferry' : ['cargo', 'tanker', 'ship'].includes(v.model) ? 'ship' : 'work' }); document.body.classList.add('inwheel');
+    cockpit.update({ hdg: v.h || 0, cog: v.A?.cog ?? null, turn: v.A?.rot ?? 0, gs: v.A?.sog ?? v.kn ?? 0, yaw: nest.yaw, pitch: nest.pitch, fov: camera.fov }); return;
+  }
+  document.body.classList.remove('inwheel');
   // (v1161) a train's cab: her front window's frame, her speed and the next stop
   if (v?.kind === 'rail') { if (!inside || nest.mode !== 'helm') { cockpit?.hide(); return; } cockpit?.show(/ train$|^PATH$|^Staten Island Railway$|Line$|Trolley$/.test(v.a?.rail || '') ? 'train' : 'railroad'); cockpit?.update({ gs: (v.vs ?? v.v ?? 0) * 2.237, next: v.a?.next || '', dest: v.a?.dest || '' }); return; }
   if (v?.kind !== 'air') { cockpit?.hide(); return; }
@@ -2256,7 +2305,7 @@ function liveData(snap) {
     if (v && (v.model !== cls.model || v.K !== K || v.W !== W)) { was = { card: cardV === v, follow: follow === v }; dropLive(v); v = null; }   // her static data came in: what she is changed
     if (!v) {
       const m = liveModel(A, cls, Number(A.mmsi) % 9973, K, W, trafficLit);
-      v = { kind: 'ais', mmsi: A.mmsi, model: cls.model, K, W, ...m, x: wx(A.lon), z: wz(A.lat), h: A.hdg ?? A.cog ?? 0, on: false, label: '' };
+      v = { kind: 'ais', mmsi: A.mmsi, model: cls.model, K, W, ...m, x: wx(A.lon), z: wz(A.lat), h: aisHead(A) ?? 0, on: false, label: '' };
       m.group.visible = false; scene.add(m.group); live.push(v);
       if (was?.card) { cardV = v; if (aisCard) aisCard.hidden = false; } if (was?.follow) follow = v;
     }
@@ -2309,7 +2358,7 @@ function updateLive(dt) {
     const s = Math.min(v.reach ?? Infinity, kn * NMm / 3600 * clamp((now - v.fix.t) / 1000, 0, 300)), tx = v.fix.x + Math.sin(cog * DEG) * s, tz = v.fix.z - Math.cos(cog * DEG) * s;
     const k = v.placed ? Math.min(1, dt * 1.5) : 1; v.placed = true;   // a new report eases her across, no jump
     v.x += (tx - v.x) * k; v.z += (tz - v.z) * k;
-    const want = A.hdg ?? (kn >= 0.5 ? A.cog : null);
+    const want = aisHead(A);
     if (want != null) { const turn = ((want - v.h + 540) % 360) - 180; v.h = (v.h + clamp(turn, -20 * dt, 20 * dt) + 360) % 360; }
     v.on = liveFeed.on && !aboveFog; v.group.visible = v.on && !v.ashore;
     v.group.position.set(v.x, 0, v.z); v.group.rotation.y = -v.h * DEG;
@@ -2374,16 +2423,19 @@ function buildArmchair() {
   air = AC.makeAircraft({ scene, bbox: OVERVIEW, wx, wz, onCount: () => syncLiveBtn(), focus: moverFocus, onDrop: moverGone, riding: p => nest.on && nest.v === p, shown: p => (!airDest && !airFrom) || p === follow || p === cardV || (airDest ? destOf(p.a)?.code === airDest : originOf(p.a)?.code === airFrom), groundAt: (lon, lat) => Math.max(0, heightAt(lon, lat) || 0) });
   // and the trains (v1099): Caltrain, SMART and ACE from 511.org; the MBTA's (v1138); Amtrak's (v1121)
   rail = AC.makeTrains({ scene, bbox: OVERVIEW, wx, wz, heightAt, onCount: () => syncLiveBtn(), focus: moverFocus, onDrop: moverGone });
+  if (REG.rail) LOAD.start('tracks');
   if (REG.rail) getJSON(`./data/rail/${REG.rail}.json`).then(d => {
+    LOAD.done('tracks', null, `${d.lines.length.toLocaleString()} pieces`);
     rail.setTracks(d.lines, d.tunnel); trackNear = rail.nearTrack;   // (v1138: and which are tunnels: the T underground)
     // (v1125, requested: "I'd like to show the tracks"): drawn, bridges and all; the trains ride on their heights
     if (!EMPTY) { tracks = AC.makeTracks({ scene, lines: d.lines, bridge: d.bridge, tunnel: d.tunnel, elev: d.elev, wx, wz, heightAt }); rail.setTrackY(tracks.yAt); if (bridges?.railDecks) tracks.setDecks(bridges.railDecks, bridges.roadDecks); }   // (v1155: New York's els, d.elev)
     for (const T of tiles) if (T.state === 'ready' && T.dem?.canopy) { T.spots = treeSpots(T, T.dem); treesDirty = true; }   // (tiles in before the tracks)
-  }).catch(err => console.warn('[bay3d] rail tracks', err));
+  }).catch(err => { LOAD.fail('tracks', null, 'failed'); console.warn('[bay3d] rail tracks', err); });
   // the freeways' traffic (v1128, requested: "put car traffic in each direction on the freeway"), at Caltrans's signs' speeds
+  if (REG.roads && !EMPTY) LOAD.start('roads');
   if (REG.roads && !EMPTY) AC.makeTraffic({ scene, rid: REG.roads, wx, wz, heightAt, clockMin: () => clockMin(), eye: camera.position }).then(T => {
-    if (!T) return; freeway = T; updateCredit(); if (bridges?.roadDecks) T.setDecks(bridges.roadDecks); try { T.night(env.lightsK); } catch (_) {}
-  }).catch(err => console.warn('[bay3d] traffic', err));
+    LOAD.done('roads'); if (!T) return; freeway = T; updateCredit(); if (bridges?.roadDecks) T.setDecks(bridges.roadDecks); try { T.night(env.lightsK); } catch (_) {}
+  }).catch(err => { LOAD.fail('roads', null, 'failed'); console.warn('[bay3d] traffic', err); });
   if (REG.rail) getJSON(`./data/rail/${REG.rail}-trips.json`).then(d => rail.setTrips(d)).catch(err => console.warn('[bay3d] rail timetables', err));   // (v1117: each train's origin, destination and ETA)   // (v1116: each train on her track)
   // the tunnel she's in, when riding a train underground (v1149): Cab, Ahead, Side and Behind look round her in it
   subway = AC.makeSubway({ scene, rail, platforms: REG.rail ? () => getJSON(`./data/rail/${REG.rail}-platforms.json`) : null });   // (v1152: the real platforms, fetched at the first station)
@@ -2400,6 +2452,10 @@ function moversStart() {
     .catch(err => { acLoading = null; console.warn('[bay3d] planes and trains', err); });
 }
 function syncLiveBtn(state = liveBtn?.dataset.state || 'off', note = '') {
+  if (LOAD.has('live')) {   // (v1169) the loading list's live row
+    const what = `${live.length} ship${live.length === 1 ? '' : 's'}${air.count ? ` · ${air.count} planes` : ''}${rail.count ? ` · ${rail.count} trains` : ''}`;
+    if (!liveFeed.on) LOAD.skip('live', null, 'Live is off'); else if (state === 'live') LOAD.done('live', null, what); else if (state === 'offline') LOAD.fail('live', null, 'offline'); else LOAD.start('live', null, live.length ? what : 'listening');
+  }
   if (ptBtn) { ptBtn.hidden = !liveFeed.on; ptBtn.classList.toggle('on', ptOn); ptBtn.title = ptOn ? 'Planes and trains are shown with the ships. Tap to hide them.' : 'Show the aircraft and trains near the bay too, from their live feeds'; }
   if (!liveBtn) return;
   liveBtn.dataset.state = state;

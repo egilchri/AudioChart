@@ -175,6 +175,20 @@ body.embed #bayswitch button { padding: 5px 14px; }
 button:focus-visible { outline: 2px solid var(--brass); outline-offset: 1px; }
 #help.faded { opacity: 0; pointer-events: none; }   /* (v1166: faded once you've begun) */
 #help { transition: opacity 1.2s; position: fixed; right: 12px; bottom: calc(12px + var(--credit-h, 13px) + env(safe-area-inset-bottom, 0px));   /* above the credit line (v1045; bay3d.js sets its height) */ z-index: 2; font-size: 0.74rem; color: var(--muted); background: var(--glass); border-radius: 5px; padding: 4px 9px; max-width: calc(100% - 24px); box-sizing: border-box; }
+/* (v1169) the loading list: what's coming in, as it comes; gone once it's all in (L shows it again) */
+#loadlist { position: fixed; left: 50%; top: calc(62px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); z-index: 3; width: min(300px, calc(100vw - 32px));
+  background: rgba(14, 22, 30, 0.82); color: #e8edf2; border-radius: 10px; padding: 9px 12px 8px; font: 12px/1.45 var(--body, system-ui, sans-serif); box-shadow: 0 6px 22px rgba(0,0,0,0.35);
+  transition: opacity 0.8s, transform 0.8s; pointer-events: none; }
+#loadlist:empty, #loadlist.gone { opacity: 0; transform: translate(-50%, -8px); }
+#loadlist .lh { display: flex; justify-content: space-between; font-weight: 700; margin-bottom: 5px; } #loadlist .lh span { color: var(--brass, #e0a843); }
+#loadlist .lbar { height: 4px; background: rgba(255,255,255,0.12); border-radius: 2px; overflow: hidden; margin-bottom: 6px; } #loadlist .lbar i { display: block; height: 100%; background: var(--brass, #e0a843); transition: width 0.4s; }
+#loadlist .lr { display: flex; align-items: center; gap: 8px; opacity: 0.55; } #loadlist .lr em { margin-left: auto; font-style: normal; opacity: 0.8; font-variant-numeric: tabular-nums; }
+#loadlist .lr b { width: 11px; height: 11px; flex: none; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.4); box-sizing: border-box; }
+#loadlist .lr.run { opacity: 1; } #loadlist .lr.run b { border-color: var(--brass, #e0a843) transparent var(--brass, #e0a843) transparent; animation: llspin 0.9s linear infinite; }
+#loadlist .lr.done { opacity: 0.9; } #loadlist .lr.done b { border: none; background: #4cc38a; } #loadlist .lr.done b::after { content: "✓"; display: block; font-size: 9px; line-height: 11px; text-align: center; color: #0d1a14; font-weight: 900; }
+#loadlist .lr.fail { opacity: 1; color: #f2c46d; } #loadlist .lr.fail b { border-color: #f2c46d; }
+#loadlist .lr.skip b { border-style: dashed; }
+@keyframes llspin { to { transform: rotate(360deg); } }
 #loading { position: fixed; left: 50%; top: calc(14px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); z-index: 2; font-size: 0.8rem; background: var(--glass-hi); border-radius: 5px; padding: 4px 10px; }
 #credit { position: fixed; left: 12px; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); z-index: 2; font-size: 10px; color: rgba(255, 255, 255, 0.8); text-shadow: 0 0 3px rgba(0, 0, 0, 0.6); pointer-events: none; max-width: 55%; }
 #status { position: fixed; inset: 0; z-index: 5; display: grid; place-items: center; font-family: var(--display); font-size: 1.3rem; letter-spacing: 0.04em; background: rgba(20, 34, 42, 0.55); text-align: center; padding-inline: 16px; }
@@ -288,20 +302,38 @@ body:has(#ridechart:not([hidden])) #cockpit .ckpanel { padding-right: calc(clamp
 #cockpit .tlever { height: 90%; }
 /* (v1167) a wheelhouse: the deckhead, its windows' posts, a console with the radar, her heading and speed, her wheel */
 #cockpit.ck-wheelhouse { --ckh: clamp(110px, 25vh, 230px); }
-#cockpit.ck-wheelhouse .pillar { width: 5vw; clip-path: none; background: linear-gradient(90deg, #121518, #2a3036); }
-#cockpit.ck-wheelhouse .pillar.r { background: linear-gradient(270deg, #121518, #2a3036); }
-#cockpit.ck-wheelhouse .theader { height: 11vh; background: linear-gradient(#e2e0da, #c7c4bc 80%, #8e8b84); box-shadow: 0 5px 10px rgba(0,0,0,0.45); }   /* (the deckhead: painted white) */
-#cockpit .mull { position: absolute; top: 0; bottom: calc(var(--ckh) - 8px); width: max(9px, 1.1vw); transform: translateX(-50%); background: linear-gradient(90deg, #15181b, #3a4046 50%, #15181b); }
 #cockpit.ck-wheelhouse .ckpanel { border-radius: 0; background: linear-gradient(#3a3f44 0, #262a2e 18%, #1a1d20 100%); }
 #cockpit .radar { height: 92%; aspect-ratio: 1; }
 #cockpit .radar .rim { fill: #0b0d0e; stroke: #4a5056; stroke-width: 1.5; } #cockpit .radar .scope { fill: #04140b; }
 #cockpit .radar .ring { fill: none; stroke: rgba(60,220,120,0.25); stroke-width: 0.6; } #cockpit .radar .blip { fill: #6dff9e; }
 #cockpit .radar .beam { fill: rgba(80,255,140,0.28); } #cockpit .radar .sweep { animation: ckSweep 4s linear infinite; transform-origin: 0 0; }
 @keyframes ckSweep { to { transform: rotate(360deg); } }
-#cockpit .wheel { height: 112%; aspect-ratio: 1; margin-top: 4%; }
+#cockpit .wheel { height: 100%; aspect-ratio: 1; }
+/* (v1169) the wheelhouse made over: frame, glass, wipers, her bow, overhead repeaters; the console filled */
+#cockpit .whwin { position: absolute; left: 0; right: 0; top: 0; bottom: calc(var(--ckh) - 2px); overflow: hidden; }
+#cockpit .whframe { position: absolute; inset: 0; width: 100%; height: 100%; }
+#cockpit .whframe .frame { fill: #23282c; } #cockpit .whframe .deckhead { fill: #dcd9d1; } #cockpit .whframe .beam { fill: #a9a59c; }
+#cockpit .whframe .sill { fill: #34393e; } #cockpit .whframe .wiper line { stroke: #111416; stroke-width: 3; vector-effect: non-scaling-stroke; } #cockpit .whframe .wiper .blade { stroke-width: 4.5; }
+#cockpit .whbow { position: absolute; left: -10%; width: 120%; bottom: 0; height: 30%; }
+#cockpit .whover { position: absolute; top: calc(16.2% - 2px); left: 4.5%; right: 4.5%; display: flex; justify-content: space-between; }
+#cockpit .rep { background: #121518; border: 2px solid #3a4046; border-radius: 4px; padding: 3px 10px; display: flex; align-items: center; gap: 8px; color: #8fa0ad; font: 600 10px var(--body, sans-serif); letter-spacing: 0.08em; box-shadow: 0 3px 6px rgba(0,0,0,0.4); }
+#cockpit .rep b { color: #ffcf6e; font: 700 15px var(--mono, monospace); }
+#cockpit .rbar { position: relative; width: 90px; height: 8px; background: linear-gradient(90deg, #a33 0 50%, #2a8a4a 50% 100%); border-radius: 2px; opacity: 0.85; }
+#cockpit .rbar i { position: absolute; top: -3px; width: 3px; height: 14px; margin-left: -1.5px; background: #fff; left: 50%; }
+#cockpit.ck-wheelhouse .ckpanel { border-top: 3px solid #4b5157; }
+#cockpit.ck-wheelhouse .gauges { max-width: 98vw; }
+#cockpit .radar .head { stroke: rgba(160,255,190,0.6); stroke-width: 0.7; }
+#cockpit .tbase { fill: #2c3135; stroke: #464c52; } #cockpit .tlab { fill: #9aa3ab; font: 600 7px var(--body, sans-serif); text-anchor: middle; }
+#cockpit .vhf { height: 46%; aspect-ratio: 2.1; background: #15181b; border: 2px solid #3d4349; border-radius: 5px; display: flex; flex-direction: column; justify-content: space-between; padding: 5px 7px; box-sizing: border-box; align-self: flex-start; margin-top: 4%; }
+#cockpit .vlcd { background: #9fb57a; color: #1d2614; font: 600 11px var(--mono, monospace); padding: 1px 5px; border-radius: 2px; } #cockpit .vlcd b { font-size: 15px; }
+#cockpit .vknobs { display: flex; gap: 6px; } #cockpit .vknobs i { width: 11px; height: 11px; border-radius: 50%; background: #50575d; }
+#cockpit .plotter { height: 88%; aspect-ratio: 1.25; }
+#cockpit .plotter .pbez { fill: #15181b; stroke: #3d4349; stroke-width: 1.2; } #cockpit .plotter .psea { fill: #a8cfe6; } #cockpit .plotter .pland { fill: #f0dfa8; }
+#cockpit .plotter .ptrk { stroke: #c43; stroke-width: 0.8; stroke-dasharray: 2 2; fill: none; } #cockpit .plotter .pown { fill: #222; } #cockpit .plotter .phead { stroke: #222; stroke-width: 0.6; }
+body.inwheel #labels, body.inwheel #livemarks { z-index: 2; clip-path: inset(0 0 clamp(110px, 25vh, 230px) 0); }
 #cockpit .wheel .rimw { fill: none; stroke: #6a4424; stroke-width: 6; } #cockpit .wheel .hubw { fill: #8a8d90; stroke: #3a3d40; }
 #cockpit .wheel .spoke { stroke: #7a5230; stroke-width: 3.2; } #cockpit .wheel .knob { fill: #6a4424; }
-#cockpit .wled { color: #7dffb0; text-shadow: 0 0 6px rgba(80,255,150,0.5); min-width: 9em; }
+#cockpit .wled { font-size: 0.85em; color: #7dffb0; text-shadow: 0 0 6px rgba(80,255,150,0.5); min-width: 9em; }
 #cockpit .tlever .slot { fill: #0b0c0d; stroke: #3a3f45; }
 #cockpit .tlever .knob { fill: #9a2a22; stroke: #1a0a08; }
 #cockpit.ck-heli { --ckh: clamp(100px, 22vh, 220px); }
@@ -524,7 +556,7 @@ body.underground #labels, body.underground #livemarks { display: none; }
 <div id="cockpit" hidden></div><canvas id="ridechart" hidden title="Tap to shrink or enlarge the chart"></canvas>
 <div id="underway" hidden><div class="sect">On the water now</div><div class="uwtabs" role="tablist" hidden><button type="button" data-tab="water">⛴ Water</button><button type="button" data-tab="rail">🚆 Trains</button><button type="button" data-tab="air">✈ Air</button></div><div class="uwfilter" hidden></div><ul></ul></div>
 <div id="aisinfo" hidden><div class="sect"><span id="aisname"></span><button type="button" id="aisclose" title="Close">✕</button></div><table></table><div class="go"></div></div>
-<div id="loading" hidden>Loading…</div>
+<div id="loading" hidden>Loading…</div><div id="loadlist" aria-live="polite"></div>
 <div id="flypick" hidden role="status"><span class="fly-text"></span><input class="pick-name" type="text" hidden maxlength="60" placeholder="Its name" aria-label="Its name"><button type="button" class="pick-a" hidden></button><button type="button" class="pick-b" hidden></button><button type="button" class="pick-x" title="Cancel (Esc)">✕</button></div>
 <div id="ovmap" hidden><canvas aria-label="Overview map: tap to go there"></canvas><button type="button" class="ov-fold" title="Fold the map away">–</button><button type="button" class="ov-open" title="Show the overview map">🗺</button></div>
 <div id="flybar" hidden role="status"><span class="fly-text"></span><span class="fly-time" hidden title="Time flown, and about how long to go"></span><button type="button" class="fly-rec" title="Record this flight as a video (saved to Downloads when it ends)">⏺</button><button type="button" class="fly-play" title="Pause the flyover">⏸</button><button type="button" class="fly-end" title="End the flyover (Esc)">✕</button></div>
