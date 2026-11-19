@@ -1329,11 +1329,14 @@ const vLen = v => v.L || v.boat?.L || 8;
 // (v1170) at a vessel's helm, how far down to look: her stem just above the wheelhouse console's sill (16° under the middle
 // of the view), as a helmsman looks out over her bow; a tug's foredeck had been under the console. Her deck at the stem
 // taken as 45% of the helm's height; at most 14° down, at least 3°
+// (v1172, asked about New York's tugs and ferries) in a wheelhouse the view's wider (WH_FOV, 62° high: a helmsman sees
+// more than 50°), its console's sill 20° under the middle: her stem 4° above it, the horizon a third of the way down
+const WH_FOV = 62;
 function helmPitch(v) {
   const H = vGroup(v).userData.helm; if (!H) return helmOf(v)[1] > 6 ? -8 : -3;
-  const ahead = H[2] + vLen(v) / 2, drop = H[1] * 0.55;
+  const wh = inWheelhouse(v), ahead = H[2] + vLen(v) / 2, drop = H[1] * (wh ? 0.7 : 0.55);   // (a tug's deck at the stem is 70% of the way down from the eye: the JRT Moran's 5.6 m under 7.9)
   if (ahead < 2) return -3;
-  return clamp(12 - Math.atan2(drop, ahead) / DEG, -14, -3);
+  return clamp((wh ? 17 : 12) - Math.atan2(drop, ahead) / DEG, wh ? -16 : -14, -3);
 }
 const helmOf = v => vGroup(v).userData.helm || v.boat?.helm || [0, 2, vLen(v) * 0.35];
 // Stern, Side and Bow (v968, requested: "view this boat from the stern, bow, and sides, like we did elsewhere",
@@ -1509,7 +1512,7 @@ function nestCamera() {   // after every vessel has moved: the eye aboard her, l
     if (nest.mode === 'nest') { g.updateMatrixWorld(true); v.boat.nest.getWorldPosition(_nw); camera.position.copy(_nw); }
     else { camera.position.copy(toWorld(helmOf(v), _nw)); if (isMover(v)) camera.position.y += v.y; }
     camera.rotation.set(nest.pitch * DEG, -(v.h + nest.yaw) * DEG, 0, 'YXZ');
-    camera.fov = 50 / nest.zoom;
+    camera.fov = (nest.mode === 'helm' && inWheelhouse(v) ? WH_FOV : 50) / nest.zoom;   // (v1172: a wheelhouse's wider: her foredeck in the windows)
     view.x = v.x; view.z = v.z; view.dist = Math.max(6000, airReach(v)); view.az = (v.h + nest.yaw) * DEG;
     insidePlane(v, true);   // what loads and what's labelled: round her, out toward the horizon
   }
@@ -2393,12 +2396,18 @@ function updateLive(dt) {
   }
 }
 if (!EMPTY) setShips(await getJSON('./data/ships.json').catch(() => null));   // (before the feed: her colours from the first sight of her)
+let liveGrace = null;
 const liveFeed = makeAisFeed({
   bbox: OVERVIEW,   // (this bay's vessels only: v1019)
   relay: REG.armchair ? 'birdseye' : 'boats',   // (v1153: the armchair bays' ships from Ted's Birdseye's relay)
   onData: snap => { liveListen = snap.listening ?? 1e9; liveData(snap); },   // (how long the relay has been tuned in: v1010)
   onState: ({ state, note }) => {
-    if (state === 'offline' || state === 'off') { for (const v of [...live]) dropLive(v); liveOK = false; }
+    // (v1172) turned off: her ships gone now. Offline: kept two minutes first, through a relay's missed answer or a moment
+    // without signal; one missed poll had dropped every ship in the bay, and with her the one you were riding
+    const dropAll = () => { clearTimeout(liveGrace); liveGrace = null; for (const v of [...live]) dropLive(v); liveOK = false; };
+    if (state === 'off') dropAll();
+    else if (state === 'offline') liveGrace ??= setTimeout(dropAll, 120000);
+    else { clearTimeout(liveGrace); liveGrace = null; }
     syncLiveBtn(state, note);
   },
 });

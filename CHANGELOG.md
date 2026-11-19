@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-19 — Bird's-eye: New York's tugs and ferries, from their wheelhouses (v1172)
+
+- Asked: "I am talking right now about tugboats and ferries in New York Harbor".
+- **Her foredeck in the windows** (www/js/bay3d.js `WH_FOV`, `helmPitch`): a wheelhouse's view is wider now (62° high, was 50°), and tips down until her stem is over the console. Her deck at the stem is taken 70% of the way down from the eye (a 28 m Moran tug's is 5.6 m under 7.9; 55% had left her bow under the sill). From the JRT Moran's wheelhouse: her black bulwark and red foredeck; from the Staten Island ferry's bridge, 50 ft up: her bow, the Verrazzano, St. George.
+- **Live through a missed answer** (`liveGrace`): one failed poll of the relay had dropped every ship in the bay, and with her the one you were riding (twice in testing, from the Samuel I. Newhouse's bridge). Now they're kept two minutes while Live says offline; turning Live off still clears them at once. Maine's bays too: AudioChart's release.
+- Checked in headless Chrome on New York's live AIS: tugs JRT Moran and Margaret Moran, the Staten Island ferry Samuel I. Newhouse, NY Waterway's Henry Hudson. Full CI suite passes.
+
 ## 2026-11-19 — Bird's-eye: a ship's wheel, not a toy's (v1171)
 
 - Asked: "See the snapshot. The steering wheel looks like a toy" (the Michael Miller's wheelhouse: a small flat wheel in the row of instruments).
