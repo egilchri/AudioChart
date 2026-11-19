@@ -309,6 +309,14 @@ body:has(#ridechart:not([hidden])) #cockpit .ckpanel { padding-right: calc(clamp
 #cockpit .radar .beam { fill: rgba(80,255,140,0.28); } #cockpit .radar .sweep { animation: ckSweep 4s linear infinite; transform-origin: 0 0; }
 @keyframes ckSweep { to { transform: rotate(360deg); } }
 #cockpit .wheel { height: 100%; aspect-ratio: 1; }
+/* (v1171) the wheel, big and close, in front of the console; its foot below the view */
+#cockpit .bigwheel { position: absolute; left: 50%; bottom: calc(clamp(170px, 40vh, 420px) * -0.42); height: clamp(170px, 40vh, 420px); aspect-ratio: 1; transform: translateX(-50%); z-index: 1; filter: drop-shadow(0 8px 14px rgba(0,0,0,0.55)); }
+#cockpit.ck-wheelhouse { --bw: clamp(170px, 40vh, 420px); overflow: hidden; }
+#cockpit.ck-wheelhouse .bigwheel { height: var(--bw); bottom: calc(var(--bw) * -0.42); }
+#cockpit.ck-wheelhouse .gauges.gl, #cockpit.ck-wheelhouse .gauges.gr { position: absolute; top: 12%; height: 58%; max-width: none; }
+#cockpit.ck-wheelhouse .gauges.gl { right: calc(50% + var(--bw) * 0.5 + 6px); justify-content: flex-end; }
+#cockpit.ck-wheelhouse .gauges.gr { left: calc(50% + var(--bw) * 0.5 + 6px); }
+body:has(#ridechart:not([hidden])) #cockpit.ck-wheelhouse .gauges.gr { display: none; }   /* (her chart's up: the plotter's it) */
 /* (v1169) the wheelhouse made over: frame, glass, wipers, her bow, overhead repeaters; the console filled */
 #cockpit .whwin { position: absolute; left: 0; right: 0; top: 0; bottom: calc(var(--ckh) - 2px); overflow: hidden; }
 #cockpit .whframe { position: absolute; inset: 0; width: 100%; height: 100%; }
@@ -351,6 +359,8 @@ body:has(#ridechart:not([hidden])) #cockpit .ckpanel { padding-right: calc(clamp
   #cockpit.ck-wheelhouse .gauges, #cockpit.ck-console .gauges { display: flex; height: 84%; flex-wrap: nowrap; max-width: 96vw; margin-left: 8px; margin-right: auto; }
   body:has(#ridechart:not([hidden])) #cockpit.ck-wheelhouse .gauges, body:has(#ridechart:not([hidden])) #cockpit.ck-console .gauges { max-width: 52vw; }
   #cockpit.ck-wheelhouse .radar, body:has(#ridechart:not([hidden])) #cockpit.ck-console .cthr { display: none; }
+  #cockpit.ck-wheelhouse { --bw: clamp(150px, 30vh, 280px); } #cockpit.ck-wheelhouse .bigwheel { left: 30%; bottom: calc(var(--bw) * -0.3); }
+  #cockpit.ck-wheelhouse .gauges.gl { right: 8px; left: auto; top: 6%; height: 40%; max-width: 46vw; } #cockpit.ck-wheelhouse .tlever { display: none; }
   #cockpit .wled { min-width: 0; font-size: 0.72em; } #cockpit .cscreen { font-size: 11px; } }
 body.inwheel #labels, body.inwheel #livemarks { z-index: 2; clip-path: inset(0 0 clamp(96px, 19vh, 180px) 0); }
 #cockpit .wheel .rimw { fill: none; stroke: #6a4424; stroke-width: 6; } #cockpit .wheel .hubw { fill: #8a8d90; stroke: #3a3d40; }

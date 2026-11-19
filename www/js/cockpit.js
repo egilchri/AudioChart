@@ -34,12 +34,28 @@ const needle = (cls, len, w = 2.6) => `<g class="${cls}"><path d="M${-w / 2},6 L
 // speed, two throttles, her wheel; update({ hdg, gs: knots })
 function wheelPanel() {
   const radar = `<svg viewBox="-50 -50 100 100" class="radar"><circle r="47" class="rim"/><circle r="43" class="scope"/><circle r="29" class="ring"/><circle r="15" class="ring"/><line x1="-43" y1="0" x2="43" y2="0" class="ring"/><line x1="0" y1="-43" x2="0" y2="43" class="ring"/><g class="sweep"><path d="M0,0 L0,-43 A43,43 0 0,1 26,-34 Z" class="beam"/></g>${[[12, -20], [-18, 8], [25, 14], [-8, -30], [30, -8]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.8" class="blip"/>`).join('')}<line x1="0" y1="0" x2="0" y2="-43" class="head"/></svg>`;
-  const wheel = `<svg viewBox="-50 -50 100 100" class="wheel"><g class="n-helm"><circle r="38" class="rimw"/><circle r="8" class="hubw"/>${[0, 45, 90, 135, 180, 225, 270, 315].map(a => `<g transform="rotate(${a})"><line x1="0" y1="-8" x2="0" y2="-46" class="spoke"/><circle cy="-47" r="3.4" class="knob"/></g>`).join('')}</g></svg>`;
   const levers = `<svg viewBox="0 0 70 100" class="tlever"><rect x="0" y="0" width="70" height="100" rx="8" class="tbase"/><rect x="12" y="10" width="12" height="80" rx="5" class="slot"/><rect x="46" y="10" width="12" height="80" rx="5" class="slot"/><text x="35" y="14" class="tlab">AHD</text><text x="35" y="93" class="tlab">AST</text><g class="n-thr"><rect x="4" y="44" width="28" height="11" rx="4" class="knob"/><rect x="38" y="44" width="28" height="11" rx="4" class="knob"/></g></svg>`;
   const vhf = `<div class="vhf"><div class="vlcd">CH <b>16</b></div><div class="vknobs"><i></i><i></i><i></i></div></div>`;
   const plot = `<svg viewBox="-50 -40 100 80" class="plotter"><rect x="-50" y="-40" width="100" height="80" rx="4" class="pbez"/><rect x="-45" y="-35" width="90" height="70" class="psea"/><g class="n-chart"><path d="M-45,-35 L-10,-35 C-18,-20 -30,-10 -45,-6 Z M45,10 C30,8 22,20 18,35 L45,35 Z" class="pland"/><path d="M-20,25 L-8,-30 M10,30 L22,-28" class="ptrk"/></g><path d="M0,-6 L4,5 L0,3 L-4,5 Z" class="pown"/><line x1="0" y1="-6" x2="0" y2="-30" class="phead"/></svg>`;
   const led = `<div class="tled wled"><div class="n-hdg"></div><div class="n-cog"></div><div class="n-spd"></div></div>`;
-  return `<div class="gauges">${vhf}${radar}${led}${wheel}${levers}${plot}</div>`;
+  return `<div class="gauges gl">${vhf}${radar}${led}${levers}</div><div class="gauges gr">${plot}</div>`;   // (v1171: either side of the wheel)
+}
+// (v1171, asked: "The steering wheel looks like a toy") a ship's wheel as it is from behind it: big, close, its foot below
+// the view; a wooden rim, shaded, with brass bands where the spokes go through; eight spokes, tapered, turned handles
+// beyond the rim; a brass hub. Stands in front of the console, turning as she turns.
+function bigWheel() {
+  const spoke = `<path d="M-2.6,-11 L-1.9,-46 L1.9,-46 L2.6,-11 Z" fill="url(#bwSp)"/>
+<path d="M-2.2,-51 C-3.6,-52.5 -3.6,-55 -2.4,-56 C-3.4,-57.5 -3.4,-60.5 -2.2,-62 C-2.6,-64 -1.6,-65.5 0,-65.5 C1.6,-65.5 2.6,-64 2.2,-62 C3.4,-60.5 3.4,-57.5 2.4,-56 C3.6,-55 3.6,-52.5 2.2,-51 Z" fill="url(#bwSp)"/>
+<rect x="-3.3" y="-50.5" width="6.6" height="4" rx="0.8" fill="url(#bwBr)"/>`;
+  return `<svg viewBox="-68 -68 136 136" class="bigwheel"><defs>
+<linearGradient id="bwSp" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#3e230f"/><stop offset="0.35" stop-color="#a8703a"/><stop offset="0.55" stop-color="#7a4a22"/><stop offset="1" stop-color="#2e190a"/></linearGradient>
+<linearGradient id="bwRim" x1="0" x2="0.3" y1="0" y2="1"><stop offset="0" stop-color="#b07842"/><stop offset="0.5" stop-color="#6e4120"/><stop offset="1" stop-color="#3a200c"/></linearGradient>
+<radialGradient id="bwBr" cx="0.35" cy="0.3" r="0.8"><stop offset="0" stop-color="#ffe9a8"/><stop offset="0.45" stop-color="#c99a3a"/><stop offset="1" stop-color="#5c3f10"/></radialGradient>
+</defs><g class="n-helm">${[0, 45, 90, 135, 180, 225, 270, 315].map(a => `<g transform="rotate(${a})">${spoke}</g>`).join('')}
+<circle r="44" fill="none" stroke="#1e1006" stroke-width="10.5"/><circle r="44" fill="none" stroke="url(#bwRim)" stroke-width="8.5"/>
+<circle r="46.6" fill="none" stroke="rgba(255,220,170,0.28)" stroke-width="0.8"/><circle r="40.6" fill="none" stroke="rgba(0,0,0,0.35)" stroke-width="0.8"/>
+<circle r="15" fill="url(#bwRim)" stroke="#1e1006" stroke-width="1.2"/><circle r="11" fill="url(#bwBr)" stroke="#4a320c" stroke-width="0.8"/><circle r="4.2" fill="url(#bwBr)" stroke="#4a320c" stroke-width="0.6"/>
+${[0, 45, 90, 135, 180, 225, 270, 315].map(a => `<rect x="-2.6" y="-48.6" width="5.2" height="9.2" rx="0.8" transform="rotate(${a})" fill="url(#bwBr)" opacity="0.9"/>`).join('')}</g></svg>`;
 }
 // (v1170) an open boat's console: a low windscreen in its frame, the dash under it, white gelcoat; on it her compass (its
 // card turning), a little screen with her speed and course, a wheel, a throttle
@@ -144,7 +160,7 @@ export function makeCockpit(el) {
       if (k === 'wheelhouse' && opt.bow && opt.bow !== bowK) { kind = null; bowK = opt.bow; }
       if (k !== kind) {
         kind = k; lastS = lastA = null; el.className = `ck-${k === 'railroad' ? 'train' : k}`;
-        el.innerHTML = `${k === 'console' ? '' : '<div class="pillar l"></div><div class="pillar r"></div>'}${k === 'jet' || k === 'train' || k === 'railroad' ? '<div class="pillar c"></div>' : ''}${k === 'train' || k === 'railroad' ? '<div class="theader"></div>' : ''}${k === 'wheelhouse' ? `<div class="whwin">${bowK === 'none' ? '' : bowSvg(BOWS[bowK] || BOWS.work)}${wheelFrame()}<div class="whover"><div class="rep"><span>RUDDER</span><div class="rbar"><i class="n-rud"></i></div></div><div class="rep"><span>HEADING</span><b class="n-ohdg"></b></div></div></div>` : ''}${k === 'console' ? consolePanel() : ''}<div class="ckpanel"${k === 'console' ? ' hidden' : ''}>${k === 'jet' ? jetPanel() : k === 'train' || k === 'railroad' ? trainPanel(k === 'railroad') : k === 'wheelhouse' ? wheelPanel() : lightPanel()}</div>`;
+        el.innerHTML = `${k === 'console' ? '' : '<div class="pillar l"></div><div class="pillar r"></div>'}${k === 'jet' || k === 'train' || k === 'railroad' ? '<div class="pillar c"></div>' : ''}${k === 'train' || k === 'railroad' ? '<div class="theader"></div>' : ''}${k === 'wheelhouse' ? `<div class="whwin">${bowK === 'none' ? '' : bowSvg(BOWS[bowK] || BOWS.work)}${wheelFrame()}<div class="whover"><div class="rep"><span>RUDDER</span><div class="rbar"><i class="n-rud"></i></div></div><div class="rep"><span>HEADING</span><b class="n-ohdg"></b></div></div></div>` : ''}${k === 'console' ? consolePanel() : ''}${k === 'wheelhouse' ? bigWheel() : ''}<div class="ckpanel"${k === 'console' ? ' hidden' : ''}>${k === 'jet' ? jetPanel() : k === 'train' || k === 'railroad' ? trainPanel(k === 'railroad') : k === 'wheelhouse' ? wheelPanel() : lightPanel()}</div>`;
       }
       // (v1170) above the bar of buttons when a phone has it along the bottom (it had covered the console)
       const bar = document.getElementById('scale')?.getBoundingClientRect();

@@ -1356,7 +1356,7 @@ function ride(v, mode = 'helm') {
   document.getElementById('crowsnest').classList.toggle('on', mode === 'nest');
   const big = vLen(v) > 30 && !v.boat, name = vTitle(v);
   document.getElementById('ridename').textContent = mode === 'nest' ? `${name}'s crow's nest` : mode === 'drone' ? `Drone over ${v === own ? 'your boat' : name}` : CHASE[mode] ? `From a boat ${CHASE[mode].label} ${v === own ? 'your boat' : name}`
-    : v === own ? 'At your helm' : big ? `On the bridge of ${name}` : `At the helm of ${v.boat && !v.kind ? 'a ' + name.toLowerCase() : name}`;
+    : v === own ? 'At your helm' : big ? `On the bridge of ${name}` : `At the helm of ${v.boat && !v.kind && !/^(Bowdoin|Angelique)$/i.test(name) ? 'a ' + name.toLowerCase() : /^(Bowdoin|Angelique)$/i.test(name) ? 'the ' + name : name}`   /* (v1171: the schooners by name, not "a bowdoin") */;
   for (const [id, m] of RIDE_BTNS) { const b = document.getElementById(id); if (b) { b.classList.toggle('on', m === mode); if (m === 'nest') b.hidden = !v.boat?.nest; } }
   relabel(rideBtns(), isMover(v) ? v.kind : null);
   if (isMover(v)) document.getElementById('ridename').textContent = mode === 'helm' ? `In the ${v.kind === 'air' ? 'cockpit' : 'cab'} of ${name}`
@@ -4160,7 +4160,7 @@ window.__bay3d = {   // for AudioChart (returning to the chart where you were) a
     return regions3dOffered(RID).find(id => id !== RID && REGIONS3D[id].bay && inB(REGIONS3D[id].bay, lon, lat)) || RID;
   },
   // (v1170, for testing helm views) ride the first vessel whose kind, model or what matches re (moving and off the bank first)
-  rideTest: (re, mode = 'helm') => { const r = new RegExp(re, 'i'), all = [...traffic, ...live].filter(v => (v.kind === "ais" ? vGroup(v).visible : !!v.st) && r.test(`${v.kind} ${v.model || ''} ${v.what || ''} ${v.A?.name || v.F?.name || ''}`));
+  rideTest: (re, mode = 'helm') => { if (/^bowdoin$/i.test(re)) { ride(bowdoin, mode); return 'bowdoin'; } const r = new RegExp(re, 'i'), all = [...traffic, ...live].filter(v => (v.kind === "ais" ? vGroup(v).visible : !!v.st) && r.test(`${v.kind} ${v.model || ''} ${v.what || ''} ${v.A?.name || v.F?.name || ''}`));
     all.sort((a, b) => ((b.A?.sog ?? 5) > 1.5) - ((a.A?.sog ?? 5) > 1.5) || (b.reach ?? 999) - (a.reach ?? 999)); const v = all[0]; if (!v) return null; ride(v, mode); return `${v.kind} ${v.model || ''} ${v.A?.name || v.F?.name || ''}`; },
   nestInfo: () => { const v = nest.v; if (!v) return null; const g = vGroup(v), b = new THREE.Box3().setFromObject(g); return { mode: nest.mode, pitch: nest.pitch, helm: g.userData.helm, L: vLen(v), vis: g.visible, scale: g.scale.x, box: [b.min.y, b.max.y, b.min.z, b.max.z].map(n => +n.toFixed(1)), cam: camera.position.y.toFixed(1), bow: document.querySelector('#cockpit .whbow') ? 1 : 0 }; },
   waterAt: (lon, lat) => isWater(wx(lon), wz(lat)),   // (for testing the chart's water, v1020)

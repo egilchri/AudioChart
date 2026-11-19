@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-19 — Bird's-eye: a ship's wheel, not a toy's (v1171)
+
+- Asked: "See the snapshot. The steering wheel looks like a toy" (the Michael Miller's wheelhouse: a small flat wheel in the row of instruments).
+- **The wheel** (www/js/cockpit.js `bigWheel`): big and close, as from behind it, its foot below the view, standing in front of the console: a shaded wooden rim with brass bands where the spokes pass through, eight tapered spokes with turned handles beyond the rim, a brass hub and cap, a shadow under it; turning as she turns.
+- **The console laid out round it**: the radio, radar, her heading, course and speed and the throttles to its left; the plotter to its right (not while her chart's up: that's the plotter). On a phone the wheel stands left of the middle, her heading and speed beside it, the wheel cut at the console's foot (it had run under the bar of buttons).
+- The schooners' helm titles: "At the helm of the Bowdoin" (it read "a bowdoin").
+- Checked in headless Chrome, desktop and phone, from the tug Maddie K's wheelhouse off Sunset Park. Full CI suite passes.
+
 ## 2026-11-19 — Bird's-eye: helm views, round two (v1170)
 
 - Asked: "keep recursively improving the helm views". Looked at in turn (headless Chrome, live AIS, desktop and a 412×915 phone): the Staten Island ferry, a tug in the Kill Van Kull, a power boat off Ambrose, a sailboat and the pilot boat at their piers, Maine's ferry Captain E. Frank Thompson.
