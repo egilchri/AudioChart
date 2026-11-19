@@ -41,6 +41,16 @@ function wheelPanel() {
   const led = `<div class="tled wled"><div class="n-hdg"></div><div class="n-cog"></div><div class="n-spd"></div></div>`;
   return `<div class="gauges">${vhf}${radar}${led}${wheel}${levers}${plot}</div>`;
 }
+// (v1170) an open boat's console: a low windscreen in its frame, the dash under it, white gelcoat; on it her compass (its
+// card turning), a little screen with her speed and course, a wheel, a throttle
+function consolePanel() {
+  const card = `<g class="n-card">${Array.from({ length: 36 }, (_, i) => `<line x1="0" y1="-30" x2="0" y2="${i % 9 === 0 ? -22 : -26}" transform="rotate(${i * 10})" class="ctk"/>`).join('')}${[['N', 0], ['E', 90], ['S', 180], ['W', 270]].map(([t, a]) => `<text transform="rotate(${a}) translate(0 -12)" class="cfig">${t}</text>`).join('')}</g>`;
+  const compass = `<svg viewBox="-40 -40 80 80" class="binn"><circle r="38" class="bowl"/><circle r="32" class="cface"/>${card}<line x1="0" y1="-36" x2="0" y2="-28" class="lub"/><ellipse cx="-10" cy="-16" rx="14" ry="7" class="glint"/></svg>`;
+  const screen = `<div class="cscreen"><div class="n-spd"></div><div class="n-cog"></div></div>`;
+  const wheel = `<svg viewBox="-50 -50 100 100" class="cwheel"><g class="n-helm"><circle r="40" class="crim"/><circle r="7" class="chub"/>${[0, 120, 240].map(a => `<line x1="0" y1="0" x2="0" y2="-40" transform="rotate(${a})" class="cspoke"/>`).join('')}</g></svg>`;
+  const thr = `<svg viewBox="0 0 40 100" class="cthr"><rect x="4" y="58" width="32" height="40" rx="6" class="cbox"/><g class="n-thr"><line x1="20" y1="70" x2="20" y2="28" class="carm"/><circle cx="20" cy="24" r="8" class="cknob"/></g></svg>`;
+  return `<div class="whwin cwin">${bowSvg(BOWS.open)}</div><div class="cwind"></div><div class="cdash"><div class="gauges">${screen}${compass}${wheel}${thr}</div></div>`;
+}
 // (v1169) the wheelhouse's frame: the deckhead, the windows (four panes, between posts, rounded), their wipers, the glass;
 // and ahead of them her own bow, its deck by her kind: a tug's red deck and black fender, a ship's rust, a ferry's grey and white
 const BOWS = {
@@ -48,9 +58,10 @@ const BOWS = {
   work: { deck: '#59626a', rail: '#e2c33a', cap: '#2a2b2d', stem: 0.48 },
   ferry: { deck: '#8d9398', rail: '#eceae4', cap: '#c7c4bc', stem: 0.62 },
   ship: { deck: '#6a3428', rail: '#c9c6bf', cap: '#8f8c86', stem: 0.78, mast: true },
+  open: { deck: '#ebe8e0', rail: '#b9bec3', cap: '#f7f7f5', stem: 0.85, open: true },   // (v1170: an open boat's white foredeck, her stainless rail)
 };
 function wheelFrame() {
-  const panes = [[30, 238], [262, 488], [512, 738], [762, 970]], R = 26, T = 175;
+  const panes = innerWidth < innerHeight ? [[30, 320], [345, 655], [680, 970]] : [[30, 238], [262, 488], [512, 738], [762, 970]], R = 26, T = 175;   // (v1170: three panes on a phone held upright, four were slats)
   const hole = ([a, b]) => `M${a + R},${T} H${b - R} Q${b},${T} ${b},${T + R} V${975 - R} Q${b},975 ${b - R},975 H${a + R} Q${a},975 ${a},${975 - R} V${T + R} Q${a},${T} ${a + R},${T} Z`;
   const wiper = ([a, b]) => { const c = (a + b) / 2; return `<g class="wiper"><line x1="${c + 70}" y1="985" x2="${c - 40}" y2="958"/><line x1="${c - 95}" y1="963" x2="${c + 45}" y2="952" class="blade"/></g>`; };   // (parked, along the foot of the pane) };
   return `<svg class="whframe" viewBox="0 0 1000 1000" preserveAspectRatio="none"><defs><linearGradient id="whg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.07"/><stop offset="0.45" stop-color="#fff" stop-opacity="0"/><stop offset="0.6" stop-color="#bfe0ff" stop-opacity="0.05"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>
@@ -67,7 +78,7 @@ function bowSvg(b) {
 <path d="M${-W - 260},300 L${-W * 0.42},${sy + 40} Q0,${sy - 8} ${W * 0.42},${sy + 40} L${W + 260},300" fill="none" stroke="${b.rail}" stroke-width="22"/>
 <path d="M${-W - 260},290 L${-W * 0.42},${sy + 32} Q0,${sy - 16} ${W * 0.42},${sy + 32} L${W + 260},290" fill="none" stroke="${b.cap}" stroke-width="5"/>
 ${b.fender ? `<path d="M${-W * 0.5},${sy + 46} Q0,${sy - 20} ${W * 0.5},${sy + 46}" fill="none" stroke="#111" stroke-width="26" stroke-linecap="round"/>` : ''}
-<g fill="#202224"><rect x="-70" y="${sy + 95}" width="16" height="22" rx="3"/><rect x="54" y="${sy + 95}" width="16" height="22" rx="3"/><ellipse cx="0" cy="${sy + 150}" rx="34" ry="12"/></g>
+${b.open ? '' : `<g fill="#202224"><rect x="-70" y="${sy + 95}" width="16" height="22" rx="3"/><rect x="54" y="${sy + 95}" width="16" height="22" rx="3"/><ellipse cx="0" cy="${sy + 150}" rx="34" ry="12"/></g>`}${b.open ? `<path d="M-40,${sy + 60} L0,${sy + 30} L40,${sy + 60}" fill="none" stroke="#c9ced3" stroke-width="4"/><rect x="-60" y="${sy + 120}" width="120" height="40" rx="10" fill="#dcd8ce"/>` : ''}
 ${b.mast ? `<rect x="-5" y="${sy - 70}" width="10" height="110" fill="#d8d4cc"/><rect x="-30" y="${sy - 52}" width="60" height="6" fill="#d8d4cc"/>` : ''}
 <line x1="0" y1="${sy + 10}" x2="0" y2="${sy - 40}" stroke="#ddd" stroke-width="3"/></svg>`;
 }
@@ -124,28 +135,37 @@ export function makeCockpit(el) {
   let kind = null, q = {}, lastS = null, lastA = null, bowK = 'work';
   const set = (sel, fn) => { for (const n of el.querySelectorAll(sel)) fn(n); };
   const rot = (sel, deg) => set(sel, n => n.setAttribute('transform', `rotate(${deg.toFixed(1)})`));
+  // (v1169) her bow, ahead whichever way you look: off to the side as you turn your head, gone past 70°; up and down with it
+  const bowAt = (yaw, pitch, fov) => set('.whbow', n => { const W = innerWidth, H = innerHeight, vf = fov || 50, hf = 2 * Math.atan(Math.tan(vf * Math.PI / 360) * W / H) * 180 / Math.PI;
+    n.style.display = Math.abs(yaw) > 70 ? 'none' : ''; n.style.transform = `translate(${(-yaw / hf * W).toFixed(0)}px, ${((pitch + 3) / vf * H).toFixed(0)}px)`; });
   const txt = (sel, t) => set(sel, n => { if (n.textContent !== t) n.textContent = t; });
   return {
     show(k, opt = {}) {
       if (k === 'wheelhouse' && opt.bow && opt.bow !== bowK) { kind = null; bowK = opt.bow; }
       if (k !== kind) {
         kind = k; lastS = lastA = null; el.className = `ck-${k === 'railroad' ? 'train' : k}`;
-        el.innerHTML = `<div class="pillar l"></div><div class="pillar r"></div>${k === 'jet' || k === 'train' || k === 'railroad' ? '<div class="pillar c"></div>' : ''}${k === 'train' || k === 'railroad' ? '<div class="theader"></div>' : ''}${k === 'wheelhouse' ? `<div class="whwin">${bowK === 'none' ? '' : bowSvg(BOWS[bowK] || BOWS.work)}${wheelFrame()}<div class="whover"><div class="rep"><span>RUDDER</span><div class="rbar"><i class="n-rud"></i></div></div><div class="rep"><span>HEADING</span><b class="n-ohdg"></b></div></div></div>` : ''}<div class="ckpanel">${k === 'jet' ? jetPanel() : k === 'train' || k === 'railroad' ? trainPanel(k === 'railroad') : k === 'wheelhouse' ? wheelPanel() : lightPanel()}</div>`;
+        el.innerHTML = `${k === 'console' ? '' : '<div class="pillar l"></div><div class="pillar r"></div>'}${k === 'jet' || k === 'train' || k === 'railroad' ? '<div class="pillar c"></div>' : ''}${k === 'train' || k === 'railroad' ? '<div class="theader"></div>' : ''}${k === 'wheelhouse' ? `<div class="whwin">${bowK === 'none' ? '' : bowSvg(BOWS[bowK] || BOWS.work)}${wheelFrame()}<div class="whover"><div class="rep"><span>RUDDER</span><div class="rbar"><i class="n-rud"></i></div></div><div class="rep"><span>HEADING</span><b class="n-ohdg"></b></div></div></div>` : ''}${k === 'console' ? consolePanel() : ''}<div class="ckpanel"${k === 'console' ? ' hidden' : ''}>${k === 'jet' ? jetPanel() : k === 'train' || k === 'railroad' ? trainPanel(k === 'railroad') : k === 'wheelhouse' ? wheelPanel() : lightPanel()}</div>`;
       }
+      // (v1170) above the bar of buttons when a phone has it along the bottom (it had covered the console)
+      const bar = document.getElementById('scale')?.getBoundingClientRect();
+      el.style.setProperty('--lift', bar && bar.height && bar.top > innerHeight * 0.5 ? `${Math.round(innerHeight - bar.top + 4)}px` : '0px');
       el.hidden = false; document.body.classList.add('incockpit');
     },
     hide() { el.hidden = true; document.body.classList.remove('incockpit'); },
     update({ gs = 0, alt = 0, hdg = 0, vr = 0, ground = false, next = '', dest = '', cog = null, turn = 0, yaw = 0, pitch = -3, fov = 50 } = {}) {
       if (el.hidden) return;
+      if (kind === 'console') {   // (v1170) an open boat's: her compass card, her speed and course, the wheel and the throttle
+        const d3 = a => String(Math.round(((a % 360) + 360) % 360) % 360).padStart(3, '0');
+        rot('.n-card', -hdg); txt('.n-spd', `${gs.toFixed(1)} kn`); txt('.n-cog', `${cog != null ? 'COG' : 'HDG'} ${d3(cog ?? hdg)}°`);
+        rot('.n-helm', clamp(turn / 20, -1, 1) * 90); set('.n-thr', n => n.setAttribute('transform', `rotate(${(-40 * clamp(gs / 25, 0, 1)).toFixed(1)} 20 70)`));
+        bowAt(yaw, pitch, fov); return;
+      }
       if (kind === 'wheelhouse') {   // (v1167) her heading and speed; the throttles forward as she makes way
         const d3 = a => String(Math.round(((a % 360) + 360) % 360) % 360).padStart(3, '0');
         txt('.n-hdg', `HDG ${d3(hdg)}°`); txt('.n-cog', cog != null ? `COG ${d3(cog)}°` : ''); txt('.n-spd', `SOG ${gs.toFixed(1)} kn`); txt('.n-ohdg', `${d3(hdg)}°`);
         set('.n-thr', n => n.setAttribute('transform', `translate(0 ${(-26 * clamp(gs / 18, 0, 1)).toFixed(1)})`));
         const rud = clamp(turn / 20, -1, 1); rot('.n-helm', rud * 120); set('.n-rud', n => { n.style.left = `${50 + rud * 45}%`; });
-        // (v1169) her bow, ahead whichever way you look: off to the side as you turn your head, gone past 70°; up and down with it
-        set('.whbow', n => { const W = innerWidth, H = innerHeight, vf = fov || 50, hf = 2 * Math.atan(Math.tan(vf * Math.PI / 360) * W / H) * 180 / Math.PI;
-          n.style.display = Math.abs(yaw) > 70 ? 'none' : ''; n.style.transform = `translate(${(-yaw / hf * W).toFixed(0)}px, ${((pitch + 3) / vf * H).toFixed(0)}px)`; });
-        return;
+        bowAt(yaw, pitch, fov); return;
       }
       if (kind === 'train' || kind === 'railroad') {   // (v1161) her speed, the next stop, the controller back as she slows
         const top = kind === 'railroad' ? 100 : 60; rot('.n-asi', -135 + 270 * clamp(gs, 0, top) / top); txt('.n-next', next ? `Next: ${next}` : ''); txt('.n-dest', dest ? `To ${dest}` : '');

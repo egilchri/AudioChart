@@ -262,8 +262,8 @@ body.embed #nesthud { top: calc(94px + env(safe-area-inset-top, 0px)); }
 #ridechart[hidden] { display: none; }
 /* the cockpit you look out of (v1135, cockpit.js): a glareshield and panel along the bottom, the window pillars; the
    view still drags (pointer-events off), and the chart in the corner stays over it */
-#cockpit { position: fixed; inset: 0; z-index: 1; pointer-events: none; --ckh: clamp(130px, 31vh, 300px); }   /* (under the bar along the top, the HUD and the chart: z 2-3) */
-#cockpit[hidden] { display: none; }
+#cockpit { position: fixed; inset: 0 0 var(--lift, 0px) 0; z-index: 1; pointer-events: none; --ckh: clamp(130px, 31vh, 300px); }   /* (under the bar along the top, the HUD and the chart: z 2-3) */
+#cockpit[hidden], #cockpit .ckpanel[hidden] { display: none; }
 #cockpit .ckpanel { position: absolute; left: -2%; right: -2%; bottom: 0; height: var(--ckh); background: linear-gradient(#34383d 0, #23262a 14%, #191b1e 100%);
   border-top-left-radius: 50% 26%; border-top-right-radius: 50% 26%; box-shadow: 0 -6px 18px rgba(0,0,0,0.45), inset 0 3px 0 rgba(255,255,255,0.07); display: flex; align-items: center; justify-content: center; padding-top: 2.5%; padding-bottom: calc(var(--credit-h, 13px) + 16px); box-sizing: border-box; }   /* (above the credit line) */
 #cockpit .gauges { display: flex; align-items: center; gap: clamp(6px, 1.2vw, 16px); height: 84%; max-width: 92vw; }
@@ -301,7 +301,7 @@ body:has(#ridechart:not([hidden])) #cockpit .ckpanel { padding-right: calc(clamp
 #cockpit .tled .n-dest { opacity: 0.7; font-size: 0.8em; margin-top: 0.2em; }
 #cockpit .tlever { height: 90%; }
 /* (v1167) a wheelhouse: the deckhead, its windows' posts, a console with the radar, her heading and speed, her wheel */
-#cockpit.ck-wheelhouse { --ckh: clamp(110px, 25vh, 230px); }
+#cockpit.ck-wheelhouse { --ckh: clamp(96px, 19vh, 180px); }   /* (v1170: lower, deep windows: her foredeck over it) */
 #cockpit.ck-wheelhouse .ckpanel { border-radius: 0; background: linear-gradient(#3a3f44 0, #262a2e 18%, #1a1d20 100%); }
 #cockpit .radar { height: 92%; aspect-ratio: 1; }
 #cockpit .radar .rim { fill: #0b0d0e; stroke: #4a5056; stroke-width: 1.5; } #cockpit .radar .scope { fill: #04140b; }
@@ -325,12 +325,34 @@ body:has(#ridechart:not([hidden])) #cockpit .ckpanel { padding-right: calc(clamp
 #cockpit .radar .head { stroke: rgba(160,255,190,0.6); stroke-width: 0.7; }
 #cockpit .tbase { fill: #2c3135; stroke: #464c52; } #cockpit .tlab { fill: #9aa3ab; font: 600 7px var(--body, sans-serif); text-anchor: middle; }
 #cockpit .vhf { height: 46%; aspect-ratio: 2.1; background: #15181b; border: 2px solid #3d4349; border-radius: 5px; display: flex; flex-direction: column; justify-content: space-between; padding: 5px 7px; box-sizing: border-box; align-self: flex-start; margin-top: 4%; }
-#cockpit .vlcd { background: #9fb57a; color: #1d2614; font: 600 11px var(--mono, monospace); padding: 1px 5px; border-radius: 2px; } #cockpit .vlcd b { font-size: 15px; }
+#cockpit .vlcd { white-space: nowrap; background: #9fb57a; color: #1d2614; font: 600 11px var(--mono, monospace); padding: 1px 5px; border-radius: 2px; } #cockpit .vlcd b { font-size: 15px; }
 #cockpit .vknobs { display: flex; gap: 6px; } #cockpit .vknobs i { width: 11px; height: 11px; border-radius: 50%; background: #50575d; }
 #cockpit .plotter { height: 88%; aspect-ratio: 1.25; }
 #cockpit .plotter .pbez { fill: #15181b; stroke: #3d4349; stroke-width: 1.2; } #cockpit .plotter .psea { fill: #a8cfe6; } #cockpit .plotter .pland { fill: #f0dfa8; }
 #cockpit .plotter .ptrk { stroke: #c43; stroke-width: 0.8; stroke-dasharray: 2 2; fill: none; } #cockpit .plotter .pown { fill: #222; } #cockpit .plotter .phead { stroke: #222; stroke-width: 0.6; }
-body.inwheel #labels, body.inwheel #livemarks { z-index: 2; clip-path: inset(0 0 clamp(110px, 25vh, 230px) 0); }
+/* (v1170) an open boat's console: a low tinted windscreen, white gelcoat, compass, screen, wheel, throttle */
+#cockpit.ck-console .cwind { position: absolute; left: 22%; right: 22%; bottom: calc(clamp(80px, 17vh, 150px) - 4px); height: clamp(60px, 13vh, 120px); clip-path: polygon(6% 0, 94% 0, 100% 100%, 0 100%);
+  background: linear-gradient(170deg, rgba(150,180,175,0.28), rgba(60,90,85,0.18) 55%, rgba(200,230,225,0.22)); border-top: 5px solid #c8ccd0; }
+#cockpit.ck-console .cwin { bottom: calc(clamp(80px, 17vh, 150px) - 6px); top: 30%; }
+#cockpit.ck-console .cwin .whbow { height: 62%; }
+#cockpit.ck-console .cdash { position: absolute; left: 18%; right: 18%; bottom: 0; height: clamp(80px, 17vh, 150px); border-radius: 26px 26px 0 0;
+  background: linear-gradient(#f1efe9, #d9d6cd 40%, #b9b5aa); box-shadow: 0 -4px 14px rgba(0,0,0,0.3); display: flex; justify-content: center; align-items: flex-start; padding-top: 8px; box-sizing: border-box; }
+#cockpit.ck-console .gauges { height: 92%; align-items: flex-start; }
+#cockpit .cscreen { height: 62%; aspect-ratio: 1.4; background: #0c1418; border: 3px solid #2a2f33; border-radius: 6px; color: #9fe8ff; font: 700 13px var(--mono, monospace); display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 2px; }
+#cockpit .binn { height: 92%; aspect-ratio: 1; } #cockpit .binn .bowl { fill: #1b1e21; stroke: #555b61; stroke-width: 2; } #cockpit .binn .cface { fill: #0f1215; }
+#cockpit .binn .ctk { stroke: #e9eef2; stroke-width: 0.8; } #cockpit .binn .cfig { fill: #ffcf6e; font: 700 8px var(--body, sans-serif); text-anchor: middle; dominant-baseline: middle; }
+#cockpit .binn .lub { stroke: #ff6a3d; stroke-width: 2; } #cockpit .binn .glint { fill: rgba(255,255,255,0.12); }
+#cockpit .cwheel { height: 140%; aspect-ratio: 1; margin-top: 2%; } #cockpit .cwheel .crim { fill: none; stroke: #c9ced3; stroke-width: 5; } #cockpit .cwheel .chub { fill: #9aa1a8; } #cockpit .cwheel .cspoke { stroke: #b8bec4; stroke-width: 3.5; }
+#cockpit .cthr { height: 100%; aspect-ratio: 0.4; } #cockpit .cthr .cbox { fill: #2a2e32; } #cockpit .cthr .carm { stroke: #c9ced3; stroke-width: 4; stroke-linecap: round; } #cockpit .cthr .cknob { fill: #1b1d1f; }
+/* (v1170) narrow screens (a phone): the console keeps what matters, her heading and speed, the radar, the wheel, the throttles */
+@media (max-width: 700px) { #cockpit.ck-wheelhouse { --ckh: clamp(150px, 28vh, 260px); } html body.inwheel #labels, html body.inwheel #livemarks { clip-path: inset(0 0 clamp(150px, 28vh, 260px) 0); }
+  #cockpit.ck-wheelhouse .vhf, #cockpit.ck-wheelhouse .plotter { display: none; } #cockpit .rep span { display: none; } #cockpit .rbar { width: 54px; }
+  #cockpit.ck-console .cdash { left: 2%; right: 2%; justify-content: flex-start; padding-left: 10px; } #cockpit.ck-console .cwind { left: 10%; right: 10%; }
+  #cockpit.ck-wheelhouse .gauges, #cockpit.ck-console .gauges { display: flex; height: 84%; flex-wrap: nowrap; max-width: 96vw; margin-left: 8px; margin-right: auto; }
+  body:has(#ridechart:not([hidden])) #cockpit.ck-wheelhouse .gauges, body:has(#ridechart:not([hidden])) #cockpit.ck-console .gauges { max-width: 52vw; }
+  #cockpit.ck-wheelhouse .radar, body:has(#ridechart:not([hidden])) #cockpit.ck-console .cthr { display: none; }
+  #cockpit .wled { min-width: 0; font-size: 0.72em; } #cockpit .cscreen { font-size: 11px; } }
+body.inwheel #labels, body.inwheel #livemarks { z-index: 2; clip-path: inset(0 0 clamp(96px, 19vh, 180px) 0); }
 #cockpit .wheel .rimw { fill: none; stroke: #6a4424; stroke-width: 6; } #cockpit .wheel .hubw { fill: #8a8d90; stroke: #3a3d40; }
 #cockpit .wheel .spoke { stroke: #7a5230; stroke-width: 3.2; } #cockpit .wheel .knob { fill: #6a4424; }
 #cockpit .wled { font-size: 0.85em; color: #7dffb0; text-shadow: 0 0 6px rgba(80,255,150,0.5); min-width: 9em; }

@@ -1326,6 +1326,15 @@ function vName(v) {
 const vDoing = v => v.boat.power ? 'Hauling traps' : env.W.heel > 0 ? 'Under sail' : 'Becalmed';
 const vTitle = v => v.kind === 'cruise' ? `the ${v.V.name}` : vName(v);   // in a sentence
 const vLen = v => v.L || v.boat?.L || 8;
+// (v1170) at a vessel's helm, how far down to look: her stem just above the wheelhouse console's sill (16° under the middle
+// of the view), as a helmsman looks out over her bow; a tug's foredeck had been under the console. Her deck at the stem
+// taken as 45% of the helm's height; at most 14° down, at least 3°
+function helmPitch(v) {
+  const H = vGroup(v).userData.helm; if (!H) return helmOf(v)[1] > 6 ? -8 : -3;
+  const ahead = H[2] + vLen(v) / 2, drop = H[1] * 0.55;
+  if (ahead < 2) return -3;
+  return clamp(12 - Math.atan2(drop, ahead) / DEG, -14, -3);
+}
 const helmOf = v => vGroup(v).userData.helm || v.boat?.helm || [0, 2, vLen(v) * 0.35];
 // Stern, Side and Bow (v968, requested: "view this boat from the stern, bow, and sides, like we did elsewhere",
 // as the helm view's v955): a camera boat keeping station off her, low on the water, looking at her: astern with
@@ -1342,7 +1351,7 @@ function ride(v, mode = 'helm') {
   if (was && nest.v !== v) insidePlane(nest.v, false);   // (her model back, leaving her for another)
   if (!was) { stopFollow(); anim = null; nest.prev = { ...view }; }
   nest.ugKey = '';   // (the tunnel's title, if she's underground, set again)
-  nest.on = true; nest.v = v; nest.mode = mode; nest.yaw = CHASE[mode]?.yaw || 0; nest.pitch = CHASE[mode] ? -CHASE[mode].el : mode === 'drone' ? -16 : mode === 'helm' && v.kind === 'air' ? -6 : mode === 'helm' && helmOf(v)[1] > 6 ? -8 : -3; nest.zoom = 1; nestRep.textContent = '';   // (from a high bridge, a little down: her bow in sight)
+  nest.on = true; nest.v = v; nest.mode = mode; nest.yaw = CHASE[mode]?.yaw || 0; nest.pitch = CHASE[mode] ? -CHASE[mode].el : mode === 'drone' ? -16 : mode === 'helm' && v.kind === 'air' ? -6 : mode === 'helm' && v.kind !== 'rail' ? helmPitch(v) : -3; nest.zoom = 1; nestRep.textContent = '';   // (from a high bridge, a little down: her bow in sight)
   document.body.classList.add('innest'); nestHud.hidden = false;
   document.getElementById('crowsnest').classList.toggle('on', mode === 'nest');
   const big = vLen(v) > 30 && !v.boat, name = vTitle(v);
@@ -1392,6 +1401,11 @@ const cockpitKind = v => v.heli ? 'heli' : v.L > 14 ? 'jet' : 'light';
 const WHEELHOUSE = new Set(['tug', 'pilot', 'dredger', 'ferry', 'cruise', 'cargo', 'tanker', 'ship', 'cutter', 'trawler', 'scalloper', 'research', 'osv', 'cable']);
 let ckLoading = null;   // (the cockpit's drawing, armchair layer or no: fetched the first time a wheelhouse is wanted, so a boater's Maine bay has it too)
 function wantCockpit() { const ck = document.getElementById('cockpit'); if (cockpit || ckLoading || !ck) return; ckLoading = import('./cockpit.js').then(m => { cockpit ??= m.makeCockpit(ck); }).catch(e => { ckLoading = null; console.warn('[bay3d] cockpit', e); }); }
+// (v1170) her rate of turn in degrees a minute from AIS's code (±127 turning, rate not given: say 15; −128 not known: 0),
+// for the rudder indicator and the wheel (the Staten Island ferry's "not known" had put her rudder hard to port)
+const rotDpm = r => r == null || r === -128 ? 0 : Math.abs(r) >= 127 ? Math.sign(r) * 15 : Math.sign(r) * (r / 4.733) ** 2;
+// an open boat's helm (v1170): a launch's or a power boat's, at her console, behind its low windscreen
+const atConsole = v => !!v && v.kind === 'ais' && (v.model === 'power' || v.model === 'launch');
 const inWheelhouse = v => !!v && v !== own && !v.boat && (v.kind === 'ferry' || v.kind === 'cruise' || (v.kind === 'ais' && WHEELHOUSE.has(v.model)));
 // (v1169) her heading, unless it can't be: making way at 2 kn or more on a course more than 70° off it (a boat's heading
 // sensor set up wrong: the Hornblower Freedom "heading" 319° making 5.6 kn on 167°; her helm view looked astern)
@@ -1405,7 +1419,12 @@ function insidePlane(v, inside) {
     if (!inside || nest.mode !== 'helm') { cockpit?.hide(); document.body.classList.remove('inwheel'); return; } if (!cockpit) { wantCockpit(); return; }
     // (her bow painted on only where her model has no wheelhouse of its own: one that has shows her real foredeck, her containers)
     cockpit.show('wheelhouse', { bow: vGroup(v).userData.helm ? 'none' : v.kind === 'ferry' ? 'ferry' : v.kind === 'cruise' ? 'ferry' : v.model === 'tug' ? 'tug' : ['ferry', 'cruise'].includes(v.model) ? 'ferry' : ['cargo', 'tanker', 'ship'].includes(v.model) ? 'ship' : 'work' }); document.body.classList.add('inwheel');
-    cockpit.update({ hdg: v.h || 0, cog: v.A?.cog ?? null, turn: v.A?.rot ?? 0, gs: v.A?.sog ?? v.kn ?? 0, yaw: nest.yaw, pitch: nest.pitch, fov: camera.fov }); return;
+    cockpit.update({ hdg: v.h || 0, cog: v.A?.cog ?? null, turn: rotDpm(v.A?.rot), gs: v.A?.sog ?? v.kn ?? 0, yaw: nest.yaw, pitch: nest.pitch, fov: camera.fov }); return;
+  }
+  if (atConsole(v)) {
+    document.body.classList.remove('inwheel');
+    if (!inside || nest.mode !== 'helm') { cockpit?.hide(); return; } if (!cockpit) { wantCockpit(); return; }
+    cockpit.show('console'); cockpit.update({ hdg: v.h || 0, cog: v.A?.cog ?? null, turn: rotDpm(v.A?.rot), gs: v.A?.sog ?? 0, yaw: nest.yaw, pitch: nest.pitch, fov: camera.fov }); return;
   }
   document.body.classList.remove('inwheel');
   // (v1161) a train's cab: her front window's frame, her speed and the next stop
@@ -1452,7 +1471,7 @@ function clearOfRoofs(at, D, el, az0) {
 }
 function nestCamera() {   // after every vessel has moved: the eye aboard her, looking where you've turned it
   const v = nest.v, g = vGroup(v);
-  if (!g.visible && !(v === own && own.r)) { leaveRide(); return; }   // she's gone (out of service, out of season)
+  if (!g.visible && !(v === own && own.r) && !(v.on && nest.mode === 'helm' && atConsole(v))) { leaveRide(); return; }   // (v1170: at an open boat's console her model's hidden, not gone)   // she's gone (out of service, out of season)
   // underground (v1149): in her tunnel, not the street over her (her Drone still over the street); the ride bar says so
   const ug = subway.update(v, nest.mode, nest, camera), ugKey = ug ? `${ug}|${nest.mode}|${subway.station || ''}` : '';
   if (ugKey !== (nest.ugKey || '')) {
@@ -2360,7 +2379,7 @@ function updateLive(dt) {
     v.x += (tx - v.x) * k; v.z += (tz - v.z) * k;
     const want = aisHead(A);
     if (want != null) { const turn = ((want - v.h + 540) % 360) - 180; v.h = (v.h + clamp(turn, -20 * dt, 20 * dt) + 360) % 360; }
-    v.on = liveFeed.on && !aboveFog; v.group.visible = v.on && !v.ashore;
+    v.on = liveFeed.on && !aboveFog; v.group.visible = v.on && !v.ashore && !(nest.on && nest.v === v && nest.mode === 'helm' && atConsole(v));   // (v1170: at an open boat's console, her model hidden: the camera had been inside her cabin)
     v.group.position.set(v.x, 0, v.z); v.group.rotation.y = -v.h * DEG;
     const d = Math.hypot(v.x - cp.x, cp.y, v.z - cp.z), aboard = nest.on && nest.v === v;
     if (v.boat) {
@@ -4140,6 +4159,10 @@ window.__bay3d = {   // for AudioChart (returning to the chart where you were) a
     if (inB(BAY, lon, lat)) return RID;
     return regions3dOffered(RID).find(id => id !== RID && REGIONS3D[id].bay && inB(REGIONS3D[id].bay, lon, lat)) || RID;
   },
+  // (v1170, for testing helm views) ride the first vessel whose kind, model or what matches re (moving and off the bank first)
+  rideTest: (re, mode = 'helm') => { const r = new RegExp(re, 'i'), all = [...traffic, ...live].filter(v => (v.kind === "ais" ? vGroup(v).visible : !!v.st) && r.test(`${v.kind} ${v.model || ''} ${v.what || ''} ${v.A?.name || v.F?.name || ''}`));
+    all.sort((a, b) => ((b.A?.sog ?? 5) > 1.5) - ((a.A?.sog ?? 5) > 1.5) || (b.reach ?? 999) - (a.reach ?? 999)); const v = all[0]; if (!v) return null; ride(v, mode); return `${v.kind} ${v.model || ''} ${v.A?.name || v.F?.name || ''}`; },
+  nestInfo: () => { const v = nest.v; if (!v) return null; const g = vGroup(v), b = new THREE.Box3().setFromObject(g); return { mode: nest.mode, pitch: nest.pitch, helm: g.userData.helm, L: vLen(v), vis: g.visible, scale: g.scale.x, box: [b.min.y, b.max.y, b.min.z, b.max.z].map(n => +n.toFixed(1)), cam: camera.position.y.toFixed(1), bow: document.querySelector('#cockpit .whbow') ? 1 : 0 }; },
   waterAt: (lon, lat) => isWater(wx(lon), wz(lat)),   // (for testing the chart's water, v1020)
   getView: () => ({ lat: latOf(view.z), lon: lonOf(view.x), dist: view.dist, az: view.az / DEG, tilt: view.tilt / DEG, following: follow === own }),
   // where your boat is on screen, [x, y] in this page's pixels, or null (for testing and the demo video)

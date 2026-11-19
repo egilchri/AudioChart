@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-11-19 — Bird's-eye: helm views, round two (v1170)
+
+- Asked: "keep recursively improving the helm views". Looked at in turn (headless Chrome, live AIS, desktop and a 412×915 phone): the Staten Island ferry, a tug in the Kill Van Kull, a power boat off Ambrose, a sailboat and the pilot boat at their piers, Maine's ferry Captain E. Frank Thompson.
+- **An open boat's console** (www/js/cockpit.js 'console'; bay3d.js `atConsole`): a launch's or a power boat's helm had put the camera inside her cabin model (a black screen) or showed half a screen of flat grey deck. Now her model's hidden while you're at her helm, and you stand at a centre console: her white foredeck and bow rail ahead (turning off as you look round), a low tinted windscreen, the dash in white gelcoat with her compass (its card turning), a screen with speed and course, a stainless wheel, a throttle. Hiding her model no longer reads as "she's gone" and ends the ride.
+- **Looking out over her bow** (`helmPitch`): from a working vessel's wheelhouse the view now tips down so her stem shows just over the console (a tug's foredeck had sat below it); the wheelhouse console is lower, its windows deeper. The Fort Schuyler's dark bow and bitts, the Captain E. Frank Thompson's red-striped bow.
+- **Rate of turn read right** (`rotDpm`): AIS's −128 ("not known") had put the Staten Island ferry's rudder indicator hard to port; ±127 is "turning, rate not given". Now degrees a minute, for the rudder indicator and the wheel.
+- **On a phone**: the cockpit rises above the bar of buttons along the bottom (it had covered the console); three panes held upright instead of four slats; the console one row (heading, course and speed, wheel, throttles) beside the chart, not a grid spilling into the windows; "CH 16" no longer wraps.
+- For testing: `__bay3d.rideTest(re)` rides the first vessel in view whose kind, model or name matches; `__bay3d.nestInfo()`.
+- AudioChart's release too (Maine's ferries, boaters' phones). Full CI suite passes.
+
 ## 2026-11-19 — Bird's-eye: a loading list, and the wheelhouse made over (v1169)
 
 - **The loading list** (asked: "some visual way to trace the loading process ... track progress"; www/js/bay3d.js `LOAD`, www/bay3d.html #loadlist): opening a bay, a card lists each stage in order (elevation, the aerial photo's pieces, the chart's names and buoys, bridges, planes and trains, railway tracks, freeways, the airport, buildings, close-up ground, Live) as waiting, under way (spinning) or done (ticked), or failed, with its count (990 names, 13,880 track pieces, 10 building areas, 185 ships · 837 trains); a bar and a percentage for the whole. It goes 2.5 s after the last is in (45 s at most); later loads, a close-up's, keep the small pill. L shows it again. In Maine's bays its Live row is "Live: ships".
