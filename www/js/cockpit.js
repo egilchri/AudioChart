@@ -79,12 +79,11 @@ const BOWS = {
 function wheelFrame() {
   const panes = innerWidth < innerHeight ? [[30, 320], [345, 655], [680, 970]] : [[30, 238], [262, 488], [512, 738], [762, 970]], R = 26, T = 175;   // (v1170: three panes on a phone held upright, four were slats)
   const hole = ([a, b]) => `M${a + R},${T} H${b - R} Q${b},${T} ${b},${T + R} V${975 - R} Q${b},975 ${b - R},975 H${a + R} Q${a},975 ${a},${975 - R} V${T + R} Q${a},${T} ${a + R},${T} Z`;
-  const wiper = ([a, b]) => { const c = (a + b) / 2; return `<g class="wiper"><line x1="${c + 70}" y1="985" x2="${c - 40}" y2="958"/><line x1="${c - 95}" y1="963" x2="${c + 45}" y2="952" class="blade"/></g>`; };   // (parked, along the foot of the pane) };
   return `<svg class="whframe" viewBox="0 0 1000 1000" preserveAspectRatio="none"><defs><linearGradient id="whg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.07"/><stop offset="0.45" stop-color="#fff" stop-opacity="0"/><stop offset="0.6" stop-color="#bfe0ff" stop-opacity="0.05"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>
-${panes.map(p => `<path d="${hole(p)}" fill="url(#whg)"/>`).join('')}${wiper(panes[1])}${wiper(panes[2])}
+${panes.map(p => `<path d="${hole(p)}" fill="url(#whg)"/>`).join('')}
 <path fill-rule="evenodd" class="frame" d="M0,0 H1000 V1000 H0 Z ${panes.map(hole).join(' ')}"/>
 <rect x="0" y="0" width="1000" height="150" class="deckhead"/><rect x="0" y="150" width="1000" height="12" class="beam"/>
-<rect x="0" y="985" width="1000" height="15" class="sill"/></svg>`;
+<rect x="0" y="985" width="1000" height="15" class="sill"/></svg>${[1, 2].map(i => { const [a, b] = panes[i] || panes[0]; return `<div class="wipe" style="left:${((a + b) / 2 + 70) / 10}%"><i></i></div>`; }).join('')}`;   // (v1174: the wipers their own, unstretched: in the rain they sweep)
 }
 function bowSvg(b) {
   const sy = 300 - 230 * b.stem;   // (the stem's height on it: a ship's farther, nearer the horizon)

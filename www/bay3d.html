@@ -362,6 +362,23 @@ body:has(#ridechart:not([hidden])) #cockpit.ck-wheelhouse .gauges.gr { display: 
   #cockpit.ck-wheelhouse { --bw: clamp(150px, 30vh, 280px); } #cockpit.ck-wheelhouse .bigwheel { left: 30%; bottom: calc(var(--bw) * -0.3); }
   #cockpit.ck-wheelhouse .gauges.gl { right: 8px; left: auto; top: 6%; height: 40%; max-width: 46vw; } #cockpit.ck-wheelhouse .tlever { display: none; }
   #cockpit .wled { min-width: 0; font-size: 0.72em; } #cockpit .cscreen { font-size: 11px; } }
+/* (v1174) the wipers: parked along the pane's foot; sweeping in the rain */
+#cockpit .wipe { position: absolute; bottom: 1.2%; width: clamp(100px, 15vw, 220px); height: 0; transform: translateX(-100%); }
+#cockpit .wipe i { position: absolute; right: 0; top: -2px; width: 100%; height: 4px; background: #121416; border-radius: 2px; transform-origin: 100% 50%; transform: rotate(12deg); box-shadow: 0 0 0 1px rgba(255,255,255,0.05); }
+#cockpit .wipe i::before { content: ""; position: absolute; left: -6%; top: -2px; width: 78%; height: 7px; background: #0b0c0d; border-radius: 3px; transform: rotate(-4deg); }
+body.raining #cockpit .wipe i { animation: ckWipe 1.6s ease-in-out infinite alternate; }
+@keyframes ckWipe { from { transform: rotate(12deg); } to { transform: rotate(150deg); } }
+/* (v1174) a wheelhouse at night: kept dark to see out; her instruments glow, a little red light on the console */
+body.night #cockpit.ck-wheelhouse .whframe .frame { fill: #0b0d0f; } body.night #cockpit.ck-wheelhouse .whframe .deckhead { fill: #1c1d20; } body.night #cockpit.ck-wheelhouse .whframe .beam { fill: #141518; }
+body.night #cockpit.ck-wheelhouse .whframe .sill { fill: #121417; }
+body.night #cockpit.ck-wheelhouse .ckpanel { background: linear-gradient(#1a0d0d 0, #0e0a0a 25%, #080707 100%); border-top-color: #2a1515; box-shadow: 0 -6px 18px rgba(0,0,0,0.6), inset 0 18px 30px -18px rgba(200,30,20,0.35); }
+body.night #cockpit .bigwheel { filter: brightness(0.38) sepia(0.3) drop-shadow(0 8px 14px rgba(0,0,0,0.7)); }
+body.night #cockpit .rep { background: #08090a; border-color: #1c1e21; } body.night #cockpit .rep b { color: #e8a040; text-shadow: 0 0 6px rgba(240,150,40,0.6); }
+body.night #cockpit .vlcd { background: #7a3a12; color: #ffcf8a; } body.night #cockpit .tbase { fill: #141619; }
+body.night #cockpit .plotter .psea { fill: #0b1d30; } body.night #cockpit .plotter .pland { fill: #3a3020; } body.night #cockpit .plotter .pown, body.night #cockpit .plotter .phead { fill: #e8a040; stroke: #e8a040; }
+body.night #cockpit .wled { text-shadow: 0 0 9px rgba(80,255,150,0.8); }
+body.night #cockpit.ck-console .cdash { background: linear-gradient(#3a3834, #2a2926 40%, #1d1c1a); } body.night #cockpit .cscreen { box-shadow: 0 0 14px rgba(120,220,255,0.35); }
+body.night #cockpit .whbow { filter: brightness(0.3); }
 body.inwheel #labels, body.inwheel #livemarks { z-index: 2; clip-path: inset(0 0 clamp(96px, 19vh, 180px) 0); }
 #cockpit .wheel .rimw { fill: none; stroke: #6a4424; stroke-width: 6; } #cockpit .wheel .hubw { fill: #8a8d90; stroke: #3a3d40; }
 #cockpit .wheel .spoke { stroke: #7a5230; stroke-width: 3.2; } #cockpit .wheel .knob { fill: #6a4424; }

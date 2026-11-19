@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-19 — Bird's-eye: the wheelhouse by night, and wipers in the rain (v1174)
+
+- Asked: "keep improving the tug and ferry helm views".
+- **At night** (www/bay3d.html, body.night): a wheelhouse kept dark to see out, as one is. Frame and deckhead near black, the console in shadow with a little red light along its top, the wheel dim, the radio's display amber, the plotter in its night colours, heading and speed glowing. From the JRT Moran under the Verrazzano at night: the bridge's lights ahead, the dark harbor.
+- **In the rain** (www/js/weather3d.js toggles body.raining; www/js/cockpit.js `.wipe`): the wipers sweep. They're their own elements now, not part of the stretched frame drawing, so they keep their shape; parked along the foot of the pane otherwise.
+- Maine's ferries too: AudioChart's release. Checked in headless Chrome at night and in daytime rain. Full CI suite passes.
+
 ## 2026-11-19 — Bird's-eye: the search button says Search (v1173, Bird's-eye only)
 
 - Asked: "I can't find the search box". The 🔍 in the bar along the top (between Live and ✨ Find; or the / key) was a bare magnifying glass; it's "🔍 Search" now (www/bay3d.html #searchbtn). Only in the armchair bays, so Bird's-eye's version alone.

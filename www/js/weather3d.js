@@ -306,7 +306,7 @@ export function makeEnv(o) {
     env.foamOn = env.W.foam > 0; foam.visible = env.foamOn;
     foam.material.color.set(col(0xffffff).multiplyScalar(night ? 0.3 : T.lights ? 0.75 : 1)); foam.material.opacity = env.W.foam * 0.8;
     env.rainOn = wet; rain.visible = wet; rain.material.color.setHex(night ? 0x5d6672 : 0xc6d0da);
-    document.body.classList.toggle('night', night);
+    document.body.classList.toggle('night', night); document.body.classList.toggle('raining', wet);   // (v1174: a wheelhouse's wipers sweep)
     if (!night) env.moonRun = null;
     if (!env.blendT) try { store?.setItem(KEY, JSON.stringify(C)); } catch (_) {}   // not each frame of an overnight cycle
     return env;
