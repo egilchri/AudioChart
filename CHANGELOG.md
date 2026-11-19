@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-19 — Bird's-eye: the search button says Search (v1173, Bird's-eye only)
+
+- Asked: "I can't find the search box". The 🔍 in the bar along the top (between Live and ✨ Find; or the / key) was a bare magnifying glass; it's "🔍 Search" now (www/bay3d.html #searchbtn). Only in the armchair bays, so Bird's-eye's version alone.
+
 ## 2026-11-19 — Bird's-eye: New York's tugs and ferries, from their wheelhouses (v1172)
 
 - Asked: "I am talking right now about tugboats and ferries in New York Harbor".
