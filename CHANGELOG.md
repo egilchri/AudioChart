@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-19 — Bird's-eye: a warmer picture (v1168)
+
+- Asked: "do 5 next, the warmer picture" (the last of the opening screen's list).
+- **The aerial photos graded** in the ground's own shader (www/js/bay3d.js `graded`, applied where `seabed` was a no-op outside Empty Bay): a little more colour (×1.22), a little more contrast about a mid-grey (×1.18), warmer (red ×1.1, blue ×0.86). The USDA and USGS photos had come out cool and flat under the tone mapping. No pass of its own: free.
+- **A little brighter**: the tone mapping's exposure 0.62 (was 0.55): buildings, bridges and boats with the ground.
+- **More light on the water**: a little more of the sky in it (its Fresnel base 0.06, its reflection 0.84, from 0.04 and 0.78).
+- **A warmer haze** toward the horizon: the sky's horizon colour, which the haze takes, tinted warm (red ×1.1, blue ×0.86), night or day alike.
+- In every bay, Maine's too (AudioChart's release as well). Checked in headless Chrome at 1 pm against v1167: New York's opening shot, SF's, Penobscot from over Rockland (the grade eased once, its autumn reds too strong at ×1.28). Full CI suite passes.
+
 ## 2026-11-19 — Bird's-eye: a ship's or a tug's helm in her wheelhouse (v1167)
 
 - Asked: "The helm of a tug or ship should look like you are peering out from the pilot house".

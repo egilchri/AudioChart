@@ -179,13 +179,13 @@ async function main() {
 const renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
 renderer.setPixelRatio(Math.min(1.25, devicePixelRatio));
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.55;
+renderer.toneMappingExposure = 0.62;   // (v1168: a little brighter, 0.55 before)
 const sceneEl = document.getElementById('scene');
 sceneEl.appendChild(renderer.domElement);
 const ANISO = renderer.capabilities.getMaxAnisotropy();
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(50, 2, 1, 400000);
-const HAZE = new THREE.Color(0xb2cbe0);
+const HAZE = new THREE.Color(0xb2cbe0), WARM_HAZE = new THREE.Color(1.1, 1.0, 0.86);
 scene.fog = new THREE.FogExp2(HAZE, 0.000075);
 const sun = SUN;
 const hemi = new THREE.HemisphereLight(0xe4ecf2, 0x4a5644, 1.7); scene.add(hemi);
@@ -221,8 +221,23 @@ function ownPhoto(mat) {
   mat.customProgramCacheKey = () => key.call(mat) + '+own';
   return mat;
 }
+// (v1168, asked: "do 5 next, the warmer picture") the aerial photos graded a little in the ground's own shader: a
+// touch more colour, a little more contrast about mid-grey, and warmer (the USDA and USGS photos come out cool and
+// flat under the tone mapping): free, no pass of its own
+function graded(mat) {
+  mat.onBeforeCompile = sh => {
+    sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
+  { vec3 c = diffuseColor.rgb; float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
+    c = mix(vec3(l), c, 1.22);              // more colour
+    c = (c - 0.16) * 1.18 + 0.16;           // more contrast, about a mid-grey (linear)
+    c *= vec3(1.1, 1.01, 0.86);             // warmer
+    diffuseColor.rgb = max(c, vec3(0.0)); }`);
+  };
+  mat.customProgramCacheKey = () => 'graded';
+  return mat;
+}
 function seabed(mat) {
-  if (!EMPTY) return mat;
+  if (!EMPTY) return graded(mat);
   mat.onBeforeCompile = sh => {
     sh.uniforms.uExag = EXAG_U;
     sh.vertexShader = 'varying float vElevY;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vElevY = position.y;');
@@ -1048,7 +1063,7 @@ const water = new Water(new THREE.PlaneGeometry(400000, 400000), {
   sunDirection: sun.clone().normalize(), sunColor: 0xfff4e0, waterColor: 0x3268a0, distortionScale: 1.2, fog: true,
 });
 water.rotation.x = -Math.PI / 2; water.material.uniforms.size.value = 6;
-water.material.fragmentShader = water.material.fragmentShader.replace('float rf0 = 0.3;', 'float rf0 = 0.04;').replace('reflectionSample * 0.9 +', 'reflectionSample * 0.78 +');
+water.material.fragmentShader = water.material.fragmentShader.replace('float rf0 = 0.3;', 'float rf0 = 0.06;').replace('reflectionSample * 0.9 +', 'reflectionSample * 0.84 +');   // (v1168: a little more of the sky on it, 0.04 and 0.78 before)
 water.material.needsUpdate = true;
 scene.add(water);
 // wakes in the water itself (v959, requested: "give Bird's-eye boats the same wake" as the helm view's,
@@ -1118,7 +1133,7 @@ function updateWeather(dt, t) {
     const su = sky.material.uniforms, T = env.T;
     if (above) {   // the sky over the fog bank: the time of day's own (or the overcast) sky
       _sky.zen.set(env.over ? T.over : T.zen); _sky.hor.set(env.over ? T.fog : T.haze);
-      su.zenith.value.copy(_sky.zen); su.horizon.value.copy(_sky.hor); scene.fog.color.copy(_sky.hor);
+      su.zenith.value.copy(_sky.zen); su.horizon.value.copy(_sky.hor); scene.fog.color.copy(_sky.hor).multiply(WARM_HAZE);   // (v1168: the haze a little warmer toward the horizon, night or day)
       su.sunCol.value.fromArray(env.over ? [0, 0, 0] : T.glow); su.moonK.value = env.night && !env.over ? (env.moon?.up ?? 1) : 0;
       env.stars.visible = env.night && !env.over;
     } else env.apply({});   // back to the conditions as they are at sea level
