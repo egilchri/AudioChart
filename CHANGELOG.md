@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-20 — Bird's-eye: the harbor radio at an open boat's console too (v1182)
+
+- Asked: "add the radio button for the console too".
+- **📻 Radio at the console** (www/js/bay3d.js `atconsole`, www/bay3d.html): at the helm of a launch or a power boat in New York Harbor, the 📻 button now shows as it does in a wheelhouse, and opens the same harbor radio feed. It goes when you leave her helm (Drone, Stern, Leave).
+- Checked in headless Chrome aboard the power boat World Cat and the launch Driftmaster: shown at the helm, gone in Drone. Full CI suite passes.
+
 ## 2026-11-20 — Bird's-eye: the console's CH 16 set opens the harbor radio (v1181)
 
 - Asked: "make the CH 16 display on the console open the radio too".

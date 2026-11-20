@@ -392,7 +392,7 @@ body.night #cockpit.ck-console .cdash { background: linear-gradient(#3a3834, #2a
 body.night #cockpit .whbow { filter: brightness(0.3); }
 /* (v1175) the searchlight's button: at night, in a wheelhouse */
 #hornbtn { display: none; } body.inwheel #hornbtn { display: inline-block; } #hornbtn.on { background: rgba(224,168,67,0.9); color: #1b2328; }
-#radiobtn { display: none; } body.inwheel.harborradio #radiobtn { display: inline-block; }   /* (v1180) */
+#radiobtn { display: none; } body.inwheel.harborradio #radiobtn, body.atconsole.harborradio #radiobtn { display: inline-block; }   /* (v1180) */
 /* (v1181) the console's VHF set opens the harbor radio too: a lit set, to be clicked */
 body.harborradio #cockpit .vhf { pointer-events: auto; cursor: pointer; } body.harborradio #cockpit .vhf:hover { border-color: #6dff9e; }
 #lampbtn { display: none; } body.night.inwheel #lampbtn { display: inline-block; } body.lamp #lampbtn { background: rgba(224,168,67,0.9); color: #1b2328; }

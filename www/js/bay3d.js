@@ -1482,10 +1482,11 @@ function insidePlane(v, inside) {
   }
   if (atConsole(v)) {
     document.body.classList.remove('inwheel');
-    if (!inside || nest.mode !== 'helm') { cockpit?.hide(); return; } if (!cockpit) { wantCockpit(); return; }
+    const atHelm = inside && nest.mode === 'helm'; document.body.classList.toggle('atconsole', atHelm);   // (v1182: 📻 there too)
+    if (!atHelm) { cockpit?.hide(); return; } if (!cockpit) { wantCockpit(); return; }
     cockpit.show('console'); cockpit.update({ hdg: v.h || 0, cog: v.A?.cog ?? null, turn: rotDpm(v.A?.rot), gs: v.A?.sog ?? 0, yaw: nest.yaw, pitch: nest.pitch, fov: camera.fov }); return;
   }
-  document.body.classList.remove('inwheel');
+  document.body.classList.remove('inwheel'); document.body.classList.remove('atconsole');
   // (v1161) a train's cab: her front window's frame, her speed and the next stop
   if (v?.kind === 'rail') { if (!inside || nest.mode !== 'helm') { cockpit?.hide(); return; } cockpit?.show(/ train$|^PATH$|^Staten Island Railway$|Line$|Trolley$/.test(v.a?.rail || '') ? 'train' : 'railroad'); cockpit?.update({ gs: (v.vs ?? v.v ?? 0) * 2.237, next: v.a?.next || '', dest: v.a?.dest || '' }); return; }
   if (v?.kind !== 'air') { cockpit?.hide(); return; }
