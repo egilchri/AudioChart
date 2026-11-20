@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-20 — Bird's-eye: New York's ferry docks, and ferries at them (v1187)
+
+- Asked: "Don't the ferries have docks to go to?", then "now draw the ferry docks in New York".
+- **The docks** (www/data/docks/new-york-harbor.json, design/docks/build_nyc_docks.py): from OpenStreetMap, the piers and floating landings within 80 m of New York's 66 ferry terminals, less those a building tile already draws (DUMBO, Williamsburg, Hoboken, Paulus Hook, Midtown...): 65 pieces at 19 terminals, and 7 landing floats (30 by 9 m, across the boats' way in, at the end of the ferry route) where a terminal has no dock mapped. Drawn as the towns' piers are (terrain3d.js buildTown).
+- **Ferries at them** (www/js/bay3d.js `dockSets`, `FERRYISH`): a live ferry, passenger or sightseeing boat stopped within 70 m of a dock lies alongside it (findBerth, as Maine's timetabled ferries at their landings), on open water clear of the other piers; looked for again with each report. The docks also join the piers' searches (pierSegs: boats underway stop short of them; deckAt).
+- Checked in headless Chrome: 17 stopped ferries berthed (NYC Ferry, Seastreak, NY Waterway, three Staten Island Ferries at Whitehall and St. George); boats with an end ashore down to 11 of 115 stopped. Full CI suite passes.
+
 ## 2026-11-20 — Bird's-eye: New York's city buses, live (v1186)
 
 - Asked: "Is there a feed for MTA busses?", "I'd add them for local color", "MTA bus key installed", "You can do it now".

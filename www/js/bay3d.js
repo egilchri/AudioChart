@@ -2044,9 +2044,19 @@ function ferryStops(v) {
   const list = [{ name: v.F.from, f: 0 }, ...(v.F.stops || []).filter(st => !st.summer || ferryLine(v.F) === v.F.summer_line).map(st => ({ name: st.name, f: at(st.lon, st.lat) })), { name: v.F.to, f: T.L }];
   return (v.stopsF = list.map(st => { const p = alongTrack(T, st.f); return { ...st, x: p.x, z: p.z, hdg: p.hdg }; }));
 }
+// New York's ferry docks (v1187, asked: "now draw the ferry docks in New York", after a live ferry at her landing lay
+// with her bow up the bank): the piers and floating landings at its 66 ferry terminals that the building tiles don't
+// already draw, and a landing float where a terminal has none (www/data/docks/, design/docks/build_nyc_docks.py).
+// Drawn as the towns' piers are; each its own entry here, for the piers' searches (pierSegs, deckAt, findBerth).
+const dockSets = [];
+if (RID === 'new-york-harbor' && !EMPTY) getJSON('./data/docks/new-york-harbor.json').then(D => {
+  for (const pr of D.piers) { const n = pr.p.length; dockSets.push({ name: pr.name, x: wx(pr.p.reduce((a, q) => a + q[0], 0) / n), z: wz(pr.p.reduce((a, q) => a + q[1], 0) / n), data: { piers: [pr] } }); }
+  const g = buildTown({ name: 'Ferry docks', buildings: [], piers: D.piers }); scene.add(g);
+  for (const v of live) v.berthKey = null;   // (the stopped ferries: berthed afresh)
+}).catch(err => console.warn('[bay3d] ferry docks', err));
 function pierSegs(x, z, r) {   // the pier and wharf edges within r metres: {ax, az, bx, bz, w, berth}
   const out = [];
-  for (const t of townList) {
+  for (const t of townList.concat(dockSets)) {
     if (!t.data?.piers || Math.hypot(t.x - x, t.z - z) > 15000) continue;
     for (const pr of t.data.piers) {
       const P = pr.p.map(([lo, la]) => [wx(lo), wz(la)]), w = pr.area ? 0 : (pr.w || 3), berth = pr.kind !== 'breakwater';
@@ -2063,7 +2073,7 @@ function pierSegs(x, z, r) {   // the pier and wharf edges within r metres: {ax,
 // on its planks, not under them; terrain3d.js draws them at deckY)
 function deckAt(x, z) {
   let top = 0;
-  for (const t of townList) {
+  for (const t of townList.concat(dockSets)) {
     if (!t.data?.piers || Math.hypot(t.x - x, t.z - z) > 15000) continue;
     for (const pr of t.data.piers) {
       if (pr.kind === 'breakwater') continue;
@@ -2082,7 +2092,7 @@ function segDist(x, z, ax, az, bx, bz) {
 }
 function findBerth(v, stop) {
   const L = vLen(v), B = Math.min(12.2, L * 0.28), obst = pierSegs(stop.x, stop.z, 100 + L), cands = obst.filter(g => g.berth && segDist(stop.x, stop.z, g.ax, g.az, g.bx, g.bz) < 80);
-  if (!townList.some(t => t.data && Math.hypot(t.x - stop.x, t.z - stop.z) < 15000)) return undefined;   // no town data here yet: ask again later
+  if (!townList.concat(dockSets).some(t => t.data && Math.hypot(t.x - stop.x, t.z - stop.z) < 15000)) return undefined;   // no town data here yet: ask again later
   let best = null;
   for (const g of cands) {
     const len = Math.hypot(g.bx - g.ax, g.bz - g.az); if (len < 5) continue;
@@ -2406,7 +2416,7 @@ function liveData(snap) {
 }
 window.__live = () => live.map(v => { const L = vLen(v), ux = Math.sin(v.h * DEG), uz = -Math.cos(v.h * DEG), dry = d => heightAt(lonOf(v.x + ux * d), latOf(v.z + uz * d)) > 0.3;
   return { mmsi: v.mmsi, name: v.A.name, lat: latOf(v.z), lon: lonOf(v.x), sog: v.A.sog, cog: v.A.cog, what: v.what, age: v.A.age, reach: v.reach, wet: heightAt(lonOf(v.x), latOf(v.z)) <= 0.3,
-    L, bowDry: dry(L / 2), sternDry: dry(-L / 2), shove: v.shove || 0, ashore: !!v.ashore }; });   // (v1185: and her ends, for boats drawn with a bow on the beach)   // (for checking from a script that they move)
+    L, bowDry: dry(L / 2), sternDry: dry(-L / 2), shove: v.shove || 0, ashore: !!v.ashore, berth: !!v.berth }; });   // (v1185: and her ends, for boats drawn with a bow on the beach)   // (for checking from a script that they move)
 function dropLive(v) {
   if (nest.on && nest.v === v) leaveRide();
   if (follow === v) stopFollow();
@@ -2437,6 +2447,7 @@ function reachOf(fix, A) {
 // elevation data; her antenna isn't at her middle): moved the least that has her afloat, along her length up to 40 m
 // (a ferry in bow-first at a landing), else sideways up to 20 m (a ship whose bow's over the corner of her wharf).
 // 16 of New York's 141 stopped vessels, 2026-11-20. Both ends ashore is left to ashoreAt; underway, to reachOf.
+const FERRYISH = /ferry|passenger|sightseeing|excursion|water taxi/i;
 function shoveOff(x, z, h, L) {
   const ux = Math.sin(h * DEG), uz = -Math.cos(h * DEG), dry = (px, pz) => heightAt(lonOf(px), latOf(pz)) > 0.3;
   const ends = (ox, oz) => [dry(x + ox + ux * (L / 2 + 3), z + oz + uz * (L / 2 + 3)), dry(x + ox - ux * (L / 2 + 3), z + oz - uz * (L / 2 + 3)), dry(x + ox, z + oz)];
@@ -2453,14 +2464,20 @@ function updateLive(dt) {
     // where she is now: her last report, moved on at her speed and course (for up to five minutes)
     const s = Math.min(v.reach ?? Infinity, kn * NMm / 3600 * clamp((now - v.fix.t) / 1000, 0, 300));
     let tx = v.fix.x + Math.sin(cog * DEG) * s, tz = v.fix.z - Math.cos(cog * DEG) * s;
-    if (kn < 1) {   // (v1185) stopped with an end ashore: off the bank (looked at again with each report, or as she swings 5°)
+    // (v1187) a ferry stopped at a dock: alongside it (findBerth, as the timetabled ferries at Maine's landings), her
+    // bow the way she lay; looked for again with each report
+    if (kn < 1 && dockSets.length && FERRYISH.test(`${v.what || ''} ${v.model || ''}`)) {
+      if (v.berthKey !== v.fix.t) { v.berthKey = v.fix.t; const b = findBerth(v, { x: v.fix.x, z: v.fix.z, hdg: v.h }); v.berth = b && Math.hypot(b.x - v.fix.x, b.z - v.fix.z) < 70 ? b : null; }
+    } else v.berth = null;
+    if (v.berth) { tx = v.berth.x; tz = v.berth.z; v.shove = 0; }
+    else if (kn < 1) {   // (v1185) stopped with an end ashore: off the bank (looked at again with each report, or as she swings 5°)
       const key = `${v.fix.t}|${Math.round(v.h / 5)}`;
       if (v.shoveKey !== key) { v.shoveKey = key; const o = shoveOff(v.fix.x, v.fix.z, v.h, vLen(v)); v.shoveV = o; v.shove = o ? Math.hypot(o[0], o[1]) : 0; }
       if (v.shoveV) { tx += v.shoveV[0]; tz += v.shoveV[1]; }
     } else v.shove = 0;
     const k = v.placed ? Math.min(1, dt * 1.5) : 1; v.placed = true;   // a new report eases her across, no jump
     v.x += (tx - v.x) * k; v.z += (tz - v.z) * k;
-    const want = aisHead(A);
+    const want = v.berth ? v.berth.h : aisHead(A);
     if (want != null) { const turn = ((want - v.h + 540) % 360) - 180; v.h = (v.h + clamp(turn, -20 * dt, 20 * dt) + 360) % 360; }
     v.on = liveFeed.on && !aboveFog; v.group.visible = v.on && !v.ashore && !(nest.on && nest.v === v && nest.mode === 'helm' && atConsole(v));   // (v1170: at an open boat's console, her model hidden: the camera had been inside her cabin)
     v.group.position.set(v.x, 0, v.z); v.group.rotation.y = -v.h * DEG;
