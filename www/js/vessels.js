@@ -850,12 +850,15 @@ export function merchantModel(V, windowMats = []) {
   return g;
 }
 
-export function ferrySlipModel(beam = 12.2, len = 46) {
+// (v1189) bridge: false for a slip whose transfer bridge is inside the terminal building (the Staten Island Ferry's, at
+// Whitehall and St. George): its fender racks alone, no bridge, abutment or lift gantry out on the water
+export function ferrySlipModel(beam = 12.2, len = 46, { bridge = true } = {}) {
   const parts = {}, add = (k, g) => (parts[k] ||= []).push(g);
   const bx = (w, h, d, x, y, z, ry = 0, rx = 0, rz = 0) => { const g = new THREE.BoxGeometry(w, h, d); if (rz) g.rotateZ(rz); if (rx) g.rotateX(rx); if (ry) g.rotateY(ry); g.translate(x, y, z); return g; };
   const cy = (r, h, x, y, z) => { const g = new THREE.CylinderGeometry(r, r, h, 7); g.translate(x, y, z); return g; };
   const W = beam + 1.8, BL = 22, rise = Math.atan(1.1 / BL);
   // the transfer bridge: deck rising from her car deck to the shore, green girders either side, posts along them
+  if (bridge) {
   add('steel', bx(7.2, 0.5, BL, 0, 2.85 + 0.55, BL / 2, 0, -rise));
   for (const sx of [-1, 1]) {
     add('green', bx(0.5, 1.5, BL, sx * 3.7, 3.75, BL / 2, 0, -rise));
@@ -875,6 +878,7 @@ export function ferrySlipModel(beam = 12.2, len = 46) {
   }
   add('green', bx(2 * GX + 2.2, 1.5, 1.9, 0, GH + 0.25, GZ));   // the crossbeam
   add('green', bx(3.4, 2, 2.6, 0, GH + 2, GZ)); add('steel', bx(3.8, 0.2, 3, 0, GH + 3.1, GZ));   // the hoist house, its roof
+  }
   // the fender piers either side of her berth (v949, on request: "add piers for the Rockland ferry terminal"; were
   // 34 m wing walls, shorter than the ferry): pile walls running her length, straight and flaring out only toward
   // the sea, timber facing on the inside and two wales; on top a plank catwalk with a handrail; a dolphin at the
@@ -894,7 +898,7 @@ export function ferrySlipModel(beam = 12.2, len = 46) {
     for (let k = 0; k < 7; k++) { const a = k / 7 * Math.PI * 2, r = k ? 1.0 : 0; add('pile', cy(0.32, 6.6, dx + Math.cos(a) * r, 1.0, dz + Math.sin(a) * r)); }
     add('concrete', cy(1.5, 0.5, dx, 4.4, dz));
     add('plank', bx(1.4, 0.18, Math.hypot(dx - xe, 2), (xe + dx) / 2 + sx * 0.3, 4.35, -WL - 1, Math.atan2(dx - xe, -2)));
-    add('pile', cy(0.3, 7.2, sx * W / 2, 0.9, 1.2)); add('pile', cy(0.3, 7.2, sx * W / 2 * 0.62, 0.9, 0.6));   // at the head, either side of the bridge
+    if (bridge) { add('pile', cy(0.3, 7.2, sx * W / 2, 0.9, 1.2)); add('pile', cy(0.3, 7.2, sx * W / 2 * 0.62, 0.9, 0.6)); }   // at the head, either side of the bridge
   }
   const MAT = { green: 0x2f6e3c, steel: 0x6f7377, concrete: 0xaaa79f, pile: 0x4b4136, timber: 0x6e5c45, dark: 0x202326, plank: 0x8a7a64 };
   const g = new THREE.Group();

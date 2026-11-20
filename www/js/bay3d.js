@@ -2049,7 +2049,28 @@ function ferryStops(v) {
 // already draw, and a landing float where a terminal has none (www/data/docks/, design/docks/build_nyc_docks.py).
 // Drawn as the towns' piers are; each its own entry here, for the piers' searches (pierSegs, deckAt, findBerth).
 const dockSets = [];
+// The Staten Island Ferry's slips (v1189, asked: "draw the Staten Island ferry slips"): Whitehall's three side by side
+// along the terminal's water face (its outline in OpenStreetMap, 95 m; the ferry route's end in the middle one, the
+// boats coming in on 348°), St. George's four where OpenStreetMap's four approaches end, in the notches of the
+// terminal's saw-tooth face, fanned as it is. Each its head (lon, lat) and the bearing out of it to sea. Their fender
+// racks as the Maine slips' (vessels.js ferrySlipModel), for 95 by 21 m boats; no bridge or gantry out on the water,
+// theirs being inside the terminal buildings. A Staten Island boat stopped near one lies in it.
+const SI_SLIPS = [
+  { name: 'Whitehall, slip 1', lon: -74.01260, lat: 40.70067, brg: 168 }, { name: 'Whitehall, slip 2', lon: -74.01303, lat: 40.70055, brg: 168 },
+  { name: 'Whitehall, slip 3', lon: -74.01342, lat: 40.70056, brg: 168 },
+  { name: 'St. George, slip 3', lon: -74.07272, lat: 40.64485, brg: 31 }, { name: 'St. George, slip 4', lon: -74.07212, lat: 40.64451, brg: 56 },
+  { name: 'St. George, slip 5', lon: -74.07165, lat: 40.64370, brg: 78 }, { name: 'St. George, slip 6', lon: -74.07136, lat: 40.64309, brg: 84 },
+].map(sl => ({ ...sl, x: wx(sl.lon), z: wz(sl.lat) }));
+if (RID === 'new-york-harbor' && !EMPTY) for (const sl of SI_SLIPS) {
+  sl.group = ferrySlipModel(21.3, 95, { bridge: false }); sl.group.position.set(sl.x, 0, sl.z); sl.group.rotation.y = -sl.brg * DEG; scene.add(sl.group);
+  // (its racks among the piers, for the other boats to keep off: each wall a line along her length)
+  const { W, WL } = sl.group.userData.walls, ux = Math.sin(sl.brg * DEG), uz = -Math.cos(sl.brg * DEG);
+  for (const sx of [-1, 1]) { const ox = -uz * sx * (W / 2 + 0.5), oz = ux * sx * (W / 2 + 0.5), at = t => [lonOf(sl.x + ox + ux * t), latOf(sl.z + oz + uz * t)];
+    dockSets.push({ name: sl.name, x: sl.x, z: sl.z, data: { piers: [{ p: [at(0), at(WL)], kind: 'breakwater', area: false, w: 1.5, d: 4.4 }] } }); }   // (a breakwater to the piers' searches: kept off, not berthed at)
+}
+const siSlipNear = (x, z, r) => SI_SLIPS.filter(sl => sl.group).reduce((b, sl) => { const d = Math.hypot(sl.x - x, sl.z - z); return d < r && (!b || d < b.d) ? { sl, d } : b; }, null)?.sl;
 if (RID === 'new-york-harbor' && !EMPTY) getJSON('./data/docks/new-york-harbor.json').then(D => {
+  D.piers = D.piers.filter(pr => !/St\.? George|Whitehall|Staten Island Ferry/i.test(pr.name || ''));   // (v1189: the slips' own racks there instead)
   for (const pr of D.piers) { const n = pr.p.length; dockSets.push({ name: pr.name, x: wx(pr.p.reduce((a, q) => a + q[0], 0) / n), z: wz(pr.p.reduce((a, q) => a + q[1], 0) / n), data: { piers: [pr] } }); }
   const g = buildTown({ name: 'Ferry docks', buildings: [], piers: D.piers }); scene.add(g);
   for (const v of live) v.berthKey = null;   // (the stopped ferries: berthed afresh)
@@ -2494,8 +2515,14 @@ function updateLive(dt) {
     // bow the way she lay; looked for again with each report
     if (kn < 1 && dockSets.length && FERRYISH.test(`${v.what || ''} ${v.model || ''}`)) {
       if (v.berthKey !== v.fix.t) {   // (v1188: bow-in, as they do; alongside where there's no face to come in to)
-        v.berthKey = v.fix.t; const st = { x: v.fix.x, z: v.fix.z, hdg: v.A.hdg ?? v.h, sure: v.A.hdg != null }, near = b => b && Math.hypot(b.x - v.fix.x, b.z - v.fix.z) < 70 + vLen(v) / 2 ? b : null;
-        v.berth = near(findBowBerth(v, st)) || near(findBerth(v, st));
+        v.berthKey = v.fix.t;
+        // (v1189) a Staten Island boat near one of her slips: in it, her end at its head (she's double-ended: whichever
+        // end her heading has toward it)
+        const sl = /staten island/i.test(v.what || '') && siSlipNear(v.fix.x, v.fix.z, 160);
+        if (sl) { const L = vLen(v), ux = Math.sin(sl.brg * DEG), uz = -Math.cos(sl.brg * DEG), hIn = (sl.brg + 180) % 360, hOut = sl.brg, hd = v.A.hdg ?? v.h, off = a => Math.abs(((hd - a + 540) % 360) - 180);
+          v.berth = { x: sl.x + ux * (L / 2 + 1), z: sl.z + uz * (L / 2 + 1), h: off(hIn) <= off(hOut) ? hIn : hOut }; }
+        else { const st = { x: v.fix.x, z: v.fix.z, hdg: v.A.hdg ?? v.h, sure: v.A.hdg != null }, near = b => b && Math.hypot(b.x - v.fix.x, b.z - v.fix.z) < 70 + vLen(v) / 2 ? b : null;
+          v.berth = near(findBowBerth(v, st)) || near(findBerth(v, st)); }
       }
     } else v.berth = null;
     if (v.berth) { tx = v.berth.x; tz = v.berth.z; v.shove = 0; }

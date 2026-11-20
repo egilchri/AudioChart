@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-20 — Bird's-eye: the Staten Island Ferry's slips (v1189)
+
+- Asked: "draw the Staten Island ferry slips".
+- **The slips** (www/js/bay3d.js `SI_SLIPS`): Whitehall's three side by side along the terminal's 95 m water face (its outline in OpenStreetMap; the ferry route ends in the middle one, the boats coming in on 348°), St. George's four where OpenStreetMap's four approaches end, in the notches of the terminal's saw-tooth face, fanned as it is. Their fender racks are the Maine slips' (vessels.js `ferrySlipModel`, new option `bridge: false`: no transfer bridge or lift gantry out on the water, those being inside the terminal buildings), sized for 95 by 21 m boats. The racks join the piers' searches as breakwaters: other boats keep off them. v1187's OpenStreetMap docks at the two terminals are left out for them.
+- **The boats in them**: a Staten Island boat stopped within 160 m of a slip lies in it, her end at its head (double-ended: whichever end her heading has toward it).
+- Checked in headless Chrome: Sandy Ground in Whitehall's slip 2, Sen. John J. Marchi in a slip at St. George. Full CI suite passes.
+
 ## 2026-11-20 — Bird's-eye: New York's ferries in bow-first (v1188)
 
 - Asked: "make the ferries dock bow-in".
