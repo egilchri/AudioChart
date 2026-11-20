@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-20 — Bird's-eye: New York's ferries in bow-first (v1188)
+
+- Asked: "make the ferries dock bow-in".
+- **Bow-in** (www/js/bay3d.js `findBowBerth`): a live ferry stopped at a dock stands square to its face, her stem a metre off it, her hull out over open water clear of the other piers, at the face and place nearest where she reported. When she sends an AIS heading, that picks the face (her bow the way it has her). Where no face is wide enough to come in to, she lies alongside as in v1187.
+- Checked in headless Chrome: 18 stopped boats berthed; NY Waterway's Adm Richard E Bennis nosed in at the Midtown/West 39th Street terminal; a Staten Island boat laid up end-on to her pier at St. George. Full CI suite passes.
+
 ## 2026-11-20 — Bird's-eye: New York's ferry docks, and ferries at them (v1187)
 
 - Asked: "Don't the ferries have docks to go to?", then "now draw the ferry docks in New York".

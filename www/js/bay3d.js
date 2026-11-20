@@ -2115,6 +2115,32 @@ function findBerth(v, stop) {
   }
   return best;
 }
+// (v1188, asked: "make the ferries dock bow-in") a ferry in at a dock bow first, as New York's do at their floating
+// landings (and the Staten Island boats into their slips): square to a dock's face, her stem a metre off it, her hull
+// out over open water clear of the other piers; the face and place nearest where she reported, and a bow the way her
+// own heading has it if it can (her AIS heading, when she sends one, is the best word on which face she's at)
+function findBowBerth(v, stop) {
+  const L = vLen(v), B = Math.min(12.2, L * 0.28), obst = pierSegs(stop.x, stop.z, 100 + L), cands = obst.filter(g => g.berth && segDist(stop.x, stop.z, g.ax, g.az, g.bx, g.bz) < 80);
+  let best = null;
+  for (const g of cands) {
+    const len = Math.hypot(g.bx - g.ax, g.bz - g.az); if (len < B) continue;   // (a face narrower than her bow: not one to come in to)
+    const ux = (g.bx - g.ax) / len, uz = (g.bz - g.az) / len, tp = clamp((stop.x - g.ax) * ux + (stop.z - g.az) * uz, B / 2, len - B / 2);
+    for (const side of [-1, 1]) for (const dt of [0, -len / 4, len / 4]) {
+      const t = clamp(tp + dt, B / 2, len - B / 2), nx = -uz * side, nz = ux * side, off = g.w / 2 + 1;   // (n: out from the face)
+      const sx = g.ax + ux * t + nx * off, sz = g.az + uz * t + nz * off, cx = sx + nx * L / 2, cz = sz + nz * L / 2;   // her stem, her middle
+      let ok = true;
+      for (let a = 0.1; a <= 1 && ok; a += 0.15) for (const b of [-0.5, 0, 0.5]) {   // her hull, from just abaft her stem to her stern
+        const px = sx + nx * a * L - nz * b * B, pz = sz + nz * a * L + nx * b * B;
+        if (!isWater(px, pz) || obst.some(o => segDist(px, pz, o.ax, o.az, o.bx, o.bz) < o.w / 2 + 0.6)) { ok = false; break; }
+      }
+      if (!ok) continue;
+      const h = (Math.atan2(-nx, nz) / DEG + 360) % 360, dh = Math.abs(((stop.hdg - h + 540) % 360) - 180);
+      const score = Math.hypot(cx - stop.x, cz - stop.z) + Math.abs(dt) * 0.2 + (stop.sure ? dh * 0.4 : 0);
+      if (!best || score < best.score) best = { x: cx, z: cz, h, score };
+    }
+  }
+  return best;
+}
 function berthOf(v, stop) {
   const sl = slipFor(v, stop.name);
   if (sl) { const ux = Math.sin(sl.brg * DEG), uz = -Math.cos(sl.brg * DEG), k = vLen(v) / 2 + 0.6; return { x: sl.x + ux * k, z: sl.z + uz * k, h: sl.brg }; }   // in her slip
@@ -2467,7 +2493,10 @@ function updateLive(dt) {
     // (v1187) a ferry stopped at a dock: alongside it (findBerth, as the timetabled ferries at Maine's landings), her
     // bow the way she lay; looked for again with each report
     if (kn < 1 && dockSets.length && FERRYISH.test(`${v.what || ''} ${v.model || ''}`)) {
-      if (v.berthKey !== v.fix.t) { v.berthKey = v.fix.t; const b = findBerth(v, { x: v.fix.x, z: v.fix.z, hdg: v.h }); v.berth = b && Math.hypot(b.x - v.fix.x, b.z - v.fix.z) < 70 ? b : null; }
+      if (v.berthKey !== v.fix.t) {   // (v1188: bow-in, as they do; alongside where there's no face to come in to)
+        v.berthKey = v.fix.t; const st = { x: v.fix.x, z: v.fix.z, hdg: v.A.hdg ?? v.h, sure: v.A.hdg != null }, near = b => b && Math.hypot(b.x - v.fix.x, b.z - v.fix.z) < 70 + vLen(v) / 2 ? b : null;
+        v.berth = near(findBowBerth(v, st)) || near(findBerth(v, st));
+      }
     } else v.berth = null;
     if (v.berth) { tx = v.berth.x; tz = v.berth.z; v.shove = 0; }
     else if (kn < 1) {   // (v1185) stopped with an end ashore: off the bank (looked at again with each report, or as she swings 5°)
