@@ -76,6 +76,13 @@ const BOWS = {
   ship: { deck: '#6a3428', rail: '#c9c6bf', cap: '#8f8c86', stem: 0.78, mast: true },
   open: { deck: '#ebe8e0', rail: '#b9bec3', cap: '#f7f7f5', stem: 0.85, open: true },   // (v1170: an open boat's white foredeck, her stainless rail)
 };
+// (v1175) the steering compass on the middle post, a drum card read from behind: 5° to a mark, her heading under the
+// lubber line (the card three turns long, so it never runs out at north)
+function compassDrum() {
+  const marks = [];
+  for (let t = 0; t < 3; t++) for (let d = 0; d < 360; d += 5) marks.push(d % 90 === 0 ? `<span class="c">${'NESW'[d / 90]}</span>` : d % 30 === 0 ? `<span>${d / 10}</span>` : '<span></span>');
+  return `<div class="scomp"><div class="drum n-drum">${marks.join('')}</div><b></b></div>`;
+}
 function wheelFrame() {
   const panes = innerWidth < innerHeight ? [[30, 320], [345, 655], [680, 970]] : [[30, 238], [262, 488], [512, 738], [762, 970]], R = 26, T = 175;   // (v1170: three panes on a phone held upright, four were slats)
   const hole = ([a, b]) => `M${a + R},${T} H${b - R} Q${b},${T} ${b},${T + R} V${975 - R} Q${b},975 ${b - R},975 H${a + R} Q${a},975 ${a},${975 - R} V${T + R} Q${a},${T} ${a + R},${T} Z`;
@@ -159,7 +166,7 @@ export function makeCockpit(el) {
       if (k === 'wheelhouse' && opt.bow && opt.bow !== bowK) { kind = null; bowK = opt.bow; }
       if (k !== kind) {
         kind = k; lastS = lastA = null; el.className = `ck-${k === 'railroad' ? 'train' : k}`;
-        el.innerHTML = `${k === 'console' ? '' : '<div class="pillar l"></div><div class="pillar r"></div>'}${k === 'jet' || k === 'train' || k === 'railroad' ? '<div class="pillar c"></div>' : ''}${k === 'train' || k === 'railroad' ? '<div class="theader"></div>' : ''}${k === 'wheelhouse' ? `<div class="whwin">${bowK === 'none' ? '' : bowSvg(BOWS[bowK] || BOWS.work)}${wheelFrame()}<div class="whover"><div class="rep"><span>RUDDER</span><div class="rbar"><i class="n-rud"></i></div></div><div class="rep"><span>HEADING</span><b class="n-ohdg"></b></div></div></div>` : ''}${k === 'console' ? consolePanel() : ''}${k === 'wheelhouse' ? bigWheel() : ''}<div class="ckpanel"${k === 'console' ? ' hidden' : ''}>${k === 'jet' ? jetPanel() : k === 'train' || k === 'railroad' ? trainPanel(k === 'railroad') : k === 'wheelhouse' ? wheelPanel() : lightPanel()}</div>`;
+        el.innerHTML = `${k === 'console' ? '' : '<div class="pillar l"></div><div class="pillar r"></div>'}${k === 'jet' || k === 'train' || k === 'railroad' ? '<div class="pillar c"></div>' : ''}${k === 'train' || k === 'railroad' ? '<div class="theader"></div>' : ''}${k === 'wheelhouse' ? `<div class="whwin">${bowK === 'none' ? '' : bowSvg(BOWS[bowK] || BOWS.work)}<div class="slight"><i class="beam"></i><i class="pool"></i></div>${wheelFrame()}<div class="whglow"></div>${compassDrum()}<div class="whover"><div class="rep"><span>RUDDER</span><div class="rbar"><i class="n-rud"></i></div></div><div class="rep"><span>HEADING</span><b class="n-ohdg"></b></div></div></div>` : ''}${k === 'console' ? consolePanel() : ''}${k === 'wheelhouse' ? bigWheel() : ''}<div class="ckpanel"${k === 'console' ? ' hidden' : ''}>${k === 'jet' ? jetPanel() : k === 'train' || k === 'railroad' ? trainPanel(k === 'railroad') : k === 'wheelhouse' ? wheelPanel() : lightPanel()}</div>`;
       }
       // (v1170) above the bar of buttons when a phone has it along the bottom (it had covered the console)
       const bar = document.getElementById('scale')?.getBoundingClientRect();
@@ -167,7 +174,7 @@ export function makeCockpit(el) {
       el.hidden = false; document.body.classList.add('incockpit');
     },
     hide() { el.hidden = true; document.body.classList.remove('incockpit'); },
-    update({ gs = 0, alt = 0, hdg = 0, vr = 0, ground = false, next = '', dest = '', cog = null, turn = 0, yaw = 0, pitch = -3, fov = 50 } = {}) {
+    update({ gs = 0, alt = 0, hdg = 0, vr = 0, ground = false, next = '', dest = '', cog = null, turn = 0, yaw = 0, pitch = -3, fov = 50, eyeY = 8 } = {}) {
       if (el.hidden) return;
       if (kind === 'console') {   // (v1170) an open boat's: her compass card, her speed and course, the wheel and the throttle
         const d3 = a => String(Math.round(((a % 360) + 360) % 360) % 360).padStart(3, '0');
@@ -180,6 +187,12 @@ export function makeCockpit(el) {
         txt('.n-hdg', `HDG ${d3(hdg)}°`); txt('.n-cog', cog != null ? `COG ${d3(cog)}°` : ''); txt('.n-spd', `SOG ${gs.toFixed(1)} kn`); txt('.n-ohdg', `${d3(hdg)}°`);
         set('.n-thr', n => n.setAttribute('transform', `translate(0 ${(-26 * clamp(gs / 18, 0, 1)).toFixed(1)})`));
         const rud = clamp(turn / 20, -1, 1); rot('.n-helm', rud * 120); set('.n-rud', n => { n.style.left = `${50 + rud * 45}%`; });
+        // (v1175) the compass card under the lubber line (20 px a mark of 5°: 4 px a degree, from the middle turn of three)
+        set('.n-drum', n => { n.style.transform = `translateX(${(-(360 + (((hdg % 360) + 360) % 360)) * 4).toFixed(1)}px)`; });
+        // her searchlight's pool where you look, 50 m off on the water from the eye (her helm's height, eyeY), in pixels down
+        // the window (the window's top is the screen's)
+        { const H = innerHeight, vf = fov || 50, dep = Math.atan2(eyeY || 8, 50) * 180 / Math.PI, a = dep + pitch;   // (degrees under the middle of the view)
+          el.style.setProperty('--pool', `${Math.round(H / 2 + H / 2 * Math.tan(a * Math.PI / 180) / Math.tan(vf * Math.PI / 360))}px`); }
         bowAt(yaw, pitch, fov); return;
       }
       if (kind === 'train' || kind === 'railroad') {   // (v1161) her speed, the next stop, the controller back as she slows

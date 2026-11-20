@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-19 — Bird's-eye: a steering compass, the console's glow in the glass, a searchlight (v1175)
+
+- Asked: "please resume those other items" (offered after v1174: a lit compass, the screens' glow in the night glass, her searchlight).
+- **The steering compass** (www/js/cockpit.js `compassDrum`): on the middle window post, a drum card read from behind, a mark every 5°, N E S W in red and the tens of degrees, her heading under the red lubber line; lit amber at night.
+- **The console's glow in the glass** at night: the radar's green, the radio's amber and the console's red, faint and low in the panes.
+- **Her searchlight** (the 🔦 Searchlight button beside Leave, at night in a wheelhouse): a pool of light on the water 50 m off where you look, and the beam from over your head down to it.
+- Checked in headless Chrome from the tugs Margaret Moran (by day, the compass at 087° by E) and Fells Point (at night, 312°, searchlight on). Full CI suite passes. Maine's ferries too: AudioChart's release.
+
 ## 2026-11-19 — Bird's-eye: the wheelhouse by night, and wipers in the rain (v1174)
 
 - Asked: "keep improving the tug and ferry helm views".

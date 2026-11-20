@@ -1402,6 +1402,10 @@ const cockpitKind = v => v.heli ? 'heli' : v.L > 14 ? 'jet' : 'light';
 // (v1167) a working vessel's or a ship's helm is in a wheelhouse: tugs, pilot boats, ferries, cruise ships, cargo ships,
 // tankers, cutters, trawlers, dredgers and the like (an open boat, a sailboat, the schooners, your own boat: not)
 const WHEELHOUSE = new Set(['tug', 'pilot', 'dredger', 'ferry', 'cruise', 'cargo', 'tanker', 'ship', 'cutter', 'trawler', 'scalloper', 'research', 'osv', 'cable']);
+// (v1175) her searchlight, at night in a wheelhouse: the 🔦 button; it lights where you look
+const lampBtn = document.getElementById('lampbtn');
+const toggleLamp = () => document.body.classList.toggle('lamp');
+lampBtn?.addEventListener('click', toggleLamp);
 let ckLoading = null;   // (the cockpit's drawing, armchair layer or no: fetched the first time a wheelhouse is wanted, so a boater's Maine bay has it too)
 function wantCockpit() { const ck = document.getElementById('cockpit'); if (cockpit || ckLoading || !ck) return; ckLoading = import('./cockpit.js').then(m => { cockpit ??= m.makeCockpit(ck); }).catch(e => { ckLoading = null; console.warn('[bay3d] cockpit', e); }); }
 // (v1170) her rate of turn in degrees a minute from AIS's code (±127 turning, rate not given: say 15; −128 not known: 0),
@@ -1422,7 +1426,7 @@ function insidePlane(v, inside) {
     if (!inside || nest.mode !== 'helm') { cockpit?.hide(); document.body.classList.remove('inwheel'); return; } if (!cockpit) { wantCockpit(); return; }
     // (her bow painted on only where her model has no wheelhouse of its own: one that has shows her real foredeck, her containers)
     cockpit.show('wheelhouse', { bow: vGroup(v).userData.helm ? 'none' : v.kind === 'ferry' ? 'ferry' : v.kind === 'cruise' ? 'ferry' : v.model === 'tug' ? 'tug' : ['ferry', 'cruise'].includes(v.model) ? 'ferry' : ['cargo', 'tanker', 'ship'].includes(v.model) ? 'ship' : 'work' }); document.body.classList.add('inwheel');
-    cockpit.update({ hdg: v.h || 0, cog: v.A?.cog ?? null, turn: rotDpm(v.A?.rot), gs: v.A?.sog ?? v.kn ?? 0, yaw: nest.yaw, pitch: nest.pitch, fov: camera.fov }); return;
+    cockpit.update({ hdg: v.h || 0, cog: v.A?.cog ?? null, turn: rotDpm(v.A?.rot), gs: v.A?.sog ?? v.kn ?? 0, yaw: nest.yaw, pitch: nest.pitch, fov: camera.fov, eyeY: helmOf(v)[1] }); return;
   }
   if (atConsole(v)) {
     document.body.classList.remove('inwheel');
