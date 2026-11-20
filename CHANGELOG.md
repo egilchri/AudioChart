@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-20 — Bird's-eye: the radar's sweep lights its echoes (v1179)
+
+- Asked: "are the radar displays just play, or do they accurately reflect ships in the area?", then "make the sweep light them up".
+- **Echoes lit by the sweep** (www/js/cockpit.js, www/bay3d.html `ckEcho`/`ckLand`): each target and each land echo flashes as the beam's leading edge crosses its bearing, then fades through the rest of the 4 s turn, as on a real scope. Before, every echo was lit all the time.
+- The beam and every echo run on the page's clock (Web Animations `startTime`), so an echo redrawn every half second keeps time with the beam. CSS delays alone drifted by a frame or more on each redraw, and in headless Chrome the echoes lit up behind the beam.
+- Checked in headless Chrome from the tug Fells Point in New York (live AIS): the land and the targets brightest at the beam's leading edge. Full CI suite passes.
+
 ## 2026-11-19 — Bird's-eye: a real radar, rain on the glass, barges' lights; the window compass gone (v1178)
 
 - Asked: "keep improving the tug and ferry helm views", and "why is there a compass there if it already shows the heading in that dark meter with the green lettering".

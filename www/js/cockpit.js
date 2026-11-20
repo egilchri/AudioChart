@@ -168,6 +168,7 @@ function tapeSvg(val, step, every, px, x0, x1, xt, anchor) {
 }
 export function makeCockpit(el) {
   let kind = null, q = {}, lastS = null, lastA = null, bowK = 'work', lastRadar = '';
+  const SWEEP_EDGE = Math.atan2(26, 34) * 180 / Math.PI;   // (v1179) the beam's leading edge, degrees past its trailing one (the path's M0,-43 … 26,-34)
   const set = (sel, fn) => { for (const n of el.querySelectorAll(sel)) fn(n); };
   const rot = (sel, deg) => set(sel, n => n.setAttribute('transform', `rotate(${deg.toFixed(1)})`));
   // (v1169) her bow, ahead whichever way you look: off to the side as you turn your head, gone past 70°; up and down with it
@@ -201,8 +202,12 @@ export function makeCockpit(el) {
       }
       if (kind === 'wheelhouse' && radar && radar.key !== lastRadar) {   // (v1178) the radar: the boats round her and the land's echo
         lastRadar = radar.key;
-        set('.n-land', n => { n.innerHTML = radar.land.map(([x, y, r]) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(1)}" class="lnd"/>`).join(''); });
-        set('.n-blips', n => { n.innerHTML = radar.targets.map(([x, y]) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="1.9" class="blip"/>`).join(''); });
+        // (v1179) each echo lights as the beam's leading edge crosses its bearing and fades through the turn: the sweep's
+        // and every echo's animation started at a set time on the page's clock (a 4 s turn from 0), not when it's drawn
+        const lag = (x, y) => (Math.atan2(x, -y) * 180 / Math.PI - SWEEP_EDGE + 720) % 360 / 360 * 4000 - 4000;
+        set('.n-land', n => { n.innerHTML = radar.land.map(([x, y, r]) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(1)}" class="lnd" data-t="${lag(x, y) | 0}"/>`).join(''); });
+        set('.n-blips', n => { n.innerHTML = radar.targets.map(([x, y]) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="1.9" class="blip" data-t="${lag(x, y) | 0}"/>`).join(''); });
+        set('.radar', n => { for (const a of n.getAnimations?.({ subtree: true }) || []) { const t = a.effect?.target; a.startTime = t?.dataset?.t != null ? +t.dataset.t : 0; } });
       }
       if (kind === 'wheelhouse') {   // (v1167) her heading and speed; the throttles forward as she makes way
         const d3 = a => String(Math.round(((a % 360) + 360) % 360) % 360).padStart(3, '0');

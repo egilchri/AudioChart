@@ -308,6 +308,10 @@ body:has(#ridechart:not([hidden])) #cockpit .ckpanel { padding-right: calc(clamp
 #cockpit .radar .ring { fill: none; stroke: rgba(60,220,120,0.25); stroke-width: 0.6; } #cockpit .radar .blip { fill: #6dff9e; }
 #cockpit .radar .beam { fill: rgba(80,255,140,0.28); } #cockpit .radar .sweep { animation: ckSweep 4s linear infinite; transform-origin: 0 0; }
 @keyframes ckSweep { to { transform: rotate(360deg); } }
+/* (v1179) the echoes light as the beam crosses them, then fade through the rest of the turn (delays set per echo in cockpit.js) */
+#cockpit .radar .blip { animation: ckEcho 4s linear infinite; } #cockpit .radar .lnd { animation: ckLand 4s linear infinite; }
+@keyframes ckEcho { 0% { opacity: 1; } 4% { opacity: 1; } 60% { opacity: 0.25; } 100% { opacity: 0.12; } }
+@keyframes ckLand { 0% { opacity: 1; } 4% { opacity: 0.9; } 60% { opacity: 0.22; } 100% { opacity: 0.1; } }
 #cockpit .wheel { height: 100%; aspect-ratio: 1; }
 /* (v1171) the wheel, big and close, in front of the console; its foot below the view */
 #cockpit .bigwheel { position: absolute; left: 50%; bottom: calc(clamp(170px, 40vh, 420px) * -0.42); height: clamp(170px, 40vh, 420px); aspect-ratio: 1; transform: translateX(-50%); z-index: 1; filter: drop-shadow(0 8px 14px rgba(0,0,0,0.55)); }
