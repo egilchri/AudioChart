@@ -135,6 +135,8 @@ export function makeBuses({ scene, wx, wz, heightAt, clockMin, roadDecks = () =>
     for (const trip of live) {
       seen.add(trip.id);
       const p = coaches.get(trip.id) || make(trip), q = at(trip.R, trip.t), south = trip.dir === 'S';
+      // (v1184) how fast she's turning, °/s, eased: her wheel turns with it
+      if (p.trip && dt > 0) { const dh = ((q.h - p.h + 540) % 360) - 180; p.turn = (p.turn || 0) + (Math.max(-20, Math.min(20, dh / dt)) - (p.turn || 0)) * Math.min(1, dt / 0.6); }
       p.trip = trip; p.x = q.x; p.z = q.z; p.h = p.dh = q.h; p.y = yAt(q); p.v = trip.arrived || trip.boarding ? 0 : q.v;
       p.under = false; p.tunnel = q.f === 1;
       p.g.position.set(p.x, p.y, p.z); p.model.rotation.set(0, -p.h * DEG, 0);

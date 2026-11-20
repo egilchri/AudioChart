@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-20 — Bird's-eye: a coach's own cab (v1184)
+
+- Asked: "give the bus a proper wide windscreen".
+- **The coach's cab** (www/js/cockpit.js kind `bus`, www/bay3d.html): one wide windscreen with no post down the middle (v1183 had lent her a train's cab), thin corner pillars, the roof's edge and the sun visor over her driver, her two mirrors hanging at the top corners, her big flat wheel low on the left over a low dash, a speedometer to 80 mph and the amber line of where she's bound. The wheel turns as she turns (buses3d.js `turn`, her rate of turn eased).
+- Checked in headless Chrome crossing the GWB, desktop and phone (on a phone the wheel isn't drawn; the mini-chart sits over the sign's end, as in the trains' cabs). Full CI suite passes.
+
 ## 2026-11-20 — Bird's-eye: C&J's coaches from New Hampshire into New York (v1183)
 
 - Asked: "add scheduled busses coming in to Manhattan", "How about the C&J coming from Boston/NH?", "I'd be coming from Seabrook".

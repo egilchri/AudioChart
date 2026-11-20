@@ -1488,7 +1488,7 @@ function insidePlane(v, inside) {
   }
   document.body.classList.remove('inwheel'); document.body.classList.remove('atconsole');
   // (v1161) a train's cab: her front window's frame, her speed and the next stop
-  if (v?.kind === 'rail') { if (!inside || nest.mode !== 'helm') { cockpit?.hide(); return; } cockpit?.show(v.bus || / train$|^PATH$|^Staten Island Railway$|Line$|Trolley$/.test(v.a?.rail || '') ? 'train' : 'railroad'); cockpit?.update({ gs: (v.vs ?? v.v ?? 0) * 2.237, next: v.a?.next || '', dest: v.a?.dest || '' }); return; }
+  if (v?.kind === 'rail') { if (!inside || nest.mode !== 'helm') { cockpit?.hide(); return; } cockpit?.show(v.bus ? 'bus' : / train$|^PATH$|^Staten Island Railway$|Line$|Trolley$/.test(v.a?.rail || '') ? 'train' : 'railroad'); cockpit?.update({ gs: (v.vs ?? v.v ?? 0) * 2.237, next: v.a?.next || '', dest: v.a?.dest || '', turn: v.turn || 0 }); return; }
   if (v?.kind !== 'air') { cockpit?.hide(); return; }
   if (v.model) v.model.visible = !inside;
   if (!inside) { cockpit?.hide(); return; }

@@ -121,6 +121,17 @@ function trainPanel(rr) {   // her speed (0-60 mph a subway's, 0-100 a railroad'
   const spd = dial('MPH', tickRing(rr ? 10 : 12, -135, 270, 2) + figs(rr ? ['0', '20', '40', '60', '80', '100'] : ['0', '10', '20', '30', '40', '50', '60'], -135, 270) + needle('n-asi', 36) + '<circle r="3.5" class="hub"/>');
   return `<div class="gauges">${spd}<div class="tled"><div class="n-next"></div><div class="n-dest"></div></div><svg viewBox="0 0 60 100" class="tlever"><rect x="22" y="8" width="16" height="84" rx="6" class="slot"/><g class="n-lever"><rect x="14" y="44" width="32" height="12" rx="4" class="knob"/></g></svg></div>`;
 }
+// (v1184) a coach's dash: her speed (0-80 mph), the amber line of where she's bound; her wheel big and nearly flat,
+// low on the left where her driver sits (asked: "give the bus a proper wide windscreen": she'd had a train's cab, a
+// post down the middle of the view)
+function busPanel() {
+  const spd = dial('MPH', tickRing(16, -135, 270, 2) + figs(['0', '20', '40', '60', '80'], -135, 270) + needle('n-asi', 36) + '<circle r="3.5" class="hub"/>');
+  return `<div class="gauges">${spd}<div class="tled"><div class="n-next"></div><div class="n-dest"></div></div></div>`;
+}
+function busWheel() {
+  let spokes = ''; for (const a of [90, 210, 330]) { const r = a * Math.PI / 180; spokes += `<line x1="0" y1="0" x2="${(Math.cos(r) * 92).toFixed(1)}" y2="${(Math.sin(r) * 24).toFixed(1)}" class="spoke"/>`; }
+  return `<svg viewBox="-110 -40 220 80" class="bwheel"><g class="n-bwheel"><ellipse rx="100" ry="27" class="rim"/>${spokes}<ellipse rx="16" ry="6" class="boss"/></g></svg>`;
+}
 function lightPanel() {
   const asi = dial('KNOTS', tickRing(20, -150, 300, 2) + figs(['0', '40', '80', '120', '160', '200'], -150, 300) + needle('n-asi', 38) + '<circle r="3.5" class="hub"/>');
   const alt = dial('FEET', tickRing(50, 0, 360, 5) + figs(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'].concat(['']), 0, 360) + '<rect x="-14" y="8" width="28" height="10" rx="1.5" class="win"/><text y="16" class="dig n-altd">0</text>' + needle('n-alt10', 22, 4) + needle('n-alt', 38) + '<circle r="3.5" class="hub"/>');
@@ -184,7 +195,7 @@ export function makeCockpit(el) {
       if (k === 'wheelhouse' && opt.bow && opt.bow !== bowK) { kind = null; bowK = opt.bow; }
       if (k !== kind) {
         kind = k; lastS = lastA = null; el.className = `ck-${k === 'railroad' ? 'train' : k}`;
-        el.innerHTML = `${k === 'console' ? '' : '<div class="pillar l"></div><div class="pillar r"></div>'}${k === 'jet' || k === 'train' || k === 'railroad' ? '<div class="pillar c"></div>' : ''}${k === 'train' || k === 'railroad' ? '<div class="theader"></div>' : ''}${k === 'wheelhouse' ? `<div class="whwin">${bowK === 'none' ? '' : bowSvg(BOWS[bowK] || BOWS.work)}<div class="slight"><i class="beam"></i><i class="pool"></i></div>${wheelFrame()}<div class="whglow"></div><div class="whover"><div class="rep"><span>RUDDER</span><div class="rbar"><i class="n-rud"></i></div></div><div class="rep"><span>HEADING</span><b class="n-ohdg"></b></div></div></div>` : ''}${k === 'console' ? consolePanel() : ''}${k === 'wheelhouse' ? bigWheel() : ''}<div class="ckpanel"${k === 'console' ? ' hidden' : ''}>${k === 'jet' ? jetPanel() : k === 'train' || k === 'railroad' ? trainPanel(k === 'railroad') : k === 'wheelhouse' ? wheelPanel() : lightPanel()}</div>`;
+        el.innerHTML = `${k === 'console' ? '' : '<div class="pillar l"></div><div class="pillar r"></div>'}${k === 'jet' || k === 'train' || k === 'railroad' ? '<div class="pillar c"></div>' : ''}${k === 'train' || k === 'railroad' ? '<div class="theader"></div>' : ''}${k === 'bus' ? '<div class="bglass"></div><div class="bheader"></div><div class="bmirror l"></div><div class="bmirror r"></div>' + busWheel() : ''}${k === 'wheelhouse' ? `<div class="whwin">${bowK === 'none' ? '' : bowSvg(BOWS[bowK] || BOWS.work)}<div class="slight"><i class="beam"></i><i class="pool"></i></div>${wheelFrame()}<div class="whglow"></div><div class="whover"><div class="rep"><span>RUDDER</span><div class="rbar"><i class="n-rud"></i></div></div><div class="rep"><span>HEADING</span><b class="n-ohdg"></b></div></div></div>` : ''}${k === 'console' ? consolePanel() : ''}${k === 'wheelhouse' ? bigWheel() : ''}<div class="ckpanel"${k === 'console' ? ' hidden' : ''}>${k === 'jet' ? jetPanel() : k === 'train' || k === 'railroad' ? trainPanel(k === 'railroad') : k === 'bus' ? busPanel() : k === 'wheelhouse' ? wheelPanel() : lightPanel()}</div>`;
       }
       // (v1170) above the bar of buttons when a phone has it along the bottom (it had covered the console)
       const bar = document.getElementById('scale')?.getBoundingClientRect();
@@ -221,6 +232,10 @@ export function makeCockpit(el) {
         { const H = innerHeight, vf = fov || 50, dep = Math.atan2(eyeY || 8, 50) * 180 / Math.PI, a = dep + pitch;   // (degrees under the middle of the view)
           el.style.setProperty('--pool', `${Math.round(H / 2 + H / 2 * Math.tan(a * Math.PI / 180) / Math.tan(vf * Math.PI / 360))}px`); }
         bowAt(yaw, pitch, fov); return;
+      }
+      if (kind === 'bus') {   // (v1184) her speed, where she's bound, her wheel turned as she turns (it's turned by her rate of turn)
+        rot('.n-asi', -135 + 270 * clamp(gs, 0, 80) / 80); txt('.n-next', next ? `Next: ${next}` : ''); txt('.n-dest', dest ? `To ${dest}` : '');
+        set('.n-bwheel', n => n.setAttribute('transform', `rotate(${clamp(turn * 6, -25, 25).toFixed(1)})`)); return;
       }
       if (kind === 'train' || kind === 'railroad') {   // (v1161) her speed, the next stop, the controller back as she slows
         const top = kind === 'railroad' ? 100 : 60; rot('.n-asi', -135 + 270 * clamp(gs, 0, top) / top); txt('.n-next', next ? `Next: ${next}` : ''); txt('.n-dest', dest ? `To ${dest}` : '');
