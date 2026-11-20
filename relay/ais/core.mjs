@@ -299,6 +299,25 @@ export function pbRead(buf, s = 0, e = buf.length) {
   }
   return out;
 }
+// (v1186) New York's city buses: MTA Bus Time's GTFS-realtime vehicle positions (gtfsrt.prod.obanyc.com, the key
+// MTA_BUS_KEY): each bus's own GPS place and bearing, her route (M15, B63, SIM1C...), her direction (0/1), her trip.
+// VehiclePosition 1 trip (TripDescriptor 1 trip_id, 5 route_id, 6 direction_id), 2 position (Position 1 latitude,
+// 2 longitude, 3 bearing: floats), 5 timestamp, 8 vehicle (VehicleDescriptor 1 id)
+export function trimMtaBuses(buf, now = Date.now()) {
+  if (!(buf instanceof Uint8Array)) return [];
+  const dec = new TextDecoder(), str = r => r ? dec.decode(buf.subarray(r[0], r[1])) : '', dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+  const f32 = x => x && x.f32 != null ? dv.getFloat32(x.f32, true) : null, out = [];
+  for (const r of pbRead(buf)[2] || []) {
+    const en = pbRead(buf, ...r); if (!en[4]) continue;
+    const v = pbRead(buf, ...en[4][0]), tr = v[1] && pbRead(buf, ...v[1][0]), ps = v[2] && pbRead(buf, ...v[2][0]), vd = v[8] && pbRead(buf, ...v[8][0]);
+    const lat = f32(ps?.[1]?.[0]), lon = f32(ps?.[2]?.[0]); if (lat == null || lon == null) continue;
+    const at = (v[5]?.[0] || 0) * 1000; if (at && now - at > 10 * 60e3) continue;   // (a bus not heard for ten minutes: laid up)
+    const route = str(tr?.[5]?.[0]).replace(/^MTA( NYCT| BC)?_/, ''); if (!route) continue;   // (a bus on no trip: deadheading, left out)
+    out.push({ id: str(vd?.[1]?.[0]).replace(/^MTA( NYCT| BC)?_/, '') || str(tr?.[1]?.[0]), route, dir: tr?.[6]?.[0] ?? null, trip: str(tr?.[1]?.[0]),
+      lat: +lat.toFixed(5), lon: +lon.toFixed(5), brg: ps?.[3] ? Math.round(f32(ps[3][0])) : null, at: Math.min(at || now, now) });
+  }
+  return out;
+}
 const NYC_STATUS = ['incoming', 'stopped', 'transit'];
 export function trimNyct(buf, rail, now = Date.now(), nyc) {
   if (!(buf instanceof Uint8Array) || !nyc) return [];

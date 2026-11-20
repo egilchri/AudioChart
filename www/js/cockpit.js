@@ -234,7 +234,7 @@ export function makeCockpit(el) {
         bowAt(yaw, pitch, fov); return;
       }
       if (kind === 'bus') {   // (v1184) her speed, where she's bound, her wheel turned as she turns (it's turned by her rate of turn)
-        rot('.n-asi', -135 + 270 * clamp(gs, 0, 80) / 80); txt('.n-next', next ? `Next: ${next}` : ''); txt('.n-dest', dest ? `To ${dest}` : '');
+        rot('.n-asi', -135 + 270 * clamp(gs, 0, 80) / 80); txt('.n-next', next); txt('.n-dest', dest ? `To ${dest}` : '');   // (v1186: her sign as given: a city bus's route and way)
         set('.n-bwheel', n => n.setAttribute('transform', `rotate(${clamp(turn * 6, -25, 25).toFixed(1)})`)); return;
       }
       if (kind === 'train' || kind === 'railroad') {   // (v1161) her speed, the next stop, the controller back as she slows

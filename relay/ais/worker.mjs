@@ -3,7 +3,7 @@
 // since v1011), opened by the first request and closed after a few minutes with nobody asking (AISStream allows 3
 // connections per key, Open Waters 2 per personal token). Names, types and sizes are kept in the object's
 // storage, since AIS sends them only every six minutes.
-import { makeTable, subscription, corsHeaders, FEEDS, MAINE_BOXES, ARMCHAIR_BOXES, bboxOf, aircraftUpstream, trimAircraft, RAIL, railUpstream, trimTrains } from './core.mjs';
+import { makeTable, subscription, corsHeaders, FEEDS, MAINE_BOXES, ARMCHAIR_BOXES, bboxOf, aircraftUpstream, trimAircraft, RAIL, railUpstream, trimTrains, trimMtaBuses } from './core.mjs';
 
 const IDLE_MS = 5 * 60e3;
 // The Durable Object's name carries the relay's version. A deploy doesn't restart a running object while its feed
@@ -91,7 +91,34 @@ export class AisHub {
     if (new URL(req.url).searchParams.get('sample')) { body.sample = this.sample || null; body.counts = Object.fromEntries(RAIL.map((r, i) => [r.id, lists[i].length])); body.diag = this.diag || null; }
     return new Response(JSON.stringify(body), { headers: corsHeaders(req.headers.get('Origin')) });
   }
+  // GET /mtabus?bbox= (v1186): New York's city buses, MTA Bus Time's vehicle positions, asked at most every 30 s (its
+  // limit: one request each 30 s a key) however many ask; kept in memory only (the whole city's, too big for storage)
+  async mtabus(req) {
+    const now = Date.now(), bbox = bboxOf(req.url), h = corsHeaders(req.headers.get('Origin'));
+    if (!this.env.MTA_BUS_KEY) return new Response(JSON.stringify({ t: now, buses: [], error: 'no MTA Bus Time key' }), { status: 503, headers: h });
+    let err = null;
+    if (!this.mbus || now - this.mbus.at > 30e3) {
+      this.mbusAsk ??= (async () => {
+        try {
+          const up = await fetch(`https://gtfsrt.prod.obanyc.com/vehiclePositions?key=${encodeURIComponent(this.env.MTA_BUS_KEY)}`, { headers: { 'User-Agent': 'AudioChart-relay' } });
+          if (!up.ok) throw new Error(`Bus Time ${up.status}`);
+          const buf = new Uint8Array(await up.arrayBuffer());
+          this.mbus = { at: now, buses: trimMtaBuses(buf, now), bytes: buf.length };
+        } catch (e) { this.mbusErr = String(e.message || e); if (this.mbus) this.mbus.at = now - 15e3; }   // (a failure: again in 15 s)
+        finally { this.mbusAsk = null; }
+      })();
+      await this.mbusAsk;
+    }
+    if (!this.mbus) err = this.mbusErr || 'no answer yet';
+    let out = this.mbus?.buses || [];
+    if (bbox) out = out.filter(b => b.lon >= bbox[0] && b.lat >= bbox[1] && b.lon <= bbox[2] && b.lat <= bbox[3]);
+    const body = { t: now, buses: out.map(b => ({ ...b, age: Math.max(0, Math.round((now - b.at) / 1000)) })) };
+    if (err) body.error = err;
+    if (new URL(req.url).searchParams.get('sample')) body.diag = { bytes: this.mbus?.bytes, all: this.mbus?.buses.length, lastErr: this.mbusErr || null };
+    return new Response(JSON.stringify(body), { headers: h });
+  }
   async fetch(req) {
+    if (new URL(req.url).pathname === '/mtabus') return this.mtabus(req);
     if (new URL(req.url).pathname === '/trains') return this.trains(req);
     this.kind ??= req.headers.get('X-Hub') || 'maine';
     await this.ready;
@@ -127,6 +154,7 @@ export default {
     const url = new URL(req.url), origin = req.headers.get('Origin');
     if (req.method === 'OPTIONS') return new Response(null, { headers: { ...corsHeaders(origin), 'Access-Control-Allow-Methods': 'GET' } });
     if (url.pathname === '/aircraft') return aircraft(req, url, ctx);
+    if (url.pathname === '/mtabus') return env.AIS_HUB.get(env.AIS_HUB.idFromName('trains')).fetch(req);   // (v1186: the trains' object, its one cache)
     if (url.pathname === '/trains') {
       return env.AIS_HUB.get(env.AIS_HUB.idFromName('trains')).fetch(req);   // (one object, so one cache: 511's 60 an hour)
     }

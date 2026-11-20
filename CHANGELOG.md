@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-20 — Bird's-eye: New York's city buses, live (v1186)
+
+- Asked: "Is there a feed for MTA busses?", "I'd add them for local color", "MTA bus key installed", "You can do it now".
+- **The relay** (relay/ais/worker.mjs `mtabus`, core.mjs `trimMtaBuses`; deployed to birdseye-relay): `GET /mtabus?bbox=` from MTA Bus Time's GTFS-realtime vehicle positions on the key `MTA_BUS_KEY`, asked at most every 30 s (Bus Time's limit) by the `trains` object however many ask, kept in memory. About 3,500 buses citywide at midday, 570 on Manhattan's routes. relay/ais/README.md updated.
+- **The buses** (www/js/buses3d.js `makeMtaBuses`): with 📡 Live in New York, every city bus at her own GPS place, white with the MTA's blue band, all one instanced mesh (one draw call). Each runs from where she's drawn to her newest report over the time between reports, so she's about half a minute behind but on her street; a straight run on from a report had cut corners through the blocks. Her height: the ground, or a big bridge's deck when she's going its way. Her card (🚌): route, bus number, speed between her last two reports (a jump faster than 45 mph is her GPS, not her), heading, last report, source. Follow, Drone, Side and her driver's seat (v1184's coach cab), her sign her route and her way ("M104 · uptown": Manhattan's grid; elsewhere by the compass; the feed doesn't say where she's bound). The Live button counts them apart: 🚆 trains, 🚌 buses.
+- `withBuses` takes any number of bus layers (C&J's and the MTA's).
+- Checked in headless Chrome: 3,474 buses in; an M101 heading 209° down Lexington (Manhattan's grid), an M104 uptown on Broadway from her cab and from beside her. On a curving road (an M4 at Fort Tryon) the straight run between reports can still cross a corner of a block or a park. Full CI suite passes.
+
 ## 2026-11-20 — Bird's-eye: stopped boats off the bank (v1185)
 
 - Reported with a screenshot: "It looks like the ferry in the snapshot is beached" (NY Waterway's Sen Frank Lautenberg at a Brooklyn landing, her bow up the bank).

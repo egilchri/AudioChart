@@ -11,6 +11,7 @@
 import * as THREE from 'three';
 import { labelSprite } from './aircraft3d.js';
 import { bayDay } from './regiontime.js';
+import { relayUrl } from './ais.js';
 
 const DEG = Math.PI / 180;
 // days: 0 Sunday .. 6 Saturday. Southbound by their time at the terminal (and at Dover, for the card); northbound by
@@ -145,7 +146,7 @@ export function makeBuses({ scene, wx, wz, heightAt, clockMin, roadDecks = () =>
       p.model.scale.set(w, Math.max(1, w * 0.5), Math.max(1, w * 0.35));
       p.model.visible = !p.tunnel;
       p.a = { rail: 'C&J', trip: trip.T.at, from: south ? 'Dover, NH' : 'New York (Port Authority)', dest: south ? 'New York (Port Authority)' : 'Dover, NH',
-        next: south ? 'Port Authority, Gate 36' : 'Seabrook, NH' };
+        next: `Next: ${south ? 'Port Authority, Gate 36' : 'Seabrook, NH'}` };
       p.from = p.a.from; p.dest = p.a.dest;
       p.title = `C&J coach, ${south ? 'from Dover' : 'to Dover'} (${hhmm(mins(trip.T.at))})`;
       // (OSM's tunnels on her road: the Lincoln Tunnel's, and the Trans-Manhattan Expressway's under the apartment houses
@@ -187,25 +188,157 @@ export function makeBuses({ scene, wx, wz, heightAt, clockMin, roadDecks = () =>
   };
 }
 
-// the trains' movers and the coaches' as one (bay3d.js's `rail`): what's asked of one asked of both
-export function withBuses(trains, buses) {
+// (v1186; asked: "Is there a feed for MTA busses?", "MTA bus key installed", "You can do it now") New York's city
+// buses, live: MTA Bus Time's GPS positions through the relay (GET /mtabus, at most every 30 s: its limit), about
+// 3,500 at midday, 570 of them on Manhattan's routes. Each runs from her last report to her new one over the time
+// between them, so she's about half a minute behind, but on her street (a straight run on from a report had cut
+// corners through the blocks). All of them one instanced mesh, one draw call (v1155's lesson: New York's 630 trains,
+// each her own meshes, were 19,000); each a mover (kind 'rail', bus: true, mta: true) for her card, Follow and her
+// driver's seat, with an empty group to carry her helm. MTA blue on white.
+function cityBusGeometry() {
+  const L = 12.2, W = 2.55, parts = [];
+  const box = (w, h, l, x, y, z, c) => { const g = new THREE.BoxGeometry(w, h, l).toNonIndexed(); g.translate(x, y, z); parts.push([g, new THREE.Color(c)]); };
+  box(W, 2.35, L, 0, 0.45 + 1.175, 0, 0xf1f1ee);          // her body
+  box(W + 0.02, 0.35, L - 0.3, 0, 1.15, 0, 0x1f4f9c);      // the MTA's blue band
+  box(W + 0.04, 0.95, L - 3.0, 0, 2.05, 0.6, 0x1a1f26);     // her windows
+  box(W - 0.1, 0.25, L - 0.6, 0, 2.95, 0, 0xd8d8d4);       // her roof's pods
+  for (const z of [-L / 2 + 2.4, L / 2 - 2.6]) for (const sx of [-1, 1]) box(0.3, 0.95, 0.95, sx * (W / 2 - 0.1), 0.48, z, 0x151515);   // wheels
+  const n = parts.reduce((a, [g]) => a + g.attributes.position.count, 0), pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), col = new Float32Array(n * 3);
+  let o = 0;
+  for (const [g, c] of parts) { const k = g.attributes.position.count; pos.set(g.attributes.position.array, o * 3); nor.set(g.attributes.normal.array, o * 3); for (let i = 0; i < k; i++) col.set([c.r, c.g, c.b], (o + i) * 3); o += k; g.dispose(); }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  return geo;
+}
+// her route as riders say it: 'M15' (+, Select Bus Service), the express buses (X, SIM, BxM, QM, BM)
+function routeName(r) {
+  const sbs = /\+$/.test(r), base = r.replace(/\+$/, '').replace(/^BX(?=\d)/, 'Bx').replace(/^BXM/, 'BxM');
+  return sbs ? `${base} Select Bus Service` : /^(X|SIM|BxM|QM|BM)\d/.test(base) ? `${base} express` : base;
+}
+// her way, as New Yorkers say it: on Manhattan's grid (its avenues run 29° east of north) uptown, downtown, crosstown;
+// elsewhere by the compass (the feed gives her direction only as 0 or 1, not where she's bound)
+function wayOf(h, route) {
+  const off = a => Math.abs(((h - a) % 360 + 540) % 360 - 180);
+  if (/^M\d/.test(route)) return off(29) < 40 ? 'uptown' : off(209) < 40 ? 'downtown' : off(119) < 50 ? 'crosstown, east' : 'crosstown, west';
+  return ['northbound', 'eastbound', 'southbound', 'westbound'][Math.round(h / 90) % 4];
+}
+export function makeMtaBuses({ scene, wx, wz, heightAt, bbox, relay = () => relayUrl('birdseye'), roadDecks = () => null, focus = () => false, onCount, onDrop = () => {}, every = 30000 }) {
+  const MAX = 6000, buses = new Map(), _v = new THREE.Vector3(), _m4 = new THREE.Matrix4(), _q = new THREE.Quaternion(), _p = new THREE.Vector3(), _s = new THREE.Vector3(), _y = new THREE.Vector3(0, 1, 0);
+  const mesh = new THREE.InstancedMesh(cityBusGeometry(), new THREE.MeshLambertMaterial({ vertexColors: true }), MAX);
+  mesh.count = 0; mesh.frustumCulled = false; scene.add(mesh);
+  const tag = labelSprite(); tag.visible = false; scene.add(tag);
+  let on = false, timer = null, hover = null, pinned = new Set(), deck = null;
+  // the big bridges' decks by 25 m cell, with their line's heading: a bus there going the deck's way is on it (one
+  // passing under it, on the FDR or an avenue, isn't)
+  function deckAt(x, z, h) {
+    if (!deck) { const D = roadDecks(); if (!D) return null; deck = new Map();
+      for (const P of D) for (let i = 1; i < P.length; i++) { const a = P[i - 1], b = P[i], n = Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / 10), dh = (Math.atan2(b.x - a.x, -(b.z - a.z)) / DEG + 360) % 360;
+        for (let j = 0; j <= n; j++) { const x2 = a.x + (b.x - a.x) * j / n, z2 = a.z + (b.z - a.z) * j / n; deck.set(`${Math.floor(x2 / 25)},${Math.floor(z2 / 25)}`, [a.h + (b.h - a.h) * j / n, dh]); } } }
+    const c = deck.get(`${Math.floor(x / 25)},${Math.floor(z / 25)}`); if (!c) return null;
+    const d = Math.abs(((h - c[1]) % 180 + 270) % 180 - 90); return d > 65 ? c[0] : null;   // (along it, either way)
+  }
+  function data(j) {
+    const now = Date.now(), seen = new Set();
+    for (const b of j.buses || []) {
+      const id = 'mta:' + b.id; seen.add(id);
+      const fx = wx(b.lon), fz = wz(b.lat), at = now - (b.age || 0) * 1000;
+      let p = buses.get(id);
+      if (!p) {
+        const g = new THREE.Group(); g.userData.helm = [-0.7, 2.2, -12.2 / 2 + 0.9]; scene.add(g);
+        p = { kind: 'rail', bus: true, mta: true, id, g, group: g, L: 40, len: 12.2, x: fx, z: fz, y: 0, h: b.brg ?? 0, dh: b.brg ?? 0, v: 0, vKnown: false, from: { x: fx, z: fz }, to: { x: fx, z: fz }, t0: now, gap: every, fix: { t: at } };
+        buses.set(id, p);
+      }
+      if (!p.lastAt || at > p.lastAt + 3000) {   // (a new report: from where she's drawn now to it, over the time since her last)
+        const gap = p.lastAt ? Math.max(10e3, Math.min(90e3, at - p.lastAt)) : every;
+        const d = Math.hypot(fx - p.to.x, fz - p.to.z);
+        // (her speed from her two reports; faster than 45 mph is her GPS jumping, not her: her speed kept)
+        if (p.lastAt && d / (gap / 1000) <= 20) { p.v = d / (gap / 1000); p.vKnown = true; } if (d > 600) { p.x = fx; p.z = fz; }   // (a jump: there at once)
+        p.from = { x: p.x, z: p.z }; p.to = { x: fx, z: fz, lon: b.lon, lat: b.lat }; p.t0 = now; p.gap = gap; p.lastAt = at; p.fix.t = at;
+        if (b.brg != null) p.brg = b.brg;
+      }
+      p.b = b; p.route = b.route;
+      p.title = `${routeName(b.route)} bus${b.id ? ' ' + b.id : ''}`;
+      p.a = { rail: 'MTA bus', trip: b.trip, from: '', dest: '', next: `${routeName(b.route)} · ${wayOf(p.h, b.route)}` };
+      p.label = `${routeName(b.route)}${p.vKnown ? (p.v >= 1 ? ` · about ${Math.round(p.v * 2.237)} mph` : ' · stopped') : ''}`;
+      p.labelBase = p.label;
+    }
+    for (const [id, p] of buses) if (!seen.has(id)) { buses.delete(id); pinned.delete(p); if (hover === p) hover = null; onDrop(p); scene.remove(p.g); }
+    onCount?.(buses.size);
+  }
+  async function poll() {
+    if (!on) return;
+    try { const r = await fetch(`${relay()}/mtabus?bbox=${bbox.map(v => v.toFixed(3)).join(',')}`, { cache: 'no-store' }); const j = await r.json(); if (on && r.ok) data(j); }
+    catch (_) {}   // (the network's, quietly: again next time)
+    if (on) timer = setTimeout(poll, every);
+  }
+  function update(dt, camera) {
+    if (!on) { mesh.count = 0; tag.visible = false; return; }
+    const now = Date.now(), cp = camera.position; let n = 0, label = null;
+    for (const p of buses.values()) {
+      const u = Math.max(0, Math.min(1, (now - p.t0) / p.gap)), x = p.from.x + (p.to.x - p.from.x) * u, z = p.from.z + (p.to.z - p.from.z) * u;
+      const mv = Math.hypot(p.to.x - p.from.x, p.to.z - p.from.z);
+      const want = mv > 4 ? (Math.atan2(p.to.x - p.from.x, -(p.to.z - p.from.z)) / DEG + 360) % 360 : p.brg ?? p.h;
+      const turn = ((want - p.h + 540) % 360) - 180; p.h = p.dh = (p.h + Math.max(-90 * dt, Math.min(90 * dt, turn)) + 360) % 360;
+      if (p.yx == null || Math.hypot(x - p.yx, z - p.yz) > 5) {   // (her height, again when she's moved 5 m)
+        p.yx = x; p.yz = z; const t = (x - p.from.x) / ((p.to.x - p.from.x) || 1);
+        const lon = p.to.lon ?? 0, lat = p.to.lat ?? 0, gx = Math.max(0, heightAt(lon + (x - p.to.x) / (111320 * Math.cos(lat * DEG)), lat - (z - p.to.z) / 111120) || 0);
+        p.yy = deckAt(x, z, p.h) ?? gx;
+      }
+      p.x = x; p.z = z; p.y = p.yy; p.g.position.set(x, p.y, z);
+      if (n < MAX) {
+        const d = Math.hypot(x - cp.x, p.y - cp.y, z - cp.z), w = Math.max(1, d * 0.0058 / 2.55);   // (far off, about 4 px wide, as the trains)
+        mesh.setMatrixAt(n++, _m4.compose(_p.set(x, p.y, z), _q.setFromAxisAngle(_y, -p.h * DEG), _s.set(w, Math.max(1, w * 0.5), Math.max(1, w * 0.4))));
+      }
+      if (p === hover || pinned.has(p) || focus(p)) label = p;
+    }
+    mesh.count = n; mesh.instanceMatrix.needsUpdate = true;
+    tag.visible = !!label; if (label) { tag.position.set(label.x, label.y + 6, label.z); tag.userData.draw(label.label); }
+  }
+  return {
+    start() { if (on) return; on = true; poll(); },
+    stop() { on = false; clearTimeout(timer); for (const p of buses.values()) { onDrop(p); scene.remove(p.g); } buses.clear(); pinned.clear(); hover = null; mesh.count = 0; onCount?.(0); },
+    update,
+    at(cx, cy, camera, rect, reach = 22) {
+      let best = null, bd = reach;
+      for (const p of buses.values()) {
+        _v.set(p.x, p.y + 1.5, p.z).project(camera); if (_v.z >= 1) continue;
+        const d = Math.hypot(rect.left + (_v.x + 1) / 2 * rect.width - cx, rect.top + (1 - _v.y) / 2 * rect.height - cy);
+        if (d < bd) { bd = d; best = p; }
+      }
+      return best;
+    },
+    set hover(p) { hover = p; },
+    has: p => buses.get(p?.id) === p,
+    items: () => [...buses.values()],
+    toggle(p) { if (pinned.has(p)) pinned.delete(p); else pinned.add(p); },
+    pin(id, show = true) { const p = buses.get(id); if (p) { if (show) pinned.add(p); else pinned.delete(p); } return !!p; },
+    get count() { return buses.size; },
+    list: () => [...buses.values()].map(p => ({ id: p.id, rail: 'MTA bus', route: p.route, v: +p.v.toFixed(1), h: Math.round(p.h), y: +p.y.toFixed(1), label: p.label })),
+  };
+}
+
+// the trains' movers and the buses' as one (bay3d.js's `rail`): what's asked of one asked of all. (v1186: any number
+// of bus layers, C&J's and the MTA's)
+export function withBuses(trains, ...extra) {
+  const all = [trains, ...extra], owner = p => all.find(m => m.has(p));
   return new Proxy(trains, {
     get(t, k) {
       switch (k) {
-        case 'count': return t.count + buses.count;
-        case 'has': return p => t.has(p) || buses.has(p);
-        case 'items': return () => [...t.items(), ...buses.items()];
-        case 'list': return (c, r) => [...t.list(c, r), ...buses.list()];
-        case 'at': return (...a) => t.at(...a) || buses.at(...a);
-        case 'start': return () => { t.start(); buses.start(); };
-        case 'stop': return () => { t.stop(); buses.stop(); };
-        case 'update': return (dt, cam) => { t.update(dt, cam); buses.update(dt, cam); };
-        case 'toggle': return p => (buses.has(p) ? buses : t).toggle(p);
-        case 'pin': return (id, show) => t.pin(id, show) || buses.pin(id, show);
-        case 'buses': return buses;
+        case 'count': return all.reduce((a, m) => a + m.count, 0);
+        case 'busCount': return extra.reduce((a, m) => a + m.count, 0);
+        case 'has': return p => !!owner(p);
+        case 'items': return () => all.flatMap(m => m.items());
+        case 'list': return (c, r) => all.flatMap(m => m.list(c, r));
+        case 'at': return (...a) => { for (const m of all) { const p = m.at(...a); if (p) return p; } return null; };
+        case 'start': return () => all.forEach(m => m.start());
+        case 'stop': return () => all.forEach(m => m.stop());
+        case 'update': return (dt, cam) => all.forEach(m => m.update(dt, cam));
+        case 'toggle': return p => owner(p)?.toggle(p);
+        case 'pin': return (id, show) => all.some(m => m.pin(id, show));
+        case 'buses': return extra[0];
+        case 'layers': return extra;
       }
       const v = t[k]; return typeof v === 'function' ? v.bind(t) : v;
     },
-    set(t, k, v) { if (k === 'hover') { t.hover = v && t.has(v) ? v : null; buses.hover = v && buses.has(v) ? v : null; return true; } t[k] = v; return true; },
+    set(t, k, v) { if (k === 'hover') { for (const m of all) m.hover = v && m.has(v) ? v : null; return true; } t[k] = v; return true; },
   });
 }

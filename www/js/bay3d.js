@@ -2532,7 +2532,8 @@ function buildArmchair() {
   // and the trains (v1099): Caltrain, SMART and ACE from 511.org; the MBTA's (v1138); Amtrak's (v1121)
   rail = AC.makeTrains({ scene, bbox: OVERVIEW, wx, wz, heightAt, onCount: () => syncLiveBtn(), focus: moverFocus, onDrop: moverGone });
   // (v1183) and in New York, C&J's coaches from New Hampshire, to their timetable (buses3d.js): with the trains, as one
-  if (RID === 'new-york-harbor') rail = AC.withBuses(rail, AC.makeBuses({ scene, wx, wz, heightAt, clockMin, roadDecks: () => bridges?.roadDecks, onCount: () => syncLiveBtn(), focus: moverFocus, onDrop: moverGone,
+  // (v1186) and the city's buses, live from MTA Bus Time, all in one instanced mesh
+  if (RID === 'new-york-harbor') rail = AC.withBuses(rail, AC.makeMtaBuses({ scene, wx, wz, heightAt, bbox: OVERVIEW, roadDecks: () => bridges?.roadDecks, onCount: () => syncLiveBtn(), focus: moverFocus, onDrop: moverGone }), AC.makeBuses({ scene, wx, wz, heightAt, clockMin, roadDecks: () => bridges?.roadDecks, onCount: () => syncLiveBtn(), focus: moverFocus, onDrop: moverGone,
     // (her road kept clear of trees, as the tracks are: the tiles already in, their trees placed again)
     onRoad: f => { roadNear = f; for (const T of tiles) if (T.state === 'ready' && T.dem?.canopy) { T.spots = treeSpots(T, T.dem); treesDirty = true; } } }));
   if (REG.rail) LOAD.start('tracks');
@@ -2565,7 +2566,7 @@ function moversStart() {
 }
 function syncLiveBtn(state = liveBtn?.dataset.state || 'off', note = '') {
   if (LOAD.has('live')) {   // (v1169) the loading list's live row
-    const what = `${live.length} ship${live.length === 1 ? '' : 's'}${air.count ? ` · ${air.count} planes` : ''}${rail.count ? ` · ${rail.count} trains` : ''}`;
+    const what = `${live.length} ship${live.length === 1 ? '' : 's'}${air.count ? ` · ${air.count} planes` : ''}${rail.count - (rail.busCount || 0) ? ` · ${rail.count - (rail.busCount || 0)} trains` : ''}${rail.busCount ? ` · ${rail.busCount} buses` : ''}`;
     if (!liveFeed.on) LOAD.skip('live', null, 'Live is off'); else if (state === 'live') LOAD.done('live', null, what); else if (state === 'offline') LOAD.fail('live', null, 'offline'); else LOAD.start('live', null, live.length ? what : 'listening');
   }
   if (ptBtn) { ptBtn.hidden = !liveFeed.on; ptBtn.classList.toggle('on', ptOn); ptBtn.title = ptOn ? 'Planes and trains are shown with the ships. Tap to hide them.' : 'Show the aircraft and trains near the bay too, from their live feeds'; }
@@ -2573,7 +2574,7 @@ function syncLiveBtn(state = liveBtn?.dataset.state || 'off', note = '') {
   liveBtn.dataset.state = state;
   liveBtn.classList.toggle('on', liveFeed.on);
   const tuning = liveFeed.on && state !== 'offline' && !live.length && liveListen < 300;   // (the relay only just reconnected to the feed: vessels come in over a few minutes, v1010)
-  liveBtn.textContent = !liveFeed.on ? '📡 Live' : tuning ? '📡 Live · tuning in…' : state === 'live' ? `📡 Live · ${live.length}${air.count ? ` · ✈ ${air.count}` : ''}${rail.count ? ` · 🚆 ${rail.count}` : ''}` : state === 'offline' ? '📡 Live · offline' : '📡 Live · …';
+  liveBtn.textContent = !liveFeed.on ? '📡 Live' : tuning ? '📡 Live · tuning in…' : state === 'live' ? `📡 Live · ${live.length}${air.count ? ` · ✈ ${air.count}` : ''}${rail.count - (rail.busCount || 0) ? ` · 🚆 ${rail.count - (rail.busCount || 0)}` : ''}${rail.busCount ? ` · 🚌 ${rail.busCount}` : ''}` : state === 'offline' ? '📡 Live · offline' : '📡 Live · …';
   liveBtn.title = !liveFeed.on ? 'Show the vessels in the bay right now, from their AIS (needs an internet connection)'
     : tuning ? 'The live feed has only just started listening: vessels come in over the next few minutes, as each one reports. Tap to turn Live off.'
     : state === 'offline' ? `${note || 'Live AIS is unavailable'}. Tap to turn Live off.` : state === 'live' ? `${live.length} vessels broadcasting AIS${air.count ? `, ${air.count} aircraft ADS-B` : ''}${rail.count ? `, ${rail.count} trains` : ''} in the bay now. Tap to turn Live off.\n${REG.armchair ? 'AIS from AISStream (aisstream.io).' : AIS_CREDIT}${AC ? ` ${AC.ADSB_CREDIT}. ${AC.TRAIN_CREDIT}.` : ''}` : `${note || 'Listening for ships…'} Tap to turn Live off.`;
@@ -2765,6 +2766,11 @@ function fillMoverCard() {
     row('Track', a.trk != null ? `${deg3(a.trk)}° true` : '');
     if (!a.ground && a.vr != null && Math.abs(a.vr) >= 100) row(a.vr < 0 ? 'Descending' : 'Climbing', `${Math.abs(Math.round(a.vr / 50) * 50).toLocaleString('en-US')} ft a minute`);
     row('Squawk', a.squawk);
+  } else if (v.mta) {   // (v1186) a city bus, live from MTA Bus Time
+    row('Route', v.a.next); row('Bus', v.b?.id);
+    row('Speed', v.vKnown ? (v.v >= 1 ? `About ${Math.round(v.v * 2.237)} mph (between her last two reports)` : 'Stopped') : 'Not yet known: it takes two reports');
+    row('Heading', `${deg3(v.h)}° true`);
+    row('Where', 'Her own GPS, every 30 s or so; drawn running from her last report to her newest, about half a minute behind');
   } else if (v.bus) {   // (v1183) a C&J coach, on her timetable
     const tr = v.trip, south = tr.dir === 'S';
     row('Coach line', 'C&J (ridecj.com), non-stop');
@@ -2788,13 +2794,13 @@ function fillMoverCard() {
     row('Heading', `${deg3(v.h)}° true`);
   }
   row('Position', aisPos(latOf(v.z), lonOf(v.x)));
-  if (!v.bus) row(air_ ? 'Last heard' : 'Last report', aisAgo((Date.now() - v.fix.t) / 1000));
+  if (!v.bus || v.mta) row(air_ ? 'Last heard' : 'Last report', aisAgo((Date.now() - v.fix.t) / 1000));
   const d = Math.hypot(v.x - view.x, v.z - view.z);
   if (d > 30) row('From the view', `${(d / NMm).toFixed(d < 10 * NMm ? 1 : 0)} nm, ${deg3(Math.atan2(v.x - view.x, -(v.z - view.z)) / DEG)}° true`);
   if (air_ && navigator.onLine !== false) row('More', `<a href="https://globe.adsb.lol/?icao=${encodeURIComponent(a.hex)}" target="_blank" rel="noopener">See her on adsb.lol ↗</a>`, true);
   // (v1140: the MBTA's and Amtrak's come from their own feeds, not 511's)
   const rr = v.a?.rail || '', mbta = /^(Commuter Rail|Red Line|Orange Line|Blue Line|Green Line|Mattapan)/.test(rr);
-  row('Source', air_ ? `Her own ADS-B, through adsb.lol${rl?.route ? '; route listed by adsbdb.com' : ''}` : v.bus ? "C&J's timetable (effective October 14, 2025); her road from OpenStreetMap" : mbta ? "The MBTA's live data (every 20 s)" : / train$|^Staten Island Railway$/.test(rr) ? "The MTA's live data (every 30 s): her place between stations worked out from when she's due" : rr === 'LIRR' ? "The MTA's live data for the LIRR (every 30 s)" : rr === 'Metro-North' ? "The MTA's live data for Metro-North (every 30 s)" : rr === 'PATH' ? "The Port Authority's next trains (every 30 s): her place worked out from when she's due" : rr === 'Amtrak' ? 'Amtrak, through Amtraker (every 2 min or so)' : 'The railroad, through 511.org (every 90 s or more)');
+  row('Source', air_ ? `Her own ADS-B, through adsb.lol${rl?.route ? '; route listed by adsbdb.com' : ''}` : v.mta ? 'MTA Bus Time (bustime.mta.info)' : v.bus ? "C&J's timetable (effective October 14, 2025); her road from OpenStreetMap" : mbta ? "The MBTA's live data (every 20 s)" : / train$|^Staten Island Railway$/.test(rr) ? "The MTA's live data (every 30 s): her place between stations worked out from when she's due" : rr === 'LIRR' ? "The MTA's live data for the LIRR (every 30 s)" : rr === 'Metro-North' ? "The MTA's live data for Metro-North (every 30 s)" : rr === 'PATH' ? "The Port Authority's next trains (every 30 s): her place worked out from when she's due" : rr === 'Amtrak' ? 'Amtrak, through Amtraker (every 2 min or so)' : 'The railroad, through 511.org (every 90 s or more)');
   const tb = aisCard.querySelector('table'); tb.innerHTML = '';
   for (const [k, val, html] of rows) { const tr = tb.insertRow(), th = document.createElement('th'), td = tr.insertCell(); th.textContent = k; tr.prepend(th); if (html) td.innerHTML = val; else td.textContent = val; }
   for (const b of aisCard.querySelectorAll('.go button')) b.disabled = gone;

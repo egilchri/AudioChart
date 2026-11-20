@@ -46,6 +46,7 @@ The app finds the relay at `RELAY_DEFAULT` in `www/js/ais.js`. You can point it 
    npx wrangler secret put AISSTREAM_KEY --env birdseye
    npx wrangler secret put FIVE11_KEY --env birdseye     # 511.org, for the SF trains (see below)
    npx wrangler secret put MBTA_KEY --env birdseye       # optional: lifts the MBTA's 20-a-minute limit
+   npx wrangler secret put MTA_BUS_KEY --env birdseye    # MTA Bus Time, for New York's city buses (see below)
    npx wrangler deploy --env birdseye
    ```
    Bump `ARMCHAIR_V` (worker.mjs) when its AIS code or bays change; `RELAY_V` is the boaters' relay's only.
@@ -71,6 +72,13 @@ Open Data key (free, https://511.org/open-data/token). Set it in a real terminal
 60 requests an hour, so one Durable Object (`trains`) keeps each railroad's answer for its `ttl`.
 Amtrak's trains (v1121) come with them, from Amtraker (`https://api-v3.amtraker.com/v3/trains`, no key, asked every
 2 min; core.mjs `trimAmtrak`), in the same shape plus `mph`.
+
+`GET /mtabus?bbox=w,s,e,n` (v1186) answers with New York's city buses from MTA Bus Time's GTFS-realtime vehicle
+positions (`https://gtfsrt.prod.obanyc.com/vehiclePositions`, key `MTA_BUS_KEY`, free from
+https://register.developer.obanyc.com/): `{ t, buses: [{ id, route, dir, trip, lat, lon, brg, at, age }] }`, about
+3,500 citywide at midday (480 KB of protobuf; core.mjs `trimMtaBuses`). Bus Time allows one request each 30 s a key,
+so the `trains` object asks at most that often and keeps the answer in memory (too big for storage). `?sample=1`
+adds `diag` (bytes, how many, the last error).
 
 ## Developing
 
