@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-20 — Bird's-eye: the Circle Line boats as themselves, pilothouse and all (v1190)
+
+- Reported with a screenshot of the Circle Line Brooklyn's helm (an open powerboat's console): "the boat in the snapshot I would assume has some sort of pilot house. Please recursively improve it".
+- **Known by name** (www/js/harborferries3d.js `harborNamed`, livefleet.js): one of New York's known boats (Circle Line, the Staten Island Ferry, Seastreak, NY Waterway, Statue City Cruises) is drawn as herself from her name alone. Her AIS type had been needed; the Circle Line Brooklyn sends none, and was a 47 m "Vessel" drawn as a powerboat.
+- **No open console over 18 m** (www/js/bay3d.js `atConsole`, `inWheelhouse`): a boat bigger than that, whatever she was taken for, has a wheelhouse at her helm.
+- **Her pilothouse** (harborferries3d.js `excursionModel`, the Circle Line livery's `wings`): improved in rounds against the builder's specs (Gladding-Hearn, 2009: 165 by 34 ft, two passenger decks, "a center console plus port and starboard wing stations"), each looked at close up in a new harness (design/pending/circle-look: view.html, shoot.mjs) and then in the app. Round 1: she's in the right model, the wheelhouse view at her helm. Round 2: the narrow box (half her beam, set back) made wide, wing stations out nearly to her sides, a sun visor. Round 3: the wings glazed all round (they'd read as white blocks), the house moved to the front of the top deck. Round 4: the visor trimmed to the wings; checked in the app from her helm and abeam. Her sidelights moved out to the wings' ends.
+- Full CI suite passes.
+
 ## 2026-11-20 — Bird's-eye: the Staten Island Ferry's slips (v1189)
 
 - Asked: "draw the Staten Island ferry slips".

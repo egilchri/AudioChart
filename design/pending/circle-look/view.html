@@ -1,0 +1,25 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Circle Line look</title>
+<style>html,body{margin:0;background:#9dc4e8}canvas{display:block}</style>
+<script type="importmap">{ "imports": { "three": "/www/js/lib/three/three.module.min.js" } }</script>
+</head><body>
+<script type="module">
+// A New York harbor boat alone (?name=CIRCLE LINE BROOKLYN&L=50&B=10.4&cam=side|bow|stern|top|helm), v1190: for
+// improving the Circle Line boats' model against the Gladding-Hearn specs (165 by 34 ft, two decks, a wide pilothouse
+// with wing stations). The app's lights and ACES tone mapping, so colours read as they will there.
+import * as THREE from 'three';
+const { harborKind } = await import('/www/js/harborferries3d.js?' + Date.now());
+const P = new URLSearchParams(location.search);
+const W = 1400, H = 900, r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); r.setSize(W, H); r.setClearColor(0x9dc4e8); r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 0.55 * 1.6;
+document.body.appendChild(r.domElement);
+const scene = new THREE.Scene(); scene.add(new THREE.HemisphereLight(0xe4ecf2, 0x4a5644, 1.7));
+const sun = new THREE.DirectionalLight(0xfff3e0, 2.1); sun.position.set(-40, 80, 30); scene.add(sun);
+const sea = new THREE.Mesh(new THREE.PlaneGeometry(2000, 2000), new THREE.MeshLambertMaterial({ color: 0x2c4a68 })); sea.rotation.x = -Math.PI / 2; scene.add(sea);
+const k = harborKind({ name: P.get('name') || 'CIRCLE LINE BROOKLYN', lat: 40.75, lon: -74.0, type: 60, L: +(P.get('L') || 50), B: +(P.get('B') || 10.4) });
+const g = k.build([]); scene.add(g);   // (her bow toward -z)
+const cam = new THREE.PerspectiveCamera(30, W / H, 0.3, 3000), c = P.get('cam') || 'side', L = k.L;
+const at = { side: [[L * 1.5, 7, 0], [0, 4, 0]], bow: [[L * 0.7, 10, -L * 1.1], [0, 5, 0]], stern: [[-L * 0.8, 14, L * 1.0], [0, 5, 0]], top: [[L * 0.5, L * 1.1, L * 0.3], [0, 3, 0]] }[c];
+if (c === 'helm') { const h = g.userData.helm; cam.fov = 62; cam.updateProjectionMatrix(); cam.position.set(h[0], h[1], h[2]); cam.lookAt(h[0], h[1] - 2, h[2] - 30); }
+else { cam.position.set(...at[0]); cam.lookAt(...at[1]); }
+r.render(scene, cam); document.title = k.what; window.__done = true;
+</script></body></html>

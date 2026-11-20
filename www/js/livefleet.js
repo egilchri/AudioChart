@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { makeSailboat } from './sailboat3d.js';
 import { makeTrimmer } from './weather3d.js';
 import { cruiseShipModel, ferryModelSimple, launchModel, cblModel, merchantModel } from './vessels.js';
-import { harborKind } from './harborferries3d.js';
+import { harborKind, harborNamed } from './harborferries3d.js';
 import { tankerModel, tugModel, pilotModel, containerModel, bulkModel, carCarrierModel, lpgModel, trawlerModel, researchModel, dredgerModel, cutterModel, scallopModel, cableModel, osvModel, shipFor } from './ships3d.js';
 import { aisClass, knownFor } from './ais.js';
 
@@ -144,6 +144,6 @@ export function identify(A) {
   // (v1177) pushing ahead or towing astern is a towing vessel's status: a tug, whatever else she does or doesn't say (the
   // Erin Elizabeth and the Alexandra, no type given, had been drawn as ships 89 and 138 m long)
   if ((A.status === 11 || A.status === 12) && !K && !W && ['ship', 'launch', 'power', 'cargo'].includes(cls.model)) cls = { model: 'tug', what: 'Tug' };
-  if (!K && !W && (A.type >= 60 && A.type <= 69 || A.type >= 40 && A.type <= 49)) { const h = harborKind(A); if (h) cls = { ...cls, model: 'ferry', what: h.what, harbor: h }; }
+  if (!K && !W && (A.type >= 60 && A.type <= 69 || A.type >= 40 && A.type <= 49 || harborNamed(A))) { const h = harborKind(A); if (h) cls = { ...cls, model: 'ferry', what: h.what, harbor: h }; }
   return { K, W, S, cls };
 }

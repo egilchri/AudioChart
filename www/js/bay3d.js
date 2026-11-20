@@ -1447,8 +1447,9 @@ function wantCockpit() { const ck = document.getElementById('cockpit'); if (cock
 // for the rudder indicator and the wheel (the Staten Island ferry's "not known" had put her rudder hard to port)
 const rotDpm = r => r == null || r === -128 ? 0 : Math.abs(r) >= 127 ? Math.sign(r) * 15 : Math.sign(r) * (r / 4.733) ** 2;
 // an open boat's helm (v1170): a launch's or a power boat's, at her console, behind its low windscreen
-const atConsole = v => !!v && v.kind === 'ais' && (v.model === 'power' || v.model === 'launch');
-const inWheelhouse = v => !!v && v !== own && !v.boat && (v.kind === 'ferry' || v.kind === 'cruise' || (v.kind === 'ais' && WHEELHOUSE.has(v.model)));
+// (v1190: an open console only for a boat up to 18 m; one bigger, whatever she was taken for, has a wheelhouse)
+const atConsole = v => !!v && v.kind === 'ais' && (v.model === 'power' || v.model === 'launch') && vLen(v) <= 18;
+const inWheelhouse = v => !!v && v !== own && !v.boat && (v.kind === 'ferry' || v.kind === 'cruise' || (v.kind === 'ais' && (WHEELHOUSE.has(v.model) || ((v.model === 'power' || v.model === 'launch') && vLen(v) > 18))));
 // (v1169) her heading, unless it can't be: making way at 2 kn or more on a course more than 70° off it (a boat's heading
 // sensor set up wrong: the Hornblower Freedom "heading" 319° making 5.6 kn on 167°; her helm view looked astern)
 function aisHead(A) {

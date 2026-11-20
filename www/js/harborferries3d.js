@@ -134,7 +134,7 @@ export function catModel(F, liv = CAT_LIVERY.generic, windowMats = []) {
 
 // ── The sightseeing boats ──
 export const EXC_LIVERY = {
-  circleline: { hull: [[-3, 0.35, 0x1d1f22], [0.35, 1.6, 0x1f3f8f], [1.6, 1.85, 0xc8312b]], top: 0xf4f4f1, glass: '#1c2a38' },
+  circleline: { hull: [[-3, 0.35, 0x1d1f22], [0.35, 1.6, 0x1f3f8f], [1.6, 1.85, 0xc8312b]], top: 0xf4f4f1, glass: '#1c2a38', wings: true },   // (v1190: Gladding-Hearn's 165-footers: a pilothouse with wing stations)
   statue: { hull: [[-3, 0.35, 0x1d1f22], [0.35, 1.3, 0x173f74]], top: 0xf4f4f1, glass: '#1c2a38' },
   generic: { hull: [[-3, 0.35, 0x1d1f22], [0.35, 0.6, 0x2b3a4a]], top: 0xf2f1ec, glass: '#1f2a32' },
 };
@@ -162,16 +162,31 @@ export function excursionModel(F, liv = EXC_LIVERY.generic, windowMats = []) {
     y += h + 0.2;
   }
   const gl = new THREE.MeshLambertMaterial({ map: glassBand(false), emissive: 0xffd9a0, emissiveMap: glassBand(true), emissiveIntensity: 0 }); windowMats.push(gl);
-  add(deckhouse({ W: B * 0.5, zf: Z(0.24), za: Z(0.24) + 4, H: 2.1, rakeF: -0.35, tumble: -0.05, nF: 2.4, nA: 6, roof: 0.3, roofT: 0.15, side: gl, top: M(liv.top) }), y);
+  // the pilothouse (v1190, asked: "the boat in the snapshot I would assume has some sort of pilot house. Please recursively
+  // improve it"): the Circle Line boats' (Gladding-Hearn, 2009: "a center console plus port and starboard wing stations")
+  // wide, well forward on the top deck, glazed wings out nearly to her sides for docking, a sun visor over her front
+  // windows; the others' a smaller house
+  const wide = !!liv.wings, PW = wide ? B * 0.62 : B * 0.5, PZ = wide ? Z(0.2) + 1.1 : Z(0.24), PL = wide ? 4.8 : 4;   // (hers at the upper cabin's front, its rake allowed)
+  add(deckhouse({ W: PW, zf: PZ, za: PZ + PL, H: 2.1, rakeF: -0.35, tumble: -0.05, nF: 2.4, nA: 6, roof: 0.3, roofT: 0.15, side: gl, top: M(liv.top) }), y);
+  if (wide) {
+    const wingW = (B - 0.7 - PW) / 2;
+    for (const sx of [-1, 1]) {
+      const wx = sx * (PW / 2 + wingW / 2), wing = new THREE.Mesh(new THREE.BoxGeometry(wingW, 1.9, 2.4), [gl, gl, M(liv.top), M(liv.top), gl, gl]);
+      wing.position.set(wx, y + 0.95, PZ + 1.35); g.add(wing);   // (glazed all round, to see down her side when docking; a white roof)
+      const wr = new THREE.Mesh(new THREE.BoxGeometry(wingW + 0.2, 0.14, 2.7), M(liv.top)); wr.position.set(wx, y + 1.95, PZ + 1.35); g.add(wr);
+    }
+    const visor = new THREE.Mesh(new THREE.BoxGeometry(B - 0.9, 0.12, 0.9), M(0x2a2d31)); visor.position.set(0, y + 2.05, PZ - 0.25); g.add(visor);
+  }
   const rail = M(0xe0e2e2), box = (w, hh, d, x, yy, z, m) => { const k = new THREE.Mesh(new THREE.BoxGeometry(w, hh, d), m); k.position.set(x, yy, z); g.add(k); return k; };
   for (const sx of [-1, 1]) box(0.05, 1.0, (Z(0.84) - Z(0.32)), sx * (B / 2 - 0.55), y + 0.5, (Z(0.84) + Z(0.32)) / 2, rail);
   box(B - 1.1, 1.0, 0.05, 0, y + 0.5, Z(0.84), rail);
-  box(0.14, 2.6, 0.14, 0, y + 2.1 + 1.3, Z(0.24) + 2.4, M(liv.top));
+  box(0.14, 2.6, 0.14, 0, y + 2.1 + 1.3, PZ + 2.4, M(liv.top));
   if (F.vessel) { const nm = nameBoard(F.vessel, 0, 0, null, hex(liv.hull[1]?.[2] ?? 0x1d1f22)); for (const sx of [-1, 1]) { const u = 0.8, yy = SH + 0.1, pl = new THREE.Mesh(new THREE.PlaneGeometry(Math.min(7, L * 0.17), 0.6), nm); pl.position.set(sx * (hull.half(u, yy) + 0.04), yy, hull.z(u, yy)); pl.rotation.y = sx * Math.PI / 2; g.add(pl); } }
-  lamp(g, 0xfff2d6, 0, y + 4.0, Z(0.24) + 2.4, windowMats, 0.13);
-  lamp(g, 0xff3b2e, -B * 0.25, y + 1.3, Z(0.24) + 0.4, windowMats, 0.1); lamp(g, 0x3dff7a, B * 0.25, y + 1.3, Z(0.24) + 0.4, windowMats, 0.1);
-  g.userData.helm = [0, y + 1.4, Z(0.24) + 0.6];
-  g.userData.lights = { mast: [0, y + 4.0, Z(0.24) + 2.4], port: [-B * 0.25, y + 1.3, Z(0.24) + 0.4], stbd: [B * 0.25, y + 1.3, Z(0.24) + 0.4], stern: [0, SH + 1, half] };
+  const sideX = wide ? B / 2 - 0.3 : B * 0.25;   // (her sidelights on her wings' ends, where she has them)
+  lamp(g, 0xfff2d6, 0, y + 4.0, PZ + 2.4, windowMats, 0.13);
+  lamp(g, 0xff3b2e, -sideX, y + 1.3, PZ + 0.4, windowMats, 0.1); lamp(g, 0x3dff7a, sideX, y + 1.3, PZ + 0.4, windowMats, 0.1);
+  g.userData.helm = [0, y + 1.4, PZ + 0.6];
+  g.userData.lights = { mast: [0, y + 4.0, PZ + 2.4], port: [-sideX, y + 1.3, PZ + 0.4], stbd: [sideX, y + 1.3, PZ + 0.4], stern: [0, SH + 1, half] };
   g.userData.wake = [wakeOf(B, L)]; g.add(g.userData.wake[0]);
   return g;
 }
@@ -198,6 +213,9 @@ function bostonKind(A) {
   if (L > 18 && L < 80) return one(excursionModel, EXC_LIVERY.generic, L, 'Harbor sightseeing boat');
   return null;
 }
+// (v1190) one of New York's known boats by her name alone (her AIS type not needed: the Circle Line Brooklyn sends
+// none, and had been drawn as a 40 m powerboat with an open console)
+export const harborNamed = A => { const n = (A.name || '').trim(); return !!n && A.lat > 40.4 && A.lat < 41.1 && A.lon > -74.4 && A.lon < -73.6 && (SI.test(n) || SEASTREAK.test(n) || NYW.test(n) || CIRCLE.test(n) || STATUE.test(n)); };
 export function harborKind(A) {
   if (A.lat > 42.1 && A.lat < 42.6 && A.lon > -71.3 && A.lon < -70.6) return bostonKind(A);
   if (!(A.lat > 40.4 && A.lat < 41.1 && A.lon > -74.4 && A.lon < -73.6)) return null;
