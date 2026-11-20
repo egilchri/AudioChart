@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-19 — Bird's-eye: her windows turn with you, and her horn (v1176)
+
+- Asked: "keep improving the tug and ferry helm views".
+- **Her windows turn with you** (www/js/cockpit.js `wheelFrame`, `bowAt`): the posts are hers, so as you look round they slide by (a strip of panes three screens wide, moved by how far you've turned); they had stayed put on the screen while the harbor turned behind them. The wipers and the compass are on her front windows, so they go with them and are gone past 60°; the deckhead and the sill stay overhead and underfoot. From the Fells Point at 40° to port, her bow off to the right; at 100°, out her side windows, her own deckhouse alongside.
+- **Her horn** (📯 Horn beside Leave, in a wheelhouse; www/js/bay3d.js `hornStart`/`hornStop`): hold it for a long blast, tap for a short one. Made in the browser, no sound file: three reed-like tones through a low filter, a tug's or a pilot boat's higher and brassier, a ferry's or a ship's deeper.
+- Maine's ferries too: AudioChart's release. Checked in headless Chrome (the horn sounds while held and stops on release, no errors; it can't be heard there). Full CI suite passes.
+
 ## 2026-11-19 — Bird's-eye: a steering compass, the console's glow in the glass, a searchlight (v1175)
 
 - Asked: "please resume those other items" (offered after v1174: a lit compass, the screens' glow in the night glass, her searchlight).

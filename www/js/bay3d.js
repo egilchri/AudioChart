@@ -1402,6 +1402,30 @@ const cockpitKind = v => v.heli ? 'heli' : v.L > 14 ? 'jet' : 'light';
 // (v1167) a working vessel's or a ship's helm is in a wheelhouse: tugs, pilot boats, ferries, cruise ships, cargo ships,
 // tankers, cutters, trawlers, dredgers and the like (an open boat, a sailboat, the schooners, your own boat: not)
 const WHEELHOUSE = new Set(['tug', 'pilot', 'dredger', 'ferry', 'cruise', 'cargo', 'tanker', 'ship', 'cutter', 'trawler', 'scalloper', 'research', 'osv', 'cable']);
+// (v1176) her horn, in a wheelhouse: held, it sounds (a short blast for a tap). Made here, no sound file: two reed-like
+// tones a fifth apart through a low filter, a tug's higher and brassier (A2 and E3), a ferry's or a ship's deeper (D2, A2)
+let hornCtx = null, hornOn = null;
+function hornStart() {
+  if (hornOn) return;
+  try { hornCtx ??= new (window.AudioContext || window.webkitAudioContext)(); } catch (_) { return; }
+  const ctx = hornCtx, v = nest.v, deep = v && (v.model !== 'tug' && v.model !== 'pilot'), f0 = deep ? 73.4 : 110, t = ctx.currentTime;
+  ctx.resume?.();
+  const out = ctx.createGain(), lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = deep ? 700 : 1100; lp.Q.value = 0.8;
+  out.gain.setValueAtTime(0, t); out.gain.linearRampToValueAtTime(0.32, t + 0.12);
+  const oscs = [f0, f0 * 1.498, f0 * 2.004].map((f, i) => { const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sawtooth'; o.frequency.setValueAtTime(f * 0.97, t); o.frequency.linearRampToValueAtTime(f, t + 0.18); g.gain.value = [0.5, 0.36, 0.14][i]; o.connect(g).connect(lp); o.start(t); return o; });
+  lp.connect(out).connect(ctx.destination);
+  hornOn = { out, oscs, t0: t };
+  document.getElementById('hornbtn')?.classList.add('on');
+}
+function hornStop() {
+  if (!hornOn) return;
+  const { out, oscs, t0 } = hornOn, ctx = hornCtx, t = Math.max(ctx.currentTime, t0 + 0.6);   // (a tap is still a short blast)
+  out.gain.setValueAtTime(out.gain.value, t); out.gain.linearRampToValueAtTime(0, t + 0.35); for (const o of oscs) o.stop(t + 0.4);
+  hornOn = null; setTimeout(() => document.getElementById('hornbtn')?.classList.remove('on'), Math.max(0, (t - ctx.currentTime) * 1000));
+}
+{ const hb = document.getElementById('hornbtn');
+  hb?.addEventListener('pointerdown', e => { e.preventDefault(); hb.setPointerCapture?.(e.pointerId); hornStart(); });
+  for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) hb?.addEventListener(ev, hornStop); }
 // (v1175) her searchlight, at night in a wheelhouse: the 🔦 button; it lights where you look
 const lampBtn = document.getElementById('lampbtn');
 const toggleLamp = () => document.body.classList.toggle('lamp');

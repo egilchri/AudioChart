@@ -83,14 +83,19 @@ function compassDrum() {
   for (let t = 0; t < 3; t++) for (let d = 0; d < 360; d += 5) marks.push(d % 90 === 0 ? `<span class="c">${'NESW'[d / 90]}</span>` : d % 30 === 0 ? `<span>${d / 10}</span>` : '<span></span>');
   return `<div class="scomp"><div class="drum n-drum">${marks.join('')}</div><b></b></div>`;
 }
+// (v1176) the frame turns with the view: her windows' posts are hers, so as you look round they slide by (a strip of
+// panes three screens wide, moved by how far you've turned, a screen at a time round again); the wipers and the compass
+// are on her front windows only, so they go with them and are gone past 60°. The deckhead and the sill stay overhead
+// and underfoot.
 function wheelFrame() {
   const panes = innerWidth < innerHeight ? [[30, 320], [345, 655], [680, 970]] : [[30, 238], [262, 488], [512, 738], [762, 970]], R = 26, T = 175;   // (v1170: three panes on a phone held upright, four were slats)
+  const all = [0, 1000, 2000].flatMap(o => panes.map(([a, b]) => [a + o, b + o]));
   const hole = ([a, b]) => `M${a + R},${T} H${b - R} Q${b},${T} ${b},${T + R} V${975 - R} Q${b},975 ${b - R},975 H${a + R} Q${a},975 ${a},${975 - R} V${T + R} Q${a},${T} ${a + R},${T} Z`;
-  return `<svg class="whframe" viewBox="0 0 1000 1000" preserveAspectRatio="none"><defs><linearGradient id="whg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.07"/><stop offset="0.45" stop-color="#fff" stop-opacity="0"/><stop offset="0.6" stop-color="#bfe0ff" stop-opacity="0.05"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>
-${panes.map(p => `<path d="${hole(p)}" fill="url(#whg)"/>`).join('')}
-<path fill-rule="evenodd" class="frame" d="M0,0 H1000 V1000 H0 Z ${panes.map(hole).join(' ')}"/>
-<rect x="0" y="0" width="1000" height="150" class="deckhead"/><rect x="0" y="150" width="1000" height="12" class="beam"/>
-<rect x="0" y="985" width="1000" height="15" class="sill"/></svg>${[1, 2].map(i => { const [a, b] = panes[i] || panes[0]; return `<div class="wipe" style="left:${((a + b) / 2 + 70) / 10}%"><i></i></div>`; }).join('')}`;   // (v1174: the wipers their own, unstretched: in the rain they sweep)
+  return `<svg class="whframe whposts" viewBox="0 0 3000 1000" preserveAspectRatio="none"><defs><linearGradient id="whg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.07"/><stop offset="0.45" stop-color="#fff" stop-opacity="0"/><stop offset="0.6" stop-color="#bfe0ff" stop-opacity="0.05"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>
+${all.map(p => `<path d="${hole(p)}" fill="url(#whg)"/>`).join('')}
+<path fill-rule="evenodd" class="frame" d="M0,0 H3000 V1000 H0 Z ${all.map(hole).join(' ')}"/></svg>
+<svg class="whframe whfix" viewBox="0 0 1000 1000" preserveAspectRatio="none"><rect x="0" y="0" width="1000" height="150" class="deckhead"/><rect x="0" y="150" width="1000" height="12" class="beam"/>
+<rect x="0" y="985" width="1000" height="15" class="sill"/></svg><div class="whfront">${[1, 2].map(i => { const [a, b] = panes[i] || panes[0]; return `<div class="wipe" style="left:${((a + b) / 2 + 70) / 10}%"><i></i></div>`; }).join('')}${compassDrum()}</div>`;
 }
 function bowSvg(b) {
   const sy = 300 - 230 * b.stem;   // (the stem's height on it: a ship's farther, nearer the horizon)
@@ -158,15 +163,19 @@ export function makeCockpit(el) {
   const set = (sel, fn) => { for (const n of el.querySelectorAll(sel)) fn(n); };
   const rot = (sel, deg) => set(sel, n => n.setAttribute('transform', `rotate(${deg.toFixed(1)})`));
   // (v1169) her bow, ahead whichever way you look: off to the side as you turn your head, gone past 70°; up and down with it
-  const bowAt = (yaw, pitch, fov) => set('.whbow', n => { const W = innerWidth, H = innerHeight, vf = fov || 50, hf = 2 * Math.atan(Math.tan(vf * Math.PI / 360) * W / H) * 180 / Math.PI;
-    n.style.display = Math.abs(yaw) > 70 ? 'none' : ''; n.style.transform = `translate(${(-yaw / hf * W).toFixed(0)}px, ${((pitch + 3) / vf * H).toFixed(0)}px)`; });
+  const bowAt = (yaw, pitch, fov) => {
+    const W = innerWidth, H = innerHeight, vf = fov || 50, hf = 2 * Math.atan(Math.tan(vf * Math.PI / 360) * W / H) * 180 / Math.PI, off = -yaw / hf * W;
+    set('.whbow', n => { n.style.display = Math.abs(yaw) > 70 ? 'none' : ''; n.style.transform = `translate(${off.toFixed(0)}px, ${((pitch + 3) / vf * H).toFixed(0)}px)`; });
+    set('.whposts', n => { n.style.transform = `translateX(${(off - W * Math.round(off / W)).toFixed(0)}px)`; });   // (v1176: her posts go by)
+    set('.whfront', n => { n.style.display = Math.abs(yaw) > 60 ? 'none' : ''; n.style.transform = `translateX(${off.toFixed(0)}px)`; });
+  };
   const txt = (sel, t) => set(sel, n => { if (n.textContent !== t) n.textContent = t; });
   return {
     show(k, opt = {}) {
       if (k === 'wheelhouse' && opt.bow && opt.bow !== bowK) { kind = null; bowK = opt.bow; }
       if (k !== kind) {
         kind = k; lastS = lastA = null; el.className = `ck-${k === 'railroad' ? 'train' : k}`;
-        el.innerHTML = `${k === 'console' ? '' : '<div class="pillar l"></div><div class="pillar r"></div>'}${k === 'jet' || k === 'train' || k === 'railroad' ? '<div class="pillar c"></div>' : ''}${k === 'train' || k === 'railroad' ? '<div class="theader"></div>' : ''}${k === 'wheelhouse' ? `<div class="whwin">${bowK === 'none' ? '' : bowSvg(BOWS[bowK] || BOWS.work)}<div class="slight"><i class="beam"></i><i class="pool"></i></div>${wheelFrame()}<div class="whglow"></div>${compassDrum()}<div class="whover"><div class="rep"><span>RUDDER</span><div class="rbar"><i class="n-rud"></i></div></div><div class="rep"><span>HEADING</span><b class="n-ohdg"></b></div></div></div>` : ''}${k === 'console' ? consolePanel() : ''}${k === 'wheelhouse' ? bigWheel() : ''}<div class="ckpanel"${k === 'console' ? ' hidden' : ''}>${k === 'jet' ? jetPanel() : k === 'train' || k === 'railroad' ? trainPanel(k === 'railroad') : k === 'wheelhouse' ? wheelPanel() : lightPanel()}</div>`;
+        el.innerHTML = `${k === 'console' ? '' : '<div class="pillar l"></div><div class="pillar r"></div>'}${k === 'jet' || k === 'train' || k === 'railroad' ? '<div class="pillar c"></div>' : ''}${k === 'train' || k === 'railroad' ? '<div class="theader"></div>' : ''}${k === 'wheelhouse' ? `<div class="whwin">${bowK === 'none' ? '' : bowSvg(BOWS[bowK] || BOWS.work)}<div class="slight"><i class="beam"></i><i class="pool"></i></div>${wheelFrame()}<div class="whglow"></div><div class="whover"><div class="rep"><span>RUDDER</span><div class="rbar"><i class="n-rud"></i></div></div><div class="rep"><span>HEADING</span><b class="n-ohdg"></b></div></div></div>` : ''}${k === 'console' ? consolePanel() : ''}${k === 'wheelhouse' ? bigWheel() : ''}<div class="ckpanel"${k === 'console' ? ' hidden' : ''}>${k === 'jet' ? jetPanel() : k === 'train' || k === 'railroad' ? trainPanel(k === 'railroad') : k === 'wheelhouse' ? wheelPanel() : lightPanel()}</div>`;
       }
       // (v1170) above the bar of buttons when a phone has it along the bottom (it had covered the console)
       const bar = document.getElementById('scale')?.getBoundingClientRect();
