@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-20 — Bird's-eye: C&J's coaches from New Hampshire into New York (v1183)
+
+- Asked: "add scheduled busses coming in to Manhattan", "How about the C&J coming from Boston/NH?", "I'd be coming from Seabrook".
+- **C&J's coaches** (www/js/buses3d.js, new; www/data/buses/nyc-cj.json): Dover, Portsmouth and Seabrook NH to the Port Authority Bus Terminal (Gate 36) and back, on C&J's timetable effective October 14, 2025 (southbound due 11:50am and 4:50pm daily, 9:35pm Fri and Sun; northbound leaving 12:45pm daily, 6:00pm except Sat, 7:30am Sat to Mon). At the scene's clock, with 📡 Live, as the trains are: each comes into the bay on I-95 at Port Chester about 65 minutes before she's due. A white coach with a navy skirt; a card (🚌), Follow, Drone, Side, and her driver's seat.
+- **Her road is inferred**: C&J doesn't publish it. The New England Thruway, the Bruckner and the Cross Bronx, the George Washington Bridge, US 1/9/46 and the Turnpike's eastern spur, NJ 495 down the helix, the Lincoln Tunnel and the terminal's ramps. That's the way Peter Pan's Boston-New York express is drawn in its own GTFS (2024): the terminal's bus ramps join the tunnel. Built from OpenStreetMap's highways with the parkways barred (design/buses/build_cj.py). Her pace is a guess too: 16 m/s on the road, 12 in the tunnels, 6 on the ramps.
+- On the GWB she runs on the bridge's deck (bridges3d.js's road decks), out of sight in the Lincoln Tunnel and under the apartment houses over the Trans-Manhattan Expressway. Her road is kept clear of the trees placed from the aerial photo's green, as the railway's is: on the Turnpike her cab had looked into a forest.
+- The bus mover rides with the trains (`withBuses`: bay3d.js's `rail` is both): the Live count, the Underway list, the cards, the views. `__bay3d.buses()` and `busTimes()` for testing.
+- Checked in headless Chrome at 11:20, 11:24, 11:40 and 12:57: on I-95, on the GWB's deck among its traffic, on the Turnpike, and northbound on US 46. Full CI suite passes.
+
 ## 2026-11-20 — Bird's-eye: the harbor radio at an open boat's console too (v1182)
 
 - Asked: "add the radio button for the console too".

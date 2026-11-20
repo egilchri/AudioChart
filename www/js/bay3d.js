@@ -92,8 +92,8 @@ const WANT_AC = TED || !!REG.armchair || !!REG.rail || !!REG.roads || !!(REG.air
 let AC = null, acLoading = null;
 function loadArmchair() {
   return acLoading ||= Promise.all([import('./aircraft3d.js'), import('./cockpit.js'), import('./flightroute.js'), import('./trains3d.js'),
-    import('./track3d.js'), import('./subway3d.js'), import('./traffic3d.js'), import('./airport3d.js')])
-    .then(([aircraft, cockpit, flight, trains, track, subway, traffic, airport]) => (AC = { ...aircraft, ...cockpit, ...flight, ...trains, ...track, ...subway, ...traffic, ...airport }));
+    import('./track3d.js'), import('./subway3d.js'), import('./traffic3d.js'), import('./airport3d.js'), import('./buses3d.js')])
+    .then(([aircraft, cockpit, flight, trains, track, subway, traffic, airport, buses]) => (AC = { ...aircraft, ...cockpit, ...flight, ...trains, ...track, ...subway, ...traffic, ...airport, ...buses }));
 }
 // the rows to come, in their order
 LOAD.wait('terrain', 'Elevation'); LOAD.wait('photo', 'Aerial photo'); if (!EMPTY) { LOAD.wait('chart', 'Chart: names and buoys'); LOAD.wait('bridges', 'Bridges'); }
@@ -736,7 +736,7 @@ function dropTile(T) {
 // tiered spruce up close and a plain cone beyond. ~60k trees at most.
 const SP = 10;   // floats per tree: x, y, z, height, radius, turn, r, g, b, chance
 // (v1118, a SMART train hidden in trees standing on her line: none within 9 m of a railway track, once the tracks are in)
-let trackNear = null, tracks = null, freeway = null;   // (tracks: the railway drawn, v1125, track3d.js; freeway: the freeways' traffic, v1145, traffic3d.js; not `traffic`, the boats')
+let trackNear = null, roadNear = null, tracks = null, freeway = null;   // (tracks: the railway drawn, v1125, track3d.js; freeway: the freeways' traffic, v1145, traffic3d.js; not `traffic`, the boats')
 function treeSpots(T, dem) {
   let seed = Math.round((T.w + 200) * 1e4 + T.s * 1e3); const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   const out = [];
@@ -745,7 +745,7 @@ function treeSpots(T, dem) {
     if (dem.elev[i] <= 0.6 || dem.canopy[i] < 0.45) continue;
     const lon = dem.west + (x + rnd()) * dem.dx, lat = dem.north - (y + rnd()) * dem.dy;
     if (lon < T.w || lon >= T.e || lat < T.s || lat >= T.n) continue;   // the overlap belongs to the neighbour
-    if (trackNear?.(wx(lon), wz(lat), BROADLEAF ? 13 : 9)) { rnd(); rnd(); rnd(); rnd(); rnd(); rnd(); continue; }   // (v1163: a city's round crowns, up to 7 m across, kept off the track too: a cab looked into them)
+    if (trackNear?.(wx(lon), wz(lat), BROADLEAF ? 13 : 9) || roadNear?.(wx(lon), wz(lat), BROADLEAF ? 7 : 4)) { rnd(); rnd(); rnd(); rnd(); rnd(); rnd(); continue; }   // (v1163: a city's round crowns, up to 7 m across, kept off the track too: a cab looked into them)
     if (BROADLEAF) {   // a city's trees (v1032): shorter, round crowns, a lighter green
       const hgt = 7 + rnd() * 8;
       out.push(wx(lon), dem.elev[i] - 0.5, wz(lat), hgt, hgt * (0.36 + rnd() * 0.12), rnd() * 6.28,
@@ -1488,7 +1488,7 @@ function insidePlane(v, inside) {
   }
   document.body.classList.remove('inwheel'); document.body.classList.remove('atconsole');
   // (v1161) a train's cab: her front window's frame, her speed and the next stop
-  if (v?.kind === 'rail') { if (!inside || nest.mode !== 'helm') { cockpit?.hide(); return; } cockpit?.show(/ train$|^PATH$|^Staten Island Railway$|Line$|Trolley$/.test(v.a?.rail || '') ? 'train' : 'railroad'); cockpit?.update({ gs: (v.vs ?? v.v ?? 0) * 2.237, next: v.a?.next || '', dest: v.a?.dest || '' }); return; }
+  if (v?.kind === 'rail') { if (!inside || nest.mode !== 'helm') { cockpit?.hide(); return; } cockpit?.show(v.bus || / train$|^PATH$|^Staten Island Railway$|Line$|Trolley$/.test(v.a?.rail || '') ? 'train' : 'railroad'); cockpit?.update({ gs: (v.vs ?? v.v ?? 0) * 2.237, next: v.a?.next || '', dest: v.a?.dest || '' }); return; }
   if (v?.kind !== 'air') { cockpit?.hide(); return; }
   if (v.model) v.model.visible = !inside;
   if (!inside) { cockpit?.hide(); return; }
@@ -2509,6 +2509,10 @@ function buildArmchair() {
   air = AC.makeAircraft({ scene, bbox: OVERVIEW, wx, wz, onCount: () => syncLiveBtn(), focus: moverFocus, onDrop: moverGone, riding: p => nest.on && nest.v === p, shown: p => (!airDest && !airFrom) || p === follow || p === cardV || (airDest ? destOf(p.a)?.code === airDest : originOf(p.a)?.code === airFrom), groundAt: (lon, lat) => Math.max(0, heightAt(lon, lat) || 0) });
   // and the trains (v1099): Caltrain, SMART and ACE from 511.org; the MBTA's (v1138); Amtrak's (v1121)
   rail = AC.makeTrains({ scene, bbox: OVERVIEW, wx, wz, heightAt, onCount: () => syncLiveBtn(), focus: moverFocus, onDrop: moverGone });
+  // (v1183) and in New York, C&J's coaches from New Hampshire, to their timetable (buses3d.js): with the trains, as one
+  if (RID === 'new-york-harbor') rail = AC.withBuses(rail, AC.makeBuses({ scene, wx, wz, heightAt, clockMin, roadDecks: () => bridges?.roadDecks, onCount: () => syncLiveBtn(), focus: moverFocus, onDrop: moverGone,
+    // (her road kept clear of trees, as the tracks are: the tiles already in, their trees placed again)
+    onRoad: f => { roadNear = f; for (const T of tiles) if (T.state === 'ready' && T.dem?.canopy) { T.spots = treeSpots(T, T.dem); treesDirty = true; } } }));
   if (REG.rail) LOAD.start('tracks');
   if (REG.rail) getJSON(`./data/rail/${REG.rail}.json`).then(d => {
     LOAD.done('tracks', null, `${d.lines.length.toLocaleString()} pieces`);
@@ -2719,7 +2723,7 @@ function fillMoverCard() {
   const v = cardV, a = v.a, gone = !isLive(v), air_ = v.kind === 'air';
   relabel(aisCard.querySelectorAll('.go button'), v.kind);
   aisCard.querySelector('.go').hidden = false;
-  document.getElementById('aisname').textContent = `${air_ ? '✈' : '🚆'} ${v.title}${gone ? ' (no longer heard)' : ''}`;
+  document.getElementById('aisname').textContent = `${air_ ? '✈' : v.bus ? '🚌' : '🚆'} ${v.title}${gone ? (v.bus ? ' (off the road)' : ' (no longer heard)') : ''}`;
   const rows = [], row = (k, val, html = false) => { if (val !== '' && val != null) rows.push([k, val, html]); };
   let rl = null;   // (her route's lookup, for the From/To rows and the Source)
   if (air_) {
@@ -2739,6 +2743,15 @@ function fillMoverCard() {
     row('Track', a.trk != null ? `${deg3(a.trk)}° true` : '');
     if (!a.ground && a.vr != null && Math.abs(a.vr) >= 100) row(a.vr < 0 ? 'Descending' : 'Climbing', `${Math.abs(Math.round(a.vr / 50) * 50).toLocaleString('en-US')} ft a minute`);
     row('Squawk', a.squawk);
+  } else if (v.bus) {   // (v1183) a C&J coach, on her timetable
+    const tr = v.trip, south = tr.dir === 'S';
+    row('Coach line', 'C&J (ridecj.com), non-stop');
+    row('From', south ? 'Dover, Portsmouth, Seabrook NH' : 'Port Authority Bus Terminal, Gate 36');
+    row('Bound for', south ? 'Port Authority Bus Terminal, Gate 36' : 'Seabrook, Portsmouth, Dover NH');
+    row(south ? 'Due' : 'Leaves', `${hhmm(south ? tr.end : tr.start)} (C&J's timetable)`);
+    row('Her road', 'Inferred: I-95, the Cross Bronx, the George Washington Bridge, New Jersey and the Lincoln Tunnel. C&J doesn\'t publish it');
+    row('Where', 'Placed by her timetable and an average pace, not a live report');
+    row('Speed', v.v >= 1 ? `About ${Math.round(v.v * 2.237)} mph (a guess)` : 'Stopped');
   } else {
     const R = v.run;
     row('Railroad', a.rail === 'Amtrak' && a.line ? `Amtrak, ${a.line}` : a.rail === 'Commuter Rail' ? `MBTA Commuter Rail${a.line ? ', ' + a.line : ''}` : /Line$|Trolley$/.test(a.rail) ? `MBTA, ${a.rail}${a.line ? ' (' + a.line + ')' : ''}` : a.rail); row('Train', R?.num || (/^\d{1,4}$/.test(a.trip) ? a.trip : ''));
@@ -2753,13 +2766,13 @@ function fillMoverCard() {
     row('Heading', `${deg3(v.h)}° true`);
   }
   row('Position', aisPos(latOf(v.z), lonOf(v.x)));
-  row(air_ ? 'Last heard' : 'Last report', aisAgo((Date.now() - v.fix.t) / 1000));
+  if (!v.bus) row(air_ ? 'Last heard' : 'Last report', aisAgo((Date.now() - v.fix.t) / 1000));
   const d = Math.hypot(v.x - view.x, v.z - view.z);
   if (d > 30) row('From the view', `${(d / NMm).toFixed(d < 10 * NMm ? 1 : 0)} nm, ${deg3(Math.atan2(v.x - view.x, -(v.z - view.z)) / DEG)}° true`);
   if (air_ && navigator.onLine !== false) row('More', `<a href="https://globe.adsb.lol/?icao=${encodeURIComponent(a.hex)}" target="_blank" rel="noopener">See her on adsb.lol ↗</a>`, true);
   // (v1140: the MBTA's and Amtrak's come from their own feeds, not 511's)
   const rr = v.a?.rail || '', mbta = /^(Commuter Rail|Red Line|Orange Line|Blue Line|Green Line|Mattapan)/.test(rr);
-  row('Source', air_ ? `Her own ADS-B, through adsb.lol${rl?.route ? '; route listed by adsbdb.com' : ''}` : mbta ? "The MBTA's live data (every 20 s)" : / train$|^Staten Island Railway$/.test(rr) ? "The MTA's live data (every 30 s): her place between stations worked out from when she's due" : rr === 'LIRR' ? "The MTA's live data for the LIRR (every 30 s)" : rr === 'Metro-North' ? "The MTA's live data for Metro-North (every 30 s)" : rr === 'PATH' ? "The Port Authority's next trains (every 30 s): her place worked out from when she's due" : rr === 'Amtrak' ? 'Amtrak, through Amtraker (every 2 min or so)' : 'The railroad, through 511.org (every 90 s or more)');
+  row('Source', air_ ? `Her own ADS-B, through adsb.lol${rl?.route ? '; route listed by adsbdb.com' : ''}` : v.bus ? "C&J's timetable (effective October 14, 2025); her road from OpenStreetMap" : mbta ? "The MBTA's live data (every 20 s)" : / train$|^Staten Island Railway$/.test(rr) ? "The MTA's live data (every 30 s): her place between stations worked out from when she's due" : rr === 'LIRR' ? "The MTA's live data for the LIRR (every 30 s)" : rr === 'Metro-North' ? "The MTA's live data for Metro-North (every 30 s)" : rr === 'PATH' ? "The Port Authority's next trains (every 30 s): her place worked out from when she's due" : rr === 'Amtrak' ? 'Amtrak, through Amtraker (every 2 min or so)' : 'The railroad, through 511.org (every 90 s or more)');
   const tb = aisCard.querySelector('table'); tb.innerHTML = '';
   for (const [k, val, html] of rows) { const tr = tb.insertRow(), th = document.createElement('th'), td = tr.insertCell(); th.textContent = k; tr.prepend(th); if (html) td.innerHTML = val; else td.textContent = val; }
   for (const b of aisCard.querySelectorAll('.go button')) b.disabled = gone;
@@ -4271,6 +4284,7 @@ window.__bay3d = {   // for AudioChart (returning to the chart where you were) a
   freeway: () => freeway,   // (v1145)
   trackY: (lon, lat) => tracks ? tracks.yAt(wx(lon), wz(lat), 30) : null,
   subwayLayout: () => { const L = subway.layout; return L && { name: L.name, s0: Math.round(L.s0), s1: Math.round(L.s1), her: Math.round(L.her), real: L.real }; },   // (the tunnel's station, ahead or at her: for testing, v1161)   // (the drawn track's rail top near there, m: for testing, v1155)
+  buses: () => rail.buses?.items() || [], busTimes: () => rail.buses?.durations(),   // (v1183, for testing)
   trainCard: id => { const v = rail.items().find(p => p.id === id); if (v) showCard(v); return !!v; },   // (for testing, v1120)
   goWhole, towns: townList, tiles, scene, env, traffic, clockMin, setClock, camera, applyConditions, fleet, own, bowdoin, nest, setNest, ride, leaveRide, lookoutReport, findBerth, pierSegs, ferryStops, moorings, isWaterXZ: (x, z) => isWater(x, z), isWater: (lat, lon) => isWater(wx(lon), wz(lat)), boatAt: i => ({ lat: latOf(fleet[i].z), lon: lonOf(fleet[i].x), h: fleet[i].h }), renderer, trees: () => ({ near: TREES.near.count, far: TREES.far.count, K: TREES.K }),
 };
