@@ -1430,6 +1430,14 @@ function hornStop() {
 const lampBtn = document.getElementById('lampbtn');
 const toggleLamp = () => document.body.classList.toggle('lamp');
 lampBtn?.addEventListener('click', toggleLamp);
+// (v1180) live harbor radio in a wheelhouse: the 📻 button opens a volunteer's scanner feed on Broadcastify in a new tab
+// (a link, not played here: their audio in the page needs their licence). New York's: the Hudson, the East River, the
+// Upper and Lower Bays, Newark Bay; the Coast Guard, tugs, ferries. Its channels aren't listed; about 30 s behind.
+const HARBOR_RADIO = { 'new-york-harbor': 'https://www.broadcastify.com/listen/feed/17329' };
+if (HARBOR_RADIO[RID]) {
+  document.body.classList.add('harborradio');
+  document.getElementById('radiobtn')?.addEventListener('click', () => window.open(HARBOR_RADIO[RID], '_blank', 'noopener'));
+}
 let ckLoading = null;   // (the cockpit's drawing, armchair layer or no: fetched the first time a wheelhouse is wanted, so a boater's Maine bay has it too)
 function wantCockpit() { const ck = document.getElementById('cockpit'); if (cockpit || ckLoading || !ck) return; ckLoading = import('./cockpit.js').then(m => { cockpit ??= m.makeCockpit(ck); }).catch(e => { ckLoading = null; console.warn('[bay3d] cockpit', e); }); }
 // (v1170) her rate of turn in degrees a minute from AIS's code (±127 turning, rate not given: say 15; −128 not known: 0),

@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-20 — Bird's-eye: live harbor radio in New York's wheelhouses (v1180)
+
+- Asked: "I want to be able to listen on channel 16, while I'm in helm view, for a tug."
+- **📻 Radio** (www/js/bay3d.js `HARBOR_RADIO`, www/bay3d.html): in a wheelhouse in New York Harbor, next to the horn. It opens Broadcastify's "Northern NJ and NY City Area Marine" feed (17329, a volunteer's scanner: the Hudson, the East River, the harbor, Newark Bay, Raritan Bay; the Coast Guard, tugs, ferries) in a new tab, so the radio plays while you stay at the helm.
+- A link, not played in the page: Broadcastify's audio inside another app needs their licence. The feed runs about 30 s behind, and its page doesn't list its channels, so channel 16 is likely but not confirmed. New York's tugs talk mostly on 13 (bridge-to-bridge) and 14 (the Coast Guard's harbor traffic service).
+- No other bay has a feed: Boston's (34710) no longer loads, SF Bay's was deleted, Maine has none on the coast. Another bay's feed is one line in `HARBOR_RADIO`.
+- Checked in headless Chrome at the helm of the tug Fells Point: the button shows and opens the feed. Full CI suite passes.
+
 ## 2026-11-20 — Bird's-eye: the radar's sweep lights its echoes (v1179)
 
 - Asked: "are the radar displays just play, or do they accurately reflect ships in the area?", then "make the sweep light them up".
