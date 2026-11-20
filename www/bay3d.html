@@ -391,15 +391,20 @@ body.night.lamp #cockpit .slight { display: block; }
   background: linear-gradient(rgba(255,244,214,0.16), rgba(255,240,205,0.05) 80%, rgba(255,240,205,0)); }
 #cockpit .slight .pool { position: absolute; left: 50%; top: var(--pool, 55%); width: 34%; height: 12%; transform: translate(-50%, -50%); border-radius: 50%;
   background: radial-gradient(ellipse at center, rgba(255,246,222,0.75) 0, rgba(255,236,200,0.38) 35%, rgba(255,230,190,0.08) 65%, rgba(255,230,190,0) 72%); filter: blur(2px); }
-/* (v1175) the steering compass on the middle post: a drum card read from behind, its lubber line; lit at night */
-#cockpit .scomp { position: absolute; left: 50%; bottom: 18%; width: clamp(96px, 10vw, 150px); height: clamp(34px, 4.6vh, 48px); transform: translateX(-50%);
-  background: #16191c; border: 3px solid #3d4349; border-radius: 22px / 50%; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
-#cockpit .scomp .drum { position: absolute; top: 0; bottom: 0; left: 50%; width: max-content; display: flex; align-items: center; white-space: nowrap; background: linear-gradient(#f1ead7, #d9cfb2); }
-#cockpit .scomp .drum span { flex: none; display: inline-block; width: 20px; text-align: center; font: 700 11px var(--mono, monospace); color: #222; border-left: 1px solid rgba(0,0,0,0.35); height: 100%; line-height: clamp(28px, 4vh, 42px); box-sizing: border-box; }
-#cockpit .scomp .drum span.c { color: #b02a1a; }
-#cockpit .scomp b { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: #e0331f; }
-#cockpit .scomp::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(rgba(255,255,255,0.25), transparent 45%, rgba(0,0,0,0.25)); }
-body.night #cockpit .scomp .drum { background: linear-gradient(#5a3a10, #3a250a); } body.night #cockpit .scomp .drum span { color: #ffc067; text-shadow: 0 0 5px rgba(255,170,60,0.7); border-color: rgba(255,170,60,0.3); }
+/* (v1175, plainer v1177) the steering compass on the middle post: its window on a drum card, her heading under the red lubber line */
+#cockpit .scomp { position: absolute; left: 50%; bottom: 16%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; }
+#cockpit .scomp .brk { position: absolute; top: 40%; left: 50%; width: 120%; height: 8px; transform: translateX(-50%); background: #2c3136; border-radius: 3px; z-index: -1; }
+#cockpit .scomp .win { position: relative; width: clamp(150px, 14vw, 210px); height: clamp(36px, 4.8vh, 48px); background: #16191c; border: 3px solid #3d4349; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+#cockpit .scomp .drum { position: absolute; top: 0; bottom: 0; left: 50%; width: max-content; display: flex; white-space: nowrap; background: linear-gradient(#f1ead7, #d9cfb2); }
+#cockpit .scomp .drum span { flex: none; position: relative; width: 40px; height: 100%; border-left: 1.5px solid rgba(0,0,0,0.55); box-sizing: border-box; }
+#cockpit .scomp .drum span::after { content: ""; position: absolute; left: 50%; bottom: 0; height: 28%; border-left: 1px solid rgba(0,0,0,0.45); }
+#cockpit .scomp .drum em { position: absolute; left: 0; top: 18%; transform: translateX(-50%); font: 700 12px var(--mono, monospace); font-style: normal; color: #222; background: linear-gradient(#efe7d2, #e3d9be); padding: 0 1px; }
+#cockpit .scomp .drum em.c { color: #b02a1a; font-size: 14px; }
+#cockpit .scomp .win b { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: #e0331f; box-shadow: 0 0 2px rgba(0,0,0,0.5); }
+#cockpit .scomp .win::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(rgba(255,255,255,0.25), transparent 45%, rgba(0,0,0,0.25)); }
+#cockpit .scomp .plate { margin-top: 3px; padding: 1px 8px; background: #2c3136; color: #b8c0c7; font: 700 9px var(--body, sans-serif); letter-spacing: 0.14em; border-radius: 3px; }
+body.night #cockpit .scomp .drum { background: linear-gradient(#5a3a10, #3a250a); } body.night #cockpit .scomp .drum em { color: #ffc067; background: #4a300d; text-shadow: 0 0 5px rgba(255,170,60,0.7); }
+body.night #cockpit .scomp .drum span, body.night #cockpit .scomp .drum span::after { border-color: rgba(255,170,60,0.4); } body.night #cockpit .scomp .plate { color: #8a6a40; background: #141619; }
 /* (v1175) at night the console's glow in the glass: the radar's green, the screens' light, faint, low in the panes */
 #cockpit .whglow { position: absolute; inset: 0; pointer-events: none; display: none; mix-blend-mode: screen;
   background: radial-gradient(ellipse 12% 7% at 22% 92%, rgba(90,255,150,0.16), transparent 70%), radial-gradient(ellipse 10% 5% at 33% 93%, rgba(110,255,170,0.12), transparent 70%),

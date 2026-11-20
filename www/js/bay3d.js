@@ -22,7 +22,7 @@ import { REGIONS3D, REGION3D_KEY, regions3dOffered } from './regions3d.js';
 import { setRegionTZ, minOfDay, bayMs, bayDay, bayTime, bayDayTime } from './regiontime.js';
 import { makeBridges } from './bridges3d.js';
 import { setShips } from './ships3d.js';
-import { identify, liveModel, knownList } from './livefleet.js';
+import { identify, liveModel, knownList, towOf } from './livefleet.js';
 import { BUOY_F, makeBuoyF, buoyTime, topCurrent, strongest, tideWord, compass16 } from './buoyf.js';
 import { makeCurrents, layerAt } from './currents.js';
 import { OBS, makeObs, windWords, wavesWords } from './obs.js';
@@ -2352,7 +2352,8 @@ function liveData(snap) {
     let v = live.find(o => o.mmsi === A.mmsi);
     const { K, W, S, cls } = identify(A);
     let was = null;   // (her card and following go over to her new self: v1000)
-    if (v && (v.model !== cls.model || v.K !== K || v.W !== W)) { was = { card: cardV === v, follow: follow === v }; dropLive(v); v = null; }   // her static data came in: what she is changed
+    // (v1177: a tug's rebuilt as her status brings or drops her barge)
+    if (v && (v.model !== cls.model || v.K !== K || v.W !== W || (v.model === 'tug' && (v.tow || '') !== towOf(A)))) { was = { card: cardV === v, follow: follow === v }; dropLive(v); v = null; }   // her static data came in: what she is changed
     if (!v) {
       const m = liveModel(A, cls, Number(A.mmsi) % 9973, K, W, trafficLit);
       v = { kind: 'ais', mmsi: A.mmsi, model: cls.model, K, W, ...m, x: wx(A.lon), z: wz(A.lat), h: aisHead(A) ?? 0, on: false, label: '' };

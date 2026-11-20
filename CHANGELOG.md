@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-19 — Bird's-eye: tugs with their barges, and a compass you can read (v1177)
+
+- Asked: "keep improving the tug and ferry helm views", and "what is that shape with the letter E on the windshield?"
+- **Tugs with their barges** (www/js/livefleet.js `towOf`, `addBarge`): a tug pushing ahead (AIS status 12) has her barge ahead of her, her bow in its notch; one towing astern (11) has hers 90 m astern on her hawser. About a dozen in New York at a time. The barge: a raked black box hull, a rust-red deck, and one of three loads by her MMSI (a hopper of stone, a tank barge's pipes and pump house, a deck barge's containers). From the Erin Elizabeth's wheelhouse at 10 kn in Buttermilk Channel: her hopper barge ahead under the windows.
+- **Her length, not the pair's**: many give the tug and barge together (the Buchanan 12 "182 m", an ATB's 147 m) and were drawn as tugs that size. Over 45 m a tug's now 32 m and the rest is her barge.
+- **A towing vessel is a tug**: pushing ahead or towing astern is a towing vessel's status, so one with no type given (the Erin Elizabeth, the Alexandra) is drawn as a tug, not a ship 89 or 138 m long.
+- **The compass plainly a compass** (www/js/cockpit.js `compassDrum`): its card reads her heading in full every 10° (190, 200, 210…; N E S W in red), with a mark between, a COMPASS plate under it, and a bracket to the post. It had shown a lone "E" in a capsule.
+- The barges show in the boaters' helm view too (livefleet.js is shared): AudioChart's release. Checked in headless Chrome on New York's live AIS. Full CI suite passes.
+
 ## 2026-11-19 — Bird's-eye: her windows turn with you, and her horn (v1176)
 
 - Asked: "keep improving the tug and ferry helm views".

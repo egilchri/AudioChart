@@ -79,9 +79,11 @@ const BOWS = {
 // (v1175) the steering compass on the middle post, a drum card read from behind: 5° to a mark, her heading under the
 // lubber line (the card three turns long, so it never runs out at north)
 function compassDrum() {
+  // (v1177, asked: "what is that shape with the letter E on the windshield?") read plainly as a compass: her heading in
+  // full every 10° (070, 080, E, 100), a mark between, a "COMPASS" plate under it, a bracket to the post
   const marks = [];
-  for (let t = 0; t < 3; t++) for (let d = 0; d < 360; d += 5) marks.push(d % 90 === 0 ? `<span class="c">${'NESW'[d / 90]}</span>` : d % 30 === 0 ? `<span>${d / 10}</span>` : '<span></span>');
-  return `<div class="scomp"><div class="drum n-drum">${marks.join('')}</div><b></b></div>`;
+  for (let t = 0; t < 3; t++) for (let d = 0; d < 360; d += 10) marks.push(`<span><em class="${d % 90 ? '' : 'c'}">${d % 90 ? String(d).padStart(3, '0') : 'NESW'[d / 90]}</em></span>`);
+  return `<div class="scomp"><i class="brk"></i><div class="win"><div class="drum n-drum">${marks.join('')}</div><b></b></div><div class="plate">COMPASS</div></div>`;
 }
 // (v1176) the frame turns with the view: her windows' posts are hers, so as you look round they slide by (a strip of
 // panes three screens wide, moved by how far you've turned, a screen at a time round again); the wipers and the compass

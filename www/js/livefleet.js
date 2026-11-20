@@ -1,5 +1,6 @@
 // The live AIS vessels, what each one is and how she's drawn (v1009: from bay3d.js, so the helm view draws them the
 // same way, requested: "add live AIS to the helm view"). bay3d.js and helm3d.js both use identify() and liveModel().
+import * as THREE from 'three';
 import { makeSailboat } from './sailboat3d.js';
 import { makeTrimmer } from './weather3d.js';
 import { cruiseShipModel, ferryModelSimple, launchModel, cblModel, merchantModel } from './vessels.js';
@@ -49,6 +50,39 @@ const CABLE = /^C\.?S\.? |\bCABLE\b|^(GLOBAL (SENTINEL|SYMPHONY|MARINER|CITIZEN|
 const OSV = /^(HOS|HARVEY|SEACOR|BOURBON|SIEM|NORMAND|HAVILA|SKANDI)\b|\b(SUPPL(Y|IER)|OFFSHORE|ANCHOR HANDLER|AHTS|PSV)\b/i;
 // a Coast Guard cutter by her name (v1005), whatever type her AIS gives
 const CUTTER = /^(USCGC|USCG|CGC)\b|\bCOAST ?GUARD\b|^(ABBIE BURGESS|MARCUS HANNA|IDA LEWIS|KATHERINE WALKER|JAMES RANKIN|JOSHUA APPLEBY|(THUNDER|MORRO|STURGEON|KATMAI|BRISTOL|MOBILE|BISCAYNE|NEAH|PENOBSCOT) BAY)$/i;   // (and the cutters by their own names: the keeper-class buoy tenders, the icebreaking tugs)
+// (v1177) what a tug's doing with a barge, from her AIS status: 'push' (12, pushing ahead or alongside), 'tow' (11, towing
+// astern), or ''
+export const towOf = A => A.status === 12 ? 'push' : A.status === 11 ? 'tow' : '';
+// her barge: a raked box hull, black, a rust-red deck, and one of three loads (by her MMSI): a hopper of stone, a tank
+// barge's pipes and pump house, a deck barge's containers. Pushed: ahead of her, her bow in its notch. Towed: 90 m
+// astern on her hawser.
+function addBarge(g, tow, Lt, Lb, B, seed) {
+  const b = new THREE.Group(), M = c => new THREE.MeshLambertMaterial({ color: c });
+  const FB = 2.2, DR = 2.4, rake = Math.min(6, Lb * 0.1);
+  const sh = new THREE.Shape([new THREE.Vector2(-Lb / 2, FB), new THREE.Vector2(Lb / 2, FB), new THREE.Vector2(Lb / 2 - rake, -DR), new THREE.Vector2(-Lb / 2 + rake, -DR)]);
+  const hg = new THREE.ExtrudeGeometry(sh, { depth: B, bevelEnabled: false }); hg.rotateY(Math.PI / 2); hg.translate(-B / 2, 0, 0);
+  b.add(new THREE.Mesh(hg, [M(0x2a2624), M(0x2a2624)]));
+  const deck = new THREE.Mesh(new THREE.BoxGeometry(B - 0.6, 0.12, Lb - 0.6), M(0x6e3c28)); deck.position.y = FB + 0.06; b.add(deck);
+  const box = (w, h, d, x, y, z, c) => { const k = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), M(c)); k.position.set(x, y, z); b.add(k); return k; };
+  const load = seed % 3;
+  if (load === 0) {   // a hopper: coamings and a pile of stone in it
+    for (const sx of [-1, 1]) box(0.5, 1.6, Lb - 8, sx * (B / 2 - 1.2), FB + 0.8, 0, 0x3a3532);
+    for (const sz of [-1, 1]) box(B - 2, 1.6, 0.5, 0, FB + 0.8, sz * (Lb / 2 - 4), 0x3a3532);
+    const pile = new THREE.Mesh(new THREE.ConeGeometry(1, 1, 12), M(0x8a8478)); pile.scale.set(B * 0.42, 3.4, (Lb - 10) * 0.45); pile.position.y = FB + 1.7; b.add(pile);
+  } else if (load === 1) {   // a tank barge: low, its pipe run and manifold, a pump house aft
+    box(0.5, 0.5, Lb - 6, 0, FB + 0.35, 0, 0x9a9da0); for (const z of [-Lb * 0.2, 0, Lb * 0.2]) box(B * 0.7, 0.4, 0.4, 0, FB + 0.3, z, 0x9a9da0);
+    box(B * 0.5, 2.4, 4, 0, FB + 1.2, Lb / 2 - 5, 0xd8d4cc); for (const z of [-Lb * 0.3, Lb * 0.3]) box(0.8, 1.8, 0.8, 0, FB + 0.9, z, 0xc9302a);
+  } else {   // a deck barge: rows of containers
+    const cols = [0x1d5f8a, 0xa8322a, 0x2f7a3a, 0xd9a52b, 0x7a7d80, 0x5a3a7a];
+    for (let i = 0; i < Math.floor((Lb - 10) / 12.5); i++) for (let j = 0; j < Math.floor((B - 2) / 2.5); j++) if ((i * 7 + j * 3 + seed) % 5) box(2.4, 2.6, 12.1, -B / 2 + 1.5 + j * 2.5, FB + 1.3, -Lb / 2 + 6 + i * 12.5 + 6, cols[(i * 3 + j + seed) % cols.length]);
+  }
+  if (tow === 'push') b.position.z = -Lt / 2 - Lb / 2 + 2.5;   // (her bow to -z; in the barge's notch)
+  else {
+    const gap = 90; b.position.z = Lt / 2 + gap + Lb / 2;
+    const hawser = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, gap), M(0x1a1a1a)); hawser.position.set(0, 0.8, Lt / 2 + gap / 2); hawser.rotation.x = 0.012; g.add(hawser);
+  }
+  b.userData.barge = true; g.add(b);
+}
 export function liveModel(A, cls, seed, K, W, lit) {
   // one of the ferries we know (K, her ferries.json record): built from it, so she's the scheduled one to the life (v987)
   if (K) return { group: (K.kind === 'launch' ? launchModel : (K.kind === 'cbl' || K.kind === 'ctc') ? cblModel : ferryModelSimple)(K, lit), L: K.length_m || (K.kind === 'launch' ? 14 : 46) };
@@ -72,6 +106,15 @@ export function liveModel(A, cls, seed, K, W, lit) {
   if (['tanker', 'tug', 'pilot', 'cargo', 'trawler', 'research', 'dredger', 'cutter', 'scalloper', 'cable', 'osv'].includes(cls.model)) {
     const { S, liv } = shipFor(A.mmsi, A.name), V = { L, B: A.B || S?.B, D: S?.D, T: A.draught, name: S?.name || A.name, boat: S?.boat };
     const kind = cls.model === 'cargo' ? cargoKind(A, S, liv) : cls.model === 'tanker' ? tankerKind(A, S, liv) : cls.model;
+    // (v1177) a tug pushing ahead (AIS status 12) or towing astern (11): her barge with her. Many give the length of the
+    // two together (the Buchanan 12, "182 m"; an ATB's 147): over 45 m a tug's taken as 32 m, the rest her barge
+    const tow = towOf(A);
+    if (cls.model === 'tug' && (tow || L > 45)) {
+      const Lt = L > 45 ? 32 : L, Lb = L > 45 ? Math.max(30, L - Lt) : 60 + (seed % 4) * 10, Bb = L > 45 && A.B ? Math.max(10, A.B) : 15 + (seed % 3) * 2;
+      const g = tugModel({ ...V, L: Lt, B: L > 45 ? Math.min(A.B || 11, 12) : V.B }, liv, lit);
+      if (tow) addBarge(g, tow, Lt, Lb, Bb, seed);
+      return { group: g, L: Lt, tow };
+    }
     return { group: { tanker: tankerModel, lpg: lpgModel, tug: tugModel, pilot: pilotModel, container: containerModel, bulk: bulkModel, pcc: carCarrierModel, trawler: trawlerModel, research: researchModel, dredger: dredgerModel, cutter: cutterModel, scalloper: scallopModel, cable: cableModel, osv: osvModel }[kind](V, liv, lit), L };
   }
   const group = cls.model === 'launch' ? launchModel({ length_m: clamp(L, 9, 40), name: A.name }, lit)
@@ -93,6 +136,9 @@ export function identify(A) {
   let cls = K ? { model: K.kind === 'launch' || A.L < 25 ? 'launch' : 'ferry', what: K.says || 'Ferry' }
     : W ? { model: 'sail', what: `${W.model === 'bowdoin' ? 'Schooner' : 'Windjammer'}, out of ${W.port}` } : S && !A.type ? { model: S.kind, what: S.what } : RESEARCH.test(A.name || '') || S?.kind === 'research' ? { model: 'research', what: S?.what || 'Research vessel' } : CUTTER.test(A.name || '') ? { model: 'cutter', what: 'Coast Guard cutter' } : CABLE.test(A.name || '') || S?.kind === 'cable' ? { model: 'cable', what: S?.what || 'Cable ship' } : (OSV.test(A.name || '') && !(A.L && A.L < 40)) || S?.kind === 'osv' ? { model: 'osv', what: S?.what || 'Offshore supply vessel' } : aisClass(A.type, A.L);
   if (cls.model === 'trawler' && scalloper(A, S)) cls = { model: 'scalloper', what: 'Scalloper' };
+  // (v1177) pushing ahead or towing astern is a towing vessel's status: a tug, whatever else she does or doesn't say (the
+  // Erin Elizabeth and the Alexandra, no type given, had been drawn as ships 89 and 138 m long)
+  if ((A.status === 11 || A.status === 12) && !K && !W && ['ship', 'launch', 'power', 'cargo'].includes(cls.model)) cls = { model: 'tug', what: 'Tug' };
   if (!K && !W && (A.type >= 60 && A.type <= 69 || A.type >= 40 && A.type <= 49)) { const h = harborKind(A); if (h) cls = { ...cls, model: 'ferry', what: h.what, harbor: h }; }
   return { K, W, S, cls };
 }
