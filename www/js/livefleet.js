@@ -81,6 +81,11 @@ function addBarge(g, tow, Lt, Lb, B, seed) {
     const gap = 90; b.position.z = Lt / 2 + gap + Lb / 2;
     const hawser = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, gap), M(0x1a1a1a)); hawser.position.set(0, 0.8, Lt / 2 + gap / 2); hawser.rotation.x = 0.012; g.add(hawser);
   }
+  // her running lights at the bow end (v1178): red to port, green to starboard (her bow to -z, so starboard's +x)
+  for (const [sx, c] of [[-1, 0xff2a1a], [1, 0x2aff6a]]) {
+    const l = new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 6), new THREE.MeshBasicMaterial({ color: c })); l.position.set(sx * (B / 2 - 0.4), FB + 1.1, -Lb / 2 + rake + 0.6); b.add(l);
+    const halo = new THREE.Mesh(new THREE.SphereGeometry(2.2, 10, 8), new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.22, depthWrite: false, blending: THREE.AdditiveBlending })); halo.position.copy(l.position); b.add(halo);   // (its glow, to be seen 100 m off at night)
+  }
   b.userData.barge = true; g.add(b);
 }
 export function liveModel(A, cls, seed, K, W, lit) {

@@ -33,7 +33,7 @@ const needle = (cls, len, w = 2.6) => `<g class="${cls}"><path d="M${-w / 2},6 L
 // the deckhead over you, the front windows' posts, and the console under them: the radar sweeping, her heading and
 // speed, two throttles, her wheel; update({ hdg, gs: knots })
 function wheelPanel() {
-  const radar = `<svg viewBox="-50 -50 100 100" class="radar"><circle r="47" class="rim"/><circle r="43" class="scope"/><circle r="29" class="ring"/><circle r="15" class="ring"/><line x1="-43" y1="0" x2="43" y2="0" class="ring"/><line x1="0" y1="-43" x2="0" y2="43" class="ring"/><g class="sweep"><path d="M0,0 L0,-43 A43,43 0 0,1 26,-34 Z" class="beam"/></g>${[[12, -20], [-18, 8], [25, 14], [-8, -30], [30, -8]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.8" class="blip"/>`).join('')}<line x1="0" y1="0" x2="0" y2="-43" class="head"/></svg>`;
+  const radar = `<svg viewBox="-50 -50 100 100" class="radar"><circle r="47" class="rim"/><circle r="43" class="scope"/><circle r="29" class="ring"/><circle r="15" class="ring"/><line x1="-43" y1="0" x2="43" y2="0" class="ring"/><line x1="0" y1="-43" x2="0" y2="43" class="ring"/><g class="n-land"></g><g class="n-blips"></g><g class="sweep"><path d="M0,0 L0,-43 A43,43 0 0,1 26,-34 Z" class="beam"/></g><line x1="0" y1="0" x2="0" y2="-43" class="head"/><text x="-40" y="44" class="rng">1.5 nm</text></svg>`;   // (v1178: her real targets and the land, head-up)
   const levers = `<svg viewBox="0 0 70 100" class="tlever"><rect x="0" y="0" width="70" height="100" rx="8" class="tbase"/><rect x="12" y="10" width="12" height="80" rx="5" class="slot"/><rect x="46" y="10" width="12" height="80" rx="5" class="slot"/><text x="35" y="14" class="tlab">AHD</text><text x="35" y="93" class="tlab">AST</text><g class="n-thr"><rect x="4" y="44" width="28" height="11" rx="4" class="knob"/><rect x="38" y="44" width="28" height="11" rx="4" class="knob"/></g></svg>`;
   const vhf = `<div class="vhf"><div class="vlcd">CH <b>16</b></div><div class="vknobs"><i></i><i></i><i></i></div></div>`;
   const plot = `<svg viewBox="-50 -40 100 80" class="plotter"><rect x="-50" y="-40" width="100" height="80" rx="4" class="pbez"/><rect x="-45" y="-35" width="90" height="70" class="psea"/><g class="n-chart"><path d="M-45,-35 L-10,-35 C-18,-20 -30,-10 -45,-6 Z M45,10 C30,8 22,20 18,35 L45,35 Z" class="pland"/><path d="M-20,25 L-8,-30 M10,30 L22,-28" class="ptrk"/></g><path d="M0,-6 L4,5 L0,3 L-4,5 Z" class="pown"/><line x1="0" y1="-6" x2="0" y2="-30" class="phead"/></svg>`;
@@ -89,6 +89,12 @@ function compassDrum() {
 // panes three screens wide, moved by how far you've turned, a screen at a time round again); the wipers and the compass
 // are on her front windows only, so they go with them and are gone past 60°. The deckhead and the sill stay overhead
 // and underfoot.
+// (v1178) rain on the glass: 70 drops at random, each a little lens (bright above, dark below), for the rain
+function rainDrops() {
+  let sd = 7919; const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+  return Array.from({ length: 70 }, () => { const x = (rnd() * 100).toFixed(1), y = (12 + rnd() * 84).toFixed(1), r = (2 + rnd() * 3.5).toFixed(1);
+    return `radial-gradient(circle ${r}px at ${x}% ${y}%, rgba(255,255,255,0.32), rgba(200,220,235,0.14) 55%, rgba(0,0,0,0.18) 80%, transparent 100%)`; }).join(',');
+}
 function wheelFrame() {
   const panes = innerWidth < innerHeight ? [[30, 320], [345, 655], [680, 970]] : [[30, 238], [262, 488], [512, 738], [762, 970]], R = 26, T = 175;   // (v1170: three panes on a phone held upright, four were slats)
   const all = [0, 1000, 2000].flatMap(o => panes.map(([a, b]) => [a + o, b + o]));
@@ -97,7 +103,7 @@ function wheelFrame() {
 ${all.map(p => `<path d="${hole(p)}" fill="url(#whg)"/>`).join('')}
 <path fill-rule="evenodd" class="frame" d="M0,0 H3000 V1000 H0 Z ${all.map(hole).join(' ')}"/></svg>
 <svg class="whframe whfix" viewBox="0 0 1000 1000" preserveAspectRatio="none"><rect x="0" y="0" width="1000" height="150" class="deckhead"/><rect x="0" y="150" width="1000" height="12" class="beam"/>
-<rect x="0" y="985" width="1000" height="15" class="sill"/></svg><div class="whfront">${[1, 2].map(i => { const [a, b] = panes[i] || panes[0]; return `<div class="wipe" style="left:${((a + b) / 2 + 70) / 10}%"><i></i></div>`; }).join('')}${compassDrum()}</div>`;
+<rect x="0" y="985" width="1000" height="15" class="sill"/></svg><div class="drops" style="background-image:${rainDrops()}"></div><div class="whfront">${[1, 2].map(i => { const [a, b] = panes[i] || panes[0]; return `<div class="wipe" style="left:${((a + b) / 2 + 70) / 10}%"><i></i></div>`; }).join('')}</div>`;   // (v1178: no compass on the window; asked "why is there a compass there if it already shows the heading": a third copy of her heading, over her bow)
 }
 function bowSvg(b) {
   const sy = 300 - 230 * b.stem;   // (the stem's height on it: a ship's farther, nearer the horizon)
@@ -161,7 +167,7 @@ function tapeSvg(val, step, every, px, x0, x1, xt, anchor) {
   return s;
 }
 export function makeCockpit(el) {
-  let kind = null, q = {}, lastS = null, lastA = null, bowK = 'work';
+  let kind = null, q = {}, lastS = null, lastA = null, bowK = 'work', lastRadar = '';
   const set = (sel, fn) => { for (const n of el.querySelectorAll(sel)) fn(n); };
   const rot = (sel, deg) => set(sel, n => n.setAttribute('transform', `rotate(${deg.toFixed(1)})`));
   // (v1169) her bow, ahead whichever way you look: off to the side as you turn your head, gone past 70°; up and down with it
@@ -185,13 +191,18 @@ export function makeCockpit(el) {
       el.hidden = false; document.body.classList.add('incockpit');
     },
     hide() { el.hidden = true; document.body.classList.remove('incockpit'); },
-    update({ gs = 0, alt = 0, hdg = 0, vr = 0, ground = false, next = '', dest = '', cog = null, turn = 0, yaw = 0, pitch = -3, fov = 50, eyeY = 8 } = {}) {
+    update({ gs = 0, alt = 0, hdg = 0, vr = 0, ground = false, next = '', dest = '', cog = null, turn = 0, yaw = 0, pitch = -3, fov = 50, eyeY = 8, radar = null } = {}) {
       if (el.hidden) return;
       if (kind === 'console') {   // (v1170) an open boat's: her compass card, her speed and course, the wheel and the throttle
         const d3 = a => String(Math.round(((a % 360) + 360) % 360) % 360).padStart(3, '0');
         rot('.n-card', -hdg); txt('.n-spd', `${gs.toFixed(1)} kn`); txt('.n-cog', `${cog != null ? 'COG' : 'HDG'} ${d3(cog ?? hdg)}°`);
         rot('.n-helm', clamp(turn / 20, -1, 1) * 90); set('.n-thr', n => n.setAttribute('transform', `rotate(${(-40 * clamp(gs / 25, 0, 1)).toFixed(1)} 20 70)`));
         bowAt(yaw, pitch, fov); return;
+      }
+      if (kind === 'wheelhouse' && radar && radar.key !== lastRadar) {   // (v1178) the radar: the boats round her and the land's echo
+        lastRadar = radar.key;
+        set('.n-land', n => { n.innerHTML = radar.land.map(([x, y, r]) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(1)}" class="lnd"/>`).join(''); });
+        set('.n-blips', n => { n.innerHTML = radar.targets.map(([x, y]) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="1.9" class="blip"/>`).join(''); });
       }
       if (kind === 'wheelhouse') {   // (v1167) her heading and speed; the throttles forward as she makes way
         const d3 = a => String(Math.round(((a % 360) + 360) % 360) % 360).padStart(3, '0');

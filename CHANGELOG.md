@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-19 — Bird's-eye: a real radar, rain on the glass, barges' lights; the window compass gone (v1178)
+
+- Asked: "keep improving the tug and ferry helm views", and "why is there a compass there if it already shows the heading in that dark meter with the green lettering".
+- **The compass off the window** (www/js/cockpit.js): a third copy of her heading (the green readout, the overhead HEADING repeater), over her bow. A real wheelhouse keeps a magnetic compass as the backup if the electronics fail, but here it only cluttered the view.
+- **A real radar** (www/js/bay3d.js `radarPicture`): head-up, out to 1.5 nm: the boats round her (live AIS, the timetabled ferries) as bright targets, the land's echo from the chart's water (48 bearings by 16 ranges, every 2 s). From the Guy V Molinari off the Battery: Lower Manhattan's and Brooklyn's shores; from the Alexandra, Sandy Hook to the southwest. Bigger on the console, to be read.
+- **Rain on the glass**: drops on the windows in the rain, thinned as the wipers pass.
+- **A barge's running lights** (www/js/livefleet.js): red to port, green to starboard at her far end, with a glow to be seen 100 m off at night.
+- The barges' lights show in the boaters' helm view too: AudioChart's release. Checked in headless Chrome on New York's live AIS. Full CI suite passes.
+
 ## 2026-11-19 — Bird's-eye: tugs with their barges, and a compass you can read (v1177)
 
 - Asked: "keep improving the tug and ferry helm views", and "what is that shape with the letter E on the windshield?"

@@ -1445,12 +1445,29 @@ function aisHead(A) {
   if (A.hdg != null && A.cog != null && kn >= 2 && Math.abs(((A.hdg - A.cog + 540) % 360) - 180) > 70) return A.cog;
   return A.hdg ?? (kn >= 0.5 ? A.cog : null);
 }
+// (v1178) her radar's picture, head-up, out to 1.5 nm (43 on the scope): the boats round her (live AIS, the timetabled
+// ferries and cruise ships) and the land's echo, from the chart's water, 48 bearings by 16 ranges. Every 2 s (the
+// targets every 0.5 s); the same picture handed back between, so the scope's redrawn only when it changes.
+const RADAR_R = 1.5 * 1852;
+let radarPic = null, radarAt = 0, landAt = 0, landPic = [];
+function radarPicture(v) {
+  const now = performance.now(); if (radarPic && now - radarAt < 500) return radarPic;
+  const h = (v.h || 0) * DEG, polar = (dx, dz) => { const r = Math.hypot(dx, dz), b = Math.atan2(dx, -dz) - h; return [Math.sin(b) * r / RADAR_R * 43, -Math.cos(b) * r / RADAR_R * 43, r]; };
+  if (now - landAt > 2000) {
+    landAt = now; landPic = [];
+    for (let i = 0; i < 48; i++) { const b = i / 48 * Math.PI * 2; for (let k = 1; k <= 16; k++) { const r = k / 16 * RADAR_R, x = v.x + Math.sin(b) * r, z = v.z - Math.cos(b) * r; if (!isWater(x, z)) { const [px, py] = polar(x - v.x, z - v.z); landPic.push([px, py, 1.2 + k * 0.09]); } } }
+  }
+  const targets = [];
+  for (const o of [...live, ...traffic]) { if (o === v || !o.on) continue; const [px, py, r] = polar(o.x - v.x, o.z - v.z); if (r < RADAR_R && r > 15) targets.push([px, py]); }
+  radarAt = now;
+  return radarPic = { land: landPic, targets, key: `${landAt}|${targets.map(t => t[0].toFixed(0) + ',' + t[1].toFixed(0)).join(';')}` };
+}
 function insidePlane(v, inside) {
   if (inWheelhouse(v)) {
     if (!inside || nest.mode !== 'helm') { cockpit?.hide(); document.body.classList.remove('inwheel'); return; } if (!cockpit) { wantCockpit(); return; }
     // (her bow painted on only where her model has no wheelhouse of its own: one that has shows her real foredeck, her containers)
     cockpit.show('wheelhouse', { bow: vGroup(v).userData.helm ? 'none' : v.kind === 'ferry' ? 'ferry' : v.kind === 'cruise' ? 'ferry' : v.model === 'tug' ? 'tug' : ['ferry', 'cruise'].includes(v.model) ? 'ferry' : ['cargo', 'tanker', 'ship'].includes(v.model) ? 'ship' : 'work' }); document.body.classList.add('inwheel');
-    cockpit.update({ hdg: v.h || 0, cog: v.A?.cog ?? null, turn: rotDpm(v.A?.rot), gs: v.A?.sog ?? v.kn ?? 0, yaw: nest.yaw, pitch: nest.pitch, fov: camera.fov, eyeY: helmOf(v)[1] }); return;
+    cockpit.update({ hdg: v.h || 0, cog: v.A?.cog ?? null, turn: rotDpm(v.A?.rot), gs: v.A?.sog ?? v.kn ?? 0, yaw: nest.yaw, pitch: nest.pitch, fov: camera.fov, eyeY: helmOf(v)[1], radar: radarPicture(v) }); return;
   }
   if (atConsole(v)) {
     document.body.classList.remove('inwheel');
