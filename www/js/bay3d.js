@@ -1436,7 +1436,10 @@ lampBtn?.addEventListener('click', toggleLamp);
 const HARBOR_RADIO = { 'new-york-harbor': 'https://www.broadcastify.com/listen/feed/17329' };
 if (HARBOR_RADIO[RID]) {
   document.body.classList.add('harborradio');
-  document.getElementById('radiobtn')?.addEventListener('click', () => window.open(HARBOR_RADIO[RID], '_blank', 'noopener'));
+  const openRadio = () => window.open(HARBOR_RADIO[RID], '_blank', 'noopener');
+  document.getElementById('radiobtn')?.addEventListener('click', openRadio);
+  // (v1181) and the VHF set on the console, its CH 16 (the cockpit's drawn later, so the click's caught on #cockpit)
+  document.getElementById('cockpit')?.addEventListener('click', e => { if (e.target.closest?.('.vhf')) openRadio(); });
 }
 let ckLoading = null;   // (the cockpit's drawing, armchair layer or no: fetched the first time a wheelhouse is wanted, so a boater's Maine bay has it too)
 function wantCockpit() { const ck = document.getElementById('cockpit'); if (cockpit || ckLoading || !ck) return; ckLoading = import('./cockpit.js').then(m => { cockpit ??= m.makeCockpit(ck); }).catch(e => { ckLoading = null; console.warn('[bay3d] cockpit', e); }); }

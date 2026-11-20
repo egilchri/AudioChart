@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-20 — Bird's-eye: the console's CH 16 set opens the harbor radio (v1181)
+
+- Asked: "make the CH 16 display on the console open the radio too".
+- **The VHF set** (www/js/bay3d.js, www/bay3d.html): in New York's wheelhouses, a click on the console's CH 16 set opens the harbor radio feed, as 📻 Radio does. It lights green under the pointer. Elsewhere it's still just for show. On a phone the set isn't drawn, so the 📻 button is the way in.
+- Checked in headless Chrome with a real mouse click at the helm of the tug Fells Point. Full CI suite passes.
+
 ## 2026-11-20 — Bird's-eye: live harbor radio in New York's wheelhouses (v1180)
 
 - Asked: "I want to be able to listen on channel 16, while I'm in helm view, for a tug."
