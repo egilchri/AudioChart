@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-20 — Bird's-eye: stopped boats off the bank (v1185)
+
+- Reported with a screenshot: "It looks like the ferry in the snapshot is beached" (NY Waterway's Sen Frank Lautenberg at a Brooklyn landing, her bow up the bank).
+- **Off the bank** (www/js/bay3d.js `shoveOff`): a live vessel that's stopped (under 1 kn), where her report and heading put one end of her on land and the other in the water, is moved the least that has her afloat: along her length up to 40 m (a ferry bow-first at a landing), else sideways up to 20 m (a ship over the corner of her wharf). New York's landings' floats and wharf edges aren't in the elevation data, and her antenna isn't at her middle. Looked at again with each report, or as she swings 5°.
+- In New York's live fleet, 16 of 141 stopped vessels had an end ashore; after, 5 of 146 (three container ships at Port Newark longer than a 40 m move can help, a tug with her barge, a sightseeing boat). `__live()` now gives each vessel's ends (bowDry, sternDry) and her shove. Underway vessels are left to reachOf, both ends ashore to ashoreAt.
+- The real fix is still to come: New York's ferry landings themselves, drawn, with a ferry at one lying at her dock. Full CI suite passes.
+
 ## 2026-11-20 — Bird's-eye: a coach's own cab (v1184)
 
 - Asked: "give the bus a proper wide windscreen".

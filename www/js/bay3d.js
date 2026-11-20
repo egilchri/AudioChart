@@ -2404,7 +2404,9 @@ function liveData(snap) {
   for (const v of [...live]) if (!seen.has(v.mmsi)) dropLive(v);
   liveOK = live.length > 0;
 }
-window.__live = () => live.map(v => ({ mmsi: v.mmsi, name: v.A.name, lat: latOf(v.z), lon: lonOf(v.x), sog: v.A.sog, cog: v.A.cog, what: v.what, age: v.A.age, reach: v.reach, wet: heightAt(lonOf(v.x), latOf(v.z)) <= 0.3 }));   // (for checking from a script that they move)
+window.__live = () => live.map(v => { const L = vLen(v), ux = Math.sin(v.h * DEG), uz = -Math.cos(v.h * DEG), dry = d => heightAt(lonOf(v.x + ux * d), latOf(v.z + uz * d)) > 0.3;
+  return { mmsi: v.mmsi, name: v.A.name, lat: latOf(v.z), lon: lonOf(v.x), sog: v.A.sog, cog: v.A.cog, what: v.what, age: v.A.age, reach: v.reach, wet: heightAt(lonOf(v.x), latOf(v.z)) <= 0.3,
+    L, bowDry: dry(L / 2), sternDry: dry(-L / 2), shove: v.shove || 0, ashore: !!v.ashore }; });   // (v1185: and her ends, for boats drawn with a bow on the beach)   // (for checking from a script that they move)
 function dropLive(v) {
   if (nest.on && nest.v === v) leaveRide();
   if (follow === v) stopFollow();
@@ -2429,13 +2431,33 @@ function reachOf(fix, A) {
   }
   return Infinity;
 }
+// (v1185, reported with a screenshot: "It looks like the ferry in the snapshot is beached": NY Waterway's Sen Frank
+// Lautenberg stopped at a Brooklyn landing, her bow up the bank) a vessel stopped where her report and her heading put
+// one end of her on land and the other in the water (the landings' floats and the wharves' edges aren't in the
+// elevation data; her antenna isn't at her middle): moved the least that has her afloat, along her length up to 40 m
+// (a ferry in bow-first at a landing), else sideways up to 20 m (a ship whose bow's over the corner of her wharf).
+// 16 of New York's 141 stopped vessels, 2026-11-20. Both ends ashore is left to ashoreAt; underway, to reachOf.
+function shoveOff(x, z, h, L) {
+  const ux = Math.sin(h * DEG), uz = -Math.cos(h * DEG), dry = (px, pz) => heightAt(lonOf(px), latOf(pz)) > 0.3;
+  const ends = (ox, oz) => [dry(x + ox + ux * (L / 2 + 3), z + oz + uz * (L / 2 + 3)), dry(x + ox - ux * (L / 2 + 3), z + oz - uz * (L / 2 + 3)), dry(x + ox, z + oz)];
+  const [b, st] = ends(0, 0); if (b === st) return null;
+  for (let d = 2; d <= 40; d += 2) for (const sg of b ? [-1] : [1]) { const ox = ux * d * sg, oz = uz * d * sg; if (!ends(ox, oz).some(Boolean)) return [ox, oz]; }
+  for (let d = 2; d <= 20; d += 2) for (const sg of [1, -1]) { const ox = -uz * d * sg, oz = ux * d * sg; if (!ends(ox, oz).some(Boolean)) return [ox, oz]; }
+  return null;
+}
 function updateLive(dt) {
   if (!live.length) return;
   const now = Date.now(), cp = camera.position, up = env.W.heel > 0, heel = env.W.heel * DEG;
   for (const v of live) {
     const A = v.A, kn = A.sog || 0, cog = A.cog ?? A.hdg ?? v.h;
     // where she is now: her last report, moved on at her speed and course (for up to five minutes)
-    const s = Math.min(v.reach ?? Infinity, kn * NMm / 3600 * clamp((now - v.fix.t) / 1000, 0, 300)), tx = v.fix.x + Math.sin(cog * DEG) * s, tz = v.fix.z - Math.cos(cog * DEG) * s;
+    const s = Math.min(v.reach ?? Infinity, kn * NMm / 3600 * clamp((now - v.fix.t) / 1000, 0, 300));
+    let tx = v.fix.x + Math.sin(cog * DEG) * s, tz = v.fix.z - Math.cos(cog * DEG) * s;
+    if (kn < 1) {   // (v1185) stopped with an end ashore: off the bank (looked at again with each report, or as she swings 5°)
+      const key = `${v.fix.t}|${Math.round(v.h / 5)}`;
+      if (v.shoveKey !== key) { v.shoveKey = key; const o = shoveOff(v.fix.x, v.fix.z, v.h, vLen(v)); v.shoveV = o; v.shove = o ? Math.hypot(o[0], o[1]) : 0; }
+      if (v.shoveV) { tx += v.shoveV[0]; tz += v.shoveV[1]; }
+    } else v.shove = 0;
     const k = v.placed ? Math.min(1, dt * 1.5) : 1; v.placed = true;   // a new report eases her across, no jump
     v.x += (tx - v.x) * k; v.z += (tz - v.z) * k;
     const want = aisHead(A);
