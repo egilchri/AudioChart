@@ -55,7 +55,7 @@ export function coachModel() {
   return g;
 }
 
-export function makeBuses({ scene, wx, wz, heightAt, clockMin, roadDecks = () => null, focus = () => false, onCount, onDrop = () => {}, onRoad = () => {} }) {
+export function makeBuses({ scene, wx, wz, heightAt, laneAt = () => null, clockMin, roadDecks = () => null, focus = () => false, onCount, onDrop = () => {}, onRoad = () => {} }) {
   let route = null, on = false, hover = null, credit = '';
   const pinned = new Set(), coaches = new Map(), _v = new THREE.Vector3();
   // her road each way: its points (x, z, flag: 0 road, 1 tunnel, 2 bridge or ramp), the distance along it to each,
@@ -138,7 +138,10 @@ export function makeBuses({ scene, wx, wz, heightAt, clockMin, roadDecks = () =>
       const p = coaches.get(trip.id) || make(trip), q = at(trip.R, trip.t), south = trip.dir === 'S';
       // (v1184) how fast she's turning, °/s, eased: her wheel turns with it
       if (p.trip && dt > 0) { const dh = ((q.h - p.h + 540) % 360) - 180; p.turn = (p.turn || 0) + (Math.max(-20, Math.min(20, dh / dt)) - (p.turn || 0)) * Math.min(1, dt / 0.6); }
-      p.trip = trip; p.x = q.x; p.z = q.z; p.h = p.dh = q.h; p.y = yAt(q); p.v = trip.arrived || trip.boarding ? 0 : q.v;
+      // (v1194: on the right, as Americans drive: her route's the road's middle line, so she's put in her right-hand lane,
+      // a city street's own where it's drawn, else 1.8 m right of the line)
+      const ln = laneAt(q.x, q.z, q.h), hr = q.h * DEG, side = ln ? null : [Math.cos(hr) * 1.8, Math.sin(hr) * 1.8];
+      p.trip = trip; p.x = ln ? ln.x : q.x + side[0]; p.z = ln ? ln.z : q.z + side[1]; p.h = p.dh = ln ? ln.h : q.h; p.y = yAt(q); p.v = trip.arrived || trip.boarding ? 0 : q.v;
       p.under = false; p.tunnel = q.f === 1;
       p.g.position.set(p.x, p.y, p.z); p.model.rotation.set(0, -p.h * DEG, 0);
       // near, her real size; far off, big enough to see (as the trains: about 4 px wide)
@@ -221,7 +224,7 @@ function wayOf(h, route) {
   if (/^M\d/.test(route)) return off(29) < 40 ? 'uptown' : off(209) < 40 ? 'downtown' : off(119) < 50 ? 'crosstown, east' : 'crosstown, west';
   return ['northbound', 'eastbound', 'southbound', 'westbound'][Math.round(h / 90) % 4];
 }
-export function makeMtaBuses({ scene, wx, wz, heightAt, bbox, relay = () => relayUrl('birdseye'), roadDecks = () => null, focus = () => false, onCount, onDrop = () => {}, every = 30000 }) {
+export function makeMtaBuses({ scene, wx, wz, heightAt, laneAt = () => null, bbox, relay = () => relayUrl('birdseye'), roadDecks = () => null, focus = () => false, onCount, onDrop = () => {}, every = 30000 }) {
   const MAX = 6000, buses = new Map(), _v = new THREE.Vector3(), _m4 = new THREE.Matrix4(), _q = new THREE.Quaternion(), _p = new THREE.Vector3(), _s = new THREE.Vector3(), _y = new THREE.Vector3(0, 1, 0);
   const mesh = new THREE.InstancedMesh(cityBusGeometry(), new THREE.MeshLambertMaterial({ vertexColors: true }), MAX);
   mesh.count = 0; mesh.frustumCulled = false; scene.add(mesh);
@@ -274,10 +277,13 @@ export function makeMtaBuses({ scene, wx, wz, heightAt, bbox, relay = () => rela
     if (!on) { mesh.count = 0; tag.visible = false; return; }
     const now = Date.now(), cp = camera.position; let n = 0, label = null;
     for (const p of buses.values()) {
-      const u = Math.max(0, Math.min(1, (now - p.t0) / p.gap)), x = p.from.x + (p.to.x - p.from.x) * u, z = p.from.z + (p.to.z - p.from.z) * u;
+      const u = Math.max(0, Math.min(1, (now - p.t0) / p.gap)); let x = p.from.x + (p.to.x - p.from.x) * u, z = p.from.z + (p.to.z - p.from.z) * u;
       const mv = Math.hypot(p.to.x - p.from.x, p.to.z - p.from.z);
       const want = mv > 4 ? (Math.atan2(p.to.x - p.from.x, -(p.to.z - p.from.z)) / DEG + 360) % 360 : p.brg ?? p.h;
-      const turn = ((want - p.h + 540) % 360) - 180; p.h = p.dh = (p.h + Math.max(-90 * dt, Math.min(90 * dt, turn)) + 360) % 360;
+      p.hh ??= p.h; const turn = ((want - p.hh + 540) % 360) - 180; p.hh = (p.hh + Math.max(-90 * dt, Math.min(90 * dt, turn)) + 360) % 360;
+      // (v1194: in her lane, square to her street, where there's one near going her way; p.hh her own heading, for that)
+      const ln = Math.abs(x - cp.x) < 3000 && Math.abs(z - cp.z) < 3000 ? laneAt(x, z, p.hh) : null;
+      if (ln) { x = ln.x; z = ln.z; } p.h = p.dh = ln ? ln.h : p.hh;
       if (p.yx == null || Math.hypot(x - p.yx, z - p.yz) > 5) {   // (her height, again when she's moved 5 m)
         p.yx = x; p.yz = z; const t = (x - p.from.x) / ((p.to.x - p.from.x) || 1);
         const lon = p.to.lon ?? 0, lat = p.to.lat ?? 0, gx = Math.max(0, heightAt(lon + (x - p.to.x) / (111320 * Math.cos(lat * DEG)), lat - (z - p.to.z) / 111120) || 0);

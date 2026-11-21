@@ -5,7 +5,7 @@ import { makeSailboat } from './sailboat3d.js';
 import { makeTrimmer } from './weather3d.js';
 import { cruiseShipModel, ferryModelSimple, launchModel, cblModel, merchantModel } from './vessels.js';
 import { harborKind, harborNamed } from './harborferries3d.js';
-import { tankerModel, tugModel, pilotModel, containerModel, bulkModel, carCarrierModel, lpgModel, trawlerModel, researchModel, dredgerModel, cutterModel, scallopModel, cableModel, osvModel, shipFor } from './ships3d.js';
+import { containerStack, tankerModel, tugModel, pilotModel, containerModel, bulkModel, carCarrierModel, lpgModel, trawlerModel, researchModel, dredgerModel, cutterModel, scallopModel, cableModel, osvModel, shipFor } from './ships3d.js';
 import { aisClass, knownFor } from './ais.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -72,9 +72,22 @@ function addBarge(g, tow, Lt, Lb, B, seed) {
   } else if (load === 1) {   // a tank barge: low, its pipe run and manifold, a pump house aft
     box(0.5, 0.5, Lb - 6, 0, FB + 0.35, 0, 0x9a9da0); for (const z of [-Lb * 0.2, 0, Lb * 0.2]) box(B * 0.7, 0.4, 0.4, 0, FB + 0.3, z, 0x9a9da0);
     box(B * 0.5, 2.4, 4, 0, FB + 1.2, Lb / 2 - 5, 0xd8d4cc); for (const z of [-Lb * 0.3, Lb * 0.3]) box(0.8, 1.8, 0.8, 0, FB + 0.9, z, 0xc9302a);
-  } else {   // a deck barge: rows of containers
-    const cols = [0x1d5f8a, 0xa8322a, 0x2f7a3a, 0xd9a52b, 0x7a7d80, 0x5a3a7a];
-    for (let i = 0; i < Math.floor((Lb - 10) / 12.5); i++) for (let j = 0; j < Math.floor((B - 2) / 2.5); j++) if ((i * 7 + j * 3 + seed) % 5) box(2.4, 2.6, 12.1, -B / 2 + 1.5 + j * 2.5, FB + 1.3, -Lb / 2 + 6 + i * 12.5 + 6, cols[(i * 3 + j + seed) % cols.length]);
+  } else {   // a deck barge: containers (v1194: 40-footers, a few pairs of 20s, stacked one to three high, centred on her)
+    const cols = [0x2f86b8, 0x9ac4de, 0xc23a2e, 0xe8731f, 0x2b8a4a, 0x8d9296, 0xf0eee6, 0x24395f, 0x7a2a24, 0xe0b531, 0x5e6b4e, 0xb9b2a0];
+    let sd = seed % 2147483647 || 7; const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+    const bays = Math.floor((Lb - 8) / 12.6), rows = Math.floor((B - 1.2) / 2.5), x0 = -(rows - 1) * 2.5 / 2, z0 = -(bays - 1) * 12.6 / 2, cells = [];
+    const base = 1 + Math.floor(rnd() * 2);   // (how high she's loaded: one or two, a few a tier more)
+    for (let i = 0; i < bays; i++) { const bay = base + (rnd() < 0.2 ? 1 : 0) - (i === 0 && base > 1 ? 1 : 0); for (let j = 0; j < rows; j++) {   // (stowed in even tiers, bay by bay; a tier lower in the bay over her raked bow)
+      const tiers = rnd() < 0.05 ? bay - 1 : bay;
+      let y = FB + 0.12;
+      for (let t = 0; t < tiers; t++) {
+        const ht = rnd() < 0.4 ? 2.9 : 2.59, col = () => cols[Math.floor(rnd() * cols.length)];   // (a high cube, or not)
+        if (rnd() < 0.15) for (const dz of [-3.07, 3.07]) cells.push([x0 + j * 2.5, y + ht / 2, z0 + i * 12.6 + dz, col(), 6.06, ht]);   // two 20s
+        else cells.push([x0 + j * 2.5, y + ht / 2, z0 + i * 12.6, col(), 12.19, ht]);
+        y += ht;
+      }
+    } }
+    if (cells.length) b.add(containerStack(cells, seed));
   }
   if (tow === 'push') b.position.z = -Lt / 2 - Lb / 2 + 2.5;   // (her bow to -z; in the barge's notch)
   else {

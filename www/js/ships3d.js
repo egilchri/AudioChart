@@ -194,6 +194,48 @@ function deckCrane(S, x, z, y, h, jibL, colour, pedestal, aloft = false) {
 // 40-footers, stacked two to four high across her beam in the colours of the lines that own them, lit by none;
 // a high bow; her own cranes along the port side, if she's geared (a feeder usually is; V.geared false for none).
 // The boxes are one instanced mesh: a few hundred cost about what one does.
+// ── The boxes themselves (v1194, asked from the helm of a tug pushing a deck barge: "recursively improve the look of
+// the containers"): a 40-footer's long sides corrugated (her ribs every 28 cm, lit and shaded), its top and bottom rails
+// and corner posts darker; its doors at one end (two leaves, four locking bars each, hinges), the other end ribbed; its
+// roof shallow-ribbed across. One texture set, white, tinted by each box's own colour (weathered a little, no two the
+// same), so a stack of hundreds is still one instanced mesh. cells: [x, y (its middle), z, colour, length m, height m]
+let CMATS = null; const Y_UP = new THREE.Vector3(0, 1, 0);
+function containerMats() {
+  if (CMATS) return CMATS;
+  let sd = 11; const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+  const tex = (w, h, draw) => { const cv = document.createElement('canvas'); cv.width = w; cv.height = h; const c = cv.getContext('2d'); draw(c, w, h); const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t; };
+  const ribs = (c, w, h, n, vertical = true) => { for (let i = 0; i < n; i++) {
+    const a = i * (vertical ? w : h) / n, b = (vertical ? w : h) / n, g = vertical ? c.createLinearGradient(a, 0, a + b, 0) : c.createLinearGradient(0, a, 0, a + b);
+    g.addColorStop(0, '#9e9e9e'); g.addColorStop(0.25, '#f4f4f4'); g.addColorStop(0.55, '#dcdcdc'); g.addColorStop(0.8, '#b4b4b4'); g.addColorStop(1, '#8a8a8a');
+    c.fillStyle = g; if (vertical) c.fillRect(a, 0, b, h); else c.fillRect(0, a, w, b); } };
+  const grime = (c, w, h, k) => { for (let i = 0; i < k; i++) { const x = rnd() * w, len = h * (0.2 + rnd() * 0.6); const g = c.createLinearGradient(0, 0, 0, len); g.addColorStop(0, `rgba(70,45,30,${0.25 + rnd() * 0.25})`); g.addColorStop(1, 'rgba(70,45,30,0)'); c.fillStyle = g; c.fillRect(x, 0, 1 + rnd() * 3, len); } };
+  const frame = (c, w, h, post) => { c.fillStyle = '#8e8e8e'; c.fillRect(0, 0, w, h * 0.04); c.fillRect(0, h * 0.95, w, h * 0.05); c.fillRect(0, 0, post, h); c.fillRect(w - post, 0, post, h); c.fillStyle = '#5a5a5a'; c.fillRect(0, h * 0.04, w, 1); c.fillRect(0, h * 0.95 - 1, w, 1); };
+  const side = tex(1024, 128, (c, w, h) => { ribs(c, w, h, 44); grime(c, w, h, 40); frame(c, w, h, 5); });
+  const end = tex(128, 128, (c, w, h) => { ribs(c, w, h, 9); grime(c, w, h, 4); frame(c, w, h, 10); });
+  const doors = tex(128, 128, (c, w, h) => {
+    c.fillStyle = '#d6d6d6'; c.fillRect(0, 0, w, h);
+    for (let i = 0; i < 2; i++) { c.fillStyle = '#c2c2c2'; c.fillRect(12 + i * 53, 12, 51, h - 24); c.strokeStyle = '#8a8a8a'; c.lineWidth = 1; for (let k = 1; k < 5; k++) { c.beginPath(); c.moveTo(12 + i * 53, 12 + k * (h - 24) / 5); c.lineTo(63 + i * 53, 12 + k * (h - 24) / 5); c.stroke(); } }
+    c.fillStyle = '#3a3a3a'; c.fillRect(w / 2 - 1, 10, 2, h - 20);   // (the leaves' seam)
+    for (const x of [22, 46, 82, 106]) { c.fillStyle = '#555'; c.fillRect(x, 8, 3, h - 16); c.fillStyle = '#333'; c.fillRect(x - 3, h * 0.55, 9, 4); }   // the locking bars, their handles
+    c.fillStyle = '#444'; for (const y of [22, 50, 78, 104]) { c.fillRect(10, y, 5, 6); c.fillRect(w - 15, y, 5, 6); }   // hinges
+    grime(c, w, h, 5); frame(c, w, h, 10);
+  });
+  const roof = tex(64, 256, (c, w, h) => { ribs(c, w, h, 40, false); c.fillStyle = 'rgba(80,80,80,0.5)'; c.fillRect(0, 0, 4, h); c.fillRect(w - 4, 0, 4, h); });
+  const m = map => new THREE.MeshLambertMaterial({ map });
+  CMATS = [m(side), m(side), m(roof), m(end), m(doors), m(end)];   // (BoxGeometry's faces: +x −x +y −y +z −z)
+  return CMATS;
+}
+export function containerStack(cells, seed = 7) {
+  let sd = seed % 2147483647 || 7; const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+  const im = new THREE.InstancedMesh(new THREE.BoxGeometry(2.44, 1, 1), containerMats(), cells.length), m4 = new THREE.Matrix4(), c = new THREE.Color(), q = new THREE.Quaternion(), p = new THREE.Vector3(), sc = new THREE.Vector3();
+  cells.forEach(([x, y, z, col, len = 12.19, ht = 2.59], i) => {
+    q.setFromAxisAngle(Y_UP, rnd() < 0.5 ? 0 : Math.PI);   // (her doors aft, or forward)
+    im.setMatrixAt(i, m4.compose(p.set(x, y, z), q, sc.set(1, ht, len)));
+    c.setHex(col); const f = 0.82 + rnd() * 0.22; c.r *= f; c.g *= f; c.b *= f; im.setColorAt(i, c);   // (sun-faded, or newer)
+  });
+  im.castShadow = true;
+  return im;
+}
 const BOX_COLS = [0x2f86b8, 0x9ac4de, 0xd9cfa8, 0xc23a2e, 0xe8731f, 0x2b8a4a, 0x8d9296, 0xf0eee6, 0x24395f, 0x7a2a24, 0x5e6b4e, 0xe0b531];
 export function containerModel(V, liv, windowMats = []) {
   const look = { hull: '#24395f', boot: '#8c2a22', deck: '#5e6b4e', house: '#f2f1ec', funnel: '#f2f1ec', funnelTop: '#1d1f22', ...pick(CARGO_LOOKS, V.name), ...(liv || {}) };
@@ -211,11 +253,7 @@ export function containerModel(V, liv, windowMats = []) {
     const z = dz0 + (b + 0.5) * BAY, fwd = b === 0;   // (the first bay forward lower, under the bow's sweep)
     for (let r = 0; r < rows; r++) { const tiers = Math.max(0, Math.round((fwd ? 1.5 : 2.6) + rnd() * 1.6 - (rnd() < 0.12 ? 2 : 0))); for (let t = 0; t < tiers; t++) cells.push([x0 + r * 2.44, FB + 0.9 + 1.3 + t * 2.6, z]); }
   }
-  if (cells.length) {
-    const im = new THREE.InstancedMesh(new THREE.BoxGeometry(2.38, 2.55, 12.0), new THREE.MeshLambertMaterial({ color: 0xffffff }), cells.length), m4 = new THREE.Matrix4(), c = new THREE.Color();
-    cells.forEach(([x, y, z], i) => { im.setMatrixAt(i, m4.makeTranslation(x, y, z)); im.setColorAt(i, c.setHex(BOX_COLS[Math.floor(rnd() * BOX_COLS.length)])); });
-    g.add(im);
-  }
+  if (cells.length) g.add(containerStack(cells.map(([x, y, z]) => [x, y, z, BOX_COLS[Math.floor(rnd() * BOX_COLS.length)], 12.19, 2.59]), seedOf(V.name)));
   // the lashing bridges between the bays, the cranes in their gaps (on the port side, jibs forward on their rests)
   for (let b = 1; b < bays; b++) S.box(B - 2, 2.2, 0.5, 0, FB + 1.1, dz0 + b * BAY, steel);
   for (const b of gearBays) deckCrane(S, -B * 0.28, dz0 + (b + 0.5) * BAY, FB, 10, Math.min(28, B * 1.1), look.crane || '#f2f1ec', look.cranePedestal || look.crane || '#f2f1ec');

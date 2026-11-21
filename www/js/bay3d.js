@@ -888,6 +888,7 @@ async function loadTown(t) {
     t.group = buildTown(slips.length ? { ...T, piers: T.piers.filter(pr => !near(pr)) } : T);
     for (const h of moorings?.harbors || []) if (h.spots && Math.hypot(h.x - t.x, h.z - t.z) < 4000) moorings.relayout(h);   // lay them out again clear of its piers
     t.roofs = roofGrid(T);   // (for the ride cameras, v1140)
+    t.foot = footIndex(T);   // (v1194: a bus's street cameras, wall by wall)
     t.credit = T.credit || ''; scene.add(t.group); t.state = 'ready'; updateCredit();
     if (REG.streets && AC?.makeStreets) townStreets(t, T).catch(err => console.warn('[bay3d] streets', t.file, err));
   } catch (err) { console.warn('[bay3d] town', t.file, err); t.state = 'failed'; }
@@ -897,6 +898,7 @@ async function loadTown(t) {
 // tiles draw it (its own download of the town's box, interpolated); shown only where that ground is (close in, or riding)
 async function townStreets(t, T) {
   const data = await getJSON(`./data/streets/${t.file}`).catch(() => null); if (!data?.ways?.length || !t.group) return;
+  t.lanes = laneIndex(data);   // (v1194: where the buses drive)
   const [w, s, e, n] = T.bbox, M = 0.003, dem = await demFor(w - M, s - M, e + M, n + M, true);
   if (cliffsP) cliffDem(dem, (await cliffsP)?.lines);
   if (!t.group || t.state !== 'ready') return;
@@ -904,6 +906,41 @@ async function townStreets(t, T) {
     const ci = Math.floor(c), ri = Math.floor(r), fc = c - ci, fr = r - ri, i = ri * dem.w + ci, E = dem.elev;
     return (E[i] * (1 - fc) + E[i + 1] * fc) * (1 - fr) + (E[i + dem.w] * (1 - fc) + E[i + dem.w + 1] * fc) * fr; };
   t.streets = AC.makeStreets({ data, wx, wz, hAt, lonOf, latOf }).group; t.streets.visible = streetsShown(t); t.group.add(t.streets);
+}
+// (v1194, reported riding a bus: "in cab view sometimes the bus is on the sidewalk or on the wrong side of the street"):
+// a bus's GPS is good to 10-20 m, and she was drawn where it put her, so across the double yellow or on the pavement.
+// Each street's runs by 40 m cell, with where its right-hand lane is: a bus near a street going its way (either way on a
+// two-way street) is put in its kerb lane, square to it.
+const LANE_CELL = 40;
+function laneIndex(data) {
+  const G = new Map();
+  for (const r of data.ways) {
+    if (r.c === 'ser' || r.p.length < 2) continue;
+    const travel = Math.min(r.w - 1, r.l * 3.2), off = r.o ? Math.max(0, travel / 2 - 1.7) : Math.max(1.9, travel / 2 - 1.7);
+    for (let i = 1; i < r.p.length; i++) {
+      const ax = wx(r.p[i - 1][0]), az = wz(r.p[i - 1][1]), bx = wx(r.p[i][0]), bz = wz(r.p[i][1]), len = Math.hypot(bx - ax, bz - az); if (len < 0.5) continue;
+      const seg = { ax, az, dx: (bx - ax) / len, dz: (bz - az) / len, len, off, reach: r.w / 2 + 6 }, keys = new Set();
+      for (let k = 0, n = Math.ceil(len / 20); k <= n; k++) keys.add(`${Math.floor((ax + (bx - ax) * k / n) / LANE_CELL)},${Math.floor((az + (bz - az) * k / n) / LANE_CELL)}`);
+      for (const k of keys) (G.get(k) || G.set(k, []).get(k)).push(seg);
+    }
+  }
+  return G;
+}
+// → { x, z, h } in her lane, or null (no street near going her way: left where her GPS has her)
+function laneAt(x, z, h) {
+  const hx = Math.sin(h * DEG), hz = -Math.cos(h * DEG), cx = Math.floor(x / LANE_CELL), cz = Math.floor(z / LANE_CELL);
+  let best = null, bd = Infinity;
+  for (const t of townList) {
+    if (!t.lanes || t.state !== 'ready') continue;
+    for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) for (const g of t.lanes.get(`${cx + i},${cz + j}`) || []) {
+      const dot = g.dx * hx + g.dz * hz; if (Math.abs(dot) < 0.8) continue;   // (a cross street's)
+      const u = clamp((x - g.ax) * g.dx + (z - g.az) * g.dz, 0, g.len), px = g.ax + g.dx * u, pz = g.az + g.dz * u, d = Math.hypot(x - px, z - pz);
+      if (d < g.reach && d < bd) { bd = d; best = { g, px, pz, s: dot > 0 ? 1 : -1 }; }
+    }
+  }
+  if (!best) return null;
+  const { g, px, pz, s } = best, fx = g.dx * s, fz = g.dz * s;   // (her way along it; her right: (−fz, fx))
+  return { x: px - fz * g.off, z: pz + fx * g.off, h: (Math.atan2(fx, -fz) / DEG + 360) % 360 };
 }
 // (only the areas within 2.5 km of the view: as the fine ground; the streets are 200,000-400,000 triangles an area)
 function streetsShown(t) {
@@ -917,7 +954,7 @@ function updateTowns() {
     const d = Math.hypot(t.x - view.x, t.z - view.z);
     if (t.state === 'idle' && d < 5000 && view.dist < 9000) loadTown(t);
     else if ((t.state === 'ready' || t.state === 'loading') && (d > 9000 || view.dist > 16000)) {
-      if (t.group) { scene.remove(t.group); disposeGroup(t.group); t.group = null; t.streets = null; }
+      if (t.group) { scene.remove(t.group); disposeGroup(t.group); t.group = null; t.streets = null; t.lanes = null; }
       t.state = 'idle'; updateCredit();
     }
   }
@@ -1388,6 +1425,7 @@ function ride(v, mode = 'helm') {
   if (!was) { stopFollow(); anim = null; nest.prev = { ...view }; }
   nest.ugKey = '';   // (the tunnel's title, if she's underground, set again)
   nest.on = true; nest.v = v; nest.mode = mode; nest.yaw = CHASE[mode]?.yaw || 0; nest.pitch = CHASE[mode] ? -CHASE[mode].el : mode === 'drone' ? -16 : mode === 'helm' && v.kind === 'air' ? -6 : mode === 'helm' && v.kind !== 'rail' ? helmPitch(v) : -3; nest.zoom = 1; nestRep.textContent = '';   // (from a high bridge, a little down: her bow in sight)
+  if (mode === 'side' && isBus(v)) nest.yaw = 90;   // (v1194: from across the street, not the kerb)
   document.body.classList.add('innest'); nestHud.hidden = false;
   document.getElementById('crowsnest').classList.toggle('on', mode === 'nest');
   const big = vLen(v) > 30 && !v.boat, name = vTitle(v);
@@ -1396,7 +1434,7 @@ function ride(v, mode = 'helm') {
   for (const [id, m] of RIDE_BTNS) { const b = document.getElementById(id); if (b) { b.classList.toggle('on', m === mode); if (m === 'nest') b.hidden = !v.boat?.nest; } }
   relabel(rideBtns(), isMover(v) ? v.kind : null);
   if (isMover(v)) document.getElementById('ridename').textContent = mode === 'helm' ? `In the ${v.kind === 'air' ? 'cockpit' : 'cab'} of ${name}`
-    : mode === 'drone' ? `Drone over ${name}` : `From ${v.kind === 'air' ? 'a plane' : 'a drone'} ${{ stern: 'behind', side: 'beside', bow: 'ahead of' }[mode]} ${name}`;
+    : mode === 'drone' ? `Drone over ${name}` : `From ${v.kind === 'air' ? 'a plane' : isBus(v) ? 'the street' : 'a drone'} ${{ stern: 'behind', side: 'beside', bow: 'ahead of' }[mode]} ${name}`;
   document.getElementById('ridehint').textContent = ORBITS(mode) ? 'Drag or arrow keys to circle her · scroll or pinch to close in or stand off'
     : mode === 'nest' ? 'Drag or arrow keys to look round · scroll or pinch for the glasses' : 'Drag or arrow keys to look round · scroll or pinch for the binoculars';
   rideStatus();
@@ -1602,6 +1640,54 @@ function roofGrid(T) {
 }
 const roofAt = (x, z) => { let m = -Infinity; const k = roofKey(x, z); for (const t of townList) if (t.state === 'ready' && t.roofs) { const r = t.roofs.get(k); if (r > m) m = r; } return m; };
 roofCheck = roofAt;   // (placeCamera's, above: v1156)
+// the buildings' own footprints (v1194, asked of a bus's Side view, which rose over the roofs and lost her: "fix the side
+// view so I can see the bus"): the roof grid's 25 m squares count most of a city street as roof, so a camera in the street
+// needs the walls themselves. A 50 m hash of each area's footprints, and whether a point's inside one.
+const FOOT_CELL = 50, footKey = (x, z) => `${Math.floor(x / FOOT_CELL)},${Math.floor(z / FOOT_CELL)}`;
+function footIndex(T) {
+  const F = new Map();
+  for (const b of T.buildings || []) {
+    const xs = b.p.map(([lo]) => wx(lo)), zs = b.p.map(([, la]) => wz(la));
+    const r = { xs, zs, x0: Math.min(...xs), x1: Math.max(...xs), z0: Math.min(...zs), z1: Math.max(...zs) };
+    for (let cx = Math.floor(r.x0 / FOOT_CELL); cx <= Math.floor(r.x1 / FOOT_CELL); cx++) for (let cz = Math.floor(r.z0 / FOOT_CELL); cz <= Math.floor(r.z1 / FOOT_CELL); cz++) {
+      const k = `${cx},${cz}`; (F.get(k) || F.set(k, []).get(k)).push(r);
+    }
+  }
+  return F;
+}
+function inBuilding(x, z) {
+  const k = footKey(x, z);
+  for (const t of townList) {
+    if (t.state !== 'ready' || !t.foot) continue;
+    for (const r of t.foot.get(k) || []) {
+      if (x < r.x0 || x > r.x1 || z < r.z0 || z > r.z1) continue;
+      let c = false; const { xs, zs } = r;
+      for (let i = 0, j = xs.length - 1; i < xs.length; j = i++) if ((zs[i] > z) !== (zs[j] > z) && x < (xs[j] - xs[i]) * (z - zs[i]) / (zs[j] - zs[i]) + xs[i]) c = !c;
+      if (c) return true;
+    }
+  }
+  return false;
+}
+// how far from (x, z) the camera can stand off along az (the way nestCamera puts it) before a wall; Infinity: clear to max
+function clearRun(x, z, az, max) { const dx = -Math.sin(az), dz = Math.cos(az); for (let d = 1; d <= max; d += 0.75) if (inBuilding(x + dx * d, z + dz * d)) return d; return Infinity; }
+// a bus's Behind, Side and Ahead (v1194): from the street, at a person's eye, not a drone's: Side from across her
+// (her left, the open street, not the kerb and shop fronts on her right), close enough to stay in the street; if a wall's
+// too near there, from her other side. → the camera's bearing
+function streetCam(v, el) {
+  const want = (nest.mode === 'side' ? 11 : nest.mode === 'bow' ? 26 : 22) / nest.zoom;
+  _nt.set(v.x, v.y + 1.7, v.z);
+  let best = null;
+  for (const flip of [0, 180]) {
+    const az = (v.h + nest.yaw + flip) * DEG, D = Math.max(3.5, Math.min(want, clearRun(v.x, v.z, az, want + 2) - 1.5));
+    if (!best || D > best.D + 0.5) best = { az, D, flip };
+    if (D >= Math.min(want, 8)) break;
+  }
+  if (best.flip) nest.yaw = (nest.yaw + 180 + 540) % 360 - 180;   // (kept there: no flickering between)
+  const { az, D } = best, r = Math.cos(el) * D, x = v.x - Math.sin(az) * r, z = v.z + Math.cos(az) * r;
+  camera.position.set(x, Math.max(heightAt(lonOf(x), latOf(z)) + 1.6, _nt.y + Math.sin(el) * D), z);
+  camera.lookAt(_nt); camera.fov = D < 14 ? 62 : 50;   // (close across the street: wide enough for all 40 ft of her)
+  return az;
+}
 // following a vessel (v1156): the line from the eye down to her clear of the roofs between, the eye raised just enough
 sightCheck = () => {
   if (!follow) return;
@@ -1633,7 +1719,11 @@ function nestCamera() {   // after every vessel has moved: the eye aboard her, l
   if (ug && nest.mode !== 'helm') { view.x = v.x; view.z = v.z; view.dist = 900; view.az = (v.h + nest.yaw) * DEG; camera.updateMatrixWorld(); return; }
   const h = v.h * DEG, sh = Math.sin(h), ch = Math.cos(h);
   const toWorld = ([lx, ly, lz], out) => out.set(v.x + lx * ch - lz * sh, ly, v.z + lx * sh + lz * ch);   // her frame (bow toward −z) to the world
-  if (ORBITS(nest.mode)) {
+  if (CHASE[nest.mode] && isBus(v)) {
+    const az = streetCam(v, clamp(-nest.pitch, 3, 85) * DEG);
+    view.x = v.x; view.z = v.z; view.dist = 900; view.az = az;
+    insidePlane(v, false);
+  } else if (ORBITS(nest.mode)) {
     const L = vLen(v), C = CHASE[nest.mode], D = ((C ? clamp(L * C.d, 18, 700) : clamp(L * 3.2, 45, 900)) + (v.len && nest.mode !== 'side' && nest.mode !== 'drone' ? v.len / 2 : 0)) / nest.zoom, el = clamp(-nest.pitch, 3, 85) * DEG;   // (a train: off her end, not her middle)
     // a camera boat stays on the water (v1002, reported: Bow on the pilot boat at her pier put it among the houses):
     // where her Stern, Side or Bow spot is ashore, it goes round her to the nearest bearing afloat (clear of the
@@ -2717,7 +2807,7 @@ function buildArmchair() {
   rail = AC.makeTrains({ scene, bbox: OVERVIEW, wx, wz, heightAt, onCount: () => syncLiveBtn(), focus: moverFocus, onDrop: moverGone });
   // (v1183) and in New York, C&J's coaches from New Hampshire, to their timetable (buses3d.js): with the trains, as one
   // (v1186) and the city's buses, live from MTA Bus Time, all in one instanced mesh
-  if (RID === 'new-york-harbor') rail = AC.withBuses(rail, AC.makeMtaBuses({ scene, wx, wz, heightAt, bbox: OVERVIEW, roadDecks: () => bridges?.roadDecks, onCount: () => syncLiveBtn(), focus: moverFocus, onDrop: moverGone }), AC.makeBuses({ scene, wx, wz, heightAt, clockMin, roadDecks: () => bridges?.roadDecks, onCount: () => syncLiveBtn(), focus: moverFocus, onDrop: moverGone,
+  if (RID === 'new-york-harbor') rail = AC.withBuses(rail, AC.makeMtaBuses({ scene, wx, wz, heightAt, laneAt, bbox: OVERVIEW, roadDecks: () => bridges?.roadDecks, onCount: () => syncLiveBtn(), focus: moverFocus, onDrop: moverGone }), AC.makeBuses({ scene, wx, wz, heightAt, laneAt, clockMin, roadDecks: () => bridges?.roadDecks, onCount: () => syncLiveBtn(), focus: moverFocus, onDrop: moverGone,
     // (her road kept clear of trees, as the tracks are: the tiles already in, their trees placed again)
     onRoad: f => { roadNear = f; for (const T of tiles) if (T.state === 'ready' && T.dem?.canopy) { T.spots = treeSpots(T, T.dem); treesDirty = true; } } }));
   if (REG.rail) LOAD.start('tracks');

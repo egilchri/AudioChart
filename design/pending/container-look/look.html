@@ -1,0 +1,22 @@
+<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;background:#9cb4c8}</style>
+<script type="importmap">{ "imports": { "three": "../../../www/js/lib/three/three.module.min.js" } }</script></head><body>
+<script type="module">
+// (v1194) the containers' look: a tug pushing a deck barge, and a container ship, from a few angles. ?v=helm|side|top|ship
+import * as THREE from 'three';
+import { liveModel } from '../../../www/js/livefleet.js';
+import { containerModel } from '../../../www/js/ships3d.js';
+const r = new THREE.WebGLRenderer({ antialias: true }); r.setSize(1280, 800); r.outputColorSpace = THREE.SRGBColorSpace; document.body.appendChild(r.domElement);
+const sc = new THREE.Scene(); sc.background = new THREE.Color(0x9cb4c8);
+sc.add(new THREE.HemisphereLight(0xdfe8f0, 0x5a6066, 1.6)); const sun = new THREE.DirectionalLight(0xfff4e0, 2.2); sun.position.set(60, 90, 40); sc.add(sun);
+const sea = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000), new THREE.MeshLambertMaterial({ color: 0x3d5a6e })); sea.rotation.x = -Math.PI / 2; sc.add(sea);
+const v = new URLSearchParams(location.search).get('v') || 'helm', cam = new THREE.PerspectiveCamera(v === 'helm' ? 70 : 45, 1.6, 0.3, 5000);
+let seed = 2; for (; seed % 3 !== 2; seed++);
+if (v === 'ship') { const g = containerModel({ name: 'TEST', L: 150 }); sc.add(g); cam.position.set(90, 45, 90); cam.lookAt(0, 10, 0); }
+else {
+  const M = liveModel({ name: 'SARAH ANN', status: 12, type: 52, L: 110, B: 12, mmsi: 1 }, { model: 'tug' }, seed);
+  sc.add(M.group);
+  const views = { helm: [[0, 12, -2], [0, 4, -80]], side: [[45, 8, -50], [0, 3, -55]], top: [[25, 40, -20], [0, 0, -60]], close: [[10, 6, -28], [0, 4, -40]] }[v];
+  cam.position.set(...views[0]); cam.lookAt(...views[1]);
+}
+r.render(sc, cam); document.title = 'ready';
+</script></body></html>
