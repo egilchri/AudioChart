@@ -254,8 +254,7 @@ function busPaint(sbs) {
     c.fillStyle = GLASS; c.fillRect(x0 + 8, Y(2.5), W - 16, Y(0.98) - Y(2.5));
     const g = c.createLinearGradient(x0, Y(2.5), x0 + W, Y(1.0)); g.addColorStop(0, 'rgba(170,190,210,0.3)'); g.addColorStop(0.5, 'rgba(170,190,210,0.05)'); g.addColorStop(1, 'rgba(170,190,210,0.18)'); c.fillStyle = g; c.fillRect(x0 + 8, Y(2.5), W - 16, Y(0.98) - Y(2.5));
     c.fillStyle = '#0c0c0c'; c.fillRect(x0 + 18, Y(2.88), W - 36, Y(2.56) - Y(2.88));   // the destination sign
-    c.fillStyle = '#ffb21e'; c.font = `bold ${0.2 * hp}px "Courier New", monospace`; c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.fillText(sbs ? 'SBS  SELECT' : 'MTA  LOCAL', x0 + W / 2, Y(2.72));
+    c.textAlign = 'center'; c.textBaseline = 'middle';   // (the sign's own words are lit over it, close in: busSigns)
     c.fillStyle = '#141414'; c.fillRect(x0, Y(0.55), W, Y(BUS_Y0) - Y(0.55));   // the bumper
     for (const sx of [0, 1]) { const hx = x0 + (sx ? W - 14 - 0.5 * ppm : 14); c.fillStyle = '#2a2a2a'; c.fillRect(hx, Y(0.88), 0.5 * ppm, Y(0.62) - Y(0.88)); c.fillStyle = '#f4f1e6'; c.fillRect(hx + 3, Y(0.85), 0.5 * ppm * 0.55, Y(0.65) - Y(0.85)); c.fillStyle = '#e8a33a'; c.fillRect(hx + 4 + 0.5 * ppm * 0.55, Y(0.85), 0.5 * ppm * 0.3, Y(0.65) - Y(0.85)); }
     c.fillStyle = WHITE; c.beginPath(); c.arc(x0 + W / 2, Y(0.75), 0.16 * hp, 0, 2 * Math.PI); c.fill();
@@ -288,7 +287,11 @@ function mergeGeos(list) {
 }
 function swatchUv(g, name) { const uv = g.attributes.uv, u = (SW[name] + 14) / 1024, v = 1 - 530 / 1024; for (let k = 0; k < uv.count; k++) uv.setXY(k, u, v); return g; }
 // (for the design harness, design/pending/bus-look) one bus, as the instanced ones are drawn
-export function mtaBusMesh(sbs = false, far = false) { const G = cityBusGeometry(); return new THREE.Mesh(far ? G.far : G.near, new THREE.MeshLambertMaterial({ map: busPaint(sbs) })); }
+export function mtaBusMesh(sbs = false, far = false, route = '', dest = '') {
+  const G = cityBusGeometry(), m = new THREE.Mesh(far ? G.far : G.near, new THREE.MeshLambertMaterial({ map: busPaint(sbs) }));
+  if (route) { const cv = document.createElement('canvas'); cv.width = SIGN_W; cv.height = SIGN_H; drawSign(cv.getContext('2d'), route, dest); const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; m.add(new THREE.Mesh(signGeometry(), new THREE.MeshBasicMaterial({ map: t, toneMapped: false }))); }
+  return m;
+}
 // → { near, far } geometries (her front toward −z, her middle at 0, her wheels on y = 0)
 function cityBusGeometry() {
   const H = BUS_Y1 - BUS_Y0, yc = BUS_Y0 + H / 2, z = m => -BUS_L / 2 + m;   // (m from her front)
@@ -310,6 +313,40 @@ function cityBusGeometry() {
   }
   return { near: mergeGeos(parts), far: mergeGeos([body()]) };
 }
+// ── The destination signs (v1195, asked: "show each bus's real route on its sign"): over the windscreen, in the top of
+// the first window on her kerb side, and her route's number in her back window, amber LEDs: her route and where she's
+// bound (www/data/buses/mta-signs.json, design/buses/build_mta_signs.py: each route's usual headsign each way, from the
+// MTA's timetables; the live feed gives her route and direction). Lit panels laid over her paint, a pool of them for the
+// buses nearest the eye, each drawn again only when its bus or her sign changes.
+const SIGN_W = 512, SIGN_H = 128;
+function signGeometry() {
+  const parts = [], plane = (w, h, u0, v0, u1, v1, ry, x, y, z) => {
+    const g = new THREE.PlaneGeometry(w, h).toNonIndexed(), uv = g.attributes.uv;
+    for (let k = 0; k < uv.count; k++) uv.setXY(k, u0 + uv.getX(k) * (u1 - u0), v0 + uv.getY(k) * (v1 - v0));
+    g.rotateY(ry); g.translate(x, y, z); parts.push(g);
+  };
+  plane(2.2, 0.3, 0, 0.5, 1, 1, Math.PI, 0, 2.72, -BUS_L / 2 - 0.015);                  // over the windscreen
+  plane(1.05, 0.17, 0, 0.5, 1, 1, Math.PI / 2, BUS_W / 2 + 0.015, 2.5, -BUS_L / 2 + 2.17);  // the kerb side: in the window by the front door
+  plane(0.75, 0.3, 0, 0, 0.375, 0.5, 0, 0, 2.45, BUS_L / 2 + 0.015);                       // her back window: the route
+  const n = parts.reduce((a, g) => a + g.attributes.position.count, 0), pos = new Float32Array(n * 3), uv = new Float32Array(n * 2);
+  let o = 0; for (const g of parts) { pos.set(g.attributes.position.array, o * 3); uv.set(g.attributes.uv.array, o * 2); o += g.attributes.position.count; g.dispose(); }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); return geo;
+}
+function drawSign(c, route, dest) {
+  const AMBER = '#ffb422', fit = (text, x, y, w, px, align = 'left') => {
+    c.font = `bold ${px}px "Arial Narrow", "Helvetica Neue", Arial, sans-serif`; const m = c.measureText(text).width, k = Math.min(1, w / (m || 1));
+    c.save(); c.translate(x, y); c.scale(k, 1); c.textAlign = align; c.fillText(text, 0, 0); c.restore();
+  };
+  c.fillStyle = '#080808'; c.fillRect(0, 0, SIGN_W, SIGN_H);
+  c.fillStyle = AMBER; c.textBaseline = 'middle';
+  const r = route.replace(/\+$/, ''), rw = 118;
+  fit(r, 8, 33, rw, 44);
+  if (dest) { const words = dest.split(' via '); if (words.length > 1 && dest.length > 24) { fit(words[0], rw + 18, 20, SIGN_W - rw - 26, 24); fit('via ' + words.slice(1).join(' via '), rw + 18, 47, SIGN_W - rw - 26, 22); } else fit(dest, rw + 18, 33, SIGN_W - rw - 26, 30); }
+  fit(r, 96, 96, 176, 50, 'center');   // (the back window's: her route alone, in rows 64-128, the first 192 px)
+  c.fillStyle = 'rgba(0,0,0,0.5)';   // (the LEDs' grid)
+  for (let x = 0; x < SIGN_W; x += 3) c.fillRect(x, 0, 1, SIGN_H);
+  for (let y = 0; y < SIGN_H; y += 3) c.fillRect(0, y, SIGN_W, 1);
+}
 // her route as riders say it: 'M15' (+, Select Bus Service), the express buses (X, SIM, BxM, QM, BM)
 function routeName(r) {
   const sbs = /\+$/.test(r), base = r.replace(/\+$/, '').replace(/^BX(?=\d)/, 'Bx').replace(/^BXM/, 'BxM');
@@ -327,7 +364,19 @@ export function makeMtaBuses({ scene, wx, wz, heightAt, laneAt = () => null, bbo
   // four instanced meshes: a local bus and a Select Bus Service one, each close in (the whole model) and farther (her body)
   const G = cityBusGeometry(), NEAR = 350, meshes = [false, true].map(sbs => { const mat = new THREE.MeshLambertMaterial({ map: busPaint(sbs) });
     return [G.near, G.far].map((geo, k) => { const m = new THREE.InstancedMesh(geo, mat, k ? MAX : 600); m.count = 0; m.frustumCulled = false; m.castShadow = !k; scene.add(m); return m; }); });
-  const all = meshes.flat(), mesh = { set count(n) { for (const m of all) m.count = n; } };
+  const all = meshes.flat(), mesh = { set count(n) { for (const m of all) m.count = n; if (!n) for (const sl of slots) { sl.m.visible = false; sl.p = null; } } };
+  // the signs: the 24 buses nearest the eye, within 220 m (busSigns, above)
+  let SIGNS = null; const slots = [], SIGN_GEO = signGeometry(), SLOTS = 24, SIGN_NEAR = 220;
+  fetch('./data/buses/mta-signs.json').then(r => r.ok ? r.json() : null).then(j => { SIGNS = j?.signs || null; for (const sl of slots) sl.key = ''; }).catch(() => {});
+  const signOf = p => SIGNS?.[p.route]?.[p.b?.dir === 1 ? 1 : 0] || '';
+  function slotFor(p) {
+    let sl = slots.find(q => q.p === p) || slots.find(q => !q.p);
+    if (!sl && slots.length < SLOTS) {
+      const cv = document.createElement('canvas'); cv.width = SIGN_W; cv.height = SIGN_H; const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+      sl = { m: new THREE.Mesh(SIGN_GEO, new THREE.MeshBasicMaterial({ map: tex, toneMapped: false })), cv, tex, key: '', p: null }; sl.m.visible = false; scene.add(sl.m); slots.push(sl);
+    }
+    return sl;
+  }
   const tag = labelSprite(); tag.visible = false; scene.add(tag);
   let on = false, timer = null, hover = null, pinned = new Set(), deck = null;
   // the big bridges' decks by 25 m cell, with their line's heading: a bus there going the deck's way is on it (one
@@ -360,7 +409,7 @@ export function makeMtaBuses({ scene, wx, wz, heightAt, laneAt = () => null, bbo
       }
       p.b = b; p.route = b.route;
       p.title = `${routeName(b.route)} bus${b.id ? ' ' + b.id : ''}`;
-      p.a = { rail: 'MTA bus', trip: b.trip, from: '', dest: '', next: `${routeName(b.route)} · ${wayOf(p.h, b.route)}` };
+      p.a = { rail: 'MTA bus', trip: b.trip, from: '', dest: signOf(p) ? (signOf(p).replace(/^SELECT BUS /, '')) : '', next: `${routeName(b.route)} · ${wayOf(p.h, b.route)}` };
       p.label = `${routeName(b.route)}${p.vKnown ? (p.v >= 1 ? ` · about ${Math.round(p.v * 2.237)} mph` : ' · stopped') : ''}`;
       p.labelBase = p.label;
     }
@@ -375,7 +424,7 @@ export function makeMtaBuses({ scene, wx, wz, heightAt, laneAt = () => null, bbo
   }
   function update(dt, camera) {
     if (!on) { mesh.count = 0; tag.visible = false; return; }
-    const now = Date.now(), cp = camera.position, cnt = [0, 0, 0, 0]; let n = 0, label = null;
+    const now = Date.now(), cp = camera.position, cnt = [0, 0, 0, 0], close = []; let n = 0, label = null;
     for (const p of buses.values()) {
       const u = Math.max(0, Math.min(1, (now - p.t0) / p.gap)); let x = p.from.x + (p.to.x - p.from.x) * u, z = p.from.z + (p.to.z - p.from.z) * u;
       const mv = Math.hypot(p.to.x - p.from.x, p.to.z - p.from.z);
@@ -392,10 +441,20 @@ export function makeMtaBuses({ scene, wx, wz, heightAt, laneAt = () => null, bbo
       p.x = x; p.z = z; p.y = p.yy; p.g.position.set(x, p.y, z);
       {
         const d = Math.hypot(x - cp.x, p.y - cp.y, z - cp.z), w = Math.max(1, d * 0.0058 / 2.55);   // (far off, about 4 px wide, as the trains)
+        if (d < SIGN_NEAR) close.push([d, p]);
         const set = meshes[/\+$/.test(p.route || '') ? 1 : 0], near = d < NEAR && cnt[set === meshes[1] ? 1 : 0] < 600, m = near ? set[0] : set[1], i = near ? cnt[set === meshes[1] ? 1 : 0]++ : cnt[set === meshes[1] ? 3 : 2]++;
         if (i < m.instanceMatrix.count) { m.setMatrixAt(i, _m4.compose(_p.set(x, p.y, z), _q.setFromAxisAngle(_y, -p.h * DEG), _s.set(w, Math.max(1, w * 0.5), Math.max(1, w * 0.4)))); n++; }
       }
       if (p === hover || pinned.has(p) || focus(p)) label = p;
+    }
+    // the nearest buses' signs: kept on the same bus while she's near, drawn again when her sign changes
+    close.sort((a, b) => a[0] - b[0]); const lit = new Set(close.slice(0, SLOTS).map(c => c[1]));
+    for (const sl of slots) if (sl.p && !lit.has(sl.p)) { sl.p = null; sl.m.visible = false; }
+    for (const p of lit) {
+      const sl = slotFor(p); if (!sl) continue; sl.p = p;
+      const dest = signOf(p), key = `${p.route}|${dest}`;
+      if (sl.key !== key) { sl.key = key; drawSign(sl.cv.getContext('2d'), p.route || '', dest); sl.tex.needsUpdate = true; }
+      sl.m.position.set(p.x, p.y, p.z); sl.m.rotation.set(0, -p.h * DEG, 0); sl.m.visible = true;
     }
     meshes[0][0].count = cnt[0]; meshes[1][0].count = cnt[1]; meshes[0][1].count = cnt[2]; meshes[1][1].count = cnt[3]; for (const m of all) m.instanceMatrix.needsUpdate = true;
     tag.visible = !!label; if (label) { tag.position.set(label.x, label.y + 6, label.z); tag.userData.draw(label.label); }

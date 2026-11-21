@@ -23,10 +23,43 @@ function mats() {
     walk: off(new THREE.MeshLambertMaterial({ color: 0xb4b1aa }), 0),
     road: off(new THREE.MeshLambertMaterial({ map: tex }), 1),
     paint: off(new THREE.MeshLambertMaterial({ vertexColors: true }), 2),
+    mall: off(new THREE.MeshLambertMaterial({ map: mallTexture() }), 1),
   };
   return MATS;
 }
 
+// a planted mall's ground (v1196): grass, a darker clump of planting here and there, mulch round it; repeating every 8 m
+function mallTexture() {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 128; const c = cv.getContext('2d');
+  let sd = 13; const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+  c.fillStyle = '#4f6b34'; c.fillRect(0, 0, 128, 128);
+  for (let k = 0; k < 3000; k++) { const g = 80 + rnd() * 50 | 0; c.fillStyle = `rgba(${g * 0.55 | 0},${g},${g * 0.4 | 0},0.5)`; c.fillRect(rnd() * 128, rnd() * 128, 1, 1 + rnd() * 2); }
+  for (let k = 0; k < 9; k++) {   // shrubs in their beds of mulch
+    const x = rnd() * 128, y = rnd() * 128, r = 6 + rnd() * 10;
+    c.fillStyle = 'rgba(92,64,42,0.75)'; c.beginPath(); c.ellipse(x, y, r * 1.25, r * 1.1, 0, 0, 7); c.fill();
+    for (let j = 0; j < 14; j++) { const g = 60 + rnd() * 40 | 0; c.fillStyle = `rgb(${g * 0.45 | 0},${g},${g * 0.35 | 0})`; c.beginPath(); c.arc(x + (rnd() - 0.5) * r * 1.4, y + (rnd() - 0.5) * r * 1.2, 2 + rnd() * r * 0.4, 0, 7); c.fill(); }
+  }
+  const tex = new THREE.CanvasTexture(cv); tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4; return tex;
+}
+// a divided street's twins (v1196, asked: "make Broadway's center mall green"): OpenStreetMap draws Broadway above
+// Columbus Circle, Park Avenue and the parkways as two one-way roadways; between them is their mall. A one-way road whose
+// twin (her name, the other way) runs alongside on her left, 6 to 45 m off, for a good part of her length: → how far off
+// (m, the twin's middle line; the mall's middle is half that), else 0
+function twinGap(r, Q, N, byName) {
+  const others = byName.get(r.n) || [], offs = []; let tried = 0;
+  for (let i = 0; i < Q.length; i += 2) {
+    tried++; const q = Q[i], n = N[i]; let best = null, bd = 45 * 45;
+    for (const o of others) {
+      if (o.r === r) continue;
+      for (let k = 0; k < o.Q.length; k++) { const p = o.Q[k], d2 = (p.x - q.x) ** 2 + (p.z - q.z) ** 2; if (d2 < bd && o.N[k].dx * n.dx + o.N[k].dz * n.dz < -0.7) { bd = d2; best = p; } }
+    }
+    if (!best) continue;
+    const off = (best.x - q.x) * n.nx + (best.z - q.z) * n.nz, along = Math.abs((best.x - q.x) * n.dx + (best.z - q.z) * n.dz);
+    if (off < -6 && off > -45 && along < 12) offs.push(-off);
+  }
+  if (offs.length < Math.max(2, tried * 0.4)) return 0;
+  offs.sort((a, b) => a - b); return offs[offs.length >> 1];
+}
 // a polyline in metres, resampled so no two heights are more than STEP apart: [{x, z, s (along), j (a junction: the
 // crossing street's width, m; 0 where none)}]
 function resample(P, J) {
@@ -56,8 +89,8 @@ function sides(Q) {
 
 // → { group } (y up, the ground's own frame); data: the area's streets; hAt(lon, lat): the ground's height
 export function makeStreets({ data, wx, wz, hAt, lonOf, latOf }) {
-  const M = mats(), lift = { walk: 0.22, road: 0.3, paint: 0.36 };
-  const B = { walk: [[], [], []], road: [[], [], []], paint: [[], [], [], []] };   // positions, uvs or colours, indices
+  const M = mats(), lift = { walk: 0.22, road: 0.3, paint: 0.36, mall: 0.42 };
+  const B = { walk: [[], [], []], road: [[], [], []], paint: [[], [], [], []], mall: [[], [], []] };   // positions, uvs or colours, indices
   const yAt = (x, z, up) => hAt(lonOf(x), latOf(z)) + up;
   // a strip along Q between offsets o0 and o1 (m, + right), from s0 to s1 along it
   function strip(buf, Q, N, o0, o1, s0, s1, up, colour = null) {
@@ -84,12 +117,16 @@ export function makeStreets({ data, wx, wz, hAt, lonOf, latOf }) {
     for (let k = 0; k + 1 < pts.length; k++) { const a = base + k * 2; if (o1 < o0) idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); else idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
   }
   const WHITE = [0.86, 0.86, 0.82], YELLOW = [0.86, 0.66, 0.16];
-  for (const r of data.ways) {
-    if (r.p.length < 2) continue;
-    const P = r.p.map(([lo, la]) => ({ x: wx(lo), z: wz(la) })), Q = resample(P, new Map(r.j || [])), N = sides(Q), L = Q.at(-1).s;
+  const W = data.ways.filter(r => r.p.length >= 2).map(r => { const Q = resample(r.p.map(([lo, la]) => ({ x: wx(lo), z: wz(la) })), new Map(r.j || [])); return { r, Q, N: sides(Q) }; });
+  const byName = new Map(); for (const w of W) if (w.r.o && w.r.n) (byName.get(w.r.n) || byName.set(w.r.n, []).get(w.r.n)).push(w);
+  for (const { r, Q, N } of W) {
+    const L = Q.at(-1).s;
     const hw = r.w / 2, big = r.c === 'mot' || r.c === 'tru', svc = r.c === 'ser';
-    if (!big && !svc) for (const sd of [-1, 1]) strip(B.walk, Q, N, sd * hw, sd * (hw + SIDEWALK), 0, L, lift.walk);
-    strip(B.road, Q, N, -hw, hw, 0, L, lift.road);
+    const gap = r.o && r.n && !big ? twinGap(r, Q, N, byName) : 0, mall = gap / 2 > hw + 1 ? gap / 2 : 0;   // (her half of the mall, on her left)
+    // (her roadway's width is a guess from her lanes, wide for Broadway: by her mall it's kept to leave the mall 3 m a side)
+    const hwL = mall ? Math.max(Math.min(hw, mall - 3), r.l * 1.6 + 0.5, 3) : hw;
+    if (!big && !svc) for (const sd of [-1, 1]) strip(B.walk, Q, N, sd < 0 ? -hwL : hw, sd < 0 && mall ? -mall : sd * (hw + SIDEWALK), 0, L, lift.walk);
+    strip(B.road, Q, N, -hwL, hw, 0, L, lift.road);
     if (svc || L < 12) continue;
     // the markings, in the runs between junctions, each kept back from the junction past the crossing street's kerb and
     // its crosswalk
@@ -100,6 +137,8 @@ export function makeStreets({ data, wx, wz, hAt, lonOf, latOf }) {
       const s0 = a.s + a.keep, s1 = b.s - b.keep; if (s1 - s0 > 4) runs.push([s0, s1]); a = b;
       if (b.s >= L) break;
     }
+    // the mall: planted, its stone kerb round it (the concrete under it showing), ending short of each crossing street
+    if (mall) for (const [s0, s1] of runs) if (s1 - s0 > 6) strip(B.mall, Q, N, -hwL - 0.6, -mall, s0 + 1.5, s1 - 1.5, lift.mall);
     const travel = Math.min(r.w - 1, r.l * 3.2), lanes = r.l;
     for (const [s0, s1] of runs) {
       if (!r.o && lanes >= 2) for (const o of [-0.12, 0.12]) strip(B.paint, Q, N, o - 0.06, o + 0.06, s0, s1, lift.paint, YELLOW);   // the double yellow
@@ -126,7 +165,7 @@ export function makeStreets({ data, wx, wz, hAt, lonOf, latOf }) {
     g.setIndex(idx); g.computeVertexNormals();
     const m = new THREE.Mesh(g, mat); m.receiveShadow = true; group.add(m);
   };
-  mesh(B.walk, M.walk); mesh(B.road, M.road); mesh(B.paint, M.paint, true);
+  mesh(B.walk, M.walk); mesh(B.road, M.road); mesh(B.paint, M.paint, true); mesh(B.mall, M.mall);
   group.userData.credit = data.credit;
   return { group };
 }

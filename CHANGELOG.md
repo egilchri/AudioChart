@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-11-21 — Bird's-eye: each bus's own route and destination on her signs, and Broadway's mall green (v1196)
+
+- Asked: "yes, show each bus's real route on its sign", then "make Broadway's center mall green".
+- **The signs** (www/js/buses3d.js `signGeometry`, `drawSign`, the pool in `makeMtaBuses`): amber LED signs lit over her paint, on the 24 buses nearest the eye (within 220 m), each drawn again only when its bus or its words change:
+  - Over the windscreen and in the curb-side window by the front door: her route and where she's bound, e.g. "M104 WEST HARLEM 129 ST via BROADWAY" ("via …" on its own line when it's long).
+  - In her back window: her route alone.
+  - Farther off, the painted sign is dark. It had read "MTA LOCAL" on every bus.
+- **Where she's bound** (new www/data/buses/mta-signs.json, 24 KB; design/buses/build_mta_signs.py): each of the 345 routes' usual headsign each way, from the MTA's published timetables (static GTFS, the five boroughs' buses and the MTA Bus Company's). Bus Time's live feed gives a bus's route and direction, not her headsign. The short-turn trips (about 1 in 15, an M5 to Broadway-135 St) would need every trip's id (870 KB), so they show the route's usual sign. The destination is also on her card.
+- Checked in a harness (design/pending/bus-look/look.html `?v=sign`, `signside`), then in the app on Broadway; round 1's side sign straddled a window pillar.
+- **Broadway's mall** (www/js/streets3d.js `twinGap`, `mallTexture`): OpenStreetMap draws Broadway above Columbus Circle (and Park Avenue, and the parkways) as two one-way roadways, and each had a concrete sidewalk on its inner side, so the mall was grey. A one-way street whose same-named twin runs the other way on her left, 6-45 m off for at least 40% of her length, now has her half of the mall there: planted (grass, shrubs in mulch beds), a stone curb round it, ending short of each cross street at a concrete tip. Her roadway's inner edge is pulled in where the lane-count guess left the mall under 3 m a side; round 1's mall was a 2 m stripe. Checked from the drone and from behind an M104 on Broadway.
+- Full CI suite passes.
+
 ## 2026-11-21 — Bird's-eye: New York's buses as MTA buses (v1195)
 
 - Asked: "make the bus model look like a real MTA bus".
