@@ -217,7 +217,8 @@ export function makeCockpit(el) {
         // and every echo's animation started at a set time on the page's clock (a 4 s turn from 0), not when it's drawn
         const lag = (x, y) => (Math.atan2(x, -y) * 180 / Math.PI - SWEEP_EDGE + 720) % 360 / 360 * 4000 - 4000;
         set('.n-land', n => { n.innerHTML = radar.land.map(([x, y, r]) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(1)}" class="lnd" data-t="${lag(x, y) | 0}"/>`).join(''); });
-        set('.n-blips', n => { n.innerHTML = radar.targets.map(([x, y]) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="1.9" class="blip" data-t="${lag(x, y) | 0}"/>`).join(''); });
+        // (v1192) a boat coming too close (bay3d.js closeApproaches): a ring round her blip, amber, red for danger, steady
+        set('.n-blips', n => { n.innerHTML = radar.targets.map(([x, y, w]) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="1.9" class="blip" data-t="${lag(x, y) | 0}"/>` + (w ? `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4.2" class="cpa${w > 1 ? ' danger' : ''}"/>` : '')).join(''); });
         set('.radar', n => { for (const a of n.getAnimations?.({ subtree: true }) || []) { const t = a.effect?.target; a.startTime = t?.dataset?.t != null ? +t.dataset.t : 0; } });
       }
       if (kind === 'wheelhouse') {   // (v1167) her heading and speed; the throttles forward as she makes way

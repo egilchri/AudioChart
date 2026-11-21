@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-20 — Bird's-eye: close-approach warnings at the helm (v1192)
+
+- Asked: "let's do the close-approach warnings now" (agreed at v1182: visual first, thresholds tight for New York's crowded harbor).
+- **The warning** (www/js/bay3d.js `closeApproaches`, `showCpa`): at a vessel's helm (her wheelhouse, or an open boat's console), each boat within 2 nm making way is followed by where the scene has her (the live AIS boats and the timetabled ferries and cruise ships alike, every 2 s, smoothed; a jump, as a boat berthing, starts her again). Her closest point of approach (CPA) and the time to it (TCPA), both holding their course and speed. Boats lying at the piers or a dock, and boats keeping company, are left out. A pass inside 0.1 nm (185 m) within 6 minutes shows an amber line in the ride's panel: "⚠ Close quarters", her name, where she bears off the bow, how far, and how close she'll pass and when; inside 60 m within 2 minutes it's red and pulsing ("⚠ Danger"). The closest first, with how many more.
+- **The radar** (www/js/cockpit.js): her blip ringed, amber, or red for danger.
+- Nothing spoken yet (visual first, as agreed).
+- Testing: `__bay3d.cpa()` lists the warnings; `__bay3d.cpaLimits({ m, s, dangerM, dangerS })` widens them to see one on a quiet evening. Checked in headless Chrome on live New York traffic at the real limits (one warning in 9 boats under way: Circle Line Staten I with Urban Journey, 137 m in 4½ minutes) and widened (the red line and ringed blip from the Guy V Molinari's helm). Full CI suite passes.
+
 ## 2026-11-20 — Bird's-eye: New Jersey's shore built up, and the Palisades as cliffs (v1191)
 
 - Asked, with a screenshot from beside NY Waterway's Capt Mark Summers in Jersey City's Morris Canal basin: "Is that the New Jersey shoreline? Recursively improve them. Plus, are you depicting the Palisades?" It was: looking west from Liberty Landing Marina, where Jersey City's buildings stopped at the waterfront tile's edge (-74.045) and only trees and the aerial photo stood beyond.

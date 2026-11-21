@@ -1482,12 +1482,68 @@ function radarPicture(v) {
     landAt = now; landPic = [];
     for (let i = 0; i < 48; i++) { const b = i / 48 * Math.PI * 2; for (let k = 1; k <= 16; k++) { const r = k / 16 * RADAR_R, x = v.x + Math.sin(b) * r, z = v.z - Math.cos(b) * r; if (!isWater(x, z)) { const [px, py] = polar(x - v.x, z - v.z); landPic.push([px, py, 1.2 + k * 0.09]); } } }
   }
-  const targets = [];
-  for (const o of [...live, ...traffic]) { if (o === v || !o.on) continue; const [px, py, r] = polar(o.x - v.x, o.z - v.z); if (r < RADAR_R && r > 15) targets.push([px, py]); }
+  const targets = [], lv = new Map(cpaList.map(c => [c.o, c.level]));
+  for (const o of [...live, ...traffic]) { if (o === v || !o.on) continue; const [px, py, r] = polar(o.x - v.x, o.z - v.z); if (r < RADAR_R && r > 15) targets.push([px, py, lv.get(o) || 0]); }
   radarAt = now;
-  return radarPic = { land: landPic, targets, key: `${landAt}|${targets.map(t => t[0].toFixed(0) + ',' + t[1].toFixed(0)).join(';')}` };
+  return radarPic = { land: landPic, targets, key: `${landAt}|${targets.map(t => t[0].toFixed(0) + ',' + t[1].toFixed(0) + t[2]).join(';')}` };
+}
+// ── Close-approach warnings (v1192, agreed: "close-approach warnings" at the helm). Each boat's way over the ground from
+// where the scene has her (the same for the live AIS boats and the timetabled ferries and cruise ships), every 2 s;
+// then for each moving boat within 2 nm, the closest point of approach (CPA) and the time to it (TCPA), both boats
+// holding their course and speed. New York's harbor is crowded and its ferries pass close all day, so only a pass
+// inside 0.1 nm (185 m) within 6 minutes is shown; inside 60 m within 2 minutes is danger. Shown at her helm (the
+// wheelhouse or an open boat's console): a line over the view for the closest, and the radar's blip marked.
+const CPA = { m: 0.1 * 1852, s: 6 * 60, dangerM: 60, dangerS: 120, look: 2 * 1852 };
+const motion = new WeakMap();
+let cpaList = [], cpaAt = 0, cpaFor = null;
+function trackMotion(o, now) {
+  const m = motion.get(o);
+  if (!m) { motion.set(o, { x: o.x, z: o.z, t: now, vx: 0, vz: 0, ok: false }); return null; }
+  const dt = (now - m.t) / 1000;
+  if (dt >= 2) {
+    const vx = (o.x - m.x) / dt, vz = (o.z - m.z) / dt;
+    if (dt > 8 || Math.hypot(vx, vz) > 25) m.ok = false;   // (a jump: a berthing, a new fix far off, or a gap; start again)
+    else { m.vx = m.ok ? m.vx * 0.4 + vx * 0.6 : vx; m.vz = m.ok ? m.vz * 0.4 + vz * 0.6 : vz; m.ok = true; }
+    m.x = o.x; m.z = o.z; m.t = now;
+  }
+  return m.ok ? m : null;
+}
+function closeApproaches(v) {
+  const now = performance.now();
+  if (cpaFor !== v) { cpaFor = v; cpaList = []; }
+  if (now - cpaAt < 1000) return cpaList;
+  cpaAt = now;
+  const me = trackMotion(v, now), out = [];
+  for (const o of [...live, ...traffic]) {
+    if (o === v || !o.on || o.berth) continue;
+    const rx = o.x - v.x, rz = o.z - v.z, r = Math.hypot(rx, rz);
+    if (r > CPA.look) { motion.delete(o); continue; }
+    const m = trackMotion(o, now); if (!m || !me) continue;
+    if (Math.hypot(m.vx, m.vz) < 0.5) continue;   // (only a boat making way, 1 kn and more: not those lying at the piers)
+    const wx_ = m.vx - me.vx, wz_ = m.vz - me.vz, w2 = wx_ * wx_ + wz_ * wz_;
+    if (w2 < 0.25) continue;   // (keeping company, as near as they are)
+    const t = -(rx * wx_ + rz * wz_) / w2; if (t <= 0 || t > CPA.s) continue;
+    const d = Math.hypot(rx + wx_ * t, rz + wz_ * t); if (d > CPA.m) continue;
+    const brg = ((Math.atan2(rx, -rz) / DEG - (v.h || 0)) % 360 + 360) % 360;   // (relative: off her bow)
+    out.push({ o, d, t, r, brg, level: d < CPA.dangerM && t < CPA.dangerS ? 2 : 1 });
+  }
+  out.sort((a, b) => b.level - a.level || a.t - b.t);
+  return cpaList = out;
+}
+const cpaEl = document.getElementById('cpawarn');
+function showCpa(v) {
+  if (!cpaEl) return;
+  if (!v) { if (!cpaEl.hidden) cpaEl.hidden = true; cpaFor = null; cpaList = []; return; }
+  const L = closeApproaches(v), c = L[0];
+  if (!c) { cpaEl.hidden = true; return; }
+  const side = c.brg < 10 || c.brg > 350 ? 'dead ahead' : c.brg > 170 && c.brg < 190 ? 'astern' : `${c.brg < 180 ? 'starboard' : 'port'} ${Math.round(c.brg < 180 ? c.brg : 360 - c.brg)}°`;
+  const mm = Math.floor(c.t / 60), ss = Math.round(c.t % 60), yd = c.d / 0.9144;
+  const html = `<b>${c.level > 1 ? '⚠ Danger' : '⚠ Close quarters'}</b> ${vName(c.o)}, ${side}, ${(c.r / 1852).toFixed(2)} nm: passes ${yd < 100 ? Math.round(yd / 10) * 10 + ' yd' : (c.d / 1852).toFixed(2) + ' nm'} off ${c.t < 10 ? 'now' : `in ${mm}:${String(ss).padStart(2, '0')}`}${L.length > 1 ? ` <span>+${L.length - 1} more</span>` : ''}`;
+  if (cpaEl.innerHTML !== html) cpaEl.innerHTML = html;
+  cpaEl.classList.toggle('danger', c.level > 1); cpaEl.hidden = false;
 }
 function insidePlane(v, inside) {
+  showCpa(inside && nest.mode === 'helm' && (inWheelhouse(v) || atConsole(v)) ? v : null);   // (v1192)
   if (inWheelhouse(v)) {
     if (!inside || nest.mode !== 'helm') { cockpit?.hide(); document.body.classList.remove('inwheel'); return; } if (!cockpit) { wantCockpit(); return; }
     // (her bow painted on only where her model has no wheelhouse of its own: one that has shows her real foredeck, her containers)
@@ -4355,6 +4411,8 @@ window.__bay3d = {   // for AudioChart (returning to the chart where you were) a
     return regions3dOffered(RID).find(id => id !== RID && REGIONS3D[id].bay && inB(REGIONS3D[id].bay, lon, lat)) || RID;
   },
   // (v1170, for testing helm views) ride the first vessel whose kind, model or what matches re (moving and off the bank first)
+  cpaLimits: o => Object.assign(CPA, o),   // (testing: wider limits, to see a warning on a quiet evening)
+  cpa: () => cpaList.map(c => ({ n: vName(c.o), d: Math.round(c.d), t: Math.round(c.t), r: Math.round(c.r), brg: Math.round(c.brg), level: c.level })),   // (v1192, for testing the close-approach warnings)
   rideTest: (re, mode = 'helm') => { if (/^bowdoin$/i.test(re)) { ride(bowdoin, mode); return 'bowdoin'; } const r = new RegExp(re, 'i'), all = [...traffic, ...live].filter(v => (v.kind === "ais" ? vGroup(v).visible : !!v.st) && r.test(`${v.kind} ${v.model || ''} ${v.what || ''} ${v.A?.name || v.F?.name || ''}`));
     all.sort((a, b) => ((b.A?.sog ?? 5) > 1.5) - ((a.A?.sog ?? 5) > 1.5) || (b.reach ?? 999) - (a.reach ?? 999)); const v = all[0]; if (!v) return null; ride(v, mode); return `${v.kind} ${v.model || ''} ${v.A?.name || v.F?.name || ''}`; },
   nestInfo: () => { const v = nest.v; if (!v) return null; const g = vGroup(v), b = new THREE.Box3().setFromObject(g); return { mode: nest.mode, pitch: nest.pitch, helm: g.userData.helm, L: vLen(v), vis: g.visible, scale: g.scale.x, box: [b.min.y, b.max.y, b.min.z, b.max.z].map(n => +n.toFixed(1)), cam: camera.position.y.toFixed(1), bow: document.querySelector('#cockpit .whbow') ? 1 : 0 }; },
