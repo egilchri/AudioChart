@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-21 — Bird's-eye: trees and benches on Broadway's mall (v1197)
+
+- Asked: "add trees and benches to the mall".
+- **Trees** (www/js/streets3d.js `furniture`, `at`): London planes, the Broadway malls' street trees, about every 8.5 m down the middle of each half of a planted mall (where that half is at least 1.5 m wide; Park Avenue's and the parkways' malls too). Each has a grey-brown trunk and a broad crown of three lobes, a little different in size, turn and green.
+- **Benches:** at each end of each block's mall the planting stops 4.5 m short, where the paving is, with a bench there: wooden slats on dark iron ends, along the street, its back to the roadway, facing in.
+- **Drawing:** instanced (trunks, crowns, benches: three draw calls an area).
+- Checked in the app from the drone over an M104 and from the street behind her on Broadway.
+- Full CI suite passes.
+
 ## 2026-11-21 — Bird's-eye: each bus's own route and destination on her signs, and Broadway's mall green (v1196)
 
 - Asked: "yes, show each bus's real route on its sign", then "make Broadway's center mall green".

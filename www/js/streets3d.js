@@ -60,6 +60,37 @@ function twinGap(r, Q, N, byName) {
   if (offs.length < Math.max(2, tried * 0.4)) return 0;
   offs.sort((a, b) => a - b); return offs[offs.length >> 1];
 }
+// a point s along Q, o off her (m, + right): { x, z, dx, dz (her way there), nx, nz (her right) }
+function at(Q, N, s, o) {
+  let i = 1; while (i < Q.length - 1 && Q[i].s < s) i++;
+  const a = Q[i - 1], b = Q[i], t = Math.max(0, Math.min(1, (s - a.s) / ((b.s - a.s) || 1))), n = N[i - 1], L = Math.hypot(n.nx, n.nz) || 1;
+  const x = a.x + (b.x - a.x) * t, z = a.z + (b.z - a.z) * t;
+  return { x: x + n.nx / L * o, z: z + n.nz / L * o, dx: n.dx, dz: n.dz, nx: n.nx / L, nz: n.nz / L };
+}
+// a mall's furniture (v1197, asked: "add trees and benches to the mall"): London planes (the Broadway malls' street
+// trees: a grey-brown trunk, a broad crown, each a little different), and benches of wooden slats on dark iron ends
+let FURN = null;
+function furniture() {
+  if (FURN) return FURN;
+  const colGeo = (g, c) => { g = g.toNonIndexed(); const col = new Float32Array(g.attributes.position.count * 3); for (let k = 0; k < col.length; k += 3) col.set(c, k); g.setAttribute('color', new THREE.BufferAttribute(col, 3)); return g; };
+  const merge = list => { const n = list.reduce((a, g) => a + g.attributes.position.count, 0), pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), col = new Float32Array(n * 3); let o = 0;
+    for (const g of list) { pos.set(g.attributes.position.array, o * 3); nor.set(g.attributes.normal.array, o * 3); col.set(g.attributes.color.array, o * 3); o += g.attributes.position.count; g.dispose(); }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3)); return geo; };
+  const box = (w, h, d, x, y, z, c) => { const g = new THREE.BoxGeometry(w, h, d); g.translate(x, y, z); return colGeo(g, c); };
+  const trunk = new THREE.CylinderGeometry(0.16, 0.24, 4.2, 7); trunk.translate(0, 2.1, 0);
+  const crown = new THREE.IcosahedronGeometry(2.6, 1); crown.scale(1, 0.82, 1); crown.translate(0, 5.6, 0);
+  const crown2 = new THREE.IcosahedronGeometry(1.8, 1); crown2.translate(1.2, 6.6, 0.6);
+  const crown3 = new THREE.IcosahedronGeometry(1.7, 1); crown3.translate(-1.1, 6.3, -0.8);
+  const WOOD = [0.47, 0.32, 0.2], IRON = [0.1, 0.12, 0.11];
+  const bench = [box(1.9, 0.04, 0.12, 0, 0.45, -0.17, WOOD), box(1.9, 0.04, 0.12, 0, 0.45, -0.02, WOOD), box(1.9, 0.04, 0.12, 0, 0.45, 0.13, WOOD),   // the seat's slats
+    box(1.9, 0.1, 0.04, 0, 0.66, -0.26, WOOD), box(1.9, 0.1, 0.04, 0, 0.83, -0.28, WOOD),   // the back's
+    ...[-0.85, 0.85].flatMap(x => [box(0.06, 0.45, 0.06, x, 0.22, 0.14, IRON), box(0.06, 0.88, 0.06, x, 0.44, -0.24, IRON), box(0.06, 0.05, 0.42, x, 0.42, -0.04, IRON)])];
+  FURN = {
+    trunk: colGeo(trunk, [0.45, 0.42, 0.36]), crown: merge([colGeo(crown, [1, 1, 1]), colGeo(crown2, [1, 1, 1]), colGeo(crown3, [1, 1, 1])]), bench: merge(bench),
+    mat: new THREE.MeshLambertMaterial({ vertexColors: true }), leaf: new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }),
+  };
+  return FURN;
+}
 // a polyline in metres, resampled so no two heights are more than STEP apart: [{x, z, s (along), j (a junction: the
 // crossing street's width, m; 0 where none)}]
 function resample(P, J) {
@@ -90,6 +121,7 @@ function sides(Q) {
 // → { group } (y up, the ground's own frame); data: the area's streets; hAt(lon, lat): the ground's height
 export function makeStreets({ data, wx, wz, hAt, lonOf, latOf }) {
   const M = mats(), lift = { walk: 0.22, road: 0.3, paint: 0.36, mall: 0.42 };
+  const trees = [], benches = [];
   const B = { walk: [[], [], []], road: [[], [], []], paint: [[], [], [], []], mall: [[], [], []] };   // positions, uvs or colours, indices
   const yAt = (x, z, up) => hAt(lonOf(x), latOf(z)) + up;
   // a strip along Q between offsets o0 and o1 (m, + right), from s0 to s1 along it
@@ -138,7 +170,14 @@ export function makeStreets({ data, wx, wz, hAt, lonOf, latOf }) {
       if (b.s >= L) break;
     }
     // the mall: planted, its stone kerb round it (the concrete under it showing), ending short of each crossing street
-    if (mall) for (const [s0, s1] of runs) if (s1 - s0 > 6) strip(B.mall, Q, N, -hwL - 0.6, -mall, s0 + 1.5, s1 - 1.5, lift.mall);
+    // (v1197: each block's mall paved at its ends, a bench there facing in; its trees down the middle of her half)
+    if (mall) for (const [s0, s1] of runs) if (s1 - s0 > 6) {
+      const end = s1 - s0 > 22 ? 4.5 : 1.5;
+      strip(B.mall, Q, N, -hwL - 0.6, -mall, s0 + end, s1 - end, lift.mall);
+      const half = mall - hwL - 0.6, oT = -(hwL + 0.6 + half / 2);
+      if (half >= 1.5) for (let t = s0 + end + 3; t < s1 - end - 2; t += 8.5) trees.push(at(Q, N, t + ((t * 7.3) % 1.6) - 0.8, oT));
+      if (end > 2) for (const t of [s0 + 2.6, s1 - 2.6]) benches.push(at(Q, N, t, -hwL - 1.3));
+    }
     const travel = Math.min(r.w - 1, r.l * 3.2), lanes = r.l;
     for (const [s0, s1] of runs) {
       if (!r.o && lanes >= 2) for (const o of [-0.12, 0.12]) strip(B.paint, Q, N, o - 0.06, o + 0.06, s0, s1, lift.paint, YELLOW);   // the double yellow
@@ -166,6 +205,25 @@ export function makeStreets({ data, wx, wz, hAt, lonOf, latOf }) {
     const m = new THREE.Mesh(g, mat); m.receiveShadow = true; group.add(m);
   };
   mesh(B.walk, M.walk); mesh(B.road, M.road); mesh(B.paint, M.paint, true); mesh(B.mall, M.mall);
+  // the mall's trees and benches: instanced, on the ground there
+  if (trees.length || benches.length) {
+    const F = furniture(), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), sc = new THREE.Vector3(), Y = new THREE.Vector3(0, 1, 0), c = new THREE.Color();
+    let sd = 17; const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+    if (trees.length) {
+      const tr = new THREE.InstancedMesh(F.trunk, F.mat, trees.length), cr = new THREE.InstancedMesh(F.crown, F.leaf, trees.length);
+      trees.forEach((t, i) => {
+        const k = 0.8 + rnd() * 0.45; q.setFromAxisAngle(Y, rnd() * 6.3); m4.compose(p.set(t.x, yAt(t.x, t.z, lift.mall - 0.05), t.z), q, sc.set(k, k * (0.9 + rnd() * 0.25), k));
+        tr.setMatrixAt(i, m4); cr.setMatrixAt(i, m4); cr.setColorAt(i, c.setRGB(0.2 + rnd() * 0.08, 0.33 + rnd() * 0.1, 0.13 + rnd() * 0.05));
+      });
+      tr.castShadow = cr.castShadow = true; group.add(tr, cr);
+    }
+    if (benches.length) {
+      const bn = new THREE.InstancedMesh(F.bench, F.mat, benches.length);
+      // (her length along the street; facing in, to the mall's middle: on her left, so her back's to the roadway)
+      benches.forEach((b, i) => { q.setFromAxisAngle(Y, Math.atan2(-b.dz, b.dx) + Math.PI); bn.setMatrixAt(i, m4.compose(p.set(b.x, yAt(b.x, b.z, lift.walk - 0.02), b.z), q, sc.set(1, 1, 1))); });
+      bn.castShadow = true; group.add(bn);
+    }
+  }
   group.userData.credit = data.credit;
   return { group };
 }
