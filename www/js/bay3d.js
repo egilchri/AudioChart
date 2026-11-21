@@ -11,7 +11,7 @@
 import * as THREE from 'three';
 import { Water } from './lib/three/Water.js';
 import { makeWakes } from './wake3d.js';
-import { PHOTO_SOURCES, REGION3D, LON0, LAT0, MX, MY, wx, wz, readDem, readTopobathy, photo, addCanopy, gridMesh, photoMat, buildTown, disposeGroup, spruce, broadleaf, TOWN_NIGHT } from './terrain3d.js';
+import { PHOTO_SOURCES, REGION3D, LON0, LAT0, MX, MY, wx, wz, readDem, readTopobathy, photo, addCanopy, gridMesh, cliffDem, photoMat, buildTown, disposeGroup, spruce, broadleaf, TOWN_NIGHT } from './terrain3d.js';
 import { sunPos, SUN, makeSky, makeEnv, glowSprite, flashFor, flashOn, sectorColour, weatherPanel, startConditions, makeTrimmer, cycleLook } from './weather3d.js';
 import { makeSailboat, fleetType } from './sailboat3d.js';
 import { makeAngelique, makeBowdoin } from './angelique3d.js';
@@ -111,6 +111,8 @@ const MIN_DIST = 120, MAX_DIST = 140000;
 // Carquinez Strait) flat at about 0.6 m, the same as Foster City's land, so no height can tell them apart. Where a
 // region asks (regions3d.js chartWater, the box its chart covers), low ground off the chart's land (the region
 // build's land.geojson) is water.
+// (v1191) a region's cliffs (regions3d.js cliffs; design/cliffs): the close-up ground steepened along them, faced with rock
+const cliffsP = REG.cliffs && !EMPTY ? getJSON(`./data/cliffs/${RID}.json`).catch(() => null) : null;
 const chartLandP = REG.chartWater && !EMPTY ? getJSON(`./data/regions/${RID}/land.geojson`).catch(() => null) : null;
 async function chartWater(g) {
   const fc = await chartLandP; if (!fc?.features?.length || typeof OffscreenCanvas === 'undefined') return g;
@@ -246,13 +248,23 @@ function ownPhoto(mat) {
 // (v1168, asked: "do 5 next, the warmer picture") the aerial photos graded a little in the ground's own shader: a
 // touch more colour, a little more contrast about mid-grey, and warmer (the USDA and USGS photos come out cool and
 // flat under the tone mapping): free, no pass of its own
+// (v1191) and a cliff's face (cliffDem's 'rock', 0 elsewhere) as weathered diabase: grey-brown, rusty in places, in
+// columns a few metres across (a shade by its column, from where it stands in plan, so they run straight down the face)
 function graded(mat) {
   mat.onBeforeCompile = sh => {
-    sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
+    sh.vertexShader = 'attribute float rock;\nvarying float vRock;\nvarying vec2 vPlan;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vRock = rock; vPlan = position.xz;');
+    sh.fragmentShader = 'varying float vRock;\nvarying vec2 vPlan;\n' + sh.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
   { vec3 c = diffuseColor.rgb; float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
     c = mix(vec3(l), c, 1.22);              // more colour
     c = (c - 0.16) * 1.18 + 0.16;           // more contrast, about a mid-grey (linear)
     c *= vec3(1.1, 1.01, 0.86);             // warmer
+    if (vRock > 0.01) {
+      vec2 col = floor(vPlan / 2.6); float n = fract(sin(dot(col, vec2(12.9898, 78.233))) * 43758.5453);
+      float m = fract(sin(dot(floor(vPlan / 11.0), vec2(39.346, 11.135))) * 24634.6345);
+      vec3 rk = mix(vec3(0.245, 0.225, 0.195), vec3(0.290, 0.200, 0.135), smoothstep(0.6, 0.95, m));   // grey-brown, here and there rusty
+      rk *= 0.62 + 0.7 * n * n;
+      c = mix(c, rk, clamp(vRock, 0.0, 1.0) * 0.9);
+    }
     diffuseColor.rgb = max(c, vec3(0.0)); }`);
   };
   mat.customProgramCacheKey = () => 'graded';
@@ -532,6 +544,7 @@ async function loadTile(T) {
     const M = 0.0002;
     const photoP = photo(T.w, T.s, T.e, T.n); photoP.catch(() => {});
     const dem = await demFor(T.w - M, T.s - M, T.e + M, T.n + M, true);
+    if (cliffsP) cliffDem(dem, (await cliffsP)?.lines);   // (the Palisades as cliffs, rock-faced: v1191)
     if (T.state !== 'loading' || T.gen !== gen) { photoP.then(ph => ph.img.close?.(), () => {}); return; }
     const rect = { west: T.w, east: T.e, south: T.s, north: T.n };
     // until its own photo comes (the USDA service can take half a minute for a new one), the whole bay's photo and the
@@ -742,7 +755,7 @@ function treeSpots(T, dem) {
   const out = [];
   for (let y = 1; y < dem.h - 1; y++) for (let x = 1; x < dem.w - 1; x++) {
     const i = y * dem.w + x;
-    if (dem.elev[i] <= 0.6 || dem.canopy[i] < 0.45) continue;
+    if (dem.elev[i] <= 0.6 || dem.canopy[i] < 0.45 || dem.rock?.[i] > 0.25) continue;   // (none on a cliff's face: v1191)
     const lon = dem.west + (x + rnd()) * dem.dx, lat = dem.north - (y + rnd()) * dem.dy;
     if (lon < T.w || lon >= T.e || lat < T.s || lat >= T.n) continue;   // the overlap belongs to the neighbour
     if (trackNear?.(wx(lon), wz(lat), BROADLEAF ? 13 : 9) || roadNear?.(wx(lon), wz(lat), BROADLEAF ? 7 : 4)) { rnd(); rnd(); rnd(); rnd(); rnd(); rnd(); continue; }   // (v1163: a city's round crowns, up to 7 m across, kept off the track too: a cab looked into them)
@@ -4379,7 +4392,7 @@ window.__bay3d = {   // for AudioChart (returning to the chart where you were) a
   setAz: d => { anim = null; view.az = ((d % 360) + 360) % 360 * DEG; clampView(); placeCamera(); },   // the chart's compass rose, dragged round (v883)
   setTilt: d => { if (anim) anim = null; view.tilt = d * DEG; clampView(); placeCamera(); },   // the chart's tilt slider (v884)
   northUp: () => flyTo({ x: view.x, z: view.z, dist: view.dist, az: 0, tilt: view.tilt }, 900),
-  setView: v => { anim = null; Object.assign(view, { x: wx(v.lon), z: wz(v.lat), dist: v.dist ?? view.dist, az: (v.az ?? view.az / DEG) * DEG, tilt: (v.tilt ?? view.tilt / DEG) * DEG }); clampView(); placeCamera(); },
+  setView: v => { anim = null; heroDrift = false; Object.assign(view, { x: wx(v.lon), z: wz(v.lat), dist: v.dist ?? view.dist, az: (v.az ?? view.az / DEG) * DEG, tilt: (v.tilt ?? view.tilt / DEG) * DEG }); clampView(); placeCamera(); },
   goTown: id => { const tw = townList.find(x => x.id === id); if (tw) goTown(tw); return !!tw; },
   air, rail,   // (the live aircraft and trains: for the live-tour recording, v1103)
   tracks: () => tracks,   // (for testing, v1125)

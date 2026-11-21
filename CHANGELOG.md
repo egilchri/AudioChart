@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-20 — Bird's-eye: New Jersey's shore built up, and the Palisades as cliffs (v1191)
+
+- Asked, with a screenshot from beside NY Waterway's Capt Mark Summers in Jersey City's Morris Canal basin: "Is that the New Jersey shoreline? Recursively improve them. Plus, are you depicting the Palisades?" It was: looking west from Liberty Landing Marina, where Jersey City's buildings stopped at the waterfront tile's edge (-74.045) and only trees and the aerial photo stood beyond.
+- **Buildings** (design/buildings/build_town.py; OpenStreetMap footprints, heights from the `USGS_Lidar_Point_Cloud_NJ_SdL5_2014_LAS_2015` lidar, NAIP roofs, the New York palette, towers of 45 m and more in glass and stone by tower_palette.py), three new areas in www/data/buildings/index.json: Jersey City from Paulus Hook to Journal Square (9,192, the Journal Squared towers to 230 m), Weehawken, Union City and West New York (16,597), and Edgewater, Cliffside Park and Fort Lee to the George Washington Bridge (15,090, The Modern's two towers 150 m). Buildings across the Hudson in Manhattan's tiles' boxes dropped (clip_to_older.py: 2,522).
+- **The Palisades** (asked): USGS's 10 m elevation has them, but smoothed into a 30-35 degree slope under the photo's trees, so they read as a wooded bank (and mirrored darkly in the river). Now, along OpenStreetMap's mapped cliffs (natural=cliff, 82 lines, 34 km of them the Palisades; design/cliffs/build_cliffs.py → www/data/cliffs/new-york-harbor.json, regions3d.js `cliffs`), the close-up ground within 60 m is steepened between its foot and its top (terrain3d.js `cliffDem`: the middle about three times as steep, the crest and the foot as they were), the steep part is faced with rock (bay3d.js `graded`: grey-brown diabase, rusty in places, in columns a few metres across) and kept clear of trees. Improved in rounds, looked at from the river at Edgewater, Englewood Cliffs and Weehawken: a dark band at first, then a wall, then the face widened. "The Palisades" is labelled on the crest at Englewood Cliffs and at Cliffside Park (www/data/landmarks.json).
+- **Capt Mark Summers** (www/js/harborferries3d.js `NYW_DEST`): bound NEWBURGH/BEACON, she was drawn and named as an NYC Ferry boat; NY Waterway's now.
+- Testing: `__bay3d.setView` stops the opening shot's slow sway (it had been turning the view it was given). Full CI suite passes.
+
 ## 2026-11-20 — Bird's-eye: the Circle Line boats as themselves, pilothouse and all (v1190)
 
 - Reported with a screenshot of the Circle Line Brooklyn's helm (an open powerboat's console): "the boat in the snapshot I would assume has some sort of pilot house. Please recursively improve it".

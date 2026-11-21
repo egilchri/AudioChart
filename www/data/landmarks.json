@@ -1,5 +1,5 @@
 {
- "about": "Summits labelled in the 3D views. Each position is the highest USGS 3DEP 1/3-arc-second cell near the named summit, checked against its published height (within ~5 m); elev_m is that cell's height (NAVD88). 2026-10-09.",
+ "about": "Summits labelled in the 3D views. Each position is the highest USGS 3DEP 1/3-arc-second cell near the named summit, checked against its published height (within ~5 m); elev_m is that cell's height (NAVD88). 2026-10-09. And (v1191) the crest of the Palisades, at Englewood Cliffs and at Cliffside Park, its height there from the same cells.",
  "landmarks": [
   {
    "name": "Mount Battie",
@@ -66,6 +66,18 @@
    "lat": 44.43412,
    "lon": -68.59079,
    "elev_m": 284.8
+  },
+  {
+   "name": "The Palisades",
+   "lat": 40.88,
+   "lon": -73.9485,
+   "elev_m": 105.6
+  },
+  {
+   "name": "The Palisades",
+   "lat": 40.835,
+   "lon": -73.976,
+   "elev_m": 76.5
   }
  ]
 }

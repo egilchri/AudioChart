@@ -95,6 +95,7 @@ export const REGIONS3D = {
     trees: 'broadleaf',
     tz: 'America/New_York',
     hero: { lon: -74.017, lat: 40.706, dist: 4200, az: 42, tilt: 75 },   // (v1165: the opening shot: Lower Manhattan's towers from over the Upper Bay, Liberty before them)
+    cliffs: true,   // (v1191: the Palisades, from OSM's natural=cliff: www/data/cliffs/, design/cliffs; bay3d.js)
     rail: 'new-york-harbor',   // (v1154: the subway, PATH, the LIRR, Metro-North and NJ Transit's tracks, tunnels marked; the MTA's live trains)
     armchair: true,   // (v1044: no chart in AudioChart; Bird's-eye leaves out what leads to one: bay3d.js)
   },

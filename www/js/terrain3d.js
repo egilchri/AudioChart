@@ -209,8 +209,54 @@ export function gridMesh(dem, t, stride, mat, yOf = null, uvT = t) {
   g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
   g.setIndex(new THREE.BufferAttribute(idx, 1));
   g.computeVertexNormals();
+  if (dem.rock) { const rk = new Float32Array(w * h); for (let i = 0; i < w * h; i++) rk[i] = dem.rock[gidx[i]]; g.setAttribute('rock', new THREE.BufferAttribute(rk, 1)); }   // (a cliff's face: cliffDem)
   const mesh = new THREE.Mesh(g, mat); mesh.userData.gidx = gidx;
   return mesh;
+}
+// Cliffs (v1191, asked of New York: "are you depicting the Palisades?"): USGS's 10 m ground smooths a wall of rock 50-100 m
+// high into a 30-35 degree slope, wooded in the photo. Along a cliff's mapped line (OpenStreetMap natural=cliff), within
+// BAND m of it, the ground between the foot and the top (the lowest and highest dry ground within 90 m) is steepened:
+// its middle drawn together, about three times as steep (a wall), the top and the foot as they were; and the steep part is marked as
+// rock (dem.rock, 0-1: gridMesh's 'rock' for the ground's shader, and no trees on it). Once per grid.
+export function cliffDem(dem, lines, BAND = 60) {
+  if (!lines?.length || dem.cliffed) return dem;
+  dem.cliffed = true;
+  const { w, h, elev } = dem, lat0 = dem.north - dem.dy * h / 2, mx = dem.dx * 111320 * Math.cos(lat0 * Math.PI / 180), my = dem.dy * 111120;
+  const dist = new Float32Array(w * h).fill(1e9), band = [];
+  const bx = Math.ceil(BAND / mx) + 1, by = Math.ceil(BAND / my) + 1;
+  for (const L of lines) for (let k = 0; k + 1 < L.length; k++) {
+    const ax = (L[k][0] - dem.west) / dem.dx, ay = (dem.north - L[k][1]) / dem.dy, cx = (L[k + 1][0] - dem.west) / dem.dx, cy = (dem.north - L[k + 1][1]) / dem.dy;
+    const x0 = Math.max(0, Math.floor(Math.min(ax, cx)) - bx), x1 = Math.min(w - 1, Math.ceil(Math.max(ax, cx)) + bx), y0 = Math.max(0, Math.floor(Math.min(ay, cy)) - by), y1 = Math.min(h - 1, Math.ceil(Math.max(ay, cy)) + by);
+    if (x0 > x1 || y0 > y1) continue;
+    const ux = (cx - ax) * mx, uy = (cy - ay) * my, uu = ux * ux + uy * uy || 1;
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const px = (x + 0.5 - ax) * mx, py = (y + 0.5 - ay) * my, t = Math.max(0, Math.min(1, (px * ux + py * uy) / uu));
+      const d = Math.hypot(px - t * ux, py - t * uy), i = y * w + x;
+      if (d < BAND && dist[i] >= BAND) band.push(i);
+      if (d < dist[i]) dist[i] = d;
+    }
+  }
+  if (!band.length) return dem;
+  const orig = elev.slice(), rx = Math.ceil(90 / mx), ry = Math.ceil(90 / my);
+  const ss = t => t * t * t * (t * (t * 6 - 15) + 10), sm = (a, b, v) => { const t = Math.max(0, Math.min(1, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
+  for (const i of band) {
+    const e = orig[i]; if (e < -2.5) continue;   // (the water off its foot stays water)
+    const x = i % w, y = (i - x) / w; let lo = Infinity, hi = -Infinity;
+    for (let yy = Math.max(0, y - ry); yy <= Math.min(h - 1, y + ry); yy++) for (let xx = Math.max(0, x - rx); xx <= Math.min(w - 1, x + rx); xx++) {
+      const v = orig[yy * w + xx]; if (v < -2.5) continue; if (v < lo) lo = v; if (v > hi) hi = v;
+    }
+    if (hi - lo < 12) continue;
+    const t = (e - lo) / (hi - lo), f = t <= 0.12 || t >= 0.88 ? t : 0.12 + 0.76 * ss(ss((t - 0.12) / 0.76));
+    elev[i] = e + (lo + f * (hi - lo) - e) * (1 - sm(0.6 * BAND, BAND, dist[i]));
+  }
+  const rock = new Float32Array(w * h);
+  for (const i of band) {
+    const x = i % w, y = (i - x) / w; if (x < 1 || y < 1 || x >= w - 1 || y >= h - 1 || elev[i] < -2.5) continue;
+    const g = Math.hypot((elev[i + 1] - elev[i - 1]) / (2 * mx), (elev[i + w] - elev[i - w]) / (2 * my));
+    rock[i] = sm(0.8, 1.4, g) * (1 - sm(0.7 * BAND, BAND, dist[i]));   // (39 degrees and steeper: rock by 54)
+  }
+  dem.rock = rock;
+  return dem;
 }
 export function photoMat(t, aniso = 8) {
   const tex = new THREE.Texture(t.img); tex.flipY = false; tex.needsUpdate = true;
