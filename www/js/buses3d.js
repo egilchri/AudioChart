@@ -198,19 +198,117 @@ export function makeBuses({ scene, wx, wz, heightAt, laneAt = () => null, clockM
 // corners through the blocks). All of them one instanced mesh, one draw call (v1155's lesson: New York's 630 trains,
 // each her own meshes, were 19,000); each a mover (kind 'rail', bus: true, mta: true) for her card, Follow and her
 // driver's seat, with an empty group to carry her helm. MTA blue on white.
-function cityBusGeometry() {
-  const L = 12.2, W = 2.55, parts = [];
-  const box = (w, h, l, x, y, z, c) => { const g = new THREE.BoxGeometry(w, h, l).toNonIndexed(); g.translate(x, y, z); parts.push([g, new THREE.Color(c)]); };
-  box(W, 2.35, L, 0, 0.45 + 1.175, 0, 0xf1f1ee);          // her body
-  box(W + 0.02, 0.35, L - 0.3, 0, 1.15, 0, 0x1f4f9c);      // the MTA's blue band
-  box(W + 0.04, 0.95, L - 3.0, 0, 2.05, 0.6, 0x1a1f26);     // her windows
-  box(W - 0.1, 0.25, L - 0.6, 0, 2.95, 0, 0xd8d8d4);       // her roof's pods
-  for (const z of [-L / 2 + 2.4, L / 2 - 2.6]) for (const sx of [-1, 1]) box(0.3, 0.95, 0.95, sx * (W / 2 - 0.1), 0.48, z, 0x151515);   // wheels
-  const n = parts.reduce((a, [g]) => a + g.attributes.position.count, 0), pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), col = new Float32Array(n * 3);
-  let o = 0;
-  for (const [g, c] of parts) { const k = g.attributes.position.count; pos.set(g.attributes.position.array, o * 3); nor.set(g.attributes.normal.array, o * 3); for (let i = 0; i < k; i++) col.set([c.r, c.g, c.b], (o + i) * 3); o += k; g.dispose(); }
-  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+// ── An MTA bus as herself (v1194, asked: "make the bus model look like a real MTA bus"): a 40 ft low-floor bus, the
+// New Flyer Xcelsior most of the fleet now is: 12.2 m by 2.59 m, her floor low (0.3 m clear of the street), the roof
+// 3.0 m up with the air conditioning's pod over her back half. Her paint (one canvas, every face's place on it):
+// white, the MTA's blue along her skirt rising in a sweep to her windscreen, a lighter stripe over it; the dark band of
+// her windows with their pillars; on her right (the kerb) the front door ahead of her front wheels and the rear door
+// past her middle, glass to the floor; the driver's window on her left; the big windscreen, the amber destination sign
+// over it, the headlights and the black bumper with the bike rack in front; at the back the engine's louvres and the
+// red tail lights. A Select Bus Service bus in that service's blue and white. Close in, the whole model (wheels, the
+// mirrors on their arms, the roof pod); farther, only her painted body: a box, the same paint.
+const BUS_L = 12.2, BUS_W = 2.59, BUS_Y0 = 0.3, BUS_Y1 = 3.0, BUS_AX = [2.35, 9.35];   // her axles, from her front (m)
+const ATLAS = { right: [0, 0, 1024, 256], left: [0, 256, 1024, 512], front: [0, 512, 256, 800], rear: [256, 512, 512, 800] };
+const SW = { white: 560, black: 600, tyre: 640, hub: 680, pod: 720, glass: 760, blue: 800, rack: 840 };   // (flat colours: 20 px squares at y 520)
+function busPaint(sbs) {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 1024; const c = cv.getContext('2d');
+  const WHITE = '#f3f3f0', BLUE = sbs ? '#1f5fbf' : '#163f9a', LIGHT = sbs ? '#5fb6e8' : '#3d7fd6', GLASS = '#161b22';
+  const swatch = { white: WHITE, black: '#141414', tyre: '#1b1b1b', hub: '#b4b7bb', pod: '#dcdcd8', glass: GLASS, blue: BLUE, rack: '#26282b' };
+  for (const [k, x] of Object.entries(SW)) { c.fillStyle = swatch[k]; c.fillRect(x, 516, 28, 28); }
+  // a side, its front at `fx` (the right side's front is at its right end, as seen; the left's at its left)
+  const side = (y0, right) => {
+    const H = 256, ppm = 1024 / BUS_L, hp = H / (BUS_Y1 - BUS_Y0);
+    const X = m => right ? 1024 - m * ppm : m * ppm, Y = h => y0 + H - (h - BUS_Y0) * hp;   // (m from her front; h m above the street)
+    const rect = (m0, m1, h0, h1, col) => { const a = X(m0), b = X(m1); c.fillStyle = col; c.fillRect(Math.min(a, b), Y(h1), Math.abs(b - a), Y(h0) - Y(h1)); };
+    c.fillStyle = WHITE; c.fillRect(0, y0, 1024, H);
+    // the skirt, the sweep up to the windscreen, the stripe
+    rect(0, BUS_L, BUS_Y0, 0.78, BLUE);
+    c.fillStyle = BLUE; c.beginPath(); c.moveTo(X(0), Y(0.78)); c.lineTo(X(0), Y(sbs ? 2.0 : 1.55)); c.quadraticCurveTo(X(1.2), Y(0.9), X(3.6), Y(0.78)); c.closePath(); c.fill();
+    rect(0.4, BUS_L - 0.2, 0.86, 0.94, LIGHT);
+    if (sbs) { for (let k = 0; k < 3; k++) { c.fillStyle = k % 2 ? LIGHT : BLUE; c.beginPath(); const m = 4.4 + k * 0.5; c.moveTo(X(m), Y(0.78)); c.lineTo(X(m + 0.35), Y(0.78)); c.lineTo(X(m + 0.85), Y(1.12)); c.lineTo(X(m + 0.5), Y(1.12)); c.fill(); } }
+    // the windows: dark, a sheen, white pillars between
+    const win = (m0, m1, h0 = 1.22, h1 = 2.62) => {
+      rect(m0, m1, h0, h1, GLASS);
+      const a = X(m0), b = X(m1), g = c.createLinearGradient(0, Y(h1), 0, Y(h0)); g.addColorStop(0, 'rgba(150,170,190,0.28)'); g.addColorStop(0.45, 'rgba(150,170,190,0.05)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      c.fillStyle = g; c.fillRect(Math.min(a, b), Y(h1), Math.abs(b - a), Y(h0) - Y(h1));
+    };
+    const door = (m0, m1) => { rect(m0 - 0.06, m1 + 0.06, 0.32, 2.72, '#2a2d31'); win(m0, (m0 + m1) / 2 - 0.03, 0.4, 2.62); win((m0 + m1) / 2 + 0.03, m1, 0.4, 2.62); rect(m0, m1, 1.45, 1.5, '#8c8f93'); };
+    const panes = (m0, m1, n) => { const w = (m1 - m0) / n; for (let k = 0; k < n; k++) win(m0 + k * w + 0.07, m0 + (k + 1) * w - 0.07); };
+    if (right) { door(0.25, 1.4); panes(1.55, 6.55, 4); door(6.7, 7.9); panes(8.05, 11.2, 3); }
+    else { win(0.2, 1.75, 1.3, 2.62); panes(1.9, 11.2, 7); }
+    win(11.35, 11.95, 1.9, 2.62);   // (the little one at the back, over the engine)
+    rect(0, BUS_L, 2.66, 2.7, '#c9c9c4');   // (the roof's edge, its gutter)
+    // the wheel arches
+    for (const a of BUS_AX) { c.fillStyle = '#121212'; c.beginPath(); c.arc(X(a), Y(BUS_Y0), 0.62 * ppm, Math.PI, 0); c.fill(); }
+    // the roundel, and her number's plate (blank: one paint for all)
+    c.fillStyle = BLUE; c.beginPath(); c.arc(X(right ? 3.3 : 2.4), Y(1.05), 0.17 * hp, 0, 2 * Math.PI); c.fill();
+    c.fillStyle = WHITE; c.font = `bold ${0.13 * hp}px Helvetica, Arial, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('MTA', X(right ? 3.3 : 2.4), Y(1.05));
+    if (sbs) { c.fillStyle = BLUE; c.font = `bold ${0.16 * hp}px Helvetica, Arial, sans-serif`; c.fillText('SELECT BUS SERVICE', X(right ? 9.6 : 7.2), Y(1.06)); }
+    rect(0.05, 0.12, 0.5, 2.7, '#d9d9d5'); rect(BUS_L - 0.12, BUS_L - 0.05, 0.5, 2.7, '#d9d9d5');   // (the corners' seams)
+  };
+  side(0, true); side(256, false);
+  // the front (256 px across her 2.59 m, 288 down her 2.7 m), as seen from ahead
+  { const [x0, y0] = ATLAS.front, W = 256, H = 288, ppm = W / BUS_W, hp = H / (BUS_Y1 - BUS_Y0), Y = h => y0 + H - (h - BUS_Y0) * hp;
+    c.fillStyle = WHITE; c.fillRect(x0, y0, W, H);
+    c.fillStyle = BLUE; c.fillRect(x0, Y(0.95), W, Y(BUS_Y0) - Y(0.95));
+    c.fillStyle = GLASS; c.fillRect(x0 + 8, Y(2.5), W - 16, Y(0.98) - Y(2.5));
+    const g = c.createLinearGradient(x0, Y(2.5), x0 + W, Y(1.0)); g.addColorStop(0, 'rgba(170,190,210,0.3)'); g.addColorStop(0.5, 'rgba(170,190,210,0.05)'); g.addColorStop(1, 'rgba(170,190,210,0.18)'); c.fillStyle = g; c.fillRect(x0 + 8, Y(2.5), W - 16, Y(0.98) - Y(2.5));
+    c.fillStyle = '#0c0c0c'; c.fillRect(x0 + 18, Y(2.88), W - 36, Y(2.56) - Y(2.88));   // the destination sign
+    c.fillStyle = '#ffb21e'; c.font = `bold ${0.2 * hp}px "Courier New", monospace`; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText(sbs ? 'SBS  SELECT' : 'MTA  LOCAL', x0 + W / 2, Y(2.72));
+    c.fillStyle = '#141414'; c.fillRect(x0, Y(0.55), W, Y(BUS_Y0) - Y(0.55));   // the bumper
+    for (const sx of [0, 1]) { const hx = x0 + (sx ? W - 14 - 0.5 * ppm : 14); c.fillStyle = '#2a2a2a'; c.fillRect(hx, Y(0.88), 0.5 * ppm, Y(0.62) - Y(0.88)); c.fillStyle = '#f4f1e6'; c.fillRect(hx + 3, Y(0.85), 0.5 * ppm * 0.55, Y(0.65) - Y(0.85)); c.fillStyle = '#e8a33a'; c.fillRect(hx + 4 + 0.5 * ppm * 0.55, Y(0.85), 0.5 * ppm * 0.3, Y(0.65) - Y(0.85)); }
+    c.fillStyle = WHITE; c.beginPath(); c.arc(x0 + W / 2, Y(0.75), 0.16 * hp, 0, 2 * Math.PI); c.fill();
+    c.fillStyle = BLUE; c.font = `bold ${0.12 * hp}px Helvetica, Arial, sans-serif`; c.fillText('MTA', x0 + W / 2, Y(0.75)); }
+  // the back
+  { const [x0, y0] = ATLAS.rear, W = 256, H = 288, ppm = W / BUS_W, hp = H / (BUS_Y1 - BUS_Y0), Y = h => y0 + H - (h - BUS_Y0) * hp;
+    c.fillStyle = WHITE; c.fillRect(x0, y0, W, H);
+    c.fillStyle = BLUE; c.fillRect(x0, Y(0.85), W, Y(BUS_Y0) - Y(0.85));
+    c.fillStyle = '#2b2e33'; c.fillRect(x0 + 40, Y(1.55), W - 80, Y(0.95) - Y(1.55));   // the engine's louvres
+    c.fillStyle = '#4b4f55'; for (let k = 0; k < 10; k++) c.fillRect(x0 + 44, Y(1.52) + k * (Y(0.98) - Y(1.52)) / 10, W - 88, 2);
+    c.fillStyle = GLASS; c.fillRect(x0 + 30, Y(2.6), W - 60, Y(1.95) - Y(2.6));
+    for (const sx of [0, 1]) { const tx = x0 + (sx ? W - 26 : 8); c.fillStyle = '#b0141a'; c.fillRect(tx, Y(1.7), 18, Y(0.95) - Y(1.7)); c.fillStyle = '#e8a33a'; c.fillRect(tx, Y(0.92), 18, 10); }
+    c.fillStyle = '#141414'; c.fillRect(x0, Y(0.5), W, Y(BUS_Y0) - Y(0.5)); }
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t;
+}
+// a box whose faces take their places on the paint: rects { px, nx, py, ny, pz, nz } (an atlas rect, or a swatch name)
+function paintedBox(w, h, l, x, y, z, rects) {
+  const g = new THREE.BoxGeometry(w, h, l).toNonIndexed(), uv = g.attributes.uv, faces = ['px', 'nx', 'py', 'ny', 'pz', 'nz'];
+  for (let f = 0; f < 6; f++) {
+    let r = rects[faces[f]] ?? rects.all ?? 'white'; if (typeof r === 'string') { const sx = SW[r] + 8; r = [sx, 524, sx + 12, 536]; }
+    for (let k = f * 6; k < f * 6 + 6; k++) uv.setXY(k, (r[0] + uv.getX(k) * (r[2] - r[0])) / 1024, 1 - (r[3] - uv.getY(k) * (r[3] - r[1])) / 1024);
+  }
+  g.translate(x, y, z); return g;
+}
+function mergeGeos(list) {
+  const n = list.reduce((a, g) => a + g.attributes.position.count, 0), pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), uv = new Float32Array(n * 2);
+  let o = 0; for (const g of list) { const k = g.attributes.position.count; pos.set(g.attributes.position.array, o * 3); nor.set(g.attributes.normal.array, o * 3); uv.set(g.attributes.uv.array, o * 2); o += k; g.dispose(); }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
   return geo;
+}
+function swatchUv(g, name) { const uv = g.attributes.uv, u = (SW[name] + 14) / 1024, v = 1 - 530 / 1024; for (let k = 0; k < uv.count; k++) uv.setXY(k, u, v); return g; }
+// (for the design harness, design/pending/bus-look) one bus, as the instanced ones are drawn
+export function mtaBusMesh(sbs = false, far = false) { const G = cityBusGeometry(); return new THREE.Mesh(far ? G.far : G.near, new THREE.MeshLambertMaterial({ map: busPaint(sbs) })); }
+// → { near, far } geometries (her front toward −z, her middle at 0, her wheels on y = 0)
+function cityBusGeometry() {
+  const H = BUS_Y1 - BUS_Y0, yc = BUS_Y0 + H / 2, z = m => -BUS_L / 2 + m;   // (m from her front)
+  const body = () => paintedBox(BUS_W, H, BUS_L, 0, yc, 0, { px: ATLAS.right, nx: ATLAS.left, nz: ATLAS.front, pz: ATLAS.rear, py: 'white', ny: 'black' });
+  const parts = [body()];
+  parts.push(paintedBox(2.2, 0.34, 4.6, 0, BUS_Y1 + 0.17, z(7.6), { all: 'pod' }));   // the air conditioning, over her back half
+  parts.push(paintedBox(1.6, 0.16, 1.4, 0, BUS_Y1 + 0.08, z(1.6), { all: 'pod' }));    // (an escape hatch's housing, forward)
+  // the bike rack, folded up against her bumper: its frame, two bars across and its ends
+  for (const y of [0.62, 1.0]) parts.push(paintedBox(1.7, 0.05, 0.05, 0, y, z(-0.12), { all: 'rack' }));
+  for (const sx of [-1, 1]) parts.push(paintedBox(0.05, 0.5, 0.05, sx * 0.85, 0.8, z(-0.12), { all: 'rack' }));
+  parts.push(paintedBox(0.5, 0.06, 0.14, 0, 0.5, z(-0.06), { all: 'rack' }));   // (its hinge)
+  for (const sx of [-1, 1]) {   // the mirrors, on their arms off her front corners
+    parts.push(paintedBox(0.45, 0.05, 0.05, sx * (BUS_W / 2 + 0.2), 2.55, z(0.15), { all: 'black' }));
+    parts.push(paintedBox(0.08, 0.42, 0.22, sx * (BUS_W / 2 + 0.42), 2.3, z(0.1), { all: 'black' }));
+  }
+  for (const a of BUS_AX) for (const sx of [-1, 1]) {   // the wheels: the tyre, the hub
+    const t = new THREE.CylinderGeometry(0.5, 0.5, 0.3, 14).toNonIndexed(); t.rotateZ(Math.PI / 2); t.translate(sx * (BUS_W / 2 - 0.13), 0.5, z(a)); parts.push(swatchUv(t, 'tyre'));
+    const hb = new THREE.CylinderGeometry(0.3, 0.3, 0.3, 12).toNonIndexed(); hb.rotateZ(Math.PI / 2); hb.translate(sx * (BUS_W / 2 - 0.09), 0.5, z(a)); parts.push(swatchUv(hb, 'hub'));
+  }
+  return { near: mergeGeos(parts), far: mergeGeos([body()]) };
 }
 // her route as riders say it: 'M15' (+, Select Bus Service), the express buses (X, SIM, BxM, QM, BM)
 function routeName(r) {
@@ -226,8 +324,10 @@ function wayOf(h, route) {
 }
 export function makeMtaBuses({ scene, wx, wz, heightAt, laneAt = () => null, bbox, relay = () => relayUrl('birdseye'), roadDecks = () => null, focus = () => false, onCount, onDrop = () => {}, every = 30000 }) {
   const MAX = 6000, buses = new Map(), _v = new THREE.Vector3(), _m4 = new THREE.Matrix4(), _q = new THREE.Quaternion(), _p = new THREE.Vector3(), _s = new THREE.Vector3(), _y = new THREE.Vector3(0, 1, 0);
-  const mesh = new THREE.InstancedMesh(cityBusGeometry(), new THREE.MeshLambertMaterial({ vertexColors: true }), MAX);
-  mesh.count = 0; mesh.frustumCulled = false; scene.add(mesh);
+  // four instanced meshes: a local bus and a Select Bus Service one, each close in (the whole model) and farther (her body)
+  const G = cityBusGeometry(), NEAR = 350, meshes = [false, true].map(sbs => { const mat = new THREE.MeshLambertMaterial({ map: busPaint(sbs) });
+    return [G.near, G.far].map((geo, k) => { const m = new THREE.InstancedMesh(geo, mat, k ? MAX : 600); m.count = 0; m.frustumCulled = false; m.castShadow = !k; scene.add(m); return m; }); });
+  const all = meshes.flat(), mesh = { set count(n) { for (const m of all) m.count = n; } };
   const tag = labelSprite(); tag.visible = false; scene.add(tag);
   let on = false, timer = null, hover = null, pinned = new Set(), deck = null;
   // the big bridges' decks by 25 m cell, with their line's heading: a bus there going the deck's way is on it (one
@@ -275,7 +375,7 @@ export function makeMtaBuses({ scene, wx, wz, heightAt, laneAt = () => null, bbo
   }
   function update(dt, camera) {
     if (!on) { mesh.count = 0; tag.visible = false; return; }
-    const now = Date.now(), cp = camera.position; let n = 0, label = null;
+    const now = Date.now(), cp = camera.position, cnt = [0, 0, 0, 0]; let n = 0, label = null;
     for (const p of buses.values()) {
       const u = Math.max(0, Math.min(1, (now - p.t0) / p.gap)); let x = p.from.x + (p.to.x - p.from.x) * u, z = p.from.z + (p.to.z - p.from.z) * u;
       const mv = Math.hypot(p.to.x - p.from.x, p.to.z - p.from.z);
@@ -290,13 +390,14 @@ export function makeMtaBuses({ scene, wx, wz, heightAt, laneAt = () => null, bbo
         p.yy = deckAt(x, z, p.h) ?? gx;
       }
       p.x = x; p.z = z; p.y = p.yy; p.g.position.set(x, p.y, z);
-      if (n < MAX) {
+      {
         const d = Math.hypot(x - cp.x, p.y - cp.y, z - cp.z), w = Math.max(1, d * 0.0058 / 2.55);   // (far off, about 4 px wide, as the trains)
-        mesh.setMatrixAt(n++, _m4.compose(_p.set(x, p.y, z), _q.setFromAxisAngle(_y, -p.h * DEG), _s.set(w, Math.max(1, w * 0.5), Math.max(1, w * 0.4))));
+        const set = meshes[/\+$/.test(p.route || '') ? 1 : 0], near = d < NEAR && cnt[set === meshes[1] ? 1 : 0] < 600, m = near ? set[0] : set[1], i = near ? cnt[set === meshes[1] ? 1 : 0]++ : cnt[set === meshes[1] ? 3 : 2]++;
+        if (i < m.instanceMatrix.count) { m.setMatrixAt(i, _m4.compose(_p.set(x, p.y, z), _q.setFromAxisAngle(_y, -p.h * DEG), _s.set(w, Math.max(1, w * 0.5), Math.max(1, w * 0.4)))); n++; }
       }
       if (p === hover || pinned.has(p) || focus(p)) label = p;
     }
-    mesh.count = n; mesh.instanceMatrix.needsUpdate = true;
+    meshes[0][0].count = cnt[0]; meshes[1][0].count = cnt[1]; meshes[0][1].count = cnt[2]; meshes[1][1].count = cnt[3]; for (const m of all) m.instanceMatrix.needsUpdate = true;
     tag.visible = !!label; if (label) { tag.position.set(label.x, label.y + 6, label.z); tag.userData.draw(label.label); }
   }
   return {

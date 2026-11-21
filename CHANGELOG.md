@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-11-21 — Bird's-eye: New York's buses as MTA buses (v1195)
+
+- Asked: "make the bus model look like a real MTA bus".
+- **The bus** (www/js/buses3d.js `busPaint`, `paintedBox`, `cityBusGeometry`): a 40 ft low-floor New Flyer Xcelsior, most of today's fleet, had been drawn as five coloured boxes. Now:
+  - **The body:** 12.2 by 2.59 m, the floor 0.3 m off the street, the roof at 3.0 m.
+  - **Her paint, on one canvas:** white, with the MTA blue along the skirt sweeping up to the windscreen and a lighter stripe above it. The dark window band with white pillars. On her right, the front door ahead of the front wheels and the rear door past the middle, glass to the floor; on her left, the driver's window. The MTA roundel. A big windscreen under an amber destination sign, headlights, and a black bumper. At the back, the engine louvres, a small window and red tail lights.
+  - **Close in:** wheels with hubs, the air conditioning's roof pod and an escape hatch, mirrors on arms, and the folded bike rack.
+  - **Select Bus Service** (routes ending +) in their own blue, light-blue chevrons and "SELECT BUS SERVICE".
+- **Detail by distance:** within 350 m each bus is the whole model; farther, just the painted body. Four instanced meshes, so 2,300 buses are still four draw calls.
+- Improved in 2 rounds in a harness (design/pending/bus-look/look.html), then checked in the app riding an M104 on Broadway (Side, Ahead, Drone). Round 1's wheels were buried in the body and the bike rack stuck out like a shelf.
+- Full CI suite passes.
+
 ## 2026-11-21 — Bird's-eye: a bus's Side view from the street, buses on the right, and real containers (v1194)
 
 - Asked: "fix the side view so I can see the bus", then "in cab view sometimes the bus is on the sidewalk or on the wrong side of the street", then (from the helm of the tug Sarah Ann, pushing a deck barge) "please recursively improve the look of the containers… Also, some basic knowledge about how in the US, vehicles drive on the right side of the road".

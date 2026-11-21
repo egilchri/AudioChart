@@ -1,0 +1,16 @@
+<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0}</style>
+<script type="importmap">{ "imports": { "three": "../../../www/js/lib/three/three.module.min.js" } }</script></head><body>
+<script type="module">
+// (v1194) the MTA bus's look: ?v=front3q|rear3q|right|left|sbs|far
+import * as THREE from 'three';
+import { mtaBusMesh } from '../../../www/js/buses3d.js';
+const r = new THREE.WebGLRenderer({ antialias: true }); r.setSize(1280, 800); r.outputColorSpace = THREE.SRGBColorSpace; document.body.appendChild(r.domElement);
+const sc = new THREE.Scene(); sc.background = new THREE.Color(0xa9bfd2);
+sc.add(new THREE.HemisphereLight(0xdfe8f0, 0x5a6066, 1.6)); const sun = new THREE.DirectionalLight(0xfff4e0, 2.2); sun.position.set(30, 50, -20); sc.add(sun);
+const road = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshLambertMaterial({ color: 0x4a4c4f })); road.rotation.x = -Math.PI / 2; sc.add(road);
+const v = new URLSearchParams(location.search).get('v') || 'front3q';
+const bus = mtaBusMesh(v === 'sbs', v === 'far'); sc.add(bus);
+const cam = new THREE.PerspectiveCamera(40, 1.6, 0.1, 1000);
+const P = { front3q: [9, 3, -13], rear3q: [-9, 4, 13], right: [16, 2, 0], left: [-16, 2, 0], sbs: [10, 3, -12], far: [10, 3, -12] }[v];
+cam.position.set(...P); cam.lookAt(0, 1.6, 0); r.render(sc, cam);
+</script></body></html>
