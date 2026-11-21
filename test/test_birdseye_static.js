@@ -5,7 +5,7 @@
 const fs = require('fs'), path = require('path');
 const JS = path.join(__dirname, '..', 'www', 'js');
 const ARMCHAIR = new Set(['aircraft3d', 'cockpit', 'flightroute', 'trains3d', 'track3d', 'subway3d', 'platform3d', 'traffic3d',
-  'airport3d', 'search3d', 'mbta3d', 'caltrain3d', 'smart3d', 'amtrak3d', 'airliner3d', 'lightplane3d', 'buses3d']);
+  'airport3d', 'search3d', 'mbta3d', 'caltrain3d', 'smart3d', 'amtrak3d', 'airliner3d', 'lightplane3d', 'buses3d', 'streets3d']);
 
 // static imports only: `import ... from './x.js'` and `import './x.js'` (comments stripped first; import() is skipped)
 function staticImports(file) {

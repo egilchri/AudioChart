@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-20 — Bird's-eye: New York's streets, a Buses tab, and sharp ground under a ride (v1193)
+
+- Asked: "Let's get back to following city busses. Let's pick one", then "recursively improve the various views of the bus. Like how the roads look", and "I can't find one. I will wait until you produce a table I can click like I do for trains".
+- **🚌 Buses** (www/js/bay3d.js `fillUnderway`, bay3d.html): a tab of the Underway table of its own. New York's 3,500 city buses had been in 🚆 Trains, nearest first, burying the trains and hard to pick through. The 40 nearest the view; or a route's chip (the routes of the buses round about, the most first: M101, M4, M104…) for that route's, nearest first. Each row's Cab, Drone, Follow, Behind, Side, Ahead and ⓘ, as the trains'.
+- **The streets** (new www/js/streets3d.js, in the armchair layer; www/data/streets/, design/streets/build_streets.py; regions3d.js `streets`): every road in New York's 20 building areas (Manhattan to Washington Heights, Brooklyn, Long Island City, Jersey City, Hoboken, Weehawken to Fort Lee; 32,000 from OpenStreetMap, bridges and tunnels left out) laid on the 10 m ground: asphalt (a little wear and patching in it) as wide as its lanes and parking, a concrete sidewalk either side, a two-way street's double yellow, white lane lines dashed 10 ft on 30 between lanes going the same way, edge lines on the expressways, and at each junction (where streets of different names meet) the markings stopping past the crossing street's kerb, with a ladder crosswalk there. Draped on the same 10 m ground the detail tiles draw, interpolated, a little above it; shown with that ground (close in, or riding), the areas within 2.5 km. Improved in rounds from an M60, an M116 and the M104 on Broadway: round 1's roadway and half the sidewalks faced down (unseen); round 2 had no junctions (the build hadn't asked OpenStreetMap for the roads' nodes), so the markings ran through the crossings; round 3, junctions by street name with the crossing street's width, the crosswalks where they belong.
+- **The ground under a ride** (bay3d.js `updateTiles`): riding anything, the ground round her is the 10 m one. At a bus's cab (or any helm) the view's distance is set far, so the near ground had been the 40 m version: a bus drove on a green blur.
+- Full CI suite passes.
+
 ## 2026-11-20 — Bird's-eye: close-approach warnings at the helm (v1192)
 
 - Asked: "let's do the close-approach warnings now" (agreed at v1182: visual first, thresholds tight for New York's crowded harbor).

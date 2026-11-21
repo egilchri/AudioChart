@@ -92,8 +92,8 @@ const WANT_AC = TED || !!REG.armchair || !!REG.rail || !!REG.roads || !!(REG.air
 let AC = null, acLoading = null;
 function loadArmchair() {
   return acLoading ||= Promise.all([import('./aircraft3d.js'), import('./cockpit.js'), import('./flightroute.js'), import('./trains3d.js'),
-    import('./track3d.js'), import('./subway3d.js'), import('./traffic3d.js'), import('./airport3d.js'), import('./buses3d.js')])
-    .then(([aircraft, cockpit, flight, trains, track, subway, traffic, airport, buses]) => (AC = { ...aircraft, ...cockpit, ...flight, ...trains, ...track, ...subway, ...traffic, ...airport, ...buses }));
+    import('./track3d.js'), import('./subway3d.js'), import('./traffic3d.js'), import('./airport3d.js'), import('./buses3d.js'), import('./streets3d.js')])
+    .then(([aircraft, cockpit, flight, trains, track, subway, traffic, airport, buses, streets]) => (AC = { ...aircraft, ...cockpit, ...flight, ...trains, ...track, ...subway, ...traffic, ...airport, ...buses, ...streets }));
 }
 // the rows to come, in their order
 LOAD.wait('terrain', 'Elevation'); LOAD.wait('photo', 'Aerial photo'); if (!EMPTY) { LOAD.wait('chart', 'Chart: names and buoys'); LOAD.wait('bridges', 'Bridges'); }
@@ -818,7 +818,7 @@ function updateTiles() {
   const R = clamp(view.dist * 1.1, 2500, 6500), low = view.dist < DETAIL_BELOW;
   for (const T of tiles) {
     const d = rectDist(T, view.x, view.z);
-    if (T.state === 'ready') { const fine = d < 2500 && view.dist < 3500; T.full.visible = fine; T.coarse.visible = !fine; }
+    if (T.state === 'ready') { const fine = d < 2500 && (view.dist < 3500 || nest.on); T.full.visible = fine; T.coarse.visible = !fine; }   // (v1193: riding, the ground round her is the fine one: a bus's cab had driven on the 40 m ground, a green blur)
     if ((d > R + 4000 || view.dist > DETAIL_BELOW * 2) && (T.state === 'ready' || T.state === 'loading')) dropTile(T);
   }
   if (low) {
@@ -889,15 +889,35 @@ async function loadTown(t) {
     for (const h of moorings?.harbors || []) if (h.spots && Math.hypot(h.x - t.x, h.z - t.z) < 4000) moorings.relayout(h);   // lay them out again clear of its piers
     t.roofs = roofGrid(T);   // (for the ride cameras, v1140)
     t.credit = T.credit || ''; scene.add(t.group); t.state = 'ready'; updateCredit();
+    if (REG.streets && AC?.makeStreets) townStreets(t, T).catch(err => console.warn('[bay3d] streets', t.file, err));
   } catch (err) { console.warn('[bay3d] town', t.file, err); t.state = 'failed'; }
   finally { townsLoading--; }
 }
+// (v1193) a town's streets (streets3d.js, www/data/streets/; regions3d.js streets): laid on the 10 m ground, as the detail
+// tiles draw it (its own download of the town's box, interpolated); shown only where that ground is (close in, or riding)
+async function townStreets(t, T) {
+  const data = await getJSON(`./data/streets/${t.file}`).catch(() => null); if (!data?.ways?.length || !t.group) return;
+  const [w, s, e, n] = T.bbox, M = 0.003, dem = await demFor(w - M, s - M, e + M, n + M, true);
+  if (cliffsP) cliffDem(dem, (await cliffsP)?.lines);
+  if (!t.group || t.state !== 'ready') return;
+  const hAt = (lon, lat) => { const c = (lon - dem.west) / dem.dx - 0.5, r = (dem.north - lat) / dem.dy - 0.5; if (c < 0 || r < 0 || c >= dem.w - 1 || r >= dem.h - 1) return heightAt(lon, lat);
+    const ci = Math.floor(c), ri = Math.floor(r), fc = c - ci, fr = r - ri, i = ri * dem.w + ci, E = dem.elev;
+    return (E[i] * (1 - fc) + E[i + 1] * fc) * (1 - fr) + (E[i + dem.w] * (1 - fc) + E[i + dem.w + 1] * fc) * fr; };
+  t.streets = AC.makeStreets({ data, wx, wz, hAt, lonOf, latOf }).group; t.streets.visible = streetsShown(t); t.group.add(t.streets);
+}
+// (only the areas within 2.5 km of the view: as the fine ground; the streets are 200,000-400,000 triangles an area)
+function streetsShown(t) {
+  if (!(view.dist < 3500 || nest.on)) return false;
+  const [w, s, e, n] = t.data.bbox, x = clamp(view.x, wx(w), wx(e)), z = clamp(view.z, wz(n), wz(s));
+  return Math.hypot(x - view.x, z - view.z) < 2500;
+}
 function updateTowns() {
   for (const t of townList) {
+    if (t.streets) t.streets.visible = streetsShown(t);
     const d = Math.hypot(t.x - view.x, t.z - view.z);
     if (t.state === 'idle' && d < 5000 && view.dist < 9000) loadTown(t);
     else if ((t.state === 'ready' || t.state === 'loading') && (d > 9000 || view.dist > 16000)) {
-      if (t.group) { scene.remove(t.group); disposeGroup(t.group); t.group = null; }
+      if (t.group) { scene.remove(t.group); disposeGroup(t.group); t.group = null; t.streets = null; }
       t.state = 'idle'; updateCredit();
     }
   }
@@ -2389,17 +2409,38 @@ let airFrom = '';
 // what an airport code stands for (v1133, requested: "an info link for the airport codes in the flight table"): a tap on
 // a code in a row, or picking a chip, shows its name and town under the chips, with a link to read about it
 let apInfo = '';
+// (v1193, asked: "I can't find one. I will wait until you produce a table I can click like I do for trains") 🚌 Buses, a
+// tab of their own: New York's 3,500 city buses had been in with the trains, nearest first, burying them. The 40
+// nearest the view, or one route's (its chip: the routes of the buses round about, the most first), nearest first.
+let busRoute = '';
+const isBus = v => !!(v.bus || v.mta);
 const apName = c => { const q = airportInfo(c); return q ? `${q.name}${q.city && !q.name.includes(q.city) ? `, ${q.city}` : ''}` : ''; };
 function fillUnderway() {
-  const hasAir = air.count > 0, hasRail = rail.count > 0, tab = uwTab === 'air' && hasAir ? 'air' : uwTab === 'rail' && hasRail ? 'rail' : 'water';
+  const nBus = rail.busCount || 0, hasAir = air.count > 0, hasRail = rail.count - nBus > 0, hasBus = nBus > 0;
+  const tab = uwTab === 'air' && hasAir ? 'air' : uwTab === 'rail' && hasRail ? 'rail' : uwTab === 'bus' && hasBus ? 'bus' : 'water';
   const tabs = uwPanel.querySelector('.uwtabs');
-  if (tabs) { tabs.hidden = !hasAir && !hasRail; for (const b of tabs.querySelectorAll('button')) { b.hidden = b.dataset.tab === 'air' ? !hasAir : b.dataset.tab === 'rail' ? !hasRail : false; b.classList.toggle('on', b.dataset.tab === tab); } }
-  uwPanel.querySelector('.sect').textContent = tab === 'air' ? 'In the air now' : tab === 'rail' ? 'Trains running now' : 'On the water now';
-  const list = uwPanel.querySelector('ul'); list.innerHTML = `<li class="hdr"><span class="n">${tab === 'air' ? 'Aircraft' : tab === 'rail' ? 'Train' : 'Vessel'}</span><span class="eta">${tab === 'air' ? (airFrom ? 'To' : 'Bound') : 'ETA'}</span><span class="d">Off</span><span class="go"></span></li>`;
+  if (tabs) { tabs.hidden = !hasAir && !hasRail && !hasBus; for (const b of tabs.querySelectorAll('button')) { b.hidden = b.dataset.tab === 'air' ? !hasAir : b.dataset.tab === 'rail' ? !hasRail : b.dataset.tab === 'bus' ? !hasBus : false; b.classList.toggle('on', b.dataset.tab === tab); } }
+  uwPanel.querySelector('.sect').textContent = tab === 'air' ? 'In the air now' : tab === 'rail' ? 'Trains running now' : tab === 'bus' ? (busRoute ? `The ${busRoute.replace(/\+$/, ' Select')} buses, nearest first` : 'Buses near you now') : 'On the water now';
+  const list = uwPanel.querySelector('ul'); list.innerHTML = `<li class="hdr"><span class="n">${tab === 'air' ? 'Aircraft' : tab === 'rail' ? 'Train' : tab === 'bus' ? 'Bus' : 'Vessel'}</span><span class="eta">${tab === 'air' ? (airFrom ? 'To' : 'Bound') : 'ETA'}</span><span class="d">Off</span><span class="go"></span></li>`;
   const away = v => { const d = Math.hypot(v.x - view.x, v.z - view.z) / NMm; return d < 0.15 ? '' : `${d.toFixed(d < 10 ? 1 : 0)} nm`; };
   const rows = [], d2 = b => Math.hypot(b.x - view.x, b.z - view.z);
-  if (tab === 'rail') for (const v of rail.items().sort((a, b) => d2(a) - d2(b))) rows.push({ v, what: v.label });
-  const fl = uwPanel.querySelector('.uwfilter'); if (fl) fl.hidden = tab !== 'air';
+  if (tab === 'rail') for (const v of rail.items().filter(v => !isBus(v)).sort((a, b) => d2(a) - d2(b))) rows.push({ v, what: v.label });
+  const fl = uwPanel.querySelector('.uwfilter'); if (fl) fl.hidden = tab !== 'air' && tab !== 'bus';
+  if (tab === 'bus') {
+    const all = rail.items().filter(isBus).sort((a, b) => d2(a) - d2(b)), rt = v => v.route || (v.bus && !v.mta ? 'C&J' : '');
+    const n = new Map(); for (const v of all.slice(0, 300)) { const r = rt(v); if (r) n.set(r, (n.get(r) || 0) + 1); }
+    const codes = [...n].sort((a, b) => b[1] - a[1]).slice(0, 10).map(c => c[0]); if (busRoute && !codes.includes(busRoute)) codes.push(busRoute);
+    if (fl) {
+      fl.innerHTML = ''; const line = document.createElement('div'); line.innerHTML = '<span>Route</span>';
+      for (const c of ['', ...codes]) {
+        const b = document.createElement('button'); b.type = 'button'; b.textContent = c ? c.replace(/\+$/, ' SBS') : 'Near';
+        b.title = c ? `Only the ${c} buses (${all.filter(v => rt(v) === c).length} running), nearest first` : 'The 40 buses nearest the view';
+        b.classList.toggle('on', c === busRoute); b.addEventListener('click', () => { busRoute = c; fillUnderway(); }); line.appendChild(b);
+      }
+      fl.appendChild(line);
+    }
+    for (const v of (busRoute ? all.filter(v => rt(v) === busRoute) : all).slice(0, 40)) rows.push({ v, what: v.label });
+  }
   if (tab === 'air') {
     const items = air.items(), n = new Map(), m = new Map();
     for (const p of items) {   // (each looked up once, then from the cache)
@@ -2442,7 +2483,7 @@ function fillUnderway() {
   if (tab === 'water') for (const v of live.filter(o => o.on).sort((a, b) => d2(a) - d2(b)).slice(0, 12)) rows.push({ v, what: `📡 ${v.label}` });
   if (tab === 'water' && bowdoin && bowdoin !== own && bowdoin.boat.group.visible) rows.push({ v: bowdoin, what: 'Schooner, out of Castine' });
   if (tab === 'water') for (const v of fleet.filter(b => b !== bowdoin && b.boat.group.visible).sort((a, b) => d2(a) - d2(b)).slice(0, 6)) rows.push({ v, what: vDoing(v) });
-  if (!rows.length) { list.innerHTML = `<li class="none">${tab === 'air' ? (airDest ? `No plane bound for ${airDest} heard just now` : airFrom ? `No plane leaving ${airFrom} heard just now` : 'No aircraft heard') : tab === 'rail' ? 'No trains running' : 'Nothing on the water in sight'}</li>`; return; }
+  if (!rows.length) { list.innerHTML = `<li class="none">${tab === 'air' ? (airDest ? `No plane bound for ${airDest} heard just now` : airFrom ? `No plane leaving ${airFrom} heard just now` : 'No aircraft heard') : tab === 'rail' ? 'No trains running' : tab === 'bus' ? (busRoute ? `No ${busRoute} bus running just now` : 'No buses running') : 'Nothing on the water in sight'}</li>`; return; }
   for (const r of rows) {
     const li = document.createElement('li'), v = r.v;
     if (nest.on && nest.v === v) li.className = 'aboard';
