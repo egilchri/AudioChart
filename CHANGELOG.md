@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-11-21 — Bird's-eye: a search box in the Buses table (v1198)
+
+- Asked: "In the bus table, it would be good to have a search filter".
+- **Search** (www/js/bay3d.js `busSearch`, `busMatches`; bay3d.html `.bussearch`): a box over the route chips in Underway → 🚌 Buses. It shows the buses whose route, destination or number has each word typed in it, nearest first, 40 at most, on top of a route chip if one's picked. For example: "M104", "104", "SBS", "Harlem", "Broadway", "LaGuardia", "broadway harlem". Esc or × clears it.
+  - The box is kept across the table's refresh every 2.5 s, so typing isn't interrupted.
+  - Keys typed in it don't reach the view.
+- **Rows:** each bus's row now says where she's bound first ("To West Harlem 129 St via Broadway · about 5 mph"), from v1196's destinations; the route is already in her name.
+- Checked in the app: "harlem" found the uptown M104s and M7s, and kept focus through refreshes; "SBS" found the M60s and M86s; a nonsense word says no bus matches.
+- Full CI suite passes.
+
 ## 2026-11-21 — Bird's-eye: trees and benches on Broadway's mall (v1197)
 
 - Asked: "add trees and benches to the mall".

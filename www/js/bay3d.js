@@ -2503,14 +2503,36 @@ let apInfo = '';
 // tab of their own: New York's 3,500 city buses had been in with the trains, nearest first, burying them. The 40
 // nearest the view, or one route's (its chip: the routes of the buses round about, the most first), nearest first.
 let busRoute = '';
+// (v1198, asked: "In the bus table, it would be good to have a search filter") a box over the route chips: the buses whose
+// route, destination or number has what's typed in it ("M104", "104", "SBS", "Harlem", "Broadway", "LaGuardia"), nearest
+// first. Its own element, kept across the table's rebuilds (every 2.5 s), so typing in it isn't interrupted.
+let busQuery = '', busSearchRow = null;
+const escH = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const busKey = t => String(t || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+function busMatches(v, q) {
+  const r = v.route || '', hay = busKey(`${r} ${r.replace(/\+$/, ' SBS SELECT BUS SERVICE')} ${v.a?.dest || ''} ${v.title || ''} ${v.label || ''}`);
+  return q.trim().split(/\s+/).every(w => hay.includes(busKey(w)));   // (each word typed, anywhere: "broadway harlem")
+}
+function busSearch() {
+  if (busSearchRow) return busSearchRow;
+  const row = document.createElement('div'); row.className = 'bussearch';
+  row.innerHTML = '<input type="search" placeholder="Search: route, where bound, bus no." aria-label="Search the buses" autocomplete="off" spellcheck="false">';
+  const inp = row.querySelector('input');
+  inp.addEventListener('input', () => { busQuery = inp.value; fillUnderway(); });
+  for (const ev of ['keydown', 'keyup', 'keypress']) inp.addEventListener(ev, e => { e.stopPropagation(); if (e.type === 'keydown' && e.key === 'Escape') { inp.value = busQuery = ''; fillUnderway(); } });   // (the view's own keys not taken from it)
+  inp.addEventListener('pointerdown', e => e.stopPropagation());
+  return (busSearchRow = row);
+}
 const isBus = v => !!(v.bus || v.mta);
+const titleSign = t => t.toLowerCase().replace(/(^|[\s/-])([a-z])/g, (m, a, b) => a + b.toUpperCase()).replace(/\bVia\b/g, 'via');   // (WEST HARLEM 129 ST via BROADWAY → West Harlem 129 St via Broadway)
 const apName = c => { const q = airportInfo(c); return q ? `${q.name}${q.city && !q.name.includes(q.city) ? `, ${q.city}` : ''}` : ''; };
 function fillUnderway() {
   const nBus = rail.busCount || 0, hasAir = air.count > 0, hasRail = rail.count - nBus > 0, hasBus = nBus > 0;
   const tab = uwTab === 'air' && hasAir ? 'air' : uwTab === 'rail' && hasRail ? 'rail' : uwTab === 'bus' && hasBus ? 'bus' : 'water';
   const tabs = uwPanel.querySelector('.uwtabs');
   if (tabs) { tabs.hidden = !hasAir && !hasRail && !hasBus; for (const b of tabs.querySelectorAll('button')) { b.hidden = b.dataset.tab === 'air' ? !hasAir : b.dataset.tab === 'rail' ? !hasRail : b.dataset.tab === 'bus' ? !hasBus : false; b.classList.toggle('on', b.dataset.tab === tab); } }
-  uwPanel.querySelector('.sect').textContent = tab === 'air' ? 'In the air now' : tab === 'rail' ? 'Trains running now' : tab === 'bus' ? (busRoute ? `The ${busRoute.replace(/\+$/, ' Select')} buses, nearest first` : 'Buses near you now') : 'On the water now';
+  const bq = busQuery.trim();
+  uwPanel.querySelector('.sect').textContent = tab === 'air' ? 'In the air now' : tab === 'rail' ? 'Trains running now' : tab === 'bus' ? (bq ? `Buses matching “${bq}”${busRoute ? ` on the ${busRoute.replace(/\+$/, ' Select')}` : ''}, nearest first` : busRoute ? `The ${busRoute.replace(/\+$/, ' Select')} buses, nearest first` : 'Buses near you now') : 'On the water now';
   const list = uwPanel.querySelector('ul'); list.innerHTML = `<li class="hdr"><span class="n">${tab === 'air' ? 'Aircraft' : tab === 'rail' ? 'Train' : tab === 'bus' ? 'Bus' : 'Vessel'}</span><span class="eta">${tab === 'air' ? (airFrom ? 'To' : 'Bound') : 'ETA'}</span><span class="d">Off</span><span class="go"></span></li>`;
   const away = v => { const d = Math.hypot(v.x - view.x, v.z - view.z) / NMm; return d < 0.15 ? '' : `${d.toFixed(d < 10 ? 1 : 0)} nm`; };
   const rows = [], d2 = b => Math.hypot(b.x - view.x, b.z - view.z);
@@ -2521,7 +2543,8 @@ function fillUnderway() {
     const n = new Map(); for (const v of all.slice(0, 300)) { const r = rt(v); if (r) n.set(r, (n.get(r) || 0) + 1); }
     const codes = [...n].sort((a, b) => b[1] - a[1]).slice(0, 10).map(c => c[0]); if (busRoute && !codes.includes(busRoute)) codes.push(busRoute);
     if (fl) {
-      fl.innerHTML = ''; const line = document.createElement('div'); line.innerHTML = '<span>Route</span>';
+      const sr = busSearch(); for (const c of [...fl.children]) if (c !== sr) c.remove(); if (sr.parentNode !== fl) fl.prepend(sr);
+      const line = document.createElement('div'); line.innerHTML = '<span>Route</span>';
       for (const c of ['', ...codes]) {
         const b = document.createElement('button'); b.type = 'button'; b.textContent = c ? c.replace(/\+$/, ' SBS') : 'Near';
         b.title = c ? `Only the ${c} buses (${all.filter(v => rt(v) === c).length} running), nearest first` : 'The 40 buses nearest the view';
@@ -2529,7 +2552,7 @@ function fillUnderway() {
       }
       fl.appendChild(line);
     }
-    for (const v of (busRoute ? all.filter(v => rt(v) === busRoute) : all).slice(0, 40)) rows.push({ v, what: v.label });
+    for (const v of all.filter(v => (!busRoute || rt(v) === busRoute) && (!bq || busMatches(v, bq))).slice(0, 40)) rows.push({ v, what: v.a?.dest ? [`To ${titleSign(v.a.dest)}`, ...v.label.split(' · ').slice(1)].join(' · ') : v.label });
   }
   if (tab === 'air') {
     const items = air.items(), n = new Map(), m = new Map();
@@ -2573,7 +2596,7 @@ function fillUnderway() {
   if (tab === 'water') for (const v of live.filter(o => o.on).sort((a, b) => d2(a) - d2(b)).slice(0, 12)) rows.push({ v, what: `📡 ${v.label}` });
   if (tab === 'water' && bowdoin && bowdoin !== own && bowdoin.boat.group.visible) rows.push({ v: bowdoin, what: 'Schooner, out of Castine' });
   if (tab === 'water') for (const v of fleet.filter(b => b !== bowdoin && b.boat.group.visible).sort((a, b) => d2(a) - d2(b)).slice(0, 6)) rows.push({ v, what: vDoing(v) });
-  if (!rows.length) { list.innerHTML = `<li class="none">${tab === 'air' ? (airDest ? `No plane bound for ${airDest} heard just now` : airFrom ? `No plane leaving ${airFrom} heard just now` : 'No aircraft heard') : tab === 'rail' ? 'No trains running' : tab === 'bus' ? (busRoute ? `No ${busRoute} bus running just now` : 'No buses running') : 'Nothing on the water in sight'}</li>`; return; }
+  if (!rows.length) { list.innerHTML = `<li class="none">${tab === 'air' ? (airDest ? `No plane bound for ${airDest} heard just now` : airFrom ? `No plane leaving ${airFrom} heard just now` : 'No aircraft heard') : tab === 'rail' ? 'No trains running' : tab === 'bus' ? (bq ? `No bus matching “${escH(bq)}” running just now` : busRoute ? `No ${busRoute} bus running just now` : 'No buses running') : 'Nothing on the water in sight'}</li>`; return; }
   for (const r of rows) {
     const li = document.createElement('li'), v = r.v;
     if (nest.on && nest.v === v) li.className = 'aboard';
