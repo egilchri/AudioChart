@@ -1,5 +1,7 @@
 # (v1201) Builds bus-video.mp4 from rec/ (record.mjs) and narr/ (Piper): run with ../piper/bin/python build.py
+# (v1203) NARR=narr-brian OUT=bus-video-brian.mp4 for the ElevenLabs voice (eleven.py narr ...)
 import json, subprocess, os
+NARR, OUT = os.environ.get('NARR', 'narr'), os.environ.get('OUT', 'bus-video.mp4')
 from PIL import Image, ImageDraw, ImageFont
 def run(*a): subprocess.run(a, check=True, capture_output=True)
 m = json.load(open('rec/meta.json')); fps, n = m['fps'], m['frames']; dur = n / fps
@@ -16,7 +18,7 @@ card('end.png', 'Ted’s Birdseye', 'egilchri.github.io/birdseye  ·  New York  
 os.makedirs('norm', exist_ok=True)
 inputs, filt = [], []
 for j, mk in enumerate(m['marks']):
-    run('ffmpeg', '-y', '-i', f"narr/{mk['name']}.wav", '-af', 'loudnorm=I=-16:TP=-2:LRA=7', '-ar', '44100', '-ac', '1', f"norm/{mk['name']}.wav")
+    run('ffmpeg', '-y', '-i', f"{NARR}/{mk['name']}.wav", '-af', 'loudnorm=I=-16:TP=-2:LRA=7', '-ar', '44100', '-ac', '1', f"norm/{mk['name']}.wav")
     inputs += ['-i', f"norm/{mk['name']}.wav"]; ms = int(mk['t'] * 1000)
     filt.append(f'[{j + 3}:a]adelay={ms}|{ms}[a{j}]')
 k = len(m['marks'])
@@ -27,5 +29,5 @@ filt.append(f"[0:v][t1]overlay=0:0:enable='lt(t,7.4)'[v1];[v1][t2]overlay=0:0:en
 run('ffmpeg', '-y', '-framerate', str(fps), '-i', 'rec/%05d.jpg', '-loop', '1', '-framerate', str(fps), '-t', f'{dur:.3f}', '-i', 'title.png',
     '-loop', '1', '-framerate', str(fps), '-t', f'{dur:.3f}', '-i', 'end.png', *inputs,
     '-filter_complex', ';'.join(filt), '-map', '[vout]', '-map', '[aout]', '-c:v', 'libx264', '-crf', '29', '-preset', 'slow',
-    '-c:a', 'aac', '-b:a', '128k', '-t', f'{dur:.3f}', '-movflags', '+faststart', 'bus-video.mp4')
-print(subprocess.check_output(['ffprobe', '-v', 'error', '-show_entries', 'format=duration,size', '-of', 'csv=p=0', 'bus-video.mp4']).decode())
+    '-c:a', 'aac', '-b:a', '128k', '-t', f'{dur:.3f}', '-movflags', '+faststart', OUT)
+print(subprocess.check_output(['ffprobe', '-v', 'error', '-show_entries', 'format=duration,size', '-of', 'csv=p=0', OUT]).decode())

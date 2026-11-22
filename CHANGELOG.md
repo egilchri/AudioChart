@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-22 — The bus video in an ElevenLabs voice (no app change: still v1202)
+
+- Asked: "try generating the video with one of their voices", then "use Brian".
+- **design/pending/bus-video/eleven.py**: lists the account's voices and voices a narr.json through ElevenLabs (eleven_multilingual_v2). It reads the key from ~/.config/elevenlabs/key, which the user saved themselves, and never prints it. "M T A" is sent as "M.T.A.".
+- **build.py** now takes NARR= and OUT=. bus-video-brian.mp4 and bus-video-eric.mp4 are the same footage in Brian's and Eric's voices; every line fit its shot, so nothing was retimed. Piper's pronunciation check doesn't apply to ElevenLabs, so the user listens for "M one oh four" and "M T A".
+- Full CI suite passes.
+
 ## 2026-11-22 — Ted's Birdseye: a way to the tours (v1202)
 
 - Asked: a way to the tour page from Ted's Birdseye's opening page, then "do both" (the opening screen and the app).
