@@ -3,11 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Ted's Birdseye Tour</title>
-<meta name="description" content="A narrated tour of Ted's Birdseye over San Francisco Bay: the ships, planes and trains, live.">
+<title>Ted's Birdseye Tours</title>
+<meta name="description" content="Narrated tours of Ted's Birdseye: New York's buses, and San Francisco Bay's ships, planes and trains, live.">
 <!-- The tour (requested 2026-11-02: "put the tour on a Birdseye tour page"): the narrated video of San Francisco Bay
      live, recorded from Bird's-eye with the real feeds (AudioChart's design/pending/live-tour: record.mjs, build.py).
-     Source: AudioChart's design/birdseye/site/ (published to github.com/egilchri/birdseye). -->
+     Source: AudioChart's design/birdseye/site/ (published to github.com/egilchri/birdseye).
+     2026-11-22 ("post it to the Birdseye site"): New York's buses (design/pending/bus-video, v1201) added above it. -->
 <link rel="icon" href="./icons/birdseye-192.png" sizes="192x192">
 <link rel="apple-touch-icon" href="./icons/birdseye-180.png" sizes="180x180">
 <meta name="theme-color" content="#122a3a">
@@ -23,6 +24,8 @@
   .tag { margin: 2px 0 0; font-family: Georgia, serif; font-style: italic; color: var(--brass); }
   video { display: block; width: 100%; aspect-ratio: 16 / 9; margin: 22px 0 0; border-radius: 10px; background: #000; box-shadow: 0 14px 40px rgba(0,0,0,0.5); }
   .cap { margin: 10px 2px 0; font-size: 0.86rem; color: var(--muted); }
+  .tour + .tour { margin-top: 56px; padding-top: 8px; border-top: 1px solid rgba(233,239,241,0.14); }
+  h2.t { margin: 22px 0 0; font-size: 1.45rem; }
   h2 { margin: 30px 0 8px; font-family: Georgia, serif; font-weight: 600; font-size: 1.2rem; }
   p, li { line-height: 1.55; color: var(--ink); }
   ul { padding-left: 1.2em; margin: 0; }
@@ -38,11 +41,31 @@
   <header>
     <img src="./icons/birdseye-192.png" alt="">
     <div>
-      <h1>San Francisco Bay, live</h1>
-      <p class="tag">A tour of Ted's Birdseye: ships, planes and trains, right now</p>
+      <h1>Ted's Birdseye tours</h1>
+      <p class="tag">Narrated, recorded from the live feeds</p>
     </div>
   </header>
 
+  <section class="tour">
+  <h2 class="t">New York's buses, live</h2>
+  <video controls playsinline preload="metadata" poster="./tour/nyc-buses-poster.jpg">
+    <source src="./tour/nyc-buses.mp4" type="video/mp4">
+  </video>
+  <p class="cap">1 min 21 s, narrated. Recorded on November 21, 2026, from MTA Bus Time as it was that evening.</p>
+
+  <h2>What you're seeing</h2>
+  <ul>
+    <li><b>Every New York City bus</b>, live from the MTA's Bus Time feed: about 1,500 of them at once. The <b>🚌 Buses</b> table lists them, with a search box.</li>
+    <li><b>The buses themselves</b>: the MTA's white and blue, with each one's own route and destination on its sign. They keep right, in the curb lane.</li>
+    <li><b>The streets</b>: asphalt, lanes and crosswalks, curbs and curb ramps, Broadway's planted mall, and along the sidewalks the city's real bus shelters, newsstands and subway entrances.</li>
+  </ul>
+
+  <h2>Try it yourself</h2>
+  <p>Open Ted's Birdseye, choose <b>New York</b>, and tap <b>📡 Live</b>. In <b>⛴ Underway</b>, the <b>Buses</b> tab lists them; pick one and ride along: the driver's seat, a drone, behind, beside or ahead.</p>
+  </section>
+
+  <section class="tour">
+  <h2 class="t">San Francisco Bay, live</h2>
   <video controls playsinline preload="metadata" poster="./tour/sf-live-poster.jpg">
     <source src="./tour/sf-live.mp4" type="video/mp4">
   </video>
@@ -57,9 +80,10 @@
 
   <h2>Try it yourself</h2>
   <p>Open Ted's Birdseye, choose <b>SF Bay</b>, and tap <b>📡 Live</b>. Tap any plane or train for its card, then ride along: the cockpit or the cab, a drone, behind, beside or ahead. <b>⛴ Underway</b> lists them all, and <b>✨ Find</b> makes them flash.</p>
+  </section>
   <a class="go" href="./">Open Ted's Birdseye</a>
 
-  <footer>Aircraft from <a href="https://adsb.lol">adsb.lol</a> (ODbL) · trains from <a href="https://511.org/open-data">511.org</a> · ships from AISStream and Open Waters AIS · elevation USGS 3DEP · photos USDA NAIP · from <a href="https://egilchri.github.io/AudioChart/">AudioChart</a></footer>
+  <footer>Buses from <a href="https://bustime.mta.info">MTA Bus Time</a> · shelters and newsstands from NYC Open Data · subway entrances from data.ny.gov · aircraft from <a href="https://adsb.lol">adsb.lol</a> (ODbL) · trains from <a href="https://511.org/open-data">511.org</a> · ships from AISStream and Open Waters AIS · elevation USGS 3DEP · photos USDA NAIP · from <a href="https://egilchri.github.io/AudioChart/">AudioChart</a></footer>
 </main>
 </body>
 </html>

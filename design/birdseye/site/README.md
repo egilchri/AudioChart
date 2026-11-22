@@ -10,3 +10,6 @@ Source: `design/birdseye/site/` in https://github.com/egilchri/AudioChart (edit 
 
 `tour.html` (2026-11-02): "San Francisco Bay, live", the narrated tour video (`tour/sf-live.mp4`), recorded from
 Bird's-eye with the live feeds by AudioChart's `design/pending/live-tour/` (`record.mjs`, then `build.py`).
+
+`tour/nyc-buses.mp4` (2026-11-22): "New York's buses, live", added to the tour page above San Francisco; made by
+AudioChart's `design/pending/bus-video/` (`record.mjs`, then `build.py`).
