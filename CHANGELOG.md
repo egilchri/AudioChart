@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-11-21 — Bird's-eye: curbs, curb cuts, street lights and fire hydrants (v1199)
+
+- Asked: "add real curbs to the sidewalks", "add curb cuts at the crosswalks", "add fire hydrants and street lights to the sidewalks".
+- **Curbs** (www/js/streets3d.js): the sidewalks stand 15 cm over the roadway, as New York's do, with a granite face down to it and a granite top along the edge. The mall's edge has the same curb. A sidewalk now stops at the curb line of a street crossing from its side, and the far side of a T-junction runs on. The crossing street's own sidewalks take the corner. Before, the sidewalks ran flat under every crossing.
+- **Curb cuts:** where each crosswalk lands, a concrete ramp 1.5 m deep down to the roadway, as wide as the crosswalk, with its brick-red warning pad at the foot and its sides walled. The curb is broken there.
+- **Street lights:** New York's grey cobra-heads on tapered 9 m poles, the arm out over the roadway, about every 32 m along each sidewalk run, the two sides staggered, kept off the ramps.
+- **Fire hydrants:** red with silver caps, near each block's corner just past the ramp. On a one-way street they're on the right side only.
+- **Drawing:** lights and hydrants are instanced, two draw calls an area.
+- **Buses:** a city bus in a drawn street rides on its asphalt (0.3 m over the ground), not sunk in it (www/js/buses3d.js).
+- Checked in the app close over Broadway at 96th St and on its side streets, and from behind an M104.
+- Full CI suite passes.
+
 ## 2026-11-21 — Bird's-eye: a search box in the Buses table (v1198)
 
 - Asked: "In the bus table, it would be good to have a search filter".

@@ -438,7 +438,7 @@ export function makeMtaBuses({ scene, wx, wz, heightAt, laneAt = () => null, bbo
         const lon = p.to.lon ?? 0, lat = p.to.lat ?? 0, gx = Math.max(0, heightAt(lon + (x - p.to.x) / (111320 * Math.cos(lat * DEG)), lat - (z - p.to.z) / 111120) || 0);
         p.yy = deckAt(x, z, p.h) ?? gx;
       }
-      p.x = x; p.z = z; p.y = p.yy; p.g.position.set(x, p.y, z);
+      p.x = x; p.z = z; p.y = p.yy + (ln ? 0.3 : 0); p.g.position.set(x, p.y, z);   // (v1199: in a drawn street, on its asphalt, 0.3 m over the ground)
       {
         const d = Math.hypot(x - cp.x, p.y - cp.y, z - cp.z), w = Math.max(1, d * 0.0058 / 2.55);   // (far off, about 4 px wide, as the trains)
         if (d < SIGN_NEAR) close.push([d, p]);

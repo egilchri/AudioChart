@@ -24,6 +24,7 @@ function mats() {
     road: off(new THREE.MeshLambertMaterial({ map: tex }), 1),
     paint: off(new THREE.MeshLambertMaterial({ vertexColors: true }), 2),
     mall: off(new THREE.MeshLambertMaterial({ map: mallTexture() }), 1),
+    curb: off(new THREE.MeshLambertMaterial({ color: 0xc4c1b8, side: THREE.DoubleSide }), 1),   // (v1199: granite)
   };
   return MATS;
 }
@@ -85,7 +86,24 @@ function furniture() {
   const bench = [box(1.9, 0.04, 0.12, 0, 0.45, -0.17, WOOD), box(1.9, 0.04, 0.12, 0, 0.45, -0.02, WOOD), box(1.9, 0.04, 0.12, 0, 0.45, 0.13, WOOD),   // the seat's slats
     box(1.9, 0.1, 0.04, 0, 0.66, -0.26, WOOD), box(1.9, 0.1, 0.04, 0, 0.83, -0.28, WOOD),   // the back's
     ...[-0.85, 0.85].flatMap(x => [box(0.06, 0.45, 0.06, x, 0.22, 0.14, IRON), box(0.06, 0.88, 0.06, x, 0.44, -0.24, IRON), box(0.06, 0.05, 0.42, x, 0.42, -0.04, IRON)])];
+  // (v1199) a street light: New York's grey cobra-head on its tapered pole, 9 m up, its arm out over the roadway (+x)
+  const GREY = [0.42, 0.44, 0.45], LAMP = [0.9, 0.88, 0.8];
+  const pole = new THREE.CylinderGeometry(0.07, 0.12, 9, 6); pole.translate(0, 4.5, 0);
+  const base = new THREE.CylinderGeometry(0.2, 0.24, 0.6, 6); base.translate(0, 0.3, 0);
+  const arm = new THREE.BoxGeometry(2.4, 0.08, 0.08); arm.rotateZ(0.12); arm.translate(1.15, 9.05, 0);
+  const head = new THREE.BoxGeometry(0.75, 0.16, 0.32); head.translate(2.45, 9.2, 0);
+  const lens = new THREE.BoxGeometry(0.55, 0.02, 0.24); lens.translate(2.45, 9.11, 0);
+  // a fire hydrant: red, its silver bonnet and nozzle caps, on its base flange
+  const RED = [0.66, 0.1, 0.08], SILVER = [0.75, 0.76, 0.78];
+  const hb = new THREE.CylinderGeometry(0.13, 0.15, 0.55, 8); hb.translate(0, 0.33, 0);
+  const fl = new THREE.CylinderGeometry(0.2, 0.2, 0.06, 8); fl.translate(0, 0.03, 0);
+  const bon = new THREE.CylinderGeometry(0.05, 0.14, 0.14, 8); bon.translate(0, 0.67, 0);
+  const nut = new THREE.CylinderGeometry(0.03, 0.03, 0.06, 5); nut.translate(0, 0.77, 0);
+  const noz = new THREE.CylinderGeometry(0.06, 0.06, 0.4, 6); noz.rotateZ(Math.PI / 2); noz.translate(0, 0.45, 0);
+  const pump = new THREE.CylinderGeometry(0.08, 0.08, 0.14, 6); pump.rotateX(Math.PI / 2); pump.translate(0, 0.45, 0.16);
   FURN = {
+    light: merge([colGeo(pole, GREY), colGeo(base, GREY), colGeo(arm, GREY), colGeo(head, GREY), colGeo(lens, LAMP)]),
+    hydrant: merge([colGeo(hb, RED), colGeo(fl, RED), colGeo(bon, SILVER), colGeo(nut, SILVER), colGeo(noz, SILVER), colGeo(pump, SILVER)]),
     trunk: colGeo(trunk, [0.45, 0.42, 0.36]), crown: merge([colGeo(crown, [1, 1, 1]), colGeo(crown2, [1, 1, 1]), colGeo(crown3, [1, 1, 1])]), bench: merge(bench),
     mat: new THREE.MeshLambertMaterial({ vertexColors: true }), leaf: new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }),
   };
@@ -120,12 +138,13 @@ function sides(Q) {
 
 // → { group } (y up, the ground's own frame); data: the area's streets; hAt(lon, lat): the ground's height
 export function makeStreets({ data, wx, wz, hAt, lonOf, latOf }) {
-  const M = mats(), lift = { walk: 0.22, road: 0.3, paint: 0.36, mall: 0.42 };
-  const trees = [], benches = [];
-  const B = { walk: [[], [], []], road: [[], [], []], paint: [[], [], [], []], mall: [[], [], []] };   // positions, uvs or colours, indices
+  const M = mats(), lift = { walk: 0.45, road: 0.3, paint: 0.36, mall: 0.47 };   // (v1199: the sidewalks 15 cm over the roadway, on their kerbs)
+  const trees = [], benches = [], lights = [], hydrants = [];
+  const B = { walk: [[], [], []], road: [[], [], []], paint: [[], [], [], []], mall: [[], [], []], curb: [[], [], []] };   // positions, uvs or colours, indices
   const yAt = (x, z, up) => hAt(lonOf(x), latOf(z)) + up;
   // a strip along Q between offsets o0 and o1 (m, + right), from s0 to s1 along it
-  function strip(buf, Q, N, o0, o1, s0, s1, up, colour = null) {
+  // (up1: the o1 edge's own height: o0 = o1 and up1 above up is a wall, a kerb's face)
+  function strip(buf, Q, N, o0, o1, s0, s1, up, colour = null, up1 = up) {
     const [pos, aux, idx] = buf, base = pos.length / 3; let n = 0;
     const pts = [];
     for (let i = 0; i < Q.length; i++) {
@@ -139,17 +158,23 @@ export function makeStreets({ data, wx, wz, hAt, lonOf, latOf }) {
       pts.push({ x, z, s, n: N[i] });
     }
     if (pts.length < 2) return;
-    for (const p of pts) for (const o of [o0, o1]) {
+    for (const p of pts) for (const [o, u] of [[o0, up], [o1, up1]]) {
       const x = p.x + p.n.nx * o, z = p.z + p.n.nz * o;
-      pos.push(x, yAt(x, z, up), z);
+      pos.push(x, yAt(x, z, u), z);
       if (colour) aux.push(...colour); else aux.push(o / 8, p.s / 8);
       n++;
     }
     // (facing up whichever way across it runs: o0 to o1 rightward turns the other winding)
     for (let k = 0; k + 1 < pts.length; k++) { const a = base + k * 2; if (o1 < o0) idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); else idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
   }
-  const WHITE = [0.86, 0.86, 0.82], YELLOW = [0.86, 0.66, 0.16];
+  const WHITE = [0.86, 0.86, 0.82], YELLOW = [0.86, 0.66, 0.16], PAD = [0.55, 0.2, 0.15];   // (PAD: a kerb ramp's warning pad, brick red)
   const W = data.ways.filter(r => r.p.length >= 2).map(r => { const Q = resample(r.p.map(([lo, la]) => ({ x: wx(lo), z: wz(la) })), new Map(r.j || [])); return { r, Q, N: sides(Q) }; });
+  // where each road's own points are, with the ways off them (her points' neighbours): a crossing street's side
+  const ends = new Map();
+  for (const { r, Q } of W) for (let i = 0; i < Q.length; i++) if (Q[i].j !== false) {   // (her own points, not resampled ones)
+    const k = `${Q[i].x},${Q[i].z}`, list = ends.get(k) || ends.set(k, []).get(k);
+    for (const b of [Q[i - 1], Q[i + 1]]) if (b) { const L = Math.hypot(b.x - Q[i].x, b.z - Q[i].z) || 1; list.push({ r, dx: (b.x - Q[i].x) / L, dz: (b.z - Q[i].z) / L }); }
+  }
   const byName = new Map(); for (const w of W) if (w.r.o && w.r.n) (byName.get(w.r.n) || byName.set(w.r.n, []).get(w.r.n)).push(w);
   for (const { r, Q, N } of W) {
     const L = Q.at(-1).s;
@@ -157,7 +182,46 @@ export function makeStreets({ data, wx, wz, hAt, lonOf, latOf }) {
     const gap = r.o && r.n && !big ? twinGap(r, Q, N, byName) : 0, mall = gap / 2 > hw + 1 ? gap / 2 : 0;   // (her half of the mall, on her left)
     // (her roadway's width is a guess from her lanes, wide for Broadway: by her mall it's kept to leave the mall 3 m a side)
     const hwL = mall ? Math.max(Math.min(hw, mall - 3), r.l * 1.6 + 0.5, 3) : hw;
-    if (!big && !svc) for (const sd of [-1, 1]) strip(B.walk, Q, N, sd < 0 ? -hwL : hw, sd < 0 && mall ? -mall : sd * (hw + SIDEWALK), 0, L, lift.walk);
+    // where the crosswalks across her land (as drawn below: past each crossing street's kerb)
+    const crossAt = big || svc || L < 12 ? [] : Q.filter(q => q.j).flatMap(q => [q.s - q.j / 2 - 2, q.s + q.j / 2 + 2]).filter(c => c >= 2 && c <= L - 2);
+    // the sidewalks (v1199, asked: "add real curbs to the sidewalks"): 15 cm up on their kerbs, a granite face down to the
+    // roadway and its granite top along the edge; each side stopping at the kerb line of a street crossing from that side
+    // (the far side of a T runs on), the crossing street's own sidewalks taking the corner
+    if (!big && !svc) for (const sd of [-1, 1]) {
+      const o0 = sd < 0 ? -hwL : hw, o1 = sd < 0 && mall ? -mall : sd * (hw + SIDEWALK), cuts = [];
+      for (const q of Q) if (q.j) { const out = ends.get(`${q.x},${q.z}`) || [], n = N[Q.indexOf(q)];
+        if (out.some(o => o.r !== r && (o.dx * n.nx + o.dz * n.nz) * sd > 0.3)) cuts.push([q.s - q.j / 2, q.s + q.j / 2]); }
+      // (v1199, asked: "add curb cuts at the crosswalks") where a crosswalk lands, a ramp down to the roadway, 1.5 m deep and
+      // as wide as the crosswalk, its red warning pad at the foot, its sides walled; the kerb broken for it
+      const RL = Math.min(1.5, Math.abs(o1 - o0) - 0.4), o0r = o0 + sd * RL, ramps = RL > 0.6 ? crossAt : [];
+      let s = 0; for (const [c0, c1] of [...cuts.sort((a, b) => a[0] - b[0]), [L, L]]) {
+        if (c0 - s > 0.5) {
+          const here = ramps.filter(c => c - 1.6 > s && c + 1.6 < c0);
+          strip(B.walk, Q, N, here.length ? o0r : o0, o1, s, c0, lift.walk);
+          let t = s;
+          for (const c of [...here, Infinity]) {
+            const e = Math.min(c - 1.6, c0);
+            if (e - t > 0.2) { if (here.length) strip(B.walk, Q, N, o0, o0r, t, e, lift.walk); strip(B.curb, Q, N, o0, o0, t, e, lift.road - 0.05, null, lift.walk); strip(B.curb, Q, N, o0, o0 + sd * 0.18, t, e, lift.walk + 0.004); }
+            if (c === Infinity) break;
+            strip(B.walk, Q, N, o0, o0r, c - 1.6, c + 1.6, lift.road + 0.01, null, lift.walk);   // the ramp
+            strip(B.paint, Q, N, o0 + sd * 0.05, o0 + sd * 0.65, c - 1.5, c + 1.5, lift.road + 0.025, PAD, lift.road + 0.025 + (lift.walk - lift.road) * 0.65 / RL);   // its warning pad
+            for (const e2 of [c - 1.6, c + 1.6]) {   // its sides: the sidewalk's edge down to the ramp
+              const a = at(Q, N, e2, o0), b = at(Q, N, e2, o0r), [pos, aux, idx] = B.curb, k = pos.length / 3;
+              pos.push(a.x, yAt(a.x, a.z, lift.road), a.z, a.x, yAt(a.x, a.z, lift.walk), a.z, b.x, yAt(b.x, b.z, lift.walk), b.z); aux.push(0, 0, 0, 0, 0, 0); idx.push(k, k + 1, k + 2);
+            }
+            t = c + 1.6;
+          }
+          // (v1199, asked: "add fire hydrants and street lights to the sidewalks") along this run of sidewalk, kept off the
+          // ramps: street lights about every 32 m, the two sides staggered; a hydrant near the corner, past the ramp
+          if (!(sd < 0 && mall)) {
+            const clear = x => !here.some(c => Math.abs(x - c) < 2.6) && x > s + 1 && x < c0 - 1, edge = o0 + sd * 0.55;
+            for (let x = s + (sd > 0 ? 9 : 25); x < c0 - 4; x += 32) if (clear(x)) lights.push({ ...at(Q, N, x, edge), sd });
+            if (c0 - s > 18) { const x = [s + 4.5, s + 5.5, s + 7].find(clear); if (x != null && (sd > 0 || r.o !== 1)) hydrants.push({ ...at(Q, N, x, o0 + sd * 0.7), sd }); }
+          }
+        }
+        s = Math.max(s, c1);
+      }
+    }
     strip(B.road, Q, N, -hwL, hw, 0, L, lift.road);
     if (svc || L < 12) continue;
     // the markings, in the runs between junctions, each kept back from the junction past the crossing street's kerb and
@@ -204,7 +268,7 @@ export function makeStreets({ data, wx, wz, hAt, lonOf, latOf }) {
     g.setIndex(idx); g.computeVertexNormals();
     const m = new THREE.Mesh(g, mat); m.receiveShadow = true; group.add(m);
   };
-  mesh(B.walk, M.walk); mesh(B.road, M.road); mesh(B.paint, M.paint, true); mesh(B.mall, M.mall);
+  mesh(B.walk, M.walk); mesh(B.road, M.road); mesh(B.paint, M.paint, true); mesh(B.mall, M.mall); mesh(B.curb, M.curb);
   // the mall's trees and benches: instanced, on the ground there
   if (trees.length || benches.length) {
     const F = furniture(), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), sc = new THREE.Vector3(), Y = new THREE.Vector3(0, 1, 0), c = new THREE.Color();
@@ -222,6 +286,16 @@ export function makeStreets({ data, wx, wz, hAt, lonOf, latOf }) {
       // (her length along the street; facing in, to the mall's middle: on her left, so her back's to the roadway)
       benches.forEach((b, i) => { q.setFromAxisAngle(Y, Math.atan2(-b.dz, b.dx) + Math.PI); bn.setMatrixAt(i, m4.compose(p.set(b.x, yAt(b.x, b.z, lift.walk - 0.02), b.z), q, sc.set(1, 1, 1))); });
       bn.castShadow = true; group.add(bn);
+    }
+  }
+  // the street lights and hydrants (v1199): instanced, on the sidewalk; a light's arm out over her roadway
+  if (lights.length || hydrants.length) {
+    const F = furniture(), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), one = new THREE.Vector3(1, 1, 1), Y = new THREE.Vector3(0, 1, 0);
+    for (const [list, geo] of [[lights, F.light], [hydrants, F.hydrant]]) {
+      if (!list.length) continue;
+      const im = new THREE.InstancedMesh(geo, F.mat, list.length);
+      list.forEach((o, i) => { q.setFromAxisAngle(Y, Math.atan2(o.sd * o.nz, -o.sd * o.nx)); im.setMatrixAt(i, m4.compose(p.set(o.x, yAt(o.x, o.z, lift.walk - 0.01), o.z), q, one)); });
+      im.castShadow = geo === F.light; group.add(im);
     }
   }
   group.userData.credit = data.credit;
