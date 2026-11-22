@@ -101,13 +101,79 @@ function furniture() {
   const nut = new THREE.CylinderGeometry(0.03, 0.03, 0.06, 5); nut.translate(0, 0.77, 0);
   const noz = new THREE.CylinderGeometry(0.06, 0.06, 0.4, 6); noz.rotateZ(Math.PI / 2); noz.translate(0, 0.45, 0);
   const pump = new THREE.CylinderGeometry(0.08, 0.08, 0.14, 6); pump.rotateX(Math.PI / 2); pump.translate(0, 0.45, 0.16);
+  // (v1200) a Muni-Meter, the city's parking pay station: a grey box on its post, a blue band across its top, its screen
+  // and keypad to the sidewalk (−x: away from the roadway); and the city's litter basket, green wire mesh, open-topped
+  const MGREY = [0.5, 0.52, 0.54], MBLUE = [0.13, 0.3, 0.62], DARK = [0.08, 0.09, 0.1];
+  const mpost = new THREE.BoxGeometry(0.14, 0.7, 0.14); mpost.translate(0, 0.35, 0);
+  const mbox = new THREE.BoxGeometry(0.3, 0.85, 0.32); mbox.translate(0, 1.12, 0);
+  const mtop = new THREE.BoxGeometry(0.31, 0.14, 0.33); mtop.translate(0, 1.6, 0);
+  const mscr = new THREE.BoxGeometry(0.02, 0.18, 0.2); mscr.translate(-0.16, 1.3, 0);
+  const mkey = new THREE.BoxGeometry(0.02, 0.16, 0.14); mkey.translate(-0.16, 1.05, 0);
+  const GREEN = [0.12, 0.3, 0.17];
+  const bin = new THREE.CylinderGeometry(0.31, 0.25, 0.86, 10, 1, true); bin.translate(0, 0.43, 0);
+  const binIn = new THREE.CylinderGeometry(0.29, 0.29, 0.02, 10); binIn.translate(0, 0.7, 0);
+  const binRim = new THREE.TorusGeometry(0.31, 0.025, 4, 12); binRim.rotateX(Math.PI / 2); binRim.translate(0, 0.86, 0);
+  const binFoot = new THREE.CylinderGeometry(0.25, 0.25, 0.04, 10); binFoot.translate(0, 0.02, 0);
+  // (v1200) a bus shelter, New York's: a dark frame and flat roof, glass at the back and one end, the lit advertising panel
+  // at the other, a bench along the back; open to the kerb (+x). Its glass a mesh of its own (see-through)
+  const FRAME = [0.25, 0.27, 0.28], AD = [0.93, 0.92, 0.86];
+  const sh = [];
+  for (const [x, z] of [[-0.7, -1.85], [-0.7, 1.85], [0.55, -1.85], [0.55, 1.85]]) { const g = new THREE.BoxGeometry(0.07, 2.5, 0.07); g.translate(x, 1.25, z); sh.push(colGeo(g, FRAME)); }
+  { const g = new THREE.BoxGeometry(1.7, 0.12, 4.0); g.translate(-0.05, 2.56, 0); sh.push(colGeo(g, FRAME)); }
+  { const g = new THREE.BoxGeometry(1.2, 1.85, 0.14); g.translate(-0.08, 1.15, 1.85); sh.push(colGeo(g, AD)); }
+  { const g = new THREE.BoxGeometry(1.26, 1.95, 0.1); g.translate(-0.08, 1.15, 1.85); sh.push(colGeo(g, FRAME)); }
+  { const g = new THREE.BoxGeometry(0.36, 0.05, 2.4); g.translate(-0.48, 0.48, -0.2); sh.push(colGeo(g, [0.55, 0.57, 0.58])); }
+  { const g = new THREE.BoxGeometry(0.05, 0.05, 2.4); g.translate(-0.62, 0.24, -0.2); sh.push(colGeo(g, FRAME)); }
+  // its bus stop sign by the kerb: a pole, the blue sign
+  { const g = new THREE.CylinderGeometry(0.04, 0.04, 2.9, 5); g.translate(1.05, 1.45, -2.4); sh.push(colGeo(g, FRAME)); }
+  { const g = new THREE.BoxGeometry(0.03, 0.6, 0.45); g.translate(1.05, 2.6, -2.4); sh.push(colGeo(g, [0.12, 0.3, 0.65])); }
+  const glass = [], gb = (w, h, d, x, y, z) => { const g = new THREE.BoxGeometry(w, h, d); g.translate(x, y, z); glass.push(colGeo(g, [0.75, 0.85, 0.9])); };
+  gb(0.02, 2.2, 3.6, -0.7, 1.3, 0); gb(1.1, 2.2, 0.02, -0.12, 1.3, -1.85);
+  // a newsstand: the city's green kiosk, its roof overhanging, its window and the magazines under it to the sidewalk (−x)
+  const NG = [0.1, 0.28, 0.19], NG2 = [0.14, 0.36, 0.24];
+  const nk = [];
+  { const g = new THREE.BoxGeometry(1.6, 2.4, 2.6); g.translate(0, 1.2, 0); nk.push(colGeo(g, NG)); }
+  { const g = new THREE.BoxGeometry(2.1, 0.12, 3.1); g.translate(-0.1, 2.5, 0); nk.push(colGeo(g, NG2)); }
+  { const g = new THREE.BoxGeometry(0.03, 0.85, 1.8); g.translate(-0.81, 1.55, 0); nk.push(colGeo(g, [0.07, 0.08, 0.09])); }
+  for (const [k, c] of [[0, [0.75, 0.2, 0.15]], [1, [0.9, 0.75, 0.2]], [2, [0.2, 0.4, 0.75]], [3, [0.85, 0.85, 0.82]]]) { const g = new THREE.BoxGeometry(0.06, 0.32, 0.5); g.translate(-0.84, 0.95, -0.8 + k * 0.53); nk.push(colGeo(g, c)); }
+  { const g = new THREE.BoxGeometry(0.3, 0.06, 2.4); g.translate(-0.95, 1.1, 0); nk.push(colGeo(g, NG2)); }   // (the window's ledge)
+  // (v1200) a subway entrance: its stair down (the treads darkening to the bottom, −z), the green iron railings round the
+  // opening on three sides, the two lamp posts at the top (+z) with their globes (a mesh of their own: green, where you
+  // can go in; red, out only), the black "Subway" panels on the railings by the top
+  const RAIL = [0.1, 0.24, 0.15], st = [], post = (x, z, h) => { const g = new THREE.BoxGeometry(0.05, h, 0.05); g.translate(x, h / 2, z); st.push(colGeo(g, RAIL)); };
+  for (let k = 0; k < 11; k++) { const g = new THREE.BoxGeometry(1.5, 0.02, 0.42), v = 0.44 * (k / 10) + 0.04; g.translate(0, 0.015, -2.1 + k * 0.42); st.push(colGeo(g, [v, v, v * 1.02])); }
+  for (const sx of [-0.82, 0.82]) {
+    for (const y of [0.5, 1.0]) { const g = new THREE.BoxGeometry(0.05, 0.05, 4.6); g.translate(sx, y, 0); st.push(colGeo(g, RAIL)); }
+    for (let z = -2.3; z <= 2.31; z += 1.15) post(sx, z, 1.0);
+    { const g = new THREE.BoxGeometry(0.03, 0.32, 1.1), w = new THREE.BoxGeometry(0.035, 0.03, 1.1); g.translate(sx * 1.02, 1.22, 1.5); w.translate(sx * 1.02, 1.33, 1.5); st.push(colGeo(g, [0.05, 0.05, 0.05]), colGeo(w, [0.92, 0.92, 0.9])); }
+    post(sx, 2.3, 2.3);
+  }
+  for (const y of [0.5, 1.0]) { const g = new THREE.BoxGeometry(1.64, 0.05, 0.05); g.translate(0, y, -2.3); st.push(colGeo(g, RAIL)); }
+  const globes = [-0.82, 0.82].map(sx => { const g = new THREE.SphereGeometry(0.17, 10, 8); g.translate(sx, 2.45, 2.3); return colGeo(g, [1, 1, 1]); });
+  // a street elevator: a glass cab, its grey frame and roof, its doors to the sidewalk (−x)
+  const el = [], elGlass = [];
+  for (const [x, z] of [[-1.05, -1.05], [-1.05, 1.05], [1.05, -1.05], [1.05, 1.05]]) { const g = new THREE.BoxGeometry(0.1, 2.9, 0.1); g.translate(x, 1.45, z); el.push(colGeo(g, FRAME)); }
+  { const g = new THREE.BoxGeometry(2.3, 0.2, 2.3); g.translate(0, 2.95, 0); el.push(colGeo(g, FRAME)); }
+  { const g = new THREE.BoxGeometry(0.06, 2.2, 1.0); g.translate(-1.07, 1.1, 0); el.push(colGeo(g, [0.62, 0.64, 0.66])); }
+  for (const [w, d, x, z] of [[0.02, 2.1, 1.05, 0], [2.1, 0.02, 0, -1.05], [2.1, 0.02, 0, 1.05]]) { const g = new THREE.BoxGeometry(w, 2.7, d); g.translate(x, 1.4, z); elGlass.push(colGeo(g, [0.75, 0.85, 0.9])); }
   FURN = {
+    stair: merge(st), globe: merge(globes), elevator: merge(el), elGlass: merge(elGlass),
+    globeMat: new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false }),
+    shelter: merge(sh), glass: merge(glass), newsstand: merge(nk),
+    glassMat: new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, opacity: 0.28, depthWrite: false }),
+    meter: merge([colGeo(mpost, MGREY), colGeo(mbox, MGREY), colGeo(mtop, MBLUE), colGeo(mscr, DARK), colGeo(mkey, DARK)]),
+    bin: merge([colGeo(bin, GREEN), colGeo(binIn, DARK), colGeo(binRim, GREEN), colGeo(binFoot, GREEN)]),
     light: merge([colGeo(pole, GREY), colGeo(base, GREY), colGeo(arm, GREY), colGeo(head, GREY), colGeo(lens, LAMP)]),
     hydrant: merge([colGeo(hb, RED), colGeo(fl, RED), colGeo(bon, SILVER), colGeo(nut, SILVER), colGeo(noz, SILVER), colGeo(pump, SILVER)]),
     trunk: colGeo(trunk, [0.45, 0.42, 0.36]), crown: merge([colGeo(crown, [1, 1, 1]), colGeo(crown2, [1, 1, 1]), colGeo(crown3, [1, 1, 1])]), bench: merge(bench),
     mat: new THREE.MeshLambertMaterial({ vertexColors: true }), leaf: new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }),
   };
   return FURN;
+}
+// (for the design harness, design/pending/street-look) one piece of the street's furniture, as the streets draw it
+export function furnitureMesh(name, color = null) {
+  const F = furniture(), mat = { glass: F.glassMat, elGlass: F.glassMat, globe: F.globeMat, crown: F.leaf }[name] || F.mat;
+  const m = new THREE.Mesh(F[name], mat.clone()); if (color) { m.material.vertexColors = false; m.material.color.set(color); } return m;
 }
 // a polyline in metres, resampled so no two heights are more than STEP apart: [{x, z, s (along), j (a junction: the
 // crossing street's width, m; 0 where none)}]
@@ -137,9 +203,9 @@ function sides(Q) {
 }
 
 // → { group } (y up, the ground's own frame); data: the area's streets; hAt(lon, lat): the ground's height
-export function makeStreets({ data, wx, wz, hAt, lonOf, latOf }) {
+export function makeStreets({ data, wx, wz, hAt, lonOf, latOf, furn = null }) {
   const M = mats(), lift = { walk: 0.45, road: 0.3, paint: 0.36, mall: 0.47 };   // (v1199: the sidewalks 15 cm over the roadway, on their kerbs)
-  const trees = [], benches = [], lights = [], hydrants = [];
+  const trees = [], benches = [], lights = [], hydrants = [], meters = [], bins = [];
   const B = { walk: [[], [], []], road: [[], [], []], paint: [[], [], [], []], mall: [[], [], []], curb: [[], [], []] };   // positions, uvs or colours, indices
   const yAt = (x, z, up) => hAt(lonOf(x), latOf(z)) + up;
   // a strip along Q between offsets o0 and o1 (m, + right), from s0 to s1 along it
@@ -215,8 +281,13 @@ export function makeStreets({ data, wx, wz, hAt, lonOf, latOf }) {
           // ramps: street lights about every 32 m, the two sides staggered; a hydrant near the corner, past the ramp
           if (!(sd < 0 && mall)) {
             const clear = x => !here.some(c => Math.abs(x - c) < 2.6) && x > s + 1 && x < c0 - 1, edge = o0 + sd * 0.55;
-            for (let x = s + (sd > 0 ? 9 : 25); x < c0 - 4; x += 32) if (clear(x)) lights.push({ ...at(Q, N, x, edge), sd });
+            for (let x = s + (sd > 0 ? 9 : 25); x < c0 - 4; x += 32) if (clear(x)) lights.push({ ...at(Q, N, x, edge), sd, s: x, side: sd, r });
             if (c0 - s > 18) { const x = [s + 4.5, s + 5.5, s + 7].find(clear); if (x != null && (sd > 0 || r.o !== 1)) hydrants.push({ ...at(Q, N, x, o0 + sd * 0.7), sd }); }
+            // (v1200, asked: "add parking meters and trash cans to the sidewalks") a Muni-Meter mid-block (two on a long
+            // block), off the lights; a litter basket at the block's far corner, by the crosswalk
+            const off = x => clear(x) && !lights.some(l => Math.abs(l.s - x) < 2 && l.side === sd && l.r === r);
+            if (c0 - s > 30) for (const f of c0 - s > 70 ? [0.33, 0.67] : [0.5]) { const x = [0, 2.5, -2.5, 5].map(d => s + (c0 - s) * f + d).find(off); if (x != null) meters.push({ ...at(Q, N, x, o0 + sd * 0.55), sd }); }
+            if (c0 < L - 1 && c0 - s > 12) { const x = [c0 - 4.4, c0 - 5.4].find(clear); if (x != null) bins.push({ ...at(Q, N, x, o0 + sd * 0.75), sd }); }
           }
         }
         s = Math.max(s, c1);
@@ -288,10 +359,58 @@ export function makeStreets({ data, wx, wz, hAt, lonOf, latOf }) {
       bn.castShadow = true; group.add(bn);
     }
   }
+  // (v1200, asked: "add newsstands and bus stop shelters to the sidewalks") the city's own: each on the sidewalk of the
+  // street the city lists it on (its name matched, else the nearest), the shelter open to the kerb, the newsstand's window
+  // to the sidewalk; the lights, meters, hydrants and baskets moved out of their way
+  const shelters = [], stands = [];
+  const stairs = [], lifts = [];
+  if (furn && (furn.shelters.length || furn.newsstands.length || furn.subway?.length)) {
+    const norm = t => ` ${String(t || '').toUpperCase()} `.replace(/[^A-Z0-9 ]/g, ' ').replace(/ (\d+)(ST|ND|RD|TH) /g, ' $1 ')
+      .replace(/ STREET /g, ' ST ').replace(/ AVENUE | AVE /g, ' AV ').replace(/ BOULEVARD /g, ' BLVD ').replace(/ PLACE /g, ' PL ').replace(/ ROAD /g, ' RD ').replace(/ PARKWAY /g, ' PKWY ').replace(/ DRIVE /g, ' DR ')
+      .replace(/ WEST /g, ' W ').replace(/ EAST /g, ' E ').replace(/ NORTH /g, ' N ').replace(/ SOUTH /g, ' S ').replace(/\s+/g, '');
+    const G = new Map(), CELL = 25;
+    for (const w of W) { if (w.r.c === 'mot' || w.r.c === 'tru' || w.r.c === 'ser') continue; w.nm = norm(w.r.n); w.Q.forEach((q, i) => { const k = `${Math.floor(q.x / CELL)},${Math.floor(q.z / CELL)}`; (G.get(k) || G.set(k, []).get(k)).push([w, i]); }); }
+    const place = ([lo, la, st], list, depth) => {
+      const x = wx(lo), z = wz(la), cx = Math.floor(x / CELL), cz = Math.floor(z / CELL), want = norm(st);
+      let best = null, bd = Infinity;
+      for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) for (const [w, k] of G.get(`${cx + i},${cz + j}`) || []) {
+        const q = w.Q[k], d = Math.hypot(q.x - x, q.z - z) - (want && w.nm === want ? 30 : 0);   // (her own street, if it's near)
+        if (d < bd) { bd = d; best = [w, k]; }
+      }
+      if (!best || bd > 25) return;
+      const [w, k] = best, q = w.Q[k], n = w.N[k], L = Math.hypot(n.nx, n.nz) || 1;
+      const along = (x - q.x) * n.dx + (z - q.z) * n.dz, off = ((x - q.x) * n.nx + (z - q.z) * n.nz) / L;
+      const sd = off < 0 ? -1 : 1, hw = w.r.w / 2, s = Math.max(2, Math.min(w.Q.at(-1).s - 2, q.s + along));
+      const o = { ...at(w.Q, w.N, s, sd * (hw + depth)), sd }; list.push(o); return o;
+    };
+    for (const f of furn.shelters) place(f, shelters, 1.55);
+    for (const f of furn.newsstands) place(f, stands, 1.75);
+    // (v1200, asked: "add subway entrances to the sidewalks") each stair and street elevator the MTA lists, on the
+    // nearest street's sidewalk; a stair along it, its top toward one end or the other (by where it is)
+    for (const [lo, la, kind, inOk] of furn.subway || []) {
+      const o = place([lo, la, ''], kind ? lifts : stairs, kind ? 2.0 : 2.2); if (!o) continue;
+      o.inOk = inOk; o.flip = kind ? 0 : ((lo * 1e5 | 0) + (la * 1e5 | 0)) & 1;
+    }
+    const away = o => ![...shelters, ...stands].some(b => Math.hypot(b.x - o.x, b.z - o.z) < 3.2) && ![...stairs, ...lifts].some(b => Math.hypot(b.x - o.x, b.z - o.z) < 3.6);
+    for (const list of [lights, hydrants, meters, bins]) { const keep = list.filter(away); list.length = 0; list.push(...keep); }
+  }
   // the street lights and hydrants (v1199): instanced, on the sidewalk; a light's arm out over her roadway
-  if (lights.length || hydrants.length) {
+  if (shelters.length || stands.length || stairs.length || lifts.length) {
+    const F = furniture(), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), one = new THREE.Vector3(1, 1, 1), Y = new THREE.Vector3(0, 1, 0), GREEN = new THREE.Color(0.25, 1, 0.35), RED = new THREE.Color(1, 0.18, 0.12);
+    for (const [list, geo, mat] of [[shelters, F.shelter, F.mat], [shelters, F.glass, F.glassMat], [stands, F.newsstand, F.mat], [stairs, F.stair, F.mat], [stairs, F.globe, F.globeMat], [lifts, F.elevator, F.mat], [lifts, F.elGlass, F.glassMat]]) {
+      if (!list.length) continue;
+      const im = new THREE.InstancedMesh(geo, mat, list.length);
+      list.forEach((o, i) => {
+        q.setFromAxisAngle(Y, Math.atan2(o.sd * o.nz, -o.sd * o.nx) + (o.flip ? Math.PI : 0));   // (a stair's top one way or the other along the street)
+        im.setMatrixAt(i, m4.compose(p.set(o.x, yAt(o.x, o.z, lift.walk - 0.01), o.z), q, one));
+        if (geo === F.globe) im.setColorAt(i, o.inOk ? GREEN : RED);
+      });
+      im.castShadow = mat === F.mat; group.add(im);
+    }
+  }
+  if (lights.length || hydrants.length || meters.length || bins.length) {
     const F = furniture(), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), one = new THREE.Vector3(1, 1, 1), Y = new THREE.Vector3(0, 1, 0);
-    for (const [list, geo] of [[lights, F.light], [hydrants, F.hydrant]]) {
+    for (const [list, geo] of [[lights, F.light], [hydrants, F.hydrant], [meters, F.meter], [bins, F.bin]]) {
       if (!list.length) continue;
       const im = new THREE.InstancedMesh(geo, F.mat, list.length);
       list.forEach((o, i) => { q.setFromAxisAngle(Y, Math.atan2(o.sd * o.nz, -o.sd * o.nx)); im.setMatrixAt(i, m4.compose(p.set(o.x, yAt(o.x, o.z, lift.walk - 0.01), o.z), q, one)); });

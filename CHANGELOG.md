@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-11-21 — Bird's-eye: parking meters, litter baskets, bus shelters, newsstands and subway entrances; an unheard boat said so (v1200)
+
+- Asked: "add parking meters and trash cans to the sidewalks", "add newsstands and bus stop shelters to the sidewalks", "add subway entrances to the sidewalks", and of a sightseeing boat, "in the snapshot the boat is going 6.6 knots, so why doesn't it appear to be moving?".
+- **Muni-Meters** (www/js/streets3d.js `furniture`): the city's parking pay stations, a grey box on its post with a blue band across the top and its screen and keypad to the sidewalk. One mid-block on each block face longer than 30 m, two on one over 70 m, kept off the lights and ramps.
+- **Litter baskets:** the city's green wire-mesh baskets, open-topped, at each block's far corner by the crosswalk.
+- **Bus shelters, the city's own 3,312:** from NYC Open Data's "Bus Stop Shelters" (NYC DOT).
+  - Dark frame and flat roof, see-through glass at the back and one end, the lit advertising panel at the other, a bench inside.
+  - Open to the curb, with a blue bus stop sign on its pole beside it.
+- **Newsstands, the 361 licensed ones:** from NYC Open Data's "Newsstands" (Consumer and Worker Protection). The green kiosk, its roof overhanging, its window and magazines to the sidewalk.
+- **Placement** (new www/data/streets/furniture-new-york-harbor.json, 126 KB, design/streets/build_furniture.py): each shelter and newsstand stands on the sidewalk of the street the city lists it on (the name matched, else the nearest street). Lights, meters, hydrants and baskets within 3 m are moved out of its way.
+- **Subway entrances, the MTA's own 1,197:** from data.ny.gov's "MTA Subway Entrances and Exits: 2024", the stairs and street elevators of the stations "MTA Subway Stations" lists as underground. An elevated station's stairs go up, and the els draw their own.
+  - **A stair:** its steps darkening down into the opening, green iron railings on three sides, and the two lamp posts at the top with their globes: green where you can go in, red where it's exit only. The black "Subway" panels are on the railings.
+  - **A street elevator:** a glass cab, its grey frame and roof, its doors to the sidewalk.
+  - Each stands on the nearest street's sidewalk; its top faces one way or the other along the street. The sidewalk furniture is moved out of the way.
+- **A live boat not heard from** (www/js/bay3d.js `STALE_S`): a vessel is carried on from her last AIS report at her speed and course for five minutes at most. Louisa of the Seas's last report was 15 minutes old (out of the receivers' range, or her AIS off), so she stood still while her line said "6.6 kn on 201°M". Now a report older than five minutes says so: "not heard for 15 min (then 6.6 kn on 201°M)", and the card says the same. She has no wake and no course arrow while unheard.
+- Checked in the app over Broadway at 96th St (its newsstands) and from the street beside an M104. The pieces were checked close up in a harness (design/pending/street-look/look.html).
+- Full CI suite passes.
+
 ## 2026-11-21 — Bird's-eye: curbs, curb cuts, street lights and fire hydrants (v1199)
 
 - Asked: "add real curbs to the sidewalks", "add curb cuts at the crosswalks", "add fire hydrants and street lights to the sidewalks".

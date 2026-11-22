@@ -896,6 +896,7 @@ async function loadTown(t) {
 }
 // (v1193) a town's streets (streets3d.js, www/data/streets/; regions3d.js streets): laid on the 10 m ground, as the detail
 // tiles draw it (its own download of the town's box, interpolated); shown only where that ground is (close in, or riding)
+let furnP = null;
 async function townStreets(t, T) {
   const data = await getJSON(`./data/streets/${t.file}`).catch(() => null); if (!data?.ways?.length || !t.group) return;
   t.lanes = laneIndex(data);   // (v1194: where the buses drive)
@@ -905,7 +906,12 @@ async function townStreets(t, T) {
   const hAt = (lon, lat) => { const c = (lon - dem.west) / dem.dx - 0.5, r = (dem.north - lat) / dem.dy - 0.5; if (c < 0 || r < 0 || c >= dem.w - 1 || r >= dem.h - 1) return heightAt(lon, lat);
     const ci = Math.floor(c), ri = Math.floor(r), fc = c - ci, fr = r - ri, i = ri * dem.w + ci, E = dem.elev;
     return (E[i] * (1 - fc) + E[i + 1] * fc) * (1 - fr) + (E[i + dem.w] * (1 - fc) + E[i + dem.w + 1] * fc) * fr; };
-  t.streets = AC.makeStreets({ data, wx, wz, hAt, lonOf, latOf }).group; t.streets.visible = streetsShown(t); t.group.add(t.streets);
+  // (v1200) the region's bus shelters and newsstands (NYC Open Data; design/streets/build_furniture.py), the area's own
+  furnP ??= getJSON(`./data/streets/furniture-${RID}.json`).catch(() => null);
+  const F = await furnP, inT = ([lo, la]) => lo >= w - M && lo <= e + M && la >= s - M && la <= n + M;
+  const furn = F ? { shelters: F.shelters.filter(inT), newsstands: F.newsstands.filter(inT) } : null;
+  if (!t.group || t.state !== 'ready') return;
+  t.streets = AC.makeStreets({ data, wx, wz, hAt, lonOf, latOf, furn }).group; t.streets.visible = streetsShown(t); t.group.add(t.streets);
 }
 // (v1194, reported riding a bus: "in cab view sometimes the bus is on the sidewalk or on the wrong side of the street"):
 // a bus's GPS is good to 10-20 m, and she was drawn where it put her, so across the double yellow or on the pavement.
@@ -1181,7 +1187,7 @@ function updateWakes(dt) {
   if (own.r || own.ext) add('own', own.boat.group, own.boat.L, own.wakeKn, own.wakeOn);
   fleet.forEach((b, i) => add('f' + i, b.boat.group, b.boat.L, b.boat.kn || BOAT_KN, !!b.going));
   traffic.forEach((v, i) => add('t' + i, v.group, v.L, v.kind === 'ferry' ? v.F.knots : v.V.knots, !!(v.on && v.st?.moving)));
-  for (const v of live) add('a' + v.mmsi, v.group, v.L, v.A.sog || 0, v.on && (v.A.sog || 0) >= 0.8);
+  for (const v of live) add('a' + v.mmsi, v.group, v.L, v.A.sog || 0, v.on && !v.stale && (v.A.sog || 0) >= 0.8);   // (v1200: not one unheard, held where she was reckoned)
   list.sort((a, b) => a.d - b.d);
   wakes.update(list.slice(0, WAKE_N), dt);
 }
@@ -2675,7 +2681,11 @@ function liveData(snap) {
     v.reach = reachOf(v.fix, A);   // (v1157: how far on her course she may be carried before land or a pier)
     const st = aisStatus(A.status), kn = A.sog || 0;
     v.ashore = ashoreAt(A.lon, A.lat);
-    v.label = `${cls.what}${v.ashore ? ', ashore (hauled out?)' : st && st !== 'under way' ? ', ' + st : ''}${kn >= 0.5 ? `, ${kn.toFixed(kn < 10 ? 1 : 0)} kn${A.cog != null ? ' on ' + magTxt(A.cog) : ''}` : ''}`;   // (her course too: v1008)
+    // (v1200, asked of a sightseeing boat showing 6.6 kn and standing still: "why doesn't it appear to be moving?") she's
+    // carried on from her last report for five minutes at most; a report older than that (her AIS not heard: out of the
+    // receivers' range, or switched off) is said so, her speed as it was then, and she's not drawn making way
+    const quiet = (A.age || 0) > STALE_S && kn >= 0.5, sp = `${kn.toFixed(kn < 10 ? 1 : 0)} kn${A.cog != null ? ' on ' + magTxt(A.cog) : ''}`;
+    v.label = `${cls.what}${v.ashore ? ', ashore (hauled out?)' : st && st !== 'under way' ? ', ' + st : ''}${quiet ? `, not heard for ${Math.round(A.age / 60)} min (then ${sp})` : kn >= 0.5 ? `, ${sp}` : ''}`;   // (her course too: v1008)
     // back from 🗺 Chart (v1000, ?vessel=<mmsi>): her card again, and following her
     if (params.get('vessel') === String(A.mmsi)) {   // (the page may still be starting up: again shortly, until it takes)
       params.delete('vessel');
@@ -2727,13 +2737,14 @@ function shoveOff(x, z, h, L) {
   for (let d = 2; d <= 20; d += 2) for (const sg of [1, -1]) { const ox = -uz * d * sg, oz = ux * d * sg; if (!ends(ox, oz).some(Boolean)) return [ox, oz]; }
   return null;
 }
+const STALE_S = 300;   // (how long a live vessel is carried on from her last report: updateLive)
 function updateLive(dt) {
   if (!live.length) return;
   const now = Date.now(), cp = camera.position, up = env.W.heel > 0, heel = env.W.heel * DEG;
   for (const v of live) {
     const A = v.A, kn = A.sog || 0, cog = A.cog ?? A.hdg ?? v.h;
     // where she is now: her last report, moved on at her speed and course (for up to five minutes)
-    const s = Math.min(v.reach ?? Infinity, kn * NMm / 3600 * clamp((now - v.fix.t) / 1000, 0, 300));
+    const s = Math.min(v.reach ?? Infinity, kn * NMm / 3600 * clamp((now - v.fix.t) / 1000, 0, STALE_S)); v.stale = now - v.fix.t > STALE_S * 1000;
     let tx = v.fix.x + Math.sin(cog * DEG) * s, tz = v.fix.z - Math.cos(cog * DEG) * s;
     // (v1187) a ferry stopped at a dock: alongside it (findBerth, as the timetabled ferries at Maine's landings), her
     // bow the way she lay; looked for again with each report
@@ -2948,7 +2959,7 @@ let vecTip = null;   // { text, x, z } for her label at the line's end
 function updateVector() {
   const v = aisCard && !aisCard.hidden && cardV && live.includes(cardV) ? cardV : nest.on && nest.v?.kind === 'ais' ? nest.v : follow?.kind === 'ais' && live.includes(follow) ? follow : null;
   const A = v?.A, kn = A?.sog || 0, cog = A?.cog ?? null;
-  if (!v || !v.on || v.ashore || kn < 0.5 || cog == null) { vecLines.visible = false; vecTip = null; return; }
+  if (!v || !v.on || v.ashore || v.stale || kn < 0.5 || cog == null) { vecLines.visible = false; vecTip = null; return; }
   const cp = camera.position, far = Math.hypot(v.x - cp.x, cp.y, v.z - cp.z), mps = kn * NMm / 3600;
   const min = [1, 3, 6, 12, 30, 60].find(m => mps * 60 * m >= far * 0.3) || 60, len = mps * 60 * min;
   const ux = Math.sin(cog * DEG), uz = -Math.cos(cog * DEG), y = 1.5, P = vecLines.geometry.attributes.position;
@@ -3022,7 +3033,7 @@ function fillCard() {
   row('Size', A.L ? `${ftm(A.L)}${A.B ? ` × ${ftm(A.B)}` : ''}` : '');
   row('Draft', A.draught ? ftm(A.draught) : '');
   row('Status', aisStatus(A.status) ? cap(aisStatus(A.status)) : '');
-  row('Speed', A.sog != null ? `${A.sog.toFixed(1)} kn` : '');
+  row('Speed', A.sog != null ? `${A.sog.toFixed(1)} kn${(A.age || 0) > STALE_S ? `, ${Math.round(A.age / 60)} min ago (not heard since)` : ''}` : '');   // (v1200)
   row('Course', A.cog != null ? `${deg3(A.cog)}° true` : '');
   row('Heading', A.hdg != null ? `${deg3(A.hdg)}° true` : '');
   row('Turning', aisRot(A.rot));
