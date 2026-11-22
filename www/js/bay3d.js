@@ -4618,6 +4618,9 @@ window.__bay3d = {   // for AudioChart (returning to the chart where you were) a
   setView: v => { anim = null; heroDrift = false; Object.assign(view, { x: wx(v.lon), z: wz(v.lat), dist: v.dist ?? view.dist, az: (v.az ?? view.az / DEG) * DEG, tilt: (v.tilt ?? view.tilt / DEG) * DEG }); clampView(); placeCamera(); },
   goTown: id => { const tw = townList.find(x => x.id === id); if (tw) goTown(tw); return !!tw; },
   air, rail,   // (the live aircraft and trains: for the live-tour recording, v1103)
+  // (v1201, for the bus video, design/pending/bus-video) ride a train or bus by her id ('mta:9752'), in a ride mode; leave
+  rideMover: (id, mode = 'helm') => { const v = rail.items().find(p => p.id === id); if (!v) return null; ride(v, mode); return id; },
+  leaveRide: () => { if (nest.on) leaveRide(); if (follow) stopFollow(); },
   tracks: () => tracks,   // (for testing, v1125)
   freeway: () => freeway,   // (v1145)
   trackY: (lon, lat) => tracks ? tracks.yAt(wx(lon), wz(lat), 30) : null,

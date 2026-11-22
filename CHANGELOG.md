@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-11-21 — Bird's-eye: a video of New York's buses (v1201)
+
+- Asked: "create a video that highlights recent improvements with the display of busses in Birdseye".
+- **The video** (design/pending/bus-video/bus-video.mp4, 81 s, narrated): the Upper West Side from above with every city bus on it, the Buses table and its search ("harlem"), then riding an M104 up Broadway from the Drone, Side, Ahead, Behind and Cab views. It covers the streets and the mall, the MTA bus model, her destination sign, keeping right, and the curbs and the city's own sidewalk furniture.
+- **How it's made** (design/pending/bus-video: record.mjs, shim.js, shape.py, build.py, from the live tour's method): a stopped clock stepped a frame at a time, the feeds replayed.
+  - The followed bus is carried along her own route's line from the MTA's timetables (shape.py). The first take moved her in a straight line off her last report, and she drove through the blocks.
+  - Chrome renders on the GPU (`--use-angle=metal`): SwiftShader took 7 s a frame over New York, the GPU 0.3.
+  - The narration was Piper-voiced and pronunciation-checked ("a real M T A bus" said the A as "uh": reworded).
+- **For it, in the app** (www/js/bay3d.js): test hooks `__bay3d.rideMover(id, mode)` and `__bay3d.leaveRide()`.
+- Full CI suite passes.
+
 ## 2026-11-21 — Bird's-eye: parking meters, litter baskets, bus shelters, newsstands and subway entrances; an unheard boat said so (v1200)
 
 - Asked: "add parking meters and trash cans to the sidewalks", "add newsstands and bus stop shelters to the sidewalks", "add subway entrances to the sidewalks", and of a sightseeing boat, "in the snapshot the boat is going 6.6 knots, so why doesn't it appear to be moving?".
