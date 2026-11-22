@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-22 — Bird's-eye: buses beside the curb (v1203)
+
+- Asked: "move the bus over toward the curb" (reported: "the bus is a little too far to the left in its lane").
+- **Cause** (www/js/bay3d.js laneIndex): a bus's lane position was worked out from the lane lines, which are drawn across the middle of the road. The curb is drawn at the road's full width, so on a wide street like Broadway the bus ran several metres out from it.
+- **Fix:** the bus's middle is now 1.9 m in from the drawn curb, so its side is about half a metre off it. On a two-way street it still keeps at least 1.9 m right of the centre line. C&J coaches use the same lanes.
+- Checked in the app on a live M104 on Broadway, from Behind and from the Drone.
+- Full CI suite passes.
+
 ## 2026-11-22 — The tour page's bus video in Eric's voice (no app change: still v1202)
 
 - Asked: "put the Eric version on the tour page" (after "he says 1/5th hundred instead of 15 hundred").
