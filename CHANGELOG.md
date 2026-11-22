@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-22 — Bird's-eye: buses in the middle of their lane (v1204)
+
+- Asked: "Now it's too far to the right. It should be in the middle of the lane" (v1203 put her beside the curb).
+- **www/js/bay3d.js laneIndex:** each street's right-hand lane is worked out as streets3d.js draws it: from the last dashed lane line (or the double yellow) out to the curb. The bus drives down the middle of that, never nearer the curb than 1.4 m. On a one-lane one-way street, that's the middle of the road.
+- On the Upper West Side's Broadway (4 lanes, 17.4 m), the bus's centre sits 5.9 m from the road's centre line, halfway between the dashed line at 3.2 m and the curb at 8.7 m (it was 4.7 m before v1203 and 6.8 m in v1203).
+- Checked in the app: an M104 on Broadway and an M5 on Riverside Drive, from Behind, the Cab and the Drone.
+- Full CI suite passes.
+
 ## 2026-11-22 — Bird's-eye: buses beside the curb (v1203)
 
 - Asked: "move the bus over toward the curb" (reported: "the bus is a little too far to the left in its lane").

@@ -22,6 +22,7 @@ await c.ev(`document.getElementById('livebtn').click()`);
 // the buses in, and their speeds (two reports each: Bus Time is asked every 30 s)
 for (let i = 0; i < 200; i++) {
   await sleep(1000);
+  if ((i === 12 || i === 45) && !(await c.ev(`__bay3d.rail.busCount || 0`))) { await c.ev(`document.getElementById('livebtn').click()`); log('Live clicked again'); }   // (it remembers being on: the first click can turn it off)
   const s = await J(`{ b: __bay3d.rail.busCount || 0, k: __bay3d.rail.items().filter(p => p.mta && p.vKnown).length }`);
   if (i % 15 === 0) log('waiting', JSON.stringify(s));
   if (s.b > 500 && s.k > 300 && i > 70) break;
@@ -29,11 +30,15 @@ for (let i = 0; i < 200; i++) {
 const V0 = { lat: 40.7905, lon: -73.9745, dist: 2600, az: 25, tilt: 58 };   // the Upper West Side, up Broadway
 await c.ev(`__bay3d.setView(${JSON.stringify(V0)})`); await sleep(15000);
 // her: an M104 going up Broadway to West Harlem, moving, nearest the middle of the view (else an M7 or M5)
-const pick = await J(`(() => { const cp = __bay3d.camera.position;
-  const all = __bay3d.rail.items().filter(p => p.mta && p.vKnown && p.v > 3 && p.v < 14 && /^M(104|7|5)$/.test(p.route) && /HARLEM|WASHINGTON|129|147/.test(p.a?.dest || ''));
-  all.sort((a, b) => (a.route !== 'M104') - (b.route !== 'M104') || Math.hypot(a.x - cp.x, a.z - cp.z) - Math.hypot(b.x - cp.x, b.z - cp.z));
-  const p = all[0]; return p ? { id: p.id, route: p.route, dest: p.a.dest, v: p.v, n: __bay3d.rail.busCount, trip: p.b.trip, dir: p.b.dir } : null; })()`);
-if (!pick) { log('no M104, M7 or M5 heading uptown just now'); process.exit(4); }
+// (2026-11-22) only an M104: the M5 runs up Riverside Drive here and the M7 up Columbus, and the narration's Broadway;
+// wait up to ten minutes for one heading uptown, moving
+const PICK = `(() => { const cp = __bay3d.camera.position;
+  const all = __bay3d.rail.items().filter(p => p.mta && p.vKnown && p.v > 3 && p.v < 14 && p.route === 'M104' && /HARLEM|129/.test(p.a?.dest || ''));
+  all.sort((a, b) => Math.hypot(a.x - cp.x, a.z - cp.z) - Math.hypot(b.x - cp.x, b.z - cp.z));
+  const p = all[0]; return p && Math.hypot(p.x - cp.x, p.z - cp.z) < 3000 ? { id: p.id, route: p.route, dest: p.a.dest, v: p.v, n: __bay3d.rail.busCount, trip: p.b.trip, dir: p.b.dir } : null; })()`;
+let pick = null;
+for (let i = 0; i < 40 && !(pick = await J(PICK)); i++) { if (i % 4 === 0) log('no M104 near, uptown and moving, yet'); await sleep(15000); }
+if (!pick) { log('no M104 heading uptown near the view in ten minutes'); process.exit(4); }
 log('her', JSON.stringify(pick));
 await c.ev(`(()=>{ const st=document.createElement('style'); st.textContent='#loading,#help{display:none!important}'; document.head.appendChild(st); })()`);
 // her route's line (shape.py, from the MTA's timetables: GTFS=<dir of its zips>), for the shim to carry her along
@@ -63,9 +68,13 @@ const narr = {
 };
 fs.writeFileSync('narr.json', JSON.stringify(narr, null, 1));
 log('narration written; voicing');
-try { execFileSync('../piper/bin/python', ['-I', '../overview-demo/tts.py', 'narr.json', 'en_US-ryan-high', 'narr', ...(process.argv.includes('--accept') ? ['--accept'] : [])], { stdio: 'inherit' }); }
+// (2026-11-22) VOICE=<ElevenLabs voice id> voices it there instead (eleven.py; Eric is cjVigY5qzO86Huf0OWal) into NARR
+// (default narr-eleven); build with NARR=<that dir>
+const VOICE = process.env.VOICE, NDIR = process.env.NARR || (VOICE ? 'narr-eleven' : 'narr');
+if (VOICE) execFileSync('python3', ['-I', 'eleven.py', 'narr', VOICE, 'narr.json', NDIR], { stdio: 'inherit' });
+else try { execFileSync('../piper/bin/python', ['-I', '../overview-demo/tts.py', 'narr.json', 'en_US-ryan-high', 'narr', ...(process.argv.includes('--accept') ? ['--accept'] : [])], { stdio: 'inherit' }); }
 catch (e) { log('narration has an unchecked word: check narr.json above, then rerun'); process.exit(2); }
-const D = JSON.parse(fs.readFileSync('narr/durations.json', 'utf8'));
+const D = JSON.parse(fs.readFileSync(`${NDIR}/durations.json`, 'utf8'));
 
 // ── the shots, timed to it: [narration, shot, seconds more] ──
 const SHOTS = [['a', 'over', 1.5], ['b', 'table', 2.5], ['c', 'drone', 1.2], ['d', 'side', 1.2], ['e', 'bow', 1.5], ['f', 'stern', 1.2], ['g', 'helm', 2.5], ['h', 'end', 2.5]];

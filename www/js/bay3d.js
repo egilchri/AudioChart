@@ -924,10 +924,12 @@ function laneIndex(data) {
   const G = new Map();
   for (const r of data.ways) {
     if (r.c === 'ser' || r.p.length < 2) continue;
-    // (v1203, asked: "move the bus over toward the curb": she was set by the lane lines, which sit mid-road, and on a wide
-    // street like Broadway the kerb, drawn at the road's full width (streets3d.js hw), was metres off: now her middle is
-    // 1.9 m in from the kerb, her side about half a metre off it)
-    const off = r.o ? Math.max(0, r.w / 2 - 1.9) : Math.max(1.9, r.w / 2 - 1.9);
+    // (v1203, asked: "move the bus over toward the curb", then v1204: "now it's too far to the right. It should be in the
+    // middle of the lane"): her lane as drawn (streets3d.js) runs from the last dashed line (or the double yellow) out to
+    // the kerb at the road's full width; she drives down the middle of it, never nearer the kerb than 1.4 m
+    const hw = r.w / 2, L = r.l || 1, travel = Math.min(r.w - 1, L * 3.2), lw = travel / L, per = r.o ? L : Math.floor(L / 2);
+    const inner = r.o ? (L > 1 ? travel / 2 - lw : -hw) : (per > 1 ? (per - 1) * lw : 0);
+    const off = Math.max(r.o ? 0 : 1.5, Math.min((inner + hw) / 2, hw - 1.4));
     for (let i = 1; i < r.p.length; i++) {
       const ax = wx(r.p[i - 1][0]), az = wz(r.p[i - 1][1]), bx = wx(r.p[i][0]), bz = wz(r.p[i][1]), len = Math.hypot(bx - ax, bz - az); if (len < 0.5) continue;
       const seg = { ax, az, dx: (bx - ax) / len, dz: (bz - az) / len, len, off, reach: r.w / 2 + 6 }, keys = new Set();
