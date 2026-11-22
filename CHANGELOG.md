@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-22 — The tour page's bus video in Eric's voice (no app change: still v1202)
+
+- Asked: "put the Eric version on the tour page" (after "he says 1/5th hundred instead of 15 hundred").
+- **eleven.py** sends numbers written like "1,500" as words ("fifteen hundred"); line a was re-voiced.
+- **The tour page**: tour/nyc-buses.mp4 is now the Eric version (the source is `?v=2`, so browsers and the CDN fetch the new file). The site's shell cache is now birdseye-shell-v6.
+- Full CI suite passes.
+
 ## 2026-11-22 — The bus video in an ElevenLabs voice (no app change: still v1202)
 
 - Asked: "try generating the video with one of their voices", then "use Brian".

@@ -3,7 +3,7 @@
 #   python3 eleven.py voices                       the account's voices: id, name, labels
 #   python3 eleven.py say VOICE_ID out.mp3 "text"  one clip
 #   python3 eleven.py narr VOICE_ID narr.json DIR  every line of narr.json → DIR/<key>.wav (+ durations.json)
-import json, os, subprocess, sys, urllib.request, urllib.error
+import json, os, re, subprocess, sys, urllib.request, urllib.error
 
 KEY = open(os.path.expanduser('~/.config/elevenlabs/key')).read().strip()
 API = 'https://api.elevenlabs.io/v1'
@@ -19,8 +19,13 @@ def call(path, body=None):
 
 # what ElevenLabs should say for what's written (it reads "M104" and "MTA" its own way)
 SPEAK = [('M T A', 'M.T.A.'), ("Ted's Birdseye", "Ted's Birds-eye")]
+ONES = 'zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen'.split()
+TENS = 'x x twenty thirty forty fifty sixty seventy eighty ninety'.split()
+def words(n): return ONES[n] if n < 20 else TENS[n // 10] + ('-' + ONES[n % 10] if n % 10 else '')
 def spoken(t):
     for a, b in SPEAK: t = t.replace(a, b)
+    # "1,500" as "fifteen hundred" (Eric read it "one fifth hundred")
+    t = re.sub(r'\b(\d),(\d)00\b', lambda m: f'{words(int(m[1] + m[2]))} hundred', t)
     return t
 
 def say(voice, out, text):
@@ -38,6 +43,10 @@ if cmd == 'voices':
         print(v['voice_id'], '|', v['name'], '|', v.get('category', ''), '|', ', '.join(f'{k}: {x}' for k, x in lb.items()))
 elif cmd == 'say':
     say(sys.argv[2], sys.argv[3], sys.argv[4]); print(sys.argv[3], f'{dur(sys.argv[3]):.2f} s')
+elif cmd == 'music':   # python3 eleven.py music out.mp3 SECONDS "prompt": an original track (Eleven Music)
+    out, secs, prompt = sys.argv[2], float(sys.argv[3]), sys.argv[4]
+    open(out, 'wb').write(call('/music?output_format=mp3_44100_128', {'prompt': prompt, 'music_length_ms': int(secs * 1000), 'model_id': 'music_v1'}))
+    print(out, f'{dur(out):.2f} s')
 elif cmd == 'narr':
     voice, narr, out = sys.argv[2], json.load(open(sys.argv[3])), sys.argv[4]
     os.makedirs(out, exist_ok=True); D = {}
