@@ -1,0 +1,25 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.egilchri.audiochart.watch'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId 'com.egilchri.audiochart.watch'
+        minSdk 30          // Wear OS 3+
+        targetSdk 36
+        versionCode 1
+        versionName '0.1'
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    androidResources {
+        noCompress += 'bin'    // chart data is read straight from the APK
+    }
+}

@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-11-22 — Pixel Watch app, first version for Penobscot Bay (no web app change: still v1204)
+
+- Asked: run AudioChart on a Pixel Watch "without the phone, away from wifi", then "build the first version for Penobscot Bay".
+- **wear/**: a standalone Wear OS app (Java, no AndroidX), working with the phone out of Bluetooth range: GPS, chart data and speech are all on the watch.
+  - **Lookout:** looks six minutes ahead (0.25–1.5 nm). It warns once each for charted rocks, obstructions and wrecks within 0.1 nm of the course line, for land ahead, and for drying or under-1.5 m shoals. A second, urgent warning with a strong vibration fires under about 120 yards when the hazard is nearly dead ahead. Wording follows the web app's free sail.
+  - **Anchor watch:** same rules as the web app's: alarm after 30 s outside the circle, repeat every 20 s, Silence for 5 minutes.
+  - **Where am I?:** nearest named place and nearest charted hazard.
+  - **Callouts:** GPS lost, and leaving or re-entering chart coverage. Speech plays on the alarm channel. It runs as a foreground location service, so it keeps going with the screen off.
+- **design/watch/build_watch_data.py** packs a region into a 2 MB binary (wear/app/src/main/assets/penobscot-bay.bin).
+- **Tested** on a Wear OS 7 emulator (AVD Pixel_Watch_45mm) with scripted GPS tracks at Halfway Rock. Speech was confirmed as real TTS audio.
+- **Fixed during testing:**
+  - rocks re-announced on every fix
+  - "Land ahead" repeated as the speed wobbled (speed now smoothed, land remembered for a minute)
+  - a burst of warnings after a GPS jump (speeds over 30 kn are now ignored)
+- **Not yet:** overhead-cable warnings, and testing on a real watch (battery, speaker volume, GPS on the wrist).
+
 ## 2026-11-22 — The tour page's bus video re-recorded (no app change: still v1204)
 
 - Asked: "re-record the video with Eric's voice", then "put it on the tour page".

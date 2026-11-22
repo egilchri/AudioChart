@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- navy disc with a white buoy-triangle: placeholder launcher icon -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp" android:height="48dp"
+    android:viewportWidth="48" android:viewportHeight="48">
+    <path android:fillColor="#1F3A5F" android:pathData="M24,0a24,24 0,1 1,0 48a24,24 0,1 1,0 -48z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M24,11 L35,33 L13,33 Z" />
+    <path android:fillColor="#4A9EDD" android:pathData="M10,37 Q17,33 24,37 T38,37 L38,40 Q31,36 24,40 T10,40 Z" />
+</vector>
