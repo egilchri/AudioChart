@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-11-22 — The tour page's bus video re-recorded (no app change: still v1204)
+
+- Asked: "re-record the video with Eric's voice", then "put it on the tour page".
+- **The recording** (design/pending/bus-video/record.mjs):
+  - VOICE= voices the narration through ElevenLabs (eleven.py) before the frames are timed to it.
+  - It waits for an M104 only. One take picked an M5, which runs up Riverside Drive here, not Broadway as the narration says.
+  - It clicks Live again if no buses arrive, since the page remembers being live and the first click can turn it off.
+- **The take:** M104 bus 9638 up Broadway, recorded with v1204, so the bus drives in the middle of its lane.
+- **The tour page:** the new take and a new poster (the Ahead view, passing a bus shelter), both served as `?v=3`. The site's shell cache is now birdseye-shell-v7.
+- Full CI suite passes.
+
 ## 2026-11-22 — Bird's-eye: buses in the middle of their lane (v1204)
 
 - Asked: "Now it's too far to the right. It should be in the middle of the lane" (v1203 put her beside the curb).
