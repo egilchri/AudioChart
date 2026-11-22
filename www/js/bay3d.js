@@ -170,6 +170,8 @@ if (ARMCHAIR) {
   const wp = document.getElementById('wproute');
   for (const el of [wp?.previousElementSibling, wp, document.getElementById('sailrow'), document.getElementById('sailnote')]) if (el) { el.hidden = true; el.style.display = 'none'; }
   const back = document.querySelector('.panel a.back'); if (back) { back.href = './sailors/'; back.textContent = 'About AudioChart'; if (TED) back.target = '_blank'; }   // (in Ted's Birdseye's frame: not over the view)
+  // the tours (v1202, asked: a way to the tour page from Ted's Birdseye): the narrated videos, beside About AudioChart
+  if (TED && back) { const t = document.createElement('a'); t.className = 'back tours'; t.href = new URL('../birdseye/tour.html', location.href).href; t.target = '_blank'; t.textContent = '🎬 Watch the tours'; t.title = 'Narrated videos of Ted\'s Birdseye: New York\'s buses, San Francisco Bay live'; back.before(t); back.before(document.createTextNode(' ')); }
   const help = document.getElementById('help');
   if (help) help.textContent = 'Drag to move · right-drag or Shift-drag to turn and tilt · ⤒ Level (or the T key) to look out at the horizon · scroll or pinch to zoom · click a place · 📡 Live for the ships there now; click one for her card · Weather (N)';
 }

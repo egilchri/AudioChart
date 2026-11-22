@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-22 — Ted's Birdseye: a way to the tours (v1202)
+
+- Asked: a way to the tour page from Ted's Birdseye's opening page, then "do both" (the opening screen and the app).
+- **The tour page** (egilchri.github.io/birdseye/tour.html, source design/birdseye/site/tour.html) now has two tours: New York's buses (the v1201 video, tour/nyc-buses.mp4) above San Francisco Bay. The site's shell cache is now birdseye-shell-v5.
+- **The opening screen** (design/birdseye/site/index.html): a "▶ Watch the tours" link under the loading bar. A tap on the link opens the tours; a tap anywhere else still skips into the bay.
+- **In the app** (www/js/bay3d.js, Ted's Birdseye only): "🎬 Watch the tours" beside About AudioChart at the foot of the panel. It opens in a new tab.
+- Full CI suite passes.
+
 ## 2026-11-21 — Bird's-eye: a video of New York's buses (v1201)
 
 - Asked: "create a video that highlights recent improvements with the display of busses in Birdseye".
