@@ -1718,6 +1718,17 @@ function clearOfRoofs(at, D, el, az0) {
   for (let k = 20; k <= 180; k += 20) for (const sg of [1, -1]) { const p = pos(az0 + sg * k * DEG); if (blockedBy(p) === -Infinity) { camera.position.set(...p); return; } }
   camera.position.y = Math.max(camera.position.y, blockedBy([camera.position.x, camera.position.y, camera.position.z]) + 12);   // (round her all blocked: over the roofs)
 }
+// (v1205, for the Brooklyn-to-the-Met tour video, asked: "do a POV of the person doing the walking parts") a walker's
+// eye on the sidewalk: { lon, lat, az (looking, 0 = north), pitch (degrees up), h (eye height, 1.7 m), fov }; set by
+// __bay3d.walkEye (null to give the camera back), placed after everything has moved, every frame
+let eye = null;
+function eyeCamera() {
+  const x = wx(eye.lon), z = wz(eye.lat), y = Math.max(0, heightAt(eye.lon, eye.lat)) + (eye.h ?? 1.7), a = eye.az * DEG, p = (eye.pitch ?? 0) * DEG;
+  camera.position.set(x, y, z);
+  camera.lookAt(x + Math.sin(a) * Math.cos(p) * 10, y + Math.sin(p) * 10, z - Math.cos(a) * Math.cos(p) * 10);
+  camera.fov = eye.fov ?? 62; camera.near = 0.3; camera.updateProjectionMatrix(); camera.updateMatrixWorld();
+  view.x = x; view.z = z; view.az = a; view.dist = 900;   // (the tiles, the fine ground and the weather where the walker is)
+}
 function nestCamera() {   // after every vessel has moved: the eye aboard her, looking where you've turned it
   const v = nest.v, g = vGroup(v);
   if (!g.visible && !(v === own && own.r) && !(v.on && nest.mode === 'helm' && atConsole(v))) { leaveRide(); return; }   // (v1170: at an open boat's console her model's hidden, not gone)   // she's gone (out of service, out of season)
@@ -4551,6 +4562,7 @@ function frame(now) {
   updateOwn(dt);
   updateWakes(dt);
   if (nest.on) nestCamera();   // after every vessel has moved, yours too
+  if (eye) eyeCamera();   // (v1205) a walker's eye, over all
   if (nest.on || !rcEl?.hidden) drawRideChart();
   wildlife.update(dt, t, view, camera.position, { hidden: !!aboveFog || EMPTY || (nest.on && isMover(nest.v)) || (!!follow && isMover(follow)),   // (v1148, asked: "We don't need seagulls over non-boat things": none round a train or plane you're riding or following)
     night: env.C.time === 'night', boat: (own.ext || own.r) ? own : null, scale: d => clamp(d / 35, 3, 8), nearWater });
@@ -4628,6 +4640,10 @@ window.__bay3d = {   // for AudioChart (returning to the chart where you were) a
   // (v1201, for the bus video, design/pending/bus-video) ride a train or bus by her id ('mta:9752'), in a ride mode; leave
   rideMover: (id, mode = 'helm') => { const v = rail.items().find(p => p.id === id); if (!v) return null; ride(v, mode); return id; },
   leaveRide: () => { if (nest.on) leaveRide(); if (follow) stopFollow(); },
+  walkEye: e => { eye = e || null; document.getElementById('labels').style.visibility = eye ? 'hidden' : ''; if (!eye) { camera.fov = 50; camera.updateProjectionMatrix(); placeCamera(); } },   // (no place names floating over the street)   // (v1205) see eyeCamera
+  // (v1205, for the Brooklyn-to-the-Met tour video) the live ships, in short, and ride one by her MMSI
+  liveShips: () => live.filter(v => v.A).map(v => ({ mmsi: v.mmsi, name: v.A.name || '', what: v.what || v.model || '', L: v.L, lat: latOf(v.z), lon: lonOf(v.x), sog: v.A.sog, cog: v.A.cog, age: v.A.age, on: !!v.on })),
+  rideShip: (mmsi, mode = 'helm') => { const v = live.find(v => String(v.mmsi) === String(mmsi)); if (!v) return null; ride(v, mode); return String(v.mmsi); },
   tracks: () => tracks,   // (for testing, v1125)
   freeway: () => freeway,   // (v1145)
   trackY: (lon, lat) => tracks ? tracks.yAt(wx(lon), wz(lat), 30) : null,

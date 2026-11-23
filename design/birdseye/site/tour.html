@@ -9,7 +9,8 @@
      live, recorded from Bird's-eye with the real feeds (AudioChart's design/pending/live-tour: record.mjs, build.py).
      Source: AudioChart's design/birdseye/site/ (published to github.com/egilchri/birdseye).
      2026-11-22 ("post it to the Birdseye site"): New York's buses (design/pending/bus-video, v1201) added above it; then
-     re-voiced by ElevenLabs' Eric ("put the Eric version on the tour page"), then re-recorded with the buses mid-lane (v1204). -->
+     re-voiced by ElevenLabs' Eric ("put the Eric version on the tour page"), then re-recorded with the buses mid-lane (v1204).
+     2026-11-22 ("commit it and put it on the tour page"): Brooklyn to the Met (design/pending/met-tour, v1205) added at the top. -->
 <link rel="icon" href="./icons/birdseye-192.png" sizes="192x192">
 <link rel="apple-touch-icon" href="./icons/birdseye-180.png" sizes="180x180">
 <meta name="theme-color" content="#122a3a">
@@ -48,6 +49,25 @@
   </header>
 
   <section class="tour">
+  <h2 class="t">Brooklyn to the Met, by subway and bus</h2>
+  <video controls playsinline preload="metadata" poster="./tour/nyc-met-poster.jpg">
+    <source src="./tour/nyc-met.mp4" type="video/mp4">
+  </video>
+  <p class="cap">1 min 13 s, narrated. Recorded on November 22, 2026, from the MTA's live subway and bus feeds as they were that evening.</p>
+
+  <h2>What you're seeing</h2>
+  <ul>
+    <li><b>A real F train</b>, from the MTA's subway feed, seen from the front of the train: at Bergen Street in Cobble Hill, then pulling into 34th Street–Herald Square.</li>
+    <li><b>The walk</b> along 34th Street, past the Empire State Building, at eye level from the sidewalk.</li>
+    <li><b>A real M3 bus</b>, from MTA Bus Time, up Madison Avenue to 83rd Street.</li>
+    <li><b>The Metropolitan Museum of Art</b> on Fifth Avenue: its central pavilion's columns, arches and banners, the steps and the fountains, over the museum's measured footprint and height from NYC Open Data.</li>
+  </ul>
+
+  <h2>Try it yourself</h2>
+  <p>Open Ted's Birdseye, choose <b>New York</b>, and tap <b>📡 Live</b>. In <b>⛴ Underway</b>, find an F train or a Madison Avenue bus and ride along from the cab.</p>
+  </section>
+
+  <section class="tour">
   <h2 class="t">New York's buses, live</h2>
   <video controls playsinline preload="metadata" poster="./tour/nyc-buses-poster.jpg?v=3">
     <source src="./tour/nyc-buses.mp4?v=3" type="video/mp4">
@@ -84,7 +104,7 @@
   </section>
   <a class="go" href="./">Open Ted's Birdseye</a>
 
-  <footer>Buses from <a href="https://bustime.mta.info">MTA Bus Time</a> · shelters and newsstands from NYC Open Data · subway entrances from data.ny.gov · aircraft from <a href="https://adsb.lol">adsb.lol</a> (ODbL) · trains from <a href="https://511.org/open-data">511.org</a> · ships from AISStream and Open Waters AIS · elevation USGS 3DEP · photos USDA NAIP · from <a href="https://egilchri.github.io/AudioChart/">AudioChart</a></footer>
+  <footer>Subway and buses from the MTA (<a href="https://bustime.mta.info">Bus Time</a>, GTFS-realtime) · shelters, newsstands and building footprints from NYC Open Data · subway entrances from data.ny.gov · aircraft from <a href="https://adsb.lol">adsb.lol</a> (ODbL) · trains from <a href="https://511.org/open-data">511.org</a> · ships from AISStream and Open Waters AIS · elevation USGS 3DEP · photos USDA NAIP · from <a href="https://egilchri.github.io/AudioChart/">AudioChart</a></footer>
 </main>
 </body>
 </html>

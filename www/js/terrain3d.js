@@ -3,6 +3,7 @@
 // prebuilt town buildings. Moved out of helm3d.js unchanged (v844) so both views use one copy.
 import * as THREE from 'three';
 import { REGIONS3D, region3dId } from './regions3d.js';
+import { buildLandmark } from './landmarks3d.js';
 
 // World frame: metres east (x) and south (z) of a fixed origin in the middle of the bay shown (mid Penobscot Bay,
 // or Casco Bay since v992: regions3d.js); y up.
@@ -346,6 +347,7 @@ export function buildTown(T) {   // → a Group of the town's buildings and whar
     quad(wall, [ax, y0, az], [bx, y0, bz], [bx, y1, bz], [ax, y1, az], [0, v0], [u1, v0], [u1, v1], [0, v1], col);
   }
   for (const b of T.buildings) {
+    if (b.lm) { const lg = buildLandmark(b, wx, wz); if (lg) { group.add(lg); continue; } }   // (v1205) modelled by hand: landmarks3d.js
     const g = b.g ?? 2.5, foot = g - 3, eave = g + b.e, ridge = g + b.r;
     const wc = lin(b.wc, 1.12), rc = lin(b.rc, 1.08);
     let P = b.p.map(([lo, la]) => [wx(lo), wz(la)]);

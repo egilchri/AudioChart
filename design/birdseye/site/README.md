@@ -13,3 +13,6 @@ Bird's-eye with the live feeds by AudioChart's `design/pending/live-tour/` (`rec
 
 `tour/nyc-buses.mp4` (2026-11-22): "New York's buses, live", added to the tour page above San Francisco; made by
 AudioChart's `design/pending/bus-video/` (`record.mjs`, then `build.py`).
+
+`tour/nyc-met.mp4` (2026-11-22): "Brooklyn to the Met, by subway and bus", at the top of the tour page; made by
+AudioChart's `design/pending/met-tour/` (`record.mjs`, then `build.py`).

@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-11-22 — Bird's-eye: the Met, a walker's eye; the tour page: Brooklyn to the Met (v1205)
+
+- Asked: "Taking subway, boat, and bus from cobble hill area of brooklyn to Metropolitan Art Museum", then "go with option 1, F train then Madison bus", "do a POV of the person doing the walking parts", "I expect we'll want to recursively improve the look of the MET", "the walks are too fast, slow them down", and "commit it and put it on the tour page".
+- **The Met** (new www/js/landmarks3d.js; terrain3d.js buildTown draws any building with `lm` set through it):
+  - It was missing from the Upper West Side's buildings (www/data/buildings/nyc-upper-west-side.json). It's added from NYC Open Data's building footprints (BIN 1083810, roof 26.8 m) with `lm: "met"` and the Fifth Avenue front's position.
+  - Round 1: limestone; Hunt's central pavilion with three arched windows and doors, four pairs of columns on pedestals, the uncarved blocks over them, entablature and cornice; red, blue and gold banners; the steps; the two fountains.
+  - Round 2: the wings along Fifth Avenue get a base, a cornice, two rows of windows and pilasters.
+  - Design renders: design/pending/met-look/.
+- **A walker's eye** (www/js/bay3d.js `__bay3d.walkEye`): the camera on the sidewalk at 1.7 m, looking where it's told, with place labels hidden. For the tour video's walks.
+- **Test hooks** (bay3d.js): `__bay3d.liveShips` and `rideShip`, for picking a live ferry. The ferry leg was dropped from the video (no boat could be proven to be on the route the narration named), but the hooks stay.
+- **The video** (design/pending/met-tour: record.mjs, shim.js, build.py), 1 min 13 s in Eric's voice:
+  - An F train at Bergen St and pulling into 34 St–Herald Sq, from the cab. The cab's captions match the narration: the recorder sets the train's reported position on the frozen clock until the drawn train is where the narration says.
+  - A walk along 34th Street past the Empire State Building, an M3 up Madison to 83rd Street, and a walk to the Met. The walks are cut into pieces at about walking pace.
+  - The recorder restarts the page's train feed when it stops asking for trains. In the headless recording page, polling stopped after each fetch; whether real users see this is not yet checked.
+  - The frames were recorded before this version number was set, so their footer reads v1204.
+- **The tour page** (design/birdseye/site): "Brooklyn to the Met, by subway and bus" at the top, with a poster of the Met from across Fifth Avenue. The site's shell cache is now birdseye-shell-v8.
+
 ## 2026-11-22 — Pixel Watch app, first version for Penobscot Bay (no web app change: still v1204)
 
 - Asked: run AudioChart on a Pixel Watch "without the phone, away from wifi", then "build the first version for Penobscot Bay".
