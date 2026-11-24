@@ -2531,6 +2531,23 @@ let busRoute = '';
 // route, destination or number has what's typed in it ("M104", "104", "SBS", "Harlem", "Broadway", "LaGuardia"), nearest
 // first. Its own element, kept across the table's rebuilds (every 2.5 s), so typing in it isn't interrupted.
 let busQuery = '', busSearchRow = null;
+// (v1207, asked: "sorting options in the tables for trains, boats, etc, to sort by proximity, or alphabetically") each
+// table's order: Nearest the view (as before), Near me (your blue dot, meDot below; offered only while you have one in
+// the region), or A–Z by name. Which rows are listed is still the nearest (the 40 buses, the 25 planes, the 12 AIS);
+// the choice orders them, and the Off column measures from the same place. Remembered.
+const UW_SORT_KEY = 'audiochart-bay3d-underway-sort';
+let uwSort = 'near'; try { uwSort = localStorage.getItem(UW_SORT_KEY) || 'near'; } catch (_) {}
+function sortChips() {
+  const el = uwPanel.querySelector('.uwsort'); if (!el) return;
+  const me = !!window.__meDot?.fix, cur = uwSort === 'me' && !me ? 'near' : uwSort;
+  el.innerHTML = '<span>Sort</span>';
+  for (const [k, t, tip] of [['near', 'Nearest', 'Nearest the middle of the view first'], ['me', 'Near me', 'Nearest you (the blue dot) first'], ['az', 'A–Z', 'By name, A to Z']]) {
+    if (k === 'me' && !me) continue;
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = t; b.title = tip; b.classList.toggle('on', k === cur);
+    b.addEventListener('click', () => { uwSort = k; try { localStorage.setItem(UW_SORT_KEY, k); } catch (_) {} fillUnderway(); }); el.appendChild(b);
+  }
+  return cur;
+}
 const escH = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const busKey = t => String(t || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 function busMatches(v, q) {
@@ -2555,11 +2572,12 @@ function fillUnderway() {
   const tab = uwTab === 'air' && hasAir ? 'air' : uwTab === 'rail' && hasRail ? 'rail' : uwTab === 'bus' && hasBus ? 'bus' : 'water';
   const tabs = uwPanel.querySelector('.uwtabs');
   if (tabs) { tabs.hidden = !hasAir && !hasRail && !hasBus; for (const b of tabs.querySelectorAll('button')) { b.hidden = b.dataset.tab === 'air' ? !hasAir : b.dataset.tab === 'rail' ? !hasRail : b.dataset.tab === 'bus' ? !hasBus : false; b.classList.toggle('on', b.dataset.tab === tab); } }
-  const bq = busQuery.trim();
-  uwPanel.querySelector('.sect').textContent = tab === 'air' ? 'In the air now' : tab === 'rail' ? 'Trains running now' : tab === 'bus' ? (bq ? `Buses matching “${bq}”${busRoute ? ` on the ${busRoute.replace(/\+$/, ' Select')}` : ''}, nearest first` : busRoute ? `The ${busRoute.replace(/\+$/, ' Select')} buses, nearest first` : 'Buses near you now') : 'On the water now';
+  const bq = busQuery.trim(), sortBy = sortChips() || 'near', fix = sortBy === 'me' ? window.__meDot?.fix : null, ref = fix || view;
+  const order = sortBy === 'az' ? 'A to Z' : fix ? 'nearest you first' : 'nearest first';
+  uwPanel.querySelector('.sect').textContent = tab === 'air' ? 'In the air now' : tab === 'rail' ? 'Trains running now' : tab === 'bus' ? (bq ? `Buses matching “${bq}”${busRoute ? ` on the ${busRoute.replace(/\+$/, ' Select')}` : ''}, ${order}` : busRoute ? `The ${busRoute.replace(/\+$/, ' Select')} buses, ${order}` : 'Buses near you now') : 'On the water now';
   const list = uwPanel.querySelector('ul'); list.innerHTML = `<li class="hdr"><span class="n">${tab === 'air' ? 'Aircraft' : tab === 'rail' ? 'Train' : tab === 'bus' ? 'Bus' : 'Vessel'}</span><span class="eta">${tab === 'air' ? (airFrom ? 'To' : 'Bound') : 'ETA'}</span><span class="d">Off</span><span class="go"></span></li>`;
-  const away = v => { const d = Math.hypot(v.x - view.x, v.z - view.z) / NMm; return d < 0.15 ? '' : `${d.toFixed(d < 10 ? 1 : 0)} nm`; };
-  const rows = [], d2 = b => Math.hypot(b.x - view.x, b.z - view.z);
+  const away = v => { const d = Math.hypot(v.x - ref.x, v.z - ref.z) / NMm; return d < 0.15 ? '' : `${d.toFixed(d < 10 ? 1 : 0)} nm`; };
+  const rows = [], d2 = b => Math.hypot(b.x - ref.x, b.z - ref.z);
   if (tab === 'rail') for (const v of rail.items().filter(v => !isBus(v)).sort((a, b) => d2(a) - d2(b))) rows.push({ v, what: v.label });
   const fl = uwPanel.querySelector('.uwfilter'); if (fl) fl.hidden = tab !== 'air' && tab !== 'bus';
   if (tab === 'bus') {
@@ -2620,6 +2638,11 @@ function fillUnderway() {
   if (tab === 'water') for (const v of live.filter(o => o.on).sort((a, b) => d2(a) - d2(b)).slice(0, 12)) rows.push({ v, what: `📡 ${v.label}` });
   if (tab === 'water' && bowdoin && bowdoin !== own && bowdoin.boat.group.visible) rows.push({ v: bowdoin, what: 'Schooner, out of Castine' });
   if (tab === 'water') for (const v of fleet.filter(b => b !== bowdoin && b.boat.group.visible).sort((a, b) => d2(a) - d2(b)).slice(0, 6)) rows.push({ v, what: vDoing(v) });
+  {   // (v1207) the chosen order; your own boat stays at the top of the water's
+    const nameOf = v => v === own ? '' : String(vName(v) || '').replace(/^[^\p{L}\p{N}]+/u, '');
+    const by = sortBy === 'az' ? (a, b) => nameOf(a.v).localeCompare(nameOf(b.v), undefined, { numeric: true, sensitivity: 'base' }) || d2(a.v) - d2(b.v) : (a, b) => d2(a.v) - d2(b.v);
+    rows.sort((a, b) => (b.v === own) - (a.v === own) || by(a, b));
+  }
   if (!rows.length) { list.innerHTML = `<li class="none">${tab === 'air' ? (airDest ? `No plane bound for ${airDest} heard just now` : airFrom ? `No plane leaving ${airFrom} heard just now` : 'No aircraft heard') : tab === 'rail' ? 'No trains running' : tab === 'bus' ? (bq ? `No bus matching “${escH(bq)}” running just now` : busRoute ? `No ${busRoute} bus running just now` : 'No buses running') : 'Nothing on the water in sight'}</li>`; return; }
   for (const r of rows) {
     const li = document.createElement('li'), v = r.v;

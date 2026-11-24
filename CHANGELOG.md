@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-11-24 — Bird's-eye: sorting the Underway tables (v1207)
+
+- Asked: "I would like to have sorting options in the tables for trains, boats, etc, to sort by proximity, or alphabetically".
+- **Sort** (www/js/bay3d.js `sortChips` and `fillUnderway`; CSS `#underway .uwsort` in www/bay3d.html): a row of chips under ⛴ Underway's tabs, for every tab (water, trains, buses, air):
+  - **Nearest**: nearest the middle of the view first. This was the old order for trains and buses; the water and air tabs are now strictly by distance too.
+  - **Near me**: nearest your blue dot (v1206) first. Shown only while you have a location fix inside the region.
+  - **A–Z**: by name, with numbers in numeric order and same-name vehicles nearest first.
+  - Which rows are listed is unchanged (the 40 nearest buses, the 25 planes, the 12 AIS vessels); the sort changes their order. The Off column measures from the same place as the sort. Your own boat stays at the top of the water tab. The choice is remembered.
+  - Chosen sort applies under the air tab's airport filters too, replacing their old "soonest first" order.
+- Checked in headless Chrome, New York trains tab: each chip, with the view downtown and an emulated location in Times Square.
+
 ## 2026-11-24 — Bird's-eye: a blinking dot where you are (v1206)
 
 - Asked: "I would like BirdsEye to place a blinking cursor or dot, at my current location, when I am in a region. For example, right now, I am in Manhattan".
