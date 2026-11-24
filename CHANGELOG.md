@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-24 — Bird's-eye: a "You" column in the Underway tables (v1208)
+
+- Asked: "In the tables, there should be a column for distance from current location".
+- **You** (www/js/bay3d.js `fillUnderway`; CSS `#underway .d.me`): each row's distance from your blue dot (v1206), in light blue, after Off. Rows within about 100 yards read "here". The column is shown only while you have a location fix inside the region.
+- **Off** is again always measured from the middle of the view, whatever the sort (in v1207 it followed the sort).
+- Checked in headless Chrome, New York trains tab, view downtown, emulated location in Times Square: Nearest gives 0.2 nm Off / 3.5 nm You; Near me gives 3.8 nm Off / 0.1 nm You.
+
 ## 2026-11-24 — Bird's-eye: sorting the Underway tables (v1207)
 
 - Asked: "I would like to have sorting options in the tables for trains, boats, etc, to sort by proximity, or alphabetically".

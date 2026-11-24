@@ -2534,7 +2534,7 @@ let busQuery = '', busSearchRow = null;
 // (v1207, asked: "sorting options in the tables for trains, boats, etc, to sort by proximity, or alphabetically") each
 // table's order: Nearest the view (as before), Near me (your blue dot, meDot below; offered only while you have one in
 // the region), or A–Z by name. Which rows are listed is still the nearest (the 40 buses, the 25 planes, the 12 AIS);
-// the choice orders them, and the Off column measures from the same place. Remembered.
+// the choice orders them. Off is from the view; You (v1208) from the blue dot. Remembered.
 const UW_SORT_KEY = 'audiochart-bay3d-underway-sort';
 let uwSort = 'near'; try { uwSort = localStorage.getItem(UW_SORT_KEY) || 'near'; } catch (_) {}
 function sortChips() {
@@ -2572,11 +2572,12 @@ function fillUnderway() {
   const tab = uwTab === 'air' && hasAir ? 'air' : uwTab === 'rail' && hasRail ? 'rail' : uwTab === 'bus' && hasBus ? 'bus' : 'water';
   const tabs = uwPanel.querySelector('.uwtabs');
   if (tabs) { tabs.hidden = !hasAir && !hasRail && !hasBus; for (const b of tabs.querySelectorAll('button')) { b.hidden = b.dataset.tab === 'air' ? !hasAir : b.dataset.tab === 'rail' ? !hasRail : b.dataset.tab === 'bus' ? !hasBus : false; b.classList.toggle('on', b.dataset.tab === tab); } }
-  const bq = busQuery.trim(), sortBy = sortChips() || 'near', fix = sortBy === 'me' ? window.__meDot?.fix : null, ref = fix || view;
+  const bq = busQuery.trim(), sortBy = sortChips() || 'near', meFix = window.__meDot?.fix || null, fix = sortBy === 'me' ? meFix : null, ref = fix || view;
   const order = sortBy === 'az' ? 'A to Z' : fix ? 'nearest you first' : 'nearest first';
   uwPanel.querySelector('.sect').textContent = tab === 'air' ? 'In the air now' : tab === 'rail' ? 'Trains running now' : tab === 'bus' ? (bq ? `Buses matching “${bq}”${busRoute ? ` on the ${busRoute.replace(/\+$/, ' Select')}` : ''}, ${order}` : busRoute ? `The ${busRoute.replace(/\+$/, ' Select')} buses, ${order}` : 'Buses near you now') : 'On the water now';
-  const list = uwPanel.querySelector('ul'); list.innerHTML = `<li class="hdr"><span class="n">${tab === 'air' ? 'Aircraft' : tab === 'rail' ? 'Train' : tab === 'bus' ? 'Bus' : 'Vessel'}</span><span class="eta">${tab === 'air' ? (airFrom ? 'To' : 'Bound') : 'ETA'}</span><span class="d">Off</span><span class="go"></span></li>`;
-  const away = v => { const d = Math.hypot(v.x - ref.x, v.z - ref.z) / NMm; return d < 0.15 ? '' : `${d.toFixed(d < 10 ? 1 : 0)} nm`; };
+  const list = uwPanel.querySelector('ul'); list.innerHTML = `<li class="hdr"><span class="n">${tab === 'air' ? 'Aircraft' : tab === 'rail' ? 'Train' : tab === 'bus' ? 'Bus' : 'Vessel'}</span><span class="eta">${tab === 'air' ? (airFrom ? 'To' : 'Bound') : 'ETA'}</span><span class="d" title="From the middle of the view">Off</span>${meFix ? '<span class="d me" title="From you: the blue dot">You</span>' : ''}<span class="go"></span></li>`;
+  const nmFmt = d => d < 0.15 ? '' : `${d.toFixed(d < 10 ? 1 : 0)} nm`, away = v => nmFmt(Math.hypot(v.x - view.x, v.z - view.z) / NMm);
+  const fromMe = v => { const d = Math.hypot(v.x - meFix.x, v.z - meFix.z) / NMm; return d < 0.05 ? 'here' : `${d.toFixed(d < 10 ? 1 : 0)} nm`; };   // (v1208, asked: "a column for distance from current location")
   const rows = [], d2 = b => Math.hypot(b.x - ref.x, b.z - ref.z);
   if (tab === 'rail') for (const v of rail.items().filter(v => !isBus(v)).sort((a, b) => d2(a) - d2(b))) rows.push({ v, what: v.label });
   const fl = uwPanel.querySelector('.uwfilter'); if (fl) fl.hidden = tab !== 'air' && tab !== 'bus';
@@ -2653,6 +2654,7 @@ function fillUnderway() {
     if (v.kind === 'ais' || isMover(v)) { const ib = document.createElement('button'); ib.type = 'button'; ib.className = 'info'; ib.dataset.m = 'info'; ib.textContent = 'ⓘ'; ib.title = isMover(v) ? 'Her card: everything known of her' : 'Everything her AIS says'; li.querySelector('b').after(ib); }
     li.querySelector('small').textContent = r.what;
     li.querySelector('.d').textContent = away(v);
+    if (meFix) { const m = document.createElement('span'); m.className = 'd me'; m.textContent = fromMe(v); li.querySelector('.d').after(m); }
     const eta = vEta(v);
     if (eta?.ap && airportInfo(eta.ap)) {   // (v1133: tap the code for what it stands for)
       const el = li.querySelector('.eta'); el.classList.add('ap'); el.setAttribute('role', 'button'); el.tabIndex = 0;
