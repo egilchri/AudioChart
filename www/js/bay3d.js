@@ -3924,6 +3924,27 @@ const LIVE_RINGS = false;
 // ✨ Find, F, rings the planes and trains too: 600 red rings were over New York's opening shot
 let flashMovers = false;
 function flashLive(ms = 6000, movers = true) { flashUntil = performance.now() + ms; flashMovers = movers; }
+// ── You are here (v1206, asked: "place a blinking cursor or dot, at my current location, when I am in a region"):
+// the browser's own fix, a blinking blue dot over the ground where you stand, drawn only while you're inside this
+// region's box; a tap on it flies the view there. Nothing shown (and nothing said) without a fix or outside the box.
+const meDot = (() => {
+  const el = document.createElement('div'); el.id = 'medot'; el.hidden = true; el.title = 'You are here';
+  document.body.appendChild(el);
+  let fix = null;
+  const inRegion = (lon, lat) => lon >= OVERVIEW[0] && lon <= OVERVIEW[2] && lat >= OVERVIEW[1] && lat <= OVERVIEW[3];
+  if (!EMPTY && navigator.geolocation) navigator.geolocation.watchPosition(
+    pos => { const { longitude: lon, latitude: lat, accuracy } = pos.coords; fix = inRegion(lon, lat) ? { lon, lat, x: wx(lon), z: wz(lat), accuracy } : null; },
+    () => { fix = null; }, { enableHighAccuracy: true, maximumAge: 15000 });
+  el.addEventListener('click', () => { if (!fix) return; anim = null; flyTo({ x: fix.x, z: fix.z, dist: Math.min(view.dist, 1500), tilt: view.tilt, az: view.az }, 1800); });
+  window.__meDot = { get fix() { return fix; }, set: (lon, lat) => { fix = inRegion(lon, lat) ? { lon, lat, x: wx(lon), z: wz(lat), accuracy: 10 } : null; } };   // (testing)
+  return function update() {
+    if (!fix || nest.on || eye) { el.hidden = true; return; }
+    v3.set(fix.x, Math.max(0, heightAt(fix.lon, fix.lat) || 0) + 2, fix.z);
+    const p = v3.project(camera);
+    if (p.z > 1 || Math.abs(p.x) > 1 || Math.abs(p.y) > 1) { el.hidden = true; return; }
+    el.style.left = (p.x + 1) / 2 * sceneEl.clientWidth + 'px'; el.style.top = (1 - p.y) / 2 * sceneEl.clientHeight + 'px'; el.hidden = false;
+  };
+})();
 function updateLiveMarks() {
   const flash = performance.now() < flashUntil, far = !nest.on && view.dist > 4000;
   marksEl.classList.toggle('flash', flash);
@@ -4571,7 +4592,7 @@ function frame(now) {
   if (subway.active) subway.render(renderer, camera); else renderer.render(scene, camera);
   { const gv = nest.on ? (nest.mode === 'drone' ? nest.v : null) : follow;   // (v1150) her ghost, from the Drone or following her, while she's underground
     if (gv?.kind === 'rail' && gv.under && !subway.active) subway.ghost(renderer, camera, gv); }
-  updateLabels(); updateLiveMarks(); updateReadout();
+  updateLabels(); updateLiveMarks(); meDot(); updateReadout();
   nextFrame();
 }
 // Weather panel: in the readout box, top right; the forecast is for where you're looking

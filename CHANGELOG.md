@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-24 — Bird's-eye: a blinking dot where you are (v1206)
+
+- Asked: "I would like BirdsEye to place a blinking cursor or dot, at my current location, when I am in a region. For example, right now, I am in Manhattan".
+- **You are here** (www/js/bay3d.js `meDot`, CSS `#medot` in www/bay3d.html): the browser's location (`watchPosition`) as a blinking blue dot with a spreading ring, over the ground where you stand. It is shown only while the fix is inside the region's overview box, so in Manhattan it shows in New York and not in Penobscot or Casco. It is hidden while riding a vessel or in the walker's eye. Tapping it flies the view to you. The browser asks for location permission when Bird's-eye opens. Without a fix, or outside the region, nothing is shown.
+- Test hook: `__meDot.fix` and `__meDot.set(lon, lat)`.
+- Checked in headless Chrome with an emulated location in Times Square (dot drawn there) and in Rockland (no dot in New York).
+
 ## 2026-11-22 — Bird's-eye: the Met, a walker's eye; the tour page: Brooklyn to the Met (v1205)
 
 - Asked: "Taking subway, boat, and bus from cobble hill area of brooklyn to Metropolitan Art Museum", then "go with option 1, F train then Madison bus", "do a POV of the person doing the walking parts", "I expect we'll want to recursively improve the look of the MET", "the walks are too fast, slow them down", and "commit it and put it on the tour page".
