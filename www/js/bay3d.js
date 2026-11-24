@@ -902,6 +902,7 @@ let furnP = null;
 async function townStreets(t, T) {
   const data = await getJSON(`./data/streets/${t.file}`).catch(() => null); if (!data?.ways?.length || !t.group) return;
   t.lanes = laneIndex(data);   // (v1194: where the buses drive)
+  t.junctions = junctionsOf(data);   // (v1209: the cross streets, for a followed bus's street signs)
   const [w, s, e, n] = T.bbox, M = 0.003, dem = await demFor(w - M, s - M, e + M, n + M, true);
   if (cliffsP) cliffDem(dem, (await cliffsP)?.lines);
   if (!t.group || t.state !== 'ready') return;
@@ -932,13 +933,73 @@ function laneIndex(data) {
     const off = Math.max(r.o ? 0 : 1.5, Math.min((inner + hw) / 2, hw - 1.4));
     for (let i = 1; i < r.p.length; i++) {
       const ax = wx(r.p[i - 1][0]), az = wz(r.p[i - 1][1]), bx = wx(r.p[i][0]), bz = wz(r.p[i][1]), len = Math.hypot(bx - ax, bz - az); if (len < 0.5) continue;
-      const seg = { ax, az, dx: (bx - ax) / len, dz: (bz - az) / len, len, off, reach: r.w / 2 + 6 }, keys = new Set();
+      const seg = { ax, az, dx: (bx - ax) / len, dz: (bz - az) / len, len, off, reach: r.w / 2 + 6, n: r.n || '' }, keys = new Set();
       for (let k = 0, n = Math.ceil(len / 20); k <= n; k++) keys.add(`${Math.floor((ax + (bx - ax) * k / n) / LANE_CELL)},${Math.floor((az + (bz - az) * k / n) / LANE_CELL)}`);
       for (const k of keys) (G.get(k) || G.set(k, []).get(k)).push(seg);
     }
   }
   return G;
 }
+// (v1209, asked: "It should label the streets and cross streets as I follow a bus") where named streets meet: the points
+// two or more named ways share (OSM's junction nodes), each with the names that meet there
+function junctionsOf(data) {
+  const J = new Map();
+  for (const r of data.ways) if (r.n && r.c !== 'ser') for (const [lo, la] of r.p) { const k = `${lo},${la}`; let j = J.get(k); if (!j) J.set(k, j = { lon: lo, lat: la, x: wx(lo), z: wz(la), names: new Set() }); j.names.add(r.n); }
+  return [...J.values()].filter(j => j.names.size > 1);
+}
+// the street a bus is on: the nearest named run near her, square to her heading if any is (else the nearest at all)
+function streetOf(x, z, h) {
+  const hx = Math.sin(h * DEG), hz = -Math.cos(h * DEG), cx = Math.floor(x / LANE_CELL), cz = Math.floor(z / LANE_CELL);
+  let best = null, bd = Infinity;
+  for (const t of townList) if (t.lanes) for (let i = -1; i <= 1; i++) for (let k = -1; k <= 1; k++) for (const g of t.lanes.get(`${cx + i},${cz + k}`) || []) {
+    if (!g.n) continue;
+    const u = clamp((x - g.ax) * g.dx + (z - g.az) * g.dz, 0, g.len), px = g.ax + g.dx * u, pz = g.az + g.dz * u, d = Math.hypot(x - px, z - pz);
+    if (d > g.reach + 8) continue;
+    const score = d + (Math.abs(g.dx * hx + g.dz * hz) > 0.7 ? 0 : 25);
+    if (score < bd) { bd = score; best = g.n; }
+  }
+  return best;
+}
+// The signs: one over her for her own street, and one at each of the next few corners ahead for the street crossing
+// there, green and white as New York's are. Placed every 0.3 s; drawn where they fall each frame.
+const signsEl = document.createElement('div'); signsEl.id = 'streetsigns'; document.body.appendChild(signsEl);
+const signPool = [], signV3 = new THREE.Vector3(); let signs = [], signT = 0, signFor = null;
+const shortSt = n => n.replace(/\bStreet\b/g, 'St').replace(/\bAvenue\b/g, 'Av').replace(/\bBoulevard\b/g, 'Blvd').replace(/\bPlace\b/g, 'Pl').replace(/\bRoad\b/g, 'Rd').replace(/\bDrive\b/g, 'Dr').replace(/\bParkway\b/g, 'Pkwy').replace(/^(East|West|North|South) (?=\d)/, m => m[0] + ' ');
+function signBus() {
+  const v = nest.on ? nest.v : follow;
+  return v && isMover(v) && isBus(v) && !v.under ? v : null;
+}
+function updateStreetSigns(now) {
+  const v = signBus();
+  if (!v) { if (signs.length) { signs = []; for (const el of signPool) el.hidden = true; } signFor = null; return; }
+  if (now - signT > 300 || signFor !== v) {
+    signT = now; signFor = v; signs = [];
+    const h = v.h || 0, hx = Math.sin(h * DEG), hz = -Math.cos(h * DEG), on = streetOf(v.x, v.z, h);
+    if (on) signs.push({ me: true, text: shortSt(on), x: v.x, z: v.z, v });
+    const near = [];
+    for (const t of townList) if (t.junctions) for (const j of t.junctions) {
+      const dx = j.x - v.x, dz = j.z - v.z, d = Math.hypot(dx, dz); if (d > 420) continue;
+      const ahead = dx * hx + dz * hz; if (ahead < -15) continue;
+      if (on ? !j.names.has(on) : d > 160) continue;
+      const others = [...j.names].filter(n => n !== on); if (!others.length) continue;
+      near.push({ text: others.map(shortSt).join(' / '), x: j.x, z: j.z, lon: j.lon, lat: j.lat, d: ahead });
+    }
+    near.sort((a, b) => a.d - b.d);
+    const seen = new Set(); for (const s of near) { if (seen.has(s.text)) continue; seen.add(s.text); signs.push(s); if (seen.size >= 4) break; }
+  }
+  const W = sceneEl.clientWidth, H = sceneEl.clientHeight; let n = 0;
+  for (const s of signs) {
+    if (s.me) signV3.set(s.v.x, Math.max(0, heightAt(lonOf(s.v.x), latOf(s.v.z)) || 0) + 9, s.v.z);
+    else signV3.set(s.x, Math.max(0, heightAt(s.lon, s.lat) || 0) + 6, s.z);
+    const p = signV3.project(camera); if (p.z > 1 || Math.abs(p.x) > 1.05 || Math.abs(p.y) > 1.05) continue;
+    let el = signPool[n]; if (!el) { el = document.createElement('div'); signsEl.appendChild(el); signPool[n] = el; }
+    if (el.textContent !== s.text) el.textContent = s.text;
+    el.className = s.me ? 'on' : '';
+    el.style.left = (p.x + 1) / 2 * W + 'px'; el.style.top = (1 - p.y) / 2 * H + 'px'; el.hidden = false; n++;
+  }
+  for (let i = n; i < signPool.length; i++) signPool[i].hidden = true;
+}
+window.__streetSigns = () => signs.map(s => (s.me ? 'ON ' : '') + s.text);   // (testing)
 // → { x, z, h } in her lane, or null (no street near going her way: left where her GPS has her)
 function laneAt(x, z, h) {
   const hx = Math.sin(h * DEG), hz = -Math.cos(h * DEG), cx = Math.floor(x / LANE_CELL), cz = Math.floor(z / LANE_CELL);
@@ -4046,7 +4107,44 @@ function updateReadout() {
   const ft = camera.position.y / 0.3048;
   altEl.textContent = ft > 9000 ? `${(camera.position.y / 1852).toFixed(1)} nm up` : `${ft < 200 ? Math.round(ft) : Math.round(ft / 50) * 50} ft up`;   // (aboard: to the foot)
   needle.setAttribute('transform', `rotate(${-view.az / DEG})`);
+  updateRose();
 }
+
+// ── The compass rose (v1209), upper left under the places panel: the boat chart's (app.js _CompassRose), turned by the
+// camera's own heading, so it reads true following or riding a bus as well as in the overview ──
+const roseEl = document.getElementById('rose'), roseDir = new THREE.Vector3(), roseUp = new THREE.Vector3();
+let roseAz = null;
+if (roseEl) {
+  const pt = (r, d) => { const a = (d - 90) * DEG; return [(Math.cos(a) * r).toFixed(2), (Math.sin(a) * r).toFixed(2)]; };
+  let ticks = '', nums = '';
+  for (let d = 0; d < 360; d += 5) { const big = d % 10 === 0, [x1, y1] = pt(big ? 61 : 64, d), [x2, y2] = pt(68, d); ticks += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${big ? '#f0c46a' : '#9a7a3a'}" stroke-width="${big ? 1.2 : 0.7}"/>`; }
+  for (let d = 30; d < 360; d += 30) if (d % 90) { const [x, y] = pt(55, d); nums += `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="middle" fill="#cbbf9f" font-family="ui-monospace, Menlo, monospace" font-size="7.5">${d}</text>`; }
+  const L = (t, x, y, c, sz, w) => `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="middle" fill="${c}" font-family="Georgia, serif" font-size="${sz}" font-weight="${w}">${t}</text>`;
+  roseEl.innerHTML = `<svg viewBox="-70 -70 140 140"><circle r="68" fill="rgba(20,32,40,0.82)" stroke="#e0a843" stroke-width="1.5"/><g id="rosecard">${ticks}${nums}
+    <polygon points="0,0 -7,-14 0,-40 7,-14" fill="#d9534f"/><polygon points="0,0 -7,14 0,40 7,14" fill="#efe6cf"/><polygon points="0,0 14,-7 40,0 14,7" fill="#efe6cf"/><polygon points="0,0 -14,-7 -40,0 -14,7" fill="#efe6cf"/>
+    <polygon points="0,0 -3,-8 17,-17 8,-3" fill="#9a7a3a"/><polygon points="0,0 8,3 17,17 3,8" fill="#9a7a3a"/><polygon points="0,0 3,8 -17,17 -8,3" fill="#9a7a3a"/><polygon points="0,0 -8,-3 -17,-17 -3,-8" fill="#9a7a3a"/>
+    ${L('N', 0, -47, '#d9534f', 12, 700)}${L('S', 0, 50, '#efe6cf', 11, 600)}${L('E', 50, 0, '#efe6cf', 11, 600)}${L('W', -50, 0, '#efe6cf', 11, 600)}<circle r="5" fill="#e0a843" stroke="#1b2328" stroke-width="2"/></g></svg>`;
+  const card = roseEl.querySelector('#rosecard'), panelEl = document.getElementById('panel');
+  const place = () => { const r = panelEl && getComputedStyle(panelEl).display !== 'none' ? panelEl.getBoundingClientRect() : null; roseEl.style.top = (r && r.height ? r.bottom + 10 : 12) + 'px'; };
+  if (panelEl && typeof ResizeObserver !== 'undefined') new ResizeObserver(place).observe(panelEl);
+  addEventListener('resize', place); place(); setInterval(place, 1000);   // (the panel hidden while flying: the rose moves up)
+  roseEl._turn = az => card.setAttribute('transform', `rotate(${(-az).toFixed(1)})`);
+  // tap: north up; drag round: turn the view, the card following the finger (as the chart's rose does, v883)
+  let turn = null;
+  const angOf = (e, c) => Math.atan2(e.clientY - c.y, e.clientX - c.x) / DEG;
+  roseEl.addEventListener('pointerdown', e => { const r = roseEl.getBoundingClientRect(), c = { x: r.left + r.width / 2, y: r.top + r.height / 2 }; turn = { c, a0: angOf(e, c), az0: view.az, moved: false }; roseEl.setPointerCapture(e.pointerId); e.stopPropagation(); e.preventDefault(); });
+  roseEl.addEventListener('pointermove', e => { if (!turn) return; const d = ((angOf(e, turn.c) - turn.a0 + 540) % 360) - 180; if (Math.abs(d) > 3) turn.moved = true; if (turn.moved && !nest.on) { anim = null; view.az = turn.az0 - d * DEG; } });
+  roseEl.addEventListener('pointerup', () => { if (turn && !turn.moved && !nest.on) flyTo({ x: view.x, z: view.z, dist: view.dist, az: 0, tilt: view.tilt }, 900); turn = null; });
+  roseEl.addEventListener('pointercancel', () => { turn = null; });
+}
+function updateRose() {
+  if (!roseEl?._turn) return;
+  camera.getWorldDirection(roseDir);
+  if (Math.hypot(roseDir.x, roseDir.z) < 0.15) { roseUp.set(0, 1, 0).applyQuaternion(camera.quaternion); roseDir.copy(roseUp); }   // (looking straight down: the top of the frame)
+  const az = ((Math.atan2(roseDir.x, -roseDir.z) / DEG) + 360) % 360;
+  if (roseAz === null || Math.abs(((az - roseAz + 540) % 360) - 180) > 0.2) { roseAz = az; roseEl._turn(az); }
+}
+window.__rose = () => roseAz;   // (testing)
 
 function resize() {
   const w = sceneEl.clientWidth, h = sceneEl.clientHeight;
@@ -4617,7 +4715,7 @@ function frame(now) {
   if (subway.active) subway.render(renderer, camera); else renderer.render(scene, camera);
   { const gv = nest.on ? (nest.mode === 'drone' ? nest.v : null) : follow;   // (v1150) her ghost, from the Drone or following her, while she's underground
     if (gv?.kind === 'rail' && gv.under && !subway.active) subway.ghost(renderer, camera, gv); }
-  updateLabels(); updateLiveMarks(); meDot(); updateReadout();
+  updateLabels(); updateLiveMarks(); meDot(); updateStreetSigns(performance.now()); updateReadout();
   nextFrame();
 }
 // Weather panel: in the readout box, top right; the forecast is for where you're looking

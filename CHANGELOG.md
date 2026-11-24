@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-11-24 — Bird's-eye: street signs round a followed bus; a compass rose (v1209)
+
+- Asked: "It should label the streets and cross streets as I follow a bus", and "put a compass rose in the upper left hand corner of the image, like for boats".
+- **Street signs** (www/js/bay3d.js `junctionsOf`, `streetOf`, `updateStreetSigns`; CSS `#streetsigns`): while following or riding a bus, green-and-white signs like New York's are drawn on the view:
+  - The street the bus is on, over the bus. This is the nearest named street run in the street data that lines up with the bus's heading.
+  - The cross streets at the next four corners ahead, each sign at its corner.
+  - Corners come from the street data (www/data/streets/, OpenStreetMap): points that two or more named ways share. Each town keeps `t.junctions` and its lane segments now carry their street's name.
+  - Names are shortened as on the signs: "West 54th Street" becomes "W 54th St".
+  - Signs only appear where a town's streets have loaded (the New York areas with streets), and not while the bus is underground.
+  - Test hook: `__streetSigns()`.
+- **Compass rose** (`#rose`): the boat chart's brass rose (app.js `_CompassRose`) in the upper left, under the places panel (or at the top when the panel is hidden). It turns with the camera's actual heading, so it reads true when following, riding or at street level. Tap for north up; drag round to turn the view. It is hidden inside AudioChart, which has its own. Test hook: `__rose()`.
+- Checked in headless Chrome: following the SIM3 up 6th Av, the signs read "6th Av" over the bus and W 53rd–W 56th St at the corners ahead, moving on to W 54th–W 57th St as it went.
+
 ## 2026-11-24 — Bird's-eye: a "You" column in the Underway tables (v1208)
 
 - Asked: "In the tables, there should be a column for distance from current location".
