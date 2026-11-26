@@ -367,6 +367,28 @@ let drag = null;
 let ground = null;
 // (v1211, asked: "At street level, let me walk forward with the arrow keys") the arrow keys held down while standing there
 const walkKeys = new Set();
+// (v1213, asked: "drive around in drone view. Arrows should control forward, turn left, turn right, turn 180. Also, there
+// should be a speed control") the speeds at street level, walking or by drone, picked with − / + in its bar (or - and +)
+const GROUND_SPEEDS = [1.6, 3.5, 7, 13.4, 27];   // m/s: walking, jogging, a bike, 30 mph, 60 mph
+const mph = ms => Math.round(ms * 2.237);
+// by drone, ← or → turns at the next corner ahead on your street (the way a driver means it), there and then if you're at
+// one or there's none ahead; ↓ turns you round where you are
+function droneTurn(delta) {
+  if (!ground || !eye) return;
+  ground.pending = null;
+  if (delta !== 180) {
+    const x = wx(eye.lon), z = wz(eye.lat), hx = Math.sin(eye.az * DEG), hz = -Math.cos(eye.az * DEG), on = streetOf(x, z, eye.az);
+    let best = null, bd = 600;
+    if (on) for (const t of townList) if (t.junctions) for (const j of t.junctions) {
+      if (!j.names.has(on)) continue;
+      const ahead = (j.x - x) * hx + (j.z - z) * hz, side = Math.abs((j.x - x) * hz - (j.z - z) * hx);
+      if (ahead > 10 && ahead < bd && side < 25) { bd = ahead; best = j; }
+    }
+    if (best) { const other = [...best.names].find(n => n !== on); ground.pending = { delta, j: best, name: other ? shortSt(other) : '' }; ground.sync?.(); return; }
+  }
+  ground.turnTo = ((ground.turnTo ?? eye.az) + delta + 360) % 360; ground.sync?.();
+}
+function setGroundSpeed(d) { if (!ground) return; const m = ground.mode; ground.speed[m] = clamp(ground.speed[m] + d, 0, GROUND_SPEEDS.length - 1); ground.sync?.(); }
 addEventListener('keyup', e => walkKeys.delete(e.key));
 addEventListener('blur', () => walkKeys.clear());
 sceneEl.addEventListener('contextmenu', e => e.preventDefault());
@@ -386,7 +408,10 @@ function pinchState() {
   return { d: Math.hypot(b.x - a.x, b.y - a.y), ang: Math.atan2(b.y - a.y, b.x - a.x), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };
 }
 sceneEl.addEventListener('pointermove', e => {
-  if (ground) { const g = ground.drag; if (!g || !eye) return; eye.az = (eye.az - (e.clientX - g.x) * 0.25 + 360) % 360; eye.pitch = clamp((eye.pitch || 0) + (e.clientY - g.y) * 0.2, -40, 60); g.x = e.clientX; g.y = e.clientY; return; }
+  if (ground) { const g = ground.drag; if (!g || !eye) return; eye.az = (eye.az - (e.clientX - g.x) * 0.25 + 360) % 360; ground.turnTo = null;
+    if (ground.mode === 'drone') ground.droneH = clamp(ground.droneH + (e.clientY - g.y) * 0.4, 10, 220);   // (by drone: drag down to climb, up to come down)
+    else eye.pitch = clamp((eye.pitch || 0) + (e.clientY - g.y) * 0.2, -40, 60);
+    g.x = e.clientX; g.y = e.clientY; return; }
   if (nest.on) {
     if (!pointers.has(e.pointerId) || !nest.drag) return;
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -438,7 +463,14 @@ sceneEl.addEventListener('wheel', e => {
   if (anchor && hit) { view.x += anchor[0] - hit[0]; view.z += anchor[1] - hit[1]; clampView(); placeCamera(); }
 }, { passive: false });
 addEventListener('keydown', e => {
-  if (ground && /^Arrow/.test(e.key) && !e.metaKey && !e.ctrlKey && !(e.target instanceof HTMLInputElement)) { walkKeys.add(e.key); e.preventDefault(); return; }   // (at street level: walk, stepWalk)
+  if (ground && !e.metaKey && !e.ctrlKey && !(e.target instanceof HTMLInputElement)) {   // (at street level: walk or fly, stepWalk)
+    if (ground.mode === 'drone' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowDown')) {   // (by drone: a quarter turn each way, or about)
+      if (!e.repeat) droneTurn(e.key === 'ArrowLeft' ? -90 : e.key === 'ArrowRight' ? 90 : 180);
+      e.preventDefault(); return;
+    }
+    if (/^Arrow/.test(e.key)) { walkKeys.add(e.key); e.preventDefault(); return; }
+    if (e.key === '+' || e.key === '=' || e.key === '-') { setGroundSpeed(e.key === '-' ? -1 : 1); e.preventDefault(); return; }
+  }
   if (e.target !== document.body) return;
   if (nest.on) {
     const k = { ArrowLeft: [-4, 0], ArrowRight: [4, 0], ArrowUp: [0, 2], ArrowDown: [0, -2] }[e.key];
@@ -1020,7 +1052,7 @@ function walkSigns() {
   const x = wx(eye.lon), z = wz(eye.lat), h = eye.az, hx = Math.sin(h * DEG), hz = -Math.cos(h * DEG), on = streetOf(x, z, h), out = [];
   const gt = groundTxt(); if (gt) { const t = on ? `On ${shortSt(on)}` : 'At street level'; if (gt.textContent !== t) gt.textContent = t; }
   for (const t of townList) if (t.junctions) for (const j of t.junctions) {
-    const dx = j.x - x, dz = j.z - z, d = Math.hypot(dx, dz); if (d > 220) continue;
+    const dx = j.x - x, dz = j.z - z, d = Math.hypot(dx, dz); if (d > (ground?.mode === 'drone' ? 380 : 220)) continue;   // (by drone, further: v1213)
     if (d > 12 && (dx * hx + dz * hz) / d < -0.2) continue;   // (behind you: drag or turn round to see it)
     let seen = true; for (let k = 4; k < d - 6; k += 3) if (inBuilding(x + dx * k / d, z + dz * k / d)) { seen = false; break; }
     if (!seen) continue;
@@ -1183,6 +1215,16 @@ function foldPanel(fold, byHand = false) {
   if (byHand) try { localStorage.setItem(FOLD_KEY, fold ? '1' : '0'); } catch (_) {}
 }
 toggle.addEventListener('click', () => foldPanel(!panel.classList.contains('folded'), true));
+// (v1213, asked: "I should be able to shrink the window that selects regions, out of the way") − shrinks the whole panel
+// to its title, small; a tap on it (or +) brings it back. Remembered.
+const MINI_KEY = 'audiochart-bay3d-panel-mini', miniBtn = document.getElementById('panelmin');
+function miniPanel(on) {
+  panel.classList.toggle('mini', on); if (miniBtn) { miniBtn.textContent = on ? '+' : '−'; miniBtn.title = on ? 'Show the regions and places again' : 'Shrink this out of the way'; miniBtn.setAttribute('aria-expanded', String(!on)); }
+  try { localStorage.setItem(MINI_KEY, on ? '1' : '0'); } catch (_) {}
+}
+miniBtn?.addEventListener('click', e => { e.stopPropagation(); miniPanel(!panel.classList.contains('mini')); });
+panel.querySelector('h1')?.addEventListener('click', () => { if (panel.classList.contains('mini')) miniPanel(false); });
+try { if (localStorage.getItem(MINI_KEY) === '1') miniPanel(true); } catch (_) {}
 // ✈ Places (v1048): inside AudioChart the panel is hidden (the chart has its own); this opens it, to fly to a place
 // or tick some for a Flyover
 const placesBtn = document.getElementById('placesbtn');
@@ -1849,14 +1891,19 @@ function clearOfRoofs(at, D, el, az0) {
 let eye = null;
 // (v1211) walking at street level: ↑ ahead, ↓ back, ← → turn, Shift to hurry; a wall stops you, or you slide along it
 function stepWalk(dt) {
-  if (!ground || !eye || !walkKeys.size) return;
+  if (!ground || !eye) return;
+  if (ground.turnTo != null) {   // (by drone: turning round the corner, 160° a second)
+    const off = ((ground.turnTo - eye.az + 540) % 360) - 180, st = 160 * dt;
+    if (Math.abs(off) <= st) { eye.az = ground.turnTo; ground.turnTo = null; } else eye.az = (eye.az + Math.sign(off) * st + 360) % 360;
+  }
+  if (!walkKeys.size) return;
   const run = walkKeys.has('Shift') || walkKeys.shiftHeld, turn = (walkKeys.has('ArrowRight') ? 1 : 0) - (walkKeys.has('ArrowLeft') ? 1 : 0), go = (walkKeys.has('ArrowUp') ? 1 : 0) - (walkKeys.has('ArrowDown') ? 1 : 0);
   if (turn) eye.az = (eye.az + turn * 75 * dt + 360) % 360;
   if (!go) return;
   let x = wx(eye.lon), z = wz(eye.lat);
   // walking roughly along a named street (within 25° of it), you're kept on it: turned gently onto its line, and drawn
   // back in off its edge, so a long walk follows the street instead of drifting into the buildings (v1211)
-  const st = !turn && nearestStreet(x, z, 30, go > 0 ? eye.az : eye.az + 180);
+  const st = !turn && ground.turnTo == null && nearestStreet(x, z, 30, go > 0 ? eye.az : eye.az + 180);
   if (st) {
     const want = go > 0 ? st.az : st.az + 180, off = ((want - eye.az + 540) % 360) - 180;
     if (Math.abs(off) < 25) {
@@ -1864,14 +1911,27 @@ function stepWalk(dt) {
       const edge = st.d - (st.hw - 1.5); if (edge > 0) { const k = Math.min(1, dt * 2) * edge / st.d; x += (st.x - x) * k; z += (st.z - z) * k; }
     }
   }
-  const sp = (run ? 7 : 1.6) * go * dt, a = eye.az * DEG, dx = Math.sin(a) * sp, dz = -Math.cos(a) * sp;
+  const sp = GROUND_SPEEDS[ground.speed[ground.mode]] * (run ? 2 : 1) * go * dt, a = eye.az * DEG, dx = Math.sin(a) * sp, dz = -Math.cos(a) * sp;
   const ok = (px, pz) => { const m = Math.hypot(px - x, pz - z) || 1; return !inBuilding(px + (px - x) / m * 1.5, pz + (pz - z) / m * 1.5); };   // (stopping 1.5 m short of a wall, not nose to it)
   let nx = x + dx, nz = z + dz;
   if (!ok(nx, nz)) { if (ok(x + dx, z)) nz = z; else if (ok(x, z + dz)) nx = x; else return; }
   eye.lon = lonOf(nx); eye.lat = latOf(nz);
+  const P = ground.pending;   // (a turn waiting for its corner: there, or just past it, onto the cross street at the corner itself)
+  if (P && go > 0) {
+    const hx = Math.sin(eye.az * DEG), hz = -Math.cos(eye.az * DEG), ahead = (P.j.x - nx) * hx + (P.j.z - nz) * hz;
+    if (ahead < Math.max(2, Math.abs(sp) * 1.5)) { eye.lon = P.j.lon; eye.lat = P.j.lat; ground.turnTo = (eye.az + P.delta + 360) % 360; ground.pending = null; ground.sync?.(); }
+  }
 }
 addEventListener('keydown', e => { walkKeys.shiftHeld = e.shiftKey; }, true); addEventListener('keyup', e => { walkKeys.shiftHeld = e.shiftKey; }, true);
 function eyeCamera() {
+  if (ground?.mode === 'drone') {   // (v1213) by drone: behind her and over her, looking down the street ahead
+    const x = wx(eye.lon), z = wz(eye.lat), g = Math.max(0, heightAt(eye.lon, eye.lat)), a = eye.az * DEG, H = ground.droneH, sx = Math.sin(a), sz = -Math.cos(a);
+    camera.position.set(x - sx * H * 0.9, g + H, z - sz * H * 0.9);
+    camera.lookAt(x + sx * H * 1.5, g, z + sz * H * 1.5);
+    camera.fov = 60; camera.near = 0.5; camera.updateProjectionMatrix(); camera.updateMatrixWorld();
+    ground.drone?.position.set(x, g + H * 0.55, z); ground.drone?.rotation.set(0, -a, 0); for (const r of ground.drone?.rotors || []) r.rotation.y += 0.9;
+    view.x = x; view.z = z; view.az = a; view.dist = 900; return;
+  }
   const x = wx(eye.lon), z = wz(eye.lat), y = Math.max(0, heightAt(eye.lon, eye.lat)) + (eye.h ?? 1.7), a = eye.az * DEG, p = (eye.pitch ?? 0) * DEG;
   camera.position.set(x, y, z);
   camera.lookAt(x + Math.sin(a) * Math.cos(p) * 10, y + Math.sin(p) * 10, z - Math.cos(a) * Math.cos(p) * 10);
@@ -3595,6 +3655,65 @@ function updateRadar() {
   if (radar.mesh.visible) radar.mesh.material.opacity = 0.3 + 0.3 * clamp((camera.position.y - 1500) / 8000, 0, 1);   // (fainter close in, over the buildings)
 }
 window.__radar = () => radar && { on: radarOn, state: radar.state, valid: radar.valid, shown: radar.mesh.visible };   // (testing)
+// ── ☁ Clouds (v1213, asked: "now add the satellite cloud layer too"): GOES-East's visible picture (NASA GIBS, a new one
+// every 10 minutes, about 40 behind), cut to the region's box in degrees as the radar is: its bright cloud drawn as a
+// deck 2,200 m up, white where thick, grey where dark, and nothing where the ground shows through. Seen from up over
+// the region (fading in above 2,600 m). A daylight picture: at night it's black, and the button says so. ──
+const CLOUDS_KEY = 'audiochart-bay3d-clouds', cloudBtn = document.getElementById('cloudbtn');
+let cloudsOn = false; try { cloudsOn = localStorage.getItem(CLOUDS_KEY) === '1'; } catch (_) {}
+const CLOUD_Y = 2200;
+const satClouds = EMPTY ? null : (() => {
+  const [w, s, e, n] = OVERVIEW, W = 1024, H = Math.max(64, Math.round(W * (n - s) / ((e - w) * Math.cos((s + n) / 2 * DEG))));
+  const geo = new THREE.PlaneGeometry(wx(e) - wx(w), wz(s) - wz(n)).rotateX(-Math.PI / 2);
+  const mat = new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide, fog: false });
+  const mesh = new THREE.Mesh(geo, mat); mesh.position.set((wx(w) + wx(e)) / 2, CLOUD_Y, (wz(n) + wz(s)) / 2); mesh.renderOrder = 7; mesh.visible = false; mesh.frustumCulled = false; scene.add(mesh);
+  const C = { mesh, valid: null, state: 'idle', timer: null };
+  const LAYER = 'GOES-East_ABI_Band2_Red_Visible_1km';
+  C.load = () => {
+    if (!cloudsOn) return;
+    clearTimeout(C.timer); C.timer = setTimeout(C.load, 10 * 60e3);
+    if (document.hidden) return;
+    const slot = Math.floor(Date.now() / 600e3);
+    if (C.state !== 'ok') { C.state = 'loading'; syncCloudBtn(); }
+    // (the picture's time: GIBS says it in a header on any tile of the layer's newest)
+    fetch(`https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/${LAYER}/default/default/1km/0/0/0.png?t=${slot}`).then(r => { C.valid = Date.parse(r.headers.get('layer-time-actual') || '') || C.valid; syncCloudBtn(); }).catch(() => {});
+    const img = new Image(); img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height; const cx = cv.getContext('2d');
+      cx.drawImage(img, 0, 0); const D = cx.getImageData(0, 0, cv.width, cv.height), px = D.data; let sum = 0;
+      const cw = cv.width, ch = cv.height, edge = (i) => { const x = (i / 4) % cw, y = Math.floor(i / 4 / cw), u = Math.min(x, cw - 1 - x) / (cw * 0.1), v = Math.min(y, ch - 1 - y) / (ch * 0.1); return clamp(Math.min(u, v), 0, 1); };
+      for (let i = 0; i < px.length; i += 4) {   // (brightness to cloud: the ground's 0.1-0.3 shows through, cloud from 0.35, thick by 0.7; faded out at the box's edges)
+        const l = px[i] / 255; sum += l;
+        const a = clamp((l - 0.33) / 0.37, 0, 1), k = a * a * (3 - 2 * a) * edge(i), c = Math.round(170 + 85 * clamp(l * 1.2, 0, 1));
+        px[i] = px[i + 1] = px[i + 2] = c; px[i + 3] = Math.round(k * 235);
+      }
+      cx.putImageData(D, 0, 0);
+      const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.minFilter = THREE.LinearFilter; tex.generateMipmaps = false;
+      mat.map?.dispose(); mat.map = tex; mat.needsUpdate = true;
+      C.state = sum / (px.length / 4) < 0.04 ? 'night' : 'ok'; syncCloudBtn();
+    };
+    img.onerror = () => { C.state = 'fail'; syncCloudBtn(); };
+    img.src = `https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.3.0&LAYERS=${LAYER}&STYLES=&CRS=EPSG:4326&BBOX=${s},${w},${n},${e}&WIDTH=${W}&HEIGHT=${H}&FORMAT=image/png&t=${slot}`;
+  };
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && cloudsOn) C.load(); });
+  return C;
+})();
+function syncCloudBtn() {
+  if (!cloudBtn || !satClouds) return;
+  cloudBtn.hidden = false; cloudBtn.classList.toggle('on', cloudsOn); cloudBtn.setAttribute('aria-pressed', String(cloudsOn));
+  const at = satClouds.valid ? dayTime(satClouds.valid) : '', st = satClouds.state;
+  cloudBtn.textContent = !cloudsOn ? '☁ Clouds' : st === 'fail' ? '☁ Clouds · offline' : st === 'night' ? '☁ Clouds · night' : st === 'ok' && at ? `☁ Clouds ${at}` : '☁ Clouds';
+  cloudBtn.title = cloudsOn && st === 'fail' ? 'The satellite clouds: no picture (it needs an internet connection)' : cloudsOn && st === 'night' ? 'The satellite clouds: the newest picture is a night one, and this is a daylight picture: nothing to see until morning' :
+    `The clouds over the region now, from the GOES-East weather satellite's daylight picture (NASA GIBS), a new one every 10 minutes${at ? `; this one ${at}` : ''}. Drawn as a cloud deck, seen from up over the region.`;
+}
+cloudBtn?.addEventListener('click', () => { cloudsOn = !cloudsOn; try { localStorage.setItem(CLOUDS_KEY, cloudsOn ? '1' : '0'); } catch (_) {} if (cloudsOn) satClouds?.load(); else clearTimeout(satClouds?.timer); syncCloudBtn(); });
+syncCloudBtn(); if (cloudsOn) satClouds?.load();
+function updateClouds() {
+  if (!satClouds) return;
+  const y = camera.position.y, on = cloudsOn && satClouds.state === 'ok' && !!satClouds.mesh.material.map && !ground && !nest.on && !eye && y > CLOUD_Y + 400;
+  satClouds.mesh.visible = on; if (on) satClouds.mesh.material.opacity = clamp((y - CLOUD_Y - 400) / 3400, 0, 1) * 0.9;
+}
+window.__clouds = () => satClouds && { on: cloudsOn, state: satClouds.state, valid: satClouds.valid, shown: satClouds.mesh.visible };   // (testing)
 // close in, the arrow nearest the middle of the view, in words (flood and ebb in Penobscot only: tideWord's axis is its)
 function curNear() {
   if (!curLine?.visible || !curUV || view.dist > 15000) return null;
@@ -4170,23 +4289,47 @@ const meDot = (() => {
   function goGround() {
     if (!fix || ground) return;
     if (nest.on) leaveRide(); if (follow) stopFollow(); fly?.pause(); anim = null;
-    ground = { prev: { x: view.x, z: view.z, dist: view.dist, az: view.az, tilt: view.tilt }, drag: null };
+    ground = { prev: { x: view.x, z: view.z, dist: view.dist, az: view.az, tilt: view.tilt }, drag: null, mode: 'walk', speed: { walk: 0, drone: 3 }, droneH: 30, turnTo: null, pending: null, drone: droneMesh, sync: syncGbar };
     const az0 = ((view.az / DEG) % 360 + 360) % 360, st = nearestStreet(fix.x, fix.z, 400, az0);   // (v1211: down on the nearest named street)
     eye = st ? { lon: lonOf(st.x), lat: latOf(st.z), az: st.az, pitch: 4, h: 1.7, fov: 62 } : { lon: fix.lon, lat: fix.lat, az: az0, pitch: 4, h: 1.7, fov: 62 };
     ground.street = st?.n || null;
     document.getElementById('labels').style.visibility = 'hidden'; document.body.classList.add('atground');
-    gbar.hidden = false;
+    gbar.hidden = false; syncGbar();
   }
   function upAgain() {
     if (!ground) return;
-    const prev = ground.prev; ground = null; eye = null; gbar.hidden = true; walkKeys.clear();
+    const prev = ground.prev; ground = null; eye = null; gbar.hidden = true; walkKeys.clear(); droneMesh.visible = false;
     document.getElementById('labels').style.visibility = ''; document.body.classList.remove('atground');
     camera.fov = 50; camera.near = 1; camera.updateProjectionMatrix();
     Object.assign(view, prev); clampView(); placeCamera();
   }
   const gbar = document.createElement('div'); gbar.id = 'groundbar'; gbar.hidden = true;
-  gbar.innerHTML = '<b id="groundtxt">At street level</b><span>↑↓ walk · ←→ turn · Shift to hurry · drag to look round</span><button type="button">◀ Back up</button>';
-  gbar.querySelector('button').addEventListener('click', upAgain);
+  gbar.innerHTML = '<b id="groundtxt">At street level</b><span class="gmode"><button type="button" data-m="walk" title="On foot, at eye height">🚶 Walk</button><button type="button" data-m="drone" title="A drone over the street, the camera behind it">🚁 Drone</button></span>'
+    + '<span class="gspd"><button type="button" data-d="-1" title="Slower (-)">−</button><em id="gspeed"></em><button type="button" data-d="1" title="Faster (+)">+</button></span><span id="ghelp"></span><button type="button" class="back">◀ Back up</button>';
+  gbar.querySelector('.back').addEventListener('click', upAgain);
+  for (const b of gbar.querySelectorAll('.gmode button')) b.addEventListener('click', () => { if (!ground) return; ground.mode = b.dataset.m; ground.turnTo = null; ground.pending = null; walkKeys.clear(); if (ground.mode === 'walk') eye.pitch = 4; syncGbar(); b.blur(); });
+  for (const b of gbar.querySelectorAll('.gspd button')) b.addEventListener('click', () => { setGroundSpeed(+b.dataset.d); b.blur(); });
+  function syncGbar() {
+    if (!ground) return;
+    const m = ground.mode, ms = GROUND_SPEEDS[ground.speed[m]];
+    for (const b of gbar.querySelectorAll('.gmode button')) b.classList.toggle('on', b.dataset.m === m);
+    gbar.querySelector('#gspeed').textContent = `${mph(ms)} mph`;
+    const P = ground.pending;
+    gbar.querySelector('#ghelp').textContent = m === 'drone' ? (P ? `Turning ${P.delta < 0 ? 'left' : 'right'}${P.name ? ` at ${P.name}` : ' at the corner'} · ↑ to get there` : '↑ fly ahead · ← → turn at the corner · ↓ turn round · drag: height') : '↑↓ walk · ←→ turn · Shift faster · drag to look round';
+    droneMesh.visible = m === 'drone';
+  }
+  // the drone (v1213): a small grey quadcopter, her four rotors spinning, in front of and below the camera
+  const droneMesh = (() => {
+    const g = new THREE.Group(), dark = new THREE.MeshLambertMaterial({ color: 0x2b3036 }), lite = new THREE.MeshBasicMaterial({ color: 0xcfd6dc, transparent: true, opacity: 0.45, side: THREE.DoubleSide });
+    g.add(new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.3, 1.2), dark));
+    const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), new THREE.MeshBasicMaterial({ color: 0x46b4ff })); eyeL.position.set(0, 0, -0.62); g.add(eyeL);
+    g.rotors = [];
+    for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.1, 1.5), dark); arm.position.set(x * 0.5, 0, z * 0.5); arm.rotation.y = Math.atan2(x, z); g.add(arm);
+      const r = new THREE.Mesh(new THREE.CircleGeometry(0.55, 16).rotateX(-Math.PI / 2), lite); r.position.set(x * 1.0, 0.18, z * 1.0); g.add(r); g.rotors.push(r);
+    }
+    g.scale.setScalar(1.4); g.visible = false; scene.add(g); return g;
+  })();
   for (const ev of ['pointerdown', 'wheel', 'touchstart']) gbar.addEventListener(ev, e => e.stopPropagation(), { passive: true });
   document.body.appendChild(gbar);
   addEventListener('keydown', e => { if (e.key === 'Escape' && ground) { upAgain(); e.preventDefault(); } });
@@ -4201,7 +4344,7 @@ const meDot = (() => {
     if (Math.hypot(cx - (ax + dx * u), cy - (ay + dy * u)) > 18) return false;
     goGround(); return true;
   };
-  window.__meDot = { get fix() { return fix; }, set: (lon, lat) => set(lon, lat, 10), ground: () => { goGround(); return !!ground; }, up: upAgain, get atGround() { return !!ground; }, get where() { return eye && ground ? { x: wx(eye.lon), z: wz(eye.lat), az: eye.az, inWall: inBuilding(wx(eye.lon), wz(eye.lat)) } : null; } };   // (testing)
+  window.__meDot = { get fix() { return fix; }, set: (lon, lat) => set(lon, lat, 10), ground: () => { goGround(); return !!ground; }, up: upAgain, get atGround() { return !!ground; }, get state() { return ground; }, get where() { return eye && ground ? { x: wx(eye.lon), z: wz(eye.lat), az: eye.az, inWall: inBuilding(wx(eye.lon), wz(eye.lat)) } : null; } };   // (testing)
   return function update() {
     if (!fix || ground || (nest.on && nest.mode === 'helm') || subway.active) { pillar.visible = false; return; }
     base = Math.max(0, heightAt(fix.lon, fix.lat) || 0);
@@ -4860,7 +5003,7 @@ let lastInput = performance.now();
 const woke = () => { lastInput = performance.now(); };
 for (const ev of ['pointerdown', 'pointermove', 'wheel', 'keydown', 'touchstart']) addEventListener(ev, woke, { passive: true, capture: true });
 const IDLE_MS = 4000, IDLE_STEP = 1000 / 12;
-const busy = () => !!(drag || anim || follow || nest.on || fly?.on() || picking || walkKeys.size) || performance.now() - lastInput < IDLE_MS;
+const busy = () => !!(drag || anim || follow || nest.on || fly?.on() || picking || walkKeys.size || ground?.turnTo != null) || performance.now() - lastInput < IDLE_MS;
 const nextFrame = () => busy() ? requestAnimationFrame(frame) : setTimeout(() => requestAnimationFrame(frame), IDLE_STEP - 16);
 function frame(now) {
   if (++fpsN === 60) { window.__fps = Math.round(60000 / (performance.now() - fpsT)); fpsN = 0; fpsT = performance.now(); }
@@ -4894,7 +5037,7 @@ function frame(now) {
   if (nest.on || !rcEl?.hidden) drawRideChart();
   wildlife.update(dt, t, view, camera.position, { hidden: !!aboveFog || EMPTY || (nest.on && isMover(nest.v)) || (!!follow && isMover(follow)),   // (v1148, asked: "We don't need seagulls over non-boat things": none round a train or plane you're riding or following)
     night: env.C.time === 'night', boat: (own.ext || own.r) ? own : null, scale: d => clamp(d / 35, 3, 8), nearWater });
-  syncFollowHud(); updateFixLines(); updateVector(); updateBuoyF(); updateGauge(); updateCurrents(); updateRadar();
+  syncFollowHud(); updateFixLines(); updateVector(); updateBuoyF(); updateGauge(); updateCurrents(); updateRadar(); updateClouds();
   if (follow && !anim && !nest.on) { const k = Math.min(1, dt * 4); view.x += (follow.x - view.x) * k; view.z += (follow.z - view.z) * k; }
   if (subway.active) subway.render(renderer, camera); else renderer.render(scene, camera);
   { const gv = nest.on ? (nest.mode === 'drone' ? nest.v : null) : follow;   // (v1150) her ghost, from the Drone or following her, while she's underground

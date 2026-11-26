@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-11-26 — Bird's-eye: drone at street level; ☁ Clouds from the satellite; the region panel shrinks (v1213)
+
+- Asked: "now add the satellite cloud layer too. But also, for the click pillar feature. Once you're down there, I'd like to be able to drive around in drone view. Arrows should control forward, turn left, turn right, turn 180. Also, there should be a speed control. We should see street signs as we drive the drone", and "I should be able to shrink the window that selects regions, out of the way".
+- **🚁 Drone at street level** (www/js/bay3d.js `droneTurn`, `stepWalk`, `eyeCamera`, `syncGbar`; the street-level bar):
+  - A 🚶 Walk | 🚁 Drone switch. By drone, the camera follows a small quadcopter (its rotors spinning) from behind and above, looking down the street ahead. It starts 30 m up; drag down to climb or up to come down (10–220 m).
+  - ↑ flies ahead. ↓ turns round (180°) where you are.
+  - ← and → turn at the next corner ahead on your street, the way a driver means it. The bar says "Turning right at 7th Av · ↑ to get there", and at the corner the drone is put on the crossing and swings onto the cross street. With no corner ahead, it turns there and then.
+  - The street-following from walking keeps the drone in the middle of the street; buildings stop it.
+  - Street signs as when walking, out to 380 m by drone (220 m on foot); the bar names the street.
+- **Speed control:** − / + in the bar (or the - and + keys): 4, 8, 16, 30 or 60 mph. Walking starts at 4 mph, the drone at 30; Shift doubles it. (Walking's old fixed Shift-to-hurry speed is replaced by this.)
+- Checked in headless Chrome over Midtown: 80 m along W 44th St in 6 s at 30 mph. → pressed mid-block waited for 7th Av, 163 m on, then turned onto 7th Av heading uptown, with W 45th–50th St signs ahead. ↓ turned the drone round; + went from 30 to 60 mph.
+- **☁ Clouds** (`satClouds`, `syncCloudBtn`, `updateClouds`; `#cloudbtn`):
+  - Shows GOES-East's visible-light picture (NASA GIBS WMS, the newest, about 40 minutes old, a new one every 10 minutes), cut to the region's box in degrees like the radar.
+  - Each pixel's brightness becomes cloud: ground (below about 0.33) shows through, and cloud is thick by 0.7, white where bright and grey where dark. It fades out at the box's edges.
+  - Drawn as a deck 2,200 m up, fading in as you rise above 2,600 m. Hidden at street level and when riding.
+  - The button shows the picture's time ("☁ Clouds Thu 10:40 AM"), from GIBS's `layer-time-actual` header on a tile.
+  - The picture is daylight-only: at night it's black, and the button says "☁ Clouds · night". Off at first; remembered. Offline: "☁ Clouds · offline".
+  - Test hook: `__clouds()`.
+- **The region panel shrinks** (`miniPanel`, `#panelmin`): a small − in the panel's corner shrinks it to the region's name in one line. + (or a tap on the name) brings it back. Remembered. The compass rose moves up under it.
+- Test hook: `__meDot.state`.
+
 ## 2026-11-26 — Bird's-eye: 🌧 Radar, the weather radar over the region (v1212)
 
 - Asked: "Can we add the ability to superimpose the current weather on our region? How much would that cost in resources?", then "yes, build the radar overlay".
