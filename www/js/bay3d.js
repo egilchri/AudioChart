@@ -363,9 +363,12 @@ function stepAnim(now) {
 // ── Pointer and wheel: drag to move, right/Shift-drag to turn and tilt, wheel/pinch to zoom ──
 const pointers = new Map();
 let drag = null;
+// (v1210) standing at street level where you are (the blue pillar tapped): { prev view, drag } while on; see meDot
+let ground = null;
 sceneEl.addEventListener('contextmenu', e => e.preventDefault());
 let tap0 = null;   // a tap (down and up, hardly moved) picks a live vessel: her AIS card (v988)
 sceneEl.addEventListener('pointerdown', e => {
+  if (ground) { sceneEl.setPointerCapture(e.pointerId); ground.drag = { x: e.clientX, y: e.clientY }; return; }   // (at street level: drag to look round)
   tap0 = pointers.size ? null : { x: e.clientX, y: e.clientY, t: performance.now() };
   if (nest.on) { sceneEl.setPointerCapture(e.pointerId); pointers.set(e.pointerId, { x: e.clientX, y: e.clientY }); nest.drag = pointers.size === 1 ? { x: e.clientX, y: e.clientY } : { pinch: pinchState(), zoom: nest.zoom }; return; }   // in the crow's nest: look round
   anim = null; fly?.pause(); sceneEl.setPointerCapture(e.pointerId);   // (following stops when you drag, not on a tap: v988; a flyover pauses)
@@ -379,6 +382,7 @@ function pinchState() {
   return { d: Math.hypot(b.x - a.x, b.y - a.y), ang: Math.atan2(b.y - a.y, b.x - a.x), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };
 }
 sceneEl.addEventListener('pointermove', e => {
+  if (ground) { const g = ground.drag; if (!g || !eye) return; eye.az = (eye.az - (e.clientX - g.x) * 0.25 + 360) % 360; eye.pitch = clamp((eye.pitch || 0) + (e.clientY - g.y) * 0.2, -40, 60); g.x = e.clientX; g.y = e.clientY; return; }
   if (nest.on) {
     if (!pointers.has(e.pointerId) || !nest.drag) return;
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -410,6 +414,7 @@ sceneEl.addEventListener('pointermove', e => {
   }
 });
 const endPointer = e => {
+  if (ground) { ground.drag = null; return; }
   pointers.delete(e.pointerId);
   if (tap0 && e.type === 'pointerup' && !pointers.size && Math.hypot(e.clientX - tap0.x, e.clientY - tap0.y) < 7 && performance.now() - tap0.t < 600) tapAt(e.clientX, e.clientY);
   tap0 = null;
@@ -420,6 +425,7 @@ const endPointer = e => {
 sceneEl.addEventListener('pointerup', endPointer); sceneEl.addEventListener('pointercancel', endPointer);
 sceneEl.addEventListener('wheel', e => {
   e.preventDefault(); fly?.pause();
+  if (ground) { if (eye) eye.fov = clamp((eye.fov ?? 62) * Math.exp(e.deltaY * (e.deltaMode === 1 ? 0.05 : 0.002)), 25, 80); return; }   // (at street level: zoom by the lens)
   if (nest.on) { nest.zoom = clamp(nest.zoom * Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.05 : 0.002)), ...zoomRange()); return; }   // the glasses, or the drone in or out
   anim = null;
   const anchor = groundAt(e.clientX, e.clientY);
@@ -965,9 +971,27 @@ function streetOf(x, z, h) {
 const signsEl = document.createElement('div'); signsEl.id = 'streetsigns'; document.body.appendChild(signsEl);
 const signPool = [], signV3 = new THREE.Vector3(); let signs = [], signT = 0, signFor = null;
 const shortSt = n => n.replace(/\bStreet\b/g, 'St').replace(/\bAvenue\b/g, 'Av').replace(/\bBoulevard\b/g, 'Blvd').replace(/\bPlace\b/g, 'Pl').replace(/\bRoad\b/g, 'Rd').replace(/\bDrive\b/g, 'Dr').replace(/\bParkway\b/g, 'Pkwy').replace(/^(East|West|North|South) (?=\d)/, m => m[0] + ' ');
+// (v1210, asked: "Show the street signs when following trains too") any bus or train; a subway's street is the one
+// she runs under ("Under Lexington Av"), shown following her from above (the tunnel's own cab view hides them: CSS)
 function signBus() {
   const v = nest.on ? nest.v : follow;
-  return v && isMover(v) && isBus(v) && !v.under ? v : null;
+  return v && v.kind === 'rail' ? v : null;
+}
+// the named streets a straight line ahead of her crosses, nearest first: for a train off the street grid (an embankment,
+// a cut, a line slanting across the blocks), where no street of her own has corners to name
+function crossingsAhead(x, z, hx, hz, R) {
+  const seen = new Set(), out = [];
+  for (let d = 0; d <= R; d += LANE_CELL / 2) {
+    const cx = Math.floor((x + hx * d) / LANE_CELL), cz = Math.floor((z + hz * d) / LANE_CELL);
+    for (const t of townList) if (t.lanes) for (const g of t.lanes.get(`${cx},${cz}`) || []) {
+      if (!g.n || seen.has(g)) continue; seen.add(g);
+      const den = hx * g.dz - hz * g.dx; if (Math.abs(den) < 0.25) continue;   // (running alongside, not across)
+      const ox = g.ax - x, oz = g.az - z, tt = (ox * g.dz - oz * g.dx) / den, u = (ox * hz - oz * hx) / den;
+      if (tt < -15 || tt > R || u < 0 || u > g.len) continue;
+      out.push({ text: shortSt(g.n), x: x + hx * tt, z: z + hz * tt, d: tt });
+    }
+  }
+  return out;
 }
 function updateStreetSigns(now) {
   const v = signBus();
@@ -975,22 +999,23 @@ function updateStreetSigns(now) {
   if (now - signT > 300 || signFor !== v) {
     signT = now; signFor = v; signs = [];
     const h = v.h || 0, hx = Math.sin(h * DEG), hz = -Math.cos(h * DEG), on = streetOf(v.x, v.z, h);
-    if (on) signs.push({ me: true, text: shortSt(on), x: v.x, z: v.z, v });
+    if (on) signs.push({ me: true, text: (v.under ? 'Under ' : '') + shortSt(on), x: v.x, z: v.z, v });
     const near = [];
     for (const t of townList) if (t.junctions) for (const j of t.junctions) {
       const dx = j.x - v.x, dz = j.z - v.z, d = Math.hypot(dx, dz); if (d > 420) continue;
       const ahead = dx * hx + dz * hz; if (ahead < -15) continue;
-      if (on ? !j.names.has(on) : d > 160) continue;
+      if (!on || !j.names.has(on)) continue;
       const others = [...j.names].filter(n => n !== on); if (!others.length) continue;
       near.push({ text: others.map(shortSt).join(' / '), x: j.x, z: j.z, lon: j.lon, lat: j.lat, d: ahead });
     }
+    if (!on) near.push(...crossingsAhead(v.x, v.z, hx, hz, 420));
     near.sort((a, b) => a.d - b.d);
     const seen = new Set(); for (const s of near) { if (seen.has(s.text)) continue; seen.add(s.text); signs.push(s); if (seen.size >= 4) break; }
   }
   const W = sceneEl.clientWidth, H = sceneEl.clientHeight; let n = 0;
   for (const s of signs) {
     if (s.me) signV3.set(s.v.x, Math.max(0, heightAt(lonOf(s.v.x), latOf(s.v.z)) || 0) + 9, s.v.z);
-    else signV3.set(s.x, Math.max(0, heightAt(s.lon, s.lat) || 0) + 6, s.z);
+    else signV3.set(s.x, Math.max(0, heightAt(s.lon ?? lonOf(s.x), s.lat ?? latOf(s.z)) || 0) + 6, s.z);
     const p = signV3.project(camera); if (p.z > 1 || Math.abs(p.x) > 1.05 || Math.abs(p.y) > 1.05) continue;
     let el = signPool[n]; if (!el) { el = document.createElement('div'); signsEl.appendChild(el); signPool[n] = el; }
     if (el.textContent !== s.text) el.textContent = s.text;
@@ -3220,6 +3245,7 @@ function fillMoverCard() {
 // the tap: the live vessel nearest it on the screen, within a finger's width of her or her name
 const _tp = new THREE.Vector3();
 function tapAt(cx, cy) {
+  if (window.__meTap?.(cx, cy)) return;   // (v1210) the blue pillar: down to street level there
   if (picking && pickAt) { pickAt(cx, cy); return; }
   { const rc = renderer.domElement.getBoundingClientRect(), p = air.at(cx, cy, camera, rc, 26); if (p) { toggleCard(p); return; }   // (a tap on an aircraft: her card, v1104; her label until the next, v1101)
     const tr = rail.at(cx, cy, camera, rc, 26); if (tr) { toggleCard(tr); return; } }   // (and on a train)
@@ -4014,21 +4040,69 @@ function flashLive(ms = 6000, movers = true) { flashUntil = performance.now() + 
 // the browser's own fix, a blinking blue dot over the ground where you stand, drawn only while you're inside this
 // region's box; a tap on it flies the view there. Nothing shown (and nothing said) without a fix or outside the box.
 const meDot = (() => {
-  const el = document.createElement('div'); el.id = 'medot'; el.hidden = true; el.title = 'You are here';
-  document.body.appendChild(el);
+  // (v1210, asked: "The blue dot that shows my location should be a vertical pillar, in 3d view. When you click on it, your
+  // perspective should be brought down to ground level") a blinking blue pillar standing where you are, its height kept
+  // in proportion to the view so it shows from far off, a faint copy of it seen through the buildings in front; a tap on
+  // it puts you at street level on the spot, looking the way the view was: drag to look round, ◀ Back up (or Esc)
   let fix = null;
   const inRegion = (lon, lat) => lon >= OVERVIEW[0] && lon <= OVERVIEW[2] && lat >= OVERVIEW[1] && lat <= OVERVIEW[3];
+  const set = (lon, lat, accuracy) => { fix = inRegion(lon, lat) ? { lon, lat, x: wx(lon), z: wz(lat), accuracy } : null; };
   if (!EMPTY && navigator.geolocation) navigator.geolocation.watchPosition(
-    pos => { const { longitude: lon, latitude: lat, accuracy } = pos.coords; fix = inRegion(lon, lat) ? { lon, lat, x: wx(lon), z: wz(lat), accuracy } : null; },
-    () => { fix = null; }, { enableHighAccuracy: true, maximumAge: 15000 });
-  el.addEventListener('click', () => { if (!fix) return; anim = null; flyTo({ x: fix.x, z: fix.z, dist: Math.min(view.dist, 1500), tilt: view.tilt, az: view.az }, 1800); });
-  window.__meDot = { get fix() { return fix; }, set: (lon, lat) => { fix = inRegion(lon, lat) ? { lon, lat, x: wx(lon), z: wz(lat), accuracy: 10 } : null; } };   // (testing)
+    pos => set(pos.coords.longitude, pos.coords.latitude, pos.coords.accuracy), () => { fix = null; }, { enableHighAccuracy: true, maximumAge: 15000 });
+  const geo = new THREE.CylinderGeometry(1, 1, 1, 20, 1, false); geo.translate(0, 0.5, 0);
+  const solid = new THREE.MeshBasicMaterial({ color: 0x3d9bff, transparent: true, opacity: 0.9, depthWrite: false });
+  const ghost = new THREE.MeshBasicMaterial({ color: 0x6fb3ff, transparent: true, opacity: 0.3, depthTest: false, depthWrite: false });
+  const pillar = new THREE.Group(), body = new THREE.Mesh(geo, solid), thru = new THREE.Mesh(geo, ghost);
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 10), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95, depthWrite: false }));
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.75, 1, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x2b8cff, transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthWrite: false }));
+  thru.renderOrder = 998; body.renderOrder = 999; cap.renderOrder = 999; ring.renderOrder = 999;
+  pillar.add(body, thru, cap, ring); pillar.visible = false; pillar.frustumCulled = false; scene.add(pillar);
+  const A = new THREE.Vector3(), B = new THREE.Vector3();
+  let H = 0, R = 0, base = 0;
+  function goGround() {
+    if (!fix || ground) return;
+    if (nest.on) leaveRide(); if (follow) stopFollow(); fly?.pause(); anim = null;
+    ground = { prev: { x: view.x, z: view.z, dist: view.dist, az: view.az, tilt: view.tilt }, drag: null };
+    eye = { lon: fix.lon, lat: fix.lat, az: ((view.az / DEG) % 360 + 360) % 360, pitch: 4, h: 1.7, fov: 62 };
+    document.getElementById('labels').style.visibility = 'hidden'; document.body.classList.add('atground');
+    gbar.hidden = false;
+  }
+  function upAgain() {
+    if (!ground) return;
+    const prev = ground.prev; ground = null; eye = null; gbar.hidden = true;
+    document.getElementById('labels').style.visibility = ''; document.body.classList.remove('atground');
+    camera.fov = 50; camera.near = 1; camera.updateProjectionMatrix();
+    Object.assign(view, prev); clampView(); placeCamera();
+  }
+  const gbar = document.createElement('div'); gbar.id = 'groundbar'; gbar.hidden = true;
+  gbar.innerHTML = '<span>At street level, where you are · drag to look round · scroll to zoom</span><button type="button">◀ Back up</button>';
+  gbar.querySelector('button').addEventListener('click', upAgain);
+  for (const ev of ['pointerdown', 'wheel', 'touchstart']) gbar.addEventListener(ev, e => e.stopPropagation(), { passive: true });
+  document.body.appendChild(gbar);
+  addEventListener('keydown', e => { if (e.key === 'Escape' && ground) { upAgain(); e.preventDefault(); } });
+  // a tap within reach of the pillar as drawn, top to bottom, on the screen
+  window.__meTap = (cx, cy) => {
+    if (!fix || ground || !pillar.visible) return false;
+    const r = renderer.domElement.getBoundingClientRect();
+    A.set(fix.x, base, fix.z).project(camera); B.set(fix.x, base + H, fix.z).project(camera);
+    if (A.z > 1 && B.z > 1) return false;
+    const ax = r.left + (A.x + 1) / 2 * r.width, ay = r.top + (1 - A.y) / 2 * r.height, bx = r.left + (B.x + 1) / 2 * r.width, by = r.top + (1 - B.y) / 2 * r.height;
+    const dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy || 1, u = clamp(((cx - ax) * dx + (cy - ay) * dy) / L2, 0, 1);
+    if (Math.hypot(cx - (ax + dx * u), cy - (ay + dy * u)) > 18) return false;
+    goGround(); return true;
+  };
+  window.__meDot = { get fix() { return fix; }, set: (lon, lat) => set(lon, lat, 10), ground: () => { goGround(); return !!ground; }, up: upAgain, get atGround() { return !!ground; } };   // (testing)
   return function update() {
-    if (!fix || nest.on || eye) { el.hidden = true; return; }
-    v3.set(fix.x, Math.max(0, heightAt(fix.lon, fix.lat) || 0) + 2, fix.z);
-    const p = v3.project(camera);
-    if (p.z > 1 || Math.abs(p.x) > 1 || Math.abs(p.y) > 1) { el.hidden = true; return; }
-    el.style.left = (p.x + 1) / 2 * sceneEl.clientWidth + 'px'; el.style.top = (1 - p.y) / 2 * sceneEl.clientHeight + 'px'; el.hidden = false;
+    if (!fix || ground || (nest.on && nest.mode === 'helm') || subway.active) { pillar.visible = false; return; }
+    base = Math.max(0, heightAt(fix.lon, fix.lat) || 0);
+    const far = camera.position.distanceTo(A.set(fix.x, base, fix.z));
+    H = clamp(far * 0.16, 18, 2500); R = clamp(far * 0.0075, 1.2, 120);
+    const t = performance.now() / 1000, on = 0.5 + 0.5 * Math.cos(t * Math.PI * 2 / 1.2);   // (a blink every 1.2 s)
+    pillar.position.set(fix.x, base, fix.z); pillar.visible = true;
+    body.scale.set(R, H, R); thru.scale.set(R, H, R);
+    cap.position.y = H; cap.scale.setScalar(R * 2.2);
+    solid.opacity = 0.55 + 0.45 * on; ghost.opacity = 0.25 + 0.3 * on; cap.material.opacity = 0.5 + 0.5 * on;
+    const k = (t % 1.6) / 1.6; ring.position.y = 0.6; ring.scale.setScalar(R * (3 + 9 * k)); ring.material.opacity = 0.85 * (1 - k);
   };
 })();
 function updateLiveMarks() {

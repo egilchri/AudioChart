@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-11-26 — Bird's-eye: street signs for trains; your location as a pillar, tap it for street level (v1210)
+
+- Asked: "Show the street signs when following trains too", and "The blue dot that shows my location should be a vertical pillar, in 3d view. When you click on it, your perspective should be brought down to ground level".
+- **Street signs for trains** (www/js/bay3d.js `signBus`, `crossingsAhead`): following or riding any train, not just a bus.
+  - A subway's own sign reads "Under …", for the street it runs beneath (e.g. the D "Under W 53rd St", an R "Under 7th Av"). The signs show when following a train from above; the tunnel cab view still hides them.
+  - A train not on a street (an embankment, a cut, a line slanting across the blocks) gets signs for the named streets a straight line ahead of it crosses, nearest first.
+  - Checked in headless Chrome in Midtown: an R toward Forest Hills under 7th Av, W 56th–58th St and Central Park South ahead; an R toward Bay Ridge, W 53rd–50th St ahead.
+- **Your location as a pillar** (`meDot`, replacing v1206's HTML dot):
+  - A blinking blue 3D pillar with a white cap and a spreading ring at its foot.
+  - Its size scales with distance from the camera, so it shows from miles up.
+  - A faint copy draws through any buildings in front.
+  - It is hidden in a helm view and underground.
+- **Tap the pillar: street level** (`goGround`, `upAgain`; `#groundbar`):
+  - The camera goes to 1.7 m at your spot, facing the way the view was.
+  - Drag to look round; scroll to zoom the lens.
+  - "◀ Back up" or Esc returns to the view you left. Riding, following and a flyover are ended or paused.
+  - The tap is matched against the pillar as drawn on screen, top to bottom (18 px either side).
+  - Test hooks: `__meDot.ground()`, `__meDot.up()`, `__meDot.atGround`.
+  - Checked in headless Chrome with a real mouse click on the pillar (Times Square): street level on 7th Av, drag turned the view, Back up restored it.
+
 ## 2026-11-24 — Bird's-eye: street signs round a followed bus; a compass rose (v1209)
 
 - Asked: "It should label the streets and cross streets as I follow a bus", and "put a compass rose in the upper left hand corner of the image, like for boats".
