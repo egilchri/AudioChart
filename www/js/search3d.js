@@ -80,8 +80,10 @@ async function find(text) {
       const r = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&bounded=1&viewbox=${w},${n},${e},${s}&q=${encodeURIComponent(text.trim())}`, { headers: { 'Accept-Language': 'en' } });
       const j = r.ok ? await r.json() : [];
       if (my !== seq) return;
-      const osm = j.map(o => ({ name: o.name || o.display_name.split(',')[0], where: o.display_name.split(',').slice(1, 3).join(',').trim(), kind: (o.type || o.category || 'Place').replace(/_/g, ' ').replace(/^./, c => c.toUpperCase()), lon: +o.lon, lat: +o.lat, bb: o.boundingbox }))
-        .filter(o => !uniq.some(u => norm(u.name) === norm(o.name)));
+      // (v1214) an address has no name of its own: "100, West 18th Street, …" is "100 West 18th Street", an Address
+      const parts = o => o.display_name.split(',').map(s => s.trim()), addr = o => !o.name && /^\d[\w-]*$/.test(parts(o)[0]);
+      const osm = j.map(o => ({ name: addr(o) ? `${parts(o)[0]} ${parts(o)[1]}` : o.name || parts(o)[0], where: parts(o).slice(1, 3).join(', '), kind: addr(o) ? 'Address' : (o.type || o.category || 'Place').replace(/_/g, ' ').replace(/^./, c => c.toUpperCase()), lon: +o.lon, lat: +o.lat, bb: o.boundingbox }))
+        .filter((o, i, all) => !uniq.some(u => norm(u.name) === norm(o.name)) && all.findIndex(p => norm(p.name) === norm(o.name)) === i);
       show([...uniq, ...osm], uniq.length || osm.length ? '' : 'Nothing by that name in this bay');
     } catch (_) { if (my === seq) show(uniq, uniq.length ? '' : 'OpenStreetMap search is out of reach just now'); }
   }, 450);

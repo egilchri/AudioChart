@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-11-26 — Bird's-eye: 📍 Walk to… an address, along the sidewalk; underground stations no longer stand in the street (v1214)
+
+- Asked: "I should be able to put in address and 'walk there on the sidewalk'".
+- **📍 Walk to…** in the street-level bar (www/js/bay3d.js `openWalkTo`, `walkTo`, `ribbon`, `endRoute`; `stepWalk`; new www/js/streetroute.js):
+  - Opens 🔍 Search's box (stations, the chart's places, OpenStreetMap addresses). Pick one and the way there is worked out along the streets.
+  - The streets (`buildGraph`): every area's street file between here and there, plus a margin, joined into one graph. Junctions are OSM's shared points, and a loose end is tied to the nearest point within 15 m, because neighbouring files share only a few points. Motorways are left out.
+  - The way (`route`): A* from the nearest street point to you to the one nearest the address.
+  - The sidewalk (`sidewalk`): the way is cut into 3 m steps and moved to the right-hand sidewalk (half the roadway plus 2.6 m), mitred at corners. A step that lands in a building is drawn back toward the roadway until it's clear.
+  - You're taken along it at the speed you've set, walking or by drone, looking 8 m ahead. A blue band shows the way on the pavement. The bar says "Walking to 100 West 18th Street · 1.1 mi to go", then "You've arrived" with ✓ Done.
+  - An arrow key, ■ Stop or Esc gives you back the controls. A second Esc goes back up.
+- **Street signs:** the East and West halves of one street are one street. At 5th Av on W 44th St the sign says "5th Av", and a corner of E 44th and W 44th says "44th St".
+- **Search:** an OpenStreetMap address had no name of its own and showed as "100 · House", once per entrance. It now shows as "100 West 18th Street · Address", once (www/js/search3d.js).
+- **Underground stations removed from the buildings:** OpenStreetMap maps some subway stations' whole concourses as buildings, and they were built as blocks across the street. Removed: 34th St–Herald Square, 59th St–Columbus Circle, Delancey St–Essex St, Chambers St–WTC (nyc-*.json), Metropolitan Av–Lorimer St (bk-williamsburg.json), and Powell St, Montgomery St, Embarcadero and both Union Square/Market Street footprints under Market St (sf-downtown.json). design/buildings/build_buildings.py now skips `layer<0`, `location=underground` and subway-station footprints.
+- Checked in headless Chrome from 6th Av & W 44th St:
+  - To the Empire State Building: 1,105 m down 6th Av and along W 34th St. It arrived, and the eye was never inside a building (164 samples). Before the station fix, 17 samples were inside the Herald Square "building".
+  - Through the real UI, typing "100 West 18th Street": 2,097 m across two areas' street files, no wall hits, arrived. An arrow key handed back the controls.
+- Test hooks: `__meDot.walkTo(r)`, `__meDot.inB(x, z)`.
+
 ## 2026-11-26 — Bird's-eye: drone at street level; ☁ Clouds from the satellite; the region panel shrinks (v1213)
 
 - Asked: "now add the satellite cloud layer too. But also, for the click pillar feature. Once you're down there, I'd like to be able to drive around in drone view. Arrows should control forward, turn left, turn right, turn 180. Also, there should be a speed control. We should see street signs as we drive the drone", and "I should be able to shrink the window that selects regions, out of the way".

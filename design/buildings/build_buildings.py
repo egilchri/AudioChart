@@ -96,6 +96,12 @@ for e in els:
     if 'building' in tags and tags.get('name') in OVERRIDES:
         B.extend(OVERRIDES[tags['name']]['buildings']); continue
     if 'building' in tags:
+        # Underground (v1214): OSM maps some subway stations' whole concourses as buildings (34th St–Herald Square,
+        # Powell Street under Market St); built, they stood as blocks across the street. Hand-removed from the
+        # NYC/Brooklyn/SF files then, skipped here since.
+        try: layer = float(tags.get('layer', '0').split(';')[0])
+        except ValueError: layer = 0
+        if layer < 0 or tags.get('location') in ('underground', 'underwater') or tags.get('station') == 'subway' or tags.get('subway') == 'yes': continue
         if ll[0] == ll[-1]: ll = ll[:-1]
         if len(ll) < 3: continue
         cx, cy = sum(p[0] for p in ll) / len(ll), sum(p[1] for p in ll) / len(ll)

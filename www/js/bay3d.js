@@ -464,6 +464,7 @@ sceneEl.addEventListener('wheel', e => {
 }, { passive: false });
 addEventListener('keydown', e => {
   if (ground && !e.metaKey && !e.ctrlKey && !(e.target instanceof HTMLInputElement)) {   // (at street level: walk or fly, stepWalk)
+    if (ground.route && /^Arrow/.test(e.key)) ground.endRoute?.();   // (v1214: the arrows take you back from the directions)
     if (ground.mode === 'drone' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowDown')) {   // (by drone: a quarter turn each way, or about)
       if (!e.repeat) droneTurn(e.key === 'ArrowLeft' ? -90 : e.key === 'ArrowRight' ? 90 : 180);
       e.preventDefault(); return;
@@ -945,6 +946,7 @@ let furnP = null;
 async function townStreets(t, T) {
   const data = await getJSON(`./data/streets/${t.file}`).catch(() => null); if (!data?.ways?.length || !t.group) return;
   t.lanes = laneIndex(data);   // (v1194: where the buses drive)
+  t.streetRaw = data;   // (v1214: for walking directions, kept)
   t.junctions = junctionsOf(data);   // (v1209: the cross streets, for a followed bus's street signs)
   const [w, s, e, n] = T.bbox, M = 0.003, dem = await demFor(w - M, s - M, e + M, n + M, true);
   if (cliffsP) cliffDem(dem, (await cliffsP)?.lines);
@@ -1056,7 +1058,10 @@ function walkSigns() {
     if (d > 12 && (dx * hx + dz * hz) / d < -0.2) continue;   // (behind you: drag or turn round to see it)
     let seen = true; for (let k = 4; k < d - 6; k += 3) if (inBuilding(x + dx * k / d, z + dz * k / d)) { seen = false; break; }
     if (!seen) continue;
-    const names = [...j.names], others = on && j.names.has(on) ? names.filter(n => n !== on) : names;
+    // (v1214) East and West halves of one street are one street: at 5th Av on W 44th St, just "5th Av"; "E 44th & W 44th" is "44th St"
+    const base = n => n.replace(/^(East|West) /, ''), onB = on && base(on), names = [...j.names], mine = on && names.some(n => base(n) === onB);
+    const others = [...new Set((mine ? names.filter(n => base(n) !== onB) : names).map(n => names.filter(m => base(m) === base(n)).length > 1 ? base(n) : n))];
+    if (!others.length) continue;
     out.push({ text: others.map(shortSt).join(' & '), x: j.x, z: j.z, lon: j.lon, lat: j.lat, d, walk: true });
   }
   out.sort((a, b) => a.d - b.d);
@@ -1895,6 +1900,17 @@ function stepWalk(dt) {
   if (ground.turnTo != null) {   // (by drone: turning round the corner, 160° a second)
     const off = ((ground.turnTo - eye.az + 540) % 360) - 180, st = 160 * dt;
     if (Math.abs(off) <= st) { eye.az = ground.turnTo; ground.turnTo = null; } else eye.az = (eye.az + Math.sign(off) * st + 360) % 360;
+  }
+  const R = ground.route;
+  if (R) {   // (v1214) walking (or flying) the way to an address: along it at the speed you've set, looking 8 m ahead
+    if (R.arrived) return;
+    R.s = Math.min(R.len, R.s + GROUND_SPEEDS[ground.speed[ground.mode]] * (walkKeys.shiftHeld ? 2 : 1) * dt);
+    const p = R.at(R.s), q = R.at(Math.min(R.len, R.s + 8));
+    eye.lon = lonOf(p.x); eye.lat = latOf(p.z);
+    if (Math.hypot(q.x - p.x, q.z - p.z) > 0.3) { const want = (Math.atan2(q.x - p.x, -(q.z - p.z)) / DEG + 360) % 360, off = ((want - eye.az + 540) % 360) - 180; eye.az = (eye.az + off * Math.min(1, dt * 4) + 360) % 360; }
+    if (R.s >= R.len) R.arrived = true;
+    if (R.arrived || performance.now() - (R.synced || 0) > 500) { R.synced = performance.now(); ground.sync?.(); }
+    return;
   }
   if (!walkKeys.size) return;
   const run = walkKeys.has('Shift') || walkKeys.shiftHeld, turn = (walkKeys.has('ArrowRight') ? 1 : 0) - (walkKeys.has('ArrowLeft') ? 1 : 0), go = (walkKeys.has('ArrowUp') ? 1 : 0) - (walkKeys.has('ArrowDown') ? 1 : 0);
@@ -4289,7 +4305,7 @@ const meDot = (() => {
   function goGround() {
     if (!fix || ground) return;
     if (nest.on) leaveRide(); if (follow) stopFollow(); fly?.pause(); anim = null;
-    ground = { prev: { x: view.x, z: view.z, dist: view.dist, az: view.az, tilt: view.tilt }, drag: null, mode: 'walk', speed: { walk: 0, drone: 3 }, droneH: 30, turnTo: null, pending: null, drone: droneMesh, sync: syncGbar };
+    ground = { prev: { x: view.x, z: view.z, dist: view.dist, az: view.az, tilt: view.tilt }, drag: null, mode: 'walk', speed: { walk: 0, drone: 3 }, droneH: 30, turnTo: null, pending: null, route: null, endRoute, drone: droneMesh, sync: syncGbar };
     const az0 = ((view.az / DEG) % 360 + 360) % 360, st = nearestStreet(fix.x, fix.z, 400, az0);   // (v1211: down on the nearest named street)
     eye = st ? { lon: lonOf(st.x), lat: latOf(st.z), az: st.az, pitch: 4, h: 1.7, fov: 62 } : { lon: fix.lon, lat: fix.lat, az: az0, pitch: 4, h: 1.7, fov: 62 };
     ground.street = st?.n || null;
@@ -4298,23 +4314,81 @@ const meDot = (() => {
   }
   function upAgain() {
     if (!ground) return;
-    const prev = ground.prev; ground = null; eye = null; gbar.hidden = true; walkKeys.clear(); droneMesh.visible = false;
+    endRoute(); const prev = ground.prev; ground = null; eye = null; gbar.hidden = true; walkKeys.clear(); droneMesh.visible = false;
     document.getElementById('labels').style.visibility = ''; document.body.classList.remove('atground');
     camera.fov = 50; camera.near = 1; camera.updateProjectionMatrix();
     Object.assign(view, prev); clampView(); placeCamera();
   }
   const gbar = document.createElement('div'); gbar.id = 'groundbar'; gbar.hidden = true;
   gbar.innerHTML = '<b id="groundtxt">At street level</b><span class="gmode"><button type="button" data-m="walk" title="On foot, at eye height">🚶 Walk</button><button type="button" data-m="drone" title="A drone over the street, the camera behind it">🚁 Drone</button></span>'
-    + '<span class="gspd"><button type="button" data-d="-1" title="Slower (-)">−</button><em id="gspeed"></em><button type="button" data-d="1" title="Faster (+)">+</button></span><span id="ghelp"></span><button type="button" class="back">◀ Back up</button>';
+    + '<span class="gspd"><button type="button" data-d="-1" title="Slower (-)">−</button><em id="gspeed"></em><button type="button" data-d="1" title="Faster (+)">+</button></span><span id="ghelp"></span><button type="button" class="walkto" title="Type an address or a place, and walk there along the sidewalks">📍 Walk to…</button><button type="button" class="stop" hidden>■ Stop</button><button type="button" class="back">◀ Back up</button>';
   gbar.querySelector('.back').addEventListener('click', upAgain);
   for (const b of gbar.querySelectorAll('.gmode button')) b.addEventListener('click', () => { if (!ground) return; ground.mode = b.dataset.m; ground.turnTo = null; ground.pending = null; walkKeys.clear(); if (ground.mode === 'walk') eye.pitch = 4; syncGbar(); b.blur(); });
   for (const b of gbar.querySelectorAll('.gspd button')) b.addEventListener('click', () => { setGroundSpeed(+b.dataset.d); b.blur(); });
+  gbar.querySelector('.walkto').addEventListener('click', e => { e.currentTarget.blur(); openWalkTo(); });
+  gbar.querySelector('.stop').addEventListener('click', e => { e.currentTarget.blur(); endRoute(); });
+  // ── 📍 Walk to… (v1214, asked: "I should be able to put in address and 'walk there on the sidewalk'"): 🔍 Search's box
+  // (search3d.js: the stations, the chart's places, OpenStreetMap's addresses), then the way there along the streets
+  // (streetroute.js: the streets of every area between here and there, as a graph), moved over to the right-hand
+  // sidewalk, and you're taken along it at the speed you've set, walking or by drone: a blue line on the pavement ahead,
+  // the street signs as ever, and the distance left in the bar. An arrow key, ■ Stop or Esc gives you back the controls.
+  let routeMod = null, routeG = null, routeKey = '', routeLine = null, walkNote = '';
+  function openWalkTo() {
+    import('./search3d.js').then(m => m.openSearch({ button: gbar.querySelector('.walkto'), box: OVERVIEW, places: () => placesGJ.features.filter(f => f.geometry?.type === 'Point' && f.properties?.name && inBay(f.geometry.coordinates)).map(f => ({ name: f.properties.name, kind: 'Place', lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] })),
+      go: r => walkTo(r), platformsUrl: REG.rail ? `./data/rail/${REG.rail}-platforms.json` : null })).catch(err => console.warn('[bay3d] walk to', err));
+  }
+  async function walkTo(r) {
+    if (!ground || !eye || r.lon == null) return;
+    endRoute(); walkNote = `Finding the way to ${r.name}…`; syncGbar();
+    try {
+      routeMod ??= await import('./streetroute.js');
+      const sx = wx(eye.lon), sz = wz(eye.lat), tx = wx(r.lon), tz = wz(r.lat), M = 0.006;
+      const w = Math.min(eye.lon, r.lon) - M, e = Math.max(eye.lon, r.lon) + M, s = Math.min(eye.lat, r.lat) - M, n = Math.max(eye.lat, r.lat) + M;
+      const areas = townList.filter(t => t.bbox[2] > w && t.bbox[0] < e && t.bbox[3] > s && t.bbox[1] < n);
+      const key = areas.map(t => t.file).sort().join('|');
+      if (key !== routeKey || !routeG) {
+        const datas = await Promise.all(areas.map(t => t.streetRaw ? t.streetRaw : getJSON(`./data/streets/${t.file}`).then(d => (t.streetRaw = d)).catch(() => null)));
+        routeG = routeMod.buildGraph(datas.flatMap(d => d?.ways || []), wx, wz); routeKey = key;
+      }
+      if (!ground) return;
+      const found = routeMod.route(routeG, sx, sz, tx, tz);
+      if (!found) { walkNote = `No way there along the streets on this map (${r.name})`; syncGbar(); return; }
+      const pts = routeMod.sidewalk(found.pts, inBuilding), cum = [0];
+      for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].z - pts[i - 1].z));
+      const at = d => { let i = 1; while (i < pts.length - 1 && cum[i] < d) i++; const a = pts[i - 1], b = pts[i], u = cum[i] > cum[i - 1] ? (d - cum[i - 1]) / (cum[i] - cum[i - 1]) : 0; return { x: a.x + (b.x - a.x) * clamp(u, 0, 1), z: a.z + (b.z - a.z) * clamp(u, 0, 1) }; };
+      walkKeys.clear(); ground.turnTo = null; ground.pending = null;
+      ground.route = { pts, cum, len: cum[cum.length - 1], s: 0, at, name: r.name, arrived: false };
+      routeLine = ribbon(pts); scene.add(routeLine);
+      walkNote = ''; syncGbar();
+    } catch (err) { console.warn('[bay3d] walk to', err); walkNote = 'Walking directions failed'; syncGbar(); }
+  }
+  // the way, as a blue band 1.2 m wide just over the pavement
+  function ribbon(pts) {
+    const pos = [], idx = [];
+    pts.forEach((p, i) => {
+      const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)], dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz) || 1, rx = -dz / L * 0.6, rz = dx / L * 0.6;
+      const y = Math.max(0, heightAt(lonOf(p.x), latOf(p.z)) || 0) + 0.9;   // (over the sidewalk, 0.45 up on its kerb, and the close-up ground's own heights)
+      pos.push(p.x - rx, y, p.z - rz, p.x + rx, y, p.z + rz);
+      if (i) { const k = (i - 1) * 2; idx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2); }
+    });
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx);
+    const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0x3d9bff, transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
+    m.renderOrder = 3; m.frustumCulled = false; return m;
+  }
+  function endRoute() {
+    if (routeLine) { scene.remove(routeLine); routeLine.geometry.dispose(); routeLine.material.dispose(); routeLine = null; }
+    if (ground) { ground.route = null; } walkNote = ''; syncGbar();
+  }
+  const farTxt = m => m < 300 ? `${Math.round(m * 3.281 / 10) * 10} ft` : `${(m / 1609.34).toFixed(m < 16000 ? 1 : 0)} mi`;
   function syncGbar() {
     if (!ground) return;
     const m = ground.mode, ms = GROUND_SPEEDS[ground.speed[m]];
+    const R = ground.route;
+    gbar.querySelector('.stop').hidden = !R; gbar.querySelector('.stop').textContent = R?.arrived ? '✓ Done' : '■ Stop';
     for (const b of gbar.querySelectorAll('.gmode button')) b.classList.toggle('on', b.dataset.m === m);
     gbar.querySelector('#gspeed').textContent = `${mph(ms)} mph`;
     const P = ground.pending;
+    if (walkNote || R) { gbar.querySelector('#ghelp').textContent = walkNote || (R.arrived ? `You've arrived: ${R.name}` : `${m === 'drone' ? 'Flying' : 'Walking'} to ${R.name} · ${farTxt(R.len - R.s)} to go · an arrow key takes over`); droneMesh.visible = m === 'drone'; return; }
     gbar.querySelector('#ghelp').textContent = m === 'drone' ? (P ? `Turning ${P.delta < 0 ? 'left' : 'right'}${P.name ? ` at ${P.name}` : ' at the corner'} · ↑ to get there` : '↑ fly ahead · ← → turn at the corner · ↓ turn round · drag: height') : '↑↓ walk · ←→ turn · Shift faster · drag to look round';
     droneMesh.visible = m === 'drone';
   }
@@ -4332,7 +4406,7 @@ const meDot = (() => {
   })();
   for (const ev of ['pointerdown', 'wheel', 'touchstart']) gbar.addEventListener(ev, e => e.stopPropagation(), { passive: true });
   document.body.appendChild(gbar);
-  addEventListener('keydown', e => { if (e.key === 'Escape' && ground) { upAgain(); e.preventDefault(); } });
+  addEventListener('keydown', e => { if (e.key === 'Escape' && ground && !(e.target instanceof HTMLInputElement)) { if (ground.route) ground.endRoute(); else upAgain(); e.preventDefault(); } });
   // a tap within reach of the pillar as drawn, top to bottom, on the screen
   window.__meTap = (cx, cy) => {
     if (!fix || ground || !pillar.visible) return false;
@@ -4344,7 +4418,7 @@ const meDot = (() => {
     if (Math.hypot(cx - (ax + dx * u), cy - (ay + dy * u)) > 18) return false;
     goGround(); return true;
   };
-  window.__meDot = { get fix() { return fix; }, set: (lon, lat) => set(lon, lat, 10), ground: () => { goGround(); return !!ground; }, up: upAgain, get atGround() { return !!ground; }, get state() { return ground; }, get where() { return eye && ground ? { x: wx(eye.lon), z: wz(eye.lat), az: eye.az, inWall: inBuilding(wx(eye.lon), wz(eye.lat)) } : null; } };   // (testing)
+  window.__meDot = { get fix() { return fix; }, set: (lon, lat) => set(lon, lat, 10), ground: () => { goGround(); return !!ground; }, up: upAgain, get atGround() { return !!ground; }, get state() { return ground; }, walkTo: r => walkTo(r), inB: (x, z) => inBuilding(x, z), get where() { return eye && ground ? { x: wx(eye.lon), z: wz(eye.lat), az: eye.az, inWall: inBuilding(wx(eye.lon), wz(eye.lat)) } : null; } };   // (testing)
   return function update() {
     if (!fix || ground || (nest.on && nest.mode === 'helm') || subway.active) { pillar.visible = false; return; }
     base = Math.max(0, heightAt(fix.lon, fix.lat) || 0);
@@ -5003,7 +5077,7 @@ let lastInput = performance.now();
 const woke = () => { lastInput = performance.now(); };
 for (const ev of ['pointerdown', 'pointermove', 'wheel', 'keydown', 'touchstart']) addEventListener(ev, woke, { passive: true, capture: true });
 const IDLE_MS = 4000, IDLE_STEP = 1000 / 12;
-const busy = () => !!(drag || anim || follow || nest.on || fly?.on() || picking || walkKeys.size || ground?.turnTo != null) || performance.now() - lastInput < IDLE_MS;
+const busy = () => !!(drag || anim || follow || nest.on || fly?.on() || picking || walkKeys.size || ground?.turnTo != null || (ground?.route && !ground.route.arrived)) || performance.now() - lastInput < IDLE_MS;
 const nextFrame = () => busy() ? requestAnimationFrame(frame) : setTimeout(() => requestAnimationFrame(frame), IDLE_STEP - 16);
 function frame(now) {
   if (++fpsN === 60) { window.__fps = Math.round(60000 / (performance.now() - fpsT)); fpsN = 0; fpsT = performance.now(); }
