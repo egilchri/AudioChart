@@ -2,4 +2,4 @@
 // a release that changes only Bird's-eye's armchair layer (Ted's Birdseye: SF, New York, Boston, trains, aircraft,
 // traffic) bumps this alone, so AudioChart's APP_VERSION (version.js) and its service worker (sw.js) stay put and
 // boaters get no update for it. A change to anything AudioChart's boaters load bumps both. CONTRIBUTING.md.
-var BIRDSEYE_VERSION = 'v1210';
+var BIRDSEYE_VERSION = 'v1211';

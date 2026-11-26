@@ -365,6 +365,10 @@ const pointers = new Map();
 let drag = null;
 // (v1210) standing at street level where you are (the blue pillar tapped): { prev view, drag } while on; see meDot
 let ground = null;
+// (v1211, asked: "At street level, let me walk forward with the arrow keys") the arrow keys held down while standing there
+const walkKeys = new Set();
+addEventListener('keyup', e => walkKeys.delete(e.key));
+addEventListener('blur', () => walkKeys.clear());
 sceneEl.addEventListener('contextmenu', e => e.preventDefault());
 let tap0 = null;   // a tap (down and up, hardly moved) picks a live vessel: her AIS card (v988)
 sceneEl.addEventListener('pointerdown', e => {
@@ -434,6 +438,7 @@ sceneEl.addEventListener('wheel', e => {
   if (anchor && hit) { view.x += anchor[0] - hit[0]; view.z += anchor[1] - hit[1]; clampView(); placeCamera(); }
 }, { passive: false });
 addEventListener('keydown', e => {
+  if (ground && /^Arrow/.test(e.key) && !e.metaKey && !e.ctrlKey && !(e.target instanceof HTMLInputElement)) { walkKeys.add(e.key); e.preventDefault(); return; }   // (at street level: walk, stepWalk)
   if (e.target !== document.body) return;
   if (nest.on) {
     const k = { ArrowLeft: [-4, 0], ArrowRight: [4, 0], ArrowUp: [0, 2], ArrowDown: [0, -2] }[e.key];
@@ -953,6 +958,21 @@ function junctionsOf(data) {
   for (const r of data.ways) if (r.n && r.c !== 'ser') for (const [lo, la] of r.p) { const k = `${lo},${la}`; let j = J.get(k); if (!j) J.set(k, j = { lon: lo, lat: la, x: wx(lo), z: wz(la), names: new Set() }); j.names.add(r.n); }
   return [...J.values()].filter(j => j.names.size > 1);
 }
+// (v1211, asked: "Clicking on the column should bring you down to street level, but to the nearest actual named street")
+// the nearest point on a named street to (x, z), within R m: { x, z, n, az } (az: along it, the way nearer `prefer`, deg)
+function nearestStreet(x, z, R, prefer = 0) {
+  const cx = Math.floor(x / LANE_CELL), cz = Math.floor(z / LANE_CELL), K = Math.ceil(R / LANE_CELL);
+  let best = null, bd = R;
+  for (const t of townList) if (t.lanes) for (let i = -K; i <= K; i++) for (let k = -K; k <= K; k++) for (const g of t.lanes.get(`${cx + i},${cz + k}`) || []) {
+    if (!g.n) continue;
+    const u = clamp((x - g.ax) * g.dx + (z - g.az) * g.dz, 0, g.len), px = g.ax + g.dx * u, pz = g.az + g.dz * u, d = Math.hypot(x - px, z - pz);
+    if (d < bd) { bd = d; best = { x: px, z: pz, n: g.n, dx: g.dx, dz: g.dz, d, hw: Math.max(3, g.reach - 6) }; }
+  }
+  if (!best) return null;
+  let az = Math.atan2(best.dx, -best.dz) / DEG; const diff = Math.abs(((az - prefer + 540) % 360) - 180);
+  if (diff > 90) az += 180;
+  best.az = (az + 360) % 360; return best;
+}
 // the street a bus is on: the nearest named run near her, square to her heading if any is (else the nearest at all)
 function streetOf(x, z, h) {
   const hx = Math.sin(h * DEG), hz = -Math.cos(h * DEG), cx = Math.floor(x / LANE_CELL), cz = Math.floor(z / LANE_CELL);
@@ -993,10 +1013,29 @@ function crossingsAhead(x, z, hx, hz, R) {
   }
   return out;
 }
+// (v1211, asked: "street and any exposed crossings should be labelled as we walk around") at street level: the street
+// you're on in the bar, and a sign at each corner within 220 m you can see from where you stand (no wall between)
+const groundTxt = () => document.getElementById('groundtxt');
+function walkSigns() {
+  const x = wx(eye.lon), z = wz(eye.lat), h = eye.az, hx = Math.sin(h * DEG), hz = -Math.cos(h * DEG), on = streetOf(x, z, h), out = [];
+  const gt = groundTxt(); if (gt) { const t = on ? `On ${shortSt(on)}` : 'At street level'; if (gt.textContent !== t) gt.textContent = t; }
+  for (const t of townList) if (t.junctions) for (const j of t.junctions) {
+    const dx = j.x - x, dz = j.z - z, d = Math.hypot(dx, dz); if (d > 220) continue;
+    if (d > 12 && (dx * hx + dz * hz) / d < -0.2) continue;   // (behind you: drag or turn round to see it)
+    let seen = true; for (let k = 4; k < d - 6; k += 3) if (inBuilding(x + dx * k / d, z + dz * k / d)) { seen = false; break; }
+    if (!seen) continue;
+    const names = [...j.names], others = on && j.names.has(on) ? names.filter(n => n !== on) : names;
+    out.push({ text: others.map(shortSt).join(' & '), x: j.x, z: j.z, lon: j.lon, lat: j.lat, d, walk: true });
+  }
+  out.sort((a, b) => a.d - b.d);
+  const seen = new Set(), keep = []; for (const s of out) { if (seen.has(s.text)) continue; seen.add(s.text); keep.push(s); if (keep.length >= 8) break; }
+  return keep;
+}
 function updateStreetSigns(now) {
-  const v = signBus();
-  if (!v) { if (signs.length) { signs = []; for (const el of signPool) el.hidden = true; } signFor = null; return; }
-  if (now - signT > 300 || signFor !== v) {
+  const walking = !!(ground && eye), v = walking ? null : signBus();
+  if (walking) { if (now - signT > 250 || signFor !== 'walk') { signT = now; signFor = 'walk'; signs = walkSigns(); } }
+  else if (!v) { if (signs.length) { signs = []; for (const el of signPool) el.hidden = true; } signFor = null; return; }
+  else if (now - signT > 300 || signFor !== v) {
     signT = now; signFor = v; signs = [];
     const h = v.h || 0, hx = Math.sin(h * DEG), hz = -Math.cos(h * DEG), on = streetOf(v.x, v.z, h);
     if (on) signs.push({ me: true, text: (v.under ? 'Under ' : '') + shortSt(on), x: v.x, z: v.z, v });
@@ -1015,7 +1054,7 @@ function updateStreetSigns(now) {
   const W = sceneEl.clientWidth, H = sceneEl.clientHeight; let n = 0;
   for (const s of signs) {
     if (s.me) signV3.set(s.v.x, Math.max(0, heightAt(lonOf(s.v.x), latOf(s.v.z)) || 0) + 9, s.v.z);
-    else signV3.set(s.x, Math.max(0, heightAt(s.lon ?? lonOf(s.x), s.lat ?? latOf(s.z)) || 0) + 6, s.z);
+    else signV3.set(s.x, Math.max(0, heightAt(s.lon ?? lonOf(s.x), s.lat ?? latOf(s.z)) || 0) + (s.walk ? 3.6 : 6), s.z);   // (walking: at a street sign's height on its pole)
     const p = signV3.project(camera); if (p.z > 1 || Math.abs(p.x) > 1.05 || Math.abs(p.y) > 1.05) continue;
     let el = signPool[n]; if (!el) { el = document.createElement('div'); signsEl.appendChild(el); signPool[n] = el; }
     if (el.textContent !== s.text) el.textContent = s.text;
@@ -1808,6 +1847,30 @@ function clearOfRoofs(at, D, el, az0) {
 // eye on the sidewalk: { lon, lat, az (looking, 0 = north), pitch (degrees up), h (eye height, 1.7 m), fov }; set by
 // __bay3d.walkEye (null to give the camera back), placed after everything has moved, every frame
 let eye = null;
+// (v1211) walking at street level: ↑ ahead, ↓ back, ← → turn, Shift to hurry; a wall stops you, or you slide along it
+function stepWalk(dt) {
+  if (!ground || !eye || !walkKeys.size) return;
+  const run = walkKeys.has('Shift') || walkKeys.shiftHeld, turn = (walkKeys.has('ArrowRight') ? 1 : 0) - (walkKeys.has('ArrowLeft') ? 1 : 0), go = (walkKeys.has('ArrowUp') ? 1 : 0) - (walkKeys.has('ArrowDown') ? 1 : 0);
+  if (turn) eye.az = (eye.az + turn * 75 * dt + 360) % 360;
+  if (!go) return;
+  let x = wx(eye.lon), z = wz(eye.lat);
+  // walking roughly along a named street (within 25° of it), you're kept on it: turned gently onto its line, and drawn
+  // back in off its edge, so a long walk follows the street instead of drifting into the buildings (v1211)
+  const st = !turn && nearestStreet(x, z, 30, go > 0 ? eye.az : eye.az + 180);
+  if (st) {
+    const want = go > 0 ? st.az : st.az + 180, off = ((want - eye.az + 540) % 360) - 180;
+    if (Math.abs(off) < 25) {
+      eye.az = (eye.az + off * Math.min(1, dt * 3) + 360) % 360;
+      const edge = st.d - (st.hw - 1.5); if (edge > 0) { const k = Math.min(1, dt * 2) * edge / st.d; x += (st.x - x) * k; z += (st.z - z) * k; }
+    }
+  }
+  const sp = (run ? 7 : 1.6) * go * dt, a = eye.az * DEG, dx = Math.sin(a) * sp, dz = -Math.cos(a) * sp;
+  const ok = (px, pz) => { const m = Math.hypot(px - x, pz - z) || 1; return !inBuilding(px + (px - x) / m * 1.5, pz + (pz - z) / m * 1.5); };   // (stopping 1.5 m short of a wall, not nose to it)
+  let nx = x + dx, nz = z + dz;
+  if (!ok(nx, nz)) { if (ok(x + dx, z)) nz = z; else if (ok(x, z + dz)) nx = x; else return; }
+  eye.lon = lonOf(nx); eye.lat = latOf(nz);
+}
+addEventListener('keydown', e => { walkKeys.shiftHeld = e.shiftKey; }, true); addEventListener('keyup', e => { walkKeys.shiftHeld = e.shiftKey; }, true);
 function eyeCamera() {
   const x = wx(eye.lon), z = wz(eye.lat), y = Math.max(0, heightAt(eye.lon, eye.lat)) + (eye.h ?? 1.7), a = eye.az * DEG, p = (eye.pitch ?? 0) * DEG;
   camera.position.set(x, y, z);
@@ -4063,19 +4126,21 @@ const meDot = (() => {
     if (!fix || ground) return;
     if (nest.on) leaveRide(); if (follow) stopFollow(); fly?.pause(); anim = null;
     ground = { prev: { x: view.x, z: view.z, dist: view.dist, az: view.az, tilt: view.tilt }, drag: null };
-    eye = { lon: fix.lon, lat: fix.lat, az: ((view.az / DEG) % 360 + 360) % 360, pitch: 4, h: 1.7, fov: 62 };
+    const az0 = ((view.az / DEG) % 360 + 360) % 360, st = nearestStreet(fix.x, fix.z, 400, az0);   // (v1211: down on the nearest named street)
+    eye = st ? { lon: lonOf(st.x), lat: latOf(st.z), az: st.az, pitch: 4, h: 1.7, fov: 62 } : { lon: fix.lon, lat: fix.lat, az: az0, pitch: 4, h: 1.7, fov: 62 };
+    ground.street = st?.n || null;
     document.getElementById('labels').style.visibility = 'hidden'; document.body.classList.add('atground');
     gbar.hidden = false;
   }
   function upAgain() {
     if (!ground) return;
-    const prev = ground.prev; ground = null; eye = null; gbar.hidden = true;
+    const prev = ground.prev; ground = null; eye = null; gbar.hidden = true; walkKeys.clear();
     document.getElementById('labels').style.visibility = ''; document.body.classList.remove('atground');
     camera.fov = 50; camera.near = 1; camera.updateProjectionMatrix();
     Object.assign(view, prev); clampView(); placeCamera();
   }
   const gbar = document.createElement('div'); gbar.id = 'groundbar'; gbar.hidden = true;
-  gbar.innerHTML = '<span>At street level, where you are · drag to look round · scroll to zoom</span><button type="button">◀ Back up</button>';
+  gbar.innerHTML = '<b id="groundtxt">At street level</b><span>↑↓ walk · ←→ turn · Shift to hurry · drag to look round</span><button type="button">◀ Back up</button>';
   gbar.querySelector('button').addEventListener('click', upAgain);
   for (const ev of ['pointerdown', 'wheel', 'touchstart']) gbar.addEventListener(ev, e => e.stopPropagation(), { passive: true });
   document.body.appendChild(gbar);
@@ -4091,7 +4156,7 @@ const meDot = (() => {
     if (Math.hypot(cx - (ax + dx * u), cy - (ay + dy * u)) > 18) return false;
     goGround(); return true;
   };
-  window.__meDot = { get fix() { return fix; }, set: (lon, lat) => set(lon, lat, 10), ground: () => { goGround(); return !!ground; }, up: upAgain, get atGround() { return !!ground; } };   // (testing)
+  window.__meDot = { get fix() { return fix; }, set: (lon, lat) => set(lon, lat, 10), ground: () => { goGround(); return !!ground; }, up: upAgain, get atGround() { return !!ground; }, get where() { return eye && ground ? { x: wx(eye.lon), z: wz(eye.lat), az: eye.az, inWall: inBuilding(wx(eye.lon), wz(eye.lat)) } : null; } };   // (testing)
   return function update() {
     if (!fix || ground || (nest.on && nest.mode === 'helm') || subway.active) { pillar.visible = false; return; }
     base = Math.max(0, heightAt(fix.lon, fix.lat) || 0);
@@ -4750,7 +4815,7 @@ let lastInput = performance.now();
 const woke = () => { lastInput = performance.now(); };
 for (const ev of ['pointerdown', 'pointermove', 'wheel', 'keydown', 'touchstart']) addEventListener(ev, woke, { passive: true, capture: true });
 const IDLE_MS = 4000, IDLE_STEP = 1000 / 12;
-const busy = () => !!(drag || anim || follow || nest.on || fly?.on() || picking) || performance.now() - lastInput < IDLE_MS;
+const busy = () => !!(drag || anim || follow || nest.on || fly?.on() || picking || walkKeys.size) || performance.now() - lastInput < IDLE_MS;
 const nextFrame = () => busy() ? requestAnimationFrame(frame) : setTimeout(() => requestAnimationFrame(frame), IDLE_STEP - 16);
 function frame(now) {
   if (++fpsN === 60) { window.__fps = Math.round(60000 / (performance.now() - fpsT)); fpsN = 0; fpsT = performance.now(); }
@@ -4780,7 +4845,7 @@ function frame(now) {
   updateOwn(dt);
   updateWakes(dt);
   if (nest.on) nestCamera();   // after every vessel has moved, yours too
-  if (eye) eyeCamera();   // (v1205) a walker's eye, over all
+  if (eye) { stepWalk(dt); eyeCamera(); }   // (v1205) a walker's eye, over all
   if (nest.on || !rcEl?.hidden) drawRideChart();
   wildlife.update(dt, t, view, camera.position, { hidden: !!aboveFog || EMPTY || (nest.on && isMover(nest.v)) || (!!follow && isMover(follow)),   // (v1148, asked: "We don't need seagulls over non-boat things": none round a train or plane you're riding or following)
     night: env.C.time === 'night', boat: (own.ext || own.r) ? own : null, scale: d => clamp(d / 35, 3, 8), nearWater });

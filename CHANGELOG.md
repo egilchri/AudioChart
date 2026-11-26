@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-11-26 — Bird's-eye: walking at street level, on the nearest named street; the street signs' CSS restored (v1211)
+
+- Asked: "At street level, let me walk forward with the arrow keys. Also, street and any exposed crossings should be labelled as we walk around", and "Clicking on the column should bring you down to street level, but to the nearest actual named street".
+- **Down on the nearest named street** (www/js/bay3d.js `nearestStreet`, `goGround`):
+  - Tapping the pillar puts you on the nearest point of a named street within 400 m of your location.
+  - You face along that street, in whichever direction is nearer the way the view was facing.
+  - With no street data there (outside the New York areas with streets), you land on the spot itself, as before.
+  - Checked with a location 21 m inside a Midtown block: you land on W 44th St.
+- **Walking** (`stepWalk`, `walkKeys`):
+  - ↑ walks ahead, ↓ walks back, ← → turn, and Shift hurries (1.6 m/s, or 7 m/s with Shift).
+  - A building stops you 1.5 m from its wall, or you slide along the wall.
+  - Walking within 25° of a named street's line turns you gently onto it and draws you back from its edge, so a long walk follows the street. Without this, an 11° error carried a 50 m walk into a gap between buildings.
+  - Checked: starting 15° off W 44th St, the walker turned onto the street and ran 61 m along it; facing the buildings, the walker stopped at the building line.
+- **Signs while walking** (`walkSigns`, `#groundtxt`): the bar names the street you're on ("On W 44th St"). Every corner within 220 m that you can see (no building between, by the footprints) gets a green sign at the height of a real street sign: the cross street, or "W 47th St & Broadway" off your own street.
+- **Fix:** the street signs' CSS (`#streetsigns`) was deleted by mistake in v1210, when the dot's CSS was replaced by the pillar's. Since then the bus and train signs were drawn as unstyled text under the top-left panel. Restored.
+- Test hook: `__meDot.where`.
+
 ## 2026-11-26 — Bird's-eye: street signs for trains; your location as a pillar, tap it for street level (v1210)
 
 - Asked: "Show the street signs when following trains too", and "The blue dot that shows my location should be a vertical pillar, in 3d view. When you click on it, your perspective should be brought down to ground level".
