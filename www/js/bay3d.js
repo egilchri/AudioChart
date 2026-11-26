@@ -3550,6 +3550,51 @@ function updateCurrents() {
   }
   P.needsUpdate = true; C.needsUpdate = true; curLine.geometry.setDrawRange(0, i); curLine.visible = true;
 }
+// ── 🌧 Radar (v1212, asked: "Can we add the ability to superimpose the current weather on our region?", then "yes, build
+// the radar overlay"): the national radar mosaic now (NEXRAD base reflectivity, IEM's composite, Iowa State Mesonet,
+// a new picture every 5 minutes), cut to the region's box in plain degrees (EPSG:4326, as wx/wz are), laid over the
+// ground and the buildings, see-through: blue drizzle, green light, yellow moderate, red heavy. Shown from up over the region, not at
+// street level, aboard or riding; fetched only while on (remembered, off at first). Offline: says so, shows nothing. ──
+const RADAR_KEY = 'audiochart-bay3d-radar', radarBtn = document.getElementById('radarbtn');
+let radarOn = false; try { radarOn = localStorage.getItem(RADAR_KEY) === '1'; } catch (_) {}
+const radar = EMPTY ? null : (() => {
+  const [w, s, e, n] = OVERVIEW, W = 1024, H = Math.max(64, Math.round(W * (n - s) / ((e - w) * Math.cos((s + n) / 2 * DEG))));
+  const geo = new THREE.PlaneGeometry(wx(e) - wx(w), wz(s) - wz(n)).rotateX(-Math.PI / 2);
+  const mat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.6, depthTest: false, depthWrite: false });
+  const mesh = new THREE.Mesh(geo, mat); mesh.position.set((wx(w) + wx(e)) / 2, 3, (wz(n) + wz(s)) / 2); mesh.renderOrder = 6; mesh.visible = false; mesh.frustumCulled = false; scene.add(mesh);
+  const R = { mesh, valid: null, state: 'idle', timer: null };
+  R.load = () => {
+    if (!radarOn) return;
+    clearTimeout(R.timer); R.timer = setTimeout(R.load, 5 * 60e3);   // (the next picture)
+    if (document.hidden) return;
+    const slot = Math.floor(Date.now() / 300e3);   // (one URL per 5 minutes: the browser's cache, then the new one)
+    const url = `https://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/n0q.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&LAYERS=nexrad-n0q-900913&STYLES=&SRS=EPSG:4326&BBOX=${w},${s},${e},${n}&WIDTH=${W}&HEIGHT=${H}&FORMAT=image/png&TRANSPARENT=true&t=${slot}`;
+    R.state = R.state === 'ok' ? 'ok' : 'loading'; syncRadarBtn();
+    new THREE.TextureLoader().setCrossOrigin('anonymous').load(url, tex => {
+      tex.colorSpace = THREE.SRGBColorSpace; tex.minFilter = THREE.LinearFilter; tex.generateMipmaps = false;
+      mat.map?.dispose(); mat.map = tex; mat.needsUpdate = true; R.state = 'ok'; syncRadarBtn();
+    }, undefined, () => { R.state = 'fail'; syncRadarBtn(); });
+    fetch(`https://mesonet.agron.iastate.edu/data/gis/images/4326/USCOMP/n0q_0.json?t=${slot}`).then(r => r.json()).then(j => { R.valid = Date.parse(j.meta.valid) || null; syncRadarBtn(); }).catch(() => {});
+  };
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && radarOn) R.load(); });
+  return R;
+})();
+function syncRadarBtn() {
+  if (!radarBtn || !radar) return;
+  radarBtn.hidden = false; radarBtn.classList.toggle('on', radarOn); radarBtn.setAttribute('aria-pressed', String(radarOn));
+  const at = radar.valid ? dayTime(radar.valid) : '';
+  radarBtn.textContent = radarOn && radar.state === 'ok' && at ? `🌧 Radar ${at}` : radarOn && radar.state === 'fail' ? '🌧 Radar · offline' : '🌧 Radar';
+  radarBtn.title = radar.state === 'fail' && radarOn ? 'The weather radar: no picture (it needs an internet connection)' :
+    `The weather radar over the region now: where it's raining or snowing (blue drizzle, green light, yellow moderate, red heavy), a new picture every 5 minutes${at ? `; this one ${at}` : ''}. NEXRAD mosaic, Iowa State Mesonet. Seen from up over the region.`;
+}
+radarBtn?.addEventListener('click', () => { radarOn = !radarOn; try { localStorage.setItem(RADAR_KEY, radarOn ? '1' : '0'); } catch (_) {} if (radarOn) radar?.load(); else clearTimeout(radar?.timer); syncRadarBtn(); });
+syncRadarBtn(); if (radarOn) radar?.load();
+function updateRadar() {
+  if (!radar) return;
+  radar.mesh.visible = radarOn && radar.state === 'ok' && !!radar.mesh.material.map && !ground && !nest.on && !eye && camera.position.y > 250;
+  if (radar.mesh.visible) radar.mesh.material.opacity = 0.3 + 0.3 * clamp((camera.position.y - 1500) / 8000, 0, 1);   // (fainter close in, over the buildings)
+}
+window.__radar = () => radar && { on: radarOn, state: radar.state, valid: radar.valid, shown: radar.mesh.visible };   // (testing)
 // close in, the arrow nearest the middle of the view, in words (flood and ebb in Penobscot only: tideWord's axis is its)
 function curNear() {
   if (!curLine?.visible || !curUV || view.dist > 15000) return null;
@@ -4849,7 +4894,7 @@ function frame(now) {
   if (nest.on || !rcEl?.hidden) drawRideChart();
   wildlife.update(dt, t, view, camera.position, { hidden: !!aboveFog || EMPTY || (nest.on && isMover(nest.v)) || (!!follow && isMover(follow)),   // (v1148, asked: "We don't need seagulls over non-boat things": none round a train or plane you're riding or following)
     night: env.C.time === 'night', boat: (own.ext || own.r) ? own : null, scale: d => clamp(d / 35, 3, 8), nearWater });
-  syncFollowHud(); updateFixLines(); updateVector(); updateBuoyF(); updateGauge(); updateCurrents();
+  syncFollowHud(); updateFixLines(); updateVector(); updateBuoyF(); updateGauge(); updateCurrents(); updateRadar();
   if (follow && !anim && !nest.on) { const k = Math.min(1, dt * 4); view.x += (follow.x - view.x) * k; view.z += (follow.z - view.z) * k; }
   if (subway.active) subway.render(renderer, camera); else renderer.render(scene, camera);
   { const gv = nest.on ? (nest.mode === 'drone' ? nest.v : null) : follow;   // (v1150) her ghost, from the Drone or following her, while she's underground

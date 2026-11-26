@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-11-26 — Bird's-eye: 🌧 Radar, the weather radar over the region (v1212)
+
+- Asked: "Can we add the ability to superimpose the current weather on our region? How much would that cost in resources?", then "yes, build the radar overlay".
+- **🌧 Radar** (www/js/bay3d.js `radar`, `syncRadarBtn`, `updateRadar`; button `#radarbtn` in www/bay3d.html):
+  - Shows the national radar mosaic (NEXRAD base reflectivity, Iowa State Mesonet's composite, a new picture every 5 minutes) as a see-through layer over the ground and buildings: blue drizzle, green light, yellow moderate, red heavy.
+  - The picture is one WMS image cut to the region's overview box in plain degrees (EPSG:4326), so it lines up with the scene's lon/lat mapping exactly.
+  - The button shows the picture's time ("🌧 Radar Thu 10:50 AM"), read from IEM's n0q_0.json.
+  - The layer is 60% opaque high up and fades to 30% close in, so the buildings still read. It's hidden at street level, aboard and riding, and below 250 m.
+  - Images are fetched only while the radar is on: one ~100–300 KB image every 5 minutes, paused while the tab is hidden. Off at first; the setting is remembered. Offline the button reads "🌧 Radar · offline" and nothing is drawn.
+  - Both IEM sources send `Access-Control-Allow-Origin: *`, so no relay is needed.
+  - Test hook: `__radar()`.
+- Checked in headless Chrome over New York during real rain (the yellow cells west of Jersey City and the lighter patch over Manhattan match IEM's own image); the picture refreshed from 10:45 to 10:50 between runs.
+
 ## 2026-11-26 — Bird's-eye: walking at street level, on the nearest named street; the street signs' CSS restored (v1211)
 
 - Asked: "At street level, let me walk forward with the arrow keys. Also, street and any exposed crossings should be labelled as we walk around", and "Clicking on the column should bring you down to street level, but to the nearest actual named street".
