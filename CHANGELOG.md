@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-11-27 — Bird's-eye: the live buses and trains on 🗺 Map (v1218)
+
+- Asked: "yes, add the live buses and trains to the map".
+- **On the map, with Live on** (www/js/map2d.js `drawMovers`; bay3d.js passes `movers`, from `rail.items()`):
+  - Trains are dots in their line's own colour: the subway's MTA colours (1/2/3 red, 4/5/6 green, 7 purple, A/C/E blue, B/D/F/M orange, G lime, J/Z brown, L grey, N/Q/R/W yellow, S grey), plus Staten Island Railway, LIRR, Metro-North, PATH and Amtrak. Hollow when underground.
+  - Buses are small MTA-blue dots, a little bigger close in.
+  - Only those in view (plus a margin) are drawn, again every 2 s and on every pan or zoom, on one canvas.
+  - Tap one for its name and status ("S train · In the tunnel · due in a minute or so, bound for Grand Central-42 St").
+  - The bar counts them ("Map · 🚆 18 · 🚌 14 in view"), or says "Live is off: no buses or trains".
+- Checked in headless Chrome:
+  - Midtown (zoom 17): 18 trains and 14 buses in view, in the right places (F/M at 42nd St–Bryant Park, 4/5/6 and the shuttle at Grand Central, LIRR at Grand Central Madison, buses on 5th and Madison). Tapping a dot opened its card, which stayed open through the redraws.
+  - Zoom 12: 568 trains and 1,847 buses, the lines readable by colour. No page errors.
+
 ## 2026-11-27 — Bird's-eye: 🗺 Map, the city flat with every street named (v1217)
 
 - Asked: "I'd like to be able to switch to map view, where I see the city in two dimensions, with labelled streets", then "use the OpenStreetMap map".

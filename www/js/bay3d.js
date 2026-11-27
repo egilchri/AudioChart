@@ -3216,7 +3216,7 @@ if (liveBtn && !EMPTY) {   // (the relay listens to both bays: relay/ais/core.mj
       const zoom = eye ? 18 : Math.log2(156543 * Math.cos(lat * DEG) * innerWidth / Math.max(150, view.dist));
       const f = window.__meDot?.fix, me = f ? { lon: f.lon, lat: f.lat } : null;
       fly?.pause();
-      import('./map2d.js').then(m => m.openMap({ lon, lat, zoom, me, back: ({ lon, lat, zoom }) => {
+      import('./map2d.js').then(m => m.openMap({ lon, lat, zoom, me, movers: () => rail.items().map(p => ({ lon: lonOf(p.x), lat: latOf(p.z), bus: !!p.bus, rail: p.a?.rail, title: p.title, label: p.label, under: !!(p.under || p.tunnel) })), back: ({ lon, lat, zoom }) => {
         if (ground) window.__meDot?.up(); leaveRide(); stopFollow(); markCurrent(null);
         const dist = clamp(156543 * Math.cos(lat * DEG) * innerWidth / 2 ** zoom, 250, 60000);
         flyTo({ x: wx(lon), z: wz(lat), dist, tilt: view.tilt, az: view.az }, 2200);
