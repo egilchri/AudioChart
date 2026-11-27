@@ -1868,8 +1868,12 @@ function streetCam(v, el) {
     if (D >= Math.min(want, 8)) break;
   }
   if (best.flip) nest.yaw = (nest.yaw + 180 + 540) % 360 - 180;   // (kept there: no flickering between)
-  const { az, D } = best, r = Math.cos(el) * D, x = v.x - Math.sin(az) * r, z = v.z + Math.cos(az) * r;
-  camera.position.set(x, Math.max(heightAt(lonOf(x), latOf(z)) + 1.6, _nt.y + Math.sin(el) * D), z);
+  // (v1216, reported: a SIM5 seen from Behind as two tyres and no bus, walls close round her) never inside her: out past
+  // her own end or side (her half-length one way, half-width the other) and 2 m more; where the walls leave no room for
+  // that, out there all the same but up over her roof, looking down on her
+  const rel = (nest.yaw + best.flip) * DEG, need = Math.abs(Math.cos(rel)) * (v.len || 12.2) / 2 + Math.abs(Math.sin(rel)) * 1.3 + 2;
+  const { az, D } = best, squeezed = Math.cos(el) * D < need, r = Math.max(need, Math.cos(el) * D), x = v.x - Math.sin(az) * r, z = v.z + Math.cos(az) * r;
+  camera.position.set(x, Math.max(heightAt(lonOf(x), latOf(z)) + 1.6, _nt.y + Math.sin(el) * D, squeezed ? v.y + 3 + 3 : -Infinity), z);
   camera.lookAt(_nt); camera.fov = D < 14 ? 62 : 50;   // (close across the street: wide enough for all 40 ft of her)
   return az;
 }

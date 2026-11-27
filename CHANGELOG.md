@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-27 — Bird's-eye: the street camera never inside the bus you're riding (v1216)
+
+- Reported (snapshot): riding SIM5 express bus 1614 from Behind near Battery Park City, only two tyres showed, no bus.
+- Cause: the street camera (`streetCam`) could come within 3.5 m of the bus's centre (walls close round her, or scrolling in close: 22 m ÷ zoom). A bus reaches 6.1 m from her centre, so the camera was inside her, and only the tyres were drawn.
+- Fix (www/js/bay3d.js `streetCam`): the camera stays out past her end or side (half her length one way, half her width the other) plus 2 m. Where the walls leave no room, it goes out there anyway, 6 m up over the roof, looking down on her.
+- Checked in headless Chrome on a live M15 at the Battery: at zoom 6 (which wants 3.7 m) the camera held 8.1 m from her centre and 6 m up, with the whole bus in view. At zoom 1 it is unchanged, at 21.8 m.
+- Not reproduced: the same report's bus driving on the pavement along a building. Riding 1614 later, it kept to State St and Water St.
+
 ## 2026-11-27 — Bird's-eye: buses no longer fat seen from the drone (v1215)
 
 - Reported: "busses on 5th avenue look fat" (by drone over 5th Av at E 41st St).
