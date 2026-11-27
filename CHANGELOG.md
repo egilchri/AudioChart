@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-11-27 — Bird's-eye: 🗺 Map, the city flat with every street named (v1217)
+
+- Asked: "I'd like to be able to switch to map view, where I see the city in two dimensions, with labelled streets", then "use the OpenStreetMap map".
+- **🗺 Map** (button beside 🔍 Search, or the M key; new www/js/map2d.js, loaded on its first use; www/js/bay3d.js wiring; www/bay3d.html button):
+  - OpenStreetMap's standard street map (its tiles, in the Leaflet already in www/js/lib/leaflet.js) over the whole scene: every street, park, station and building named, with a scale in feet.
+  - Opens centred where the 3D view looks, at about its scale (from `view.dist` and the screen's width). At street level, it opens at zoom 18 where you stand.
+  - Your blue location dot is on it. A red cross marks the middle.
+  - **◀ 3D here** flies the 3D view to the map's middle at the map's scale, coming up from street level or off a ride first. **✕** or Esc closes it and leaves everything as it was.
+  - Needs the internet for the tiles, like the rest of the armchair layer.
+- Checked in headless Chrome over Midtown:
+  - The map opened at zoom 17 on 6th Av & W 44th St with the dot there.
+  - After panning, ◀ 3D here put the view exactly on the map's centre (40.74462, −73.98300), at 1,158 m against 1,200 m before.
+  - At street level the map opened at zoom 18 at your feet. Esc closed it and you were still at street level. No page errors.
+- Test hook: `__map2d()` (the Leaflet map).
+
 ## 2026-11-27 — Bird's-eye: the street camera never inside the bus you're riding (v1216)
 
 - Reported (snapshot): riding SIM5 express bus 1614 from Behind near Battery Park City, only two tyres showed, no bus.

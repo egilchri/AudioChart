@@ -3203,6 +3203,30 @@ if (liveBtn && !EMPTY) {   // (the relay listens to both bays: relay/ais/core.mj
   }
 }
 
+// 🗺 Map (v1217, asked: "I'd like to be able to switch to map view, where I see the city in two dimensions, with labelled
+// streets"; map2d.js, loaded on its first use): OpenStreetMap's street map over the scene, centred where the view looks
+// (at street level, where you stand) at about its scale. ◀ 3D here flies the view to the map's middle (up from the
+// street, off a ride, first); ✕ or Esc leaves everything as it was.
+{
+  const mb = document.getElementById('mapbtn');
+  if (mb && WANT_AC && !EMPTY) {
+    mb.hidden = false;
+    const open = () => {
+      const lon = eye ? eye.lon : lonOf(view.x), lat = eye ? eye.lat : latOf(view.z);
+      const zoom = eye ? 18 : Math.log2(156543 * Math.cos(lat * DEG) * innerWidth / Math.max(150, view.dist));
+      const f = window.__meDot?.fix, me = f ? { lon: f.lon, lat: f.lat } : null;
+      fly?.pause();
+      import('./map2d.js').then(m => m.openMap({ lon, lat, zoom, me, back: ({ lon, lat, zoom }) => {
+        if (ground) window.__meDot?.up(); leaveRide(); stopFollow(); markCurrent(null);
+        const dist = clamp(156543 * Math.cos(lat * DEG) * innerWidth / 2 ** zoom, 250, 60000);
+        flyTo({ x: wx(lon), z: wz(lat), dist, tilt: view.tilt, az: view.az }, 2200);
+      } })).catch(err => console.warn('[bay3d] map', err));
+    };
+    mb.addEventListener('click', () => { mb.blur(); open(); });
+    addEventListener('keydown', e => { if ((e.key === 'm' || e.key === 'M') && e.target === document.body && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); open(); } });
+  }
+}
+
 // Lines out to her marks (v1000): from the vessel whose card is open, else the one you're following, to the
 // marks her card or the follow bar names, each labelled with its bearing from her and range.
 const fixLines = new THREE.LineSegments(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(18), 3)),
