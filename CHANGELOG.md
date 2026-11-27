@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-27 — Bird's-eye: buses no longer fat seen from the drone (v1215)
+
+- Reported: "busses on 5th avenue look fat" (by drone over 5th Av at E 41st St).
+- Cause: at street level, each frame first put the camera at the overview (`placeCamera`, with `view.dist` 900 m set for the tiles), and the walker's or drone's camera only at the end. The buses, trains and planes measured their distance from that overview camera (in a test, 250 m up while the drone was 51 m up). The buses then got their far-off size boost, which widens them fully but lengthens them only 0.4×, so they looked about 3× too wide.
+- Fix (www/js/bay3d.js, the frame loop): at street level the walker's or drone's camera is placed at the start of the frame too.
+- Checked in headless Chrome over 5th Av with live MTA buses: the camera at bus-update time was 251 m up without the fix and 51 m with it. Every bus within 300 m is at real size.
+
 ## 2026-11-26 — Bird's-eye: 📍 Walk to… an address, along the sidewalk; underground stations no longer stand in the street (v1214)
 
 - Asked: "I should be able to put in address and 'walk there on the sidewalk'".

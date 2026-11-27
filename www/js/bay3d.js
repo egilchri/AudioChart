@@ -5086,7 +5086,9 @@ function frame(now) {
   fly?.step(performance.now(), dt);
   if (heroDrift && (anim || follow || nest.on || document.body.classList.contains('flying'))) heroDrift = false;   // (a flight, a follow, a ride: the shot's over)
   if (heroDrift) { heroT += dt; view.az = REG.hero.az * DEG + 18 * DEG * Math.sin(heroT * 0.055); }   // (v1165: the opening shot swaying slowly, 18° each way, about two minutes a sway: it keeps its picture)
-  if (!nest.on) { clampView(); placeCamera(); }
+  // (v1215) at street level the camera is the walker's or the drone's from the start of the frame: placeCamera put it 900 m
+  // off (eyeCamera's view.dist, for the tiles), so the buses, trains and planes thought you far and swelled to be seen
+  if (!nest.on) { if (eye) eyeCamera(); else { clampView(); placeCamera(); } }
   fly?.place(dt);   // the tour's helicopter, in front of the camera (v1048)
   if (t - lastCheck > 0.4) { lastCheck = t; syncTip(); updateTiles(); updateTowns(); updateMarks(); updateHazards(); tracks?.update(view.x, view.z, view.dist); freeway?.near(view.x, view.z, view.dist); }
   // the wrecks blink (v932, requested): a bright orange glow, on for 0.6 s in every 1.2 s
